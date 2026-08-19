@@ -552,6 +552,38 @@ static SolValue prim_string_at(SolVM *vm, SolValue self, SolValue *args, int arg
     return SOL_STRING_VAL(sol_string_new(vm, string->chars + (i - 1), 1));
 }
 
+/* ---- object ------------------------------------------------------------ */
+
+/* `new` answers a fresh object delegating to the receiver.
+ *
+ * There is no separate notion of a class: an object created from `object` can be
+ * given slots, and an object created from *that* delegates to it and finds them.
+ * Whether a given object is a class or an instance is a matter of how it is
+ * used, not of what it is.
+ *
+ *     point := object:new.
+ *     point:x := #0.                       ; a default every instance sees
+ *     point:show := { self:x:print }.      ; a method, being a slot holding a block
+ *
+ *     p := point:new.
+ *     p:x := #3.                           ; p's own slot, shadowing point's
+ *
+ * A slot assigned on an instance is always the instance's own, so setting one
+ * shadows the prototype rather than writing through to it. */
+static SolValue prim_object_new(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "new", argc, 0)) return SOL_NIL_VAL;
+    if (!SOL_IS_OBJ(self)) {
+        sol_vm_runtime_error(vm, "'new' expects an object, got %s",
+                             sol_type_name(self));
+        return SOL_NIL_VAL;
+    }
+    /* `self` is on the value stack for the duration of this call, so it stays
+       rooted while the child is allocated. */
+    return SOL_OBJ_VAL(sol_object_new(vm, SOL_AS_OBJ(self)));
+}
+
 /* ---- installation ---------------------------------------------------- */
 
 void sol_builtins_install(SolVM *vm)
@@ -613,6 +645,15 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define_primitive(vm->array_class, "print",  prim_print);
     sol_object_define_primitive(vm->array_class, "equals", prim_equals);
 
+    /* The root of the user-defined side. The built-in classes deliberately do
+       not delegate to it: `float` inheriting object's `new` would answer a plain
+       object rather than a float. Untangling that is the class-side/instance-side
+       question in the roadmap. */
+    vm->object_class = sol_object_new(vm, NULL);
+    sol_object_define_primitive(vm->object_class, "new",    prim_object_new);
+    sol_object_define_primitive(vm->object_class, "print",  prim_print);
+    sol_object_define_primitive(vm->object_class, "equals", prim_equals);
+
     vm->string_class = sol_object_new(vm, NULL);
     sol_object_define_primitive(vm->string_class, "print",  prim_print);
     sol_object_define_primitive(vm->string_class, "equals", prim_equals);
@@ -625,6 +666,7 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define(vm->root, "float",   SOL_OBJ_VAL(vm->float_class));
     sol_object_define(vm->root, "array",   SOL_OBJ_VAL(vm->array_class));
     sol_object_define(vm->root, "string",  SOL_OBJ_VAL(vm->string_class));
+    sol_object_define(vm->root, "object",  SOL_OBJ_VAL(vm->object_class));
     sol_object_define(vm->root, "nil",     SOL_NIL_VAL);
     sol_object_define(vm->root, "true",    SOL_BOOL_VAL(true));
     sol_object_define(vm->root, "false",   SOL_BOOL_VAL(false));

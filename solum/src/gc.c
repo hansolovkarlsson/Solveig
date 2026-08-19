@@ -207,6 +207,7 @@ static void mark_roots(SolVM *vm)
     mark_cell(vm, (SolGCHeader *)vm->block_class);
     mark_cell(vm, (SolGCHeader *)vm->array_class);
     mark_cell(vm, (SolGCHeader *)vm->string_class);
+    mark_cell(vm, (SolGCHeader *)vm->object_class);
 }
 
 /* ---- sweeping --------------------------------------------------------- */

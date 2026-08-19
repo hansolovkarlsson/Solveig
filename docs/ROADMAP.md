@@ -19,9 +19,10 @@ flow, a mark-sweep collector over objects, blocks, and compiled code, the `.sob`
 format with its verifier, and built-in `integer`, `float`, `boolean`, `nil`, and
 `block`.
 
-The language is Turing-complete and no longer leaks. What it is not yet is a
-language you could write a real program in — there are no strings, no
-collections, and no way to make a class.
+The language is Turing-complete, no longer leaks, and now has strings, arrays,
+and user-defined objects. What it lacks is breadth rather than foundations: no
+conversions between types, a thin set of operations, and rough edges around
+printing and literals.
 
 ---
 
@@ -140,16 +141,27 @@ What is left, small and separable:
   sorted.
 - **No conversions.** Nothing turns a number into a string or back.
 
-### 1.4 User-defined classes
+### 1.4 User-defined objects — **done**
 
-Slots can only be added to the built-ins. Nothing in the language creates a new
-object with slots of its own, so `point:new(#3, #4)` is out of reach. Needs a
-primitive that makes an object with a given proto, and a decision about how a
-class is spelled -- probably just an object bound to a global, given how far
-`obj:name := value` already goes.
+A global `object`, whose `new` answers a fresh object delegating to the receiver.
+That was the whole gap: slot assignment, proto-chain lookup, and
+block-in-a-slot-is-a-method all already existed, so classes needed one primitive
+rather than a mechanism.
 
-Moved after arrays: arrays are useful on their own, whereas a user-defined class
-with nowhere to put a collection of instances is less so.
+There is no separate notion of a class. An object created from `object` can be
+given slots; an object created from *that* delegates to it and finds them.
+Whether a given object is a class or an instance is how it is used, not what it
+is. Assigning a slot on an instance always makes the instance's own, so it
+shadows the prototype rather than writing through.
+
+Left open:
+
+- **No `clone`.** `new` delegates rather than copying, which is cheaper and more
+  useful, but there is no way to take a snapshot of an object's slots.
+- **No way to remove a slot**, so a shadowing slot cannot be un-shadowed.
+- **The default `print` still shows an address** (5.2). Overridable, since a
+  `print` slot on the prototype is found first, but the fallback is poor and much
+  more visible now that user objects exist.
 
 ## 2. Language decisions still open
 
@@ -224,6 +236,12 @@ repeated `add`.
 `integer` holds both `new` and `print` in one object, so `#45:new(#1)` resolves as
 readily as `integer:new(#1)`. Separating them needs a metaclass level. Also
 uneven today: `integer` has `new` and `float` does not.
+
+User-defined objects sharpen this. The built-in classes deliberately do *not*
+delegate to `object`, because `float` inheriting object's `new` would answer a
+plain object rather than a float -- so the built-in and user-defined sides are
+two hierarchies that do not meet. A single root would be tidier, and needs this
+question answered first.
 
 ### 2.6 Float literals have no exponent notation
 
@@ -381,17 +399,21 @@ text would make compile errors considerably more useful.
 
 ## Suggested order
 
-1. **User-defined classes** (1.4) — the last thing standing between this and a
-   language you could write a real program in.
-2. **Conversions** (2.8) — `asFloat`, `asInteger`, number-to-string. Now the most
+Section 1 is now empty: the things standing between this and a language you
+could write a real program in are all built. What is left is filling it out.
+
+1. **Conversions** (2.8) — `asFloat`, `asInteger`, number-to-string. The most
    missed, since floored integer division leaves no way to get a fractional
-   answer from two integers.
-3. **The rest of the missing operations** (2.8), **string escapes and ordering**
+   answer from two integers, and nothing can turn a number into text to join to
+   a string.
+2. **The rest of the missing operations** (2.8), **string escapes and ordering**
    (1.3), and **float exponents** (2.6) — small and independent of each other.
+3. **A better default `print`** (5.2) — now that user objects exist, showing an
+   address is the roughest edge a newcomer meets.
 4. Everything else as it starts to hurt.
 
 Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), arrays entire
-(1.2, 1.2a, 1.2b), strings (1.3), and division (2.1).
+(1.2, 1.2a, 1.2b), strings (1.3), user-defined objects (1.4), and division (2.1).
 
 Still waiting on a call from you: the **statement terminator** (2.2).
 

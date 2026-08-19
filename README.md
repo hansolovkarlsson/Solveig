@@ -147,7 +147,6 @@ See [examples/blocks.sol](examples/blocks.sol).
 
 Still to do:
 
-- [ ] user-defined classes (slots can only be added to the built-in ones)
 - [ ] string escapes, and symbols -- `'foo` still scans without a runtime type
 
 The full list of what is left -- open design questions, known limitations, and

@@ -79,6 +79,11 @@ Smalltalk lineage, prototype flavour:
 - A class is not a separate kind of thing -- it is an object like any other.
   `integer` is the integer class object; `integer:new(a)` sends `new` to it and
   gets back an instance that delegates to it.
+- The same holds for objects you define. `object:new` answers a fresh object
+  delegating to the receiver, so `point := object:new` then `p := point:new`
+  makes `point` a class by use rather than by kind. A slot assigned on an
+  instance is always the instance's own, shadowing the prototype rather than
+  writing through to it.
 - Message send is the only way to make anything happen. `:` is the send
   operator: `receiver:message(args)`.
 - Slot lookup walks the proto chain and terminates at the root Object, which

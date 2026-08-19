@@ -30,6 +30,7 @@ void sol_vm_init(SolVM *vm)
     vm->block_class = NULL;
     vm->array_class = NULL;
     vm->string_class = NULL;
+    vm->object_class = NULL;
 
     vm->heap = NULL;
     vm->bytes_allocated = 0;
@@ -60,6 +61,7 @@ void sol_vm_free(SolVM *vm)
     vm->block_class = NULL;
     vm->array_class = NULL;
     vm->string_class = NULL;
+    vm->object_class = NULL;
     reset_stack(vm);
 }
 

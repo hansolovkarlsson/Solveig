@@ -8,6 +8,38 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### User-defined objects — `pending`, 2026-08-19
+
+```
+point := object:new.
+point:x := #0.                          ; a default every instance sees
+point:sum := { self:x:add(self:y) }.    ; a method: a slot holding a block
+point:make := { a, b | | p | p := self:new. p:x := a. p:y := b. p }.
+
+p := point:make(#3, #4).
+p:sum:print.                            ; #7
+```
+
+One primitive — `object:new`, answering a fresh object that delegates to the
+receiver. That was the whole gap: slot assignment, proto-chain lookup, and
+block-in-a-slot-is-a-method already existed, so this needed a primitive rather
+than a mechanism.
+
+- **There is no separate notion of a class.** An object given slots, and an
+  object created from *that*, differ only in how you use them.
+- Assigning on an instance always makes the instance's own slot, so it shadows
+  the prototype rather than writing through — one instance cannot change all of
+  them.
+- Delegation chains, and the nearest slot wins, so overriding works at any depth.
+- Equality is identity: two objects with the same slots are still two objects.
+- The default `print` is overridable, since a `print` slot on the prototype is
+  found before the primitive.
+
+The built-in classes deliberately do not delegate to `object`: `float` inheriting
+its `new` would answer a plain object rather than a float. That leaves two
+hierarchies that do not meet, which is the class-side/instance-side question in
+the roadmap.
+
 ### Division — `9ad8039`, 2026-08-19
 
 `div` and `mod`, on integers and floats.
