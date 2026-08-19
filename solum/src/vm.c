@@ -256,6 +256,18 @@ static SolResult run_frames(SolVM *vm, int base)
 
         case OP_SET_GLOBAL: {
             const char *name = READ_NAME();
+
+            /* Only the script's top level creates globals. Inside a method or
+               block an undeclared name must already exist, so a typo cannot
+               quietly bring a new global into being where it would look like a
+               local. */
+            if (frame->method != NULL && sol_object_lookup(vm->root, name) == NULL) {
+                sol_vm_runtime_error(vm, "undefined name '%s' -- declare it with "
+                                         "'| %s |' or assign it at the top level",
+                                     name, name);
+                break;
+            }
+
             /* Assignment is an expression: the value stays on the stack so
                `c := b := #45` works and the statement's POP discards it. */
             sol_object_define(vm->root, name, vm->stack_top[-1]);

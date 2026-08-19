@@ -7,6 +7,7 @@
  *     s := "hello"     ; double quotes are strings
  *     a:print.         ; ':' sends; '.' terminates a statement
  *     { a:print }      ; braces make a block: code as a value, not an action
+ *     ( | t | ... )    ; '|' declares this frame's temporaries
  *                      ; ';' begins a comment, running to end of line
  *
  * Two rules keep the scanner unambiguous:
@@ -31,6 +32,7 @@ typedef enum {
     TOK_RPAREN,
     TOK_LBRACE,     /* {   block literal            */
     TOK_RBRACE,
+    TOK_PIPE,       /* |   declares temporaries     */
     TOK_COMMA,      /* argument separator           */
     TOK_DOT,        /* .   statement terminator     */
     TOK_ERROR,

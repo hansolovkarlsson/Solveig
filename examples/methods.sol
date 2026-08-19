@@ -13,6 +13,7 @@ integer:poly(a, b) := self:mul(a):add(b).
 
 ; Parentheses group several statements; the last one is the result.
 integer:quadruple() := (
+    | d |                  ; '|' declares this frame's temporaries
     d := self:double().
     d:double()
 ).

@@ -123,6 +123,7 @@ static void test_blocks_capture_enclosing_locals(void)
 
     assert(run(&vm, &chunk,
         "integer:sumTo() := ("
+        "    | total, i |"
         "    total := #0."
         "    i := #1."
         "    { i:greaterThan(self):not() }:whileTrue({"
@@ -197,7 +198,8 @@ static void test_escaping_capture_is_caught(void)
     SolChunk first, second;
 
     assert(run(&vm, &first,
-        "integer:leak() := ( t := self. escaped := { t }. #0 )."
+        "escaped := nil."                       /* globals are made at top level */
+        "integer:leak() := ( | t | t := self. escaped := { t }. #0 )."
         "#7:leak().") == SOL_OK);
     /* `escaped` is a block over a frame that has since returned. */
     assert(run(&vm, &second, "r := escaped:value().") == SOL_RUNTIME_ERROR);
@@ -241,6 +243,7 @@ static void test_nested_blocks_share_the_home_frame(void)
 
     assert(run(&vm, &chunk,
         "integer:nested() := ("
+        "    | n |"
         "    n := self."
         "    { { n := n:add(#1) }:value() }:value()."
         "    n"

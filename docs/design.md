@@ -83,9 +83,29 @@ integer:quadruple() := (               ; parens may hold several statements;
 ).
 ```
 
-Inside a method, assigning to a new name declares a local; reading a name that
-is not a local falls back to the globals, so a method can still see `integer`.
-At the top level there are no locals and every name is a global.
+Only parameters and names declared with `| ... |` are locals. Everything else
+is a global, whether it is being read or written:
+
+```
+counter := #0.
+integer:bump() := (
+    counter := counter:add(#1).   ; updates the global everyone can see
+    counter
+).
+
+integer:quadruple() := (
+    | d |                          ; a temporary of this frame
+    d := self:double().
+    d:double()
+).
+```
+
+Assignment never declares anything, which is what keeps a method able to update
+a global rather than shadowing it with a fresh local. The other half of the
+rule lives in the VM: only the script's top level may bring a global into
+being, so an undeclared name inside a method or block must already exist. A
+typo is then an error rather than a new variable that merely looks like a
+local.
 
 Braces make a block -- code as a value:
 
@@ -100,10 +120,9 @@ i := #0.
 { i:lessThan(#5) }:whileTrue({ i := i:add(#1) }).
 ```
 
-A block declares no locals of its own: a new name assigned inside one belongs
-to the enclosing method, so `{ i := i:add(#1) }` updates the `i` everyone else
-can see rather than a private copy that vanishes when the block returns. At the
-top level there is no enclosing method and such a name stays a global.
+A block resolves names the same way: its own declarations, then the enclosing
+method's, then the globals. So `{ i := i:add(#1) }` updates the `i` everyone
+else can see rather than a private copy that vanishes when the block returns.
 
 ### Literals
 
@@ -125,8 +144,9 @@ expression -> IDENT ':=' expression
 send       -> primary ( ':' IDENT arguments? )*
 arguments  -> '(' ( expression ( ',' expression )* )? ')'
 primary    -> IDENT | INT | FLOAT | STRING | group | block
-group      -> '(' expression ( '.' expression )* '.'? ')'
-block      -> '{' ( expression ( '.' expression )* '.'? )? '}'
+group      -> '(' declarations? expression ( '.' expression )* '.'? ')'
+block      -> '{' declarations? ( expression ( '.' expression )* '.'? )? '}'
+declarations -> '|' IDENT ( ',' IDENT )* '|'
 
 definition -> IDENT ':' IDENT '(' params? ')' ':=' expression
 params     -> IDENT ( ',' IDENT )*

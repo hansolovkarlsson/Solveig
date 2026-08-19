@@ -59,7 +59,7 @@ static void test_grouped_body_yields_its_last_expression(void)
     SolChunk chunk;
 
     assert(run(&vm, &chunk,
-        "integer:quadruple() := ( d := self:mul(#2). d:mul(#2) )."
+        "integer:quadruple() := ( | d | d := self:mul(#2). d:mul(#2) )."
         "r := #3:quadruple().") == SOL_OK);
     assert(SOL_AS_INT(global(&vm, "r")) == 12);
 
@@ -84,7 +84,7 @@ static void test_locals_do_not_escape(void)
     SolChunk chunk;
 
     assert(run(&vm, &chunk,
-        "integer:tmp() := ( scratch := self:mul(#2). scratch )."
+        "integer:tmp() := ( | scratch | scratch := self:mul(#2). scratch )."
         "r := #4:tmp().") == SOL_OK);
     assert(SOL_AS_INT(global(&vm, "r")) == 8);
     assert(sol_object_lookup(vm.root, "scratch") == NULL);
@@ -213,8 +213,98 @@ static void test_methods_can_be_redefined(void)
     sol_vm_free(&vm);
 }
 
+/* Only parameters and names declared with `| ... |` are locals. Everything else
+   is a global, so a method can update one instead of shadowing it. */
+static void test_a_method_updates_a_global(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "counter := #0."
+        "integer:bump() := ( counter := counter:add(#1). counter )."
+        "a := #1:bump(). b := #1:bump(). c := #1:bump().") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "a")) == 1);
+    assert(SOL_AS_INT(global(&vm, "b")) == 2);
+    assert(SOL_AS_INT(global(&vm, "c")) == 3);
+    assert(SOL_AS_INT(global(&vm, "counter")) == 3);   /* the global, not a copy */
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+}
+
+static void test_declared_temporaries_stay_local(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "integer:quad() := ( | d | d := self:mul(#2). d:mul(#2) )."
+        "r := #3:quad().") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "r")) == 12);
+    assert(sol_object_lookup(vm.root, "d") == NULL);
+
+    /* A declared temporary shadows a global of the same name. */
+    assert(run(&vm, &chunk,
+        "shadowed := #100."
+        "integer:hide() := ( | shadowed | shadowed := #1. shadowed )."
+        "s := #1:hide().") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "s")) == 1);
+    assert(SOL_AS_INT(global(&vm, "shadowed")) == 100);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+}
+
+/* A name that is neither declared nor an existing global is a mistake, not a
+   new variable -- otherwise a typo would silently look like a local. */
+static void test_methods_cannot_invent_globals(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "total := #0."
+        "integer:oops() := ( totl := #5. totl )."
+        "#1:oops().") == SOL_RUNTIME_ERROR);
+    assert(sol_object_lookup(vm.root, "totl") == NULL);
+    sol_chunk_free(&chunk);
+
+    /* The same restriction applies inside a block. */
+    assert(run(&vm, &chunk, "{ nope := #1 }:value().") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+
+    /* But the top level still makes globals freely. */
+    assert(run(&vm, &chunk, "brandNew := #7.") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "brandNew")) == 7);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
+/* Declaring the same name twice in one frame is a mistake worth catching. */
+static void test_duplicate_declaration_is_rejected(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "integer:dup() := ( | a, a | a )." ) == SOL_COMPILE_ERROR);
+    sol_chunk_free(&chunk);
+
+    assert(run(&vm, &chunk,
+        "integer:dup(x) := ( | x | x )." ) == SOL_COMPILE_ERROR);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
 int main(void)
 {
+    test_a_method_updates_a_global();
+    test_declared_temporaries_stay_local();
+    test_methods_cannot_invent_globals();
+    test_duplicate_declaration_is_rejected();
     test_defines_and_calls_a_method();
     test_parameters_become_locals();
     test_grouped_body_yields_its_last_expression();

@@ -36,6 +36,8 @@ typedef struct {
 static void expression(Compiler *c);
 static void statement(Compiler *c);
 static void block_literal(Compiler *c);
+static int  resolve_local(Scope *scope, const SolToken *name);
+static int  declare_local(Scope *scope, const char *name, int length);
 
 /* The nearest enclosing method scope. A block's locals live in the method it
    was written in, and blocks nested in blocks share that same frame, so this
@@ -129,12 +131,45 @@ static int declare_local(Scope *scope, const char *name, int length)
     return scope->local_count++;
 }
 
+/* `| a, b |` -- declares temporaries in the frame being compiled.
+ *
+ * Only parameters and names declared here are locals. Everything else is a
+ * global, so assigning `counter := counter:add(#1)` inside a method updates the
+ * counter everyone can see rather than shadowing it with a fresh local. */
+static void declarations(Compiler *c)
+{
+    SolParser *p = &c->parser;
+
+    do {
+        sol_parser_consume(p, TOK_IDENT, "expected a name to declare");
+        if (p->panicked) return;
+
+        SolToken name = p->previous;
+        if (resolve_local(c->scope, &name) >= 0) {
+            sol_parser_error(p, &name, "that name is already declared here");
+            return;
+        }
+        if (declare_local(c->scope, name.start, name.length) < 0) {
+            sol_parser_error(p, &name, "too many names declared in one frame");
+            return;
+        }
+    } while (sol_parser_match(p, TOK_COMMA));
+
+    sol_parser_consume(p, TOK_PIPE, "expected '|' to close the declarations");
+}
+
+/* Parses `| ... |` if it is there. */
+static void optional_declarations(Compiler *c)
+{
+    if (sol_parser_match(&c->parser, TOK_PIPE)) declarations(c);
+}
+
 /* IDENT is either an assignment target or a name to resolve. One token of
  * lookahead is enough because a target is always a bare identifier.
  *
  * Resolution goes: this frame's locals, then the enclosing method's locals if
- * we are inside a block, then the globals. Assigning to a new name declares a
- * local in the current frame; at the top level it binds a global.
+ * we are inside a block, then the globals. Assignment never declares -- an
+ * undeclared name is a global, whether it is being read or written.
  */
 static void identifier(Compiler *c)
 {
@@ -149,29 +184,6 @@ static void identifier(Compiler *c)
     }
 
     if (sol_parser_match(&c->parser, TOK_ASSIGN)) {
-        if (slot < 0 && outer < 0) {
-            /* A block declares nothing of its own. A new name inside one
-               belongs to the enclosing method, so that `{ i := i:add(#1) }`
-               updates the `i` everyone else can see rather than a private copy
-               that vanishes when the block returns. At the top level there is
-               no enclosing method and it stays a global. */
-            if (scope->is_block) {
-                if (home != NULL && home->in_method) {
-                    outer = declare_local(home, name.start, name.length);
-                    if (outer < 0) {
-                        sol_parser_error(&c->parser, &name,
-                                         "too many locals in one method");
-                        return;
-                    }
-                }
-            } else if (scope->in_method) {
-                slot = declare_local(scope, name.start, name.length);
-                if (slot < 0) {
-                    sol_parser_error(&c->parser, &name, "too many locals in one frame");
-                    return;
-                }
-            }
-        }
         expression(c);
         if (slot >= 0)       emit_pair(c, OP_SET_LOCAL, (uint8_t)slot);
         else if (outer >= 0) emit_pair(c, OP_SET_OUTER, (uint8_t)outer);
@@ -195,7 +207,9 @@ static void primary(Compiler *c)
     if (sol_parser_match(p, TOK_LPAREN)) {
         /* Parentheses group. With more than one statement inside, the earlier
            results are discarded and the last one is the value -- which is what
-           gives a method body more than a single expression. */
+           gives a method body more than a single expression. A group may open
+           with `| a, b |`, declaring temporaries of the frame it sits in. */
+        optional_declarations(c);
         expression(c);
         while (sol_parser_match(p, TOK_DOT)) {
             if (p->current.type == TOK_RPAREN) break;   /* a trailing '.' is fine */
@@ -310,6 +324,7 @@ static void block_literal(Compiler *c)
     declare_local(&scope, "", 0);
 
     c->scope = &scope;
+    optional_declarations(c);
     if (p->current.type == TOK_RBRACE) {
         emit(c, OP_NIL);                     /* an empty block answers nil */
     } else {

@@ -26,6 +26,7 @@ integer:factorial() := (
 ; whileTrue re-runs its receiver every pass, which is exactly why the condition
 ; has to be a block and not a value.
 integer:sumTo() := (
+    | total, i |
     total := #0.
     i := #1.
     { i:greaterThan(self):not() }:whileTrue({
