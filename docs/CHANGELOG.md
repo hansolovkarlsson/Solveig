@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### The remaining operations — `pending`, 2026-08-19
+### The remaining operations — `7ac6be6`, 2026-08-19
 
 ```
 x:greaterThan(#0):and({ x:lessThan(#10) }).   ; short-circuit
