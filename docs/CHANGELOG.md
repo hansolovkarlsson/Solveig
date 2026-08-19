@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### Digit grouping in format specs — `pending`, 2026-08-19
+### Digit grouping in format specs — `95074c9`, 2026-08-19
 
 ```
 #1234567:asString(",")       ; "1,234,567"
