@@ -8,6 +8,8 @@ void sol_value_print(SolValue value)
 {
     switch (value.type) {
     case SOL_NIL:   printf("nil"); break;
+    case SOL_BOOL:  printf(SOL_AS_BOOL(value) ? "true" : "false"); break;
+    case SOL_BLOCK: printf("<block>"); break;
     case SOL_INT:   printf("#%lld", (long long)SOL_AS_INT(value)); break;
     case SOL_FLOAT: printf("%g", SOL_AS_FLOAT(value)); break;
     case SOL_OBJ:

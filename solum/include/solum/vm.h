@@ -17,6 +17,13 @@ typedef struct {
     const SolChunk  *chunk;
     const uint8_t   *ip;
     SolValue        *slots;
+    uint64_t         id;       /* unique for the life of the VM */
+
+    /* For a block frame, where its captured locals live. A block reads the
+       enclosing method's frame, not its caller's -- lexical, not dynamic. */
+    SolValue        *home_slots;
+    int              home_frame;
+    uint64_t         home_id;
 } SolFrame;
 
 typedef enum {
@@ -34,6 +41,8 @@ struct SolVM {
 
     SolObject *root;      /* globals namespace; also ends every proto chain */
     SolObject *objects;   /* head of the all-objects list */
+    SolBlock  *blocks;    /* head of the all-blocks list */
+    uint64_t   next_frame_id;
 
     /* Class objects for the unboxed value types. A message sent to #45 is
        resolved against integer_class, which is what keeps "everything is an
@@ -41,6 +50,8 @@ struct SolVM {
     SolObject *integer_class;
     SolObject *float_class;
     SolObject *nil_class;
+    SolObject *bool_class;
+    SolObject *block_class;
 
     bool had_error;
 };
@@ -56,6 +67,11 @@ SolValue sol_vm_pop(SolVM *vm);
 
 /* The object a message sent to `value` is resolved against. */
 SolObject *sol_vm_class_of(SolVM *vm, SolValue value);
+
+/* Runs `block` to completion and returns its value. Primitives use this to
+   invoke a block, which is how `ifTrue` and `whileTrue` work without the
+   compiler knowing anything about them. Sets the VM's error flag on failure. */
+SolValue sol_vm_call_block(SolVM *vm, SolValue block, SolValue *args, int argc);
 
 /* Reports a runtime error against the current instruction and unwinds. */
 void sol_vm_runtime_error(SolVM *vm, const char *format, ...);

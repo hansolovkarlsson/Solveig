@@ -15,6 +15,10 @@ _Static_assert(sizeof(double) == 8, "the .sob format stores floats as binary64")
 #define TAG_NIL   0
 #define TAG_INT   1
 #define TAG_FLOAT 2
+#define TAG_BOOL  3
+
+#define METHOD_IS_BLOCK 0x1
+#define METHOD_CAPTURES 0x2
 
 const char *sol_ser_message(SolSerResult result)
 {
@@ -51,7 +55,8 @@ static void put_u64(FILE *f, uint64_t v)
 static SolSerResult check_constants(const SolChunk *chunk)
 {
     for (int i = 0; i < chunk->constants.count; i++) {
-        if (chunk->constants.values[i].type == SOL_OBJ) return SOL_SER_UNSUPPORTED;
+        SolValueType type = chunk->constants.values[i].type;
+        if (type == SOL_OBJ || type == SOL_BLOCK) return SOL_SER_UNSUPPORTED;
     }
     for (int i = 0; i < chunk->methods.count; i++) {
         SolSerResult result = check_constants(&chunk->methods.methods[i]->chunk);
@@ -104,6 +109,11 @@ static void write_chunk_body(FILE *f, const SolChunk *chunk)
             put_u64(f, bits);
             break;
         }
+        case SOL_BOOL:
+            fputc(TAG_BOOL, f);
+            fputc(SOL_AS_BOOL(value) ? 1 : 0, f);
+            break;
+        case SOL_BLOCK:
         case SOL_OBJ:
             break;      /* rejected by check_constants before we get here */
         }
@@ -132,6 +142,8 @@ static void write_chunk_body(FILE *f, const SolChunk *chunk)
         fwrite(method->name, 1, len, f);
         put_u16(f, (uint16_t)method->arity);
         put_u16(f, (uint16_t)method->slot_count);
+        put_u16(f, (uint16_t)((method->is_block ? METHOD_IS_BLOCK : 0) |
+                              (method->captures ? METHOD_CAPTURES : 0)));
         write_chunk_body(f, &method->chunk);
     }
 }
@@ -281,6 +293,12 @@ static SolSerResult read_chunk_body(Cursor *c, SolChunk *chunk, int depth)
             sol_chunk_add_constant(chunk, SOL_FLOAT_VAL(d));
             break;
         }
+        case TAG_BOOL: {
+            const uint8_t *b;
+            if (!take(c, 1, &b)) return SOL_SER_TRUNCATED;
+            sol_chunk_add_constant(chunk, SOL_BOOL_VAL(*b != 0));
+            break;
+        }
         default:
             return SOL_SER_MALFORMED;
         }
@@ -315,7 +333,7 @@ static SolSerResult read_chunk_body(Cursor *c, SolChunk *chunk, int depth)
     /* Methods, each carrying a chunk of its own. */
     uint32_t method_count = get_u32(c);
     if (c->overran) return SOL_SER_TRUNCATED;
-    if ((size_t)method_count * 6 > c->size - c->pos) return SOL_SER_TRUNCATED;
+    if ((size_t)method_count * 8 > c->size - c->pos) return SOL_SER_TRUNCATED;
 
     for (uint32_t i = 0; i < method_count; i++) {
         uint16_t name_length = get_u16(c);
@@ -324,7 +342,9 @@ static SolSerResult read_chunk_body(Cursor *c, SolChunk *chunk, int depth)
 
         uint16_t arity = get_u16(c);
         uint16_t slot_count = get_u16(c);
+        uint16_t flags = get_u16(c);
         if (c->overran) return SOL_SER_TRUNCATED;
+        if ((flags & ~(METHOD_IS_BLOCK | METHOD_CAPTURES)) != 0) return SOL_SER_MALFORMED;
 
         /* A frame is addressed by one-byte slot operands, and must have room
            for self plus every argument. */
@@ -334,6 +354,8 @@ static SolSerResult read_chunk_body(Cursor *c, SolChunk *chunk, int depth)
         SolMethod *method = sol_method_new((const char *)name, (int)name_length,
                                            (int)arity);
         method->slot_count = (int)slot_count;
+        method->is_block = (flags & METHOD_IS_BLOCK) != 0;
+        method->captures = (flags & METHOD_CAPTURES) != 0;
         sol_chunk_add_method(chunk, method);      /* owned by the chunk now */
 
         SolSerResult result = read_chunk_body(c, &method->chunk, depth + 1);
@@ -387,8 +409,14 @@ fail:
 /* ---- verification ---------------------------------------------------- */
 
 /* `slot_count` is how many frame slots the code may address: 0 for the
-   top-level chunk, which has neither self nor locals. */
-static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count, int depth)
+ * top-level chunk, which has neither self nor locals. `outer` is how many slots
+ * of a home frame it may reach, which is 0 unless this is a capturing block.
+ *
+ * Passing outer = 0 for a block that does not declare itself capturing is what
+ * stops a crafted file from reaching a home frame the VM never resolved.
+ */
+static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count, int outer,
+                                 bool is_block, int depth)
 {
     if (depth > SOL_MAX_NESTING) return SOL_SER_MALFORMED;
     if (chunk->count == 0) return SOL_SER_MALFORMED;
@@ -414,6 +442,9 @@ static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count, int dept
         case OP_SET_GLOBAL:
         case OP_LOCAL:
         case OP_SET_LOCAL:
+        case OP_OUTER:
+        case OP_SET_OUTER:
+        case OP_BLOCK:
             operands = 1;
             break;
         case OP_SEND:
@@ -429,7 +460,7 @@ static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count, int dept
         }
 
         /* Operand indices must point at something that exists, or the dispatch
-           loop would read past a side table or outside the frame. */
+           loop would read past a side table or outside a frame. */
         switch (op) {
         case OP_CONST:
             if (chunk->code[offset + 1] >= chunk->constants.count) return SOL_SER_MALFORMED;
@@ -443,10 +474,25 @@ static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count, int dept
         case OP_SET_LOCAL:
             if (chunk->code[offset + 1] >= slot_count) return SOL_SER_MALFORMED;
             break;
-        case OP_DEF_METHOD:
-            if (chunk->code[offset + 1] >= chunk->methods.count) return SOL_SER_MALFORMED;
+        case OP_OUTER:
+        case OP_SET_OUTER:
+            if (chunk->code[offset + 1] >= outer) return SOL_SER_MALFORMED;
+            break;
+        case OP_BLOCK: {
+            uint8_t index = chunk->code[offset + 1];
+            if (index >= chunk->methods.count) return SOL_SER_MALFORMED;
+            /* OP_BLOCK must name a block, not a method: they are called with
+               different frames. */
+            if (!chunk->methods.methods[index]->is_block) return SOL_SER_MALFORMED;
+            break;
+        }
+        case OP_DEF_METHOD: {
+            uint8_t index = chunk->code[offset + 1];
+            if (index >= chunk->methods.count) return SOL_SER_MALFORMED;
+            if (chunk->methods.methods[index]->is_block) return SOL_SER_MALFORMED;
             if (chunk->code[offset + 2] >= chunk->names.count) return SOL_SER_MALFORMED;
             break;
+        }
         default:
             break;
         }
@@ -461,13 +507,20 @@ static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count, int dept
     uint8_t final = chunk->code[last];
     if (final != OP_HALT && final != OP_RETURN) return SOL_SER_MALFORMED;
 
-    /* Each method body, against its own frame size. */
-    for (int i = 0; i < chunk->methods.count; i++) {
-        const SolMethod *method = chunk->methods.methods[i];
-        if (method->slot_count < method->arity + 1) return SOL_SER_MALFORMED;
-        if (method->slot_count > UINT8_MAX) return SOL_SER_MALFORMED;
+    /* Blocks defined here capture whichever frame this chunk reads through:
+       its own if this is a method, or the one it already reaches if this is
+       itself a block. */
+    int home_slots = is_block ? outer : slot_count;
 
-        SolSerResult result = verify_chunk(&method->chunk, method->slot_count, depth + 1);
+    for (int i = 0; i < chunk->methods.count; i++) {
+        const SolMethod *entry = chunk->methods.methods[i];
+        if (entry->slot_count < entry->arity + 1) return SOL_SER_MALFORMED;
+        if (entry->slot_count > UINT8_MAX) return SOL_SER_MALFORMED;
+        if (!entry->is_block && entry->captures) return SOL_SER_MALFORMED;
+
+        int child_outer = entry->is_block && entry->captures ? home_slots : 0;
+        SolSerResult result = verify_chunk(&entry->chunk, entry->slot_count,
+                                           child_outer, entry->is_block, depth + 1);
         if (result != SOL_SER_OK) return result;
     }
 
@@ -476,5 +529,5 @@ static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count, int dept
 
 SolSerResult sol_chunk_verify(const SolChunk *chunk)
 {
-    return verify_chunk(chunk, 0, 0);
+    return verify_chunk(chunk, 0, 0, false, 0);
 }

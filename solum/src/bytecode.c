@@ -36,6 +36,8 @@ SolMethod *sol_method_new(const char *name, int length, int arity)
 
     method->arity = arity;
     method->slot_count = arity + 1;      /* self, plus one slot per parameter */
+    method->is_block = false;
+    method->captures = false;
     sol_chunk_init(&method->chunk);
     return method;
 }
@@ -209,6 +211,9 @@ int sol_chunk_disassemble_instruction(const SolChunk *chunk, int offset)
     case OP_SET_GLOBAL: return name_instruction("SETGLOB", chunk, offset);
     case OP_LOCAL:  return slot_instruction("LOCAL", chunk, offset);
     case OP_SET_LOCAL: return slot_instruction("SETLOCL", chunk, offset);
+    case OP_OUTER:  return slot_instruction("OUTER", chunk, offset);
+    case OP_SET_OUTER: return slot_instruction("SETOUTR", chunk, offset);
+    case OP_BLOCK:  return slot_instruction("BLOCK", chunk, offset);
     case OP_SEND:   return send_instruction("SEND", chunk, offset);
     case OP_DEF_METHOD: return method_instruction("DEFMETH", chunk, offset);
     case OP_POP:    return simple_instruction("POP", offset);

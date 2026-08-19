@@ -6,6 +6,7 @@
  *     b := 45          ; a bare number is a float
  *     s := "hello"     ; double quotes are strings
  *     a:print.         ; ':' sends; '.' terminates a statement
+ *     { a:print }      ; braces make a block: code as a value, not an action
  *                      ; ';' begins a comment, running to end of line
  *
  * Two rules keep the scanner unambiguous:
@@ -28,6 +29,8 @@ typedef enum {
     TOK_ASSIGN,     /* :=  binding                  */
     TOK_LPAREN,
     TOK_RPAREN,
+    TOK_LBRACE,     /* {   block literal            */
+    TOK_RBRACE,
     TOK_COMMA,      /* argument separator           */
     TOK_DOT,        /* .   statement terminator     */
     TOK_ERROR,

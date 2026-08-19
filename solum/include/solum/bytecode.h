@@ -25,6 +25,10 @@ typedef enum {
     OP_SET_GLOBAL,  /* operand: u8 name index -- bind name, leave value on stack*/
     OP_LOCAL,       /* operand: u8 slot -- push a local (slot 0 is self)        */
     OP_SET_LOCAL,   /* operand: u8 slot -- store into a local, leave it on stack*/
+    OP_OUTER,       /* operand: u8 slot -- read a slot of the block's home frame*/
+    OP_SET_OUTER,   /* operand: u8 slot -- write one, leaving the value on stack*/
+    OP_BLOCK,       /* operand: u8 method index -- make a block capturing the
+                       current frame as its home                               */
     OP_SEND,        /* operands: u8 name index, u8 argc -- send a message       */
     OP_DEF_METHOD,  /* operands: u8 method index, u8 name index -- bind a method
                        on the object at top of stack, which stays there         */
@@ -69,6 +73,9 @@ struct SolMethod {
     char    *name;
     int      arity;
     int      slot_count;   /* 1 (self) + arity + body locals */
+    bool     is_block;     /* a block body rather than a named method       */
+    bool     captures;     /* reads or writes its home frame, so the frame
+                              must still be alive when the block runs        */
     SolChunk chunk;
 };
 

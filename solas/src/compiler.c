@@ -24,7 +24,8 @@ typedef struct Scope {
     SolChunk     *chunk;
     Local         locals[SOL_MAX_LOCALS];
     int           local_count;
-    bool          in_method;   /* the top level has no self and no locals */
+    bool          in_method;   /* the top level has no self and no locals    */
+    bool          is_block;    /* a block reads self and outer locals via OUTER */
 } Scope;
 
 typedef struct {
@@ -34,6 +35,16 @@ typedef struct {
 
 static void expression(Compiler *c);
 static void statement(Compiler *c);
+static void block_literal(Compiler *c);
+
+/* The nearest enclosing method scope. A block's locals live in the method it
+   was written in, and blocks nested in blocks share that same frame, so this
+   walks past any number of block scopes. */
+static Scope *home_scope(Scope *scope)
+{
+    while (scope != NULL && scope->is_block) scope = scope->enclosing;
+    return scope;
+}
 
 static void emit(Compiler *c, uint8_t byte)
 {
@@ -119,39 +130,65 @@ static int declare_local(Scope *scope, const char *name, int length)
 }
 
 /* IDENT is either an assignment target or a name to resolve. One token of
-   lookahead is enough because a target is always a bare identifier.
+ * lookahead is enough because a target is always a bare identifier.
  *
- * Inside a method, assigning to a new name declares a local; at the top level
- * it binds a global. Reading falls back to the globals either way, so a method
- * can still see `integer`. */
+ * Resolution goes: this frame's locals, then the enclosing method's locals if
+ * we are inside a block, then the globals. Assigning to a new name declares a
+ * local in the current frame; at the top level it binds a global.
+ */
 static void identifier(Compiler *c)
 {
     SolToken name = c->parser.previous;
     Scope *scope = c->scope;
+    Scope *home = home_scope(scope);
+
     int slot = resolve_local(scope, &name);
+    int outer = -1;
+    if (slot < 0 && scope->is_block && home != NULL && home->in_method) {
+        outer = resolve_local(home, &name);
+    }
 
     if (sol_parser_match(&c->parser, TOK_ASSIGN)) {
-        if (scope->in_method && slot < 0) {
-            slot = declare_local(scope, name.start, name.length);
-            if (slot < 0) {
-                sol_parser_error(&c->parser, &name, "too many locals in one method");
-                return;
+        if (slot < 0 && outer < 0) {
+            /* A block declares nothing of its own. A new name inside one
+               belongs to the enclosing method, so that `{ i := i:add(#1) }`
+               updates the `i` everyone else can see rather than a private copy
+               that vanishes when the block returns. At the top level there is
+               no enclosing method and it stays a global. */
+            if (scope->is_block) {
+                if (home != NULL && home->in_method) {
+                    outer = declare_local(home, name.start, name.length);
+                    if (outer < 0) {
+                        sol_parser_error(&c->parser, &name,
+                                         "too many locals in one method");
+                        return;
+                    }
+                }
+            } else if (scope->in_method) {
+                slot = declare_local(scope, name.start, name.length);
+                if (slot < 0) {
+                    sol_parser_error(&c->parser, &name, "too many locals in one frame");
+                    return;
+                }
             }
         }
         expression(c);
-        if (slot >= 0) emit_pair(c, OP_SET_LOCAL, (uint8_t)slot);
-        else           emit_pair(c, OP_SET_GLOBAL, name_operand(c, &name));
+        if (slot >= 0)       emit_pair(c, OP_SET_LOCAL, (uint8_t)slot);
+        else if (outer >= 0) emit_pair(c, OP_SET_OUTER, (uint8_t)outer);
+        else                 emit_pair(c, OP_SET_GLOBAL, name_operand(c, &name));
         return;
     }
 
-    if (slot >= 0) emit_pair(c, OP_LOCAL, (uint8_t)slot);
-    else           emit_pair(c, OP_GLOBAL, name_operand(c, &name));
+    if (slot >= 0)       emit_pair(c, OP_LOCAL, (uint8_t)slot);
+    else if (outer >= 0) emit_pair(c, OP_OUTER, (uint8_t)outer);
+    else                 emit_pair(c, OP_GLOBAL, name_operand(c, &name));
 }
 
 static void primary(Compiler *c)
 {
     SolParser *p = &c->parser;
 
+    if (sol_parser_match(p, TOK_LBRACE))     { block_literal(c); return; }
     if (sol_parser_match(p, TOK_IDENT))      { identifier(c); return; }
     if (sol_parser_match(p, TOK_INT))        { integer_literal(c); return; }
     if (sol_parser_match(p, TOK_FLOAT))      { float_literal(c); return; }
@@ -219,6 +256,83 @@ static void expression(Compiler *c)
         emit(c, name_operand(c, &selector));
         emit(c, argc);
     }
+}
+
+/* Does `chunk` read or write the home frame, directly or through a block
+   nested inside it? A block that does not is independent of the frame it was
+   written in, and may outlive it. */
+static bool touches_home(const SolChunk *chunk)
+{
+    for (int offset = 0; offset < chunk->count; ) {
+        uint8_t op = chunk->code[offset];
+        if (op == OP_OUTER || op == OP_SET_OUTER) return true;
+
+        switch (op) {
+        case OP_CONST: case OP_GLOBAL: case OP_SET_GLOBAL:
+        case OP_LOCAL: case OP_SET_LOCAL: case OP_OUTER:
+        case OP_SET_OUTER: case OP_BLOCK:
+            offset += 2; break;
+        case OP_SEND: case OP_DEF_METHOD:
+            offset += 3; break;
+        default:
+            offset += 1; break;
+        }
+    }
+    /* A nested block shares this frame's home, so its captures count too. */
+    for (int i = 0; i < chunk->methods.count; i++) {
+        const SolMethod *inner = chunk->methods.methods[i];
+        if (inner->is_block && touches_home(&inner->chunk)) return true;
+    }
+    return false;
+}
+
+/* `{ ... }` -- code as a value.
+ *
+ * The body compiles exactly like a method body, into a chunk of its own held in
+ * the enclosing chunk's method table. What makes it a block is OP_BLOCK, which
+ * captures the running frame as the block's home so `self` and the enclosing
+ * locals still mean the right thing whenever it is eventually run. */
+static void block_literal(Compiler *c)
+{
+    SolParser *p = &c->parser;
+
+    SolMethod *code = sol_method_new("block", 5, 0);
+    code->is_block = true;
+
+    Scope scope;
+    scope.enclosing = c->scope;
+    scope.chunk = &code->chunk;
+    scope.local_count = 0;
+    scope.in_method = true;
+    scope.is_block = true;
+    /* Slot 0 of a block frame holds the block itself, and cannot be named --
+       `self` resolves past it, to the home frame's slot 0. */
+    declare_local(&scope, "", 0);
+
+    c->scope = &scope;
+    if (p->current.type == TOK_RBRACE) {
+        emit(c, OP_NIL);                     /* an empty block answers nil */
+    } else {
+        expression(c);
+        while (sol_parser_match(p, TOK_DOT)) {
+            if (p->current.type == TOK_RBRACE) break;   /* a trailing '.' is fine */
+            emit(c, OP_POP);
+            expression(c);
+        }
+    }
+    sol_parser_consume(p, TOK_RBRACE, "expected '}' to close the block");
+    emit(c, OP_RETURN);
+    c->scope = scope.enclosing;
+
+    code->slot_count = scope.local_count;
+    code->captures = touches_home(&code->chunk);
+
+    int index = sol_chunk_add_method(c->scope->chunk, code);
+    if (index > UINT8_MAX) {
+        sol_parser_error(p, &p->previous, "too many blocks in one chunk");
+        return;
+    }
+    emit_pair(c, OP_BLOCK, (uint8_t)index);
 }
 
 /* After an error, skip to the next statement boundary so one mistake does not
@@ -306,6 +420,7 @@ static void method_definition(Compiler *c)
     scope.chunk = &method->chunk;
     scope.local_count = 0;
     scope.in_method = true;
+    scope.is_block = false;
     declare_local(&scope, "self", 4);            /* slot 0 */
     for (int i = 0; i < arity; i++) {
         declare_local(&scope, params[i].start, params[i].length);
@@ -351,6 +466,7 @@ bool sol_compile(const char *source, SolChunk *chunk)
     top.chunk = chunk;
     top.local_count = 0;
     top.in_method = false;
+    top.is_block = false;
 
     Compiler c;
     c.scope = &top;

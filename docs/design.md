@@ -87,6 +87,24 @@ Inside a method, assigning to a new name declares a local; reading a name that
 is not a local falls back to the globals, so a method can still see `integer`.
 At the top level there are no locals and every name is a global.
 
+Braces make a block -- code as a value:
+
+```
+b := { #21:add(#21) }.     ; nothing runs here
+b:value():print.           ; #42
+
+true:ifTrue({ #1:print }).                              ; control flow is
+#5:lessThan(#10):ifElse({ #100:print }, { #200:print }). ; ordinary sending
+
+i := #0.
+{ i:lessThan(#5) }:whileTrue({ i := i:add(#1) }).
+```
+
+A block declares no locals of its own: a new name assigned inside one belongs
+to the enclosing method, so `{ i := i:add(#1) }` updates the `i` everyone else
+can see rather than a private copy that vanishes when the block returns. At the
+top level there is no enclosing method and such a name stays a global.
+
 ### Literals
 
 | Form      | Type    | Note                                          |
@@ -106,8 +124,9 @@ expression -> IDENT ':=' expression
            |  send
 send       -> primary ( ':' IDENT arguments? )*
 arguments  -> '(' ( expression ( ',' expression )* )? ')'
-primary    -> IDENT | INT | FLOAT | STRING | group
+primary    -> IDENT | INT | FLOAT | STRING | group | block
 group      -> '(' expression ( '.' expression )* '.'? ')'
+block      -> '{' ( expression ( '.' expression )* '.'? )? '}'
 
 definition -> IDENT ':' IDENT '(' params? ')' ':=' expression
 params     -> IDENT ( ',' IDENT )*
@@ -139,6 +158,9 @@ A stack machine where nearly everything is `OP_SEND`.
 | `OP_SET_GLOBAL` | u8 name index      | bind the name, leave the value on the stack |
 | `OP_LOCAL`  | u8 slot                | push a frame slot (slot 0 is `self`)        |
 | `OP_SET_LOCAL` | u8 slot             | store into a slot, leaving the value        |
+| `OP_OUTER`  | u8 slot                | read a slot of the block's home frame       |
+| `OP_SET_OUTER` | u8 slot             | write one, leaving the value                |
+| `OP_BLOCK`  | u8 method index        | make a block capturing the current frame    |
 | `OP_DEF_METHOD` | u8 method, u8 name | bind a method on the object on top of stack |
 | `OP_SEND`   | u8 name index, u8 argc | pop argc args + receiver, push the reply    |
 | `OP_POP`    | --                     | discard top of stack (statement boundary)   |
@@ -174,8 +196,11 @@ constants 4  u32 count, then each: u8 tag + payload (0 nil, 1 i64, 2 f64)
 code      4  u32 length, then that many bytes
 lines     4  u32 run count, then each: u32 run length + u32 line
 methods   4  u32 count, then each: u16 name length + bytes, u16 arity,
-             u16 slot count, then that method's chunk, recursively
+             u16 slot count, u16 flags, then that method's chunk, recursively
 ```
+
+Flags are `1` for a block and `2` for a block that captures its home frame.
+Blocks are compiled exactly like methods, so they share the method table.
 
 A method owns a chunk, so the format nests. Reading is recursive with a depth
 cap, and a method's declared frame size is checked against its arity before any
@@ -275,6 +300,39 @@ has already laid them out that way, and nothing is copied to make the call. The
 compiler decides the frame size and records it as the method's `slot_count`;
 the VM reserves that much and fills the extra with nil.
 
+**How does control flow work?** By sending messages, with no control-flow
+syntax at all. `{ ... }` makes a block -- unevaluated code packaged as a value
+-- and `ifTrue`, `ifElse`, and `whileTrue` are ordinary primitives that decide
+whether and how often to run one. Nothing in the compiler knows those
+selectors, so a user can add control structures the same way.
+
+This needs the interpreter to be re-entrant: a primitive invokes a block
+through `sol_vm_call_block`, which pushes a frame and runs until it returns.
+`whileTrue` is then just a C loop calling two blocks.
+
+**What does a block capture?** The frame it was written in, lexically. A block
+frame carries `home_slots` pointing at the enclosing *method's* frame, and
+`OP_OUTER` reads through it, so `self` and the method's locals still mean the
+right thing whenever the block eventually runs. Blocks nested in blocks share
+that same home rather than chaining, which is why capture skips past
+intermediate block frames.
+
+A block may outlive the frame it captured. Rather than promote captured
+variables to the heap, Solum takes two cheaper measures:
+
+- The compiler works out whether a block actually reads or writes its home
+  frame (`touches_home`, which also accounts for blocks nested inside it). One
+  that does not is independent of the frame and may escape freely -- which
+  covers `{ #42 }` and most conditional branches.
+- A capturing block records its home frame's index *and* a frame id unique for
+  the life of the VM. Calling it checks the frame is still the one it captured,
+  so an escaped block is reported rather than reading slots that now belong to
+  someone else.
+
+Real closures would need the captured slots moved to the heap when a frame
+dies. That is the upgrade path; the id check is what makes the current
+restriction safe rather than silently wrong.
+
 ## Open questions
 
 - **Statement terminator.** Only the last line of the example ends in `.`. Is
@@ -290,12 +348,19 @@ the VM reserves that much and fills the extra with nil.
 - **Nothing creates a new class.** Methods can now be defined on the built-in
   classes, but there is no way to make a class of your own, so user-defined
   objects with their own slots are still out of reach.
-- **No conditionals, so no recursion that terminates.** A method can call
-  itself, but nothing can stop it -- `integer:loop() := self:loop()` runs to the
-  frame cap. This is the most pressing gap, and it is the one blocks were
-  invented for: in Smalltalk `ifTrue:` is an ordinary message taking a block.
-  Built-in keywords are the alternative, at the cost of "everything is a
-  message".
+- **Blocks take no parameters.** Enough for control flow, but iteration over a
+  collection will want them. `{ a, b | ... }` is the obvious shape: `|` is
+  unused and unambiguous, whereas a parenthesised list would collide with a
+  grouped expression, since `{ (a) }` could be either.
+- **Capturing blocks cannot escape their frame.** Detected and reported rather
+  than promoted to the heap; see above.
+- **No non-local return.** A block answers its last expression. Smalltalk's `^`
+  returns from the enclosing *method* from inside a block, which needs frames
+  unwound and is a much larger change.
+- **Every conditional is a real call.** `ifTrue` is a message, so it costs a
+  block allocation and a frame. Production Smalltalks inline these in the
+  compiler and emit jumps instead; that is an optimisation to reach for when
+  it matters, not a change to what the language means.
 - **Methods are owned by the chunk that compiled them.** A class holds only a
   pointer, so freeing a chunk would leave its methods dangling. Solis therefore
   keeps every line's chunk alive for the whole session. The real fix is for the
@@ -309,8 +374,11 @@ the VM reserves that much and fills the extra with nil.
   reserved for this, but nothing defines a method in Solum source yet -- every
   method is currently a C primitive.
 - **Garbage collection.** Objects are threaded onto `vm->objects` at allocation
-  and freed en masse at shutdown. That list is there so a mark-sweep collector
-  can be dropped in without changing the allocator.
+  and freed en masse at shutdown, and blocks onto `vm->blocks` the same way.
+  Those lists are there so a mark-sweep collector can be dropped in without
+  changing the allocator. Blocks make this more pressing than it was: a block
+  literal inside a loop body allocates once per iteration and nothing reclaims
+  it until the VM exits.
 - **256-constant limit.** `OP_SEND` and `OP_CONST` carry a one-byte index. A
   `CONST_LONG`-style variant is the fix when a real program hits it.
 
@@ -342,8 +410,17 @@ Methods defined in Solum source work too, in the REPL and through a file:
 #42
 ```
 
-Implemented: the scanner, the single-pass compiler, the dispatch loop with call
-frames, methods and locals, the `.sob` format with its verifier, and built-in
-`integer` and `float` classes with `new`, `print`, `add`, `sub`, `mul`. Not
-implemented: conditionals and blocks, user-defined classes, strings, symbols,
-and the collector.
+Blocks make the language Turing-complete:
+
+```
+integer:factorial() := (
+    self:lessThan(#2):ifElse({ #1 }, { self:mul( self:sub(#1):factorial() ) })
+).
+#20:factorial():print.      ; #2432902008176640000
+```
+
+Implemented: the scanner, the single-pass compiler, the re-entrant dispatch
+loop with call frames, methods and locals, blocks with lexical capture, the
+`.sob` format with its verifier, and built-in `integer`, `float`, `boolean`,
+`nil`, and `block` classes. Not implemented: user-defined classes, strings,
+symbols, and the collector.

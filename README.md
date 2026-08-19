@@ -84,9 +84,32 @@ is a name bound on a class, just as a variable is a name bound in the globals:
 See [examples/methods.sol](examples/methods.sol) for parameters, locals, and
 multi-statement bodies.
 
+Braces make a block -- code as a value. Control flow is then ordinary message
+sending, with no control-flow syntax in the language at all:
+
+```
+> #5:lessThan(#10):ifElse({ #100:print }, { #200:print }).
+#100
+> i := #0.
+> { i:lessThan(#5) }:whileTrue({ i := i:add(#1) }).
+> i:print.
+#5
+```
+
+Which is enough to be Turing-complete:
+
+```
+integer:factorial() := (
+    self:lessThan(#2):ifElse({ #1 }, { self:mul( self:sub(#1):factorial() ) })
+).
+#20:factorial():print.      ; #2432902008176640000
+```
+
+See [examples/blocks.sol](examples/blocks.sol).
+
 Still to do:
 
-- [ ] conditionals -- a method can recurse, but nothing can stop it yet
+- [ ] block parameters (enough for control flow without them; iteration wants them)
 - [ ] user-defined classes (methods can only be added to the built-in ones)
 - [ ] strings and symbols -- both scan, but neither has a runtime type
 - [ ] a garbage collector (objects are freed en masse at shutdown)

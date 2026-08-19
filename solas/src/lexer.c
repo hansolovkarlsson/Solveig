@@ -21,6 +21,8 @@ const char *sol_token_type_name(SolTokenType type)
     case TOK_ASSIGN: return "':='";
     case TOK_LPAREN: return "'('";
     case TOK_RPAREN: return "')'";
+    case TOK_LBRACE: return "'{'";
+    case TOK_RBRACE: return "'}'";
     case TOK_COMMA:  return "','";
     case TOK_DOT:    return "'.'";
     case TOK_ERROR:  return "error";
@@ -166,6 +168,8 @@ SolToken sol_lexer_next(SolLexer *lexer)
     case '\'': return symbol(lexer);
     case '(':  return make_token(lexer, TOK_LPAREN);
     case ')':  return make_token(lexer, TOK_RPAREN);
+    case '{':  return make_token(lexer, TOK_LBRACE);
+    case '}':  return make_token(lexer, TOK_RBRACE);
     case ',':  return make_token(lexer, TOK_COMMA);
     case '.':  return make_token(lexer, TOK_DOT);
     /* ':' followed by '=' is one token, never a send. This is why selectors

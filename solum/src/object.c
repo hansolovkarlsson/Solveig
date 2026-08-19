@@ -34,6 +34,22 @@ SolObject *sol_object_new(SolVM *vm, SolObject *proto)
     return obj;
 }
 
+SolBlock *sol_block_new(SolVM *vm, const SolMethod *code, int home_frame,
+                        uint64_t home_id)
+{
+    SolBlock *block = malloc(sizeof(SolBlock));
+    if (block == NULL) {
+        fprintf(stderr, "solum: out of memory\n");
+        exit(1);
+    }
+    block->code = code;
+    block->home_frame = home_frame;
+    block->home_id = home_id;
+    block->next = vm->blocks;
+    vm->blocks = block;
+    return block;
+}
+
 SolSlot *sol_object_lookup(SolObject *obj, const char *name)
 {
     for (SolObject *o = obj; o != NULL; o = o->proto) {

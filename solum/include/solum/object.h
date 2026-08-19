@@ -32,7 +32,26 @@ struct SolObject {
     SolObject *next;       /* all-objects list, for the future collector */
 };
 
+/* A block: unevaluated code plus the frame it was written in.
+ *
+ * The code is compiled exactly like a method body, so it reuses SolMethod. What
+ * makes it a block is the home frame: `self` and the enclosing method's locals
+ * are read through it, which is what lets `{ limit:print }` still mean the
+ * right `limit` when some other method eventually runs it.
+ *
+ * The home frame is identified by index *and* id. A frame's id is unique for
+ * the life of the VM, so a block that outlives its frame is detected rather
+ * than reading a slot that now belongs to someone else. */
+struct SolBlock {
+    const SolMethod *code;
+    int              home_frame;
+    uint64_t         home_id;
+    struct SolBlock *next;      /* all-blocks list, for cleanup */
+};
+
 SolObject *sol_object_new(SolVM *vm, SolObject *proto);
+SolBlock  *sol_block_new(SolVM *vm, const SolMethod *code, int home_frame,
+                         uint64_t home_id);
 
 /* Slot access. Lookup walks the proto chain; define always writes locally. */
 SolSlot *sol_object_lookup(SolObject *obj, const char *name);

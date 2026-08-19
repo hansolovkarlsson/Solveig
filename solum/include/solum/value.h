@@ -13,33 +13,44 @@
 #include "solum/common.h"
 
 typedef struct SolObject SolObject;
+typedef struct SolBlock  SolBlock;
 
 typedef enum {
     SOL_NIL,
-    SOL_INT,      /* #45  */
-    SOL_FLOAT,    /* 45   */
+    SOL_BOOL,     /* true, false     */
+    SOL_INT,      /* #45             */
+    SOL_FLOAT,    /* 45              */
+    SOL_BLOCK,    /* { ... }         */
     SOL_OBJ
 } SolValueType;
 
 typedef struct {
     SolValueType type;
     union {
+        bool      boolean;
         int64_t   integer;
         double    real;
+        SolBlock  *block;
         SolObject *obj;
     } as;
 } SolValue;
 
 #define SOL_NIL_VAL       ((SolValue){ SOL_NIL,   { .integer = 0 } })
+#define SOL_BOOL_VAL(b)   ((SolValue){ SOL_BOOL,  { .boolean = (b) } })
+#define SOL_BLOCK_VAL(b)  ((SolValue){ SOL_BLOCK, { .block = (b) } })
 #define SOL_INT_VAL(i)    ((SolValue){ SOL_INT,   { .integer = (i) } })
 #define SOL_FLOAT_VAL(f)  ((SolValue){ SOL_FLOAT, { .real = (f) } })
 #define SOL_OBJ_VAL(o)    ((SolValue){ SOL_OBJ,   { .obj = (o) } })
 
 #define SOL_IS_NIL(v)     ((v).type == SOL_NIL)
+#define SOL_IS_BOOL(v)    ((v).type == SOL_BOOL)
+#define SOL_IS_BLOCK(v)   ((v).type == SOL_BLOCK)
 #define SOL_IS_INT(v)     ((v).type == SOL_INT)
 #define SOL_IS_FLOAT(v)   ((v).type == SOL_FLOAT)
 #define SOL_IS_OBJ(v)     ((v).type == SOL_OBJ)
 
+#define SOL_AS_BOOL(v)    ((v).as.boolean)
+#define SOL_AS_BLOCK(v)   ((v).as.block)
 #define SOL_AS_INT(v)     ((v).as.integer)
 #define SOL_AS_FLOAT(v)   ((v).as.real)
 #define SOL_AS_OBJ(v)     ((v).as.obj)
