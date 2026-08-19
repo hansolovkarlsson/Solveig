@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### Float exponents, and text that reads back — `pending`, 2026-08-19
+### Float exponents, and text that reads back — `c8cef1b`, 2026-08-19
 
 ```
 a := 1.5e-3.  b := 1e308.        ; exponents scan now
