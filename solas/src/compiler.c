@@ -37,6 +37,7 @@ typedef struct {
 static void expression(Compiler *c);
 static void statement(Compiler *c);
 static void block_literal(Compiler *c);
+static void array_literal(Compiler *c);
 static int  resolve_local(Scope *scope, const SolToken *name);
 static int  declare_local(Scope *scope, const char *name, int length);
 
@@ -86,6 +87,18 @@ static uint8_t name_operand(Compiler *c, const SolToken *token)
     int index = sol_chunk_add_name(c->scope->chunk, token->start, token->length);
     if (index > UINT8_MAX) {
         sol_parser_error(&c->parser, token, "too many names in one chunk");
+        return 0;
+    }
+    return (uint8_t)index;
+}
+
+/* Same, for a name the compiler supplies rather than reads from the source --
+   the `array` and `of` that an array literal desugars to. */
+static uint8_t name_literal(Compiler *c, const char *name, int length)
+{
+    int index = sol_chunk_add_name(c->scope->chunk, name, length);
+    if (index > UINT8_MAX) {
+        sol_parser_error(&c->parser, &c->parser.previous, "too many names in one chunk");
         return 0;
     }
     return (uint8_t)index;
@@ -240,6 +253,7 @@ static void primary(Compiler *c)
     SolParser *p = &c->parser;
 
     if (sol_parser_match(p, TOK_LBRACE))     { block_literal(c); return; }
+    if (sol_parser_match(p, TOK_LBRACKET))   { array_literal(c); return; }
     if (sol_parser_match(p, TOK_IDENT))      { identifier(c); return; }
     if (sol_parser_match(p, TOK_INT))        { integer_literal(c); return; }
     if (sol_parser_match(p, TOK_FLOAT))      { float_literal(c); return; }
@@ -365,6 +379,41 @@ static bool touches_home(const SolChunk *chunk)
  * the enclosing chunk's method table. What makes it a block is OP_BLOCK, which
  * captures the running frame as the block's home so `self` and the enclosing
  * locals still mean the right thing whenever it is eventually run. */
+/* `[a, b]` -- an array literal, and nothing more than a way of writing
+ * `array:of(a, b)`. The receiver goes on the stack first, then the elements,
+ * then the send, which is exactly what the parenthesised form emits.
+ *
+ * Being real desugaring rather than a lookalike has one visible consequence: the
+ * `array` it sends to is the ordinary global, so rebinding that name changes
+ * both spellings together. They cannot drift apart, which is the point.
+ *
+ * `[]` sends `of` with no arguments and answers an empty array.
+ */
+static void array_literal(Compiler *c)
+{
+    SolParser *p = &c->parser;
+
+    emit_pair(c, OP_GLOBAL, name_literal(c, "array", 5));
+
+    int count = 0;
+    if (!sol_parser_match(p, TOK_RBRACKET)) {
+        do {
+            expression(c);
+            if (count == UINT8_MAX) {
+                sol_parser_error(p, &p->current,
+                                 "too many elements in one array literal");
+                return;
+            }
+            count++;
+        } while (sol_parser_match(p, TOK_COMMA));
+        sol_parser_consume(p, TOK_RBRACKET, "expected ']' after the elements");
+    }
+
+    emit(c, OP_SEND);
+    emit(c, name_literal(c, "of", 2));
+    emit(c, (uint8_t)count);
+}
+
 /* Parameters come first, closed by `|`:
  *
  *     { a, b | a:add(b) }

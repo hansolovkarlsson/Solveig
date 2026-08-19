@@ -2,14 +2,16 @@
 ; offset into anything.
 ; Run with:  ./bin/solas examples/arrays.sol && ./bin/solum examples/arrays.sob
 
-a := array:of(#10, #20, #30).
+; [...] is sugar for array:of(...) -- the same send, compiled to the same
+; instructions, so the two spellings cannot drift apart.
+a := [#10, #20, #30].
 a:print.                     ; [#10, #20, #30]
 a:size:print.                ; #3
 a:at(#1):print.              ; #10  -- the first element
 a:at(#3):print.              ; #30
 
 ; add answers the array, so it chains.
-b := array:new.
+b := [].                     ; an empty array; array:new says the same thing
 b:add(#1):add(#2):add(#3).
 b:print.                     ; [#1, #2, #3]
 
@@ -27,8 +29,8 @@ c := b.
 c:at_put(#1, #7).
 b:at(#1):print.              ; #7 -- the change is visible through b
 
-; They nest.
-n := array:of(array:of(#1, #2), array:of(#3)).
+; They nest, which is where the brackets earn their keep.
+n := [[#1, #2], [#3]].
 n:print.                     ; [[#1, #2], [#3]]
 n:at(#1):at(#2):print.       ; #2
 

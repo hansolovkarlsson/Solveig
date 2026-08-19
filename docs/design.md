@@ -187,10 +187,11 @@ expression -> IDENT ':=' expression
            |  send ( ':=' expression )?
 send       -> primary ( ':' IDENT arguments? )*
 arguments  -> '(' ( expression ( ',' expression )* )? ')'
-primary    -> IDENT | INT | FLOAT | STRING | group | block
+primary    -> IDENT | INT | FLOAT | STRING | group | block | array
 group      -> '(' declarations? expression ( '.' expression )* '.'? ')'
 block      -> '{' params? declarations?
               ( expression ( '.' expression )* '.'? )? '}'
+array      -> '[' ( expression ( ',' expression )* )? ']'
 params     -> IDENT ( ',' IDENT )* '|'
 declarations -> '|' IDENT ( ',' IDENT )* '|'
 ```

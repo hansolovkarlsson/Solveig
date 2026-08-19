@@ -91,8 +91,20 @@ static void test_lines_are_counted(void)
     assert(second.line == 3);
 }
 
+static void test_brackets_scan(void)
+{
+    const SolTokenType expected[] = {
+        TOK_LBRACKET, TOK_INT, TOK_COMMA, TOK_INT, TOK_RBRACKET, TOK_EOF
+    };
+    expect_tokens("[#1, #2]", expected, 6);
+
+    const SolTokenType empty[] = { TOK_LBRACKET, TOK_RBRACKET, TOK_EOF };
+    expect_tokens("[]", empty, 3);
+}
+
 int main(void)
 {
+    test_brackets_scan();
     test_assignment_is_one_token();
     test_colon_still_sends();
     test_period_disambiguation();

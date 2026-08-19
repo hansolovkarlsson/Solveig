@@ -252,8 +252,109 @@ static void test_unreachable_arrays_are_reclaimed(void)
     sol_vm_free(&vm);
 }
 
+/* `[a, b]` is not merely equivalent to `array:of(a, b)` -- it compiles to the
+   same instructions, which is what keeps the two spellings from ever drifting. */
+static void test_literal_is_the_same_bytecode(void)
+{
+    SolChunk sugar, plain;
+    sol_chunk_init(&sugar);
+    sol_chunk_init(&plain);
+
+    assert(sol_compile("a := [#1, #2, #3].", &sugar));
+    assert(sol_compile("a := array:of(#1, #2, #3).", &plain));
+
+    assert(sugar.count == plain.count);
+    assert(memcmp(sugar.code, plain.code, (size_t)sugar.count) == 0);
+    assert(sugar.names.count == plain.names.count);
+    for (int i = 0; i < sugar.names.count; i++) {
+        assert(strcmp(sol_chunk_name(&sugar, i), sol_chunk_name(&plain, i)) == 0);
+    }
+
+    sol_chunk_free(&plain);
+    sol_chunk_free(&sugar);
+}
+
+static void test_literals(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "a := [#10, #20, #30]."
+        "n := a:size. first := a:at(#1). last := a:at(#3).") == SOL_OK);
+    assert(SOL_IS_ARRAY(global(&vm, "a")));
+    assert(SOL_AS_INT(global(&vm, "n")) == 3);
+    assert(SOL_AS_INT(global(&vm, "first")) == 10);
+    assert(SOL_AS_INT(global(&vm, "last")) == 30);
+    sol_chunk_free(&chunk);
+
+    /* `[]` answers an empty array. */
+    assert(run(&vm, &chunk, "e := []. n := e:size.") == SOL_OK);
+    assert(SOL_IS_ARRAY(global(&vm, "e")));
+    assert(SOL_AS_INT(global(&vm, "n")) == 0);
+    sol_chunk_free(&chunk);
+
+    /* Elements are ordinary expressions, and literals nest. */
+    assert(run(&vm, &chunk,
+        "x := #5."
+        "a := [x, x:add(#1), { #9 }:value()]."
+        "p := a:at(#1). q := a:at(#2). r := a:at(#3)."
+        "n := [[#1, #2], [#3]]."
+        "deep := n:at(#1):at(#2).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "p")) == 5);
+    assert(SOL_AS_INT(global(&vm, "q")) == 6);
+    assert(SOL_AS_INT(global(&vm, "r")) == 9);
+    assert(SOL_AS_INT(global(&vm, "deep")) == 2);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
+/* A literal is a construction, not a pooled constant: every evaluation must
+   answer a new array, or two calls would share one and mutating either would be
+   visible through the other. */
+static void test_each_evaluation_builds_a_fresh_array(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "integer:make := { [#1, #2] }."
+        "p := #0:make. q := #0:make."
+        "p:at_put(#1, #99)."
+        "through_q := q:at(#1)."
+        "same := p:equals(q).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "through_q")) == 1);   /* q is untouched */
+    assert(SOL_AS_BOOL(global(&vm, "same")) == false);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+}
+
+static void test_literal_errors(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk, "a := [#1, #2.") == SOL_COMPILE_ERROR);
+    sol_chunk_free(&chunk);
+
+    assert(run(&vm, &chunk, "a := [#1, ].") == SOL_COMPILE_ERROR);
+    sol_chunk_free(&chunk);
+
+    /* Real desugaring, so the `array` it sends to is the ordinary global. */
+    assert(run(&vm, &chunk, "array := #5. a := [#1].") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
 int main(void)
 {
+    test_literal_is_the_same_bytecode();
+    test_literals();
+    test_each_evaluation_builds_a_fresh_array();
+    test_literal_errors();
     test_of_and_new();
     test_indices_are_one_based();
     test_at_put_and_add();

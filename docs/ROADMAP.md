@@ -84,10 +84,17 @@ Three details worth keeping in view:
 - Printing is depth-limited. `a:add(a)` is legal, so the printer cannot assume
   the structure is finite.
 
-#### 1.2b `[...]` literal sugar
+#### 1.2b `[...]` literal sugar — **done**
 
-Decided in 2.4 and not yet built. `[#1, #2]` compiles to the bytecode for
-`array:of(#1, #2)`: two lexer tokens and one compiler branch, no new opcode.
+`[#1, #2]` compiles to the bytecode for `array:of(#1, #2)` -- literally, not
+merely equivalently: the two forms produce byte-identical `.sob` files, and a
+test asserts it. Two lexer tokens and one compiler branch, no new opcode.
+
+The desugaring is real rather than a lookalike, which has one visible
+consequence worth knowing: the `array` it sends to is the ordinary global, so
+rebinding that name moves both spellings together. They cannot drift apart,
+which is the point. Capped at 255 elements by `OP_SEND`'s one-byte argument
+count (4.2).
 
 #### 1.2a Temporary roots, finally needed — was 1.1c
 

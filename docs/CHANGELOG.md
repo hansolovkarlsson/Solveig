@@ -8,6 +8,27 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### Array literals — `pending`, 2026-08-19
+
+```
+xs := [#1, #2, #3].
+n := [[#1, #2], [#3]].
+e := [].
+```
+
+`[...]` is sugar for `array:of(...)` in the strict sense: the two forms compile
+to byte-identical `.sob` files, and a test asserts it rather than trusting the
+claim. Two lexer tokens and one compiler branch — no new opcode, no verifier
+change, nothing the VM has to learn.
+
+Because the desugaring is real rather than a lookalike, the `array` it sends to
+is the ordinary global; rebinding that name moves both spellings together. They
+cannot drift apart, which is the point.
+
+A literal is a construction, not a pooled constant, so every evaluation answers a
+fresh array — two calls to a method containing one do not share it. Capped at 255
+elements by `OP_SEND`'s one-byte argument count.
+
 ### The project is named Solveig — `7db2b27`, 2026-08-19
 
 The repository had no name distinct from its parts: "Solum" was serving as the
