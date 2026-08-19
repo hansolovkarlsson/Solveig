@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### The virtual machine is `bin/solvm` — `pending`, 2026-08-19
+### The virtual machine is `bin/solvm` — `efbdf2c`, 2026-08-19
 
 **Breaking: the command changed.** `./bin/solum program.sob` is now
 `./bin/solvm program.sob`.
