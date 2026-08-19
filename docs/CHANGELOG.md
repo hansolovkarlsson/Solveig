@@ -8,6 +8,33 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### Division — `pending`, 2026-08-19
+
+`div` and `mod`, on integers and floats.
+
+```
+#7:div(#2):print.     ; #3
+#-7:div(#2):print.    ; #-4   floored, not truncated
+#-7:mod(#2):print.    ; #1    the divisor's sign, not the dividend's
+```
+
+- **Answering an integer was forced rather than chosen.** A float result would
+  let two integers leave their type silently, which is the coercion the language
+  refuses everywhere else. A fractional answer needs an explicit conversion —
+  which does not exist yet, and is now the most-missed missing operation.
+- **Floored, for what it does to `mod`.** A floored remainder always lands in
+  `[0, n)` for positive `n`; a truncated one takes the dividend's sign and needs
+  correcting at every use site. `quo`/`rem` stay free for the truncating pair.
+- **Division by zero splits along a line the language already had.** Integers
+  trap, having no infinity; floats answer one, since float multiplication already
+  overflows to infinity where integer multiplication traps.
+- `INT64_MIN div #-1` is guarded separately — the one division that overflows,
+  and undefined behaviour in C rather than merely wrong, raising SIGFPE on x86.
+
+Also recorded two gaps found while checking the above: float literals have no
+exponent notation (`1e308` does not scan), and `print` emits float text the
+scanner cannot read back (`1e+256`, `inf`).
+
 ### Strings — `e454192`, 2026-08-19
 
 ```

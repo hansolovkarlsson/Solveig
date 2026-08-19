@@ -153,16 +153,29 @@ with nowhere to put a collection of instances is less so.
 
 ## 2. Language decisions still open
 
-### 2.1 Division — **decision**
+### 2.1 Division — **decided: floored, answering an integer**
 
-Deliberately absent. Under strict typing, integer division has to pick one:
+`div` and `mod` on integers and floats.
 
-- truncate toward zero (C, Java),
-- floor (Python, Smalltalk),
-- or answer a float, which breaks strictness since `#7:div(#2)` would leave the
-  integers.
+Answering an integer was not really a free choice: a float result would let two
+integers leave their type silently, which is the implicit coercion the language
+refuses everywhere else. A fractional result therefore needs an explicit
+conversion, which is why 2.8 matters more now than it did.
 
-Modulo follows whichever is chosen, and the sign rules follow from it.
+Floored rather than truncated, so the two differ only on negatives: `#-7:div(#2)`
+is `#-4`. Floor was chosen for what it does to `mod` -- a floored remainder always
+lands in `[0, n)` for positive `n`, which is what indexing, hashing, and cyclic
+arithmetic want, where a truncated one takes the dividend's sign and needs
+correcting at every use site. It is also Smalltalk's choice. The truncating pair
+keeps the names `quo` and `rem` free if it is ever wanted alongside.
+
+Division by zero splits along a line the language already had: integers trap,
+because there is no integer infinity, while floats answer an infinity, because
+float multiplication already overflows to one where integer multiplication traps.
+
+`INT64_MIN div #-1` is guarded separately. It is the one division that overflows,
+and in C it is undefined rather than merely wrong -- it raises SIGFPE on x86
+rather than answering anything.
 
 ### 2.2 Statement terminator — **decision**
 
@@ -212,19 +225,29 @@ repeated `add`.
 readily as `integer:new(#1)`. Separating them needs a metaclass level. Also
 uneven today: `integer` has `new` and `float` does not.
 
-### 2.6 Symbols
+### 2.6 Float literals have no exponent notation
+
+`1e308` does not scan. It reads as the float `1` followed by an identifier
+`e308`, so there is no way to write a very large or very small float at all.
+Lexer work: an optional `e`/`E`, optional sign, and digits after the fraction.
+
+### 2.7 Symbols
 
 `'foo` scans to a token and has no runtime type. Wanted for reflection and any
 `perform:`-style dynamic send. Cheap once strings exist.
 
-### 2.7 Missing operations
+### 2.8 Missing operations
 
 Small, mechanical, and worth doing in one pass once 2.1 settles the numeric
 questions:
 
 - booleans: `and`, `or` (short-circuit, so they take blocks like `ifTrue` does)
-- comparison: `lessOrEqual`, `greaterOrEqual`, `notEquals`
-- numbers: division, modulo, negation, absolute value
+- comparison: `lessOrEqual`, `greaterOrEqual`, `notEquals`, and ordering on
+  strings so they can be sorted
+- numbers: negation, absolute value
+- **conversions**: `asFloat`, `asInteger`, and something turning a number into a
+  string. Now the most missed of these, since floored integer division means
+  there is otherwise no way to get a fractional answer from two integers.
 - `float:new`, for symmetry with `integer:new`
 - `nil` answers almost nothing
 
@@ -341,7 +364,15 @@ The REPL should buffer until brackets and parentheses balance.
 `sol_value_print` prints `<object 0x...>` instead of sending `print` to the
 object. Wants dispatch from inside the printer, or a `printOn:`-style protocol.
 
-### 5.3 No source position beyond the line
+### 5.3 Float printing does not round-trip
+
+`print` emits float text the scanner cannot read back. A large float prints as
+`1e+256`, and feeding that to the compiler gives `solas: unexpected character` --
+partly because of 2.6, partly because `%g` will also produce `inf` and `nan`,
+which have no literal form at all. Output that cannot be read back is a trap for
+anyone generating source, and for any future test that round-trips values.
+
+### 5.4 No source position beyond the line
 
 Errors report a line number and nothing finer. Columns and the offending source
 text would make compile errors considerably more useful.
@@ -350,16 +381,19 @@ text would make compile errors considerably more useful.
 
 ## Suggested order
 
-1. **User-defined classes** (1.4) — the last of the three things standing between
-   this and a language you could write a real program in.
-2. **Division** (2.1) and the **missing operations** (2.7) — small, and they make
-   the language usable for arithmetic-shaped programs.
-3. **String escapes and ordering** (1.3) — the loose ends strings left, each
-   independent of the others.
+1. **User-defined classes** (1.4) — the last thing standing between this and a
+   language you could write a real program in.
+2. **Conversions** (2.8) — `asFloat`, `asInteger`, number-to-string. Now the most
+   missed, since floored integer division leaves no way to get a fractional
+   answer from two integers.
+3. **The rest of the missing operations** (2.8), **string escapes and ordering**
+   (1.3), and **float exponents** (2.6) — small and independent of each other.
 4. Everything else as it starts to hurt.
 
 Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), arrays entire
-(1.2, 1.2a, 1.2b), and strings (1.3).
+(1.2, 1.2a, 1.2b), strings (1.3), and division (2.1).
+
+Still waiting on a call from you: the **statement terminator** (2.2).
 
 Still waiting on a call from you: **division** (2.1) and the **statement
 terminator** (2.2). Neither blocks anything above it.

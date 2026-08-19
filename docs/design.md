@@ -61,8 +61,15 @@ special case took a hundred lines of compiler with it.
 
 **Strict rather than convenient.** Integers and floats never coerce, integer
 overflow traps instead of wrapping, an undeclared name inside a method is an
-error rather than a new variable, and an out-of-range index will be an error
-rather than nil. A wrong program should stop, not continue quietly.
+error rather than a new variable, and an out-of-range index is an error rather
+than nil. A wrong program should stop, not continue quietly.
+
+The line falls where representability does. Integer division by zero traps
+because there is no integer infinity; float division by zero answers one, because
+float multiplication already overflows to infinity where integer multiplication
+traps. Integer division also floors rather than truncating, so `#-7:div(#2)` is
+`#-4` and `mod` takes the divisor's sign -- which keeps a remainder inside
+`[0, n)` where indexing and cyclic arithmetic want it.
 
 ## Object model
 

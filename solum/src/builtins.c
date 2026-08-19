@@ -4,6 +4,7 @@
  * combines with an integer, a float only with a float. There is no implicit
  * coercion, so `#45:add(1.5)` is an error rather than a quiet promotion.
  */
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -96,6 +97,62 @@ static SolValue prim_integer_mul(SolVM *vm, SolValue self, SolValue *args, int a
     return SOL_INT_VAL(result);
 }
 
+/* Integer division floors rather than truncating, so the two differ only on
+ * negatives: -7 div 2 is -4, not -3.
+ *
+ * Floor is chosen for what it does to `mod`. A floored remainder always lands in
+ * [0, n) for positive n, which is what indexing, hashing, and cyclic arithmetic
+ * actually want; a truncated one takes the sign of the dividend, so -7 rem 2 is
+ * -1 and every use site needs a correction. It is also Smalltalk's choice, and
+ * the object model came from there.
+ *
+ * The truncating pair keeps the names `quo` and `rem` free, should it ever be
+ * wanted alongside.
+ *
+ * The result is an integer, which is not really a free choice: answering a float
+ * would let two integers leave their type silently, which is exactly the
+ * implicit coercion the language refuses everywhere else.
+ */
+static bool integer_divisor(SolVM *vm, const char *name, SolValue self, SolValue arg)
+{
+    if (!check_same_type(vm, name, self, arg)) return false;
+
+    if (SOL_AS_INT(arg) == 0) {
+        sol_vm_runtime_error(vm, "division by zero in '%s'", name);
+        return false;
+    }
+    /* The one division that overflows: the most negative integer has no positive
+       counterpart. In C this is undefined and raises SIGFPE on x86 rather than
+       answering anything, so it is guarded rather than trapped after the fact. */
+    if (SOL_AS_INT(self) == INT64_MIN && SOL_AS_INT(arg) == -1) {
+        sol_vm_runtime_error(vm, "integer overflow in '%s'", name);
+        return false;
+    }
+    return true;
+}
+
+static SolValue prim_integer_div(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "div", argc, 1)) return SOL_NIL_VAL;
+    if (!integer_divisor(vm, "div", self, args[0])) return SOL_NIL_VAL;
+
+    int64_t a = SOL_AS_INT(self), b = SOL_AS_INT(args[0]);
+    int64_t q = a / b, r = a % b;
+    if (r != 0 && ((r < 0) != (b < 0))) q--;      /* C truncates; step down */
+    return SOL_INT_VAL(q);
+}
+
+static SolValue prim_integer_mod(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "mod", argc, 1)) return SOL_NIL_VAL;
+    if (!integer_divisor(vm, "mod", self, args[0])) return SOL_NIL_VAL;
+
+    int64_t b = SOL_AS_INT(args[0]);
+    int64_t r = SOL_AS_INT(self) % b;
+    if (r != 0 && ((r < 0) != (b < 0))) r += b;   /* take the divisor's sign */
+    return SOL_INT_VAL(r);
+}
+
 /* ---- float ----------------------------------------------------------- */
 
 static SolValue prim_float_add(SolVM *vm, SolValue self, SolValue *args, int argc)
@@ -117,6 +174,29 @@ static SolValue prim_float_mul(SolVM *vm, SolValue self, SolValue *args, int arg
     if (!check_argc(vm, "mul", argc, 1)) return SOL_NIL_VAL;
     if (!check_same_type(vm, "mul", self, args[0])) return SOL_NIL_VAL;
     return SOL_FLOAT_VAL(SOL_AS_FLOAT(self) * SOL_AS_FLOAT(args[0]));
+}
+
+/* Floats divide by zero to infinity rather than erroring. That is not a new
+   rule: float multiplication already overflows silently to infinity where
+   integer multiplication traps, because infinity is a representable float and
+   there is no such integer. Division by zero falls on the same line. */
+static SolValue prim_float_div(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "div", argc, 1)) return SOL_NIL_VAL;
+    if (!check_same_type(vm, "div", self, args[0])) return SOL_NIL_VAL;
+    return SOL_FLOAT_VAL(SOL_AS_FLOAT(self) / SOL_AS_FLOAT(args[0]));
+}
+
+/* Floored, to match the integers: the remainder takes the divisor's sign. */
+static SolValue prim_float_mod(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "mod", argc, 1)) return SOL_NIL_VAL;
+    if (!check_same_type(vm, "mod", self, args[0])) return SOL_NIL_VAL;
+
+    double b = SOL_AS_FLOAT(args[0]);
+    double r = fmod(SOL_AS_FLOAT(self), b);
+    if (r != 0.0 && ((r < 0.0) != (b < 0.0))) r += b;
+    return SOL_FLOAT_VAL(r);
 }
 
 /* ---- comparison ------------------------------------------------------- */
@@ -485,6 +565,8 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define_primitive(vm->integer_class, "add",   prim_integer_add);
     sol_object_define_primitive(vm->integer_class, "sub",   prim_integer_sub);
     sol_object_define_primitive(vm->integer_class, "mul",   prim_integer_mul);
+    sol_object_define_primitive(vm->integer_class, "div",   prim_integer_div);
+    sol_object_define_primitive(vm->integer_class, "mod",   prim_integer_mod);
     sol_object_define_primitive(vm->integer_class, "equals",      prim_equals);
     sol_object_define_primitive(vm->integer_class, "lessThan",    prim_less);
     sol_object_define_primitive(vm->integer_class, "greaterThan", prim_greater);
@@ -494,6 +576,8 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define_primitive(vm->float_class, "add",   prim_float_add);
     sol_object_define_primitive(vm->float_class, "sub",   prim_float_sub);
     sol_object_define_primitive(vm->float_class, "mul",   prim_float_mul);
+    sol_object_define_primitive(vm->float_class, "div",   prim_float_div);
+    sol_object_define_primitive(vm->float_class, "mod",   prim_float_mod);
     sol_object_define_primitive(vm->float_class, "equals",      prim_equals);
     sol_object_define_primitive(vm->float_class, "lessThan",    prim_less);
     sol_object_define_primitive(vm->float_class, "greaterThan", prim_greater);

@@ -164,8 +164,104 @@ static void test_globals_persist_across_chunks(void)
     sol_vm_free(&vm);
 }
 
+/* Integer division floors, so it differs from C only on negatives, and the
+   remainder takes the divisor's sign rather than the dividend's. */
+static void test_division_floors(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+
+    assert(run(&vm,
+        "a := #7:div(#2).  b := #-7:div(#2)."
+        "c := #7:div(#-2). d := #-7:div(#-2).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "a")) == 3);
+    assert(SOL_AS_INT(global(&vm, "b")) == -4);   /* not -3 */
+    assert(SOL_AS_INT(global(&vm, "c")) == -4);
+    assert(SOL_AS_INT(global(&vm, "d")) == 3);
+
+    assert(run(&vm,
+        "a := #7:mod(#2).  b := #-7:mod(#2)."
+        "c := #7:mod(#-2). d := #-7:mod(#-2)."
+        "e := #6:mod(#3).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "a")) == 1);
+    assert(SOL_AS_INT(global(&vm, "b")) == 1);    /* not -1: divisor's sign */
+    assert(SOL_AS_INT(global(&vm, "c")) == -1);
+    assert(SOL_AS_INT(global(&vm, "d")) == -1);
+    assert(SOL_AS_INT(global(&vm, "e")) == 0);
+
+    sol_vm_free(&vm);
+}
+
+/* (a div b) * b + (a mod b) == a, whatever the signs. */
+static void test_division_identity(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+
+    assert(run(&vm,
+        "check := { a, b | a:sub( a:div(b):mul(b):add(a:mod(b)) ) }."
+        "r := [check:value(#7, #2),  check:value(#-7, #2),"
+        "      check:value(#7, #-2), check:value(#-7, #-2),"
+        "      check:value(#0, #5),  check:value(#-1, #7),"
+        "      check:value(#100, #7), check:value(#-100, #-7)].") == SOL_OK);
+
+    SolValue r = global(&vm, "r");
+    assert(SOL_IS_ARRAY(r));
+    for (int i = 0; i < SOL_AS_ARRAY(r)->count; i++) {
+        assert(SOL_AS_INT(SOL_AS_ARRAY(r)->items[i]) == 0);
+    }
+
+    sol_vm_free(&vm);
+}
+
+/* Integers have no infinity, so dividing by zero errors -- and the one division
+   that overflows is guarded, since in C it is undefined rather than merely
+   wrong. */
+static void test_integer_division_guards(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+
+    assert(run(&vm, "#1:div(#0).") == SOL_RUNTIME_ERROR);
+    assert(run(&vm, "#1:mod(#0).") == SOL_RUNTIME_ERROR);
+    assert(run(&vm, "#0:div(#0).") == SOL_RUNTIME_ERROR);
+
+    assert(run(&vm, "#-9223372036854775808:div(#-1).") == SOL_RUNTIME_ERROR);
+    assert(run(&vm, "#-9223372036854775808:mod(#-1).") == SOL_RUNTIME_ERROR);
+
+    /* But the neighbouring cases are fine. */
+    assert(run(&vm,
+        "a := #-9223372036854775808:div(#1)."
+        "b := #-9223372036854775807:div(#-1).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "b")) == 9223372036854775807LL);
+
+    /* Strict as ever. */
+    assert(run(&vm, "#7:div(2.0).") == SOL_RUNTIME_ERROR);
+
+    sol_vm_free(&vm);
+}
+
+/* Floats have an infinity, and already reach it by overflow, so dividing by
+   zero answers one rather than erroring. */
+static void test_float_division_follows_ieee(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+
+    assert(run(&vm,
+        "q := 7.0:div(2.0). inf := 1.0:div(0.0). neg := -1.0:div(0.0)."
+        "m := -7.0:mod(2.0).") == SOL_OK);
+    assert(SOL_AS_FLOAT(global(&vm, "q")) == 3.5);
+    assert(SOL_AS_FLOAT(global(&vm, "inf")) > 0 &&
+           SOL_AS_FLOAT(global(&vm, "inf")) * 2 == SOL_AS_FLOAT(global(&vm, "inf")));
+    assert(SOL_AS_FLOAT(global(&vm, "neg")) < 0);
+    assert(SOL_AS_FLOAT(global(&vm, "m")) == 1.0);   /* floored, like integers */
+
+    sol_vm_free(&vm);
+}
+
 int main(void)
 {
+    test_division_floors();
+    test_division_identity();
+    test_integer_division_guards();
+    test_float_division_follows_ieee();
     test_assignment_binds_a_name();
     test_hash_selects_the_numeric_type();
     test_values_are_immutable();
