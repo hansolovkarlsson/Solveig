@@ -234,6 +234,14 @@ instruction boundary.
 `sol_chunk_save` runs the same verifier before writing, so Solas cannot emit a
 file that Solum would refuse.
 
+What verification does *not* promise is termination. A corrupted file can pass
+every check and still be a valid program that loops forever -- flipping the `#1`
+in `i := i:add(#1)` to `#0` leaves a well-formed chunk whose loop never
+advances. That is the VM behaving correctly: a bad program is not a broken VM,
+and Solum has no business cutting short a loop a user asked for. Fuzzing bears
+this out -- every hang observed came from a corrupted constant or code byte,
+none from a name, count, or length the loader parses.
+
 ## Resolved questions
 
 **What does `integer:new(a)` actually do?** `integer` is the integer class
