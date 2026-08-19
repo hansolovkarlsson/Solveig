@@ -31,6 +31,10 @@ void sol_vm_init(SolVM *vm)
     vm->array_class = NULL;
     vm->string_class = NULL;
     vm->object_class = NULL;
+    vm->symbol_class = NULL;
+    vm->symbols = NULL;
+    vm->symbol_capacity = 0;
+    vm->symbol_count = 0;
 
     vm->heap = NULL;
     vm->bytes_allocated = 0;
@@ -62,6 +66,7 @@ void sol_vm_free(SolVM *vm)
     vm->array_class = NULL;
     vm->string_class = NULL;
     vm->object_class = NULL;
+    vm->symbol_class = NULL;
     reset_stack(vm);
 }
 
@@ -93,6 +98,7 @@ SolObject *sol_vm_class_of(SolVM *vm, SolValue value)
     case SOL_BLOCK: return vm->block_class;
     case SOL_ARRAY: return vm->array_class;
     case SOL_STRING: return vm->string_class;
+    case SOL_SYMBOL: return vm->symbol_class;
     case SOL_DELEGATE: return NULL;   /* handled before dispatch reaches here */
     case SOL_OBJ:   return SOL_AS_OBJ(value);   /* the object answers for itself */
     }
@@ -109,6 +115,7 @@ const char *sol_type_name(SolValue value)
     case SOL_BLOCK: return "block";
     case SOL_ARRAY: return "array";
     case SOL_STRING: return "string";
+    case SOL_SYMBOL: return "symbol";
     case SOL_DELEGATE: return "delegate";
     case SOL_OBJ:   return "object";
     }
@@ -317,6 +324,13 @@ static SolResult run_frames(SolVM *vm, int base)
             const char *text = READ_NAME();
             sol_vm_push(vm, SOL_STRING_VAL(
                 sol_string_new(vm, text, (int)strlen(text))));
+            break;
+        }
+
+        case OP_SYMBOL: {
+            const char *text = READ_NAME();
+            sol_vm_push(vm, SOL_SYMBOL_VAL(
+                sol_symbol_intern(vm, text, (int)strlen(text))));
             break;
         }
 

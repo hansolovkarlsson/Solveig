@@ -122,6 +122,27 @@ struct SolDelegate {
 
 SolDelegate *sol_delegate_new(SolVM *vm, SolValue receiver, SolObject *start);
 
+/* An interned name.
+ *
+ * Two symbols spelling the same thing are the same symbol, so equality is a
+ * pointer comparison rather than a walk over characters. That is the whole
+ * reason for having them apart from strings: a name is compared far more often
+ * than it is read.
+ *
+ * `chain` threads the intern table's bucket. The table holds symbols weakly --
+ * being in it does not keep one alive -- or a name mentioned once would outlive
+ * every use of it. */
+struct SolSymbol {
+    SolGCHeader gc;
+    int         length;
+    uint32_t    hash;
+    char       *chars;
+    SolSymbol  *chain;
+};
+
+/* Answers the symbol for these characters, making it only if it is new. */
+SolSymbol *sol_symbol_intern(SolVM *vm, const char *chars, int length);
+
 /* Appends, growing by doubling. Takes the VM so the growth is charged to the
    collection threshold: a backing store that grew without the collector knowing
    would never itself trigger a collection. */

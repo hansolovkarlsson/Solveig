@@ -228,6 +228,7 @@ int sol_chunk_disassemble_instruction(const SolChunk *chunk, int offset)
     case OP_SET_OUTER: return depth_instruction("SETOUTR", chunk, offset);
     case OP_BLOCK:  return slot_instruction("BLOCK", chunk, offset);
     case OP_STRING: return name_instruction("STRING", chunk, offset);
+    case OP_SYMBOL: return name_instruction("SYMBOL", chunk, offset);
     case OP_SEND:   return send_instruction("SEND", chunk, offset);
     case OP_SET_SLOT: return name_instruction("SETSLOT", chunk, offset);
     case OP_POP:    return simple_instruction("POP", offset);

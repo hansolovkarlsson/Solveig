@@ -33,6 +33,7 @@ typedef enum {
     SOL_GC_BLOCK,
     SOL_GC_ARRAY,
     SOL_GC_STRING,
+    SOL_GC_SYMBOL,
     SOL_GC_DELEGATE,
     SOL_GC_CODE     /* a compiled chunk tree; see SolCode in bytecode.h */
 } SolGCType;
@@ -53,6 +54,12 @@ void sol_gc_maybe_collect(SolVM *vm);
 
 /* Marks from the roots and frees everything unreachable. */
 void sol_gc_collect(SolVM *vm);
+
+/* Drops unreachable symbols from the intern table, between marking and
+   sweeping. The table is the one structure that must *not* keep what it holds
+   alive: a symbol interned once and never used again would otherwise live as
+   long as the VM. */
+void sol_gc_prune_symbols(SolVM *vm);
 
 /* Frees the entire heap regardless of reachability, for VM shutdown. */
 void sol_gc_free_all(SolVM *vm);

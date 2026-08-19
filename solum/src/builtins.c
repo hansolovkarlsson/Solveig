@@ -818,6 +818,9 @@ static SolValue prim_equals(SolVM *vm, SolValue self, SolValue *args, int argc)
        name rather than quietly changing what `equals` means. */
     case SOL_ARRAY: return SOL_BOOL_VAL(SOL_AS_ARRAY(self) == SOL_AS_ARRAY(other));
     case SOL_DELEGATE: return SOL_BOOL_VAL(SOL_AS_DELEGATE(self) == SOL_AS_DELEGATE(other));
+    /* Interned, so two symbols spelling the same thing are the same symbol and
+       a pointer comparison is a comparison of the names. */
+    case SOL_SYMBOL: return SOL_BOOL_VAL(SOL_AS_SYMBOL(self) == SOL_AS_SYMBOL(other));
     /* A string is immutable, so it is a value like a number rather than a
        reference like an array: equality compares contents. */
     case SOL_STRING: {
@@ -1305,6 +1308,36 @@ static SolValue prim_string_fill(SolVM *vm, SolValue self, SolValue *args, int a
     return result;
 }
 
+/* A symbol answers its name, and a string answers the symbol for it. Those two
+   are the whole conversion: a symbol is a name, and its text is what it says. */
+static SolValue prim_symbol_as_string(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    SolSpec spec;
+    if (!spec_from_args(vm, args, argc, &spec)) return SOL_NIL_VAL;
+    if (spec_rejects_decimals(vm, &spec, "a symbol")) return SOL_NIL_VAL;
+    if (spec_rejects_grouping(vm, &spec, "a symbol")) return SOL_NIL_VAL;
+
+    const SolSymbol *symbol = SOL_AS_SYMBOL(self);
+    return spec_apply(vm, symbol->chars, symbol->length, &spec, '<');
+}
+
+static SolValue prim_symbol_size(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "size", argc, 0)) return SOL_NIL_VAL;
+    return SOL_INT_VAL(SOL_AS_SYMBOL(self)->length);
+}
+
+static SolValue prim_string_as_symbol(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "asSymbol", argc, 0)) return SOL_NIL_VAL;
+    const SolString *string = SOL_AS_STRING(self);
+    /* The receiver is on the value stack, so it stays rooted while interning
+       allocates. */
+    return SOL_SYMBOL_VAL(sol_symbol_intern(vm, string->chars, string->length));
+}
+
 /* `"ff":asUppercase` -- a new string with the letters changed.
  *
  * ASCII only, and by explicit range rather than `toupper`, which follows the C
@@ -1557,11 +1590,20 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define_primitive(vm->string_class, "asFloat",   prim_string_as_float);
     sol_object_define_primitive(vm->string_class, "asUppercase", prim_string_upper);
     sol_object_define_primitive(vm->string_class, "asLowercase", prim_string_lower);
+    sol_object_define_primitive(vm->string_class, "asSymbol",  prim_string_as_symbol);
     sol_object_define_primitive(vm->string_class, "notEquals",      prim_not_equals);
     sol_object_define_primitive(vm->string_class, "lessThan",       prim_string_less);
     sol_object_define_primitive(vm->string_class, "greaterThan",    prim_string_greater);
     sol_object_define_primitive(vm->string_class, "lessOrEqual",    prim_less_or_equal);
     sol_object_define_primitive(vm->string_class, "greaterOrEqual", prim_greater_or_equal);
+
+    vm->symbol_class = sol_object_new(vm, NULL);
+    sol_object_define_primitive(vm->symbol_class, "print",     prim_print);
+    sol_object_define_primitive(vm->symbol_class, "display",   prim_display);
+    sol_object_define_primitive(vm->symbol_class, "asString",  prim_symbol_as_string);
+    sol_object_define_primitive(vm->symbol_class, "equals",    prim_equals);
+    sol_object_define_primitive(vm->symbol_class, "notEquals", prim_not_equals);
+    sol_object_define_primitive(vm->symbol_class, "size",      prim_symbol_size);
 
     /* Bind the class objects into the globals namespace so `integer` resolves. */
     sol_object_define(vm->root, "integer", SOL_OBJ_VAL(vm->integer_class));

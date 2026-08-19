@@ -289,10 +289,22 @@ how many characters a string has -- is a different piece of work rather than a
 larger version of this one, and would want a decision about what a string is
 before any of it is written.
 
-### 2.7 Symbols
+### 2.7 Symbols — **done**
 
-`'foo` scans to a token and has no runtime type. Wanted for reflection and any
-`perform:`-style dynamic send. Cheap once strings exist.
+`'foo` is an interned name. Two symbols spelling the same thing are the same
+symbol, so equality is a pointer comparison rather than a walk over characters --
+which is the whole reason to have them apart from strings, a name being compared
+far more often than it is read. `"foo":asSymbol` finds the one that already
+exists.
+
+**The intern table is weak**, and that turned out to matter more than memory.
+With a strong table a program interning twenty thousand names does not finish in
+sixty seconds, because every collection has to mark every symbol ever interned.
+With a weak one the same program runs instantly at 1.7 MB. Pruning happens
+between marking and sweeping, so the table never names a cell the sweep is about
+to free.
+
+A symbol never equals a string; `asString` gives its name.
 
 ### 2.8 Missing operations — **done**
 
@@ -533,6 +545,10 @@ real program hits it.
 
 ### 4.3 Dispatch does a string compare per send
 
+Symbols now exist, and interned names are exactly what this wants: a selector
+compared by pointer rather than by `strcmp`. The work is in the chunk's text
+table and slot names, not in inventing the mechanism.
+
 `sol_object_lookup` walks a linked list comparing names with `strcmp`. Interned
 symbols with pointer equality, or an inline cache per send site, are the usual
 answers.
@@ -622,12 +638,11 @@ could write a real program in are all built. What is left is filling it out.
 Nothing here is urgent any more. The remaining items are, roughly in order of
 how soon they would be missed:
 
-1. **Symbols** (2.7) and the **reflection** they enable (2.10) — `'foo` still
-   scans without a runtime type, and an object cannot be asked what slots it
-   holds.
+1. **Reflection** (2.10) — symbols now exist to name things with, but an object
+   still cannot be asked what slots it holds, and there is no `perform`.
 2. **Sorting** — arrays have no `sort`, though strings and numbers now order.
 3. **Inlining conditionals** (4.1), which would also roughly double the usable
-   recursion depth (3.5).
+   recursion depth (3.5), and could use interned symbols for dispatch (4.3).
 4. Everything else as it starts to hurt.
 
 Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), arrays entire

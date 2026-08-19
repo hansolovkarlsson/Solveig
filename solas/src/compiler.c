@@ -332,8 +332,10 @@ static void primary(Compiler *c)
     }
     if (sol_parser_match(p, TOK_STRING)) { string_literal(c); return; }
     if (sol_parser_match(p, TOK_SYMBOL)) {
-        sol_parser_error(p, &p->previous,
-                         "symbols are scanned but have no runtime type yet");
+        /* The token spans the leading quote; the name is what follows it. */
+        SolToken token = p->previous;
+        emit_pair(c, OP_SYMBOL,
+                  name_literal(c, token.start + 1, token.length - 1));
         return;
     }
 
@@ -416,7 +418,7 @@ static bool touches_home(const SolChunk *chunk)
         switch (op) {
         case OP_CONST: case OP_GLOBAL: case OP_SET_GLOBAL:
         case OP_LOCAL: case OP_SET_LOCAL: case OP_BLOCK:
-        case OP_SET_SLOT: case OP_STRING:
+        case OP_SET_SLOT: case OP_STRING: case OP_SYMBOL:
             offset += 2; break;
         case OP_SEND: case OP_OUTER: case OP_SET_OUTER:
             offset += 3; break;

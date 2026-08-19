@@ -64,6 +64,9 @@ static size_t cell_size(const SolGCHeader *header)
         return sizeof(SolString) + (size_t)((const SolString *)header)->length + 1;
     }
     if (header->type == SOL_GC_DELEGATE) return sizeof(SolDelegate);
+    if (header->type == SOL_GC_SYMBOL) {
+        return sizeof(SolSymbol) + (size_t)((const SolSymbol *)header)->length + 1;
+    }
     if (header->type == SOL_GC_CODE) {
         return sizeof(SolCode) + chunk_size(&((const SolCode *)header)->chunk);
     }
@@ -130,6 +133,7 @@ static void mark_value(SolVM *vm, SolValue value)
     else if (SOL_IS_ARRAY(value)) mark_cell(vm, (SolGCHeader *)SOL_AS_ARRAY(value));
     else if (SOL_IS_STRING(value)) mark_cell(vm, (SolGCHeader *)SOL_AS_STRING(value));
     else if (SOL_IS_DELEGATE(value)) mark_cell(vm, (SolGCHeader *)SOL_AS_DELEGATE(value));
+    else if (SOL_IS_SYMBOL(value)) mark_cell(vm, (SolGCHeader *)SOL_AS_SYMBOL(value));
 }
 
 /* A chunk's constants can hold heap values, so a live code tree keeps them
@@ -170,6 +174,7 @@ static void blacken(SolVM *vm, SolGCHeader *header)
        the difference from an array that made arrays the better first heap type
        with contents. Marking one is done as soon as it is reached. */
     if (header->type == SOL_GC_STRING) return;
+    if (header->type == SOL_GC_SYMBOL) return;   /* characters, like a string */
 
     if (header->type == SOL_GC_DELEGATE) {
         const SolDelegate *delegate = (const SolDelegate *)header;
@@ -217,6 +222,7 @@ static void mark_roots(SolVM *vm)
     mark_cell(vm, (SolGCHeader *)vm->array_class);
     mark_cell(vm, (SolGCHeader *)vm->string_class);
     mark_cell(vm, (SolGCHeader *)vm->object_class);
+    mark_cell(vm, (SolGCHeader *)vm->symbol_class);
 }
 
 /* ---- sweeping --------------------------------------------------------- */
@@ -237,6 +243,12 @@ static void free_cell(SolGCHeader *header)
 
     if (header->type == SOL_GC_STRING) {
         free(((SolString *)header)->chars);
+        free(header);
+        return;
+    }
+
+    if (header->type == SOL_GC_SYMBOL) {
+        free(((SolSymbol *)header)->chars);
         free(header);
         return;
     }
@@ -275,6 +287,25 @@ static void sweep(SolVM *vm)
 
 /* ---- the collector ---------------------------------------------------- */
 
+/* The intern table is weak: a symbol is dropped from it the moment nothing else
+   refers to it. Done after marking and before sweeping, so the table never names
+   a cell the sweep is about to free. */
+void sol_gc_prune_symbols(SolVM *vm)
+{
+    for (int i = 0; i < vm->symbol_capacity; i++) {
+        SolSymbol **link = &vm->symbols[i];
+        while (*link != NULL) {
+            SolSymbol *symbol = *link;
+            if (symbol->gc.marked) {
+                link = &symbol->chain;
+            } else {
+                *link = symbol->chain;
+                vm->symbol_count--;
+            }
+        }
+    }
+}
+
 void sol_gc_collect(SolVM *vm)
 {
     mark_roots(vm);
@@ -283,6 +314,7 @@ void sol_gc_collect(SolVM *vm)
         blacken(vm, vm->gray[--vm->gray_count]);
     }
 
+    sol_gc_prune_symbols(vm);
     sweep(vm);
 
     vm->next_gc = vm->bytes_allocated * SOL_GC_GROWTH_FACTOR;
@@ -318,6 +350,11 @@ void sol_gc_free_all(SolVM *vm)
     }
     vm->heap = NULL;
     vm->bytes_allocated = 0;
+
+    free(vm->symbols);
+    vm->symbols = NULL;
+    vm->symbol_capacity = 0;
+    vm->symbol_count = 0;
 
     free(vm->gray);
     vm->gray = NULL;

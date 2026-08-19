@@ -36,6 +36,7 @@ typedef enum {
     OP_BLOCK,       /* operand: u8 method index -- make a block capturing the
                        current frame as its home                               */
     OP_STRING,      /* operand: u8 name index -- make a string from that text  */
+    OP_SYMBOL,      /* operand: u8 name index -- intern that text as a symbol  */
     OP_SEND,        /* operands: u8 name index, u8 argc -- send a message       */
     OP_SET_SLOT,    /* operand: u8 name index -- pop a value and an object, bind
                        the name on it, and leave the value                      */

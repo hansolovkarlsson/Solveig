@@ -107,6 +107,12 @@ static void render(SolVM *vm, SolValue value, SolText *out, int depth)
     case SOL_FLOAT: append_float(out, SOL_AS_FLOAT(value)); break;
     case SOL_BLOCK: sol_text_append(out, "<block>", 7); break;
     case SOL_DELEGATE: sol_text_append(out, "<delegate>", 10); break;
+    case SOL_SYMBOL: {
+        const SolSymbol *symbol = SOL_AS_SYMBOL(value);
+        sol_text_append(out, "'", 1);
+        sol_text_append(out, symbol->chars, symbol->length);
+        break;
+    }
     case SOL_STRING: {
         /* Rendered as it would be written, the way #45 renders as #45 -- which
            means putting the escapes back, or a string holding a quote would

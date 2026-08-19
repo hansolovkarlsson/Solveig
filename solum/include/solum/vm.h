@@ -66,6 +66,13 @@ struct SolVM {
     SolObject *array_class;
     SolObject *string_class;
     SolObject *object_class;
+    SolObject *symbol_class;
+
+    /* The intern table: buckets of symbols chained by `chain`. Weak, so being
+       here does not keep a symbol alive. */
+    SolSymbol **symbols;
+    int         symbol_capacity;
+    int         symbol_count;
 
     bool had_error;
 };

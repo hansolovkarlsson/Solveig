@@ -103,6 +103,85 @@ SolString *sol_string_new(SolVM *vm, const char *chars, int length)
     return string;
 }
 
+/* FNV-1a. Any decent spread will do; symbols are compared by pointer once
+   interned, so the hash only has to find the bucket. */
+static uint32_t hash_bytes(const char *chars, int length)
+{
+    uint32_t hash = 2166136261u;
+    for (int i = 0; i < length; i++) {
+        hash ^= (uint8_t)chars[i];
+        hash *= 16777619u;
+    }
+    return hash;
+}
+
+static void symbol_table_grow(SolVM *vm)
+{
+    int capacity = vm->symbol_capacity < 64 ? 64 : vm->symbol_capacity * 2;
+    SolSymbol **buckets = calloc((size_t)capacity, sizeof(SolSymbol *));
+    if (buckets == NULL) {
+        fprintf(stderr, "solvm: out of memory\n");
+        exit(1);
+    }
+    for (int i = 0; i < vm->symbol_capacity; i++) {
+        SolSymbol *symbol = vm->symbols[i];
+        while (symbol != NULL) {
+            SolSymbol *next = symbol->chain;
+            int slot = (int)(symbol->hash & (uint32_t)(capacity - 1));
+            symbol->chain = buckets[slot];
+            buckets[slot] = symbol;
+            symbol = next;
+        }
+    }
+    free(vm->symbols);
+    vm->symbols = buckets;
+    vm->symbol_capacity = capacity;
+}
+
+SolSymbol *sol_symbol_intern(SolVM *vm, const char *chars, int length)
+{
+    uint32_t hash = hash_bytes(chars, length);
+
+    if (vm->symbol_capacity > 0) {
+        int slot = (int)(hash & (uint32_t)(vm->symbol_capacity - 1));
+        for (SolSymbol *s = vm->symbols[slot]; s != NULL; s = s->chain) {
+            if (s->hash == hash && s->length == length &&
+                memcmp(s->chars, chars, (size_t)length) == 0) {
+                return s;                       /* the one that already exists */
+            }
+        }
+    }
+
+    sol_gc_maybe_collect(vm);
+
+    SolSymbol *symbol = malloc(sizeof(SolSymbol));
+    char *copy = malloc((size_t)length + 1);
+    if (symbol == NULL || copy == NULL) {
+        fprintf(stderr, "solvm: out of memory\n");
+        exit(1);
+    }
+    memcpy(copy, chars, (size_t)length);
+    copy[length] = '\0';
+
+    symbol->length = length;
+    symbol->hash = hash;
+    symbol->chars = copy;
+    symbol->chain = NULL;
+
+    sol_gc_register(vm, &symbol->gc, SOL_GC_SYMBOL,
+                    sizeof(SolSymbol) + (size_t)length + 1);
+
+    /* Collecting above may have emptied buckets, so the table is sized after. */
+    if (vm->symbol_count + 1 > vm->symbol_capacity - vm->symbol_capacity / 4) {
+        symbol_table_grow(vm);
+    }
+    int slot = (int)(hash & (uint32_t)(vm->symbol_capacity - 1));
+    symbol->chain = vm->symbols[slot];
+    vm->symbols[slot] = symbol;
+    vm->symbol_count++;
+    return symbol;
+}
+
 SolDelegate *sol_delegate_new(SolVM *vm, SolValue receiver, SolObject *start)
 {
     sol_gc_maybe_collect(vm);

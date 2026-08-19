@@ -147,7 +147,7 @@ See [examples/blocks.sol](examples/blocks.sol).
 
 Still to do:
 
-- [ ] symbols -- `'foo` still scans without a runtime type
+- [ ] reflection -- symbols exist to name things with, but nothing takes one
 - [ ] sorting -- strings and numbers order, but arrays have no `sort`
 
 ## License

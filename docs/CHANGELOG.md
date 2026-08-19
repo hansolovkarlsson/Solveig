@@ -8,6 +8,40 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### Symbols — `pending`, 2026-08-19
+
+**`.sob` goes to version 6.**
+
+```
+a := 'foo.
+"foo":asSymbol:equals('foo)      ; true  -- the very same symbol
+
+state := 'running.
+state:equals('running):ifElse({ "go" }, { "stop" }):display.
+```
+
+An interned name. Two symbols spelling the same thing are the *same* symbol, so
+equality is a pointer comparison rather than a walk over characters — which is
+the whole reason to have them apart from strings, a name being compared far more
+often than it is read. A symbol never equals a string; `asString` gives its name.
+
+**The intern table is weak, and that mattered more than memory.** Measured by
+disabling the pruning:
+
+| | 20,000 interned names |
+| --- | --- |
+| strong table | did not finish in 60 seconds |
+| weak table | instant, 1.7 MB |
+
+With a strong table every collection has to mark every symbol ever interned, so
+the work grows with the total rather than the live set. Pruning runs between
+marking and sweeping, so the table never names a cell the sweep is about to free
+— and there is a test that a kept symbol survives a collection *and* that
+re-interning afterwards finds the same one back.
+
+This also gives 4.3 its mechanism: interned names are exactly what selector
+dispatch wants instead of a `strcmp` per send.
+
 ### `asUppercase` and `asLowercase` — `91d413c`, 2026-08-19
 
 ```

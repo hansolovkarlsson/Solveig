@@ -88,7 +88,7 @@ is one statement, not two.
 | `"hello"` | string | see escapes below |
 | `[#1, #2]` | array | sugar for `array:of(#1, #2)` |
 | `{ #1 }` | block | code as a value |
-| `'foo` | symbol | **scans, but has no runtime type yet** |
+| `'foo` | symbol | an interned name; no closing quote |
 
 `#` marks an integer and its absence marks a float, so `#45` and `45` are
 different values of different types. There is no exponent on an integer, `#`
@@ -134,6 +134,7 @@ will surprise you: `integer`, `float`, `string`, `array`, `object`, `nil`,
 | float | `45.5` | IEEE-754 binary64, **immutable** |
 | string | `"hi"` | **immutable** |
 | array | `[#1]` | growable, **mutable** |
+| symbol | `'foo` | an interned name, **immutable** |
 | block | `{ #1 }` | code as a value |
 | object | `object:new` | slots plus a prototype, **mutable** |
 
@@ -449,6 +450,7 @@ Dividing by zero answers `infinity` rather than erring.
 | `asInteger` `asFloat` | strict: the whole string must be a number |
 | `asInteger(#n)` | reads base `n`, 2 to 36; the digits alone, no `0x` |
 | `asUppercase` `asLowercase` | a new string; ASCII letters only |
+| `asSymbol` | the interned symbol for these characters |
 | `asString` | itself |
 | `asString(spec)` | padded text; see the spec below |
 
@@ -490,6 +492,24 @@ padding comes from the spec by chaining:
 
 `collect` and `select` leave the receiver untouched. `select` is strict about the
 block answering a boolean.
+
+### symbol
+
+| Message | Answers |
+| --- | --- |
+| `size` | an integer |
+| `asString` | the name, as a string |
+
+`'foo` is an interned name: two symbols spelling the same thing are the same
+symbol, so `equals` is a pointer comparison. `"foo":asSymbol` finds the existing
+one. A symbol never equals a string.
+
+Useful as a tag where a string would be compared character by character:
+
+```
+state := 'running.
+state:equals('running):ifTrue({ "go":display }).
+```
 
 ### boolean
 
@@ -550,7 +570,7 @@ division by zero, undeclared names, and a block outliving its frame.
 | Strings | bytes, not characters: `size` counts bytes, `at` answers a byte, and `"café":size` is 5 |
 | Case | ASCII only, and by explicit range rather than the C locale |
 | Strings | no `\0`, no unicode escapes |
-| Symbols | `'foo` scans but has no runtime type |
+| Symbols | no reflection yet: nothing takes one to name a slot or a message |
 
 Collection is mark-and-sweep and stop-the-world. `SOLUM_GC_STRESS=1` collects on
 every allocation, which is how the collector is tested.
