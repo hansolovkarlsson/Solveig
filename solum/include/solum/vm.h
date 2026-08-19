@@ -82,6 +82,16 @@ SolValue sol_vm_pop(SolVM *vm);
 /* The object a message sent to `value` is resolved against. */
 SolObject *sol_vm_class_of(SolVM *vm, SolValue value);
 
+/* Sends `name` to `receiver` and answers the reply.
+ *
+ * For primitives that need to call back into the language -- `format` asking a
+ * value for its `asString`, so that an override is honoured rather than
+ * bypassed. Receiver and arguments are pushed onto the value stack for the
+ * duration, so everything stays rooted even if the send allocates. Sets the
+ * VM's error flag on failure. */
+SolValue sol_vm_send(SolVM *vm, SolValue receiver, const char *name,
+                     SolValue *args, int argc);
+
 /* Runs `block` to completion and returns its value. Primitives use this to
    invoke a block, which is how `ifTrue` and `whileTrue` work without the
    compiler knowing anything about them. Sets the VM's error flag on failure. */

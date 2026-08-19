@@ -838,6 +838,95 @@ static SolValue prim_string_concat(SolVM *vm, SolValue self, SolValue *args, int
     return result;
 }
 
+/* `"you have {} apples":format([n])`
+ *
+ * `{}` takes the next value, rendered by sending it `asString` -- a send rather
+ * than a direct call, so a type that overrides `asString` is honoured here too.
+ * `{{` writes a literal brace; a `{` that is neither is an error rather than a
+ * guess.
+ *
+ * `}` is never special and needs no escape, so `}}` is simply two of them. That
+ * differs from Python, where `}` closes a placeholder that may carry content;
+ * here a placeholder is exactly `{}`, so a lone `}` cannot be ambiguous and one
+ * escape rule is enough.
+ *
+ * Placeholders and values must match exactly. Too few values and too many are
+ * both errors: filling the gap with blanks, or dropping the extras, would turn a
+ * mistake into output that looks deliberate.
+ */
+static SolValue prim_string_format(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "format", argc, 1)) return SOL_NIL_VAL;
+    if (!SOL_IS_ARRAY(args[0])) {
+        sol_vm_runtime_error(vm, "'format' expects an array of values, got %s",
+                             sol_type_name(args[0]));
+        return SOL_NIL_VAL;
+    }
+
+    const SolString *format = SOL_AS_STRING(self);
+    SolArray *values = SOL_AS_ARRAY(args[0]);
+
+    /* The receiver and the array are on the value stack for this call, so both
+       stay rooted while `asString` runs and possibly allocates. The buffer is
+       plain C memory, invisible to the collector and needing nothing from it. */
+    SolText out;
+    sol_text_init(&out);
+    int used = 0;
+
+    for (int i = 0; i < format->length; ) {
+        char c = format->chars[i];
+        if (c != '{') {
+            sol_text_append(&out, &format->chars[i], 1);
+            i++;
+            continue;
+        }
+
+        if (i + 1 < format->length && format->chars[i + 1] == '{') {
+            sol_text_append(&out, "{", 1);
+            i += 2;
+            continue;
+        }
+
+        if (i + 1 < format->length && format->chars[i + 1] == '}') {
+            if (used == values->count) {
+                sol_vm_runtime_error(vm, "'format' has more placeholders than the "
+                                         "%d value%s given", values->count,
+                                     values->count == 1 ? "" : "s");
+                sol_text_free(&out);
+                return SOL_NIL_VAL;
+            }
+            SolValue text = sol_vm_send(vm, values->items[used], "asString", NULL, 0);
+            if (vm->had_error) { sol_text_free(&out); return SOL_NIL_VAL; }
+            if (!SOL_IS_STRING(text)) {
+                sol_vm_runtime_error(vm, "'asString' answered %s rather than a string",
+                                     sol_type_name(text));
+                sol_text_free(&out);
+                return SOL_NIL_VAL;
+            }
+            sol_text_append(&out, SOL_AS_STRING(text)->chars, SOL_AS_STRING(text)->length);
+            used++;
+            i += 2;
+            continue;
+        }
+
+        sol_vm_runtime_error(vm, "'format' expects '{}' or '{{' after a brace");
+        sol_text_free(&out);
+        return SOL_NIL_VAL;
+    }
+
+    if (used != values->count) {
+        sol_vm_runtime_error(vm, "'format' has %d placeholder%s but %d value%s given",
+                             used, used == 1 ? "" : "s",
+                             values->count, values->count == 1 ? "" : "s");
+        sol_text_free(&out);
+        return SOL_NIL_VAL;
+    }
+
+    SolValue result = string_from(vm, out.chars == NULL ? "" : out.chars, out.length);
+    sol_text_free(&out);
+    return result;
+}
+
 /* One-based, like an array: an index is an ordinal. Answers a one-character
    string, there being no character type of its own. */
 static SolValue prim_string_at(SolVM *vm, SolValue self, SolValue *args, int argc)
@@ -1030,6 +1119,7 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define_primitive(vm->string_class, "size",   prim_string_size);
     sol_object_define_primitive(vm->string_class, "concat", prim_string_concat);
     sol_object_define_primitive(vm->string_class, "at",     prim_string_at);
+    sol_object_define_primitive(vm->string_class, "format", prim_string_format);
     sol_object_define_primitive(vm->string_class, "asString",  prim_string_as_string);
     sol_object_define_primitive(vm->string_class, "asInteger", prim_string_as_integer);
     sol_object_define_primitive(vm->string_class, "asFloat",   prim_string_as_float);

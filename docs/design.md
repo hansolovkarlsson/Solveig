@@ -73,6 +73,10 @@ string must be a number and nothing else, so `" 45"` and `"45 "` are errors.
 `asString` answers plain text where `print` shows the literal form: `#45:asString`
 is `"45"`, while `#45:print` shows `#45`. Two different jobs, kept apart.
 
+`format` fills `{}` from an array, asking each value for its `asString` by
+sending it, so an override is honoured. Placeholders and values must match
+exactly in both directions.
+
 The line falls where representability does. Integer division by zero traps
 because there is no integer infinity; float division by zero answers one, because
 float multiplication already overflows to infinity where integer multiplication

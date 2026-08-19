@@ -41,3 +41,12 @@ string:shout := { self:concat("!!") }.
 "45":asInteger:print.        ; #45
 "2.5":asFloat:print.         ; 2.5
 ;   " 45":asInteger          ->  ' 45' is not an integer
+
+; format fills {} from an array, asking each value for its asString. That makes
+; a sentence readable where a chain of concat would not be.
+"you have {} apples and {} pears":format([#3, #4]):print.
+"{{ is a literal brace":format([]):print.
+
+; Placeholders and values must match exactly -- both too few and too many are
+; errors, so a mistake cannot pass as deliberate output.
+;   "{} and {}":format([#1])   ->  more placeholders than the 1 value given

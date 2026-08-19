@@ -313,35 +313,31 @@ invoking it, since a slot holding a block *is* a method, so there is no way to
 fetch a method as a value. All of these want symbols (2.7) or at least a
 string-keyed accessor.
 
-### 2.11 Formatted output — **decision**
-
-Building a sentence currently means a chain of `concat` and `asString`:
+### 2.11 Formatted output — **decided: placeholders and `format`**
 
 ```
-"you have ":concat(n:asString):concat(" apples"):print.
+"you have {} apples and {} pears":format([#3, #4]).
 ```
 
-That is workable for two pieces and unreadable for five. Something is needed;
-what it should be is open.
+`{}` takes the next value and renders it by **sending** it `asString`, so a type
+that overrides `asString` is honoured rather than bypassed. `{{` writes a literal
+brace.
 
-- **Placeholders filled from an array**, `"you have {} apples":format([n])`. Needs
-  no new syntax and no type rules, since every value already answers `asString`.
-  Reads well, and the array literal makes the arguments obvious. An escape for a
-  literal `{` is the only wrinkle.
-- **printf-style**, `"you have %d apples":format([n])`. Familiar, and under strict
-  typing the conversion can be checked against the argument at run time rather
-  than trusted. But it asks the writer to know `%d` from `%s` for no gain the
-  first option lacks.
-- **Interpolation in the literal**, `"you have {n} apples"`. Shortest to write and
-  the worst fit: it makes a string literal capture names from its surroundings,
-  which is exactly the kind of action-at-a-distance the language has avoided.
+Placeholders and values must match exactly; too few and too many are both errors.
+Filling a gap with blanks, or dropping the extras, would turn a mistake into
+output that looks deliberate.
 
-Whether it is spelled `format` on a string, or `print` gaining an argument, is
-the second half of the question. A separate message keeps `print` meaning one
-thing, and lets the formatted text be used without printing it.
+`}` is never special and needs no escape, so `}}` is two of them. That differs
+from Python, where `}` closes a placeholder that may carry content -- here a
+placeholder is exactly `{}`, so a lone `}` cannot be ambiguous and one escape
+rule is enough.
 
-I would take placeholders and a `format` message, with `printOn`-style variants
-left until there is a reason.
+Kept as a separate message rather than an argument to `print`, so `print` goes on
+meaning one thing and the formatted text can be used without printing it.
+
+This needed `sol_vm_send`, so a primitive can call back into the language. That
+is also what 5.2 wants, to make the default `print` on an object send `print` to
+it rather than showing an address.
 
 ## 3. Known limitations
 
@@ -457,6 +453,11 @@ the truncation.
 
 ### 5.2 `print` on an object dumps its address
 
+Now unblocked: `sol_vm_send` exists, added for `format`, so the renderer could
+send `asString` to an object rather than printing its pointer. The wrinkle is
+that rendering happens in `value.c`, which knows nothing of the VM, so the seam
+needs moving rather than just filling in.
+
 `sol_value_print` prints `<object 0x...>` instead of sending `print` to the
 object. Wants dispatch from inside the printer, or a `printOn:`-style protocol.
 
@@ -483,23 +484,20 @@ text would make compile errors considerably more useful.
 Section 1 is now empty: the things standing between this and a language you
 could write a real program in are all built. What is left is filling it out.
 
-1. **Formatted output** (2.11) — needs a decision first. Building a sentence is
-   a chain of `concat` and `asString`, which is workable for two pieces and
-   unreadable for five.
-2. **Float exponents** (2.6) and **float text round-tripping** (5.3), which are
+1. **Float exponents** (2.6) and **float text round-tripping** (5.3), which are
    really one job: a float cannot currently be written, printed, or parsed back
    at the extremes.
-3. **String escapes** (1.3) — a string still cannot contain a quote.
-4. **A better default `print`** (5.2) — now that user objects exist, showing an
-   address is the roughest edge a newcomer meets.
-5. Everything else as it starts to hurt.
+2. **String escapes** (1.3) — a string still cannot contain a quote.
+3. **A better default `print`** (5.2) — the roughest edge a newcomer meets, and
+   now unblocked by `sol_vm_send`.
+4. Everything else as it starts to hurt.
 
 Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), arrays entire
 (1.2, 1.2a, 1.2b), strings (1.3), user-defined objects (1.4), division (2.1),
-calling the method you override (2.9), and the missing operations (2.8).
+calling the method you override (2.9), the missing operations (2.8), and
+formatted output (2.11).
 
-Still waiting on a call from you: **formatted output** (2.11) and the
-**statement terminator** (2.2).
+Still waiting on a call from you: the **statement terminator** (2.2).
 
 Still waiting on a call from you: **division** (2.1) and the **statement
 terminator** (2.2). Neither blocks anything above it.

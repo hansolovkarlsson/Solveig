@@ -203,8 +203,95 @@ static void test_composite_as_string(void)
     sol_vm_free(&vm);
 }
 
+static void test_format(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "a := \"you have {} apples and {} pears\":format([#3, #4])."
+        "b := \"{}\":format([\"hi\"])."
+        "c := \"none\":format([])."
+        "d := \"{} and {} and {}\":format([#1, 2.5, true])."
+        "e := \"\":format([]).") == SOL_OK);
+    assert(is_text(global(&vm, "a"), "you have 3 apples and 4 pears"));
+    assert(is_text(global(&vm, "b"), "hi"));
+    assert(is_text(global(&vm, "c"), "none"));
+    assert(is_text(global(&vm, "d"), "1 and 2.5 and true"));
+    assert(is_text(global(&vm, "e"), ""));
+    sol_chunk_free(&chunk);
+
+    /* `{{` writes a brace; a `{` that is neither `{}` nor `{{` is a mistake.
+       `}` is never special, so it needs no escape and `}}` is two of them --
+       unlike Python, where `}` closes a placeholder that can have content. Here
+       a placeholder is exactly `{}`, so a lone `}` cannot be ambiguous. */
+    assert(run(&vm, &chunk,
+        "a := \"{{} literal\":format([])."
+        "b := \"{{}}\":format([])."
+        "c := \"} alone\":format([]).") == SOL_OK);
+    assert(is_text(global(&vm, "a"), "{} literal"));
+    assert(is_text(global(&vm, "b"), "{}}"));
+    assert(is_text(global(&vm, "c"), "} alone"));
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
+/* Both directions of mismatch are errors: filling gaps or dropping extras would
+   turn a mistake into output that looks deliberate. */
+static void test_format_counts_must_match(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    const char *bad[] = {
+        "\"{} and {}\":format([#1]).",        /* too few values */
+        "\"{}\":format([#1, #2]).",           /* too many */
+        "\"{}\":format([]).",
+        "\"none\":format([#1]).",
+        "\"a { b\":format([]).",              /* a brace that is neither form */
+        "\"trailing {\":format([]).",
+        "\"{}\":format(#1).",                 /* not an array */
+        "\"{}\":format().",
+    };
+    for (size_t i = 0; i < sizeof bad / sizeof bad[0]; i++) {
+        assert(run(&vm, &chunk, bad[i]) == SOL_RUNTIME_ERROR);
+        sol_chunk_free(&chunk);
+    }
+
+    sol_vm_free(&vm);
+}
+
+/* format asks each value for its asString by sending it, so a type that
+   overrides asString is honoured rather than bypassed. */
+static void test_format_honours_an_overridden_as_string(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "point := object:new."
+        "point:x := #0."
+        "point:asString := { \"point(\":concat(self:x:asString):concat(\")\") }."
+        "p := point:new. p:x := #7."
+        "r := \"the answer is {}\":format([p]).") == SOL_OK);
+    assert(is_text(global(&vm, "r"), "the answer is point(7)"));
+    sol_chunk_free(&chunk);
+
+    /* An asString that answers something else is caught, not concatenated. */
+    assert(run(&vm, &chunk,
+        "bad := object:new. bad:asString := { #1 }."
+        "\"{}\":format([bad:new]).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
 int main(void)
 {
+    test_format();
+    test_format_counts_must_match();
+    test_format_honours_an_overridden_as_string();
     test_and_or_short_circuit();
     test_ordering();
     test_string_ordering();

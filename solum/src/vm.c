@@ -442,6 +442,46 @@ static SolResult run_frames(SolVM *vm, int base)
 #undef READ_BYTE
 }
 
+SolValue sol_vm_send(SolVM *vm, SolValue receiver, const char *name,
+                     SolValue *args, int argc)
+{
+    SolObject *target = sol_vm_class_of(vm, receiver);
+    SolSlot *slot = target ? sol_object_lookup(target, name) : NULL;
+    if (slot == NULL) {
+        sol_vm_runtime_error(vm, "%s does not understand '%s'",
+                             sol_type_name(receiver), name);
+        return SOL_NIL_VAL;
+    }
+    if (vm->stack_top + argc + 1 > vm->stack + SOL_STACK_MAX) {
+        sol_vm_runtime_error(vm, "stack overflow");
+        return SOL_NIL_VAL;
+    }
+
+    /* Laid out exactly as OP_SEND would, so everything below behaves the same
+       and the arguments are rooted for the duration. */
+    SolValue *base = vm->stack_top;
+    *vm->stack_top++ = receiver;
+    for (int i = 0; i < argc; i++) *vm->stack_top++ = args[i];
+
+    SolValue result = SOL_NIL_VAL;
+
+    if (SOL_IS_BLOCK(slot->value)) {
+        SolBlock *block = SOL_AS_BLOCK(slot->value);
+        int frame_base = vm->frame_count;
+        if (push_frame(vm, block->code, argc, block->home_frame, block->home_id)) {
+            if (run_frames(vm, frame_base) == SOL_OK) result = sol_vm_pop(vm);
+            vm->frame_count = frame_base;
+        }
+    } else if (slot->primitive != NULL) {
+        result = slot->primitive(vm, receiver, base + 1, argc);
+    } else {
+        result = slot->value;
+    }
+
+    vm->stack_top = base;
+    return result;
+}
+
 SolResult sol_vm_run(SolVM *vm, const SolChunk *chunk)
 {
     vm->had_error = false;

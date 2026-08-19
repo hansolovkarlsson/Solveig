@@ -8,6 +8,33 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### Formatted output — `pending`, 2026-08-19
+
+```
+"you have {} apples and {} pears":format([#3, #4]).
+```
+
+`{}` takes the next value and renders it by **sending** it `asString`, so a type
+that overrides `asString` is honoured rather than bypassed:
+
+```
+point:asString := { "point(":concat(self:x:asString):concat(")") }.
+"the answer is {}":format([p]).        ; "the answer is point(7)"
+```
+
+- **Both directions of mismatch are errors.** Too few values and too many are
+  each reported with the counts. Filling a gap with blanks, or dropping extras,
+  would turn a mistake into output that looks deliberate.
+- `{{` writes a literal brace. `}` is never special and needs no escape, so `}}`
+  is two of them — unlike Python, where `}` closes a placeholder that can carry
+  content. Here a placeholder is exactly `{}`, so one escape rule is enough.
+- Kept as its own message rather than an argument to `print`, so `print` goes on
+  meaning one thing and the text can be used without printing it.
+
+This needed **`sol_vm_send`**, a way for a primitive to call back into the
+language. That also unblocks a better default `print` (5.2), which wants to send
+`print` to an object rather than showing its address.
+
 ### The remaining operations — `7ac6be6`, 2026-08-19
 
 ```
