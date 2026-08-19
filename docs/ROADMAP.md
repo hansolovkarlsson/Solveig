@@ -96,7 +96,7 @@ rebinding that name moves both spellings together. They cannot drift apart,
 which is the point. Capped at 255 elements by `OP_SEND`'s one-byte argument
 count (4.2).
 
-#### 1.2a Temporary roots, finally needed — was 1.1c
+#### 1.2a Temporary roots, finally needed — **done**
 
 `sol_gc_push_temp` / `sol_gc_pop_temp` exist and Solis uses them. Arrays are what
 force them into primitives, and precisely which ones is worth being exact about:
@@ -104,11 +104,18 @@ force them into primitives, and precisely which ones is worth being exact about:
 - `do` does not need them, and now that it exists this is confirmed rather than
   predicted: the array is the receiver, so it is on the stack and rooted for the
   whole call.
-- `collect` and `select` do. They allocate a result array, then call a block per
-  element -- and that block can allocate. The result is held only in a C local
-  across those calls, which is exactly the case the tracer cannot see.
+- `collect` and `select` do, and this turned out to be load-bearing rather than
+  cautious. Removing the root and running under `SOLUM_GC_STRESS=1` with ASan
+  turns the loop into a heap-use-after-free in `sol_array_add`: the result array
+  is swept while it is still being filled.
 
-Build them with whichever of those lands first.
+`select` appends each element to the result *before* testing it, winding the
+count back when the block rejects it. Otherwise the element would live only in a
+C local while the block ran, and a block that replaced it in the source would
+leave nothing pointing at it.
+
+`sol_gc_push_temp` / `sol_gc_pop_temp` are now exercised by real code rather than
+only by Solis.
 
 ### 1.3 Strings
 
@@ -331,9 +338,7 @@ text would make compile errors considerably more useful.
 
 ## Suggested order
 
-1. **Finish arrays** — `collect` and `select` (1.2a). Small, and they are what
-   finally exercises the temporary-root mechanism, which strings will need next.
-2. **Strings** (1.3) — simpler for having waited, and the point at which `.sob`
+1. **Strings** (1.3) — simpler for having waited, and the point at which `.sob`
    gains a constant tag.
 3. **User-defined classes** (1.4) — more useful now that there is somewhere to
    keep a collection of instances.

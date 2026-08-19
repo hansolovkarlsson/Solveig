@@ -349,8 +349,116 @@ static void test_literal_errors(void)
     sol_vm_free(&vm);
 }
 
+static void test_collect(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "xs := [#1, #2, #3, #4]."
+        "sq := xs:collect({ x | x:mul(x) })."
+        "a := sq:at(#1). d := sq:at(#4). n := sq:size."
+        "untouched := xs:at(#2)."
+        "shared := sq:equals(xs).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "a")) == 1);
+    assert(SOL_AS_INT(global(&vm, "d")) == 16);
+    assert(SOL_AS_INT(global(&vm, "n")) == 4);
+    assert(SOL_AS_INT(global(&vm, "untouched")) == 2);   /* the source is not changed */
+    assert(SOL_AS_BOOL(global(&vm, "shared")) == false); /* nor is it reused */
+    sol_chunk_free(&chunk);
+
+    assert(run(&vm, &chunk, "n := []:collect({ x | x }):size.") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "n")) == 0);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
+static void test_select(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "xs := [#1, #2, #3, #4, #5]."
+        "big := xs:select({ x | x:greaterThan(#2) })."
+        "n := big:size. first := big:at(#1). last := big:at(#3).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "n")) == 3);
+    assert(SOL_AS_INT(global(&vm, "first")) == 3);
+    assert(SOL_AS_INT(global(&vm, "last")) == 5);
+    sol_chunk_free(&chunk);
+
+    /* Keeping none and keeping all are the two ends of the count-rewind. */
+    assert(run(&vm, &chunk,
+        "xs := [#1, #2, #3]."
+        "none := xs:select({ x | false }):size."
+        "all := xs:select({ x | true }):size.") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "none")) == 0);
+    assert(SOL_AS_INT(global(&vm, "all")) == 3);
+    sol_chunk_free(&chunk);
+
+    /* Strict, like whileTrue: the block has to answer a boolean. */
+    assert(run(&vm, &chunk, "[#1]:select({ x | #1 }).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+
+    assert(run(&vm, &chunk, "[#1]:select(#2).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
+static void test_collect_and_select_chain(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "r := [#1, #2, #3, #4, #5]"
+        "     :collect({ x | x:mul(#2) })"
+        "     :select({ x | x:lessThan(#7) })."
+        "n := r:size. last := r:at(#3).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "n")) == 3);
+    assert(SOL_AS_INT(global(&vm, "last")) == 6);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+}
+
+/* The result array is reachable only from a C local while the block runs, so it
+   needs a temporary root. Without one, a block that allocates gets the result
+   swept out from under it -- confirmed by removing the root and watching this
+   become a use-after-free under GC stress. */
+static void test_result_survives_an_allocating_block(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    vm.gc_stress = true;                 /* collect on every allocation */
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "xs := [#1, #2, #3, #4, #5, #6]."
+        "r := xs:collect({ x | [x, x] })."
+        "n := r:size. inner := r:at(#6):at(#1).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "n")) == 6);
+    assert(SOL_AS_INT(global(&vm, "inner")) == 6);
+    sol_chunk_free(&chunk);
+
+    assert(run(&vm, &chunk,
+        "xs := [#1, #2, #3, #4, #5, #6]."
+        "s := xs:select({ x | { x:greaterThan(#3) }:value() })."
+        "n := s:size. first := s:at(#1).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "n")) == 3);
+    assert(SOL_AS_INT(global(&vm, "first")) == 4);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
 int main(void)
 {
+    test_collect();
+    test_select();
+    test_collect_and_select_chain();
+    test_result_survives_an_allocating_block();
     test_literal_is_the_same_bytecode();
     test_literals();
     test_each_evaluation_builds_a_fresh_array();

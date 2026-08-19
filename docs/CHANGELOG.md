@@ -8,6 +8,28 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### collect and select — `pending`, 2026-08-19
+
+```
+[#1, #2, #3, #4, #5]:collect({ x | x:mul(x) }).      ; [#1, #4, #9, #16, #25]
+[#1, #2, #3, #4, #5]:select({ x | x:greaterThan(#2) }).  ; [#3, #4, #5]
+```
+
+Both answer a new array and leave the receiver alone, so they chain into a
+pipeline that reads left to right.
+
+These are the first primitives to need a **temporary root**, and it turned out to
+be load-bearing rather than cautious. They allocate a result array and then call
+a block per element, and a block can allocate; between calls the result is
+reachable only from a C local. Removing the root and running under
+`SOLUM_GC_STRESS=1` with ASan turns the loop into a heap-use-after-free in
+`sol_array_add` — the result is swept while it is still being filled.
+
+`select` appends each element *before* testing it and winds the count back on
+rejection, so the element is never held only in a C local across a block call.
+
+`select` is strict about its block answering a boolean, as `whileTrue` is.
+
 ### Array literals — `63749ee`, 2026-08-19
 
 ```

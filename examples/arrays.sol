@@ -46,3 +46,16 @@ integer:upto := { | out, i |
 }.
 
 #8:upto:print.               ; [#1, #2, #3, #4, #5, #6, #7, #8]
+
+; collect answers a new array of the block's results; select answers the
+; elements the block accepted. Neither changes the array it was sent to.
+squares := [#1, #2, #3, #4, #5]:collect({ x | x:mul(x) }).
+squares:print.               ; [#1, #4, #9, #16, #25]
+
+[#1, #2, #3, #4, #5]:select({ x | x:greaterThan(#2) }):print.   ; [#3, #4, #5]
+
+; They chain, so a pipeline reads left to right.
+#10:upto
+    :collect({ x | x:mul(x) })
+    :select({ x | x:lessThan(#30) })
+    :print.                  ; [#1, #4, #9, #16, #25]

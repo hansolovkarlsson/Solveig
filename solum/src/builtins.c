@@ -325,6 +325,81 @@ static SolValue prim_array_do(SolVM *vm, SolValue self, SolValue *args, int argc
     return self;
 }
 
+/* `collect` and `select` are the first primitives to need a temporary root.
+ *
+ * `do` does not: its array is the receiver, so it sits on the value stack and is
+ * rooted for the whole call. These two allocate a *result* array and then call a
+ * block per element -- and a block can allocate. Between those calls the result
+ * is reachable only from a C local, which the collector cannot see, so without
+ * the root a collection mid-loop would sweep the very array being built.
+ */
+static SolValue prim_array_collect(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "collect", argc, 1)) return SOL_NIL_VAL;
+
+    SolArray *source = SOL_AS_ARRAY(self);
+    SolArray *result = sol_array_new(vm, source->count);
+    sol_gc_push_temp(vm, &result->gc);
+
+    /* Bounded once and re-read each pass, as `do` is: the block may grow the
+       source and move its backing store. */
+    int limit = source->count;
+    for (int i = 0; i < limit; i++) {
+        if (i >= source->count) break;
+
+        SolValue mapped = sol_vm_call_block(vm, args[0], &source->items[i], 1);
+        if (vm->had_error) {
+            sol_gc_pop_temp(vm);
+            return SOL_NIL_VAL;
+        }
+        /* Nothing allocates between the block returning and this, so `mapped`
+           does not need rooting of its own. */
+        sol_array_add(vm, result, mapped);
+    }
+
+    sol_gc_pop_temp(vm);
+    return SOL_ARRAY_VAL(result);
+}
+
+static SolValue prim_array_select(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "select", argc, 1)) return SOL_NIL_VAL;
+
+    SolArray *source = SOL_AS_ARRAY(self);
+    SolArray *result = sol_array_new(vm, 0);
+    sol_gc_push_temp(vm, &result->gc);
+
+    int limit = source->count;
+    for (int i = 0; i < limit; i++) {
+        if (i >= source->count) break;
+
+        SolValue element = source->items[i];
+
+        /* Appended before the test rather than after it. The element would
+           otherwise live only in a C local while the block runs, and a block
+           that replaced it in the source would leave nothing else pointing at
+           it. Held in the result, it is rooted; a rejected one is dropped by
+           winding the count back. */
+        sol_array_add(vm, result, element);
+
+        SolValue keep = sol_vm_call_block(vm, args[0], &element, 1);
+        if (vm->had_error) {
+            sol_gc_pop_temp(vm);
+            return SOL_NIL_VAL;
+        }
+        if (!SOL_IS_BOOL(keep)) {
+            sol_vm_runtime_error(vm, "select expects the block to answer a boolean, "
+                                     "got %s", sol_type_name(keep));
+            sol_gc_pop_temp(vm);
+            return SOL_NIL_VAL;
+        }
+        if (!SOL_AS_BOOL(keep)) result->count--;
+    }
+
+    sol_gc_pop_temp(vm);
+    return SOL_ARRAY_VAL(result);
+}
+
 /* ---- installation ---------------------------------------------------- */
 
 void sol_builtins_install(SolVM *vm)
@@ -376,7 +451,9 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define_primitive(vm->array_class, "at",     prim_array_at);
     sol_object_define_primitive(vm->array_class, "at_put", prim_array_at_put);
     sol_object_define_primitive(vm->array_class, "add",    prim_array_add);
-    sol_object_define_primitive(vm->array_class, "do",     prim_array_do);
+    sol_object_define_primitive(vm->array_class, "do",      prim_array_do);
+    sol_object_define_primitive(vm->array_class, "collect", prim_array_collect);
+    sol_object_define_primitive(vm->array_class, "select",  prim_array_select);
     sol_object_define_primitive(vm->array_class, "print",  prim_print);
     sol_object_define_primitive(vm->array_class, "equals", prim_equals);
 
