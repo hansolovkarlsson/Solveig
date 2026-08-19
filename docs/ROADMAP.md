@@ -378,40 +378,34 @@ it rather than showing an address.
 These are deliberate, safe, and documented. Each is a real restriction rather
 than a bug.
 
-### 2.12 Formatting a single value — **decision**
+### 2.12 Formatting a single value — **done**
 
-`fill` places a value into a template; nothing yet controls how the value itself
-is written. There is no way to ask for two decimal places, or a width to pad to.
+An optional spec argument to `asString`:
 
-The shape is settled: it goes as an argument to the existing string conversion,
-`45.8:asString("-5.2")`, rather than as a separate `format` message. One message
-answers "the text of this value", optionally refined, so there is no second
-message to drift from it -- the same reasoning that made `notEquals` the negation
-of `equals` rather than its own implementation.
+```
+[align] ['0'] [width] ['.' decimals]
 
-Two things follow from that choice, and both are fine:
+45.8:asString("6.2")     ->  " 45.80"
+45.8:asString("08.2")    ->  "00045.80"
+"ab":asString(">6")      ->  "    ab"
+```
 
-- Selectors carry no arity, so `asString` and `asString(spec)` are one slot. A
-  built-in primitive can take either; a user-defined `asString` has the arity it
-  was written with, and asking for a spec it does not accept is an arity error.
-  A spec on a user's own type is meaningless unless they opt in, so that is the
-  right default.
-- `array:of` and `block:value` are already variadic, so a message accepting
-  either count is not a new idea here.
+Smaller than printf on purpose. **No conversion letter** -- the receiver knows
+its own type, so there is nothing that could contradict it. **No sign mode** -- a
+leading space for a positive number falls out of the width, since numbers align
+right, which removed a whole mode from the design.
 
-**What is open is the spec language**, and it wants a decision before any of it
-is built:
+Numbers align right and text aligns left by default; `<`, `>`, `^` override.
+Decimals belong to floats, and asking an integer, a string, a boolean, or an
+array for them is an error rather than a no-op. Zero fill must align right, since
+padding a number on the left with zeros would change what it says, and the zeros
+go after any sign so `-45` in width 6 is `-00045`. A value wider than the width
+is never cut: losing digits would be worse than a ragged column.
 
-- **Syntax.** printf-like (`"%-5.2f"`), or the conversion implied by the receiver
-  and only the shape given (`"-5.2"`)? The second is shorter and cannot disagree
-  with the type it is applied to, which suits a strict language; it also has no
-  established meaning, so it has to be documented rather than recognised.
-- **What the parts mean.** Width, precision, alignment, sign handling, fill
-  character, thousands separator -- which of these exist, and in what order.
-- **Strictness.** Is `#45:asString("5.2")` an error, a precision on an integer
-  meaning nothing? The rest of the language says yes.
-- **Scope.** Numbers only, or does `"abc":asString("10")` pad a string, and
-  `true:asString("5")` a boolean?
+No argument means what it always meant, so `display`, `fill`, and array rendering
+are untouched.
+
+Still open, and small: a thousands separator, and a way to ask for exponent form.
 
 ### 3.1 Capturing blocks cannot escape their frame
 

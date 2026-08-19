@@ -375,6 +375,25 @@ string.
 
 `print`, `display`, `asString`, `equals`, `notEquals`.
 
+`asString` takes an optional format spec:
+
+```
+[align] ['0'] [width] ['.' decimals]
+
+45.8:asString("6.2")     ; " 45.80"
+45.8:asString("08.2")    ; "00045.80"
+#45:asString("<6")       ; "45    "
+"ab":asString(">6")      ; "    ab"
+```
+
+`<` `>` `^` align left, right, centre. Numbers align right by default and text
+left. Decimals belong to floats; asking anything else for them is an error. Zero
+fill must align right and goes after any sign, so `#-45:asString("06")` is
+`-00045`. A value wider than the width is never cut.
+
+With no argument it answers the plain text, which is what `display`, `fill`, and
+array rendering ask for.
+
 `equals` compares characters for strings and identity for arrays, blocks, and
 objects.
 
@@ -420,6 +439,7 @@ Dividing by zero answers `infinity` rather than erring.
 | `lessOrEqual(s)` `greaterOrEqual(s)` | a boolean |
 | `asInteger` `asFloat` | strict: the whole string must be a number |
 | `asString` | itself |
+| `asString(spec)` | padded text; see the spec below |
 
 `fill` puts the array's values into the `{}` blanks, rendering each by sending
 it `asString`. `{{`

@@ -8,6 +8,42 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### Format specs — `pending`, 2026-08-19
+
+`asString` takes an optional spec:
+
+```
+[align] ['0'] [width] ['.' decimals]
+
+45.8:asString("6.2")     ; " 45.80"
+45.8:asString("08.2")    ; "00045.80"
+#-45:asString("06")      ; "-00045"
+"ab":asString(">6")      ; "    ab"
+
+row := { n, v | "{}{}":fill([n:asString("<8"), v:asString("8.2")]) }.
+row:value("apples", 3.5).     ; apples      3.50
+row:value("pears", 12.25).    ; pears      12.25
+```
+
+Deliberately smaller than printf:
+
+- **No conversion letter.** The receiver knows its own type, so there is nothing
+  that could contradict it.
+- **No sign mode.** A leading space for a positive number falls out of the width,
+  numbers aligning right — which removed a whole mode from the design.
+- Numbers align right and text aligns left; `<` `>` `^` override.
+- Decimals belong to floats. Asking an integer, string, boolean, or array for
+  them is an error rather than a no-op.
+- Zero fill must align right — padding a number on the left with zeros would
+  change what it says — and goes after any sign.
+- A value wider than the width is never cut. Losing digits would be worse than a
+  ragged column.
+
+Put on `asString` rather than a separate `format` message, so one message answers
+"the text of this value" and there is no second one to drift from it. **No
+argument means what it always meant**, so `display`, `fill`, and array rendering
+are untouched.
+
 ### `format` is now `fill` — `4a70ef0`, 2026-08-19
 
 **Breaking: `"...":format([...])` is now `"...":fill([...])`.**

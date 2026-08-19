@@ -286,24 +286,179 @@ static SolValue prim_float_mod(SolVM *vm, SolValue self, SolValue *args, int arg
 
 /* ---- conversions -------------------------------------------------------- */
 
+static SolValue string_from(SolVM *vm, const char *text, int length)
+{
+    return SOL_STRING_VAL(sol_string_new(vm, text, length));
+}
+
+
+/* A format spec, the optional argument to `asString`.
+ *
+ *     [align] ['0'] [width] ['.' decimals]
+ *
+ *     "8"      width 8, aligned the way the type prefers
+ *     "<8"     width 8, left
+ *     "^11"    width 11, centred
+ *     "08.2"   width 8, two decimals, zero-filled
+ *     ".2"     two decimals, no padding
+ *
+ * Deliberately smaller than printf. There is no conversion letter, the receiver
+ * being the thing that knows its own type, and no sign mode: a leading space for
+ * positive numbers falls out of the width, since numbers align right. Fewer
+ * modes to learn, and none that can contradict the value it is applied to.
+ *
+ * Decimals belong to floats. Width, alignment, and fill are applied to whatever
+ * text the value produces, so they work the same everywhere.
+ */
+#define SOL_SPEC_MAX_WIDTH 1024
+
+typedef struct {
+    char align;        /* '<', '>', '^', or 0 for the type's own preference */
+    bool zero_fill;
+    int  width;
+    int  decimals;     /* -1 when the spec did not ask */
+} SolSpec;
+
+static bool spec_parse(SolVM *vm, const SolString *text, SolSpec *out)
+{
+    out->align = 0;
+    out->zero_fill = false;
+    out->width = 0;
+    out->decimals = -1;
+
+    int i = 0;
+    const char *s = text->chars;
+    int n = text->length;
+
+    if (i < n && (s[i] == '<' || s[i] == '>' || s[i] == '^')) out->align = s[i++];
+
+    if (i < n && s[i] == '0') {
+        /* Zero fill only makes sense pushing digits right; padding a number on
+           the left with zeros would change what it says. */
+        if (out->align != 0 && out->align != '>') {
+            sol_vm_runtime_error(vm, "a zero-filled format must align right");
+            return false;
+        }
+        out->zero_fill = true;
+        out->align = '>';
+        i++;
+    }
+
+    while (i < n && s[i] >= '0' && s[i] <= '9') {
+        out->width = out->width * 10 + (s[i++] - '0');
+        if (out->width > SOL_SPEC_MAX_WIDTH) {
+            sol_vm_runtime_error(vm, "a format width may not exceed %d",
+                                 SOL_SPEC_MAX_WIDTH);
+            return false;
+        }
+    }
+
+    if (i < n && s[i] == '.') {
+        i++;
+        out->decimals = 0;
+        int digits = 0;
+        while (i < n && s[i] >= '0' && s[i] <= '9') {
+            out->decimals = out->decimals * 10 + (s[i++] - '0');
+            digits++;
+        }
+        if (digits == 0 || out->decimals > 40) {
+            sol_vm_runtime_error(vm, "'%s' is not a usable number of decimals",
+                                 text->chars);
+            return false;
+        }
+    }
+
+    if (i != n) {
+        sol_vm_runtime_error(vm, "'%s' is not a format spec; expected "
+                                 "[align][0][width][.decimals]", text->chars);
+        return false;
+    }
+    return true;
+}
+
+/* Reads the optional spec argument. No argument means the plain text, which is
+   what `display`, `fill`, and array rendering all ask for. */
+static bool spec_from_args(SolVM *vm, SolValue *args, int argc, SolSpec *out)
+{
+    out->align = 0;
+    out->zero_fill = false;
+    out->width = 0;
+    out->decimals = -1;
+
+    if (argc == 0) return true;
+    if (argc != 1) {
+        sol_vm_runtime_error(vm, "'asString' takes no argument or one, got %d", argc);
+        return false;
+    }
+    if (!SOL_IS_STRING(args[0])) {
+        sol_vm_runtime_error(vm, "'asString' expects a format spec string, got %s",
+                             sol_type_name(args[0]));
+        return false;
+    }
+    return spec_parse(vm, SOL_AS_STRING(args[0]), out);
+}
+
+/* Pads `text` to the spec's width. A value wider than the width is never cut --
+   losing digits would be worse than a ragged column. Zero fill goes after any
+   sign, so -45 in width 6 is -00045 rather than 000-45. */
+static SolValue spec_apply(SolVM *vm, const char *text, int length,
+                           const SolSpec *spec, char preferred)
+{
+    if (length >= spec->width) return string_from(vm, text, length);
+
+    char align = spec->align != 0 ? spec->align : preferred;
+    int pad = spec->width - length;
+    char fill = spec->zero_fill ? '0' : ' ';
+
+    SolText out;
+    sol_text_init(&out);
+
+    if (align == '<') {
+        sol_text_append(&out, text, length);
+        for (int i = 0; i < pad; i++) sol_text_append(&out, &fill, 1);
+    } else if (align == '^') {
+        int left = pad / 2;
+        for (int i = 0; i < left; i++) sol_text_append(&out, &fill, 1);
+        sol_text_append(&out, text, length);
+        for (int i = 0; i < pad - left; i++) sol_text_append(&out, &fill, 1);
+    } else if (spec->zero_fill && length > 0 && (text[0] == '-' || text[0] == '+')) {
+        sol_text_append(&out, text, 1);
+        for (int i = 0; i < pad; i++) sol_text_append(&out, &fill, 1);
+        sol_text_append(&out, text + 1, length - 1);
+    } else {
+        for (int i = 0; i < pad; i++) sol_text_append(&out, &fill, 1);
+        sol_text_append(&out, text, length);
+    }
+
+    SolValue result = string_from(vm, out.chars, out.length);
+    sol_text_free(&out);
+    return result;
+}
+
+/* Decimals are a float's business; asking an integer or a string for them is a
+   mistake rather than a no-op. */
+static bool spec_rejects_decimals(SolVM *vm, const SolSpec *spec, const char *what)
+{
+    if (spec->decimals < 0) return false;
+    sol_vm_runtime_error(vm, "decimals mean nothing for %s", what);
+    return true;
+}
+
 /* `asString` answers the plain text of a value, where `print` shows the literal
  * form. `#45:asString` is "45", not "#45", because the point of it is to build
  * text -- "you have ":concat(n:asString) should not read "you have #45". The two
  * are deliberately different jobs, the way Smalltalk separates displayString
  * from printString.
  */
-static SolValue string_from(SolVM *vm, const char *text, int length)
-{
-    return SOL_STRING_VAL(sol_string_new(vm, text, length));
-}
-
 static SolValue prim_integer_as_string(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
-    (void)args;
-    if (!check_argc(vm, "asString", argc, 0)) return SOL_NIL_VAL;
+    SolSpec spec;
+    if (!spec_from_args(vm, args, argc, &spec)) return SOL_NIL_VAL;
+    if (spec_rejects_decimals(vm, &spec, "an integer")) return SOL_NIL_VAL;
+
     char buffer[32];
     int n = snprintf(buffer, sizeof buffer, "%lld", (long long)SOL_AS_INT(self));
-    return string_from(vm, buffer, n);
+    return spec_apply(vm, buffer, n, &spec, '>');   /* numbers align right */
 }
 
 /* A float's plain form and its literal form are the same -- there is no `#` to
@@ -312,37 +467,58 @@ static SolValue prim_integer_as_string(SolVM *vm, SolValue self, SolValue *args,
    1.23457e+06, which is a different number. */
 static SolValue prim_float_as_string(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
-    (void)args;
-    if (!check_argc(vm, "asString", argc, 0)) return SOL_NIL_VAL;
+    SolSpec spec;
+    if (!spec_from_args(vm, args, argc, &spec)) return SOL_NIL_VAL;
+
+    /* Asked for decimals, a float is written to that many. Otherwise it gets the
+       shortest text that reads back as the same bits, which is the renderer's
+       job and not something to duplicate here. Infinity and not-a-number keep
+       their names either way; rounding them to two places means nothing. */
+    double d = SOL_AS_FLOAT(self);
+    if (spec.decimals >= 0 && !isnan(d) && !isinf(d)) {
+        char buffer[64];
+        int n = snprintf(buffer, sizeof buffer, "%.*f", spec.decimals, d);
+        return spec_apply(vm, buffer, n, &spec, '>');
+    }
 
     SolText text;
     sol_text_init(&text);
     sol_value_render(vm, self, &text);
-    SolValue result = string_from(vm, text.chars == NULL ? "" : text.chars, text.length);
+    SolValue result = spec_apply(vm, text.chars == NULL ? "" : text.chars,
+                                 text.length, &spec, '>');
     sol_text_free(&text);
     return result;
 }
 
 static SolValue prim_bool_as_string(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
-    (void)args;
-    if (!check_argc(vm, "asString", argc, 0)) return SOL_NIL_VAL;
-    return SOL_AS_BOOL(self) ? string_from(vm, "true", 4) : string_from(vm, "false", 5);
+    SolSpec spec;
+    if (!spec_from_args(vm, args, argc, &spec)) return SOL_NIL_VAL;
+    if (spec_rejects_decimals(vm, &spec, "a boolean")) return SOL_NIL_VAL;
+    return SOL_AS_BOOL(self) ? spec_apply(vm, "true", 4, &spec, '<')
+                             : spec_apply(vm, "false", 5, &spec, '<');
 }
 
 static SolValue prim_nil_as_string(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
-    (void)self; (void)args;
-    if (!check_argc(vm, "asString", argc, 0)) return SOL_NIL_VAL;
-    return string_from(vm, "nil", 3);
+    (void)self;
+    SolSpec spec;
+    if (!spec_from_args(vm, args, argc, &spec)) return SOL_NIL_VAL;
+    if (spec_rejects_decimals(vm, &spec, "nil")) return SOL_NIL_VAL;
+    return spec_apply(vm, "nil", 3, &spec, '<');
 }
 
-/* A string is already text, and is immutable, so it can answer itself. */
+/* A string is already text, so with no spec it answers itself. Text aligns left,
+   being read rather than counted. */
 static SolValue prim_string_as_string(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
-    (void)args;
-    if (!check_argc(vm, "asString", argc, 0)) return SOL_NIL_VAL;
-    return self;
+    SolSpec spec;
+    if (!spec_from_args(vm, args, argc, &spec)) return SOL_NIL_VAL;
+    if (spec_rejects_decimals(vm, &spec, "a string")) return SOL_NIL_VAL;
+    if (argc == 0) return self;
+
+    const SolString *string = SOL_AS_STRING(self);
+    return spec_apply(vm, string->chars, string->length, &spec, '<');
 }
 
 /* Widening an integer can lose precision above 2^53, silently, because that is
@@ -451,13 +627,15 @@ static SolValue prim_string_as_float(SolVM *vm, SolValue self, SolValue *args, i
    drift. */
 static SolValue prim_rendered_as_string(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
-    (void)args;
-    if (!check_argc(vm, "asString", argc, 0)) return SOL_NIL_VAL;
+    SolSpec spec;
+    if (!spec_from_args(vm, args, argc, &spec)) return SOL_NIL_VAL;
+    if (spec_rejects_decimals(vm, &spec, "this value")) return SOL_NIL_VAL;
 
     SolText text;
     sol_text_init(&text);
     sol_value_render(vm, self, &text);
-    SolValue result = string_from(vm, text.chars == NULL ? "" : text.chars, text.length);
+    SolValue result = spec_apply(vm, text.chars == NULL ? "" : text.chars,
+                                 text.length, &spec, '<');
     sol_text_free(&text);
     return result;
 }
@@ -467,11 +645,12 @@ static SolValue prim_rendered_as_string(SolVM *vm, SolValue self, SolValue *args
    recurring forever. A type that defines its own `asString` never reaches this. */
 static SolValue prim_object_as_string(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
-    (void)args;
-    if (!check_argc(vm, "asString", argc, 0)) return SOL_NIL_VAL;
+    SolSpec spec;
+    if (!spec_from_args(vm, args, argc, &spec)) return SOL_NIL_VAL;
+    if (spec_rejects_decimals(vm, &spec, "an object")) return SOL_NIL_VAL;
     char buffer[40];
     int n = snprintf(buffer, sizeof buffer, "<object %p>", (void *)SOL_AS_OBJ(self));
-    return string_from(vm, buffer, n);
+    return spec_apply(vm, buffer, n, &spec, '<');
 }
 
 /* ---- comparison ------------------------------------------------------- */

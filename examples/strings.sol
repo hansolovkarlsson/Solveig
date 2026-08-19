@@ -61,3 +61,19 @@ q := "she said \"hi\"".
 q:print.                     ; "she said \"hi\"" -- escapes put back
 q:display.                   ; she said "hi"
 "one\ntwo":display.          ; two lines
+
+; asString takes an optional format spec: [align] [0] [width] [.decimals].
+; Numbers align right and text aligns left, so a leading space for a positive
+; number falls out of the width rather than needing a mode of its own.
+45.8:asString("6.2"):display.    ;  45.80
+45.8:asString("08.2"):display.   ; 00045.80
+-45.8:asString("08.2"):display.  ; -0045.80  -- the sign comes before the zeros
+"ab":asString(">6"):display.     ;     ab
+
+; Which is what makes columns line up.
+row := { n, v | "{}{}":fill([n:asString("<8"), v:asString("8.2")]) }.
+row:value("apples", 3.5):display.
+row:value("pears", 12.25):display.
+
+; Decimals belong to floats; asking anything else for them is an error.
+;   #45:asString(".2")   ->  decimals mean nothing for an integer
