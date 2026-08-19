@@ -7,7 +7,7 @@ Each entry names the commit it landed in. Dates are the day the work was done.
 
 ## Unreleased — 0.0.1
 
-### A garbage collector — `b2f2d6a`, 2026-08-18
+### A garbage collector — `29d011a`, 2026-08-18
 
 Mark–sweep, non-moving, stop-the-world. Objects and blocks are reclaimed while a
 program runs; before this nothing was freed until the VM exited.
