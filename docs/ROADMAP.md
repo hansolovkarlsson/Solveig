@@ -137,9 +137,7 @@ What is left, small and separable:
   loop makes a string per pass. Immutability means that is only a cost, never a
   semantic difference. Interning would fix it and give 4.3 its mechanism, but
   needs a weak table so interned strings can still die.
-- **No ordering.** `lessThan` is not defined on strings, so they cannot be
-  sorted.
-- **No conversions.** Nothing turns a number into a string or back.
+Ordering and conversions have since been added (2.8).
 
 ### 1.4 User-defined objects — **done**
 
@@ -254,20 +252,29 @@ Lexer work: an optional `e`/`E`, optional sign, and digits after the fraction.
 `'foo` scans to a token and has no runtime type. Wanted for reflection and any
 `perform:`-style dynamic send. Cheap once strings exist.
 
-### 2.8 Missing operations
+### 2.8 Missing operations — **done**
 
-Conversions are done: `asString` on every scalar, `asFloat` on integers, `floor`
-/ `ceiling` / `rounded` / `truncated` on floats, and `asInteger` / `asFloat`
-parsing back from a string. What remains is small and mechanical:
+Conversions: `asString` on every value, `asFloat` on integers, `floor` /
+`ceiling` / `rounded` / `truncated` on floats, and `asInteger` / `asFloat`
+parsing back from a string.
 
-- booleans: `and`, `or` (short-circuit, so they take blocks like `ifTrue` does)
-- comparison: `lessOrEqual`, `greaterOrEqual`, `notEquals`, and ordering on
-  strings so they can be sorted
-- numbers: negation, absolute value
-- `asString` on arrays and objects, which would let `print` be defined in terms
-  of it rather than the other way round
-- `float:new`, for symmetry with `integer:new`
-- `nil` answers almost nothing
+Logic: `and` and `or`, short-circuit, taking a block as `ifTrue` does -- which is
+the reason they cannot simply take booleans.
+
+Comparison: `notEquals` everywhere, defined as the negation of `equals` so the
+two cannot disagree about what equality means for a type; `lessOrEqual` and
+`greaterOrEqual` on numbers and strings; and ordering on strings, by characters
+with the shorter first when one is a prefix.
+
+Numbers: `negated` and `abs`, trapping on the most negative integer, which has no
+positive counterpart. `float:new`, for symmetry with `integer:new`.
+
+Rendering moved into one place -- a text buffer in `value.c` -- so `print` and a
+composite's `asString` produce the same text by construction rather than by
+agreement.
+
+Still absent, and small: `isNil` (though `x:equals(nil)` says it), and sorting,
+which now has the ordering it needs.
 
 ---
 
@@ -305,6 +312,36 @@ object cannot be asked what slots it holds, nor whether it descends from another
 invoking it, since a slot holding a block *is* a method, so there is no way to
 fetch a method as a value. All of these want symbols (2.7) or at least a
 string-keyed accessor.
+
+### 2.11 Formatted output — **decision**
+
+Building a sentence currently means a chain of `concat` and `asString`:
+
+```
+"you have ":concat(n:asString):concat(" apples"):print.
+```
+
+That is workable for two pieces and unreadable for five. Something is needed;
+what it should be is open.
+
+- **Placeholders filled from an array**, `"you have {} apples":format([n])`. Needs
+  no new syntax and no type rules, since every value already answers `asString`.
+  Reads well, and the array literal makes the arguments obvious. An escape for a
+  literal `{` is the only wrinkle.
+- **printf-style**, `"you have %d apples":format([n])`. Familiar, and under strict
+  typing the conversion can be checked against the argument at run time rather
+  than trusted. But it asks the writer to know `%d` from `%s` for no gain the
+  first option lacks.
+- **Interpolation in the literal**, `"you have {n} apples"`. Shortest to write and
+  the worst fit: it makes a string literal capture names from its surroundings,
+  which is exactly the kind of action-at-a-distance the language has avoided.
+
+Whether it is spelled `format` on a string, or `print` gaining an argument, is
+the second half of the question. A separate message keeps `print` meaning one
+thing, and lets the formatted text be used without printing it.
+
+I would take placeholders and a `format` message, with `printOn`-style variants
+left until there is a reason.
 
 ## 3. Known limitations
 
@@ -446,21 +483,23 @@ text would make compile errors considerably more useful.
 Section 1 is now empty: the things standing between this and a language you
 could write a real program in are all built. What is left is filling it out.
 
-1. **The rest of the missing operations** (2.8) — `and`/`or`, the remaining
-   comparisons, negation, `asString` on arrays and objects.
+1. **Formatted output** (2.11) — needs a decision first. Building a sentence is
+   a chain of `concat` and `asString`, which is workable for two pieces and
+   unreadable for five.
 2. **Float exponents** (2.6) and **float text round-tripping** (5.3), which are
    really one job: a float cannot currently be written, printed, or parsed back
    at the extremes.
-3. **String escapes and ordering** (1.3).
+3. **String escapes** (1.3) — a string still cannot contain a quote.
 4. **A better default `print`** (5.2) — now that user objects exist, showing an
    address is the roughest edge a newcomer meets.
 5. Everything else as it starts to hurt.
 
 Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), arrays entire
 (1.2, 1.2a, 1.2b), strings (1.3), user-defined objects (1.4), division (2.1),
-calling the method you override (2.9), and conversions (part of 2.8).
+calling the method you override (2.9), and the missing operations (2.8).
 
-Still waiting on a call from you: the **statement terminator** (2.2).
+Still waiting on a call from you: **formatted output** (2.11) and the
+**statement terminator** (2.2).
 
 Still waiting on a call from you: **division** (2.1) and the **statement
 terminator** (2.2). Neither blocks anything above it.

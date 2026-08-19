@@ -155,6 +155,31 @@ static SolValue prim_integer_mod(SolVM *vm, SolValue self, SolValue *args, int a
     return SOL_INT_VAL(r);
 }
 
+/* Negating the most negative integer overflows, since it has no positive
+   counterpart -- the same edge that guards INT64_MIN div #-1. */
+static SolValue prim_integer_negated(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "negated", argc, 0)) return SOL_NIL_VAL;
+    if (SOL_AS_INT(self) == INT64_MIN) {
+        sol_vm_runtime_error(vm, "integer overflow in 'negated'");
+        return SOL_NIL_VAL;
+    }
+    return SOL_INT_VAL(-SOL_AS_INT(self));
+}
+
+static SolValue prim_integer_abs(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "abs", argc, 0)) return SOL_NIL_VAL;
+    if (SOL_AS_INT(self) == INT64_MIN) {
+        sol_vm_runtime_error(vm, "integer overflow in 'abs'");
+        return SOL_NIL_VAL;
+    }
+    int64_t v = SOL_AS_INT(self);
+    return SOL_INT_VAL(v < 0 ? -v : v);
+}
+
 /* ---- float ----------------------------------------------------------- */
 
 static SolValue prim_float_add(SolVM *vm, SolValue self, SolValue *args, int argc)
@@ -176,6 +201,32 @@ static SolValue prim_float_mul(SolVM *vm, SolValue self, SolValue *args, int arg
     if (!check_argc(vm, "mul", argc, 1)) return SOL_NIL_VAL;
     if (!check_same_type(vm, "mul", self, args[0])) return SOL_NIL_VAL;
     return SOL_FLOAT_VAL(SOL_AS_FLOAT(self) * SOL_AS_FLOAT(args[0]));
+}
+
+static SolValue prim_float_new(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "new", argc, 1)) return SOL_NIL_VAL;
+    if (!SOL_IS_FLOAT(args[0])) {
+        sol_vm_runtime_error(vm, "float:new expects a float, got %s",
+                             sol_type_name(args[0]));
+        return SOL_NIL_VAL;
+    }
+    return args[0];
+}
+
+static SolValue prim_float_negated(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "negated", argc, 0)) return SOL_NIL_VAL;
+    return SOL_FLOAT_VAL(-SOL_AS_FLOAT(self));
+}
+
+static SolValue prim_float_abs(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "abs", argc, 0)) return SOL_NIL_VAL;
+    return SOL_FLOAT_VAL(fabs(SOL_AS_FLOAT(self)));
 }
 
 /* Floats divide by zero to infinity rather than erroring. That is not a new
@@ -355,6 +406,22 @@ static SolValue prim_string_as_float(SolVM *vm, SolValue self, SolValue *args, i
     return SOL_FLOAT_VAL(value);
 }
 
+/* A composite has no unambiguous flat text, so its `asString` answers the same
+   literal form `print` shows -- rendered once, in value.c, so the two cannot
+   drift. */
+static SolValue prim_rendered_as_string(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "asString", argc, 0)) return SOL_NIL_VAL;
+
+    SolText text;
+    sol_text_init(&text);
+    sol_value_render(self, &text);
+    SolValue result = string_from(vm, text.chars, text.length);
+    sol_text_free(&text);
+    return result;
+}
+
 /* ---- comparison ------------------------------------------------------- */
 
 /* Comparisons are as strict as arithmetic: comparing an integer to a float is
@@ -390,6 +457,61 @@ static SolValue prim_equals(SolVM *vm, SolValue self, SolValue *args, int argc)
     }
     return SOL_BOOL_VAL(false);
 }
+
+/* The negation of `equals`, defined in terms of it so the two can never
+   disagree about what equality means for a given type. */
+static SolValue prim_not_equals(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "notEquals", argc, 1)) return SOL_NIL_VAL;
+    SolValue equal = prim_equals(vm, self, args, argc);
+    if (vm->had_error) return SOL_NIL_VAL;
+    return SOL_BOOL_VAL(!SOL_AS_BOOL(equal));
+}
+
+/* Ordering, for numbers and for strings. Strings compare by their characters,
+   shorter first when one is a prefix of the other, which is what sorting wants.
+   Numbers stay strict: an integer does not order against a float. */
+static int compare_values(SolValue a, SolValue b)
+{
+    if (SOL_IS_INT(a)) {
+        int64_t x = SOL_AS_INT(a), y = SOL_AS_INT(b);
+        return x < y ? -1 : (x > y ? 1 : 0);
+    }
+    if (SOL_IS_FLOAT(a)) {
+        double x = SOL_AS_FLOAT(a), y = SOL_AS_FLOAT(b);
+        return x < y ? -1 : (x > y ? 1 : 0);
+    }
+
+    const SolString *x = SOL_AS_STRING(a);
+    const SolString *y = SOL_AS_STRING(b);
+    int shorter = x->length < y->length ? x->length : y->length;
+    int order = memcmp(x->chars, y->chars, (size_t)shorter);
+    if (order != 0) return order < 0 ? -1 : 1;
+    return x->length < y->length ? -1 : (x->length > y->length ? 1 : 0);
+}
+
+static SolValue ordering(SolVM *vm, const char *name, SolValue self, SolValue *args,
+                         int argc, bool want_less, bool want_equal)
+{
+    if (!check_argc(vm, name, argc, 1)) return SOL_NIL_VAL;
+    if (!check_same_type(vm, name, self, args[0])) return SOL_NIL_VAL;
+
+    int order = compare_values(self, args[0]);
+    if (order == 0) return SOL_BOOL_VAL(want_equal);
+    return SOL_BOOL_VAL(want_less ? order < 0 : order > 0);
+}
+
+static SolValue prim_less_or_equal(SolVM *vm, SolValue self, SolValue *args, int argc)
+{ return ordering(vm, "lessOrEqual", self, args, argc, true, true); }
+
+static SolValue prim_greater_or_equal(SolVM *vm, SolValue self, SolValue *args, int argc)
+{ return ordering(vm, "greaterOrEqual", self, args, argc, false, true); }
+
+static SolValue prim_string_less(SolVM *vm, SolValue self, SolValue *args, int argc)
+{ return ordering(vm, "lessThan", self, args, argc, true, false); }
+
+static SolValue prim_string_greater(SolVM *vm, SolValue self, SolValue *args, int argc)
+{ return ordering(vm, "greaterThan", self, args, argc, false, false); }
 
 static SolValue prim_less(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
@@ -432,6 +554,35 @@ static SolValue prim_if_else(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     if (!check_argc(vm, "ifElse", argc, 2)) return SOL_NIL_VAL;
     return sol_vm_call_block(vm, SOL_AS_BOOL(self) ? args[0] : args[1], NULL, 0);
+}
+
+/* Short-circuit, so they take a block rather than a value: the argument is only
+   run when the answer is not already settled. That is the same shape as
+   `ifTrue`, and the reason `and`/`or` cannot simply take booleans. */
+static SolValue boolean_block(SolVM *vm, const char *name, SolValue block)
+{
+    SolValue answer = sol_vm_call_block(vm, block, NULL, 0);
+    if (vm->had_error) return SOL_NIL_VAL;
+    if (!SOL_IS_BOOL(answer)) {
+        sol_vm_runtime_error(vm, "'%s' expects the block to answer a boolean, got %s",
+                             name, sol_type_name(answer));
+        return SOL_NIL_VAL;
+    }
+    return answer;
+}
+
+static SolValue prim_and(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "and", argc, 1)) return SOL_NIL_VAL;
+    if (!SOL_AS_BOOL(self)) return SOL_BOOL_VAL(false);   /* the block never runs */
+    return boolean_block(vm, "and", args[0]);
+}
+
+static SolValue prim_or(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "or", argc, 1)) return SOL_NIL_VAL;
+    if (SOL_AS_BOOL(self)) return SOL_BOOL_VAL(true);
+    return boolean_block(vm, "or", args[0]);
 }
 
 static SolValue prim_not(SolVM *vm, SolValue self, SolValue *args, int argc)
@@ -789,6 +940,11 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define_primitive(vm->integer_class, "mod",   prim_integer_mod);
     sol_object_define_primitive(vm->integer_class, "asFloat",  prim_integer_as_float);
     sol_object_define_primitive(vm->integer_class, "asString", prim_integer_as_string);
+    sol_object_define_primitive(vm->integer_class, "negated", prim_integer_negated);
+    sol_object_define_primitive(vm->integer_class, "abs",     prim_integer_abs);
+    sol_object_define_primitive(vm->integer_class, "notEquals",      prim_not_equals);
+    sol_object_define_primitive(vm->integer_class, "lessOrEqual",    prim_less_or_equal);
+    sol_object_define_primitive(vm->integer_class, "greaterOrEqual", prim_greater_or_equal);
     sol_object_define_primitive(vm->integer_class, "equals",      prim_equals);
     sol_object_define_primitive(vm->integer_class, "lessThan",    prim_less);
     sol_object_define_primitive(vm->integer_class, "greaterThan", prim_greater);
@@ -805,6 +961,12 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define_primitive(vm->float_class, "ceiling",   prim_float_ceiling);
     sol_object_define_primitive(vm->float_class, "rounded",   prim_float_rounded);
     sol_object_define_primitive(vm->float_class, "truncated", prim_float_truncated);
+    sol_object_define_primitive(vm->float_class, "new",     prim_float_new);
+    sol_object_define_primitive(vm->float_class, "negated", prim_float_negated);
+    sol_object_define_primitive(vm->float_class, "abs",     prim_float_abs);
+    sol_object_define_primitive(vm->float_class, "notEquals",      prim_not_equals);
+    sol_object_define_primitive(vm->float_class, "lessOrEqual",    prim_less_or_equal);
+    sol_object_define_primitive(vm->float_class, "greaterOrEqual", prim_greater_or_equal);
     sol_object_define_primitive(vm->float_class, "equals",      prim_equals);
     sol_object_define_primitive(vm->float_class, "lessThan",    prim_less);
     sol_object_define_primitive(vm->float_class, "greaterThan", prim_greater);
@@ -812,7 +974,8 @@ void sol_builtins_install(SolVM *vm)
     vm->nil_class = sol_object_new(vm, NULL);
     sol_object_define_primitive(vm->nil_class, "print",  prim_print);
     sol_object_define_primitive(vm->nil_class, "equals", prim_equals);
-    sol_object_define_primitive(vm->nil_class, "asString", prim_nil_as_string);
+    sol_object_define_primitive(vm->nil_class, "asString",  prim_nil_as_string);
+    sol_object_define_primitive(vm->nil_class, "notEquals", prim_not_equals);
 
     vm->bool_class = sol_object_new(vm, NULL);
     sol_object_define_primitive(vm->bool_class, "print",   prim_print);
@@ -822,10 +985,14 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define_primitive(vm->bool_class, "ifFalse", prim_if_false);
     sol_object_define_primitive(vm->bool_class, "ifElse",  prim_if_else);
     sol_object_define_primitive(vm->bool_class, "asString", prim_bool_as_string);
+    sol_object_define_primitive(vm->bool_class, "and",       prim_and);
+    sol_object_define_primitive(vm->bool_class, "or",        prim_or);
+    sol_object_define_primitive(vm->bool_class, "notEquals", prim_not_equals);
 
     vm->block_class = sol_object_new(vm, NULL);
     sol_object_define_primitive(vm->block_class, "print",     prim_print);
     sol_object_define_primitive(vm->block_class, "equals",    prim_equals);
+    sol_object_define_primitive(vm->block_class, "notEquals", prim_not_equals);
     sol_object_define_primitive(vm->block_class, "value",     prim_value);
     sol_object_define_primitive(vm->block_class, "whileTrue", prim_while_true);
 
@@ -840,7 +1007,9 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define_primitive(vm->array_class, "collect", prim_array_collect);
     sol_object_define_primitive(vm->array_class, "select",  prim_array_select);
     sol_object_define_primitive(vm->array_class, "print",  prim_print);
-    sol_object_define_primitive(vm->array_class, "equals", prim_equals);
+    sol_object_define_primitive(vm->array_class, "equals",    prim_equals);
+    sol_object_define_primitive(vm->array_class, "notEquals", prim_not_equals);
+    sol_object_define_primitive(vm->array_class, "asString",  prim_rendered_as_string);
 
     /* The root of the user-defined side. The built-in classes deliberately do
        not delegate to it: `float` inheriting object's `new` would answer a plain
@@ -851,7 +1020,9 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define_primitive(vm->object_class, "via",    prim_object_via);
     sol_object_define_primitive(vm->object_class, "parent", prim_object_parent);
     sol_object_define_primitive(vm->object_class, "print",  prim_print);
-    sol_object_define_primitive(vm->object_class, "equals", prim_equals);
+    sol_object_define_primitive(vm->object_class, "equals",    prim_equals);
+    sol_object_define_primitive(vm->object_class, "notEquals", prim_not_equals);
+    sol_object_define_primitive(vm->object_class, "asString",  prim_rendered_as_string);
 
     vm->string_class = sol_object_new(vm, NULL);
     sol_object_define_primitive(vm->string_class, "print",  prim_print);
@@ -862,6 +1033,11 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define_primitive(vm->string_class, "asString",  prim_string_as_string);
     sol_object_define_primitive(vm->string_class, "asInteger", prim_string_as_integer);
     sol_object_define_primitive(vm->string_class, "asFloat",   prim_string_as_float);
+    sol_object_define_primitive(vm->string_class, "notEquals",      prim_not_equals);
+    sol_object_define_primitive(vm->string_class, "lessThan",       prim_string_less);
+    sol_object_define_primitive(vm->string_class, "greaterThan",    prim_string_greater);
+    sol_object_define_primitive(vm->string_class, "lessOrEqual",    prim_less_or_equal);
+    sol_object_define_primitive(vm->string_class, "greaterOrEqual", prim_greater_or_equal);
 
     /* Bind the class objects into the globals namespace so `integer` resolves. */
     sol_object_define(vm->root, "integer", SOL_OBJ_VAL(vm->integer_class));

@@ -8,6 +8,33 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### The remaining operations — `pending`, 2026-08-19
+
+```
+x:greaterThan(#0):and({ x:lessThan(#10) }).   ; short-circuit
+"abc":lessThan("abd").                        ; strings order
+#-5:abs.  #5:negated.  #1:notEquals(#2).
+[#1, "a", [#2]]:asString.                     ; "[#1, \"a\", [#2]]"
+```
+
+- **`and` and `or` take a block**, so the answer can be settled without running
+  it — the same shape as `ifTrue`, and the reason they cannot simply take
+  booleans. Strict about what the block answers, as `whileTrue` is.
+- **`notEquals` is defined as the negation of `equals`**, so it inherits whatever
+  equality means for each type: by value for strings, by identity for arrays.
+- **Strings order** by characters, shorter first when one is a prefix — what
+  sorting will want. `lessOrEqual` and `greaterOrEqual` on numbers and strings.
+- `negated` and `abs`, trapping on the most negative integer, which has no
+  positive counterpart — the same edge that guards `INT64_MIN div #-1`.
+- `float:new`, for symmetry with `integer:new`.
+- **Rendering moved into one place**, a text buffer in `value.c`, so `print` and a
+  composite's `asString` produce the same text by construction rather than by
+  two implementations agreeing.
+
+Also records **formatted output** (2.11) as an open decision: building a sentence
+is currently a chain of `concat` and `asString`, workable for two pieces and
+unreadable for five.
+
 ### Conversions — `246ae8e`, 2026-08-19
 
 ```
