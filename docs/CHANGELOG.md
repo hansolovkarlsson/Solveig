@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### Arrays — `pending`, 2026-08-19
+### Arrays — `1d8c573`, 2026-08-19
 
 Nothing in the language could hold more than one value, so no program could
 accumulate a result.
