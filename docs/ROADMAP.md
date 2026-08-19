@@ -155,15 +155,25 @@ Two consequences to carry forward:
   on both ends. Half-open ranges are what make zero-based tidy; mixing a
   half-open convention into one-based indexing is where languages get confusing.
 
-### 2.4 Array literal syntax — **decision**
+### 2.4 Array literal syntax — **decided: `[...]`, pure sugar**
 
-`[` and `]` are unused, so `[#1, #2, #3]` is available and reads naturally
-alongside `{ }` for blocks and `( )` for grouping. The alternative is
-messages only -- `array:new` then `add` -- which needs no syntax at all but makes
-a literal three lines.
+`[#1, #2, #3]` compiles to exactly the bytecode for `array:of(#1, #2, #3)` -- the
+same send, the same fresh mutable array. The two spellings are the same thing,
+with no semantic difference whatever.
 
-Sugar either way: a literal would compile to an `OP_ARRAY` taking a count and
-popping that many values, which is one more one-byte operand (4.2).
+That costs almost nothing: two lexer tokens and one compiler branch. No new
+opcode, no verifier change, no `.sob` change -- the VM never learns that array
+literals exist.
+
+Rejected: making `[...]` immutable so it could be pooled as a constant. Pooling
+would only ever apply when every element is itself a compile-time constant
+(`[a, b]` must be built at run time regardless), and the price is a rule the
+reader has to re-check at every use site. See the design principle on two
+spellings meaning one thing.
+
+Both spellings cap at 255 elements, since `OP_SEND` carries a one-byte argument
+count (4.2). Beyond that the compiler would need to fall back to `new` plus
+repeated `add`.
 
 ### 2.5 Class side versus instance side
 

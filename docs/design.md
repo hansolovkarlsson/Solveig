@@ -36,6 +36,28 @@ to one file that both halves already include. Solis links both libraries and
 skips serialisation entirely -- it compiles straight into a `SolChunk` and hands
 it to the VM.
 
+## Design principles
+
+Not laid down in advance -- these are what the decisions so far have in common,
+written down because they keep settling the next question.
+
+**Two spellings of the same thing mean the same thing.** `[#1, #2]` and
+`array:of(#1, #2)` produce identical bytecode; `a := #45` and
+`a := integer:new(#45)` produce the same integer. Where a shorthand exists it is
+notation, never a second semantics. The syntax is already a lot to take on, so a
+reader should never have to ask which of two forms they are looking at in order
+to know what it does.
+
+**One operator, one meaning.** `:=` binds a name to an evaluated value, whether
+the name is a global, a temporary, or a slot on a class. An earlier design had it
+mean something different on the left of a method definition, and removing that
+special case took a hundred lines of compiler with it.
+
+**Strict rather than convenient.** Integers and floats never coerce, integer
+overflow traps instead of wrapping, an undeclared name inside a method is an
+error rather than a new variable, and an out-of-range index will be an error
+rather than nil. A wrong program should stop, not continue quietly.
+
 ## Object model
 
 Smalltalk lineage, prototype flavour:
