@@ -140,12 +140,20 @@ a missing terminator can never be caught. Making it required is a one-line
 change; leaving it optional is fine too, but it should be a choice rather than an
 accident.
 
-### 2.3 Array indexing base — **decision**
+### 2.3 Array indexing base — **decided: one-based**
 
-Zero-based (C, most things) or one-based (Smalltalk, Lua)? Zero fits the
-"quite low level" leaning; one fits the Smalltalk lineage the object model came
-from. It has to be settled before `at` is written, because every later collection
-inherits it.
+An index in Solum is an ordinal, not an offset. There is no pointer arithmetic
+and no address to be a displacement from, so the argument that makes zero-based
+natural in C does not apply here. One-based also matches the Smalltalk lineage
+the object model already came from.
+
+Two consequences to carry forward:
+
+- `at(#0)` is out of bounds, and so is caught rather than quietly reading the
+  wrong element. A small safety win that falls out of the choice.
+- Any later range or slice API should follow Smalltalk and use inclusive bounds
+  on both ends. Half-open ranges are what make zero-based tidy; mixing a
+  half-open convention into one-based indexing is where languages get confusing.
 
 ### 2.4 Array literal syntax — **decision**
 
