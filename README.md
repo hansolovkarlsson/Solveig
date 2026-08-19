@@ -10,10 +10,12 @@ a := #45         ; ':=' binds a name; '#' tags an integer ( bare 45 is a float )
 a:print.         ; ':' sends a message, '.' ends the statement
 ```
 
-## The name
+## The names
 
-**Solveig** is the language. **Solas** compiles it, **Solum** runs it, and
-**Solis** is the REPL you talk to it through.
+**Solveig** is the project. The language it holds is **Solum**, compiled by
+**Solas**, run by **SolVM**, and explored through **Solis**. On disk the machine
+keeps the lowercase spelling, `solum/` and `bin/solum`, since it is the same word
+either way.
 
 *Solveig* is Old Norse -- *Sólveig*, from *sól*, "sun", joined to *veig*, which
 is usually read as "strength", though the second element is not settled and has
@@ -22,17 +24,23 @@ across Norway, Sweden, and Denmark. Most people who recognise it will recognise
 it from Ibsen's *Peer Gynt*, where Solveig is the one who waits, and from
 Grieg's setting of her song.
 
-The three programs keep the *sol-* root they started with, so the whole family
-turns on the sun. Solveig is the Norse cousin among them, and the only one of
-the four that names the language rather than a program: the same star, in a
-different language.
+**SolVM** reads two ways, and both are meant. It is the Sol virtual machine --
+and it is *SOLVM*, which is how *solum* was written before the alphabet split V
+into two letters. Classical Latin had a single **V** standing for both the vowel
+and the consonant; U is a much later invention, which is why Roman inscriptions
+give us SOLVM and not SOLUM. So the machine is not named *after* the language it
+runs. It is the same word, cut in stone.
+
+The rest keep the *sol-* root, so the whole family turns on the sun: *solum*,
+the ground underfoot; *solis*, of the sun; and Solveig, the Norse cousin among
+them -- the same star, in a different language.
 
 ## Layout
 
 | Path      | What                                                             |
 | --------- | ---------------------------------------------------------------- |
 | `solas/`  | **Solas** -- the compiler: source text to bytecode                |
-| `solum/`  | **Solum** -- the virtual machine: executes bytecode and loads `.sob` |
+| `solum/`  | **SolVM** -- the virtual machine: executes bytecode and loads `.sob` |
 | `solis/`  | **Solis** -- the REPL: compiles and runs one line at a time       |
 | `docs/`   | [design.md](docs/design.md), [ROADMAP.md](docs/ROADMAP.md), [CHANGELOG.md](docs/CHANGELOG.md) |
 | `tests/`  | Test suite                                                        |

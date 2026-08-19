@@ -8,15 +8,17 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### The language is named Solveig — `7db2b27`, 2026-08-19
+### The project is named Solveig — `7db2b27`, 2026-08-19
 
-It had no name of its own before: "Solum" was doing duty as the project, the
-virtual machine, and the language at once.
+The repository had no name distinct from its parts: "Solum" was serving as the
+project, the virtual machine, and the language at once.
 
-**Solveig** is the language; Solas, Solum, and Solis remain the programs that
-compile, run, and explore it. Old Norse *Sólveig*, from *sól* "sun" and *veig*,
-usually read as "strength" — the Norse cousin of the *sol-* root the three
-programs already share. The README carries the longer note.
+**Solveig** now names the project. The language stays **Solum**, and the programs
+stay **Solas**, **SolVM**, and **Solis**. Old Norse *Sólveig*, from *sól* "sun"
+and *veig*, usually read as "strength" -- the Norse cousin of the *sol-* root the
+rest of the family already shares. The README carries the longer note, including
+why *SolVM* and *solum* are the same word: classical Latin wrote V where we now
+write U, so Roman inscriptions give SOLVM.
 
 Documentation only. No code, no file names, and no behaviour changed.
 
@@ -204,7 +206,7 @@ run over a program with no loop produced zero hangs.
 
 **`.sob` went to version 2.**
 
-Methods could be written in Solveig source rather than only as C primitives, and
+Methods could be written in Solum source rather than only as C primitives, and
 the VM grew call frames. A frame's slots point into the value stack at the
 receiver, so nothing is copied to make a call. Solis began retaining every line's
 chunk, because a class holds only a pointer to a method the chunk owns.
