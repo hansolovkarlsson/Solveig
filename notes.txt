@@ -1,0 +1,15 @@
+new virtual machine
+
+parts:
+	Solas: compiler, compile to bytecode
+	Solum: virtual machine, executing bytecode
+	Solis: interactive version, compile line by line and executes the line
+
+Object oriented, simple syntax
+Everything is an object
+
+Example of creating an integer variable and assigning it, then printing it.
+
+	integer:new(a) 	; sends message "integer" to top Object to create an integer object
+	a:set(#45)	; assigns integer value #45 to integer object, by sending set message
+	a:print.	; sends print message to object a to print out
