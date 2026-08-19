@@ -163,6 +163,37 @@ Fine while nothing is released; worth a policy before anything is.
 
 ---
 
+### 3.5 Recursion is limited to about 30 levels
+
+`SOL_FRAMES_MAX` is 64, and in the idiomatic form each recursion level costs
+**two** frames -- one for the method's block, one for the `ifElse` branch block
+that carries the recursive call. Measured: 30 levels succeed, 31 reports "call
+depth exceeded".
+
+```
+integer:countdown := { self:lessThan(#1):ifElse({ #0 }, { self:sub(#1):countdown }) }.
+#30:countdown.   ; ok
+#31:countdown.   ; solum: call depth exceeded
+```
+
+That is low enough to be hit by ordinary code. Three ways out, in increasing
+order of work: raise the cap, which costs stack because `SOL_STACK_MAX` is
+derived from it; inline conditionals so a branch does not cost a frame (4.1),
+which roughly doubles the usable depth; or make the limit dynamic rather than a
+fixed array.
+
+### 3.6 A caller-owned chunk must outlive blocks defined in it
+
+Chunks from `sol_chunk_init` are freed by the caller. A block defined in one and
+still reachable afterwards holds a pointer into freed memory, and calling it is
+undefined. The collector itself is safe -- a block caches its owning cell, so
+tracing never dereferences a freed chunk -- but nothing detects the call.
+
+Solis avoids this entirely by using `sol_code_new`. It bites only code that mixes
+caller-owned chunks with a long-lived VM, which today is the test suite.
+Collapsing the two ownership modes into one would fix it, at the cost of giving
+Solas a VM it otherwise does not need.
+
 ## 4. Performance
 
 Nothing here is urgent — the VM is written for clarity first — but each has a
@@ -178,6 +209,9 @@ It needs jump opcodes, which in turn changes the verifier: today it is enough
 that the **final** instruction stops the machine, because execution is linear.
 With jumps that has to become a check that every target lands on an instruction
 boundary.
+
+Doing this also roughly doubles the usable recursion depth (3.5), since a
+conditional branch would stop costing a frame.
 
 ### 4.2 One-byte operands
 

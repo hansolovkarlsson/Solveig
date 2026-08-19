@@ -8,6 +8,23 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### Roadmap audit — `573c9a9`, 2026-08-18
+
+No code change. Audited the roadmap against the source and against everything
+raised in review, and added the two real gaps it was missing:
+
+- **Recursion is limited to about 30 levels** (3.5). `SOL_FRAMES_MAX` is 64 and
+  each recursion level costs two frames in the idiomatic form -- the method's
+  block, and the `ifElse` branch block carrying the recursive call. Measured: 30
+  succeeds, 31 reports "call depth exceeded". Low enough for ordinary code to
+  hit.
+- **A caller-owned chunk must outlive blocks defined in it** (3.6). Freeing one
+  while a reachable block points into it leaves that block undefined to call. The
+  collector is safe -- a block caches its owning cell, so tracing never touches a
+  freed chunk -- but nothing detects the call.
+
+Also corrected a comment in the compiler claiming there were no blocks yet.
+
 ### The collector owns compiled code — `104a5e0`, 2026-08-18
 
 Solis no longer retains every line's chunk. Over 60,000 REPL lines, peak resident

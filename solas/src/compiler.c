@@ -10,8 +10,9 @@
 
 #define SOL_MAX_LOCALS 256
 
-/* One entry per named slot in the frame being compiled. Slot 0 is always self.
-   There are no blocks yet, so a flat list per method is enough. */
+/* One entry per named slot in the frame being compiled. Slot 0 is the receiver.
+   Each block gets its own scope, and resolve_name walks the chain outward, so a
+   flat list per frame is enough. */
 typedef struct {
     const char *name;
     int         length;
