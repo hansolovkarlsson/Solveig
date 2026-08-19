@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### Formatted output — `pending`, 2026-08-19
+### Formatted output — `ca1369b`, 2026-08-19
 
 ```
 "you have {} apples and {} pears":format([#3, #4]).
