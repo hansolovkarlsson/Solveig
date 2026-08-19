@@ -55,6 +55,12 @@ struct SolObject {
 struct SolBlock {
     SolGCHeader      gc;        /* must be first: the collector casts between them */
     const SolMethod *code;
+    /* The code cell owning `code`, captured here rather than read back through
+       `code` when tracing. A caller-owned chunk can be freed while blocks that
+       point into it are still on the heap -- calling one was always wrong, but
+       the tracer must not fault merely for walking past it. NULL when the chunk
+       is caller-owned. */
+    SolCode         *owner;
     SolValue         self;      /* the receiver where the block was written */
     int              home_frame;
     uint64_t         home_id;

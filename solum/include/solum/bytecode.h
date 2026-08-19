@@ -16,7 +16,10 @@
 #define SOLUM_BYTECODE_H
 
 #include "solum/common.h"
+#include "solum/gc.h"
 #include "solum/value.h"
+
+typedef struct SolCode SolCode;
 
 typedef enum {
     OP_CONST,       /* operand: u8 const index -- push constants[idx]           */
@@ -63,7 +66,27 @@ typedef struct {
     SolValueArray constants;
     SolNameArray  names;
     SolMethodArray methods;
+
+    /* The collectable cell owning this chunk's tree, or NULL when the chunk is
+       owned by whoever created it. Solas and the tests use standalone chunks and
+       free them by hand; Solis hands its chunks to the collector, because a
+       block defined on one line outlives the line. */
+    SolCode      *owner;
 } SolChunk;
+
+/* A chunk tree the collector owns. The root chunk owns every method nested
+   inside it, so one cell covers the whole tree. */
+struct SolCode {
+    SolGCHeader gc;
+    SolChunk    chunk;
+};
+
+/* Allocates a code cell with an empty chunk, ready to compile or load into. */
+SolCode *sol_code_new(SolVM *vm);
+
+/* Points `chunk` and everything nested inside it at `owner`. Callers rarely need
+   this: sol_chunk_add_method propagates ownership as each subtree is added. */
+void sol_chunk_set_owner(SolChunk *chunk, SolCode *owner);
 
 /* A method compiled from Solum source, as opposed to a C primitive.
  *

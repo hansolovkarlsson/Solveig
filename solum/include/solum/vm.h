@@ -51,6 +51,8 @@ struct SolVM {
     SolGCHeader **gray;
     int           gray_count;
     int           gray_capacity;
+    SolGCHeader  *temps[SOL_GC_MAX_TEMPS];
+    int           temp_count;
     bool          gc_stress;
 
     /* Class objects for the unboxed value types. A message sent to #45 is

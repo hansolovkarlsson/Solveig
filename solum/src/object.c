@@ -47,6 +47,7 @@ SolBlock *sol_block_new(SolVM *vm, const SolMethod *code, SolValue self,
         exit(1);
     }
     block->code = code;
+    block->owner = code->chunk.owner;
     block->self = self;
     block->home_frame = home_frame;
     block->home_id = home_id;

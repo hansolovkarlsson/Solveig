@@ -34,6 +34,7 @@ void sol_vm_init(SolVM *vm)
     vm->gray = NULL;
     vm->gray_count = 0;
     vm->gray_capacity = 0;
+    vm->temp_count = 0;
     vm->gc_stress = getenv("SOLUM_GC_STRESS") != NULL;
 
     /* The root Object is the globals namespace -- built-in class objects

@@ -7,6 +7,28 @@ Each entry names the commit it landed in. Dates are the day the work was done.
 
 ## Unreleased — 0.0.1
 
+### The collector owns compiled code — `pending`, 2026-08-18
+
+Solis no longer retains every line's chunk. Over 60,000 REPL lines, peak resident
+set went from **25.5 MB growing linearly to 1.9 MB flat**.
+
+Ownership is dual rather than wholesale, because Solas has no VM to own a chunk
+on its behalf. A chunk from `sol_chunk_init` is caller-owned and freed by hand;
+one from `sol_code_new` belongs to a `SolCode` cell the collector sweeps.
+`sol_chunk_add_method` propagates ownership as each subtree is added, so a caller
+cannot forget to.
+
+- Added `sol_gc_push_temp` / `sol_gc_pop_temp` for cells held only in a C local
+  across an allocation. Solis uses them to protect a fresh code cell while it
+  compiles into it.
+- A chunk's constants are traced, since they will hold heap values as soon as
+  strings exist.
+- A block caches its owning cell rather than reading it back through
+  `block->code->chunk`. A caller-owned chunk can be freed while blocks pointing
+  into it are still on the heap — calling such a block was always wrong, but the
+  tracer must not fault merely for walking past one. Stress mode under ASan found
+  this as a use-after-free in `mark_code`.
+
 ### A garbage collector — `29d011a`, 2026-08-18
 
 Mark–sweep, non-moving, stop-the-world. Objects and blocks are reclaimed while a

@@ -199,8 +199,87 @@ static void test_heap_stays_bounded(void)
     sol_vm_free(&vm);
 }
 
+/* Code handed to the collector is reclaimed once nothing refers to it. This is
+   what lets Solis compile a line per input line without accumulating chunks. */
+static void test_unreferenced_code_is_reclaimed(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+
+    sol_gc_collect(&vm);
+    int baseline = sol_gc_live_count(&vm);
+
+    /* 200 "lines", none of which leaves anything behind. */
+    for (int i = 0; i < 200; i++) {
+        SolCode *code = sol_code_new(&vm);
+        sol_gc_push_temp(&vm, &code->gc);
+        assert(sol_compile("x := #1:add(#2).", &code->chunk));
+        assert(sol_vm_run(&vm, &code->chunk) == SOL_OK);
+        sol_gc_pop_temp(&vm);
+    }
+
+    sol_gc_collect(&vm);
+    assert(sol_gc_live_count(&vm) <= baseline + 8);
+
+    sol_vm_free(&vm);
+}
+
+/* ...but code a live block points into must survive, or the block would be
+   running freed bytecode. */
+static void test_code_referenced_by_a_block_survives(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+
+    SolCode *first = sol_code_new(&vm);
+    sol_gc_push_temp(&vm, &first->gc);
+    assert(sol_compile("integer:double := { self:mul(#2) }. saved := { #42 }.",
+                       &first->chunk));
+    assert(sol_vm_run(&vm, &first->chunk) == SOL_OK);
+    sol_gc_pop_temp(&vm);
+
+    /* Nothing holds `first` now except the two blocks bound above. */
+    sol_gc_collect(&vm);
+    sol_gc_collect(&vm);
+
+    SolCode *second = sol_code_new(&vm);
+    sol_gc_push_temp(&vm, &second->gc);
+    assert(sol_compile("a := #21:double. b := saved:value().", &second->chunk));
+    assert(sol_vm_run(&vm, &second->chunk) == SOL_OK);
+    sol_gc_pop_temp(&vm);
+
+    assert(SOL_AS_INT(global(&vm, "a")) == 42);
+    assert(SOL_AS_INT(global(&vm, "b")) == 42);
+
+    sol_vm_free(&vm);
+}
+
+/* A temporary root keeps a cell alive across an allocation that would otherwise
+   sweep it, since a C local is invisible to the tracer. */
+static void test_temp_roots_protect_a_cell(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    vm.gc_stress = true;                 /* collect on every allocation */
+
+    SolCode *code = sol_code_new(&vm);
+    sol_gc_push_temp(&vm, &code->gc);
+
+    /* Allocating now collects, and `code` is reachable only through the temp. */
+    SolObject *scratch = sol_object_new(&vm, NULL);
+    assert(scratch != NULL);
+
+    /* Still usable: compiling and running it would fault if it had been swept. */
+    assert(sol_compile("t := #7.", &code->chunk));
+    assert(sol_vm_run(&vm, &code->chunk) == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "t")) == 7);
+
+    sol_gc_pop_temp(&vm);
+    sol_vm_free(&vm);
+}
+
 int main(void)
 {
+    test_unreferenced_code_is_reclaimed();
+    test_code_referenced_by_a_block_survives();
+    test_temp_roots_protect_a_cell();
     test_unreachable_blocks_are_reclaimed();
     test_reachable_values_survive();
     test_methods_survive_collection();

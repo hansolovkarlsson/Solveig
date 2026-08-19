@@ -24,8 +24,8 @@ and nothing is ever freed.
 
 ### 1.1 Garbage collection
 
-**1.1a is done** — see below. Objects and blocks are collected; code is not,
-which is what 1.1b is about.
+**1.1a and 1.1b are done.** Objects, blocks, and compiled code are all
+collected. 1.1c remains, and is deliberately left until strings need it.
 
 The motivating case, a block literal allocated once per loop iteration:
 
@@ -81,22 +81,36 @@ The ordering trap was real: `sol_vm_init` nulls `vm->root` and the class fields
 before the first allocation, or a stress-mode collection during setup would trace
 uninitialised pointers.
 
-#### 1.1b GC-owned code
+#### 1.1b GC-owned code — **done**
 
-A `SolBlock` points at a `SolMethod` owned by the chunk that compiled it, which
-is why `solis/src/main.c` retains every line's chunk for the whole session. Tracing
-block -> method -> owning chunk removes that retention. Costs an API change:
-`SolChunk` is currently a stack value in the three `main()`s and throughout the
-tests.
+Solis no longer retains anything. Over 60,000 REPL lines, peak resident set went
+from **25.5 MB, growing linearly, to 1.9 MB, flat**.
 
-#### 1.1c Temporary roots, when strings arrive
+Ownership is dual rather than wholesale, because Solas has no VM to own a chunk
+on its behalf. A `SolChunk` created by `sol_chunk_init` is caller-owned and freed
+by hand, as Solas and the tests do; one created by `sol_code_new` belongs to a
+`SolCode` cell the collector sweeps. `sol_chunk_add_method` propagates ownership
+as each subtree is added, so a caller cannot forget to.
 
-Today the only allocation reachable from running code is `sol_block_new` at
-`OP_BLOCK`, where everything live is already on the stack or in globals -- so no
-temp-root machinery is needed at all. That ends with strings: concatenation
-allocates *inside* a primitive while holding intermediates in C locals the
-collector cannot see. Wants a small `push_temp`/`pop_temp`, built with 1.2 rather
-than before it.
+Two things this turned up:
+
+- A block caches its owning cell rather than reading it back through
+  `block->code->chunk`. A caller-owned chunk can be freed while blocks pointing
+  into it are still on the heap; calling such a block was always wrong, but the
+  tracer must not fault merely for walking past one. Stress mode under ASan found
+  this as a use-after-free in `mark_code`.
+- A chunk's constants are traced, since they will hold heap values as soon as
+  strings exist.
+
+#### 1.1c Temporary roots for primitives
+
+The mechanism exists -- `sol_gc_push_temp` / `sol_gc_pop_temp`, used by Solis to
+protect a fresh code cell across compilation. What remains is applying it inside
+primitives, which only matters once one of them allocates. Today none do: the
+sole allocation reachable from running code is `sol_block_new` at `OP_BLOCK`,
+where everything live is already on the stack or in globals. Strings end that,
+because concatenation allocates while holding intermediates in C locals the
+collector cannot see. Build it with 1.2.
 
 ### 1.2 Strings
 
@@ -251,8 +265,7 @@ text would make compile errors considerably more useful.
 
 ## Suggested order
 
-1. **Garbage collection** (1.1a, then 1.1b) — everything else accretes garbage
-   until it exists, and 1.1b removes the chunk-retention wart in Solis.
+1. ~~**Garbage collection** (1.1a, 1.1b)~~ — done. 1.1c lands with strings.
 2. **Strings** (1.2) — the first real heap value, and the thing that proves the
    collector.
 3. **User-defined classes** (1.3), then **collections** (1.4).

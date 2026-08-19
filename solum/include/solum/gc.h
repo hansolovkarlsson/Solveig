@@ -24,9 +24,14 @@ typedef struct SolVM SolVM;
    never allowed to fall below afterwards. */
 #define SOL_GC_INITIAL_THRESHOLD (64 * 1024)
 
+/* Depth of the temporary-root stack. Small on purpose: needing many at once
+   means a value should be reachable from somewhere the tracer already looks. */
+#define SOL_GC_MAX_TEMPS 8
+
 typedef enum {
     SOL_GC_OBJECT,
-    SOL_GC_BLOCK
+    SOL_GC_BLOCK,
+    SOL_GC_CODE     /* a compiled chunk tree; see SolCode in bytecode.h */
 } SolGCType;
 
 typedef struct SolGCHeader {
@@ -48,6 +53,14 @@ void sol_gc_collect(SolVM *vm);
 
 /* Frees the entire heap regardless of reachability, for VM shutdown. */
 void sol_gc_free_all(SolVM *vm);
+
+/* Temporary roots.
+ *
+ * A cell held only in a C local is invisible to the collector, so anything that
+ * must survive an allocation goes here first. Push before the window opens, pop
+ * when the cell is reachable from somewhere the tracer looks. */
+void sol_gc_push_temp(SolVM *vm, SolGCHeader *header);
+void sol_gc_pop_temp(SolVM *vm);
 
 /* Live bytes, counting the cells themselves and the slots objects own. */
 size_t sol_gc_live_bytes(const SolVM *vm);

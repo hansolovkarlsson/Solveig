@@ -401,28 +401,43 @@ restriction safe rather than silently wrong.
 
 ## Garbage collection
 
-Mark-sweep, non-moving, stop-the-world. The heap holds two types: a `SolObject`,
-which owns its slot chain, and a `SolBlock`. Chunks, code, constants, and names
-are compile-time data owned by whoever compiled them, and are not collected.
+Mark-sweep, non-moving, stop-the-world. The heap holds three types: a
+`SolObject`, which owns its slot chain; a `SolBlock`; and a `SolCode`, a compiled
+chunk tree.
+
+Code ownership is dual, because Solas has no VM to own a chunk on its behalf. A
+chunk created by `sol_chunk_init` is caller-owned and freed by hand, as Solas and
+the tests do. One created by `sol_code_new` belongs to a `SolCode` cell that the
+collector sweeps once nothing refers to it, which is how Solis compiles a chunk
+per input line without accumulating them. `sol_chunk_add_method` propagates
+ownership as each subtree is added, so a caller cannot forget to.
 
 Both heap types begin with a `SolGCHeader`, so one list threads the whole heap
 and one sweep loop walks it. A new heap type joins by embedding the header and
 adding a case to the tracer and the freer, rather than by adding another list.
 
-The whole object graph is three edges:
+The object graph is these edges:
 
 ```
 SolObject.proto          -> SolObject
 SolObject.slots[].value  -> SolValue
 SolBlock.self            -> SolValue
+SolBlock.owner           -> SolCode      (the tree its code lives in)
+SolCode  constants       -> SolValue     (once strings can be constants)
 ```
+
+A block caches its owning cell rather than reading it back through
+`block->code->chunk`. A caller-owned chunk can be freed while blocks pointing
+into it are still on the heap -- calling such a block was always wrong, but the
+tracer must not fault merely for walking past one.
 
 Roots are cheap here because of two properties of the interpreter. Frame locals
 live *inside* the value stack -- `push_frame` sets `slots = stack_top - argc - 1`
 and fills the rest by pushing -- so scanning the stack covers every local of
 every frame with no separate frame walk. And a primitive's arguments are still on
 the stack while it runs, since the dispatch loop drops them only after it
-returns. That leaves the value stack, `vm->root`, and the built-in classes.
+returns. That leaves the value stack, the chunk each active frame is executing,
+`vm->root`, the built-in classes, and the temporary-root stack.
 
 Marking uses an explicit worklist rather than recursion, so a graph deeper than
 the C stack traces without overflowing it -- a 200,000-link proto chain is a
@@ -489,5 +504,4 @@ loop with call frames, methods and locals, blocks with lexical capture, the
 `nil`, and `block` classes. Not implemented: user-defined classes, strings,
 symbols, and user-defined classes. The heap is collected: a mark-sweep collector
 reclaims objects and blocks, so a block literal in a loop no longer accumulates.
-Code is still owned by the chunk that compiled it, which is why Solis retains
-every line's chunk -- see [ROADMAP.md](ROADMAP.md) 1.1b.
+Compiled code is collected too, so Solis retains nothing between lines.

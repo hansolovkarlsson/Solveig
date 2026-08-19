@@ -119,9 +119,9 @@ See [examples/blocks.sol](examples/blocks.sol).
 
 Still to do:
 
-- [ ] user-defined classes (slots can only be added to the built-in ones)
 - [ ] strings and symbols -- both scan, but neither has a runtime type
-- [ ] GC-owned code, so Solis need not retain every line's chunk
+- [ ] user-defined classes (slots can only be added to the built-in ones)
+- [ ] division -- strict typing makes truncate/floor/float a real choice
 
 The full list of what is left -- open design questions, known limitations, and
 unbuilt work -- is in [docs/ROADMAP.md](docs/ROADMAP.md).

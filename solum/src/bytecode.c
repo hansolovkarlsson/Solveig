@@ -17,6 +17,15 @@ void sol_chunk_init(SolChunk *chunk)
     chunk->methods.count = 0;
     chunk->methods.capacity = 0;
     chunk->methods.methods = NULL;
+    chunk->owner = NULL;          /* standalone until handed to the collector */
+}
+
+void sol_chunk_set_owner(SolChunk *chunk, SolCode *owner)
+{
+    chunk->owner = owner;
+    for (int i = 0; i < chunk->methods.count; i++) {
+        sol_chunk_set_owner(&chunk->methods.methods[i]->chunk, owner);
+    }
 }
 
 SolMethod *sol_method_new(const char *name, int length, int arity)
@@ -63,6 +72,12 @@ int sol_chunk_add_method(SolChunk *chunk, SolMethod *method)
         }
         methods->capacity = capacity;
     }
+    /* The subtree is complete when it is added, so this propagates ownership
+       correctly for both the compiler, which adds a method after compiling its
+       body, and the loader, which adds it before reading one. Doing it here
+       rather than in a pass afterwards means a caller cannot forget. */
+    sol_chunk_set_owner(&method->chunk, chunk->owner);
+
     methods->methods[methods->count] = method;
     return methods->count++;
 }
