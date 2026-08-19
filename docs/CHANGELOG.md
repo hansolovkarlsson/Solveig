@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### Symbols — `pending`, 2026-08-19
+### Symbols — `5a15fc9`, 2026-08-19
 
 **`.sob` goes to version 6.**
 
