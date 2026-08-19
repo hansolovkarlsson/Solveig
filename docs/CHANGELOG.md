@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### `asUppercase` and `asLowercase` — `pending`, 2026-08-19
+### `asUppercase` and `asLowercase` — `91d413c`, 2026-08-19
 
 ```
 #255:asBase(#16):asUppercase     ; "FF"    -- uppercase hex at last
