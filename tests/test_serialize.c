@@ -254,8 +254,8 @@ static void test_verifier_rejects_unsafe_code(void)
     remove(TMP);
 }
 
-/* Methods nest a chunk inside a chunk, so they have to survive the round trip
-   with their arity, frame size, and body intact. */
+/* A block nests a chunk inside a chunk, so it has to survive the round trip
+   with its arity, frame size, flags, and body intact. */
 static void test_methods_round_trip(void)
 {
     SolChunk chunk;
@@ -265,6 +265,7 @@ static void test_methods_round_trip(void)
     uint8_t dbl     = (uint8_t)sol_chunk_add_name(&chunk, "double", 6);
 
     SolMethod *method = sol_method_new("double", 6, 0);
+    method->is_block = true;
     method->slot_count = 1;                       /* just self */
     uint8_t two  = (uint8_t)sol_chunk_add_constant(&method->chunk, SOL_INT_VAL(2));
     uint8_t mul  = (uint8_t)sol_chunk_add_name(&method->chunk, "mul", 3);
@@ -280,8 +281,9 @@ static void test_methods_round_trip(void)
 
     sol_chunk_write(&chunk, OP_GLOBAL, 1);
     sol_chunk_write(&chunk, integer, 1);
-    sol_chunk_write(&chunk, OP_DEF_METHOD, 1);
+    sol_chunk_write(&chunk, OP_BLOCK, 1);
     sol_chunk_write(&chunk, index, 1);
+    sol_chunk_write(&chunk, OP_SET_SLOT, 1);
     sol_chunk_write(&chunk, dbl, 1);
     sol_chunk_write(&chunk, OP_POP, 1);
     sol_chunk_write(&chunk, OP_HALT, 1);
@@ -317,6 +319,7 @@ static void test_verifier_checks_frame_bounds(void)
     sol_chunk_init(&chunk);
     sol_chunk_add_name(&chunk, "x", 1);
     SolMethod *bad = sol_method_new("bad", 3, 2);
+    bad->is_block = true;
     bad->slot_count = 2;                          /* needs at least 3 */
     sol_chunk_write(&bad->chunk, OP_NIL, 1);
     sol_chunk_write(&bad->chunk, OP_RETURN, 1);
@@ -328,11 +331,28 @@ static void test_verifier_checks_frame_bounds(void)
     /* A local slot past the end of the frame. */
     sol_chunk_init(&chunk);
     SolMethod *over = sol_method_new("over", 4, 0);
+    over->is_block = true;
     over->slot_count = 1;                         /* only self */
     sol_chunk_write(&over->chunk, OP_LOCAL, 1);
     sol_chunk_write(&over->chunk, 5, 1);          /* out of range */
     sol_chunk_write(&over->chunk, OP_RETURN, 1);
     sol_chunk_add_method(&chunk, over);
+    sol_chunk_write(&chunk, OP_HALT, 1);
+    assert(sol_chunk_verify(&chunk) == SOL_SER_MALFORMED);
+    sol_chunk_free(&chunk);
+
+    /* Reaching further out than there are enclosing frames. The top-level chunk
+       has none, so any depth at all from a block it holds is out of range. */
+    sol_chunk_init(&chunk);
+    SolMethod *far = sol_method_new("far", 3, 0);
+    far->is_block = true;
+    far->slot_count = 1;
+    far->captures = true;
+    sol_chunk_write(&far->chunk, OP_OUTER, 1);
+    sol_chunk_write(&far->chunk, 2, 1);           /* two frames out */
+    sol_chunk_write(&far->chunk, 0, 1);
+    sol_chunk_write(&far->chunk, OP_RETURN, 1);
+    sol_chunk_add_method(&chunk, far);
     sol_chunk_write(&chunk, OP_HALT, 1);
     assert(sol_chunk_verify(&chunk) == SOL_SER_MALFORMED);
     sol_chunk_free(&chunk);

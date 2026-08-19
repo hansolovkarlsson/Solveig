@@ -19,9 +19,9 @@ typedef struct {
     SolValue        *slots;
     uint64_t         id;       /* unique for the life of the VM */
 
-    /* For a block frame, where its captured locals live. A block reads the
-       enclosing method's frame, not its caller's -- lexical, not dynamic. */
-    SolValue        *home_slots;
+    /* The frame this one was lexically written inside, by index and by id.
+       Reaching a name further out is a walk along this chain -- lexical, not
+       dynamic. The id is what detects a frame that has since returned. */
     int              home_frame;
     uint64_t         home_id;
 } SolFrame;

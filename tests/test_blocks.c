@@ -122,7 +122,7 @@ static void test_blocks_capture_enclosing_locals(void)
     SolChunk chunk;
 
     assert(run(&vm, &chunk,
-        "integer:sumTo() := ("
+        "integer:sumTo := {"
         "    | total, i |"
         "    total := #0."
         "    i := #1."
@@ -131,7 +131,7 @@ static void test_blocks_capture_enclosing_locals(void)
         "        i := i:add(#1)"
         "    })."
         "    total"
-        ")."
+        "}."
         "r := #100:sumTo().") == SOL_OK);
     assert(SOL_AS_INT(global(&vm, "r")) == 5050);
 
@@ -146,7 +146,7 @@ static void test_self_inside_a_block(void)
     SolChunk chunk;
 
     assert(run(&vm, &chunk,
-        "integer:viaBlock() := { self:mul(#2) }:value()."
+        "integer:viaBlock := { { self:mul(#2) }:value() }."
         "r := #21:viaBlock().") == SOL_OK);
     assert(SOL_AS_INT(global(&vm, "r")) == 42);
 
@@ -161,10 +161,10 @@ static void test_recursion_with_a_base_case(void)
     SolChunk chunk;
 
     assert(run(&vm, &chunk,
-        "integer:factorial() := ("
+        "integer:factorial := {"
         "    self:lessThan(#2):ifElse({ #1 },"
         "        { self:mul( self:sub(#1):factorial() ) })"
-        ")."
+        "}."
         "a := #1:factorial(). b := #5:factorial(). c := #20:factorial().") == SOL_OK);
     assert(SOL_AS_INT(global(&vm, "a")) == 1);
     assert(SOL_AS_INT(global(&vm, "b")) == 120);
@@ -199,7 +199,7 @@ static void test_escaping_capture_is_caught(void)
 
     assert(run(&vm, &first,
         "escaped := nil."                       /* globals are made at top level */
-        "integer:leak() := ( | t | t := self. escaped := { t }. #0 )."
+        "integer:leak := { | t | t := self. escaped := { t }. #0 }."
         "#7:leak().") == SOL_OK);
     /* `escaped` is a block over a frame that has since returned. */
     assert(run(&vm, &second, "r := escaped:value().") == SOL_RUNTIME_ERROR);
@@ -242,12 +242,12 @@ static void test_nested_blocks_share_the_home_frame(void)
     SolChunk chunk;
 
     assert(run(&vm, &chunk,
-        "integer:nested() := ("
+        "integer:nested := {"
         "    | n |"
         "    n := self."
         "    { { n := n:add(#1) }:value() }:value()."
         "    n"
-        ")."
+        "}."
         "r := #10:nested().") == SOL_OK);
     assert(SOL_AS_INT(global(&vm, "r")) == 11);
 

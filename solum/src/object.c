@@ -34,8 +34,8 @@ SolObject *sol_object_new(SolVM *vm, SolObject *proto)
     return obj;
 }
 
-SolBlock *sol_block_new(SolVM *vm, const SolMethod *code, int home_frame,
-                        uint64_t home_id)
+SolBlock *sol_block_new(SolVM *vm, const SolMethod *code, SolValue self,
+                        int home_frame, uint64_t home_id)
 {
     SolBlock *block = malloc(sizeof(SolBlock));
     if (block == NULL) {
@@ -43,6 +43,7 @@ SolBlock *sol_block_new(SolVM *vm, const SolMethod *code, int home_frame,
         exit(1);
     }
     block->code = code;
+    block->self = self;
     block->home_frame = home_frame;
     block->home_id = home_id;
     block->next = vm->blocks;
@@ -82,7 +83,6 @@ static SolSlot *ensure_local(SolObject *obj, const char *name)
     slot->name = dup_name(name);
     slot->value = SOL_NIL_VAL;
     slot->primitive = NULL;
-    slot->method = NULL;
     slot->next = obj->slots;
     obj->slots = slot;
     return slot;
@@ -93,7 +93,6 @@ void sol_object_define(SolObject *obj, const char *name, SolValue value)
     SolSlot *slot = ensure_local(obj, name);
     slot->value = value;
     slot->primitive = NULL;
-    slot->method = NULL;
 }
 
 void sol_object_define_primitive(SolObject *obj, const char *name, SolPrimitive fn)
@@ -101,13 +100,4 @@ void sol_object_define_primitive(SolObject *obj, const char *name, SolPrimitive 
     SolSlot *slot = ensure_local(obj, name);
     slot->value = SOL_NIL_VAL;
     slot->primitive = fn;
-    slot->method = NULL;
-}
-
-void sol_object_define_method(SolObject *obj, const char *name, const SolMethod *method)
-{
-    SolSlot *slot = ensure_local(obj, name);
-    slot->value = SOL_NIL_VAL;
-    slot->primitive = NULL;
-    slot->method = method;
 }

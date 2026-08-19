@@ -177,11 +177,9 @@ static int slot_instruction(const char *name, const SolChunk *chunk, int offset)
     return offset + 2;
 }
 
-static int method_instruction(const char *name, const SolChunk *chunk, int offset)
+static int depth_instruction(const char *name, const SolChunk *chunk, int offset)
 {
-    uint8_t method = chunk->code[offset + 1];
-    uint8_t name_index = chunk->code[offset + 2];
-    printf("%-8s %4d '%s'\n", name, method, sol_chunk_name(chunk, name_index));
+    printf("%-8s %4d ^%d\n", name, chunk->code[offset + 2], chunk->code[offset + 1]);
     return offset + 3;
 }
 
@@ -211,11 +209,11 @@ int sol_chunk_disassemble_instruction(const SolChunk *chunk, int offset)
     case OP_SET_GLOBAL: return name_instruction("SETGLOB", chunk, offset);
     case OP_LOCAL:  return slot_instruction("LOCAL", chunk, offset);
     case OP_SET_LOCAL: return slot_instruction("SETLOCL", chunk, offset);
-    case OP_OUTER:  return slot_instruction("OUTER", chunk, offset);
-    case OP_SET_OUTER: return slot_instruction("SETOUTR", chunk, offset);
+    case OP_OUTER:  return depth_instruction("OUTER", chunk, offset);
+    case OP_SET_OUTER: return depth_instruction("SETOUTR", chunk, offset);
     case OP_BLOCK:  return slot_instruction("BLOCK", chunk, offset);
     case OP_SEND:   return send_instruction("SEND", chunk, offset);
-    case OP_DEF_METHOD: return method_instruction("DEFMETH", chunk, offset);
+    case OP_SET_SLOT: return name_instruction("SETSLOT", chunk, offset);
     case OP_POP:    return simple_instruction("POP", offset);
     case OP_RETURN: return simple_instruction("RETURN", offset);
     case OP_HALT:   return simple_instruction("HALT", offset);

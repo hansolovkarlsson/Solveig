@@ -408,15 +408,16 @@ fail:
 
 /* ---- verification ---------------------------------------------------- */
 
-/* `slot_count` is how many frame slots the code may address: 0 for the
- * top-level chunk, which has neither self nor locals. `outer` is how many slots
- * of a home frame it may reach, which is 0 unless this is a capturing block.
+/* `slot_count` is how many frame slots this chunk's code may address; 0 for the
+ * top-level chunk, which has neither self nor locals. `ancestors` carries the
+ * slot counts of the enclosing frames, nearest first, so an OUTER at depth d
+ * can be bounds-checked against the frame it actually reaches.
  *
- * Passing outer = 0 for a block that does not declare itself capturing is what
- * stops a crafted file from reaching a home frame the VM never resolved.
+ * Without this a crafted file could reach past a frame it never entered.
  */
-static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count, int outer,
-                                 bool is_block, int depth)
+static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count,
+                                 const int *ancestors, int ancestor_count,
+                                 int depth)
 {
     if (depth > SOL_MAX_NESTING) return SOL_SER_MALFORMED;
     if (chunk->count == 0) return SOL_SER_MALFORMED;
@@ -442,13 +443,13 @@ static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count, int oute
         case OP_SET_GLOBAL:
         case OP_LOCAL:
         case OP_SET_LOCAL:
-        case OP_OUTER:
-        case OP_SET_OUTER:
         case OP_BLOCK:
+        case OP_SET_SLOT:
             operands = 1;
             break;
         case OP_SEND:
-        case OP_DEF_METHOD:
+        case OP_OUTER:
+        case OP_SET_OUTER:
             operands = 2;
             break;
         default:
@@ -468,6 +469,7 @@ static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count, int oute
         case OP_GLOBAL:
         case OP_SET_GLOBAL:
         case OP_SEND:
+        case OP_SET_SLOT:
             if (chunk->code[offset + 1] >= chunk->names.count) return SOL_SER_MALFORMED;
             break;
         case OP_LOCAL:
@@ -475,22 +477,19 @@ static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count, int oute
             if (chunk->code[offset + 1] >= slot_count) return SOL_SER_MALFORMED;
             break;
         case OP_OUTER:
-        case OP_SET_OUTER:
-            if (chunk->code[offset + 1] >= outer) return SOL_SER_MALFORMED;
+        case OP_SET_OUTER: {
+            int d = chunk->code[offset + 1];
+            int slot = chunk->code[offset + 2];
+            if (d < 1 || d > ancestor_count) return SOL_SER_MALFORMED;
+            if (slot >= ancestors[d - 1]) return SOL_SER_MALFORMED;
             break;
+        }
         case OP_BLOCK: {
             uint8_t index = chunk->code[offset + 1];
             if (index >= chunk->methods.count) return SOL_SER_MALFORMED;
-            /* OP_BLOCK must name a block, not a method: they are called with
-               different frames. */
+            /* OP_BLOCK must name a block: a non-block entry would be entered
+               with a frame it was not compiled for. */
             if (!chunk->methods.methods[index]->is_block) return SOL_SER_MALFORMED;
-            break;
-        }
-        case OP_DEF_METHOD: {
-            uint8_t index = chunk->code[offset + 1];
-            if (index >= chunk->methods.count) return SOL_SER_MALFORMED;
-            if (chunk->methods.methods[index]->is_block) return SOL_SER_MALFORMED;
-            if (chunk->code[offset + 2] >= chunk->names.count) return SOL_SER_MALFORMED;
             break;
         }
         default:
@@ -507,20 +506,21 @@ static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count, int oute
     uint8_t final = chunk->code[last];
     if (final != OP_HALT && final != OP_RETURN) return SOL_SER_MALFORMED;
 
-    /* Blocks defined here capture whichever frame this chunk reads through:
-       its own if this is a method, or the one it already reaches if this is
-       itself a block. */
-    int home_slots = is_block ? outer : slot_count;
+    /* Blocks defined here are entered with this chunk's frame as their nearest
+       ancestor, so push it and verify each body against the extended chain. */
+    int child[SOL_MAX_NESTING + 1];
+    int child_count = ancestor_count + 1;
+    if (child_count > SOL_MAX_NESTING) child_count = SOL_MAX_NESTING;
+    child[0] = slot_count;
+    for (int i = 1; i < child_count; i++) child[i] = ancestors[i - 1];
 
     for (int i = 0; i < chunk->methods.count; i++) {
         const SolMethod *entry = chunk->methods.methods[i];
         if (entry->slot_count < entry->arity + 1) return SOL_SER_MALFORMED;
         if (entry->slot_count > UINT8_MAX) return SOL_SER_MALFORMED;
-        if (!entry->is_block && entry->captures) return SOL_SER_MALFORMED;
 
-        int child_outer = entry->is_block && entry->captures ? home_slots : 0;
         SolSerResult result = verify_chunk(&entry->chunk, entry->slot_count,
-                                           child_outer, entry->is_block, depth + 1);
+                                           child, child_count, depth + 1);
         if (result != SOL_SER_OK) return result;
     }
 
@@ -529,5 +529,5 @@ static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count, int oute
 
 SolSerResult sol_chunk_verify(const SolChunk *chunk)
 {
-    return verify_chunk(chunk, 0, 0, false, 0);
+    return verify_chunk(chunk, 0, NULL, 0, 0);
 }

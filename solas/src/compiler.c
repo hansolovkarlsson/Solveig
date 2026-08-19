@@ -39,13 +39,32 @@ static void block_literal(Compiler *c);
 static int  resolve_local(Scope *scope, const SolToken *name);
 static int  declare_local(Scope *scope, const char *name, int length);
 
-/* The nearest enclosing method scope. A block's locals live in the method it
-   was written in, and blocks nested in blocks share that same frame, so this
-   walks past any number of block scopes. */
-static Scope *home_scope(Scope *scope)
+/* Finds `name` along the lexical chain. Returns its slot and sets *depth to how
+   many frames out it lives -- 0 for this one, 1 for the enclosing block, and so
+   on. Returns -1 if it is not a local anywhere, which makes it a global. */
+static int resolve_name(Scope *scope, const SolToken *name, int *depth)
 {
-    while (scope != NULL && scope->is_block) scope = scope->enclosing;
-    return scope;
+    int d = 0;
+    for (Scope *s = scope; s != NULL; s = s->enclosing) {
+        int slot = resolve_local(s, name);
+        if (slot >= 0) { *depth = d; return slot; }
+        if (!s->is_block) break;      /* the top level holds globals, not locals */
+        d++;                          /* crossed a frame boundary */
+    }
+    return -1;
+}
+
+/* `self` is always slot 0 of the frame being compiled.
+ *
+ * It is not resolved lexically to some enclosing frame, because which block
+ * ends up invoked as a method is not knowable here -- a block can be built by
+ * one block and bound to a slot by another. Instead the VM captures the
+ * receiver into the block when the block is created, and a send to a slot
+ * holding it overrides slot 0 with its own receiver. Lexical either way, but
+ * decided where the answer is actually known. */
+static bool inside_a_block(Scope *scope)
+{
+    return scope != NULL && scope->is_block;
 }
 
 static void emit(Compiler *c, uint8_t byte)
@@ -164,36 +183,55 @@ static void optional_declarations(Compiler *c)
     if (sol_parser_match(&c->parser, TOK_PIPE)) declarations(c);
 }
 
+static void emit_access(Compiler *c, bool store, int depth, int slot)
+{
+    if (depth == 0) {
+        emit_pair(c, store ? OP_SET_LOCAL : OP_LOCAL, (uint8_t)slot);
+    } else {
+        emit(c, store ? OP_SET_OUTER : OP_OUTER);
+        emit(c, (uint8_t)depth);
+        emit(c, (uint8_t)slot);
+    }
+}
+
 /* IDENT is either an assignment target or a name to resolve. One token of
  * lookahead is enough because a target is always a bare identifier.
  *
- * Resolution goes: this frame's locals, then the enclosing method's locals if
- * we are inside a block, then the globals. Assignment never declares -- an
- * undeclared name is a global, whether it is being read or written.
+ * Only parameters and declared temporaries are locals; anything else is a
+ * global. Assignment never declares, which is what lets a block reach out and
+ * update a name rather than shadowing it.
  */
 static void identifier(Compiler *c)
 {
     SolToken name = c->parser.previous;
-    Scope *scope = c->scope;
-    Scope *home = home_scope(scope);
+    int depth = 0;
+    int slot;
 
-    int slot = resolve_local(scope, &name);
-    int outer = -1;
-    if (slot < 0 && scope->is_block && home != NULL && home->in_method) {
-        outer = resolve_local(home, &name);
-    }
-
-    if (sol_parser_match(&c->parser, TOK_ASSIGN)) {
-        expression(c);
-        if (slot >= 0)       emit_pair(c, OP_SET_LOCAL, (uint8_t)slot);
-        else if (outer >= 0) emit_pair(c, OP_SET_OUTER, (uint8_t)outer);
-        else                 emit_pair(c, OP_SET_GLOBAL, name_operand(c, &name));
+    if (name.length == 4 && memcmp(name.start, "self", 4) == 0) {
+        if (!inside_a_block(c->scope)) {
+            sol_parser_error(&c->parser, &name,
+                             "'self' is only meaningful inside a block");
+            return;
+        }
+        if (sol_parser_match(&c->parser, TOK_ASSIGN)) {
+            sol_parser_error(&c->parser, &name, "cannot assign to 'self'");
+            return;
+        }
+        emit_access(c, false, 0, 0);      /* slot 0 of this frame */
         return;
     }
 
-    if (slot >= 0)       emit_pair(c, OP_LOCAL, (uint8_t)slot);
-    else if (outer >= 0) emit_pair(c, OP_OUTER, (uint8_t)outer);
-    else                 emit_pair(c, OP_GLOBAL, name_operand(c, &name));
+    slot = resolve_name(c->scope, &name, &depth);
+
+    if (sol_parser_match(&c->parser, TOK_ASSIGN)) {
+        expression(c);
+        if (slot >= 0) emit_access(c, true, depth, slot);
+        else           emit_pair(c, OP_SET_GLOBAL, name_operand(c, &name));
+        return;
+    }
+
+    if (slot >= 0) emit_access(c, false, depth, slot);
+    else           emit_pair(c, OP_GLOBAL, name_operand(c, &name));
 }
 
 static void primary(Compiler *c)
@@ -254,27 +292,52 @@ static uint8_t arguments(Compiler *c)
     return (uint8_t)argc;
 }
 
+/* `receiver:name := value` binds a slot, and it is the same `:=` as everywhere
+ * else: the right-hand side is evaluated, then bound. A slot holding a block is
+ * what makes a method.
+ *
+ * Single pass, so the send has already been emitted by the time `:=` appears.
+ * A zero-argument send is exactly three bytes and the receiver is still on the
+ * stack beneath it, so rewinding the chunk to where that send started undoes it
+ * precisely -- no extra lookahead, and still no AST.
+ */
 static void expression(Compiler *c)
 {
     SolParser *p = &c->parser;
 
     primary(c);
 
+    int     target_at = -1;      /* where the last zero-argument send started */
+    uint8_t target_name = 0;
+
     /* Sends chain left to right: `a:add(#1):print` sends print to the sum. */
     while (sol_parser_match(p, TOK_COLON)) {
         sol_parser_consume(p, TOK_IDENT, "expected a message name after ':'");
         SolToken selector = p->previous;
+
+        int at = c->scope->chunk->count;
         uint8_t argc = arguments(c);
+        uint8_t name = name_operand(c, &selector);
 
         emit(c, OP_SEND);
-        emit(c, name_operand(c, &selector));
+        emit(c, name);
         emit(c, argc);
+
+        target_at = (argc == 0) ? at : -1;
+        target_name = name;
+    }
+
+    if (target_at >= 0 && sol_parser_match(p, TOK_ASSIGN)) {
+        c->scope->chunk->count = target_at;      /* unemit the send */
+        expression(c);
+        emit_pair(c, OP_SET_SLOT, target_name);
     }
 }
 
-/* Does `chunk` read or write the home frame, directly or through a block
-   nested inside it? A block that does not is independent of the frame it was
-   written in, and may outlive it. */
+/* Does `chunk` reach out of its own frame? One that does not is independent of
+   where it was written and may outlive it. A block nested inside is not
+   consulted: its depths are counted from its own frame, so whether it reaches
+   past this one is its business, recorded on its own flag. */
 static bool touches_home(const SolChunk *chunk)
 {
     for (int offset = 0; offset < chunk->count; ) {
@@ -283,19 +346,14 @@ static bool touches_home(const SolChunk *chunk)
 
         switch (op) {
         case OP_CONST: case OP_GLOBAL: case OP_SET_GLOBAL:
-        case OP_LOCAL: case OP_SET_LOCAL: case OP_OUTER:
-        case OP_SET_OUTER: case OP_BLOCK:
+        case OP_LOCAL: case OP_SET_LOCAL: case OP_BLOCK:
+        case OP_SET_SLOT:
             offset += 2; break;
-        case OP_SEND: case OP_DEF_METHOD:
+        case OP_SEND: case OP_OUTER: case OP_SET_OUTER:
             offset += 3; break;
         default:
             offset += 1; break;
         }
-    }
-    /* A nested block shares this frame's home, so its captures count too. */
-    for (int i = 0; i < chunk->methods.count; i++) {
-        const SolMethod *inner = chunk->methods.methods[i];
-        if (inner->is_block && touches_home(&inner->chunk)) return true;
     }
     return false;
 }
@@ -306,6 +364,50 @@ static bool touches_home(const SolChunk *chunk)
  * the enclosing chunk's method table. What makes it a block is OP_BLOCK, which
  * captures the running frame as the block's home so `self` and the enclosing
  * locals still mean the right thing whenever it is eventually run. */
+/* Parameters come first, closed by `|`:
+ *
+ *     { a, b | a:add(b) }
+ *     { | t | ... }          a leading '|' means no parameters, just temporaries
+ *
+ * That leading `|` is what separates the two cases, and is why parameters could
+ * not reuse the parenthesised form: `{ (a) }` would be both a one-parameter
+ * block and a block answering the value of `a`.
+ */
+static void block_parameters(Compiler *c, SolMethod *code)
+{
+    SolParser *p = &c->parser;
+
+    if (p->current.type != TOK_IDENT) return;   /* '|' or a body, not parameters */
+
+    /* `a, b |` is a parameter list; a bare expression is not. Scanning a copy of
+       the lexer settles it without disturbing the token stream. */
+    SolLexer probe = p->lexer;
+    SolToken token = sol_lexer_next(&probe);
+    while (token.type == TOK_COMMA) {
+        if (sol_lexer_next(&probe).type != TOK_IDENT) return;
+        token = sol_lexer_next(&probe);
+    }
+    if (token.type != TOK_PIPE) return;
+
+    do {
+        sol_parser_consume(p, TOK_IDENT, "expected a parameter name");
+        if (p->panicked) return;
+
+        SolToken name = p->previous;
+        if (resolve_local(c->scope, &name) >= 0) {
+            sol_parser_error(p, &name, "that name is already a parameter here");
+            return;
+        }
+        if (declare_local(c->scope, name.start, name.length) < 0) {
+            sol_parser_error(p, &name, "too many parameters");
+            return;
+        }
+        code->arity++;
+    } while (sol_parser_match(p, TOK_COMMA));
+
+    sol_parser_consume(p, TOK_PIPE, "expected '|' after the block parameters");
+}
+
 static void block_literal(Compiler *c)
 {
     SolParser *p = &c->parser;
@@ -319,11 +421,15 @@ static void block_literal(Compiler *c)
     scope.local_count = 0;
     scope.in_method = true;
     scope.is_block = true;
-    /* Slot 0 of a block frame holds the block itself, and cannot be named --
-       `self` resolves past it, to the home frame's slot 0. */
+    /* Slot 0 of a block frame holds whatever the send placed there: the block
+       itself for `value`, or the receiver when a slot holding this block is
+       sent. It cannot be named -- `self` finds it by position instead, on the
+       outermost block of the nest. Parameters follow, landing in slots
+       1..arity exactly as a send lays them out. */
     declare_local(&scope, "", 0);
 
     c->scope = &scope;
+    block_parameters(c, code);
     optional_declarations(c);
     if (p->current.type == TOK_RBRACE) {
         emit(c, OP_NIL);                     /* an empty block answers nil */
@@ -363,111 +469,9 @@ static void synchronise(Compiler *c)
     }
 }
 
-/* Is the statement ahead a method definition rather than an expression?
- *
- *     integer:double() := ...
- *
- * The shape is IDENT ':' IDENT '(' params ')' ':=', which needs more lookahead
- * than the parser carries. A SolLexer is three pointers, so a copy scans ahead
- * cheaply and is thrown away; nothing in the real token stream moves. */
-static bool ahead_is_method_definition(SolParser *p)
-{
-    if (p->current.type != TOK_IDENT) return false;
-
-    SolLexer probe = p->lexer;      /* positioned just past p->current */
-    if (sol_lexer_next(&probe).type != TOK_COLON) return false;
-    if (sol_lexer_next(&probe).type != TOK_IDENT) return false;
-
-    SolToken token = sol_lexer_next(&probe);
-    if (token.type != TOK_LPAREN) return false;
-
-    token = sol_lexer_next(&probe);
-    if (token.type != TOK_RPAREN) {
-        for (;;) {
-            if (token.type != TOK_IDENT) return false;
-            token = sol_lexer_next(&probe);
-            if (token.type == TOK_RPAREN) break;
-            if (token.type != TOK_COMMA) return false;
-            token = sol_lexer_next(&probe);
-        }
-    }
-    return sol_lexer_next(&probe).type == TOK_ASSIGN;
-}
-
-/* `integer:double() := self:mul(#2).`
- *
- * The target is an ordinary expression, evaluated and left on the stack for
- * OP_DEF_METHOD, so a method is bound on a class exactly as `:=` binds a name
- * in the globals. */
-static void method_definition(Compiler *c)
-{
-    SolParser *p = &c->parser;
-
-    sol_parser_consume(p, TOK_IDENT, "expected the class to define on");
-    SolToken target = p->previous;
-
-    sol_parser_consume(p, TOK_COLON, "expected ':'");
-    sol_parser_consume(p, TOK_IDENT, "expected a method name");
-    SolToken name = p->previous;
-
-    /* Collect parameter names before compiling, so arity is known up front. */
-    SolToken params[SOL_MAX_LOCALS];
-    int arity = 0;
-    sol_parser_consume(p, TOK_LPAREN, "expected '(' after the method name");
-    if (!sol_parser_match(p, TOK_RPAREN)) {
-        do {
-            if (arity == UINT8_MAX) {
-                sol_parser_error(p, &p->current, "too many parameters");
-                return;
-            }
-            sol_parser_consume(p, TOK_IDENT, "expected a parameter name");
-            params[arity++] = p->previous;
-        } while (sol_parser_match(p, TOK_COMMA));
-        sol_parser_consume(p, TOK_RPAREN, "expected ')' after parameters");
-    }
-    sol_parser_consume(p, TOK_ASSIGN, "expected ':=' before the method body");
-
-    SolMethod *method = sol_method_new(name.start, name.length, arity);
-
-    /* Compile the body into the method's own chunk. */
-    Scope scope;
-    scope.enclosing = c->scope;
-    scope.chunk = &method->chunk;
-    scope.local_count = 0;
-    scope.in_method = true;
-    scope.is_block = false;
-    declare_local(&scope, "self", 4);            /* slot 0 */
-    for (int i = 0; i < arity; i++) {
-        declare_local(&scope, params[i].start, params[i].length);
-    }
-
-    c->scope = &scope;
-    expression(c);
-    emit(c, OP_RETURN);                          /* the body's value is the reply */
-    c->scope = scope.enclosing;
-
-    method->slot_count = scope.local_count;
-
-    int method_index = sol_chunk_add_method(c->scope->chunk, method);
-    if (method_index > UINT8_MAX) {
-        sol_parser_error(p, &name, "too many methods in one chunk");
-        return;
-    }
-
-    /* Evaluate the target, then bind. */
-    emit_pair(c, OP_GLOBAL, name_operand(c, &target));
-    emit(c, OP_DEF_METHOD);
-    emit(c, (uint8_t)method_index);
-    emit(c, name_operand(c, &name));
-}
-
 static void statement(Compiler *c)
 {
-    if (ahead_is_method_definition(&c->parser)) {
-        method_definition(c);
-    } else {
-        expression(c);
-    }
+    expression(c);
     sol_parser_match(&c->parser, TOK_DOT);   /* the terminator stays optional */
     emit(c, OP_POP);                         /* a statement leaves nothing behind */
 

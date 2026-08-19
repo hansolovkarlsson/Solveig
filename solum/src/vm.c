@@ -143,7 +143,7 @@ void sol_vm_runtime_error(SolVM *vm, const char *format, ...)
 /* Pushes a frame. The receiver and arguments are already on the stack in slot
    order; any remaining locals are filled with nil. */
 static bool push_frame(SolVM *vm, const SolMethod *code, int argc,
-                       SolValue *home_slots, int home_frame, uint64_t home_id)
+                       int home_frame, uint64_t home_id)
 {
     if (argc != code->arity) {
         sol_vm_runtime_error(vm, "'%s' takes %d argument%s, got %d",
@@ -170,23 +170,31 @@ static bool push_frame(SolVM *vm, const SolMethod *code, int argc,
     frame->ip = code->chunk.code;
     frame->slots = slots;
     frame->id = vm->next_frame_id++;
-    frame->home_slots = home_slots;
     frame->home_frame = home_frame;
     frame->home_id = home_id;
     return true;
 }
 
-/* A block's home frame must still be the one it captured. Frame ids are unique
-   for the life of the VM, so a block that outlived its method is caught here
-   rather than reading slots that now belong to someone else. */
-static SolValue *resolve_home(SolVM *vm, const SolBlock *block)
+/* Walks `depth` steps out along the lexical chain from `frame` and answers that
+   frame's slots.
+ *
+ * Every hop is checked: a frame's home is recorded by index *and* by an id
+ * unique for the life of the VM, so a block whose enclosing frame has since
+ * returned is reported rather than reading slots that now belong to someone
+ * else. Depth is bounded by the verifier, but each step is validated anyway
+ * because liveness is a runtime property. */
+static SolValue *outer_slots(SolVM *vm, const SolFrame *frame, int depth)
 {
-    if (block->home_frame >= vm->frame_count ||
-        vm->frames[block->home_frame].id != block->home_id) {
-        sol_vm_runtime_error(vm, "block outlived the method that created it");
-        return NULL;
+    for (int i = 0; i < depth; i++) {
+        int index = frame->home_frame;
+        if (index < 0 || index >= vm->frame_count ||
+            vm->frames[index].id != frame->home_id) {
+            sol_vm_runtime_error(vm, "block outlived the frame it was written in");
+            return NULL;
+        }
+        frame = &vm->frames[index];
     }
-    return vm->frames[block->home_frame].slots;
+    return frame->slots;
 }
 
 static SolResult run_frames(SolVM *vm, int base);
@@ -198,11 +206,6 @@ SolValue sol_vm_call_block(SolVM *vm, SolValue block, SolValue *args, int argc)
         return SOL_NIL_VAL;
     }
     SolBlock *b = SOL_AS_BLOCK(block);
-    SolValue *home = NULL;
-    if (b->code->captures) {
-        home = resolve_home(vm, b);
-        if (home == NULL) return SOL_NIL_VAL;
-    }
 
     if (vm->stack_top + argc + 1 > vm->stack + SOL_STACK_MAX) {
         sol_vm_runtime_error(vm, "stack overflow");
@@ -210,10 +213,13 @@ SolValue sol_vm_call_block(SolVM *vm, SolValue block, SolValue *args, int argc)
     }
 
     int base = vm->frame_count;
-    *vm->stack_top++ = block;                       /* the block is its own receiver */
+    /* Slot 0 is the receiver the block was written under. A send to a slot
+       holding this block supplies its own receiver instead, which is what makes
+       an installed block behave as a method. */
+    *vm->stack_top++ = b->self;
     for (int i = 0; i < argc; i++) *vm->stack_top++ = args[i];
 
-    if (!push_frame(vm, b->code, argc, home, b->home_frame, b->home_id)) {
+    if (!push_frame(vm, b->code, argc, b->home_frame, b->home_id)) {
         vm->stack_top -= argc + 1;
         return SOL_NIL_VAL;
     }
@@ -282,46 +288,55 @@ static SolResult run_frames(SolVM *vm, int base)
             frame->slots[READ_BYTE()] = vm->stack_top[-1];
             break;
 
-        case OP_OUTER:
-            sol_vm_push(vm, frame->home_slots[READ_BYTE()]);
+        case OP_OUTER: {
+            uint8_t depth = READ_BYTE();
+            uint8_t slot = READ_BYTE();
+            SolValue *slots = outer_slots(vm, frame, depth);
+            if (slots == NULL) break;
+            sol_vm_push(vm, slots[slot]);
             break;
+        }
 
-        case OP_SET_OUTER:
-            frame->home_slots[READ_BYTE()] = vm->stack_top[-1];
+        case OP_SET_OUTER: {
+            uint8_t depth = READ_BYTE();
+            uint8_t slot = READ_BYTE();
+            SolValue *slots = outer_slots(vm, frame, depth);
+            if (slots == NULL) break;
+            slots[slot] = vm->stack_top[-1];
             break;
+        }
 
         case OP_BLOCK: {
             const SolMethod *code = frame->chunk->methods.methods[READ_BYTE()];
 
-            /* A block written inside a block shares the enclosing method's
-               frame -- capture is lexical, so it skips past intermediate
-               block frames rather than stopping at the nearest one. */
-            int home_frame;
-            uint64_t home_id;
-            if (frame->method != NULL && frame->method->is_block) {
-                home_frame = frame->home_frame;
-                home_id = frame->home_id;
-            } else {
-                home_frame = vm->frame_count - 1;
-                home_id = frame->id;
-            }
-            sol_vm_push(vm, SOL_BLOCK_VAL(sol_block_new(vm, code, home_frame, home_id)));
+            /* The block's home is the frame creating it. Blocks nested inside
+               will home to this block's frame in turn, so reaching further out
+               is a matter of depth along that chain.
+       
+               `self` is captured here rather than resolved lexically at compile
+               time, because whether a given block ends up invoked as a method
+               is not knowable until it is bound to a slot. */
+            SolValue captured = frame->method != NULL ? frame->slots[0] : SOL_NIL_VAL;
+            sol_vm_push(vm, SOL_BLOCK_VAL(
+                sol_block_new(vm, code, captured, vm->frame_count - 1, frame->id)));
             break;
         }
 
-        case OP_DEF_METHOD: {
-            const SolMethod *method = frame->chunk->methods.methods[READ_BYTE()];
+        case OP_SET_SLOT: {
             const char *name = READ_NAME();
 
-            /* The target stays on the stack, the way an assignment leaves its
-               value, so the enclosing statement's POP cleans up. */
-            SolValue target = vm->stack_top[-1];
+            /* `obj:name := value` -- the same operator as `a := value`, so the
+               value is already evaluated and simply gets bound. A block bound
+               this way is what makes a method. */
+            SolValue value = sol_vm_pop(vm);
+            SolValue target = sol_vm_pop(vm);
             if (!SOL_IS_OBJ(target)) {
-                sol_vm_runtime_error(vm, "cannot define '%s' on %s", name,
+                sol_vm_runtime_error(vm, "cannot bind '%s' on %s", name,
                                      sol_type_name(target));
                 break;
             }
-            sol_object_define_method(SOL_AS_OBJ(target), name, method);
+            sol_object_define(SOL_AS_OBJ(target), name, value);
+            sol_vm_push(vm, value);          /* assignment answers its value */
             break;
         }
 
@@ -339,15 +354,23 @@ static SolResult run_frames(SolVM *vm, int base)
                 break;
             }
 
-            if (slot->method != NULL) {
-                if (push_frame(vm, slot->method, argc, NULL, 0, 0)) {
+            /* A slot holding a block is a method: run it with the receiver as
+               self, which the caller has already placed in slot position. A
+               capturing block would need its home frame, and one bound as a
+               method has outlived it, so this is where that is caught. */
+            if (SOL_IS_BLOCK(slot->value)) {
+                SolBlock *block = SOL_AS_BLOCK(slot->value);
+                if (push_frame(vm, block->code, argc,
+                               block->home_frame, block->home_id)) {
                     frame = &vm->frames[vm->frame_count - 1];
                 }
                 break;
             }
 
+            /* Any other slot simply answers its value. */
             if (slot->primitive == NULL) {
-                sol_vm_runtime_error(vm, "'%s' is a slot, not a message", name);
+                vm->stack_top -= argc + 1;
+                sol_vm_push(vm, slot->value);
                 break;
             }
 
@@ -405,8 +428,7 @@ SolResult sol_vm_run(SolVM *vm, const SolChunk *chunk)
     frame->ip = chunk->code;
     frame->slots = vm->stack;
     frame->id = vm->next_frame_id++;
-    frame->home_slots = NULL;
-    frame->home_frame = 0;
+    frame->home_frame = -1;          /* nothing encloses the script */
     frame->home_id = 0;
 
     SolResult result = run_frames(vm, 0);

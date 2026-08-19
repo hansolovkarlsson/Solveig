@@ -70,17 +70,33 @@ a:print.         ; ':' sends a message; '.' terminates a statement
 message's parameters, which is why `a := #45`, `a := (#45)` and
 `a := integer:new(#45)` all read consistently.
 
-Methods are defined with the same `:=`, because a method is a name bound on a
-class exactly as a variable is a name bound in the globals:
+A method is a name bound on a class, exactly as a variable is a name bound in
+the globals -- so it uses the same `:=`, with the same meaning. The right-hand
+side is evaluated, and a slot holding a *block* is what makes a method:
 
 ```
-integer:double() := self:mul(#2).      ; `self` is the receiver
-integer:poly(a, b) := self:mul(a):add(b).   ; parameters become locals
+integer:double := { self:mul(#2) }.           ; `self` is the receiver
+integer:poly := { a, b | self:mul(a):add(b) }. ; parameters come before '|'
 
-integer:quadruple() := (               ; parens may hold several statements;
-    d := self:double().                ; the last one is the result
-    d:double()
-).
+integer:quadruple := { | d |                  ; a leading '|' declares
+    d := self:double.                         ; temporaries instead
+    d:double
+}.
+```
+
+A slot holding anything else is data, evaluated once when bound and simply
+answered thereafter:
+
+```
+integer:limit := #45:add(#32).
+#1:limit:print.        ; #77, computed when it was bound
+```
+
+Because `:=` evaluates, a method can be computed rather than written out:
+
+```
+maker := { { self:mul(#2) } }.
+integer:double := maker:value().
 ```
 
 Only parameters and names declared with `| ... |` are locals. Everything else
@@ -140,22 +156,29 @@ else can see rather than a private copy that vanishes when the block returns.
 program    -> statement* EOF
 statement  -> expression '.'?
 expression -> IDENT ':=' expression
-           |  send
+           |  send ( ':=' expression )?
 send       -> primary ( ':' IDENT arguments? )*
 arguments  -> '(' ( expression ( ',' expression )* )? ')'
 primary    -> IDENT | INT | FLOAT | STRING | group | block
 group      -> '(' declarations? expression ( '.' expression )* '.'? ')'
-block      -> '{' declarations? ( expression ( '.' expression )* '.'? )? '}'
+block      -> '{' params? declarations?
+              ( expression ( '.' expression )* '.'? )? '}'
+params     -> IDENT ( ',' IDENT )* '|'
 declarations -> '|' IDENT ( ',' IDENT )* '|'
-
-definition -> IDENT ':' IDENT '(' params? ')' ':=' expression
-params     -> IDENT ( ',' IDENT )*
 ```
 
-A definition and a send start identically, and telling them apart needs more
-lookahead than the parser carries. A `SolLexer` is three pointers, so the
-compiler copies it and scans ahead for the `IDENT ':' IDENT '(' ... ')' ':='`
-shape, then throws the copy away; nothing in the real token stream moves.
+A send is an assignment target when `:=` follows it. Single pass, so the send
+has already been emitted by then -- but a zero-argument send is exactly three
+bytes and its receiver is still on the stack beneath it, so rewinding the chunk
+to where the send started undoes it precisely. No extra lookahead, and still no
+AST.
+
+Block parameters need one small lookahead: `{ a, b | ... }` is a parameter list
+while `{ a }` is a body. A `SolLexer` is three pointers, so the compiler copies
+it, scans for the closing `|`, and throws the copy away; nothing in the real
+token stream moves. That leading `|` is also why parameters could not reuse the
+parenthesised form -- `{ (a) }` would be both a one-parameter block and a block
+answering `a`.
 
 Two scanning rules keep this unambiguous:
 
@@ -178,10 +201,10 @@ A stack machine where nearly everything is `OP_SEND`.
 | `OP_SET_GLOBAL` | u8 name index      | bind the name, leave the value on the stack |
 | `OP_LOCAL`  | u8 slot                | push a frame slot (slot 0 is `self`)        |
 | `OP_SET_LOCAL` | u8 slot             | store into a slot, leaving the value        |
-| `OP_OUTER`  | u8 slot                | read a slot of the block's home frame       |
-| `OP_SET_OUTER` | u8 slot             | write one, leaving the value                |
+| `OP_OUTER`  | u8 depth, u8 slot      | read a slot `depth` frames out              |
+| `OP_SET_OUTER` | u8 depth, u8 slot   | write one, leaving the value                |
 | `OP_BLOCK`  | u8 method index        | make a block capturing the current frame    |
-| `OP_DEF_METHOD` | u8 method, u8 name | bind a method on the object on top of stack |
+| `OP_SET_SLOT` | u8 name index        | pop a value and an object, bind, answer it  |
 | `OP_SEND`   | u8 name index, u8 argc | pop argc args + receiver, push the reply    |
 | `OP_POP`    | --                     | discard top of stack (statement boundary)   |
 | `OP_RETURN` | --                     | return top of stack from the current method |
@@ -311,22 +334,30 @@ chaining. One character of lookahead settles it: a `.` continues a number only
 when a digit follows. That is a single `if` in the scanner, and it is what
 every C-family lexer already does.
 
-**How is a method defined?** With `:=`, the same operator that binds a name:
+**How is a method defined?** With `:=`, and it is genuinely the same operator
+as everywhere else -- the right-hand side is evaluated and bound:
 
 ```
-integer:double() := self:mul(#2).
+integer:double := { self:mul(#2) }.
 ```
 
-A method is a name bound on a class, exactly as a variable is a name bound in
-the globals, so this needed no new keyword and no new operator. The target is
-an ordinary expression, evaluated and left on the stack for `OP_DEF_METHOD`.
+There is no method-definition form in the grammar. A slot holds a value; a slot
+holding a block is a method, and sending its name runs the block with the
+receiver as `self`. Sending the name of a slot holding anything else answers
+that value. Methods and data slots stop being different kinds of thing.
 
-The body compiles into a chunk of its own, which the enclosing chunk owns. A
-call pushes a frame whose `slots` point into the value stack at the receiver,
+An earlier design did have a definition form, `integer:double() := self:mul(#2)`,
+where the right-hand side was compiled rather than evaluated. It read well but
+made `:=` mean two different things depending on what stood to its left, and it
+put a shape the compiler had to pattern-match into the grammar. Evaluating the
+right-hand side removes the special case and buys metaprogramming: a method can
+be *computed*, because by the time it is bound it is only a value.
+
+A call pushes a frame whose `slots` point into the value stack at the receiver,
 so `slots[0]` is `self` and `slots[1..arity]` are the arguments -- the caller
 has already laid them out that way, and nothing is copied to make the call. The
-compiler decides the frame size and records it as the method's `slot_count`;
-the VM reserves that much and fills the extra with nil.
+compiler decides the frame size and records it as `slot_count`; the VM reserves
+that much and fills the extra with nil.
 
 **How does control flow work?** By sending messages, with no control-flow
 syntax at all. `{ ... }` makes a block -- unevaluated code packaged as a value
@@ -338,12 +369,19 @@ This needs the interpreter to be re-entrant: a primitive invokes a block
 through `sol_vm_call_block`, which pushes a frame and runs until it returns.
 `whileTrue` is then just a C loop calling two blocks.
 
-**What does a block capture?** The frame it was written in, lexically. A block
-frame carries `home_slots` pointing at the enclosing *method's* frame, and
-`OP_OUTER` reads through it, so `self` and the method's locals still mean the
-right thing whenever the block eventually runs. Blocks nested in blocks share
-that same home rather than chaining, which is why capture skips past
-intermediate block frames.
+**What does a block capture?** The frame it was written in, lexically. Each
+frame records the frame it was written inside, by index and by id, and
+`OP_OUTER` carries a depth saying how many steps out along that chain to walk.
+Blocks nested in blocks therefore chain one frame at a time rather than all
+sharing one, which is what lets a name several blocks out stay reachable.
+
+`self` is handled differently, and deliberately. It is not resolved lexically at
+compile time, because which block ends up invoked as a method is not knowable
+there -- one block can build another and a third can bind it to a slot. Instead
+`self` compiles to slot 0 of the frame being entered, the VM captures the
+current receiver into a block when the block is created, and a send to a slot
+holding that block overrides slot 0 with its own receiver. Lexical either way,
+but decided where the answer is actually known.
 
 A block may outlive the frame it captured. Rather than promote captured
 variables to the heap, Solum takes two cheaper measures:
@@ -376,10 +414,6 @@ restriction safe rather than silently wrong.
 - **Nothing creates a new class.** Methods can now be defined on the built-in
   classes, but there is no way to make a class of your own, so user-defined
   objects with their own slots are still out of reach.
-- **Blocks take no parameters.** Enough for control flow, but iteration over a
-  collection will want them. `{ a, b | ... }` is the obvious shape: `|` is
-  unused and unambiguous, whereas a parenthesised list would collide with a
-  grouped expression, since `{ (a) }` could be either.
 - **Capturing blocks cannot escape their frame.** Detected and reported rather
   than promoted to the heap; see above.
 - **No non-local return.** A block answers its last expression. Smalltalk's `^`
@@ -433,18 +467,18 @@ $ ./bin/solum examples/hello.sob
 Methods defined in Solum source work too, in the REPL and through a file:
 
 ```
-> integer:double() := self:mul(#2).
-> #21:double():print.
+> integer:double := { self:mul(#2) }.
+> #21:double:print.
 #42
 ```
 
 Blocks make the language Turing-complete:
 
 ```
-integer:factorial() := (
-    self:lessThan(#2):ifElse({ #1 }, { self:mul( self:sub(#1):factorial() ) })
-).
-#20:factorial():print.      ; #2432902008176640000
+integer:factorial := {
+    self:lessThan(#2):ifElse({ #1 }, { self:mul( self:sub(#1):factorial ) })
+}.
+#20:factorial:print.      ; #2432902008176640000
 ```
 
 Implemented: the scanner, the single-pass compiler, the re-entrant dispatch

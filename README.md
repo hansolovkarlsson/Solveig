@@ -69,20 +69,30 @@ $ ./bin/solum examples/hello.sob
 see [docs/design.md](docs/design.md) for the layout and what the verifier
 checks.
 
-Methods are defined with `:=`, the same operator that binds a name -- a method
-is a name bound on a class, just as a variable is a name bound in the globals:
+A method is a name bound on a class, just as a variable is a name bound in the
+globals -- so it uses the same `:=`. The right-hand side is evaluated, and a
+slot holding a block is what makes a method:
 
 ```
-> integer:double() := self:mul(#2).
-> #21:double():print.
+> integer:double := { self:mul(#2) }.
+> #21:double:print.
 #42
-> integer:poly(a, b) := self:mul(a):add(b).
+> integer:poly := { a, b | self:mul(a):add(b) }.
 > #10:poly(#3, #7):print.
 #37
 ```
 
-See [examples/methods.sol](examples/methods.sol) for parameters, locals, and
-multi-statement bodies.
+A slot holding anything else is data, evaluated once when bound. And because
+`:=` evaluates, a method can be computed rather than written out:
+
+```
+> maker := { { self:mul(#2) } }.
+> integer:double := maker:value().
+> #21:double:print.
+#42
+```
+
+See [examples/methods.sol](examples/methods.sol).
 
 Braces make a block -- code as a value. Control flow is then ordinary message
 sending, with no control-flow syntax in the language at all:
@@ -99,18 +109,17 @@ sending, with no control-flow syntax in the language at all:
 Which is enough to be Turing-complete:
 
 ```
-integer:factorial() := (
-    self:lessThan(#2):ifElse({ #1 }, { self:mul( self:sub(#1):factorial() ) })
-).
-#20:factorial():print.      ; #2432902008176640000
+integer:factorial := {
+    self:lessThan(#2):ifElse({ #1 }, { self:mul( self:sub(#1):factorial ) })
+}.
+#20:factorial:print.      ; #2432902008176640000
 ```
 
 See [examples/blocks.sol](examples/blocks.sol).
 
 Still to do:
 
-- [ ] block parameters (enough for control flow without them; iteration wants them)
-- [ ] user-defined classes (methods can only be added to the built-in ones)
+- [ ] user-defined classes (slots can only be added to the built-in ones)
 - [ ] strings and symbols -- both scan, but neither has a runtime type
 - [ ] a garbage collector (objects are freed en masse at shutdown)
 

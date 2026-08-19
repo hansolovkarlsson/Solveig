@@ -192,11 +192,12 @@ static SolValue prim_not(SolVM *vm, SolValue self, SolValue *args, int argc)
 
 /* ---- block ------------------------------------------------------------- */
 
+/* `value` takes whatever the block declares -- `{ a, b | ... }:value(#1, #2)`.
+   push_frame checks the count against the block's arity, so a mismatch is
+   reported there rather than needing a separate check here. */
 static SolValue prim_value(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
-    (void)args;
-    if (!check_argc(vm, "value", argc, 0)) return SOL_NIL_VAL;
-    return sol_vm_call_block(vm, self, NULL, 0);
+    return sol_vm_call_block(vm, self, args, argc);
 }
 
 /* `{ condition }:whileTrue({ body })` -- the receiver is re-run every pass,
