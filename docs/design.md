@@ -401,48 +401,9 @@ restriction safe rather than silently wrong.
 
 ## Open questions
 
-- **Statement terminator.** Only the last line of the example ends in `.`. Is
-  `.` a terminator that the earlier lines informally omit, or a separator in the
-  Smalltalk sense? The parser currently treats it as optional, which accepts
-  both, but that means it cannot catch a missing one.
-- **Strings and symbols have no runtime type.** Both scan to tokens, and the
-  compiler rejects them with a clear message. Strings need a heap object, which
-  is the first thing that will make the collector matter.
-- **Class side vs instance side share one object.** `integer` holds both `new`
-  and `print`, so `#45:new(#1)` resolves as readily as `integer:new(#1)`.
-  Separating them needs a metaclass level.
-- **Nothing creates a new class.** Methods can now be defined on the built-in
-  classes, but there is no way to make a class of your own, so user-defined
-  objects with their own slots are still out of reach.
-- **Capturing blocks cannot escape their frame.** Detected and reported rather
-  than promoted to the heap; see above.
-- **No non-local return.** A block answers its last expression. Smalltalk's `^`
-  returns from the enclosing *method* from inside a block, which needs frames
-  unwound and is a much larger change.
-- **Every conditional is a real call.** `ifTrue` is a message, so it costs a
-  block allocation and a frame. Production Smalltalks inline these in the
-  compiler and emit jumps instead; that is an optimisation to reach for when
-  it matters, not a change to what the language means.
-- **Methods are owned by the chunk that compiled them.** A class holds only a
-  pointer, so freeing a chunk would leave its methods dangling. Solis therefore
-  keeps every line's chunk alive for the whole session. The real fix is for the
-  collector to own methods.
-- **Solis is line-at-a-time**, so a method body spanning several lines has to
-  go in a file. Fixing this means the REPL buffering until the parens balance.
-- **Division.** Deliberately absent so far: integer division has to choose
-  between truncating, flooring, and returning a float, and that choice is
-  awkward under strict typing.
-- **Blocks and methods in the language itself.** `OP_RETURN` and call frames are
-  reserved for this, but nothing defines a method in Solum source yet -- every
-  method is currently a C primitive.
-- **Garbage collection.** Objects are threaded onto `vm->objects` at allocation
-  and freed en masse at shutdown, and blocks onto `vm->blocks` the same way.
-  Those lists are there so a mark-sweep collector can be dropped in without
-  changing the allocator. Blocks make this more pressing than it was: a block
-  literal inside a loop body allocates once per iteration and nothing reclaims
-  it until the VM exits.
-- **256-constant limit.** `OP_SEND` and `OP_CONST` carry a one-byte index. A
-  `CONST_LONG`-style variant is the fix when a real program hits it.
+Everything unresolved lives in [ROADMAP.md](ROADMAP.md) -- the open design
+questions, the known limitations, and the work that has not been done. It is kept
+as one list rather than split across documents so it cannot drift.
 
 ## Status
 

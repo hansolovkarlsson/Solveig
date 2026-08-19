@@ -17,7 +17,7 @@ a:print.         ; ':' sends a message, '.' ends the statement
 | `solas/`  | **Solas** -- the compiler: source text to bytecode                |
 | `solum/`  | **Solum** -- the virtual machine: executes bytecode and loads `.sob` |
 | `solis/`  | **Solis** -- the REPL: compiles and runs one line at a time       |
-| `docs/`   | Design notes, instruction set, open questions                     |
+| `docs/`   | [design.md](docs/design.md) and [ROADMAP.md](docs/ROADMAP.md)     |
 | `tests/`  | Test suite                                                        |
 | `examples/` | Sample `.sol` programs                                          |
 
@@ -123,5 +123,8 @@ Still to do:
 - [ ] strings and symbols -- both scan, but neither has a runtime type
 - [ ] a garbage collector (objects are freed en masse at shutdown)
 
-See [docs/design.md](docs/design.md) for the object model, the instruction set,
-and the design questions still open.
+The full list of what is left -- open design questions, known limitations, and
+unbuilt work -- is in [docs/ROADMAP.md](docs/ROADMAP.md).
+
+See [docs/design.md](docs/design.md) for the object model, the syntax, and the
+instruction set, and [CHANGELOG.md](CHANGELOG.md) for what has changed.

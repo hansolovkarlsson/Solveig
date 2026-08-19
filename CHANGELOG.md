@@ -1,0 +1,125 @@
+# Changelog
+
+Notable changes to Solum, newest first. Nothing is released yet, so everything
+below is under `0.0.1` and the syntax is still moving.
+
+Each entry names the commit it landed in. Dates are the day the work was done.
+
+## Unreleased — 0.0.1
+
+### `:=` became one operator — `7029d27`, 2026-08-18
+
+**Breaking: method definitions changed shape, and `.sob` went to version 4.**
+
+`:=` used to mean two different things depending on what stood to its left. In
+`a := #45:add(#32)` it evaluated the right-hand side; in
+`integer:fun() := #45:add(#32)` it did not — that was a definition form the
+compiler pattern-matched, whose right-hand side was compiled to run later,
+freshly, on every call.
+
+Now there is one rule: `obj:name := value` evaluates and binds, exactly as
+`a := value` does.
+
+```
+integer:double := { self:mul(#2) }.
+integer:poly := { a, b | self:mul(a):add(b) }.
+integer:quadruple := { | d | d := self:double. d:double }.
+```
+
+- A slot holds a value. A slot holding a **block** is a method: sending its name
+  runs the block with the receiver as `self`. A slot holding anything else
+  answers that value, so methods and data slots are no longer different kinds of
+  thing.
+- Because `:=` evaluates, a method can be **computed**:
+  `integer:double := maker:value()`.
+- Blocks gained parameters: `{ a, b | ... }`. A leading `|` still means
+  temporaries.
+- Capture now **chains**. With no separate notion of a method, every frame is a
+  block's, so `OP_OUTER` carries a depth and the runtime walks the lexical chain,
+  checking liveness at each hop.
+- `self` is no longer resolved lexically at compile time — which block ends up
+  invoked as a method is not knowable there. It compiles to slot 0 of the frame
+  being entered; the VM captures the receiver into a block at creation, and a
+  send to a slot holding it overrides slot 0.
+- The method-definition special form left the compiler, and about 100 lines with
+  it.
+
+### Method temporaries must be declared — `343d776`, 2026-08-18
+
+**Breaking: bodies that relied on implicit locals need `| ... |`.**
+
+Fixes a real defect. Assignment inside a method used to declare a local for any
+new name, so a global could not be updated from a method at all, and because the
+local was declared before its own initializer was compiled,
+`counter := counter:add(#1)` read the fresh nil local and failed with
+"nil does not understand 'add'".
+
+- Only parameters and names declared with `| a, b |` are locals. Everything else
+  is a global, read or written.
+- Only the script's top level may **create** a global, so an undeclared name
+  inside a method or block must already exist — a typo is reported instead of
+  quietly becoming a variable that looks local.
+- Declarations may open any group or block body. A duplicate name in one frame is
+  a compile error.
+
+### Documented what verification does not promise — `be7fdca`, 2026-08-18
+
+Verification guarantees a loaded chunk is safe to execute; it does not guarantee
+the program terminates, and it should not. Established by fuzzing rather than
+assumed: every hang seen while corrupting a `.sob` mapped to a constant payload
+or code byte, never to a name, count, or length the loader parses, and a control
+run over a program with no loop produced zero hangs.
+
+### Blocks, booleans, and message-based control flow — `284d015`, 2026-08-18
+
+**`.sob` went to version 3.**
+
+```
+#5:lessThan(#10):ifElse({ #100:print }, { #200:print }).
+{ i:lessThan(#5) }:whileTrue({ i := i:add(#1) }).
+```
+
+- `{ ... }` makes a block: code as a value, deferred rather than run.
+- Control flow is ordinary message sending. `ifTrue`, `ifElse`, and `whileTrue`
+  are plain primitives receiving an unevaluated block, so **the language has no
+  control-flow syntax** and a user can add control structures the same way.
+- The interpreter became re-entrant so a primitive can invoke a block.
+- Added a boolean type with `true`/`false` and `not`, and `equals`, `lessThan`,
+  `greaterThan` on numbers. Comparisons are as strict as arithmetic; `equals` is
+  the exception, answering false across types rather than erroring.
+- Capture is lexical, with two cheap measures instead of heap promotion: a block
+  that does not touch its home frame may escape freely, and one that does records
+  a frame id so calling it after that frame returned is reported.
+- With conditionals, recursion can terminate — the language became
+  Turing-complete.
+
+### Methods, call frames, and locals — `dd31244`, 2026-08-18
+
+**`.sob` went to version 2.**
+
+Methods could be written in Solum source rather than only as C primitives, and
+the VM grew call frames. A frame's slots point into the value stack at the
+receiver, so nothing is copied to make a call. Solis began retaining every line's
+chunk, because a class holds only a pointer to a method the chunk owns.
+
+### The `.sob` bytecode file format — `2b2bea2`, 2026-08-18
+
+Solas writes bytecode to a file and Solum loads and runs it. Little-endian and
+host-independent; floats survive bit-identical; line numbers are run-length
+encoded.
+
+A `.sob` file is treated as untrusted input: the loader bounds-checks every read
+and rejects a count that could not fit in the bytes remaining, and what survives
+is verified before it can execute — every instruction fits, every operand indexes
+something real, and the final instruction stops the machine so the dispatch loop
+cannot run off the buffer.
+
+### Initial commit — `52f2f01`, 2026-08-18
+
+Solas (compiler), Solum (VM), and Solis (REPL) as three components sharing one
+static library, with `solum/include/solum/bytecode.h` as the single contract
+between compiler and VM.
+
+Design decisions taken here: a name is a binding rather than an object and values
+are immutable; `#` is a type tag, so `#45` is an integer and a bare `45` is a
+float; arithmetic is strict and integer overflow traps rather than wrapping.

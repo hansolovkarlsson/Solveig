@@ -68,8 +68,4 @@ SolSlot *sol_object_lookup(SolObject *obj, const char *name);
 void     sol_object_define(SolObject *obj, const char *name, SolValue value);
 void     sol_object_define_primitive(SolObject *obj, const char *name, SolPrimitive fn);
 
-/* TODO: sol_object_send() -- resolve `name` on the receiver and either invoke
-   the primitive or push a call frame for a bytecode method. Lives here rather
-   than in vm.c so that dispatch stays next to the slot layout it depends on. */
-
 #endif /* SOLUM_OBJECT_H */
