@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### Format specs — `pending`, 2026-08-19
+### Format specs — `3524c70`, 2026-08-19
 
 `asString` takes an optional spec:
 
