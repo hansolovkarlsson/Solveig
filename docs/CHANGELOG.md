@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### Conversions — `pending`, 2026-08-19
+### Conversions — `246ae8e`, 2026-08-19
 
 ```
 "you have ":concat(#45:asString):concat(" apples").   ; "you have 45 apples"
