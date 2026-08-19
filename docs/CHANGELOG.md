@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### Roadmap audit — `573c9a9`, 2026-08-18
+### Roadmap audit — `470c6d3`, 2026-08-18
 
 No code change. Audited the roadmap against the source and against everything
 raised in review, and added the two real gaps it was missing:
