@@ -17,7 +17,7 @@ a:print.         ; ':' sends a message, '.' ends the statement
 | `solas/`  | **Solas** -- the compiler: source text to bytecode                |
 | `solum/`  | **Solum** -- the virtual machine: executes bytecode and loads `.sob` |
 | `solis/`  | **Solis** -- the REPL: compiles and runs one line at a time       |
-| `docs/`   | [design.md](docs/design.md) and [ROADMAP.md](docs/ROADMAP.md)     |
+| `docs/`   | [design.md](docs/design.md), [ROADMAP.md](docs/ROADMAP.md), [CHANGELOG.md](docs/CHANGELOG.md) |
 | `tests/`  | Test suite                                                        |
 | `examples/` | Sample `.sol` programs                                          |
 
@@ -127,4 +127,4 @@ The full list of what is left -- open design questions, known limitations, and
 unbuilt work -- is in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 See [docs/design.md](docs/design.md) for the object model, the syntax, and the
-instruction set, and [CHANGELOG.md](CHANGELOG.md) for what has changed.
+instruction set, and [docs/CHANGELOG.md](docs/CHANGELOG.md) for what has changed.

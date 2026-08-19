@@ -4,6 +4,7 @@ Notable changes to Solum, newest first. Nothing is released yet, so everything
 below is under `0.0.1` and the syntax is still moving.
 
 Each entry names the commit it landed in. Dates are the day the work was done.
+What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 

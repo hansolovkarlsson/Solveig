@@ -1,8 +1,12 @@
 # Roadmap
 
 Everything still outstanding, grouped by what it blocks. This is the single list
-— `docs/design.md` describes how the language works today and points here for
-what is unresolved.
+— [design.md](design.md) describes how the language works today and points here
+for what is unresolved, and [CHANGELOG.md](CHANGELOG.md) records what has already
+changed.
+
+Finished work is summarised here only where it gives context for something still
+live; the detail belongs in the changelog rather than being kept twice.
 
 Items marked **decision** need a call from you before they can be built; the
 rest are work with a clear shape.
@@ -11,106 +15,51 @@ rest are work with a clear shape.
 
 Working: the scanner, the single-pass compiler, the re-entrant dispatch loop with
 call frames, blocks with lexical capture and parameters, message-based control
-flow, the `.sob` format with its verifier, and built-in `integer`, `float`,
-`boolean`, `nil`, and `block`.
+flow, a mark-sweep collector over objects, blocks, and compiled code, the `.sob`
+format with its verifier, and built-in `integer`, `float`, `boolean`, `nil`, and
+`block`.
 
-The language is Turing-complete. What it is not yet is a language you could write
-a real program in — there are no strings, no collections, no way to make a class,
-and nothing is ever freed.
+The language is Turing-complete and no longer leaks. What it is not yet is a
+language you could write a real program in — there are no strings, no
+collections, and no way to make a class.
 
 ---
 
 ## 1. Blocking real programs
 
-### 1.1 Garbage collection
+### 1.1 Garbage collection — mostly done
 
-**1.1a and 1.1b are done.** Objects, blocks, and compiled code are all
-collected. 1.1c remains, and is deliberately left until strings need it.
+Mark-sweep over objects, blocks, and compiled code. `SOLUM_GC_STRESS=1` collects
+on every allocation; running the suite under it with ASan is what makes a missing
+root a caught bug rather than a latent one.
 
-The motivating case, a block literal allocated once per loop iteration:
+How it works is in [design.md](design.md#garbage-collection); what changed is in
+[CHANGELOG.md](CHANGELOG.md). Two results worth keeping in view, both measured
+against the commit before each change:
 
-```
-{ i:lessThan(#2000000) }:whileTrue({ i := i:add(#1). b := { #1 }. }).
-```
+| | Before | After |
+| --- | --- | --- |
+| A block literal allocated per loop iteration, 2M iterations | 98 MB, linear | 1.5 MB, flat |
+| 60,000 REPL lines | 25.5 MB, linear | 1.9 MB, flat |
 
-Peak resident set over two million allocations went from **98 MB to 1.5 MB**, and
-from growing linearly to flat.
+**1.1a the collector** and **1.1b GC-owned code** are done. What remains:
 
-**The heap is two types.** Everything allocated at run time is either a
-`SolObject` (with its owned `SolSlot` chain) or a `SolBlock`. Chunks, code,
-constants, names, and `SolMethod` are compile-time data owned by whoever compiled
-them. So the tracer needs exactly three edges:
+#### 1.1c Temporary roots inside primitives
 
-```
-SolObject.proto          -> SolObject
-SolObject.slots[].value  -> SolValue
-SolBlock.self            -> SolValue
-```
-
-**Roots are nearly free**, because of two properties of the current design.
-Frame locals live inside the value stack -- `push_frame` sets
-`slots = stack_top - argc - 1` and fills the rest by pushing -- so scanning
-`stack[0 .. stack_top)` covers every local of every frame with no separate frame
-walk. And a primitive's arguments are still on the stack while it runs, since the
-dispatch loop drops them only after it returns. That leaves the root set as the
-value stack, `vm->root`, and the five class objects.
-
-**Mark-sweep, non-moving, stop-the-world.** A copying collector would have to fix
-up every `SolValue` in the stack, in slots, and in `block->self`, for no benefit
-at this size. Reference counting is the wrong shape: objects cycle freely -- a
-class's slot can hold a block whose `self` is that class -- and inc/dec would
-touch every `SolValue` copy in the VM.
-
-Staged, because "is my tracing correct" and "did I get ownership right" fail in
-different ways and are worth not mixing.
-
-#### 1.1a The collector — **done**
-
-- One shared GC header (`next`, `marked`, `type`) embedded in both heap types,
-  merging the two lists into one, so each future heap type does not add another
-  list and another sweep loop.
-- Mark from the roots above using an **explicit gray worklist, not C recursion**:
-  a deep object graph would otherwise overflow the C stack.
-- Sweep the list, free unmarked, clear marks on survivors.
-- Trigger on bytes allocated with a growth factor, plus a **stress mode**
-  (`SOLUM_GC_STRESS=1`) collecting on every allocation. The whole suite passes
-  under `SOLUM_GC_STRESS=1` with ASan and UBSan, which is what makes a missing
-  root a caught bug rather than a latent one.
-
-The ordering trap was real: `sol_vm_init` nulls `vm->root` and the class fields
-before the first allocation, or a stress-mode collection during setup would trace
-uninitialised pointers.
-
-#### 1.1b GC-owned code — **done**
-
-Solis no longer retains anything. Over 60,000 REPL lines, peak resident set went
-from **25.5 MB, growing linearly, to 1.9 MB, flat**.
-
-Ownership is dual rather than wholesale, because Solas has no VM to own a chunk
-on its behalf. A `SolChunk` created by `sol_chunk_init` is caller-owned and freed
-by hand, as Solas and the tests do; one created by `sol_code_new` belongs to a
-`SolCode` cell the collector sweeps. `sol_chunk_add_method` propagates ownership
-as each subtree is added, so a caller cannot forget to.
-
-Two things this turned up:
-
-- A block caches its owning cell rather than reading it back through
-  `block->code->chunk`. A caller-owned chunk can be freed while blocks pointing
-  into it are still on the heap; calling such a block was always wrong, but the
-  tracer must not fault merely for walking past one. Stress mode under ASan found
-  this as a use-after-free in `mark_code`.
-- A chunk's constants are traced, since they will hold heap values as soon as
-  strings exist.
-
-#### 1.1c Temporary roots for primitives
-
-The mechanism exists -- `sol_gc_push_temp` / `sol_gc_pop_temp`, used by Solis to
+The mechanism exists — `sol_gc_push_temp` / `sol_gc_pop_temp`, used by Solis to
 protect a fresh code cell across compilation. What remains is applying it inside
-primitives, which only matters once one of them allocates. Today none do: the
-sole allocation reachable from running code is `sol_block_new` at `OP_BLOCK`,
-where everything live is already on the stack or in globals. Strings end that,
-because concatenation allocates while holding intermediates in C locals the
-collector cannot see. Build it with 1.2.
+primitives, which only matters once one of them allocates.
+
+Today none do: the sole allocation reachable from running code is
+`sol_block_new` at `OP_BLOCK`, where everything live is already on the stack or in
+globals. Strings end that, because concatenation allocates while holding
+intermediates in C locals the collector cannot see. Build it with 1.2 rather than
+before it.
+
+#### 1.1d Collection is stop-the-world and non-incremental
+
+Fine at this size and not worth touching yet. Noted so it is a choice rather than
+an oversight: a program holding a large live set will pause proportionally to it.
 
 ### 1.2 Strings
 
@@ -265,10 +214,13 @@ text would make compile errors considerably more useful.
 
 ## Suggested order
 
-1. ~~**Garbage collection** (1.1a, 1.1b)~~ — done. 1.1c lands with strings.
-2. **Strings** (1.2) — the first real heap value, and the thing that proves the
-   collector.
-3. **User-defined classes** (1.3), then **collections** (1.4).
-4. **Division** (2.1) and the **missing operations** (2.5) — small, and they make
+1. **Strings** (1.2) — the first real heap value with contents, and the thing
+   that genuinely proves the collector. Brings 1.1c with it.
+2. **User-defined classes** (1.3), then **collections** (1.4) — together these are
+   what make the language able to hold a data structure.
+3. **Division** (2.1) and the **missing operations** (2.5) — small, and they make
    the language usable for arithmetic-shaped programs.
-5. Everything else as it starts to hurt.
+4. Everything else as it starts to hurt.
+
+Garbage collection (1.1) led this list and is done apart from 1.1c, which is
+deliberately deferred to land with strings.
