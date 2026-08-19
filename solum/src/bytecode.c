@@ -48,6 +48,12 @@ int sol_chunk_add_name(SolChunk *chunk, const char *name, int length)
             return i;
         }
     }
+    return sol_chunk_append_name(chunk, name, length);
+}
+
+int sol_chunk_append_name(SolChunk *chunk, const char *name, int length)
+{
+    SolNameArray *names = &chunk->names;
 
     if (names->capacity < names->count + 1) {
         int capacity = names->capacity < 8 ? 8 : names->capacity * 2;

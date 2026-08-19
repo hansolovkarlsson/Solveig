@@ -15,7 +15,7 @@ a:print.         ; ':' sends a message, '.' ends the statement
 | Path      | What                                                             |
 | --------- | ---------------------------------------------------------------- |
 | `solas/`  | **Solas** -- the compiler: source text to bytecode                |
-| `solum/`  | **Solum** -- the virtual machine: executes bytecode               |
+| `solum/`  | **Solum** -- the virtual machine: executes bytecode and loads `.sob` |
 | `solis/`  | **Solis** -- the REPL: compiles and runs one line at a time       |
 | `docs/`   | Design notes, instruction set, open questions                     |
 | `tests/`  | Test suite                                                        |
@@ -57,15 +57,23 @@ built-in `integer` and `float` classes with `new`, `print`, `add`, `sub`, `mul`.
 Arithmetic is strict -- integers and floats never coerce, and integer overflow
 traps rather than wrapping.
 
+Compiling to a file and running it separately works too:
+
+```
+$ ./bin/solas examples/hello.sol      # writes examples/hello.sob
+$ ./bin/solum examples/hello.sob
+#45
+```
+
+`.sob` files are little-endian and portable, and are verified before they run --
+see [docs/design.md](docs/design.md) for the layout and what the verifier
+checks.
+
 Still to do:
 
-- [ ] the bytecode file format, which is what `bin/solum` is waiting on
 - [ ] bytecode methods and call frames (every method is a C primitive today)
 - [ ] strings and symbols -- both scan, but neither has a runtime type
 - [ ] a garbage collector (objects are freed en masse at shutdown)
-
-`bin/solis` is the way to run code meanwhile: it compiles and executes
-in-memory, so it needs no file format.
 
 See [docs/design.md](docs/design.md) for the object model, the instruction set,
 and the design questions still open.

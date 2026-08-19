@@ -131,6 +131,49 @@ HALT
 Assignment leaving its value on the stack costs nothing and makes
 `c := b := #45` fall out for free.
 
+## The .sob file format
+
+Little-endian throughout, independent of the host, so a `.sob` file is
+portable. `solum/include/solum/serialize.h` carries the byte-level layout.
+
+```
+magic     4  "SOLB"
+version   2  u16
+reserved  2  u16, must be zero
+names     4  u32 count, then each: u16 length + bytes
+constants 4  u32 count, then each: u8 tag + payload (0 nil, 1 i64, 2 f64)
+code      4  u32 length, then that many bytes
+lines     4  u32 run count, then each: u32 run length + u32 line
+```
+
+Line numbers are run-length encoded: neighbouring instructions almost always
+share a line, so the runs are much smaller than one number per byte. They
+expand back into the chunk's parallel array on load.
+
+Floats are stored as IEEE-754 binary64 and come back bit-identical, so a
+literal never drifts by being written and read.
+
+### A .sob file is untrusted input
+
+Anything loaded from disk is verified before it can run. The loader reads the
+whole file into memory and parses it through a cursor that bounds-checks every
+read, rejects a count that could not fit in the bytes remaining (so a corrupt
+length cannot become an allocation bomb), and then runs `sol_chunk_verify` over
+the code:
+
+- every instruction fits inside the code array,
+- every operand indexes a name or constant that exists,
+- the opcode is one the VM knows,
+- the final instruction is `HALT` or `RETURN`.
+
+That last rule is a memory-safety requirement, not tidiness: execution is
+linear, so without it the dispatch loop would read past the end of the buffer.
+When jumps arrive it has to become a check that every target lands on an
+instruction boundary.
+
+`sol_chunk_save` runs the same verifier before writing, so Solas cannot emit a
+file that Solum would refuse.
+
 ## Resolved questions
 
 **What does `integer:new(a)` actually do?** `integer` is the integer class
@@ -186,10 +229,6 @@ every C-family lexer already does.
   `.` a terminator that the earlier lines informally omit, or a separator in the
   Smalltalk sense? The parser currently treats it as optional, which accepts
   both, but that means it cannot catch a missing one.
-- **Bytecode file format.** Undecided, and it is what currently blocks
-  `bin/solum` from running anything. Needs a header (magic, version), the
-  constant pool, and the code. Until it exists, `bin/solis` is the way to run
-  code.
 - **Strings and symbols have no runtime type.** Both scan to tokens, and the
   compiler rejects them with a clear message. Strings need a heap object, which
   is the first thing that will make the collector matter.
@@ -222,7 +261,15 @@ The vertical slice runs. `bin/solis` compiles and executes a line at a time:
 #45
 ```
 
-Implemented: the scanner, the single-pass compiler, the dispatch loop, and
-built-in `integer` and `float` classes with `new`, `print`, `add`, `sub`, `mul`.
-Not implemented: the bytecode file format (so `bin/solum` cannot load anything
-yet), bytecode methods and call frames, strings, symbols, and the collector.
+The full pipeline also runs, compiling to a file and executing it separately:
+
+```
+$ ./bin/solas examples/hello.sol     # writes examples/hello.sob
+$ ./bin/solum examples/hello.sob
+#45
+```
+
+Implemented: the scanner, the single-pass compiler, the dispatch loop, the
+`.sob` format with its verifier, and built-in `integer` and `float` classes
+with `new`, `print`, `add`, `sub`, `mul`. Not implemented: bytecode methods and
+call frames, strings, symbols, and the collector.

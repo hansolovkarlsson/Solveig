@@ -53,6 +53,11 @@ int  sol_chunk_add_constant(SolChunk *chunk, SolValue value); /* returns index *
 /* Interns `length` bytes of `name`, returning its index. Repeat names collapse
    onto one entry, so `print` used ten times costs one slot. */
 int  sol_chunk_add_name(SolChunk *chunk, const char *name, int length);
+
+/* Appends without interning, so indices stay exactly as given. The loader uses
+   this: a file's code refers to names by position, and collapsing a duplicate
+   would silently shift every index after it. */
+int  sol_chunk_append_name(SolChunk *chunk, const char *name, int length);
 const char *sol_chunk_name(const SolChunk *chunk, int index);
 
 void sol_chunk_free(SolChunk *chunk);
