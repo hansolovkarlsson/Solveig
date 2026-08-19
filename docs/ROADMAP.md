@@ -20,9 +20,11 @@ format with its verifier, and built-in `integer`, `float`, `boolean`, `nil`, and
 `block`.
 
 The language is Turing-complete, no longer leaks, and now has strings, arrays,
-and user-defined objects. What it lacks is breadth rather than foundations: no
-conversions between types, a thin set of operations, and rough edges around
-printing and literals.
+and user-defined objects. What it lacks is mostly breadth: no conversions between
+types, a thin set of operations, and rough edges around printing and literals.
+
+One exception, which is a gap rather than a thinness: an overriding method cannot
+call the one it overrides with the right receiver (2.9).
 
 ---
 
@@ -271,6 +273,45 @@ questions:
 
 ---
 
+### 2.9 No way to call the method you override — **decision**
+
+An override can reach the prototype's method, but not with the right receiver.
+Naming the prototype sends to *it*, so `self` inside becomes the prototype:
+
+```
+animal:name := "animal".
+animal:intro := { "I am ":concat(self:name) }.
+
+dog := animal:new.
+dog:name := "dog".
+dog:intro := { animal:intro:concat("!") }.   ; reaches the code...
+
+rex := dog:new. rex:name := "rex".
+rex:intro.        ; "I am animal!"  -- not "I am rex!"
+```
+
+So an overriding method can only extend one that does not consult `self`, which
+is most of the interesting ones. This is the sharpest hole in the object model.
+
+The usual answers, and each is a real choice:
+
+- **A `super` keyword**, resolving the send one link further along the *defining*
+  object's proto chain while keeping the receiver. Familiar, but it is a keyword
+  in a language that has avoided them, and "the defining object" is a piece of
+  bookkeeping a method does not currently carry.
+- **A message that redirects a send**, something like
+  `animal:sendTo(self, 'intro)`, which needs symbols (2.7) and reads poorly.
+- **Self's answer: a named parent slot.** Delegation goes through a slot rather
+  than a hidden pointer, so `parent` is nameable and `self:parent:intro` could be
+  made to keep the receiver. Fits the language's grain best, and needs the
+  distinction between a delegating send and an ordinary one.
+
+### 2.10 No reflection
+
+An object cannot be asked what it delegates to, what slots it holds, or whether
+it descends from another -- `proto`, `slots`, and `isKindOf` are all absent. Also
+needed before `perform:`-style dynamic sends, which want symbols (2.7).
+
 ## 3. Known limitations
 
 These are deliberate, safe, and documented. Each is a real restriction rather
@@ -372,10 +413,16 @@ answers.
 
 ## 5. Tooling and ergonomics
 
-### 5.1 Solis is line-at-a-time
+### 5.1 Solis is line-at-a-time, and lines are capped
 
 `fgets` per line, so a method body spanning several lines has to go in a file.
-The REPL should buffer until brackets and parentheses balance.
+The REPL should buffer until brackets, parentheses, and braces balance.
+
+The buffer is also 1024 bytes with no overflow check: a longer line is silently
+cut, and the tail arrives as if it were the next line. That has already produced
+one confusing result -- a generated 255-element array literal appeared to fail to
+compile when it had merely been truncated mid-token. It should at minimum report
+the truncation.
 
 ### 5.2 `print` on an object dumps its address
 
@@ -402,20 +449,24 @@ text would make compile errors considerably more useful.
 Section 1 is now empty: the things standing between this and a language you
 could write a real program in are all built. What is left is filling it out.
 
-1. **Conversions** (2.8) — `asFloat`, `asInteger`, number-to-string. The most
-   missed, since floored integer division leaves no way to get a fractional
-   answer from two integers, and nothing can turn a number into text to join to
-   a string.
-2. **The rest of the missing operations** (2.8), **string escapes and ordering**
+1. **Calling the method you override** (2.9) — the sharpest hole in the object
+   model, and the only item here that needs a decision before it can be built.
+   An override can currently only extend a method that does not consult `self`.
+2. **Conversions** (2.8) — `asFloat`, `asInteger`, number-to-string. The most
+   missed of the absent operations, since floored integer division leaves no way
+   to get a fractional answer from two integers, and nothing can turn a number
+   into text to join to a string.
+3. **The rest of the missing operations** (2.8), **string escapes and ordering**
    (1.3), and **float exponents** (2.6) — small and independent of each other.
-3. **A better default `print`** (5.2) — now that user objects exist, showing an
+4. **A better default `print`** (5.2) — now that user objects exist, showing an
    address is the roughest edge a newcomer meets.
-4. Everything else as it starts to hurt.
+5. Everything else as it starts to hurt.
 
 Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), arrays entire
 (1.2, 1.2a, 1.2b), strings (1.3), user-defined objects (1.4), and division (2.1).
 
-Still waiting on a call from you: the **statement terminator** (2.2).
+Still waiting on a call from you: **calling the method you override** (2.9) and
+the **statement terminator** (2.2).
 
 Still waiting on a call from you: **division** (2.1) and the **statement
 terminator** (2.2). Neither blocks anything above it.
