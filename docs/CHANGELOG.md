@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### `format` is now `fill` — `pending`, 2026-08-19
+### `format` is now `fill` — `4a70ef0`, 2026-08-19
 
 **Breaking: `"...":format([...])` is now `"...":fill([...])`.**
 
