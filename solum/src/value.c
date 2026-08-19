@@ -23,6 +23,7 @@ static void print_value(SolValue value, int depth)
         printf("\"%.*s\"", string->length, string->chars);
         break;
     }
+    case SOL_DELEGATE: printf("<delegate>"); break;
     case SOL_ARRAY: {
         const SolArray *array = SOL_AS_ARRAY(value);
         if (depth >= SOL_PRINT_MAX_DEPTH) { printf("[...]"); break; }

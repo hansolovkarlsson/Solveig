@@ -33,6 +33,7 @@ typedef enum {
     SOL_GC_BLOCK,
     SOL_GC_ARRAY,
     SOL_GC_STRING,
+    SOL_GC_DELEGATE,
     SOL_GC_CODE     /* a compiled chunk tree; see SolCode in bytecode.h */
 } SolGCType;
 

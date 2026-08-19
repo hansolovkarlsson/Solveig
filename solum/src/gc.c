@@ -63,6 +63,7 @@ static size_t cell_size(const SolGCHeader *header)
     if (header->type == SOL_GC_STRING) {
         return sizeof(SolString) + (size_t)((const SolString *)header)->length + 1;
     }
+    if (header->type == SOL_GC_DELEGATE) return sizeof(SolDelegate);
     if (header->type == SOL_GC_CODE) {
         return sizeof(SolCode) + chunk_size(&((const SolCode *)header)->chunk);
     }
@@ -128,6 +129,7 @@ static void mark_value(SolVM *vm, SolValue value)
     else if (SOL_IS_BLOCK(value)) mark_cell(vm, (SolGCHeader *)SOL_AS_BLOCK(value));
     else if (SOL_IS_ARRAY(value)) mark_cell(vm, (SolGCHeader *)SOL_AS_ARRAY(value));
     else if (SOL_IS_STRING(value)) mark_cell(vm, (SolGCHeader *)SOL_AS_STRING(value));
+    else if (SOL_IS_DELEGATE(value)) mark_cell(vm, (SolGCHeader *)SOL_AS_DELEGATE(value));
 }
 
 /* A chunk's constants can hold heap values, so a live code tree keeps them
@@ -168,6 +170,13 @@ static void blacken(SolVM *vm, SolGCHeader *header)
        the difference from an array that made arrays the better first heap type
        with contents. Marking one is done as soon as it is reached. */
     if (header->type == SOL_GC_STRING) return;
+
+    if (header->type == SOL_GC_DELEGATE) {
+        const SolDelegate *delegate = (const SolDelegate *)header;
+        mark_value(vm, delegate->receiver);
+        mark_cell(vm, (SolGCHeader *)delegate->start);
+        return;
+    }
 
     if (header->type == SOL_GC_ARRAY) {
         /* The reason arrays came before strings: every element is an edge. */

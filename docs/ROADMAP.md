@@ -23,8 +23,6 @@ The language is Turing-complete, no longer leaks, and now has strings, arrays,
 and user-defined objects. What it lacks is mostly breadth: no conversions between
 types, a thin set of operations, and rough edges around printing and literals.
 
-One exception, which is a gap rather than a thinness: an overriding method cannot
-call the one it overrides with the right receiver (2.9).
 
 ---
 
@@ -273,44 +271,40 @@ questions:
 
 ---
 
-### 2.9 No way to call the method you override — **decision**
-
-An override can reach the prototype's method, but not with the right receiver.
-Naming the prototype sends to *it*, so `self` inside becomes the prototype:
+### 2.9 Calling the method you override — **decided: `via`**
 
 ```
-animal:name := "animal".
 animal:intro := { "I am ":concat(self:name) }.
-
-dog := animal:new.
-dog:name := "dog".
-dog:intro := { animal:intro:concat("!") }.   ; reaches the code...
+dog:intro := { self:via(animal):intro:concat("!") }.
 
 rex := dog:new. rex:name := "rex".
-rex:intro.        ; "I am animal!"  -- not "I am rex!"
+rex:intro.        ; "I am rex!"
 ```
 
-So an overriding method can only extend one that does not consult `self`, which
-is most of the interesting ones. This is the sharpest hole in the object model.
+`self:via(ancestor)` answers a delegating view: a send to it begins the lookup at
+the ancestor but runs whatever it finds with `self` still the receiver. Naming
+the ancestor directly would send to *it*, so `self` inside would become the
+ancestor.
 
-The usual answers, and each is a real choice:
+The ancestor is **named rather than inferred**. A `super` keyword would have to
+resolve against the object where the running method was *defined*, which is
+bookkeeping no frame carried; naming it needs none of that, keeps working however
+deep the receiver turns out to be, and cannot accidentally find the method again
+and recurse.
 
-- **A `super` keyword**, resolving the send one link further along the *defining*
-  object's proto chain while keeping the receiver. Familiar, but it is a keyword
-  in a language that has avoided them, and "the defining object" is a piece of
-  bookkeeping a method does not currently carry.
-- **A message that redirects a send**, something like
-  `animal:sendTo(self, 'intro)`, which needs symbols (2.7) and reads poorly.
-- **Self's answer: a named parent slot.** Delegation goes through a slot rather
-  than a hidden pointer, so `parent` is nameable and `self:parent:intro` could be
-  made to keep the receiver. Fits the language's grain best, and needs the
-  distinction between a delegating send and an ordinary one.
+`parent` reads the delegation link, so a chain can be walked and compared. It is
+read-only: the link stays an internal pointer, so nothing a program writes can
+corrupt dispatch. Re-parenting at run time would need it to become a real slot,
+which is a separate question.
 
-### 2.10 No reflection
+### 2.10 Reflection is only partial
 
-An object cannot be asked what it delegates to, what slots it holds, or whether
-it descends from another -- `proto`, `slots`, and `isKindOf` are all absent. Also
-needed before `perform:`-style dynamic sends, which want symbols (2.7).
+`parent` reads the delegation link, so a chain can be walked. Still absent: an
+object cannot be asked what slots it holds, nor whether it descends from another
+-- `slots` and `isKindOf` have no equivalent. A slot also cannot be read without
+invoking it, since a slot holding a block *is* a method, so there is no way to
+fetch a method as a value. All of these want symbols (2.7) or at least a
+string-keyed accessor.
 
 ## 3. Known limitations
 
@@ -449,24 +443,21 @@ text would make compile errors considerably more useful.
 Section 1 is now empty: the things standing between this and a language you
 could write a real program in are all built. What is left is filling it out.
 
-1. **Calling the method you override** (2.9) — the sharpest hole in the object
-   model, and the only item here that needs a decision before it can be built.
-   An override can currently only extend a method that does not consult `self`.
-2. **Conversions** (2.8) — `asFloat`, `asInteger`, number-to-string. The most
+1. **Conversions** (2.8) — `asFloat`, `asInteger`, number-to-string. The most
    missed of the absent operations, since floored integer division leaves no way
    to get a fractional answer from two integers, and nothing can turn a number
    into text to join to a string.
-3. **The rest of the missing operations** (2.8), **string escapes and ordering**
+2. **The rest of the missing operations** (2.8), **string escapes and ordering**
    (1.3), and **float exponents** (2.6) — small and independent of each other.
-4. **A better default `print`** (5.2) — now that user objects exist, showing an
+3. **A better default `print`** (5.2) — now that user objects exist, showing an
    address is the roughest edge a newcomer meets.
-5. Everything else as it starts to hurt.
+4. Everything else as it starts to hurt.
 
 Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), arrays entire
-(1.2, 1.2a, 1.2b), strings (1.3), user-defined objects (1.4), and division (2.1).
+(1.2, 1.2a, 1.2b), strings (1.3), user-defined objects (1.4), division (2.1), and
+calling the method you override (2.9).
 
-Still waiting on a call from you: **calling the method you override** (2.9) and
-the **statement terminator** (2.2).
+Still waiting on a call from you: the **statement terminator** (2.2).
 
 Still waiting on a call from you: **division** (2.1) and the **statement
 terminator** (2.2). Neither blocks anything above it.

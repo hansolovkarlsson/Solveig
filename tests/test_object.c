@@ -196,8 +196,120 @@ static void test_objects_are_collected(void)
     sol_vm_free(&vm);
 }
 
+/* An override reaching the version it overrides. Naming the ancestor directly
+   would send to *it*, so `self` inside would become the ancestor; `via` starts
+   the lookup there while leaving the receiver alone. */
+static void test_via_keeps_the_receiver(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "animal := object:new."
+        "animal:name := \"animal\"."
+        "animal:intro := { \"I am \":concat(self:name) }."
+        "dog := animal:new."
+        "dog:name := \"dog\"."
+        "dog:intro := { self:via(animal):intro:concat(\"!\") }."
+        "rex := dog:new. rex:name := \"rex\"."
+        "a := animal:intro. d := dog:intro. r := rex:intro.") == SOL_OK);
+
+    assert(memcmp(SOL_AS_STRING(global(&vm, "a"))->chars, "I am animal", 11) == 0);
+    assert(memcmp(SOL_AS_STRING(global(&vm, "d"))->chars, "I am dog!", 9) == 0);
+    /* The whole point: the ancestor's method sees rex, not animal. */
+    assert(memcmp(SOL_AS_STRING(global(&vm, "r"))->chars, "I am rex!", 9) == 0);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+}
+
+/* Each level extends the one above, however deep the receiver. */
+static void test_via_chains(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "a := object:new. a:tag := { \"a\" }."
+        "b := a:new. b:tag := { self:via(a):tag:concat(\"b\") }."
+        "c := b:new. c:tag := { self:via(b):tag:concat(\"c\") }."
+        "ra := a:new:tag. rb := b:new:tag. rc := c:new:tag.") == SOL_OK);
+    assert(memcmp(SOL_AS_STRING(global(&vm, "ra"))->chars, "a", 1) == 0);
+    assert(memcmp(SOL_AS_STRING(global(&vm, "rb"))->chars, "ab", 2) == 0);
+    assert(memcmp(SOL_AS_STRING(global(&vm, "rc"))->chars, "abc", 3) == 0);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+}
+
+/* A delegate carries arguments through like any other send, and answers data
+   slots as readily as methods. */
+static void test_via_passes_arguments_and_reads_slots(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "base := object:new."
+        "base:v := #7."
+        "base:plus := { n | self:v:add(n) }."
+        "kid := base:new."
+        "kid:v := #100."
+        "kid:plus := { n | self:via(base):plus(n):add(#1) }."
+        "r := kid:new:plus(#5)."
+        "slot := kid:new:via(base):v.") == SOL_OK);
+    /* self:v is the instance's, inherited from kid, so 100 + 5 + 1. */
+    assert(SOL_AS_INT(global(&vm, "r")) == 106);
+    /* Reading through a delegate finds base's slot, not kid's. */
+    assert(SOL_AS_INT(global(&vm, "slot")) == 7);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+}
+
+static void test_parent(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "a := object:new. b := a:new. c := b:new."
+        "one := c:parent:equals(b)."
+        "two := c:parent:parent:equals(a)."
+        "three := a:parent:equals(object)."
+        "root := object:parent.") == SOL_OK);
+    assert(SOL_AS_BOOL(global(&vm, "one")) == true);
+    assert(SOL_AS_BOOL(global(&vm, "two")) == true);
+    assert(SOL_AS_BOOL(global(&vm, "three")) == true);
+    assert(SOL_IS_NIL(global(&vm, "root")));      /* the chain ends */
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+}
+
+static void test_via_errors(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk, "object:new:via(#1).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "object:new:via(object):nosuch.") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    /* `via` lives on object, so a value does not have it. */
+    assert(run(&vm, &chunk, "#1:via(object).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
 int main(void)
 {
+    test_via_keeps_the_receiver();
+    test_via_chains();
+    test_via_passes_arguments_and_reads_slots();
+    test_parent();
+    test_via_errors();
     test_new_makes_a_distinct_object();
     test_slots_are_inherited();
     test_assignment_shadows_rather_than_writes_through();

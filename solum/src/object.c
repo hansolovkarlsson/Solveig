@@ -103,6 +103,22 @@ SolString *sol_string_new(SolVM *vm, const char *chars, int length)
     return string;
 }
 
+SolDelegate *sol_delegate_new(SolVM *vm, SolValue receiver, SolObject *start)
+{
+    sol_gc_maybe_collect(vm);
+
+    SolDelegate *delegate = malloc(sizeof(SolDelegate));
+    if (delegate == NULL) {
+        fprintf(stderr, "solum: out of memory\n");
+        exit(1);
+    }
+    delegate->receiver = receiver;
+    delegate->start = start;
+
+    sol_gc_register(vm, &delegate->gc, SOL_GC_DELEGATE, sizeof(SolDelegate));
+    return delegate;
+}
+
 void sol_array_add(SolVM *vm, SolArray *array, SolValue value)
 {
     if (array->capacity < array->count + 1) {

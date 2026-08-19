@@ -16,6 +16,7 @@ typedef struct SolObject SolObject;
 typedef struct SolBlock  SolBlock;
 typedef struct SolArray  SolArray;
 typedef struct SolString SolString;
+typedef struct SolDelegate SolDelegate;
 
 typedef enum {
     SOL_NIL,
@@ -25,6 +26,7 @@ typedef enum {
     SOL_BLOCK,    /* { ... }         */
     SOL_ARRAY,    /* [#1, #2]        */
     SOL_STRING,   /* "hello"         */
+    SOL_DELEGATE, /* self:via(proto) */
     SOL_OBJ
 } SolValueType;
 
@@ -37,6 +39,7 @@ typedef struct {
         SolBlock  *block;
         SolArray  *array;
         SolString *string;
+        SolDelegate *delegate;
         SolObject *obj;
     } as;
 } SolValue;
@@ -46,6 +49,7 @@ typedef struct {
 #define SOL_BLOCK_VAL(b)  ((SolValue){ SOL_BLOCK, { .block = (b) } })
 #define SOL_ARRAY_VAL(a)  ((SolValue){ SOL_ARRAY, { .array = (a) } })
 #define SOL_STRING_VAL(s) ((SolValue){ SOL_STRING, { .string = (s) } })
+#define SOL_DELEGATE_VAL(d) ((SolValue){ SOL_DELEGATE, { .delegate = (d) } })
 #define SOL_INT_VAL(i)    ((SolValue){ SOL_INT,   { .integer = (i) } })
 #define SOL_FLOAT_VAL(f)  ((SolValue){ SOL_FLOAT, { .real = (f) } })
 #define SOL_OBJ_VAL(o)    ((SolValue){ SOL_OBJ,   { .obj = (o) } })
@@ -55,6 +59,7 @@ typedef struct {
 #define SOL_IS_BLOCK(v)   ((v).type == SOL_BLOCK)
 #define SOL_IS_ARRAY(v)   ((v).type == SOL_ARRAY)
 #define SOL_IS_STRING(v)  ((v).type == SOL_STRING)
+#define SOL_IS_DELEGATE(v) ((v).type == SOL_DELEGATE)
 #define SOL_IS_INT(v)     ((v).type == SOL_INT)
 #define SOL_IS_FLOAT(v)   ((v).type == SOL_FLOAT)
 #define SOL_IS_OBJ(v)     ((v).type == SOL_OBJ)
@@ -63,6 +68,7 @@ typedef struct {
 #define SOL_AS_BLOCK(v)   ((v).as.block)
 #define SOL_AS_ARRAY(v)   ((v).as.array)
 #define SOL_AS_STRING(v)  ((v).as.string)
+#define SOL_AS_DELEGATE(v) ((v).as.delegate)
 #define SOL_AS_INT(v)     ((v).as.integer)
 #define SOL_AS_FLOAT(v)   ((v).as.real)
 #define SOL_AS_OBJ(v)     ((v).as.obj)

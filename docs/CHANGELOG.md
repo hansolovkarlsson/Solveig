@@ -8,6 +8,35 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### `via`: calling the method you override — `pending`, 2026-08-19
+
+```
+animal:intro := { "I am ":concat(self:name) }.
+dog:intro := { self:via(animal):intro:concat("!") }.
+
+rex := dog:new. rex:name := "rex".
+rex:intro.        ; "I am rex!"
+```
+
+Before this, an override could reach the ancestor's *code* but not with the right
+receiver — naming the ancestor sends to it, so `self` inside became the ancestor
+and `rex:intro` answered `"I am animal!"`. An overriding method could therefore
+only extend one that never consulted `self`.
+
+`self:via(ancestor)` answers a delegating view: a send to it begins the lookup at
+the ancestor and runs what it finds with `self` still the receiver.
+
+- **The ancestor is named rather than inferred.** A `super` keyword would have to
+  resolve against the object where the running method was *defined*, which is
+  bookkeeping no frame carried. Naming it needs none of that, stays correct
+  however deep the receiver is, and cannot find the method again and recurse.
+- `parent` reads the delegation link so a chain can be walked. Read-only: the
+  link stays an internal pointer, so nothing a program writes can corrupt
+  dispatch.
+- Dispatch needed one change — a delegate receiver rewrites its own stack slot to
+  the real receiver before lookup, after which every existing path reads `self`
+  correctly without knowing delegates exist.
+
 ### User-defined objects — `d27176f`, 2026-08-19
 
 ```

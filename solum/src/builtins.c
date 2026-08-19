@@ -221,6 +221,7 @@ static SolValue prim_equals(SolVM *vm, SolValue self, SolValue *args, int argc)
        arrays; comparing contents is a different question and deserves its own
        name rather than quietly changing what `equals` means. */
     case SOL_ARRAY: return SOL_BOOL_VAL(SOL_AS_ARRAY(self) == SOL_AS_ARRAY(other));
+    case SOL_DELEGATE: return SOL_BOOL_VAL(SOL_AS_DELEGATE(self) == SOL_AS_DELEGATE(other));
     /* A string is immutable, so it is a value like a number rather than a
        reference like an array: equality compares contents. */
     case SOL_STRING: {
@@ -584,6 +585,37 @@ static SolValue prim_object_new(SolVM *vm, SolValue self, SolValue *args, int ar
     return SOL_OBJ_VAL(sol_object_new(vm, SOL_AS_OBJ(self)));
 }
 
+/* `self:via(ancestor)` answers a delegating view: a send to it looks the message
+   up starting at `ancestor`, but runs it with `self` still the receiver. */
+static SolValue prim_object_via(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "via", argc, 1)) return SOL_NIL_VAL;
+    if (!SOL_IS_OBJ(args[0])) {
+        sol_vm_runtime_error(vm, "'via' expects an object to start from, got %s",
+                             sol_type_name(args[0]));
+        return SOL_NIL_VAL;
+    }
+    /* Both the receiver and the ancestor are on the value stack for this call,
+       so they stay rooted while the delegate is allocated. */
+    return SOL_DELEGATE_VAL(sol_delegate_new(vm, self, SOL_AS_OBJ(args[0])));
+}
+
+/* The prototype this object delegates to, or nil at the root. Read-only: the
+   link stays an internal pointer, so nothing a program writes can corrupt
+   dispatch. */
+static SolValue prim_object_parent(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "parent", argc, 0)) return SOL_NIL_VAL;
+    if (!SOL_IS_OBJ(self)) {
+        sol_vm_runtime_error(vm, "'parent' expects an object, got %s",
+                             sol_type_name(self));
+        return SOL_NIL_VAL;
+    }
+    SolObject *proto = SOL_AS_OBJ(self)->proto;
+    return proto == NULL ? SOL_NIL_VAL : SOL_OBJ_VAL(proto);
+}
+
 /* ---- installation ---------------------------------------------------- */
 
 void sol_builtins_install(SolVM *vm)
@@ -651,6 +683,8 @@ void sol_builtins_install(SolVM *vm)
        question in the roadmap. */
     vm->object_class = sol_object_new(vm, NULL);
     sol_object_define_primitive(vm->object_class, "new",    prim_object_new);
+    sol_object_define_primitive(vm->object_class, "via",    prim_object_via);
+    sol_object_define_primitive(vm->object_class, "parent", prim_object_parent);
     sol_object_define_primitive(vm->object_class, "print",  prim_print);
     sol_object_define_primitive(vm->object_class, "equals", prim_equals);
 

@@ -48,5 +48,19 @@ dog:describe:print.          ; "dog says woof"
 rex:describe:print.          ; "rex says woof" -- describe from animal,
                              ;                   speak from dog, name from rex
 
+; An override reaches the version it overrides with `via`. Naming the ancestor
+; directly would send to *it*, so `self` inside would become the ancestor;
+; `self:via(animal)` starts the lookup at animal but leaves the receiver alone.
+dog:intro := { "I am ":concat(self:name) }.
+animal:intro := { "some ":concat(self:name) }.
+dog:intro := { self:via(animal):intro:concat("!") }.
+
+rex:intro:print.             ; "some rex!" -- animal's method, rex's name
+
+; `parent` reads the link, so a chain can be walked.
+rex:parent:equals(dog):print.        ; true
+rex:parent:parent:equals(animal):print.  ; true
+object:parent:print.                 ; nil -- the chain ends
+
 ; Equality is identity: two objects with the same slots are still two objects.
 point:make(#1, #2):equals(point:make(#1, #2)):print.   ; false

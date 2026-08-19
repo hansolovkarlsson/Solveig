@@ -93,6 +93,7 @@ SolObject *sol_vm_class_of(SolVM *vm, SolValue value)
     case SOL_BLOCK: return vm->block_class;
     case SOL_ARRAY: return vm->array_class;
     case SOL_STRING: return vm->string_class;
+    case SOL_DELEGATE: return NULL;   /* handled before dispatch reaches here */
     case SOL_OBJ:   return SOL_AS_OBJ(value);   /* the object answers for itself */
     }
     return NULL;
@@ -108,6 +109,7 @@ const char *sol_type_name(SolValue value)
     case SOL_BLOCK: return "block";
     case SOL_ARRAY: return "array";
     case SOL_STRING: return "string";
+    case SOL_DELEGATE: return "delegate";
     case SOL_OBJ:   return "object";
     }
     return "?";
@@ -357,7 +359,21 @@ static SolResult run_frames(SolVM *vm, int base)
             uint8_t argc = READ_BYTE();
 
             SolValue receiver = vm->stack_top[-1 - argc];
-            SolObject *target = sol_vm_class_of(vm, receiver);
+            SolObject *target;
+
+            if (SOL_IS_DELEGATE(receiver)) {
+                /* `self:via(ancestor):message` -- begin the search at the
+                   ancestor, but run whatever is found with the original
+                   receiver as self. Rewriting the stack slot is all that takes,
+                   since everything below already reads self from there. */
+                SolDelegate *delegate = SOL_AS_DELEGATE(receiver);
+                target = delegate->start;
+                receiver = delegate->receiver;
+                vm->stack_top[-1 - argc] = receiver;
+            } else {
+                target = sol_vm_class_of(vm, receiver);
+            }
+
             SolSlot *slot = target ? sol_object_lookup(target, name) : NULL;
 
             if (slot == NULL) {

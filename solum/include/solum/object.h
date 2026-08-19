@@ -103,6 +103,25 @@ struct SolString {
 /* Copies `length` bytes. The caller keeps ownership of what it passed in. */
 SolString *sol_string_new(SolVM *vm, const char *chars, int length);
 
+/* A delegating view, answered by `self:via(ancestor)`.
+ *
+ * Sending to one looks the message up starting at `start` rather than at the
+ * receiver's own object, but runs it with `receiver` as `self`. That is the
+ * whole of what an overriding method needs in order to call the version it
+ * overrides: naming the ancestor directly would send to *it*, and `self` inside
+ * would become the ancestor rather than staying the instance.
+ *
+ * The ancestor is named rather than inferred, so a method extends the object it
+ * was written against however deep the receiver turns out to be -- and cannot
+ * find itself again and recurse. */
+struct SolDelegate {
+    SolGCHeader gc;
+    SolValue    receiver;   /* what `self` will be */
+    SolObject  *start;      /* where the lookup begins */
+};
+
+SolDelegate *sol_delegate_new(SolVM *vm, SolValue receiver, SolObject *start);
+
 /* Appends, growing by doubling. Takes the VM so the growth is charged to the
    collection threshold: a backing store that grew without the collector knowing
    would never itself trigger a collection. */

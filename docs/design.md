@@ -84,6 +84,11 @@ Smalltalk lineage, prototype flavour:
   makes `point` a class by use rather than by kind. A slot assigned on an
   instance is always the instance's own, shadowing the prototype rather than
   writing through to it.
+- An override reaches what it overrides through `self:via(ancestor)`, which
+  begins the lookup at the ancestor but keeps `self` as the receiver. The
+  ancestor is named rather than inferred, so no frame has to record where a
+  running method was defined, and a method cannot find itself again. `parent`
+  reads the delegation link, read-only.
 - Message send is the only way to make anything happen. `:` is the send
   operator: `receiver:message(args)`.
 - Slot lookup walks the proto chain and terminates at the root Object, which
