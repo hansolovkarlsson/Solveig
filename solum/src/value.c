@@ -32,7 +32,7 @@ void sol_text_append(SolText *text, const char *chars, int length)
         while (capacity < text->length + length + 1) capacity *= 2;
         text->chars = realloc(text->chars, (size_t)capacity);
         if (text->chars == NULL) {
-            fprintf(stderr, "solum: out of memory\n");
+            fprintf(stderr, "solvm: out of memory\n");
             exit(1);
         }
         text->capacity = capacity;
@@ -186,7 +186,7 @@ int sol_value_array_write(SolValueArray *array, SolValue value)
         int capacity = array->capacity < 8 ? 8 : array->capacity * 2;
         array->values = realloc(array->values, sizeof(SolValue) * capacity);
         if (array->values == NULL) {
-            fprintf(stderr, "solum: out of memory\n");
+            fprintf(stderr, "solvm: out of memory\n");
             exit(1);
         }
         array->capacity = capacity;

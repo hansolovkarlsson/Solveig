@@ -2,7 +2,7 @@
 ; the globals -- so it uses the same ':=', and the right-hand side is evaluated.
 ; A slot holding a block is what makes a method.
 ;
-; Run with:  ./bin/solas examples/methods.sol && ./bin/solum examples/methods.sob
+; Run with:  ./bin/solas examples/methods.sol && ./bin/solvm examples/methods.sob
 
 integer:double := { self:mul(#2) }.
 

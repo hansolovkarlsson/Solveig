@@ -32,12 +32,12 @@ SolMethod *sol_method_new(const char *name, int length, int arity)
 {
     SolMethod *method = malloc(sizeof(SolMethod));
     if (method == NULL) {
-        fprintf(stderr, "solum: out of memory\n");
+        fprintf(stderr, "solvm: out of memory\n");
         exit(1);
     }
     method->name = malloc((size_t)length + 1);
     if (method->name == NULL) {
-        fprintf(stderr, "solum: out of memory\n");
+        fprintf(stderr, "solvm: out of memory\n");
         exit(1);
     }
     memcpy(method->name, name, (size_t)length);
@@ -67,7 +67,7 @@ int sol_chunk_add_method(SolChunk *chunk, SolMethod *method)
         int capacity = methods->capacity < 4 ? 4 : methods->capacity * 2;
         methods->methods = realloc(methods->methods, sizeof(SolMethod *) * capacity);
         if (methods->methods == NULL) {
-            fprintf(stderr, "solum: out of memory\n");
+            fprintf(stderr, "solvm: out of memory\n");
             exit(1);
         }
         methods->capacity = capacity;
@@ -89,7 +89,7 @@ void sol_chunk_write(SolChunk *chunk, uint8_t byte, int line)
         chunk->code = realloc(chunk->code, sizeof(uint8_t) * capacity);
         chunk->lines = realloc(chunk->lines, sizeof(int) * capacity);
         if (chunk->code == NULL || chunk->lines == NULL) {
-            fprintf(stderr, "solum: out of memory\n");
+            fprintf(stderr, "solvm: out of memory\n");
             exit(1);
         }
         chunk->capacity = capacity;
@@ -125,7 +125,7 @@ int sol_chunk_append_name(SolChunk *chunk, const char *name, int length)
         int capacity = names->capacity < 8 ? 8 : names->capacity * 2;
         names->names = realloc(names->names, sizeof(char *) * capacity);
         if (names->names == NULL) {
-            fprintf(stderr, "solum: out of memory\n");
+            fprintf(stderr, "solvm: out of memory\n");
             exit(1);
         }
         names->capacity = capacity;
@@ -133,7 +133,7 @@ int sol_chunk_append_name(SolChunk *chunk, const char *name, int length)
 
     char *copy = malloc((size_t)length + 1);
     if (copy == NULL) {
-        fprintf(stderr, "solum: out of memory\n");
+        fprintf(stderr, "solvm: out of memory\n");
         exit(1);
     }
     memcpy(copy, name, (size_t)length);

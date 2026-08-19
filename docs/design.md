@@ -27,7 +27,7 @@ Example of creating an integer variable and assigning it, then printing it.
 | Part      | Binary      | Job                                          |
 | --------- | ----------- | -------------------------------------------- |
 | **Solas** | `bin/solas` | Compiler: `.sol` source -> bytecode          |
-| **SolVM** | `bin/solum` | Virtual machine: loads and executes bytecode |
+| **SolVM** | `bin/solvm` | Virtual machine: loads and executes bytecode; sources in `solum/` |
 | **Solis** | `bin/solis` | REPL: compiles and runs a line at a time     |
 
 Solas and SolVM meet at exactly one place: `solum/include/solum/bytecode.h`.
@@ -588,7 +588,7 @@ The full pipeline also runs, compiling to a file and executing it separately:
 
 ```
 $ ./bin/solas examples/hello.sol     # writes examples/hello.sob
-$ ./bin/solum examples/hello.sob
+$ ./bin/solvm examples/hello.sob
 #45
 ```
 

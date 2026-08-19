@@ -1,6 +1,6 @@
 ; Arrays hold values. Indices are one-based: an index is an ordinal, not an
 ; offset into anything.
-; Run with:  ./bin/solas examples/arrays.sol && ./bin/solum examples/arrays.sob
+; Run with:  ./bin/solas examples/arrays.sol && ./bin/solvm examples/arrays.sob
 
 ; [...] is sugar for array:of(...) -- the same send, compiled to the same
 ; instructions, so the two spellings cannot drift apart.

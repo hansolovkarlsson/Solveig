@@ -16,9 +16,9 @@ xs:do({ x | x:print }).        ; { } is a block: code as a value
 ## The names
 
 **Solveig** is the project. The language it holds is **Solum**, compiled by
-**Solas**, run by **SolVM**, and explored through **Solis**. On disk the machine
-keeps the lowercase spelling, `solum/` and `bin/solum`, since it is the same word
-either way.
+**Solas**, run by **SolVM**, and explored through **Solis**. The program is
+`bin/solvm` and its sources are under `solum/` -- the same word in two hands, as
+below.
 
 *Solveig* is Old Norse -- *Sólveig*, from *sól*, "sun", joined to *veig*, which
 is usually read as "strength", though the second element is not settled and has
@@ -43,7 +43,7 @@ them -- the same star, in a different language.
 | Path      | What                                                             |
 | --------- | ---------------------------------------------------------------- |
 | `solas/`  | **Solas** -- the compiler: source text to bytecode                |
-| `solum/`  | **SolVM** -- the virtual machine: executes bytecode and loads `.sob` |
+| `solum/`  | **SolVM** -- the virtual machine, built as `bin/solvm`               |
 | `solis/`  | **Solis** -- the REPL: compiles and runs one line at a time       |
 | `docs/`   | [REFERENCE.md](docs/REFERENCE.md), [design.md](docs/design.md), [ROADMAP.md](docs/ROADMAP.md), [CHANGELOG.md](docs/CHANGELOG.md) |
 | `tests/`  | Test suite                                                        |
@@ -57,7 +57,7 @@ sides include, so the instruction set is defined exactly once.
 ## Build
 
 ```sh
-make          # builds bin/solas, bin/solum, bin/solis
+make          # builds bin/solas, bin/solvm, bin/solis
 make test     # builds and runs the test suite
 make clean
 ```
@@ -89,7 +89,7 @@ Compiling to a file and running it separately works too:
 
 ```
 $ ./bin/solas examples/hello.sol      # writes examples/hello.sob
-$ ./bin/solum examples/hello.sob
+$ ./bin/solvm examples/hello.sob
 #45
 ```
 

@@ -1,6 +1,6 @@
 ; Strings are immutable, so they are values rather than references: two strings
 ; with the same characters are equal, and nothing can change one in place.
-; Run with:  ./bin/solas examples/strings.sol && ./bin/solum examples/strings.sob
+; Run with:  ./bin/solas examples/strings.sol && ./bin/solvm examples/strings.sob
 
 s := "hello".
 s:print.                     ; "hello" -- printed as it would be written

@@ -1,6 +1,6 @@
 # Solum -- build for all three components.
 #
-#   make            build bin/solas, bin/solum, bin/solis
+#   make            build bin/solas, bin/solvm, bin/solis
 #   make test       build and run the test suite
 #   make clean      remove build artefacts
 
@@ -19,7 +19,7 @@ LIB       = $(BUILD)/libsol.a
 TEST_SRCS = $(wildcard tests/*.c)
 TEST_BINS = $(TEST_SRCS:tests/%.c=$(BUILD)/tests/%)
 
-BINARIES = $(BIN)/solas $(BIN)/solum $(BIN)/solis
+BINARIES = $(BIN)/solas $(BIN)/solvm $(BIN)/solis
 
 .PHONY: all test clean
 all: $(BINARIES)
@@ -28,7 +28,7 @@ $(BIN)/solas: solas/cmd/main.c $(LIB)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(INCLUDES) $^ -o $@
 
-$(BIN)/solum: solum/cmd/main.c $(LIB)
+$(BIN)/solvm: solum/cmd/main.c $(LIB)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(INCLUDES) $^ -o $@
 

@@ -1,5 +1,5 @@
 ; A block is code as a value: writing { ... } runs nothing.
-; Run with:  ./bin/solas examples/blocks.sol && ./bin/solum examples/blocks.sob
+; Run with:  ./bin/solas examples/blocks.sol && ./bin/solvm examples/blocks.sob
 
 ; Control flow is ordinary message sending. `ifTrue` receives an unevaluated
 ; block and decides whether to run it -- nothing in the compiler knows it.

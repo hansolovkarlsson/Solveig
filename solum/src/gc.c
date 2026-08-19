@@ -24,7 +24,7 @@ SolCode *sol_code_new(SolVM *vm)
 
     SolCode *code = malloc(sizeof(SolCode));
     if (code == NULL) {
-        fprintf(stderr, "solum: out of memory\n");
+        fprintf(stderr, "solvm: out of memory\n");
         exit(1);
     }
     sol_chunk_init(&code->chunk);
@@ -114,7 +114,7 @@ static void mark_cell(SolVM *vm, SolGCHeader *header)
             /* The worklist is the collector's own memory, not the mutator's.
                Failing to grow it would mean losing track of a reachable cell,
                so there is nothing safe to do but stop. */
-            fprintf(stderr, "solum: out of memory during collection\n");
+            fprintf(stderr, "solvm: out of memory during collection\n");
             exit(1);
         }
         vm->gray = grown;
@@ -297,7 +297,7 @@ void sol_gc_maybe_collect(SolVM *vm)
 void sol_gc_push_temp(SolVM *vm, SolGCHeader *header)
 {
     if (vm->temp_count == SOL_GC_MAX_TEMPS) {
-        fprintf(stderr, "solum: too many temporary roots\n");
+        fprintf(stderr, "solvm: too many temporary roots\n");
         exit(1);
     }
     vm->temps[vm->temp_count++] = header;

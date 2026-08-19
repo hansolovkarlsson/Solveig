@@ -119,7 +119,7 @@ void sol_vm_runtime_error(SolVM *vm, const char *format, ...)
 {
     va_list args;
     va_start(args, format);
-    fputs("solum: ", stderr);
+    fputs("solvm: ", stderr);
     vfprintf(stderr, format, args);
     va_end(args);
     fputs("\n", stderr);

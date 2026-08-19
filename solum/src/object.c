@@ -10,7 +10,7 @@ static char *dup_name(const char *name)
     size_t len = strlen(name);
     char *copy = malloc(len + 1);
     if (copy == NULL) {
-        fprintf(stderr, "solum: out of memory\n");
+        fprintf(stderr, "solvm: out of memory\n");
         exit(1);
     }
     memcpy(copy, name, len + 1);
@@ -25,7 +25,7 @@ SolObject *sol_object_new(SolVM *vm, SolObject *proto)
 
     SolObject *obj = malloc(sizeof(SolObject));
     if (obj == NULL) {
-        fprintf(stderr, "solum: out of memory\n");
+        fprintf(stderr, "solvm: out of memory\n");
         exit(1);
     }
     obj->proto = proto;
@@ -43,7 +43,7 @@ SolBlock *sol_block_new(SolVM *vm, const SolMethod *code, SolValue self,
 
     SolBlock *block = malloc(sizeof(SolBlock));
     if (block == NULL) {
-        fprintf(stderr, "solum: out of memory\n");
+        fprintf(stderr, "solvm: out of memory\n");
         exit(1);
     }
     block->code = code;
@@ -62,7 +62,7 @@ SolArray *sol_array_new(SolVM *vm, int capacity)
 
     SolArray *array = malloc(sizeof(SolArray));
     if (array == NULL) {
-        fprintf(stderr, "solum: out of memory\n");
+        fprintf(stderr, "solvm: out of memory\n");
         exit(1);
     }
     array->count = 0;
@@ -72,7 +72,7 @@ SolArray *sol_array_new(SolVM *vm, int capacity)
     if (capacity > 0) {
         array->items = malloc(sizeof(SolValue) * (size_t)capacity);
         if (array->items == NULL) {
-            fprintf(stderr, "solum: out of memory\n");
+            fprintf(stderr, "solvm: out of memory\n");
             exit(1);
         }
     }
@@ -89,7 +89,7 @@ SolString *sol_string_new(SolVM *vm, const char *chars, int length)
     SolString *string = malloc(sizeof(SolString));
     char *copy = malloc((size_t)length + 1);
     if (string == NULL || copy == NULL) {
-        fprintf(stderr, "solum: out of memory\n");
+        fprintf(stderr, "solvm: out of memory\n");
         exit(1);
     }
     memcpy(copy, chars, (size_t)length);
@@ -109,7 +109,7 @@ SolDelegate *sol_delegate_new(SolVM *vm, SolValue receiver, SolObject *start)
 
     SolDelegate *delegate = malloc(sizeof(SolDelegate));
     if (delegate == NULL) {
-        fprintf(stderr, "solum: out of memory\n");
+        fprintf(stderr, "solvm: out of memory\n");
         exit(1);
     }
     delegate->receiver = receiver;
@@ -125,7 +125,7 @@ void sol_array_add(SolVM *vm, SolArray *array, SolValue value)
         int capacity = array->capacity < 8 ? 8 : array->capacity * 2;
         SolValue *grown = realloc(array->items, sizeof(SolValue) * (size_t)capacity);
         if (grown == NULL) {
-            fprintf(stderr, "solum: out of memory\n");
+            fprintf(stderr, "solvm: out of memory\n");
             exit(1);
         }
         /* Charge the growth, so an array that grows large enough eventually
@@ -166,7 +166,7 @@ static SolSlot *ensure_local(SolObject *obj, const char *name)
 
     slot = malloc(sizeof(SolSlot));
     if (slot == NULL) {
-        fprintf(stderr, "solum: out of memory\n");
+        fprintf(stderr, "solvm: out of memory\n");
         exit(1);
     }
     slot->name = dup_name(name);

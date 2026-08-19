@@ -878,7 +878,7 @@ static SolValue prim_string_concat(SolVM *vm, SolValue self, SolValue *args, int
     int length = a->length + b->length;
     char *joined = malloc((size_t)length + 1);
     if (joined == NULL) {
-        fprintf(stderr, "solum: out of memory\n");
+        fprintf(stderr, "solvm: out of memory\n");
         exit(1);
     }
     memcpy(joined, a->chars, (size_t)a->length);

@@ -8,6 +8,22 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### The virtual machine is `bin/solvm` — `pending`, 2026-08-19
+
+**Breaking: the command changed.** `./bin/solum program.sob` is now
+`./bin/solvm program.sob`.
+
+The machine has been called SolVM in prose since the project was named, while the
+program on disk was still `solum`. Now they agree.
+
+Its own messages agree too — a runtime error reads `solvm:` rather than `solum:`,
+as do the fatal allocation failures in the runtime library.
+
+The **sources stay under `solum/`**, and the include paths and `SOLUM_*` macros
+with them. `solum` and `SOLVM` are the same word in two hands, so the directory
+keeps the modern spelling and the program the older one. Renaming the tree as
+well would touch every `#include` in the project for no gain a reader would feel.
+
 ### An object is rendered by asking it — `f55e105`, 2026-08-19
 
 ```

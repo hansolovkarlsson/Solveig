@@ -1,7 +1,7 @@
 ; There is no separate notion of a class. An object is a bag of slots with a
 ; prototype it delegates to, and `new` answers a fresh object delegating to the
 ; receiver. Whether something is a class or an instance is how you use it.
-; Run with:  ./bin/solas examples/objects.sol && ./bin/solum examples/objects.sob
+; Run with:  ./bin/solas examples/objects.sol && ./bin/solvm examples/objects.sob
 
 point := object:new.
 

@@ -1,4 +1,8 @@
-/* solum -- the virtual machine. Loads a compiled chunk and executes it. */
+/* solvm -- the virtual machine. Loads a compiled chunk and executes it.
+ *
+ * The program is `solvm` while its sources live under `solum/`: the two are the
+ * same word, SOLVM being how *solum* was written before the alphabet split V
+ * into two letters. */
 #include <stdio.h>
 #include <string.h>
 
@@ -16,19 +20,19 @@ int main(int argc, char *argv[])
         } else if (path == NULL) {
             path = argv[i];
         } else {
-            fprintf(stderr, "usage: solum [--dump] <file.sob>\n");
+            fprintf(stderr, "usage: solvm [--dump] <file.sob>\n");
             return 64;
         }
     }
     if (path == NULL) {
-        fprintf(stderr, "usage: solum [--dump] <file.sob>\n");
+        fprintf(stderr, "usage: solvm [--dump] <file.sob>\n");
         return 64;
     }
 
     SolChunk chunk;
     SolSerResult loaded = sol_chunk_load(&chunk, path);
     if (loaded != SOL_SER_OK) {
-        fprintf(stderr, "solum: cannot load '%s': %s\n", path, sol_ser_message(loaded));
+        fprintf(stderr, "solvm: cannot load '%s': %s\n", path, sol_ser_message(loaded));
         return 65;
     }
 

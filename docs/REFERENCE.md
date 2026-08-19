@@ -32,15 +32,16 @@ a:print.
 
 ```sh
 ./bin/solas program.sol          # compiles to program.sob
-./bin/solum program.sob          # runs it
+./bin/solvm program.sob          # runs it
 ./bin/solis                      # a prompt, one line at a time
 ```
 
-The machine is **SolVM**, but on disk it keeps the lowercase spelling `solum` --
-the two being the same word, `SOLVM` being how *solum* was written before the
-alphabet split V into two letters.
+The program is `solvm`; its sources live under `solum/`. The two are the same
+word -- `SOLVM` is how *solum* was written before the alphabet split V into two
+letters -- so the directory keeps the modern spelling and the program the older
+one.
 
-`solas --dump` also prints the disassembly. `solum --dump` prints it for a
+`solas --dump` also prints the disassembly. `solvm --dump` prints it for a
 compiled file before running.
 
 A `.sob` file is verified before it runs: every instruction must fit, every
