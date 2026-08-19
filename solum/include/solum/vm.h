@@ -40,9 +40,18 @@ struct SolVM {
     SolValue *stack_top;
 
     SolObject *root;      /* globals namespace; also ends every proto chain */
-    SolObject *objects;   /* head of the all-objects list */
-    SolBlock  *blocks;    /* head of the all-blocks list */
     uint64_t   next_frame_id;
+
+    /* Heap. One list threads every collectable cell; `gray` is the mark
+       worklist, kept explicit so a deep object graph cannot overflow the C
+       stack the way recursive marking would. */
+    SolGCHeader  *heap;
+    size_t        bytes_allocated;
+    size_t        next_gc;
+    SolGCHeader **gray;
+    int           gray_count;
+    int           gray_capacity;
+    bool          gc_stress;
 
     /* Class objects for the unboxed value types. A message sent to #45 is
        resolved against integer_class, which is what keeps "everything is an

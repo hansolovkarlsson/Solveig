@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "solum/gc.h"
 #include "solum/vm.h"
 
 static void reset_stack(SolVM *vm)
@@ -12,51 +13,40 @@ static void reset_stack(SolVM *vm)
 void sol_vm_init(SolVM *vm)
 {
     vm->frame_count = 0;
-    vm->objects = NULL;
-    vm->blocks = NULL;
-    vm->next_frame_id = 1;
     vm->had_error = false;
+    vm->next_frame_id = 1;
     reset_stack(vm);
 
-    /* The root Object is the globals namespace -- built-in class objects
-       (`integer`, ...) live in its slots, and OP_GLOBAL resolves names against
-       it. It also terminates every proto chain. */
-    vm->root = sol_object_new(vm, NULL);
+    /* Every root must be readable before the first allocation, because that
+       allocation may collect -- and does on every one under stress. Leaving
+       these until after the root object exists would have the collector trace
+       uninitialised pointers. */
+    vm->root = NULL;
     vm->integer_class = NULL;
     vm->float_class = NULL;
     vm->nil_class = NULL;
     vm->bool_class = NULL;
     vm->block_class = NULL;
 
+    vm->heap = NULL;
+    vm->bytes_allocated = 0;
+    vm->next_gc = SOL_GC_INITIAL_THRESHOLD;
+    vm->gray = NULL;
+    vm->gray_count = 0;
+    vm->gray_capacity = 0;
+    vm->gc_stress = getenv("SOLUM_GC_STRESS") != NULL;
+
+    /* The root Object is the globals namespace -- built-in class objects
+       (`integer`, ...) live in its slots, and OP_GLOBAL resolves names against
+       it. It also terminates every proto chain. */
+    vm->root = sol_object_new(vm, NULL);
+
     sol_builtins_install(vm);
 }
 
 void sol_vm_free(SolVM *vm)
 {
-    /* TODO: replace with a real collector. For now every object is freed at
-       shutdown by walking the all-objects list. */
-    SolObject *obj = vm->objects;
-    while (obj != NULL) {
-        SolObject *next = obj->next;
-        SolSlot *slot = obj->slots;
-        while (slot != NULL) {
-            SolSlot *slot_next = slot->next;
-            free(slot->name);
-            free(slot);
-            slot = slot_next;
-        }
-        free(obj);
-        obj = next;
-    }
-    vm->objects = NULL;
-
-    SolBlock *block = vm->blocks;
-    while (block != NULL) {
-        SolBlock *next = block->next;
-        free(block);
-        block = next;
-    }
-    vm->blocks = NULL;
+    sol_gc_free_all(vm);
 
     vm->root = NULL;
     vm->integer_class = NULL;

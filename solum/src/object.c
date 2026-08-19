@@ -19,6 +19,10 @@ static char *dup_name(const char *name)
 
 SolObject *sol_object_new(SolVM *vm, SolObject *proto)
 {
+    /* Collect before allocating, never after: the new cell is reachable from
+       nothing yet, so a collection here cannot sweep it. */
+    sol_gc_maybe_collect(vm);
+
     SolObject *obj = malloc(sizeof(SolObject));
     if (obj == NULL) {
         fprintf(stderr, "solum: out of memory\n");
@@ -28,15 +32,15 @@ SolObject *sol_object_new(SolVM *vm, SolObject *proto)
     obj->slots = NULL;
     obj->payload = 0;
 
-    /* Thread onto the VM's all-objects list so a collector can find it later. */
-    obj->next = vm->objects;
-    vm->objects = obj;
+    sol_gc_register(vm, &obj->gc, SOL_GC_OBJECT, sizeof(SolObject));
     return obj;
 }
 
 SolBlock *sol_block_new(SolVM *vm, const SolMethod *code, SolValue self,
                         int home_frame, uint64_t home_id)
 {
+    sol_gc_maybe_collect(vm);
+
     SolBlock *block = malloc(sizeof(SolBlock));
     if (block == NULL) {
         fprintf(stderr, "solum: out of memory\n");
@@ -46,8 +50,8 @@ SolBlock *sol_block_new(SolVM *vm, const SolMethod *code, SolValue self,
     block->self = self;
     block->home_frame = home_frame;
     block->home_id = home_id;
-    block->next = vm->blocks;
-    vm->blocks = block;
+
+    sol_gc_register(vm, &block->gc, SOL_GC_BLOCK, sizeof(SolBlock));
     return block;
 }
 
@@ -70,6 +74,8 @@ static SolSlot *lookup_local(SolObject *obj, const char *name)
     return NULL;
 }
 
+/* A slot is owned by its object and freed with it, so it is not registered with
+   the collector; cell_size counts its bytes when the object is swept. */
 static SolSlot *ensure_local(SolObject *obj, const char *name)
 {
     SolSlot *slot = lookup_local(obj, name);

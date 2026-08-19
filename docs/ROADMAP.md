@@ -24,23 +24,79 @@ and nothing is ever freed.
 
 ### 1.1 Garbage collection
 
-The sharpest gap. Objects are threaded onto `vm->objects` and blocks onto
-`vm->blocks` at allocation and freed en masse at shutdown. Nothing is reclaimed
-while a program runs, and a block literal inside a loop body allocates once per
-iteration:
+**1.1a is done** — see below. Objects and blocks are collected; code is not,
+which is what 1.1b is about.
+
+The motivating case, a block literal allocated once per loop iteration:
 
 ```
-{ i:lessThan(#1000000) }:whileTrue({ i := i:add(#1). b := { #1 }. }).
+{ i:lessThan(#2000000) }:whileTrue({ i := i:add(#1). b := { #1 }. }).
 ```
 
-That runs correctly and leaks a million blocks. The two lists exist precisely so
-a mark–sweep collector can drop in without touching the allocator.
+Peak resident set over two million allocations went from **98 MB to 1.5 MB**, and
+from growing linearly to flat.
 
-Roots are the value stack, the frame slots, and the root object's slot chain.
-The awkward part is not the collector but **code ownership**: a `SolMethod` is
-owned by the chunk that compiled it, and a slot holds only a pointer, so Solis
-has to retain every line's chunk for the whole session (`solis/src/main.c`). The
-collector should own code, which removes that retention.
+**The heap is two types.** Everything allocated at run time is either a
+`SolObject` (with its owned `SolSlot` chain) or a `SolBlock`. Chunks, code,
+constants, names, and `SolMethod` are compile-time data owned by whoever compiled
+them. So the tracer needs exactly three edges:
+
+```
+SolObject.proto          -> SolObject
+SolObject.slots[].value  -> SolValue
+SolBlock.self            -> SolValue
+```
+
+**Roots are nearly free**, because of two properties of the current design.
+Frame locals live inside the value stack -- `push_frame` sets
+`slots = stack_top - argc - 1` and fills the rest by pushing -- so scanning
+`stack[0 .. stack_top)` covers every local of every frame with no separate frame
+walk. And a primitive's arguments are still on the stack while it runs, since the
+dispatch loop drops them only after it returns. That leaves the root set as the
+value stack, `vm->root`, and the five class objects.
+
+**Mark-sweep, non-moving, stop-the-world.** A copying collector would have to fix
+up every `SolValue` in the stack, in slots, and in `block->self`, for no benefit
+at this size. Reference counting is the wrong shape: objects cycle freely -- a
+class's slot can hold a block whose `self` is that class -- and inc/dec would
+touch every `SolValue` copy in the VM.
+
+Staged, because "is my tracing correct" and "did I get ownership right" fail in
+different ways and are worth not mixing.
+
+#### 1.1a The collector — **done**
+
+- One shared GC header (`next`, `marked`, `type`) embedded in both heap types,
+  merging the two lists into one, so each future heap type does not add another
+  list and another sweep loop.
+- Mark from the roots above using an **explicit gray worklist, not C recursion**:
+  a deep object graph would otherwise overflow the C stack.
+- Sweep the list, free unmarked, clear marks on survivors.
+- Trigger on bytes allocated with a growth factor, plus a **stress mode**
+  (`SOLUM_GC_STRESS=1`) collecting on every allocation. The whole suite passes
+  under `SOLUM_GC_STRESS=1` with ASan and UBSan, which is what makes a missing
+  root a caught bug rather than a latent one.
+
+The ordering trap was real: `sol_vm_init` nulls `vm->root` and the class fields
+before the first allocation, or a stress-mode collection during setup would trace
+uninitialised pointers.
+
+#### 1.1b GC-owned code
+
+A `SolBlock` points at a `SolMethod` owned by the chunk that compiled it, which
+is why `solis/src/main.c` retains every line's chunk for the whole session. Tracing
+block -> method -> owning chunk removes that retention. Costs an API change:
+`SolChunk` is currently a stack value in the three `main()`s and throughout the
+tests.
+
+#### 1.1c Temporary roots, when strings arrive
+
+Today the only allocation reachable from running code is `sol_block_new` at
+`OP_BLOCK`, where everything live is already on the stack or in globals -- so no
+temp-root machinery is needed at all. That ends with strings: concatenation
+allocates *inside* a primitive while holding intermediates in C locals the
+collector cannot see. Wants a small `push_temp`/`pop_temp`, built with 1.2 rather
+than before it.
 
 ### 1.2 Strings
 
@@ -195,8 +251,8 @@ text would make compile errors considerably more useful.
 
 ## Suggested order
 
-1. **Garbage collection** (1.1) — everything else accretes garbage until it exists,
-   and it removes the chunk-retention wart in Solis.
+1. **Garbage collection** (1.1a, then 1.1b) — everything else accretes garbage
+   until it exists, and 1.1b removes the chunk-retention wart in Solis.
 2. **Strings** (1.2) — the first real heap value, and the thing that proves the
    collector.
 3. **User-defined classes** (1.3), then **collections** (1.4).

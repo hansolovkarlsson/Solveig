@@ -7,6 +7,32 @@ Each entry names the commit it landed in. Dates are the day the work was done.
 
 ## Unreleased — 0.0.1
 
+### A garbage collector — `b2f2d6a`, 2026-08-18
+
+Mark–sweep, non-moving, stop-the-world. Objects and blocks are reclaimed while a
+program runs; before this nothing was freed until the VM exited.
+
+The motivating case — a block literal allocated once per loop iteration — over
+two million allocations:
+
+| | Peak RSS |
+| --- | --- |
+| before | 98 MB, growing linearly |
+| after | 1.5 MB, flat |
+
+- Both heap types now begin with a shared `SolGCHeader`, so one list threads the
+  whole heap and one sweep loop walks it. A new heap type joins by embedding the
+  header rather than adding another list.
+- Marking uses an explicit worklist, not recursion, so a graph deeper than the C
+  stack traces without overflowing it — a 200,000-link proto chain is a test.
+- Collection happens *before* an allocation, so the new cell cannot be swept.
+  `sol_vm_init` nulls the roots before its first allocation for the same reason.
+- `SOLUM_GC_STRESS=1` collects on every allocation. The whole suite passes under
+  it with ASan and UBSan.
+
+Code is still owned by the chunk that compiled it, so Solis continues to retain
+every line's chunk; that is roadmap 1.1b.
+
 ### `:=` became one operator — `7029d27`, 2026-08-18
 
 **Breaking: method definitions changed shape, and `.sob` went to version 4.**

@@ -121,7 +121,7 @@ Still to do:
 
 - [ ] user-defined classes (slots can only be added to the built-in ones)
 - [ ] strings and symbols -- both scan, but neither has a runtime type
-- [ ] a garbage collector (objects are freed en masse at shutdown)
+- [ ] GC-owned code, so Solis need not retain every line's chunk
 
 The full list of what is left -- open design questions, known limitations, and
 unbuilt work -- is in [docs/ROADMAP.md](docs/ROADMAP.md).

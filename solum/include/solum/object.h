@@ -10,6 +10,7 @@
 
 #include "solum/common.h"
 #include "solum/bytecode.h"
+#include "solum/gc.h"
 #include "solum/value.h"
 
 typedef struct SolVM SolVM;
@@ -30,10 +31,10 @@ typedef struct SolSlot {
 } SolSlot;
 
 struct SolObject {
+    SolGCHeader gc;        /* must be first: the collector casts between them */
     SolObject *proto;      /* delegation target; NULL for the root Object */
     SolSlot   *slots;
     int64_t    payload;    /* raw storage for integer/boolean-like objects */
-    SolObject *next;       /* all-objects list, for the future collector */
 };
 
 /* A block: unevaluated code plus the frame it was written in.
@@ -52,11 +53,11 @@ struct SolObject {
  * the life of the VM, so a block that outlives its frame is detected rather
  * than reading a slot that now belongs to someone else. */
 struct SolBlock {
+    SolGCHeader      gc;        /* must be first: the collector casts between them */
     const SolMethod *code;
     SolValue         self;      /* the receiver where the block was written */
     int              home_frame;
     uint64_t         home_id;
-    struct SolBlock *next;      /* all-blocks list, for cleanup */
 };
 
 SolObject *sol_object_new(SolVM *vm, SolObject *proto);

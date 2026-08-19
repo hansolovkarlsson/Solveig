@@ -399,6 +399,47 @@ Real closures would need the captured slots moved to the heap when a frame
 dies. That is the upgrade path; the id check is what makes the current
 restriction safe rather than silently wrong.
 
+## Garbage collection
+
+Mark-sweep, non-moving, stop-the-world. The heap holds two types: a `SolObject`,
+which owns its slot chain, and a `SolBlock`. Chunks, code, constants, and names
+are compile-time data owned by whoever compiled them, and are not collected.
+
+Both heap types begin with a `SolGCHeader`, so one list threads the whole heap
+and one sweep loop walks it. A new heap type joins by embedding the header and
+adding a case to the tracer and the freer, rather than by adding another list.
+
+The whole object graph is three edges:
+
+```
+SolObject.proto          -> SolObject
+SolObject.slots[].value  -> SolValue
+SolBlock.self            -> SolValue
+```
+
+Roots are cheap here because of two properties of the interpreter. Frame locals
+live *inside* the value stack -- `push_frame` sets `slots = stack_top - argc - 1`
+and fills the rest by pushing -- so scanning the stack covers every local of
+every frame with no separate frame walk. And a primitive's arguments are still on
+the stack while it runs, since the dispatch loop drops them only after it
+returns. That leaves the value stack, `vm->root`, and the built-in classes.
+
+Marking uses an explicit worklist rather than recursion, so a graph deeper than
+the C stack traces without overflowing it -- a 200,000-link proto chain is a
+test, not a hypothetical.
+
+Collection happens *before* an allocation, never after, so the new cell -- which
+nothing points at yet -- cannot be swept. Two consequences worth knowing:
+
+- `sol_vm_init` must null `vm->root` and the class fields before the first
+  allocation, or a collection during setup would trace uninitialised pointers.
+- Today the only allocation reachable from running code is `sol_block_new` at
+  `OP_BLOCK`, where everything live is already on the stack or in globals, so no
+  temporary-root machinery is needed. That changes with strings.
+
+Setting `SOLUM_GC_STRESS=1` collects on every allocation. Running the test suite
+under it is what actually finds a missing root.
+
 ## Open questions
 
 Everything unresolved lives in [ROADMAP.md](ROADMAP.md) -- the open design
@@ -446,4 +487,7 @@ Implemented: the scanner, the single-pass compiler, the re-entrant dispatch
 loop with call frames, methods and locals, blocks with lexical capture, the
 `.sob` format with its verifier, and built-in `integer`, `float`, `boolean`,
 `nil`, and `block` classes. Not implemented: user-defined classes, strings,
-symbols, and the collector.
+symbols, and user-defined classes. The heap is collected: a mark-sweep collector
+reclaims objects and blocks, so a block literal in a loop no longer accumulates.
+Code is still owned by the chunk that compiled it, which is why Solis retains
+every line's chunk -- see [ROADMAP.md](ROADMAP.md) 1.1b.
