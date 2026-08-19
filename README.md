@@ -149,6 +149,10 @@ Still to do:
 
 - [ ] string escapes, and symbols -- `'foo` still scans without a runtime type
 
+## License
+
+MIT -- see [LICENSE](LICENSE).
+
 The full list of what is left -- open design questions, known limitations, and
 unbuilt work -- is in [docs/ROADMAP.md](docs/ROADMAP.md).
 
