@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### `.` is required between statements — `pending`, 2026-08-19
+### `.` is required between statements — `be13b07`, 2026-08-19
 
 **Breaking, though nothing in the repository changed: every example and test
 already wrote the dots.**
