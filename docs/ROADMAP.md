@@ -331,20 +331,18 @@ text would make compile errors considerably more useful.
 
 ## Suggested order
 
-1. **Arrays** (1.2) — nothing can hold more than one value today, so no program
-   can accumulate a result. They also exercise the collector harder than strings
-   would, since an array's elements are a tracing edge and a string's bytes are
-   not. Brings temporary roots (1.2a) with them.
-2. **Strings** (1.3) — simpler once arrays have gone first, and the point at
-   which `.sob` gains a constant tag.
-3. **User-defined classes** (1.4) — more useful once there is somewhere to keep a
-   collection of instances.
+1. **Finish arrays** — `collect` and `select` (1.2a). Small, and they are what
+   finally exercises the temporary-root mechanism, which strings will need next.
+2. **Strings** (1.3) — simpler for having waited, and the point at which `.sob`
+   gains a constant tag.
+3. **User-defined classes** (1.4) — more useful now that there is somewhere to
+   keep a collection of instances.
 4. **Division** (2.1) and the **missing operations** (2.7) — small, and they make
    the language usable for arithmetic-shaped programs.
 5. Everything else as it starts to hurt.
 
-Garbage collection (1.1) led this list and is done apart from 1.1c, which now
-lands with arrays.
+Done and off this list: garbage collection (1.1a, 1.1b), the array heap type and
+class (1.2), and the `[...]` literal (1.2b).
 
-Two decisions gate the start of arrays: the **indexing base** (2.3) and whether
-they get a **literal syntax** (2.4).
+Still waiting on a call from you: **division** (2.1) and the **statement
+terminator** (2.2). Neither blocks anything above it.
