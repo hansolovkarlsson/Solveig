@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### String escapes, and `display` — `pending`, 2026-08-19
+### String escapes, and `display` — `c04cdca`, 2026-08-19
 
 ```
 q := "she said \"hi\"".
