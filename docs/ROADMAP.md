@@ -468,6 +468,17 @@ answers.
 
 ## 5. Tooling and ergonomics
 
+### 5.1a Error recovery could loop forever — **fixed**
+
+`synchronise` tested whether the previous token was a `.` before advancing, so a
+statement that failed *without consuming anything* -- `primary` reports an
+unexpected token without taking it -- was retried forever when the token before it
+happened to be a `.`. `b := { #1. | q | q }.` produced three million identical
+error lines in three seconds.
+
+Recovery now advances before testing, so it always consumes at least one token.
+Found by a typo in a test, not by looking for it.
+
 ### 5.1 Solis is line-at-a-time, and lines are capped
 
 `fgets` per line, so a method body spanning several lines has to go in a file.
@@ -479,12 +490,25 @@ one confusing result -- a generated 255-element array literal appeared to fail t
 compile when it had merely been truncated mid-token. It should at minimum report
 the truncation.
 
-### 5.2 `print` on an object dumps its address
+### 5.2 `print` on an object — **done**
 
-Now unblocked: `sol_vm_send` exists, added for `format`, so the renderer could
-send `asString` to an object rather than printing its pointer. The wrinkle is
-that rendering happens in `value.c`, which knows nothing of the VM, so the seam
-needs moving rather than just filling in.
+An object is rendered by asking it: the renderer sends `asString`, so one that
+defines its own is shown that way by `print`, by `display`, by `format`, and
+inside an enclosing array -- one definition serving all four.
+
+The seam did have to move. `sol_value_render` now takes a VM, which may be null;
+the disassembler passes null, its constants never being objects, and falls back
+to the address.
+
+The recursion this invites is broken at the source: `object`'s default `asString`
+writes the address directly rather than calling the renderer back. An `asString`
+a user writes to render itself still recurses, but through real frames, so it
+stops at the call-depth cap like any other runaway recursion rather than
+smashing the C stack.
+
+Still missing: nothing asks an object for a *literal* form distinct from its
+display form, the way `#45` prints as `#45` but displays as `45`. Objects have
+one representation, which is probably right.
 
 `sol_value_print` prints `<object 0x...>` instead of sending `print` to the
 object. Wants dispatch from inside the printer, or a `printOn:`-style protocol.
@@ -522,16 +546,23 @@ text would make compile errors considerably more useful.
 Section 1 is now empty: the things standing between this and a language you
 could write a real program in are all built. What is left is filling it out.
 
-1. **A better default `print`** (5.2) — the roughest edge a newcomer meets, and
-   now unblocked by `sol_vm_send`. `display` already routes through `asString`,
-   so an object that defines one is served; `print` still shows an address.
-2. Everything else as it starts to hurt.
+Nothing here is urgent any more. The remaining items are, roughly in order of
+how soon they would be missed:
+
+1. **Symbols** (2.7) and the **reflection** they enable (2.10) — `'foo` still
+   scans without a runtime type, and an object cannot be asked what slots it
+   holds.
+2. **Sorting** — arrays have no `sort`, though strings and numbers now order.
+3. **Inlining conditionals** (4.1), which would also roughly double the usable
+   recursion depth (3.5).
+4. Everything else as it starts to hurt.
 
 Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), arrays entire
 (1.2, 1.2a, 1.2b), strings (1.3), user-defined objects (1.4), division (2.1),
 calling the method you override (2.9), the missing operations (2.8), and
 formatted output (2.11), the statement separator (2.2), and float exponents and
-round-tripping (2.6, 5.3), and string escapes (1.3).
+round-tripping (2.6, 5.3), string escapes (1.3), and rendering an object by
+asking it (5.2).
 
 No decisions are outstanding.
 

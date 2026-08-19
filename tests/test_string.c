@@ -295,7 +295,7 @@ static void test_escaped_text_compiles_back(void)
 
         SolText text;
         sol_text_init(&text);
-        sol_value_render(original, &text);
+        sol_value_render(&vm, original, &text);
 
         SolVM again; sol_vm_init(&again);
         SolChunk second;

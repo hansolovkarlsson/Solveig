@@ -218,7 +218,7 @@ static void test_rendered_text_compiles_back(void)
 
         SolText text;
         sol_text_init(&text);
-        sol_value_render(original, &text);
+        sol_value_render(&vm, original, &text);
 
         /* Feed the rendered text back in as source. */
         SolVM again; sol_vm_init(&again);

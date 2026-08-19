@@ -303,8 +303,38 @@ static void test_a_leading_colon_still_continues(void)
     sol_vm_free(&vm);
 }
 
+/* Error recovery has to consume something, or a statement that failed without
+   taking a token is retried forever. `primary` reports an unexpected token
+   without consuming it, so when the token before happened to be a '.', the
+   compiler produced identical errors until it was killed. */
+static void test_error_recovery_makes_progress(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+
+    const char *malformed[] = {
+        "b := { #1. | q | q }.",
+        "a := #1. | b.",
+        "x := #1. ) y := #2.",
+        "#1. }",
+        "a := #1. ,",
+        "a := #1. . .",
+    };
+    for (size_t i = 0; i < sizeof malformed / sizeof malformed[0]; i++) {
+        /* Reaching the assertion at all is the test: these used to not return. */
+        assert(run(&vm, malformed[i]) == SOL_COMPILE_ERROR);
+    }
+
+    /* And recovery still works: an error early does not swallow what follows. */
+    assert(run(&vm, "bad := . good := #7.") == SOL_COMPILE_ERROR);
+    assert(run(&vm, "good := #7.") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "good")) == 7);
+
+    sol_vm_free(&vm);
+}
+
 int main(void)
 {
+    test_error_recovery_makes_progress();
     test_statement_separator();
     test_a_leading_colon_still_continues();
     test_division_floors();

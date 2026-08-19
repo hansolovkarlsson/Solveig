@@ -64,8 +64,13 @@ static SolValue prim_print(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     (void)args;
     if (!check_argc(vm, "print", argc, 0)) return SOL_NIL_VAL;
-    sol_value_print(self);
+
+    SolText text;
+    sol_text_init(&text);
+    sol_value_render(vm, self, &text);
+    if (text.chars != NULL) fwrite(text.chars, 1, (size_t)text.length, stdout);
     printf("\n");
+    sol_text_free(&text);
     return self;
 }
 
@@ -312,7 +317,7 @@ static SolValue prim_float_as_string(SolVM *vm, SolValue self, SolValue *args, i
 
     SolText text;
     sol_text_init(&text);
-    sol_value_render(self, &text);
+    sol_value_render(vm, self, &text);
     SolValue result = string_from(vm, text.chars == NULL ? "" : text.chars, text.length);
     sol_text_free(&text);
     return result;
@@ -451,10 +456,22 @@ static SolValue prim_rendered_as_string(SolVM *vm, SolValue self, SolValue *args
 
     SolText text;
     sol_text_init(&text);
-    sol_value_render(self, &text);
-    SolValue result = string_from(vm, text.chars, text.length);
+    sol_value_render(vm, self, &text);
+    SolValue result = string_from(vm, text.chars == NULL ? "" : text.chars, text.length);
     sol_text_free(&text);
     return result;
+}
+
+/* An object's default rendering, written directly rather than by calling the
+   renderer back -- which is what stops the renderer's "ask the object" from
+   recurring forever. A type that defines its own `asString` never reaches this. */
+static SolValue prim_object_as_string(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "asString", argc, 0)) return SOL_NIL_VAL;
+    char buffer[40];
+    int n = snprintf(buffer, sizeof buffer, "<object %p>", (void *)SOL_AS_OBJ(self));
+    return string_from(vm, buffer, n);
 }
 
 /* ---- comparison ------------------------------------------------------- */
@@ -1154,7 +1171,7 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define_primitive(vm->object_class, "display", prim_display);
     sol_object_define_primitive(vm->object_class, "equals",    prim_equals);
     sol_object_define_primitive(vm->object_class, "notEquals", prim_not_equals);
-    sol_object_define_primitive(vm->object_class, "asString",  prim_rendered_as_string);
+    sol_object_define_primitive(vm->object_class, "asString",  prim_object_as_string);
 
     vm->string_class = sol_object_new(vm, NULL);
     sol_object_define_primitive(vm->string_class, "print",  prim_print);

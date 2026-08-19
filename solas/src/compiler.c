@@ -572,9 +572,14 @@ static void synchronise(Compiler *c)
     SolParser *p = &c->parser;
     p->panicked = false;
 
+    /* Advance before testing, so recovery always consumes at least one token.
+       Checking first meant that a statement which failed without consuming
+       anything -- `primary` reports an unexpected token without taking it --
+       could be retried forever when the token before it happened to be a '.',
+       since synchronise would then return having moved nothing. */
     while (p->current.type != TOK_EOF) {
-        if (p->previous.type == TOK_DOT) return;
         sol_parser_advance(p);
+        if (p->previous.type == TOK_DOT) return;
     }
 }
 

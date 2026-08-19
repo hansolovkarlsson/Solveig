@@ -6,6 +6,7 @@
 
 #include "solum/object.h"
 #include "solum/value.h"
+#include "solum/vm.h"
 
 /* An array can hold itself -- `a:add(a)` -- so rendering is depth-limited rather
    than trusting the structure to be finite. */
@@ -94,7 +95,7 @@ static void append_float(SolText *text, double d)
     sol_text_append(text, buffer, (int)strlen(buffer));
 }
 
-static void render(SolValue value, SolText *out, int depth)
+static void render(SolVM *vm, SolValue value, SolText *out, int depth)
 {
     switch (value.type) {
     case SOL_NIL:   sol_text_append(out, "nil", 3); break;
@@ -133,29 +134,41 @@ static void render(SolValue value, SolText *out, int depth)
         sol_text_append(out, "[", 1);
         for (int i = 0; i < array->count; i++) {
             if (i > 0) sol_text_append(out, ", ", 2);
-            render(array->items[i], out, depth + 1);
+            render(vm, array->items[i], out, depth + 1);
         }
         sol_text_append(out, "]", 1);
         break;
     }
-    case SOL_OBJ:
-        /* TODO: send `print` to the object instead of dumping its address.
-           Roadmap 5.2 -- much more visible now that user objects exist. */
-        append_format(out, "<object %p>", (void *)SOL_AS_OBJ(value));
+    case SOL_OBJ: {
+        /* An object is rendered by asking it, so one that defines `asString` is
+           shown that way even nested inside an array. The default `asString` on
+           `object` writes the address directly rather than calling back here,
+           which is what keeps this from recurring forever. */
+        if (vm == NULL) {
+            append_format(out, "<object %p>", (void *)SOL_AS_OBJ(value));
+            break;
+        }
+        SolValue text = sol_vm_send(vm, value, "asString", NULL, 0);
+        if (!SOL_IS_STRING(text)) {
+            append_format(out, "<object %p>", (void *)SOL_AS_OBJ(value));
+            break;
+        }
+        sol_text_append(out, SOL_AS_STRING(text)->chars, SOL_AS_STRING(text)->length);
         break;
+    }
     }
 }
 
-void sol_value_render(SolValue value, SolText *out)
+void sol_value_render(SolVM *vm, SolValue value, SolText *out)
 {
-    render(value, out, 0);
+    render(vm, value, out, 0);
 }
 
 void sol_value_print(SolValue value)
 {
     SolText text;
     sol_text_init(&text);
-    sol_value_render(value, &text);
+    sol_value_render(NULL, value, &text);
     fwrite(text.chars, 1, (size_t)text.length, stdout);
     sol_text_free(&text);
 }

@@ -12,6 +12,7 @@
 
 #include "solum/common.h"
 
+typedef struct SolVM     SolVM;
 typedef struct SolObject SolObject;
 typedef struct SolBlock  SolBlock;
 typedef struct SolArray  SolArray;
@@ -87,10 +88,15 @@ void sol_text_append(SolText *text, const char *chars, int length);
 
 /* Renders `value` in its literal form -- `#45`, `"hi"`, `[#1, #2]` -- which is
    what `print` shows and what a composite's `asString` answers. Scalars have a
-   plain form too, which their own `asString` gives instead. */
-void sol_value_render(SolValue value, SolText *out);
+   plain form too, which their own `asString` gives instead.
+   
+   With a VM, an object is rendered by sending it `asString`, so one that defines
+   its own is shown that way even nested inside an array. Without one -- the
+   disassembler has no VM, and its constants are never objects -- an object falls
+   back to its address. */
+void sol_value_render(SolVM *vm, SolValue value, SolText *out);
 
-/* Writes the literal form to stdout. Used by `print` and by the disassembler. */
+/* Writes the literal form to stdout, without a VM. For the disassembler. */
 void sol_value_print(SolValue value);
 
 /* Value array -- backing store for a chunk's constant pool. */

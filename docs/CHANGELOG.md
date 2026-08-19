@@ -8,6 +8,42 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### An object is rendered by asking it — `pending`, 2026-08-19
+
+```
+point:asString := { "point({}, {})":format([self:x, self:y]) }.
+
+p:print.                     ; point(3, 4)
+[p, q]:print.                ; [point(3, 4), point(0, 0)]
+"at {}":format([p]):display. ; at point(3, 4)
+```
+
+One definition serves `print`, `display`, `format`, and an enclosing array,
+because the renderer sends `asString` rather than reaching for a pointer.
+
+The seam had to move: `sol_value_render` now takes a VM, which may be null. The
+disassembler passes null — its constants are never objects — and falls back to
+the address, which is also what an object without its own `asString` shows.
+
+The recursion this invites is cut at the source: `object`'s default `asString`
+writes the address directly instead of calling the renderer back. An `asString`
+a user writes to render itself still recurses, but through real frames, so it
+stops at the call-depth cap like any other runaway recursion.
+
+### Fixed: error recovery could loop forever — `pending`
+
+`synchronise` checked whether the previous token was a `.` *before* advancing, so
+a statement that failed without consuming anything — `primary` reports an
+unexpected token without taking it — was retried forever when the token before it
+happened to be a `.`.
+
+`b := { #1. | q | q }.` produced **three million identical error lines in three
+seconds**. Recovery now advances before testing, so it always consumes at least
+one token.
+
+Pre-existing, and found by a typo in a test rather than by looking for it. Six
+malformed inputs that used to hang are now regression tests.
+
 ### String escapes, and `display` — `c04cdca`, 2026-08-19
 
 ```

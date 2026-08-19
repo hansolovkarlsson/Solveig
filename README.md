@@ -148,7 +148,7 @@ See [examples/blocks.sol](examples/blocks.sol).
 Still to do:
 
 - [ ] symbols -- `'foo` still scans without a runtime type
-- [ ] `print` on an object shows its address rather than sending to it
+- [ ] sorting -- strings and numbers order, but arrays have no `sort`
 
 ## License
 
