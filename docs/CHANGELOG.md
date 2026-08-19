@@ -8,6 +8,34 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### String escapes, and `display` — `pending`, 2026-08-19
+
+```
+q := "she said \"hi\"".
+q:print.                                     ; "she said \"hi\"" -- literal form
+q:display.                                   ; she said "hi"      -- the text
+"you have {} apples":format([#3]):display.   ; you have 3 apples
+```
+
+`\"`, `\\`, `\n`, `\t`, `\r`. An unknown escape is an error rather than a
+literal backslash, so a typo is caught where it is written. There is no `\0`:
+the chunk's text table is NUL-terminated in memory and one would truncate the
+string.
+
+The scanner only learns that a backslash claims the next character, so that `\"`
+does not end the string. Which escapes are legal is decided once, in the
+compiler, where they are decoded.
+
+**Rendering puts the escapes back**, or a string holding a quote would render as
+text that no longer reads as one string. A rendered string now compiles back to
+the same string, the same round-trip floats hold to.
+
+**`display`** was the gap escapes exposed. `print` shows the literal form, which
+is right for reading a value back but wrong for output — a formatted string could
+only be shown wearing quotes, and a string with newlines could not be written as
+lines at all. `display` sends `asString` and writes those characters raw. Every
+type answers it.
+
 ### Float exponents, and text that reads back — `c8cef1b`, 2026-08-19
 
 ```

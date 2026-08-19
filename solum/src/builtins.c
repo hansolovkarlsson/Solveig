@@ -33,6 +33,33 @@ static bool check_same_type(SolVM *vm, const char *name, SolValue self, SolValue
 
 /* ---- shared ---------------------------------------------------------- */
 
+/* `print` shows the literal form -- `#45`, `"a\"b"` -- which is what you want
+ * when reading a value back or reading it inside an array.
+ *
+ * `display` writes the text instead: it sends `asString` and writes those
+ * characters raw. That is what output wants, and without it a formatted string
+ * could only be shown wearing quotes, and a string holding newlines could not be
+ * written as lines at all.
+ */
+static SolValue prim_display(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "display", argc, 0)) return SOL_NIL_VAL;
+
+    SolValue text = sol_vm_send(vm, self, "asString", NULL, 0);
+    if (vm->had_error) return SOL_NIL_VAL;
+    if (!SOL_IS_STRING(text)) {
+        sol_vm_runtime_error(vm, "'asString' answered %s rather than a string",
+                             sol_type_name(text));
+        return SOL_NIL_VAL;
+    }
+
+    const SolString *string = SOL_AS_STRING(text);
+    fwrite(string->chars, 1, (size_t)string->length, stdout);
+    printf("\n");
+    return self;
+}
+
 static SolValue prim_print(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     (void)args;
@@ -1030,6 +1057,7 @@ void sol_builtins_install(SolVM *vm)
     vm->integer_class = sol_object_new(vm, NULL);
     sol_object_define_primitive(vm->integer_class, "new",   prim_integer_new);
     sol_object_define_primitive(vm->integer_class, "print", prim_print);
+    sol_object_define_primitive(vm->integer_class, "display", prim_display);
     sol_object_define_primitive(vm->integer_class, "add",   prim_integer_add);
     sol_object_define_primitive(vm->integer_class, "sub",   prim_integer_sub);
     sol_object_define_primitive(vm->integer_class, "mul",   prim_integer_mul);
@@ -1048,6 +1076,7 @@ void sol_builtins_install(SolVM *vm)
 
     vm->float_class = sol_object_new(vm, NULL);
     sol_object_define_primitive(vm->float_class, "print", prim_print);
+    sol_object_define_primitive(vm->float_class, "display", prim_display);
     sol_object_define_primitive(vm->float_class, "add",   prim_float_add);
     sol_object_define_primitive(vm->float_class, "sub",   prim_float_sub);
     sol_object_define_primitive(vm->float_class, "mul",   prim_float_mul);
@@ -1070,12 +1099,14 @@ void sol_builtins_install(SolVM *vm)
 
     vm->nil_class = sol_object_new(vm, NULL);
     sol_object_define_primitive(vm->nil_class, "print",  prim_print);
+    sol_object_define_primitive(vm->nil_class, "display", prim_display);
     sol_object_define_primitive(vm->nil_class, "equals", prim_equals);
     sol_object_define_primitive(vm->nil_class, "asString",  prim_nil_as_string);
     sol_object_define_primitive(vm->nil_class, "notEquals", prim_not_equals);
 
     vm->bool_class = sol_object_new(vm, NULL);
     sol_object_define_primitive(vm->bool_class, "print",   prim_print);
+    sol_object_define_primitive(vm->bool_class, "display", prim_display);
     sol_object_define_primitive(vm->bool_class, "equals",  prim_equals);
     sol_object_define_primitive(vm->bool_class, "not",     prim_not);
     sol_object_define_primitive(vm->bool_class, "ifTrue",  prim_if_true);
@@ -1088,8 +1119,10 @@ void sol_builtins_install(SolVM *vm)
 
     vm->block_class = sol_object_new(vm, NULL);
     sol_object_define_primitive(vm->block_class, "print",     prim_print);
+    sol_object_define_primitive(vm->block_class, "display", prim_display);
     sol_object_define_primitive(vm->block_class, "equals",    prim_equals);
     sol_object_define_primitive(vm->block_class, "notEquals", prim_not_equals);
+    sol_object_define_primitive(vm->block_class, "asString",  prim_rendered_as_string);
     sol_object_define_primitive(vm->block_class, "value",     prim_value);
     sol_object_define_primitive(vm->block_class, "whileTrue", prim_while_true);
 
@@ -1104,6 +1137,7 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define_primitive(vm->array_class, "collect", prim_array_collect);
     sol_object_define_primitive(vm->array_class, "select",  prim_array_select);
     sol_object_define_primitive(vm->array_class, "print",  prim_print);
+    sol_object_define_primitive(vm->array_class, "display", prim_display);
     sol_object_define_primitive(vm->array_class, "equals",    prim_equals);
     sol_object_define_primitive(vm->array_class, "notEquals", prim_not_equals);
     sol_object_define_primitive(vm->array_class, "asString",  prim_rendered_as_string);
@@ -1117,12 +1151,14 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define_primitive(vm->object_class, "via",    prim_object_via);
     sol_object_define_primitive(vm->object_class, "parent", prim_object_parent);
     sol_object_define_primitive(vm->object_class, "print",  prim_print);
+    sol_object_define_primitive(vm->object_class, "display", prim_display);
     sol_object_define_primitive(vm->object_class, "equals",    prim_equals);
     sol_object_define_primitive(vm->object_class, "notEquals", prim_not_equals);
     sol_object_define_primitive(vm->object_class, "asString",  prim_rendered_as_string);
 
     vm->string_class = sol_object_new(vm, NULL);
     sol_object_define_primitive(vm->string_class, "print",  prim_print);
+    sol_object_define_primitive(vm->string_class, "display", prim_display);
     sol_object_define_primitive(vm->string_class, "equals", prim_equals);
     sol_object_define_primitive(vm->string_class, "size",   prim_string_size);
     sol_object_define_primitive(vm->string_class, "concat", prim_string_concat);

@@ -146,10 +146,17 @@ static SolToken number(SolLexer *lexer)
     return make_token(lexer, TOK_FLOAT);
 }
 
+/* Scanning only needs to know that a backslash claims the next character, so
+   that `\"` does not end the string. Which escapes are legal is the compiler's
+   business, decided in one place when it decodes them. */
 static SolToken string(SolLexer *lexer)
 {
     while (peek(lexer) != '"' && !is_at_end(lexer)) {
         if (peek(lexer) == '\n') lexer->line++;
+        if (peek(lexer) == '\\') {
+            advance(lexer);
+            if (is_at_end(lexer)) break;
+        }
         advance(lexer);
     }
     if (is_at_end(lexer)) return error_token(lexer, "unterminated string");

@@ -107,11 +107,23 @@ static void render(SolValue value, SolText *out, int depth)
     case SOL_BLOCK: sol_text_append(out, "<block>", 7); break;
     case SOL_DELEGATE: sol_text_append(out, "<delegate>", 10); break;
     case SOL_STRING: {
-        /* Rendered as it would be written, the way #45 renders as #45. That also
-           keeps a string legible inside an array. */
+        /* Rendered as it would be written, the way #45 renders as #45 -- which
+           means putting the escapes back, or a string holding a quote would
+           render as text that no longer reads as one string. `asString` gives
+           the characters themselves; this gives the literal. */
         const SolString *string = SOL_AS_STRING(value);
         sol_text_append(out, "\"", 1);
-        sol_text_append(out, string->chars, string->length);
+        for (int i = 0; i < string->length; i++) {
+            char ch = string->chars[i];
+            switch (ch) {
+            case '"':  sol_text_append(out, "\\\"", 2); break;
+            case '\\': sol_text_append(out, "\\\\", 2); break;
+            case '\n': sol_text_append(out, "\\n", 2); break;
+            case '\t': sol_text_append(out, "\\t", 2); break;
+            case '\r': sol_text_append(out, "\\r", 2); break;
+            default:   sol_text_append(out, &ch, 1); break;
+            }
+        }
         sol_text_append(out, "\"", 1);
         break;
     }

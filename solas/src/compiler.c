@@ -38,6 +38,7 @@ static void expression(Compiler *c);
 static void statement(Compiler *c);
 static void block_literal(Compiler *c);
 static void array_literal(Compiler *c);
+static void string_literal(Compiler *c);
 static int  resolve_local(Scope *scope, const SolToken *name);
 static int  declare_local(Scope *scope, const char *name, int length);
 
@@ -248,6 +249,58 @@ static void identifier(Compiler *c)
     else           emit_pair(c, OP_GLOBAL, name_operand(c, &name));
 }
 
+/* The token spans the quotes; the string is what lies between them, with the
+ * escapes resolved. The decoded bytes are interned in the chunk's text table
+ * alongside selectors and global names, all three being interned text.
+ *
+ * An unrecognised escape is an error rather than a literal backslash, so a typo
+ * is caught where it is written instead of appearing in the output.
+ *
+ * There is no `\0`: the text table is NUL-terminated in memory, so an embedded
+ * one would truncate the string. The wire format already carries lengths, so
+ * lifting that means giving the in-memory table lengths too.
+ */
+static void string_literal(Compiler *c)
+{
+    SolToken token = c->parser.previous;
+    const char *source = token.start + 1;
+    int length = token.length - 2;
+
+    char *decoded = malloc((size_t)length + 1);
+    if (decoded == NULL) {
+        sol_parser_error(&c->parser, &token, "out of memory reading a string");
+        return;
+    }
+
+    int out = 0;
+    for (int i = 0; i < length; i++) {
+        if (source[i] != '\\') {
+            decoded[out++] = source[i];
+            continue;
+        }
+        if (++i == length) {
+            sol_parser_error(&c->parser, &token, "a string ends with a lone backslash");
+            free(decoded);
+            return;
+        }
+        switch (source[i]) {
+        case '"':  decoded[out++] = '"';  break;
+        case '\\': decoded[out++] = '\\'; break;
+        case 'n':  decoded[out++] = '\n'; break;
+        case 't':  decoded[out++] = '\t'; break;
+        case 'r':  decoded[out++] = '\r'; break;
+        default:
+            sol_parser_error(&c->parser, &token,
+                             "unknown escape in a string; \\\" \\\\ \\n \\t \\r are the escapes");
+            free(decoded);
+            return;
+        }
+    }
+
+    emit_pair(c, OP_STRING, name_literal(c, decoded, out));
+    free(decoded);
+}
+
 static void primary(Compiler *c)
 {
     SolParser *p = &c->parser;
@@ -277,15 +330,7 @@ static void primary(Compiler *c)
         sol_parser_consume(p, TOK_RPAREN, "expected ')'");
         return;
     }
-    if (sol_parser_match(p, TOK_STRING)) {
-        /* The token spans the quotes; the string is what lies between them.
-           The bytes are interned in the chunk's text table alongside selectors
-           and global names, all three being interned text. */
-        SolToken text = p->previous;
-        emit_pair(c, OP_STRING,
-                  name_literal(c, text.start + 1, text.length - 2));
-        return;
-    }
+    if (sol_parser_match(p, TOK_STRING)) { string_literal(c); return; }
     if (sol_parser_match(p, TOK_SYMBOL)) {
         sol_parser_error(p, &p->previous,
                          "symbols are scanned but have no runtime type yet");

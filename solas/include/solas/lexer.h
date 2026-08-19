@@ -6,6 +6,7 @@
  *     b := 45          ; a bare number is a float
  *     c := 1.5e-3      ; with an exponent, optionally signed
  *     s := "hello"     ; double quotes are strings
+ *     e := "a\"b\n"     ; \" \\ \n \t \r are the escapes
  *     a:print.         ; ':' sends; '.' terminates a statement
  *     { a:print }      ; braces make a block: code as a value, not an action
  *     [#1, #2]         ; brackets make an array -- sugar for array:of(#1, #2)

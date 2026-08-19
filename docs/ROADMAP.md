@@ -130,9 +130,11 @@ harmlessly.
 
 What is left, small and separable:
 
-- **No escape sequences.** A string cannot contain a `"` or a newline written as
-  `\n`, though a literal newline inside the quotes does work. Wants `\"`, `\n`,
-  `\\` at least, which is lexer work.
+- **Escapes are done**: `\"`, `\\`, `\n`, `\t`, `\r`. An unknown escape is an
+  error rather than a literal backslash. There is no `\0`, because the chunk's
+  text table is NUL-terminated in memory and one would truncate the string --
+  the wire format already carries lengths, so lifting that means giving the
+  in-memory table lengths too.
 - **Not interned.** `OP_STRING` allocates on every evaluation, so a literal in a
   loop makes a string per pass. Immutability means that is only a cost, never a
   semantic difference. Interning would fix it and give 4.3 its mechanism, but
@@ -520,16 +522,16 @@ text would make compile errors considerably more useful.
 Section 1 is now empty: the things standing between this and a language you
 could write a real program in are all built. What is left is filling it out.
 
-1. **String escapes** (1.3) — a string still cannot contain a quote.
-2. **A better default `print`** (5.2) — the roughest edge a newcomer meets, and
-   now unblocked by `sol_vm_send`.
-3. Everything else as it starts to hurt.
+1. **A better default `print`** (5.2) — the roughest edge a newcomer meets, and
+   now unblocked by `sol_vm_send`. `display` already routes through `asString`,
+   so an object that defines one is served; `print` still shows an address.
+2. Everything else as it starts to hurt.
 
 Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), arrays entire
 (1.2, 1.2a, 1.2b), strings (1.3), user-defined objects (1.4), division (2.1),
 calling the method you override (2.9), the missing operations (2.8), and
 formatted output (2.11), the statement separator (2.2), and float exponents and
-round-tripping (2.6, 5.3).
+round-tripping (2.6, 5.3), and string escapes (1.3).
 
 No decisions are outstanding.
 

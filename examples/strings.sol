@@ -50,3 +50,14 @@ string:shout := { self:concat("!!") }.
 ; Placeholders and values must match exactly -- both too few and too many are
 ; errors, so a mistake cannot pass as deliberate output.
 ;   "{} and {}":format([#1])   ->  more placeholders than the 1 value given
+
+; print shows the literal form; display writes the text. That distinction is why
+; a formatted string can be shown without wearing quotes.
+"you have {} apples":format([#3]):print.     ; "you have 3 apples"
+"you have {} apples":format([#3]):display.   ; you have 3 apples
+
+; \" \\ \n \t \r are the escapes, so a string can hold a quote or a newline.
+q := "she said \"hi\"".
+q:print.                     ; "she said \"hi\"" -- escapes put back
+q:display.                   ; she said "hi"
+"one\ntwo":display.          ; two lines

@@ -147,7 +147,8 @@ See [examples/blocks.sol](examples/blocks.sol).
 
 Still to do:
 
-- [ ] string escapes, and symbols -- `'foo` still scans without a runtime type
+- [ ] symbols -- `'foo` still scans without a runtime type
+- [ ] `print` on an object shows its address rather than sending to it
 
 ## License
 

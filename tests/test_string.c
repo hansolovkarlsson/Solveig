@@ -217,8 +217,111 @@ static void test_round_trip(void)
     remove(path);
 }
 
+/* Escapes, so a string can hold a quote at last. */
+static void test_escapes(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "q := \"a\\\"b\". qn := q:size."
+        "b := \"back\\\\slash\". bn := b:size."
+        "n := \"one\\ntwo\". nn := n:size."
+        "t := \"a\\tb\". tn := t:size."
+        "r := \"a\\rb\". rn := r:size.") == SOL_OK);
+    assert(is_text(global(&vm, "q"), "a\"b"));
+    assert(SOL_AS_INT(global(&vm, "qn")) == 3);
+    assert(is_text(global(&vm, "b"), "back\\slash"));
+    assert(SOL_AS_INT(global(&vm, "bn")) == 10);
+    assert(is_text(global(&vm, "n"), "one\ntwo"));
+    assert(SOL_AS_INT(global(&vm, "nn")) == 7);
+    assert(is_text(global(&vm, "t"), "a\tb"));
+    assert(SOL_AS_INT(global(&vm, "tn")) == 3);
+    assert(is_text(global(&vm, "r"), "a\rb"));
+    assert(SOL_AS_INT(global(&vm, "rn")) == 3);
+    sol_chunk_free(&chunk);
+
+    /* An unknown escape is a mistake, not a literal backslash. */
+    assert(run(&vm, &chunk, "x := \"a\\qb\".") == SOL_COMPILE_ERROR);
+    sol_chunk_free(&chunk);
+    /* And a string still has to end. */
+    assert(run(&vm, &chunk, "x := \"unterminated") == SOL_COMPILE_ERROR);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
+/* Rendering puts the escapes back, or a string holding a quote would render as
+   text that no longer reads as one string. */
+static void test_rendering_escapes(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "q := \"a\\\"b\":asString."          /* asString gives the characters */
+        "arr := [\"a\\\"b\", \"one\\ntwo\"]:asString.") == SOL_OK);
+    assert(is_text(global(&vm, "q"), "a\"b"));
+    /* Inside a composite, the literal form is used -- escapes and all. */
+    assert(is_text(global(&vm, "arr"), "[\"a\\\"b\", \"one\\ntwo\"]"));
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+}
+
+/* A string's rendered form must compile back to the same string, escapes and
+   all -- the same round-trip that floats now hold to. */
+static void test_escaped_text_compiles_back(void)
+{
+    const char *sources[] = {
+        "\"plain\"",
+        "\"a\\\"b\"",
+        "\"back\\\\slash\"",
+        "\"one\\ntwo\"",
+        "\"tab\\there\"",
+        "\"\"",
+        "\"quote at end\\\"\"",
+    };
+
+    for (size_t i = 0; i < sizeof sources / sizeof sources[0]; i++) {
+        SolVM vm; sol_vm_init(&vm);
+        SolChunk chunk;
+        char first[128];
+        snprintf(first, sizeof first, "v := %s.", sources[i]);
+        assert(run(&vm, &chunk, first) == SOL_OK);
+
+        SolValue original = global(&vm, "v");
+        assert(SOL_IS_STRING(original));
+
+        SolText text;
+        sol_text_init(&text);
+        sol_value_render(original, &text);
+
+        SolVM again; sol_vm_init(&again);
+        SolChunk second;
+        char round[256];
+        snprintf(round, sizeof round, "v := %s.", text.chars);
+        assert(run(&again, &second, round) == SOL_OK);
+
+        SolValue back = global(&again, "v");
+        assert(SOL_IS_STRING(back));
+        assert(SOL_AS_STRING(back)->length == SOL_AS_STRING(original)->length);
+        assert(memcmp(SOL_AS_STRING(back)->chars, SOL_AS_STRING(original)->chars,
+                      (size_t)SOL_AS_STRING(original)->length) == 0);
+
+        sol_text_free(&text);
+        sol_chunk_free(&second);
+        sol_vm_free(&again);
+        sol_chunk_free(&chunk);
+        sol_vm_free(&vm);
+    }
+}
+
 int main(void)
 {
+    test_escapes();
+    test_rendering_escapes();
+    test_escaped_text_compiles_back();
     test_literals_and_size();
     test_equality_is_by_value();
     test_concat();
