@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### The language is named Solveig — `pending`, 2026-08-19
+### The language is named Solveig — `7db2b27`, 2026-08-19
 
 It had no name of its own before: "Solum" was doing duty as the project, the
 virtual machine, and the language at once.
