@@ -77,6 +77,13 @@ is `"45"`, while `#45:print` shows `#45`. Two different jobs, kept apart.
 sending it, so an override is honoured. Placeholders and values must match
 exactly in both directions.
 
+A float renders as the shortest decimal that reads back as the same bits, so
+printing never shows a different number than it holds, and the text compiles.
+Where a number has few enough whole digits the renderer keeps fixed notation --
+`1000` rather than `1e+03` -- since extra digits cannot stop it round-tripping.
+Infinity and not-a-number are written by name; `infinity` and `nan` are globals,
+so those read back.
+
 The line falls where representability does. Integer division by zero traps
 because there is no integer infinity; float division by zero answers one, because
 float multiplication already overflows to infinity where integer multiplication
@@ -211,6 +218,7 @@ else can see rather than a private copy that vanishes when the block returns.
 | `#45`     | integer | `#` is a type tag, not a literal marker       |
 | `45`      | float   | bare numbers are real                         |
 | `45.5`    | float   |                                               |
+| `1.5e-3`  | float   | exponent optional, sign optional              |
 | `"hello"` | string  | scanned; no runtime type yet                  |
 | `'foo`    | symbol  | quote prefix, no closing quote, as in Lisp    |
 

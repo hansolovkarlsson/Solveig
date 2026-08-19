@@ -266,11 +266,12 @@ plain object rather than a float -- so the built-in and user-defined sides are
 two hierarchies that do not meet. A single root would be tidier, and needs this
 question answered first.
 
-### 2.6 Float literals have no exponent notation
+### 2.6 Float exponents — **done**
 
-`1e308` does not scan. It reads as the float `1` followed by an identifier
-`e308`, so there is no way to write a very large or very small float at all.
-Lexer work: an optional `e`/`E`, optional sign, and digits after the fraction.
+`1e3`, `1E+3`, `1.5e-3`, `1e308`. A bare `e` is left alone rather than claimed,
+so `1e` stays a float followed by an identifier -- which the statement rule then
+rejects as two things with no separator, a clearer failure than a malformed
+number. `#` is exact, so an integer takes no exponent.
 
 ### 2.7 Symbols
 
@@ -486,16 +487,26 @@ needs moving rather than just filling in.
 `sol_value_print` prints `<object 0x...>` instead of sending `print` to the
 object. Wants dispatch from inside the printer, or a `printOn:`-style protocol.
 
-### 5.3 Float text does not round-trip
+### 5.3 Float text round-tripping — **done**
 
-`print` and `asString` both emit float text the scanner cannot read back. A large
-float gives `1e+64`, which the compiler rejects with `unexpected character` --
-partly because of 2.6, partly because `%g` also produces `inf` and `nan`, which
-have no literal form at all.
+A float now renders as the shortest decimal that reads back as the same bits, and
+that text compiles.
 
-`asString` makes this worse than it was, since a program can now put that text
-into a string and hand it on. `asFloat` will not parse it back either, so a value
-can leave the language and fail to return.
+This was worse than "does not round-trip". `%g` gives six significant digits, so
+`1234567.0` printed as `1.23457e+06` -- a *different number* -- and `asString`
+baked that into a string. Printing could quietly show the wrong value.
+
+Shortest is not always clearest, so where a number has few enough whole digits
+the renderer asks for enough precision to keep `%g` in fixed notation: `1000`
+rather than `1e+03`. More digits can never stop it round-tripping.
+
+Infinity and not-a-number are written by name, and `infinity` and `nan` are now
+globals so those two read back. `-infinity` has no literal form; `asFloat` parses
+it, since `strtod` accepts the word.
+
+The fix also caught a drift it was meant to prevent: `prim_float_as_string` had
+its own `snprintf("%g")` rather than going through the renderer, so `print` and
+`asString` disagreed about the same value until it was routed through.
 
 ### 5.4 No source position beyond the line
 
@@ -509,18 +520,16 @@ text would make compile errors considerably more useful.
 Section 1 is now empty: the things standing between this and a language you
 could write a real program in are all built. What is left is filling it out.
 
-1. **Float exponents** (2.6) and **float text round-tripping** (5.3), which are
-   really one job: a float cannot currently be written, printed, or parsed back
-   at the extremes.
-2. **String escapes** (1.3) — a string still cannot contain a quote.
-3. **A better default `print`** (5.2) — the roughest edge a newcomer meets, and
+1. **String escapes** (1.3) — a string still cannot contain a quote.
+2. **A better default `print`** (5.2) — the roughest edge a newcomer meets, and
    now unblocked by `sol_vm_send`.
-4. Everything else as it starts to hurt.
+3. Everything else as it starts to hurt.
 
 Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), arrays entire
 (1.2, 1.2a, 1.2b), strings (1.3), user-defined objects (1.4), division (2.1),
 calling the method you override (2.9), the missing operations (2.8), and
-formatted output (2.11), and the statement separator (2.2).
+formatted output (2.11), the statement separator (2.2), and float exponents and
+round-tripping (2.6, 5.3).
 
 No decisions are outstanding.
 

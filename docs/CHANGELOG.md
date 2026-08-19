@@ -8,6 +8,41 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### Float exponents, and text that reads back — `pending`, 2026-08-19
+
+```
+a := 1.5e-3.  b := 1e308.        ; exponents scan now
+1234567.0:print.                 ; 1234567   -- was 1.23457e+06
+1.0:div(3.0):print.              ; 0.3333333333333333
+infinity:print.  nan:print.
+```
+
+**This was a correctness bug, not only a cosmetic one.** `%g` gives six
+significant digits, so `1234567.0` printed as `1.23457e+06` — a *different
+number* — and `asString` baked that into a string. Printing could quietly show
+the wrong value.
+
+- A float now renders as the **shortest decimal that reads back as the same
+  bits**, found by trying increasing precision until the text parses back
+  identically.
+- Shortest is not always clearest, so where a number has few enough whole digits
+  the renderer keeps `%g` in fixed notation: `1000` rather than `1e+03`. More
+  digits can never stop it round-tripping.
+- Exponent notation scans: `1e3`, `1E+3`, `1.5e-3`. A bare `e` is left alone
+  rather than claimed, so `1e` is a float and an identifier — which the statement
+  rule then rejects, a clearer failure than a malformed number. `#` is exact, so
+  an integer takes no exponent.
+- Infinity and not-a-number are written by name, and `infinity` and `nan` are now
+  globals, so those two read back. `-infinity` has no literal form; `asFloat`
+  parses it.
+
+The fix caught a drift it was meant to prevent: `prim_float_as_string` had its own
+`snprintf("%g")` instead of using the renderer, so `print` and `asString`
+disagreed about the same value until it was routed through.
+
+Tested by rendering fifteen awkward doubles, feeding the text back in as source,
+and requiring the result to be bit-identical.
+
 ### `.` is required between statements — `be13b07`, 2026-08-19
 
 **Breaking, though nothing in the repository changed: every example and test

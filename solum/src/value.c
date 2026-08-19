@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -52,6 +53,47 @@ static void append_format(SolText *text, const char *format, ...)
     sol_text_append(text, buffer, n);
 }
 
+/* The shortest decimal that reads back as this exact double.
+ *
+ * `%g` alone gives six significant digits, which does not merely look rounded --
+ * it is a different number. 1234567.0 came out as 1.23457e+06, and asString
+ * baked that into a string. Trying increasing precision until the text parses
+ * back to the same bits gives `0.1` for a tenth and all seventeen digits only
+ * when they are needed.
+ *
+ * Infinities and not-a-number are written by name. `infinity` and `nan` are
+ * globals, so those two read back; `-infinity` does not, having no literal form,
+ * and asFloat is the way back for it. */
+static void append_float(SolText *text, double d)
+{
+    if (isnan(d)) { sol_text_append(text, "nan", 3); return; }
+    if (isinf(d)) {
+        if (d < 0) sol_text_append(text, "-infinity", 9);
+        else       sol_text_append(text, "infinity", 8);
+        return;
+    }
+
+    char buffer[40];
+    int precision = 17;
+    for (int p = 1; p <= 17; p++) {
+        snprintf(buffer, sizeof buffer, "%.*g", p, d);
+        if (strtod(buffer, NULL) == d) { precision = p; break; }
+    }
+
+    /* Shortest is not always clearest: 1000.0 round-trips at one significant
+       digit, which %g then writes as 1e+03. Asking for as many digits as the
+       number has whole ones keeps %g in fixed notation where that is readable,
+       and more digits can never stop it round-tripping. */
+    if (d != 0.0) {
+        int magnitude = (int)floor(log10(fabs(d)));
+        if (magnitude >= 0 && magnitude < 17 && precision < magnitude + 1) {
+            precision = magnitude + 1;
+            snprintf(buffer, sizeof buffer, "%.*g", precision, d);
+        }
+    }
+    sol_text_append(text, buffer, (int)strlen(buffer));
+}
+
 static void render(SolValue value, SolText *out, int depth)
 {
     switch (value.type) {
@@ -61,7 +103,7 @@ static void render(SolValue value, SolText *out, int depth)
         else                    sol_text_append(out, "false", 5);
         break;
     case SOL_INT:   append_format(out, "#%lld", (long long)SOL_AS_INT(value)); break;
-    case SOL_FLOAT: append_format(out, "%g", SOL_AS_FLOAT(value)); break;
+    case SOL_FLOAT: append_float(out, SOL_AS_FLOAT(value)); break;
     case SOL_BLOCK: sol_text_append(out, "<block>", 7); break;
     case SOL_DELEGATE: sol_text_append(out, "<delegate>", 10); break;
     case SOL_STRING: {

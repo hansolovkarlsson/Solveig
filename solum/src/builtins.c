@@ -274,13 +274,21 @@ static SolValue prim_integer_as_string(SolVM *vm, SolValue self, SolValue *args,
     return string_from(vm, buffer, n);
 }
 
+/* A float's plain form and its literal form are the same -- there is no `#` to
+   drop -- so this goes through the renderer rather than formatting again. Its
+   own snprintf("%g") had drifted: print showed 1234567 while asString said
+   1.23457e+06, which is a different number. */
 static SolValue prim_float_as_string(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     (void)args;
     if (!check_argc(vm, "asString", argc, 0)) return SOL_NIL_VAL;
-    char buffer[32];
-    int n = snprintf(buffer, sizeof buffer, "%g", SOL_AS_FLOAT(self));
-    return string_from(vm, buffer, n);
+
+    SolText text;
+    sol_text_init(&text);
+    sol_value_render(self, &text);
+    SolValue result = string_from(vm, text.chars == NULL ? "" : text.chars, text.length);
+    sol_text_free(&text);
+    return result;
 }
 
 static SolValue prim_bool_as_string(SolVM *vm, SolValue self, SolValue *args, int argc)
@@ -1137,5 +1145,9 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define(vm->root, "object",  SOL_OBJ_VAL(vm->object_class));
     sol_object_define(vm->root, "nil",     SOL_NIL_VAL);
     sol_object_define(vm->root, "true",    SOL_BOOL_VAL(true));
+    /* The two floats with no literal form. Naming them makes `infinity` and
+       `nan` readable back, which is how a printed float round-trips. */
+    sol_object_define(vm->root, "infinity", SOL_FLOAT_VAL(INFINITY));
+    sol_object_define(vm->root, "nan",      SOL_FLOAT_VAL(NAN));
     sol_object_define(vm->root, "false",   SOL_BOOL_VAL(false));
 }

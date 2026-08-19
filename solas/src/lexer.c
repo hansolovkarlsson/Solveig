@@ -129,6 +129,20 @@ static SolToken number(SolLexer *lexer)
         advance(lexer);
         while (is_digit(peek(lexer))) advance(lexer);
     }
+
+    /* An exponent, but only if it really is one: `1e3`, `1E+3`, `1.5e-3`. A bare
+       `e` is left alone rather than claimed, so `1e` stays a float and an
+       identifier instead of becoming a malformed number. */
+    if (peek(lexer) == 'e' || peek(lexer) == 'E') {
+        const char *before = lexer->current;
+        advance(lexer);
+        if (peek(lexer) == '+' || peek(lexer) == '-') advance(lexer);
+        if (is_digit(peek(lexer))) {
+            while (is_digit(peek(lexer))) advance(lexer);
+        } else {
+            lexer->current = before;
+        }
+    }
     return make_token(lexer, TOK_FLOAT);
 }
 

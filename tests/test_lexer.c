@@ -102,8 +102,36 @@ static void test_brackets_scan(void)
     expect_tokens("[]", empty, 3);
 }
 
+static void test_exponents(void)
+{
+    const SolTokenType one[] = { TOK_FLOAT, TOK_EOF };
+    expect_tokens("1e3", one, 2);
+    expect_tokens("1E3", one, 2);
+    expect_tokens("1e+3", one, 2);
+    expect_tokens("1e-3", one, 2);
+    expect_tokens("1.5e-3", one, 2);
+    expect_tokens("1e308", one, 2);
+
+    /* A bare `e` is left alone rather than claimed, so this is a float and an
+       identifier -- which the statement rule then rejects as two things with no
+       separator, a clearer failure than a malformed number. */
+    const SolTokenType split[] = { TOK_FLOAT, TOK_IDENT, TOK_EOF };
+    expect_tokens("1e", split, 3);
+    expect_tokens("1ex", split, 3);
+
+    /* `1e+` splits the same way, but a bare `+` is not a character the language
+       uses, so the third token is an error rather than the end. */
+    const SolTokenType dangling[] = { TOK_FLOAT, TOK_IDENT, TOK_ERROR };
+    expect_tokens("1e+", dangling, 3);
+
+    /* `#` is exact, so an integer takes no exponent. */
+    const SolTokenType integer[] = { TOK_INT, TOK_IDENT, TOK_EOF };
+    expect_tokens("#1e3", integer, 3);
+}
+
 int main(void)
 {
+    test_exponents();
     test_brackets_scan();
     test_assignment_is_one_token();
     test_colon_still_sends();

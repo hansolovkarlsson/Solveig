@@ -4,6 +4,7 @@
  *
  *     a := #45         ; ':=' binds a name; '#' tags an integer literal
  *     b := 45          ; a bare number is a float
+ *     c := 1.5e-3      ; with an exponent, optionally signed
  *     s := "hello"     ; double quotes are strings
  *     a:print.         ; ':' sends; '.' terminates a statement
  *     { a:print }      ; braces make a block: code as a value, not an action

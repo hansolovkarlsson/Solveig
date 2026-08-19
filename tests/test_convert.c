@@ -168,8 +168,109 @@ static void test_parsing_is_strict(void)
     sol_vm_free(&vm);
 }
 
+/* Printing must not lose the value. %g alone gives six significant digits,
+   which made 1234567.0 print as 1.23457e+06 -- a different number, and asString
+   baked it into a string. */
+static void test_printing_keeps_the_value(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "a := 1234567.0:asString."
+        "b := 1.0:div(3.0):asString."
+        "c := 0.1:asString."
+        "d := 1e3:asString."
+        "e := 100.0:asString."
+        "f := 0.0:asString.") == SOL_OK);
+    assert(is_text(global(&vm, "a"), "1234567"));
+    assert(is_text(global(&vm, "b"), "0.3333333333333333"));
+    assert(is_text(global(&vm, "c"), "0.1"));       /* not 0.10000000000000001 */
+    assert(is_text(global(&vm, "d"), "1000"));      /* not 1e+03 */
+    assert(is_text(global(&vm, "e"), "100"));
+    assert(is_text(global(&vm, "f"), "0"));
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+}
+
+/* The text a float renders to must compile back to the same bits. Built by
+   rendering the value, wrapping the text in source, and running it -- so this
+   goes through the scanner, not just through asFloat. */
+static void test_rendered_text_compiles_back(void)
+{
+    const char *literals[] = {
+        "0.1", "1.0:div(3.0)", "1e3", "1234567.0", "1e308", "1.5e-3", "0.0",
+        "100.0", "2.5", "1e-300", "123456789012345.0", "0.30000000000000004",
+        "1.0:div(7.0)", "1e3:negated", "2.5:negated",
+    };
+
+    for (size_t i = 0; i < sizeof literals / sizeof literals[0]; i++) {
+        SolVM vm; sol_vm_init(&vm);
+        SolChunk chunk;
+
+        char source[128];
+        snprintf(source, sizeof source, "v := %s.", literals[i]);
+        assert(run(&vm, &chunk, source) == SOL_OK);
+
+        SolValue original = global(&vm, "v");
+        assert(SOL_IS_FLOAT(original));
+
+        SolText text;
+        sol_text_init(&text);
+        sol_value_render(original, &text);
+
+        /* Feed the rendered text back in as source. */
+        SolVM again; sol_vm_init(&again);
+        SolChunk second;
+        char round[160];
+        snprintf(round, sizeof round, "v := %s.", text.chars);
+        assert(run(&again, &second, round) == SOL_OK);
+
+        SolValue back = global(&again, "v");
+        assert(SOL_IS_FLOAT(back));
+        /* Bit-identical, not merely close. */
+        assert(memcmp(&original.as.real, &back.as.real, sizeof(double)) == 0);
+
+        sol_text_free(&text);
+        sol_chunk_free(&second);
+        sol_vm_free(&again);
+        sol_chunk_free(&chunk);
+        sol_vm_free(&vm);
+    }
+}
+
+/* Infinity and not-a-number have no literal form, so they are written by name.
+   `infinity` and `nan` are globals and read back; `-infinity` does not, and
+   asFloat is the way home for it. */
+static void test_non_finite_floats(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "a := infinity:asString."
+        "b := infinity:negated:asString."
+        "c := nan:asString."
+        "d := 1.0:div(0.0):equals(infinity)."
+        "e := \"infinity\":asFloat:equals(infinity)."
+        "f := \"-infinity\":asFloat:equals(infinity:negated).") == SOL_OK);
+    assert(is_text(global(&vm, "a"), "infinity"));
+    assert(is_text(global(&vm, "b"), "-infinity"));
+    assert(is_text(global(&vm, "c"), "nan"));
+    assert(SOL_AS_BOOL(global(&vm, "d")) == true);
+    assert(SOL_AS_BOOL(global(&vm, "e")) == true);
+    assert(SOL_AS_BOOL(global(&vm, "f")) == true);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+}
+
 int main(void)
 {
+    test_printing_keeps_the_value();
+    test_rendered_text_compiles_back();
+    test_non_finite_floats();
     test_as_string_is_plain_text();
     test_as_float();
     test_narrowing_names_its_direction();
