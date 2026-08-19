@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### Division — `pending`, 2026-08-19
+### Division — `9ad8039`, 2026-08-19
 
 `div` and `mod`, on integers and floats.
 
