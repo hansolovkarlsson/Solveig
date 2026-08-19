@@ -30,3 +30,14 @@ names:select({ n | n:size:greaterThan(#3) }):print. ; ["grace", "alan"]
 ; A method can build one.
 string:shout := { self:concat("!!") }.
 "hey":shout:print.           ; "hey!!"
+
+; asString gives plain text, where print shows the literal form. That is what
+; lets a number be built into a sentence.
+"you have ":concat(#45:asString):concat(" apples"):print.   ; "you have 45 apples"
+#45:print.                   ; #45   -- the literal form
+#45:asString:print.          ; "45"  -- the text
+
+; And back again, strictly: the whole string must be a number and nothing else.
+"45":asInteger:print.        ; #45
+"2.5":asFloat:print.         ; 2.5
+;   " 45":asInteger          ->  ' 45' is not an integer

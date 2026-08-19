@@ -256,16 +256,16 @@ Lexer work: an optional `e`/`E`, optional sign, and digits after the fraction.
 
 ### 2.8 Missing operations
 
-Small, mechanical, and worth doing in one pass once 2.1 settles the numeric
-questions:
+Conversions are done: `asString` on every scalar, `asFloat` on integers, `floor`
+/ `ceiling` / `rounded` / `truncated` on floats, and `asInteger` / `asFloat`
+parsing back from a string. What remains is small and mechanical:
 
 - booleans: `and`, `or` (short-circuit, so they take blocks like `ifTrue` does)
 - comparison: `lessOrEqual`, `greaterOrEqual`, `notEquals`, and ordering on
   strings so they can be sorted
 - numbers: negation, absolute value
-- **conversions**: `asFloat`, `asInteger`, and something turning a number into a
-  string. Now the most missed of these, since floored integer division means
-  there is otherwise no way to get a fractional answer from two integers.
+- `asString` on arrays and objects, which would let `print` be defined in terms
+  of it rather than the other way round
 - `float:new`, for symmetry with `integer:new`
 - `nil` answers almost nothing
 
@@ -423,13 +423,16 @@ the truncation.
 `sol_value_print` prints `<object 0x...>` instead of sending `print` to the
 object. Wants dispatch from inside the printer, or a `printOn:`-style protocol.
 
-### 5.3 Float printing does not round-trip
+### 5.3 Float text does not round-trip
 
-`print` emits float text the scanner cannot read back. A large float prints as
-`1e+256`, and feeding that to the compiler gives `solas: unexpected character` --
-partly because of 2.6, partly because `%g` will also produce `inf` and `nan`,
-which have no literal form at all. Output that cannot be read back is a trap for
-anyone generating source, and for any future test that round-trips values.
+`print` and `asString` both emit float text the scanner cannot read back. A large
+float gives `1e+64`, which the compiler rejects with `unexpected character` --
+partly because of 2.6, partly because `%g` also produces `inf` and `nan`, which
+have no literal form at all.
+
+`asString` makes this worse than it was, since a program can now put that text
+into a string and hand it on. `asFloat` will not parse it back either, so a value
+can leave the language and fail to return.
 
 ### 5.4 No source position beyond the line
 
@@ -443,19 +446,19 @@ text would make compile errors considerably more useful.
 Section 1 is now empty: the things standing between this and a language you
 could write a real program in are all built. What is left is filling it out.
 
-1. **Conversions** (2.8) — `asFloat`, `asInteger`, number-to-string. The most
-   missed of the absent operations, since floored integer division leaves no way
-   to get a fractional answer from two integers, and nothing can turn a number
-   into text to join to a string.
-2. **The rest of the missing operations** (2.8), **string escapes and ordering**
-   (1.3), and **float exponents** (2.6) — small and independent of each other.
-3. **A better default `print`** (5.2) — now that user objects exist, showing an
+1. **The rest of the missing operations** (2.8) — `and`/`or`, the remaining
+   comparisons, negation, `asString` on arrays and objects.
+2. **Float exponents** (2.6) and **float text round-tripping** (5.3), which are
+   really one job: a float cannot currently be written, printed, or parsed back
+   at the extremes.
+3. **String escapes and ordering** (1.3).
+4. **A better default `print`** (5.2) — now that user objects exist, showing an
    address is the roughest edge a newcomer meets.
-4. Everything else as it starts to hurt.
+5. Everything else as it starts to hurt.
 
 Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), arrays entire
-(1.2, 1.2a, 1.2b), strings (1.3), user-defined objects (1.4), division (2.1), and
-calling the method you override (2.9).
+(1.2, 1.2a, 1.2b), strings (1.3), user-defined objects (1.4), division (2.1),
+calling the method you override (2.9), and conversions (part of 2.8).
 
 Still waiting on a call from you: the **statement terminator** (2.2).
 

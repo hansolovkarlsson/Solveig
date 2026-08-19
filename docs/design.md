@@ -64,6 +64,15 @@ overflow traps instead of wrapping, an undeclared name inside a method is an
 error rather than a new variable, and an out-of-range index is an error rather
 than nil. A wrong program should stop, not continue quietly.
 
+Conversion is always asked for, never assumed. `#7:div(#2)` answers an integer,
+and a fractional answer needs `#7:asFloat:div(#2:asFloat)`. Narrowing a float
+says which way it goes -- `floor`, `ceiling`, `rounded`, `truncated` -- rather
+than having a default to remember. Parsing text is strict at both ends: the whole
+string must be a number and nothing else, so `" 45"` and `"45 "` are errors.
+
+`asString` answers plain text where `print` shows the literal form: `#45:asString`
+is `"45"`, while `#45:print` shows `#45`. Two different jobs, kept apart.
+
 The line falls where representability does. Integer division by zero traps
 because there is no integer infinity; float division by zero answers one, because
 float multiplication already overflows to infinity where integer multiplication

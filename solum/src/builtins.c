@@ -4,6 +4,8 @@
  * combines with an integer, a float only with a float. There is no implicit
  * coercion, so `#45:add(1.5)` is an error rather than a quiet promotion.
  */
+#include <ctype.h>
+#include <errno.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -197,6 +199,160 @@ static SolValue prim_float_mod(SolVM *vm, SolValue self, SolValue *args, int arg
     double r = fmod(SOL_AS_FLOAT(self), b);
     if (r != 0.0 && ((r < 0.0) != (b < 0.0))) r += b;
     return SOL_FLOAT_VAL(r);
+}
+
+/* ---- conversions -------------------------------------------------------- */
+
+/* `asString` answers the plain text of a value, where `print` shows the literal
+ * form. `#45:asString` is "45", not "#45", because the point of it is to build
+ * text -- "you have ":concat(n:asString) should not read "you have #45". The two
+ * are deliberately different jobs, the way Smalltalk separates displayString
+ * from printString.
+ */
+static SolValue string_from(SolVM *vm, const char *text, int length)
+{
+    return SOL_STRING_VAL(sol_string_new(vm, text, length));
+}
+
+static SolValue prim_integer_as_string(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "asString", argc, 0)) return SOL_NIL_VAL;
+    char buffer[32];
+    int n = snprintf(buffer, sizeof buffer, "%lld", (long long)SOL_AS_INT(self));
+    return string_from(vm, buffer, n);
+}
+
+static SolValue prim_float_as_string(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "asString", argc, 0)) return SOL_NIL_VAL;
+    char buffer[32];
+    int n = snprintf(buffer, sizeof buffer, "%g", SOL_AS_FLOAT(self));
+    return string_from(vm, buffer, n);
+}
+
+static SolValue prim_bool_as_string(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "asString", argc, 0)) return SOL_NIL_VAL;
+    return SOL_AS_BOOL(self) ? string_from(vm, "true", 4) : string_from(vm, "false", 5);
+}
+
+static SolValue prim_nil_as_string(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self; (void)args;
+    if (!check_argc(vm, "asString", argc, 0)) return SOL_NIL_VAL;
+    return string_from(vm, "nil", 3);
+}
+
+/* A string is already text, and is immutable, so it can answer itself. */
+static SolValue prim_string_as_string(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "asString", argc, 0)) return SOL_NIL_VAL;
+    return self;
+}
+
+/* Widening an integer can lose precision above 2^53, silently, because that is
+   what binary64 is. Erroring would be surprising and unlike every other
+   language; the loss is documented instead. */
+static SolValue prim_integer_as_float(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "asFloat", argc, 0)) return SOL_NIL_VAL;
+    return SOL_FLOAT_VAL((double)SOL_AS_INT(self));
+}
+
+/* Narrowing needs the caller to say which way to go, so there is no `asInteger`
+ * on a float: `floor`, `ceiling`, `rounded`, and `truncated` each answer an
+ * integer and each says what it does. Naming the intent is cheaper than
+ * remembering a default.
+ *
+ * Every one of them can fail, since most floats have no integer counterpart. */
+static bool float_to_integer(SolVM *vm, const char *name, double d, int64_t *out)
+{
+    if (isnan(d)) {
+        sol_vm_runtime_error(vm, "'%s' cannot convert a value that is not a number", name);
+        return false;
+    }
+    /* 2^63 is exactly representable, so this is the true range test: anything
+       below the lower bound or at or above the upper has no int64. */
+    if (!(d >= -9223372036854775808.0 && d < 9223372036854775808.0)) {
+        sol_vm_runtime_error(vm, "'%s' is out of integer range", name);
+        return false;
+    }
+    *out = (int64_t)d;
+    return true;
+}
+
+static SolValue float_rounding(SolVM *vm, const char *name, SolValue self,
+                               int argc, double (*how)(double))
+{
+    if (!check_argc(vm, name, argc, 0)) return SOL_NIL_VAL;
+    int64_t result;
+    if (!float_to_integer(vm, name, how(SOL_AS_FLOAT(self)), &result)) return SOL_NIL_VAL;
+    return SOL_INT_VAL(result);
+}
+
+static SolValue prim_float_floor(SolVM *vm, SolValue self, SolValue *args, int argc)
+{ (void)args; return float_rounding(vm, "floor", self, argc, floor); }
+
+static SolValue prim_float_ceiling(SolVM *vm, SolValue self, SolValue *args, int argc)
+{ (void)args; return float_rounding(vm, "ceiling", self, argc, ceil); }
+
+/* Half away from zero, which is what C's round does and what most people mean. */
+static SolValue prim_float_rounded(SolVM *vm, SolValue self, SolValue *args, int argc)
+{ (void)args; return float_rounding(vm, "rounded", self, argc, round); }
+
+static SolValue prim_float_truncated(SolVM *vm, SolValue self, SolValue *args, int argc)
+{ (void)args; return float_rounding(vm, "truncated", self, argc, trunc); }
+
+/* Parsing the other way. Strict: the whole string has to be a number and nothing
+   else, so "12abc", "", " 45" and "45 " are all errors rather than 12, 0, 45 and
+   45. strtoll and strtod skip leading whitespace of their own accord, which
+   would have made the two ends behave differently, so it is rejected here. */
+static bool parsed_cleanly(const SolString *string, const char *end)
+{
+    if (string->length == 0) return false;
+    if (isspace((unsigned char)string->chars[0])) return false;
+    return end == string->chars + string->length;
+}
+static SolValue prim_string_as_integer(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "asInteger", argc, 0)) return SOL_NIL_VAL;
+
+    const SolString *string = SOL_AS_STRING(self);
+    char *end;
+    errno = 0;
+    long long value = strtoll(string->chars, &end, 10);
+
+    if (!parsed_cleanly(string, end)) {
+        sol_vm_runtime_error(vm, "'%s' is not an integer", string->chars);
+        return SOL_NIL_VAL;
+    }
+    if (errno == ERANGE) {
+        sol_vm_runtime_error(vm, "'%s' is out of integer range", string->chars);
+        return SOL_NIL_VAL;
+    }
+    return SOL_INT_VAL((int64_t)value);
+}
+
+static SolValue prim_string_as_float(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "asFloat", argc, 0)) return SOL_NIL_VAL;
+
+    const SolString *string = SOL_AS_STRING(self);
+    char *end;
+    double value = strtod(string->chars, &end);
+
+    if (!parsed_cleanly(string, end)) {
+        sol_vm_runtime_error(vm, "'%s' is not a float", string->chars);
+        return SOL_NIL_VAL;
+    }
+    return SOL_FLOAT_VAL(value);
 }
 
 /* ---- comparison ------------------------------------------------------- */
@@ -631,6 +787,8 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define_primitive(vm->integer_class, "mul",   prim_integer_mul);
     sol_object_define_primitive(vm->integer_class, "div",   prim_integer_div);
     sol_object_define_primitive(vm->integer_class, "mod",   prim_integer_mod);
+    sol_object_define_primitive(vm->integer_class, "asFloat",  prim_integer_as_float);
+    sol_object_define_primitive(vm->integer_class, "asString", prim_integer_as_string);
     sol_object_define_primitive(vm->integer_class, "equals",      prim_equals);
     sol_object_define_primitive(vm->integer_class, "lessThan",    prim_less);
     sol_object_define_primitive(vm->integer_class, "greaterThan", prim_greater);
@@ -642,6 +800,11 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define_primitive(vm->float_class, "mul",   prim_float_mul);
     sol_object_define_primitive(vm->float_class, "div",   prim_float_div);
     sol_object_define_primitive(vm->float_class, "mod",   prim_float_mod);
+    sol_object_define_primitive(vm->float_class, "asString",  prim_float_as_string);
+    sol_object_define_primitive(vm->float_class, "floor",     prim_float_floor);
+    sol_object_define_primitive(vm->float_class, "ceiling",   prim_float_ceiling);
+    sol_object_define_primitive(vm->float_class, "rounded",   prim_float_rounded);
+    sol_object_define_primitive(vm->float_class, "truncated", prim_float_truncated);
     sol_object_define_primitive(vm->float_class, "equals",      prim_equals);
     sol_object_define_primitive(vm->float_class, "lessThan",    prim_less);
     sol_object_define_primitive(vm->float_class, "greaterThan", prim_greater);
@@ -649,6 +812,7 @@ void sol_builtins_install(SolVM *vm)
     vm->nil_class = sol_object_new(vm, NULL);
     sol_object_define_primitive(vm->nil_class, "print",  prim_print);
     sol_object_define_primitive(vm->nil_class, "equals", prim_equals);
+    sol_object_define_primitive(vm->nil_class, "asString", prim_nil_as_string);
 
     vm->bool_class = sol_object_new(vm, NULL);
     sol_object_define_primitive(vm->bool_class, "print",   prim_print);
@@ -657,6 +821,7 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define_primitive(vm->bool_class, "ifTrue",  prim_if_true);
     sol_object_define_primitive(vm->bool_class, "ifFalse", prim_if_false);
     sol_object_define_primitive(vm->bool_class, "ifElse",  prim_if_else);
+    sol_object_define_primitive(vm->bool_class, "asString", prim_bool_as_string);
 
     vm->block_class = sol_object_new(vm, NULL);
     sol_object_define_primitive(vm->block_class, "print",     prim_print);
@@ -694,6 +859,9 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define_primitive(vm->string_class, "size",   prim_string_size);
     sol_object_define_primitive(vm->string_class, "concat", prim_string_concat);
     sol_object_define_primitive(vm->string_class, "at",     prim_string_at);
+    sol_object_define_primitive(vm->string_class, "asString",  prim_string_as_string);
+    sol_object_define_primitive(vm->string_class, "asInteger", prim_string_as_integer);
+    sol_object_define_primitive(vm->string_class, "asFloat",   prim_string_as_float);
 
     /* Bind the class objects into the globals namespace so `integer` resolves. */
     sol_object_define(vm->root, "integer", SOL_OBJ_VAL(vm->integer_class));

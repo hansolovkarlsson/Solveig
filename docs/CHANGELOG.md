@@ -8,6 +8,33 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### Conversions — `pending`, 2026-08-19
+
+```
+"you have ":concat(#45:asString):concat(" apples").   ; "you have 45 apples"
+#7:asFloat:div(#2:asFloat).                           ; 3.5
+2.7:floor. 2.7:ceiling. 2.7:rounded. 2.7:truncated.   ; #2 #3 #3 #2
+"45":asInteger.  "2.5":asFloat.
+```
+
+- **`asString` answers plain text; `print` shows the literal form.** `#45:asString`
+  is `"45"`, not `"#45"` — the point of it is building text, and "you have #45
+  apples" would be wrong. Two jobs, kept apart, as Smalltalk separates
+  displayString from printString.
+- **Narrowing names its direction.** There is no `asInteger` on a float: `floor`,
+  `ceiling`, `rounded`, and `truncated` each say what they do, so there is no
+  default to remember. Each can fail, since most floats have no integer
+  counterpart — infinity, not-a-number, and anything out of range are errors.
+- **Parsing is strict at both ends.** The whole string must be a number and
+  nothing else, so `"12abc"`, `""`, `" 45"` and `"45 "` are all errors. The
+  leading-space case needed an explicit check, since `strtoll` skips whitespace
+  of its own accord and the two ends would otherwise have behaved differently.
+- Widening an integer past 2^53 loses precision silently, which is what binary64
+  is; erroring would be unlike every other language.
+
+This also fills the gap floored division left: `#7:div(#2)` is `#3`, and
+`#7:asFloat:div(#2:asFloat)` is `3.5`.
+
 ### `via`: calling the method you override — `a5aa9e0`, 2026-08-19
 
 ```
