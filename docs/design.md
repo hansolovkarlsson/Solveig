@@ -567,7 +567,8 @@ under it is what actually finds a missing root.
 
 ## Open questions
 
-Everything unresolved lives in [ROADMAP.md](ROADMAP.md) -- the open design
+[REFERENCE.md](REFERENCE.md) describes the language as it is; this document is
+about why. Everything unresolved lives in [ROADMAP.md](ROADMAP.md) -- the open design
 questions, the known limitations, and the work that has not been done. It is kept
 as one list rather than split across documents so it cannot drift.
 

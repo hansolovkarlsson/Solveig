@@ -45,7 +45,7 @@ them -- the same star, in a different language.
 | `solas/`  | **Solas** -- the compiler: source text to bytecode                |
 | `solum/`  | **SolVM** -- the virtual machine: executes bytecode and loads `.sob` |
 | `solis/`  | **Solis** -- the REPL: compiles and runs one line at a time       |
-| `docs/`   | [design.md](docs/design.md), [ROADMAP.md](docs/ROADMAP.md), [CHANGELOG.md](docs/CHANGELOG.md) |
+| `docs/`   | [REFERENCE.md](docs/REFERENCE.md), [design.md](docs/design.md), [ROADMAP.md](docs/ROADMAP.md), [CHANGELOG.md](docs/CHANGELOG.md) |
 | `tests/`  | Test suite                                                        |
 | `examples/` | Sample `.sol` programs                                          |
 
@@ -154,8 +154,11 @@ Still to do:
 
 MIT -- see [LICENSE](LICENSE).
 
+[docs/REFERENCE.md](docs/REFERENCE.md) is the language reference: syntax,
+semantics, and every built-in message.
+
 The full list of what is left -- open design questions, known limitations, and
 unbuilt work -- is in [docs/ROADMAP.md](docs/ROADMAP.md).
 
-See [docs/design.md](docs/design.md) for the object model, the syntax, and the
-instruction set, and [docs/CHANGELOG.md](docs/CHANGELOG.md) for what has changed.
+See [docs/design.md](docs/design.md) for the object model and the instruction
+set, and [docs/CHANGELOG.md](docs/CHANGELOG.md) for what has changed.
