@@ -47,20 +47,19 @@ against the commit before each change:
 #### 1.1c Temporary roots inside primitives
 
 The mechanism exists and Solis uses it; no primitive allocates yet, so nothing
-applies it. Arrays are what change that -- see [1.2a](#12a-temporary-roots-finally-needed--was-11c).
+applies it. Arrays are what changed that -- see [1.2a](#12a-temporary-roots-finally-needed--done).
 
 #### 1.1d Collection is stop-the-world and non-incremental
 
 Fine at this size and not worth touching yet. Noted so it is a choice rather than
 an oversight: a program holding a large live set will pause proportionally to it.
 
-### 1.2 Arrays — heap type and class **done**
+### 1.2 Arrays — **done**
 
-The `SolArray` heap type and the `array` class are built: `new`, `of`, `size`,
-`at`, `at_put`, `add`, `do`, `print`, `equals`. Indices are one-based, an index
-must be an integer, and out of bounds is an error. Arrays are references, like
-objects. Still to come: the `[...]` literal sugar (2.4) and `collect`/`select`,
-which bring 1.2a with them.
+`SolArray` and the `array` class: `new`, `of`, `size`, `at`, `at_put`, `add`,
+`do`, `collect`, `select`, `print`, `equals`, plus the `[...]` literal. Indices
+are one-based, an index must be an integer, and out of bounds is an error.
+Arrays are references, like objects.
 
 Arrays come before strings deliberately, for a reason that only became clear once
 the collector existed: **an array holds `SolValue`s, so the tracer gains a real
@@ -113,9 +112,6 @@ force them into primitives, and precisely which ones is worth being exact about:
 count back when the block rejects it. Otherwise the element would live only in a
 C local while the block ran, and a block that replaced it in the source would
 leave nothing pointing at it.
-
-`sol_gc_push_temp` / `sol_gc_pop_temp` are now exercised by real code rather than
-only by Solis.
 
 ### 1.3 Strings
 
@@ -340,14 +336,15 @@ text would make compile errors considerably more useful.
 
 1. **Strings** (1.3) — simpler for having waited, and the point at which `.sob`
    gains a constant tag.
-3. **User-defined classes** (1.4) — more useful now that there is somewhere to
+2. **User-defined classes** (1.4) — more useful now that there is somewhere to
    keep a collection of instances.
-4. **Division** (2.1) and the **missing operations** (2.7) — small, and they make
+3. **Division** (2.1) and the **missing operations** (2.7) — small, and they make
    the language usable for arithmetic-shaped programs.
-5. Everything else as it starts to hurt.
+4. Everything else as it starts to hurt.
 
-Done and off this list: garbage collection (1.1a, 1.1b), the array heap type and
-class (1.2), and the `[...]` literal (1.2b).
+Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), and arrays
+entire — the heap type and class (1.2), the `[...]` literal (1.2b), and
+`collect`/`select` with their temporary roots (1.2a).
 
 Still waiting on a call from you: **division** (2.1) and the **statement
 terminator** (2.2). Neither blocks anything above it.
