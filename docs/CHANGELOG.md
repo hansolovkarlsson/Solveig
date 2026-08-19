@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### An object is rendered by asking it — `pending`, 2026-08-19
+### An object is rendered by asking it — `f55e105`, 2026-08-19
 
 ```
 point:asString := { "point({}, {})":format([self:x, self:y]) }.
@@ -30,7 +30,7 @@ writes the address directly instead of calling the renderer back. An `asString`
 a user writes to render itself still recurses, but through real frames, so it
 stops at the call-depth cap like any other runaway recursion.
 
-### Fixed: error recovery could loop forever — `pending`
+### Fixed: error recovery could loop forever — `f55e105`
 
 `synchronise` checked whether the previous token was a `.` *before* advancing, so
 a statement that failed without consuming anything — `primary` reports an
