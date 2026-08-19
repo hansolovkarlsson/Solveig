@@ -69,9 +69,25 @@ $ ./bin/solum examples/hello.sob
 see [docs/design.md](docs/design.md) for the layout and what the verifier
 checks.
 
+Methods are defined with `:=`, the same operator that binds a name -- a method
+is a name bound on a class, just as a variable is a name bound in the globals:
+
+```
+> integer:double() := self:mul(#2).
+> #21:double():print.
+#42
+> integer:poly(a, b) := self:mul(a):add(b).
+> #10:poly(#3, #7):print.
+#37
+```
+
+See [examples/methods.sol](examples/methods.sol) for parameters, locals, and
+multi-statement bodies.
+
 Still to do:
 
-- [ ] bytecode methods and call frames (every method is a C primitive today)
+- [ ] conditionals -- a method can recurse, but nothing can stop it yet
+- [ ] user-defined classes (methods can only be added to the built-in ones)
 - [ ] strings and symbols -- both scan, but neither has a runtime type
 - [ ] a garbage collector (objects are freed en masse at shutdown)
 

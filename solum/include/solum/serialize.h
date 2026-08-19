@@ -17,6 +17,9 @@
  *           4     code length, then that many bytes
  *           4     line-run count
  *                 each run: u32 length, u32 line
+ *           4     method count
+ *                 each method: u16 name length + bytes, u16 arity,
+ *                 u16 slot count, then that method's chunk, recursively
  *
  * Line numbers are run-length encoded because consecutive instructions almost
  * always share a line; the runs expand back into the chunk's parallel array on
@@ -32,7 +35,7 @@
 #include "solum/bytecode.h"
 
 #define SOL_SOB_MAGIC   "SOLB"
-#define SOL_SOB_VERSION 1
+#define SOL_SOB_VERSION 2
 
 typedef enum {
     SOL_SER_OK,

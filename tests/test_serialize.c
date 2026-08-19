@@ -254,9 +254,103 @@ static void test_verifier_rejects_unsafe_code(void)
     remove(TMP);
 }
 
+/* Methods nest a chunk inside a chunk, so they have to survive the round trip
+   with their arity, frame size, and body intact. */
+static void test_methods_round_trip(void)
+{
+    SolChunk chunk;
+    sol_chunk_init(&chunk);
+
+    uint8_t integer = (uint8_t)sol_chunk_add_name(&chunk, "integer", 7);
+    uint8_t dbl     = (uint8_t)sol_chunk_add_name(&chunk, "double", 6);
+
+    SolMethod *method = sol_method_new("double", 6, 0);
+    method->slot_count = 1;                       /* just self */
+    uint8_t two  = (uint8_t)sol_chunk_add_constant(&method->chunk, SOL_INT_VAL(2));
+    uint8_t mul  = (uint8_t)sol_chunk_add_name(&method->chunk, "mul", 3);
+    sol_chunk_write(&method->chunk, OP_LOCAL, 1);
+    sol_chunk_write(&method->chunk, 0, 1);
+    sol_chunk_write(&method->chunk, OP_CONST, 1);
+    sol_chunk_write(&method->chunk, two, 1);
+    sol_chunk_write(&method->chunk, OP_SEND, 1);
+    sol_chunk_write(&method->chunk, mul, 1);
+    sol_chunk_write(&method->chunk, 1, 1);
+    sol_chunk_write(&method->chunk, OP_RETURN, 1);
+    uint8_t index = (uint8_t)sol_chunk_add_method(&chunk, method);
+
+    sol_chunk_write(&chunk, OP_GLOBAL, 1);
+    sol_chunk_write(&chunk, integer, 1);
+    sol_chunk_write(&chunk, OP_DEF_METHOD, 1);
+    sol_chunk_write(&chunk, index, 1);
+    sol_chunk_write(&chunk, dbl, 1);
+    sol_chunk_write(&chunk, OP_POP, 1);
+    sol_chunk_write(&chunk, OP_HALT, 1);
+
+    assert(sol_chunk_save(&chunk, TMP) == SOL_SER_OK);
+
+    SolChunk loaded;
+    assert(sol_chunk_load(&loaded, TMP) == SOL_SER_OK);
+    assert(loaded.methods.count == 1);
+
+    const SolMethod *back = loaded.methods.methods[0];
+    assert(strcmp(back->name, "double") == 0);
+    assert(back->arity == 0);
+    assert(back->slot_count == 1);
+    assert(back->chunk.count == method->chunk.count);
+    assert(memcmp(back->chunk.code, method->chunk.code,
+                  (size_t)method->chunk.count) == 0);
+    assert(strcmp(sol_chunk_name(&back->chunk, mul), "mul") == 0);
+
+    sol_chunk_free(&loaded);
+    sol_chunk_free(&chunk);
+    remove(TMP);
+}
+
+/* A frame is addressed by one-byte slot operands, so a method claiming fewer
+   slots than it has parameters -- or code reaching past them -- must be
+   rejected before it can index outside the frame. */
+static void test_verifier_checks_frame_bounds(void)
+{
+    SolChunk chunk;
+
+    /* slot_count smaller than self + parameters. */
+    sol_chunk_init(&chunk);
+    sol_chunk_add_name(&chunk, "x", 1);
+    SolMethod *bad = sol_method_new("bad", 3, 2);
+    bad->slot_count = 2;                          /* needs at least 3 */
+    sol_chunk_write(&bad->chunk, OP_NIL, 1);
+    sol_chunk_write(&bad->chunk, OP_RETURN, 1);
+    sol_chunk_add_method(&chunk, bad);
+    sol_chunk_write(&chunk, OP_HALT, 1);
+    assert(sol_chunk_verify(&chunk) == SOL_SER_MALFORMED);
+    sol_chunk_free(&chunk);
+
+    /* A local slot past the end of the frame. */
+    sol_chunk_init(&chunk);
+    SolMethod *over = sol_method_new("over", 4, 0);
+    over->slot_count = 1;                         /* only self */
+    sol_chunk_write(&over->chunk, OP_LOCAL, 1);
+    sol_chunk_write(&over->chunk, 5, 1);          /* out of range */
+    sol_chunk_write(&over->chunk, OP_RETURN, 1);
+    sol_chunk_add_method(&chunk, over);
+    sol_chunk_write(&chunk, OP_HALT, 1);
+    assert(sol_chunk_verify(&chunk) == SOL_SER_MALFORMED);
+    sol_chunk_free(&chunk);
+
+    /* The top-level chunk has no frame slots at all. */
+    sol_chunk_init(&chunk);
+    sol_chunk_write(&chunk, OP_LOCAL, 1);
+    sol_chunk_write(&chunk, 0, 1);
+    sol_chunk_write(&chunk, OP_HALT, 1);
+    assert(sol_chunk_verify(&chunk) == SOL_SER_MALFORMED);
+    sol_chunk_free(&chunk);
+}
+
 int main(void)
 {
     test_round_trip_preserves_everything();
+    test_methods_round_trip();
+    test_verifier_checks_frame_bounds();
     test_float_bits_are_exact();
     test_duplicate_names_keep_their_indices();
     test_rejects_files_it_should_not_run();

@@ -66,6 +66,7 @@ static SolSlot *ensure_local(SolObject *obj, const char *name)
     slot->name = dup_name(name);
     slot->value = SOL_NIL_VAL;
     slot->primitive = NULL;
+    slot->method = NULL;
     slot->next = obj->slots;
     obj->slots = slot;
     return slot;
@@ -76,6 +77,7 @@ void sol_object_define(SolObject *obj, const char *name, SolValue value)
     SolSlot *slot = ensure_local(obj, name);
     slot->value = value;
     slot->primitive = NULL;
+    slot->method = NULL;
 }
 
 void sol_object_define_primitive(SolObject *obj, const char *name, SolPrimitive fn)
@@ -83,4 +85,13 @@ void sol_object_define_primitive(SolObject *obj, const char *name, SolPrimitive 
     SolSlot *slot = ensure_local(obj, name);
     slot->value = SOL_NIL_VAL;
     slot->primitive = fn;
+    slot->method = NULL;
+}
+
+void sol_object_define_method(SolObject *obj, const char *name, const SolMethod *method)
+{
+    SolSlot *slot = ensure_local(obj, name);
+    slot->value = SOL_NIL_VAL;
+    slot->primitive = NULL;
+    slot->method = method;
 }

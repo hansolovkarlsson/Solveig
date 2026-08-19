@@ -11,8 +11,7 @@ static void reset_stack(SolVM *vm)
 
 void sol_vm_init(SolVM *vm)
 {
-    vm->chunk = NULL;
-    vm->ip = NULL;
+    vm->frame_count = 0;
     vm->objects = NULL;
     vm->had_error = false;
     reset_stack(vm);
@@ -102,28 +101,80 @@ void sol_vm_runtime_error(SolVM *vm, const char *format, ...)
     va_end(args);
     fputs("\n", stderr);
 
-    if (vm->chunk != NULL && vm->ip != NULL) {
-        size_t offset = (size_t)(vm->ip - vm->chunk->code) - 1;
-        fprintf(stderr, "  [line %d]\n", vm->chunk->lines[offset]);
+    /* Innermost frame first, so the line that actually failed leads. A runaway
+       recursion would otherwise bury the message under a full stack, so the
+       middle is elided. */
+    const int head = 8, tail = 3;
+    for (int i = vm->frame_count - 1; i >= 0; i--) {
+        int from_top = vm->frame_count - 1 - i;
+        if (vm->frame_count > head + tail + 1 && from_top == head) {
+            fprintf(stderr, "  ... %d more frames ...\n",
+                    vm->frame_count - head - tail);
+            i = tail;                    /* skip to the outermost few */
+            continue;
+        }
+        SolFrame *frame = &vm->frames[i];
+        size_t offset = (size_t)(frame->ip - frame->chunk->code) - 1;
+        fprintf(stderr, "  [line %d] in %s\n", frame->chunk->lines[offset],
+                frame->method ? frame->method->name : "script");
     }
     vm->had_error = true;
 }
 
+/* Pushes a frame for `method`. The receiver and arguments are already on the
+   stack in slot order; any remaining locals are filled with nil. */
+static bool call_method(SolVM *vm, const SolMethod *method, int argc)
+{
+    if (argc != method->arity) {
+        sol_vm_runtime_error(vm, "'%s' takes %d argument%s, got %d",
+                             method->name, method->arity,
+                             method->arity == 1 ? "" : "s", argc);
+        return false;
+    }
+    if (vm->frame_count == SOL_FRAMES_MAX) {
+        sol_vm_runtime_error(vm, "call depth exceeded");
+        return false;
+    }
+
+    SolValue *slots = vm->stack_top - argc - 1;   /* slots[0] is the receiver */
+    int extra = method->slot_count - (argc + 1);
+    if (vm->stack_top + extra > vm->stack + SOL_STACK_MAX) {
+        sol_vm_runtime_error(vm, "stack overflow");
+        return false;
+    }
+    for (int i = 0; i < extra; i++) *vm->stack_top++ = SOL_NIL_VAL;
+
+    SolFrame *frame = &vm->frames[vm->frame_count++];
+    frame->method = method;
+    frame->chunk = &method->chunk;
+    frame->ip = method->chunk.code;
+    frame->slots = slots;
+    return true;
+}
+
 SolResult sol_vm_run(SolVM *vm, const SolChunk *chunk)
 {
-    vm->chunk = chunk;
-    vm->ip = chunk->code;
     vm->had_error = false;
+    vm->frame_count = 0;
+    reset_stack(vm);
 
-#define READ_BYTE() (*vm->ip++)
-#define READ_NAME() (sol_chunk_name(chunk, READ_BYTE()))
+    /* The top-level chunk runs in a frame like anything else, so one code path
+       handles both. It has no method and no locals. */
+    SolFrame *frame = &vm->frames[vm->frame_count++];
+    frame->method = NULL;
+    frame->chunk = chunk;
+    frame->ip = chunk->code;
+    frame->slots = vm->stack;
+
+#define READ_BYTE() (*frame->ip++)
+#define READ_NAME() (sol_chunk_name(frame->chunk, READ_BYTE()))
 
     for (;;) {
         uint8_t instruction = READ_BYTE();
         switch (instruction) {
 
         case OP_CONST:
-            sol_vm_push(vm, chunk->constants.values[READ_BYTE()]);
+            sol_vm_push(vm, frame->chunk->constants.values[READ_BYTE()]);
             break;
 
         case OP_NIL:
@@ -149,6 +200,30 @@ SolResult sol_vm_run(SolVM *vm, const SolChunk *chunk)
             break;
         }
 
+        case OP_LOCAL:
+            sol_vm_push(vm, frame->slots[READ_BYTE()]);
+            break;
+
+        case OP_SET_LOCAL:
+            frame->slots[READ_BYTE()] = vm->stack_top[-1];
+            break;
+
+        case OP_DEF_METHOD: {
+            const SolMethod *method = frame->chunk->methods.methods[READ_BYTE()];
+            const char *name = READ_NAME();
+
+            /* The target stays on the stack, the way an assignment leaves its
+               value, so the enclosing statement's POP cleans up. */
+            SolValue target = vm->stack_top[-1];
+            if (!SOL_IS_OBJ(target)) {
+                sol_vm_runtime_error(vm, "cannot define '%s' on %s", name,
+                                     sol_type_name(target));
+                break;
+            }
+            sol_object_define_method(SOL_AS_OBJ(target), name, method);
+            break;
+        }
+
         case OP_SEND: {
             const char *name = READ_NAME();
             uint8_t argc = READ_BYTE();
@@ -157,9 +232,21 @@ SolResult sol_vm_run(SolVM *vm, const SolChunk *chunk)
             SolObject *target = sol_vm_class_of(vm, receiver);
             SolSlot *slot = target ? sol_object_lookup(target, name) : NULL;
 
-            if (slot == NULL || slot->primitive == NULL) {
+            if (slot == NULL) {
                 sol_vm_runtime_error(vm, "%s does not understand '%s'",
                                      sol_type_name(receiver), name);
+                break;
+            }
+
+            if (slot->method != NULL) {
+                if (call_method(vm, slot->method, argc)) {
+                    frame = &vm->frames[vm->frame_count - 1];
+                }
+                break;
+            }
+
+            if (slot->primitive == NULL) {
+                sol_vm_runtime_error(vm, "'%s' is a slot, not a message", name);
                 break;
             }
 
@@ -174,10 +261,19 @@ SolResult sol_vm_run(SolVM *vm, const SolChunk *chunk)
             sol_vm_pop(vm);
             break;
 
-        case OP_RETURN:
-            /* TODO: pop the call frame once bytecode methods exist. Every
-               method is currently a C primitive, so nothing emits this yet. */
-            return SOL_OK;
+        case OP_RETURN: {
+            SolValue result = sol_vm_pop(vm);
+            vm->frame_count--;
+            if (vm->frame_count == 0) return SOL_OK;   /* returned from the script */
+
+            /* Discard the whole activation -- self, arguments, and locals --
+               then leave the reply where the receiver was. */
+            vm->stack_top = frame->slots;
+            sol_vm_push(vm, result);
+
+            frame = &vm->frames[vm->frame_count - 1];
+            break;
+        }
 
         case OP_HALT:
             return SOL_OK;
@@ -188,6 +284,7 @@ SolResult sol_vm_run(SolVM *vm, const SolChunk *chunk)
         }
 
         if (vm->had_error) {
+            vm->frame_count = 0;
             reset_stack(vm);
             return SOL_RUNTIME_ERROR;
         }

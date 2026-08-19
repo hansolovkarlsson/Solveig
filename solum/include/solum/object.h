@@ -9,6 +9,7 @@
 #define SOLUM_OBJECT_H
 
 #include "solum/common.h"
+#include "solum/bytecode.h"
 #include "solum/value.h"
 
 typedef struct SolVM SolVM;
@@ -19,7 +20,8 @@ typedef SolValue (*SolPrimitive)(SolVM *vm, SolValue self, SolValue *args, int a
 typedef struct SolSlot {
     char           *name;
     SolValue        value;
-    SolPrimitive    primitive;  /* non-NULL if this slot is a C method */
+    SolPrimitive    primitive;  /* non-NULL if this slot is a C method       */
+    const SolMethod *method;    /* non-NULL if this slot is a Solum method   */
     struct SolSlot *next;
 } SolSlot;
 
@@ -36,6 +38,10 @@ SolObject *sol_object_new(SolVM *vm, SolObject *proto);
 SolSlot *sol_object_lookup(SolObject *obj, const char *name);
 void     sol_object_define(SolObject *obj, const char *name, SolValue value);
 void     sol_object_define_primitive(SolObject *obj, const char *name, SolPrimitive fn);
+
+/* Binds a bytecode method. The object does not own `method` -- it belongs to
+   the chunk that compiled it, which must outlive the binding. */
+void     sol_object_define_method(SolObject *obj, const char *name, const SolMethod *method);
 
 /* TODO: sol_object_send() -- resolve `name` on the receiver and either invoke
    the primitive or push a call frame for a bytecode method. Lives here rather

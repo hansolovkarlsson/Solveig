@@ -48,27 +48,39 @@ static void put_u64(FILE *f, uint64_t v)
     for (int i = 0; i < 8; i++) fputc((int)((v >> (8 * i)) & 0xff), f);
 }
 
-SolSerResult sol_chunk_save(const SolChunk *chunk, const char *path)
+static SolSerResult check_constants(const SolChunk *chunk)
 {
-    /* Refuse to write something that could not be loaded back. */
-    SolSerResult check = sol_chunk_verify(chunk);
-    if (check != SOL_SER_OK) return check;
-
     for (int i = 0; i < chunk->constants.count; i++) {
         if (chunk->constants.values[i].type == SOL_OBJ) return SOL_SER_UNSUPPORTED;
     }
+    for (int i = 0; i < chunk->methods.count; i++) {
+        SolSerResult result = check_constants(&chunk->methods.methods[i]->chunk);
+        if (result != SOL_SER_OK) return result;
+    }
+    return SOL_SER_OK;
+}
 
-    FILE *f = fopen(path, "wb");
-    if (f == NULL) return SOL_SER_IO;
+/* Number of runs the line array collapses into. */
+static uint32_t count_line_runs(const SolChunk *chunk)
+{
+    uint32_t runs = 0;
+    for (int i = 0; i < chunk->count; ) {
+        int line = chunk->lines[i];
+        int j = i;
+        while (j < chunk->count && chunk->lines[j] == line) j++;
+        runs++;
+        i = j;
+    }
+    return runs;
+}
 
-    fwrite(SOL_SOB_MAGIC, 1, 4, f);
-    put_u16(f, SOL_SOB_VERSION);
-    put_u16(f, 0);                       /* reserved */
-
+/* Everything about a chunk except the file header. Recursive: a method carries
+   a chunk of its own. */
+static void write_chunk_body(FILE *f, const SolChunk *chunk)
+{
     put_u32(f, (uint32_t)chunk->names.count);
     for (int i = 0; i < chunk->names.count; i++) {
         size_t len = strlen(chunk->names.names[i]);
-        if (len > UINT16_MAX) { fclose(f); return SOL_SER_UNSUPPORTED; }
         put_u16(f, (uint16_t)len);
         fwrite(chunk->names.names[i], 1, len, f);
     }
@@ -93,8 +105,7 @@ SolSerResult sol_chunk_save(const SolChunk *chunk, const char *path)
             break;
         }
         case SOL_OBJ:
-            fclose(f);
-            return SOL_SER_UNSUPPORTED;
+            break;      /* rejected by check_constants before we get here */
         }
     }
 
@@ -103,21 +114,62 @@ SolSerResult sol_chunk_save(const SolChunk *chunk, const char *path)
 
     /* Line numbers, run-length encoded -- neighbouring instructions nearly
        always share a line, so the runs are far smaller than the raw array. */
-    long runs_at = ftell(f);
-    put_u32(f, 0);                       /* patched below */
-    uint32_t runs = 0;
+    put_u32(f, count_line_runs(chunk));
     for (int i = 0; i < chunk->count; ) {
         int line = chunk->lines[i];
         int j = i;
         while (j < chunk->count && chunk->lines[j] == line) j++;
         put_u32(f, (uint32_t)(j - i));
         put_u32(f, (uint32_t)line);
-        runs++;
         i = j;
     }
 
-    if (fseek(f, runs_at, SEEK_SET) != 0) { fclose(f); return SOL_SER_IO; }
-    put_u32(f, runs);
+    put_u32(f, (uint32_t)chunk->methods.count);
+    for (int i = 0; i < chunk->methods.count; i++) {
+        const SolMethod *method = chunk->methods.methods[i];
+        size_t len = strlen(method->name);
+        put_u16(f, (uint16_t)len);
+        fwrite(method->name, 1, len, f);
+        put_u16(f, (uint16_t)method->arity);
+        put_u16(f, (uint16_t)method->slot_count);
+        write_chunk_body(f, &method->chunk);
+    }
+}
+
+/* Names longer than a u16 length field cannot be written back. */
+static SolSerResult check_name_lengths(const SolChunk *chunk)
+{
+    for (int i = 0; i < chunk->names.count; i++) {
+        if (strlen(chunk->names.names[i]) > UINT16_MAX) return SOL_SER_UNSUPPORTED;
+    }
+    for (int i = 0; i < chunk->methods.count; i++) {
+        const SolMethod *method = chunk->methods.methods[i];
+        if (strlen(method->name) > UINT16_MAX) return SOL_SER_UNSUPPORTED;
+        SolSerResult result = check_name_lengths(&method->chunk);
+        if (result != SOL_SER_OK) return result;
+    }
+    return SOL_SER_OK;
+}
+
+SolSerResult sol_chunk_save(const SolChunk *chunk, const char *path)
+{
+    /* Refuse to write something that could not be loaded back. */
+    SolSerResult check = sol_chunk_verify(chunk);
+    if (check != SOL_SER_OK) return check;
+
+    check = check_constants(chunk);
+    if (check != SOL_SER_OK) return check;
+
+    check = check_name_lengths(chunk);
+    if (check != SOL_SER_OK) return check;
+
+    FILE *f = fopen(path, "wb");
+    if (f == NULL) return SOL_SER_IO;
+
+    fwrite(SOL_SOB_MAGIC, 1, 4, f);
+    put_u16(f, SOL_SOB_VERSION);
+    put_u16(f, 0);                       /* reserved */
+    write_chunk_body(f, chunk);
 
     bool failed = ferror(f) != 0;
     if (fclose(f) != 0 || failed) return SOL_SER_IO;
@@ -186,49 +238,35 @@ static uint8_t *read_whole_file(const char *path, size_t *size)
     return buffer;
 }
 
-SolSerResult sol_chunk_load(SolChunk *chunk, const char *path)
+#define SOL_MAX_NESTING 16
+
+/* Reads one chunk body. Returns SOL_SER_OK or the reason it failed; on failure
+   the caller frees `chunk`. */
+static SolSerResult read_chunk_body(Cursor *c, SolChunk *chunk, int depth)
 {
-    sol_chunk_init(chunk);
-
-    size_t size = 0;
-    uint8_t *buffer = read_whole_file(path, &size);
-    if (buffer == NULL) return SOL_SER_IO;
-
-    Cursor cursor = { buffer, size, 0, false };
-    Cursor *c = &cursor;
-    SolSerResult status = SOL_SER_MALFORMED;
-
-    const uint8_t *magic;
-    if (!take(c, 4, &magic)) { status = SOL_SER_TRUNCATED; goto fail; }
-    if (memcmp(magic, SOL_SOB_MAGIC, 4) != 0) { status = SOL_SER_BAD_MAGIC; goto fail; }
-
-    uint16_t version = get_u16(c);
-    uint16_t reserved = get_u16(c);
-    if (c->overran) { status = SOL_SER_TRUNCATED; goto fail; }
-    if (version != SOL_SOB_VERSION) { status = SOL_SER_BAD_VERSION; goto fail; }
-    if (reserved != 0) { status = SOL_SER_MALFORMED; goto fail; }
+    if (depth > SOL_MAX_NESTING) return SOL_SER_MALFORMED;
 
     /* Names. Each entry costs at least 2 bytes on disk, so a count that could
        not possibly fit in what remains is rejected before allocating for it. */
     uint32_t name_count = get_u32(c);
-    if (c->overran) { status = SOL_SER_TRUNCATED; goto fail; }
-    if ((size_t)name_count * 2 > c->size - c->pos) { status = SOL_SER_TRUNCATED; goto fail; }
+    if (c->overran) return SOL_SER_TRUNCATED;
+    if ((size_t)name_count * 2 > c->size - c->pos) return SOL_SER_TRUNCATED;
 
     for (uint32_t i = 0; i < name_count; i++) {
         uint16_t length = get_u16(c);
         const uint8_t *bytes;
-        if (c->overran || !take(c, length, &bytes)) { status = SOL_SER_TRUNCATED; goto fail; }
+        if (c->overran || !take(c, length, &bytes)) return SOL_SER_TRUNCATED;
         sol_chunk_append_name(chunk, (const char *)bytes, (int)length);
     }
 
     /* Constants: one tag byte minimum each. */
     uint32_t const_count = get_u32(c);
-    if (c->overran) { status = SOL_SER_TRUNCATED; goto fail; }
-    if ((size_t)const_count > c->size - c->pos) { status = SOL_SER_TRUNCATED; goto fail; }
+    if (c->overran) return SOL_SER_TRUNCATED;
+    if ((size_t)const_count > c->size - c->pos) return SOL_SER_TRUNCATED;
 
     for (uint32_t i = 0; i < const_count; i++) {
         const uint8_t *tag;
-        if (!take(c, 1, &tag)) { status = SOL_SER_TRUNCATED; goto fail; }
+        if (!take(c, 1, &tag)) return SOL_SER_TRUNCATED;
         switch (*tag) {
         case TAG_NIL:
             sol_chunk_add_constant(chunk, SOL_NIL_VAL);
@@ -244,37 +282,91 @@ SolSerResult sol_chunk_load(SolChunk *chunk, const char *path)
             break;
         }
         default:
-            status = SOL_SER_MALFORMED;
-            goto fail;
+            return SOL_SER_MALFORMED;
         }
-        if (c->overran) { status = SOL_SER_TRUNCATED; goto fail; }
+        if (c->overran) return SOL_SER_TRUNCATED;
     }
 
     /* Code. */
     uint32_t code_length = get_u32(c);
-    if (c->overran) { status = SOL_SER_TRUNCATED; goto fail; }
+    if (c->overran) return SOL_SER_TRUNCATED;
     const uint8_t *code;
-    if (!take(c, code_length, &code)) { status = SOL_SER_TRUNCATED; goto fail; }
+    if (!take(c, code_length, &code)) return SOL_SER_TRUNCATED;
 
-    /* Line runs, expanded back into the parallel array. Written before the code
-       bytes so sol_chunk_write has a line for each one. */
+    /* Line runs, expanded back into the parallel array. */
     uint32_t run_count = get_u32(c);
-    if (c->overran) { status = SOL_SER_TRUNCATED; goto fail; }
-    if ((size_t)run_count * 8 > c->size - c->pos) { status = SOL_SER_TRUNCATED; goto fail; }
+    if (c->overran) return SOL_SER_TRUNCATED;
+    if ((size_t)run_count * 8 > c->size - c->pos) return SOL_SER_TRUNCATED;
 
     uint32_t written = 0;
     for (uint32_t i = 0; i < run_count; i++) {
         uint32_t run = get_u32(c);
         uint32_t line = get_u32(c);
-        if (c->overran) { status = SOL_SER_TRUNCATED; goto fail; }
-        if (run > code_length - written) { status = SOL_SER_MALFORMED; goto fail; }
+        if (c->overran) return SOL_SER_TRUNCATED;
+        if (run > code_length - written) return SOL_SER_MALFORMED;
 
         for (uint32_t j = 0; j < run; j++, written++) {
             sol_chunk_write(chunk, code[written], (int)line);
         }
     }
     /* Every code byte must be covered by exactly one run. */
-    if (written != code_length) { status = SOL_SER_MALFORMED; goto fail; }
+    if (written != code_length) return SOL_SER_MALFORMED;
+
+    /* Methods, each carrying a chunk of its own. */
+    uint32_t method_count = get_u32(c);
+    if (c->overran) return SOL_SER_TRUNCATED;
+    if ((size_t)method_count * 6 > c->size - c->pos) return SOL_SER_TRUNCATED;
+
+    for (uint32_t i = 0; i < method_count; i++) {
+        uint16_t name_length = get_u16(c);
+        const uint8_t *name;
+        if (c->overran || !take(c, name_length, &name)) return SOL_SER_TRUNCATED;
+
+        uint16_t arity = get_u16(c);
+        uint16_t slot_count = get_u16(c);
+        if (c->overran) return SOL_SER_TRUNCATED;
+
+        /* A frame is addressed by one-byte slot operands, and must have room
+           for self plus every argument. */
+        if (arity > UINT8_MAX || slot_count > UINT8_MAX) return SOL_SER_MALFORMED;
+        if (slot_count < arity + 1) return SOL_SER_MALFORMED;
+
+        SolMethod *method = sol_method_new((const char *)name, (int)name_length,
+                                           (int)arity);
+        method->slot_count = (int)slot_count;
+        sol_chunk_add_method(chunk, method);      /* owned by the chunk now */
+
+        SolSerResult result = read_chunk_body(c, &method->chunk, depth + 1);
+        if (result != SOL_SER_OK) return result;
+    }
+
+    return SOL_SER_OK;
+}
+
+SolSerResult sol_chunk_load(SolChunk *chunk, const char *path)
+{
+    sol_chunk_init(chunk);
+
+    size_t size = 0;
+    uint8_t *buffer = read_whole_file(path, &size);
+    if (buffer == NULL) return SOL_SER_IO;
+
+    Cursor cursor = { buffer, size, 0, false };
+    Cursor *c = &cursor;
+    SolSerResult status;
+
+    const uint8_t *magic;
+    if (!take(c, 4, &magic)) { status = SOL_SER_TRUNCATED; goto fail; }
+    if (memcmp(magic, SOL_SOB_MAGIC, 4) != 0) { status = SOL_SER_BAD_MAGIC; goto fail; }
+
+    uint16_t version = get_u16(c);
+    uint16_t reserved = get_u16(c);
+    if (c->overran) { status = SOL_SER_TRUNCATED; goto fail; }
+    if (version != SOL_SOB_VERSION) { status = SOL_SER_BAD_VERSION; goto fail; }
+    if (reserved != 0) { status = SOL_SER_MALFORMED; goto fail; }
+
+    status = read_chunk_body(c, chunk, 0);
+    if (status != SOL_SER_OK) goto fail;
 
     free(buffer);
 
@@ -294,8 +386,11 @@ fail:
 
 /* ---- verification ---------------------------------------------------- */
 
-SolSerResult sol_chunk_verify(const SolChunk *chunk)
+/* `slot_count` is how many frame slots the code may address: 0 for the
+   top-level chunk, which has neither self nor locals. */
+static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count, int depth)
 {
+    if (depth > SOL_MAX_NESTING) return SOL_SER_MALFORMED;
     if (chunk->count == 0) return SOL_SER_MALFORMED;
 
     int offset = 0;
@@ -317,9 +412,12 @@ SolSerResult sol_chunk_verify(const SolChunk *chunk)
         case OP_CONST:
         case OP_GLOBAL:
         case OP_SET_GLOBAL:
+        case OP_LOCAL:
+        case OP_SET_LOCAL:
             operands = 1;
             break;
         case OP_SEND:
+        case OP_DEF_METHOD:
             operands = 2;
             break;
         default:
@@ -331,7 +429,7 @@ SolSerResult sol_chunk_verify(const SolChunk *chunk)
         }
 
         /* Operand indices must point at something that exists, or the dispatch
-           loop would read past a side table. */
+           loop would read past a side table or outside the frame. */
         switch (op) {
         case OP_CONST:
             if (chunk->code[offset + 1] >= chunk->constants.count) return SOL_SER_MALFORMED;
@@ -341,6 +439,14 @@ SolSerResult sol_chunk_verify(const SolChunk *chunk)
         case OP_SEND:
             if (chunk->code[offset + 1] >= chunk->names.count) return SOL_SER_MALFORMED;
             break;
+        case OP_LOCAL:
+        case OP_SET_LOCAL:
+            if (chunk->code[offset + 1] >= slot_count) return SOL_SER_MALFORMED;
+            break;
+        case OP_DEF_METHOD:
+            if (chunk->code[offset + 1] >= chunk->methods.count) return SOL_SER_MALFORMED;
+            if (chunk->code[offset + 2] >= chunk->names.count) return SOL_SER_MALFORMED;
+            break;
         default:
             break;
         }
@@ -349,11 +455,26 @@ SolSerResult sol_chunk_verify(const SolChunk *chunk)
     }
 
     /* Execution is linear, so it is enough that the final instruction stops the
-       machine -- without this the dispatch loop would read past the buffer.
-       When jumps arrive, this needs to become a check that every target lands
-       on an instruction boundary. */
+       machine -- without this the dispatch loop would read past the end of the
+       buffer. When jumps arrive, this needs to become a check that every target
+       lands on an instruction boundary. */
     uint8_t final = chunk->code[last];
     if (final != OP_HALT && final != OP_RETURN) return SOL_SER_MALFORMED;
 
+    /* Each method body, against its own frame size. */
+    for (int i = 0; i < chunk->methods.count; i++) {
+        const SolMethod *method = chunk->methods.methods[i];
+        if (method->slot_count < method->arity + 1) return SOL_SER_MALFORMED;
+        if (method->slot_count > UINT8_MAX) return SOL_SER_MALFORMED;
+
+        SolSerResult result = verify_chunk(&method->chunk, method->slot_count, depth + 1);
+        if (result != SOL_SER_OK) return result;
+    }
+
     return SOL_SER_OK;
+}
+
+SolSerResult sol_chunk_verify(const SolChunk *chunk)
+{
+    return verify_chunk(chunk, 0, 0);
 }

@@ -23,11 +23,24 @@ typedef enum {
     OP_NIL,         /* push nil                                                 */
     OP_GLOBAL,      /* operand: u8 name index -- push the named global          */
     OP_SET_GLOBAL,  /* operand: u8 name index -- bind name, leave value on stack*/
+    OP_LOCAL,       /* operand: u8 slot -- push a local (slot 0 is self)        */
+    OP_SET_LOCAL,   /* operand: u8 slot -- store into a local, leave it on stack*/
     OP_SEND,        /* operands: u8 name index, u8 argc -- send a message       */
+    OP_DEF_METHOD,  /* operands: u8 method index, u8 name index -- bind a method
+                       on the object at top of stack, which stays there         */
     OP_POP,         /* discard top of stack (statement boundary)                */
     OP_RETURN,      /* return top of stack from the current method              */
     OP_HALT         /* stop the VM                                              */
 } SolOpCode;
+
+typedef struct SolMethod SolMethod;
+
+/* Methods compiled into a chunk. A method owns its own chunk, so this nests. */
+typedef struct {
+    int         count;
+    int         capacity;
+    SolMethod **methods;
+} SolMethodArray;
 
 /* Interned identifiers: message selectors and global names. */
 typedef struct {
@@ -44,7 +57,26 @@ typedef struct {
     int          *lines;      /* source line per byte, for error reporting */
     SolValueArray constants;
     SolNameArray  names;
+    SolMethodArray methods;
 } SolChunk;
+
+/* A method compiled from Solum source, as opposed to a C primitive.
+ *
+ * `slot_count` covers self, the parameters, and any locals the body declares.
+ * A call reserves that many stack slots, so the compiler decides the frame
+ * size and the VM just honours it. */
+struct SolMethod {
+    char    *name;
+    int      arity;
+    int      slot_count;   /* 1 (self) + arity + body locals */
+    SolChunk chunk;
+};
+
+SolMethod *sol_method_new(const char *name, int length, int arity);
+void       sol_method_free(SolMethod *method);
+
+/* Adds `method` to the chunk, taking ownership of it. Returns its index. */
+int sol_chunk_add_method(SolChunk *chunk, SolMethod *method);
 
 void sol_chunk_init(SolChunk *chunk);
 void sol_chunk_write(SolChunk *chunk, uint8_t byte, int line);

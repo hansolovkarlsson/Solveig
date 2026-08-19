@@ -6,7 +6,18 @@
 #include "solum/bytecode.h"
 #include "solum/object.h"
 
-#define SOL_STACK_MAX 256
+#define SOL_FRAMES_MAX 64
+#define SOL_STACK_MAX  (SOL_FRAMES_MAX * 256)
+
+/* One activation. `slots` points into the value stack at the receiver, so
+   slots[0] is self and slots[1..arity] are the arguments -- the caller has
+   already laid them out that way, and no copying is needed to make the call. */
+typedef struct {
+    const SolMethod *method;   /* NULL for the top-level chunk */
+    const SolChunk  *chunk;
+    const uint8_t   *ip;
+    SolValue        *slots;
+} SolFrame;
 
 typedef enum {
     SOL_OK,
@@ -15,8 +26,8 @@ typedef enum {
 } SolResult;
 
 struct SolVM {
-    const SolChunk *chunk;
-    const uint8_t  *ip;
+    SolFrame frames[SOL_FRAMES_MAX];
+    int      frame_count;
 
     SolValue  stack[SOL_STACK_MAX];
     SolValue *stack_top;

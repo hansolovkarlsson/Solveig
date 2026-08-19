@@ -14,6 +14,55 @@ void sol_chunk_init(SolChunk *chunk)
     chunk->names.count = 0;
     chunk->names.capacity = 0;
     chunk->names.names = NULL;
+    chunk->methods.count = 0;
+    chunk->methods.capacity = 0;
+    chunk->methods.methods = NULL;
+}
+
+SolMethod *sol_method_new(const char *name, int length, int arity)
+{
+    SolMethod *method = malloc(sizeof(SolMethod));
+    if (method == NULL) {
+        fprintf(stderr, "solum: out of memory\n");
+        exit(1);
+    }
+    method->name = malloc((size_t)length + 1);
+    if (method->name == NULL) {
+        fprintf(stderr, "solum: out of memory\n");
+        exit(1);
+    }
+    memcpy(method->name, name, (size_t)length);
+    method->name[length] = '\0';
+
+    method->arity = arity;
+    method->slot_count = arity + 1;      /* self, plus one slot per parameter */
+    sol_chunk_init(&method->chunk);
+    return method;
+}
+
+void sol_method_free(SolMethod *method)
+{
+    if (method == NULL) return;
+    sol_chunk_free(&method->chunk);
+    free(method->name);
+    free(method);
+}
+
+int sol_chunk_add_method(SolChunk *chunk, SolMethod *method)
+{
+    SolMethodArray *methods = &chunk->methods;
+
+    if (methods->capacity < methods->count + 1) {
+        int capacity = methods->capacity < 4 ? 4 : methods->capacity * 2;
+        methods->methods = realloc(methods->methods, sizeof(SolMethod *) * capacity);
+        if (methods->methods == NULL) {
+            fprintf(stderr, "solum: out of memory\n");
+            exit(1);
+        }
+        methods->capacity = capacity;
+    }
+    methods->methods[methods->count] = method;
+    return methods->count++;
 }
 
 void sol_chunk_write(SolChunk *chunk, uint8_t byte, int line)
@@ -90,6 +139,9 @@ void sol_chunk_free(SolChunk *chunk)
     sol_value_array_free(&chunk->constants);
     for (int i = 0; i < chunk->names.count; i++) free(chunk->names.names[i]);
     free(chunk->names.names);
+    /* Recursive: a method owns its chunk, which may own further methods. */
+    for (int i = 0; i < chunk->methods.count; i++) sol_method_free(chunk->methods.methods[i]);
+    free(chunk->methods.methods);
     sol_chunk_init(chunk);
 }
 
@@ -117,6 +169,20 @@ static int name_instruction(const char *name, const SolChunk *chunk, int offset)
     return offset + 2;
 }
 
+static int slot_instruction(const char *name, const SolChunk *chunk, int offset)
+{
+    printf("%-8s %4d\n", name, chunk->code[offset + 1]);
+    return offset + 2;
+}
+
+static int method_instruction(const char *name, const SolChunk *chunk, int offset)
+{
+    uint8_t method = chunk->code[offset + 1];
+    uint8_t name_index = chunk->code[offset + 2];
+    printf("%-8s %4d '%s'\n", name, method, sol_chunk_name(chunk, name_index));
+    return offset + 3;
+}
+
 static int send_instruction(const char *name, const SolChunk *chunk, int offset)
 {
     uint8_t index = chunk->code[offset + 1];
@@ -141,7 +207,10 @@ int sol_chunk_disassemble_instruction(const SolChunk *chunk, int offset)
     case OP_NIL:    return simple_instruction("NIL", offset);
     case OP_GLOBAL: return name_instruction("GLOBAL", chunk, offset);
     case OP_SET_GLOBAL: return name_instruction("SETGLOB", chunk, offset);
+    case OP_LOCAL:  return slot_instruction("LOCAL", chunk, offset);
+    case OP_SET_LOCAL: return slot_instruction("SETLOCL", chunk, offset);
     case OP_SEND:   return send_instruction("SEND", chunk, offset);
+    case OP_DEF_METHOD: return method_instruction("DEFMETH", chunk, offset);
     case OP_POP:    return simple_instruction("POP", offset);
     case OP_RETURN: return simple_instruction("RETURN", offset);
     case OP_HALT:   return simple_instruction("HALT", offset);
@@ -156,5 +225,11 @@ void sol_chunk_disassemble(const SolChunk *chunk, const char *name)
     printf("== %s ==\n", name);
     for (int offset = 0; offset < chunk->count; ) {
         offset = sol_chunk_disassemble_instruction(chunk, offset);
+    }
+    /* Then each method the chunk defines, so one --dump shows everything. */
+    for (int i = 0; i < chunk->methods.count; i++) {
+        const SolMethod *method = chunk->methods.methods[i];
+        printf("\n");
+        sol_chunk_disassemble(&method->chunk, method->name);
     }
 }

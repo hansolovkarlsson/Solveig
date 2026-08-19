@@ -66,9 +66,26 @@ a:print.         ; ':' sends a message; '.' terminates a statement
                  ; ';' starts a comment, running to end of line
 ```
 
-`:` is the send operator throughout: `object:message`. Parentheses only group
-a message's parameters, which is why `a := #45`, `a := (#45)` and
+`:` is the send operator throughout: `object:message`. Parentheses group a
+message's parameters, which is why `a := #45`, `a := (#45)` and
 `a := integer:new(#45)` all read consistently.
+
+Methods are defined with the same `:=`, because a method is a name bound on a
+class exactly as a variable is a name bound in the globals:
+
+```
+integer:double() := self:mul(#2).      ; `self` is the receiver
+integer:poly(a, b) := self:mul(a):add(b).   ; parameters become locals
+
+integer:quadruple() := (               ; parens may hold several statements;
+    d := self:double().                ; the last one is the result
+    d:double()
+).
+```
+
+Inside a method, assigning to a new name declares a local; reading a name that
+is not a local falls back to the globals, so a method can still see `integer`.
+At the top level there are no locals and every name is a global.
 
 ### Literals
 
@@ -89,8 +106,17 @@ expression -> IDENT ':=' expression
            |  send
 send       -> primary ( ':' IDENT arguments? )*
 arguments  -> '(' ( expression ( ',' expression )* )? ')'
-primary    -> IDENT | INT | FLOAT | STRING | '(' expression ')'
+primary    -> IDENT | INT | FLOAT | STRING | group
+group      -> '(' expression ( '.' expression )* '.'? ')'
+
+definition -> IDENT ':' IDENT '(' params? ')' ':=' expression
+params     -> IDENT ( ',' IDENT )*
 ```
+
+A definition and a send start identically, and telling them apart needs more
+lookahead than the parser carries. A `SolLexer` is three pointers, so the
+compiler copies it and scans ahead for the `IDENT ':' IDENT '(' ... ')' ':='`
+shape, then throws the copy away; nothing in the real token stream moves.
 
 Two scanning rules keep this unambiguous:
 
@@ -111,6 +137,9 @@ A stack machine where nearly everything is `OP_SEND`.
 | `OP_NIL`    | --                     | push nil                                    |
 | `OP_GLOBAL` | u8 name index          | push the named global                       |
 | `OP_SET_GLOBAL` | u8 name index      | bind the name, leave the value on the stack |
+| `OP_LOCAL`  | u8 slot                | push a frame slot (slot 0 is `self`)        |
+| `OP_SET_LOCAL` | u8 slot             | store into a slot, leaving the value        |
+| `OP_DEF_METHOD` | u8 method, u8 name | bind a method on the object on top of stack |
 | `OP_SEND`   | u8 name index, u8 argc | pop argc args + receiver, push the reply    |
 | `OP_POP`    | --                     | discard top of stack (statement boundary)   |
 | `OP_RETURN` | --                     | return top of stack from the current method |
@@ -144,7 +173,13 @@ names     4  u32 count, then each: u16 length + bytes
 constants 4  u32 count, then each: u8 tag + payload (0 nil, 1 i64, 2 f64)
 code      4  u32 length, then that many bytes
 lines     4  u32 run count, then each: u32 run length + u32 line
+methods   4  u32 count, then each: u16 name length + bytes, u16 arity,
+             u16 slot count, then that method's chunk, recursively
 ```
+
+A method owns a chunk, so the format nests. Reading is recursive with a depth
+cap, and a method's declared frame size is checked against its arity before any
+of its code is verified.
 
 Line numbers are run-length encoded: neighbouring instructions almost always
 share a line, so the runs are much smaller than one number per byte. They
@@ -223,6 +258,23 @@ chaining. One character of lookahead settles it: a `.` continues a number only
 when a digit follows. That is a single `if` in the scanner, and it is what
 every C-family lexer already does.
 
+**How is a method defined?** With `:=`, the same operator that binds a name:
+
+```
+integer:double() := self:mul(#2).
+```
+
+A method is a name bound on a class, exactly as a variable is a name bound in
+the globals, so this needed no new keyword and no new operator. The target is
+an ordinary expression, evaluated and left on the stack for `OP_DEF_METHOD`.
+
+The body compiles into a chunk of its own, which the enclosing chunk owns. A
+call pushes a frame whose `slots` point into the value stack at the receiver,
+so `slots[0]` is `self` and `slots[1..arity]` are the arguments -- the caller
+has already laid them out that way, and nothing is copied to make the call. The
+compiler decides the frame size and records it as the method's `slot_count`;
+the VM reserves that much and fills the extra with nil.
+
 ## Open questions
 
 - **Statement terminator.** Only the last line of the example ends in `.`. Is
@@ -235,8 +287,21 @@ every C-family lexer already does.
 - **Class side vs instance side share one object.** `integer` holds both `new`
   and `print`, so `#45:new(#1)` resolves as readily as `integer:new(#1)`.
   Separating them needs a metaclass level.
-- **How is a class defined in Solum source?** Every method is still a C
-  primitive; nothing in the language creates a class or a method yet.
+- **Nothing creates a new class.** Methods can now be defined on the built-in
+  classes, but there is no way to make a class of your own, so user-defined
+  objects with their own slots are still out of reach.
+- **No conditionals, so no recursion that terminates.** A method can call
+  itself, but nothing can stop it -- `integer:loop() := self:loop()` runs to the
+  frame cap. This is the most pressing gap, and it is the one blocks were
+  invented for: in Smalltalk `ifTrue:` is an ordinary message taking a block.
+  Built-in keywords are the alternative, at the cost of "everything is a
+  message".
+- **Methods are owned by the chunk that compiled them.** A class holds only a
+  pointer, so freeing a chunk would leave its methods dangling. Solis therefore
+  keeps every line's chunk alive for the whole session. The real fix is for the
+  collector to own methods.
+- **Solis is line-at-a-time**, so a method body spanning several lines has to
+  go in a file. Fixing this means the REPL buffering until the parens balance.
 - **Division.** Deliberately absent so far: integer division has to choose
   between truncating, flooring, and returning a float, and that choice is
   awkward under strict typing.
@@ -269,7 +334,16 @@ $ ./bin/solum examples/hello.sob
 #45
 ```
 
-Implemented: the scanner, the single-pass compiler, the dispatch loop, the
-`.sob` format with its verifier, and built-in `integer` and `float` classes
-with `new`, `print`, `add`, `sub`, `mul`. Not implemented: bytecode methods and
-call frames, strings, symbols, and the collector.
+Methods defined in Solum source work too, in the REPL and through a file:
+
+```
+> integer:double() := self:mul(#2).
+> #21:double():print.
+#42
+```
+
+Implemented: the scanner, the single-pass compiler, the dispatch loop with call
+frames, methods and locals, the `.sob` format with its verifier, and built-in
+`integer` and `float` classes with `new`, `print`, `add`, `sub`, `mul`. Not
+implemented: conditionals and blocks, user-defined classes, strings, symbols,
+and the collector.
