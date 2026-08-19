@@ -273,8 +273,12 @@ static void primary(Compiler *c)
         return;
     }
     if (sol_parser_match(p, TOK_STRING)) {
-        sol_parser_error(p, &p->previous,
-                         "strings are scanned but have no runtime type yet");
+        /* The token spans the quotes; the string is what lies between them.
+           The bytes are interned in the chunk's text table alongside selectors
+           and global names, all three being interned text. */
+        SolToken text = p->previous;
+        emit_pair(c, OP_STRING,
+                  name_literal(c, text.start + 1, text.length - 2));
         return;
     }
     if (sol_parser_match(p, TOK_SYMBOL)) {
@@ -362,7 +366,7 @@ static bool touches_home(const SolChunk *chunk)
         switch (op) {
         case OP_CONST: case OP_GLOBAL: case OP_SET_GLOBAL:
         case OP_LOCAL: case OP_SET_LOCAL: case OP_BLOCK:
-        case OP_SET_SLOT:
+        case OP_SET_SLOT: case OP_STRING:
             offset += 2; break;
         case OP_SEND: case OP_OUTER: case OP_SET_OUTER:
             offset += 3; break;

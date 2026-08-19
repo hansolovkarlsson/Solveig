@@ -85,6 +85,24 @@ SolBlock  *sol_block_new(SolVM *vm, const SolMethod *code, SolValue self,
 /* An empty array with room for `capacity` values, which may be zero. */
 SolArray *sol_array_new(SolVM *vm, int capacity);
 
+/* An immutable string.
+ *
+ * Immutable, so a string is a *value* rather than a reference: `equals` compares
+ * contents, the way it does for numbers, rather than identity the way it does
+ * for objects, blocks, and arrays. Nothing can mutate one, so sharing is always
+ * safe.
+ *
+ * `chars` is NUL-terminated for the convenience of C, but `length` is what
+ * counts -- the terminator is not part of the string. */
+struct SolString {
+    SolGCHeader gc;
+    int         length;
+    char       *chars;
+};
+
+/* Copies `length` bytes. The caller keeps ownership of what it passed in. */
+SolString *sol_string_new(SolVM *vm, const char *chars, int length);
+
 /* Appends, growing by doubling. Takes the VM so the growth is charged to the
    collection threshold: a backing store that grew without the collector knowing
    would never itself trigger a collection. */

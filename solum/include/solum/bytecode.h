@@ -8,9 +8,11 @@
  * OP_SEND pops argc arguments plus a receiver, and pushes the reply. Resolving
  * a name is the exception -- OP_GLOBAL is a lookup, not a send.
  *
- * A chunk carries two side tables. Constants are values (#45, 45.5); names are
- * the identifiers used by lookups and sends. They are separate because a name
- * is not a value -- there is no string object to hold one in.
+ * A chunk carries two side tables. Constants are values (#45, 45.5); the other
+ * holds interned text -- selectors, global names, and the bytes of string
+ * literals, which OP_STRING builds a string from at run time. They are separate
+ * because a name is not a value, and a string literal is not one either: a
+ * SolString needs a VM to allocate it, and the compiler has none.
  */
 #ifndef SOLUM_BYTECODE_H
 #define SOLUM_BYTECODE_H
@@ -33,6 +35,7 @@ typedef enum {
     OP_SET_OUTER,   /* operands: u8 depth, u8 slot -- write one, leaving the value*/
     OP_BLOCK,       /* operand: u8 method index -- make a block capturing the
                        current frame as its home                               */
+    OP_STRING,      /* operand: u8 name index -- make a string from that text  */
     OP_SEND,        /* operands: u8 name index, u8 argc -- send a message       */
     OP_SET_SLOT,    /* operand: u8 name index -- pop a value and an object, bind
                        the name on it, and leave the value                      */

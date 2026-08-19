@@ -60,6 +60,9 @@ static size_t cell_size(const SolGCHeader *header)
         const SolArray *array = (const SolArray *)header;
         return sizeof(SolArray) + sizeof(SolValue) * (size_t)array->capacity;
     }
+    if (header->type == SOL_GC_STRING) {
+        return sizeof(SolString) + (size_t)((const SolString *)header)->length + 1;
+    }
     if (header->type == SOL_GC_CODE) {
         return sizeof(SolCode) + chunk_size(&((const SolCode *)header)->chunk);
     }
@@ -124,6 +127,7 @@ static void mark_value(SolVM *vm, SolValue value)
     if (SOL_IS_OBJ(value))        mark_cell(vm, (SolGCHeader *)SOL_AS_OBJ(value));
     else if (SOL_IS_BLOCK(value)) mark_cell(vm, (SolGCHeader *)SOL_AS_BLOCK(value));
     else if (SOL_IS_ARRAY(value)) mark_cell(vm, (SolGCHeader *)SOL_AS_ARRAY(value));
+    else if (SOL_IS_STRING(value)) mark_cell(vm, (SolGCHeader *)SOL_AS_STRING(value));
 }
 
 /* A chunk's constants can hold heap values, so a live code tree keeps them
@@ -159,6 +163,11 @@ static void blacken(SolVM *vm, SolGCHeader *header)
         if (block->owner != NULL) mark_cell(vm, (SolGCHeader *)block->owner);
         return;
     }
+
+    /* A string holds bytes, not values, so it has no outgoing edges at all --
+       the difference from an array that made arrays the better first heap type
+       with contents. Marking one is done as soon as it is reached. */
+    if (header->type == SOL_GC_STRING) return;
 
     if (header->type == SOL_GC_ARRAY) {
         /* The reason arrays came before strings: every element is an edge. */
@@ -197,6 +206,7 @@ static void mark_roots(SolVM *vm)
     mark_cell(vm, (SolGCHeader *)vm->bool_class);
     mark_cell(vm, (SolGCHeader *)vm->block_class);
     mark_cell(vm, (SolGCHeader *)vm->array_class);
+    mark_cell(vm, (SolGCHeader *)vm->string_class);
 }
 
 /* ---- sweeping --------------------------------------------------------- */
@@ -211,6 +221,12 @@ static void free_cell(SolGCHeader *header)
 
     if (header->type == SOL_GC_ARRAY) {
         free(((SolArray *)header)->items);
+        free(header);
+        return;
+    }
+
+    if (header->type == SOL_GC_STRING) {
+        free(((SolString *)header)->chars);
         free(header);
         return;
     }

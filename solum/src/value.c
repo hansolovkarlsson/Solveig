@@ -16,6 +16,13 @@ static void print_value(SolValue value, int depth)
     case SOL_BLOCK: printf("<block>"); break;
     case SOL_INT:   printf("#%lld", (long long)SOL_AS_INT(value)); break;
     case SOL_FLOAT: printf("%g", SOL_AS_FLOAT(value)); break;
+    case SOL_STRING: {
+        /* Printed as it would be written, the way #45 prints as #45 rather
+           than 45. That also keeps a string legible inside an array. */
+        const SolString *string = SOL_AS_STRING(value);
+        printf("\"%.*s\"", string->length, string->chars);
+        break;
+    }
     case SOL_ARRAY: {
         const SolArray *array = SOL_AS_ARRAY(value);
         if (depth >= SOL_PRINT_MAX_DEPTH) { printf("[...]"); break; }

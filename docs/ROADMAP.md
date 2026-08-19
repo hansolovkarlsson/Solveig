@@ -113,16 +113,32 @@ count back when the block rejects it. Otherwise the element would live only in a
 C local while the block ran, and a block that replaced it in the source would
 leave nothing pointing at it.
 
-### 1.3 Strings
+### 1.3 Strings — **done**
 
-`"hello"` scans to a token and the compiler rejects it with a clear message.
-Simpler than arrays now that arrays have gone first: a string holds bytes, so it
-adds a heap type but no new tracing edge. Needs `print`, concatenation,
-comparison, and a constant tag in `.sob`, since unlike an array a string literal
-*is* a constant.
+`SolString` and the `string` class: `print`, `size`, `equals`, `concat`, `at`.
+Immutable, and therefore a *value* rather than a reference -- `equals` compares
+characters, where an array compares identity. One-based `at`, answering a
+one-character string since there is no character type. Strict `concat`: joining
+a string to a number is an error, not a conversion.
 
-Whether strings are interned is an open choice. Interning makes equality a
-pointer compare and would let 4.3 use the same mechanism for selectors.
+It needed no `.sob` change after all. A literal's bytes ride in the chunk's
+interned text table, alongside selectors and global names, and `OP_STRING` builds
+the string from them at run time. That table was already serialised, so only the
+opcode set changed. A literal whose bytes match a selector shares one entry,
+harmlessly.
+
+What is left, small and separable:
+
+- **No escape sequences.** A string cannot contain a `"` or a newline written as
+  `\n`, though a literal newline inside the quotes does work. Wants `\"`, `\n`,
+  `\\` at least, which is lexer work.
+- **Not interned.** `OP_STRING` allocates on every evaluation, so a literal in a
+  loop makes a string per pass. Immutability means that is only a cost, never a
+  semantic difference. Interning would fix it and give 4.3 its mechanism, but
+  needs a weak table so interned strings can still die.
+- **No ordering.** `lessThan` is not defined on strings, so they cannot be
+  sorted.
+- **No conversions.** Nothing turns a number into a string or back.
 
 ### 1.4 User-defined classes
 
@@ -334,17 +350,16 @@ text would make compile errors considerably more useful.
 
 ## Suggested order
 
-1. **Strings** (1.3) — simpler for having waited, and the point at which `.sob`
-   gains a constant tag.
-2. **User-defined classes** (1.4) — more useful now that there is somewhere to
-   keep a collection of instances.
-3. **Division** (2.1) and the **missing operations** (2.7) — small, and they make
+1. **User-defined classes** (1.4) — the last of the three things standing between
+   this and a language you could write a real program in.
+2. **Division** (2.1) and the **missing operations** (2.7) — small, and they make
    the language usable for arithmetic-shaped programs.
+3. **String escapes and ordering** (1.3) — the loose ends strings left, each
+   independent of the others.
 4. Everything else as it starts to hurt.
 
-Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), and arrays
-entire — the heap type and class (1.2), the `[...]` literal (1.2b), and
-`collect`/`select` with their temporary roots (1.2a).
+Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), arrays entire
+(1.2, 1.2a, 1.2b), and strings (1.3).
 
 Still waiting on a call from you: **division** (2.1) and the **statement
 terminator** (2.2). Neither blocks anything above it.

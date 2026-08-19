@@ -5,6 +5,8 @@
  * coercion, so `#45:add(1.5)` is an error rather than a quiet promotion.
  */
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "solum/vm.h"
 
@@ -139,6 +141,14 @@ static SolValue prim_equals(SolVM *vm, SolValue self, SolValue *args, int argc)
        arrays; comparing contents is a different question and deserves its own
        name rather than quietly changing what `equals` means. */
     case SOL_ARRAY: return SOL_BOOL_VAL(SOL_AS_ARRAY(self) == SOL_AS_ARRAY(other));
+    /* A string is immutable, so it is a value like a number rather than a
+       reference like an array: equality compares contents. */
+    case SOL_STRING: {
+        const SolString *a = SOL_AS_STRING(self);
+        const SolString *b = SOL_AS_STRING(other);
+        return SOL_BOOL_VAL(a->length == b->length &&
+                            memcmp(a->chars, b->chars, (size_t)a->length) == 0);
+    }
     case SOL_OBJ:   return SOL_BOOL_VAL(SOL_AS_OBJ(self) == SOL_AS_OBJ(other));
     }
     return SOL_BOOL_VAL(false);
@@ -400,6 +410,68 @@ static SolValue prim_array_select(SolVM *vm, SolValue self, SolValue *args, int 
     return SOL_ARRAY_VAL(result);
 }
 
+/* ---- string ------------------------------------------------------------ */
+
+static SolValue prim_string_size(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "size", argc, 0)) return SOL_NIL_VAL;
+    return SOL_INT_VAL(SOL_AS_STRING(self)->length);
+}
+
+/* Answers a new string; nothing mutates one. Strict, like arithmetic: joining a
+   string to a number is an error rather than a silent conversion. */
+static SolValue prim_string_concat(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "concat", argc, 1)) return SOL_NIL_VAL;
+    if (!SOL_IS_STRING(args[0])) {
+        sol_vm_runtime_error(vm, "'concat' expects a string, got %s",
+                             sol_type_name(args[0]));
+        return SOL_NIL_VAL;
+    }
+
+    const SolString *a = SOL_AS_STRING(self);
+    const SolString *b = SOL_AS_STRING(args[0]);
+
+    /* Both operands are on the value stack for the duration of this call, so
+       they stay rooted while the result is allocated. */
+    int length = a->length + b->length;
+    char *joined = malloc((size_t)length + 1);
+    if (joined == NULL) {
+        fprintf(stderr, "solum: out of memory\n");
+        exit(1);
+    }
+    memcpy(joined, a->chars, (size_t)a->length);
+    memcpy(joined + a->length, b->chars, (size_t)b->length);
+    joined[length] = '\0';
+
+    SolValue result = SOL_STRING_VAL(sol_string_new(vm, joined, length));
+    free(joined);
+    return result;
+}
+
+/* One-based, like an array: an index is an ordinal. Answers a one-character
+   string, there being no character type of its own. */
+static SolValue prim_string_at(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "at", argc, 1)) return SOL_NIL_VAL;
+
+    const SolString *string = SOL_AS_STRING(self);
+    if (!SOL_IS_INT(args[0])) {
+        sol_vm_runtime_error(vm, "'at' expects an integer index, got %s",
+                             sol_type_name(args[0]));
+        return SOL_NIL_VAL;
+    }
+
+    int64_t i = SOL_AS_INT(args[0]);
+    if (i < 1 || i > string->length) {
+        sol_vm_runtime_error(vm, "index #%lld is out of bounds for a string of size %d",
+                             (long long)i, string->length);
+        return SOL_NIL_VAL;
+    }
+    return SOL_STRING_VAL(sol_string_new(vm, string->chars + (i - 1), 1));
+}
+
 /* ---- installation ---------------------------------------------------- */
 
 void sol_builtins_install(SolVM *vm)
@@ -457,10 +529,18 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define_primitive(vm->array_class, "print",  prim_print);
     sol_object_define_primitive(vm->array_class, "equals", prim_equals);
 
+    vm->string_class = sol_object_new(vm, NULL);
+    sol_object_define_primitive(vm->string_class, "print",  prim_print);
+    sol_object_define_primitive(vm->string_class, "equals", prim_equals);
+    sol_object_define_primitive(vm->string_class, "size",   prim_string_size);
+    sol_object_define_primitive(vm->string_class, "concat", prim_string_concat);
+    sol_object_define_primitive(vm->string_class, "at",     prim_string_at);
+
     /* Bind the class objects into the globals namespace so `integer` resolves. */
     sol_object_define(vm->root, "integer", SOL_OBJ_VAL(vm->integer_class));
     sol_object_define(vm->root, "float",   SOL_OBJ_VAL(vm->float_class));
     sol_object_define(vm->root, "array",   SOL_OBJ_VAL(vm->array_class));
+    sol_object_define(vm->root, "string",  SOL_OBJ_VAL(vm->string_class));
     sol_object_define(vm->root, "nil",     SOL_NIL_VAL);
     sol_object_define(vm->root, "true",    SOL_BOOL_VAL(true));
     sol_object_define(vm->root, "false",   SOL_BOOL_VAL(false));

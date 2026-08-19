@@ -8,6 +8,37 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### Strings — `pending`, 2026-08-19
+
+```
+s := "hello".
+s:concat(", world"):print.        ; "hello, world"
+"hi":equals("hi"):print.          ; true
+["ada", "grace"]:collect({ n | n:concat("!") }).
+```
+
+`SolString` and the `string` class: `print`, `size`, `equals`, `concat`, `at`.
+
+- **Immutable, and therefore a value rather than a reference.** `equals` compares
+  characters, where an array compares identity. That completes the split the
+  language already had: numbers and strings are values, objects and blocks and
+  arrays are references.
+- One-based `at`, answering a one-character string since there is no character
+  type. Strict `concat`: joining a string to a number is an error, not a
+  conversion.
+- Printed as it would be written — `"hello"`, not `hello` — the way `#45` prints
+  as `#45`.
+- **No `.sob` change was needed after all.** A literal's bytes ride in the chunk's
+  interned text table beside selectors and global names, and `OP_STRING` builds
+  the string at run time — which is also how the compiler emits one without
+  having a VM to allocate in. Only the opcode set changed, so the format went to
+  version 5.
+- A string holds bytes, not values, so it has no outgoing edges for the collector
+  — the difference from an array that made arrays the better first heap type.
+
+Left open, each independent: escape sequences, interning, ordering, and
+conversions to and from numbers.
+
 ### collect and select — `b9b9702`, 2026-08-19
 
 ```

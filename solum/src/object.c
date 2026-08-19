@@ -82,6 +82,27 @@ SolArray *sol_array_new(SolVM *vm, int capacity)
     return array;
 }
 
+SolString *sol_string_new(SolVM *vm, const char *chars, int length)
+{
+    sol_gc_maybe_collect(vm);
+
+    SolString *string = malloc(sizeof(SolString));
+    char *copy = malloc((size_t)length + 1);
+    if (string == NULL || copy == NULL) {
+        fprintf(stderr, "solum: out of memory\n");
+        exit(1);
+    }
+    memcpy(copy, chars, (size_t)length);
+    copy[length] = '\0';
+
+    string->length = length;
+    string->chars = copy;
+
+    sol_gc_register(vm, &string->gc, SOL_GC_STRING,
+                    sizeof(SolString) + (size_t)length + 1);
+    return string;
+}
+
 void sol_array_add(SolVM *vm, SolArray *array, SolValue value)
 {
     if (array->capacity < array->count + 1) {

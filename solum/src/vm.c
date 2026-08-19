@@ -1,6 +1,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "solum/gc.h"
 #include "solum/vm.h"
@@ -28,6 +29,7 @@ void sol_vm_init(SolVM *vm)
     vm->bool_class = NULL;
     vm->block_class = NULL;
     vm->array_class = NULL;
+    vm->string_class = NULL;
 
     vm->heap = NULL;
     vm->bytes_allocated = 0;
@@ -57,6 +59,7 @@ void sol_vm_free(SolVM *vm)
     vm->bool_class = NULL;
     vm->block_class = NULL;
     vm->array_class = NULL;
+    vm->string_class = NULL;
     reset_stack(vm);
 }
 
@@ -87,6 +90,7 @@ SolObject *sol_vm_class_of(SolVM *vm, SolValue value)
     case SOL_BOOL:  return vm->bool_class;
     case SOL_BLOCK: return vm->block_class;
     case SOL_ARRAY: return vm->array_class;
+    case SOL_STRING: return vm->string_class;
     case SOL_OBJ:   return SOL_AS_OBJ(value);   /* the object answers for itself */
     }
     return NULL;
@@ -101,6 +105,7 @@ const char *sol_type_name(SolValue value)
     case SOL_BOOL:  return "boolean";
     case SOL_BLOCK: return "block";
     case SOL_ARRAY: return "array";
+    case SOL_STRING: return "string";
     case SOL_OBJ:   return "object";
     }
     return "?";
@@ -298,6 +303,16 @@ static SolResult run_frames(SolVM *vm, int base)
             SolValue *slots = outer_slots(vm, frame, depth);
             if (slots == NULL) break;
             slots[slot] = vm->stack_top[-1];
+            break;
+        }
+
+        case OP_STRING: {
+            /* The literal's bytes live in the chunk's interned text, so the
+               string is built fresh here. Immutability makes that only a cost,
+               never a semantic difference -- see the roadmap on interning. */
+            const char *text = READ_NAME();
+            sol_vm_push(vm, SOL_STRING_VAL(
+                sol_string_new(vm, text, (int)strlen(text))));
             break;
         }
 

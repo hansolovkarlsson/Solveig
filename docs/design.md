@@ -77,6 +77,12 @@ Smalltalk lineage, prototype flavour:
 - Slot lookup walks the proto chain and terminates at the root Object, which
   doubles as the globals namespace where class objects like `integer` live.
 
+Values and references divide on mutability. Numbers and strings are immutable,
+so they are values: two of them are equal when they say the same thing, and
+sharing is always safe. Objects, blocks, and arrays can change, so they are
+references: two of them are equal only when they are the same one, and `a := b`
+makes two names for one thing.
+
 Numbers are immutable values. `a := #45` binds the name `a` to the integer 45;
 nothing can mutate 45 itself, and rebinding `a` affects only `a`. Mutable state
 lives in object *slots* instead, so `p:x_set(#3)` is visible to every name
@@ -427,6 +433,26 @@ variables to the heap, Solum takes two cheaper measures:
 Real closures would need the captured slots moved to the heap when a frame
 dies. That is the upgrade path; the id check is what makes the current
 restriction safe rather than silently wrong.
+
+## Strings
+
+Immutable, and therefore values rather than references: `equals` compares
+characters, the way it does for numbers, where an array compares identity.
+Nothing can mutate a string, so sharing one is always safe.
+
+A literal needs no constant tag in `.sob`. Its bytes live in the chunk's interned
+text table beside selectors and global names, and `OP_STRING` builds a string
+from them at run time -- which is also why the compiler can emit one without
+having a VM to allocate in. A literal whose bytes match a selector shares one
+entry with it, harmlessly.
+
+Building the string at run time rather than caching it means a literal in a loop
+allocates once per pass. Immutability makes that purely a cost; interning would
+remove it, and would give selector dispatch the same mechanism, but wants a weak
+table so interned strings can still die.
+
+There are no escape sequences yet, so a string cannot contain a `"`. A literal
+newline between the quotes does work, since the scanner counts lines as it goes.
 
 ## Garbage collection
 

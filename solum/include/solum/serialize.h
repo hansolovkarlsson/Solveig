@@ -36,7 +36,7 @@
 #include "solum/bytecode.h"
 
 #define SOL_SOB_MAGIC   "SOLB"
-#define SOL_SOB_VERSION 4
+#define SOL_SOB_VERSION 5
 
 typedef enum {
     SOL_SER_OK,
