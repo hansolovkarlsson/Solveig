@@ -7,7 +7,7 @@ Each entry names the commit it landed in. Dates are the day the work was done.
 
 ## Unreleased — 0.0.1
 
-### The collector owns compiled code — `pending`, 2026-08-18
+### The collector owns compiled code — `104a5e0`, 2026-08-18
 
 Solis no longer retains every line's chunk. Over 60,000 REPL lines, peak resident
 set went from **25.5 MB growing linearly to 1.9 MB flat**.
