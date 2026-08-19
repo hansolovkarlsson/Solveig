@@ -46,43 +46,79 @@ against the commit before each change:
 
 #### 1.1c Temporary roots inside primitives
 
-The mechanism exists — `sol_gc_push_temp` / `sol_gc_pop_temp`, used by Solis to
-protect a fresh code cell across compilation. What remains is applying it inside
-primitives, which only matters once one of them allocates.
-
-Today none do: the sole allocation reachable from running code is
-`sol_block_new` at `OP_BLOCK`, where everything live is already on the stack or in
-globals. Strings end that, because concatenation allocates while holding
-intermediates in C locals the collector cannot see. Build it with 1.2 rather than
-before it.
+The mechanism exists and Solis uses it; no primitive allocates yet, so nothing
+applies it. Arrays are what change that -- see [1.2a](#12a-temporary-roots-finally-needed--was-11c).
 
 #### 1.1d Collection is stop-the-world and non-incremental
 
 Fine at this size and not worth touching yet. Noted so it is a choice rather than
 an oversight: a program holding a large live set will pause proportionally to it.
 
-### 1.2 Strings
+### 1.2 Arrays
+
+The next thing to build. Nothing in the language can hold more than one value, so
+no program can accumulate a result.
+
+Arrays come before strings deliberately, for a reason that only became clear once
+the collector existed: **an array holds `SolValue`s, so the tracer gains a real
+outgoing edge**. A string holds bytes and has none. Arrays therefore exercise the
+collector in a way strings cannot, and they are the first thing that can hold a
+reference the collector must not lose.
+
+What it needs:
+
+- A `SolArray` heap type -- header, count, capacity, and a `SolValue *` backing
+  store -- joining the heap by embedding `SolGCHeader`, and a `SOL_ARRAY` value
+  tag. Tracing marks every element; sweeping frees the backing store.
+- An `array` class with `new`, `size`, `at`, `at_put`, `add`, and `do`.
+- Growth by amortised doubling, the same shape the chunk arrays already use.
+- Strictness carried through: an index must be an integer, and out of bounds is an
+  error rather than nil, matching how overflow and mixed arithmetic behave.
+
+Reference semantics, like objects: `a := b` makes two names for one array, and
+mutating through either is visible to both. That is already the established split
+-- numbers are values, objects are references -- so it needs no new rule.
+
+No `.sob` change. Arrays are mutable, so they are built at run time rather than
+stored as constants.
+
+Depends on nothing outstanding. Block parameters are already in place for `do`,
+and the collector already handles everything except the new type.
+
+#### 1.2a Temporary roots, finally needed — was 1.1c
+
+`sol_gc_push_temp` / `sol_gc_pop_temp` exist and Solis uses them. Arrays are what
+force them into primitives, and precisely which ones is worth being exact about:
+
+- `do` does not need them. The array is the receiver, so it is on the stack and
+  already rooted for the whole call.
+- `collect` and `select` do. They allocate a result array, then call a block per
+  element -- and that block can allocate. The result is held only in a C local
+  across those calls, which is exactly the case the tracer cannot see.
+
+Build them with whichever of those lands first.
+
+### 1.3 Strings
 
 `"hello"` scans to a token and the compiler rejects it with a clear message.
-Making it real means the first heap-allocated value with contents, which is what
-makes 1.1 matter rather than merely accrue. Needs interning or not (decide),
-`print`, concatenation, comparison, and a constant tag in `.sob`.
+Simpler than arrays now that arrays have gone first: a string holds bytes, so it
+adds a heap type but no new tracing edge. Needs `print`, concatenation,
+comparison, and a constant tag in `.sob`, since unlike an array a string literal
+*is* a constant.
 
-### 1.3 User-defined classes
+Whether strings are interned is an open choice. Interning makes equality a
+pointer compare and would let 4.3 use the same mechanism for selectors.
+
+### 1.4 User-defined classes
 
 Slots can only be added to the built-ins. Nothing in the language creates a new
 object with slots of its own, so `point:new(#3, #4)` is out of reach. Needs a
 primitive that makes an object with a given proto, and a decision about how a
-class is spelled — probably just an object bound to a global, given how far
+class is spelled -- probably just an object bound to a global, given how far
 `obj:name := value` already goes.
 
-### 1.4 Collections and an iteration protocol
-
-There are no arrays or lists at all. Block parameters exist and no built-in
-protocol uses them yet — `do:`-style iteration is the obvious first customer.
-Depends on 1.1 and 1.3.
-
----
+Moved after arrays: arrays are useful on their own, whereas a user-defined class
+with nowhere to put a collection of instances is less so.
 
 ## 2. Language decisions still open
 
@@ -104,18 +140,35 @@ a missing terminator can never be caught. Making it required is a one-line
 change; leaving it optional is fine too, but it should be a choice rather than an
 accident.
 
-### 2.3 Class side versus instance side
+### 2.3 Array indexing base — **decision**
+
+Zero-based (C, most things) or one-based (Smalltalk, Lua)? Zero fits the
+"quite low level" leaning; one fits the Smalltalk lineage the object model came
+from. It has to be settled before `at` is written, because every later collection
+inherits it.
+
+### 2.4 Array literal syntax — **decision**
+
+`[` and `]` are unused, so `[#1, #2, #3]` is available and reads naturally
+alongside `{ }` for blocks and `( )` for grouping. The alternative is
+messages only -- `array:new` then `add` -- which needs no syntax at all but makes
+a literal three lines.
+
+Sugar either way: a literal would compile to an `OP_ARRAY` taking a count and
+popping that many values, which is one more one-byte operand (4.2).
+
+### 2.5 Class side versus instance side
 
 `integer` holds both `new` and `print` in one object, so `#45:new(#1)` resolves as
 readily as `integer:new(#1)`. Separating them needs a metaclass level. Also
 uneven today: `integer` has `new` and `float` does not.
 
-### 2.4 Symbols
+### 2.6 Symbols
 
 `'foo` scans to a token and has no runtime type. Wanted for reflection and any
 `perform:`-style dynamic send. Cheap once strings exist.
 
-### 2.5 Missing operations
+### 2.7 Missing operations
 
 Small, mechanical, and worth doing in one pass once 2.1 settles the numeric
 questions:
@@ -248,13 +301,20 @@ text would make compile errors considerably more useful.
 
 ## Suggested order
 
-1. **Strings** (1.2) — the first real heap value with contents, and the thing
-   that genuinely proves the collector. Brings 1.1c with it.
-2. **User-defined classes** (1.3), then **collections** (1.4) — together these are
-   what make the language able to hold a data structure.
-3. **Division** (2.1) and the **missing operations** (2.5) — small, and they make
+1. **Arrays** (1.2) — nothing can hold more than one value today, so no program
+   can accumulate a result. They also exercise the collector harder than strings
+   would, since an array's elements are a tracing edge and a string's bytes are
+   not. Brings temporary roots (1.2a) with them.
+2. **Strings** (1.3) — simpler once arrays have gone first, and the point at
+   which `.sob` gains a constant tag.
+3. **User-defined classes** (1.4) — more useful once there is somewhere to keep a
+   collection of instances.
+4. **Division** (2.1) and the **missing operations** (2.7) — small, and they make
    the language usable for arithmetic-shaped programs.
-4. Everything else as it starts to hurt.
+5. Everything else as it starts to hurt.
 
-Garbage collection (1.1) led this list and is done apart from 1.1c, which is
-deliberately deferred to land with strings.
+Garbage collection (1.1) led this list and is done apart from 1.1c, which now
+lands with arrays.
+
+Two decisions gate the start of arrays: the **indexing base** (2.3) and whether
+they get a **literal syntax** (2.4).
