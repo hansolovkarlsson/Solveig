@@ -66,9 +66,29 @@ struct SolBlock {
     uint64_t         home_id;
 };
 
+/* A growable array of values.
+ *
+ * Indices are one-based everywhere they are visible from Solum: an index is an
+ * ordinal, not an offset into anything. `items` is a plain C array underneath,
+ * so the translation happens at the boundary and nowhere else. */
+struct SolArray {
+    SolGCHeader gc;
+    int         count;
+    int         capacity;
+    SolValue   *items;
+};
+
 SolObject *sol_object_new(SolVM *vm, SolObject *proto);
 SolBlock  *sol_block_new(SolVM *vm, const SolMethod *code, SolValue self,
                          int home_frame, uint64_t home_id);
+
+/* An empty array with room for `capacity` values, which may be zero. */
+SolArray *sol_array_new(SolVM *vm, int capacity);
+
+/* Appends, growing by doubling. Takes the VM so the growth is charged to the
+   collection threshold: a backing store that grew without the collector knowing
+   would never itself trigger a collection. */
+void sol_array_add(SolVM *vm, SolArray *array, SolValue value);
 
 /* Slot access. Lookup walks the proto chain; define always writes locally. */
 SolSlot *sol_object_lookup(SolObject *obj, const char *name);

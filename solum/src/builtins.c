@@ -135,6 +135,10 @@ static SolValue prim_equals(SolVM *vm, SolValue self, SolValue *args, int argc)
     case SOL_INT:   return SOL_BOOL_VAL(SOL_AS_INT(self) == SOL_AS_INT(other));
     case SOL_FLOAT: return SOL_BOOL_VAL(SOL_AS_FLOAT(self) == SOL_AS_FLOAT(other));
     case SOL_BLOCK: return SOL_BOOL_VAL(SOL_AS_BLOCK(self) == SOL_AS_BLOCK(other));
+    /* Identity, like objects and blocks. Two arrays with equal elements are two
+       arrays; comparing contents is a different question and deserves its own
+       name rather than quietly changing what `equals` means. */
+    case SOL_ARRAY: return SOL_BOOL_VAL(SOL_AS_ARRAY(self) == SOL_AS_ARRAY(other));
     case SOL_OBJ:   return SOL_BOOL_VAL(SOL_AS_OBJ(self) == SOL_AS_OBJ(other));
     }
     return SOL_BOOL_VAL(false);
@@ -223,6 +227,104 @@ static SolValue prim_while_true(SolVM *vm, SolValue self, SolValue *args, int ar
     }
 }
 
+/* ---- array ------------------------------------------------------------- */
+
+/* Indices are one-based: an index is an ordinal, not an offset. The translation
+   to the backing store happens here and nowhere else. */
+static bool array_index(SolVM *vm, const char *name, const SolArray *array,
+                        SolValue index, int *out)
+{
+    if (!SOL_IS_INT(index)) {
+        sol_vm_runtime_error(vm, "'%s' expects an integer index, got %s",
+                             name, sol_type_name(index));
+        return false;
+    }
+
+    int64_t i = SOL_AS_INT(index);
+    if (i < 1 || i > array->count) {
+        sol_vm_runtime_error(vm, "index #%lld is out of bounds for an array of size %d",
+                             (long long)i, array->count);
+        return false;
+    }
+    *out = (int)(i - 1);
+    return true;
+}
+
+static SolValue prim_array_new(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self; (void)args;
+    if (!check_argc(vm, "new", argc, 0)) return SOL_NIL_VAL;
+    return SOL_ARRAY_VAL(sol_array_new(vm, 0));
+}
+
+/* `array:of(#1, #2, #3)` -- what `[#1, #2, #3]` will be sugar for. Variadic, so
+   there is no arity to check. */
+static SolValue prim_array_of(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    SolArray *array = sol_array_new(vm, argc);
+    /* The arguments are still on the value stack while this runs, so they are
+       rooted; nothing allocates between here and the last copy. */
+    for (int i = 0; i < argc; i++) sol_array_add(vm, array, args[i]);
+    return SOL_ARRAY_VAL(array);
+}
+
+static SolValue prim_array_size(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "size", argc, 0)) return SOL_NIL_VAL;
+    return SOL_INT_VAL(SOL_AS_ARRAY(self)->count);
+}
+
+static SolValue prim_array_at(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "at", argc, 1)) return SOL_NIL_VAL;
+
+    SolArray *array = SOL_AS_ARRAY(self);
+    int index;
+    if (!array_index(vm, "at", array, args[0], &index)) return SOL_NIL_VAL;
+    return array->items[index];
+}
+
+static SolValue prim_array_at_put(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "at_put", argc, 2)) return SOL_NIL_VAL;
+
+    SolArray *array = SOL_AS_ARRAY(self);
+    int index;
+    if (!array_index(vm, "at_put", array, args[0], &index)) return SOL_NIL_VAL;
+    array->items[index] = args[1];
+    return args[1];                 /* answers the value stored, as `:=` does */
+}
+
+/* Answers the array, so `a:add(#1):add(#2)` chains. Smalltalk answers the added
+   element instead, but it has cascades for this and Solum does not -- `;` is a
+   comment here. */
+static SolValue prim_array_add(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "add", argc, 1)) return SOL_NIL_VAL;
+    sol_array_add(vm, SOL_AS_ARRAY(self), args[0]);
+    return self;
+}
+
+static SolValue prim_array_do(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "do", argc, 1)) return SOL_NIL_VAL;
+
+    SolArray *array = SOL_AS_ARRAY(self);
+
+    /* The block may grow the array, which reallocates the backing store, so the
+       count is bounded once at the start and `items` is re-read every pass. The
+       receiver is on the stack throughout, so the array itself stays rooted. */
+    int limit = array->count;
+    for (int i = 0; i < limit; i++) {
+        if (i >= array->count) break;          /* it shrank underneath us */
+        sol_vm_call_block(vm, args[0], &array->items[i], 1);
+        if (vm->had_error) return SOL_NIL_VAL;
+    }
+    return self;
+}
+
 /* ---- installation ---------------------------------------------------- */
 
 void sol_builtins_install(SolVM *vm)
@@ -267,9 +369,21 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define_primitive(vm->block_class, "value",     prim_value);
     sol_object_define_primitive(vm->block_class, "whileTrue", prim_while_true);
 
+    vm->array_class = sol_object_new(vm, NULL);
+    sol_object_define_primitive(vm->array_class, "new",    prim_array_new);
+    sol_object_define_primitive(vm->array_class, "of",     prim_array_of);
+    sol_object_define_primitive(vm->array_class, "size",   prim_array_size);
+    sol_object_define_primitive(vm->array_class, "at",     prim_array_at);
+    sol_object_define_primitive(vm->array_class, "at_put", prim_array_at_put);
+    sol_object_define_primitive(vm->array_class, "add",    prim_array_add);
+    sol_object_define_primitive(vm->array_class, "do",     prim_array_do);
+    sol_object_define_primitive(vm->array_class, "print",  prim_print);
+    sol_object_define_primitive(vm->array_class, "equals", prim_equals);
+
     /* Bind the class objects into the globals namespace so `integer` resolves. */
     sol_object_define(vm->root, "integer", SOL_OBJ_VAL(vm->integer_class));
     sol_object_define(vm->root, "float",   SOL_OBJ_VAL(vm->float_class));
+    sol_object_define(vm->root, "array",   SOL_OBJ_VAL(vm->array_class));
     sol_object_define(vm->root, "nil",     SOL_NIL_VAL);
     sol_object_define(vm->root, "true",    SOL_BOOL_VAL(true));
     sol_object_define(vm->root, "false",   SOL_BOOL_VAL(false));

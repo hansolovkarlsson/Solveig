@@ -8,6 +8,35 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### Arrays — `pending`, 2026-08-19
+
+Nothing in the language could hold more than one value, so no program could
+accumulate a result.
+
+```
+a := array:of(#10, #20, #30).
+a:at(#1):print.              ; #10 -- indices are one-based
+
+b := array:new.
+b:add(#1):add(#2):add(#3).   ; add answers the array, so it chains
+b:do({ e | sum := sum:add(e) }).
+```
+
+- A `SolArray` heap type joins the collector, and **every element is a tracing
+  edge** — the reason arrays were built before strings, whose bytes are not.
+- One-based indices: an index is an ordinal, not an offset. `at(#0)` is out of
+  bounds and therefore caught rather than silently off by one.
+- Strictness carried through: an index must be an integer, and out of range is an
+  error rather than nil.
+- Arrays are references, like objects. `equals` is identity; comparing contents
+  is a different question and will get its own name.
+- `do` bounds the count once and re-reads the backing store each pass, since the
+  block may grow the array and move the store underneath it.
+- Printing is depth-limited, because `a:add(a)` is legal.
+- No `.sob` change: an array is built at run time, never pooled as a constant.
+
+Still to come: the `[...]` literal sugar, and `collect`/`select`.
+
 ### Roadmap audit — `470c6d3`, 2026-08-18
 
 No code change. Audited the roadmap against the source and against everything

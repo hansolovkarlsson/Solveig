@@ -27,6 +27,7 @@ void sol_vm_init(SolVM *vm)
     vm->nil_class = NULL;
     vm->bool_class = NULL;
     vm->block_class = NULL;
+    vm->array_class = NULL;
 
     vm->heap = NULL;
     vm->bytes_allocated = 0;
@@ -55,6 +56,7 @@ void sol_vm_free(SolVM *vm)
     vm->nil_class = NULL;
     vm->bool_class = NULL;
     vm->block_class = NULL;
+    vm->array_class = NULL;
     reset_stack(vm);
 }
 
@@ -84,6 +86,7 @@ SolObject *sol_vm_class_of(SolVM *vm, SolValue value)
     case SOL_NIL:   return vm->nil_class;
     case SOL_BOOL:  return vm->bool_class;
     case SOL_BLOCK: return vm->block_class;
+    case SOL_ARRAY: return vm->array_class;
     case SOL_OBJ:   return SOL_AS_OBJ(value);   /* the object answers for itself */
     }
     return NULL;
@@ -97,6 +100,7 @@ const char *sol_type_name(SolValue value)
     case SOL_NIL:   return "nil";
     case SOL_BOOL:  return "boolean";
     case SOL_BLOCK: return "block";
+    case SOL_ARRAY: return "array";
     case SOL_OBJ:   return "object";
     }
     return "?";

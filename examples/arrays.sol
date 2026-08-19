@@ -1,0 +1,46 @@
+; Arrays hold values. Indices are one-based: an index is an ordinal, not an
+; offset into anything.
+; Run with:  ./bin/solas examples/arrays.sol && ./bin/solum examples/arrays.sob
+
+a := array:of(#10, #20, #30).
+a:print.                     ; [#10, #20, #30]
+a:size:print.                ; #3
+a:at(#1):print.              ; #10  -- the first element
+a:at(#3):print.              ; #30
+
+; add answers the array, so it chains.
+b := array:new.
+b:add(#1):add(#2):add(#3).
+b:print.                     ; [#1, #2, #3]
+
+; at_put replaces in place and answers the value stored, as ':=' does.
+b:at_put(#2, #99).
+b:print.                     ; [#1, #99, #3]
+
+; do runs a block per element, in order.
+sum := #0.
+b:do({ e | sum := sum:add(e) }).
+sum:print.                   ; #103
+
+; Arrays are references, like objects: two names, one array.
+c := b.
+c:at_put(#1, #7).
+b:at(#1):print.              ; #7 -- the change is visible through b
+
+; They nest.
+n := array:of(array:of(#1, #2), array:of(#3)).
+n:print.                     ; [[#1, #2], [#3]]
+n:at(#1):at(#2):print.       ; #2
+
+; A method can build one and answer it.
+integer:upto := { | out, i |
+    out := array:new.
+    i := #1.
+    { i:greaterThan(self):not() }:whileTrue({
+        out:add(i).
+        i := i:add(#1)
+    }).
+    out
+}.
+
+#8:upto:print.               ; [#1, #2, #3, #4, #5, #6, #7, #8]

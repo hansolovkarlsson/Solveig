@@ -56,6 +56,51 @@ SolBlock *sol_block_new(SolVM *vm, const SolMethod *code, SolValue self,
     return block;
 }
 
+SolArray *sol_array_new(SolVM *vm, int capacity)
+{
+    sol_gc_maybe_collect(vm);
+
+    SolArray *array = malloc(sizeof(SolArray));
+    if (array == NULL) {
+        fprintf(stderr, "solum: out of memory\n");
+        exit(1);
+    }
+    array->count = 0;
+    array->capacity = capacity;
+    array->items = NULL;
+
+    if (capacity > 0) {
+        array->items = malloc(sizeof(SolValue) * (size_t)capacity);
+        if (array->items == NULL) {
+            fprintf(stderr, "solum: out of memory\n");
+            exit(1);
+        }
+    }
+
+    sol_gc_register(vm, &array->gc, SOL_GC_ARRAY,
+                    sizeof(SolArray) + sizeof(SolValue) * (size_t)capacity);
+    return array;
+}
+
+void sol_array_add(SolVM *vm, SolArray *array, SolValue value)
+{
+    if (array->capacity < array->count + 1) {
+        int capacity = array->capacity < 8 ? 8 : array->capacity * 2;
+        SolValue *grown = realloc(array->items, sizeof(SolValue) * (size_t)capacity);
+        if (grown == NULL) {
+            fprintf(stderr, "solum: out of memory\n");
+            exit(1);
+        }
+        /* Charge the growth, so an array that grows large enough eventually
+           triggers a collection on its own account. Plain realloc rather than a
+           heap allocation, so nothing can be collected here. */
+        vm->bytes_allocated += sizeof(SolValue) * (size_t)(capacity - array->capacity);
+        array->items = grown;
+        array->capacity = capacity;
+    }
+    array->items[array->count++] = value;
+}
+
 SolSlot *sol_object_lookup(SolObject *obj, const char *name)
 {
     for (SolObject *o = obj; o != NULL; o = o->proto) {

@@ -54,10 +54,13 @@ applies it. Arrays are what change that -- see [1.2a](#12a-temporary-roots-final
 Fine at this size and not worth touching yet. Noted so it is a choice rather than
 an oversight: a program holding a large live set will pause proportionally to it.
 
-### 1.2 Arrays
+### 1.2 Arrays — heap type and class **done**
 
-The next thing to build. Nothing in the language can hold more than one value, so
-no program can accumulate a result.
+The `SolArray` heap type and the `array` class are built: `new`, `of`, `size`,
+`at`, `at_put`, `add`, `do`, `print`, `equals`. Indices are one-based, an index
+must be an integer, and out of bounds is an error. Arrays are references, like
+objects. Still to come: the `[...]` literal sugar (2.4) and `collect`/`select`,
+which bring 1.2a with them.
 
 Arrays come before strings deliberately, for a reason that only became clear once
 the collector existed: **an array holds `SolValue`s, so the tracer gains a real
@@ -65,33 +68,35 @@ outgoing edge**. A string holds bytes and has none. Arrays therefore exercise th
 collector in a way strings cannot, and they are the first thing that can hold a
 reference the collector must not lose.
 
-What it needs:
-
-- A `SolArray` heap type -- header, count, capacity, and a `SolValue *` backing
-  store -- joining the heap by embedding `SolGCHeader`, and a `SOL_ARRAY` value
-  tag. Tracing marks every element; sweeping frees the backing store.
-- An `array` class with `new`, `size`, `at`, `at_put`, `add`, and `do`.
-- Growth by amortised doubling, the same shape the chunk arrays already use.
-- Strictness carried through: an index must be an integer, and out of bounds is an
-  error rather than nil, matching how overflow and mixed arithmetic behave.
-
 Reference semantics, like objects: `a := b` makes two names for one array, and
-mutating through either is visible to both. That is already the established split
--- numbers are values, objects are references -- so it needs no new rule.
+mutating through either is visible to both -- the established split, numbers are
+values and objects are references, so it needed no new rule.
 
-No `.sob` change. Arrays are mutable, so they are built at run time rather than
-stored as constants.
+No `.sob` change. Arrays are mutable, so a literal is a construction rather than
+a pooled constant, and `check_constants` rejects one outright.
 
-Depends on nothing outstanding. Block parameters are already in place for `do`,
-and the collector already handles everything except the new type.
+Three details worth keeping in view:
+
+- `add` answers the array so it chains. Smalltalk answers the added element, but
+  it has cascades for that and Solum does not -- `;` is a comment here.
+- `do` bounds the count once and re-reads the backing store each pass, because
+  the block may grow the array underneath it and move the store.
+- Printing is depth-limited. `a:add(a)` is legal, so the printer cannot assume
+  the structure is finite.
+
+#### 1.2b `[...]` literal sugar
+
+Decided in 2.4 and not yet built. `[#1, #2]` compiles to the bytecode for
+`array:of(#1, #2)`: two lexer tokens and one compiler branch, no new opcode.
 
 #### 1.2a Temporary roots, finally needed — was 1.1c
 
 `sol_gc_push_temp` / `sol_gc_pop_temp` exist and Solis uses them. Arrays are what
 force them into primitives, and precisely which ones is worth being exact about:
 
-- `do` does not need them. The array is the receiver, so it is on the stack and
-  already rooted for the whole call.
+- `do` does not need them, and now that it exists this is confirmed rather than
+  predicted: the array is the receiver, so it is on the stack and rooted for the
+  whole call.
 - `collect` and `select` do. They allocate a result array, then call a block per
   element -- and that block can allocate. The result is held only in a C local
   across those calls, which is exactly the case the tracer cannot see.

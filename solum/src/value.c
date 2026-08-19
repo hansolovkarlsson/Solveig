@@ -1,10 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "solum/value.h"
 #include "solum/object.h"
+#include "solum/value.h"
 
-void sol_value_print(SolValue value)
+/* An array can hold itself -- `a:add(a)` -- so printing is depth-limited rather
+   than trusting the structure to be finite. */
+#define SOL_PRINT_MAX_DEPTH 4
+
+static void print_value(SolValue value, int depth)
 {
     switch (value.type) {
     case SOL_NIL:   printf("nil"); break;
@@ -12,12 +16,28 @@ void sol_value_print(SolValue value)
     case SOL_BLOCK: printf("<block>"); break;
     case SOL_INT:   printf("#%lld", (long long)SOL_AS_INT(value)); break;
     case SOL_FLOAT: printf("%g", SOL_AS_FLOAT(value)); break;
+    case SOL_ARRAY: {
+        const SolArray *array = SOL_AS_ARRAY(value);
+        if (depth >= SOL_PRINT_MAX_DEPTH) { printf("[...]"); break; }
+        printf("[");
+        for (int i = 0; i < array->count; i++) {
+            if (i > 0) printf(", ");
+            print_value(array->items[i], depth + 1);
+        }
+        printf("]");
+        break;
+    }
     case SOL_OBJ:
         /* TODO: send `print` to the object instead of dumping its address,
            once dispatch exists. */
         printf("<object %p>", (void *)SOL_AS_OBJ(value));
         break;
     }
+}
+
+void sol_value_print(SolValue value)
+{
+    print_value(value, 0);
 }
 
 void sol_value_array_init(SolValueArray *array)

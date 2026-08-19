@@ -31,6 +31,7 @@ typedef struct SolVM SolVM;
 typedef enum {
     SOL_GC_OBJECT,
     SOL_GC_BLOCK,
+    SOL_GC_ARRAY,
     SOL_GC_CODE     /* a compiled chunk tree; see SolCode in bytecode.h */
 } SolGCType;
 

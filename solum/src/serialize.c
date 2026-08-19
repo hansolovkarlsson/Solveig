@@ -56,7 +56,11 @@ static SolSerResult check_constants(const SolChunk *chunk)
 {
     for (int i = 0; i < chunk->constants.count; i++) {
         SolValueType type = chunk->constants.values[i].type;
-        if (type == SOL_OBJ || type == SOL_BLOCK) return SOL_SER_UNSUPPORTED;
+        /* Arrays are mutable and built at run time, so a literal is a
+           construction rather than a pooled constant. */
+        if (type == SOL_OBJ || type == SOL_BLOCK || type == SOL_ARRAY) {
+            return SOL_SER_UNSUPPORTED;
+        }
     }
     for (int i = 0; i < chunk->methods.count; i++) {
         SolSerResult result = check_constants(&chunk->methods.methods[i]->chunk);
@@ -114,6 +118,7 @@ static void write_chunk_body(FILE *f, const SolChunk *chunk)
             fputc(SOL_AS_BOOL(value) ? 1 : 0, f);
             break;
         case SOL_BLOCK:
+        case SOL_ARRAY:
         case SOL_OBJ:
             break;      /* rejected by check_constants before we get here */
         }

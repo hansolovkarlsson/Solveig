@@ -56,6 +56,10 @@ static size_t chunk_size(const SolChunk *chunk)
 static size_t cell_size(const SolGCHeader *header)
 {
     if (header->type == SOL_GC_BLOCK) return sizeof(SolBlock);
+    if (header->type == SOL_GC_ARRAY) {
+        const SolArray *array = (const SolArray *)header;
+        return sizeof(SolArray) + sizeof(SolValue) * (size_t)array->capacity;
+    }
     if (header->type == SOL_GC_CODE) {
         return sizeof(SolCode) + chunk_size(&((const SolCode *)header)->chunk);
     }
@@ -119,6 +123,7 @@ static void mark_value(SolVM *vm, SolValue value)
 {
     if (SOL_IS_OBJ(value))        mark_cell(vm, (SolGCHeader *)SOL_AS_OBJ(value));
     else if (SOL_IS_BLOCK(value)) mark_cell(vm, (SolGCHeader *)SOL_AS_BLOCK(value));
+    else if (SOL_IS_ARRAY(value)) mark_cell(vm, (SolGCHeader *)SOL_AS_ARRAY(value));
 }
 
 /* A chunk's constants can hold heap values, so a live code tree keeps them
@@ -155,6 +160,13 @@ static void blacken(SolVM *vm, SolGCHeader *header)
         return;
     }
 
+    if (header->type == SOL_GC_ARRAY) {
+        /* The reason arrays came before strings: every element is an edge. */
+        const SolArray *array = (const SolArray *)header;
+        for (int i = 0; i < array->count; i++) mark_value(vm, array->items[i]);
+        return;
+    }
+
     if (header->type == SOL_GC_CODE) {
         mark_chunk_constants(vm, &((SolCode *)header)->chunk);
         return;
@@ -184,6 +196,7 @@ static void mark_roots(SolVM *vm)
     mark_cell(vm, (SolGCHeader *)vm->nil_class);
     mark_cell(vm, (SolGCHeader *)vm->bool_class);
     mark_cell(vm, (SolGCHeader *)vm->block_class);
+    mark_cell(vm, (SolGCHeader *)vm->array_class);
 }
 
 /* ---- sweeping --------------------------------------------------------- */
@@ -192,6 +205,12 @@ static void free_cell(SolGCHeader *header)
 {
     if (header->type == SOL_GC_CODE) {
         sol_chunk_free(&((SolCode *)header)->chunk);
+        free(header);
+        return;
+    }
+
+    if (header->type == SOL_GC_ARRAY) {
+        free(((SolArray *)header)->items);
         free(header);
         return;
     }

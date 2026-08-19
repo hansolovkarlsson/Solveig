@@ -63,6 +63,7 @@ struct SolVM {
     SolObject *nil_class;
     SolObject *bool_class;
     SolObject *block_class;
+    SolObject *array_class;
 
     bool had_error;
 };
