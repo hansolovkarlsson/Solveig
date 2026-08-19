@@ -266,8 +266,109 @@ static void test_non_finite_floats(void)
     sol_vm_free(&vm);
 }
 
+/* Bases are a message rather than a letter in the format spec: a letter buys one
+   base, a number buys all of them, and nothing in the spec starts looking like
+   printf's conversion character. */
+static void test_as_base(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "a := #255:asBase(#16)."
+        "b := #255:asBase(#2)."
+        "c := #255:asBase(#8)."
+        "d := #-255:asBase(#16)."
+        "e := #0:asBase(#16)."
+        "f := #35:asBase(#36)."
+        "g := #255:asBase(#10).") == SOL_OK);
+    assert(is_text(global(&vm, "a"), "ff"));
+    assert(is_text(global(&vm, "b"), "11111111"));
+    assert(is_text(global(&vm, "c"), "377"));
+    assert(is_text(global(&vm, "d"), "-ff"));
+    assert(is_text(global(&vm, "e"), "0"));
+    assert(is_text(global(&vm, "f"), "z"));
+    assert(is_text(global(&vm, "g"), "255"));
+    sol_chunk_free(&chunk);
+
+    /* Padding comes from the spec, by chaining. */
+    assert(run(&vm, &chunk, "h := #255:asBase(#16):asString(\"08\").") == SOL_OK);
+    assert(is_text(global(&vm, "h"), "000000ff"));
+    sol_chunk_free(&chunk);
+
+    /* The most negative integer has no positive counterpart, so the magnitude is
+       taken unsigned and it converts like any other rather than trapping. */
+    assert(run(&vm, &chunk,
+        "i := #-9223372036854775808:asBase(#16).") == SOL_OK);
+    assert(is_text(global(&vm, "i"), "-8000000000000000"));
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+}
+
+/* asInteger takes the base back, so the pair round-trips. */
+static void test_base_round_trip(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "ok := true."
+        "b := #2."
+        "{ b:lessOrEqual(#36) }:whileTrue({"
+        "    [#255, #-255, #1, #0, #123456789, #-9223372036854775807]:do({ n |"
+        "        n:asBase(b):asInteger(b):equals(n):ifFalse({ ok := false })"
+        "    })."
+        "    b := b:add(#1)"
+        "}).") == SOL_OK);
+    assert(SOL_AS_BOOL(global(&vm, "ok")) == true);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+}
+
+static void test_base_errors(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    const char *bad[] = {
+        "#255:asBase(#1).",
+        "#255:asBase(#37).",
+        "#255:asBase(#0).",
+        "#255:asBase(#-16).",
+        "#255:asBase(16.0).",
+        "#255:asBase(\"16\").",
+        "#255:asBase.",
+        "#255:asBase(#16, #2).",
+        "\"0xff\":asInteger(#16).",   /* the digits alone, no prefix */
+        "\"fg\":asInteger(#16).",
+        "\"2\":asInteger(#2).",       /* not a digit in that base */
+        "\" ff\":asInteger(#16).",
+        "\"\":asInteger(#16).",
+        "\"45\":asInteger(#1).",
+        "\"ff\":asInteger(#16, #2).",
+        "\"ff\":asInteger(16.0).",
+    };
+    for (size_t i = 0; i < sizeof bad / sizeof bad[0]; i++) {
+        assert(run(&vm, &chunk, bad[i]) == SOL_RUNTIME_ERROR);
+        sol_chunk_free(&chunk);
+    }
+
+    /* Base 10 stays the default, so nothing that worked before changes. */
+    assert(run(&vm, &chunk, "a := \"45\":asInteger. b := \"-3\":asInteger.") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "a")) == 45);
+    assert(SOL_AS_INT(global(&vm, "b")) == -3);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
 int main(void)
 {
+    test_as_base();
+    test_base_round_trip();
+    test_base_errors();
     test_printing_keeps_the_value();
     test_rendered_text_compiles_back();
     test_non_finite_floats();

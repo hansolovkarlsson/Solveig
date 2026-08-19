@@ -417,6 +417,7 @@ objects.
 | `lessOrEqual(n)` `greaterOrEqual(n)` | a boolean |
 | `asFloat` | a float; loses precision above 2^53 |
 | `asString` | the digits, without the `#` |
+| `asBase(#n)` | the digits in base `n`, 2 to 36, as a string |
 
 `#-7:div(#2)` is `#-4` and `#-7:mod(#2)` is `#1`: division floors, so the
 remainder takes the divisor's sign and stays in `[0, n)` for positive `n`.
@@ -446,6 +447,7 @@ Dividing by zero answers `infinity` rather than erring.
 | `lessThan(s)` `greaterThan(s)` | a boolean, comparing characters |
 | `lessOrEqual(s)` `greaterOrEqual(s)` | a boolean |
 | `asInteger` `asFloat` | strict: the whole string must be a number |
+| `asInteger(#n)` | reads base `n`, 2 to 36; the digits alone, no `0x` |
 | `asString` | itself |
 | `asString(spec)` | padded text; see the spec below |
 
@@ -459,6 +461,17 @@ exactly — too few and too many are both errors.
 ```
 
 Parsing is strict at both ends: `" 45"` and `"45 "` are errors, not `45`.
+
+Bases go through `asBase` and `asInteger(#n)` rather than a letter in the format
+spec, so one message covers every base from 2 to 36 and nothing in the spec
+starts looking like a conversion character. Digits above nine are lowercase, and
+padding comes from the spec by chaining:
+
+```
+#255:asBase(#16)                    ; "ff"
+#255:asBase(#16):asString("08")     ; "000000ff"
+"ff":asInteger(#16)                 ; #255
+```
 
 ### array
 

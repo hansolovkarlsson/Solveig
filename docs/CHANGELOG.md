@@ -8,6 +8,32 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### Integer bases — `pending`, 2026-08-19
+
+```
+#255:asBase(#16)                    ; "ff"
+#255:asBase(#2)                     ; "11111111"
+#255:asBase(#16):asString("08")     ; "000000ff"
+"ff":asInteger(#16)                 ; #255
+```
+
+**A message, not a letter in the format spec.** The roadmap had sketched
+`#255:asString("x")`, which is exactly what the spec was designed without — a
+letter that looks like printf's conversion character and invites a reader to try
+`f` and `d`. A number covers every base from 2 to 36 where a letter covers one,
+and padding still comes from the spec by chaining.
+
+- The most negative integer converts like any other. Its magnitude is taken
+  unsigned, so there is no negation to overflow.
+- `asInteger(#n)` reads it back, and every base round-trips — there is a test
+  walking 2 through 36 over a set of values including `INT64_MIN + 1`.
+- Strict: no `0x` prefix, no leading whitespace, and a digit outside the base is
+  an error rather than a truncated parse. `strtoll` would have accepted the first
+  two.
+- Digits above nine are lowercase. Uppercase hex wants `asUppercase` on strings,
+  which is a more general thing to have than a second base message, and is now
+  the noted gap.
+
 ### Digit grouping in format specs — `95074c9`, 2026-08-19
 
 ```

@@ -636,6 +636,64 @@ static SolValue prim_float_rounded(SolVM *vm, SolValue self, SolValue *args, int
 static SolValue prim_float_truncated(SolVM *vm, SolValue self, SolValue *args, int argc)
 { (void)args; return float_rounding(vm, "truncated", self, argc, trunc); }
 
+/* `#255:asBase(#16)` -- the digits of an integer in another base, as a string.
+ *
+ * A message rather than a letter in the format spec. A letter would look like
+ * printf's conversion character, which the spec was designed without, and would
+ * invite a reader to try `f` and `d`; and one letter buys one base, where a
+ * number buys all of them. Padding still comes from the spec, by chaining:
+ *
+ *     #255:asBase(#16):asString("08")   ->  "000000ff"
+ *
+ * Digits above nine are lowercase. Uppercase would want a case message on
+ * strings, which is a more general thing to have than a second base message.
+ */
+#define SOL_BASE_MIN 2
+#define SOL_BASE_MAX 36
+
+static bool base_from(SolVM *vm, const char *name, SolValue value, int *out)
+{
+    if (!SOL_IS_INT(value)) {
+        sol_vm_runtime_error(vm, "'%s' expects an integer base, got %s",
+                             name, sol_type_name(value));
+        return false;
+    }
+    int64_t base = SOL_AS_INT(value);
+    if (base < SOL_BASE_MIN || base > SOL_BASE_MAX) {
+        sol_vm_runtime_error(vm, "'%s' expects a base between %d and %d, got #%lld",
+                             name, SOL_BASE_MIN, SOL_BASE_MAX, (long long)base);
+        return false;
+    }
+    *out = (int)base;
+    return true;
+}
+
+static SolValue prim_integer_as_base(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "asBase", argc, 1)) return SOL_NIL_VAL;
+    int base;
+    if (!base_from(vm, "asBase", args[0], &base)) return SOL_NIL_VAL;
+
+    /* The magnitude is taken unsigned, so the most negative integer -- which has
+       no positive counterpart -- converts like any other rather than trapping. */
+    int64_t value = SOL_AS_INT(self);
+    bool negative = value < 0;
+    uint64_t magnitude = negative ? (uint64_t)(-(value + 1)) + 1u : (uint64_t)value;
+
+    char digits[70];                    /* 64 binary digits, a sign, a NUL */
+    int n = 0;
+    do {
+        int digit = (int)(magnitude % (uint64_t)base);
+        digits[n++] = (char)(digit < 10 ? '0' + digit : 'a' + digit - 10);
+        magnitude /= (uint64_t)base;
+    } while (magnitude != 0);
+    if (negative) digits[n++] = '-';
+
+    char text[70];
+    for (int i = 0; i < n; i++) text[i] = digits[n - 1 - i];
+    return string_from(vm, text, n);
+}
+
 /* Parsing the other way. Strict: the whole string has to be a number and nothing
    else, so "12abc", "", " 45" and "45 " are all errors rather than 12, 0, 45 and
    45. strtoll and strtod skip leading whitespace of their own accord, which
@@ -648,16 +706,37 @@ static bool parsed_cleanly(const SolString *string, const char *end)
 }
 static SolValue prim_string_as_integer(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
-    (void)args;
-    if (!check_argc(vm, "asInteger", argc, 0)) return SOL_NIL_VAL;
+    int base = 10;
+    if (argc == 1) {
+        if (!base_from(vm, "asInteger", args[0], &base)) return SOL_NIL_VAL;
+    } else if (argc != 0) {
+        sol_vm_runtime_error(vm, "'asInteger' takes no argument or a base, got %d", argc);
+        return SOL_NIL_VAL;
+    }
 
     const SolString *string = SOL_AS_STRING(self);
+
+    /* strtoll would accept a 0x prefix in base 16 and a leading 0 in base 8.
+       Neither is written here, so neither is accepted -- the string is the
+       digits and nothing else. */
+    if (base == 16 && string->length > 1 && string->chars[0] == '0' &&
+        (string->chars[1] == 'x' || string->chars[1] == 'X')) {
+        sol_vm_runtime_error(vm, "'%s' is not a base 16 integer; write the digits alone",
+                             string->chars);
+        return SOL_NIL_VAL;
+    }
+
     char *end;
     errno = 0;
-    long long value = strtoll(string->chars, &end, 10);
+    long long value = strtoll(string->chars, &end, base);
 
     if (!parsed_cleanly(string, end)) {
-        sol_vm_runtime_error(vm, "'%s' is not an integer", string->chars);
+        if (base == 10) {
+            sol_vm_runtime_error(vm, "'%s' is not an integer", string->chars);
+        } else {
+            sol_vm_runtime_error(vm, "'%s' is not an integer in base %d",
+                                 string->chars, base);
+        }
         return SOL_NIL_VAL;
     }
     if (errno == ERANGE) {
@@ -1328,6 +1407,7 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define_primitive(vm->integer_class, "div",   prim_integer_div);
     sol_object_define_primitive(vm->integer_class, "mod",   prim_integer_mod);
     sol_object_define_primitive(vm->integer_class, "asFloat",  prim_integer_as_float);
+    sol_object_define_primitive(vm->integer_class, "asBase",   prim_integer_as_base);
     sol_object_define_primitive(vm->integer_class, "asString", prim_integer_as_string);
     sol_object_define_primitive(vm->integer_class, "negated", prim_integer_negated);
     sol_object_define_primitive(vm->integer_class, "abs",     prim_integer_abs);

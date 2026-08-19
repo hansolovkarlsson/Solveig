@@ -84,3 +84,10 @@ row:value("pears", 12.25):display.
 ; Decimals and grouping belong to numbers; asking anything else is an error.
 ;   #45:asString(".2")   ->  decimals mean nothing for an integer
 ;   "ab":asString(",")   ->  digit grouping means nothing for a string
+
+; Bases are their own message, not a letter in the spec: one message covers
+; every base from 2 to 36, and padding still comes from the spec by chaining.
+#255:asBase(#16):display.                    ; ff
+#255:asBase(#2):display.                     ; 11111111
+#255:asBase(#16):asString("08"):display.     ; 000000ff
+"ff":asInteger(#16):print.                   ; #255

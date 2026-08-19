@@ -422,9 +422,15 @@ Two extensions considered and **not** built:
   regardless of size. Against it: `e` looks exactly like the conversion letter
   deliberately left out, and invites the reader to try `f` and `d`, which do not
   exist. Worth adding when something needs it, not before.
-- **Integer bases**, `#255:asString("x")`. A more common gap than exponent form,
-  for anyone doing bit work, and it has the same looks-like-a-conversion-letter
-  problem. Same answer: when it is needed.
+**Integer bases are done**, but not as a spec letter. `#255:asBase(#16)` answers
+`"ff"`, and `"ff":asInteger(#16)` reads it back. A letter would have looked like
+printf's conversion character, the very thing the spec was designed without, and
+one letter buys one base where a number buys all thirty-five. Padding still comes
+from the spec, by chaining: `#255:asBase(#16):asString("08")`.
+
+Digits above nine are lowercase. Uppercase hex wants a case message on strings,
+which is a more general thing to have than a second base message -- **`asUppercase`
+and `asLowercase` are the gap that leaves.**
 
 ### 3.1 Capturing blocks cannot escape their frame
 
