@@ -294,13 +294,14 @@ static SolValue string_from(SolVM *vm, const char *text, int length)
 
 /* A format spec, the optional argument to `asString`.
  *
- *     [align] ['0'] [width] ['.' decimals]
+ *     [align] [','] ['0'] [width] ['.' decimals]
  *
  *     "8"      width 8, aligned the way the type prefers
  *     "<8"     width 8, left
  *     "^11"    width 11, centred
  *     "08.2"   width 8, two decimals, zero-filled
  *     ".2"     two decimals, no padding
+ *     ",10.2"  width 10, two decimals, digits grouped in threes
  *
  * Deliberately smaller than printf. There is no conversion letter, the receiver
  * being the thing that knows its own type, and no sign mode: a leading space for
@@ -314,6 +315,7 @@ static SolValue string_from(SolVM *vm, const char *text, int length)
 
 typedef struct {
     char align;        /* '<', '>', '^', or 0 for the type's own preference */
+    bool group;        /* ',' -- digits in threes */
     bool zero_fill;
     int  width;
     int  decimals;     /* -1 when the spec did not ask */
@@ -322,6 +324,7 @@ typedef struct {
 static bool spec_parse(SolVM *vm, const SolString *text, SolSpec *out)
 {
     out->align = 0;
+    out->group = false;
     out->zero_fill = false;
     out->width = 0;
     out->decimals = -1;
@@ -332,7 +335,16 @@ static bool spec_parse(SolVM *vm, const SolString *text, SolSpec *out)
 
     if (i < n && (s[i] == '<' || s[i] == '>' || s[i] == '^')) out->align = s[i++];
 
+    if (i < n && s[i] == ',') { out->group = true; i++; }
+
     if (i < n && s[i] == '0') {
+        /* Zero fill and grouping together produce leading zeros that are not
+           themselves grouped -- 001,234.50 -- which reads as a mistake. Refused
+           rather than rendered. */
+        if (out->group) {
+            sol_vm_runtime_error(vm, "a grouped format cannot also be zero-filled");
+            return false;
+        }
         /* Zero fill only makes sense pushing digits right; padding a number on
            the left with zeros would change what it says. */
         if (out->align != 0 && out->align != '>') {
@@ -370,7 +382,7 @@ static bool spec_parse(SolVM *vm, const SolString *text, SolSpec *out)
 
     if (i != n) {
         sol_vm_runtime_error(vm, "'%s' is not a format spec; expected "
-                                 "[align][0][width][.decimals]", text->chars);
+                                 "[align][,][0][width][.decimals]", text->chars);
         return false;
     }
     return true;
@@ -381,6 +393,7 @@ static bool spec_parse(SolVM *vm, const SolString *text, SolSpec *out)
 static bool spec_from_args(SolVM *vm, SolValue *args, int argc, SolSpec *out)
 {
     out->align = 0;
+    out->group = false;
     out->zero_fill = false;
     out->width = 0;
     out->decimals = -1;
@@ -435,12 +448,57 @@ static SolValue spec_apply(SolVM *vm, const char *text, int length,
     return result;
 }
 
+/* Writes `text` with its whole-number digits in threes. Anything that is not a
+   leading run of digits -- a sign, a fraction, an exponent, the word infinity --
+   is passed through untouched, so only the part that wants separating gets
+   them. */
+static void append_grouped(SolText *out, const char *text, int length)
+{
+    int start = 0;
+    if (length > 0 && (text[0] == '-' || text[0] == '+')) {
+        sol_text_append(out, text, 1);
+        start = 1;
+    }
+
+    int end = start;
+    while (end < length && text[end] >= '0' && text[end] <= '9') end++;
+
+    int digits = end - start;
+    for (int i = 0; i < digits; i++) {
+        if (i > 0 && (digits - i) % 3 == 0) sol_text_append(out, ",", 1);
+        sol_text_append(out, &text[start + i], 1);
+    }
+    if (end < length) sol_text_append(out, text + end, length - end);
+}
+
+/* Grouping happens before padding, since it changes the width. */
+static SolValue spec_finish(SolVM *vm, const char *text, int length,
+                            const SolSpec *spec, char preferred)
+{
+    if (!spec->group) return spec_apply(vm, text, length, spec, preferred);
+
+    SolText grouped;
+    sol_text_init(&grouped);
+    append_grouped(&grouped, text, length);
+    SolValue result = spec_apply(vm, grouped.chars, grouped.length, spec, preferred);
+    sol_text_free(&grouped);
+    return result;
+}
+
 /* Decimals are a float's business; asking an integer or a string for them is a
    mistake rather than a no-op. */
 static bool spec_rejects_decimals(SolVM *vm, const SolSpec *spec, const char *what)
 {
     if (spec->decimals < 0) return false;
     sol_vm_runtime_error(vm, "decimals mean nothing for %s", what);
+    return true;
+}
+
+/* Grouping is a number's business for the same reason. */
+static bool spec_rejects_grouping(SolVM *vm, const SolSpec *spec, const char *what)
+{
+    if (!spec->group) return false;
+    sol_vm_runtime_error(vm, "digit grouping means nothing for %s", what);
     return true;
 }
 
@@ -458,7 +516,7 @@ static SolValue prim_integer_as_string(SolVM *vm, SolValue self, SolValue *args,
 
     char buffer[32];
     int n = snprintf(buffer, sizeof buffer, "%lld", (long long)SOL_AS_INT(self));
-    return spec_apply(vm, buffer, n, &spec, '>');   /* numbers align right */
+    return spec_finish(vm, buffer, n, &spec, '>');   /* numbers align right */
 }
 
 /* A float's plain form and its literal form are the same -- there is no `#` to
@@ -478,14 +536,14 @@ static SolValue prim_float_as_string(SolVM *vm, SolValue self, SolValue *args, i
     if (spec.decimals >= 0 && !isnan(d) && !isinf(d)) {
         char buffer[64];
         int n = snprintf(buffer, sizeof buffer, "%.*f", spec.decimals, d);
-        return spec_apply(vm, buffer, n, &spec, '>');
+        return spec_finish(vm, buffer, n, &spec, '>');
     }
 
     SolText text;
     sol_text_init(&text);
     sol_value_render(vm, self, &text);
-    SolValue result = spec_apply(vm, text.chars == NULL ? "" : text.chars,
-                                 text.length, &spec, '>');
+    SolValue result = spec_finish(vm, text.chars == NULL ? "" : text.chars,
+                                  text.length, &spec, '>');
     sol_text_free(&text);
     return result;
 }
@@ -495,6 +553,7 @@ static SolValue prim_bool_as_string(SolVM *vm, SolValue self, SolValue *args, in
     SolSpec spec;
     if (!spec_from_args(vm, args, argc, &spec)) return SOL_NIL_VAL;
     if (spec_rejects_decimals(vm, &spec, "a boolean")) return SOL_NIL_VAL;
+    if (spec_rejects_grouping(vm, &spec, "a boolean")) return SOL_NIL_VAL;
     return SOL_AS_BOOL(self) ? spec_apply(vm, "true", 4, &spec, '<')
                              : spec_apply(vm, "false", 5, &spec, '<');
 }
@@ -505,6 +564,7 @@ static SolValue prim_nil_as_string(SolVM *vm, SolValue self, SolValue *args, int
     SolSpec spec;
     if (!spec_from_args(vm, args, argc, &spec)) return SOL_NIL_VAL;
     if (spec_rejects_decimals(vm, &spec, "nil")) return SOL_NIL_VAL;
+    if (spec_rejects_grouping(vm, &spec, "nil")) return SOL_NIL_VAL;
     return spec_apply(vm, "nil", 3, &spec, '<');
 }
 
@@ -515,6 +575,7 @@ static SolValue prim_string_as_string(SolVM *vm, SolValue self, SolValue *args, 
     SolSpec spec;
     if (!spec_from_args(vm, args, argc, &spec)) return SOL_NIL_VAL;
     if (spec_rejects_decimals(vm, &spec, "a string")) return SOL_NIL_VAL;
+    if (spec_rejects_grouping(vm, &spec, "a string")) return SOL_NIL_VAL;
     if (argc == 0) return self;
 
     const SolString *string = SOL_AS_STRING(self);
@@ -630,6 +691,7 @@ static SolValue prim_rendered_as_string(SolVM *vm, SolValue self, SolValue *args
     SolSpec spec;
     if (!spec_from_args(vm, args, argc, &spec)) return SOL_NIL_VAL;
     if (spec_rejects_decimals(vm, &spec, "this value")) return SOL_NIL_VAL;
+    if (spec_rejects_grouping(vm, &spec, "this value")) return SOL_NIL_VAL;
 
     SolText text;
     sol_text_init(&text);
@@ -648,6 +710,7 @@ static SolValue prim_object_as_string(SolVM *vm, SolValue self, SolValue *args, 
     SolSpec spec;
     if (!spec_from_args(vm, args, argc, &spec)) return SOL_NIL_VAL;
     if (spec_rejects_decimals(vm, &spec, "an object")) return SOL_NIL_VAL;
+    if (spec_rejects_grouping(vm, &spec, "an object")) return SOL_NIL_VAL;
     char buffer[40];
     int n = snprintf(buffer, sizeof buffer, "<object %p>", (void *)SOL_AS_OBJ(self));
     return spec_apply(vm, buffer, n, &spec, '<');

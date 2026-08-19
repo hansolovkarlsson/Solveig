@@ -8,6 +8,33 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### Digit grouping in format specs — `pending`, 2026-08-19
+
+```
+#1234567:asString(",")       ; "1,234,567"
+1234.5:asString(",10.2")     ; "  1,234.50"
+#-1234567:asString(",")      ; "-1,234,567"
+```
+
+`,` groups whole-number digits in threes, and **only** those — a sign, a
+fraction, and an exponent all pass through untouched, so `1234567.891` becomes
+`1,234,567.89` and `1e20` stays `1e+20`.
+
+- **Fixed at `,`.** A separator that varies by locale is a much larger door to
+  open than a report column is worth.
+- **Cannot be combined with zero fill.** The leading zeros would not themselves
+  be grouped — Python renders that as `001,234.50` — which reads as a mistake, so
+  it is refused rather than produced.
+- The flags have one order, so there is one way to write a given spec.
+- Grouping belongs to numbers; asking a string, boolean, nil, array, or object
+  for it is an error.
+
+Two extensions were considered and deliberately **not** built, both recorded in
+the roadmap: forcing exponent form (`"10.2e"`), which the renderer already does
+on magnitude, and integer bases (`"x"`). Both reintroduce something that looks
+like the conversion letter the spec was designed without, and invite a reader to
+try letters that do not exist.
+
 ### Format specs — `3524c70`, 2026-08-19
 
 `asString` takes an optional spec:

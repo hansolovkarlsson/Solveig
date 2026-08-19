@@ -383,11 +383,13 @@ than a bug.
 An optional spec argument to `asString`:
 
 ```
-[align] ['0'] [width] ['.' decimals]
+[align] [','] ['0'] [width] ['.' decimals]
 
-45.8:asString("6.2")     ->  " 45.80"
-45.8:asString("08.2")    ->  "00045.80"
-"ab":asString(">6")      ->  "    ab"
+45.8:asString("6.2")         ->  " 45.80"
+45.8:asString("08.2")        ->  "00045.80"
+#1234567:asString(",")       ->  "1,234,567"
+1234.5:asString(",10.2")     ->  "  1,234.50"
+"ab":asString(">6")          ->  "    ab"
 ```
 
 Smaller than printf on purpose. **No conversion letter** -- the receiver knows
@@ -405,7 +407,24 @@ is never cut: losing digits would be worse than a ragged column.
 No argument means what it always meant, so `display`, `fill`, and array rendering
 are untouched.
 
-Still open, and small: a thousands separator, and a way to ask for exponent form.
+`,` groups whole-number digits in threes, and only those: a sign, a fraction, and
+an exponent pass through untouched. It is fixed at `,` rather than configurable,
+a separator that varies by locale being a much larger door to open than a report
+column is worth. It cannot be combined with zero fill, since the leading zeros
+would not themselves be grouped -- Python renders that as `001,234.50`, which
+reads as a mistake -- and the flags have one order, so there is one way to write
+a given spec.
+
+Two extensions considered and **not** built:
+
+- **Forcing exponent form**, `"10.2e"`. The renderer already switches on
+  magnitude, so this only serves a table that wants `1.00e+00` on every row
+  regardless of size. Against it: `e` looks exactly like the conversion letter
+  deliberately left out, and invites the reader to try `f` and `d`, which do not
+  exist. Worth adding when something needs it, not before.
+- **Integer bases**, `#255:asString("x")`. A more common gap than exponent form,
+  for anyone doing bit work, and it has the same looks-like-a-conversion-letter
+  problem. Same answer: when it is needed.
 
 ### 3.1 Capturing blocks cannot escape their frame
 

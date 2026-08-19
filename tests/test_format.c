@@ -210,8 +210,75 @@ static void test_a_table(void)
     sol_vm_free(&vm);
 }
 
+/* `,` groups whole-number digits in threes. Only the digits: a sign, a
+   fraction, and an exponent all pass through untouched. */
+static void test_grouping(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "a := #1234567:asString(\",\")."
+        "b := #-1234567:asString(\",\")."
+        "c := #123:asString(\",\")."
+        "d := #1000:asString(\",\")."
+        "e := #0:asString(\",\")."
+        "f := 1234567.891:asString(\",.2\")."
+        "g := 1234.5:asString(\",10.2\")."
+        "h := #1234:asString(\"<,8\")."
+        "i := #1234:asString(\">,8\").") == SOL_OK);
+    assert(is_text(global(&vm, "a"), "1,234,567"));
+    assert(is_text(global(&vm, "b"), "-1,234,567"));   /* sign, then the digits */
+    assert(is_text(global(&vm, "c"), "123"));
+    assert(is_text(global(&vm, "d"), "1,000"));
+    assert(is_text(global(&vm, "e"), "0"));
+    assert(is_text(global(&vm, "f"), "1,234,567.89")); /* the fraction is not grouped */
+    assert(is_text(global(&vm, "g"), "  1,234.50"));   /* grouped, then padded */
+    assert(is_text(global(&vm, "h"), "1,234   "));
+    assert(is_text(global(&vm, "i"), "   1,234"));
+    sol_chunk_free(&chunk);
+
+    /* Text that is not a run of digits passes through. */
+    assert(run(&vm, &chunk,
+        "a := 1e20:asString(\",\")."
+        "b := infinity:asString(\",\")."
+        "c := nan:asString(\",\").") == SOL_OK);
+    assert(is_text(global(&vm, "a"), "1e+20"));
+    assert(is_text(global(&vm, "b"), "infinity"));
+    assert(is_text(global(&vm, "c"), "nan"));
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
+/* Grouping belongs to numbers, and cannot be combined with zero fill: the
+   leading zeros would not themselves be grouped, which reads as a mistake. */
+static void test_grouping_is_refused_where_it_means_nothing(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    const char *bad[] = {
+        "\"ab\":asString(\",\").",
+        "true:asString(\",\").",
+        "nil:asString(\",\").",
+        "[#1]:asString(\",\").",
+        "object:new:asString(\",\").",
+        "1234.5:asString(\",08.2\").",   /* grouped and zero-filled */
+        "1234.5:asString(\"0,8.2\").",   /* flags out of order */
+    };
+    for (size_t i = 0; i < sizeof bad / sizeof bad[0]; i++) {
+        assert(run(&vm, &chunk, bad[i]) == SOL_RUNTIME_ERROR);
+        sol_chunk_free(&chunk);
+    }
+
+    sol_vm_free(&vm);
+}
+
 int main(void)
 {
+    test_grouping();
+    test_grouping_is_refused_where_it_means_nothing();
     test_width_and_decimals();
     test_alignment();
     test_zero_fill();

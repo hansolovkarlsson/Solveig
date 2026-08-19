@@ -75,5 +75,12 @@ row := { n, v | "{}{}":fill([n:asString("<8"), v:asString("8.2")]) }.
 row:value("apples", 3.5):display.
 row:value("pears", 12.25):display.
 
-; Decimals belong to floats; asking anything else for them is an error.
+; "," groups whole-number digits in threes -- and only those, so a sign, a
+; fraction, and an exponent pass through untouched.
+#1234567:asString(","):display.      ; 1,234,567
+1234567.891:asString(",.2"):display. ; 1,234,567.89
+#-1234567:asString(","):display.     ; -1,234,567
+
+; Decimals and grouping belong to numbers; asking anything else is an error.
 ;   #45:asString(".2")   ->  decimals mean nothing for an integer
+;   "ab":asString(",")   ->  digit grouping means nothing for a string

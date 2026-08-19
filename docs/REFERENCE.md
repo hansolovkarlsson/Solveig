@@ -378,18 +378,26 @@ string.
 `asString` takes an optional format spec:
 
 ```
-[align] ['0'] [width] ['.' decimals]
+[align] [','] ['0'] [width] ['.' decimals]
 
-45.8:asString("6.2")     ; " 45.80"
-45.8:asString("08.2")    ; "00045.80"
-#45:asString("<6")       ; "45    "
-"ab":asString(">6")      ; "    ab"
+45.8:asString("6.2")         ; " 45.80"
+45.8:asString("08.2")        ; "00045.80"
+#1234567:asString(",")       ; "1,234,567"
+1234.5:asString(",10.2")     ; "  1,234.50"
+#45:asString("<6")           ; "45    "
+"ab":asString(">6")          ; "    ab"
 ```
 
 `<` `>` `^` align left, right, centre. Numbers align right by default and text
-left. Decimals belong to floats; asking anything else for them is an error. Zero
-fill must align right and goes after any sign, so `#-45:asString("06")` is
-`-00045`. A value wider than the width is never cut.
+left. A value wider than the width is never cut.
+
+`,` groups whole-number digits in threes, and only those -- a sign, a fraction,
+and an exponent pass through. Decimals and grouping belong to numbers; asking a
+string, a boolean, or an array for either is an error.
+
+Zero fill must align right and goes after any sign, so `#-45:asString("06")` is
+`-00045`. It cannot be combined with `,`. The flags have one order, so there is
+one way to write a given spec.
 
 With no argument it answers the plain text, which is what `display`, `fill`, and
 array rendering ask for.
