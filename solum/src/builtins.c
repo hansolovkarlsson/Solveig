@@ -1305,6 +1305,50 @@ static SolValue prim_string_fill(SolVM *vm, SolValue self, SolValue *args, int a
     return result;
 }
 
+/* `"ff":asUppercase` -- a new string with the letters changed.
+ *
+ * ASCII only, and by explicit range rather than `toupper`, which follows the C
+ * locale: under a Turkish locale `toupper('i')` is a dotted capital I, so the
+ * same program would answer differently on two machines. Predictability is worth
+ * more here than the locales this cannot serve, and a real Unicode case mapping
+ * is a different piece of work rather than a bigger version of this one.
+ *
+ * A string with nothing to change answers itself. Strings are immutable, so
+ * nothing can tell the difference, and it saves an allocation.
+ */
+static SolValue string_recased(SolVM *vm, SolValue self, int argc,
+                               const char *name, bool upper)
+{
+    if (!check_argc(vm, name, argc, 0)) return SOL_NIL_VAL;
+
+    const SolString *string = SOL_AS_STRING(self);
+    int i = 0;
+    while (i < string->length) {
+        char c = string->chars[i];
+        if (upper ? (c >= 'a' && c <= 'z') : (c >= 'A' && c <= 'Z')) break;
+        i++;
+    }
+    if (i == string->length) return self;          /* nothing to change */
+
+    SolText out;
+    sol_text_init(&out);
+    for (int j = 0; j < string->length; j++) {
+        char c = string->chars[j];
+        if (upper && c >= 'a' && c <= 'z')        c = (char)(c - 'a' + 'A');
+        else if (!upper && c >= 'A' && c <= 'Z')  c = (char)(c - 'A' + 'a');
+        sol_text_append(&out, &c, 1);
+    }
+    SolValue result = string_from(vm, out.chars, out.length);
+    sol_text_free(&out);
+    return result;
+}
+
+static SolValue prim_string_upper(SolVM *vm, SolValue self, SolValue *args, int argc)
+{ (void)args; return string_recased(vm, self, argc, "asUppercase", true); }
+
+static SolValue prim_string_lower(SolVM *vm, SolValue self, SolValue *args, int argc)
+{ (void)args; return string_recased(vm, self, argc, "asLowercase", false); }
+
 /* One-based, like an array: an index is an ordinal. Answers a one-character
    string, there being no character type of its own. */
 static SolValue prim_string_at(SolVM *vm, SolValue self, SolValue *args, int argc)
@@ -1511,6 +1555,8 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define_primitive(vm->string_class, "asString",  prim_string_as_string);
     sol_object_define_primitive(vm->string_class, "asInteger", prim_string_as_integer);
     sol_object_define_primitive(vm->string_class, "asFloat",   prim_string_as_float);
+    sol_object_define_primitive(vm->string_class, "asUppercase", prim_string_upper);
+    sol_object_define_primitive(vm->string_class, "asLowercase", prim_string_lower);
     sol_object_define_primitive(vm->string_class, "notEquals",      prim_not_equals);
     sol_object_define_primitive(vm->string_class, "lessThan",       prim_string_less);
     sol_object_define_primitive(vm->string_class, "greaterThan",    prim_string_greater);

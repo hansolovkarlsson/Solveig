@@ -8,6 +8,32 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### `asUppercase` and `asLowercase` — `pending`, 2026-08-19
+
+```
+#255:asBase(#16):asUppercase     ; "FF"    -- uppercase hex at last
+"Hello, World!":asLowercase      ; "hello, world!"
+```
+
+ASCII letters only, and **by explicit range rather than `toupper`**, which
+follows the C locale: under a Turkish locale `toupper('i')` is a dotted capital
+I, so the same program would answer differently on two machines. Predictability
+is worth more than the locales this cannot serve anyway.
+
+Every other byte passes through untouched, so `"café":asUppercase` is `"CAFé"`
+rather than mangled.
+
+A string with nothing to change answers itself. Strings are immutable, so nothing
+can tell the difference, and it saves an allocation.
+
+This closes the gap integer bases left — `asBase` writes lowercase digits, and a
+case message is a more general answer than an uppercase variant of it would have
+been.
+
+Also records what the language thinks text is (roadmap 2.13): a string is bytes,
+`size` counts bytes, `at` answers a byte, and `"café":size` is 5. Real Unicode is
+a different piece of work, not a larger version of this one.
+
 ### Integer bases — `f4b909d`, 2026-08-19
 
 ```

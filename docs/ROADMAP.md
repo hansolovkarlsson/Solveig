@@ -275,6 +275,20 @@ so `1e` stays a float followed by an identifier -- which the statement rule then
 rejects as two things with no separator, a clearer failure than a malformed
 number. `#` is exact, so an integer takes no exponent.
 
+### 2.13 Case and text are ASCII only
+
+`asUppercase` and `asLowercase` change `a`-`z` and `A`-`Z` and pass every other
+byte through, by explicit range rather than `toupper` -- which follows the C
+locale, so under a Turkish locale the same program would answer differently on
+two machines.
+
+That is the whole of the language's view of text: a string is bytes, `size`
+counts bytes, and `at` answers a byte. `"café":size` is 5. Real Unicode -- code
+points, a case mapping where one letter becomes two, normalisation, and knowing
+how many characters a string has -- is a different piece of work rather than a
+larger version of this one, and would want a decision about what a string is
+before any of it is written.
+
 ### 2.7 Symbols
 
 `'foo` scans to a token and has no runtime type. Wanted for reflection and any
@@ -428,9 +442,8 @@ printf's conversion character, the very thing the spec was designed without, and
 one letter buys one base where a number buys all thirty-five. Padding still comes
 from the spec, by chaining: `#255:asBase(#16):asString("08")`.
 
-Digits above nine are lowercase. Uppercase hex wants a case message on strings,
-which is a more general thing to have than a second base message -- **`asUppercase`
-and `asLowercase` are the gap that leaves.**
+Digits above nine are lowercase; `asUppercase` gives the other form, which is why
+a case message was the right answer rather than a second base message.
 
 ### 3.1 Capturing blocks cannot escape their frame
 

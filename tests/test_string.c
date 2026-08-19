@@ -317,8 +317,58 @@ static void test_escaped_text_compiles_back(void)
     }
 }
 
+/* ASCII case, by explicit range rather than toupper -- which follows the C
+   locale, so the same program could answer differently on two machines. */
+static void test_case(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "a := \"ff\":asUppercase."
+        "b := \"Hello, World!\":asUppercase."
+        "c := \"Hello, World!\":asLowercase."
+        "d := \"\":asUppercase."
+        "e := \"123 @#\":asUppercase."
+        "f := \"ALREADY\":asUppercase."
+        "g := \"MiXeD\":asLowercase.") == SOL_OK);
+    assert(is_text(global(&vm, "a"), "FF"));
+    assert(is_text(global(&vm, "b"), "HELLO, WORLD!"));
+    assert(is_text(global(&vm, "c"), "hello, world!"));
+    assert(is_text(global(&vm, "d"), ""));
+    assert(is_text(global(&vm, "e"), "123 @#"));      /* nothing to change */
+    assert(is_text(global(&vm, "f"), "ALREADY"));
+    assert(is_text(global(&vm, "g"), "mixed"));
+    sol_chunk_free(&chunk);
+
+    /* The receiver is untouched -- strings are immutable. */
+    assert(run(&vm, &chunk,
+        "s := \"abc\". t := s:asUppercase.") == SOL_OK);
+    assert(is_text(global(&vm, "s"), "abc"));
+    assert(is_text(global(&vm, "t"), "ABC"));
+    sol_chunk_free(&chunk);
+
+    /* What this was wanted for: uppercase hex. */
+    assert(run(&vm, &chunk, "h := #255:asBase(#16):asUppercase.") == SOL_OK);
+    assert(is_text(global(&vm, "h"), "FF"));
+    sol_chunk_free(&chunk);
+
+    /* Bytes outside ASCII pass through rather than being mangled. */
+    assert(run(&vm, &chunk,
+        "u := \"caf\xc3\xa9\":asUppercase. n := u:size.") == SOL_OK);
+    assert(is_text(global(&vm, "u"), "CAF\xc3\xa9"));
+    assert(SOL_AS_INT(global(&vm, "n")) == 5);        /* size counts bytes */
+    sol_chunk_free(&chunk);
+
+    assert(run(&vm, &chunk, "\"a\":asUppercase(#1).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
 int main(void)
 {
+    test_case();
     test_escapes();
     test_rendering_escapes();
     test_escaped_text_compiles_back();

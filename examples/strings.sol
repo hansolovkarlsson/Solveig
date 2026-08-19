@@ -91,3 +91,8 @@ row:value("pears", 12.25):display.
 #255:asBase(#2):display.                     ; 11111111
 #255:asBase(#16):asString("08"):display.     ; 000000ff
 "ff":asInteger(#16):print.                   ; #255
+
+; asUppercase and asLowercase change ASCII letters and leave everything else,
+; which is what gives uppercase hex.
+#255:asBase(#16):asUppercase:display.        ; FF
+"Hello, World!":asLowercase:display.         ; hello, world!

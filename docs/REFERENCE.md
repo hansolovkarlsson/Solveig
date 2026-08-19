@@ -448,6 +448,7 @@ Dividing by zero answers `infinity` rather than erring.
 | `lessOrEqual(s)` `greaterOrEqual(s)` | a boolean |
 | `asInteger` `asFloat` | strict: the whole string must be a number |
 | `asInteger(#n)` | reads base `n`, 2 to 36; the digits alone, no `0x` |
+| `asUppercase` `asLowercase` | a new string; ASCII letters only |
 | `asString` | itself |
 | `asString(spec)` | padded text; see the spec below |
 
@@ -546,6 +547,8 @@ division by zero, undeclared names, and a block outliving its frame.
 | Arguments, parameters, array literal elements | 255 |
 | Locals per frame | 255 |
 | Solis input line | 1024 bytes, silently truncated beyond |
+| Strings | bytes, not characters: `size` counts bytes, `at` answers a byte, and `"café":size` is 5 |
+| Case | ASCII only, and by explicit range rather than the C locale |
 | Strings | no `\0`, no unicode escapes |
 | Symbols | `'foo` scans but has no runtime type |
 
