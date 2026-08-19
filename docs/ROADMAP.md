@@ -78,7 +78,7 @@ a pooled constant, and `check_constants` rejects one outright.
 Three details worth keeping in view:
 
 - `add` answers the array so it chains. Smalltalk answers the added element, but
-  it has cascades for that and Solum does not -- `;` is a comment here.
+  it has cascades for that and Solveig does not -- `;` is a comment here.
 - `do` bounds the count once and re-reads the backing store each pass, because
   the block may grow the array underneath it and move the store.
 - Printing is depth-limited. `a:add(a)` is legal, so the printer cannot assume
@@ -147,7 +147,7 @@ accident.
 
 ### 2.3 Array indexing base — **decided: one-based**
 
-An index in Solum is an ordinal, not an offset. There is no pointer arithmetic
+An index in Solveig is an ordinal, not an offset. There is no pointer arithmetic
 and no address to be a displacement from, so the argument that makes zero-based
 natural in C does not apply here. One-based also matches the Smalltalk lineage
 the object model already came from.

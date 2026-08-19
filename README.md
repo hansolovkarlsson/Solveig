@@ -1,4 +1,4 @@
-# Solum
+# Solveig
 
 A small object-oriented language, its bytecode virtual machine, and a REPL.
 
@@ -9,6 +9,23 @@ messages to them:
 a := #45         ; ':=' binds a name; '#' tags an integer ( bare 45 is a float )
 a:print.         ; ':' sends a message, '.' ends the statement
 ```
+
+## The name
+
+**Solveig** is the language. **Solas** compiles it, **Solum** runs it, and
+**Solis** is the REPL you talk to it through.
+
+*Solveig* is Old Norse -- *Sólveig*, from *sól*, "sun", joined to *veig*, which
+is usually read as "strength", though the second element is not settled and has
+also been glossed as "draught" or "power". It is still an ordinary given name
+across Norway, Sweden, and Denmark. Most people who recognise it will recognise
+it from Ibsen's *Peer Gynt*, where Solveig is the one who waits, and from
+Grieg's setting of her song.
+
+The three programs keep the *sol-* root they started with, so the whole family
+turns on the sun. Solveig is the Norse cousin among them, and the only one of
+the four that names the language rather than a program: the same star, in a
+different language.
 
 ## Layout
 

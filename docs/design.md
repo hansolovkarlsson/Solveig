@@ -1,4 +1,4 @@
-# Solum -- design notes
+# Solveig -- design notes
 
 ## Original notes
 
@@ -35,6 +35,15 @@ That header defines the opcodes, so a change to the instruction set is a change
 to one file that both halves already include. Solis links both libraries and
 skips serialisation entirely -- it compiles straight into a `SolChunk` and hands
 it to the VM.
+
+## The name
+
+**Solveig** is the language; **Solas**, **Solum**, and **Solis** are the programs
+that compile, run, and explore it. Old Norse *Sólveig*, from *sól* "sun" and
+*veig*, usually read as "strength". See the README for the longer note.
+
+Where these documents say "Solveig" they mean the language; "Solum" always means
+the virtual machine.
 
 ## Design principles
 
@@ -406,7 +415,7 @@ holding that block overrides slot 0 with its own receiver. Lexical either way,
 but decided where the answer is actually known.
 
 A block may outlive the frame it captured. Rather than promote captured
-variables to the heap, Solum takes two cheaper measures:
+variables to the heap, Solveig takes two cheaper measures:
 
 - The compiler works out whether a block actually reads or writes its home
   frame (`touches_home`, which also accounts for blocks nested inside it). One
@@ -503,7 +512,7 @@ $ ./bin/solum examples/hello.sob
 #45
 ```
 
-Methods defined in Solum source work too, in the REPL and through a file:
+Methods defined in Solveig source work too, in the REPL and through a file:
 
 ```
 > integer:double := { self:mul(#2) }.
