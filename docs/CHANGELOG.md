@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### User-defined objects — `pending`, 2026-08-19
+### User-defined objects — `d27176f`, 2026-08-19
 
 ```
 point := object:new.
