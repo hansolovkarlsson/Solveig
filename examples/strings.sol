@@ -44,17 +44,17 @@ string:shout := { self:concat("!!") }.
 
 ; format fills {} from an array, asking each value for its asString. That makes
 ; a sentence readable where a chain of concat would not be.
-"you have {} apples and {} pears":format([#3, #4]):print.
-"{{ is a literal brace":format([]):print.
+"you have {} apples and {} pears":fill([#3, #4]):print.
+"{{ is a literal brace":fill([]):print.
 
 ; Placeholders and values must match exactly -- both too few and too many are
 ; errors, so a mistake cannot pass as deliberate output.
-;   "{} and {}":format([#1])   ->  more placeholders than the 1 value given
+;   "{} and {}":fill([#1])   ->  more placeholders than the 1 value given
 
 ; print shows the literal form; display writes the text. That distinction is why
 ; a formatted string can be shown without wearing quotes.
-"you have {} apples":format([#3]):print.     ; "you have 3 apples"
-"you have {} apples":format([#3]):display.   ; you have 3 apples
+"you have {} apples":fill([#3]):print.     ; "you have 3 apples"
+"you have {} apples":fill([#3]):display.   ; you have 3 apples
 
 ; \" \\ \n \t \r are the escapes, so a string can hold a quote or a newline.
 q := "she said \"hi\"".

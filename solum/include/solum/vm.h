@@ -84,7 +84,7 @@ SolObject *sol_vm_class_of(SolVM *vm, SolValue value);
 
 /* Sends `name` to `receiver` and answers the reply.
  *
- * For primitives that need to call back into the language -- `format` asking a
+ * For primitives that need to call back into the language -- `fill` asking a
  * value for its `asString`, so that an override is honoured rather than
  * bypassed. Receiver and arguments are pushed onto the value stack for the
  * duration, so everything stays rooted even if the send allocates. Sets the

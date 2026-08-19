@@ -8,6 +8,28 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### `format` is now `fill` — `pending`, 2026-08-19
+
+**Breaking: `"...":format([...])` is now `"...":fill([...])`.**
+
+```
+"you have {} apples":fill([#3]):display.    ; you have 3 apples
+```
+
+The behaviour is unchanged. The name was wrong: the placeholders are blanks and
+the message fills them, whereas `format` belongs to formatting a *single value*
+against a spec — where the value is the receiver, not the template.
+
+`"...":fill(...)` is a template acting on values; `45.8:asString("5.2")` is a
+value being formatted. Two jobs, and `format` was the wrong word for the first.
+
+Not `replace`, which `string:replace(old, new)` will want.
+
+Formatting a single value is recorded as an open decision (roadmap 2.12). The
+shape is settled — a spec argument to the existing `asString`, so one message
+answers "the text of this value" and there is no second one to drift from it —
+but the spec language itself is not.
+
 ### The virtual machine is `bin/solvm` — `efbdf2c`, 2026-08-19
 
 **Breaking: the command changed.** `./bin/solum program.sob` is now

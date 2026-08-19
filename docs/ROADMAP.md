@@ -341,10 +341,10 @@ invoking it, since a slot holding a block *is* a method, so there is no way to
 fetch a method as a value. All of these want symbols (2.7) or at least a
 string-keyed accessor.
 
-### 2.11 Formatted output — **decided: placeholders and `format`**
+### 2.11 Filling a template — **decided: placeholders and `fill`**
 
 ```
-"you have {} apples and {} pears":format([#3, #4]).
+"you have {} apples and {} pears":fill([#3, #4]).
 ```
 
 `{}` takes the next value and renders it by **sending** it `asString`, so a type
@@ -361,7 +361,13 @@ placeholder is exactly `{}`, so a lone `}` cannot be ambiguous and one escape
 rule is enough.
 
 Kept as a separate message rather than an argument to `print`, so `print` goes on
-meaning one thing and the formatted text can be used without printing it.
+meaning one thing and the filled text can be used without printing it.
+
+Named `fill` rather than `format`. The placeholders are blanks and this fills
+them; `format` belongs to formatting a *single value* against a spec, where the
+value is the receiver. `"...":fill(...)` is a template acting on values, which is
+a different job from `45.8:asString("5.2")`. Not `replace`, which
+`string:replace(old, new)` will want.
 
 This needed `sol_vm_send`, so a primitive can call back into the language. That
 is also what 5.2 wants, to make the default `print` on an object send `print` to
@@ -371,6 +377,41 @@ it rather than showing an address.
 
 These are deliberate, safe, and documented. Each is a real restriction rather
 than a bug.
+
+### 2.12 Formatting a single value — **decision**
+
+`fill` places a value into a template; nothing yet controls how the value itself
+is written. There is no way to ask for two decimal places, or a width to pad to.
+
+The shape is settled: it goes as an argument to the existing string conversion,
+`45.8:asString("-5.2")`, rather than as a separate `format` message. One message
+answers "the text of this value", optionally refined, so there is no second
+message to drift from it -- the same reasoning that made `notEquals` the negation
+of `equals` rather than its own implementation.
+
+Two things follow from that choice, and both are fine:
+
+- Selectors carry no arity, so `asString` and `asString(spec)` are one slot. A
+  built-in primitive can take either; a user-defined `asString` has the arity it
+  was written with, and asking for a spec it does not accept is an arity error.
+  A spec on a user's own type is meaningless unless they opt in, so that is the
+  right default.
+- `array:of` and `block:value` are already variadic, so a message accepting
+  either count is not a new idea here.
+
+**What is open is the spec language**, and it wants a decision before any of it
+is built:
+
+- **Syntax.** printf-like (`"%-5.2f"`), or the conversion implied by the receiver
+  and only the shape given (`"-5.2"`)? The second is shorter and cannot disagree
+  with the type it is applied to, which suits a strict language; it also has no
+  established meaning, so it has to be documented rather than recognised.
+- **What the parts mean.** Width, precision, alignment, sign handling, fill
+  character, thousands separator -- which of these exist, and in what order.
+- **Strictness.** Is `#45:asString("5.2")` an error, a precision on an integer
+  meaning nothing? The rest of the language says yes.
+- **Scope.** Numbers only, or does `"abc":asString("10")` pad a string, and
+  `true:asString("5")` a boolean?
 
 ### 3.1 Capturing blocks cannot escape their frame
 
@@ -493,7 +534,7 @@ the truncation.
 ### 5.2 `print` on an object — **done**
 
 An object is rendered by asking it: the renderer sends `asString`, so one that
-defines its own is shown that way by `print`, by `display`, by `format`, and
+defines its own is shown that way by `print`, by `display`, by `fill`, and
 inside an enclosing array -- one definition serving all four.
 
 The seam did have to move. `sol_value_render` now takes a VM, which may be null;

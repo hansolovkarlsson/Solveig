@@ -890,7 +890,12 @@ static SolValue prim_string_concat(SolVM *vm, SolValue self, SolValue *args, int
     return result;
 }
 
-/* `"you have {} apples":format([n])`
+/* `"you have {} apples":fill([n])`
+ *
+ * Named for what it does: the placeholders are blanks and this fills them. It is
+ * not `format`, which belongs to formatting a single value against a spec --
+ * `"..."`:fill is the template doing something to the values, where
+ * `45.8:asString("5.2")` is the value being formatted.
  *
  * `{}` takes the next value, rendered by sending it `asString` -- a send rather
  * than a direct call, so a type that overrides `asString` is honoured here too.
@@ -906,16 +911,16 @@ static SolValue prim_string_concat(SolVM *vm, SolValue self, SolValue *args, int
  * both errors: filling the gap with blanks, or dropping the extras, would turn a
  * mistake into output that looks deliberate.
  */
-static SolValue prim_string_format(SolVM *vm, SolValue self, SolValue *args, int argc)
+static SolValue prim_string_fill(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
-    if (!check_argc(vm, "format", argc, 1)) return SOL_NIL_VAL;
+    if (!check_argc(vm, "fill", argc, 1)) return SOL_NIL_VAL;
     if (!SOL_IS_ARRAY(args[0])) {
-        sol_vm_runtime_error(vm, "'format' expects an array of values, got %s",
+        sol_vm_runtime_error(vm, "'fill' expects an array of values, got %s",
                              sol_type_name(args[0]));
         return SOL_NIL_VAL;
     }
 
-    const SolString *format = SOL_AS_STRING(self);
+    const SolString *template = SOL_AS_STRING(self);
     SolArray *values = SOL_AS_ARRAY(args[0]);
 
     /* The receiver and the array are on the value stack for this call, so both
@@ -925,23 +930,23 @@ static SolValue prim_string_format(SolVM *vm, SolValue self, SolValue *args, int
     sol_text_init(&out);
     int used = 0;
 
-    for (int i = 0; i < format->length; ) {
-        char c = format->chars[i];
+    for (int i = 0; i < template->length; ) {
+        char c = template->chars[i];
         if (c != '{') {
-            sol_text_append(&out, &format->chars[i], 1);
+            sol_text_append(&out, &template->chars[i], 1);
             i++;
             continue;
         }
 
-        if (i + 1 < format->length && format->chars[i + 1] == '{') {
+        if (i + 1 < template->length && template->chars[i + 1] == '{') {
             sol_text_append(&out, "{", 1);
             i += 2;
             continue;
         }
 
-        if (i + 1 < format->length && format->chars[i + 1] == '}') {
+        if (i + 1 < template->length && template->chars[i + 1] == '}') {
             if (used == values->count) {
-                sol_vm_runtime_error(vm, "'format' has more placeholders than the "
+                sol_vm_runtime_error(vm, "'fill' has more placeholders than the "
                                          "%d value%s given", values->count,
                                      values->count == 1 ? "" : "s");
                 sol_text_free(&out);
@@ -961,13 +966,13 @@ static SolValue prim_string_format(SolVM *vm, SolValue self, SolValue *args, int
             continue;
         }
 
-        sol_vm_runtime_error(vm, "'format' expects '{}' or '{{' after a brace");
+        sol_vm_runtime_error(vm, "'fill' expects '{}' or '{{' after a brace");
         sol_text_free(&out);
         return SOL_NIL_VAL;
     }
 
     if (used != values->count) {
-        sol_vm_runtime_error(vm, "'format' has %d placeholder%s but %d value%s given",
+        sol_vm_runtime_error(vm, "'fill' has %d placeholder%s but %d value%s given",
                              used, used == 1 ? "" : "s",
                              values->count, values->count == 1 ? "" : "s");
         sol_text_free(&out);
@@ -1180,7 +1185,7 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define_primitive(vm->string_class, "size",   prim_string_size);
     sol_object_define_primitive(vm->string_class, "concat", prim_string_concat);
     sol_object_define_primitive(vm->string_class, "at",     prim_string_at);
-    sol_object_define_primitive(vm->string_class, "format", prim_string_format);
+    sol_object_define_primitive(vm->string_class, "fill",   prim_string_fill);
     sol_object_define_primitive(vm->string_class, "asString",  prim_string_as_string);
     sol_object_define_primitive(vm->string_class, "asInteger", prim_string_as_integer);
     sol_object_define_primitive(vm->string_class, "asFloat",   prim_string_as_float);

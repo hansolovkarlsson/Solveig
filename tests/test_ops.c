@@ -203,17 +203,17 @@ static void test_composite_as_string(void)
     sol_vm_free(&vm);
 }
 
-static void test_format(void)
+static void test_fill(void)
 {
     SolVM vm; sol_vm_init(&vm);
     SolChunk chunk;
 
     assert(run(&vm, &chunk,
-        "a := \"you have {} apples and {} pears\":format([#3, #4])."
-        "b := \"{}\":format([\"hi\"])."
-        "c := \"none\":format([])."
-        "d := \"{} and {} and {}\":format([#1, 2.5, true])."
-        "e := \"\":format([]).") == SOL_OK);
+        "a := \"you have {} apples and {} pears\":fill([#3, #4])."
+        "b := \"{}\":fill([\"hi\"])."
+        "c := \"none\":fill([])."
+        "d := \"{} and {} and {}\":fill([#1, 2.5, true])."
+        "e := \"\":fill([]).") == SOL_OK);
     assert(is_text(global(&vm, "a"), "you have 3 apples and 4 pears"));
     assert(is_text(global(&vm, "b"), "hi"));
     assert(is_text(global(&vm, "c"), "none"));
@@ -226,9 +226,9 @@ static void test_format(void)
        unlike Python, where `}` closes a placeholder that can have content. Here
        a placeholder is exactly `{}`, so a lone `}` cannot be ambiguous. */
     assert(run(&vm, &chunk,
-        "a := \"{{} literal\":format([])."
-        "b := \"{{}}\":format([])."
-        "c := \"} alone\":format([]).") == SOL_OK);
+        "a := \"{{} literal\":fill([])."
+        "b := \"{{}}\":fill([])."
+        "c := \"} alone\":fill([]).") == SOL_OK);
     assert(is_text(global(&vm, "a"), "{} literal"));
     assert(is_text(global(&vm, "b"), "{}}"));
     assert(is_text(global(&vm, "c"), "} alone"));
@@ -239,20 +239,20 @@ static void test_format(void)
 
 /* Both directions of mismatch are errors: filling gaps or dropping extras would
    turn a mistake into output that looks deliberate. */
-static void test_format_counts_must_match(void)
+static void test_fill_counts_must_match(void)
 {
     SolVM vm; sol_vm_init(&vm);
     SolChunk chunk;
 
     const char *bad[] = {
-        "\"{} and {}\":format([#1]).",        /* too few values */
-        "\"{}\":format([#1, #2]).",           /* too many */
-        "\"{}\":format([]).",
-        "\"none\":format([#1]).",
-        "\"a { b\":format([]).",              /* a brace that is neither form */
-        "\"trailing {\":format([]).",
-        "\"{}\":format(#1).",                 /* not an array */
-        "\"{}\":format().",
+        "\"{} and {}\":fill([#1]).",        /* too few values */
+        "\"{}\":fill([#1, #2]).",           /* too many */
+        "\"{}\":fill([]).",
+        "\"none\":fill([#1]).",
+        "\"a { b\":fill([]).",              /* a brace that is neither form */
+        "\"trailing {\":fill([]).",
+        "\"{}\":fill(#1).",                 /* not an array */
+        "\"{}\":fill().",
     };
     for (size_t i = 0; i < sizeof bad / sizeof bad[0]; i++) {
         assert(run(&vm, &chunk, bad[i]) == SOL_RUNTIME_ERROR);
@@ -262,9 +262,9 @@ static void test_format_counts_must_match(void)
     sol_vm_free(&vm);
 }
 
-/* format asks each value for its asString by sending it, so a type that
+/* fill asks each value for its asString by sending it, so a type that
    overrides asString is honoured rather than bypassed. */
-static void test_format_honours_an_overridden_as_string(void)
+static void test_fill_honours_an_overridden_as_string(void)
 {
     SolVM vm; sol_vm_init(&vm);
     SolChunk chunk;
@@ -274,14 +274,14 @@ static void test_format_honours_an_overridden_as_string(void)
         "point:x := #0."
         "point:asString := { \"point(\":concat(self:x:asString):concat(\")\") }."
         "p := point:new. p:x := #7."
-        "r := \"the answer is {}\":format([p]).") == SOL_OK);
+        "r := \"the answer is {}\":fill([p]).") == SOL_OK);
     assert(is_text(global(&vm, "r"), "the answer is point(7)"));
     sol_chunk_free(&chunk);
 
     /* An asString that answers something else is caught, not concatenated. */
     assert(run(&vm, &chunk,
         "bad := object:new. bad:asString := { #1 }."
-        "\"{}\":format([bad:new]).") == SOL_RUNTIME_ERROR);
+        "\"{}\":fill([bad:new]).") == SOL_RUNTIME_ERROR);
     sol_chunk_free(&chunk);
 
     sol_vm_free(&vm);
@@ -289,9 +289,9 @@ static void test_format_honours_an_overridden_as_string(void)
 
 int main(void)
 {
-    test_format();
-    test_format_counts_must_match();
-    test_format_honours_an_overridden_as_string();
+    test_fill();
+    test_fill_counts_must_match();
+    test_fill_honours_an_overridden_as_string();
     test_and_or_short_circuit();
     test_ordering();
     test_string_ordering();

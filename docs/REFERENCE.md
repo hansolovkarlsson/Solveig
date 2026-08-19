@@ -352,11 +352,11 @@ written against however deep the receiver is.
 
 ### Showing an object
 
-Define `asString` and it serves `print`, `display`, `format`, and an enclosing
+Define `asString` and it serves `print`, `display`, `fill`, and an enclosing
 array alike.
 
 ```
-point:asString := { "point({}, {})":format([self:x, self:y]) }.
+point:asString := { "point({}, {})":fill([self:x, self:y]) }.
 p:print.                      ; point(3, 4)
 [p]:print.                    ; [point(3, 4)]
 ```
@@ -415,18 +415,19 @@ Dividing by zero answers `infinity` rather than erring.
 | `size` | an integer |
 | `at(#i)` | a one-character string; **one-based** |
 | `concat(s)` | a new string; strict about its argument |
-| `format([...])` | a new string; see below |
+| `fill([...])` | a new string with the blanks filled; see below |
 | `lessThan(s)` `greaterThan(s)` | a boolean, comparing characters |
 | `lessOrEqual(s)` `greaterOrEqual(s)` | a boolean |
 | `asInteger` `asFloat` | strict: the whole string must be a number |
 | `asString` | itself |
 
-`format` fills `{}` from the array, rendering each by sending it `asString`. `{{`
+`fill` puts the array's values into the `{}` blanks, rendering each by sending
+it `asString`. `{{`
 writes a literal brace; `}` is never special. Placeholders and values must match
 exactly — too few and too many are both errors.
 
 ```
-"you have {} apples":format([#3]):display.    ; you have 3 apples
+"you have {} apples":fill([#3]):display.    ; you have 3 apples
 ```
 
 Parsing is strict at both ends: `" 45"` and `"45 "` are errors, not `45`.

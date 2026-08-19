@@ -79,7 +79,7 @@ is for output. Without the pair, a formatted string could only be shown wearing
 quotes, and a string holding newlines could not be written as lines at all.
 
 An object is rendered by asking it: the renderer sends `asString`, so a type that
-defines one is shown that way everywhere -- `print`, `display`, `format`, and
+defines one is shown that way everywhere -- `print`, `display`, `fill`, and
 inside an array. `object`'s own `asString` writes the address directly rather
 than calling the renderer back, which is what keeps that from recurring.
 
@@ -87,7 +87,7 @@ A string renders with its escapes put back, so `"a\"b"` prints as `"a\"b"` and
 reads as one string again. `\"`, `\\`, `\n`, `\t`, `\r` are the escapes;
 an unknown one is an error rather than a literal backslash.
 
-`format` fills `{}` from an array, asking each value for its `asString` by
+`fill` fills `{}` from an array, asking each value for its `asString` by
 sending it, so an override is honoured. Placeholders and values must match
 exactly in both directions.
 

@@ -64,11 +64,11 @@ object:parent:print.                 ; nil -- the chain ends
 
 ; An object says how it looks by defining asString. print, display, format, and
 ; an enclosing array all ask for it, so one definition serves them all.
-point:asString := { "point({}, {})":format([self:x, self:y]) }.
+point:asString := { "point({}, {})":fill([self:x, self:y]) }.
 
 p:print.                     ; point(3, 4)
 [p, q]:print.                ; [point(3, 4), point(0, 0)]
-"at {}":format([p]):display. ; at point(3, 4)
+"at {}":fill([p]):display. ; at point(3, 4)
 
 ; Without one, an object falls back to showing its address.
 
