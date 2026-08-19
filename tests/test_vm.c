@@ -256,8 +256,57 @@ static void test_float_division_follows_ieee(void)
     sol_vm_free(&vm);
 }
 
+/* `.` separates statements: required between two, optional after the last. */
+static void test_statement_separator(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+
+    /* The last statement needs none. */
+    assert(run(&vm, "a := #1. b := #2") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "b")) == 2);
+
+    /* A trailing one is fine too. */
+    assert(run(&vm, "c := #3.") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "c")) == 3);
+
+    /* A single statement, with and without. */
+    assert(run(&vm, "d := #4") == SOL_OK);
+    assert(run(&vm, "e := #5.") == SOL_OK);
+
+    /* Missing between two is now reported rather than silently accepted. */
+    assert(run(&vm, "a := #1 b := #2.") == SOL_COMPILE_ERROR);
+    assert(run(&vm, "#1 #2.") == SOL_COMPILE_ERROR);
+
+    /* The same rule inside a group and a block, where it already held -- but the
+       message now names the missing separator rather than the closing bracket. */
+    assert(run(&vm, "r := ( #1 #2 ).") == SOL_COMPILE_ERROR);
+    assert(run(&vm, "b := { #1 #2 }.") == SOL_COMPILE_ERROR);
+
+    /* And they still accept the forms they always did. */
+    assert(run(&vm, "r := ( #1. #2 ). s := { #1. #2. }:value().") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "r")) == 2);
+    assert(SOL_AS_INT(global(&vm, "s")) == 2);
+
+    sol_vm_free(&vm);
+}
+
+/* What the rule does not catch, recorded so it is a known limit rather than a
+   surprise: a line beginning with ':' continues the expression above it, so
+   these two lines are one statement and no separator is missing. */
+static void test_a_leading_colon_still_continues(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+
+    assert(run(&vm, "total := #10\n:add(#5).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "total")) == 15);
+
+    sol_vm_free(&vm);
+}
+
 int main(void)
 {
+    test_statement_separator();
+    test_a_leading_colon_still_continues();
     test_division_floors();
     test_division_identity();
     test_integer_division_guards();

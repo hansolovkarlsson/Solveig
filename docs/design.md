@@ -245,6 +245,9 @@ token stream moves. That leading `|` is also why parameters could not reuse the
 parenthesised form -- `{ (a) }` would be both a one-parameter block and a block
 answering `a`.
 
+`.` separates statements rather than terminating them: required between two,
+optional after the last, in a script and inside a group or block alike.
+
 Two scanning rules keep this unambiguous:
 
 - `:` followed by `=` is one `:=` token, never a send. This is why message

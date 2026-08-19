@@ -264,7 +264,12 @@ static void primary(Compiler *c)
            with `| a, b |`, declaring temporaries of the frame it sits in. */
         optional_declarations(c);
         expression(c);
-        while (sol_parser_match(p, TOK_DOT)) {
+        for (;;) {
+            if (p->current.type == TOK_RPAREN) break;
+            if (!sol_parser_match(p, TOK_DOT)) {
+                sol_parser_error(p, &p->current, "expected '.' between statements");
+                break;
+            }
             if (p->current.type == TOK_RPAREN) break;   /* a trailing '.' is fine */
             emit(c, OP_POP);
             expression(c);
@@ -489,7 +494,12 @@ static void block_literal(Compiler *c)
         emit(c, OP_NIL);                     /* an empty block answers nil */
     } else {
         expression(c);
-        while (sol_parser_match(p, TOK_DOT)) {
+        for (;;) {
+            if (p->current.type == TOK_RBRACE) break;
+            if (!sol_parser_match(p, TOK_DOT)) {
+                sol_parser_error(p, &p->current, "expected '.' between statements");
+                break;
+            }
             if (p->current.type == TOK_RBRACE) break;   /* a trailing '.' is fine */
             emit(c, OP_POP);
             expression(c);
@@ -523,13 +533,21 @@ static void synchronise(Compiler *c)
     }
 }
 
+/* `.` separates statements rather than terminating them, so it is required
+   between two and optional after the last. That is what groups and blocks
+   already did; the top level used to accept its absence anywhere, which meant a
+   missing one could never be reported. */
 static void statement(Compiler *c)
 {
+    SolParser *p = &c->parser;
+
     expression(c);
-    sol_parser_match(&c->parser, TOK_DOT);   /* the terminator stays optional */
+    if (!sol_parser_match(p, TOK_DOT) && p->current.type != TOK_EOF) {
+        sol_parser_error(p, &p->current, "expected '.' between statements");
+    }
     emit(c, OP_POP);                         /* a statement leaves nothing behind */
 
-    if (c->parser.panicked) synchronise(c);
+    if (p->panicked) synchronise(c);
 }
 
 bool sol_compile(const char *source, SolChunk *chunk)

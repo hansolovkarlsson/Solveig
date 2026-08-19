@@ -187,12 +187,37 @@ float multiplication already overflows to one where integer multiplication traps
 and in C it is undefined rather than merely wrong -- it raises SIGFPE on x86
 rather than answering anything.
 
-### 2.2 Statement terminator — **decision**
+### 2.2 Statement terminator — **decided: a separator, required between**
 
-`.` is currently optional, which accepts the original notes as written but means
-a missing terminator can never be caught. Making it required is a one-line
-change; leaving it optional is fine too, but it should be a choice rather than an
-accident.
+`.` separates statements rather than terminating them: required between two,
+optional after the last. That is what groups and blocks already enforced; the top
+level used to accept its absence anywhere, so a missing one could never be
+reported and the same code stopped compiling merely by being moved into a method
+body.
+
+```
+a := #1
+b := #2          ; solas: expected '.' between statements at 'b'
+
+a := #1. b := #2 ; fine -- the last needs none
+```
+
+Groups and blocks now name the missing separator too, where they used to
+complain about the closing bracket and send the reader looking in the wrong
+place.
+
+Nothing existing broke, since every example and test already wrote the dots.
+
+**What it does not catch**, recorded so it is a known limit rather than a
+surprise: a line beginning with `:` continues the expression above it, so
+
+```
+total := #10
+:add(#5).
+```
+
+is genuinely one statement and no separator is missing. Only a
+newline-sensitive rule would see those as two, and Solveig is not that.
 
 ### 2.3 Array indexing base — **decided: one-based**
 
@@ -495,9 +520,9 @@ could write a real program in are all built. What is left is filling it out.
 Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), arrays entire
 (1.2, 1.2a, 1.2b), strings (1.3), user-defined objects (1.4), division (2.1),
 calling the method you override (2.9), the missing operations (2.8), and
-formatted output (2.11).
+formatted output (2.11), and the statement separator (2.2).
 
-Still waiting on a call from you: the **statement terminator** (2.2).
+No decisions are outstanding.
 
 Still waiting on a call from you: **division** (2.1) and the **statement
 terminator** (2.2). Neither blocks anything above it.

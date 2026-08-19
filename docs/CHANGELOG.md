@@ -8,6 +8,35 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### `.` is required between statements — `pending`, 2026-08-19
+
+**Breaking, though nothing in the repository changed: every example and test
+already wrote the dots.**
+
+`.` separates statements rather than terminating them — required between two,
+optional after the last:
+
+```
+a := #1
+b := #2          ; solas: expected '.' between statements at 'b'
+
+a := #1. b := #2 ; fine, the last needs none
+```
+
+This is what groups and blocks already enforced. The top level accepted its
+absence anywhere, which meant a missing separator could never be reported, and
+the same code stopped compiling merely by being moved into a method body.
+
+Groups and blocks now name the missing separator as well, where they used to
+complain about the closing bracket and send the reader looking in the wrong
+place.
+
+**It does not catch everything.** A line beginning with `:` continues the
+expression above it, so `total := #10` followed by `:add(#5).` is genuinely one
+statement with no separator missing. Only a newline-sensitive rule would see two,
+and this is not that language. There is a test pinning the behaviour so it stays
+a known limit rather than a surprise.
+
 ### Formatted output — `ca1369b`, 2026-08-19
 
 ```
