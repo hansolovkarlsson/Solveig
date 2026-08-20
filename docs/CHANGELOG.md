@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### A class object no longer answers its instances' messages — `pending`, 2026-08-19
+### A class object no longer answers its instances' messages — `ab5dd96`, 2026-08-19
 
 Two crashes, both reachable from three words of ordinary source, both fixed by
 one check. Roadmap 1.5 and 1.6.
