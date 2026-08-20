@@ -18,6 +18,10 @@ typedef struct SolVM SolVM;
 /* A primitive is a message implemented in C rather than in Solum bytecode. */
 typedef SolValue (*SolPrimitive)(SolVM *vm, SolValue self, SolValue *args, int argc);
 
+/* A primitive that will take any receiver: the class-side messages, and
+   reflection, which is meaningful on an instance and on a class alike. */
+#define SOL_ANY_RECEIVER (-1)
+
 /* A slot holds a value and, for the built-ins, a C implementation.
  *
  * There is no separate notion of a method: a slot whose value is a block is
@@ -27,6 +31,13 @@ typedef struct SolSlot {
     char           *name;
     SolValue        value;
     SolPrimitive    primitive;  /* non-NULL if this slot is a C method */
+    /* The receiver `primitive` requires, as a SolValueType, or
+       SOL_ANY_RECEIVER. A built-in class holds the messages its *instances*
+       understand and answers them itself, so `array` is found to understand
+       `add` -- and `prim_array_add` would then read the class object as an
+       array. This is what stops it. Unused when `primitive` is NULL: a slot
+       holding a block is a method, and a block checks its own arity. */
+    int             receiver_type;
     struct SolSlot *next;
 } SolSlot;
 
@@ -152,5 +163,14 @@ void sol_array_add(SolVM *vm, SolArray *array, SolValue value);
 SolSlot *sol_object_lookup(SolObject *obj, const char *name);
 void     sol_object_define(SolObject *obj, const char *name, SolValue value);
 void     sol_object_define_primitive(SolObject *obj, const char *name, SolPrimitive fn);
+
+/* The same, for a primitive that only an instance of `receiver_type` may
+   receive. Pass a SolValueType, or SOL_ANY_RECEIVER for the plain form. */
+void     sol_object_define_primitive_for(SolObject *obj, const char *name,
+                                         SolPrimitive fn, int receiver_type);
+
+/* May `receiver` be handed to this slot's primitive? True for a slot that is
+   not a primitive at all, and for one that takes any receiver. */
+bool     sol_slot_accepts(const SolSlot *slot, SolValue receiver);
 
 #endif /* SOLUM_OBJECT_H */

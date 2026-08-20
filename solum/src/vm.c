@@ -151,6 +151,47 @@ void sol_vm_runtime_error(SolVM *vm, const char *format, ...)
     vm->had_error = true;
 }
 
+/* The receiver a primitive requires, spelled the way an error message wants it.
+   Ten cases rather than a rule, because of the article. */
+static const char *receiver_name(int type)
+{
+    switch (type) {
+    case SOL_NIL:      return "nil";
+    case SOL_BOOL:     return "a boolean";
+    case SOL_INT:      return "an integer";
+    case SOL_FLOAT:    return "a float";
+    case SOL_BLOCK:    return "a block";
+    case SOL_ARRAY:    return "an array";
+    case SOL_STRING:   return "a string";
+    case SOL_SYMBOL:   return "a symbol";
+    case SOL_DELEGATE: return "a delegate";
+    case SOL_OBJ:      return "an object";
+    default:           return "something else";
+    }
+}
+
+/* Finding a slot is not enough to run it.
+ *
+ * A built-in class holds the messages its *instances* understand, and answers
+ * them itself: `array` is an object, `add` is one of its slots, so `array:add`
+ * finds it -- and `prim_array_add` would then read the class object as an
+ * array. Every primitive that reads its receiver's payload has always been
+ * entitled to assume the type, because lookup went through the class that
+ * describes it. That holds for every instance and fails for the one object
+ * that is not one. See roadmap 1.6.
+ *
+ * Reports and answers false when the receiver does not suit.
+ */
+static bool receiver_suits(SolVM *vm, const SolSlot *slot, SolValue receiver)
+{
+    if (sol_slot_accepts(slot, receiver)) return true;
+
+    sol_vm_runtime_error(vm, "'%s' expects %s, got %s", slot->name,
+                         receiver_name(slot->receiver_type),
+                         sol_type_name(receiver));
+    return false;
+}
+
 void sol_vm_condition_error(SolVM *vm, SolValue answer)
 {
     sol_vm_runtime_error(vm, "whileTrue expects the condition block to answer "
@@ -414,6 +455,8 @@ static SolResult run_frames(SolVM *vm, int base)
                 break;
             }
 
+            if (!receiver_suits(vm, slot, receiver)) break;
+
             /* A slot holding a block is a method: run it with the receiver as
                self, which the caller has already placed in slot position. A
                capturing block would need its home frame, and one bound as a
@@ -554,7 +597,9 @@ SolValue sol_vm_send(SolVM *vm, SolValue receiver, const char *name,
             vm->frame_count = frame_base;
         }
     } else if (slot->primitive != NULL) {
-        result = slot->primitive(vm, receiver, base + 1, argc);
+        if (receiver_suits(vm, slot, receiver)) {
+            result = slot->primitive(vm, receiver, base + 1, argc);
+        }
     } else {
         result = slot->value;
     }

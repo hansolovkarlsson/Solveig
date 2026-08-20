@@ -251,6 +251,7 @@ static SolSlot *ensure_local(SolObject *obj, const char *name)
     slot->name = dup_name(name);
     slot->value = SOL_NIL_VAL;
     slot->primitive = NULL;
+    slot->receiver_type = SOL_ANY_RECEIVER;
     slot->next = obj->slots;
     obj->slots = slot;
     return slot;
@@ -261,11 +262,26 @@ void sol_object_define(SolObject *obj, const char *name, SolValue value)
     SolSlot *slot = ensure_local(obj, name);
     slot->value = value;
     slot->primitive = NULL;
+    slot->receiver_type = SOL_ANY_RECEIVER;
 }
 
 void sol_object_define_primitive(SolObject *obj, const char *name, SolPrimitive fn)
 {
+    sol_object_define_primitive_for(obj, name, fn, SOL_ANY_RECEIVER);
+}
+
+void sol_object_define_primitive_for(SolObject *obj, const char *name,
+                                     SolPrimitive fn, int receiver_type)
+{
     SolSlot *slot = ensure_local(obj, name);
     slot->value = SOL_NIL_VAL;
     slot->primitive = fn;
+    slot->receiver_type = receiver_type;
+}
+
+bool sol_slot_accepts(const SolSlot *slot, SolValue receiver)
+{
+    if (slot->primitive == NULL) return true;
+    if (slot->receiver_type == SOL_ANY_RECEIVER) return true;
+    return (int)receiver.type == slot->receiver_type;
 }

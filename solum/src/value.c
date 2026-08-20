@@ -154,6 +154,18 @@ static void render(SolVM *vm, SolValue value, SolText *out, int depth)
             append_format(out, "<object %p>", (void *)SOL_AS_OBJ(value));
             break;
         }
+
+        /* Ask only an object that can answer. A class object carries the
+           `asString` written for its instances, and handing it one is the 1.6
+           error -- but a value being rendered inside something else is not the
+           place to raise it. An object that cannot say what it is is shown as
+           its address, which is what an object without `asString` gets too. */
+        SolSlot *slot = sol_object_lookup(SOL_AS_OBJ(value), "asString");
+        if (slot == NULL || !sol_slot_accepts(slot, value)) {
+            append_format(out, "<object %p>", (void *)SOL_AS_OBJ(value));
+            break;
+        }
+
         SolValue text = sol_vm_send(vm, value, "asString", NULL, 0);
         if (!SOL_IS_STRING(text)) {
             append_format(out, "<object %p>", (void *)SOL_AS_OBJ(value));

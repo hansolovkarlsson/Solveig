@@ -149,8 +149,6 @@ entered -- while staying ordinary messages you can send any other way. See
 
 Still to do:
 
-- [ ] `array:print` and `array:add(#1)` crash -- a class object answers the
-      messages meant for its instances, and the primitive reads it as one
 - [ ] a bigger constant pool -- 256 per chunk is the first cap a real program meets
 - [ ] dispatch by pointer -- symbols exist, but a send still compares strings
 

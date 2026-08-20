@@ -378,6 +378,30 @@ p:sum:print.                         ; #7
   shadows the prototype rather than writing through.
 - Delegation chains, and the nearest slot wins.
 
+### The built-in classes are objects too
+
+`integer`, `array`, `string` and the rest are ordinary objects holding the
+messages their *instances* understand. Sending one of those to the class itself
+is an error, not a shortcut:
+
+```
+[#1, #2]:add(#3).    ; the array grows
+array:add(#3).       ; solvm: 'add' expects an array, got object
+```
+
+The messages a class answers for itself are the ones that make instances —
+`array:of(...)`, `array:new`, `integer:new(...)`, `object:new` — plus reflection,
+which reads either side. `respondsTo` agrees with sending, so
+`array:respondsTo('add)` is false and `array:respondsTo('of)` is true.
+
+Binding a block over one of these replaces the requirement along with the
+primitive, so a class can be given messages of its own:
+
+```
+array:describe := { "arrays, in a list" }.
+array:describe:display.
+```
+
 ### Calling what you override
 
 `self:via(ancestor)` begins the lookup at the ancestor but keeps the receiver, so

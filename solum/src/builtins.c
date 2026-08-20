@@ -1611,8 +1611,14 @@ static SolValue prim_responds_to(SolVM *vm, SolValue self, SolValue *args, int a
     if (!selector_from(vm, "respondsTo", args[0], &selector)) return SOL_NIL_VAL;
 
     SolObject *target = sol_vm_class_of(vm, self);
-    return SOL_BOOL_VAL(target != NULL &&
-                        sol_object_lookup(target, selector->chars) != NULL);
+    if (target == NULL) return SOL_BOOL_VAL(false);
+
+    /* Finding the slot is not enough, and answering true for one that would
+       refuse this receiver would make `respondsTo` disagree with sending. A
+       class object holds its instances' messages: `array:respondsTo('add)` is
+       false, because `array:add(#1)` is an error. */
+    SolSlot *slot = sol_object_lookup(target, selector->chars);
+    return SOL_BOOL_VAL(slot != NULL && sol_slot_accepts(slot, self));
 }
 
 /* Whether the receiver delegates to `other`, directly or further up. A value
@@ -1699,142 +1705,168 @@ static SolValue prim_slot_at(SolVM *vm, SolValue self, SolValue *args, int argc)
 
 /* ---- installation ---------------------------------------------------- */
 
+/* Which side of the class each message lives on.
+ *
+ * `array` is an object whose slots are the messages an *array* understands, and
+ * it answers them itself -- so `array:add(#1)` finds `add` and hands the class
+ * object to a primitive that reads it as an array. `instance` records the
+ * receiver each one actually needs, and the dispatcher refuses anything else.
+ *
+ * `any_receiver` is the rest: the class-side messages, which the class object
+ * is the receiver of, and reflection, which is meaningful on either side. The
+ * two names are the class-side/instance-side distinction 2.5 is about, written
+ * down one message at a time rather than decided all at once.
+ */
+static void instance(SolObject *cls, SolValueType type, const char *name,
+                     SolPrimitive fn)
+{
+    sol_object_define_primitive_for(cls, name, fn, (int)type);
+}
+
+static void any_receiver(SolObject *obj, const char *name, SolPrimitive fn)
+{
+    sol_object_define_primitive(obj, name, fn);
+}
+
 void sol_builtins_install(SolVM *vm)
 {
-    /* NOTE: class-side and instance-side messages currently share one object,
-       so `#45:new(#1)` resolves as readily as `integer:new(#1)`. Splitting them
-       needs a metaclass level -- see docs/design.md. */
+    /* NOTE: class-side and instance-side messages still share one object, so
+       `#45:new(#1)` resolves as readily as `integer:new(#1)`. Splitting them
+       properly needs a metaclass level -- see docs/design.md. What is written
+       down here is the half that had to be settled first: which side each
+       message is on, so that `array:add(#1)` is refused rather than run against
+       an object that is not an array. */
     vm->integer_class = sol_object_new(vm, NULL);
-    sol_object_define_primitive(vm->integer_class, "new",   prim_integer_new);
-    sol_object_define_primitive(vm->integer_class, "print", prim_print);
-    sol_object_define_primitive(vm->integer_class, "display", prim_display);
-    sol_object_define_primitive(vm->integer_class, "add",   prim_integer_add);
-    sol_object_define_primitive(vm->integer_class, "sub",   prim_integer_sub);
-    sol_object_define_primitive(vm->integer_class, "mul",   prim_integer_mul);
-    sol_object_define_primitive(vm->integer_class, "div",   prim_integer_div);
-    sol_object_define_primitive(vm->integer_class, "mod",   prim_integer_mod);
-    sol_object_define_primitive(vm->integer_class, "asFloat",  prim_integer_as_float);
-    sol_object_define_primitive(vm->integer_class, "asBase",   prim_integer_as_base);
-    sol_object_define_primitive(vm->integer_class, "asString", prim_integer_as_string);
-    sol_object_define_primitive(vm->integer_class, "negated", prim_integer_negated);
-    sol_object_define_primitive(vm->integer_class, "abs",     prim_integer_abs);
-    sol_object_define_primitive(vm->integer_class, "notEquals",      prim_not_equals);
-    sol_object_define_primitive(vm->integer_class, "lessOrEqual",    prim_less_or_equal);
-    sol_object_define_primitive(vm->integer_class, "greaterOrEqual", prim_greater_or_equal);
-    sol_object_define_primitive(vm->integer_class, "equals",      prim_equals);
-    sol_object_define_primitive(vm->integer_class, "lessThan",    prim_less);
-    sol_object_define_primitive(vm->integer_class, "greaterThan", prim_greater);
+    any_receiver(vm->integer_class, "new", prim_integer_new);
+    instance(vm->integer_class, SOL_INT, "print", prim_print);
+    instance(vm->integer_class, SOL_INT, "display", prim_display);
+    instance(vm->integer_class, SOL_INT, "add", prim_integer_add);
+    instance(vm->integer_class, SOL_INT, "sub", prim_integer_sub);
+    instance(vm->integer_class, SOL_INT, "mul", prim_integer_mul);
+    instance(vm->integer_class, SOL_INT, "div", prim_integer_div);
+    instance(vm->integer_class, SOL_INT, "mod", prim_integer_mod);
+    instance(vm->integer_class, SOL_INT, "asFloat", prim_integer_as_float);
+    instance(vm->integer_class, SOL_INT, "asBase", prim_integer_as_base);
+    instance(vm->integer_class, SOL_INT, "asString", prim_integer_as_string);
+    instance(vm->integer_class, SOL_INT, "negated", prim_integer_negated);
+    instance(vm->integer_class, SOL_INT, "abs", prim_integer_abs);
+    instance(vm->integer_class, SOL_INT, "notEquals", prim_not_equals);
+    instance(vm->integer_class, SOL_INT, "lessOrEqual", prim_less_or_equal);
+    instance(vm->integer_class, SOL_INT, "greaterOrEqual", prim_greater_or_equal);
+    instance(vm->integer_class, SOL_INT, "equals", prim_equals);
+    instance(vm->integer_class, SOL_INT, "lessThan", prim_less);
+    instance(vm->integer_class, SOL_INT, "greaterThan", prim_greater);
 
     vm->float_class = sol_object_new(vm, NULL);
-    sol_object_define_primitive(vm->float_class, "print", prim_print);
-    sol_object_define_primitive(vm->float_class, "display", prim_display);
-    sol_object_define_primitive(vm->float_class, "add",   prim_float_add);
-    sol_object_define_primitive(vm->float_class, "sub",   prim_float_sub);
-    sol_object_define_primitive(vm->float_class, "mul",   prim_float_mul);
-    sol_object_define_primitive(vm->float_class, "div",   prim_float_div);
-    sol_object_define_primitive(vm->float_class, "mod",   prim_float_mod);
-    sol_object_define_primitive(vm->float_class, "asString",  prim_float_as_string);
-    sol_object_define_primitive(vm->float_class, "floor",     prim_float_floor);
-    sol_object_define_primitive(vm->float_class, "ceiling",   prim_float_ceiling);
-    sol_object_define_primitive(vm->float_class, "rounded",   prim_float_rounded);
-    sol_object_define_primitive(vm->float_class, "truncated", prim_float_truncated);
-    sol_object_define_primitive(vm->float_class, "new",     prim_float_new);
-    sol_object_define_primitive(vm->float_class, "negated", prim_float_negated);
-    sol_object_define_primitive(vm->float_class, "abs",     prim_float_abs);
-    sol_object_define_primitive(vm->float_class, "notEquals",      prim_not_equals);
-    sol_object_define_primitive(vm->float_class, "lessOrEqual",    prim_less_or_equal);
-    sol_object_define_primitive(vm->float_class, "greaterOrEqual", prim_greater_or_equal);
-    sol_object_define_primitive(vm->float_class, "equals",      prim_equals);
-    sol_object_define_primitive(vm->float_class, "lessThan",    prim_less);
-    sol_object_define_primitive(vm->float_class, "greaterThan", prim_greater);
+    instance(vm->float_class, SOL_FLOAT, "print", prim_print);
+    instance(vm->float_class, SOL_FLOAT, "display", prim_display);
+    instance(vm->float_class, SOL_FLOAT, "add", prim_float_add);
+    instance(vm->float_class, SOL_FLOAT, "sub", prim_float_sub);
+    instance(vm->float_class, SOL_FLOAT, "mul", prim_float_mul);
+    instance(vm->float_class, SOL_FLOAT, "div", prim_float_div);
+    instance(vm->float_class, SOL_FLOAT, "mod", prim_float_mod);
+    instance(vm->float_class, SOL_FLOAT, "asString", prim_float_as_string);
+    instance(vm->float_class, SOL_FLOAT, "floor", prim_float_floor);
+    instance(vm->float_class, SOL_FLOAT, "ceiling", prim_float_ceiling);
+    instance(vm->float_class, SOL_FLOAT, "rounded", prim_float_rounded);
+    instance(vm->float_class, SOL_FLOAT, "truncated", prim_float_truncated);
+    any_receiver(vm->float_class, "new", prim_float_new);
+    instance(vm->float_class, SOL_FLOAT, "negated", prim_float_negated);
+    instance(vm->float_class, SOL_FLOAT, "abs", prim_float_abs);
+    instance(vm->float_class, SOL_FLOAT, "notEquals", prim_not_equals);
+    instance(vm->float_class, SOL_FLOAT, "lessOrEqual", prim_less_or_equal);
+    instance(vm->float_class, SOL_FLOAT, "greaterOrEqual", prim_greater_or_equal);
+    instance(vm->float_class, SOL_FLOAT, "equals", prim_equals);
+    instance(vm->float_class, SOL_FLOAT, "lessThan", prim_less);
+    instance(vm->float_class, SOL_FLOAT, "greaterThan", prim_greater);
 
     vm->nil_class = sol_object_new(vm, NULL);
-    sol_object_define_primitive(vm->nil_class, "print",  prim_print);
-    sol_object_define_primitive(vm->nil_class, "display", prim_display);
-    sol_object_define_primitive(vm->nil_class, "equals", prim_equals);
-    sol_object_define_primitive(vm->nil_class, "asString",  prim_nil_as_string);
-    sol_object_define_primitive(vm->nil_class, "notEquals", prim_not_equals);
+    instance(vm->nil_class, SOL_NIL, "print", prim_print);
+    instance(vm->nil_class, SOL_NIL, "display", prim_display);
+    instance(vm->nil_class, SOL_NIL, "equals", prim_equals);
+    instance(vm->nil_class, SOL_NIL, "asString", prim_nil_as_string);
+    instance(vm->nil_class, SOL_NIL, "notEquals", prim_not_equals);
 
     vm->bool_class = sol_object_new(vm, NULL);
-    sol_object_define_primitive(vm->bool_class, "print",   prim_print);
-    sol_object_define_primitive(vm->bool_class, "display", prim_display);
-    sol_object_define_primitive(vm->bool_class, "equals",  prim_equals);
-    sol_object_define_primitive(vm->bool_class, "not",     prim_not);
-    sol_object_define_primitive(vm->bool_class, "ifTrue",  prim_if_true);
-    sol_object_define_primitive(vm->bool_class, "ifFalse", prim_if_false);
-    sol_object_define_primitive(vm->bool_class, "ifElse",  prim_if_else);
-    sol_object_define_primitive(vm->bool_class, "asString", prim_bool_as_string);
-    sol_object_define_primitive(vm->bool_class, "and",       prim_and);
-    sol_object_define_primitive(vm->bool_class, "or",        prim_or);
-    sol_object_define_primitive(vm->bool_class, "notEquals", prim_not_equals);
+    instance(vm->bool_class, SOL_BOOL, "print", prim_print);
+    instance(vm->bool_class, SOL_BOOL, "display", prim_display);
+    instance(vm->bool_class, SOL_BOOL, "equals", prim_equals);
+    instance(vm->bool_class, SOL_BOOL, "not", prim_not);
+    instance(vm->bool_class, SOL_BOOL, "ifTrue", prim_if_true);
+    instance(vm->bool_class, SOL_BOOL, "ifFalse", prim_if_false);
+    instance(vm->bool_class, SOL_BOOL, "ifElse", prim_if_else);
+    instance(vm->bool_class, SOL_BOOL, "asString", prim_bool_as_string);
+    instance(vm->bool_class, SOL_BOOL, "and", prim_and);
+    instance(vm->bool_class, SOL_BOOL, "or", prim_or);
+    instance(vm->bool_class, SOL_BOOL, "notEquals", prim_not_equals);
 
     vm->block_class = sol_object_new(vm, NULL);
-    sol_object_define_primitive(vm->block_class, "print",     prim_print);
-    sol_object_define_primitive(vm->block_class, "display", prim_display);
-    sol_object_define_primitive(vm->block_class, "equals",    prim_equals);
-    sol_object_define_primitive(vm->block_class, "notEquals", prim_not_equals);
-    sol_object_define_primitive(vm->block_class, "asString",  prim_rendered_as_string);
-    sol_object_define_primitive(vm->block_class, "value",     prim_value);
-    sol_object_define_primitive(vm->block_class, "whileTrue", prim_while_true);
+    instance(vm->block_class, SOL_BLOCK, "print", prim_print);
+    instance(vm->block_class, SOL_BLOCK, "display", prim_display);
+    instance(vm->block_class, SOL_BLOCK, "equals", prim_equals);
+    instance(vm->block_class, SOL_BLOCK, "notEquals", prim_not_equals);
+    instance(vm->block_class, SOL_BLOCK, "asString", prim_rendered_as_string);
+    instance(vm->block_class, SOL_BLOCK, "value", prim_value);
+    instance(vm->block_class, SOL_BLOCK, "whileTrue", prim_while_true);
 
     vm->array_class = sol_object_new(vm, NULL);
-    sol_object_define_primitive(vm->array_class, "new",    prim_array_new);
-    sol_object_define_primitive(vm->array_class, "of",     prim_array_of);
-    sol_object_define_primitive(vm->array_class, "size",   prim_array_size);
-    sol_object_define_primitive(vm->array_class, "at",     prim_array_at);
-    sol_object_define_primitive(vm->array_class, "at_put", prim_array_at_put);
-    sol_object_define_primitive(vm->array_class, "add",    prim_array_add);
-    sol_object_define_primitive(vm->array_class, "do",      prim_array_do);
-    sol_object_define_primitive(vm->array_class, "collect", prim_array_collect);
-    sol_object_define_primitive(vm->array_class, "select",  prim_array_select);
-    sol_object_define_primitive(vm->array_class, "print",  prim_print);
-    sol_object_define_primitive(vm->array_class, "sorted",  prim_array_sorted);
-    sol_object_define_primitive(vm->array_class, "display", prim_display);
-    sol_object_define_primitive(vm->array_class, "equals",    prim_equals);
-    sol_object_define_primitive(vm->array_class, "notEquals", prim_not_equals);
-    sol_object_define_primitive(vm->array_class, "asString",  prim_rendered_as_string);
+    any_receiver(vm->array_class, "new", prim_array_new);
+    any_receiver(vm->array_class, "of", prim_array_of);
+    instance(vm->array_class, SOL_ARRAY, "size", prim_array_size);
+    instance(vm->array_class, SOL_ARRAY, "at", prim_array_at);
+    instance(vm->array_class, SOL_ARRAY, "at_put", prim_array_at_put);
+    instance(vm->array_class, SOL_ARRAY, "add", prim_array_add);
+    instance(vm->array_class, SOL_ARRAY, "do", prim_array_do);
+    instance(vm->array_class, SOL_ARRAY, "collect", prim_array_collect);
+    instance(vm->array_class, SOL_ARRAY, "select", prim_array_select);
+    instance(vm->array_class, SOL_ARRAY, "print", prim_print);
+    instance(vm->array_class, SOL_ARRAY, "sorted", prim_array_sorted);
+    instance(vm->array_class, SOL_ARRAY, "display", prim_display);
+    instance(vm->array_class, SOL_ARRAY, "equals", prim_equals);
+    instance(vm->array_class, SOL_ARRAY, "notEquals", prim_not_equals);
+    instance(vm->array_class, SOL_ARRAY, "asString", prim_rendered_as_string);
 
     /* The root of the user-defined side. The built-in classes deliberately do
        not delegate to it: `float` inheriting object's `new` would answer a plain
        object rather than a float. Untangling that is the class-side/instance-side
        question in the roadmap. */
     vm->object_class = sol_object_new(vm, NULL);
-    sol_object_define_primitive(vm->object_class, "new",    prim_object_new);
-    sol_object_define_primitive(vm->object_class, "via",    prim_object_via);
-    sol_object_define_primitive(vm->object_class, "parent", prim_object_parent);
-    sol_object_define_primitive(vm->object_class, "print",  prim_print);
-    sol_object_define_primitive(vm->object_class, "display", prim_display);
-    sol_object_define_primitive(vm->object_class, "equals",    prim_equals);
-    sol_object_define_primitive(vm->object_class, "notEquals", prim_not_equals);
-    sol_object_define_primitive(vm->object_class, "asString",  prim_object_as_string);
+    instance(vm->object_class, SOL_OBJ, "new", prim_object_new);
+    instance(vm->object_class, SOL_OBJ, "via", prim_object_via);
+    instance(vm->object_class, SOL_OBJ, "parent", prim_object_parent);
+    instance(vm->object_class, SOL_OBJ, "print", prim_print);
+    instance(vm->object_class, SOL_OBJ, "display", prim_display);
+    instance(vm->object_class, SOL_OBJ, "equals", prim_equals);
+    instance(vm->object_class, SOL_OBJ, "notEquals", prim_not_equals);
+    instance(vm->object_class, SOL_OBJ, "asString", prim_object_as_string);
 
     vm->string_class = sol_object_new(vm, NULL);
-    sol_object_define_primitive(vm->string_class, "print",  prim_print);
-    sol_object_define_primitive(vm->string_class, "display", prim_display);
-    sol_object_define_primitive(vm->string_class, "equals", prim_equals);
-    sol_object_define_primitive(vm->string_class, "size",   prim_string_size);
-    sol_object_define_primitive(vm->string_class, "concat", prim_string_concat);
-    sol_object_define_primitive(vm->string_class, "at",     prim_string_at);
-    sol_object_define_primitive(vm->string_class, "fill",   prim_string_fill);
-    sol_object_define_primitive(vm->string_class, "asString",  prim_string_as_string);
-    sol_object_define_primitive(vm->string_class, "asInteger", prim_string_as_integer);
-    sol_object_define_primitive(vm->string_class, "asFloat",   prim_string_as_float);
-    sol_object_define_primitive(vm->string_class, "asUppercase", prim_string_upper);
-    sol_object_define_primitive(vm->string_class, "asLowercase", prim_string_lower);
-    sol_object_define_primitive(vm->string_class, "asSymbol",  prim_string_as_symbol);
-    sol_object_define_primitive(vm->string_class, "notEquals",      prim_not_equals);
-    sol_object_define_primitive(vm->string_class, "lessThan",       prim_string_less);
-    sol_object_define_primitive(vm->string_class, "greaterThan",    prim_string_greater);
-    sol_object_define_primitive(vm->string_class, "lessOrEqual",    prim_less_or_equal);
-    sol_object_define_primitive(vm->string_class, "greaterOrEqual", prim_greater_or_equal);
+    instance(vm->string_class, SOL_STRING, "print", prim_print);
+    instance(vm->string_class, SOL_STRING, "display", prim_display);
+    instance(vm->string_class, SOL_STRING, "equals", prim_equals);
+    instance(vm->string_class, SOL_STRING, "size", prim_string_size);
+    instance(vm->string_class, SOL_STRING, "concat", prim_string_concat);
+    instance(vm->string_class, SOL_STRING, "at", prim_string_at);
+    instance(vm->string_class, SOL_STRING, "fill", prim_string_fill);
+    instance(vm->string_class, SOL_STRING, "asString", prim_string_as_string);
+    instance(vm->string_class, SOL_STRING, "asInteger", prim_string_as_integer);
+    instance(vm->string_class, SOL_STRING, "asFloat", prim_string_as_float);
+    instance(vm->string_class, SOL_STRING, "asUppercase", prim_string_upper);
+    instance(vm->string_class, SOL_STRING, "asLowercase", prim_string_lower);
+    instance(vm->string_class, SOL_STRING, "asSymbol", prim_string_as_symbol);
+    instance(vm->string_class, SOL_STRING, "notEquals", prim_not_equals);
+    instance(vm->string_class, SOL_STRING, "lessThan", prim_string_less);
+    instance(vm->string_class, SOL_STRING, "greaterThan", prim_string_greater);
+    instance(vm->string_class, SOL_STRING, "lessOrEqual", prim_less_or_equal);
+    instance(vm->string_class, SOL_STRING, "greaterOrEqual", prim_greater_or_equal);
 
     vm->symbol_class = sol_object_new(vm, NULL);
-    sol_object_define_primitive(vm->symbol_class, "print",     prim_print);
-    sol_object_define_primitive(vm->symbol_class, "display",   prim_display);
-    sol_object_define_primitive(vm->symbol_class, "asString",  prim_symbol_as_string);
-    sol_object_define_primitive(vm->symbol_class, "equals",    prim_equals);
-    sol_object_define_primitive(vm->symbol_class, "notEquals", prim_not_equals);
-    sol_object_define_primitive(vm->symbol_class, "size",      prim_symbol_size);
+    instance(vm->symbol_class, SOL_SYMBOL, "print", prim_print);
+    instance(vm->symbol_class, SOL_SYMBOL, "display", prim_display);
+    instance(vm->symbol_class, SOL_SYMBOL, "asString", prim_symbol_as_string);
+    instance(vm->symbol_class, SOL_SYMBOL, "equals", prim_equals);
+    instance(vm->symbol_class, SOL_SYMBOL, "notEquals", prim_not_equals);
+    instance(vm->symbol_class, SOL_SYMBOL, "size", prim_symbol_size);
 
     /* Reflection is the same on every class, and installing it in a loop is not
        just brevity: a message that answers what an object understands is wrong
@@ -1845,13 +1877,13 @@ void sol_builtins_install(SolVM *vm)
         vm->symbol_class,
     };
     for (size_t i = 0; i < sizeof(classes) / sizeof(classes[0]); i++) {
-        sol_object_define_primitive(classes[i], "perform",    prim_perform);
-        sol_object_define_primitive(classes[i], "respondsTo", prim_responds_to);
-        sol_object_define_primitive(classes[i], "isKindOf",   prim_is_kind_of);
+        any_receiver(classes[i], "perform",    prim_perform);
+        any_receiver(classes[i], "respondsTo", prim_responds_to);
+        any_receiver(classes[i], "isKindOf",   prim_is_kind_of);
         /* These two want an object to look inside. On anything else they say so
            rather than going missing, which is a better error than "no slot". */
-        sol_object_define_primitive(classes[i], "slots",      prim_slots);
-        sol_object_define_primitive(classes[i], "slotAt",     prim_slot_at);
+        any_receiver(classes[i], "slots",      prim_slots);
+        any_receiver(classes[i], "slotAt",     prim_slot_at);
     }
 
     /* Bind the class objects into the globals namespace so `integer` resolves. */

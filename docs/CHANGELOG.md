@@ -8,6 +8,81 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### A class object no longer answers its instances' messages — `pending`, 2026-08-19
+
+Two crashes, both reachable from three words of ordinary source, both fixed by
+one check. Roadmap 1.5 and 1.6.
+
+```
+array:add(#1).      ; was: abort
+array:print.        ; was: segmentation fault
+array:size.         ; was: #0, read from whatever `array` is not
+```
+
+`array` is an object whose slots are the messages an *array* understands, and it
+answers them itself. `prim_array_add` then did `SOL_AS_ARRAY(self)` on the class
+object, because a primitive reached through a class had always been entitled to
+assume its receiver's type. That holds for every instance and fails for the one
+object that is not one. `array:print` was the same bug wearing the renderer:
+rendering asks an object for `asString`, found the one meant for arrays, and
+went round again — C recursion, so the call-depth cap never saw it.
+
+**Each primitive now records the receiver it needs, and the dispatcher checks
+before entering it.** One check in one place rather than 64 copies of the same
+`if`, and both dispatch sites go through it, so `perform` and the renderer are
+covered along with `OP_SEND`.
+
+```
+array:add(#1).
+solvm: 'add' expects an array, got object
+```
+
+The requirement is per message, not per class, because a class object is the
+genuine receiver of some of them — `array:of`, `array:new`, `integer:new`,
+`float:new`, and reflection, which reads either side. The installation lists now
+say which is which, one message at a time:
+
+```c
+instance(vm->array_class, SOL_ARRAY, "add", prim_array_add);
+any_receiver(vm->array_class, "of", prim_array_of);
+```
+
+That is 2.5 answered in the small. Splitting the two sides into separate objects
+still wants a metaclass level and is still open; what had to be settled first was
+which side each message is on.
+
+**`respondsTo` asks the same question the dispatcher does**, so it cannot claim a
+message that sending would refuse: `array:respondsTo('add)` is now false, and
+`array:respondsTo('of)` true. Binding a block over a primitive clears the
+requirement along with it, so a class can be given messages of its own:
+
+```
+array:describe := { "arrays, in a list" }.
+array:describe:display.        ; arrays, in a list
+```
+
+**One thing had to move in the renderer.** A class object nested inside
+something being printed — `[array]:print` — would otherwise have raised the new
+error from inside a `print`, which is not the renderer's business. It now asks
+only an object that can answer, and shows one that cannot as its address,
+exactly as it already showed an object with no `asString` at all.
+
+What is left of 1.5 is that `render`'s depth counter restarts when the recursion
+leaves through `sol_value_render`. That is still wrong in principle and is now
+unreachable: closing the loop needs a primitive that renders a receiver it did
+not check, and there is no longer one. Left alone rather than carrying state on
+the VM for a case nothing can produce.
+
+One comparison per primitive send, which costs **4.0%** on the tight loop from
+the entry below and **2.1%** on the same loop with a conditional in it — the
+first is nearly all sends, so it is close to the worst case.
+
+Both crashes were found by fuzzing the inlined loops (4.1) and are older than
+that work. The same sweep — 3205 single-byte corruptions under ASan and UBSan —
+now reports nothing at all, where it had reported these two. Thirty-four runs
+still time out, which is the spin 3.3 describes and the expected answer.
+`tests/test_class_side.c` covers every built-in class.
+
 ### Inlined loops — `0fd9a75`, 2026-08-19
 
 **`.sob` goes to version 8.**

@@ -74,3 +74,15 @@ p:print.                     ; point(3, 4)
 
 ; Equality is identity: two objects with the same slots are still two objects.
 point:make(#1, #2):equals(point:make(#1, #2)):print.   ; false
+
+; The built-in classes are objects too, holding the messages their *instances*
+; understand. Sending one to the class itself is an error rather than a
+; shortcut, and respondsTo answers accordingly.
+array:respondsTo('add):print.        ; false -- an array does, `array` does not
+array:respondsTo('of):print.         ; true  -- that one makes arrays
+[#1, #2]:respondsTo('add):print.     ; true
+
+; A class can still be given messages of its own; a block bound over the name
+; replaces whatever was there.
+array:describe := { "arrays, in a list" }.
+array:describe:display.              ; arrays, in a list

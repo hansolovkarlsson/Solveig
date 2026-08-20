@@ -23,8 +23,8 @@ The language is Turing-complete, no longer leaks, and now has strings, arrays,
 and user-defined objects. What it lacks is mostly breadth: no conversions between
 types, a thin set of operations, and rough edges around printing and literals.
 
-**Two crashes are open and lead the list** — 1.5 and 1.6, both reachable from
-three words of source, both found by fuzzing work that did not cause them.
+The two crashes that led this list — 1.5 and 1.6, both reachable from three
+words of source — are fixed, and section 1 is done again.
 
 
 ---
@@ -168,75 +168,90 @@ Left open:
 
 ---
 
-The next two are why this section is not empty after all, and they are the only
-urgent items in this document. Both crash the VM outright, both are reached from
-three words of ordinary source, and the REPL goes down the same way. Neither
-came from the work that found them — fuzzing the inlined loops turned them up,
-and both bisect to commits well before it — but a crash belongs here rather than
-among the known limitations, and ahead of everything in sections 4 and 5.
+The next two were the only urgent items in this document, and they were one bug
+wearing two hats. Both are fixed.
 
-They are one bug wearing two hats: a class object holds the messages its
-*instances* understand, and answers them itself.
-
-### 1.5 `array:print` crashes the VM — **open, high priority**
+### 1.5 `array:print` crashed the VM — **done**
 
 ```
-array:print.        ; segmentation fault
-block:print.        ; segmentation fault
-array:asString.     ; segmentation fault
+array:print.        ; was: segmentation fault
+block:print.        ; was: segmentation fault
 ```
 
-Found by fuzzing the loop work, bisected to `f55e105` — the commit that made
-`print` on an object ask the object (5.2). It has nothing to do with jumps, and
-three words of ordinary source reach it; the REPL goes down the same way.
+Rendering an object asks it for `asString`. On the class objects `array` and
+`block`, lookup started at the object itself and found the `asString` those
+classes define for their *instances*, which renders — and rendered the same
+value again. `render` does carry a depth, but the count restarted at zero every
+time the recursion left through `sol_value_render`, and it is C recursion, so
+`SOL_FRAMES_MAX` never saw it: a primitive called from `sol_vm_send` pushes no
+VM frame.
 
-The cycle is exact. Rendering an `SOL_OBJ` sends it `asString`. For the class
-objects `array` and `block`, lookup starts at the object itself and finds the
-`asString` those classes define for their *instances*, which is
-`prim_rendered_as_string` — and that calls the renderer back on the same value.
-`render` does carry a depth, and the array case uses it, but the count restarts
-at zero every time the recursion leaves through `sol_value_render`. Nothing
-bounds it, and it is C recursion, so `SOL_FRAMES_MAX` never sees it: a primitive
-called from `sol_vm_send` does not push a VM frame.
+It fell out of 1.6 as predicted. The receiver check refuses `asString` to a
+class object, so the cycle cannot start; there is no longer a route into
+`prim_rendered_as_string` that does not hold an array or a block. Every other
+route back into the renderer goes through a block a user wrote, and a block
+costs a frame, so the call-depth cap bounds it as it bounds any other runaway
+recursion.
 
-The comment at `value.c` says the default `asString` on `object` "is what stops
-the renderer's ask-the-object from recurring forever". That is true of an
-ordinary object and false of a class object, which is the gap.
+One thing did have to move. A class object nested inside something being
+rendered -- `[array]:print` -- would have raised 1.6's error from inside a
+`print`, which is not the renderer's business. So the renderer now asks only an
+object that can answer, and shows one that cannot as its address, exactly as it
+already showed an object with no `asString` at all.
 
-The fix is to carry the depth across the send rather than restart it — hold it
-on the VM, seed `sol_value_render` from it, and let a cycle bottom out the way a
-self-containing array already does with `[...]`. Wants its own commit and its
-own tests.
+The depth that restarts is still wrong in principle and is now unreachable:
+closing the loop needs a primitive that renders a receiver it did not check, and
+there is no longer one. Left as it is rather than carrying state on the VM for a
+case nothing can produce.
 
-Worth doing 1.6 first and looking again: a receiver check on
-`prim_rendered_as_string` would answer "expects an array, got object" here and
-never start the cycle, which may leave nothing for this entry to fix. The depth
-that restarts would still be wrong in principle, and cheap to make right while
-the file is open.
-
-### 1.6 A class object answers its instances' messages — **open, high priority**
+### 1.6 A class object answered its instances' messages — **done**
 
 ```
-array:add(#1).      ; abort
-array:size:print.   ; #0, read from whatever `array` is not
+array:add(#1).      ; was: abort
+array:size.         ; was: #0, read from whatever `array` is not
 ```
 
-`array` is an object whose slots are the messages an *array* understands, and
-sending one to `array` itself finds it. `prim_array_add` then does
-`SOL_AS_ARRAY(self)` on the class object, because a primitive reached through a
-class has always been able to assume its receiver's type. That assumption holds
-for every instance and fails for the one object that is not one.
+`array` is an object whose slots are the messages an *array* understands, and it
+answers them itself. `prim_array_add` then did `SOL_AS_ARRAY(self)` on the class
+object, because a primitive reached through a class had always been entitled to
+assume its receiver's type. That holds for every instance and fails for the one
+object that is not one.
 
-Some primitives happen to check — `concat` and `add` on other types answer a
-proper "expects a string, got object" — so the gap is uneven rather than total,
-which is its own argument for fixing it in one place. Found by fuzzing the loop
-work, and present as far back as the array primitives; 1.5 is the same shape
-reached through the renderer.
+Each primitive now records the receiver it needs, and the dispatcher checks
+before entering it — one check in one place rather than 64 copies of the same
+`if`, and both dispatch sites go through it, so `perform` and the renderer are
+covered as well as `OP_SEND`.
 
-The fix is a receiver check the class-side primitives share, rather than 40
-copies of the same `if`. It touches every built-in class, so it wants its own
-commit; 2.5 (class side versus instance side) is the design question underneath
-it, and answering that first may make this fall out.
+```
+array:add(#1).
+solvm: 'add' expects an array, got object
+```
+
+The requirement is per message, not per class, because a class object is the
+genuine receiver of some of them. `array:of`, `array:new`, `integer:new`,
+`float:new` take any receiver, as does reflection, which reads either side. The
+installation lists say which is which one message at a time:
+
+```c
+instance(vm->array_class, SOL_ARRAY, "add", prim_array_add);
+any_receiver(vm->array_class, "of", prim_array_of);
+```
+
+That is 2.5 answered in the small — for each message, rather than by splitting
+the two sides into separate objects, which still wants a metaclass level.
+
+`respondsTo` asks the same question the dispatcher does, so it cannot claim a
+message that sending would refuse: `array:respondsTo('add)` is false and
+`array:respondsTo('of)` is true. Binding a block over a primitive clears the
+requirement along with it, so a class can be given messages of its own.
+
+Costs one comparison per primitive send: 4.0% on a loop that is nearly all
+sends, 2.1% on a more ordinary one.
+
+Found by fuzzing the loop work (4.1) and present as far back as the array
+primitives. `tests/test_class_side.c` covers every built-in class, and the fuzz
+sweep that found the two crashes -- 3205 corrupted variants -- now reports
+nothing.
 
 ## 2. Language decisions still open
 
@@ -754,11 +769,12 @@ a user writes to render itself still recurses, but through real frames, so it
 stops at the call-depth cap like any other runaway recursion rather than
 smashing the C stack.
 
-**That is true of an ordinary object and false of a class object**, which is
-1.5: `array:print` smashes the C stack today. Lookup on `array` starts at the
-object itself and finds the `asString` that class defines for its instances,
-which renders -- and the depth `render` carries restarts at zero on the way
-back in. Found by fuzzing the loop work, and bisected to this commit.
+That was true of an ordinary object and **false of a class object**, which was
+1.5: `array:print` smashed the C stack, because lookup on `array` starts at the
+object itself and found the `asString` that class defines for its instances.
+Fixed by 1.6's receiver check, which refuses it. The renderer now asks only an
+object that can answer and shows one that cannot as its address, so a class
+object nested in an array renders rather than raising.
 
 Still missing: nothing asks an object for a *literal* form distinct from its
 display form, the way `#45` prints as `#45` but displays as `45`. Objects have
@@ -799,43 +815,34 @@ text would make compile errors considerably more useful.
 
 Everything that stood between this and a language you could write a real
 program in is built. Section 1 held nothing until fuzzing the loop work put two
-crashes back into it, and those are the only urgent items on this list:
+crashes into it, and both are now fixed — the receiver check in 1.6 took 1.5
+with it, as that entry guessed it would.
 
-1. **`array:add(#1)` aborts** (1.6) — a class object answers the messages its
-   instances understand, and the primitive reads it as an instance. First
-   because a shared receiver check is the fix, and it may take the next one with
-   it. 2.5 is the design question underneath.
-2. **`array:print` smashes the C stack** (1.5) — the same shape through the
-   renderer, which asks an object for `asString` and gets the one meant for its
-   instances. Look again after 1.6; the depth that restarts is worth fixing
-   either way.
+Nothing here is urgent again. The remaining items are roughly in order of how
+soon they would be missed:
 
-Three words of ordinary source reach either, and the REPL goes down the same
-way, so they outrank everything below however small the fix turns out to be.
-After them, nothing is urgent. The rest are roughly in order of how soon they
-would be missed:
-
-3. **A bigger constant pool** (4.2) — a literal-heavy program hits the 256-entry
+1. **A bigger constant pool** (4.2) — a literal-heavy program hits the 256-entry
    cap well before anything else. Sorting two thousand literals was not possible
    without generating them at run time.
-4. **Dispatch by pointer** (4.3) — symbols exist; a send still does `strcmp`.
-5. **Calling a fetched method** — `slotAt` hands back an unbound block (2.10).
-6. **Inlining `and` and `or`** (4.1) — the last two that short-circuit through a
+2. **Dispatch by pointer** (4.3) — symbols exist; a send still does `strcmp`.
+3. **Calling a fetched method** — `slotAt` hands back an unbound block (2.10).
+4. **Inlining `and` and `or`** (4.1) — the last two that short-circuit through a
    block. Nothing new is needed; the jumps are all there now.
-7. **Stack heights in the verifier** (3.9) — would catch a corrupted argument
+5. **Stack heights in the verifier** (3.9) — would catch a corrupted argument
    count at load rather than at the send, and let the runtime checks go.
-8. Everything else as it starts to hurt.
+6. Everything else as it starts to hurt.
 
 Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), arrays entire
 (1.2, 1.2a, 1.2b), strings (1.3), user-defined objects (1.4), division (2.1),
 calling the method you override (2.9), the missing operations (2.8),
 formatted output (2.11), the statement separator (2.2), float exponents and
 round-tripping (2.6, 5.3), string escapes (1.3), rendering an object by asking
-it (5.2), symbols (2.7), reflection (2.10), sorting, and inlined conditionals
-and loops (4.1).
+it (5.2), symbols (2.7), reflection (2.10), sorting, inlined conditionals and
+loops (4.1), and the two class-object crashes (1.5, 1.6).
 
-One decision is outstanding, and it now has two crashes resting on it: **2.5**,
-class side versus instance side. Answering it may make 1.5 and 1.6 fall out.
+One decision is outstanding: **2.5**, class side versus instance side. 1.6
+answered it one message at a time, which was enough to stop the crashes;
+splitting the two sides into separate objects is still open.
 
 Still waiting on a call from you: **division** (2.1) and the **statement
 terminator** (2.2). Neither blocks anything above it.
