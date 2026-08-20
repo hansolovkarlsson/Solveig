@@ -8,6 +8,70 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### A program can stop, and knows what it was given — `pending`, 2026-08-20
+
+Roadmap 6.2. `system` is a global holding one object — not a class, since there
+is one process and it has no instances — and it is where what belongs to the
+program rather than to any value now lives.
+
+```
+system:exit(#0)          ; stop, with a status
+system:arguments         ; an array of strings
+system:clock             ; monotonic seconds as a float
+```
+
+**`exit` unwinds rather than leaving from under the machine.** Every frame is
+discarded the way an error discards them, control returns through `main`, and
+whatever the C library was holding is flushed on the way out. Calling `exit(3)`
+from the primitive would have skipped all of that, and would have made a
+program's last line of output depend on whether stdout happened to be a
+terminal. Nothing after the exit runs, including the rest of a loop it was called
+inside:
+
+```
+[#1, #2, #3]:do({ n | n:print. n:equals(#2):ifTrue({ system:exit(#3) }) }).
+```
+```
+#1
+#2
+```
+
+That works because the VM already had a flag every loop tests before continuing
+— the one an error sets. An exit has to unwind through exactly those loops, so it
+sets the same flag rather than adding a second test to each of them, and a
+second flag beside it says which of the two reasons it was. The cost was one
+enumerator, `SOL_EXIT`, and one `?:` at the bottom of the dispatch loop.
+
+**A status is #0 to #255**, and anything else is an error rather than a number
+quietly adjusted to fit. POSIX keeps only the low eight bits, so `#256` would
+otherwise leave with 0 and look like success — the quiet mistake the language
+refuses everywhere else.
+
+**`arguments` needed no primitive.** It is a data slot holding an array, because
+that is what it is: the same array every time, not a fresh one, so
+`system:arguments:equals(system:arguments)` is true. It is the *empty* array when
+there were none rather than nil, so a program can walk it without first asking
+whether it is there. solvm hands it over with `sol_vm_set_arguments`, which
+builds the array the way every array of fresh values is built here — nils first,
+so the backing store grows while nothing new is live.
+
+**`clock` is monotonic seconds as a float**, and its epoch is deliberately
+unspecified: the only useful thing to do with two readings is subtract them, and
+a wall clock can go backwards in between. It is what 6.5 was waiting for.
+
+Everything after the `.sob` on the command line now belongs to the program, so
+solvm's own flags have to come first — `solvm --dump prog.sob` rather than
+`solvm prog.sob --dump`, which now passes `--dump` to the program. And
+`system:exit` works at the prompt for the same reason it works in a program:
+Solis runs the same machine, so `system:exit(#4)` leaves Solis with status 4.
+
+`tests/test_system.c` covers the eight behaviours — the status arriving, nothing
+running after, unwinding out of both a `do` and a `whileTrue`, the six ways a
+status is refused, the empty default, the strings arriving in order as one array,
+the clock being a float that does not go backwards, and `system` being an
+ordinary object. `examples/system.sol` is the runnable version. Clean under GC
+stress, no leaks.
+
 ### The trailing-block verdict, argued properly this time — `8b4cf3a`, 2026-08-20
 
 Documentation. No code, and that is the decision.

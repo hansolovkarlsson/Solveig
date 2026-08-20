@@ -35,7 +35,8 @@ prints.
 15. [Getting text out](#15-getting-text-out)
 16. [Errors and strictness](#16-errors-and-strictness)
 17. [Splitting a program across files](#17-splitting-a-program-across-files)
-18. [What is left](#18-what-is-left)
+18. [The program and its process](#18-the-program-and-its-process)
+19. [What is left](#19-what-is-left)
 
 ---
 
@@ -570,13 +571,47 @@ temperature:cToF := { c | c:mul(1.8):add(32.0) }.
 [REFERENCE.md](REFERENCE.md#splitting-a-program-across-files) has the rules
 exactly.
 
-## 18. What is left
+## 18. The program and its process
+
+Everything so far has been about values. `system` is the one global that is not
+a value and not a class: one object, holding what belongs to the program rather
+than to anything inside it.
+
+```
+system:arguments:size:print.            ; how many arguments it was given
+system:clock:isKindOf(float):print.     ; true -- monotonic seconds
+system:exit(#0).                        ; stop, and say it went well
+```
+
+**`exit` is a message**, so it is neither a keyword nor a statement, and it
+unwinds rather than leaving from under the machine: everything already printed
+is flushed, and nothing after it runs — including the rest of a loop it was
+called inside. A status is `#0` to `#255`, and anything else is an error rather
+than a number quietly adjusted to fit, since POSIX would keep only the low eight
+bits and `#256` would leave looking like success.
+
+**`arguments` is a slot rather than a method**, because it is data: the same
+array of strings every time you ask, and the empty array rather than nil when
+there were none, so it can be walked without first asking whether it is there.
+
+**`clock` is monotonic**, which is why its epoch is unspecified — the only
+useful thing to do with two readings is subtract them:
+
+```
+start := system:clock.
+i := #0. { i:lessThan(#100000) }:whileTrue({ i := i:add(#1) }).
+system:clock:sub(start):asString("0.4"):display.     ; 0.0153
+```
+
+> **Run:** [examples/system.sol](../examples/system.sol)
+
+## 19. What is left
 
 The language is Turing-complete and does not leak. What remains is in
-[ROADMAP.md](ROADMAP.md), and it is no longer about the language: a program has
-to read input, write files, and stop with a status, and none of that exists yet.
-One design question is still open — whether the class side and the instance side
-should be separate objects.
+[ROADMAP.md](ROADMAP.md), and it is no longer about the language: a program can
+now be split across files and can stop with a status, but it cannot yet read
+input or write a file. One design question is still open — whether the class side
+and the instance side should be separate objects.
 
 Known restrictions worth carrying with you:
 

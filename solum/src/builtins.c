@@ -4,12 +4,15 @@
  * combines with an integer, a float only with a float. There is no implicit
  * coercion, so `#45:add(1.5)` is an error rather than a quiet promotion.
  */
+#define _POSIX_C_SOURCE 200809L    /* clock_gettime, for system:clock */
+
 #include <ctype.h>
 #include <errno.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "solum/vm.h"
 
@@ -1797,6 +1800,59 @@ static SolValue prim_slot_at(SolVM *vm, SolValue self, SolValue *args, int argc)
  * two names are the class-side/instance-side distinction 2.5 is about, written
  * down one message at a time rather than decided all at once.
  */
+/* ---- system: the process, rather than any value --------------------- */
+
+/* Stopping is a message, and it unwinds rather than leaving from under the
+ * machine. Every frame is discarded the way an error discards them, `main`
+ * returns normally, and whatever the C library was holding is flushed on the way
+ * out. `exit(3)` here would skip all of that, and would make a program's last
+ * line of output depend on whether stdout happened to be a terminal.
+ *
+ * A status is #0 to #255 and anything else is refused rather than masked: POSIX
+ * keeps the low eight bits, so `system:exit(#256)` would leave with 0 and look
+ * like success -- exactly the quiet mistake the language refuses elsewhere.
+ */
+static SolValue prim_system_exit(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "exit", argc, 1)) return SOL_NIL_VAL;
+    if (!SOL_IS_INT(args[0])) {
+        sol_vm_runtime_error(vm, "'exit' expects an integer status, got %s",
+                             sol_type_name(args[0]));
+        return SOL_NIL_VAL;
+    }
+
+    int64_t code = SOL_AS_INT(args[0]);
+    if (code < 0 || code > 255) {
+        sol_vm_runtime_error(vm, "an exit status is #0 to #255, got #%lld",
+                             (long long)code);
+        return SOL_NIL_VAL;
+    }
+
+    vm->exit_code = (int)code;
+    vm->exiting = true;
+    vm->had_error = true;      /* the flag every loop already tests to unwind */
+    return SOL_NIL_VAL;
+}
+
+/* Monotonic seconds as a float. Monotonic because the only thing worth doing
+ * with two readings is subtracting them, and a wall clock can go backwards
+ * between them -- so the epoch is deliberately unspecified and a single reading
+ * means nothing on its own. */
+static SolValue prim_system_clock(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    (void)args;
+    if (!check_argc(vm, "clock", argc, 0)) return SOL_NIL_VAL;
+
+    struct timespec now;
+    if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) {
+        sol_vm_runtime_error(vm, "the monotonic clock is unavailable");
+        return SOL_NIL_VAL;
+    }
+    return SOL_FLOAT_VAL((double)now.tv_sec + (double)now.tv_nsec / 1e9);
+}
+
 static void instance(SolVM *vm, SolObject *cls, SolValueType type, const char *name,
                      SolPrimitive fn)
 {
@@ -2012,4 +2068,22 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define(vm, vm->root, "infinity", SOL_FLOAT_VAL(INFINITY));
     sol_object_define(vm, vm->root, "nan",      SOL_FLOAT_VAL(NAN));
     sol_object_define(vm, vm->root, "false",   SOL_BOOL_VAL(false));
+
+    /* `system` is about the process rather than about any value, so it is not a
+       class and has no instances -- it is one object with slots, bound to a
+       global like everything else. `exit` and `clock` are primitives because
+       they do something; `arguments` is a data slot because it is data, and
+       sol_vm_set_arguments replaces it when the host has any to give.
+
+       Bound into the globals first and filled in after, so that it is reachable
+       while the slots that follow allocate. */
+    SolObject *system = sol_object_new(vm, vm->object_class);
+    sol_object_define(vm, vm->root, "system", SOL_OBJ_VAL(system));
+    any_receiver(vm, system, "exit", prim_system_exit);
+    any_receiver(vm, system, "clock", prim_system_clock);
+
+    SolArray *no_arguments = sol_array_new(vm, 0);
+    sol_gc_push_temp(vm, &no_arguments->gc);
+    sol_object_define(vm, system, "arguments", SOL_ARRAY_VAL(no_arguments));
+    sol_gc_pop_temp(vm);
 }

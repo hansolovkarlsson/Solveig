@@ -176,7 +176,7 @@ static void test_every_example_verifies(void)
         "examples/strings.sol", "examples/methods.sol", "examples/objects.sol",
         "examples/reflect.sol", "examples/symbols.sol", "examples/numbers.sol",
         "examples/format.sol",  "examples/values.sol",  "examples/stock.sol",
-        "examples/library.sol", "examples/include.sol",
+        "examples/library.sol", "examples/include.sol",  "examples/system.sol",
     };
 
     for (size_t i = 0; i < sizeof(examples) / sizeof(examples[0]); i++) {

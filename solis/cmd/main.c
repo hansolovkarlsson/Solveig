@@ -15,22 +15,28 @@
 
    The temporary root covers the window before the first frame refers to it, so
    a collection triggered while compiling could not sweep it. */
-static void submit(SolVM *vm, const char *source)
+static SolResult submit(SolVM *vm, const char *source)
 {
+    SolResult result = SOL_COMPILE_ERROR;
     SolCode *code = sol_code_new(vm);
     sol_gc_push_temp(vm, &code->gc);
 
     if (sol_compile(source, &code->chunk)) {
-        sol_vm_run(vm, &code->chunk);
+        result = sol_vm_run(vm, &code->chunk);
     }
     sol_gc_pop_temp(vm);
 
     /* They share the VM, so globals and methods bound by one submission are
        there for the next. */
+    return result;
 }
 
-static void repl(SolVM *vm)
+/* Answers the status to leave with. `system:exit` works at the prompt for the
+   same reason it works in a program: it is a message, and the prompt runs the
+   same machine. */
+static int repl(SolVM *vm)
 {
+    int status = 0;
     SolisInput input = { NULL, 0, 0 };
     SolisScan  state;
     size_t     scanned = 0;
@@ -45,7 +51,9 @@ static void repl(SolVM *vm)
         if (!sol_input_read_line(&input, stdin)) {
             /* End of input. Anything half-typed is still compiled rather than
                dropped, so input that stops mid-expression says why. */
-            if (input.length > 0) submit(vm, input.text);
+            if (input.length > 0 && submit(vm, input.text) == SOL_EXIT) {
+                status = vm->exit_code;
+            }
             printf("\n");
             break;
         }
@@ -54,13 +62,17 @@ static void repl(SolVM *vm)
         scanned = input.length;
         if (sol_scan_wants_more(&state)) continue;
 
-        submit(vm, input.text);
+        if (submit(vm, input.text) == SOL_EXIT) {
+            status = vm->exit_code;
+            break;
+        }
         sol_input_clear(&input);
         sol_scan_reset(&state);
         scanned = 0;
     }
 
     sol_input_free(&input);
+    return status;
 }
 
 int main(int argc, char *argv[])
@@ -73,7 +85,7 @@ int main(int argc, char *argv[])
 
     SolVM vm;
     sol_vm_init(&vm);
-    repl(&vm);
+    int status = repl(&vm);
     sol_vm_free(&vm);
-    return 0;
+    return status;
 }

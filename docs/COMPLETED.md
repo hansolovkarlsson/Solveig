@@ -27,7 +27,7 @@ reasoning went to the changelog at the time, and the verdicts are in
 - [5. Tooling and ergonomics](#5-tooling-and-ergonomics) — the prompt, rendering,
   float text, compile errors
 - [6. Beyond the language](#6-beyond-the-language) — splitting a program across
-  files
+  files, and the `system` object
 
 ---
 
@@ -754,3 +754,27 @@ compiled *once* — a second copy could only rebind names already bound and repe
 whatever the file did on the way, and C's alternative needs conditional
 compilation that Solum has not got. The rules are in
 [REFERENCE.md](REFERENCE.md#splitting-a-program-across-files).
+
+### 6.2 A `system` object — **done**
+
+`system:exit(code)` is the difference between a script and a program: there is
+currently no way to say *stop, and here is why*. Alongside it, the two other
+things a program asks the world for: its arguments, and the time.
+
+- `system:exit(#0)` — leave with a status.
+- `system:arguments` — an array of strings.
+- `system:clock` — monotonic, for 6.5.
+
+Small, self-contained, and the natural home for anything else that is about the
+process rather than about a value.
+
+Built as `pending`. All three, and the shape they took: `system` is one object
+bound to a global rather than a class, since there is one process and it has no
+instances. `exit` **unwinds** rather than calling `exit(3)`, so every frame is
+discarded the way an error discards them and whatever the C library was holding
+is flushed on the way out; a status is #0 to #255 and anything else is refused,
+POSIX keeping only the low eight bits. `arguments` turned out to want no
+primitive at all — it is a data slot holding an array, which is what it is.
+`clock` is monotonic seconds as a float, the epoch left unspecified because only
+differences mean anything. The rules are in
+[REFERENCE.md](REFERENCE.md#the-program-and-its-process).

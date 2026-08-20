@@ -15,6 +15,8 @@ void sol_vm_init(SolVM *vm)
 {
     vm->frame_count = 0;
     vm->had_error = false;
+    vm->exiting = false;
+    vm->exit_code = 0;
     vm->next_frame_id = 1;
     reset_stack(vm);
 
@@ -55,6 +57,33 @@ void sol_vm_init(SolVM *vm)
     vm->root = sol_object_new(vm, NULL);
 
     sol_builtins_install(vm);
+}
+
+/* The array `system:arguments` answers. Built the way every array of fresh
+ * values is: the elements go in as nil first, so that growing the backing store
+ * happens while nothing new is live, and each string is then stored before the
+ * next allocation can collect it.
+ *
+ * `arguments` is an ordinary data slot rather than a primitive, because it is
+ * ordinary data: it does not change while the program runs, and a slot holding
+ * an array is exactly what it is.
+ */
+void sol_vm_set_arguments(SolVM *vm, int count, char **args)
+{
+    SolSlot *slot = sol_object_lookup(vm->root, "system");
+    if (slot == NULL || !SOL_IS_OBJ(slot->value)) return;
+
+    SolArray *out = sol_array_new(vm, count);
+    sol_gc_push_temp(vm, &out->gc);
+
+    for (int i = 0; i < count; i++) sol_array_add(vm, out, SOL_NIL_VAL);
+    for (int i = 0; i < count; i++) {
+        out->items[i] = SOL_STRING_VAL(
+            sol_string_new(vm, args[i], (int)strlen(args[i])));
+    }
+
+    sol_object_define(vm, SOL_AS_OBJ(slot->value), "arguments", SOL_ARRAY_VAL(out));
+    sol_gc_pop_temp(vm);
 }
 
 void sol_vm_free(SolVM *vm)
@@ -594,7 +623,11 @@ static SolResult run_frames(SolVM *vm, int base)
             break;
         }
 
-        if (vm->had_error) return SOL_RUNTIME_ERROR;
+        /* One flag stops the machine and the other says why. Every loop that
+           has to unwind already tests `had_error`, and an exit unwinds through
+           exactly those, so it sets that one too rather than adding a second
+           test to each of them. */
+        if (vm->had_error) return vm->exiting ? SOL_EXIT : SOL_RUNTIME_ERROR;
     }
 
 #undef READ_INTERNED
@@ -684,6 +717,7 @@ void sol_vm_intern_chunk(SolVM *vm, SolChunk *chunk)
 SolResult sol_vm_run(SolVM *vm, const SolChunk *chunk)
 {
     vm->had_error = false;
+    vm->exiting = false;
     vm->frame_count = 0;
     reset_stack(vm);
 

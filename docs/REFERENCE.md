@@ -20,6 +20,7 @@ a:print.
 
 - [Running a program](#running-a-program)
 - [Splitting a program across files](#splitting-a-program-across-files)
+- [The program and its process](#the-program-and-its-process)
 - [Lexical structure](#lexical-structure)
 - [Values](#values)
 - [Names and binding](#names-and-binding)
@@ -36,10 +37,14 @@ a:print.
 ## Running a program
 
 ```sh
-./bin/solas program.sol          # compiles to program.sob
-./bin/solvm program.sob          # runs it
-./bin/solis                      # a prompt; input may span lines
+./bin/solas program.sol             # compiles to program.sob
+./bin/solvm program.sob             # runs it
+./bin/solvm program.sob a b c       # ...with arguments, which system:arguments answers
+./bin/solis                         # a prompt; input may span lines
 ```
+
+Everything after the `.sob` belongs to the program and solvm does not look at
+it, so its own flags have to come first.
 
 The program is `solvm`; its sources live under `solum/`. The two are the same
 word -- `SOLVM` is how *solum* was written before the alphabet split V into two
@@ -122,6 +127,72 @@ trace gives a line number without saying which file counted it.
 
 ---
 
+## The program and its process
+
+`system` is a global holding one object. It is not a class and has no
+instances — there is one process, and this is where what belongs to it lives
+rather than to any value. Its messages are in
+[the reference below](#system).
+
+```
+system:arguments:do({ a | a:display }).
+system:exit(#0).
+```
+
+### Stopping
+
+`system:exit(status)` stops the program and hands `status` back to whatever ran
+it. It **unwinds** rather than leaving from under the machine: every frame is
+discarded the way an error discards them, and control returns through `main`, so
+everything already written is flushed on the way out. Nothing after the `exit`
+runs, including the rest of a loop it was called inside:
+
+```
+[#1, #2, #3]:do({ n | n:print. n:equals(#2):ifTrue({ system:exit(#3) }) }).
+```
+```
+#1
+#2
+```
+
+A status is an integer from **#0 to #255**, and anything else is an error rather
+than a value quietly adjusted to fit — POSIX keeps only the low eight bits, so
+`system:exit(#256)` would otherwise leave with 0 and look like success.
+
+At the prompt it does the same thing: Solis runs the same machine, so
+`system:exit(#4)` leaves Solis with status 4.
+
+### Arguments
+
+`system:arguments` answers an array of strings: everything on the command line
+after the `.sob` file, in order, and neither solvm's name nor the file's is among
+them. With none given it is the **empty array** rather than nil, so it can be
+walked without first asking whether it is there.
+
+It is a data slot rather than a method, because it is data — the same array every
+time, not a fresh one:
+
+```
+system:arguments:equals(system:arguments):print.     ; true
+```
+
+Being an ordinary array, a program can add to it or sort it. That changes the
+program's copy and nothing else.
+
+### The clock
+
+`system:clock` answers **monotonic seconds as a float**. The epoch is
+deliberately unspecified: the only useful thing to do with two readings is
+subtract them, and a wall clock can go backwards in between.
+
+```
+start := system:clock.
+i := #0. { i:lessThan(#100000) }:whileTrue({ i := i:add(#1) }).
+system:clock:sub(start):asString("0.4"):display.     ; 0.0147 -- whatever it took
+```
+
+---
+
 ## Lexical structure
 
 ### Comments
@@ -190,9 +261,10 @@ cannot be one: `a:=(b)` would otherwise be both an assignment and a send.
 
 None are keywords, but these are bound as globals at startup and shadowing them
 will surprise you: `integer`, `float`, `string`, `array`, `symbol`, `block`,
-`boolean`, `object`, `nil`, `true`, `false`, `infinity`, `nan`.
+`boolean`, `object`, `system`, `nil`, `true`, `false`, `infinity`, `nan`.
 
-The first eight are the class objects; the rest are values.
+The first eight are the class objects, `system` is
+[the process](#the-program-and-its-process), and the rest are values.
 
 `self` is not a global; it is recognised by the compiler inside a block.
 
@@ -942,6 +1014,18 @@ state:equals('running):ifTrue({ "go":display }).
 
 `slots` and `slotAt` are listed under [Reflection](#reflection); they are on
 every type but answer only for objects.
+
+### system
+
+One object, bound to the global `system`. Not a class: it has no instances, and
+it delegates to `object` like everything else. See
+[The program and its process](#the-program-and-its-process).
+
+| Message | Answers |
+| --- | --- |
+| `exit(status)` | nothing — the program stops, with `status` from #0 to #255 |
+| `arguments` | an array of strings; the empty array when there were none |
+| `clock` | monotonic seconds as a float; only differences are meaningful |
 
 ### nil
 

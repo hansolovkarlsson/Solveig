@@ -233,24 +233,11 @@ Sections 1 to 5 were about making Solum a language, and they are done — the
 entries are in [COMPLETED.md](COMPLETED.md). This one is about making it a
 language you can write a *program* in: a program has to be split across files,
 read input, write files, and stop with a status. None of it needs a new idea.
-Splitting is done; the rest is still missing.
+Splitting is done and so is stopping; reading and writing are not.
 
 Raised in a notes file and assessed in [ideas.md](ideas.md), which also records
 what was **not** worth building and why — integer widths, a JIT, cascades,
 trailing-block syntax, and Go-style concurrency among them.
-
-### 6.2 A `system` object
-
-`system:exit(code)` is the difference between a script and a program: there is
-currently no way to say *stop, and here is why*. Alongside it, the two other
-things a program asks the world for: its arguments, and the time.
-
-- `system:exit(#0)` — leave with a status.
-- `system:arguments` — an array of strings.
-- `system:clock` — monotonic, for 6.5.
-
-Small, self-contained, and the natural home for anything else that is about the
-process rather than about a value.
 
 ### 6.3 Reading input
 
@@ -282,7 +269,7 @@ one. An array of integers would work and would cost 16 bytes a byte.
 
 Every performance number in the changelog was taken with `/usr/bin/time` around
 a whole process. Being able to time a block from inside Solum would be better,
-and is a few lines once 6.2 provides a clock:
+and is a few lines now that 6.2 has provided `system:clock`:
 
 ```
 { #20:factorial }:timeToRun:print.
@@ -336,7 +323,7 @@ A short section in the guide, with that example.
 
 ### 6.9 The examples do not cover everything
 
-Fourteen examples, chosen by what was being built at the time rather than by
+Fifteen examples, chosen by what was being built at the time rather than by
 what a reader needs. Worth an audit: list every concept the guide names, find which
 have no example, and fill the gaps rather than adding more of what is covered.
 
@@ -344,16 +331,16 @@ have no example, and fill the gaps rather than adding more of what is covered.
 
 **Section 6 is the whole of the live list**, and it came from the right place:
 notes about what a program would want, rather than a plan written before there
-were any programs. Its first item is built — a program can be split across files
-— so in order of what would be missed next:
+were any programs. Two of its items are built — a program can be split across
+files, and it can stop with a status — so in order of what would be missed next:
 
-1. **A `system` object** (6.2) — `exit`, arguments, a clock.
-2. **Reading input** (6.3) and **files** (6.4), which together are most of what
+1. **Reading input** (6.3) and **files** (6.4), which together are most of what
    a script does.
-3. **Timing from inside the language** (6.5), once 6.2 exists.
-4. The documentation gaps — the instruction set (6.7), group versus block (6.8),
+2. **Timing from inside the language** (6.5), which `system:clock` now makes a
+   few lines of Solum.
+3. The documentation gaps — the instruction set (6.7), group versus block (6.8),
    and the example audit (6.9).
-5. **Inlining the loop constructs** (6.6), when something is measurably spending
+4. **Inlining the loop constructs** (6.6), when something is measurably spending
    time in one.
 
 One decision is outstanding: **2.5**, class side versus instance side. 1.6

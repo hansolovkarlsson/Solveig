@@ -29,7 +29,8 @@ typedef struct {
 typedef enum {
     SOL_OK,
     SOL_COMPILE_ERROR,
-    SOL_RUNTIME_ERROR
+    SOL_RUNTIME_ERROR,
+    SOL_EXIT              /* the program asked to stop; `exit_code` says with what */
 } SolResult;
 
 struct SolVM {
@@ -88,9 +89,21 @@ struct SolVM {
     int         name_count;
 
     bool had_error;
+
+    /* `system:exit(code)` unwinds rather than leaving from under the machine.
+       It sets `had_error` too, since every loop that has to stop already checks
+       that one -- the flag means "stop running", and `exiting` says which of
+       the two reasons it was. */
+    bool exiting;
+    int  exit_code;
 };
 
 void sol_vm_init(SolVM *vm);
+
+/* Hands the program its own arguments, which `system:arguments` answers. Copies
+   them, so the caller's array need not outlive the call. Without this the slot
+   holds the empty array, which is what a program run with no arguments sees. */
+void sol_vm_set_arguments(SolVM *vm, int count, char **args);
 
 /* Frees the interned names. Called by sol_vm_free once nothing can look one up
    again -- every slot and every chunk that pointed at one is already gone. */
