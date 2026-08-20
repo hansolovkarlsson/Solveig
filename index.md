@@ -67,9 +67,19 @@ consonant, which is why Roman inscriptions give SOLVM and not SOLUM. So the
 machine is not named *after* the language it runs. It is the same word, cut in
 stone.
 
-The rest keep the *sol-* root, so the whole family turns on the sun: *solum*,
-the ground underfoot; *solis*, of the sun; and Solveig, the Norse cousin among
-them — the same star, in a different language.
+*Solum* is doing more work than the rest. As a noun it is the **ground** — soil,
+floor, the base a thing stands on, which is what a virtual machine is to the
+language above it. As an adverb, *sōlum*, it means **"only"**, which suits a
+language this small just as well.
+
+Those are two different words, and neither of them is the sun. Latin tells them
+apart by vowel length: *solum* the ground has a short o; *sōlum* "only" has a
+long ō, from *sōlus*, "alone"; and *sōl*, *sōlis* — the sun — is a third root
+again. So the family does not share an etymology. It shares four letters, and
+the names were chosen to lean on the resemblance.
+
+*Solis*, "of the sun", is the one that really is solar. And Solveig is the Norse
+cousin among them — the same star, in a different language.
 
 ## Status
 
