@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### A program can be split across files — `pending`, 2026-08-20
+### A program can be split across files — `8922138`, 2026-08-20
 
 Roadmap 6.1, and the first item of section 6 to be built. One line brings
 another file in:
