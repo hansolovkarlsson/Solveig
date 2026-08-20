@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### The verifier computes stack heights — `pending`, 2026-08-20
+### The verifier computes stack heights — `bf2fffd`, 2026-08-20
 
 No `.sob` change and no change a program can see. Roadmap 3.9, the last item
 that had real substance left in it.
