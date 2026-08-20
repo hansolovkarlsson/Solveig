@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### Compile errors point at the column — `pending`, 2026-08-20
+### Compile errors point at the column — `0e48e5d`, 2026-08-20
 
 Roadmap 5.4. No `.sob` change and no change to the language.
 
