@@ -48,6 +48,13 @@ defaults:
       path: ""
     values:
       layout: default
+      # These are documents, not templates. Solum's `fill` writes placeholders
+      # as {} and escapes a brace as {{ -- which is Liquid's own syntax, so a
+      # page explaining `fill` is a Liquid syntax error if Liquid reads it. It
+      # has no business reading them: nothing here interpolates anything, and
+      # the same files are read unrendered on GitHub. Layouts are unaffected,
+      # so the nav and the stylesheet link still work.
+      render_with_liquid: false
 
 markdown: kramdown
 kramdown:
