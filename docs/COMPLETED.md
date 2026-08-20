@@ -853,7 +853,7 @@ out-of-band index — and the first is more in keeping, since `#0` is not a vali
 index here and would be a second way of saying "nothing" beside the one the
 language already has.
 
-Built as `pending`, all three: `split(s)`, `indexOf(s)`, `copyFrom(#a, #b)`.
+Built as `4d35540`, all three: `split(s)`, `indexOf(s)`, `copyFrom(#a, #b)`.
 
 **`split` keeps every piece.** There are always occurrences + 1 of them, so a
 separator at either end or two together gives an empty string where the missing

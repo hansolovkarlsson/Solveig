@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### A string can be taken apart — `pending`, 2026-08-20
+### A string can be taken apart — `4d35540`, 2026-08-20
 
 Roadmap 6.11. `split`, `indexOf` and `copyFrom`.
 
