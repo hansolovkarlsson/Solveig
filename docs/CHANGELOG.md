@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### Inlined `and` and `or` — `pending`, 2026-08-20
+### Inlined `and` and `or` — `de226a8`, 2026-08-20
 
 **`.sob` goes to version 10.**
 
