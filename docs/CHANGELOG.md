@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### A temporary needs a frame, and the compiler says so — `pending`, 2026-08-19
+### A temporary needs a frame, and the compiler says so — `a57632c`, 2026-08-19
 
 `( | t | ... )` declares temporaries of the frame the group sits in. Inside a
 block or a method there is a frame, and it worked. At the top level of a script
