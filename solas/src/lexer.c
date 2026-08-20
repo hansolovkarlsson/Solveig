@@ -36,6 +36,7 @@ const char *sol_token_type_name(SolTokenType type)
     case TOK_FLOAT:  return "float";
     case TOK_STRING: return "string";
     case TOK_SYMBOL: return "symbol";
+    case TOK_DIRECTIVE: return "directive";
     case TOK_COLON:  return "':'";
     case TOK_ASSIGN: return "':='";
     case TOK_LPAREN: return "'('";
@@ -195,6 +196,19 @@ static SolToken symbol(SolLexer *lexer)
     return make_token(lexer, TOK_SYMBOL);
 }
 
+/* `@include` -- a compile-time directive. The '@' is part of the token, so a
+   directive is one lexeme and never an identifier that happens to follow a
+   symbol. Which directives exist is the compiler's business; the scanner only
+   says that one is here and what it is called. */
+static SolToken directive(SolLexer *lexer)
+{
+    if (!is_alpha(peek(lexer))) {
+        return error_token(lexer, "expected a name after '@'");
+    }
+    while (is_alpha(peek(lexer)) || is_digit(peek(lexer))) advance(lexer);
+    return make_token(lexer, TOK_DIRECTIVE);
+}
+
 SolToken sol_lexer_next(SolLexer *lexer)
 {
     skip_ignorable(lexer);
@@ -213,6 +227,7 @@ SolToken sol_lexer_next(SolLexer *lexer)
     case '#':  return integer(lexer);
     case '"':  return string(lexer);
     case '\'': return symbol(lexer);
+    case '@':  return directive(lexer);
     case '(':  return make_token(lexer, TOK_LPAREN);
     case ')':  return make_token(lexer, TOK_RPAREN);
     case '{':  return make_token(lexer, TOK_LBRACE);

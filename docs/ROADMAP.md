@@ -26,9 +26,10 @@ control flow, a mark-sweep collector over objects, blocks and compiled code, the
 The language is Turing-complete, does not leak, and has strings, arrays,
 symbols, user-defined objects, reflection, sorting, formatted output, the
 conversions between every pair of types that has an unambiguous one, and a way
-to split a program across files. Conditionals, loops and `and`/`or` written
-literally compile to jumps, side-table operands are two bytes, and a send
-compares pointers.
+to split a program across files, that last one spelled `@include "lib.sol".` —
+`@` marking the one thing in the language that happens while compiling.
+Conditionals, loops and `and`/`or` written literally compile to jumps, side-table
+operands are two bytes, and a send compares pointers.
 
 **What is left is no longer the language.** Section 6 is a program's dealings
 with the world outside it — reading input, writing files, stopping with a
@@ -346,8 +347,9 @@ the chance that one might.
 
 **Section 6 is the whole of the live list**, and it came from the right place:
 notes about what a program would want, rather than a plan written before there
-were any programs. Four of its items are built — a program can be split
-across files, stop with a status, read its input, and read and write files — so
+were any programs. Five of its items are built — a program can be split across
+files, stop with a status, read its input, read and write files, and the include
+that started it has since been given a syntax that admits what it is (6.13) — so
 in order of what would be missed next:
 
 1. **Splitting a string** (6.11). Files arrive whole and there is no way to take

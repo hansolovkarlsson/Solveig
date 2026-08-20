@@ -125,6 +125,7 @@ These are in [ROADMAP.md](ROADMAP.md) section 6 with the detail. In rough order
 of what a real program would miss first:
 
 **`include`** was the one that mattered, and it is built —
+`@include "lib.sol".`, and
 [the reference](REFERENCE.md#splitting-a-program-across-files) has the rules.
 The design question was never the mechanism but the namespace, and it stayed
 flat: an included file's globals are the including file's, exactly as though its

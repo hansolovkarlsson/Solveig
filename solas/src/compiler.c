@@ -54,7 +54,6 @@ static void block_literal(Compiler *c);
 static bool inline_conditional(Compiler *c, const SolToken *selector);
 static bool inline_logical(Compiler *c, const SolToken *selector);
 static bool inline_while(Compiler *c);
-static bool include_follows(SolParser *p);
 
 /* Is this token exactly this word? */
 static bool token_is(const SolToken *token, const char *word)
@@ -420,24 +419,21 @@ static void primary(Compiler *c)
         sol_parser_consume(p, TOK_RPAREN, "expected ')'");
         return;
     }
-    if (sol_parser_match(p, TOK_STRING)) {
-        /* `"file":include` is a directive, and `statement` has already taken
-           every one that stands where a directive may stand. Reaching here
-           means this one is buried in an expression, where compiling a file in
-           would have nowhere to put it. */
-        if (include_follows(p)) {
-            sol_parser_error(p, &p->previous,
-                             "an include must stand alone as a statement");
-            return;
-        }
-        string_literal(c);
-        return;
-    }
+    if (sol_parser_match(p, TOK_STRING)) { string_literal(c); return; }
     if (sol_parser_match(p, TOK_SYMBOL)) {
         /* The token spans the leading quote; the name is what follows it. */
         SolToken token = p->previous;
         emit_indexed(c, OP_SYMBOL,
                      name_literal(c, token.start + 1, token.length - 1));
+        return;
+    }
+
+    /* `statement` has already taken every directive that stands where one may
+       stand, so reaching here means this one is buried in an expression --
+       where a file compiled in would have nowhere to go. */
+    if (p->current.type == TOK_DIRECTIVE) {
+        sol_parser_error(p, &p->current,
+                         "a directive must stand alone as a statement");
         return;
     }
 
@@ -976,18 +972,23 @@ static bool inline_while(Compiler *c)
 
 /* An include is a compile-time directive rather than a message:
  *
- *     "lib.sol":include.
+ *     @include "lib.sol".
  *
  * compiles that file into this chunk at that point, as though its text had been
  * written there. Globals are one flat namespace and stay one -- two files
  * binding the same name collide exactly as two `:=` in one file already do, the
  * later winning -- so there is nothing here beyond finding the file.
  *
- * It is spelled as a send to a string because the language has no directive
- * syntax and no keyword to spare, and that shape already parses. The compiler
- * recognises it before the send is emitted, which is also why it may only stand
- * alone as a statement: anywhere else it is an error rather than a send that
- * would fail at run time.
+ * The '@' is what says this is not a message. It was spelled `"lib.sol":include`
+ * to begin with, because that shape already parsed -- and it read as a send to a
+ * string, which it never was: no string was pushed, nothing was sent, and the
+ * whole thing had vanished before the program ran. The disguise cost a two-token
+ * lookahead in `statement` to spot one, and a special error in `primary` to
+ * refuse the same shape everywhere else it parsed. A distinct token needs
+ * neither: it is a directive from its first character.
+ *
+ * '@' names the space rather than this one word. What follows it happens while
+ * compiling, and nothing there is a message to anything.
  *
  * The file is found relative to the file including it, not to the working
  * directory, so a program can be moved without its includes breaking. At the
@@ -1000,16 +1001,6 @@ static bool inline_while(Compiler *c)
  * on the way. Compiling once also means a cycle stops instead of recurring.
  */
 #define SOL_MAX_INCLUDE_DEPTH 64
-
-/* Is an `:include` waiting, the string that receives it having just been read? */
-static bool include_follows(SolParser *p)
-{
-    if (p->current.type != TOK_COLON) return false;
-
-    SolLexer probe = p->lexer;                    /* positioned just after ':' */
-    SolToken selector = sol_lexer_next(&probe);
-    return selector.type == TOK_IDENT && token_is(&selector, "include");
-}
 
 static char *copy_string(const char *text)
 {
@@ -1092,14 +1083,17 @@ static bool compile_included(Compiler *parent, const char *source, const char *p
     return !c.parser.had_error;
 }
 
+/* Entered with `@include` consumed and the file name next. */
 static void include_directive(Compiler *c)
 {
     SolParser *p = &c->parser;
 
-    sol_parser_advance(p);                  /* the file name */
+    if (p->current.type != TOK_STRING) {
+        sol_parser_error(p, &p->current, "@include needs a file name in quotes");
+        return;
+    }
+    sol_parser_advance(p);
     SolToken where = p->previous;
-    sol_parser_advance(p);                  /* ':' */
-    sol_parser_advance(p);                  /* 'include' */
 
     if (!sol_parser_match(p, TOK_DOT) && p->current.type != TOK_EOF) {
         sol_parser_error(p, &p->current, "expected '.' between statements");
@@ -1109,7 +1103,7 @@ static void include_directive(Compiler *c)
     char *name = decode_string(c, &where, &length);
     if (name == NULL) return;
     if (length == 0) {
-        sol_parser_error(p, &where, "an include needs a file name");
+        sol_parser_error(p, &where, "@include needs a file name");
         free(name);
         return;
     }
@@ -1170,6 +1164,26 @@ static void include_directive(Compiler *c)
     free(path);
 }
 
+/* Which directive this is. There is one, and an unknown one is refused here
+   rather than left to parse as something else: `@` is the compiler's own space,
+   so a name in it that the compiler does not know is a mistake, not a message
+   it might learn later. */
+static void directive_statement(Compiler *c)
+{
+    SolParser *p = &c->parser;
+    SolToken name = p->current;
+    sol_parser_advance(p);
+
+    if (token_is(&name, "@include")) {
+        include_directive(c);
+        return;
+    }
+
+    /* The error prints the offending token and underlines it, so naming it here
+       too would only say it twice. */
+    sol_parser_error(p, &name, "unknown directive");
+}
+
 /* After an error, skip to the next statement boundary so one mistake does not
    cascade into a screenful. */
 static void synchronise(Compiler *c)
@@ -1196,18 +1210,11 @@ static void statement(Compiler *c)
 {
     SolParser *p = &c->parser;
 
-    /* An include stands alone, and this is the only place one may stand. The
-       string has not been consumed yet, so the probe starts two tokens ahead. */
-    if (p->current.type == TOK_STRING) {
-        SolLexer probe = p->lexer;
-        SolToken colon = sol_lexer_next(&probe);
-        SolToken selector = sol_lexer_next(&probe);
-        if (colon.type == TOK_COLON && selector.type == TOK_IDENT &&
-            token_is(&selector, "include")) {
-            include_directive(c);
-            if (p->panicked) synchronise(c);
-            return;
-        }
+    /* A directive stands alone, and this is the only place one may stand. */
+    if (p->current.type == TOK_DIRECTIVE) {
+        directive_statement(c);
+        if (p->panicked) synchronise(c);
+        return;
     }
 
     expression(c);

@@ -176,6 +176,7 @@ s := "hello"     ; double quotes are strings
 p := point:new(#3, #4)
 a:print.         ; ':' sends a message; '.' terminates a statement
                  ; ';' starts a comment, running to end of line
+@include "lib.sol".   ; '@' marks a directive: compile time, never a message
 ```
 
 `:` is the send operator throughout: `object:message`. Parentheses group a
@@ -263,11 +264,18 @@ else can see rather than a private copy that vanishes when the block returns.
 | `"hello"` | string  | scanned; no runtime type yet                  |
 | `'foo`    | symbol  | quote prefix, no closing quote, as in Lisp    |
 
+`@include` is not in that table because it is not a literal and not a value.
+`@` opens the compiler's own space: what follows it happens while compiling, and
+by the time the program runs there is nothing of it left. It is the one thing in
+the syntax that is not a message or a value, and the sigil is there so that it
+never has to be mistaken for either.
+
 ### Grammar
 
 ```
 program    -> statement* EOF
-statement  -> expression '.'?
+statement  -> directive | expression '.'?
+directive  -> DIRECTIVE STRING '.'?
 expression -> IDENT ':=' expression
            |  send ( ':=' expression )?
 send       -> primary ( ':' IDENT arguments? )*

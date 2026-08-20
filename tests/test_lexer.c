@@ -80,6 +80,25 @@ static void test_strings_symbols_and_comments(void)
     expect_tokens("\"no closing quote", unterminated, 1);
 }
 
+/* `@include` is one token, '@' and all: a directive can never be mistaken for a
+   send, and the bare word stays free for anything else to use. */
+static void test_directives_scan(void)
+{
+    const SolTokenType expected[] = { TOK_DIRECTIVE, TOK_STRING, TOK_DOT, TOK_EOF };
+    expect_tokens("@include \"lib.sol\".", expected, 4);
+
+    SolLexer lexer;
+    sol_lexer_init(&lexer, "@include");
+    SolToken t = sol_lexer_next(&lexer);
+    assert(t.length == 8);                    /* the '@' belongs to the token */
+    assert(t.start[0] == '@');
+
+    /* A name has to follow, the same rule a symbol's quote lives by. */
+    const SolTokenType bare[] = { TOK_ERROR };
+    expect_tokens("@ include", bare, 1);
+    expect_tokens("@3", bare, 1);
+}
+
 static void test_lines_are_counted(void)
 {
     SolLexer lexer;
@@ -181,8 +200,10 @@ static void test_a_multiline_token_is_placed_where_it_opens(void)
    separately -- so a caller can underline what went wrong. */
 static void test_an_error_token_points_at_the_source(void)
 {
+    /* '%' rather than '@': '@' opens a directive now, and is refused for what
+       follows it rather than for being itself. */
     SolLexer lexer;
-    sol_lexer_init(&lexer, "b := @.");
+    sol_lexer_init(&lexer, "b := %.");
 
     SolToken t = sol_lexer_next(&lexer);   /* b  */
     t = sol_lexer_next(&lexer);            /* := */
@@ -191,7 +212,7 @@ static void test_an_error_token_points_at_the_source(void)
     assert(t.message != NULL);
     assert(strcmp(t.message, "unexpected character") == 0);
     assert(t.line == 1 && t.column == 6);
-    assert(t.start[0] == '@');             /* into the source, not the message */
+    assert(t.start[0] == '%');             /* into the source, not the message */
     assert(t.length == 1);
 }
 
@@ -204,6 +225,7 @@ int main(void)
     test_period_disambiguation();
     test_hash_tags_integers();
     test_strings_symbols_and_comments();
+    test_directives_scan();
     test_lines_are_counted();
     test_tokens_carry_a_column();
     test_a_multiline_token_is_placed_where_it_opens();

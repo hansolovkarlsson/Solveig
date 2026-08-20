@@ -68,29 +68,43 @@ rather than misread. Recompile the `.sol`.
 ## Splitting a program across files
 
 ```
-"library.sol":include.
+@include "library.sol".
 ```
 
 compiles that file into this one at that point, as though its text had been
 written there. Globals are one flat namespace and stay one: two files binding
 the same name collide exactly as two `:=` in one file do, and the later wins.
 
-**It stands alone.** An include is a compile-time directive, not a message. It
-is spelled as a send to a string because the language has no directive syntax
-and no keyword to spare, and that shape already parses — but the compiler takes
-it before any send is emitted. Anywhere other than on its own as a statement,
-`"...":include` is a compile error rather than a send that would fail at run
-time:
+**`@` marks a directive**, and a directive is not a message. What follows the
+`@` happens while compiling; by the time the program runs there is nothing left
+of it to run. That is the whole of what the sigil is for, and it is why nothing
+in the `@` space is written as a send.
+
+The file name has to be a literal string, because the file is found while
+compiling and a name holding one has no value yet.
+
+**It stands alone.** A file compiled in at that point has nowhere to go inside
+an expression, so anywhere other than on its own as a statement a directive is a
+compile error:
 
 ```
-[prog.sol:1:7] solas: an include must stand alone as a statement at '"library.sol"'
-  x := ("library.sol":include).
-        ^^^^^^^^^^^^^
+[prog.sol:1:7] solas: a directive must stand alone as a statement at '@include'
+  x := (@include "library.sol").
+        ^^^^^^^^
 ```
 
-The receiver has to be a literal string, because the file is found while
-compiling and a name holding one has no value yet. Sent to anything else,
-`include` is an ordinary selector that anybody may define.
+`@include` is the only directive there is. An unknown one is refused rather than
+passed through, since `@` is the compiler's own space and a name in it that the
+compiler does not know is a mistake:
+
+```
+[prog.sol:1:1] solas: unknown directive at '@compile'
+  @compile "library.sol".
+  ^^^^^^^^
+```
+
+A directive is one token, `@` and all, so the bare word stays free: `include` is
+an ordinary name that any object may use for a slot.
 
 **The file is found beside the file including it**, not beside the directory you
 happened to be standing in, so a program can be moved without its includes
@@ -236,10 +250,14 @@ it exactly. Taking a binary file *apart* is another matter, `at` answering a
 one-character string rather than a number.
 
 These are on `system` rather than on the string naming the file, though
-`"notes.txt":readFile` reads well. A string knows nothing about files; `system`
-is already where what belongs to the world outside the program lives; and
-`"lib.sol":include` already means something quite different on a string literal,
-so the two would look alike and behave nothing alike.
+`"notes.txt":readFile` reads well. A string knows nothing about files, and
+`system` is already where what belongs to the world outside the program lives.
+
+There was a third reason once: include was spelled `"lib.sol":include` then, and
+`"lib.sol":readFile` beside it would have been two identical-looking sends that
+were nothing alike. That collision is gone — an include is `@include "lib.sol"`
+now and looks like nothing else — but the first two reasons were the load-bearing
+ones and they still hold.
 
 ### The clock
 
@@ -330,8 +348,9 @@ The first eight are the class objects, `system` is
 
 `self` is not a global; it is recognised by the compiler inside a block.
 
-`include` is not reserved either, but a string literal sent `include` is the
-compile-time directive above and never a message.
+`include` is not reserved at all. The directive is `@include`, one token, and no
+identifier can begin with `@` — so the language has no keywords in the ordinary
+sense and the `@` space cannot collide with a name you might want.
 
 ---
 

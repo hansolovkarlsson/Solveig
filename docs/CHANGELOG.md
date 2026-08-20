@@ -8,6 +8,65 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### `include` is a directive and now looks like one — `pending`, 2026-08-20
+
+Roadmap 6.13. `@include "library.sol".` replaces `"library.sol":include.`
+
+```
+@include "library.sol".
+
+temperature:cToF(100.0):print.          ; 212
+```
+
+**The old spelling was a disguise.** It read as a message sent to a string and
+never was one: no string was pushed, nothing was sent, and the whole thing had
+vanished before the program ran. It was written that way because the language
+had no directive syntax and no keyword to spare, and that shape already parsed.
+
+The compiler paid for the disguise three times over — a two-token lookahead in
+`statement` to spot one, a special error in `primary` to refuse the same shape
+everywhere else it parsed, and a probe function nothing else in the grammar
+needed. All three are gone. `@include` is one token, `@` and all, so a directive
+announces itself at its first character.
+
+But the cost that mattered was to the reader. A construct that looks like
+ordinary syntax and obeys different rules teaches the wrong model: accept
+`"lib.sol":include` as a send and you have learned that a send might happen at
+compile time, which is true of no other send in the language. That is the
+objection that sank the trailing-block shorthand, and it applies harder here.
+
+**`@` names a space, not a word.** What follows it happens while compiling, and
+nothing in that space is a message to anything. An unknown directive is refused
+rather than passed through:
+
+```
+[prog.sol:1:1] solas: unknown directive at '@compile'
+  @compile "library.sol".
+  ^^^^^^^^
+```
+
+`@include` is the only member, and may stay the only one. It earns the sigil
+with one, by marking the single construct in the language that is not run time.
+
+A sigil also costs nothing that a keyword would have cost. No identifier can
+begin with `@`, so `include` is not reserved and any object may still use it as
+a slot name. One argument for a bare `include` keyword nearly held — that
+everything happening at run time in Solum has a colon in it, so a colon-free
+statement already reads as not-a-send — but it is false: `x.` is a legal
+statement, colon-free and entirely a run-time one.
+
+Semantics are untouched: the same splice into the includer's scope, the same
+resolution relative to the including file, the same once-per-compilation keying,
+the same cycle stop. Three new tests cover the new refusals, and the lexer test
+that used `@` as its example of an unexpected character now uses `%`, `@` no
+longer being one.
+
+One consequence elsewhere. The entry below gives three reasons for putting
+`readFile` on `system` rather than on a string, and the third was that
+`"lib.sol":include` would look identical beside `"lib.sol":readFile`. That
+collision is now gone. The first two reasons were the load-bearing ones and the
+decision stands.
+
 ### A program can read and write files — `63bb836`, 2026-08-20
 
 Roadmap 6.4, whole files as strings.

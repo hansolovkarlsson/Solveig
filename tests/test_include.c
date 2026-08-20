@@ -90,7 +90,7 @@ static void test_an_include_brings_in_definitions(void)
         "greeter:who := \"world\".\n"
         "greeter:hello := { \"hello, {}\":fill([self:who]) }.\n");
     write_file(DIR "/uses.sol",
-        "\"lib/greet.sol\":include.\n"
+        "@include \"lib/greet.sol\".\n"
         "g := greeter:new.\n"
         "g:who := \"Solveig\".\n"
         "said := g:hello.\n");
@@ -112,9 +112,9 @@ static void test_a_file_is_found_beside_the_one_including_it(void)
 {
     write_file(LIB "/neighbour.sol", "beside := #7.\n");
     write_file(LIB "/inner.sol",
-        "\"neighbour.sol\":include.\n"
+        "@include \"neighbour.sol\".\n"
         "found := beside.\n");
-    write_file(DIR "/outer.sol", "\"lib/inner.sol\":include.\n");
+    write_file(DIR "/outer.sol", "@include \"lib/inner.sol\".\n");
 
     SolVM vm; sol_vm_init(&vm);
     SolChunk chunk;
@@ -132,13 +132,13 @@ static void test_a_file_is_found_beside_the_one_including_it(void)
 static void test_a_file_is_compiled_once(void)
 {
     write_file(LIB "/shared.sol", "times := times:add(#1).\n");
-    write_file(LIB "/one.sol", "\"shared.sol\":include.\n");
-    write_file(LIB "/two.sol", "\"shared.sol\":include.\n");
+    write_file(LIB "/one.sol", "@include \"shared.sol\".\n");
+    write_file(LIB "/two.sol", "@include \"shared.sol\".\n");
     write_file(DIR "/diamond.sol",
         "times := #0.\n"
-        "\"lib/one.sol\":include.\n"
-        "\"lib/two.sol\":include.\n"
-        "\"lib/shared.sol\":include.\n");
+        "@include \"lib/one.sol\".\n"
+        "@include \"lib/two.sol\".\n"
+        "@include \"lib/shared.sol\".\n");
 
     SolVM vm; sol_vm_init(&vm);
     SolChunk chunk;
@@ -156,10 +156,10 @@ static void test_a_file_is_compiled_once(void)
 static void test_a_cycle_ends(void)
 {
     write_file(DIR "/left.sol",
-        "\"right.sol\":include.\n"
+        "@include \"right.sol\".\n"
         "left := #1.\n");
     write_file(DIR "/right.sol",
-        "\"left.sol\":include.\n"
+        "@include \"left.sol\".\n"
         "right := #2.\n");
 
     SolVM vm; sol_vm_init(&vm);
@@ -177,7 +177,7 @@ static void test_a_cycle_ends(void)
 /* A file that is not there is a compile error naming it, not a silent nothing. */
 static void test_a_missing_file_is_an_error(void)
 {
-    write_file(DIR "/missing.sol", "\"nowhere.sol\":include.\n");
+    write_file(DIR "/missing.sol", "@include \"nowhere.sol\".\n");
 
     char output[1024];
     compile_error_of(DIR "/missing.sol", output, sizeof output);
@@ -193,7 +193,7 @@ static void test_a_missing_file_is_an_error(void)
 static void test_an_error_inside_an_include_names_both_files(void)
 {
     write_file(LIB "/broken.sol", "x := #1.\ny := :.\n");
-    write_file(DIR "/includes_broken.sol", "\"lib/broken.sol\":include.\n");
+    write_file(DIR "/includes_broken.sol", "@include \"lib/broken.sol\".\n");
 
     char output[1024];
     compile_error_of(DIR "/includes_broken.sol", output, sizeof output);
@@ -208,7 +208,7 @@ static void test_an_error_inside_an_include_names_both_files(void)
    that fails at run time. */
 static void test_an_include_must_stand_alone(void)
 {
-    write_file(DIR "/buried.sol", "x := (\"lib/greet.sol\":include).\n");
+    write_file(DIR "/buried.sol", "x := (@include \"lib/greet.sol\").\n");
 
     char output[1024];
     compile_error_of(DIR "/buried.sol", output, sizeof output);
@@ -226,7 +226,7 @@ static void test_source_without_a_file_resolves_against_the_directory(void)
     SolVM vm; sol_vm_init(&vm);
     SolChunk chunk;
     sol_chunk_init(&chunk);
-    assert(sol_compile("\"" LIB "/plain.sol\":include. seen := plain.", &chunk));
+    assert(sol_compile("@include \"" LIB "/plain.sol\". seen := plain.", &chunk));
     assert(sol_vm_run(&vm, &chunk) == SOL_OK);
 
     assert(SOL_AS_INT(global(&vm, "seen")) == 11);
@@ -236,8 +236,10 @@ static void test_source_without_a_file_resolves_against_the_directory(void)
     printf("  source with no file of its own includes from the directory\n");
 }
 
-/* `include` is only a directive when a string literal receives it. Nothing
-   stops an object from having a slot of that name. */
+/* A directive is `@include`: one token, '@' and all. Which leaves the bare word
+   free -- it was never reserved, and now it could not be, since no identifier
+   can collide with a token that has to begin with a character an identifier
+   cannot contain. */
 static void test_include_is_an_ordinary_name_elsewhere(void)
 {
     SolVM vm; sol_vm_init(&vm);
@@ -254,6 +256,46 @@ static void test_include_is_an_ordinary_name_elsewhere(void)
     printf("  'include' is still an ordinary slot name\n");
 }
 
+/* '@' opens a space, and the compiler owns all of it. A name in that space it
+   does not know is a mistake now rather than something that might turn out to
+   mean something later. */
+static void test_an_unknown_directive_is_refused(void)
+{
+    write_file(DIR "/unknown.sol", "@compile \"lib/greet.sol\".\n");
+
+    char output[1024];
+    compile_error_of(DIR "/unknown.sol", output, sizeof output);
+
+    assert(strstr(output, "unknown directive") != NULL);
+    assert(strstr(output, "@compile") != NULL);        /* underlined in the source */
+    printf("  an unknown directive is refused by name\n");
+}
+
+/* The scanner will not make a directive out of a bare '@', for the same reason
+   it will not make a symbol out of a bare quote. */
+static void test_an_at_sign_needs_a_name(void)
+{
+    write_file(DIR "/bare_at.sol", "@ \"lib/greet.sol\".\n");
+
+    char output[1024];
+    compile_error_of(DIR "/bare_at.sol", output, sizeof output);
+
+    assert(strstr(output, "expected a name after '@'") != NULL);
+    printf("  a bare '@' is not a directive\n");
+}
+
+/* An include takes a file name and nothing else stands in for one. */
+static void test_an_include_needs_a_file_name(void)
+{
+    write_file(DIR "/nameless.sol", "@include.\n");
+
+    char output[1024];
+    compile_error_of(DIR "/nameless.sol", output, sizeof output);
+
+    assert(strstr(output, "needs a file name in quotes") != NULL);
+    printf("  an include with no file name is refused\n");
+}
+
 int main(void)
 {
     make_directories();
@@ -267,6 +309,9 @@ int main(void)
     test_an_include_must_stand_alone();
     test_source_without_a_file_resolves_against_the_directory();
     test_include_is_an_ordinary_name_elsewhere();
+    test_an_unknown_directive_is_refused();
+    test_an_at_sign_needs_a_name();
+    test_an_include_needs_a_file_name();
 
     printf("test_include: ok\n");
     return 0;

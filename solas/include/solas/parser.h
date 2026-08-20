@@ -3,8 +3,8 @@
  * Grammar (as far as docs/design.md pins it down):
  *
  *     program    -> statement* EOF
- *     statement  -> include | expression '.'?
- *     include    -> STRING ':' 'include' '.'?
+ *     statement  -> directive | expression '.'?
+ *     directive  -> DIRECTIVE STRING '.'?
  *     expression -> IDENT ':=' expression
  *                |  send
  *     send       -> primary ( ':' IDENT arguments? )*
@@ -15,10 +15,10 @@
  * `integer:new(a)` the receiver `integer` is the class object found in the
  * globals namespace, and `new` is the message sent to it.
  *
- * `include` is the one place the grammar is not uniform. It parses as a send to
- * a string literal, and the compiler takes it before the send is emitted; the
- * shape is a directive rather than an expression, which is why it appears as a
- * statement and nowhere else.
+ * A DIRECTIVE is `@include` and the '@' belongs to the token, so a directive is
+ * never an expression and needs no lookahead to tell from one. It is the only
+ * statement that is not an expression: what it does happens while compiling,
+ * and there is nowhere inside an expression to compile a file into.
  */
 #ifndef SOLAS_PARSER_H
 #define SOLAS_PARSER_H

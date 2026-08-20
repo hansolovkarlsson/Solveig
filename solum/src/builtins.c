@@ -1906,14 +1906,17 @@ static SolValue prim_system_read_line(SolVM *vm, SolValue self, SolValue *args, 
 /* ---- files ----------------------------------------------------------- */
 
 /* Reading and writing are on `system` rather than on a string, though
- * `"notes.txt":readFile` reads well and was what the roadmap sketched. Three
+ * `"notes.txt":readFile` reads well and was what the roadmap sketched. Two
  * things decided against it. A string does not know anything about files, and
  * putting them there gives every string in the program a message about the
- * filesystem. `system` is already defined as what belongs to the process rather
- * than to any value, and a file is the world outside. And `"lib.sol":include`
- * already means something on a string literal -- a compile-time directive -- so
- * `"lib.sol":readFile` beside it would be two identical-looking sends that are
- * not the same kind of thing at all.
+ * filesystem. And `system` is already defined as what belongs to the process
+ * rather than to any value, where a file is the world outside.
+ *
+ * There was a third at the time: an include was spelled `"lib.sol":include`,
+ * and `"lib.sol":readFile` beside it would have been two identical-looking
+ * sends that were not the same kind of thing at all. An include is
+ * `@include "lib.sol"` now and looks like nothing else, so that collision is
+ * gone -- but it was never the load-bearing reason.
  *
  * A missing file is an error rather than nil, which is the same answer the rest
  * of the language gives: an out-of-range index is an error, an unset slot is a

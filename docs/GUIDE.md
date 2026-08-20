@@ -542,13 +542,14 @@ Nothing above a few hundred lines wants to live in one file. One line brings
 another file in:
 
 ```
-"library.sol":include.
+@include "library.sol".
 ```
 
 That file is compiled in at that point, as though its text had been written
-there. It is a compile-time directive rather than a message — the compiler takes
-it before any send is emitted — which is why it has to stand alone as a
-statement: there is nowhere inside an expression for a file to go.
+there. The `@` is what tells you this is not a message: it happens while
+compiling, and by the time the program runs there is nothing left of it. Which
+is also why it has to stand alone as a statement — there is nowhere inside an
+expression for a file to go.
 
 The file is found beside the file including it, not beside wherever you were
 standing when you ran the compiler, so a program can be moved as a piece. And a

@@ -755,6 +755,11 @@ whatever the file did on the way, and C's alternative needs conditional
 compilation that Solum has not got. The rules are in
 [REFERENCE.md](REFERENCE.md#splitting-a-program-across-files).
 
+The spelling did not survive. It was `"library.sol":include.` here, and that
+shape was a disguise: it read as a send to a string and never was one. It is
+`@include "library.sol".` now — see [6.13](#613-include-was-spelled-as-a-message)
+for what the disguise cost and why the sigil was worth introducing.
+
 ### 6.2 A `system` object — **done**
 
 `system:exit(code)` is the difference between a script and a program: there is
@@ -811,8 +816,13 @@ Built as `63bb836`, and on `system` rather than on the string naming the file �
 `system:readFile(path)`, `system:writeFile(path, text)`,
 `system:fileExists(path)`. `"notes.txt":readFile` reads better and is what this
 entry sketched, but a string knows nothing about files, `system` is already
-where what belongs to the world outside the program lives, and
-`"lib.sol":include` already means something quite different on a string literal.
+where what belongs to the world outside the program lives, and — at the time —
+`"lib.sol":include` already meant something quite different on a string literal.
+
+That third reason has since dissolved: [6.13](#613-include-was-spelled-as-a-message)
+made an include `@include "lib.sol"`, which looks like nothing else, so there is
+no longer a collision to avoid. The decision stands on the first two reasons,
+which were the load-bearing ones.
 
 The error question this entry called the real work went the way it predicted: a
 missing file is an error, the same answer an out-of-range index gets, and
@@ -824,3 +834,57 @@ The binary half stayed behind, under a number of its own:
 [6.12](ROADMAP.md#612-taking-a-binary-file-apart). And a gap this opened is
 [6.11](ROADMAP.md#611-a-string-cannot-be-split) — a file arrives as one string
 and there is no way to take it apart.
+
+---
+
+### 6.13 `include` was spelled as a message — **done**
+
+[6.1](#61-there-is-no-way-to-split-a-program-across-files) built the include and
+spelled it `"library.sol":include.`, for the honest reason that the language had
+no directive syntax and no keyword to spare, and that shape already parsed.
+
+It was a disguise, and the compiler paid for it in three places. `statement`
+copied the lexer and looked **two tokens ahead** to spot one before the string
+had been consumed. `primary` carried a special error — *an include must stand
+alone as a statement* — because the shape parsed everywhere and worked in one
+place. And `include_follows` existed at all, a probe nothing else in the grammar
+needed.
+
+The cost that mattered was not in the compiler though. A construct that looks
+like ordinary syntax and obeys different rules teaches the wrong model: a reader
+who accepts `"lib.sol":include` as a send has learned that a send might happen
+at compile time, and that is not true of any other send in the language. It is
+the objection that sank the trailing-block shorthand in
+[ideas.md](ideas.md), and it applies harder here — the shorthand would at least
+still have been a message.
+
+One argument for keeping it nearly held: that in Solum everything happening at
+run time has a colon in it, so a colon-free statement already reads as not-a-send
+and no sigil is needed. It is false. `x.` is a legal statement, colon-free and
+entirely a run-time one.
+
+So `@`, and a distinct token rather than a keyword:
+
+```
+@include "library.sol".
+```
+
+The token is `@include`, `@` and all, which is why this costs nothing anywhere
+else. There is no lookahead — a directive announces itself at its first
+character. There is no reserved word — no identifier can begin with `@`, so
+`include` stays an ordinary name any object may use for a slot. The probe and
+the special-case error are both gone, and `primary` now only has to say that a
+directive belongs on its own.
+
+`@` names a space rather than one word: what follows it happens while compiling,
+and nothing in it is a message. An unknown directive is refused rather than
+passed through, since a name in the compiler's own space that the compiler does
+not know is a mistake and not something that might come to mean something later.
+`@include` is the only member so far, and the space may never have a second one
+— it earns its keep with one, by marking the single construct in the language
+that is not run time.
+
+Built as `pending`. Semantics are untouched: the same splice into the includer's
+scope, the same resolution relative to the including file, the same
+once-per-compilation keying by where the file turns out to be on disk, the same
+cycle stop.

@@ -11,6 +11,8 @@
  *     { a:print }      ; braces make a block: code as a value, not an action
  *     [#1, #2]         ; brackets make an array -- sugar for array:of(#1, #2)
  *     ( | t | ... )    ; '|' declares this frame's temporaries
+ *     @include "lib.sol"  ; '@' marks a directive: compile time, not run
+ *                      ;     time, and not a message to anything
  *                      ; ';' begins a comment, running to end of line
  *
  * Two rules keep the scanner unambiguous:
@@ -29,6 +31,7 @@ typedef enum {
     TOK_FLOAT,      /* 45, 45.5                     */
     TOK_STRING,     /* "hello"                      */
     TOK_SYMBOL,     /* 'foo                         */
+    TOK_DIRECTIVE,  /* @include -- compile time     */
     TOK_COLON,      /* :   message send             */
     TOK_ASSIGN,     /* :=  binding                  */
     TOK_LPAREN,

@@ -3,7 +3,7 @@
 ; Nothing here marks it as a library. It is a file that binds names, and any
 ; other file can have them with one line:
 ;
-;     "library.sol":include.
+;     @include "library.sol".
 ;
 ; See examples/include.sol, which does exactly that. Run that one:
 ;   ./bin/solas examples/include.sol && ./bin/solvm examples/include.sob
