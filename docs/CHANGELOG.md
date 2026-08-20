@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### nil, empty, and unset, written down — `pending`, 2026-08-20
+### nil, empty, and unset, written down — `6d0c43c`, 2026-08-20
 
 Documentation. No code.
 
