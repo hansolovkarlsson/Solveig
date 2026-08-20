@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### The last item on the roadmap was already done — `pending`, 2026-08-20
+### The last item on the roadmap was already done — `ee43086`, 2026-08-20
 
 Roadmap 5.2 ended by saying `sol_value_print` prints `<object 0x...>` instead of
 sending `print` to the object, and wants dispatch from inside the printer or a
