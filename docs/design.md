@@ -28,7 +28,7 @@ Example of creating an integer variable and assigning it, then printing it.
 | --------- | ----------- | -------------------------------------------- |
 | **Solas** | `bin/solas` | Compiler: `.sol` source -> bytecode          |
 | **SolVM** | `bin/solvm` | Virtual machine: loads and executes bytecode; sources in `solum/` |
-| **Solis** | `bin/solis` | REPL: compiles and runs a line at a time     |
+| **Solis** | `bin/solis` | REPL: reads until the input could compile, then runs it |
 
 Solas and SolVM meet at exactly one place: `solum/include/solum/bytecode.h`.
 That header defines the opcodes, so a change to the instruction set is a change
@@ -664,7 +664,7 @@ as one list rather than split across documents so it cannot drift.
 
 ## Status
 
-The vertical slice runs. `bin/solis` compiles and executes a line at a time:
+The vertical slice runs. `bin/solis` compiles and executes what you type:
 
 ```
 > a := #45.

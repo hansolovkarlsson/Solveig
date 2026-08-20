@@ -74,7 +74,7 @@ a different language.
 | --------- | ---------------------------------------------------------------- |
 | `solas/`  | **Solas** -- the compiler: source text to bytecode                |
 | `solum/`  | **SolVM** -- the virtual machine, built as `bin/solvm`               |
-| `solis/`  | **Solis** -- the REPL: compiles and runs one line at a time       |
+| `solis/`  | **Solis** -- the REPL: reads until the input could compile        |
 | `docs/`   | [GUIDE.md](docs/GUIDE.md), [REFERENCE.md](docs/REFERENCE.md), [design.md](docs/design.md), [ROADMAP.md](docs/ROADMAP.md), [CHANGELOG.md](docs/CHANGELOG.md) |
 | `tests/`  | Test suite                                                        |
 | `examples/` | Sample `.sol` programs                                          |

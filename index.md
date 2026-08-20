@@ -116,7 +116,7 @@ make test     # builds and runs the test suite
 ```sh
 ./bin/solas examples/hello.sol      # writes examples/hello.sob
 ./bin/solvm examples/hello.sob
-./bin/solis                         # a prompt, one line at a time
+./bin/solis                         # a prompt; input may span lines
 ```
 
 `.sob` files are little-endian and portable, and are verified before they run.

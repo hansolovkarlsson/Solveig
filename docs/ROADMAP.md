@@ -730,16 +730,36 @@ error lines in three seconds.
 Recovery now advances before testing, so it always consumes at least one token.
 Found by a typo in a test, not by looking for it.
 
-### 5.1 Solis is line-at-a-time, and lines are capped
+### 5.1 Solis is line-at-a-time, and lines are capped — **done**
 
-`fgets` per line, so a method body spanning several lines has to go in a file.
-The REPL should buffer until brackets, parentheses, and braces balance.
+Solis reads until the input could compile, then compiles and runs it. A line was
+never a unit of anything in this language -- `.` separates statements and a
+newline is ordinary whitespace -- so a method body may now span as many lines as
+it likes, with `.. ` for the continuation prompt.
 
-The buffer is also 1024 bytes with no overflow check: a longer line is silently
-cut, and the tail arrives as if it were the next line. That has already produced
-one confusing result -- a generated 255-element array literal appeared to fail to
-compile when it had merely been truncated mid-token. It should at minimum report
-the truncation.
+Two things say the input could still be finished: an unclosed bracket, and an
+unclosed string. Both outlive a line, so the state carries across them. Counting
+brackets naively would have been wrong twice over, and both cases are real rather
+than theoretical: a brace inside a string is not a bracket, and `fill` templates
+are made of braces; a `;` comment runs to the end of its line, so anything in one
+is text. A stray closer does not take the depth below zero, or a mistyped `)`
+would leave the prompt waiting for input that could never balance it.
+
+The 1024-byte cap is gone rather than reported. The buffer grows, and a line is
+read in pieces until its newline arrives, so nothing is cut. That cap was the
+cause of the confusing session this entry recorded: a generated 255-element array
+literal looked like it failed to compile when it had merely been severed
+mid-token, and its tail arrived as if it were the next line. A 5000-byte line now
+arrives whole, and there is a test that the next line is still the next line.
+
+Deciding this is in `solis/src/input.c` rather than in the loop, so it can be
+tested -- which also gave Solis the `cmd/` and `src/` split the other two
+components already had.
+
+Not done, and not obviously wanted: a way to abandon a half-typed submission.
+Ctrl-D at a continuation prompt leaves, and typing the closing bracket gets a
+compile error, which are two workable ways out. A blank line would be the usual
+third, but a blank line inside a method body is ordinary formatting here.
 
 ### 5.2 `print` on an object — **done**
 
@@ -809,10 +829,9 @@ with it, as that entry guessed it would.
 Nothing here is urgent. The remaining items are roughly in order of how soon
 they would be missed:
 
-1. **Solis is line-at-a-time** (5.1) — a method body spanning several lines has
-   to go in a file, and the 1024-byte buffer truncates without saying so.
-2. **Source positions finer than a line** (5.4).
-3. Everything else as it starts to hurt.
+1. **Source positions finer than a line** (5.4) — columns and the offending
+   source text would make compile errors considerably more useful.
+2. Everything else as it starts to hurt.
 
 Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), arrays entire
 (1.2, 1.2a, 1.2b), strings (1.3), user-defined objects (1.4), division (2.1),
@@ -823,7 +842,8 @@ it (5.2), symbols (2.7), reflection (2.10), sorting, inlined conditionals and
 loops and now `and`/`or` (4.1), the two class-object crashes (1.5, 1.6), the
 side-table operands (4.2), the frameless temporary (1.7), dispatch by
 pointer with the side tables' hash index (4.3, 4.3a), binding a fetched method
-(2.14), and stack heights in the verifier (3.9).
+(2.14), stack heights in the verifier (3.9), and multi-line input at the prompt
+(5.1).
 
 One decision is outstanding: **2.5**, class side versus instance side. 1.6
 answered it one message at a time, which was enough to stop the crashes;

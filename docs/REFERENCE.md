@@ -37,7 +37,7 @@ a:print.
 ```sh
 ./bin/solas program.sol          # compiles to program.sob
 ./bin/solvm program.sob          # runs it
-./bin/solis                      # a prompt, one line at a time
+./bin/solis                      # a prompt; input may span lines
 ```
 
 The program is `solvm`; its sources live under `solum/`. The two are the same
@@ -819,7 +819,7 @@ division by zero, undeclared names, and a block outliving its frame.
 | Constants, names, blocks per chunk | **65536** — a two-byte index, and both tables intern, so repeats cost nothing |
 | Arguments, parameters, array literal elements | 255 — an argument count is one byte |
 | Locals per frame | 255 |
-| Solis input line | 1024 bytes, silently truncated beyond |
+| Solis input | no limit — the buffer grows, and reading continues while a bracket or a string is open |
 | Strings | bytes, not characters: `size` counts bytes, `at` answers a byte, and `"café":size` is 5 |
 | Case | ASCII only, and by explicit range rather than the C locale |
 | Strings | no `\0`, no unicode escapes |

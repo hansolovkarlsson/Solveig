@@ -6,13 +6,14 @@
 
 CC      ?= cc
 CFLAGS  ?= -std=c11 -Wall -Wextra -Wpedantic -g
-INCLUDES = -Isolum/include -Isolas/include
+INCLUDES = -Isolum/include -Isolas/include -Isolis/include
 AR      ?= ar
 
 BUILD = build
 BIN   = bin
 
-LIB_SRCS  = $(wildcard solum/src/*.c) $(wildcard solas/src/*.c)
+LIB_SRCS  = $(wildcard solum/src/*.c) $(wildcard solas/src/*.c) \
+            $(wildcard solis/src/*.c)
 LIB_OBJS  = $(LIB_SRCS:%.c=$(BUILD)/%.o)
 LIB       = $(BUILD)/libsol.a
 
@@ -32,7 +33,7 @@ $(BIN)/solvm: solum/cmd/main.c $(LIB)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(INCLUDES) $^ -o $@
 
-$(BIN)/solis: solis/src/main.c $(LIB)
+$(BIN)/solis: solis/cmd/main.c $(LIB)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(INCLUDES) $^ -o $@
 

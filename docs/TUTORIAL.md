@@ -20,12 +20,24 @@ Build the three programs first:
 make
 ```
 
-`solis` is the prompt. It compiles and runs one line at a time:
+`solis` is the prompt. It reads until what you have typed could compile, then
+compiles and runs it:
 
 ```
 $ ./bin/solis
 > "hello":display.
 hello
+```
+
+So a method body may span as many lines as it likes — the `.. ` prompt means
+Solis is still waiting for a bracket or a string to close:
+
+```
+> integer:double := {
+..     self:mul(#2)
+.. }.
+> #21:double:print.
+#42
 ```
 
 Everything below can be typed at that prompt, or put in a file and compiled:

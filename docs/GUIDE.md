@@ -13,7 +13,7 @@ prints.
 ```sh
 ./bin/solas program.sol          # compiles to program.sob
 ./bin/solvm program.sob          # runs it
-./bin/solis                      # a prompt, one line at a time
+./bin/solis                      # a prompt; input may span lines
 ```
 
 ## Contents

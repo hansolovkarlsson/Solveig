@@ -8,6 +8,60 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### Solis reads until the input could compile — `pending`, 2026-08-20
+
+Roadmap 5.1. No `.sob` change and no change to the language.
+
+```
+> integer:double := {
+..     self:mul(#2)
+.. }.
+> #21:double:print.
+#42
+```
+
+A line was never a unit of anything in this language — `.` separates statements
+and a newline is ordinary whitespace — so reading one at a time was the REPL
+imposing a rule the language does not have. A method body spanning three lines
+used to produce three unrelated errors. Solis now reads until what has been
+typed could compile, with `.. ` for the continuation prompt.
+
+Two things say the input could still be finished: **an unclosed bracket, and an
+unclosed string**. Both outlive a line, so the state carries across them.
+Counting brackets naively would have been wrong twice over, and neither case is
+theoretical:
+
+- A brace inside a string is not a bracket. `fill` templates are made of braces,
+  so `"{}":fill([#1])` would have hung the prompt waiting for a close.
+- A `;` comment runs to the end of its line, so a `{` inside one is text. It
+  counts again on the next line.
+
+A backslash claims the character after it, so `"\""` does not close the string —
+the same rule the lexer scans by. And a stray closer does not take the depth
+below zero: a mistyped `)` is a mistake for the compiler to report, not a reason
+to wait for input that could never balance it.
+
+**The 1024-byte cap is gone rather than reported**, which the entry had asked for
+as a minimum. The buffer grows, and a line is read in pieces until its newline
+arrives. That cap caused the confusing session the roadmap recorded — a generated
+255-element array literal looked like it had failed to compile when it had merely
+been severed mid-token, and the tail arrived as if it were the next line. A
+5000-byte line now arrives whole, and a test checks the next line is still the
+next line.
+
+Deciding when input is finished moved to `solis/src/input.c` so it could be
+tested, which also gave Solis the `cmd/` and `src/` split the other two
+components already had — it was the only one with its entry point in `src/`.
+`tests/test_solis.c` is new: eleven finished forms and seven unfinished ones, the
+state carrying across lines, a comment hiding a brace only to the end of its own
+line, a stray closer leaving the depth at zero, and the buffer growing past where
+the old one stopped.
+
+Not done, and not obviously wanted: a way to abandon a half-typed submission.
+Ctrl-D at a continuation prompt leaves, and typing the closing bracket gets a
+compile error, which are two workable ways out. A blank line would be the usual
+third, but a blank line inside a method body is ordinary formatting here.
+
 ### The verifier computes stack heights — `bf2fffd`, 2026-08-20
 
 No `.sob` change and no change a program can see. Roadmap 3.9, the last item
