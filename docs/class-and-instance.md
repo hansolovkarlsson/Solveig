@@ -117,6 +117,60 @@ An unboxed `#45` has no object of its own, so dispatch has to be given one — a
 the only candidate is the same object the global `integer` names. **The two roles
 are welded together by that line**, not by the object model.
 
+### And a built-in cannot be subclassed, even deliberately
+
+The natural next thought is that this is all a missing constructor: if
+`integer:new` answered *an object delegating to `integer`* the way `object:new`
+answers one delegating to its receiver, you would have a subclass of integer and
+could add to it. For user-defined objects that is exactly how it works —
+`point:new` and `tip := point:new` are the same operation, and whether one is an
+instance or a subclass is how you use it.
+
+It does not carry over, and the reason is worth seeing rather than arguing
+about. Built as an experiment — `integer:new` with no argument answering
+`sol_object_new(vm, vm->integer_class)`, on a throwaway copy of the tree — it
+looks right at first:
+
+```
+a := integer:new.
+a:isKindOf(integer):print.       ; true
+a:tag := #7.
+a:tag:print.                     ; #7     -- a real object, slots and all
+```
+
+and then:
+
+```
+a:add(#1).       solvm: 'add' expects an integer, got object
+a:print.         solvm: 'print' expects an integer, got object
+
+a:double := { self:mul(#2) }.
+a:double.        solvm: 'mul' expects an integer, got object
+```
+
+**It inherits every method name and can run none of them.** The last line is the
+one that settles it: a method *you* wrote fails too, the moment it touches
+anything inherited.
+
+`integer`'s methods are not Solum code. They are C primitives that do
+`SOL_AS_INT(self)` and read an 8-byte payload, and an object does not have one.
+So a built-in class hands down an **interface and no implementation** — which is
+the same inert object `string:new` would have produced, and the reason those
+four refuse rather than inherit.
+
+Two independent things stop it, and either would be enough: an unboxed value
+carries no class pointer, so there is nowhere to record a different class; and
+the inherited methods require the exact value representation. Neither is fixed
+by anything in this document — a behaviour object per built-in would not help,
+because `#45` would still dispatch by type tag.
+
+So there are two ways to give integers behaviour, and no third:
+
+- **Extend `integer`** if it belongs to all integers.
+  `integer:double := { self:mul(#2) }`.
+- **Wrap one in an object** if you want a distinct type, and forward what you
+  need. That object subclasses properly, because it is an object.
+
 ## Probably not metaclasses
 
 The roadmap says this "needs a metaclass level". That is the Smalltalk answer,
@@ -367,6 +421,9 @@ way, `string`, `symbol`, `block` and `boolean` should not get one.
   class understands.
 - Only the built-ins have this problem; user-defined objects have one side and
   delegation, which is coherent.
+- A built-in cannot be subclassed even deliberately: a class made of C
+  primitives hands down an interface and no implementation, so the object you
+  get inherits every method name and can run none of them.
 - It is welded by `sol_vm_class_of` having to hand an unboxed value some object
   to dispatch to.
 - 1.6 made it safe, one message at a time, without separating anything.

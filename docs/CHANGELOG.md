@@ -8,6 +8,43 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### Why a built-in cannot be subclassed — `pending`, 2026-08-20
+
+Documentation. No code.
+
+`class-and-instance.md` says a value type cannot be subclassed and gives the
+reason in one line of `sol_vm_class_of`. That leaves the obvious next thought
+unanswered: surely this is just a missing constructor, and if `integer:new`
+answered an object delegating to `integer` — the way `object:new` answers one
+delegating to its receiver — you would have a subclass and could add to it.
+
+It is a reasonable thought, and for user-defined objects it is exactly right:
+`p := point:new` and `tip := point:new` are the same operation, and which one is
+a subclass is how you use it. So the document now shows why it does not carry
+over, by building it. On a throwaway copy, `integer:new` with no argument
+answering `sol_object_new(vm, vm->integer_class)`:
+
+```
+a := integer:new.
+a:isKindOf(integer):print.       ; true
+a:tag := #7.                     ; a real object, slots and all
+
+a:add(#1).       solvm: 'add' expects an integer, got object
+a:double := { self:mul(#2) }.
+a:double.        solvm: 'mul' expects an integer, got object
+```
+
+It inherits every method name and can run none of them — including a method you
+wrote yourself, the moment it touches anything inherited. `integer`'s methods are
+C primitives that read an 8-byte payload an object does not have, so a built-in
+class hands down an **interface and no implementation**. It is the same inert
+object `string:new` would have produced, which is why those four refuse.
+
+Two independent things stop it and either would suffice: an unboxed value
+carries no class pointer, and the inherited methods need the exact
+representation. A behaviour object per built-in would not help, since `#45`
+would still dispatch by type tag.
+
 ### One hierarchy: every built-in class delegates to `object` — `a0b0d41`, 2026-08-20
 
 No `.sob` change. `#45:isKindOf(object)` is true now, and "everything is an
