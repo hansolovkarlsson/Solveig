@@ -2,8 +2,9 @@
 
 Everything still outstanding, grouped by what it blocks. This is the single list
 — [design.md](design.md) describes how the language works today and points here
-for what is unresolved, and [CHANGELOG.md](CHANGELOG.md) records what has already
-changed.
+for what is unresolved, [CHANGELOG.md](CHANGELOG.md) records what has already
+changed, and [ideas.md](ideas.md) records what was considered and turned down,
+with the reasoning.
 
 Finished work is summarised here only where it gives context for something still
 live; the detail belongs in the changelog rather than being kept twice.
@@ -885,6 +886,136 @@ something has already gone wrong. Worth revisiting if a debugger ever wants it.
 
 ---
 
+---
+
+## 6. Beyond the language
+
+The five sections above were about making Solum a language. These are about
+making it a language you can write a *program* in — a program has to be split
+across files, read input, write files, and stop with a status. None of it needs
+a new idea; all of it is missing.
+
+Raised in a notes file and assessed in [ideas.md](ideas.md), which also records
+what was **not** worth building and why — integer widths, a JIT, cascades,
+trailing-block syntax, and Go-style concurrency among them.
+
+### 6.1 There is no way to split a program across files
+
+Nothing above a few hundred lines fits in one file, and there is no `include`.
+This is the item a real program hits first.
+
+The mechanism is easy — Solas reads the named file and compiles it in — and the
+question is the namespace. Globals are one flat space, so textual inclusion is
+consistent with what exists: names collide, and the second definition wins,
+exactly as two `:=` in one file already do. A module system with its own
+namespace is a much larger change to the object model and would want the
+class-side question (2.5) settled first, since a module is a thing with two
+sides.
+
+Start textual. Record the collision rule, and whether a file included twice is
+compiled twice.
+
+### 6.2 A `system` object
+
+`system:exit(code)` is the difference between a script and a program: there is
+currently no way to say *stop, and here is why*. Alongside it, the two other
+things a program asks the world for: its arguments, and the time.
+
+- `system:exit(#0)` — leave with a status.
+- `system:arguments` — an array of strings.
+- `system:clock` — monotonic, for 6.5.
+
+Small, self-contained, and the natural home for anything else that is about the
+process rather than about a value.
+
+### 6.3 Reading input
+
+`system:readLine`, answering a string or nil at end of input. A few lines of C,
+portable, and enough for anything that reads a file line by line or prompts.
+
+**Waiting for a single key is a separate item**, and should stay one. It needs
+raw terminal mode, which is `termios` on Unix and something else on Windows, and
+it introduces the first piece of the runtime that behaves differently by
+platform. Worth doing when something needs it, behind its own decision.
+
+### 6.4 File handling
+
+Whole-file first, which covers most of what a script does:
+
+- `"path":readFile` — answers the contents as a string.
+- `"path":writeFile(text)` — replaces the contents.
+
+Errors are the design work rather than the reading: the language has no
+exceptions, so a missing file has to be a runtime error like any other, or
+answer nil and make every caller check. Given how strict everything else is, an
+error is the consistent choice, and a `system:fileExists` gives the caller a way
+to ask first.
+
+Binary files want a byte-buffer type and should wait for a program that needs
+one. An array of integers would work and would cost 16 bytes a byte.
+
+### 6.5 Measuring from inside the language
+
+Every performance number in the changelog was taken with `/usr/bin/time` around
+a whole process. Being able to time a block from inside Solum would be better,
+and is a few lines once 6.2 provides a clock:
+
+```
+{ #20:factorial }:timeToRun:print.
+```
+
+The design question is what it answers — a float of seconds is the obvious
+choice and the only one that does not need a duration type.
+
+### 6.6 The loop constructs are library code, and pay for it
+
+`repeat`, `doUntil` and a stepped `for` can all be written in Solum today, and
+[ideas.md](ideas.md#already-there-or-already-writable) has them working. Written
+that way they cost a block and a frame per iteration, where `whileTrue` written
+literally compiles to jumps (4.1).
+
+So building them in buys inlining rather than expressiveness:
+
+- `#3:repeat({ ... })` and `{ ... }:repeat(#3)`.
+- `{ body }:doUntil({ condition })` — the body runs before the test, which is
+  the one shape `whileTrue` cannot express without a flag.
+- A stepped `to`/`do`.
+
+Worth doing when a program is actually spending time in one of them. `doUntil`
+has the best case, being the only one that is awkward to write by hand.
+
+### 6.7 The instruction set has no complete reference
+
+design.md has a table of the instruction set that is **missing six opcodes** —
+`OP_JUMP`, `OP_JUMP_IF_FALSE`, `OP_EXIT_IF_FALSE`, `OP_LOOP`, `OP_CHECK_BOOL`
+and `OP_SYMBOL`. That is every jump and the two newest, so the table describes
+the machine as it was before 4.1.
+
+The disassembler prints all of them and `bytecode.h` documents each one at its
+definition, so the material exists and the document fell behind. Worth a
+reference page that is generated from, or at least checked against, the header —
+the same problem the examples solved by being compiled in the test suite.
+
+### 6.8 `(group)` and `{block}` are not contrasted anywhere
+
+Both are code in brackets; one evaluates now and one is a value. The tutorial
+introduces each separately and never puts them side by side, which is where the
+difference actually lands:
+
+```
+m := { x | x:add(#1) }.
+(m:value(#42)):print.        ; #43
+{ m:value(#42) }:print.      ; <block>
+```
+
+A short section in the guide, with that example.
+
+### 6.9 The examples do not cover everything
+
+Twelve examples, chosen by what was being built at the time rather than by what
+a reader needs. Worth an audit: list every concept the guide names, find which
+have no example, and fill the gaps rather than adding more of what is covered.
+
 ## Suggested order
 
 Everything that stood between this and a language you could write a real
@@ -892,13 +1023,25 @@ program in is built. Section 1 held nothing until fuzzing the loop work put two
 crashes into it, and both are now fixed — the receiver check in 1.6 took 1.5
 with it, as that entry guessed it would.
 
-**This list has run out.** Sections 1, 3, 4 and 5 are done. Section 2 holds one
-open decision — 2.5, and smaller than it was, now that the single root turned
-out not to be waiting on it.
+Sections 1, 3, 4 and 5 are done, and section 2 holds one open decision — 2.5,
+smaller than it was now that the single root turned out not to be waiting on it.
 
-So there is no next item to name. What comes after this is that decision, and
-whatever the first real program written in Solum turns out to want — which is a
-better source of work than a list written before there were any.
+**Section 6 is the list that replaced them**, and it came from the right place:
+notes about what a program would want, rather than from a plan written before
+there were any programs. In order of what would be missed first:
+
+1. **`include`** (6.1) — nothing above a few hundred lines fits in one file.
+2. **A `system` object** (6.2) — `exit`, arguments, a clock.
+3. **Reading input** (6.3) and **files** (6.4), which together are most of what
+   a script does.
+4. **Timing from inside the language** (6.5), once 6.2 exists.
+5. The documentation gaps — the instruction set (6.7), group versus block (6.8),
+   and the example audit (6.9).
+6. **Inlining the loop constructs** (6.6), when something is measurably spending
+   time in one.
+
+[ideas.md](ideas.md) records what was considered and rejected, so the same
+arguments do not have to be had twice.
 
 Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), arrays entire
 (1.2, 1.2a, 1.2b), strings (1.3), user-defined objects (1.4), division (2.1),

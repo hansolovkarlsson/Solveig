@@ -8,6 +8,68 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### Assessed a notebook of ideas, and the roadmap has a section 6 — `pending`, 2026-08-20
+
+Documentation. No code.
+
+Twenty-three ideas from a notes file, each with a verdict in
+[ideas.md](ideas.md) and the ones worth building written up as roadmap section
+6. The list had run out last week; this is what replaced it, and it came from a
+better place than the old one — notes about what a program would want, rather
+than a plan written before there were any programs.
+
+**The largest finding is how little of it needs the language to change.** There
+is no control-flow syntax, so `repeat`, `doUntil`, a stepped `for` and a
+switch/case are all library code. They are written out and working in ideas.md:
+
+```
+#3:repeat({ "tick":display }).
+{ i := i:add(#1) }:doUntil({ i:greaterOrEqual(#3) }).
+#1:toByDo(#10, #3, { n | n:display }).
+#2:caseOf([[{ n | n:equals(#2) }, { "two" }], [{ n | true }, { "many" }]]).
+```
+
+`forIn` is `do`. `do` is `forEach`, `collect` is map, `select` is filter.
+`['red, 'green, 'blue]` already is an enum, since symbols compare by pointer.
+Building the loops in would buy inlining rather than expressiveness, which is
+6.6 and not urgent.
+
+**What is actually missing is everything around the language.** A program has to
+be split across files, read input, write files and stop with a status, and none
+of that exists. `include` (6.1) is the item a real program hits first; a `system`
+object with `exit`, arguments and a clock (6.2) is the smallest thing standing
+between a script and a program.
+
+**Two documentation gaps turned up while checking.** design.md's instruction
+table is **missing six opcodes** — `OP_JUMP`, `OP_JUMP_IF_FALSE`,
+`OP_EXIT_IF_FALSE`, `OP_LOOP`, `OP_CHECK_BOOL` and `OP_SYMBOL`, which is every
+jump and the two newest, so it describes the machine as it was before 4.1. And
+`(group)` and `{block}` are introduced separately and never contrasted, which is
+where the difference lands:
+
+```
+m := { x | x:add(#1) }.
+(m:value(#42)):print.        ; #43
+{ m:value(#42) }:print.      ; <block>
+```
+
+**Six ideas are recommended against, with the reasoning recorded** so it does not
+have to be re-argued: integer widths and a separate 32-bit float, both of which
+reintroduce the coercion the language refuses everywhere; a JIT, which is
+possible and would be larger than the rest of the project combined, with nothing
+to specialise on until there are inline caches; cascades, which Smalltalk needs
+because its setters answer the argument and Solum does not, since `add` answers
+the array; a trailing-block syntax, which can be made uniform but is a second
+spelling for two saved characters; and Go-style concurrency, which is a rewrite
+rather than a feature — one heap, one stop-the-world collector, frames in a
+fixed array on the VM.
+
+**One is deferred rather than refused.** `$character` literals cannot be decided
+apart from what a string is: today a string is bytes, so a character is either a
+code point — which is the whole Unicode job — or a byte, in which case `$😊`
+cannot exist and the type buys little. Adding an ASCII-only one now would make
+the later decision harder.
+
 ### The last item on the roadmap was already done — `ee43086`, 2026-08-20
 
 Roadmap 5.2 ended by saying `sol_value_print` prints `<object 0x...>` instead of
