@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### Dispatch by pointer, and a hash over the side tables — `pending`, 2026-08-20
+### Dispatch by pointer, and a hash over the side tables — `1bc0e56`, 2026-08-20
 
 No `.sob` change, and no change a program can see: same bytes out of the
 compiler, same answers out of the VM. Roadmap 4.3, which was the last item in
