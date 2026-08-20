@@ -8,10 +8,12 @@
 
 #include <ctype.h>
 #include <errno.h>
+#include <limits.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <time.h>
 
 #include "solum/vm.h"
@@ -1901,6 +1903,131 @@ static SolValue prim_system_read_line(SolVM *vm, SolValue self, SolValue *args, 
     return SOL_STRING_VAL(text);
 }
 
+/* ---- files ----------------------------------------------------------- */
+
+/* Reading and writing are on `system` rather than on a string, though
+ * `"notes.txt":readFile` reads well and was what the roadmap sketched. Three
+ * things decided against it. A string does not know anything about files, and
+ * putting them there gives every string in the program a message about the
+ * filesystem. `system` is already defined as what belongs to the process rather
+ * than to any value, and a file is the world outside. And `"lib.sol":include`
+ * already means something on a string literal -- a compile-time directive -- so
+ * `"lib.sol":readFile` beside it would be two identical-looking sends that are
+ * not the same kind of thing at all.
+ *
+ * A missing file is an error rather than nil, which is the same answer the rest
+ * of the language gives: an out-of-range index is an error, an unset slot is a
+ * miss. `readLine` answering nil at the end is not the precedent it looks like
+ * -- running out of input is how a loop finishes, where a file that is not there
+ * is a program expecting something that is not so. `system:fileExists` is how to
+ * ask first.
+ */
+static bool path_argument(SolVM *vm, const char *name, SolValue value)
+{
+    if (SOL_IS_STRING(value)) return true;
+    sol_vm_runtime_error(vm, "'%s' expects a path as a string, got %s",
+                         name, sol_type_name(value));
+    return false;
+}
+
+static SolValue prim_system_read_file(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "readFile", argc, 1)) return SOL_NIL_VAL;
+    if (!path_argument(vm, "readFile", args[0])) return SOL_NIL_VAL;
+
+    const char *path = SOL_AS_STRING(args[0])->chars;
+
+    FILE *file = fopen(path, "rb");
+    if (file == NULL) {
+        sol_vm_runtime_error(vm, "cannot read '%s': %s", path, strerror(errno));
+        return SOL_NIL_VAL;
+    }
+
+    long size = 0;
+    if (fseek(file, 0L, SEEK_END) == 0) size = ftell(file);
+    rewind(file);
+
+    if (size < 0 || size > INT_MAX) {
+        fclose(file);
+        sol_vm_runtime_error(vm, "'%s' is too large to read into a string", path);
+        return SOL_NIL_VAL;
+    }
+
+    char *buffer = malloc((size_t)size + 1);
+    if (buffer == NULL) {
+        fclose(file);
+        sol_vm_runtime_error(vm, "out of memory reading '%s'", path);
+        return SOL_NIL_VAL;
+    }
+
+    /* A short read is a failure rather than a shorter string: `fopen` on a
+       directory succeeds on some systems, and reading one does not. */
+    size_t got = fread(buffer, 1, (size_t)size, file);
+    int failed = ferror(file);
+    fclose(file);
+
+    if (failed || got != (size_t)size) {
+        free(buffer);
+        sol_vm_runtime_error(vm, "cannot read '%s': %s", path,
+                             failed ? strerror(errno) : "it is not a file");
+        return SOL_NIL_VAL;
+    }
+
+    SolString *text = sol_string_new(vm, buffer, (int)got);
+    free(buffer);
+    return SOL_STRING_VAL(text);
+}
+
+/* Replaces what is there, and creates the file if it is not. Answers nil: there
+   is nothing useful to chain from a write, and the count of bytes written is the
+   size of what you already had. */
+static SolValue prim_system_write_file(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "writeFile", argc, 2)) return SOL_NIL_VAL;
+    if (!path_argument(vm, "writeFile", args[0])) return SOL_NIL_VAL;
+    if (!SOL_IS_STRING(args[1])) {
+        sol_vm_runtime_error(vm, "'writeFile' expects a string to write, got %s",
+                             sol_type_name(args[1]));
+        return SOL_NIL_VAL;
+    }
+
+    const char     *path = SOL_AS_STRING(args[0])->chars;
+    const SolString *text = SOL_AS_STRING(args[1]);
+
+    FILE *file = fopen(path, "wb");
+    if (file == NULL) {
+        sol_vm_runtime_error(vm, "cannot write '%s': %s", path, strerror(errno));
+        return SOL_NIL_VAL;
+    }
+
+    size_t wrote = fwrite(text->chars, 1, (size_t)text->length, file);
+
+    /* Closing is where a buffered write finally fails -- a full disk reports
+       itself here and not at the fwrite that filled the buffer. */
+    bool ok = (wrote == (size_t)text->length) && (fclose(file) == 0);
+    if (!ok) {
+        sol_vm_runtime_error(vm, "cannot write '%s': %s", path, strerror(errno));
+        return SOL_NIL_VAL;
+    }
+    return SOL_NIL_VAL;
+}
+
+/* True for a *file* that is there, which is the question `readFile` asks. A
+   directory exists and is not one, and answering true for it would make this a
+   trap rather than a way to look before you leap. */
+static SolValue prim_system_file_exists(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "fileExists", argc, 1)) return SOL_BOOL_VAL(false);
+    if (!path_argument(vm, "fileExists", args[0])) return SOL_BOOL_VAL(false);
+
+    struct stat info;
+    if (stat(SOL_AS_STRING(args[0])->chars, &info) != 0) return SOL_BOOL_VAL(false);
+    return SOL_BOOL_VAL(S_ISREG(info.st_mode) ? true : false);
+}
+
 /* Monotonic seconds as a float. Monotonic because the only thing worth doing
  * with two readings is subtracting them, and a wall clock can go backwards
  * between them -- so the epoch is deliberately unspecified and a single reading
@@ -2148,6 +2275,9 @@ void sol_builtins_install(SolVM *vm)
     any_receiver(vm, system, "exit", prim_system_exit);
     any_receiver(vm, system, "clock", prim_system_clock);
     any_receiver(vm, system, "readLine", prim_system_read_line);
+    any_receiver(vm, system, "readFile", prim_system_read_file);
+    any_receiver(vm, system, "writeFile", prim_system_write_file);
+    any_receiver(vm, system, "fileExists", prim_system_file_exists);
 
     SolArray *no_arguments = sol_array_new(vm, 0);
     sol_gc_push_temp(vm, &no_arguments->gc);

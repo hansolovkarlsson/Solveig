@@ -208,6 +208,39 @@ Waiting for a single keypress is a different job. It needs raw terminal mode,
 which is the first thing in the runtime that would differ by platform, and it is
 not here.
 
+### Files
+
+Whole files, as strings.
+
+```
+system:writeFile("notes.txt", "apples 3\npears 12\n").
+system:readFile("notes.txt"):size:print.         ; #18
+```
+
+`readFile` answers the whole file as one string. `writeFile` replaces what is
+there, creates the file if it is not, and answers nil — there is nothing useful
+to chain from a write.
+
+**A missing file is an error, not nil**, which is the same answer an
+out-of-range index gets and for the same reason: a program asking for a file it
+has not got is wrong about something. `readLine` answering nil at the end of
+input is not the precedent, since running out of input is how a loop *finishes*.
+
+`system:fileExists(path)` is how to ask first, and it is about a **file**: a
+directory answers false, because that is what `readFile` would say about one
+too.
+
+A string is bytes, so a file of them survives the round trip — a NUL is a byte
+like any other, `size` counts it, and reading a file and writing it back copies
+it exactly. Taking a binary file *apart* is another matter, `at` answering a
+one-character string rather than a number.
+
+These are on `system` rather than on the string naming the file, though
+`"notes.txt":readFile` reads well. A string knows nothing about files; `system`
+is already where what belongs to the world outside the program lives; and
+`"lib.sol":include` already means something quite different on a string literal,
+so the two would look alike and behave nothing alike.
+
 ### The clock
 
 `system:clock` answers **monotonic seconds as a float**. The epoch is
@@ -1055,6 +1088,9 @@ it delegates to `object` like everything else. See
 | `exit(status)` | nothing — the program stops, with `status` from #0 to #255 |
 | `arguments` | an array of strings; the empty array when there were none |
 | `readLine` | one line of standard input without its terminator, or nil at the end |
+| `readFile(path)` | the whole file as a string; an error if it is not there |
+| `writeFile(path, text)` | nil, having replaced the file's contents |
+| `fileExists(path)` | true if a file — not a directory — is at that path |
 | `clock` | monotonic seconds as a float; only differences are meaningful |
 
 ### nil

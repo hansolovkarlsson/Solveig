@@ -8,6 +8,59 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### A program can read and write files — `pending`, 2026-08-20
+
+Roadmap 6.4, whole files as strings.
+
+```
+system:writeFile("notes.txt", "apples 3\npears 12\n").
+system:readFile("notes.txt"):size:print.         ; #18
+system:fileExists("notes.txt"):print.            ; true
+```
+
+**They are on `system`, not on the string naming the file.** The roadmap
+sketched `"notes.txt":readFile`, which reads better, and three things decided
+against it: a string knows nothing about files, and putting them there gives
+every string in the program a message about the filesystem; `system` is already
+defined as what belongs to the process rather than to any value, and a file is
+the world outside; and `"lib.sol":include` already means something on a string
+literal — a compile-time directive — so `"lib.sol":readFile` beside it would be
+two identical-looking sends that are not the same kind of thing at all.
+
+**A missing file is an error, not nil**, which the roadmap called the real design
+work and got right. It is the answer an out-of-range index gets, for the same
+reason: a program asking for a file it has not got is wrong about something.
+`readLine` answering nil at the end of input is not the precedent it looks like —
+running out of input is how a loop *finishes*.
+
+`system:fileExists(path)` is how to ask first, and it answers **false for a
+directory**, because that is what `readFile` says about one too. A `fileExists`
+that disagreed with `readFile` would be a trap rather than a way to look before
+leaping.
+
+`writeFile` replaces what is there, creates the file if it is not, and answers
+nil. It reports failure from `fclose` as well as `fwrite`: a buffered write fails
+when the buffer is flushed, so a full disk announces itself at the close and not
+at the write that filled it.
+
+**Binary already round-trips.** A string is bytes, a NUL is a byte like any
+other, `size` counts it, and reading a file and writing it back copies it
+exactly. Taking one *apart* still does not work, `at` answering a
+one-character string rather than a number, and that half of the entry stayed
+behind as roadmap 6.12 with a number of its own.
+
+Writing this opened a gap worth its own entry. A file arrives as one string and
+**there is no way to split it** — no `split`, no `indexOf`, no substring — so
+counting lines is a character-at-a-time loop, which
+[examples/files.sol](../examples/files.sol) has and which is the least pleasant
+code in the examples. That is roadmap 6.11, and it is now the next thing to do:
+a file you cannot take apart is half of file handling.
+
+`tests/test_system.c` gains seven cases — the round trip, replacing rather than
+appending, an empty file being a file, bytes surviving with a NUL among them, a
+20,000-byte file, the eight ways a bad call is refused, and `fileExists`
+declining a directory.
+
 ### A program can read its input — `4aefa0c`, 2026-08-20
 
 Roadmap 6.3. `system:readLine` answers one line of standard input without its

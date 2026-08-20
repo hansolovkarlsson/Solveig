@@ -603,6 +603,12 @@ line := system:readLine.
 { line:notEquals(nil) }:whileTrue({ line:display. line := system:readLine }).
 ```
 
+**Files are whole files**: `system:readFile(path)` answers one as a string, and
+`system:writeFile(path, text)` replaces it. A missing file is an error rather
+than nil — the same answer an out-of-range index gets — and
+`system:fileExists(path)` is how to ask first. They are on `system` rather than
+on the string naming the file, because a string knows nothing about files.
+
 **`clock` is monotonic**, which is why its epoch is unspecified — the only
 useful thing to do with two readings is subtract them:
 
@@ -612,15 +618,16 @@ i := #0. { i:lessThan(#100000) }:whileTrue({ i := i:add(#1) }).
 system:clock:sub(start):asString("0.4"):display.     ; 0.0153
 ```
 
-> **Run:** [examples/system.sol](../examples/system.sol) and
-> [examples/reading.sol](../examples/reading.sol)
+> **Run:** [examples/system.sol](../examples/system.sol),
+> [examples/reading.sol](../examples/reading.sol) and
+> [examples/files.sol](../examples/files.sol)
 
 ## 19. What is left
 
 The language is Turing-complete and does not leak. What remains is in
 [ROADMAP.md](ROADMAP.md), and it is no longer about the language: a program can
-now be split across files, stop with a status, and read its input, but it cannot
-yet write a file. One design question is still open — whether the class side
+now be split across files, stop with a status, read its input and read and write
+files. One design question is still open — whether the class side
 and the instance side should be separate objects.
 
 Known restrictions worth carrying with you:

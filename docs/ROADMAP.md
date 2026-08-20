@@ -233,27 +233,12 @@ Sections 1 to 5 were about making Solum a language, and they are done — the
 entries are in [COMPLETED.md](COMPLETED.md). This one is about making it a
 language you can write a *program* in: a program has to be split across files,
 read input, write files, and stop with a status. None of it needs a new idea.
-Splitting is done, and so are stopping and reading; writing is not.
+Splitting a program across files is done, and so are stopping, reading input,
+and files themselves. What is left of it is smaller than what has gone.
 
 Raised in a notes file and assessed in [ideas.md](ideas.md), which also records
 what was **not** worth building and why — integer widths, a JIT, cascades,
 trailing-block syntax, and Go-style concurrency among them.
-
-### 6.4 File handling
-
-Whole-file first, which covers most of what a script does:
-
-- `"path":readFile` — answers the contents as a string.
-- `"path":writeFile(text)` — replaces the contents.
-
-Errors are the design work rather than the reading: the language has no
-exceptions, so a missing file has to be a runtime error like any other, or
-answer nil and make every caller check. Given how strict everything else is, an
-error is the consistent choice, and a `system:fileExists` gives the caller a way
-to ask first.
-
-Binary files want a byte-buffer type and should wait for a program that needs
-one. An array of integers would work and would cost 16 bytes a byte.
 
 ### 6.5 Measuring from inside the language
 
@@ -313,7 +298,7 @@ A short section in the guide, with that example.
 
 ### 6.9 The examples do not cover everything
 
-Sixteen examples, chosen by what was being built at the time rather than by
+Seventeen examples, chosen by what was being built at the time rather than by
 what a reader needs. Worth an audit: list every concept the guide names, find which
 have no example, and fill the gaps rather than adding more of what is covered.
 
@@ -327,16 +312,46 @@ of the runtime that behaves differently by platform.
 Worth doing when a program needs it, and behind its own decision rather than as
 a footnote to line input.
 
+### 6.11 A string cannot be split
+
+`readFile` answers a whole file as one string, which is what made this visible:
+there is no `split`, no `indexOf`, and no substring. `at(#i)` answers a
+one-character string, so breaking a file into lines is a character-at-a-time
+loop — [examples/files.sol](../examples/files.sol) has one, and it is the least
+pleasant code in the examples.
+
+The shape is not in doubt, only how much of it to build. `split(separator)`
+answering an array of strings covers most of what a script does to a file.
+`indexOf` and a substring message are the more general pair, and each raises the
+same question: what to answer when there is no match. Nil, or `#0` as an
+out-of-band index — and the first is more in keeping, since `#0` is not a valid
+index here and would be a second way of saying "nothing" beside the one the
+language already has.
+
+A file you cannot take apart is half of file handling, so this is the thing to
+do next.
+
+### 6.12 Taking a binary file apart
+
+Reading and writing binary files already works: a string is bytes, a NUL is a
+byte like any other, and reading a file and writing it back copies it exactly.
+*Inspecting* one does not — `at` answers a one-character string, and there is no
+number to do arithmetic on.
+
+What this wants is a byte-buffer type. An array of integers would work and would
+cost sixteen bytes a byte. Worth building when a program needs it rather than on
+the chance that one might.
+
 ## Suggested order
 
 **Section 6 is the whole of the live list**, and it came from the right place:
 notes about what a program would want, rather than a plan written before there
-were any programs. Three of its items are built — a program can be split
-across files, stop with a status, and read its input — so in order of what would
-be missed next:
+were any programs. Four of its items are built — a program can be split
+across files, stop with a status, read its input, and read and write files — so
+in order of what would be missed next:
 
-1. **Files** (6.4). Reading input is done, and this is the other half of what a
-   script spends its time doing.
+1. **Splitting a string** (6.11). Files arrive whole and there is no way to take
+   one apart, which is half of file handling missing.
 2. **Timing from inside the language** (6.5), which `system:clock` now makes a
    few lines of Solum.
 3. The documentation gaps — the instruction set (6.7), group versus block (6.8),
@@ -344,7 +359,8 @@ be missed next:
 4. **Inlining the loop constructs** (6.6), when something is measurably spending
    time in one.
 
-Not ordered: **a single keypress** (6.10) waits for a program that needs one.
+Not ordered: **a single keypress** (6.10) and **a byte type** (6.12) both wait
+for a program that needs them.
 
 One decision is outstanding: **2.5**, class side versus instance side. 1.6
 answered it one message at a time, which was enough to stop the crashes;

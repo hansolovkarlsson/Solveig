@@ -311,6 +311,182 @@ static void test_read_line_takes_no_arguments(void)
     printf("  readLine takes no arguments\n");
 }
 
+#define FILE_PATH "build/tests/test_system.file"
+
+static void remove_the_test_file(void)
+{
+    remove(FILE_PATH);
+}
+
+/* What is written comes back, byte for byte. */
+static void test_a_file_round_trips(void)
+{
+    remove_the_test_file();
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "before := system:fileExists(\"" FILE_PATH "\")."
+        "system:writeFile(\"" FILE_PATH "\", \"one\\ntwo\\n\")."
+        "after := system:fileExists(\"" FILE_PATH "\")."
+        "text := system:readFile(\"" FILE_PATH "\").") == SOL_OK);
+
+    assert(SOL_AS_BOOL(global(&vm, "before")) == false);
+    assert(SOL_AS_BOOL(global(&vm, "after")) == true);
+    assert(strcmp(SOL_AS_STRING(global(&vm, "text"))->chars, "one\ntwo\n") == 0);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    remove_the_test_file();
+    printf("  a file written is a file read back\n");
+}
+
+/* Writing replaces what was there rather than adding to it, and answers nil --
+   there is nothing useful to chain from a write. */
+static void test_writing_replaces_and_answers_nil(void)
+{
+    remove_the_test_file();
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "system:writeFile(\"" FILE_PATH "\", \"the first thing\")."
+        "answer := system:writeFile(\"" FILE_PATH "\", \"short\")."
+        "text := system:readFile(\"" FILE_PATH "\").") == SOL_OK);
+
+    assert(SOL_IS_NIL(global(&vm, "answer")));
+    assert(strcmp(SOL_AS_STRING(global(&vm, "text"))->chars, "short") == 0);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    remove_the_test_file();
+    printf("  writing replaces what was there, and answers nil\n");
+}
+
+/* An empty file is a file: `""` back, and it is there to be found. */
+static void test_an_empty_file_is_a_file(void)
+{
+    remove_the_test_file();
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "system:writeFile(\"" FILE_PATH "\", \"\")."
+        "there := system:fileExists(\"" FILE_PATH "\")."
+        "n := system:readFile(\"" FILE_PATH "\"):size.") == SOL_OK);
+
+    assert(SOL_AS_BOOL(global(&vm, "there")) == true);
+    assert(SOL_AS_INT(global(&vm, "n")) == 0);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    remove_the_test_file();
+    printf("  an empty file is a file, not an absent one\n");
+}
+
+/* A string is bytes, so a file of them survives the round trip -- a NUL is a
+   byte like any other and `size` counts it. Taking a binary file apart is
+   another matter, `at` answering a one-character string. */
+static void test_bytes_survive_the_round_trip(void)
+{
+    remove_the_test_file();
+
+    FILE *f = fopen(FILE_PATH, "wb");
+    assert(f != NULL);
+    assert(fwrite("a\0b", 1, 3, f) == 3);
+    fclose(f);
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "text := system:readFile(\"" FILE_PATH "\")."
+        "n := text:size."
+        "system:writeFile(\"" FILE_PATH "\", text)."
+        "again := system:readFile(\"" FILE_PATH "\"):size.") == SOL_OK);
+
+    assert(SOL_AS_INT(global(&vm, "n")) == 3);
+    assert(SOL_AS_INT(global(&vm, "again")) == 3);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    remove_the_test_file();
+    printf("  bytes survive a read and a write, NUL included\n");
+}
+
+/* Bigger than any buffer inside the reader. */
+static void test_a_large_file_round_trips(void)
+{
+    remove_the_test_file();
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "line := \"0123456789\"."
+        "text := \"\"."
+        "i := #0."
+        "{ i:lessThan(#2000) }:whileTrue({ text := text:concat(line). i := i:add(#1) })."
+        "system:writeFile(\"" FILE_PATH "\", text)."
+        "n := system:readFile(\"" FILE_PATH "\"):size.") == SOL_OK);
+
+    assert(SOL_AS_INT(global(&vm, "n")) == 20000);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    remove_the_test_file();
+    printf("  a large file round trips\n");
+}
+
+/* A file that is not there is an error, not nil. `readLine` answering nil at
+   the end is not the precedent: running out of input is how a loop finishes,
+   where a missing file is a program expecting something that is not so. */
+static void test_a_file_that_is_not_there_is_an_error(void)
+{
+    static const char *refused[] = {
+        "system:readFile(\"build/tests/test_system.absent\").",
+        "system:readFile(\"build/tests\").",              /* a directory is not a file */
+        "system:writeFile(\"build/tests/no-such-dir/x\", \"hi\").",
+        "system:readFile(#1).",
+        "system:writeFile(\"" FILE_PATH "\", #1).",
+        "system:readFile.",
+        "system:writeFile(\"" FILE_PATH "\").",
+        "system:fileExists.",
+    };
+
+    for (size_t i = 0; i < sizeof(refused) / sizeof(refused[0]); i++) {
+        SolVM vm; sol_vm_init(&vm);
+        SolChunk chunk;
+        assert(run(&vm, &chunk, refused[i]) == SOL_RUNTIME_ERROR);
+        sol_chunk_free(&chunk);
+        sol_vm_free(&vm);
+    }
+    remove_the_test_file();
+    printf("  a missing file, a directory, and a bad argument are all errors\n");
+}
+
+/* `fileExists` answers the question `readFile` asks, so a directory is not a
+   file -- otherwise looking before you leap would be a trap. */
+static void test_file_exists_means_a_file(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "missing := system:fileExists(\"build/tests/test_system.absent\")."
+        "directory := system:fileExists(\"build/tests\").") == SOL_OK);
+
+    assert(SOL_AS_BOOL(global(&vm, "missing")) == false);
+    assert(SOL_AS_BOOL(global(&vm, "directory")) == false);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    printf("  fileExists is about a file, so a directory is not one\n");
+}
+
 int main(void)
 {
     test_exit_carries_its_status();
@@ -327,6 +503,14 @@ int main(void)
     test_read_line_reads_a_line_of_any_length();
     test_read_line_on_empty_input_is_nil();
     test_read_line_takes_no_arguments();
+
+    test_a_file_round_trips();
+    test_writing_replaces_and_answers_nil();
+    test_an_empty_file_is_a_file();
+    test_bytes_survive_the_round_trip();
+    test_a_large_file_round_trips();
+    test_a_file_that_is_not_there_is_an_error();
+    test_file_exists_means_a_file();
 
     printf("test_system: ok\n");
     return 0;

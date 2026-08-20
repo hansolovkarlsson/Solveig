@@ -27,7 +27,7 @@ reasoning went to the changelog at the time, and the verdicts are in
 - [5. Tooling and ergonomics](#5-tooling-and-ergonomics) — the prompt, rendering,
   float text, compile errors
 - [6. Beyond the language](#6-beyond-the-language) — splitting a program across
-  files, the `system` object, and reading input
+  files, the `system` object, reading input, and file handling
 
 ---
 
@@ -793,3 +793,34 @@ newline of its own still counts as a line.
 
 The half of this entry about waiting for a single key stayed behind, under a
 number of its own: [6.10](ROADMAP.md#610-waiting-for-a-single-key).
+
+### 6.4 File handling — **done**
+
+Whole-file first, which covers most of what a script does:
+
+- `"path":readFile` — answers the contents as a string.
+- `"path":writeFile(text)` — replaces the contents.
+
+Errors are the design work rather than the reading: the language has no
+exceptions, so a missing file has to be a runtime error like any other, or
+answer nil and make every caller check. Given how strict everything else is, an
+error is the consistent choice, and a `system:fileExists` gives the caller a way
+to ask first.
+
+Built as `pending`, and on `system` rather than on the string naming the file —
+`system:readFile(path)`, `system:writeFile(path, text)`,
+`system:fileExists(path)`. `"notes.txt":readFile` reads better and is what this
+entry sketched, but a string knows nothing about files, `system` is already
+where what belongs to the world outside the program lives, and
+`"lib.sol":include` already means something quite different on a string literal.
+
+The error question this entry called the real work went the way it predicted: a
+missing file is an error, the same answer an out-of-range index gets, and
+`fileExists` is how to ask first. It answers false for a directory, since that is
+what `readFile` says about one too — a `fileExists` that disagreed with `readFile`
+would be a trap rather than a way to look before leaping.
+
+The binary half stayed behind, under a number of its own:
+[6.12](ROADMAP.md#612-taking-a-binary-file-apart). And a gap this opened is
+[6.11](ROADMAP.md#611-a-string-cannot-be-split) — a file arrives as one string
+and there is no way to take it apart.
