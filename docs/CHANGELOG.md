@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### The trailing-block verdict, argued properly this time — `pending`, 2026-08-20
+### The trailing-block verdict, argued properly this time — `8b4cf3a`, 2026-08-20
 
 Documentation. No code, and that is the decision.
 
