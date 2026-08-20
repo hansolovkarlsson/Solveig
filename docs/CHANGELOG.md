@@ -8,6 +8,43 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### Wrote down the class-side question — `pending`, 2026-08-20
+
+Documentation. No code.
+
+**[class-and-instance.md](class-and-instance.md)** is the long version of roadmap
+2.5, the one design question still open. It was a paragraph that said `integer`
+holds `new` and `print` in one object and that separating them "needs a metaclass
+level", which is true as far as it goes and leaves out the two things that
+actually decide the question.
+
+The first is that **this is only a problem for the built-ins.** A user-defined
+object has one side and delegation, which is coherent: `point:make` and
+`point:sum` sit together, and an instance seeing both is prototypes working as
+described. The built-ins are welded by one line — `sol_vm_class_of` has to hand
+an unboxed `#45` some object to dispatch to, and the only candidate is the object
+the global `integer` names.
+
+The second is that **metaclasses are the Smalltalk answer to a question this
+language does not ask.** design.md says whether an object is a class or an
+instance is how it is used, not what it is; a metaclass tower would import a
+class-based concept to fix something only the built-ins have. The document
+proposes a smaller shape instead — one behaviour object per built-in, holding the
+instance side, with `sol_vm_class_of` returning it — and works through what that
+fixes, what it would make 1.6's receiver check redundant for, and the one wrinkle
+worth designing carefully, which is keeping `#45:isKindOf(integer)` true when
+`#45` no longer dispatches to the object `integer` names.
+
+And it records a **trigger** rather than a recommendation to do it now: the
+symptoms are cosmetic — `#45:new(#1)` answers, `slots` mixes the sides — but the
+single root is not, and `integer:isKindOf(object)` being false is what should
+set this going.
+
+The roadmap entry itself was also wrong on a detail and is corrected in
+`7beb07e`: it claimed `integer` has `new` where `float` does not, which
+`7ac6be6` half fixed. `new` is on `integer`, `float`, `array` and `object`;
+`string`, `symbol`, `block` and `boolean` have no class side at all.
+
 ### Compile errors point at the column — `0e48e5d`, 2026-08-20
 
 Roadmap 5.4. No `.sob` change and no change to the language.

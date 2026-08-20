@@ -348,6 +348,11 @@ and the dispatcher checks before entering it, one message at a time. That was
 enough to stop the two crashes, and it is not the same as splitting the two sides
 into separate objects, which is what remains open.
 
+**[class-and-instance.md](class-and-instance.md)** is the long version: why this
+is only a problem for the built-ins, why the answer is probably not metaclasses,
+what a behaviour object per built-in would cost and unblock, and the trigger
+worth waiting for.
+
 ### 2.14 Loose ends from the decided items
 
 Small, and each falls out of a decision above rather than being a question of its
