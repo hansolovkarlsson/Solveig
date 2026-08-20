@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### A program can read its input — `pending`, 2026-08-20
+### A program can read its input — `4aefa0c`, 2026-08-20
 
 Roadmap 6.3. `system:readLine` answers one line of standard input without its
 terminator, or **nil** when there is no more.

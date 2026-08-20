@@ -784,7 +784,7 @@ differences mean anything. The rules are in
 `system:readLine`, answering a string or nil at end of input. A few lines of C,
 portable, and enough for anything that reads a file line by line or prompts.
 
-Built as `pending`. `system:readLine` answers a line without its terminator, or
+Built as `4aefa0c`. `system:readLine` answers a line without its terminator, or
 nil at the end -- the one place absence is not treated as a mistake here, since
 running out of input is how a loop that reads to the end finishes rather than
 something that went wrong. An empty line is `""` and is not the end, so the two
