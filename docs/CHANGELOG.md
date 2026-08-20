@@ -8,6 +8,36 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### Finished roadmap entries moved to a document of their own — `pending`, 2026-08-20
+
+Documentation. No code.
+
+The roadmap was 1062 lines and most of it was done. It is now 365, and
+**[COMPLETED.md](COMPLETED.md)** holds the rest — every finished entry as it was
+written, which is the case for the work *before* the work was done: what the
+problem was, what the options were, and why the shape chosen was the one taken.
+That is not what a changelog entry says. A changelog says what landed and when;
+these say why it was worth doing, and deleting them would have thrown the
+argument away and kept only the outcome.
+
+Sections **1** (blocking real programs), **4** (performance) and **5** (tooling)
+left the roadmap entire, along with 3.9, the settled table from section 2, and
+6.1, which was deleted three commits ago and is restored there rather than lost.
+What stays behind is what is still live: **2.5** and the loose ends in 2.14,
+section 3's limitations, and section 6.
+
+Two entries were split rather than moved. **1.1d** — collection is stop-the-world
+and non-incremental — is not work but a standing restriction, so it moved *into*
+section 3 instead, joining 2.13 as an entry filed under a heading that is not its
+number. And **1.1c** was still open when 1.1 was written and is not any more,
+which the entry now says.
+
+**Numbers are never reused**, which the new document says at the top and is worth
+stating: the changelog cites them by number, and one number meaning two things at
+two times would make every one of those citations ambiguous. So the gaps in the
+roadmap — no section 1, no 4, no 5 — are a record rather than a mistake, and
+prose that cites 4.1 or 1.6 still points somewhere exact.
+
 ### nil, empty, and unset, written down — `6d0c43c`, 2026-08-20
 
 Documentation. No code.
