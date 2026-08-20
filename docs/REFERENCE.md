@@ -954,6 +954,17 @@ rather than propagating.
 dispatches to. `nil:isKindOf(object)` is true, like every other value, but
 `nil:slots` says an object is what has slots.
 
+There is one nil and it carries no type, so `string:nil` and `integer:nil` are
+not messages anything understands. A name holds a value and never a type, so
+what a value is gets asked of the value: `isKindOf(string)` is false for nil and
+true for a string. Absence and emptiness are different — `""`, `#0` and `[]` are
+values that answer their type's messages, and nil answers almost nothing.
+
+A declared temporary holds nil before it is assigned. A slot that was never
+bound is a *miss* rather than a nil, reported like any unknown message, so a
+prototype with an optional field binds `nil` as the default. The whole of it,
+with the reasoning, is in [absence.md](absence.md).
+
 ---
 
 ## Errors

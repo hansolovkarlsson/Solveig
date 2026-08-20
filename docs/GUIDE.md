@@ -254,7 +254,23 @@ changed. If it cannot change, that question has no consequences, so equality can
 be about contents instead. It is also what lets numbers ride unboxed — a number
 never needs a place on the heap for someone else to point at.
 
+**nil is a value like the rest**, and there is exactly one of it. It carries no
+type, so there is no `string:nil` or `integer:nil` — a name holds a value and
+never a type, and a name bound to nil does not remember what you meant to put
+there. Absence is also not emptiness: `""` and `[]` are values that answer their
+type's messages, where nil answers `print`, `display`, `asString`, `equals`,
+`notEquals` and the reflection messages, and errors at anything else — so a
+missing value is reported where it was needed instead of travelling on.
+
+```
+"":size:print.                   ; #0
+nil:size.                        ; solvm: nil does not understand 'size'
+```
+
 > **Run:** [examples/values.sol](../examples/values.sol)
+>
+> **Read:** [absence.md](absence.md) — nil against empty against unset, where nil
+> comes from, and why there is no typed null.
 
 ## 7. Blocks: code as a value
 

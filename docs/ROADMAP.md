@@ -996,8 +996,8 @@ A short section in the guide, with that example.
 
 ### 6.9 The examples do not cover everything
 
-Twelve examples, chosen by what was being built at the time rather than by what
-a reader needs. Worth an audit: list every concept the guide names, find which
+Fourteen examples, chosen by what was being built at the time rather than by
+what a reader needs. Worth an audit: list every concept the guide names, find which
 have no example, and fill the gaps rather than adding more of what is covered.
 
 ## Suggested order

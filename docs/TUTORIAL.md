@@ -342,5 +342,7 @@ Nearly the whole language, without meeting it as a list:
 - [GUIDE.md](GUIDE.md) — the same ground surveyed in order, plus symbols,
   reflection, values against references, and the restrictions worth knowing.
 - [fetched-methods.md](fetched-methods.md) — holding a method as a value.
+- [absence.md](absence.md) — nil, empty, and unset, and what a name holds before
+  you fill it.
 - [REFERENCE.md](REFERENCE.md) — every message, for looking things up.
-- [examples/](../examples/) — eleven more programs, each on one topic.
+- [examples/](../examples/) — thirteen more programs, each on one topic.

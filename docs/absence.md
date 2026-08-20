@@ -1,0 +1,196 @@
+# Absence: nil, empty, and unset
+
+*Why there is no `string:nil`, what a name holds before you fill it, and where
+nil comes from. Every snippet here has been run; the outputs are what the VM
+actually prints.*
+
+For the messages themselves see [REFERENCE.md](REFERENCE.md#nil).
+
+---
+
+## There is one nil, and it has no type
+
+Languages with declared types usually give each type its own emptiness — a
+`String` that is `null` is still a `String`. Solum has one nil for everything,
+and asking a class for its own is not a thing you can do:
+
+```
+> a := string:nil.
+solvm: object does not understand 'nil'
+> b := integer:nil.
+solvm: object does not understand 'nil'
+```
+
+The error is exactly right, if a little terse: `string` is an object, `nil` is
+not a message it has, and there is nothing further to it than that.
+
+`nil` names **the value**, not a class. Every other built-in type has a class
+object bound to a global — `integer`, `float`, `string`, `array`, `symbol`,
+`block`, `boolean`, `object` — and nil does not. The class it dispatches to
+exists inside the VM, so nil can be sent messages, but nothing names it, so
+there is nowhere to send `nil` to in the first place.
+
+## A name has no type either
+
+Even if there were a typed nil, there would be nowhere to put it:
+
+```
+mystring := nil.
+```
+
+`:=` binds a name to whatever the right-hand side answered. The name does not
+remember what you meant it to hold, because it never held a type — only values
+have those. `mystring` is not "a string that is currently empty"; it is a name
+bound to nil, exactly like a name bound to nil that you meant for an integer.
+
+This is why the type test is on the value rather than the name:
+
+```
+"a":isKindOf(string):print.        ; true
+mystring:isKindOf(string):print.   ; false
+mystring:isKindOf(object):print.   ; true   -- everything is
+```
+
+## Absent is not empty
+
+Two different questions, and Solum keeps them apart:
+
+| | |
+| --- | --- |
+| **absent** — there is no value | `nil` |
+| **empty** — there is a value, and it holds nothing | `""`, `#0`, `0.0`, `[]`, `object:new` |
+
+An empty value is a value, and answers everything its type answers:
+
+```
+"":size:print.                     ; #0
+[]:size:print.                     ; #0
+```
+
+Which is what the refusal to make one with `new` is about — the empty string is
+not made, it is written:
+
+```
+> b := string:new.
+solvm: a string is written as a literal, not made with 'new' -- "" is the empty one
+```
+
+## nil answers almost nothing, on purpose
+
+`print`, `display`, `asString`, `equals`, `notEquals`, and the five reflection
+messages every type carries. That is the whole list.
+
+```
+nil:print.                         ; nil
+nil:display.                       ; nil
+nil:asString:print.                ; "nil"
+nil:equals(nil):print.             ; true
+nil:respondsTo('print):print.      ; true
+```
+
+Anything else is an error where it is asked:
+
+```
+> mystring:size.
+solvm: nil does not understand 'size'
+```
+
+Some languages let nil swallow messages and answer nil again, so a missing value
+travels quietly through a program and surfaces somewhere unrelated. Here the
+absence is reported at the point that depended on it, which is the same choice
+made everywhere else in the language: an out-of-range index is an error rather
+than nil, integers and floats never coerce, and a block that answers the wrong
+type where a boolean was wanted is told so.
+
+Reflection is the one place nil is turned away by name rather than by not
+understanding, since the question only makes sense for objects:
+
+```
+> nil:slots.
+solvm: 'slots' expects an object, got nil -- only an object has slots of its own
+```
+
+## Where nil comes from
+
+It is an ordinary value: you can bind it, put it in an array, and pass it
+around.
+
+```
+[nil, #1, nil]:print.              ; [nil, #1, nil]
+"{}":fill([nil]):display.          ; nil
+```
+
+Five places produce one without your writing it:
+
+```
+false:ifTrue({ #1 }):print.        ; nil   -- a branch that did not run
+{ false }:whileTrue({ #1 }):print. ; nil   -- a loop answers nothing
+object:parent:print.               ; nil   -- the chain ends here
+{ | t | t }:value:print.           ; nil   -- a temporary before it is assigned
+```
+
+The last is the one worth keeping in mind: a declared temporary starts as nil,
+so "declare it now, fill it in later" already works and needs no ceremony.
+
+## An unset slot is an error, not nil
+
+A temporary and a slot behave differently, and the difference catches people:
+
+```
+> o := object:new.
+> o:missing:print.
+solvm: object does not understand 'missing'
+```
+
+A temporary is a slot in a frame that exists and holds nil. A slot that was
+never bound does not exist, so looking it up walks the prototype chain, finds
+nothing, and reports the miss — the same as any unknown message, because it *is*
+the same thing. There is no separate "field" concept for it to be a nil member
+of.
+
+So a prototype with an optional field says so, by binding nil as the default:
+
+```
+item := object:new.
+item:price := nil.
+
+p := item:new.
+p:price:print.                     ; nil
+p:price:equals(nil):print.         ; true
+```
+
+That is the same defaulting that any prototype slot does — see
+[the tutorial's step 1](TUTORIAL.md#step-1-an-item) — and nil is a perfectly
+ordinary thing to default to.
+
+## Asking whether something is there
+
+```
+x := nil.
+x:equals(nil):ifElse({ "unset" }, { x }):display.       ; unset
+
+x := "here".
+x:equals(nil):ifElse({ "unset" }, { x }):display.       ; here
+```
+
+`equals` and `notEquals` are on every type, so this works whatever `x` turns out
+to be. Where you want "is it the kind of thing I can use", `isKindOf` asks that
+directly, and nil is not a kind of anything but `object`.
+
+## Why there is no typed null
+
+It would need somewhere to live. Nothing in the language carries a type but a
+value itself, so `string:nil` would have to answer a value that *claims* to be a
+string and answers no string message — a thing that passes `isKindOf(string)`
+and fails `size`. That is precisely the quiet mistake the language refuses
+everywhere else.
+
+And it would buy nothing. Without a checker reading the program before it runs,
+a typed null is caught in the same place an untyped one is: at the send that
+needed a real value. Solum has no such checker and no declarations for one to
+read, so the only difference would be a second spelling of nil per type, and
+eight ways to say the same thing.
+
+The version that would be worth something is a static one — a type that a
+compiler knows is "string or nothing" and will not let you use until you have
+checked. That is a type system, not a value, and it is not on the roadmap.

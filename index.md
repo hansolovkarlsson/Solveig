@@ -48,7 +48,8 @@ while staying ordinary messages you can send any other way.
 
 Also: **[Design](docs/design.md)** for the object model, the instruction set and
 the `.sob` format; **[Fetching a method](docs/fetched-methods.md)** for holding a
-method as a value; **[The class side and the instance side](docs/class-and-instance.md)**
+method as a value; **[Absence](docs/absence.md)** for nil, empty and unset;
+**[The class side and the instance side](docs/class-and-instance.md)**
 for the one design question still open; **[Ideas considered](docs/ideas.md)**
 for what was weighed and what was turned down; **[Roadmap](docs/ROADMAP.md)**
 for what is left; and **[Changelog](docs/CHANGELOG.md)** for what has changed.

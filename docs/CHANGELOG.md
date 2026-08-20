@@ -8,6 +8,58 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### nil, empty, and unset, written down — `pending`, 2026-08-20
+
+Documentation. No code.
+
+The question was whether a fundamental type can be made without a value —
+`mystring := string:nil.`, or `myint := integer:nil.`. It cannot, and the reason
+turned out to be worth a page.
+
+```
+> a := string:nil.
+solvm: object does not understand 'nil'
+```
+
+There is one nil and it carries **no type**. `nil` names the value rather than a
+class: every other built-in type has a class object bound to a global, and nil
+has none, so there is nothing for `string:nil` to reach. Nor would a typed nil
+have anywhere to live — a name holds a value and never a type, so `mystring` is
+not "a string that is currently empty" but a name bound to nil, indistinguishable
+from one meant for an integer. Which is why what a value is gets asked of the
+value: `isKindOf(string)` is false for nil.
+
+**[absence.md](absence.md)** is new, and holds the whole of it: absence against
+emptiness (`""`, `#0` and `[]` are values that answer their type's messages,
+where nil answers a short fixed list and errors at everything else); the places a
+nil arrives without being written — a branch that did not run, a loop's answer,
+`parent` at the root, a temporary before assignment; and the asymmetry that
+catches people, which is that **an unset slot is an error rather than a nil**:
+
+```
+> o := object:new.
+> o:missing:print.
+solvm: object does not understand 'missing'
+```
+
+A temporary is a slot in a frame that exists and holds nil, where a slot that
+was never bound does not exist — so the lookup walks the prototype chain, finds
+nothing, and reports the miss like any unknown message, because it is the same
+thing. A prototype with an optional field therefore binds `nil` as its default,
+the same defaulting any prototype slot does.
+
+The last section is why a typed null is not wanted rather than merely missing.
+It would have to answer a value that claims to be a string and answers no string
+message — the quiet mistake the language refuses everywhere else — and without a
+checker reading the program before it runs, it would be caught at the same send
+an untyped nil is caught at. The version worth something is static, and that is
+a type system rather than a value.
+
+[REFERENCE.md](REFERENCE.md#nil) gained the rules in short form, the guide a
+paragraph in §6 where values and references are settled, and the tutorial and
+index a link. Two example counts were stale after the include commit added two,
+and now say fourteen.
+
 ### A program can be split across files — `8922138`, 2026-08-20
 
 Roadmap 6.1, and the first item of section 6 to be built. One line brings
