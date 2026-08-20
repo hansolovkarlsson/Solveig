@@ -8,6 +8,50 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### A temporary needs a frame, and the compiler says so — `pending`, 2026-08-19
+
+`( | t | ... )` declares temporaries of the frame the group sits in. Inside a
+block or a method there is a frame, and it worked. At the top level of a script
+there is none — the script's chunk reserves no slots — and the compiler emitted
+`OP_SET_LOCAL 0` anyway, writing over the bottom of the expression stack.
+
+```
+#1:add(( | t | t := #5. t )):print.
+```
+
+The receiver `#1` was sitting in that slot. `t := #5` overwrote it, and the
+answer came back **#10** instead of #6 — no error, just arithmetic on the wrong
+number. Roadmap 1.7.
+
+**Refused in the compiler**, at the `|` where the mistake is:
+
+```
+[line 1] solas: a temporary needs a frame, so declare it inside a block at '|'
+```
+
+Both front ends now say that, which they did not before. Compiled, the verifier
+had always caught it, so `sol_chunk_save` refused to write the file and reported
+`bytecode is internally inconsistent` — true, and useless, since the problem was
+three tokens of source. Solis never verifies, because it runs what it just
+compiled and trusts its own compiler, so there the wrong answer simply appeared.
+
+That trust is the larger half. Solis is right to hold it — verifying every REPL
+line to catch the compiler's own bugs is the wrong shape — but nothing was
+checking it was earned. **`tests/test_compile.c` now checks it**: every shipped
+example and 23 accepted forms are compiled and handed to `sol_chunk_verify`, so
+*whatever Solas accepts, the verifier accepts* has a test behind it instead of
+being an assumption. Anything the compiler learns to accept belongs in that
+list.
+
+Recovery needed care too. Reporting and returning left the parser on the `|`, so
+it resumed inside the group, cleared the panic flag at the `.` between the
+group's statements, and complained again about the `)` — two messages for one
+mistake, where every other error here produces exactly one. The refusal now
+steps over the declaration list, and a test counts the messages.
+
+Found by auditing REFERENCE.md against the implementation: the reference said
+declarations may open any group, and they could not.
+
 ### Side-table operands are two bytes, and constants intern — `9b81fd3`, 2026-08-19
 
 A chunk could hold 256 constants and 256 names, because the operands that index

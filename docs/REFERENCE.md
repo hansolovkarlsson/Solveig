@@ -206,19 +206,16 @@ quietly becoming a variable that looks local.
 Declarations may open a block or a method body, and a duplicate name in one
 frame is a compile error.
 
-A group may open with them too, but only inside a block or a method. **At the
-top level of a script it is broken**, because the script has no frame for a
-temporary to live in: the compiler emits a frame slot that does not exist.
-`solas` refuses to write the file, though it says `bytecode is internally
-inconsistent`, which reads like an internal fault rather than the source problem
-it is. Solis does not verify, and computes a wrong answer instead — the
-temporary lands on the expression stack and overwrites what is already there:
+A group may open with them too, but only inside a block or a method, because a
+temporary needs a frame to live in and only those have one. The top level of a
+script has no frame, and says so:
 
 ```
-#1:add(( | t | t := #5. t )):print.    ; Solis answers #10; it should be #6
+( | t | t := #5. t ):print.
+[line 1] solas: a temporary needs a frame, so declare it inside a block at '|'
 ```
 
-Declare in the enclosing block instead. Roadmap 1.7.
+Declare it in the enclosing block instead.
 
 ---
 
@@ -262,7 +259,8 @@ discarded and the last is the group's value.
 
 It may also open with `| a, b |`, declaring temporaries of the frame it sits in
 -- but only where there is a frame, which means inside a block or a method body.
-See the note under [Names and binding](#names-and-binding).
+At the top level of a script it is a compile error; see
+[Names and binding](#names-and-binding).
 
 ---
 

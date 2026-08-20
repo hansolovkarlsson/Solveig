@@ -1,0 +1,246 @@
+/* What Solas refuses, and what it promises about what it emits.
+ *
+ * The second half is the point. A temporary declared in a top-level group used
+ * to be compiled into a frame slot the script does not have: the verifier
+ * refused the result, so `solas` failed at the point of writing the file and
+ * said the bytecode was inconsistent, while Solis -- which runs what it just
+ * compiled, without verifying -- wrote the temporary over the bottom of the
+ * expression stack and answered wrongly. One source mistake, reported as an
+ * internal fault in one front end and not at all in the other.
+ *
+ * So this file checks the refusal, and then checks the invariant the bug broke:
+ * whatever Solas accepts, the verifier accepts. That is what lets Solis trust
+ * its own compiler.
+ */
+#define _POSIX_C_SOURCE 200809L
+
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+#include "solas/compiler.h"
+#include "solum/bytecode.h"
+#include "solum/serialize.h"
+#include "solum/vm.h"
+
+/* Compiles a program that must fail, and hands back what Solas printed. */
+static void compile_error_of(const char *source, char *out, size_t size)
+{
+    char path[] = "/tmp/solum-compile-err-XXXXXX";
+    int fd = mkstemp(path);
+    assert(fd >= 0);
+
+    fflush(stderr);
+    int saved = dup(STDERR_FILENO);
+    assert(saved >= 0);
+    assert(dup2(fd, STDERR_FILENO) >= 0);
+
+    SolChunk chunk;
+    sol_chunk_init(&chunk);
+    bool ok = sol_compile(source, &chunk);
+    sol_chunk_free(&chunk);
+
+    fflush(stderr);
+    assert(dup2(saved, STDERR_FILENO) >= 0);
+    close(saved);
+
+    assert(lseek(fd, 0, SEEK_SET) == 0);
+    ssize_t got = read(fd, out, size - 1);
+    out[got > 0 ? (size_t)got : 0] = '\0';
+    close(fd);
+    remove(path);
+
+    assert(!ok);
+}
+
+static int count_of(const char *haystack, const char *needle)
+{
+    int n = 0;
+    for (const char *at = haystack; (at = strstr(at, needle)) != NULL; at++) n++;
+    return n;
+}
+
+/* ---- a temporary needs a frame ---------------------------------------- */
+
+/* The top level of a script has no frame -- its chunk reserves no slots -- so
+   there is nowhere for a temporary to live. Refused at the `|`, where the
+   mistake is, rather than at the file write or not at all. */
+static void test_a_top_level_group_cannot_declare_a_temporary(void)
+{
+    static const char *refused[] = {
+        "( | t | t := #5. t ):print.",
+        "( | a, b | a ):print.",
+        "#1:add(( | t | t := #5. t )):print.",
+        "x := ( | t | t := #1. t ).",
+    };
+
+    for (size_t i = 0; i < sizeof(refused) / sizeof(refused[0]); i++) {
+        char said[512];
+        compile_error_of(refused[i], said, sizeof said);
+        assert(strstr(said, "a temporary needs a frame") != NULL);
+
+        /* One mistake, one message. Recovery used to resume inside the group,
+           clear the panic flag at the `.` between its statements, and complain
+           again about the `)`. */
+        assert(count_of(said, "solas:") == 1);
+        printf("  refused: %s\n", refused[i]);
+    }
+}
+
+/* And still works wherever there is a frame to hold it, which is what makes the
+   refusal a statement about frames rather than about groups. */
+static void test_a_frame_still_holds_its_temporaries(void)
+{
+    static const struct { const char *source; int64_t answer; } accepted[] = {
+        { "r := { | t | t := #5. t }:value.",                          5  },
+        { "r := { ( | t | t := #5. t ) }:value.",                      5  },
+        { "r := { a | | t | t := a:add(#1). t }:value(#6).",           7  },
+        { "integer:f := { ( | t | t := self:add(#1). t ) }. r := #41:f.", 42 },
+        { "integer:g := { | t | t := #2. ( | u | u := t:mul(#3). u ) }. r := #0:g.", 6 },
+    };
+
+    for (size_t i = 0; i < sizeof(accepted) / sizeof(accepted[0]); i++) {
+        SolChunk chunk;
+        sol_chunk_init(&chunk);
+        assert(sol_compile(accepted[i].source, &chunk));
+        assert(sol_chunk_verify(&chunk) == SOL_SER_OK);
+
+        SolVM vm;
+        sol_vm_init(&vm);
+        assert(sol_vm_run(&vm, &chunk) == SOL_OK);
+        SolSlot *r = sol_object_lookup(vm.root, "r");
+        assert(r != NULL && SOL_IS_INT(r->value));
+        assert(SOL_AS_INT(r->value) == accepted[i].answer);
+        sol_vm_free(&vm);
+        sol_chunk_free(&chunk);
+    }
+    printf("  a block, a method, and a group inside either still declare\n");
+}
+
+/* The shape of the old bug, pinned: the temporary landed in stack slot 0, where
+   the receiver of the enclosing send was sitting, so `#1:add(...)` answered #10
+   instead of #6 -- silently, with no error anywhere. It cannot compile now, but
+   what makes that a fix rather than a coincidence is the verifier: a top-level
+   frame slot is out of range, and always was. */
+static void test_the_old_form_would_not_have_verified(void)
+{
+    SolChunk chunk;
+    sol_chunk_init(&chunk);
+
+    /* Hand-assembled `#5` into slot 0 of a chunk with no slots -- what the
+       compiler used to emit for `( | t | t := #5. t )` at the top level. */
+    int five = sol_chunk_add_constant(&chunk, SOL_INT_VAL(5));
+    sol_chunk_write(&chunk, OP_CONST, 1);
+    sol_chunk_write(&chunk, (uint8_t)((five >> 8) & 0xff), 1);
+    sol_chunk_write(&chunk, (uint8_t)(five & 0xff), 1);
+    sol_chunk_write(&chunk, OP_SET_LOCAL, 1);
+    sol_chunk_write(&chunk, 0, 1);
+    sol_chunk_write(&chunk, OP_POP, 1);
+    sol_chunk_write(&chunk, OP_HALT, 1);
+
+    assert(sol_chunk_verify(&chunk) == SOL_SER_MALFORMED);
+    sol_chunk_free(&chunk);
+    printf("  a top-level frame slot is still refused by the verifier\n");
+}
+
+/* ---- what Solas emits, the verifier accepts --------------------------- */
+
+static void must_verify(const char *what, const char *source)
+{
+    SolChunk chunk;
+    sol_chunk_init(&chunk);
+    if (!sol_compile(source, &chunk)) {
+        printf("  did not compile: %s\n", what);
+        assert(false);
+    }
+    SolSerResult result = sol_chunk_verify(&chunk);
+    if (result != SOL_SER_OK) {
+        printf("  emitted but does not verify: %s -- %s\n",
+               what, sol_ser_message(result));
+        assert(false);
+    }
+    sol_chunk_free(&chunk);
+}
+
+/* Every shipped example, read from disk. They are the largest programs the
+   project has, and they exercise the emitter far past what a snippet reaches. */
+static void test_every_example_verifies(void)
+{
+    static const char *examples[] = {
+        "examples/hello.sol",   "examples/blocks.sol",  "examples/arrays.sol",
+        "examples/strings.sol", "examples/methods.sol", "examples/objects.sol",
+        "examples/reflect.sol", "examples/symbols.sol",
+    };
+
+    for (size_t i = 0; i < sizeof(examples) / sizeof(examples[0]); i++) {
+        FILE *f = fopen(examples[i], "rb");
+        assert(f != NULL);                    /* tests run from the repo root */
+        assert(fseek(f, 0, SEEK_END) == 0);
+        long size = ftell(f);
+        assert(size > 0);
+        rewind(f);
+
+        char *source = malloc((size_t)size + 1);
+        assert(source != NULL);
+        assert(fread(source, 1, (size_t)size, f) == (size_t)size);
+        source[size] = '\0';
+        fclose(f);
+
+        must_verify(examples[i], source);
+        free(source);
+    }
+    printf("  all %zu examples compile to bytecode the verifier accepts\n",
+           sizeof(examples) / sizeof(examples[0]));
+}
+
+/* And the corners an example does not happen to reach. Anything the compiler
+   accepts belongs here as it is added: this is the invariant, not a sample. */
+static void test_every_accepted_form_verifies(void)
+{
+    static const char *sources[] = {
+        "a := #1.",
+        "a := 1.5e-3. b := \"s\". c := 'sym. d := [#1, a].",
+        "a := ( #1. #2. #3 ).",
+        "a := (#1:add((#2:mul(#3)))).",
+        "true:ifTrue({ #1 }).",
+        "true:ifFalse({ #1 }).",
+        "true:ifElse({ #1 }, { #2 }).",
+        "b := { #1 }. true:ifElse(b, b).",
+        "i := #0. { i:lessThan(#3) }:whileTrue({ i := i:add(#1) }).",
+        "c := { true }. c:whileTrue({ #1 }).",
+        "i := #0. { i:lessThan(#3) }:whileTrue({ "
+        "    i:equals(#1):ifElse({ i := i:add(#2) }, { i := i:add(#1) }) }).",
+        "o := object:new. o:m := { | t | t := self. t }. o:m.",
+        "o := object:new. o:n := { a, b | | t | t := a:add(b). t }. o:n(#1, #2).",
+        "o := object:new. o:x := #1. o:y := o:x.",
+        "p := object:new. q := p:new. q:z := { self:via(p):asString }.",
+        "f := { a | { b | { c | a:add(b):add(c) } } }. f:value(#1):value(#2):value(#3).",
+        "integer:fact := { self:lessThan(#2):ifElse({ #1 }, "
+        "    { self:mul(self:sub(#1):fact) }) }. #5:fact:print.",
+        "[#1, #2, #3]:collect({ e | e:mul(#2) }):select({ e | e:greaterThan(#2) }).",
+        "[#3, #1]:sorted({ a, b | b:lessThan(a) }):print.",
+        "\"{} and {}\":fill([#1, 'two]):display.",
+        "#255:asBase(#16):asString(\"08\"):print.",
+        "x := #1\n:add(#2).",
+        "a := #1. a:perform('add, #2):print.",
+    };
+
+    for (size_t i = 0; i < sizeof(sources) / sizeof(sources[0]); i++) {
+        must_verify(sources[i], sources[i]);
+    }
+    printf("  %zu accepted forms, all verifiable\n",
+           sizeof(sources) / sizeof(sources[0]));
+}
+
+int main(void)
+{
+    test_a_top_level_group_cannot_declare_a_temporary();
+    test_a_frame_still_holds_its_temporaries();
+    test_the_old_form_would_not_have_verified();
+    test_every_example_verifies();
+    test_every_accepted_form_verifies();
+    printf("test_compile: ok\n");
+    return 0;
+}

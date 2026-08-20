@@ -218,10 +218,43 @@ static void declarations(Compiler *c)
     sol_parser_consume(p, TOK_PIPE, "expected '|' to close the declarations");
 }
 
-/* Parses `| ... |` if it is there. */
+/* Parses `| ... |` if it is there.
+ *
+ * A temporary needs a frame to live in, and only a block body has one -- which
+ * covers a method body and any group written inside either. The top level of a
+ * script does not: its chunk reserves no slots, so a name declared there would
+ * be emitted as OP_SET_LOCAL against the bottom of the expression stack and
+ * quietly overwrite whatever the enclosing expression had already put there.
+ *
+ * The verifier has always refused that -- a top-level OP_LOCAL indexes a frame
+ * of size zero -- so a compiled program failed at the point of writing the file,
+ * saying the bytecode was inconsistent, while Solis, which runs what it just
+ * compiled without verifying, answered wrongly instead. Both were the same
+ * source mistake reported as something else, or not at all. Refusing it here
+ * reports it once, in the one place that can name it. */
 static void optional_declarations(Compiler *c)
 {
-    if (sol_parser_match(&c->parser, TOK_PIPE)) declarations(c);
+    SolParser *p = &c->parser;
+
+    if (!sol_parser_match(p, TOK_PIPE)) return;
+
+    if (!inside_a_block(c->scope)) {
+        sol_parser_error(p, &p->previous,
+                         "a temporary needs a frame, so declare it inside a block");
+
+        /* Step over the list rather than leaving the parser on it. Recovery
+           would otherwise resume inside the group, clear the panic flag at the
+           `.` between its statements, and report a second complaint about the
+           `)` -- two messages for one mistake, where every other error here
+           gets exactly one. Nothing is declared, so the names that follow
+           resolve as globals; the file is already refused either way. */
+        while (p->current.type != TOK_PIPE && p->current.type != TOK_EOF) {
+            sol_parser_advance(p);
+        }
+        sol_parser_match(p, TOK_PIPE);
+        return;
+    }
+    declarations(c);
 }
 
 static void emit_access(Compiler *c, bool store, int depth, int slot)

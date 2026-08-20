@@ -25,11 +25,9 @@ conversions between every pair of types that has an unambiguous one. What is
 left is not breadth any more: it is the items below, which are a correctness
 question, two performance shapes, and the tooling.
 
-The two crashes that led this list — 1.5 and 1.6, both reachable from three
-words of source — are fixed. Section 1 holds one item again: **1.7**, a
-temporary declared in a top-level group writing over the expression stack, which
-is a wrong answer rather than a crash and needs a call from you on which of
-three fixes to take.
+The three bugs that led this list — 1.5 and 1.6, reachable from three words of
+source, and 1.7, which answered wrongly rather than crashing — are all fixed,
+and section 1 is done again.
 
 
 ---
@@ -258,52 +256,53 @@ primitives. `tests/test_class_side.c` covers every built-in class, and the fuzz
 sweep that found the two crashes -- 3205 corrupted variants -- now reports
 nothing.
 
-### 1.7 A temporary declared in a top-level group lands on the stack
+### 1.7 A temporary declared in a top-level group — **done**
 
 `( | t | ... )` declares temporaries of the frame the group sits in. Inside a
-block or a method that is a frame, and it works. At the top level of a script
+block or a method that is a frame, and it worked. At the top level of a script
 there is no frame -- the script's chunk reserves no slots -- and the compiler
-emits `OP_SET_LOCAL 0` anyway, which writes over the bottom of the expression
+emitted `OP_SET_LOCAL 0` anyway, writing over the bottom of the expression
 stack.
 
 ```
 #1:add(( | t | t := #5. t )):print.
 ```
 
-The receiver `#1` is sitting in that slot, so `t := #5` overwrites it and the
-answer is `#10` instead of `#6`. Silently: no error, just arithmetic on the
+The receiver `#1` was sitting in that slot, so `t := #5` overwrote it and the
+answer was `#10` instead of `#6`. Silently: no error, just arithmetic on the
 wrong number.
 
-Compiled, it does not get that far. The verifier already knows the top-level
-chunk has no slots -- `tests/test_serialize.c` asserts exactly that a top-level
-`OP_LOCAL 0` is rejected -- so `sol_chunk_save` refuses to write the file. What
-comes out is `solas: could not write '...': bytecode is internally inconsistent`,
-which reads like an internal fault rather than the source problem it is. **Solis
-does not verify**, because it runs what it just compiled and trusts its own
-compiler, so the REPL is where the wrong answer appears.
+**Refused in the compiler**, which of the three ways out was the smallest
+correct one and forecloses neither of the others:
 
-Two things wrong, then, and the second is the larger one: the compiler can emit
-a chunk its own verifier rejects. Everything else Solas produces is verified by
-construction, and that is the property worth keeping.
+```
+[line 1] solas: a temporary needs a frame, so declare it inside a block at '|'
+```
 
-Three ways out, and the choice is a language decision rather than a repair:
+It reports at the `|`, where the mistake is, and both front ends now say the
+same thing -- which they did not before. Compiled, the verifier had always
+caught it, so `sol_chunk_save` refused to write the file and said `bytecode is
+internally inconsistent`: true, and useless, since the problem was three tokens
+of source. Solis never verifies, because it runs what it just compiled and
+trusts its own compiler, so there the wrong answer simply appeared.
 
-1. **Refuse it in the compiler**, with a real message -- "a temporary needs a
-   frame; declare it in a block". Smallest, and honest about the language having
-   no top-level frame.
-2. **Give the script a frame.** The top level becomes a method body like any
-   other, and `| t |` works everywhere for the same reason. Costs a frame and a
-   slot count in the chunk header, and raises what `self` means at the top
-   level.
-3. **Make a top-level group's declarations globals**, matching what a bare `:=`
-   already does there. Consistent from the outside, but then `| t |` means two
-   different things depending on where it is written, which is the kind of rule
-   this language has been avoiding.
+That trust was the larger half, and the reason this is worth more than ten lines
+of parser. Solis is right to hold it -- verifying every REPL line to catch the
+compiler's own bugs is the wrong shape -- but nothing was checking that it was
+earned. `tests/test_compile.c` now does: every shipped example and every
+accepted form in a growing list is compiled and handed to `sol_chunk_verify`,
+so **whatever Solas accepts, the verifier accepts** is a property with a test
+behind it rather than an assumption. Anything the compiler learns to accept
+belongs in that list.
 
-(1) is the smallest correct step and does not foreclose (2).
+The refusal also had to recover properly. Reporting and returning left the
+parser on the `|`, so recovery resumed inside the group, cleared the panic flag
+at the `.` between its statements, and complained a second time about the `)`.
+Every other error in this compiler produces exactly one message, and a test
+asserts this one does too.
 
-Found while auditing REFERENCE.md against the implementation, not by fuzzing:
-the reference claimed declarations may open any group, and they may not.
+Found by auditing REFERENCE.md against the implementation, not by fuzzing: the
+reference claimed declarations may open any group, and they could not.
 
 ## 2. Language decisions still open
 
@@ -941,20 +940,18 @@ program in is built. Section 1 held nothing until fuzzing the loop work put two
 crashes into it, and both are now fixed — the receiver check in 1.6 took 1.5
 with it, as that entry guessed it would.
 
-1.7 is the only correctness item, and it wants a decision before it wants code.
-Nothing else here is urgent. The rest are roughly in order of how soon they
-would be missed:
+Nothing here is urgent. The remaining items are roughly in order of how soon
+they would be missed:
 
-1. **A top-level group's temporaries** (1.7) — silently wrong answers in Solis,
-   and a chunk the compiler's own verifier rejects. Three ways out; the choice
-   is yours.
-2. **Dispatch by pointer** (4.3) — symbols exist; a send still does `strcmp`.
-3. **Calling a fetched method** — `slotAt` hands back an unbound block (2.10).
-4. **Inlining `and` and `or`** (4.1) — the last two that short-circuit through a
+1. **Dispatch by pointer** (4.3) — symbols exist; a send still does `strcmp`,
+   and the compiler's own interning wants the same hash table now that 4.2 has
+   raised the side tables to 65536 entries.
+2. **Calling a fetched method** — `slotAt` hands back an unbound block (2.10).
+3. **Inlining `and` and `or`** (4.1) — the last two that short-circuit through a
    block. Nothing new is needed; the jumps are all there now.
-5. **Stack heights in the verifier** (3.9) — would catch a corrupted argument
+4. **Stack heights in the verifier** (3.9) — would catch a corrupted argument
    count at load rather than at the send, and let the runtime checks go.
-6. Everything else as it starts to hurt.
+5. Everything else as it starts to hurt.
 
 Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), arrays entire
 (1.2, 1.2a, 1.2b), strings (1.3), user-defined objects (1.4), division (2.1),
@@ -962,8 +959,8 @@ calling the method you override (2.9), the missing operations (2.8),
 formatted output (2.11), the statement separator (2.2), float exponents and
 round-tripping (2.6, 5.3), string escapes (1.3), rendering an object by asking
 it (5.2), symbols (2.7), reflection (2.10), sorting, inlined conditionals and
-loops (4.1), the two class-object crashes (1.5, 1.6), and the side-table
-operands (4.2).
+loops (4.1), the two class-object crashes (1.5, 1.6), the side-table operands
+(4.2), and the frameless temporary (1.7).
 
 One decision is outstanding: **2.5**, class side versus instance side. 1.6
 answered it one message at a time, which was enough to stop the crashes;
