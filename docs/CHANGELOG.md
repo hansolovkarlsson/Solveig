@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### A tutorial, and a site to read it on — `pending`, 2026-08-20
+### A tutorial, and a site to read it on — `61162cb`, 2026-08-20
 
 Documentation. No code, no behaviour change.
 
