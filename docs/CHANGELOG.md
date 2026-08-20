@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### Sorting — `pending`, 2026-08-19
+### Sorting — `113745f`, 2026-08-19
 
 ```
 [#3, #1, #2]:sorted:print.                            ; [#1, #2, #3]
