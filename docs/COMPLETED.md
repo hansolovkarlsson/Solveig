@@ -768,7 +768,7 @@ things a program asks the world for: its arguments, and the time.
 Small, self-contained, and the natural home for anything else that is about the
 process rather than about a value.
 
-Built as `pending`. All three, and the shape they took: `system` is one object
+Built as `e8d4fe8`. All three, and the shape they took: `system` is one object
 bound to a global rather than a class, since there is one process and it has no
 instances. `exit` **unwinds** rather than calling `exit(3)`, so every frame is
 discarded the way an error discards them and whatever the C library was holding

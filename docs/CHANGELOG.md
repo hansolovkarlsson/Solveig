@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### A program can stop, and knows what it was given — `pending`, 2026-08-20
+### A program can stop, and knows what it was given — `e8d4fe8`, 2026-08-20
 
 Roadmap 6.2. `system` is a global holding one object — not a class, since there
 is one process and it has no instances — and it is where what belongs to the
