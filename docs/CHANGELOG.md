@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### Why a built-in cannot be subclassed — `pending`, 2026-08-20
+### Why a built-in cannot be subclassed — `6d89cac`, 2026-08-20
 
 Documentation. No code.
 
