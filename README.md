@@ -147,7 +147,7 @@ See [examples/blocks.sol](examples/blocks.sol).
 
 Still to do:
 
-- [ ] reflection -- symbols exist to name things with, but nothing takes one
+- [ ] sorting -- arrays have no `sort`, though strings and numbers now order
 - [ ] sorting -- strings and numbers order, but arrays have no `sort`
 
 ## License

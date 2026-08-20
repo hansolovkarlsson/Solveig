@@ -358,14 +358,24 @@ read-only: the link stays an internal pointer, so nothing a program writes can
 corrupt dispatch. Re-parenting at run time would need it to become a real slot,
 which is a separate question.
 
-### 2.10 Reflection is only partial
+### 2.10 Reflection — **done**
 
-`parent` reads the delegation link, so a chain can be walked. Still absent: an
-object cannot be asked what slots it holds, nor whether it descends from another
--- `slots` and `isKindOf` have no equivalent. A slot also cannot be read without
-invoking it, since a slot holding a block *is* a method, so there is no way to
-fetch a method as a value. All of these want symbols (2.7) or at least a
-string-keyed accessor.
+`slots`, `slotAt`, `respondsTo`, `isKindOf`, and `perform`, on every type. Names
+are given as symbols, which is what 2.7 was wanted for.
+
+`slots` answers own slots in definition order; the rest search the chain as a
+send does. A value answers for the class it dispatches to, so
+`#45:isKindOf(integer)` holds, and the built-in classes are objects whose slots
+hold primitives, so `integer:slots` lists what an integer understands.
+
+Two things this deliberately does not do:
+
+- **A fetched method is unbound.** `slotAt` answers the plain block, and `self`
+  comes from a send rather than being carried by the block, so `m:value` runs
+  with `self` nil. Calling a method with a chosen receiver would need something
+  like `valueWith(receiver, ...)`, which is a real question and not this one.
+- **Nothing here can write.** There is no `slotAtPut`, no re-parenting (2.9a),
+  and no way to remove a slot. Reflection reads; the assignment syntax writes.
 
 ### 2.11 Filling a template — **decided: placeholders and `fill`**
 
@@ -638,19 +648,20 @@ could write a real program in are all built. What is left is filling it out.
 Nothing here is urgent any more. The remaining items are, roughly in order of
 how soon they would be missed:
 
-1. **Reflection** (2.10) — symbols now exist to name things with, but an object
-   still cannot be asked what slots it holds, and there is no `perform`.
-2. **Sorting** — arrays have no `sort`, though strings and numbers now order.
-3. **Inlining conditionals** (4.1), which would also roughly double the usable
+1. **Sorting** — arrays have no `sort`, though strings and numbers now order,
+   and `perform` now gives a comparison somewhere to come from.
+2. **Inlining conditionals** (4.1), which would also roughly double the usable
    recursion depth (3.5), and could use interned symbols for dispatch (4.3).
+3. **Calling a fetched method** — `slotAt` hands back an unbound block, and
+   there is no way to invoke one against a chosen receiver (2.10).
 4. Everything else as it starts to hurt.
 
 Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), arrays entire
 (1.2, 1.2a, 1.2b), strings (1.3), user-defined objects (1.4), division (2.1),
-calling the method you override (2.9), the missing operations (2.8), and
-formatted output (2.11), the statement separator (2.2), and float exponents and
-round-tripping (2.6, 5.3), string escapes (1.3), and rendering an object by
-asking it (5.2).
+calling the method you override (2.9), the missing operations (2.8),
+formatted output (2.11), the statement separator (2.2), float exponents and
+round-tripping (2.6, 5.3), string escapes (1.3), rendering an object by asking
+it (5.2), symbols (2.7), and reflection (2.10).
 
 No decisions are outstanding.
 

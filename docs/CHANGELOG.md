@@ -8,6 +8,41 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### Reflection — `pending`, 2026-08-19
+
+```
+point:slots:print.               ; ['x, 'y, 'show]
+p:isKindOf(point):print.         ; true
+p:respondsTo('show):print.       ; true
+p:perform('show):display.        ; (3, 4)
+```
+
+Five messages, on every type: `slots`, `slotAt`, `respondsTo`, `isKindOf`,
+`perform`. Names are given as symbols, which is what symbols were wanted for.
+
+`slots` answers own slots in **definition order** — the slot list is kept newest
+first, so it is filled backwards. Inherited names are not yours; `parent:slots`
+asks about those. The rest search the chain as a send does. A value answers for
+the class it dispatches to, so `#45:isKindOf(integer)` holds, and since the
+built-in classes are objects whose slots hold primitives, `integer:slots` lists
+what an integer understands.
+
+Installed in a loop over every class rather than nine times over. That is not
+brevity: a message that answers what an object understands is wrong the moment
+one class quietly lacks it.
+
+**A fetched method is unbound**, and this is documented rather than papered
+over. `slotAt` answers the plain block; `self` comes from a send, so `m:value`
+runs with `self` nil. Fetching is for passing a method around; to call one, send
+it. Binding a receiver to a fetched block is now item 3 in the suggested order.
+
+Building the `slots` array interns a symbol per slot, and interning allocates —
+so the half-built array is a temp root. Removing it gives
+`heap-use-after-free at builtins.c:1562` under stress, which is what the new
+test in `tests/test_reflect.c` guards.
+
+No `.sob` change: these are all primitives, so the format stays at version 6.
+
 ### Symbols — `5a15fc9`, 2026-08-19
 
 **`.sob` goes to version 6.**

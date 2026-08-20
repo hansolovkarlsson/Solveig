@@ -1467,6 +1467,131 @@ static SolValue prim_object_parent(SolVM *vm, SolValue self, SolValue *args, int
     return proto == NULL ? SOL_NIL_VAL : SOL_OBJ_VAL(proto);
 }
 
+/* ---- reflection --------------------------------------------------------- */
+
+/* Names are given as symbols rather than strings. A symbol is what a name is,
+   and comparing one is a pointer comparison, which matters for `respondsTo` in
+   a loop. */
+static bool selector_from(SolVM *vm, const char *name, SolValue value,
+                          const SolSymbol **out)
+{
+    if (!SOL_IS_SYMBOL(value)) {
+        sol_vm_runtime_error(vm, "'%s' expects a symbol, got %s",
+                             name, sol_type_name(value));
+        return false;
+    }
+    *out = SOL_AS_SYMBOL(value);
+    return true;
+}
+
+/* `p:perform('add, #1)` -- a send whose name is decided at run time. */
+static SolValue prim_perform(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (argc < 1) {
+        sol_vm_runtime_error(vm, "'perform' expects a symbol and its arguments");
+        return SOL_NIL_VAL;
+    }
+    const SolSymbol *selector;
+    if (!selector_from(vm, "perform", args[0], &selector)) return SOL_NIL_VAL;
+
+    return sol_vm_send(vm, self, selector->chars, args + 1, argc - 1);
+}
+
+/* Whether a send of that name would find anything -- including the built-in
+   messages, which are slots too. */
+static SolValue prim_responds_to(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "respondsTo", argc, 1)) return SOL_NIL_VAL;
+    const SolSymbol *selector;
+    if (!selector_from(vm, "respondsTo", args[0], &selector)) return SOL_NIL_VAL;
+
+    SolObject *target = sol_vm_class_of(vm, self);
+    return SOL_BOOL_VAL(target != NULL &&
+                        sol_object_lookup(target, selector->chars) != NULL);
+}
+
+/* Whether the receiver delegates to `other`, directly or further up. A value
+   answers for the class it dispatches to, so #45:isKindOf(integer) is true. */
+static SolValue prim_is_kind_of(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "isKindOf", argc, 1)) return SOL_NIL_VAL;
+    if (!SOL_IS_OBJ(args[0])) {
+        sol_vm_runtime_error(vm, "'isKindOf' expects an object, got %s",
+                             sol_type_name(args[0]));
+        return SOL_NIL_VAL;
+    }
+
+    SolObject *wanted = SOL_AS_OBJ(args[0]);
+    for (SolObject *o = sol_vm_class_of(vm, self); o != NULL; o = o->proto) {
+        if (o == wanted) return SOL_BOOL_VAL(true);
+    }
+    return SOL_BOOL_VAL(false);
+}
+
+static bool reflected_object(SolVM *vm, const char *name, SolValue self,
+                             SolObject **out)
+{
+    if (!SOL_IS_OBJ(self)) {
+        sol_vm_runtime_error(vm, "'%s' expects an object, got %s -- only an object "
+                                 "has slots of its own", name, sol_type_name(self));
+        return false;
+    }
+    *out = SOL_AS_OBJ(self);
+    return true;
+}
+
+/* The names of the object's own slots, in the order they were defined. The list
+   is kept newest first, so it is filled backwards. */
+static SolValue prim_slots(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "slots", argc, 0)) return SOL_NIL_VAL;
+    SolObject *obj;
+    if (!reflected_object(vm, "slots", self, &obj)) return SOL_NIL_VAL;
+
+    int count = 0;
+    for (SolSlot *slot = obj->slots; slot != NULL; slot = slot->next) count++;
+
+    SolArray *out = sol_array_new(vm, count);
+    /* Interning a name allocates, and the array is reachable from nothing but
+       this local until it is answered. */
+    sol_gc_push_temp(vm, &out->gc);
+
+    for (int i = 0; i < count; i++) sol_array_add(vm, out, SOL_NIL_VAL);
+
+    int i = count - 1;
+    for (SolSlot *slot = obj->slots; slot != NULL; slot = slot->next) {
+        out->items[i--] = SOL_SYMBOL_VAL(
+            sol_symbol_intern(vm, slot->name, (int)strlen(slot->name)));
+    }
+
+    sol_gc_pop_temp(vm);
+    return SOL_ARRAY_VAL(out);
+}
+
+/* The value in a slot, without sending to it -- which is the only way to get at
+   a method as a value, a slot holding a block being a method. */
+static SolValue prim_slot_at(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "slotAt", argc, 1)) return SOL_NIL_VAL;
+    const SolSymbol *selector;
+    if (!selector_from(vm, "slotAt", args[0], &selector)) return SOL_NIL_VAL;
+    SolObject *obj;
+    if (!reflected_object(vm, "slotAt", self, &obj)) return SOL_NIL_VAL;
+
+    SolSlot *slot = sol_object_lookup(obj, selector->chars);
+    if (slot == NULL) {
+        sol_vm_runtime_error(vm, "no slot named '%s'", selector->chars);
+        return SOL_NIL_VAL;
+    }
+    if (slot->primitive != NULL) {
+        sol_vm_runtime_error(vm, "'%s' is built in and has no value to answer",
+                             selector->chars);
+        return SOL_NIL_VAL;
+    }
+    return slot->value;
+}
+
 /* ---- installation ---------------------------------------------------- */
 
 void sol_builtins_install(SolVM *vm)
@@ -1605,12 +1730,35 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define_primitive(vm->symbol_class, "notEquals", prim_not_equals);
     sol_object_define_primitive(vm->symbol_class, "size",      prim_symbol_size);
 
+    /* Reflection is the same on every class, and installing it in a loop is not
+       just brevity: a message that answers what an object understands is wrong
+       the moment one class quietly lacks it. */
+    SolObject *classes[] = {
+        vm->integer_class, vm->float_class, vm->nil_class,    vm->bool_class,
+        vm->block_class,   vm->array_class, vm->object_class, vm->string_class,
+        vm->symbol_class,
+    };
+    for (size_t i = 0; i < sizeof(classes) / sizeof(classes[0]); i++) {
+        sol_object_define_primitive(classes[i], "perform",    prim_perform);
+        sol_object_define_primitive(classes[i], "respondsTo", prim_responds_to);
+        sol_object_define_primitive(classes[i], "isKindOf",   prim_is_kind_of);
+        /* These two want an object to look inside. On anything else they say so
+           rather than going missing, which is a better error than "no slot". */
+        sol_object_define_primitive(classes[i], "slots",      prim_slots);
+        sol_object_define_primitive(classes[i], "slotAt",     prim_slot_at);
+    }
+
     /* Bind the class objects into the globals namespace so `integer` resolves. */
     sol_object_define(vm->root, "integer", SOL_OBJ_VAL(vm->integer_class));
     sol_object_define(vm->root, "float",   SOL_OBJ_VAL(vm->float_class));
     sol_object_define(vm->root, "array",   SOL_OBJ_VAL(vm->array_class));
     sol_object_define(vm->root, "string",  SOL_OBJ_VAL(vm->string_class));
     sol_object_define(vm->root, "object",  SOL_OBJ_VAL(vm->object_class));
+    /* Now that isKindOf takes a class, the remaining ones need names to be
+       asked about. */
+    sol_object_define(vm->root, "symbol",  SOL_OBJ_VAL(vm->symbol_class));
+    sol_object_define(vm->root, "block",   SOL_OBJ_VAL(vm->block_class));
+    sol_object_define(vm->root, "boolean", SOL_OBJ_VAL(vm->bool_class));
     sol_object_define(vm->root, "nil",     SOL_NIL_VAL);
     sol_object_define(vm->root, "true",    SOL_BOOL_VAL(true));
     /* The two floats with no literal form. Naming them makes `infinity` and

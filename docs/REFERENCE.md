@@ -366,6 +366,55 @@ Without one, an object shows its address.
 
 ---
 
+## Reflection
+
+Five messages let a program ask about itself. Names are given as symbols,
+because a symbol is what a name is and comparing one is a pointer comparison.
+
+| Message | Answers |
+| --- | --- |
+| `slots` | an array of symbols naming the receiver's **own** slots |
+| `slotAt(name)` | the value in that slot, searching the chain like a send |
+| `respondsTo(name)` | whether a send of that name would find anything |
+| `isKindOf(class)` | whether the receiver delegates to `class`, at any depth |
+| `perform(name, ...)` | the answer to a send whose name is decided at run time |
+
+```
+point:slots:print.               ; ['x, 'y, 'show]
+p:isKindOf(point):print.         ; true
+p:respondsTo('show):print.       ; true
+p:perform('show):display.        ; (3, 4)
+```
+
+`slots` answers own slots in the order they were defined; inherited names are
+not yours, and `parent:slots` is how you ask about those. `respondsTo` and
+`slotAt` search the whole chain, as a send does.
+
+A value answers for the class it dispatches to, so `#45:isKindOf(integer)` is
+true and `#45:respondsTo('add)` is true. `slots` and `slotAt` want an object to
+look inside and say so on anything else.
+
+The built-in classes are objects whose slots hold primitives, so
+`integer:slots` lists what an integer understands. `slotAt` on one of those is
+an error: a primitive is C, and has no value to answer.
+
+### Fetching a method
+
+A slot holding a block **is** a method, so `slotAt` is the only way to get at
+one as a value. What comes back is the plain block, and `self` is supplied by a
+send rather than carried by the block:
+
+```
+m := point:slotAt('show).
+m:value.                 ; error: nil does not understand 'x'
+point:perform('show).    ; the receiver comes from the send
+```
+
+Fetching a method is for passing it around or inspecting it. To call one, send
+it -- with `perform` if the name is decided at run time.
+
+---
+
 ## Message reference
 
 Every built-in message. `print` shows the **literal** form (`#45`, `"a\"b"`);
@@ -374,7 +423,9 @@ string.
 
 ### Every type
 
-`print`, `display`, `asString`, `equals`, `notEquals`.
+`print`, `display`, `asString`, `equals`, `notEquals`, and the reflection
+messages `perform`, `respondsTo`, `isKindOf`, `slots`, `slotAt` (see
+[Reflection](#reflection)).
 
 `asString` takes an optional format spec:
 
@@ -534,6 +585,9 @@ state:equals('running):ifTrue({ "go":display }).
 | `new` | a fresh object delegating to the receiver |
 | `via(ancestor)` | a delegating view: lookup starts there, `self` stays |
 | `parent` | the prototype, or nil at the root; read-only |
+
+`slots` and `slotAt` are listed under [Reflection](#reflection); they are on
+every type but answer only for objects.
 
 ### nil
 
