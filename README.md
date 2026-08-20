@@ -2,6 +2,13 @@
 
 A small object-oriented language, its bytecode virtual machine, and a REPL.
 
+**Documentation: <https://hansolovkarlsson.github.io/solveig/>** — a
+[tutorial](https://hansolovkarlsson.github.io/solveig/docs/TUTORIAL.html) that
+builds one program from nothing, a
+[guide](https://hansolovkarlsson.github.io/solveig/docs/GUIDE.html) to every
+concept, and the
+[reference](https://hansolovkarlsson.github.io/solveig/docs/REFERENCE.html).
+
 Everything is an object, including classes, and work happens by sending
 messages to them:
 

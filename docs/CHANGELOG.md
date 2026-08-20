@@ -34,19 +34,37 @@ assertion.
 runnable file cannot drift apart. `tests/test_compile.c` compiles all twelve
 examples now.
 
-**GitHub Pages**, built from the markdown already in the repository — there is no
-generated copy of any document, so a page cannot fall out of step with the file
-it came from. Editing `docs/GUIDE.md` is editing the Guide page. Three plugins do
-the work, and all three are on by default for Pages: `optional-front-matter`
-renders files that have none, which is all of them, since they are read on GitHub
-too; `relative-links` rewrites `[x](GUIDE.md)` to the page it becomes; and
-`titles-from-headings` takes each title from the first heading.
+**The site is at <https://hansolovkarlsson.github.io/solveig/>**, built from the
+markdown already in the repository. There is no generated copy of any document,
+so a page cannot fall out of step with the file it came from: editing
+`docs/GUIDE.md` is editing the Guide page. Three plugins do it —
+`optional-front-matter` renders files that have none, which is all of them, since
+they are read on GitHub too; `relative-links` rewrites `[x](GUIDE.md)` to the
+page it becomes; `titles-from-headings` takes each title from the first heading.
+
+**The first build failed, and the reason is worth keeping.** Jekyll runs Liquid
+over every markdown page, and Liquid's syntax is `{{ }}` — while Solum's `fill`
+writes placeholders as `{}` and escapes a literal brace as `{{`. So every
+document that explains `fill` is a Liquid syntax error, and the sentence that
+broke it was this changelog's own description of the escape. Not a typo in one
+file: a landmine under every document this project will write about templates.
+
+Wrapping the passages in `{% raw %}` would have fixed the build and broken the
+files, which are read unrendered on GitHub where the tags would show as literal
+clutter. The fix is to stop pretending these are templates — they interpolate
+nothing — so `render_with_liquid: false` turns Liquid off for pages while leaving
+layouts alone. That needs Jekyll 4, and the built-in Pages build pins 3.10, so
+the site is built by a workflow in `.github/workflows/pages.yml` instead. Two
+things came with that: the build logs are visible, and the failure above was
+reported by the Pages API as `building` for ten minutes after the run had already
+failed in thirty-five seconds.
 
 `_layouts/default.html` and `assets/css/solveig.css` are the whole of the
 presentation — one layout, one stylesheet, no framework, light and dark both
 defined explicitly. `examples/` is deliberately not excluded from the build, so
 the links the guide and tutorial make to `.sol` files resolve to the files
-themselves.
+themselves. The `Gemfile` is read by the workflow and by nothing else: `make`
+still needs a C11 compiler and nothing more.
 
 ### A guide, and examples for the concepts that had none — `e2ff82c`, 2026-08-20
 
