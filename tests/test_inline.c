@@ -760,10 +760,11 @@ static void test_verifier_checks_the_logical_selector(void)
     printf("  rejected: a CHECK_BOOL name index past the name table\n");
 }
 
-/* The verifier does not compute stack heights (3.9), so a chunk reaching
-   OP_CHECK_BOOL with nothing on the stack passes verification. The opcode has
-   to refuse it rather than read below the frame, which is why it goes through
-   sol_vm_pop's guard instead of reading the top in place. */
+/* OP_CHECK_BOOL examines the top of the stack, so a chunk reaching it with
+   nothing there is corrupt. The verifier computes stack heights now (3.9) and
+   refuses this at load -- and the opcode still refuses it at run time, because
+   Solis runs what it just compiled without verifying and the C API will run any
+   chunk it is handed. Both, on purpose. */
 static void test_check_bool_on_an_empty_stack(void)
 {
     SolChunk chunk;
@@ -774,15 +775,17 @@ static void test_check_bool_on_an_empty_stack(void)
     write_index(&chunk, name, 1);
     sol_chunk_write(&chunk, OP_HALT, 1);
 
-    assert(sol_chunk_verify(&chunk) == SOL_SER_OK);
+    /* Caught at the door: there is no value here for it to look at. */
+    assert(sol_chunk_verify(&chunk) != SOL_SER_OK);
 
+    /* And caught again if something runs it without asking the verifier. */
     SolVM vm;
     sol_vm_init(&vm);
     assert(sol_vm_run(&vm, &chunk) == SOL_RUNTIME_ERROR);
     sol_vm_free(&vm);
 
     sol_chunk_free(&chunk);
-    printf("  CHECK_BOOL on an empty stack is refused, not followed\n");
+    printf("  CHECK_BOOL on an empty stack is refused at load and at run\n");
 }
 
 int main(void)

@@ -8,6 +8,66 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### The verifier computes stack heights — `pending`, 2026-08-20
+
+No `.sob` change and no change a program can see. Roadmap 3.9, the last item
+that had real substance left in it.
+
+The machine is a stack machine, so **every instruction runs at a definite
+height**: `SEND 'add' (1 args)` always has exactly two values beneath it,
+whatever the program computed to get there. Nothing computed that, which left
+one operand unguardable at load. `argc` is a byte the *file* supplies, and
+whether that many arguments are really present depends on the height — so no
+structural check could tell a real count from a corrupted one. Fuzzing the loop
+work found the shape it takes: a send claiming 227 arguments on a stack one
+deep, reading its receiver from below the frame.
+
+The verifier walks control flow from the entry now, following each branch and
+carrying the height. The rule that makes it work is the JVM's: **the paths into
+a point must agree.** An instruction reached from two places at two different
+heights has no height, and that is exactly what corruption looks like.
+
+This came last of the four checks rather than first because it needed the other
+three. Every opcode's length has to be known, and every branch target has to be
+established as an instruction boundary, before a walk that follows jumps can
+trust where it lands.
+
+Measured over 1,750 single-byte corruptions of one `.sob`, under ASan and UBSan:
+
+| | before | after |
+| --- | --- | --- |
+| refused at load | 1031 | **1066** |
+| failed part-way through a run | 236 | **208** |
+| ran to completion | 483 | **476** |
+
+The last row is the one worth having. Those seven were corrupt files that passed
+every check *and* that the runtime never objected to — they ran, on an
+inconsistent stack, and produced output. Twenty-eight more moved from failing
+mid-run to being refused at the door. Load costs about 5% more, paid once.
+
+**The runtime check stays**, which is where this departs from what the roadmap
+expected — it had guessed the analysis would let the runtime checks go. It does
+not, because the two cover different populations rather than one being redundant:
+the verifier runs when a `.sob` is loaded, Solis runs what it just compiled
+without verifying — deliberately, since verifying every REPL line to catch the
+compiler's own bugs is the wrong shape — and the C API will run any chunk it is
+handed. One comparison per send is a cheap floor to keep under all of that. The
+two tests that used to assert *"the verifier lets this through, the send catches
+it"* now assert both ends catch it.
+
+Code no path reaches is never given a height, and is not required to have one:
+it cannot run. Its operands are still checked by the structural pass, and a jump
+into it would make it reachable, at which point it is checked like anything
+else. There is a test pinning that, so it stays a decision rather than a gap.
+
+Five tests in `tests/test_serialize.c` for the shapes it rejects — branches
+disagreeing at a join, `POP`/`RETURN`/`SET_SLOT` with nothing beneath them, a
+back edge arriving one value higher than it left — and one for what it must keep
+accepting, an inlined loop with `and`/`or` and a conditional in it.
+`tests/test_compile.c` hands all twelve examples and 29 accepted forms to the
+verifier, so *whatever Solas accepts, the verifier accepts* still has a test
+behind it.
+
 ### A tutorial, and a site to read it on — `61162cb`, 2026-08-20
 
 Documentation. No code, no behaviour change.

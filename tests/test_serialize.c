@@ -396,10 +396,14 @@ static void test_verifier_checks_frame_bounds(void)
 }
 
 /* `argc` is a byte, and whether that many arguments are really on the stack
-   depends on the stack height at that instruction -- which the verifier does not
-   compute (3.9). So a corrupted count passes verification, and the send has to
-   refuse it rather than read the receiver from below the frame. Fuzzing found
-   this with a `sub` claiming 227 arguments on a stack one deep. */
+   depends on the stack height at that instruction. Fuzzing found this with a
+   `sub` claiming 227 arguments on a stack one deep, reading its receiver from
+   below the frame.
+ *
+ * The verifier computes heights now (3.9), so this is refused at load. The send
+ * still checks too: Solis runs what it just compiled without verifying, and the
+ * C API will run any chunk it is given, so the two cover different populations
+ * rather than one being redundant. */
 static void test_a_corrupt_argument_count_cannot_read_below_the_frame(void)
 {
     SolChunk chunk;
@@ -415,17 +419,20 @@ static void test_a_corrupt_argument_count_cannot_read_below_the_frame(void)
     sol_chunk_write(&chunk, OP_POP, 1);
     sol_chunk_write(&chunk, OP_HALT, 1);
 
-    /* Well formed, and the verifier says so -- every operand indexes something
-       that exists and the last instruction stops the machine. */
-    assert(sol_chunk_verify(&chunk) == SOL_SER_OK);
+    /* Every operand indexes something that exists and the last instruction
+       stops the machine, so the structural checks pass. The height at the send
+       is what refuses it: one value is on the stack and it wants 228. */
+    assert(sol_chunk_verify(&chunk) != SOL_SER_OK);
 
+    /* And refused again by the send itself, for chunks that never went through
+       the verifier at all. */
     SolVM vm;
     sol_vm_init(&vm);
     assert(sol_vm_run(&vm, &chunk) == SOL_RUNTIME_ERROR);
     sol_vm_free(&vm);
 
     sol_chunk_free(&chunk);
-    printf("  a corrupt argument count is refused, not followed\n");
+    printf("  a corrupt argument count is refused at load and at the send\n");
 }
 
 
@@ -489,10 +496,125 @@ static void test_more_entries_than_a_byte_can_index(void)
            COUNT, COUNT);
 }
 
+/* ---- stack heights (3.9) ------------------------------------------------
+ *
+ * The machine is a stack machine, so every instruction runs at a definite
+ * height. These are the shapes a corrupted file takes when it does not.
+ */
+
+/* An instruction reached from two places with two different heights has no
+   well-defined height. This is the rule the whole pass turns on. */
+static void test_branches_must_agree_about_the_height(void)
+{
+    SolChunk chunk;
+    sol_chunk_init(&chunk);
+    int one  = sol_chunk_add_constant(&chunk, SOL_INT_VAL(1));
+    int name = sol_chunk_add_name(&chunk, "ifTrue", 6);
+
+    sol_chunk_write(&chunk, OP_CONST, 1);          /* 0: height 1 */
+    write_index(&chunk, one, 1);
+    sol_chunk_write(&chunk, OP_JUMP_IF_FALSE, 1);  /* 3: pops, height 0 */
+    write_index(&chunk, 3, 1);                     /*    target 8 + 3 = 11 */
+    write_index(&chunk, name, 1);
+    sol_chunk_write(&chunk, OP_CONST, 1);          /* 8: height 1 */
+    write_index(&chunk, one, 1);
+    sol_chunk_write(&chunk, OP_HALT, 1);           /* 11 */
+
+    /* Offset 11 is reached by falling through at height 1 and by the branch at
+       height 0. Everything else about the chunk is well formed. */
+    assert(sol_chunk_verify(&chunk) != SOL_SER_OK);
+
+    sol_chunk_free(&chunk);
+    printf("  rejected: two paths arriving at one instruction at different heights\n");
+}
+
+/* The instructions that take a value have to find one there. */
+static void test_taking_from_an_empty_stack_is_refused(void)
+{
+    static const uint8_t ops[] = { OP_POP, OP_RETURN, OP_SET_SLOT };
+
+    for (size_t i = 0; i < sizeof(ops) / sizeof(ops[0]); i++) {
+        SolChunk chunk;
+        sol_chunk_init(&chunk);
+        int name = sol_chunk_add_name(&chunk, "x", 1);
+
+        sol_chunk_write(&chunk, ops[i], 1);
+        if (ops[i] == OP_SET_SLOT) write_index(&chunk, name, 1);
+        sol_chunk_write(&chunk, OP_HALT, 1);
+
+        assert(sol_chunk_verify(&chunk) != SOL_SER_OK);
+        sol_chunk_free(&chunk);
+    }
+    printf("  rejected: POP, RETURN and SET_SLOT with nothing beneath them\n");
+}
+
+/* A loop that grows the stack every pass would eventually overflow. The back
+   edge has to arrive at the height the top was first entered with. */
+static void test_a_loop_returns_to_the_height_it_left(void)
+{
+    SolChunk chunk;
+    sol_chunk_init(&chunk);
+    int one = sol_chunk_add_constant(&chunk, SOL_INT_VAL(1));
+
+    sol_chunk_write(&chunk, OP_CONST, 1);      /* 0: entered at 0, leaves 1 */
+    write_index(&chunk, one, 1);
+    sol_chunk_write(&chunk, OP_LOOP, 1);       /* 3: back to 6 - 6 = 0 */
+    write_index(&chunk, 6, 1);
+    sol_chunk_write(&chunk, OP_HALT, 1);       /* 6 */
+
+    /* The back edge arrives at offset 0 one value higher than it started. */
+    assert(sol_chunk_verify(&chunk) != SOL_SER_OK);
+
+    sol_chunk_free(&chunk);
+    printf("  rejected: a back edge arriving one value higher than it left\n");
+}
+
+/* What the compiler emits has to keep passing, and a loop is the case where
+   the back edge has to agree with the entry. */
+static void test_a_real_loop_verifies(void)
+{
+    SolChunk chunk;
+    sol_chunk_init(&chunk);
+    assert(sol_compile("i := #0. { i:lessThan(#3) }:whileTrue({ i := i:add(#1) })."
+                       "true:and({ i:greaterThan(#0) }):ifTrue({ i:print }).",
+                       &chunk));
+    assert(sol_chunk_verify(&chunk) == SOL_SER_OK);
+    sol_chunk_free(&chunk);
+    printf("  accepted: an inlined loop, and/or, and a conditional\n");
+}
+
+/* Heights are computed by following control flow, so code nothing reaches is
+   never given one. That is not an oversight: it cannot run. Every structural
+   check above still covers it -- its operands must resolve and any jump into it
+   would make it reachable, at which point it is checked like anything else. */
+static void test_unreachable_code_is_not_reached(void)
+{
+    SolChunk chunk;
+    sol_chunk_init(&chunk);
+    int one = sol_chunk_add_constant(&chunk, SOL_INT_VAL(1));
+
+    sol_chunk_write(&chunk, OP_CONST, 1);      /* 0 */
+    write_index(&chunk, one, 1);
+    sol_chunk_write(&chunk, OP_POP, 1);        /* 3 */
+    sol_chunk_write(&chunk, OP_HALT, 1);       /* 4 -- nothing goes past here */
+    sol_chunk_write(&chunk, OP_POP, 1);        /* 5 -- would underflow if run */
+    sol_chunk_write(&chunk, OP_HALT, 1);       /* 6 */
+
+    assert(sol_chunk_verify(&chunk) == SOL_SER_OK);
+
+    sol_chunk_free(&chunk);
+    printf("  accepted: code no path reaches, which therefore has no height\n");
+}
+
 int main(void)
 {
     test_more_entries_than_a_byte_can_index();
     test_a_corrupt_argument_count_cannot_read_below_the_frame();
+    test_branches_must_agree_about_the_height();
+    test_taking_from_an_empty_stack_is_refused();
+    test_a_loop_returns_to_the_height_it_left();
+    test_a_real_loop_verifies();
+    test_unreachable_code_is_not_reached();
     test_round_trip_preserves_everything();
     test_methods_round_trip();
     test_verifier_checks_frame_bounds();

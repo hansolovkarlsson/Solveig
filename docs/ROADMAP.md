@@ -425,7 +425,8 @@ now an opcode that jumps backwards, so a crafted file can spin without so much
 as a send. It could already spin through a loop built from sends, and the source
 language can say `{ true }:whileTrue({})` in eleven characters, so nothing became
 reachable that was not reachable before. The verifier checks that a jump lands on
-an instruction inside the chunk, and stops there.
+an instruction inside the chunk and that it arrives at the height that
+instruction runs at (3.9), and stops there.
 
 ### 3.4 No compatibility across `.sob` versions
 
@@ -467,20 +468,48 @@ caller-owned chunks with a long-lived VM, which today is the test suite.
 Collapsing the two ownership modes into one would fix it, at the cost of giving
 Solas a VM it otherwise does not need.
 
-### 3.9 The verifier does not know the stack height
+### 3.9 The verifier does not know the stack height — **done**
 
-`OP_SEND` carries `argc` in a byte, and nothing checks that many arguments are
-really on the stack: the answer depends on the stack height at that
-instruction, which the verifier does not compute. A corrupted count read the
-receiver from below the frame — 227 arguments on a stack one deep — which
-fuzzing the loop work turned up.
+`OP_SEND` carries `argc` in a byte the file supplies, and whether that many
+arguments are really on the stack depends on the height at that instruction.
+Nothing computed it, so nothing structural could tell a real count from a
+corrupted one. Fuzzing the loop work found the shape: 227 arguments on a stack
+one deep, reading the receiver from below the frame.
 
-Bounded now at the point of use, where a send refuses to reach below its own
-frame. The real answer is the JVM's: with instruction boundaries and every jump
-target already known, the stack height at each instruction can be computed by
-walking the code once and requiring the branches into a point to agree. That
-would let the runtime checks go, and would catch a corrupted `argc` at load
-rather than at the send.
+The verifier computes the height at every instruction now, by walking control
+flow from the entry and following each branch. The rule is the JVM's — **the
+paths into a point must agree**: an instruction reached from two places at two
+different heights has no height, and that is what corruption looks like. This
+came last of the four rather than first because it needed the other three:
+every opcode's length is known, and every branch target is already established
+to be an instruction boundary, so the walk can only land where an instruction
+begins.
+
+Measured over 1,750 single-byte corruptions of one `.sob`:
+
+| | before | after |
+| --- | --- | --- |
+| refused at load | 1031 | **1066** |
+| failed part-way through a run | 236 | **208** |
+| ran to completion | 483 | **476** |
+
+The last row is the one worth having. Those seven were corrupt files that passed
+every check and that the runtime never objected to — they ran, on an inconsistent
+stack, and produced output. Twenty-eight more moved from failing mid-run to
+being refused at the door. About 5% on load, paid once.
+
+**The runtime check stays**, which is the one place this departs from what the
+entry above expected. The two cover different populations rather than one being
+redundant: the verifier runs when a `.sob` is loaded, and Solis runs what it just
+compiled without verifying — deliberately, since verifying every REPL line to
+catch the compiler's own bugs is the wrong shape — while the C API will run any
+chunk it is handed. One comparison per send is a cheap floor to keep under all
+of that.
+
+Code no path reaches is never given a height and is not required to have one: it
+cannot run. Its operands are still checked by the structural pass, and a jump
+into it would make it reachable, at which point it is checked like anything
+else.
 
 ## 4. Performance
 
@@ -780,9 +809,10 @@ with it, as that entry guessed it would.
 Nothing here is urgent. The remaining items are roughly in order of how soon
 they would be missed:
 
-1. **Stack heights in the verifier** (3.9) — would catch a corrupted argument
-   count at load rather than at the send, and let the runtime checks go.
-2. Everything else as it starts to hurt.
+1. **Solis is line-at-a-time** (5.1) — a method body spanning several lines has
+   to go in a file, and the 1024-byte buffer truncates without saying so.
+2. **Source positions finer than a line** (5.4).
+3. Everything else as it starts to hurt.
 
 Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), arrays entire
 (1.2, 1.2a, 1.2b), strings (1.3), user-defined objects (1.4), division (2.1),
@@ -792,8 +822,8 @@ round-tripping (2.6, 5.3), string escapes (1.3), rendering an object by asking
 it (5.2), symbols (2.7), reflection (2.10), sorting, inlined conditionals and
 loops and now `and`/`or` (4.1), the two class-object crashes (1.5, 1.6), the
 side-table operands (4.2), the frameless temporary (1.7), dispatch by
-pointer with the side tables' hash index (4.3, 4.3a), and binding a fetched
-method (2.14).
+pointer with the side tables' hash index (4.3, 4.3a), binding a fetched method
+(2.14), and stack heights in the verifier (3.9).
 
 One decision is outstanding: **2.5**, class side versus instance side. 1.6
 answered it one message at a time, which was enough to stop the crashes;

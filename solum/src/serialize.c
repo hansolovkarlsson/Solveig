@@ -429,6 +429,159 @@ fail:
  *
  * Without this a crafted file could reach past a frame it never entered.
  */
+/* ---- stack heights -------------------------------------------------------
+ *
+ * The machine is a stack machine, so every instruction runs at a definite
+ * height -- `SEND 'add' (1 args)` always has exactly two values beneath it, and
+ * that is a property of the code rather than of any particular run.
+ *
+ * Nothing computed it, which left one operand unguardable at load. `OP_SEND`
+ * carries `argc` in a byte the file supplies, and whether that many arguments
+ * are really there depends on the height at that instruction. Fuzzing found the
+ * shape it takes: a send claiming 227 arguments on a stack one deep, reading
+ * its receiver from below the frame (3.9). It was patched at the far end, where
+ * a send refuses to reach past its own frame -- correct, but late, and only
+ * after the file had been loaded and started running.
+ *
+ * This computes the height at every instruction by walking the code, and the
+ * rule that makes it possible is the JVM's: **the paths into a point must
+ * agree**. An instruction reached from two places with two different heights
+ * has no well-defined height, and that is exactly the shape corruption takes.
+ *
+ * The two prerequisites were already established above: every opcode's length
+ * is known, and every branch target is the start of an instruction inside this
+ * chunk. So this walk only ever lands where an instruction begins.
+ *
+ * The expression stack starts empty in every chunk. A frame's locals sit below
+ * it -- `push_frame` reserves them and leaves `stack_top` above -- so depth 0
+ * is the first slot a computation may use, in a method body and at the top
+ * level alike.
+ */
+
+/* What an instruction requires beneath it, and what it leaves behind. */
+static void stack_effect(const SolChunk *chunk, int at, int *needs, int *delta)
+{
+    uint8_t op = chunk->code[at];
+
+    switch (op) {
+    /* Produce a value out of nothing but their operand. */
+    case OP_CONST: case OP_NIL:  case OP_GLOBAL: case OP_LOCAL:
+    case OP_OUTER: case OP_BLOCK: case OP_STRING: case OP_SYMBOL:
+        *needs = 0; *delta = 1; return;
+
+    /* Assignment is an expression: the value stays so `c := b := #45` works
+       and the statement's POP discards it. OP_CHECK_BOOL examines rather than
+       consumes, for the same reason -- what it looked at is the reply. */
+    case OP_SET_GLOBAL: case OP_SET_LOCAL: case OP_SET_OUTER: case OP_CHECK_BOOL:
+        *needs = 1; *delta = 0; return;
+
+    /* Pops a value and the object to bind it on, and answers the value. */
+    case OP_SET_SLOT:
+        *needs = 2; *delta = -1; return;
+
+    /* The one this pass exists for: argc arguments and a receiver go, one
+       reply arrives. */
+    case OP_SEND: {
+        int argc = chunk->code[at + 3];
+        *needs = argc + 1; *delta = -argc; return;
+    }
+
+    case OP_JUMP: case OP_LOOP:
+        *needs = 0; *delta = 0; return;
+
+    case OP_JUMP_IF_FALSE: case OP_EXIT_IF_FALSE: case OP_POP: case OP_RETURN:
+        *needs = 1; *delta = -1; return;
+
+    case OP_HALT:
+    default:
+        *needs = 0; *delta = 0; return;
+    }
+}
+
+/* Where control can go from here. Answers how many successors were written,
+   and whether the instruction falls through to the next one. */
+static int successors(const SolChunk *chunk, int at, int length, int out[2])
+{
+    uint8_t op = chunk->code[at];
+    int count = 0;
+
+    if (op == OP_JUMP || op == OP_JUMP_IF_FALSE ||
+        op == OP_EXIT_IF_FALSE || op == OP_LOOP) {
+        uint16_t jump = sol_read_u16(&chunk->code[at + 1]);
+        out[count++] = (op == OP_LOOP) ? at + length - jump : at + length + jump;
+    }
+
+    /* HALT and RETURN leave the frame; an unconditional jump has gone. */
+    if (op != OP_HALT && op != OP_RETURN && op != OP_JUMP && op != OP_LOOP) {
+        out[count++] = at + length;
+    }
+    return count;
+}
+
+static SolSerResult verify_stack_heights(const SolChunk *chunk)
+{
+    int n = chunk->count;
+
+    int *height = malloc((size_t)n * sizeof *height);
+    int *work   = malloc((size_t)n * sizeof *work);
+    if (height == NULL || work == NULL) {
+        free(height); free(work);
+        return SOL_SER_MALFORMED;
+    }
+    for (int i = 0; i < n; i++) height[i] = -1;   /* -1: not reached */
+
+    SolSerResult status = SOL_SER_OK;
+    int work_count = 0;
+
+    height[0] = 0;
+    work[work_count++] = 0;
+
+    while (work_count > 0) {
+        int at = work[--work_count];
+        int depth = height[at];
+        int length = sol_op_length(chunk->code[at]);
+
+        int needs, delta;
+        stack_effect(chunk, at, &needs, &delta);
+
+        /* This is where a corrupted argc dies, at load rather than at the
+           send: there are not that many values here to take. */
+        if (depth < needs) { status = SOL_SER_MALFORMED; break; }
+
+        int after = depth + delta;
+
+        /* Cannot happen from a consistent chunk -- each instruction adds at
+           most one, so the depth is bounded by the code length -- but the
+           arithmetic should not be trusted to say so. */
+        if (after < 0 || after > n) { status = SOL_SER_MALFORMED; break; }
+
+        int next[2];
+        int count = successors(chunk, at, length, next);
+
+        for (int i = 0; i < count; i++) {
+            int to = next[i];
+
+            /* Falling off the end is not reachable -- the last instruction must
+               be HALT or RETURN, and neither falls through -- but a crafted
+               file should not be the thing that discovers otherwise. */
+            if (to < 0 || to >= n) { status = SOL_SER_MALFORMED; break; }
+
+            if (height[to] < 0) {
+                height[to] = after;
+                work[work_count++] = to;        /* each offset enqueued once */
+            } else if (height[to] != after) {
+                status = SOL_SER_MALFORMED;     /* the paths disagree */
+                break;
+            }
+        }
+        if (status != SOL_SER_OK) break;
+    }
+
+    free(height);
+    free(work);
+    return status;
+}
+
 static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count,
                                  const int *ancestors, int ancestor_count,
                                  int depth)
@@ -552,6 +705,11 @@ static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count,
        take a while to arrive. */
     uint8_t final = chunk->code[last];
     if (final != OP_HALT && final != OP_RETURN) return SOL_SER_MALFORMED;
+
+    /* Now that every jump target is known to be an instruction boundary, the
+       height at each instruction can be computed by following control flow. */
+    SolSerResult heights = verify_stack_heights(chunk);
+    if (heights != SOL_SER_OK) return heights;
 
     /* Blocks defined here are entered with this chunk's frame as their nearest
        ancestor, so push it and verify each body against the extended chain. */

@@ -396,7 +396,8 @@ the code:
   read as slot 0,
 - the opcode is one the VM knows,
 - every jump target is the start of an instruction in this chunk,
-- the final instruction is `HALT` or `RETURN`.
+- the final instruction is `HALT` or `RETURN`,
+- and every instruction runs at a height the code agrees on.
 
 The last two are memory-safety requirements, not tidiness. Without the final
 `HALT` the dispatch loop would read past the end of the buffer, since that is
@@ -410,8 +411,38 @@ backward to close a loop. The backward one is its own opcode, so the instruction
 that can move the ip towards zero stays easy to find, and the check is the same
 one: in range, on a boundary.
 
+The last item is the newest, and it is what makes `OP_SEND` checkable at all.
+The machine is a stack machine, so every instruction runs at a definite height:
+`SEND 'add' (1 args)` always has exactly two values beneath it, whatever the
+program computed to get there. `argc` is a byte the *file* supplies, though, and
+whether that many arguments are really present depends on that height -- so
+nothing structural could tell a real count from a corrupted one. Fuzzing found
+the shape it takes: a send claiming 227 arguments on a stack one deep, reading
+its receiver from below the frame.
+
+So the verifier computes the height at every instruction, by walking control
+flow from the entry and following each branch. The rule that makes it possible
+is the JVM's: **the paths into a point must agree.** An instruction reached from
+two places at two different heights has no height, and that is what corruption
+looks like. The two prerequisites were already in hand, which is why this came
+last rather than first -- every opcode's length is known, and every branch
+target is already established to be an instruction boundary, so the walk can
+only land where an instruction begins.
+
+Code that no path reaches is never given a height, and is not required to have
+one: it cannot run. Its operands are still checked by the pass above, and a jump
+into it would make it reachable, at which point it is checked like anything
+else.
+
 `sol_chunk_save` runs the same verifier before writing, so Solas cannot emit a
 file that Solum would refuse.
+
+The height check does not replace the one the send makes at run time. The two
+cover different populations: the verifier runs when a `.sob` is loaded, while
+Solis runs what it has just compiled without verifying -- deliberately, since
+verifying every REPL line to catch the compiler's own bugs is the wrong shape --
+and the C API will run any chunk it is handed. One comparison per send is a
+cheap floor to keep under all of that.
 
 What verification does *not* promise is termination. A corrupted file can pass
 every check and still be a valid program that loops forever -- flipping the `#1`
