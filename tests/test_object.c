@@ -287,6 +287,50 @@ static void test_parent(void)
     sol_vm_free(&vm);
 }
 
+/* Assigning `parent` binds an ordinary slot that shadows the message. It does
+   *not* re-parent, because the delegation link is an internal pointer rather
+   than a slot -- which is what stops a program corrupting dispatch, and is also
+   what makes this the one assignment that looks like it did something and did
+   not. Pinned so it stays a known shape. */
+static void test_assigning_parent_shadows_rather_than_reparents(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "a := object:new. a:tag := #1."
+        "b := object:new. b:tag := #2."
+        "kid := a:new."
+        "before := kid:tag."
+        "kid:parent := b."                 /* looks like re-parenting */
+        "after := kid:tag."                /* but the chain is unchanged */
+        "shadowed := kid:parent:equals(b)."
+        "real := kid:tag:equals(#1).") == SOL_OK);
+
+    assert(SOL_AS_INT(global(&vm, "before")) == 1);
+    assert(SOL_AS_INT(global(&vm, "after")) == 1);   /* still a's tag */
+    assert(SOL_AS_BOOL(global(&vm, "shadowed")));    /* the slot answers */
+    assert(SOL_AS_BOOL(global(&vm, "real")));
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+}
+
+/* And the reason it matters: it is how someone tries to subclass a built-in,
+   which cannot work -- an unboxed value's class is chosen by its type tag, so
+   there is nowhere to record a different one. */
+static void test_a_built_in_cannot_be_subclassed_this_way(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "o := object:new. o:parent := integer. o:add(#1).") == SOL_RUNTIME_ERROR);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+}
+
 static void test_via_errors(void)
 {
     SolVM vm; sol_vm_init(&vm);
@@ -309,6 +353,8 @@ int main(void)
     test_via_chains();
     test_via_passes_arguments_and_reads_slots();
     test_parent();
+    test_assigning_parent_shadows_rather_than_reparents();
+    test_a_built_in_cannot_be_subclassed_this_way();
     test_via_errors();
     test_new_makes_a_distinct_object();
     test_slots_are_inherited();

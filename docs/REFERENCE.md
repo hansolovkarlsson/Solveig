@@ -471,6 +471,30 @@ written against however deep the receiver is.
 
 `parent` reads the delegation link and is read-only.
 
+**Assigning it does not re-parent.** `o:parent := other` binds an ordinary slot
+named `parent`, which shadows the message — the delegation link is an internal
+pointer rather than a slot, so nothing a program writes can corrupt dispatch.
+The assignment succeeds, `o:parent` then answers `other`, and what `o` actually
+delegates to is unchanged:
+
+```
+a := object:new. a:tag := #1.
+b := object:new. b:tag := #2.
+kid := a:new.
+
+kid:parent := b.
+kid:parent:equals(b):print.      ; true   -- the slot answers
+kid:tag:print.                   ; #1     -- but the chain still runs to a
+```
+
+This is the ordinary shadowing rule rather than a special case: a slot always
+wins over a primitive of the same name, which is what lets an object define its
+own `asString`. It is worth knowing because it is the one assignment that looks
+like it did something and did not.
+
+There is no way to re-parent at run time. It would need the link to become a
+real slot, which is a separate question — see [ROADMAP.md](ROADMAP.md) 2.14.
+
 ### Showing an object
 
 Define `asString` and it serves `print`, `display`, `fill`, and an enclosing
@@ -779,7 +803,7 @@ state:equals('running):ifTrue({ "go":display }).
 | --- | --- |
 | `new` | a fresh object delegating to the receiver |
 | `via(ancestor)` | a delegating view: lookup starts there, `self` stays |
-| `parent` | the prototype, or nil at the root; read-only |
+| `parent` | the prototype, or nil at the root; read-only — assigning it shadows the message rather than re-parenting |
 
 `slots` and `slotAt` are listed under [Reflection](#reflection); they are on
 every type but answer only for objects.

@@ -378,6 +378,12 @@ and recurse.
 rex:parent:equals(dog):print.    ; true
 ```
 
+Read-only means what it says, and it has one sharp edge: `o:parent := other`
+**succeeds and does not re-parent.** It binds an ordinary slot that shadows the
+message, because the delegation link is an internal pointer rather than a slot —
+so nothing a program writes can corrupt dispatch. `o:parent` will answer `other`
+afterwards while `o` still delegates where it always did.
+
 ## 12. Arrays
 
 Arrays hold values and grow. Indices are **one-based** — an index is an ordinal,
