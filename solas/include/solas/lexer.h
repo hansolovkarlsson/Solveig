@@ -46,15 +46,26 @@ typedef enum {
 
 typedef struct {
     SolTokenType type;
+    /* Always into the source, for every kind of token including TOK_ERROR: an
+       error's text is in `message` rather than here, so that a caller wanting
+       to point at the offending characters always can. */
     const char  *start;
     int          length;
     int          line;
+    int          column;      /* 1-based, in bytes */
+    const char  *message;     /* TOK_ERROR only; NULL otherwise */
 } SolToken;
 
 typedef struct {
-    const char *start;    /* start of the token being scanned */
+    const char *start;      /* start of the token being scanned */
     const char *current;
     int         line;
+    const char *line_start; /* first character of the line `current` is on */
+
+    /* Where the token being scanned began. A string may span lines, so the
+       line it *ends* on is not the line it is reported at. */
+    int         token_line;
+    const char *token_line_start;
 } SolLexer;
 
 void     sol_lexer_init(SolLexer *lexer, const char *source);
@@ -62,5 +73,9 @@ SolToken sol_lexer_next(SolLexer *lexer);
 
 /* Human-readable token name, for parser errors and lexer tests. */
 const char *sol_token_type_name(SolTokenType type);
+
+/* The first character of the line `token` sits on, derived from where the token
+   starts and how far into its line it is. */
+const char *sol_token_line_start(const SolToken *token);
 
 #endif /* SOLAS_LEXER_H */

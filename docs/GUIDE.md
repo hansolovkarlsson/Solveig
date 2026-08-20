@@ -90,8 +90,12 @@ optional after the last.
 ```
 a := #1
 b := #2.
-[line 2] solas: expected '.' between statements at 'b'
+[line 2:1] solas: expected '.' between statements at 'b'
+  b := #2.
+  ^
 ```
+
+An error names the line, the column, and points at the offending text.
 
 A line beginning with `:` continues the expression above it, so this is
 genuinely one statement and nothing is missing:
@@ -126,7 +130,9 @@ expression stack:
 
 ```
 #1:add(( | t | t := #5. t )):print.
-[line 1] solas: a temporary needs a frame, so declare it inside a block at '|'
+[line 1:10] solas: a temporary needs a frame, so declare it inside a block at '|'
+  #1:add(( | t | t := #5. t )):print.
+           ^
 ```
 
 Inside a block there *is* a frame, so the same shape is fine:

@@ -812,10 +812,34 @@ The fix also caught a drift it was meant to prevent: `prim_float_as_string` had
 its own `snprintf("%g")` rather than going through the renderer, so `print` and
 `asString` disagreed about the same value until it was routed through.
 
-### 5.4 No source position beyond the line
+### 5.4 No source position beyond the line — **done** for compile errors
 
-Errors report a line number and nothing finer. Columns and the offending source
-text would make compile errors considerably more useful.
+A compile error names the line and the column, and shows the line with the
+offending token underlined:
+
+```
+[line 2:9] solas: expected '.' between statements at ','
+  b := #2 , .
+          ^
+```
+
+A token now records where it *began* rather than where the scanner stopped,
+which is what places a string spanning several lines at its opening quote
+instead of wherever it ran out. Error tokens changed shape for this: the
+complaint moved to a `message` field so that `start` and `length` point into the
+source for every kind of token, and an unterminated string can be underlined
+like anything else.
+
+Two details that are easy to get wrong and are pinned by tests. The pad before
+the caret is built from the line's own characters, so a tab in the source is a
+tab in the pad and the two line up whatever width the terminal gives it. And a
+long line is windowed around the token rather than spilled whole -- which
+matters more since 5.1, because Solis will now read a line of any length.
+
+**Runtime errors stay at line granularity**, and that is a size question rather
+than an oversight: a chunk records a line per byte of bytecode, so a column
+would be a second table in every `.sob`, carried always and printed only when
+something has already gone wrong. Worth revisiting if a debugger ever wants it.
 
 ---
 
@@ -826,12 +850,15 @@ program in is built. Section 1 held nothing until fuzzing the loop work put two
 crashes into it, and both are now fixed — the receiver check in 1.6 took 1.5
 with it, as that entry guessed it would.
 
-Nothing here is urgent. The remaining items are roughly in order of how soon
-they would be missed:
+This list has run out. Sections 1, 3 and 4 are done; section 2 holds one open
+decision; section 5 is done but for the last paragraph of 5.2, where
+`sol_value_print` still shows an address instead of sending `print` to the
+object.
 
-1. **Source positions finer than a line** (5.4) — columns and the offending
-   source text would make compile errors considerably more useful.
-2. Everything else as it starts to hurt.
+So there is no next item to name. What comes after this is the one decision
+below, and whatever the first real program written in Solum turns out to
+want — which is a better source of work than a list written before there
+were any.
 
 Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), arrays entire
 (1.2, 1.2a, 1.2b), strings (1.3), user-defined objects (1.4), division (2.1),
@@ -842,8 +869,8 @@ it (5.2), symbols (2.7), reflection (2.10), sorting, inlined conditionals and
 loops and now `and`/`or` (4.1), the two class-object crashes (1.5, 1.6), the
 side-table operands (4.2), the frameless temporary (1.7), dispatch by
 pointer with the side tables' hash index (4.3, 4.3a), binding a fetched method
-(2.14), stack heights in the verifier (3.9), and multi-line input at the prompt
-(5.1).
+(2.14), stack heights in the verifier (3.9), multi-line input at the prompt
+(5.1), and columns in compile errors (5.4).
 
 One decision is outstanding: **2.5**, class side versus instance side. 1.6
 answered it one message at a time, which was enough to stop the crashes;

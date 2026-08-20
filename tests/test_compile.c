@@ -241,6 +241,111 @@ static void test_every_accepted_form_verifies(void)
            sizeof(sources) / sizeof(sources[0]));
 }
 
+/* ---- where the error is (5.4) -------------------------------------------
+ *
+ * A line number alone leaves the reader scanning it. These check the column
+ * and the caret line, which are what turn "somewhere on line 3" into a place.
+ */
+
+/* The reported line and column, and the caret sitting under the right column
+   of the line that is echoed back. */
+static void test_an_error_names_a_line_and_a_column(void)
+{
+    static const struct {
+        const char *source;
+        const char *position;   /* the "[line L:C]" it must report */
+        int         column;     /* where the caret must start */
+        const char *carets;     /* and how much it must underline */
+    } cases[] = {
+        { "a := #1.\nb := #2 , .\n",            "[line 2:9]",  9,  "^" },
+        { "a := #1.\nfrobnicate frobnicate.\n",  "[line 2:12]", 12, "^^^^^^^^^^" },
+        { "b := @.\n",                          "[line 1:6]",  6,  "^" },
+        { "a := (\n",                           "[line 2:1]",  1,  "^" },
+        /* A string spanning lines is reported where it opened, not where the
+           scanner gave up. */
+        { "a := #1.\nb := \"one\ntwo\n",         "[line 2:6]",  6,  "^^^^" },
+    };
+
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+        char out[1024];
+        compile_error_of(cases[i].source, out, sizeof(out));
+
+        assert(strstr(out, cases[i].position) != NULL);
+
+        /* The caret line is the last, indented by two and then padded out to
+           the column -- which is the assertion that matters, since a caret in
+           the wrong place is worse than none at all. */
+        char expected[256];
+        int at = snprintf(expected, sizeof(expected), "\n  ");
+        for (int pad = 1; pad < cases[i].column; pad++) expected[at++] = ' ';
+        snprintf(expected + at, sizeof(expected) - (size_t)at, "%s\n",
+                 cases[i].carets);
+        assert(strstr(out, expected) != NULL);
+    }
+    printf("  %zu errors, each naming a column and pointing at it\n",
+           sizeof(cases) / sizeof(cases[0]));
+}
+
+/* The caret has to land under the token in the line that was echoed, which is
+   the whole point -- an off-by-one here is worse than no column at all. */
+static void test_the_caret_lands_under_the_token(void)
+{
+    char out[1024];
+    compile_error_of("value := #1.\nvalue value.\n", out, sizeof(out));
+
+    /* Find the echoed source line and the caret line after it. */
+    const char *echo = strstr(out, "\n  value value.\n  ");
+    assert(echo != NULL);
+
+    const char *line = echo + 3;                       /* past "\n  " */
+    const char *carets = strstr(line, "\n  ") + 3;     /* past the next "\n  " */
+    size_t indent = strspn(carets, " ");
+
+    /* "value value." -- the second `value` starts at index 6. */
+    assert(indent == 6);
+    assert(carets[indent] == '^');
+    assert(strncmp(carets + indent, "^^^^^", 5) == 0);
+
+    printf("  the caret sits under the token, not beside it\n");
+}
+
+/* A tab before the token is echoed as a tab in the pad, so the two line up
+   whatever width the terminal gives it. */
+static void test_a_tab_is_padded_with_a_tab(void)
+{
+    char out[1024];
+    compile_error_of("f := {\n\t| t |\n\tt := , .\n\tt\n}.\n", out, sizeof(out));
+
+    assert(strstr(out, "[line 3:7]") != NULL);
+    assert(strstr(out, "\n  \tt := , .\n  \t     ^") != NULL);
+
+    printf("  a tab in the source is a tab in the pad\n");
+}
+
+/* A line has no length limit -- Solis reads one of any size -- so a long one is
+   windowed rather than spilled whole down the terminal. */
+static void test_a_long_line_is_windowed(void)
+{
+    char source[4096];
+    int at = snprintf(source, sizeof(source), "a := [");
+    for (int i = 1; i < 40; i++) {
+        at += snprintf(source + at, sizeof(source) - (size_t)at, "#%d, ", i);
+    }
+    snprintf(source + at, sizeof(source) - (size_t)at, ", ].\n");
+
+    char out[2048];
+    compile_error_of(source, out, sizeof(out));
+
+    /* The echoed line is elided at the front and is not the whole source line. */
+    assert(strstr(out, "\n  ...") != NULL);
+    const char *echo = strstr(out, "\n  ...");
+    const char *end = strchr(echo + 1, '\n');
+    assert(end != NULL);
+    assert((size_t)(end - echo) < 100);
+
+    printf("  a long line is windowed around the token, not spilled\n");
+}
+
 int main(void)
 {
     test_a_top_level_group_cannot_declare_a_temporary();
@@ -248,6 +353,10 @@ int main(void)
     test_the_old_form_would_not_have_verified();
     test_every_example_verifies();
     test_every_accepted_form_verifies();
+    test_an_error_names_a_line_and_a_column();
+    test_the_caret_lands_under_the_token();
+    test_a_tab_is_padded_with_a_tab();
+    test_a_long_line_is_windowed();
     printf("test_compile: ok\n");
     return 0;
 }

@@ -8,6 +8,52 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### Compile errors point at the column — `pending`, 2026-08-20
+
+Roadmap 5.4. No `.sob` change and no change to the language.
+
+```
+[line 2:9] solas: expected '.' between statements at ','
+  b := #2 , .
+          ^
+```
+
+A line number left the reader scanning the line. The error now names the
+column, echoes the line, and underlines the offending token — a caret per
+character, so a misplaced name is underlined rather than merely pointed at.
+
+**A token records where it began**, not where the scanner stopped. That is the
+change that matters beyond the printing: a string may span lines, and it used to
+be reported at whatever line it ran out on rather than at its opening quote.
+
+**Error tokens changed shape.** `error_token` used to put its complaint in
+`start` — the field that otherwise points into the source — so an error was the
+one kind of token that could not be pointed at. The complaint moved to a
+`message` field, and now `start` and `length` locate the offending characters
+for every token, which is why `unterminated string` can underline the string it
+means.
+
+Two details that are easy to get wrong, both pinned by tests:
+
+- The pad before the caret is built from the **line's own characters**, so a tab
+  in the source is a tab in the pad and the two line up whatever width the
+  terminal gives it. Spaces would drift the moment anyone indented with tabs.
+- A long line is **windowed** around the token rather than spilled whole. That
+  matters more since `5.1`: Solis will now read a line of any length, so an
+  error in a 5000-character line would otherwise have printed all of it.
+
+**Runtime errors stay at line granularity**, and that is a size question rather
+than an oversight. A chunk records a line per byte of bytecode; a column would
+be a second table in every `.sob`, carried always and read only when something
+has already gone wrong. Worth revisiting if a debugger ever wants it, and
+recorded in the roadmap so it stays a decision.
+
+Three tests in `tests/test_lexer.c` — that every token carries a column locating
+its first character, that a multi-line string is placed where it opens, and that
+an error token points into the source — and four in `tests/test_compile.c`, for
+the reported position, the caret landing under the token rather than beside it,
+the tab pad, and the windowing.
+
 ### Solis reads until the input could compile — `edccb90`, 2026-08-20
 
 Roadmap 5.1. No `.sob` change and no change to the language.

@@ -7,6 +7,25 @@ void sol_lexer_init(SolLexer *lexer, const char *source)
     lexer->start = source;
     lexer->current = source;
     lexer->line = 1;
+    lexer->line_start = source;
+    lexer->token_line = 1;
+    lexer->token_line_start = source;
+}
+
+/* Consumes a newline the cursor is sitting on, moving to the next line. Every
+   place that crosses one goes through here, so the line number and the line's
+   first character cannot come apart -- and a column is only meaningful if they
+   agree. */
+static void newline(SolLexer *lexer)
+{
+    lexer->line++;
+    lexer->current++;
+    lexer->line_start = lexer->current;
+}
+
+const char *sol_token_line_start(const SolToken *token)
+{
+    return token->start - (token->column - 1);
 }
 
 const char *sol_token_type_name(SolTokenType type)
@@ -61,17 +80,20 @@ static SolToken make_token(SolLexer *lexer, SolTokenType type)
     token.type = type;
     token.start = lexer->start;
     token.length = (int)(lexer->current - lexer->start);
-    token.line = lexer->line;
+    /* Where the token *began*: a string that spans lines is reported at its
+       opening quote, not at the line the closing one happens to land on. */
+    token.line = lexer->token_line;
+    token.column = (int)(lexer->start - lexer->token_line_start) + 1;
+    token.message = NULL;
     return token;
 }
 
+/* The offending characters stay in `start`/`length` and the complaint goes in
+   `message`, so an error token can be pointed at like any other. */
 static SolToken error_token(SolLexer *lexer, const char *message)
 {
-    SolToken token;
-    token.type = TOK_ERROR;
-    token.start = message;
-    token.length = (int)strlen(message);
-    token.line = lexer->line;
+    SolToken token = make_token(lexer, TOK_ERROR);
+    token.message = message;
     return token;
 }
 
@@ -87,8 +109,7 @@ static void skip_ignorable(SolLexer *lexer)
             advance(lexer);
             break;
         case '\n':
-            lexer->line++;
-            advance(lexer);
+            newline(lexer);
             break;
         case ';':
             while (peek(lexer) != '\n' && !is_at_end(lexer)) advance(lexer);
@@ -152,7 +173,7 @@ static SolToken number(SolLexer *lexer)
 static SolToken string(SolLexer *lexer)
 {
     while (peek(lexer) != '"' && !is_at_end(lexer)) {
-        if (peek(lexer) == '\n') lexer->line++;
+        if (peek(lexer) == '\n') { newline(lexer); continue; }
         if (peek(lexer) == '\\') {
             advance(lexer);
             if (is_at_end(lexer)) break;
@@ -178,6 +199,8 @@ SolToken sol_lexer_next(SolLexer *lexer)
 {
     skip_ignorable(lexer);
     lexer->start = lexer->current;
+    lexer->token_line = lexer->line;
+    lexer->token_line_start = lexer->line_start;
 
     if (is_at_end(lexer)) return make_token(lexer, TOK_EOF);
 

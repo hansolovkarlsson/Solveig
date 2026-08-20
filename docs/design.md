@@ -437,6 +437,13 @@ else.
 `sol_chunk_save` runs the same verifier before writing, so Solas cannot emit a
 file that Solum would refuse.
 
+Compile errors carry a column as well as a line, and print the source line with
+the offending token underlined. A token records where it began rather than where
+the scanner stopped, which is what places a string that spans lines at its
+opening quote. Runtime errors stay at line granularity: a chunk records a line
+per byte of bytecode, and a column would be a second table in every `.sob` for a
+message printed only when something has already gone wrong.
+
 The height check does not replace the one the send makes at run time. The two
 cover different populations: the verifier runs when a `.sob` is loaded, while
 Solis runs what it has just compiled without verifying -- deliberately, since

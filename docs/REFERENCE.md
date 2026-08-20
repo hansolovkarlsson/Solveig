@@ -216,7 +216,9 @@ script has no frame, and says so:
 
 ```
 ( | t | t := #5. t ):print.
-[line 1] solas: a temporary needs a frame, so declare it inside a block at '|'
+[line 1:3] solas: a temporary needs a frame, so declare it inside a block at '|'
+  ( | t | t := #5. t ):print.
+    ^
 ```
 
 Declare it in the enclosing block instead.
@@ -797,13 +799,30 @@ object is what has slots.
 
 ## Errors
 
-An error stops the running program and reports the line, innermost frame first.
-There is no way to catch one.
+**A compile error** names the line and column, then shows the line with the
+offending text underlined:
+
+```
+[line 2:9] solas: expected '.' between statements at ','
+  b := #2 , .
+          ^
+```
+
+A long line is windowed around the token rather than shown whole. Only the
+first error in a statement is reported; the parser then resynchronises at the
+next `.` and carries on, so one mistake gives one message.
+
+**A runtime error** stops the program and reports the line of each frame,
+innermost first. There is no way to catch one.
 
 ```
 solvm: integer does not understand 'frobnicate'
   [line 1] in script
 ```
+
+A running frame knows its line but not its column: the chunk records a line per
+byte of bytecode, and a column would be a second table in every `.sob` for a
+message only printed when something has already gone wrong.
 
 Errors, rather than silent answers, are the rule: unknown messages, wrong
 argument counts, type mismatches, out-of-range indices, integer overflow,
