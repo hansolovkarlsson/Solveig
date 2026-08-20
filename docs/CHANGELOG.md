@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### A program can read and write files — `pending`, 2026-08-20
+### A program can read and write files — `63bb836`, 2026-08-20
 
 Roadmap 6.4, whole files as strings.
 

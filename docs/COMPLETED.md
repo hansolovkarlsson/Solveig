@@ -807,7 +807,7 @@ answer nil and make every caller check. Given how strict everything else is, an
 error is the consistent choice, and a `system:fileExists` gives the caller a way
 to ask first.
 
-Built as `pending`, and on `system` rather than on the string naming the file —
+Built as `63bb836`, and on `system` rather than on the string naming the file —
 `system:readFile(path)`, `system:writeFile(path, text)`,
 `system:fileExists(path)`. `"notes.txt":readFile` reads better and is what this
 entry sketched, but a string knows nothing about files, `system` is already
