@@ -8,6 +8,84 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### Dispatch by pointer, and a hash over the side tables — `pending`, 2026-08-20
+
+No `.sob` change, and no change a program can see: same bytes out of the
+compiler, same answers out of the VM. Roadmap 4.3, which was the last item in
+section 4.
+
+**A send used to `strcmp`.** `sol_object_lookup` walks a proto chain comparing
+slot names, and every send did that character by character. Now every slot name
+and every selector goes through one table on the VM, which answers the same
+address for the same characters, so the walk compares pointers.
+
+The hash has to be paid somewhere, and the trick is where: a chunk's name table
+is resolved through the table **once, before the chunk first runs**, so it is
+paid per name per chunk rather than per send. The dispatch loop reads a pointer
+that is already resolved.
+
+| | before | after |
+|---|---|---|
+| 3M sends in a loop | 1.36s | **0.74s** |
+| 1M sends to a user-defined method | 0.51s | **0.29s** |
+| 1M sends four levels up a proto chain | 0.38s | **0.21s** |
+
+**The obvious place to put this was the symbol table, and it was the wrong
+place.** `'foo` is already interned, and the roadmap had been assuming symbols
+would serve. But that table is *weak* on purpose — `5a15fc9` measured a program
+interning twenty thousand names taking over a minute with a strong table and
+running instantly with a weak one, because every collection had to mark every
+symbol ever interned. Slot names are pointed at by objects and by chunks, which
+have no way to announce they are done with one, so they would have had to be
+marked — reintroducing exactly the cost the weak table exists to avoid. So these
+are a second table, strong, immortal for the life of the VM and freed with it.
+A symbol is a value a program can drop; a name is the VM's own atom. Same job,
+different lifetime, and the lifetime is the reason.
+
+Two lookups now, deliberately named apart. `sol_object_lookup` compares spelling
+and is what C callers and tests hold literals for; `sol_object_lookup_interned`
+compares pointers. Handing the second one a string that never went through the
+table would answer NULL rather than fail — an equal string that is not *the*
+string — so `-DSOLUM_CHECK_INTERNED` compiles in an assertion that it did. That
+is the `SOLUM_GC_STRESS` bargain: too expensive to leave on, too useful never to
+run. The whole suite passes under it, and a test pins the silent-NULL shape so
+it stays known rather than surprising.
+
+### The side tables no longer scan
+
+The other half of 4.3, and the half that had begun to hurt. `4.2` raised the
+tables from 256 entries to 65536 without touching the linear scan that filled
+them, so interning was quadratic:
+
+| | before | after |
+|---|---|---|
+| 10,000 distinct names and constants | 0.43s | **0.01s** |
+| 20,000 | 1.44s | **0.02s** |
+| 40,000 | 6.17s | **0.04s** |
+
+A chunk keeps a hash index over each side table. **Below sixteen entries there
+is no index at all** and the scan stands — which is where a scan was always
+cheaper, and is what keeps this from costing memory: a method body, a block, or
+a REPL line never builds one. That mattered. The first version indexed every
+table from the first entry and pushed 60,000 REPL lines from 1.9 MB to 2.2 MB,
+because a two-name chunk was allocating two 64-slot indexes; with the threshold
+it is 1.9 MB again, unchanged.
+
+Hashing a constant has to fold exactly what `same_constant` folds, which
+compares bits rather than values so that `-0.0` stays distinct from `0.0` and a
+NaN still finds itself. The hash reads the same bits, and a test walks both.
+
+The emitted bytecode is byte-identical: every example, and a 20,000-name program,
+compile to the same `.sob` as before. Verified past the unit tests by the suite
+under ASan and UBSan with `SOLUM_GC_STRESS=1`, the suite again with
+`-DSOLUM_CHECK_INTERNED`, and 1,750 single-byte corruptions of a `.sob` through
+the loader, which fills the index as it appends.
+
+`tests/test_names.c` is new: the table, slots sharing one name, the two lookups
+agreeing on a chain, a chunk resolving, a chunk re-resolving when a second VM
+runs it, interning either side of the threshold, the constant-hash corners, and
+a slot's name outliving a collection of its neighbours.
+
 ### Inlined `and` and `or` — `de226a8`, 2026-08-20
 
 **`.sob` goes to version 10.**

@@ -23,7 +23,8 @@ The language is Turing-complete, no longer leaks, and has strings, arrays,
 symbols, user-defined objects, reflection, sorting, formatted output, and
 conversions between every pair of types that has an unambiguous one. What is
 left is not breadth any more: it is the items below, which are a correctness
-question, two performance shapes, and the tooling.
+question and the tooling. Section 4 is empty: conditionals, loops, and `and`/`or`
+inline, the operands are two bytes, and a send compares pointers.
 
 The three bugs that led this list — 1.5 and 1.6, reachable from three words of
 source, and 1.7, which answered wrongly rather than crashing — are all fixed,
@@ -480,8 +481,9 @@ rather than at the send.
 
 ## 4. Performance
 
-Nothing here is urgent — the VM is written for clarity first — but each has a
-known shape.
+Nothing here was urgent — the VM is written for clarity first — and all of it is
+now done. Kept rather than deleted because each entry records what was measured
+and why the shape chosen was the one taken; the detail is in the changelog.
 
 ### 4.1 Conditionals and loops are real calls — **done**
 
@@ -633,21 +635,53 @@ What is left at 255 is the argument count, and through it an array literal
 different construction -- `array:new` and repeated `add` -- rather than a wider
 `argc`.
 
-### 4.3 Dispatch does a string compare per send
+### 4.3 Dispatch does a string compare per send — **done**
 
-Symbols now exist, and interned names are exactly what this wants: a selector
-compared by pointer rather than by `strcmp`. The work is in the chunk's text
-table and slot names, not in inventing the mechanism.
+A selector is compared by pointer now. Every slot name and every selector goes
+through one table on the VM which answers the same address for the same
+characters, and a chunk's name table is resolved through it once before the
+chunk runs -- so the hash is paid per name per chunk, and a send reads a pointer
+that is already resolved.
 
-`sol_object_lookup` walks a linked list comparing names with `strcmp`. Interned
-symbols with pointer equality, or an inline cache per send site, are the usual
-answers.
+| | before | after |
+|---|---|---|
+| 3M sends in a loop | 1.36s | **0.74s** |
+| 1M sends to a user-defined method | 0.51s | **0.29s** |
+| 1M sends four levels up a proto chain | 0.38s | **0.21s** |
 
-The chunk's own interning wants the same table, and now has a reason to: 4.2
-raised the side tables from 256 entries to 65536 without changing the linear
-scan that fills them, so compiling tens of thousands of distinct literals is
-quadratic. One hash would serve both the compiler filling a chunk and the VM
-resolving a send.
+The table is deliberately **not** the weak symbol table behind `'foo`, which was
+the obvious place to put it. The two hold their contents differently for a
+reason: a symbol is a value a program can drop, so that table is weak and a
+symbol nothing mentions can die -- the measured result in `5a15fc9`. A name is
+pointed at by slots and by chunks, neither of which can announce that they are
+done with one, so these live as long as the VM and are freed with it. Sharing
+the weak table would have meant marking every slot name on every collection,
+which is the cost that table exists to avoid.
+
+`sol_object_lookup` still compares spelling, because C callers and tests hold
+ordinary literals; the dispatch loop uses `sol_object_lookup_interned`. Handing
+the second one a name that never went through the table would answer NULL rather
+than fail, so `-DSOLUM_CHECK_INTERNED` compiles in an assertion that it did --
+the same bargain as `SOLUM_GC_STRESS`, a check too expensive to leave on and too
+useful never to run. The suite passes under it.
+
+#### 4.3a The side tables' linear scan — **done**
+
+The other half, and the one that had begun to hurt: 4.2 raised the tables from
+256 entries to 65536 without touching the linear scan that filled them, so
+compiling many distinct literals was quadratic.
+
+| | before | after |
+|---|---|---|
+| 10,000 distinct names and constants | 0.43s | **0.01s** |
+| 20,000 | 1.44s | **0.02s** |
+| 40,000 | 6.17s | **0.04s** |
+
+A chunk keeps a hash index over each side table, and the emitted bytecode is
+byte-identical -- the same entry lands at the same position, only faster to find.
+Below sixteen entries there is no index at all and the scan stands, which is
+where it was always cheaper anyway and is why a method body, a block, or a REPL
+line costs nothing extra: measured, 60,000 REPL lines still peak at 1.9 MB.
 
 ---
 
@@ -743,13 +777,10 @@ with it, as that entry guessed it would.
 Nothing here is urgent. The remaining items are roughly in order of how soon
 they would be missed:
 
-1. **Dispatch by pointer** (4.3) — symbols exist; a send still does `strcmp`,
-   and the compiler's own interning wants the same hash table now that 4.2 has
-   raised the side tables to 65536 entries.
-2. **Calling a fetched method** — `slotAt` hands back an unbound block (2.14).
-3. **Stack heights in the verifier** (3.9) — would catch a corrupted argument
+1. **Calling a fetched method** — `slotAt` hands back an unbound block (2.14).
+2. **Stack heights in the verifier** (3.9) — would catch a corrupted argument
    count at load rather than at the send, and let the runtime checks go.
-4. Everything else as it starts to hurt.
+3. Everything else as it starts to hurt.
 
 Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), arrays entire
 (1.2, 1.2a, 1.2b), strings (1.3), user-defined objects (1.4), division (2.1),
@@ -758,7 +789,8 @@ formatted output (2.11), the statement separator (2.2), float exponents and
 round-tripping (2.6, 5.3), string escapes (1.3), rendering an object by asking
 it (5.2), symbols (2.7), reflection (2.10), sorting, inlined conditionals and
 loops and now `and`/`or` (4.1), the two class-object crashes (1.5, 1.6), the
-side-table operands (4.2), and the frameless temporary (1.7).
+side-table operands (4.2), the frameless temporary (1.7), and dispatch by
+pointer with the side tables' hash index (4.3, 4.3a).
 
 One decision is outstanding: **2.5**, class side versus instance side. 1.6
 answered it one message at a time, which was enough to stop the crashes;

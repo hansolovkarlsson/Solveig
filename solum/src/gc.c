@@ -74,7 +74,7 @@ static size_t cell_size(const SolGCHeader *header)
     const SolObject *obj = (const SolObject *)header;
     size_t size = sizeof(SolObject);
     for (const SolSlot *slot = obj->slots; slot != NULL; slot = slot->next) {
-        size += sizeof(SolSlot) + strlen(slot->name) + 1;
+        size += sizeof(SolSlot);       /* the name is shared, not this object's */
     }
     return size;
 }
@@ -258,7 +258,7 @@ static void free_cell(SolGCHeader *header)
         SolSlot *slot = obj->slots;
         while (slot != NULL) {
             SolSlot *next = slot->next;
-            free(slot->name);
+            /* The name is the VM's interned copy, shared and immortal (4.3). */
             free(slot);
             slot = next;
         }

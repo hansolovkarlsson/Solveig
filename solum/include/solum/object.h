@@ -28,7 +28,9 @@ typedef SolValue (*SolPrimitive)(SolVM *vm, SolValue self, SolValue *args, int a
  * one. Sending its name runs the block with the receiver as `self`; sending the
  * name of a slot holding anything else answers that value. */
 typedef struct SolSlot {
-    char           *name;
+    /* The VM's interned copy, shared with every slot of the same name and
+       outliving them all -- so const, and never freed with the slot (4.3). */
+    const char     *name;
     SolValue        value;
     SolPrimitive    primitive;  /* non-NULL if this slot is a C method */
     /* The receiver `primitive` requires, as a SolValueType, or
@@ -159,14 +161,36 @@ SolSymbol *sol_symbol_intern(SolVM *vm, const char *chars, int length);
    would never itself trigger a collection. */
 void sol_array_add(SolVM *vm, SolArray *array, SolValue value);
 
-/* Slot access. Lookup walks the proto chain; define always writes locally. */
+/* Answers this VM's one copy of these characters, making it if it is new.
+ *
+ * Two interned names spelling the same thing are the same pointer, which is
+ * what lets a send compare selectors with `==` instead of `strcmp`. Every slot
+ * name is interned, and a chunk's name table is resolved through here once
+ * before it runs. Immortal for the life of the VM -- see the note in vm.h. */
+const char *sol_vm_intern_name(SolVM *vm, const char *chars, int length);
+
+/* Slot access. Lookup walks the proto chain; define always writes locally.
+ *
+ * `sol_object_lookup` compares spelling, and is for C callers holding an
+ * ordinary string literal. The dispatch loop uses the interned form below. */
 SolSlot *sol_object_lookup(SolObject *obj, const char *name);
-void     sol_object_define(SolObject *obj, const char *name, SolValue value);
-void     sol_object_define_primitive(SolObject *obj, const char *name, SolPrimitive fn);
+
+/* The same lookup, given a name already interned by this VM: the comparison is
+   a pointer test rather than a walk over characters, which is the whole of 4.3.
+ *
+ * Passing a name that is *not* interned would silently answer NULL, so a debug
+ * build asserts that it was. Nothing in a release build checks, which is why
+ * the two spellings of this function have different names rather than one
+ * taking a flag. */
+SolSlot *sol_object_lookup_interned(SolVM *vm, SolObject *obj, const char *name);
+
+void     sol_object_define(SolVM *vm, SolObject *obj, const char *name, SolValue value);
+void     sol_object_define_primitive(SolVM *vm, SolObject *obj, const char *name,
+                                     SolPrimitive fn);
 
 /* The same, for a primitive that only an instance of `receiver_type` may
    receive. Pass a SolValueType, or SOL_ANY_RECEIVER for the plain form. */
-void     sol_object_define_primitive_for(SolObject *obj, const char *name,
+void     sol_object_define_primitive_for(SolVM *vm, SolObject *obj, const char *name,
                                          SolPrimitive fn, int receiver_type);
 
 /* May `receiver` be handed to this slot's primitive? True for a slot that is

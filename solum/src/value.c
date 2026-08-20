@@ -160,7 +160,8 @@ static void render(SolVM *vm, SolValue value, SolText *out, int depth)
            error -- but a value being rendered inside something else is not the
            place to raise it. An object that cannot say what it is is shown as
            its address, which is what an object without `asString` gets too. */
-        SolSlot *slot = sol_object_lookup(SOL_AS_OBJ(value), "asString");
+        SolSlot *slot = sol_object_lookup_interned(
+            vm, SOL_AS_OBJ(value), sol_vm_intern_name(vm, "asString", 8));
         if (slot == NULL || !sol_slot_accepts(slot, value)) {
             append_format(out, "<object %p>", (void *)SOL_AS_OBJ(value));
             break;

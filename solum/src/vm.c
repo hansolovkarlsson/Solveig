@@ -36,6 +36,10 @@ void sol_vm_init(SolVM *vm)
     vm->symbol_capacity = 0;
     vm->symbol_count = 0;
 
+    vm->names = NULL;
+    vm->name_capacity = 0;
+    vm->name_count = 0;
+
     vm->heap = NULL;
     vm->bytes_allocated = 0;
     vm->next_gc = SOL_GC_INITIAL_THRESHOLD;
@@ -67,6 +71,9 @@ void sol_vm_free(SolVM *vm)
     vm->string_class = NULL;
     vm->object_class = NULL;
     vm->symbol_class = NULL;
+
+    /* Last: the heap is gone, so nothing is left holding an interned name. */
+    sol_vm_free_names(vm);
     reset_stack(vm);
 }
 
@@ -302,6 +309,9 @@ static SolResult run_frames(SolVM *vm, int base)
 #define READ_SHORT() (frame->ip += 2, sol_read_u16(frame->ip - 2))
 #define READ_INDEX() ((int)READ_SHORT())
 #define READ_NAME() (sol_chunk_name(frame->chunk, READ_INDEX()))
+/* The same name, as this VM's interned copy: what a lookup wants. Every chunk
+   the VM runs went through sol_vm_intern_chunk, so the table is there. */
+#define READ_INTERNED() (frame->chunk->interned[READ_INDEX()])
 
     for (;;) {
         uint8_t instruction = READ_BYTE();
@@ -316,8 +326,8 @@ static SolResult run_frames(SolVM *vm, int base)
             break;
 
         case OP_GLOBAL: {
-            const char *name = READ_NAME();
-            SolSlot *slot = sol_object_lookup(vm->root, name);
+            const char *name = READ_INTERNED();
+            SolSlot *slot = sol_object_lookup_interned(vm, vm->root, name);
             if (slot == NULL) {
                 sol_vm_runtime_error(vm, "undefined name '%s'", name);
                 break;
@@ -327,13 +337,14 @@ static SolResult run_frames(SolVM *vm, int base)
         }
 
         case OP_SET_GLOBAL: {
-            const char *name = READ_NAME();
+            const char *name = READ_INTERNED();
 
             /* Only the script's top level creates globals. Inside a method or
                block an undeclared name must already exist, so a typo cannot
                quietly bring a new global into being where it would look like a
                local. */
-            if (frame->method != NULL && sol_object_lookup(vm->root, name) == NULL) {
+            if (frame->method != NULL &&
+                sol_object_lookup_interned(vm, vm->root, name) == NULL) {
                 sol_vm_runtime_error(vm, "undefined name '%s' -- declare it with "
                                          "'| %s |' or assign it at the top level",
                                      name, name);
@@ -342,7 +353,7 @@ static SolResult run_frames(SolVM *vm, int base)
 
             /* Assignment is an expression: the value stays on the stack so
                `c := b := #45` works and the statement's POP discards it. */
-            sol_object_define(vm->root, name, vm->stack_top[-1]);
+            sol_object_define(vm, vm->root, name, vm->stack_top[-1]);
             break;
         }
 
@@ -406,7 +417,7 @@ static SolResult run_frames(SolVM *vm, int base)
         }
 
         case OP_SET_SLOT: {
-            const char *name = READ_NAME();
+            const char *name = READ_INTERNED();
 
             /* `obj:name := value` -- the same operator as `a := value`, so the
                value is already evaluated and simply gets bound. A block bound
@@ -418,13 +429,13 @@ static SolResult run_frames(SolVM *vm, int base)
                                      sol_type_name(target));
                 break;
             }
-            sol_object_define(SOL_AS_OBJ(target), name, value);
+            sol_object_define(vm, SOL_AS_OBJ(target), name, value);
             sol_vm_push(vm, value);          /* assignment answers its value */
             break;
         }
 
         case OP_SEND: {
-            const char *name = READ_NAME();
+            const char *name = READ_INTERNED();
             uint8_t argc = READ_BYTE();
 
             /* A `.sob` is untrusted and `argc` is a byte the verifier cannot
@@ -454,7 +465,8 @@ static SolResult run_frames(SolVM *vm, int base)
                 target = sol_vm_class_of(vm, receiver);
             }
 
-            SolSlot *slot = target ? sol_object_lookup(target, name) : NULL;
+            SolSlot *slot = target ? sol_object_lookup_interned(vm, target, name)
+                                   : NULL;
 
             if (slot == NULL) {
                 sol_vm_runtime_error(vm, "%s does not understand '%s'",
@@ -585,6 +597,7 @@ static SolResult run_frames(SolVM *vm, int base)
         if (vm->had_error) return SOL_RUNTIME_ERROR;
     }
 
+#undef READ_INTERNED
 #undef READ_NAME
 #undef READ_INDEX
 #undef READ_SHORT
@@ -594,8 +607,13 @@ static SolResult run_frames(SolVM *vm, int base)
 SolValue sol_vm_send(SolVM *vm, SolValue receiver, const char *name,
                      SolValue *args, int argc)
 {
+    /* Called from C with an ordinary literal, so the name is interned here
+       rather than by the caller. One hash, then the same pointer comparison
+       the dispatch loop does. */
+    name = sol_vm_intern_name(vm, name, (int)strlen(name));
+
     SolObject *target = sol_vm_class_of(vm, receiver);
-    SolSlot *slot = target ? sol_object_lookup(target, name) : NULL;
+    SolSlot *slot = target ? sol_object_lookup_interned(vm, target, name) : NULL;
     if (slot == NULL) {
         sol_vm_runtime_error(vm, "%s does not understand '%s'",
                              sol_type_name(receiver), name);
@@ -633,11 +651,46 @@ SolValue sol_vm_send(SolVM *vm, SolValue receiver, const char *name,
     return result;
 }
 
+/* Resolves one chunk's names, then every method nested inside it. Recursion
+   depth here is nesting depth in the source, which the compiler already bounds.
+ *
+ * Doing this per chunk rather than per send is the whole point: the hash is
+ * paid once for each name a chunk mentions, and every send of it afterwards is
+ * a pointer comparison. */
+void sol_vm_intern_chunk(SolVM *vm, SolChunk *chunk)
+{
+    if (chunk->interned_for != vm) {
+        free(chunk->interned);
+        chunk->interned = NULL;
+    }
+    if (chunk->interned == NULL && chunk->names.count > 0) {
+        chunk->interned = malloc((size_t)chunk->names.count * sizeof *chunk->interned);
+        if (chunk->interned == NULL) {
+            fprintf(stderr, "solvm: out of memory\n");
+            exit(1);
+        }
+        for (int i = 0; i < chunk->names.count; i++) {
+            const char *name = chunk->names.names[i];
+            chunk->interned[i] = sol_vm_intern_name(vm, name, (int)strlen(name));
+        }
+    }
+    chunk->interned_for = vm;
+
+    for (int i = 0; i < chunk->methods.count; i++) {
+        sol_vm_intern_chunk(vm, &chunk->methods.methods[i]->chunk);
+    }
+}
+
 SolResult sol_vm_run(SolVM *vm, const SolChunk *chunk)
 {
     vm->had_error = false;
     vm->frame_count = 0;
     reset_stack(vm);
+
+    /* Resolve the names once, here, so every send below is a pointer compare.
+       The chunk is const to callers because running must not rewrite the code;
+       the resolved table is an accelerator beside it, not part of it. */
+    sol_vm_intern_chunk(vm, (SolChunk *)chunk);
 
     /* The top-level chunk runs in a frame like anything else, so one code path
        handles both. It has no method, no locals, and no home. */

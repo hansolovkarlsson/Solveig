@@ -128,6 +128,22 @@ Smalltalk lineage, prototype flavour:
 - Slot lookup walks the proto chain and terminates at the root Object, which
   doubles as the globals namespace where class objects like `integer` live.
 
+**A name is compared by pointer, not by spelling.** Every slot name and every
+selector goes through one table on the VM, which answers the same address for
+the same characters -- so a lookup walking a proto chain compares pointers, and
+never looks at a byte of either name. A chunk's name table is resolved through
+that table once, before the chunk first runs, which is what keeps the hash off
+the path a send takes: the send reads a pointer already resolved.
+
+This is the VM's own table and not the symbol table behind `'foo`. The two do
+the same job and hold it differently: a symbol is a value a program can drop, so
+that table is weak and a symbol nothing mentions can die. A name is pointed at
+by slots and by chunks, neither of which can say when they are finished with
+one, so these live as long as the VM. `sol_object_lookup` still compares
+spelling, for C callers holding an ordinary literal; the dispatch loop uses
+`sol_object_lookup_interned`, and building with `-DSOLUM_CHECK_INTERNED` makes
+it assert that what it was handed really did come from the table.
+
 Values and references divide on mutability. Numbers and strings are immutable,
 so they are values: two of them are equal when they say the same thing, and
 sharing is always safe. Objects, blocks, and arrays can change, so they are
@@ -540,8 +556,8 @@ entry with it, harmlessly.
 
 Building the string at run time rather than caching it means a literal in a loop
 allocates once per pass. Immutability makes that purely a cost; interning would
-remove it, and would give selector dispatch the same mechanism, but wants a weak
-table so interned strings can still die.
+remove it, but wants a weak table so interned strings can still die. Selector
+dispatch no longer waits on this -- it has a table of its own, below.
 
 There are no escape sequences yet, so a string cannot contain a `"`. A literal
 newline between the quotes does work, since the scanner counts lines as it goes.

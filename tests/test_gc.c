@@ -125,7 +125,7 @@ static void test_deep_graph_does_not_recurse(void)
 
     enum { DEPTH = 200000 };
     SolObject *head = sol_object_new(&vm, NULL);
-    sol_object_define(vm.root, "head", SOL_OBJ_VAL(head));
+    sol_object_define(&vm, vm.root, "head", SOL_OBJ_VAL(head));
 
     /* A proto chain 200k long -- recursive marking would die well before this. */
     SolObject *tail = head;

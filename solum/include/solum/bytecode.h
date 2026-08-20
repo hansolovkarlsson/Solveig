@@ -90,6 +90,23 @@ typedef struct {
     char **names;
 } SolNameArray;
 
+/* A hash index over one of the side tables, mapping an entry to its position.
+ *
+ * Both tables intern, and interning was a linear scan -- which cost nothing
+ * while a table held 256 entries and became quadratic when 4.2 raised the
+ * ceiling to 65536. This is what makes filling one linear again.
+ *
+ * Open addressing with linear probing, capacity a power of two, and no
+ * deletions: entries only ever accumulate while a chunk is compiled. `slots`
+ * holds a position in the side table, or -1 for an empty bucket. Derived
+ * rather than stored, so nothing about the `.sob` format changes -- the loader
+ * rebuilds it as it appends. */
+typedef struct {
+    int *slots;
+    int  capacity;      /* power of two, or 0 before the first insert */
+    int  count;
+} SolIndex;
+
 /* A chunk is one compiled unit: a method body, or a whole file. */
 typedef struct {
     int           count;
@@ -99,6 +116,19 @@ typedef struct {
     SolValueArray constants;
     SolNameArray  names;
     SolMethodArray methods;
+
+    /* Where each side table's entries already live, so interning need not scan.
+       Purely an accelerator: emptying one would slow compilation without
+       changing a byte of what comes out. */
+    SolIndex      name_index;
+    SolIndex      constant_index;
+
+    /* `names` resolved to this VM's interned copies, one entry per name, so a
+       send reads a pointer it can compare with `==` instead of hashing or
+       walking characters (4.3). Built once, before the chunk first runs.
+       NULL in Solas, which has no VM to intern against. */
+    const char  **interned;
+    const SolVM  *interned_for;
 
     /* The collectable cell owning this chunk's tree, or NULL when the chunk is
        owned by whoever created it. Solas and the tests use standalone chunks and

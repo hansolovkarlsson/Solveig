@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -5,16 +6,78 @@
 #include "solum/object.h"
 #include "solum/vm.h"
 
-static char *dup_name(const char *name)
+/* ---- the name table ---------------------------------------------------
+ *
+ * One copy of every selector and slot name, so two names that spell the same
+ * thing are one pointer and comparing them is comparing addresses. Open
+ * addressing with linear probing; entries are never removed, so a probe stops
+ * at the first empty bucket.
+ *
+ * The symbol table below does the same job for `'foo`, and does it weakly. The
+ * difference is what holds the two: a symbol is a value a program can drop,
+ * while a name is pointed at by slots and by chunks that have no way to
+ * announce that they are done with it. So these are immortal for the VM. */
+static void name_table_grow(SolVM *vm)
 {
-    size_t len = strlen(name);
-    char *copy = malloc(len + 1);
+    int capacity = vm->name_capacity < 128 ? 128 : vm->name_capacity * 2;
+    char **names = calloc((size_t)capacity, sizeof *names);
+    if (names == NULL) {
+        fprintf(stderr, "solvm: out of memory\n");
+        exit(1);
+    }
+
+    for (int i = 0; i < vm->name_capacity; i++) {
+        char *name = vm->names[i];
+        if (name == NULL) continue;
+        uint32_t hash = sol_hash_bytes(name, (int)strlen(name));
+        int at = (int)(hash & (uint32_t)(capacity - 1));
+        while (names[at] != NULL) at = (at + 1) & (capacity - 1);
+        names[at] = name;
+    }
+
+    free(vm->names);
+    vm->names = names;
+    vm->name_capacity = capacity;
+}
+
+const char *sol_vm_intern_name(SolVM *vm, const char *chars, int length)
+{
+    if (vm->name_capacity == 0 || (vm->name_count + 1) * 4 > vm->name_capacity * 3) {
+        name_table_grow(vm);
+    }
+
+    uint32_t hash = sol_hash_bytes(chars, length);
+    int at = (int)(hash & (uint32_t)(vm->name_capacity - 1));
+    for (;;) {
+        char *found = vm->names[at];
+        if (found == NULL) break;
+        if (strlen(found) == (size_t)length &&
+            memcmp(found, chars, (size_t)length) == 0) {
+            return found;                   /* the one that already exists */
+        }
+        at = (at + 1) & (vm->name_capacity - 1);
+    }
+
+    char *copy = malloc((size_t)length + 1);
     if (copy == NULL) {
         fprintf(stderr, "solvm: out of memory\n");
         exit(1);
     }
-    memcpy(copy, name, len + 1);
+    memcpy(copy, chars, (size_t)length);
+    copy[length] = '\0';
+
+    vm->names[at] = copy;
+    vm->name_count++;
     return copy;
+}
+
+void sol_vm_free_names(SolVM *vm)
+{
+    for (int i = 0; i < vm->name_capacity; i++) free(vm->names[i]);
+    free(vm->names);
+    vm->names = NULL;
+    vm->name_capacity = 0;
+    vm->name_count = 0;
 }
 
 SolObject *sol_object_new(SolVM *vm, SolObject *proto)
@@ -105,7 +168,7 @@ SolString *sol_string_new(SolVM *vm, const char *chars, int length)
 
 /* FNV-1a. Any decent spread will do; symbols are compared by pointer once
    interned, so the hash only has to find the bucket. */
-static uint32_t hash_bytes(const char *chars, int length)
+uint32_t sol_hash_bytes(const char *chars, int length)
 {
     uint32_t hash = 2166136261u;
     for (int i = 0; i < length; i++) {
@@ -140,7 +203,7 @@ static void symbol_table_grow(SolVM *vm)
 
 SolSymbol *sol_symbol_intern(SolVM *vm, const char *chars, int length)
 {
-    uint32_t hash = hash_bytes(chars, length);
+    uint32_t hash = sol_hash_bytes(chars, length);
 
     if (vm->symbol_capacity > 0) {
         int slot = (int)(hash & (uint32_t)(vm->symbol_capacity - 1));
@@ -227,6 +290,30 @@ SolSlot *sol_object_lookup(SolObject *obj, const char *name)
     return NULL;
 }
 
+SolSlot *sol_object_lookup_interned(SolVM *vm, SolObject *obj, const char *name)
+{
+    /* Every slot name went through the table, so a name that did not is one
+       this can never match -- a bug at the call site rather than a miss, and a
+       silent one, since the answer would simply be NULL.
+     *
+     * Checking costs a hash of the name, which is the whole expense this
+     * function exists to avoid, so it is compiled in only when asked for:
+     * build with -DSOLUM_CHECK_INTERNED. That is the same bargain as
+     * SOLUM_GC_STRESS -- a check too expensive to leave on, run deliberately
+     * rather than never. */
+#ifdef SOLUM_CHECK_INTERNED
+    assert(name == sol_vm_intern_name(vm, name, (int)strlen(name)));
+#endif
+    (void)vm;
+
+    for (SolObject *o = obj; o != NULL; o = o->proto) {
+        for (SolSlot *slot = o->slots; slot != NULL; slot = slot->next) {
+            if (slot->name == name) return slot;
+        }
+    }
+    return NULL;
+}
+
 /* Finds a slot on `obj` itself, ignoring the proto chain. */
 static SolSlot *lookup_local(SolObject *obj, const char *name)
 {
@@ -237,8 +324,10 @@ static SolSlot *lookup_local(SolObject *obj, const char *name)
 }
 
 /* A slot is owned by its object and freed with it, so it is not registered with
-   the collector; cell_size counts its bytes when the object is swept. */
-static SolSlot *ensure_local(SolObject *obj, const char *name)
+   the collector; cell_size counts its bytes when the object is swept. Its name
+   is *not* owned: it is the VM's interned copy, shared with every other slot
+   spelling the same thing, and outlives them all. */
+static SolSlot *ensure_local(SolVM *vm, SolObject *obj, const char *name)
 {
     SolSlot *slot = lookup_local(obj, name);
     if (slot != NULL) return slot;
@@ -248,7 +337,7 @@ static SolSlot *ensure_local(SolObject *obj, const char *name)
         fprintf(stderr, "solvm: out of memory\n");
         exit(1);
     }
-    slot->name = dup_name(name);
+    slot->name = sol_vm_intern_name(vm, name, (int)strlen(name));
     slot->value = SOL_NIL_VAL;
     slot->primitive = NULL;
     slot->receiver_type = SOL_ANY_RECEIVER;
@@ -257,23 +346,24 @@ static SolSlot *ensure_local(SolObject *obj, const char *name)
     return slot;
 }
 
-void sol_object_define(SolObject *obj, const char *name, SolValue value)
+void sol_object_define(SolVM *vm, SolObject *obj, const char *name, SolValue value)
 {
-    SolSlot *slot = ensure_local(obj, name);
+    SolSlot *slot = ensure_local(vm, obj, name);
     slot->value = value;
     slot->primitive = NULL;
     slot->receiver_type = SOL_ANY_RECEIVER;
 }
 
-void sol_object_define_primitive(SolObject *obj, const char *name, SolPrimitive fn)
+void sol_object_define_primitive(SolVM *vm, SolObject *obj, const char *name,
+                                 SolPrimitive fn)
 {
-    sol_object_define_primitive_for(obj, name, fn, SOL_ANY_RECEIVER);
+    sol_object_define_primitive_for(vm, obj, name, fn, SOL_ANY_RECEIVER);
 }
 
-void sol_object_define_primitive_for(SolObject *obj, const char *name,
+void sol_object_define_primitive_for(SolVM *vm, SolObject *obj, const char *name,
                                      SolPrimitive fn, int receiver_type)
 {
-    SolSlot *slot = ensure_local(obj, name);
+    SolSlot *slot = ensure_local(vm, obj, name);
     slot->value = SOL_NIL_VAL;
     slot->primitive = fn;
     slot->receiver_type = receiver_type;

@@ -74,10 +74,34 @@ struct SolVM {
     int         symbol_capacity;
     int         symbol_count;
 
+    /* The name table: one copy of every selector and slot name this VM has
+       seen, so that comparing two names is comparing two pointers. Open
+       addressing, capacity a power of two, no deletions.
+     *
+     * Deliberately *not* the symbol table above, which is weak so that a name
+     * mentioned once can die. These are not values a program can hold; they are
+     * the VM's own atoms, they must outlive every slot and every chunk that
+     * points at one, and there is no moment at which one is known to be
+     * unreachable. So they live as long as the VM and are freed with it. */
+    char      **names;
+    int         name_capacity;
+    int         name_count;
+
     bool had_error;
 };
 
 void sol_vm_init(SolVM *vm);
+
+/* Frees the interned names. Called by sol_vm_free once nothing can look one up
+   again -- every slot and every chunk that pointed at one is already gone. */
+void sol_vm_free_names(SolVM *vm);
+
+/* Resolves `chunk`'s name table, and every nested method's, to this VM's
+   interned names. Idempotent, and re-does the work if the chunk was last
+   resolved against a different VM -- which the tests do, running one chunk and
+   then another VM's. Called before a chunk runs, so the dispatch loop can
+   assume `chunk->interned` is there. */
+void sol_vm_intern_chunk(SolVM *vm, SolChunk *chunk);
 void sol_vm_free(SolVM *vm);
 
 /* Executes `chunk` to completion. */

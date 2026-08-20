@@ -17,6 +17,14 @@ void sol_chunk_init(SolChunk *chunk)
     chunk->methods.count = 0;
     chunk->methods.capacity = 0;
     chunk->methods.methods = NULL;
+    chunk->interned = NULL;
+    chunk->interned_for = NULL;
+    chunk->name_index.slots = NULL;
+    chunk->name_index.capacity = 0;
+    chunk->name_index.count = 0;
+    chunk->constant_index.slots = NULL;
+    chunk->constant_index.capacity = 0;
+    chunk->constant_index.count = 0;
     chunk->owner = NULL;          /* standalone until handed to the collector */
 }
 
@@ -118,29 +126,212 @@ static bool same_constant(SolValue a, SolValue b)
     }
 }
 
+/* ---- the side tables' hash index ---------------------------------------
+ *
+ * Interning used to scan. That was invisible at 256 entries and quadratic once
+ * 4.2 allowed 65536, so filling a table now goes through here. Nothing about
+ * the result changes -- the same entry lands at the same position -- only how
+ * long it takes to find out that it is already there.
+ */
+
+/* Hash of a constant, over the same bits `same_constant` compares. Two values
+   that compare equal must hash alike, so this hashes the type and the payload
+   and never the padding between them. */
+static uint32_t hash_constant(SolValue value)
+{
+    uint8_t type = (uint8_t)value.type;
+    uint32_t hash = sol_hash_bytes((const char *)&type, 1);
+
+    switch (value.type) {
+    case SOL_NIL:   return hash;
+    case SOL_BOOL: { uint8_t b = SOL_AS_BOOL(value) ? 1 : 0;
+                     return hash ^ sol_hash_bytes((const char *)&b, 1); }
+    case SOL_INT:  { int64_t i = SOL_AS_INT(value);
+                     return hash ^ sol_hash_bytes((const char *)&i, (int)sizeof i); }
+    case SOL_FLOAT:{ double d = SOL_AS_FLOAT(value);
+                     return hash ^ sol_hash_bytes((const char *)&d, (int)sizeof d); }
+    default:        return hash;      /* heap values are never pooled */
+    }
+}
+
+/* Below this many entries a linear scan wins outright: it touches one cache
+   line, needs no hash, and costs no memory. Most chunks -- a method body, a
+   block, a REPL line -- never grow past it, so most chunks never build an index
+   at all. Only the ones large enough for the scan to hurt pay for one. */
+#define SOL_INDEX_THRESHOLD 16
+
+static void index_free(SolIndex *index)
+{
+    free(index->slots);
+    index->slots = NULL;
+    index->capacity = 0;
+    index->count = 0;
+}
+
+/* Kept under three quarters full, which is where linear probing stays short. */
+static bool index_is_full(const SolIndex *index)
+{
+    return index->capacity == 0 || (index->count + 1) * 4 > index->capacity * 3;
+}
+
+static void index_reserve(SolIndex *index, int wanted)
+{
+    int capacity = index->capacity < 32 ? 32 : index->capacity * 2;
+    while (capacity * 3 < (wanted + 1) * 4) capacity *= 2;
+
+    free(index->slots);
+    index->slots = malloc((size_t)capacity * sizeof *index->slots);
+    if (index->slots == NULL) {
+        fprintf(stderr, "solum: out of memory\n");
+        exit(1);
+    }
+    for (int i = 0; i < capacity; i++) index->slots[i] = -1;
+    index->capacity = capacity;
+    index->count = 0;
+}
+
+/* Puts `entry` in a bucket, unless something equal is already recorded -- the
+   loader may append a repeat, and the first position is the one interning
+   should answer with. */
+static void name_index_put(SolChunk *chunk, int entry)
+{
+    SolIndex *index = &chunk->name_index;
+    const char *name = chunk->names.names[entry];
+
+    uint32_t hash = sol_hash_bytes(name, (int)strlen(name));
+    int at = (int)(hash & (uint32_t)(index->capacity - 1));
+    while (index->slots[at] >= 0) {
+        if (strcmp(chunk->names.names[index->slots[at]], name) == 0) return;
+        at = (at + 1) & (index->capacity - 1);
+    }
+    index->slots[at] = entry;
+    index->count++;
+}
+
+static void constant_index_put(SolChunk *chunk, int entry)
+{
+    SolIndex *index = &chunk->constant_index;
+    SolValue value = chunk->constants.values[entry];
+
+    uint32_t hash = hash_constant(value);
+    int at = (int)(hash & (uint32_t)(index->capacity - 1));
+    while (index->slots[at] >= 0) {
+        if (same_constant(chunk->constants.values[index->slots[at]], value)) return;
+        at = (at + 1) & (index->capacity - 1);
+    }
+    index->slots[at] = entry;
+    index->count++;
+}
+
+/* Records a newly appended entry. Builds the index on the way past the
+   threshold, and grows it when it fills; both rebuild from the side table
+   rather than from the old buckets, so there is one way an entry gets in. */
+static void index_insert_name(SolChunk *chunk, int entry)
+{
+    SolIndex *index = &chunk->name_index;
+
+    if (index->capacity == 0) {
+        if (chunk->names.count <= SOL_INDEX_THRESHOLD) return;   /* still scanning */
+        index_reserve(index, chunk->names.count);
+        for (int i = 0; i < chunk->names.count; i++) name_index_put(chunk, i);
+        return;
+    }
+    if (index_is_full(index)) {
+        index_reserve(index, chunk->names.count);
+        for (int i = 0; i < chunk->names.count; i++) name_index_put(chunk, i);
+        return;
+    }
+    name_index_put(chunk, entry);
+}
+
+static void index_insert_constant(SolChunk *chunk, int entry)
+{
+    SolIndex *index = &chunk->constant_index;
+
+    if (index->capacity == 0) {
+        if (chunk->constants.count <= SOL_INDEX_THRESHOLD) return;
+        index_reserve(index, chunk->constants.count);
+        for (int i = 0; i < chunk->constants.count; i++) constant_index_put(chunk, i);
+        return;
+    }
+    if (index_is_full(index)) {
+        index_reserve(index, chunk->constants.count);
+        for (int i = 0; i < chunk->constants.count; i++) constant_index_put(chunk, i);
+        return;
+    }
+    constant_index_put(chunk, entry);
+}
+
+/* Where this name already lives, or -1. Scans while the table is small, which
+   is the same answer the index gives and the same answer the linear scan this
+   replaced always gave. */
+static int index_find_name(const SolChunk *chunk, const char *name, int length)
+{
+    const SolIndex *index = &chunk->name_index;
+
+    if (index->capacity == 0) {
+        for (int i = 0; i < chunk->names.count; i++) {
+            if (strlen(chunk->names.names[i]) == (size_t)length &&
+                memcmp(chunk->names.names[i], name, (size_t)length) == 0) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    uint32_t hash = sol_hash_bytes(name, length);
+    int at = (int)(hash & (uint32_t)(index->capacity - 1));
+    for (;;) {
+        int found = index->slots[at];
+        if (found < 0) return -1;
+        const char *candidate = chunk->names.names[found];
+        if (strlen(candidate) == (size_t)length &&
+            memcmp(candidate, name, (size_t)length) == 0) {
+            return found;
+        }
+        at = (at + 1) & (index->capacity - 1);
+    }
+}
+
+static int index_find_constant(const SolChunk *chunk, SolValue value)
+{
+    const SolIndex *index = &chunk->constant_index;
+
+    if (index->capacity == 0) {
+        for (int i = 0; i < chunk->constants.count; i++) {
+            if (same_constant(chunk->constants.values[i], value)) return i;
+        }
+        return -1;
+    }
+
+    uint32_t hash = hash_constant(value);
+    int at = (int)(hash & (uint32_t)(index->capacity - 1));
+    for (;;) {
+        int found = index->slots[at];
+        if (found < 0) return -1;
+        if (same_constant(chunk->constants.values[found], value)) return found;
+        at = (at + 1) & (index->capacity - 1);
+    }
+}
+
 int sol_chunk_add_constant(SolChunk *chunk, SolValue value)
 {
-    for (int i = 0; i < chunk->constants.count; i++) {
-        if (same_constant(chunk->constants.values[i], value)) return i;
-    }
+    int found = index_find_constant(chunk, value);
+    if (found >= 0) return found;
     return sol_chunk_append_constant(chunk, value);
 }
 
 int sol_chunk_append_constant(SolChunk *chunk, SolValue value)
 {
-    return sol_value_array_write(&chunk->constants, value);
+    int at = sol_value_array_write(&chunk->constants, value);
+    index_insert_constant(chunk, at);
+    return at;
 }
 
 int sol_chunk_add_name(SolChunk *chunk, const char *name, int length)
 {
-    SolNameArray *names = &chunk->names;
-
-    for (int i = 0; i < names->count; i++) {
-        if (strlen(names->names[i]) == (size_t)length &&
-            memcmp(names->names[i], name, (size_t)length) == 0) {
-            return i;
-        }
-    }
+    int found = index_find_name(chunk, name, length);
+    if (found >= 0) return found;
     return sol_chunk_append_name(chunk, name, length);
 }
 
@@ -167,7 +358,9 @@ int sol_chunk_append_name(SolChunk *chunk, const char *name, int length)
     copy[length] = '\0';
 
     names->names[names->count] = copy;
-    return names->count++;
+    int at = names->count++;
+    index_insert_name(chunk, at);
+    return at;
 }
 
 const char *sol_chunk_name(const SolChunk *chunk, int index)
@@ -183,6 +376,9 @@ void sol_chunk_free(SolChunk *chunk)
     sol_value_array_free(&chunk->constants);
     for (int i = 0; i < chunk->names.count; i++) free(chunk->names.names[i]);
     free(chunk->names.names);
+    index_free(&chunk->name_index);
+    index_free(&chunk->constant_index);
+    free(chunk->interned);        /* the names themselves belong to the VM */
     /* Recursive: a method owns its chunk, which may own further methods. */
     for (int i = 0; i < chunk->methods.count; i++) sol_method_free(chunk->methods.methods[i]);
     free(chunk->methods.methods);

@@ -158,7 +158,6 @@ entered -- while staying ordinary messages you can send any other way. See
 
 Still to do:
 
-- [ ] dispatch by pointer -- symbols exist, but a send still compares strings
 - [ ] calling a method you fetched -- `slotAt` hands back an unbound block
 
 ## License
