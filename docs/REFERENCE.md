@@ -453,6 +453,53 @@ array:describe := { "arrays, in a list" }.
 array:describe:display.
 ```
 
+### Adding methods to a built-in class
+
+A built-in class is an object and a slot holding a block is a method, so
+extending one needs no new rule — it is the same `:=` used everywhere:
+
+```
+integer:double := { self:mul(#2) }.
+#21:double:print.                    ; #42
+```
+
+Every built-in takes them, arguments and recursion included:
+
+```
+integer:between := { lo, hi | self:greaterOrEqual(lo):and({ self:lessOrEqual(hi) }) }.
+#5:between(#1, #10):print.           ; true
+
+string:shout   := { self:asUppercase:concat("!") }.   ; "hey":shout   -> "HEY!"
+array:second   := { self:at(#2) }.                    ; [#1,#2,#3]:second -> #2
+boolean:toggle := { self:not }.                       ; true:toggle  -> false
+block:twice    := { self:value. self:value }.
+```
+
+The addition is global: every integer gains `double`, because there is one
+`integer` and that is where the method now lives. To give a *distinct* type its
+own behaviour, build an object that holds a value rather than extending the
+class — a value type cannot be subclassed, since an unboxed number's class is
+chosen by its type tag and there is nowhere to record a different one.
+
+Two things to know before overriding a message that already exists.
+
+**The primitive is gone.** A slot wins over a primitive of the same name, and
+nothing keeps the displaced one. `via` cannot reach it either: a built-in class
+has no ancestor holding the version you replaced.
+
+**Do not build the text with `fill` inside an `asString` override.** `fill`
+renders each of its values by *sending* `asString`, so it re-enters the override
+and recurses until the call-depth cap:
+
+```
+integer:asString := { "<{}>":fill([self:abs]) }.
+#42:asString.
+solvm: call depth exceeded
+```
+
+Use `concat` there instead. The recursion is bounded rather than fatal, but it
+is an easy loop to write.
+
 ### Calling what you override
 
 `self:via(ancestor)` begins the lookup at the ancestor but keeps the receiver, so

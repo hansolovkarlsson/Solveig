@@ -8,6 +8,49 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### Extending a built-in, and a single root that was not blocked — `pending`, 2026-08-20
+
+Documentation. No code.
+
+**Adding methods to a built-in class** now has a section in the reference. It
+needs no new rule — a class is an object and a slot holding a block is a method,
+so `integer:double := { self:mul(#2) }` is the same binding as everything else,
+and every built-in takes them. Written down because nothing said so outside the
+README's opening example, along with the two things worth knowing before
+overriding a message that already exists: the primitive you displace is gone and
+`via` cannot reach it, and building the text with `fill` inside an `asString`
+override recurses until the call-depth cap, since `fill` renders its values by
+*sending* `asString`.
+
+**And a correction, from an experiment.** This entry and roadmap 2.5 have both
+been saying that a single root — the built-in classes delegating to `object` —
+waits on the class-side/instance-side split, because `float` inheriting object's
+`new` would answer a plain object rather than a float.
+
+That stopped being true and nobody noticed. `7ac6be6` gave `float` its own `new`,
+so it shadows object's; `integer` and `array` have theirs. And 1.6 gave every
+primitive a receiver requirement, so the two messages `integer` would actually
+inherit — `via` and `parent`, the only two it does not already define — are
+refused for a non-object receiver before they run.
+
+So it was tried, on a throwaway copy: eight lines setting each built-in class's
+`proto`, **and the whole test suite passes untouched.** Every `isKindOf(object)`
+becomes true, `integer:parent` answers `object`, `#45:add(#1)` is still `#46`,
+and `#45:parent` and `#45:via(...)` are refused by the receiver check — three
+commits before anyone thought about a root.
+
+What is left in the way is one message. `string`, `symbol`, `block` and
+`boolean` have no `new` of their own and would inherit object's, which answers an
+object delegating to the class — inert rather than wrong, since it errors on
+every message a string understands, but still bad. So the open question is not
+*how do we build a metaclass level* but **what should `new` do on a class that
+cannot construct anything**, which is where the document's closing section
+already arrives from the other end.
+
+The two are separable. The split is still worth doing for `slots` and for
+`#45:new(#1)`; it is not what the root is waiting on. Nothing is committed here
+but the writing — the experiment stayed in a scratch tree.
+
 ### Wrote down the class-side question — `bb5f077`, 2026-08-20
 
 Documentation. No code.

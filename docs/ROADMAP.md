@@ -337,11 +337,24 @@ There is no rule saying which classes should have a class side, because there is
 nowhere for a rule to live: the class side is not a place, it is some slots that
 happen to sit beside the instance ones.
 
-User-defined objects sharpen this. The built-in classes deliberately do *not*
-delegate to `object`, because `float` inheriting object's `new` would answer a
-plain object rather than a float -- so the built-in and user-defined sides are
-two hierarchies that do not meet. A single root would be tidier, and needs this
-question answered first.
+User-defined objects sharpen this. The built-in classes do *not* delegate to
+`object`, so the built-in and user-defined sides are two hierarchies that do not
+meet: `integer:isKindOf(object)` is false.
+
+This entry used to say a single root "needs this question answered first". That
+turns out to be wrong, and the correction is in
+[class-and-instance.md](class-and-instance.md#the-single-root-which-this-was-supposed-to-gate).
+The stated obstacle — `float` inheriting object's `new` and answering a plain
+object — stopped applying when `7ac6be6` gave `float` its own `new`, and 1.6's
+receiver checks refuse the two messages `integer` would actually inherit. Tried
+on a throwaway copy of the tree: eight lines, the whole suite passes, every
+`isKindOf(object)` becomes true and nothing leaks onto the values. What is left
+in the way is one question — what `new` should do on `string`, `symbol`, `block`
+and `boolean`, which have none of their own and would inherit object's.
+
+So the single root and this split are **separable**. Splitting the sides is
+still worth doing for what it does to `slots` and to `#45:new(#1)`; it is not
+what the root is waiting on.
 
 1.6 answered this **in the small**: each primitive records the receiver it needs
 and the dispatcher checks before entering it, one message at a time. That was

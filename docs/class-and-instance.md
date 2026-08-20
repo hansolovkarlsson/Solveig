@@ -153,7 +153,7 @@ cannot. Worth keeping as a cheap floor — the same argument as the send's stack
 check, which the verifier also made redundant and which stayed — but it would
 stop being load-bearing.
 
-## What it unblocks, which is the real reason
+## The single root, which this was supposed to gate
 
 The built-in classes deliberately do not delegate to `object`, because `float`
 inheriting `object`'s `new` would answer a plain object rather than a float. So
@@ -174,12 +174,71 @@ integer:parent.
 solvm: object does not understand 'parent'
 ```
 
-With the sides split, `object`'s `new` lives on the **class side**, so a built-in
-class's class side can delegate to it without leaking anything onto float
-values. The hierarchies join, `integer:isKindOf(object)` becomes true, and a
-single root stops being blocked.
+### But the obstacle has mostly dissolved underneath that
 
-That is why 2.5 sits under a tidy-sounding name and gates a structural change.
+The paragraph above is what this entry has said since it was written, and it is
+now largely out of date. Two things happened to it.
+
+`7ac6be6` gave `float` its own `new`, and `integer` and `array` have theirs, so
+those three would **shadow** `object`'s rather than inherit it. And `1.6` gave
+every primitive a receiver requirement, so what a built-in *would* inherit is
+refused before it runs.
+
+Measured rather than reasoned about. What `integer` would inherit from `object`
+is exactly two messages — everything else it already defines itself:
+
+```
+['via, 'parent]
+```
+
+Both are installed as `instance(vm->object_class, SOL_OBJ, ...)`, so both are
+refused for a receiver that is not an object.
+
+**So it was tried.** Eight lines in `sol_builtins_install`, setting every
+built-in class's `proto` to `object`, on a throwaway copy of the tree — not
+committed, and not proposed here as a change. The **whole test suite passes
+untouched**, and:
+
+| | today | with the root |
+| --- | --- | --- |
+| `integer:isKindOf(object)` | false | **true** |
+| `#45:isKindOf(object)` | false | **true** |
+| `"s"`, `[#1]`, `true` `:isKindOf(object)` | false | **true** |
+| `integer:parent` | `object does not understand 'parent'` | **`object`** |
+| `#45:parent` | — | `'parent' expects an object, got integer` |
+| `#45:via(integer)` | — | `'via' expects an object, got integer` |
+| `#45:add(#1)` | `#46` | `#46` |
+
+Nothing leaked onto the values. The last two rows are 1.6's receiver check doing
+exactly the job it was built for, three commits before anyone thought about a
+single root.
+
+### What is actually left in the way
+
+One message, on the four classes that have no `new` of their own:
+
+```
+string:respondsTo('new):print.   ; becomes true
+string:new:print.
+solvm: 'print' expects a string, got object
+```
+
+`string`, `symbol`, `block` and `boolean` would inherit `object:new`, which
+answers a fresh object delegating to the receiver. For `string` that is an
+object delegating to the `string` class object — **inert rather than wrong**: it
+errors on every message a string understands, because the receiver check refuses
+each one. Bad, but bad in the way a clear error is bad, not in the way a silent
+half-value is.
+
+So the decision is not "how do we build a metaclass level". It is **what should
+`new` do on a class that cannot construct anything** — refuse explicitly, or not
+be inherited at all. That is the same question the closing section of this
+document asks from the other end.
+
+Which means the single root and the class-side split are **less coupled than
+this entry has been claiming**. The root looks like eight lines and one decision
+about `new`; the split is worth doing on its own merits, and mostly for what it
+does to `slots` and to `#45:new(#1)`.
 
 ## The wrinkle to design carefully
 
@@ -196,15 +255,24 @@ incomplete.
 
 ## When to do it
 
-**Not yet.** None of today's symptoms bite a working program: `#45:new(#1)` is
-nonsense nobody writes, and mixed `slots` is cosmetic. Doing this now would be
-refactoring toward tidiness.
+**Not yet, and the case for it is weaker than it was.** The split was worth
+doing largely because it gated the single root, and the measurement above says
+it does not. What is left for it to fix is real but small:
 
-The thing worth having is the single root. So the trigger is **the first time
-`integer:isKindOf(object)` being false gets in the way** — when something wants
-to be generic over "any value" and finds the hierarchies do not meet. Done then,
-it removes a real obstacle, and the design will be better for having a concrete
-case pushing on it rather than a preference.
+- `#45:new(#1)` answers, which is nonsense nobody writes.
+- `integer:slots` mixes the two sides, and lists a slot `respondsTo` will not
+  answer.
+- There is nowhere for a rule about the class side to live, which is why four
+  classes have none and nobody noticed.
+
+None of those bites a working program. So doing the split now would be
+refactoring toward tidiness — worth it when reflection starts being used in
+earnest and `slots` reporting two audiences at once becomes a thing to explain
+rather than a thing to shrug at.
+
+**The single root is a separate decision, and a smaller one.** If it is wanted,
+the work is the eight lines and the answer to what `new` should do on the four
+classes that cannot construct anything. It does not wait on this.
 
 ---
 
@@ -309,7 +377,11 @@ way, `string`, `symbol`, `block` and `boolean` should not get one.
   to dispatch to.
 - 1.6 made it safe, one message at a time, without separating anything.
 - Metaclasses are the Smalltalk answer to a question this language does not ask.
-- A behaviour object per built-in is smaller, and is what unblocks a single root.
+- A behaviour object per built-in is smaller than a metaclass level.
+- The single root is **not** blocked by the split, which this document used to
+  claim. Tried on a throwaway copy: eight lines, the suite passes, and the only
+  thing left in the way is what `new` should do on the four classes that cannot
+  construct anything.
 - Worth doing when the single root is wanted, not before.
 - Separately: `new` is three operations sharing a name, and on `integer` and
   `float` it is the identity function left over from a design that was

@@ -331,6 +331,11 @@ A slot holding a block is a method; a slot holding anything else is data,
 evaluated once when bound. `self` is the receiver, and it comes from the send
 rather than being stored in the block — which is the fact section 14 turns on.
 
+Because `integer` is an object like any other, that example **added a method to
+every integer in the program**. Extending a built-in class needs no special
+form; it is the same binding. The reference has the two things worth knowing
+before you override a message that already exists.
+
 > **Run:** [examples/methods.sol](../examples/methods.sol)
 
 ## 10. Objects and prototypes
