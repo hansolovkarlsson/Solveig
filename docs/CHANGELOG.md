@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### One hierarchy: every built-in class delegates to `object` — `pending`, 2026-08-20
+### One hierarchy: every built-in class delegates to `object` — `a0b0d41`, 2026-08-20
 
 No `.sob` change. `#45:isKindOf(object)` is true now, and "everything is an
 object" holds of the type graph rather than only of the slogan.
