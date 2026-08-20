@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### A guide, and examples for the concepts that had none — `pending`, 2026-08-20
+### A guide, and examples for the concepts that had none — `e2ff82c`, 2026-08-20
 
 Documentation and examples. No code, no behaviour change.
 
