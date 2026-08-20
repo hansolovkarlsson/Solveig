@@ -28,7 +28,7 @@ marked as a sketch.
 | `#10:repeat({...})` | **Already writable**; cheap to build in |
 | `for` loop with start/end/step | **Already writable** |
 | `forIn` | **It is `do`** |
-| `ifTrue{...}` without parentheses | **No** — a second spelling for two characters |
+| `ifTrue{...}` without parentheses | **No** — it would teach a rule that does not generalise |
 | Performance timing | **Build it** — needs a clock |
 | `['red,'green,'blue]` as an enum | **Works today** — document the pattern |
 | `A:with{ :m1(#1). }` cascades | **No** — chaining already covers it |
@@ -248,22 +248,86 @@ change anything else about the system.
 
 ### `ifTrue{...}` — a block argument without parentheses
 
-The note already spots the problem: it works for `ifTrue` and `whileTrue` and not
-for `ifElse`, so it is a special case.
+```
+a:equals(b):ifTrue({ dosomething }).     ; today
+a:equals(b):ifTrue{ dosomething }.       ; proposed
+```
 
-It could be made uniform — *"a trailing block is the last argument"*, so
-`a:foo(x){...}` means `a:foo(x, {...})`, which is Kotlin's rule and Ruby's. That
-removes the special-casing objection. Two others remain:
+**Decided against** — but not for the reason this entry first gave, and the
+first reason was wrong enough to be worth correcting rather than quietly
+replacing.
 
-- **It is a second spelling for one thing.** design.md's principle is that two
-  spellings mean one thing, which is why `[...]` is *byte-identical* to
-  `array:of(...)` rather than merely equivalent. A trailing-block rule would be
-  a second way to write every send that ends in a block.
-- **It saves two characters.** `ifTrue({ x })` against `ifTrue{ x }`. Against
-  that: every reader has to learn the rule, and every tool has to implement it.
+#### What the rule actually is
 
-The current spelling is also honest about what is happening — the block is an
-argument, and it looks like one.
+This entry originally called it a special case: it works for `ifTrue` and
+`whileTrue` and not for `ifElse`. That misread the proposal. The rule is not an
+exception carved out for two messages, it is:
+
+> A lone block argument may drop its parentheses.
+
+`ifElse` is not an exception to that. It is *outside* it, having two arguments.
+And the rule reaches most of the language rather than a corner of it — of the
+ten messages that take a block, nine take exactly one:
+
+`and` `collect` `do` `ifFalse` `ifTrue` `or` `select` `sorted` `whileTrue`
+
+Only `ifElse` does not. So the rule is uniform, and the special-case objection
+does not apply to it.
+
+#### Nor is the cost
+
+The grammar has room. A block cannot follow a send today, so nothing becomes
+ambiguous:
+
+```
+> #1:print { #2 }:value:print.
+[line 1:10] solas: expected '.' between statements at '{'
+  #1:print { #2 }:value:print.
+           ^
+```
+
+It is one branch in the argument parser and one in the inlining probe. Perhaps
+fifteen lines. Cost is not why this is not being built.
+
+Neither is "a second spelling for one thing", which this entry also gave. That
+objection does not distinguish the idea from `[...]`, which is a second spelling
+for `array:of(...)` and was accepted — because it is *byte-identical* sugar, and
+a trailing block would be too. The principle is satisfied either way.
+
+#### Why not, then
+
+**It makes a message send look like syntax, exactly where the language works
+hardest to prove it is not one.**
+
+```
+a:equals(b):ifTrue{ dosomething }
+```
+
+reads as `if (...) { ... }`. Every document in the project makes a point of
+saying there is no `if` here — the tutorial's aside is titled *"An aside: there
+is no `if` in this language"* — and the parenthesised form is the proof, sitting
+at every use site. `ifTrue(...)` is visibly a message with an argument;
+`ifTrue{...}` is visibly a keyword with a body.
+
+What makes that awkward is that the objection is **use-site specific**. On
+`stock:do{ e | ... }` or `stock:collect{ e | e:name }` it barely applies —
+nothing there is pretending to be syntax, and the parentheses are noise around a
+closing `})`. So the rule is least costly where it is least needed and most
+costly on the conditionals, where it reads best. One rule cannot tell those apart
+without becoming the special case it set out not to be.
+
+**And it teaches a rule that does not generalise**, which is the decisive one.
+
+A reader meeting `ifTrue{ ... }` in an example has no way to see where the rule
+stops. The natural next guess is `ifElse{ ... }{ ... }`, which is not valid and
+never will be, and the guess after that is that braces attach to selectors
+generally. The shorthand's cost is not paid by someone who learns the rule
+properly from the reference — it is paid by someone who infers it from a
+snippet, and infers something wider than what is there.
+
+The parenthesised form has no edge to fall off. A block is an argument, and it
+is written where arguments are written, in every case, with no rule to remember
+about when it may be written otherwise.
 
 ### Cascades: `A:with{ :m1(#1). :m2(#45). }`
 

@@ -8,6 +8,47 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### The trailing-block verdict, argued properly this time — `pending`, 2026-08-20
+
+Documentation. No code, and that is the decision.
+
+`a:equals(b):ifTrue{ dosomething }` — a lone block argument dropping its
+parentheses. [ideas.md](ideas.md) already said no, and said it badly enough to be
+worth redoing rather than leaving.
+
+**The old entry called it a special case**: it works for `ifTrue` and `whileTrue`
+and not for `ifElse`. That misread the proposal. The rule is *a lone block
+argument may drop its parentheses*, and `ifElse` is not an exception to it but
+outside it, having two arguments. The rule is uniform, and it reaches most of the
+language rather than a corner: of the ten messages that take a block, nine take
+exactly one — `and`, `collect`, `do`, `ifFalse`, `ifTrue`, `or`, `select`,
+`sorted`, `whileTrue` — and only `ifElse` does not.
+
+**The old entry's other objection was cost**, which is also not it. A block
+cannot follow a send today, so the grammar has room and nothing becomes
+ambiguous; it is one branch in the argument parser and one in the inlining probe.
+Nor does "a second spelling for one thing" distinguish it from `[...]`, which is
+a second spelling for `array:of(...)` and was accepted, both being byte-identical
+sugar.
+
+What the entry now says instead:
+
+**It makes a message send look like syntax, exactly where the language works
+hardest to prove it is not one.** Every document here says there is no `if`, and
+the parenthesised form is the proof of that at every use site. The objection is
+use-site specific, which is what makes it awkward — on `stock:do{ e | ... }`
+nothing is pretending to be syntax — so the rule is least costly where it is
+least needed and most costly on the conditionals, where it reads best. One rule
+cannot tell those apart without becoming the special case it set out not to be.
+
+**And it teaches a rule that does not generalise**, which is the decisive one and
+Hans's. A reader meeting `ifTrue{ ... }` in a snippet has no way to see where the
+rule stops. The next guess is `ifElse{ ... }{ ... }`, which is not valid and never
+will be, and the one after that is that braces attach to selectors generally. The
+cost is not paid by whoever learns the rule properly from the reference; it is
+paid by whoever infers it from an example and infers something wider than what is
+there. The parenthesised form has no edge to fall off.
+
 ### Finished roadmap entries moved to a document of their own — `1feb449`, 2026-08-20
 
 Documentation. No code.
