@@ -1,9 +1,9 @@
 # The class side and the instance side
 
 *What roadmap [2.5](ROADMAP.md) is about, why it is only a problem for the
-built-in classes, why the answer is probably not metaclasses, and when it would
-be worth doing. Every snippet here has been run; the outputs are what the VM
-actually prints.*
+built-in classes, why the answer is probably not metaclasses, when it would be
+worth doing — and, at the end, what the class side should contain at all. Every
+snippet here has been run; the outputs are what the VM actually prints.*
 
 This is the one design question still open. Nothing in it blocks a working
 program today — it is recorded because the decision has a consequence that does
@@ -208,6 +208,97 @@ case pushing on it rather than a preference.
 
 ---
 
+## What should the class side contain?
+
+The same question, one level down, and separable from everything above: given
+that there is a class side, what belongs on it?
+
+`string`, `symbol`, `block` and `boolean` have none at all. Should they be given
+one — and what would `new` even mean for a string, a symbol, a block, or a
+boolean?
+
+The answer is no for all four, and the reason is that `new` is already three
+different operations sharing a spelling.
+
+### `new` means three things
+
+```c
+integer:new(#45)  ->  return args[0];                  /* identity, type-checked */
+array:new         ->  sol_array_new(vm, 0)             /* allocates              */
+object:new        ->  a fresh object delegating to self /* allocates and delegates */
+```
+
+The comment in `builtins.c` says the first one outright: *"Integers are immutable
+values, so there is nothing to allocate — `integer:new(#45)` is the long form of
+the literal `#45`."*
+
+It is not even a uniform protocol, because the arities disagree:
+
+```
+integer:new.        ; solvm: 'new' takes 1 argument, got 0
+array:new(#1).      ; solvm: 'new' takes 0 arguments, got 1
+```
+
+So no generic code can send `new` without already knowing which class it is
+talking to — which is the only thing a shared name would have bought.
+
+### Why none of the four wants one
+
+- **`string`** would get the `integer` flavour: `string:new("hi")` answering
+  `"hi"`, a no-op with a type check. A string is immutable, so unlike an array
+  there is nothing to allocate and then fill, and `""` already is the empty
+  string.
+- **`symbol`**: `symbol:new("foo")` is `"foo":asSymbol`, which exists and reads
+  better because it names the direction of the conversion. Adding `new` would
+  give one operation two spellings.
+- **`block`** has no possible meaning. A block's code comes from the compiler;
+  there is nothing to construct at run time. This one is not a judgement call.
+- **`boolean`** has exactly two values, both of them globals. `boolean:new(true)`
+  is identity with extra steps.
+
+### The question underneath
+
+The interesting question is not whether the four should gain `new`. It is
+whether the two identity ones should have it.
+
+`integer:new` and `float:new` allocate nothing and construct nothing. They are
+the literal, spelled longer — and `float:new` was added in `7ac6be6` *for
+symmetry with `integer:new`*, which is symmetry with something that does not do
+anything.
+
+They are also a **vestige of a design that was abandoned**. The original sketch
+in [design.md](design.md#original-notes) reads:
+
+```
+        integer:new(a)  ; sends message "integer" to top Object to create an integer object
+        a:set(#45)      ; assigns integer value #45 to integer object
+```
+
+That is a mutable integer object you construct and then fill. Numbers became
+immutable unboxed values instead, `set` never existed, and `new` survived the
+change with nothing left to do. It has been the identity function ever since,
+because that is all that was left once the thing it constructed stopped being a
+thing you construct.
+
+And it is what makes one of the symptoms above possible: `#45:new(#1)` answers
+because there is a `new` on `integer` at all.
+
+**So the tidier direction is the opposite of the question**: leave the four
+alone, and consider whether `integer:new` and `float:new` should go — leaving
+`new` meaning one thing, *make me a new one*, on the two classes where something
+is actually made.
+
+Two things weigh against doing that. It is a breaking change to a documented
+message, and [examples/hello.sol](../examples/hello.sol) uses it deliberately —
+*"integer:new is the explicit long form of the literal"* — as the closing of the
+loop from the original notes. It also costs nothing to keep.
+
+If they stay, the honest framing is that `new` on a value class is a **checked
+assertion** rather than a constructor, and it should be named for that. Either
+way, `string`, `symbol`, `block` and `boolean` should not get one.
+
+---
+
 ## Summary
 
 - `integer` is one object holding both what an integer understands and what the
@@ -220,3 +311,6 @@ case pushing on it rather than a preference.
 - Metaclasses are the Smalltalk answer to a question this language does not ask.
 - A behaviour object per built-in is smaller, and is what unblocks a single root.
 - Worth doing when the single root is wanted, not before.
+- Separately: `new` is three operations sharing a name, and on `integer` and
+  `float` it is the identity function left over from a design that was
+  abandoned. The four classes without a class side should keep not having one.

@@ -35,6 +35,23 @@ fixes, what it would make 1.6's receiver check redundant for, and the one wrinkl
 worth designing carefully, which is keeping `#45:isKindOf(integer)` true when
 `#45` no longer dispatches to the object `integer` names.
 
+A closing section asks the same question one level down — given that there is a
+class side, what belongs on it? `new` turns out to be **three operations sharing
+a spelling**: identity on `integer` and `float`, an allocation on `array`, an
+allocation and a delegation on `object`. Not even a uniform protocol, since the
+arities disagree, so nothing generic could send it anyway.
+
+None of the four missing classes wants one. A string is immutable, so unlike an
+array there is nothing to allocate and fill; `symbol:new("foo")` is `asSymbol`
+under a worse name; a block cannot be constructed at run time at all; and there
+are exactly two booleans.
+
+The interesting direction is the opposite: `integer:new` and `float:new` are the
+identity function, and they are a **vestige of the abandoned design**. The
+original sketch had `integer:new(a)` followed by `a:set(#45)` — a mutable integer
+object you construct and then fill. Numbers became immutable unboxed values,
+`set` never existed, and `new` outlived the model it was for.
+
 And it records a **trigger** rather than a recommendation to do it now: the
 symptoms are cosmetic — `#45:new(#1)` answers, `slots` mixes the sides — but the
 single root is not, and `integer:isKindOf(object)` being false is what should
