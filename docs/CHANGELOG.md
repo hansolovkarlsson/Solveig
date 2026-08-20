@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### Inlined conditionals — `pending`, 2026-08-19
+### Inlined conditionals — `54e2ae1`, 2026-08-19
 
 **`.sob` goes to version 7.**
 
