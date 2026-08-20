@@ -431,11 +431,28 @@ static int simple_instruction(const char *name, int offset)
     return offset + 1;
 }
 
+/* Renders one pooled constant, with no VM to render it against.
+ *
+ * That is not a limitation here: a constant is only ever an immutable scalar --
+ * `check_constants` refuses objects, blocks, arrays, strings, delegates and
+ * symbols outright -- so there is never a receiver to ask. Roadmap 5.2 recorded
+ * this as a gap for a while, on the strength of the function's old name rather
+ * than what it is handed. `print` the message goes through `prim_print`, which
+ * does have a VM and does send `asString`. */
+static void print_constant(SolValue value)
+{
+    SolText text;
+    sol_text_init(&text);
+    sol_value_render(NULL, value, &text);
+    fwrite(text.chars, 1, (size_t)text.length, stdout);
+    sol_text_free(&text);
+}
+
 static int constant_instruction(const char *name, const SolChunk *chunk, int offset)
 {
     uint16_t index = sol_read_u16(&chunk->code[offset + 1]);
     printf("%-8s %4d '", name, index);
-    sol_value_print(chunk->constants.values[index]);
+    print_constant(chunk->constants.values[index]);
     printf("'\n");
     return offset + 3;
 }

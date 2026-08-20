@@ -183,15 +183,6 @@ void sol_value_render(SolVM *vm, SolValue value, SolText *out)
     render(vm, value, out, 0);
 }
 
-void sol_value_print(SolValue value)
-{
-    SolText text;
-    sol_text_init(&text);
-    sol_value_render(NULL, value, &text);
-    fwrite(text.chars, 1, (size_t)text.length, stdout);
-    sol_text_free(&text);
-}
-
 void sol_value_array_init(SolValueArray *array)
 {
     array->count = 0;

@@ -102,9 +102,6 @@ void sol_text_append(SolText *text, const char *chars, int length);
    back to its address. */
 void sol_value_render(SolVM *vm, SolValue value, SolText *out);
 
-/* Writes the literal form to stdout, without a VM. For the disassembler. */
-void sol_value_print(SolValue value);
-
 /* Value array -- backing store for a chunk's constant pool. */
 typedef struct {
     int      count;

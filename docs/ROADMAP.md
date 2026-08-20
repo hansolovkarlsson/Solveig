@@ -820,8 +820,18 @@ Still missing: nothing asks an object for a *literal* form distinct from its
 display form, the way `#45` prints as `#45` but displays as `45`. Objects have
 one representation, which is probably right.
 
-`sol_value_print` prints `<object 0x...>` instead of sending `print` to the
-object. Wants dispatch from inside the printer, or a `printOn:`-style protocol.
+This entry also used to end by saying `sol_value_print` prints `<object 0x...>`
+instead of sending `print` to the object, and wants dispatch from inside the
+printer. That was read off the function's name rather than off what it is
+handed, and it had not been true since `f55e105`. `print` the message goes
+through `prim_print`, which has a VM and does send `asString`. The function had
+exactly one caller — the disassembler, rendering a pooled constant — and a
+constant is only ever an immutable scalar, since `check_constants` refuses
+objects, blocks, arrays, strings, delegates and symbols outright. There was
+never a receiver there to ask.
+
+It is now a static `print_constant` in `bytecode.c` beside its only caller,
+named for what it prints, so the name cannot suggest the gap again.
 
 ### 5.3 Float text round-tripping — **done**
 
@@ -882,15 +892,13 @@ program in is built. Section 1 held nothing until fuzzing the loop work put two
 crashes into it, and both are now fixed — the receiver check in 1.6 took 1.5
 with it, as that entry guessed it would.
 
-This list has run out. Sections 1, 3 and 4 are done; section 2 holds one open
-decision; section 5 is done but for the last paragraph of 5.2, where
-`sol_value_print` still shows an address instead of sending `print` to the
-object.
+**This list has run out.** Sections 1, 3, 4 and 5 are done. Section 2 holds one
+open decision — 2.5, and smaller than it was, now that the single root turned
+out not to be waiting on it.
 
-So there is no next item to name. What comes after this is the one decision
-below, and whatever the first real program written in Solum turns out to
-want — which is a better source of work than a list written before there
-were any.
+So there is no next item to name. What comes after this is that decision, and
+whatever the first real program written in Solum turns out to want — which is a
+better source of work than a list written before there were any.
 
 Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), arrays entire
 (1.2, 1.2a, 1.2b), strings (1.3), user-defined objects (1.4), division (2.1),

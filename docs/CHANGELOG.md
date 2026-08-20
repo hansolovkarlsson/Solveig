@@ -8,6 +8,34 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### The last item on the roadmap was already done — `pending`, 2026-08-20
+
+Roadmap 5.2 ended by saying `sol_value_print` prints `<object 0x...>` instead of
+sending `print` to the object, and wants dispatch from inside the printer or a
+`printOn:`-style protocol. That was the one concrete thing left on the list.
+
+It had not been true since `f55e105`, and the entry had been read off the
+function's name rather than off what it is handed. `print` the message goes
+through `prim_print`, which has a VM and does send `asString` — which is what
+`5.2` was, and why an object defining `asString` is shown that way by `print`,
+`display`, `fill` and array rendering alike.
+
+`sol_value_print` had exactly one caller: the disassembler, rendering a pooled
+constant. And a constant is only ever an immutable scalar — `check_constants`
+refuses objects, blocks, arrays, strings, delegates and symbols outright — so
+there was never a receiver there to ask. Passing no VM was correct by
+construction.
+
+So there was nothing to build, and the fix is to stop the name inviting the
+misreading a third time: it is now a static `print_constant` in `bytecode.c`
+beside its only caller, named for what it prints, and `value.h` is one public
+symbol smaller.
+
+**Sections 1, 3, 4 and 5 of the roadmap are now done**, and the list has run
+out. What is left is 2.5 — smaller than it was, since the single root turned out
+not to be waiting on it — and whatever the first real program written in Solum
+asks for.
+
 ### Why a built-in cannot be subclassed — `6d89cac`, 2026-08-20
 
 Documentation. No code.
