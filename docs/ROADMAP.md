@@ -314,9 +314,28 @@ to read for why. What those decisions left unfinished is 2.14.
 
 ### 2.5 Class side versus instance side
 
-`integer` holds both `new` and `print` in one object, so `#45:new(#1)` resolves as
-readily as `integer:new(#1)`. Separating them needs a metaclass level. Also
-uneven today: `integer` has `new` and `float` does not.
+`integer` holds both `new` and `print` in one object, so `#45:new(#1)` resolves
+as readily as `integer:new(#1)` — and answers, which is nonsense that works.
+`integer:slots` lists both sides together, and lists `add`, which
+`integer:respondsTo('add)` correctly says it will not answer: `slots` reports
+what is there and `respondsTo` asks the dispatch question, and here the two
+have different answers.
+
+The unevenness this entry used to record — `integer` having `new` where `float`
+did not — was half fixed in `7ac6be6`, and is worth restating accurately, since
+it is a symptom of the same thing. The class side is populated where somebody
+needed it and nowhere else:
+
+| | `new` | `of` |
+| --- | --- | --- |
+| `integer`, `float` | yes | — |
+| `array` | yes | yes |
+| `object` | yes | — |
+| `string`, `symbol`, `block`, `boolean` | — | — |
+
+There is no rule saying which classes should have a class side, because there is
+nowhere for a rule to live: the class side is not a place, it is some slots that
+happen to sit beside the instance ones.
 
 User-defined objects sharpen this. The built-in classes deliberately do *not*
 delegate to `object`, because `float` inheriting object's `new` would answer a
