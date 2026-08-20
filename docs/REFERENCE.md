@@ -526,8 +526,36 @@ m:value.                 ; solvm: nil does not understand 'x'
 p:perform('sum):print.   ; #7 -- the receiver comes from the send
 ```
 
-Fetching a method is for passing it around or inspecting it. To call one, send
-it -- with `perform` if the name is decided at run time.
+`boundTo` chooses one. It answers a **second block** over the same code with
+`self` set, which you then call like any other block:
+
+```
+bound := m:boundTo(p).
+bound:value:print.       ; #7
+```
+
+Binding and calling stay two things, as `via` keeps them two things. So `value`
+means exactly what it always meant -- the arguments are the block's own, and the
+receiver is not one of them:
+
+```
+n := integer:slotAt('poly):boundTo(#10).
+n:value(#3, #7):print.   ; #37
+```
+
+The receiver may be any value, since `self` may be. The original block is
+untouched: binding answers a new one, and binding that one binds again.
+
+Two things it does **not** do. It does not lift the frame restriction — a block
+that reads its home frame is no freer for being bound, so binding chooses a
+receiver, not a lifetime. And it does not survive a send: installing a bound
+block in a slot still makes an ordinary method, and a send supplies its own
+receiver, which is what makes an installed block a method at all.
+
+```
+b:show := m:boundTo(a).
+b:show.                  ; the send wins -- self is b, not a
+```
 
 ---
 
@@ -735,6 +763,7 @@ state:equals('running):ifTrue({ "go":display }).
 | Message | Answers |
 | --- | --- |
 | `value(...)` | the block's answer; the count must match its parameters |
+| `boundTo(receiver)` | a new block over the same code, with `self` set |
 | `whileTrue(body)` | nil, having run `body` while the receiver answers true |
 
 ### object

@@ -156,10 +156,6 @@ Written literally, all of those compile to jumps -- no block allocated, no frame
 entered -- while staying ordinary messages you can send any other way. See
 [examples/blocks.sol](examples/blocks.sol).
 
-Still to do:
-
-- [ ] calling a method you fetched -- `slotAt` hands back an unbound block
-
 ## License
 
 MIT -- see [LICENSE](LICENSE).

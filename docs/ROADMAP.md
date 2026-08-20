@@ -335,11 +335,14 @@ Small, and each falls out of a decision above rather than being a question of it
 own.
 
 - **`isNil`** (2.8) is absent, though `x:equals(nil)` says it.
-- **A fetched method is unbound** (2.10). `slotAt` answers the plain block, and
-  `self` comes from a send rather than being carried by the block, so `m:value`
-  runs with `self` nil. Calling one with a chosen receiver wants something like
-  `valueWith(receiver, ...)`, which is a real question and not that one. Item 2
-  in the suggested order.
+- ~~**A fetched method is unbound**~~ (2.10) — **done**. `boundTo(receiver)`
+  answers a second block over the same code with `self` set, which is then
+  called like any other block. Answering a block rather than calling it follows
+  `via`: binding and calling stay two things, so `value` goes on meaning what it
+  meant and the receiver is never one of the arguments. It chooses a receiver,
+  not a lifetime — a capturing block is no freer for being bound — and a send
+  still supplies its own receiver, so installing a bound block makes an ordinary
+  method.
 - **Reflection cannot write** (2.10). There is no `slotAtPut`; no way to remove a
   slot, so a shadowing one cannot be un-shadowed (1.4); and no re-parenting,
   which would need the delegation link to become a real slot rather than the
@@ -777,10 +780,9 @@ with it, as that entry guessed it would.
 Nothing here is urgent. The remaining items are roughly in order of how soon
 they would be missed:
 
-1. **Calling a fetched method** — `slotAt` hands back an unbound block (2.14).
-2. **Stack heights in the verifier** (3.9) — would catch a corrupted argument
+1. **Stack heights in the verifier** (3.9) — would catch a corrupted argument
    count at load rather than at the send, and let the runtime checks go.
-3. Everything else as it starts to hurt.
+2. Everything else as it starts to hurt.
 
 Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), arrays entire
 (1.2, 1.2a, 1.2b), strings (1.3), user-defined objects (1.4), division (2.1),
@@ -789,8 +791,9 @@ formatted output (2.11), the statement separator (2.2), float exponents and
 round-tripping (2.6, 5.3), string escapes (1.3), rendering an object by asking
 it (5.2), symbols (2.7), reflection (2.10), sorting, inlined conditionals and
 loops and now `and`/`or` (4.1), the two class-object crashes (1.5, 1.6), the
-side-table operands (4.2), the frameless temporary (1.7), and dispatch by
-pointer with the side tables' hash index (4.3, 4.3a).
+side-table operands (4.2), the frameless temporary (1.7), dispatch by
+pointer with the side tables' hash index (4.3, 4.3a), and binding a fetched
+method (2.14).
 
 One decision is outstanding: **2.5**, class side versus instance side. 1.6
 answered it one message at a time, which was enough to stop the crashes;

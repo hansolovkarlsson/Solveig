@@ -123,6 +123,12 @@ Smalltalk lineage, prototype flavour:
   ancestor is named rather than inferred, so no frame has to record where a
   running method was defined, and a method cannot find itself again. `parent`
   reads the delegation link, read-only.
+- A method fetched with `slotAt` is the plain block, and `self` comes from a
+  send rather than being carried, so a fetched one has no receiver until
+  `boundTo(receiver)` gives it one -- which answers a second block over the same
+  code rather than calling it, the same shape as `via`. A send still supplies
+  its own receiver, which is what makes an installed block a method, so binding
+  chooses a receiver for `value` and never overrides a send.
 - Message send is the only way to make anything happen. `:` is the send
   operator: `receiver:message(args)`.
 - Slot lookup walks the proto chain and terminates at the root Object, which

@@ -979,6 +979,36 @@ static SolValue prim_value(SolVM *vm, SolValue self, SolValue *args, int argc)
     return sol_vm_call_block(vm, self, args, argc);
 }
 
+/* `m:boundTo(receiver)` -- the same code, run with a receiver you choose.
+ *
+ * A block carries the `self` it was written under, and a send to a slot holding
+ * one supplies its own receiver instead. That is what makes an installed block
+ * a method, and it is why a *fetched* method is unbound: `slotAt` answers the
+ * plain block, so `m:value` runs with whatever `self` was where it was written
+ * -- nil, for a method written at the top level.
+ *
+ * This answers a second block over the same code with `self` set. Answering a
+ * block rather than calling it follows `via`, which answers a delegating view
+ * rather than doing the send: binding and calling are two things, so `value`
+ * goes on meaning exactly what it meant, arity included -- there is no
+ * argument list with a receiver hidden at the front of it.
+ *
+ * The home frame comes across unchanged, so a capturing block is no freer than
+ * it was: binding chooses a receiver, not a lifetime (3.1).
+ *
+ * No temp root. The receiver of this send and its argument are both still on
+ * the value stack -- the dispatch loop drops them after the primitive returns,
+ * not before -- and the stack is a root, so the collection sol_block_new may
+ * trigger can see both. */
+static SolValue prim_bound_to(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "boundTo", argc, 1)) return SOL_NIL_VAL;
+
+    SolBlock *block = SOL_AS_BLOCK(self);
+    return SOL_BLOCK_VAL(sol_block_new(vm, block->code, args[0],
+                                       block->home_frame, block->home_id));
+}
+
 /* `{ condition }:whileTrue({ body })` -- the receiver is re-run every pass,
    which is the whole reason it has to be a block rather than a value. */
 static SolValue prim_while_true(SolVM *vm, SolValue self, SolValue *args, int argc)
@@ -1810,6 +1840,7 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->block_class, SOL_BLOCK, "notEquals", prim_not_equals);
     instance(vm, vm->block_class, SOL_BLOCK, "asString", prim_rendered_as_string);
     instance(vm, vm->block_class, SOL_BLOCK, "value", prim_value);
+    instance(vm, vm->block_class, SOL_BLOCK, "boundTo", prim_bound_to);
     instance(vm, vm->block_class, SOL_BLOCK, "whileTrue", prim_while_true);
 
     vm->array_class = sol_object_new(vm, NULL);

@@ -8,6 +8,67 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### `boundTo`: calling the method you fetched — `pending`, 2026-08-20
+
+No `.sob` change — a primitive, not an opcode. Roadmap 2.14, the last item that
+was ahead of the verifier work.
+
+```
+m := point:slotAt('sum).
+m:value.                 ; solvm: nil does not understand 'x'
+
+m:boundTo(p):value:print.        ; #7
+```
+
+A slot holding a block is a method, so `slotAt` is the only way to hold one as
+a value — and what comes back is unbound, because `self` is supplied by a send
+rather than carried by the block. A method written at the top level has `self`
+nil, so calling a fetched one asked nil for the receiver's slots.
+
+**It answers a block rather than calling one**, which was the decision here.
+The alternative was `valueWith(receiver, ...)`, running immediately with the
+receiver as the first argument. Answering a block follows `via`, which answers a
+delegating view rather than doing the send — binding and calling are two things,
+and keeping them two has three consequences worth having:
+
+- `value` goes on meaning exactly what it meant, arity included. The arguments
+  are the block's own and the receiver is not among them, so
+  `m:boundTo(#10):value(#3, #7)` has no ambiguity about which is which, where
+  `valueWith(p)` on a one-argument block would have been an arity error that
+  reads like a one-argument call.
+- A bound method is a value. It can be passed around, and bound once and called
+  many times.
+- The original is untouched, so one fetched method binds to each of several
+  receivers in turn: `[p, q]:collect({ e | m:boundTo(e):value })`.
+
+Any value may be the receiver, since `self` may be.
+
+**Two things it deliberately does not do.** It does not lift the frame
+restriction: the home frame comes across unchanged, so a block that reads it is
+no freer for being bound — binding chooses a receiver, not a lifetime (3.1). And
+it does not survive a send. Installing a bound block in a slot makes an ordinary
+method, and a send supplies its own receiver, which is what makes an installed
+block a method at all:
+
+```
+b:show := m:boundTo(a).
+b:show.                  ; self is b -- the send wins, not the binding
+```
+
+That last one is the one place binding looks like it ought to win and does not,
+so there is a test holding it there.
+
+No temp root, and the reasoning is worth recording because the rule elsewhere
+has been the opposite. `sol_block_new` allocates and so may collect, but the
+receiver of the send and its argument are both still on the value stack — the
+dispatch loop drops them *after* the primitive returns — and the stack is a
+root. Under `SOLUM_GC_STRESS=1` a collection happens between entering the
+primitive and the new block being registered, so a hundred bindings in a loop
+under ASan is what would catch that reasoning being wrong. It is clean.
+
+Seven tests in `tests/test_reflect.c`, and `examples/reflect.sol` grew a
+section. Every snippet in the reference was run.
+
 ### Dispatch by pointer, and a hash over the side tables — `1bc0e56`, 2026-08-20
 
 No `.sob` change, and no change a program can see: same bytes out of the
