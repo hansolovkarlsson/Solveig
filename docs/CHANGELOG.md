@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### Wrote down the class-side question — `pending`, 2026-08-20
+### Wrote down the class-side question — `bb5f077`, 2026-08-20
 
 Documentation. No code.
 
