@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### Solis reads until the input could compile — `pending`, 2026-08-20
+### Solis reads until the input could compile — `edccb90`, 2026-08-20
 
 Roadmap 5.1. No `.sob` change and no change to the language.
 
