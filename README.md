@@ -147,7 +147,7 @@ See [examples/blocks.sol](examples/blocks.sol).
 
 Still to do:
 
-- [ ] sorting -- arrays have no `sort`, though strings and numbers now order
+- [ ] calling a fetched method -- `slotAt` hands back a block with no receiver
 - [ ] sorting -- strings and numbers order, but arrays have no `sort`
 
 ## License

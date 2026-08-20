@@ -234,7 +234,12 @@ b := { #21:add(#21) }.
 b:value():print.              ; #42
 ```
 
-Parameters come before `|`; a leading `|` declares temporaries instead.
+Parameters come before `|`. A leading `|` declares temporaries, and a block may
+have both -- the parameters, then a temporaries list of its own:
+
+```
+{ k | | t | t := k:add(#1). t }
+```
 
 ```
 add := { a, b | a:add(b) }.
@@ -540,9 +545,28 @@ padding comes from the spec by chaining:
 | `do(block)` | the array, having run the block per element |
 | `collect(block)` | a new array of the block's answers |
 | `select(block)` | a new array of the elements the block accepted |
+| `sorted` | a new array in ascending order |
+| `sorted(block)` | a new array ordered by the block |
 
-`collect` and `select` leave the receiver untouched. `select` is strict about the
-block answering a boolean.
+`collect`, `select`, and `sorted` leave the receiver untouched. `select` and the
+comparison block are both strict about answering a boolean.
+
+**Sorting.** With no argument the order comes from *sending* `lessThan`, so a
+type that defines one sorts itself:
+
+```
+[#3, #1, #2]:sorted:print.                            ; [#1, #2, #3]
+["pear", "apple"]:sorted:print.                       ; ["apple", "pear"]
+[#1, #3, #2]:sorted({ a, b | b:lessThan(a) }):print.  ; [#3, #2, #1]
+```
+
+The comparison answers whether `a` comes strictly before `b`. Mixed types are an
+error rather than an arbitrary order, for the same reason arithmetic on them is:
+`lessThan` has no coercion to fall back on.
+
+The sort is **stable** -- equal elements keep the order they were in -- which is
+what makes sorting twice a way to order by two keys: sort by the minor key
+first, then by the major one.
 
 ### symbol
 

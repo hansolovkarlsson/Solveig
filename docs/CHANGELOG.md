@@ -8,6 +8,40 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### Sorting — `pending`, 2026-08-19
+
+```
+[#3, #1, #2]:sorted:print.                            ; [#1, #2, #3]
+[#1, #3, #2]:sorted({ a, b | b:lessThan(a) }):print.  ; [#3, #2, #1]
+```
+
+`sorted` answers a **new array**, like `collect` and `select`; nothing sorts in
+place. With no block the order comes from *sending* `lessThan`, so a type that
+defines one sorts itself, the way `fill` honours an overridden `asString`
+instead of going around it. Mixed types are an error rather than an arbitrary
+order — `lessThan` has no coercion to fall back on.
+
+**Stable**, and tested as such: sorting twice orders by two keys, minor first.
+
+Merge sort, chosen for two reasons past the O(n log n). It is stable. And it
+cannot be walked off the end by a comparison that contradicts itself — a program
+is free to write `{ a, b | true }`, and the indices are bounded by the halves
+rather than by what the comparison claims. A quicksort partition trusting the
+comparison would not be. There is a test that a self-contradicting comparison
+loses no element.
+
+The comparison calls back into the VM, so it can allocate and collect mid-merge.
+Removing the root on the result array gives `heap-use-after-free` in
+`merge_sort` under stress. What makes it safe is that a value is *copied* into
+the scratch array and never moved, so until the copy back it is still in the
+rooted result — an invariant of how merging works, now written down where the
+next person will need it.
+
+Checked against a reference sort on 2000 runtime-generated values, and under
+ASan with GC stress on every comparison.
+
+No `.sob` change: `sorted` is a primitive, so the format stays at version 6.
+
 ### Reflection — `a7310a7`, 2026-08-19
 
 ```

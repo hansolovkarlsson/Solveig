@@ -1135,6 +1135,113 @@ static SolValue prim_array_collect(SolVM *vm, SolValue self, SolValue *args, int
     return SOL_ARRAY_VAL(result);
 }
 
+/* Does `a` sort strictly before `b`?
+ *
+ * With no block the default is to *send* `lessThan`, so a user-defined type
+ * that defines one orders itself, the way `fill` honours an overridden
+ * `asString` rather than going around it. Either way this calls back into the
+ * VM, so it can allocate, collect, and fail. */
+static bool sorts_before(SolVM *vm, SolValue comparison, SolValue a, SolValue b,
+                         bool *before)
+{
+    SolValue answer;
+    if (SOL_IS_NIL(comparison)) {
+        SolValue other = b;
+        answer = sol_vm_send(vm, a, "lessThan", &other, 1);
+    } else {
+        SolValue pair[2] = { a, b };
+        answer = sol_vm_call_block(vm, comparison, pair, 2);
+    }
+    if (vm->had_error) return false;
+
+    if (!SOL_IS_BOOL(answer)) {
+        sol_vm_runtime_error(vm, "sort expects the comparison to answer a "
+                                 "boolean, got %s", sol_type_name(answer));
+        return false;
+    }
+    *before = SOL_AS_BOOL(answer);
+    return true;
+}
+
+/* Merge sort, for two reasons beyond the O(n log n).
+ *
+ * It is stable, which is what makes sorting twice a way to sort by two keys.
+ * And it cannot be walked off the end of the array by a comparison that
+ * contradicts itself -- a program is free to hand us `{ a, b | true }`, and the
+ * indices here are bounded by the halves rather than by what the comparison
+ * claims. A quicksort partition trusting the comparison would not be.
+ *
+ * `items` and `scratch` are the backing stores of two arrays the caller holds
+ * rooted. The comparison can collect at any point, and what keeps every value
+ * alive across that is `items`: a value is *copied* into scratch, never moved,
+ * so until the copy back at the end of a merge it is still in `items` too.
+ * Rooting the result array is therefore what makes this safe -- drop it and a
+ * comparison that allocates will free values out from under the merge. */
+static bool merge_sort(SolVM *vm, SolValue comparison, SolValue *items,
+                       SolValue *scratch, int lo, int hi)
+{
+    if (hi - lo < 2) return true;
+
+    int mid = lo + (hi - lo) / 2;
+    if (!merge_sort(vm, comparison, items, scratch, lo, mid)) return false;
+    if (!merge_sort(vm, comparison, items, scratch, mid, hi)) return false;
+
+    int i = lo, j = mid, k = lo;
+    while (i < mid && j < hi) {
+        bool before;
+        /* Asked the other way round on purpose: take from the right only when
+           it sorts *strictly* before the left, so equals keep their order. */
+        if (!sorts_before(vm, comparison, items[j], items[i], &before)) return false;
+        scratch[k++] = before ? items[j++] : items[i++];
+    }
+    while (i < mid) scratch[k++] = items[i++];
+    while (j < hi)  scratch[k++] = items[j++];
+
+    for (int x = lo; x < hi; x++) items[x] = scratch[x];
+    return true;
+}
+
+/* `xs:sorted` or `xs:sorted({ a, b | ... })` -- a new array, like collect and
+   select. Nothing here sorts in place. */
+static SolValue prim_array_sorted(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (argc > 1) {
+        sol_vm_runtime_error(vm, "'sorted' takes 0 or 1 arguments, got %d", argc);
+        return SOL_NIL_VAL;
+    }
+    SolValue comparison = SOL_NIL_VAL;
+    if (argc == 1) {
+        if (!SOL_IS_BLOCK(args[0])) {
+            sol_vm_runtime_error(vm, "'sorted' expects a block, got %s",
+                                 sol_type_name(args[0]));
+            return SOL_NIL_VAL;
+        }
+        comparison = args[0];
+    }
+
+    SolArray *source = SOL_AS_ARRAY(self);
+    int count = source->count;
+
+    SolArray *result = sol_array_new(vm, count);
+    sol_gc_push_temp(vm, &result->gc);
+    for (int i = 0; i < count; i++) sol_array_add(vm, result, source->items[i]);
+
+    SolArray *scratch = sol_array_new(vm, count);
+    sol_gc_push_temp(vm, &scratch->gc);
+    /* Filled, not merely reserved. The tracer walks `count` rather than
+       `capacity`, so this is what makes the scratch array describe its own
+       contents -- today every value in it is also still in `result`, which is
+       what actually keeps it alive, but that is an invariant of how merging
+       copies and not something the array itself states. */
+    for (int i = 0; i < count; i++) sol_array_add(vm, scratch, SOL_NIL_VAL);
+
+    bool ok = merge_sort(vm, comparison, result->items, scratch->items, 0, count);
+
+    sol_gc_pop_temp(vm);                       /* scratch */
+    sol_gc_pop_temp(vm);                       /* result */
+    return ok ? SOL_ARRAY_VAL(result) : SOL_NIL_VAL;
+}
+
 static SolValue prim_array_select(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     if (!check_argc(vm, "select", argc, 1)) return SOL_NIL_VAL;
@@ -1683,6 +1790,7 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define_primitive(vm->array_class, "collect", prim_array_collect);
     sol_object_define_primitive(vm->array_class, "select",  prim_array_select);
     sol_object_define_primitive(vm->array_class, "print",  prim_print);
+    sol_object_define_primitive(vm->array_class, "sorted",  prim_array_sorted);
     sol_object_define_primitive(vm->array_class, "display", prim_display);
     sol_object_define_primitive(vm->array_class, "equals",    prim_equals);
     sol_object_define_primitive(vm->array_class, "notEquals", prim_not_equals);

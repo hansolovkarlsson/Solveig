@@ -59,3 +59,25 @@ squares:print.               ; [#1, #4, #9, #16, #25]
     :collect({ x | x:mul(x) })
     :select({ x | x:lessThan(#30) })
     :print.                  ; [#1, #4, #9, #16, #25]
+
+; sorted answers a new array, like collect and select -- the receiver is left
+; alone. With no block the order comes from *sending* lessThan.
+[#3, #1, #2]:sorted:print.                            ; [#1, #2, #3]
+["pear", "apple", "fig"]:sorted:print.                ; ["apple", "fig", "pear"]
+
+; A block orders by whatever you like; it answers whether a comes before b.
+[#1, #3, #2]:sorted({ a, b | b:lessThan(a) }):print.  ; [#3, #2, #1]
+
+; The sort is stable, so sorting twice orders by two keys -- minor key first,
+; then major. Here: by name within each score.
+row := { name, score | | r |
+    r := object:new. r:name := name. r:score := score. r
+}.
+
+rows := [row:value("cara", #2), row:value("abe", #1),
+         row:value("bea", #2), row:value("dan", #1)].
+
+rows:sorted({ x, y | x:name:lessThan(y:name) })
+    :sorted({ x, y | x:score:lessThan(y:score) })
+    :collect({ r | r:name })
+    :print.                                           ; ["abe", "dan", "bea", "cara"]

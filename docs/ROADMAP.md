@@ -327,8 +327,10 @@ Rendering moved into one place -- a text buffer in `value.c` -- so `print` and a
 composite's `asString` produce the same text by construction rather than by
 agreement.
 
-Still absent, and small: `isNil` (though `x:equals(nil)` says it), and sorting,
-which now has the ordering it needs.
+Still absent, and small: `isNil`, though `x:equals(nil)` says it.
+
+Sorting is done: `sorted` and `sorted(block)`, stable, ordering by a real send of
+`lessThan` so a user-defined type sorts itself.
 
 ---
 
@@ -648,12 +650,12 @@ could write a real program in are all built. What is left is filling it out.
 Nothing here is urgent any more. The remaining items are, roughly in order of
 how soon they would be missed:
 
-1. **Sorting** — arrays have no `sort`, though strings and numbers now order,
-   and `perform` now gives a comparison somewhere to come from.
-2. **Inlining conditionals** (4.1), which would also roughly double the usable
+1. **Inlining conditionals** (4.1), which would also roughly double the usable
    recursion depth (3.5), and could use interned symbols for dispatch (4.3).
-3. **Calling a fetched method** — `slotAt` hands back an unbound block, and
+2. **Calling a fetched method** — `slotAt` hands back an unbound block, and
    there is no way to invoke one against a chosen receiver (2.10).
+3. **A bigger constant pool** — one chunk holds a limited number of constants,
+   and a literal-heavy program hits it well before anything else (3.x).
 4. Everything else as it starts to hurt.
 
 Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), arrays entire
@@ -661,7 +663,7 @@ Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), arrays entire
 calling the method you override (2.9), the missing operations (2.8),
 formatted output (2.11), the statement separator (2.2), float exponents and
 round-tripping (2.6, 5.3), string escapes (1.3), rendering an object by asking
-it (5.2), symbols (2.7), and reflection (2.10).
+it (5.2), symbols (2.7), reflection (2.10), and sorting.
 
 No decisions are outstanding.
 
