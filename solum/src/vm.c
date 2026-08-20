@@ -293,15 +293,16 @@ static SolResult run_frames(SolVM *vm, int base)
     SolFrame *frame = &vm->frames[vm->frame_count - 1];
 
 #define READ_BYTE() (*frame->ip++)
-#define READ_NAME() (sol_chunk_name(frame->chunk, READ_BYTE()))
-#define READ_SHORT() (frame->ip += 2, (uint16_t)((frame->ip[-2] << 8) | frame->ip[-1]))
+#define READ_SHORT() (frame->ip += 2, sol_read_u16(frame->ip - 2))
+#define READ_INDEX() ((int)READ_SHORT())
+#define READ_NAME() (sol_chunk_name(frame->chunk, READ_INDEX()))
 
     for (;;) {
         uint8_t instruction = READ_BYTE();
         switch (instruction) {
 
         case OP_CONST:
-            sol_vm_push(vm, frame->chunk->constants.values[READ_BYTE()]);
+            sol_vm_push(vm, frame->chunk->constants.values[READ_INDEX()]);
             break;
 
         case OP_NIL:
@@ -383,7 +384,7 @@ static SolResult run_frames(SolVM *vm, int base)
         }
 
         case OP_BLOCK: {
-            const SolMethod *code = frame->chunk->methods.methods[READ_BYTE()];
+            const SolMethod *code = frame->chunk->methods.methods[READ_INDEX()];
 
             /* The block's home is the frame creating it. Blocks nested inside
                will home to this block's frame in turn, so reaching further out
@@ -561,8 +562,9 @@ static SolResult run_frames(SolVM *vm, int base)
         if (vm->had_error) return SOL_RUNTIME_ERROR;
     }
 
-#undef READ_SHORT
 #undef READ_NAME
+#undef READ_INDEX
+#undef READ_SHORT
 #undef READ_BYTE
 }
 

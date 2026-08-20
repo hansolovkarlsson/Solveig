@@ -283,22 +283,36 @@ Two scanning rules keep this unambiguous:
 
 A stack machine where nearly everything is `OP_SEND`.
 
-| Opcode      | Operands               | Effect                                      |
-| ----------- | ---------------------- | ------------------------------------------- |
-| `OP_CONST`  | u8 const index         | push `constants[idx]`                       |
-| `OP_NIL`    | --                     | push nil                                    |
-| `OP_GLOBAL` | u8 name index          | push the named global                       |
-| `OP_SET_GLOBAL` | u8 name index      | bind the name, leave the value on the stack |
-| `OP_LOCAL`  | u8 slot                | push a frame slot (slot 0 is `self`)        |
-| `OP_SET_LOCAL` | u8 slot             | store into a slot, leaving the value        |
-| `OP_OUTER`  | u8 depth, u8 slot      | read a slot `depth` frames out              |
-| `OP_SET_OUTER` | u8 depth, u8 slot   | write one, leaving the value                |
-| `OP_BLOCK`  | u8 method index        | make a block capturing the current frame    |
-| `OP_SET_SLOT` | u8 name index        | pop a value and an object, bind, answer it  |
-| `OP_SEND`   | u8 name index, u8 argc | pop argc args + receiver, push the reply    |
-| `OP_POP`    | --                     | discard top of stack (statement boundary)   |
-| `OP_RETURN` | --                     | return top of stack from the current method |
-| `OP_HALT`   | --                     | stop the VM                                 |
+| Opcode      | Operands                | Effect                                      |
+| ----------- | ----------------------- | ------------------------------------------- |
+| `OP_CONST`  | u16 const index         | push `constants[idx]`                       |
+| `OP_NIL`    | --                      | push nil                                    |
+| `OP_GLOBAL` | u16 name index          | push the named global                       |
+| `OP_SET_GLOBAL` | u16 name index      | bind the name, leave the value on the stack |
+| `OP_LOCAL`  | u8 slot                 | push a frame slot (slot 0 is `self`)        |
+| `OP_SET_LOCAL` | u8 slot              | store into a slot, leaving the value        |
+| `OP_OUTER`  | u8 depth, u8 slot       | read a slot `depth` frames out              |
+| `OP_SET_OUTER` | u8 depth, u8 slot    | write one, leaving the value                |
+| `OP_BLOCK`  | u16 method index        | make a block capturing the current frame    |
+| `OP_SET_SLOT` | u16 name index        | pop a value and an object, bind, answer it  |
+| `OP_SEND`   | u16 name index, u8 argc | pop argc args + receiver, push the reply    |
+| `OP_POP`    | --                      | discard top of stack (statement boundary)   |
+| `OP_RETURN` | --                      | return top of stack from the current method |
+| `OP_HALT`   | --                      | stop the VM                                 |
+
+Operand widths follow one rule, and it is about what bounds the number rather
+than about the instruction. An index into a side table -- a constant, a name, a
+nested method -- is a big-endian u16, because those tables grow with the
+program and a long file fills one. A frame slot, a nesting depth, an argument
+count is a u8, because those are bounded by the machine instead: a frame of
+more than 255 slots is refused before it runs. Jump offsets were u16 from the
+start, so sixteen bits is the only width the format has, and `sol_read_u16` is
+where it is decoded.
+
+Both side tables intern, so a chunk spends one slot on `print` however often it
+is sent, and one on `#1` however often it is written. The loader appends to
+both instead, because a file refers to them by position and folding a duplicate
+on load would shift every index after it.
 
 `a := #45. a:print.` compiles to roughly:
 
@@ -355,7 +369,9 @@ length cannot become an allocation bomb), and then runs `sol_chunk_verify` over
 the code:
 
 - every instruction fits inside the code array,
-- every operand indexes a name or constant that exists,
+- every operand indexes a name, constant, or method that exists -- both bytes
+  of it, so an index of 256 into a table of one entry is caught rather than
+  read as slot 0,
 - the opcode is one the VM knows,
 - every jump target is the start of an instruction in this chunk,
 - the final instruction is `HALT` or `RETURN`.

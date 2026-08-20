@@ -99,7 +99,34 @@ void sol_chunk_write(SolChunk *chunk, uint8_t byte, int line)
     chunk->count++;
 }
 
+/* Are these the same constant? Compared by bits rather than by `==`, which
+   would fold -0.0 into 0.0 -- two constants that print differently -- and would
+   never fold a NaN onto itself. Only immutable scalars ever reach the pool, so
+   identical bits really do mean an interchangeable constant. */
+static bool same_constant(SolValue a, SolValue b)
+{
+    if (a.type != b.type) return false;
+    switch (a.type) {
+    case SOL_NIL:   return true;
+    case SOL_BOOL:  return SOL_AS_BOOL(a) == SOL_AS_BOOL(b);
+    case SOL_INT:   return SOL_AS_INT(a) == SOL_AS_INT(b);
+    case SOL_FLOAT: {
+        double x = SOL_AS_FLOAT(a), y = SOL_AS_FLOAT(b);
+        return memcmp(&x, &y, sizeof x) == 0;
+    }
+    default:        return false;   /* heap values are never pooled */
+    }
+}
+
 int sol_chunk_add_constant(SolChunk *chunk, SolValue value)
+{
+    for (int i = 0; i < chunk->constants.count; i++) {
+        if (same_constant(chunk->constants.values[i], value)) return i;
+    }
+    return sol_chunk_append_constant(chunk, value);
+}
+
+int sol_chunk_append_constant(SolChunk *chunk, SolValue value)
 {
     return sol_value_array_write(&chunk->constants, value);
 }
@@ -174,25 +201,26 @@ int sol_op_length(uint8_t op)
     case OP_RETURN:
     case OP_HALT:
         return 1;
+    case OP_LOCAL:
+    case OP_SET_LOCAL:
+        return 2;
     case OP_CONST:
     case OP_GLOBAL:
     case OP_SET_GLOBAL:
-    case OP_LOCAL:
-    case OP_SET_LOCAL:
     case OP_BLOCK:
     case OP_SET_SLOT:
     case OP_STRING:
     case OP_SYMBOL:
-        return 2;
-    case OP_SEND:
     case OP_OUTER:
     case OP_SET_OUTER:
     case OP_JUMP:
     case OP_EXIT_IF_FALSE:
     case OP_LOOP:
         return 3;
-    case OP_JUMP_IF_FALSE:
+    case OP_SEND:
         return 4;
+    case OP_JUMP_IF_FALSE:
+        return 5;
     default:
         return 0;                          /* not an opcode we emit */
     }
@@ -208,18 +236,25 @@ static int simple_instruction(const char *name, int offset)
 
 static int constant_instruction(const char *name, const SolChunk *chunk, int offset)
 {
-    uint8_t index = chunk->code[offset + 1];
+    uint16_t index = sol_read_u16(&chunk->code[offset + 1]);
     printf("%-8s %4d '", name, index);
     sol_value_print(chunk->constants.values[index]);
     printf("'\n");
-    return offset + 2;
+    return offset + 3;
 }
 
 static int name_instruction(const char *name, const SolChunk *chunk, int offset)
 {
-    uint8_t index = chunk->code[offset + 1];
+    uint16_t index = sol_read_u16(&chunk->code[offset + 1]);
     printf("%-8s %4d '%s'\n", name, index, sol_chunk_name(chunk, index));
-    return offset + 2;
+    return offset + 3;
+}
+
+/* A u16 index that names a nested method rather than a name or a constant. */
+static int method_instruction(const char *name, const SolChunk *chunk, int offset)
+{
+    printf("%-8s %4d\n", name, sol_read_u16(&chunk->code[offset + 1]));
+    return offset + 3;
 }
 
 static int slot_instruction(const char *name, const SolChunk *chunk, int offset)
@@ -236,11 +271,11 @@ static int depth_instruction(const char *name, const SolChunk *chunk, int offset
 
 static int send_instruction(const char *name, const SolChunk *chunk, int offset)
 {
-    uint8_t index = chunk->code[offset + 1];
-    uint8_t argc  = chunk->code[offset + 2];
+    uint16_t index = sol_read_u16(&chunk->code[offset + 1]);
+    uint8_t  argc  = chunk->code[offset + 3];
     printf("%-8s %4d '%s' (%d args)\n", name, index,
            sol_chunk_name(chunk, index), argc);
-    return offset + 3;
+    return offset + 4;
 }
 
 /* Prints the absolute target as well as the offset -- the offset alone is
@@ -249,12 +284,12 @@ static int jump_instruction(const SolChunk *chunk, const char *name, int offset)
 {
     uint8_t op = chunk->code[offset];
     int length = sol_op_length(op);
-    uint16_t jump = (uint16_t)((chunk->code[offset + 1] << 8) | chunk->code[offset + 2]);
+    uint16_t jump = sol_read_u16(&chunk->code[offset + 1]);
     int target = (op == OP_LOOP) ? offset + length - jump : offset + length + jump;
 
     printf("%-8s %4d -> %d", name, jump, target);
     if (op == OP_JUMP_IF_FALSE) {
-        printf(" (%s)", sol_chunk_name(chunk, chunk->code[offset + 3]));
+        printf(" (%s)", sol_chunk_name(chunk, sol_read_u16(&chunk->code[offset + 3])));
     }
     printf("\n");
     return offset + length;
@@ -279,7 +314,7 @@ int sol_chunk_disassemble_instruction(const SolChunk *chunk, int offset)
     case OP_SET_LOCAL: return slot_instruction("SETLOCL", chunk, offset);
     case OP_OUTER:  return depth_instruction("OUTER", chunk, offset);
     case OP_SET_OUTER: return depth_instruction("SETOUTR", chunk, offset);
-    case OP_BLOCK:  return slot_instruction("BLOCK", chunk, offset);
+    case OP_BLOCK:  return method_instruction("BLOCK", chunk, offset);
     case OP_STRING: return name_instruction("STRING", chunk, offset);
     case OP_SYMBOL: return name_instruction("SYMBOL", chunk, offset);
     case OP_SEND:   return send_instruction("SEND", chunk, offset);

@@ -8,6 +8,84 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### Side-table operands are two bytes, and constants intern — `pending`, 2026-08-19
+
+A chunk could hold 256 constants and 256 names, because the operands that index
+them were one byte each. A literal-heavy program stopped compiling well before
+it stopped making sense: sorting two thousand numbers was not possible without
+generating them at run time. Roadmap 4.2.
+
+```
+x0 := #1000. x1 := #1001. ... x399 := #1399.
+[line 1] solas: too many constants in one chunk at '#1256'    ; was
+```
+
+**Every index into a side table is now a big-endian u16.** That covers the
+constant pool, the name table, and the nested-method table — `OP_CONST`,
+`OP_GLOBAL`, `OP_SET_GLOBAL`, `OP_BLOCK`, `OP_STRING`, `OP_SYMBOL`,
+`OP_SET_SLOT`, `OP_SEND`, and the selector `OP_JUMP_IF_FALSE` carries. The
+ceiling is 65536.
+
+Not a `CONST_LONG`-style pair, which is what the roadmap had pencilled in. The
+rule 4.1 arrived at was that an opcode should mean something — `OP_LOOP` is its
+own instruction because a backward jump is a different thing, `OP_EXIT_IF_FALSE`
+because it complains differently. A `CONST_LONG` means what `OP_CONST` means and
+differs only in operand width, and it would not have come alone: nine
+instructions carry an index, so it would have been nine more opcodes across the
+length table, the verifier, the disassembler, and the dispatch loop. That is
+four more copies of exactly the agreement 4.1 collapsed into one.
+
+So width belongs to the operand, under one rule. **An index into a side table is
+a u16; a frame slot, a nesting depth, an argument count stays a u8**, because
+those are bounded by the machine rather than by the source — a frame of more
+than 255 slots is refused before it runs. Jump offsets were u16 already, so
+sixteen bits is now the only width the format has, and `sol_read_u16` is the
+one place it is decoded.
+
+**The constant pool interns**, which it never did. `#1` written three times was
+three slots and is now one; the name table has always worked this way. The
+loader appends to both instead, for the reason the names already had: a file
+refers to these tables by position, so folding a duplicate on load would shift
+every index after it. Constants are compared by their bits rather than by `==`,
+which keeps `-0.0` distinct from `0.0` and stops a NaN folding onto itself.
+
+Interning paid for much of the widening:
+
+| | before | after |
+|---|---|---|
+| constants and names per chunk | 256 | 65536 |
+| the eight examples, total `.sob` bytes | 9934 | 10250 |
+| `arrays.sol` top-level constants | 41 | 12 |
+| a tight two-million-pass loop | 0.251s | 0.252s |
+| the same loop with a conditional in it | 0.457s | 0.455s |
+| a million sends of a user-defined method | 0.159s | 0.158s |
+
+`arrays.sol` came out 3.9% *smaller*. Run time did not move; the extra byte is
+read by the same helper the jumps already used.
+
+The verifier checks both bytes of every index, so an index of 256 into a table
+of one entry is caught rather than read as slot 0 — a test asserts exactly that.
+A 400-constant, 400-name program is compiled, verified, run, written to a file,
+loaded back, and run again, checking the value bound to the last name: an index
+that lost its high byte anywhere on that path would answer wrongly rather than
+crash.
+
+**`.sob` goes to version 9.** Files written by an earlier build are refused, as
+usual.
+
+One thing the old cap was hiding: both tables intern by walking themselves,
+which costs nothing at 256 entries and is quadratic at 65536 — 16000 distinct
+names and constants compile in 0.87s, 32000 in 3.52s. The scan was always this
+shape; the cap meant it could never be reached. Noted in the roadmap against
+4.3, which wants the same hash table for dispatch.
+
+What is left at 255 is the argument count, and through it an array literal.
+That one is not an operand-width problem: a longer literal needs `array:new`
+and repeated `add` rather than a wider `argc`.
+
+Re-fuzzed: 3302 single-byte corruptions of a `.sob`, zero sanitizer reports,
+35 semantic timeouts of the kind 3.3 describes.
+
 ### A class object no longer answers its instances' messages — `ab5dd96`, 2026-08-19
 
 Two crashes, both reachable from three words of ordinary source, both fixed by

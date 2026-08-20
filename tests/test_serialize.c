@@ -4,10 +4,18 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "solas/compiler.h"
 #include "solum/serialize.h"
 #include "solum/vm.h"
 
 #define TMP "build/tests/test_serialize.tmp.sob"
+
+/* A side-table index, big-endian, exactly as the compiler emits it. */
+static void write_index(SolChunk *chunk, int index, int line)
+{
+    sol_chunk_write(chunk, (uint8_t)((index >> 8) & 0xff), line);
+    sol_chunk_write(chunk, (uint8_t)(index & 0xff), line);
+}
 
 /* `a := #45. a:print.` hand-assembled, with a float and a nil along for the
    ride so every constant tag gets exercised. */
@@ -15,22 +23,22 @@ static void build_valid(SolChunk *chunk)
 {
     sol_chunk_init(chunk);
 
-    uint8_t a     = (uint8_t)sol_chunk_add_name(chunk, "a", 1);
-    uint8_t print = (uint8_t)sol_chunk_add_name(chunk, "print", 5);
+    int a     = sol_chunk_add_name(chunk, "a", 1);
+    int print = sol_chunk_add_name(chunk, "print", 5);
 
-    uint8_t k_int   = (uint8_t)sol_chunk_add_constant(chunk, SOL_INT_VAL(-45));
-    (void)             sol_chunk_add_constant(chunk, SOL_FLOAT_VAL(2.5));
-    (void)             sol_chunk_add_constant(chunk, SOL_NIL_VAL);
+    int k_int = sol_chunk_add_constant(chunk, SOL_INT_VAL(-45));
+    (void)      sol_chunk_add_constant(chunk, SOL_FLOAT_VAL(2.5));
+    (void)      sol_chunk_add_constant(chunk, SOL_NIL_VAL);
 
     sol_chunk_write(chunk, OP_CONST, 1);
-    sol_chunk_write(chunk, k_int, 1);
+    write_index(chunk, k_int, 1);
     sol_chunk_write(chunk, OP_SET_GLOBAL, 1);
-    sol_chunk_write(chunk, a, 1);
+    write_index(chunk, a, 1);
     sol_chunk_write(chunk, OP_POP, 1);
     sol_chunk_write(chunk, OP_GLOBAL, 2);
-    sol_chunk_write(chunk, a, 2);
+    write_index(chunk, a, 2);
     sol_chunk_write(chunk, OP_SEND, 2);
-    sol_chunk_write(chunk, print, 2);
+    write_index(chunk, print, 2);
     sol_chunk_write(chunk, 0, 2);
     sol_chunk_write(chunk, OP_POP, 2);
     sol_chunk_write(chunk, OP_HALT, 3);
@@ -53,8 +61,8 @@ static void test_round_trip_preserves_everything(void)
         assert(loaded.lines[i] == original.lines[i]);
     }
     assert(loaded.lines[0] == 1);
-    assert(loaded.lines[5] == 2);
-    assert(loaded.lines[11] == 3);
+    assert(loaded.lines[7] == 2);
+    assert(loaded.lines[15] == 3);
 
     assert(loaded.names.count == original.names.count);
     assert(strcmp(sol_chunk_name(&loaded, 0), "a") == 0);
@@ -81,9 +89,9 @@ static void test_float_bits_are_exact(void)
         SolChunk chunk;
         sol_chunk_init(&chunk);
         sol_chunk_add_name(&chunk, "x", 1);
-        uint8_t k = (uint8_t)sol_chunk_add_constant(&chunk, SOL_FLOAT_VAL(values[i]));
+        int k = sol_chunk_add_constant(&chunk, SOL_FLOAT_VAL(values[i]));
         sol_chunk_write(&chunk, OP_CONST, 1);
-        sol_chunk_write(&chunk, k, 1);
+        write_index(&chunk, k, 1);
         sol_chunk_write(&chunk, OP_POP, 1);
         sol_chunk_write(&chunk, OP_HALT, 1);
 
@@ -100,9 +108,10 @@ static void test_float_bits_are_exact(void)
     remove(TMP);
 }
 
-/* The loader appends names rather than interning them: a file's code refers to
-   names by position, so collapsing a duplicate would shift every later index. */
-static void test_duplicate_names_keep_their_indices(void)
+/* The loader appends rather than interning: a file's code refers to both side
+   tables by position, so collapsing a duplicate would shift every later index.
+   The duplicate has to survive the round trip still sitting where it was. */
+static void test_duplicate_entries_keep_their_indices(void)
 {
     SolChunk chunk;
     sol_chunk_init(&chunk);
@@ -110,8 +119,15 @@ static void test_duplicate_names_keep_their_indices(void)
     sol_chunk_append_name(&chunk, "dup", 3);
     assert(chunk.names.count == 2);
 
+    sol_chunk_append_constant(&chunk, SOL_INT_VAL(7));
+    sol_chunk_append_constant(&chunk, SOL_INT_VAL(7));
+    assert(chunk.constants.count == 2);
+
+    sol_chunk_write(&chunk, OP_CONST, 1);
+    write_index(&chunk, 1, 1);              /* the second constant */
+    sol_chunk_write(&chunk, OP_POP, 1);
     sol_chunk_write(&chunk, OP_GLOBAL, 1);
-    sol_chunk_write(&chunk, 1, 1);          /* refers to the second entry */
+    write_index(&chunk, 1, 1);              /* the second name */
     sol_chunk_write(&chunk, OP_POP, 1);
     sol_chunk_write(&chunk, OP_HALT, 1);
 
@@ -121,6 +137,8 @@ static void test_duplicate_names_keep_their_indices(void)
     assert(sol_chunk_load(&loaded, TMP) == SOL_SER_OK);
     assert(loaded.names.count == 2);
     assert(strcmp(sol_chunk_name(&loaded, 1), "dup") == 0);
+    assert(loaded.constants.count == 2);
+    assert(SOL_AS_INT(loaded.constants.values[1]) == 7);
 
     sol_chunk_free(&loaded);
     sol_chunk_free(&chunk);
@@ -216,7 +234,17 @@ static void test_verifier_rejects_unsafe_code(void)
     sol_chunk_init(&chunk);
     sol_chunk_add_constant(&chunk, SOL_INT_VAL(1));
     sol_chunk_write(&chunk, OP_CONST, 1);
-    sol_chunk_write(&chunk, 7, 1);
+    write_index(&chunk, 7, 1);
+    sol_chunk_write(&chunk, OP_HALT, 1);
+    assert(sol_chunk_verify(&chunk) == SOL_SER_MALFORMED);
+    sol_chunk_free(&chunk);
+
+    /* The high byte of an index counts too: a table of one entry does not have
+       a slot 256, and reading only the low byte would see slot 0. */
+    sol_chunk_init(&chunk);
+    sol_chunk_add_constant(&chunk, SOL_INT_VAL(1));
+    sol_chunk_write(&chunk, OP_CONST, 1);
+    write_index(&chunk, 256, 1);
     sol_chunk_write(&chunk, OP_HALT, 1);
     assert(sol_chunk_verify(&chunk) == SOL_SER_MALFORMED);
     sol_chunk_free(&chunk);
@@ -225,7 +253,7 @@ static void test_verifier_rejects_unsafe_code(void)
     sol_chunk_init(&chunk);
     sol_chunk_add_name(&chunk, "a", 1);
     sol_chunk_write(&chunk, OP_SEND, 1);
-    sol_chunk_write(&chunk, 9, 1);
+    write_index(&chunk, 9, 1);
     sol_chunk_write(&chunk, 0, 1);
     sol_chunk_write(&chunk, OP_HALT, 1);
     assert(sol_chunk_verify(&chunk) == SOL_SER_MALFORMED);
@@ -262,30 +290,30 @@ static void test_methods_round_trip(void)
     SolChunk chunk;
     sol_chunk_init(&chunk);
 
-    uint8_t integer = (uint8_t)sol_chunk_add_name(&chunk, "integer", 7);
-    uint8_t dbl     = (uint8_t)sol_chunk_add_name(&chunk, "double", 6);
+    int integer = sol_chunk_add_name(&chunk, "integer", 7);
+    int dbl     = sol_chunk_add_name(&chunk, "double", 6);
 
     SolMethod *method = sol_method_new("double", 6, 0);
     method->is_block = true;
     method->slot_count = 1;                       /* just self */
-    uint8_t two  = (uint8_t)sol_chunk_add_constant(&method->chunk, SOL_INT_VAL(2));
-    uint8_t mul  = (uint8_t)sol_chunk_add_name(&method->chunk, "mul", 3);
+    int two = sol_chunk_add_constant(&method->chunk, SOL_INT_VAL(2));
+    int mul = sol_chunk_add_name(&method->chunk, "mul", 3);
     sol_chunk_write(&method->chunk, OP_LOCAL, 1);
     sol_chunk_write(&method->chunk, 0, 1);
     sol_chunk_write(&method->chunk, OP_CONST, 1);
-    sol_chunk_write(&method->chunk, two, 1);
+    write_index(&method->chunk, two, 1);
     sol_chunk_write(&method->chunk, OP_SEND, 1);
-    sol_chunk_write(&method->chunk, mul, 1);
+    write_index(&method->chunk, mul, 1);
     sol_chunk_write(&method->chunk, 1, 1);
     sol_chunk_write(&method->chunk, OP_RETURN, 1);
-    uint8_t index = (uint8_t)sol_chunk_add_method(&chunk, method);
+    int index = sol_chunk_add_method(&chunk, method);
 
     sol_chunk_write(&chunk, OP_GLOBAL, 1);
-    sol_chunk_write(&chunk, integer, 1);
+    write_index(&chunk, integer, 1);
     sol_chunk_write(&chunk, OP_BLOCK, 1);
-    sol_chunk_write(&chunk, index, 1);
+    write_index(&chunk, index, 1);
     sol_chunk_write(&chunk, OP_SET_SLOT, 1);
-    sol_chunk_write(&chunk, dbl, 1);
+    write_index(&chunk, dbl, 1);
     sol_chunk_write(&chunk, OP_POP, 1);
     sol_chunk_write(&chunk, OP_HALT, 1);
 
@@ -380,9 +408,9 @@ static void test_a_corrupt_argument_count_cannot_read_below_the_frame(void)
     int one  = sol_chunk_add_constant(&chunk, SOL_INT_VAL(1));
 
     sol_chunk_write(&chunk, OP_CONST, 1);
-    sol_chunk_write(&chunk, (uint8_t)one, 1);
+    write_index(&chunk, one, 1);
     sol_chunk_write(&chunk, OP_SEND, 1);
-    sol_chunk_write(&chunk, (uint8_t)name, 1);
+    write_index(&chunk, name, 1);
     sol_chunk_write(&chunk, 227, 1);              /* one value is on the stack */
     sol_chunk_write(&chunk, OP_POP, 1);
     sol_chunk_write(&chunk, OP_HALT, 1);
@@ -400,14 +428,76 @@ static void test_a_corrupt_argument_count_cannot_read_below_the_frame(void)
     printf("  a corrupt argument count is refused, not followed\n");
 }
 
+
+/* 4.2: a chunk may hold more than a byte's worth of constants and names.
+ *
+ * This is the whole point of widening those operands, so the test is a program
+ * that would not have compiled before -- 400 distinct globals bound to 400
+ * distinct integers -- taken all the way through: compiled, verified, run,
+ * written to a file, loaded back, and run again. An index that lost its high
+ * byte anywhere along that path would read the wrong entry and answer wrongly
+ * rather than crash, which is why the check is on the value.
+ */
+static void test_more_entries_than_a_byte_can_index(void)
+{
+    enum { COUNT = 400 };
+
+    /* `x0 := #1000. x1 := #1001. ...` -- each name and each integer distinct,
+       so interning cannot quietly keep either table small. */
+    size_t size = COUNT * 32 + 1;
+    char *source = malloc(size);
+    assert(source != NULL);
+    size_t at = 0;
+    for (int i = 0; i < COUNT; i++) {
+        at += (size_t)snprintf(source + at, size - at, "x%d := #%d. ", i, 1000 + i);
+    }
+
+    SolChunk chunk;
+    sol_chunk_init(&chunk);
+    assert(sol_compile(source, &chunk));
+    free(source);
+
+    assert(chunk.names.count > UINT8_MAX);
+    assert(chunk.constants.count > UINT8_MAX);
+    assert(sol_chunk_verify(&chunk) == SOL_SER_OK);
+
+    /* Once from the compiler, once from a file, and the entry that has to be
+       right is the last one -- the one whose index needs both bytes. */
+    for (int pass = 0; pass < 2; pass++) {
+        SolVM vm;
+        sol_vm_init(&vm);
+        assert(sol_vm_run(&vm, &chunk) == SOL_OK);
+
+        SolSlot *first = sol_object_lookup(vm.root, "x0");
+        SolSlot *last  = sol_object_lookup(vm.root, "x399");
+        assert(first != NULL && SOL_AS_INT(first->value) == 1000);
+        assert(last  != NULL && SOL_AS_INT(last->value)  == 1399);
+        sol_vm_free(&vm);
+
+        if (pass == 0) {
+            assert(sol_chunk_save(&chunk, TMP) == SOL_SER_OK);
+            SolChunk loaded;
+            assert(sol_chunk_load(&loaded, TMP) == SOL_SER_OK);
+            sol_chunk_free(&chunk);
+            chunk = loaded;
+        }
+    }
+
+    sol_chunk_free(&chunk);
+    remove(TMP);
+    printf("  %d constants and %d names in one chunk, through a file\n",
+           COUNT, COUNT);
+}
+
 int main(void)
 {
+    test_more_entries_than_a_byte_can_index();
     test_a_corrupt_argument_count_cannot_read_below_the_frame();
     test_round_trip_preserves_everything();
     test_methods_round_trip();
     test_verifier_checks_frame_bounds();
     test_float_bits_are_exact();
-    test_duplicate_names_keep_their_indices();
+    test_duplicate_entries_keep_their_indices();
     test_rejects_files_it_should_not_run();
     test_verifier_rejects_unsafe_code();
     printf("test_serialize: ok\n");

@@ -234,19 +234,26 @@ static void test_verifier_rejects_bad_jumps(void)
     }
 }
 
-/* The selector rides in the third operand byte; a bad index there would be read
-   as a name that does not exist. */
+/* The selector follows the jump offset rather than leading, so it starts at the
+   third operand byte; a bad index there would be read as a name that does not
+   exist. Both of its bytes are written, so the check is on the whole index
+   rather than on a low byte that happens to be out of range. */
 static void test_verifier_checks_the_selector(void)
 {
     SolChunk chunk;
     sol_chunk_init(&chunk);
     assert(sol_compile("x := true:ifElse({ #1 }, { #2 }).", &chunk));
 
-    for (int offset = 0; offset + 3 < chunk.count; offset++) {
+    bool patched = false;
+    for (int offset = 0; offset + 4 < chunk.count; offset++) {
         if (chunk.code[offset] != OP_JUMP_IF_FALSE) continue;
-        chunk.code[offset + 3] = (uint8_t)chunk.names.count;   /* one past the end */
+        int past = chunk.names.count;                  /* one past the end */
+        chunk.code[offset + 3] = (uint8_t)((past >> 8) & 0xff);
+        chunk.code[offset + 4] = (uint8_t)(past & 0xff);
+        patched = true;
         break;
     }
+    assert(patched);
     assert(sol_chunk_verify(&chunk) != SOL_SER_OK);
 
     sol_chunk_free(&chunk);

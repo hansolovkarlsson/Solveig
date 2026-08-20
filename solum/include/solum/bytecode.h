@@ -8,6 +8,14 @@
  * OP_SEND pops argc arguments plus a receiver, and pushes the reply. Resolving
  * a name is the exception -- OP_GLOBAL is a lookup, not a send.
  *
+ * Operands come in two widths, and which one an operand gets follows from what
+ * bounds it. An index into a side table -- a constant, a name, a nested method
+ * -- is a big-endian u16, because those tables grow with the program and a long
+ * file can fill one. A frame slot, a nesting depth, an argument count is a u8,
+ * because those are bounded by the machine rather than by the source: a frame
+ * of more than 255 slots is refused before it runs. Jump offsets were u16
+ * already, so sixteen bits is the one width the format has.
+ *
  * A chunk carries two side tables. Constants are values (#45, 45.5); the other
  * holds interned text -- selectors, global names, and the bytes of string
  * literals, which OP_STRING builds a string from at run time. They are separate
@@ -24,24 +32,24 @@
 typedef struct SolCode SolCode;
 
 typedef enum {
-    OP_CONST,       /* operand: u8 const index -- push constants[idx]           */
+    OP_CONST,       /* operand: u16 const index -- push constants[idx]          */
     OP_NIL,         /* push nil                                                 */
-    OP_GLOBAL,      /* operand: u8 name index -- push the named global          */
-    OP_SET_GLOBAL,  /* operand: u8 name index -- bind name, leave value on stack*/
+    OP_GLOBAL,      /* operand: u16 name index -- push the named global         */
+    OP_SET_GLOBAL,  /* operand: u16 name index -- bind name, leave value on stack*/
     OP_LOCAL,       /* operand: u8 slot -- push a local (slot 0 is self)        */
     OP_SET_LOCAL,   /* operand: u8 slot -- store into a local, leave it on stack*/
     OP_OUTER,       /* operands: u8 depth, u8 slot -- read a slot of an enclosing
                        frame, `depth` steps out along the lexical chain         */
     OP_SET_OUTER,   /* operands: u8 depth, u8 slot -- write one, leaving the value*/
-    OP_BLOCK,       /* operand: u8 method index -- make a block capturing the
+    OP_BLOCK,       /* operand: u16 method index -- make a block capturing the
                        current frame as its home                               */
-    OP_STRING,      /* operand: u8 name index -- make a string from that text  */
-    OP_SYMBOL,      /* operand: u8 name index -- intern that text as a symbol  */
-    OP_SEND,        /* operands: u8 name index, u8 argc -- send a message       */
-    OP_SET_SLOT,    /* operand: u8 name index -- pop a value and an object, bind
+    OP_STRING,      /* operand: u16 name index -- make a string from that text */
+    OP_SYMBOL,      /* operand: u16 name index -- intern that text as a symbol */
+    OP_SEND,        /* operands: u16 name index, u8 argc -- send a message      */
+    OP_SET_SLOT,    /* operand: u16 name index -- pop a value and an object, bind
                        the name on it, and leave the value                      */
     OP_JUMP,        /* operands: u16 offset -- skip forward that many bytes     */
-    OP_JUMP_IF_FALSE,/* operands: u16 offset, u8 name index -- pop a boolean and
+    OP_JUMP_IF_FALSE,/* operands: u16 offset, u16 name index -- pop a boolean and
                        skip when it is false. The name is the selector this was
                        inlined from, so a non-boolean reports the same "does not
                        understand" it would have as a real send.               */
@@ -130,15 +138,18 @@ int sol_chunk_add_method(SolChunk *chunk, SolMethod *method);
 
 void sol_chunk_init(SolChunk *chunk);
 void sol_chunk_write(SolChunk *chunk, uint8_t byte, int line);
-int  sol_chunk_add_constant(SolChunk *chunk, SolValue value); /* returns index */
 
-/* Interns `length` bytes of `name`, returning its index. Repeat names collapse
-   onto one entry, so `print` used ten times costs one slot. */
+/* Both side tables intern: a repeated entry collapses onto the first, so
+   `print` used ten times, or `#1`, costs one slot. Constants can do this
+   because the only ones a chunk may hold are immutable scalars -- and it
+   compares them by their bits, so -0.0 stays distinct from 0.0. */
+int  sol_chunk_add_constant(SolChunk *chunk, SolValue value); /* returns index */
 int  sol_chunk_add_name(SolChunk *chunk, const char *name, int length);
 
-/* Appends without interning, so indices stay exactly as given. The loader uses
-   this: a file's code refers to names by position, and collapsing a duplicate
-   would silently shift every index after it. */
+/* Append without interning, so indices stay exactly as given. The loader uses
+   these: a file's code refers to both tables by position, and collapsing a
+   duplicate would silently shift every index after it. */
+int  sol_chunk_append_constant(SolChunk *chunk, SolValue value);
 int  sol_chunk_append_name(SolChunk *chunk, const char *name, int length);
 const char *sol_chunk_name(const SolChunk *chunk, int index);
 
@@ -149,6 +160,15 @@ void sol_chunk_free(SolChunk *chunk);
    disassembler, and the executor have to agree to the byte: disagreeing is
    exactly how a jump comes to land in the middle of an instruction. */
 int sol_op_length(uint8_t op);
+
+/* The one place a two-byte operand is decoded. Big-endian, matching the way the
+   emitter writes it; everything that walks bytecode reads it through here so
+   the byte order cannot drift between the emitter, the verifier, and the
+   executor the way the lengths once did. */
+static inline uint16_t sol_read_u16(const uint8_t *at)
+{
+    return (uint16_t)(((uint16_t)at[0] << 8) | at[1]);
+}
 
 /* Disassembly -- the main debugging tool while the compiler is being written. */
 void sol_chunk_disassemble(const SolChunk *chunk, const char *name);

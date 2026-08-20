@@ -705,8 +705,8 @@ division by zero, undeclared names, and a block outliving its frame.
 | | |
 | --- | --- |
 | Recursion | about **62 levels** — the frame cap is 64 and a level costs one frame, now that an `ifElse` branch and a `whileTrue` body are inlined rather than called |
-| Constants, names per chunk | 255 |
-| Arguments, parameters, array literal elements | 255 |
+| Constants, names, blocks per chunk | **65535** — a two-byte operand, and both tables intern, so repeats are free |
+| Arguments, parameters, array literal elements | 255 — an argument count is a byte |
 | Locals per frame | 255 |
 | Solis input line | 1024 bytes, silently truncated beyond |
 | Strings | bytes, not characters: `size` counts bytes, `at` answers a byte, and `"café":size` is 5 |

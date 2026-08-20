@@ -41,8 +41,37 @@ static void test_constants_are_indexed_in_order(void)
     sol_chunk_free(&chunk);
 }
 
-/* Repeated selectors must collapse onto one slot -- the one-byte operand makes
-   this the difference between fitting in a chunk and not. */
+/* Constants intern the way names do. `#45` is immutable, so one slot can serve
+   every mention of it -- but only where the bits agree: #45 and 45 are
+   different types, and -0.0 prints differently from 0.0. */
+static void test_constants_are_interned(void)
+{
+    SolChunk chunk;
+    sol_chunk_init(&chunk);
+
+    int a = sol_chunk_add_constant(&chunk, SOL_INT_VAL(45));
+    int b = sol_chunk_add_constant(&chunk, SOL_INT_VAL(45));
+    assert(a == b);
+    assert(chunk.constants.count == 1);
+
+    assert(sol_chunk_add_constant(&chunk, SOL_FLOAT_VAL(45.0)) != a);
+    assert(sol_chunk_add_constant(&chunk, SOL_NIL_VAL) !=
+           sol_chunk_add_constant(&chunk, SOL_BOOL_VAL(false)));
+
+    int zero  = sol_chunk_add_constant(&chunk, SOL_FLOAT_VAL(0.0));
+    int minus = sol_chunk_add_constant(&chunk, SOL_FLOAT_VAL(-0.0));
+    assert(zero != minus);
+
+    /* The loader appends instead, because a file's code indexes this table by
+       position and folding an entry would shift everything after it. */
+    int kept = sol_chunk_append_constant(&chunk, SOL_INT_VAL(45));
+    assert(kept != a);
+
+    sol_chunk_free(&chunk);
+}
+
+/* Repeated selectors must collapse onto one slot -- with a bounded operand this
+   is the difference between fitting in a chunk and not. */
 static void test_names_are_interned(void)
 {
     SolChunk chunk;
@@ -66,19 +95,26 @@ static void test_names_are_interned(void)
     sol_chunk_free(&chunk);
 }
 
+/* A side-table index, big-endian, exactly as the compiler emits it. */
+static void write_index(SolChunk *chunk, int index, int line)
+{
+    sol_chunk_write(chunk, (uint8_t)((index >> 8) & 0xff), line);
+    sol_chunk_write(chunk, (uint8_t)(index & 0xff), line);
+}
+
 static void test_disassembler_walks_every_instruction(void)
 {
     SolChunk chunk;
     sol_chunk_init(&chunk);
 
     /* Hand-assembled `a:print.` */
-    uint8_t a     = (uint8_t)sol_chunk_add_name(&chunk, "a", 1);
-    uint8_t print = (uint8_t)sol_chunk_add_name(&chunk, "print", 5);
+    int a     = sol_chunk_add_name(&chunk, "a", 1);
+    int print = sol_chunk_add_name(&chunk, "print", 5);
 
     sol_chunk_write(&chunk, OP_GLOBAL, 1);
-    sol_chunk_write(&chunk, a, 1);
+    write_index(&chunk, a, 1);
     sol_chunk_write(&chunk, OP_SEND, 1);
-    sol_chunk_write(&chunk, print, 1);
+    write_index(&chunk, print, 1);
     sol_chunk_write(&chunk, 0, 1);
     sol_chunk_write(&chunk, OP_POP, 1);
     sol_chunk_write(&chunk, OP_HALT, 1);
@@ -100,6 +136,7 @@ int main(void)
 {
     test_chunk_grows();
     test_constants_are_indexed_in_order();
+    test_constants_are_interned();
     test_names_are_interned();
     test_disassembler_walks_every_instruction();
     printf("test_bytecode: ok\n");

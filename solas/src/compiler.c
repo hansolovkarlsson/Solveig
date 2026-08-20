@@ -91,39 +91,55 @@ static void emit_pair(Compiler *c, uint8_t a, uint8_t b)
     emit(c, b);
 }
 
-/* Interns the token's text and returns its operand index, refusing to overflow
-   the one-byte operand. */
-static uint8_t name_operand(Compiler *c, const SolToken *token)
+/* A side-table index, big-endian, the way every two-byte operand is written. */
+static void emit_index(Compiler *c, int index)
+{
+    emit(c, (uint8_t)((index >> 8) & 0xff));
+    emit(c, (uint8_t)(index & 0xff));
+}
+
+/* Interns the token's text and returns its operand index. Both tables intern,
+   so the ceiling counts distinct entries: a chunk may mention `print` and `#1`
+   as often as it likes and spend one slot on each. */
+static int name_operand(Compiler *c, const SolToken *token)
 {
     int index = sol_chunk_add_name(c->scope->chunk, token->start, token->length);
-    if (index > UINT8_MAX) {
+    if (index > UINT16_MAX) {
         sol_parser_error(&c->parser, token, "too many names in one chunk");
         return 0;
     }
-    return (uint8_t)index;
+    return index;
 }
 
 /* Same, for a name the compiler supplies rather than reads from the source --
    the `array` and `of` that an array literal desugars to. */
-static uint8_t name_literal(Compiler *c, const char *name, int length)
+static int name_literal(Compiler *c, const char *name, int length)
 {
     int index = sol_chunk_add_name(c->scope->chunk, name, length);
-    if (index > UINT8_MAX) {
+    if (index > UINT16_MAX) {
         sol_parser_error(&c->parser, &c->parser.previous, "too many names in one chunk");
         return 0;
     }
-    return (uint8_t)index;
+    return index;
 }
 
-static uint8_t constant_operand(Compiler *c, SolValue value)
+static int constant_operand(Compiler *c, SolValue value)
 {
     int index = sol_chunk_add_constant(c->scope->chunk, value);
-    if (index > UINT8_MAX) {
+    if (index > UINT16_MAX) {
         sol_parser_error(&c->parser, &c->parser.previous,
                          "too many constants in one chunk");
         return 0;
     }
-    return (uint8_t)index;
+    return index;
+}
+
+/* An opcode and the side-table index it carries -- the shape most instructions
+   have, now that those indices are two bytes. */
+static void emit_indexed(Compiler *c, uint8_t op, int index)
+{
+    emit(c, op);
+    emit_index(c, index);
 }
 
 /* ---- literals -------------------------------------------------------- */
@@ -140,14 +156,14 @@ static void integer_literal(Compiler *c)
         sol_parser_error(&c->parser, token, "integer literal out of range");
         return;
     }
-    emit_pair(c, OP_CONST, constant_operand(c, SOL_INT_VAL((int64_t)value)));
+    emit_indexed(c, OP_CONST, constant_operand(c, SOL_INT_VAL((int64_t)value)));
 }
 
 static void float_literal(Compiler *c)
 {
     const SolToken *token = &c->parser.previous;
     double value = strtod(token->start, NULL);
-    emit_pair(c, OP_CONST, constant_operand(c, SOL_FLOAT_VAL(value)));
+    emit_indexed(c, OP_CONST, constant_operand(c, SOL_FLOAT_VAL(value)));
 }
 
 /* ---- expressions ----------------------------------------------------- */
@@ -251,12 +267,12 @@ static void identifier(Compiler *c)
     if (sol_parser_match(&c->parser, TOK_ASSIGN)) {
         expression(c);
         if (slot >= 0) emit_access(c, true, depth, slot);
-        else           emit_pair(c, OP_SET_GLOBAL, name_operand(c, &name));
+        else           emit_indexed(c, OP_SET_GLOBAL, name_operand(c, &name));
         return;
     }
 
     if (slot >= 0) emit_access(c, false, depth, slot);
-    else           emit_pair(c, OP_GLOBAL, name_operand(c, &name));
+    else           emit_indexed(c, OP_GLOBAL, name_operand(c, &name));
 }
 
 /* The token spans the quotes; the string is what lies between them, with the
@@ -307,7 +323,7 @@ static void string_literal(Compiler *c)
         }
     }
 
-    emit_pair(c, OP_STRING, name_literal(c, decoded, out));
+    emit_indexed(c, OP_STRING, name_literal(c, decoded, out));
     free(decoded);
 }
 
@@ -344,8 +360,8 @@ static void primary(Compiler *c)
     if (sol_parser_match(p, TOK_SYMBOL)) {
         /* The token spans the leading quote; the name is what follows it. */
         SolToken token = p->previous;
-        emit_pair(c, OP_SYMBOL,
-                  name_literal(c, token.start + 1, token.length - 1));
+        emit_indexed(c, OP_SYMBOL,
+                     name_literal(c, token.start + 1, token.length - 1));
         return;
     }
 
@@ -391,7 +407,7 @@ static void expression(Compiler *c)
     if (!inline_while(c)) primary(c);
 
     int     target_at = -1;      /* where the last zero-argument send started */
-    uint8_t target_name = 0;
+    int target_name = 0;
 
     /* Sends chain left to right: `a:add(#1):print` sends print to the sum. */
     while (sol_parser_match(p, TOK_COLON)) {
@@ -405,10 +421,9 @@ static void expression(Compiler *c)
 
         int at = c->scope->chunk->count;
         uint8_t argc = arguments(c);
-        uint8_t name = name_operand(c, &selector);
+        int name = name_operand(c, &selector);
 
-        emit(c, OP_SEND);
-        emit(c, name);
+        emit_indexed(c, OP_SEND, name);
         emit(c, argc);
 
         target_at = (argc == 0) ? at : -1;
@@ -418,7 +433,7 @@ static void expression(Compiler *c)
     if (target_at >= 0 && sol_parser_match(p, TOK_ASSIGN)) {
         c->scope->chunk->count = target_at;      /* unemit the send */
         expression(c);
-        emit_pair(c, OP_SET_SLOT, target_name);
+        emit_indexed(c, OP_SET_SLOT, target_name);
     }
 }
 
@@ -456,7 +471,7 @@ static void array_literal(Compiler *c)
 {
     SolParser *p = &c->parser;
 
-    emit_pair(c, OP_GLOBAL, name_literal(c, "array", 5));
+    emit_indexed(c, OP_GLOBAL, name_literal(c, "array", 5));
 
     int count = 0;
     if (!sol_parser_match(p, TOK_RBRACKET)) {
@@ -472,8 +487,7 @@ static void array_literal(Compiler *c)
         sol_parser_consume(p, TOK_RBRACKET, "expected ']' after the elements");
     }
 
-    emit(c, OP_SEND);
-    emit(c, name_literal(c, "of", 2));
+    emit_indexed(c, OP_SEND, name_literal(c, "of", 2));
     emit(c, (uint8_t)count);
 }
 
@@ -577,11 +591,11 @@ static void block_literal(Compiler *c)
     code->captures = touches_home(&code->chunk);
 
     int index = sol_chunk_add_method(c->scope->chunk, code);
-    if (index > UINT8_MAX) {
+    if (index > UINT16_MAX) {
         sol_parser_error(p, &p->previous, "too many blocks in one chunk");
         return;
     }
-    emit_pair(c, OP_BLOCK, (uint8_t)index);
+    emit_indexed(c, OP_BLOCK, index);
 }
 
 /* ---- inlined control flow ------------------------------------------------
@@ -720,12 +734,12 @@ static bool inline_conditional(Compiler *c, const SolToken *selector)
     if (p->current.type != TOK_LPAREN) return false;
     if (!inlinable_arguments(c, if_else ? 2 : 1)) return false;
 
-    uint8_t name = name_operand(c, selector);
+    int name = name_operand(c, selector);
     sol_parser_consume(p, TOK_LPAREN, "expected '(' after the message name");
 
     /* The condition is on the stack; this pops it and branches. */
     int to_else = emit_jump(c, OP_JUMP_IF_FALSE);
-    emit(c, name);
+    emit_index(c, name);
 
     if (if_false) {
         /* Inverted: the branch that *is* taken runs the body, so falling

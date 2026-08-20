@@ -289,23 +289,28 @@ static SolSerResult read_chunk_body(Cursor *c, SolChunk *chunk, int depth)
         const uint8_t *tag;
         if (!take(c, 1, &tag)) return SOL_SER_TRUNCATED;
         switch (*tag) {
+        /* Appended rather than interned, for the same reason the names are:
+           the code refers to this table by position, so folding a duplicate
+           here would shift every constant after it. A file written by Solas
+           has no duplicates to fold; one that does is still loaded as written
+           and still verifies. */
         case TAG_NIL:
-            sol_chunk_add_constant(chunk, SOL_NIL_VAL);
+            sol_chunk_append_constant(chunk, SOL_NIL_VAL);
             break;
         case TAG_INT:
-            sol_chunk_add_constant(chunk, SOL_INT_VAL((int64_t)get_u64(c)));
+            sol_chunk_append_constant(chunk, SOL_INT_VAL((int64_t)get_u64(c)));
             break;
         case TAG_FLOAT: {
             uint64_t bits = get_u64(c);
             double d;
             memcpy(&d, &bits, sizeof d);
-            sol_chunk_add_constant(chunk, SOL_FLOAT_VAL(d));
+            sol_chunk_append_constant(chunk, SOL_FLOAT_VAL(d));
             break;
         }
         case TAG_BOOL: {
             const uint8_t *b;
             if (!take(c, 1, &b)) return SOL_SER_TRUNCATED;
-            sol_chunk_add_constant(chunk, SOL_BOOL_VAL(*b != 0));
+            sol_chunk_append_constant(chunk, SOL_BOOL_VAL(*b != 0));
             break;
         }
         default:
@@ -462,7 +467,9 @@ static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count,
            loop would read past a side table or outside a frame. */
         switch (op) {
         case OP_CONST:
-            if (chunk->code[offset + 1] >= chunk->constants.count) FAIL(SOL_SER_MALFORMED);
+            if (sol_read_u16(&chunk->code[offset + 1]) >= chunk->constants.count) {
+                FAIL(SOL_SER_MALFORMED);
+            }
             break;
         case OP_GLOBAL:
         case OP_SET_GLOBAL:
@@ -470,11 +477,16 @@ static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count,
         case OP_SET_SLOT:
         case OP_STRING:
         case OP_SYMBOL:
-            if (chunk->code[offset + 1] >= chunk->names.count) FAIL(SOL_SER_MALFORMED);
+            if (sol_read_u16(&chunk->code[offset + 1]) >= chunk->names.count) {
+                FAIL(SOL_SER_MALFORMED);
+            }
             break;
-        /* The selector rides in the third operand byte, not the first. */
+        /* The selector follows the offset rather than leading, so it starts at
+           the third operand byte. */
         case OP_JUMP_IF_FALSE:
-            if (chunk->code[offset + 3] >= chunk->names.count) FAIL(SOL_SER_MALFORMED);
+            if (sol_read_u16(&chunk->code[offset + 3]) >= chunk->names.count) {
+                FAIL(SOL_SER_MALFORMED);
+            }
             break;
         case OP_LOCAL:
         case OP_SET_LOCAL:
@@ -489,7 +501,7 @@ static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count,
             break;
         }
         case OP_BLOCK: {
-            uint8_t index = chunk->code[offset + 1];
+            uint16_t index = sol_read_u16(&chunk->code[offset + 1]);
             if (index >= chunk->methods.count) FAIL(SOL_SER_MALFORMED);
             /* OP_BLOCK must name a block: a non-block entry would be entered
                with a frame it was not compiled for. */
@@ -520,7 +532,7 @@ static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count,
 
         if (op == OP_JUMP || op == OP_JUMP_IF_FALSE ||
             op == OP_EXIT_IF_FALSE || op == OP_LOOP) {
-            uint16_t jump = (uint16_t)((chunk->code[at + 1] << 8) | chunk->code[at + 2]);
+            uint16_t jump = sol_read_u16(&chunk->code[at + 1]);
             long target = (op == OP_LOOP) ? (long)at + length - jump
                                           : (long)at + length + jump;
             if (target < 0 || target >= chunk->count) FAIL(SOL_SER_MALFORMED);

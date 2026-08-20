@@ -96,8 +96,8 @@ test asserts it. Two lexer tokens and one compiler branch, no new opcode.
 The desugaring is real rather than a lookalike, which has one visible
 consequence worth knowing: the `array` it sends to is the ordinary global, so
 rebinding that name moves both spellings together. They cannot drift apart,
-which is the point. Capped at 255 elements by `OP_SEND`'s one-byte argument
-count (4.2).
+which is the point. Capped at 255 elements by `OP_SEND`'s argument count, which
+stayed one byte when the index operands widened (4.2).
 
 #### 1.2a Temporary roots, finally needed — **done**
 
@@ -342,9 +342,9 @@ would only ever apply when every element is itself a compile-time constant
 reader has to re-check at every use site. See the design principle on two
 spellings meaning one thing.
 
-Both spellings cap at 255 elements, since `OP_SEND` carries a one-byte argument
-count (4.2). Beyond that the compiler would need to fall back to `new` plus
-repeated `add`.
+Both spellings cap at 255 elements, since `OP_SEND`'s argument count is a byte
+and stayed one when the index operands widened (4.2). Beyond that the compiler
+would need to fall back to `new` plus repeated `add`.
 
 ### 2.5 Class side versus instance side
 
@@ -711,11 +711,76 @@ that table and a jump landing mid-instruction is what disagreement looks like.
 Still a send, and the same mechanism would serve: `and`/`or`, which
 short-circuit through a block.
 
-### 4.2 One-byte operands
+### 4.2 One-byte operands — **done**
 
-`OP_CONST`, `OP_SEND`, and the name operands carry a single byte, capping a chunk
-at 256 constants and 256 names. A `CONST_LONG`-style variant is the fix when a
-real program hits it.
+`OP_CONST`, `OP_SEND`, and the name operands each carried a single byte, so a
+chunk could hold 256 constants and 256 names, and a literal-heavy program
+stopped compiling well before it stopped making sense. Those operands are two
+bytes now and the ceiling is 65536.
+
+Not the `CONST_LONG`-style pair this entry expected, and the reason is the rule
+4.1 arrived at: an opcode should mean something. `OP_LOOP` is its own
+instruction because a backward jump is a different thing from a forward one;
+`OP_EXIT_IF_FALSE` is its own because it complains differently. A `CONST_LONG`
+means exactly what `OP_CONST` means and differs only in how wide its operand is
+-- and it would not have come alone. Nine instructions carry a side-table index,
+so it would have been nine more opcodes, in the length table, the verifier, the
+disassembler, and the dispatch loop: four more copies of the agreement 4.1 spent
+its time collapsing into one.
+
+So the width belongs to the operand rather than to the opcode, and there is one
+rule for it. An index into a side table -- a constant, a name, a nested method
+-- is a big-endian u16, because those tables grow with the program. A frame
+slot, a nesting depth, an argument count stays a u8, because those are bounded
+by the machine rather than by the source: a frame of more than 255 slots is
+refused before it runs. Jump offsets were u16 already, so sixteen bits is now
+the only width the format has, and `sol_read_u16` is the one place it is
+decoded.
+
+The constant pool also interns, which it never did -- `#1` written three times
+was three slots and is now one. The loader still appends rather than interning,
+for the reason the name table already did: a file refers to both tables by
+position, so folding a duplicate on load would shift every index after it.
+Constants are compared by their bits rather than by `==`, which keeps -0.0
+distinct from 0.0 and stops a NaN from folding onto itself.
+
+Interning paid for much of the widening. Across the eight examples the `.sob`
+files grew 3.2% in total, and `arrays.sol` *shrank* by 3.9% -- its top-level
+constant pool went from 41 entries to 12. Run time did not move: three
+benchmarks, all inside ±1%, which is the noise on this machine. The second byte
+costs a read the jumps were already doing.
+
+| | before | after |
+|---|---|---|
+| constants and names per chunk | 256 | 65536 |
+| the eight examples, total `.sob` bytes | 9934 | 10250 |
+| `arrays.sol` top-level constants | 41 | 12 |
+| a tight two-million-pass loop | 0.251s | 0.252s |
+| the same loop with a conditional in it | 0.457s | 0.455s |
+| a million sends of a user-defined method | 0.159s | 0.158s |
+
+Raising the ceiling exposed something the old one had been hiding. Both tables
+intern by walking themselves, which costs nothing at 256 entries and is
+quadratic at 65536:
+
+| distinct names and constants | compile |
+|---|---|
+| 1000 | 0.02s |
+| 4000 | 0.08s |
+| 16000 | 0.87s |
+| 32000 | 3.52s |
+
+The scan was always this shape -- the name table has done a `strcmp` per entry
+since the beginning -- but a cap of 256 meant it could never be reached. Nothing
+anyone writes by hand is near 16000 distinct literals, and a generator can be,
+so the cap and the algorithm no longer match. A hash on the way in is the fix,
+and it is the same table 4.3 wants for dispatch: intern once, compare pointers
+after.
+
+What is left at 255 is the argument count, and through it an array literal
+(1.2b). That one is not an operand-width problem: a longer literal needs a
+different construction -- `array:new` and repeated `add` -- rather than a wider
+`argc`.
 
 ### 4.3 Dispatch does a string compare per send
 
@@ -726,6 +791,12 @@ table and slot names, not in inventing the mechanism.
 `sol_object_lookup` walks a linked list comparing names with `strcmp`. Interned
 symbols with pointer equality, or an inline cache per send site, are the usual
 answers.
+
+The chunk's own interning wants the same table, and now has a reason to: 4.2
+raised the side tables from 256 entries to 65536 without changing the linear
+scan that fills them, so compiling tens of thousands of distinct literals is
+quadratic. One hash would serve both the compiler filling a chunk and the VM
+resolving a send.
 
 ---
 
@@ -818,19 +889,16 @@ program in is built. Section 1 held nothing until fuzzing the loop work put two
 crashes into it, and both are now fixed — the receiver check in 1.6 took 1.5
 with it, as that entry guessed it would.
 
-Nothing here is urgent again. The remaining items are roughly in order of how
-soon they would be missed:
+Nothing here is urgent. The remaining items are roughly in order of how soon
+they would be missed:
 
-1. **A bigger constant pool** (4.2) — a literal-heavy program hits the 256-entry
-   cap well before anything else. Sorting two thousand literals was not possible
-   without generating them at run time.
-2. **Dispatch by pointer** (4.3) — symbols exist; a send still does `strcmp`.
-3. **Calling a fetched method** — `slotAt` hands back an unbound block (2.10).
-4. **Inlining `and` and `or`** (4.1) — the last two that short-circuit through a
+1. **Dispatch by pointer** (4.3) — symbols exist; a send still does `strcmp`.
+2. **Calling a fetched method** — `slotAt` hands back an unbound block (2.10).
+3. **Inlining `and` and `or`** (4.1) — the last two that short-circuit through a
    block. Nothing new is needed; the jumps are all there now.
-5. **Stack heights in the verifier** (3.9) — would catch a corrupted argument
+4. **Stack heights in the verifier** (3.9) — would catch a corrupted argument
    count at load rather than at the send, and let the runtime checks go.
-6. Everything else as it starts to hurt.
+5. Everything else as it starts to hurt.
 
 Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), arrays entire
 (1.2, 1.2a, 1.2b), strings (1.3), user-defined objects (1.4), division (2.1),
@@ -838,7 +906,8 @@ calling the method you override (2.9), the missing operations (2.8),
 formatted output (2.11), the statement separator (2.2), float exponents and
 round-tripping (2.6, 5.3), string escapes (1.3), rendering an object by asking
 it (5.2), symbols (2.7), reflection (2.10), sorting, inlined conditionals and
-loops (4.1), and the two class-object crashes (1.5, 1.6).
+loops (4.1), the two class-object crashes (1.5, 1.6), and the side-table
+operands (4.2).
 
 One decision is outstanding: **2.5**, class side versus instance side. 1.6
 answered it one message at a time, which was enough to stop the crashes;
