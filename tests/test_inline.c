@@ -19,6 +19,13 @@ static SolResult run(SolVM *vm, SolChunk *chunk, const char *source)
     return sol_vm_run(vm, chunk);
 }
 
+/* A two-byte side-table index, as the emitter writes it. */
+static void write_index(SolChunk *chunk, int index, int line)
+{
+    sol_chunk_write(chunk, (uint8_t)((index >> 8) & 0xff), line);
+    sol_chunk_write(chunk, (uint8_t)(index & 0xff), line);
+}
+
 static SolValue global(SolVM *vm, const char *name)
 {
     SolSlot *slot = sol_object_lookup(vm->root, name);
@@ -491,6 +498,293 @@ static void test_verifier_allows_a_spin(void)
 }
 
 
+/* ---- and / or ----------------------------------------------------------- */
+
+/* Every combination, both ways round. `and` and `or` answer a boolean on both
+   paths, so unlike the conditionals there is nothing here that can be nil. */
+static void test_logical_matches_the_send(void)
+{
+    static const struct { const char *inlined; const char *sent; } pairs[] = {
+        { "true:and({ true })",   "true:and(t)"   },
+        { "true:and({ false })",  "true:and(f)"   },
+        { "false:and({ true })",  "false:and(t)"  },
+        { "false:and({ false })", "false:and(f)"  },
+        { "true:or({ true })",    "true:or(t)"    },
+        { "true:or({ false })",   "true:or(f)"    },
+        { "false:or({ true })",   "false:or(t)"   },
+        { "false:or({ false })",  "false:or(f)"   },
+    };
+
+    for (size_t i = 0; i < sizeof(pairs) / sizeof(pairs[0]); i++) {
+        char source[256];
+        SolVM vm; sol_vm_init(&vm);
+        SolChunk chunk;
+
+        snprintf(source, sizeof(source),
+                 "t := { true }. f := { false }. x := %s. y := %s.",
+                 pairs[i].inlined, pairs[i].sent);
+        assert(run(&vm, &chunk, source) == SOL_OK);
+
+        SolValue x = global(&vm, "x"), y = global(&vm, "y");
+        assert(SOL_IS_BOOL(x) && SOL_IS_BOOL(y));
+        assert(SOL_AS_BOOL(x) == SOL_AS_BOOL(y));
+
+        sol_chunk_free(&chunk); sol_vm_free(&vm);
+    }
+    printf("  inlined and sent and/or agree on all eight combinations\n");
+}
+
+/* Jumps and a check, no block and no send of the selector. */
+static void test_logical_actually_inlines(void)
+{
+    static const char *sources[] = {
+        "x := true:and({ false }).",
+        "x := false:or({ true }).",
+    };
+
+    for (size_t i = 0; i < sizeof(sources) / sizeof(sources[0]); i++) {
+        SolChunk chunk;
+        sol_chunk_init(&chunk);
+        assert(sol_compile(sources[i], &chunk));
+
+        bool saw_jump = false, saw_check = false, saw_block = false;
+        for (int offset = 0; offset < chunk.count; ) {
+            uint8_t op = chunk.code[offset];
+            if (op == OP_JUMP_IF_FALSE) saw_jump = true;
+            if (op == OP_CHECK_BOOL) saw_check = true;
+            if (op == OP_BLOCK) saw_block = true;
+            offset += sol_op_length(op);
+        }
+        assert(saw_jump);
+        assert(saw_check);
+        assert(!saw_block);
+
+        sol_chunk_free(&chunk);
+    }
+    printf("  and/or emit jumps and a check, allocating no block\n");
+}
+
+/* The point of taking a block at all: the argument does not run once the
+   receiver has settled the answer. */
+static void test_logical_short_circuits(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "log := array:of()."
+        "a := false:and({ log:add(#1). true })."     /* must not run */
+        "b := true:or({ log:add(#2). false })."      /* must not run */
+        "c := true:and({ log:add(#3). true })."      /* must run */
+        "d := false:or({ log:add(#4). true })."      /* must run */
+        "n := log:size. p := log:at(#1). q := log:at(#2).") == SOL_OK);
+
+    assert(SOL_AS_BOOL(global(&vm, "a")) == false);
+    assert(SOL_AS_BOOL(global(&vm, "b")) == true);
+    assert(SOL_AS_BOOL(global(&vm, "c")) == true);
+    assert(SOL_AS_BOOL(global(&vm, "d")) == true);
+    assert(SOL_AS_INT(global(&vm, "n")) == 2);
+    assert(SOL_AS_INT(global(&vm, "p")) == 3);
+    assert(SOL_AS_INT(global(&vm, "q")) == 4);
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+    printf("  the block runs only when the receiver has not settled it\n");
+}
+
+/* The shortcut answers a constant, not the global `true` or `false`, which a
+   program may rebind. Reading the global would make the two paths disagree. */
+static void test_logical_shortcut_ignores_rebinding(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "yes := #1:equals(#1). no := #1:equals(#2)."   /* real booleans */
+        "true := #5. false := #6."                      /* both names rebound */
+        "a := no:and({ yes })."                         /* shortcut: false */
+        "b := yes:or({ no }).") == SOL_OK);             /* shortcut: true  */
+
+    SolValue a = global(&vm, "a"), b = global(&vm, "b");
+    assert(SOL_IS_BOOL(a) && SOL_AS_BOOL(a) == false);
+    assert(SOL_IS_BOOL(b) && SOL_AS_BOOL(b) == true);
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+    printf("  the shortcut answers a boolean even where true/false are rebound\n");
+}
+
+static void test_logical_falls_back(void)
+{
+    /* Parameters: an arity error when `and` calls the block with none, and
+       inlining would have quietly made it work. */
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    assert(run(&vm, &chunk, "true:and({ a | a }).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+
+    /* Temporaries belong to the block's own frame, so a name inside may shadow
+       one outside; inlining would collide them. */
+    SolVM vm2; sol_vm_init(&vm2);
+    SolChunk chunk2;
+    assert(run(&vm2, &chunk2,
+        "b := { | t | t := #1."
+        "       true:and({ | t | t := #2. true })."
+        "       t }."
+        "y := b:value.") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm2, "y")) == 1);
+    sol_chunk_free(&chunk2); sol_vm_free(&vm2);
+
+    printf("  and/or fall back where inlining would change meaning\n");
+}
+
+/* A block answering a non-boolean is `and` objecting to the answer, not a
+   receiver failing to understand a message -- which is why OP_CHECK_BOOL
+   exists rather than reusing the loop's test. One function words it. */
+static void test_logical_answer_error_matches(void)
+{
+    char inlined[512], sent[512];
+
+    error_of("true:and({ #5 }).", inlined, sizeof(inlined));
+    error_of("b := { #5 }. true:and(b).", sent, sizeof(sent));
+
+    assert(strstr(inlined, "'and' expects the block to answer a boolean, "
+                           "got integer") != NULL);
+    assert(strstr(sent, "'and' expects the block to answer a boolean, "
+                        "got integer") != NULL);
+
+    const char *a = strchr(inlined, '\n'), *b = strchr(sent, '\n');
+    assert(a != NULL && b != NULL);
+    assert(a - inlined == b - sent);
+    assert(strncmp(inlined, sent, (size_t)(a - inlined)) == 0);
+
+    /* `or` names itself, which is why the message carries the selector. */
+    char or_inlined[512];
+    error_of("false:or({ #5 }).", or_inlined, sizeof(or_inlined));
+    assert(strstr(or_inlined, "'or' expects the block to answer a boolean, "
+                              "got integer") != NULL);
+
+    printf("  a non-boolean answer reads the same either way\n");
+}
+
+/* A receiver that is not a boolean never finds `and`, because `and` lives on
+   the boolean class. The inlined form reports that, not something of its own. */
+static void test_logical_receiver_error_matches(void)
+{
+    char inlined[512], sent[512];
+
+    error_of("#5:and({ true }).", inlined, sizeof(inlined));
+    error_of("b := { true }. #5:and(b).", sent, sizeof(sent));
+
+    assert(strstr(inlined, "integer does not understand 'and'") != NULL);
+
+    const char *a = strchr(inlined, '\n'), *b = strchr(sent, '\n');
+    assert(a != NULL && b != NULL);
+    assert(a - inlined == b - sent);
+    assert(strncmp(inlined, sent, (size_t)(a - inlined)) == 0);
+
+    printf("  a non-boolean receiver reads the same either way\n");
+}
+
+/* Both paths through both messages, thousands of times: a shortcut that left
+   the stack one deep would drift into underflow or overflow. */
+static void test_logical_stack_stays_balanced(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "i := #0. acc := #0."
+        "{ i:lessThan(#20000) }:whileTrue({"
+        "    i:mod(#2):equals(#0):and({ i:greaterThan(#-1) })"
+        "        :ifTrue({ acc := acc:add(#1) })."
+        "    i:mod(#2):equals(#0):or({ i:lessThan(#0) })."
+        "    i := i:add(#1)."
+        "}).") == SOL_OK);
+
+    assert(SOL_AS_INT(global(&vm, "acc")) == 10000);
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+    printf("  20,000 and/or leave the stack where they found it\n");
+}
+
+/* Nesting, capture, and self through an inlined and/or, under GC stress. */
+static void test_logical_semantics_hold(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    vm.gc_stress = true;
+
+    assert(run(&vm, &chunk,
+        /* self resolves through the block, which is compiled into this frame */
+        "p := object:new. p:n := #7."
+        "p:ok := { self:n:greaterThan(#5):and({ self:n:lessThan(#10) }) }."
+        "a := p:ok."
+        /* an enclosing frame's local, read and written from inside the block */
+        "b := { | hit | hit := #0."
+        "       false:or({ hit := hit:add(#1). true })."
+        "       hit }:value."
+        /* nested one inside another */
+        "c := true:and({ false:or({ true }) })."
+        /* chained onto, and mixed with the conditionals */
+        "d := true:and({ true }):ifElse({ #1 }, { #2 }).") == SOL_OK);
+
+    assert(SOL_AS_BOOL(global(&vm, "a")) == true);
+    assert(SOL_AS_INT(global(&vm, "b")) == 1);
+    assert(SOL_AS_BOOL(global(&vm, "c")) == true);
+    assert(SOL_AS_INT(global(&vm, "d")) == 1);
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+    printf("  self, capture, nesting, and chaining hold through and/or\n");
+}
+
+/* OP_CHECK_BOOL carries a name, and a corrupted one would be read out of the
+   table it indexes. */
+static void test_verifier_checks_the_logical_selector(void)
+{
+    SolChunk chunk;
+    sol_chunk_init(&chunk);
+    assert(sol_compile("x := true:and({ false }).", &chunk));
+
+    bool patched = false;
+    for (int offset = 0; offset + 2 < chunk.count; offset++) {
+        if (chunk.code[offset] != OP_CHECK_BOOL) continue;
+        int past = chunk.names.count;                  /* one past the end */
+        chunk.code[offset + 1] = (uint8_t)((past >> 8) & 0xff);
+        chunk.code[offset + 2] = (uint8_t)(past & 0xff);
+        patched = true;
+        break;
+    }
+    assert(patched);
+    assert(sol_chunk_verify(&chunk) != SOL_SER_OK);
+
+    sol_chunk_free(&chunk);
+    printf("  rejected: a CHECK_BOOL name index past the name table\n");
+}
+
+/* The verifier does not compute stack heights (3.9), so a chunk reaching
+   OP_CHECK_BOOL with nothing on the stack passes verification. The opcode has
+   to refuse it rather than read below the frame, which is why it goes through
+   sol_vm_pop's guard instead of reading the top in place. */
+static void test_check_bool_on_an_empty_stack(void)
+{
+    SolChunk chunk;
+    sol_chunk_init(&chunk);
+    int name = sol_chunk_add_name(&chunk, "and", 3);
+
+    sol_chunk_write(&chunk, OP_CHECK_BOOL, 1);    /* nothing has been pushed */
+    write_index(&chunk, name, 1);
+    sol_chunk_write(&chunk, OP_HALT, 1);
+
+    assert(sol_chunk_verify(&chunk) == SOL_SER_OK);
+
+    SolVM vm;
+    sol_vm_init(&vm);
+    assert(sol_vm_run(&vm, &chunk) == SOL_RUNTIME_ERROR);
+    sol_vm_free(&vm);
+
+    sol_chunk_free(&chunk);
+    printf("  CHECK_BOOL on an empty stack is refused, not followed\n");
+}
+
 int main(void)
 {
     printf("inlined control flow\n");
@@ -509,6 +803,17 @@ int main(void)
     test_loop_stack_stays_balanced();
     test_verifier_rejects_bad_loops();
     test_verifier_allows_a_spin();
+    test_logical_matches_the_send();
+    test_logical_actually_inlines();
+    test_logical_short_circuits();
+    test_logical_shortcut_ignores_rebinding();
+    test_logical_falls_back();
+    test_logical_answer_error_matches();
+    test_logical_receiver_error_matches();
+    test_logical_stack_stays_balanced();
+    test_logical_semantics_hold();
+    test_verifier_checks_the_logical_selector();
+    test_check_bool_on_an_empty_stack();
     printf("ok\n");
     return 0;
 }

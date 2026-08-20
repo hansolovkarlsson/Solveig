@@ -68,3 +68,31 @@ sentCountTo := { | i, seen, condition, body |
 
 countTo:value:print.                                      ; #15
 sentCountTo:value:print.                                  ; #15
+
+; `and` and `or` take a block for the same reason `ifTrue` does: so the answer
+; can be settled without running it. The block runs only when the receiver has
+; not already decided the question.
+x := #3.
+x:greaterThan(#0):and({ x:lessThan(#10) }):print.         ; true
+x:lessThan(#0):or({ x:equals(#3) }):print.                ; true
+
+; Short-circuit, and here is the proof: the receiver settles both of these, so
+; neither block runs and neither `add` happens.
+log := array:of().
+false:and({ log:add(#1). true }).
+true:or({ log:add(#2). false }).
+log:size:print.                                           ; #0
+
+; These inline to jumps too, and the same rule decides it: written on the spot,
+; no parameters, no temporaries. Reached through a variable it is an ordinary
+; send, and the two must agree.
+sentAnd := { | c |
+    c := { x:lessThan(#10) }.
+    x:greaterThan(#0):and(c)
+}.
+sentAnd:value:print.                                      ; true
+
+; What the block answers is what `and` answers, so it has to be a boolean --
+; the same strictness `whileTrue` has about its condition.
+;   true:and({ #5 }).
+;   solvm: 'and' expects the block to answer a boolean, got integer

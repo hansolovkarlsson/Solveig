@@ -488,8 +488,9 @@ This needs the interpreter to be re-entrant: a primitive invokes a block
 through `sol_vm_call_block`, which pushes a frame and runs until it returns.
 `whileTrue` is then just a C loop calling two blocks.
 
-The compiler has since learned those four selectors after all, and emits jumps
-when it sees one written literally with plain blocks (4.1). That is an
+The compiler has since learned six of those selectors after all -- `ifTrue`,
+`ifFalse`, `ifElse`, `whileTrue`, `and`, and `or` -- and emits jumps when it
+sees one written literally with plain blocks (4.1). That is an
 optimisation layered on top rather than a change of model: the primitives are
 still there, still what a `perform` or a block held in a variable reaches, and
 the compiler falls back to the send whenever inlining would alter what the

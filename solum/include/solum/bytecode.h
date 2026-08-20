@@ -59,6 +59,12 @@ typedef enum {
                        boolean came from a block, so a non-boolean is whileTrue
                        objecting to the answer, not a receiver failing to
                        understand the message.                                 */
+    OP_CHECK_BOOL,  /* operand: u16 name index -- require the top of the stack to
+                       be a boolean, leaving it there. What an inlined `and` or
+                       `or` does to the value its block answered: that value is
+                       the reply, so unlike the two above it is examined rather
+                       than consumed. The name is the message, so the complaint
+                       is the one the real send would have made.               */
     OP_LOOP,        /* operands: u16 offset -- jump *backward* that many bytes.
                        The one instruction that can move the ip towards zero,
                        which is why it is its own opcode rather than a signed

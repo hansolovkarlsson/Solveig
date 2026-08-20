@@ -485,8 +485,8 @@ known shape.
 
 ### 4.1 Conditionals and loops are real calls — **done**
 
-`ifTrue`, `ifFalse`, `ifElse`, and `whileTrue` written literally compile to
-jumps: no block allocated, no frame entered. They are still ordinary messages,
+`ifTrue`, `ifFalse`, `ifElse`, `whileTrue`, `and`, and `or` written literally
+compile to jumps: no block allocated, no frame entered. They are still ordinary messages,
 and still reachable as such through `perform` or with a block held in a
 variable.
 
@@ -542,8 +542,25 @@ Instruction lengths are also down to one table now, `sol_op_length`, which the
 emitter, the verifier, the disassembler, and the tests all read. Four copies of
 that table and a jump landing mid-instruction is what disagreement looks like.
 
-Still a send, and the same mechanism would serve: `and`/`or`, which
-short-circuit through a block.
+`and` and `or` came last, and needed one thing the conditionals did not. They
+answer a boolean on both paths, and on the long path the boolean is whatever the
+block said -- so the block's answer is the reply *and* has to be checked. That is
+neither of the existing tests: OP_JUMP_IF_FALSE and OP_EXIT_IF_FALSE both consume
+the value they branch on. **OP_CHECK_BOOL** examines the top of the stack and
+leaves it, naming the message so the complaint is the one the send would have
+made. `.sob` went to version 10.
+
+The short-circuit answer is a constant rather than the global `true` or `false`.
+Those are ordinary globals a program can rebind, and reading one would let the
+two paths disagree about what `and` answers.
+
+| | before | after |
+|---|---|---|
+| a two-million-pass loop, mostly `and`/`or` | 2.31s | **1.83s** |
+| recursion through an `and`/`or` block | 31 | **62** |
+
+The depth is again the better number, and for the same reason as above: the
+block was costing a frame that the jumps do not.
 
 ### 4.2 One-byte operands — **done**
 
@@ -730,11 +747,9 @@ they would be missed:
    and the compiler's own interning wants the same hash table now that 4.2 has
    raised the side tables to 65536 entries.
 2. **Calling a fetched method** — `slotAt` hands back an unbound block (2.14).
-3. **Inlining `and` and `or`** (4.1) — the last two that short-circuit through a
-   block. Nothing new is needed; the jumps are all there now.
-4. **Stack heights in the verifier** (3.9) — would catch a corrupted argument
+3. **Stack heights in the verifier** (3.9) — would catch a corrupted argument
    count at load rather than at the send, and let the runtime checks go.
-5. Everything else as it starts to hurt.
+4. Everything else as it starts to hurt.
 
 Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), arrays entire
 (1.2, 1.2a, 1.2b), strings (1.3), user-defined objects (1.4), division (2.1),
@@ -742,8 +757,8 @@ calling the method you override (2.9), the missing operations (2.8),
 formatted output (2.11), the statement separator (2.2), float exponents and
 round-tripping (2.6, 5.3), string escapes (1.3), rendering an object by asking
 it (5.2), symbols (2.7), reflection (2.10), sorting, inlined conditionals and
-loops (4.1), the two class-object crashes (1.5, 1.6), the side-table operands
-(4.2), and the frameless temporary (1.7).
+loops and now `and`/`or` (4.1), the two class-object crashes (1.5, 1.6), the
+side-table operands (4.2), and the frameless temporary (1.7).
 
 One decision is outstanding: **2.5**, class side versus instance side. 1.6
 answered it one message at a time, which was enough to stop the crashes;

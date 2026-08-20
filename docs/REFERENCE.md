@@ -340,8 +340,8 @@ x:greaterThan(#0):and({ x:lessThan(#10) }).
 
 ### What the compiler does with them
 
-Written literally, `ifTrue`, `ifFalse`, `ifElse`, and `whileTrue` compile to
-jumps: no block is allocated and no frame is entered. This is an optimisation
+Written literally, `ifTrue`, `ifFalse`, `ifElse`, `whileTrue`, `and`, and `or`
+compile to jumps: no block is allocated and no frame is entered. This is an optimisation
 only — the meaning is exactly that of the message, and the message is still
 there, reachable through `perform` or with a block held in a variable.
 
@@ -372,11 +372,17 @@ and it reads the same either way:
 solvm: whileTrue expects the condition block to answer a boolean, got integer
 ```
 
+`and` and `or` say the same thing about their block, naming themselves, since
+what the block answered is what they answer:
+
+```
+true:and({ #5 }).
+solvm: 'and' expects the block to answer a boolean, got integer
+```
+
 A loop compiles to a jump backwards, which is the only way the machine can run
 the same instruction twice. It therefore need not terminate — but neither need
 the loop it was compiled from, so nothing is reachable that was not before.
-
-`and` and `or` are not inlined yet and remain real sends.
 
 Recursion works, and with conditionals it terminates:
 
@@ -775,7 +781,7 @@ division by zero, undeclared names, and a block outliving its frame.
 
 | | |
 | --- | --- |
-| Recursion | about **62 levels** — the frame cap is 64 and a level costs one frame, now that an `ifElse` branch and a `whileTrue` body are inlined rather than called |
+| Recursion | about **62 levels** — the frame cap is 64 and a level costs one frame, now that an `ifElse` branch, a `whileTrue` body, and an `and`/`or` block are inlined rather than called |
 | Constants, names, blocks per chunk | **65536** — a two-byte index, and both tables intern, so repeats cost nothing |
 | Arguments, parameters, array literal elements | 255 — an argument count is one byte |
 | Locals per frame | 255 |

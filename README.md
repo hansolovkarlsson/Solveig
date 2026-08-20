@@ -143,7 +143,16 @@ integer:factorial := {
 #20:factorial:print.      ; #2432902008176640000
 ```
 
-Written literally, those compile to jumps -- no block allocated, no frame
+`and` and `or` take a block for the same reason, so the answer can be settled
+without running it:
+
+```
+> x := #3.
+> x:greaterThan(#0):and({ x:lessThan(#10) }):print.
+true
+```
+
+Written literally, all of those compile to jumps -- no block allocated, no frame
 entered -- while staying ordinary messages you can send any other way. See
 [examples/blocks.sol](examples/blocks.sol).
 

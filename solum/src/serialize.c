@@ -477,6 +477,7 @@ static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count,
         case OP_SET_SLOT:
         case OP_STRING:
         case OP_SYMBOL:
+        case OP_CHECK_BOOL:
             if (sol_read_u16(&chunk->code[offset + 1]) >= chunk->names.count) {
                 FAIL(SOL_SER_MALFORMED);
             }

@@ -38,6 +38,7 @@ static void expression(Compiler *c);
 static void statement(Compiler *c);
 static void block_literal(Compiler *c);
 static bool inline_conditional(Compiler *c, const SolToken *selector);
+static bool inline_logical(Compiler *c, const SolToken *selector);
 static bool inline_while(Compiler *c);
 
 /* Is this token exactly this word? */
@@ -447,7 +448,7 @@ static void expression(Compiler *c)
         sol_parser_consume(p, TOK_IDENT, "expected a message name after ':'");
         SolToken selector = p->previous;
 
-        if (inline_conditional(c, &selector)) {
+        if (inline_conditional(c, &selector) || inline_logical(c, &selector)) {
             target_at = -1;              /* never a `receiver:name := value` */
             continue;
         }
@@ -793,6 +794,73 @@ static bool inline_conditional(Compiler *c, const SolToken *selector)
         } else {
             emit(c, OP_NIL);             /* `ifTrue` answers nil when it is not */
         }
+        patch_jump(c, to_end);
+    }
+
+    sol_parser_consume(p, TOK_RPAREN, "expected ')' after arguments");
+    return true;
+}
+
+/* `and` and `or`, which short-circuit through a block exactly as `ifTrue` does
+ * -- which is why they take one rather than a boolean, and why the same jumps
+ * serve.
+ *
+ * They differ from the conditionals in what comes out. `ifTrue` answers nil on
+ * the path it does not take, and any value on the path it does; `and` answers a
+ * boolean either way, and the one it answers on the long path is whatever the
+ * block said. So the block's answer is the reply, and it has to be a boolean --
+ * which is the check the primitive makes after calling the block, and which
+ * OP_CHECK_BOOL makes here, in the same words.
+ *
+ *      and:                            or:
+ *        JUMP_IF_FALSE -> false          JUMP_IF_FALSE -> run
+ *        <body>                          CONST true
+ *        CHECK_BOOL                      JUMP -> end
+ *        JUMP -> end                   run:
+ *      false:                            <body>
+ *        CONST false                     CHECK_BOOL
+ *      end:                            end:
+ *
+ * The short-circuit answer is a constant rather than the global `true` or
+ * `false`, which a program can rebind: reading it would make the shortcut and
+ * the long path disagree about what `and` answers.
+ */
+static bool inline_logical(Compiler *c, const SolToken *selector)
+{
+    SolParser *p = &c->parser;
+
+    bool is_and = token_is(selector, "and");
+    bool is_or  = token_is(selector, "or");
+    if (!is_and && !is_or) return false;
+
+    if (p->current.type != TOK_LPAREN) return false;
+    if (!inlinable_arguments(c, 1)) return false;
+
+    int name = name_operand(c, selector);
+    sol_parser_consume(p, TOK_LPAREN, "expected '(' after the message name");
+
+    /* Pops the receiver and branches on it. A non-boolean is reported here as
+       not understanding the message, which is what the send would have said --
+       `and` lives on the boolean class, so no other receiver finds it. */
+    int to_shortcut = emit_jump(c, OP_JUMP_IF_FALSE);
+    emit_index(c, name);
+
+    if (is_and) {
+        inline_branch(c);
+        emit_indexed(c, OP_CHECK_BOOL, name);
+        int to_end = emit_jump(c, OP_JUMP);
+        patch_jump(c, to_shortcut);
+        emit_indexed(c, OP_CONST, constant_operand(c, SOL_BOOL_VAL(false)));
+        patch_jump(c, to_end);
+    } else {
+        /* Inverted, as `ifFalse` is: a true receiver settles `or`, so the
+           branch that falls through is the shortcut and the one taken runs the
+           block. */
+        emit_indexed(c, OP_CONST, constant_operand(c, SOL_BOOL_VAL(true)));
+        int to_end = emit_jump(c, OP_JUMP);
+        patch_jump(c, to_shortcut);
+        inline_branch(c);
+        emit_indexed(c, OP_CHECK_BOOL, name);
         patch_jump(c, to_end);
     }
 

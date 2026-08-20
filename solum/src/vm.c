@@ -198,6 +198,12 @@ void sol_vm_condition_error(SolVM *vm, SolValue answer)
                              "a boolean, got %s", sol_type_name(answer));
 }
 
+void sol_vm_block_answer_error(SolVM *vm, const char *name, SolValue answer)
+{
+    sol_vm_runtime_error(vm, "'%s' expects the block to answer a boolean, got %s",
+                         name, sol_type_name(answer));
+}
+
 /* Pushes a frame. The receiver and arguments are already on the stack in slot
    order; any remaining locals are filled with nil. */
 static bool push_frame(SolVM *vm, const SolMethod *code, int argc,
@@ -509,6 +515,23 @@ static SolResult run_frames(SolVM *vm, int base)
                 break;
             }
             if (!SOL_AS_BOOL(condition)) frame->ip += offset;
+            break;
+        }
+
+        /* An inlined `and` or `or`, checking what its block answered. The
+           value goes back: it is the reply, where the two tests below consume
+           the boolean they branch on. Popping and pushing rather than reading
+           the top in place borrows pop's underflow guard, which a corrupted
+           chunk reaching here with an empty stack still needs. */
+        case OP_CHECK_BOOL: {
+            const char *name = READ_NAME();
+            SolValue answer = sol_vm_pop(vm);
+
+            if (!SOL_IS_BOOL(answer)) {
+                sol_vm_block_answer_error(vm, name, answer);
+                break;
+            }
+            sol_vm_push(vm, answer);
             break;
         }
 

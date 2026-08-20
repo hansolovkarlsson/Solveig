@@ -215,6 +215,7 @@ int sol_op_length(uint8_t op)
     case OP_SET_OUTER:
     case OP_JUMP:
     case OP_EXIT_IF_FALSE:
+    case OP_CHECK_BOOL:
     case OP_LOOP:
         return 3;
     case OP_SEND:
@@ -325,6 +326,7 @@ int sol_chunk_disassemble_instruction(const SolChunk *chunk, int offset)
     case OP_JUMP:   return jump_instruction(chunk, "JUMP", offset);
     case OP_JUMP_IF_FALSE: return jump_instruction(chunk, "JUMP_IF_FALSE", offset);
     case OP_EXIT_IF_FALSE: return jump_instruction(chunk, "EXITIFF", offset);
+    case OP_CHECK_BOOL: return name_instruction("CHKBOOL", chunk, offset);
     case OP_LOOP:   return jump_instruction(chunk, "LOOP", offset);
     default:
         printf("unknown opcode %d\n", instruction);

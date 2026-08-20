@@ -8,6 +8,73 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### Inlined `and` and `or` — `pending`, 2026-08-20
+
+**`.sob` goes to version 10.**
+
+```
+x := #3.
+x:greaterThan(#0):and({ x:lessThan(#10) }).    ; jumps now, no block, no frame
+x:lessThan(#0):or({ x:equals(#3) }).
+```
+
+The last two selectors that short-circuited through a real block. Conditionals
+and loops were inlined in `54e2ae1` and `0fd9a75`; these finish roadmap 4.1, and
+the jumps were all in place — but they needed one thing the other four did not.
+
+**A new opcode, `OP_CHECK_BOOL`.** `ifTrue` answers nil on the path it does not
+take and anything at all on the path it does. `and` answers a boolean either
+way, and on the long path that boolean is *whatever the block said* — so the
+block's answer is both the reply and something that has to be checked. Neither
+existing test does that: `OP_JUMP_IF_FALSE` and `OP_EXIT_IF_FALSE` both consume
+the value they branch on. The new one examines the top of the stack and leaves
+it there, carrying the message name so the complaint is the one the send would
+have made.
+
+```
+        and:                            or:
+          JUMP_IF_FALSE -> false          JUMP_IF_FALSE -> run
+          <body>                          CONST true
+          CHECK_BOOL                      JUMP -> end
+          JUMP -> end                   run:
+        false:                            <body>
+          CONST false                     CHECK_BOOL
+        end:                            end:
+```
+
+**The shortcut answers a constant, not the global `true` or `false`.** Those are
+ordinary globals and a program can rebind them; reading one would let the short
+path and the long path disagree about what `and` answers. A test rebinds both
+and requires the shortcut to keep answering booleans.
+
+| | before | after |
+|---|---|---|
+| a two-million-pass loop, mostly `and`/`or` | 2.31s | **1.83s** |
+| recursion through an `and`/`or` block | 31 | **62** |
+
+The depth is again worth more than the seconds, and for the reason the earlier
+entries gave: the block was costing a frame, and the jumps do not. Recursion
+that runs inside an `and` now reaches as far as recursion that does not.
+
+Everything else is the shape already established. The restrictions are
+unchanged — the block must be written on the spot with no parameters and no
+temporaries, or it falls back to an ordinary send, which still means `true:and({
+a | a })` is an arity error rather than being quietly made to work. Both forms
+raise the non-boolean-answer complaint from one function in `vm.c`, so the
+inlined form and the primitive cannot word it differently; the primitive's own
+message moved there rather than being copied.
+
+Checked three ways past the unit tests: 1,750 single-byte corruptions of a
+`.sob` using both messages, run under ASan and UBSan, none of which crashed the
+loader; the suite under `SOLUM_GC_STRESS=1` with both sanitizers; and a
+hand-built chunk reaching `OP_CHECK_BOOL` with an empty stack, which passes
+verification — the verifier still does not compute stack heights (3.9) — and is
+refused at run time rather than read below the frame.
+
+The six accepted forms this adds to the compiler are in `tests/test_compile.c`,
+which now checks 29 of them against the verifier: whatever Solas accepts, the
+verifier accepts.
+
 ### A temporary needs a frame, and the compiler says so — `a57632c`, 2026-08-19
 
 `( | t | ... )` declares temporaries of the frame the group sits in. Inside a

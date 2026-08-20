@@ -225,6 +225,12 @@ static void test_every_accepted_form_verifies(void)
         "#255:asBase(#16):asString(\"08\"):print.",
         "x := #1\n:add(#2).",
         "a := #1. a:perform('add, #2):print.",
+        "true:and({ false }).",
+        "false:or({ true }).",
+        "b := { true }. true:and(b). false:or(b).",
+        "x := #3. x:greaterThan(#0):and({ x:lessThan(#10) }):ifTrue({ x:print }).",
+        "true:and({ true:or({ false }) }).",
+        "{ true:and({ false }) }:whileTrue({ #1 }).",
     };
 
     for (size_t i = 0; i < sizeof(sources) / sizeof(sources[0]); i++) {

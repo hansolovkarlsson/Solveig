@@ -112,6 +112,12 @@ void sol_vm_runtime_error(SolVM *vm, const char *format, ...);
    jumps -- go through here, so the two cannot come to word it differently. */
 void sol_vm_condition_error(SolVM *vm, SolValue answer);
 
+/* The same complaint for `and` and `or`, which name the message because there
+   are two of them. Shared by the primitives and by OP_CHECK_BOOL for the same
+   reason as above: an inlined form that worded this differently would be a
+   difference the optimisation was not allowed to make. */
+void sol_vm_block_answer_error(SolVM *vm, const char *name, SolValue answer);
+
 /* Installs the built-in classes and their primitives. Called by sol_vm_init. */
 void sol_builtins_install(SolVM *vm);
 

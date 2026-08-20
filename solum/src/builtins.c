@@ -940,8 +940,9 @@ static SolValue boolean_block(SolVM *vm, const char *name, SolValue block)
     SolValue answer = sol_vm_call_block(vm, block, NULL, 0);
     if (vm->had_error) return SOL_NIL_VAL;
     if (!SOL_IS_BOOL(answer)) {
-        sol_vm_runtime_error(vm, "'%s' expects the block to answer a boolean, got %s",
-                             name, sol_type_name(answer));
+        /* Worded in vm.c, because the inlined form raises the same complaint
+           from OP_CHECK_BOOL and the two must not drift apart. */
+        sol_vm_block_answer_error(vm, name, answer);
         return SOL_NIL_VAL;
     }
     return answer;
