@@ -8,6 +8,48 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### Inlined conditionals — `pending`, 2026-08-19
+
+**`.sob` goes to version 7.**
+
+`ifTrue`, `ifFalse`, and `ifElse` written literally now compile to jumps — no
+block allocated, no frame entered:
+
+```
+0000 CONST       0 '#1'
+0002 CONST       1 '#2'
+0004 SEND        0 'lessThan' (1 args)
+0007 JUMP_IF_FALSE    5 -> 16 (ifElse)
+0011 STRING      2 'yes'
+0013 JUMP        2 -> 18
+0016 STRING      3 'no'
+```
+
+| | before | after |
+| --- | --- | --- |
+| Recursion depth | 30 | **62** |
+| 2,000,000 conditionals | 1.60s | **1.12s** |
+
+They are still ordinary messages on a boolean, still reachable through `perform`
+or with a block held in a variable. Inlining applies only when every argument is
+a block written on the spot with no parameters and no temporaries — a block with
+parameters is an arity error when `ifElse` calls it with none, and inlining
+would quietly make it work; a block's temporaries belong to its own frame, and
+inlining would declare them in the enclosing one where they could collide.
+Everything else falls back to a real send, and there are tests that the two
+forms agree on every combination.
+
+**The verifier changed, as 4.1 predicted it would have to.** Execution is no
+longer linear, so it records where each instruction begins and checks every
+branch target lands on one, in range. A crafted target one byte into a send
+would otherwise have its operands executed as opcodes; there is a test for
+exactly that. Offsets are unsigned and so forward-only, which is also why
+verified bytecode cannot loop through a jump — 1798 corrupted variants of a
+jump-bearing file gave no sanitizer report and no timeout.
+
+The remaining cost in that loop is `whileTrue`, still a send with a block call
+per iteration. It needs a backward jump, and is now first on the list.
+
 ### Sorting — `113745f`, 2026-08-19
 
 ```

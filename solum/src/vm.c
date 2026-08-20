@@ -247,6 +247,7 @@ static SolResult run_frames(SolVM *vm, int base)
 
 #define READ_BYTE() (*frame->ip++)
 #define READ_NAME() (sol_chunk_name(frame->chunk, READ_BYTE()))
+#define READ_SHORT() (frame->ip += 2, (uint16_t)((frame->ip[-2] << 8) | frame->ip[-1]))
 
     for (;;) {
         uint8_t instruction = READ_BYTE();
@@ -423,6 +424,31 @@ static SolResult run_frames(SolVM *vm, int base)
             break;
         }
 
+        case OP_JUMP:
+            frame->ip += READ_SHORT();
+            break;
+
+        /* The compiler emits this for an inlined `ifTrue`/`ifFalse`/`ifElse`.
+           Offsets are forward only, so no bytecode the compiler writes can loop
+           here -- and the verifier has already established that the target is
+           the start of an instruction in this chunk. */
+        case OP_JUMP_IF_FALSE: {
+            uint16_t offset = READ_SHORT();
+            const char *name = READ_NAME();
+            SolValue condition = sol_vm_pop(vm);
+
+            /* Inlining must not change what the program means, and only a
+               boolean understands these. Reported exactly as the send it
+               replaced would have. */
+            if (!SOL_IS_BOOL(condition)) {
+                sol_vm_runtime_error(vm, "%s does not understand '%s'",
+                                     sol_type_name(condition), name);
+                break;
+            }
+            if (!SOL_AS_BOOL(condition)) frame->ip += offset;
+            break;
+        }
+
         case OP_POP:
             sol_vm_pop(vm);
             break;
@@ -452,6 +478,7 @@ static SolResult run_frames(SolVM *vm, int base)
         if (vm->had_error) return SOL_RUNTIME_ERROR;
     }
 
+#undef READ_SHORT
 #undef READ_NAME
 #undef READ_BYTE
 }

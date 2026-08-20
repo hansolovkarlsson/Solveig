@@ -147,7 +147,7 @@ See [examples/blocks.sol](examples/blocks.sol).
 
 Still to do:
 
-- [ ] calling a fetched method -- `slotAt` hands back a block with no receiver
+- [ ] inlining `whileTrue` -- the jump machinery is in place; it needs a backward jump
 - [ ] sorting -- strings and numbers order, but arrays have no `sort`
 
 ## License

@@ -299,6 +299,31 @@ x:greaterThan(#0):and({ x:lessThan(#10) }).
 
 `whileTrue` and `and`/`or` are strict about the block answering a boolean.
 
+### What the compiler does with them
+
+Written literally, `ifTrue`, `ifFalse`, and `ifElse` compile to jumps: no block
+is allocated and no frame is entered. This is an optimisation only — the meaning
+is exactly that of the message, and the message is still there, reachable
+through `perform` or with a block held in a variable.
+
+It applies when every argument is a block written on the spot with no parameters
+and no temporaries. Anything else is compiled as an ordinary send, so these two
+still mean what they say rather than being quietly rewritten:
+
+```
+true:ifElse({ a | a }, { #2 }).      ; still an arity error, as a send would be
+true:ifElse({ | t | t := #1. t }, { #0 }).   ; t stays in a frame of its own
+```
+
+A non-boolean receiver reports the same error either way:
+
+```
+#45:ifElse({ #1 }, { #2 }).
+solvm: integer does not understand 'ifElse'
+```
+
+`whileTrue`, `and`, and `or` are not inlined yet and remain real sends.
+
 Recursion works, and with conditionals it terminates:
 
 ```
@@ -640,7 +665,7 @@ division by zero, undeclared names, and a block outliving its frame.
 
 | | |
 | --- | --- |
-| Recursion | about **30 levels** — the frame cap is 64 and each level costs two, one for the method and one for the `ifElse` branch |
+| Recursion | about **62 levels** — the frame cap is 64 and a level costs one frame, now that an `ifElse` branch is inlined rather than called |
 | Constants, names per chunk | 255 |
 | Arguments, parameters, array literal elements | 255 |
 | Locals per frame | 255 |

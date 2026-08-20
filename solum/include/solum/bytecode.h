@@ -40,6 +40,11 @@ typedef enum {
     OP_SEND,        /* operands: u8 name index, u8 argc -- send a message       */
     OP_SET_SLOT,    /* operand: u8 name index -- pop a value and an object, bind
                        the name on it, and leave the value                      */
+    OP_JUMP,        /* operands: u16 offset -- skip forward that many bytes     */
+    OP_JUMP_IF_FALSE,/* operands: u16 offset, u8 name index -- pop a boolean and
+                       skip when it is false. The name is the selector this was
+                       inlined from, so a non-boolean reports the same "does not
+                       understand" it would have as a real send.               */
     OP_POP,         /* discard top of stack (statement boundary)                */
     OP_RETURN,      /* return top of stack from the current method              */
     OP_HALT         /* stop the VM                                              */

@@ -431,10 +431,21 @@ static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count,
     if (depth > SOL_MAX_NESTING) return SOL_SER_MALFORMED;
     if (chunk->count == 0) return SOL_SER_MALFORMED;
 
+    /* Execution is no longer linear, so knowing each instruction is well formed
+       is not enough: a jump target has to be the *start* of one. Recorded here
+       in the same walk, checked in a second pass below. A crafted file whose
+       target lands one byte into a send would otherwise read its operands as an
+       opcode. */
+    bool *boundary = calloc((size_t)chunk->count, sizeof(bool));
+    if (boundary == NULL) return SOL_SER_MALFORMED;
+
+#define FAIL(code) do { free(boundary); return (code); } while (0)
+
     int offset = 0;
     int last = 0;
 
     while (offset < chunk->count) {
+        boundary[offset] = true;
         last = offset;
         uint8_t op = chunk->code[offset];
 
@@ -461,21 +472,25 @@ static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count,
         case OP_SEND:
         case OP_OUTER:
         case OP_SET_OUTER:
+        case OP_JUMP:
             operands = 2;
             break;
+        case OP_JUMP_IF_FALSE:
+            operands = 3;                  /* u16 offset, then the selector */
+            break;
         default:
-            return SOL_SER_MALFORMED;      /* unknown opcode */
+            FAIL(SOL_SER_MALFORMED);       /* unknown opcode */
         }
 
         if (offset + 1 + operands > chunk->count) {
-            return SOL_SER_TRUNCATED;      /* instruction runs off the end */
+            FAIL(SOL_SER_TRUNCATED);       /* instruction runs off the end */
         }
 
         /* Operand indices must point at something that exists, or the dispatch
            loop would read past a side table or outside a frame. */
         switch (op) {
         case OP_CONST:
-            if (chunk->code[offset + 1] >= chunk->constants.count) return SOL_SER_MALFORMED;
+            if (chunk->code[offset + 1] >= chunk->constants.count) FAIL(SOL_SER_MALFORMED);
             break;
         case OP_GLOBAL:
         case OP_SET_GLOBAL:
@@ -483,26 +498,30 @@ static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count,
         case OP_SET_SLOT:
         case OP_STRING:
         case OP_SYMBOL:
-            if (chunk->code[offset + 1] >= chunk->names.count) return SOL_SER_MALFORMED;
+            if (chunk->code[offset + 1] >= chunk->names.count) FAIL(SOL_SER_MALFORMED);
+            break;
+        /* The selector rides in the third operand byte, not the first. */
+        case OP_JUMP_IF_FALSE:
+            if (chunk->code[offset + 3] >= chunk->names.count) FAIL(SOL_SER_MALFORMED);
             break;
         case OP_LOCAL:
         case OP_SET_LOCAL:
-            if (chunk->code[offset + 1] >= slot_count) return SOL_SER_MALFORMED;
+            if (chunk->code[offset + 1] >= slot_count) FAIL(SOL_SER_MALFORMED);
             break;
         case OP_OUTER:
         case OP_SET_OUTER: {
             int d = chunk->code[offset + 1];
             int slot = chunk->code[offset + 2];
-            if (d < 1 || d > ancestor_count) return SOL_SER_MALFORMED;
-            if (slot >= ancestors[d - 1]) return SOL_SER_MALFORMED;
+            if (d < 1 || d > ancestor_count) FAIL(SOL_SER_MALFORMED);
+            if (slot >= ancestors[d - 1]) FAIL(SOL_SER_MALFORMED);
             break;
         }
         case OP_BLOCK: {
             uint8_t index = chunk->code[offset + 1];
-            if (index >= chunk->methods.count) return SOL_SER_MALFORMED;
+            if (index >= chunk->methods.count) FAIL(SOL_SER_MALFORMED);
             /* OP_BLOCK must name a block: a non-block entry would be entered
                with a frame it was not compiled for. */
-            if (!chunk->methods.methods[index]->is_block) return SOL_SER_MALFORMED;
+            if (!chunk->methods.methods[index]->is_block) FAIL(SOL_SER_MALFORMED);
             break;
         }
         default:
@@ -512,10 +531,32 @@ static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count,
         offset += 1 + operands;
     }
 
-    /* Execution is linear, so it is enough that the final instruction stops the
-       machine -- without this the dispatch loop would read past the end of the
-       buffer. When jumps arrive, this needs to become a check that every target
-       lands on an instruction boundary. */
+    /* Second pass: every branch target must be the start of an instruction in
+       this chunk. Offsets are unsigned and so forward-only, which is also why
+       verified bytecode cannot loop here. */
+    for (int at = 0; at < chunk->count; ) {
+        uint8_t op = chunk->code[at];
+        int length = (op == OP_JUMP) ? 3 : (op == OP_JUMP_IF_FALSE) ? 4 : 0;
+
+        if (length != 0) {
+            uint16_t jump = (uint16_t)((chunk->code[at + 1] << 8) | chunk->code[at + 2]);
+            long target = (long)at + length + jump;
+            if (target >= chunk->count) FAIL(SOL_SER_MALFORMED);
+            if (!boundary[target]) FAIL(SOL_SER_MALFORMED);
+            at += length;
+            continue;
+        }
+
+        /* Not a jump: step by whatever this instruction is. Boundaries are
+           known, so the next one is simply the next marked offset. */
+        do { at++; } while (at < chunk->count && !boundary[at]);
+    }
+
+    free(boundary);
+#undef FAIL
+
+    /* The last instruction must still stop the machine: jumps only go forward
+       and land inside the chunk, so execution always arrives here. */
     uint8_t final = chunk->code[last];
     if (final != OP_HALT && final != OP_RETURN) return SOL_SER_MALFORMED;
 

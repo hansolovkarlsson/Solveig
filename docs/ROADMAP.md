@@ -512,11 +512,10 @@ integer:countdown := { self:lessThan(#1):ifElse({ #0 }, { self:sub(#1):countdown
 #31:countdown.   ; solum: call depth exceeded
 ```
 
-That is low enough to be hit by ordinary code. Three ways out, in increasing
-order of work: raise the cap, which costs stack because `SOL_STACK_MAX` is
-derived from it; inline conditionals so a branch does not cost a frame (4.1),
-which roughly doubles the usable depth; or make the limit dynamic rather than a
-fixed array.
+**Now 62**, since inlining conditionals (4.1) means a branch no longer costs a
+frame. The two remaining ways to go further: raise the cap, which costs stack
+because `SOL_STACK_MAX` is derived from it; or make the limit dynamic rather
+than a fixed array.
 
 ### 3.6 A caller-owned chunk must outlive blocks defined in it
 
@@ -535,19 +534,30 @@ Solas a VM it otherwise does not need.
 Nothing here is urgent — the VM is written for clarity first — but each has a
 known shape.
 
-### 4.1 Conditionals are real calls
+### 4.1 Conditionals are real calls — **done**
 
-`ifTrue` is a message, so every conditional costs a block allocation and a frame.
-Production Smalltalks recognise these selectors in the compiler and emit jumps
-instead. That is an optimisation, not a change to what the language means.
+`ifTrue`, `ifFalse`, and `ifElse` written literally compile to jumps: no block
+allocated, no frame entered. They are still ordinary messages on a boolean, and
+still reachable as such through `perform` or with a block held in a variable.
 
-It needs jump opcodes, which in turn changes the verifier: today it is enough
-that the **final** instruction stops the machine, because execution is linear.
-With jumps that has to become a check that every target lands on an instruction
-boundary.
+Inlining applies only when every argument is a block written right there with no
+parameters and no temporaries. Both restrictions are about meaning, not
+convenience: a block with parameters is an arity error when `ifElse` calls it
+with none, and inlining would quietly make it work; a block's temporaries belong
+to its own frame, so inlining would declare them in the enclosing one where they
+could collide with a name already there. Anything else falls back to a real
+send, and there are tests that the two forms agree.
 
-Doing this also roughly doubles the usable recursion depth (3.5), since a
-conditional branch would stop costing a frame.
+Measured: recursion depth 30 -> **62** (3.5), and a two-million-iteration loop
+1.60s -> 1.12s. The remaining cost in that loop is `whileTrue`, which is still a
+send with a block call per iteration.
+
+The verifier changed as predicted. It records where each instruction starts and
+checks every branch target lands on one, in range. Offsets are unsigned, so
+jumps are forward-only and verified bytecode cannot loop through one.
+
+Still sends, and the same mechanism would serve: `and`/`or`, which short-circuit
+through a block, and `whileTrue`, which needs a backward jump.
 
 ### 4.2 One-byte operands
 
@@ -650,20 +660,24 @@ could write a real program in are all built. What is left is filling it out.
 Nothing here is urgent any more. The remaining items are, roughly in order of
 how soon they would be missed:
 
-1. **Inlining conditionals** (4.1), which would also roughly double the usable
-   recursion depth (3.5), and could use interned symbols for dispatch (4.3).
-2. **Calling a fetched method** — `slotAt` hands back an unbound block, and
-   there is no way to invoke one against a chosen receiver (2.10).
-3. **A bigger constant pool** — one chunk holds a limited number of constants,
-   and a literal-heavy program hits it well before anything else (3.x).
-4. Everything else as it starts to hurt.
+1. **Inlining `whileTrue`** — the jump machinery is now in place, and it is what
+   the two-million-iteration measurement is still paying for. Needs a backward
+   jump, which the verifier would have to allow without letting a crafted file
+   spin (4.1).
+2. **A bigger constant pool** (4.2) — a literal-heavy program hits the 256-entry
+   cap well before anything else. Sorting two thousand literals was not possible
+   without generating them at run time.
+3. **Dispatch by pointer** (4.3) — symbols exist; a send still does `strcmp`.
+4. **Calling a fetched method** — `slotAt` hands back an unbound block (2.10).
+5. Everything else as it starts to hurt.
 
 Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), arrays entire
 (1.2, 1.2a, 1.2b), strings (1.3), user-defined objects (1.4), division (2.1),
 calling the method you override (2.9), the missing operations (2.8),
 formatted output (2.11), the statement separator (2.2), float exponents and
 round-tripping (2.6, 5.3), string escapes (1.3), rendering an object by asking
-it (5.2), symbols (2.7), reflection (2.10), and sorting.
+it (5.2), symbols (2.7), reflection (2.10), sorting, and inlined conditionals
+(4.1).
 
 No decisions are outstanding.
 

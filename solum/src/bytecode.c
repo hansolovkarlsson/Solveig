@@ -207,6 +207,21 @@ static int send_instruction(const char *name, const SolChunk *chunk, int offset)
     return offset + 3;
 }
 
+/* Prints the absolute target as well as the offset -- the offset alone is
+   almost unreadable when checking that a branch lands where it should. */
+static int jump_instruction(const SolChunk *chunk, const char *name, int offset)
+{
+    int length = (chunk->code[offset] == OP_JUMP_IF_FALSE) ? 4 : 3;
+    uint16_t jump = (uint16_t)((chunk->code[offset + 1] << 8) | chunk->code[offset + 2]);
+
+    printf("%-8s %4d -> %d", name, jump, offset + length + jump);
+    if (length == 4) {
+        printf(" (%s)", sol_chunk_name(chunk, chunk->code[offset + 3]));
+    }
+    printf("\n");
+    return offset + length;
+}
+
 int sol_chunk_disassemble_instruction(const SolChunk *chunk, int offset)
 {
     printf("%04d ", offset);
@@ -234,6 +249,8 @@ int sol_chunk_disassemble_instruction(const SolChunk *chunk, int offset)
     case OP_POP:    return simple_instruction("POP", offset);
     case OP_RETURN: return simple_instruction("RETURN", offset);
     case OP_HALT:   return simple_instruction("HALT", offset);
+    case OP_JUMP:   return jump_instruction(chunk, "JUMP", offset);
+    case OP_JUMP_IF_FALSE: return jump_instruction(chunk, "JUMP_IF_FALSE", offset);
     default:
         printf("unknown opcode %d\n", instruction);
         return offset + 1;

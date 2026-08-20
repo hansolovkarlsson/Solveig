@@ -37,6 +37,15 @@ typedef struct {
 static void expression(Compiler *c);
 static void statement(Compiler *c);
 static void block_literal(Compiler *c);
+static bool inline_conditional(Compiler *c, const SolToken *selector);
+
+/* Is this token exactly this word? */
+static bool token_is(const SolToken *token, const char *word)
+{
+    size_t length = strlen(word);
+    return token->length == (int)length &&
+           memcmp(token->start, word, length) == 0;
+}
 static void array_literal(Compiler *c);
 static void string_literal(Compiler *c);
 static int  resolve_local(Scope *scope, const SolToken *name);
@@ -386,6 +395,11 @@ static void expression(Compiler *c)
         sol_parser_consume(p, TOK_IDENT, "expected a message name after ':'");
         SolToken selector = p->previous;
 
+        if (inline_conditional(c, &selector)) {
+            target_at = -1;              /* never a `receiver:name := value` */
+            continue;
+        }
+
         int at = c->scope->chunk->count;
         uint8_t argc = arguments(c);
         uint8_t name = name_operand(c, &selector);
@@ -421,7 +435,10 @@ static bool touches_home(const SolChunk *chunk)
         case OP_SET_SLOT: case OP_STRING: case OP_SYMBOL:
             offset += 2; break;
         case OP_SEND: case OP_OUTER: case OP_SET_OUTER:
+        case OP_JUMP:
             offset += 3; break;
+        case OP_JUMP_IF_FALSE:
+            offset += 4; break;
         default:
             offset += 1; break;
         }
@@ -514,6 +531,31 @@ static void block_parameters(Compiler *c, SolMethod *code)
     sol_parser_consume(p, TOK_PIPE, "expected '|' after the block parameters");
 }
 
+/* The statements between `{` and `}`, leaving the last one's value on the
+ * stack, and consuming the closing brace. Shared with the inlined conditionals,
+ * which compile the very same body into the enclosing chunk instead. */
+static void block_body(Compiler *c)
+{
+    SolParser *p = &c->parser;
+
+    if (p->current.type == TOK_RBRACE) {
+        emit(c, OP_NIL);                     /* an empty block answers nil */
+    } else {
+        expression(c);
+        for (;;) {
+            if (p->current.type == TOK_RBRACE) break;
+            if (!sol_parser_match(p, TOK_DOT)) {
+                sol_parser_error(p, &p->current, "expected '.' between statements");
+                break;
+            }
+            if (p->current.type == TOK_RBRACE) break;   /* a trailing '.' is fine */
+            emit(c, OP_POP);
+            expression(c);
+        }
+    }
+    sol_parser_consume(p, TOK_RBRACE, "expected '}' to close the block");
+}
+
 static void block_literal(Compiler *c)
 {
     SolParser *p = &c->parser;
@@ -537,22 +579,7 @@ static void block_literal(Compiler *c)
     c->scope = &scope;
     block_parameters(c, code);
     optional_declarations(c);
-    if (p->current.type == TOK_RBRACE) {
-        emit(c, OP_NIL);                     /* an empty block answers nil */
-    } else {
-        expression(c);
-        for (;;) {
-            if (p->current.type == TOK_RBRACE) break;
-            if (!sol_parser_match(p, TOK_DOT)) {
-                sol_parser_error(p, &p->current, "expected '.' between statements");
-                break;
-            }
-            if (p->current.type == TOK_RBRACE) break;   /* a trailing '.' is fine */
-            emit(c, OP_POP);
-            expression(c);
-        }
-    }
-    sol_parser_consume(p, TOK_RBRACE, "expected '}' to close the block");
+    block_body(c);
     emit(c, OP_RETURN);
     c->scope = scope.enclosing;
 
@@ -565,6 +592,157 @@ static void block_literal(Compiler *c)
         return;
     }
     emit_pair(c, OP_BLOCK, (uint8_t)index);
+}
+
+/* ---- inlined conditionals ------------------------------------------------
+ *
+ * `ifTrue`, `ifFalse`, and `ifElse` are ordinary messages to a boolean, and a
+ * program can still send them that way -- through `perform`, or with a block
+ * held in a variable. But written literally, which is how they are almost
+ * always written, the compiler can emit jumps around the bodies instead of
+ * allocating a block and entering a frame per branch.
+ *
+ * This is an optimisation and must not change what the program means, which is
+ * where the restrictions come from. It applies only when every argument is a
+ * block written right there, with no parameters and no temporaries:
+ *
+ *   - a block with parameters is an arity error when `ifElse` calls it with
+ *     none, and inlining would quietly make it work;
+ *   - a block's temporaries belong to its own frame, and inlining would declare
+ *     them in the enclosing one, where they could collide with a name already
+ *     there -- turning an optimisation into a compile error.
+ *
+ * Anything else falls back to a real send, so the slow path stays correct
+ * rather than merely unused.
+ */
+
+/* Is the block starting at `probe` (positioned just after its `{`) free of
+   parameters and temporaries? Scans a copy, disturbing nothing. */
+static bool block_is_plain(SolLexer probe)
+{
+    SolToken first = sol_lexer_next(&probe);
+    if (first.type == TOK_PIPE) return false;         /* temporaries */
+    if (first.type != TOK_IDENT) return true;
+
+    /* `a |` and `a, b |` are parameter lists; a bare `a` is a body. */
+    SolToken next = sol_lexer_next(&probe);
+    while (next.type == TOK_COMMA) {
+        if (sol_lexer_next(&probe).type != TOK_IDENT) return true;
+        next = sol_lexer_next(&probe);
+    }
+    return next.type != TOK_PIPE;
+}
+
+/* Advances `probe` past the block whose `{` has just been read. */
+static bool skip_block(SolLexer *probe)
+{
+    for (int depth = 1; depth > 0; ) {
+        SolToken token = sol_lexer_next(probe);
+        if (token.type == TOK_EOF || token.type == TOK_ERROR) return false;
+        if (token.type == TOK_LBRACE) depth++;
+        if (token.type == TOK_RBRACE) depth--;
+    }
+    return true;
+}
+
+/* Does the argument list ahead consist of exactly `wanted` inlinable blocks?
+   The parser is single-pass and emits as it goes, so this has to be settled
+   before a single byte is written. */
+static bool inlinable_arguments(Compiler *c, int wanted)
+{
+    SolLexer probe = c->parser.lexer;      /* positioned just after `(` */
+
+    for (int i = 0; i < wanted; i++) {
+        if (i > 0 && sol_lexer_next(&probe).type != TOK_COMMA) return false;
+        if (sol_lexer_next(&probe).type != TOK_LBRACE) return false;
+        if (!block_is_plain(probe)) return false;
+        if (!skip_block(&probe)) return false;
+    }
+    return sol_lexer_next(&probe).type == TOK_RPAREN;
+}
+
+/* Emits a jump with a blank offset, answering where to patch it. */
+static int emit_jump(Compiler *c, uint8_t op)
+{
+    emit(c, op);
+    emit(c, 0xff);
+    emit(c, 0xff);
+    return c->scope->chunk->count - 2;
+}
+
+/* Points a jump emitted earlier at the instruction about to be written. */
+static void patch_jump(Compiler *c, int slot)
+{
+    SolChunk *chunk = c->scope->chunk;
+    /* The offset is measured from the end of the whole instruction, which for
+       OP_JUMP_IF_FALSE is one byte further on than the operand being patched. */
+    int from = slot + 2 + (chunk->code[slot - 1] == OP_JUMP_IF_FALSE ? 1 : 0);
+    int distance = chunk->count - from;
+
+    if (distance > UINT16_MAX) {
+        sol_parser_error(&c->parser, &c->parser.previous,
+                         "conditional is too large to jump over");
+        return;
+    }
+    chunk->code[slot]     = (uint8_t)((distance >> 8) & 0xff);
+    chunk->code[slot + 1] = (uint8_t)(distance & 0xff);
+}
+
+/* Compiles one `{ ... }` argument straight into the enclosing chunk. Because it
+   is the enclosing scope, a name resolves exactly as it would have from inside
+   the block, one lexical level nearer -- so OP_OUTER depths come out right
+   without anything having to adjust them. */
+static void inline_branch(Compiler *c)
+{
+    sol_parser_consume(&c->parser, TOK_LBRACE, "expected a block");
+    block_body(c);
+}
+
+/* Answers whether it handled the send. The receiver is already compiled and on
+   the stack; `selector` has been consumed. */
+static bool inline_conditional(Compiler *c, const SolToken *selector)
+{
+    SolParser *p = &c->parser;
+
+    bool if_true  = token_is(selector, "ifTrue");
+    bool if_false = token_is(selector, "ifFalse");
+    bool if_else  = token_is(selector, "ifElse");
+    if (!if_true && !if_false && !if_else) return false;
+
+    if (p->current.type != TOK_LPAREN) return false;
+    if (!inlinable_arguments(c, if_else ? 2 : 1)) return false;
+
+    uint8_t name = name_operand(c, selector);
+    sol_parser_consume(p, TOK_LPAREN, "expected '(' after the message name");
+
+    /* The condition is on the stack; this pops it and branches. */
+    int to_else = emit_jump(c, OP_JUMP_IF_FALSE);
+    emit(c, name);
+
+    if (if_false) {
+        /* Inverted: the branch that *is* taken runs the body, so falling
+           through is the true case and answers nil. Nothing needs popping --
+           the false path jumps over the nil rather than past it. */
+        emit(c, OP_NIL);
+        int to_end = emit_jump(c, OP_JUMP);
+        patch_jump(c, to_else);
+        inline_branch(c);
+        patch_jump(c, to_end);
+    } else {
+        inline_branch(c);
+        int to_end = emit_jump(c, OP_JUMP);
+        patch_jump(c, to_else);
+        if (if_else) {
+            sol_parser_consume(p, TOK_COMMA, "expected ',' between the branches");
+            inline_branch(c);
+        } else {
+            emit(c, OP_NIL);             /* `ifTrue` answers nil when it is not */
+        }
+        patch_jump(c, to_end);
+    }
+
+    sol_parser_consume(p, TOK_RPAREN, "expected ')' after arguments");
+    return true;
 }
 
 /* After an error, skip to the next statement boundary so one mistake does not
