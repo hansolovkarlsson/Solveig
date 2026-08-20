@@ -8,6 +8,81 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### A program can be split across files — `pending`, 2026-08-20
+
+Roadmap 6.1, and the first item of section 6 to be built. One line brings
+another file in:
+
+```
+"library.sol":include.
+```
+
+That file is compiled into this one at that point, as though its text had been
+written there. Nothing above a few hundred lines wants to live in a single file,
+and until now there was no way to split one.
+
+**Spelled as a send to a string because there was nothing else to spend.** An
+include has to happen while compiling, so it is a directive and not a message —
+but the language has no directive syntax and no keyword to spare, and
+`"file":include` already parses. The compiler recognises the shape before the
+send is emitted. That is also why it may only stand alone as a statement:
+anywhere inside an expression there is nowhere for a file to go, and it is a
+compile error rather than a send that would fail at run time. Sent to anything
+but a string literal, `include` stays an ordinary selector anyone may define.
+
+**The file is found beside the file including it**, not beside the working
+directory, so a program can be moved as a piece. Source that is not a file — the
+prompt, or a string handed to the compiler — has nothing to be relative to, and
+uses the working directory. This works at the prompt, which makes `include` also
+the way to load a file into a session.
+
+**A file is compiled once per compilation**, keyed by `realpath` so that two
+spellings of one file are one file. C compiles it every time and leaves each
+file to guard itself, which needs conditional compilation that Solum has not
+got; and a second copy could only rebind names already bound and repeat whatever
+the file did on the way. So two files may each include what they need without
+arranging between themselves who includes what — and a cycle ends instead of
+recurring, which is the same rule doing the work.
+
+**The namespace stays flat.** Globals were one space and remain one: an included
+file's names are indistinguishable from the including file's, and two files
+binding the same name collide exactly as two `:=` in one file already do. A
+module system is a much larger change to the object model, and a library that
+wants a namespace can claim one global and hang the rest off it, an object being
+a namespace already — [examples/library.sol](../examples/library.sol) does that.
+
+**Compile errors name their file now**, which they did not need to when there
+was only ever one:
+
+```
+[lib/broken.sol:2:6] solas: expected an expression at ':'
+  y := :.
+       ^
+  ... included from lib/middle.sol, line 1
+  ... included from prog.sol, line 3
+```
+
+The chain is printed by each level on the way out, so it accumulates without
+anyone holding a stack. Source compiled without a file still reports `[line
+2:6]`, exactly as before.
+
+Under the hood: `SolParser` gained the path it is reading; `sol_compile_source`
+takes one and `sol_compile` is now a call to it with none; `sol_read_file` moved
+out of solas' `main` into the compiler, which needs it too; and the escape
+decoding split out of `string_literal` into `decode_string`, since an include
+needs the text of a file name and emits nothing at all. Includes nest 64 deep.
+
+A `.sob` is still one chunk with no record of which file a line came from, so a
+run-time trace gives a line number without saying which file counted it. That is
+the one thing this leaves behind.
+
+`tests/test_include.c` covers the nine behaviours — definitions arriving,
+resolution against the including file, the diamond compiling once, a cycle
+ending, a missing file, an error inside an included file naming both, an include
+buried in an expression, the no-file case, and `include` surviving as an
+ordinary slot name. `examples/library.sol` and `examples/include.sol` are the
+pair, and both compile in the suite. No leaks.
+
 ### Assessed a notebook of ideas, and the roadmap has a section 6 — `2a348f0`, 2026-08-20
 
 Documentation. No code.

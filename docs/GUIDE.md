@@ -34,7 +34,8 @@ prints.
 14. [Fetching a method](#14-fetching-a-method)
 15. [Getting text out](#15-getting-text-out)
 16. [Errors and strictness](#16-errors-and-strictness)
-17. [What is left](#17-what-is-left)
+17. [Splitting a program across files](#17-splitting-a-program-across-files)
+18. [What is left](#18-what-is-left)
 
 ---
 
@@ -518,13 +519,48 @@ bring a new name into being where it would look like a local:
 solvm: undefined name 'undeclared' -- declare it with '| undeclared |' or assign it at the top level
 ```
 
-## 17. What is left
+## 17. Splitting a program across files
+
+Nothing above a few hundred lines wants to live in one file. One line brings
+another file in:
+
+```
+"library.sol":include.
+```
+
+That file is compiled in at that point, as though its text had been written
+there. It is a compile-time directive rather than a message — the compiler takes
+it before any send is emitted — which is why it has to stand alone as a
+statement: there is nowhere inside an expression for a file to go.
+
+The file is found beside the file including it, not beside wherever you were
+standing when you ran the compiler, so a program can be moved as a piece. And a
+file is compiled once however many ways you reach it, so two files may each
+include what they need without arranging between themselves who includes what.
+
+There is no module system behind this. Globals are one flat namespace and stay
+one, so an included file's names are indistinguishable from the including
+file's, and two files binding the same name collide exactly as two `:=` in one
+file do. What a library can do instead is claim a single global and hang the
+rest off it, an object being a namespace already:
+
+```
+temperature := object:new.
+temperature:cToF := { c | c:mul(1.8):add(32.0) }.
+```
+
+[examples/library.sol](../examples/library.sol) and
+[examples/include.sol](../examples/include.sol) are the pair, and
+[REFERENCE.md](REFERENCE.md#splitting-a-program-across-files) has the rules
+exactly.
+
+## 18. What is left
 
 The language is Turing-complete and does not leak. What remains is in
-[ROADMAP.md](ROADMAP.md), and it is short: stack heights in the verifier, a REPL
-that buffers until brackets balance, source positions finer than a line, and one
-open design question — whether the class side and the instance side should be
-separate objects.
+[ROADMAP.md](ROADMAP.md), and it is no longer about the language: a program has
+to read input, write files, and stop with a status, and none of that exists yet.
+One design question is still open — whether the class side and the instance side
+should be separate objects.
 
 Known restrictions worth carrying with you:
 

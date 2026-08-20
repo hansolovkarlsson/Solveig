@@ -147,11 +147,14 @@ static void test_the_old_form_would_not_have_verified(void)
 
 /* ---- what Solas emits, the verifier accepts --------------------------- */
 
-static void must_verify(const char *what, const char *source)
+/* `path` is the file the source came from, or NULL for a snippet written here.
+   An example that includes another file needs it: an include resolves against
+   the file it is written in. */
+static void must_verify(const char *what, const char *source, const char *path)
 {
     SolChunk chunk;
     sol_chunk_init(&chunk);
-    if (!sol_compile(source, &chunk)) {
+    if (!sol_compile_source(source, path, &chunk)) {
         printf("  did not compile: %s\n", what);
         assert(false);
     }
@@ -173,6 +176,7 @@ static void test_every_example_verifies(void)
         "examples/strings.sol", "examples/methods.sol", "examples/objects.sol",
         "examples/reflect.sol", "examples/symbols.sol", "examples/numbers.sol",
         "examples/format.sol",  "examples/values.sol",  "examples/stock.sol",
+        "examples/library.sol", "examples/include.sol",
     };
 
     for (size_t i = 0; i < sizeof(examples) / sizeof(examples[0]); i++) {
@@ -189,7 +193,7 @@ static void test_every_example_verifies(void)
         source[size] = '\0';
         fclose(f);
 
-        must_verify(examples[i], source);
+        must_verify(examples[i], source, examples[i]);
         free(source);
     }
     printf("  all %zu examples compile to bytecode the verifier accepts\n",
@@ -235,7 +239,7 @@ static void test_every_accepted_form_verifies(void)
     };
 
     for (size_t i = 0; i < sizeof(sources) / sizeof(sources[0]); i++) {
-        must_verify(sources[i], sources[i]);
+        must_verify(sources[i], sources[i], NULL);
     }
     printf("  %zu accepted forms, all verifiable\n",
            sizeof(sources) / sizeof(sources[0]));

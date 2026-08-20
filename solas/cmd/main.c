@@ -12,30 +12,6 @@ static void usage(void)
     fprintf(stderr, "usage: solas [--dump] [-o out.sob] <file.sol>\n");
 }
 
-/* Reads a whole file into a NUL-terminated heap buffer, or NULL on failure. */
-static char *read_file(const char *path)
-{
-    FILE *file = fopen(path, "rb");
-    if (file == NULL) {
-        fprintf(stderr, "solas: could not open '%s'\n", path);
-        return NULL;
-    }
-    fseek(file, 0L, SEEK_END);
-    long size = ftell(file);
-    rewind(file);
-
-    char *buffer = malloc((size_t)size + 1);
-    if (buffer == NULL) {
-        fprintf(stderr, "solas: not enough memory to read '%s'\n", path);
-        fclose(file);
-        return NULL;
-    }
-    size_t read = fread(buffer, 1, (size_t)size, file);
-    buffer[read] = '\0';
-    fclose(file);
-    return buffer;
-}
-
 /* "prog.sol" -> "prog.sob"; anything else just gains ".sob". */
 static char *default_output_path(const char *source_path)
 {
@@ -71,14 +47,17 @@ int main(int argc, char *argv[])
     }
     if (path == NULL) { usage(); return 64; }
 
-    char *source = read_file(path);
-    if (source == NULL) return 74;
+    char *source = sol_read_file(path);
+    if (source == NULL) {
+        fprintf(stderr, "solas: could not read '%s'\n", path);
+        return 74;
+    }
 
     SolChunk chunk;
     sol_chunk_init(&chunk);
 
     int status = 0;
-    if (sol_compile(source, &chunk)) {
+    if (sol_compile_source(source, path, &chunk)) {
         if (dump) sol_chunk_disassemble(&chunk, path);
 
         char *owned = NULL;

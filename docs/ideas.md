@@ -17,7 +17,7 @@ marked as a sketch.
 | `$character` literals, Unicode | **Defer** — gated on deciding what a string is |
 | Integer sizes: byte, word, long | **No** — reintroduces the coercion the language refuses |
 | Separate float and double | **No** — same reason, less benefit |
-| `include` another file | **Build it** — the most valuable thing on the list |
+| `include` another file | **Built** — was the most valuable thing on the list |
 | `System:exit(code)` | **Build it** — small and plainly needed |
 | Keyboard input | **Build `readLine`**; single-key is a different job |
 | File handling | **Build it**, whole-file first |
@@ -124,11 +124,12 @@ real but modest gain, and it is in the roadmap as 6.6 rather than here.
 These are in [ROADMAP.md](ROADMAP.md) section 6 with the detail. In rough order
 of what a real program would miss first:
 
-**`include`** is the one that matters. Nothing above a few hundred lines can
-live in a single file, and there is currently no way to split one. The design
-question is not the mechanism but the namespace: globals are one flat space, so
-textual inclusion is consistent with what exists and a module system is a much
-larger change to the object model.
+**`include`** was the one that mattered, and it is built —
+[the reference](REFERENCE.md#splitting-a-program-across-files) has the rules.
+The design question was never the mechanism but the namespace, and it stayed
+flat: an included file's globals are the including file's, exactly as though its
+text had been written there. A module system with a namespace of its own is a
+much larger change to the object model, and nothing so far has needed it.
 
 **A `system` object** — `exit(code)` first, then arguments and a clock. Small,
 and `exit` is the difference between a script and a program.

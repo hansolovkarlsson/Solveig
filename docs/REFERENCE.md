@@ -19,6 +19,7 @@ a:print.
 ## Contents
 
 - [Running a program](#running-a-program)
+- [Splitting a program across files](#splitting-a-program-across-files)
 - [Lexical structure](#lexical-structure)
 - [Values](#values)
 - [Names and binding](#names-and-binding)
@@ -56,6 +57,68 @@ A corrupt file is refused rather than executed.
 The file also carries a format version, and a build reads only its own: a `.sob`
 left over from an earlier one is refused with `unsupported bytecode version`
 rather than misread. Recompile the `.sol`.
+
+---
+
+## Splitting a program across files
+
+```
+"library.sol":include.
+```
+
+compiles that file into this one at that point, as though its text had been
+written there. Globals are one flat namespace and stay one: two files binding
+the same name collide exactly as two `:=` in one file do, and the later wins.
+
+**It stands alone.** An include is a compile-time directive, not a message. It
+is spelled as a send to a string because the language has no directive syntax
+and no keyword to spare, and that shape already parses — but the compiler takes
+it before any send is emitted. Anywhere other than on its own as a statement,
+`"...":include` is a compile error rather than a send that would fail at run
+time:
+
+```
+[prog.sol:1:7] solas: an include must stand alone as a statement at '"library.sol"'
+  x := ("library.sol":include).
+        ^^^^^^^^^^^^^
+```
+
+The receiver has to be a literal string, because the file is found while
+compiling and a name holding one has no value yet. Sent to anything else,
+`include` is an ordinary selector that anybody may define.
+
+**The file is found beside the file including it**, not beside the directory you
+happened to be standing in, so a program can be moved without its includes
+breaking. An absolute path is taken as it stands. Source that is not a file at
+all — the prompt, or a string handed to the compiler — has nothing to be
+relative to, and the working directory is used.
+
+**A file is compiled once** per compilation, however many ways it is reached,
+keyed by where it turns out to be on disk so that two spellings of one file are
+one file. C compiles it every time and leaves each file to guard itself, which
+needs conditional compilation that Solum has not got; and a second copy could
+only rebind names already bound and repeat whatever the file did on the way. So
+two files may each include what they need without arranging between themselves
+who includes what — and a cycle ends instead of recurring.
+
+**Errors name the file**, and the chain that reached it:
+
+```
+[lib/broken.sol:2:6] solas: expected an expression at ':'
+  y := :.
+       ^
+  ... included from lib/middle.sol, line 1
+  ... included from prog.sol, line 3
+```
+
+Includes may nest 64 deep.
+
+Two things this is not. There is no module system: an included file gets no
+namespace of its own. If you want one, bind an object and hang the rest off it,
+which claims one global instead of a dozen —
+[examples/library.sol](../examples/library.sol) does that. And a `.sob` file is
+one chunk with no record of which file a line came from, so a run-time stack
+trace gives a line number without saying which file counted it.
 
 ---
 
@@ -132,6 +195,9 @@ will surprise you: `integer`, `float`, `string`, `array`, `symbol`, `block`,
 The first eight are the class objects; the rest are values.
 
 `self` is not a global; it is recognised by the compiler inside a block.
+
+`include` is not reserved either, but a string literal sent `include` is the
+compile-time directive above and never a message.
 
 ---
 

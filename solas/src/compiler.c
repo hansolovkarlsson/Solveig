@@ -1,5 +1,7 @@
 /* compiler.c -- single pass: the parser drives emission straight into the
  * chunk, so there is no AST. */
+#define _POSIX_C_SOURCE 200809L    /* realpath, for resolving an include */
+
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,9 +31,21 @@ typedef struct Scope {
     bool          is_block;    /* a block reads self and outer locals via OUTER */
 } Scope;
 
+/* Every file compiled so far, by where it actually is on disk, and how deep
+   the includes currently nest. One of these is shared by every file in one
+   compilation -- see `include_directive` for why a file is compiled once. */
 typedef struct {
-    SolParser parser;
-    Scope    *scope;
+    char **paths;
+    int    count;
+    int    capacity;
+    int    depth;
+} Includes;
+
+typedef struct {
+    SolParser   parser;
+    Scope      *scope;
+    const char *path;      /* the file being compiled, or NULL for plain text */
+    Includes   *includes;  /* shared with every file this compilation reaches */
 } Compiler;
 
 static void expression(Compiler *c);
@@ -40,6 +54,7 @@ static void block_literal(Compiler *c);
 static bool inline_conditional(Compiler *c, const SolToken *selector);
 static bool inline_logical(Compiler *c, const SolToken *selector);
 static bool inline_while(Compiler *c);
+static bool include_follows(SolParser *p);
 
 /* Is this token exactly this word? */
 static bool token_is(const SolToken *token, const char *word)
@@ -309,9 +324,10 @@ static void identifier(Compiler *c)
     else           emit_indexed(c, OP_GLOBAL, name_operand(c, &name));
 }
 
-/* The token spans the quotes; the string is what lies between them, with the
- * escapes resolved. The decoded bytes are interned in the chunk's text table
- * alongside selectors and global names, all three being interned text.
+/* Resolves the escapes in a string token, answering a fresh NUL-terminated
+ * buffer of `*out_length` bytes, or NULL after reporting the error. Separate
+ * from emitting one because an `include` needs the text of its file name and
+ * emits nothing at all.
  *
  * An unrecognised escape is an error rather than a literal backslash, so a typo
  * is caught where it is written instead of appearing in the output.
@@ -320,16 +336,15 @@ static void identifier(Compiler *c)
  * one would truncate the string. The wire format already carries lengths, so
  * lifting that means giving the in-memory table lengths too.
  */
-static void string_literal(Compiler *c)
+static char *decode_string(Compiler *c, const SolToken *token, int *out_length)
 {
-    SolToken token = c->parser.previous;
-    const char *source = token.start + 1;
-    int length = token.length - 2;
+    const char *source = token->start + 1;
+    int length = token->length - 2;
 
     char *decoded = malloc((size_t)length + 1);
     if (decoded == NULL) {
-        sol_parser_error(&c->parser, &token, "out of memory reading a string");
-        return;
+        sol_parser_error(&c->parser, token, "out of memory reading a string");
+        return NULL;
     }
 
     int out = 0;
@@ -339,9 +354,9 @@ static void string_literal(Compiler *c)
             continue;
         }
         if (++i == length) {
-            sol_parser_error(&c->parser, &token, "a string ends with a lone backslash");
+            sol_parser_error(&c->parser, token, "a string ends with a lone backslash");
             free(decoded);
-            return;
+            return NULL;
         }
         switch (source[i]) {
         case '"':  decoded[out++] = '"';  break;
@@ -350,14 +365,29 @@ static void string_literal(Compiler *c)
         case 't':  decoded[out++] = '\t'; break;
         case 'r':  decoded[out++] = '\r'; break;
         default:
-            sol_parser_error(&c->parser, &token,
+            sol_parser_error(&c->parser, token,
                              "unknown escape in a string; \\\" \\\\ \\n \\t \\r are the escapes");
             free(decoded);
-            return;
+            return NULL;
         }
     }
 
-    emit_indexed(c, OP_STRING, name_literal(c, decoded, out));
+    decoded[out] = '\0';
+    *out_length = out;
+    return decoded;
+}
+
+/* The token spans the quotes, and `decode_string` has already resolved what is
+   between them. The decoded bytes are interned in the chunk's text table
+   alongside selectors and global names, all three being interned text. */
+static void string_literal(Compiler *c)
+{
+    SolToken token = c->parser.previous;
+    int length = 0;
+    char *decoded = decode_string(c, &token, &length);
+    if (decoded == NULL) return;
+
+    emit_indexed(c, OP_STRING, name_literal(c, decoded, length));
     free(decoded);
 }
 
@@ -390,7 +420,19 @@ static void primary(Compiler *c)
         sol_parser_consume(p, TOK_RPAREN, "expected ')'");
         return;
     }
-    if (sol_parser_match(p, TOK_STRING)) { string_literal(c); return; }
+    if (sol_parser_match(p, TOK_STRING)) {
+        /* `"file":include` is a directive, and `statement` has already taken
+           every one that stands where a directive may stand. Reaching here
+           means this one is buried in an expression, where compiling a file in
+           would have nowhere to put it. */
+        if (include_follows(p)) {
+            sol_parser_error(p, &p->previous,
+                             "an include must stand alone as a statement");
+            return;
+        }
+        string_literal(c);
+        return;
+    }
     if (sol_parser_match(p, TOK_SYMBOL)) {
         /* The token spans the leading quote; the name is what follows it. */
         SolToken token = p->previous;
@@ -932,6 +974,202 @@ static bool inline_while(Compiler *c)
     return true;
 }
 
+/* An include is a compile-time directive rather than a message:
+ *
+ *     "lib.sol":include.
+ *
+ * compiles that file into this chunk at that point, as though its text had been
+ * written there. Globals are one flat namespace and stay one -- two files
+ * binding the same name collide exactly as two `:=` in one file already do, the
+ * later winning -- so there is nothing here beyond finding the file.
+ *
+ * It is spelled as a send to a string because the language has no directive
+ * syntax and no keyword to spare, and that shape already parses. The compiler
+ * recognises it before the send is emitted, which is also why it may only stand
+ * alone as a statement: anywhere else it is an error rather than a send that
+ * would fail at run time.
+ *
+ * The file is found relative to the file including it, not to the working
+ * directory, so a program can be moved without its includes breaking. At the
+ * prompt there is no file to be relative to, and the working directory it is.
+ *
+ * Each file is compiled at most once per compilation, keyed by where it turns
+ * out to be on disk. C compiles it every time and leaves the file to guard
+ * itself, which needs conditional compilation -- Solum has none -- and a second
+ * copy could only rebind names already bound and repeat whatever the file did
+ * on the way. Compiling once also means a cycle stops instead of recurring.
+ */
+#define SOL_MAX_INCLUDE_DEPTH 64
+
+/* Is an `:include` waiting, the string that receives it having just been read? */
+static bool include_follows(SolParser *p)
+{
+    if (p->current.type != TOK_COLON) return false;
+
+    SolLexer probe = p->lexer;                    /* positioned just after ':' */
+    SolToken selector = sol_lexer_next(&probe);
+    return selector.type == TOK_IDENT && token_is(&selector, "include");
+}
+
+static char *copy_string(const char *text)
+{
+    size_t length = strlen(text);
+    char *copy = malloc(length + 1);
+    if (copy != NULL) memcpy(copy, text, length + 1);
+    return copy;
+}
+
+/* Joins the name in an include to the directory of the file doing the
+   including. An absolute name, or an includer that came from no file, is taken
+   as it stands. */
+static char *resolve_against(const char *including, const char *name)
+{
+    const char *slash = including == NULL ? NULL : strrchr(including, '/');
+    if (name[0] == '/' || slash == NULL) return copy_string(name);
+
+    size_t directory = (size_t)(slash - including) + 1;
+    size_t length = strlen(name);
+
+    char *joined = malloc(directory + length + 1);
+    if (joined == NULL) return NULL;
+    memcpy(joined, including, directory);
+    memcpy(joined + directory, name, length + 1);
+    return joined;
+}
+
+/* What to key a file by: where it really is, so that two spellings of one file
+   are one file. Falls back to the path as written when it cannot be resolved,
+   which means the file is missing and the read is about to say so. */
+static char *identity_of(const char *path)
+{
+    char *real = realpath(path, NULL);
+    return real != NULL ? real : copy_string(path);
+}
+
+static bool already_included(const Includes *includes, const char *identity)
+{
+    for (int i = 0; i < includes->count; i++) {
+        if (strcmp(includes->paths[i], identity) == 0) return true;
+    }
+    return false;
+}
+
+/* Takes ownership of `identity`. */
+static void remember_included(Includes *includes, char *identity)
+{
+    if (includes->capacity < includes->count + 1) {
+        int capacity = includes->capacity < 8 ? 8 : includes->capacity * 2;
+        char **paths = realloc(includes->paths, sizeof(char *) * (size_t)capacity);
+        if (paths == NULL) {
+            fprintf(stderr, "solas: out of memory\n");
+            exit(1);
+        }
+        includes->paths = paths;
+        includes->capacity = capacity;
+    }
+    includes->paths[includes->count++] = identity;
+}
+
+static void includes_free(Includes *includes)
+{
+    for (int i = 0; i < includes->count; i++) free(includes->paths[i]);
+    free(includes->paths);
+}
+
+/* Compiles one file's statements into the chunk `parent` is filling, sharing
+   its scope: an included file's top level is the top level. */
+static bool compile_included(Compiler *parent, const char *source, const char *path)
+{
+    Compiler c;
+    c.scope = parent->scope;
+    c.path = path;
+    c.includes = parent->includes;
+    sol_parser_init(&c.parser, source, path);
+
+    while (!sol_parser_match(&c.parser, TOK_EOF)) {
+        statement(&c);
+    }
+    return !c.parser.had_error;
+}
+
+static void include_directive(Compiler *c)
+{
+    SolParser *p = &c->parser;
+
+    sol_parser_advance(p);                  /* the file name */
+    SolToken where = p->previous;
+    sol_parser_advance(p);                  /* ':' */
+    sol_parser_advance(p);                  /* 'include' */
+
+    if (!sol_parser_match(p, TOK_DOT) && p->current.type != TOK_EOF) {
+        sol_parser_error(p, &p->current, "expected '.' between statements");
+    }
+
+    int length = 0;
+    char *name = decode_string(c, &where, &length);
+    if (name == NULL) return;
+    if (length == 0) {
+        sol_parser_error(p, &where, "an include needs a file name");
+        free(name);
+        return;
+    }
+
+    char *path = resolve_against(c->path, name);
+    free(name);
+    if (path == NULL) {
+        sol_parser_error(p, &where, "out of memory resolving an include");
+        return;
+    }
+
+    char *identity = identity_of(path);
+    if (identity == NULL) {
+        sol_parser_error(p, &where, "out of memory resolving an include");
+        free(path);
+        return;
+    }
+    if (already_included(c->includes, identity)) {
+        free(identity);
+        free(path);
+        return;
+    }
+
+    if (c->includes->depth >= SOL_MAX_INCLUDE_DEPTH) {
+        sol_parser_error(p, &where, "includes nested too deeply");
+        free(identity);
+        free(path);
+        return;
+    }
+
+    char *source = sol_read_file(path);
+    if (source == NULL) {
+        char message[512];
+        snprintf(message, sizeof message, "cannot read the included file '%s'", path);
+        sol_parser_error(p, &where, message);
+        free(identity);
+        free(path);
+        return;
+    }
+    remember_included(c->includes, identity);   /* before compiling: a cycle ends here */
+
+    c->includes->depth++;
+    bool ok = compile_included(c, source, path);
+    c->includes->depth--;
+
+    if (!ok) {
+        /* The errors have been reported against the included file, which on its
+           own does not say how the compiler got there. */
+        p->had_error = true;
+        if (c->path != NULL) {
+            fprintf(stderr, "  ... included from %s, line %d\n", c->path, where.line);
+        } else {
+            fprintf(stderr, "  ... included from line %d\n", where.line);
+        }
+    }
+
+    free(source);
+    free(path);
+}
+
 /* After an error, skip to the next statement boundary so one mistake does not
    cascade into a screenful. */
 static void synchronise(Compiler *c)
@@ -958,6 +1196,20 @@ static void statement(Compiler *c)
 {
     SolParser *p = &c->parser;
 
+    /* An include stands alone, and this is the only place one may stand. The
+       string has not been consumed yet, so the probe starts two tokens ahead. */
+    if (p->current.type == TOK_STRING) {
+        SolLexer probe = p->lexer;
+        SolToken colon = sol_lexer_next(&probe);
+        SolToken selector = sol_lexer_next(&probe);
+        if (colon.type == TOK_COLON && selector.type == TOK_IDENT &&
+            token_is(&selector, "include")) {
+            include_directive(c);
+            if (p->panicked) synchronise(c);
+            return;
+        }
+    }
+
     expression(c);
     if (!sol_parser_match(p, TOK_DOT) && p->current.type != TOK_EOF) {
         sol_parser_error(p, &p->current, "expected '.' between statements");
@@ -967,7 +1219,32 @@ static void statement(Compiler *c)
     if (p->panicked) synchronise(c);
 }
 
-bool sol_compile(const char *source, SolChunk *chunk)
+char *sol_read_file(const char *path)
+{
+    FILE *file = fopen(path, "rb");
+    if (file == NULL) return NULL;
+
+    if (fseek(file, 0L, SEEK_END) != 0) { fclose(file); return NULL; }
+    long size = ftell(file);
+    if (size < 0) { fclose(file); return NULL; }
+    rewind(file);
+
+    char *buffer = malloc((size_t)size + 1);
+    if (buffer == NULL) { fclose(file); return NULL; }
+
+    /* A short read is a failure rather than a shorter program: `fopen` on a
+       directory succeeds on some systems, and reading one does not. */
+    size_t read = fread(buffer, 1, (size_t)size, file);
+    fclose(file);
+    if (read != (size_t)size) {
+        free(buffer);
+        return NULL;
+    }
+    buffer[read] = '\0';
+    return buffer;
+}
+
+bool sol_compile_source(const char *source, const char *path, SolChunk *chunk)
 {
     Scope top;
     top.enclosing = NULL;
@@ -976,14 +1253,35 @@ bool sol_compile(const char *source, SolChunk *chunk)
     top.in_method = false;
     top.is_block = false;
 
+    Includes includes;
+    includes.paths = NULL;
+    includes.count = 0;
+    includes.capacity = 0;
+    includes.depth = 0;
+
     Compiler c;
     c.scope = &top;
-    sol_parser_init(&c.parser, source);
+    c.path = path;
+    c.includes = &includes;
+    sol_parser_init(&c.parser, source, path);
+
+    /* The file being compiled counts as included, so that a file reached
+       through its own includes is not compiled a second time. */
+    if (path != NULL) {
+        char *identity = identity_of(path);
+        if (identity != NULL) remember_included(&includes, identity);
+    }
 
     while (!sol_parser_match(&c.parser, TOK_EOF)) {
         statement(&c);
     }
     emit(&c, OP_HALT);
 
+    includes_free(&includes);
     return !c.parser.had_error;
+}
+
+bool sol_compile(const char *source, SolChunk *chunk)
+{
+    return sol_compile_source(source, NULL, chunk);
 }

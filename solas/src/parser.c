@@ -2,9 +2,10 @@
 
 #include "solas/parser.h"
 
-void sol_parser_init(SolParser *parser, const char *source)
+void sol_parser_init(SolParser *parser, const char *source, const char *path)
 {
     sol_lexer_init(&parser->lexer, source);
+    parser->path = path;
     parser->had_error = false;
     parser->panicked = false;
     parser->current.type = TOK_EOF;
@@ -75,7 +76,12 @@ void sol_parser_error(SolParser *parser, const SolToken *token, const char *mess
     parser->panicked = true;
     parser->had_error = true;
 
-    fprintf(stderr, "[line %d:%d] solas: %s", token->line, token->column, message);
+    if (parser->path != NULL) {
+        fprintf(stderr, "[%s:%d:%d] solas: %s",
+                parser->path, token->line, token->column, message);
+    } else {
+        fprintf(stderr, "[line %d:%d] solas: %s", token->line, token->column, message);
+    }
     if (token->type == TOK_EOF) {
         fprintf(stderr, " at end\n");
     } else if (token->type == TOK_ERROR) {

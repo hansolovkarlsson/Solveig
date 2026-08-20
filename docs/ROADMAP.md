@@ -893,27 +893,11 @@ something has already gone wrong. Worth revisiting if a debugger ever wants it.
 The five sections above were about making Solum a language. These are about
 making it a language you can write a *program* in — a program has to be split
 across files, read input, write files, and stop with a status. None of it needs
-a new idea; all of it is missing.
+a new idea. Splitting is done; the rest is still missing.
 
 Raised in a notes file and assessed in [ideas.md](ideas.md), which also records
 what was **not** worth building and why — integer widths, a JIT, cascades,
 trailing-block syntax, and Go-style concurrency among them.
-
-### 6.1 There is no way to split a program across files
-
-Nothing above a few hundred lines fits in one file, and there is no `include`.
-This is the item a real program hits first.
-
-The mechanism is easy — Solas reads the named file and compiles it in — and the
-question is the namespace. Globals are one flat space, so textual inclusion is
-consistent with what exists: names collide, and the second definition wins,
-exactly as two `:=` in one file already do. A module system with its own
-namespace is a much larger change to the object model and would want the
-class-side question (2.5) settled first, since a module is a thing with two
-sides.
-
-Start textual. Record the collision rule, and whether a file included twice is
-compiled twice.
 
 ### 6.2 A `system` object
 
@@ -1028,16 +1012,16 @@ smaller than it was now that the single root turned out not to be waiting on it.
 
 **Section 6 is the list that replaced them**, and it came from the right place:
 notes about what a program would want, rather than from a plan written before
-there were any programs. In order of what would be missed first:
+there were any programs. Its first item is built: a program can be split across
+files. In order of what would be missed next:
 
-1. **`include`** (6.1) — nothing above a few hundred lines fits in one file.
-2. **A `system` object** (6.2) — `exit`, arguments, a clock.
-3. **Reading input** (6.3) and **files** (6.4), which together are most of what
+1. **A `system` object** (6.2) — `exit`, arguments, a clock.
+2. **Reading input** (6.3) and **files** (6.4), which together are most of what
    a script does.
-4. **Timing from inside the language** (6.5), once 6.2 exists.
-5. The documentation gaps — the instruction set (6.7), group versus block (6.8),
+3. **Timing from inside the language** (6.5), once 6.2 exists.
+4. The documentation gaps — the instruction set (6.7), group versus block (6.8),
    and the example audit (6.9).
-6. **Inlining the loop constructs** (6.6), when something is measurably spending
+5. **Inlining the loop constructs** (6.6), when something is measurably spending
    time in one.
 
 [ideas.md](ideas.md) records what was considered and rejected, so the same
@@ -1053,7 +1037,8 @@ loops and now `and`/`or` (4.1), the two class-object crashes (1.5, 1.6), the
 side-table operands (4.2), the frameless temporary (1.7), dispatch by
 pointer with the side tables' hash index (4.3, 4.3a), binding a fetched method
 (2.14), stack heights in the verifier (3.9), multi-line input at the prompt
-(5.1), and columns in compile errors (5.4).
+(5.1), columns in compile errors (5.4), and splitting a program across files
+(6.1).
 
 One decision is outstanding: **2.5**, class side versus instance side. 1.6
 answered it one message at a time, which was enough to stop the crashes;
