@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### Reflection — `pending`, 2026-08-19
+### Reflection — `a7310a7`, 2026-08-19
 
 ```
 point:slots:print.               ; ['x, 'y, 'show]
