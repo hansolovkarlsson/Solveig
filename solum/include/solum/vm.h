@@ -107,6 +107,11 @@ SolValue sol_vm_call_block(SolVM *vm, SolValue block, SolValue *args, int argc);
 /* Reports a runtime error against the current instruction and unwinds. */
 void sol_vm_runtime_error(SolVM *vm, const char *format, ...);
 
+/* The complaint `whileTrue` makes when its condition answers something other
+   than a boolean. Both forms of the loop -- the primitive and the inlined
+   jumps -- go through here, so the two cannot come to word it differently. */
+void sol_vm_condition_error(SolVM *vm, SolValue answer);
+
 /* Installs the built-in classes and their primitives. Called by sol_vm_init. */
 void sol_builtins_install(SolVM *vm);
 

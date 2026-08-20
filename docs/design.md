@@ -357,12 +357,20 @@ the code:
 - every instruction fits inside the code array,
 - every operand indexes a name or constant that exists,
 - the opcode is one the VM knows,
+- every jump target is the start of an instruction in this chunk,
 - the final instruction is `HALT` or `RETURN`.
 
-That last rule is a memory-safety requirement, not tidiness: execution is
-linear, so without it the dispatch loop would read past the end of the buffer.
-When jumps arrive it has to become a check that every target lands on an
-instruction boundary.
+The last two are memory-safety requirements, not tidiness. Without the final
+`HALT` the dispatch loop would read past the end of the buffer, since that is
+the only place the ip can leave the code. And a target landing one byte into a
+send would have that send's operands executed as opcodes, which is why the
+verifier walks the chunk once to record where each instruction begins before
+checking any target against it.
+
+Jumps have since arrived in both directions, forward for the conditionals and
+backward to close a loop. The backward one is its own opcode, so the instruction
+that can move the ip towards zero stays easy to find, and the check is the same
+one: in range, on a boundary.
 
 `sol_chunk_save` runs the same verifier before writing, so Solas cannot emit a
 file that Solum would refuse.
@@ -374,6 +382,11 @@ advances. That is the VM behaving correctly: a bad program is not a broken VM,
 and Solum has no business cutting short a loop a user asked for. Fuzzing bears
 this out -- every hang observed came from a corrupted constant or code byte,
 none from a name, count, or length the loader parses.
+
+Inlining `whileTrue` made that promise load-bearing rather than incidental: a
+crafted file can now spin on a backward jump without so much as a send. It could
+already spin through a loop built from sends, and `{ true }:whileTrue({})` is a
+legal program, so nothing became reachable that was not reachable before.
 
 ## Resolved questions
 
@@ -452,12 +465,19 @@ that much and fills the extra with nil.
 **How does control flow work?** By sending messages, with no control-flow
 syntax at all. `{ ... }` makes a block -- unevaluated code packaged as a value
 -- and `ifTrue`, `ifElse`, and `whileTrue` are ordinary primitives that decide
-whether and how often to run one. Nothing in the compiler knows those
-selectors, so a user can add control structures the same way.
+whether and how often to run one. A user can add control structures the same
+way, and they cost exactly what the built-in ones cost.
 
 This needs the interpreter to be re-entrant: a primitive invokes a block
 through `sol_vm_call_block`, which pushes a frame and runs until it returns.
 `whileTrue` is then just a C loop calling two blocks.
+
+The compiler has since learned those four selectors after all, and emits jumps
+when it sees one written literally with plain blocks (4.1). That is an
+optimisation layered on top rather than a change of model: the primitives are
+still there, still what a `perform` or a block held in a variable reaches, and
+the compiler falls back to the send whenever inlining would alter what the
+program means. A user's own control structure is a send, as it was.
 
 **What does a block capture?** The frame it was written in, lexically. Each
 frame records the frame it was written inside, by index and by id, and

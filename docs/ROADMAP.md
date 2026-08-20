@@ -492,6 +492,13 @@ A corrupted `.sob` can pass every check and still be a well-formed program that
 loops forever. That is the VM behaving correctly — a bad program is not a broken
 VM. Established by fuzzing, not assumed; see `docs/design.md`.
 
+Inlining `whileTrue` (4.1) made this explicit rather than incidental. There is
+now an opcode that jumps backwards, so a crafted file can spin without so much
+as a send. It could already spin through a loop built from sends, and the source
+language can say `{ true }:whileTrue({})` in eleven characters, so nothing became
+reachable that was not reachable before. The verifier checks that a jump lands on
+an instruction inside the chunk, and stops there.
+
 ### 3.4 No compatibility across `.sob` versions
 
 Each opcode-set change bumps the version and older files are refused outright.
@@ -513,9 +520,12 @@ integer:countdown := { self:lessThan(#1):ifElse({ #0 }, { self:sub(#1):countdown
 ```
 
 **Now 62**, since inlining conditionals (4.1) means a branch no longer costs a
-frame. The two remaining ways to go further: raise the cap, which costs stack
-because `SOL_STACK_MAX` is derived from it; or make the limit dynamic rather
-than a fixed array.
+frame. Recursion that went through a `whileTrue` body stayed at 30 until the
+loop was inlined too, for exactly the same reason; both forms now reach 62.
+
+The two remaining ways to go further: raise the cap, which costs stack because
+`SOL_STACK_MAX` is derived from it; or make the limit dynamic rather than a
+fixed array.
 
 ### 3.6 A caller-owned chunk must outlive blocks defined in it
 
@@ -529,18 +539,88 @@ caller-owned chunks with a long-lived VM, which today is the test suite.
 Collapsing the two ownership modes into one would fix it, at the cost of giving
 Solas a VM it otherwise does not need.
 
+### 3.7 `array:print` crashes the VM — **open, and not from this work**
+
+```
+array:print.        ; segmentation fault
+block:print.        ; segmentation fault
+array:asString.     ; segmentation fault
+```
+
+Found by fuzzing the loop work, bisected to `f55e105` — the commit that made
+`print` on an object ask the object (5.2). It has nothing to do with jumps, and
+three words of ordinary source reach it; the REPL goes down the same way.
+
+The cycle is exact. Rendering an `SOL_OBJ` sends it `asString`. For the class
+objects `array` and `block`, lookup starts at the object itself and finds the
+`asString` those classes define for their *instances*, which is
+`prim_rendered_as_string` — and that calls the renderer back on the same value.
+`render` does carry a depth, and the array case uses it, but the count restarts
+at zero every time the recursion leaves through `sol_value_render`. Nothing
+bounds it, and it is C recursion, so `SOL_FRAMES_MAX` never sees it: a primitive
+called from `sol_vm_send` does not push a VM frame.
+
+The comment at `value.c` says the default `asString` on `object` "is what stops
+the renderer's ask-the-object from recurring forever". That is true of an
+ordinary object and false of a class object, which is the gap.
+
+The fix is to carry the depth across the send rather than restart it — hold it
+on the VM, seed `sol_value_render` from it, and let a cycle bottom out the way a
+self-containing array already does with `[...]`. Wants its own commit and its
+own tests.
+
+### 3.8 A class object answers its instances' messages — **open, and not from this work**
+
+```
+array:add(#1).      ; abort
+array:size:print.   ; #0, read from whatever `array` is not
+```
+
+`array` is an object whose slots are the messages an *array* understands, and
+sending one to `array` itself finds it. `prim_array_add` then does
+`SOL_AS_ARRAY(self)` on the class object, because a primitive reached through a
+class has always been able to assume its receiver's type. That assumption holds
+for every instance and fails for the one object that is not one.
+
+Some primitives happen to check — `concat` and `add` on other types answer a
+proper "expects a string, got object" — so the gap is uneven rather than total,
+which is its own argument for fixing it in one place. Found by fuzzing the loop
+work, and present as far back as the array primitives; 3.7 is the same shape
+reached through the renderer.
+
+The fix is a receiver check the class-side primitives share, rather than 40
+copies of the same `if`. It touches every built-in class, so it wants its own
+commit; 2.5 (class side versus instance side) is the design question underneath
+it, and answering that first may make this fall out.
+
+### 3.9 The verifier does not know the stack height
+
+`OP_SEND` carries `argc` in a byte, and nothing checks that many arguments are
+really on the stack: the answer depends on the stack height at that
+instruction, which the verifier does not compute. A corrupted count read the
+receiver from below the frame — 227 arguments on a stack one deep — which
+fuzzing the loop work turned up.
+
+Bounded now at the point of use, where a send refuses to reach below its own
+frame. The real answer is the JVM's: with instruction boundaries and every jump
+target already known, the stack height at each instruction can be computed by
+walking the code once and requiring the branches into a point to agree. That
+would let the runtime checks go, and would catch a corrupted `argc` at load
+rather than at the send.
+
 ## 4. Performance
 
 Nothing here is urgent — the VM is written for clarity first — but each has a
 known shape.
 
-### 4.1 Conditionals are real calls — **done**
+### 4.1 Conditionals and loops are real calls — **done**
 
-`ifTrue`, `ifFalse`, and `ifElse` written literally compile to jumps: no block
-allocated, no frame entered. They are still ordinary messages on a boolean, and
-still reachable as such through `perform` or with a block held in a variable.
+`ifTrue`, `ifFalse`, `ifElse`, and `whileTrue` written literally compile to
+jumps: no block allocated, no frame entered. They are still ordinary messages,
+and still reachable as such through `perform` or with a block held in a
+variable.
 
-Inlining applies only when every argument is a block written right there with no
+Inlining applies only when every block involved is written right there with no
 parameters and no temporaries. Both restrictions are about meaning, not
 convenience: a block with parameters is an arity error when `ifElse` calls it
 with none, and inlining would quietly make it work; a block's temporaries belong
@@ -548,16 +628,52 @@ to its own frame, so inlining would declare them in the enclosing one where they
 could collide with a name already there. Anything else falls back to a real
 send, and there are tests that the two forms agree.
 
-Measured: recursion depth 30 -> **62** (3.5), and a two-million-iteration loop
-1.60s -> 1.12s. The remaining cost in that loop is `whileTrue`, which is still a
-send with a block call per iteration.
+`whileTrue` is the awkward one, because its condition is the *receiver*: by the
+time the selector has been read, an ordinary compile has already emitted an
+OP_BLOCK for it. So the compiler reads ahead over the whole `{ ... }:whileTrue(
+{ ... })` before compiling any of it, and the parser stays single-pass in the
+sense that matters -- it never revisits a token it has already emitted for.
 
-The verifier changed as predicted. It records where each instruction starts and
-checks every branch target lands on one, in range. Offsets are unsigned, so
-jumps are forward-only and verified bytecode cannot loop through one.
+Measured at each step, all three builds timed together on one machine so the
+columns are comparable:
 
-Still sends, and the same mechanism would serve: `and`/`or`, which short-circuit
-through a block, and `whileTrue`, which needs a backward jump.
+| | before 4.1 | conditionals | and loops |
+|---|---|---|---|
+| recursion, plain | 30 | **62** | 62 |
+| recursion through a loop body | 20 | 30 | **62** |
+| a tight two-million-pass loop | 0.53s | 0.52s | **0.44s** |
+| the same loop with a conditional in it | 1.44s | 1.13s | **1.06s** |
+
+The depth is the real result. Each level of that second row used to cost three
+frames -- the method, the `ifTrue` branch, and the `whileTrue` body -- and now
+costs one, so recursion that happens to run inside a loop reaches exactly as far
+as recursion that does not. The seconds are worth less than they look, and 4.1's
+own entry measured its 1.60s on another day; these were all taken today.
+
+The verifier changed as predicted, twice. It records where each instruction
+starts and checks every branch target lands on one, in range. The backward jump
+is its own opcode, OP_LOOP, so that "forward" stays the default and the one
+instruction that can move the ip towards zero is easy to find.
+
+What a backward jump costs is that verified bytecode can now run forever. That
+is not a new capability and the verifier does not try to prevent it: `{ true
+}:whileTrue({})` is a legal program, and before this a corrupted file could
+already spin through a loop built from real sends. Landing on an instruction,
+inside the chunk, remains the whole promise. Termination never was.
+
+The loop's test is a second opcode, OP_EXIT_IF_FALSE, rather than a reuse of
+OP_JUMP_IF_FALSE, and only because the two complain differently: for `ifTrue`
+the boolean is the receiver, so a non-boolean does not understand the message;
+for `whileTrue` it is what a block answered, which is a different sentence. Both
+sentences now come from one function, so the inlined form and the send cannot
+drift apart -- the failure 5.3 records, in advance this time.
+
+Instruction lengths are also down to one table now, `sol_op_length`, which the
+emitter, the verifier, the disassembler, and the tests all read. Four copies of
+that table and a jump landing mid-instruction is what disagreement looks like.
+
+Still a send, and the same mechanism would serve: `and`/`or`, which
+short-circuit through a block.
 
 ### 4.2 One-byte operands
 
@@ -617,6 +733,12 @@ a user writes to render itself still recurses, but through real frames, so it
 stops at the call-depth cap like any other runaway recursion rather than
 smashing the C stack.
 
+**That is true of an ordinary object and false of a class object**, which is
+3.7: `array:print` smashes the C stack today. Lookup on `array` starts at the
+object itself and finds the `asString` that class defines for its instances,
+which renders -- and the depth `render` carries restarts at zero on the way
+back in. Found by fuzzing the loop work, and bisected to this commit.
+
 Still missing: nothing asks an object for a *literal* form distinct from its
 display form, the way `#45` prints as `#45` but displays as `45`. Objects have
 one representation, which is probably right.
@@ -657,19 +779,30 @@ text would make compile errors considerably more useful.
 Section 1 is now empty: the things standing between this and a language you
 could write a real program in are all built. What is left is filling it out.
 
-Nothing here is urgent any more. The remaining items are, roughly in order of
-how soon they would be missed:
+Two crashes now lead it, and they are the only urgent things here. Both are
+reachable from three words of ordinary source, both were found by fuzzing the
+loop work, and neither came from it:
 
-1. **Inlining `whileTrue`** — the jump machinery is now in place, and it is what
-   the two-million-iteration measurement is still paying for. Needs a backward
-   jump, which the verifier would have to allow without letting a crafted file
-   spin (4.1).
-2. **A bigger constant pool** (4.2) — a literal-heavy program hits the 256-entry
+1. **`array:print` smashes the C stack** (3.7) — the renderer asks an object for
+   `asString`, and on a class object that finds the one meant for its instances,
+   which renders the same value again.
+2. **`array:add(#1)` aborts** (3.8) — the same shape without the renderer: a
+   class object answers the messages its instances understand, and the primitive
+   reads it as an instance. 2.5 is the design question under both.
+
+After those, nothing is urgent. The rest are roughly in order of how soon they
+would be missed:
+
+3. **A bigger constant pool** (4.2) — a literal-heavy program hits the 256-entry
    cap well before anything else. Sorting two thousand literals was not possible
    without generating them at run time.
-3. **Dispatch by pointer** (4.3) — symbols exist; a send still does `strcmp`.
-4. **Calling a fetched method** — `slotAt` hands back an unbound block (2.10).
-5. Everything else as it starts to hurt.
+4. **Dispatch by pointer** (4.3) — symbols exist; a send still does `strcmp`.
+5. **Calling a fetched method** — `slotAt` hands back an unbound block (2.10).
+6. **Inlining `and` and `or`** (4.1) — the last two that short-circuit through a
+   block. Nothing new is needed; the jumps are all there now.
+7. **Stack heights in the verifier** (3.9) — would catch a corrupted argument
+   count at load rather than at the send, and let the runtime checks go.
+8. Everything else as it starts to hurt.
 
 Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), arrays entire
 (1.2, 1.2a, 1.2b), strings (1.3), user-defined objects (1.4), division (2.1),
@@ -677,9 +810,10 @@ calling the method you override (2.9), the missing operations (2.8),
 formatted output (2.11), the statement separator (2.2), float exponents and
 round-tripping (2.6, 5.3), string escapes (1.3), rendering an object by asking
 it (5.2), symbols (2.7), reflection (2.10), sorting, and inlined conditionals
-(4.1).
+and loops (4.1).
 
-No decisions are outstanding.
+One decision is outstanding, and it now has two crashes resting on it: **2.5**,
+class side versus instance side. Answering it may make 3.7 and 3.8 fall out.
 
 Still waiting on a call from you: **division** (2.1) and the **statement
 terminator** (2.2). Neither blocks anything above it.

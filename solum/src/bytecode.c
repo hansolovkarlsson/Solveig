@@ -162,6 +162,42 @@ void sol_chunk_free(SolChunk *chunk)
     sol_chunk_init(chunk);
 }
 
+/* The one place instruction lengths are written down. Everything that walks
+   bytecode -- the compiler deciding whether a block touches its home, the
+   verifier marking instruction boundaries, the disassembler, the tests --
+   asks here, so none of them can drift apart from the executor. */
+int sol_op_length(uint8_t op)
+{
+    switch (op) {
+    case OP_NIL:
+    case OP_POP:
+    case OP_RETURN:
+    case OP_HALT:
+        return 1;
+    case OP_CONST:
+    case OP_GLOBAL:
+    case OP_SET_GLOBAL:
+    case OP_LOCAL:
+    case OP_SET_LOCAL:
+    case OP_BLOCK:
+    case OP_SET_SLOT:
+    case OP_STRING:
+    case OP_SYMBOL:
+        return 2;
+    case OP_SEND:
+    case OP_OUTER:
+    case OP_SET_OUTER:
+    case OP_JUMP:
+    case OP_EXIT_IF_FALSE:
+    case OP_LOOP:
+        return 3;
+    case OP_JUMP_IF_FALSE:
+        return 4;
+    default:
+        return 0;                          /* not an opcode we emit */
+    }
+}
+
 /* ---- disassembler ---------------------------------------------------- */
 
 static int simple_instruction(const char *name, int offset)
@@ -211,11 +247,13 @@ static int send_instruction(const char *name, const SolChunk *chunk, int offset)
    almost unreadable when checking that a branch lands where it should. */
 static int jump_instruction(const SolChunk *chunk, const char *name, int offset)
 {
-    int length = (chunk->code[offset] == OP_JUMP_IF_FALSE) ? 4 : 3;
+    uint8_t op = chunk->code[offset];
+    int length = sol_op_length(op);
     uint16_t jump = (uint16_t)((chunk->code[offset + 1] << 8) | chunk->code[offset + 2]);
+    int target = (op == OP_LOOP) ? offset + length - jump : offset + length + jump;
 
-    printf("%-8s %4d -> %d", name, jump, offset + length + jump);
-    if (length == 4) {
+    printf("%-8s %4d -> %d", name, jump, target);
+    if (op == OP_JUMP_IF_FALSE) {
         printf(" (%s)", sol_chunk_name(chunk, chunk->code[offset + 3]));
     }
     printf("\n");
@@ -251,6 +289,8 @@ int sol_chunk_disassemble_instruction(const SolChunk *chunk, int offset)
     case OP_HALT:   return simple_instruction("HALT", offset);
     case OP_JUMP:   return jump_instruction(chunk, "JUMP", offset);
     case OP_JUMP_IF_FALSE: return jump_instruction(chunk, "JUMP_IF_FALSE", offset);
+    case OP_EXIT_IF_FALSE: return jump_instruction(chunk, "EXITIFF", offset);
+    case OP_LOOP:   return jump_instruction(chunk, "LOOP", offset);
     default:
         printf("unknown opcode %d\n", instruction);
         return offset + 1;

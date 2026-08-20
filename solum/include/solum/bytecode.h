@@ -45,6 +45,16 @@ typedef enum {
                        skip when it is false. The name is the selector this was
                        inlined from, so a non-boolean reports the same "does not
                        understand" it would have as a real send.               */
+    OP_EXIT_IF_FALSE,/* operands: u16 offset -- pop what the condition answered
+                       and leave an inlined loop when it is false. Distinct from
+                       OP_JUMP_IF_FALSE only in the complaint it makes: here the
+                       boolean came from a block, so a non-boolean is whileTrue
+                       objecting to the answer, not a receiver failing to
+                       understand the message.                                 */
+    OP_LOOP,        /* operands: u16 offset -- jump *backward* that many bytes.
+                       The one instruction that can move the ip towards zero,
+                       which is why it is its own opcode rather than a signed
+                       OP_JUMP: everything else stays forward by construction. */
     OP_POP,         /* discard top of stack (statement boundary)                */
     OP_RETURN,      /* return top of stack from the current method              */
     OP_HALT         /* stop the VM                                              */
@@ -133,6 +143,12 @@ int  sol_chunk_append_name(SolChunk *chunk, const char *name, int length);
 const char *sol_chunk_name(const SolChunk *chunk, int index);
 
 void sol_chunk_free(SolChunk *chunk);
+
+/* How many bytes an instruction occupies, its opcode included; 0 if the opcode
+   is not one of ours. Single-sourced because the emitter, the verifier, the
+   disassembler, and the executor have to agree to the byte: disagreeing is
+   exactly how a jump comes to land in the middle of an instruction. */
+int sol_op_length(uint8_t op);
 
 /* Disassembly -- the main debugging tool while the compiler is being written. */
 void sol_chunk_disassemble(const SolChunk *chunk, const char *name);

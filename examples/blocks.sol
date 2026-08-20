@@ -46,3 +46,25 @@ integer:sumTo := { | total, i |
 ; still answers the right object.
 integer:doubled := { { self:mul(#2) }:value() }.
 #21:doubled:print.                                        ; #42
+
+; Written literally, `ifElse` and `whileTrue` compile to jumps: no block is
+; allocated and no frame entered. It is an optimisation and nothing more -- the
+; same loop reached through variables is an ordinary send, and has to agree.
+countTo := { | i, seen |
+    i := #0.
+    seen := #0.
+    { i:lessThan(#5) }:whileTrue({ i := i:add(#1). seen := seen:add(i) }).
+    seen
+}.
+
+sentCountTo := { | i, seen, condition, body |
+    i := #0.
+    seen := #0.
+    condition := { i:lessThan(#5) }.
+    body := { i := i:add(#1). seen := seen:add(i) }.
+    condition:whileTrue(body).
+    seen
+}.
+
+countTo:value:print.                                      ; #15
+sentCountTo:value:print.                                  ; #15

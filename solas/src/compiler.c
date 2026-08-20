@@ -38,6 +38,7 @@ static void expression(Compiler *c);
 static void statement(Compiler *c);
 static void block_literal(Compiler *c);
 static bool inline_conditional(Compiler *c, const SolToken *selector);
+static bool inline_while(Compiler *c);
 
 /* Is this token exactly this word? */
 static bool token_is(const SolToken *token, const char *word)
@@ -385,7 +386,9 @@ static void expression(Compiler *c)
 {
     SolParser *p = &c->parser;
 
-    primary(c);
+    /* A `whileTrue` has to be recognised before its receiver is compiled, since
+       the receiver is the condition block. Everything else starts here. */
+    if (!inline_while(c)) primary(c);
 
     int     target_at = -1;      /* where the last zero-argument send started */
     uint8_t target_name = 0;
@@ -428,20 +431,7 @@ static bool touches_home(const SolChunk *chunk)
     for (int offset = 0; offset < chunk->count; ) {
         uint8_t op = chunk->code[offset];
         if (op == OP_OUTER || op == OP_SET_OUTER) return true;
-
-        switch (op) {
-        case OP_CONST: case OP_GLOBAL: case OP_SET_GLOBAL:
-        case OP_LOCAL: case OP_SET_LOCAL: case OP_BLOCK:
-        case OP_SET_SLOT: case OP_STRING: case OP_SYMBOL:
-            offset += 2; break;
-        case OP_SEND: case OP_OUTER: case OP_SET_OUTER:
-        case OP_JUMP:
-            offset += 3; break;
-        case OP_JUMP_IF_FALSE:
-            offset += 4; break;
-        default:
-            offset += 1; break;
-        }
+        offset += sol_op_length(op);
     }
     return false;
 }
@@ -594,13 +584,13 @@ static void block_literal(Compiler *c)
     emit_pair(c, OP_BLOCK, (uint8_t)index);
 }
 
-/* ---- inlined conditionals ------------------------------------------------
+/* ---- inlined control flow ------------------------------------------------
  *
- * `ifTrue`, `ifFalse`, and `ifElse` are ordinary messages to a boolean, and a
+ * `ifTrue`, `ifFalse`, `ifElse`, and `whileTrue` are ordinary messages, and a
  * program can still send them that way -- through `perform`, or with a block
  * held in a variable. But written literally, which is how they are almost
  * always written, the compiler can emit jumps around the bodies instead of
- * allocating a block and entering a frame per branch.
+ * allocating a block and entering a frame per branch or per pass.
  *
  * This is an optimisation and must not change what the program means, which is
  * where the restrictions come from. It applies only when every argument is a
@@ -661,6 +651,23 @@ static bool inlinable_arguments(Compiler *c, int wanted)
     return sol_lexer_next(&probe).type == TOK_RPAREN;
 }
 
+/* Closes a loop by jumping back to `top`. The only backward jump we emit, and
+   the offset is subtracted rather than added, so it stays unsigned like the
+   others. */
+static void emit_loop(Compiler *c, int top)
+{
+    emit(c, OP_LOOP);
+
+    int distance = c->scope->chunk->count + 2 - top;   /* from past the operand */
+    if (distance > UINT16_MAX) {
+        sol_parser_error(&c->parser, &c->parser.previous,
+                         "loop body is too large to jump back over");
+        distance = 0;
+    }
+    emit(c, (uint8_t)((distance >> 8) & 0xff));
+    emit(c, (uint8_t)(distance & 0xff));
+}
+
 /* Emits a jump with a blank offset, answering where to patch it. */
 static int emit_jump(Compiler *c, uint8_t op)
 {
@@ -674,9 +681,10 @@ static int emit_jump(Compiler *c, uint8_t op)
 static void patch_jump(Compiler *c, int slot)
 {
     SolChunk *chunk = c->scope->chunk;
-    /* The offset is measured from the end of the whole instruction, which for
-       OP_JUMP_IF_FALSE is one byte further on than the operand being patched. */
-    int from = slot + 2 + (chunk->code[slot - 1] == OP_JUMP_IF_FALSE ? 1 : 0);
+    /* The offset is measured from the end of the whole instruction, which is
+       not always the end of the operand being patched -- OP_JUMP_IF_FALSE
+       carries a selector after it. */
+    int from = slot - 1 + sol_op_length(chunk->code[slot - 1]);
     int distance = chunk->count - from;
 
     if (distance > UINT16_MAX) {
@@ -740,6 +748,70 @@ static bool inline_conditional(Compiler *c, const SolToken *selector)
         }
         patch_jump(c, to_end);
     }
+
+    sol_parser_consume(p, TOK_RPAREN, "expected ')' after arguments");
+    return true;
+}
+
+/* `{ condition }:whileTrue({ body })`.
+ *
+ * The odd one out, because the condition is the *receiver*: by the time the
+ * selector has been read, an ordinary compile would already have emitted an
+ * OP_BLOCK for it. So this runs before the receiver is compiled at all, reading
+ * ahead over the whole form to decide, and the parser stays single-pass -- it
+ * still never revisits a token it has emitted for.
+ *
+ * The same two restrictions as the conditionals, for the same reasons, and now
+ * on the receiver as well: both blocks must be written right there, with no
+ * parameters and no temporaries. `whileTrue` calls each with none, and their
+ * temporaries would land in the enclosing frame.
+ *
+ *      loop:  <condition>          -- re-run every pass, which is why it is a
+ *             EXIT_IF_FALSE -> end    block in the source and not a value
+ *             <body>
+ *             POP                  -- the body's value is discarded
+ *             LOOP -> loop
+ *      end:   NIL                  -- what whileTrue answers
+ *
+ * Answers whether it handled the expression; nothing has been emitted if not.
+ */
+static bool inline_while(Compiler *c)
+{
+    SolParser *p = &c->parser;
+
+    if (p->current.type != TOK_LBRACE) return false;
+
+    /* Read the whole `{ ... }:whileTrue({ ... })` on a copy of the lexer before
+       committing to any of it. */
+    SolLexer probe = p->lexer;                 /* positioned just after the `{` */
+    if (!block_is_plain(probe)) return false;
+    if (!skip_block(&probe)) return false;
+    if (sol_lexer_next(&probe).type != TOK_COLON) return false;
+
+    SolToken selector = sol_lexer_next(&probe);
+    if (selector.type != TOK_IDENT || !token_is(&selector, "whileTrue")) return false;
+
+    if (sol_lexer_next(&probe).type != TOK_LPAREN) return false;
+    if (sol_lexer_next(&probe).type != TOK_LBRACE) return false;
+    if (!block_is_plain(probe)) return false;
+    if (!skip_block(&probe)) return false;
+    if (sol_lexer_next(&probe).type != TOK_RPAREN) return false;
+
+    int top = c->scope->chunk->count;
+    inline_branch(c);                          /* the condition */
+
+    int to_end = emit_jump(c, OP_EXIT_IF_FALSE);
+
+    sol_parser_consume(p, TOK_COLON, "expected ':' before 'whileTrue'");
+    sol_parser_consume(p, TOK_IDENT, "expected 'whileTrue'");
+    sol_parser_consume(p, TOK_LPAREN, "expected '(' after the message name");
+
+    inline_branch(c);                          /* the body */
+    emit(c, OP_POP);
+    emit_loop(c, top);
+
+    patch_jump(c, to_end);
+    emit(c, OP_NIL);
 
     sol_parser_consume(p, TOK_RPAREN, "expected ')' after arguments");
     return true;

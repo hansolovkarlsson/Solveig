@@ -151,6 +151,12 @@ void sol_vm_runtime_error(SolVM *vm, const char *format, ...)
     vm->had_error = true;
 }
 
+void sol_vm_condition_error(SolVM *vm, SolValue answer)
+{
+    sol_vm_runtime_error(vm, "whileTrue expects the condition block to answer "
+                             "a boolean, got %s", sol_type_name(answer));
+}
+
 /* Pushes a frame. The receiver and arguments are already on the stack in slot
    order; any remaining locals are filled with nil. */
 static bool push_frame(SolVM *vm, const SolMethod *code, int argc,
@@ -373,6 +379,17 @@ static SolResult run_frames(SolVM *vm, int base)
             const char *name = READ_NAME();
             uint8_t argc = READ_BYTE();
 
+            /* A `.sob` is untrusted and `argc` is a byte the verifier cannot
+               bound on its own: whether 227 arguments are really on the stack
+               depends on the stack height at this instruction, which needs an
+               analysis the verifier does not do yet (3.9). Without this check a
+               corrupted count reads the receiver from below the frame -- found
+               by fuzzing, and older than the jumps that exposed it. */
+            if (vm->stack_top - (argc + 1) < frame->slots) {
+                sol_vm_runtime_error(vm, "stack underflow");
+                break;
+            }
+
             SolValue receiver = vm->stack_top[-1 - argc];
             SolObject *target;
 
@@ -427,6 +444,29 @@ static SolResult run_frames(SolVM *vm, int base)
         case OP_JUMP:
             frame->ip += READ_SHORT();
             break;
+
+        /* An inlined `whileTrue`, closing the loop. The only instruction that
+           moves the ip backwards; the verifier has established that it lands
+           on the start of an instruction in this chunk. It can spin, but so can
+           the loop it was compiled from -- non-termination is something the
+           source language already allows, not something bytecode can reach that
+           source cannot. */
+        case OP_LOOP:
+            frame->ip -= READ_SHORT();
+            break;
+
+        /* An inlined `whileTrue`, testing its condition. */
+        case OP_EXIT_IF_FALSE: {
+            uint16_t offset = READ_SHORT();
+            SolValue condition = sol_vm_pop(vm);
+
+            if (!SOL_IS_BOOL(condition)) {
+                sol_vm_condition_error(vm, condition);
+                break;
+            }
+            if (!SOL_AS_BOOL(condition)) frame->ip += offset;
+            break;
+        }
 
         /* The compiler emits this for an inlined `ifTrue`/`ifFalse`/`ifElse`.
            Offsets are forward only, so no bytecode the compiler writes can loop

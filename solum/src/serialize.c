@@ -449,40 +449,12 @@ static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count,
         last = offset;
         uint8_t op = chunk->code[offset];
 
-        /* operands: how many bytes follow the opcode. */
-        int operands;
-        switch (op) {
-        case OP_NIL:
-        case OP_POP:
-        case OP_RETURN:
-        case OP_HALT:
-            operands = 0;
-            break;
-        case OP_CONST:
-        case OP_GLOBAL:
-        case OP_SET_GLOBAL:
-        case OP_LOCAL:
-        case OP_SET_LOCAL:
-        case OP_BLOCK:
-        case OP_SET_SLOT:
-        case OP_STRING:
-        case OP_SYMBOL:
-            operands = 1;
-            break;
-        case OP_SEND:
-        case OP_OUTER:
-        case OP_SET_OUTER:
-        case OP_JUMP:
-            operands = 2;
-            break;
-        case OP_JUMP_IF_FALSE:
-            operands = 3;                  /* u16 offset, then the selector */
-            break;
-        default:
-            FAIL(SOL_SER_MALFORMED);       /* unknown opcode */
-        }
+        /* An opcode with no length is not one of ours, and rejecting it here
+           is what lets the rest of this walk trust the lengths it steps by. */
+        int length = sol_op_length(op);
+        if (length == 0) FAIL(SOL_SER_MALFORMED);
 
-        if (offset + 1 + operands > chunk->count) {
+        if (offset + length > chunk->count) {
             FAIL(SOL_SER_TRUNCATED);       /* instruction runs off the end */
         }
 
@@ -528,35 +500,43 @@ static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count,
             break;
         }
 
-        offset += 1 + operands;
+        offset += length;
     }
 
     /* Second pass: every branch target must be the start of an instruction in
-       this chunk. Offsets are unsigned and so forward-only, which is also why
-       verified bytecode cannot loop here. */
+       this chunk. This walk visits exactly the offsets the first one did, since
+       both step by sol_op_length, so every length here is known non-zero.
+     *
+     * OP_LOOP subtracts rather than adds, which is the whole of what a backward
+     * jump costs us: a verified chunk can now run forever. That is not a new
+     * capability -- `{ true }:whileTrue({})` is a legal program, and a loop
+     * built from real sends could already spin -- so the obligation here is
+     * unchanged. Land on an instruction, inside this chunk. Termination was
+     * never something the verifier promised.
+     */
     for (int at = 0; at < chunk->count; ) {
         uint8_t op = chunk->code[at];
-        int length = (op == OP_JUMP) ? 3 : (op == OP_JUMP_IF_FALSE) ? 4 : 0;
+        int length = sol_op_length(op);
 
-        if (length != 0) {
+        if (op == OP_JUMP || op == OP_JUMP_IF_FALSE ||
+            op == OP_EXIT_IF_FALSE || op == OP_LOOP) {
             uint16_t jump = (uint16_t)((chunk->code[at + 1] << 8) | chunk->code[at + 2]);
-            long target = (long)at + length + jump;
-            if (target >= chunk->count) FAIL(SOL_SER_MALFORMED);
+            long target = (op == OP_LOOP) ? (long)at + length - jump
+                                          : (long)at + length + jump;
+            if (target < 0 || target >= chunk->count) FAIL(SOL_SER_MALFORMED);
             if (!boundary[target]) FAIL(SOL_SER_MALFORMED);
-            at += length;
-            continue;
         }
-
-        /* Not a jump: step by whatever this instruction is. Boundaries are
-           known, so the next one is simply the next marked offset. */
-        do { at++; } while (at < chunk->count && !boundary[at]);
+        at += length;
     }
 
     free(boundary);
 #undef FAIL
 
-    /* The last instruction must still stop the machine: jumps only go forward
-       and land inside the chunk, so execution always arrives here. */
+    /* The last instruction must still stop the machine. Every jump lands on an
+       instruction inside this chunk, so the ip can only leave the code by
+       falling off the end of it -- and this is the instruction it would fall
+       off. A backward jump does not change that; it only means the fall may
+       take a while to arrive. */
     uint8_t final = chunk->code[last];
     if (final != OP_HALT && final != OP_RETURN) return SOL_SER_MALFORMED;
 

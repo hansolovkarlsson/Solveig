@@ -143,12 +143,16 @@ integer:factorial := {
 #20:factorial:print.      ; #2432902008176640000
 ```
 
-See [examples/blocks.sol](examples/blocks.sol).
+Written literally, those compile to jumps -- no block allocated, no frame
+entered -- while staying ordinary messages you can send any other way. See
+[examples/blocks.sol](examples/blocks.sol).
 
 Still to do:
 
-- [ ] inlining `whileTrue` -- the jump machinery is in place; it needs a backward jump
-- [ ] sorting -- strings and numbers order, but arrays have no `sort`
+- [ ] `array:print` and `array:add(#1)` crash -- a class object answers the
+      messages meant for its instances, and the primitive reads it as one
+- [ ] a bigger constant pool -- 256 per chunk is the first cap a real program meets
+- [ ] dispatch by pointer -- symbols exist, but a send still compares strings
 
 ## License
 

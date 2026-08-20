@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "solum/serialize.h"
+#include "solum/vm.h"
 
 #define TMP "build/tests/test_serialize.tmp.sob"
 
@@ -366,8 +367,42 @@ static void test_verifier_checks_frame_bounds(void)
     sol_chunk_free(&chunk);
 }
 
+/* `argc` is a byte, and whether that many arguments are really on the stack
+   depends on the stack height at that instruction -- which the verifier does not
+   compute (3.9). So a corrupted count passes verification, and the send has to
+   refuse it rather than read the receiver from below the frame. Fuzzing found
+   this with a `sub` claiming 227 arguments on a stack one deep. */
+static void test_a_corrupt_argument_count_cannot_read_below_the_frame(void)
+{
+    SolChunk chunk;
+    sol_chunk_init(&chunk);
+    int name = sol_chunk_add_name(&chunk, "print", 5);
+    int one  = sol_chunk_add_constant(&chunk, SOL_INT_VAL(1));
+
+    sol_chunk_write(&chunk, OP_CONST, 1);
+    sol_chunk_write(&chunk, (uint8_t)one, 1);
+    sol_chunk_write(&chunk, OP_SEND, 1);
+    sol_chunk_write(&chunk, (uint8_t)name, 1);
+    sol_chunk_write(&chunk, 227, 1);              /* one value is on the stack */
+    sol_chunk_write(&chunk, OP_POP, 1);
+    sol_chunk_write(&chunk, OP_HALT, 1);
+
+    /* Well formed, and the verifier says so -- every operand indexes something
+       that exists and the last instruction stops the machine. */
+    assert(sol_chunk_verify(&chunk) == SOL_SER_OK);
+
+    SolVM vm;
+    sol_vm_init(&vm);
+    assert(sol_vm_run(&vm, &chunk) == SOL_RUNTIME_ERROR);
+    sol_vm_free(&vm);
+
+    sol_chunk_free(&chunk);
+    printf("  a corrupt argument count is refused, not followed\n");
+}
+
 int main(void)
 {
+    test_a_corrupt_argument_count_cannot_read_below_the_frame();
     test_round_trip_preserves_everything();
     test_methods_round_trip();
     test_verifier_checks_frame_bounds();

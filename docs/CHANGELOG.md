@@ -8,6 +8,130 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### Inlined loops — `pending`, 2026-08-19
+
+**`.sob` goes to version 8.**
+
+`whileTrue` written literally now compiles to jumps too. There is no block and
+no frame; the condition is re-run in place, and a backward jump closes the loop:
+
+```
+0005 GLOBAL      0 'i'
+0007 CONST       1 '#5'
+0009 SEND        1 'lessThan' (1 args)
+0012 EXITIFF    13 -> 28
+0015 GLOBAL      0 'i'
+0017 CONST       2 '#1'
+0019 SEND        2 'add' (1 args)
+0022 SETGLOB     0 'i'
+0024 POP
+0025 LOOP       23 -> 5
+0028 NIL
+```
+
+| | before 4.1 | inlined conditionals | and now loops |
+| --- | --- | --- | --- |
+| Recursion, plain | 30 | **62** | 62 |
+| Recursion through a loop body | 20 | 30 | **62** |
+| A tight 2,000,000-pass loop | 0.53s | 0.52s | **0.44s** |
+| The same loop with a conditional in it | 1.44s | 1.13s | **1.06s** |
+
+All three builds were timed together on one machine, so the columns compare;
+the 1.60s in the entry below was measured on another day.
+
+The depth is the result worth having. A level of that second row used to cost
+three frames — the method, the `ifTrue` branch, and the `whileTrue` body — and
+now costs one, so recursion that happens to run inside a loop reaches exactly as
+far as recursion that does not. The seconds are worth less than they look: 15%
+off a loop that does nothing but count.
+
+**`whileTrue` is the awkward one to inline, because its condition is the
+receiver.** By the time the selector has been read, an ordinary compile has
+already emitted an OP_BLOCK for it. So the compiler now reads ahead over the
+whole `{ ... }:whileTrue({ ... })` before compiling any of it. The parser stays
+single-pass in the sense that matters: it never revisits a token it has already
+emitted for.
+
+The same two restrictions as the conditionals, and now on the receiver as well —
+both blocks must be written on the spot with no parameters and no temporaries.
+`whileTrue` calls each with no arguments, so a parameter is an arity error that
+inlining would quietly fix, and a temporary belongs to a frame that inlining
+would take away. Anything else is an ordinary send. `examples/blocks.sol` runs
+the same loop both ways and prints both answers.
+
+**Two opcodes, not one.** `OP_LOOP` jumps backward, and is deliberately separate
+from `OP_JUMP` so that forward remains the default and the one instruction that
+can move the ip towards zero is easy to find. `OP_EXIT_IF_FALSE` tests the
+condition, and is separate from `OP_JUMP_IF_FALSE` because the two complain
+differently: for `ifTrue` the boolean is the receiver, so a non-boolean does not
+understand the message; for `whileTrue` it is what a block answered, which is a
+different sentence.
+
+```
+{ #1 }:whileTrue({ #2 }).
+solvm: whileTrue expects the condition block to answer a boolean, got integer
+```
+
+Both sentences now come from one function, so the inlined form and the send
+cannot drift apart — the failure 5.3 records, avoided in advance this time. A
+test captures stderr from both and compares them.
+
+**What a backward jump costs the verifier**, which was the open question: a
+verified chunk can now run forever. It is not a new capability. `{ true
+}:whileTrue({})` is a legal program, and before this a corrupted file could
+already spin through a loop built from real sends — the earlier fuzz runs
+recorded exactly that, as semantic timeouts rather than memory faults. So the
+verifier does not try to prevent it. It checks that every branch target, forward
+or backward, lands on the start of an instruction inside the chunk, and stops
+there. There are tests for a backward target one byte into an instruction, for
+one before the start of the chunk, and one asserting that a loop jumping to
+itself is *accepted* — a spin is a bad program, not a broken VM.
+
+Fuzzed: 3205 single-byte corruptions of a loop-bearing `.sob`, run under
+ASan and UBSan. Two sanitizer reports, neither from the jumps and both
+reproducible from ordinary source — 3.7 and 3.8 in the roadmap. Thirty-four
+runs timed out, which is the spin, and is the expected answer rather than a
+fault. The same sweep against the previous commit, 4276 variants, found the
+argument count fixed below and nothing else.
+
+Instruction lengths are down to one table, `sol_op_length`, read by the emitter,
+the verifier, the disassembler, and the tests. There had been four copies, and
+two of them disagreeing is precisely how a jump comes to land mid-instruction.
+
+**Also fixed here, because the fuzzing found it: a send with a corrupted
+argument count read below the frame.** `OP_SEND` carries `argc` in a byte, and
+nothing checked that many arguments were on the stack — a `sub` claiming 227 of
+them on a stack one deep read the receiver from 3.6 KB below. Whether a count is
+honest depends on the stack height at that instruction, which the verifier does
+not compute (3.9), so the send now refuses to reach below its own frame. Not a
+new fault: the same fuzzing against the previous commit reproduces it, and the
+regression test is a stack-buffer-overflow without the check.
+
+**Found here and deliberately not fixed here: `array:print` crashes the VM.**
+
+```
+array:print.        ; segmentation fault
+```
+
+Three words of ordinary source, and the REPL goes the same way. Rendering an
+object asks it for `asString`; on the class objects `array` and `block` that
+finds the one they define for their instances, which renders the same value
+again, and the depth `render` carries restarts at zero each time round. Bisected
+to `f55e105`, which is where rendering began asking — it has nothing to do with
+jumps. Written up as 3.7 with the fix it wants, which is its own commit.
+
+The second report is the same shape by a different route, and also from source:
+
+```
+array:add(#1).      ; abort
+```
+
+`array` is an object whose slots are the messages an array understands, so
+sending one to `array` itself finds it, and `prim_array_add` then reads the
+class object as if it were an array. Written up as 3.8. Both wait on a decision
+rather than on work — 2.5 is the design question under them — so neither is
+fixed here.
+
 ### Inlined conditionals — `54e2ae1`, 2026-08-19
 
 **`.sob` goes to version 7.**

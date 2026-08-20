@@ -301,18 +301,20 @@ x:greaterThan(#0):and({ x:lessThan(#10) }).
 
 ### What the compiler does with them
 
-Written literally, `ifTrue`, `ifFalse`, and `ifElse` compile to jumps: no block
-is allocated and no frame is entered. This is an optimisation only — the meaning
-is exactly that of the message, and the message is still there, reachable
-through `perform` or with a block held in a variable.
+Written literally, `ifTrue`, `ifFalse`, `ifElse`, and `whileTrue` compile to
+jumps: no block is allocated and no frame is entered. This is an optimisation
+only — the meaning is exactly that of the message, and the message is still
+there, reachable through `perform` or with a block held in a variable.
 
-It applies when every argument is a block written on the spot with no parameters
-and no temporaries. Anything else is compiled as an ordinary send, so these two
-still mean what they say rather than being quietly rewritten:
+It applies when every block involved is written on the spot with no parameters
+and no temporaries. For `whileTrue` that includes the receiver, since the
+condition is the receiver. Anything else is compiled as an ordinary send, so
+these still mean what they say rather than being quietly rewritten:
 
 ```
 true:ifElse({ a | a }, { #2 }).      ; still an arity error, as a send would be
 true:ifElse({ | t | t := #1. t }, { #0 }).   ; t stays in a frame of its own
+{ a | a }:whileTrue({ #1 }).         ; the condition is a block like any other
 ```
 
 A non-boolean receiver reports the same error either way:
@@ -322,7 +324,20 @@ A non-boolean receiver reports the same error either way:
 solvm: integer does not understand 'ifElse'
 ```
 
-`whileTrue`, `and`, and `or` are not inlined yet and remain real sends.
+A condition that answers something other than a boolean is `whileTrue`
+complaining about the answer, not a receiver failing to understand a message,
+and it reads the same either way:
+
+```
+{ #1 }:whileTrue({ #2 }).
+solvm: whileTrue expects the condition block to answer a boolean, got integer
+```
+
+A loop compiles to a jump backwards, which is the only way the machine can run
+the same instruction twice. It therefore need not terminate — but neither need
+the loop it was compiled from, so nothing is reachable that was not before.
+
+`and` and `or` are not inlined yet and remain real sends.
 
 Recursion works, and with conditionals it terminates:
 
@@ -665,7 +680,7 @@ division by zero, undeclared names, and a block outliving its frame.
 
 | | |
 | --- | --- |
-| Recursion | about **62 levels** — the frame cap is 64 and a level costs one frame, now that an `ifElse` branch is inlined rather than called |
+| Recursion | about **62 levels** — the frame cap is 64 and a level costs one frame, now that an `ifElse` branch and a `whileTrue` body are inlined rather than called |
 | Constants, names per chunk | 255 |
 | Arguments, parameters, array literal elements | 255 |
 | Locals per frame | 255 |

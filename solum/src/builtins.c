@@ -989,9 +989,7 @@ static SolValue prim_while_true(SolVM *vm, SolValue self, SolValue *args, int ar
         if (vm->had_error) return SOL_NIL_VAL;
 
         if (!SOL_IS_BOOL(condition)) {
-            sol_vm_runtime_error(vm, "whileTrue expects the condition block to "
-                                     "answer a boolean, got %s",
-                                 sol_type_name(condition));
+            sol_vm_condition_error(vm, condition);
             return SOL_NIL_VAL;
         }
         if (!SOL_AS_BOOL(condition)) return SOL_NIL_VAL;

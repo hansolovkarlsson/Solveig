@@ -1,7 +1,11 @@
-/* Inlined conditionals: the same meaning, and jumps a crafted file cannot abuse. */
+/* Inlined control flow: the same meaning, and jumps a crafted file cannot abuse. */
+#define _POSIX_C_SOURCE 200809L
+
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "solas/compiler.h"
 #include "solum/bytecode.h"
@@ -65,21 +69,37 @@ static void test_actually_inlines(void)
         uint8_t op = chunk.code[offset];
         if (op == OP_JUMP || op == OP_JUMP_IF_FALSE) saw_jump = true;
         if (op == OP_BLOCK) saw_block = true;
-        switch (op) {
-        case OP_CONST: case OP_GLOBAL: case OP_SET_GLOBAL: case OP_LOCAL:
-        case OP_SET_LOCAL: case OP_BLOCK: case OP_SET_SLOT: case OP_STRING:
-        case OP_SYMBOL:            offset += 2; break;
-        case OP_SEND: case OP_OUTER: case OP_SET_OUTER: case OP_JUMP:
-                                   offset += 3; break;
-        case OP_JUMP_IF_FALSE:     offset += 4; break;
-        default:                   offset += 1; break;
-        }
+        offset += sol_op_length(op);
     }
     assert(saw_jump);
     assert(!saw_block);
 
     sol_chunk_free(&chunk);
     printf("  emits jumps, allocates no block\n");
+}
+
+/* The loop is the same claim, with a backward jump closing it. */
+static void test_loop_actually_inlines(void)
+{
+    SolChunk chunk;
+    sol_chunk_init(&chunk);
+    assert(sol_compile("i := #0. { i:lessThan(#5) }:whileTrue({ i := i:add(#1) }).",
+                       &chunk));
+
+    bool saw_loop = false, saw_exit = false, saw_block = false;
+    for (int offset = 0; offset < chunk.count; ) {
+        uint8_t op = chunk.code[offset];
+        if (op == OP_LOOP)          saw_loop = true;
+        if (op == OP_EXIT_IF_FALSE) saw_exit = true;
+        if (op == OP_BLOCK)         saw_block = true;
+        offset += sol_op_length(op);
+    }
+    assert(saw_loop);
+    assert(saw_exit);
+    assert(!saw_block);          /* neither the condition nor the body is one */
+
+    sol_chunk_free(&chunk);
+    printf("  the loop jumps back, allocating neither block\n");
 }
 
 /* The restrictions exist so the optimisation cannot change meaning. */
@@ -233,9 +253,240 @@ static void test_verifier_checks_the_selector(void)
     printf("  rejected: a selector index past the name table\n");
 }
 
+/* ---- whileTrue ---------------------------------------------------------- */
+
+/* Written literally it inlines; reached through variables it cannot, and takes
+   the ordinary send. Same counts, same answer, same number of passes. */
+static void test_loop_matches_the_send(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        /* inlined */
+        "i := #0. n := #0."
+        "a := { i:lessThan(#5) }:whileTrue({ i := i:add(#1). n := n:add(#10) })."
+        /* the very same loop, reached through variables */
+        "j := #0. m := #0."
+        "cond := { j:lessThan(#5) }. body := { j := j:add(#1). m := m:add(#10) }."
+        "b := cond:whileTrue(body)."
+        /* a condition false on the first look runs the body no times */
+        "k := #0."
+        "c := { false }:whileTrue({ k := k:add(#1) })."
+        "never := { false }. d := never:whileTrue({ k := k:add(#1) }).") == SOL_OK);
+
+    assert(SOL_AS_INT(global(&vm, "i")) == SOL_AS_INT(global(&vm, "j")));
+    assert(SOL_AS_INT(global(&vm, "n")) == SOL_AS_INT(global(&vm, "m")));
+    assert(SOL_AS_INT(global(&vm, "n")) == 50);
+    assert(SOL_AS_INT(global(&vm, "k")) == 0);
+
+    /* whileTrue answers nil, and the body's value is discarded either way. */
+    assert(SOL_IS_NIL(global(&vm, "a")));
+    assert(SOL_IS_NIL(global(&vm, "b")));
+    assert(SOL_IS_NIL(global(&vm, "c")));
+    assert(SOL_IS_NIL(global(&vm, "d")));
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+    printf("  inlined and sent loops agree\n");
+}
+
+/* The condition is the receiver, so the interesting cases are the ones where
+   the receiver is not a plain block written on the spot. */
+static void test_loop_falls_back(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        /* A condition with temporaries keeps its own frame, so it is sent. Its
+           `t` must stay its own -- there is a `t` outside it here. */
+        "t := #100. i := #0."
+        "{ | t | t := #5. i:lessThan(t) }:whileTrue({ i := i:add(#1) })."
+        /* A loop is still an expression: nil, and sendable. */
+        "x := { false }:whileTrue({ #1 }):equals(nil).") == SOL_OK);
+
+    assert(SOL_AS_INT(global(&vm, "i")) == 5);
+    assert(SOL_AS_INT(global(&vm, "t")) == 100);
+    assert(SOL_AS_BOOL(global(&vm, "x")) == true);
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+
+    /* A block with parameters is an arity error when whileTrue calls it with
+       none -- in the condition and in the body alike. Inlining either would
+       have quietly made it work. */
+    const char *arity[] = {
+        "{ a | a:lessThan(#5) }:whileTrue({ #1 }).",
+        "i := #0. { i:lessThan(#5) }:whileTrue({ a | i := i:add(#1) }).",
+    };
+    for (size_t i = 0; i < sizeof(arity) / sizeof(arity[0]); i++) {
+        SolVM v; sol_vm_init(&v);
+        SolChunk ch;
+        assert(run(&v, &ch, arity[i]) == SOL_RUNTIME_ERROR);
+        sol_chunk_free(&ch); sol_vm_free(&v);
+    }
+
+    printf("  falls back to a send where inlining would change meaning\n");
+}
+
+/* Runs a program that must fail, and hands back what it printed to stderr. */
+static void error_of(const char *source, char *out, size_t size)
+{
+    char path[] = "/tmp/solum-inline-err-XXXXXX";
+    int fd = mkstemp(path);
+    assert(fd >= 0);
+
+    fflush(stderr);
+    int saved = dup(STDERR_FILENO);
+    assert(saved >= 0);
+    assert(dup2(fd, STDERR_FILENO) >= 0);
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    assert(run(&vm, &chunk, source) == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+
+    fflush(stderr);
+    assert(dup2(saved, STDERR_FILENO) >= 0);
+    close(saved);
+
+    assert(lseek(fd, 0, SEEK_SET) == 0);
+    ssize_t got = read(fd, out, size - 1);
+    out[got > 0 ? (size_t)got : 0] = '\0';
+    close(fd);
+    remove(path);
+}
+
+/* A condition that answers something other than a boolean is whileTrue's
+   complaint about the answer, not a receiver failing to understand a message --
+   which is the whole reason the loop's test has an opcode of its own. Both
+   forms go through one function, and this is what holds them there. */
+static void test_loop_condition_error_matches(void)
+{
+    char inlined[512], sent[512];
+
+    error_of("{ #1 }:whileTrue({ #2 }).", inlined, sizeof(inlined));
+    error_of("c := { #1 }. c:whileTrue({ #2 }).", sent, sizeof(sent));
+
+    assert(strstr(inlined, "whileTrue expects the condition block to answer "
+                           "a boolean, got integer") != NULL);
+    assert(strstr(sent, "whileTrue expects the condition block to answer "
+                        "a boolean, got integer") != NULL);
+
+    /* Same first line, whichever way it was compiled. */
+    const char *a = strchr(inlined, '\n'), *b = strchr(sent, '\n');
+    assert(a != NULL && b != NULL);
+    assert(a - inlined == b - sent);
+    assert(strncmp(inlined, sent, (size_t)(a - inlined)) == 0);
+
+    printf("  a non-boolean condition reads the same either way\n");
+}
+
+/* The loop body keeps the stack where it found it, over enough passes that any
+   drift would overflow or underflow. */
+static void test_loop_stack_stays_balanced(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "i := #0. acc := #0."
+        "{ i:lessThan(#50000) }:whileTrue({"
+        "    acc := acc:add(#1)."
+        "    { false }:whileTrue({ #9 })."          /* a nested loop, never run */
+        "    i := i:add(#1)."
+        "}).") == SOL_OK);
+
+    assert(SOL_AS_INT(global(&vm, "acc")) == 50000);
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+    printf("  50,000 passes leave the stack where they found it\n");
+}
+
+/* Points the chunk's `op` at `target`, whatever is there -- so a test can aim at
+   somewhere it knows is wrong instead of guessing an offset and hoping. */
+static void aim(SolChunk *chunk, uint8_t op, int target)
+{
+    for (int at = 0; at < chunk->count; at += sol_op_length(chunk->code[at])) {
+        if (chunk->code[at] != op) continue;
+        int after = at + sol_op_length(op);
+        int jump  = (op == OP_LOOP) ? after - target : target - after;
+        chunk->code[at + 1] = (uint8_t)((jump >> 8) & 0xff);
+        chunk->code[at + 2] = (uint8_t)(jump & 0xff);
+        return;
+    }
+    assert(false);                              /* no such instruction here */
+}
+
+/* The first offset that is *not* the start of an instruction. Every chunk with
+   a multi-byte instruction in it has one. */
+static int an_operand_byte(const SolChunk *chunk)
+{
+    for (int at = 0; at < chunk->count; ) {
+        int length = sol_op_length(chunk->code[at]);
+        assert(length > 0);
+        if (length > 1) return at + 1;
+        at += length;
+    }
+    assert(false);
+    return -1;
+}
+
+/* A backward jump is the one instruction that can move the ip towards zero, so
+   it is the one that can put it before the chunk as well as after. These are the
+   files a fuzzer or an attacker writes. */
+static void test_verifier_rejects_bad_loops(void)
+{
+    static const char *source =
+        "i := #0. { i:lessThan(#5) }:whileTrue({ i := i:add(#1) }).";
+
+    struct { uint8_t op; int target; const char *why; } cases[] = {
+        { OP_LOOP,          0, "a backward target inside an instruction"      },
+        { OP_LOOP,         -1, "a backward target before the start of the chunk" },
+        { OP_EXIT_IF_FALSE, 0, "a loop exit landing inside an instruction"    },
+    };
+
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+        SolChunk chunk;
+        sol_chunk_init(&chunk);
+        assert(sol_compile(source, &chunk));
+
+        /* A real loop, backward jump and all, is accepted. */
+        assert(sol_chunk_verify(&chunk) == SOL_SER_OK);
+
+        int target = cases[i].target;
+        if (target == 0) target = an_operand_byte(&chunk);
+        aim(&chunk, cases[i].op, target);
+        assert(sol_chunk_verify(&chunk) != SOL_SER_OK);
+
+        sol_chunk_free(&chunk);
+        printf("  rejected: %s\n", cases[i].why);
+    }
+}
+
+/* A loop that jumps to itself is a spin, not a memory fault, and the verifier
+   is right to accept it: the source language can already say `{ true }` and
+   never finish. Termination was never the promise. */
+static void test_verifier_allows_a_spin(void)
+{
+    SolChunk chunk;
+    sol_chunk_init(&chunk);
+    assert(sol_compile("i := #0. { i:lessThan(#5) }:whileTrue({ i := i:add(#1) }).",
+                       &chunk));
+
+    for (int at = 0; at < chunk.count; at += sol_op_length(chunk.code[at])) {
+        if (chunk.code[at] != OP_LOOP) continue;
+        aim(&chunk, OP_LOOP, at);               /* jumps to itself, forever */
+        break;
+    }
+    assert(sol_chunk_verify(&chunk) == SOL_SER_OK);
+
+    sol_chunk_free(&chunk);
+    printf("  accepted: a loop that spins -- in range, on an instruction\n");
+}
+
+
 int main(void)
 {
-    printf("inlined conditionals\n");
+    printf("inlined control flow\n");
     test_inlined_matches_the_send();
     test_actually_inlines();
     test_falls_back();
@@ -244,6 +495,13 @@ int main(void)
     test_recursion_reaches_further();
     test_verifier_rejects_bad_jumps();
     test_verifier_checks_the_selector();
+    test_loop_actually_inlines();
+    test_loop_matches_the_send();
+    test_loop_falls_back();
+    test_loop_condition_error_matches();
+    test_loop_stack_stays_balanced();
+    test_verifier_rejects_bad_loops();
+    test_verifier_allows_a_spin();
     printf("ok\n");
     return 0;
 }
