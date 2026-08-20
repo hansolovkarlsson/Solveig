@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### `include` is a directive and now looks like one — `pending`, 2026-08-20
+### `include` is a directive and now looks like one — `e215440`, 2026-08-20
 
 Roadmap 6.13. `@include "library.sol".` replaces `"library.sol":include.`
 

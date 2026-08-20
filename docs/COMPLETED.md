@@ -884,7 +884,7 @@ not know is a mistake and not something that might come to mean something later.
 — it earns its keep with one, by marking the single construct in the language
 that is not run time.
 
-Built as `pending`. Semantics are untouched: the same splice into the includer's
+Built as `e215440`. Semantics are untouched: the same splice into the includer's
 scope, the same resolution relative to the including file, the same
 once-per-compilation keying by where the file turns out to be on disk, the same
 cycle stop.
