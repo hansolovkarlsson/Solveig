@@ -171,7 +171,8 @@ static void test_every_example_verifies(void)
     static const char *examples[] = {
         "examples/hello.sol",   "examples/blocks.sol",  "examples/arrays.sol",
         "examples/strings.sol", "examples/methods.sol", "examples/objects.sol",
-        "examples/reflect.sol", "examples/symbols.sol",
+        "examples/reflect.sol", "examples/symbols.sol", "examples/numbers.sol",
+        "examples/format.sol",  "examples/values.sol",
     };
 
     for (size_t i = 0; i < sizeof(examples) / sizeof(examples[0]); i++) {

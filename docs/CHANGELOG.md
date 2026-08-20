@@ -8,6 +8,47 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### A guide, and examples for the concepts that had none — `pending`, 2026-08-20
+
+Documentation and examples. No code, no behaviour change.
+
+**[GUIDE.md](GUIDE.md)** is new: a tour of every concept in the language in an
+order that builds, each section pointing at a runnable example. REFERENCE.md is
+organised for looking a message up, which is the wrong shape for meeting the
+language, and design.md answers "why" rather than "what" — so there was nowhere
+to send someone who wanted to learn it. Seventeen sections, from message sending
+through to the restrictions worth carrying around.
+
+**[fetched-methods.md](fetched-methods.md)** is new: the long explanation of what
+`slotAt` gives you, why a fetched method cannot be called as it stands, and what
+`boundTo` is for — including the honest answer that most code should reach for
+`{ c:bump }` instead, and that it earns its place when the method is chosen at
+run time. It has the comparison against `perform` and the two things binding
+deliberately does not do.
+
+Three examples for concepts that had none:
+
+- **numbers.sol** — the two numeric types and why the literal says which, strict
+  arithmetic, trapping overflow, floored division and what it does to `mod`, the
+  narrowing messages, bases, and floats that read back.
+- **format.sol** — `print` against `display` against `asString`, the format spec,
+  digit grouping, `fill`, and an object rendered by asking it. It builds a column
+  of figures, which is what the spec was designed for.
+- **values.sol** — values against references, head-on: what `equals` means for
+  each, what `a := b` does, and why the split falls where it does. Mutability is
+  what makes identity matter; if a thing cannot change, equality can be about
+  contents instead.
+
+Every snippet in both documents and all three examples was run, and the outputs
+shown are what the VM prints. That includes the errors quoted in comments, which
+is where a claim usually goes stale: two were wrong when first written —
+`decimals are for floats` is really `decimals mean nothing for an integer`, and a
+brace escape was shown through `display`, which does not have escapes, rather
+than through `fill`, which does.
+
+`tests/test_compile.c` compiles all eleven examples now and hands each to the
+verifier, so the new ones are covered by the same invariant as the old.
+
 ### `boundTo`: calling the method you fetched — `be19104`, 2026-08-20
 
 No `.sob` change — a primitive, not an opcode. Roadmap 2.14, the last item that

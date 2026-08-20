@@ -45,7 +45,7 @@ them -- the same star, in a different language.
 | `solas/`  | **Solas** -- the compiler: source text to bytecode                |
 | `solum/`  | **SolVM** -- the virtual machine, built as `bin/solvm`               |
 | `solis/`  | **Solis** -- the REPL: compiles and runs one line at a time       |
-| `docs/`   | [REFERENCE.md](docs/REFERENCE.md), [design.md](docs/design.md), [ROADMAP.md](docs/ROADMAP.md), [CHANGELOG.md](docs/CHANGELOG.md) |
+| `docs/`   | [GUIDE.md](docs/GUIDE.md), [REFERENCE.md](docs/REFERENCE.md), [design.md](docs/design.md), [ROADMAP.md](docs/ROADMAP.md), [CHANGELOG.md](docs/CHANGELOG.md) |
 | `tests/`  | Test suite                                                        |
 | `examples/` | Sample `.sol` programs                                          |
 
@@ -159,6 +159,9 @@ entered -- while staying ordinary messages you can send any other way. See
 ## License
 
 MIT -- see [LICENSE](LICENSE).
+
+[docs/GUIDE.md](docs/GUIDE.md) is the tour: every concept in the language, in an
+order that builds, each pointing at a runnable example. Start there.
 
 [docs/REFERENCE.md](docs/REFERENCE.md) is the language reference: syntax,
 semantics, and every built-in message.

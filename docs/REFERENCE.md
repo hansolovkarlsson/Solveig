@@ -1,9 +1,13 @@
 # Solum — language reference
 
 Solum is the language; **Solas** compiles it, **SolVM** runs the bytecode, and
-**Solis** is the REPL. This document describes the language as it is. For why it
-is that way see [design.md](design.md); for what is still missing see
-[ROADMAP.md](ROADMAP.md).
+**Solis** is the REPL. This document describes the language as it is, message by
+message, for looking things up.
+
+If you are meeting the language for the first time, read [GUIDE.md](GUIDE.md)
+instead — the same ground in an order that builds, with a runnable example behind
+each concept. For why the language is this way see [design.md](design.md); for
+what is still missing see [ROADMAP.md](ROADMAP.md).
 
 Everything is an object and all work happens by sending messages.
 
@@ -527,7 +531,8 @@ p:perform('sum):print.   ; #7 -- the receiver comes from the send
 ```
 
 `boundTo` chooses one. It answers a **second block** over the same code with
-`self` set, which you then call like any other block:
+`self` set, which you then call like any other block. The longer explanation,
+including what it is for, is in [fetched-methods.md](fetched-methods.md):
 
 ```
 bound := m:boundTo(p).
