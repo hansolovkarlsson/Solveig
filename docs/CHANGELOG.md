@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### Assessed a notebook of ideas, and the roadmap has a section 6 — `pending`, 2026-08-20
+### Assessed a notebook of ideas, and the roadmap has a section 6 — `2a348f0`, 2026-08-20
 
 Documentation. No code.
 
