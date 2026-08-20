@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### Extending a built-in, and a single root that was not blocked — `pending`, 2026-08-20
+### Extending a built-in, and a single root that was not blocked — `0a17b99`, 2026-08-20
 
 Documentation. No code.
 
