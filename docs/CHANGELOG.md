@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### Finished roadmap entries moved to a document of their own — `pending`, 2026-08-20
+### Finished roadmap entries moved to a document of their own — `1feb449`, 2026-08-20
 
 Documentation. No code.
 
