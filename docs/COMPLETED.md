@@ -837,6 +837,61 @@ and there is no way to take it apart.
 
 ---
 
+### 6.11 A string cannot be split — **done**
+
+`readFile` answers a whole file as one string, which is what made this visible:
+there was no `split`, no `indexOf`, and no substring. `at(#i)` answers a
+one-character string, so breaking a file into lines was a character-at-a-time
+loop — [examples/files.sol](../examples/files.sol) had one, and it was the least
+pleasant code in the examples.
+
+The shape was not in doubt, only how much of it to build. `split(separator)`
+answering an array of strings covers most of what a script does to a file.
+`indexOf` and a substring message are the more general pair, and each raised the
+same question: what to answer when there is no match. Nil, or `#0` as an
+out-of-band index — and the first is more in keeping, since `#0` is not a valid
+index here and would be a second way of saying "nothing" beside the one the
+language already has.
+
+Built as `pending`, all three: `split(s)`, `indexOf(s)`, `copyFrom(#a, #b)`.
+
+**`split` keeps every piece.** There are always occurrences + 1 of them, so a
+separator at either end or two together gives an empty string where the missing
+piece would be. That is what makes the answer predictable: the pieces put back
+together with the separator between them are the string you started with,
+whatever it was. Dropping empties reads more kindly on `" a  b "` and loses the
+difference between `"a,,b"` and `"a,b"` — which a program parsing a file is
+usually the one thing that matters to it. No occurrence gives one piece, the
+whole string, which keeps the rule rather than making a special case of it.
+
+**`indexOf` answers nil**, as the entry expected. The argument for it got
+stronger on the way: `#0` would not merely be out-of-band, it would be a second
+spelling of a thing the language already spells, and `text:indexOf(","):equals(nil)`
+is the same question that an unset slot and the end of input are already asked.
+
+**`copyFrom` includes both ends** and both are one-based, so `copyFrom(#i, #i)`
+is exactly `at(#i)`. The one thing this entry did not anticipate was needing to
+say *nothing*: cutting a string at a mark has no answer for the front half when
+the mark is the first character. So an empty result is spelled with `to` one
+before `from`, and only that far — anything further apart is a mistake rather
+than a wider empty. `from` may be one past the end, which is where the empty tail
+is.
+
+Neither `split` nor `indexOf` will look for the empty string. Every position in
+every string contains it, so the answer would be arbitrary; refusing says so
+where the mistake was made.
+
+All three go by the length rather than stopping at the first NUL, which was not
+free — `strstr` was the obvious implementation and would have been wrong on
+exactly the files [6.12](ROADMAP.md#612-taking-a-binary-file-apart) is about. A
+test reads a file holding a NUL and splits it.
+
+The inverse was left out and is [6.14](ROADMAP.md#614-an-array-of-strings-cannot-be-joined):
+there is no `join`, so putting pieces back is still a walk with `do`, and
+underneath that there is no `inject` or `fold` either.
+
+---
+
 ### 6.13 `include` was spelled as a message — **done**
 
 [6.1](#61-there-is-no-way-to-split-a-program-across-files) built the include and

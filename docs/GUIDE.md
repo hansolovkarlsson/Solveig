@@ -206,6 +206,29 @@ Indices are one-based, `at` answers a one-character string (there is no
 character type), and `concat` is strict — joining a string to a number is an
 error, not a conversion.
 
+Three messages take one apart. `split` answers the pieces between occurrences of
+a separator, `indexOf` says where something first appears, and `copyFrom` cuts
+out a run:
+
+```
+"a,b,c":split(",").              ; ["a", "b", "c"]
+"hello":indexOf("ll").           ; #3
+"hello":copyFrom(#2, #4).        ; "ell"
+```
+
+Two things about them are worth knowing before you rely on them. `split` keeps
+every piece, so `"a,,b"` gives three and the last piece of a file ending in a
+newline is empty — the pieces always go back together into what you started
+with. And `indexOf` answers **nil** when there is no match rather than `#0`,
+which is the same "nothing" an unset slot answers:
+
+```
+"hello":indexOf("z"):equals(nil):print.    ; true
+```
+
+`copyFrom` includes both ends, so `copyFrom(#i, #i)` is `at(#i)`, and an empty
+result is written with the end one before the start.
+
 A **symbol** is an interned name, written `'foo`. Two symbols spelling the same
 thing are the *same* symbol, so comparing them is comparing addresses rather than
 walking characters — which is the whole reason to have them apart from strings:

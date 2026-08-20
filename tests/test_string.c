@@ -366,6 +366,193 @@ static void test_case(void)
     sol_vm_free(&vm);
 }
 
+/* Every piece is kept, so there are always occurrences + 1 of them. A separator
+   at either end or two together gives an empty string where the missing piece
+   would be, which is what makes the answer predictable. */
+static void test_split(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "p := \"a,b,c\":split(\",\"). n := p:size."
+        "one := p:at(#1). three := p:at(#3).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "n")) == 3);
+    assert(is_text(global(&vm, "one"), "a"));
+    assert(is_text(global(&vm, "three"), "c"));
+    sol_chunk_free(&chunk);
+
+    /* Two separators together leave an empty piece between them. */
+    assert(run(&vm, &chunk,
+        "p := \"a,,b\":split(\",\"). n := p:size. middle := p:at(#2).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "n")) == 3);
+    assert(is_text(global(&vm, "middle"), ""));
+    sol_chunk_free(&chunk);
+
+    /* And so do separators at the ends. */
+    assert(run(&vm, &chunk,
+        "p := \",a,\":split(\",\"). n := p:size."
+        "first := p:at(#1). last := p:at(#3).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "n")) == 3);
+    assert(is_text(global(&vm, "first"), ""));
+    assert(is_text(global(&vm, "last"), ""));
+    sol_chunk_free(&chunk);
+
+    /* No occurrence is one piece: the whole string. Which keeps the rule -- no
+       occurrences, one piece -- rather than making a special case of it. */
+    assert(run(&vm, &chunk,
+        "p := \"abc\":split(\",\"). n := p:size. whole := p:at(#1).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "n")) == 1);
+    assert(is_text(global(&vm, "whole"), "abc"));
+    sol_chunk_free(&chunk);
+
+    /* The empty string is one empty piece, by the same rule. */
+    assert(run(&vm, &chunk,
+        "p := \"\":split(\",\"). n := p:size. only := p:at(#1).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "n")) == 1);
+    assert(is_text(global(&vm, "only"), ""));
+    sol_chunk_free(&chunk);
+
+    /* A separator of more than one character. */
+    assert(run(&vm, &chunk,
+        "p := \"a--b--c\":split(\"--\"). n := p:size. second := p:at(#2).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "n")) == 3);
+    assert(is_text(global(&vm, "second"), "b"));
+    sol_chunk_free(&chunk);
+
+    /* Overlapping runs are taken left to right and not reconsidered. */
+    assert(run(&vm, &chunk,
+        "p := \"aaaa\":split(\"aa\"). n := p:size.") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "n")) == 3);     /* "", "", "" */
+    sol_chunk_free(&chunk);
+
+    /* Nothing can be looked for: every position holds the empty string. */
+    assert(run(&vm, &chunk, "\"a\":split(\"\").") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "\"a\":split(#1).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "\"a\":split(\"a\", \"b\").") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
+/* Nil for no match rather than #0: indices start at #1, so #0 would be a second
+   way of saying "nothing" beside the one the language has. */
+static void test_index_of(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "a := \"hello\":indexOf(\"h\")."
+        "b := \"hello\":indexOf(\"ll\")."
+        "c := \"hello\":indexOf(\"o\")."
+        "d := \"hello\":indexOf(\"z\")."
+        "e := \"hello\":indexOf(\"hello\").") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "a")) == 1);
+    assert(SOL_AS_INT(global(&vm, "b")) == 3);
+    assert(SOL_AS_INT(global(&vm, "c")) == 5);
+    assert(SOL_IS_NIL(global(&vm, "d")));
+    assert(SOL_AS_INT(global(&vm, "e")) == 1);
+    sol_chunk_free(&chunk);
+
+    /* The first occurrence, not any later one. */
+    assert(run(&vm, &chunk, "at := \"abcabc\":indexOf(\"bc\").") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "at")) == 2);
+    sol_chunk_free(&chunk);
+
+    /* Longer than the string it is looked for in. */
+    assert(run(&vm, &chunk, "at := \"ab\":indexOf(\"abc\").") == SOL_OK);
+    assert(SOL_IS_NIL(global(&vm, "at")));
+    sol_chunk_free(&chunk);
+
+    /* Which is the answer `at` and `copyFrom` are built to take. */
+    assert(run(&vm, &chunk,
+        "s := \"key=value\". i := s:indexOf(\"=\")."
+        "key := s:copyFrom(#1, i:sub(#1))."
+        "value := s:copyFrom(i:add(#1), s:size).") == SOL_OK);
+    assert(is_text(global(&vm, "key"), "key"));
+    assert(is_text(global(&vm, "value"), "value"));
+    sol_chunk_free(&chunk);
+
+    assert(run(&vm, &chunk, "\"a\":indexOf(\"\").") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "\"a\":indexOf(nil).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
+/* Both ends included and both one-based, so `copyFrom(#i, #i)` is `at(#i)`. */
+static void test_copy_from(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "s := \"hello\"."
+        "mid := s:copyFrom(#2, #4)."
+        "all := s:copyFrom(#1, #5)."
+        "one := s:copyFrom(#3, #3)."
+        "same := s:at(#3).") == SOL_OK);
+    assert(is_text(global(&vm, "mid"), "ell"));
+    assert(is_text(global(&vm, "all"), "hello"));
+    assert(is_text(global(&vm, "one"), "l"));
+    assert(is_text(global(&vm, "same"), "l"));
+    sol_chunk_free(&chunk);
+
+    /* An empty result has one spelling: `to` exactly one before `from`. */
+    assert(run(&vm, &chunk,
+        "s := \"hello\"."
+        "front := s:copyFrom(#1, #0)."
+        "back := s:copyFrom(#6, #5)."
+        "middle := s:copyFrom(#3, #2).") == SOL_OK);
+    assert(is_text(global(&vm, "front"), ""));
+    assert(is_text(global(&vm, "back"), ""));
+    assert(is_text(global(&vm, "middle"), ""));
+    sol_chunk_free(&chunk);
+
+    /* The empty string can be cut, but only into itself. */
+    assert(run(&vm, &chunk, "e := \"\":copyFrom(#1, #0).") == SOL_OK);
+    assert(is_text(global(&vm, "e"), ""));
+    sol_chunk_free(&chunk);
+
+    /* Anything further apart than that is a mistake, not a wider empty. */
+    assert(run(&vm, &chunk, "\"hello\":copyFrom(#4, #2).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "\"hello\":copyFrom(#0, #2).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "\"hello\":copyFrom(#7, #7).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "\"hello\":copyFrom(#2, #6).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "\"hello\":copyFrom(1.0, #2).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "\"hello\":copyFrom(#1).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
+/* The pieces are strings like any other, and nothing about them refers back to
+   the string they were cut from -- which is what lets that one be collected
+   while they are still in use. */
+static void test_pieces_outlive_the_string_they_came_from(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "pieces := \"alpha,beta,gamma\":split(\",\")."
+        "joined := pieces:at(#1):concat(pieces:at(#3)).") == SOL_OK);
+    sol_gc_collect(&vm);
+    assert(is_text(global(&vm, "joined"), "alphagamma"));
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+}
+
 int main(void)
 {
     test_case();
@@ -380,6 +567,10 @@ int main(void)
     test_collection();
     test_literal_text_is_shared_safely();
     test_round_trip();
+    test_split();
+    test_index_of();
+    test_copy_from();
+    test_pieces_outlive_the_string_they_came_from();
     printf("test_string: ok\n");
     return 0;
 }

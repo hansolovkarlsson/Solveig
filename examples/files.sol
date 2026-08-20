@@ -27,15 +27,20 @@ system:fileExists(path):print.                  ; true
 text := system:readFile(path).
 "{} bytes":fill([text:size]):display.
 
-; There is no `split` yet, so counting lines is a walk. `at` is one-based and
-; answers a one-character string.
-lines := #0.
-i := #1.
-{ i:lessOrEqual(text:size) }:whileTrue({
-    text:at(i):equals("\n"):ifTrue({ lines := lines:add(#1) }).
-    i := i:add(#1)
+; `split` takes the file apart. There are always occurrences + 1 pieces, so a
+; file ending in a newline leaves an empty last piece -- which is why the count
+; is one less than the number of pieces here.
+lines := text:split("\n").
+"{} lines":fill([lines:size:sub(#1)]):display.
+
+; The pieces are ordinary strings. Each line here is a name and a count.
+lines:do({ line | | at, name, count |
+    line:equals(""):ifFalse({
+        at := line:indexOf(" ").
+        name := line:copyFrom(#1, at:sub(#1)).
+        count := line:copyFrom(at:add(#1), line:size):asInteger.
+        "{} -> {}":fill([name, count:mul(#2)]):display })
 }).
-"{} lines":fill([lines]):display.
 
 ; ---------------------------------------------------------------------------
 ; When the file is not there

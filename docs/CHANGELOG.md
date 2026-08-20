@@ -8,6 +8,67 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### A string can be taken apart — `pending`, 2026-08-20
+
+Roadmap 6.11. `split`, `indexOf` and `copyFrom`.
+
+```
+"a,b,c":split(",").              ; ["a", "b", "c"]
+"hello":indexOf("ll").           ; #3
+"hello":copyFrom(#2, #4).        ; "ell"
+```
+
+`readFile` answering a whole file as one string is what made this visible.
+Counting the lines in a file was a character-at-a-time loop, and it was the least
+pleasant code in the examples; it is now `text:split("\n")`.
+
+**`split` keeps every piece.** There are always occurrences + 1 of them, so a
+separator at either end or two together leaves an empty string where the missing
+piece would be:
+
+```
+"a,,b":split(",").       ; ["a", "", "b"]
+",a":split(",").         ; ["", "a"]
+"abc":split(",").        ; ["abc"]   -- no occurrence, so one piece
+```
+
+That is what makes it predictable: the pieces put back together with the
+separator between them are the string you started with, whatever it was.
+Dropping empties would read more kindly on `" a  b "` and would lose the
+difference between `"a,,b"` and `"a,b"` — usually the one thing a program
+parsing a file needs to keep.
+
+**`indexOf` answers nil when there is no match**, not `#0`, which is what the
+roadmap called for. Indices start at `#1`, so `#0` would be out-of-band, and more
+to the point it would be a second spelling of something the language already
+spells: `text:indexOf(","):equals(nil)` is the same question an unset slot and
+the end of input are already asked.
+
+**`copyFrom` includes both ends**, both one-based, so `copyFrom(#i, #i)` is
+exactly `at(#i)`. The thing the roadmap did not anticipate was needing to say
+*nothing* — cutting a string at a mark has no answer for the front half when the
+mark is the first character. An empty result is spelled with `to` one before
+`from`, and only that far:
+
+```
+"hello":copyFrom(#3, #2).    ; ""
+"hello":copyFrom(#4, #2).    ; error: ends at #2, more than one before its start #4
+```
+
+Neither `split` nor `indexOf` will look for the empty string: every position in
+every string contains it, so the answer would be arbitrary.
+
+All three go by the length rather than stopping at the first NUL. That was not
+free — `strstr` was the obvious implementation and would have been wrong on
+exactly the binary files 6.12 is about — and a test reads a file holding a NUL
+and splits it.
+
+**The inverse is missing.** There is no `join`, so putting pieces back together
+is a walk with `do` and a flag, which [examples/strings.sol](../examples/strings.sol)
+now shows in six lines that ought to be one. Underneath it there is no `inject`
+or `fold` either, so every reduction over an array is that same walk. Recorded as
+roadmap 6.14, and it is the next thing to do.
+
 ### `include` is a directive and now looks like one — `e215440`, 2026-08-20
 
 Roadmap 6.13. `@include "library.sol".` replaces `"library.sol":include.`

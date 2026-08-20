@@ -25,8 +25,9 @@ control flow, a mark-sweep collector over objects, blocks and compiled code, the
 
 The language is Turing-complete, does not leak, and has strings, arrays,
 symbols, user-defined objects, reflection, sorting, formatted output, the
-conversions between every pair of types that has an unambiguous one, and a way
-to split a program across files, that last one spelled `@include "lib.sol".` —
+conversions between every pair of types that has an unambiguous one, `split`,
+`indexOf` and `copyFrom` for taking a string apart, and a way to split a program
+across files, that last one spelled `@include "lib.sol".` —
 `@` marking the one thing in the language that happens while compiling.
 Conditionals, loops and `and`/`or` written literally compile to jumps, side-table
 operands are two bytes, and a send compares pointers.
@@ -139,7 +140,10 @@ locale, so under a Turkish locale the same program would answer differently on
 two machines.
 
 That is the whole of the language's view of text: a string is bytes, `size`
-counts bytes, and `at` answers a byte. `"café":size` is 5. Real Unicode -- code
+counts bytes, and `at` answers a byte. `"café":size` is 5. `split` and `indexOf`
+compare bytes, so a multi-byte separator works as written; `copyFrom` takes byte
+offsets, so bounds that came from anywhere but `indexOf` can cut a code point in
+half. Real Unicode -- code
 points, a case mapping where one letter becomes two, normalisation, and knowing
 how many characters a string has -- is a different piece of work rather than a
 larger version of this one, and would want a decision about what a string is
@@ -313,47 +317,52 @@ of the runtime that behaves differently by platform.
 Worth doing when a program needs it, and behind its own decision rather than as
 a footnote to line input.
 
-### 6.11 A string cannot be split
-
-`readFile` answers a whole file as one string, which is what made this visible:
-there is no `split`, no `indexOf`, and no substring. `at(#i)` answers a
-one-character string, so breaking a file into lines is a character-at-a-time
-loop — [examples/files.sol](../examples/files.sol) has one, and it is the least
-pleasant code in the examples.
-
-The shape is not in doubt, only how much of it to build. `split(separator)`
-answering an array of strings covers most of what a script does to a file.
-`indexOf` and a substring message are the more general pair, and each raises the
-same question: what to answer when there is no match. Nil, or `#0` as an
-out-of-band index — and the first is more in keeping, since `#0` is not a valid
-index here and would be a second way of saying "nothing" beside the one the
-language already has.
-
-A file you cannot take apart is half of file handling, so this is the thing to
-do next.
-
 ### 6.12 Taking a binary file apart
 
 Reading and writing binary files already works: a string is bytes, a NUL is a
 byte like any other, and reading a file and writing it back copies it exactly.
-*Inspecting* one does not — `at` answers a one-character string, and there is no
-number to do arithmetic on.
+Since [6.11](COMPLETED.md#611-a-string-cannot-be-split), `split`, `indexOf` and
+`copyFrom` work on one too — all three go by the length rather than stopping at
+the first NUL, so a binary file can be cut up by a marker.
+
+What is still missing is a *number* for a byte. `at` answers a one-character
+string, and there is nothing to do arithmetic on.
 
 What this wants is a byte-buffer type. An array of integers would work and would
 cost sixteen bytes a byte. Worth building when a program needs it rather than on
 the chance that one might.
 
+### 6.14 An array of strings cannot be joined
+
+[6.11](COMPLETED.md#611-a-string-cannot-be-split) built `split` and left its
+inverse out. Putting the pieces back is a walk with `do` and a flag for whether
+the separator goes in front — [examples/strings.sol](../examples/strings.sol)
+has one, and it is six lines to say something that ought to be one.
+
+`array:join(separator)` is the obvious shape, and it belongs on array rather
+than on string: it is the array that has the pieces. Strict about them, like
+`concat` — an array holding anything but strings is an error rather than a
+silent `asString` on each, since `fill` is already the message that renders
+things.
+
+The question underneath is larger and worth asking first: there is no `inject`
+or `fold` either, so *every* reduction over an array is a `do` with an
+accumulator declared outside it. `join` is one instance of that gap, and a fold
+would answer it once instead of one message at a time. Against that: `join` on
+strings is the case that actually keeps coming up, and a fold does not make it
+read well.
+
 ## Suggested order
 
 **Section 6 is the whole of the live list**, and it came from the right place:
 notes about what a program would want, rather than a plan written before there
-were any programs. Five of its items are built — a program can be split across
-files, stop with a status, read its input, read and write files, and the include
-that started it has since been given a syntax that admits what it is (6.13) — so
-in order of what would be missed next:
+were any programs. Six of its items are built — a program can be split across
+files, stop with a status, read its input, read and write files, take a string
+apart, and the include that started it has since been given a syntax that admits
+what it is (6.13) — so in order of what would be missed next:
 
-1. **Splitting a string** (6.11). Files arrive whole and there is no way to take
-   one apart, which is half of file handling missing.
+1. **Joining an array of strings** (6.14), or the fold underneath it. `split`
+   went in without its inverse, and putting pieces back is six lines.
 2. **Timing from inside the language** (6.5), which `system:clock` now makes a
    few lines of Solum.
 3. The documentation gaps — the instruction set (6.7), group versus block (6.8),

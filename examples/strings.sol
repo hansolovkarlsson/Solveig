@@ -22,6 +22,51 @@ s:print.                     ; "hello"
 ; silent conversion.
 ;   "a":concat(#1)           ->  'concat' expects a string, got integer
 
+; ---------------------------------------------------------------------------
+; Taking one apart
+;
+; split answers the pieces between occurrences of the separator. There are
+; always occurrences + 1 of them, and none is ever dropped.
+"a,b,c":split(","):print.    ; ["a", "b", "c"]
+"a,,b":split(","):print.     ; ["a", "", "b"] -- nothing between the two commas
+",a":split(","):print.       ; ["", "a"]      -- and nothing before the first
+"abc":split(","):print.      ; ["abc"]        -- no occurrence, so one piece
+
+; Which means the pieces always go back together into what you started with,
+; whatever the string was. There is no join yet, so putting them back is a walk
+; with `do` -- the separator goes before every piece but the first.
+joined := "".
+first := true.
+"a,,b":split(","):do({ piece |
+    first:ifFalse({ joined := joined:concat(",") }).
+    joined := joined:concat(piece).
+    first := false
+}).
+joined:print.                ; "a,,b"
+
+; indexOf answers a one-based index, or nil when there is no match: #0 would be
+; a second way of saying "nothing" beside the one the language has.
+"hello":indexOf("ll"):print. ; #3
+"hello":indexOf("z"):print.  ; nil
+
+; copyFrom takes both ends inclusive, one-based, so copyFrom(#i, #i) is at(#i).
+"hello":copyFrom(#2, #4):print.  ; "ell"
+
+; Together they cut a string at a mark.
+pair := "name=value".
+mark := pair:indexOf("=").
+pair:copyFrom(#1, mark:sub(#1)):print.          ; "name"
+pair:copyFrom(mark:add(#1), pair:size):print.   ; "value"
+
+; An empty result is spelled with the end one before the start, and that is the
+; only spelling -- anything further apart is a mistake rather than a wider empty.
+"hello":copyFrom(#3, #2):print.  ; ""
+;   "hello":copyFrom(#4, #2)     ->  ends at #2, more than one before its start #4
+
+; Nothing can be looked for: every position in every string contains the empty
+; string, so the answer would be arbitrary.
+;   "a":split("")            ->  'split' needs at least one character to look for
+
 ; They go in arrays and through the iteration protocol like anything else.
 names := ["ada", "grace", "alan"].
 names:collect({ n | n:concat("!") }):print.        ; ["ada!", "grace!", "alan!"]

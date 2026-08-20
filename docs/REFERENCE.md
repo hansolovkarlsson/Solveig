@@ -246,8 +246,10 @@ too.
 
 A string is bytes, so a file of them survives the round trip — a NUL is a byte
 like any other, `size` counts it, and reading a file and writing it back copies
-it exactly. Taking a binary file *apart* is another matter, `at` answering a
-one-character string rather than a number.
+it exactly. `split`, `indexOf` and `copyFrom` work on it too, all three going by
+the length rather than stopping at the first NUL. What is still missing is a
+*number* for a byte: `at` answers a one-character string, so there is nothing to
+do arithmetic on.
 
 These are on `system` rather than on the string naming the file, though
 `"notes.txt":readFile` reads well. A string knows nothing about files, and
@@ -982,6 +984,9 @@ on the page: the `#` marks the integer.
 | `size` | an integer |
 | `at(#i)` | a one-character string; **one-based** |
 | `concat(s)` | a new string; strict about its argument |
+| `split(s)` | an array of the pieces between occurrences of `s` |
+| `indexOf(s)` | where `s` first appears, **one-based**, or nil |
+| `copyFrom(#a, #b)` | the characters `#a` to `#b`, both ends included |
 | `fill([...])` | a new string with the blanks filled; see below |
 | `lessThan(s)` `greaterThan(s)` | a boolean, comparing characters |
 | `lessOrEqual(s)` `greaterOrEqual(s)` | a boolean |
@@ -991,6 +996,59 @@ on the page: the `#` marks the integer.
 | `asSymbol` | the interned symbol for these characters |
 | `asString` | itself |
 | `asString(spec)` | padded text; see the spec below |
+
+#### Taking a string apart
+
+`split` answers **occurrences + 1 pieces**, always, and never drops one. A
+separator at either end, or two together, gives an empty string where the
+missing piece would be:
+
+```
+"a,b,c":split(",").      ; ["a", "b", "c"]
+"a,,b":split(",").       ; ["a", "", "b"]
+",a":split(",").         ; ["", "a"]
+"abc":split(",").        ; ["abc"]   -- no occurrence, so one piece
+"":split(",").           ; [""]
+```
+
+That is what makes the answer predictable: the pieces put back together with the
+separator between them are the string you started with, whatever it was.
+Dropping empties would read more kindly on `" a  b "` and would lose the
+difference between `"a,,b"` and `"a,b"` — usually the one thing a program
+parsing a file needs to keep.
+
+Occurrences are taken left to right and not reconsidered, so `"aaaa":split("aa")`
+is three empty pieces rather than two.
+
+`indexOf` answers **nil when there is no match**, not `#0`. Indices start at
+`#1`, so `#0` would be an out-of-band value and a second way of saying "nothing"
+beside the one the language already has; `text:indexOf(","):equals(nil)` is the
+same question asked of an unset slot or the end of input.
+
+`copyFrom` includes both ends and both are one-based, so `copyFrom(#i, #i)` is
+exactly `at(#i)`. An empty result is spelled with `to` **one** before `from`, and
+that is the only spelling — anything further apart is a mistake rather than a
+wider empty. `from` may be one past the end for the same reason: that is where
+the empty tail is.
+
+```
+"hello":copyFrom(#2, #4).    ; "ell"
+"hello":copyFrom(#3, #2).    ; ""
+"hello":copyFrom(#6, #5).    ; ""
+"hello":copyFrom(#4, #2).    ; error: ends at #2, more than one before its start #4
+"hello":copyFrom(#2, #6).    ; error: ends at #6, past a string of size 5
+```
+
+Neither `split` nor `indexOf` will look for the empty string: every position in
+every string contains it, so the answer would be arbitrary rather than useful.
+Both refuse it.
+
+All three respect the length rather than stopping at the first NUL, so they work
+on a file read with `readFile` whatever is in it.
+
+There is no `join` yet — putting pieces back together is a walk with `do`.
+
+#### Filling in blanks
 
 `fill` puts the array's values into the `{}` blanks, rendering each by sending
 it `asString`. `{{`

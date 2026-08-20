@@ -1545,6 +1545,150 @@ static SolValue prim_string_at(SolVM *vm, SolValue self, SolValue *args, int arg
     return SOL_STRING_VAL(sol_string_new(vm, string->chars + (i - 1), 1));
 }
 
+/* Where `needle` first appears in `haystack` at or after `from`, zero-based, or
+   -1. Not strstr: a string is bytes and may hold a NUL, so the length is what
+   says where it ends and a search has to respect that. */
+static int find_substring(const SolString *haystack, const SolString *needle, int from)
+{
+    if (needle->length == 0 || needle->length > haystack->length) return -1;
+
+    for (int i = from; i + needle->length <= haystack->length; i++) {
+        if (memcmp(haystack->chars + i, needle->chars,
+                   (size_t)needle->length) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+/* Both `split` and `indexOf` look for something, and neither can look for
+   nothing: every position in every string contains the empty string, so the
+   answer would be arbitrary rather than useful. An error says so at the point
+   the mistake was made. */
+static bool needle_from(SolVM *vm, const char *name, SolValue value,
+                        const SolString **out)
+{
+    if (!SOL_IS_STRING(value)) {
+        sol_vm_runtime_error(vm, "'%s' expects a string, got %s",
+                             name, sol_type_name(value));
+        return false;
+    }
+    const SolString *needle = SOL_AS_STRING(value);
+    if (needle->length == 0) {
+        sol_vm_runtime_error(vm, "'%s' needs at least one character to look for", name);
+        return false;
+    }
+    *out = needle;
+    return true;
+}
+
+/* Answers an array of the pieces between occurrences of `separator`.
+ *
+ * There are always occurrences + 1 pieces, and no piece is ever dropped: a
+ * separator at either end, or two together, gives an empty string where the
+ * missing piece would be. That is what makes the answer predictable -- the
+ * pieces put back together with the separator between them are the original
+ * string, whatever the string was. Dropping empties would read more kindly on
+ * `" a  b "` and would lose the difference between `"a,,b"` and `"a,b"`, which
+ * a program parsing a file is usually the one thing it needs to keep. */
+static SolValue prim_string_split(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "split", argc, 1)) return SOL_NIL_VAL;
+    const SolString *separator;
+    if (!needle_from(vm, "split", args[0], &separator)) return SOL_NIL_VAL;
+
+    const SolString *text = SOL_AS_STRING(self);
+
+    /* Counted before anything is allocated, so the array is made once at the
+       size it will end up. */
+    int pieces = 1;
+    for (int at = find_substring(text, separator, 0); at >= 0;
+         at = find_substring(text, separator, at + separator->length)) {
+        pieces++;
+    }
+
+    SolArray *out = sol_array_new(vm, pieces);
+    /* Every piece is a fresh string, and allocating one may collect. The array
+       is reachable from nothing but this local until it is answered, and the
+       pieces already in it are reachable only through the array. Filling with
+       nil first means the growth happens while nothing new is live. */
+    sol_gc_push_temp(vm, &out->gc);
+    for (int i = 0; i < pieces; i++) sol_array_add(vm, out, SOL_NIL_VAL);
+
+    /* `self` is on the value stack for the duration of the call, so `text`
+       stays rooted while the pieces are cut out of it. */
+    int start = 0;
+    for (int i = 0; i < pieces; i++) {
+        int at  = find_substring(text, separator, start);
+        int end = at < 0 ? text->length : at;
+
+        out->items[i] = SOL_STRING_VAL(
+            sol_string_new(vm, text->chars + start, end - start));
+        start = end + separator->length;
+    }
+
+    sol_gc_pop_temp(vm);
+    return SOL_ARRAY_VAL(out);
+}
+
+/* The one-based index where `s` first appears, or nil when it does not.
+ *
+ * Nil rather than #0. An index of #0 would be an out-of-band value in a
+ * language whose indices start at #1, and a second way of saying "nothing"
+ * beside the one the language already has. `text:indexOf(","):equals(nil)` is
+ * the same question asked of an unset slot or the end of input. */
+static SolValue prim_string_index_of(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "indexOf", argc, 1)) return SOL_NIL_VAL;
+    const SolString *needle;
+    if (!needle_from(vm, "indexOf", args[0], &needle)) return SOL_NIL_VAL;
+
+    int at = find_substring(SOL_AS_STRING(self), needle, 0);
+    return at < 0 ? SOL_NIL_VAL : SOL_INT_VAL(at + 1);
+}
+
+/* `copyFrom(#a, #b)` -- the characters from #a to #b, both ends included and
+ * both one-based, so `copyFrom(#i, #i)` is exactly `at(#i)`.
+ *
+ * An empty result has to be sayable, or cutting a string at an index that turns
+ * out to be its first character has no answer. It is spelled with `to` one
+ * before `from`, and that is the only spelling: anything further apart is a
+ * mistake rather than a wider empty. `from` may be one past the end for the
+ * same reason -- that is where the empty tail is. */
+static SolValue prim_string_copy_from(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "copyFrom", argc, 2)) return SOL_NIL_VAL;
+    if (!SOL_IS_INT(args[0]) || !SOL_IS_INT(args[1])) {
+        sol_vm_runtime_error(vm, "'copyFrom' expects integer bounds, got %s and %s",
+                             sol_type_name(args[0]), sol_type_name(args[1]));
+        return SOL_NIL_VAL;
+    }
+
+    const SolString *text = SOL_AS_STRING(self);
+    int64_t from = SOL_AS_INT(args[0]);
+    int64_t to   = SOL_AS_INT(args[1]);
+
+    if (from < 1 || from > (int64_t)text->length + 1) {
+        sol_vm_runtime_error(vm, "'copyFrom' starts at #%lld, outside a string of size %d",
+                             (long long)from, text->length);
+        return SOL_NIL_VAL;
+    }
+    if (to > (int64_t)text->length) {
+        sol_vm_runtime_error(vm, "'copyFrom' ends at #%lld, past a string of size %d",
+                             (long long)to, text->length);
+        return SOL_NIL_VAL;
+    }
+    if (to < from - 1) {
+        sol_vm_runtime_error(vm,
+            "'copyFrom' ends at #%lld, more than one before its start #%lld",
+            (long long)to, (long long)from);
+        return SOL_NIL_VAL;
+    }
+
+    return SOL_STRING_VAL(
+        sol_string_new(vm, text->chars + (from - 1), (int)(to - from + 1)));
+}
+
 /* ---- object ------------------------------------------------------------ */
 
 /* `new` answers a fresh object delegating to the receiver.
@@ -2183,6 +2327,9 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->string_class, SOL_STRING, "size", prim_string_size);
     instance(vm, vm->string_class, SOL_STRING, "concat", prim_string_concat);
     instance(vm, vm->string_class, SOL_STRING, "at", prim_string_at);
+    instance(vm, vm->string_class, SOL_STRING, "split", prim_string_split);
+    instance(vm, vm->string_class, SOL_STRING, "indexOf", prim_string_index_of);
+    instance(vm, vm->string_class, SOL_STRING, "copyFrom", prim_string_copy_from);
     instance(vm, vm->string_class, SOL_STRING, "fill", prim_string_fill);
     instance(vm, vm->string_class, SOL_STRING, "asString", prim_string_as_string);
     instance(vm, vm->string_class, SOL_STRING, "asInteger", prim_string_as_integer);

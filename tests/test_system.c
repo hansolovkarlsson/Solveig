@@ -487,6 +487,39 @@ static void test_file_exists_means_a_file(void)
     printf("  fileExists is about a file, so a directory is not one\n");
 }
 
+/* A search has to respect the length rather than stopping at the first NUL,
+   which is the only way `split` is any use on a file that holds one. There is
+   no escape for a NUL in a literal, so the string has to come from a file. */
+static void test_splitting_a_string_that_holds_a_nul(void)
+{
+    remove_the_test_file();
+
+    FILE *f = fopen(FILE_PATH, "wb");
+    assert(f != NULL);
+    assert(fwrite("a\0b,c\0d", 1, 7, f) == 7);
+    fclose(f);
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "pieces := system:readFile(\"" FILE_PATH "\"):split(\",\")."
+        "n := pieces:size."
+        "first := pieces:at(#1):size."
+        "second := pieces:at(#2):size."
+        "at := system:readFile(\"" FILE_PATH "\"):indexOf(\"b,\").") == SOL_OK);
+
+    assert(SOL_AS_INT(global(&vm, "n")) == 2);
+    assert(SOL_AS_INT(global(&vm, "first")) == 3);    /* a NUL b */
+    assert(SOL_AS_INT(global(&vm, "second")) == 3);   /* c NUL d */
+    assert(SOL_AS_INT(global(&vm, "at")) == 3);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    remove_the_test_file();
+    printf("  split and indexOf see past a NUL\n");
+}
+
 int main(void)
 {
     test_exit_carries_its_status();
@@ -508,6 +541,7 @@ int main(void)
     test_writing_replaces_and_answers_nil();
     test_an_empty_file_is_a_file();
     test_bytes_survive_the_round_trip();
+    test_splitting_a_string_that_holds_a_nul();
     test_a_large_file_round_trips();
     test_a_file_that_is_not_there_is_an_error();
     test_file_exists_means_a_file();
