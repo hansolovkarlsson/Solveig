@@ -133,6 +133,11 @@ Smalltalk lineage, prototype flavour:
   operator: `receiver:message(args)`.
 - Slot lookup walks the proto chain and terminates at the root Object, which
   doubles as the globals namespace where class objects like `integer` live.
+- Every built-in class delegates to `object`, so there is one hierarchy:
+  `#45:isKindOf(object)` is true, and "everything is an object" holds of the
+  type graph as well as the slogan. The four classes whose instances are not
+  objects — `string`, `symbol`, `block`, `boolean` — shadow `new` and refuse it,
+  since `new` means *make an object delegating to me* and theirs are not.
 
 **A name is compared by pointer, not by spelling.** Every slot name and every
 selector goes through one table on the VM, which answers the same address for

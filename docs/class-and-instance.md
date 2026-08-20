@@ -1,9 +1,10 @@
 # The class side and the instance side
 
 *What roadmap [2.5](ROADMAP.md) is about, why it is only a problem for the
-built-in classes, why the answer is probably not metaclasses, when it would be
-worth doing — and, at the end, what the class side should contain at all. Every
-snippet here has been run; the outputs are what the VM actually prints.*
+built-in classes, why the answer is probably not metaclasses, and what the class
+side should contain at all. Includes the single root, which this was long
+believed to gate and did not. Every snippet here has been run; the outputs are
+what the VM actually prints.*
 
 This is the one design question still open. Nothing in it blocks a working
 program today — it is recorded because the decision has a consequence that does
@@ -72,14 +73,20 @@ integer:respondsTo('new):print.  ; true
 
 | | `new` | `of` |
 | --- | --- | --- |
-| `integer`, `float` | yes | — |
-| `array` | yes | yes |
-| `object` | yes | — |
-| `string`, `symbol`, `block`, `boolean` | — | — |
+| `integer`, `float` | yes — the identity function | — |
+| `array` | yes — allocates | yes |
+| `object` | yes — allocates and delegates | — |
+| `string`, `symbol`, `block`, `boolean` | yes — refuses, and says what to write | — |
 
 There is no rule saying which classes should have a class side, because **there
 is nowhere for a rule to live**. The class side is not a place; it is some slots
-that happen to sit beside the instance ones.
+that happen to sit beside the instance ones — which is how one name came to mean
+four different things.
+
+The last row is recent, and it is the single root's doing rather than anyone
+deciding those four wanted a `new`: once every built-in delegates to `object`
+they would otherwise have inherited one, so they shadow it to refuse. See
+[below](#the-one-thing-that-was-in-the-way).
 
 ---
 
@@ -153,92 +160,72 @@ cannot. Worth keeping as a cheap floor — the same argument as the send's stack
 check, which the verifier also made redundant and which stayed — but it would
 stop being load-bearing.
 
-## The single root, which this was supposed to gate
+## The single root — done, and it was not gated by this
 
-The built-in classes deliberately do not delegate to `object`, because `float`
-inheriting `object`'s `new` would answer a plain object rather than a float. So
-there are two hierarchies that never meet:
+This section used to say the built-in classes deliberately do not delegate to
+`object`, because `float` inheriting object's `new` would answer a plain object
+rather than a float, and that a single root therefore waited on the split.
 
-```
-integer:isKindOf(object):print.  ; false
-#45:isKindOf(object):print.      ; false
+**That stopped being true and nobody noticed.** Two earlier commits removed it:
 
-p := object:new.
-p:isKindOf(object):print.        ; true
-```
+- `7ac6be6` gave `float` its own `new`; `integer` and `array` have theirs. Those
+  three shadow object's rather than inherit it.
+- `1.6` gave every primitive a receiver requirement. The only two messages
+  `integer` does not already define — `via` and `parent` — are installed as
+  `instance(vm->object_class, SOL_OBJ, ...)` and are refused for any receiver
+  that is not an object.
 
-`integer:parent` is not even a message the built-in classes answer:
-
-```
-integer:parent.
-solvm: object does not understand 'parent'
-```
-
-### But the obstacle has mostly dissolved underneath that
-
-The paragraph above is what this entry has said since it was written, and it is
-now largely out of date. Two things happened to it.
-
-`7ac6be6` gave `float` its own `new`, and `integer` and `array` have theirs, so
-those three would **shadow** `object`'s rather than inherit it. And `1.6` gave
-every primitive a receiver requirement, so what a built-in *would* inherit is
-refused before it runs.
-
-Measured rather than reasoned about. What `integer` would inherit from `object`
-is exactly two messages — everything else it already defines itself:
+So what `integer` would inherit was exactly two messages, and both were already
+refused. It was tried on a throwaway copy, the whole suite passed untouched, and
+it is now committed:
 
 ```
-['via, 'parent]
+#45:isKindOf(object):print.            ; true
+"s":isKindOf(object):print.            ; true
+nil:isKindOf(object):print.            ; true
+integer:parent:equals(object):print.   ; true
+object:parent:print.                   ; nil   -- the chain ends here
 ```
 
-Both are installed as `instance(vm->object_class, SOL_OBJ, ...)`, so both are
-refused for a receiver that is not an object.
+Nothing leaked onto the values. `#45:parent` and `#45:via(...)` are refused by
+the receiver check, three commits before anyone thought about a root.
 
-**So it was tried.** Eight lines in `sol_builtins_install`, setting every
-built-in class's `proto` to `object`, on a throwaway copy of the tree — not
-committed, and not proposed here as a change. The **whole test suite passes
-untouched**, and:
+The cost is on the **miss** path only, and only because a miss now walks
+object's thirteen slots before failing: a send that hits is unchanged, and
+200,000 failed lookups cost about 10% more. That is the path that ends in *does
+not understand*.
 
-| | today | with the root |
-| --- | --- | --- |
-| `integer:isKindOf(object)` | false | **true** |
-| `#45:isKindOf(object)` | false | **true** |
-| `"s"`, `[#1]`, `true` `:isKindOf(object)` | false | **true** |
-| `integer:parent` | `object does not understand 'parent'` | **`object`** |
-| `#45:parent` | — | `'parent' expects an object, got integer` |
-| `#45:via(integer)` | — | `'via' expects an object, got integer` |
-| `#45:add(#1)` | `#46` | `#46` |
+### The one thing that was in the way
 
-Nothing leaked onto the values. The last two rows are 1.6's receiver check doing
-exactly the job it was built for, three commits before anyone thought about a
-single root.
+`string`, `symbol`, `block` and `boolean` have no `new` of their own, so they
+*would* have inherited object's — which answers a fresh object delegating to the
+receiver. For `string` that is an object delegating to the `string` class
+object, refusing every message a string understands. Inert rather than wrong,
+and no use to anybody.
 
-### What is actually left in the way
-
-One message, on the four classes that have no `new` of their own:
+They shadow it now, and refuse:
 
 ```
-string:respondsTo('new):print.   ; becomes true
-string:new:print.
-solvm: 'print' expects a string, got object
+string:new.
+solvm: a string is written as a literal, not made with 'new' -- "" is the empty one
+
+symbol:new.
+solvm: a symbol is written 'name, or made from a string with asSymbol -- not with 'new'
+
+block:new.
+solvm: a block is written { ... } and compiled -- there is nothing for 'new' to make
+
+boolean:new.
+solvm: there are only two booleans, true and false -- 'new' makes neither
 ```
 
-`string`, `symbol`, `block` and `boolean` would inherit `object:new`, which
-answers a fresh object delegating to the receiver. For `string` that is an
-object delegating to the `string` class object — **inert rather than wrong**: it
-errors on every message a string understands, because the receiver check refuses
-each one. Bad, but bad in the way a clear error is bad, not in the way a silent
-half-value is.
+The rule underneath is worth stating once: **`new` means "make an object
+delegating to me", and these four have instances that are not objects delegating
+to them.** That asymmetry is inherent to unboxing rather than a wart, so the
+right answer was to say so where each class is defined, and leave `object:new`
+general.
 
-So the decision is not "how do we build a metaclass level". It is **what should
-`new` do on a class that cannot construct anything** — refuse explicitly, or not
-be inherited at all. That is the same question the closing section of this
-document asks from the other end.
-
-Which means the single root and the class-side split are **less coupled than
-this entry has been claiming**. The root looks like eight lines and one decision
-about `new`; the split is worth doing on its own merits, and mostly for what it
-does to `slots` and to `#45:new(#1)`.
+The error is the only thing such a class has to offer here, so it teaches.
 
 ## The wrinkle to design carefully
 
@@ -310,7 +297,10 @@ array:new(#1).      ; solvm: 'new' takes 0 arguments, got 1
 So no generic code can send `new` without already knowing which class it is
 talking to — which is the only thing a shared name would have bought.
 
-### Why none of the four wants one
+### Why none of the four wants a real one
+
+They have a `new` now, but it refuses — and this is why nothing was built to
+succeed instead:
 
 - **`string`** would get the `integer` flavour: `string:new("hi")` answering
   `"hi"`, a no-op with a type check. A string is immutable, so unlike an array
@@ -323,6 +313,10 @@ talking to — which is the only thing a shared name would have bought.
   there is nothing to construct at run time. This one is not a judgement call.
 - **`boolean`** has exactly two values, both of them globals. `boolean:new(true)`
   is identity with extra steps.
+
+Which is the argument for the refusal being the *right* implementation rather
+than a placeholder: there is nothing better for these to do, and saying so is
+worth more than answering something that is technically a value.
 
 ### The question underneath
 
@@ -378,10 +372,10 @@ way, `string`, `symbol`, `block` and `boolean` should not get one.
 - 1.6 made it safe, one message at a time, without separating anything.
 - Metaclasses are the Smalltalk answer to a question this language does not ask.
 - A behaviour object per built-in is smaller than a metaclass level.
-- The single root is **not** blocked by the split, which this document used to
-  claim. Tried on a throwaway copy: eight lines, the suite passes, and the only
-  thing left in the way is what `new` should do on the four classes that cannot
-  construct anything.
+- The single root was **not** blocked by the split, which this document used to
+  claim. It is done: every built-in class delegates to `object`, and the four
+  classes that cannot construct their instances refuse `new` and say what to
+  write instead.
 - Worth doing when the single root is wanted, not before.
 - Separately: `new` is three operations sharing a name, and on `integer` and
   `float` it is the identity function left over from a design that was

@@ -1558,6 +1558,53 @@ static SolValue prim_string_at(SolVM *vm, SolValue self, SolValue *args, int arg
  *
  * A slot assigned on an instance is always the instance's own, so setting one
  * shadows the prototype rather than writing through to it. */
+/* `new` on a class whose instances are not objects.
+ *
+ * Every built-in class delegates to `object`, which is what puts them in one
+ * hierarchy with everything else. `object`'s own `new` answers a fresh object
+ * delegating to the receiver -- exactly right for a user-defined class, whose
+ * instances *are* objects delegating to it, and exactly wrong for these four,
+ * whose instances are strings, symbols, blocks and booleans.
+ *
+ * Left inherited it would answer an object delegating to `string`, which then
+ * refuses every message a string understands. Inert rather than dangerous, and
+ * still no use to anybody. So each of them shadows `new` and says what to write
+ * instead: the error is the only thing this class has to offer here, so it may
+ * as well teach. */
+static SolValue refuse_new(SolVM *vm, const char *how)
+{
+    sol_vm_runtime_error(vm, "%s", how);
+    return SOL_NIL_VAL;
+}
+
+static SolValue prim_string_no_new(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self; (void)args; (void)argc;
+    return refuse_new(vm, "a string is written as a literal, not made with 'new' "
+                          "-- \"\" is the empty one");
+}
+
+static SolValue prim_symbol_no_new(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self; (void)args; (void)argc;
+    return refuse_new(vm, "a symbol is written 'name, or made from a string with "
+                          "asSymbol -- not with 'new'");
+}
+
+static SolValue prim_block_no_new(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self; (void)args; (void)argc;
+    return refuse_new(vm, "a block is written { ... } and compiled -- there is "
+                          "nothing for 'new' to make");
+}
+
+static SolValue prim_boolean_no_new(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self; (void)args; (void)argc;
+    return refuse_new(vm, "there are only two booleans, true and false -- 'new' "
+                          "makes neither");
+}
+
 static SolValue prim_object_new(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     (void)args;
@@ -1821,6 +1868,7 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->nil_class, SOL_NIL, "notEquals", prim_not_equals);
 
     vm->bool_class = sol_object_new(vm, NULL);
+    any_receiver(vm, vm->bool_class, "new", prim_boolean_no_new);
     instance(vm, vm->bool_class, SOL_BOOL, "print", prim_print);
     instance(vm, vm->bool_class, SOL_BOOL, "display", prim_display);
     instance(vm, vm->bool_class, SOL_BOOL, "equals", prim_equals);
@@ -1834,6 +1882,7 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->bool_class, SOL_BOOL, "notEquals", prim_not_equals);
 
     vm->block_class = sol_object_new(vm, NULL);
+    any_receiver(vm, vm->block_class, "new", prim_block_no_new);
     instance(vm, vm->block_class, SOL_BLOCK, "print", prim_print);
     instance(vm, vm->block_class, SOL_BLOCK, "display", prim_display);
     instance(vm, vm->block_class, SOL_BLOCK, "equals", prim_equals);
@@ -1875,6 +1924,7 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->object_class, SOL_OBJ, "asString", prim_object_as_string);
 
     vm->string_class = sol_object_new(vm, NULL);
+    any_receiver(vm, vm->string_class, "new", prim_string_no_new);
     instance(vm, vm->string_class, SOL_STRING, "print", prim_print);
     instance(vm, vm->string_class, SOL_STRING, "display", prim_display);
     instance(vm, vm->string_class, SOL_STRING, "equals", prim_equals);
@@ -1895,6 +1945,7 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->string_class, SOL_STRING, "greaterOrEqual", prim_greater_or_equal);
 
     vm->symbol_class = sol_object_new(vm, NULL);
+    any_receiver(vm, vm->symbol_class, "new", prim_symbol_no_new);
     instance(vm, vm->symbol_class, SOL_SYMBOL, "print", prim_print);
     instance(vm, vm->symbol_class, SOL_SYMBOL, "display", prim_display);
     instance(vm, vm->symbol_class, SOL_SYMBOL, "asString", prim_symbol_as_string);
@@ -1919,6 +1970,29 @@ void sol_builtins_install(SolVM *vm)
         any_receiver(vm, classes[i], "slots",      prim_slots);
         any_receiver(vm, classes[i], "slotAt",     prim_slot_at);
     }
+
+    /* One hierarchy. Every built-in class delegates to `object`, so
+       `#45:isKindOf(object)` holds and "everything is an object" is true of the
+       type graph and not only of the slogan.
+     *
+       This was thought to need the class-side/instance-side split first, on the
+       grounds that a built-in inheriting object's `new` would answer a plain
+       object. Two things had already removed that: integer, float and array
+       define their own `new` and shadow it, and 1.6's receiver requirements
+       refuse `via` and `parent` -- the only two messages a built-in does not
+       already define -- to any receiver that is not an object. What was left was
+       the four classes with no `new` of their own, and they have one now.
+
+       object itself has no prototype: the chain has to end somewhere, and this
+       is where. */
+    vm->integer_class->proto = vm->object_class;
+    vm->float_class->proto   = vm->object_class;
+    vm->nil_class->proto     = vm->object_class;
+    vm->bool_class->proto    = vm->object_class;
+    vm->block_class->proto   = vm->object_class;
+    vm->array_class->proto   = vm->object_class;
+    vm->string_class->proto  = vm->object_class;
+    vm->symbol_class->proto  = vm->object_class;
 
     /* Bind the class objects into the globals namespace so `integer` resolves. */
     sol_object_define(vm, vm->root, "integer", SOL_OBJ_VAL(vm->integer_class));

@@ -331,6 +331,103 @@ static void test_a_built_in_cannot_be_subclassed_this_way(void)
     sol_vm_free(&vm);
 }
 
+/* One hierarchy: every built-in class delegates to `object`, so "everything is
+   an object" holds of the type graph and not only of the slogan. */
+static void test_every_value_is_an_object(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "a := #45:isKindOf(object).      b := 1.5:isKindOf(object)."
+        "c := \"s\":isKindOf(object).      d := [#1]:isKindOf(object)."
+        "e := true:isKindOf(object).     f := 'sym:isKindOf(object)."
+        "g := { #1 }:isKindOf(object).   h := nil:isKindOf(object)."
+        "i := object:new:isKindOf(object)."
+        /* the classes themselves, and where the chain ends */
+        "j := integer:isKindOf(object).  k := integer:parent:equals(object)."
+        "root := object:parent."
+        /* and a value still knows its own class */
+        "l := #45:isKindOf(integer).     m := #45:add(#1).") == SOL_OK);
+
+    static const char *all[] = { "a","b","c","d","e","f","g","h","i","j","k","l" };
+    for (size_t n = 0; n < sizeof(all) / sizeof(all[0]); n++) {
+        assert(SOL_AS_BOOL(global(&vm, all[n])));
+    }
+    assert(SOL_IS_NIL(global(&vm, "root")));      /* object has no prototype */
+    assert(SOL_AS_INT(global(&vm, "m")) == 46);
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+}
+
+/* Joining the hierarchies must not put object's messages onto the values. The
+   two a built-in does not already define are refused by their receiver
+   requirement, which 1.6 installed for a different reason entirely. */
+static void test_the_root_leaks_nothing_onto_values(void)
+{
+    static const char *refused[] = {
+        "#45:parent.",
+        "#45:via(integer).",
+        "\"s\":parent.",
+        "true:via(boolean).",
+    };
+
+    for (size_t i = 0; i < sizeof(refused) / sizeof(refused[0]); i++) {
+        SolVM vm; sol_vm_init(&vm);
+        SolChunk chunk;
+        assert(run(&vm, &chunk, refused[i]) == SOL_RUNTIME_ERROR);
+        sol_chunk_free(&chunk); sol_vm_free(&vm);
+    }
+
+    /* And what a value does understand is untouched. */
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    assert(run(&vm, &chunk,
+        "a := #45:respondsTo('add).      b := #45:respondsTo('parent)."
+        "c := \"s\":respondsTo('size).     d := #45:respondsTo('via).") == SOL_OK);
+    assert(SOL_AS_BOOL(global(&vm, "a")));
+    assert(!SOL_AS_BOOL(global(&vm, "b")));
+    assert(SOL_AS_BOOL(global(&vm, "c")));
+    assert(!SOL_AS_BOOL(global(&vm, "d")));
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+}
+
+/* A class whose instances are not objects cannot make one. Left inherited,
+   object's `new` would answer an object delegating to `string`, which refuses
+   every message a string understands -- inert, and no use to anybody. Each of
+   the four says what to write instead. */
+static void test_a_class_that_cannot_construct_says_so(void)
+{
+    static const char *refused[] = {
+        "string:new.", "symbol:new.", "block:new.", "boolean:new.",
+    };
+
+    for (size_t i = 0; i < sizeof(refused) / sizeof(refused[0]); i++) {
+        SolVM vm; sol_vm_init(&vm);
+        SolChunk chunk;
+        assert(run(&vm, &chunk, refused[i]) == SOL_RUNTIME_ERROR);
+        sol_chunk_free(&chunk); sol_vm_free(&vm);
+    }
+
+    /* The ones that can, still do -- object's `new` included, which is what the
+       four are shadowing. */
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    assert(run(&vm, &chunk,
+        "a := integer:new(#1).  b := float:new(1.5).  c := array:new:size."
+        "p := object:new. p:tag := #7."
+        "d := p:new:tag."                     /* delegates, as it always did */
+        "e := array:of(#1, #2):size.") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "a")) == 1);
+    assert(SOL_AS_FLOAT(global(&vm, "b")) == 1.5);
+    assert(SOL_AS_INT(global(&vm, "c")) == 0);
+    assert(SOL_AS_INT(global(&vm, "d")) == 7);
+    assert(SOL_AS_INT(global(&vm, "e")) == 2);
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+}
+
 static void test_via_errors(void)
 {
     SolVM vm; sol_vm_init(&vm);
@@ -355,6 +452,9 @@ int main(void)
     test_parent();
     test_assigning_parent_shadows_rather_than_reparents();
     test_a_built_in_cannot_be_subclassed_this_way();
+    test_every_value_is_an_object();
+    test_the_root_leaks_nothing_onto_values();
+    test_a_class_that_cannot_construct_says_so();
     test_via_errors();
     test_new_makes_a_distinct_object();
     test_slots_are_inherited();

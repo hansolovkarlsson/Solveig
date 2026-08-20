@@ -445,6 +445,28 @@ The messages a class answers for itself are the ones that make instances —
 which reads either side. `respondsTo` agrees with sending, so
 `array:respondsTo('add)` is false and `array:respondsTo('of)` is true.
 
+Every built-in class delegates to `object`, so there is one hierarchy and
+everything is an object in the type graph as well as in the slogan:
+
+```
+#45:isKindOf(object):print.      ; true
+"s":isKindOf(object):print.      ; true
+integer:parent:equals(object):print.   ; true
+object:parent:print.             ; nil  -- the chain ends here
+```
+
+Four classes cannot make their instances, because those instances are not
+objects, and they say so rather than inheriting a `new` that would answer
+something useless:
+
+```
+string:new.
+solvm: a string is written as a literal, not made with 'new' -- "" is the empty one
+```
+
+`symbol`, `block` and `boolean` refuse in the same way, each naming what to
+write instead.
+
 Binding a block over one of these replaces the requirement along with the
 primitive, so a class can be given messages of its own:
 
@@ -863,8 +885,8 @@ error rather than nil again, so a missing value is reported where it is used
 rather than propagating.
 
 `nil` names the value, not a class: there is no global for the class it
-dispatches to, so `nil:isKindOf(object)` is false and `nil:slots` says an
-object is what has slots.
+dispatches to. `nil:isKindOf(object)` is true, like every other value, but
+`nil:slots` says an object is what has slots.
 
 ---
 

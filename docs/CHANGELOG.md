@@ -8,6 +8,74 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### One hierarchy: every built-in class delegates to `object` — `pending`, 2026-08-20
+
+No `.sob` change. `#45:isKindOf(object)` is true now, and "everything is an
+object" holds of the type graph rather than only of the slogan.
+
+```
+#45:isKindOf(object):print.            ; true
+"s":isKindOf(object):print.            ; true
+nil:isKindOf(object):print.            ; true
+integer:parent:equals(object):print.   ; true
+object:parent:print.                   ; nil   -- the chain ends here
+```
+
+**This was believed to need the class-side/instance-side split first**, on the
+grounds that a built-in inheriting object's `new` would answer a plain object
+rather than a value. Two earlier commits had already removed that and nobody
+noticed: `7ac6be6` gave `float` its own `new` — `integer` and `array` have
+theirs — so those shadow object's; and `1.6` gave every primitive a receiver
+requirement, so `via` and `parent`, the only two messages `integer` does not
+already define, are refused for any receiver that is not an object. Roadmap 2.5
+is corrected.
+
+So the change is eight lines setting each class's prototype, plus the one thing
+that really was in the way.
+
+**Four classes cannot make their instances, and now say so.** `string`,
+`symbol`, `block` and `boolean` have no `new` of their own and would have
+inherited object's, which answers a fresh object delegating to the receiver —
+for `string`, an object that refuses every message a string understands. Inert
+rather than wrong, and no use to anybody. They shadow it:
+
+```
+string:new.
+solvm: a string is written as a literal, not made with 'new' -- "" is the empty one
+
+symbol:new.
+solvm: a symbol is written 'name, or made from a string with asSymbol -- not with 'new'
+
+block:new.
+solvm: a block is written { ... } and compiled -- there is nothing for 'new' to make
+
+boolean:new.
+solvm: there are only two booleans, true and false -- 'new' makes neither
+```
+
+The rule underneath, stated once: **`new` means "make an object delegating to
+me", and these four have instances that are not objects delegating to them.**
+That asymmetry is inherent to unboxing rather than a wart, so it is said where
+each class is defined and `object:new` stays general. Nothing was built to
+succeed instead, because there is nothing better for them to do — `""` is
+already the empty string, `asSymbol` already names its direction, a block comes
+from the compiler, and there are exactly two booleans. The error is all such a
+class has to offer here, so it teaches.
+
+**Nothing leaked onto the values.** `#45:parent` and `#45:via(...)` are refused
+by the receiver check — the work 1.6 did for an unrelated reason, three commits
+before anyone thought about a root.
+
+The cost is on the **miss** path only: a send that hits is unchanged, and a
+lookup that fails now walks object's thirteen slots before giving up, which
+measured about 10% over 200,000 failed lookups. That is the path that ends in
+*does not understand*.
+
+Three tests in `tests/test_object.c`: every value and every class answering
+`isKindOf(object)` with the chain ending at `object:parent`, the messages that
+must stay refused for a value, and the four refusals beside the constructors
+that still construct.
+
 ### Extending a built-in, and a single root that was not blocked — `0a17b99`, 2026-08-20
 
 Documentation. No code.
