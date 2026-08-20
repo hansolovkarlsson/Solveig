@@ -89,7 +89,7 @@ itself is *accepted* — a spin is a bad program, not a broken VM.
 
 Fuzzed: 3205 single-byte corruptions of a loop-bearing `.sob`, run under
 ASan and UBSan. Two sanitizer reports, neither from the jumps and both
-reproducible from ordinary source — 3.7 and 3.8 in the roadmap. Thirty-four
+reproducible from ordinary source — 1.5 and 1.6 in the roadmap. Thirty-four
 runs timed out, which is the spin, and is the expected answer rather than a
 fault. The same sweep against the previous commit, 4276 variants, found the
 argument count fixed below and nothing else.
@@ -118,7 +118,7 @@ object asks it for `asString`; on the class objects `array` and `block` that
 finds the one they define for their instances, which renders the same value
 again, and the depth `render` carries restarts at zero each time round. Bisected
 to `f55e105`, which is where rendering began asking — it has nothing to do with
-jumps. Written up as 3.7 with the fix it wants, which is its own commit.
+jumps. Written up as 1.5 with the fix it wants, which is its own commit.
 
 The second report is the same shape by a different route, and also from source:
 
@@ -128,7 +128,7 @@ array:add(#1).      ; abort
 
 `array` is an object whose slots are the messages an array understands, so
 sending one to `array` itself finds it, and `prim_array_add` then reads the
-class object as if it were an array. Written up as 3.8. Both wait on a decision
+class object as if it were an array. Written up as 1.6. Both wait on a decision
 rather than on work — 2.5 is the design question under them — so neither is
 fixed here.
 
