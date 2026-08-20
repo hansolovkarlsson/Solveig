@@ -306,96 +306,10 @@ reference claimed declarations may open any group, and they could not.
 
 ## 2. Language decisions still open
 
-### 2.1 Division — **decided: floored, answering an integer**
-
-`div` and `mod` on integers and floats.
-
-Answering an integer was not really a free choice: a float result would let two
-integers leave their type silently, which is the implicit coercion the language
-refuses everywhere else. A fractional result therefore needs an explicit
-conversion, which is why 2.8 matters more now than it did.
-
-Floored rather than truncated, so the two differ only on negatives: `#-7:div(#2)`
-is `#-4`. Floor was chosen for what it does to `mod` -- a floored remainder always
-lands in `[0, n)` for positive `n`, which is what indexing, hashing, and cyclic
-arithmetic want, where a truncated one takes the dividend's sign and needs
-correcting at every use site. It is also Smalltalk's choice. The truncating pair
-keeps the names `quo` and `rem` free if it is ever wanted alongside.
-
-Division by zero splits along a line the language already had: integers trap,
-because there is no integer infinity, while floats answer an infinity, because
-float multiplication already overflows to one where integer multiplication traps.
-
-`INT64_MIN div #-1` is guarded separately. It is the one division that overflows,
-and in C it is undefined rather than merely wrong -- it raises SIGFPE on x86
-rather than answering anything.
-
-### 2.2 Statement terminator — **decided: a separator, required between**
-
-`.` separates statements rather than terminating them: required between two,
-optional after the last. That is what groups and blocks already enforced; the top
-level used to accept its absence anywhere, so a missing one could never be
-reported and the same code stopped compiling merely by being moved into a method
-body.
-
-```
-a := #1
-b := #2          ; solas: expected '.' between statements at 'b'
-
-a := #1. b := #2 ; fine -- the last needs none
-```
-
-Groups and blocks now name the missing separator too, where they used to
-complain about the closing bracket and send the reader looking in the wrong
-place.
-
-Nothing existing broke, since every example and test already wrote the dots.
-
-**What it does not catch**, recorded so it is a known limit rather than a
-surprise: a line beginning with `:` continues the expression above it, so
-
-```
-total := #10
-:add(#5).
-```
-
-is genuinely one statement and no separator is missing. Only a
-newline-sensitive rule would see those as two, and Solveig is not that.
-
-### 2.3 Array indexing base — **decided: one-based**
-
-An index in Solum is an ordinal, not an offset. There is no pointer arithmetic
-and no address to be a displacement from, so the argument that makes zero-based
-natural in C does not apply here. One-based also matches the Smalltalk lineage
-the object model already came from.
-
-Two consequences to carry forward:
-
-- `at(#0)` is out of bounds, and so is caught rather than quietly reading the
-  wrong element. A small safety win that falls out of the choice.
-- Any later range or slice API should follow Smalltalk and use inclusive bounds
-  on both ends. Half-open ranges are what make zero-based tidy; mixing a
-  half-open convention into one-based indexing is where languages get confusing.
-
-### 2.4 Array literal syntax — **decided: `[...]`, pure sugar**
-
-`[#1, #2, #3]` compiles to exactly the bytecode for `array:of(#1, #2, #3)` -- the
-same send, the same fresh mutable array. The two spellings are the same thing,
-with no semantic difference whatever.
-
-That costs almost nothing: two lexer tokens and one compiler branch. No new
-opcode, no verifier change, no `.sob` change -- the VM never learns that array
-literals exist.
-
-Rejected: making `[...]` immutable so it could be pooled as a constant. Pooling
-would only ever apply when every element is itself a compile-time constant
-(`[a, b]` must be built at run time regardless), and the price is a rule the
-reader has to re-check at every use site. See the design principle on two
-spellings meaning one thing.
-
-Both spellings cap at 255 elements, since `OP_SEND`'s argument count is a byte
-and stayed one when the index operands widened (4.2). Beyond that the compiler
-would need to fall back to `new` plus repeated `add`.
+One question is still open, **2.5**. Everything else this section held has since
+been decided and built, and the reasoning went to the changelog rather than being
+kept in two places -- the table at the end gives each verdict and names the entry
+to read for why. What those decisions left unfinished is 2.14.
 
 ### 2.5 Class side versus instance side
 
@@ -409,14 +323,59 @@ plain object rather than a float -- so the built-in and user-defined sides are
 two hierarchies that do not meet. A single root would be tidier, and needs this
 question answered first.
 
-### 2.6 Float exponents — **done**
+1.6 answered this **in the small**: each primitive records the receiver it needs
+and the dispatcher checks before entering it, one message at a time. That was
+enough to stop the two crashes, and it is not the same as splitting the two sides
+into separate objects, which is what remains open.
 
-`1e3`, `1E+3`, `1.5e-3`, `1e308`. A bare `e` is left alone rather than claimed,
-so `1e` stays a float followed by an identifier -- which the statement rule then
-rejects as two things with no separator, a clearer failure than a malformed
-number. `#` is exact, so an integer takes no exponent.
+### 2.14 Loose ends from the decided items
 
-### 2.13 Case and text are ASCII only
+Small, and each falls out of a decision above rather than being a question of its
+own.
+
+- **`isNil`** (2.8) is absent, though `x:equals(nil)` says it.
+- **A fetched method is unbound** (2.10). `slotAt` answers the plain block, and
+  `self` comes from a send rather than being carried by the block, so `m:value`
+  runs with `self` nil. Calling one with a chosen receiver wants something like
+  `valueWith(receiver, ...)`, which is a real question and not that one. Item 2
+  in the suggested order.
+- **Reflection cannot write** (2.10). There is no `slotAtPut`; no way to remove a
+  slot, so a shadowing one cannot be un-shadowed (1.4); and no re-parenting,
+  which would need the delegation link to become a real slot rather than the
+  internal pointer that keeps dispatch safe (2.9).
+- **No `clone`** (1.4). `new` delegates rather than copying, which is cheaper and
+  more useful, but there is no way to take a snapshot of an object's slots.
+- **A later range or slice API should use inclusive bounds at both ends** (2.3),
+  following Smalltalk. Half-open ranges are what make zero-based indexing tidy;
+  mixing a half-open convention into one-based indexing is where languages get
+  confusing.
+
+### Settled
+
+The numbers stay because the changelog cites them. Each row is the verdict; the
+entry named is where the reasoning lives.
+
+| | Question | Decided | Entry |
+| --- | --- | --- | --- |
+| 2.1 | Division | Floored, answering an integer. Integers trap on zero, floats answer an infinity; `quo`/`rem` stay free for the truncating pair | `9ad8039` |
+| 2.2 | Statement terminator | `.` separates rather than terminates: required between two statements, optional after the last | `be13b07` |
+| 2.3 | Array indexing base | One-based. An index is an ordinal, not an offset, so `at(#0)` is out of bounds and caught | `1d8c573` |
+| 2.4 | Array literal syntax | `[...]`, pure sugar -- byte-identical to `array:of(...)`, with no new opcode | `63749ee` |
+| 2.6 | Float exponents | `1e3`, `1E+3`, `1.5e-3`. A bare `e` is left alone; `#` is exact and takes no exponent | `c8cef1b` |
+| 2.7 | Symbols | `'foo`, interned, compared by pointer. The intern table is weak | `5a15fc9` |
+| 2.8 | Missing operations | Conversions, short-circuiting `and`/`or` over blocks, `notEquals` as the negation of `equals`, string ordering, `negated`/`abs`, sorting | `7ac6be6`, `246ae8e`, `113745f` |
+| 2.9 | Calling the method you override | `self:via(ancestor)`, the ancestor named rather than inferred | `a5aa9e0` |
+| 2.10 | Reflection | `slots`, `slotAt`, `respondsTo`, `isKindOf`, `perform`, named by symbol. Reads only | `a7310a7` |
+| 2.11 | Filling a template | `{}` placeholders and `fill`, matched exactly, each value rendered by *sending* `asString` | `ca1369b`, `4a70ef0` |
+| 2.12 | Formatting a single value | A spec argument to `asString`. No conversion letter, no sign mode; bases are a message, not a letter | `3524c70`, `95074c9`, `f4b909d` |
+| 2.13 | Case and text | ASCII only, by explicit range rather than `toupper`. Still live, and now in section 3 | `91d413c` |
+
+## 3. Known limitations
+
+These are deliberate, safe, and documented. Each is a real restriction rather
+than a bug.
+
+### 2.13 Text is bytes, and case is ASCII only
 
 `asUppercase` and `asLowercase` change `a`-`z` and `A`-`Z` and pass every other
 byte through, by explicit range rather than `toupper` -- which follows the C
@@ -430,185 +389,9 @@ how many characters a string has -- is a different piece of work rather than a
 larger version of this one, and would want a decision about what a string is
 before any of it is written.
 
-### 2.7 Symbols — **done**
-
-`'foo` is an interned name. Two symbols spelling the same thing are the same
-symbol, so equality is a pointer comparison rather than a walk over characters --
-which is the whole reason to have them apart from strings, a name being compared
-far more often than it is read. `"foo":asSymbol` finds the one that already
-exists.
-
-**The intern table is weak**, and that turned out to matter more than memory.
-With a strong table a program interning twenty thousand names does not finish in
-sixty seconds, because every collection has to mark every symbol ever interned.
-With a weak one the same program runs instantly at 1.7 MB. Pruning happens
-between marking and sweeping, so the table never names a cell the sweep is about
-to free.
-
-A symbol never equals a string; `asString` gives its name.
-
-### 2.8 Missing operations — **done**
-
-Conversions: `asString` on every value, `asFloat` on integers, `floor` /
-`ceiling` / `rounded` / `truncated` on floats, and `asInteger` / `asFloat`
-parsing back from a string.
-
-Logic: `and` and `or`, short-circuit, taking a block as `ifTrue` does -- which is
-the reason they cannot simply take booleans.
-
-Comparison: `notEquals` everywhere, defined as the negation of `equals` so the
-two cannot disagree about what equality means for a type; `lessOrEqual` and
-`greaterOrEqual` on numbers and strings; and ordering on strings, by characters
-with the shorter first when one is a prefix.
-
-Numbers: `negated` and `abs`, trapping on the most negative integer, which has no
-positive counterpart. `float:new`, for symmetry with `integer:new`.
-
-Rendering moved into one place -- a text buffer in `value.c` -- so `print` and a
-composite's `asString` produce the same text by construction rather than by
-agreement.
-
-Still absent, and small: `isNil`, though `x:equals(nil)` says it.
-
-Sorting is done: `sorted` and `sorted(block)`, stable, ordering by a real send of
-`lessThan` so a user-defined type sorts itself.
-
----
-
-### 2.9 Calling the method you override — **decided: `via`**
-
-```
-animal:intro := { "I am ":concat(self:name) }.
-dog:intro := { self:via(animal):intro:concat("!") }.
-
-rex := dog:new. rex:name := "rex".
-rex:intro.        ; "I am rex!"
-```
-
-`self:via(ancestor)` answers a delegating view: a send to it begins the lookup at
-the ancestor but runs whatever it finds with `self` still the receiver. Naming
-the ancestor directly would send to *it*, so `self` inside would become the
-ancestor.
-
-The ancestor is **named rather than inferred**. A `super` keyword would have to
-resolve against the object where the running method was *defined*, which is
-bookkeeping no frame carried; naming it needs none of that, keeps working however
-deep the receiver turns out to be, and cannot accidentally find the method again
-and recurse.
-
-`parent` reads the delegation link, so a chain can be walked and compared. It is
-read-only: the link stays an internal pointer, so nothing a program writes can
-corrupt dispatch. Re-parenting at run time would need it to become a real slot,
-which is a separate question.
-
-### 2.10 Reflection — **done**
-
-`slots`, `slotAt`, `respondsTo`, `isKindOf`, and `perform`, on every type. Names
-are given as symbols, which is what 2.7 was wanted for.
-
-`slots` answers own slots in definition order; the rest search the chain as a
-send does. A value answers for the class it dispatches to, so
-`#45:isKindOf(integer)` holds, and the built-in classes are objects whose slots
-hold primitives, so `integer:slots` lists what an integer understands.
-
-Two things this deliberately does not do:
-
-- **A fetched method is unbound.** `slotAt` answers the plain block, and `self`
-  comes from a send rather than being carried by the block, so `m:value` runs
-  with `self` nil. Calling a method with a chosen receiver would need something
-  like `valueWith(receiver, ...)`, which is a real question and not this one.
-- **Nothing here can write.** There is no `slotAtPut`, no re-parenting (2.9a),
-  and no way to remove a slot. Reflection reads; the assignment syntax writes.
-
-### 2.11 Filling a template — **decided: placeholders and `fill`**
-
-```
-"you have {} apples and {} pears":fill([#3, #4]).
-```
-
-`{}` takes the next value and renders it by **sending** it `asString`, so a type
-that overrides `asString` is honoured rather than bypassed. `{{` writes a literal
-brace.
-
-Placeholders and values must match exactly; too few and too many are both errors.
-Filling a gap with blanks, or dropping the extras, would turn a mistake into
-output that looks deliberate.
-
-`}` is never special and needs no escape, so `}}` is two of them. That differs
-from Python, where `}` closes a placeholder that may carry content -- here a
-placeholder is exactly `{}`, so a lone `}` cannot be ambiguous and one escape
-rule is enough.
-
-Kept as a separate message rather than an argument to `print`, so `print` goes on
-meaning one thing and the filled text can be used without printing it.
-
-Named `fill` rather than `format`. The placeholders are blanks and this fills
-them; `format` belongs to formatting a *single value* against a spec, where the
-value is the receiver. `"...":fill(...)` is a template acting on values, which is
-a different job from `45.8:asString("5.2")`. Not `replace`, which
-`string:replace(old, new)` will want.
-
-This needed `sol_vm_send`, so a primitive can call back into the language. That
-is also what 5.2 wants, to make the default `print` on an object send `print` to
-it rather than showing an address.
-
-## 3. Known limitations
-
-These are deliberate, safe, and documented. Each is a real restriction rather
-than a bug.
-
-### 2.12 Formatting a single value — **done**
-
-An optional spec argument to `asString`:
-
-```
-[align] [','] ['0'] [width] ['.' decimals]
-
-45.8:asString("6.2")         ->  " 45.80"
-45.8:asString("08.2")        ->  "00045.80"
-#1234567:asString(",")       ->  "1,234,567"
-1234.5:asString(",10.2")     ->  "  1,234.50"
-"ab":asString(">6")          ->  "    ab"
-```
-
-Smaller than printf on purpose. **No conversion letter** -- the receiver knows
-its own type, so there is nothing that could contradict it. **No sign mode** -- a
-leading space for a positive number falls out of the width, since numbers align
-right, which removed a whole mode from the design.
-
-Numbers align right and text aligns left by default; `<`, `>`, `^` override.
-Decimals belong to floats, and asking an integer, a string, a boolean, or an
-array for them is an error rather than a no-op. Zero fill must align right, since
-padding a number on the left with zeros would change what it says, and the zeros
-go after any sign so `-45` in width 6 is `-00045`. A value wider than the width
-is never cut: losing digits would be worse than a ragged column.
-
-No argument means what it always meant, so `display`, `fill`, and array rendering
-are untouched.
-
-`,` groups whole-number digits in threes, and only those: a sign, a fraction, and
-an exponent pass through untouched. It is fixed at `,` rather than configurable,
-a separator that varies by locale being a much larger door to open than a report
-column is worth. It cannot be combined with zero fill, since the leading zeros
-would not themselves be grouped -- Python renders that as `001,234.50`, which
-reads as a mistake -- and the flags have one order, so there is one way to write
-a given spec.
-
-Two extensions considered and **not** built:
-
-- **Forcing exponent form**, `"10.2e"`. The renderer already switches on
-  magnitude, so this only serves a table that wants `1.00e+00` on every row
-  regardless of size. Against it: `e` looks exactly like the conversion letter
-  deliberately left out, and invites the reader to try `f` and `d`, which do not
-  exist. Worth adding when something needs it, not before.
-**Integer bases are done**, but not as a spec letter. `#255:asBase(#16)` answers
-`"ff"`, and `"ff":asInteger(#16)` reads it back. A letter would have looked like
-printf's conversion character, the very thing the spec was designed without, and
-one letter buys one base where a number buys all thirty-five. Padding still comes
-from the spec, by chaining: `#255:asBase(#16):asString("08")`.
-
-Digits above nine are lowercase; `asUppercase` gives the other form, which is why
-a case message was the right answer rather than a second base message.
+Kept here rather than in section 2 because it is a restriction the language
+lives under, not a question waiting on an answer. The number is the one the
+changelog cites.
 
 ### 3.1 Capturing blocks cannot escape their frame
 
@@ -946,7 +729,7 @@ they would be missed:
 1. **Dispatch by pointer** (4.3) — symbols exist; a send still does `strcmp`,
    and the compiler's own interning wants the same hash table now that 4.2 has
    raised the side tables to 65536 entries.
-2. **Calling a fetched method** — `slotAt` hands back an unbound block (2.10).
+2. **Calling a fetched method** — `slotAt` hands back an unbound block (2.14).
 3. **Inlining `and` and `or`** (4.1) — the last two that short-circuit through a
    block. Nothing new is needed; the jumps are all there now.
 4. **Stack heights in the verifier** (3.9) — would catch a corrupted argument
@@ -964,7 +747,6 @@ loops (4.1), the two class-object crashes (1.5, 1.6), the side-table operands
 
 One decision is outstanding: **2.5**, class side versus instance side. 1.6
 answered it one message at a time, which was enough to stop the crashes;
-splitting the two sides into separate objects is still open.
-
-Still waiting on a call from you: **division** (2.1) and the **statement
-terminator** (2.2). Neither blocks anything above it.
+splitting the two sides into separate objects is still open. Every other
+question section 2 held has been decided and built -- the table there records
+the verdicts, and 2.14 the loose ends they left.

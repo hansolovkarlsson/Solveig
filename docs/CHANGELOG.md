@@ -998,6 +998,12 @@ A literal is a construction, not a pooled constant, so every evaluation answers 
 fresh array — two calls to a method containing one do not share it. Capped at 255
 elements by `OP_SEND`'s one-byte argument count.
 
+**Rejected: making `[...]` immutable so it could be pooled.** Pooling would only
+ever apply where every element is itself a compile-time constant — `[a, b]` must
+be built at run time regardless — so the price is a rule the reader has to
+re-check at every use site, for a saving that most literals would not get. Two
+spellings mean one thing, which is the principle this was weighed against.
+
 ### The project is named Solveig — `7db2b27`, 2026-08-19
 
 The repository had no name distinct from its parts: "Solum" was serving as the
@@ -1028,8 +1034,11 @@ b:do({ e | sum := sum:add(e) }).
 
 - A `SolArray` heap type joins the collector, and **every element is a tracing
   edge** — the reason arrays were built before strings, whose bytes are not.
-- One-based indices: an index is an ordinal, not an offset. `at(#0)` is out of
-  bounds and therefore caught rather than silently off by one.
+- One-based indices: an index is an ordinal, not an offset — there is no pointer
+  arithmetic here and no address for it to be a displacement from, so what makes
+  zero-based natural in C does not apply. It also matches the Smalltalk lineage
+  the object model already came from. `at(#0)` is out of bounds and therefore
+  caught rather than silently off by one.
 - Strictness carried through: an index must be an integer, and out of range is an
   error rather than nil.
 - Arrays are references, like objects. `equals` is identity; comparing contents
