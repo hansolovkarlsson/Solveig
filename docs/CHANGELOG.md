@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### `boundTo`: calling the method you fetched — `pending`, 2026-08-20
+### `boundTo`: calling the method you fetched — `be19104`, 2026-08-20
 
 No `.sob` change — a primitive, not an opcode. Roadmap 2.14, the last item that
 was ahead of the verifier work.
