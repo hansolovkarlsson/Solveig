@@ -1,11 +1,26 @@
 /* `system`: stopping with a status, the program's arguments, and the clock. */
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "solas/compiler.h"
 #include "solum/gc.h"
 #include "solum/vm.h"
+
+/* Points stdin at `text`, so a test can drive `readLine`. freopen resets the
+   stream entirely, which matters after a test has read one to its end. */
+static void stdin_is(const char *text)
+{
+    static const char *path = "build/tests/test_system.stdin";
+
+    FILE *f = fopen(path, "wb");
+    assert(f != NULL);
+    assert(fwrite(text, 1, strlen(text), f) == strlen(text));
+    fclose(f);
+
+    assert(freopen(path, "rb", stdin) != NULL);
+}
 
 static SolResult run(SolVM *vm, SolChunk *chunk, const char *source)
 {
@@ -198,6 +213,104 @@ static void test_system_is_an_ordinary_object(void)
     printf("  system is an ordinary object\n");
 }
 
+/* A line is its text: the terminator is not part of it, an empty line is the
+   empty string rather than the end, and a last line without a newline of its own
+   still counts. */
+static void test_read_line_answers_each_line_without_its_terminator(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    stdin_is("alpha\n\nbeta gamma\nno newline here");
+    assert(run(&vm, &chunk,
+        "first := system:readLine."
+        "blank := system:readLine."
+        "third := system:readLine."
+        "last := system:readLine."
+        "past := system:readLine.") == SOL_OK);
+
+    assert(strcmp(SOL_AS_STRING(global(&vm, "first"))->chars, "alpha") == 0);
+    assert(strcmp(SOL_AS_STRING(global(&vm, "blank"))->chars, "") == 0);
+    assert(strcmp(SOL_AS_STRING(global(&vm, "third"))->chars, "beta gamma") == 0);
+    assert(strcmp(SOL_AS_STRING(global(&vm, "last"))->chars, "no newline here") == 0);
+    assert(SOL_IS_NIL(global(&vm, "past")));
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    printf("  readLine answers a line at a time, and nil at the end\n");
+}
+
+/* `\r\n` is one terminator, so a file written on another system reads the same
+   as one written here. */
+static void test_read_line_takes_crlf_as_one_terminator(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    stdin_is("a\r\nb\r\n");
+    assert(run(&vm, &chunk,
+        "one := system:readLine. two := system:readLine.") == SOL_OK);
+
+    assert(strcmp(SOL_AS_STRING(global(&vm, "one"))->chars, "a") == 0);
+    assert(strcmp(SOL_AS_STRING(global(&vm, "two"))->chars, "b") == 0);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    printf("  readLine takes CRLF as one terminator\n");
+}
+
+/* It reads in chunks, so a line longer than one has to come back whole -- the
+   bug Solis had, where a long line was severed mid-token. */
+static void test_read_line_reads_a_line_of_any_length(void)
+{
+    char *big = malloc(5002);
+    assert(big != NULL);
+    memset(big, 'x', 5000);
+    big[5000] = '\n';
+    big[5001] = '\0';
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    stdin_is(big);
+    free(big);
+
+    assert(run(&vm, &chunk, "n := system:readLine:size.") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "n")) == 5000);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    printf("  readLine reads a line of any length\n");
+}
+
+/* Nothing to read at all is the end, not an empty line. */
+static void test_read_line_on_empty_input_is_nil(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    stdin_is("");
+    assert(run(&vm, &chunk, "got := system:readLine.") == SOL_OK);
+    assert(SOL_IS_NIL(global(&vm, "got")));
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    printf("  readLine on empty input is nil\n");
+}
+
+static void test_read_line_takes_no_arguments(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    stdin_is("a\n");
+    assert(run(&vm, &chunk, "system:readLine(#1).") == SOL_RUNTIME_ERROR);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    printf("  readLine takes no arguments\n");
+}
+
 int main(void)
 {
     test_exit_carries_its_status();
@@ -208,6 +321,12 @@ int main(void)
     test_arguments_arrive_as_strings();
     test_the_clock_is_a_float_and_moves_forward();
     test_system_is_an_ordinary_object();
+
+    test_read_line_answers_each_line_without_its_terminator();
+    test_read_line_takes_crlf_as_one_terminator();
+    test_read_line_reads_a_line_of_any_length();
+    test_read_line_on_empty_input_is_nil();
+    test_read_line_takes_no_arguments();
 
     printf("test_system: ok\n");
     return 0;

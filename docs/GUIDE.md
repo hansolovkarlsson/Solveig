@@ -594,6 +594,15 @@ bits and `#256` would leave looking like success.
 array of strings every time you ask, and the empty array rather than nil when
 there were none, so it can be walked without first asking whether it is there.
 
+**`readLine` answers one line of standard input**, without its terminator, or
+nil when there is no more. Nil is the end and `""` is an empty line, so a loop
+that reads to the end can be written the obvious way:
+
+```
+line := system:readLine.
+{ line:notEquals(nil) }:whileTrue({ line:display. line := system:readLine }).
+```
+
 **`clock` is monotonic**, which is why its epoch is unspecified — the only
 useful thing to do with two readings is subtract them:
 
@@ -603,14 +612,15 @@ i := #0. { i:lessThan(#100000) }:whileTrue({ i := i:add(#1) }).
 system:clock:sub(start):asString("0.4"):display.     ; 0.0153
 ```
 
-> **Run:** [examples/system.sol](../examples/system.sol)
+> **Run:** [examples/system.sol](../examples/system.sol) and
+> [examples/reading.sol](../examples/reading.sol)
 
 ## 19. What is left
 
 The language is Turing-complete and does not leak. What remains is in
 [ROADMAP.md](ROADMAP.md), and it is no longer about the language: a program can
-now be split across files and can stop with a status, but it cannot yet read
-input or write a file. One design question is still open — whether the class side
+now be split across files, stop with a status, and read its input, but it cannot
+yet write a file. One design question is still open — whether the class side
 and the instance side should be separate objects.
 
 Known restrictions worth carrying with you:

@@ -1835,6 +1835,72 @@ static SolValue prim_system_exit(SolVM *vm, SolValue self, SolValue *args, int a
     return SOL_NIL_VAL;
 }
 
+/* Reads one line from standard input, without its terminator, as a fresh
+ * string -- or nil at end of input.
+ *
+ * Nil rather than an error, which is the one place absence is not treated as a
+ * mistake here: a loop reading to the end has to be able to tell that it has got
+ * there, and running out of input is the normal way for that loop to finish. An
+ * empty line is `""` and is not the end, so the two stay distinguishable.
+ *
+ * `\r\n` is one terminator, so a file written on another system reads the same
+ * as one written here. A NUL byte in the input ends the line as far as this is
+ * concerned, the same limit a string literal has.
+ *
+ * Not shared with Solis' reader, which keeps the newline (its scanner needs it)
+ * and appends to a buffer that outlives the call. Different enough that sharing
+ * would mean parameterising both.
+ */
+static SolValue prim_system_read_line(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    (void)args;
+    if (!check_argc(vm, "readLine", argc, 0)) return SOL_NIL_VAL;
+
+    char  *line = NULL;
+    size_t length = 0;
+    size_t capacity = 0;
+    bool   read_anything = false;
+
+    for (;;) {
+        char chunk[256];
+        if (fgets(chunk, sizeof chunk, stdin) == NULL) break;
+        read_anything = true;
+
+        size_t got = strlen(chunk);
+        if (length + got + 1 > capacity) {
+            size_t want = capacity < 128 ? 128 : capacity;
+            while (want < length + got + 1) want *= 2;
+
+            char *grown = realloc(line, want);
+            if (grown == NULL) {
+                free(line);
+                sol_vm_runtime_error(vm, "out of memory reading a line");
+                return SOL_NIL_VAL;
+            }
+            line = grown;
+            capacity = want;
+        }
+        memcpy(line + length, chunk, got);
+        length += got;
+        line[length] = '\0';
+
+        if (chunk[got - 1] == '\n') break;   /* fgets never answers an empty chunk */
+    }
+
+    if (!read_anything) {
+        free(line);
+        return SOL_NIL_VAL;
+    }
+
+    if (length > 0 && line[length - 1] == '\n') length--;
+    if (length > 0 && line[length - 1] == '\r') length--;
+
+    SolString *text = sol_string_new(vm, line, (int)length);
+    free(line);
+    return SOL_STRING_VAL(text);
+}
+
 /* Monotonic seconds as a float. Monotonic because the only thing worth doing
  * with two readings is subtracting them, and a wall clock can go backwards
  * between them -- so the epoch is deliberately unspecified and a single reading
@@ -2081,6 +2147,7 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define(vm, vm->root, "system", SOL_OBJ_VAL(system));
     any_receiver(vm, system, "exit", prim_system_exit);
     any_receiver(vm, system, "clock", prim_system_clock);
+    any_receiver(vm, system, "readLine", prim_system_read_line);
 
     SolArray *no_arguments = sol_array_new(vm, 0);
     sol_gc_push_temp(vm, &no_arguments->gc);

@@ -27,7 +27,7 @@ reasoning went to the changelog at the time, and the verdicts are in
 - [5. Tooling and ergonomics](#5-tooling-and-ergonomics) — the prompt, rendering,
   float text, compile errors
 - [6. Beyond the language](#6-beyond-the-language) — splitting a program across
-  files, and the `system` object
+  files, the `system` object, and reading input
 
 ---
 
@@ -778,3 +778,18 @@ primitive at all — it is a data slot holding an array, which is what it is.
 `clock` is monotonic seconds as a float, the epoch left unspecified because only
 differences mean anything. The rules are in
 [REFERENCE.md](REFERENCE.md#the-program-and-its-process).
+
+### 6.3 Reading input — **done**
+
+`system:readLine`, answering a string or nil at end of input. A few lines of C,
+portable, and enough for anything that reads a file line by line or prompts.
+
+Built as `pending`. `system:readLine` answers a line without its terminator, or
+nil at the end -- the one place absence is not treated as a mistake here, since
+running out of input is how a loop that reads to the end finishes rather than
+something that went wrong. An empty line is `""` and is not the end, so the two
+never get confused. `\r\n` counts as one terminator and a last line with no
+newline of its own still counts as a line.
+
+The half of this entry about waiting for a single key stayed behind, under a
+number of its own: [6.10](ROADMAP.md#610-waiting-for-a-single-key).

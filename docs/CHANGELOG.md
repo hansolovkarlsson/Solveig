@@ -8,6 +8,52 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### A program can read its input — `pending`, 2026-08-20
+
+Roadmap 6.3. `system:readLine` answers one line of standard input without its
+terminator, or **nil** when there is no more.
+
+```
+line := system:readLine.
+{ line:notEquals(nil) }:whileTrue({
+    line:display.
+    line := system:readLine
+}).
+```
+
+**Nil at the end is the one place absence is not treated as a mistake here.**
+Everywhere else the language would rather refuse than answer nothing — an
+out-of-range index is an error, an unset slot is a miss. Running out of input is
+different: it is how a loop that reads to the end *finishes*, not something that
+went wrong, and a program that has to check for it on every pass anyway loses
+nothing by checking for nil. An empty line is `""` and is not the end, so the
+two never get confused.
+
+Three details that are only visible when they are wrong, and are tested:
+
+- A last line carrying no newline of its own still counts as a line.
+- `\r\n` is one terminator, so a file written on another system reads the same
+  as one written here.
+- A line of any length comes back whole. It is read in 256-byte chunks and
+  grown, which is the bug Solis had before 5.1 — a long line severed mid-token,
+  its tail arriving as if it were the next line.
+
+The reader is not shared with Solis', which keeps the newline because its scanner
+needs it and appends to a buffer that outlives the call. Different enough that
+sharing would have meant parameterising both.
+
+At the prompt, `readLine` reads the next line you type and Solis does not see it
+— the program and the prompt are reading the same input, and there is no third
+thing for them to disagree about.
+
+**Waiting for a single keypress was split out rather than carried along**, and is
+now roadmap 6.10 with a number of its own. It needs raw terminal mode, which
+would be the first piece of the runtime that behaves differently by platform, and
+that deserves its own decision rather than arriving as a footnote to line input.
+
+`tests/test_system.c` gains five cases, driving stdin from a file:
+`examples/reading.sol` numbers what it is given and reports the longest line.
+
 ### A program can stop, and knows what it was given — `e8d4fe8`, 2026-08-20
 
 Roadmap 6.2. `system` is a global holding one object — not a class, since there

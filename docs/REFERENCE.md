@@ -179,6 +179,35 @@ system:arguments:equals(system:arguments):print.     ; true
 Being an ordinary array, a program can add to it or sort it. That changes the
 program's copy and nothing else.
 
+### Reading input
+
+`system:readLine` answers one line from standard input **without its
+terminator**, or **nil** when there is no more.
+
+```
+line := system:readLine.
+{ line:notEquals(nil) }:whileTrue({
+    line:display.
+    line := system:readLine
+}).
+```
+
+Nil is the end and `""` is an empty line, so the two are never confused. A last
+line carrying no newline of its own still counts as a line, and `\r\n` is one
+terminator, so a file written on another system reads the same as one written
+here.
+
+Nil rather than an error is the one place absence is not treated as a mistake:
+running out of input is how a loop that reads to the end finishes, not something
+that went wrong.
+
+At the prompt it reads the next line you type, which Solis then does not see —
+the program and the prompt are reading the same input.
+
+Waiting for a single keypress is a different job. It needs raw terminal mode,
+which is the first thing in the runtime that would differ by platform, and it is
+not here.
+
 ### The clock
 
 `system:clock` answers **monotonic seconds as a float**. The epoch is
@@ -1025,6 +1054,7 @@ it delegates to `object` like everything else. See
 | --- | --- |
 | `exit(status)` | nothing — the program stops, with `status` from #0 to #255 |
 | `arguments` | an array of strings; the empty array when there were none |
+| `readLine` | one line of standard input without its terminator, or nil at the end |
 | `clock` | monotonic seconds as a float; only differences are meaningful |
 
 ### nil

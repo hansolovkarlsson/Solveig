@@ -233,21 +233,11 @@ Sections 1 to 5 were about making Solum a language, and they are done — the
 entries are in [COMPLETED.md](COMPLETED.md). This one is about making it a
 language you can write a *program* in: a program has to be split across files,
 read input, write files, and stop with a status. None of it needs a new idea.
-Splitting is done and so is stopping; reading and writing are not.
+Splitting is done, and so are stopping and reading; writing is not.
 
 Raised in a notes file and assessed in [ideas.md](ideas.md), which also records
 what was **not** worth building and why — integer widths, a JIT, cascades,
 trailing-block syntax, and Go-style concurrency among them.
-
-### 6.3 Reading input
-
-`system:readLine`, answering a string or nil at end of input. A few lines of C,
-portable, and enough for anything that reads a file line by line or prompts.
-
-**Waiting for a single key is a separate item**, and should stay one. It needs
-raw terminal mode, which is `termios` on Unix and something else on Windows, and
-it introduces the first piece of the runtime that behaves differently by
-platform. Worth doing when something needs it, behind its own decision.
 
 ### 6.4 File handling
 
@@ -323,25 +313,38 @@ A short section in the guide, with that example.
 
 ### 6.9 The examples do not cover everything
 
-Fifteen examples, chosen by what was being built at the time rather than by
+Sixteen examples, chosen by what was being built at the time rather than by
 what a reader needs. Worth an audit: list every concept the guide names, find which
 have no example, and fill the gaps rather than adding more of what is covered.
+
+### 6.10 Waiting for a single key
+
+Reading a *line* is done (6.3). Reading a keypress is a different job, and was
+split off rather than carried along with it: it needs raw terminal mode, which is
+`termios` on Unix and something else on Windows, and it would be the first piece
+of the runtime that behaves differently by platform.
+
+Worth doing when a program needs it, and behind its own decision rather than as
+a footnote to line input.
 
 ## Suggested order
 
 **Section 6 is the whole of the live list**, and it came from the right place:
 notes about what a program would want, rather than a plan written before there
-were any programs. Two of its items are built — a program can be split across
-files, and it can stop with a status — so in order of what would be missed next:
+were any programs. Three of its items are built — a program can be split
+across files, stop with a status, and read its input — so in order of what would
+be missed next:
 
-1. **Reading input** (6.3) and **files** (6.4), which together are most of what
-   a script does.
+1. **Files** (6.4). Reading input is done, and this is the other half of what a
+   script spends its time doing.
 2. **Timing from inside the language** (6.5), which `system:clock` now makes a
    few lines of Solum.
 3. The documentation gaps — the instruction set (6.7), group versus block (6.8),
    and the example audit (6.9).
 4. **Inlining the loop constructs** (6.6), when something is measurably spending
    time in one.
+
+Not ordered: **a single keypress** (6.10) waits for a program that needs one.
 
 One decision is outstanding: **2.5**, class side versus instance side. 1.6
 answered it one message at a time, which was enough to stop the crashes;

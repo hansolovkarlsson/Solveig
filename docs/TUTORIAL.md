@@ -345,4 +345,4 @@ Nearly the whole language, without meeting it as a list:
 - [absence.md](absence.md) — nil, empty, and unset, and what a name holds before
   you fill it.
 - [REFERENCE.md](REFERENCE.md) — every message, for looking things up.
-- [examples/](../examples/) — fourteen more programs, each on one topic.
+- [examples/](../examples/) — fifteen more programs, each on one topic.
