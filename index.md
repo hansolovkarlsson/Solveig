@@ -1,0 +1,115 @@
+---
+title: Solveig
+description: A small object-oriented language, its bytecode virtual machine, and a REPL.
+---
+
+# Solveig
+
+A small object-oriented language, its bytecode virtual machine, and a REPL —
+written in C11, with no dependencies beyond a compiler and `make`.
+
+Everything is an object, including classes, and all work happens by sending
+messages to them.
+
+```
+a := #45.        ; ':=' binds a name; '#' tags an integer ( bare 45 is a float )
+a:print.         ; ':' sends a message, '.' ends the statement
+
+xs := [#1, #2, #3].
+xs:do({ x | x:print }).        ; { } is a block: code as a value
+```
+
+There is **no control-flow syntax at all**. `ifTrue`, `ifElse`, and `whileTrue`
+are ordinary messages that take unevaluated blocks, which is enough to be
+Turing-complete:
+
+```
+integer:factorial := {
+    self:lessThan(#2):ifElse({ #1 }, { self:mul( self:sub(#1):factorial ) })
+}.
+#20:factorial:print.      ; #2432902008176640000
+```
+
+Written literally those compile to jumps — no block allocated, no frame entered —
+while staying ordinary messages you can send any other way.
+
+---
+
+## Start here
+
+- **[Tutorial](docs/TUTORIAL.md)** — build a stock report from nothing,
+  meeting each idea at the moment you need it. Start here if you want to be
+  writing something.
+- **[Guide](docs/GUIDE.md)** — every concept in the language in an order that
+  builds, each pointing at a runnable example. Start here if you would rather
+  see the shape of the whole thing first.
+- **[Reference](docs/REFERENCE.md)** — syntax, semantics, and every built-in
+  message, organised for looking things up.
+
+Also: **[Design](docs/design.md)** for the object model, the instruction set and
+the `.sob` format; **[Fetching a method](docs/fetched-methods.md)** for holding a
+method as a value; **[Roadmap](docs/ROADMAP.md)** for what is left; and
+**[Changelog](docs/CHANGELOG.md)** for what has changed.
+
+## The names
+
+**Solveig** is the project. The language it holds is **Solum**, compiled by
+**Solas**, run by **SolVM**, and explored through **Solis**.
+
+*Solveig* is Old Norse — *Sólveig*, from *sól*, "sun", joined to *veig*, usually
+read as "strength". Most people who recognise it will recognise it from Ibsen's
+*Peer Gynt*, where Solveig is the one who waits.
+
+**SolVM** reads two ways, and both are meant. It is the Sol virtual machine —
+and it is *SOLVM*, which is how *solum* was written before the alphabet split V
+into two letters. Classical Latin had a single **V** for both the vowel and the
+consonant, which is why Roman inscriptions give SOLVM and not SOLUM. So the
+machine is not named *after* the language it runs. It is the same word, cut in
+stone.
+
+The rest keep the *sol-* root, so the whole family turns on the sun: *solum*,
+the ground underfoot; *solis*, of the sun; and Solveig, the Norse cousin among
+them — the same star, in a different language.
+
+## Status
+
+Working: the scanner, the single-pass compiler, the re-entrant dispatch loop
+with call frames, blocks with lexical capture, message-based control flow, a
+mark-sweep collector over objects, blocks and compiled code, and the `.sob`
+format with its verifier.
+
+The language is Turing-complete, does not leak, and has strings, arrays,
+symbols, user-defined objects, reflection, sorting, formatted output, and
+conversions between every pair of types that has an unambiguous one.
+
+Arithmetic is strict throughout: integers and floats never coerce, and integer
+overflow traps rather than wrapping.
+
+```sh
+make          # builds bin/solas, bin/solvm, bin/solis
+make test     # builds and runs the test suite
+```
+
+```sh
+./bin/solas examples/hello.sol      # writes examples/hello.sob
+./bin/solvm examples/hello.sob
+./bin/solis                         # a prompt, one line at a time
+```
+
+`.sob` files are little-endian and portable, and are verified before they run.
+
+## Examples
+
+Twelve programs, each on one topic —
+[hello](examples/hello.sol),
+[stock](examples/stock.sol),
+[numbers](examples/numbers.sol),
+[values](examples/values.sol),
+[blocks](examples/blocks.sol),
+[methods](examples/methods.sol),
+[objects](examples/objects.sol),
+[arrays](examples/arrays.sol),
+[strings](examples/strings.sol),
+[symbols](examples/symbols.sol),
+[format](examples/format.sol),
+[reflect](examples/reflect.sol).

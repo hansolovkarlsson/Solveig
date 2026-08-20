@@ -1,0 +1,54 @@
+# GitHub Pages for Solveig.
+#
+# The site is built from the markdown already in the repository. There is no
+# generated copy of any document, so a page cannot drift from the file it came
+# from -- editing docs/GUIDE.md is editing the Guide page. GitHub runs the
+# build, so nothing here needs a toolchain locally and `make` stays
+# dependency-free.
+
+title: Solveig
+description: A small object-oriented language, its bytecode virtual machine, and a REPL.
+url: https://hansolovkarlsson.github.io
+baseurl: /solveig
+
+# These three are what let the repository's own markdown serve as the site.
+# GitHub Pages enables them by default; naming them here is so the reason is
+# written down rather than inherited silently.
+#
+#   optional-front-matter  renders .md files that have no front matter, which
+#                          is all of them -- they are read on GitHub too, where
+#                          front matter would show up as clutter
+#   relative-links         rewrites [x](GUIDE.md) to the page it becomes
+#   titles-from-headings   takes each page's title from its first heading
+plugins:
+  - jekyll-optional-front-matter
+  - jekyll-relative-links
+  - jekyll-titles-from-headings
+
+relative_links:
+  enabled: true
+  collections: false
+
+# The compiler, the VM, the REPL and the tests are read on GitHub, not here.
+# examples/ is deliberately not excluded: the guide and the tutorial link to
+# those files, and Jekyll copies them through as plain text.
+exclude:
+  - Makefile
+  - LICENSE
+  - solas/
+  - solis/
+  - solum/
+  - tests/
+  - bin/
+  - build/
+  - scratch/
+
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+
+markdown: kramdown
+kramdown:
+  input: GFM

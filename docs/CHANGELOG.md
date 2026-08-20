@@ -8,6 +8,46 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### A tutorial, and a site to read it on — `pending`, 2026-08-20
+
+Documentation. No code, no behaviour change.
+
+**[TUTORIAL.md](TUTORIAL.md)** is new, and is the third shape the documentation
+wanted. REFERENCE.md is for looking a message up and GUIDE.md surveys the
+concepts in order; neither has you *writing* anything. The tutorial builds one
+program — a stock report — from an empty file to a working thing, introducing
+each idea at the moment it is needed rather than because it comes next in a
+list. By the end it has used objects and slots, methods and `self`, blocks,
+parameters and temporaries, arrays, `do`/`collect`/`select`/`sorted`, format
+specs, `fill`, an object rendering itself, delegation, and `via` — without ever
+presenting them as a syllabus.
+
+Two moments in it are load-bearing rather than decorative. The `asFloat` in
+`self:price:mul(self:qty:asFloat)` is introduced by *removing* it and showing
+the error, because strict arithmetic is easier to accept once you have seen what
+it refuses. And the last step overrides one method on a delegating object and
+then shows that the inherited maker, the report row, and `isKindOf` all keep
+working — which is the argument for prototypes made by demonstration instead of
+assertion.
+
+**examples/stock.sol** is the finished program, so the tutorial's claims and a
+runnable file cannot drift apart. `tests/test_compile.c` compiles all twelve
+examples now.
+
+**GitHub Pages**, built from the markdown already in the repository — there is no
+generated copy of any document, so a page cannot fall out of step with the file
+it came from. Editing `docs/GUIDE.md` is editing the Guide page. Three plugins do
+the work, and all three are on by default for Pages: `optional-front-matter`
+renders files that have none, which is all of them, since they are read on GitHub
+too; `relative-links` rewrites `[x](GUIDE.md)` to the page it becomes; and
+`titles-from-headings` takes each title from the first heading.
+
+`_layouts/default.html` and `assets/css/solveig.css` are the whole of the
+presentation — one layout, one stylesheet, no framework, light and dark both
+defined explicitly. `examples/` is deliberately not excluded from the build, so
+the links the guide and tutorial make to `.sol` files resolve to the files
+themselves.
+
 ### A guide, and examples for the concepts that had none — `e2ff82c`, 2026-08-20
 
 Documentation and examples. No code, no behaviour change.

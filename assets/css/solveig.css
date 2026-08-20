@@ -1,0 +1,190 @@
+/* Solveig — plain, readable, and no larger than it needs to be.
+   Light and dark both defined explicitly; the page never borrows a colour. */
+
+:root {
+  --bg:        #fdfcfa;
+  --fg:        #22201d;
+  --muted:     #6a655e;
+  --rule:      #e3ded6;
+  --link:      #9a4a1f;
+  --link-hover:#c2601f;
+  --code-bg:   #f4f1ec;
+  --code-fg:   #2c2a26;
+  --accent:    #b8801f;
+  --measure:   44rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:        #16151a;
+    --fg:        #ddd8d0;
+    --muted:     #948d84;
+    --rule:      #302d36;
+    --link:      #e0913f;
+    --link-hover:#f0ad63;
+    --code-bg:   #1e1d24;
+    --code-fg:   #d6d1c8;
+    --accent:    #e0b048;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 17px/1.65 ui-serif, Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+}
+
+/* ---- chrome ---------------------------------------------------------- */
+
+header.site {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1.25rem;
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 1.75rem 1.25rem 1.25rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+header.site .brand {
+  font-weight: 700;
+  font-size: 1.15rem;
+  letter-spacing: 0.01em;
+  color: var(--fg);
+  text-decoration: none;
+  margin-right: auto;
+}
+
+header.site nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 1rem;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 0.85rem;
+}
+
+header.site nav a { color: var(--muted); text-decoration: none; }
+header.site nav a:hover { color: var(--link-hover); }
+header.site nav a.repo { color: var(--link); }
+
+main {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+}
+
+footer.site {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 3rem;
+  border-top: 1px solid var(--rule);
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+footer.site p { margin: 0.3rem 0; }
+
+/* ---- prose ----------------------------------------------------------- */
+
+h1, h2, h3, h4 {
+  line-height: 1.25;
+  font-weight: 700;
+  margin: 2.25rem 0 0.75rem;
+}
+
+h1 { font-size: 2rem; margin-top: 0.5rem; letter-spacing: -0.01em; }
+h2 { font-size: 1.4rem; padding-top: 0.6rem; border-top: 1px solid var(--rule); }
+h3 { font-size: 1.12rem; }
+h4 { font-size: 1rem; color: var(--muted); }
+
+p, ul, ol, blockquote, table { margin: 0 0 1.1rem; }
+
+a { color: var(--link); text-underline-offset: 2px; }
+a:hover { color: var(--link-hover); }
+
+strong { font-weight: 700; }
+
+blockquote {
+  margin-left: 0;
+  padding: 0.1rem 0 0.1rem 1rem;
+  border-left: 3px solid var(--accent);
+  color: var(--muted);
+}
+
+blockquote p:last-child { margin-bottom: 0; }
+
+hr { border: 0; border-top: 1px solid var(--rule); margin: 2.5rem 0; }
+
+ul, ol { padding-left: 1.4rem; }
+li { margin: 0.3rem 0; }
+li > ul, li > ol { margin-bottom: 0.2rem; }
+
+/* ---- code ------------------------------------------------------------ */
+
+code, pre, kbd {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+code {
+  background: var(--code-bg);
+  color: var(--code-fg);
+  padding: 0.12em 0.35em;
+  border-radius: 3px;
+  font-size: 0.86em;
+}
+
+pre {
+  background: var(--code-bg);
+  color: var(--code-fg);
+  padding: 0.9rem 1rem;
+  border-radius: 5px;
+  border: 1px solid var(--rule);
+  overflow-x: auto;
+  font-size: 0.83rem;
+  line-height: 1.55;
+  margin: 0 0 1.2rem;
+}
+
+pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+}
+
+/* ---- tables ---------------------------------------------------------- */
+
+.table-scroll { overflow-x: auto; margin: 0 0 1.2rem; }
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9rem;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+th, td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.45rem 0.7rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+th { font-weight: 700; }
+thead th { border-bottom: 2px solid var(--rule); }
+
+img { max-width: 100%; height: auto; }
+
+@media (max-width: 34rem) {
+  body { font-size: 16px; }
+  h1 { font-size: 1.6rem; }
+  h2 { font-size: 1.25rem; }
+  main { padding: 1.5rem 1rem 3rem; }
+}
