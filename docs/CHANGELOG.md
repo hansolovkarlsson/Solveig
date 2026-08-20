@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### Side-table operands are two bytes, and constants intern — `pending`, 2026-08-19
+### Side-table operands are two bytes, and constants intern — `9b81fd3`, 2026-08-19
 
 A chunk could hold 256 constants and 256 names, because the operands that index
 them were one byte each. A literal-heavy program stopped compiling well before
