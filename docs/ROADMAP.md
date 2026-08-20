@@ -19,12 +19,17 @@ flow, a mark-sweep collector over objects, blocks, and compiled code, the `.sob`
 format with its verifier, and built-in `integer`, `float`, `boolean`, `nil`, and
 `block`.
 
-The language is Turing-complete, no longer leaks, and now has strings, arrays,
-and user-defined objects. What it lacks is mostly breadth: no conversions between
-types, a thin set of operations, and rough edges around printing and literals.
+The language is Turing-complete, no longer leaks, and has strings, arrays,
+symbols, user-defined objects, reflection, sorting, formatted output, and
+conversions between every pair of types that has an unambiguous one. What is
+left is not breadth any more: it is the items below, which are a correctness
+question, two performance shapes, and the tooling.
 
 The two crashes that led this list — 1.5 and 1.6, both reachable from three
-words of source — are fixed, and section 1 is done again.
+words of source — are fixed. Section 1 holds one item again: **1.7**, a
+temporary declared in a top-level group writing over the expression stack, which
+is a wrong answer rather than a crash and needs a call from you on which of
+three fixes to take.
 
 
 ---
@@ -252,6 +257,53 @@ Found by fuzzing the loop work (4.1) and present as far back as the array
 primitives. `tests/test_class_side.c` covers every built-in class, and the fuzz
 sweep that found the two crashes -- 3205 corrupted variants -- now reports
 nothing.
+
+### 1.7 A temporary declared in a top-level group lands on the stack
+
+`( | t | ... )` declares temporaries of the frame the group sits in. Inside a
+block or a method that is a frame, and it works. At the top level of a script
+there is no frame -- the script's chunk reserves no slots -- and the compiler
+emits `OP_SET_LOCAL 0` anyway, which writes over the bottom of the expression
+stack.
+
+```
+#1:add(( | t | t := #5. t )):print.
+```
+
+The receiver `#1` is sitting in that slot, so `t := #5` overwrites it and the
+answer is `#10` instead of `#6`. Silently: no error, just arithmetic on the
+wrong number.
+
+Compiled, it does not get that far. The verifier already knows the top-level
+chunk has no slots -- `tests/test_serialize.c` asserts exactly that a top-level
+`OP_LOCAL 0` is rejected -- so `sol_chunk_save` refuses to write the file. What
+comes out is `solas: could not write '...': bytecode is internally inconsistent`,
+which reads like an internal fault rather than the source problem it is. **Solis
+does not verify**, because it runs what it just compiled and trusts its own
+compiler, so the REPL is where the wrong answer appears.
+
+Two things wrong, then, and the second is the larger one: the compiler can emit
+a chunk its own verifier rejects. Everything else Solas produces is verified by
+construction, and that is the property worth keeping.
+
+Three ways out, and the choice is a language decision rather than a repair:
+
+1. **Refuse it in the compiler**, with a real message -- "a temporary needs a
+   frame; declare it in a block". Smallest, and honest about the language having
+   no top-level frame.
+2. **Give the script a frame.** The top level becomes a method body like any
+   other, and `| t |` works everywhere for the same reason. Costs a frame and a
+   slot count in the chunk header, and raises what `self` means at the top
+   level.
+3. **Make a top-level group's declarations globals**, matching what a bare `:=`
+   already does there. Consistent from the outside, but then `| t |` means two
+   different things depending on where it is written, which is the kind of rule
+   this language has been avoiding.
+
+(1) is the smallest correct step and does not foreclose (2).
+
+Found while auditing REFERENCE.md against the implementation, not by fuzzing:
+the reference claimed declarations may open any group, and they may not.
 
 ## 2. Language decisions still open
 
@@ -889,16 +941,20 @@ program in is built. Section 1 held nothing until fuzzing the loop work put two
 crashes into it, and both are now fixed — the receiver check in 1.6 took 1.5
 with it, as that entry guessed it would.
 
-Nothing here is urgent. The remaining items are roughly in order of how soon
-they would be missed:
+1.7 is the only correctness item, and it wants a decision before it wants code.
+Nothing else here is urgent. The rest are roughly in order of how soon they
+would be missed:
 
-1. **Dispatch by pointer** (4.3) — symbols exist; a send still does `strcmp`.
-2. **Calling a fetched method** — `slotAt` hands back an unbound block (2.10).
-3. **Inlining `and` and `or`** (4.1) — the last two that short-circuit through a
+1. **A top-level group's temporaries** (1.7) — silently wrong answers in Solis,
+   and a chunk the compiler's own verifier rejects. Three ways out; the choice
+   is yours.
+2. **Dispatch by pointer** (4.3) — symbols exist; a send still does `strcmp`.
+3. **Calling a fetched method** — `slotAt` hands back an unbound block (2.10).
+4. **Inlining `and` and `or`** (4.1) — the last two that short-circuit through a
    block. Nothing new is needed; the jumps are all there now.
-4. **Stack heights in the verifier** (3.9) — would catch a corrupted argument
+5. **Stack heights in the verifier** (3.9) — would catch a corrupted argument
    count at load rather than at the send, and let the runtime checks go.
-5. Everything else as it starts to hurt.
+6. Everything else as it starts to hurt.
 
 Done and off this list: garbage collection (1.1a, 1.1b, 1.1c), arrays entire
 (1.2, 1.2a, 1.2b), strings (1.3), user-defined objects (1.4), division (2.1),

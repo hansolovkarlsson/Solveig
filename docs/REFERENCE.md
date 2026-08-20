@@ -45,8 +45,13 @@ one.
 compiled file before running.
 
 A `.sob` file is verified before it runs: every instruction must fit, every
-operand must index something that exists, and the last instruction must stop the
-machine. A corrupt file is refused rather than executed.
+operand must index something that exists, every jump must land on the start of
+an instruction inside the chunk, and the last instruction must stop the machine.
+A corrupt file is refused rather than executed.
+
+The file also carries a format version, and a build reads only its own: a `.sob`
+left over from an earlier one is refused with `unsupported bytecode version`
+rather than misread. Recompile the `.sol`.
 
 ---
 
@@ -117,8 +122,10 @@ cannot be one: `a:=(b)` would otherwise be both an assignment and a send.
 ### Reserved names
 
 None are keywords, but these are bound as globals at startup and shadowing them
-will surprise you: `integer`, `float`, `string`, `array`, `object`, `nil`,
-`true`, `false`, `infinity`, `nan`.
+will surprise you: `integer`, `float`, `string`, `array`, `symbol`, `block`,
+`boolean`, `object`, `nil`, `true`, `false`, `infinity`, `nan`.
+
+The first eight are the class objects; the rest are values.
 
 `self` is not a global; it is recognised by the compiler inside a block.
 
@@ -154,8 +161,8 @@ Types never coerce. An integer does not combine with a float, and a string does
 not join to a number.
 
 ```
-#45:add(1.5).        ; error: 'add' expects integer, got float
-"a":concat(#1).      ; error: 'concat' expects a string, got integer
+#45:add(1.5).        ; solvm: 'add' expects integer, got float (no implicit coercion)
+"a":concat(#1).      ; solvm: 'concat' expects a string, got integer
 #45:asFloat:add(1.5) ; the conversion is written out
 ```
 
@@ -196,8 +203,22 @@ Only the top level of a script may **create** a global. An undeclared name
 assigned inside a block must already exist, so a typo is reported rather than
 quietly becoming a variable that looks local.
 
-Declarations may open any group or block body, and a duplicate name in one frame
-is a compile error.
+Declarations may open a block or a method body, and a duplicate name in one
+frame is a compile error.
+
+A group may open with them too, but only inside a block or a method. **At the
+top level of a script it is broken**, because the script has no frame for a
+temporary to live in: the compiler emits a frame slot that does not exist.
+`solas` refuses to write the file, though it says `bytecode is internally
+inconsistent`, which reads like an internal fault rather than the source problem
+it is. Solis does not verify, and computes a wrong answer instead — the
+temporary lands on the expression stack and overwrites what is already there:
+
+```
+#1:add(( | t | t := #5. t )):print.    ; Solis answers #10; it should be #6
+```
+
+Declare in the enclosing block instead. Roadmap 1.7.
 
 ---
 
@@ -222,6 +243,26 @@ written out.
 
 A bare identifier resolves to a local, then to an enclosing frame's local, then
 to a global. It is a lookup, not a send.
+
+### Grouping
+
+`( ... )` groups an expression, which is how a chain is redirected:
+
+```
+#1:add(#2):mul(#3):print.       ; #9, being (1+2)*3
+#1:add((#2:mul(#3))):print.     ; #7, being 1+(2*3)
+```
+
+A group may hold several statements separated by `.`. The earlier ones are
+discarded and the last is the group's value.
+
+```
+( #1. #2 ):print.               ; #2
+```
+
+It may also open with `| a, b |`, declaring temporaries of the frame it sits in
+-- but only where there is a frame, which means inside a block or a method body.
+See the note under [Names and binding](#names-and-binding).
 
 ---
 
@@ -448,11 +489,13 @@ because a symbol is what a name is and comparing one is a pointer comparison.
 | `isKindOf(class)` | whether the receiver delegates to `class`, at any depth |
 | `perform(name, ...)` | the answer to a send whose name is decided at run time |
 
+Continuing the `point` above:
+
 ```
-point:slots:print.               ; ['x, 'y, 'show]
+point:slots:print.               ; ['x, 'y, 'sum, 'make]
 p:isKindOf(point):print.         ; true
-p:respondsTo('show):print.       ; true
-p:perform('show):display.        ; (3, 4)
+p:respondsTo('sum):print.        ; true
+p:perform('sum):print.           ; #7
 ```
 
 `slots` answers own slots in the order they were defined; inherited names are
@@ -474,9 +517,9 @@ one as a value. What comes back is the plain block, and `self` is supplied by a
 send rather than carried by the block:
 
 ```
-m := point:slotAt('show).
-m:value.                 ; error: nil does not understand 'x'
-point:perform('show).    ; the receiver comes from the send
+m := point:slotAt('sum).
+m:value.                 ; solvm: nil does not understand 'x'
+p:perform('sum):print.   ; #7 -- the receiver comes from the send
 ```
 
 Fetching a method is for passing it around or inspecting it. To call one, send
@@ -489,6 +532,10 @@ it -- with `perform` if the name is decided at run time.
 Every built-in message. `print` shows the **literal** form (`#45`, `"a\"b"`);
 `display` writes the **text** (`45`, `a"b`); `asString` answers that text as a
 string.
+
+Elements inside an array are always shown in literal form, so that a printed
+array reads back as one: `["a"]:display` writes `["a"]`, quotes and all, where
+`"a":display` writes `a`.
 
 ### Every type
 
@@ -509,8 +556,8 @@ messages `perform`, `respondsTo`, `isKindOf`, `slots`, `slotAt` (see
 "ab":asString(">6")          ; "    ab"
 ```
 
-`<` `>` `^` align left, right, centre. Numbers align right by default and text
-left. A value wider than the width is never cut.
+`<` `>` `^` align left, right, centre. Numbers align right by default and
+everything else left. A value wider than the width is never cut.
 
 `,` groups whole-number digits in threes, and only those -- a sign, a fraction,
 and an exponent pass through. Decimals and grouping belong to numbers; asking a
@@ -545,7 +592,7 @@ remainder takes the divisor's sign and stays in `[0, n)` for positive `n`.
 
 ### float
 
-Everything integer has, minus `asFloat` and the overflow traps, plus:
+Everything integer has, minus `asFloat`, `asBase`, and the overflow traps, plus:
 
 | Message | Answers |
 | --- | --- |
@@ -553,9 +600,29 @@ Everything integer has, minus `asFloat` and the overflow traps, plus:
 | `floor` `ceiling` `rounded` `truncated` | an **integer**; errors on infinity, not-a-number, or out of range |
 
 There is no `asInteger`: narrowing names its direction so there is no default to
-remember. `rounded` is half away from zero.
+remember. `rounded` is half away from zero. Bases are an integer's business, so
+`asBase` is not here.
 
-Dividing by zero answers `infinity` rather than erring.
+Dividing by zero answers a float rather than erring: `1:div(0)` is `infinity`,
+`-1:div(0)` is `-infinity`, and `0:div(0)` is `nan`, which is IEEE rather than a
+choice made here. `nan:equals(nan)` is false for the same reason.
+
+A float is written as the shortest text that reads back as the same value, so
+`0.1` prints as `0.1` and not as the seventeen digits it really is. A whole
+float prints without a point, which is how the two number types are told apart
+on the page: the `#` marks the integer.
+
+```
+45:print.            ; 45
+#45:print.           ; #45
+1:div(3):print.      ; 0.3333333333333333
+1e21:print.          ; 1e+21
+0.000001:print.      ; 1e-06
+```
+
+`infinity` and `nan` are written by name, and both read back — `infinity` and
+`nan` are globals, and `asFloat` parses either. `-infinity` has no literal;
+`"-infinity":asFloat` gives it.
 
 ### string
 
@@ -679,8 +746,14 @@ every type but answer only for objects.
 
 ### nil
 
-`print`, `display`, `asString`, `equals`, `notEquals`. Nothing else — asking nil
-for anything more is an error rather than nil again.
+`print`, `display`, `asString`, `equals`, `notEquals`, and the five reflection
+messages every type carries. Nothing else — asking nil for anything more is an
+error rather than nil again, so a missing value is reported where it is used
+rather than propagating.
+
+`nil` names the value, not a class: there is no global for the class it
+dispatches to, so `nil:isKindOf(object)` is false and `nil:slots` says an
+object is what has slots.
 
 ---
 
@@ -690,7 +763,7 @@ An error stops the running program and reports the line, innermost frame first.
 There is no way to catch one.
 
 ```
-solum: integer does not understand 'frobnicate'
+solvm: integer does not understand 'frobnicate'
   [line 1] in script
 ```
 
@@ -705,14 +778,14 @@ division by zero, undeclared names, and a block outliving its frame.
 | | |
 | --- | --- |
 | Recursion | about **62 levels** — the frame cap is 64 and a level costs one frame, now that an `ifElse` branch and a `whileTrue` body are inlined rather than called |
-| Constants, names, blocks per chunk | **65535** — a two-byte operand, and both tables intern, so repeats are free |
-| Arguments, parameters, array literal elements | 255 — an argument count is a byte |
+| Constants, names, blocks per chunk | **65536** — a two-byte index, and both tables intern, so repeats cost nothing |
+| Arguments, parameters, array literal elements | 255 — an argument count is one byte |
 | Locals per frame | 255 |
 | Solis input line | 1024 bytes, silently truncated beyond |
 | Strings | bytes, not characters: `size` counts bytes, `at` answers a byte, and `"café":size` is 5 |
 | Case | ASCII only, and by explicit range rather than the C locale |
 | Strings | no `\0`, no unicode escapes |
-| Symbols | no reflection yet: nothing takes one to name a slot or a message |
+| Symbols | read-only: `perform`, `respondsTo`, and `slotAt` take one to *name* something, but nothing takes one to *create* a slot — there is no `slotAtPut` |
 
 Collection is mark-and-sweep and stop-the-world. `SOLUM_GC_STRESS=1` collects on
 every allocation, which is how the collector is tested.
