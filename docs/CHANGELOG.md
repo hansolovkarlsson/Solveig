@@ -7,6 +7,48 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### A calculator, and the frame limit met at last — `pending`, 2026-08-21
+
+[examples/evaluator.sol](../examples/evaluator.sol) tokenises, parses and
+evaluates arithmetic — precedence, brackets, unary minus — and says where it
+went wrong when the input is bad.
+
+Deliberately a different **shape** from log.sol, which is line-oriented: read
+text, split it, tally it. This one recurses, builds a tree of objects, and has
+to report a position. Written because the last program found nothing the
+language lacked, and a program that finds nothing is only evidence about
+programs of its shape.
+
+**It reached the recursion limit, which nothing had before.** A
+recursive-descent parser spends about three frames per level of bracket nesting
+— expression calls term calls factor calls expression again — against the
+machine's 62. It manages **18 brackets deep** and stops at 19.
+
+**And the failure is catchable**, which was not obvious. `call depth exceeded`
+arrives at `onError` like any other, is reported like any other, and the program
+keeps working afterwards. Running out of frames is exactly the sort of failure a
+machine might not be able to recover from. Recorded against
+[ROADMAP 3.5](ROADMAP.md#35-recursion-is-limited-to-about-62-levels), because it
+lowers what raising the cap would buy.
+
+Two smaller things, both written into the example where they bit.
+
+**The group-temporary idiom does not compose.** `( | t | ... )` twice in one
+block is a compile error, groups sharing the frame they sit in — which is the
+documented rule, met for the first time in practice. A constructor block is the
+answer and is better code anyway.
+
+**`ifTrue` with two arguments is not caught until it runs**, which happened
+twice while writing this. The compiler knows `ifTrue` well enough to inline one
+but not what the receiver is, and **any object may define an `ifTrue` of its
+own taking two** — which was checked, and works. So it cannot refuse the wrong
+count. That is the same ignorance that keeps a counted loop from being inlined,
+and it is the price of everything being a message rather than an oversight.
+
+One bug of mine, fixed in the writing: reporting a position past the end of the
+input used the token *count* where a *column* was wanted. They agree often
+enough on short input to look right.
+
 ### The log analyser survives damaged input — `041467d`, 2026-08-21
 
 [examples/log.sol](../examples/log.sol) assumed its input was well-formed:

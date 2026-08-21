@@ -348,5 +348,7 @@ Nearly the whole language, without meeting it as a list:
   things this tutorial does not touch and a real program soon wants: a
   [dictionary](REFERENCE.md#dictionary), for keeping values under keys, and
   [catching a failure](REFERENCE.md#errors) rather than stopping at it.
-- [examples/](../examples/) — twenty-two more programs. Most take one topic;
-  [log.sol](../examples/log.sol) is a whole program, an access-log analyser.
+- [examples/](../examples/) — twenty-three more programs. Most take one topic;
+  [log.sol](../examples/log.sol) and
+  [evaluator.sol](../examples/evaluator.sol) are whole programs — an access-log
+  analyser and a calculator.

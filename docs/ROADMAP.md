@@ -256,6 +256,19 @@ The two remaining ways to go further: raise the cap, which costs stack because
 `SOL_STACK_MAX` is derived from it; or make the limit dynamic rather than a
 fixed array.
 
+**A program has now reached it.** [examples/evaluator.sol](../examples/evaluator.sol)
+is a recursive-descent parser, which spends about three frames per level of
+bracket nesting — expression calls term calls factor calls expression again —
+so it manages **18 brackets deep** and stops at 19. That is more than anybody
+writes by hand and less than a generated expression might hold.
+
+What makes it bearable, and was not obvious: **the failure is catchable.** `call
+depth exceeded` arrives at `onError` like any other, is reported like any other,
+and the program carries on afterwards — running out of frames is exactly the
+sort of failure a machine might not be able to recover from, and this one can.
+So the limit is a limit rather than a crash, which lowers what raising it would
+buy.
+
 ### 3.6 A caller-owned chunk must outlive blocks defined in it
 
 Chunks from `sol_chunk_init` are freed by the caller. A block defined in one and

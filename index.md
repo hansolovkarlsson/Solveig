@@ -138,7 +138,7 @@ make test     # builds and runs the test suite
 
 ## Examples
 
-Twenty-three programs. Every concept the [guide](docs/GUIDE.md) names has one, and
+Twenty-four programs. Every concept the [guide](docs/GUIDE.md) names has one, and
 [log](examples/log.sol) is a whole one — an access-log analyser, written to do a
 job rather than to demonstrate a feature —
 [hello](examples/hello.sol),
@@ -163,4 +163,5 @@ job rather than to demonstrate a feature —
 [dictionaries](examples/dictionaries.sol),
 [loops](examples/loops.sol),
 [errors](examples/errors.sol),
-[log](examples/log.sol).
+[log](examples/log.sol),
+[evaluator](examples/evaluator.sol).
