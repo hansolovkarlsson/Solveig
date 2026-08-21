@@ -45,7 +45,7 @@ anywhere.
 **What is left is no longer the language.** Section 6 is a program's dealings
 with the world outside it — reading input, writing files, stopping with a
 status. Section 3 is the restrictions the language lives under on purpose. And
-section 2 holds the one design question still open.
+section 2 has nothing open in it: the last design question, 2.5, is closed.
 
 Sections 1, 4 and 5 are gone from this document. Everything they held is built:
 the collector and its roots, arrays, strings, user-defined objects, the three
@@ -55,73 +55,18 @@ pointer, the prompt, and source positions in compile errors. The entries are in
 
 ---
 
-## 2. Language decisions still open
+## 2. Language decisions
 
-One question is still open, **2.5**. Everything else this section held has since
-been decided and built, and the reasoning went to the changelog rather than being
-kept in two places -- the [Settled table](COMPLETED.md#settled) gives each
-verdict and names the entry to read for why. What those decisions left unfinished
-is 2.14.
-
-### 2.5 Class side versus instance side
-
-`integer` holds both `new` and `print` in one object, so `#45:new(#1)` resolves
-as readily as `integer:new(#1)`. It used to *answer*, which was nonsense that
-worked; both refuse now that `new` has been taken off the value classes, so that
-symptom is gone. `integer:slots` still lists both sides together, and still lists
-`add`, which `integer:respondsTo('add)` correctly says it will not answer:
-`slots` reports what is there and `respondsTo` asks the dispatch question, and
-here the two have different answers.
-
-The unevenness this entry used to record — `integer` having `new` where `float`
-did not — was half fixed in `7ac6be6`, and is worth restating accurately, since
-it is a symptom of the same thing. The class side is populated where somebody
-needed it and nowhere else:
-
-| | `new` | `of` |
-| --- | --- | --- |
-| `integer`, `float` | yes — refuses, and says what to write | — |
-| `array` | yes — allocates | yes |
-| `object` | yes — allocates and delegates | — |
-| `string`, `symbol`, `block`, `boolean` | yes — refuses, and says what to write | — |
-
-The last row came with the single root rather than from anyone deciding those
-four wanted a `new`: delegating to `object` would have given them one, so they
-shadow it to refuse.
-
-There *is* a rule about which classes should construct, and this entry used to
-say there was not. **`new` belongs where something is made, which is where the
-instances are mutable**: `array:new:equals(array:new)` is false and
-`"":equals("")` is true, so a value class has no fresh distinct thing to hand
-back. It sorts all nine correctly. What is still missing is somewhere for that
-rule to *live* — the class side is not a place, only some slots that happen to
-sit beside the instance ones, so the rule holds in a document rather than in the
-language. See
-[class-and-instance.md](class-and-instance.md#the-class-side-is-populated-wherever-someone-needed-it).
-
-This entry used to say a single root "needs this question answered first",
-and that was wrong. **The root is done** — every built-in class delegates to
-`object` and `#45:isKindOf(object)` is true. The obstacle it named had already
-dissolved: `7ac6be6` gave `float` its own `new` to shadow object's, and 1.6's
-receiver checks refuse the only two messages `integer` does not already define.
-The four classes that cannot construct their instances now refuse `new` and say
-what to write instead. See
-[class-and-instance.md](class-and-instance.md#the-single-root--done-and-it-was-not-gated-by-this).
-
-So what remains here is the split itself, and it is smaller than it looked. It
-buys `#45:new(#1)` being refused, `slots` reporting one audience, and somewhere
-for a rule about the class side to live. It is not what the root was waiting
-on.
-
-1.6 answered this **in the small**: each primitive records the receiver it needs
-and the dispatcher checks before entering it, one message at a time. That was
-enough to stop the two crashes, and it is not the same as splitting the two sides
-into separate objects, which is what remains open.
-
-**[class-and-instance.md](class-and-instance.md)** is the long version: why this
-is only a problem for the built-ins, why the answer is probably not metaclasses,
-what a behaviour object per built-in would cost and unblock, and the trigger
-worth waiting for.
+**Nothing here is open.** The last question was **2.5**, class side versus
+instance side, and it is
+[closed](COMPLETED.md#25-class-side-versus-instance-side--closed): the line
+between the two is drawn by the receiver each slot requires rather than by
+splitting the objects, which is what the split would have bought. Everything
+else this section held was decided and built, and the reasoning went to the
+changelog rather than being kept in two places -- the
+[Settled table](COMPLETED.md#settled) gives each verdict and names the entry to
+read for why. What those decisions left unfinished is 2.14, and 2.13 is a
+limitation rather than a question.
 
 ### 2.14 Loose ends from the decided items
 
@@ -419,10 +364,11 @@ it is catchable; [manifest.sol](../examples/manifest.sol) and the library under
 it found the three above. It is worth noticing which entries survived contact
 with a real program and which have still never come up.
 
-One decision is outstanding: **2.5**, class side versus instance side. 1.6
-answered it one message at a time, which was enough to stop the crashes;
-splitting the two sides into separate objects is still open. Every other question
-section 2 held has been decided and built.
+**No decision is outstanding.** 2.5, the last one, is closed: 1.6 had answered
+it one message at a time to stop the crashes, and finishing that -- every
+class-side message requiring an object receiver -- turned out to be the whole of
+what splitting the two objects would have bought. Every question section 2 held
+has now been decided.
 
 [ideas.md](ideas.md) records what was considered and turned down, so the same
 arguments do not have to be had twice, and [COMPLETED.md](COMPLETED.md) records

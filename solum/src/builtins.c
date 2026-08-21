@@ -3819,14 +3819,24 @@ static void any_receiver(SolVM *vm, SolObject *obj, const char *name, SolPrimiti
 
 void sol_builtins_install(SolVM *vm)
 {
-    /* NOTE: class-side and instance-side messages still share one object, so
-       `#45:new(#1)` resolves as readily as `integer:new(#1)`. Splitting them
-       properly needs a metaclass level -- see docs/design.md. What is written
-       down here is the half that had to be settled first: which side each
-       message is on, so that `array:add(#1)` is refused rather than run against
-       an object that is not an array. */
+    /* NOTE: class-side and instance-side messages share one object, and the
+       line between them is drawn by the receiver each slot requires rather than
+       by which object holds it. Every class-side message -- `new`, `of`,
+       `fromSeconds`, and the reflection that needs an object to look inside --
+       requires SOL_OBJ, so a class answers it and an instance does not.
+
+       That is what keeps `respondsTo` honest -- it answers whether a send would
+       find a slot that accepts this receiver, so a slot that accepts everybody
+       and then refuses from inside would make it disagree with sending. It is
+       also the whole of what splitting the two objects would have bought, which
+       is why roadmap 2.5 was closed rather than built. See
+       docs/class-and-instance.md.
+
+       Which side each message is on is the half that had to be settled first,
+       so that `array:add(#1)` is refused rather than run against an object that
+       is not an array. */
     vm->integer_class = sol_object_new(vm, NULL);
-    any_receiver(vm, vm->integer_class, "new", prim_integer_no_new);
+    instance(vm, vm->integer_class, SOL_OBJ, "new", prim_integer_no_new);
     instance(vm, vm->integer_class, SOL_INT, "print", prim_print);
     instance(vm, vm->integer_class, SOL_INT, "display", prim_display);
     instance(vm, vm->integer_class, SOL_INT, "add", prim_integer_add);
@@ -3863,7 +3873,7 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->float_class, SOL_FLOAT, "ceiling", prim_float_ceiling);
     instance(vm, vm->float_class, SOL_FLOAT, "rounded", prim_float_rounded);
     instance(vm, vm->float_class, SOL_FLOAT, "truncated", prim_float_truncated);
-    any_receiver(vm, vm->float_class, "new", prim_float_no_new);
+    instance(vm, vm->float_class, SOL_OBJ, "new", prim_float_no_new);
     instance(vm, vm->float_class, SOL_FLOAT, "negated", prim_float_negated);
     instance(vm, vm->float_class, SOL_FLOAT, "abs", prim_float_abs);
     instance(vm, vm->float_class, SOL_FLOAT, "notEquals", prim_not_equals);
@@ -3881,7 +3891,7 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->nil_class, SOL_NIL, "notEquals", prim_not_equals);
 
     vm->bool_class = sol_object_new(vm, NULL);
-    any_receiver(vm, vm->bool_class, "new", prim_boolean_no_new);
+    instance(vm, vm->bool_class, SOL_OBJ, "new", prim_boolean_no_new);
     instance(vm, vm->bool_class, SOL_BOOL, "print", prim_print);
     instance(vm, vm->bool_class, SOL_BOOL, "display", prim_display);
     instance(vm, vm->bool_class, SOL_BOOL, "equals", prim_equals);
@@ -3895,7 +3905,7 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->bool_class, SOL_BOOL, "notEquals", prim_not_equals);
 
     vm->block_class = sol_object_new(vm, NULL);
-    any_receiver(vm, vm->block_class, "new", prim_block_no_new);
+    instance(vm, vm->block_class, SOL_OBJ, "new", prim_block_no_new);
     instance(vm, vm->block_class, SOL_BLOCK, "print", prim_print);
     instance(vm, vm->block_class, SOL_BLOCK, "display", prim_display);
     instance(vm, vm->block_class, SOL_BLOCK, "equals", prim_equals);
@@ -3911,8 +3921,8 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->block_class, SOL_BLOCK, "ensure", prim_block_ensure);
 
     vm->array_class = sol_object_new(vm, NULL);
-    any_receiver(vm, vm->array_class, "new", prim_array_new);
-    any_receiver(vm, vm->array_class, "of", prim_array_of);
+    instance(vm, vm->array_class, SOL_OBJ, "new", prim_array_new);
+    instance(vm, vm->array_class, SOL_OBJ, "of", prim_array_of);
     instance(vm, vm->array_class, SOL_ARRAY, "size", prim_array_size);
     instance(vm, vm->array_class, SOL_ARRAY, "at", prim_array_at);
     instance(vm, vm->array_class, SOL_ARRAY, "at_put", prim_array_at_put);
@@ -3935,7 +3945,7 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->array_class, SOL_ARRAY, "asString", prim_rendered_as_string);
 
     vm->dict_class = sol_object_new(vm, NULL);
-    any_receiver(vm, vm->dict_class, "new", prim_dict_new);
+    instance(vm, vm->dict_class, SOL_OBJ, "new", prim_dict_new);
     instance(vm, vm->dict_class, SOL_DICT, "size", prim_dict_size);
     instance(vm, vm->dict_class, SOL_DICT, "at", prim_dict_at);
     instance(vm, vm->dict_class, SOL_DICT, "atPut", prim_dict_at_put);
@@ -3967,8 +3977,8 @@ void sol_builtins_install(SolVM *vm)
        and nothing constructs one, so it has no `new` -- `system:time` and
        `system:modifiedAt` are where an instant comes from. */
     vm->time_class = sol_object_new(vm, NULL);
-    any_receiver(vm, vm->time_class, "new", prim_time_no_new);
-    any_receiver(vm, vm->time_class, "fromSeconds", prim_time_from_seconds);
+    instance(vm, vm->time_class, SOL_OBJ, "new", prim_time_no_new);
+    instance(vm, vm->time_class, SOL_OBJ, "fromSeconds", prim_time_from_seconds);
     instance(vm, vm->time_class, SOL_TIME, "asSeconds", prim_time_as_seconds);
     instance(vm, vm->time_class, SOL_TIME, "secondsSince", prim_time_seconds_since);
     instance(vm, vm->time_class, SOL_TIME, "plusSeconds", prim_time_plus_seconds);
@@ -4001,7 +4011,7 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->object_class, SOL_OBJ, "asString", prim_object_as_string);
 
     vm->string_class = sol_object_new(vm, NULL);
-    any_receiver(vm, vm->string_class, "new", prim_string_no_new);
+    instance(vm, vm->string_class, SOL_OBJ, "new", prim_string_no_new);
     instance(vm, vm->string_class, SOL_STRING, "print", prim_print);
     instance(vm, vm->string_class, SOL_STRING, "display", prim_display);
     instance(vm, vm->string_class, SOL_STRING, "equals", prim_equals);
@@ -4027,7 +4037,7 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->string_class, SOL_STRING, "greaterOrEqual", prim_greater_or_equal);
 
     vm->symbol_class = sol_object_new(vm, NULL);
-    any_receiver(vm, vm->symbol_class, "new", prim_symbol_no_new);
+    instance(vm, vm->symbol_class, SOL_OBJ, "new", prim_symbol_no_new);
     instance(vm, vm->symbol_class, SOL_SYMBOL, "print", prim_print);
     instance(vm, vm->symbol_class, SOL_SYMBOL, "display", prim_display);
     instance(vm, vm->symbol_class, SOL_SYMBOL, "asString", prim_symbol_as_string);
@@ -4055,10 +4065,13 @@ void sol_builtins_install(SolVM *vm)
         any_receiver(vm, classes[i], "isKindOf",   prim_is_kind_of);
         any_receiver(vm, classes[i], "isNil",      prim_is_nil);
         any_receiver(vm, classes[i], "notNil",     prim_not_nil);
-        /* These two want an object to look inside. On anything else they say so
-           rather than going missing, which is a better error than "no slot". */
-        any_receiver(vm, classes[i], "slots",      prim_slots);
-        any_receiver(vm, classes[i], "slotAt",     prim_slot_at);
+        /* These two want an object to look inside, and say so through the
+           receiver requirement rather than from inside the primitive. That is
+           what keeps `respondsTo` honest: it answers whether a send would find
+           a slot that accepts this receiver, so a slot that accepts everybody
+           and then refuses would make it disagree with sending. */
+        instance(vm, classes[i], SOL_OBJ, "slots",  prim_slots);
+        instance(vm, classes[i], SOL_OBJ, "slotAt", prim_slot_at);
     }
 
     /* One hierarchy. Every built-in class delegates to `object`, so

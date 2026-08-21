@@ -1,14 +1,16 @@
 # The class side and the instance side
 
-*What roadmap [2.5](ROADMAP.md) is about, why it is only a problem for the
-built-in classes, why the answer is probably not metaclasses, and what the class
-side should contain at all. Includes the single root, which this was long
-believed to gate and did not. Every snippet here has been run; the outputs are
-what the VM actually prints.*
+*What roadmap 2.5 was about, why it was only a problem for the built-in classes,
+why the answer was not metaclasses, and what the class side should contain at
+all. Includes the single root, which this was long believed to gate and did not.
+Every snippet here has been run; the outputs are what the VM actually prints.*
 
-This is the one design question still open. Nothing in it blocks a working
-program today — it is recorded because the decision has a consequence that does
-block something, and that consequence is easy to miss.
+**This question is closed** — see
+[COMPLETED](COMPLETED.md#25-class-side-versus-instance-side--closed) for the
+verdict, and [below](#how-it-was-settled) for what settled it. The document is
+kept because the reasoning is what makes the answer make sense, and because the
+two sides still share one object: what changed is that the line between them is
+now drawn and checked.
 
 ---
 
@@ -93,7 +95,7 @@ answer a literal spelled longer.
 
 That rule sorts all nine classes correctly, and it agrees with the four
 refusals. It also puts `integer:new` and `float:new` on the wrong side of its own
-line, which [the question underneath](#the-question-underneath) reaches by a
+line, which [the question underneath](#the-question-underneath--answered-and-acted-on) reaches by a
 different route.
 
 What it does not do is give the rule somewhere to *live*. It is a rule about
@@ -316,22 +318,70 @@ the language? `integer:behaviour` would make reflection honest about the split.
 Hiding it would keep the surface smaller and make `integer:slots` quietly
 incomplete.
 
-## When to do it
+## How it was settled
 
-**Not yet, and the case for it is weaker than it was.** The split was worth
-doing largely because it gated the single root, and the measurement above says
-it does not. What is left for it to fix is real but small:
+Not by splitting the objects. **The line between the two sides is drawn by the
+receiver each slot requires**, which 1.6 had already built for a different
+reason — to stop `array:add(#1)` running against a class object — and which
+turned out to be the whole mechanism the split was wanted for.
 
-- `#45:new(#1)` answers, which is nonsense nobody writes.
-- `integer:slots` mixes the two sides, and lists a slot `respondsTo` will not
-  answer.
-- There is nowhere for a rule about the class side to live, which is why four
-  classes have none and nobody noticed.
+Three messages were on the wrong side of it. `new`, `slots` and `slotAt` were
+registered for *any* receiver and then refused a value from inside the
+primitive, so `respondsTo` said one thing and sending did another:
 
-None of those bites a working program. So doing the split now would be
-refactoring toward tidiness — worth it when reflection starts being used in
-earnest and `slots` reporting two audiences at once becomes a thing to explain
-rather than a thing to shrug at.
+```
+#45:respondsTo('new).       ; true
+#45:new.                    ; an integer is written #45, and there is nothing for 'new' to make
+```
+
+The same gap let an instance answer a class-side message — `[#1]:new` handed
+back a fresh empty array, and `[#1]:of(#2, #3)` a fresh one holding them.
+
+Every class-side message requires an object receiver now: `new`, `of`,
+`fromSeconds`, `slots`, `slotAt`. Ten registrations. `respondsTo` agrees with
+sending everywhere, an instance cannot answer for its class, and the teaching
+errors survive because they were always for the class:
+
+```
+integer:new.
+solvm: an integer is written #45, and there is nothing for 'new' to make -- #0 is the empty one
+```
+
+**The rule this document said had nowhere to live now lives in the registration
+table**, where it is checked on every send: a slot that takes `SOL_OBJ` is class
+side, a slot that takes a value type is instance side. And the two are separable
+from inside the language, with nothing on neither side:
+
+```
+integer:slots:size.                                            ; #30
+integer:slots:select({ s | integer:respondsTo(s) }):size.      ; #8
+integer:slots:select({ s | #45:respondsTo(s) }):size.          ; #27
+```
+
+The five that overlap are `isKindOf`, `isNil`, `notNil`, `perform` and
+`respondsTo` — reflection that serves both audiences, which is right rather than
+sloppy.
+
+## What the split would still buy
+
+
+
+**One thing, and it is not worth a second object per built-in.**
+`integer:slots` answers 30, listing both audiences. That is honest — they *are*
+its own slots — and it is now explicable in one sentence, with a filter to show
+it. The split would make it 8 by moving 22 somewhere else, at the cost of a
+class-to-behaviour link that `isKindOf` and all four reflection messages would
+have to keep honest.
+
+The other two things it was for are gone: `#45:new(#1)` is refused, and the rule
+about the class side has somewhere to live.
+
+**The trigger to reopen this**: when `slots` on a built-in class is *read by a
+program* rather than printed by an example. Across four programs written to do a
+job and four libraries, reflection on a built-in class appears exactly once —
+`integer:slots:size:print` in `examples/reflect.sol`, printing a count. Until
+something reads that list and has to care which audience it is looking at, the
+filter is enough.
 
 **The single root was a separate decision, and it is already made** — see
 [above](#the-single-root--done-and-it-was-not-gated-by-this). This paragraph
@@ -499,8 +549,8 @@ says the same thing in less space.
   to dispatch to.
 - There **is** a rule for which classes should construct — `new` belongs where
   the instances are mutable, so there is a fresh distinct one to hand back. This
-  document used to say no rule was available. What is missing is somewhere for
-  it to live, which only the split would give it.
+  document used to say no rule was available, and then that it had nowhere to
+  live; it lives in the receiver each slot requires.
 - `a := string:new` as a *declaration* rather than a construction is a separate
   wish, and a more reasonable one. It is answered in
   [absence.md](absence.md#nor-a-stringnew-that-means-a-string-not-filled-in-yet):
@@ -513,7 +563,11 @@ says the same thing in less space.
   claim. It is done: every built-in class delegates to `object`, and the four
   classes that cannot construct their instances refuse `new` and say what to
   write instead.
-- Worth doing when the single root is wanted, not before.
+- **The question is closed, and the split was not built.** Every class-side
+  message requires an object receiver, so the line between the two sides is
+  drawn by what each slot accepts and checked on every send. `respondsTo` agrees
+  with sending, an instance cannot answer for its class, and the rule about the
+  class side lives in the registration table.
 - Separately: `new` *was* three operations sharing a name, and on `integer` and
   `float` it was the identity function left over from a design that was
   abandoned. Those two now refuse like the other four, so `new` means one thing

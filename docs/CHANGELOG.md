@@ -7,7 +7,68 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-Nothing yet.
+### 2.5 is closed, and the split was not built — `pending`, 2026-08-21
+
+The last open design question. Closed by **not** splitting the objects, because
+the thing the split was for turned out to be reachable without it.
+
+**What was actually wrong was smaller and worse than the entry said.** Three
+messages — `new`, `slots` and `slotAt` — were registered for *any* receiver and
+then refused a value from inside the primitive, so `respondsTo` said one thing
+and sending did another. That is exactly what `respondsTo` has a comment saying
+it must not do:
+
+```
+#45:respondsTo('new).       ; true
+#45:new.                    ; an integer is written #45, and there is nothing for 'new' to make
+```
+
+The same gap let an instance answer for its class:
+
+```
+[#1]:new.                   ; []          -- a fresh empty array
+[#1]:of(#2, #3).            ; [#2, #3]
+dictionary:new:new.         ; <dictionary>
+```
+
+**Every class-side message requires an object receiver now** — `new`, `of`,
+`fromSeconds`, `slots`, `slotAt`. Ten registrations changed from `any_receiver`
+to `instance(..., SOL_OBJ, ...)`. All four of those sends are refused,
+`respondsTo` agrees with sending everywhere, and the teaching errors survive
+because they were always for the class rather than for a value.
+
+**The rule the entry said had nowhere to live now lives in the registration
+table**, where the dispatcher checks it on every send: a slot that takes
+`SOL_OBJ` is class side, a slot that takes a value type is instance side. That
+was the whole of what a behaviour object per built-in would have bought, and it
+cost ten lines instead of a second object per class with a link that `isKindOf`
+and all four reflection messages would have to keep honest.
+
+The two sides are separable from inside the language, and **nothing is on
+neither** — there is a test asserting exactly that:
+
+```
+integer:slots:size.                                          ; #30
+integer:slots:select({ s | integer:respondsTo(s) }):size.    ; #8
+integer:slots:select({ s | #45:respondsTo(s) }):size.        ; #27
+```
+
+Eight and twenty-seven overlap by five: `isKindOf`, `isNil`, `notNil`, `perform`
+and `respondsTo`, reflection that genuinely serves both audiences.
+
+**One correction on the way.** Looking at this again, the first thing I measured
+was that 22 of `integer`'s 30 slots are ones the class will not answer, and I
+called that noise. It is not — they are the instance side, and a class holding
+its instances' messages is the design rather than a defect. The real defect was
+the three that lied, which is a much narrower thing and the one worth fixing.
+
+**The trigger to reopen it**: when `slots` on a built-in class is read by a
+*program* rather than printed by an example. Across four programs written to do
+a job and four libraries, that happens exactly once —
+`integer:slots:size:print`, printing a count.
+
+**Section 2 is now empty.** The language has no open design questions, only
+deliberate limitations.
 
 ## 0.5.0 — 2026-08-21
 

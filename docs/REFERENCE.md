@@ -1065,6 +1065,27 @@ The messages a class answers for itself are the ones that make instances —
 side. `respondsTo` agrees with sending, so `array:respondsTo('add)` is false and
 `array:respondsTo('of)` is true.
 
+**The line is the receiver each message requires**, not which object holds it.
+A class-side message wants an object, so a class answers it and an instance does
+not:
+
+```
+array:of(#1, #2).      ; [#1, #2]
+[#1]:of(#2).           ; solvm: 'of' expects an object, got array
+```
+
+Which makes the two sides separable, with nothing on neither:
+
+```
+integer:slots:size.                                          ; #30
+integer:slots:select({ s | integer:respondsTo(s) }):size.    ; #8   -- class side
+integer:slots:select({ s | #45:respondsTo(s) }):size.        ; #27  -- instance side
+```
+
+The five in both are `isKindOf`, `isNil`, `notNil`, `perform` and `respondsTo` —
+reflection serves either side. See
+[class-and-instance.md](class-and-instance.md#how-it-was-settled).
+
 **Only three classes construct** — `object`, `array` and `dictionary` — and the
 rule is mutability: `new` belongs where something is *made*, which is where the
 instances are references, so there is a fresh, distinct one to hand back.

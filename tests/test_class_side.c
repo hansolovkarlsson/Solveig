@@ -206,6 +206,114 @@ static void test_via_is_checked_against_the_real_receiver(void)
     printf("  via still reaches the ancestor with the right receiver\n");
 }
 
+/* `respondsTo` answers whether a send would find a slot that accepts this
+   receiver, so a slot that accepts everybody and then refuses from inside the
+   primitive makes it disagree with sending. Three did: `new`, `slots` and
+   `slotAt` were registered for any receiver and then refused a value.
+
+   They require an object now, which is what closed roadmap 2.5 -- the line
+   between the class side and the instance side is drawn by the receiver each
+   slot requires, rather than by splitting the object in two. */
+static void test_responds_to_agrees_with_sending(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "a := #45:respondsTo('new)."
+        "b := #45:respondsTo('slots)."
+        "c := #45:respondsTo('slotAt)."
+        "d := [#1]:respondsTo('new)."
+        "e := [#1]:respondsTo('of)."
+        /* What a value does understand is unchanged. */
+        "f := #45:respondsTo('add)."
+        "g := #45:respondsTo('isKindOf)."
+        /* And the class still answers its own side. */
+        "h := integer:respondsTo('new)."
+        "i := array:respondsTo('of)."
+        "j := array:respondsTo('add).") == SOL_OK);
+    assert(SOL_AS_BOOL(global(&vm, "a")) == false);
+    assert(SOL_AS_BOOL(global(&vm, "b")) == false);
+    assert(SOL_AS_BOOL(global(&vm, "c")) == false);
+    assert(SOL_AS_BOOL(global(&vm, "d")) == false);
+    assert(SOL_AS_BOOL(global(&vm, "e")) == false);
+    assert(SOL_AS_BOOL(global(&vm, "f")) == true);
+    assert(SOL_AS_BOOL(global(&vm, "g")) == true);
+    assert(SOL_AS_BOOL(global(&vm, "h")) == true);
+    assert(SOL_AS_BOOL(global(&vm, "i")) == true);
+    assert(SOL_AS_BOOL(global(&vm, "j")) == false);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+    printf("  respondsTo agrees with sending, new and slots included\n");
+}
+
+/* The sends those answers promise. A class-side message on an instance is
+   refused rather than answering something -- `[#1]:new` used to hand back a
+   fresh empty array, and `[#1]:of(#2)` a fresh one holding #2. */
+static void test_a_class_side_message_needs_a_class(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    static const char *refused[] = {
+        "[#1]:new.", "[#1]:of(#2).", "#45:new.", "\"s\":new.",
+        "#45:slots.", "[#1]:slotAt('x).", "dictionary:new:new.",
+    };
+    for (size_t i = 0; i < sizeof refused / sizeof refused[0]; i++) {
+        assert(run(&vm, &chunk, refused[i]) == SOL_RUNTIME_ERROR);
+        sol_chunk_free(&chunk);
+    }
+
+    /* And the class side still works, teaching error included. */
+    assert(run(&vm, &chunk, "a := array:new. b := array:of(#1). c := object:new."
+                            "d := dictionary:new.") == SOL_OK);
+    assert(SOL_AS_ARRAY(global(&vm, "a"))->count == 0);
+    assert(SOL_AS_ARRAY(global(&vm, "b"))->count == 1);
+    sol_chunk_free(&chunk);
+
+    assert(run(&vm, &chunk, "integer:new.") == SOL_RUNTIME_ERROR);
+    assert(strstr(vm.error_message.chars, "there is nothing for 'new' to make") != NULL);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+    printf("  a class-side message needs a class\n");
+}
+
+/* Every slot on a built-in class, sorted into the two audiences by which
+   receiver takes it. The overlap is the reflection that works on both, which is
+   the right answer rather than an oversight. */
+static void test_the_two_sides_are_separable(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "all := integer:slots:size."
+        "classSide := integer:slots:select({ s | integer:respondsTo(s) }):size."
+        "instanceSide := integer:slots:select({ s | #45:respondsTo(s) }):size."
+        "neither := integer:slots:select({ s |"
+        "    integer:respondsTo(s):not:and({ #45:respondsTo(s):not }) }):size."
+        "both := integer:slots:select({ s |"
+        "    integer:respondsTo(s):and({ #45:respondsTo(s) }) }):size.") == SOL_OK);
+
+    int all = (int)SOL_AS_INT(global(&vm, "all"));
+    int class_side = (int)SOL_AS_INT(global(&vm, "classSide"));
+    int instance_side = (int)SOL_AS_INT(global(&vm, "instanceSide"));
+    int both = (int)SOL_AS_INT(global(&vm, "both"));
+
+    /* Every slot belongs to at least one side: nothing is unreachable. */
+    assert(SOL_AS_INT(global(&vm, "neither")) == 0);
+    /* And the two sides plus the shared middle account for all of them. */
+    assert(class_side + instance_side - both == all);
+    /* The shared middle is reflection, which both sides want. */
+    assert(both == 5);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+    printf("  the two sides are separable, and nothing is on neither\n");
+}
+
 int main(void)
 {
     printf("class side versus instance side\n");
@@ -216,6 +324,9 @@ int main(void)
     test_a_class_object_renders_as_an_address();
     test_an_override_lifts_the_requirement();
     test_via_is_checked_against_the_real_receiver();
+    test_responds_to_agrees_with_sending();
+    test_a_class_side_message_needs_a_class();
+    test_the_two_sides_are_separable();
     printf("ok\n");
     return 0;
 }

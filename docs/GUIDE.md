@@ -970,9 +970,10 @@ total:div(200000.0):asString(".9"):display.      ; 0.000000088 -- or thereabouts
 The language is Turing-complete and does not leak. What remains is in
 [ROADMAP.md](ROADMAP.md), and it is no longer about the language: a program can
 now be split across files, stop with a status, read its input, read and write
-files, take a string apart and put it back together, and time itself. One design
-question is still open — whether the class side and the instance side should be
-separate objects.
+files, take a string apart and put it back together, and time itself. **No design
+question is open**: the last one — whether the class side and the instance side
+should be separate objects — was closed by drawing the line between them with
+the receiver each message requires, rather than by splitting the objects.
 
 Known restrictions worth carrying with you:
 

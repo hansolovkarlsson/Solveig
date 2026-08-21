@@ -309,7 +309,7 @@ reference claimed declarations may open any group, and they could not.
 ## 2. Language decisions
 
 The two entries this section still holds live are in
-[ROADMAP.md](ROADMAP.md#2-language-decisions-still-open): **2.5**, class side
+[ROADMAP.md](ROADMAP.md#2-language-decisions): **2.5**, class side
 versus instance side, and **2.14**, the loose ends the decided items left.
 
 ### Settled
@@ -1265,6 +1265,81 @@ rather than NUL-terminated and already carried one through `readFile` and
 nothing is asking for it. A byte from a string is a number now, which is what
 every use met so far actually wanted. If a program turns up that needs a large
 mutable buffer, that is a new entry with its own case, not this one reopened.
+
+### 2.5 Class side versus instance side — **closed**
+
+The last open question in the language, and it is closed by **not** splitting the
+objects — because the thing the split was for turned out to be reachable without
+it.
+
+`integer` holds both `new` and `add` in one object. The complaint was that
+nothing separates the two audiences, and the fix on offer was a behaviour object
+per built-in, with a class-to-behaviour link that `isKindOf` and all four
+reflection messages would have to follow.
+
+**What was actually wrong was smaller and worse.** Three messages — `new`,
+`slots` and `slotAt` — were registered for *any* receiver and then refused a
+value from inside the primitive. So `respondsTo` said one thing and sending did
+another, which is precisely what `respondsTo` is documented not to do:
+
+```
+#45:respondsTo('new).       ; true
+#45:new.                    ; an integer is written #45, and there is nothing for 'new' to make
+```
+
+And the same shape let an instance answer a class-side message:
+
+```
+[#1]:new.                   ; []          -- a fresh empty array
+[#1]:of(#2, #3).            ; [#2, #3]
+dictionary:new:new.         ; <dictionary>
+```
+
+**The fix is that every class-side message requires an object receiver** —
+`new`, `of`, `fromSeconds`, and the reflection that needs an object to look
+inside. Ten registrations changed from `any_receiver` to `instance(..., SOL_OBJ,
+...)`. All four of those sends are refused now, and `respondsTo` agrees with
+sending everywhere.
+
+The teaching errors survive, because they were always for the *class*:
+
+```
+integer:new.
+solvm: an integer is written #45, and there is nothing for 'new' to make -- #0 is the empty one
+```
+
+**The line between the two sides is drawn by the receiver each slot requires**,
+rather than by which object holds the slot. That is the rule this entry said had
+nowhere to live, and it lives in the registration table now, where the compiler
+checks it: a slot that takes SOL_OBJ is class side, a slot that takes a value
+type is instance side.
+
+The two sides are separable from inside the language, and every slot belongs to
+at least one:
+
+```
+integer:slots:size.                                            ; #30
+integer:slots:select({ s | integer:respondsTo(s) }):size.      ; #8   -- class side
+integer:slots:select({ s | #45:respondsTo(s) }):size.          ; #27  -- instance side
+```
+
+Eight and twenty-seven overlap by five, and the five are `isKindOf`, `isNil`,
+`notNil`, `perform` and `respondsTo` — reflection that genuinely serves both
+audiences, which is the right answer rather than an oversight. **Nothing is on
+neither side**, and there is a test asserting exactly that.
+
+**What the split would still buy, and why it is not worth it.** `integer:slots`
+answers 30, listing both audiences. That is honest — they *are* its own slots —
+and it is now explicable in one sentence with a filter to demonstrate it. The
+split would make it 8 by moving 22 elsewhere, at the cost of a second object per
+built-in and a link every reflection path must keep honest.
+
+**The trigger to reopen this**: when `slots` on a built-in class is read by a
+program rather than printed by an example. In four programs written to do a job
+and four libraries, reflection on a built-in class appears exactly once —
+`integer:slots:size:print` in `examples/reflect.sol`, printing a count. Until
+something reads that list and has to care which audience it is looking at, the
+filter is enough.
 
 ### 6.23 An array cannot be popped, or asked what it holds — **done**
 
