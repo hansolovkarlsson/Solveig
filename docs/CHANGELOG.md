@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### Directories, and a script you can run directly — `pending`, 2026-08-21
+### Directories, and a script you can run directly — `d503612`, 2026-08-21
 
 Two things, in the direction of Solum being worth writing a script in.
 
