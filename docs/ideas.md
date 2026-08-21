@@ -37,6 +37,7 @@ marked as a sketch.
 | Subclass `integer`, a `byte` subclass | **Not possible** — see below |
 | More `@` directives: `@define`, `@ifdef`, `@once` | **No** — each one's job is already done by something that is not a directive |
 | Namespaces for included files | **Defer** — the trigger is somebody else writing a library |
+| Splitting the reference into pages | **Defer** — the trigger is the message reference outgrowing the rest |
 
 ---
 
@@ -294,6 +295,46 @@ existing ones.
 - One program needs two libraries that clash on a name. Today the answer is
   "rename one", which works right up until you do not own one of them.
 
+### Splitting the reference into pages
+
+`docs/REFERENCE.md` is about 2,500 lines. Should it become several pages?
+
+**Not yet**, and the trigger is measurable rather than a feeling: **when the
+message reference is longer than everything above it.**
+
+**What one page is worth.** A reference is read by searching, and one page means
+one search. Splitting it means knowing which page a thing is on *before* looking
+for it — which is the question the reader had in the first place. Every
+multi-page reference answers that with an index, and an index is what was just
+added, so the split would be paying a cost to buy something already in hand.
+
+**The seam is already visible**, which is the useful part of asking early. The
+sections divide cleanly in two:
+
+| | lines |
+| --- | --- |
+| the language — syntax, values, blocks, control flow, objects, errors | ~1,700 |
+| [Message reference](REFERENCE.md#message-reference) — what each type answers | ~630 |
+
+Everything above the message reference describes a language that has nearly
+stopped changing; the message reference grows with every built-in. So the split,
+when it comes, is **the language** and **the messages**, and the
+[message index](REFERENCE.md#message-index) becomes the bridge between them
+rather than a thing to build later.
+
+**The trigger, said exactly**: when *Message reference* exceeds the sum of the
+sections above it. That is a number the file can be measured for, it does not
+depend on anyone's patience with scrolling, and it marks the point where the
+document is mostly a catalogue with a language attached rather than the other
+way round. At 630 against 1,700 it is not close.
+
+**What to do before then, if it gets uncomfortable sooner**: the message
+reference could move to its own page while everything else stays, which is one
+file and one link rather than a reorganisation. That is the same split, taken
+early, and it is worth preferring to a scheme with four pages and a navigation
+scheme of its own — this project has one reader today and adding a table of
+contents to a table of contents is not what would help them.
+
 ## Recommended against
 
 ### Integer sizes — byte, word, long
@@ -478,7 +519,7 @@ it speeds up every caller rather than the ones who remembered to use the macro.
 **`@ifdef` is the one worth arguing about, and it is still no.**
 
 - *Platform differences.* The language has none. The VM absorbs them in C, which
-  is where they belong; even [6.10](ROADMAP.md#610-waiting-for-a-single-key),
+  is where they belong; even [6.10](COMPLETED.md#610-waiting-for-a-single-key--done),
   the first genuinely platform-divergent feature, would diverge inside the VM
   rather than in Solum source.
 - *Debug and release builds.* `system:environment` answers at run time, and a
