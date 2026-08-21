@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### `solvm --trace`, and the rest of debugging written down — `pending`, 2026-08-21
+### `solvm --trace`, and the rest of debugging written down — `a48ac3c`, 2026-08-21
 
 The first thing this project has built for looking at a program rather than
 writing one. It came from asking how a program *would* be debugged, which is a
