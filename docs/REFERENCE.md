@@ -72,6 +72,37 @@ have to come first — including `--help` itself. `solvm program.sob --help` han
 with `SOLB` is bytecode and anything else is source. Not the extension, so a
 script with no extension at all works — which is the point of the next part.
 
+### The prompt
+
+`solis` with no file reads from a prompt, and input may span lines: it reads
+until what has been typed *could* compile, showing `..` while it waits.
+
+**Arrow keys and history** when standard input is a terminal:
+
+| key | does |
+| --- | --- |
+| up, down | through the lines already entered |
+| left, right | within the line |
+| home, end, ctrl-a, ctrl-e | to either end of it |
+| backspace, delete | either side of the cursor |
+| ctrl-u | discard the line |
+| ctrl-l | clear the screen |
+| ctrl-d | end the session on an empty line; delete forwards otherwise |
+| ctrl-c, ctrl-z | interrupt and suspend, as the terminal always did |
+
+A line stepped away from with up is kept, so down brings back what you were
+typing rather than an empty line. The same line twice running is one entry.
+
+**Through a pipe or a file** — `solis < script.sol`, or anywhere `TERM` is
+`dumb` or unset — the prompt reads a line at a time with no editing, exactly as
+it did before there was any. Nothing is required to be installed for either: the
+editing is `termios`, and the build still needs only a C11 compiler and `make`.
+
+The cursor moves a byte at a time, so a left arrow steps into the middle of a
+multi-byte character rather than over it. That is
+[the same thing](ROADMAP.md#213-text-is-bytes-and-case-is-ascii-only) as a
+string being bytes rather than characters, and it will be answered when that is.
+
 ### Running a script directly
 
 A `#!` on the very first line is skipped, so a `.sol` file can be marked

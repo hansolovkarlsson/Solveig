@@ -7,7 +7,68 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-Nothing yet.
+### History and arrow keys at the prompt — `pending`, 2026-08-21
+
+[6.10](COMPLETED.md#610-waiting-for-a-single-key--done), and it closes section 6
+entirely. The entry had been waiting for a program that needed raw terminal
+mode; the program turned out to be `solis`, from using it — type something
+wrong, get an error, and want to press up and fix it.
+
+**Why it needed the whole entry rather than a small addition.** The terminal
+does line editing itself in cooked mode, which is why `fgets` was enough to
+begin with: backspace worked because the tty handled it before solis saw the
+line. What the tty does not do is history — so an arrow key arrived as the three
+bytes of its escape sequence and was compiled as though they had been typed.
+Getting history means taking the editing over, and that is raw mode.
+
+Up and down through history, left and right within the line, home and end,
+backspace and delete, ctrl-a, ctrl-e, ctrl-u, ctrl-l. **`ISIG` stays on**, so
+ctrl-c still interrupts and ctrl-z still suspends — those belong to the terminal
+and taking them over would be a surprise.
+
+Two details that came from thinking about the actual use:
+
+- **A half-typed line survives browsing.** Step away with up and what you were
+  writing is kept, so down brings it back rather than an empty line.
+- **The same line twice running is one entry**, because re-running something to
+  watch it fail again should not mean pressing up twice to get past it.
+
+**It degrades rather than depending on anything.** When stdin and stdout are not
+terminals — a pipe, a file, `TERM=dumb` — the prompt reads a line exactly as it
+did before. That is what keeps `solis < script` and the test suite working, and
+it is why this is a fallback rather than a dependency: no readline, no libedit,
+and the build still needs nothing but a C11 compiler and `make`.
+
+**The cursor moves a byte at a time**, so a left arrow steps into the middle of
+a multi-byte character. Same limitation as
+[2.13](ROADMAP.md#213-text-is-bytes-and-case-is-ascii-only) rather than a new
+one.
+
+**Testing it needed a terminal**, and two attempts. `tests/test_line.c` opens
+one with `posix_openpt` — POSIX, needing no library, where `forkpty` lives in
+different headers on different systems. Both mistakes are worth recording:
+
+- **Keys sent before solis starts are lost**, because raw mode is entered with
+  `TCSAFLUSH`, which discards input already received. The test waits for the
+  prompt — written from inside the reader, after the mode change — before
+  sending anything.
+- **Assert on what ran, not on what the screen shows.** The first version
+  matched painted text, and since the editor paints every keystroke, looking for
+  `kept` after typing `"kept":display.` matched the painting rather than the
+  running and drifted a keystroke out of step. The values are chosen now so the
+  output never appears in the input: nothing in `#100:add(#5):print.` spells
+  `#105`.
+
+A third mistake was mine and not the code's: the first cursor-movement test
+failed because I had `LEFT` and `RIGHT` swapped in the harness. ANSI `C` is
+right and `D` is left. The editor had been correct the whole time, which is an
+argument for asserting on program output — `#3` came out means the cursor went
+where it was asked.
+
+**Section 6 is empty**, and so is section 2. What is left of the roadmap is
+section 3: the restrictions the language keeps on purpose. The document no
+longer says what to build next — the way to add to it is to write a program and
+find out what it wants.
 
 ## 0.6.0 — 2026-08-21
 

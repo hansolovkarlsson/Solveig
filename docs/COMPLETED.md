@@ -797,7 +797,7 @@ never get confused. `\r\n` counts as one terminator and a last line with no
 newline of its own still counts as a line.
 
 The half of this entry about waiting for a single key stayed behind, under a
-number of its own: [6.10](ROADMAP.md#610-waiting-for-a-single-key).
+number of its own: [6.10](#610-waiting-for-a-single-key--done).
 
 ### 6.4 File handling — **done**
 
@@ -1385,6 +1385,71 @@ for values, by identity for arrays, blocks, objects and dictionaries.
 ["a", "b", "c"]:indexOf("b").    ; #2
 [[#1]]:indexOf([#1]).            ; nil  -- an equal-looking array is a different one
 ```
+
+### 6.10 Waiting for a single key — **done**
+
+Reading a *line* was done in 6.3, and reading a keypress was split off because
+it needs raw terminal mode — `termios` on Unix, something else on Windows — and
+would be the first piece of the runtime that behaves differently by platform.
+It said: worth doing when a program needs it.
+
+**The program was `solis`.** From using the prompt: type something wrong, get an
+error, and want to press up and fix it. The terminal does line editing itself in
+its usual cooked mode, which is why `fgets` was enough to begin with — backspace
+worked because the tty handled it before solis saw the line. What the tty does
+not do is history, so an arrow key arrived as the three bytes of its escape
+sequence and was compiled as if they had been typed.
+
+Getting history means taking the editing over, which is what made this 6.10's
+trigger rather than a small addition.
+
+**What it does.** Up and down through history, left and right within the line,
+home and end, backspace and delete, ctrl-a, ctrl-e, ctrl-u, ctrl-l. Ctrl-d ends
+the session on an empty line and deletes forwards otherwise, which is what it
+means everywhere else.
+
+Three details worth the words:
+
+- **A half-typed line survives browsing.** Step away with up and the line you
+  were writing is kept, so down brings it back rather than an empty line.
+- **The same line twice running is one entry.** Re-running something to watch it
+  fail again should not mean pressing up twice to get past it.
+- **`ISIG` stays on**, so ctrl-c still interrupts and ctrl-z still suspends.
+  Those belong to the terminal, and taking them over would be a surprise.
+
+**It degrades rather than depending on anything.** `sol_line_editing_available`
+asks whether stdin and stdout are terminals and whether `TERM` is something
+better than `dumb`; when they are not, the prompt reads a line exactly as it did
+before. That is what keeps `solis < script`, `solis program.sol` and the test
+suite working, and it is why this is a fallback rather than a dependency — no
+readline, no libedit, and the build still needs nothing but a C11 compiler and
+`make`.
+
+**Bytes, not characters.** The cursor moves a byte at a time, so a multi-byte
+character is split by a left arrow. That is the same limitation the language
+has — [2.13](ROADMAP.md#213-text-is-bytes-and-case-is-ascii-only) — rather than
+a new one, and it will be answered when that one is.
+
+**The redraw is the whole line, every time.** Wasteful in principle, invisible
+in practice at these lengths, and it is the version that cannot drift: tracking
+what the terminal already shows would be a second model of the same thing, which
+is the usual source of a display that disagrees with the buffer.
+
+**Testing it needed a terminal**, so `tests/test_line.c` opens one with
+`posix_openpt` — POSIX, and needing no library, where `forkpty` lives in
+different headers on different systems and would have changed the Makefile. Two
+things that took a second attempt:
+
+- **Keys sent before solis starts are lost.** Raw mode is entered with
+  `TCSAFLUSH`, which discards input already received, so the test waits for the
+  prompt — written from inside the reader, after the mode change — before
+  sending anything.
+- **The assertions are on what ran, not on what the screen shows.** The first
+  version matched painted text, and since the editor paints every keystroke, a
+  test looking for `kept` after typing `"kept":display.` matched the painting
+  rather than the running and drifted a keystroke out of step from there. The
+  values are now chosen so the output never appears in the input: nothing in
+  `#100:add(#5):print.` spells `#105`.
 
 ### 6.19 A symbol cannot be ordered — **done**
 

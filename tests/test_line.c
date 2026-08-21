@@ -1,0 +1,299 @@
+/* Reading a line at the prompt: history, and the editing that goes with it.
+ *
+ * Two halves. The history is ordinary code and is tested as such. The editor
+ * needs a terminal -- it does nothing without one, by design -- so the rest
+ * drives `solis` through a pty and reads back what the program printed.
+ *
+ * Asserting on what was *run* rather than on what the screen shows is
+ * deliberate: the screen is escape sequences and redraws, and a test that
+ * matched them would fail on any change to how the line is painted while
+ * telling us nothing about whether the editing worked. `#3` came out means the
+ * cursor went where it was asked to. */
+#define _POSIX_C_SOURCE 200809L
+#define _DARWIN_C_SOURCE
+
+#include <assert.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <sys/select.h>
+#include <sys/wait.h>
+#include <termios.h>
+#include <unistd.h>
+
+#include "solis/line.h"
+
+/* ---- history ----------------------------------------------------------- */
+
+static void test_history_keeps_what_was_typed(void)
+{
+    SolisHistory history = { NULL, 0, 0 };
+
+    sol_history_add(&history, "#1:print.");
+    sol_history_add(&history, "#2:print.");
+    assert(history.count == 2);
+    assert(strcmp(history.items[0], "#1:print.") == 0);
+    assert(strcmp(history.items[1], "#2:print.") == 0);
+
+    /* Empty lines are not worth a slot: pressing return on nothing should not
+       put a blank between you and the line you wanted. */
+    sol_history_add(&history, "");
+    sol_history_add(&history, NULL);
+    assert(history.count == 2);
+
+    /* Nor is the same line twice running. Re-running something to watch it fail
+       again should not mean pressing up twice to get past it. */
+    sol_history_add(&history, "#2:print.");
+    assert(history.count == 2);
+
+    /* But the same line again later is a separate entry -- what is being
+       suppressed is a repeat, not a recurrence. */
+    sol_history_add(&history, "#3:print.");
+    sol_history_add(&history, "#2:print.");
+    assert(history.count == 4);
+
+    /* Past the initial capacity, to exercise the growth. */
+    for (int i = 0; i < 100; i++) {
+        char line[32];
+        snprintf(line, sizeof line, "#%d:print.", i);
+        sol_history_add(&history, line);
+    }
+    assert(history.count == 104);
+    assert(strcmp(history.items[103], "#99:print.") == 0);
+
+    sol_history_free(&history);
+    assert(history.count == 0);
+    assert(history.items == NULL);
+    printf("  history keeps what was typed, without blanks or repeats\n");
+}
+
+/* ---- the editor, through a terminal ------------------------------------ */
+
+/* posix_openpt and friends rather than forkpty, which lives in <util.h> on one
+   system and <pty.h> plus -lutil on another. These are POSIX and need no
+   library, so the Makefile stays as it is. */
+static int open_pty(int *slave_out)
+{
+    int master = posix_openpt(O_RDWR | O_NOCTTY);
+    if (master < 0) return -1;
+    if (grantpt(master) != 0 || unlockpt(master) != 0) { close(master); return -1; }
+
+    const char *name = ptsname(master);
+    if (name == NULL) { close(master); return -1; }
+
+    int slave = open(name, O_RDWR | O_NOCTTY);
+    if (slave < 0) { close(master); return -1; }
+
+    *slave_out = slave;
+    return master;
+}
+
+/* A running solis, and what it has written so far.
+ *
+ * Driven by waiting for what should appear rather than by sleeping: a test that
+ * sleeps is a test that passes on a fast machine and fails on a busy one, and
+ * this one has a program starting, a terminal changing mode, and a VM running
+ * between each keystroke and its effect. `expect` reads until the text turns up
+ * or the deadline does. */
+typedef struct {
+    int    master;
+    pid_t  pid;
+    char  *out;
+    size_t length;
+    size_t capacity;
+    size_t scan_from;      /* where the next `expect` starts looking */
+} Session;
+
+static bool session_start(Session *s)
+{
+    int slave = -1;
+    s->master = open_pty(&slave);
+    if (s->master < 0) return false;            /* no pty here */
+
+    s->pid = fork();
+    assert(s->pid >= 0);
+    if (s->pid == 0) {
+        close(s->master);
+        setsid();
+        ioctl(slave, TIOCSCTTY, 0);
+        dup2(slave, STDIN_FILENO);
+        dup2(slave, STDOUT_FILENO);
+        dup2(slave, STDERR_FILENO);
+        if (slave > STDERR_FILENO) close(slave);
+        setenv("TERM", "xterm", 1);
+        execl("bin/solis", "solis", (char *)NULL);
+        _exit(127);
+    }
+    close(slave);
+
+    s->capacity = 8192;
+    s->out = malloc(s->capacity);
+    assert(s->out != NULL);
+    s->out[0] = '\0';
+    s->length = 0;
+    s->scan_from = 0;
+    return true;
+}
+
+/* Reads until `needle` appears after everything already matched, or two seconds
+   pass. Answers whether it turned up. */
+static bool session_expect(Session *s, const char *needle)
+{
+    for (int waited = 0; waited < 2000; waited += 20) {
+        char *found = strstr(s->out + s->scan_from, needle);
+        if (found != NULL) {
+            s->scan_from = (size_t)(found - s->out) + strlen(needle);
+            return true;
+        }
+
+        fd_set set;
+        FD_ZERO(&set);
+        FD_SET(s->master, &set);
+        struct timeval timeout = { 0, 20000 };
+        if (select(s->master + 1, &set, NULL, NULL, &timeout) <= 0) continue;
+
+        if (s->capacity - s->length < 4096) {
+            s->capacity *= 2;
+            char *grown = realloc(s->out, s->capacity);
+            assert(grown != NULL);
+            s->out = grown;
+        }
+        ssize_t got = read(s->master, s->out + s->length, s->capacity - s->length - 1);
+        if (got <= 0) break;
+        s->length += (size_t)got;
+        s->out[s->length] = '\0';
+    }
+    return strstr(s->out + s->scan_from, needle) != NULL;
+}
+
+static void session_send(Session *s, const char *keys)
+{
+    (void)!write(s->master, keys, strlen(keys));
+}
+
+static void session_end(Session *s)
+{
+    session_send(s, "\x04");
+    close(s->master);
+    int status;
+    waitpid(s->pid, &status, 0);
+    free(s->out);
+}
+
+#define UP    "\x1b[A"
+#define DOWN  "\x1b[B"
+#define LEFT  "\x1b[D"
+#define RIGHT "\x1b[C"
+
+/* The prompt is written from inside the reader, after the terminal is in raw
+   mode -- so seeing it is what says the editor is ready for a key. Sending
+   before then loses it: raw mode is entered with TCSAFLUSH, which discards
+   input already received. */
+static bool ready(Session *s) { return session_expect(s, "> "); }
+
+/* Typing a line and running it: the part that worked before any of this, and
+   has to still. */
+static void test_a_typed_line_still_runs(void)
+{
+    Session s;
+    if (!session_start(&s)) { printf("  (no pty available; editor tests skipped)\n"); return; }
+
+    assert(ready(&s));
+    session_send(&s, "#1:add(#2):print.\r");
+    assert(session_expect(&s, "#3"));
+
+    session_end(&s);
+    printf("  a typed line runs\n");
+}
+
+/* Up recalls, and what it recalls runs again. */
+static void test_up_recalls_the_last_line(void)
+{
+    Session s;
+    if (!session_start(&s)) return;
+
+    assert(ready(&s));
+    session_send(&s, "#7:mul(#6):print.\r");
+    assert(session_expect(&s, "#42"));
+
+    assert(ready(&s));
+    session_send(&s, UP);
+    /* The recalled text is painted before it is run, which is what says the
+       recall happened rather than the line being retyped. */
+    assert(session_expect(&s, "#7:mul(#6):print."));
+    session_send(&s, "\r");
+    assert(session_expect(&s, "#42"));
+
+    session_end(&s);
+    printf("  up recalls the last line, and it runs again\n");
+}
+
+/* The reason this exists: a typo, an error, up, and fix it in place. None of it
+   works if the cursor does not go where it is told. */
+static void test_the_cursor_goes_where_it_is_told(void)
+{
+    Session s;
+    if (!session_start(&s)) return;
+
+    assert(ready(&s));
+    session_send(&s, "#1:adx(#2):print.\r");
+    assert(session_expect(&s, "does not understand 'adx'"));
+
+    assert(ready(&s));
+    session_send(&s, UP);
+    assert(session_expect(&s, "#1:adx(#2):print."));
+
+    /* Eleven left, over ":print." and "(#2)", landing after the x. */
+    for (int i = 0; i < 11; i++) session_send(&s, LEFT);
+    session_send(&s, "\x7f");                   /* backspace over the x */
+    session_send(&s, "d");
+    assert(session_expect(&s, "#1:add(#2):print."));
+
+    session_send(&s, "\r");
+    assert(session_expect(&s, "#3"));
+
+    session_end(&s);
+    printf("  a typo is fixed in place with up and the arrow keys\n");
+}
+
+/* Browsing away from a half-typed line and back returns it, rather than the
+   empty line a naive history walk leaves behind.
+ *
+ * The values are chosen so that what is *printed* never appears in what was
+ * *typed*: the editor paints every keystroke, so a test looking for "kept"
+ * after typing `"kept":display.` matches the painting rather than the running,
+ * and everything after it is a keystroke out of step. Arithmetic keeps the two
+ * apart -- nothing in `#100:add(#5):print.` spells #105. */
+static void test_a_half_typed_line_survives_browsing(void)
+{
+    Session s;
+    if (!session_start(&s)) return;
+
+    assert(ready(&s));
+    session_send(&s, "#7:mul(#6):print.\r");
+    assert(session_expect(&s, "#42"));           /* only ever in the output */
+
+    assert(ready(&s));
+    session_send(&s, "#100:ad");                 /* half a line */
+    session_send(&s, UP);
+    assert(session_expect(&s, "#7:mul(#6):print."));   /* the recall, painted */
+    session_send(&s, DOWN);
+    session_send(&s, "d(#5):print.\r");          /* finishing what was kept */
+    assert(session_expect(&s, "#105"));
+
+    session_end(&s);
+    printf("  a half-typed line survives browsing away and back\n");
+}
+
+int main(void)
+{
+    test_history_keeps_what_was_typed();
+    test_a_typed_line_still_runs();
+    test_up_recalls_the_last_line();
+    test_the_cursor_goes_where_it_is_told();
+    test_a_half_typed_line_survives_browsing();
+    printf("test_line: ok\n");
+    return 0;
+}

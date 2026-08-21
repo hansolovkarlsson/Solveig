@@ -42,10 +42,17 @@ have been. Side-table operands are two bytes, a send compares pointers, and the
 script's frame has slots like every other, so a temporary may be declared
 anywhere.
 
-**What is left is no longer the language.** Section 6 is a program's dealings
-with the world outside it — reading input, writing files, stopping with a
-status. Section 3 is the restrictions the language lives under on purpose. And
-section 2 has nothing open in it: the last design question, 2.5, is closed.
+**What is left is section 3, and only section 3.** Those are the restrictions
+the language lives under on purpose, each documented where a program would meet
+it. Section 2 has no open design question — the last one, 2.5, is closed — and
+section 6, a program's dealings with the world outside it, is finished: reading
+input, writing files, stopping with a status, walking the filesystem, knowing
+the time, and as of the last entry, a prompt with history.
+
+So this document no longer says what to build next. **The way to add to it is to
+write a program and find out what it wants**, which is how every one of the last
+eight entries arrived — several of them from a library breaking rather than from
+anyone reasoning about the design.
 
 Sections 1, 4 and 5 are gone from this document. Everything they held is built:
 the collector and its roots, arrays, strings, user-defined objects, the three
@@ -264,29 +271,22 @@ the one the changelog cites.
 ## 6. Beyond the language
 
 Sections 1 to 5 were about making Solum a language, and they are done — the
-entries are in [COMPLETED.md](COMPLETED.md). This one is about making it a
+entries are in [COMPLETED.md](COMPLETED.md). This one was about making it a
 language you can write a *program* in: a program has to be split across files,
-read input, write files, and stop with a status. None of it needs a new idea.
-Splitting a program across files is done, and so are stopping, reading input,
-and files themselves. What is left of it is smaller than what has gone.
+read input, write files, and stop with a status.
+
+**It is empty too.** All twenty-three entries are built, and the last one —
+waiting for a single key — was closed by `solis` wanting history at its own
+prompt. Nothing is left here; a new entry means a program wanted something and
+could not have it.
 
 Raised in a notes file and assessed in [ideas.md](ideas.md), which also records
 what was **not** worth building and why — integer widths, a JIT, cascades,
 trailing-block syntax, and Go-style concurrency among them.
 
-### 6.10 Waiting for a single key
-
-Reading a *line* is done (6.3). Reading a keypress is a different job, and was
-split off rather than carried along with it: it needs raw terminal mode, which is
-`termios` on Unix and something else on Windows, and it would be the first piece
-of the runtime that behaves differently by platform.
-
-Worth doing when a program needs it, and behind its own decision rather than as
-a footnote to line input.
-
 ## Suggested order
 
-**Section 6 is the whole of the live list**, and it came from the right place:
+**Nothing is on the live list.** Section 6 came from the right place:
 notes about what a program would want, rather than a plan written before there
 were any programs. The two newest entries came from further along the same road
 — from a program that wanted something and could not have it, and one of them is
@@ -305,8 +305,10 @@ was, for about a day: it waited for something to need a number for a byte, and
 about, but for `\u0041`, which is text. `asByte` and `asCharacter` are built and
 it is done.
 
-**Only 6.10 is left**, and a single keypress still waits for a program that
-needs it. Everything else section 6 held is built. The four papercuts —
+**Section 6 is empty.** The last entry was
+[6.10](COMPLETED.md#610-waiting-for-a-single-key--done), a single keypress,
+which had been waiting for a program that needed one — and the program turned
+out to be `solis` itself, wanting history and arrow keys at the prompt. The four papercuts —
 [6.19](COMPLETED.md#619-a-symbol-cannot-be-ordered--done),
 [6.21](COMPLETED.md#621-two-libraries-binding-one-name-collide-silently--done),
 [6.22](COMPLETED.md#622-a-file-that-includes-a-library-of-its-own-name-silently-does-nothing--done)

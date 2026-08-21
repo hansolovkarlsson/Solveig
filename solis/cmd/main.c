@@ -8,6 +8,7 @@
 
 #include "solas/compiler.h"
 #include "solis/input.h"
+#include "solis/line.h"
 #include "solum/common.h"
 #include "solum/serialize.h"
 #include "solum/vm.h"
@@ -48,14 +49,28 @@ static int repl(SolVM *vm, const SolSearchPath *search)
     SolisScan  state;
     size_t     scanned = 0;
 
+    /* Editing and history when there is a terminal to do them on; a pipe or a
+       file reads as it always did, which is what keeps `solis < script` and the
+       tests working. */
+    SolisHistory history = { NULL, 0, 0 };
+    bool editing = sol_line_editing_available();
+
     sol_scan_reset(&state);
     printf("solis " SOLUM_VERSION " -- ctrl-d to exit\n");
 
     for (;;) {
-        printf(input.length == 0 ? "> " : ".. ");
-        fflush(stdout);
+        const char *prompt = input.length == 0 ? "> " : ".. ";
+        bool read;
 
-        if (!sol_input_read_line(&input, stdin)) {
+        if (editing) {
+            read = sol_line_read(&input, &history, prompt);
+        } else {
+            printf("%s", prompt);
+            fflush(stdout);
+            read = sol_input_read_line(&input, stdin);
+        }
+
+        if (!read) {
             /* End of input. Anything half-typed is still compiled rather than
                dropped, so input that stops mid-expression says why. */
             if (input.length > 0 && submit(vm, search, input.text) == SOL_EXIT) {
@@ -79,6 +94,7 @@ static int repl(SolVM *vm, const SolSearchPath *search)
     }
 
     sol_input_free(&input);
+    sol_history_free(&history);
     return status;
 }
 
