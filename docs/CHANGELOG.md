@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### A time — `pending`, 2026-08-21
+### A time — `eaa2fa4`, 2026-08-21
 
 Roadmap 6.18. A value type for a point in time, held as nanoseconds since
 1970-01-01T00:00:00Z.

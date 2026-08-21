@@ -1472,7 +1472,7 @@ because a timestamp wants to be a date rather than a number of seconds and
 answering an integer then would have been an interface a date type had to
 change. Built the next thing, on the lines the entry set out.
 
-Built as `pending`. A **value type**, `SOL_TIME`, held as nanoseconds since
+Built as `eaa2fa4`. A **value type**, `SOL_TIME`, held as nanoseconds since
 1970-01-01T00:00:00Z.
 
 **A value, not an object**, which the entry called and which the rule that
