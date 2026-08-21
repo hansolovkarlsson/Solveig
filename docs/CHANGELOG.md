@@ -36,6 +36,20 @@ already there for `--dump` and is why a script can have a `--help` of its own.
 That is the one behaviour here worth protecting, so it is what the new test
 mostly checks.
 
+**`--version` came with it** (`ce77764`), and names the `.sob` format as well as
+the release:
+
+```
+solvm 0.3.0 (.sob format 11)
+```
+
+The format number is the useful half. It is the one that goes wrong in practice
+— a `.sob` from a build with a different one is refused rather than misread, and
+until now there was no way to ask a binary which number it was holding, the
+answer being in a header. The test checks it against `SOLUM_VERSION` and
+`SOL_SOB_VERSION` rather than against a copy of the text, so a release that
+bumps either cannot leave the test passing and wrong.
+
 `tests/test_cli.c` is the first test that runs the **binaries** rather than
 linking the library — a `main` is not something `libsol.a` holds, and which
 stream text landed on cannot be asked any other way. `make test` now builds the
