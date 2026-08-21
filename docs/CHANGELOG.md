@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### A mirroring script, and the defect it found in `modifiedAt` — `pending`, 2026-08-21
+### A mirroring script, and the defect it found in `modifiedAt` — `eac07ab`, 2026-08-21
 
 [examples/mirror.sol](../examples/mirror.sol) copies one directory tree into
 another and reports what changed. The fifth program here written to do a job,
