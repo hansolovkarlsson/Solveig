@@ -7,6 +7,63 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### An error can be caught — `pending`, 2026-08-21
+
+```
+{ nil:frobnicate }:onError({ e | e:message:display }).
+text := { system:readFile(path) }:onError({ e | "" }).
+error:raise("bad input on line 3").
+```
+
+`onError` answers the receiver's answer when nothing went wrong and the
+handler's when something did, so it is an expression. A caught error says
+nothing — which is what the previous commit's deferred reporting was for.
+
+**The error is an object**, delegating to a new `error` global, with its message
+in a slot. A value rather than a string on purpose: this project rewords its
+errors freely, so handing a handler the text and nothing else would make
+matching on it the only way to tell failures apart — an idiom these very habits
+would keep breaking.
+
+**`error:raise` is the only way to raise**, so re-raising is
+`error:raise(e:message)`. Two spellings — one on the class taking a string,
+another on an instance taking none — would be one name meaning two things, which
+is the mistake this language already made once with `new`. The price is that a
+re-raised error's stack points at the re-raise rather than the original failure,
+which is honest: it *is* a new raise.
+
+**It catches everything**, including a misspelled message, as decided. The
+hazard is real and the way out is one message wide.
+
+`system:exit` is not caught: it travels the same way but is a stop rather than a
+failure.
+
+#### The bug this nearly shipped with
+
+`sol_vm_call_block` restored the frame count on failure but **not the stack
+pointer**. That was invisible for as long as every error unwound to
+`sol_vm_run`, which resets the stack on its way out — so nothing between the
+failure and the top ever had to leave things tidy.
+
+Catching stops the unwind part-way, and everything the unwind was allowed to
+leave behind is suddenly still there. It showed up as:
+
+```
+xs:add({ error:raise("x") }:onError({ e | e })).
+solvm: block does not understand 'add'
+```
+
+— the failed call's receiver and arguments still on the stack, so the next send
+found the wrong thing. `sol_vm_send` had always restored its own stack mark;
+`sol_vm_call_block` now does too, which gives every caller the invariant rather
+than making each catcher clean up.
+
+There is a test for it, and for 20,000 catches in a loop not creeping the stack
+upward a few slots at a time.
+
+Also recorded: **there is no `ensure`**, and roadmap 6.17 says why it was left
+out rather than guessed at.
+
 ### An error is text the machine holds — `80818f9`, 2026-08-21
 
 Groundwork for catching one, and **nothing about the visible behaviour has

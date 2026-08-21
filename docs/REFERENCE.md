@@ -435,9 +435,10 @@ cannot be one: `a:=(b)` would otherwise be both an assignment and a send.
 
 None are keywords, but these are bound as globals at startup and shadowing them
 will surprise you: `integer`, `float`, `string`, `array`, `dictionary`, `symbol`,
-`block`, `boolean`, `object`, `system`, `nil`, `true`, `false`, `infinity`, `nan`.
+`block`, `boolean`, `object`, `error`, `system`, `nil`, `true`, `false`,
+`infinity`, `nan`.
 
-The first nine are the class objects, `system` is
+The first ten are the class objects, `system` is
 [the process](#the-program-and-its-process), and the rest are values.
 
 `self` is not a global; it is recognised by the compiler inside a block.
@@ -986,6 +987,83 @@ Absence is not emptiness: `""`, `#0`, `[]` and `false` all answer `notNil`. See
 
 ---
 
+## Errors
+
+Every failure stops the program unless something catches it.
+
+```
+{ nil:frobnicate }:onError({ e | e:message:display }).
+        ; nil does not understand 'frobnicate'
+```
+
+`onError` runs the receiver, and if it fails runs the handler with the error
+instead. It answers **the receiver's answer when nothing went wrong, and the
+handler's when something did** — so it is an expression:
+
+```
+text := { system:readFile(path) }:onError({ e | "" }).
+```
+
+A caught error says nothing: the message never reaches stderr, and the program
+carries on.
+
+### Raising one
+
+```
+error:raise("bad input on line 3").
+```
+
+`error:raise` is the only way to raise, so **re-raising is
+`error:raise(e:message)`**. Two spellings — one on the class taking a string,
+another on an instance taking none — would be one name meaning two things, which
+is a mistake this language has made once already with `new`. The price of having
+one is that a re-raised error's stack points at where it was re-raised rather
+than where it first failed. That is honest: it *is* a new raise.
+
+### The error
+
+An ordinary object delegating to `error`, with its message in a slot.
+
+| Message | Answers |
+| --- | --- |
+| `message` | the text, as a string; nil on an error made some other way |
+
+It is a value rather than a string on purpose. This project rewords its errors
+freely, so handing a handler the text and nothing else would make matching on it
+the only way to tell failures apart — an idiom these very habits would keep
+breaking. An object leaves room to say more about a failure later without
+breaking every handler that already exists.
+
+There is no taxonomy of failures. Inventing one to go with a catch mechanism
+would be inventing it in the wrong order.
+
+### What it catches
+
+**Everything** — including a message misspelled into one the receiver does not
+understand. That is the deliberate choice and the familiar hazard: a handler
+wrapped around too much hides mistakes. What makes it bearable is that passing
+one on is a single message:
+
+```
+{ risky:value }:onError({ e |
+    e:message:equals("empty"):ifElse(
+        { "(nothing given)" },
+        { error:raise(e:message) })       ; not ours -- pass it on
+}).
+```
+
+Two things it does not catch. **`system:exit`** travels the same way, being a
+stop rather than a failure, and a program asking to stop should not be argued
+with by something that was only watching for errors. And an error raised **inside
+the handler** is not caught by that handler — it propagates, like any other
+failure.
+
+The handler is checked when it is run, not when `onError` is sent, so
+`{ #1 }:onError(#2)` is quiet when nothing fails. That is how every block
+argument here behaves: `false:ifTrue(#5)` says nothing either.
+
+---
+
 ## Reflection
 
 Five messages let a program ask about itself. Names are given as symbols,
@@ -1463,6 +1541,7 @@ is false. That is IEEE showing through rather than a decision made here.
 | `whileTrue(body)` | nil, having run `body` while the receiver answers true |
 | `doUntil(condition)` | nil, having run the receiver **until** the condition is true — the body first, so always at least once |
 | `repeat(#n)` | nil, having run the receiver `n` times |
+| `onError(handler)` | the block's answer, or the handler's if it failed |
 | `timeToRun` | seconds the block took, as a float |
 | `timeToRun(#n)` | seconds `n` runs took, as a float |
 

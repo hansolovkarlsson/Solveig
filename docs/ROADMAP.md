@@ -290,6 +290,28 @@ of the runtime that behaves differently by platform.
 Worth doing when a program needs it, and behind its own decision rather than as
 a footnote to line input.
 
+### 6.17 There is no `ensure`
+
+Catching a failure is built. Running something *regardless* of whether one
+happened is not: there is no `ensure`, `finally`, or `unwind-protect`.
+
+```
+{ risky:value }:ensure({ cleanUp:value }).
+```
+
+Nothing needs it yet, which is why it was left out rather than guessed at. The
+things `ensure` usually protects are handles and locks, and there are neither:
+a file is read or written whole, and there is no concurrency. The one thing it
+would buy today is restoring a value a block changed, which is rare enough to
+write by hand.
+
+It is worth building when something acquires a thing that must be given back.
+The shape is the same as `onError` — a primitive that calls the receiver, notes
+whether it failed, runs the second block either way, and then either answers or
+goes on failing — with one wrinkle: a failure in the cleanup block while an
+error is already travelling has to decide which of the two survives, and the
+first one is the one worth reporting, as it is everywhere else here.
+
 ### 6.12 Taking a binary file apart
 
 Reading and writing binary files already works: a string is bytes, a NUL is a

@@ -2307,6 +2307,93 @@ static SolValue prim_boolean_no_new(SolVM *vm, SolValue self, SolValue *args, in
                           "makes neither");
 }
 
+/* ---- errors ------------------------------------------------------------ *
+ *
+ * An error is an ordinary object delegating to `error`, with its `message` in a
+ * slot. Nothing more: there is no taxonomy of failures here, and inventing one
+ * to go with a catch mechanism would be inventing it in the wrong order.
+ *
+ * A *value* rather than a string, though, and deliberately. This project rewords
+ * its errors freely, so if a handler were handed the text and nothing else,
+ * matching on it would become the only way to tell failures apart -- an idiom
+ * the project's own habits would keep breaking. An object leaves room for a
+ * `kind` later without breaking every handler that already exists.
+ */
+static SolValue error_from(SolVM *vm, const char *message, int length)
+{
+    SolObject *e = sol_object_new(vm, vm->error_class);
+    sol_gc_push_temp(vm, &e->gc);
+
+    SolString *text = sol_string_new(vm, message, length);
+    sol_object_define(vm, e, "message", SOL_STRING_VAL(text));
+
+    sol_gc_pop_temp(vm);
+    return SOL_OBJ_VAL(e);
+}
+
+/* `error:raise("...")` -- the only way to raise one, so re-raising is
+ * `error:raise(e:message)`.
+ *
+ * Two spellings of raising would have been a `new`-shaped mistake: a `raise` on
+ * the class taking a string and another on an instance taking nothing is one
+ * name meaning two things, which is the trouble this language has already been
+ * through once. The cost of having one is that a re-raised error's stack points
+ * at where it was re-raised rather than where it first failed, which is honest
+ * -- it is a new raise -- and is written down. */
+static SolValue prim_error_raise(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "raise", argc, 1)) return SOL_NIL_VAL;
+    if (!SOL_IS_STRING(args[0])) {
+        sol_vm_runtime_error(vm, "'raise' expects a string, got %s",
+                             sol_type_name(args[0]));
+        return SOL_NIL_VAL;
+    }
+
+    /* Raised errors read exactly like the machine's own: the message is what
+       was given, and the stack is where it was given. */
+    sol_vm_runtime_error(vm, "%s", SOL_AS_STRING(args[0])->chars);
+    return SOL_NIL_VAL;
+}
+
+/* `{ ... }:onError({ e | ... })` -- run the receiver, and if it fails, run the
+ * handler with the error instead.
+ *
+ * It catches **everything**, including a message the receiver did not
+ * understand because of a typo. That is the deliberate choice and the familiar
+ * hazard: a handler wrapped around too much hides mistakes. What makes it
+ * bearable is that re-raising is one message -- `error:raise(e:message)` -- so a
+ * handler that only means to deal with some failures can pass the rest on.
+ *
+ * `system:exit` is not caught. It travels by the same flag, being a stop rather
+ * than a failure, and a program asking to stop should not be argued with by
+ * something that was only watching for errors.
+ *
+ * Answers what the receiver answered when it did not fail, and what the handler
+ * answered when it did -- so it is an expression:
+ *
+ *     text := { system:readFile(path) }:onError({ e | "" }).
+ */
+static SolValue prim_block_on_error(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "onError", argc, 1)) return SOL_NIL_VAL;
+
+    SolValue answer = sol_vm_call_block(vm, self, NULL, 0);
+    if (!vm->had_error) return answer;
+    if (vm->exiting) return SOL_NIL_VAL;      /* a stop, not a failure */
+
+    /* Built before the flag is cleared, so nothing can allocate its way into
+       another error while the message is still only in the VM's buffer. */
+    SolValue caught = error_from(vm, vm->error_message.chars,
+                                 vm->error_message.length);
+
+    vm->had_error = false;
+    vm->error_message.length = 0;
+    vm->error_trace.length = 0;
+
+    return sol_vm_call_block(vm, args[0], &caught, 1);
+}
+
 static SolValue prim_object_new(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     (void)args;
@@ -2948,6 +3035,7 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->block_class, SOL_BLOCK, "whileTrue", prim_while_true);
     instance(vm, vm->block_class, SOL_BLOCK, "doUntil", prim_do_until);
     instance(vm, vm->block_class, SOL_BLOCK, "repeat", prim_block_repeat);
+    instance(vm, vm->block_class, SOL_BLOCK, "onError", prim_block_on_error);
 
     vm->array_class = sol_object_new(vm, NULL);
     any_receiver(vm, vm->array_class, "new", prim_array_new);
@@ -2995,6 +3083,14 @@ void sol_builtins_install(SolVM *vm)
        question in the roadmap. */
     vm->object_class = sol_object_new(vm, NULL);
     instance(vm, vm->object_class, SOL_OBJ, "new", prim_object_new);
+
+    /* `error` is an ordinary object that errors delegate to, so `e:message` is
+       a slot lookup and `e:isKindOf(error)` is true without any new machinery.
+       The default is nil rather than absent: a prototype with an optional field
+       binds one, and an error made any other way still answers `message`. */
+    vm->error_class = sol_object_new(vm, vm->object_class);
+    any_receiver(vm, vm->error_class, "raise", prim_error_raise);
+    sol_object_define(vm, vm->error_class, "message", SOL_NIL_VAL);
     instance(vm, vm->object_class, SOL_OBJ, "via", prim_object_via);
     instance(vm, vm->object_class, SOL_OBJ, "parent", prim_object_parent);
     instance(vm, vm->object_class, SOL_OBJ, "print", prim_print);
@@ -3085,6 +3181,7 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define(vm, vm->root, "float",   SOL_OBJ_VAL(vm->float_class));
     sol_object_define(vm, vm->root, "array",   SOL_OBJ_VAL(vm->array_class));
     sol_object_define(vm, vm->root, "dictionary", SOL_OBJ_VAL(vm->dict_class));
+    sol_object_define(vm, vm->root, "error",      SOL_OBJ_VAL(vm->error_class));
     sol_object_define(vm, vm->root, "string",  SOL_OBJ_VAL(vm->string_class));
     sol_object_define(vm, vm->root, "object",  SOL_OBJ_VAL(vm->object_class));
     /* Now that isKindOf takes a class, the remaining ones need names to be

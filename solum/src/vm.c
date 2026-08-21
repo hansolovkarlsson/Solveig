@@ -32,6 +32,7 @@ void sol_vm_init(SolVM *vm)
     vm->block_class = NULL;
     vm->array_class = NULL;
     vm->dict_class = NULL;
+    vm->error_class = NULL;
     vm->string_class = NULL;
     vm->object_class = NULL;
     vm->symbol_class = NULL;
@@ -50,7 +51,8 @@ void sol_vm_init(SolVM *vm)
     vm->gray_count = 0;
     vm->gray_capacity = 0;
     vm->temp_count = 0;
-    sol_text_init(&vm->error_text);
+    sol_text_init(&vm->error_message);
+    sol_text_init(&vm->error_trace);
     vm->gc_stress = getenv("SOLUM_GC_STRESS") != NULL;
 
     /* The root Object is the globals namespace -- built-in class objects
@@ -100,11 +102,13 @@ void sol_vm_free(SolVM *vm)
     vm->block_class = NULL;
     vm->array_class = NULL;
     vm->dict_class = NULL;
+    vm->error_class = NULL;
     vm->string_class = NULL;
     vm->object_class = NULL;
     vm->symbol_class = NULL;
 
-    sol_text_free(&vm->error_text);
+    sol_text_free(&vm->error_message);
+    sol_text_free(&vm->error_trace);
 
     /* Last: the heap is gone, so nothing is left holding an interned name. */
     sol_vm_free_names(vm);
@@ -198,14 +202,10 @@ void sol_vm_runtime_error(SolVM *vm, const char *format, ...)
        followed is a consequence of trying to report it. */
     if (vm->had_error) return;
 
-    sol_text_append(&vm->error_text, "solvm: ", 7);
-
     va_list args;
     va_start(args, format);
-    append_formatted(&vm->error_text, format, args);
+    append_formatted(&vm->error_message, format, args);
     va_end(args);
-
-    sol_text_append(&vm->error_text, "\n", 1);
 
     /* Innermost frame first, so the line that actually failed leads. A runaway
        recursion would otherwise bury the message under a full stack, so the
@@ -214,14 +214,14 @@ void sol_vm_runtime_error(SolVM *vm, const char *format, ...)
     for (int i = vm->frame_count - 1; i >= 0; i--) {
         int from_top = vm->frame_count - 1 - i;
         if (vm->frame_count > head + tail + 1 && from_top == head) {
-            append_line(&vm->error_text, "  ... %d more frames ...\n",
+            append_line(&vm->error_trace, "  ... %d more frames ...\n",
                         vm->frame_count - head - tail);
             i = tail;                    /* skip to the outermost few */
             continue;
         }
         SolFrame *frame = &vm->frames[i];
         size_t offset = (size_t)(frame->ip - frame->chunk->code) - 1;
-        append_line(&vm->error_text, "  [line %d] in %s\n",
+        append_line(&vm->error_trace, "  [line %d] in %s\n",
                     frame->chunk->lines[offset],
                     frame->method ? frame->method->name : "script");
     }
@@ -357,17 +357,28 @@ SolValue sol_vm_call_block(SolVM *vm, SolValue block, SolValue *args, int argc)
     /* Slot 0 is the receiver the block was written under. A send to a slot
        holding this block supplies its own receiver instead, which is what makes
        an installed block behave as a method. */
+    SolValue *mark = vm->stack_top;
     *vm->stack_top++ = b->self;
     for (int i = 0; i < argc; i++) *vm->stack_top++ = args[i];
 
     if (!push_frame(vm, b->code, argc, b->home_frame, b->home_id)) {
-        vm->stack_top -= argc + 1;
+        vm->stack_top = mark;
         return SOL_NIL_VAL;
     }
 
     SolResult result = run_frames(vm, base);
     vm->frame_count = base;                         /* defensive: never leave frames behind */
-    if (result != SOL_OK) return SOL_NIL_VAL;
+
+    /* And the stack with it, which `sol_vm_send` has always done. A failure
+       leaves the receiver, the arguments and whatever the frame was part-way
+       through still on the stack, and that was invisible for as long as every
+       error unwound to `sol_vm_run`, which resets the stack on its way out.
+       `onError` stops the unwind, so execution carries on from here -- on
+       whatever this left behind, unless it leaves nothing. */
+    if (result != SOL_OK) {
+        vm->stack_top = mark;
+        return SOL_NIL_VAL;
+    }
     return sol_vm_pop(vm);
 }
 
@@ -759,7 +770,8 @@ SolResult sol_vm_run(SolVM *vm, const SolChunk *chunk)
 {
     vm->had_error = false;
     vm->exiting = false;
-    vm->error_text.length = 0;      /* keeps the buffer, drops last run's text */
+    vm->error_message.length = 0;   /* keeps the buffers, drops last run's text */
+    vm->error_trace.length = 0;
     vm->frame_count = 0;
     reset_stack(vm);
 
@@ -798,8 +810,9 @@ SolResult sol_vm_run(SolVM *vm, const SolChunk *chunk)
        This is why deferring the write changed no behaviour: the message still
        reaches stderr before `sol_vm_run` answers, exactly as it did when the
        write happened where the failure was. */
-    if (vm->had_error && !vm->exiting && vm->error_text.length > 0) {
-        fputs(vm->error_text.chars, stderr);
+    if (vm->had_error && !vm->exiting && vm->error_message.length > 0) {
+        fprintf(stderr, "solvm: %s\n", vm->error_message.chars);
+        if (vm->error_trace.length > 0) fputs(vm->error_trace.chars, stderr);
     }
     return result;
 }

@@ -713,8 +713,39 @@ bring a new name into being where it would look like a local:
 solvm: undefined name 'undeclared' -- declare it with '| undeclared |' or assign it at the top level
 ```
 
+### Catching one
+
+A failure stops the program unless something catches it, and `onError` is how
+something catches it:
+
+```
+{ nil:frobnicate }:onError({ e | e:message:display }).
+        ; nil does not understand 'frobnicate'
+```
+
+It answers the receiver's answer when nothing went wrong and the handler's when
+something did, so it is an expression — which is usually what you want:
+
+```
+text := { system:readFile(path) }:onError({ e | "" }).
+```
+
+A program raises one the same way the machine does, with `error:raise("...")`,
+and the error a handler is given is an **object** with a `message` — not the
+text itself, because these messages get reworded and matching on them should not
+become the habit.
+
+**It catches everything**, including a message you misspelled. That is
+deliberate and it is the familiar hazard of a bare catch: a handler around too
+much hides mistakes. The way out is that passing one on is a single message,
+`error:raise(e:message)`, so a handler that only means to deal with some
+failures can hand the rest onward.
+
+`system:exit` is not caught — it is a stop, not a failure.
+
 > **Run:** [examples/strictness.sol](../examples/strictness.sol), which ends by
-> failing on purpose so that a real stack has somewhere to be shown.
+> failing on purpose so that a real stack has somewhere to be shown, and
+> [examples/errors.sol](../examples/errors.sol) for catching and raising.
 
 ## 17. Splitting a program across files
 

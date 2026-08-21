@@ -67,6 +67,7 @@ struct SolVM {
     SolObject *block_class;
     SolObject *array_class;
     SolObject *dict_class;
+    SolObject *error_class;
     SolObject *string_class;
     SolObject *object_class;
     SolObject *symbol_class;
@@ -102,8 +103,14 @@ struct SolVM {
      *
      * The first error wins. Formatting a message can itself fail -- rendering a
      * value calls `asString`, which is a send like any other -- and the failure
-     * that started it is the one worth reporting. */
-    SolText error_text;
+     * that started it is the one worth reporting.
+     *
+     * Kept apart because they are wanted apart: a handler is given the message
+     * and nothing else, where an uncaught error is printed with the stack
+     * beneath it. Composing the report at the point it is printed means the two
+     * cannot drift. */
+    SolText error_message;    /* "nil does not understand 'boom'"  */
+    SolText error_trace;      /* "  [line 3] in block\n..."         */
 
     /* `system:exit(code)` unwinds rather than leaving from under the machine.
        It sets `had_error` too, since every loop that has to stop already checks

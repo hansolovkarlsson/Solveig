@@ -346,7 +346,7 @@ static void test_error_recovery_makes_progress(void)
 /* ---- the error is text the machine holds ------------------------------- *
  *
  * It used to go straight to stderr from wherever the failure was. It is built
- * into `vm->error_text` now and written out by `sol_vm_run` when nothing has
+ * into `vm->error_message` and `vm->error_trace` now and written out by `sol_vm_run` when nothing has
  * caught it -- which is nothing, yet. The visible behaviour is identical, and
  * the point is that the message exists as a value the machine could hand to a
  * handler instead.
@@ -355,14 +355,14 @@ static void test_the_error_is_recorded_not_only_printed(void)
 {
     SolVM vm;
     sol_vm_init(&vm);
-    assert(vm.error_text.length == 0);
+    assert(vm.error_message.length == 0);
 
     assert(run(&vm, "nil:frobnicate.") == SOL_RUNTIME_ERROR);
 
     assert(vm.had_error);
-    assert(vm.error_text.length > 0);
-    assert(strstr(vm.error_text.chars, "nil does not understand 'frobnicate'") != NULL);
-    assert(strstr(vm.error_text.chars, "[line 1] in script") != NULL);
+    assert(vm.error_message.length > 0);
+    assert(strcmp(vm.error_message.chars, "nil does not understand 'frobnicate'") == 0);
+    assert(strstr(vm.error_trace.chars, "[line 1] in script") != NULL);
 
     sol_vm_free(&vm);
 }
@@ -376,18 +376,18 @@ static void test_each_run_starts_with_no_error(void)
     sol_vm_init(&vm);
 
     assert(run(&vm, "nil:frobnicate.") == SOL_RUNTIME_ERROR);
-    int first = vm.error_text.length;
-    assert(first > 0);
+    assert(vm.error_message.length > 0);
 
     assert(run(&vm, "x := #1:add(#2).") == SOL_OK);
     assert(!vm.had_error);
-    assert(vm.error_text.length == 0);
+    assert(vm.error_message.length == 0);
+    assert(vm.error_trace.length == 0);
     assert(SOL_AS_INT(global(&vm, "x")) == 3);
 
     /* And a second failure records its own message rather than the first. */
     assert(run(&vm, "nil:bang.") == SOL_RUNTIME_ERROR);
-    assert(strstr(vm.error_text.chars, "'bang'") != NULL);
-    assert(strstr(vm.error_text.chars, "'frobnicate'") == NULL);
+    assert(strstr(vm.error_message.chars, "'bang'") != NULL);
+    assert(strstr(vm.error_message.chars, "'frobnicate'") == NULL);
 
     sol_vm_free(&vm);
 }
@@ -405,8 +405,8 @@ static void test_the_first_error_wins(void)
     sol_vm_runtime_error(&vm, "the real failure");
     sol_vm_runtime_error(&vm, "a consequence of reporting it");
 
-    assert(strstr(vm.error_text.chars, "the real failure") != NULL);
-    assert(strstr(vm.error_text.chars, "a consequence") == NULL);
+    assert(strstr(vm.error_message.chars, "the real failure") != NULL);
+    assert(strstr(vm.error_message.chars, "a consequence") == NULL);
 
     sol_vm_free(&vm);
 }
@@ -420,7 +420,7 @@ static void test_an_exit_records_no_error(void)
 
     assert(run(&vm, "system:exit(#3).") == SOL_EXIT);
     assert(vm.exit_code == 3);
-    assert(vm.error_text.length == 0);
+    assert(vm.error_message.length == 0);
 
     sol_vm_free(&vm);
 }
