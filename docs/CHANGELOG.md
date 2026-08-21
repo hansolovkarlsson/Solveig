@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### 2.5 is closed, and the split was not built — `pending`, 2026-08-21
+### 2.5 is closed, and the split was not built — `b74e720`, 2026-08-21
 
 The last open design question. Closed by **not** splitting the objects, because
 the thing the split was for turned out to be reachable without it.
