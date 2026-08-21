@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### Bits, and one more, one less — `pending`, 2026-08-21
+### Bits, and one more, one less — `a7ddf8b`, 2026-08-21
 
 Both asked for, and both with the evidence already in the tree.
 
