@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### History that outlives the session, and the keys written down — `pending`, 2026-08-21
+### History that outlives the session, and the keys written down — `0ebdd2c`, 2026-08-21
 
 What you type at the prompt is kept in **`$HOME/.solis_history`**, so ↑ reaches
 the lines from last time as well as this one. The most recent 1000, trimmed on
