@@ -26,6 +26,7 @@ void sol_chunk_init(SolChunk *chunk)
     chunk->constant_index.capacity = 0;
     chunk->constant_index.count = 0;
     chunk->owner = NULL;          /* standalone until handed to the collector */
+    chunk->slot_count = 0;
 }
 
 void sol_chunk_set_owner(SolChunk *chunk, SolCode *owner)

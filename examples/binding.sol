@@ -60,15 +60,17 @@ average := { | total |
 }.
 average:value:print.                    ; #2
 
-; A group borrows the frame it sits in rather than making one, which is why a
-; group inside a block may declare temporaries too -- and why one at the top
-; level of a script cannot. There is no frame there to put them in.
-;
-;   #1:add(( | t | t := #5. t )).
-;   [line 1:10] solas: a temporary needs a frame, so declare it inside a block at '|'
+; A group borrows the frame it sits in rather than making one, so its
+; temporaries belong to that frame. The script has a frame too, so this works at
+; the top level as readily as inside a block:
+#1:add(( | t | t := #5. t )):print.     ; #6
 
-inside := { ( | t | t := #5. t:add(#1) ) }.
+inside := { ( | u | u := #5. u:add(#1) ) }.
 inside:value:print.                     ; #6
+
+; The whole script is one frame, though, so two groups in a file share a
+; namespace: declaring `t` again above would be an error, the same way two
+; groups inside one block cannot both declare it.
 
 ; Assignment inside a block will not quietly create a global either, so a typo
 ; cannot bring a name into being where it would look like a local.

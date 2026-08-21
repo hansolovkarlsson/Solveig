@@ -737,6 +737,12 @@ SolResult sol_vm_run(SolVM *vm, const SolChunk *chunk)
     frame->chunk = chunk;
     frame->ip = chunk->code;
     frame->slots = vm->stack;
+
+    /* Reserve the script's slots before the first instruction, exactly as
+       `push_frame` reserves a method's. Slot 0 is the unnameable one every
+       frame has; the rest are temporaries the top level declared. A script that
+       declares none reserves one slot and never reads it. */
+    for (int i = 0; i < chunk->slot_count; i++) *vm->stack_top++ = SOL_NIL_VAL;
     frame->id = vm->next_frame_id++;
     frame->home_frame = -1;          /* nothing encloses the script */
     frame->home_id = 0;

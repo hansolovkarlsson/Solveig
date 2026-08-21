@@ -60,7 +60,7 @@ format has, and `sol_read_u16` is where it is decoded.
 | --- | --- | --- | --- | --- |
 | `OP_GLOBAL` | u16 name index | 3 | → v | Push the named global. A lookup, not a send. |
 | `OP_SET_GLOBAL` | u16 name index | 3 | v → v | Bind the name, **leaving the value**. |
-| `OP_LOCAL` | u8 slot | 2 | → v | Push a frame slot. Slot 0 is `self`, 1..arity are the arguments. |
+| `OP_LOCAL` | u8 slot | 2 | → v | Push a frame slot. Slot 0 is `self` in a block and unused in a script, which has no receiver; 1..arity are the arguments. |
 | `OP_SET_LOCAL` | u8 slot | 2 | v → v | Store into a slot, leaving the value. |
 | `OP_OUTER` | u8 depth, u8 slot | 3 | → v | Read a slot `depth` frames out along the **lexical** chain. |
 | `OP_SET_OUTER` | u8 depth, u8 slot | 3 | v → v | Write one, leaving the value. |
@@ -221,6 +221,9 @@ instruction does. It checks that:
 - every instruction fits inside the chunk;
 - every operand indexes something that exists — a constant, a name, a method;
 - every jump lands on the **start** of an instruction inside the chunk;
+- every `OP_LOCAL` and `OP_SET_LOCAL` addresses a slot the frame really has,
+  counted from `slot_count` — the method's for a method, and the chunk's own for
+  the script;
 - the last instruction stops the machine.
 
 Instruction boundaries are found by walking from offset 0 with `sol_op_length`,

@@ -191,7 +191,12 @@ SolSerResult sol_chunk_save(const SolChunk *chunk, const char *path)
 
     fwrite(SOL_SOB_MAGIC, 1, 4, f);
     put_u16(f, SOL_SOB_VERSION);
-    put_u16(f, 0);                       /* reserved */
+    /* What was the reserved field is the script's slot count: the top-level
+       chunk is the only one whose frame size is not already carried by the
+       SolMethod that owns it, and this is written once, here, rather than on
+       every method's chunk where it would be a second copy of a number that
+       already exists. */
+    put_u16(f, (uint16_t)chunk->slot_count);
     write_chunk_body(f, chunk);
 
     bool failed = ferror(f) != 0;
@@ -398,10 +403,15 @@ SolSerResult sol_chunk_load(SolChunk *chunk, const char *path)
     if (memcmp(magic, SOL_SOB_MAGIC, 4) != 0) { status = SOL_SER_BAD_MAGIC; goto fail; }
 
     uint16_t version = get_u16(c);
-    uint16_t reserved = get_u16(c);
+    uint16_t slot_count = get_u16(c);
     if (c->overran) { status = SOL_SER_TRUNCATED; goto fail; }
     if (version != SOL_SOB_VERSION) { status = SOL_SER_BAD_VERSION; goto fail; }
-    if (reserved != 0) { status = SOL_SER_MALFORMED; goto fail; }
+    /* A chunk Solas emitted reserves at least slot 0, but a chunk built by
+       hand may legitimately need none -- the field says what this chunk's frame
+       reserves, not what the compiler's conventions are. Any OP_LOCAL is
+       bounds-checked against it either way. */
+    if (slot_count > UINT8_MAX) { status = SOL_SER_MALFORMED; goto fail; }
+    chunk->slot_count = (int)slot_count;
 
     status = read_chunk_body(c, chunk, 0);
     if (status != SOL_SER_OK) goto fail;
@@ -424,8 +434,10 @@ fail:
 
 /* ---- verification ---------------------------------------------------- */
 
-/* `slot_count` is how many frame slots this chunk's code may address; 0 for the
- * top-level chunk, which has neither self nor locals. `ancestors` carries the
+/* `slot_count` is how many frame slots this chunk's code may address. For a
+ * method it is self plus the parameters plus the body's locals; for the
+ * top-level chunk it is the unnameable slot 0 plus whatever the script declared,
+ * and it used to be 0 because a script had no slots to declare into. `ancestors` carries the
  * slot counts of the enclosing frames, nearest first, so an OUTER at depth d
  * can be bounds-checked against the frame it actually reaches.
  *
@@ -736,5 +748,5 @@ static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count,
 
 SolSerResult sol_chunk_verify(const SolChunk *chunk)
 {
-    return verify_chunk(chunk, 0, NULL, 0, 0);
+    return verify_chunk(chunk, chunk->slot_count, NULL, 0, 0);
 }

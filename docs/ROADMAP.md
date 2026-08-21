@@ -304,27 +304,24 @@ nowhere for them:
   not work at the top level of a script, which reserves no slots at all. That
   would make the optimisation apply in some places and not others, which is a
   worse property than being slow.
-- **Giving the script's frame slots** is the third, and it is probably the right
-  one. A `SolMethod` carries `slot_count` — self, the parameters, and the body's
-  locals — and `push_frame` reserves them. A chunk run as a script has no
-  method, so `sol_vm_run` sets `frame->slots = vm->stack` and reserves nothing;
-  that asymmetry is the whole obstacle. If `SolChunk` carried a slot count and
-  the script's frame reserved it the same way, **no new opcode would be needed**
-  and the counted loops would inline everywhere, uniformly.
+- **Giving the script's frame slots** was the third, and it is **done** — see
+  the changelog. `SolChunk` carries a `slot_count`, `sol_vm_run` reserves it as
+  `push_frame` reserves a method's, and the verifier bounds-checks against the
+  real number. It cost the reserved `u16` in the `.sob` header and a version
+  bump, and it removed a language restriction on the way: a temporary declared
+  at the top level of a script used to be refused for exactly the reason
+  `repeat` could not keep a counter there, and now works.
 
-That third option is worth more than this entry alone, which is why it is worth
-naming here. **The same missing thing is what refuses a top-level temporary** —
-`( | i | ... )` at the top level is a documented restriction (3.x) for exactly
-the reason `repeat` cannot keep a counter there. One change answers both.
+**So the obstacle is gone and the counted loops are merely unbuilt.** What is
+left is compiler work with no format change behind it: recognise
+`#n:repeat({...})` and `#a:toByDo(#b, #s, {...})` where the block is plain,
+reserve hidden slots nobody can name with `declare_local`, and emit the loop the
+way a programmer would write it by hand.
 
-It costs a `.sob` format field and a version bump, plus the verifier
-bounds-checking `OP_LOCAL` against the new count. 6.6 on its own does not pay
-for that: `repeat` costs 1.30x a hand-written loop, against `doUntil`'s 2.29x
-before this. 6.6 *plus* removing a language restriction might.
-
-So the counted loops stay library code for now. The cheap, large win has been
-taken and the dear, small one has not — but the price of the dear one is lower
-than this entry first said, and it buys something else as well.
+Whether it is worth doing is still the question the measurement asked, and the
+answer has not changed: `repeat` costs 1.30x a hand-written loop, where
+`doUntil` cost 2.29x. The large win was the one that needed no slots. This is
+the small one, and it is now cheap rather than dear.
 
 ### 6.10 Waiting for a single key
 

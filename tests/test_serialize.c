@@ -182,8 +182,11 @@ static void test_rejects_files_it_should_not_run(void)
     save_and_poke(4, 99);
     assert(sol_chunk_load(&chunk, TMP) == SOL_SER_BAD_VERSION);
 
-    /* Reserved field must be zero -- it is where a future flag will go. */
-    save_and_poke(6, 1);
+    /* Offset 6 was the reserved field and is the script's slot count from
+       version 11. A frame is addressed by a u8, so a count that will not fit in
+       one could never be reached and is refused rather than truncated: poking
+       the high byte makes it 256 or more. */
+    save_and_poke(7, 1);
     assert(sol_chunk_load(&chunk, TMP) == SOL_SER_MALFORMED);
 
     /* Cut short at every length, to catch a missing bounds check anywhere. */

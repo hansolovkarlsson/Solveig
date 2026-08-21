@@ -56,38 +56,59 @@ static void compile_error_of(const char *source, char *out, size_t size)
     assert(!ok);
 }
 
-static int count_of(const char *haystack, const char *needle)
-{
-    int n = 0;
-    for (const char *at = haystack; (at = strstr(at, needle)) != NULL; at++) n++;
-    return n;
-}
+/* ---- a temporary needs a frame, and now the script has one ------------- */
 
-/* ---- a temporary needs a frame ---------------------------------------- */
+/* This used to be the file's centrepiece and it has turned into its opposite.
+   The top level of a script reserved no slots, so a temporary declared there
+   was emitted against the bottom of the expression stack, and the compiler
+   refused it at the `|` rather than let the verifier report an internal fault.
 
-/* The top level of a script has no frame -- its chunk reserves no slots -- so
-   there is nowhere for a temporary to live. Refused at the `|`, where the
-   mistake is, rather than at the file write or not at all. */
-static void test_a_top_level_group_cannot_declare_a_temporary(void)
+   `SolChunk` carries a slot count now and `sol_vm_run` reserves it, so there is
+   somewhere for the temporary to live and nothing left to refuse. What the old
+   test guarded -- that the emitted code addresses a slot the frame really has
+   -- is guarded here by running it and by the verifier accepting it. */
+static void test_a_top_level_group_can_declare_a_temporary(void)
 {
-    static const char *refused[] = {
-        "( | t | t := #5. t ):print.",
-        "( | a, b | a ):print.",
-        "#1:add(( | t | t := #5. t )):print.",
-        "x := ( | t | t := #1. t ).",
+    static const struct { const char *source; int64_t answer; } accepted[] = {
+        { "r := ( | t | t := #5. t ).",                          5  },
+        { "r := ( | a, b | a := #2. b := #3. a:mul(b) ).",       6  },
+        { "r := #1:add(( | t | t := #5. t )).",                  6  },
+        { "( | t | t := #7. r := t ).",                          7  },
+        /* one the enclosing expression would have overwritten before */
+        { "r := #10:add(( | t | t := #1. t )):add(( | u | u := #2. u )).", 13 },
     };
 
-    for (size_t i = 0; i < sizeof(refused) / sizeof(refused[0]); i++) {
-        char said[512];
-        compile_error_of(refused[i], said, sizeof said);
-        assert(strstr(said, "a temporary needs a frame") != NULL);
+    for (size_t i = 0; i < sizeof(accepted) / sizeof(accepted[0]); i++) {
+        SolVM vm; sol_vm_init(&vm);
+        SolChunk chunk;
+        sol_chunk_init(&chunk);
 
-        /* One mistake, one message. Recovery used to resume inside the group,
-           clear the panic flag at the `.` between its statements, and complain
-           again about the `)`. */
-        assert(count_of(said, "solas:") == 1);
-        printf("  refused: %s\n", refused[i]);
+        assert(sol_compile(accepted[i].source, &chunk));
+        assert(sol_chunk_verify(&chunk) == SOL_SER_OK);
+        assert(chunk.slot_count >= 2);       /* slot 0, plus what was declared */
+        assert(sol_vm_run(&vm, &chunk) == SOL_OK);
+
+        SolSlot *slot = sol_object_lookup(vm.root, "r");
+        assert(slot != NULL);
+        assert(SOL_AS_INT(slot->value) == accepted[i].answer);
+
+        sol_chunk_free(&chunk);
+        sol_vm_free(&vm);
     }
+    printf("  the top level declares temporaries, and they live in its frame\n");
+}
+
+/* A script that declares nothing still reserves the one unnameable slot, so a
+   slot index means the same thing in every frame. */
+static void test_a_script_without_temporaries_reserves_one_slot(void)
+{
+    SolChunk chunk;
+    sol_chunk_init(&chunk);
+    assert(sol_compile("x := #1. x:print.", &chunk));
+    assert(chunk.slot_count == 1);
+    assert(sol_chunk_verify(&chunk) == SOL_SER_OK);
+    sol_chunk_free(&chunk);
+    printf("  a script with no temporaries reserves slot 0 and no more\n");
 }
 
 /* And still works wherever there is a frame to hold it, which is what makes the
@@ -519,7 +540,8 @@ static void test_a_long_line_is_windowed(void)
 
 int main(void)
 {
-    test_a_top_level_group_cannot_declare_a_temporary();
+    test_a_top_level_group_can_declare_a_temporary();
+    test_a_script_without_temporaries_reserves_one_slot();
     test_a_frame_still_holds_its_temporaries();
     test_the_old_form_would_not_have_verified();
     test_every_example_verifies();

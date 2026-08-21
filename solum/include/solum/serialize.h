@@ -6,7 +6,10 @@
  *   offset  size  field
  *   0       4     magic "SOLB"
  *   4       2     format version (currently SOL_SOB_VERSION)
- *   6       2     reserved, must be zero
+ *   6       2     the script's frame slot count, at least 1
+                 (was reserved-must-be-zero before version 11: the top-level
+                 chunk is the only one whose frame size is not already carried
+                 by the method that owns it)
  *   8       4     name count
  *                 each name: u16 length, then that many bytes (no NUL)
  *           4     constant count
@@ -36,7 +39,7 @@
 #include "solum/bytecode.h"
 
 #define SOL_SOB_MAGIC   "SOLB"
-#define SOL_SOB_VERSION 10
+#define SOL_SOB_VERSION 11
 
 typedef enum {
     SOL_SER_OK,

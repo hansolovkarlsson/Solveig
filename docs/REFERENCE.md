@@ -521,18 +521,21 @@ quietly becoming a variable that looks local.
 Declarations may open a block or a method body, and a duplicate name in one
 frame is a compile error.
 
-A group may open with them too, but only inside a block or a method, because a
-temporary needs a frame to live in and only those have one. The top level of a
-script has no frame, and says so:
+A group may open with them too, **anywhere**, the top level of a script
+included:
 
 ```
-( | t | t := #5. t ):print.
-[line 1:3] solas: a temporary needs a frame, so declare it inside a block at '|'
-  ( | t | t := #5. t ):print.
-    ^
+( | t | t := #5. t ):print.      ; #5
 ```
 
-Declare it in the enclosing block instead.
+A group borrows the frame it sits in rather than making one, so its temporaries
+belong to that frame — and the whole script is one frame. Two groups in a file
+therefore share a namespace and cannot both declare `t`, exactly as two groups
+inside one block cannot.
+
+This was refused until the script's frame had slots to declare into. See
+[ROADMAP 6.6](ROADMAP.md#66-the-loop-constructs-are-library-code-and-pay-for-it)
+for the other thing that was waiting on the same field.
 
 ---
 
@@ -575,9 +578,8 @@ discarded and the last is the group's value.
 ```
 
 It may also open with `| a, b |`, declaring temporaries of the frame it sits in
--- but only where there is a frame, which means inside a block or a method body.
-At the top level of a script it is a compile error; see
-[Names and binding](#names-and-binding).
+-- the script's own frame included. Two groups sharing a frame share one
+namespace; see [Names and binding](#names-and-binding).
 
 **A group is not a block.** Both are code in brackets, both hold statements
 separated by `.`, both answer their last one, and both may declare temporaries.

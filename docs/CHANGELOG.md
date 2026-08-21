@@ -8,6 +8,52 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### The script has a frame like everything else — `pending`, 2026-08-21
+
+`.sob` format **version 11**. `SolChunk` carries a `slot_count`, and
+`sol_vm_run` reserves those slots before the first instruction exactly as
+`push_frame` reserves a method's.
+
+**A temporary at the top level of a script works now**, and used to be refused:
+
+```
+#1:add(( | t | t := #5. t )):print.        ; #6
+( | a, b | a := #2. b := #3. a:mul(b) ):print.    ; #6
+```
+
+The refusal was real and the reason was real: the script's frame reserved no
+slots, so a name declared there was emitted as `OP_SET_LOCAL` against the bottom
+of the expression stack, where it overwrote whatever the enclosing expression had
+put there. The verifier refused the result, so `solas` failed at the file write
+saying the bytecode was inconsistent, while Solis — which runs what it just
+compiled without verifying — answered wrongly instead. Refusing it in the
+compiler reported one mistake once. Giving the frame slots means there is
+nothing left to refuse.
+
+The whole script is **one** frame, so two groups in a file share a namespace and
+cannot both declare `t` — the same rule two groups inside one block already
+lived by.
+
+**It came out of roadmap 6.6**, which is about inlining the counted loops.
+`repeat` needs a counter that survives the iteration and there was nowhere to
+keep one; the entry offered two homes, both bad — new opcodes for stack-slot
+arithmetic, or a hidden local that works inside a block and not in a script. The
+third, found by explaining the first two, was that a script's frame is the only
+one that reserves nothing, and that this is also why top-level temporaries were
+refused. **One missing field, two problems.**
+
+The header's reserved `u16` at offset 6 is where the count went — the top-level
+chunk is the only one whose frame size is not already carried by the method that
+owns it, so it is written once rather than on every method's chunk.
+
+Nothing on disk survives the change, and nothing pretends to: a version 10 file
+is refused with `unsupported bytecode version` rather than misread.
+
+The counted loops are still unbuilt, but they are now compiler work with no
+format change behind them. Whether they are worth building is the question the
+measurement already answered — `repeat` costs 1.30x, where `doUntil` cost
+2.29x — and the large win was the one that needed no slots.
+
 ### `doUntil` is built in, and compiles to jumps — `413c57b`, 2026-08-21
 
 Roadmap 6.6, the half of it that could be had without changing the instruction

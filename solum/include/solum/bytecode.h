@@ -135,6 +135,19 @@ typedef struct {
        free them by hand; Solis hands its chunks to the collector, because a
        block defined on one line outlives the line. */
     SolCode      *owner;
+
+    /* Frame slots the *script* needs: slot 0, which nothing can name, plus any
+       temporary its top level declares. `sol_vm_run` reserves them before the
+       first instruction, exactly as `push_frame` reserves a method's.
+     *
+     * Only meaningful on a chunk run directly as a script. A method's chunk is
+     * entered through `push_frame`, which reads `SolMethod.slot_count`; this
+     * stays 0 there rather than being a second copy of the same number.
+     *
+     * The script used to have no slots at all, which is why a temporary
+     * declared at the top level had to be refused: there was nowhere to put it.
+     * See ROADMAP 6.6 for the other thing that cost. */
+    int           slot_count;
 } SolChunk;
 
 /* A chunk tree the collector owns. The root chunk owns every method nested

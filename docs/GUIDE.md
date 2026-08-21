@@ -129,18 +129,17 @@ avg := { | total |
 avg:value:print.                 ; #2
 ```
 
-Because a temporary needs a frame to live in, and the top level of a script has
-none, declaring one there is refused rather than quietly writing over the
-expression stack:
+A temporary needs a frame to live in, and every frame has slots for them — the
+top level of a script included, so a group may declare one anywhere:
 
 ```
-#1:add(( | t | t := #5. t )):print.
-[line 1:10] solas: a temporary needs a frame, so declare it inside a block at '|'
-  #1:add(( | t | t := #5. t )):print.
-           ^
+#1:add(( | t | t := #5. t )):print.        ; #6
 ```
 
-Inside a block there *is* a frame, so the same shape is fine:
+The whole script is **one** frame, though, so two groups in a file share a
+namespace and cannot both declare `t`. That is the same rule two groups inside
+one block already live by: a group borrows the frame it sits in rather than
+making one.
 
 ```
 f := { ( | t | t := #5. t:add(#1) ) }.
@@ -378,8 +377,8 @@ the compiler knows what it means — the block simply has not been run, and
 loops rests on that one fact.
 
 The other difference is frames. **A block makes a frame; a group borrows the one
-it is in.** So a group's temporaries are the enclosing block's, which is why a
-group may declare them only where there is a frame to declare them in:
+it is in.** So a group's temporaries are the enclosing frame's, and two groups
+sharing a frame share one namespace:
 
 ```
 f := { | a |

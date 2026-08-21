@@ -360,7 +360,7 @@ portable. `solum/include/solum/serialize.h` carries the byte-level layout.
 ```
 magic     4  "SOLB"
 version   2  u16
-reserved  2  u16, must be zero
+slots     2  u16, the script frame's slot count (was reserved before v11)
 names     4  u32 count, then each: u16 length + bytes
 constants 4  u32 count, then each: u8 tag + payload (0 nil, 1 i64, 2 f64)
 code      4  u32 length, then that many bytes
@@ -545,6 +545,13 @@ so `slots[0]` is `self` and `slots[1..arity]` are the arguments -- the caller
 has already laid them out that way, and nothing is copied to make the call. The
 compiler decides the frame size and records it as `slot_count`; the VM reserves
 that much and fills the extra with nil.
+
+**The script's frame is one of them.** It used to be the exception -- no method,
+so nothing reserved it any slots -- which is why a temporary declared at the top
+level had to be refused: there was nowhere to put it. `SolChunk` carries a slot
+count of its own now and `sol_vm_run` reserves it the same way, so the top level
+is a frame like every other. Slot 0 is unnameable in both: the receiver in a
+block, and nothing at all in a script, which has none.
 
 **How does control flow work?** By sending messages, with no control-flow
 syntax at all. `{ ... }` makes a block -- unevaluated code packaged as a value
