@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### `--help` on all three binaries — `pending`, 2026-08-21
+### `--help` on all three binaries — `6542ec3`, 2026-08-21
 
 Each of `solas`, `solvm` and `solis` already had a `usage()`; it was reachable
 only by getting the command line wrong. `--help` and `-h` now ask for it.
