@@ -1431,7 +1431,7 @@ the things `ensure` usually protects are handles and locks, and there are
 neither. Built the next thing anyway, because the entry named the one wrinkle it
 would have and that wrinkle turned out to be the whole of it.
 
-Built as `pending`. `{ body }:ensure({ cleanUp })` runs the cleanup whether the
+Built as `e001b8e`. `{ body }:ensure({ cleanUp })` runs the cleanup whether the
 body finished or not, then goes on doing whatever the body was going to do. It
 answers the **body's** answer; the cleanup's is discarded, the cleanup not being
 what the expression is about.

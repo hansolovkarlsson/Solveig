@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### `ensure` — cleaning up regardless — `pending`, 2026-08-21
+### `ensure` — cleaning up regardless — `e001b8e`, 2026-08-21
 
 Roadmap 6.17, written down one commit ago on the grounds that nothing needed it
 yet.
