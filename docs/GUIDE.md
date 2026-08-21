@@ -883,8 +883,13 @@ system:filesIn("examples"):sorted:do({ name |
 
 It answers **names**, directories included, in no order worth relying on — so
 join, sort, and use `isDirectory` to tell them apart. `system:appendFile` adds
-to a file rather than replacing it, and `system:environment(name)` answers a
-variable or nil.
+to a file rather than replacing it, `system:fileSize` measures one without
+reading it, and `system:environment(name)` answers a variable or nil.
+
+`system:makeDirectory`, `system:rename` and `system:remove` change what is
+there, and cannot be undone. `remove` takes a file or an **empty** directory —
+there is no recursive form, deleting a tree not being something to make one
+message wide. Every refusal names the reason the system gave.
 
 A `.sol` file can also be run directly: put `#!/usr/bin/env solis` on the first
 line, `chmod +x` it, and `./script.sol` works like any other script.

@@ -60,3 +60,36 @@ system:fileExists(absent):ifElse(
     { "{} is not there; readFile would stop the program":fill([absent]):display }).
 
 system:fileExists("build"):print.               ; false -- a directory is not a file
+
+; ---------------------------------------------------------------------------
+; Changing what is there
+;
+; These do something that cannot be undone. Nothing here asks twice or keeps a
+; copy, so the looking is the program's job -- and the pieces to look with are
+; `fileExists`, `isDirectory` and `fileSize`.
+
+scratch := "build/example-scratch".
+
+; "make sure it is there" is two messages rather than one, and says which of the
+; two it meant. `makeDirectory` on a directory that exists is an error.
+system:isDirectory(scratch):ifFalse({ system:makeDirectory(scratch) }).
+
+system:writeFile(scratch:concat("/note.txt"), "a line
+").
+system:fileSize(scratch:concat("/note.txt")):print.     ; #7, without reading it
+
+; Renaming and moving are the same operation, and it works on a directory too.
+system:rename(scratch:concat("/note.txt"), scratch:concat("/kept.txt")).
+system:filesIn(scratch):print.                          ; ["kept.txt"]
+
+; `remove` takes a file, or an *empty* directory. There is deliberately no
+; recursive form: deleting a tree is not something to make one message wide, and
+; a program that means it can walk with `filesIn` and remove what it finds.
+system:remove(scratch:concat("/kept.txt")).
+system:remove(scratch).
+system:isDirectory(scratch):print.                      ; false
+
+; Each refusal names the reason the system gave, so a script can tell a missing
+; file from a directory that still has something in it:
+;
+;   system:remove("build")   ->  cannot remove 'build': Directory not empty

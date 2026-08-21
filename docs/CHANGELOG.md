@@ -7,6 +7,49 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### Making, moving and removing — `pending`, 2026-08-21
+
+The other half of the filesystem, and the half that cannot be undone.
+
+```
+system:isDirectory(p):ifFalse({ system:makeDirectory(p) }).
+system:rename(old, new).
+system:remove(old).
+system:fileSize(path).
+```
+
+Three decisions worth having made deliberately, all of them the narrow reading.
+
+**`remove` takes a file or an empty directory, and there is no recursive form.**
+Both, because that is the distinction a script does not want to make — it knows
+what it is taking away. But deleting a tree is not something to make one message
+wide: a program that means it can walk with `filesIn` and remove what it finds,
+which at least reads like what it does.
+
+**`makeDirectory` makes one directory, not a path of them.** `mkdir -p` is what
+a script usually wants and does more than its name says — asked for `a/b/c` it
+may leave `a` and `a/b` behind having failed at `c`. A directory already there
+is an error, which makes `isDirectory:ifFalse({ makeDirectory })` the way to say
+"make sure of it": longer, and it says which of the two you meant.
+
+**`rename` replaces an existing destination without asking**, as the system call
+does and as every `mv` does, and cannot cross a filesystem. There the answer is
+read, write, remove — three operations because it is three operations — and the
+error says so rather than pretending.
+
+Every refusal names the reason the system gave, so a script can tell a missing
+file from a directory that still has something in it:
+
+```
+solvm: cannot remove 'build': Directory not empty
+```
+
+**`fileSize` and not `modifiedAt`.** Size is unambiguous; a timestamp wants to be
+a **date** rather than a number of seconds, and there is no date type here yet —
+answering an integer now would be an interface a date type would have to change.
+Recorded as [ROADMAP 6.18](ROADMAP.md#618-there-is-no-date-or-time), which is now
+the largest thing missing.
+
 ### Directories, and a script you can run directly — `d503612`, 2026-08-21
 
 Two things, in the direction of Solum being worth writing a script in.

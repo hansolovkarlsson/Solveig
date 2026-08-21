@@ -768,6 +768,122 @@ static void test_the_environment(void)
     printf("  environment answers the variable, or nil when it is not set\n");
 }
 
+/* ---- changing what is there --------------------------------------------- *
+ *
+ * These do something that cannot be undone, which is a different sort of
+ * message from reading one and is worth testing as carefully.
+ */
+static void test_making_moving_and_removing(void)
+{
+    static const char *base = "build/tests/fs";
+    /* From whatever a previous run left. */
+    remove("build/tests/fs/inner/deep.txt");
+    remove("build/tests/fs/inner");
+    remove("build/tests/fs/b.txt");
+    remove("build/tests/fs/a.txt");
+    remove(base);
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "base := \"build/tests/fs\"."
+        "system:makeDirectory(base)."
+        "made := system:isDirectory(base)."
+
+        "system:writeFile(base:concat(\"/a.txt\"), \"hello\")."
+        "size := system:fileSize(base:concat(\"/a.txt\"))."
+
+        /* renaming is moving, and works on a directory too */
+        "system:rename(base:concat(\"/a.txt\"), base:concat(\"/b.txt\"))."
+        "gone := system:fileExists(base:concat(\"/a.txt\"))."
+        "there := system:fileExists(base:concat(\"/b.txt\"))."
+        "system:makeDirectory(base:concat(\"/sub\"))."
+        "system:rename(base:concat(\"/sub\"), base:concat(\"/inner\"))."
+        "listed := system:filesIn(base):sorted:join(\",\")."
+
+        /* remove takes a file, or an empty directory */
+        "system:remove(base:concat(\"/inner\"))."
+        "system:remove(base:concat(\"/b.txt\"))."
+        "empty := system:filesIn(base):size."
+        "system:remove(base)."
+        "cleared := system:isDirectory(base):not.") == SOL_OK);
+
+    assert(SOL_AS_BOOL(global(&vm, "made")));
+    assert(SOL_AS_INT(global(&vm, "size")) == 5);
+    assert(SOL_AS_BOOL(global(&vm, "gone")) == false);
+    assert(SOL_AS_BOOL(global(&vm, "there")));
+    assert(strcmp(SOL_AS_STRING(global(&vm, "listed"))->chars, "b.txt,inner") == 0);
+    assert(SOL_AS_INT(global(&vm, "empty")) == 0);
+    assert(SOL_AS_BOOL(global(&vm, "cleared")));
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+    printf("  making, moving and removing, and measuring without reading\n");
+}
+
+/* Each refusal names the reason the system gave, because "cannot remove" alone
+   leaves a script no way to tell a missing file from a full directory. */
+static void test_changing_what_is_there_refuses(void)
+{
+    mkdir("build/tests/notempty", 0777);
+    FILE *f = fopen("build/tests/notempty/keep.txt", "wb");
+    assert(f != NULL); fputs("x", f); fclose(f);
+
+    static const char *refused[] = {
+        "system:remove(\"build/tests/notempty\").",    /* not empty */
+        "system:remove(\"build/tests/no-such-thing\").",
+        "system:makeDirectory(\"build/tests/notempty\").",   /* already there */
+        "system:makeDirectory(\"build/tests/no/such/parent/x\").",
+        "system:rename(\"build/tests/no-such-thing\", \"build/tests/x\").",
+        "system:fileSize(\"build/tests/no-such-thing\").",
+        "system:remove(#1).",
+        "system:rename(\"a\").",
+        "system:makeDirectory.",
+    };
+
+    for (size_t i = 0; i < sizeof(refused) / sizeof(refused[0]); i++) {
+        SolVM vm; sol_vm_init(&vm);
+        SolChunk chunk;
+        assert(run(&vm, &chunk, refused[i]) == SOL_RUNTIME_ERROR);
+        sol_chunk_free(&chunk); sol_vm_free(&vm);
+    }
+
+    /* The directory is still there, which is the point of refusing. */
+    struct stat info;
+    assert(stat("build/tests/notempty/keep.txt", &info) == 0);
+
+    remove("build/tests/notempty/keep.txt");
+    remove("build/tests/notempty");
+    printf("  a full directory, a missing file and a bad argument are refused\n");
+}
+
+/* Removing is not a failure to catch but a thing to look before doing, and the
+   pieces to look with are all here. */
+static void test_the_look_before_you_leap_idiom(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "p := \"build/tests/leap\"."
+        /* "make sure of it" is two messages, and says which of the two it meant */
+        "system:isDirectory(p):ifFalse({ system:makeDirectory(p) })."
+        "once := system:isDirectory(p)."
+        "system:isDirectory(p):ifFalse({ system:makeDirectory(p) })."
+        "twice := system:isDirectory(p)."
+        /* and a failure is catchable like any other */
+        "caught := { system:remove(\"build/tests/no-such-thing\") }"
+        "    :onError({ e | e:message:size:greaterThan(#0) })."
+        "system:remove(p).") == SOL_OK);
+
+    assert(SOL_AS_BOOL(global(&vm, "once")));
+    assert(SOL_AS_BOOL(global(&vm, "twice")));
+    assert(SOL_AS_BOOL(global(&vm, "caught")));
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+    printf("  looking first, and catching when you did not\n");
+}
+
 int main(void)
 {
     test_exit_carries_its_status();
@@ -800,6 +916,9 @@ int main(void)
     test_listing_what_is_not_a_directory();
     test_appending();
     test_the_environment();
+    test_making_moving_and_removing();
+    test_changing_what_is_there_refuses();
+    test_the_look_before_you_leap_idiom();
     test_a_large_file_round_trips();
     test_a_file_that_is_not_there_is_an_error();
     test_file_exists_means_a_file();

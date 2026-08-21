@@ -371,6 +371,49 @@ on. The same rule `dictionary:keys` follows, and `sorted` is one message away.
 
 A path that is not a directory is an error, as a missing file is to `readFile`.
 
+#### Changing what is there
+
+`remove`, `makeDirectory` and `rename` do something that cannot be undone.
+Nothing asks twice or keeps a copy.
+
+```
+system:isDirectory(p):ifFalse({ system:makeDirectory(p) }).
+system:rename(old, new).
+system:remove(old).
+```
+
+**`remove` takes a file or an empty directory**, both, because that is the
+distinction a script does not want to make — it knows what it is taking away. A
+directory with anything in it is refused, and there is deliberately **no
+recursive form**: deleting a tree is not something to make one message wide. A
+program that means it can walk with `filesIn` and remove what it finds, which at
+least reads like what it does.
+
+**`makeDirectory` makes one directory**, not a path of them. `mkdir -p` is what
+a script usually wants and does more than its name says: asked for `a/b/c` it
+may leave `a` and `a/b` behind having failed at `c`. Making each level in turn
+is a loop a program can write and a reader can follow. A directory already there
+is an error, which makes the two-message form above the way to say "make sure of
+it" — longer, and it says which of the two you meant.
+
+**`rename` replaces an existing destination** without asking, as the system call
+does and as every `mv` does. It cannot cross a filesystem: there the answer is
+read, write, remove, which is three operations because it *is* three
+operations, and the error says so rather than pretending otherwise.
+
+Every refusal names the reason the system gave, so a script can tell a missing
+file from a directory that still has something in it:
+
+```
+system:remove("build").
+solvm: cannot remove 'build': Directory not empty
+```
+
+`fileSize` answers what `readFile(path):size` would, without reading the file —
+which is the only way to ask about a large one. It is size and not the
+modification time, the other thing the system knows: a timestamp wants to be a
+**date** rather than a number of seconds, and there is no date type here yet.
+
 `appendFile` is `writeFile`'s other half — it adds to the end rather than
 replacing, and creates the file when it is not there. `environment(name)`
 answers a variable or **nil** when it is not set, nil rather than an error
@@ -1663,6 +1706,10 @@ it delegates to `object` like everything else. See
 | `filesIn(path)` | an array of the names in a directory; an error if it is not one |
 | `appendFile(path, text)` | nil, having added to the end; creates the file |
 | `environment(name)` | the variable, or **nil** when it is not set |
+| `fileSize(path)` | an integer, without reading the file |
+| `remove(path)` | nil, having deleted a file or an **empty** directory |
+| `makeDirectory(path)` | nil, having made one; the parent must exist |
+| `rename(from, to)` | nil, having moved it; **replaces** an existing `to` |
 | `clock` | monotonic seconds as a float; only differences are meaningful |
 
 ### nil

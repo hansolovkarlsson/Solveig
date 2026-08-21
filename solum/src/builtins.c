@@ -3010,6 +3010,110 @@ static SolValue prim_system_environment(SolVM *vm, SolValue self, SolValue *args
     return SOL_STRING_VAL(sol_string_new(vm, value, (int)strlen(value)));
 }
 
+/* `system:fileSize(path)` -- how big, without reading it.
+ *
+ * `system:readFile(path):size` says the same thing and reads the whole file to
+ * do it, which is a poor way to ask about a large one.
+ *
+ * Size and not the modification time, which is the other thing `stat` knows and
+ * the obvious companion. A timestamp wants to be a date rather than a number of
+ * seconds, and there is no date here yet -- answering an integer now would be
+ * an interface a date type would have to change. */
+static SolValue prim_system_file_size(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "fileSize", argc, 1)) return SOL_NIL_VAL;
+    if (!path_argument(vm, "fileSize", args[0])) return SOL_NIL_VAL;
+
+    const char *path = SOL_AS_STRING(args[0])->chars;
+    struct stat info;
+    if (stat(path, &info) != 0) {
+        sol_vm_runtime_error(vm, "cannot measure '%s'", path);
+        return SOL_NIL_VAL;
+    }
+    return SOL_INT_VAL((int64_t)info.st_size);
+}
+
+/* ---- changing what is there -------------------------------------------- *
+ *
+ * These three do something that cannot be undone, which is a different sort of
+ * message from the ones above and is worth saying out loud. Nothing here asks
+ * twice or keeps a copy.
+ */
+
+/* `system:remove(path)` -- a file, or an **empty** directory.
+ *
+ * Both, because C's `remove` does both and the distinction is not one a script
+ * wants to make: it knows what it is taking away. A directory with anything in
+ * it is refused, and there is deliberately no recursive form -- deleting a tree
+ * is not something to make one message wide. A program that means it can walk
+ * with `filesIn` and remove what it finds, which at least reads like what it
+ * does. */
+static SolValue prim_system_remove(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "remove", argc, 1)) return SOL_NIL_VAL;
+    if (!path_argument(vm, "remove", args[0])) return SOL_NIL_VAL;
+
+    const char *path = SOL_AS_STRING(args[0])->chars;
+    if (remove(path) != 0) {
+        sol_vm_runtime_error(vm, "cannot remove '%s': %s", path, strerror(errno));
+        return SOL_NIL_VAL;
+    }
+    return SOL_NIL_VAL;
+}
+
+/* `system:makeDirectory(path)` -- one directory, whose parent must be there.
+ *
+ * One, not the whole path. `mkdir -p` is what a script usually wants and it
+ * does more than its name says: asked for `a/b/c` it may leave `a` and `a/b`
+ * behind having failed at `c`, which is a poor thing to have happened quietly.
+ * Making each level in turn is a loop the program can write and read.
+ *
+ * A directory that is already there is an error rather than a shrug, which
+ * makes `system:isDirectory(p):ifFalse({ system:makeDirectory(p) })` the way to
+ * say "make sure of it" -- longer, and it says which of the two you meant. */
+static SolValue prim_system_make_directory(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "makeDirectory", argc, 1)) return SOL_NIL_VAL;
+    if (!path_argument(vm, "makeDirectory", args[0])) return SOL_NIL_VAL;
+
+    const char *path = SOL_AS_STRING(args[0])->chars;
+    if (mkdir(path, 0777) != 0) {
+        sol_vm_runtime_error(vm, "cannot make directory '%s': %s",
+                             path, strerror(errno));
+        return SOL_NIL_VAL;
+    }
+    return SOL_NIL_VAL;
+}
+
+/* `system:rename(from, to)` -- moving and renaming being the same operation.
+ *
+ * Works on a directory as readily as a file. It **replaces** an existing `to`
+ * without asking, which is what the system call does and what every `mv`
+ * does -- `system:fileExists` is how to look first.
+ *
+ * It cannot cross a filesystem: there the answer is to read, write, and remove,
+ * which is three operations because it is three operations, and the error says
+ * so rather than pretending otherwise. */
+static SolValue prim_system_rename(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "rename", argc, 2)) return SOL_NIL_VAL;
+    if (!path_argument(vm, "rename", args[0])) return SOL_NIL_VAL;
+    if (!path_argument(vm, "rename", args[1])) return SOL_NIL_VAL;
+
+    const char *from = SOL_AS_STRING(args[0])->chars;
+    const char *to   = SOL_AS_STRING(args[1])->chars;
+    if (rename(from, to) != 0) {
+        sol_vm_runtime_error(vm, "cannot rename '%s' to '%s': %s",
+                             from, to, strerror(errno));
+        return SOL_NIL_VAL;
+    }
+    return SOL_NIL_VAL;
+}
+
 static SolValue prim_system_file_exists(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     (void)self;
@@ -3395,6 +3499,10 @@ void sol_builtins_install(SolVM *vm)
     any_receiver(vm, system, "filesIn", prim_system_files_in);
     any_receiver(vm, system, "appendFile", prim_system_append_file);
     any_receiver(vm, system, "environment", prim_system_environment);
+    any_receiver(vm, system, "fileSize", prim_system_file_size);
+    any_receiver(vm, system, "remove", prim_system_remove);
+    any_receiver(vm, system, "makeDirectory", prim_system_make_directory);
+    any_receiver(vm, system, "rename", prim_system_rename);
 
     SolArray *no_arguments = sol_array_new(vm, 0);
     sol_gc_push_temp(vm, &no_arguments->gc);
