@@ -97,6 +97,15 @@ No dependencies beyond a C11 compiler and `make`.
 
 ## Status
 
+**0.6.0** — no design questions are left open. The last one, whether the class
+side and the instance side should be separate objects, is closed by drawing the
+line between them with the receiver each message requires rather than by
+splitting anything: `respondsTo` now agrees with sending everywhere, and an
+instance can no longer answer for its class. The compiler also warns when two
+files claim one global name, there being no module system to stop them. The one
+behaviour change is that `[#1]:new` and `[#1]:of(...)` are refused rather than
+answering.
+
 **0.5.0** — the language reads formats it was not built for. `lib/json.sol` and
 `lib/html.sol` are a JSON reader and an HTML reader written in Solum, on the
 search path. The HTML one **does not fail on bad input**, because bad input is

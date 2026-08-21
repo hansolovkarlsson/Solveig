@@ -7,6 +7,59 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.6.0 — 2026-08-21
+
+**The language has no open design questions left, and the compiler has a second
+warning.**
+
+**2.5 is closed** — class side versus instance side, the last one — and it is
+closed by *not* splitting the objects. The line between the two sides is drawn by
+the receiver each message requires, which is machinery 1.6 had already built for
+another reason and which turned out to be the whole of what the split was wanted
+for. Ten registrations changed; a second object per built-in was not needed.
+
+**This is a behaviour change, and the only one in six releases.** Every
+class-side message now requires an object receiver, so an instance can no longer
+answer for its class:
+
+```
+[#1]:new.            ; was []          -- now: 'new' expects an object, got array
+[#1]:of(#2, #3).     ; was [#2, #3]    -- now refused
+dictionary:new:new.  ; was a dictionary -- now refused
+#45:new.             ; refused, as before, and now respondsTo agrees
+```
+
+A `.sob` from an earlier release still **loads** — the format is version 11,
+unchanged since 0.1.0 — and one that sends a class-side message to an instance
+will now fail where it used to answer. Nothing in the examples or libraries did.
+
+What it buys is that **`respondsTo` no longer lies.** Three messages — `new`,
+`slots` and `slotAt` — accepted any receiver and then refused a value from
+inside the primitive, so `#45:respondsTo('new)` answered true and `#45:new`
+failed. It answers false now, and sending and asking agree everywhere.
+
+**A warning when two files claim one global name.** There is no module system, so
+an included file binds into the one global namespace and the later binding wins
+quietly. `lib/text.sol` proved it the hard way: it bound one object called
+`text`, the first program to use it had a variable of that name, and the library
+broke from a distance with `string does not understand 'utf8'`.
+
+```
+[prog.sol:3:1] solas: warning: 'text' was already bound by lib/text.sol -- this one wins, and nothing else will say so
+```
+
+Only a **claim** warns. `count := count:add(#1)` reads the name before writing
+it, so it is updating somebody else's global rather than declaring its own —
+which files legitimately do across an include. Without that rule the warning
+fired on a test fixture; with it, the 28 examples, four libraries and every test
+compile silently.
+
+**Section 6 is down to one entry** — a single keypress, still waiting for a
+program that needs one — and section 2 is empty. What is left of the roadmap is
+the limitations the language keeps on purpose.
+
 ### A warning when two files claim one name — `595622f`, 2026-08-21
 
 [6.21](COMPLETED.md#621-two-libraries-binding-one-name-collide-silently--done),
