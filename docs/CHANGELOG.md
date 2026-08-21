@@ -51,6 +51,15 @@ own and they pull against each other exactly where the cases recurse — the
 jump table is for cases that are leaves. The library takes the chain and the
 comment says why.
 
+**A third, recorded rather than worked on.** [6.21](ROADMAP.md): two libraries
+binding one name do not collide — the second include wins quietly, and swapping
+the two lines changes the answer with no diagnostic either way. Nothing has
+tripped over it, unlike 6.18. It is the third entry now pointing at the same
+absence, so what it records is that **there is no module system** and the shape
+of what one would buy — a namespace, which the object idiom approximates; an
+export boundary, which privacy would have to become a new concept to provide;
+and declared dependencies, which is exactly what would make 6.18 diagnosable.
+
 **Two papercuts, both new entries.** [6.18](ROADMAP.md): a file that includes a
 library of its own name finds *itself* first and that include quietly does
 nothing — documented, and still about a minute to fall into once `lib/` had a
@@ -73,6 +82,17 @@ diffs cleanly. And `asJson` is defined on `object`, so nil answers `"null"`
 through the definition every other type uses — which matters because nil's class
 has no global for a method to be bound on, and the single root is what makes
 that not matter.
+
+6.12 was also made exact on the way. `asCode` and `asCharacter` **do not
+exist** — the entry proposes those names. What is good about the pair is that it
+needs **no new type**: a one-character string in, an integer out, and back. What
+it would *not* do is finish the JSON case, because a string is bytes and `é` is
+a code point UTF-8 spells in two of them. UTF-8 encoding is ordinary arithmetic
+once a number can become a byte, so it belongs in the library rather than the
+VM — the pair is the whole foundation and not the fix. One side effect worth
+having: `#0:asCharacter` would be the only way to write a NUL, which no literal
+spells today, and a string already carries one through `readFile` and
+`writeFile` byte-for-byte.
 
 `lib/` is now checked the way `examples/` is: every file in it compiles and
 verifies, and one not listed in the test fails rather than being skipped.
