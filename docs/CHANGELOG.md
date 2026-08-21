@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### Making, moving and removing — `pending`, 2026-08-21
+### Making, moving and removing — `99b971e`, 2026-08-21
 
 The other half of the filesystem, and the half that cannot be undone.
 
