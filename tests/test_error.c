@@ -243,6 +243,162 @@ static void test_catching_does_not_leak_temporaries(void)
     printf("  catching leaves the collector's temporaries balanced\n");
 }
 
+/* ---- ensure ------------------------------------------------------------- *
+ *
+ * Runs the cleanup whether the body finished or not, then goes on doing
+ * whatever the body was going to do. The difficulty is that a failure has to be
+ * set aside for the cleanup to run at all: `had_error` is what stops the
+ * machine, and a cleanup started with the flag still up would manage one
+ * instruction.
+ */
+static void test_ensure_runs_either_way(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "cleaned := #0."
+        /* the body finishes */
+        "r := { #7 }:ensure({ cleaned := cleaned:add(#1) })."
+        /* the body fails */
+        "caught := { { error:raise(\"boom\") }:ensure({ cleaned := cleaned:add(#1) }) }"
+        "    :onError({ e | e:message })."
+        /* the answer is the body's, not the cleanup's */
+        "answer := { #1 }:ensure({ #999 }).") == SOL_OK);
+
+    assert(SOL_AS_INT(global(&vm, "cleaned")) == 2);   /* both times */
+    assert(SOL_AS_INT(global(&vm, "r")) == 7);
+    assert(is_text(global(&vm, "caught"), "boom"));
+    assert(SOL_AS_INT(global(&vm, "answer")) == 1);
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+    printf("  ensure runs the cleanup either way, and answers the body\n");
+}
+
+/* When both go wrong the body's failure survives, which is the rule everywhere
+   here: the first error wins, and the second is usually a consequence. */
+static void test_the_bodys_failure_wins(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "both := { { error:raise(\"from the body\") }"
+        "    :ensure({ error:raise(\"from the cleanup\") }) }"
+        "    :onError({ e | e:message })."
+        /* and a cleanup failing alone has nothing to compete with */
+        "alone := { { #1 }:ensure({ error:raise(\"cleanup alone\") }) }"
+        "    :onError({ e | e:message }).") == SOL_OK);
+
+    assert(is_text(global(&vm, "both"), "from the body"));
+    assert(is_text(global(&vm, "alone"), "cleanup alone"));
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+    printf("  when both fail, the body's failure is the one that carries on\n");
+}
+
+/* An exit is set aside the same way and for the same reason: releasing a thing
+   you borrowed is as necessary when a program is stopping as when it is
+   failing. The cleanup runs, and the program still exits with its status. */
+static void test_ensure_runs_on_an_exit(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "cleaned := false."
+        "{ system:exit(#4) }:ensure({ cleaned := true })."
+        "after := true.") == SOL_EXIT);
+
+    assert(vm.exit_code == 4);
+    assert(SOL_AS_BOOL(global(&vm, "cleaned")));
+    assert(SOL_IS_NIL(global(&vm, "after")));      /* the exit still stopped it */
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+    printf("  an exit runs the cleanup and still exits\n");
+}
+
+/* Nested, the cleanups run innermost first as the failure travels out. */
+static void test_nested_ensures_unwind_outward(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "order := array:new."
+        "seen := { { { error:raise(\"deep\") }:ensure({ order:add(\"inner\") }) }"
+        "    :ensure({ order:add(\"outer\") }) }:onError({ e | e:message })."
+        "n := order:size. first := order:at(#1). second := order:at(#2).") == SOL_OK);
+
+    assert(is_text(global(&vm, "seen"), "deep"));
+    assert(SOL_AS_INT(global(&vm, "n")) == 2);
+    assert(is_text(global(&vm, "first"), "inner"));
+    assert(is_text(global(&vm, "second"), "outer"));
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+    printf("  nested cleanups run innermost first\n");
+}
+
+/* The message and its stack are put back untouched, so an uncaught failure that
+   passed through a cleanup still names where it happened rather than where it
+   was tidied up after. */
+static void test_the_error_survives_the_cleanup_intact(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "deep := { error:raise(\"the original\") }."
+        "{ deep:value }:ensure({ nil }).") == SOL_RUNTIME_ERROR);
+
+    assert(strcmp(vm.error_message.chars, "the original") == 0);
+    assert(strstr(vm.error_trace.chars, "in block") != NULL);
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+    printf("  the failure comes out with its own message and stack\n");
+}
+
+/* Unlike `onError`'s handler, the cleanup always runs, so a cleanup that is not
+   a block is refused every time rather than only when something fails. */
+static void test_ensure_refuses(void)
+{
+    static const char *refused[] = {
+        "{ #1 }:ensure.",
+        "{ #1 }:ensure({ #1 }, { #2 }).",
+        "#5:ensure({ #1 }).",
+        "{ #1 }:ensure(#2).",
+    };
+
+    for (size_t i = 0; i < sizeof(refused) / sizeof(refused[0]); i++) {
+        SolVM vm; sol_vm_init(&vm);
+        SolChunk chunk;
+        assert(run(&vm, &chunk, refused[i]) == SOL_RUNTIME_ERROR);
+        sol_chunk_free(&chunk); sol_vm_free(&vm);
+    }
+    printf("  a cleanup that is not a block is refused, always\n");
+}
+
+/* Setting a failure aside moves two growable buffers about. Doing it many times
+   must not creep the stack or lose the collector's temporaries. */
+static void test_many_ensures_stay_level(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "i := #0."
+        "{ i:lessThan(#20000) }:whileTrue({"
+        "    { { error:raise(\"x\") }:ensure({ nil }) }:onError({ e | nil })."
+        "    i := i:add(#1) })."
+        "done := i.") == SOL_OK);
+
+    assert(SOL_AS_INT(global(&vm, "done")) == 20000);
+    assert(vm.temp_count == 0);
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+    printf("  twenty thousand cleanups leave the machine level\n");
+}
+
 int main(void)
 {
     test_catching_answers_something();
@@ -253,6 +409,13 @@ int main(void)
     test_the_stack_is_left_as_it_was_found();
     test_errors_survive_collection();
     test_catching_does_not_leak_temporaries();
+    test_ensure_runs_either_way();
+    test_the_bodys_failure_wins();
+    test_ensure_runs_on_an_exit();
+    test_nested_ensures_unwind_outward();
+    test_the_error_survives_the_cleanup_intact();
+    test_ensure_refuses();
+    test_many_ensures_stay_level();
     printf("test_error: ok\n");
     return 0;
 }

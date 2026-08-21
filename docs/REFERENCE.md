@@ -1062,6 +1062,35 @@ The handler is checked when it is run, not when `onError` is sent, so
 `{ #1 }:onError(#2)` is quiet when nothing fails. That is how every block
 argument here behaves: `false:ifTrue(#5)` says nothing either.
 
+### Cleaning up regardless
+
+`ensure` runs its second block whether the first finished or not, and then goes
+on doing whatever the first was going to do:
+
+```
+{ working:value }:ensure({ tidyUp:value }).
+```
+
+It answers **the body's** answer. The cleanup's is discarded, the cleanup not
+being what the expression is about.
+
+The cleanup runs on the way out of a failure *and* on the way out of a
+`system:exit` — giving back a thing you borrowed is as necessary when a program
+is stopping as when it is failing. Nested, the cleanups run innermost first as
+the failure travels outward.
+
+**When both fail, the body's failure is the one that carries on.** That is the
+rule everywhere here: the first error wins, and the second is usually a
+consequence of the first. A cleanup that fails on its own, with nothing to
+compete with, fails normally.
+
+An uncaught failure that passed through a cleanup keeps its own message and its
+own stack, so it still names where it happened rather than where it was tidied
+up after.
+
+Unlike `onError`'s handler, the cleanup **always** runs, so one that is not a
+block is refused every time rather than only when something fails.
+
 ---
 
 ## Reflection
@@ -1542,6 +1571,7 @@ is false. That is IEEE showing through rather than a decision made here.
 | `doUntil(condition)` | nil, having run the receiver **until** the condition is true — the body first, so always at least once |
 | `repeat(#n)` | nil, having run the receiver `n` times |
 | `onError(handler)` | the block's answer, or the handler's if it failed |
+| `ensure(cleanUp)` | the block's answer, having run `cleanUp` either way |
 | `timeToRun` | seconds the block took, as a float |
 | `timeToRun(#n)` | seconds `n` runs took, as a float |
 

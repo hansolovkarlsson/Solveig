@@ -83,4 +83,30 @@ report:value("ok"):display.                      ; ok
 { { error:raise("first") }:onError({ e | nil:boom }) }
     :onError({ e | e:message:display }).         ; nil does not understand 'boom'
 
+; ---------------------------------------------------------------------------
+; Running something regardless
+
+; `ensure` runs its cleanup whether the body finished or not, and then goes on
+; doing whatever the body was going to do. It answers the body's answer; the
+; cleanup's is discarded, because the cleanup is not what the expression is
+; about.
+{ "working":display. #7 }:ensure({ "tidied":display }):print.
+        ; working / tidied / #7
+
+; When the body fails, the cleanup still runs and the failure still travels.
+{ { error:raise("gave up") }:ensure({ "tidied anyway":display }) }
+    :onError({ e | e:message:display }).
+        ; tidied anyway / gave up
+
+; When both fail, the body's failure is the one that carries on. The first
+; error wins here as it does everywhere: the second is usually a consequence.
+{ { error:raise("from the body") }:ensure({ error:raise("from the cleanup") }) }
+    :onError({ e | e:message:display }).         ; from the body
+
+; And an exit runs the cleanup on its way out -- giving back a thing you
+; borrowed is as necessary when a program is stopping as when it is failing.
+;
+;   { system:exit(#4) }:ensure({ "released":display }).
+;   ->  released, and the program still leaves with #4
+
 "done":display.

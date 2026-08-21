@@ -1421,3 +1421,44 @@ building in. `timesCollect` is what is left, being the one nobody has measured.
 The search path and `@include` finding a name it was not told the location of
 are unchanged, and were always the part that mattered.
 
+
+---
+
+### 6.17 There is no `ensure` — **done**
+
+Written down when `onError` landed, on the grounds that nothing needed it yet:
+the things `ensure` usually protects are handles and locks, and there are
+neither. Built the next thing anyway, because the entry named the one wrinkle it
+would have and that wrinkle turned out to be the whole of it.
+
+Built as `pending`. `{ body }:ensure({ cleanUp })` runs the cleanup whether the
+body finished or not, then goes on doing whatever the body was going to do. It
+answers the **body's** answer; the cleanup's is discarded, the cleanup not being
+what the expression is about.
+
+**The difficulty is that a failure has to be set aside for the cleanup to run at
+all.** `had_error` is what stops the machine, and the dispatch loop tests it
+after every instruction — so a cleanup started with the flag still up would
+manage one instruction and stop. The failure is lifted out complete with its
+message and its stack, the VM given fresh empty buffers for the duration, and
+the whole thing put back afterwards. The texts are moved rather than copied, so
+anything the cleanup reports lands somewhere else and is thrown away.
+
+**`system:exit` is set aside the same way**, which the entry did not anticipate.
+It travels by the same flag, and giving back a thing you borrowed is as
+necessary when a program is stopping as when it is failing — more so. The
+cleanup runs and the program still leaves with its status.
+
+**When both fail, the body's failure wins.** That was the wrinkle the entry
+named, and the answer it guessed was right: the first error wins here as it does
+everywhere, and the second is usually a consequence of the first.
+
+An uncaught failure that passed through a cleanup keeps its own message and its
+own stack, so it still names where it happened rather than where it was tidied
+up after. There is a test for that, and one for twenty thousand cleanups in a
+loop leaving the stack and the collector's temporaries where they were.
+
+Unlike `onError`'s handler, the cleanup **always** runs, so one that is not a
+block is refused every time rather than only when something fails — which is a
+difference in what the two messages promise rather than an inconsistency.
+

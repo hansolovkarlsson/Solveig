@@ -2394,6 +2394,66 @@ static SolValue prim_block_on_error(SolVM *vm, SolValue self, SolValue *args, in
     return sol_vm_call_block(vm, args[0], &caught, 1);
 }
 
+/* `{ body }:ensure({ cleanUp })` -- run the cleanup whether the body finished
+ * or not, then go on doing whatever the body was going to do.
+ *
+ * Answers the body's answer. The cleanup's answer is discarded, because the
+ * cleanup is not what the expression is about.
+ *
+ * The whole difficulty is that a failure has to be **set aside** for the
+ * cleanup to run at all. `had_error` is what stops the machine, and the
+ * dispatch loop tests it after every instruction -- so a cleanup started with
+ * the flag still up would run one instruction and stop. It is lifted out,
+ * complete with its message, and put back afterwards.
+ *
+ * `system:exit` is set aside the same way and for the same reason. It travels
+ * by the same flag, and releasing a thing you borrowed is exactly as necessary
+ * when a program is stopping as when it is failing -- more so.
+ *
+ * When both go wrong -- the body failed and the cleanup failed too -- the
+ * body's failure is the one that survives. That is the rule everywhere here:
+ * the first error wins, and the second is usually a consequence of the first.
+ */
+static SolValue prim_block_ensure(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "ensure", argc, 1)) return SOL_NIL_VAL;
+
+    SolValue answer = sol_vm_call_block(vm, self, NULL, 0);
+
+    if (!vm->had_error) {
+        /* Nothing to set aside. A cleanup that fails here fails on its own
+           account, with nothing to compete with. */
+        sol_vm_call_block(vm, args[0], NULL, 0);
+        return vm->had_error ? SOL_NIL_VAL : answer;
+    }
+
+    /* Lift the failure out. The texts are moved rather than copied: the VM gets
+       fresh empty ones for the duration, so anything the cleanup reports lands
+       somewhere else and can be thrown away. */
+    SolText  message  = vm->error_message;
+    SolText  trace    = vm->error_trace;
+    bool     exiting  = vm->exiting;
+    int      code     = vm->exit_code;
+
+    sol_text_init(&vm->error_message);
+    sol_text_init(&vm->error_trace);
+    vm->had_error = false;
+    vm->exiting   = false;
+
+    sol_vm_call_block(vm, args[0], NULL, 0);
+
+    /* Whatever the cleanup made of it, the body's failure is what carries on. */
+    sol_text_free(&vm->error_message);
+    sol_text_free(&vm->error_trace);
+    vm->error_message = message;
+    vm->error_trace   = trace;
+    vm->had_error     = true;
+    vm->exiting       = exiting;
+    vm->exit_code     = code;
+
+    return SOL_NIL_VAL;
+}
+
 static SolValue prim_object_new(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     (void)args;
@@ -3036,6 +3096,7 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->block_class, SOL_BLOCK, "doUntil", prim_do_until);
     instance(vm, vm->block_class, SOL_BLOCK, "repeat", prim_block_repeat);
     instance(vm, vm->block_class, SOL_BLOCK, "onError", prim_block_on_error);
+    instance(vm, vm->block_class, SOL_BLOCK, "ensure", prim_block_ensure);
 
     vm->array_class = sol_object_new(vm, NULL);
     any_receiver(vm, vm->array_class, "new", prim_array_new);

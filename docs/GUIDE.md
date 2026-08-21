@@ -743,6 +743,17 @@ failures can hand the rest onward.
 
 `system:exit` is not caught — it is a stop, not a failure.
 
+`ensure` is the other half: it runs its cleanup whether the body finished or
+not, and then goes on doing whatever the body was going to do.
+
+```
+{ working:value }:ensure({ tidyUp:value }).
+```
+
+It answers the body's answer, runs the cleanup on the way out of an exit as well
+as a failure, and when both the body and the cleanup fail, the body's failure is
+the one that carries on.
+
 > **Run:** [examples/strictness.sol](../examples/strictness.sol), which ends by
 > failing on purpose so that a real stack has somewhere to be shown, and
 > [examples/errors.sol](../examples/errors.sol) for catching and raising.

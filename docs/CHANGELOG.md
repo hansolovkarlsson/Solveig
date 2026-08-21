@@ -7,6 +7,41 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### `ensure` — cleaning up regardless — `pending`, 2026-08-21
+
+Roadmap 6.17, written down one commit ago on the grounds that nothing needed it
+yet.
+
+```
+{ working:value }:ensure({ tidyUp:value }).
+```
+
+Runs the cleanup whether the body finished or not, then goes on doing whatever
+the body was going to do. Answers the **body's** answer.
+
+**The difficulty is that a failure has to be set aside for the cleanup to run at
+all.** `had_error` is what stops the machine, and the dispatch loop tests it
+after every instruction — so a cleanup started with the flag still up would
+manage one instruction and stop. The failure is lifted out complete with its
+message and stack, the VM given fresh buffers for the duration, and the whole
+thing put back afterwards.
+
+**`system:exit` is set aside the same way**, which the entry did not anticipate.
+It travels by the same flag, and giving back a thing you borrowed is as
+necessary when a program is stopping as when it is failing. The cleanup runs and
+the program still leaves with its status.
+
+**When both fail, the body's failure wins** — the wrinkle the entry named, and
+the answer it guessed was right. The first error wins here as it does
+everywhere.
+
+An uncaught failure that passed through a cleanup keeps its own message and its
+own stack, so it names where it happened rather than where it was tidied up
+after.
+
+Unlike `onError`'s handler the cleanup always runs, so one that is not a block is
+refused every time rather than only when something fails.
+
 ### An error can be caught — `29f358f`, 2026-08-21
 
 ```
