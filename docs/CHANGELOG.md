@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### `doUntil` is built in, and compiles to jumps — `pending`, 2026-08-21
+### `doUntil` is built in, and compiles to jumps — `413c57b`, 2026-08-21
 
 Roadmap 6.6, the half of it that could be had without changing the instruction
 set.

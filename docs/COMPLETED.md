@@ -1337,7 +1337,7 @@ flag outside it, and that flag costs two sends an iteration the jumps do not
 need. So `doUntil` is not a convenience you pay for — it is now the fastest way
 to write that loop.
 
-Built as `pending`, in two pieces. A primitive on `block`, so the message exists
+Built as `413c57b`, in two pieces. A primitive on `block`, so the message exists
 whether or not it is written literally, and an inliner beside `inline_while`.
 
 **The wrinkle was the complaint, not the loop.** The shape is `whileTrue`'s with
