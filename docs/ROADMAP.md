@@ -406,7 +406,7 @@ not an export boundary: all twenty-seven slots are public and writable, and
 `json:digits := "abc"` breaks the parser from outside it.
 
 Nothing has actually tripped over this yet, which is why it is recorded rather
-than being worked on -- unlike [6.18](COMPLETED.md#618-a-file-that-includes-a-library-of-its-own-name-silently-does-nothing--done),
+than being worked on -- unlike [6.22](COMPLETED.md#622-a-file-that-includes-a-library-of-its-own-name-silently-does-nothing--done),
 which bit within a minute. It is the third entry now pointing at the same
 absence, so what it is really recording is that **there is no module system**,
 and the shape of what one would buy:
@@ -415,7 +415,7 @@ and the shape of what one would buy:
 - an export boundary, which needs something the language does not have -- slots
   cannot be removed and `slots` lists everything, so privacy would be a new
   concept rather than a use of existing ones (2.14);
-- declared dependencies, which is what would make 6.18 diagnosable: with nothing
+- declared dependencies, which is what would make 6.22 diagnosable: with nothing
   stating what a file needs, the compiler cannot tell "you meant the library"
   from "you meant this file", so it picks by search order and says nothing.
 
@@ -446,7 +446,7 @@ it is done.
 The rest is not ordered. **A single keypress** (6.10) still waits for a program
 that needs it. **6.19** is a papercut a program tripped over, small and worth
 doing when something is already open nearby.
-[6.18](COMPLETED.md#618-a-file-that-includes-a-library-of-its-own-name-silently-does-nothing--done)
+[6.22](COMPLETED.md#622-a-file-that-includes-a-library-of-its-own-name-silently-does-nothing--done)
 was the other one and is built. **6.21** is the same family and nothing has hit
 it yet; what it really records is the shape of the module system the language
 has not got. **6.20** is the next

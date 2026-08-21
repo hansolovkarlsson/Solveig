@@ -370,6 +370,74 @@ The parenthesised form has no edge to fall off. A block is an argument, and it
 is written where arguments are written, in every case, with no rule to remember
 about when it may be written otherwise.
 
+### More `@` directives: `@define`, `@ifdef`, `@once`
+
+`@` was reserved for the things that happen while compiling rather than while
+running, and `@include` is the only one in it. The question is whether the rest
+of C's preprocessor belongs there too. **None of it does, and the reason is the
+same each time: the job is already done by something that is not a directive.**
+
+**`@once` is already the behaviour**, unconditionally. A file is compiled once
+per compilation, keyed by where it lands on disk. C needs `#pragma once` because
+C compiles an included file every time it is reached and leaves each file to
+guard itself; Solum does not, so the directive would be a way of asking for what
+you already have. There is nothing for it to switch on.
+
+**`@define` has three jobs and Solum has three answers.**
+
+A *named constant* is a binding. `maxRetries := #3.` is a name holding a value
+rather than a name standing for text, which means it obeys scope and cannot
+surprise anybody by expanding in the middle of an expression.
+
+A *function-like macro* is a block. And the one thing macros have over
+functions in C — that their arguments are not evaluated before the call — is
+the thing blocks were built for:
+
+```
+unless := { condition, body | condition:not:ifTrue({ body:value }) }.
+unless:value(false, { "only now":display }).
+```
+
+`ifTrue` itself is that shape, so a user-defined control structure is ordinary
+code and needs no macro. A block goes further than a macro can: it is a value,
+so it can be stored, passed on, and called later.
+
+*Compile-time computation to avoid a run-time cost* is the job left, and the
+answer here has consistently been to **measure and make it a primitive** — which
+is what happened to the four loop constructs. That is the better answer, because
+it speeds up every caller rather than the ones who remembered to use the macro.
+
+**`@ifdef` is the one worth arguing about, and it is still no.**
+
+- *Platform differences.* The language has none. The VM absorbs them in C, which
+  is where they belong; even [6.10](ROADMAP.md#610-waiting-for-a-single-key),
+  the first genuinely platform-divergent feature, would diverge inside the VM
+  rather than in Solum source.
+- *Debug and release builds.* `system:environment` answers at run time, and a
+  block that is never called costs a slot.
+- *Feature detection*, which is the real one: a program that wants to run on two
+  releases cannot use `asByte` on the one that has not got it. **`respondsTo`
+  already answers that**, at run time, with no second language:
+
+```
+"A":respondsTo('asByte):print.          ; true
+"A":respondsTo('asRunicGlyph):print.    ; false
+```
+
+What `@ifdef` would cost is out of proportion to that. It introduces a second
+language with its own scoping rules, and it makes the text on the screen stop
+being the program — a reader, and every tool, has to know which switches were
+set before they can say what a file means. This language has spent its whole
+design avoiding that kind of second mechanism: control flow is message sending,
+a class is an object, a method is a slot holding a block.
+
+**So `@` stays a namespace with one thing in it.** That is a result rather than
+an oversight. The reserved space says *this is where compile-time things go if
+any more turn up*, and the honest position after looking is that none have —
+each candidate is answered by a binding, a block, or a message. If a real one
+appears, `@` is ready, and the case for it will be that nothing in the language
+already does the job.
+
 ### Cascades: `A:with{ :m1(#1). :m2(#45). }`
 
 Smalltalk needs cascades because its setters answer the argument, so

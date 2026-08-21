@@ -9,7 +9,7 @@
 ; being compiled once, that include quietly does nothing. The reference warns
 ; about this and calls it occasionally a trap; it took about a minute to fall
 ; into, and what it costs is that the program compiles cleanly and then fails at
-; run time with `undefined name 'json'`. See ROADMAP 6.18.
+; run time with `undefined name 'json'`. See ROADMAP 6.22.
 ;
 ; The parser itself is [lib/json.sol](../lib/json.sol) and is on the search
 ; path, so this says `@include "json.sol".` and does not say where it lives.

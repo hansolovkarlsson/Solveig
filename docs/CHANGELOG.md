@@ -7,7 +7,75 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-Nothing yet.
+### The compiler's first warning, and no more directives — `2b25dda`, 2026-08-21
+
+[6.22](COMPLETED.md#622-a-file-that-includes-a-library-of-its-own-name-silently-does-nothing--done).
+A file that includes a library of its own name finds *itself*, and since a file
+is compiled once that include does nothing at all — the program compiles
+cleanly and fails at run time with `undefined name`.
+
+**Documenting it was not enough.** The reference already called it *occasionally
+a trap*, and it still took about a minute to fall into once `lib/` had a second
+file to collide with. So the compiler says it where the line is:
+
+```
+[greet.sol:1:10] solas: warning: this file includes itself, so the include does nothing -- a file beside the includer wins, and 'lib/greet.sol' on the search path is what it shadowed
+  @include "greet.sol".
+           ^^^^^^^^^^^
+```
+
+Naming what was shadowed is the useful half: *this does nothing* says something
+is wrong, and *`lib/greet.sol` is what it shadowed* says what you were expecting
+to get.
+
+**A warning and not an error** — shadowing is C's rule and stays, the file is
+still valid, the status is unchanged. It is the compiler's first warning;
+`sol_parser_warning` shares the location and the echoed line with
+`sol_parser_error` and sets neither `had_error` nor the panic flag. And only the
+**direct** case: a diamond is the ordinary reason include-once exists, a cycle is
+one it ends on purpose, both stay silent, and both have tests — a warning firing
+on either would be worse than the trap it was added for.
+
+### The rest of the preprocessor, ruled out
+
+`@` was reserved for what happens while compiling, and `@include` is still the
+only thing in it. Scoped `@once`, `@define` and `@ifdef` and recorded the verdict
+in [ideas.md](ideas.md#more--directives-define-ifdef-once). **None of them
+belongs, and the reason is the same each time: the job is already done by
+something that is not a directive.**
+
+- **`@once` is already the behaviour**, unconditionally. C needs it because C
+  compiles an included file every time it is reached; Solum compiles it once,
+  keyed by where it lands on disk. There is nothing for the directive to switch
+  on.
+- **`@define`** has three jobs: a named constant, which is a binding holding a
+  value rather than a name standing for text; a function-like macro, which is a
+  block — and the one thing macros have over functions in C, arguments that are
+  not evaluated before the call, is exactly what a block is; and compile-time
+  computation to save run-time cost, where the answer here has consistently been
+  to measure and make it a primitive, which speeds up every caller rather than
+  the ones who remembered.
+- **`@ifdef`** is the arguable one. Platform differences are absorbed by the VM
+  in C. Debug builds can read `system:environment`. Feature detection is the real
+  use, and `respondsTo` already answers it at run time with no second language:
+  `"A":respondsTo('asByte)` is `true` here and `false` on an older build. What
+  conditional compilation would cost is out of proportion — a second language
+  with its own scoping, and text on the screen that is no longer the program.
+
+So `@` stays a namespace with one thing in it. That is a result rather than an
+oversight: if a real compile-time need turns up, the space is ready, and the case
+for it will be that nothing in the language already does the job.
+
+### Renumbered: the self-include entry is 6.22, not 6.18
+
+Caught while checking a link. **6.18 was already taken** — *There is no date or
+time*, built in 0.3.0 — and the roadmap's own rule is that numbers are never
+reused, so that a gap is a record rather than a mistake. The self-include entry
+was given 6.18 without checking what the highest number in use was, which is the
+one thing the rule exists to prevent.
+
+It is 6.22 now, everywhere it is referred to, including in the 0.4.0 notes above
+that were written with the wrong number. The date-and-time 6.18 is untouched.
 
 ## 0.4.0 — 2026-08-21
 
@@ -53,7 +121,7 @@ value, and the line between inheriting the behaviour and being an object.
 **Written by writing programs.** `lib/json.sol` and `examples/manifest.sol` were
 written to find out what the language wanted, and the answer moved the roadmap
 four times: 6.12 got built, 3.5 got a price list for how the dispatch is
-written, and 6.18, 6.19 and 6.21 are new entries for papercuts a program tripped
+written, and 6.22, 6.19 and 6.21 are new entries for papercuts a program tripped
 over. Three programs here now exist to do a job rather than to show a feature.
 
 ### `--help` on all three binaries — `6542ec3`, 2026-08-21
@@ -214,13 +282,13 @@ comment says why.
 **A third, recorded rather than worked on.** [6.21](ROADMAP.md): two libraries
 binding one name do not collide — the second include wins quietly, and swapping
 the two lines changes the answer with no diagnostic either way. Nothing has
-tripped over it, unlike 6.18. It is the third entry now pointing at the same
+tripped over it, unlike 6.22. It is the third entry now pointing at the same
 absence, so what it records is that **there is no module system** and the shape
 of what one would buy — a namespace, which the object idiom approximates; an
 export boundary, which privacy would have to become a new concept to provide;
-and declared dependencies, which is exactly what would make 6.18 diagnosable.
+and declared dependencies, which is exactly what would make 6.22 diagnosable.
 
-**Two papercuts, both new entries.** [6.18](ROADMAP.md): a file that includes a
+**Two papercuts, both new entries.** [6.22](ROADMAP.md): a file that includes a
 library of its own name finds *itself* first and that include quietly does
 nothing — documented, and still about a minute to fall into once `lib/` had a
 second file to collide with; the example is called `manifest.sol` for that
@@ -530,7 +598,7 @@ solvm: cannot remove 'build': Directory not empty
 **`fileSize` and not `modifiedAt`.** Size is unambiguous; a timestamp wants to be
 a **date** rather than a number of seconds, and there is no date type here yet —
 answering an integer now would be an interface a date type would have to change.
-Recorded as [ROADMAP 6.18](ROADMAP.md#618-there-is-no-date-or-time), which is now
+Recorded as [6.18](COMPLETED.md#618-there-is-no-date-or-time--done), which is now
 the largest thing missing.
 
 ### Directories, and a script you can run directly — `d503612`, 2026-08-21

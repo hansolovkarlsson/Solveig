@@ -1266,7 +1266,7 @@ nothing is asking for it. A byte from a string is a number now, which is what
 every use met so far actually wanted. If a program turns up that needs a large
 mutable buffer, that is a new entry with its own case, not this one reopened.
 
-### 6.18 A file that includes a library of its own name silently does nothing — **done**
+### 6.22 A file that includes a library of its own name silently does nothing — **done**
 
 The search path looks beside the includer first, and a file is compiled once. So
 `@include "json.sol"` written *in* a file called `json.sol` finds itself, has
