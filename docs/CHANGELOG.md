@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### The counted loops are built in — and not by inlining — `pending`, 2026-08-21
+### The counted loops are built in — and not by inlining — `c56a3c4`, 2026-08-21
 
 Roadmap 6.6, finished. `repeat`, `toDo` and `toByDo` are primitives now.
 
