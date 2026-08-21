@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### The reference gets a contents and a message index — `pending`, 2026-08-21
+### The reference gets a contents and a message index — `8a5deaf`, 2026-08-21
 
 At 2300 lines the reference had a contents listing 13 of its 68 headings, which
 is a contents in the sense that a signpost pointing at a county is directions.
