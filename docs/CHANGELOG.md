@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### A warning when two files claim one name — `pending`, 2026-08-21
+### A warning when two files claim one name — `595622f`, 2026-08-21
 
 [6.21](COMPLETED.md#621-two-libraries-binding-one-name-collide-silently--done),
 and the second warning the compiler has. There is no module system: an included
