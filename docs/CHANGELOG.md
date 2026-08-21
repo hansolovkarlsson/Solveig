@@ -7,6 +7,73 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.8.0 — 2026-08-21
+
+**A program can deal with a filesystem it has to change, and with a keyboard.
+The roadmap is empty.**
+
+```
+system:makeDirectory(out).                       ; true, or false if it was there
+system:writeFile(to, system:readFile(from)).
+system:setMode(to, system:modeOf(from)).         ; the executable bit survives
+system:setModifiedAt(to, system:modifiedAt(from)).
+```
+
+**Five new messages** — `readKey`, `modeOf`, `setMode`, `setModifiedAt`, and a
+changed `makeDirectory` — and **every one of them was asked for by a program**
+rather than planned. That is the whole method this release ran on, and it is
+worth saying plainly because the roadmap had nothing on it when the release
+started.
+
+**[examples/mirror.sol](../examples/mirror.sol)** copies one directory tree into
+another. The first program here that *writes* to the filesystem, and it could
+not do its job: `modifiedAt` answered whole seconds, so *is the source newer
+than the copy?* was always no within a second of the last run. The filesystem
+records nanoseconds and `time` holds nanoseconds; only that message rounded, in
+the middle of the two. **A defect, found by needing it.**
+
+It went on to ask for the rest. A copy lost the executable bit, so a backup of
+anything holding scripts would not run — `modeOf` and `setMode`. A copy could
+not keep the original's time, so the comparison had to be *newer than* rather
+than *the same as*, and a file replaced with an **older** copy of itself went
+unnoticed — `setModifiedAt` closed that. And `makeDirectory` refused a directory
+that was already there, which made *make sure this exists* a test and a make in
+every script that writes anywhere.
+
+**`makeDirectory` answers now** — `true` if it made one, `false` if a directory
+was there — and the argument that decided it was not tidiness: refusing could
+not be told apart from failing, since `mkdir` reports the same `EEXIST` for a
+directory that is there and a **file** in the way. One is fine and the other
+never will be, and now they read differently. **A behaviour change**, and a test
+asserting the old contract caught it.
+
+**[examples/keys.sol](../examples/keys.sol)** reads one key at a time.
+`system:readKey` answers one byte without waiting for return, which closed
+[6.10](COMPLETED.md#610-waiting-for-a-single-key--done) — an entry that had been
+closed once by mistake, when `solis` grew raw-mode line editing for its own
+prompt and the work was filed against it. That was the front end reading its own
+keys; this is the message a *program* can send.
+
+**The prompt lists recent lines with ctrl-h**, which is bound where the key was
+doing nothing anyway: ctrl-h *is* backspace, and on an empty line there is
+nothing to delete.
+
+**The reference has a contents worth the name and a message index.** 56 entries
+across two levels, and 110 messages each linked to the types that answer it —
+because what a reference is asked is *what has `copyFrom`?* rather than *what
+does a string do?*. A test fails the build if a registered message is missing
+from the index.
+
+**`.sob` files are still format version 11**, unchanged since 0.1.0. Everything
+added here is a primitive or a document.
+
+**Nothing is left on the roadmap.** Sections 2 and 6 are empty and section 3 is
+the restrictions kept on purpose, so the document no longer says what to do next
+— the way to add to it is to write a program and find out what it wants, which
+is what produced every line of this release.
+
 ### The reference gets a contents and a message index — `8a5deaf`, 2026-08-21
 
 At 2300 lines the reference had a contents listing 13 of its 68 headings, which
@@ -211,11 +278,11 @@ by platform**, after the prompt's raw mode, and the guard is the same shape.
 
 **Three gaps it found besides.** Two are new entries:
 
-- [6.25](ROADMAP.md#625-makedirectory-refuses-one-that-is-already-there) —
+- [6.25](COMPLETED.md#625-makedirectory-refuses-one-that-is-already-there--done) —
   `makeDirectory` is an error when the directory is already there, so *make sure
   this exists* is a test and a make. Every script that writes anywhere will
   carry the same three-line block this one does.
-- [6.26](ROADMAP.md#626-a-files-mode-and-time-cannot-be-read-or-set) — a copy
+- [6.26](COMPLETED.md#626-a-files-mode-and-time-cannot-be-read-or-set--done) — a copy
   loses the executable bit, because `readFile` and `writeFile` carry bytes and
   nothing else. `-rwxr-xr-x` in, `-rw-r--r--` out. For a language aimed at
   scripting an OS that is a floor rather than a nicety: a backup of anything

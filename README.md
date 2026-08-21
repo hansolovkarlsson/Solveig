@@ -97,6 +97,15 @@ No dependencies beyond a C11 compiler and `make`.
 
 ## Status
 
+**0.8.0** — a program can deal with a filesystem it has to change, and with a
+keyboard. `modeOf` and `setMode` so a copy keeps the executable bit,
+`setModifiedAt` so it keeps its time, `makeDirectory` answering whether it made
+one, and `readKey` for a program that wants a keypress rather than a line. Every
+one of them was asked for by a program rather than planned —
+[mirror.sol](examples/mirror.sol) copies a directory tree and found a defect in
+`modifiedAt` on the way. The reference has a contents and an index of all 110
+messages. The roadmap is empty.
+
 **0.7.0** — the prompt became a place you can work: ↑ and ↓ through what you
 have typed, ← and → within the line, the readline bindings, and history kept in
 `$HOME/.solis_history` so it is still there tomorrow. It reads a line exactly as
