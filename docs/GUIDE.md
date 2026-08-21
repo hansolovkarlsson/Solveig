@@ -447,10 +447,32 @@ b:add(#1):add(#2):add(#3).       ; add answers the array, so it chains
 `[#1, #2, #3]` is sugar for `array:of(#1, #2, #3)` — literally, not merely
 equivalently: the two forms produce byte-identical bytecode.
 
-`do`, `collect`, `select`, and `sorted` take blocks:
+`do`, `collect`, `select`, `inject`, and `sorted` take blocks:
 
 ```
 [#1, #2, #3]:collect({ e | e:mul(#2) }):print.        ; [#2, #4, #6]
+```
+
+The four iteration messages differ in what they answer. `do` throws the block's
+answers away, `collect` and `select` each answer an array, and `inject` folds
+the whole array down to one value:
+
+```
+[#1, #2, #3, #4]:inject(#0, { total, n | total:add(n) }):print.   ; #10
+```
+
+The block is given what has accumulated so far and one element. An empty array
+answers the start without ever calling it, so a fold is safe to write without
+asking first whether there is anything to fold. And unlike `do`, `inject` is an
+expression — a reduction can stand in the middle of one rather than needing an
+accumulator declared at the top of a frame.
+
+`join` puts an array of strings together with a separator between them, and is
+the inverse of `split`:
+
+```
+["ada", "grace"]:join(", "):print.        ; "ada, grace"
+"a,,b":split(","):join(","):print.        ; "a,,b"
 ```
 
 `at(#0)` is out of bounds and therefore caught, which is a small safety win that

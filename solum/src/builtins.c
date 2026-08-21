@@ -1315,6 +1315,137 @@ static SolValue prim_array_select(SolVM *vm, SolValue self, SolValue *args, int 
     return SOL_ARRAY_VAL(result);
 }
 
+/* `inject(start, block)` -- the fold. The block is given what has accumulated
+ * so far and one element, and answers the next accumulation:
+ *
+ *     [#1, #2, #3]:inject(#0, { total, n | total:add(n) }).   ; #6
+ *
+ * An empty array answers `start` without calling the block, which is what makes
+ * a fold safe to write without asking first whether there is anything to fold.
+ *
+ * This is the fourth of the iteration messages and the one that was missing.
+ * `do` throws its answers away, `collect` and `select` each answer an array, and
+ * every reduction to a single value had to be a `do` with an accumulator
+ * declared outside it -- which works, but only at the top of a frame, and never
+ * in the middle of an expression. */
+static SolValue prim_array_inject(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "inject", argc, 2)) return SOL_NIL_VAL;
+
+    SolArray *source = SOL_AS_ARRAY(self);
+
+    /* The accumulated value lives on the value stack for the length of the
+       fold. It is a fresh value at almost every step and nothing else refers to
+       it, and `sol_gc_push_temp` cannot hold it -- an integer or a nil has no
+       header to push, where the stack roots any value whatever its type.
+
+       Defensive rather than load-bearing, and worth being honest about which:
+       `sol_vm_call_block` pushes the receiver and arguments before it can
+       allocate, so today the accumulated value is already rooted at every point
+       a collection can happen, and taking this out passes under
+       `SOLUM_GC_STRESS=1`. What it costs is one stack slot; what it buys is
+       that `inject` holds its own value across an unbounded number of calls
+       into the language instead of relying on what another function does with
+       its arguments. `collect` can rely on that, having nothing live between
+       one call and the next. */
+    SolValue *accumulated = vm->stack_top;
+    sol_vm_push(vm, args[0]);
+    if (vm->had_error) return SOL_NIL_VAL;      /* the stack was full */
+
+    /* Bounded once and re-read each pass, as `do` and `collect` are. */
+    int limit = source->count;
+    for (int i = 0; i < limit; i++) {
+        if (i >= source->count) break;
+
+        /* Copied out rather than passed by pointer, since the two do not sit
+           together anywhere. Nothing allocates between here and the pushes
+           inside the call, so the copy needs no rooting of its own. */
+        SolValue pair[2] = { *accumulated, source->items[i] };
+
+        SolValue next = sol_vm_call_block(vm, args[1], pair, 2);
+        if (vm->had_error) {
+            sol_vm_pop(vm);
+            return SOL_NIL_VAL;
+        }
+        *accumulated = next;
+    }
+
+    return sol_vm_pop(vm);
+}
+
+/* `join(separator)` -- the pieces with the separator between them, and the
+ * inverse of `split`:
+ *
+ *     "a,,b":split(","):join(",").          ; "a,,b"
+ *
+ * That round trip holds for every string and every separator, which is the
+ * point of `split` keeping its empty pieces.
+ *
+ * Strict about what it joins: an array holding anything but a string is an
+ * error rather than a silent `asString` on each element. Rendering a value as
+ * text is what `fill` and `asString` are for, and a `join` that did it too
+ * would be a second way to reach the same place, quietly.
+ *
+ * The separator may be empty, where `split`'s may not. The two are not the same
+ * question: nothing can be *looked for*, since every position contains it, but
+ * putting nothing between the pieces is exactly concatenation. */
+static SolValue prim_array_join(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "join", argc, 1)) return SOL_NIL_VAL;
+    if (!SOL_IS_STRING(args[0])) {
+        sol_vm_runtime_error(vm, "'join' expects a string separator, got %s",
+                             sol_type_name(args[0]));
+        return SOL_NIL_VAL;
+    }
+
+    const SolString *separator = SOL_AS_STRING(args[0]);
+    const SolArray  *pieces    = SOL_AS_ARRAY(self);
+
+    /* Measured before anything is written, so the whole answer is one
+       allocation and a bad element is found before any work is done. */
+    int64_t total = 0;
+    for (int i = 0; i < pieces->count; i++) {
+        if (!SOL_IS_STRING(pieces->items[i])) {
+            sol_vm_runtime_error(vm, "'join' expects an array of strings; #%d is %s",
+                                 i + 1, sol_type_name(pieces->items[i]));
+            return SOL_NIL_VAL;
+        }
+        total += SOL_AS_STRING(pieces->items[i])->length;
+    }
+    if (pieces->count > 1) {
+        total += (int64_t)separator->length * (pieces->count - 1);
+    }
+    if (total > INT_MAX) {
+        sol_vm_runtime_error(vm, "'join' would make a string of %lld bytes",
+                             (long long)total);
+        return SOL_NIL_VAL;
+    }
+
+    char *joined = malloc((size_t)total + 1);
+    if (joined == NULL) {
+        fprintf(stderr, "solvm: out of memory\n");
+        exit(1);
+    }
+
+    /* The array is the receiver and on the value stack throughout, so every
+       piece stays rooted while it is copied out. */
+    size_t at = 0;
+    for (int i = 0; i < pieces->count; i++) {
+        if (i > 0 && separator->length > 0) {
+            memcpy(joined + at, separator->chars, (size_t)separator->length);
+            at += (size_t)separator->length;
+        }
+        const SolString *piece = SOL_AS_STRING(pieces->items[i]);
+        memcpy(joined + at, piece->chars, (size_t)piece->length);
+        at += (size_t)piece->length;
+    }
+    joined[total] = '\0';
+
+    SolValue result = SOL_STRING_VAL(sol_string_new(vm, joined, (int)total));
+    free(joined);
+    return result;
+}
+
 /* ---- string ------------------------------------------------------------ */
 
 static SolValue prim_string_size(SolVM *vm, SolValue self, SolValue *args, int argc)
@@ -2298,6 +2429,8 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->array_class, SOL_ARRAY, "do", prim_array_do);
     instance(vm, vm->array_class, SOL_ARRAY, "collect", prim_array_collect);
     instance(vm, vm->array_class, SOL_ARRAY, "select", prim_array_select);
+    instance(vm, vm->array_class, SOL_ARRAY, "inject", prim_array_inject);
+    instance(vm, vm->array_class, SOL_ARRAY, "join", prim_array_join);
     instance(vm, vm->array_class, SOL_ARRAY, "print", prim_print);
     instance(vm, vm->array_class, SOL_ARRAY, "sorted", prim_array_sorted);
     instance(vm, vm->array_class, SOL_ARRAY, "display", prim_display);

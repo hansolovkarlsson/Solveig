@@ -33,16 +33,19 @@ s:print.                     ; "hello"
 "abc":split(","):print.      ; ["abc"]        -- no occurrence, so one piece
 
 ; Which means the pieces always go back together into what you started with,
-; whatever the string was. There is no join yet, so putting them back is a walk
-; with `do` -- the separator goes before every piece but the first.
-joined := "".
-first := true.
-"a,,b":split(","):do({ piece |
-    first:ifFalse({ joined := joined:concat(",") }).
-    joined := joined:concat(piece).
-    first := false
-}).
-joined:print.                ; "a,,b"
+; whatever the string was. `join` is split backwards.
+"a,,b":split(","):join(","):print.   ; "a,,b"
+",a,":split(","):join(","):print.    ; ",a,"
+"":split(","):join(","):print.       ; ""
+
+; An empty separator is allowed here, where split refuses one: nothing cannot be
+; looked for, since every position contains it, but putting nothing between the
+; pieces is exactly concatenation.
+["a", "b", "c"]:join(""):print.      ; "abc"
+
+; join is strict about what it joins -- rendering a value as text is what
+; asString and fill are for.
+;   ["a", #1]:join(",")      ->  'join' expects an array of strings; #2 is integer
 
 ; indexOf answers a one-based index, or nil when there is no match: #0 would be
 ; a second way of saying "nothing" beside the one the language has.

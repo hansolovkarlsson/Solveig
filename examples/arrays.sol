@@ -54,11 +54,41 @@ squares:print.               ; [#1, #4, #9, #16, #25]
 
 [#1, #2, #3, #4, #5]:select({ x | x:greaterThan(#2) }):print.   ; [#3, #4, #5]
 
+; inject folds the array down to one value. The block is given what has
+; accumulated so far and one element, and answers the next accumulation.
+[#1, #2, #3, #4]:inject(#0, { total, n | total:add(n) }):print.   ; #10
+[#2, #3, #4]:inject(#1, { total, n | total:mul(n) }):print.       ; #24
+
+; An empty array answers the start without ever calling the block, so a fold is
+; safe to write without asking first whether there is anything to fold.
+[]:inject(#0, { total, n | total:add(n) }):print.                 ; #0
+
+; What accumulates need not be the type of the elements.
+[#1, #2, #3]:inject("", { s, n | s:concat(n:asString) }):print.   ; "123"
+
+; do throws its answers away; collect and select each answer an array; inject
+; answers one value. Unlike do, it is an expression, so it can stand in the
+; middle of one rather than only at the top of a frame.
+[#1, #2, #3]:inject(#0, { t, n | t:add(n) }):greaterThan(#5):print.   ; true
+
 ; They chain, so a pipeline reads left to right.
 #10:upto
     :collect({ x | x:mul(x) })
     :select({ x | x:lessThan(#30) })
     :print.                  ; [#1, #4, #9, #16, #25]
+
+; And a pipeline can end in a single value.
+#10:upto
+    :select({ x | x:mod(#2):equals(#0) })
+    :inject(#0, { total, n | total:add(n) })
+    :print.                  ; #30
+
+; join puts an array of strings together with a separator between them. It is
+; strict: an array holding anything else is an error, rendering being what
+; asString and fill are for.
+["ada", "grace", "alan"]:join(", "):print.       ; "ada, grace, alan"
+["a", "b"]:join(""):print.                       ; "ab"
+[]:join(","):print.                              ; ""
 
 ; sorted answers a new array, like collect and select -- the receiver is left
 ; alone. With no block the order comes from *sending* lessThan.

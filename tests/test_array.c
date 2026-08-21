@@ -14,6 +14,14 @@ static SolResult run(SolVM *vm, SolChunk *chunk, const char *source)
     return sol_vm_run(vm, chunk);
 }
 
+static bool is_text(SolValue value, const char *expected)
+{
+    if (!SOL_IS_STRING(value)) return false;
+    const SolString *s = SOL_AS_STRING(value);
+    return s->length == (int)strlen(expected) &&
+           memcmp(s->chars, expected, (size_t)s->length) == 0;
+}
+
 static SolValue global(SolVM *vm, const char *name)
 {
     SolSlot *slot = sol_object_lookup(vm->root, name);
@@ -197,6 +205,7 @@ static void test_nesting(void)
         "inner := n:at(#1). v := inner:at(#2).") == SOL_OK);
     assert(SOL_IS_ARRAY(global(&vm, "inner")));
     assert(SOL_AS_INT(global(&vm, "v")) == 2);
+    sol_chunk_free(&chunk);        /* the next `run` inits over it */
 
     /* An array can hold itself; printing is depth-limited, not infinite. */
     assert(run(&vm, &chunk, "s := array:new. s:add(s).") == SOL_OK);
@@ -453,11 +462,146 @@ static void test_result_survives_an_allocating_block(void)
     sol_vm_free(&vm);
 }
 
+/* The fourth iteration message. `do` throws its answers away and `collect` and
+   `select` each answer an array; every reduction to a single value used to be a
+   `do` with an accumulator declared outside it. */
+static void test_inject(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "sum := [#1, #2, #3, #4]:inject(#0, { total, n | total:add(n) })."
+        "product := [#2, #3, #4]:inject(#1, { total, n | total:mul(n) }).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "sum")) == 10);
+    assert(SOL_AS_INT(global(&vm, "product")) == 24);
+    sol_chunk_free(&chunk);
+
+    /* An empty array answers the start without calling the block, which is what
+       makes a fold safe to write without asking first whether there is one. */
+    assert(run(&vm, &chunk,
+        "empty := []:inject(#7, { total, n | total:add(#1000) })."
+        "calls := #0."
+        "[]:inject(#0, { total, n | calls := calls:add(#1). total }).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "empty")) == 7);
+    assert(SOL_AS_INT(global(&vm, "calls")) == 0);
+    sol_chunk_free(&chunk);
+
+    /* The accumulated value may be any type, and need not be the element's. */
+    assert(run(&vm, &chunk,
+        "text := [#1, #2, #3]:inject(\"\", { s, n | s:concat(n:asString) })."
+        "doubled := [#1, #2, #3]:inject([], { acc, n | acc:add(n:mul(#2)) })."
+        "size := doubled:size. third := doubled:at(#3).") == SOL_OK);
+    assert(is_text(global(&vm, "text"), "123"));
+    assert(SOL_AS_INT(global(&vm, "size")) == 3);
+    assert(SOL_AS_INT(global(&vm, "third")) == 6);
+    sol_chunk_free(&chunk);
+
+    /* Left to right, which a non-commutative fold is the only way to see. */
+    assert(run(&vm, &chunk,
+        "order := [\"a\", \"b\", \"c\"]:inject(\"\", { s, e | s:concat(e) }).") == SOL_OK);
+    assert(is_text(global(&vm, "order"), "abc"));
+    sol_chunk_free(&chunk);
+
+    /* Unlike `do`, it is a value, so it can stand in the middle of an
+       expression rather than only at the top of a frame. */
+    assert(run(&vm, &chunk,
+        "big := [#1, #2, #3]:inject(#0, { t, n | t:add(n) }):greaterThan(#5).") == SOL_OK);
+    assert(SOL_AS_BOOL(global(&vm, "big")) == true);
+    sol_chunk_free(&chunk);
+
+    assert(run(&vm, &chunk, "[#1]:inject(#0).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "[#1]:inject(#0, #1).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "[#1]:inject(#0, { n | n }).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
+/* The accumulated value is a fresh string at every step and nothing else refers
+   to it. A collection between the steps must not take it. */
+static void test_inject_survives_collection(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "words := [\"alpha\", \"beta\", \"gamma\", \"delta\", \"epsilon\"]."
+        "joined := words:inject(\"\", { acc, w | acc:concat(w):concat(\"-\") }).") == SOL_OK);
+    sol_gc_collect(&vm);
+    assert(is_text(global(&vm, "joined"), "alpha-beta-gamma-delta-epsilon-"));
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+}
+
+/* `join` is `split` backwards, and the round trip is why `split` keeps its
+   empty pieces. */
+static void test_join(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "plain := [\"a\", \"b\", \"c\"]:join(\",\")."
+        "gap := [\"a\", \"\", \"b\"]:join(\",\")."
+        "wide := [\"a\", \"b\"]:join(\"--\").") == SOL_OK);
+    assert(is_text(global(&vm, "plain"), "a,b,c"));
+    assert(is_text(global(&vm, "gap"), "a,,b"));
+    assert(is_text(global(&vm, "wide"), "a--b"));
+    sol_chunk_free(&chunk);
+
+    /* No separator goes anywhere there is not a pair to go between. */
+    assert(run(&vm, &chunk,
+        "none := []:join(\",\")."
+        "one := [\"only\"]:join(\",\").") == SOL_OK);
+    assert(is_text(global(&vm, "none"), ""));
+    assert(is_text(global(&vm, "one"), "only"));
+    sol_chunk_free(&chunk);
+
+    /* An empty separator is allowed, where `split` refuses one: nothing cannot
+       be looked for, but putting nothing between pieces is concatenation. */
+    assert(run(&vm, &chunk, "joined := [\"a\", \"b\", \"c\"]:join(\"\").") == SOL_OK);
+    assert(is_text(global(&vm, "joined"), "abc"));
+    sol_chunk_free(&chunk);
+
+    /* The round trip, for every shape `split` can answer. */
+    assert(run(&vm, &chunk,
+        "a := \"a,,b\":split(\",\"):join(\",\")."
+        "b := \",a,\":split(\",\"):join(\",\")."
+        "c := \"\":split(\",\"):join(\",\")."
+        "d := \"abc\":split(\",\"):join(\",\")."
+        "e := \"a--b--c\":split(\"--\"):join(\"--\").") == SOL_OK);
+    assert(is_text(global(&vm, "a"), "a,,b"));
+    assert(is_text(global(&vm, "b"), ",a,"));
+    assert(is_text(global(&vm, "c"), ""));
+    assert(is_text(global(&vm, "d"), "abc"));
+    assert(is_text(global(&vm, "e"), "a--b--c"));
+    sol_chunk_free(&chunk);
+
+    /* Strict about what it joins: rendering is what `asString` is for. */
+    assert(run(&vm, &chunk, "[\"a\", #1]:join(\",\").") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "[nil]:join(\",\").") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "[\"a\"]:join(#1).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "[\"a\"]:join.") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
 int main(void)
 {
     test_collect();
     test_select();
     test_collect_and_select_chain();
+    test_inject();
+    test_inject_survives_collection();
+    test_join();
     test_result_survives_an_allocating_block();
     test_literal_is_the_same_bytecode();
     test_literals();

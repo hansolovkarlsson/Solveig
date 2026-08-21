@@ -8,6 +8,68 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### Arrays fold, and strings go back together — `pending`, 2026-08-20
+
+Roadmap 6.14. `inject` and `join`.
+
+```
+[#1, #2, #3, #4]:inject(#0, { total, n | total:add(n) }).   ; #10
+"a,,b":split(","):join(",").                                ; "a,,b"
+```
+
+The entry set these against each other — a fold answers the gap once, where
+`join` is the case that keeps coming up. **That was a false choice**, and
+building one showed why. A fold cannot express `join` well: the separator goes
+*between* pieces rather than before each, so folding one needs a flag or a test
+for the empty accumulation — which is exactly the six lines being replaced. They
+are not the general and the specific case of one thing; they are two things, and
+both are built.
+
+**`inject(start, block)`** completes the iteration messages. `do` throws its
+answers away, `collect` and `select` each answer an array, and this answers one
+value. An empty array answers `start` without ever calling the block, so a fold
+is safe to write without asking first whether there is anything to fold. What
+accumulates need not be the elements' type.
+
+The cost of not having it was sharper than "a few extra lines": every reduction
+had to be a `do` with an accumulator declared outside it, which works only at
+the top of a frame. `inject` is an expression, so a reduction can stand in the
+middle of one:
+
+```
+[#1, #2, #3, #4, #5, #6]
+    :select({ x | x:mod(#2):equals(#0) })
+    :inject(#0, { total, n | total:add(n) }).      ; #12
+```
+
+**`join(separator)`** is on array rather than string — it is the array that has
+the pieces. Strict about them: an array holding anything but a string is an error
+rather than a silent `asString` on each, since `asString` and `fill` are already
+the messages that render things.
+
+Its separator **may** be empty where `split`'s may not, and that asymmetry is
+deliberate. Nothing can be looked for, since every position in every string
+contains the empty string — but putting nothing between the pieces is exactly
+concatenation.
+
+`s:split(sep):join(sep)` is `s`, for every string and every separator. That round
+trip is what `split` keeping its empty pieces was for, and it is now tested
+rather than only argued.
+
+One note on the collector, since the project's habit is to prove these
+load-bearing: `inject` holds its accumulated value on the value stack, because
+`sol_gc_push_temp` cannot hold an integer or a nil — neither has a header to
+push. **That root is defensive, not load-bearing.** Taking it out passes under
+`SOLUM_GC_STRESS=1`, because `sol_vm_call_block` pushes the receiver and
+arguments before it can allocate, so the value is already rooted wherever a
+collection can happen. It is kept anyway, and labelled: one stack slot against
+relying on what another function does with its arguments, across an unbounded
+number of calls back into the language.
+
+Unrelated and found on the way: `test_nesting` in `tests/test_array.c` ran a
+second chunk over the first without freeing it, leaking 800 bytes. It is a test,
+not the VM, but it made `leaks` useless on that binary. Fixed.
+
 ### A string can be taken apart — `4d35540`, 2026-08-20
 
 Roadmap 6.11. `split`, `indexOf` and `copyFrom`.

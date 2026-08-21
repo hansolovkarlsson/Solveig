@@ -268,12 +268,20 @@ exception carved out for two messages, it is:
 
 `ifElse` is not an exception to that. It is *outside* it, having two arguments.
 And the rule reaches most of the language rather than a corner of it — of the
-ten messages that take a block, nine take exactly one:
+eleven messages that take a block, nine take exactly one:
 
 `and` `collect` `do` `ifFalse` `ifTrue` `or` `select` `sorted` `whileTrue`
 
-Only `ifElse` does not. So the rule is uniform, and the special-case objection
-does not apply to it.
+`ifElse` does not, and neither does `inject`, which came later and takes a
+starting value before its block. So the rule is close to uniform, and the
+special-case objection does not apply to it.
+
+That `inject` moved the count is worth noticing: the rule's reach is a fact
+about which messages happen to exist, not a property of the design, and a
+language that keeps growing will keep moving it. It was never the deciding
+argument here — the objection that carried the day was about what the shorthand
+would teach a reader — but an argument that rests on a headcount is worth less
+than one that does not.
 
 #### Nor is the cost
 

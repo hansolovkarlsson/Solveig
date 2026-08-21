@@ -1046,7 +1046,8 @@ Both refuse it.
 All three respect the length rather than stopping at the first NUL, so they work
 on a file read with `readFile` whatever is in it.
 
-There is no `join` yet — putting pieces back together is a walk with `do`.
+[`join`](#array) puts the pieces back: `s:split(sep):join(sep)` is `s`, for
+every string and every separator.
 
 #### Filling in blanks
 
@@ -1085,11 +1086,48 @@ padding comes from the spec by chaining:
 | `do(block)` | the array, having run the block per element |
 | `collect(block)` | a new array of the block's answers |
 | `select(block)` | a new array of the elements the block accepted |
+| `inject(start, block)` | one value, folded left to right |
+| `join(s)` | the strings with `s` between them; strict |
 | `sorted` | a new array in ascending order |
 | `sorted(block)` | a new array ordered by the block |
 
-`collect`, `select`, and `sorted` leave the receiver untouched. `select` and the
-comparison block are both strict about answering a boolean.
+`collect`, `select`, `inject`, `join` and `sorted` all leave the receiver
+untouched. `select` and the comparison block are both strict about answering a
+boolean.
+
+**Folding.** `inject` gives the block what has accumulated so far and one
+element, and takes its answer as the next accumulation:
+
+```
+[#1, #2, #3, #4]:inject(#0, { total, n | total:add(n) }).   ; #10
+[#1, #2, #3]:inject("", { s, n | s:concat(n:asString) }).   ; "123"
+```
+
+An empty array answers `start` without calling the block, so a fold is safe to
+write without asking first whether there is anything to fold. What accumulates
+need not be the elements' type, and the order is left to right.
+
+It completes the four iteration messages: `do` throws its answers away,
+`collect` and `select` each answer an array, and `inject` answers one value.
+Unlike `do` it is an expression, so it can stand in the middle of one rather
+than only at the top of a frame where an accumulator could be declared.
+
+**Joining.** `join` is `split` backwards, and the round trip holds for every
+string and every separator — which is what `split` keeping its empty pieces buys:
+
+```
+"a,,b":split(","):join(",").     ; "a,,b"
+[]:join(",").                    ; ""
+["only"]:join(",").              ; "only"
+```
+
+It is strict about what it joins: an array holding anything but a string is an
+error rather than a silent `asString` on each element, rendering being what
+`asString` and `fill` are for.
+
+The separator **may** be empty, where `split`'s may not. The two are not the
+same question: nothing cannot be looked for, since every position contains it,
+but putting nothing between the pieces is exactly concatenation.
 
 **Sorting.** With no argument the order comes from *sending* `lessThan`, so a
 type that defines one sorts itself:

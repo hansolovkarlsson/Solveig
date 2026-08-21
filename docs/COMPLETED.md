@@ -943,3 +943,57 @@ Built as `e215440`. Semantics are untouched: the same splice into the includer's
 scope, the same resolution relative to the including file, the same
 once-per-compilation keying by where the file turns out to be on disk, the same
 cycle stop.
+---
+
+### 6.14 An array of strings cannot be joined — **done**
+
+[6.11](#611-a-string-cannot-be-split) built `split` and left its inverse out.
+Putting the pieces back was a walk with `do` and a flag for whether the
+separator goes in front — six lines to say something that ought to be one.
+
+The entry asked a larger question first, and it was the right one to ask: there
+was no `inject` or `fold` either, so *every* reduction over an array was that
+same walk with an accumulator declared outside it. `join` was one instance of a
+gap, not the gap.
+
+Built as `pending`, and both. The entry set them against each other — a fold
+answers the gap once, where `join` is the case that keeps coming up — but that
+was a false choice, and building one showed why. A fold **cannot** express
+`join` well: the separator goes between pieces rather than before each, so
+folding one needs a flag or a test for the empty accumulation, which is the very
+six lines being replaced. They are not the general and the specific case of one
+thing. They are two things.
+
+**`inject(start, block)`** completes the iteration messages. `do` throws its
+answers away, `collect` and `select` each answer an array, and this answers one
+value. An empty array answers `start` without calling the block, so a fold is
+safe to write without asking first whether there is anything to fold. What
+accumulates need not be the elements' type. And unlike `do` it is an expression,
+so a reduction can stand in the middle of one rather than only at the top of a
+frame where an accumulator could be declared — which was the real cost of not
+having it.
+
+**`join(separator)`** is on array rather than on string, because it is the array
+that has the pieces. Strict about them: an array holding anything but a string is
+an error rather than a silent `asString` on each, since `asString` and `fill` are
+already the messages that render things and a second quiet route to the same
+place is worth refusing.
+
+Its separator **may** be empty, where `split`'s may not, and the asymmetry is
+not an oversight. Nothing can be looked for — every position in every string
+contains the empty string — but putting nothing between the pieces is exactly
+concatenation.
+
+`s:split(sep):join(sep)` is `s`, for every string and every separator. That
+round trip is what `split` keeping its empty pieces was for, and it is now
+testable rather than merely argued.
+
+One note on the collector. `inject` holds its accumulated value on the value
+stack for the length of the fold, since `sol_gc_push_temp` cannot hold an
+integer or a nil — neither has a header to push. That root is **defensive rather
+than load-bearing**, and taking it out passes under `SOLUM_GC_STRESS=1`:
+`sol_vm_call_block` pushes the receiver and arguments before it can allocate, so
+the value is already rooted wherever a collection can happen. It costs one stack
+slot and buys not having to rely on what another function does with its
+arguments, across an unbounded number of calls back into the language.
+

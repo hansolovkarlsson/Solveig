@@ -26,8 +26,8 @@ control flow, a mark-sweep collector over objects, blocks and compiled code, the
 The language is Turing-complete, does not leak, and has strings, arrays,
 symbols, user-defined objects, reflection, sorting, formatted output, the
 conversions between every pair of types that has an unambiguous one, `split`,
-`indexOf` and `copyFrom` for taking a string apart, and a way to split a program
-across files, that last one spelled `@include "lib.sol".` —
+`indexOf`, `copyFrom` and `join` for taking a string apart and putting it back,
+a fold over arrays, and a way to split a program across files, that last one spelled `@include "lib.sol".` —
 `@` marking the one thing in the language that happens while compiling.
 Conditionals, loops and `and`/`or` written literally compile to jumps, side-table
 operands are two bytes, and a send compares pointers.
@@ -332,42 +332,21 @@ What this wants is a byte-buffer type. An array of integers would work and would
 cost sixteen bytes a byte. Worth building when a program needs it rather than on
 the chance that one might.
 
-### 6.14 An array of strings cannot be joined
-
-[6.11](COMPLETED.md#611-a-string-cannot-be-split) built `split` and left its
-inverse out. Putting the pieces back is a walk with `do` and a flag for whether
-the separator goes in front — [examples/strings.sol](../examples/strings.sol)
-has one, and it is six lines to say something that ought to be one.
-
-`array:join(separator)` is the obvious shape, and it belongs on array rather
-than on string: it is the array that has the pieces. Strict about them, like
-`concat` — an array holding anything but strings is an error rather than a
-silent `asString` on each, since `fill` is already the message that renders
-things.
-
-The question underneath is larger and worth asking first: there is no `inject`
-or `fold` either, so *every* reduction over an array is a `do` with an
-accumulator declared outside it. `join` is one instance of that gap, and a fold
-would answer it once instead of one message at a time. Against that: `join` on
-strings is the case that actually keeps coming up, and a fold does not make it
-read well.
-
 ## Suggested order
 
 **Section 6 is the whole of the live list**, and it came from the right place:
 notes about what a program would want, rather than a plan written before there
-were any programs. Six of its items are built — a program can be split across
+were any programs. Seven of its items are built — a program can be split across
 files, stop with a status, read its input, read and write files, take a string
-apart, and the include that started it has since been given a syntax that admits
-what it is (6.13) — so in order of what would be missed next:
+apart and put it back together, and the include that started it has since been
+given a syntax that admits what it is (6.13) — so in order of what would be
+missed next:
 
-1. **Joining an array of strings** (6.14), or the fold underneath it. `split`
-   went in without its inverse, and putting pieces back is six lines.
-2. **Timing from inside the language** (6.5), which `system:clock` now makes a
+1. **Timing from inside the language** (6.5), which `system:clock` now makes a
    few lines of Solum.
-3. The documentation gaps — the instruction set (6.7), group versus block (6.8),
+2. The documentation gaps — the instruction set (6.7), group versus block (6.8),
    and the example audit (6.9).
-4. **Inlining the loop constructs** (6.6), when something is measurably spending
+3. **Inlining the loop constructs** (6.6), when something is measurably spending
    time in one.
 
 Not ordered: **a single keypress** (6.10) and **a byte type** (6.12) both wait
