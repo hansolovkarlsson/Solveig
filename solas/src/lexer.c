@@ -2,8 +2,24 @@
 
 #include "solas/lexer.h"
 
+/* A `#!` on the very first line is skipped, so a `.sol` file can be marked
+ * executable and run directly:
+ *
+ *     #!/usr/bin/env solis
+ *     "hello":display.
+ *
+ * Only at the very start, and only `#!` -- anywhere else `#` begins an integer
+ * literal, and it goes on doing so on line 1 after column 0.
+ *
+ * The newline is deliberately left for the scanner to find, so the line after
+ * the shebang is line 2 and every error in the file names the line a text
+ * editor shows. Skipping it as well would report everything one line early. */
 void sol_lexer_init(SolLexer *lexer, const char *source)
 {
+    if (source[0] == '#' && source[1] == '!') {
+        while (*source != '\0' && *source != '\n') source++;
+    }
+
     lexer->start = source;
     lexer->current = source;
     lexer->line = 1;

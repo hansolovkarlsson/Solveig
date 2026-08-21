@@ -3,10 +3,12 @@
  * Reads until the input could compile, then compiles and runs it. What decides
  * "could compile" is in solis/src/input.c. */
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "solas/compiler.h"
 #include "solis/input.h"
+#include "solum/serialize.h"
 #include "solum/vm.h"
 
 /* Each submission is its own chunk, handed to the collector rather than freed
@@ -79,21 +81,98 @@ static int repl(SolVM *vm, const SolSearchPath *search)
     return status;
 }
 
+/* Is this a compiled chunk rather than source? Asked of the bytes rather than
+   the name, so a script with no extension at all -- which is what a `#!` line
+   is for -- is read as what it is. */
+static bool is_bytecode(const char *path)
+{
+    FILE *f = fopen(path, "rb");
+    if (f == NULL) return false;
+
+    char magic[4];
+    bool yes = fread(magic, 1, sizeof magic, f) == sizeof magic &&
+               memcmp(magic, SOL_SOB_MAGIC, sizeof magic) == 0;
+    fclose(f);
+    return yes;
+}
+
+/* Runs a file and answers the status to leave with: a `.sob` is loaded, and
+   anything else is compiled first. Either way what runs is one program rather
+   than a prompt, so `system:arguments` is what came after the file. */
+static int run_file(const char *path, const SolSearchPath *search,
+                    int argc, char **args)
+{
+    SolChunk chunk;
+    bool loaded = false;
+
+    if (is_bytecode(path)) {
+        SolSerResult result = sol_chunk_load(&chunk, path);
+        if (result != SOL_SER_OK) {
+            fprintf(stderr, "solis: cannot load '%s': %s\n",
+                    path, sol_ser_message(result));
+            return 65;
+        }
+        loaded = true;
+    } else {
+        char *source = sol_read_file(path);
+        if (source == NULL) {
+            fprintf(stderr, "solis: could not read '%s'\n", path);
+            return 74;
+        }
+        sol_chunk_init(&chunk);
+        loaded = sol_compile_file(source, path, search, &chunk);
+        free(source);
+        if (!loaded) {
+            sol_chunk_free(&chunk);
+            return 65;
+        }
+    }
+
+    SolVM vm;
+    sol_vm_init(&vm);
+    sol_vm_set_arguments(&vm, argc, args);
+
+    SolResult result = sol_vm_run(&vm, &chunk);
+    int status = vm.exit_code;              /* read before the VM goes away */
+
+    sol_vm_free(&vm);
+    sol_chunk_free(&chunk);
+
+    if (result == SOL_EXIT) return status;
+    return result == SOL_OK ? 0 : 70;
+}
+
+static void usage(void)
+{
+    fprintf(stderr,
+        "usage: solis [-I dir]... [file [arguments...]]\n"
+        "  with no file, reads from the prompt\n"
+        "  a file is source, or bytecode if it begins with \"SOLB\"\n"
+        "  -I dir   where an @include falls back to; repeatable\n");
+}
+
 int main(int argc, char *argv[])
 {
     SolSearchPath search;
     sol_search_path_init(&search);
 
-    for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "-I") == 0 && i + 1 < argc) {
-            sol_search_path_add(&search, argv[++i]);
-            continue;
-        }
-        fprintf(stderr, "usage: solis [-I dir]...\n");
-        sol_search_path_free(&search);
-        return 64;
+    int at = 1;
+    while (at < argc && strcmp(argv[at], "-I") == 0) {
+        if (at + 1 >= argc) { usage(); sol_search_path_free(&search); return 64; }
+        sol_search_path_add(&search, argv[at + 1]);
+        at += 2;
     }
     sol_search_path_add_defaults(&search, argv[0]);
+
+    /* Everything after the file belongs to the program, so a script may take a
+       `-I` of its own without this one intercepting it -- which is why the
+       flags have to come first. */
+    if (at < argc) {
+        const char *path = argv[at++];
+        int status = run_file(path, &search, argc - at, argv + at);
+        sol_search_path_free(&search);
+        return status;
+    }
 
     SolVM vm;
     sol_vm_init(&vm);

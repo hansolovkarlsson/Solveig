@@ -99,6 +99,29 @@ static void test_directives_scan(void)
     expect_tokens("@3", bare, 1);
 }
 
+/* A `#!` on the very first line is skipped, so a `.sol` file can be marked
+   executable and run directly. The newline is left for the scanner to find, so
+   the line after it is line 2 and an error names the line an editor shows. */
+static void test_a_shebang_is_skipped(void)
+{
+    const SolTokenType expected[] = { TOK_IDENT, TOK_ASSIGN, TOK_INT, TOK_DOT, TOK_EOF };
+    expect_tokens("#!/usr/bin/env solis\na := #45.", expected, 5);
+
+    SolLexer lexer;
+    sol_lexer_init(&lexer, "#!/usr/bin/env solis\na := #45.");
+    SolToken first = sol_lexer_next(&lexer);
+    assert(first.line == 2);              /* not 1: the numbering does not shift */
+
+    /* Only at the very start. Anywhere else `#` begins an integer, including
+       on line 1 after column 0. */
+    const SolTokenType later[] = { TOK_INT, TOK_ERROR };
+    expect_tokens("#1 #!", later, 2);
+
+    /* And a file that is nothing but a shebang is empty rather than broken. */
+    const SolTokenType only[] = { TOK_EOF };
+    expect_tokens("#!/usr/bin/env solis", only, 1);
+}
+
 static void test_lines_are_counted(void)
 {
     SolLexer lexer;
@@ -226,6 +249,7 @@ int main(void)
     test_hash_tags_integers();
     test_strings_symbols_and_comments();
     test_directives_scan();
+    test_a_shebang_is_skipped();
     test_lines_are_counted();
     test_tokens_carry_a_column();
     test_a_multiline_token_is_placed_where_it_opens();

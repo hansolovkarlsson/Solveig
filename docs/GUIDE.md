@@ -873,6 +873,22 @@ than nil — the same answer an out-of-range index gets — and
 `system:fileExists(path)` is how to ask first. They are on `system` rather than
 on the string naming the file, because a string knows nothing about files.
 
+Reading a file needs its path, and `system:filesIn(path)` is how a program finds
+one out rather than being told:
+
+```
+system:filesIn("examples"):sorted:do({ name |
+    system:isDirectory("examples/":concat(name)):ifFalse({ name:display }) }).
+```
+
+It answers **names**, directories included, in no order worth relying on — so
+join, sort, and use `isDirectory` to tell them apart. `system:appendFile` adds
+to a file rather than replacing it, and `system:environment(name)` answers a
+variable or nil.
+
+A `.sol` file can also be run directly: put `#!/usr/bin/env solis` on the first
+line, `chmod +x` it, and `./script.sol` works like any other script.
+
 **`clock` is monotonic**, which is why its epoch is unspecified — the only
 useful thing to do with two readings is subtract them:
 

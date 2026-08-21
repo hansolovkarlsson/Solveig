@@ -41,10 +41,42 @@ a:print.
 ./bin/solvm program.sob             # runs it
 ./bin/solvm program.sob a b c       # ...with arguments, which system:arguments answers
 ./bin/solis                         # a prompt; input may span lines
+./bin/solis program.sol             # compiles and runs it, without the two steps
+./bin/solis program.sob a b c       # runs compiled bytecode, with arguments
 ```
 
-Everything after the `.sob` belongs to the program and solvm does not look at
-it, so its own flags have to come first.
+Everything after the file belongs to the program, so a front end's own flags
+have to come first.
+
+`solis` decides what it was given by **looking at the bytes**: a file beginning
+with `SOLB` is bytecode and anything else is source. Not the extension, so a
+script with no extension at all works — which is the point of the next part.
+
+### Running a script directly
+
+A `#!` on the very first line is skipped, so a `.sol` file can be marked
+executable and run like any other script:
+
+```sh
+$ cat hello.sol
+#!/usr/bin/env solis
+"hello":display.
+
+$ chmod +x hello.sol
+$ ./hello.sol
+hello
+```
+
+`#!/usr/bin/env solis` is the portable form. Writing `#!/bin/solis $*` will not
+do what it looks like: the kernel passes at most one argument after the
+interpreter and passes it literally, so the `$*` would arrive as an argument
+spelled `$*`. Arguments to the script are handled without it — they arrive as
+`system:arguments`, as they do for `solvm`.
+
+Only at the very start, and only `#!`. Anywhere else `#` begins an integer
+literal, including on line 1 after column 0. The newline is left in place, so
+the line after the shebang is line 2 and an error names the line an editor
+shows.
 
 The program is `solvm`; its sources live under `solum/`. The two are the same
 word -- `SOLVM` is how *solum* was written before the alphabet split V into two
@@ -316,6 +348,33 @@ do arithmetic on.
 These are on `system` rather than on the string naming the file, though
 `"notes.txt":readFile` reads well. A string knows nothing about files, and
 `system` is already where what belongs to the world outside the program lives.
+
+#### Directories
+
+Reading a file needs its path. `filesIn` is how a program finds one out:
+
+```
+system:filesIn("examples"):sorted:first(#3).   ; ["arrays.sob", "arrays.sol", "binding.sol"]
+system:isDirectory("examples").                ; true
+```
+
+**Names, not paths.** A path would have to choose a separator and would make
+the answer awkward to show; joining is the caller's, and one `concat` wide.
+
+**Everything but `.` and `..`**, directories included — leaving subdirectories
+out would make a recursive walk impossible, and `isDirectory` is what tells them
+apart. `fileExists` and `isDirectory` deliberately disagree about a directory:
+`fileExists` answers what `readFile` would say.
+
+**In the order the directory gives them**, which is to say none worth relying
+on. The same rule `dictionary:keys` follows, and `sorted` is one message away.
+
+A path that is not a directory is an error, as a missing file is to `readFile`.
+
+`appendFile` is `writeFile`'s other half — it adds to the end rather than
+replacing, and creates the file when it is not there. `environment(name)`
+answers a variable or **nil** when it is not set, nil rather than an error
+because a variable nobody set is a legitimate answer to a legitimate question.
 
 There was a third reason once: include was spelled `"lib.sol":include` then, and
 `"lib.sol":readFile` beside it would have been two identical-looking sends that
@@ -1600,6 +1659,10 @@ it delegates to `object` like everything else. See
 | `readFile(path)` | the whole file as a string; an error if it is not there |
 | `writeFile(path, text)` | nil, having replaced the file's contents |
 | `fileExists(path)` | true if a file — not a directory — is at that path |
+| `isDirectory(path)` | true if a directory is at that path |
+| `filesIn(path)` | an array of the names in a directory; an error if it is not one |
+| `appendFile(path, text)` | nil, having added to the end; creates the file |
+| `environment(name)` | the variable, or **nil** when it is not set |
 | `clock` | monotonic seconds as a float; only differences are meaningful |
 
 ### nil

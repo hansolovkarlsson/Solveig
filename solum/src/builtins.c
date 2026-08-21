@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <dirent.h>
 #include <sys/stat.h>
 #include <time.h>
 
@@ -2893,6 +2894,122 @@ static SolValue prim_system_write_file(SolVM *vm, SolValue self, SolValue *args,
 /* True for a *file* that is there, which is the question `readFile` asks. A
    directory exists and is not one, and answering true for it would make this a
    trap rather than a way to look before you leap. */
+/* `system:isDirectory(path)` -- the other half of `fileExists`, which answers
+   false for a directory so that it agrees with what `readFile` would say. Once
+   a program can list a directory it needs to tell what it found, so the pair is
+   wanted together. */
+static SolValue prim_system_is_directory(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "isDirectory", argc, 1)) return SOL_BOOL_VAL(false);
+    if (!path_argument(vm, "isDirectory", args[0])) return SOL_BOOL_VAL(false);
+
+    struct stat info;
+    if (stat(SOL_AS_STRING(args[0])->chars, &info) != 0) return SOL_BOOL_VAL(false);
+    return SOL_BOOL_VAL(S_ISDIR(info.st_mode) ? true : false);
+}
+
+/* `system:filesIn(path)` -- what is in a directory, as an array of names.
+ *
+ * **Names, not paths.** A path would have to choose a separator and would make
+ * the answer awkward to show; joining is the caller's, and one `concat` wide.
+ *
+ * **Everything but `.` and `..`**, directories included. Leaving subdirectories
+ * out would make a recursive walk impossible, and `isDirectory` is there to
+ * tell them apart.
+ *
+ * **In whatever order the directory gives them**, which is to say none worth
+ * relying on -- the same rule `dictionary:keys` follows, and `sorted` is one
+ * message away.
+ *
+ * A path that is not a directory is an error, as a missing file is to
+ * `readFile`: a program asking to walk something that is not a directory is
+ * wrong about something. */
+static SolValue prim_system_files_in(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "filesIn", argc, 1)) return SOL_NIL_VAL;
+    if (!path_argument(vm, "filesIn", args[0])) return SOL_NIL_VAL;
+
+    const char *path = SOL_AS_STRING(args[0])->chars;
+    DIR *dir = opendir(path);
+    if (dir == NULL) {
+        sol_vm_runtime_error(vm, "cannot list '%s'", path);
+        return SOL_NIL_VAL;
+    }
+
+    SolArray *out = sol_array_new(vm, 0);
+    sol_gc_push_temp(vm, &out->gc);
+
+    /* Each name is a fresh string and the array grows, so both allocate. The
+       array is rooted above, and a name is put into it before the next one is
+       made. */
+    for (struct dirent *entry = readdir(dir); entry != NULL; entry = readdir(dir)) {
+        const char *name = entry->d_name;
+        if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0) continue;
+
+        SolString *text = sol_string_new(vm, name, (int)strlen(name));
+        sol_array_add(vm, out, SOL_STRING_VAL(text));
+    }
+    closedir(dir);
+
+    sol_gc_pop_temp(vm);
+    return SOL_ARRAY_VAL(out);
+}
+
+/* `system:appendFile(path, text)` -- `writeFile` replaces, and a log wants the
+   other one. Creates the file when it is not there, as `writeFile` does. */
+static SolValue prim_system_append_file(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "appendFile", argc, 2)) return SOL_NIL_VAL;
+    if (!path_argument(vm, "appendFile", args[0])) return SOL_NIL_VAL;
+    if (!SOL_IS_STRING(args[1])) {
+        sol_vm_runtime_error(vm, "'appendFile' expects text as a string, got %s",
+                             sol_type_name(args[1]));
+        return SOL_NIL_VAL;
+    }
+
+    const char *path = SOL_AS_STRING(args[0])->chars;
+    FILE *f = fopen(path, "ab");
+    if (f == NULL) {
+        sol_vm_runtime_error(vm, "cannot append to '%s'", path);
+        return SOL_NIL_VAL;
+    }
+
+    const SolString *text = SOL_AS_STRING(args[1]);
+    size_t written = fwrite(text->chars, 1, (size_t)text->length, f);
+
+    /* A buffered write fails when the buffer is flushed, so a full disk
+       announces itself at the close rather than at the write that filled it. */
+    if (fclose(f) != 0 || written != (size_t)text->length) {
+        sol_vm_runtime_error(vm, "cannot append to '%s'", path);
+        return SOL_NIL_VAL;
+    }
+    return SOL_NIL_VAL;
+}
+
+/* `system:environment(name)` -- the variable, or **nil** when it is not set.
+ *
+ * Nil rather than an error: a variable that is not set is a legitimate answer
+ * to a legitimate question, the way the end of input is. `isNil` asks, and
+ * `{ system:environment("HOME") }:onError` would be the wrong shape for
+ * something that is not a failure. */
+static SolValue prim_system_environment(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "environment", argc, 1)) return SOL_NIL_VAL;
+    if (!SOL_IS_STRING(args[0])) {
+        sol_vm_runtime_error(vm, "'environment' expects a name as a string, got %s",
+                             sol_type_name(args[0]));
+        return SOL_NIL_VAL;
+    }
+
+    const char *value = getenv(SOL_AS_STRING(args[0])->chars);
+    if (value == NULL) return SOL_NIL_VAL;
+    return SOL_STRING_VAL(sol_string_new(vm, value, (int)strlen(value)));
+}
+
 static SolValue prim_system_file_exists(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     (void)self;
@@ -3274,6 +3391,10 @@ void sol_builtins_install(SolVM *vm)
     any_receiver(vm, system, "readFile", prim_system_read_file);
     any_receiver(vm, system, "writeFile", prim_system_write_file);
     any_receiver(vm, system, "fileExists", prim_system_file_exists);
+    any_receiver(vm, system, "isDirectory", prim_system_is_directory);
+    any_receiver(vm, system, "filesIn", prim_system_files_in);
+    any_receiver(vm, system, "appendFile", prim_system_append_file);
+    any_receiver(vm, system, "environment", prim_system_environment);
 
     SolArray *no_arguments = sol_array_new(vm, 0);
     sol_gc_push_temp(vm, &no_arguments->gc);

@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <sys/stat.h>
+
 #include "solas/compiler.h"
 #include "solum/gc.h"
 #include "solum/vm.h"
@@ -644,6 +646,128 @@ static void test_a_bad_count_is_refused(void)
     printf("  a count that is not #1 or more is refused\n");
 }
 
+/* ---- directories -------------------------------------------------------- *
+ *
+ * Reading a file needed you to know its path already, so a program could be
+ * told what to work on and could never go and look. `filesIn` is what makes a
+ * walk possible at all.
+ */
+static void test_listing_a_directory(void)
+{
+    remove_the_test_file();
+    static const char *dir = "build/tests/listing";
+    mkdir(dir, 0777);
+
+    FILE *f = fopen("build/tests/listing/one.txt", "wb");
+    assert(f != NULL); fputs("1", f); fclose(f);
+    f = fopen("build/tests/listing/two.txt", "wb");
+    assert(f != NULL); fputs("22", f); fclose(f);
+    mkdir("build/tests/listing/inner", 0777);
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "names := system:filesIn(\"build/tests/listing\"):sorted."
+        "n := names:size."
+        /* neither `.` nor `..`, and directories are in it */
+        "joined := names:join(\",\")."
+        "isDir := system:isDirectory(\"build/tests/listing/inner\")."
+        "notDir := system:isDirectory(\"build/tests/listing/one.txt\")."
+        /* fileExists and isDirectory answer opposite things about a directory */
+        "existsSaysNo := system:fileExists(\"build/tests/listing/inner\").") == SOL_OK);
+
+    assert(SOL_AS_INT(global(&vm, "n")) == 3);
+    assert(strcmp(SOL_AS_STRING(global(&vm, "joined"))->chars,
+                  "inner,one.txt,two.txt") == 0);
+    assert(SOL_AS_BOOL(global(&vm, "isDir")));
+    assert(SOL_AS_BOOL(global(&vm, "notDir")) == false);
+    assert(SOL_AS_BOOL(global(&vm, "existsSaysNo")) == false);
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+    printf("  filesIn answers the names, directories included, without . or ..\n");
+}
+
+/* A path that is not a directory is an error, as a missing file is to
+   `readFile`: a program asking to walk something that is not one is wrong. */
+static void test_listing_what_is_not_a_directory(void)
+{
+    static const char *refused[] = {
+        "system:filesIn(\"build/tests/no-such-directory\").",
+        "system:filesIn(\"build/tests/listing/one.txt\").",
+        "system:filesIn(#1).",
+        "system:filesIn.",
+        "system:isDirectory(#1).",
+    };
+
+    for (size_t i = 0; i < sizeof(refused) / sizeof(refused[0]); i++) {
+        SolVM vm; sol_vm_init(&vm);
+        SolChunk chunk;
+        assert(run(&vm, &chunk, refused[i]) == SOL_RUNTIME_ERROR);
+        sol_chunk_free(&chunk); sol_vm_free(&vm);
+    }
+    printf("  listing something that is not a directory is an error\n");
+}
+
+/* `writeFile` replaces; this is the other one. */
+static void test_appending(void)
+{
+    remove_the_test_file();
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        /* it creates the file when it is not there, as writeFile does */
+        "system:appendFile(\"" FILE_PATH "\", \"one\\n\")."
+        "system:appendFile(\"" FILE_PATH "\", \"two\\n\")."
+        "text := system:readFile(\"" FILE_PATH "\")."
+        "n := text:size."
+        /* and replacing still replaces */
+        "system:writeFile(\"" FILE_PATH "\", \"fresh\")."
+        "after := system:readFile(\"" FILE_PATH "\").") == SOL_OK);
+
+    assert(SOL_AS_INT(global(&vm, "n")) == 8);          /* "one\ntwo\n" */
+    assert(strcmp(SOL_AS_STRING(global(&vm, "text"))->chars, "one\ntwo\n") == 0);
+    assert(strcmp(SOL_AS_STRING(global(&vm, "after"))->chars, "fresh") == 0);
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+
+    sol_vm_init(&vm);
+    assert(run(&vm, &chunk, "system:appendFile(\"" FILE_PATH "\", #1).")
+           == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+    remove_the_test_file();
+    printf("  appendFile adds to the end, and creates what is not there\n");
+}
+
+/* A variable that is not set answers nil rather than failing: it is a
+   legitimate answer to a legitimate question, the way the end of input is. */
+static void test_the_environment(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(setenv("SOLUM_TEST_VARIABLE", "a value", 1) == 0);
+
+    assert(run(&vm, &chunk,
+        "set := system:environment(\"SOLUM_TEST_VARIABLE\")."
+        "unset := system:environment(\"SOLUM_NO_SUCH_VARIABLE\")."
+        "missing := unset:isNil.") == SOL_OK);
+
+    assert(strcmp(SOL_AS_STRING(global(&vm, "set"))->chars, "a value") == 0);
+    assert(SOL_AS_BOOL(global(&vm, "missing")));
+    assert(SOL_IS_NIL(global(&vm, "unset")));
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+    unsetenv("SOLUM_TEST_VARIABLE");
+
+    sol_vm_init(&vm);
+    assert(run(&vm, &chunk, "system:environment(#1).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+    printf("  environment answers the variable, or nil when it is not set\n");
+}
+
 int main(void)
 {
     test_exit_carries_its_status();
@@ -672,6 +796,10 @@ int main(void)
     test_an_empty_file_is_a_file();
     test_bytes_survive_the_round_trip();
     test_splitting_a_string_that_holds_a_nul();
+    test_listing_a_directory();
+    test_listing_what_is_not_a_directory();
+    test_appending();
+    test_the_environment();
     test_a_large_file_round_trips();
     test_a_file_that_is_not_there_is_an_error();
     test_file_exists_means_a_file();

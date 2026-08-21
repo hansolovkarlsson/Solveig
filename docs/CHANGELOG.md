@@ -7,6 +7,69 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### Directories, and a script you can run directly — `pending`, 2026-08-21
+
+Two things, in the direction of Solum being worth writing a script in.
+
+**A program can look, rather than only be told.**
+
+```
+system:filesIn("examples"):sorted:first(#3).   ; ["arrays.sob", "arrays.sol", "binding.sol"]
+system:isDirectory("examples").                ; true
+system:appendFile(log, "another line\n").
+system:environment("HOME").                    ; the variable, or nil
+```
+
+`readFile` needed a path you already had, so a program could be handed something
+to work on and could never go and find it. `filesIn` is the missing first step of
+most file-processing programs — and it was nameable without writing a program to
+discover it, which is why it was named rather than staged.
+
+Four decisions, all the conservative ones. **Names, not paths**, because a path
+would bake in a separator and joining is one `concat`. **Everything but `.` and
+`..`**, directories included, because leaving them out would make a recursive
+walk impossible. **In the directory's order**, which is to say none — the rule
+`dictionary:keys` already follows. **An error if it is not a directory**, as a
+missing file is to `readFile`.
+
+`appendFile` is `writeFile`'s other half. `environment` answers **nil** when a
+variable is not set, that being a legitimate answer rather than a failure.
+
+**A `.sol` file can be marked executable and run.**
+
+```sh
+$ cat hello.sol
+#!/usr/bin/env solis
+"hello":display.
+
+$ chmod +x hello.sol && ./hello.sol
+hello
+```
+
+`solis` takes a file now — source or bytecode, and it decides which by **looking
+at the bytes** rather than the extension, so a script with no extension at all
+works, which is the usual way of writing one. Arguments after the file are the
+program's, as they are for `solvm`.
+
+The `#!` is skipped only at the very start of the file, and the newline is left
+in place so the line after it is line 2 — an error names the line an editor
+shows rather than one earlier.
+
+One correction worth making: `#!/bin/solis $*` will not do what it looks like.
+The kernel passes at most one argument after the interpreter, literally, so the
+`$*` arrives as an argument spelled `$*`. `#!/usr/bin/env solis` is the portable
+form, and arguments need no help — they arrive as `system:arguments`.
+
+[examples/walk.sol](../examples/walk.sol) is the program none of this was
+possible without: it walks a tree, counts and measures it, and **catches
+`call depth exceeded`** when the tree is deeper than the machine's frames allow,
+reporting the partial totals rather than dying. Tried against a forty-deep tree
+it stops at 31 levels and says so.
+
+The front ends are checked by hand rather than by the suite, which runs
+in-process and shells out to nothing: source, bytecode, the prompt, arguments,
+an extensionless script and a `chmod +x` one were each run.
+
 ### A calculator, and the frame limit met at last — `4bd7c7e`, 2026-08-21
 
 [examples/evaluator.sol](../examples/evaluator.sol) tokenises, parses and
