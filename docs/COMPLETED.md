@@ -852,7 +852,7 @@ was the obvious choice for the reason it gave: it is the only answer that needs
 no duration type. It also subtracts and compares like any other number, and
 `asString(".3")` already formats it.
 
-Built as `pending`. The block's own answer is dropped — what was asked for was
+Built as `661408d`. The block's own answer is dropped — what was asked for was
 the time, and a message answering both would have to answer an array or an
 object, which is worse to take apart than writing `{ ... }:value` when the
 answer is wanted too.

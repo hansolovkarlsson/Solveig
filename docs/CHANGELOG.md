@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### A block can time itself — `pending`, 2026-08-20
+### A block can time itself — `661408d`, 2026-08-20
 
 Roadmap 6.5. `{ ... }:timeToRun` answers the seconds the block took, as a float.
 
