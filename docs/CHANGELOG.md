@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### A time can be read back — `pending`, 2026-08-21
+### A time can be read back — `2b941f4`, 2026-08-21
 
 ```
 "2026-08-20T09:14:02":asTime:year:print.        ; #2026
