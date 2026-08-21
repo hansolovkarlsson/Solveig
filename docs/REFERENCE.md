@@ -273,6 +273,36 @@ i := #0. { i:lessThan(#100000) }:whileTrue({ i := i:add(#1) }).
 system:clock:sub(start):asString("0.4"):display.     ; 0.0147 -- whatever it took
 ```
 
+`{ ... }:timeToRun` does the same without the bookkeeping, answering the seconds
+the block took. The block's own answer is dropped — what was asked for was the
+time, and `{ ... }:value` is there when the answer is wanted too.
+
+**The clock has a floor**, and it decides how this message is used. On the
+machine this was written on it is a microsecond, by `clock_getres` and by
+watching the smallest step between two readings. One send and one add costs
+well under a tenth of that, so a single run answers the floor rather than the
+block — `0` most times, one whole microsecond when the two readings happen to
+fall either side of a tick:
+
+```
+{ #1:add(#1) }:timeToRun:print.        ; 0, or 0.000001 -- the floor, either way
+```
+
+`timeToRun(#n)` runs the block `n` times and answers the **total**, which is how
+anything smaller than a microsecond gets measured:
+
+```
+total := { #1:add(#1) }:timeToRun(#200000).
+total:div(200000.0):asString(".9"):display.      ; 0.000000088 -- or thereabouts
+```
+
+The total rather than the average, because the total is the measurement and the
+average is a division you can do — and keeping the count in view is what tells
+you whether the floor was cleared. A count below `#1` is an error.
+
+What is measured includes the cost of calling the block, a frame pushed and
+popped. That is not overhead to subtract; it is what running the block costs.
+
 ---
 
 ## Lexical structure
@@ -1180,6 +1210,8 @@ state:equals('running):ifTrue({ "go":display }).
 | `value(...)` | the block's answer; the count must match its parameters |
 | `boundTo(receiver)` | a new block over the same code, with `self` set |
 | `whileTrue(body)` | nil, having run `body` while the receiver answers true |
+| `timeToRun` | seconds the block took, as a float |
+| `timeToRun(#n)` | seconds `n` runs took, as a float |
 
 ### object
 

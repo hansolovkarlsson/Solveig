@@ -520,6 +520,130 @@ static void test_splitting_a_string_that_holds_a_nul(void)
     printf("  split and indexOf see past a NUL\n");
 }
 
+/* Seconds as a float, which is the only answer that needs no duration type. */
+static void test_time_to_run_answers_a_float(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "taken := { #1:add(#1) }:timeToRun."
+        "isFloat := taken:isKindOf(float)."
+        "notNegative := taken:greaterOrEqual(0.0).") == SOL_OK);
+
+    assert(SOL_AS_BOOL(global(&vm, "isFloat")) == true);
+    assert(SOL_AS_BOOL(global(&vm, "notNegative")) == true);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    printf("  timeToRun answers seconds as a float\n");
+}
+
+/* Work that takes longer measures longer. The only claim a timing test can make
+   without being flaky, and the one that matters: that it measures at all. */
+static void test_time_to_run_measures_the_block(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "spin := { | i | i := #0."
+        "    { i:lessThan(#200000) }:whileTrue({ i := i:add(#1) }) }."
+        "slow := spin:timeToRun."
+        "fast := { #1 }:timeToRun(#100)."
+        "longer := slow:greaterThan(fast).") == SOL_OK);
+
+    assert(SOL_AS_BOOL(global(&vm, "longer")) == true);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    printf("  a slower block measures longer than a faster one\n");
+}
+
+/* The count exists because the clock has a floor -- a microsecond where this was
+   written -- and one run of anything small measures as exactly 0.0. Running it
+   enough times clears the floor, which is what makes the message useful for the
+   sub-microsecond things it was asked for. */
+static void test_a_count_clears_the_clock_floor(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "many := { #1:add(#1) }:timeToRun(#200000)."
+        "measured := many:greaterThan(0.0).") == SOL_OK);
+    assert(SOL_AS_BOOL(global(&vm, "measured")) == true);
+    sol_chunk_free(&chunk);
+
+    /* More runs of the same block take longer than fewer. */
+    assert(run(&vm, &chunk,
+        "few := { #1:add(#1) }:timeToRun(#20000)."
+        "lots := { #1:add(#1) }:timeToRun(#400000)."
+        "ordered := lots:greaterThan(few).") == SOL_OK);
+    assert(SOL_AS_BOOL(global(&vm, "ordered")) == true);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+    printf("  a count clears the clock's floor\n");
+}
+
+/* The block really does run, and run the number of times it was given. */
+static void test_the_block_runs_and_its_answer_is_dropped(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "calls := #0."
+        "taken := { calls := calls:add(#1). \"an answer\" }:timeToRun(#5).") == SOL_OK);
+
+    assert(SOL_AS_INT(global(&vm, "calls")) == 5);
+    assert(SOL_IS_FLOAT(global(&vm, "taken")));      /* not the block's answer */
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    printf("  the block runs, and the time is what comes back\n");
+}
+
+/* An error inside the block stops the run rather than being timed through. */
+static void test_an_error_in_the_block_stops_it(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "calls := #0."
+        "{ calls := calls:add(#1). nil:frobnicate }:timeToRun(#10).")
+        == SOL_RUNTIME_ERROR);
+    assert(SOL_AS_INT(global(&vm, "calls")) == 1);      /* not 10 */
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    printf("  an error in the block stops the timing\n");
+}
+
+static void test_a_bad_count_is_refused(void)
+{
+    static const char *refused[] = {
+        "{ #1 }:timeToRun(#0).",
+        "{ #1 }:timeToRun(#0:sub(#5)).",     /* -5, there being no negative literal */
+        "{ #1 }:timeToRun(1.0).",
+        "{ #1 }:timeToRun(\"x\").",
+        "{ #1 }:timeToRun(#1, #2).",
+        "{ x | x }:timeToRun.",              /* a block wanting an argument */
+        "#1:timeToRun.",                     /* not a block at all */
+    };
+
+    for (size_t i = 0; i < sizeof(refused) / sizeof(refused[0]); i++) {
+        SolVM vm; sol_vm_init(&vm);
+        SolChunk chunk;
+        assert(run(&vm, &chunk, refused[i]) == SOL_RUNTIME_ERROR);
+        sol_chunk_free(&chunk);
+        sol_vm_free(&vm);
+    }
+    printf("  a count that is not #1 or more is refused\n");
+}
+
 int main(void)
 {
     test_exit_carries_its_status();
@@ -529,6 +653,12 @@ int main(void)
     test_arguments_default_to_none();
     test_arguments_arrive_as_strings();
     test_the_clock_is_a_float_and_moves_forward();
+    test_time_to_run_answers_a_float();
+    test_time_to_run_measures_the_block();
+    test_a_count_clears_the_clock_floor();
+    test_the_block_runs_and_its_answer_is_dropped();
+    test_an_error_in_the_block_stops_it();
+    test_a_bad_count_is_refused();
     test_system_is_an_ordinary_object();
 
     test_read_line_answers_each_line_without_its_terminator();

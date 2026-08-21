@@ -837,6 +837,54 @@ and there is no way to take it apart.
 
 ---
 
+### 6.5 Measuring from inside the language — **done**
+
+Every performance number in the changelog was taken with `/usr/bin/time` around
+a whole process. Timing a block from inside Solum would be better, and was a few
+lines once [6.2](#62-a-system-object--done) had provided `system:clock`:
+
+```
+{ #20:factorial }:timeToRun:print.
+```
+
+The design question the entry named was what it answers, and a float of seconds
+was the obvious choice for the reason it gave: it is the only answer that needs
+no duration type. It also subtracts and compares like any other number, and
+`asString(".3")` already formats it.
+
+Built as `pending`. The block's own answer is dropped — what was asked for was
+the time, and a message answering both would have to answer an array or an
+object, which is worse to take apart than writing `{ ... }:value` when the
+answer is wanted too.
+
+**The entry missed something, and it changed the shape.** The clock has a floor.
+On the machine this was written on it is a microsecond — `clock_getres` says so
+and so does watching the smallest step between two readings — while one send and
+one add costs well under a tenth of that. So a single run measures the floor
+rather than the block: `0` most times, one whole microsecond when the two
+readings fall either side of a tick.
+
+That is fatal to the entry's own purpose. The numbers it wanted to take from
+inside the language, rather than with `/usr/bin/time` around a process, are all
+sub-microsecond. Without a repeat count the message cannot measure any of them.
+
+So `timeToRun(#n)` as well, running the block `n` times and answering the
+**total**. The total rather than the average, because the total is the
+measurement and the average is a division the caller can do — and keeping the
+count in view is what says whether the floor was cleared. A count below `#1` is
+refused: the answer would be `0.0` whatever the block, which tells you nothing
+and is more likely a mistaken count than an intention.
+
+What is measured includes the cost of calling the block, a frame pushed and
+popped. That is not overhead to subtract; it is what running the block costs.
+
+This is also what [6.6](ROADMAP.md#66-the-loop-constructs-are-library-code-and-pay-for-it)
+was waiting for. Inlining the loop constructs buys speed rather than
+expressiveness, and now the Solum-written version and the inlined `whileTrue`
+can be measured against each other before anything is built.
+
+---
+
 ### 6.11 A string cannot be split — **done**
 
 `readFile` answers a whole file as one string, which is what made this visible:

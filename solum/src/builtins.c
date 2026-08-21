@@ -2310,18 +2310,91 @@ static SolValue prim_system_file_exists(SolVM *vm, SolValue self, SolValue *args
  * with two readings is subtracting them, and a wall clock can go backwards
  * between them -- so the epoch is deliberately unspecified and a single reading
  * means nothing on its own. */
+/* Monotonic seconds, or false if the clock is unavailable. The epoch is
+   deliberately unspecified: only differences mean anything. */
+static bool monotonic_seconds(SolVM *vm, double *out)
+{
+    struct timespec now;
+    if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) {
+        sol_vm_runtime_error(vm, "the monotonic clock is unavailable");
+        return false;
+    }
+    *out = (double)now.tv_sec + (double)now.tv_nsec / 1e9;
+    return true;
+}
+
 static SolValue prim_system_clock(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     (void)self;
     (void)args;
     if (!check_argc(vm, "clock", argc, 0)) return SOL_NIL_VAL;
 
-    struct timespec now;
-    if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) {
-        sol_vm_runtime_error(vm, "the monotonic clock is unavailable");
+    double now;
+    if (!monotonic_seconds(vm, &now)) return SOL_NIL_VAL;
+    return SOL_FLOAT_VAL(now);
+}
+
+/* `{ ... }:timeToRun` -- seconds the block took, as a float.
+ *
+ * A block message living beside the clock it reads rather than with the other
+ * block primitives, which is where the thing it does actually is.
+ *
+ * Seconds as a float, which the roadmap called the obvious choice and is: it is
+ * the only answer that needs no duration type, it subtracts and compares like
+ * any other number, and `asString(".3")` already formats it.
+ *
+ * The block's own answer is dropped. What is wanted is the time, and a message
+ * that answered both would have to answer an array or an object, which is a
+ * worse thing to have to take apart than to write `{ ... }:value` when the
+ * answer is wanted too.
+ *
+ * What is measured is `sol_vm_call_block`, so it includes the cost of the call
+ * itself -- a frame pushed and popped. That is honest: it is what running the
+ * block costs.
+ *
+ * `timeToRun(#n)` runs the block n times and answers the total. It is there
+ * because the clock has a floor -- a microsecond on the machine this was
+ * written on, by `clock_getres` and by watching the smallest step between two
+ * readings -- and one run of anything small measures as exactly 0.0. The whole
+ * point of the entry that asked for this was to measure what `/usr/bin/time`
+ * around a process could not, and every one of those is far under a
+ * microsecond, so without a count the message cannot do the job it is for.
+ *
+ * The total rather than the average, because the total is the measurement and
+ * the average is a division the caller can do -- and seeing the total keeps the
+ * count in view, which is the number that says whether the floor was cleared. */
+static SolValue prim_block_time_to_run(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    int64_t times = 1;
+    if (argc == 1) {
+        if (!SOL_IS_INT(args[0])) {
+            sol_vm_runtime_error(vm, "'timeToRun' expects an integer count, got %s",
+                                 sol_type_name(args[0]));
+            return SOL_NIL_VAL;
+        }
+        times = SOL_AS_INT(args[0]);
+        if (times < 1) {
+            sol_vm_runtime_error(vm, "'timeToRun' needs a count of #1 or more, got #%lld",
+                                 (long long)times);
+            return SOL_NIL_VAL;
+        }
+    } else if (argc != 0) {
+        sol_vm_runtime_error(vm, "'timeToRun' takes no argument or a count, got %d", argc);
         return SOL_NIL_VAL;
     }
-    return SOL_FLOAT_VAL((double)now.tv_sec + (double)now.tv_nsec / 1e9);
+
+    double start;
+    if (!monotonic_seconds(vm, &start)) return SOL_NIL_VAL;
+
+    for (int64_t i = 0; i < times; i++) {
+        sol_vm_call_block(vm, self, NULL, 0);
+        if (vm->had_error) return SOL_NIL_VAL;    /* including an exit */
+    }
+
+    double end;
+    if (!monotonic_seconds(vm, &end)) return SOL_NIL_VAL;
+
+    return SOL_FLOAT_VAL(end - start);
 }
 
 static void instance(SolVM *vm, SolObject *cls, SolValueType type, const char *name,
@@ -2416,6 +2489,7 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->block_class, SOL_BLOCK, "notEquals", prim_not_equals);
     instance(vm, vm->block_class, SOL_BLOCK, "asString", prim_rendered_as_string);
     instance(vm, vm->block_class, SOL_BLOCK, "value", prim_value);
+    instance(vm, vm->block_class, SOL_BLOCK, "timeToRun", prim_block_time_to_run);
     instance(vm, vm->block_class, SOL_BLOCK, "boundTo", prim_bound_to);
     instance(vm, vm->block_class, SOL_BLOCK, "whileTrue", prim_while_true);
 

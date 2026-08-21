@@ -8,6 +8,54 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### A block can time itself — `pending`, 2026-08-20
+
+Roadmap 6.5. `{ ... }:timeToRun` answers the seconds the block took, as a float.
+
+```
+{ #20:factorial }:timeToRun:asString(".6"):display.
+```
+
+A float of seconds is what the roadmap called for, and for the reason it gave:
+it is the only answer that needs no duration type. The block's own answer is
+dropped — what was asked for was the time, and `{ ... }:value` is there when the
+answer is wanted too.
+
+**The entry missed something that changed the shape of the thing.** The clock has
+a floor. Here it is a microsecond, by `clock_getres` and by watching the smallest
+step between two readings, while one send and one add costs well under a tenth of
+that. So a single run measures the floor rather than the block:
+
+```
+{ #1:add(#1) }:timeToRun:print.        ; 0, or 0.000001 -- the floor, either way
+```
+
+That is fatal to the entry's own purpose. It exists because every performance
+number in this changelog was taken with `/usr/bin/time` around a whole process,
+and the numbers it wanted instead are all sub-microsecond. Without a repeat count
+the message cannot measure a single one of them.
+
+So there is a count too. `timeToRun(#n)` runs the block `n` times and answers the
+**total**:
+
+```
+total := { #1:add(#1) }:timeToRun(#200000).
+total:div(200000.0):asString(".9"):display.      ; 0.000000088 -- or thereabouts
+```
+
+The total rather than the average, because the total is the measurement and the
+average is a division you can do — and keeping the count in view is what tells
+you whether the floor was cleared. A count below `#1` is refused: the answer
+would be `0.0` whatever the block.
+
+What is measured includes the cost of calling the block, a frame pushed and
+popped. That is not overhead to subtract; it is what running the block costs.
+
+This is what roadmap 6.6 has been waiting for. Inlining the loop constructs buys
+speed rather than expressiveness, so it was never worth doing on a guess — and
+now the Solum-written version and the inlined `whileTrue` can be measured against
+each other first.
+
 ### Arrays fold, and strings go back together — `72df16b`, 2026-08-20
 
 Roadmap 6.14. `inject` and `join`.

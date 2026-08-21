@@ -245,19 +245,6 @@ Raised in a notes file and assessed in [ideas.md](ideas.md), which also records
 what was **not** worth building and why — integer widths, a JIT, cascades,
 trailing-block syntax, and Go-style concurrency among them.
 
-### 6.5 Measuring from inside the language
-
-Every performance number in the changelog was taken with `/usr/bin/time` around
-a whole process. Being able to time a block from inside Solum would be better,
-and is a few lines now that 6.2 has provided `system:clock`:
-
-```
-{ #20:factorial }:timeToRun:print.
-```
-
-The design question is what it answers — a float of seconds is the obvious
-choice and the only one that does not need a duration type.
-
 ### 6.6 The loop constructs are library code, and pay for it
 
 `repeat`, `doUntil` and a stepped `for` can all be written in Solum today, and
@@ -274,6 +261,11 @@ So building them in buys inlining rather than expressiveness:
 
 Worth doing when a program is actually spending time in one of them. `doUntil`
 has the best case, being the only one that is awkward to write by hand.
+
+There is now a way to find out rather than guess:
+[6.5](COMPLETED.md#65-measuring-from-inside-the-language) built `timeToRun(#n)`,
+so the Solum-written version and the inlined `whileTrue` can be measured against
+each other before anything is built.
 
 ### 6.7 The instruction set has no complete reference
 
@@ -336,18 +328,16 @@ the chance that one might.
 
 **Section 6 is the whole of the live list**, and it came from the right place:
 notes about what a program would want, rather than a plan written before there
-were any programs. Seven of its items are built — a program can be split across
+were any programs. Eight of its items are built — a program can be split across
 files, stop with a status, read its input, read and write files, take a string
-apart and put it back together, and the include that started it has since been
-given a syntax that admits what it is (6.13) — so in order of what would be
-missed next:
+apart and put it back together, time itself, and the include that started it has
+since been given a syntax that admits what it is (6.13) — so in order of what
+would be missed next:
 
-1. **Timing from inside the language** (6.5), which `system:clock` now makes a
-   few lines of Solum.
-2. The documentation gaps — the instruction set (6.7), group versus block (6.8),
+1. The documentation gaps — the instruction set (6.7), group versus block (6.8),
    and the example audit (6.9).
-3. **Inlining the loop constructs** (6.6), when something is measurably spending
-   time in one.
+2. **Inlining the loop constructs** (6.6), which now has something to measure it
+   with: `timeToRun(#n)` is what would say whether it is worth doing.
 
 Not ordered: **a single keypress** (6.10) and **a byte type** (6.12) both wait
 for a program that needs them.

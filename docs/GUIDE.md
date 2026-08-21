@@ -664,6 +664,19 @@ i := #0. { i:lessThan(#100000) }:whileTrue({ i := i:add(#1) }).
 system:clock:sub(start):asString("0.4"):display.     ; 0.0153
 ```
 
+`{ ... }:timeToRun` does that without the bookkeeping, answering the seconds the
+block took. The thing to know before trusting a number from it is that **the
+clock has a floor** — a microsecond here — and most single operations in Solum
+are well under it. So a single run measures the floor rather than the block, and
+a count is how anything smaller gets measured:
+
+```
+{ #1:add(#1) }:timeToRun:print.                  ; 0, or 0.000001 -- the floor
+
+total := { #1:add(#1) }:timeToRun(#200000).      ; the total for all of them
+total:div(200000.0):asString(".9"):display.      ; 0.000000088 -- or thereabouts
+```
+
 > **Run:** [examples/system.sol](../examples/system.sol),
 > [examples/reading.sol](../examples/reading.sol) and
 > [examples/files.sol](../examples/files.sol)
@@ -672,9 +685,10 @@ system:clock:sub(start):asString("0.4"):display.     ; 0.0153
 
 The language is Turing-complete and does not leak. What remains is in
 [ROADMAP.md](ROADMAP.md), and it is no longer about the language: a program can
-now be split across files, stop with a status, read its input and read and write
-files. One design question is still open — whether the class side
-and the instance side should be separate objects.
+now be split across files, stop with a status, read its input, read and write
+files, take a string apart and put it back together, and time itself. One design
+question is still open — whether the class side and the instance side should be
+separate objects.
 
 Known restrictions worth carrying with you:
 
