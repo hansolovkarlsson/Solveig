@@ -536,11 +536,11 @@ cannot be one: `a:=(b)` would otherwise be both an assignment and a send.
 ### Reserved names
 
 None are keywords, but these are bound as globals at startup and shadowing them
-will surprise you: `integer`, `float`, `string`, `array`, `dictionary`, `symbol`,
-`block`, `boolean`, `object`, `error`, `system`, `nil`, `true`, `false`,
-`infinity`, `nan`.
+will surprise you: `integer`, `float`, `string`, `array`, `dictionary`, `time`,
+`symbol`, `block`, `boolean`, `object`, `error`, `system`, `nil`, `true`,
+`false`, `infinity`, `nan`.
 
-The first ten are the class objects, `system` is
+The first eleven are the class objects, `system` is
 [the process](#the-program-and-its-process), and the rest are values.
 
 `self` is not a global; it is recognised by the compiler inside a block.
@@ -562,6 +562,7 @@ sense and the `@` space cannot collide with a name you might want.
 | string | `"hi"` | **immutable** |
 | array | `[#1]` | growable, **mutable** |
 | dictionary | *none* — `dictionary:new` | values under keys, **mutable** |
+| time | *none* — `system:time` | an instant, **immutable** |
 | symbol | `'foo` | an interned name, **immutable** |
 | block | `{ #1 }` | code as a value |
 | object | `object:new` | slots plus a prototype, **mutable** |
@@ -911,7 +912,7 @@ array:new:equals(array:new):print.    ; false -- two arrays
 "":equals(""):print.                  ; true  -- one value
 ```
 
-A value class has no fresh distinct thing to answer with, so the six that are
+A value class has no fresh distinct thing to answer with, so the seven that are
 left refuse and say what to write instead:
 
 ```
@@ -1663,6 +1664,54 @@ is false. That is IEEE showing through rather than a decision made here.
 
 ---
 
+### time
+
+A point in time, held as nanoseconds since 1970-01-01T00:00:00Z. A **value**
+like a number: two of the same instant are the same time, nothing mutates one,
+and there is no literal — an instant comes from a clock or a file.
+
+| Message | Answers |
+| --- | --- |
+| `fromSeconds(f)` | an instant, from seconds since the epoch *(on the class)* |
+| `asSeconds` | seconds since the epoch, as a float |
+| `secondsSince(other)` | a float; negative when `other` is later |
+| `plusSeconds(f)` | another instant, `f` seconds along |
+| `lessThan(t)` `greaterThan(t)` | a boolean |
+| `lessOrEqual(t)` `greaterOrEqual(t)` | a boolean |
+| `year` `month` `day` | integers; **January is `#1`** |
+| `hour` `minute` `second` | integers |
+| `weekday` | an integer; **Monday is `#1`**, Sunday `#7` |
+| `asString` | ISO-8601 in UTC — `2000-01-01T00:00:00Z` |
+| `asString(format)` | the format handed to C's `strftime` |
+
+**Everything is UTC**, and that is the decision rather than an omission. There
+is no local time and no zone. A zone is a political fact that changes by
+legislation, twice a year in most places and retroactively in some; an instant
+is unambiguous where a wall-clock reading is not. The trailing `Z` is what says
+which of the two you are looking at.
+
+**`system:clock` is not this.** That one is a stopwatch — monotonic, unspecified
+epoch, only differences meaningful. This is a calendar. A program asking how
+long something took wants the first; one asking when it happened wants the
+second.
+
+`secondsSince` rather than `sub`: a time minus a time is not a time, and the
+name says the direction and the unit, which is what a bare subtraction leaves
+you guessing. It answers a float, as `clock` differences do.
+
+`fromSeconds` and `plusSeconds` take a **float**, strictly — `#n:asFloat` is the
+conversion, and being asked for it is the point of being strict.
+
+`asString(format)` hands the format to the C library's `strftime`, whose
+alphabet is the one everybody already knows. The number-formatting spec is about
+width and digits and has nothing to say about a Tuesday, and inventing a third
+spec language would have been worse than having two.
+
+Time is a value, so it may be a dictionary key, and `equals` compares instants
+rather than identity.
+
+---
+
 ### block
 
 | Message | Answers |
@@ -1711,6 +1760,8 @@ it delegates to `object` like everything else. See
 | `makeDirectory(path)` | nil, having made one; the parent must exist |
 | `rename(from, to)` | nil, having moved it; **replaces** an existing `to` |
 | `clock` | monotonic seconds as a float; only differences are meaningful |
+| `time` | the current instant, as a [time](#time) |
+| `modifiedAt(path)` | when a file was last written, as a [time](#time) |
 
 ### nil
 

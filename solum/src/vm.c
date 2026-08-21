@@ -33,6 +33,7 @@ void sol_vm_init(SolVM *vm)
     vm->array_class = NULL;
     vm->dict_class = NULL;
     vm->error_class = NULL;
+    vm->time_class = NULL;
     vm->string_class = NULL;
     vm->object_class = NULL;
     vm->symbol_class = NULL;
@@ -103,6 +104,7 @@ void sol_vm_free(SolVM *vm)
     vm->array_class = NULL;
     vm->dict_class = NULL;
     vm->error_class = NULL;
+    vm->time_class = NULL;
     vm->string_class = NULL;
     vm->object_class = NULL;
     vm->symbol_class = NULL;
@@ -146,6 +148,7 @@ SolObject *sol_vm_class_of(SolVM *vm, SolValue value)
     case SOL_SYMBOL: return vm->symbol_class;
     case SOL_DELEGATE: return NULL;   /* handled before dispatch reaches here */
     case SOL_DICT:  return vm->dict_class;
+    case SOL_TIME:  return vm->time_class;
     case SOL_OBJ:   return SOL_AS_OBJ(value);   /* the object answers for itself */
     }
     return NULL;
@@ -164,6 +167,7 @@ const char *sol_type_name(SolValue value)
     case SOL_SYMBOL: return "symbol";
     case SOL_DELEGATE: return "delegate";
     case SOL_DICT:  return "dictionary";
+    case SOL_TIME:  return "time";
     case SOL_OBJ:   return "object";
     }
     return "?";

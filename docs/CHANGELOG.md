@@ -7,6 +7,59 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### A time — `pending`, 2026-08-21
+
+Roadmap 6.18. A value type for a point in time, held as nanoseconds since
+1970-01-01T00:00:00Z.
+
+```
+now := system:time.
+now:print.                                   ; 2026-08-21T16:57:41Z
+now:year:print.                              ; #2026
+now:asString("%Y-%m-%d"):display.            ; 2026-08-21
+system:modifiedAt("notes.txt"):asString("%H:%M"):display.
+```
+
+**A value, not an object.** Two of the same instant are the same time and
+nothing mutates one, so it belongs beside integer and float — which makes
+`equals` exact and a time a dictionary key for free, and means `time:new`
+refuses like the other value classes.
+
+**Nanoseconds as an integer, not a float of seconds.** A point in time being a
+float invites `t:add(1.5)`, a question with two plausible answers. Integers are
+exact, `nan` cannot get in, and int64 nanoseconds reach from 1678 to 2262.
+
+**Everything is UTC.** Time zones are where every date library goes wrong, and
+the answer here is not to have them: a zone is a political fact that changes by
+legislation, twice a year in most places and retroactively in some. An instant
+is unambiguous; a wall-clock reading is not, and the trailing `Z` says which of
+the two you are looking at.
+
+**`secondsSince`, not `sub`** — a time minus a time is not a time, so `sub`
+would have answered a different kind of thing from every other `sub` here.
+**`asString(format)` hands the format to `strftime`**, whose alphabet everybody
+knows, rather than inventing a third spec language.
+
+**`system:time` is not `system:clock`.** That one is a stopwatch — monotonic,
+unspecified epoch, only differences meaningful. This is a calendar. A program
+asking how long something took wants the first; one asking when it happened
+wants the second.
+
+Two things building it found that the plan had not.
+
+**Nothing could name a particular moment.** With only `system:time` and
+`system:modifiedAt`, the only instants a program can have are the current one
+and a file's — enough to stamp a log, not enough to say when something is due,
+or to test any of this against a date somebody knows. `time:fromSeconds` and
+`asSeconds` are the pair that fixes it, and they are also how an instant is
+written to a file and read back.
+
+**Splitting an instant has to floor.** C division truncates towards zero, so
+half a second before the epoch divides to zero seconds and lands on 1970 rather
+than 1969. Tested, in both directions.
+
+`system:modifiedAt` is the companion `fileSize` was waiting for.
+
 ### Making, moving and removing — `99b971e`, 2026-08-21
 
 The other half of the filesystem, and the half that cannot be undone.

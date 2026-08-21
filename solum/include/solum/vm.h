@@ -68,6 +68,7 @@ struct SolVM {
     SolObject *array_class;
     SolObject *dict_class;
     SolObject *error_class;
+    SolObject *time_class;
     SolObject *string_class;
     SolObject *object_class;
     SolObject *symbol_class;

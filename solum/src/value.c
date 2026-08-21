@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "solum/object.h"
 #include "solum/value.h"
@@ -143,6 +144,25 @@ static void render(SolVM *vm, SolValue value, SolText *out, int depth)
             render(vm, array->items[i], out, depth + 1);
         }
         sol_text_append(out, "]", 1);
+        break;
+    }
+    case SOL_TIME: {
+        /* ISO-8601 in **UTC**, always. There is no local time here and no time
+           zone: a zone is a political fact that changes, and every date library
+           that pretends otherwise is wrong somewhere. An instant is
+           unambiguous, so an instant is what this shows.
+
+           The trailing Z is not decoration -- it is what says which of the two
+           this is. */
+        time_t seconds = (time_t)(SOL_AS_TIME(value) / 1000000000LL);
+        struct tm parts;
+        if (gmtime_r(&seconds, &parts) == NULL) {
+            sol_text_append(out, "<time out of range>", 19);
+            break;
+        }
+        char buffer[32];
+        int written = (int)strftime(buffer, sizeof buffer, "%Y-%m-%dT%H:%M:%SZ", &parts);
+        sol_text_append(out, buffer, written);
         break;
     }
     case SOL_DICT: {

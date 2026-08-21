@@ -2233,7 +2233,7 @@ static SolValue prim_dict_keys_and_values_do(SolVM *vm, SolValue self,
  *
  * A slot assigned on an instance is always the instance's own, so setting one
  * shadows the prototype rather than writing through to it. */
-/* `new` on a class that constructs nothing, which is six of the nine.
+/* `new` on a class that constructs nothing, which is seven of the ten.
  *
  * The rule is mutability. `new` belongs where something is *made* -- where the
  * instances are references, so there is a fresh, distinct one to hand back.
@@ -2280,6 +2280,13 @@ static SolValue prim_float_no_new(SolVM *vm, SolValue self, SolValue *args, int 
                           "'new' to make -- 0.0 is the empty one");
 }
 
+static SolValue prim_time_no_new(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self; (void)args; (void)argc;
+    return refuse_new(vm, "a time comes from system:time or system:modifiedAt "
+                          "-- there is nothing for 'new' to make");
+}
+
 static SolValue prim_string_no_new(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     (void)self; (void)args; (void)argc;
@@ -2306,6 +2313,234 @@ static SolValue prim_boolean_no_new(SolVM *vm, SolValue self, SolValue *args, in
     (void)self; (void)args; (void)argc;
     return refuse_new(vm, "there are only two booleans, true and false -- 'new' "
                           "makes neither");
+}
+
+/* ---- time --------------------------------------------------------------- *
+ *
+ * A point in time, held as nanoseconds since 1970-01-01T00:00:00Z, and a
+ * **value** like a number: two of the same instant are the same time, nothing
+ * mutates one, and there is no literal for one because there is nothing to
+ * write down that a clock or a file does not tell you.
+ *
+ * **Everything is UTC.** There is no local time and no zone, and that is the
+ * decision rather than an omission. A zone is a political fact that changes by
+ * legislation, twice a year in most places, and retroactively in some. An
+ * instant is unambiguous; a wall-clock reading is not, and a library that
+ * blurred the two would be wrong somewhere for reasons no program could see.
+ *
+ * `system:clock` is still there and is still not this. That one is a stopwatch
+ * -- monotonic, unspecified epoch, only differences meaningful -- and this is a
+ * calendar. A program that wants to know how long something took wants the
+ * first; one that wants to know when it happened wants the second.
+ */
+#define SOL_NANOS_PER_SECOND 1000000000LL
+
+static bool time_argument(SolVM *vm, const char *name, SolValue value)
+{
+    if (SOL_IS_TIME(value)) return true;
+    sol_vm_runtime_error(vm, "'%s' expects a time, got %s",
+                         name, sol_type_name(value));
+    return false;
+}
+
+/* Splits an instant into calendar parts, in UTC. False when the instant is
+   outside what the platform's calendar can express, which int64 nanoseconds
+   cannot reach on any system that has a 64-bit `time_t`. */
+static bool time_parts(SolVM *vm, const char *name, SolValue value, struct tm *out)
+{
+    int64_t nanos = SOL_AS_TIME(value);
+    /* Floor division, so an instant before the epoch lands on the right second
+       rather than one too late -- C division truncates towards zero. */
+    int64_t seconds = nanos / SOL_NANOS_PER_SECOND;
+    if (nanos % SOL_NANOS_PER_SECOND < 0) seconds--;
+
+    time_t when = (time_t)seconds;
+    if (gmtime_r(&when, out) == NULL) {
+        sol_vm_runtime_error(vm, "'%s' cannot read a calendar at that instant", name);
+        return false;
+    }
+    return true;
+}
+
+static SolValue prim_system_time(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self; (void)args;
+    if (!check_argc(vm, "time", argc, 0)) return SOL_NIL_VAL;
+
+    struct timespec now;
+    if (clock_gettime(CLOCK_REALTIME, &now) != 0) {
+        sol_vm_runtime_error(vm, "the calendar clock is unavailable");
+        return SOL_NIL_VAL;
+    }
+    return SOL_TIME_VAL((int64_t)now.tv_sec * SOL_NANOS_PER_SECOND + now.tv_nsec);
+}
+
+/* `a:secondsSince(b)` -- a float, as `system:clock` differences are, and named
+ * rather than spelled `sub`.
+ *
+ * `sub` would have answered a different kind of thing from every other `sub` in
+ * the language -- a time minus a time is not a time -- and would have invited
+ * `t:sub(#5)`, which is a question with two plausible answers. The name says
+ * the direction and the unit, which are the two things a bare subtraction
+ * leaves you guessing. */
+/* `time:fromSeconds(s)` -- an instant from seconds since the epoch, which is
+ * the one way to name a particular moment rather than the current one.
+ *
+ * Without it `system:time` and `system:modifiedAt` are the only instants a
+ * program can have, which is enough to stamp a log and not enough to say when
+ * something is due, or to test any of this against a date somebody knows.
+ *
+ * A float, for the same unit `secondsSince` and `plusSeconds` speak in. An
+ * integer is refused as it is everywhere else here -- `#n:asFloat` is the
+ * conversion, and being asked for it is the point of being strict. */
+static SolValue prim_time_from_seconds(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "fromSeconds", argc, 1)) return SOL_NIL_VAL;
+    if (!SOL_IS_FLOAT(args[0])) {
+        sol_vm_runtime_error(vm, "'fromSeconds' expects a float, got %s",
+                             sol_type_name(args[0]));
+        return SOL_NIL_VAL;
+    }
+
+    double seconds = SOL_AS_FLOAT(args[0]);
+    if (seconds != seconds || seconds > 9.0e9 || seconds < -9.0e9) {
+        sol_vm_runtime_error(vm, "'fromSeconds' cannot reach that instant");
+        return SOL_NIL_VAL;
+    }
+    return SOL_TIME_VAL((int64_t)(seconds * (double)SOL_NANOS_PER_SECOND));
+}
+
+/* The other direction, so an instant can be written to a file and read back. */
+static SolValue prim_time_as_seconds(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "asSeconds", argc, 0)) return SOL_NIL_VAL;
+    return SOL_FLOAT_VAL((double)SOL_AS_TIME(self) / (double)SOL_NANOS_PER_SECOND);
+}
+
+static SolValue prim_time_seconds_since(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "secondsSince", argc, 1)) return SOL_NIL_VAL;
+    if (!time_argument(vm, "secondsSince", args[0])) return SOL_NIL_VAL;
+
+    /* In floating point, because the answer is a duration and durations are
+       what `system:clock` already answers. The difference of two int64
+       nanosecond counts cannot overflow a double's precision at any range a
+       program will meet. */
+    double difference = (double)(SOL_AS_TIME(self) - SOL_AS_TIME(args[0]));
+    return SOL_FLOAT_VAL(difference / (double)SOL_NANOS_PER_SECOND);
+}
+
+/* `t:plusSeconds(n)` -- another instant, `n` seconds along. A float, so a
+   fraction works and so it pairs with `secondsSince`. */
+static SolValue prim_time_plus_seconds(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "plusSeconds", argc, 1)) return SOL_NIL_VAL;
+    if (!SOL_IS_FLOAT(args[0])) {
+        sol_vm_runtime_error(vm, "'plusSeconds' expects a float, got %s",
+                             sol_type_name(args[0]));
+        return SOL_NIL_VAL;
+    }
+
+    double seconds = SOL_AS_FLOAT(args[0]);
+    if (seconds != seconds || seconds > 9.0e9 || seconds < -9.0e9) {
+        sol_vm_runtime_error(vm, "'plusSeconds' cannot move a time that far");
+        return SOL_NIL_VAL;
+    }
+    return SOL_TIME_VAL(SOL_AS_TIME(self) +
+                        (int64_t)(seconds * (double)SOL_NANOS_PER_SECOND));
+}
+
+static SolValue prim_time_compare(SolVM *vm, SolValue self, SolValue *args,
+                                  int argc, const char *name, int wanted, bool orEqual)
+{
+    if (!check_argc(vm, name, argc, 1)) return SOL_NIL_VAL;
+    if (!time_argument(vm, name, args[0])) return SOL_NIL_VAL;
+
+    int64_t a = SOL_AS_TIME(self), b = SOL_AS_TIME(args[0]);
+    int order = a < b ? -1 : (a > b ? 1 : 0);
+    return SOL_BOOL_VAL(order == wanted || (orEqual && order == 0));
+}
+
+static SolValue prim_time_before(SolVM *vm, SolValue self, SolValue *a, int n)
+{ return prim_time_compare(vm, self, a, n, "lessThan", -1, false); }
+static SolValue prim_time_after(SolVM *vm, SolValue self, SolValue *a, int n)
+{ return prim_time_compare(vm, self, a, n, "greaterThan", 1, false); }
+static SolValue prim_time_not_after(SolVM *vm, SolValue self, SolValue *a, int n)
+{ return prim_time_compare(vm, self, a, n, "lessOrEqual", -1, true); }
+static SolValue prim_time_not_before(SolVM *vm, SolValue self, SolValue *a, int n)
+{ return prim_time_compare(vm, self, a, n, "greaterOrEqual", 1, true); }
+
+static SolValue time_field(SolVM *vm, SolValue self, int argc,
+                           const char *name, int which)
+{
+    if (!check_argc(vm, name, argc, 0)) return SOL_NIL_VAL;
+
+    struct tm parts;
+    if (!time_parts(vm, name, self, &parts)) return SOL_NIL_VAL;
+
+    switch (which) {
+    case 0: return SOL_INT_VAL(parts.tm_year + 1900);
+    case 1: return SOL_INT_VAL(parts.tm_mon + 1);      /* #1 to #12, not #0 */
+    case 2: return SOL_INT_VAL(parts.tm_mday);
+    case 3: return SOL_INT_VAL(parts.tm_hour);
+    case 4: return SOL_INT_VAL(parts.tm_min);
+    case 5: return SOL_INT_VAL(parts.tm_sec);
+    /* Monday is #1, following the day names rather than C's Sunday-is-zero. */
+    default: return SOL_INT_VAL(parts.tm_wday == 0 ? 7 : parts.tm_wday);
+    }
+}
+
+static SolValue prim_time_year(SolVM *vm, SolValue s, SolValue *a, int n)
+{ (void)a; return time_field(vm, s, n, "year", 0); }
+static SolValue prim_time_month(SolVM *vm, SolValue s, SolValue *a, int n)
+{ (void)a; return time_field(vm, s, n, "month", 1); }
+static SolValue prim_time_day(SolVM *vm, SolValue s, SolValue *a, int n)
+{ (void)a; return time_field(vm, s, n, "day", 2); }
+static SolValue prim_time_hour(SolVM *vm, SolValue s, SolValue *a, int n)
+{ (void)a; return time_field(vm, s, n, "hour", 3); }
+static SolValue prim_time_minute(SolVM *vm, SolValue s, SolValue *a, int n)
+{ (void)a; return time_field(vm, s, n, "minute", 4); }
+static SolValue prim_time_second(SolVM *vm, SolValue s, SolValue *a, int n)
+{ (void)a; return time_field(vm, s, n, "second", 5); }
+static SolValue prim_time_weekday(SolVM *vm, SolValue s, SolValue *a, int n)
+{ (void)a; return time_field(vm, s, n, "weekday", 6); }
+
+/* `t:asString` is the ISO-8601 the renderer gives; `t:asString(spec)` hands the
+ * spec to `strftime`, whose alphabet is the one everybody already knows.
+ *
+ * Not the number-formatting spec language, which is about width and digits and
+ * has nothing to say about a Tuesday. Two spec languages is a cost, and the
+ * alternative was inventing a third that nobody knows. */
+static SolValue prim_time_as_string(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (argc == 0) {
+        SolText text;
+        sol_text_init(&text);
+        sol_value_render(vm, self, &text);
+        SolValue answer = SOL_STRING_VAL(sol_string_new(vm, text.chars, text.length));
+        sol_text_free(&text);
+        return answer;
+    }
+    if (!check_argc(vm, "asString", argc, 1)) return SOL_NIL_VAL;
+    if (!SOL_IS_STRING(args[0])) {
+        sol_vm_runtime_error(vm, "'asString' expects a format as a string, got %s",
+                             sol_type_name(args[0]));
+        return SOL_NIL_VAL;
+    }
+
+    struct tm parts;
+    if (!time_parts(vm, "asString", self, &parts)) return SOL_NIL_VAL;
+
+    char buffer[512];
+    size_t written = strftime(buffer, sizeof buffer,
+                              SOL_AS_STRING(args[0])->chars, &parts);
+    if (written == 0 && SOL_AS_STRING(args[0])->length > 0) {
+        sol_vm_runtime_error(vm, "that time format is empty or too long");
+        return SOL_NIL_VAL;
+    }
+    return SOL_STRING_VAL(sol_string_new(vm, buffer, (int)written));
 }
 
 /* ---- errors ------------------------------------------------------------ *
@@ -3034,6 +3269,23 @@ static SolValue prim_system_file_size(SolVM *vm, SolValue self, SolValue *args, 
     return SOL_INT_VAL((int64_t)info.st_size);
 }
 
+/* `system:modifiedAt(path)` -- the companion `fileSize` was waiting for. It
+   could not be written until there was a time to answer with. */
+static SolValue prim_system_modified_at(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "modifiedAt", argc, 1)) return SOL_NIL_VAL;
+    if (!path_argument(vm, "modifiedAt", args[0])) return SOL_NIL_VAL;
+
+    const char *path = SOL_AS_STRING(args[0])->chars;
+    struct stat info;
+    if (stat(path, &info) != 0) {
+        sol_vm_runtime_error(vm, "cannot read the time of '%s'", path);
+        return SOL_NIL_VAL;
+    }
+    return SOL_TIME_VAL((int64_t)info.st_mtime * SOL_NANOS_PER_SECOND);
+}
+
 /* ---- changing what is there -------------------------------------------- *
  *
  * These three do something that cannot be undone, which is a different sort of
@@ -3370,6 +3622,32 @@ void sol_builtins_install(SolVM *vm)
        a slot lookup and `e:isKindOf(error)` is true without any new machinery.
        The default is nil rather than absent: a prototype with an optional field
        binds one, and an error made any other way still answers `message`. */
+    /* `time` is a class object like `integer`: a value dispatches against it,
+       and nothing constructs one, so it has no `new` -- `system:time` and
+       `system:modifiedAt` are where an instant comes from. */
+    vm->time_class = sol_object_new(vm, NULL);
+    any_receiver(vm, vm->time_class, "new", prim_time_no_new);
+    any_receiver(vm, vm->time_class, "fromSeconds", prim_time_from_seconds);
+    instance(vm, vm->time_class, SOL_TIME, "asSeconds", prim_time_as_seconds);
+    instance(vm, vm->time_class, SOL_TIME, "secondsSince", prim_time_seconds_since);
+    instance(vm, vm->time_class, SOL_TIME, "plusSeconds", prim_time_plus_seconds);
+    instance(vm, vm->time_class, SOL_TIME, "lessThan", prim_time_before);
+    instance(vm, vm->time_class, SOL_TIME, "greaterThan", prim_time_after);
+    instance(vm, vm->time_class, SOL_TIME, "lessOrEqual", prim_time_not_after);
+    instance(vm, vm->time_class, SOL_TIME, "greaterOrEqual", prim_time_not_before);
+    instance(vm, vm->time_class, SOL_TIME, "year", prim_time_year);
+    instance(vm, vm->time_class, SOL_TIME, "month", prim_time_month);
+    instance(vm, vm->time_class, SOL_TIME, "day", prim_time_day);
+    instance(vm, vm->time_class, SOL_TIME, "hour", prim_time_hour);
+    instance(vm, vm->time_class, SOL_TIME, "minute", prim_time_minute);
+    instance(vm, vm->time_class, SOL_TIME, "second", prim_time_second);
+    instance(vm, vm->time_class, SOL_TIME, "weekday", prim_time_weekday);
+    instance(vm, vm->time_class, SOL_TIME, "asString", prim_time_as_string);
+    instance(vm, vm->time_class, SOL_TIME, "print", prim_print);
+    instance(vm, vm->time_class, SOL_TIME, "display", prim_display);
+    instance(vm, vm->time_class, SOL_TIME, "equals", prim_equals);
+    instance(vm, vm->time_class, SOL_TIME, "notEquals", prim_not_equals);
+
     vm->error_class = sol_object_new(vm, vm->object_class);
     any_receiver(vm, vm->error_class, "raise", prim_error_raise);
     sol_object_define(vm, vm->error_class, "message", SOL_NIL_VAL);
@@ -3420,7 +3698,7 @@ void sol_builtins_install(SolVM *vm)
     SolObject *classes[] = {
         vm->integer_class, vm->float_class, vm->nil_class,    vm->bool_class,
         vm->block_class,   vm->array_class, vm->object_class, vm->string_class,
-        vm->symbol_class,  vm->dict_class,
+        vm->symbol_class,  vm->dict_class,  vm->time_class,
     };
     for (size_t i = 0; i < sizeof(classes) / sizeof(classes[0]); i++) {
         any_receiver(vm, classes[i], "perform",    prim_perform);
@@ -3455,6 +3733,7 @@ void sol_builtins_install(SolVM *vm)
     vm->block_class->proto   = vm->object_class;
     vm->array_class->proto   = vm->object_class;
     vm->dict_class->proto    = vm->object_class;
+    vm->time_class->proto    = vm->object_class;
     vm->string_class->proto  = vm->object_class;
     vm->symbol_class->proto  = vm->object_class;
 
@@ -3464,6 +3743,7 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define(vm, vm->root, "array",   SOL_OBJ_VAL(vm->array_class));
     sol_object_define(vm, vm->root, "dictionary", SOL_OBJ_VAL(vm->dict_class));
     sol_object_define(vm, vm->root, "error",      SOL_OBJ_VAL(vm->error_class));
+    sol_object_define(vm, vm->root, "time",       SOL_OBJ_VAL(vm->time_class));
     sol_object_define(vm, vm->root, "string",  SOL_OBJ_VAL(vm->string_class));
     sol_object_define(vm, vm->root, "object",  SOL_OBJ_VAL(vm->object_class));
     /* Now that isKindOf takes a class, the remaining ones need names to be
@@ -3503,6 +3783,8 @@ void sol_builtins_install(SolVM *vm)
     any_receiver(vm, system, "remove", prim_system_remove);
     any_receiver(vm, system, "makeDirectory", prim_system_make_directory);
     any_receiver(vm, system, "rename", prim_system_rename);
+    any_receiver(vm, system, "time", prim_system_time);
+    any_receiver(vm, system, "modifiedAt", prim_system_modified_at);
 
     SolArray *no_arguments = sol_array_new(vm, 0);
     sol_gc_push_temp(vm, &no_arguments->gc);

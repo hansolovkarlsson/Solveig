@@ -151,7 +151,8 @@ static void mark_value(SolVM *vm, SolValue value)
     case SOL_DELEGATE: mark_cell(vm, (SolGCHeader *)SOL_AS_DELEGATE(value)); break;
     case SOL_SYMBOL:   mark_cell(vm, (SolGCHeader *)SOL_AS_SYMBOL(value)); break;
     /* Unboxed: nothing on the heap to reach. */
-    case SOL_NIL: case SOL_BOOL: case SOL_INT: case SOL_FLOAT: break;
+    case SOL_NIL: case SOL_BOOL: case SOL_INT: case SOL_FLOAT:
+    case SOL_TIME: break;
     }
 }
 
@@ -256,6 +257,7 @@ static void mark_roots(SolVM *vm)
     mark_cell(vm, (SolGCHeader *)vm->array_class);
     mark_cell(vm, (SolGCHeader *)vm->dict_class);
     mark_cell(vm, (SolGCHeader *)vm->error_class);
+    mark_cell(vm, (SolGCHeader *)vm->time_class);
     mark_cell(vm, (SolGCHeader *)vm->string_class);
     mark_cell(vm, (SolGCHeader *)vm->object_class);
     mark_cell(vm, (SolGCHeader *)vm->symbol_class);

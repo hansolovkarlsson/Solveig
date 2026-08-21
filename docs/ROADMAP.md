@@ -312,43 +312,6 @@ of the runtime that behaves differently by platform.
 Worth doing when a program needs it, and behind its own decision rather than as
 a footnote to line input.
 
-### 6.18 There is no date or time
-
-`system:clock` answers monotonic seconds and is deliberately not a clock you can
-read: the epoch is unspecified, because the only useful thing to do with two
-readings is subtract them. There is no way to ask what day it is, and no way to
-show one.
-
-That is the largest thing missing now that a program can walk a filesystem. It
-shows up in two places already: `system:fileSize` exists and a matching
-`modifiedAt` does not, because a timestamp wants to be a date rather than a
-number of seconds and answering an integer now would be an interface a date type
-would have to change. And a log analyser reading timestamps compares them as
-**strings** -- which works for ISO-8601 and for nothing else.
-
-The decisions, none of them settled:
-
-- **A type of its own, or an object?** A dictionary is a reference and a new
-  `SolValue` tag; a date is a *value* -- two of the same instant are the same
-  date, and nothing should mutate one -- which argues for a tag beside integer
-  and float rather than an object with slots. That is the heavier change and
-  probably the right one, by the rule that sorted `new` out.
-- **What it holds.** Seconds since the epoch is the honest storage. Whether the
-  *type* is an instant or a broken-down calendar date is a different question,
-  and time zones are where every date library goes wrong: an instant is
-  unambiguous and a calendar date is not.
-- **Formatting.** `asString(spec)` already exists on numbers and strings with a
-  spec language of its own, so a date should use it rather than invent a second
-  -- but the placeholders are a different alphabet, and `strftime`'s is the one
-  everybody knows.
-- **What it can answer.** Comparison and subtraction are the two that pay for
-  the type. `year`, `month`, `day` need a calendar, which is where the work is.
-- **Where "now" comes from.** `system:time` beside `system:clock`, the two
-  saying plainly that one is a clock you read and the other is a stopwatch.
-
-Worth building when a program wants to say when something happened, which
-walking a filesystem is one step away from.
-
 ### 6.12 Taking a binary file apart
 
 Reading and writing binary files already works: a string is bytes, a NUL is a

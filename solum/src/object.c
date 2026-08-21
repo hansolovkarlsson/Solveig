@@ -199,6 +199,9 @@ bool sol_value_equals(SolValue a, SolValue b)
     case SOL_SYMBOL:   return SOL_AS_SYMBOL(a) == SOL_AS_SYMBOL(b);
     case SOL_OBJ:      return SOL_AS_OBJ(a) == SOL_AS_OBJ(b);
     case SOL_DICT:     return SOL_AS_DICT(a) == SOL_AS_DICT(b);
+    /* A point in time is a value: two of the same instant are the same date,
+       and the nanoseconds are exact, so this is an integer comparison. */
+    case SOL_TIME:     return SOL_AS_TIME(a) == SOL_AS_TIME(b);
     case SOL_STRING: {
         const SolString *x = SOL_AS_STRING(a);
         const SolString *y = SOL_AS_STRING(b);
@@ -214,6 +217,7 @@ bool sol_dict_key_ok(SolValue key)
     switch (key.type) {
     case SOL_NIL: case SOL_BOOL: case SOL_INT:
     case SOL_FLOAT: case SOL_STRING: case SOL_SYMBOL:
+    case SOL_TIME:                      /* a value, so a key like any other */
         return true;
     case SOL_BLOCK: case SOL_ARRAY: case SOL_OBJ:
     case SOL_DELEGATE: case SOL_DICT:
@@ -259,6 +263,7 @@ static uint32_t hash_key(SolValue key)
     /* Interned, so the address is the name and hashing it is hashing the name
        -- the same reason `equals` compares symbols by pointer. */
     case SOL_SYMBOL: return mix64((uint64_t)(uintptr_t)SOL_AS_SYMBOL(key)) ^ 0x04u;
+    case SOL_TIME:   return mix64((uint64_t)SOL_AS_TIME(key)) ^ 0x05u;
     default: return 0;
     }
 }

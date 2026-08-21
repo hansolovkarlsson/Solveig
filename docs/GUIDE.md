@@ -903,6 +903,28 @@ i := #0. { i:lessThan(#100000) }:whileTrue({ i := i:add(#1) }).
 system:clock:sub(start):asString("0.4"):display.     ; 0.0153
 ```
 
+**`system:time` is a different thing from `system:clock`**, and the difference
+is the point. `clock` is a stopwatch: monotonic, unspecified epoch, only
+differences meaningful. `time` is a calendar — an instant you can ask the year
+of, and show:
+
+```
+now := system:time.
+now:print.                                   ; 2026-08-21T16:57:41Z
+now:year:print.                              ; #2026
+now:asString("%Y-%m-%d"):display.            ; 2026-08-21
+system:modifiedAt("notes.txt"):asString("%H:%M"):display.
+```
+
+A time is a **value**, like a number: two of the same instant are equal, nothing
+mutates one, and it can be a dictionary key. Everything is **UTC** — there is no
+local time and no zone, a zone being a political fact that changes where an
+instant does not. `secondsSince` measures a gap and `plusSeconds` moves along
+one, both in floats as `clock` differences are.
+
+A program asking how long something took wants `clock`; one asking when
+something happened wants `time`.
+
 `{ ... }:timeToRun` does that without the bookkeeping, answering the seconds the
 block took. The thing to know before trusting a number from it is that **the
 clock has a floor** — a microsecond here — and most single operations in Solum

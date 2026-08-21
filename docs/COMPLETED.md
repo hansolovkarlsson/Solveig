@@ -1462,3 +1462,59 @@ Unlike `onError`'s handler, the cleanup **always** runs, so one that is not a
 block is refused every time rather than only when something fails — which is a
 difference in what the two messages promise rather than an inconsistency.
 
+
+---
+
+### 6.18 There is no date or time — **done**
+
+Written down when `system:fileSize` landed without a matching `modifiedAt`,
+because a timestamp wants to be a date rather than a number of seconds and
+answering an integer then would have been an interface a date type had to
+change. Built the next thing, on the lines the entry set out.
+
+Built as `pending`. A **value type**, `SOL_TIME`, held as nanoseconds since
+1970-01-01T00:00:00Z.
+
+**A value, not an object**, which the entry called and which the rule that
+sorted out `new` confirms: two of the same instant are the same time, nothing
+mutates one, so it belongs beside integer and float rather than being slots.
+That makes `equals` exact, makes a time a dictionary key for free, and means
+`time:new` refuses like the other value classes.
+
+**Nanoseconds as an integer, not a float of seconds.** The language is strict
+about integers and floats, and a point in time being a float invites
+`t:add(1.5)` — a question with two plausible answers. Integers are exact,
+`nan` cannot get in, and int64 nanoseconds reach from 1678 to 2262.
+
+**Everything is UTC.** The entry named time zones as where every date library
+goes wrong, and the answer is not to have them: a zone is a political fact that
+changes by legislation, twice a year in most places and retroactively in some.
+An instant is unambiguous; a wall-clock reading is not.
+
+**`secondsSince`, not `sub`.** A time minus a time is not a time, so `sub` would
+have answered a different kind of thing from every other `sub` in the language,
+and would have invited `t:sub(#5)`. The name carries the direction and the unit.
+
+**`asString(format)` hands the format to `strftime`.** The entry worried about
+inventing a second spec language; the answer was to invent neither. The
+number-formatting spec is about width and digits and has nothing to say about a
+Tuesday, and `strftime`'s alphabet is the one everybody already knows.
+
+#### What the entry did not plan, and building it found
+
+**Nothing could name a particular moment.** With only `system:time` and
+`system:modifiedAt`, the sole instants a program can have are the current one
+and a file's — which is enough to stamp a log, and not enough to say when
+something is due, or to test any of this against a date somebody knows. Two
+tests in, that was obvious. `time:fromSeconds(f)` and `asSeconds` are the pair
+that fixes it, and they are also how an instant gets written to a file and read
+back.
+
+**Splitting an instant has to floor.** C division truncates towards zero, so
+half a second before the epoch divides to zero seconds and lands on 1970 rather
+than 1969. There is a test for the day before the epoch and for the sliver
+before it.
+
+`system:modifiedAt` is the companion `fileSize` was waiting for, and could not
+have been written until this existed.
+

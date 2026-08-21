@@ -32,7 +32,8 @@ typedef enum {
     SOL_SYMBOL,   /* 'foo            */
     SOL_DELEGATE, /* self:via(proto) */
     SOL_OBJ,
-    SOL_DICT      /* dictionary:new  */
+    SOL_DICT,     /* dictionary:new  */
+    SOL_TIME      /* system:time     */
 } SolValueType;
 
 typedef struct {
@@ -48,6 +49,12 @@ typedef struct {
         SolDelegate *delegate;
         SolObject *obj;
         SolDict   *dict;
+        /* Nanoseconds since 1970-01-01T00:00:00Z. An integer rather than a
+           float of seconds: a point in time is exact, two of the same instant
+           must be the same value, and `nan` has no business in a timestamp.
+           Signed, so dates before the epoch work, and int64 nanoseconds reach
+           from 1678 to 2262 -- which outlasts the language. */
+        int64_t    nanos;
     } as;
 } SolValue;
 
@@ -62,6 +69,7 @@ typedef struct {
 #define SOL_FLOAT_VAL(f)  ((SolValue){ SOL_FLOAT, { .real = (f) } })
 #define SOL_OBJ_VAL(o)    ((SolValue){ SOL_OBJ,   { .obj = (o) } })
 #define SOL_DICT_VAL(d)   ((SolValue){ SOL_DICT,  { .dict = (d) } })
+#define SOL_TIME_VAL(n)   ((SolValue){ SOL_TIME,  { .nanos = (n) } })
 
 #define SOL_IS_NIL(v)     ((v).type == SOL_NIL)
 #define SOL_IS_BOOL(v)    ((v).type == SOL_BOOL)
@@ -74,6 +82,7 @@ typedef struct {
 #define SOL_IS_FLOAT(v)   ((v).type == SOL_FLOAT)
 #define SOL_IS_OBJ(v)     ((v).type == SOL_OBJ)
 #define SOL_IS_DICT(v)    ((v).type == SOL_DICT)
+#define SOL_IS_TIME(v)    ((v).type == SOL_TIME)
 
 #define SOL_AS_BOOL(v)    ((v).as.boolean)
 #define SOL_AS_BLOCK(v)   ((v).as.block)
@@ -85,6 +94,7 @@ typedef struct {
 #define SOL_AS_FLOAT(v)   ((v).as.real)
 #define SOL_AS_OBJ(v)     ((v).as.obj)
 #define SOL_AS_DICT(v)    ((v).as.dict)
+#define SOL_AS_TIME(v)    ((v).as.nanos)
 
 /* A growable text buffer, so a value can be rendered into a string as readily as
    onto stdout and the two cannot drift apart. */
