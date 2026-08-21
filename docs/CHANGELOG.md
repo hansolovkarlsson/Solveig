@@ -7,6 +7,69 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### A byte has a number: `asByte` and `asCharacter` — `pending`, 2026-08-21
+
+[6.12](COMPLETED.md#612-taking-a-binary-file-apart--done) waited a long time for
+a program to need it and then got needed by the wrong one. The entry was about
+taking binary files apart; what actually wanted a byte's number was **text** —
+`lib/json.sol` reading `\u0041` and answering `"A"`.
+
+**Two primitives, no new type.**
+
+```
+"A":asByte:print.            ; #65
+#65:asCharacter:display.     ; A
+```
+
+The entry had proposed a byte-buffer type at sixteen bytes a byte. What the
+program turned out to want was a one-character string in and an integer out, and
+back — both ends already existed, so this is two functions in `builtins.c`
+rather than a type with a representation, a printer, a GC visit and a `.sob`
+encoding.
+
+**Named for what each answers**, which was the decision in it. A string is bytes,
+so `asByte` is honest where `asCode` would have promised a code point:
+
+```
+"é":asByte.
+solvm: 'asByte' wants one byte, and this string has 2 -- a character outside ASCII is more than one of them
+```
+
+Refusing is what keeps the two exact inverses, and the test is the range rather
+than a sample of it: every byte `#0` to `#255` survives `asCharacter:asByte`.
+
+**The foundation, not the fix — which is the good part.** A code point above 127
+is more than one byte, so encoding one is *arithmetic*, and arithmetic belongs
+where the format is known. The UTF-8 encoder is therefore in `lib/json.sol`, in
+Solum, and it reaches all of Unicode:
+
+```
+json:read("\"caf\u00e9\"").          ; café   -- two bytes
+json:read("\"\u4e2d\u6587\"").       ; 中文    -- three bytes each
+json:read("\"\ud83d\ude00\"").       ; 😀     -- a surrogate pair, four bytes
+```
+
+Solum has no bitwise operators, so the shifts and masks are `div` and `mod` and
+the tag bits go on with `add` — exact, the bits being disjoint by construction.
+The library lost a 95-character table of printable ASCII and gained the rest of
+Unicode, which is the trade this was for. Writing gained the same thing: a
+control byte goes out as `\u00XX` now instead of being refused.
+
+`#0:asCharacter` is the **only way to write a NUL** — there is no `\0` in a
+literal. Strings are length-counted and already carried one through `readFile`
+and `writeFile` byte-for-byte, so it added a spelling rather than a hazard.
+
+**A bug the new test found, twice.** `onError` calls its handler with one
+argument and arity is strict, so `onError({ nil })` fails with *'onError' takes
+1 argument, got 0* — an arity error **in place of** the recovery it was written
+to perform. It was in `lib/json.sol` on the bad-hex-digit path and in
+`examples/manifest.sol` on a non-numeric path segment, and both were invisible
+because nothing had taken those paths. A handler that ignores the error still
+has to accept it.
+
+The library is now tested end to end rather than only compiled: what it answers,
+not just that it runs.
+
 ### A JSON reader and writer, and the three things it found — `40f2004`, 2026-08-21
 
 The roadmap had emptied of anything a program asked for: the two entries left

@@ -757,7 +757,7 @@ compilation that Solum has not got. The rules are in
 
 The spelling did not survive. It was `"library.sol":include.` here, and that
 shape was a disguise: it read as a send to a string and never was one. It is
-`@include "library.sol".` now — see [6.13](#613-include-was-spelled-as-a-message)
+`@include "library.sol".` now — see [6.13](#613-include-was-spelled-as-a-message--done)
 for what the disguise cost and why the sigil was worth introducing.
 
 ### 6.2 A `system` object — **done**
@@ -819,7 +819,7 @@ entry sketched, but a string knows nothing about files, `system` is already
 where what belongs to the world outside the program lives, and — at the time —
 `"lib.sol":include` already meant something quite different on a string literal.
 
-That third reason has since dissolved: [6.13](#613-include-was-spelled-as-a-message)
+That third reason has since dissolved: [6.13](#613-include-was-spelled-as-a-message--done)
 made an include `@include "lib.sol"`, which looks like nothing else, so there is
 no longer a collision to avoid. The decision stands on the first two reasons,
 which were the load-bearing ones.
@@ -831,8 +831,8 @@ what `readFile` says about one too — a `fileExists` that disagreed with `readF
 would be a trap rather than a way to look before leaping.
 
 The binary half stayed behind, under a number of its own:
-[6.12](ROADMAP.md#612-taking-a-binary-file-apart). And a gap this opened is
-[6.11](ROADMAP.md#611-a-string-cannot-be-split) — a file arrives as one string
+[6.12](#612-taking-a-binary-file-apart--done). And a gap this opened is
+[6.11](#611-a-string-cannot-be-split--done) — a file arrives as one string
 and there is no way to take it apart.
 
 ---
@@ -878,7 +878,7 @@ and is more likely a mistaken count than an intention.
 What is measured includes the cost of calling the block, a frame pushed and
 popped. That is not overhead to subtract; it is what running the block costs.
 
-This is also what [6.6](ROADMAP.md#66-the-loop-constructs-are-library-code-and-pay-for-it)
+This is also what [6.6](#66-the-loop-constructs-are-library-code-and-pay-for-it--done)
 was waiting for. Inlining the loop constructs buys speed rather than
 expressiveness, and now the Solum-written version and the inlined `whileTrue`
 can be measured against each other before anything is built.
@@ -1077,10 +1077,10 @@ where the mistake was made.
 
 All three go by the length rather than stopping at the first NUL, which was not
 free — `strstr` was the obvious implementation and would have been wrong on
-exactly the files [6.12](ROADMAP.md#612-taking-a-binary-file-apart) is about. A
+exactly the files [6.12](#612-taking-a-binary-file-apart--done) is about. A
 test reads a file holding a NUL and splits it.
 
-The inverse was left out and is [6.14](ROADMAP.md#614-an-array-of-strings-cannot-be-joined):
+The inverse was left out and is [6.14](#614-an-array-of-strings-cannot-be-joined--done):
 there is no `join`, so putting pieces back is still a walk with `do`, and
 underneath that there is no `inject` or `fold` either.
 
@@ -1088,7 +1088,7 @@ underneath that there is no `inject` or `fold` either.
 
 ### 6.13 `include` was spelled as a message — **done**
 
-[6.1](#61-there-is-no-way-to-split-a-program-across-files) built the include and
+[6.1](#61-there-is-no-way-to-split-a-program-across-files--done) built the include and
 spelled it `"library.sol":include.`, for the honest reason that the language had
 no directive syntax and no keyword to spare, and that shape already parsed.
 
@@ -1141,7 +1141,7 @@ cycle stop.
 
 ### 6.14 An array of strings cannot be joined — **done**
 
-[6.11](#611-a-string-cannot-be-split) built `split` and left its inverse out.
+[6.11](#611-a-string-cannot-be-split--done) built `split` and left its inverse out.
 Putting the pieces back was a walk with `do` and a flag for whether the
 separator goes in front — six lines to say something that ought to be one.
 
@@ -1193,6 +1193,78 @@ arguments, across an unbounded number of calls back into the language.
 
 
 ---
+
+### 6.12 Taking a binary file apart — **done**
+
+Reading and writing binary files always worked: a string is bytes, a NUL is a
+byte like any other, and `split`, `indexOf` and `copyFrom` all go by the length
+rather than stopping at the first NUL, so a binary file could be cut up by a
+marker. What was missing was a **number** for a byte — `at` answered a
+one-character string, and there was nothing to do arithmetic on.
+
+The entry proposed a **byte-buffer type**, and said an array of integers would
+work at sixteen bytes a byte. It also said to build it when a program needed it
+rather than on the chance that one might, and that turned out to be the load-
+bearing sentence: when a program finally needed it, it wanted something much
+smaller.
+
+**The program was not the one expected.** This entry was written about binary
+files. What needed a byte's number first was *text* —
+[lib/json.sol](../lib/json.sol) has to read `\u0041` and answer `"A"`, and write
+a control byte back out as `\u00XX`. Neither direction existed, so the library
+carried the printable ASCII range as a string literal to index into and refused
+everything else, `é` included.
+
+**What was built is two primitives and no new type:**
+
+```
+"A":asByte:print.            ; #65
+#65:asCharacter:display.     ; A
+```
+
+`asByte` takes a one-character string and answers an integer; `asCharacter`
+takes an integer `#0` to `#255` and answers a one-character string. Both ends
+already existed, which is why this is two functions in `builtins.c` rather than
+a type with a representation, a printer, a GC visit and a `.sob` encoding.
+
+**Named for what each answers**, which was a decision rather than a shrug. A
+string is bytes ([2.13](ROADMAP.md#213-text-is-bytes-and-case-is-ascii-only)),
+so `asByte` is honest where `asCode` would have promised a code point:
+
+```
+"é":asByte.
+solvm: 'asByte' wants one byte, and this string has 2 -- a character outside ASCII is more than one of them
+```
+
+Refusing is what keeps the pair exact inverses, and the test is the whole range
+rather than a sample of it: every byte `#0` to `#255` survives
+`asCharacter:asByte`.
+
+**It is a foundation and not a fix, which is the good part.** A code point above
+127 is more than one byte, so `#233:asCharacter` is Latin-1 rather than the two
+bytes UTF-8 spells `é` with. Encoding a code point is *arithmetic* once a number
+can become a byte — and arithmetic belongs where the format is known. So the
+UTF-8 encoder lives in `lib/json.sol`, in Solum, and reaches all of Unicode:
+
+```
+json:read("\"caf\u00e9\"").          ; café          -- two bytes
+json:read("\"\u4e2d\u6587\"").       ; 中文           -- three bytes each
+json:read("\"\ud83d\ude00\"").       ; 😀            -- a surrogate pair, four bytes
+```
+
+Solum has no bitwise operators, so the shifts and masks are `div` and `mod` and
+the tag bits go on with `add` — exact, the bits being disjoint by construction,
+and it reads about as well as the C would.
+
+**One thing came free.** There is no `\0` in a string literal, so
+`#0:asCharacter` is the only way to write a NUL. Strings are length-counted
+rather than NUL-terminated and already carried one through `readFile` and
+`writeFile` byte-for-byte, so this added a spelling rather than a hazard.
+
+**What is still not here** is the byte-buffer type the entry opened with, and
+nothing is asking for it. A byte from a string is a number now, which is what
+every use met so far actually wanted. If a program turns up that needs a large
+mutable buffer, that is a new entry with its own case, not this one reopened.
 
 ### 6.15 There is no dictionary, and no way to build one — **done**
 

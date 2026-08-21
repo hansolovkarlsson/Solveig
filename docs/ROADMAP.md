@@ -339,74 +339,6 @@ of the runtime that behaves differently by platform.
 Worth doing when a program needs it, and behind its own decision rather than as
 a footnote to line input.
 
-### 6.12 Taking a binary file apart
-
-Reading and writing binary files already works: a string is bytes, a NUL is a
-byte like any other, and reading a file and writing it back copies it exactly.
-Since [6.11](COMPLETED.md#611-a-string-cannot-be-split--done), `split`, `indexOf` and
-`copyFrom` work on one too — all three go by the length rather than stopping at
-the first NUL, so a binary file can be cut up by a marker.
-
-What is still missing is a *number* for a byte. `at` answers a one-character
-string, and there is nothing to do arithmetic on.
-
-What this wants is a byte-buffer type. An array of integers would work and would
-cost sixteen bytes a byte.
-
-**A program has now needed it, and it was not the one expected.** This entry was
-written about binary files; what turned up first was *text*.
-[lib/json.sol](../lib/json.sol) has to read `\u0041` and answer `"A"`, which is
-a number to a character, and write the reverse for a control byte. Neither
-direction exists, so the library carries the printable ASCII range as a string
-literal to index into, and refuses anything outside it:
-
-```
-json:read("\"\u00e9\"").
-solvm: \u00e9 is outside what a Solum string can hold at character 8
-```
-
-Two smaller things fall out of the same gap. There is no `\b` or `\f` in a
-Solum string literal, so those two JSON escapes cannot be produced at all. And
-writing is stuck the same way: a control byte in a string must go out as
-`\u00XX`, and naming which byte it is needs the number that does not exist.
-
-Worth noticing what is *not* broken: **UTF-8 in the text itself passes through
-perfectly**, because a string is bytes and the parser copies spans of them.
-`"café"` reads, round-trips and writes unchanged. It is the format's escape
-mechanism that fails, not the encoding — which is a narrower problem than it
-first looked, and a real one.
-
-**Neither message exists.** `asCode` and `asCharacter` are the names this entry
-is proposing, not something the language has:
-
-```
-"A":asCode.        ; solvm: string does not understand 'asCode'
-#65:asCharacter.   ; solvm: integer does not understand 'asCharacter'
-```
-
-The useful thing about that pair is that it **needs no new type**. `asCode`
-takes a one-character string and answers an integer; `asCharacter` takes an
-integer and answers a one-character string. Both ends already exist, which is
-what makes this much smaller than the byte-buffer type this entry opened with.
-
-Being exact about what they would be: a string is bytes, so these are **byte**
-operations, not character ones. `"é":size` is `#2`, so `asCode` would have to
-refuse it the way `asInteger` refuses `"12x"` -- one byte in, one number out,
-`#0` to `#255`. That also makes `#0:asCharacter` the only way to write a NUL,
-which no literal can spell today; strings are length-counted and carry one
-happily, so this adds a spelling rather than a hazard.
-
-It would **not** finish the JSON case on its own, and that is worth saying
-plainly. `\u00e9` is code point 233, which in UTF-8 is two bytes, so
-`#233:asCharacter` would produce Latin-1 and invalid UTF-8. What closes the gap
-is UTF-8 *encoding* -- and that is ordinary arithmetic once a number can become
-a byte, so it belongs in [lib/json.sol](../lib/json.sol) rather than in the VM.
-Surrogate pairs (`\uD83D\uDE00`) are the same: pairing them is arithmetic the
-library can do, and cannot do today only because the bytes cannot be built.
-
-So the pair is a foundation rather than a fix, and it is the whole foundation.
-Worth deciding on its own.
-
 ### 6.18 A file that includes a library of its own name silently does nothing
 
 The search path looks beside the includer first, and a file is compiled once, so
@@ -456,7 +388,7 @@ three things. HTML would push on different ground and is the obvious next one:
   its error recovery, and Solum has never had to write any: every parser here so
   far reports the first problem and stops.
 - **It wants character classification in bulk** — name characters, whitespace,
-  entity references like `&#233;`, which is [6.12](#612-taking-a-binary-file-apart)
+  entity references like `&#233;`, which is [6.12](COMPLETED.md#612-taking-a-binary-file-apart--done)
   again and from a second direction.
 - **The tree is not the input's shape.** JSON's dictionaries and arrays fall out
   of the syntax; an element tree has to be built against a stack of open
@@ -522,12 +454,11 @@ and every concept the guide names now has a runnable example; and the include
 that started it has since been given a syntax that admits what it is (6.13) —
 so in order of what would be missed next:
 
-**6.12 is first, and a program is why.** It waited here for something to need a
-number for a byte, and [lib/json.sol](../lib/json.sol) does — not for the binary
-files this entry was written about, but for `\u0041`, which is text. It cannot
-read `é` and cannot write a control byte, and both are the same missing pair of
-messages. That is the only entry on this list a working program is currently
-losing to.
+**Nothing here is blocking a program.** [6.12](COMPLETED.md#612-taking-a-binary-file-apart--done)
+was, for about a day: it waited for something to need a number for a byte, and
+`lib/json.sol` needed one — not for the binary files the entry was written
+about, but for `\u0041`, which is text. `asByte` and `asCharacter` are built and
+it is done.
 
 The rest is not ordered. **A single keypress** (6.10) still waits for a program
 that needs it. **6.18** and **6.19** are papercuts a program tripped over, small

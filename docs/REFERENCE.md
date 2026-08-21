@@ -237,13 +237,18 @@ method to be bound on.
 Names are written **sorted**, so the same document always produces the same
 text and a rewritten file diffs cleanly.
 
-Three things it will not do, each for a reason worth knowing:
+`\uXXXX` is read in full, including surrogate pairs, and encoded as UTF-8 —
+which is Solum arithmetic on top of `asCharacter` rather than anything the VM
+knows about JSON. Raw UTF-8 in the text passes through unchanged, and the two
+forms answer the same string:
 
-- **`\uXXXX` outside printable ASCII is refused.** A character has no number
-  here, so there is no way to build one from a code point. UTF-8 in the text
-  itself is fine — a string is bytes, and `"café"` round-trips — it is the
-  escape that cannot be honoured. See
-  [ROADMAP 6.12](ROADMAP.md#612-taking-a-binary-file-apart).
+```
+json:read("\"caf\u00e9\"").          ; café
+json:read("\"\ud83d\ude00\"").       ; 😀
+```
+
+Two things it will not do, each for a reason worth knowing:
+
 - **Documents nest about 28 deep** before `call depth exceeded`, which is
   catchable like any other error. See
   [ROADMAP 3.5](ROADMAP.md#35-recursion-is-limited-to-about-62-levels).
@@ -1389,6 +1394,7 @@ objects.
 | `asFloat` | a float; loses precision above 2^53 |
 | `asString` | the digits, without the `#` |
 | `asBase(#n)` | the digits in base `n`, 2 to 36, as a string |
+| `asCharacter` | the one-byte string that byte spells; `#0` to `#255` |
 | `repeat(block)` | nil, having run the block that many times |
 | `toDo(#b, block)` | nil; the block is given each of the receiver to `#b`, **inclusive** |
 | `toByDo(#b, #step, block)` | the same, by `#step`; negative counts down |
@@ -1444,6 +1450,7 @@ on the page: the `#` marks the integer.
 | `lessOrEqual(s)` `greaterOrEqual(s)` | a boolean |
 | `asInteger` `asFloat` | strict: the whole string must be a number |
 | `asInteger(#n)` | reads base `n`, 2 to 36; the digits alone, no `0x` |
+| `asByte` | the number of the one byte in it; strict about there being one |
 | `asUppercase` `asLowercase` | a new string; ASCII letters only |
 | `asSymbol` | the interned symbol for these characters |
 | `asTime` | an instant, read as ISO-8601; strict |
@@ -1526,6 +1533,37 @@ padding comes from the spec by chaining:
 #255:asBase(#16):asString("08")     ; "000000ff"
 "ff":asInteger(#16)                 ; #255
 ```
+
+#### A byte and its number
+
+`asByte` and `asCharacter` are inverses over the whole range `#0` to `#255`:
+
+```
+"A":asByte:print.            ; #65
+#65:asCharacter:display.     ; A
+```
+
+They are named for **what each answers**. A string is bytes, so `asByte` is a
+byte and not a character, and it is strict about its receiver holding exactly
+one:
+
+```
+"é":size:print.              ; #2  -- one character, two bytes
+"é":asByte.
+solvm: 'asByte' wants one byte, and this string has 2 -- a character outside ASCII is more than one of them
+```
+
+Refusing is what keeps the two exact inverses. It also means a code point above
+127 is not something `asCharacter` makes on its own — UTF-8 spells one with two
+bytes or more, and putting them together is arithmetic. That arithmetic belongs
+where the format is known rather than in the VM;
+[lib/json.sol](../lib/json.sol) has it, and
+[examples/strings.sol](../examples/strings.sol) has the two-byte case written
+out.
+
+`#0:asCharacter` is the **only way to write a NUL**: there is no `\0` in a
+literal. A string is length-counted rather than NUL-terminated, so it carries
+one like any other byte.
 
 ### array
 

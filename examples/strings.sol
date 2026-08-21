@@ -144,3 +144,42 @@ row:value("pears", 12.25):display.
 ; which is what gives uppercase hex.
 #255:asBase(#16):asUppercase:display.        ; FF
 "Hello, World!":asLowercase:display.         ; hello, world!
+
+; ---------------------------------------------------------------------------
+; A byte and its number
+;
+; asByte answers the number of the one byte in a string, and asCharacter goes
+; back. They are named for what each answers rather than for what a caller might
+; wish it answered, because a string is bytes and these are bytes.
+
+"A":asByte:print.            ; #65
+#65:asCharacter:display.     ; A
+#97:asCharacter:display.     ; a
+
+; Which makes character arithmetic ordinary arithmetic.
+shift := { c, n | c:asByte:add(n):asCharacter }.
+shift:value("a", #1):display.        ; b
+shift:value("A", #32):display.       ; a  -- the case bit, by hand
+
+; asByte is strict about its receiver holding exactly one byte, and a character
+; outside ASCII is more than one of them. It says so rather than answering the
+; first byte, which would be a plausible number for a mistake.
+"é":size:print.              ; #2 -- one character, two bytes
+;   "é":asByte              ->  'asByte' wants one byte, and this string has 2
+
+; A code point above 127 is therefore not one asCharacter can make on its own.
+; UTF-8 spells it with two bytes or more, and putting them together is
+; arithmetic -- which is how lib/json.sol reads "é".
+utf8 := { code |
+    code:lessThan(#128):ifElse(
+        { code:asCharacter },
+        { #192:add(code:div(#64)):asCharacter
+              :concat(#128:add(code:mod(#64)):asCharacter) }) }.
+utf8:value(#233):display.    ; é
+utf8:value(#233):size:print. ; #2
+
+; asCharacter is the only way to write a NUL: there is no \0 in a literal, and a
+; string is length-counted rather than NUL-terminated, so it carries one.
+withNul := "a":concat(#0:asCharacter):concat("b").
+withNul:size:print.          ; #3
+withNul:at(#2):size:print.   ; #1

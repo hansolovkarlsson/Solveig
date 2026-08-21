@@ -497,6 +497,62 @@ static void test_the_shipped_library_works(void)
     printf("  the shipped library compiles and its loops work\n");
 }
 
+/* The JSON library, end to end, and the reason this is here rather than in a
+   Solum example: an example checks that a program runs, and this checks what it
+   answered. It is also the test that would have caught the `\u` gap being only
+   half closed -- reading an escape and building the bytes are two things, and
+   the second one is what `asByte` and `asCharacter` (6.12) made possible. */
+static void test_the_json_library_reads_and_writes(void)
+{
+    write_file(DIR "/uses_json.sol",
+        "@include \"json.sol\".\n"
+        "v := json:read(\"{\\\"a\\\": [1, 2.5, true, null], \\\"b\\\": \\\"x\\\"}\").\n"
+        "size := v:size.\n"
+        "b := v:at(\"b\").\n"
+        "text := v:asJson.\n"
+        "again := json:read(text):asJson.\n"
+        "same := again:equals(text).\n"
+        /* A code point above ASCII, which needed a table before and needs
+           arithmetic now, and one above U+FFFF, which arrives as a pair. */
+        "acute := json:read(\"\\\"\\\\u00e9\\\"\").\n"
+        "acuteSize := acute:size.\n"
+        "raw := json:read(\"\\\"\xc3\xa9\\\"\").\n"
+        "escapedMatchesRaw := acute:equals(raw).\n"
+        "pair := json:read(\"\\\"\\\\ud83d\\\\ude00\\\"\").\n"
+        "pairSize := pair:size.\n"
+        /* And out again: a control byte becomes \u00XX, which also needs the
+           number of a byte. */
+        "control := array:of(#0:asCharacter:concat(\"x\")):asJson.\n");
+
+    SolSearchPath search;
+    sol_search_path_init(&search);
+    sol_search_path_add(&search, "lib");
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    assert(compile_with_path(DIR "/uses_json.sol", &search, &chunk));
+    assert(sol_vm_run(&vm, &chunk) == SOL_OK);
+
+    assert(SOL_AS_INT(global(&vm, "size")) == 2);
+    assert(SOL_IS_STRING(global(&vm, "b")));
+    assert(SOL_AS_BOOL(global(&vm, "same")) == true);
+
+    /* Two bytes for é, four for the emoji: the counts are the point, since a
+       wrong encoding would still be a string and still compare equal to itself. */
+    assert(SOL_AS_INT(global(&vm, "acuteSize")) == 2);
+    assert(SOL_AS_INT(global(&vm, "pairSize")) == 4);
+    /* The escaped form and the raw UTF-8 form are the same string. */
+    assert(SOL_AS_BOOL(global(&vm, "escapedMatchesRaw")) == true);
+
+    const SolString *control = SOL_AS_STRING(global(&vm, "control"));
+    assert(strstr(control->chars, "\\u0000") != NULL);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    sol_search_path_free(&search);
+    printf("  the json library reads and writes, escapes included\n");
+}
+
 /* A library binds names and prints nothing. One that announced itself when you
    included it would be a poor guest, and this is the check that it does not. */
 static void test_the_library_is_silent_when_included(void)
@@ -556,6 +612,7 @@ int main(void)
     test_an_absolute_name_searches_nothing();
     test_not_found_anywhere_says_so();
     test_the_shipped_library_works();
+    test_the_json_library_reads_and_writes();
     test_the_library_is_silent_when_included();
 
     printf("test_include: ok\n");

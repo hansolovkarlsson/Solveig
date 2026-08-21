@@ -58,18 +58,30 @@ json:expect := { c |
     self:peek:equals(c):ifFalse({ self:fail("wanted '{}'":fill([c])) }).
     self:step }.
 
-; Printable ASCII, code 32 to 126, so that a \u escape has somewhere to look.
-; This table is here because a character has no number: there is no `asCode` on
-; a string and no `asCharacter` on an integer, so the only way from #65 to "A"
-; is to have written the alphabet down first. See ROADMAP 6.12.
-json:printable := " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~".
-
-; The three control characters Solum can spell. There is no \b and no \f, so a
-; JSON file using them cannot be read into a string at all.
-json:controls := dictionary:new.
-json:controls:atPut(#9,  "\t").
-json:controls:atPut(#10, "\n").
-json:controls:atPut(#13, "\r").
+; A code point, as the bytes UTF-8 spells it with.
+;
+; This used to be a table of printable ASCII written out as a literal, because a
+; character had no number and `#65` could not become `"A"` any other way. `asByte`
+; and `asCharacter` (6.12) replaced the table with arithmetic, and arithmetic
+; reaches the rest of Unicode where the table reached 95 characters.
+;
+; Solum has no bitwise operators, so the shifts and masks are `div` and `mod`,
+; and the tag bits go on with `add` rather than or -- which is exact, the bits
+; being disjoint by construction. It reads about as well as the C does.
+json:utf8 := { code |
+    code:lessThan(#128):ifElse(
+        { code:asCharacter },
+        { code:lessThan(#2048):ifElse(
+            { #192:add(code:div(#64)):asCharacter
+                  :concat(#128:add(code:mod(#64)):asCharacter) },
+            { code:lessThan(#65536):ifElse(
+                { #224:add(code:div(#4096)):asCharacter
+                      :concat(#128:add(code:div(#64):mod(#64)):asCharacter)
+                      :concat(#128:add(code:mod(#64)):asCharacter) },
+                { #240:add(code:div(#262144)):asCharacter
+                      :concat(#128:add(code:div(#4096):mod(#64)):asCharacter)
+                      :concat(#128:add(code:div(#64):mod(#64)):asCharacter)
+                      :concat(#128:add(code:mod(#64)):asCharacter) }) }) }) }.
 
 json:escapes := dictionary:new.
 json:escapes:atPut("\"", "\"").
@@ -79,7 +91,7 @@ json:escapes:atPut("n",  "\n").
 json:escapes:atPut("t",  "\t").
 json:escapes:atPut("r",  "\r").
 
-json:unicodeEscape := { | hex, code |
+json:hex4 := { | hex |
     self:pos:add(#3):greaterThan(self:src:size):ifTrue({
         self:fail("\\u wants four hex digits") }).
     hex := self:src:copyFrom(self:pos, self:pos:add(#3)).
@@ -87,14 +99,34 @@ json:unicodeEscape := { | hex, code |
     ; asInteger(#16) is strict, so a bad digit raises. Caught and re-raised, so
     ; the complaint names the escape and where it was rather than the four
     ; characters on their own.
-    code := { hex:asInteger(#16) }:onError({
-        self:fail("'{}' is not four hex digits":fill([hex])) }).
-    code:greaterOrEqual(#32):and({ code:lessOrEqual(#126) }):ifElse(
-        { self:printable:at(code:sub(#31)) },
-        { self:controls:at(code, nil):isNil:ifElse(
-            { self:fail("\\u{} is outside what a Solum string can hold"
-                :fill([hex])) },
-            { self:controls:at(code) }) }) }.
+    ; The handler takes the error even though this one does not read it: a
+    ; handler is called with one argument and arity is strict, so a block
+    ; written without the parameter fails with an arity error in place of the
+    ; message it was supposed to raise. Which is exactly what happened here,
+    ; and stayed hidden until a test put a bad digit in.
+    { hex:asInteger(#16) }:onError({ e |
+        self:fail("'{}' is not four hex digits":fill([hex])) }) }.
+
+; Anything above U+FFFF arrives as two escapes -- a high surrogate and a low one
+; -- because \u carries four hex digits and no more. Pairing them is arithmetic
+; the library can do; it could not before only because the bytes could not be
+; built afterwards.
+json:unicodeEscape := { | code, low |
+    code := self:hex4.
+    code:greaterOrEqual(#55296):and({ code:lessOrEqual(#56319) }):ifTrue({
+        self:peek:equals("\\"):ifFalse({
+            self:fail("a high surrogate needs a low one after it") }).
+        self:step.
+        self:peek:equals("u"):ifFalse({
+            self:fail("a high surrogate needs a low one after it") }).
+        self:step.
+        low := self:hex4.
+        low:greaterOrEqual(#56320):and({ low:lessOrEqual(#57343) }):ifFalse({
+            self:fail("a high surrogate needs a low one after it") }).
+        code := #65536:add(code:sub(#55296):mul(#1024)):add(low:sub(#56320)) }).
+    code:greaterOrEqual(#56320):and({ code:lessOrEqual(#57343) }):ifTrue({
+        self:fail("a low surrogate with no high one before it") }).
+    self:utf8(code) }.
 
 json:escape := { | c |
     c := self:peek.
@@ -253,11 +285,16 @@ json:quote := { text | | out, start, i, c |
             { out := out:concat(text:copyFrom(start, i:sub(#1)))
                         :concat(self:outEscapes:at(c)).
               start := i:add(#1) },
-            ; Bytes compare, so this is "below a space" without a code point.
-            ; Naming which byte it is would need one, and JSON's answer for it
-            ; -- \u00XX -- needs one too, so the honest thing is to refuse.
-            { c:lessThan(" "):ifTrue({
-                error:raise("a control byte at {} cannot be written: it needs \\u00XX, and a character has no number here":fill([i])) }) }).
+            ; A control byte has to go out as \u00XX, which needs its number.
+            ; This refused before `asByte` existed, and the two escapes Solum
+            ; cannot spell in a literal -- \b and \f -- are written here too,
+            ; since writing them is arithmetic and only reading them is stuck.
+            { c:lessThan(" "):ifElse(
+                { out := out:concat(text:copyFrom(start, i:sub(#1)))
+                            :concat("\\u00")
+                            :concat(c:asByte:asBase(#16):asString("02")).
+                  start := i:add(#1) },
+                { nil }) }).
         i := i:add(#1) }).
     "\"":concat(out):concat(text:copyFrom(start, text:size)):concat("\"") }.
 

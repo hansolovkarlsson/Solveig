@@ -648,6 +648,32 @@ static bool base_from(SolVM *vm, const char *name, SolValue value, int *out)
     return true;
 }
 
+/* `#65:asCharacter` -- the one-byte string that byte spells. The inverse of
+ * `asByte`, and the only way to write a byte the lexer has no escape for: there
+ * is no `\0` in a literal, so `#0:asCharacter` is where a NUL comes from.
+ * Strings are length-counted and carry one through `readFile` and `writeFile`
+ * already, so this adds a spelling rather than a hazard.
+ *
+ * A code point is not a byte above 127. `#233:asCharacter` is one byte, which
+ * is Latin-1 rather than the two bytes UTF-8 spells é with -- encoding a code
+ * point is arithmetic on top of this and belongs where the format is known.
+ */
+static SolValue prim_integer_as_character(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "asCharacter", argc, 0)) return SOL_NIL_VAL;
+
+    int64_t value = SOL_AS_INT(self);
+    if (value < 0 || value > 255) {
+        sol_vm_runtime_error(vm,
+            "#%lld is not a byte -- 'asCharacter' wants #0 to #255",
+            (long long)value);
+        return SOL_NIL_VAL;
+    }
+    char byte = (char)(unsigned char)value;
+    return SOL_STRING_VAL(sol_string_new(vm, &byte, 1));
+}
+
 static SolValue prim_integer_as_base(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     if (!check_argc(vm, "asBase", argc, 1)) return SOL_NIL_VAL;
@@ -724,6 +750,37 @@ static SolValue prim_string_as_integer(SolVM *vm, SolValue self, SolValue *args,
         return SOL_NIL_VAL;
     }
     return SOL_INT_VAL((int64_t)value);
+}
+
+/* `"A":asByte` -- the number of the one byte in the receiver.
+ *
+ * Named for what it answers rather than for what a caller might wish it
+ * answered. A string is bytes (ROADMAP 2.13), so this is a byte and not a
+ * character: `"é"` is two bytes and is refused, which is the honest answer and
+ * the one that keeps `asByte` and `asCharacter` exact inverses.
+ *
+ * Strict about the size for the same reason `asInteger` is strict about its
+ * digits: a message that quietly took the first byte of a longer string would
+ * answer something plausible for input that is a mistake.
+ */
+static SolValue prim_string_as_byte(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "asByte", argc, 0)) return SOL_NIL_VAL;
+
+    const SolString *string = SOL_AS_STRING(self);
+    if (string->length == 0) {
+        sol_vm_runtime_error(vm, "'asByte' wants one byte, and this string is empty");
+        return SOL_NIL_VAL;
+    }
+    if (string->length != 1) {
+        sol_vm_runtime_error(vm,
+            "'asByte' wants one byte, and this string has %d -- a character "
+            "outside ASCII is more than one of them",
+            string->length);
+        return SOL_NIL_VAL;
+    }
+    return SOL_INT_VAL((int64_t)(unsigned char)string->chars[0]);
 }
 
 static SolValue prim_string_as_float(SolVM *vm, SolValue self, SolValue *args, int argc)
@@ -3715,6 +3772,7 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->integer_class, SOL_INT, "mod", prim_integer_mod);
     instance(vm, vm->integer_class, SOL_INT, "asFloat", prim_integer_as_float);
     instance(vm, vm->integer_class, SOL_INT, "asBase", prim_integer_as_base);
+    instance(vm, vm->integer_class, SOL_INT, "asCharacter", prim_integer_as_character);
     instance(vm, vm->integer_class, SOL_INT, "repeat", prim_integer_repeat);
     instance(vm, vm->integer_class, SOL_INT, "toDo", prim_integer_to_do);
     instance(vm, vm->integer_class, SOL_INT, "toByDo", prim_integer_to_by_do);
@@ -3894,6 +3952,7 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->string_class, SOL_STRING, "asUppercase", prim_string_upper);
     instance(vm, vm->string_class, SOL_STRING, "asLowercase", prim_string_lower);
     instance(vm, vm->string_class, SOL_STRING, "asSymbol", prim_string_as_symbol);
+    instance(vm, vm->string_class, SOL_STRING, "asByte", prim_string_as_byte);
     instance(vm, vm->string_class, SOL_STRING, "asTime", prim_string_as_time);
     instance(vm, vm->string_class, SOL_STRING, "notEquals", prim_not_equals);
     instance(vm, vm->string_class, SOL_STRING, "lessThan", prim_string_less);

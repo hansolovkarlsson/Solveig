@@ -130,7 +130,12 @@ lookup := { root, dotted |
             { here:at(step, nil) },
             { here:isKindOf(array):ifElse(
                 { | n |
-                  n := { step:asInteger }:onError({ nil }).
+                  ; The handler takes the error and ignores it. A handler is
+                  ; called with one argument and arity is strict, so writing
+                  ; `onError({ nil })` fails with an arity error instead of
+                  ; answering nil -- which is a failure inside the recovery,
+                  ; and the least visible kind there is.
+                  n := { step:asInteger }:onError({ e | nil }).
                   n:isNil:or({ n:lessThan(#1) }):or({ n:greaterThan(here:size) })
                       :ifElse({ nil }, { here:at(n) }) },
                 { nil }) }) }) }) }.

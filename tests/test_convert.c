@@ -365,6 +365,82 @@ static void test_base_errors(void)
     sol_vm_free(&vm);
 }
 
+/* A byte and its number. Named for what each answers: `asByte` gives the number,
+   `asCharacter` gives the text, and they are inverses over the whole range. */
+static void test_a_byte_and_its_number(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "a := \"A\":asByte."
+        "b := \"a\":asByte."
+        "c := \" \":asByte."
+        "d := #65:asCharacter."
+        "e := #0:asCharacter:size."
+        "f := #255:asCharacter:asByte.") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "a")) == 65);
+    assert(SOL_AS_INT(global(&vm, "b")) == 97);
+    assert(SOL_AS_INT(global(&vm, "c")) == 32);
+    assert(is_text(global(&vm, "d"), "A"));
+    /* There is no \0 in a literal, so this is the only way to make one, and a
+       string is length-counted rather than NUL-terminated so it holds one. */
+    assert(SOL_AS_INT(global(&vm, "e")) == 1);
+    assert(SOL_AS_INT(global(&vm, "f")) == 255);
+    sol_chunk_free(&chunk);
+
+    /* Every byte, both ways. The range is the contract, so the test is the
+       range rather than a sample of it. */
+    assert(run(&vm, &chunk,
+        "ok := true."
+        "#0:toDo(#255, { n | n:asCharacter:asByte:equals(n):ifFalse("
+        "    { ok := false }) }).") == SOL_OK);
+    assert(SOL_AS_BOOL(global(&vm, "ok")) == true);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
+/* A string is bytes, so a character outside ASCII is more than one and is
+   refused rather than answering its first byte. That is what keeps the pair
+   exact inverses, and it is the same strictness `asInteger` has about digits. */
+static void test_a_byte_is_not_a_character(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    /* Two bytes of UTF-8, refused rather than answering #195. */
+    assert(run(&vm, &chunk, "a := \"\xc3\xa9\":asByte.") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "a := \"\":asByte.") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "a := \"ab\":asByte.") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "a := #256:asCharacter.") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "a := #-1:asCharacter.") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
+/* The message a multi-byte character gets is the one worth checking: it is
+   where somebody meets the difference between a byte and a character, and
+   "wants one byte" alone would leave them guessing why "é" is not one. A fresh
+   VM, because the first error wins and this asks about a particular one. */
+static void test_the_refusal_explains_utf8(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk, "a := \"\xc3\xa9\":asByte.") == SOL_RUNTIME_ERROR);
+    assert(strstr(vm.error_message.chars, "wants one byte") != NULL);
+    assert(strstr(vm.error_message.chars, "outside ASCII") != NULL);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
 int main(void)
 {
     test_as_base();
@@ -378,6 +454,9 @@ int main(void)
     test_narrowing_names_its_direction();
     test_narrowing_guards();
     test_parsing_is_strict();
+    test_a_byte_and_its_number();
+    test_a_byte_is_not_a_character();
+    test_the_refusal_explains_utf8();
     printf("test_convert: ok\n");
     return 0;
 }
