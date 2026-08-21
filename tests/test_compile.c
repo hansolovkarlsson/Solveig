@@ -177,7 +177,7 @@ static const char *examples[] = {
     "examples/format.sol",  "examples/values.sol",  "examples/stock.sol",
     "examples/library.sol", "examples/include.sol", "examples/system.sol",
     "examples/reading.sol", "examples/files.sol",   "examples/binding.sol",
-    "examples/strictness.sol",
+    "examples/strictness.sol", "examples/log.sol",
 };
 #define EXAMPLE_COUNT (sizeof(examples) / sizeof(examples[0]))
 

@@ -128,8 +128,9 @@ make test     # builds and runs the test suite
 
 ## Examples
 
-Nineteen programs, each on one topic. Every concept the
-[guide](docs/GUIDE.md) names has one —
+Twenty programs. Every concept the [guide](docs/GUIDE.md) names has one, and
+[log](examples/log.sol) is a whole one — an access-log analyser, written to do a
+job rather than to demonstrate a feature —
 [hello](examples/hello.sol),
 [binding](examples/binding.sol),
 [stock](examples/stock.sol),
@@ -148,4 +149,5 @@ Nineteen programs, each on one topic. Every concept the
 [include](examples/include.sol),
 [system](examples/system.sol),
 [reading](examples/reading.sol),
-[files](examples/files.sol).
+[files](examples/files.sol),
+[log](examples/log.sol).

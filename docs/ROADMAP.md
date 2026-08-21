@@ -331,11 +331,73 @@ What this wants is a byte-buffer type. An array of integers would work and would
 cost sixteen bytes a byte. Worth building when a program needs it rather than on
 the chance that one might.
 
+### 6.15 There is no dictionary, and no way to build one
+
+Found by writing [examples/log.sol](../examples/log.sol), which is the first
+program here written to do a job rather than to show a feature. Counting by key
+is what a log analyser mostly does, and the language cannot express it directly.
+
+There is no dictionary type. An object is a set of named slots and would serve
+as one — except that **a slot name comes from the compiler**. `perform(name)`
+sends a computed name and `slotAt(name)` reads a computed slot, but nothing
+*binds* one: there is no `slotAtPut`, which 2.14 records as "reflection cannot
+write". So an object cannot stand in for a dictionary either.
+
+What log.sol does instead is keep an array of key/count objects and walk it:
+
+```
+tally := { list, key | | found |
+    found := nil.
+    list:do({ c | c:key:equals(key):ifTrue({ found := c }) }).
+    found:isNil:ifTrue({ found := counter:new. found:key := key. list:add(found) }).
+    found:count := found:count:add(#1) }.
+```
+
+That is O(n) a lookup and O(n²) over a file, where a dictionary is O(1) and O(n).
+Fine over eighteen lines and the wrong shape over eighteen thousand.
+
+Two ways to answer it, and they are not the same size:
+
+- **`slotAtPut(name, value)`**, completing the reflection triple against
+  `slotAt` and `perform`. Small, and it makes an object usable as a dictionary
+  with symbol keys. It also opens the writes 2.14 lists — removing a slot,
+  re-parenting — which have their own reasons for being refused, so this one
+  wants to be added on its own terms rather than as a side effect.
+- **A real dictionary type**, with its own hashing, which is a new built-in
+  alongside array. More work, better shape, and it does not need the object
+  model to change.
+
+The first is the smaller change and the second is the right one. A dictionary
+also wants an answer to what it does with a missing key — an error like `at`, or
+nil like `indexOf` — and to whether keys are strings, symbols, or anything with
+`equals`.
+
+**This is the entry section 6 was missing**: every other one that is left waits
+for a program to want it, and this is what a program wanted.
+
+### 6.16 An array cannot be sliced
+
+Smaller, and from the same program. There is no `first(#n)`, no `last(#n)`, and
+no slice, so taking the head of a sorted array is a walk with an index:
+
+```
+firstFew := { list, n | | out, i |
+    out := array:new. i := #1.
+    { i:lessOrEqual(n):and({ i:lessOrEqual(list:size) }) }:whileTrue({
+        out:add(list:at(i)). i := i:add(#1) }).
+    out }.
+```
+
+Every report that ranks anything wants this, and log.sol wants it twice.
+`copyFrom(#a, #b)` on a string is the shape to follow, inclusive at both ends,
+which 2.14 already records as the convention a later slice API should use.
+
 ## Suggested order
 
 **Section 6 is the whole of the live list**, and it came from the right place:
 notes about what a program would want, rather than a plan written before there
-were any programs. Eleven of its items are built — a program can be split across
+were any programs. The two newest entries came from further along the same road
+— from a program that wanted something and could not have it. Eleven of its items are built — a program can be split across
 files, stop with a status, read its input, read and write files, take a string
 apart and put it back together, and time itself; the instruction set has a
 reference the test suite keeps honest, the guide contrasts a group with a block,
@@ -343,12 +405,17 @@ and every concept the guide names now has a runnable example; and the include
 that started it has since been given a syntax that admits what it is (6.13) —
 so in order of what would be missed next:
 
-1. **Inlining the loop constructs** (6.6), which now has something to measure it
-   with: `timeToRun(#n)` is what would say whether it is worth doing. It is the
-   only entry left that is work rather than a wait.
+1. **A dictionary** (6.15). The first program written here to do a job rather
+   than to show a feature could not express counting by key, which is most of
+   what it does. This is the entry that came from use rather than from a list.
+2. **Slicing an array** (6.16), from the same program and much smaller.
+3. **Inlining the loop constructs** (6.6), which has something to measure it
+   with now: `timeToRun(#n)` says 1.30x, so it is real and modest.
 
 Not ordered: **a single keypress** (6.10) and **a byte type** (6.12) both wait
-for a program that needs them.
+for a program that needs them. That was true of the whole list until
+[log.sol](../examples/log.sol) was written; it is worth noticing which entries
+survived contact with a real program and which did not come up at all.
 
 One decision is outstanding: **2.5**, class side versus instance side. 1.6
 answered it one message at a time, which was enough to stop the crashes;

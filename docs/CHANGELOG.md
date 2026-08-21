@@ -8,6 +8,45 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### A log analyser, and the two things it could not say — `pending`, 2026-08-20
+
+[examples/log.sol](../examples/log.sol) reads an access log and reports on it:
+totals, a breakdown by status, the busiest paths, the slowest requests, and the
+failures. It takes a path from `system:arguments`, or writes a sample into
+`build/` so it runs anywhere.
+
+**It is the first program here written to do a job rather than to show a
+feature**, which was the point. Every entry left in the roadmap was waiting for a
+program to want something. This is what one wanted.
+
+Most of it went in without complaint — `split` on the file and again on each
+line, a prototype for an entry, `inject` for totals, `select` for the failures,
+`sorted` with a block, `fill` with format specs for the columns. Two things did
+not.
+
+**There is no dictionary, and no way to build one.** Counting by key is most of
+what a log analyser does. An object is a set of named slots and would serve —
+except a slot name comes from the compiler. `perform` sends a computed name and
+`slotAt` reads a computed slot, but nothing *binds* one, so an object cannot
+stand in for a dictionary either. What the example does instead is keep an array
+of key/count objects and walk it: O(n) a lookup, O(n²) over a file. Fine over
+eighteen lines and the wrong shape over eighteen thousand. Recorded as roadmap
+**6.15**, with the two ways to answer it — a `slotAtPut` completing the
+reflection triple, or a real dictionary type — and the argument that the first is
+smaller and the second is right.
+
+**An array cannot be sliced.** No `first(#n)`, no `last(#n)`, no slice, so taking
+the head of a sorted array is a walk with an index. Every report that ranks
+anything wants it, and this one wants it twice. Roadmap **6.16**; `copyFrom` on a
+string is the shape to follow.
+
+Neither was a guess about what might be missing. Both are things the program
+needed and had to work around, and the workarounds are in the example with
+comments saying so rather than tidied out of sight.
+
+Worth noting what did *not* come up: the loop constructs (6.6), a single keypress
+(6.10) and a byte type (6.12) were all still unwanted at the end of it.
+
 ### `new` means one thing — `d58918c`, 2026-08-20
 
 **Breaking.** `integer:new(#45)` and `float:new(1.5)` used to answer their own
