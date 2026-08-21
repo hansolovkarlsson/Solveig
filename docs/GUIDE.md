@@ -24,7 +24,8 @@ prints.
 4. [Numbers](#4-numbers)
 5. [Text: strings and symbols](#5-text-strings-and-symbols)
 6. [Values and references](#6-values-and-references)
-7. [Blocks: code as a value](#7-blocks-code-as-a-value)
+7. [Blocks: code as a value](#7-blocks-code-as-a-value) —
+   including [`(group)` and `{block}`](#group-and-block)
 8. [Control flow is message sending](#8-control-flow-is-message-sending)
 9. [Methods](#9-methods)
 10. [Objects and prototypes](#10-objects-and-prototypes)
@@ -317,6 +318,57 @@ right thing wherever it ends up being run. One restriction is worth knowing
 early: a block that *reads its home frame* is tied to that frame, and calling it
 after the frame has returned is reported rather than silently reading someone
 else's slots. Non-capturing blocks escape freely.
+
+### `(group)` and `{block}`
+
+Both are code in brackets, and they are not variations on each other. **A group
+runs. A block is a value.**
+
+```
+m := { x | x:add(#1) }.
+(m:value(#42)):print.            ; #43     -- the group ran, and answered
+{ m:value(#42) }:print.          ; <block> -- nothing ran
+{ m:value(#42) }:value:print.    ; #43     -- now it did
+```
+
+A group evaluates where it is written, exactly once, and answers its last
+statement. Sending to it sends to that answer. A block evaluates nowhere until
+something sends it `value` — and then perhaps never, or perhaps a thousand
+times.
+
+**That difference is what makes control flow possible at all.** `ifTrue` is an
+ordinary message, so its argument is evaluated before the send like any other
+argument. Hand it a group and the group has already run by the time `ifTrue`
+gets to decide anything:
+
+```
+false:ifTrue(("the group ran anyway":display. nil)).
+false:ifTrue({ "the block did not":display }).
+```
+
+```
+the group ran anyway
+```
+
+Only the first line printed. There is no rule about `ifTrue` here and nothing in
+the compiler knows what it means — the block simply has not been run, and
+`ifTrue` chose not to run it. Everything the language does with conditions and
+loops rests on that one fact.
+
+The other difference is frames. **A block makes a frame; a group borrows the one
+it is in.** So a group's temporaries are the enclosing block's, which is why a
+group may declare them only where there is a frame to declare them in:
+
+```
+f := { | a |
+    a := #1.
+    ( a := a:add(#1). a )        ; the same `a`, not a copy
+}.
+f:value:print.                   ; #2
+```
+
+Both hold statements separated by `.`, both answer their last one, and both may
+open with `| temporaries |`. Everything else about them is different.
 
 > **Run:** [examples/blocks.sol](../examples/blocks.sol)
 

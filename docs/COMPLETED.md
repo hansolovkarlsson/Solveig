@@ -933,6 +933,48 @@ against real `--dump` output rather than transcribed.
 
 ---
 
+### 6.8 `(group)` and `{block}` are not contrasted anywhere — **done**
+
+Both are code in brackets; one evaluates now and one is a value. The tutorial
+introduced each separately and never put them side by side, which is where the
+difference actually lands.
+
+Built as `pending`: a subsection at the end of the guide's §7, a short one in
+the reference beside `Grouping`, and a section in
+[examples/blocks.sol](../examples/blocks.sol) so the concept has runnable code
+and not only prose.
+
+The entry supplied the example and it is the one used:
+
+```
+m := { x | x:add(#1) }.
+(m:value(#42)):print.            ; #43
+{ m:value(#42) }:print.          ; <block>
+```
+
+Writing it up turned up a better one, though, and it is the reason the contrast
+matters rather than a curiosity about brackets. **An argument is evaluated before
+the send, like any other argument.** So handing `ifTrue` a group means the group
+has already run by the time `ifTrue` gets to decide anything:
+
+```
+false:ifTrue(("the group ran anyway":display. nil)).
+false:ifTrue({ "the block did not":display }).
+```
+
+Only the first prints. Nothing in the compiler knows what `ifTrue` means; the
+block simply has not been run, and `ifTrue` chose not to run it. Every
+conditional and every loop in the language rests on that one fact, and a reader
+who has not seen a group and a block side by side has no way to see it.
+
+The third difference is frames, and it explains a restriction §3 already
+describes without saying why: **a block makes a frame, a group borrows the one
+it is in.** A group's temporaries are the enclosing block's, which is why a group
+may declare them only somewhere that already has a frame, and why declaring one
+at the top level of a script is refused.
+
+---
+
 ### 6.11 A string cannot be split — **done**
 
 `readFile` answers a whole file as one string, which is what made this visible:

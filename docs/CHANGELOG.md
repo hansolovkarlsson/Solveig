@@ -8,6 +8,43 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### The guide contrasts a group with a block — `pending`, 2026-08-20
+
+Roadmap 6.8. Both are code in brackets, and nothing put them side by side.
+
+```
+m := { x | x:add(#1) }.
+(m:value(#42)):print.            ; #43     -- the group ran, and answered
+{ m:value(#42) }:print.          ; <block> -- nothing ran
+{ m:value(#42) }:value:print.    ; #43     -- now it did
+```
+
+That example came from the roadmap entry. Writing it up turned up a better one,
+which is the reason the contrast matters rather than a curiosity about brackets.
+**An argument is evaluated before the send, like any other argument** — so
+handing `ifTrue` a group means the group has already run by the time `ifTrue`
+gets to decide anything:
+
+```
+false:ifTrue(("the group ran anyway":display. nil)).
+false:ifTrue({ "the block did not":display }).
+```
+
+Only the first prints. Nothing in the compiler knows what `ifTrue` means; the
+block simply has not been run, and `ifTrue` chose not to run it. Every
+conditional and every loop rests on that, and a reader who has never seen the
+two side by side has no way to see it.
+
+A third difference explains a restriction the guide already described without
+saying why: **a block makes a frame, a group borrows the one it is in.** A
+group's temporaries are the enclosing block's, which is why one may only be
+declared where a frame already exists — and why declaring a temporary at the top
+level of a script is refused.
+
+In the guide's §7, in the reference beside `Grouping`, and in
+[examples/blocks.sol](../examples/blocks.sol) so the concept has runnable code
+and not only prose.
+
 ### The instruction set has a reference, and the tests keep it honest — `8d7c558`, 2026-08-20
 
 Roadmap 6.7. [docs/BYTECODE.md](BYTECODE.md) describes all twenty-one opcodes:

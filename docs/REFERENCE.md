@@ -519,6 +519,25 @@ It may also open with `| a, b |`, declaring temporaries of the frame it sits in
 At the top level of a script it is a compile error; see
 [Names and binding](#names-and-binding).
 
+**A group is not a block.** Both are code in brackets, both hold statements
+separated by `.`, both answer their last one, and both may declare temporaries.
+Everything else differs: a group runs where it is written, exactly once, and a
+block runs only when something sends it `value`, then as many times as it is
+sent.
+
+```
+(#1:add(#2)):print.             ; #3      -- the group ran
+{ #1:add(#2) }:print.           ; <block> -- nothing ran
+```
+
+A group also borrows the frame it sits in, where a block makes one -- which is
+why a group can only declare temporaries somewhere that already has a frame.
+
+That the argument to `ifTrue` is a block and not a group is the whole of how
+control flow works here: an argument is evaluated before the send, so a group
+would have run before `ifTrue` could decide anything. See
+[Control flow](#control-flow).
+
 ---
 
 ## Blocks

@@ -12,6 +12,31 @@ false:ifFalse({ #2:print }).                              ; #2
 b := { #21:add(#21) }.
 b:value():print.                                          ; #42
 
+; ---------------------------------------------------------------------------
+; A group is not a block
+;
+; Both are code in brackets. A group runs where it is written and answers its
+; last statement; a block runs nowhere until something sends it `value`.
+
+m := { x | x:add(#1) }.
+(m:value(#42)):print.                                     ; #43     -- it ran
+{ m:value(#42) }:print.                                   ; <block> -- it did not
+{ m:value(#42) }:value:print.                             ; #43     -- now it did
+
+; Which is the whole of why control flow above works. An argument is evaluated
+; before the send, like any other argument, so a group would have run before
+; `ifTrue` could decide anything about it.
+false:ifTrue(("the group ran anyway":display. nil)).
+false:ifTrue({ "the block did not":display }).
+
+; A block makes a frame; a group borrows the one it is in. So a group's
+; temporaries are the enclosing block's -- and a group may only declare them
+; where there is a frame to declare them in.
+{ | a |
+    a := #1.
+    ( a := a:add(#1). a )                                 ; the same `a`
+}:value:print.                                            ; #2
+
 ; Parameters come before '|'.
 add := { a, b | a:add(b) }.
 add:value(#3, #4):print.                                  ; #7
