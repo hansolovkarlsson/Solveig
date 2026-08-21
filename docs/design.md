@@ -316,24 +316,12 @@ Two scanning rules keep this unambiguous:
 
 ## Instruction set
 
-A stack machine where nearly everything is `OP_SEND`.
-
-| Opcode      | Operands                | Effect                                      |
-| ----------- | ----------------------- | ------------------------------------------- |
-| `OP_CONST`  | u16 const index         | push `constants[idx]`                       |
-| `OP_NIL`    | --                      | push nil                                    |
-| `OP_GLOBAL` | u16 name index          | push the named global                       |
-| `OP_SET_GLOBAL` | u16 name index      | bind the name, leave the value on the stack |
-| `OP_LOCAL`  | u8 slot                 | push a frame slot (slot 0 is `self`)        |
-| `OP_SET_LOCAL` | u8 slot              | store into a slot, leaving the value        |
-| `OP_OUTER`  | u8 depth, u8 slot       | read a slot `depth` frames out              |
-| `OP_SET_OUTER` | u8 depth, u8 slot    | write one, leaving the value                |
-| `OP_BLOCK`  | u16 method index        | make a block capturing the current frame    |
-| `OP_SET_SLOT` | u16 name index        | pop a value and an object, bind, answer it  |
-| `OP_SEND`   | u16 name index, u8 argc | pop argc args + receiver, push the reply    |
-| `OP_POP`    | --                      | discard top of stack (statement boundary)   |
-| `OP_RETURN` | --                      | return top of stack from the current method |
-| `OP_HALT`   | --                      | stop the VM                                 |
+A stack machine where nearly everything is `OP_SEND`. The complete reference —
+every opcode, its operands, its length and its effect on the stack — is
+[BYTECODE.md](BYTECODE.md), which is checked against
+`solum/include/solum/bytecode.h` by the test suite rather than kept in step by
+hand. A table lived here once and fell six opcodes behind, which is why it does
+not any more.
 
 Operand widths follow one rule, and it is about what bounds the number rather
 than about the instruction. An index into a side table -- a constant, a name, a

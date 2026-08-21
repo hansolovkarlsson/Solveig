@@ -75,7 +75,7 @@ a different language.
 | `solas/`  | **Solas** -- the compiler: source text to bytecode                |
 | `solum/`  | **SolVM** -- the virtual machine, built as `bin/solvm`               |
 | `solis/`  | **Solis** -- the REPL: reads until the input could compile        |
-| `docs/`   | [GUIDE.md](docs/GUIDE.md), [TUTORIAL.md](docs/TUTORIAL.md), [REFERENCE.md](docs/REFERENCE.md), [design.md](docs/design.md), [ROADMAP.md](docs/ROADMAP.md), [COMPLETED.md](docs/COMPLETED.md), [CHANGELOG.md](docs/CHANGELOG.md) |
+| `docs/`   | [GUIDE.md](docs/GUIDE.md), [TUTORIAL.md](docs/TUTORIAL.md), [REFERENCE.md](docs/REFERENCE.md), [design.md](docs/design.md), [BYTECODE.md](docs/BYTECODE.md), [ROADMAP.md](docs/ROADMAP.md), [COMPLETED.md](docs/COMPLETED.md), [CHANGELOG.md](docs/CHANGELOG.md) |
 | `tests/`  | Test suite                                                        |
 | `examples/` | Sample `.sol` programs                                          |
 
@@ -199,5 +199,6 @@ semantics, and every built-in message.
 The full list of what is left -- open design questions, known limitations, and
 unbuilt work -- is in [docs/ROADMAP.md](docs/ROADMAP.md).
 
-See [docs/design.md](docs/design.md) for the object model and the instruction
-set, and [docs/CHANGELOG.md](docs/CHANGELOG.md) for what has changed.
+See [docs/design.md](docs/design.md) for the object model,
+[docs/BYTECODE.md](docs/BYTECODE.md) for the instruction set, and
+[docs/CHANGELOG.md](docs/CHANGELOG.md) for what has changed.

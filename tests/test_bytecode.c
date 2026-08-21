@@ -1,6 +1,7 @@
 /* Covers the chunk plumbing that both Solas and Solum depend on. */
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "solum/bytecode.h"
@@ -132,6 +133,193 @@ static void test_disassembler_walks_every_instruction(void)
     sol_chunk_free(&chunk);
 }
 
+/* ---- the instruction set reference ------------------------------------- *
+ *
+ * docs/BYTECODE.md describes every opcode. It fell six behind once -- every
+ * jump, plus the two newest -- because nothing tied the document to the header,
+ * so nothing said when it stopped being true.
+ *
+ * These read both files. The opcode names come out of the enum in the order
+ * they are written, which is also their value: a C enum with no initialisers
+ * numbers from zero upwards, so the header alone gives name and value both, and
+ * there is no list here to fall behind in its turn.
+ */
+#define HEADER_PATH "solum/include/solum/bytecode.h"
+#define DOC_PATH    "docs/BYTECODE.md"
+
+#define MAX_OPCODES 64
+
+static char *read_whole_file(const char *path)
+{
+    FILE *f = fopen(path, "rb");
+    /* Run from the repository root, which is where `make test` runs. */
+    assert(f != NULL);
+
+    assert(fseek(f, 0L, SEEK_END) == 0);
+    long size = ftell(f);
+    assert(size > 0);
+    rewind(f);
+
+    char *text = malloc((size_t)size + 1);
+    assert(text != NULL);
+    assert(fread(text, 1, (size_t)size, f) == (size_t)size);
+    text[size] = '\0';
+    fclose(f);
+    return text;
+}
+
+/* The identifiers in the SolOpCode enum, in order. Answers how many. */
+static int opcode_names(const char *header, char names[][32])
+{
+    const char *at = strstr(header, "typedef enum {");
+    assert(at != NULL);
+    const char *end = strstr(at, "} SolOpCode;");
+    assert(end != NULL);
+
+    int count = 0;
+    while ((at = strstr(at, "OP_")) != NULL && at < end) {
+        /* Only a name being *defined*. Starting its line is not enough: the
+           comments wrap, so `OP_JUMP_IF_FALSE only in the complaint it makes`
+           begins one too. What separates them is what comes after -- a member
+           is followed by its comma, or by its comment if it is the last one. */
+        const char *line = at;
+        while (line > header && line[-1] != '\n') line--;
+
+        bool at_line_start = true;
+        for (const char *c = line; c < at; c++) {
+            if (*c != ' ' && *c != '\t') { at_line_start = false; break; }
+        }
+
+        int length = 0;
+        while (at[length] == '_' || (at[length] >= 'A' && at[length] <= 'Z') ||
+               (at[length] >= '0' && at[length] <= '9')) {
+            length++;
+        }
+
+        const char *after = at + length;
+        while (*after == ' ' || *after == '\t') after++;
+        bool is_a_member = *after == ',' || (after[0] == '/' && after[1] == '*');
+
+        if (at_line_start && is_a_member) {
+            assert(count < MAX_OPCODES);
+            assert(length < 32);
+            memcpy(names[count], at, (size_t)length);
+            names[count][length] = '\0';
+            count++;
+        }
+        at += length;
+    }
+
+    assert(count > 0);
+    return count;
+}
+
+/* Every opcode the header defines is described in the document. This is the
+   check that would have caught the six that went missing. */
+static void test_every_opcode_is_documented(void)
+{
+    char *header = read_whole_file(HEADER_PATH);
+    char *doc    = read_whole_file(DOC_PATH);
+
+    char names[MAX_OPCODES][32];
+    int count = opcode_names(header, names);
+
+    for (int i = 0; i < count; i++) {
+        if (strstr(doc, names[i]) == NULL) {
+            printf("\n%s defines %s and %s does not describe it\n",
+                   HEADER_PATH, names[i], DOC_PATH);
+            assert(false);
+        }
+    }
+
+    free(header);
+    free(doc);
+    printf("  every opcode in the header is in %s (%d of them)\n", DOC_PATH, count);
+}
+
+/* And the other way: nothing described that no longer exists. */
+static void test_nothing_documented_has_been_removed(void)
+{
+    char *header = read_whole_file(HEADER_PATH);
+    char *doc    = read_whole_file(DOC_PATH);
+
+    char names[MAX_OPCODES][32];
+    int count = opcode_names(header, names);
+
+    for (const char *at = strstr(doc, "OP_"); at != NULL; at = strstr(at + 1, "OP_")) {
+        int length = 0;
+        while (at[length] == '_' || (at[length] >= 'A' && at[length] <= 'Z') ||
+               (at[length] >= '0' && at[length] <= '9')) {
+            length++;
+        }
+
+        bool known = false;
+        for (int i = 0; i < count; i++) {
+            if ((int)strlen(names[i]) == length &&
+                memcmp(names[i], at, (size_t)length) == 0) {
+                known = true;
+                break;
+            }
+        }
+        if (!known) {
+            printf("\n%s describes %.*s, which the header does not define\n",
+                   DOC_PATH, length, at);
+            assert(false);
+        }
+    }
+
+    free(header);
+    free(doc);
+    printf("  nothing in %s has been removed from the header\n", DOC_PATH);
+}
+
+/* The document gives each instruction's length in bytes. `sol_op_length` is the
+   one place lengths are really written down, so that is what it is measured
+   against -- a table saying three where the executor reads five would send a
+   reader off by two on every following offset. */
+static void test_documented_lengths_are_the_real_ones(void)
+{
+    char *header = read_whole_file(HEADER_PATH);
+    char *doc    = read_whole_file(DOC_PATH);
+
+    char names[MAX_OPCODES][32];
+    int count = opcode_names(header, names);
+
+    int checked = 0;
+    for (int op = 0; op < count; op++) {
+        /* The row for this opcode: "| `OP_NAME` | operands | bytes | ... " */
+        char needle[64];
+        snprintf(needle, sizeof needle, "| `%s` |", names[op]);
+
+        const char *row = strstr(doc, needle);
+        if (row == NULL) continue;          /* the check above owns that case */
+
+        /* Past the operand column to the one after it. */
+        const char *at = row + strlen(needle);
+        at = strchr(at, '|');
+        assert(at != NULL);
+        at++;
+        while (*at == ' ') at++;
+
+        assert(*at >= '0' && *at <= '9');
+        int documented = atoi(at);
+        int actual = sol_op_length((uint8_t)op);
+
+        if (documented != actual) {
+            printf("\n%s says %s is %d bytes; sol_op_length says %d\n",
+                   DOC_PATH, names[op], documented, actual);
+            assert(false);
+        }
+        checked++;
+    }
+
+    assert(checked == count);       /* every one of them had a row */
+
+    free(header);
+    free(doc);
+    printf("  every documented instruction length matches sol_op_length\n");
+}
+
 int main(void)
 {
     test_chunk_grows();
@@ -139,6 +327,9 @@ int main(void)
     test_constants_are_interned();
     test_names_are_interned();
     test_disassembler_walks_every_instruction();
+    test_every_opcode_is_documented();
+    test_nothing_documented_has_been_removed();
+    test_documented_lengths_are_the_real_ones();
     printf("test_bytecode: ok\n");
     return 0;
 }

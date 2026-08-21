@@ -8,6 +8,42 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### The instruction set has a reference, and the tests keep it honest — `pending`, 2026-08-20
+
+Roadmap 6.7. [docs/BYTECODE.md](BYTECODE.md) describes all twenty-one opcodes:
+operands, instruction length, effect on the stack, and a worked disassembly.
+
+The table in design.md was **missing six** — `OP_JUMP`, `OP_JUMP_IF_FALSE`,
+`OP_EXIT_IF_FALSE`, `OP_LOOP`, `OP_CHECK_BOOL` and `OP_SYMBOL`. Every jump plus
+the two newest, so it described the machine as it was before 4.1. The material
+existed the whole time; `bytecode.h` documents each opcode at its definition and
+the disassembler prints all of them. Nothing tied the document to the header, so
+nothing said when it stopped being true.
+
+**So the new page is checked rather than trusted**, by `tests/test_bytecode.c`,
+three ways: every opcode in the header appears in the document, every `OP_` name
+in the document still exists in the header, and every instruction length the
+document gives matches `sol_op_length` — which is the one place lengths are
+really written down.
+
+The part that makes this hold up is that **the test maintains no list of its
+own.** It reads the enum out of the header, and a C enum with no initialisers
+numbers from zero upwards, so the order the names are written in is also their
+value. Nothing to update, nothing to fall behind.
+
+One mistake worth recording, because it is the kind this whole entry is about.
+Taking any `OP_` at the head of a line found twenty-three opcodes instead of
+twenty-one: the comments in the header wrap, and `OP_JUMP_IF_FALSE only in the
+complaint it makes` starts a line too. The two phantom members shifted every
+value after them, which surfaced as `OP_JUMP_IF_FALSE` apparently being three
+bytes long. What tells a member from a mention is what follows it — a comma, or
+the comment if it is the last one.
+
+All three checks were confirmed to fail when they should, and the three
+disassembly listings in the page were diffed against real `--dump` output rather
+than transcribed. design.md keeps the operand-width rule and points at the new
+page; it has no table of its own any more.
+
 ### A block can time itself — `661408d`, 2026-08-20
 
 Roadmap 6.5. `{ ... }:timeToRun` answers the seconds the block took, as a float.

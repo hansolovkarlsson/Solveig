@@ -885,6 +885,54 @@ can be measured against each other before anything is built.
 
 ---
 
+### 6.7 The instruction set has no complete reference — **done**
+
+design.md had a table of the instruction set that was **missing six opcodes** —
+`OP_JUMP`, `OP_JUMP_IF_FALSE`, `OP_EXIT_IF_FALSE`, `OP_LOOP`, `OP_CHECK_BOOL`
+and `OP_SYMBOL`. That is every jump and the two newest, so the table described
+the machine as it was before 4.1.
+
+The disassembler printed all of them and `bytecode.h` documented each one at its
+definition, so the material existed and the document had fallen behind. The
+entry asked for a reference page generated from, or at least checked against,
+the header — the same problem the examples solved by being compiled in the test
+suite.
+
+Built as `pending`. [BYTECODE.md](BYTECODE.md) describes all twenty-one opcodes:
+operands, instruction length, effect on the stack, and why the three jump
+instructions carry a name index they never push. design.md keeps the
+operand-width rule and points at it, having no table of its own any more.
+
+**Checked rather than generated**, and three ways, by `tests/test_bytecode.c`:
+
+- every opcode the header defines appears in the document — the check that would
+  have caught the six that went missing;
+- every `OP_` name in the document still exists in the header, which catches the
+  opposite drift;
+- every instruction length the document gives matches `sol_op_length`, so a row
+  saying three where the executor reads five cannot sit there sending a reader
+  off by two on every following offset.
+
+None of it needs a list of opcodes maintained in the test. **The names come out
+of the enum in the order they are written, which is also their value**, since a C
+enum with no initialisers numbers from zero upwards — so the header alone gives
+name and value both, and the check has nothing of its own to fall behind in.
+
+Writing that parser was where the one real mistake was. Taking any `OP_` at the
+head of a line gave twenty-three opcodes rather than twenty-one: the comments
+wrap, and `OP_JUMP_IF_FALSE only in the complaint it makes` begins a line too.
+Two phantom members shifted every value after them, which showed up as
+`OP_JUMP_IF_FALSE` apparently being three bytes long. What separates a member
+from a mention is what *follows* it — a comma, or the comment when it is the
+last one.
+
+All three checks were then confirmed to fail when they should: a renamed opcode,
+a removed one, and a wrong length each stop the suite with a message naming the
+file and the opcode. The three disassembly listings in the page were diffed
+against real `--dump` output rather than transcribed.
+
+---
+
 ### 6.11 A string cannot be split — **done**
 
 `readFile` answers a whole file as one string, which is what made this visible:

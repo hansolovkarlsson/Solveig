@@ -267,18 +267,6 @@ There is now a way to find out rather than guess:
 so the Solum-written version and the inlined `whileTrue` can be measured against
 each other before anything is built.
 
-### 6.7 The instruction set has no complete reference
-
-design.md has a table of the instruction set that is **missing six opcodes** —
-`OP_JUMP`, `OP_JUMP_IF_FALSE`, `OP_EXIT_IF_FALSE`, `OP_LOOP`, `OP_CHECK_BOOL`
-and `OP_SYMBOL`. That is every jump and the two newest, so the table describes
-the machine as it was before 4.1.
-
-The disassembler prints all of them and `bytecode.h` documents each one at its
-definition, so the material exists and the document fell behind. Worth a
-reference page that is generated from, or at least checked against, the header —
-the same problem the examples solved by being compiled in the test suite.
-
 ### 6.8 `(group)` and `{block}` are not contrasted anywhere
 
 Both are code in brackets; one evaluates now and one is a value. The tutorial
@@ -328,14 +316,15 @@ the chance that one might.
 
 **Section 6 is the whole of the live list**, and it came from the right place:
 notes about what a program would want, rather than a plan written before there
-were any programs. Eight of its items are built — a program can be split across
+were any programs. Nine of its items are built — a program can be split across
 files, stop with a status, read its input, read and write files, take a string
-apart and put it back together, time itself, and the include that started it has
-since been given a syntax that admits what it is (6.13) — so in order of what
-would be missed next:
+apart and put it back together, and time itself; the instruction set has a
+reference the test suite keeps honest; and the include that started it has since
+been given a syntax that admits what it is (6.13) — so in order of what would be
+missed next:
 
-1. The documentation gaps — the instruction set (6.7), group versus block (6.8),
-   and the example audit (6.9).
+1. The two documentation gaps left — group versus block (6.8), and the example
+   audit (6.9).
 2. **Inlining the loop constructs** (6.6), which now has something to measure it
    with: `timeToRun(#n)` is what would say whether it is worth doing.
 

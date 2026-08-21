@@ -46,9 +46,9 @@ while staying ordinary messages you can send any other way.
 - **[Reference](docs/REFERENCE.md)** — syntax, semantics, and every built-in
   message, organised for looking things up.
 
-Also: **[Design](docs/design.md)** for the object model, the instruction set and
-the `.sob` format; **[Fetching a method](docs/fetched-methods.md)** for holding a
-method as a value; **[Absence](docs/absence.md)** for nil, empty and unset;
+Also: **[Design](docs/design.md)** for the object model and the `.sob` format;
+**[The instruction set](docs/BYTECODE.md)** for every opcode SolVM executes;
+**[Fetching a method](docs/fetched-methods.md)** for holding a method as a value; **[Absence](docs/absence.md)** for nil, empty and unset;
 **[The class side and the instance side](docs/class-and-instance.md)**
 for the one design question still open; **[Ideas considered](docs/ideas.md)**
 for what was weighed and what was turned down; **[Roadmap](docs/ROADMAP.md)**
