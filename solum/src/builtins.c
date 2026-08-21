@@ -5,6 +5,11 @@
  * coercion, so `#45:add(1.5)` is an error rather than a quiet promotion.
  */
 #define _POSIX_C_SOURCE 200809L    /* clock_gettime, for system:clock */
+#if defined(__APPLE__)
+/* `struct stat`'s sub-second fields are hidden by _POSIX_C_SOURCE alone here,
+   and they are spelled differently. See prim_system_modified_at. */
+#define _DARWIN_C_SOURCE
+#endif
 
 #include <ctype.h>
 #include <errno.h>
@@ -3621,7 +3626,28 @@ static SolValue prim_system_modified_at(SolVM *vm, SolValue self, SolValue *args
         sol_vm_runtime_error(vm, "cannot read the time of '%s'", path);
         return SOL_NIL_VAL;
     }
-    return SOL_TIME_VAL((int64_t)info.st_mtime * SOL_NANOS_PER_SECOND);
+
+    /* The sub-second part, which `st_mtime` does not carry.
+     *
+     * Throwing it away made this message useless for the job it exists for. A
+     * mirroring script asks "is the source newer than the copy?", and with
+     * whole seconds the answer is no for anything changed in the same second as
+     * the last run -- which is exactly when a script gets run twice. The
+     * filesystem records nanoseconds and `time` holds nanoseconds; only this
+     * was rounding, in the middle.
+     *
+     * Two spellings for one thing: POSIX.1-2008 says `st_mtim`, and Apple has
+     * `st_mtimespec` and no `st_mtim`. This is the second piece of the runtime
+     * that differs by platform, after the prompt's raw mode. */
+#if defined(__APPLE__)
+    int64_t nanos = (int64_t)info.st_mtimespec.tv_nsec;
+#elif defined(st_mtime)     /* POSIX.1-2008 defines this macro beside st_mtim */
+    int64_t nanos = (int64_t)info.st_mtim.tv_nsec;
+#else
+    int64_t nanos = 0;      /* an older Unix: whole seconds, as before */
+#endif
+
+    return SOL_TIME_VAL((int64_t)info.st_mtime * SOL_NANOS_PER_SECOND + nanos);
 }
 
 /* ---- changing what is there -------------------------------------------- *

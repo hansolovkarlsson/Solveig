@@ -587,6 +587,18 @@ input is not the precedent, since running out of input is how a loop *finishes*.
 directory answers false, because that is what `readFile` would say about one
 too.
 
+`system:modifiedAt` carries the **sub-second** part of the time, which matters
+for the job it exists for: a script asking *is the source newer than the copy?*
+gets the wrong answer from whole seconds for anything changed within a second of
+the last run. Two things it cannot do — **set** a time, or read and set a
+**mode** — mean a copy made with `readFile` and `writeFile` is stamped now and
+loses the executable bit. See
+[6.26](ROADMAP.md#626-a-files-mode-and-time-cannot-be-read-or-set).
+
+`system:makeDirectory` makes **one level** and is an error when the directory is
+already there, so "make sure this exists" is a test and a make —
+[6.25](ROADMAP.md#625-makedirectory-refuses-one-that-is-already-there).
+
 A string is bytes, so a file of them survives the round trip — a NUL is a byte
 like any other, `size` counts it, and reading a file and writing it back copies
 it exactly. `split`, `indexOf` and `copyFrom` work on it too, all three going by
@@ -2149,7 +2161,7 @@ it delegates to `object` like everything else. See
 | `rename(from, to)` | nil, having moved it; **replaces** an existing `to` |
 | `clock` | monotonic seconds as a float; only differences are meaningful |
 | `time` | the current instant, as a [time](#time) |
-| `modifiedAt(path)` | when a file was last written, as a [time](#time) |
+| `modifiedAt(path)` | when a file was last written, as a [time](#time); sub-second |
 
 ### nil
 

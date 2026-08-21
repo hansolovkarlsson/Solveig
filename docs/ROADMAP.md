@@ -275,8 +275,9 @@ entries are in [COMPLETED.md](COMPLETED.md). This one was about making it a
 language you can write a *program* in: a program has to be split across files,
 read input, write files, and stop with a status.
 
-**One entry is left**, and it is here because closing it was a mistake rather
-than because it was never done.
+**Three entries are left.** One is here because closing it was a mistake rather
+than because it was never done; the other two are what the first program to
+*write* to the filesystem asked for.
 
 Raised in a notes file and assessed in [ideas.md](ideas.md), which also records
 what was **not** worth building and why — integer widths, a JIT, cascades,
@@ -311,6 +312,65 @@ it. A `system:readKey` is that, without the editing:
 Still waiting for a program that needs it, which is now a fair test rather than
 an excuse: an interactive one would want it on the first screen.
 
+### 6.25 `makeDirectory` refuses one that is already there
+
+```
+system:makeDirectory("build/out").
+solvm: cannot make directory 'build/out': File exists
+```
+
+Which is true, and it is not the question a script is asking. What a script
+wants nine times in ten is **make sure this exists**, and that is two messages
+and a block rather than one message:
+
+```
+ensure := { path | system:isDirectory(path):ifFalse({ system:makeDirectory(path) }) }.
+```
+
+[examples/mirror.sol](../examples/mirror.sol) carries that block, which is what
+put this here. Every script that writes anywhere will carry the same one.
+
+Two shapes to choose between. A second message — `ensureDirectory`, or
+`makeDirectory(path, true)` — keeps the refusal for anybody who wants to know,
+which is the reason it refuses today: making a directory that is already there
+can mean a script has misunderstood where it is. Or `makeDirectory` could answer
+whether it made one rather than raising, which is one message and puts the
+answer where a caller can ignore it.
+
+The narrow reading — one level, no `mkdir -p` — is settled and stays. This is
+only about the case where the work is already done.
+
+### 6.26 A file's mode and time cannot be read or set
+
+A copy loses both. [examples/mirror.sol](../examples/mirror.sol) copies with
+`readFile` and `writeFile`, and neither carries anything but the bytes:
+
+```
+source:      -rwxr-xr-x  script.sh
+destination: -rw-r--r--  script.sh
+```
+
+**The executable bit is the sharp one.** A backup of anything holding scripts is
+not runnable, and a build script cannot produce a program it can then run. For a
+language aimed at scripting an OS that is a floor rather than a nicety.
+
+The time is the milder half and has its own consequence.
+`modifiedAt` can be read but not written, so a copy is always stamped *now* —
+which is why the mirror compares *newer than* rather than *the same as*, and why
+a source file replaced by an **older** copy of itself goes unnoticed. Every
+mirroring tool has that corner; ours has it because the time cannot be set
+rather than because it chose to.
+
+What it wants is small and has a decision in it: whether a mode is an integer
+(`#493` for `rwxr-xr-x`, which is `0755` in a language with no octal literal), a
+string (`"rwxr-xr-x"`), or a set of symbols. The integer is what the system uses
+and reads worst here; the string is what `ls` prints and what a person would
+recognise. Reading and writing should agree on one of them.
+
+Nothing is blocked today: a script that needs an executable copy can write the
+file and leave the mode to whoever runs it. It is the first thing this list has
+held that a shell script does without thinking.
+
 ## Suggested order
 
 **Nothing is on the live list.** Section 6 came from the right place:
@@ -332,8 +392,14 @@ was, for about a day: it waited for something to need a number for a byte, and
 about, but for `\u0041`, which is text. `asByte` and `asCharacter` are built and
 it is done.
 
-**6.10 is the only thing here**, and it is open again after being closed by
-mistake. `solis` grew raw-mode line editing for its own prompt
+**Three entries**, and all three arrived the way this list is supposed to grow.
+[6.25](#625-makedirectory-refuses-one-that-is-already-there) and
+[6.26](#626-a-files-mode-and-time-cannot-be-read-or-set) came from
+[mirror.sol](../examples/mirror.sol), the first program here that writes to the
+filesystem rather than reading it, and 6.26 is the one worth doing: a copy that
+loses the executable bit is a backup that will not run.
+
+**6.10 is the third**, and it is open again after being closed by mistake. `solis` grew raw-mode line editing for its own prompt
 ([6.24](COMPLETED.md#624-the-prompt-has-no-history--done)), which needed the same
 machinery — and a *program* still cannot read a keypress, which is what this
 entry is. The machinery being built is the reason it is now small. The four papercuts —

@@ -7,6 +7,57 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### A mirroring script, and the defect it found in `modifiedAt` — `pending`, 2026-08-21
+
+[examples/mirror.sol](../examples/mirror.sol) copies one directory tree into
+another and reports what changed. The fifth program here written to do a job,
+and the first that **writes** to the filesystem rather than reading it — walk.sol
+lists a tree, files.sol reads and writes one file, and mirroring is the ordinary
+job that needs the whole set at once.
+
+It does not delete. A destination file with no counterpart is reported and left
+alone: a mirror that deletes is a different and much more dangerous tool, and an
+example is a bad place to hide one.
+
+**It could not do its job, and the reason was a defect.** `modifiedAt` answered
+whole seconds. The test a mirror makes is *is the source newer than the copy?*,
+and within one second the answer was always no — so a file edited just after a
+run was never copied:
+
+```
+1  #1:print.        ; a same-size edit, then: "nothing to do"
+```
+
+The filesystem records nanoseconds and the `time` type holds nanoseconds. Only
+this message was rounding, in the middle of the two:
+
+```
+modifiedAt:  1787350321.000000   1787350321.000000     ; the same, it said
+stat:        1787350321.201807   1787350321.202166     ; what was actually there
+```
+
+Fixed — `st_mtimespec` on Apple, `st_mtim` where POSIX.1-2008 says so, and whole
+seconds on anything older. It is **the second piece of the runtime that differs
+by platform**, after the prompt's raw mode, and the guard is the same shape.
+
+**Three gaps it found besides.** Two are new entries:
+
+- [6.25](ROADMAP.md#625-makedirectory-refuses-one-that-is-already-there) —
+  `makeDirectory` is an error when the directory is already there, so *make sure
+  this exists* is a test and a make. Every script that writes anywhere will
+  carry the same three-line block this one does.
+- [6.26](ROADMAP.md#626-a-files-mode-and-time-cannot-be-read-or-set) — a copy
+  loses the executable bit, because `readFile` and `writeFile` carry bytes and
+  nothing else. `-rwxr-xr-x` in, `-rw-r--r--` out. For a language aimed at
+  scripting an OS that is a floor rather than a nicety: a backup of anything
+  holding scripts will not run.
+
+The third is a corner rather than a gap, and worth knowing: since a copy cannot
+keep the original's time, the comparison has to be *newer than* rather than *the
+same as* — so a source file replaced with an **older** copy of itself goes
+unnoticed. Every mirroring tool has that corner; this one has it because the
+time cannot be set rather than because it chose to.
+
 ### ctrl-h lists the recent lines — `b97b43a`, 2026-08-21
 
 Asked for after using the prompt: a way to see the last few lines rather than

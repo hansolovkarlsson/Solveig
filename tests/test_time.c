@@ -346,6 +346,59 @@ static void test_parsing_with_a_format(void)
     printf("  a format reads what the same format writes\n");
 }
 
+/* `modifiedAt` carries the sub-second part, which it did not until a program
+   needed it. A mirroring script asks "is the source newer than the copy?", and
+   with whole seconds the answer was always no for anything changed within a
+   second of the last run -- which is exactly when a script gets run twice. */
+static void test_modified_at_is_not_rounded_to_the_second(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    /* Two files written as fast as the machine will do it. On any filesystem
+       that records better than a second, they differ; the point is that the
+       message no longer throws that away. */
+    assert(run(&vm, &chunk,
+        "system:writeFile(\"build/tests/mtime-a\", \"one\")."
+        "a := system:modifiedAt(\"build/tests/mtime-a\")."
+        "system:writeFile(\"build/tests/mtime-b\", \"two\")."
+        "b := system:modifiedAt(\"build/tests/mtime-b\")."
+        "sameSecond := a:asSeconds:floor:equals(b:asSeconds:floor)."
+        /* floor answers an integer, and there is no coercion. */
+        "aFraction := a:asSeconds:sub(a:asSeconds:floor:asFloat)."
+        "ordered := a:lessOrEqual(b).") == SOL_OK);
+
+    /* Ordering must hold whatever the clock did. */
+    assert(SOL_AS_BOOL(global(&vm, "ordered")) == true);
+
+    /* And the fraction is a real number rather than always zero. Written to be
+       true either way round: if the two landed in different seconds the test
+       says nothing about the fraction, which is honest -- what it must never do
+       is pass because the value was rounded. */
+    if (SOL_AS_BOOL(global(&vm, "sameSecond")) == true) {
+        double fraction = SOL_AS_FLOAT(global(&vm, "aFraction"));
+        assert(fraction >= 0.0 && fraction < 1.0);
+    }
+    sol_chunk_free(&chunk);
+
+    /* The whole-second part still agrees with the clock, so nothing moved. */
+    assert(run(&vm, &chunk,
+        "system:writeFile(\"build/tests/mtime-c\", \"three\")."
+        "written := system:modifiedAt(\"build/tests/mtime-c\")."
+        "now := system:time."
+        "close := now:secondsSince(written):lessThan(5.0)."
+        "notAhead := written:lessOrEqual(now).") == SOL_OK);
+    assert(SOL_AS_BOOL(global(&vm, "close")) == true);
+    assert(SOL_AS_BOOL(global(&vm, "notAhead")) == true);
+    sol_chunk_free(&chunk);
+
+    remove("build/tests/mtime-a");
+    remove("build/tests/mtime-b");
+    remove("build/tests/mtime-c");
+    sol_vm_free(&vm);
+    printf("  modifiedAt carries the sub-second part\n");
+}
+
 int main(void)
 {
     test_a_date_somebody_knows();
@@ -359,6 +412,7 @@ int main(void)
     test_the_round_trip();
     test_a_date_that_does_not_exist();
     test_parsing_with_a_format();
+    test_modified_at_is_not_rounded_to_the_second();
     printf("test_time: ok\n");
     return 0;
 }
