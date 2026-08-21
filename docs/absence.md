@@ -220,3 +220,102 @@ eight ways to say the same thing.
 The version that would be worth something is a static one — a type that a
 compiler knows is "string or nothing" and will not let you use until you have
 checked. That is a type system, not a value, and it is not on the roadmap.
+
+---
+
+## Nor a `string:new` that means "a string, not filled in yet"
+
+The same wish arrives in better clothes. `string:nil` reads as a null; but
+
+```
+a := string:new.
+```
+
+reads as a **declaration** — *`a` is a string variable, and it has no value
+yet* — which is a genuinely nicer thing to want than a typed null, and closer to
+how most languages let you open a variable. `array:new` already answers `[]`,
+so the shape is right there waiting to be generalised.
+
+It should not be, and the reasons are worth separating from the ones above.
+
+### The language already has that declaration
+
+Inside a block, `| a |` **is** the declaration, and an unassigned temporary holds
+nil:
+
+```
+{ | a |
+    a:print.                     ; nil
+    a:isNil:print.               ; true
+}:value.
+```
+
+At the top level, where there are no temporaries, `a := nil.` says the same
+thing. Both mean exactly *declared, no value yet*, and both leave the question
+askable.
+
+### `string:new` would claim a constraint that does not exist
+
+A name holds a value and never a type — the whole of [A name has no type
+either](#a-name-has-no-type-either). So nothing follows from having written
+`string:new`:
+
+```
+b := "".
+b := #5.
+b := [].                         ; all fine; nothing objects
+```
+
+A reader arriving from a language with declarations sees `a := string:new` and
+reasonably concludes that `a` is now a string variable. It is not, and nothing
+will ever tell them otherwise. A construct that looks like ordinary syntax and
+obeys different rules teaches the wrong model — the same objection that sank the
+[trailing-block shorthand](ideas.md), and it lands harder here, because that one
+would at least still have been a message.
+
+### And it would trade "not filled in" for "filled in with nothing"
+
+This is the cost that bites a running program. `nil` means absent; `""` is a
+value that happens to have no characters, and [Absent is not
+empty](#absent-is-not-empty) is the distinction the rest of this document is
+about. Start a name at `""` and the question stops being answerable:
+
+```
+a := nil.                        ; a:isNil is true  -- nobody has filled it in
+a := "".                         ; a:isNil is false -- somebody filled it in
+```
+
+For a string that is mildly annoying. When the empty string is also a real
+answer — `system:readFile` on an empty file, a `split` piece between two
+separators — it is the bug you cannot find, because "nobody set this" and
+"this is genuinely empty" have become the same value.
+
+### Where `""` is right, and why `array:new` is not the precedent
+
+`""` is the correct thing to write when you mean **an initial value** rather
+than a declaration:
+
+```
+joined := "".
+["a", "b", "c"]:do({ piece | joined := joined:concat(piece) }).
+joined:display.                  ; abc
+```
+
+There you really do want the empty string to start from, and `string:new` would
+read *worse*, because it would suggest a declaration where an accumulator was
+meant.
+
+`array:new` is not the counter-example it looks like. It does not answer "the
+empty array" the way `""` is the empty string — it answers **a fresh array**:
+
+```
+array:new:equals(array:new):print.   ; false -- two arrays
+"":equals(""):print.                 ; true  -- one value
+```
+
+An array is mutable, so `new` hands you a distinct thing to fill, and two calls
+give two of them. A string is a value, so `string:new` would answer the same
+`""` every time: a literal spelled longer, not a construction. That difference —
+whether there is anything to construct — is also why `symbol`, `block` and
+`boolean` [refuse `new`](class-and-instance.md#why-none-of-the-four-wants-a-real-one),
+and two of those three have no empty value to answer with at all.

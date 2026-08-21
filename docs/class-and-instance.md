@@ -78,10 +78,27 @@ integer:respondsTo('new):print.  ; true
 | `object` | yes — allocates and delegates | — |
 | `string`, `symbol`, `block`, `boolean` | yes — refuses, and says what to write | — |
 
-There is no rule saying which classes should have a class side, because **there
-is nowhere for a rule to live**. The class side is not a place; it is some slots
-that happen to sit beside the instance ones — which is how one name came to mean
-four different things.
+This document used to say there was no rule saying which classes should have a
+class side, because **there is nowhere for a rule to live** — the class side not
+being a place, only some slots that happen to sit beside the instance ones,
+which is how one name came to mean four different things.
+
+The second half of that is still true and the first half is not. A rule was
+available the whole time: **`new` belongs where something is constructed, which
+is where the instances are mutable.** An array and an object are references, so
+`new` hands back a fresh, distinct one — `array:new:equals(array:new)` is false.
+A string, a symbol, a boolean and a number are values, so there is no fresh
+distinct one to hand back; `"":equals("")` is true, and a `string:new` could only
+answer a literal spelled longer.
+
+That rule sorts all nine classes correctly, and it agrees with the four
+refusals. It also puts `integer:new` and `float:new` on the wrong side of its own
+line, which [the question underneath](#the-question-underneath) reaches by a
+different route.
+
+What it does not do is give the rule somewhere to *live*. It is a rule about
+this document rather than one the language enforces, and only the split would
+change that.
 
 The last row is recent, and it is the single root's doing rather than anyone
 deciding those four wanted a `new`: once every built-in delegates to `object`
@@ -311,9 +328,11 @@ refactoring toward tidiness — worth it when reflection starts being used in
 earnest and `slots` reporting two audiences at once becomes a thing to explain
 rather than a thing to shrug at.
 
-**The single root is a separate decision, and a smaller one.** If it is wanted,
-the work is the eight lines and the answer to what `new` should do on the four
-classes that cannot construct anything. It does not wait on this.
+**The single root was a separate decision, and it is already made** — see
+[above](#the-single-root--done-and-it-was-not-gated-by-this). This paragraph
+used to say the work was "eight lines and the answer to what `new` should do on
+the four classes"; both were done, and the sentence outlived them. Nothing here
+is waiting on that any more.
 
 ---
 
@@ -372,6 +391,22 @@ Which is the argument for the refusal being the *right* implementation rather
 than a placeholder: there is nothing better for these to do, and saying so is
 worth more than answering something that is technically a value.
 
+**There is a second motivation for wanting these, which the above does not
+touch.** `a := string:new` reads as a *declaration* — `a` is a string variable,
+not filled in yet — rather than as a construction, and that is a nicer thing to
+want than any of the four flavours above. It is answered in
+[absence.md](absence.md#nor-a-stringnew-that-means-a-string-not-filled-in-yet):
+the language already has that declaration in `| a |` and `a := nil`, both of
+which leave `isNil` able to answer, where starting a name at `""` trades "not
+filled in" for "filled in with nothing".
+
+That section also says why `array:new` is not the precedent it appears to be. It
+answers a *fresh* array rather than the empty one — `array:new:equals(array:new)`
+is false where `"":equals("")` is true — so the line between the classes that
+construct and the classes that do not is **mutability**, not emptiness. That is
+the rule this document says has nowhere to live, and it sorts all nine classes
+correctly.
+
 ### The question underneath
 
 The interesting question is not whether the four should gain `new`. It is
@@ -426,6 +461,15 @@ way, `string`, `symbol`, `block` and `boolean` should not get one.
   get inherits every method name and can run none of them.
 - It is welded by `sol_vm_class_of` having to hand an unboxed value some object
   to dispatch to.
+- There **is** a rule for which classes should construct — `new` belongs where
+  the instances are mutable, so there is a fresh distinct one to hand back. This
+  document used to say no rule was available. What is missing is somewhere for
+  it to live, which only the split would give it.
+- `a := string:new` as a *declaration* rather than a construction is a separate
+  wish, and a more reasonable one. It is answered in
+  [absence.md](absence.md#nor-a-stringnew-that-means-a-string-not-filled-in-yet):
+  `| a |` and `a := nil` already say it, and say it without trading "not filled
+  in" for "filled in with nothing".
 - 1.6 made it safe, one message at a time, without separating anything.
 - Metaclasses are the Smalltalk answer to a question this language does not ask.
 - A behaviour object per built-in is smaller than a metaclass level.

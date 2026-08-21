@@ -69,14 +69,24 @@ needed it and nowhere else:
 
 | | `new` | `of` |
 | --- | --- | --- |
-| `integer`, `float` | yes | — |
-| `array` | yes | yes |
-| `object` | yes | — |
-| `string`, `symbol`, `block`, `boolean` | — | — |
+| `integer`, `float` | yes — the identity function | — |
+| `array` | yes — allocates | yes |
+| `object` | yes — allocates and delegates | — |
+| `string`, `symbol`, `block`, `boolean` | yes — refuses, and says what to write | — |
 
-There is no rule saying which classes should have a class side, because there is
-nowhere for a rule to live: the class side is not a place, it is some slots that
-happen to sit beside the instance ones.
+The last row came with the single root rather than from anyone deciding those
+four wanted a `new`: delegating to `object` would have given them one, so they
+shadow it to refuse.
+
+There *is* a rule about which classes should construct, and this entry used to
+say there was not. **`new` belongs where something is made, which is where the
+instances are mutable**: `array:new:equals(array:new)` is false and
+`"":equals("")` is true, so a value class has no fresh distinct thing to hand
+back. It sorts all nine correctly. What is still missing is somewhere for that
+rule to *live* — the class side is not a place, only some slots that happen to
+sit beside the instance ones, so the rule holds in a document rather than in the
+language. See
+[class-and-instance.md](class-and-instance.md#the-class-side-is-populated-wherever-someone-needed-it).
 
 This entry used to say a single root "needs this question answered first",
 and that was wrong. **The root is done** — every built-in class delegates to
