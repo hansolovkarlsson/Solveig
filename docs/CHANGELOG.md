@@ -7,6 +7,59 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.7.0 — 2026-08-21
+
+**The prompt became a place you can work.**
+
+Up and down through what you have typed, left and right within the line, and
+history that is still there tomorrow. It came from using solis and wanting it:
+type something wrong, get an error, and want to press ↑ and fix the typo rather
+than type the whole line again.
+
+```
+> #1:adx(#2):print.
+solvm: integer does not understand 'adx'
+> #1:add(#2):print.        ↑, then eleven ←, backspace, d
+#3
+```
+
+**This closed [6.10](COMPLETED.md#610-waiting-for-a-single-key--done)**, the last
+entry in section 6, which had been waiting for a program that needed raw
+terminal mode. The program was solis. The terminal does line editing itself in
+cooked mode — which is why `fgets` was enough to begin with, and why backspace
+already worked — but it does not do history, so an arrow key arrived as the
+three bytes of its escape sequence and was compiled as though they had been
+typed. Getting history means taking the editing over.
+
+**The keys** are the readline ones, [written down](REFERENCE.md#the-keys) with
+the two departures from bash: `ctrl-u` discards the whole line rather than the
+part before the cursor, matching the terminal's own kill character; and `ctrl-c`
+and `ctrl-z` are left to the terminal deliberately, since taking them over would
+be a surprise.
+
+**Solis writes a file now, which it never did before.** History goes to
+`$HOME/.solis_history` — the most recent 1000 lines, trimmed on the way out, an
+ordinary text file that can be read, edited or deleted. With no `HOME` set it
+keeps nothing. Failing to write it is ignored, on the grounds that a prompt
+which would not exit because it could not save history is worse than one that
+quietly forgets.
+
+**It degrades rather than depending on anything.** Through a pipe, a file, or
+with `TERM=dumb`, the prompt reads a line exactly as it did before — which is
+what keeps `solis < script` and the test suite working. No readline, no libedit;
+the build still needs only a C11 compiler and `make`.
+
+**Nothing about the language changed.** `.sob` files are format version 11,
+unchanged since 0.1.0, and there are no new messages: this is entirely the front
+end.
+
+**The roadmap has nothing left to build.** Sections 2 and 6 are both empty. What
+remains is section 3 — the restrictions the language keeps on purpose — so the
+document no longer says what to do next. The way to add to it is to write a
+program and find out what it wants, which is how this entry arrived.
+
 ### History that outlives the session, and the keys written down — `0ebdd2c`, 2026-08-21
 
 What you type at the prompt is kept in **`$HOME/.solis_history`**, so ↑ reaches

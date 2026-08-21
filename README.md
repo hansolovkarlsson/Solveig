@@ -97,6 +97,13 @@ No dependencies beyond a C11 compiler and `make`.
 
 ## Status
 
+**0.7.0** — the prompt became a place you can work: ↑ and ↓ through what you
+have typed, ← and → within the line, the readline bindings, and history kept in
+`$HOME/.solis_history` so it is still there tomorrow. It reads a line exactly as
+it used to through a pipe or a file, and needs nothing installed either way. The
+language itself is unchanged, and with this the roadmap has nothing left on it
+to build — only the restrictions it keeps on purpose.
+
 **0.6.0** — no design questions are left open. The last one, whether the class
 side and the instance side should be separate objects, is closed by drawing the
 line between them with the receiver each message requires rather than by
