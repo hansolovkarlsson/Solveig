@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### A calculator, and the frame limit met at last — `pending`, 2026-08-21
+### A calculator, and the frame limit met at last — `4bd7c7e`, 2026-08-21
 
 [examples/evaluator.sol](../examples/evaluator.sol) tokenises, parses and
 evaluates arithmetic — precedence, brackets, unary minus — and says where it
