@@ -108,8 +108,11 @@ show a feature — it reads an access log, tallies it, ranks it and reports.
 It is 0.1 rather than 1.0 because [the restrictions in the
 roadmap](docs/ROADMAP.md#3-known-limitations) are real and deliberate: no
 non-local return, a capturing block tied to the frame it was written in,
-recursion to about 62 levels, text is bytes rather than characters, and no way
-to recover from an error. Each is documented where a program would meet it.
+recursion to about 62 levels, and text is bytes rather than characters. Each is
+documented where a program would meet it.
+
+Recovering from a failure was on that list and is not any more: `onError`,
+`error:raise` and `ensure` landed after 0.1.0 and are in the next release.
 
 Source text goes through the scanner, compiler, and dispatch loop:
 

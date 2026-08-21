@@ -118,7 +118,8 @@ status, and is split across files with `@include`.
 It is 0.1 rather than 1.0 because [the restrictions in the
 roadmap](docs/ROADMAP.md#3-known-limitations) are deliberate and documented: no
 non-local return, a capturing block tied to its frame, recursion to about 62
-levels, text is bytes, and no way to recover from an error.
+levels, and text is bytes. A failure *can* be recovered from — `onError`,
+`error:raise` and `ensure` arrived after 0.1.0 and are in the next release.
 
 Arithmetic is strict throughout: integers and floats never coerce, and integer
 overflow traps rather than wrapping.

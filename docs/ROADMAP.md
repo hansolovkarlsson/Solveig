@@ -204,6 +204,15 @@ A block answers its last expression. Smalltalk's `^` returns from the enclosing
 *method* from inside a block, which needs frames unwound and is a much larger
 change. Plenty of languages do without it.
 
+**The unwinding half of it exists now**, which is worth noticing: `onError`
+stops an error part-way out and carries on, and `ensure` sets a failure aside
+and puts it back. Both had to leave the machine level -- frames, stack and the
+collector's temporaries -- which is most of what a non-local return would need
+as well. What is still missing is the *naming*: `^` has to identify which
+enclosing frame to return from, and a block that has outlived that frame has to
+be refused rather than returning into it. That is the part 3.1 already has an
+answer to, in the frame ids it checks.
+
 ### 3.3 Verification does not promise termination
 
 A corrupted `.sob` can pass every check and still be a well-formed program that
