@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### A copy keeps its mode and its time — `pending`, 2026-08-21
+### A copy keeps its mode and its time — `176e1d1`, 2026-08-21
 
 [6.26](COMPLETED.md#626-a-files-mode-and-time-cannot-be-read-or-set--done):
 `system:modeOf`, `system:setMode`, `system:setModifiedAt`. Built the day the
