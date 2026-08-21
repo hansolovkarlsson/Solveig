@@ -1664,6 +1664,19 @@ same reason an array cannot — it is built at run time.
 `nan` is accepted as a key and can never be found again, since `nan:equals(nan)`
 is false. That is IEEE showing through rather than a decision made here.
 
+**A dictionary of blocks is a switch statement**, and `at(key, default)` is what
+makes the default case one message:
+
+```
+action := dictionary:new.
+action:atPut('red, { "stop" }).
+switch := { light | action:at(light, { "not a light" }):value }.
+```
+
+One hash whatever the number of cases, against a walk for a chain of
+comparisons. See [dispatch.md](dispatch.md), which also has the two traps that
+come of putting closures in a table.
+
 ---
 
 ### time

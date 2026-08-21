@@ -607,6 +607,19 @@ particular order**, so sort before showing anything.
 There is no literal for one. `[...]` builds an array; a dictionary is built by
 sending `new` and filling it.
 
+**A dictionary of blocks is how you write a switch statement**, and there is no
+other kind here:
+
+```
+action := dictionary:new.
+action:atPut('red, { "stop" }).
+switch := { light | action:at(light, { "not a light" }):value }.
+```
+
+One hash whatever the number of cases. [dispatch.md](dispatch.md) has that, the
+conditional kind for ranges and guards, and the two traps that come of putting
+closures in a table.
+
 > **Run:** [examples/dictionaries.sol](../examples/dictionaries.sol) and
 > [examples/log.sol](../examples/log.sol), which is what a dictionary is for
 

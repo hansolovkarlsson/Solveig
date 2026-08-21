@@ -106,7 +106,6 @@ object:caseOf := { pairs | | answer, found |
             found := true. answer := pair:at(#2):value })
     }).
     answer }.
-integer:caseOf := object:slotAt('caseOf).      ; the same method, on integers too
 
 #2:caseOf([
     [{ n | n:equals(#1) }, { "one" }],
@@ -115,9 +114,19 @@ integer:caseOf := object:slotAt('caseOf).      ; the same method, on integers to
 ]):display.                           ; two
 ```
 
-That last line but one is worth noticing on its own: `object:slotAt('caseOf)`
-fetches the method and binds it to another class, because `self` comes from the
-send. Methods are portable between classes without any notion of a mixin.
+There used to be an `integer:caseOf := object:slotAt('caseOf)` above that call,
+copying the method onto `integer` so a number could be sent it, and a note about
+how `slotAt` fetches a method and binds it to another class because `self` comes
+from the send. Both are still true of `slotAt`, and the line is no longer
+needed: since every built-in class delegates to `object`, a method defined there
+is found from a number, a string, or anything else. The single root took a
+paragraph of cleverness and made it unnecessary, which is the better outcome.
+
+The dispatch this shows is the *conditional* kind, tried in turn. For the far
+commoner question — which of these **values** is it — a dictionary of blocks is
+one hash rather than a walk, and is roughly nineteen times faster over twenty
+cases. [dispatch.md](dispatch.md) has both, and the two traps that come with
+putting blocks in a table.
 
 **Symbols already are enums.** `['red, 'green, 'blue]` is a list of interned
 names compared by pointer, which is what an enum is for. The only thing missing

@@ -7,7 +7,48 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-Nothing yet.
+### A dictionary is a switch statement — `pending`, 2026-08-21
+
+No code, just writing down something the pieces already did.
+
+A block is a value and a dictionary holds values, so a table of blocks under
+keys dispatches on one:
+
+```
+action := dictionary:new.
+action:atPut('red, { "stop" }).
+switch := { light | action:at(light, { "not a light" }):value }.
+```
+
+**`at(key, default)` is the whole trick.** It was added so a counter could say
+`counts:at(word, #0):add(#1)`, and it turns out to be exactly what a switch
+wants — the default case in one message rather than a lookup, a test and a
+branch. Usually a sign a thing was shaped right rather than shaped for its first
+use.
+
+It is also **18.8× faster** than the predicate `caseOf` in ideas.md over twenty
+cases, and the gap grows: a dictionary hashes once whatever the table holds,
+where a chain of comparisons walks until it matches.
+
+[docs/dispatch.md](dispatch.md) is the new page, and the reason for a page rather
+than a paragraph is the **two traps**, both from the blocks being closures.
+Building the table in a loop and capturing a temporary fails loudly — *block
+outlived the frame it was written in*. Capturing a **global** instead removes
+the failure and not the mistake: every block reads the same name, so all of them
+answer whatever the loop left behind. That is the closure-in-a-loop bug every
+language with closures has, and nothing here protects you from it.
+
+The page also separates the two shapes of the question. Equality on a value is
+the dictionary's; conditions, ranges and guards still need predicates tried in
+turn, which is what the `caseOf` in ideas.md is for and why it stays there
+rather than in the library.
+
+One thing corrected on the way: ideas.md carried
+`integer:caseOf := object:slotAt('caseOf)` with a note about how neatly `slotAt`
+binds a method to another class. Still true of `slotAt`, and **the line has not
+been needed since the single root** — a method on `object` is found from a
+number like anything else. The single root took a paragraph of cleverness and
+made it unnecessary, which is the better outcome.
 
 ## 0.3.0 — 2026-08-21
 

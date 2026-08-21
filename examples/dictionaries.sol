@@ -66,6 +66,65 @@ counts:keysAndValuesDo({ word, n |
 repeated:sorted:print.           ; ["fox", "the"]
 
 ; ---------------------------------------------------------------------------
+; A dictionary of blocks is a switch statement
+;
+; A block is a value and a dictionary holds values, so a table of blocks under
+; keys dispatches on one. There is no `switch` in this language and no need for
+; one -- and this is faster than a chain of comparisons, being one hash whatever
+; the number of cases. See docs/dispatch.md.
+
+action := dictionary:new.
+action:atPut('red,   { "stop" }).
+action:atPut('amber, { "wait" }).
+action:atPut('green, { "go" }).
+
+; `at(key, default)` is the whole trick: it makes the default case one message
+; rather than a lookup, a test and a branch. That form was added so a counter
+; could say `counts:at(word, #0):add(#1)`, and it turns out to be exactly what a
+; switch wants.
+switch := { light | action:at(light, { "not a light" }):value }.
+
+switch:value('red):display.      ; stop
+switch:value('green):display.    ; go
+switch:value('purple):display.   ; not a light
+
+; The blocks may take arguments, so a case can use what it matched.
+reply := dictionary:new.
+reply:atPut(#404, { n | "no page {}":fill([n]) }).
+reply:at(#404, { n | "status {}":fill([n]) }):value(#404):display.   ; no page 404
+reply:at(#500, { n | "status {}":fill([n]) }):value(#500):display.   ; status 500
+
+; ---------------------------------------------------------------------------
+; Two traps, both from the blocks being closures
+;
+; Write the table's blocks *literally*, where the table is built -- which is
+; what a switch statement looks like anyway. Building them in a loop goes wrong
+; in one of two ways, and only one of them tells you.
+;
+; Capturing a temporary of the loop body fails loudly, because the block outlives
+; the frame it was written in (ROADMAP 3.1):
+;
+;   { i:lessOrEqual(#3) }:whileTrue({ | n |
+;       n := i. u:atPut(n, { n:mul(#10) }). i := i:add(#1) }).
+;   u:at(#2):value
+;   ->  block outlived the frame it was written in
+;
+; Capturing a *global* instead removes the failure and not the mistake. Every
+; block reads the same name, and by the time any of them runs it holds the value
+; the loop left behind:
+
+v := dictionary:new.
+k := #1.
+{ k:lessOrEqual(#3) }:whileTrue({ v:atPut(k, { k:mul(#10) }). k := k:add(#1) }).
+v:at(#1, { #0 }):value:print.    ; #40
+v:at(#2, { #0 }):value:print.    ; #40  -- all three, because k is #4 by now
+v:at(#3, { #0 }):value:print.    ; #40
+
+; A block captures a *name*, not the value the name had. This is the
+; closure-in-a-loop bug every language with closures has, and nothing here
+; protects you from it.
+
+; ---------------------------------------------------------------------------
 ; Removing
 
 counts:remove("dog"):print.      ; #1 -- what it held
