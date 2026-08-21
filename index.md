@@ -101,8 +101,8 @@ a different language.
 
 ## Status
 
-**0.1.0** — the first release. `.sob` files are format version 11 and are not
-portable across releases: an older one is refused rather than misread.
+**0.2.0** — a failure can be recovered from: `onError`, `error:raise`, `ensure`.
+`.sob` files are format version 11, unchanged since 0.1.0.
 
 Working: the scanner, the single-pass compiler, the re-entrant dispatch loop
 with call frames, blocks with lexical capture, message-based control flow, a
@@ -118,8 +118,7 @@ status, and is split across files with `@include`.
 It is 0.1 rather than 1.0 because [the restrictions in the
 roadmap](docs/ROADMAP.md#3-known-limitations) are deliberate and documented: no
 non-local return, a capturing block tied to its frame, recursion to about 62
-levels, and text is bytes. A failure *can* be recovered from — `onError`,
-`error:raise` and `ensure` arrived after 0.1.0 and are in the next release.
+levels, and text is bytes.
 
 Arithmetic is strict throughout: integers and floats never coerce, and integer
 overflow traps rather than wrapping.

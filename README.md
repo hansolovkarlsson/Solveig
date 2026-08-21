@@ -97,9 +97,10 @@ No dependencies beyond a C11 compiler and `make`.
 
 ## Status
 
-**0.1.0** — the first release. `.sob` files are format version 11 and are not
-portable across releases: an older file is refused rather than misread, so
-recompile the `.sol`.
+**0.2.0** — a failure can be recovered from: `onError`, `error:raise`, `ensure`.
+`.sob` files are format version 11, unchanged since 0.1.0, so one built then
+runs here. The format is versioned and a file from a build that used a different
+one is refused rather than misread.
 
 The language is settled enough to write programs in.
 [examples/log.sol](examples/log.sol) is one written to do a job rather than to
@@ -111,8 +112,7 @@ non-local return, a capturing block tied to the frame it was written in,
 recursion to about 62 levels, and text is bytes rather than characters. Each is
 documented where a program would meet it.
 
-Recovering from a failure was on that list and is not any more: `onError`,
-`error:raise` and `ensure` landed after 0.1.0 and are in the next release.
+Recovering from a failure was on that list until 0.2.0.
 
 Source text goes through the scanner, compiler, and dispatch loop:
 

@@ -7,6 +7,37 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.2.0 — 2026-08-21
+
+**A failure can be recovered from.** That is the whole of this release: raising
+one deliberately, catching one, passing on what you did not mean to catch, and
+cleaning up either way.
+
+```
+{ system:readFile(path) }:onError({ e | "" }).
+error:raise("bad input on line 3").
+{ working:value }:ensure({ tidyUp:value }).
+```
+
+`.sob` stays at **format version 11** — nothing about the instruction set or the
+file layout changed, so a `.sob` built by 0.1.0 runs here.
+
+What it does not include: there is still no taxonomy of failures, so `onError`
+catches everything and telling one kind from another means checking
+`e:message`. Inventing a hierarchy to go with a catch mechanism would have been
+inventing it in the wrong order, and the error being an object rather than a
+string leaves room to say more later without breaking any handler.
+
+The restrictions in [ROADMAP section 3](ROADMAP.md#3-known-limitations) are
+otherwise unchanged: no non-local return, a capturing block tied to its frame,
+recursion to about 62 levels, text is bytes.
+
+Verified for the release: clean build with no warnings, `make test` and
+`SOLUM_GC_STRESS=1 make test` both passing, all 23 examples compiled and run,
+and zero leaks across every test binary.
+
 ### `ensure` — cleaning up regardless — `e001b8e`, 2026-08-21
 
 Roadmap 6.17, written down one commit ago on the grounds that nothing needed it
