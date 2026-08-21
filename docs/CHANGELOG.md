@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### An error is text the machine holds — `pending`, 2026-08-21
+### An error is text the machine holds — `80818f9`, 2026-08-21
 
 Groundwork for catching one, and **nothing about the visible behaviour has
 changed** — which is the point of landing it on its own.
