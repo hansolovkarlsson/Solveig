@@ -7,7 +7,48 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-Nothing yet.
+### The log analyser survives damaged input — `pending`, 2026-08-21
+
+[examples/log.sol](../examples/log.sol) assumed its input was well-formed:
+every line split into exactly six fields and every field parsed. Fed a real
+log it would stop at the first truncated line. It does not any more, and three
+of the lines in its own sample are now broken on purpose so that running it
+shows the recovery:
+
+```
+3 lines could not be read
+  line 8: wanted 6 fields, got 4
+  line 13: 'four' is not an integer
+  line 18: wanted 6 fields, got 4
+```
+
+**It is the first program here that could not have been written before 0.2.0**,
+which was the point of writing it.
+
+Three things it found.
+
+**`parse` should say what is wrong with a line rather than let the first message
+that cannot cope fail on its behalf.** `f:at(#4)` on a short line answers `index
+#4 is out of bounds for an array of size 3` — true, and no use to somebody
+looking at their log. Checking the field count and raising `wanted 6 fields, got
+4` costs one line and is the difference between a complaint about the program
+and a complaint about the input.
+
+**The machine says what, the program says where.** `'four' is not an integer` is
+a good message and a poor report on its own, because it does not say which line.
+Only the program is counting lines, so only the program can add that. Neither
+half is worth much without the other, and the split falls out naturally rather
+than being arranged.
+
+**Surviving a bad line is not the same as surviving a bad file.** Fed pure
+rubbish, every line was skipped correctly and then the summary fell over on
+`entries:at(#1)` — there was no first entry to ask the time of. Caught by trying
+it rather than by thinking about it, which is the argument for trying it.
+
+What did not come up: `ensure`. Nothing in this program acquires anything that
+must be given back, which is exactly what
+[6.17](COMPLETED.md#617-there-is-no-ensure--done) predicted when it said nothing
+needed it yet.
 
 ## 0.2.0 — 2026-08-21
 
