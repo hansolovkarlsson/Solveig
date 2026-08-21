@@ -368,9 +368,10 @@ which 2.14 already records as the convention a later slice API should use.
 notes about what a program would want, rather than a plan written before there
 were any programs. The two newest entries came from further along the same road
 — from a program that wanted something and could not have it, and one of them is
-already built. Eleven of its items are built — a program can be split across
+already built. Twelve of its items are built — a program can be split across
 files, stop with a status, read its input, read and write files, take a string
-apart and put it back together, and time itself; the instruction set has a
+apart and put it back together, keep values under keys, and time itself; the
+instruction set has a
 reference the test suite keeps honest, the guide contrasts a group with a block,
 and every concept the guide names now has a runnable example; and the include
 that started it has since been given a syntax that admits what it is (6.13) —
