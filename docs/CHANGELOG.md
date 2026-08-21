@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### Two papercuts, and both had their workaround already shipped — `pending`, 2026-08-21
+### Two papercuts, and both had their workaround already shipped — `bc677b0`, 2026-08-21
 
 [6.23](COMPLETED.md#623-an-array-cannot-be-popped-or-asked-what-it-holds--done)
 and [6.19](COMPLETED.md#619-a-symbol-cannot-be-ordered--done). Neither was
