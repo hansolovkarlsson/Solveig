@@ -797,7 +797,11 @@ never get confused. `\r\n` counts as one terminator and a last line with no
 newline of its own still counts as a line.
 
 The half of this entry about waiting for a single key stayed behind, under a
-number of its own: [6.10](#610-waiting-for-a-single-key--done).
+number of its own: [6.10](ROADMAP.md#610-waiting-for-a-single-key), which is
+still open. `solis` grew raw-mode line editing for its own prompt in
+[6.24](#624-the-prompt-has-no-history--done), which needed the same machinery and
+is not the same thing: that is the front end reading keys, where 6.10 is a
+message a *program* can send.
 
 ### 6.4 File handling — **done**
 
@@ -1386,22 +1390,27 @@ for values, by identity for arrays, blocks, objects and dictionaries.
 [[#1]]:indexOf([#1]).            ; nil  -- an equal-looking array is a different one
 ```
 
-### 6.10 Waiting for a single key — **done**
+### 6.24 The prompt has no history — **done**
 
-Reading a *line* was done in 6.3, and reading a keypress was split off because
-it needs raw terminal mode — `termios` on Unix, something else on Windows — and
-would be the first piece of the runtime that behaves differently by platform.
-It said: worth doing when a program needs it.
+**This entry was filed under 6.10 and should not have been.** 6.10 is *waiting
+for a single key*, and it is the program-facing half of
+[6.3](#63-reading-input--done): `system:readLine` lets a Solum program read a
+line, and 6.10 is the message that would let it read a keypress. What was built
+here is raw terminal mode **inside solis**, for its own prompt. It needed the
+same machinery and it is not the same thing — a program still cannot read a key,
+and `system:readKey` does not exist. 6.10 is back on the roadmap, where it was
+before being closed by mistake, and this is the work under a number of its own.
 
-**The program was `solis`.** From using the prompt: type something wrong, get an
+**It came from using the prompt**: type something wrong, get an error, and want
+to press up and fix it rather than type the line again. From using the prompt: type something wrong, get an
 error, and want to press up and fix it. The terminal does line editing itself in
 its usual cooked mode, which is why `fgets` was enough to begin with — backspace
 worked because the tty handled it before solis saw the line. What the tty does
 not do is history, so an arrow key arrived as the three bytes of its escape
 sequence and was compiled as if they had been typed.
 
-Getting history means taking the editing over, which is what made this 6.10's
-trigger rather than a small addition.
+Getting history means taking the editing over, which is what made this a piece
+of work rather than a small addition.
 
 **What it does.** Up and down through history, left and right within the line,
 home and end, backspace and delete, ctrl-a, ctrl-e, ctrl-u, ctrl-l. Ctrl-d ends

@@ -275,14 +275,41 @@ entries are in [COMPLETED.md](COMPLETED.md). This one was about making it a
 language you can write a *program* in: a program has to be split across files,
 read input, write files, and stop with a status.
 
-**It is empty too.** All twenty-three entries are built, and the last one —
-waiting for a single key — was closed by `solis` wanting history at its own
-prompt. Nothing is left here; a new entry means a program wanted something and
-could not have it.
+**One entry is left**, and it is here because closing it was a mistake rather
+than because it was never done.
 
 Raised in a notes file and assessed in [ideas.md](ideas.md), which also records
 what was **not** worth building and why — integer widths, a JIT, cascades,
 trailing-block syntax, and Go-style concurrency among them.
+
+### 6.10 Waiting for a single key
+
+Reading a *line* is done — [6.3](COMPLETED.md#63-reading-input--done) gave a
+program `system:readLine`. Reading a keypress is the other half of that entry
+and is still missing: there is no `system:readKey`, so a Solum program cannot
+ask for one character without waiting for return.
+
+**This was closed once by mistake.** `solis` grew raw-mode line editing for its
+own prompt, which needed exactly the machinery this asks for, and the work was
+filed here — see [6.24](COMPLETED.md#624-the-prompt-has-no-history--done). It is
+the front end reading its own keys. A program still cannot, and nothing in the
+language changed.
+
+**What is left is smaller than it was**, and that is the one good thing to come
+out of the mix-up. `solis/src/line.c` already puts a terminal into raw mode,
+reads a byte, and restores the mode afterwards, with the platform guard around
+it. A `system:readKey` is that, without the editing:
+
+- one byte, or a whole escape sequence? A program wanting arrow keys wants the
+  sequence; one wanting *any key* wants the byte. Answering the byte is the
+  smaller promise and lets a program assemble the rest.
+- what does it answer with no terminal — a pipe, a file? `readLine` answers nil
+  at the end of input, and the same answer fits: nothing to read.
+- does it echo? Raw mode does not, and a program that wants the key shown can
+  print it.
+
+Still waiting for a program that needs it, which is now a fair test rather than
+an excuse: an interactive one would want it on the first screen.
 
 ## Suggested order
 
@@ -305,10 +332,11 @@ was, for about a day: it waited for something to need a number for a byte, and
 about, but for `\u0041`, which is text. `asByte` and `asCharacter` are built and
 it is done.
 
-**Section 6 is empty.** The last entry was
-[6.10](COMPLETED.md#610-waiting-for-a-single-key--done), a single keypress,
-which had been waiting for a program that needed one — and the program turned
-out to be `solis` itself, wanting history and arrow keys at the prompt. The four papercuts —
+**6.10 is the only thing here**, and it is open again after being closed by
+mistake. `solis` grew raw-mode line editing for its own prompt
+([6.24](COMPLETED.md#624-the-prompt-has-no-history--done)), which needed the same
+machinery — and a *program* still cannot read a keypress, which is what this
+entry is. The machinery being built is the reason it is now small. The four papercuts —
 [6.19](COMPLETED.md#619-a-symbol-cannot-be-ordered--done),
 [6.21](COMPLETED.md#621-two-libraries-binding-one-name-collide-silently--done),
 [6.22](COMPLETED.md#622-a-file-that-includes-a-library-of-its-own-name-silently-does-nothing--done)
