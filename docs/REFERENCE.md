@@ -938,6 +938,12 @@ integer:parent:equals(object):print.   ; true
 object:parent:print.             ; nil  -- the chain ends here
 ```
 
+So a method bound on `object` is answered by every value, which is what the root
+is for. What a value does *not* get is storage: it has no slots of its own, so
+`#45:x := #1`, `#45:parent` and `#45:via(object)` are all refused. See
+[one-hierarchy.md](one-hierarchy.md) for the difference between inheriting the
+behaviour and being an object.
+
 Four classes cannot make their instances, because those instances are not
 objects, and they say so rather than inheriting a `new` that would answer
 something useless:

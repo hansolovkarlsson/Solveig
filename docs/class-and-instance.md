@@ -261,6 +261,11 @@ object:parent:print.                   ; nil   -- the chain ends here
 Nothing leaked onto the values. `#45:parent` and `#45:via(...)` are refused by
 the receiver check, three commits before anyone thought about a root.
 
+What the root means for writing programs — one definition on `object` answered by
+every value, and the line between inheriting behaviour and being an object — is
+[one-hierarchy.md](one-hierarchy.md). This section is the decision; that page is
+the consequence.
+
 The cost is on the **miss** path only, and only because a miss now walks
 object's thirteen slots before failing: a send that hits is unchanged, and
 200,000 failed lookups cost about 10% more. That is the path that ends in *does

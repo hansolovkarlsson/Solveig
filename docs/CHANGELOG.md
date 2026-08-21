@@ -7,6 +7,40 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### One hierarchy, written down from the outside — `pending`, 2026-08-21
+
+`a0b0d41` made every built-in class delegate to `object` and recorded the
+decision in class-and-instance.md. That is the *why*; nothing said what it means
+for someone writing a program. [docs/one-hierarchy.md](one-hierarchy.md) is the
+consequence, and the line it draws is:
+
+**Delegating to `object` gives a value the behaviour. It does not give it the
+storage.** One `object:describe := { ... }` is answered by all eleven kinds of
+receiver — integer, float, string, symbol, boolean, nil, array, block,
+dictionary, time and object — and the nearest slot still wins, because the root
+is the end of the search rather than a special case in it. But `#45` is an
+immediate, so `#45:x := #1` says *cannot bind 'x' on integer*, and `parent` and
+`via` refuse it. A value **is a kind of** object without **being** one.
+
+Writing that up turned up a loose end. Override on a value class a message that
+`object` defines, and the override cannot call the one it displaced:
+
+```
+integer:describe := { "a number, and then ":concat(self:via(object):describe) }.
+#45:describe.
+solvm: 'via' expects an object, got integer
+```
+
+The check predates the root, from when a value's chain ended at its own class and
+there was nothing above to name. Every class delegates to `object` now, so a
+value has a chain to walk and the refusal is a leftover rather than a design.
+`slotAt(...):boundTo(self)` does the job today — `boundTo` supplies a receiver
+instead of searching from one, so it takes a value happily. Recorded as
+[2.14](ROADMAP.md).
+
+Also linked from the reference's object section, which stated the hierarchy and
+not what follows from it.
+
 ### A dictionary is a switch statement — `dc923d0`, 2026-08-21
 
 No code, just writing down something the pieces already did.

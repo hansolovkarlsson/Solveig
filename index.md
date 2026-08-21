@@ -49,7 +49,8 @@ while staying ordinary messages you can send any other way.
 Also: **[Design](docs/design.md)** for the object model and the `.sob` format;
 **[The instruction set](docs/BYTECODE.md)** for every opcode SolVM executes;
 **[Fetching a method](docs/fetched-methods.md)** for holding a method as a
-value; **[Choosing what to do](docs/dispatch.md)** for switch statements, jump
+value; **[One hierarchy](docs/one-hierarchy.md)** for how a method on `object`
+reaches a number, and where a value is still not an object; **[Choosing what to do](docs/dispatch.md)** for switch statements, jump
 tables and the traps in them; **[Absence](docs/absence.md)** for nil, empty and
 unset;
 **[The class side and the instance side](docs/class-and-instance.md)**

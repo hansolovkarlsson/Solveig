@@ -154,6 +154,14 @@ own.
   slots are a linked list walked linearly, so it would not have been faster than
   the array of pairs it replaced. A real dictionary was built instead, and what
   is left here is reflection for its own sake.
+- **`via` refuses a value receiver** (2.9). Override on a value class a message
+  that `object` defines and the override cannot reach the one it displaced:
+  `self:via(object)` answers *'via' expects an object, got integer*. The check
+  predates the single root, when a value's chain ended at its own class and
+  there was nothing above to name; every class delegates to `object` now, so a
+  value has a well-defined chain to walk. `slotAt(...):boundTo(self)` does the
+  job today. See
+  [one-hierarchy.md](one-hierarchy.md#the-one-place-the-difference-shows).
 - **No `clone`** (1.4). `new` delegates rather than copying, which is cheaper and
   more useful, but there is no way to take a snapshot of an object's slots.
 - **A later range or slice API should use inclusive bounds at both ends** (2.3),
