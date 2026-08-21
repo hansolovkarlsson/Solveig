@@ -1273,7 +1273,7 @@ twice. There was no `first(#n)`, no `last(#n)` and no slice, so taking the head
 of a sorted array was a walk with an index that the example carried as a
 `firstFew` helper.
 
-Built as `pending`: `copyFrom(#a, #b)`, `first(#n)`, `last(#n)`. `firstFew` is
+Built as `b156bcd`: `copyFrom(#a, #b)`, `first(#n)`, `last(#n)`. `firstFew` is
 gone from log.sol, which now says `:first(#5)`.
 
 **`copyFrom` is the string's rule, transcribed rather than reinvented.** Both
