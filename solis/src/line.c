@@ -198,6 +198,38 @@ static void refresh(const char *prompt, const Line *line)
     if (n > 0) (void)!write(STDOUT_FILENO, escape, (size_t)n);
 }
 
+/* The last few lines, printed above the prompt.
+ *
+ * On ctrl-h, and only when nothing has been typed. ctrl-h *is* backspace -- it
+ * sends the same byte 8 that a backspace key sends on many terminals -- so
+ * taking the key over would break deleting for anybody whose keyboard sends BS
+ * rather than DEL. On an empty line there is nothing to delete, so the key is
+ * free exactly there and nowhere else, which is the whole of why this is bound
+ * the way it is.
+ */
+static void show_history(const SolisHistory *history, const char *prompt,
+                         const Line *line)
+{
+    (void)!write(STDOUT_FILENO, "\r\n", 2);
+
+    if (history->count == 0) {
+        (void)!write(STDOUT_FILENO, "  nothing yet\r\n", 16);
+        refresh(prompt, line);
+        return;
+    }
+
+    int from = history->count > SOLIS_HISTORY_SHOWN
+             ? history->count - SOLIS_HISTORY_SHOWN : 0;
+    for (int i = from; i < history->count; i++) {
+        char numbered[64];
+        int n = snprintf(numbered, sizeof numbered, "  %d  ", i + 1);
+        if (n > 0) (void)!write(STDOUT_FILENO, numbered, (size_t)n);
+        (void)!write(STDOUT_FILENO, history->items[i], strlen(history->items[i]));
+        (void)!write(STDOUT_FILENO, "\r\n", 2);
+    }
+    refresh(prompt, line);
+}
+
 static bool read_byte(char *out)
 {
     ssize_t got = read(STDIN_FILENO, out, 1);
@@ -262,9 +294,11 @@ bool sol_line_read(SolisInput *input, SolisHistory *history, const char *prompt)
             continue;
         }
 
-        if (c == 127 || c == 8) {              /* backspace */
-            line_delete_before(&line);
-            refresh(prompt, &line);
+        if (c == 127 || c == 8) {              /* backspace, or ctrl-h */
+            /* Nothing to delete means the key is spare, and that is where the
+               history listing lives. See show_history. */
+            if (line.length == 0) show_history(history, prompt, &line);
+            else                  { line_delete_before(&line); refresh(prompt, &line); }
             continue;
         }
 

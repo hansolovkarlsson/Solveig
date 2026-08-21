@@ -315,6 +315,55 @@ static void test_a_half_typed_line_survives_browsing(void)
     printf("  a half-typed line survives browsing away and back\n");
 }
 
+/* ctrl-h lists the last few lines -- and only on an empty line, because ctrl-h
+   *is* backspace: it sends the same byte 8 that a backspace key sends on many
+   terminals. Taking the key over outright would break deleting for those
+   keyboards. On an empty line there is nothing to delete, so it is free exactly
+   there. */
+static void test_ctrl_h_lists_recent_lines(void)
+{
+    Session s;
+    if (!session_start_with_home(&s, "build/tests/home-ctrl-h")) return;
+    mkdir("build/tests/home-ctrl-h", 0700);
+    remove("build/tests/home-ctrl-h/.solis_history");
+
+    assert(ready(&s));
+    session_send(&s, "#7:mul(#6):print.\r");
+    assert(session_expect(&s, "#42"));
+    assert(ready(&s));
+    session_send(&s, "#2:add(#3):print.\r");
+    assert(session_expect(&s, "#5"));
+
+    assert(ready(&s));
+    session_send(&s, "\x08");
+    /* Numbered, oldest of the shown first. */
+    assert(session_expect(&s, "1  #7:mul(#6):print."));
+    assert(session_expect(&s, "2  #2:add(#3):print."));
+
+    session_end(&s);
+    remove("build/tests/home-ctrl-h/.solis_history");
+    printf("  ctrl-h on an empty line lists the recent ones\n");
+}
+
+/* And with something typed it is still backspace, which is the whole reason the
+   listing is bound where it is. */
+static void test_ctrl_h_still_deletes(void)
+{
+    Session s;
+    if (!session_start(&s)) return;
+
+    assert(ready(&s));
+    /* Type a wrong digit, take it back with ctrl-h, and run the corrected line.
+       #4 rather than #3 would come out if the delete had not happened. */
+    session_send(&s, "#1:add(#22");
+    session_send(&s, "\x08");
+    session_send(&s, "):print.\r");
+    assert(session_expect(&s, "#3"));
+
+    session_end(&s);
+    printf("  ctrl-h with something typed is still backspace\n");
+}
+
 /* ---- history between sessions ------------------------------------------ */
 
 static void test_the_history_file_is_under_home(void)
@@ -446,6 +495,8 @@ int main(void)
     test_up_recalls_the_last_line();
     test_the_cursor_goes_where_it_is_told();
     test_a_half_typed_line_survives_browsing();
+    test_ctrl_h_lists_recent_lines();
+    test_ctrl_h_still_deletes();
     test_the_history_file_is_under_home();
     test_history_survives_being_written_and_read();
     test_the_history_file_is_capped();

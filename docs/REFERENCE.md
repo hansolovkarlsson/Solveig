@@ -91,12 +91,24 @@ bindings, so they are the ones bash has taught you.
 | **end**, **ctrl-e** | to the end of it |
 | **backspace** | delete the character before the cursor |
 | **delete** | delete the character under it |
+| **ctrl-h** | on an **empty** line, list the last 10 entered; otherwise backspace |
 | **ctrl-u** | discard the whole line and start it again |
 | **ctrl-l** | clear the screen, keeping the line being typed |
 | **ctrl-d** | **end the session** on an empty line; delete forwards otherwise |
 | **ctrl-c** | interrupt |
 | **ctrl-z** | suspend |
 | **return** | run it, if what has been typed could compile — otherwise a `..` prompt and keep going |
+
+**`ctrl-h` is backspace**, and on many keyboards it is the byte the backspace
+key sends. It lists history only on an empty line, where there is nothing to
+delete and the key is otherwise doing nothing:
+
+```
+> [ctrl-h]
+  1  #7:mul(#6):print.
+  2  "hello":display.
+>
+```
 
 Two departures from bash worth knowing. **`ctrl-u` discards the whole line**
 rather than only the part before the cursor, which is what the terminal's own

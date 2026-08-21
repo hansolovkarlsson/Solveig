@@ -28,6 +28,10 @@
    small enough that it never becomes a thing to manage. */
 #define SOLIS_HISTORY_MAX 1000
 
+/* How many lines ctrl-h shows. Enough to find what you were doing, few enough
+   that it does not push the session off the screen. */
+#define SOLIS_HISTORY_SHOWN 10
+
 /* Lines as they were entered, oldest first. */
 typedef struct {
     char **items;

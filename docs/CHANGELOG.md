@@ -7,7 +7,33 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-Nothing yet.
+### ctrl-h lists the recent lines — `pending`, 2026-08-21
+
+Asked for after using the prompt: a way to see the last few lines rather than
+pressing ↑ until the right one turns up.
+
+**ctrl-h is already backspace**, which is the interesting part. It sends byte 8,
+and that is what the backspace *key* sends on many terminals — the editor takes
+both 8 and 127 for exactly that reason. Binding ctrl-h to something else would
+break deleting for anybody whose keyboard sends BS rather than DEL.
+
+So it is bound where the key is doing nothing anyway: **on an empty line**.
+There is nothing to delete there, so nothing is lost, and the key that was asked
+for is the key that works.
+
+```
+> [ctrl-h]
+  1  #7:mul(#6):print.
+  2  "hello":display.
+>
+```
+
+The last ten, numbered by their place in the history, oldest of the shown first.
+An empty history says `nothing yet` rather than doing nothing, since a key that
+appears broken is worse than one that says it has nothing to offer.
+
+Two tests, and the second is the one that matters: that ctrl-h with something
+typed still deletes. The listing is only worth having if it costs nothing.
 
 ## 0.7.0 — 2026-08-21
 
