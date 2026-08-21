@@ -7,6 +7,76 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### A JSON reader and writer, and the three things it found — `pending`, 2026-08-21
+
+The roadmap had emptied of anything a program asked for: the two entries left
+both said, in their own text, that they were waiting for a program to need them.
+So a program was written to find out.
+
+[lib/json.sol](../lib/json.sol) is a JSON reader and writer in Solum, on the
+search path beside `control.sol`, and [examples/manifest.sol](../examples/manifest.sol)
+is a program on top of it — describe a document, pull a value out by a dotted
+path, edit it, write it back, read it again and prove the text matches. It
+claims one global and hangs everything off it, which is what the reference has
+always said to do instead of the module system the language does not have.
+
+**6.12 has its program.** The entry was written about binary files; what needed
+a number for a byte first was *text*. `\u0041` is a code point that has to
+become `"A"`, and there is no `asCode` and no `asCharacter`, so the library
+carries the printable ASCII range as a literal to index into and refuses the
+rest:
+
+```
+json:read("\"\u00e9\"").
+solvm: \u00e9 is outside what a Solum string can hold at character 8
+```
+
+What is *not* broken is worth as much: UTF-8 in the text passes through
+perfectly, because a string is bytes and the parser copies spans of them. It is
+the format's escape mechanism that fails, not the encoding — a narrower problem
+than it looked, and `asCode`/`asCharacter` would close it without the byte-buffer
+type this entry has been asking for.
+
+**3.5 got a second data point and a price list.** A recursive-descent parser
+spends the frame budget several times per level, and *how the dispatch is
+written* turned out to move the number a long way:
+
+| dispatching on the first character | levels of nesting before the cap |
+| --- | --- |
+| a dictionary of blocks, which [dispatch.md](dispatch.md) recommends | **18** |
+| a chain of `ifElse` | **28** |
+
+Ten levels of document, for one message. Both recommendations are right on their
+own and they pull against each other exactly where the cases recurse — the
+jump table is for cases that are leaves. The library takes the chain and the
+comment says why.
+
+**Two papercuts, both new entries.** [6.18](ROADMAP.md): a file that includes a
+library of its own name finds *itself* first and that include quietly does
+nothing — documented, and still about a minute to fall into once `lib/` had a
+second file to collide with; the example is called `manifest.sol` for that
+reason alone, and a warning would cost one comparison. [6.19](ROADMAP.md): a
+symbol has no `lessThan`, so a report tallied under symbol keys converts to
+strings to sort and back to look up.
+
+**6.20 is written down rather than built** — an HTML parser, as the next program
+whose findings would not overlap with these. Error recovery, which no parser here
+has ever had to do; character classification in bulk, which is 6.12 from a second
+direction; and a tree built against a stack rather than by recursion, which may
+sidestep 3.5 entirely.
+
+Smaller things settled on the way. A whole float prints as `150`, so writing one
+plainly would hand back an integer on the next read — the number rule needs
+holding up from both sides for a document to round-trip. Names are written
+sorted, so the same document always produces the same text and a rewritten file
+diffs cleanly. And `asJson` is defined on `object`, so nil answers `"null"`
+through the definition every other type uses — which matters because nil's class
+has no global for a method to be bound on, and the single root is what makes
+that not matter.
+
+`lib/` is now checked the way `examples/` is: every file in it compiles and
+verifies, and one not listed in the test fails rather than being skipped.
+
 ### One hierarchy, written down from the outside — `079d353`, 2026-08-21
 
 `a0b0d41` made every built-in class delegate to `object` and recorded the

@@ -148,7 +148,7 @@ own.
   internal pointer that keeps dispatch safe (2.9).
 
   The strongest argument for `slotAtPut` used to be that it would make an object
-  serve as a dictionary. [6.15](COMPLETED.md#615-there-is-no-dictionary-and-no-way-to-build-one)
+  serve as a dictionary. [6.15](COMPLETED.md#615-there-is-no-dictionary-and-no-way-to-build-one--done)
   looked into that and found it would not: a slot name is interned in the VM's
   *permanent* name table, so keys read from a file would leak a name apiece, and
   slots are a linked list walked linearly, so it would not have been faster than
@@ -270,6 +270,25 @@ bracket nesting — expression calls term calls factor calls expression again �
 so it manages **18 brackets deep** and stops at 19. That is more than anybody
 writes by hand and less than a generated expression might hold.
 
+**A second one has now reached it, and put a number on the idiom.**
+[lib/json.sol](../lib/json.sol) is the same shape of parser over a format people
+generate rather than type, and it measured the cost of *how* the value dispatch
+is written:
+
+| dispatching on the first character | levels of JSON nesting before the cap |
+| --- | --- |
+| a dictionary of blocks, as [dispatch.md](dispatch.md) recommends | **18** |
+| a chain of `ifElse` | **28** |
+
+`table:at(c, default):value` puts one more frame between a value and the value
+inside it, and that frame is paid again at every level of the document — ten
+levels of nesting for one message. Both recommendations are right on their own;
+they pull against each other only where the cases recurse. The library takes the
+chain and says why in a comment.
+
+It also moves the number from "more than anybody writes by hand" to something
+closer: 28 levels of JSON is not deep for a document a program produced.
+
 What makes it bearable, and was not obvious: **the failure is catchable.** `call
 depth exceeded` arrives at `onError` like any other, is reported like any other,
 and the program carries on afterwards — running out of frames is exactly the
@@ -324,7 +343,7 @@ a footnote to line input.
 
 Reading and writing binary files already works: a string is bytes, a NUL is a
 byte like any other, and reading a file and writing it back copies it exactly.
-Since [6.11](COMPLETED.md#611-a-string-cannot-be-split), `split`, `indexOf` and
+Since [6.11](COMPLETED.md#611-a-string-cannot-be-split--done), `split`, `indexOf` and
 `copyFrom` work on one too — all three go by the length rather than stopping at
 the first NUL, so a binary file can be cut up by a marker.
 
@@ -332,8 +351,95 @@ What is still missing is a *number* for a byte. `at` answers a one-character
 string, and there is nothing to do arithmetic on.
 
 What this wants is a byte-buffer type. An array of integers would work and would
-cost sixteen bytes a byte. Worth building when a program needs it rather than on
-the chance that one might.
+cost sixteen bytes a byte.
+
+**A program has now needed it, and it was not the one expected.** This entry was
+written about binary files; what turned up first was *text*.
+[lib/json.sol](../lib/json.sol) has to read `\u0041` and answer `"A"`, which is
+a number to a character, and write the reverse for a control byte. Neither
+direction exists, so the library carries the printable ASCII range as a string
+literal to index into, and refuses anything outside it:
+
+```
+json:read("\"\u00e9\"").
+solvm: \u00e9 is outside what a Solum string can hold at character 8
+```
+
+Two smaller things fall out of the same gap. There is no `\b` or `\f` in a
+Solum string literal, so those two JSON escapes cannot be produced at all. And
+writing is stuck the same way: a control byte in a string must go out as
+`\u00XX`, and naming which byte it is needs the number that does not exist.
+
+Worth noticing what is *not* broken: **UTF-8 in the text itself passes through
+perfectly**, because a string is bytes and the parser copies spans of them.
+`"café"` reads, round-trips and writes unchanged. It is the format's escape
+mechanism that fails, not the encoding — which is a narrower problem than it
+first looked, and a real one.
+
+The minimum that would fix it is a pair of messages, `asCode` on a
+one-character string and `asCharacter` on an integer, rather than the whole
+byte-buffer type. That is worth deciding on its own.
+
+### 6.18 A file that includes a library of its own name silently does nothing
+
+The search path looks beside the includer first, and a file is compiled once, so
+`@include "json.sol"` written *in* a file called `json.sol` finds itself, has
+already started, and quietly contributes nothing. The program compiles cleanly
+and fails at run time with `undefined name 'json'`.
+
+This is documented — [REFERENCE.md](REFERENCE.md#splitting-a-program-across-files)
+calls it occasionally a trap — and it took about a minute to fall into once
+there was a second file in `lib/` to collide with. The example that uses the
+JSON library is called `manifest.sol` for this reason and no other.
+
+The fix is a diagnostic rather than a rule change: shadowing is the behaviour C
+has and the behaviour to keep, but a file including *itself* is never what
+anybody meant, and the compiler knows it is happening. A warning naming the file
+and the library it shadowed would cost one comparison.
+
+### 6.19 A symbol cannot be ordered
+
+Symbols are values, compare by content, and make good dictionary keys — and
+`sorted` cannot touch them, because there is no `lessThan` on a symbol. Any
+report tallied under symbol keys has to convert to strings to sort and back to
+look up:
+
+```
+kinds:keys:collect({ k | k:asString }):sorted:do({ name |
+    kinds:at(name:asSymbol) ... })
+```
+
+Interning is what makes the comparison cheap for `equals` and is exactly what
+makes ordering arbitrary — two symbols' addresses say nothing about their text.
+So the question is whether `lessThan` should compare the text, which is the only
+ordering anybody would mean, at the cost of it being the one symbol operation
+that is not a pointer comparison.
+
+Small either way. It came up because a program tallying values by kind wanted a
+stable order to print them in, which is the ordinary reason anything gets
+sorted.
+
+### 6.20 An HTML parser
+
+The JSON reader was written to find out what the language wanted, and it found
+three things. HTML would push on different ground and is the obvious next one:
+
+- **It is not a clean grammar.** Real HTML is recovered from rather than parsed
+  — unclosed tags, implied ends, attributes without quotes. A parser is mostly
+  its error recovery, and Solum has never had to write any: every parser here so
+  far reports the first problem and stops.
+- **It wants character classification in bulk** — name characters, whitespace,
+  entity references like `&#233;`, which is [6.12](#612-taking-a-binary-file-apart)
+  again and from a second direction.
+- **The tree is not the input's shape.** JSON's dictionaries and arrays fall out
+  of the syntax; an element tree has to be built against a stack of open
+  elements, and that stack is the program rather than the recursion — which
+  would sidestep [3.5](#35-recursion-is-limited-to-about-62-levels) and is worth
+  knowing whether it does.
+
+Not needed by anything yet. Written down because the last two programs each paid
+for themselves in findings, and this is the one whose findings would not overlap
+with theirs.
 
 ## Suggested order
 
@@ -350,20 +456,26 @@ and every concept the guide names now has a runnable example; and the include
 that started it has since been given a syntax that admits what it is (6.13) —
 so in order of what would be missed next:
 
-**Nothing is left here that came from a program wanting it.** Both entries that
-did — [6.15](COMPLETED.md#615-there-is-no-dictionary-and-no-way-to-build-one)
-and [6.16](COMPLETED.md#616-an-array-cannot-be-sliced) — are built, and so is
-all of [6.6](COMPLETED.md#66-the-loop-constructs-are-library-code-and-pay-for-it).
+**6.12 is first, and a program is why.** It waited here for something to need a
+number for a byte, and [lib/json.sol](../lib/json.sol) does — not for the binary
+files this entry was written about, but for `\u0041`, which is text. It cannot
+read `é` and cannot write a control byte, and both are the same missing pair of
+messages. That is the only entry on this list a working program is currently
+losing to.
 
-What remains is **6.10** and **6.12**, both explicitly waiting for a program
-that needs them, and the decision below. The way to move this list is to write
-something and find out what it wants — which is how the last two entries got
-here, and both paid for themselves.
+The rest is not ordered. **A single keypress** (6.10) still waits for a program
+that needs it. **6.18** and **6.19** are papercuts a program tripped over, small
+and worth doing when something is already open nearby. **6.20** is the next
+program to write rather than work on the language, and its value is the findings
+rather than the parser.
 
-Not ordered: **a single keypress** (6.10) and **a byte type** (6.12) both wait
-for a program that needs them. That was true of the whole list until
-[log.sol](../examples/log.sol) was written; it is worth noticing which entries
-survived contact with a real program and which did not come up at all.
+Three programs have now been written to do a job rather than to show a feature,
+and each one moved this list:
+[log.sol](../examples/log.sol) asked for a dictionary and array slicing and got
+both; [evaluator.sol](../examples/evaluator.sol) found the frame limit and that
+it is catchable; [manifest.sol](../examples/manifest.sol) and the library under
+it found the three above. It is worth noticing which entries survived contact
+with a real program and which have still never come up.
 
 One decision is outstanding: **2.5**, class side versus instance side. 1.6
 answered it one message at a time, which was enough to stop the crashes;

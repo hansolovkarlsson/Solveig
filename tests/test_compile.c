@@ -211,6 +211,7 @@ static const char *examples[] = {
     "examples/dictionaries.sol", "examples/loops.sol",
     "examples/errors.sol",  "examples/evaluator.sol",
     "examples/walk.sol",   "examples/time.sol",
+    "examples/manifest.sol",
 };
 #define EXAMPLE_COUNT (sizeof(examples) / sizeof(examples[0]))
 
@@ -390,6 +391,55 @@ static void test_no_example_is_left_out(void)
     printf("  every .sol in examples/ is checked (%d of them)\n", found);
 }
 
+/* The shipped library, the same way. It is two files now rather than one, and
+   the second is a real program's worth of code, so leaving it unverified would
+   be leaving the largest thing on the search path unchecked. */
+static const char *library[] = {
+    "lib/control.sol", "lib/json.sol",
+};
+#define LIBRARY_COUNT (sizeof(library) / sizeof(library[0]))
+
+static void test_every_library_file_verifies(void)
+{
+    for (size_t i = 0; i < LIBRARY_COUNT; i++) {
+        char *source = slurp(library[i]);
+        must_verify(library[i], source, library[i]);
+        free(source);
+    }
+    printf("  all %zu library files compile to bytecode the verifier accepts\n",
+           LIBRARY_COUNT);
+}
+
+static void test_no_library_file_is_left_out(void)
+{
+    DIR *dir = opendir("lib");
+    assert(dir != NULL);
+
+    int found = 0;
+    for (struct dirent *entry = readdir(dir); entry != NULL; entry = readdir(dir)) {
+        const char *name = entry->d_name;
+        size_t length = strlen(name);
+        if (length < 5 || strcmp(name + length - 4, ".sol") != 0) continue;
+
+        char path[256];
+        snprintf(path, sizeof path, "lib/%s", name);
+
+        bool listed = false;
+        for (size_t i = 0; i < LIBRARY_COUNT; i++) {
+            if (strcmp(library[i], path) == 0) { listed = true; break; }
+        }
+        if (!listed) {
+            printf("\n%s is not in the list this file checks\n", path);
+            assert(false);
+        }
+        found++;
+    }
+    closedir(dir);
+
+    assert(found == (int)LIBRARY_COUNT);
+    printf("  every .sol in lib/ is checked (%d of them)\n", found);
+}
+
 /* And the corners an example does not happen to reach. Anything the compiler
    accepts belongs here as it is added: this is the invariant, not a sample. */
 static void test_every_accepted_form_verifies(void)
@@ -549,6 +599,8 @@ int main(void)
     test_every_example_verifies();
     test_every_builtin_message_has_an_example();
     test_no_example_is_left_out();
+    test_every_library_file_verifies();
+    test_no_library_file_is_left_out();
     test_every_accepted_form_verifies();
     test_an_error_names_a_line_and_a_column();
     test_the_caret_lands_under_the_token();

@@ -204,7 +204,55 @@ A step of `#0` would never finish, so `toByDo` says so rather than hanging.
 
 Written in Solum, they cost a block call per iteration — about 1.30× a literal
 `whileTrue`, which compiles to jumps. See
-[ROADMAP 6.6](ROADMAP.md#66-the-loop-constructs-are-library-code-and-pay-for-it).
+[6.6](COMPLETED.md#66-the-loop-constructs-are-library-code-and-pay-for-it--done).
+
+#### json.sol
+
+The second file on the search path, and a much larger one: a JSON reader and
+writer, written in Solum.
+
+```
+@include "json.sol".
+
+v := json:read("{\"server\": {\"port\": 8080}, \"tags\": [\"a\", \"b\"]}").
+v:at("server"):at("port"):print.       ; #8080
+v:asJson:display.                      ; {"server":{"port":8080},"tags":["a","b"]}
+json:write(v):display.                 ; the same, indented over several lines
+```
+
+| Message | Answers |
+| --- | --- |
+| `json:read(text)` | the value the text describes; raises on anything malformed |
+| `json:write(value)` | indented JSON text |
+| `value:asJson` | the same document with no spaces in it |
+
+The mapping is the obvious one. A JSON object is a **dictionary**, an array is
+an **array**, `null` is **nil**, and a number is an **integer** unless it is
+written with a `.` or an exponent, in which case it is a float — going by the
+spelling is what makes a document read and write back unchanged. `asJson` is
+defined on `object`, so every type answers it; `nil` answers `"null"` through
+that same definition, which matters because nil's class has no global for a
+method to be bound on.
+
+Names are written **sorted**, so the same document always produces the same
+text and a rewritten file diffs cleanly.
+
+Three things it will not do, each for a reason worth knowing:
+
+- **`\uXXXX` outside printable ASCII is refused.** A character has no number
+  here, so there is no way to build one from a code point. UTF-8 in the text
+  itself is fine — a string is bytes, and `"café"` round-trips — it is the
+  escape that cannot be honoured. See
+  [ROADMAP 6.12](ROADMAP.md#612-taking-a-binary-file-apart).
+- **Documents nest about 28 deep** before `call depth exceeded`, which is
+  catchable like any other error. See
+  [ROADMAP 3.5](ROADMAP.md#35-recursion-is-limited-to-about-62-levels).
+- **`null` and a missing name are both nil**, so `at(name, nil)` cannot separate
+  them. Ask `includes(name)` when the difference matters.
+
+[examples/manifest.sol](../examples/manifest.sol) is a program built on it —
+describing a document, pulling a value out by a dotted path, editing it and
+writing it back.
 
 **A file is compiled once** per compilation, however many ways it is reached,
 keyed by where it turns out to be on disk so that two spellings of one file are
@@ -641,7 +689,7 @@ therefore share a namespace and cannot both declare `t`, exactly as two groups
 inside one block cannot.
 
 This was refused until the script's frame had slots to declare into. See
-[ROADMAP 6.6](ROADMAP.md#66-the-loop-constructs-are-library-code-and-pay-for-it)
+[6.6](COMPLETED.md#66-the-loop-constructs-are-library-code-and-pay-for-it--done)
 for the other thing that was waiting on the same field.
 
 ---
@@ -926,7 +974,7 @@ a thing that fails every message an integer understands.
 
 `integer:new` and `float:new` used to answer their own argument, which was the
 literal spelled longer. See
-[class-and-instance.md](class-and-instance.md#new-means-three-things).
+[class-and-instance.md](class-and-instance.md#new-used-to-mean-three-things).
 
 Every built-in class delegates to `object`, so there is one hierarchy and
 everything is an object in the type graph as well as in the slogan:

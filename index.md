@@ -142,9 +142,12 @@ make test     # builds and runs the test suite
 
 ## Examples
 
-Twenty-six programs. Every concept the [guide](docs/GUIDE.md) names has one, and
-[log](examples/log.sol) is a whole one — an access-log analyser, written to do a
-job rather than to demonstrate a feature —
+Twenty-seven programs. Every concept the [guide](docs/GUIDE.md) names has one,
+and three are whole programs written to do a job rather than to demonstrate a
+feature: [log](examples/log.sol) analyses an access log,
+[evaluator](examples/evaluator.sol) parses and folds an expression, and
+[manifest](examples/manifest.sol) reads a JSON file, queries it and writes it
+back — on [lib/json.sol](lib/json.sol), a JSON reader and writer in Solum —
 [hello](examples/hello.sol),
 [binding](examples/binding.sol),
 [stock](examples/stock.sol),
@@ -170,4 +173,5 @@ job rather than to demonstrate a feature —
 [log](examples/log.sol),
 [evaluator](examples/evaluator.sol),
 [walk](examples/walk.sol),
-[time](examples/time.sol).
+[time](examples/time.sol),
+[manifest](examples/manifest.sol).
