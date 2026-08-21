@@ -361,28 +361,6 @@ Small either way. It came up because a program tallying values by kind wanted a
 stable order to print them in, which is the ordinary reason anything gets
 sorted.
 
-### 6.20 An HTML parser
-
-The JSON reader was written to find out what the language wanted, and it found
-three things. HTML would push on different ground and is the obvious next one:
-
-- **It is not a clean grammar.** Real HTML is recovered from rather than parsed
-  — unclosed tags, implied ends, attributes without quotes. A parser is mostly
-  its error recovery, and Solum has never had to write any: every parser here so
-  far reports the first problem and stops.
-- **It wants character classification in bulk** — name characters, whitespace,
-  entity references like `&#233;`, which is [6.12](COMPLETED.md#612-taking-a-binary-file-apart--done)
-  again and from a second direction.
-- **The tree is not the input's shape.** JSON's dictionaries and arrays fall out
-  of the syntax; an element tree has to be built against a stack of open
-  elements, and that stack is the program rather than the recursion — which
-  would sidestep [3.5](#35-recursion-is-limited-to-about-62-levels) and is worth
-  knowing whether it does.
-
-Not needed by anything yet. Written down because the last two programs each paid
-for themselves in findings, and this is the one whose findings would not overlap
-with theirs.
-
 ### 6.21 Two libraries binding one name collide silently
 
 Top-level rebinding is legal, an included file binds into the one global
@@ -422,6 +400,37 @@ and the shape of what one would buy:
 A warning on rebinding a name an include bound is the cheap version of the first
 of those, and would catch the case above without any of the rest.
 
+### 6.23 An array cannot be popped, or asked what it holds
+
+Two gaps, both found by the same program and both worked around rather than
+waited for. [lib/html.sol](../lib/html.sol) keeps a stack of open elements,
+which is what parsing a nesting format wants, and an array does not quite serve:
+
+- **No `removeLast`.** There is `add` and nothing that takes one off, so the
+  stack carries its own `top` and overwrites with `at_put` rather than
+  shrinking. That is O(1) where rebuilding with `copyFrom` would be O(n) a pop,
+  so the workaround is arguably faster than the message would have been — but it
+  is eight lines in a library, written twice before it was factored out.
+- **No `includes` and no `indexOf`.** An array cannot say whether it holds
+  something. The library's sets of element names are therefore *strings*,
+  searched with the delimiters kept on so that `p` does not match `pre` — the
+  trick every shell script uses, for the same reason and with the same
+  awkwardness.
+
+`removeLast` is the one with a real design question in it: what should it answer
+on an empty array — an error, like `at`, or nil? `at` refuses an out-of-range
+index rather than answering nil, which argues for the error; a stack that has to
+be asked `isEmpty` first is the shape every caller writes anyway.
+
+`includes` has no question, only the observation that a dictionary already
+answers it in O(1) and an array would be O(n), so a program with a set to test
+against is often better served by the dictionary it should have used. That is
+the argument for *not* adding it, and it is why this is one entry rather than
+two.
+
+Neither blocks anything. Both are the sort of thing that only shows up when a
+program is written, which is how the last four entries here got their case.
+
 ## Suggested order
 
 **Section 6 is the whole of the live list**, and it came from the right place:
@@ -444,8 +453,8 @@ about, but for `\u0041`, which is text. `asByte` and `asCharacter` are built and
 it is done.
 
 The rest is not ordered. **A single keypress** (6.10) still waits for a program
-that needs it. **6.19** is a papercut a program tripped over, small and worth
-doing when something is already open nearby.
+that needs it. **6.19** and **6.23** are papercuts programs tripped over, small and worth doing
+when something is already open nearby.
 [6.22](COMPLETED.md#622-a-file-that-includes-a-library-of-its-own-name-silently-does-nothing--done)
 was the other one and is built. **6.21** is the same family and nothing has hit
 it yet; what it really records is the shape of the module system the language

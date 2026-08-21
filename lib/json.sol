@@ -58,38 +58,13 @@ json:expect := { c |
     self:peek:equals(c):ifFalse({ self:fail("wanted '{}'":fill([c])) }).
     self:step }.
 
-; A code point, as the bytes UTF-8 spells it with.
-;
-; This used to be a table of printable ASCII written out as a literal, because a
-; character had no number and `#65` could not become `"A"` any other way. `asByte`
-; and `asCharacter` (6.12) replaced the table with arithmetic, and arithmetic
-; reaches the rest of Unicode where the table reached 95 characters.
-;
-; Solum has no bitwise operators, so the shifts and masks are `div` and `mod`,
-; and the tag bits go on with `add` rather than or -- which is exact, the bits
-; being disjoint by construction. It reads about as well as the C does.
-json:utf8 := { code |
-    code:lessThan(#128):ifElse(
-        { code:asCharacter },
-        { code:lessThan(#2048):ifElse(
-            { #192:add(code:div(#64)):asCharacter
-                  :concat(#128:add(code:mod(#64)):asCharacter) },
-            { code:lessThan(#65536):ifElse(
-                { #224:add(code:div(#4096)):asCharacter
-                      :concat(#128:add(code:div(#64):mod(#64)):asCharacter)
-                      :concat(#128:add(code:mod(#64)):asCharacter) },
-                { #240:add(code:div(#262144)):asCharacter
-                      :concat(#128:add(code:div(#4096):mod(#64)):asCharacter)
-                      :concat(#128:add(code:div(#64):mod(#64)):asCharacter)
-                      :concat(#128:add(code:mod(#64)):asCharacter) }) }) }) }.
-
-json:escapes := dictionary:new.
-json:escapes:atPut("\"", "\"").
-json:escapes:atPut("\\", "\\").
-json:escapes:atPut("/",  "/").
-json:escapes:atPut("n",  "\n").
-json:escapes:atPut("t",  "\t").
-json:escapes:atPut("r",  "\r").
+; Encoding a code point lives in text.sol, which html.sol wants too. It used to
+; be here, and before that it was a table of printable ASCII written out as a
+; literal, because a character had no number and `#65` could not become `"A"`
+; any other way. `asByte` and `asCharacter` (6.12) replaced the table with
+; arithmetic, and arithmetic reaches the rest of Unicode where the table reached
+; 95 characters.
+@include "text.sol".
 
 json:hex4 := { | hex |
     self:pos:add(#3):greaterThan(self:src:size):ifTrue({
@@ -126,7 +101,7 @@ json:unicodeEscape := { | code, low |
         code := #65536:add(code:sub(#55296):mul(#1024)):add(low:sub(#56320)) }).
     code:greaterOrEqual(#56320):and({ code:lessOrEqual(#57343) }):ifTrue({
         self:fail("a low surrogate with no high one before it") }).
-    self:utf8(code) }.
+    code:asUtf8 }.
 
 json:escape := { | c |
     c := self:peek.

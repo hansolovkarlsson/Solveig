@@ -1266,6 +1266,74 @@ nothing is asking for it. A byte from a string is a number now, which is what
 every use met so far actually wanted. If a program turns up that needs a large
 mutable buffer, that is a new entry with its own case, not this one reopened.
 
+### 6.20 An HTML parser — **done**
+
+Written to find out what the language wanted, which is how the last three
+entries here got their case. It is [lib/html.sol](../lib/html.sol), with
+[examples/page.sol](../examples/page.sol) as a program on top of it, and the
+entry predicted three things it would push on. All three happened, and one of
+them answered a question that had been open since 3.5 was written.
+
+**1. Error recovery, which nothing here had ever done.** Every other parser in
+this project reports the first problem and stops — `solas`, `evaluator.sol`,
+`json.sol` — and each is right to, because their input is written by somebody
+who can fix it. HTML is generated, served, and wrong. A reader that stops is no
+use, so this one recovers and keeps a list:
+
+```
+page := html:read("<b>bold</i>").
+page:text:display.                              ; bold
+html:complaints:do({ c | c:display }).
+; </i> at character 10 closes nothing that is open
+; <b> opened at character 1 is never closed
+```
+
+The shape that made it work is that **recovery is not error handling**. There is
+no `onError` anywhere in the library: a stray end tag is not an exception to
+recover from, it is an ordinary branch that appends to a list and carries on.
+Trying to build it on `error:raise` would have meant unwinding past the very
+stack that holds the recovery state.
+
+**2. A tree built against a stack, and 3.5 does not reach it.** The entry asked
+whether building against a stack of open elements would sidestep the frame
+limit. It does, completely:
+
+| | deepest that works |
+| --- | --- |
+| `json.sol`, recursive descent | **28** levels |
+| `html:read`, an explicit stack | **50,000** levels, and no limit found |
+
+**The catch was on the way back down.** The tree built 50,000 deep could not be
+*walked* 30 deep, because `text`, `find` and `findAll` were written the obvious
+recursive way and spend a frame per level:
+
+| | before | after |
+| --- | --- | --- |
+| `text`, `find`, `findAll` | **28** levels | **50,000** |
+
+They are written with an explicit stack now too. The lesson is sharper than
+"use a stack": **the limit is not a property of the data, it is a property of
+how you traverse it**, and a library can be half-safe without anybody noticing —
+the constructor was the part everyone thought about.
+
+**3. Character work in bulk, which `asByte` handled.** Numeric entities
+(`&#233;`, `&#x1F600;`) need a code point to become bytes, which is
+[6.12](#612-taking-a-binary-file-apart--done) from a second direction and the
+first test of whether that pair was the right size of fix. It was: the encoder
+moved to [lib/text.sol](../lib/text.sol) unchanged and both libraries include
+it. That file is the first library here included by another library rather than
+by a program.
+
+**What it cost that was not predicted.** An array cannot be popped and cannot be
+asked whether it holds something — [6.23](ROADMAP.md#623-an-array-cannot-be-popped-or-asked-what-it-holds).
+And `lib/text.sol` first bound a global called `text`, which the first program
+to use it shadowed with a variable of its own, breaking the library from a
+distance with `string does not understand 'utf8'`. That is
+[6.21](ROADMAP.md#621-two-libraries-binding-one-name-collide-silently) happening
+within ten minutes of being written down. The fix was to bind no global at all:
+`integer:asUtf8` is a method on a built-in class, which needs no name of its
+own. A namespace only helps if the name is one nobody else wants.
+
 ### 6.22 A file that includes a library of its own name silently does nothing — **done**
 
 The search path looks beside the includer first, and a file is compiled once. So

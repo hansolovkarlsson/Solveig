@@ -142,12 +142,14 @@ make test     # builds and runs the test suite
 
 ## Examples
 
-Twenty-seven programs. Every concept the [guide](docs/GUIDE.md) names has one,
-and three are whole programs written to do a job rather than to demonstrate a
+Twenty-eight programs. Every concept the [guide](docs/GUIDE.md) names has one,
+and four are whole programs written to do a job rather than to demonstrate a
 feature: [log](examples/log.sol) analyses an access log,
-[evaluator](examples/evaluator.sol) parses and folds an expression, and
+[evaluator](examples/evaluator.sol) parses and folds an expression,
 [manifest](examples/manifest.sol) reads a JSON file, queries it and writes it
-back — on [lib/json.sol](lib/json.sol), a JSON reader and writer in Solum —
+back, and [page](examples/page.sol) reads an HTML file and reports on it — the
+last two on [lib/json.sol](lib/json.sol) and [lib/html.sol](lib/html.sol),
+a JSON and an HTML reader written in Solum —
 [hello](examples/hello.sol),
 [binding](examples/binding.sol),
 [stock](examples/stock.sol),
@@ -174,4 +176,5 @@ back — on [lib/json.sol](lib/json.sol), a JSON reader and writer in Solum —
 [evaluator](examples/evaluator.sol),
 [walk](examples/walk.sol),
 [time](examples/time.sol),
-[manifest](examples/manifest.sol).
+[manifest](examples/manifest.sol),
+[page](examples/page.sol).

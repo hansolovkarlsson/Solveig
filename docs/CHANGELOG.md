@@ -7,6 +7,66 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### An HTML reader, and the frame limit turns out to be about traversal — `pending`, 2026-08-21
+
+[6.20](COMPLETED.md#620-an-html-parser--done), written to find out what the
+language wanted. [lib/html.sol](../lib/html.sol) reads HTML into a tree;
+[examples/page.sol](../examples/page.sol) is a program on it — an outline, a
+link list, images without alt text. The entry predicted three things it would
+push on, all three happened, and one answered a question open since 3.5 was
+written.
+
+**Recovery is not error handling.** Every other parser here stops at the first
+problem, which is right when a person wrote the input and can fix it. HTML is
+generated, served, and wrong, so this one keeps going and keeps a list:
+
+```
+page := html:read("<b>bold</i>").
+page:text:display.                              ; bold
+; </i> at character 10 closes nothing that is open
+; <b> opened at character 1 is never closed
+```
+
+There is **no `onError` anywhere in the library**. A stray end tag is not an
+exception, it is a branch that appends to a list — and building it on
+`error:raise` would have meant unwinding past the stack that holds the recovery
+state.
+
+**The stack sidesteps 3.5 completely, and then traversal walked straight back
+into it.** That is the finding:
+
+| | deepest that works |
+| --- | --- |
+| `json.sol`, recursive descent | **28** levels |
+| `html:read`, an explicit stack | **50,000**, and no limit found |
+| `text`, `find`, `findAll` — recursive, as first written | **28** |
+| the same three, with a stack | **50,000** |
+
+A tree built 50,000 deep could not be *walked* 30 deep. **The limit is not a
+property of the data, it is a property of how you traverse it** — and a library
+can be half-safe without anybody noticing, because the constructor is the part
+everyone thinks about.
+
+**`asByte` was the right size of fix**, which this was the first test of.
+Numeric entities need a code point to become bytes, so the UTF-8 encoder moved
+to [lib/text.sol](../lib/text.sol) unchanged and both libraries include it — the
+first library here included by another library rather than by a program.
+
+**6.21 happened, ten minutes after being written down.** `lib/text.sol` first
+bound a global called `text`, following the reference's advice to claim one name
+instead of a dozen. The first program to use it had a variable called `text`,
+and the library broke from a distance with `string does not understand 'utf8'`.
+The fix was to bind **no global at all**: `integer:asUtf8` is a method on a
+built-in class, which needs no name of its own. A namespace only helps if the
+name is one nobody else wants, and `text` is about the most wanted name there
+is.
+
+**One new entry.** [6.23](ROADMAP.md#623-an-array-cannot-be-popped-or-asked-what-it-holds):
+an array cannot be popped and cannot be asked whether it holds something. A
+stack notices both immediately. The workarounds are a `top` index (which is
+O(1), so arguably better than the message would have been) and sets kept as
+delimited strings.
+
 ### The compiler's first warning, and no more directives — `2b25dda`, 2026-08-21
 
 [6.22](COMPLETED.md#622-a-file-that-includes-a-library-of-its-own-name-silently-does-nothing--done).

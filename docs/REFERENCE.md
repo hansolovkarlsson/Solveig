@@ -245,6 +245,21 @@ Written in Solum, they cost a block call per iteration — about 1.30× a litera
 `whileTrue`, which compiles to jumps. See
 [6.6](COMPLETED.md#66-the-loop-constructs-are-library-code-and-pay-for-it--done).
 
+#### text.sol
+
+One method, wanted by more than one library:
+
+```
+@include "text.sol".
+#233:asUtf8:display.        ; é
+```
+
+`integer:asUtf8` answers the bytes UTF-8 spells a code point with, built on
+[`asCharacter`](#a-byte-and-its-number). It binds **no global** — a method on a
+built-in class needs no name of its own, and the first draft, which bound an
+object called `text`, was shadowed by the first program that had a variable of
+that name.
+
 #### json.sol
 
 The second file on the search path, and a much larger one: a JSON reader and
@@ -297,6 +312,61 @@ Two things it will not do, each for a reason worth knowing:
 [examples/manifest.sol](../examples/manifest.sol) is a program built on it —
 describing a document, pulling a value out by a dotted path, editing it and
 writing it back.
+
+#### html.sol
+
+Reads HTML into a tree of elements. It needs `text.sol`, which it includes
+itself.
+
+```
+@include "html.sol".
+
+page := html:read("<ul><li>one<li>two</ul>").
+page:findAll("li"):size:print.        ; #2
+page:find("li"):text:display.         ; one
+```
+
+| Message | Answers |
+| --- | --- |
+| `html:read(text)` | the document element; **never raises** |
+| `html:complaints` | an array of strings, from the last `read` |
+| `element:name` | the tag name, lowercased |
+| `element:text` | all the text under it, tags removed |
+| `element:attribute(name)` | the value, or **nil** when absent |
+| `element:attributes` | a dictionary, names lowercased |
+| `element:children` | an array of elements **and strings** |
+| `element:parent` | the element above, or nil at the top |
+| `element:find(name)` | the first descendant with that name, or nil |
+| `element:findAll(name)` | every one, in document order |
+| `element:selectNodes(block)` | every descendant the block accepts |
+
+**It does not fail.** Every other parser here stops at the first problem, which
+is right when the input is written by somebody who can fix it. HTML is
+generated, served, and wrong, so this one recovers — implied end tags, stray end
+tags, unclosed elements, unquoted attributes, a bare `<` in text, and a `<`
+inside a `<script>` are all handled — and records what it recovered from:
+
+```
+page := html:read("<b>bold</i>").
+page:text:display.                              ; bold
+html:complaints:do({ c | c:display }).
+; </i> at character 10 closes nothing that is open
+; <b> opened at character 1 is never closed
+```
+
+Text is not wrapped in a node: a child is either an element or a plain string,
+so a walk asks `isKindOf(string)`. An element points back at its `parent`, so
+the tree has cycles in it — which is safe because the collector traces from the
+roots rather than counting references.
+
+**Nesting is not limited.** The reader builds against a stack of open elements
+rather than by recursion, and `text`, `find`, `findAll` and `selectNodes` walk
+with one too, so [the frame limit](ROADMAP.md#35-recursion-is-limited-to-about-62-levels)
+that stops a recursive-descent parser at 28 levels does not apply. Measured at
+50,000 levels, built and walked.
+
+[examples/page.sol](../examples/page.sol) is a program on it — an outline, a
+link list, images without alt text, and the complaints.
 
 **A file is compiled once** per compilation, however many ways it is reached,
 keyed by where it turns out to be on disk so that two spellings of one file are

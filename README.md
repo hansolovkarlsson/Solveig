@@ -109,8 +109,9 @@ file from a build that used a different one is refused rather than misread;
 The language is settled enough to write programs in.
 [examples/log.sol](examples/log.sol) is one written to do a job rather than to
 show a feature — it reads an access log, tallies it, ranks it and reports — and
-[lib/json.sol](lib/json.sol) is a JSON reader and writer in Solum, on the search
-path so a program says `@include "json.sol".` and nothing about where it lives.
+[lib/json.sol](lib/json.sol) and [lib/html.sol](lib/html.sol) are a JSON reader
+and an HTML reader written in Solum, on the search path so a program says
+`@include "html.sol".` and nothing about where it lives.
 
 It is 0.1 rather than 1.0 because [the restrictions in the
 roadmap](docs/ROADMAP.md#3-known-limitations) are real and deliberate: no

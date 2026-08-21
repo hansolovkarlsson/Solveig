@@ -659,6 +659,81 @@ static void test_the_json_library_reads_and_writes(void)
     printf("  the json library reads and writes, escapes included\n");
 }
 
+/* Whether a value is exactly this text. test_convert.c has the same three
+   lines; they are three lines. */
+static bool is_text(SolValue value, const char *expected)
+{
+    if (!SOL_IS_STRING(value)) return false;
+    const SolString *s = SOL_AS_STRING(value);
+    return s->length == (int)strlen(expected) &&
+           memcmp(s->chars, expected, (size_t)s->length) == 0;
+}
+
+/* The HTML library, end to end. The assertion that matters is the last one: the
+   reader is built on a stack rather than on recursion, so the frame limit that
+   stops a recursive-descent parser at 28 levels of nesting (ROADMAP 3.5) does
+   not reach it. A thousand levels here is not a stress test, it is the claim. */
+static void test_the_html_library_reads_and_recovers(void)
+{
+    write_file(DIR "/uses_html.sol",
+        "@include \"html.sol\".\n"
+        /* Implied end tags, an entity, a void element, and a stray end tag --
+           the tree survives all four and the complaint is kept. */
+        "page := html:read(\"<ul><li>one<li>two</ul><p>a &amp; b<br>c</i>\").\n"
+        "items := page:findAll(\"li\"):size.\n"
+        "first := page:find(\"li\"):text.\n"
+        "text := page:text.\n"
+        "complaints := html:complaints:size.\n"
+        "stray := html:complaints:at(#1).\n"
+        /* A `<` that starts no tag is text, and a script's contents are not
+           markup -- the two ways a parser swallows a page. */
+        "raw := html:read(\"<script>if (a < b) { x }</script><p>after\"):text.\n"
+        "bare := html:read(\"5 < 6\"):text.\n"
+        /* Attributes in all three spellings, and a missing one answering nil. */
+        "tag := html:read(\"<a href=x title='y' hidden>z</a>\"):find(\"a\").\n"
+        "href := tag:attribute(\"href\").\n"
+        "hidden := tag:attribute(\"hidden\").\n"
+        "absent := tag:attribute(\"nope\"):isNil.\n"
+        /* Deep, and then walked back down. Both are iterative. */
+        "deep := \"\". i := #0.\n"
+        "{ i:lessThan(#1000) }:whileTrue({ deep := deep:concat(\"<div>\").\n"
+        "    i := i:add(#1) }).\n"
+        "tree := html:read(deep:concat(\"bottom\")).\n"
+        "divs := tree:findAll(\"div\"):size.\n"
+        "bottom := tree:text.\n");
+
+    SolSearchPath search;
+    sol_search_path_init(&search);
+    sol_search_path_add(&search, "lib");
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    assert(compile_with_path(DIR "/uses_html.sol", &search, &chunk));
+    assert(sol_vm_run(&vm, &chunk) == SOL_OK);
+
+    assert(SOL_AS_INT(global(&vm, "items")) == 2);      /* <li>one<li>two */
+    assert(is_text(global(&vm, "first"), "one"));
+    assert(is_text(global(&vm, "text"), "onetwoa & bc"));
+    assert(SOL_AS_INT(global(&vm, "complaints")) == 2); /* stray </i>, unclosed <p> */
+    assert(strstr(SOL_AS_STRING(global(&vm, "stray"))->chars, "closes nothing") != NULL);
+
+    assert(is_text(global(&vm, "raw"), "if (a < b) { x }after"));
+    assert(is_text(global(&vm, "bare"), "5 < 6"));
+
+    assert(is_text(global(&vm, "href"), "x"));
+    assert(is_text(global(&vm, "hidden"), ""));         /* present, no value */
+    assert(SOL_AS_BOOL(global(&vm, "absent")) == true);
+
+    /* The claim: a thousand levels, built and walked, with 62 frames. */
+    assert(SOL_AS_INT(global(&vm, "divs")) == 1000);
+    assert(is_text(global(&vm, "bottom"), "bottom"));
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    sol_search_path_free(&search);
+    printf("  the html library reads, recovers, and nests past the frame limit\n");
+}
+
 /* A library binds names and prints nothing. One that announced itself when you
    included it would be a poor guest, and this is the check that it does not. */
 static void test_the_library_is_silent_when_included(void)
@@ -722,6 +797,7 @@ int main(void)
     test_the_ordinary_repeats_are_silent();
     test_the_shipped_library_works();
     test_the_json_library_reads_and_writes();
+    test_the_html_library_reads_and_recovers();
     test_the_library_is_silent_when_included();
 
     printf("test_include: ok\n");

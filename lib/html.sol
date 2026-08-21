@@ -1,0 +1,518 @@
+; html.sol -- reading HTML into a tree of elements.
+;
+;     @include "html.sol".
+;
+;     page := html:read("<ul><li>one<li>two</ul>").
+;     page:find("li"):text:display.            ; one
+;     page:findAll("li"):size:print.           ; #2
+;
+; Found on the search path, so no program has to say where this lives. See
+; docs/REFERENCE.md#the-library.
+;
+; **This parser does not fail.** Every other parser here reports the first
+; problem and stops -- solas does, evaluator.sol does, json.sol does -- because
+; their input is written by somebody who can fix it. HTML is not like that: it
+; is generated, it is served, and it is wrong. A reader that stops is no use, so
+; this one recovers and keeps a list of what it recovered from:
+;
+;     page := html:read("<b>bold</i>").
+;     html:complaints:do({ c | c:display }).
+;     ; </i> at character 10 closes nothing that is open
+;     ; <b> opened at character 1 is never closed
+;
+; The tree is built against a **stack of open elements** rather than by
+; recursion, which is how HTML has to be parsed anyway -- the nesting is in the
+; input rather than in the grammar. It has a consequence worth knowing: the
+; depth limit that stops json.sol at 28 levels does not apply here at all. See
+; ROADMAP 3.5.
+
+@include "text.sol".
+
+html := object:new.
+
+; ---------------------------------------------------------------------------
+; What a node is
+;
+; An element has a name, its attributes, and its children. A child is either
+; another element or a plain string -- text is not wrapped, because a string is
+; already a value and wrapping it would buy nothing but a message to unwrap it.
+
+html:element := object:new.
+html:element:name := "".
+html:element:attributes := nil.
+html:element:children := nil.
+html:element:parent := nil.
+html:element:at := #0.
+
+html:newElement := { name, at | | e |
+    e := html:element:new.
+    e:name := name.
+    e:attributes := dictionary:new.
+    e:children := array:new.
+    e:at := at.
+    e }.
+
+; A child points back at its parent, so the tree has cycles in it. That is fine
+; here and would not be everywhere: the collector traces from the roots and
+; marks what it reaches, so a cycle is collected like anything else. A reference
+; count could not do this without a second mechanism.
+html:element:add := { child |
+    child:isKindOf(string):ifFalse({ child:parent := self }).
+    self:children:add(child).
+    child }.
+
+; All the text under an element, in order, with the tags taken out.
+;
+; Walked with a stack rather than by recursion, and the reason is measured
+; rather than stylistic: the recursive version of this managed 28 levels of
+; nesting before `call depth exceeded`, on a tree the reader had just built
+; 50,000 levels deep without complaint. Children are pushed in reverse so they
+; come back off in document order.
+html:element:text := { | parts, work, node, i |
+    parts := array:new.
+    work := html:newStack.
+    work:push(self).
+    { work:isEmpty:not }:whileTrue({
+        node := work:pop.
+        node:isKindOf(string):ifElse(
+            { parts:add(node) },
+            { i := node:children:size.
+              { i:greaterOrEqual(#1) }:whileTrue({
+                  work:push(node:children:at(i)).
+                  i := i:sub(#1) }) }) }).
+    parts:join("") }.
+
+html:element:attribute := { name | self:attributes:at(name:asLowercase, nil) }.
+
+; Depth-first, first match wins. `find` answers nil when there is none, which is
+; the answer a caller can test rather than an error it has to catch.
+;
+; The loop stops as soon as there is a match, which is the shape a `break` would
+; have written more plainly -- there is no non-local return (ROADMAP 3.2), so
+; the flag is in the loop's own condition instead.
+html:element:find := { name | | found, work, node, i |
+    found := nil.
+    work := html:newStack.
+    work:push(self).
+    { found:isNil:and({ work:isEmpty:not }) }:whileTrue({
+        node := work:pop.
+        node:isKindOf(string):ifFalse({
+            node:equals(self):not:and({ node:name:equals(name) }):ifElse(
+                { found := node },
+                { i := node:children:size.
+                  { i:greaterOrEqual(#1) }:whileTrue({
+                      work:push(node:children:at(i)).
+                      i := i:sub(#1) }) }) }) }).
+    found }.
+
+; Every descendant the block accepts, in document order. `findAll` is this with
+; the test being a name, and a caller wanting "every heading" or "every element
+; with an id" needs the general form rather than six calls and a sort.
+html:element:selectNodes := { test | | out, work, node, i |
+    out := array:new.
+    work := html:newStack.
+    work:push(self).
+    { work:isEmpty:not }:whileTrue({
+        node := work:pop.
+        node:isKindOf(string):ifFalse({
+            node:equals(self):not:and({ test:value(node) })
+                :ifTrue({ out:add(node) }).
+            i := node:children:size.
+            { i:greaterOrEqual(#1) }:whileTrue({
+                work:push(node:children:at(i)).
+                i := i:sub(#1) }) }) }).
+    out }.
+
+; Every match, in document order, and it descends into a match too -- nested
+; elements of the same name are all wanted, which `<div><div></div></div>` is
+; the ordinary case of.
+html:element:findAll := { name |
+    self:selectNodes({ node | node:name:equals(name) }) }.
+
+; ---------------------------------------------------------------------------
+; The element rules
+;
+; Three tables, and they are the whole of what this knows about HTML as opposed
+; to about angle brackets.
+
+; Void elements have no content and no end tag. An end tag for one is a mistake
+; rather than a close.
+html:void := dictionary:new.
+"area base br col embed hr img input link meta param source track wbr"
+    :split(" "):do({ name | html:void:atPut(name, true) }).
+
+; Raw text elements hold text that is not markup: a `<` inside a script is a
+; less-than sign, and only the matching end tag ends it.
+html:raw := dictionary:new.
+"script style":split(" "):do({ name | html:raw:atPut(name, true) }).
+
+; Opening one of these implies the end of the ones listed. This is why
+; `<li>one<li>two` is two siblings rather than one nested in the other, and it
+; is the part of HTML that surprises people who expect a bracket language.
+html:implied := dictionary:new.
+html:implied:atPut("li", "li").
+html:implied:atPut("dt", "dt dd").
+html:implied:atPut("dd", "dt dd").
+html:implied:atPut("tr", "tr td th").
+html:implied:atPut("td", "td th").
+html:implied:atPut("th", "td th").
+html:implied:atPut("option", "option").
+
+; And every block-level element closes an open paragraph, which is the rule
+; behind `<p>one<p>two` and behind `<p>text<div>` -- a paragraph cannot contain
+; either one.
+"address article aside blockquote details div dl fieldset figure footer form
+ h1 h2 h3 h4 h5 h6 header hr main nav ol p pre section table ul"
+    :split(" "):do({ name |
+        name := name:split("\n"):join("").
+        name:equals(""):ifFalse({
+            html:implied:includes(name):ifFalse({
+                html:implied:atPut(name, "p") }) }) }).
+
+; ---------------------------------------------------------------------------
+; Reading
+;
+; State on the object, like json.sol: one parse at a time, which is what a
+; program does.
+
+html:src := "".
+html:pos := #1.
+html:stack := nil.
+html:complaints := nil.
+
+html:complain := { message |
+    html:complaints:add("{} at character {}":fill([message, self:pos])) }.
+
+html:peek := {
+    self:pos:lessOrEqual(self:src:size)
+        :ifElse({ self:src:at(self:pos) }, { nil }) }.
+
+html:peekAt := { n | | i |
+    i := self:pos:add(n).
+    i:lessOrEqual(self:src:size):ifElse({ self:src:at(i) }, { nil }) }.
+
+html:step := { self:pos := self:pos:add(#1) }.
+
+html:space := " \t\n\r".
+html:isSpace := { c | c:notNil:and({ self:space:indexOf(c):notNil }) }.
+html:skipSpace := { { self:isSpace(self:peek) }:whileTrue({ self:step }) }.
+
+; A name is what runs until something that cannot be in one. Deliberately loose:
+; the job is to get through a real document, not to police it.
+html:nameStop := " \t\n\r/>=".
+html:readName := { | start |
+    start := self:pos.
+    { self:peek:notNil:and({ self:nameStop:indexOf(self:peek):isNil }) }
+        :whileTrue({ self:step }).
+    self:src:copyFrom(start, self:pos:sub(#1)):asLowercase }.
+
+; Whether the text at `pos` is `what`, without moving.
+html:looksLike := { what | | end |
+    end := self:pos:add(what:size:sub(#1)).
+    end:greaterThan(self:src:size):ifElse(
+        { false },
+        { self:src:copyFrom(self:pos, end):asLowercase:equals(what) }) }.
+
+; --- entities --------------------------------------------------------------
+;
+; The five that matter, plus the numeric forms. A `&` that starts nothing is a
+; `&`, which is what every browser does and what a document full of query
+; strings needs.
+
+html:entities := dictionary:new.
+html:entities:atPut("amp", "&").
+html:entities:atPut("lt", "<").
+html:entities:atPut("gt", ">").
+html:entities:atPut("quot", "\"").
+html:entities:atPut("apos", "'").
+html:entities:atPut("nbsp", #160:asUtf8).
+html:entities:atPut("copy", #169:asUtf8).
+html:entities:atPut("mdash", #8212:asUtf8).
+
+html:hexDigits := "0123456789abcdef".
+
+html:readEntity := { | mark, name, digits, code, hex |
+    mark := self:pos.
+    self:step.                                  ; the &
+    self:peek:equals("#"):ifElse(
+        { self:step.
+          hex := self:peek:notNil:and({ "xX":indexOf(self:peek):notNil }).
+          hex:ifTrue({ self:step }).
+          digits := self:readDigits(hex).
+          digits:equals(""):or({ self:peek:equals(";"):not }):ifElse(
+              { self:pos := mark. self:step. "&" },
+              { self:step.
+                code := digits:asInteger(hex:ifElse({ #16 }, { #10 })).
+                { code:asUtf8 }:onError({ e |
+                    self:pos := mark.
+                    self:complain("&#{}; is not a character":fill([digits])).
+                    self:pos := mark:add(digits:size):add(hex:ifElse({ #4 }, { #3 })).
+                    "" }) }) },
+        { name := self:readEntityName.
+          self:entities:includes(name):and({ self:peek:equals(";") }):ifElse(
+              { self:step. self:entities:at(name) },
+              { self:pos := mark. self:step. "&" }) }) }.
+
+html:readDigits := { hex | | start, set |
+    start := self:pos.
+    set := hex:ifElse({ self:hexDigits }, { "0123456789" }).
+    { self:peek:notNil:and({ set:indexOf(self:peek:asLowercase):notNil }) }
+        :whileTrue({ self:step }).
+    self:src:copyFrom(start, self:pos:sub(#1)) }.
+
+html:readEntityName := { | start |
+    start := self:pos.
+    { self:peek:notNil:and({ self:peek:asLowercase:greaterOrEqual("a") })
+        :and({ self:peek:asLowercase:lessOrEqual("z") }) }
+        :whileTrue({ self:step }).
+    self:src:copyFrom(start, self:pos:sub(#1)):asLowercase }.
+
+; Text up to the next tag, with entities resolved. Kept as spans so the common
+; case is a copy rather than a character at a time.
+html:readText := { | out, start |
+    out := "". start := self:pos.
+    { self:peek:notNil:and({ self:peek:equals("<"):not }) }:whileTrue({
+        self:peek:equals("&"):ifElse(
+            { out := out:concat(self:src:copyFrom(start, self:pos:sub(#1)))
+                        :concat(self:readEntity).
+              start := self:pos },
+            { self:step }) }).
+    out:concat(self:src:copyFrom(start, self:pos:sub(#1))) }.
+
+; --- attributes ------------------------------------------------------------
+;
+; Quoted, single-quoted, and bare, because all three are out there. An
+; attribute with no value gets the empty string rather than a boolean: `checked`
+; and `checked=""` mean the same thing in HTML, and answering one type for both
+; saves every caller a test.
+
+html:readAttributeValue := { | quote, start, out |
+    self:skipSpace.
+    quote := self:peek.
+    quote:equals("\""):or({ quote:equals("'") }):ifElse(
+        { self:step.
+          start := self:pos. out := "".
+          { self:peek:notNil:and({ self:peek:equals(quote):not }) }:whileTrue({
+              self:peek:equals("&"):ifElse(
+                  { out := out:concat(self:src:copyFrom(start, self:pos:sub(#1)))
+                              :concat(self:readEntity).
+                    start := self:pos },
+                  { self:step }) }).
+          out := out:concat(self:src:copyFrom(start, self:pos:sub(#1))).
+          self:peek:isNil:ifElse(
+              { self:complain("an attribute value is never closed") },
+              { self:step }).
+          out },
+        { start := self:pos.
+          { self:peek:notNil:and({ self:isSpace(self:peek):not })
+              :and({ self:peek:equals(">"):not }) }:whileTrue({ self:step }).
+          self:src:copyFrom(start, self:pos:sub(#1)) }) }.
+
+html:readAttributes := { element | | name |
+    { self:skipSpace.
+      self:peek:notNil:and({ self:peek:equals(">"):not })
+          :and({ self:peek:equals("/"):not }) }:whileTrue({
+        name := self:readName.
+        name:equals(""):ifElse(
+            { self:step },                      ; nothing readable; do not spin
+            { self:skipSpace.
+              self:peek:equals("="):ifElse(
+                  { self:step.
+                    element:attributes:atPut(name, self:readAttributeValue) },
+                  { element:attributes:atPut(name, "") }) }) }) }.
+
+; --- a stack ---------------------------------------------------------------
+;
+; Two things an array cannot do turned up here, and both are worked around
+; rather than waited for:
+;
+;   1. **An array cannot be popped.** There is `add` and no `removeLast`, so
+;      this keeps its own `top` and overwrites with `at_put` rather than
+;      shrinking. That is O(1), where rebuilding with `copyFrom` would be O(n)
+;      a pop -- so the workaround is arguably the better code, and it is still a
+;      workaround. A stack is what every parser of a nesting format wants.
+;
+;   2. **An array cannot say whether it holds something.** No `includes` and no
+;      `indexOf`, so the sets below are strings searched with the delimiters
+;      kept on, which is the trick every shell script uses and for the same
+;      reason.
+;
+; See [ROADMAP 6.23](../docs/ROADMAP.md#623-an-array-cannot-be-popped-or-asked-what-it-holds).
+;
+; This is used twice: for the elements that are open while reading, and for the
+; walk that `text`, `find` and `findAll` do. Both are the same shape, and both
+; are here because the alternative is recursion.
+
+html:stack := object:new.
+html:stack:items := nil.
+html:stack:top := #0.
+
+html:newStack := { | s |
+    s := html:stack:new. s:items := array:new. s:top := #0. s }.
+
+html:stack:push := { v |
+    self:top := self:top:add(#1).
+    self:top:greaterThan(self:items:size):ifElse(
+        { self:items:add(v) },
+        { self:items:at_put(self:top, v) }).
+    v }.
+
+html:stack:pop := { | v |
+    v := self:items:at(self:top).
+    self:top := self:top:sub(#1).
+    v }.
+
+html:stack:peekTop := { self:items:at(self:top) }.
+html:stack:isEmpty := { self:top:equals(#0) }.
+
+html:open := nil.
+html:push := { e | self:open:push(e) }.
+html:pop := { self:open:pop }.
+html:depth := { self:open:top }.
+html:current := { self:open:peekTop }.
+
+; Whether a space-separated list holds a name, with the delimiters kept on so
+; that "p" does not match "pre".
+html:listHas := { list, name |
+    " ":concat(list):concat(" ")
+        :indexOf(" ":concat(name):concat(" ")):notNil }.
+
+; Is `name` open anywhere? An end tag for something that is not open closes
+; nothing, and saying so is better than closing whatever happens to be current.
+html:isOpen := { name | | found, i |
+    found := false. i := #1.
+    { i:lessOrEqual(self:open:top) }:whileTrue({
+        self:open:items:at(i):name:equals(name):ifTrue({ found := true }).
+        i := i:add(#1) }).
+    found }.
+
+html:closeThrough := { name | | done |
+    done := false.
+    { done:not }:whileTrue({
+        self:current:name:equals(name):ifTrue({ done := true }).
+        self:pop }) }.
+
+; `<li>` when a `<li>` is open ends it. Not a complaint: it is what the format
+; says, and the parser that treats it as an error is the one that is wrong.
+html:applyImplied := { name | | closes |
+    closes := self:implied:at(name, nil).
+    closes:isNil:ifFalse({
+        { self:depth:greaterThan(#1)
+            :and({ self:listHas(closes, self:current:name) }) }
+            :whileTrue({ self:pop }) }) }.
+
+; --- tags ------------------------------------------------------------------
+
+html:readEndTag := { | name |
+    self:pos := self:pos:add(#2).               ; "</"
+    name := self:readName.
+    self:skipToTagEnd.
+    self:void:includes(name):ifTrue({
+        self:complain("</{}> closes a tag that never opens":fill([name])).
+        name := "" }).
+    name:equals(""):ifFalse({
+        self:isOpen(name):ifElse(
+            { self:closeThrough(name) },
+            ; The recovery that matters most, and the one a stopping parser
+            ; cannot make: a stray end tag is dropped and the document carries
+            ; on, because the alternative is losing everything after it.
+            { self:complain("</{}> closes nothing that is open":fill([name])) }) }) }.
+
+html:skipToTagEnd := {
+    { self:peek:notNil:and({ self:peek:equals(">"):not }) }:whileTrue({ self:step }).
+    self:peek:notNil:ifTrue({ self:step }) }.
+
+html:readStartTag := { | name, e, selfClosing, at |
+    at := self:pos.
+    self:step.                                  ; "<"
+    name := self:readName.
+    e := self:newElement(name, at).
+    self:readAttributes(e).
+
+    selfClosing := self:peek:equals("/").
+    selfClosing:ifTrue({ self:step }).
+    self:peek:isNil:ifElse(
+        { self:complain("<{}> is never finished":fill([name])) },
+        { self:step }).
+
+    self:applyImplied(name).
+    self:current:add(e).
+
+    self:void:includes(name):or({ selfClosing }):ifFalse({
+        self:push(e).
+        self:raw:includes(name):ifTrue({ self:readRawText(name) }) }) }.
+
+; Inside a script or a style, `<` is a less-than sign until the matching end
+; tag. Getting this wrong is how a parser swallows a page: one `if (a < b)` and
+; everything after it becomes an element.
+html:readRawText := { name | | start, closing, done |
+    start := self:pos.
+    closing := "</":concat(name).
+    done := false.
+    { done:not }:whileTrue({
+        self:peek:isNil:ifElse(
+            { done := true },
+            { self:looksLike(closing):ifElse(
+                { done := true },
+                { self:step }) }) }).
+    self:pos:greaterThan(start):ifTrue({
+        self:current:add(self:src:copyFrom(start, self:pos:sub(#1))) }).
+    self:peek:isNil:ifFalse({
+        self:pos := self:pos:add(closing:size).
+        self:skipToTagEnd.
+        self:pop }) }.
+
+; `<!-- -->`, `<!DOCTYPE>` and `<?...?>` are skipped rather than kept. A comment
+; that never ends takes the rest of the document with it, which is what a
+; browser does too, so it is worth a complaint.
+html:skipBang := {
+    self:looksLike("<!--"):ifElse(
+        { self:pos := self:pos:add(#4).
+          { self:peek:notNil:and({ self:looksLike("-->"):not }) }
+              :whileTrue({ self:step }).
+          self:peek:isNil:ifElse(
+              { self:complain("a comment is never closed") },
+              { self:pos := self:pos:add(#3) }) },
+        { self:skipToTagEnd }) }.
+
+; --- the loop --------------------------------------------------------------
+
+html:read := { source | | document |
+    self:src := source.
+    self:pos := #1.
+    self:complaints := array:new.
+    self:open := self:newStack.
+
+    document := self:newElement("#document", #1).
+    self:push(document).
+
+    { self:peek:notNil }:whileTrue({
+        self:peek:equals("<"):ifElse(
+            { self:peekAt(#1):equals("!"):or({ self:peekAt(#1):equals("?") })
+                :ifElse(
+                { self:skipBang },
+                { self:peekAt(#1):equals("/"):ifElse(
+                    { self:readEndTag },
+                    ; A `<` that starts no tag is a less-than sign. Without this
+                    ; the parser would stall on it, and stalling is worse than
+                    ; any wrong answer.
+                    { self:isNameStart(self:peekAt(#1)):ifElse(
+                        { self:readStartTag },
+                        { self:current:add("<"). self:step }) }) }) },
+            { | run | run := self:readText.
+              run:equals(""):ifFalse({ self:current:add(run) }) }) }).
+
+    ; Whatever is still open at the end is closed, and named. An unclosed tag is
+    ; the commonest thing wrong with real HTML and the tree is usable anyway --
+    ; which is the whole argument for recovering rather than refusing.
+    { self:depth:greaterThan(#1) }:whileTrue({
+        self:complaints:add("<{}> opened at character {} is never closed"
+            :fill([self:current:name, self:current:at])).
+        self:pop }).
+
+    self:src := "".
+    document }.
+
+html:isNameStart := { c |
+    c:notNil:and({ c:asLowercase:greaterOrEqual("a") })
+        :and({ c:asLowercase:lessOrEqual("z") }) }.
