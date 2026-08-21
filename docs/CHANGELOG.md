@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### An HTML reader, and the frame limit turns out to be about traversal — `pending`, 2026-08-21
+### An HTML reader, and the frame limit turns out to be about traversal — `a4dc0c2`, 2026-08-21
 
 [6.20](COMPLETED.md#620-an-html-parser--done), written to find out what the
 language wanted. [lib/html.sol](../lib/html.sol) reads HTML into a tree;
