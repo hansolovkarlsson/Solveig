@@ -956,7 +956,7 @@ was no `inject` or `fold` either, so *every* reduction over an array was that
 same walk with an accumulator declared outside it. `join` was one instance of a
 gap, not the gap.
 
-Built as `pending`, and both. The entry set them against each other — a fold
+Built as `72df16b`, and both. The entry set them against each other — a fold
 answers the gap once, where `join` is the case that keeps coming up — but that
 was a false choice, and building one showed why. A fold **cannot** express
 `join` well: the separator goes between pieces rather than before each, so

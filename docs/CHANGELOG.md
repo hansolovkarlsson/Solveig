@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### Arrays fold, and strings go back together — `pending`, 2026-08-20
+### Arrays fold, and strings go back together — `72df16b`, 2026-08-20
 
 Roadmap 6.14. `inject` and `join`.
 
