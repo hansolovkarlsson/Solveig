@@ -345,42 +345,29 @@ What this wants is a byte-buffer type. An array of integers would work and would
 cost sixteen bytes a byte. Worth building when a program needs it rather than on
 the chance that one might.
 
-### 6.16 An array cannot be sliced
-
-Smaller, and from the same program. There is no `first(#n)`, no `last(#n)`, and
-no slice, so taking the head of a sorted array is a walk with an index:
-
-```
-firstFew := { list, n | | out, i |
-    out := array:new. i := #1.
-    { i:lessOrEqual(n):and({ i:lessOrEqual(list:size) }) }:whileTrue({
-        out:add(list:at(i)). i := i:add(#1) }).
-    out }.
-```
-
-Every report that ranks anything wants this, and log.sol wants it twice.
-`copyFrom(#a, #b)` on a string is the shape to follow, inclusive at both ends,
-which 2.14 already records as the convention a later slice API should use.
-
 ## Suggested order
 
 **Section 6 is the whole of the live list**, and it came from the right place:
 notes about what a program would want, rather than a plan written before there
 were any programs. The two newest entries came from further along the same road
 — from a program that wanted something and could not have it, and one of them is
-already built. Twelve of its items are built — a program can be split across
+already built. Thirteen of its items are built — a program can be split across
 files, stop with a status, read its input, read and write files, take a string
-apart and put it back together, keep values under keys, and time itself; the
-instruction set has a
+apart and put it back together, keep values under keys, slice an array, and time
+itself; the instruction set has a
 reference the test suite keeps honest, the guide contrasts a group with a block,
 and every concept the guide names now has a runnable example; and the include
 that started it has since been given a syntax that admits what it is (6.13) —
 so in order of what would be missed next:
 
-1. **Slicing an array** (6.16), the other thing log.sol wanted and much smaller
-   than the dictionary was.
-2. **Inlining the loop constructs** (6.6), which has something to measure it
-   with now: `timeToRun(#n)` says 1.30x, so it is real and modest.
+1. **Inlining the loop constructs** (6.6), which has something to measure it
+   with now: `timeToRun(#n)` says 1.30x, so it is real and modest — and
+   `lib/control.sol` now gives a program a reason to lean on the loops in the
+   first place.
+
+Nothing else on this list came from a program wanting it. Both entries that did
+— [6.15](COMPLETED.md#615-there-is-no-dictionary-and-no-way-to-build-one) and
+[6.16](COMPLETED.md#616-an-array-cannot-be-sliced) — are built.
 
 Not ordered: **a single keypress** (6.10) and **a byte type** (6.12) both wait
 for a program that needs them. That was true of the whole list until

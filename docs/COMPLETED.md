@@ -1263,3 +1263,50 @@ churn until tombstones force a rebuild, a dictionary holding itself, and two
 hundred freshly-allocated keys and values surviving a collection. That last one
 fails if the marking is removed, which was confirmed rather than assumed.
 
+
+---
+
+### 6.16 An array cannot be sliced — **done**
+
+The other thing [examples/log.sol](../examples/log.sol) wanted, and it wanted it
+twice. There was no `first(#n)`, no `last(#n)` and no slice, so taking the head
+of a sorted array was a walk with an index that the example carried as a
+`firstFew` helper.
+
+Built as `pending`: `copyFrom(#a, #b)`, `first(#n)`, `last(#n)`. `firstFew` is
+gone from log.sol, which now says `:first(#5)`.
+
+**`copyFrom` is the string's rule, transcribed rather than reinvented.** Both
+ends included, both one-based, the empty slice spelled with `to` one before
+`from` and only that far, `from` allowed one past the end, and anything outside
+that an error — following `at`. Two collections disagreeing about what a slice
+means would be worse than either rule is good, and the string got there first.
+
+**`first` and `last` clamp, and that is a second rule on purpose.** The entry
+did not ask the question; writing it did. `copyFrom` names *positions*, and a
+position outside the array is a program wrong about something. `first` names a
+*quantity* — give me the top five — and a list of three has answered that
+correctly by handing over three. Refusing there would make every ranked report
+check the size first, which is the whole of what these exist to avoid.
+
+One rule would have been tidier and wrong. A negative count is refused by both,
+since clamping is for asking for more than there is rather than for asking for
+nonsense.
+
+All three answer a new array and leave the receiver alone, like `collect`,
+`select` and `sorted`, and they share the elements rather than copying them —
+an array holds references, so a slice of an array of arrays sees the same inner
+arrays. There is a test for that surviving a collection.
+
+#### And a report that was not repeatable
+
+Replacing `firstFew` exposed something else. `log.sol`'s "busiest paths" ranks
+by count, and four paths tie at two apiece for three places — so which three
+appeared depended on the order `dictionary:values` happened to hand them back.
+That order is arbitrary but not random, so the output was stable per build and
+looked fine; it had quietly changed when the tally became a dictionary.
+
+Arbitrary is not good enough for something a person reads twice, so the report
+now breaks ties on the key, and the comparison block says why. The example is
+the same every run, and it demonstrates a two-key sort into the bargain.
+

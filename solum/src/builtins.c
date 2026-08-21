@@ -1271,6 +1271,119 @@ static SolValue prim_array_select(SolVM *vm, SolValue self, SolValue *args, int 
     return SOL_ARRAY_VAL(result);
 }
 
+/* A fresh array holding `count` of `source`'s elements from `at` (zero-based
+   here, one-based at the boundary). Shared by the three slicing messages so
+   they cannot come to disagree about what copying means. */
+static SolValue slice_of(SolVM *vm, const SolArray *source, int at, int count)
+{
+    SolArray *out = sol_array_new(vm, count);
+    sol_gc_push_temp(vm, &out->gc);
+    for (int i = 0; i < count; i++) sol_array_add(vm, out, SOL_NIL_VAL);
+
+    /* The receiver is on the value stack for the duration, so `source` and
+       everything in it stay rooted while the copy is made. Nothing allocates
+       after the array is grown, so the elements need no rooting of their own. */
+    for (int i = 0; i < count; i++) out->items[i] = source->items[at + i];
+
+    sol_gc_pop_temp(vm);
+    return SOL_ARRAY_VAL(out);
+}
+
+/* `copyFrom(#a, #b)` -- both ends included, both one-based, exactly as a
+ * string's is. `#1:copyFrom(#1, #1)` is a one-element array where `at(#1)` is
+ * the element itself, which is the only difference between them.
+ *
+ * Out of range is an **error**, following `at`. The empty slice is spelled with
+ * `to` one before `from` and only that far, and `from` may be one past the end,
+ * which is where the empty tail is. All of that is the string's rule, and
+ * having two collections disagree about what a slice means would be worse than
+ * either rule is good. */
+static SolValue prim_array_copy_from(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "copyFrom", argc, 2)) return SOL_NIL_VAL;
+    if (!SOL_IS_INT(args[0]) || !SOL_IS_INT(args[1])) {
+        sol_vm_runtime_error(vm, "'copyFrom' expects integer bounds, got %s and %s",
+                             sol_type_name(args[0]), sol_type_name(args[1]));
+        return SOL_NIL_VAL;
+    }
+
+    const SolArray *source = SOL_AS_ARRAY(self);
+    int64_t from = SOL_AS_INT(args[0]);
+    int64_t to   = SOL_AS_INT(args[1]);
+
+    if (from < 1 || from > (int64_t)source->count + 1) {
+        sol_vm_runtime_error(vm, "'copyFrom' starts at #%lld, outside an array of size %d",
+                             (long long)from, source->count);
+        return SOL_NIL_VAL;
+    }
+    if (to > (int64_t)source->count) {
+        sol_vm_runtime_error(vm, "'copyFrom' ends at #%lld, past an array of size %d",
+                             (long long)to, source->count);
+        return SOL_NIL_VAL;
+    }
+    if (to < from - 1) {
+        sol_vm_runtime_error(vm,
+            "'copyFrom' ends at #%lld, more than one before its start #%lld",
+            (long long)to, (long long)from);
+        return SOL_NIL_VAL;
+    }
+
+    return slice_of(vm, source, (int)(from - 1), (int)(to - from + 1));
+}
+
+/* `first(#n)` and `last(#n)` -- and these **clamp** where `copyFrom` refuses.
+ *
+ * Deliberately two rules, because they are two questions. `copyFrom` names
+ * positions, and a position outside the array is a program wrong about
+ * something. `first` names a quantity -- give me the top five -- and a list
+ * with only three in it has answered that question correctly by handing over
+ * three. Refusing there would make every ranked report check the size first,
+ * which is the whole of what these exist to avoid.
+ *
+ * A negative count is refused by both, since clamping is for asking for more
+ * than there is, not for asking for nonsense. `#0` is the empty array. */
+static bool slice_count(SolVM *vm, const char *name, SolValue value,
+                        int size, int *out)
+{
+    if (!SOL_IS_INT(value)) {
+        sol_vm_runtime_error(vm, "'%s' expects an integer count, got %s",
+                             name, sol_type_name(value));
+        return false;
+    }
+
+    int64_t wanted = SOL_AS_INT(value);
+    if (wanted < 0) {
+        sol_vm_runtime_error(vm, "'%s' needs a count of #0 or more, got #%lld",
+                             name, (long long)wanted);
+        return false;
+    }
+
+    *out = wanted > (int64_t)size ? size : (int)wanted;
+    return true;
+}
+
+static SolValue prim_array_first(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "first", argc, 1)) return SOL_NIL_VAL;
+
+    const SolArray *source = SOL_AS_ARRAY(self);
+    int count;
+    if (!slice_count(vm, "first", args[0], source->count, &count)) return SOL_NIL_VAL;
+
+    return slice_of(vm, source, 0, count);
+}
+
+static SolValue prim_array_last(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "last", argc, 1)) return SOL_NIL_VAL;
+
+    const SolArray *source = SOL_AS_ARRAY(self);
+    int count;
+    if (!slice_count(vm, "last", args[0], source->count, &count)) return SOL_NIL_VAL;
+
+    return slice_of(vm, source, source->count - count, count);
+}
+
 /* `inject(start, block)` -- the fold. The block is given what has accumulated
  * so far and one element, and answers the next accumulation:
  *
@@ -2707,6 +2820,9 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->array_class, SOL_ARRAY, "collect", prim_array_collect);
     instance(vm, vm->array_class, SOL_ARRAY, "select", prim_array_select);
     instance(vm, vm->array_class, SOL_ARRAY, "inject", prim_array_inject);
+    instance(vm, vm->array_class, SOL_ARRAY, "copyFrom", prim_array_copy_from);
+    instance(vm, vm->array_class, SOL_ARRAY, "first", prim_array_first);
+    instance(vm, vm->array_class, SOL_ARRAY, "last", prim_array_last);
     instance(vm, vm->array_class, SOL_ARRAY, "join", prim_array_join);
     instance(vm, vm->array_class, SOL_ARRAY, "print", prim_print);
     instance(vm, vm->array_class, SOL_ARRAY, "sorted", prim_array_sorted);

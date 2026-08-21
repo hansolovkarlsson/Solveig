@@ -594,6 +594,140 @@ static void test_join(void)
     sol_vm_free(&vm);
 }
 
+/* `copyFrom` is the string's rule, exactly: both ends included, both one-based,
+   and out of range is an error. Two collections disagreeing about what a slice
+   means would be worse than either rule is good. */
+static void test_copy_from(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "a := [#1, #2, #3, #4, #5]."
+        "mid := a:copyFrom(#2, #4). all := a:copyFrom(#1, #5)."
+        "one := a:copyFrom(#3, #3)."
+        "n := mid:size. first := mid:at(#1). last := mid:at(#3)."
+        "whole := all:size. single := one:size."
+        /* the receiver is untouched, as collect and select leave it */
+        "source := a:size."
+        /* and it is a copy: changing one does not change the other */
+        "mid:at_put(#1, #99). unchanged := a:at(#2).") == SOL_OK);
+
+    assert(SOL_AS_INT(global(&vm, "n")) == 3);
+    assert(SOL_AS_INT(global(&vm, "first")) == 2);
+    assert(SOL_AS_INT(global(&vm, "last")) == 4);
+    assert(SOL_AS_INT(global(&vm, "whole")) == 5);
+    assert(SOL_AS_INT(global(&vm, "single")) == 1);
+    assert(SOL_AS_INT(global(&vm, "source")) == 5);
+    assert(SOL_AS_INT(global(&vm, "unchanged")) == 2);
+    sol_chunk_free(&chunk);
+
+    /* An empty slice has one spelling: `to` exactly one before `from`. */
+    assert(run(&vm, &chunk,
+        "a := [#1, #2, #3]."
+        "front := a:copyFrom(#1, #0):size."
+        "back := a:copyFrom(#4, #3):size."
+        "middle := a:copyFrom(#2, #1):size."
+        "nothing := []:copyFrom(#1, #0):size.") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "front")) == 0);
+    assert(SOL_AS_INT(global(&vm, "back")) == 0);
+    assert(SOL_AS_INT(global(&vm, "middle")) == 0);
+    assert(SOL_AS_INT(global(&vm, "nothing")) == 0);
+    sol_chunk_free(&chunk);
+
+    static const char *refused[] = {
+        "[#1, #2, #3]:copyFrom(#0, #2).",     /* before the start */
+        "[#1, #2, #3]:copyFrom(#5, #5).",     /* more than one past the end */
+        "[#1, #2, #3]:copyFrom(#1, #4).",     /* past the end */
+        "[#1, #2, #3]:copyFrom(#3, #1).",     /* wider than empty, backwards */
+        "[#1, #2, #3]:copyFrom(1.0, #2).",
+        "[#1, #2, #3]:copyFrom(#1).",
+    };
+    for (size_t i = 0; i < sizeof(refused) / sizeof(refused[0]); i++) {
+        assert(run(&vm, &chunk, refused[i]) == SOL_RUNTIME_ERROR);
+        sol_chunk_free(&chunk);
+    }
+
+    sol_vm_free(&vm);
+}
+
+/* `first` and `last` **clamp** where `copyFrom` refuses, and that is two rules
+   on purpose: `copyFrom` names positions, where being outside the array is a
+   program wrong about something, and `first` names a quantity -- give me the
+   top five -- which a list of three has answered correctly by handing over
+   three. Refusing there would make every ranked report check the size first. */
+static void test_first_and_last_clamp(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "a := [#1, #2, #3, #4, #5]."
+        "top := a:first(#2). tail := a:last(#2)."
+        "topFirst := top:at(#1). topLast := top:at(#2)."
+        "tailFirst := tail:at(#1). tailLast := tail:at(#2)."
+        /* more than there is answers everything there is */
+        "allFirst := a:first(#99):size. allLast := a:last(#99):size."
+        /* exactly as many is the whole thing too */
+        "exact := a:first(#5):size."
+        "none := a:first(#0):size. noneLast := a:last(#0):size."
+        "empty := []:first(#3):size.") == SOL_OK);
+
+    assert(SOL_AS_INT(global(&vm, "topFirst")) == 1);
+    assert(SOL_AS_INT(global(&vm, "topLast")) == 2);
+    assert(SOL_AS_INT(global(&vm, "tailFirst")) == 4);
+    assert(SOL_AS_INT(global(&vm, "tailLast")) == 5);
+    assert(SOL_AS_INT(global(&vm, "allFirst")) == 5);
+    assert(SOL_AS_INT(global(&vm, "allLast")) == 5);
+    assert(SOL_AS_INT(global(&vm, "exact")) == 5);
+    assert(SOL_AS_INT(global(&vm, "none")) == 0);
+    assert(SOL_AS_INT(global(&vm, "noneLast")) == 0);
+    assert(SOL_AS_INT(global(&vm, "empty")) == 0);
+    sol_chunk_free(&chunk);
+
+    /* Clamping is for asking for more than there is, not for nonsense. */
+    static const char *refused[] = {
+        "[#1, #2]:first(#0:sub(#1)).",
+        "[#1, #2]:last(#0:sub(#1)).",
+        "[#1, #2]:first(1.0).",
+        "[#1, #2]:first.",
+        "[#1, #2]:first(#1, #2).",
+    };
+    for (size_t i = 0; i < sizeof(refused) / sizeof(refused[0]); i++) {
+        assert(run(&vm, &chunk, refused[i]) == SOL_RUNTIME_ERROR);
+        sol_chunk_free(&chunk);
+    }
+
+    sol_vm_free(&vm);
+}
+
+/* A slice is a fresh array of fresh-nothing: the elements are shared, since an
+   array holds references and copying it copies those. So a slice of an array of
+   arrays sees the same inner arrays, and a collection must not lose them. */
+static void test_a_slice_shares_its_elements(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "inner := [#1, #2]."
+        "outer := [inner, [#3], [#4]]."
+        "head := outer:first(#1)."
+        "same := head:at(#1):equals(inner)."
+        /* the slice is a different array from the one it came out of */
+        "distinct := head:equals(outer):not.") == SOL_OK);
+    assert(SOL_AS_BOOL(global(&vm, "same")));
+    assert(SOL_AS_BOOL(global(&vm, "distinct")));
+    sol_chunk_free(&chunk);        /* the next `run` inits over it */
+
+    sol_gc_collect(&vm);
+    assert(run(&vm, &chunk, "still := head:at(#1):at(#2).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "still")) == 2);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+}
+
 int main(void)
 {
     test_collect();
@@ -602,6 +736,9 @@ int main(void)
     test_inject();
     test_inject_survives_collection();
     test_join();
+    test_copy_from();
+    test_first_and_last_clamp();
+    test_a_slice_shares_its_elements();
     test_result_survives_an_allocating_block();
     test_literal_is_the_same_bytecode();
     test_literals();

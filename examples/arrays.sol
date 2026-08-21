@@ -83,6 +83,34 @@ squares:print.               ; [#1, #4, #9, #16, #25]
     :inject(#0, { total, n | total:add(n) })
     :print.                  ; #30
 
+; ---------------------------------------------------------------------------
+; Taking a piece of one
+
+; copyFrom includes both ends and both are one-based, exactly as a string's
+; does -- two collections disagreeing about what a slice means would be worse
+; than either rule is good.
+[#1, #2, #3, #4, #5]:copyFrom(#2, #4):print.     ; [#2, #3, #4]
+[#1, #2, #3, #4, #5]:copyFrom(#3, #2):print.     ; [] -- one before the start
+
+; Out of range is an error, following `at`:
+;   [#1, #2, #3]:copyFrom(#1, #4)
+;   ->  'copyFrom' ends at #4, past an array of size 3
+
+; first and last take a quantity rather than positions, and they *clamp*. Asking
+; a three-element array for its top five is a question it has answered by
+; handing over three -- so a ranked report does not have to check the size.
+[#1, #2, #3, #4, #5]:first(#2):print.            ; [#1, #2]
+[#1, #2, #3, #4, #5]:last(#2):print.             ; [#4, #5]
+[#1, #2, #3]:first(#99):print.                   ; [#1, #2, #3]
+[#1, #2, #3]:last(#0):print.                     ; []
+
+; Clamping is for asking for more than there is, not for nonsense:
+;   [#1, #2]:first(#0:sub(#1))
+;   ->  'first' needs a count of #0 or more, got #-1
+
+; All three answer a new array and leave the receiver alone, like collect,
+; select and sorted.
+
 ; join puts an array of strings together with a separator between them. It is
 ; strict: an array holding anything else is an error, rendering being what
 ; asString and fill are for.

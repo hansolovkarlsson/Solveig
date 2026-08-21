@@ -554,6 +554,19 @@ the inverse of `split`:
 `at(#0)` is out of bounds and therefore caught, which is a small safety win that
 falls out of counting from one.
 
+Taking a piece of one comes in two shapes, and they differ on purpose:
+
+```
+[#1, #2, #3, #4, #5]:copyFrom(#2, #4):print.     ; [#2, #3, #4]
+[#1, #2, #3]:first(#99):print.                   ; [#1, #2, #3]
+```
+
+`copyFrom` names **positions** — both ends included, both one-based, exactly as
+a string's does — and a position outside the array is an error, like `at`.
+`first` and `last` name a **quantity**, and they clamp: asking a three-element
+array for its top five is a question it has answered by handing over three, so a
+ranked report does not have to check the size first.
+
 > **Run:** [examples/arrays.sol](../examples/arrays.sol)
 
 ### Dictionaries

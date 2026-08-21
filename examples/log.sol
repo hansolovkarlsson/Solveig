@@ -124,18 +124,6 @@ entries:do({ e |
 ; `keys` and `values` answer arrays, in the table's order -- which is to say in
 ; no order worth relying on, so anything shown below is sorted first.
 
-; There is no `first(#n)` either, so taking the head of a sorted array is a walk
-; with an index. `whileTrue` written literally compiles to jumps, so this is the
-; cheap way to write it as well as the only one.
-firstFew := { list, n | | out, i |
-    out := array:new.
-    i := #1.
-    { i:lessOrEqual(n):and({ i:lessOrEqual(list:size) }) }:whileTrue({
-        out:add(list:at(i)).
-        i := i:add(#1) }).
-    out
-}.
-
 ; ---------------------------------------------------------------------------
 ; The report
 
@@ -165,23 +153,34 @@ errors := entries:select({ e | e:status:greaterOrEqual(#400) }).
     count,
     errors:size:mul(#100):div(count)]):display.
 
+; Ties are broken on the key, so the report is the same every run. A dictionary
+; hands back its values in the table's order, which is arbitrary but not random
+; -- and "arbitrary" is not good enough for something a person reads twice.
+ranked := { a, b |
+    a:count:equals(b:count):ifElse(
+        { a:key:lessThan(b:key) },
+        { a:count:greaterThan(b:count) })
+}.
+
 "":display.
 "by status":display.
-byStatus:values:sorted({ a, b | a:count:greaterThan(b:count) }):do({ c |
+byStatus:values:sorted(ranked):do({ c |
     "  {} {} requests, {} ms total":fill([
         c:key:asString("<5"), c:count:asString("3"), c:total:asString(",5")]):display
 }).
 
 "":display.
 "busiest paths":display.
-firstFew:value(byPath:values:sorted({ a, b | a:count:greaterThan(b:count) }), #5):do({ c |
+byPath:values:sorted(ranked):first(#5):do({ c |
     "  {} {} requests, {} bytes":fill([
         c:key:asString("<14"), c:count:asString("3"), c:total:asString(",8")]):display
 }).
 
 "":display.
 "slowest requests":display.
-firstFew:value(entries:sorted({ a, b | a:ms:greaterThan(b:ms) }), #3):do({ e |
+entries:sorted({ a, b |
+    a:ms:equals(b:ms):ifElse({ a:path:lessThan(b:path) }, { a:ms:greaterThan(b:ms) })
+}):first(#3):do({ e |
     "  {} ms  {} {}":fill([
         e:ms:asString("5"), e:method:asString("<5"), e:path]):display
 }).

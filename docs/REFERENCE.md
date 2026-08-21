@@ -1246,6 +1246,8 @@ padding comes from the spec by chaining:
 | `collect(block)` | a new array of the block's answers |
 | `select(block)` | a new array of the elements the block accepted |
 | `inject(start, block)` | one value, folded left to right |
+| `copyFrom(#a, #b)` | a new array, `#a` to `#b`, both ends included |
+| `first(#n)` `last(#n)` | a new array of up to `n`; **clamps** |
 | `join(s)` | the strings with `s` between them; strict |
 | `sorted` | a new array in ascending order |
 | `sorted(block)` | a new array ordered by the block |
@@ -1270,6 +1272,37 @@ It completes the four iteration messages: `do` throws its answers away,
 `collect` and `select` each answer an array, and `inject` answers one value.
 Unlike `do` it is an expression, so it can stand in the middle of one rather
 than only at the top of a frame where an accumulator could be declared.
+
+**Slicing.** `copyFrom` is the string's rule exactly: both ends included, both
+one-based, an empty slice spelled with `to` one before `from`, and out of range
+an **error** — following `at`. Two collections disagreeing about what a slice
+means would be worse than either rule is good.
+
+```
+[#1, #2, #3, #4, #5]:copyFrom(#2, #4).   ; [#2, #3, #4]
+[#1, #2, #3, #4, #5]:copyFrom(#3, #2).   ; []
+[#1, #2, #3]:copyFrom(#1, #4).           ; error: ends at #4, past an array of size 3
+```
+
+`first` and `last` **clamp** where `copyFrom` refuses, and that is two rules on
+purpose, because they are two questions. `copyFrom` names *positions*, and a
+position outside the array is a program wrong about something. `first` names a
+*quantity* — give me the top five — which a list of three has answered correctly
+by handing over three. Refusing there would make every ranked report check the
+size first, which is the whole of what these exist to avoid.
+
+```
+[#1, #2, #3]:first(#2).      ; [#1, #2]
+[#1, #2, #3]:last(#2).       ; [#2, #3]
+[#1, #2, #3]:first(#99).     ; [#1, #2, #3]  -- everything there is
+[#1, #2, #3]:first(#0).      ; []
+```
+
+A negative count is refused by both: clamping is for asking for more than there
+is, not for asking for nonsense.
+
+All three answer a new array and share its elements, an array holding references
+— so a slice of an array of arrays sees the same inner arrays.
 
 **Joining.** `join` is `split` backwards, and the round trip holds for every
 string and every separator — which is what `split` keeping its empty pieces buys:

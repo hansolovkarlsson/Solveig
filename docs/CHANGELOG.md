@@ -8,6 +8,38 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### An array can be sliced — `pending`, 2026-08-21
+
+Roadmap 6.16, the other thing [log.sol](../examples/log.sol) wanted — twice.
+
+```
+[#1, #2, #3, #4, #5]:copyFrom(#2, #4).   ; [#2, #3, #4]
+[#1, #2, #3]:first(#2).                  ; [#1, #2]
+[#1, #2, #3]:last(#2).                   ; [#2, #3]
+```
+
+The example's hand-rolled `firstFew` walk is gone; it says `:first(#5)` now.
+
+**`copyFrom` is the string's rule, transcribed rather than reinvented.** Both
+ends included, both one-based, the empty slice spelled with `to` one before
+`from`, and out of range an error — following `at`. Two collections disagreeing
+about what a slice means would be worse than either rule is good.
+
+**`first` and `last` clamp, and that is a second rule on purpose.** `copyFrom`
+names *positions*, and one outside the array is a program wrong about something.
+`first` names a *quantity* — give me the top five — which a list of three has
+answered correctly by handing over three. Refusing there would make every ranked
+report check the size first, which is what these exist to avoid. One rule would
+have been tidier and wrong. A negative count is refused by both: clamping is for
+asking for more than there is, not for nonsense.
+
+**One thing the change exposed.** `log.sol`'s "busiest paths" ranks by count,
+and four paths tie at two apiece for three places — so which three appeared
+depended on the order `dictionary:values` handed them back. Arbitrary but not
+random, so it was stable per build and looked fine, and it had quietly changed
+when the tally became a dictionary. The report breaks ties on the key now, and
+is the same every run.
+
 ### An include search path, and a library to find on it — `1a783b2`, 2026-08-20
 
 Two halves. `@include` gained a search path, and `lib/control.sol` is the first
