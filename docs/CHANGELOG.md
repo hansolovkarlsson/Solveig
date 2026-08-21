@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### ctrl-h lists the recent lines — `pending`, 2026-08-21
+### ctrl-h lists the recent lines — `b97b43a`, 2026-08-21
 
 Asked for after using the prompt: a way to see the last few lines rather than
 pressing ↑ until the right one turns up.
