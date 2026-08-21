@@ -456,6 +456,112 @@ static void test_not_found_anywhere_says_so(void)
     printf("  a file found nowhere says the path was searched too\n");
 }
 
+/* Compiles and answers what went to stderr, which for a warning is the whole of
+   what there is to check: the file still compiles, so the return value says
+   nothing about whether anything was said. */
+static bool compile_capturing_stderr(const char *path, const SolSearchPath *search,
+                                     char *output, size_t size)
+{
+    char temp[] = "/tmp/solum-warn-XXXXXX";
+    int fd = mkstemp(temp);
+    assert(fd >= 0);
+    fflush(stderr);
+    int saved = dup(STDERR_FILENO);
+    assert(dup2(fd, STDERR_FILENO) >= 0);
+
+    SolChunk chunk;
+    bool ok = compile_with_path(path, search, &chunk);
+    sol_chunk_free(&chunk);
+
+    fflush(stderr);
+    assert(dup2(saved, STDERR_FILENO) >= 0);
+    close(saved);
+    assert(lseek(fd, 0, SEEK_SET) == 0);
+    ssize_t got = read(fd, output, size - 1);
+    output[got > 0 ? (size_t)got : 0] = '\0';
+    close(fd);
+    remove(temp);
+    return ok;
+}
+
+/* A file that includes a library of its own name finds itself, and since a file
+   is compiled once the include then does nothing. The program compiles cleanly
+   and fails at run time with an undefined name, a long way from the line that
+   caused it -- so the compiler says so where the line is. It is a warning
+   rather than an error: shadowing is the rule and stays, and the file is still
+   compiled. */
+static void test_a_file_including_itself_warns(void)
+{
+    write_file(LIBDIR "/twin.sol", "fromLibrary := #1.\n");
+    write_file(DIR "/twin.sol", "@include \"twin.sol\".\nlocal := #2.\n");
+
+    SolSearchPath search;
+    sol_search_path_init(&search);
+    sol_search_path_add(&search, LIBDIR);
+
+    char output[1024];
+    bool ok = compile_capturing_stderr(DIR "/twin.sol", &search, output, sizeof output);
+
+    assert(ok);                                       /* still compiles */
+    assert(strstr(output, "warning:") != NULL);
+    assert(strstr(output, "includes itself") != NULL);
+    /* And names what it shadowed, which is the file the reader was expecting. */
+    assert(strstr(output, "twin.sol") != NULL);
+    assert(strstr(output, LIBDIR) != NULL);
+
+    sol_search_path_free(&search);
+    printf("  a file including itself is warned about, and names what it shadowed\n");
+}
+
+/* With nothing of that name on the path there is nothing to name, and the
+   warning still has the useful half. */
+static void test_a_lone_self_include_still_warns(void)
+{
+    write_file(DIR "/only.sol", "@include \"only.sol\".\nx := #1.\n");
+
+    SolSearchPath search;
+    sol_search_path_init(&search);
+
+    char output[1024];
+    bool ok = compile_capturing_stderr(DIR "/only.sol", &search, output, sizeof output);
+
+    assert(ok);
+    assert(strstr(output, "includes itself") != NULL);
+    assert(strstr(output, "search path") == NULL);    /* nothing to point at */
+
+    sol_search_path_free(&search);
+    printf("  a self-include with no library behind it still says so\n");
+}
+
+/* The two shapes that are not mistakes, and must stay silent. A file reached
+   twice by different routes is the ordinary reason include-once exists, and two
+   files including each other is a cycle it ends on purpose. */
+static void test_the_ordinary_repeats_are_silent(void)
+{
+    write_file(LIBDIR "/base.sol", "base := #1.\n");
+    write_file(LIBDIR "/left.sol", "@include \"base.sol\".\n");
+    write_file(LIBDIR "/right.sol", "@include \"base.sol\".\n");
+    write_file(DIR "/diamond.sol",
+        "@include \"left.sol\".\n@include \"right.sol\".\n@include \"base.sol\".\n");
+
+    SolSearchPath search;
+    sol_search_path_init(&search);
+    sol_search_path_add(&search, LIBDIR);
+
+    char output[1024];
+    assert(compile_capturing_stderr(DIR "/diamond.sol", &search, output, sizeof output));
+    assert(output[0] == '\0');
+
+    /* And the cycle. */
+    write_file(DIR "/ping.sol", "@include \"pong.sol\".\nping := #1.\n");
+    write_file(DIR "/pong.sol", "@include \"ping.sol\".\npong := #2.\n");
+    assert(compile_capturing_stderr(DIR "/ping.sol", &search, output, sizeof output));
+    assert(output[0] == '\0');
+
+    sol_search_path_free(&search);
+    printf("  a diamond and a cycle are not mistakes, and say nothing\n");
+}
+
 /* The library that ships with the language. It is a file like any other, and
    this is the same bargain the examples struck: it is compiled by the test
    suite, so it cannot quietly stop being valid Solum. */
@@ -611,6 +717,9 @@ int main(void)
     test_the_first_directory_wins();
     test_an_absolute_name_searches_nothing();
     test_not_found_anywhere_says_so();
+    test_a_file_including_itself_warns();
+    test_a_lone_self_include_still_warns();
+    test_the_ordinary_repeats_are_silent();
     test_the_shipped_library_works();
     test_the_json_library_reads_and_writes();
     test_the_library_is_silent_when_included();

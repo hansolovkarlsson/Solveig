@@ -1266,6 +1266,47 @@ nothing is asking for it. A byte from a string is a number now, which is what
 every use met so far actually wanted. If a program turns up that needs a large
 mutable buffer, that is a new entry with its own case, not this one reopened.
 
+### 6.18 A file that includes a library of its own name silently does nothing — **done**
+
+The search path looks beside the includer first, and a file is compiled once. So
+`@include "json.sol"` written *in* a file called `json.sol` finds itself, has
+already started, and contributes nothing. The program compiled cleanly and failed
+at run time with `undefined name 'json'`, a long way from the line that caused
+it.
+
+**It was documented before it was diagnosed**, and that turned out not to be
+enough: the reference called it *occasionally a trap*, and it still took about a
+minute to fall into once `lib/` had a second file to collide with. The example
+built on the JSON library is called
+[manifest.sol](../examples/manifest.sol) for that reason and no other.
+
+The compiler is holding both halves of the question — it knows the file it is
+compiling and the file the include resolved to — so it says so:
+
+```
+[greet.sol:1:10] solas: warning: this file includes itself, so the include does nothing -- a file beside the includer wins, and 'lib/greet.sol' on the search path is what it shadowed
+  @include "greet.sol".
+           ^^^^^^^^^^^
+```
+
+**A warning and not an error**, which was the decision in it. Shadowing is C's
+rule and worth keeping, the file is still valid, and the status is unchanged —
+so this is a note about something that will not do what it looks like, not a
+refusal. It is the first warning the compiler has; `sol_parser_warning` shares
+the location and the echoed line with `sol_parser_error` and sets neither
+`had_error` nor the panic flag.
+
+**Naming what was shadowed is the useful half.** "This does nothing" tells you
+something is wrong; `'lib/greet.sol' on the search path is what it shadowed`
+tells you what you were expecting to get. When nothing of that name is on the
+path there is nothing to name, and the warning says the first half alone.
+
+**Only the direct case.** Two files that include each other are a cycle that
+include-once ends on purpose, and a file reached twice by different routes is
+the ordinary reason include-once exists. Both are silent, and there are tests
+for both — a warning that fired on either would be worse than the trap it was
+added for.
+
 ### 6.15 There is no dictionary, and no way to build one — **done**
 
 Found by writing [examples/log.sol](../examples/log.sol), the first program here

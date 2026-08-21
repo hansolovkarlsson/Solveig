@@ -46,4 +46,9 @@ bool sol_parser_match(SolParser *parser, SolTokenType type);
 void sol_parser_consume(SolParser *parser, SolTokenType type, const char *message);
 void sol_parser_error(SolParser *parser, const SolToken *token, const char *message);
 
+/* A note rather than a complaint: the file still compiles and the status is
+   unchanged. */
+void sol_parser_warning(SolParser *parser, const SolToken *token,
+                        const char *message);
+
 #endif /* SOLAS_PARSER_H */

@@ -181,7 +181,22 @@ found without saying where they are, and a name you do not have locally comes
 from the library. It carries C's cost too — a local file **shadows** a library
 one of the same name — which is usually what you want and occasionally a trap.
 A file that includes a library file of its own name finds *itself* beside it
-first, and, a file being compiled once, that include quietly does nothing.
+first, and, a file being compiled once, that include does nothing at all.
+
+**That one is warned about**, since it is never what anybody meant and the
+compiler is holding both halves of the question:
+
+```
+[greet.sol:1:10] solas: warning: this file includes itself, so the include does nothing -- a file beside the includer wins, and 'lib/greet.sol' on the search path is what it shadowed
+  @include "greet.sol".
+           ^^^^^^^^^^^
+```
+
+A warning rather than an error: shadowing is the rule and stays, the file still
+compiles, and the status is unchanged. Only the **direct** case is warned about
+— a file reached twice by different routes is the ordinary reason a file is
+compiled once, and two files including each other is a cycle that ends on
+purpose. Neither is a mistake.
 
 An absolute name searches nothing. A file found nowhere says so:
 

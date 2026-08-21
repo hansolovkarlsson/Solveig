@@ -92,6 +92,27 @@ void sol_parser_error(SolParser *parser, const SolToken *token, const char *mess
     show_source(token);
 }
 
+/* Not an error: the file compiles, the status is unchanged, and this is a note
+   about something that will not do what it looks like. It goes to stderr with
+   the same location and the same echoed line, because the reader wants the same
+   two things either way -- where, and what.
+
+   Suppressed while panicking for the reason errors are: the parser is already
+   lost, and a note about a line it is skipping past is noise. */
+void sol_parser_warning(SolParser *parser, const SolToken *token, const char *message)
+{
+    if (parser->panicked) return;
+
+    if (parser->path != NULL) {
+        fprintf(stderr, "[%s:%d:%d] solas: warning: %s\n",
+                parser->path, token->line, token->column, message);
+    } else {
+        fprintf(stderr, "[line %d:%d] solas: warning: %s\n",
+                token->line, token->column, message);
+    }
+    show_source(token);
+}
+
 void sol_parser_advance(SolParser *parser)
 {
     parser->previous = parser->current;

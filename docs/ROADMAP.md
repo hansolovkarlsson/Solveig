@@ -339,23 +339,6 @@ of the runtime that behaves differently by platform.
 Worth doing when a program needs it, and behind its own decision rather than as
 a footnote to line input.
 
-### 6.18 A file that includes a library of its own name silently does nothing
-
-The search path looks beside the includer first, and a file is compiled once, so
-`@include "json.sol"` written *in* a file called `json.sol` finds itself, has
-already started, and quietly contributes nothing. The program compiles cleanly
-and fails at run time with `undefined name 'json'`.
-
-This is documented — [REFERENCE.md](REFERENCE.md#splitting-a-program-across-files)
-calls it occasionally a trap — and it took about a minute to fall into once
-there was a second file in `lib/` to collide with. The example that uses the
-JSON library is called `manifest.sol` for this reason and no other.
-
-The fix is a diagnostic rather than a rule change: shadowing is the behaviour C
-has and the behaviour to keep, but a file including *itself* is never what
-anybody meant, and the compiler knows it is happening. A warning naming the file
-and the library it shadowed would cost one comparison.
-
 ### 6.19 A symbol cannot be ordered
 
 Symbols are values, compare by content, and make good dictionary keys — and
@@ -423,7 +406,7 @@ not an export boundary: all twenty-seven slots are public and writable, and
 `json:digits := "abc"` breaks the parser from outside it.
 
 Nothing has actually tripped over this yet, which is why it is recorded rather
-than being worked on -- unlike [6.18](#618-a-file-that-includes-a-library-of-its-own-name-silently-does-nothing),
+than being worked on -- unlike [6.18](COMPLETED.md#618-a-file-that-includes-a-library-of-its-own-name-silently-does-nothing--done),
 which bit within a minute. It is the third entry now pointing at the same
 absence, so what it is really recording is that **there is no module system**,
 and the shape of what one would buy:
@@ -461,10 +444,12 @@ about, but for `\u0041`, which is text. `asByte` and `asCharacter` are built and
 it is done.
 
 The rest is not ordered. **A single keypress** (6.10) still waits for a program
-that needs it. **6.18** and **6.19** are papercuts a program tripped over, small
-and worth doing when something is already open nearby. **6.21** is the same
-family and nothing has hit it yet; what it really records is the shape of the
-module system the language has not got. **6.20** is the next
+that needs it. **6.19** is a papercut a program tripped over, small and worth
+doing when something is already open nearby.
+[6.18](COMPLETED.md#618-a-file-that-includes-a-library-of-its-own-name-silently-does-nothing--done)
+was the other one and is built. **6.21** is the same family and nothing has hit
+it yet; what it really records is the shape of the module system the language
+has not got. **6.20** is the next
 program to write rather than work on the language, and its value is the findings
 rather than the parser.
 

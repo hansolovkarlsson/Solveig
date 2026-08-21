@@ -35,6 +35,7 @@ marked as a sketch.
 | Document `(group)` versus `{block}` | **Yes** — with your own example |
 | Go-style concurrency | **No, for now** — it changes the whole VM |
 | Subclass `integer`, a `byte` subclass | **Not possible** — see below |
+| More `@` directives: `@define`, `@ifdef`, `@once` | **No** — each one's job is already done by something that is not a directive |
 
 ---
 
@@ -171,6 +172,12 @@ mode, which is platform-specific and belongs behind its own decision.
 **File handling**, whole-file first: read a file into a string, write a string to
 a file. That covers most of what scripts do. Binary files want a byte-array type
 and should wait for a program that needs one.
+
+> That last sentence was half right. A program did turn up wanting a byte's
+> number — `lib/json.sol`, and for text rather than for binary files — and what
+> it needed was not a byte-array type but two messages,
+> [`asByte` and `asCharacter`](REFERENCE.md#a-byte-and-its-number), on the types
+> that already existed. Waiting was correct; the shape guessed at was not.
 
 **A bytecode reference.** design.md has an instruction table that is **missing
 six opcodes** — `OP_JUMP`, `OP_JUMP_IF_FALSE`, `OP_EXIT_IF_FALSE`, `OP_LOOP`,

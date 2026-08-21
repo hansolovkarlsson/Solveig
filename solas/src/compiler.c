@@ -1218,6 +1218,23 @@ static char *resolve_include(Compiler *c, const char *name)
     return relative;
 }
 
+/* The file of this name the search path would have found, had the includer not
+   had one beside it. Only for the warning below: it names what was shadowed, so
+   the reader is told which file they were expecting rather than only that they
+   did not get it. */
+static char *on_search_path(const Compiler *c, const char *name)
+{
+    if (c->search == NULL || name[0] == '/') return NULL;
+
+    for (int i = 0; i < c->search->count; i++) {
+        char *candidate = join_path(c->search->directories[i], name);
+        if (candidate == NULL) continue;
+        if (readable(candidate)) return candidate;
+        free(candidate);
+    }
+    return NULL;
+}
+
 static char *identity_of(const char *path)
 {
     char *real = realpath(path, NULL);
@@ -1297,18 +1314,56 @@ static void include_directive(Compiler *c)
     }
 
     char *path = resolve_include(c, name);
-    free(name);
     if (path == NULL) {
         sol_parser_error(p, &where, "out of memory resolving an include");
+        free(name);
         return;
     }
 
     char *identity = identity_of(path);
     if (identity == NULL) {
         sol_parser_error(p, &where, "out of memory resolving an include");
+        free(name);
         free(path);
         return;
     }
+
+    /* A file that includes a library of its own name finds *itself*: the search
+       looks beside the includer first, and a file is beside itself. Since a
+       file is compiled once, the include then does nothing at all -- the
+       program compiles cleanly and fails at run time with an undefined name,
+       which is a long way from the line that caused it.
+     *
+       Shadowing is C's rule and worth keeping; a file including itself is not
+       what anybody meant, and the compiler is holding both halves of the
+       question. So this is a warning and not an error: the file is still
+       compiled, and the status is unchanged.
+     *
+       Only the direct case. Two files that include each other are a cycle that
+       include-once ends on purpose, and a file reached twice by different
+       routes is the ordinary reason include-once exists. Neither is a mistake. */
+    if (c->path != NULL) {
+        char *self = identity_of(c->path);
+        if (self != NULL && strcmp(self, identity) == 0) {
+            char *shadowed = on_search_path(c, name);
+            char message[512];
+            if (shadowed != NULL) {
+                snprintf(message, sizeof message,
+                         "this file includes itself, so the include does nothing "
+                         "-- a file beside the includer wins, and '%s' on the "
+                         "search path is what it shadowed", shadowed);
+            } else {
+                snprintf(message, sizeof message,
+                         "this file includes itself, so the include does nothing");
+            }
+            sol_parser_warning(p, &where, message);
+            free(shadowed);
+        }
+        free(self);
+    }
+
+    free(name);
+
     if (already_included(c->includes, identity)) {
         free(identity);
         free(path);
