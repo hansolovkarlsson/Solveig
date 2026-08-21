@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### A JSON reader and writer, and the three things it found — `pending`, 2026-08-21
+### A JSON reader and writer, and the three things it found — `40f2004`, 2026-08-21
 
 The roadmap had emptied of anything a program asked for: the two entries left
 both said, in their own text, that they were waiting for a program to need them.
