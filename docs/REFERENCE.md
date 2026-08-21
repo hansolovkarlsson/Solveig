@@ -45,8 +45,20 @@ a:print.
 ./bin/solis program.sob a b c       # runs compiled bytecode, with arguments
 ```
 
+Each takes `--help` (or `-h`), which lists its options and stops:
+
+```sh
+./bin/solas --help
+./bin/solvm --help
+./bin/solis --help
+```
+
+It goes to **stdout** and leaves with 0, since it is what was asked for. The
+same text after a mistake goes to stderr and leaves with 64.
+
 Everything after the file belongs to the program, so a front end's own flags
-have to come first.
+have to come first — including `--help` itself. `solvm program.sob --help` hands
+`--help` to the program, which is what lets a script have one of its own.
 
 `solis` decides what it was given by **looking at the bytes**: a file beginning
 with `SOLB` is bytecode and anything else is source. Not the extension, so a
@@ -84,7 +96,10 @@ letters -- so the directory keeps the modern spelling and the program the older
 one.
 
 `solas --dump` also prints the disassembly. `solvm --dump` prints it for a
-compiled file before running.
+compiled file before running. `solas -o <file>` chooses where the bytecode goes,
+the default being the source name with `.sob` in place of `.sol`; `-I <dir>` on
+`solas` and `solis` adds to the include search path and is described
+[below](#splitting-a-program-across-files).
 
 A `.sob` file is verified before it runs: every instruction must fit, every
 operand must index something that exists, every jump must land on the start of

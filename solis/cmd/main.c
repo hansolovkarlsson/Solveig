@@ -142,13 +142,24 @@ static int run_file(const char *path, const SolSearchPath *search,
     return result == SOL_OK ? 0 : 70;
 }
 
-static void usage(void)
+/* stdout for `--help`, stderr for a mistake. See the note in solas. */
+static void usage(FILE *out)
 {
-    fprintf(stderr,
-        "usage: solis [-I dir]... [file [arguments...]]\n"
-        "  with no file, reads from the prompt\n"
-        "  a file is source, or bytecode if it begins with \"SOLB\"\n"
-        "  -I dir   where an @include falls back to; repeatable\n");
+    fprintf(out,
+        "usage: solis [options] [file [arguments...]]\n"
+        "\n"
+        "With no file, reads from the prompt. A file is Solum source, or bytecode\n"
+        "if it begins with \"SOLB\" -- decided by the bytes rather than the name,\n"
+        "so a script with a #! line and no extension runs as what it is.\n"
+        "\n"
+        "  -I <dir>     where an @include falls back to; repeatable\n"
+        "  --help, -h   show this and stop\n"
+        "\n"
+        "Everything after the file belongs to the program, so a script may take a\n"
+        "-I or a --help of its own. Which is why these options have to come first.\n"
+        "\n"
+        "A file made executable runs directly with a first line of:\n"
+        "    #!/usr/bin/env solis\n");
 }
 
 int main(int argc, char *argv[])
@@ -157,8 +168,14 @@ int main(int argc, char *argv[])
     sol_search_path_init(&search);
 
     int at = 1;
-    while (at < argc && strcmp(argv[at], "-I") == 0) {
-        if (at + 1 >= argc) { usage(); sol_search_path_free(&search); return 64; }
+    while (at < argc) {
+        if (strcmp(argv[at], "--help") == 0 || strcmp(argv[at], "-h") == 0) {
+            usage(stdout);
+            sol_search_path_free(&search);
+            return 0;
+        }
+        if (strcmp(argv[at], "-I") != 0) break;
+        if (at + 1 >= argc) { usage(stderr); sol_search_path_free(&search); return 64; }
         sol_search_path_add(&search, argv[at + 1]);
         at += 2;
     }

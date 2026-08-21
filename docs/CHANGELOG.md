@@ -7,6 +7,40 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### `--help` on all three binaries — `pending`, 2026-08-21
+
+Each of `solas`, `solvm` and `solis` already had a `usage()`; it was reachable
+only by getting the command line wrong. `--help` and `-h` now ask for it.
+
+The distinction worth writing down is **which stream**. Help that was asked for
+goes to **stdout** and leaves with **0**, so it can be piped or paged. The same
+words after a mistake go to **stderr** and leave with **64**. Same text, two
+destinations, and `usage()` takes the `FILE *` to say which.
+
+The help itself names every option rather than listing the shape of the command
+line, since the shape was already there and the options were the part a reader
+had to find in the source.
+
+**A front end's own flags stay in front of the file**, `--help` included:
+
+```
+solvm program.sob --help --dump -h
+#3
+  --help
+  --dump
+  -h
+```
+
+All three reach the program and `solvm` says nothing, which is the rule that was
+already there for `--dump` and is why a script can have a `--help` of its own.
+That is the one behaviour here worth protecting, so it is what the new test
+mostly checks.
+
+`tests/test_cli.c` is the first test that runs the **binaries** rather than
+linking the library — a `main` is not something `libsol.a` holds, and which
+stream text landed on cannot be asked any other way. `make test` now builds the
+binaries first.
+
 ### A byte has a number: `asByte` and `asCharacter` — `49b0ab1`, 2026-08-21
 
 [6.12](COMPLETED.md#612-taking-a-binary-file-apart--done) waited a long time for

@@ -49,7 +49,9 @@ $(BUILD)/tests/%: tests/%.c $(LIB)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(INCLUDES) $^ -o $@
 
-test: $(TEST_BINS)
+# The binaries too: test_cli runs them as a shell would, a `main` not being
+# something the library holds.
+test: $(BINARIES) $(TEST_BINS)
 	@for t in $(TEST_BINS); do echo "-- $$t"; $$t || exit 1; done
 	@echo "all tests passed"
 

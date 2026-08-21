@@ -7,14 +7,27 @@
 #include "solum/bytecode.h"
 #include "solum/serialize.h"
 
-static void usage(void)
+/* Written to `out` rather than always to stderr: `--help` was asked for and
+   belongs on stdout with a status of 0, where a pipe or a pager can have it,
+   while the same text after a mistake belongs on stderr with a status that says
+   so. Same words, two destinations. */
+static void usage(FILE *out)
 {
-    fprintf(stderr,
-        "usage: solas [--dump] [-o out.sob] [-I dir]... <file.sol>\n"
-        "  -I dir   where an @include falls back to when the file is not\n"
-        "           beside the one including it; repeatable, first wins.\n"
-        "           SOLUM_PATH and the library beside this binary are added\n"
-        "           after any given here.\n");
+    fprintf(out,
+        "usage: solas [options] <file.sol>\n"
+        "\n"
+        "Compiles Solum source to a .sob bytecode file.\n"
+        "\n"
+        "  -o <file>    where to write the bytecode; the default is the source\n"
+        "               name with .sob in place of .sol\n"
+        "  -I <dir>     where an @include falls back to when the file is not\n"
+        "               beside the one including it; repeatable, first wins\n"
+        "  --dump       disassemble the chunk as well as writing it\n"
+        "  --help, -h   show this and stop\n"
+        "\n"
+        "An @include is looked for beside the including file first, then in each\n"
+        "-I directory in order, then in SOLUM_PATH (colon-separated), then in the\n"
+        "library beside this binary.\n");
 }
 
 /* "prog.sol" -> "prog.sob"; anything else just gains ".sob". */
@@ -41,23 +54,27 @@ int main(int argc, char *argv[])
     sol_search_path_init(&search);
 
     for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--dump") == 0) {
+        if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+            usage(stdout);
+            sol_search_path_free(&search);
+            return 0;
+        } else if (strcmp(argv[i], "--dump") == 0) {
             dump = true;
         } else if (strcmp(argv[i], "-o") == 0) {
-            if (++i >= argc) { usage(); sol_search_path_free(&search); return 64; }
+            if (++i >= argc) { usage(stderr); sol_search_path_free(&search); return 64; }
             output = argv[i];
         } else if (strcmp(argv[i], "-I") == 0) {
-            if (++i >= argc) { usage(); sol_search_path_free(&search); return 64; }
+            if (++i >= argc) { usage(stderr); sol_search_path_free(&search); return 64; }
             sol_search_path_add(&search, argv[i]);
         } else if (path == NULL) {
             path = argv[i];
         } else {
-            usage();
+            usage(stderr);
             sol_search_path_free(&search);
             return 64;
         }
     }
-    if (path == NULL) { usage(); sol_search_path_free(&search); return 64; }
+    if (path == NULL) { usage(stderr); sol_search_path_free(&search); return 64; }
 
     /* After the -I arguments, so an explicit one wins over the shipped
        library. */

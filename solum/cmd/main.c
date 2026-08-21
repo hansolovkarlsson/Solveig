@@ -9,9 +9,21 @@
 #include "solum/serialize.h"
 #include "solum/vm.h"
 
-static void usage(void)
+/* stdout for `--help`, stderr for a mistake. See the note in solas. */
+static void usage(FILE *out)
 {
-    fprintf(stderr, "usage: solvm [--dump] <file.sob> [arguments...]\n");
+    fprintf(out,
+        "usage: solvm [options] <file.sob> [arguments...]\n"
+        "\n"
+        "Loads a compiled chunk and runs it.\n"
+        "\n"
+        "  --dump       disassemble the chunk before running it\n"
+        "  --help, -h   show this and stop\n"
+        "\n"
+        "Everything after the .sob belongs to the program and is what\n"
+        "system:arguments answers, so a program may take a --dump or a --help of\n"
+        "its own without this one intercepting it. Which is why these options\n"
+        "have to come first.\n");
 }
 
 int main(int argc, char *argv[])
@@ -23,12 +35,17 @@ int main(int argc, char *argv[])
        a `--dump` of its own without this one intercepting it. Which is why the
        flags have to come first. */
     int at = 1;
-    while (at < argc && strcmp(argv[at], "--dump") == 0) {
+    while (at < argc) {
+        if (strcmp(argv[at], "--help") == 0 || strcmp(argv[at], "-h") == 0) {
+            usage(stdout);
+            return 0;
+        }
+        if (strcmp(argv[at], "--dump") != 0) break;
         dump = true;
         at++;
     }
     if (at >= argc) {
-        usage();
+        usage(stderr);
         return 64;
     }
     const char *path = argv[at++];
