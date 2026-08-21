@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### An error can be caught — `pending`, 2026-08-21
+### An error can be caught — `29f358f`, 2026-08-21
 
 ```
 { nil:frobnicate }:onError({ e | e:message:display }).
