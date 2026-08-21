@@ -262,10 +262,32 @@ So building them in buys inlining rather than expressiveness:
 Worth doing when a program is actually spending time in one of them. `doUntil`
 has the best case, being the only one that is awkward to write by hand.
 
-There is now a way to find out rather than guess:
-[6.5](COMPLETED.md#65-measuring-from-inside-the-language) built `timeToRun(#n)`,
-so the Solum-written version and the inlined `whileTrue` can be measured against
-each other before anything is built.
+**Measured, now that [6.5](COMPLETED.md#65-measuring-from-inside-the-language)
+makes it possible.** 200,000 iterations of a one-send body, the Solum `repeat`
+from [ideas.md](ideas.md) against the same loop written as a literal
+`whileTrue`, after a warm-up pass:
+
+```
+inlined  0.0397 s
+repeat   0.0518 s
+ratio    1.30x        -- about 60 nanoseconds an iteration
+```
+
+Stable across runs, and it barely moves with a bigger body: a three-send body
+gives 1.23x. So the block call is a roughly fixed 60 ns, and what building these
+in would buy is **20 to 30 per cent, on loops, and nothing else.**
+
+That is a real gain and a modest one, and it does not meet this entry's own
+trigger. Two things argue for continuing to wait. Nothing written so far spends
+meaningful time in a `repeat`. And the fast path already exists and is already
+the idiomatic one — `whileTrue` written literally compiles to jumps, so anyone
+who wants that 30 per cent can have it today by writing the loop the way the
+guide teaches. `repeat` and `doUntil` are not even built in; they are snippets.
+Building them in to make them fast would be optimising something nobody has
+written yet.
+
+Revisit when a real program has a hot `repeat`. The measurement above is
+repeatable in a few lines, so the case can be re-made rather than re-argued.
 
 ### 6.10 Waiting for a single key
 
