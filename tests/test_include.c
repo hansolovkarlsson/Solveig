@@ -296,6 +296,244 @@ static void test_an_include_needs_a_file_name(void)
     printf("  an include with no file name is refused\n");
 }
 
+/* ---- the search path ---------------------------------------------------- *
+ *
+ * An include is found beside the file including it, and failing that on the
+ * search path. That is C's rule for a quoted include, and it is what lets a
+ * shipped library be reached without every program saying where it lives.
+ */
+#define LIBDIR DIR "/elsewhere"
+
+static bool compile_with_path(const char *path, const SolSearchPath *search,
+                              SolChunk *chunk)
+{
+    char *source = sol_read_file(path);
+    assert(source != NULL);
+
+    sol_chunk_init(chunk);
+    bool ok = sol_compile_file(source, path, search, chunk);
+    free(source);
+    return ok;
+}
+
+static void test_the_search_path_finds_what_is_not_beside_you(void)
+{
+    mkdir(LIBDIR, 0777);
+    write_file(LIBDIR "/faraway.sol", "faraway := #77.\n");
+    write_file(DIR "/needs_faraway.sol", "@include \"faraway.sol\". seen := faraway.\n");
+
+    /* Without it, the file is simply not there. */
+    SolChunk chunk;
+    assert(compile_with_path(DIR "/needs_faraway.sol", NULL, &chunk) == false);
+    sol_chunk_free(&chunk);
+
+    SolSearchPath search;
+    sol_search_path_init(&search);
+    sol_search_path_add(&search, LIBDIR);
+
+    SolVM vm; sol_vm_init(&vm);
+    assert(compile_with_path(DIR "/needs_faraway.sol", &search, &chunk));
+    assert(sol_vm_run(&vm, &chunk) == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "seen")) == 77);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    sol_search_path_free(&search);
+    printf("  the search path finds a file that is not beside the includer\n");
+}
+
+/* Beside first, path second -- so your own file wins over a library one of the
+   same name, which is the whole point of the order. */
+static void test_beside_beats_the_search_path(void)
+{
+    mkdir(LIBDIR, 0777);
+    write_file(LIBDIR "/both.sol", "which := \"library\".\n");
+    write_file(DIR "/both.sol", "which := \"beside\".\n");
+    write_file(DIR "/needs_both.sol", "@include \"both.sol\".\n");
+
+    SolSearchPath search;
+    sol_search_path_init(&search);
+    sol_search_path_add(&search, LIBDIR);
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    assert(compile_with_path(DIR "/needs_both.sol", &search, &chunk));
+    assert(sol_vm_run(&vm, &chunk) == SOL_OK);
+
+    SolValue which = global(&vm, "which");
+    assert(SOL_IS_STRING(which));
+    assert(strcmp(SOL_AS_STRING(which)->chars, "beside") == 0);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    sol_search_path_free(&search);
+    printf("  a file beside the includer wins over one on the path\n");
+}
+
+/* The first directory holding it wins, so an earlier -I shadows a later one. */
+static void test_the_first_directory_wins(void)
+{
+    mkdir(LIBDIR, 0777);
+    mkdir(DIR "/first", 0777);
+    write_file(DIR "/first/ranked.sol", "rank := \"first\".\n");
+    write_file(LIBDIR "/ranked.sol", "rank := \"second\".\n");
+    write_file(DIR "/needs_ranked.sol", "@include \"ranked.sol\".\n");
+
+    SolSearchPath search;
+    sol_search_path_init(&search);
+    sol_search_path_add(&search, DIR "/first");
+    sol_search_path_add(&search, LIBDIR);
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    assert(compile_with_path(DIR "/needs_ranked.sol", &search, &chunk));
+    assert(sol_vm_run(&vm, &chunk) == SOL_OK);
+    assert(strcmp(SOL_AS_STRING(global(&vm, "rank"))->chars, "first") == 0);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    sol_search_path_free(&search);
+    printf("  the first directory on the path wins\n");
+}
+
+/* An absolute name is taken as it stands, so the path is not consulted and a
+   library file of the same name cannot be picked up by accident. */
+static void test_an_absolute_name_searches_nothing(void)
+{
+    mkdir(LIBDIR, 0777);
+    write_file(LIBDIR "/absolute.sol", "reached := #1.\n");
+    write_file(DIR "/needs_absolute.sol", "@include \"/no/such/absolute.sol\".\n");
+
+    SolSearchPath search;
+    sol_search_path_init(&search);
+    sol_search_path_add(&search, LIBDIR);
+
+    SolChunk chunk;
+    assert(compile_with_path(DIR "/needs_absolute.sol", &search, &chunk) == false);
+
+    sol_chunk_free(&chunk);
+    sol_search_path_free(&search);
+    printf("  an absolute name does not consult the path\n");
+}
+
+/* And the error says the path was looked at, so a missing library file does not
+   read as a missing local one. */
+static void test_not_found_anywhere_says_so(void)
+{
+    mkdir(LIBDIR, 0777);
+    write_file(DIR "/needs_nothing.sol", "@include \"nowhere-at-all.sol\".\n");
+
+    SolSearchPath search;
+    sol_search_path_init(&search);
+    sol_search_path_add(&search, LIBDIR);
+
+    char output[1024];
+    /* compile_error_of uses the pathless entry point, so this repeats its
+       plumbing rather than reaching for it. */
+    char temp[] = "/tmp/solum-search-err-XXXXXX";
+    int fd = mkstemp(temp);
+    assert(fd >= 0);
+    fflush(stderr);
+    int saved = dup(STDERR_FILENO);
+    assert(dup2(fd, STDERR_FILENO) >= 0);
+
+    SolChunk chunk;
+    bool ok = compile_with_path(DIR "/needs_nothing.sol", &search, &chunk);
+    sol_chunk_free(&chunk);
+
+    fflush(stderr);
+    assert(dup2(saved, STDERR_FILENO) >= 0);
+    close(saved);
+    assert(lseek(fd, 0, SEEK_SET) == 0);
+    ssize_t got = read(fd, output, sizeof output - 1);
+    output[got > 0 ? (size_t)got : 0] = '\0';
+    close(fd);
+    remove(temp);
+
+    assert(!ok);
+    assert(strstr(output, "not on the search path") != NULL);
+    sol_search_path_free(&search);
+    printf("  a file found nowhere says the path was searched too\n");
+}
+
+/* The library that ships with the language. It is a file like any other, and
+   this is the same bargain the examples struck: it is compiled by the test
+   suite, so it cannot quietly stop being valid Solum. */
+static void test_the_shipped_library_works(void)
+{
+    write_file(DIR "/uses_library.sol",
+        "@include \"control.sol\".\n"
+        "ticks := #0. #3:repeat({ ticks := ticks:add(#1) }).\n"
+        "tocks := #0. { tocks := tocks:add(#1) }:repeat(#2).\n"
+        "once := #0. { once := once:add(#1) }:doUntil({ true }).\n"
+        "counted := array:new. #1:toDo(#3, { n | counted:add(n) }).\n"
+        "stepped := array:new. #1:toByDo(#10, #3, { n | stepped:add(n) }).\n"
+        "down := array:new. #3:toByDo(#1, #0:sub(#1), { n | down:add(n) }).\n"
+        "squares := #4:timesCollect({ n | n:mul(n) }).\n"
+        "empty := #5:toDo(#1, { n | n }).\n");
+
+    SolSearchPath search;
+    sol_search_path_init(&search);
+    sol_search_path_add(&search, "lib");        /* tests run from the repo root */
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    assert(compile_with_path(DIR "/uses_library.sol", &search, &chunk));
+    assert(sol_vm_run(&vm, &chunk) == SOL_OK);
+
+    assert(SOL_AS_INT(global(&vm, "ticks")) == 3);
+    assert(SOL_AS_INT(global(&vm, "tocks")) == 2);
+    assert(SOL_AS_INT(global(&vm, "once")) == 1);   /* the body runs before the test */
+    assert(SOL_AS_ARRAY(global(&vm, "counted"))->count == 3);
+    assert(SOL_AS_ARRAY(global(&vm, "stepped"))->count == 4);   /* 1 4 7 10 */
+    assert(SOL_AS_ARRAY(global(&vm, "down"))->count == 3);
+    assert(SOL_AS_ARRAY(global(&vm, "squares"))->count == 4);
+    assert(SOL_AS_INT(SOL_AS_ARRAY(global(&vm, "squares"))->items[3]) == 16);
+    assert(SOL_IS_NIL(global(&vm, "empty")));       /* toDo answers nil */
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    sol_search_path_free(&search);
+    printf("  the shipped library compiles and its loops work\n");
+}
+
+/* A library binds names and prints nothing. One that announced itself when you
+   included it would be a poor guest, and this is the check that it does not. */
+static void test_the_library_is_silent_when_included(void)
+{
+    write_file(DIR "/just_include.sol", "@include \"control.sol\".\n");
+
+    SolSearchPath search;
+    sol_search_path_init(&search);
+    sol_search_path_add(&search, "lib");
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    assert(compile_with_path(DIR "/just_include.sol", &search, &chunk));
+
+    char temp[] = "/tmp/solum-library-out-XXXXXX";
+    int fd = mkstemp(temp);
+    assert(fd >= 0);
+    fflush(stdout);
+    int saved = dup(STDOUT_FILENO);
+    assert(dup2(fd, STDOUT_FILENO) >= 0);
+
+    SolResult result = sol_vm_run(&vm, &chunk);
+
+    fflush(stdout);
+    assert(dup2(saved, STDOUT_FILENO) >= 0);
+    close(saved);
+    assert(lseek(fd, 0, SEEK_END) == 0);        /* it wrote nothing at all */
+    close(fd);
+    remove(temp);
+
+    assert(result == SOL_OK);
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    sol_search_path_free(&search);
+    printf("  including the library prints nothing\n");
+}
+
 int main(void)
 {
     make_directories();
@@ -312,6 +550,13 @@ int main(void)
     test_an_unknown_directive_is_refused();
     test_an_at_sign_needs_a_name();
     test_an_include_needs_a_file_name();
+    test_the_search_path_finds_what_is_not_beside_you();
+    test_beside_beats_the_search_path();
+    test_the_first_directory_wins();
+    test_an_absolute_name_searches_nothing();
+    test_not_found_anywhere_says_so();
+    test_the_shipped_library_works();
+    test_the_library_is_silent_when_included();
 
     printf("test_include: ok\n");
     return 0;

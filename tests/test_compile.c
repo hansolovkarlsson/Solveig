@@ -151,11 +151,19 @@ static void test_the_old_form_would_not_have_verified(void)
 /* `path` is the file the source came from, or NULL for a snippet written here.
    An example that includes another file needs it: an include resolves against
    the file it is written in. */
+/* `lib` is on the search path, because an example that uses the shipped library
+   writes `@include "control.sol"` the way a program would rather than reaching
+   for it by a relative path nobody else would type. Tests run from the repo
+   root, which is where `lib` is. */
 static void must_verify(const char *what, const char *source, const char *path)
 {
+    SolSearchPath search;
+    sol_search_path_init(&search);
+    sol_search_path_add(&search, "lib");
+
     SolChunk chunk;
     sol_chunk_init(&chunk);
-    if (!sol_compile_source(source, path, &chunk)) {
+    if (!sol_compile_file(source, path, &search, &chunk)) {
         printf("  did not compile: %s\n", what);
         assert(false);
     }
@@ -166,6 +174,7 @@ static void must_verify(const char *what, const char *source, const char *path)
         assert(false);
     }
     sol_chunk_free(&chunk);
+    sol_search_path_free(&search);
 }
 
 /* Every shipped example, read from disk. They are the largest programs the
@@ -178,7 +187,7 @@ static const char *examples[] = {
     "examples/library.sol", "examples/include.sol", "examples/system.sol",
     "examples/reading.sol", "examples/files.sol",   "examples/binding.sol",
     "examples/strictness.sol", "examples/log.sol",
-    "examples/dictionaries.sol",
+    "examples/dictionaries.sol", "examples/loops.sol",
 };
 #define EXAMPLE_COUNT (sizeof(examples) / sizeof(examples[0]))
 

@@ -41,7 +41,23 @@ marked as a sketch.
 ## Already there, or already writable
 
 The language has no control-flow syntax, so **most of the loop and branch ideas
-are library code, not language changes.** All of these run today:
+are library code, not language changes.** All of these run today — and the loops
+among them have since been collected into
+[lib/control.sol](../lib/control.sol), which ships on the search path, so a
+program has them with one line:
+
+```
+@include "control.sol".
+```
+
+`repeat`, `doUntil`, `toDo`, `toByDo` and `timesCollect` are there. `caseOf`
+below is deliberately not: it is a fine demonstration that the language needs no
+`switch`, and an array of two-element arrays of blocks reached into with
+`pair:at(#1)` is not an interface worth committing to. A library is a promise,
+and the bar is higher than "it works".
+
+The snippets here also end in demonstration calls, which a library file must
+not: including one should bind names and print nothing.
 
 ```
 integer:repeat := { body | | i | i := #0.

@@ -8,6 +8,64 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### An include search path, and a library to find on it — `pending`, 2026-08-20
+
+Two halves. `@include` gained a search path, and `lib/control.sol` is the first
+thing that ships on it:
+
+```
+@include "control.sol".
+
+#3:repeat({ "tick":display }).
+{ lines := lines:add(#1) }:doUntil({ lines:greaterOrEqual(#3) }).
+#1:toByDo(#10, #3, { n | n:display }).       ; 1 4 7 10
+#4:timesCollect({ n | n:mul(n) }):print.     ; [#1, #4, #9, #16]
+```
+
+**The library was the easy half.** Its contents have been sitting in
+[ideas.md](ideas.md) working for months. What stopped them being a library was
+that `@include` resolved only against the file including it, so a shipped file
+could be reached only by an absolute path baked into every program or by copying
+it next to each one. Neither is a standard library.
+
+**So: `-I dir` on `solas` and `solis`, then `SOLUM_PATH`, then the library
+shipped beside the binary** — `bin/solas` looks in `bin/../lib`. A name not
+found beside the includer is looked for in each, in order, and the first that
+has it wins.
+
+That is C's rule for a quoted include, and for C's reason: your own files are
+found without ceremony, and a name you do not have locally comes from the
+library. It carries C's cost too — a local file shadows a library one of the
+same name — which showed up immediately. The first draft of the example was
+`examples/control.sol`, which included `"control.sol"`, found **itself** beside
+it, and, a file being compiled once, quietly did nothing. It is
+`examples/loops.sol` now, and the trap is written down in both the guide and the
+reference.
+
+**What went in, and what did not.** `repeat`, `doUntil`, `toDo`, `toByDo`,
+`timesCollect`. Not `caseOf`, which is also in ideas.md and also works: it is a
+fine demonstration that the language needs no `switch`, and an array of
+two-element arrays of blocks reached into with `pair:at(#1)` is not an interface
+worth committing to. A library is a promise and the bar is higher than "it
+works".
+
+None of it is language. These are methods bound on `integer` and `block` by an
+ordinary Solum file, which is possible only because control flow here is message
+sending. `doUntil` earns its place by being the shape `whileTrue` cannot express
+— the body before the test — so the flag that needs declaring outside the loop
+is written once, in the library, rather than in every program.
+
+Eight new tests: the path finding a file, beside-first beating it, the first
+directory winning, an absolute name searching nothing, the not-found message
+saying the path was tried, the library compiling and its loops working, and —
+because a library that announced itself when you included it would be a poor
+guest — that including it writes nothing at all.
+
+This also changes what **roadmap 6.6** is waiting for. Nobody wrote `repeat`
+before because writing it out per program was not worth it; it is one
+`@include` away now, so if the 30 per cent it costs ever matters, it will be
+because a program leaned on the library and noticed.
+
 ### A dictionary — `7e0726d`, 2026-08-20
 
 Roadmap 6.15, wanted by [examples/log.sol](../examples/log.sol) and now used by

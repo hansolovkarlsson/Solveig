@@ -78,6 +78,7 @@ a different language.
 | `docs/`   | [GUIDE.md](docs/GUIDE.md), [TUTORIAL.md](docs/TUTORIAL.md), [REFERENCE.md](docs/REFERENCE.md), [design.md](docs/design.md), [BYTECODE.md](docs/BYTECODE.md), [ROADMAP.md](docs/ROADMAP.md), [COMPLETED.md](docs/COMPLETED.md), [CHANGELOG.md](docs/CHANGELOG.md) |
 | `tests/`  | Test suite                                                        |
 | `examples/` | Sample `.sol` programs                                          |
+| `lib/`    | The library that ships with the language, found on the search path |
 
 Each component keeps its public headers in `<component>/include/<component>/`
 and its implementation in `<component>/src/`. `solum/include/solum/bytecode.h`

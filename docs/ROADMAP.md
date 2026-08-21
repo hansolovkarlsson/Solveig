@@ -287,6 +287,12 @@ So building them in buys inlining rather than expressiveness:
 Worth doing when a program is actually spending time in one of them. `doUntil`
 has the best case, being the only one that is awkward to write by hand.
 
+**They are now in [lib/control.sol](../lib/control.sol)**, which changes what
+this entry is waiting for. Before, nobody wrote `repeat` because writing it out
+in every program was not worth it; now it is one `@include` away, so if the
+30 per cent ever matters it will be because a program leaned on the library and
+noticed. That is the demand this entry has always lacked.
+
 **Measured, now that [6.5](COMPLETED.md#65-measuring-from-inside-the-language)
 makes it possible.** 200,000 iterations of a one-send body, the Solum `repeat`
 from [ideas.md](ideas.md) against the same loop written as a literal

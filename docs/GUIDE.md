@@ -730,6 +730,42 @@ temperature:cToF := { c | c:mul(1.8):add(32.0) }.
 [REFERENCE.md](REFERENCE.md#splitting-a-program-across-files) has the rules
 exactly.
 
+### The library that ships with it
+
+A name not found beside the file including it is looked for on a **search
+path** — `-I` arguments, then `SOLUM_PATH`, then the library that ships beside
+the binary. So a program asks for what it wants without saying where that
+lives:
+
+```
+@include "control.sol".
+
+#3:repeat({ "tick":display }).
+#1:toByDo(#10, #3, { n | n:display }).       ; 1 4 7 10
+#4:timesCollect({ n | n:mul(n) }):print.     ; [#1, #4, #9, #16]
+```
+
+`lib/control.sol` gives you `repeat`, `doUntil`, `toDo`, `toByDo` and
+`timesCollect`. **None of it is language.** They are methods bound on `integer`
+and `block` by an ordinary Solum file — which is possible at all because control
+flow here is message sending, so a loop is something a library can add. That is
+why §8 could say the language has no loop syntax and mean it.
+
+`doUntil` is the one that earns its keep, being the shape `whileTrue` cannot
+express: the body runs *before* the test, so it always runs at least once.
+
+```
+lines := #0.
+{ lines := lines:add(#1) }:doUntil({ lines:greaterOrEqual(#3) }).
+```
+
+Beside-first means a local file of the same name **shadows** the library one,
+which is usually what you want. It also means a file that includes a library
+file of its own name finds itself, and — a file being compiled once — that
+include quietly does nothing.
+
+> **Run:** [examples/loops.sol](../examples/loops.sol)
+
 ## 18. The program and its process
 
 Everything so far has been about values. `system` is the one global that is not

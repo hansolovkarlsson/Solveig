@@ -9,7 +9,12 @@
 
 static void usage(void)
 {
-    fprintf(stderr, "usage: solas [--dump] [-o out.sob] <file.sol>\n");
+    fprintf(stderr,
+        "usage: solas [--dump] [-o out.sob] [-I dir]... <file.sol>\n"
+        "  -I dir   where an @include falls back to when the file is not\n"
+        "           beside the one including it; repeatable, first wins.\n"
+        "           SOLUM_PATH and the library beside this binary are added\n"
+        "           after any given here.\n");
 }
 
 /* "prog.sol" -> "prog.sob"; anything else just gains ".sob". */
@@ -32,24 +37,36 @@ int main(int argc, char *argv[])
     const char *path = NULL;
     const char *output = NULL;
 
+    SolSearchPath search;
+    sol_search_path_init(&search);
+
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--dump") == 0) {
             dump = true;
         } else if (strcmp(argv[i], "-o") == 0) {
-            if (++i >= argc) { usage(); return 64; }
+            if (++i >= argc) { usage(); sol_search_path_free(&search); return 64; }
             output = argv[i];
+        } else if (strcmp(argv[i], "-I") == 0) {
+            if (++i >= argc) { usage(); sol_search_path_free(&search); return 64; }
+            sol_search_path_add(&search, argv[i]);
         } else if (path == NULL) {
             path = argv[i];
         } else {
             usage();
+            sol_search_path_free(&search);
             return 64;
         }
     }
-    if (path == NULL) { usage(); return 64; }
+    if (path == NULL) { usage(); sol_search_path_free(&search); return 64; }
+
+    /* After the -I arguments, so an explicit one wins over the shipped
+       library. */
+    sol_search_path_add_defaults(&search, argv[0]);
 
     char *source = sol_read_file(path);
     if (source == NULL) {
         fprintf(stderr, "solas: could not read '%s'\n", path);
+        sol_search_path_free(&search);
         return 74;
     }
 
@@ -57,7 +74,7 @@ int main(int argc, char *argv[])
     sol_chunk_init(&chunk);
 
     int status = 0;
-    if (sol_compile_source(source, path, &chunk)) {
+    if (sol_compile_file(source, path, &search, &chunk)) {
         if (dump) sol_chunk_disassemble(&chunk, path);
 
         char *owned = NULL;
@@ -85,5 +102,6 @@ int main(int argc, char *argv[])
 
     sol_chunk_free(&chunk);
     free(source);
+    sol_search_path_free(&search);
     return status;
 }

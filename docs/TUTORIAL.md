@@ -345,5 +345,5 @@ Nearly the whole language, without meeting it as a list:
 - [absence.md](absence.md) — nil, empty, and unset, and what a name holds before
   you fill it.
 - [REFERENCE.md](REFERENCE.md) — every message, for looking things up.
-- [examples/](../examples/) — twenty more programs. Most take one topic;
+- [examples/](../examples/) — twenty-one more programs. Most take one topic;
   [log.sol](../examples/log.sol) is a whole program, an access-log analyser.

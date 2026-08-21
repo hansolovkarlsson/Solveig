@@ -112,6 +112,63 @@ breaking. An absolute path is taken as it stands. Source that is not a file at
 all — the prompt, or a string handed to the compiler — has nothing to be
 relative to, and the working directory is used.
 
+**Failing that, the search path.** A name not found beside the includer is
+looked for in each directory of the search path, in order, and the first that
+has it wins:
+
+- `-I dir` arguments to `solas` or `solis`, in the order given;
+- then the entries of `SOLUM_PATH`, colon-separated;
+- then the library shipped beside the binary — `bin/solas` looks in `bin/../lib`.
+
+That is C's rule for a quoted include, and for C's reason: your own files are
+found without saying where they are, and a name you do not have locally comes
+from the library. It carries C's cost too — a local file **shadows** a library
+one of the same name — which is usually what you want and occasionally a trap.
+A file that includes a library file of its own name finds *itself* beside it
+first, and, a file being compiled once, that include quietly does nothing.
+
+An absolute name searches nothing. A file found nowhere says so:
+
+```
+[prog.sol:1:10] solas: cannot read the included file 'prog/missing.sol', and it is not on the search path either
+```
+
+### The library
+
+`lib/control.sol` ships with the language and is on the search path, so a
+program asks for it by name:
+
+```
+@include "control.sol".
+
+#3:repeat({ "tick":display }).
+{ lines := lines:add(#1) }:doUntil({ lines:greaterOrEqual(#3) }).
+#1:toByDo(#10, #3, { n | n:display }).       ; 1 4 7 10
+#4:timesCollect({ n | n:mul(n) }).           ; [#1, #4, #9, #16]
+```
+
+| Message | Answers |
+| --- | --- |
+| `#n:repeat(block)` | nil, having run the block `n` times |
+| `block:repeat(#n)` | the same, said the other way round |
+| `block:doUntil(condition)` | nil; the **body runs before the test**, always at least once |
+| `#a:toDo(#b, block)` | nil; the block is given each of `#a` to `#b`, **inclusive** |
+| `#a:toByDo(#b, #step, block)` | the same, by `#step`; negative counts down |
+| `#n:timesCollect(block)` | an array of `n` answers, the block given the pass number |
+
+**None of it is language.** These are methods bound on `integer` and `block` by
+an ordinary Solum file, because control flow is message sending and a loop is
+therefore something a library can add. `doUntil` is the one that earns its
+place: `whileTrue` tests before the body runs, so a loop that must run once
+needs a flag declared outside it, and the library writes that flag once so no
+program has to.
+
+A step of `#0` would never finish, so `toByDo` says so rather than hanging.
+
+Written in Solum, they cost a block call per iteration — about 1.30× a literal
+`whileTrue`, which compiles to jumps. See
+[ROADMAP 6.6](ROADMAP.md#66-the-loop-constructs-are-library-code-and-pay-for-it).
+
 **A file is compiled once** per compilation, however many ways it is reached,
 keyed by where it turns out to be on disk so that two spellings of one file are
 one file. C compiles it every time and leaves each file to guard itself, which

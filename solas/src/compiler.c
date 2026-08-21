@@ -46,6 +46,7 @@ typedef struct {
     Scope      *scope;
     const char *path;      /* the file being compiled, or NULL for plain text */
     Includes   *includes;  /* shared with every file this compilation reaches */
+    const SolSearchPath *search;   /* where an include falls back to, or NULL */
 } Compiler;
 
 static void expression(Compiler *c);
@@ -1013,6 +1014,86 @@ static char *copy_string(const char *text)
 /* Joins the name in an include to the directory of the file doing the
    including. An absolute name, or an includer that came from no file, is taken
    as it stands. */
+/* ---- the search path --------------------------------------------------- */
+
+void sol_search_path_init(SolSearchPath *search)
+{
+    search->directories = NULL;
+    search->count = 0;
+    search->capacity = 0;
+}
+
+void sol_search_path_add(SolSearchPath *search, const char *directory)
+{
+    if (directory == NULL || directory[0] == '\0') return;
+
+    if (search->capacity < search->count + 1) {
+        int capacity = search->capacity < 4 ? 4 : search->capacity * 2;
+        char **grown = realloc(search->directories, sizeof(char *) * (size_t)capacity);
+        if (grown == NULL) return;          /* the include simply will not find it */
+        search->directories = grown;
+        search->capacity = capacity;
+    }
+
+    char *copy = copy_string(directory);
+    if (copy == NULL) return;
+    search->directories[search->count++] = copy;
+}
+
+void sol_search_path_free(SolSearchPath *search)
+{
+    for (int i = 0; i < search->count; i++) free(search->directories[i]);
+    free(search->directories);
+    sol_search_path_init(search);
+}
+
+/* `SOLUM_PATH` first, then the library beside the binary.
+ *
+ * The second is derived from argv[0], which says where the binary is only when
+ * it was named with a path -- `./bin/solas` or an absolute one. Invoked by bare
+ * name through PATH it says nothing, and rather than search PATH over again to
+ * guess, nothing is added: `SOLUM_PATH` and `-I` are how an installed binary is
+ * told where its library went. */
+void sol_search_path_add_defaults(SolSearchPath *search, const char *argv0)
+{
+    const char *env = getenv("SOLUM_PATH");
+    if (env != NULL) {
+        const char *at = env;
+        while (*at != '\0') {
+            const char *colon = strchr(at, ':');
+            size_t length = colon == NULL ? strlen(at) : (size_t)(colon - at);
+
+            if (length > 0) {
+                char *directory = malloc(length + 1);
+                if (directory != NULL) {
+                    memcpy(directory, at, length);
+                    directory[length] = '\0';
+                    sol_search_path_add(search, directory);
+                    free(directory);
+                }
+            }
+            if (colon == NULL) break;
+            at = colon + 1;
+        }
+    }
+
+    if (argv0 == NULL) return;
+    const char *slash = strrchr(argv0, '/');
+    if (slash == NULL) return;
+
+    /* `bin/solas` -> `bin/../lib`, which is `lib` beside it. */
+    size_t directory = (size_t)(slash - argv0) + 1;
+    static const char *suffix = "../lib";
+
+    char *shipped = malloc(directory + strlen(suffix) + 1);
+    if (shipped == NULL) return;
+    memcpy(shipped, argv0, directory);
+    memcpy(shipped + directory, suffix, strlen(suffix) + 1);
+
+    sol_search_path_add(search, shipped);
+    free(shipped);
+}
+
 static char *resolve_against(const char *including, const char *name)
 {
     const char *slash = including == NULL ? NULL : strrchr(including, '/');
@@ -1031,6 +1112,57 @@ static char *resolve_against(const char *including, const char *name)
 /* What to key a file by: where it really is, so that two spellings of one file
    are one file. Falls back to the path as written when it cannot be resolved,
    which means the file is missing and the read is about to say so. */
+/* Is there a file here to read? Asked before choosing a path rather than by
+   reading and discarding, so a name found on the search path is opened once. */
+static bool readable(const char *path)
+{
+    FILE *f = fopen(path, "rb");
+    if (f == NULL) return false;
+    fclose(f);
+    return true;
+}
+
+static char *join_path(const char *directory, const char *name)
+{
+    size_t length = strlen(directory);
+    bool slash = length > 0 && directory[length - 1] == '/';
+
+    char *joined = malloc(length + (slash ? 0 : 1) + strlen(name) + 1);
+    if (joined == NULL) return NULL;
+
+    memcpy(joined, directory, length);
+    if (!slash) joined[length++] = '/';
+    memcpy(joined + length, name, strlen(name) + 1);
+    return joined;
+}
+
+/* Beside the file including it first, then the search path -- C's rule for a
+   quoted include, and for C's reason: your own files are found without saying
+   where they are, and a name you do not have locally comes from the library.
+   An absolute name is taken as it stands and searches nothing.
+
+   Answers the relative candidate when nothing is found anywhere, so that the
+   error names the file the program most likely meant. */
+static char *resolve_include(Compiler *c, const char *name)
+{
+    char *relative = resolve_against(c->path, name);
+    if (relative == NULL || name[0] == '/') return relative;
+    if (readable(relative)) return relative;
+
+    if (c->search != NULL) {
+        for (int i = 0; i < c->search->count; i++) {
+            char *candidate = join_path(c->search->directories[i], name);
+            if (candidate == NULL) continue;
+            if (readable(candidate)) {
+                free(relative);
+                return candidate;
+            }
+            free(candidate);
+        }
+    }
+    return relative;
+}
+
 static char *identity_of(const char *path)
 {
     char *real = realpath(path, NULL);
@@ -1075,6 +1207,7 @@ static bool compile_included(Compiler *parent, const char *source, const char *p
     c.scope = parent->scope;
     c.path = path;
     c.includes = parent->includes;
+    c.search = parent->search;
     sol_parser_init(&c.parser, source, path);
 
     while (!sol_parser_match(&c.parser, TOK_EOF)) {
@@ -1108,7 +1241,7 @@ static void include_directive(Compiler *c)
         return;
     }
 
-    char *path = resolve_against(c->path, name);
+    char *path = resolve_include(c, name);
     free(name);
     if (path == NULL) {
         sol_parser_error(p, &where, "out of memory resolving an include");
@@ -1137,7 +1270,13 @@ static void include_directive(Compiler *c)
     char *source = sol_read_file(path);
     if (source == NULL) {
         char message[512];
-        snprintf(message, sizeof message, "cannot read the included file '%s'", path);
+        if (c->search != NULL && c->search->count > 0 && path[0] != '/') {
+            snprintf(message, sizeof message,
+                     "cannot read the included file '%s', and it is not on the "
+                     "search path either", path);
+        } else {
+            snprintf(message, sizeof message, "cannot read the included file '%s'", path);
+        }
         sol_parser_error(p, &where, message);
         free(identity);
         free(path);
@@ -1253,6 +1392,12 @@ char *sol_read_file(const char *path)
 
 bool sol_compile_source(const char *source, const char *path, SolChunk *chunk)
 {
+    return sol_compile_file(source, path, NULL, chunk);
+}
+
+bool sol_compile_file(const char *source, const char *path,
+                      const SolSearchPath *search, SolChunk *chunk)
+{
     Scope top;
     top.enclosing = NULL;
     top.chunk = chunk;
@@ -1270,6 +1415,7 @@ bool sol_compile_source(const char *source, const char *path, SolChunk *chunk)
     c.scope = &top;
     c.path = path;
     c.includes = &includes;
+    c.search = search;
     sol_parser_init(&c.parser, source, path);
 
     /* The file being compiled counts as included, so that a file reached
