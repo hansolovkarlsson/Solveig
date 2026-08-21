@@ -343,6 +343,88 @@ static void test_error_recovery_makes_progress(void)
     sol_vm_free(&vm);
 }
 
+/* ---- the error is text the machine holds ------------------------------- *
+ *
+ * It used to go straight to stderr from wherever the failure was. It is built
+ * into `vm->error_text` now and written out by `sol_vm_run` when nothing has
+ * caught it -- which is nothing, yet. The visible behaviour is identical, and
+ * the point is that the message exists as a value the machine could hand to a
+ * handler instead.
+ */
+static void test_the_error_is_recorded_not_only_printed(void)
+{
+    SolVM vm;
+    sol_vm_init(&vm);
+    assert(vm.error_text.length == 0);
+
+    assert(run(&vm, "nil:frobnicate.") == SOL_RUNTIME_ERROR);
+
+    assert(vm.had_error);
+    assert(vm.error_text.length > 0);
+    assert(strstr(vm.error_text.chars, "nil does not understand 'frobnicate'") != NULL);
+    assert(strstr(vm.error_text.chars, "[line 1] in script") != NULL);
+
+    sol_vm_free(&vm);
+}
+
+/* Each run starts clean, so a message cannot be reported twice or leak into a
+   later program -- which Solis depends on, running one chunk after another in
+   the same VM. */
+static void test_each_run_starts_with_no_error(void)
+{
+    SolVM vm;
+    sol_vm_init(&vm);
+
+    assert(run(&vm, "nil:frobnicate.") == SOL_RUNTIME_ERROR);
+    int first = vm.error_text.length;
+    assert(first > 0);
+
+    assert(run(&vm, "x := #1:add(#2).") == SOL_OK);
+    assert(!vm.had_error);
+    assert(vm.error_text.length == 0);
+    assert(SOL_AS_INT(global(&vm, "x")) == 3);
+
+    /* And a second failure records its own message rather than the first. */
+    assert(run(&vm, "nil:bang.") == SOL_RUNTIME_ERROR);
+    assert(strstr(vm.error_text.chars, "'bang'") != NULL);
+    assert(strstr(vm.error_text.chars, "'frobnicate'") == NULL);
+
+    sol_vm_free(&vm);
+}
+
+/* The first error wins. Building a message can itself fail -- a complaint that
+   names a value renders it, and rendering sends `asString` -- and the failure
+   that started it is the one worth reporting. Hard to provoke from Solum, since
+   every loop that could raise a second one checks the flag first, so it is
+   asked of the function directly. */
+static void test_the_first_error_wins(void)
+{
+    SolVM vm;
+    sol_vm_init(&vm);
+
+    sol_vm_runtime_error(&vm, "the real failure");
+    sol_vm_runtime_error(&vm, "a consequence of reporting it");
+
+    assert(strstr(vm.error_text.chars, "the real failure") != NULL);
+    assert(strstr(vm.error_text.chars, "a consequence") == NULL);
+
+    sol_vm_free(&vm);
+}
+
+/* `system:exit` unwinds through the same flag and is not a failure, so it
+   records nothing and prints nothing. */
+static void test_an_exit_records_no_error(void)
+{
+    SolVM vm;
+    sol_vm_init(&vm);
+
+    assert(run(&vm, "system:exit(#3).") == SOL_EXIT);
+    assert(vm.exit_code == 3);
+    assert(vm.error_text.length == 0);
+
+    sol_vm_free(&vm);
+}
+
 int main(void)
 {
     test_error_recovery_makes_progress();
@@ -357,6 +439,10 @@ int main(void)
     test_values_are_immutable();
     test_sends_chain_left_to_right();
     test_a_number_is_written_not_constructed();
+    test_the_error_is_recorded_not_only_printed();
+    test_each_run_starts_with_no_error();
+    test_the_first_error_wins();
+    test_an_exit_records_no_error();
     test_assignment_is_an_expression();
     test_arithmetic_is_strict();
     test_integer_overflow_traps();

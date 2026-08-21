@@ -50,6 +50,7 @@ void sol_vm_init(SolVM *vm)
     vm->gray_count = 0;
     vm->gray_capacity = 0;
     vm->temp_count = 0;
+    sol_text_init(&vm->error_text);
     vm->gc_stress = getenv("SOLUM_GC_STRESS") != NULL;
 
     /* The root Object is the globals namespace -- built-in class objects
@@ -102,6 +103,8 @@ void sol_vm_free(SolVM *vm)
     vm->string_class = NULL;
     vm->object_class = NULL;
     vm->symbol_class = NULL;
+
+    sol_text_free(&vm->error_text);
 
     /* Last: the heap is gone, so nothing is left holding an interned name. */
     sol_vm_free_names(vm);
@@ -162,14 +165,47 @@ const char *sol_type_name(SolValue value)
     return "?";
 }
 
-void sol_vm_runtime_error(SolVM *vm, const char *format, ...)
+/* Appends a printf-style line to `out`. The buffer is generous rather than
+   exact: a message can embed a rendered value, and truncating the one thing
+   that says what went wrong would be a poor trade for a few bytes. */
+static void append_formatted(SolText *out, const char *format, va_list args)
+{
+    char line[1024];
+    int length = vsnprintf(line, sizeof line, format, args);
+    if (length < 0) return;
+
+    if (length >= (int)sizeof line) length = (int)sizeof line - 1;
+    sol_text_append(out, line, length);
+}
+
+static void append_line(SolText *out, const char *format, ...)
 {
     va_list args;
     va_start(args, format);
-    fputs("solvm: ", stderr);
-    vfprintf(stderr, format, args);
+    append_formatted(out, format, args);
     va_end(args);
-    fputs("\n", stderr);
+}
+
+/* Records what went wrong instead of printing it. `sol_vm_run` writes it out
+   before returning, so nothing about the visible behaviour has changed -- but
+   the message now exists as text the machine holds, which is what a handler
+   will need in order to be given it. */
+void sol_vm_runtime_error(SolVM *vm, const char *format, ...)
+{
+    /* The first error wins. Building a message can itself fail: a complaint
+       that names a value renders it, and rendering sends `asString`. The
+       failure that started it is the one worth reporting, and the one that
+       followed is a consequence of trying to report it. */
+    if (vm->had_error) return;
+
+    sol_text_append(&vm->error_text, "solvm: ", 7);
+
+    va_list args;
+    va_start(args, format);
+    append_formatted(&vm->error_text, format, args);
+    va_end(args);
+
+    sol_text_append(&vm->error_text, "\n", 1);
 
     /* Innermost frame first, so the line that actually failed leads. A runaway
        recursion would otherwise bury the message under a full stack, so the
@@ -178,15 +214,16 @@ void sol_vm_runtime_error(SolVM *vm, const char *format, ...)
     for (int i = vm->frame_count - 1; i >= 0; i--) {
         int from_top = vm->frame_count - 1 - i;
         if (vm->frame_count > head + tail + 1 && from_top == head) {
-            fprintf(stderr, "  ... %d more frames ...\n",
-                    vm->frame_count - head - tail);
+            append_line(&vm->error_text, "  ... %d more frames ...\n",
+                        vm->frame_count - head - tail);
             i = tail;                    /* skip to the outermost few */
             continue;
         }
         SolFrame *frame = &vm->frames[i];
         size_t offset = (size_t)(frame->ip - frame->chunk->code) - 1;
-        fprintf(stderr, "  [line %d] in %s\n", frame->chunk->lines[offset],
-                frame->method ? frame->method->name : "script");
+        append_line(&vm->error_text, "  [line %d] in %s\n",
+                    frame->chunk->lines[offset],
+                    frame->method ? frame->method->name : "script");
     }
     vm->had_error = true;
 }
@@ -722,6 +759,7 @@ SolResult sol_vm_run(SolVM *vm, const SolChunk *chunk)
 {
     vm->had_error = false;
     vm->exiting = false;
+    vm->error_text.length = 0;      /* keeps the buffer, drops last run's text */
     vm->frame_count = 0;
     reset_stack(vm);
 
@@ -751,6 +789,17 @@ SolResult sol_vm_run(SolVM *vm, const SolChunk *chunk)
     if (result != SOL_OK) {
         vm->frame_count = 0;
         reset_stack(vm);
+    }
+
+    /* Nothing caught it, so it is written out here -- the one place that knows
+       the program is over and no handler is coming. `system:exit` unwinds
+       through the same flag and is not a failure, so it says nothing.
+
+       This is why deferring the write changed no behaviour: the message still
+       reaches stderr before `sol_vm_run` answers, exactly as it did when the
+       write happened where the failure was. */
+    if (vm->had_error && !vm->exiting && vm->error_text.length > 0) {
+        fputs(vm->error_text.chars, stderr);
     }
     return result;
 }

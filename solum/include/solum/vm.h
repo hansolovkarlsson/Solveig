@@ -5,6 +5,7 @@
 #include "solum/common.h"
 #include "solum/bytecode.h"
 #include "solum/object.h"
+#include "solum/value.h"
 
 #define SOL_FRAMES_MAX 64
 #define SOL_STACK_MAX  (SOL_FRAMES_MAX * 256)
@@ -90,6 +91,19 @@ struct SolVM {
     int         name_count;
 
     bool had_error;
+
+    /* What went wrong, formatted -- the message and the stack beneath it --
+     * rather than written straight to stderr.
+     *
+     * Deferring the write is what will let an error be caught: a handler has to
+     * be able to see it and decide, and a message already on stderr cannot be
+     * taken back. Nothing catches anything yet, so `sol_vm_run` prints this
+     * before it returns and the visible behaviour is unchanged.
+     *
+     * The first error wins. Formatting a message can itself fail -- rendering a
+     * value calls `asString`, which is a send like any other -- and the failure
+     * that started it is the one worth reporting. */
+    SolText error_text;
 
     /* `system:exit(code)` unwinds rather than leaving from under the machine.
        It sets `had_error` too, since every loop that has to stop already checks

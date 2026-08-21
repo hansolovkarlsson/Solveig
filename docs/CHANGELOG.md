@@ -7,7 +7,32 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-Nothing yet.
+### An error is text the machine holds — `pending`, 2026-08-21
+
+Groundwork for catching one, and **nothing about the visible behaviour has
+changed** — which is the point of landing it on its own.
+
+`sol_vm_runtime_error` used to write the message and the stack straight to
+stderr from wherever the failure was. It builds them into `vm->error_text`
+instead, and `sol_vm_run` writes that out before returning, when nothing has
+caught it. Nothing catches anything yet.
+
+The reason for the shuffle: **a message already on stderr cannot be taken
+back.** A handler has to be able to see an error and decide, and that is
+impossible while the report happens at the point of failure.
+
+The whole test suite passed untouched, which is the evidence that the behaviour
+is the same, and a program's output was diffed byte-for-byte against the
+previous build to be sure the ordering had not shifted either.
+
+One thing did change, for the better. **The first error now wins.** Building a
+message can itself fail — a complaint that names a value renders it, and
+rendering sends `asString` — and that used to print twice. The failure that
+started it is the one worth reporting; the one that followed is a consequence of
+trying to report it.
+
+`system:exit` unwinds through the same flag and is not a failure, so it records
+nothing and says nothing, as before.
 
 ## 0.1.0 — 2026-08-21
 
