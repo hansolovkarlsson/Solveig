@@ -370,7 +370,7 @@ array:new(#1).      ; solvm: 'new' takes 0 arguments, got 1
 So no generic code could send `new` without already knowing which class it was
 talking to — which is the only thing a shared name would have bought.
 
-**The first line is gone as of `pending`**, and the section below is what argued
+**The first line is gone as of `d58918c`**, and the section below is what argued
 for that. `new` now means one thing, *make me a new one*, and lives on the two
 classes where something is made. Generic code still cannot send it blind, since
 six classes refuse — but it fails loudly and says why, instead of answering its
@@ -417,7 +417,7 @@ correctly.
 
 The interesting question was not whether the four should gain `new`. It was
 whether the two identity ones should have it. They should not, and as of
-`pending` they do not.
+`d58918c` they do not.
 
 `integer:new` and `float:new` allocate nothing and construct nothing. They are
 the literal, spelled longer — and `float:new` was added in `7ac6be6` *for
