@@ -1476,10 +1476,71 @@ asked whether it holds something — [6.23](#623-an-array-cannot-be-popped-or-as
 And `lib/text.sol` first bound a global called `text`, which the first program
 to use it shadowed with a variable of its own, breaking the library from a
 distance with `string does not understand 'utf8'`. That is
-[6.21](ROADMAP.md#621-two-libraries-binding-one-name-collide-silently) happening
+[6.21](#621-two-libraries-binding-one-name-collide-silently--done) happening
 within ten minutes of being written down. The fix was to bind no global at all:
 `integer:asUtf8` is a method on a built-in class, which needs no name of its
 own. A namespace only helps if the name is one nobody else wants.
+
+### 6.21 Two libraries binding one name collide silently — **done**
+
+Top-level rebinding is legal and an included file binds into the one global
+namespace, so two files that both use a name did not collide — the later one
+won, quietly, and which one a program got depended on include order rather than
+on anything written where the name was used. The failure was not a message but a
+different answer.
+
+**The entry said nothing had tripped over it. That lasted about ten minutes.**
+[lib/text.sol](../lib/text.sol) was written to hold what the JSON and HTML
+readers both needed, and bound one object called `text` — following the advice
+in the reference about claiming one name instead of a dozen. The first program
+to use it had a variable called `text`, and the library broke from a distance:
+
+```
+solvm: string does not understand 'utf8'
+```
+
+A run-time message about a type, for a compile-time collision between two files.
+
+**The compiler says it now**, at the line where it happens:
+
+```
+[prog.sol:3:1] solas: warning: 'text' was already bound by lib/text.sol -- this one wins, and nothing else will say so
+  text := v.
+  ^^^^
+```
+
+A warning and not an error, for the reason the self-include warning is one:
+rebinding is legal and sometimes meant — a program may want to replace something
+a library bound — so saying so without forbidding it is the right bargain.
+
+**A claim, not an update.** `count := count:add(#1)` reads the name before
+writing it, so it is working on somebody else's global rather than declaring its
+own, and files legitimately do that across an include. The rule is that **a name
+you read in the course of assigning it is one you are updating**, and only a
+claim warns. That removed the one false positive in the whole tree — a test
+fixture that increments a counter from an included file — and it is what makes
+the warning quiet enough to keep: the 28 examples, four libraries and every test
+compile without one.
+
+**What it does not fix.** This is the cheap half of a namespace and nothing else.
+There is still no export boundary — every slot on `json` and `html` is public
+and writable, and `json:digits := "abc"` breaks the parser from outside it — and
+no declared dependencies. Those need things the language does not have: slots
+cannot be removed and `slots` lists everything, so privacy would be a new concept
+rather than a use of existing ones.
+
+**The three tiers that came out of it**, which are the working advice now:
+
+| what a library adds | how to bind it | globals claimed |
+| --- | --- | --- |
+| behaviour on an existing type | a method on the class | **none** — `control.sol`, `text.sol` |
+| a thing with state and its own operations | one object, everything on it | **one** — `json`, `html` |
+| several unrelated names | nothing better than several globals | **several** |
+
+The top tier is the discovery. `integer:asUtf8` and `integer:timesCollect` need
+no name of their own, because they extend a class that already has one — a send
+rather than an assignment, so this warning never sees them and there is nothing
+to collide with.
 
 ### 6.22 A file that includes a library of its own name silently does nothing — **done**
 

@@ -389,9 +389,25 @@ who includes what — and a cycle ends instead of recurring.
 Includes may nest 64 deep.
 
 Two things this is not. There is no module system: an included file gets no
-namespace of its own. If you want one, bind an object and hang the rest off it,
-which claims one global instead of a dozen —
-[examples/library.sol](../examples/library.sol) does that. And a `.sob` file is
+namespace of its own, so **two files binding one name do not collide — the later
+one wins**, and the compiler warns rather than letting it pass:
+
+```
+[prog.sol:3:1] solas: warning: 'text' was already bound by lib/text.sol -- this one wins, and nothing else will say so
+  text := v.
+  ^^^^
+```
+
+A warning, not an error: rebinding is legal and sometimes meant. Only a *claim*
+warns — `count := count:add(#1)` reads the name before writing it, so it is
+updating somebody else's global rather than claiming its own, which files
+legitimately do across an include.
+
+If you want a namespace, the tiers are: **behaviour on an existing type is a
+method on the class and claims no name at all** — `lib/control.sol` and
+`lib/text.sol` do that; a thing with state binds **one** object and hangs the
+rest off it, which `json` and `html` do and
+[examples/library.sol](../examples/library.sol) shows. And a `.sob` file is
 one chunk with no record of which file a line came from, so a run-time stack
 trace gives a line number without saying which file counted it.
 

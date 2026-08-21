@@ -34,11 +34,23 @@ typedef struct Scope {
 /* Every file compiled so far, by where it actually is on disk, and how deep
    the includes currently nest. One of these is shared by every file in one
    compilation -- see `include_directive` for why a file is compiled once. */
+/* A global bound at some file's top level, and which file bound it. Kept so
+   that a second file binding the same name can be told about it -- see
+   `note_global_binding`. */
+typedef struct {
+    char *name;
+    char *file;                /* the path that bound it, or NULL for none */
+} BoundName;
+
 typedef struct {
     char **paths;
     int    count;
     int    capacity;
     int    depth;
+
+    BoundName *bound;          /* globals bound so far, across every file */
+    int        bound_count;
+    int        bound_capacity;
 } Includes;
 
 typedef struct {
@@ -47,10 +59,18 @@ typedef struct {
     const char *path;      /* the file being compiled, or NULL for plain text */
     Includes   *includes;  /* shared with every file this compilation reaches */
     const SolSearchPath *search;   /* where an include falls back to, or NULL */
+
+    /* While compiling the right-hand side of `name := ...`, which name it is
+       and whether that name was read in the course of it. `x := x:add(#1)`
+       updates a global rather than claiming it, and only the claim is worth
+       warning about -- see `note_global_binding`. */
+    const SolToken *assigning;
+    bool            assigned_name_was_read;
 } Compiler;
 
 static void expression(Compiler *c);
 static void statement(Compiler *c);
+static void note_global_binding(Compiler *c, const SolToken *name);
 static void block_literal(Compiler *c);
 static bool inline_conditional(Compiler *c, const SolToken *selector);
 static bool inline_logical(Compiler *c, const SolToken *selector);
@@ -301,14 +321,38 @@ static void identifier(Compiler *c)
     slot = resolve_name(c->scope, &name, &depth);
 
     if (sol_parser_match(&c->parser, TOK_ASSIGN)) {
+        /* Saved and restored, so that an assignment inside the right-hand side
+           of another one does not answer for it. */
+        const SolToken *outer_name = c->assigning;
+        bool outer_read = c->assigned_name_was_read;
+        c->assigning = &name;
+        c->assigned_name_was_read = false;
+
         expression(c);
-        if (slot >= 0) emit_access(c, true, depth, slot);
-        else           emit_indexed(c, OP_SET_GLOBAL, name_operand(c, &name));
+
+        bool was_read = c->assigned_name_was_read;
+        c->assigning = outer_name;
+        c->assigned_name_was_read = outer_read;
+
+        if (slot >= 0) {
+            emit_access(c, true, depth, slot);
+        } else {
+            if (!was_read) note_global_binding(c, &name);
+            emit_indexed(c, OP_SET_GLOBAL, name_operand(c, &name));
+        }
         return;
     }
 
-    if (slot >= 0) emit_access(c, false, depth, slot);
-    else           emit_indexed(c, OP_GLOBAL, name_operand(c, &name));
+    if (slot >= 0) {
+        emit_access(c, false, depth, slot);
+    } else {
+        if (c->assigning != NULL &&
+            c->assigning->length == name.length &&
+            memcmp(c->assigning->start, name.start, (size_t)name.length) == 0) {
+            c->assigned_name_was_read = true;
+        }
+        emit_indexed(c, OP_GLOBAL, name_operand(c, &name));
+    }
 }
 
 /* Resolves the escapes in a string token, answering a fresh NUL-terminated
@@ -1267,6 +1311,12 @@ static void remember_included(Includes *includes, char *identity)
 
 static void includes_free(Includes *includes)
 {
+    for (int i = 0; i < includes->bound_count; i++) {
+        free(includes->bound[i].name);
+        free(includes->bound[i].file);
+    }
+    free(includes->bound);
+
     for (int i = 0; i < includes->count; i++) free(includes->paths[i]);
     free(includes->paths);
 }
@@ -1280,12 +1330,101 @@ static bool compile_included(Compiler *parent, const char *source, const char *p
     c.path = path;
     c.includes = parent->includes;
     c.search = parent->search;
+    c.assigning = NULL;
+    c.assigned_name_was_read = false;
     sol_parser_init(&c.parser, source, path);
 
     while (!sol_parser_match(&c.parser, TOK_EOF)) {
         statement(&c);
     }
     return !c.parser.had_error;
+}
+
+/* One global, bound. Warns when a *different* file bound the same name first.
+ *
+ * There is no module system: an included file binds into the one global
+ * namespace, so two files that both use a name do not collide -- the later one
+ * wins, quietly, and which one a program gets depends on include order rather
+ * than on anything written where the name is used. That is roadmap 6.21, and
+ * this is the cheap half of what a module system would give: not a namespace,
+ * but a sentence saying the namespace was shared.
+ *
+ * `lib/text.sol` is why this exists. It bound one object called `text`, the
+ * first program to use it had a variable of that name, and the library broke
+ * from a distance with `string does not understand 'utf8'` -- a run-time
+ * message about a type, for a compile-time collision between two files.
+ *
+ * A warning rather than an error, because rebinding is legal and sometimes
+ * meant: a program may want to replace something a library bound. Saying so
+ * without forbidding it is the bargain the self-include warning already struck.
+ *
+ * Only globals. A library that adds `integer:asUtf8` binds no name at all --
+ * that is a send, not an assignment -- which is why the tiers in 6.21 put a
+ * method on a built-in class above an object of one's own.
+ *
+ * And only a *claim*, not an update. `times := times:add(#1)` reads the name
+ * before writing it, so it is working on somebody else's global rather than
+ * declaring its own, and that is a thing files legitimately do across an
+ * include. The caller decides which this is; the rule is that a name you read
+ * in the course of assigning it is one you are updating.
+ */
+static void note_global_binding(Compiler *c, const SolToken *name)
+{
+    Includes *includes = c->includes;
+    if (includes == NULL) return;
+
+    for (int i = 0; i < includes->bound_count; i++) {
+        BoundName *bound = &includes->bound[i];
+        if ((int)strlen(bound->name) != name->length ||
+            memcmp(bound->name, name->start, (size_t)name->length) != 0) {
+            continue;
+        }
+
+        bool same_file = (bound->file == NULL && c->path == NULL) ||
+                         (bound->file != NULL && c->path != NULL &&
+                          strcmp(bound->file, c->path) == 0);
+        if (same_file) return;           /* a file rebinding its own name */
+
+        char message[512];
+        snprintf(message, sizeof message,
+                 "'%.*s' was already bound by %s -- this one wins, and nothing "
+                 "else will say so",
+                 name->length, name->start,
+                 bound->file != NULL ? bound->file : "earlier input");
+        sol_parser_warning(&c->parser, name, message);
+
+        /* This file owns the name from here on, so rebinding it again below is
+           silent and a third file is told about this one rather than the first.
+           One warning per collision is the useful amount. */
+        char *owner = c->path != NULL ? copy_string(c->path) : NULL;
+        if (c->path == NULL || owner != NULL) {
+            free(bound->file);
+            bound->file = owner;
+        }
+        return;
+    }
+
+    if (includes->bound_capacity < includes->bound_count + 1) {
+        int capacity = includes->bound_capacity < 8
+                     ? 8 : includes->bound_capacity * 2;
+        BoundName *grown = realloc(includes->bound,
+                                   sizeof(BoundName) * (size_t)capacity);
+        if (grown == NULL) return;       /* the warning is not worth failing for */
+        includes->bound = grown;
+        includes->bound_capacity = capacity;
+    }
+
+    char *copy = malloc((size_t)name->length + 1);
+    if (copy == NULL) return;
+    memcpy(copy, name->start, (size_t)name->length);
+    copy[name->length] = '\0';
+
+    char *file = c->path != NULL ? copy_string(c->path) : NULL;
+    if (c->path != NULL && file == NULL) { free(copy); return; }
+
+    includes->bound[includes->bound_count].name = copy;
+    includes->bound[includes->bound_count].file = file;
+    includes->bound_count++;
 }
 
 /* Entered with `@include` consumed and the file name next. */
@@ -1526,12 +1665,17 @@ bool sol_compile_file(const char *source, const char *path,
     includes.count = 0;
     includes.capacity = 0;
     includes.depth = 0;
+    includes.bound = NULL;
+    includes.bound_count = 0;
+    includes.bound_capacity = 0;
 
     Compiler c;
     c.scope = &top;
     c.path = path;
     c.includes = &includes;
     c.search = search;
+    c.assigning = NULL;
+    c.assigned_name_was_read = false;
     sol_parser_init(&c.parser, source, path);
 
     /* The file being compiled counts as included, so that a file reached

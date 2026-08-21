@@ -17,7 +17,7 @@
 ; advice in the reference about claiming one name instead of a dozen. The first
 ; program to use it had a variable called `text`, and the library broke from a
 ; distance with `string does not understand 'utf8'` -- which is
-; [ROADMAP 6.21](../docs/ROADMAP.md#621-two-libraries-binding-one-name-collide-silently)
+; [6.21](../docs/COMPLETED.md#621-two-libraries-binding-one-name-collide-silently--done)
 ; happening, in the ten minutes after it was written down.
 ;
 ; The lesson is not that the object idiom is wrong. It is that a namespace only

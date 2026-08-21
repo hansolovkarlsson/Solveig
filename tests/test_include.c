@@ -603,6 +603,85 @@ static void test_the_shipped_library_works(void)
     printf("  the shipped library compiles and its loops work\n");
 }
 
+/* Two files binding one name do not collide -- the later one wins, quietly, and
+   which one a program gets depends on include order. There is no module system
+   to prevent it, so the compiler says it happened. Roadmap 6.21. */
+static void test_two_files_claiming_one_name_warn(void)
+{
+    write_file(LIBDIR "/alpha.sol", "helper := { \"alpha\" }.\n");
+    write_file(LIBDIR "/beta.sol",  "helper := { \"beta\" }.\n");
+    write_file(DIR "/claims.sol",
+        "@include \"alpha.sol\".\n"
+        "@include \"beta.sol\".\n");
+
+    SolSearchPath search;
+    sol_search_path_init(&search);
+    sol_search_path_add(&search, LIBDIR);
+
+    char output[1024];
+    bool ok = compile_capturing_stderr(DIR "/claims.sol", &search, output, sizeof output);
+
+    assert(ok);                                   /* a warning, not an error */
+    assert(strstr(output, "warning:") != NULL);
+    assert(strstr(output, "'helper' was already bound") != NULL);
+    /* And it names the file that bound it first, which is the useful half. */
+    assert(strstr(output, "alpha.sol") != NULL);
+
+    sol_search_path_free(&search);
+    printf("  two files claiming one name is warned about\n");
+}
+
+/* The case that actually happened: a library binds one object, and a program
+   has a variable of that name. Before this warning the only sign was a run-time
+   message about a type, a long way from the collision. */
+static void test_a_program_shadowing_a_library_warns(void)
+{
+    write_file(LIBDIR "/tool.sol", "tool := object:new.\ntool:go := { #1 }.\n");
+    write_file(DIR "/shadows.sol",
+        "@include \"tool.sol\".\n"
+        "tool := \"something else\".\n");
+
+    SolSearchPath search;
+    sol_search_path_init(&search);
+    sol_search_path_add(&search, LIBDIR);
+
+    char output[1024];
+    assert(compile_capturing_stderr(DIR "/shadows.sol", &search, output, sizeof output));
+    assert(strstr(output, "'tool' was already bound") != NULL);
+    assert(strstr(output, "tool.sol") != NULL);
+
+    sol_search_path_free(&search);
+    printf("  a program shadowing a library's name is warned about\n");
+}
+
+/* The two shapes that are not a claim, and must stay silent. A name read in the
+   course of assigning it is being updated rather than claimed -- which is a
+   thing files legitimately do across an include -- and a file rebinding its own
+   name is nobody else's business. */
+static void test_updating_and_rebinding_are_silent(void)
+{
+    write_file(LIBDIR "/bump.sol", "count := count:add(#1).\n");
+    write_file(DIR "/updates.sol",
+        "count := #0.\n"
+        "@include \"bump.sol\".\n");
+
+    SolSearchPath search;
+    sol_search_path_init(&search);
+    sol_search_path_add(&search, LIBDIR);
+
+    char output[1024];
+    assert(compile_capturing_stderr(DIR "/updates.sol", &search, output, sizeof output));
+    assert(output[0] == '\0');
+
+    /* Its own name, as many times as it likes, read or not. */
+    write_file(DIR "/own.sol", "x := #1.\nx := #2.\nx := x:add(#1).\n");
+    assert(compile_capturing_stderr(DIR "/own.sol", &search, output, sizeof output));
+    assert(output[0] == '\0');
+
+    sol_search_path_free(&search);
+    printf("  updating a shared global, and rebinding one's own, say nothing\n");
+}
+
 /* The JSON library, end to end, and the reason this is here rather than in a
    Solum example: an example checks that a program runs, and this checks what it
    answered. It is also the test that would have caught the `\u` gap being only
@@ -796,6 +875,9 @@ int main(void)
     test_a_lone_self_include_still_warns();
     test_the_ordinary_repeats_are_silent();
     test_the_shipped_library_works();
+    test_two_files_claiming_one_name_warn();
+    test_a_program_shadowing_a_library_warns();
+    test_updating_and_rebinding_are_silent();
     test_the_json_library_reads_and_writes();
     test_the_html_library_reads_and_recovers();
     test_the_library_is_silent_when_included();

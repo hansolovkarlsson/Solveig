@@ -284,78 +284,6 @@ of the runtime that behaves differently by platform.
 Worth doing when a program needs it, and behind its own decision rather than as
 a footnote to line input.
 
-### 6.21 Two libraries binding one name collide silently
-
-Top-level rebinding is legal, an included file binds into the one global
-namespace, and nothing warns. So two libraries that both define `helper` do not
-collide -- the second one included wins, quietly:
-
-```
-@include "lib/alpha.sol".
-@include "lib/beta.sol".
-helper:value:display.        ; beta's helper
-```
-
-Swap the two lines and it answers alpha's. Which one a program gets is a
-property of include order rather than of anything written where the name is
-used, and the failure is not a message but a different answer.
-
-The object idiom the reference recommends -- bind one object, hang the rest off
-it -- narrows this rather than fixing it. `lib/json.sol` claims one name instead
-of twenty-seven, so there is one name left to clash on. It buys a namespace and
-not an export boundary: all twenty-seven slots are public and writable, and
-`json:digits := "abc"` breaks the parser from outside it.
-
-**Something has now tripped over it.** This entry used to say nothing had, and
-that lasted about ten minutes: [lib/text.sol](../lib/text.sol) was written to
-hold what the JSON and HTML readers both needed, bound one object called `text`
-following the advice above, and the first program to use it had a variable
-called `text` of its own. The library broke from a distance:
-
-```
-string does not understand 'utf8'
-```
-
-The fix there was to bind **no global at all** -- `integer:asUtf8` is a method on
-a built-in class, which needs no name of its own, and that is what
-`lib/control.sol` had been doing all along. So the working advice is now three
-tiers rather than one:
-
-| what a library adds | how to bind it | globals claimed |
-| --- | --- | --- |
-| behaviour on an existing type | a method on the class | **none** |
-| a thing with state and its own operations | one object, everything on it | **one** |
-| several unrelated names | there is nothing better than several globals | **several** |
-
-The middle tier is where `json` and `html` sit, and it is still exposed: one
-name each, and `text` showed that even one is enough when the name is a common
-word.
-
-It is the third entry pointing at the same absence, so what it is really
-recording is that **there is no module system**, and the shape of what one would
-buy:
-
-- a namespace, which the object idiom already approximates;
-- an export boundary, which needs something the language does not have -- slots
-  cannot be removed and `slots` lists everything, so privacy would be a new
-  concept rather than a use of existing ones (2.14);
-- declared dependencies, which is what would make 6.22 diagnosable: with nothing
-  stating what a file needs, the compiler cannot tell "you meant the library"
-  from "you meant this file", so it picks by search order and says nothing.
-
-**A warning on rebinding a name an include bound** is the cheap version of the
-first of those, and it is the one worth doing: it would have caught the
-`text.sol` collision at compile time, where it happened, rather than at run time
-in a message about a string not understanding `utf8`. It is the same shape as
-the warning [6.22](COMPLETED.md#622-a-file-that-includes-a-library-of-its-own-name-silently-does-nothing--done)
-already added -- the compiler knows which names an include bound, and knows when
-the file it is compiling binds one of them again -- and it needs none of the
-module system to work.
-
-The objection to it is that rebinding is legal and sometimes deliberate: a
-program may want to replace something a library bound. A warning says so without
-forbidding it, which is the same bargain 6.22 struck.
-
 ## Suggested order
 
 **Section 6 is the whole of the live list**, and it came from the right place:
@@ -377,17 +305,14 @@ was, for about a day: it waited for something to need a number for a byte, and
 about, but for `\u0041`, which is text. `asByte` and `asCharacter` are built and
 it is done.
 
-The rest is not ordered. **A single keypress** (6.10) still waits for a program
-that needs it. [6.19](COMPLETED.md#619-a-symbol-cannot-be-ordered--done) and
-[6.23](COMPLETED.md#623-an-array-cannot-be-popped-or-asked-what-it-holds--done)
-were the papercuts, and both are built — the workarounds for them were sitting
-in shipped library code, which is what made the case.
+**Only 6.10 is left**, and a single keypress still waits for a program that
+needs it. Everything else section 6 held is built. The four papercuts —
+[6.19](COMPLETED.md#619-a-symbol-cannot-be-ordered--done),
+[6.21](COMPLETED.md#621-two-libraries-binding-one-name-collide-silently--done),
 [6.22](COMPLETED.md#622-a-file-that-includes-a-library-of-its-own-name-silently-does-nothing--done)
-was the other one and is built. **6.21** is the same family and nothing has hit
-it yet; what it really records is the shape of the module system the language
-has not got. **6.20** is the next
-program to write rather than work on the language, and its value is the findings
-rather than the parser.
+and [6.23](COMPLETED.md#623-an-array-cannot-be-popped-or-asked-what-it-holds--done)
+— were all found by writing programs, and two of them by a library breaking from
+a distance rather than by anybody reasoning about the design.
 
 Three programs have now been written to do a job rather than to show a feature,
 and each one moved this list:
