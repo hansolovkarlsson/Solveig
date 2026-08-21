@@ -38,6 +38,7 @@ marked as a sketch.
 | More `@` directives: `@define`, `@ifdef`, `@once` | **No** — each one's job is already done by something that is not a directive |
 | Namespaces for included files | **Defer** — the trigger is somebody else writing a library |
 | Splitting the reference into pages | **Defer** — the trigger is the message reference outgrowing the rest |
+| An `assert` that compiles away | **No** to stripping; **defer** the message itself |
 
 ---
 
@@ -334,6 +335,64 @@ file and one link rather than a reorganisation. That is the same split, taken
 early, and it is worth preferring to a scheme with four pages and a navigation
 scheme of its own — this project has one reader today and adding a table of
 contents to a table of contents is not what would help them.
+
+### An `assert`, and compiling it away
+
+Two proposals in one: a message that raises when a claim is false, and a
+compile-time switch that removes it from a production build.
+
+**The switch: no.** Three reasons, and the third is the one that decides it.
+
+It reopens conditional compilation, which is turned down
+[above](#more--directives-define-ifdef-once) on the grounds that a file would
+stop being the program you can read. An `@assert` that vanishes has exactly that
+property. **Side effects vanish with it** — `assert(advance())` is a bug C
+programmers have been making for forty years, and it is silent.
+
+And the reason particular to this language: **the checks people write here are
+validation, not assertion**, and those are not the same thing at all.
+
+| | what it checks | may it be stripped? | in this repository |
+| --- | --- | --- | --- |
+| validation | the input is wrong | **never** — it is the program's error handling | ~23 |
+| assertion | *my own code* is wrong | in principle | **none** |
+
+Every hand-rolled check in the examples and libraries is the first kind.
+`bracket:equals("["):ifFalse({ error:raise("not an arrow") })` in
+[keys.sol](../examples/keys.sol) reads exactly like an assert and must never
+vanish: it is parsing input from a terminal. A switch that removes one kind will
+be pointed at the other by somebody wanting a faster loop, and what it deletes
+is the error handling.
+
+**The message itself: defer**, and the reason is the count. This project let
+`inc` and `dec` in on the strength of `add(#1)` being three in ten arithmetic
+sends. The equivalent number here is zero — nothing in the tree writes a
+debug-only invariant check, and what it does write is served by what exists:
+
+```
+x:greaterThan(#0):ifFalse({ error:raise("x must be positive") }).
+```
+
+**What it costs, measured** over 300,000 turns of a loop, since the argument for
+stripping is speed:
+
+| | seconds | against a bare loop |
+| --- | --- | --- |
+| bare loop | 0.0424 | — |
+| a library `assert` helper | 0.1051 | 2.5× |
+| the condition written inline, as above | 0.0615 | 1.4× |
+
+The expense is the **helper call**, not the check: `ifFalse` written literally
+compiles to a jump, and a helper is a block call per iteration. So the fast form
+already exists, and 1.4× on an *empty* loop is the worst case there is.
+
+**If it is ever added**, the shape is a message the compiler inlines the way it
+inlines `ifFalse` — `x:greaterThan(#0):assert("must be positive")` — costing a
+comparison and a branch, and **always running**. That adds the word without
+adding a second meaning to the same file.
+
+**The trigger**: a program that writes a check it would genuinely want off in
+production, and can say why the inline form is not enough. None has.
 
 ## Recommended against
 
