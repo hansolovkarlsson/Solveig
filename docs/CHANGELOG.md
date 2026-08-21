@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### `system:readKey`, and the roadmap is empty — `pending`, 2026-08-21
+### `system:readKey`, and the roadmap is empty — `9ab2d72`, 2026-08-21
 
 [6.10](COMPLETED.md#610-waiting-for-a-single-key--done), closed this time by the
 thing it asked for. A *program* can read a key now, not only the prompt:
