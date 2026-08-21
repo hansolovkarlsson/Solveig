@@ -97,8 +97,21 @@ No dependencies beyond a C11 compiler and `make`.
 
 ## Status
 
-The first vertical slice runs -- source text through the scanner, compiler, and
-dispatch loop:
+**0.1.0** — the first release. `.sob` files are format version 11 and are not
+portable across releases: an older file is refused rather than misread, so
+recompile the `.sol`.
+
+The language is settled enough to write programs in.
+[examples/log.sol](examples/log.sol) is one written to do a job rather than to
+show a feature — it reads an access log, tallies it, ranks it and reports.
+
+It is 0.1 rather than 1.0 because [the restrictions in the
+roadmap](docs/ROADMAP.md#3-known-limitations) are real and deliberate: no
+non-local return, a capturing block tied to the frame it was written in,
+recursion to about 62 levels, text is bytes rather than characters, and no way
+to recover from an error. Each is documented where a program would meet it.
+
+Source text goes through the scanner, compiler, and dispatch loop:
 
 ```
 $ ./bin/solis
@@ -108,13 +121,18 @@ $ ./bin/solis
 > a:print.
 #45
 > #45:add(1.5).
-solum: 'add' expects integer, got float (no implicit coercion)
+solvm: 'add' expects integer, got float (no implicit coercion)
 ```
 
-Working: the scanner, the single-pass compiler, the VM dispatch loop, and
-built-in `integer` and `float` classes with `new`, `print`, `add`, `sub`, `mul`.
-Arithmetic is strict -- integers and floats never coerce, and integer overflow
+Arithmetic is strict: integers and floats never coerce, and integer overflow
 traps rather than wrapping.
+
+Built in: `integer`, `float`, `string`, `symbol`, `boolean`, `nil`, `block`,
+`array`, `dictionary` and `object`, all delegating to `object` so that
+everything is an object in the type graph as well as in the slogan. Strings
+split and join, arrays fold and slice, and a dictionary keeps values under keys.
+A program reads and writes files, reads its input, times itself, stops with a
+status, and is split across files with `@include`.
 
 Compiling to a file and running it separately works too:
 
@@ -124,9 +142,15 @@ $ ./bin/solvm examples/hello.sob
 #45
 ```
 
-`.sob` files are little-endian and portable, and are verified before they run --
-see [docs/design.md](docs/design.md) for the layout and what the verifier
-checks.
+`.sob` files are little-endian and independent of the host, and are verified
+before they run -- every instruction has to fit, every operand index something
+that exists, every jump land on the start of an instruction, and the last
+instruction stop the machine. See [docs/design.md](docs/design.md) for the
+layout, [docs/BYTECODE.md](docs/BYTECODE.md) for the instruction set.
+
+They are **not** portable across releases: the format carries a version, a build
+reads only its own, and an older file is refused with `unsupported bytecode
+version` rather than misread.
 
 A method is a name bound on a class, just as a variable is a name bound in the
 globals -- so it uses the same `:=`. The right-hand side is evaluated, and a

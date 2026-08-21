@@ -1,12 +1,37 @@
 # Changelog
 
-Notable changes to Solveig, newest first. Nothing is released yet, so everything
-below is under `0.0.1` and the syntax is still moving.
+Notable changes to Solveig, newest first.
 
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased — 0.0.1
+## Unreleased
+
+Nothing yet.
+
+## 0.1.0 — 2026-08-21
+
+**The first release.** Everything below this heading is in it.
+
+What that means and does not mean:
+
+- **The language is settled enough to write programs in.** It has been stable
+  for the whole of the work leading here, and everything added has been
+  additive except two deliberate breaks, both before this line: `@include` gained
+  its `@`, and `new` came off the classes that construct nothing.
+- **`.sob` files are version 11 and are not portable across versions.** A file
+  from an older build is refused with `unsupported bytecode version` rather than
+  misread, and there is no compatibility promise between releases — recompile
+  the `.sol`. See [ROADMAP 3.4](ROADMAP.md#34-no-compatibility-across-sob-versions).
+- **0.1 rather than 1.0** because the restrictions in
+  [ROADMAP section 3](ROADMAP.md#3-known-limitations) are real and deliberate:
+  no non-local return, capturing blocks tied to their frame, recursion to about
+  62 levels, text is bytes, and no way to recover from an error. Each is
+  documented where a program would meet it.
+
+The tests pass under `make test` and under `SOLUM_GC_STRESS=1 make test`, every
+one of the 22 examples compiles and runs, and `leaks` reports none across the
+whole suite.
 
 ### The counted loops are built in — and not by inlining — `c56a3c4`, 2026-08-21
 

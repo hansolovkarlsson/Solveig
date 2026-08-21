@@ -101,14 +101,24 @@ a different language.
 
 ## Status
 
+**0.1.0** — the first release. `.sob` files are format version 11 and are not
+portable across releases: an older one is refused rather than misread.
+
 Working: the scanner, the single-pass compiler, the re-entrant dispatch loop
 with call frames, blocks with lexical capture, message-based control flow, a
 mark-sweep collector over objects, blocks and compiled code, and the `.sob`
 format with its verifier.
 
 The language is Turing-complete, does not leak, and has strings, arrays,
-symbols, user-defined objects, reflection, sorting, formatted output, and
-conversions between every pair of types that has an unambiguous one.
+dictionaries, symbols, user-defined objects, reflection, sorting, formatted
+output, and conversions between every pair of types that has an unambiguous one.
+A program reads and writes files, reads its input, times itself, stops with a
+status, and is split across files with `@include`.
+
+It is 0.1 rather than 1.0 because [the restrictions in the
+roadmap](docs/ROADMAP.md#3-known-limitations) are deliberate and documented: no
+non-local return, a capturing block tied to its frame, recursion to about 62
+levels, text is bytes, and no way to recover from an error.
 
 Arithmetic is strict throughout: integers and floats never coerce, and integer
 overflow traps rather than wrapping.
