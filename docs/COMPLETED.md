@@ -939,7 +939,7 @@ Both are code in brackets; one evaluates now and one is a value. The tutorial
 introduced each separately and never put them side by side, which is where the
 difference actually lands.
 
-Built as `pending`: a subsection at the end of the guide's §7, a short one in
+Built as `4001efa`: a subsection at the end of the guide's §7, a short one in
 the reference beside `Grouping`, and a section in
 [examples/blocks.sol](../examples/blocks.sol) so the concept has runnable code
 and not only prose.

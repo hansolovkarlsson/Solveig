@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### The guide contrasts a group with a block — `pending`, 2026-08-20
+### The guide contrasts a group with a block — `4001efa`, 2026-08-20
 
 Roadmap 6.8. Both are code in brackets, and nothing put them side by side.
 
