@@ -617,9 +617,20 @@ The file-type bits are masked off, so what comes back is permissions alone and
 `setMode(to, modeOf(from))` cannot try to change what a thing *is*. A mode
 outside `#0` to `#4095` is refused rather than partly applied.
 
-`system:makeDirectory` makes **one level** and is an error when the directory is
-already there, so "make sure this exists" is a test and a make —
-[6.25](ROADMAP.md#625-makedirectory-refuses-one-that-is-already-there).
+`system:makeDirectory` makes **one level** and answers whether it made one:
+**true** if it did, **false** if a directory was already there. So "make sure
+this exists" is the one message, and a caller who wants to know which it was
+still finds out.
+
+```
+system:makeDirectory("build/out").      ; true  -- made it
+system:makeDirectory("build/out").      ; false -- already there
+```
+
+Anything else is an error: no permission, no parent, or **something that is not
+a directory** already at that name. That last one matters — `mkdir` reports it
+the same way as "already there", and the two are not the same news, since one is
+fine and the other never will be.
 
 A string is bytes, so a file of them survives the round trip — a NUL is a byte
 like any other, `size` counts it, and reading a file and writing it back copies

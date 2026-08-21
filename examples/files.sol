@@ -70,9 +70,15 @@ system:fileExists("build"):print.               ; false -- a directory is not a 
 
 scratch := "build/example-scratch".
 
-; "make sure it is there" is two messages rather than one, and says which of the
-; two it meant. `makeDirectory` on a directory that exists is an error.
-system:isDirectory(scratch):ifFalse({ system:makeDirectory(scratch) }).
+; "make sure it is there" is one message. `makeDirectory` answers **true** when
+; it made one and **false** when a directory was already there -- so the common
+; case needs no test, and a caller who cares which it was still finds out.
+;
+; Anything else is an error: no permission, no parent, or something that is not
+; a directory already sitting at that name. That last one used to be reported
+; the same way as "already there", which is the same news from `mkdir` and not
+; the same news at all.
+system:makeDirectory(scratch).
 
 system:writeFile(scratch:concat("/note.txt"), "a line
 ").

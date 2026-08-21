@@ -7,6 +7,53 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### `makeDirectory` answers instead of refusing — `pending`, 2026-08-21
+
+[6.25](COMPLETED.md#625-makedirectory-refuses-one-that-is-already-there--done).
+**true** if it made one, **false** if a directory was already there, an error
+for anything else.
+
+```
+system:makeDirectory("build/out").      ; true  -- made it
+system:makeDirectory("build/out").      ; false -- already there
+```
+
+**The case was that every script carried the same block.** `mirror.sol` and
+`files.sol` both had a version of `isDirectory:ifFalse({ makeDirectory })`, and
+both have lost it.
+
+**What decided the shape was something the entry had not noticed.** It offered a
+second message or an answer instead of a raise, and the deciding argument turned
+out not to be tidiness: **refusing could not be told apart from failing.**
+`mkdir` reports `EEXIST` both for a directory that is already there and for a
+*file* sitting at that name, so the two arrived with the same words —
+
+```
+cannot make directory 'perm/already': File exists
+cannot make directory 'perm/afile':   File exists
+```
+
+— and the first is fine while the second never will be. A caller wanting to know
+which had to catch the error and read its text, and got no answer even then.
+
+So the file case is separated out and says what it is, and the ordinary case
+answers rather than raising, which puts the fact where a caller can use it or
+ignore it:
+
+```
+cannot make directory 'perm/afile': something that is not a directory is already there
+```
+
+**A behaviour change**, and the second in two releases: `makeDirectory` answered
+nil and raised on an existing directory, and now answers a boolean and does not.
+A program that caught that error to mean "already there" will stop seeing it —
+which is the point, since it can now ask instead.
+
+One level still. `mkdir -p` is a different message and nothing has asked for it.
+
+**Section 6 is down to 6.10** — a program still cannot read a keypress — which
+is the only entry left on the roadmap that is not a limitation kept on purpose.
+
 ### A copy keeps its mode and its time — `176e1d1`, 2026-08-21
 
 [6.26](COMPLETED.md#626-a-files-mode-and-time-cannot-be-read-or-set--done):

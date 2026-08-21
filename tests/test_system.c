@@ -832,7 +832,6 @@ static void test_changing_what_is_there_refuses(void)
     static const char *refused[] = {
         "system:remove(\"build/tests/notempty\").",    /* not empty */
         "system:remove(\"build/tests/no-such-thing\").",
-        "system:makeDirectory(\"build/tests/notempty\").",   /* already there */
         "system:makeDirectory(\"build/tests/no/such/parent/x\").",
         "system:rename(\"build/tests/no-such-thing\", \"build/tests/x\").",
         "system:fileSize(\"build/tests/no-such-thing\").",
@@ -891,6 +890,47 @@ static bool is_text(SolValue value, const char *expected)
     const SolString *s = SOL_AS_STRING(value);
     return s->length == (int)strlen(expected) &&
            memcmp(s->chars, expected, (size_t)s->length) == 0;
+}
+
+/* `makeDirectory` answers whether it made one, rather than refusing a directory
+   that is already there. "Make sure this exists" is what a script wants nine
+   times in ten, and it was a test and a make before this. */
+static void test_making_a_directory_answers_whether_it_did(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    remove("build/tests/made/inner");
+    remove("build/tests/made");
+
+    assert(run(&vm, &chunk,
+        "first := system:makeDirectory(\"build/tests/made\")."
+        "again := system:makeDirectory(\"build/tests/made\")."
+        "third := system:makeDirectory(\"build/tests/made\").") == SOL_OK);
+    assert(SOL_AS_BOOL(global(&vm, "first")) == true);
+    assert(SOL_AS_BOOL(global(&vm, "again")) == false);
+    assert(SOL_AS_BOOL(global(&vm, "third")) == false);
+    sol_chunk_free(&chunk);
+
+    /* Still one level: a missing parent is an error, not a thing it makes. */
+    assert(run(&vm, &chunk,
+        "system:makeDirectory(\"build/tests/made/a/b\").") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+
+    /* And something that is not a directory in the way is an error rather than
+       a false, because false means "it is there and it is fine" and this never
+       will be. mkdir reports both the same way, which is why this is separated
+       out here. */
+    assert(run(&vm, &chunk,
+        "system:writeFile(\"build/tests/made-file\", \"x\")."
+        "system:makeDirectory(\"build/tests/made-file\").") == SOL_RUNTIME_ERROR);
+    assert(strstr(vm.error_message.chars, "not a directory") != NULL);
+    sol_chunk_free(&chunk);
+
+    remove("build/tests/made-file");
+    remove("build/tests/made");
+    sol_vm_free(&vm);
+    printf("  makeDirectory answers whether it made one\n");
 }
 
 /* A mode, read and written. An integer because that is what a mode is, with
@@ -1039,6 +1079,7 @@ int main(void)
     test_a_file_that_is_not_there_is_an_error();
     test_file_exists_means_a_file();
 
+    test_making_a_directory_answers_whether_it_did();
     test_a_mode_can_be_read_and_set();
     test_a_mode_out_of_range_is_refused();
     test_a_time_can_be_carried_across();

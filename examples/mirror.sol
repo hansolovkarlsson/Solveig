@@ -30,14 +30,13 @@ dryRun := arguments:size:greaterThan(#2):and({ arguments:at(#3):equals("dry") })
 
 ; With no arguments there is nothing to mirror, so it makes something to mirror.
 ; A program that needs a tree before it can run is a poor demonstration.
-; `makeDirectory` is an error when the directory is already there, so "make sure
-; this exists" -- which is what a script wants nine times in ten -- is two
-; messages rather than one. See ROADMAP 6.25.
-ensure := { path | system:isDirectory(path):ifFalse({ system:makeDirectory(path) }) }.
-
+; `makeDirectory` answers whether it made one -- true, or false for a directory
+; that was already there -- so "make sure this exists" is the one message, and
+; the answer is there to use or ignore. This file used to carry a three-line
+; `ensure` block for the want of that; it was the case for 6.25.
 arguments:size:equals(#0):ifTrue({
-    ensure:value("build/mirror-from").
-    ensure:value("build/mirror-from/docs").
+    system:makeDirectory("build/mirror-from").
+    system:makeDirectory("build/mirror-from/docs").
     system:writeFile("build/mirror-from/README", "the top of the tree\n").
     system:writeFile("build/mirror-from/docs/one.txt", "first\n").
     system:writeFile("build/mirror-from/docs/two.txt", "second\n").
@@ -117,9 +116,9 @@ system:isDirectory(destination):ifTrue({
 ; Doing it
 
 dryRun:ifFalse({
-    ensure:value(destination).
+    system:makeDirectory(destination).
     made:do({ folder |
-        ensure:value(destination:concat("/"):concat(folder)) }).
+        system:makeDirectory(destination:concat("/"):concat(folder)) }).
     copied:do({ relative | | from, to |
         from := source:concat("/"):concat(relative).
         to := destination:concat("/"):concat(relative).
@@ -163,10 +162,13 @@ made:size:add(copied:size):add(remoded:size):equals(#0):ifTrue({
 ; Four things, in the order they bit. The second is a defect this found; the
 ; others are gaps, and two of them are on the roadmap now.
 ;
-;   1. **`makeDirectory` refuses a directory that is already there.** What a
-;      script wants nine times in ten is "make sure this exists", and that is
-;      two messages rather than one -- the `ensure` block at the top of this
-;      file. See ROADMAP 6.25.
+;   1. **`makeDirectory` refused a directory that was already there**, so "make
+;      sure this exists" -- what a script wants nine times in ten -- was two
+;      messages and a block. It answers `true` or `false` now instead of
+;      refusing, and the block this file carried for it is gone. That refusing
+;      also could not be told apart from a *file* being in the way, which is
+;      the same news from `mkdir` and not the same news at all, is what settled
+;      the shape.
 ;
 ;   2. **`modifiedAt` answered whole seconds**, and this program could not do
 ;      its job with that. The test is "is the source newer than the copy?", and

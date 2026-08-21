@@ -1390,6 +1390,49 @@ for values, by identity for arrays, blocks, objects and dictionaries.
 [[#1]]:indexOf([#1]).            ; nil  -- an equal-looking array is a different one
 ```
 
+### 6.25 `makeDirectory` refuses one that is already there — **done**
+
+It answers whether it made one instead: **true** if it did, **false** if a
+directory was already there, and an error for anything else.
+
+```
+system:makeDirectory("build/out").      ; true  -- made it
+system:makeDirectory("build/out").      ; false -- already there
+```
+
+**The case was that every script carried the same block.**
+[mirror.sol](../examples/mirror.sol) and [files.sol](../examples/files.sol) both
+had a version of `isDirectory:ifFalse({ makeDirectory })`, because "make sure
+this exists" is what a script wants nine times in ten and refusing made it a
+test and a make.
+
+**What decided the shape was a thing the entry had not noticed.** It offered two
+options — a second message, or answering instead of raising — and the argument
+for the second turned out to be stronger than "one message is tidier": refusing
+could not be told apart from failing. `mkdir` reports `EEXIST` both for a
+directory that is already there and for a **file** sitting at that name, so a
+caller who wanted to know had to catch the error and read its text, and even
+then got the same words for two situations that are not the same news:
+
+```
+cannot make directory 'perm/already': File exists
+cannot make directory 'perm/afile':   File exists
+```
+
+The first is fine and the second never will be. So the file case is separated
+out and says what it is:
+
+```
+cannot make directory 'perm/afile': something that is not a directory is already there
+```
+
+Answering `true` or `false` puts the ordinary fact where a caller can use it or
+ignore it, and leaves errors for the things that are actually wrong: no
+permission, no parent, or something else in the way.
+
+**One level still.** `mkdir -p` is a different message and nothing has asked for
+it; this entry was only ever about the case where the work is already done.
+
 ### 6.26 A file's mode and time cannot be read or set — **done**
 
 `system:modeOf`, `system:setMode`, `system:setModifiedAt`.

@@ -3690,6 +3690,22 @@ static SolValue prim_system_remove(SolVM *vm, SolValue self, SolValue *args, int
  * A directory that is already there is an error rather than a shrug, which
  * makes `system:isDirectory(p):ifFalse({ system:makeDirectory(p) })` the way to
  * say "make sure of it" -- longer, and it says which of the two you meant. */
+/* `system:makeDirectory(path)` -- answers whether it made one.
+ *
+ * **true** if it did, **false** if a directory was already there, and an error
+ * for anything else. It used to refuse the second case, which made "make sure
+ * this exists" -- the thing a script wants nine times in ten -- a test and a
+ * make, and every script that wrote anywhere carried the same little block.
+ *
+ * Answering rather than refusing is what puts the fact where a caller can use
+ * it *or* ignore it. Refusing did neither well: a caller who wanted to know had
+ * to catch the error and read its text, because `mkdir` reports EEXIST for a
+ * directory that is already there and for a **file** in the way, and those are
+ * not the same news at all. The first is fine and the second never will be.
+ *
+ * So the file case is separated out and says what it is. One level still, as
+ * before: `mkdir -p` is a different message and nothing has asked for it.
+ */
 static SolValue prim_system_make_directory(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     (void)self;
@@ -3697,11 +3713,21 @@ static SolValue prim_system_make_directory(SolVM *vm, SolValue self, SolValue *a
     if (!path_argument(vm, "makeDirectory", args[0])) return SOL_NIL_VAL;
 
     const char *path = SOL_AS_STRING(args[0])->chars;
-    if (mkdir(path, 0777) != 0) {
-        sol_vm_runtime_error(vm, "cannot make directory '%s': %s",
-                             path, strerror(errno));
+    if (mkdir(path, 0777) == 0) return SOL_BOOL_VAL(true);
+
+    if (errno == EEXIST) {
+        struct stat info;
+        if (stat(path, &info) == 0 && S_ISDIR(info.st_mode)) {
+            return SOL_BOOL_VAL(false);        /* already there, which is fine */
+        }
+        sol_vm_runtime_error(vm,
+            "cannot make directory '%s': something that is not a directory is "
+            "already there", path);
         return SOL_NIL_VAL;
     }
+
+    sol_vm_runtime_error(vm, "cannot make directory '%s': %s",
+                         path, strerror(errno));
     return SOL_NIL_VAL;
 }
 

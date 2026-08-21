@@ -275,9 +275,8 @@ entries are in [COMPLETED.md](COMPLETED.md). This one was about making it a
 language you can write a *program* in: a program has to be split across files,
 read input, write files, and stop with a status.
 
-**Two entries are left.** One is here because closing it was a mistake rather
-than because it was never done; the other is a papercut the first program to
-*write* to the filesystem tripped over.
+**One entry is left**, and it is here because closing it was a mistake rather
+than because it was never done.
 
 Raised in a notes file and assessed in [ideas.md](ideas.md), which also records
 what was **not** worth building and why — integer widths, a JIT, cascades,
@@ -312,34 +311,6 @@ it. A `system:readKey` is that, without the editing:
 Still waiting for a program that needs it, which is now a fair test rather than
 an excuse: an interactive one would want it on the first screen.
 
-### 6.25 `makeDirectory` refuses one that is already there
-
-```
-system:makeDirectory("build/out").
-solvm: cannot make directory 'build/out': File exists
-```
-
-Which is true, and it is not the question a script is asking. What a script
-wants nine times in ten is **make sure this exists**, and that is two messages
-and a block rather than one message:
-
-```
-ensure := { path | system:isDirectory(path):ifFalse({ system:makeDirectory(path) }) }.
-```
-
-[examples/mirror.sol](../examples/mirror.sol) carries that block, which is what
-put this here. Every script that writes anywhere will carry the same one.
-
-Two shapes to choose between. A second message — `ensureDirectory`, or
-`makeDirectory(path, true)` — keeps the refusal for anybody who wants to know,
-which is the reason it refuses today: making a directory that is already there
-can mean a script has misunderstood where it is. Or `makeDirectory` could answer
-whether it made one rather than raising, which is one message and puts the
-answer where a caller can ignore it.
-
-The narrow reading — one level, no `mkdir -p` — is settled and stays. This is
-only about the case where the work is already done.
-
 ## Suggested order
 
 **Nothing is on the live list.** Section 6 came from the right place:
@@ -361,13 +332,15 @@ was, for about a day: it waited for something to need a number for a byte, and
 about, but for `\u0041`, which is text. `asByte` and `asCharacter` are built and
 it is done.
 
-**Two entries.** [6.25](#625-makedirectory-refuses-one-that-is-already-there)
-came from [mirror.sol](../examples/mirror.sol), the first program here that
-writes to the filesystem rather than reading it, along with
-[6.26](COMPLETED.md#626-a-files-mode-and-time-cannot-be-read-or-set--done),
-which is built: a copy keeps the executable bit now.
+**One entry.** Both of the things
+[mirror.sol](../examples/mirror.sol) asked for are built —
+[6.25](COMPLETED.md#625-makedirectory-refuses-one-that-is-already-there--done)
+and [6.26](COMPLETED.md#626-a-files-mode-and-time-cannot-be-read-or-set--done) —
+so a copy keeps its mode and its time, and "make sure this directory exists" is
+one message.
 
-**6.10 is the other**, and it is open again after being closed by mistake. `solis` grew raw-mode line editing for its own prompt
+**6.10 is what is left**, and it is open because closing it was a mistake rather
+than because it was never done. `solis` grew raw-mode line editing for its own prompt
 ([6.24](COMPLETED.md#624-the-prompt-has-no-history--done)), which needed the same
 machinery — and a *program* still cannot read a keypress, which is what this
 entry is. The machinery being built is the reason it is now small. The four papercuts —
