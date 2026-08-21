@@ -23,3 +23,22 @@ state:equals('running):ifElse({ "go" }, { "stop" }):display.    ; go
 ; They render inside collections like anything else.
 ['ready, 'running, 'halted]:print.
 "the state is {}":fill([state]):display.
+
+; ---------------------------------------------------------------------------
+; Symbols have an order
+;
+; Interning makes `equals` on two symbols a pointer comparison, and it is
+; exactly what makes their addresses say nothing about their order. So
+; `lessThan` compares the text -- the one symbol operation that has to look at
+; the characters.
+
+'apple:lessThan('banana):print.          ; true
+'a:lessOrEqual('a):print.                ; true
+
+; Which is what a report needs: `sorted` with no block sends `lessThan`, so an
+; array of symbols now sorts, and a tally kept under symbol keys has a stable
+; order to print in.
+['pear, 'apple, 'fig]:sorted:print.      ; ['apple, 'fig, 'pear]
+
+; Strict about the other side, like every other comparison here.
+;   'a:lessThan("a")   ->  'lessThan' expects symbol, got string (no implicit coercion)

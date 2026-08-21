@@ -339,28 +339,6 @@ of the runtime that behaves differently by platform.
 Worth doing when a program needs it, and behind its own decision rather than as
 a footnote to line input.
 
-### 6.19 A symbol cannot be ordered
-
-Symbols are values, compare by content, and make good dictionary keys — and
-`sorted` cannot touch them, because there is no `lessThan` on a symbol. Any
-report tallied under symbol keys has to convert to strings to sort and back to
-look up:
-
-```
-kinds:keys:collect({ k | k:asString }):sorted:do({ name |
-    kinds:at(name:asSymbol) ... })
-```
-
-Interning is what makes the comparison cheap for `equals` and is exactly what
-makes ordering arbitrary — two symbols' addresses say nothing about their text.
-So the question is whether `lessThan` should compare the text, which is the only
-ordering anybody would mean, at the cost of it being the one symbol operation
-that is not a pointer comparison.
-
-Small either way. It came up because a program tallying values by kind wanted a
-stable order to print them in, which is the ordinary reason anything gets
-sorted.
-
 ### 6.21 Two libraries binding one name collide silently
 
 Top-level rebinding is legal, an included file binds into the one global
@@ -400,37 +378,6 @@ and the shape of what one would buy:
 A warning on rebinding a name an include bound is the cheap version of the first
 of those, and would catch the case above without any of the rest.
 
-### 6.23 An array cannot be popped, or asked what it holds
-
-Two gaps, both found by the same program and both worked around rather than
-waited for. [lib/html.sol](../lib/html.sol) keeps a stack of open elements,
-which is what parsing a nesting format wants, and an array does not quite serve:
-
-- **No `removeLast`.** There is `add` and nothing that takes one off, so the
-  stack carries its own `top` and overwrites with `at_put` rather than
-  shrinking. That is O(1) where rebuilding with `copyFrom` would be O(n) a pop,
-  so the workaround is arguably faster than the message would have been — but it
-  is eight lines in a library, written twice before it was factored out.
-- **No `includes` and no `indexOf`.** An array cannot say whether it holds
-  something. The library's sets of element names are therefore *strings*,
-  searched with the delimiters kept on so that `p` does not match `pre` — the
-  trick every shell script uses, for the same reason and with the same
-  awkwardness.
-
-`removeLast` is the one with a real design question in it: what should it answer
-on an empty array — an error, like `at`, or nil? `at` refuses an out-of-range
-index rather than answering nil, which argues for the error; a stack that has to
-be asked `isEmpty` first is the shape every caller writes anyway.
-
-`includes` has no question, only the observation that a dictionary already
-answers it in O(1) and an array would be O(n), so a program with a set to test
-against is often better served by the dictionary it should have used. That is
-the argument for *not* adding it, and it is why this is one entry rather than
-two.
-
-Neither blocks anything. Both are the sort of thing that only shows up when a
-program is written, which is how the last four entries here got their case.
-
 ## Suggested order
 
 **Section 6 is the whole of the live list**, and it came from the right place:
@@ -453,8 +400,10 @@ about, but for `\u0041`, which is text. `asByte` and `asCharacter` are built and
 it is done.
 
 The rest is not ordered. **A single keypress** (6.10) still waits for a program
-that needs it. **6.19** and **6.23** are papercuts programs tripped over, small and worth doing
-when something is already open nearby.
+that needs it. [6.19](COMPLETED.md#619-a-symbol-cannot-be-ordered--done) and
+[6.23](COMPLETED.md#623-an-array-cannot-be-popped-or-asked-what-it-holds--done)
+were the papercuts, and both are built — the workarounds for them were sitting
+in shipped library code, which is what made the case.
 [6.22](COMPLETED.md#622-a-file-that-includes-a-library-of-its-own-name-silently-does-nothing--done)
 was the other one and is built. **6.21** is the same family and nothing has hit
 it yet; what it really records is the shape of the module system the language

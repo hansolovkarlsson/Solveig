@@ -1684,6 +1684,8 @@ one like any other byte.
 | `at(#i)` | the element; **one-based**, out of range is an error |
 | `at_put(#i, v)` | the value stored |
 | `add(v)` | **the array**, so it chains |
+| `removeLast` | the last element, taken off; **an error** when empty |
+| `indexOf(v)` | where `v` first is, **one-based**, or nil |
 | `do(block)` | the array, having run the block per element |
 | `collect(block)` | a new array of the block's answers |
 | `select(block)` | a new array of the elements the block accepted |
@@ -1697,6 +1699,26 @@ one like any other byte.
 `collect`, `select`, `inject`, `join` and `sorted` all leave the receiver
 untouched. `select` and the comparison block are both strict about answering a
 boolean.
+
+**A stack.** `add` and `removeLast` are the two ends of one, which is what
+parsing anything nested wants — [lib/html.sol](../lib/html.sol) keeps one of
+open elements. `removeLast` **refuses an empty array** rather than answering
+nil, the same choice `at` makes about an index out of range: nil would be a
+second way of saying "nothing" beside the one the language has, and it would
+turn a mistake into a value that fails further on. Ask `size` first, which is
+the shape a stack's loop condition already has.
+
+`indexOf` answers **nil when there is no match**, like [`string:indexOf`](#string),
+so `xs:indexOf(v):notNil` is how to ask whether it is there — which is why there
+is no `includes`. One message that answers *where* is worth more than two, one
+of which only answers *whether*. It compares the way `equals` does: by content
+for values, by identity for arrays, blocks, objects and dictionaries.
+
+```
+["a", "b", "c"]:indexOf("b").    ; #2
+["a", "b", "c"]:indexOf("z").    ; nil
+[[#1]]:indexOf([#1]).            ; nil  -- an equal-looking array is a different one
+```
 
 **Folding.** `inject` gives the block what has accumulated so far and one
 element, and takes its answer as the next accumulation:
@@ -1785,6 +1807,8 @@ first, then by the major one.
 | Message | Answers |
 | --- | --- |
 | `size` | an integer |
+| `lessThan(s)` `greaterThan(s)` | a boolean, comparing the text |
+| `lessOrEqual(s)` `greaterOrEqual(s)` | a boolean |
 | `asString` | the name, as a string |
 
 `'foo` is an interned name: two symbols spelling the same thing are the same
@@ -1796,6 +1820,17 @@ Useful as a tag where a string would be compared character by character:
 ```
 state := 'running.
 state:equals('running):ifTrue({ "go":display }).
+```
+
+**Symbols have an order**, and it is the text's. Interning is what makes
+`equals` a pointer comparison and exactly what makes the pointers say nothing
+about order, so these four are the only symbol operations that look at the
+characters. It is what lets an array of symbols sort — `sorted` with no block
+sends `lessThan` — which a tally kept under symbol keys needs to print in a
+stable order.
+
+```
+['pear, 'apple, 'fig]:sorted.    ; ['apple, 'fig, 'pear]
 ```
 
 ### boolean

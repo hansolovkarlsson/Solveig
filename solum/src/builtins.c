@@ -877,12 +877,27 @@ static int compare_values(SolValue a, SolValue b)
         return x < y ? -1 : (x > y ? 1 : 0);
     }
 
-    const SolString *x = SOL_AS_STRING(a);
-    const SolString *y = SOL_AS_STRING(b);
-    int shorter = x->length < y->length ? x->length : y->length;
-    int order = memcmp(x->chars, y->chars, (size_t)shorter);
+    /* A symbol orders by its text, like the string it is written as.
+     *
+       Interning is what makes `equals` on two symbols a pointer comparison, and
+       it is exactly what makes their *addresses* say nothing about their order
+       -- so this is the one symbol operation that has to look at the
+       characters. Worth it: an array of symbols is what a tally is keyed by,
+       and a report wants a stable order to print in. */
+    const char *xc; int xn;
+    const char *yc; int yn;
+    if (SOL_IS_SYMBOL(a)) {
+        xc = SOL_AS_SYMBOL(a)->chars; xn = SOL_AS_SYMBOL(a)->length;
+        yc = SOL_AS_SYMBOL(b)->chars; yn = SOL_AS_SYMBOL(b)->length;
+    } else {
+        xc = SOL_AS_STRING(a)->chars; xn = SOL_AS_STRING(a)->length;
+        yc = SOL_AS_STRING(b)->chars; yn = SOL_AS_STRING(b)->length;
+    }
+
+    int shorter = xn < yn ? xn : yn;
+    int order = memcmp(xc, yc, (size_t)shorter);
     if (order != 0) return order < 0 ? -1 : 1;
-    return x->length < y->length ? -1 : (x->length > y->length ? 1 : 0);
+    return xn < yn ? -1 : (xn > yn ? 1 : 0);
 }
 
 static SolValue ordering(SolVM *vm, const char *name, SolValue self, SolValue *args,
@@ -1423,6 +1438,55 @@ static SolValue prim_array_sorted(SolVM *vm, SolValue self, SolValue *args, int 
     sol_gc_pop_temp(vm);                       /* scratch */
     sol_gc_pop_temp(vm);                       /* result */
     return ok ? SOL_ARRAY_VAL(result) : SOL_NIL_VAL;
+}
+
+/* `xs:removeLast` -- takes the last element off and answers it.
+ *
+ * Refuses an empty array rather than answering nil, which is the same choice
+ * `at` makes about an index out of range: nil would be a second way of saying
+ * "nothing here" beside the one the language already has, and it would turn a
+ * mistake into a value that fails somewhere else. A caller with an array that
+ * might be empty asks `size` first, which is the shape a stack's loop condition
+ * already has.
+ *
+ * The slot beyond the new count is left as it was. The tracer walks `count`
+ * rather than `capacity`, so it is not reachable, and the value being answered
+ * is on the stack and rooted by the caller. */
+static SolValue prim_array_remove_last(SolVM *vm, SolValue self, SolValue *args,
+                                       int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "removeLast", argc, 0)) return SOL_NIL_VAL;
+
+    SolArray *array = SOL_AS_ARRAY(self);
+    if (array->count == 0) {
+        sol_vm_runtime_error(vm, "'removeLast' wants an element, and this array is empty");
+        return SOL_NIL_VAL;
+    }
+    return array->items[--array->count];
+}
+
+/* `xs:indexOf(v)` -- where `v` first is, one-based, or nil.
+ *
+ * Answers nil rather than #0 for the same reason `string:indexOf` does: indices
+ * start at #1, so #0 would be an out-of-band value and a second way of saying
+ * "nothing". It is also why there is no `includes` -- `indexOf(v):notNil` is
+ * that question, and one message answering *where* is worth more than two, one
+ * of which only answers *whether*.
+ *
+ * Equality is `sol_value_equals`, the same one `equals` sends: by content for
+ * values, by identity for arrays, blocks, objects and dictionaries. So an array
+ * finds a string equal to one it holds, and finds another array only if it is
+ * the same array. That is the line the language draws everywhere else. */
+static SolValue prim_array_index_of(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "indexOf", argc, 1)) return SOL_NIL_VAL;
+
+    const SolArray *array = SOL_AS_ARRAY(self);
+    for (int i = 0; i < array->count; i++) {
+        if (sol_value_equals(array->items[i], args[0])) return SOL_INT_VAL(i + 1);
+    }
+    return SOL_NIL_VAL;
 }
 
 static SolValue prim_array_select(SolVM *vm, SolValue self, SolValue *args, int argc)
@@ -3863,6 +3927,8 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->array_class, SOL_ARRAY, "join", prim_array_join);
     instance(vm, vm->array_class, SOL_ARRAY, "print", prim_print);
     instance(vm, vm->array_class, SOL_ARRAY, "sorted", prim_array_sorted);
+    instance(vm, vm->array_class, SOL_ARRAY, "removeLast", prim_array_remove_last);
+    instance(vm, vm->array_class, SOL_ARRAY, "indexOf", prim_array_index_of);
     instance(vm, vm->array_class, SOL_ARRAY, "display", prim_display);
     instance(vm, vm->array_class, SOL_ARRAY, "equals", prim_equals);
     instance(vm, vm->array_class, SOL_ARRAY, "notEquals", prim_not_equals);
@@ -3968,6 +4034,12 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->symbol_class, SOL_SYMBOL, "equals", prim_equals);
     instance(vm, vm->symbol_class, SOL_SYMBOL, "notEquals", prim_not_equals);
     instance(vm, vm->symbol_class, SOL_SYMBOL, "size", prim_symbol_size);
+    /* Ordered by text, so an array of symbols sorts -- `sorted` with no block
+       sends `lessThan`, so these are what make that work. */
+    instance(vm, vm->symbol_class, SOL_SYMBOL, "lessThan", prim_string_less);
+    instance(vm, vm->symbol_class, SOL_SYMBOL, "greaterThan", prim_string_greater);
+    instance(vm, vm->symbol_class, SOL_SYMBOL, "lessOrEqual", prim_less_or_equal);
+    instance(vm, vm->symbol_class, SOL_SYMBOL, "greaterOrEqual", prim_greater_or_equal);
 
     /* Reflection is the same on every class, and installing it in a loop is not
        just brevity: a message that answers what an object understands is wrong

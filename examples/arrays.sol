@@ -139,3 +139,35 @@ rows:sorted({ x, y | x:name:lessThan(y:name) })
     :sorted({ x, y | x:score:lessThan(y:score) })
     :collect({ r | r:name })
     :print.                                           ; ["abe", "dan", "bea", "cara"]
+
+; ---------------------------------------------------------------------------
+; Taking one off, and finding one
+;
+; `add` puts an element on the end and `removeLast` takes it off again, which is
+; what makes an array a stack -- and a stack is what parsing anything nested
+; wants. lib/html.sol keeps one of open elements.
+
+stack := array:new.
+stack:add("html"):add("body"):add("p").
+stack:removeLast:display.        ; p
+stack:size:print.                ; #2
+
+; An empty array refuses rather than answering nil, the same way `at` refuses an
+; index out of range: nil would be a second way of saying "nothing", and it
+; would turn a mistake into a value that fails somewhere further on.
+;   array:new:removeLast   ->  'removeLast' wants an element, and this array is empty
+
+; `indexOf` answers where something is, one-based, or nil when it is absent --
+; the same shape `string:indexOf` has, and for the same reason.
+["a", "b", "c"]:indexOf("b"):print.      ; #2
+["a", "b", "c"]:indexOf("z"):print.      ; nil
+
+; Which is also how to ask whether it is there at all.
+["a", "b"]:indexOf("a"):notNil:print.    ; true
+
+; It compares the way `equals` does: by content for values, by identity for
+; arrays, blocks, objects and dictionaries. So an array finds a string equal to
+; one it holds, and finds another array only if it is the same array.
+[[#1]]:indexOf([#1]):print.              ; nil -- an equal-looking array is a different one
+same := [#1].
+[same]:indexOf(same):print.              ; #1

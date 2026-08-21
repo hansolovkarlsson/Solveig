@@ -24,8 +24,10 @@
 ;      stack too. The limit is not a property of the data; it is a property of
 ;      how you traverse it.
 ;
-;   3. **An array cannot be popped**, which a stack notices immediately. See
-;      ROADMAP 6.23.
+;   3. **An array could not be popped, or asked what it holds**, which a stack
+;      notices immediately. Both were written around here first and both are
+;      built now -- `removeLast` and `indexOf`, COMPLETED 6.23. The workaround
+;      being in shipped library code is what made the case for them.
 
 @include "html.sol".
 

@@ -1266,6 +1266,78 @@ nothing is asking for it. A byte from a string is a number now, which is what
 every use met so far actually wanted. If a program turns up that needs a large
 mutable buffer, that is a new entry with its own case, not this one reopened.
 
+### 6.23 An array cannot be popped, or asked what it holds — **done**
+
+Both found by [lib/html.sol](../lib/html.sol), which keeps a stack of open
+elements — the thing parsing a nesting format wants, and the thing an array did
+not quite serve. Both workarounds were written and shipped before the messages
+were, which is what made the case for them.
+
+**`removeLast`** takes the last element off and answers it. The workaround had
+been an object carrying its own `top` index, overwriting with `at_put` rather
+than shrinking — eight lines, written twice in one file before being factored
+out. The library is a plain array again:
+
+```
+html:push := { e | self:open:add(e). e }.
+html:pop  := { self:open:removeLast }.
+```
+
+**It refuses an empty array** rather than answering nil, which was the decision
+in it. `at` already refuses an index out of range, and nil would be a second way
+of saying "nothing" beside the one the language has — worse, it would turn a
+mistake into a value that fails somewhere further on. A caller that might be
+empty asks `size` first, which is the shape a stack's loop condition already
+has, so nothing is made harder by the strictness.
+
+**`indexOf`** answers a one-based position or nil, exactly like
+[`string:indexOf`](REFERENCE.md#string). The library's element-name sets had
+been *strings* searched with the delimiters kept on so that `p` did not match
+`pre` — the trick every shell script uses, for the same reason. They are arrays
+now.
+
+**And no `includes`**, which the entry had been unsure about. `indexOf(v):notNil`
+is that question, so a second message would answer less with more surface: one
+that says *where* is worth more than one that says only *whether*. The entry's
+argument against `includes` — that a dictionary answers set membership in O(1)
+and an array cannot — survives; what it missed is that `indexOf` earns its place
+by answering something a dictionary cannot.
+
+Equality is `sol_value_equals`, the one the language uses everywhere: by content
+for values, by identity for arrays, blocks, objects and dictionaries.
+
+```
+["a", "b", "c"]:indexOf("b").    ; #2
+[[#1]]:indexOf([#1]).            ; nil  -- an equal-looking array is a different one
+```
+
+### 6.19 A symbol cannot be ordered — **done**
+
+`lessThan`, `greaterThan`, `lessOrEqual` and `greaterOrEqual` on symbols,
+comparing the text.
+
+The question the entry raised was whether that is worth it, since **interning is
+what makes `equals` on two symbols a pointer comparison** — and it is exactly
+what makes their addresses say nothing about their order. So these four are the
+only symbol operations that have to look at the characters.
+
+It is worth it, and the reason is the one that gets anything sorted: a tally
+kept under symbol keys needs a stable order to print in. Symbols are values and
+make good dictionary keys, so tallying by symbol is the natural thing to write,
+and then the report could not be printed the same way twice.
+[examples/manifest.sol](../examples/manifest.sol) had the workaround in it —
+`collect` the keys to strings, sort those, convert back with `asSymbol` to look
+each one up — and writing that is what made the case:
+
+```
+kinds:keys:sorted:do({ kind |
+    "  {} {}":fill([kinds:at(kind):asString("4"), kind]):display }).
+```
+
+Nothing new was needed for `sorted` itself: with no block it **sends**
+`lessThan`, so defining one on symbols is all it took. That is the same
+arrangement that lets a user-defined type order itself.
+
 ### 6.20 An HTML parser — **done**
 
 Written to find out what the language wanted, which is how the last three
@@ -1325,7 +1397,7 @@ it. That file is the first library here included by another library rather than
 by a program.
 
 **What it cost that was not predicted.** An array cannot be popped and cannot be
-asked whether it holds something — [6.23](ROADMAP.md#623-an-array-cannot-be-popped-or-asked-what-it-holds).
+asked whether it holds something — [6.23](#623-an-array-cannot-be-popped-or-asked-what-it-holds--done).
 And `lib/text.sol` first bound a global called `text`, which the first program
 to use it shadowed with a variable of its own, breaking the library from a
 distance with `string does not understand 'utf8'`. That is

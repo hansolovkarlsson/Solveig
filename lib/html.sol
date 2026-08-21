@@ -70,15 +70,15 @@ html:element:add := { child |
 ; come back off in document order.
 html:element:text := { | parts, work, node, i |
     parts := array:new.
-    work := html:newStack.
-    work:push(self).
-    { work:isEmpty:not }:whileTrue({
-        node := work:pop.
+    work := array:new.
+    work:add(self).
+    { work:size:greaterThan(#0) }:whileTrue({
+        node := work:removeLast.
         node:isKindOf(string):ifElse(
             { parts:add(node) },
             { i := node:children:size.
               { i:greaterOrEqual(#1) }:whileTrue({
-                  work:push(node:children:at(i)).
+                  work:add(node:children:at(i)).
                   i := i:sub(#1) }) }) }).
     parts:join("") }.
 
@@ -92,16 +92,16 @@ html:element:attribute := { name | self:attributes:at(name:asLowercase, nil) }.
 ; the flag is in the loop's own condition instead.
 html:element:find := { name | | found, work, node, i |
     found := nil.
-    work := html:newStack.
-    work:push(self).
-    { found:isNil:and({ work:isEmpty:not }) }:whileTrue({
-        node := work:pop.
+    work := array:new.
+    work:add(self).
+    { found:isNil:and({ work:size:greaterThan(#0) }) }:whileTrue({
+        node := work:removeLast.
         node:isKindOf(string):ifFalse({
             node:equals(self):not:and({ node:name:equals(name) }):ifElse(
                 { found := node },
                 { i := node:children:size.
                   { i:greaterOrEqual(#1) }:whileTrue({
-                      work:push(node:children:at(i)).
+                      work:add(node:children:at(i)).
                       i := i:sub(#1) }) }) }) }).
     found }.
 
@@ -110,16 +110,16 @@ html:element:find := { name | | found, work, node, i |
 ; with an id" needs the general form rather than six calls and a sort.
 html:element:selectNodes := { test | | out, work, node, i |
     out := array:new.
-    work := html:newStack.
-    work:push(self).
-    { work:isEmpty:not }:whileTrue({
-        node := work:pop.
+    work := array:new.
+    work:add(self).
+    { work:size:greaterThan(#0) }:whileTrue({
+        node := work:removeLast.
         node:isKindOf(string):ifFalse({
             node:equals(self):not:and({ test:value(node) })
                 :ifTrue({ out:add(node) }).
             i := node:children:size.
             { i:greaterOrEqual(#1) }:whileTrue({
-                work:push(node:children:at(i)).
+                work:add(node:children:at(i)).
                 i := i:sub(#1) }) }) }).
     out }.
 
@@ -150,13 +150,13 @@ html:raw := dictionary:new.
 ; `<li>one<li>two` is two siblings rather than one nested in the other, and it
 ; is the part of HTML that surprises people who expect a bracket language.
 html:implied := dictionary:new.
-html:implied:atPut("li", "li").
-html:implied:atPut("dt", "dt dd").
-html:implied:atPut("dd", "dt dd").
-html:implied:atPut("tr", "tr td th").
-html:implied:atPut("td", "td th").
-html:implied:atPut("th", "td th").
-html:implied:atPut("option", "option").
+html:implied:atPut("li", ["li"]).
+html:implied:atPut("dt", ["dt", "dd"]).
+html:implied:atPut("dd", ["dt", "dd"]).
+html:implied:atPut("tr", ["tr", "td", "th"]).
+html:implied:atPut("td", ["td", "th"]).
+html:implied:atPut("th", ["td", "th"]).
+html:implied:atPut("option", ["option"]).
 
 ; And every block-level element closes an open paragraph, which is the rule
 ; behind `<p>one<p>two` and behind `<p>text<div>` -- a paragraph cannot contain
@@ -167,7 +167,7 @@ html:implied:atPut("option", "option").
         name := name:split("\n"):join("").
         name:equals(""):ifFalse({
             html:implied:includes(name):ifFalse({
-                html:implied:atPut(name, "p") }) }) }).
+                html:implied:atPut(name, ["p"]) }) }) }).
 
 ; ---------------------------------------------------------------------------
 ; Reading
@@ -321,70 +321,25 @@ html:readAttributes := { element | | name |
                     element:attributes:atPut(name, self:readAttributeValue) },
                   { element:attributes:atPut(name, "") }) }) }) }.
 
-; --- a stack ---------------------------------------------------------------
+; --- the open elements -----------------------------------------------------
 ;
-; Two things an array cannot do turned up here, and both are worked around
-; rather than waited for:
-;
-;   1. **An array cannot be popped.** There is `add` and no `removeLast`, so
-;      this keeps its own `top` and overwrites with `at_put` rather than
-;      shrinking. That is O(1), where rebuilding with `copyFrom` would be O(n)
-;      a pop -- so the workaround is arguably the better code, and it is still a
-;      workaround. A stack is what every parser of a nesting format wants.
-;
-;   2. **An array cannot say whether it holds something.** No `includes` and no
-;      `indexOf`, so the sets below are strings searched with the delimiters
-;      kept on, which is the trick every shell script uses and for the same
-;      reason.
-;
-; See [ROADMAP 6.23](../docs/ROADMAP.md#623-an-array-cannot-be-popped-or-asked-what-it-holds).
-;
-; This is used twice: for the elements that are open while reading, and for the
-; walk that `text`, `find` and `findAll` do. Both are the same shape, and both
-; are here because the alternative is recursion.
-
-html:stack := object:new.
-html:stack:items := nil.
-html:stack:top := #0.
-
-html:newStack := { | s |
-    s := html:stack:new. s:items := array:new. s:top := #0. s }.
-
-html:stack:push := { v |
-    self:top := self:top:add(#1).
-    self:top:greaterThan(self:items:size):ifElse(
-        { self:items:add(v) },
-        { self:items:at_put(self:top, v) }).
-    v }.
-
-html:stack:pop := { | v |
-    v := self:items:at(self:top).
-    self:top := self:top:sub(#1).
-    v }.
-
-html:stack:peekTop := { self:items:at(self:top) }.
-html:stack:isEmpty := { self:top:equals(#0) }.
+; A plain array used as a stack. This was eight lines of object with its own
+; `top` index until [6.23](../docs/COMPLETED.md#623-an-array-cannot-be-popped-or-asked-what-it-holds--done)
+; gave arrays `removeLast` -- the workaround was written here first, twice, and
+; is what got the messages built. The same is true of `indexOf`: the element
+; sets below were delimited strings searched with `string:indexOf`, and they are
+; arrays now.
 
 html:open := nil.
-html:push := { e | self:open:push(e) }.
-html:pop := { self:open:pop }.
-html:depth := { self:open:top }.
-html:current := { self:open:peekTop }.
-
-; Whether a space-separated list holds a name, with the delimiters kept on so
-; that "p" does not match "pre".
-html:listHas := { list, name |
-    " ":concat(list):concat(" ")
-        :indexOf(" ":concat(name):concat(" ")):notNil }.
+html:push := { e | self:open:add(e). e }.
+html:pop := { self:open:removeLast }.
+html:depth := { self:open:size }.
+html:current := { self:open:at(self:open:size) }.
 
 ; Is `name` open anywhere? An end tag for something that is not open closes
 ; nothing, and saying so is better than closing whatever happens to be current.
-html:isOpen := { name | | found, i |
-    found := false. i := #1.
-    { i:lessOrEqual(self:open:top) }:whileTrue({
-        self:open:items:at(i):name:equals(name):ifTrue({ found := true }).
-        i := i:add(#1) }).
-    found }.
+html:isOpen := { name |
+    self:open:collect({ e | e:name }):indexOf(name):notNil }.
 
 html:closeThrough := { name | | done |
     done := false.
@@ -398,7 +353,7 @@ html:applyImplied := { name | | closes |
     closes := self:implied:at(name, nil).
     closes:isNil:ifFalse({
         { self:depth:greaterThan(#1)
-            :and({ self:listHas(closes, self:current:name) }) }
+            :and({ closes:indexOf(self:current:name):notNil }) }
             :whileTrue({ self:pop }) }) }.
 
 ; --- tags ------------------------------------------------------------------
@@ -481,7 +436,7 @@ html:read := { source | | document |
     self:src := source.
     self:pos := #1.
     self:complaints := array:new.
-    self:open := self:newStack.
+    self:open := array:new.
 
     document := self:newElement("#document", #1).
     self:push(document).

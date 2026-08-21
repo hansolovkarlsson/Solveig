@@ -206,6 +206,46 @@ static void test_errors(void)
     sol_vm_free(&vm);
 }
 
+/* Interning is what makes `equals` a pointer comparison and exactly what makes
+   the pointers say nothing about order, so `lessThan` compares the text. It is
+   the one symbol operation that has to look at the characters, and it is what
+   lets an array of symbols sort. */
+static void test_symbols_order_by_text(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "a := 'apple:lessThan('banana)."
+        "b := 'banana:lessThan('apple)."
+        "c := 'a:lessOrEqual('a)."
+        "d := 'a:greaterOrEqual('a)."
+        "e := 'a:lessThan('a)."
+        "f := 'ab:greaterThan('a).") == SOL_OK);   /* a prefix sorts first */
+    assert(SOL_AS_BOOL(global(&vm, "a")) == true);
+    assert(SOL_AS_BOOL(global(&vm, "b")) == false);
+    assert(SOL_AS_BOOL(global(&vm, "c")) == true);
+    assert(SOL_AS_BOOL(global(&vm, "d")) == true);
+    assert(SOL_AS_BOOL(global(&vm, "e")) == false);
+    assert(SOL_AS_BOOL(global(&vm, "f")) == true);
+    sol_chunk_free(&chunk);
+
+    /* Which is the point: `sorted` with no block sends `lessThan`. */
+    assert(run(&vm, &chunk,
+        "s := ['pear, 'apple, 'fig]:sorted."
+        "one := s:at(#1). two := s:at(#2). three := s:at(#3).") == SOL_OK);
+    assert(strcmp(SOL_AS_SYMBOL(global(&vm, "one"))->chars, "apple") == 0);
+    assert(strcmp(SOL_AS_SYMBOL(global(&vm, "two"))->chars, "fig") == 0);
+    assert(strcmp(SOL_AS_SYMBOL(global(&vm, "three"))->chars, "pear") == 0);
+    sol_chunk_free(&chunk);
+
+    /* Strict about the other side, like every other comparison. */
+    assert(run(&vm, &chunk, "'a:lessThan(\"a\").") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
 int main(void)
 {
     test_literals();
@@ -217,6 +257,7 @@ int main(void)
     test_symbols_as_tags();
     test_round_trip();
     test_errors();
+    test_symbols_order_by_text();
     printf("test_symbol: ok\n");
     return 0;
 }

@@ -7,6 +7,60 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### Two papercuts, and both had their workaround already shipped — `pending`, 2026-08-21
+
+[6.23](COMPLETED.md#623-an-array-cannot-be-popped-or-asked-what-it-holds--done)
+and [6.19](COMPLETED.md#619-a-symbol-cannot-be-ordered--done). Neither was
+blocking anything; what made the case was that the code written around them was
+in `lib/html.sol` and `examples/manifest.sol`, where anyone could read it.
+
+**`array:removeLast`** takes the last element off and answers it, which with
+`add` makes an array a stack. `lib/html.sol` had an object carrying its own
+`top` index and overwriting with `at_put` — eight lines, written twice in one
+file before being factored out. It is a plain array again:
+
+```
+html:push := { e | self:open:add(e). e }.
+html:pop  := { self:open:removeLast }.
+```
+
+**It refuses an empty array** rather than answering nil, matching `at`'s refusal
+of an index out of range. Nil would be a second way of saying "nothing" beside
+the one the language has, and it would turn a mistake into a value that fails
+somewhere further on. Nothing is made harder: a caller that might be empty asks
+`size`, which is the shape a stack's loop condition already has.
+
+**`array:indexOf(v)`** answers a one-based position or nil, exactly like
+`string:indexOf`. The HTML library's element-name sets had been *strings*
+searched with the delimiters kept on so that `p` did not match `pre`; they are
+arrays now.
+
+**And no `includes`.** `indexOf(v):notNil` is that question already, so a second
+message would answer less with more surface. The entry had argued against
+`includes` on the grounds that a dictionary answers set membership in O(1) —
+that still holds; what it missed is that `indexOf` earns its place by answering
+*where*, which a dictionary cannot.
+
+**Symbols have an order** — `lessThan` and its three companions, comparing the
+text. The question was whether it is worth it, since interning is what makes
+`equals` a pointer comparison and exactly what makes the addresses say nothing
+about order, so these are the only symbol operations that look at characters.
+
+It is worth it for the reason anything gets sorted: a tally kept under symbol
+keys needs a stable order to print in, and symbols are values, so tallying by
+symbol is the natural thing to write. `manifest.sol` had been converting keys to
+strings, sorting those, and converting back with `asSymbol` to look each one up.
+Now:
+
+```
+kinds:keys:sorted:do({ kind |
+    "  {} {}":fill([kinds:at(kind):asString("4"), kind]):display }).
+```
+
+Nothing was needed for `sorted` itself: with no block it **sends** `lessThan`,
+so defining one on symbols was the whole of it — the same arrangement that lets
+a user-defined type order itself.
+
 ### An HTML reader, and the frame limit turns out to be about traversal — `a4dc0c2`, 2026-08-21
 
 [6.20](COMPLETED.md#620-an-html-parser--done), written to find out what the

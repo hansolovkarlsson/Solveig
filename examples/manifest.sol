@@ -107,13 +107,11 @@ walk:value(doc, #1).
 "{} -- {} bytes":fill([path, system:fileSize(path)]):display.
 "{} values, nested {} deep":fill([
     kinds:values:inject(#0, { total, n | total:add(n) }), deepest]):display.
-; Sorted on the text rather than on the keys, because a symbol has no
-; `lessThan`. Symbols are values and compare by content, so they make good
-; dictionary keys; ordering them is a different question and the answer today is
-; that you cannot. Converting to strings to sort, and back to look up, is the
-; whole of the workaround -- see ROADMAP 6.19.
-kinds:keys:collect({ k | k:asString }):sorted:do({ name |
-    "  {} {}":fill([kinds:at(name:asSymbol):asString("4"), name]):display }).
+; Sorted directly. This was `collect`ing the keys to strings, sorting those, and
+; converting back with `asSymbol` to look each one up -- because a symbol had no
+; `lessThan`. Writing that workaround here is what got 6.19 built.
+kinds:keys:sorted:do({ kind |
+    "  {} {}":fill([kinds:at(kind):asString("4"), kind]):display }).
 
 ; ---------------------------------------------------------------------------
 ; Pulling one thing out

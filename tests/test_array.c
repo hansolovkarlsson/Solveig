@@ -728,6 +728,84 @@ static void test_a_slice_shares_its_elements(void)
     sol_vm_free(&vm);
 }
 
+/* `add` puts one on the end and `removeLast` takes it off, which is what makes
+   an array a stack. An empty one refuses rather than answering nil, the same
+   choice `at` makes about an index out of range. */
+static void test_remove_last(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "xs := [#1, #2, #3]."
+        "last := xs:removeLast."
+        "left := xs:size."
+        "still := xs:at(#2)."
+        "again := xs:removeLast."
+        "one := xs:size.") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "last")) == 3);
+    assert(SOL_AS_INT(global(&vm, "left")) == 2);
+    assert(SOL_AS_INT(global(&vm, "still")) == 2);
+    assert(SOL_AS_INT(global(&vm, "again")) == 2);
+    assert(SOL_AS_INT(global(&vm, "one")) == 1);
+    sol_chunk_free(&chunk);
+
+    /* Down to empty and then refused. */
+    assert(run(&vm, &chunk, "xs := [#1]. xs:removeLast. n := xs:size.") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "n")) == 0);
+    sol_chunk_free(&chunk);
+
+    assert(run(&vm, &chunk, "array:new:removeLast.") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+
+    /* And what comes off can be put back, which is the round trip a stack is. */
+    assert(run(&vm, &chunk,
+        "xs := [#1, #2]. xs:add(xs:removeLast). n := xs:size."
+        "top := xs:at(#2).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "n")) == 2);
+    assert(SOL_AS_INT(global(&vm, "top")) == 2);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
+/* `indexOf` answers a one-based position or nil, the shape `string:indexOf`
+   has. Equality is the language's: by content for values, by identity for the
+   references. */
+static void test_index_of(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "a := [\"a\", \"b\", \"c\"]:indexOf(\"b\")."
+        "b := [\"a\", \"b\", \"c\"]:indexOf(\"z\")."
+        "c := [#1, #2]:indexOf(#1)."
+        "d := [#1, #2, #1]:indexOf(#1)."          /* the first one wins */
+        "e := array:new:indexOf(#1)."
+        "f := [nil, #1]:indexOf(nil)."
+        "g := ['x, 'y]:indexOf('y).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "a")) == 2);
+    assert(SOL_IS_NIL(global(&vm, "b")));
+    assert(SOL_AS_INT(global(&vm, "c")) == 1);
+    assert(SOL_AS_INT(global(&vm, "d")) == 1);
+    assert(SOL_IS_NIL(global(&vm, "e")));
+    assert(SOL_AS_INT(global(&vm, "f")) == 1);
+    assert(SOL_AS_INT(global(&vm, "g")) == 2);
+    sol_chunk_free(&chunk);
+
+    /* A reference is found by identity, which is what `equals` says too. */
+    assert(run(&vm, &chunk,
+        "same := [#1]."
+        "found := [same]:indexOf(same)."
+        "alike := [[#1]]:indexOf([#1]).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "found")) == 1);
+    assert(SOL_IS_NIL(global(&vm, "alike")));
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
 int main(void)
 {
     test_collect();
@@ -754,6 +832,8 @@ int main(void)
     test_nesting();
     test_elements_are_traced();
     test_unreachable_arrays_are_reclaimed();
+    test_remove_last();
+    test_index_of();
     printf("test_array: ok\n");
     return 0;
 }
