@@ -37,16 +37,20 @@ static void test_a_block_defers_its_body(void)
 static void test_value_runs_it(void)
 {
     SolVM vm; sol_vm_init(&vm);
-    SolChunk chunk;
+    /* One chunk per `run`: a chunk has to outlive anything defined in it, so it
+       cannot be freed between the two, and reusing the variable would leak the
+       first one. */
+    SolChunk first, second;
 
-    assert(run(&vm, &chunk, "r := { #1:add(#2) }:value().") == SOL_OK);
+    assert(run(&vm, &first, "r := { #1:add(#2) }:value().") == SOL_OK);
     assert(SOL_AS_INT(global(&vm, "r")) == 3);
 
     /* An empty block answers nil. */
-    assert(run(&vm, &chunk, "e := { }:value().") == SOL_OK);
+    assert(run(&vm, &second, "e := { }:value().") == SOL_OK);
     assert(SOL_IS_NIL(global(&vm, "e")));
 
-    sol_chunk_free(&chunk);
+    sol_chunk_free(&first);
+    sol_chunk_free(&second);
     sol_vm_free(&vm);
 }
 
@@ -54,24 +58,26 @@ static void test_value_runs_it(void)
 static void test_conditionals_choose_a_branch(void)
 {
     SolVM vm; sol_vm_init(&vm);
-    SolChunk chunk;
+    SolChunk first, second, third;
 
-    assert(run(&vm, &chunk,
+    assert(run(&vm, &first,
         "taken := false. skipped := false."
         "true:ifTrue({ taken := true })."
         "true:ifFalse({ skipped := true }).") == SOL_OK);
     assert(SOL_AS_BOOL(global(&vm, "taken")) == true);
     assert(SOL_AS_BOOL(global(&vm, "skipped")) == false);
 
-    assert(run(&vm, &chunk,
+    assert(run(&vm, &second,
         "r := #5:lessThan(#10):ifElse({ #100 }, { #200 }).") == SOL_OK);
     assert(SOL_AS_INT(global(&vm, "r")) == 100);
 
-    assert(run(&vm, &chunk,
+    assert(run(&vm, &third,
         "r := #50:lessThan(#10):ifElse({ #100 }, { #200 }).") == SOL_OK);
     assert(SOL_AS_INT(global(&vm, "r")) == 200);
 
-    sol_chunk_free(&chunk);
+    sol_chunk_free(&first);
+    sol_chunk_free(&second);
+    sol_chunk_free(&third);
     sol_vm_free(&vm);
 }
 
@@ -98,19 +104,20 @@ static void test_comparison_strictness(void)
 static void test_while_true_loops(void)
 {
     SolVM vm; sol_vm_init(&vm);
-    SolChunk chunk;
+    SolChunk first, second;
 
-    assert(run(&vm, &chunk,
+    assert(run(&vm, &first,
         "i := #0."
         "{ i:lessThan(#5) }:whileTrue({ i := i:add(#1) }).") == SOL_OK);
     assert(SOL_AS_INT(global(&vm, "i")) == 5);
 
     /* A condition that is false from the start runs the body zero times. */
-    assert(run(&vm, &chunk,
+    assert(run(&vm, &second,
         "n := #0. { false }:whileTrue({ n := n:add(#1) }).") == SOL_OK);
     assert(SOL_AS_INT(global(&vm, "n")) == 0);
 
-    sol_chunk_free(&chunk);
+    sol_chunk_free(&first);
+    sol_chunk_free(&second);
     sol_vm_free(&vm);
 }
 

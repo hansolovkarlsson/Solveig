@@ -236,24 +236,28 @@ static void test_a_method_updates_a_global(void)
 static void test_declared_temporaries_stay_local(void)
 {
     SolVM vm; sol_vm_init(&vm);
-    SolChunk chunk;
+    /* Two chunks: each binds a block to a slot on `integer`, and a chunk has to
+       outlive anything defined in it -- so neither can be freed while the VM
+       that holds those methods is still alive. */
+    SolChunk first, second;
 
-    assert(run(&vm, &chunk,
+    assert(run(&vm, &first,
         "integer:quad := { | d | d := self:mul(#2). d:mul(#2) }."
         "r := #3:quad().") == SOL_OK);
     assert(SOL_AS_INT(global(&vm, "r")) == 12);
     assert(sol_object_lookup(vm.root, "d") == NULL);
 
     /* A declared temporary shadows a global of the same name. */
-    assert(run(&vm, &chunk,
+    assert(run(&vm, &second,
         "shadowed := #100."
         "integer:hide := { | shadowed | shadowed := #1. shadowed }."
         "s := #1:hide().") == SOL_OK);
     assert(SOL_AS_INT(global(&vm, "s")) == 1);
     assert(SOL_AS_INT(global(&vm, "shadowed")) == 100);
 
-    sol_chunk_free(&chunk);
     sol_vm_free(&vm);
+    sol_chunk_free(&first);
+    sol_chunk_free(&second);
 }
 
 /* A name that is neither declared nor an existing global is a mistake, not a

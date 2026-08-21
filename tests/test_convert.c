@@ -33,7 +33,7 @@ static bool is_text(SolValue value, const char *expected)
 static void test_as_string_is_plain_text(void)
 {
     SolVM vm; sol_vm_init(&vm);
-    SolChunk chunk;
+    SolChunk chunk, again;
 
     assert(run(&vm, &chunk,
         "i := #45:asString. f := 2.5:asString."
@@ -47,11 +47,12 @@ static void test_as_string_is_plain_text(void)
     assert(is_text(global(&vm, "neg"), "-3"));
 
     /* The motivating case: building text around a number. */
-    assert(run(&vm, &chunk,
+    assert(run(&vm, &again,
         "msg := \"you have \":concat(#45:asString):concat(\" apples\").") == SOL_OK);
     assert(is_text(global(&vm, "msg"), "you have 45 apples"));
 
     sol_chunk_free(&chunk);
+    sol_chunk_free(&again);
     sol_vm_free(&vm);
 }
 
