@@ -376,9 +376,36 @@ perfectly**, because a string is bytes and the parser copies spans of them.
 mechanism that fails, not the encoding — which is a narrower problem than it
 first looked, and a real one.
 
-The minimum that would fix it is a pair of messages, `asCode` on a
-one-character string and `asCharacter` on an integer, rather than the whole
-byte-buffer type. That is worth deciding on its own.
+**Neither message exists.** `asCode` and `asCharacter` are the names this entry
+is proposing, not something the language has:
+
+```
+"A":asCode.        ; solvm: string does not understand 'asCode'
+#65:asCharacter.   ; solvm: integer does not understand 'asCharacter'
+```
+
+The useful thing about that pair is that it **needs no new type**. `asCode`
+takes a one-character string and answers an integer; `asCharacter` takes an
+integer and answers a one-character string. Both ends already exist, which is
+what makes this much smaller than the byte-buffer type this entry opened with.
+
+Being exact about what they would be: a string is bytes, so these are **byte**
+operations, not character ones. `"é":size` is `#2`, so `asCode` would have to
+refuse it the way `asInteger` refuses `"12x"` -- one byte in, one number out,
+`#0` to `#255`. That also makes `#0:asCharacter` the only way to write a NUL,
+which no literal can spell today; strings are length-counted and carry one
+happily, so this adds a spelling rather than a hazard.
+
+It would **not** finish the JSON case on its own, and that is worth saying
+plainly. `\u00e9` is code point 233, which in UTF-8 is two bytes, so
+`#233:asCharacter` would produce Latin-1 and invalid UTF-8. What closes the gap
+is UTF-8 *encoding* -- and that is ordinary arithmetic once a number can become
+a byte, so it belongs in [lib/json.sol](../lib/json.sol) rather than in the VM.
+Surrogate pairs (`\uD83D\uDE00`) are the same: pairing them is arithmetic the
+library can do, and cannot do today only because the bytes cannot be built.
+
+So the pair is a foundation rather than a fix, and it is the whole foundation.
+Worth deciding on its own.
 
 ### 6.18 A file that includes a library of its own name silently does nothing
 
@@ -441,6 +468,45 @@ Not needed by anything yet. Written down because the last two programs each paid
 for themselves in findings, and this is the one whose findings would not overlap
 with theirs.
 
+### 6.21 Two libraries binding one name collide silently
+
+Top-level rebinding is legal, an included file binds into the one global
+namespace, and nothing warns. So two libraries that both define `helper` do not
+collide -- the second one included wins, quietly:
+
+```
+@include "lib/alpha.sol".
+@include "lib/beta.sol".
+helper:value:display.        ; beta's helper
+```
+
+Swap the two lines and it answers alpha's. Which one a program gets is a
+property of include order rather than of anything written where the name is
+used, and the failure is not a message but a different answer.
+
+The object idiom the reference recommends -- bind one object, hang the rest off
+it -- narrows this rather than fixing it. `lib/json.sol` claims one name instead
+of twenty-seven, so there is one name left to clash on. It buys a namespace and
+not an export boundary: all twenty-seven slots are public and writable, and
+`json:digits := "abc"` breaks the parser from outside it.
+
+Nothing has actually tripped over this yet, which is why it is recorded rather
+than being worked on -- unlike [6.18](#618-a-file-that-includes-a-library-of-its-own-name-silently-does-nothing),
+which bit within a minute. It is the third entry now pointing at the same
+absence, so what it is really recording is that **there is no module system**,
+and the shape of what one would buy:
+
+- a namespace, which the object idiom already approximates;
+- an export boundary, which needs something the language does not have -- slots
+  cannot be removed and `slots` lists everything, so privacy would be a new
+  concept rather than a use of existing ones (2.14);
+- declared dependencies, which is what would make 6.18 diagnosable: with nothing
+  stating what a file needs, the compiler cannot tell "you meant the library"
+  from "you meant this file", so it picks by search order and says nothing.
+
+A warning on rebinding a name an include bound is the cheap version of the first
+of those, and would catch the case above without any of the rest.
+
 ## Suggested order
 
 **Section 6 is the whole of the live list**, and it came from the right place:
@@ -465,7 +531,9 @@ losing to.
 
 The rest is not ordered. **A single keypress** (6.10) still waits for a program
 that needs it. **6.18** and **6.19** are papercuts a program tripped over, small
-and worth doing when something is already open nearby. **6.20** is the next
+and worth doing when something is already open nearby. **6.21** is the same
+family and nothing has hit it yet; what it really records is the shape of the
+module system the language has not got. **6.20** is the next
 program to write rather than work on the language, and its value is the findings
 rather than the parser.
 
