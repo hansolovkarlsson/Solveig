@@ -1219,7 +1219,7 @@ object could serve as a dictionary; or **a real dictionary type**.
 It was not the smaller option. It was the wrong one: prettier syntax for the
 same algorithm, plus a leak. So: the real type.
 
-Built as `pending`. `dictionary:new`, `at`, `at(key, default)`, `atPut`,
+Built as `7e0726d`. `dictionary:new`, `at`, `at(key, default)`, `atPut`,
 `includes`, `remove`, `size`, `keys`, `values`, `do`, `keysAndValuesDo`. Open
 addressing, one allocation for the entries, tombstones for removal, and a
 rebuild that drops them once they crowd the table.
