@@ -922,6 +922,16 @@ local time and no zone, a zone being a political fact that changes where an
 instant does not. `secondsSince` measures a gap and `plusSeconds` moves along
 one, both in floats as `clock` differences are.
 
+`asTime` on a string is the way back, beside `asInteger` and `asFloat`:
+
+```
+"2026-08-20T09:14:02":asTime:year:print.     ; #2026
+```
+
+It reads ISO-8601 with no argument and a `strptime` format with one, and it is
+strict — a date that does not exist is refused rather than rolled forward, which
+is what most date parsers do quietly.
+
 A program asking how long something took wants `clock`; one asking when
 something happened wants `time`.
 

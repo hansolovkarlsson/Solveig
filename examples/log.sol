@@ -71,7 +71,7 @@ system:fileExists(path):ifFalse({
 ; it, and assigning gives each instance its own.
 
 entry := object:new.
-entry:time   := "".
+entry:time   := nil.        ; a time, once there was a time to parse it into
 entry:method := "".
 entry:path   := "".
 entry:status := #0.
@@ -88,7 +88,12 @@ parse := { line | | f, e |
         error:raise("wanted 6 fields, got {}":fill([f:size])) }).
 
     e := entry:new.
-    e:time   := f:at(#1).
+    ; Parsed rather than kept as text. It was a string until there was a time
+    ; type -- which worked, because these timestamps sort the same as strings
+    ; and as instants. That is true of ISO-8601 and of no other format, so it
+    ; was luck rather than design, and a malformed timestamp went unnoticed
+    ; because nothing ever looked at one.
+    e:time   := f:at(#1):asTime.
     e:method := f:at(#2).
     e:path   := f:at(#3).
     e:status := f:at(#4):asInteger.
@@ -184,7 +189,12 @@ errors := entries:select({ e | e:status:greaterOrEqual(#400) }).
 "{} requests from {}":fill([count, path]):display.
 "{} distinct paths, {} distinct statuses":fill([
     byPath:keys:size, byStatus:size]):display.
-"{} to {}":fill([entries:at(#1):time, entries:at(count):time]):display.
+; The span, now that these are instants rather than text: `secondsSince`
+; answers a number of seconds, which is a thing text could never have told us.
+first := entries:at(#1):time.
+last := entries:at(count):time.
+"{} to {}":fill([first:asString("%H:%M:%S"), last:asString("%H:%M:%S")]):display.
+"over {} seconds":fill([last:secondsSince(first):asString(".0")]):display.
 "":display.
 
 "{} bytes served, {} on average":fill([
@@ -243,5 +253,5 @@ errors:size:greaterThan(#0):ifTrue({
     "":display.
     "failures":display.
     errors:do({ e |
-        "  {} {} {}":fill([e:time, e:status, e:path]):display })
+        "  {} {} {}":fill([e:time:asString("%H:%M:%S"), e:status, e:path]):display })
 }).

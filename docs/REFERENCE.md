@@ -1392,6 +1392,8 @@ on the page: the `#` marks the integer.
 | `asInteger(#n)` | reads base `n`, 2 to 36; the digits alone, no `0x` |
 | `asUppercase` `asLowercase` | a new string; ASCII letters only |
 | `asSymbol` | the interned symbol for these characters |
+| `asTime` | an instant, read as ISO-8601; strict |
+| `asTime(format)` | the same, the format handed to `strptime` |
 | `asString` | itself |
 | `asString(spec)` | padded text; see the spec below |
 
@@ -1683,6 +1685,35 @@ and there is no literal — an instant comes from a clock or a file.
 | `weekday` | an integer; **Monday is `#1`**, Sunday `#7` |
 | `asString` | ISO-8601 in UTC — `2000-01-01T00:00:00Z` |
 | `asString(format)` | the format handed to C's `strftime` |
+
+`asTime` on a string is the way back, and lives there beside `asInteger` and
+`asFloat` — a conversion *from* text has always been the string's. It reads a
+deliberately narrow slice of ISO-8601:
+
+```
+"2026-08-20"                      midnight
+"2026-08-20T09:14:02"             T or a space between them
+"2026-08-20 09:14:02.5"           a fraction of a second
+"2026-08-20T09:14:02Z"            explicitly UTC
+"2026-08-20T09:14:02+01:00"       an offset, which is taken off
+```
+
+**No zone means UTC**, there being no other kind here. An **offset** is accepted
+because an offset is arithmetic — `+01:00` is an exact number of minutes and
+says nothing about legislation. A zone *name* is not, and will not be.
+
+Strict, as `asInteger` is: the whole string is the timestamp or it is not one.
+**A date that does not exist is refused** rather than rolled forward, which is
+what almost every date parser does quietly:
+
+```
+"2026-02-29":asTime.
+solvm: 'asTime' cannot read that as a date
+```
+
+What `asString` writes, `asTime` reads — to the second, that being all
+`asString` writes. Through `fromSeconds` and `asSeconds` a fraction survives
+too.
 
 **Everything is UTC**, and that is the decision rather than an omission. There
 is no local time and no zone. A zone is a political fact that changes by

@@ -2383,6 +2383,66 @@ static SolValue prim_system_time(SolVM *vm, SolValue self, SolValue *args, int a
  * `t:sub(#5)`, which is a question with two plausible answers. The name says
  * the direction and the unit, which are the two things a bare subtraction
  * leaves you guessing. */
+/* Days since 1970-01-01 from a civil date, by Howard Hinnant's algorithm.
+ *
+ * Written out rather than reached for: `timegm` is the obvious call and is a
+ * BSD extension rather than standard C, and `mktime` is the standard one and
+ * reads the *local* zone, which is exactly the thing this type does not have.
+ * Ten lines of arithmetic is a smaller price than either. Exact for any year
+ * the rest of this can express. */
+static int64_t days_from_civil(int64_t y, int m, int d)
+{
+    y -= m <= 2;
+    int64_t era = (y >= 0 ? y : y - 399) / 400;
+    int64_t yoe = y - era * 400;                        /* 0 to 399 */
+    int64_t doy = (153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1;
+    int64_t doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    return era * 146097 + doe - 719468;
+}
+
+/* Turns calendar parts into an instant, and refuses a date that does not exist.
+ *
+ * The check is a round trip: convert, split back, and see whether the day came
+ * out the way it went in. February the 30th converts to March the 2nd without
+ * complaining, and a silently wrong date is worse than a refused one. */
+static bool instant_from_parts(SolVM *vm, const char *name, int year, int month,
+                               int day, int hour, int minute, int second,
+                               int64_t nanos, int64_t offset, int64_t *out)
+{
+    if (month < 1 || month > 12 || day < 1 || day > 31 ||
+        hour < 0 || hour > 23 || minute < 0 || minute > 59 ||
+        second < 0 || second > 60) {                    /* 60 for a leap second */
+        sol_vm_runtime_error(vm, "'%s' cannot read that as a date", name);
+        return false;
+    }
+
+    int64_t days = days_from_civil(year, month, day);
+    if (days_from_civil(year, month, 1) + (day - 1) != days) {
+        sol_vm_runtime_error(vm, "'%s' cannot read that as a date", name);
+        return false;
+    }
+    /* The real check: a day past the end of its month lands in the next one. */
+    {
+        int64_t back = days;
+        int64_t z = back + 719468;
+        int64_t era = (z >= 0 ? z : z - 146096) / 146097;
+        int64_t doe = z - era * 146097;
+        int64_t yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+        int64_t doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+        int64_t mp = (5 * doy + 2) / 153;
+        int64_t gotDay = doy - (153 * mp + 2) / 5 + 1;
+        int64_t gotMonth = mp + (mp < 10 ? 3 : -9);
+        if (gotDay != day || gotMonth != month) {
+            sol_vm_runtime_error(vm, "'%s' cannot read that as a date", name);
+            return false;
+        }
+    }
+
+    int64_t seconds = days * 86400 + hour * 3600 + minute * 60 + second - offset;
+    *out = seconds * SOL_NANOS_PER_SECOND + nanos;
+    return true;
+}
+
 /* `time:fromSeconds(s)` -- an instant from seconds since the epoch, which is
  * the one way to name a particular moment rather than the current one.
  *
@@ -2393,6 +2453,147 @@ static SolValue prim_system_time(SolVM *vm, SolValue self, SolValue *args, int a
  * A float, for the same unit `secondsSince` and `plusSeconds` speak in. An
  * integer is refused as it is everywhere else here -- `#n:asFloat` is the
  * conversion, and being asked for it is the point of being strict. */
+/* `"2026-08-20T09:14:02Z":asTime` -- the other direction from `asString`, and
+ * on `string` beside `asInteger`, `asFloat` and `asSymbol`, which is where a
+ * conversion *from* text has always lived here.
+ *
+ * A string message living in the time section rather than with the other string
+ * primitives, beside the calendar arithmetic it needs -- which is where
+ * `timeToRun` sits with respect to the clock, for the same reason.
+ *
+ * ISO-8601, and a deliberately narrow slice of it:
+ *
+ *     2026-08-20                     midnight
+ *     2026-08-20T09:14:02            T or a space between them
+ *     2026-08-20 09:14:02.5          a fraction of a second
+ *     2026-08-20T09:14:02Z           explicitly UTC
+ *     2026-08-20T09:14:02+01:00      an offset, which is subtracted
+ *
+ * **No zone means UTC**, because there is no other kind of time here. An
+ * *offset* is accepted because an offset is arithmetic -- `+01:00` is an exact
+ * number of minutes and says nothing about legislation. A zone *name* is not,
+ * and never will be.
+ *
+ * Strict, as `asInteger` is: the whole string is the timestamp or it is not one.
+ * A date that does not exist -- February the 30th -- is refused rather than
+ * rolled into March, which is what almost every date parser does quietly.
+ */
+static bool read_digits(const char **at, int count, int *out)
+{
+    int value = 0;
+    for (int i = 0; i < count; i++) {
+        char c = (*at)[i];
+        if (c < '0' || c > '9') return false;
+        value = value * 10 + (c - '0');
+    }
+    *at += count;
+    *out = value;
+    return true;
+}
+
+static SolValue prim_string_as_time(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    const SolString *text = SOL_AS_STRING(self);
+
+    /* With a format, the C library reads it -- the same alphabet `asString`
+       writes in, so the two are counterparts. */
+    if (argc == 1) {
+        if (!SOL_IS_STRING(args[0])) {
+            sol_vm_runtime_error(vm, "'asTime' expects a format as a string, got %s",
+                                 sol_type_name(args[0]));
+            return SOL_NIL_VAL;
+        }
+
+        struct tm parts;
+        memset(&parts, 0, sizeof parts);
+        parts.tm_mday = 1;                  /* a format naming no day means the 1st */
+
+        const char *rest = strptime(text->chars, SOL_AS_STRING(args[0])->chars, &parts);
+        if (rest == NULL || *rest != '\0') {
+            sol_vm_runtime_error(vm, "'%s' does not match that time format",
+                                 text->chars);
+            return SOL_NIL_VAL;
+        }
+
+        int64_t instant;
+        if (!instant_from_parts(vm, "asTime", parts.tm_year + 1900, parts.tm_mon + 1,
+                                parts.tm_mday, parts.tm_hour, parts.tm_min,
+                                parts.tm_sec, 0, 0, &instant)) {
+            return SOL_NIL_VAL;
+        }
+        return SOL_TIME_VAL(instant);
+    }
+    if (!check_argc(vm, "asTime", argc, 0)) return SOL_NIL_VAL;
+
+    const char *at = text->chars;
+    int year, month, day, hour = 0, minute = 0, second = 0;
+    int64_t nanos = 0, offset = 0;
+
+    if (!read_digits(&at, 4, &year) || *at++ != '-' ||
+        !read_digits(&at, 2, &month) || *at++ != '-' ||
+        !read_digits(&at, 2, &day)) {
+        sol_vm_runtime_error(vm, "'%s' is not an ISO-8601 time", text->chars);
+        return SOL_NIL_VAL;
+    }
+
+    if (*at == 'T' || *at == ' ') {
+        at++;
+        if (!read_digits(&at, 2, &hour) || *at++ != ':' ||
+            !read_digits(&at, 2, &minute) || *at++ != ':' ||
+            !read_digits(&at, 2, &second)) {
+            sol_vm_runtime_error(vm, "'%s' is not an ISO-8601 time", text->chars);
+            return SOL_NIL_VAL;
+        }
+
+        /* A fraction of a second, to as many places as are written. */
+        if (*at == '.') {
+            at++;
+            if (*at < '0' || *at > '9') {
+                sol_vm_runtime_error(vm, "'%s' is not an ISO-8601 time", text->chars);
+                return SOL_NIL_VAL;
+            }
+            int64_t scale = SOL_NANOS_PER_SECOND / 10;
+            while (*at >= '0' && *at <= '9') {
+                if (scale > 0) { nanos += (*at - '0') * scale; scale /= 10; }
+                at++;                       /* past nanoseconds, digits are dropped */
+            }
+        }
+    }
+
+    if (*at == 'Z') {
+        at++;
+    } else if (*at == '+' || *at == '-') {
+        int sign = *at++ == '-' ? -1 : 1;
+        int oh, om;
+        if (!read_digits(&at, 2, &oh)) {
+            sol_vm_runtime_error(vm, "'%s' is not an ISO-8601 time", text->chars);
+            return SOL_NIL_VAL;
+        }
+        if (*at == ':') at++;
+        if (!read_digits(&at, 2, &om)) {
+            sol_vm_runtime_error(vm, "'%s' is not an ISO-8601 time", text->chars);
+            return SOL_NIL_VAL;
+        }
+        if (oh > 23 || om > 59) {
+            sol_vm_runtime_error(vm, "'%s' is not an ISO-8601 time", text->chars);
+            return SOL_NIL_VAL;
+        }
+        offset = sign * (oh * 3600 + om * 60);
+    }
+
+    if (*at != '\0') {
+        sol_vm_runtime_error(vm, "'%s' is not an ISO-8601 time", text->chars);
+        return SOL_NIL_VAL;
+    }
+
+    int64_t instant;
+    if (!instant_from_parts(vm, "asTime", year, month, day, hour, minute,
+                            second, nanos, offset, &instant)) {
+        return SOL_NIL_VAL;
+    }
+    return SOL_TIME_VAL(instant);
+}
+
 static SolValue prim_time_from_seconds(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     (void)self;
@@ -2408,7 +2609,16 @@ static SolValue prim_time_from_seconds(SolVM *vm, SolValue self, SolValue *args,
         sol_vm_runtime_error(vm, "'fromSeconds' cannot reach that instant");
         return SOL_NIL_VAL;
     }
-    return SOL_TIME_VAL((int64_t)(seconds * (double)SOL_NANOS_PER_SECOND));
+
+    /* The whole seconds and the fraction separately. Multiplying the whole
+       thing by a billion first would push it past 1e18, where a double has
+       stopped counting in ones -- an instant in 2026 came back a hundred
+       nanoseconds out. Splitting keeps the seconds exact and asks the double
+       only for the part it can still hold. */
+    double whole = floor(seconds);
+    return SOL_TIME_VAL((int64_t)whole * SOL_NANOS_PER_SECOND +
+                        (int64_t)llround((seconds - whole) *
+                                         (double)SOL_NANOS_PER_SECOND));
 }
 
 /* The other direction, so an instant can be written to a file and read back. */
@@ -2416,7 +2626,14 @@ static SolValue prim_time_as_seconds(SolVM *vm, SolValue self, SolValue *args, i
 {
     (void)args;
     if (!check_argc(vm, "asSeconds", argc, 0)) return SOL_NIL_VAL;
-    return SOL_FLOAT_VAL((double)SOL_AS_TIME(self) / (double)SOL_NANOS_PER_SECOND);
+
+    /* Split for the same reason `fromSeconds` splits: the nanoseconds of a
+       present-day instant are past 1e18, and turning that into a double before
+       dividing throws away the precision the answer was meant to carry. */
+    int64_t nanos = SOL_AS_TIME(self);
+    return SOL_FLOAT_VAL((double)(nanos / SOL_NANOS_PER_SECOND) +
+                         (double)(nanos % SOL_NANOS_PER_SECOND) /
+                         (double)SOL_NANOS_PER_SECOND);
 }
 
 static SolValue prim_time_seconds_since(SolVM *vm, SolValue self, SolValue *args, int argc)
@@ -3677,6 +3894,7 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->string_class, SOL_STRING, "asUppercase", prim_string_upper);
     instance(vm, vm->string_class, SOL_STRING, "asLowercase", prim_string_lower);
     instance(vm, vm->string_class, SOL_STRING, "asSymbol", prim_string_as_symbol);
+    instance(vm, vm->string_class, SOL_STRING, "asTime", prim_string_as_time);
     instance(vm, vm->string_class, SOL_STRING, "notEquals", prim_not_equals);
     instance(vm, vm->string_class, SOL_STRING, "lessThan", prim_string_less);
     instance(vm, vm->string_class, SOL_STRING, "greaterThan", prim_string_greater);

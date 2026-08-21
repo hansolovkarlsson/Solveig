@@ -7,6 +7,56 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### A time can be read back — `pending`, 2026-08-21
+
+```
+"2026-08-20T09:14:02":asTime:year:print.        ; #2026
+"20/08/2026":asTime("%d/%m/%Y").
+```
+
+`asTime` is on **string**, beside `asInteger`, `asFloat` and `asSymbol` — a
+conversion *from* text has always lived there. With no argument it reads
+ISO-8601, mirroring what `asString` writes; with one, the format is handed to
+`strptime`, the counterpart of the `strftime` `asString(format)` uses.
+
+**No zone means UTC**, there being no other kind here. An **offset** is accepted
+because an offset is arithmetic — `+01:00` is an exact number of minutes and
+says nothing about legislation. A zone *name* is not, and will not be.
+
+**A date that does not exist is refused**, which almost every date parser gets
+wrong quietly:
+
+```
+"2026-02-29":asTime.
+solvm: 'asTime' cannot read that as a date
+```
+
+The check is a round trip — convert, split back, and see whether the day came
+out the way it went in. February the 30th converts to March the 2nd without
+complaining, and a silently wrong date is worse than a refused one. `2024-02-29`
+is a real day and is accepted; `2026-02-29` is not.
+
+Two things worth recording from building it.
+
+**A precision bug of mine, caught by testing a fraction.** `asSeconds` turned
+int64 nanoseconds into a double and *then* divided — but a present-day instant
+is past 1e18, where a double has stopped counting in ones, so `0.25` came back
+as `0.249999872`. Both conversions now split the whole seconds from the
+fraction, which keeps the seconds exact and asks the double only for the part it
+can still hold.
+
+**`timegm` was the obvious call and is not standard C**; `mktime` is standard and
+reads the *local* zone, which is the one thing this type does not have. The
+civil-date arithmetic is written out instead — ten lines, exact, and beholden to
+no zone.
+
+**[examples/log.sol](../examples/log.sol) stops comparing timestamps as text.**
+That worked, because ISO-8601 sorts the same as text and as instants — luck
+rather than design, true of no other format, and it meant a malformed timestamp
+went unnoticed because nothing ever looked at one. The report now says *over 278
+seconds*, which text could never have told it, and a bad timestamp is caught
+with the line number like any other damaged field.
+
 ### A time — `eaa2fa4`, 2026-08-21
 
 Roadmap 6.18. A value type for a point in time, held as nanoseconds since

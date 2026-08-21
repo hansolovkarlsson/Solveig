@@ -217,6 +217,135 @@ static void test_what_a_time_refuses(void)
     printf("  a time refuses what it cannot mean\n");
 }
 
+/* ---- reading one back --------------------------------------------------- *
+ *
+ * `asTime` on `string`, beside `asInteger`, `asFloat` and `asSymbol`, which is
+ * where a conversion *from* text has always lived here.
+ */
+static void test_parsing_iso_8601(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "full := \"2000-01-01T00:00:00Z\":asTime:asString."
+        "dateOnly := \"2000-01-01\":asTime:asString."       /* midnight */
+        "noZone := \"2026-08-20T09:14:02\":asTime:asString."  /* no zone is UTC */
+        "spaced := \"2026-08-20 09:14:02\":asTime:asString."  /* T or a space */
+        /* an offset is arithmetic, and is taken off */
+        "east := \"2026-08-20T09:14:02+01:00\":asTime:asString."
+        "west := \"2026-08-20T09:14:02-05:00\":asTime:asString."
+        "compact := \"2026-08-20T09:14:02+0100\":asTime:asString."
+        /* a fraction of a second survives the parse */
+        "fraction := \"2026-08-20T09:14:02.25Z\":asTime:secondsSince("
+        "    \"2026-08-20T09:14:02Z\":asTime).") == SOL_OK);
+
+    assert(is_text(global(&vm, "full"), "2000-01-01T00:00:00Z"));
+    assert(is_text(global(&vm, "dateOnly"), "2000-01-01T00:00:00Z"));
+    assert(is_text(global(&vm, "noZone"), "2026-08-20T09:14:02Z"));
+    assert(is_text(global(&vm, "spaced"), "2026-08-20T09:14:02Z"));
+    assert(is_text(global(&vm, "east"), "2026-08-20T08:14:02Z"));
+    assert(is_text(global(&vm, "west"), "2026-08-20T14:14:02Z"));
+    assert(is_text(global(&vm, "compact"), "2026-08-20T08:14:02Z"));
+    assert(SOL_AS_FLOAT(global(&vm, "fraction")) == 0.25);
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+    printf("  ISO-8601 reads back, offsets included\n");
+}
+
+/* The round trip is the promise worth making: what `asString` writes, `asTime`
+   reads. Only to the second, because that is all `asString` writes. */
+static void test_the_round_trip(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "t := time:fromSeconds(1755000000.0)."
+        "same := t:asString:asTime:equals(t)."
+        /* and through the numbers, where a fraction does survive */
+        "u := time:fromSeconds(1755000000.25)."
+        "exact := u:asSeconds:equals(1755000000.25)."
+        "back := time:fromSeconds(u:asSeconds):equals(u)."
+        /* before the epoch too, where the arithmetic has to floor */
+        "old := time:fromSeconds(0.0:sub(1.5))."
+        "shown := old:asString."
+        "oldBack := old:asSeconds.") == SOL_OK);
+
+    assert(SOL_AS_BOOL(global(&vm, "same")));
+    assert(SOL_AS_BOOL(global(&vm, "exact")));
+    assert(SOL_AS_BOOL(global(&vm, "back")));
+    assert(is_text(global(&vm, "shown"), "1969-12-31T23:59:59Z"));
+    assert(SOL_AS_FLOAT(global(&vm, "oldBack")) == -1.5);
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+    printf("  what asString writes, asTime reads\n");
+}
+
+/* A date that does not exist is refused rather than rolled into the next month,
+   which is what almost every date parser does quietly. */
+static void test_a_date_that_does_not_exist(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    /* The leap year is the pair worth testing: one of these is a real day. */
+    assert(run(&vm, &chunk, "leap := \"2024-02-29\":asTime:asString.") == SOL_OK);
+    assert(is_text(global(&vm, "leap"), "2024-02-29T00:00:00Z"));
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+
+    static const char *refused[] = {
+        "\"2026-02-29\":asTime.",      /* 2026 is not a leap year */
+        "\"2026-02-30\":asTime.",
+        "\"2026-04-31\":asTime.",      /* April has thirty days */
+        "\"2026-13-01\":asTime.",
+        "\"2026-00-01\":asTime.",
+        "\"2026-01-00\":asTime.",
+        "\"2026-08-20T24:00:00\":asTime.",
+        "\"2026-08-20T09:14:02+99:00\":asTime.",
+        "\"not a time\":asTime.",
+        "\"2026-08-20T09:14\":asTime.",          /* seconds are not optional */
+        "\"2026-08-20T09:14:02 extra\":asTime.", /* strict to the end */
+        "\"\":asTime.",
+        "\"2026-08-20\":asTime(#1).",
+        "\"nope\":asTime(\"%Y-%m-%d\").",
+    };
+
+    for (size_t i = 0; i < sizeof(refused) / sizeof(refused[0]); i++) {
+        SolVM v; sol_vm_init(&v);
+        SolChunk c;
+        assert(run(&v, &c, refused[i]) == SOL_RUNTIME_ERROR);
+        sol_chunk_free(&c); sol_vm_free(&v);
+    }
+    printf("  February the 30th is refused, not rolled into March\n");
+}
+
+/* With a format, the C library reads it -- the same alphabet `asString` writes
+   in, so the two are counterparts rather than two half-learned languages. */
+static void test_parsing_with_a_format(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "a := \"20/08/2026\":asTime(\"%d/%m/%Y\"):asString."
+        "b := \"2026 August 20\":asTime(\"%Y %B %d\"):asString."
+        /* a format naming no day means the first of the month */
+        "c := \"2026-08\":asTime(\"%Y-%m\"):asString."
+        /* and what asString wrote, a matching format reads */
+        "t := time:fromSeconds(946684800.0)."
+        "round := t:asString(\"%Y-%m-%d %H:%M:%S\"):asTime(\"%Y-%m-%d %H:%M:%S\")."
+        "same := round:equals(t).") == SOL_OK);
+
+    assert(is_text(global(&vm, "a"), "2026-08-20T00:00:00Z"));
+    assert(is_text(global(&vm, "b"), "2026-08-20T00:00:00Z"));
+    assert(is_text(global(&vm, "c"), "2026-08-01T00:00:00Z"));
+    assert(SOL_AS_BOOL(global(&vm, "same")));
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+    printf("  a format reads what the same format writes\n");
+}
+
 int main(void)
 {
     test_a_date_somebody_knows();
@@ -226,6 +355,10 @@ int main(void)
     test_formatting();
     test_now_and_a_files_time();
     test_what_a_time_refuses();
+    test_parsing_iso_8601();
+    test_the_round_trip();
+    test_a_date_that_does_not_exist();
+    test_parsing_with_a_format();
     printf("test_time: ok\n");
     return 0;
 }
