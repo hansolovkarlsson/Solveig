@@ -296,18 +296,35 @@ A counted loop has an `i` and a limit that must live across passes, and there is
 nowhere for them:
 
 - **The value stack** could hold them, but no instruction compares or increments
-  a stack slot in place. Adding two would be a change to the instruction set,
-  and the `.sob` format version with it.
+  a stack slot in place: `OP_LOCAL` reads `frame->slots[n]`, which is the frame
+  base rather than an arbitrary depth. Adding two instructions would change the
+  instruction set, and the `.sob` format version with it.
 - **A hidden local** works inside a block or a method, where `declare_local` can
-  reserve a slot nobody can name. It does not work at the top level of a script,
-  which has no frame — the same reason a temporary is refused there. That would
-  make the optimisation apply in some places and not others, which is a worse
-  property than being slow.
+  reserve a slot nobody can name and `OP_LOCAL` already does the rest. It does
+  not work at the top level of a script, which reserves no slots at all. That
+  would make the optimisation apply in some places and not others, which is a
+  worse property than being slow.
+- **Giving the script's frame slots** is the third, and it is probably the right
+  one. A `SolMethod` carries `slot_count` — self, the parameters, and the body's
+  locals — and `push_frame` reserves them. A chunk run as a script has no
+  method, so `sol_vm_run` sets `frame->slots = vm->stack` and reserves nothing;
+  that asymmetry is the whole obstacle. If `SolChunk` carried a slot count and
+  the script's frame reserved it the same way, **no new opcode would be needed**
+  and the counted loops would inline everywhere, uniformly.
 
-So the counted loops stay library code until one of those is worth paying for,
-and the measurement says it is not yet: `repeat` costs 1.30x a hand-written
-loop, against `doUntil`'s 2.29x before this. The cheap, large win has been
-taken and the dear, small one has not.
+That third option is worth more than this entry alone, which is why it is worth
+naming here. **The same missing thing is what refuses a top-level temporary** —
+`( | i | ... )` at the top level is a documented restriction (3.x) for exactly
+the reason `repeat` cannot keep a counter there. One change answers both.
+
+It costs a `.sob` format field and a version bump, plus the verifier
+bounds-checking `OP_LOCAL` against the new count. 6.6 on its own does not pay
+for that: `repeat` costs 1.30x a hand-written loop, against `doUntil`'s 2.29x
+before this. 6.6 *plus* removing a language restriction might.
+
+So the counted loops stay library code for now. The cheap, large win has been
+taken and the dear, small one has not — but the price of the dear one is lower
+than this entry first said, and it buys something else as well.
 
 ### 6.10 Waiting for a single key
 
