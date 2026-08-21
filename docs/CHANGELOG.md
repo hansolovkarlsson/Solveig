@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### One hierarchy, written down from the outside — `pending`, 2026-08-21
+### One hierarchy, written down from the outside — `079d353`, 2026-08-21
 
 `a0b0d41` made every built-in class delegate to `object` and recorded the
 decision in class-and-instance.md. That is the *why*; nothing said what it means
