@@ -306,11 +306,34 @@ of twenty-seven, so there is one name left to clash on. It buys a namespace and
 not an export boundary: all twenty-seven slots are public and writable, and
 `json:digits := "abc"` breaks the parser from outside it.
 
-Nothing has actually tripped over this yet, which is why it is recorded rather
-than being worked on -- unlike [6.22](COMPLETED.md#622-a-file-that-includes-a-library-of-its-own-name-silently-does-nothing--done),
-which bit within a minute. It is the third entry now pointing at the same
-absence, so what it is really recording is that **there is no module system**,
-and the shape of what one would buy:
+**Something has now tripped over it.** This entry used to say nothing had, and
+that lasted about ten minutes: [lib/text.sol](../lib/text.sol) was written to
+hold what the JSON and HTML readers both needed, bound one object called `text`
+following the advice above, and the first program to use it had a variable
+called `text` of its own. The library broke from a distance:
+
+```
+string does not understand 'utf8'
+```
+
+The fix there was to bind **no global at all** -- `integer:asUtf8` is a method on
+a built-in class, which needs no name of its own, and that is what
+`lib/control.sol` had been doing all along. So the working advice is now three
+tiers rather than one:
+
+| what a library adds | how to bind it | globals claimed |
+| --- | --- | --- |
+| behaviour on an existing type | a method on the class | **none** |
+| a thing with state and its own operations | one object, everything on it | **one** |
+| several unrelated names | there is nothing better than several globals | **several** |
+
+The middle tier is where `json` and `html` sit, and it is still exposed: one
+name each, and `text` showed that even one is enough when the name is a common
+word.
+
+It is the third entry pointing at the same absence, so what it is really
+recording is that **there is no module system**, and the shape of what one would
+buy:
 
 - a namespace, which the object idiom already approximates;
 - an export boundary, which needs something the language does not have -- slots
@@ -320,8 +343,18 @@ and the shape of what one would buy:
   stating what a file needs, the compiler cannot tell "you meant the library"
   from "you meant this file", so it picks by search order and says nothing.
 
-A warning on rebinding a name an include bound is the cheap version of the first
-of those, and would catch the case above without any of the rest.
+**A warning on rebinding a name an include bound** is the cheap version of the
+first of those, and it is the one worth doing: it would have caught the
+`text.sol` collision at compile time, where it happened, rather than at run time
+in a message about a string not understanding `utf8`. It is the same shape as
+the warning [6.22](COMPLETED.md#622-a-file-that-includes-a-library-of-its-own-name-silently-does-nothing--done)
+already added -- the compiler knows which names an include bound, and knows when
+the file it is compiling binds one of them again -- and it needs none of the
+module system to work.
+
+The objection to it is that rebinding is legal and sometimes deliberate: a
+program may want to replace something a library bound. A warning says so without
+forbidding it, which is the same bargain 6.22 struck.
 
 ## Suggested order
 
