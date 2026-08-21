@@ -149,21 +149,24 @@ program asks for it by name:
 
 | Message | Answers |
 | --- | --- |
-| `#n:repeat(block)` | nil, having run the block `n` times |
-| `block:repeat(#n)` | the same, said the other way round |
-| `#a:toDo(#b, block)` | nil; the block is given each of `#a` to `#b`, **inclusive** |
-| `#a:toByDo(#b, #step, block)` | the same, by `#step`; negative counts down |
 | `#n:timesCollect(block)` | an array of `n` answers, the block given the pass number |
 
 **None of it is language.** These are methods bound on `integer` and `block` by
 an ordinary Solum file, because control flow is message sending and a loop is
 therefore something a library can add.
 
-`doUntil` was here once and is not any more: it turned out to be worth building
-in, and [it is a message on block](#block) now that compiles to jumps. Defining
-it in the library again would be a trap rather than an override — the compiler
-splices the loop in when both blocks are written on the spot, so the definition
-would be bypassed exactly where it was most wanted.
+**Four things were here once and are not any more.** `doUntil`, `repeat`, `toDo`
+and `toByDo` all started as Solum in this file, all four were measured, and all
+four turned out to be worth building into the VM — see
+[integer](#integer) and [block](#block). Defining any of them here again would be
+a trap rather than an override: a slot bound on `integer` shadows the primitive,
+so the slow version would quietly win, and `doUntil` is spliced in by the
+compiler anyway.
+
+That leaves one function in the library, which is a fair record of what
+measuring does. The machinery around it — the search path, `@include` finding a
+name it was not told the location of — is unchanged and is the part that
+matters.
 
 A step of `#0` would never finish, so `toByDo` says so rather than hanging.
 
@@ -679,7 +682,13 @@ x:greaterThan(#0):and({ x:lessThan(#10) }).
 ### What the compiler does with them
 
 Written literally, `ifTrue`, `ifFalse`, `ifElse`, `whileTrue`, `doUntil`, `and`,
-and `or` compile to jumps: no block is allocated and no frame is entered. This is an optimisation
+and `or` compile to jumps: no block is allocated and no frame is entered.
+
+`repeat`, `toDo` and `toByDo` are **not** in that list and deliberately so. They
+are primitives, which is faster here than inlining would have been: inlining
+removes the block call an iteration and keeps two bytecode sends for the
+counter, where a primitive removes the two sends and keeps the block call. The
+sends cost more — measured, the primitive is 2.5× what inlined jumps produced. This is an optimisation
 only — the meaning is exactly that of the message, and the message is still
 there, reachable through `perform` or with a block held in a variable.
 
@@ -1116,6 +1125,9 @@ objects.
 | `asFloat` | a float; loses precision above 2^53 |
 | `asString` | the digits, without the `#` |
 | `asBase(#n)` | the digits in base `n`, 2 to 36, as a string |
+| `repeat(block)` | nil, having run the block that many times |
+| `toDo(#b, block)` | nil; the block is given each of the receiver to `#b`, **inclusive** |
+| `toByDo(#b, #step, block)` | the same, by `#step`; negative counts down |
 
 `#-7:div(#2)` is `#-4` and `#-7:mod(#2)` is `#1`: division floors, so the
 remainder takes the divisor's sign and stays in `[0, n)` for positive `n`.
@@ -1450,6 +1462,7 @@ is false. That is IEEE showing through rather than a decision made here.
 | `boundTo(receiver)` | a new block over the same code, with `self` set |
 | `whileTrue(body)` | nil, having run `body` while the receiver answers true |
 | `doUntil(condition)` | nil, having run the receiver **until** the condition is true — the body first, so always at least once |
+| `repeat(#n)` | nil, having run the receiver `n` times |
 | `timeToRun` | seconds the block took, as a float |
 | `timeToRun(#n)` | seconds `n` runs took, as a float |
 

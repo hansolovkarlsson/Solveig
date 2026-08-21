@@ -936,6 +936,151 @@ static void test_do_until_stack_stays_balanced(void)
     printf("  a long doUntil does not grow the stack\n");
 }
 
+/* ---- the counted loops -------------------------------------------------- *
+ *
+ * Primitives rather than inlined jumps, which is 6.6 answered differently from
+ * the way it asked. A primitive removes the two counter sends an iteration and
+ * keeps the block call; inlining would have removed the block call and kept the
+ * sends. Measured, the primitive is 2.5x what inlining would have produced.
+ *
+ * It also gets the receiver check for free: `repeat` is installed for SOL_INT
+ * receivers, so a float simply does not understand it, where inlined jumps
+ * would have needed a type-guard instruction to say the same thing.
+ */
+static void test_counted_loops_count(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "ticks := #0. #3:repeat({ ticks := ticks:add(#1) })."
+        "tocks := #0. { tocks := tocks:add(#1) }:repeat(#2)."
+        "up := array:new. #1:toDo(#3, { n | up:add(n) })."
+        "stepped := array:new. #1:toByDo(#10, #3, { n | stepped:add(n) })."
+        "down := array:new. #3:toByDo(#1, #0:sub(#1), { n | down:add(n) })."
+        /* they answer nil, as the other loops do */
+        "answer := #1:repeat({ #2 }).") == SOL_OK);
+
+    assert(SOL_AS_INT(global(&vm, "ticks")) == 3);
+    assert(SOL_AS_INT(global(&vm, "tocks")) == 2);
+    assert(SOL_AS_ARRAY(global(&vm, "up"))->count == 3);
+    assert(SOL_AS_INT(SOL_AS_ARRAY(global(&vm, "up"))->items[2]) == 3);
+    assert(SOL_AS_ARRAY(global(&vm, "stepped"))->count == 4);     /* 1 4 7 10 */
+    assert(SOL_AS_INT(SOL_AS_ARRAY(global(&vm, "stepped"))->items[3]) == 10);
+    assert(SOL_AS_ARRAY(global(&vm, "down"))->count == 3);        /* 3 2 1 */
+    assert(SOL_AS_INT(SOL_AS_ARRAY(global(&vm, "down"))->items[2]) == 1);
+    assert(SOL_IS_NIL(global(&vm, "answer")));
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+    printf("  repeat, toDo and toByDo count what they say\n");
+}
+
+/* An empty range runs the body no times rather than complaining, which is what
+   an empty slice and an empty split already do. */
+static void test_counted_loops_over_nothing(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "a := #0. #0:repeat({ a := a:add(#1) })."
+        "b := #0. #0:sub(#5):repeat({ b := b:add(#1) })."     /* a negative count */
+        "c := #0. { c := c:add(#1) }:repeat(#0)."
+        "d := #0. #5:toDo(#1, { n | d := d:add(#1) })."
+        "e := #0. #1:toByDo(#5, #0:sub(#1), { n | e := e:add(#1) })."
+        "n := a:add(b):add(c):add(d):add(e).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "n")) == 0);
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+    printf("  an empty range runs the body no times\n");
+}
+
+/* The receiver check falls out of dispatch: `repeat` is on integer, so a float
+   does not understand it -- the same complaint a send has always made, and the
+   thing inlining would have had to reproduce by hand. */
+static void test_counted_loops_refuse(void)
+{
+    static const char *refused[] = {
+        "1.5:repeat({ #1 }).",
+        "\"x\":repeat({ #1 }).",
+        "#3:repeat(#1).",                    /* not a block */
+        "#3:repeat.",
+        "{ #1 }:repeat(1.5).",
+        "#1:toByDo(#5, #0, { n | n }).",     /* a step of #0 never finishes */
+        "#1:toByDo(1.5, #1, { n | n }).",
+        "#1:toDo(#3, { n | n }, #4).",
+        "#1:toDo(#3, { }).",                 /* the block is handed the index */
+    };
+
+    for (size_t i = 0; i < sizeof(refused) / sizeof(refused[0]); i++) {
+        SolVM vm; sol_vm_init(&vm);
+        SolChunk chunk;
+        assert(run(&vm, &chunk, refused[i]) == SOL_RUNTIME_ERROR);
+        sol_chunk_free(&chunk); sol_vm_free(&vm);
+    }
+    printf("  a non-integer receiver does not understand repeat\n");
+}
+
+/* An error inside the body stops the loop rather than being run past. */
+static void test_an_error_in_the_body_stops_the_loop(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "seen := #0."
+        "#10:repeat({ seen := seen:add(#1). nil:frobnicate }).") == SOL_RUNTIME_ERROR);
+    assert(SOL_AS_INT(global(&vm, "seen")) == 1);
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+
+    sol_vm_init(&vm);
+    assert(run(&vm, &chunk,
+        "seen := #0."
+        "#1:toDo(#10, { n | seen := seen:add(#1). nil:frobnicate }).") == SOL_RUNTIME_ERROR);
+    assert(SOL_AS_INT(global(&vm, "seen")) == 1);
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+
+    printf("  an error in the body stops the loop at once\n");
+}
+
+/* A step near the top of the range must not wrap past the limit and run
+   forever. The loop stops when the next index would overflow. */
+static void test_a_huge_step_terminates(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    /* The last two integers there are, by ones: both run, and then the step
+       that would carry it past INT64_MAX ends the loop instead of wrapping to
+       the bottom and running for ever. */
+    assert(run(&vm, &chunk,
+        "seen := #0."
+        "#9223372036854775806:toByDo(#9223372036854775807, #1,"
+        "    { n | seen := seen:add(#1) }).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "seen")) == 2);
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+
+    /* A step so large the very first one overflows: the body has still run
+       once, because the starting index was inside the range. */
+    sol_vm_init(&vm);
+    assert(run(&vm, &chunk,
+        "seen := #0."
+        "#9223372036854775806:toByDo(#9223372036854775807, #9223372036854775807,"
+        "    { n | seen := seen:add(#1) }).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "seen")) == 1);
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+
+    /* And downwards, past the bottom. */
+    sol_vm_init(&vm);
+    assert(run(&vm, &chunk,
+        "seen := #0."
+        "#0:sub(#9223372036854775807):toByDo(#0:sub(#9223372036854775807), #0:sub(#1),"
+        "    { n | seen := seen:add(#1) }).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "seen")) == 1);
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+    printf("  a step that would overflow stops the loop rather than wrapping\n");
+}
+
 int main(void)
 {
     printf("inlined control flow\n");
@@ -957,6 +1102,11 @@ int main(void)
     test_do_until_condition_error_matches();
     test_do_until_falls_back();
     test_do_until_stack_stays_balanced();
+    test_counted_loops_count();
+    test_counted_loops_over_nothing();
+    test_counted_loops_refuse();
+    test_an_error_in_the_body_stops_the_loop();
+    test_a_huge_step_terminates();
     test_verifier_rejects_bad_loops();
     test_verifier_allows_a_spin();
     test_logical_matches_the_send();

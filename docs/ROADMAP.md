@@ -270,59 +270,6 @@ Raised in a notes file and assessed in [ideas.md](ideas.md), which also records
 what was **not** worth building and why — integer widths, a JIT, cascades,
 trailing-block syntax, and Go-style concurrency among them.
 
-### 6.6 The loop constructs are library code, and pay for it
-
-**`doUntil` is done and the other two are a different problem**, which is what
-building the first one found out.
-
-`repeat`, `doUntil` and a stepped `to`/`do` can all be written in Solum, and
-[lib/control.sol](../lib/control.sol) has them. Written that way they cost a
-block call and a frame per iteration, where `whileTrue` written literally
-compiles to jumps (4.1). Building them in buys inlining rather than
-expressiveness.
-
-**`doUntil` needed no new machinery.** Both its operands are literal blocks, so
-the loop is `whileTrue`'s shape with the body moved in front of the test and the
-sense inverted, and nothing has to be remembered between passes. The one wrinkle
-was the complaint: `OP_EXIT_IF_FALSE` carries no name and words its error as
-`whileTrue`. `OP_CHECK_BOOL` does carry one, so it goes in front and the check
-never reaches the unnamed instruction. No new opcode, no format change. See
-[COMPLETED](COMPLETED.md#66-the-loop-constructs-are-library-code-and-pay-for-it).
-
-**`repeat` and `toByDo` need somewhere to keep a counter**, and that is the
-whole difficulty. `whileTrue` and `doUntil` inline because nothing survives
-between iterations: the condition is re-evaluated and the boolean is consumed.
-A counted loop has an `i` and a limit that must live across passes, and there is
-nowhere for them:
-
-- **The value stack** could hold them, but no instruction compares or increments
-  a stack slot in place: `OP_LOCAL` reads `frame->slots[n]`, which is the frame
-  base rather than an arbitrary depth. Adding two instructions would change the
-  instruction set, and the `.sob` format version with it.
-- **A hidden local** works inside a block or a method, where `declare_local` can
-  reserve a slot nobody can name and `OP_LOCAL` already does the rest. It does
-  not work at the top level of a script, which reserves no slots at all. That
-  would make the optimisation apply in some places and not others, which is a
-  worse property than being slow.
-- **Giving the script's frame slots** was the third, and it is **done** — see
-  the changelog. `SolChunk` carries a `slot_count`, `sol_vm_run` reserves it as
-  `push_frame` reserves a method's, and the verifier bounds-checks against the
-  real number. It cost the reserved `u16` in the `.sob` header and a version
-  bump, and it removed a language restriction on the way: a temporary declared
-  at the top level of a script used to be refused for exactly the reason
-  `repeat` could not keep a counter there, and now works.
-
-**So the obstacle is gone and the counted loops are merely unbuilt.** What is
-left is compiler work with no format change behind it: recognise
-`#n:repeat({...})` and `#a:toByDo(#b, #s, {...})` where the block is plain,
-reserve hidden slots nobody can name with `declare_local`, and emit the loop the
-way a programmer would write it by hand.
-
-Whether it is worth doing is still the question the measurement asked, and the
-answer has not changed: `repeat` costs 1.30x a hand-written loop, where
-`doUntil` cost 2.29x. The large win was the one that needed no slots. This is
-the small one, and it is now cheap rather than dear.
-
 ### 6.10 Waiting for a single key
 
 Reading a *line* is done (6.3). Reading a keypress is a different job, and was
@@ -354,7 +301,7 @@ the chance that one might.
 notes about what a program would want, rather than a plan written before there
 were any programs. The two newest entries came from further along the same road
 — from a program that wanted something and could not have it, and one of them is
-already built. Thirteen of its items are built — a program can be split across
+already built. Fourteen of its items are built — a program can be split across
 files, stop with a status, read its input, read and write files, take a string
 apart and put it back together, keep values under keys, slice an array, and time
 itself; the instruction set has a
@@ -363,15 +310,15 @@ and every concept the guide names now has a runnable example; and the include
 that started it has since been given a syntax that admits what it is (6.13) —
 so in order of what would be missed next:
 
-Nothing on this list came from a program wanting it. Both entries that did —
-[6.15](COMPLETED.md#615-there-is-no-dictionary-and-no-way-to-build-one) and
-[6.16](COMPLETED.md#616-an-array-cannot-be-sliced) — are built, and so is the
-half of [6.6](#66-the-loop-constructs-are-library-code-and-pay-for-it) that
-could be had without changing the instruction set.
+**Nothing is left here that came from a program wanting it.** Both entries that
+did — [6.15](COMPLETED.md#615-there-is-no-dictionary-and-no-way-to-build-one)
+and [6.16](COMPLETED.md#616-an-array-cannot-be-sliced) — are built, and so is
+all of [6.6](COMPLETED.md#66-the-loop-constructs-are-library-code-and-pay-for-it).
 
-What is left is **6.6's counted loops**, which want a new opcode or a hidden
-local; **6.10** and **6.12**, both waiting for a program that needs them; and
-the decision below.
+What remains is **6.10** and **6.12**, both explicitly waiting for a program
+that needs them, and the decision below. The way to move this list is to write
+something and find out what it wants — which is how the last two entries got
+here, and both paid for themselves.
 
 Not ordered: **a single keypress** (6.10) and **a byte type** (6.12) both wait
 for a program that needs them. That was true of the whole list until

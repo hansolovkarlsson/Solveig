@@ -8,6 +8,56 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### The counted loops are built in — and not by inlining — `pending`, 2026-08-21
+
+Roadmap 6.6, finished. `repeat`, `toDo` and `toByDo` are primitives now.
+
+```
+#3:repeat({ "tick":display }).
+{ "tock":display }:repeat(#2).
+#1:toByDo(#10, #3, { n | n:display }).       ; 1 4 7 10
+```
+
+**The entry asked for inlining and inlining was the wrong answer**, which is
+worth recording because the reasoning was not obvious until it was tried.
+
+Per iteration the Solum version pays a block call for the body, plus a
+`lessThan` and an `add` send for the counter. Inlining removes the block call
+and keeps the two sends. A primitive removes the two sends and keeps the block
+call. Over 200,000 iterations:
+
+```
+library (Solum)      0.0601 s
+inlined by hand      0.0470 s     -- what the entry asked for
+primitive            0.0186 s
+```
+
+**3.2× the library version, and 2.5× faster than inlining would have been.** The
+sends cost more than the block call — the opposite of what the entry assumed.
+
+**Inlining was also the harder half.** A counted loop's receiver is whatever
+expression you wrote, and its type is unknown while compiling, so
+`1.5:repeat({...})` has to go on saying *float does not understand 'repeat'*
+rather than complaining about the counter. Inlined jumps would need a type-guard
+instruction carrying the message name — a new opcode, and a `.sob` version with
+it. A primitive gets it from dispatch for nothing: `repeat` is installed for
+integer receivers, so a float never finds it.
+
+`toByDo` gained two things it could not have in Solum. A step of `#0` is now an
+error rather than a printed complaint followed by a silent no-op. And a step
+that would carry the index past `INT64_MAX` ends the loop instead of wrapping to
+the bottom and running for ever, in both directions.
+
+**The library is nearly empty**, which is the record rather than a regret. It
+opened yesterday with five loops; four have been measured and all four were
+worth building in. `timesCollect` is what is left — the one nobody has measured.
+The search path and `@include` finding a name it was not told the location of
+are unchanged, and were always the part that mattered.
+
+Defining any of the four in the library again would be a trap rather than an
+override: a slot bound on `integer` shadows the primitive, so the slow version
+would quietly win.
+
 ### The script has a frame like everything else — `5f69049`, 2026-08-21
 
 `.sob` format **version 11**. `SolChunk` carries a `slot_count`, and

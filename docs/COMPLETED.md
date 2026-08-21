@@ -1313,11 +1313,12 @@ the same every run, and it demonstrates a two-key sort into the bargain.
 
 ---
 
-### 6.6 The loop constructs are library code, and pay for it — **half done**
+### 6.6 The loop constructs are library code, and pay for it — **done**
 
-`doUntil` is built in and inlined. `repeat` and the stepped `to`/`do` are not,
-and the entry in [ROADMAP.md](ROADMAP.md#66-the-loop-constructs-are-library-code-and-pay-for-it)
-says what they would cost. This records the half that landed.
+All four, and **the entry's premise was wrong about three of them.** It asked
+for inlining. `doUntil` got inlining, because it deserved it. `repeat`, `toDo`
+and `toByDo` became primitives instead, which is both cheaper to build and
+faster to run than the inlining the entry wanted.
 
 The entry sat unbuilt for a long time because the gain looked modest — 1.30x for
 `repeat`, measured once `timeToRun(#n)` existed. **The mistake was measuring the
@@ -1367,4 +1368,56 @@ not any more — a definition there would be a trap rather than an override, sin
 the compiler splices the loop in when both blocks are written on the spot and
 would bypass it exactly where it was most wanted. The file says so where the
 definition used to be.
+
+
+---
+
+### 6.6, continued — the counted loops, and why not inlining
+
+Recorded separately because the answer contradicts what the entry asked for.
+
+`repeat`, `toDo` and `toByDo` were to be inlined the way `whileTrue` and
+`doUntil` are. Two things came out of trying.
+
+**Inlining them faithfully needs an instruction that does not exist.** A counted
+loop's receiver is whatever expression you wrote, and its type is not known
+while compiling. `1.5:repeat({ ... })` has to go on saying *float does not
+understand 'repeat'* — the rule that an inlined message complains exactly as the
+sent one does. Inlined jumps would reach the counter comparison first and
+complain about that instead, so getting it right needs a type-guard instruction
+carrying the message name, the way `OP_JUMP_IF_FALSE` carries one for `ifElse`.
+That is a new opcode and a `.sob` version with it.
+
+**And it would have been the slower answer anyway.** Per iteration the Solum
+version pays a block call for the body, a `lessThan` send and an `add` send for
+the counter. Inlining removes the block call and keeps the two sends. A
+primitive removes the two sends and keeps the block call. Measured over 200,000
+iterations:
+
+```
+library (Solum)      0.0601 s
+inlined by hand      0.0470 s     -- what the entry asked for
+primitive            0.0186 s
+```
+
+**3.2× the library version, and 2.5× faster than inlining would have been.** The
+sends cost more than the block call, which is the opposite of what the entry
+assumed and is why it is worth writing down.
+
+The receiver check comes free with the primitive: `repeat` is installed for
+`SOL_INT` receivers, so a float never finds it and dispatch says so in the words
+it always used. The thing inlining would have needed a new opcode for is what
+dispatch already does.
+
+`toByDo` gained two things it could not have as Solum. A step of `#0` is an
+error rather than a printed complaint the library could only follow with a
+silent no-op. And a step that would carry the index past `INT64_MAX` ends the
+loop instead of wrapping to the bottom and running for ever — there is a test
+for both directions.
+
+**The library is nearly empty now**, and that is the record rather than a
+regret: it opened with five loops, four were measured, and all four were worth
+building in. `timesCollect` is what is left, being the one nobody has measured.
+The search path and `@include` finding a name it was not told the location of
+are unchanged, and were always the part that mattered.
 

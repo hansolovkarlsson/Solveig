@@ -767,13 +767,14 @@ lives:
 #4:timesCollect({ n | n:mul(n) }):print.     ; [#1, #4, #9, #16]
 ```
 
-`lib/control.sol` gives you `repeat`, `toDo`, `toByDo` and `timesCollect`. **None of it is language.** They are methods bound on `integer`
+`lib/control.sol` gives you `timesCollect`, and it used to give you four more. **None of it is language.** They are methods bound on `integer`
 and `block` by an ordinary Solum file — which is possible at all because control
 flow here is message sending, so a loop is something a library can add. That is
 why §8 could say the language has no loop syntax and mean it.
 
-`doUntil` used to be in that list and is now part of the language, because it
-was worth building in — it is the shape `whileTrue` cannot express, the body
+`repeat`, `toDo`, `toByDo` and `doUntil` were all in that list once and are all
+part of the language now, because measuring said they were worth building in.
+`doUntil` is the interesting one — it is the shape `whileTrue` cannot express, the body
 running *before* the test so it always runs at least once:
 
 ```

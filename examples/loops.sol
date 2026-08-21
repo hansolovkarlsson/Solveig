@@ -13,10 +13,14 @@
 ; ---------------------------------------------------------------------------
 ; None of this is language
 
-; `repeat`, `doUntil`, `toDo`, `toByDo` and `timesCollect` are methods bound on
-; `integer` and `block` by an ordinary Solum file. Control flow is message
-; sending, so a loop is something a library can add -- which is why the language
-; has no syntax for any of them and does not need any.
+; Control flow is message sending, so a loop is something a library can add --
+; which is why the language has no syntax for any of these and does not need any.
+;
+; They all began in lib/control.sol, written in Solum. Four of them were then
+; measured and moved into the VM, so `repeat`, `toDo`, `toByDo` and `doUntil`
+; are primitives now and only `timesCollect` is still library code. Nothing you
+; write below changes, which is the point: where a message lives is not part of
+; what it means.
 
 #3:repeat({ "tick":display }).            ; tick tick tick
 { "tock":display }:repeat(#2).            ; tock tock

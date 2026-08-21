@@ -972,6 +972,110 @@ static SolValue prim_bound_to(SolVM *vm, SolValue self, SolValue *args, int argc
 
 /* `{ condition }:whileTrue({ body })` -- the receiver is re-run every pass,
    which is the whole reason it has to be a block rather than a value. */
+/* ---- counted loops ----------------------------------------------------- *
+ *
+ * `repeat`, `toDo` and `toByDo` lived in lib/control.sol, written in Solum.
+ * Roadmap 6.6 was about inlining them the way `whileTrue` and `doUntil` are
+ * inlined, and that turned out to be both harder and worse than making them
+ * primitives.
+ *
+ * Harder, because a counted loop needs a counter that survives the iteration
+ * and the receiver's type is not known while compiling. `whileTrue` inlines
+ * because its receiver must be a literal block; `#n:repeat` takes whatever
+ * expression you wrote, and `1.5:repeat({...})` has to go on saying *float does
+ * not understand 'repeat'* rather than complaining about the counter. Getting
+ * that right through inlined jumps needs a type-guard instruction that does not
+ * exist.
+ *
+ * Worse, because dispatch already answers it for free -- a message installed
+ * for SOL_INT receivers is simply not found on `float` -- and because the
+ * counter arithmetic moves from bytecode into C. The Solum version pays a
+ * `lessThan` send and an `add` send per iteration on top of the block call;
+ * inlining removes the block call and keeps the two sends, where a primitive
+ * removes the two sends and keeps the block call. The sends cost more.
+ */
+static SolValue prim_integer_repeat(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "repeat", argc, 1)) return SOL_NIL_VAL;
+
+    int64_t times = SOL_AS_INT(self);
+    for (int64_t i = 0; i < times; i++) {
+        sol_vm_call_block(vm, args[0], NULL, 0);
+        if (vm->had_error) return SOL_NIL_VAL;
+    }
+    /* A count of zero or less runs the body no times rather than complaining,
+       which is what an empty range does everywhere else here. */
+    return SOL_NIL_VAL;
+}
+
+/* `{ body }:repeat(#n)` -- the same loop, said the other way round, because
+   which reads better depends on which of the two the sentence is about. */
+static SolValue prim_block_repeat(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "repeat", argc, 1)) return SOL_NIL_VAL;
+    if (!SOL_IS_INT(args[0])) {
+        sol_vm_runtime_error(vm, "'repeat' expects an integer count, got %s",
+                             sol_type_name(args[0]));
+        return SOL_NIL_VAL;
+    }
+
+    int64_t times = SOL_AS_INT(args[0]);
+    for (int64_t i = 0; i < times; i++) {
+        sol_vm_call_block(vm, self, NULL, 0);
+        if (vm->had_error) return SOL_NIL_VAL;
+    }
+    return SOL_NIL_VAL;
+}
+
+/* `#a:toByDo(#b, #step, { n | ... })` -- inclusive at both ends, following
+ * `at` and `copyFrom`: an index here is an ordinal, and half-open ranges are
+ * what make *zero*-based indexing tidy.
+ *
+ * A negative step counts down and stops when it passes the limit. A step of #0
+ * would never finish, so it is refused -- the Solum version could only print a
+ * complaint and carry on, which is the sort of thing a primitive can do
+ * properly. */
+static SolValue prim_integer_to_by_do(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "toByDo", argc, 3)) return SOL_NIL_VAL;
+    if (!SOL_IS_INT(args[0]) || !SOL_IS_INT(args[1])) {
+        sol_vm_runtime_error(vm, "'toByDo' expects an integer limit and step, got %s and %s",
+                             sol_type_name(args[0]), sol_type_name(args[1]));
+        return SOL_NIL_VAL;
+    }
+
+    int64_t limit = SOL_AS_INT(args[0]);
+    int64_t step  = SOL_AS_INT(args[1]);
+    if (step == 0) {
+        sol_vm_runtime_error(vm, "'toByDo' needs a step other than #0");
+        return SOL_NIL_VAL;
+    }
+
+    /* The index is handed to the block, so it has to be a value each pass. The
+       overflow check is what stops a step near INT64_MAX wrapping past the
+       limit and running forever. */
+    for (int64_t i = SOL_AS_INT(self);
+         step > 0 ? i <= limit : i >= limit;
+         ) {
+        SolValue index = SOL_INT_VAL(i);
+        sol_vm_call_block(vm, args[2], &index, 1);
+        if (vm->had_error) return SOL_NIL_VAL;
+
+        int64_t next;
+        if (__builtin_add_overflow(i, step, &next)) break;
+        i = next;
+    }
+    return SOL_NIL_VAL;
+}
+
+static SolValue prim_integer_to_do(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "toDo", argc, 2)) return SOL_NIL_VAL;
+
+    SolValue stepped[3] = { args[0], SOL_INT_VAL(1), args[1] };
+    return prim_integer_to_by_do(vm, self, stepped, 3);
+}
+
 /* `{ body }:doUntil({ condition })` -- the body first, then the test, so it
  * always runs at least once.
  *
@@ -2774,6 +2878,9 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->integer_class, SOL_INT, "mod", prim_integer_mod);
     instance(vm, vm->integer_class, SOL_INT, "asFloat", prim_integer_as_float);
     instance(vm, vm->integer_class, SOL_INT, "asBase", prim_integer_as_base);
+    instance(vm, vm->integer_class, SOL_INT, "repeat", prim_integer_repeat);
+    instance(vm, vm->integer_class, SOL_INT, "toDo", prim_integer_to_do);
+    instance(vm, vm->integer_class, SOL_INT, "toByDo", prim_integer_to_by_do);
     instance(vm, vm->integer_class, SOL_INT, "asString", prim_integer_as_string);
     instance(vm, vm->integer_class, SOL_INT, "negated", prim_integer_negated);
     instance(vm, vm->integer_class, SOL_INT, "abs", prim_integer_abs);
@@ -2840,6 +2947,7 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->block_class, SOL_BLOCK, "boundTo", prim_bound_to);
     instance(vm, vm->block_class, SOL_BLOCK, "whileTrue", prim_while_true);
     instance(vm, vm->block_class, SOL_BLOCK, "doUntil", prim_do_until);
+    instance(vm, vm->block_class, SOL_BLOCK, "repeat", prim_block_repeat);
 
     vm->array_class = sol_object_new(vm, NULL);
     any_receiver(vm, vm->array_class, "new", prim_array_new);
