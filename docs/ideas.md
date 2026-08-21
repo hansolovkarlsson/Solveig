@@ -36,6 +36,7 @@ marked as a sketch.
 | Go-style concurrency | **No, for now** — it changes the whole VM |
 | Subclass `integer`, a `byte` subclass | **Not possible** — see below |
 | More `@` directives: `@define`, `@ifdef`, `@once` | **No** — each one's job is already done by something that is not a directive |
+| Namespaces for included files | **Defer** — the trigger is somebody else writing a library |
 
 ---
 
@@ -225,6 +226,73 @@ because there would be a character type with the wrong semantics to migrate.
 a character type follows naturally and `$` is the right spelling for it.
 
 ---
+
+### Namespaces for included files
+
+An included file binds into the one global namespace, so a library's names and a
+program's names sit in the same space. Should an include get a namespace of its
+own?
+
+**Not yet, and the trigger is somebody other than you writing a library.** A
+flat global space works while one person can see every name in it; that is the
+thing which stops being true first when a library arrives from outside.
+
+**What is already covering it.** A module system does four jobs, and the score
+today is one and a half:
+
+| job | status |
+| --- | --- |
+| once-only initialization | **done** — a file is compiled once, keyed by where it lands on disk |
+| a namespace | **approximated** — `json:read(...)` is namespaced access already; only the name `json` is in the flat space, and a collision on it is a compile-time warning ([6.21](COMPLETED.md#621-two-libraries-binding-one-name-collide-silently--done)) |
+| an export boundary | **absent** |
+| declared dependencies | **absent** |
+
+And the [three tiers](COMPLETED.md#621-two-libraries-binding-one-name-collide-silently--done)
+that came out of 6.21 do most of the rest. Two of the four shipped libraries
+claim **no global at all** — `integer:asUtf8` and `integer:timesCollect` are
+sends rather than bindings, so there is nothing there to collide with. The other
+two claim one name each.
+
+**The design argument against, which this document has used before.** A module
+is a new *kind* of thing: not an object, not a message, but a compile-time
+scope. That is the same objection that turned down
+[`@ifdef`](#more--directives-define-ifdef-once) — a second mechanism where an
+existing one does the job — and an object holding slots already is a namespace.
+
+**If it is ever built, the shape is an object rather than a module.** Not a
+module system: an include that binds into an object instead of into the root,
+with the includer naming it.
+
+```
+Json := @include "json.sol".      ; a sketch; not valid today
+Json:read(text).
+```
+
+Two things make that more tractable than it was:
+
+- **The compiler already tracks which names each file binds.** That record —
+  `BoundName { name, file }`, shared across a compilation — went in for the
+  rebinding warning. Sending those bindings to a fresh object rather than to the
+  root is a smaller step from there than it looks.
+- It would not touch methods on built-in classes, and should not: `integer:asUtf8`
+  belongs to `integer` rather than to whoever included the file.
+
+The obstacle is syntactic rather than deep. `@include` is deliberately a
+statement — `x := (@include "lib.sol")` is refused by name — so the binding form
+would have to be designed rather than falling out.
+
+**What it still would not give you** is the export boundary, which is the half
+worth having once libraries come from elsewhere. `json:digits := "abc"` breaks
+the parser from outside it, and namespacing the name `json` does not change
+that. Privacy needs something the language has not got: slots cannot be removed
+and `slots` lists everything, so it would be a new concept rather than a use of
+existing ones.
+
+**Two triggers, either of which is enough:**
+
+- Somebody other than the author writes a Solum library.
+- One program needs two libraries that clash on a name. Today the answer is
+  "rename one", which works right up until you do not own one of them.
 
 ## Recommended against
 
@@ -485,4 +553,4 @@ Adding methods to `integer` itself works and is the supported route. A distinct
 type wants an object that holds a value.
 
 The "properties on the metaclass" half is the open design question in
-[2.5](ROADMAP.md#25-class-side-versus-instance-side).
+[2.5](COMPLETED.md#25-class-side-versus-instance-side--closed).
