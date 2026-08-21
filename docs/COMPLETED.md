@@ -975,6 +975,62 @@ at the top level of a script is refused.
 
 ---
 
+### 6.9 The examples do not cover everything — **done**
+
+Seventeen examples, chosen by what was being built at the time rather than by
+what a reader needs. The entry asked for an audit: list every concept the guide
+names, find which have no example, and fill the gaps rather than adding more of
+what is covered.
+
+The audit was run two ways, and **the answer was not the one the entry
+assumed.**
+
+Against the guide, five of its nineteen sections pointed at no example: §2 names
+and binding, §3 statements and groups and temporaries, §11 overriding and `via`,
+§14 fetching a method, and §16 errors and strictness.
+
+Against the built-in messages — every selector registered in `builtins.c`, which
+is the sharper question — **exactly one had never been sent in any example**:
+`lessOrEqual`. Coverage was far better than "chosen by what was being built at
+the time" suggests. The gaps were conceptual rather than material, and two of
+the five were not gaps at all: `via` was in objects.sol and `slotAt`/`boundTo`
+were in reflect.sol, neither pointed at from the section that teaches them.
+
+Built as `pending`:
+
+- **[binding.sol](../examples/binding.sol)** for §2 and §3 — the plumbing every
+  other example uses without stopping to look at it. `:=` meaning one thing
+  everywhere, a computed method falling out of that, `.` separating rather than
+  terminating, a leading `:` continuing a line, groups, and where a temporary
+  may be declared.
+- **[strictness.sol](../examples/strictness.sol)** for §16 — every refusal with
+  its real error text and what to write instead. It **ends by failing on
+  purpose**, three frames deep, because a stack trace is the one thing in that
+  section no working program can show you.
+- Pointers added for §11 and §14, which needed nothing else.
+- `lessOrEqual` now sent, in strictness.sol.
+
+Every section but §19, which is prose about what is left, now points at
+something runnable, and all sixty-five built-in messages are sent by at least one
+example.
+
+**And the audit is now a test**, for the same reason 6.7's reference is:
+`tests/test_compile.c` reads the registrations out of `builtins.c` and checks
+each selector is sent by some example, with `;` comments blanked out first so a
+message that only appears in an error transcript does not count as covered. That
+blanking respects string literals, because files.sol has a `;` inside one. A
+second check walks `examples/` and refuses any `.sol` missing from the list the
+file verifies, so an example cannot ship unchecked.
+
+Both were confirmed to fail when they should. Commenting out the single
+`lessOrEqual` send makes the first one name it.
+
+One thing the audit turned up that was not about examples at all: index.md said
+**"Twelve programs"** and listed twelve, while seventeen shipped. It lists all
+nineteen now.
+
+---
+
 ### 6.11 A string cannot be split — **done**
 
 `readFile` answers a whole file as one string, which is what made this visible:

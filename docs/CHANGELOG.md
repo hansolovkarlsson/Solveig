@@ -8,6 +8,46 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### Every concept the guide names has an example — `pending`, 2026-08-20
+
+Roadmap 6.9, the example audit. Two new programs,
+[binding.sol](../examples/binding.sol) and
+[strictness.sol](../examples/strictness.sol), and nineteen in all.
+
+**The audit's answer was not the one the entry assumed.** It supposed the
+examples were thin, having been written alongside whatever was being built at
+the time. Measured against every selector registered in `builtins.c` — the
+sharper question — **exactly one built-in message had never been sent in any
+example**: `lessOrEqual`.
+
+The real gaps were conceptual. Five of the guide's nineteen sections pointed at
+no example, and two of those five were not gaps at all: `via` was in objects.sol
+and `slotAt`/`boundTo` were in reflect.sol, neither pointed at from the section
+that teaches them. Those needed a link, not a program.
+
+The three that needed a program got two:
+
+- **binding.sol** for names and binding, and for statements, groups and
+  temporaries — the plumbing every other example uses without stopping to look
+  at it.
+- **strictness.sol** for errors and strictness: every refusal with its real
+  error text and what to write instead. It **ends by failing on purpose**, three
+  frames deep, because a stack trace is the one thing in that section no working
+  program can show you.
+
+**The audit is now a test**, for the same reason the instruction set reference is
+one. `tests/test_compile.c` reads the registrations out of `builtins.c` and
+checks that each selector is sent by some example, with `;` comments blanked out
+first so a message appearing only in an error transcript does not count as
+covered — and that blanking respects string literals, since files.sol has a `;`
+inside one. A second check walks `examples/` and refuses any `.sol` missing from
+the list the file verifies, so an example cannot ship unchecked. Both were
+confirmed to fail when they should.
+
+One thing the audit turned up that was nothing to do with examples: index.md
+said **"Twelve programs"** and listed twelve, while seventeen shipped. It lists
+all nineteen now, and the tutorial's count is right again too.
+
 ### The guide contrasts a group with a block — `4001efa`, 2026-08-20
 
 Roadmap 6.8. Both are code in brackets, and nothing put them side by side.

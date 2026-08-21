@@ -267,12 +267,6 @@ There is now a way to find out rather than guess:
 so the Solum-written version and the inlined `whileTrue` can be measured against
 each other before anything is built.
 
-### 6.9 The examples do not cover everything
-
-Seventeen examples, chosen by what was being built at the time rather than by
-what a reader needs. Worth an audit: list every concept the guide names, find which
-have no example, and fill the gaps rather than adding more of what is covered.
-
 ### 6.10 Waiting for a single key
 
 Reading a *line* is done (6.3). Reading a keypress is a different job, and was
@@ -302,16 +296,17 @@ the chance that one might.
 
 **Section 6 is the whole of the live list**, and it came from the right place:
 notes about what a program would want, rather than a plan written before there
-were any programs. Ten of its items are built — a program can be split across
+were any programs. Eleven of its items are built — a program can be split across
 files, stop with a status, read its input, read and write files, take a string
 apart and put it back together, and time itself; the instruction set has a
-reference the test suite keeps honest and the guide finally contrasts a group
-with a block; and the include that started it has since been given a syntax that
-admits what it is (6.13) — so in order of what would be missed next:
+reference the test suite keeps honest, the guide contrasts a group with a block,
+and every concept the guide names now has a runnable example; and the include
+that started it has since been given a syntax that admits what it is (6.13) —
+so in order of what would be missed next:
 
-1. **The example audit** (6.9), the last documentation gap.
-2. **Inlining the loop constructs** (6.6), which now has something to measure it
-   with: `timeToRun(#n)` is what would say whether it is worth doing.
+1. **Inlining the loop constructs** (6.6), which now has something to measure it
+   with: `timeToRun(#n)` is what would say whether it is worth doing. It is the
+   only entry left that is work rather than a wait.
 
 Not ordered: **a single keypress** (6.10) and **a byte type** (6.12) both wait
 for a program that needs them.

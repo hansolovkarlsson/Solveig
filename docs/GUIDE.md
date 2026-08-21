@@ -85,6 +85,8 @@ integer:triple := maker:value.
 
 That falls out of `:=` meaning one thing. Nothing special was added to allow it.
 
+> **Run:** [examples/binding.sol](../examples/binding.sol)
+
 ## 3. Statements, groups, and temporaries
 
 `.` **separates** statements rather than terminating them: required between two,
@@ -144,6 +146,8 @@ Inside a block there *is* a frame, so the same shape is fine:
 f := { ( | t | t := #5. t:add(#1) ) }.
 f:value:print.                   ; #6
 ```
+
+> **Run:** [examples/binding.sol](../examples/binding.sol)
 
 ## 4. Numbers
 
@@ -482,6 +486,8 @@ message, because the delegation link is an internal pointer rather than a slot �
 so nothing a program writes can corrupt dispatch. `o:parent` will answer `other`
 afterwards while `o` still delegates where it always did.
 
+> **Run:** [examples/objects.sol](../examples/objects.sol)
+
 ## 12. Arrays
 
 Arrays hold values and grow. Indices are **one-based** — an index is an ordinal,
@@ -572,6 +578,8 @@ m:boundTo(b):value:print.        ; #101
 Binding and calling stay two things, as `via` keeps them two things — so `value`
 means what it always meant and the receiver is never one of the arguments.
 
+> **Run:** [examples/reflect.sol](../examples/reflect.sol)
+>
 > **Read:** [fetched-methods.md](fetched-methods.md) — the long version, including
 > what this is actually good for and the two things it deliberately does not do.
 
@@ -632,6 +640,9 @@ bring a new name into being where it would look like a local:
 ```
 solvm: undefined name 'undeclared' -- declare it with '| undeclared |' or assign it at the top level
 ```
+
+> **Run:** [examples/strictness.sol](../examples/strictness.sol), which ends by
+> failing on purpose so that a real stack has somewhere to be shown.
 
 ## 17. Splitting a program across files
 

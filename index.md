@@ -128,8 +128,10 @@ make test     # builds and runs the test suite
 
 ## Examples
 
-Twelve programs, each on one topic —
+Nineteen programs, each on one topic. Every concept the
+[guide](docs/GUIDE.md) names has one —
 [hello](examples/hello.sol),
+[binding](examples/binding.sol),
 [stock](examples/stock.sol),
 [numbers](examples/numbers.sol),
 [values](examples/values.sol),
@@ -140,4 +142,10 @@ Twelve programs, each on one topic —
 [strings](examples/strings.sol),
 [symbols](examples/symbols.sol),
 [format](examples/format.sol),
-[reflect](examples/reflect.sol).
+[reflect](examples/reflect.sol),
+[strictness](examples/strictness.sol),
+[library](examples/library.sol),
+[include](examples/include.sol),
+[system](examples/system.sol),
+[reading](examples/reading.sol),
+[files](examples/files.sol).

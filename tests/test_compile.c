@@ -15,6 +15,7 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include <assert.h>
+#include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -169,18 +170,20 @@ static void must_verify(const char *what, const char *source, const char *path)
 
 /* Every shipped example, read from disk. They are the largest programs the
    project has, and they exercise the emitter far past what a snippet reaches. */
+static const char *examples[] = {
+    "examples/hello.sol",   "examples/blocks.sol",  "examples/arrays.sol",
+    "examples/strings.sol", "examples/methods.sol", "examples/objects.sol",
+    "examples/reflect.sol", "examples/symbols.sol", "examples/numbers.sol",
+    "examples/format.sol",  "examples/values.sol",  "examples/stock.sol",
+    "examples/library.sol", "examples/include.sol", "examples/system.sol",
+    "examples/reading.sol", "examples/files.sol",   "examples/binding.sol",
+    "examples/strictness.sol",
+};
+#define EXAMPLE_COUNT (sizeof(examples) / sizeof(examples[0]))
+
 static void test_every_example_verifies(void)
 {
-    static const char *examples[] = {
-        "examples/hello.sol",   "examples/blocks.sol",  "examples/arrays.sol",
-        "examples/strings.sol", "examples/methods.sol", "examples/objects.sol",
-        "examples/reflect.sol", "examples/symbols.sol", "examples/numbers.sol",
-        "examples/format.sol",  "examples/values.sol",  "examples/stock.sol",
-        "examples/library.sol", "examples/include.sol",  "examples/system.sol",
-        "examples/reading.sol",  "examples/files.sol",
-    };
-
-    for (size_t i = 0; i < sizeof(examples) / sizeof(examples[0]); i++) {
+    for (size_t i = 0; i < EXAMPLE_COUNT; i++) {
         FILE *f = fopen(examples[i], "rb");
         assert(f != NULL);                    /* tests run from the repo root */
         assert(fseek(f, 0, SEEK_END) == 0);
@@ -199,6 +202,159 @@ static void test_every_example_verifies(void)
     }
     printf("  all %zu examples compile to bytecode the verifier accepts\n",
            sizeof(examples) / sizeof(examples[0]));
+}
+
+/* ---- what the examples cover ------------------------------------------- *
+ *
+ * The examples were written alongside whatever was being built at the time
+ * rather than against what a reader needs, so an audit found what they did not
+ * reach. These two keep that from happening again by asking the question the
+ * audit asked, every build.
+ */
+
+static char *slurp(const char *path)
+{
+    FILE *f = fopen(path, "rb");
+    assert(f != NULL);                        /* tests run from the repo root */
+
+    assert(fseek(f, 0, SEEK_END) == 0);
+    long size = ftell(f);
+    assert(size > 0);
+    rewind(f);
+
+    char *text = malloc((size_t)size + 1);
+    assert(text != NULL);
+    assert(fread(text, 1, (size_t)size, f) == (size_t)size);
+    text[size] = '\0';
+    fclose(f);
+    return text;
+}
+
+/* Blanks out `;` comments in place, so a message that only appears in one is
+   not counted as covered. A `;` inside a string is not a comment -- and there
+   is one, in files.sol, which is why this tracks quotes rather than taking the
+   first semicolon on the line. */
+static void blank_out_comments(char *source)
+{
+    bool in_string = false;
+    for (char *at = source; *at != '\0'; at++) {
+        if (in_string) {
+            if (*at == '\\' && at[1] != '\0') at++;
+            else if (*at == '"') in_string = false;
+            continue;
+        }
+        if (*at == '"') { in_string = true; continue; }
+        if (*at == ';') {
+            while (*at != '\0' && *at != '\n') *at++ = ' ';
+            if (*at == '\0') break;
+        }
+    }
+}
+
+/* Is `:name` sent anywhere in `text`? */
+static bool is_sent(const char *text, const char *name)
+{
+    size_t length = strlen(name);
+    for (const char *at = strchr(text, ':'); at != NULL; at = strchr(at + 1, ':')) {
+        if (strncmp(at + 1, name, length) != 0) continue;
+
+        char after = at[1 + length];
+        bool ends = !((after >= 'a' && after <= 'z') || (after >= 'A' && after <= 'Z') ||
+                      (after >= '0' && after <= '9') || after == '_');
+        if (ends) return true;
+    }
+    return false;
+}
+
+/* Every built-in message is sent by at least one example.
+ *
+ * The selectors come out of the registrations in builtins.c, so there is no
+ * list here to fall behind: a primitive installed without an example to show it
+ * fails this. When the audit ran, exactly one message had never been sent in an
+ * example -- `lessOrEqual`. */
+static void test_every_builtin_message_has_an_example(void)
+{
+    char *builtins = slurp("solum/src/builtins.c");
+
+    char *covered = NULL;
+    size_t length = 0;
+    for (size_t i = 0; i < EXAMPLE_COUNT; i++) {
+        char *source = slurp(examples[i]);
+        blank_out_comments(source);
+
+        size_t add = strlen(source);
+        covered = realloc(covered, length + add + 2);
+        assert(covered != NULL);
+        memcpy(covered + length, source, add);
+        covered[length + add] = '\n';
+        covered[length + add + 1] = '\0';
+        length += add + 1;
+        free(source);
+    }
+
+    int checked = 0;
+    for (char *line = strtok(builtins, "\n"); line != NULL; line = strtok(NULL, "\n")) {
+        if (strstr(line, "instance(vm,") == NULL &&
+            strstr(line, "any_receiver(vm,") == NULL) {
+            continue;
+        }
+
+        const char *open = strchr(line, '"');
+        assert(open != NULL);                 /* every registration names one */
+        const char *close = strchr(open + 1, '"');
+        assert(close != NULL);
+
+        char name[64];
+        size_t n = (size_t)(close - open - 1);
+        assert(n > 0 && n < sizeof name);
+        memcpy(name, open + 1, n);
+        name[n] = '\0';
+
+        if (!is_sent(covered, name)) {
+            printf("\n'%s' is a built-in message that no example sends\n", name);
+            assert(false);
+        }
+        checked++;
+    }
+
+    assert(checked > 60);                     /* it found the registrations */
+    free(covered);
+    free(builtins);
+    printf("  every built-in message is sent by an example (%d registrations)\n",
+           checked);
+}
+
+/* And nothing ships unverified: every .sol in examples/ is in the list above,
+   so adding one without adding it here is caught rather than silently skipped.
+   `library.sol` and the rest are all included, being ordinary files. */
+static void test_no_example_is_left_out(void)
+{
+    DIR *dir = opendir("examples");
+    assert(dir != NULL);
+
+    int found = 0;
+    for (struct dirent *entry = readdir(dir); entry != NULL; entry = readdir(dir)) {
+        const char *name = entry->d_name;
+        size_t length = strlen(name);
+        if (length < 5 || strcmp(name + length - 4, ".sol") != 0) continue;
+
+        char path[256];
+        snprintf(path, sizeof path, "examples/%s", name);
+
+        bool listed = false;
+        for (size_t i = 0; i < EXAMPLE_COUNT; i++) {
+            if (strcmp(examples[i], path) == 0) { listed = true; break; }
+        }
+        if (!listed) {
+            printf("\n%s is not in the list this file checks\n", path);
+            assert(false);
+        }
+        found++;
+    }
+    closedir(dir);
+
+    assert(found == (int)EXAMPLE_COUNT);       /* and none listed that is gone */
+    printf("  every .sol in examples/ is checked (%d of them)\n", found);
 }
 
 /* And the corners an example does not happen to reach. Anything the compiler
@@ -357,6 +513,8 @@ int main(void)
     test_a_frame_still_holds_its_temporaries();
     test_the_old_form_would_not_have_verified();
     test_every_example_verifies();
+    test_every_builtin_message_has_an_example();
+    test_no_example_is_left_out();
     test_every_accepted_form_verifies();
     test_an_error_names_a_line_and_a_column();
     test_the_caret_lands_under_the_token();
