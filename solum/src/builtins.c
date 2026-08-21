@@ -972,6 +972,37 @@ static SolValue prim_bound_to(SolVM *vm, SolValue self, SolValue *args, int argc
 
 /* `{ condition }:whileTrue({ body })` -- the receiver is re-run every pass,
    which is the whole reason it has to be a block rather than a value. */
+/* `{ body }:doUntil({ condition })` -- the body first, then the test, so it
+ * always runs at least once.
+ *
+ * The one loop shape `whileTrue` cannot express without a flag declared outside
+ * it, which is why this is built in rather than left in the library where it
+ * started: written literally it compiles to jumps, and the two block calls an
+ * iteration -- one for the body, one for the condition -- go away. Measured at
+ * 1.70x before that, which is the largest of the loop constructs because it is
+ * the only one paying for two.
+ *
+ * The complaint names `doUntil` rather than `whileTrue`, and the inlined form
+ * says the same thing by way of OP_CHECK_BOOL, which carries the name. */
+static SolValue prim_do_until(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "doUntil", argc, 1)) return SOL_NIL_VAL;
+
+    for (;;) {
+        sol_vm_call_block(vm, self, NULL, 0);
+        if (vm->had_error) return SOL_NIL_VAL;
+
+        SolValue answer = sol_vm_call_block(vm, args[0], NULL, 0);
+        if (vm->had_error) return SOL_NIL_VAL;
+
+        if (!SOL_IS_BOOL(answer)) {
+            sol_vm_block_answer_error(vm, "doUntil", answer);
+            return SOL_NIL_VAL;
+        }
+        if (SOL_AS_BOOL(answer)) return SOL_NIL_VAL;
+    }
+}
+
 static SolValue prim_while_true(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     if (!check_argc(vm, "whileTrue", argc, 1)) return SOL_NIL_VAL;
@@ -2808,6 +2839,7 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->block_class, SOL_BLOCK, "timeToRun", prim_block_time_to_run);
     instance(vm, vm->block_class, SOL_BLOCK, "boundTo", prim_bound_to);
     instance(vm, vm->block_class, SOL_BLOCK, "whileTrue", prim_while_true);
+    instance(vm, vm->block_class, SOL_BLOCK, "doUntil", prim_do_until);
 
     vm->array_class = sol_object_new(vm, NULL);
     any_receiver(vm, vm->array_class, "new", prim_array_new);

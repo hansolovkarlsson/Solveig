@@ -8,6 +8,58 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### `doUntil` is built in, and compiles to jumps — `pending`, 2026-08-21
+
+Roadmap 6.6, the half of it that could be had without changing the instruction
+set.
+
+```
+lines := #0.
+{ lines := lines:add(#1) }:doUntil({ lines:greaterOrEqual(#3) }).
+```
+
+**The entry sat unbuilt because the wrong construct was measured.** `repeat`
+costs one block call an iteration and inlining it buys 1.30x, which is not worth
+a change. `doUntil` pays for **two** — its condition is a block as well as its
+body — plus the `done:not` send the library version needed. Over 200,000
+iterations:
+
+```
+library doUntil   0.0706 s
+hand-written flag 0.0395 s
+inlined doUntil   0.0309 s
+```
+
+**2.29× the library version, and 1.28× the loop it replaces.** The second number
+is the point: writing that loop by hand needs a `done` flag outside it, and the
+flag costs two sends an iteration that jumps do not need. `doUntil` is now the
+*fastest* way to write it rather than a convenience paid for.
+
+**The wrinkle was the complaint, not the loop.** The shape is `whileTrue`'s with
+the body in front of the test and the sense inverted, and there is no
+`OP_EXIT_IF_TRUE`. Adding one meant a new opcode *and* a name index on it, since
+`OP_EXIT_IF_FALSE` carries none and words its error as `whileTrue`. Instead
+`OP_CHECK_BOOL` — which already carries a name and already refuses a
+non-boolean — goes in front, so the unnamed instruction can only ever see a
+boolean. No new opcode, no format change.
+
+A test asserts the inlined and sent forms produce the same first line and that
+neither says `whileTrue`.
+
+**It left the library.** `lib/control.sol` defined `doUntil` and no longer does:
+a definition there would be a trap rather than an override, bypassed exactly
+where it was most wanted.
+
+**`repeat` and `toByDo` stay library code**, and building this found out why they
+are a different problem. Nothing survives between iterations of `whileTrue` or
+`doUntil` — the condition is re-evaluated and the boolean consumed. A counted
+loop has an `i` and a limit that must live across passes, and there is nowhere
+for them: the value stack has no instruction that compares or increments a slot
+in place, and a hidden local works inside a block but not at the top level of a
+script, which has no frame. That would make the optimisation apply in some
+places and not others, which is worse than being slow. The roadmap entry records
+both options.
+
 ### An array can be sliced — `b156bcd`, 2026-08-21
 
 Roadmap 6.16, the other thing [log.sol](../examples/log.sol) wanted — twice.

@@ -55,6 +55,7 @@ static void block_literal(Compiler *c);
 static bool inline_conditional(Compiler *c, const SolToken *selector);
 static bool inline_logical(Compiler *c, const SolToken *selector);
 static bool inline_while(Compiler *c);
+static bool inline_do_until(Compiler *c);
 
 /* Is this token exactly this word? */
 static bool token_is(const SolToken *token, const char *word)
@@ -475,9 +476,10 @@ static void expression(Compiler *c)
 {
     SolParser *p = &c->parser;
 
-    /* A `whileTrue` has to be recognised before its receiver is compiled, since
-       the receiver is the condition block. Everything else starts here. */
-    if (!inline_while(c)) primary(c);
+    /* `whileTrue` and `doUntil` have to be recognised before their receiver is
+       compiled, since for both the receiver is a block whose code is spliced in
+       rather than made. Everything else starts here. */
+    if (!inline_while(c) && !inline_do_until(c)) primary(c);
 
     int     target_at = -1;      /* where the last zero-argument send started */
     int target_name = 0;
@@ -929,6 +931,73 @@ static bool inline_logical(Compiler *c, const SolToken *selector)
  *
  * Answers whether it handled the expression; nothing has been emitted if not.
  */
+/* `{ body }:doUntil({ condition })` -- the body first, then the test.
+ *
+ * Shaped like `inline_while` and different in two ways. The body comes first,
+ * so it runs before anything is tested, which is the whole point of the message
+ * and the one loop `whileTrue` cannot express without a flag. And the sense is
+ * inverted: this leaves when the condition is *true*.
+ *
+ * There is no OP_EXIT_IF_TRUE, and adding one would have meant a new opcode and
+ * a name index on it to complain with. OP_CHECK_BOOL already carries a name and
+ * already refuses a non-boolean, so it goes in front: the check errors as
+ * `doUntil` if the condition answered something else, and by the time
+ * OP_EXIT_IF_FALSE sees the value it can only be a boolean, so its `whileTrue`
+ * wording is unreachable. What that costs is one instruction and one jump an
+ * iteration, against two block calls and two frames saved.
+ *
+ *      top:  body / POP / condition / CHECK_BOOL
+ *            EXIT_IF_FALSE -> again        ; false: go round
+ *            JUMP          -> end          ; true: leave
+ *      again: LOOP -> top
+ *      end:  NIL
+ */
+static bool inline_do_until(Compiler *c)
+{
+    SolParser *p = &c->parser;
+
+    if (p->current.type != TOK_LBRACE) return false;
+
+    /* Read the whole thing on a copy of the lexer before committing to any of
+       it, as `inline_while` does. */
+    SolLexer probe = p->lexer;                 /* positioned just after the `{` */
+    if (!block_is_plain(probe)) return false;
+    if (!skip_block(&probe)) return false;
+    if (sol_lexer_next(&probe).type != TOK_COLON) return false;
+
+    SolToken selector = sol_lexer_next(&probe);
+    if (selector.type != TOK_IDENT || !token_is(&selector, "doUntil")) return false;
+
+    if (sol_lexer_next(&probe).type != TOK_LPAREN) return false;
+    if (sol_lexer_next(&probe).type != TOK_LBRACE) return false;
+    if (!block_is_plain(probe)) return false;
+    if (!skip_block(&probe)) return false;
+    if (sol_lexer_next(&probe).type != TOK_RPAREN) return false;
+
+    int top = c->scope->chunk->count;
+    inline_branch(c);                          /* the body */
+    emit(c, OP_POP);
+
+    sol_parser_consume(p, TOK_COLON, "expected ':' before 'doUntil'");
+    sol_parser_consume(p, TOK_IDENT, "expected 'doUntil'");
+    sol_parser_consume(p, TOK_LPAREN, "expected '(' after the message name");
+
+    inline_branch(c);                          /* the condition */
+    emit_indexed(c, OP_CHECK_BOOL, name_literal(c, "doUntil", 7));
+
+    int to_again = emit_jump(c, OP_EXIT_IF_FALSE);
+    int to_end   = emit_jump(c, OP_JUMP);
+
+    patch_jump(c, to_again);
+    emit_loop(c, top);
+
+    patch_jump(c, to_end);
+    emit(c, OP_NIL);
+
+    sol_parser_consume(p, TOK_RPAREN, "expected ')' after arguments");
+    return true;
+}
+
 static bool inline_while(Compiler *c)
 {
     SolParser *p = &c->parser;

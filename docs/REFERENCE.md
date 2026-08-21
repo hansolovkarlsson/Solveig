@@ -151,17 +151,19 @@ program asks for it by name:
 | --- | --- |
 | `#n:repeat(block)` | nil, having run the block `n` times |
 | `block:repeat(#n)` | the same, said the other way round |
-| `block:doUntil(condition)` | nil; the **body runs before the test**, always at least once |
 | `#a:toDo(#b, block)` | nil; the block is given each of `#a` to `#b`, **inclusive** |
 | `#a:toByDo(#b, #step, block)` | the same, by `#step`; negative counts down |
 | `#n:timesCollect(block)` | an array of `n` answers, the block given the pass number |
 
 **None of it is language.** These are methods bound on `integer` and `block` by
 an ordinary Solum file, because control flow is message sending and a loop is
-therefore something a library can add. `doUntil` is the one that earns its
-place: `whileTrue` tests before the body runs, so a loop that must run once
-needs a flag declared outside it, and the library writes that flag once so no
-program has to.
+therefore something a library can add.
+
+`doUntil` was here once and is not any more: it turned out to be worth building
+in, and [it is a message on block](#block) now that compiles to jumps. Defining
+it in the library again would be a trap rather than an override — the compiler
+splices the loop in when both blocks are written on the spot, so the definition
+would be bypassed exactly where it was most wanted.
 
 A step of `#0` would never finish, so `toByDo` says so rather than hanging.
 
@@ -674,8 +676,8 @@ x:greaterThan(#0):and({ x:lessThan(#10) }).
 
 ### What the compiler does with them
 
-Written literally, `ifTrue`, `ifFalse`, `ifElse`, `whileTrue`, `and`, and `or`
-compile to jumps: no block is allocated and no frame is entered. This is an optimisation
+Written literally, `ifTrue`, `ifFalse`, `ifElse`, `whileTrue`, `doUntil`, `and`,
+and `or` compile to jumps: no block is allocated and no frame is entered. This is an optimisation
 only — the meaning is exactly that of the message, and the message is still
 there, reachable through `perform` or with a block held in a variable.
 
@@ -705,6 +707,19 @@ and it reads the same either way:
 { #1 }:whileTrue({ #2 }).
 solvm: whileTrue expects the condition block to answer a boolean, got integer
 ```
+
+`doUntil` names itself too, its condition being a block like `and`'s:
+
+```
+{ #1 }:doUntil({ #5 }).
+solvm: 'doUntil' expects the block to answer a boolean, got integer
+```
+
+**`doUntil` is the loop `whileTrue` cannot write.** `whileTrue` tests before the
+body runs, so a loop that must run at least once needs a flag declared outside
+it. Inlined, `doUntil` needs no flag — which makes it **faster than the loop it
+replaces**, not a convenience paid for: 1.28× the hand-written flag version,
+because that flag costs two sends an iteration the jumps do not need.
 
 `and` and `or` say the same thing about their block, naming themselves, since
 what the block answered is what they answer:
@@ -1432,6 +1447,7 @@ is false. That is IEEE showing through rather than a decision made here.
 | `value(...)` | the block's answer; the count must match its parameters |
 | `boundTo(receiver)` | a new block over the same code, with `self` set |
 | `whileTrue(body)` | nil, having run `body` while the receiver answers true |
+| `doUntil(condition)` | nil, having run the receiver **until** the condition is true — the body first, so always at least once |
 | `timeToRun` | seconds the block took, as a float |
 | `timeToRun(#n)` | seconds `n` runs took, as a float |
 

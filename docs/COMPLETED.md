@@ -1310,3 +1310,61 @@ Arbitrary is not good enough for something a person reads twice, so the report
 now breaks ties on the key, and the comparison block says why. The example is
 the same every run, and it demonstrates a two-key sort into the bargain.
 
+
+---
+
+### 6.6 The loop constructs are library code, and pay for it — **half done**
+
+`doUntil` is built in and inlined. `repeat` and the stepped `to`/`do` are not,
+and the entry in [ROADMAP.md](ROADMAP.md#66-the-loop-constructs-are-library-code-and-pay-for-it)
+says what they would cost. This records the half that landed.
+
+The entry sat unbuilt for a long time because the gain looked modest — 1.30x for
+`repeat`, measured once `timeToRun(#n)` existed. **The mistake was measuring the
+wrong one.** `repeat` pays for one block call an iteration; `doUntil` pays for
+two, its condition being a block as well as its body, plus the `done:not` send
+the library version needs. Measured properly, over 200,000 iterations:
+
+```
+library doUntil   0.0706 s
+hand-written flag 0.0395 s
+inlined doUntil   0.0309 s
+```
+
+**2.29x the library version, and 1.28x the loop it replaces.** That second
+number is the one worth having: writing the loop out yourself needs a `done`
+flag outside it, and that flag costs two sends an iteration the jumps do not
+need. So `doUntil` is not a convenience you pay for — it is now the fastest way
+to write that loop.
+
+Built as `pending`, in two pieces. A primitive on `block`, so the message exists
+whether or not it is written literally, and an inliner beside `inline_while`.
+
+**The wrinkle was the complaint, not the loop.** The shape is `whileTrue`'s with
+the body moved in front of the test and the sense inverted, and there is no
+`OP_EXIT_IF_TRUE`. Adding one would have meant a new opcode — and a name index
+on it, since `OP_EXIT_IF_FALSE` carries none and words its error as `whileTrue`,
+which is the wrong message for a program that wrote `doUntil`.
+
+`OP_CHECK_BOOL` already carries a name and already refuses a non-boolean, so it
+goes in front:
+
+```
+top:  body / POP / condition / CHECK_BOOL 'doUntil'
+      EXIT_IF_FALSE -> again        ; false: go round
+      JUMP          -> end          ; true: leave
+again: LOOP -> top
+end:  NIL
+```
+
+By the time `OP_EXIT_IF_FALSE` sees the value it can only be a boolean, so its
+wording is unreachable. No new opcode, no `.sob` version change, and the
+invariant holds: a test asserts the inlined and sent forms produce the same
+first line, and that neither says `whileTrue`.
+
+**It came out of the library.** `lib/control.sol` defined `doUntil` and does
+not any more — a definition there would be a trap rather than an override, since
+the compiler splices the loop in when both blocks are written on the spot and
+would bypass it exactly where it was most wanted. The file says so where the
+definition used to be.
+

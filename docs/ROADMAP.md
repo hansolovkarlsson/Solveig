@@ -272,53 +272,42 @@ trailing-block syntax, and Go-style concurrency among them.
 
 ### 6.6 The loop constructs are library code, and pay for it
 
-`repeat`, `doUntil` and a stepped `for` can all be written in Solum today, and
-[ideas.md](ideas.md#already-there-or-already-writable) has them working. Written
-that way they cost a block and a frame per iteration, where `whileTrue` written
-literally compiles to jumps (4.1).
+**`doUntil` is done and the other two are a different problem**, which is what
+building the first one found out.
 
-So building them in buys inlining rather than expressiveness:
+`repeat`, `doUntil` and a stepped `to`/`do` can all be written in Solum, and
+[lib/control.sol](../lib/control.sol) has them. Written that way they cost a
+block call and a frame per iteration, where `whileTrue` written literally
+compiles to jumps (4.1). Building them in buys inlining rather than
+expressiveness.
 
-- `#3:repeat({ ... })` and `{ ... }:repeat(#3)`.
-- `{ body }:doUntil({ condition })` — the body runs before the test, which is
-  the one shape `whileTrue` cannot express without a flag.
-- A stepped `to`/`do`.
+**`doUntil` needed no new machinery.** Both its operands are literal blocks, so
+the loop is `whileTrue`'s shape with the body moved in front of the test and the
+sense inverted, and nothing has to be remembered between passes. The one wrinkle
+was the complaint: `OP_EXIT_IF_FALSE` carries no name and words its error as
+`whileTrue`. `OP_CHECK_BOOL` does carry one, so it goes in front and the check
+never reaches the unnamed instruction. No new opcode, no format change. See
+[COMPLETED](COMPLETED.md#66-the-loop-constructs-are-library-code-and-pay-for-it).
 
-Worth doing when a program is actually spending time in one of them. `doUntil`
-has the best case, being the only one that is awkward to write by hand.
+**`repeat` and `toByDo` need somewhere to keep a counter**, and that is the
+whole difficulty. `whileTrue` and `doUntil` inline because nothing survives
+between iterations: the condition is re-evaluated and the boolean is consumed.
+A counted loop has an `i` and a limit that must live across passes, and there is
+nowhere for them:
 
-**They are now in [lib/control.sol](../lib/control.sol)**, which changes what
-this entry is waiting for. Before, nobody wrote `repeat` because writing it out
-in every program was not worth it; now it is one `@include` away, so if the
-30 per cent ever matters it will be because a program leaned on the library and
-noticed. That is the demand this entry has always lacked.
+- **The value stack** could hold them, but no instruction compares or increments
+  a stack slot in place. Adding two would be a change to the instruction set,
+  and the `.sob` format version with it.
+- **A hidden local** works inside a block or a method, where `declare_local` can
+  reserve a slot nobody can name. It does not work at the top level of a script,
+  which has no frame — the same reason a temporary is refused there. That would
+  make the optimisation apply in some places and not others, which is a worse
+  property than being slow.
 
-**Measured, now that [6.5](COMPLETED.md#65-measuring-from-inside-the-language)
-makes it possible.** 200,000 iterations of a one-send body, the Solum `repeat`
-from [ideas.md](ideas.md) against the same loop written as a literal
-`whileTrue`, after a warm-up pass:
-
-```
-inlined  0.0397 s
-repeat   0.0518 s
-ratio    1.30x        -- about 60 nanoseconds an iteration
-```
-
-Stable across runs, and it barely moves with a bigger body: a three-send body
-gives 1.23x. So the block call is a roughly fixed 60 ns, and what building these
-in would buy is **20 to 30 per cent, on loops, and nothing else.**
-
-That is a real gain and a modest one, and it does not meet this entry's own
-trigger. Two things argue for continuing to wait. Nothing written so far spends
-meaningful time in a `repeat`. And the fast path already exists and is already
-the idiomatic one — `whileTrue` written literally compiles to jumps, so anyone
-who wants that 30 per cent can have it today by writing the loop the way the
-guide teaches. `repeat` and `doUntil` are not even built in; they are snippets.
-Building them in to make them fast would be optimising something nobody has
-written yet.
-
-Revisit when a real program has a hot `repeat`. The measurement above is
-repeatable in a few lines, so the case can be re-made rather than re-argued.
+So the counted loops stay library code until one of those is worth paying for,
+and the measurement says it is not yet: `repeat` costs 1.30x a hand-written
+loop, against `doUntil`'s 2.29x before this. The cheap, large win has been
+taken and the dear, small one has not.
 
 ### 6.10 Waiting for a single key
 
@@ -360,14 +349,15 @@ and every concept the guide names now has a runnable example; and the include
 that started it has since been given a syntax that admits what it is (6.13) —
 so in order of what would be missed next:
 
-1. **Inlining the loop constructs** (6.6), which has something to measure it
-   with now: `timeToRun(#n)` says 1.30x, so it is real and modest — and
-   `lib/control.sol` now gives a program a reason to lean on the loops in the
-   first place.
+Nothing on this list came from a program wanting it. Both entries that did —
+[6.15](COMPLETED.md#615-there-is-no-dictionary-and-no-way-to-build-one) and
+[6.16](COMPLETED.md#616-an-array-cannot-be-sliced) — are built, and so is the
+half of [6.6](#66-the-loop-constructs-are-library-code-and-pay-for-it) that
+could be had without changing the instruction set.
 
-Nothing else on this list came from a program wanting it. Both entries that did
-— [6.15](COMPLETED.md#615-there-is-no-dictionary-and-no-way-to-build-one) and
-[6.16](COMPLETED.md#616-an-array-cannot-be-sliced) — are built.
+What is left is **6.6's counted loops**, which want a new opcode or a hidden
+local; **6.10** and **6.12**, both waiting for a program that needs them; and
+the decision below.
 
 Not ordered: **a single keypress** (6.10) and **a byte type** (6.12) both wait
 for a program that needs them. That was true of the whole list until

@@ -425,8 +425,18 @@ solvm: integer does not understand 'ifTrue'
 This is enough to be Turing-complete, and it means you can add control structures
 of your own the same way — nothing in the compiler is privileged.
 
-Written literally, all six of those compile to **jumps**: no block allocated, no
-frame entered. That is an optimisation and nothing more — the messages are still
+`doUntil` is the seventh, and the one you would otherwise have to write out
+yourself: it runs the body *before* the test, so it always runs at least once —
+which `whileTrue` cannot do without a flag declared outside the loop.
+
+```
+lines := #0.
+{ lines := lines:add(#1) }:doUntil({ lines:greaterOrEqual(#3) }).
+lines:print.                     ; #3
+```
+
+Written literally, all seven of those compile to **jumps**: no block allocated,
+no frame entered. That is an optimisation and nothing more — the messages are still
 there, still reachable through `perform` or with a block held in a variable, and
 the compiler falls back to a real send whenever inlining would change what the
 program means.
@@ -758,19 +768,23 @@ lives:
 #4:timesCollect({ n | n:mul(n) }):print.     ; [#1, #4, #9, #16]
 ```
 
-`lib/control.sol` gives you `repeat`, `doUntil`, `toDo`, `toByDo` and
-`timesCollect`. **None of it is language.** They are methods bound on `integer`
+`lib/control.sol` gives you `repeat`, `toDo`, `toByDo` and `timesCollect`. **None of it is language.** They are methods bound on `integer`
 and `block` by an ordinary Solum file — which is possible at all because control
 flow here is message sending, so a loop is something a library can add. That is
 why §8 could say the language has no loop syntax and mean it.
 
-`doUntil` is the one that earns its keep, being the shape `whileTrue` cannot
-express: the body runs *before* the test, so it always runs at least once.
+`doUntil` used to be in that list and is now part of the language, because it
+was worth building in — it is the shape `whileTrue` cannot express, the body
+running *before* the test so it always runs at least once:
 
 ```
 lines := #0.
 { lines := lines:add(#1) }:doUntil({ lines:greaterOrEqual(#3) }).
 ```
+
+Written like that it compiles to jumps, which makes it **faster than writing the
+loop out by hand**: doing it yourself needs a `done` flag outside the loop, and
+that flag costs two sends an iteration the jumps do not need.
 
 Beside-first means a local file of the same name **shadows** the library one,
 which is usually what you want. It also means a file that includes a library

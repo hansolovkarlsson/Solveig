@@ -788,6 +788,154 @@ static void test_check_bool_on_an_empty_stack(void)
     printf("  CHECK_BOOL on an empty stack is refused at load and at run\n");
 }
 
+/* ---- doUntil ------------------------------------------------------------ *
+ *
+ * The body first, then the test, so it always runs at least once -- the one
+ * loop `whileTrue` cannot express without a flag declared outside it. Inlined
+ * it is 1.28x the hand-written flag loop it replaces, because the flag costs
+ * two sends an iteration that the jumps do not need.
+ */
+static void test_do_until_runs_the_body_first(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    /* True from the start, and the body has still run. */
+    assert(run(&vm, &chunk,
+        "once := #0. { once := once:add(#1) }:doUntil({ true })."
+        "counted := #0. { counted := counted:add(#1) }:doUntil({ counted:greaterOrEqual(#4) })."
+        /* it answers nil, as whileTrue does */
+        "answer := { #1 }:doUntil({ true }).") == SOL_OK);
+
+    assert(SOL_AS_INT(global(&vm, "once")) == 1);
+    assert(SOL_AS_INT(global(&vm, "counted")) == 4);
+    assert(SOL_IS_NIL(global(&vm, "answer")));
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+    printf("  doUntil runs the body before the test, always at least once\n");
+}
+
+static void test_do_until_actually_inlines(void)
+{
+    SolChunk chunk;
+    sol_chunk_init(&chunk);
+    assert(sol_compile("i := #0. { i := i:add(#1) }:doUntil({ i:greaterOrEqual(#3) }).",
+                       &chunk));
+
+    bool saw_loop = false, saw_check = false, saw_block = false, saw_send = false;
+    for (int offset = 0; offset < chunk.count; ) {
+        uint8_t op = chunk.code[offset];
+        if (op == OP_LOOP)       saw_loop = true;
+        if (op == OP_CHECK_BOOL) saw_check = true;
+        if (op == OP_BLOCK)      saw_block = true;
+        offset += sol_op_length(op);
+    }
+    (void)saw_send;
+    assert(saw_loop);
+    assert(saw_check);           /* the check that lets it name itself */
+    assert(!saw_block);          /* neither the body nor the condition is one */
+
+    sol_chunk_free(&chunk);
+    printf("  doUntil jumps back, allocating neither block\n");
+}
+
+/* The inlined form and the sent one must complain identically, which is what
+   OP_CHECK_BOOL's name index is carrying here: without it the check would be
+   OP_EXIT_IF_FALSE's, which says `whileTrue`. */
+static void test_do_until_condition_error_matches(void)
+{
+    static const char *both[] = {
+        "i := #0. { i := i:add(#1) }:doUntil({ #5 }).",          /* inlined */
+        "i := #0. c := { #5 }. { i := i:add(#1) }:doUntil(c).",  /* sent */
+    };
+
+    char captured[2][256];
+    for (size_t i = 0; i < 2; i++) {
+        char temp[] = "/tmp/solum-dountil-XXXXXX";
+        int fd = mkstemp(temp);
+        assert(fd >= 0);
+        fflush(stderr);
+        int saved = dup(STDERR_FILENO);
+        assert(dup2(fd, STDERR_FILENO) >= 0);
+
+        SolVM vm; sol_vm_init(&vm);
+        SolChunk chunk;
+        assert(run(&vm, &chunk, both[i]) == SOL_RUNTIME_ERROR);
+        sol_chunk_free(&chunk); sol_vm_free(&vm);
+
+        fflush(stderr);
+        assert(dup2(saved, STDERR_FILENO) >= 0);
+        close(saved);
+        assert(lseek(fd, 0, SEEK_SET) == 0);
+        ssize_t got = read(fd, captured[i], sizeof captured[i] - 1);
+        captured[i][got > 0 ? (size_t)got : 0] = '\0';
+        close(fd);
+        remove(temp);
+    }
+
+    assert(strstr(captured[0], "'doUntil' expects the block to answer a boolean") != NULL);
+    assert(strstr(captured[0], "whileTrue") == NULL);    /* not the neighbour's */
+    /* The first line of each is the same complaint. */
+    char *first = strchr(captured[0], '\n');
+    char *second = strchr(captured[1], '\n');
+    assert(first != NULL && second != NULL);
+    assert((size_t)(first - captured[0]) == (size_t)(second - captured[1]));
+    assert(memcmp(captured[0], captured[1], (size_t)(first - captured[0])) == 0);
+
+    printf("  inlined and sent doUntil word the complaint identically\n");
+}
+
+static void test_do_until_falls_back(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    /* A block with a parameter is an arity error when called with none, and
+       inlining it would have quietly made it work. */
+    assert(run(&vm, &chunk, "{ a | a }:doUntil({ true }).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+
+    /* A condition held in a name is an ordinary argument, so this is a send --
+       and it still means what it says. */
+    sol_vm_init(&vm);
+    assert(run(&vm, &chunk,
+        "i := #0. c := { i:greaterOrEqual(#3) }."
+        "{ i := i:add(#1) }:doUntil(c). n := i.") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "n")) == 3);
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+
+    /* And the message is still there to be found. */
+    sol_vm_init(&vm);
+    assert(run(&vm, &chunk,
+        "here := { #1 }:respondsTo('doUntil)."
+        "i := #0. { i := i:add(#1) }:perform('doUntil, { i:greaterOrEqual(#2) })."
+        "n := i.") == SOL_OK);
+    assert(SOL_AS_BOOL(global(&vm, "here")));
+    assert(SOL_AS_INT(global(&vm, "n")) == 2);
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+
+    printf("  doUntil falls back to a send, and is still a message\n");
+}
+
+/* A loop leaves exactly one value where it started, or a long one would grow
+   the stack until it overflowed. */
+static void test_do_until_stack_stays_balanced(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "i := #0."
+        "{ i := i:add(#1) }:doUntil({ i:greaterOrEqual(#2000) })."
+        "deep := #0."
+        "{ deep := deep:add(#1) }:doUntil({ deep:greaterOrEqual(#2000) })."
+        "n := i:add(deep).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "n")) == 4000);
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+    printf("  a long doUntil does not grow the stack\n");
+}
+
 int main(void)
 {
     printf("inlined control flow\n");
@@ -804,6 +952,11 @@ int main(void)
     test_loop_falls_back();
     test_loop_condition_error_matches();
     test_loop_stack_stays_balanced();
+    test_do_until_runs_the_body_first();
+    test_do_until_actually_inlines();
+    test_do_until_condition_error_matches();
+    test_do_until_falls_back();
+    test_do_until_stack_stays_balanced();
     test_verifier_rejects_bad_loops();
     test_verifier_allows_a_spin();
     test_logical_matches_the_send();

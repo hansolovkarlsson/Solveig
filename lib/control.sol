@@ -30,21 +30,17 @@ integer:repeat := { body | | i |
 block:repeat := { n | n:repeat(self) }.
 
 ; ---------------------------------------------------------------------------
-; doUntil -- the body first, then the test
+; doUntil is not here any more
 ;
-;     i := #0.
-;     { i := i:add(#1) }:doUntil({ i:greaterOrEqual(#3) }).
+; It used to be, and it was the most useful thing in this file: the one loop
+; `whileTrue` cannot express without a flag declared outside it. That is exactly
+; why it was built into the language instead -- written literally it now
+; compiles to jumps, which makes it 2.29x the version that lived here and 1.28x
+; the hand-written flag loop it replaces. See ROADMAP 6.6.
 ;
-; The one shape `whileTrue` cannot express without a flag, which is why it is
-; the most useful thing in this file. `whileTrue` tests before the body runs, so
-; a loop that must run once has to be written with a `done` outside it -- which
-; is exactly what this does, once, here, so that no program has to.
-
-block:doUntil := { condition | | done |
-    done := false.
-    { done:not }:whileTrue({ self:value. done := condition:value }).
-    nil
-}.
+; Defining it here again would be a trap rather than an override: the compiler
+; splices the loop in when both blocks are written on the spot, so a definition
+; in this file would be bypassed exactly where it was most likely to be wanted.
 
 ; ---------------------------------------------------------------------------
 ; toDo and toByDo -- a counted loop over a range
