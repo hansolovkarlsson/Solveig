@@ -7,6 +7,56 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### Bits, and one more, one less — `pending`, 2026-08-21
+
+Both asked for, and both with the evidence already in the tree.
+
+**`inc` and `dec`** are `add(#1)` and `sub(#1)` under shorter names — a second
+spelling, which this language has turned down four times before. What earns them
+is the count: **76 of the 256 arithmetic sends** in the examples and libraries
+are one or the other. Three in every ten, and the most common arithmetic there
+is, which is what having no binary operators costs.
+
+```
+count := count:dec.
+```
+
+They answer a new integer rather than changing the receiver, an integer being a
+value, so the assignment is the idiom. Integers only: counting by ones in a type
+where a one is not exact is a mistake to make deliberately rather than
+conveniently. The names are abbreviations, and the objection that this language
+does not use them turned out to be wrong — `add`, `sub`, `mul`, `div` and `abs`
+are all abbreviated, and `inc` and `dec` sit with them.
+
+**`bitAnd`, `bitOr`, `bitXor`, `bitNot`, `shiftLeft`, `shiftRight`**, and the
+case for these was written before they existed. `lib/text.sol` encoded UTF-8
+with `div(#64)` for a shift and `mod(#64)` for a mask, carrying a comment saying
+it did so for want of the real thing — a workaround in shipped library code,
+which is the same signal that got `removeLast` and `indexOf` built. It reads
+like the RFC now:
+
+```
+integer:utf8Tail := { at | #128:bitOr(self:shiftRight(at):bitAnd(#63)):asCharacter }.
+```
+
+Checked against Python's UTF-8 for every boundary code point, `#0` through
+`#1114111`.
+
+**Two decisions.** A shift right **keeps the sign**, because there is no
+unsigned integer here and a logical shift would turn every negative into a huge
+positive — and keeping it makes a shift agree exactly with `div` by a power of
+two, which is floored. `#-7:shiftRight(#2)` and `#-7:div(#4)` are both `#-2`,
+and that agreement is asserted rather than described. A shift left **refuses to
+lose the number**, the way `mul` refuses to overflow.
+
+**The index test earned its keep.** It went in one release ago; adding eight
+messages made it fail with `'inc' is a built-in message and the reference's
+index does not list it`, which is exactly the drift it was built to catch. The
+index is regenerated from the registrations rather than patched by hand.
+
+One test of mine was wrong and the code was right: `#-2:shiftLeft(#62)` is
+exactly `INT64_MIN` and fits, where I had expected it to overflow.
+
 Nothing yet.
 
 ## 0.8.0 — 2026-08-21

@@ -101,3 +101,47 @@ infinity:print.                  ; infinity
 #255:asBase(#16):print.          ; "ff"
 #255:asBase(#2):print.           ; "11111111"
 "ff":asInteger(#16):print.       ; #255
+
+; ---------------------------------------------------------------------------
+; One more, one less
+;
+; `add(#1)` and `sub(#1)` are three in every ten arithmetic sends in this
+; repository, which is what a language with no binary operators does to the
+; commonest arithmetic there is. `inc` and `dec` are those two, shorter.
+
+#5:inc:print.                    ; #6
+#5:dec:print.                    ; #4
+
+; They answer a new integer rather than changing the receiver, an integer being
+; a value -- so the idiom is the assignment, and `count:inc` alone does nothing.
+count := #10.
+count := count:dec.
+count:print.                     ; #9
+
+; ---------------------------------------------------------------------------
+; Bits
+;
+; An integer is a signed 64-bit two's-complement number, and these work on it as
+; one. What they are for is the places a number is really a row of flags: a file
+; mode, a UTF-8 byte, a set packed into a word.
+
+#12:bitAnd(#10):print.           ; #8   -- 1100 and 1010
+#12:bitOr(#10):print.            ; #14  -- 1100 or 1010
+#12:bitXor(#10):print.           ; #6
+#0:bitNot:print.                 ; #-1  -- every bit set
+
+#1:shiftLeft(#10):print.         ; #1024
+#1024:shiftRight(#3):print.      ; #128
+
+; A shift right keeps the sign, because there is no unsigned integer here and a
+; logical shift would turn every negative number into a huge positive one. That
+; makes it agree exactly with `div` by a power of two, which is floored:
+#0:sub(#7):shiftRight(#2):print. ; #-2
+#0:sub(#7):div(#4):print.        ; #-2, the same
+
+; A shift left refuses to lose the number, the way `mul` refuses to overflow.
+;   #1:shiftLeft(#63)   ->  integer overflow in 'shiftLeft'
+;   #1:shiftLeft(#64)   ->  'shiftLeft' wants #0 to #63, got #64
+
+; Which is how a mode gets its executable bit without arithmetic:
+;   system:setMode(path, system:modeOf(path):bitOr("111":asInteger(#8))).

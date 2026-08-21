@@ -29,22 +29,32 @@
 ; A code point as the bytes UTF-8 spells it with.
 ;
 ; `asByte` and `asCharacter` give a byte a number; everything above 127 is more
-; than one byte and is arithmetic on top of them. Solum has no bitwise
-; operators, so the shifts and masks are `div` and `mod`, and the tag bits go on
-; with `add` -- which is exact, the bits being disjoint by construction.
+; than one byte, and putting those bytes together is what the shifts and masks
+; below are for.
+;
+; This was written before the language had them, with `div(#64)` for a shift and
+; `mod(#64)` for a mask and `add` for the tag bits -- exact, since the bits are
+; disjoint by construction, and nothing like what it means. Reading it against
+; the table in RFC 3629 meant translating every line. Carrying that here is what
+; made the case for `shiftRight`, `bitAnd` and `bitOr`.
+
+; The continuation bytes are all the same shape: the tag 10xxxxxx over six bits
+; of the code point, taken `at` bits from the bottom.
+integer:utf8Tail := { at | #128:bitOr(self:shiftRight(at):bitAnd(#63)):asCharacter }.
+
 integer:asUtf8 := {
     self:lessThan(#0):or({ self:greaterThan(#1114111) }):ifTrue({
         error:raise("#{} is not a code point":fill([self])) }).
     self:lessThan(#128):ifElse(
         { self:asCharacter },
         { self:lessThan(#2048):ifElse(
-            { #192:add(self:div(#64)):asCharacter
-                  :concat(#128:add(self:mod(#64)):asCharacter) },
+            { #192:bitOr(self:shiftRight(#6)):asCharacter
+                  :concat(self:utf8Tail(#0)) },
             { self:lessThan(#65536):ifElse(
-                { #224:add(self:div(#4096)):asCharacter
-                      :concat(#128:add(self:div(#64):mod(#64)):asCharacter)
-                      :concat(#128:add(self:mod(#64)):asCharacter) },
-                { #240:add(self:div(#262144)):asCharacter
-                      :concat(#128:add(self:div(#4096):mod(#64)):asCharacter)
-                      :concat(#128:add(self:div(#64):mod(#64)):asCharacter)
-                      :concat(#128:add(self:mod(#64)):asCharacter) }) }) }) }.
+                { #224:bitOr(self:shiftRight(#12)):asCharacter
+                      :concat(self:utf8Tail(#6))
+                      :concat(self:utf8Tail(#0)) },
+                { #240:bitOr(self:shiftRight(#18)):asCharacter
+                      :concat(self:utf8Tail(#12))
+                      :concat(self:utf8Tail(#6))
+                      :concat(self:utf8Tail(#0)) }) }) }) }.

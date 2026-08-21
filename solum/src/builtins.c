@@ -571,6 +571,176 @@ static SolValue prim_string_as_string(SolVM *vm, SolValue self, SolValue *args, 
 /* Widening an integer can lose precision above 2^53, silently, because that is
    what binary64 is. Erroring would be surprising and unlike every other
    language; the loss is documented instead. */
+/* `#5:inc` and `#5:dec` -- one more, one less.
+ *
+ * `add(#1)` with a shorter name, which is a thing this language usually refuses
+ * to add. What earns it is how often it is written: **76 of the 256 arithmetic
+ * sends** in the examples and libraries are `add(#1)` or `sub(#1)`, which is
+ * three in every ten. That is a consequence of having no binary operators --
+ * `i := i + 1` is short in a language with them and `i := i:add(#1)` is not --
+ * so the commonest arithmetic there is pays the most for the design.
+ *
+ * They answer a new integer rather than changing the receiver, because an
+ * integer is a value: `a := a:inc` is the whole idiom and `a:inc` on its own
+ * does nothing. The saving is the `(#1)`, and that is all it is.
+ *
+ * Integers only. A float counter is a different thing -- counting by ones in a
+ * type where a one is not exact is a mistake to make deliberately rather than
+ * conveniently.
+ */
+static SolValue prim_integer_inc(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "inc", argc, 0)) return SOL_NIL_VAL;
+
+    int64_t result;
+    if (__builtin_add_overflow(SOL_AS_INT(self), (int64_t)1, &result)) {
+        sol_vm_runtime_error(vm, "integer overflow in 'inc'");
+        return SOL_NIL_VAL;
+    }
+    return SOL_INT_VAL(result);
+}
+
+static SolValue prim_integer_dec(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "dec", argc, 0)) return SOL_NIL_VAL;
+
+    int64_t result;
+    if (__builtin_sub_overflow(SOL_AS_INT(self), (int64_t)1, &result)) {
+        sol_vm_runtime_error(vm, "integer overflow in 'dec'");
+        return SOL_NIL_VAL;
+    }
+    return SOL_INT_VAL(result);
+}
+
+/* ---- bits ---------------------------------------------------------------- *
+ *
+ * An integer is a signed 64-bit two's-complement number and there is no
+ * unsigned type, which decides most of what follows.
+ *
+ * The case for these was written before they existed: `lib/text.sol` encodes
+ * UTF-8 with `div(#64)` and `mod(#64)` and puts the tag bits on with `add`,
+ * carrying a comment saying it does so for the want of shifts and masks. A
+ * workaround in shipped library code is the same signal that got `removeLast`
+ * and `indexOf` built. File modes are the second use: `modeOf(path)` answers an
+ * integer, and "make this executable" is an or with #73.
+ */
+static bool bit_argument(SolVM *vm, const char *name, SolValue self, SolValue other)
+{
+    if (!SOL_IS_INT(self)) return false;       /* the receiver check has run */
+    if (!SOL_IS_INT(other)) {
+        sol_vm_runtime_error(vm, "'%s' expects an integer, got %s", name,
+                             sol_type_name(other));
+        return false;
+    }
+    return true;
+}
+
+static SolValue prim_integer_bit_and(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "bitAnd", argc, 1)) return SOL_NIL_VAL;
+    if (!bit_argument(vm, "bitAnd", self, args[0])) return SOL_NIL_VAL;
+    return SOL_INT_VAL((int64_t)((uint64_t)SOL_AS_INT(self) &
+                                 (uint64_t)SOL_AS_INT(args[0])));
+}
+
+static SolValue prim_integer_bit_or(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "bitOr", argc, 1)) return SOL_NIL_VAL;
+    if (!bit_argument(vm, "bitOr", self, args[0])) return SOL_NIL_VAL;
+    return SOL_INT_VAL((int64_t)((uint64_t)SOL_AS_INT(self) |
+                                 (uint64_t)SOL_AS_INT(args[0])));
+}
+
+static SolValue prim_integer_bit_xor(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "bitXor", argc, 1)) return SOL_NIL_VAL;
+    if (!bit_argument(vm, "bitXor", self, args[0])) return SOL_NIL_VAL;
+    return SOL_INT_VAL((int64_t)((uint64_t)SOL_AS_INT(self) ^
+                                 (uint64_t)SOL_AS_INT(args[0])));
+}
+
+/* Every bit flipped, so `#0:bitNot` is `#-1` and `n:bitNot` is `#0:sub(n):dec`.
+   Done in unsigned, where the result is defined rather than left to the
+   compiler. */
+static SolValue prim_integer_bit_not(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "bitNot", argc, 0)) return SOL_NIL_VAL;
+    return SOL_INT_VAL((int64_t)~(uint64_t)SOL_AS_INT(self));
+}
+
+/* How far a shift may go. 64 bits, so #0 to #63 -- and a count outside that is
+   refused rather than answering whatever the hardware does with it, which is
+   the same choice `div` makes about zero. */
+static bool shift_count(SolVM *vm, const char *name, SolValue value, int64_t *out)
+{
+    if (!SOL_IS_INT(value)) {
+        sol_vm_runtime_error(vm, "'%s' expects an integer, got %s", name,
+                             sol_type_name(value));
+        return false;
+    }
+    int64_t n = SOL_AS_INT(value);
+    if (n < 0 || n > 63) {
+        sol_vm_runtime_error(vm, "'%s' wants #0 to #63, got #%lld", name,
+                             (long long)n);
+        return false;
+    }
+    *out = n;
+    return true;
+}
+
+/* Left, and it **traps on overflow** like `mul` rather than dropping the bits
+   that go off the end. A shift that loses the number is a mistake in the same
+   way a product that does not fit is one. */
+static SolValue prim_integer_shift_left(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "shiftLeft", argc, 1)) return SOL_NIL_VAL;
+    int64_t n;
+    if (!shift_count(vm, "shiftLeft", args[0], &n)) return SOL_NIL_VAL;
+
+    int64_t x = SOL_AS_INT(self);
+    if (n > 0 && x != 0) {
+        /* Everything from -2^(63-n) up to 2^(63-n) survives the shift, and
+           nothing else does. The bound fits because 63 - n is at most 62. */
+        int64_t bound = (int64_t)1 << (63 - n);
+        if (x >= bound || x < -bound) {
+            sol_vm_runtime_error(vm, "integer overflow in 'shiftLeft'");
+            return SOL_NIL_VAL;
+        }
+    }
+    return SOL_INT_VAL((int64_t)((uint64_t)x << n));
+}
+
+/* Right, and **arithmetic**: the sign is kept, so `#-8:shiftRight(#1)` is `#-4`.
+ *
+ * That is not a free choice. There is no unsigned integer here, so a logical
+ * shift would turn every negative number into a huge positive one, which is not
+ * an answer anybody wants from a language whose integers are signed. Keeping
+ * the sign also makes a shift agree exactly with `div` by a power of two, which
+ * is **floored** -- and the agreement is worth having, since the two are the
+ * same operation written twice.
+ *
+ * Written as that division rather than with C's `>>`, whose behaviour on a
+ * negative left operand is left to the implementation.
+ */
+static SolValue prim_integer_shift_right(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "shiftRight", argc, 1)) return SOL_NIL_VAL;
+    int64_t n;
+    if (!shift_count(vm, "shiftRight", args[0], &n)) return SOL_NIL_VAL;
+
+    int64_t x = SOL_AS_INT(self);
+    if (n == 0) return SOL_INT_VAL(x);
+    if (n >= 63) return SOL_INT_VAL(x < 0 ? -1 : 0);   /* the sign, spread out */
+
+    int64_t divisor = (int64_t)1 << n;
+    int64_t quotient = x / divisor;
+    if (x < 0 && quotient * divisor != x) quotient -= 1;   /* floor, not trunc */
+    return SOL_INT_VAL(quotient);
+}
+
 static SolValue prim_integer_as_float(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     (void)args;
@@ -4096,6 +4266,14 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->integer_class, SOL_INT, "asFloat", prim_integer_as_float);
     instance(vm, vm->integer_class, SOL_INT, "asBase", prim_integer_as_base);
     instance(vm, vm->integer_class, SOL_INT, "asCharacter", prim_integer_as_character);
+    instance(vm, vm->integer_class, SOL_INT, "inc", prim_integer_inc);
+    instance(vm, vm->integer_class, SOL_INT, "dec", prim_integer_dec);
+    instance(vm, vm->integer_class, SOL_INT, "bitAnd", prim_integer_bit_and);
+    instance(vm, vm->integer_class, SOL_INT, "bitOr", prim_integer_bit_or);
+    instance(vm, vm->integer_class, SOL_INT, "bitXor", prim_integer_bit_xor);
+    instance(vm, vm->integer_class, SOL_INT, "bitNot", prim_integer_bit_not);
+    instance(vm, vm->integer_class, SOL_INT, "shiftLeft", prim_integer_shift_left);
+    instance(vm, vm->integer_class, SOL_INT, "shiftRight", prim_integer_shift_right);
     instance(vm, vm->integer_class, SOL_INT, "repeat", prim_integer_repeat);
     instance(vm, vm->integer_class, SOL_INT, "toDo", prim_integer_to_do);
     instance(vm, vm->integer_class, SOL_INT, "toByDo", prim_integer_to_by_do);

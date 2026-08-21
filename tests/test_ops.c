@@ -285,6 +285,141 @@ static void test_fill_honours_an_overridden_as_string(void)
     sol_vm_free(&vm);
 }
 
+/* One more, one less. `add(#1)` and `sub(#1)` under shorter names, and they trap
+   at the ends the way those two do. */
+static void test_inc_and_dec(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "a := #5:inc."
+        "b := #5:dec."
+        "c := #0:dec."
+        "d := #0:sub(#1):inc."
+        /* The idiom: a value, so the assignment is the whole of it. */
+        "count := #10. count := count:dec. count := count:dec.") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "a")) == 6);
+    assert(SOL_AS_INT(global(&vm, "b")) == 4);
+    assert(SOL_AS_INT(global(&vm, "c")) == -1);
+    assert(SOL_AS_INT(global(&vm, "d")) == 0);
+    assert(SOL_AS_INT(global(&vm, "count")) == 8);
+    sol_chunk_free(&chunk);
+
+    /* Both ends trap rather than wrapping, like add and sub. */
+    assert(run(&vm, &chunk, "#9223372036854775807:inc.") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk,
+        "#0:sub(#9223372036854775807):dec:dec.") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+
+    /* Integers only, and no argument. */
+    assert(run(&vm, &chunk, "1.5:inc.") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "#1:inc(#2).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+    printf("  inc and dec, trapping at the ends\n");
+}
+
+/* The bitwise messages, on a signed 64-bit two's-complement integer. */
+static void test_bit_operations(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "a := #12:bitAnd(#10)."          /* 1100 & 1010 */
+        "b := #12:bitOr(#10)."
+        "c := #12:bitXor(#10)."
+        "d := #0:bitNot."
+        "e := #5:bitNot."
+        /* Negatives work, being two's complement. */
+        "f := #0:sub(#1):bitAnd(#255)."
+        "g := #0:bitOr(#0).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "a")) == 8);
+    assert(SOL_AS_INT(global(&vm, "b")) == 14);
+    assert(SOL_AS_INT(global(&vm, "c")) == 6);
+    assert(SOL_AS_INT(global(&vm, "d")) == -1);
+    assert(SOL_AS_INT(global(&vm, "e")) == -6);
+    assert(SOL_AS_INT(global(&vm, "f")) == 255);
+    assert(SOL_AS_INT(global(&vm, "g")) == 0);
+    sol_chunk_free(&chunk);
+
+    assert(run(&vm, &chunk, "#1:bitAnd(1.0).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+    printf("  bitAnd, bitOr, bitXor and bitNot\n");
+}
+
+/* Shifting, and the two decisions in it: right keeps the sign, and left refuses
+   to lose the number. */
+static void test_shifting(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "a := #1:shiftLeft(#10)."
+        "b := #1024:shiftRight(#3)."
+        "c := #1:shiftLeft(#0)."
+        "d := #1:shiftLeft(#62)."
+        "e := #0:sub(#1):shiftRight(#63)."   /* the sign, spread out */
+        "f := #0:shiftRight(#63).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "a")) == 1024);
+    assert(SOL_AS_INT(global(&vm, "b")) == 128);
+    assert(SOL_AS_INT(global(&vm, "c")) == 1);
+    assert(SOL_AS_INT(global(&vm, "d")) == ((int64_t)1 << 62));
+    assert(SOL_AS_INT(global(&vm, "e")) == -1);
+    assert(SOL_AS_INT(global(&vm, "f")) == 0);
+    sol_chunk_free(&chunk);
+
+    /* A shift right is div by a power of two, floored -- which is the whole
+       argument for keeping the sign, so it is asserted rather than described.
+       The negatives are where trunc and floor disagree. */
+    assert(run(&vm, &chunk,
+        "same := true."
+        "[#100, #7, #1, #0]:do({ n | | neg |"
+        "    neg := #0:sub(n)."
+        "    n:shiftRight(#2):equals(n:div(#4)):ifFalse({ same := false })."
+        "    neg:shiftRight(#2):equals(neg:div(#4)):ifFalse({ same := false }) })."
+        "seven := #0:sub(#7):shiftRight(#2).") == SOL_OK);
+    assert(SOL_AS_BOOL(global(&vm, "same")) == true);
+    assert(SOL_AS_INT(global(&vm, "seven")) == -2);      /* floored, not -1 */
+    sol_chunk_free(&chunk);
+
+    /* Losing the number is refused, and so is a count that is not one. */
+    static const char *refused[] = {
+        "#1:shiftLeft(#63).",
+        "#2:shiftLeft(#62).",
+        /* -2 << 62 is exactly INT64_MIN and is fine; -3 is one too far. */
+        "#0:sub(#3):shiftLeft(#62).",
+        "#1:shiftLeft(#64).",
+        "#1:shiftRight(#64).",
+        "#1:shiftLeft(#0:sub(#1)).",
+        "#1:shiftLeft(1.0).",
+    };
+    for (size_t i = 0; i < sizeof refused / sizeof refused[0]; i++) {
+        assert(run(&vm, &chunk, refused[i]) == SOL_RUNTIME_ERROR);
+        sol_chunk_free(&chunk);
+    }
+
+    /* The largest shift that does fit, at both ends. */
+    assert(run(&vm, &chunk,
+        "big := #0:sub(#1):shiftLeft(#63)."       /* -1 << 63 is INT64_MIN */
+        "alsoBig := #0:sub(#2):shiftLeft(#62)."   /* and so is -2 << 62 */
+        "small := #1:shiftLeft(#62).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "alsoBig")) == INT64_MIN);
+    assert(SOL_AS_INT(global(&vm, "big")) == INT64_MIN);
+    assert(SOL_AS_INT(global(&vm, "small")) == ((int64_t)1 << 62));
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+    printf("  shifting, keeping the sign and refusing to lose the number\n");
+}
+
 int main(void)
 {
     test_fill();
@@ -296,6 +431,9 @@ int main(void)
     test_not_equals_tracks_equals();
     test_negation_and_abs();
     test_composite_as_string();
+    test_inc_and_dec();
+    test_bit_operations();
+    test_shifting();
     printf("test_ops: ok\n");
     return 0;
 }

@@ -61,6 +61,7 @@ a:print.
 - **[Message reference](#message-reference)**
   - [Every type](#every-type)
   - [integer](#integer)
+    - [Bits](#bits)
   - [float](#float)
   - [string](#string)
   - [array](#array)
@@ -1729,7 +1730,11 @@ objects.
 | --- | --- |
 | `add(n)` `sub(n)` `mul(n)` | an integer; traps on overflow |
 | `div(n)` `mod(n)` | **floored**; traps on zero and on `INT64_MIN div #-1` |
+| `inc` `dec` | one more, one less; traps at the ends |
 | `negated` `abs` | an integer; traps on the most negative |
+| `bitAnd(n)` `bitOr(n)` `bitXor(n)` | an integer, bit by bit |
+| `bitNot` | every bit flipped |
+| `shiftLeft(#n)` `shiftRight(#n)` | an integer; `#0` to `#63`, and see below |
 | `lessThan(n)` `greaterThan(n)` | a boolean |
 | `lessOrEqual(n)` `greaterOrEqual(n)` | a boolean |
 | `asFloat` | a float; loses precision above 2^53 |
@@ -1742,6 +1747,64 @@ objects.
 
 `#-7:div(#2)` is `#-4` and `#-7:mod(#2)` is `#1`: division floors, so the
 remainder takes the divisor's sign and stays in `[0, n)` for positive `n`.
+
+**`inc` and `dec`** are `add(#1)` and `sub(#1)` under shorter names, which this
+language does not usually hand out. What earns them is how often they are
+written: **76 of the 256 arithmetic sends** in the examples and libraries are
+one or the other, three in every ten. That is what having no binary operators
+costs the commonest arithmetic there is.
+
+They answer a new integer rather than changing the receiver, an integer being a
+value — so the idiom is the assignment:
+
+```
+count := count:dec.        ; and `count:dec` on its own does nothing
+```
+
+Integers only. Counting by ones in a type where a one is not exact is a mistake
+to make deliberately rather than conveniently.
+
+#### Bits
+
+An integer is a signed 64-bit two's-complement number, and these treat it as
+one. They are for the places a number is really a row of flags — a file mode, a
+UTF-8 byte, a set packed into a word.
+
+```
+#12:bitAnd(#10).       ; #8    -- 1100 and 1010
+#12:bitOr(#10).        ; #14
+#12:bitXor(#10).       ; #6
+#0:bitNot.             ; #-1   -- every bit set
+#1:shiftLeft(#10).     ; #1024
+#1024:shiftRight(#3).  ; #128
+```
+
+**A shift right keeps the sign.** There is no unsigned integer here, so a
+logical shift would turn every negative number into a huge positive one — and
+keeping the sign makes a shift agree exactly with `div` by a power of two, which
+is **floored**:
+
+```
+#-7:shiftRight(#2).    ; #-2
+#-7:div(#4).           ; #-2, the same
+```
+
+**A shift left refuses to lose the number**, the way `mul` refuses to overflow,
+rather than dropping the bits that go off the end. The count must be `#0` to
+`#63`; anything else is refused rather than answering whatever the hardware
+does with it.
+
+```
+#1:shiftLeft(#63).     ; integer overflow in 'shiftLeft'
+#1:shiftLeft(#64).     ; 'shiftLeft' wants #0 to #63, got #64
+```
+
+Which is how a mode gets its executable bit without arithmetic:
+
+```
+system:setMode(path, system:modeOf(path):bitOr("111":asInteger(#8))).
+```
+
 
 ### float
 
@@ -2344,7 +2407,7 @@ division by zero, undeclared names, and a block outliving its frame.
 Every built-in message and the types that answer it. The question a reference
 gets asked is usually *what has `copyFrom`?* rather than *what does a string
 do?*, and the sections above answer only the second — so this answers the first.
-110 messages across 204 registrations.
+118 messages across 212 registrations.
 
 **A test keeps it honest**: a message registered in `builtins.c` and missing
 from here fails the build, which is the same bargain that makes every message
@@ -2370,6 +2433,10 @@ appear in an example.
 | `at` | [array](#array), [dictionary](#dictionary), [string](#string) |
 | `at_put` | [array](#array) |
 | `atPut` | [dictionary](#dictionary) |
+| `bitAnd` | [integer](#integer) |
+| `bitNot` | [integer](#integer) |
+| `bitOr` | [integer](#integer) |
+| `bitXor` | [integer](#integer) |
 | `boundTo` | [block](#block) |
 | `ceiling` | [float](#float) |
 | `clock` | [system](#system) |
@@ -2377,6 +2444,7 @@ appear in an example.
 | `concat` | [string](#string) |
 | `copyFrom` | [array](#array), [string](#string) |
 | `day` | [time](#time) |
+| `dec` | [integer](#integer) |
 | `display` | [every type](#every-type) |
 | `div` | [float](#float), [integer](#integer) |
 | `do` | [array](#array), [dictionary](#dictionary) |
@@ -2398,6 +2466,7 @@ appear in an example.
 | `ifElse` | [boolean](#boolean) |
 | `ifFalse` | [boolean](#boolean) |
 | `ifTrue` | [boolean](#boolean) |
+| `inc` | [integer](#integer) |
 | `includes` | [dictionary](#dictionary) |
 | `indexOf` | [array](#array), [string](#string) |
 | `inject` | [array](#array) |
@@ -2444,6 +2513,8 @@ appear in an example.
 | `select` | [array](#array) |
 | `setMode` | [system](#system) |
 | `setModifiedAt` | [system](#system) |
+| `shiftLeft` | [integer](#integer) |
+| `shiftRight` | [integer](#integer) |
 | `size` | [array](#array), [dictionary](#dictionary), [string](#string), [symbol](#symbol) |
 | `slotAt` | [every type](#every-type) |
 | `slots` | [every type](#every-type) |
@@ -2462,7 +2533,6 @@ appear in an example.
 | `whileTrue` | [block](#block) |
 | `writeFile` | [system](#system) |
 | `year` | [time](#time) |
-
 ## Limits
 
 | | |
