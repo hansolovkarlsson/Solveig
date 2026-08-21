@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### History and arrow keys at the prompt — `pending`, 2026-08-21
+### History and arrow keys at the prompt — `49b5374`, 2026-08-21
 
 [6.10](COMPLETED.md#610-waiting-for-a-single-key--done), and it closes section 6
 entirely. The entry had been waiting for a program that needed raw terminal
