@@ -996,7 +996,7 @@ the time" suggests. The gaps were conceptual rather than material, and two of
 the five were not gaps at all: `via` was in objects.sol and `slotAt`/`boundTo`
 were in reflect.sol, neither pointed at from the section that teaches them.
 
-Built as `pending`:
+Built as `8a2546c`:
 
 - **[binding.sol](../examples/binding.sol)** for §2 and §3 — the plumbing every
   other example uses without stopping to look at it. `:=` meaning one thing

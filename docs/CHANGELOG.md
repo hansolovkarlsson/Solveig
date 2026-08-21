@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### Every concept the guide names has an example — `pending`, 2026-08-20
+### Every concept the guide names has an example — `8a2546c`, 2026-08-20
 
 Roadmap 6.9, the example audit. Two new programs,
 [binding.sol](../examples/binding.sol) and
