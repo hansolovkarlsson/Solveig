@@ -16,6 +16,8 @@ void sol_vm_init(SolVM *vm)
     vm->frame_count = 0;
     vm->had_error = false;
     vm->exiting = false;
+    vm->trace = false;
+    vm->trace_depth = 0;
     vm->exit_code = 0;
     vm->next_frame_id = 1;
     reset_stack(vm);
@@ -285,10 +287,119 @@ void sol_vm_block_answer_error(SolVM *vm, const char *name, SolValue answer)
                          name, sol_type_name(answer));
 }
 
+/* ---- tracing ------------------------------------------------------------ *
+ *
+ * `solvm --trace` writes the call tree: one line entering a frame, one leaving
+ * it, indented by depth. Frames rather than sends, which is what makes it
+ * readable at all -- a send is arithmetic as often as it is a call, and there
+ * are hundreds of thousands of those.
+ *
+ * This language is unusually well suited to it. Conditionals and loops written
+ * literally compile to jumps, so a `whileTrue` running three hundred thousand
+ * times produces **no trace lines**: what shows up is the calls, which is what
+ * was wanted.
+ *
+ * To stderr, so a program's own output can still be piped somewhere.
+ *
+ * Values are rendered with a NULL VM, which is what the disassembler does and
+ * for the same reason: rendering with one would *send* `asString`, and a trace
+ * that runs the program it is tracing is not a trace. An object shows as its
+ * address rather than however it likes to describe itself, which is the price.
+ */
+/* Whether this frame is within the depth being followed. */
+static bool tracing_here(const SolVM *vm)
+{
+    if (!vm->trace) return false;
+    return vm->trace_depth == 0 || vm->frame_count <= vm->trace_depth;
+}
+
+static void trace_indent(const SolVM *vm)
+{
+    for (int i = 0; i < vm->frame_count; i++) fputs("  ", stderr);
+}
+
+/* Cut long, because a trace is read by eye. A dictionary of a hundred keys
+   rendered in full is one line nobody finishes, and what a trace is for is
+   seeing the shape of what happened rather than the contents of everything it
+   touched -- the value can be printed from inside the program when it matters. */
+#define TRACE_VALUE_MAX 48
+
+static void trace_value(SolValue value)
+{
+    SolText text;
+    sol_text_init(&text);
+    sol_value_render(NULL, value, &text);
+
+    if (text.length > TRACE_VALUE_MAX) {
+        fwrite(text.chars, 1, TRACE_VALUE_MAX - 3, stderr);
+        fputs("...", stderr);
+    } else {
+        fwrite(text.chars, 1, (size_t)text.length, stderr);
+    }
+    sol_text_free(&text);
+}
+
+/* The line the *caller* is on, which is where the call is written. */
+static int trace_caller_line(const SolVM *vm)
+{
+    if (vm->frame_count == 0) return 0;
+    const SolFrame *frame = &vm->frames[vm->frame_count - 1];
+    int offset = (int)(frame->ip - frame->chunk->code) - 1;
+    if (offset < 0) offset = 0;
+    if (offset >= frame->chunk->count) offset = frame->chunk->count - 1;
+    return offset >= 0 ? frame->chunk->lines[offset] : 0;
+}
+
+static void trace_call(const SolVM *vm, const SolMethod *code, int argc,
+                       const SolValue *slots, const char *sent_as)
+{
+    trace_indent(vm);
+    fprintf(stderr, "[line %d] ", trace_caller_line(vm));
+
+    /* Slot 0 is the receiver for a method, and for a block it is the `self` the
+       block was *written under* -- nil for one written at the top level. Naming
+       that would be accurate and useless, so a plain block is written as the
+       call it is, and one carrying a self is written with it because that is a
+       block installed as a method and the receiver is the interesting part. */
+    if (sent_as != NULL) {
+        /* The selector it was sent as, which for a block installed in a slot is
+           the method name and is the thing worth reading. A block called
+           directly has none, and says so by being written as the call it is. */
+        trace_value(slots[0]);
+        fprintf(stderr, ":%s", sent_as);
+    } else if (!code->is_block) {
+        trace_value(slots[0]);
+        fprintf(stderr, ":%s", code->name);
+    } else if (SOL_IS_NIL(slots[0])) {
+        fputs("value", stderr);
+    } else {
+        trace_value(slots[0]);
+        fputs(":value", stderr);
+    }
+
+    if (argc > 0) {
+        fputc('(', stderr);
+        for (int i = 0; i < argc; i++) {
+            if (i > 0) fputs(", ", stderr);
+            trace_value(slots[i + 1]);
+        }
+        fputc(')', stderr);
+    }
+    fputc('\n', stderr);
+}
+
+static void trace_return(const SolVM *vm, SolValue result)
+{
+    trace_indent(vm);
+    fputs("-> ", stderr);
+    trace_value(result);
+    fputc('\n', stderr);
+}
+
 /* Pushes a frame. The receiver and arguments are already on the stack in slot
    order; any remaining locals are filled with nil. */
 static bool push_frame(SolVM *vm, const SolMethod *code, int argc,
-                       int home_frame, uint64_t home_id)
+                       int home_frame, uint64_t home_id, const char *sent_as)
 {
     if (argc != code->arity) {
         sol_vm_runtime_error(vm, "'%s' takes %d argument%s, got %d",
@@ -308,6 +419,8 @@ static bool push_frame(SolVM *vm, const SolMethod *code, int argc,
         return false;
     }
     for (int i = 0; i < extra; i++) *vm->stack_top++ = SOL_NIL_VAL;
+
+    if (tracing_here(vm)) trace_call(vm, code, argc, slots, sent_as);
 
     SolFrame *frame = &vm->frames[vm->frame_count++];
     frame->method = code;
@@ -365,7 +478,7 @@ SolValue sol_vm_call_block(SolVM *vm, SolValue block, SolValue *args, int argc)
     *vm->stack_top++ = b->self;
     for (int i = 0; i < argc; i++) *vm->stack_top++ = args[i];
 
-    if (!push_frame(vm, b->code, argc, b->home_frame, b->home_id)) {
+    if (!push_frame(vm, b->code, argc, b->home_frame, b->home_id, NULL)) {
         vm->stack_top = mark;
         return SOL_NIL_VAL;
     }
@@ -568,7 +681,7 @@ static SolResult run_frames(SolVM *vm, int base)
             if (SOL_IS_BLOCK(slot->value)) {
                 SolBlock *block = SOL_AS_BLOCK(slot->value);
                 if (push_frame(vm, block->code, argc,
-                               block->home_frame, block->home_id)) {
+                               block->home_frame, block->home_id, name)) {
                     frame = &vm->frames[vm->frame_count - 1];
                 }
                 break;
@@ -660,6 +773,9 @@ static SolResult run_frames(SolVM *vm, int base)
         case OP_RETURN: {
             SolValue result = sol_vm_pop(vm);
             vm->frame_count--;
+            /* After the decrement, so the depth this is tested at is the one
+               the matching call was written at. */
+            if (tracing_here(vm)) trace_return(vm, result);
 
             /* Discard the whole activation -- self, arguments, and locals --
                then leave the reply where the receiver was. */
@@ -724,7 +840,8 @@ SolValue sol_vm_send(SolVM *vm, SolValue receiver, const char *name,
     if (SOL_IS_BLOCK(slot->value)) {
         SolBlock *block = SOL_AS_BLOCK(slot->value);
         int frame_base = vm->frame_count;
-        if (push_frame(vm, block->code, argc, block->home_frame, block->home_id)) {
+        if (push_frame(vm, block->code, argc, block->home_frame, block->home_id,
+                       name)) {
             if (run_frames(vm, frame_base) == SOL_OK) result = sol_vm_pop(vm);
             vm->frame_count = frame_base;
         }

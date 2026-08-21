@@ -4,6 +4,7 @@
  * same word, SOLVM being how *solum* was written before the alphabet split V
  * into two letters. */
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "solum/common.h"
@@ -30,6 +31,8 @@ static void usage(FILE *out)
         "Loads a compiled chunk and runs it.\n"
         "\n"
         "  --dump       disassemble the chunk before running it\n"
+        "  --trace      write the call tree to stderr as it runs\n"
+        "  --trace=N    the same, following calls only N deep\n"
         "  --version    show the version and the .sob format, and stop\n"
         "  --help, -h   show this and stop\n"
         "\n"
@@ -42,6 +45,8 @@ static void usage(FILE *out)
 int main(int argc, char *argv[])
 {
     bool dump = false;
+    bool trace = false;
+    int  trace_depth = 0;
 
     /* Everything after the `.sob` belongs to the program, `system:arguments`
        answers it, and solvm does not look at any of it -- so a program may take
@@ -56,6 +61,23 @@ int main(int argc, char *argv[])
         if (strcmp(argv[at], "--version") == 0) {
             version();
             return 0;
+        }
+        if (strcmp(argv[at], "--trace") == 0) {
+            trace = true;
+            at++;
+            continue;
+        }
+        if (strncmp(argv[at], "--trace=", 8) == 0) {
+            char *end;
+            long depth = strtol(argv[at] + 8, &end, 10);
+            if (*end != '\0' || depth < 1 || depth > 64) {
+                fprintf(stderr, "solvm: --trace=N wants a depth from 1 to 64\n");
+                return 64;
+            }
+            trace = true;
+            trace_depth = (int)depth;
+            at++;
+            continue;
         }
         if (strcmp(argv[at], "--dump") != 0) break;
         dump = true;
@@ -78,6 +100,8 @@ int main(int argc, char *argv[])
 
     SolVM vm;
     sol_vm_init(&vm);
+    vm.trace = trace;
+    vm.trace_depth = trace_depth;
     sol_vm_set_arguments(&vm, argc - at, argv + at);
 
     SolResult result = sol_vm_run(&vm, &chunk);

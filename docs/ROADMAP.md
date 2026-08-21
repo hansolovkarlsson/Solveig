@@ -275,13 +275,76 @@ entries are in [COMPLETED.md](COMPLETED.md). This one was about making it a
 language you can write a *program* in: a program has to be split across files,
 read input, write files, and stop with a status.
 
-**It is empty.** Every entry is built, including the one that was closed by
-mistake and reopened. A new entry means a program wanted something and could not
-have it.
+**Three entries, and they are about looking at a program rather than writing
+one.** `solvm --trace` writes the call tree, which was the cheap half; what is
+left is what a debugger would need and the debugger itself.
 
 Raised in a notes file and assessed in [ideas.md](ideas.md), which also records
 what was **not** worth building and why — integer widths, a JIT, cascades,
 trailing-block syntax, and Go-style concurrency among them.
+
+### 6.27 A stack trace does not say which file
+
+A trace names lines and not files, so a failure inside an included library reads
+as though it were in the file you are looking at:
+
+```
+; the failing block is in lib/h.sol, line 1
+solvm: integer does not understand 'frobnicate'
+  [line 1] in block        <- reads as main.sol line 1
+  [line 2] in script
+```
+
+That is not merely missing, it is **misleading**, and it gets worse the more
+libraries there are — there are four now, and `@include` is how a program is
+meant to be built.
+
+The reason is recorded in
+[the reference](REFERENCE.md#splitting-a-program-across-files): a `.sob` is one
+chunk with no record of which file a line came from. The chunk already carries a
+**line per byte**, so the shape of the fix is a table of file names plus a file
+per line, or per run of lines — a `.sob` format change, and the first since
+0.1.0.
+
+Worth doing because it improves **every error**, not only a debugging session,
+and because the cost is bounded and known. What it needs deciding is how much to
+store: a name per line doubles the side table, where a run-length encoding of
+"lines 1 to 40 came from lib/json.sol" is a few entries per include and is what
+the data actually looks like.
+
+### 6.28 Local variables have no names at run time
+
+Slots are indices. The compiler knows a temporary is called `count` and nothing
+in the chunk records it, so anything inspecting a running program can show
+`slot 3` and not `count`.
+
+Nothing needs it today — `--trace` shows calls and their arguments, and the
+arguments are values rather than names. It is here because it is the thing a
+**stepper** would need first, and because a trace could name arguments with it:
+`p:double(count: #21)` rather than `p:double(#21)`.
+
+Another side table, and it should ride along with
+[6.27](#627-a-stack-trace-does-not-say-which-file) if that is done: one format
+change rather than two.
+
+### 6.29 A stepper
+
+Breakpoints, stepping, and looking at the stack where it stopped.
+
+**The largest thing on this list and the one to do last.** It wants
+[6.28](#628-local-variables-have-no-names-at-run-time) first — a stepper that
+shows `slot 3 = #5` rather than `count = #5` is most of the work for a fraction
+of the use — and it wants a front end of its own, which is a program rather than
+a flag.
+
+Worth knowing before starting: **`solis` already does the interactive half.** A
+block can be called from the prompt and what it answers looked at, objects
+inspected with `slots` and `slotAt`, and a suspect method replaced by binding a
+new block over it. What the prompt cannot do is stop a program that is already
+running, which is the part a stepper adds.
+
+The order this list would take: `--trace` (built), then 6.27 because it improves
+every error, then 6.28, and only then this.
 
 ## Suggested order
 
@@ -304,13 +367,18 @@ was, for about a day: it waited for something to need a number for a byte, and
 about, but for `\u0041`, which is text. `asByte` and `asCharacter` are built and
 it is done.
 
-**Nothing is left.** [6.10](COMPLETED.md#610-waiting-for-a-single-key--done) was
-the last, and this time it is closed by the thing it asked for: `system:readKey`
-answers one byte without waiting for return, so a *program* can read a key and
-not only the prompt. Everything
-[mirror.sol](../examples/mirror.sol) asked for is built too —
-[6.25](COMPLETED.md#625-makedirectory-refuses-one-that-is-already-there--done)
-and [6.26](COMPLETED.md#626-a-files-mode-and-time-cannot-be-read-or-set--done). `solis` grew raw-mode line editing for its own prompt
+**What is left is debugging**, and it arrived by the usual route: not from a
+program wanting something, but from asking how one would be debugged when it
+does. `solvm --trace` is built and was the cheap half.
+
+In order: **[6.27](#627-a-stack-trace-does-not-say-which-file)** first, because a
+trace that names lines and not files is misleading rather than merely thin, and
+fixing it improves every error rather than only a debugging session.
+**[6.28](#628-local-variables-have-no-names-at-run-time)** rides along with it,
+being the same kind of side table and the thing a stepper needs first. And
+**[6.29](#629-a-stepper)** last, being much the largest — and worth weighing
+against `solis`, which already does the interactive half of what a debugger is
+for. `solis` grew raw-mode line editing for its own prompt
 ([6.24](COMPLETED.md#624-the-prompt-has-no-history--done)), which needed the same
 machinery — and a *program* still cannot read a keypress, which is what this
 entry is. The machinery being built is the reason it is now small. The four papercuts —

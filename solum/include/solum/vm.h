@@ -119,6 +119,15 @@ struct SolVM {
        the two reasons it was. */
     bool exiting;
     int  exit_code;
+
+    /* `solvm --trace`: write a call and a return for every frame entered, to
+       stderr, indented by depth. Off unless a front end turns it on.
+     *
+       `trace_depth` is how far down to follow: 0 for all of it, or a limit,
+       since a program's outermost calls are usually the ones being looked for
+       and its innermost are usually a loop body. */
+    bool trace;
+    int  trace_depth;
 };
 
 void sol_vm_init(SolVM *vm);

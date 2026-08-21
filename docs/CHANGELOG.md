@@ -7,6 +7,61 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### `solvm --trace`, and the rest of debugging written down — `pending`, 2026-08-21
+
+The first thing this project has built for looking at a program rather than
+writing one. It came from asking how a program *would* be debugged, which is a
+different route to the roadmap than the usual one — every other entry arrived
+because a program wanted something and could not have it.
+
+```
+  [line 7] <object 0x1027ea980>:describe
+    [line 4] <object 0x1027ea980>:double
+    -> #42
+  -> "x doubled is 42"
+```
+
+**Frames rather than sends**, which is what makes it readable: a send is
+arithmetic as often as it is a call, and a program does hundreds of thousands of
+those. The name is the selector it was **sent as**, threaded through from the
+send site — so a block installed in a slot shows as the method it is rather than
+as `value`.
+
+**The language turns out to suit this unusually well.** Conditionals and loops
+written literally compile to jumps, so they are not calls and do not appear:
+
+```
+i := #0.
+{ i:lessThan(#300000) }:whileTrue({ i := i:inc }).
+```
+
+Three hundred thousand turns, **zero lines of trace**. What shows up is the
+calls, which is what was wanted, and it is a property of the inlining rather
+than anything the tracer does.
+
+**`--trace=N` follows calls N deep**, added after measuring: `page.sol` produces
+9,284 lines traced fully, 1,130 at depth 2 and 148 at depth 1. A trace you have
+to grep is much less use than one that shows the shape.
+
+To **stderr**, so a program's own output can still be piped and nothing it
+prints changes — asserted rather than assumed. Long values are cut at 48
+characters, and rendered without sending `asString`, since a trace that ran the
+program it was tracing would not be one.
+
+**Three entries for the rest**, in the order worth doing them:
+
+- [6.27](ROADMAP.md#627-a-stack-trace-does-not-say-which-file) — a trace names
+  lines and not files, so a failure inside a library reads as though it were in
+  the file you are looking at. **Misleading rather than merely thin**, and worse
+  with four libraries. A `.sob` format change, and it improves every error
+  rather than only a debugging session.
+- [6.28](ROADMAP.md#628-local-variables-have-no-names-at-run-time) — slots are
+  indices, so anything inspecting a running program shows `slot 3` and not
+  `count`. The same kind of side table; it should ride along with 6.27.
+- [6.29](ROADMAP.md#629-a-stepper) — much the largest, wants 6.28 first, and
+  worth weighing against `solis`, which already does the interactive half of
+  what a debugger is for.
+
 ### Bits, and one more, one less — `a7ddf8b`, 2026-08-21
 
 Both asked for, and both with the evidence already in the tree.

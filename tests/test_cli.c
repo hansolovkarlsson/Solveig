@@ -132,6 +132,103 @@ static void test_the_program_keeps_its_own_arguments(void)
     printf("  options after the file belong to the program\n");
 }
 
+/* `--trace` writes the call tree to stderr, so a program's own output is
+   untouched -- which is the property that lets it be turned on without changing
+   what a program does. */
+static void test_trace_writes_the_call_tree(void)
+{
+    char out[65536];
+
+    /* A method sent to an object, so the trace has a receiver and a selector
+       worth reading, and a return value to match it. */
+    FILE *f = fopen(DIR "/traced.sol", "w");
+    assert(f != NULL);
+    fputs("point := object:new.\n"
+          "point:double := { self:x:mul(#2) }.\n"
+          "p := point:new.\n"
+          "p:x := #21.\n"
+          "p:double:print.\n", f);
+    fclose(f);
+    assert(system("bin/solas " DIR "/traced.sol -o " DIR "/traced.sob") == 0);
+
+    /* stdout alone: the program's answer, and nothing else. */
+    assert(run("bin/solvm --trace " DIR "/traced.sob 2>/dev/null", out, sizeof out) == 0);
+    assert(strstr(out, "#42") != NULL);
+    assert(strstr(out, "[line") == NULL);        /* the trace stayed on stderr */
+
+    /* stderr alone: the call, by the name it was sent as, and the return. */
+    assert(run("bin/solvm --trace " DIR "/traced.sob 2>&1 >/dev/null",
+               out, sizeof out) == 0);
+    assert(strstr(out, ":double") != NULL);
+    assert(strstr(out, "-> #42") != NULL);
+    assert(strstr(out, "[line 5]") != NULL);     /* where the call is written */
+
+    /* And with it off, stderr is empty. */
+    assert(run("bin/solvm " DIR "/traced.sob 2>&1 >/dev/null", out, sizeof out) == 0);
+    assert(out[0] == '\0');
+    printf("  --trace writes the call tree to stderr and leaves stdout alone\n");
+}
+
+/* Inlined control flow costs no trace at all, which is what makes this readable
+   on a real program: a loop that runs three hundred thousand times compiles to
+   jumps, and jumps are not calls. */
+static void test_trace_is_quiet_where_there_are_no_calls(void)
+{
+    char out[65536];
+
+    FILE *f = fopen(DIR "/looped.sol", "w");
+    assert(f != NULL);
+    fputs("i := #0.\n"
+          "{ i:lessThan(#100000) }:whileTrue({ i := i:inc }).\n"
+          "i:print.\n", f);
+    fclose(f);
+    assert(system("bin/solas " DIR "/looped.sol -o " DIR "/looped.sob") == 0);
+
+    assert(run("bin/solvm --trace " DIR "/looped.sob 2>&1 >/dev/null",
+               out, sizeof out) == 0);
+    assert(out[0] == '\0');                      /* a hundred thousand turns, no lines */
+    printf("  an inlined loop leaves no trace, however many turns it takes\n");
+}
+
+/* A depth follows the outermost calls only, which is where a program's shape
+   is. The refusals are checked too, since a depth that is not one is a mistake
+   in the command line rather than something to guess at. */
+static void test_trace_takes_a_depth(void)
+{
+    char shallow[65536], deep[65536];
+
+    FILE *f = fopen(DIR "/nested.sol", "w");
+    assert(f != NULL);
+    fputs("inner := { #1 }.\n"
+          "middle := { inner:value }.\n"
+          "outer := { middle:value }.\n"
+          "outer:value:print.\n", f);
+    fclose(f);
+    assert(system("bin/solas " DIR "/nested.sol -o " DIR "/nested.sob") == 0);
+
+    assert(run("bin/solvm --trace=1 " DIR "/nested.sob 2>&1 >/dev/null",
+               shallow, sizeof shallow) == 0);
+    assert(run("bin/solvm --trace " DIR "/nested.sob 2>&1 >/dev/null",
+               deep, sizeof deep) == 0);
+    assert(strlen(shallow) < strlen(deep));
+    assert(strstr(shallow, "[line 4]") != NULL);   /* the outermost call */
+    assert(strstr(shallow, "[line 3]") == NULL);   /* and not the one inside it */
+    assert(strstr(deep, "[line 3]") != NULL);
+
+    static const char *refused[] = {
+        "bin/solvm --trace=0 " DIR "/nested.sob 2>&1 >/dev/null",
+        "bin/solvm --trace=x " DIR "/nested.sob 2>&1 >/dev/null",
+        "bin/solvm --trace=99 " DIR "/nested.sob 2>&1 >/dev/null",
+        "bin/solvm --trace= " DIR "/nested.sob 2>&1 >/dev/null",
+    };
+    for (size_t i = 0; i < sizeof refused / sizeof refused[0]; i++) {
+        char out[4096];
+        assert(run(refused[i], out, sizeof out) == 64);
+        assert(strstr(out, "depth from 1 to 64") != NULL);
+    }
+    printf("  --trace=N follows the outermost calls, and a bad depth is refused\n");
+}
+
 /* The options still do what they did. A help flag that broke -I or --dump on
    the way in would pass every test above. */
 static void test_the_other_options_still_work(void)
@@ -151,6 +248,9 @@ int main(void)
     test_version_names_the_format();
     test_a_mistake_goes_to_stderr();
     test_the_program_keeps_its_own_arguments();
+    test_trace_writes_the_call_tree();
+    test_trace_is_quiet_where_there_are_no_calls();
+    test_trace_takes_a_depth();
     test_the_other_options_still_work();
     printf("test_cli: ok\n");
     return 0;

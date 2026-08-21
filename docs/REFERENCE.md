@@ -20,6 +20,7 @@ a:print.
 
 - **[Running a program](#running-a-program)**
   - [The prompt](#the-prompt)
+  - [Watching a program run](#watching-a-program-run)
   - [Running a script directly](#running-a-script-directly)
 - **[Splitting a program across files](#splitting-a-program-across-files)**
   - [The library](#the-library)
@@ -220,7 +221,44 @@ letters -- so the directory keeps the modern spelling and the program the older
 one.
 
 `solas --dump` also prints the disassembly. `solvm --dump` prints it for a
-compiled file before running. `solas -o <file>` chooses where the bytecode goes,
+compiled file before running.
+
+#### Watching a program run
+
+`solvm --trace` writes the **call tree** to stderr as the program runs: a line
+entering each frame, a line leaving it, indented by depth.
+
+```
+  [line 7] <object 0x1027ea980>:describe
+    [line 4] <object 0x1027ea980>:double
+    -> #42
+  -> "x doubled is 42"
+```
+
+The line is where the **call** is written, and the name is the selector it was
+**sent as** — so a block installed in a slot shows as the method it is, and a
+block called with `value` shows as that.
+
+**Frames rather than sends**, which is what makes it readable: a send is
+arithmetic as often as it is a call. And because conditionals and loops written
+literally [compile to jumps](#what-the-compiler-does-with-them), a loop running
+three hundred thousand times produces **no trace lines at all** — what shows up
+is the calls, which is what was wanted.
+
+`--trace=N` follows calls only `N` deep, which is where a program's shape is.
+On `examples/page.sol`:
+
+| | lines of trace |
+| --- | --- |
+| `--trace=1` | 148 |
+| `--trace=2` | 1,130 |
+| `--trace` | 9,284 |
+
+It goes to **stderr**, so a program's own output can still be piped somewhere
+and nothing it prints changes. Values longer than 48 characters are cut, since a
+trace is read by eye. They are rendered without sending `asString`, so an object
+shows as its address rather than however it describes itself — a trace that ran
+the program it was tracing would not be one. `solas -o <file>` chooses where the bytecode goes,
 the default being the source name with `.sob` in place of `.sol`; `-I <dir>` on
 `solas` and `solis` adds to the include search path and is described
 [below](#splitting-a-program-across-files).
