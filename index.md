@@ -101,8 +101,8 @@ a different language.
 
 ## Status
 
-**0.2.0** — a failure can be recovered from: `onError`, `error:raise`, `ensure`.
-`.sob` files are format version 11, unchanged since 0.1.0.
+**0.3.0** — a program can walk the filesystem, know what day it is, and be run
+directly as a script. `.sob` files are format version 11, unchanged since 0.1.0.
 
 Working: the scanner, the single-pass compiler, the re-entrant dispatch loop
 with call frames, blocks with lexical capture, message-based control flow, a

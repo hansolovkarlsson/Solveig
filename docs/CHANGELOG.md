@@ -7,6 +7,61 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.3.0 — 2026-08-21
+
+**A program can deal with the machine it is running on.** It can look at the
+filesystem rather than only be told about it, know what day it is, and be run
+directly as a script.
+
+```sh
+$ cat report.sol
+#!/usr/bin/env solis
+system:filesIn("logs"):sorted:do({ name |
+    "{}  {}":fill([system:modifiedAt("logs/":concat(name)):asString("%Y-%m-%d"),
+                   name]):display }).
+
+$ chmod +x report.sol && ./report.sol
+```
+
+**The filesystem.** `filesIn` and `isDirectory` to walk it; `fileSize` and
+`modifiedAt` to measure without reading; `appendFile` beside `writeFile`;
+`makeDirectory`, `rename` and `remove` to change it; `environment` to read a
+variable.
+
+The three that change things take the narrow reading, and the reasoning is in
+[the reference](REFERENCE.md#changing-what-is-there): `remove` takes a file or
+an **empty** directory with no recursive form, `makeDirectory` makes one level,
+and `rename` replaces without asking. Every refusal names the reason the system
+gave.
+
+**A time**, as a value type held in nanoseconds since the epoch. `system:time`
+for now, `system:modifiedAt` for a file, `time:fromSeconds` for any instant, and
+`asTime` on a string to read one back. Comparison, `secondsSince`, `plusSeconds`,
+calendar fields, and `strftime`/`strptime` formats.
+
+**Everything is UTC**, which is the decision rather than an omission — a zone is
+a political fact that changes, where an instant does not. An offset like
+`+01:00` is accepted because an offset is arithmetic; a zone *name* is not, and
+will not be.
+
+**Scripts.** `solis` takes a file — source or bytecode, decided by looking at
+the bytes rather than the extension — and a `#!` on the first line is skipped,
+so `chmod +x` works. `#!/usr/bin/env solis` is the portable form.
+
+`.sob` stays at **format version 11**, unchanged since 0.1.0: the new value
+types were appended and cannot be constants, so the file layout never moved. A
+`.sob` built by 0.1.0 runs here, which was checked rather than assumed.
+
+The restrictions in [ROADMAP section 3](ROADMAP.md#3-known-limitations) are
+unchanged: no non-local return, a capturing block tied to its frame, recursion to
+about 62 levels, text is bytes.
+
+Verified for the release: clean build with no warnings, `make test` and
+`SOLUM_GC_STRESS=1 make test` both passing, all 26 examples compiled and run,
+and zero leaks across every test binary.
+
 ### A time can be read back — `2b941f4`, 2026-08-21
 
 ```
