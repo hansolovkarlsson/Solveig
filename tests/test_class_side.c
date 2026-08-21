@@ -104,7 +104,7 @@ static void test_class_side_messages_still_work(void)
     assert(run(&vm, &chunk,
         "a := array:of(#1, #2). b := array:new."
         "sizes := a:size:add(b:size)."
-        "i := integer:new(#5). f := float:new(1.5)."
+        "i := #5. f := 1.5."                   /* written, not constructed */
         "p := object:new. p:x := #3. q := p:new. inherited := q:x.") == SOL_OK);
 
     assert(SOL_AS_INT(global(&vm, "sizes")) == 2);

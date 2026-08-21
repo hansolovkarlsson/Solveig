@@ -393,14 +393,22 @@ static void test_the_root_leaks_nothing_onto_values(void)
     sol_chunk_free(&chunk); sol_vm_free(&vm);
 }
 
-/* A class whose instances are not objects cannot make one. Left inherited,
-   object's `new` would answer an object delegating to `string`, which refuses
-   every message a string understands -- inert, and no use to anybody. Each of
-   the four says what to write instead. */
+/* `new` belongs where something is made, which is where the instances are
+   mutable: two of the eight construct and six refuse. Left inherited, object's
+   `new` would answer an object delegating to `string`, which refuses every
+   message a string understands -- inert, and no use to anybody. Each of the six
+   says what to write instead.
+
+   `integer` and `float` joined the six late. Theirs used to be the identity
+   function, which is the literal spelled longer, and a value class has no fresh
+   distinct thing to hand back. */
 static void test_a_class_that_cannot_construct_says_so(void)
 {
     static const char *refused[] = {
         "string:new.", "symbol:new.", "block:new.", "boolean:new.",
+        "integer:new.", "float:new.",
+        "integer:new(#45).", "float:new(1.5).",   /* nor with an argument */
+        "#45:new(#1).",                           /* nor through an instance */
     };
 
     for (size_t i = 0; i < sizeof(refused) / sizeof(refused[0]); i++) {
@@ -410,20 +418,24 @@ static void test_a_class_that_cannot_construct_says_so(void)
         sol_chunk_free(&chunk); sol_vm_free(&vm);
     }
 
-    /* The ones that can, still do -- object's `new` included, which is what the
-       four are shadowing. */
+    /* The two that can, still do -- object's `new` included, which is what the
+       six are shadowing. */
     SolVM vm; sol_vm_init(&vm);
     SolChunk chunk;
     assert(run(&vm, &chunk,
-        "a := integer:new(#1).  b := float:new(1.5).  c := array:new:size."
+        "c := array:new:size."
         "p := object:new. p:tag := #7."
         "d := p:new:tag."                     /* delegates, as it always did */
-        "e := array:of(#1, #2):size.") == SOL_OK);
-    assert(SOL_AS_INT(global(&vm, "a")) == 1);
-    assert(SOL_AS_FLOAT(global(&vm, "b")) == 1.5);
+        "e := array:of(#1, #2):size."
+        /* and each answers a *fresh* one, which is the whole reason they have
+           a `new` where a value class does not */
+        "f := array:new:equals(array:new). g := object:new:equals(object:new).")
+        == SOL_OK);
     assert(SOL_AS_INT(global(&vm, "c")) == 0);
     assert(SOL_AS_INT(global(&vm, "d")) == 7);
     assert(SOL_AS_INT(global(&vm, "e")) == 2);
+    assert(SOL_AS_BOOL(global(&vm, "f")) == false);
+    assert(SOL_AS_BOOL(global(&vm, "g")) == false);
 
     sol_chunk_free(&chunk); sol_vm_free(&vm);
 }

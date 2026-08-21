@@ -10,9 +10,19 @@ f := 45.
 i:print.
 f:print.
 
-; integer:new is the explicit long form of the literal.
-b := integer:new(#45).
-b:print.
+; The design notes this example comes from had you construct a number and then
+; fill it in:
+;
+;     integer:new(a)
+;     a:set(#45)
+;
+; Neither message exists. Numbers became immutable unboxed values, so there is
+; nothing to construct and nothing to fill -- the literal is the whole of it.
+; `integer:new` says so rather than quietly answering its own argument, which is
+; what it used to do:
+;
+;   integer:new(#45)  ->  an integer is written #45, and there is nothing for
+;                         'new' to make -- #0 is the empty one
 
 ; Values are immutable -- add returns a new one and leaves `a` alone.
 a:add(#5):print.

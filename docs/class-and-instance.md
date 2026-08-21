@@ -29,7 +29,7 @@ Those 24 slots serve **two different audiences**:
 | slot | sent as | who it is for |
 | --- | --- | --- |
 | `add`, `mul`, `print`, `asString` | `#45:add(#1)` | the **instance side** — what an integer understands |
-| `new` | `integer:new(#1)` | the **class side** — what the class itself understands |
+| `new` | `integer:new` | the **class side** — what the class itself understands (it refuses, but it is still a slot on this side) |
 
 One bag of slots, two roles, and nothing in the object distinguishes them.
 
@@ -73,7 +73,7 @@ integer:respondsTo('new):print.  ; true
 
 | | `new` | `of` |
 | --- | --- | --- |
-| `integer`, `float` | yes — the identity function | — |
+| `integer`, `float` | yes — refuses, and says what to write | — |
 | `array` | yes — allocates | yes |
 | `object` | yes — allocates and delegates | — |
 | `string`, `symbol`, `block`, `boolean` | yes — refuses, and says what to write | — |
@@ -348,7 +348,7 @@ boolean?
 The answer is no for all four, and the reason is that `new` is already three
 different operations sharing a spelling.
 
-### `new` means three things
+### `new` used to mean three things
 
 ```c
 integer:new(#45)  ->  return args[0];                  /* identity, type-checked */
@@ -356,19 +356,25 @@ array:new         ->  sol_array_new(vm, 0)             /* allocates             
 object:new        ->  a fresh object delegating to self /* allocates and delegates */
 ```
 
-The comment in `builtins.c` says the first one outright: *"Integers are immutable
+The comment in `builtins.c` said the first one outright: *"Integers are immutable
 values, so there is nothing to allocate — `integer:new(#45)` is the long form of
 the literal `#45`."*
 
-It is not even a uniform protocol, because the arities disagree:
+It was not even a uniform protocol, because the arities disagreed:
 
 ```
 integer:new.        ; solvm: 'new' takes 1 argument, got 0
 array:new(#1).      ; solvm: 'new' takes 0 arguments, got 1
 ```
 
-So no generic code can send `new` without already knowing which class it is
+So no generic code could send `new` without already knowing which class it was
 talking to — which is the only thing a shared name would have bought.
+
+**The first line is gone as of `pending`**, and the section below is what argued
+for that. `new` now means one thing, *make me a new one*, and lives on the two
+classes where something is made. Generic code still cannot send it blind, since
+six classes refuse — but it fails loudly and says why, instead of answering its
+own argument.
 
 ### Why none of the four wants a real one
 
@@ -407,10 +413,11 @@ construct and the classes that do not is **mutability**, not emptiness. That is
 the rule this document says has nowhere to live, and it sorts all nine classes
 correctly.
 
-### The question underneath
+### The question underneath — **answered, and acted on**
 
-The interesting question is not whether the four should gain `new`. It is
-whether the two identity ones should have it.
+The interesting question was not whether the four should gain `new`. It was
+whether the two identity ones should have it. They should not, and as of
+`pending` they do not.
 
 `integer:new` and `float:new` allocate nothing and construct nothing. They are
 the literal, spelled longer — and `float:new` was added in `7ac6be6` *for
@@ -434,19 +441,36 @@ thing you construct.
 And it is what makes one of the symptoms above possible: `#45:new(#1)` answers
 because there is a `new` on `integer` at all.
 
-**So the tidier direction is the opposite of the question**: leave the four
-alone, and consider whether `integer:new` and `float:new` should go — leaving
-`new` meaning one thing, *make me a new one*, on the two classes where something
-is actually made.
+**So the tidier direction was the opposite of the question**: leave the four
+alone, and take `new` off `integer` and `float` — leaving it meaning one thing,
+*make me a new one*, on the two classes where something is actually made.
 
-Two things weigh against doing that. It is a breaking change to a documented
-message, and [examples/hello.sol](../examples/hello.sol) uses it deliberately —
+**They could not simply lose it.** Deleting the registration was tried, and
+`integer:new` then inherited object's and answered *an object delegating to
+`integer`*, which fails `print`. Worse than the identity function it replaced,
+and the same trap that made the other four shadow rather than inherit. So the
+two joined the refusers:
+
+```
+integer:new(#45).
+solvm: an integer is written #45, and there is nothing for 'new' to make -- #0 is the empty one
+```
+
+`#45:new(#1)` refuses along with it, which removes the first of the three
+symptoms at the top of this document. The other two are untouched: `integer:slots`
+still lists `new` beside `add`, because the slot is still there — it holds a
+refusal rather than a constructor, and `slots` reports what is there.
+
+Two things weighed against doing it. It is a breaking change to a documented
+message, and [examples/hello.sol](../examples/hello.sol) used it deliberately —
 *"integer:new is the explicit long form of the literal"* — as the closing of the
-loop from the original notes. It also costs nothing to keep.
+loop from the original notes. Both were paid: the example now closes that loop
+better, by showing that the notes' `integer:new(a)` and `a:set(#45)` **both**
+went, and why. Four tests changed.
 
-If they stay, the honest framing is that `new` on a value class is a **checked
-assertion** rather than a constructor, and it should be named for that. Either
-way, `string`, `symbol`, `block` and `boolean` should not get one.
+The alternative, had they stayed, was to admit that `new` on a value class is a
+**checked assertion** rather than a constructor and name it for that. Refusing
+says the same thing in less space.
 
 ---
 
@@ -478,6 +502,7 @@ way, `string`, `symbol`, `block` and `boolean` should not get one.
   classes that cannot construct their instances refuse `new` and say what to
   write instead.
 - Worth doing when the single root is wanted, not before.
-- Separately: `new` is three operations sharing a name, and on `integer` and
-  `float` it is the identity function left over from a design that was
-  abandoned. The four classes without a class side should keep not having one.
+- Separately: `new` *was* three operations sharing a name, and on `integer` and
+  `float` it was the identity function left over from a design that was
+  abandoned. Those two now refuse like the other four, so `new` means one thing
+  and lives on `object` and `array`. `#45:new(#1)` refuses with them.

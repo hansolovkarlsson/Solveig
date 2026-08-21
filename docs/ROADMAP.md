@@ -56,11 +56,12 @@ is 2.14.
 ### 2.5 Class side versus instance side
 
 `integer` holds both `new` and `print` in one object, so `#45:new(#1)` resolves
-as readily as `integer:new(#1)` — and answers, which is nonsense that works.
-`integer:slots` lists both sides together, and lists `add`, which
-`integer:respondsTo('add)` correctly says it will not answer: `slots` reports
-what is there and `respondsTo` asks the dispatch question, and here the two
-have different answers.
+as readily as `integer:new(#1)`. It used to *answer*, which was nonsense that
+worked; both refuse now that `new` has been taken off the value classes, so that
+symptom is gone. `integer:slots` still lists both sides together, and still lists
+`add`, which `integer:respondsTo('add)` correctly says it will not answer:
+`slots` reports what is there and `respondsTo` asks the dispatch question, and
+here the two have different answers.
 
 The unevenness this entry used to record — `integer` having `new` where `float`
 did not — was half fixed in `7ac6be6`, and is worth restating accurately, since
@@ -69,7 +70,7 @@ needed it and nowhere else:
 
 | | `new` | `of` |
 | --- | --- | --- |
-| `integer`, `float` | yes — the identity function | — |
+| `integer`, `float` | yes — refuses, and says what to write | — |
 | `array` | yes — allocates | yes |
 | `object` | yes — allocates and delegates | — |
 | `string`, `symbol`, `block`, `boolean` | yes — refuses, and says what to write | — |

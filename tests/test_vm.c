@@ -83,15 +83,26 @@ static void test_sends_chain_left_to_right(void)
     sol_vm_free(&vm);
 }
 
-/* `integer:new(#45)` is the long form of the literal, not a second kind of thing. */
-static void test_new_is_the_long_form_of_a_literal(void)
+/* `integer:new(#45)` used to answer #45 -- the literal spelled longer, and the
+   last of a design where you built a mutable integer and then `set` it. There is
+   nothing for it to construct, so it refuses now and says what to write. */
+static void test_a_number_is_written_not_constructed(void)
 {
     SolVM vm;
     sol_vm_init(&vm);
 
-    assert(run(&vm, "a := integer:new(#45). b := #45.") == SOL_OK);
-    assert(SOL_AS_INT(global(&vm, "a")) == SOL_AS_INT(global(&vm, "b")));
+    assert(run(&vm, "a := integer:new(#45).") == SOL_RUNTIME_ERROR);
+    sol_vm_free(&vm);
 
+    sol_vm_init(&vm);
+    assert(run(&vm, "a := float:new(1.5).") == SOL_RUNTIME_ERROR);
+    sol_vm_free(&vm);
+
+    /* The literal is the only way, and always was the short one. */
+    sol_vm_init(&vm);
+    assert(run(&vm, "a := #45. b := 1.5.") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "a")) == 45);
+    assert(SOL_AS_FLOAT(global(&vm, "b")) == 1.5);
     sol_vm_free(&vm);
 }
 
@@ -345,7 +356,7 @@ int main(void)
     test_hash_selects_the_numeric_type();
     test_values_are_immutable();
     test_sends_chain_left_to_right();
-    test_new_is_the_long_form_of_a_literal();
+    test_a_number_is_written_not_constructed();
     test_assignment_is_an_expression();
     test_arithmetic_is_strict();
     test_integer_overflow_traps();

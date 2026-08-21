@@ -160,15 +160,13 @@ static void test_negation_and_abs(void)
 
     assert(run(&vm, &chunk,
         "a := #5:negated. b := #-5:negated. c := #-5:abs. d := #5:abs."
-        "e := 2.5:negated. f := -2.5:abs."
-        "g := float:new(1.5).") == SOL_OK);
+        "e := 2.5:negated. f := -2.5:abs.") == SOL_OK);
     assert(SOL_AS_INT(global(&vm, "a")) == -5);
     assert(SOL_AS_INT(global(&vm, "b")) == 5);
     assert(SOL_AS_INT(global(&vm, "c")) == 5);
     assert(SOL_AS_INT(global(&vm, "d")) == 5);
     assert(SOL_AS_FLOAT(global(&vm, "e")) == -2.5);
     assert(SOL_AS_FLOAT(global(&vm, "f")) == 2.5);
-    assert(SOL_AS_FLOAT(global(&vm, "g")) == 1.5);
     sol_chunk_free(&chunk);
 
     /* The most negative integer has no positive counterpart -- the same edge

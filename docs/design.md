@@ -48,8 +48,7 @@ Not laid down in advance -- these are what the decisions so far have in common,
 written down because they keep settling the next question.
 
 **Two spellings of the same thing mean the same thing.** `[#1, #2]` and
-`array:of(#1, #2)` produce identical bytecode; `a := #45` and
-`a := integer:new(#45)` produce the same integer. Where a shorthand exists it is
+`array:of(#1, #2)` produce identical bytecode. Where a shorthand exists it is
 notation, never a second semantics. The syntax is already a lot to take on, so a
 reader should never have to ask which of two forms they are looking at in order
 to know what it does.
@@ -111,8 +110,9 @@ Smalltalk lineage, prototype flavour:
 
 - An object is a set of named slots plus a `proto` pointer it delegates to.
 - A class is not a separate kind of thing -- it is an object like any other.
-  `integer` is the integer class object; `integer:new(a)` sends `new` to it and
-  gets back an instance that delegates to it.
+  `integer` is the integer class object, found by a lookup and sent to like
+  anything else. It does not construct, though: an integer is a value, written
+  rather than made, and `integer:new` says so.
 - The same holds for objects you define. `object:new` answers a fresh object
   delegating to the receiver, so `point := object:new` then `p := point:new`
   makes `point` a class by use rather than by kind. A slot assigned on an
@@ -180,8 +180,8 @@ a:print.         ; ':' sends a message; '.' terminates a statement
 ```
 
 `:` is the send operator throughout: `object:message`. Parentheses group a
-message's parameters, which is why `a := #45`, `a := (#45)` and
-`a := integer:new(#45)` all read consistently.
+message's parameters, which is why `a := #45` and `a := (#45)` read
+consistently.
 
 A method is a name bound on a class, exactly as a variable is a name bound in
 the globals -- so it uses the same `:=`, with the same meaning. The right-hand
@@ -467,10 +467,11 @@ legal program, so nothing became reachable that was not reachable before.
 
 ## Resolved questions
 
-**What does `integer:new(a)` actually do?** `integer` is the integer class
-object, and `new` is sent to it to create an instance. The comment in the
-original notes -- "sends message integer to top Object" -- is loose wording;
-nothing sends `integer` anywhere.
+**What does `integer:new(a)` actually do?** Nothing, in the end -- it refuses,
+and the section below on `:=` says why. What the question was really about is
+still worth the answer: `integer` is the integer class object, and the comment in
+the original notes -- "sends message integer to top Object" -- is loose wording.
+Nothing sends `integer` anywhere.
 
 Resolving the *name* `integer` is a separate step, and it is a lookup rather
 than a send: the compiler emits `OP_GLOBAL 'integer'`, which finds the class
@@ -492,9 +493,15 @@ This replaces the original `integer:new(a)` form, which had to pass the *name*
 `a` into `new` before `a` existed -- that would have needed symbol literals or
 an evaluation-order special case in the compiler. With `:=`, `new` is an
 ordinary message returning an ordinary object, and binding is a separate
-bytecode instruction. `a := integer:new(#45)` still works as the explicit long
-form of `a := #45`; the literal is sugar for the built-in case, and `new` stays
-the general construction protocol for user-defined classes.
+bytecode instruction.
+
+`integer:new(#45)` survived for a while as an explicit long form of `a := #45`,
+and it is gone: it constructed nothing, being the identity function with a type
+check, and a number is written rather than made. `new` is now the construction
+protocol and nothing else -- `object` and `array`, the two classes whose
+instances are references, so that there is a fresh distinct one to hand back.
+The other six refuse and say what to write. See
+[class-and-instance.md](class-and-instance.md#new-means-three-things).
 
 Numbers being immutable is what makes this coherent: with mutable integers,
 `b := a` would have to choose between copying the box and sharing it, and both

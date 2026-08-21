@@ -711,9 +711,34 @@ array:add(#3).       ; solvm: 'add' expects an array, got object
 ```
 
 The messages a class answers for itself are the ones that make instances —
-`array:of(...)`, `array:new`, `integer:new(...)`, `object:new` — plus reflection,
-which reads either side. `respondsTo` agrees with sending, so
-`array:respondsTo('add)` is false and `array:respondsTo('of)` is true.
+`array:of(...)`, `array:new`, `object:new` — plus reflection, which reads either
+side. `respondsTo` agrees with sending, so `array:respondsTo('add)` is false and
+`array:respondsTo('of)` is true.
+
+**Only two classes construct**, and the rule is mutability: `new` belongs where
+something is *made*, which is where the instances are references, so there is a
+fresh, distinct one to hand back.
+
+```
+array:new:equals(array:new):print.    ; false -- two arrays
+"":equals(""):print.                  ; true  -- one value
+```
+
+A value class has no fresh distinct thing to answer with, so the other six
+refuse and say what to write instead:
+
+```
+integer:new(#45).
+solvm: an integer is written #45, and there is nothing for 'new' to make -- #0 is the empty one
+```
+
+They refuse rather than going missing because every built-in delegates to
+`object`, whose `new` would otherwise answer an object delegating to `integer` —
+a thing that fails every message an integer understands.
+
+`integer:new` and `float:new` used to answer their own argument, which was the
+literal spelled longer. See
+[class-and-instance.md](class-and-instance.md#new-means-three-things).
 
 Every built-in class delegates to `object`, so there is one hierarchy and
 everything is an object in the type graph as well as in the slogan:
@@ -1008,7 +1033,6 @@ objects.
 
 | Message | Answers |
 | --- | --- |
-| `new(#n)` | the integer — the long form of a literal |
 | `add(n)` `sub(n)` `mul(n)` | an integer; traps on overflow |
 | `div(n)` `mod(n)` | **floored**; traps on zero and on `INT64_MIN div #-1` |
 | `negated` `abs` | an integer; traps on the most negative |
@@ -1027,7 +1051,6 @@ Everything integer has, minus `asFloat`, `asBase`, and the overflow traps, plus:
 
 | Message | Answers |
 | --- | --- |
-| `new(f)` | the float |
 | `floor` `ceiling` `rounded` `truncated` | an **integer**; errors on infinity, not-a-number, or out of range |
 
 There is no `asInteger`: narrowing names its direction so there is no default to

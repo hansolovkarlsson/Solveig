@@ -8,6 +8,57 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### `new` means one thing — `pending`, 2026-08-20
+
+**Breaking.** `integer:new(#45)` and `float:new(1.5)` used to answer their own
+argument. They refuse now:
+
+```
+integer:new(#45).
+solvm: an integer is written #45, and there is nothing for 'new' to make -- #0 is the empty one
+```
+
+They constructed nothing — `return args[0]`, type-checked. That is the literal
+spelled longer, and it was the last of the design in the original notes, where
+you built a mutable integer and then `set` it:
+
+```
+integer:new(a)
+a:set(#45)
+```
+
+Numbers became immutable unboxed values, `set` never existed, and `new` outlived
+the thing it constructed.
+
+**The rule that replaces it is mutability.** `new` belongs where something is
+*made*, which is where the instances are references, so there is a fresh,
+distinct one to hand back:
+
+```
+array:new:equals(array:new):print.    ; false -- two arrays
+"":equals(""):print.                  ; true  -- one value
+```
+
+Two classes construct, `object` and `array`; the other six refuse and say what to
+write. That rule sorts all eight correctly, and `class-and-instance.md` had said
+no rule was available.
+
+**They could not simply lose the message.** Deleting the registration was tried:
+every built-in delegates to `object`, so `integer:new` inherited object's and
+answered *an object delegating to `integer`*, which then fails `print`. Worse
+than the identity function it replaced, and the same trap that made the other
+four shadow rather than inherit. So the two joined the refusers.
+
+`#45:new(#1)` refuses along with it, which removes one of the three symptoms
+roadmap 2.5 is about. The other two are untouched — `integer:slots` still lists
+`new` beside `add`, because the slot is still there and `slots` reports what is
+there.
+
+What this cost: a documented message, four tests, and the closing line of
+[examples/hello.sol](../examples/hello.sol), which used `integer:new(#45)` as the
+callback to the original notes. The example closes that loop better now, by
+showing that *both* of the notes' messages went and why.
+
 ### `isNil` and `notNil` — `10ddf25`, 2026-08-20
 
 Roadmap 2.14, the last of the loose ends from 2.8.

@@ -81,20 +81,6 @@ static SolValue prim_print(SolVM *vm, SolValue self, SolValue *args, int argc)
 
 /* ---- integer --------------------------------------------------------- */
 
-static SolValue prim_integer_new(SolVM *vm, SolValue self, SolValue *args, int argc)
-{
-    (void)self;
-    if (!check_argc(vm, "new", argc, 1)) return SOL_NIL_VAL;
-    if (!SOL_IS_INT(args[0])) {
-        sol_vm_runtime_error(vm, "integer:new expects an integer, got %s",
-                             sol_type_name(args[0]));
-        return SOL_NIL_VAL;
-    }
-    /* Integers are immutable values, so there is nothing to allocate --
-       `integer:new(#45)` is the long form of the literal `#45`. */
-    return args[0];
-}
-
 /* Arithmetic traps on overflow rather than wrapping. __builtin_*_overflow is a
    single instruction plus a predictable branch, so strictness is close to free. */
 static SolValue prim_integer_add(SolVM *vm, SolValue self, SolValue *args, int argc)
@@ -238,18 +224,6 @@ static SolValue prim_float_mul(SolVM *vm, SolValue self, SolValue *args, int arg
     if (!check_argc(vm, "mul", argc, 1)) return SOL_NIL_VAL;
     if (!check_same_type(vm, "mul", self, args[0])) return SOL_NIL_VAL;
     return SOL_FLOAT_VAL(SOL_AS_FLOAT(self) * SOL_AS_FLOAT(args[0]));
-}
-
-static SolValue prim_float_new(SolVM *vm, SolValue self, SolValue *args, int argc)
-{
-    (void)self;
-    if (!check_argc(vm, "new", argc, 1)) return SOL_NIL_VAL;
-    if (!SOL_IS_FLOAT(args[0])) {
-        sol_vm_runtime_error(vm, "float:new expects a float, got %s",
-                             sol_type_name(args[0]));
-        return SOL_NIL_VAL;
-    }
-    return args[0];
 }
 
 static SolValue prim_float_negated(SolVM *vm, SolValue self, SolValue *args, int argc)
@@ -1838,23 +1812,50 @@ static SolValue prim_string_copy_from(SolVM *vm, SolValue self, SolValue *args, 
  *
  * A slot assigned on an instance is always the instance's own, so setting one
  * shadows the prototype rather than writing through to it. */
-/* `new` on a class whose instances are not objects.
+/* `new` on a class that constructs nothing, which is six of the eight.
  *
- * Every built-in class delegates to `object`, which is what puts them in one
- * hierarchy with everything else. `object`'s own `new` answers a fresh object
- * delegating to the receiver -- exactly right for a user-defined class, whose
- * instances *are* objects delegating to it, and exactly wrong for these four,
- * whose instances are strings, symbols, blocks and booleans.
+ * The rule is mutability. `new` belongs where something is *made* -- where the
+ * instances are references, so there is a fresh, distinct one to hand back.
+ * `array:new:equals(array:new)` is false: two arrays. `"":equals("")` is true:
+ * one value. A value class has no fresh distinct thing to answer with, so its
+ * `new` could only ever hand back the literal spelled longer.
  *
- * Left inherited it would answer an object delegating to `string`, which then
- * refuses every message a string understands. Inert rather than dangerous, and
- * still no use to anybody. So each of them shadows `new` and says what to write
- * instead: the error is the only thing this class has to offer here, so it may
- * as well teach. */
+ * `integer` and `float` had exactly that until this commit. `integer:new(#45)`
+ * was `return args[0]`, type-checked -- a vestige of the sketch in the original
+ * notes, where you built a mutable integer and then `set` it. Numbers became
+ * immutable unboxed values, `set` never existed, and `new` outlived the thing it
+ * constructed. It is also what let `#45:new(#1)` answer, since a value resolves
+ * against its class and the class had a `new` to find.
+ *
+ * They cannot simply lose it. Every built-in class delegates to `object`, whose
+ * `new` answers a fresh object delegating to the receiver -- right for a
+ * user-defined class, whose instances *are* objects delegating to it, and wrong
+ * for these six. Deleting integer's registration was tried: `integer:new` then
+ * answered an object delegating to `integer`, which fails `print`. Worse than
+ * the identity function it replaced. So each of the six shadows `new` and says
+ * what to write instead: the error is the only thing these classes have to offer
+ * here, so it may as well teach.
+ *
+ * That leaves `new` meaning one thing -- make me a new one -- on the two classes
+ * where something is made. */
 static SolValue refuse_new(SolVM *vm, const char *how)
 {
     sol_vm_runtime_error(vm, "%s", how);
     return SOL_NIL_VAL;
+}
+
+static SolValue prim_integer_no_new(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self; (void)args; (void)argc;
+    return refuse_new(vm, "an integer is written #45, and there is nothing for "
+                          "'new' to make -- #0 is the empty one");
+}
+
+static SolValue prim_float_no_new(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self; (void)args; (void)argc;
+    return refuse_new(vm, "a float is written 45.0, and there is nothing for "
+                          "'new' to make -- 0.0 is the empty one");
 }
 
 static SolValue prim_string_no_new(SolVM *vm, SolValue self, SolValue *args, int argc)
@@ -2446,7 +2447,7 @@ void sol_builtins_install(SolVM *vm)
        message is on, so that `array:add(#1)` is refused rather than run against
        an object that is not an array. */
     vm->integer_class = sol_object_new(vm, NULL);
-    any_receiver(vm, vm->integer_class, "new", prim_integer_new);
+    any_receiver(vm, vm->integer_class, "new", prim_integer_no_new);
     instance(vm, vm->integer_class, SOL_INT, "print", prim_print);
     instance(vm, vm->integer_class, SOL_INT, "display", prim_display);
     instance(vm, vm->integer_class, SOL_INT, "add", prim_integer_add);
@@ -2479,7 +2480,7 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->float_class, SOL_FLOAT, "ceiling", prim_float_ceiling);
     instance(vm, vm->float_class, SOL_FLOAT, "rounded", prim_float_rounded);
     instance(vm, vm->float_class, SOL_FLOAT, "truncated", prim_float_truncated);
-    any_receiver(vm, vm->float_class, "new", prim_float_new);
+    any_receiver(vm, vm->float_class, "new", prim_float_no_new);
     instance(vm, vm->float_class, SOL_FLOAT, "negated", prim_float_negated);
     instance(vm, vm->float_class, SOL_FLOAT, "abs", prim_float_abs);
     instance(vm, vm->float_class, SOL_FLOAT, "notEquals", prim_not_equals);
