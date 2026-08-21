@@ -372,9 +372,14 @@ talking to — which is the only thing a shared name would have bought.
 
 **The first line is gone as of `d58918c`**, and the section below is what argued
 for that. `new` now means one thing, *make me a new one*, and lives on the two
-classes where something is made. Generic code still cannot send it blind, since
-six classes refuse — but it fails loudly and says why, instead of answering its
-own argument.
+classes where something is made.
+
+The arities agree now too, which was the other half of the complaint: every
+class that constructs takes **no argument**, `object:new` and `array:new` and
+every user-defined `point:new` alike. So generic code handed a constructing class
+can send `new` without knowing which one it has. It still cannot send it blind to
+*any* class, since six refuse — but a refusal that says what to write is a better
+answer than one that hands back its own argument.
 
 ### Why none of the four wants a real one
 

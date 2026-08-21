@@ -207,22 +207,23 @@ Fine while nothing is released; worth a policy before anything is.
 
 ---
 
-### 3.5 Recursion is limited to about 30 levels
+### 3.5 Recursion is limited to about 62 levels
 
-`SOL_FRAMES_MAX` is 64, and in the idiomatic form each recursion level costs
-**two** frames -- one for the method's block, one for the `ifElse` branch block
-that carries the recursive call. Measured: 30 levels succeed, 31 reports "call
-depth exceeded".
+`SOL_FRAMES_MAX` is 64 and a recursion level costs one frame, so 62 levels
+succeed and 63 reports "call depth exceeded". Measured again after the `new`
+change, and it is exactly 62:
 
 ```
-integer:countdown := { self:lessThan(#1):ifElse({ #0 }, { self:sub(#1):countdown }) }.
-#30:countdown.   ; ok
-#31:countdown.   ; solum: call depth exceeded
+integer:down := { self:greaterThan(#0):ifTrue({ self:sub(#1):down }). self }.
+#62:down.   ; ok
+#63:down.   ; solvm: call depth exceeded
 ```
 
-**Now 62**, since inlining conditionals (4.1) means a branch no longer costs a
-frame. Recursion that went through a `whileTrue` body stayed at 30 until the
-loop was inlined too, for exactly the same reason; both forms now reach 62.
+**It used to be 30**, and this entry was titled that way for longer than it was
+true. A level cost **two** frames then -- one for the method's block, one for the
+`ifElse` branch block carrying the recursive call. Inlining conditionals (4.1)
+took the second one away. Recursion through a `whileTrue` body stayed at 30 until
+the loop was inlined too, for exactly the same reason; both forms reach 62 now.
 
 The two remaining ways to go further: raise the cap, which costs stack because
 `SOL_STACK_MAX` is derived from it; or make the limit dynamic rather than a
