@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### A log analyser, and the two things it could not say — `pending`, 2026-08-20
+### A log analyser, and the two things it could not say — `de39331`, 2026-08-20
 
 [examples/log.sol](../examples/log.sol) reads an access log and reports on it:
 totals, a breakdown by status, the busiest paths, the slowest requests, and the
