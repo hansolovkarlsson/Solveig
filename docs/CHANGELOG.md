@@ -7,6 +7,55 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.4.0 — 2026-08-21
+
+**A byte has a number, and the language reads a format it did not know about.**
+
+```
+@include "json.sol".
+
+config := json:read(system:readFile("config.json")).
+config:at("server"):at("port"):print.
+system:writeFile("config.json", json:write(config)).
+```
+
+**`asByte` and `asCharacter`.** A one-character string answers its number, and a
+number `#0` to `#255` answers its string. Two primitives and no new type — both
+ends already existed. A string is bytes, so they are named for what each
+answers: `"é":asByte` is refused rather than answering its first byte, which is
+what keeps the two exact inverses.
+
+**A JSON reader and writer**, `lib/json.sol`, on the search path beside
+`control.sol`. It reads `\uXXXX` in full, surrogate pairs included, and encodes
+UTF-8 — in Solum, on top of `asCharacter`, because encoding a code point is
+arithmetic and arithmetic belongs where the format is known. A document reads,
+round-trips and writes back with names sorted, so the same document always
+produces the same text.
+
+**`--help` and `--version`** on `solas`, `solvm` and `solis`. Both go to stdout
+and leave with 0; usage after a mistake goes to stderr and leaves with 64.
+`--version` names the `.sob` format as well as the release, since that is the
+number that goes wrong in practice.
+
+**`.sob` files are still format 11**, unchanged since 0.1.0. The new messages are
+primitives rather than opcodes, so a file built by any earlier release runs here,
+and this is the first release where `solvm --version` will tell you the number
+itself.
+
+**Two documents.** [dispatch.md](dispatch.md) — a dictionary of blocks is a
+switch statement, 18.8× a chain of comparisons, and the two traps that come of
+putting closures in a table. [one-hierarchy.md](one-hierarchy.md) — what the
+single root means from the outside: one method on `object` answered by every
+value, and the line between inheriting the behaviour and being an object.
+
+**Written by writing programs.** `lib/json.sol` and `examples/manifest.sol` were
+written to find out what the language wanted, and the answer moved the roadmap
+four times: 6.12 got built, 3.5 got a price list for how the dispatch is
+written, and 6.18, 6.19 and 6.21 are new entries for papercuts a program tripped
+over. Three programs here now exist to do a job rather than to show a feature.
+
 ### `--help` on all three binaries — `6542ec3`, 2026-08-21
 
 Each of `solas`, `solvm` and `solis` already had a `usage()`; it was reachable
