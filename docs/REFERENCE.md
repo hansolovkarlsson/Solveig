@@ -45,16 +45,24 @@ a:print.
 ./bin/solis program.sob a b c       # runs compiled bytecode, with arguments
 ```
 
-Each takes `--help` (or `-h`), which lists its options and stops:
+Each takes `--help` (or `-h`), which lists its options and stops, and
+`--version`:
 
 ```sh
-./bin/solas --help
-./bin/solvm --help
-./bin/solis --help
+$ ./bin/solas --help
+usage: solas [options] <file.sol>
+...
+
+$ ./bin/solvm --version
+solvm 0.3.0 (.sob format 11)
 ```
 
-It goes to **stdout** and leaves with 0, since it is what was asked for. The
-same text after a mistake goes to stderr and leaves with 64.
+Both go to **stdout** and leave with 0, since they are what was asked for. The
+usage text after a *mistake* goes to stderr and leaves with 64.
+
+`--version` names the `.sob` format as well as the release, because that is the
+number that goes wrong in practice: a file built by a different one is refused
+rather than misread, and this is where you find out which one you are holding.
 
 Everything after the file belongs to the program, so a front end's own flags
 have to come first — including `--help` itself. `solvm program.sob --help` hands
@@ -108,7 +116,8 @@ A corrupt file is refused rather than executed.
 
 The file also carries a format version, and a build reads only its own: a `.sob`
 left over from an earlier one is refused with `unsupported bytecode version`
-rather than misread. Recompile the `.sol`.
+rather than misread. Recompile the `.sol`. `solvm --version` says which format
+this build speaks.
 
 ---
 

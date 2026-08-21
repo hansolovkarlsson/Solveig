@@ -8,6 +8,7 @@
 
 #include "solas/compiler.h"
 #include "solis/input.h"
+#include "solum/common.h"
 #include "solum/serialize.h"
 #include "solum/vm.h"
 
@@ -142,6 +143,17 @@ static int run_file(const char *path, const SolSearchPath *search,
     return result == SOL_OK ? 0 : 70;
 }
 
+#define NAME "solis"
+
+/* Name, version, and the `.sob` format this build speaks. The format number is
+   here because it is the one that goes wrong in practice: a file from a build
+   with a different one is refused rather than misread, and this is where you
+   find out which number you are holding. */
+static void version(void)
+{
+    printf("%s " SOLUM_VERSION " (.sob format %d)\n", NAME, SOL_SOB_VERSION);
+}
+
 /* stdout for `--help`, stderr for a mistake. See the note in solas. */
 static void usage(FILE *out)
 {
@@ -153,6 +165,7 @@ static void usage(FILE *out)
         "so a script with a #! line and no extension runs as what it is.\n"
         "\n"
         "  -I <dir>     where an @include falls back to; repeatable\n"
+        "  --version    show the version and the .sob format, and stop\n"
         "  --help, -h   show this and stop\n"
         "\n"
         "Everything after the file belongs to the program, so a script may take a\n"
@@ -171,6 +184,11 @@ int main(int argc, char *argv[])
     while (at < argc) {
         if (strcmp(argv[at], "--help") == 0 || strcmp(argv[at], "-h") == 0) {
             usage(stdout);
+            sol_search_path_free(&search);
+            return 0;
+        }
+        if (strcmp(argv[at], "--version") == 0) {
+            version();
             sol_search_path_free(&search);
             return 0;
         }

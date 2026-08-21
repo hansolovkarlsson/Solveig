@@ -6,8 +6,20 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "solum/common.h"
 #include "solum/serialize.h"
 #include "solum/vm.h"
+
+#define NAME "solvm"
+
+/* Name, version, and the `.sob` format this build speaks. The format number is
+   here because it is the one that goes wrong in practice: a file from a build
+   with a different one is refused rather than misread, and this is where you
+   find out which number you are holding. */
+static void version(void)
+{
+    printf("%s " SOLUM_VERSION " (.sob format %d)\n", NAME, SOL_SOB_VERSION);
+}
 
 /* stdout for `--help`, stderr for a mistake. See the note in solas. */
 static void usage(FILE *out)
@@ -18,6 +30,7 @@ static void usage(FILE *out)
         "Loads a compiled chunk and runs it.\n"
         "\n"
         "  --dump       disassemble the chunk before running it\n"
+        "  --version    show the version and the .sob format, and stop\n"
         "  --help, -h   show this and stop\n"
         "\n"
         "Everything after the .sob belongs to the program and is what\n"
@@ -38,6 +51,10 @@ int main(int argc, char *argv[])
     while (at < argc) {
         if (strcmp(argv[at], "--help") == 0 || strcmp(argv[at], "-h") == 0) {
             usage(stdout);
+            return 0;
+        }
+        if (strcmp(argv[at], "--version") == 0) {
+            version();
             return 0;
         }
         if (strcmp(argv[at], "--dump") != 0) break;

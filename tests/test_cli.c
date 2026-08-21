@@ -10,6 +10,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "solum/common.h"
+#include "solum/serialize.h"
+
 #define DIR "build/tests/cli"
 
 /* Runs `command` and answers its exit status, copying up to `size` bytes of
@@ -52,8 +55,33 @@ static void test_help_is_not_an_error(void)
         assert(strstr(out, "usage:") != NULL);
         /* Every option the binary accepts is named, which is the whole job. */
         assert(strstr(out, "--help") != NULL);
+        assert(strstr(out, "--version") != NULL);
     }
     printf("  --help goes to stdout and leaves with 0\n");
+}
+
+/* `--version` names the binary, the release, and the `.sob` format it speaks.
+   The format number is the useful half: a file from a build with a different
+   one is refused, and this is where you find out which number you are holding.
+   Checked against the constants rather than against a copy of the text, so a
+   release that bumps either cannot leave this passing and wrong. */
+static void test_version_names_the_format(void)
+{
+    static const char *names[] = { "solas", "solvm", "solis" };
+    char out[4096];
+    char command[256];
+    char expected[256];
+
+    snprintf(expected, sizeof expected, SOLUM_VERSION " (.sob format %d)",
+             SOL_SOB_VERSION);
+
+    for (size_t i = 0; i < sizeof names / sizeof names[0]; i++) {
+        snprintf(command, sizeof command, "bin/%s --version 2>/dev/null", names[i]);
+        assert(run(command, out, sizeof out) == 0);
+        assert(strstr(out, names[i]) == out);   /* the name it was called by */
+        assert(strstr(out, expected) != NULL);
+    }
+    printf("  --version names the binary, the release and the .sob format\n");
 }
 
 /* The same words after a mistake are a different thing: stderr, and a status
@@ -90,9 +118,10 @@ static void test_the_program_keeps_its_own_arguments(void)
     assert(system("bin/solas " DIR "/args.sol -o " DIR "/args.sob") == 0);
 
     char out[4096];
-    assert(run("bin/solvm " DIR "/args.sob --help --dump -h 2>/dev/null",
+    assert(run("bin/solvm " DIR "/args.sob --help --dump -h --version 2>/dev/null",
                out, sizeof out) == 0);
-    assert(strstr(out, "#3") != NULL);          /* all three reached the program */
+    assert(strstr(out, "#4") != NULL);          /* all four reached the program */
+    assert(strstr(out, ".sob format") == NULL); /* and solvm printed no banner */
     assert(strstr(out, "--help") != NULL);
     assert(strstr(out, "usage:") == NULL);      /* and solvm said nothing */
 
@@ -119,6 +148,7 @@ static void test_the_other_options_still_work(void)
 int main(void)
 {
     test_help_is_not_an_error();
+    test_version_names_the_format();
     test_a_mistake_goes_to_stderr();
     test_the_program_keeps_its_own_arguments();
     test_the_other_options_still_work();

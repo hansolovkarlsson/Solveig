@@ -5,7 +5,19 @@
 
 #include "solas/compiler.h"
 #include "solum/bytecode.h"
+#include "solum/common.h"
 #include "solum/serialize.h"
+
+#define NAME "solas"
+
+/* Name, version, and the `.sob` format this build speaks. The format number is
+   here because it is the one that goes wrong in practice: a file from a build
+   with a different one is refused rather than misread, and this is where you
+   find out which number you are holding. */
+static void version(void)
+{
+    printf("%s " SOLUM_VERSION " (.sob format %d)\n", NAME, SOL_SOB_VERSION);
+}
 
 /* Written to `out` rather than always to stderr: `--help` was asked for and
    belongs on stdout with a status of 0, where a pipe or a pager can have it,
@@ -23,6 +35,7 @@ static void usage(FILE *out)
         "  -I <dir>     where an @include falls back to when the file is not\n"
         "               beside the one including it; repeatable, first wins\n"
         "  --dump       disassemble the chunk as well as writing it\n"
+        "  --version    show the version and the .sob format, and stop\n"
         "  --help, -h   show this and stop\n"
         "\n"
         "An @include is looked for beside the including file first, then in each\n"
@@ -56,6 +69,10 @@ int main(int argc, char *argv[])
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             usage(stdout);
+            sol_search_path_free(&search);
+            return 0;
+        } else if (strcmp(argv[i], "--version") == 0) {
+            version();
             sol_search_path_free(&search);
             return 0;
         } else if (strcmp(argv[i], "--dump") == 0) {
