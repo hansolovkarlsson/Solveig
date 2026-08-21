@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### An include search path, and a library to find on it — `pending`, 2026-08-20
+### An include search path, and a library to find on it — `1a783b2`, 2026-08-20
 
 Two halves. `@include` gained a search path, and `lib/control.sol` is the first
 thing that ships on it:
