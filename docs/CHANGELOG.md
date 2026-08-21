@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### A byte has a number: `asByte` and `asCharacter` — `pending`, 2026-08-21
+### A byte has a number: `asByte` and `asCharacter` — `49b0ab1`, 2026-08-21
 
 [6.12](COMPLETED.md#612-taking-a-binary-file-apart--done) waited a long time for
 a program to need it and then got needed by the wrong one. The entry was about
