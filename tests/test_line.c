@@ -142,10 +142,24 @@ static bool session_start_with_home(Session *s, const char *home)
 static bool session_start(Session *s) { return session_start_with_home(s, NULL); }
 
 /* Reads until `needle` appears after everything already matched, or two seconds
-   pass. Answers whether it turned up. */
+   pass. Answers whether it turned up.
+ *
+ * **Choose a needle that cannot appear in what was typed.** The editor paints
+ * every keystroke, so the text of a line is on the wire long before the line
+ * runs -- `expect("reading")` after typing `"reading":display.` matches the
+ * painting, and everything after it is a keystroke out of step. Arithmetic
+ * keeps the two apart: nothing in `#70:add(#7):print.` spells #77. This has
+ * caught three tests in this file, which is why it is written here rather than
+ * beside any one of them. */
 static bool session_expect(Session *s, const char *needle)
 {
-    for (int waited = 0; waited < 2000; waited += 20) {
+    /* The budget is two seconds of *silence*, not two seconds of iterations:
+       reading something resets it. Counting turns of the loop instead meant
+       giving up after a hundred reads however fast they came, which a long line
+       reaches while it is still being painted -- a key is echoed one refresh at
+       a time, so a hundred characters is a hundred reads before anything runs. */
+    int quiet = 0;
+    while (quiet < 2000) {
         char *found = strstr(s->out + s->scan_from, needle);
         if (found != NULL) {
             s->scan_from = (size_t)(found - s->out) + strlen(needle);
@@ -156,7 +170,11 @@ static bool session_expect(Session *s, const char *needle)
         FD_ZERO(&set);
         FD_SET(s->master, &set);
         struct timeval timeout = { 0, 20000 };
-        if (select(s->master + 1, &set, NULL, NULL, &timeout) <= 0) continue;
+        if (select(s->master + 1, &set, NULL, NULL, &timeout) <= 0) {
+            quiet += 20;
+            continue;
+        }
+        quiet = 0;
 
         if (s->capacity - s->length < 4096) {
             s->capacity *= 2;
@@ -364,6 +382,45 @@ static void test_ctrl_h_still_deletes(void)
     printf("  ctrl-h with something typed is still backspace\n");
 }
 
+/* ---- system:readKey, which needs a terminal to be worth anything --------- */
+
+/* The half of `readKey` a pipe cannot show: a key arrives *before* return is
+   pressed. test_system.c drives it through a pipe, where a byte is already a
+   byte; this is the terminal, where it means putting the tty in raw mode.
+ *
+   Driven through solis rather than solvm so that the pty harness above can be
+   reused -- what is under test is the primitive either way. */
+static void test_read_key_does_not_wait_for_return(void)
+{
+    Session s;
+    if (!session_start(&s)) return;
+
+    assert(ready(&s));
+    /* A block that reads three keys and prints their numbers. It is sent as one
+       line, so nothing is read as a key until the line itself is entered. */
+    session_send(&s,
+        "#70:add(#7):print. "               /* #77, which the line itself does not spell */
+        "keys := array:new. "
+        "#3:repeat({ keys:add(system:readKey:asByte) }). "
+        "keys:print.\r");
+
+    /* Wait for the program to say it has started before sending anything.
+       Leaving the line editor restores the terminal with TCSAFLUSH, which
+       discards input already received -- so a key sent before that happens is
+       thrown away, the same trap the prompt itself has at both ends. */
+    assert(session_expect(&s, "#77"));
+
+    /* No return after these, and no echo of them either. */
+    session_send(&s, "a");
+    session_send(&s, "b");
+    session_send(&s, "c");
+
+    assert(session_expect(&s, "[#97, #98, #99]"));
+
+    session_end(&s);
+    printf("  readKey answers before return is pressed\n");
+}
+
 /* ---- history between sessions ------------------------------------------ */
 
 static void test_the_history_file_is_under_home(void)
@@ -497,6 +554,7 @@ int main(void)
     test_a_half_typed_line_survives_browsing();
     test_ctrl_h_lists_recent_lines();
     test_ctrl_h_still_deletes();
+    test_read_key_does_not_wait_for_return();
     test_the_history_file_is_under_home();
     test_history_survives_being_written_and_read();
     test_the_history_file_is_capped();

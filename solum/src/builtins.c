@@ -3306,6 +3306,86 @@ static SolValue prim_system_exit(SolVM *vm, SolValue self, SolValue *args, int a
  * and appends to a buffer that outlives the call. Different enough that sharing
  * would mean parameterising both.
  */
+/* `system:readKey` -- one byte from standard input, without waiting for a line.
+ *
+ * The three questions this entry left open, answered:
+ *
+ * **One byte, not a whole escape sequence.** An arrow key is three bytes and a
+ * function key can be more, and which is which is the terminal's business
+ * rather than this one's. Answering the byte is the smaller promise and lets a
+ * program assemble whatever it wants from them -- and a program that only cares
+ * whether *any* key was pressed gets that without unpicking a sequence it did
+ * not want. A one-character string, so `asByte` gives the number and the value
+ * is a value like any other.
+ *
+ * **nil at the end of input**, which is `readLine`'s answer and for the same
+ * reason: running out of input is how a loop that reads finishes, rather than
+ * something that went wrong.
+ *
+ * **No echo.** Raw mode does not, and a program that wants the key shown can
+ * print it. Showing it would be a second thing happening.
+ *
+ * Raw mode only when standard input is a terminal. A pipe or a file needs none
+ * of it -- a byte is already a byte there -- so this works under `solis <
+ * script` and in a test harness, which is what makes it testable at all.
+ *
+ * The mode is restored before answering, so a program's own output is normal
+ * between keys and ctrl-c still interrupts. `solis/src/line.c` does the same
+ * dance and is not shared with this: it holds raw mode across a whole line of
+ * editing where this holds it for one byte, and an interface with both
+ * lifetimes in it would be larger than the twelve lines it saved.
+ */
+#if defined(__unix__) || defined(__APPLE__)
+#include <termios.h>
+#include <unistd.h>
+
+static SolValue prim_system_read_key(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    (void)args;
+    if (!check_argc(vm, "readKey", argc, 0)) return SOL_NIL_VAL;
+
+    /* Anything already buffered by an earlier `readLine` would be read by
+       `fgets` and not by `read`, so the two are kept from disagreeing by
+       flushing what stdio holds before going underneath it. */
+    struct termios original;
+    bool raw = isatty(STDIN_FILENO) && tcgetattr(STDIN_FILENO, &original) == 0;
+
+    if (raw) {
+        struct termios mode = original;
+        /* ISIG stays, so ctrl-c interrupts a program that is waiting for a key
+           rather than handing it the byte and carrying on. */
+        mode.c_lflag &= (tcflag_t)~(ICANON | ECHO);
+        mode.c_cc[VMIN] = 1;
+        mode.c_cc[VTIME] = 0;
+        if (tcsetattr(STDIN_FILENO, TCSANOW, &mode) != 0) raw = false;
+    }
+
+    char byte;
+    ssize_t got = read(STDIN_FILENO, &byte, 1);
+
+    if (raw) tcsetattr(STDIN_FILENO, TCSANOW, &original);
+
+    if (got != 1) return SOL_NIL_VAL;          /* the end of input */
+    return SOL_STRING_VAL(sol_string_new(vm, &byte, 1));
+}
+
+#else   /* no termios: a byte is still a byte, it just cannot turn off a tty */
+
+static SolValue prim_system_read_key(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    (void)args;
+    if (!check_argc(vm, "readKey", argc, 0)) return SOL_NIL_VAL;
+
+    int c = fgetc(stdin);
+    if (c == EOF) return SOL_NIL_VAL;
+    char byte = (char)c;
+    return SOL_STRING_VAL(sol_string_new(vm, &byte, 1));
+}
+
+#endif
+
 static SolValue prim_system_read_line(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     (void)self;
@@ -4303,6 +4383,7 @@ void sol_builtins_install(SolVM *vm)
     any_receiver(vm, system, "exit", prim_system_exit);
     any_receiver(vm, system, "clock", prim_system_clock);
     any_receiver(vm, system, "readLine", prim_system_read_line);
+    any_receiver(vm, system, "readKey", prim_system_read_key);
     any_receiver(vm, system, "readFile", prim_system_read_file);
     any_receiver(vm, system, "writeFile", prim_system_write_file);
     any_receiver(vm, system, "fileExists", prim_system_file_exists);

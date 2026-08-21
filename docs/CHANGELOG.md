@@ -7,6 +7,52 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### `system:readKey`, and the roadmap is empty — `pending`, 2026-08-21
+
+[6.10](COMPLETED.md#610-waiting-for-a-single-key--done), closed this time by the
+thing it asked for. A *program* can read a key now, not only the prompt:
+
+```
+key := system:readKey.
+key:asByte:print.        ; #97 for "a", pressed on its own
+```
+
+**The three questions the entry left, answered.**
+
+*One byte, not a whole key.* An arrow is three bytes and a function key can be
+more, and which is which belongs to the terminal rather than to the language.
+The byte is the smaller promise: a program that wants arrows assembles them, and
+one that only wants *any key* is not made to unpick a sequence it never asked
+about. A one-character string, so `asByte` gives the number.
+
+*nil at the end of input*, which is `readLine`'s answer and for the same reason.
+
+*No echo*, because raw mode does not, and showing the key would be a second
+thing happening.
+
+Raw mode **only on a terminal** — through a pipe a byte is already a byte, so
+this reads the same way under `solvm program.sob < input`, which is what makes
+the deterministic test possible. `ctrl-c` still interrupts a program waiting for
+a key.
+
+**What it cannot do**, and no byte-level reader can: tell the escape key from
+the start of a sequence. Escape then tab reads the tab as the byte after the
+escape. Telling them apart needs a read that gives up after a few milliseconds.
+[examples/keys.sol](../examples/keys.sol) assembles arrow keys out of the bytes
+and says this out loud.
+
+**A harness bug came out of testing it.** `session_expect` counted turns of its
+loop against a two-second deadline, so it gave up after a hundred reads however
+fast they came — which a long line reaches while it is still being echoed, a
+keystroke at a time. It counts two seconds of *silence* now. Every test in that
+file passed beforehand; the first one with a line long enough to notice found
+it.
+
+**The roadmap is empty.** Sections 2 and 6 have nothing in them, and what is
+left is section 3: the restrictions the language keeps on purpose. The way to
+add to it is to write a program and find out what it wants — which produced
+everything in this release.
+
 ### `makeDirectory` answers instead of refusing — `a97f0e6`, 2026-08-21
 
 [6.25](COMPLETED.md#625-makedirectory-refuses-one-that-is-already-there--done).

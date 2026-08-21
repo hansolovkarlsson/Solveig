@@ -797,7 +797,7 @@ never get confused. `\r\n` counts as one terminator and a last line with no
 newline of its own still counts as a line.
 
 The half of this entry about waiting for a single key stayed behind, under a
-number of its own: [6.10](ROADMAP.md#610-waiting-for-a-single-key), which is
+number of its own: [6.10](#610-waiting-for-a-single-key--done), which is
 still open. `solis` grew raw-mode line editing for its own prompt in
 [6.24](#624-the-prompt-has-no-history--done), which needed the same machinery and
 is not the same thing: that is the front end reading keys, where 6.10 is a
@@ -1488,6 +1488,56 @@ is a test that reads one back.
 **What the program gained besides**: it can now tell a file whose bytes are
 right and whose permissions are wrong, and fix that without reading the file
 again — which is the shape every real mirroring tool has.
+
+### 6.10 Waiting for a single key — **done**
+
+`system:readKey`, answering one byte without waiting for return.
+
+**Closed once by mistake and reopened.** The first time, `solis` grew raw-mode
+line editing for its own prompt — the same machinery, and not the same thing,
+since a *program* still could not read a key. That work is
+[6.24](#624-the-prompt-has-no-history--done). This is the message.
+
+The entry left three questions and they are answered:
+
+**One byte, not a whole key.** An arrow is three bytes and a function key can be
+more, and which is which belongs to the terminal rather than to the language.
+Answering the byte is the smaller promise: a program that wants arrows assembles
+them, and one that only wants *any key* is not made to unpick a sequence it
+never asked about. It comes back as a one-character string, so `asByte` gives
+the number and the value is a value like any other.
+
+**nil at the end of input**, which is `readLine`'s answer and for the same
+reason: running out of input is how a loop that reads finishes.
+
+**No echo.** Raw mode does not, and a program that wants the key shown prints
+it. Showing it would be a second thing happening.
+
+Raw mode **only when standard input is a terminal**. Through a pipe or a file a
+byte is already a byte, so this reads the same way under
+`solvm program.sob < input` — which is what makes it testable without a
+terminal, and the pipe test is the deterministic one. `ISIG` stays on, so
+ctrl-c interrupts a program that is waiting for a key rather than handing it the
+byte.
+
+**What it cannot do**, and no byte-level reader can: tell the escape key from
+the start of a sequence. Pressing escape and then tab reads the tab as the byte
+after the escape. A terminal tells them apart by waiting a few milliseconds and
+giving up, which needs a read with a timeout.
+[examples/keys.sol](../examples/keys.sol) demonstrates the assembly and says
+this out loud.
+
+**The raw-mode dance is written twice**, here and in `solis/src/line.c`, and
+that is deliberate: the prompt holds raw mode across a whole line of editing
+where this holds it for one byte, and an interface with both lifetimes in it
+would have been larger than the twelve lines it saved.
+
+**A harness bug came out of testing it.** `session_expect` in `test_line.c`
+counted turns of its loop against a two-second deadline, so it gave up after a
+hundred reads however fast they arrived — which a long line reaches while it is
+still being echoed, a keystroke at a time. It counts two seconds of *silence*
+now. Every test in that file was passing beforehand; the one with a line long
+enough to notice was the one that found it.
 
 ### 6.24 The prompt has no history — **done**
 

@@ -142,7 +142,7 @@ make test     # builds and runs the test suite
 
 ## Examples
 
-Twenty-nine programs. Every concept the [guide](docs/GUIDE.md) names has one,
+Thirty programs. Every concept the [guide](docs/GUIDE.md) names has one,
 and five are whole programs written to do a job rather than to demonstrate a
 feature: [log](examples/log.sol) analyses an access log,
 [evaluator](examples/evaluator.sol) parses and folds an expression,
@@ -179,4 +179,5 @@ a JSON and an HTML reader written in Solum —
 [time](examples/time.sol),
 [manifest](examples/manifest.sol),
 [page](examples/page.sol),
-[mirror](examples/mirror.sol).
+[mirror](examples/mirror.sol),
+[keys](examples/keys.sol).

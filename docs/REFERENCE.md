@@ -565,6 +565,41 @@ Waiting for a single keypress is a different job. It needs raw terminal mode,
 which is the first thing in the runtime that would differ by platform, and it is
 not here.
 
+#### One key at a time
+
+`system:readKey` answers **one byte** as a one-character string, or **nil** at
+the end of input, and does not wait for return:
+
+```
+key := system:readKey.
+key:asByte:print.        ; #97 for "a", pressed on its own
+```
+
+That is what anything interactive needs — a menu, a pager, a prompt that redraws
+as you type. `readLine` waits for a line; this does not.
+
+**A byte, not a key.** An arrow is three bytes and a function key can be more,
+and which is which belongs to the terminal rather than to the language. A
+program that wants arrows assembles them:
+
+```
+escape := #27:asCharacter.
+key:equals(escape):ifTrue({
+    system:readKey.                       ; the "["
+    ["up", "down", "right", "left"]:at("ABCD":indexOf(system:readKey)) }).
+```
+
+[examples/keys.sol](../examples/keys.sol) does that, and says what it costs: a
+byte-level reader **cannot tell the escape key from the start of a sequence**,
+since telling them apart needs a read that gives up after a few milliseconds and
+there is none here.
+
+**No echo**, because raw mode does not; a program that wants the key shown
+prints it. **Raw mode only on a terminal** — through a pipe or a file a byte is
+already a byte, so this reads the same way under `solvm program.sob < input`,
+which is also what makes it testable. `ctrl-c` still interrupts a program
+waiting for a key.
+
 ### Files
 
 Whole files, as strings.
@@ -2181,6 +2216,7 @@ it delegates to `object` like everything else. See
 | `exit(status)` | nothing — the program stops, with `status` from #0 to #255 |
 | `arguments` | an array of strings; the empty array when there were none |
 | `readLine` | one line of standard input without its terminator, or nil at the end |
+| `readKey` | one byte as a one-character string, or nil at the end; no wait for return |
 | `readFile(path)` | the whole file as a string; an error if it is not there |
 | `writeFile(path, text)` | nil, having replaced the file's contents |
 | `fileExists(path)` | true if a file — not a directory — is at that path |
@@ -2190,7 +2226,7 @@ it delegates to `object` like everything else. See
 | `environment(name)` | the variable, or **nil** when it is not set |
 | `fileSize(path)` | an integer, without reading the file |
 | `remove(path)` | nil, having deleted a file or an **empty** directory |
-| `makeDirectory(path)` | nil, having made one; the parent must exist |
+| `makeDirectory(path)` | **true** if it made one, **false** if a directory was there; the parent must exist |
 | `rename(from, to)` | nil, having moved it; **replaces** an existing `to` |
 | `clock` | monotonic seconds as a float; only differences are meaningful |
 | `time` | the current instant, as a [time](#time) |

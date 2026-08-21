@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 
 #include <sys/stat.h>
@@ -892,6 +893,57 @@ static bool is_text(SolValue value, const char *expected)
            memcmp(s->chars, expected, (size_t)s->length) == 0;
 }
 
+/* One byte at a time, without waiting for a line.
+ *
+ * Driven through a pipe, which is deterministic and is also half the contract:
+ * raw mode is for a terminal, and a byte from a pipe is already a byte. The
+ * terminal half -- that a key arrives before return is pressed -- needs a pty
+ * and is in test_line.c, where the pty harness lives. */
+static void test_read_key_takes_one_byte(void)
+{
+    /* stdin is replaced for the duration, since these primitives read it
+       directly rather than through anything that could be handed a file. */
+    FILE *script = fopen("build/tests/keys-in", "w");
+    assert(script != NULL);
+    fputs("aZ\n", script);
+    fclose(script);
+
+    int saved = dup(STDIN_FILENO);
+    assert(saved >= 0);
+    FILE *in = freopen("build/tests/keys-in", "r", stdin);
+    assert(in != NULL);
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    SolResult result = run(&vm, &chunk,
+        "one := system:readKey."
+        "two := system:readKey."
+        "three := system:readKey."          /* the newline is a byte too */
+        "past := system:readKey."           /* and then there are none */
+        "oneCode := one:asByte."
+        "threeCode := three:asByte."
+        "ended := past:isNil.");
+
+    /* Put stdin back before asserting, so a failure does not leave the harness
+       reading from a file. */
+    fflush(stdin);
+    dup2(saved, STDIN_FILENO);
+    close(saved);
+    clearerr(stdin);
+
+    assert(result == SOL_OK);
+    assert(is_text(global(&vm, "one"), "a"));
+    assert(is_text(global(&vm, "two"), "Z"));
+    assert(SOL_AS_INT(global(&vm, "oneCode")) == 97);
+    assert(SOL_AS_INT(global(&vm, "threeCode")) == 10);   /* the newline */
+    assert(SOL_AS_BOOL(global(&vm, "ended")) == true);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    remove("build/tests/keys-in");
+    printf("  readKey takes one byte, and answers nil at the end\n");
+}
+
 /* `makeDirectory` answers whether it made one, rather than refusing a directory
    that is already there. "Make sure this exists" is what a script wants nine
    times in ten, and it was a test and a make before this. */
@@ -1079,6 +1131,7 @@ int main(void)
     test_a_file_that_is_not_there_is_an_error();
     test_file_exists_means_a_file();
 
+    test_read_key_takes_one_byte();
     test_making_a_directory_answers_whether_it_did();
     test_a_mode_can_be_read_and_set();
     test_a_mode_out_of_range_is_refused();
