@@ -24,13 +24,23 @@ control flow, a mark-sweep collector over objects, blocks and compiled code, the
 `.sob` format with its verifier, and every built-in type the language has.
 
 The language is Turing-complete, does not leak, and has strings, arrays,
-symbols, user-defined objects, reflection, sorting, formatted output, the
-conversions between every pair of types that has an unambiguous one, `split`,
-`indexOf`, `copyFrom` and `join` for taking a string apart and putting it back,
-a fold over arrays, and a way to split a program across files, that last one spelled `@include "lib.sol".` —
-`@` marking the one thing in the language that happens while compiling.
-Conditionals, loops and `and`/`or` written literally compile to jumps, side-table
-operands are two bytes, and a send compares pointers.
+dictionaries, symbols, user-defined objects, reflection, sorting, formatted
+output, and the conversions between every pair of types that has an unambiguous
+one.
+
+A string can be taken apart and put back — `split`, `indexOf`, `copyFrom`,
+`join` — and an array can be folded, sliced and asked for its first or last few.
+`isNil` and `notNil` ask whether a value is there. A program is split across
+files with `@include "lib.sol".`, `@` marking the one thing in the language that
+happens while compiling, and a name not found beside the includer is looked for
+on a search path — which is how the library that ships with the language is
+reached.
+
+Conditionals, `whileTrue`, `doUntil` and `and`/`or` written literally compile to
+jumps; the counted loops are primitives, which measured faster than jumps would
+have been. Side-table operands are two bytes, a send compares pointers, and the
+script's frame has slots like every other, so a temporary may be declared
+anywhere.
 
 **What is left is no longer the language.** Section 6 is a program's dealings
 with the world outside it — reading input, writing files, stopping with a
