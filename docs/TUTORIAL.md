@@ -344,6 +344,9 @@ Nearly the whole language, without meeting it as a list:
 - [fetched-methods.md](fetched-methods.md) — holding a method as a value.
 - [absence.md](absence.md) — nil, empty, and unset, and what a name holds before
   you fill it.
-- [REFERENCE.md](REFERENCE.md) — every message, for looking things up.
+- [REFERENCE.md](REFERENCE.md) — every message, for looking things up. Two
+  things this tutorial does not touch and a real program soon wants: a
+  [dictionary](REFERENCE.md#dictionary), for keeping values under keys, and
+  [catching a failure](REFERENCE.md#errors) rather than stopping at it.
 - [examples/](../examples/) — twenty-two more programs. Most take one topic;
   [log.sol](../examples/log.sol) is a whole program, an access-log analyser.
