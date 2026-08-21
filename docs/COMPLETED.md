@@ -898,7 +898,7 @@ entry asked for a reference page generated from, or at least checked against,
 the header — the same problem the examples solved by being compiled in the test
 suite.
 
-Built as `pending`. [BYTECODE.md](BYTECODE.md) describes all twenty-one opcodes:
+Built as `8d7c558`. [BYTECODE.md](BYTECODE.md) describes all twenty-one opcodes:
 operands, instruction length, effect on the stack, and why the three jump
 instructions carry a name index they never push. design.md keeps the
 operand-width rule and points at it, having no table of its own any more.

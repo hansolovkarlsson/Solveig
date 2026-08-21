@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### The instruction set has a reference, and the tests keep it honest — `pending`, 2026-08-20
+### The instruction set has a reference, and the tests keep it honest — `8d7c558`, 2026-08-20
 
 Roadmap 6.7. [docs/BYTECODE.md](BYTECODE.md) describes all twenty-one opcodes:
 operands, instruction length, effect on the stack, and a worked disassembly.
