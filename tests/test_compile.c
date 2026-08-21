@@ -359,6 +359,60 @@ static void test_every_builtin_message_has_an_example(void)
            checked);
 }
 
+/* The reference's message index lists every built-in, and this is what keeps it
+   that way. A reference that has fallen behind the thing it describes is worse
+   than no reference, and the way an index falls behind is one message at a
+   time -- so the same check that makes every message appear in an example makes
+   every message appear in the index.
+ *
+   It checks presence rather than what is said about it. Which types answer a
+   message is prose, and prose is not something a test can hold to; that the
+   message is *there to look up* is. */
+static void test_every_builtin_message_is_in_the_index(void)
+{
+    char *reference = slurp("docs/REFERENCE.md");
+    const char *index = strstr(reference, "## Message index");
+    assert(index != NULL);
+
+    char *builtins = slurp("solum/src/builtins.c");
+    int checked = 0;
+
+    for (char *line = strtok(builtins, "\n"); line != NULL; line = strtok(NULL, "\n")) {
+        if (strstr(line, "instance(vm,") == NULL &&
+            strstr(line, "any_receiver(vm,") == NULL) {
+            continue;
+        }
+
+        const char *open = strchr(line, '"');
+        assert(open != NULL);
+        const char *close = strchr(open + 1, '"');
+        assert(close != NULL);
+
+        /* The index writes each one as `name` in a table cell, so the backticks
+           are part of what is looked for -- otherwise `add` would be found
+           inside `makeDirectory` and the check would pass on nothing. */
+        char wanted[80];
+        size_t n = (size_t)(close - open - 1);
+        assert(n > 0 && n + 3 < sizeof wanted);
+        wanted[0] = '`';
+        memcpy(wanted + 1, open + 1, n);
+        wanted[n + 1] = '`';
+        wanted[n + 2] = '\0';
+
+        if (strstr(index, wanted) == NULL) {
+            printf("\n%s is a built-in message and the reference's index does "
+                   "not list it\n", wanted);
+            assert(false);
+        }
+        checked++;
+    }
+
+    free(builtins);
+    free(reference);
+    printf("  every built-in message is in the reference's index (%d registrations)\n",
+           checked);
+}
+
 /* And nothing ships unverified: every .sol in examples/ is in the list above,
    so adding one without adding it here is caught rather than silently skipped.
    `library.sol` and the rest are all included, being ordinary files. */
@@ -600,6 +654,7 @@ int main(void)
     test_the_old_form_would_not_have_verified();
     test_every_example_verifies();
     test_every_builtin_message_has_an_example();
+    test_every_builtin_message_is_in_the_index();
     test_no_example_is_left_out();
     test_every_library_file_verifies();
     test_no_library_file_is_left_out();

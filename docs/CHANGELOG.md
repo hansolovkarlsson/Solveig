@@ -7,6 +7,44 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### The reference gets a contents and a message index — `pending`, 2026-08-21
+
+At 2300 lines the reference had a contents listing 13 of its 68 headings, which
+is a contents in the sense that a signpost pointing at a county is directions.
+
+**Two levels now**, generated from the headings themselves, so every `##` and
+`###` is in it — 56 entries.
+
+**And a message index**, which is the part that was actually missing. The
+question a reference gets asked is *what has `copyFrom`?* rather than *what does
+a string do?*, and the sections answer only the second:
+
+```
+| `copyFrom` | array, string |
+| `indexOf`  | array, string |
+| `asByte`   | string |
+```
+
+110 messages, each linked to the types that answer it, derived from the
+registrations in `builtins.c` rather than written out by hand.
+
+**A test keeps it honest.** A message registered and missing from the index
+fails the build — the same bargain that already makes every message appear in an
+example. Checked by deleting a row and watching it fail, because a check that
+cannot fail is worse than none:
+
+```
+`readKey` is a built-in message and the reference's index does not list it
+```
+
+It checks presence rather than what is said, since which types answer a message
+is prose and prose is not something a test can hold to.
+
+**One wart the contents exposed**: two sections were both called *Errors* — one
+about raising and catching, one about what a failure looks like when it is
+printed. The second is *How errors are reported* now. Duplicate headings are
+invisible until something lists them side by side.
+
 ### `system:readKey`, and the roadmap is empty — `9ab2d72`, 2026-08-21
 
 [6.10](COMPLETED.md#610-waiting-for-a-single-key--done), closed this time by the

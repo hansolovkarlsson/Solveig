@@ -18,20 +18,64 @@ a:print.
 
 ## Contents
 
-- [Running a program](#running-a-program)
-  — including [the prompt's keys](#the-keys) and [its history](#history-between-sessions)
-- [Splitting a program across files](#splitting-a-program-across-files)
-- [The program and its process](#the-program-and-its-process)
-- [Lexical structure](#lexical-structure)
-- [Values](#values)
-- [Names and binding](#names-and-binding)
-- [Messages](#messages)
-- [Blocks](#blocks)
-- [Control flow](#control-flow)
-- [Objects](#objects)
-- [Message reference](#message-reference)
-- [Errors](#errors)
-- [Limits](#limits)
+- **[Running a program](#running-a-program)**
+  - [The prompt](#the-prompt)
+  - [Running a script directly](#running-a-script-directly)
+- **[Splitting a program across files](#splitting-a-program-across-files)**
+  - [The library](#the-library)
+- **[The program and its process](#the-program-and-its-process)**
+  - [Stopping](#stopping)
+  - [Arguments](#arguments)
+  - [Reading input](#reading-input)
+  - [Files](#files)
+  - [The clock](#the-clock)
+- **[Lexical structure](#lexical-structure)**
+  - [Comments](#comments)
+  - [Statements](#statements)
+  - [Literals](#literals)
+  - [String escapes](#string-escapes)
+  - [Identifiers](#identifiers)
+  - [Reserved names](#reserved-names)
+- **[Values](#values)**
+  - [Strictness](#strictness)
+- **[Names and binding](#names-and-binding)**
+- **[Messages](#messages)**
+  - [Grouping](#grouping)
+- **[Blocks](#blocks)**
+  - [Capture](#capture)
+- **[Control flow](#control-flow)**
+  - [What the compiler does with them](#what-the-compiler-does-with-them)
+- **[Objects](#objects)**
+  - [The built-in classes are objects too](#the-built-in-classes-are-objects-too)
+  - [Adding methods to a built-in class](#adding-methods-to-a-built-in-class)
+  - [Calling what you override](#calling-what-you-override)
+  - [Showing an object](#showing-an-object)
+- **[Asking whether a value is there](#asking-whether-a-value-is-there)**
+- **[Errors](#errors)**
+  - [Raising one](#raising-one)
+  - [The error](#the-error)
+  - [What it catches](#what-it-catches)
+  - [Cleaning up regardless](#cleaning-up-regardless)
+- **[Reflection](#reflection)**
+  - [Fetching a method](#fetching-a-method)
+- **[Message reference](#message-reference)**
+  - [Every type](#every-type)
+  - [integer](#integer)
+  - [float](#float)
+  - [string](#string)
+  - [array](#array)
+  - [symbol](#symbol)
+  - [boolean](#boolean)
+  - [dictionary](#dictionary)
+  - [time](#time)
+  - [block](#block)
+  - [object](#object)
+  - [system](#system)
+  - [nil](#nil)
+- **[How errors are reported](#how-errors-are-reported)**
+- **[Limits](#limits)**
+
+And an alphabetical **[message index](#message-index)** at the end: every built-in message and the types that answer it.
 
 ---
 
@@ -2262,7 +2306,7 @@ with the reasoning, is in [absence.md](absence.md).
 
 ---
 
-## Errors
+## How errors are reported
 
 **A compile error** names the line and column, then shows the line with the
 offending text underlined:
@@ -2294,6 +2338,130 @@ argument counts, type mismatches, out-of-range indices, integer overflow,
 division by zero, undeclared names, and a block outliving its frame.
 
 ---
+
+## Message index
+
+Every built-in message and the types that answer it. The question a reference
+gets asked is usually *what has `copyFrom`?* rather than *what does a string
+do?*, and the sections above answer only the second — so this answers the first.
+110 messages across 204 registrations.
+
+**A test keeps it honest**: a message registered in `builtins.c` and missing
+from here fails the build, which is the same bargain that makes every message
+appear in an example.
+
+| Message | Answered by |
+| --- | --- |
+| `abs` | [float](#float), [integer](#integer) |
+| `add` | [array](#array), [float](#float), [integer](#integer) |
+| `and` | [boolean](#boolean) |
+| `appendFile` | [system](#system) |
+| `asBase` | [integer](#integer) |
+| `asByte` | [string](#string) |
+| `asCharacter` | [integer](#integer) |
+| `asFloat` | [integer](#integer), [string](#string) |
+| `asInteger` | [string](#string) |
+| `asLowercase` | [string](#string) |
+| `asSeconds` | [time](#time) |
+| `asString` | [every type](#every-type) |
+| `asSymbol` | [string](#string) |
+| `asTime` | [string](#string) |
+| `asUppercase` | [string](#string) |
+| `at` | [array](#array), [dictionary](#dictionary), [string](#string) |
+| `at_put` | [array](#array) |
+| `atPut` | [dictionary](#dictionary) |
+| `boundTo` | [block](#block) |
+| `ceiling` | [float](#float) |
+| `clock` | [system](#system) |
+| `collect` | [array](#array) |
+| `concat` | [string](#string) |
+| `copyFrom` | [array](#array), [string](#string) |
+| `day` | [time](#time) |
+| `display` | [every type](#every-type) |
+| `div` | [float](#float), [integer](#integer) |
+| `do` | [array](#array), [dictionary](#dictionary) |
+| `doUntil` | [block](#block) |
+| `ensure` | [block](#block) |
+| `environment` | [system](#system) |
+| `equals` | [every type](#every-type) |
+| `exit` | [system](#system) |
+| `fileExists` | [system](#system) |
+| `filesIn` | [system](#system) |
+| `fileSize` | [system](#system) |
+| `fill` | [string](#string) |
+| `first` | [array](#array) |
+| `floor` | [float](#float) |
+| `fromSeconds` | [time](#time) |
+| `greaterOrEqual` | [float](#float), [integer](#integer), [string](#string), [symbol](#symbol), [time](#time) |
+| `greaterThan` | [float](#float), [integer](#integer), [string](#string), [symbol](#symbol), [time](#time) |
+| `hour` | [time](#time) |
+| `ifElse` | [boolean](#boolean) |
+| `ifFalse` | [boolean](#boolean) |
+| `ifTrue` | [boolean](#boolean) |
+| `includes` | [dictionary](#dictionary) |
+| `indexOf` | [array](#array), [string](#string) |
+| `inject` | [array](#array) |
+| `isDirectory` | [system](#system) |
+| `isKindOf` | [every type](#every-type) |
+| `isNil` | [every type](#every-type) |
+| `join` | [array](#array) |
+| `keys` | [dictionary](#dictionary) |
+| `keysAndValuesDo` | [dictionary](#dictionary) |
+| `last` | [array](#array) |
+| `lessOrEqual` | [float](#float), [integer](#integer), [string](#string), [symbol](#symbol), [time](#time) |
+| `lessThan` | [float](#float), [integer](#integer), [string](#string), [symbol](#symbol), [time](#time) |
+| `makeDirectory` | [system](#system) |
+| `minute` | [time](#time) |
+| `mod` | [float](#float), [integer](#integer) |
+| `modeOf` | [system](#system) |
+| `modifiedAt` | [system](#system) |
+| `month` | [time](#time) |
+| `mul` | [float](#float), [integer](#integer) |
+| `negated` | [float](#float), [integer](#integer) |
+| `new` | [object](#object), [array](#array), [dictionary](#dictionary) — the rest refuse and say what to write |
+| `not` | [boolean](#boolean) |
+| `notEquals` | [every type](#every-type) |
+| `notNil` | [every type](#every-type) |
+| `of` | [array](#array) |
+| `onError` | [block](#block) |
+| `or` | [boolean](#boolean) |
+| `parent` | [object](#object) |
+| `perform` | [every type](#every-type) |
+| `plusSeconds` | [time](#time) |
+| `print` | [every type](#every-type) |
+| `raise` | [error](#errors) |
+| `readFile` | [system](#system) |
+| `readKey` | [system](#system) |
+| `readLine` | [system](#system) |
+| `remove` | [dictionary](#dictionary), [system](#system) |
+| `removeLast` | [array](#array) |
+| `rename` | [system](#system) |
+| `repeat` | [block](#block), [integer](#integer) |
+| `respondsTo` | [every type](#every-type) |
+| `rounded` | [float](#float) |
+| `second` | [time](#time) |
+| `secondsSince` | [time](#time) |
+| `select` | [array](#array) |
+| `setMode` | [system](#system) |
+| `setModifiedAt` | [system](#system) |
+| `size` | [array](#array), [dictionary](#dictionary), [string](#string), [symbol](#symbol) |
+| `slotAt` | [every type](#every-type) |
+| `slots` | [every type](#every-type) |
+| `sorted` | [array](#array) |
+| `split` | [string](#string) |
+| `sub` | [float](#float), [integer](#integer) |
+| `time` | [system](#system) |
+| `timeToRun` | [block](#block) |
+| `toByDo` | [integer](#integer) |
+| `toDo` | [integer](#integer) |
+| `truncated` | [float](#float) |
+| `value` | [block](#block) |
+| `values` | [dictionary](#dictionary) |
+| `via` | [object](#object) |
+| `weekday` | [time](#time) |
+| `whileTrue` | [block](#block) |
+| `writeFile` | [system](#system) |
+| `year` | [time](#time) |
 
 ## Limits
 
