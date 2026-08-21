@@ -97,14 +97,16 @@ No dependencies beyond a C11 compiler and `make`.
 
 ## Status
 
-**0.4.0** — a byte has a number, and the language reads a format it did not know
-about: `asByte` and `asCharacter` turn a character into an integer and back, and
-`lib/json.sol` reads and writes JSON on top of them, UTF-8 escapes and surrogate
-pairs included. The three binaries take `--help` and `--version`. `.sob` files
-are format version 11, unchanged since 0.1.0, so one built then runs here — the
-new messages are primitives rather than opcodes. The format is versioned and a
-file from a build that used a different one is refused rather than misread;
-`solvm --version` says which one this build speaks.
+**0.5.0** — the language reads formats it was not built for. `lib/json.sol` and
+`lib/html.sol` are a JSON reader and an HTML reader written in Solum, on the
+search path. The HTML one **does not fail on bad input**, because bad input is
+what HTML is: it recovers and reports what it recovered from. Building it turned
+up where the recursion limit really lives — not in the data, but in how you walk
+it — and `array:removeLast`, `array:indexOf` and an ordering on symbols, each
+from a workaround that was already shipped. `.sob` files are format version 11,
+unchanged since 0.1.0, so one built then runs here; everything added since is a
+primitive or a library rather than an opcode. `solvm --version` says which
+format a build speaks.
 
 The language is settled enough to write programs in.
 [examples/log.sol](examples/log.sol) is one written to do a job rather than to

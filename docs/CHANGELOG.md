@@ -7,6 +7,80 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.5.0 — 2026-08-21
+
+**An HTML reader, and the frame limit turns out to be about traversal rather
+than about data.**
+
+```
+@include "html.sol".
+
+page := html:read(system:readFile("page.html")).
+page:findAll("a"):do({ a | a:attribute("href"):display }).
+html:complaints:do({ c | c:display }).      ; and what was wrong with it
+```
+
+**[lib/html.sol](../lib/html.sol)** reads HTML into a tree, with
+[examples/page.sol](../examples/page.sol) as a program on it. **It does not
+fail.** Every other parser here stops at the first problem, which is right when
+a person wrote the input and can fix it; HTML is generated, served, and wrong,
+so this one recovers — stray end tags, unclosed elements, implied ends, a bare
+`<` in text, a `<` inside a `<script>` — and keeps a list of what it recovered
+from. There is **no `onError` in the library at all**: recovery is a branch that
+appends to a list, not an exception, and building it on `error:raise` would have
+meant unwinding past the stack that holds the recovery state.
+
+**The finding is about 3.5.** The entry asked whether building against a stack
+sidesteps the 62-frame limit. It does — and then traversal walked straight back
+into it:
+
+| | deepest that works |
+| --- | --- |
+| `json.sol`, recursive descent | **28** levels |
+| `html:read`, an explicit stack | **50,000**, no limit found |
+| `text`, `find`, `findAll` — recursive, as first written | **28** |
+| the same three, with a stack | **50,000** |
+
+A tree built 50,000 deep could not be *walked* 30 deep. The limit is not a
+property of the data, it is a property of how you traverse it — and a library
+can be half-safe without anybody noticing, because the constructor is the part
+everyone thinks about.
+
+**`array:removeLast` and `array:indexOf`**, and **symbols have an order**. All
+three came from workarounds that were already shipped: the HTML library kept a
+hand-rolled stack because an array could not be popped, and its element sets
+were delimited strings because an array could not be searched;
+`examples/manifest.sol` converted symbol keys to strings and back to sort them.
+`removeLast` refuses an empty array rather than answering nil, matching `at`;
+`indexOf` answers nil when absent, so `indexOf(v):notNil` is `includes` and
+there is no second message for it.
+
+**The compiler's first warning.** A file that includes a library of its own name
+finds itself, and since a file is compiled once that include does nothing at
+all. It was documented and still took a minute to fall into, so the compiler now
+says so and names what was shadowed. A warning and not an error: shadowing is
+C's rule and stays, the file still compiles, the status is unchanged.
+
+**No more `@` directives.** `@once`, `@define` and `@ifdef` were scoped and none
+belongs: a file is already compiled once, a named constant is a binding, a macro
+is a block — whose arguments are unevaluated, which is the one thing macros have
+over functions in C — and `respondsTo` already answers feature detection at run
+time. `@` stays a namespace with one thing in it, which is a result rather than
+an oversight.
+
+**`.sob` files are still format version 11**, unchanged since 0.1.0. Everything
+added here is a primitive or a library, so a file built by any earlier release
+runs on this one.
+
+**Three libraries now**, and one of them is included by another:
+[text.sol](../lib/text.sol) holds `integer:asUtf8`, wanted by both the JSON and
+HTML readers. It binds **no global at all** — the first draft bound one called
+`text`, and the first program to use it had a variable of that name, which broke
+the library from a distance. A namespace only helps if the name is one nobody
+else wants.
+
 ### Two papercuts, and both had their workaround already shipped — `bc677b0`, 2026-08-21
 
 [6.23](COMPLETED.md#623-an-array-cannot-be-popped-or-asked-what-it-holds--done)
@@ -115,7 +189,7 @@ built-in class, which needs no name of its own. A namespace only helps if the
 name is one nobody else wants, and `text` is about the most wanted name there
 is.
 
-**One new entry.** [6.23](ROADMAP.md#623-an-array-cannot-be-popped-or-asked-what-it-holds):
+**One new entry.** [6.23](COMPLETED.md#623-an-array-cannot-be-popped-or-asked-what-it-holds--done):
 an array cannot be popped and cannot be asked whether it holds something. A
 stack notices both immediately. The workarounds are a `top` index (which is
 O(1), so arguably better than the message would have been) and sets kept as
