@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### The log analyser survives damaged input — `pending`, 2026-08-21
+### The log analyser survives damaged input — `041467d`, 2026-08-21
 
 [examples/log.sol](../examples/log.sol) assumed its input was well-formed:
 every line split into exactly six fields and every field parsed. Fed a real
