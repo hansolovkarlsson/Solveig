@@ -19,6 +19,7 @@ a:print.
 ## Contents
 
 - [Running a program](#running-a-program)
+  — including [the prompt's keys](#the-keys) and [its history](#history-between-sessions)
 - [Splitting a program across files](#splitting-a-program-across-files)
 - [The program and its process](#the-program-and-its-process)
 - [Lexical structure](#lexical-structure)
@@ -77,21 +78,48 @@ script with no extension at all works — which is the point of the next part.
 `solis` with no file reads from a prompt, and input may span lines: it reads
 until what has been typed *could* compile, showing `..` while it waits.
 
-**Arrow keys and history** when standard input is a terminal:
+#### The keys
+
+Editing and history, when standard input is a terminal. They are the readline
+bindings, so they are the ones bash has taught you.
 
 | key | does |
 | --- | --- |
-| up, down | through the lines already entered |
-| left, right | within the line |
-| home, end, ctrl-a, ctrl-e | to either end of it |
-| backspace, delete | either side of the cursor |
-| ctrl-u | discard the line |
-| ctrl-l | clear the screen |
-| ctrl-d | end the session on an empty line; delete forwards otherwise |
-| ctrl-c, ctrl-z | interrupt and suspend, as the terminal always did |
+| **↑ ↓** | back and forward through the lines already entered |
+| **← →** | one character within the line |
+| **home**, **ctrl-a** | to the start of the line |
+| **end**, **ctrl-e** | to the end of it |
+| **backspace** | delete the character before the cursor |
+| **delete** | delete the character under it |
+| **ctrl-u** | discard the whole line and start it again |
+| **ctrl-l** | clear the screen, keeping the line being typed |
+| **ctrl-d** | **end the session** on an empty line; delete forwards otherwise |
+| **ctrl-c** | interrupt |
+| **ctrl-z** | suspend |
+| **return** | run it, if what has been typed could compile — otherwise a `..` prompt and keep going |
 
-A line stepped away from with up is kept, so down brings back what you were
-typing rather than an empty line. The same line twice running is one entry.
+Two departures from bash worth knowing. **`ctrl-u` discards the whole line**
+rather than only the part before the cursor, which is what the terminal's own
+kill character has always done here. And **`ctrl-c` and `ctrl-z` are the
+terminal's**, not the prompt's: they are left alone deliberately, since taking
+them over would be a surprise.
+
+A line stepped away from with ↑ is kept, so ↓ brings back what you were typing
+rather than an empty line. The same line twice running is one entry, so
+re-running something to watch it fail again does not mean pressing ↑ twice to
+get past it.
+
+#### History between sessions
+
+What you type is kept in **`$HOME/.solis_history`**, so ↑ reaches the lines from
+the last time as well as this one. It holds the most recent 1000 and is trimmed
+on the way out; with no `HOME` set, history lasts as long as the session and no
+longer.
+
+It is an ordinary text file, one line per entry, so it can be read, edited or
+deleted like any other. Failing to write it is ignored — a prompt that refused
+to exit because it could not save history would be worse than one that quietly
+forgets.
 
 **Through a pipe or a file** — `solis < script.sol`, or anywhere `TERM` is
 `dumb` or unset — the prompt reads a line at a time with no editing, exactly as

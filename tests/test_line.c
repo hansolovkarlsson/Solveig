@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 #include <sys/select.h>
 #include <sys/wait.h>
 #include <termios.h>
@@ -106,7 +107,7 @@ typedef struct {
     size_t scan_from;      /* where the next `expect` starts looking */
 } Session;
 
-static bool session_start(Session *s)
+static bool session_start_with_home(Session *s, const char *home)
 {
     int slave = -1;
     s->master = open_pty(&slave);
@@ -123,6 +124,7 @@ static bool session_start(Session *s)
         dup2(slave, STDERR_FILENO);
         if (slave > STDERR_FILENO) close(slave);
         setenv("TERM", "xterm", 1);
+        if (home != NULL) setenv("HOME", home, 1);
         execl("bin/solis", "solis", (char *)NULL);
         _exit(127);
     }
@@ -136,6 +138,8 @@ static bool session_start(Session *s)
     s->scan_from = 0;
     return true;
 }
+
+static bool session_start(Session *s) { return session_start_with_home(s, NULL); }
 
 /* Reads until `needle` appears after everything already matched, or two seconds
    pass. Answers whether it turned up. */
@@ -173,9 +177,33 @@ static void session_send(Session *s, const char *keys)
     (void)!write(s->master, keys, strlen(keys));
 }
 
+/* Ctrl-d, and then wait for solis to actually finish.
+ *
+ * Closing the pty straight after sending it kills the session instead of ending
+ * it, and anything solis does on the way out -- writing the history file, for
+ * one -- does not happen. That is worth the extra few lines: a test that
+ * hangs up on the program under test is testing a crash. */
 static void session_end(Session *s)
 {
+    /* Wait for the prompt before sending, for the same reason the first key
+       waits for it: raw mode is entered with TCSAFLUSH, so a ctrl-d that
+       arrives while the previous line is still running is discarded, and solis
+       then sits waiting for input that has already been thrown away. */
+    session_expect(s, "> ");
     session_send(s, "\x04");
+
+    for (int waited = 0; waited < 2000; waited += 20) {
+        fd_set set;
+        FD_ZERO(&set);
+        FD_SET(s->master, &set);
+        struct timeval timeout = { 0, 20000 };
+        if (select(s->master + 1, &set, NULL, NULL, &timeout) <= 0) continue;
+
+        char drain[1024];
+        ssize_t got = read(s->master, drain, sizeof drain);
+        if (got <= 0) break;                    /* the slave side is gone */
+    }
+
     close(s->master);
     int status;
     waitpid(s->pid, &status, 0);
@@ -287,6 +315,130 @@ static void test_a_half_typed_line_survives_browsing(void)
     printf("  a half-typed line survives browsing away and back\n");
 }
 
+/* ---- history between sessions ------------------------------------------ */
+
+static void test_the_history_file_is_under_home(void)
+{
+    char buffer[4096];
+
+    setenv("HOME", "/tmp/solum-home", 1);
+    const char *path = sol_history_path(buffer, sizeof buffer);
+    assert(path != NULL);
+    assert(strcmp(path, "/tmp/solum-home/.solis_history") == 0);
+
+    /* No HOME, no file -- history then lasts as long as the session, which is
+       what it did before any of this. */
+    unsetenv("HOME");
+    assert(sol_history_path(buffer, sizeof buffer) == NULL);
+
+    /* A HOME too long to build a path from is the same answer, rather than a
+       truncated path pointing somewhere nobody meant. */
+    char huge[5000];
+    memset(huge, 'x', sizeof huge - 1);
+    huge[sizeof huge - 1] = '\0';
+    setenv("HOME", huge, 1);
+    assert(sol_history_path(buffer, sizeof buffer) == NULL);
+
+    setenv("HOME", "/tmp/solum-home", 1);
+    printf("  the history file is $HOME/.solis_history, or nowhere\n");
+}
+
+static void test_history_survives_being_written_and_read(void)
+{
+    const char *path = "build/tests/history-round-trip";
+    remove(path);
+
+    SolisHistory written = { NULL, 0, 0 };
+    sol_history_add(&written, "#1:print.");
+    sol_history_add(&written, "\"a string with spaces\":display.");
+    sol_history_add(&written, "p:go := { \"x\":display }.");
+    sol_history_save(&written, path, SOLIS_HISTORY_MAX);
+
+    SolisHistory read = { NULL, 0, 0 };
+    sol_history_load(&read, path);
+    assert(read.count == written.count);
+    for (int i = 0; i < read.count; i++) {
+        assert(strcmp(read.items[i], written.items[i]) == 0);
+    }
+
+    sol_history_free(&written);
+    sol_history_free(&read);
+    remove(path);
+
+    /* A file that is not there is what the first run looks like, not an error. */
+    SolisHistory missing = { NULL, 0, 0 };
+    sol_history_load(&missing, "build/tests/history-that-is-not-there");
+    assert(missing.count == 0);
+    sol_history_free(&missing);
+
+    /* And no path at all is the same. */
+    SolisHistory nowhere = { NULL, 0, 0 };
+    sol_history_load(&nowhere, NULL);
+    sol_history_save(&nowhere, NULL, SOLIS_HISTORY_MAX);
+    assert(nowhere.count == 0);
+    sol_history_free(&nowhere);
+
+    printf("  history survives being written and read back\n");
+}
+
+/* The file is trimmed on the way out, so a prompt used for years does not leave
+   a file that has to be managed. The newest are the ones kept. */
+static void test_the_history_file_is_capped(void)
+{
+    const char *path = "build/tests/history-capped";
+    remove(path);
+
+    SolisHistory big = { NULL, 0, 0 };
+    for (int i = 0; i < 1500; i++) {
+        char line[32];
+        snprintf(line, sizeof line, "#%d:print.", i);
+        sol_history_add(&big, line);
+    }
+    assert(big.count == 1500);
+    sol_history_save(&big, path, SOLIS_HISTORY_MAX);
+
+    SolisHistory back = { NULL, 0, 0 };
+    sol_history_load(&back, path);
+    assert(back.count == SOLIS_HISTORY_MAX);
+    assert(strcmp(back.items[0], "#500:print.") == 0);          /* the oldest kept */
+    assert(strcmp(back.items[back.count - 1], "#1499:print.") == 0);  /* the newest */
+
+    sol_history_free(&big);
+    sol_history_free(&back);
+    remove(path);
+    printf("  the history file keeps the newest %d lines\n", SOLIS_HISTORY_MAX);
+}
+
+/* End to end: what one session typed, the next one recalls. */
+static void test_history_reaches_the_next_session(void)
+{
+    const char *home = "build/tests/home";
+    char history[256];
+    snprintf(history, sizeof history, "%s/.solis_history", home);
+    mkdir(home, 0700);
+    remove(history);
+
+    Session first;
+    if (!session_start_with_home(&first, home)) return;
+    assert(ready(&first));
+    session_send(&first, "#7:mul(#6):print.\r");
+    assert(session_expect(&first, "#42"));
+    session_end(&first);
+
+    /* A second solis, started fresh, with nothing typed into it. */
+    Session second;
+    if (!session_start_with_home(&second, home)) return;
+    assert(ready(&second));
+    session_send(&second, UP);
+    assert(session_expect(&second, "#7:mul(#6):print."));
+    session_send(&second, "\r");
+    assert(session_expect(&second, "#42"));
+    session_end(&second);
+
+    remove(history);
+    printf("  what one session typed, the next one recalls\n");
+}
+
 int main(void)
 {
     test_history_keeps_what_was_typed();
@@ -294,6 +446,10 @@ int main(void)
     test_up_recalls_the_last_line();
     test_the_cursor_goes_where_it_is_told();
     test_a_half_typed_line_survives_browsing();
+    test_the_history_file_is_under_home();
+    test_history_survives_being_written_and_read();
+    test_the_history_file_is_capped();
+    test_history_reaches_the_next_session();
     printf("test_line: ok\n");
     return 0;
 }

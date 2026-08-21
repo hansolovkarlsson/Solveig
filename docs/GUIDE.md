@@ -16,6 +16,11 @@ prints.
 ./bin/solis                      # a prompt; input may span lines
 ```
 
+The prompt has arrow keys, history that outlives the session, and the readline
+bindings you already know — ↑ and ↓ through what you typed, ctrl-a and ctrl-e to
+either end of the line, ctrl-u to start it again, ctrl-d to leave. The keys are
+listed in [the reference](REFERENCE.md#the-keys).
+
 ## Contents
 
 1. [Everything is an object](#1-everything-is-an-object)

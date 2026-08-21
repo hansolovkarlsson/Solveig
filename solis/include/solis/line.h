@@ -19,8 +19,14 @@
 #ifndef SOLIS_LINE_H
 #define SOLIS_LINE_H
 
+#include <stddef.h>
+
 #include "solis/input.h"
 #include "solum/common.h"
+
+/* How many lines the file keeps. Enough that a session's worth is always there,
+   small enough that it never becomes a thing to manage. */
+#define SOLIS_HISTORY_MAX 1000
 
 /* Lines as they were entered, oldest first. */
 typedef struct {
@@ -31,6 +37,20 @@ typedef struct {
 
 void sol_history_add(SolisHistory *history, const char *line);
 void sol_history_free(SolisHistory *history);
+
+/* Where history is kept between sessions: `$HOME/.solis_history`. Writes it
+   into `buffer` and answers it, or NULL when there is no `HOME` to hang it
+   off -- in which case history lasts as long as the session and no longer. */
+const char *sol_history_path(char *buffer, size_t size);
+
+/* Reads what a previous session left, oldest first. A file that is not there is
+   not an error: it is what the first run looks like. */
+void sol_history_load(SolisHistory *history, const char *path);
+
+/* Writes the last `limit` entries. Failing to write is ignored -- a prompt that
+   refused to exit because it could not save history would be worse than a
+   prompt that quietly forgets. */
+void sol_history_save(const SolisHistory *history, const char *path, int limit);
 
 /* Is standard input a terminal that can be put in raw mode? When it is not --
    a pipe, a file, a dumb terminal -- the caller reads as it always did. */

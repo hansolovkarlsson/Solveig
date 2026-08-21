@@ -7,6 +7,37 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### History that outlives the session, and the keys written down — `pending`, 2026-08-21
+
+What you type at the prompt is kept in **`$HOME/.solis_history`**, so ↑ reaches
+the lines from last time as well as this one. The most recent 1000, trimmed on
+the way out; with no `HOME` set, history lasts as long as the session and no
+longer.
+
+An ordinary text file, one line per entry, readable and editable and deletable
+like any other. **Failing to write it is ignored** — a prompt that refused to
+exit because it could not save history would be worse than one that quietly
+forgets.
+
+**The keys are documented** in [the reference](REFERENCE.md#the-keys), with the
+two departures from bash spelled out: `ctrl-u` discards the *whole* line rather
+than the part before the cursor, matching the terminal's own kill character; and
+`ctrl-c` and `ctrl-z` are left to the terminal deliberately.
+
+**Two mistakes in the test harness, both the same mistake.** Raw mode is entered
+with `TCSAFLUSH`, which discards input already received, so a key sent before
+solis is ready is thrown away. The first version of this had it at startup and
+fixed it by waiting for the prompt. It had the same bug at the *end*: ctrl-d was
+sent as soon as the last output appeared, before solis had re-entered raw mode
+for the next prompt, so it was flushed — and then the test closed the pty, which
+killed the session instead of ending it.
+
+Nothing had noticed, because nothing had needed a clean exit before. Saving
+history on the way out does, and the cross-session test failed until
+`session_end` waited for the prompt like everything else. **A test that hangs up
+on the program under test is testing a crash**, which is worth knowing before it
+matters rather than after.
+
 ### History and arrow keys at the prompt — `49b5374`, 2026-08-21
 
 [6.10](COMPLETED.md#610-waiting-for-a-single-key--done), and it closes section 6

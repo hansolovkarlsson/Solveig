@@ -55,6 +55,15 @@ static int repl(SolVM *vm, const SolSearchPath *search)
     SolisHistory history = { NULL, 0, 0 };
     bool editing = sol_line_editing_available();
 
+    /* Kept between sessions, and only when there is a session to keep it for:
+       reading from a pipe has no history to write and no prompt to recall it
+       at. `SOLIS_HISTORY_MAX` is what the file is trimmed to on the way out. */
+    char history_file[4096];
+    const char *history_path = editing ? sol_history_path(history_file,
+                                                          sizeof history_file)
+                                       : NULL;
+    if (history_path != NULL) sol_history_load(&history, history_path);
+
     sol_scan_reset(&state);
     printf("solis " SOLUM_VERSION " -- ctrl-d to exit\n");
 
@@ -94,6 +103,9 @@ static int repl(SolVM *vm, const SolSearchPath *search)
     }
 
     sol_input_free(&input);
+    if (history_path != NULL) {
+        sol_history_save(&history, history_path, SOLIS_HISTORY_MAX);
+    }
     sol_history_free(&history);
     return status;
 }

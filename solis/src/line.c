@@ -1,6 +1,7 @@
 /* Reading a line with editing and history. See line.h for why this exists. */
 #define _POSIX_C_SOURCE 200809L
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -42,6 +43,55 @@ void sol_history_free(SolisHistory *history)
     history->items = NULL;
     history->count = 0;
     history->capacity = 0;
+}
+
+/* ---- history between sessions ------------------------------------------ */
+
+const char *sol_history_path(char *buffer, size_t size)
+{
+    const char *home = getenv("HOME");
+    if (home == NULL || home[0] == '\0') return NULL;
+
+    int written = snprintf(buffer, size, "%s/.solis_history", home);
+    if (written < 0 || (size_t)written >= size) return NULL;
+    return buffer;
+}
+
+void sol_history_load(SolisHistory *history, const char *path)
+{
+    if (path == NULL) return;
+
+    FILE *file = fopen(path, "r");
+    if (file == NULL) return;          /* the first run, most likely */
+
+    char line[4096];
+    while (fgets(line, sizeof line, file) != NULL) {
+        size_t length = strlen(line);
+        /* A line longer than the buffer arrives in pieces; the tail would be
+           added as if it were its own entry, so drop anything unterminated
+           rather than inventing a line nobody typed. */
+        if (length == 0 || line[length - 1] != '\n') continue;
+        line[length - 1] = '\0';
+        sol_history_add(history, line);
+    }
+    fclose(file);
+}
+
+void sol_history_save(const SolisHistory *history, const char *path, int limit)
+{
+    if (path == NULL || history->count == 0) return;
+
+    FILE *file = fopen(path, "w");
+    if (file == NULL) return;          /* not worth complaining about */
+
+    int from = history->count > limit ? history->count - limit : 0;
+    for (int i = from; i < history->count; i++) {
+        /* An entry is one line as typed, so it holds no newline -- but writing
+           one that did would turn a single entry into two on the way back. */
+        if (strchr(history->items[i], '\n') != NULL) continue;
+        fprintf(file, "%s\n", history->items[i]);
+    }
+    fclose(file);
 }
 
 /* ---- the editor -------------------------------------------------------- */
