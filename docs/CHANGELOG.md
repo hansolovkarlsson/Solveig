@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### The script has a frame like everything else — `pending`, 2026-08-21
+### The script has a frame like everything else — `5f69049`, 2026-08-21
 
 `.sob` format **version 11**. `SolChunk` carries a `slot_count`, and
 `sol_vm_run` reserves those slots before the first instruction exactly as
