@@ -228,7 +228,7 @@ with. And `indexOf` answers **nil** when there is no match rather than `#0`,
 which is the same "nothing" an unset slot answers:
 
 ```
-"hello":indexOf("z"):equals(nil):print.    ; true
+"hello":indexOf("z"):isNil:print.          ; true
 ```
 
 `copyFrom` includes both ends, so `copyFrom(#i, #i)` is `at(#i)`, and an empty
@@ -294,6 +294,24 @@ missing value is reported where it was needed instead of travelling on.
 ```
 "":size:print.                   ; #0
 nil:size.                        ; solvm: nil does not understand 'size'
+```
+
+Asking whether something is there is `isNil`, and its negative `notNil`. Both are
+on every type, which they have to be — the point of asking is that you do not
+know what the receiver is, so a message only nil understood could not be sent to
+find out:
+
+```
+nil:isNil:print.                 ; true
+"":isNil:print.                  ; false -- empty is not absent
+```
+
+`notNil` earns its place by being the one that gets written, since running out
+of input is how a loop finishes:
+
+```
+line := system:readLine.
+{ line:notNil }:whileTrue({ ... }).
 ```
 
 > **Run:** [examples/values.sol](../examples/values.sol)

@@ -8,6 +8,41 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### `isNil` and `notNil` — `pending`, 2026-08-20
+
+Roadmap 2.14, the last of the loose ends from 2.8.
+
+```
+nil:isNil:print.                 ; true
+"":isNil:print.                  ; false -- empty is not absent
+```
+
+`x:equals(nil)` said this already and said it awkwardly: a test for absence read
+as a comparison against a value.
+
+**Both, rather than `isNil` alone with `not` for the other.** The message that
+actually gets written is the negative one — running out of input is how a loop
+finishes — and `line:isNil:not` is worse than the `notEquals(nil)` it would be
+replacing. A version with only `isNil` would have left the single real use of it
+in the codebase no better off. `examples/reading.sol` was that use, and it now
+reads:
+
+```
+line := system:readLine.
+{ line:notNil }:whileTrue({ ... }).
+```
+
+**On every type, not on nil.** The receiver is exactly what is not known: the
+point of asking is that the answer might be nil, so a message only nil
+understood could not be sent to find out.
+
+Neither confuses absence with emptiness — `""`, `#0`, `[]` and `false` all
+answer `notNil`, and there is a test that walks every type asserting `isNil` is
+the exact complement of `notNil` and agrees with `equals(nil)` on all of them.
+
+`absence.md`, the guide, the reference and three examples now use the new
+spelling where they used the comparison.
+
 ### Every concept the guide names has an example — `8a2546c`, 2026-08-20
 
 Roadmap 6.9, the example audit. Two new programs,

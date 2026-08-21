@@ -200,7 +200,7 @@ terminator**, or **nil** when there is no more.
 
 ```
 line := system:readLine.
-{ line:notEquals(nil) }:whileTrue({
+{ line:notNil }:whileTrue({
     line:display.
     line := system:readLine
 }).
@@ -849,6 +849,34 @@ Without one, an object shows its address.
 
 ---
 
+## Asking whether a value is there
+
+`isNil` and `notNil` are on **every type**, and they have to be: the point of
+asking is that you do not know what the receiver is, so a message only nil
+understood could not be sent to find out.
+
+```
+system:readLine:isNil:print.     ; true at the end of input
+"":isNil:print.                  ; false -- empty is not absent
+```
+
+`notNil` exists rather than leaving `isNil:not` to say it, because the negative
+is the form that gets written: running out of input is how a loop finishes.
+
+```
+line := system:readLine.
+{ line:notNil }:whileTrue({ ... }).
+```
+
+`x:equals(nil)` says the same thing and is what the language had before these.
+It reads as a comparison against a value rather than a question about absence,
+and its negative is three concepts deep to ask one thing.
+
+Absence is not emptiness: `""`, `#0`, `[]` and `false` all answer `notNil`. See
+[absence.md](absence.md).
+
+---
+
 ## Reflection
 
 Five messages let a program ask about itself. Names are given as symbols,
@@ -941,8 +969,9 @@ array reads back as one: `["a"]:display` writes `["a"]`, quotes and all, where
 
 ### Every type
 
-`print`, `display`, `asString`, `equals`, `notEquals`, and the reflection
-messages `perform`, `respondsTo`, `isKindOf`, `slots`, `slotAt` (see
+`print`, `display`, `asString`, `equals`, `notEquals`, `isNil`, `notNil` (see
+[Asking whether a value is there](#asking-whether-a-value-is-there)), and the
+reflection messages `perform`, `respondsTo`, `isKindOf`, `slots`, `slotAt` (see
 [Reflection](#reflection)).
 
 `asString` takes an optional format spec:
@@ -1071,7 +1100,7 @@ is three empty pieces rather than two.
 
 `indexOf` answers **nil when there is no match**, not `#0`. Indices start at
 `#1`, so `#0` would be an out-of-band value and a second way of saying "nothing"
-beside the one the language already has; `text:indexOf(","):equals(nil)` is the
+beside the one the language already has; `text:indexOf(","):isNil` is the
 same question asked of an unset slot or the end of input.
 
 `copyFrom` includes both ends and both are one-based, so `copyFrom(#i, #i)` is
@@ -1261,10 +1290,13 @@ it delegates to `object` like everything else. See
 
 ### nil
 
-`print`, `display`, `asString`, `equals`, `notEquals`, and the five reflection
-messages every type carries. Nothing else — asking nil for anything more is an
-error rather than nil again, so a missing value is reported where it is used
-rather than propagating.
+`print`, `display`, `asString`, `equals`, `notEquals`, `isNil`, `notNil`, and the
+five reflection messages every type carries. Nothing else — asking nil for
+anything more is an error rather than nil again, so a missing value is reported
+where it is used rather than propagating.
+
+`nil:isNil` is the only receiver that answers true, which is what makes the pair
+worth having on every type rather than on nil alone.
 
 `nil` names the value, not a class: there is no global for the class it
 dispatches to. `nil:isKindOf(object)` is true, like every other value, but

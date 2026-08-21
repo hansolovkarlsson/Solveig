@@ -156,7 +156,7 @@ item:price := nil.
 
 p := item:new.
 p:price:print.                     ; nil
-p:price:equals(nil):print.         ; true
+p:price:isNil:print.               ; true
 ```
 
 That is the same defaulting that any prototype slot does — see
@@ -167,15 +167,41 @@ ordinary thing to default to.
 
 ```
 x := nil.
-x:equals(nil):ifElse({ "unset" }, { x }):display.       ; unset
+x:isNil:ifElse({ "unset" }, { x }):display.       ; unset
 
 x := "here".
-x:equals(nil):ifElse({ "unset" }, { x }):display.       ; here
+x:isNil:ifElse({ "unset" }, { x }):display.       ; here
 ```
 
-`equals` and `notEquals` are on every type, so this works whatever `x` turns out
-to be. Where you want "is it the kind of thing I can use", `isKindOf` asks that
+`isNil` and `notNil` are on **every type**, which they have to be: the point of
+asking is that you do not know what the receiver is, so a message only nil
+understood could not be sent to find out.
+
+`notNil` is not merely `isNil` with `not` on the end, though it is exactly that
+in effect. It is there because the negative is the form that actually gets
+written — running out of input is how a loop finishes:
+
+```
+line := system:readLine.
+{ line:notNil }:whileTrue({ ... }).
+```
+
+`x:equals(nil)` says the same thing and did the job before these existed. It
+reads as a comparison against a value rather than a question about absence, and
+its negative — `x:notEquals(nil)` — is three concepts deep to ask one thing.
+
+Where you want "is it the kind of thing I can use", `isKindOf` asks that
 directly, and nil is not a kind of anything but `object`.
+
+**None of these confuse absence with emptiness.** `""`, `#0`, `[]` and `false`
+are all values, and every one of them answers `notNil`:
+
+```
+"":isNil:print.       ; false
+#0:isNil:print.       ; false
+[]:isNil:print.       ; false
+false:isNil:print.    ; false
+```
 
 ## Why there is no typed null
 

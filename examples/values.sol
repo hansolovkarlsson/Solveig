@@ -100,6 +100,23 @@ d:n:print.                       ; #0   -- and a new instance starts fresh
 false:ifTrue({ #1 }):print.      ; nil
 nil:equals(nil):print.           ; true
 
+; isNil asks whether a value is there, and notNil is its negative. Both are on
+; every type, which they have to be: the point of asking is that you do not know
+; what the receiver is, so a message only nil understood could not be sent to
+; find out.
+nil:isNil:print.                 ; true
+#1:isNil:print.                  ; false
+#1:notNil:print.                 ; true
+
+; Absence is not emptiness. None of these is nil.
+"":isNil:print.                  ; false
+[]:isNil:print.                  ; false
+#0:isNil:print.                  ; false
+false:isNil:print.               ; false
+
+; notNil is the form that gets written, since running out of something is how a
+; loop finishes -- see examples/reading.sol, which reads until readLine is nil.
+
 ; Booleans are values, and they are the only thing control flow accepts -- there
 ; is no truthiness, so a number is not a condition:
 ;   #1:ifTrue({ #2 }).           ; solvm: integer does not understand 'ifTrue'

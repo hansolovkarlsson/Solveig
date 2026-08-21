@@ -1982,6 +1982,35 @@ static SolValue prim_responds_to(SolVM *vm, SolValue self, SolValue *args, int a
 
 /* Whether the receiver delegates to `other`, directly or further up. A value
    answers for the class it dispatches to, so #45:isKindOf(integer) is true. */
+/* `isNil` and `notNil`, on every type.
+ *
+ * `x:equals(nil)` already said this, and said it awkwardly: a test for absence
+ * read as a comparison against a value, and the negative form -- which is the
+ * common one, since running out of input is how a loop finishes -- read as
+ * `x:notEquals(nil)`, three concepts deep to ask one question.
+ *
+ * Both, rather than `isNil` alone with `not` for the other. The message that
+ * actually gets written is the negative one, and `line:isNil:not` is worse than
+ * the `notEquals(nil)` it would be replacing -- so a version with only `isNil`
+ * would leave the one real use of it no better off than before.
+ *
+ * They are on every class rather than on nil, because the receiver is exactly
+ * what is not known: the point of asking is that the answer might be nil, and a
+ * message that only nil understood could not be sent to find out. */
+static SolValue prim_is_nil(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "isNil", argc, 0)) return SOL_NIL_VAL;
+    return SOL_BOOL_VAL(SOL_IS_NIL(self));
+}
+
+static SolValue prim_not_nil(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "notNil", argc, 0)) return SOL_NIL_VAL;
+    return SOL_BOOL_VAL(!SOL_IS_NIL(self));
+}
+
 static SolValue prim_is_kind_of(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     if (!check_argc(vm, "isKindOf", argc, 1)) return SOL_NIL_VAL;
@@ -2571,6 +2600,8 @@ void sol_builtins_install(SolVM *vm)
         any_receiver(vm, classes[i], "perform",    prim_perform);
         any_receiver(vm, classes[i], "respondsTo", prim_responds_to);
         any_receiver(vm, classes[i], "isKindOf",   prim_is_kind_of);
+        any_receiver(vm, classes[i], "isNil",      prim_is_nil);
+        any_receiver(vm, classes[i], "notNil",     prim_not_nil);
         /* These two want an object to look inside. On anything else they say so
            rather than going missing, which is a better error than "no slot". */
         any_receiver(vm, classes[i], "slots",      prim_slots);

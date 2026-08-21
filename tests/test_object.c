@@ -444,6 +444,105 @@ static void test_via_errors(void)
     sol_vm_free(&vm);
 }
 
+/* `isNil` and `notNil` answer for every type, because the receiver is exactly
+   what is not known: the point of asking is that the answer might be nil, so a
+   message only nil understood could not be sent to find out. */
+static void test_is_nil_answers_for_every_type(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "yes := nil:isNil."
+        "a := #45:isNil.      b := 1.5:isNil.        c := \"s\":isNil."
+        "d := [#1]:isNil.     e := true:isNil.       f := 'sym:isNil."
+        "g := { #1 }:isNil.   h := object:new:isNil. i := integer:isNil.") == SOL_OK);
+
+    assert(SOL_AS_BOOL(global(&vm, "yes")));
+    static const char *others[] = { "a","b","c","d","e","f","g","h","i" };
+    for (size_t n = 0; n < sizeof(others) / sizeof(others[0]); n++) {
+        assert(SOL_AS_BOOL(global(&vm, others[n])) == false);
+    }
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+}
+
+/* Absence is not emptiness, and this is where a language usually blurs them.
+   `""`, `#0`, `[]` and `false` are all values, and none of them is nil. */
+static void test_empty_is_not_nil(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "a := \"\":isNil.   b := #0:isNil.   c := []:isNil.   d := false:isNil."
+        "e := \"\":notNil.  f := #0:notNil.  g := []:notNil.  h := false:notNil.")
+        == SOL_OK);
+
+    assert(SOL_AS_BOOL(global(&vm, "a")) == false);
+    assert(SOL_AS_BOOL(global(&vm, "b")) == false);
+    assert(SOL_AS_BOOL(global(&vm, "c")) == false);
+    assert(SOL_AS_BOOL(global(&vm, "d")) == false);
+    for (const char *n = "efgh"; *n != '\0'; n++) {
+        char name[2] = { *n, '\0' };
+        assert(SOL_AS_BOOL(global(&vm, name)));
+    }
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+}
+
+/* `notNil` is the one that gets written, and it is the exact complement -- not
+   merely the opposite for the cases anybody thought to test. */
+static void test_not_nil_is_the_complement(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "each := [nil, #1, \"\", [], false, 'sym, 1.5, { #2 }]."
+        "agree := true."
+        "each:do({ v | v:isNil:equals(v:notNil:not):ifFalse({ agree := false }) })."
+        /* and it says the same as the comparison it replaces */
+        "same := true."
+        "each:do({ v | v:isNil:equals(v:equals(nil)):ifFalse({ same := false }) }).")
+        == SOL_OK);
+
+    assert(SOL_AS_BOOL(global(&vm, "agree")));
+    assert(SOL_AS_BOOL(global(&vm, "same")));
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+}
+
+/* A slot really holding nil is not the same as no slot, and `isNil` reports the
+   value rather than the lookup -- `respondsTo` is the question about the slot. */
+static void test_a_slot_holding_nil(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "p := object:new. p:price := nil."
+        "held := p:price:isNil.  there := p:respondsTo('price).") == SOL_OK);
+
+    assert(SOL_AS_BOOL(global(&vm, "held")));
+    assert(SOL_AS_BOOL(global(&vm, "there")));
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+}
+
+static void test_is_nil_takes_no_arguments(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk, "nil:isNil(#1).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "nil:notNil(#1).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
 int main(void)
 {
     test_via_keeps_the_receiver();
@@ -453,6 +552,11 @@ int main(void)
     test_assigning_parent_shadows_rather_than_reparents();
     test_a_built_in_cannot_be_subclassed_this_way();
     test_every_value_is_an_object();
+    test_is_nil_answers_for_every_type();
+    test_empty_is_not_nil();
+    test_not_nil_is_the_complement();
+    test_a_slot_holding_nil();
+    test_is_nil_takes_no_arguments();
     test_the_root_leaks_nothing_onto_values();
     test_a_class_that_cannot_construct_says_so();
     test_via_errors();

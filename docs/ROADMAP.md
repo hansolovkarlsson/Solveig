@@ -107,7 +107,12 @@ worth waiting for.
 Small, and each falls out of a decision above rather than being a question of its
 own.
 
-- **`isNil`** (2.8) is absent, though `x:equals(nil)` says it.
+- ~~**`isNil`**~~ (2.8) — **done**, with `notNil` beside it. Both on every type,
+  because the receiver is exactly what is not known when you ask. `notNil` is
+  not merely `isNil:not`: the negative is the form that gets written, since
+  running out of input is how a loop finishes, and a version with only `isNil`
+  would have left the one real use of it reading worse than the
+  `notEquals(nil)` it replaced.
 - ~~**A fetched method is unbound**~~ (2.10) — **done**. `boundTo(receiver)`
   answers a second block over the same code with `self` set, which is then
   called like any other block. Answering a block rather than calling it follows

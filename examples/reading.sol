@@ -16,7 +16,7 @@ longest := "".
 ; test -- there is no do-while here.
 line := system:readLine.
 
-{ line:notEquals(nil) }:whileTrue({
+{ line:notNil }:whileTrue({
     count := count:add(#1).
     line:size:greaterThan(longest:size):ifTrue({ longest := line }).
 
