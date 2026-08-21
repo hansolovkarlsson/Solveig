@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### A dictionary is a switch statement — `pending`, 2026-08-21
+### A dictionary is a switch statement — `dc923d0`, 2026-08-21
 
 No code, just writing down something the pieces already did.
 
