@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### `makeDirectory` answers instead of refusing — `pending`, 2026-08-21
+### `makeDirectory` answers instead of refusing — `a97f0e6`, 2026-08-21
 
 [6.25](COMPLETED.md#625-makedirectory-refuses-one-that-is-already-there--done).
 **true** if it made one, **false** if a directory was already there, an error
