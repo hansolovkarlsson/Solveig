@@ -590,10 +590,32 @@ too.
 `system:modifiedAt` carries the **sub-second** part of the time, which matters
 for the job it exists for: a script asking *is the source newer than the copy?*
 gets the wrong answer from whole seconds for anything changed within a second of
-the last run. Two things it cannot do — **set** a time, or read and set a
-**mode** — mean a copy made with `readFile` and `writeFile` is stamped now and
-loses the executable bit. See
-[6.26](ROADMAP.md#626-a-files-mode-and-time-cannot-be-read-or-set).
+the last run.
+
+**A copy carries neither the mode nor the time on its own** — `readFile` and
+`writeFile` move bytes and nothing else — so `setMode` and `setModifiedAt` are
+how a copy is made to match its original:
+
+```
+system:writeFile(to, system:readFile(from)).
+system:setMode(to, system:modeOf(from)).
+system:setModifiedAt(to, system:modifiedAt(from)).
+```
+
+The mode before the time, since writing sets the time and would undo it.
+
+A **mode is an integer**, because that is what a mode is. Solum has no octal
+literal, so `#493` is what `0755` looks like written down — and `asBase` and
+`asInteger` cross to the text people recognise:
+
+```
+system:modeOf(path):asBase(#8).      ; "755"
+"755":asInteger(#8).                 ; #493
+```
+
+The file-type bits are masked off, so what comes back is permissions alone and
+`setMode(to, modeOf(from))` cannot try to change what a thing *is*. A mode
+outside `#0` to `#4095` is refused rather than partly applied.
 
 `system:makeDirectory` makes **one level** and is an error when the directory is
 already there, so "make sure this exists" is a test and a make —
@@ -2162,6 +2184,9 @@ it delegates to `object` like everything else. See
 | `clock` | monotonic seconds as a float; only differences are meaningful |
 | `time` | the current instant, as a [time](#time) |
 | `modifiedAt(path)` | when a file was last written, as a [time](#time); sub-second |
+| `setModifiedAt(path, time)` | nil, having set it |
+| `modeOf(path)` | the permission bits, as an integer |
+| `setMode(path, #mode)` | nil, having set them; `#0` to `#4095` |
 
 ### nil
 

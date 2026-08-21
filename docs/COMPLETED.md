@@ -1390,6 +1390,62 @@ for values, by identity for arrays, blocks, objects and dictionaries.
 [[#1]]:indexOf([#1]).            ; nil  -- an equal-looking array is a different one
 ```
 
+### 6.26 A file's mode and time cannot be read or set — **done**
+
+`system:modeOf`, `system:setMode`, `system:setModifiedAt`.
+
+**The case was one program.** [examples/mirror.sol](../examples/mirror.sol)
+copies a tree with `readFile` and `writeFile`, which carry bytes and nothing
+else, so what arrived was:
+
+```
+source:      -rwxr-xr-x  script.sh
+destination: -rw-r--r--  script.sh
+```
+
+A backup of anything holding scripts was not runnable. For a language aimed at
+scripting an OS that is a floor rather than a nicety, which is why this went
+ahead of the two entries beside it.
+
+**A mode is an integer**, and the alternative considered was a string of nine
+letters — `"rwxr-xr-x"` — which is what `ls` prints and what a person
+recognises. It was turned down because it would be a second representation of a
+number, needing its own parser and its own refusals, where `asBase` already
+crosses that gap for every base:
+
+```
+system:modeOf(path):asBase(#8).      ; "755"
+"755":asInteger(#8).                 ; #493
+```
+
+Solum has no octal literal, so `#493` is what `0755` looks like written down.
+That reads badly on its own and is why the pair above is the thing to know.
+
+**The file-type bits are masked off.** What comes back is permissions alone, so
+`setMode(to, modeOf(from))` — the whole reason both exist — cannot try to change
+a file into a directory. A mode outside `#0` to `#4095` is refused rather than
+partly applied, which is what `chmod` would do with bits it does not recognise.
+
+**`setModifiedAt` closed a corner that could not be closed before.** A copy is
+stamped *now*, so the only question a mirror could ask was *is the source
+newer?* — and a source file replaced with an **older** copy of itself is not
+newer, so it went unnoticed. With the time carried across, a matching pair
+compares **equal**, and the older replacement is seen:
+
+```
+1 files to copy
+    notes
+```
+
+Only the modification time. The access time is left alone with `UTIME_OMIT`,
+because nothing has wanted it and setting it silently would be a second thing
+happening. Times before 1970 split by flooring rather than truncating, and there
+is a test that reads one back.
+
+**What the program gained besides**: it can now tell a file whose bytes are
+right and whose permissions are wrong, and fix that without reading the file
+again — which is the shape every real mirroring tool has.
+
 ### 6.24 The prompt has no history — **done**
 
 **This entry was filed under 6.10 and should not have been.** 6.10 is *waiting

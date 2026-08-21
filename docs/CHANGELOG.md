@@ -7,6 +7,44 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### A copy keeps its mode and its time — `pending`, 2026-08-21
+
+[6.26](COMPLETED.md#626-a-files-mode-and-time-cannot-be-read-or-set--done):
+`system:modeOf`, `system:setMode`, `system:setModifiedAt`. Built the day the
+entry was written, because the thing it fixes is a floor rather than a nicety —
+a copy that loses the executable bit is a backup that will not run.
+
+```
+source:      -rwxr-xr-x  script.sh
+destination: -rwxr-xr-x  script.sh      ; was -rw-r--r--
+```
+
+**A mode is an integer**, and the alternative was a string of nine letters —
+`"rwxr-xr-x"`, what `ls` prints. Turned down because it would be a second
+representation of a number, with its own parser and its own refusals, where
+`asBase` already crosses that gap for every base:
+
+```
+system:modeOf(path):asBase(#8).      ; "755"
+"755":asInteger(#8).                 ; #493
+```
+
+Solum has no octal literal, so `#493` is what `0755` looks like written down.
+That reads badly alone, and the pair above is the thing to know.
+
+The file-type bits are masked off, so `setMode(to, modeOf(from))` — the whole
+reason both exist — cannot try to change a file into a directory.
+
+**`setModifiedAt` closed a corner that could not be closed before.** A copy is
+stamped *now*, so the only question a mirror could ask was *is the source
+newer?* — and a source replaced with an **older** copy of itself is not newer,
+so it went unnoticed. With the time carried across, a matching pair compares
+**equal**, and `mirror.sol` compares exactly now rather than by "not newer".
+
+The program that asked for these uses them, which is the part worth having: it
+can also tell a file whose bytes are right and whose permissions are wrong, and
+fix that without reading the file again.
+
 ### A mirroring script, and the defect it found in `modifiedAt` — `eac07ab`, 2026-08-21
 
 [examples/mirror.sol](../examples/mirror.sol) copies one directory tree into

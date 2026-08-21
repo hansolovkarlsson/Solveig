@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <time.h>
 
@@ -3704,6 +3705,122 @@ static SolValue prim_system_make_directory(SolVM *vm, SolValue self, SolValue *a
     return SOL_NIL_VAL;
 }
 
+/* `system:modeOf(path)` -- the permission bits, as an integer.
+ *
+ * An integer rather than a string, because that is what the mode *is* and the
+ * conversions to read it are already here. Solum has no octal literal, so #493
+ * is what 0755 looks like written down -- which reads badly enough that the
+ * pair to know is `asBase` and `asInteger`:
+ *
+ *     system:modeOf(path):asBase(#8)      ; "755"
+ *     "755":asInteger(#8)                 ; #493
+ *
+ * A string of nine letters -- "rwxr-xr-x" -- was the alternative, and it is
+ * what a person recognises. It was turned down because it would be a second
+ * representation of a number, needing its own parser and its own refusals,
+ * where `asBase` already crosses that gap for every base.
+ *
+ * The file-type bits are masked off: what a script wants to copy is the
+ * permissions, and handing back the type as well would make `setMode(to,
+ * modeOf(from))` a thing that could try to change a file into a directory.
+ */
+static SolValue prim_system_mode_of(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "modeOf", argc, 1)) return SOL_NIL_VAL;
+    if (!path_argument(vm, "modeOf", args[0])) return SOL_NIL_VAL;
+
+    const char *path = SOL_AS_STRING(args[0])->chars;
+    struct stat info;
+    if (stat(path, &info) != 0) {
+        sol_vm_runtime_error(vm, "cannot read the mode of '%s': %s",
+                             path, strerror(errno));
+        return SOL_NIL_VAL;
+    }
+    return SOL_INT_VAL((int64_t)(info.st_mode & 07777));
+}
+
+/* `system:setMode(path, mode)` -- the other direction.
+ *
+ * The range is checked here rather than left to `chmod`, which on most systems
+ * quietly ignores bits it does not know: a mode out of range is a program that
+ * has computed one wrongly, and saying so is better than applying most of it.
+ */
+static SolValue prim_system_set_mode(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "setMode", argc, 2)) return SOL_NIL_VAL;
+    if (!path_argument(vm, "setMode", args[0])) return SOL_NIL_VAL;
+    if (!SOL_IS_INT(args[1])) {
+        sol_vm_runtime_error(vm, "'setMode' expects an integer mode, got %s"
+                                 " -- \"755\":asInteger(#8) is one way to write it",
+                             sol_type_name(args[1]));
+        return SOL_NIL_VAL;
+    }
+
+    int64_t mode = SOL_AS_INT(args[1]);
+    if (mode < 0 || mode > 07777) {
+        sol_vm_runtime_error(vm, "#%lld is not a mode -- 'setMode' wants #0 to #4095",
+                             (long long)mode);
+        return SOL_NIL_VAL;
+    }
+
+    const char *path = SOL_AS_STRING(args[0])->chars;
+    if (chmod(path, (mode_t)mode) != 0) {
+        sol_vm_runtime_error(vm, "cannot set the mode of '%s': %s",
+                             path, strerror(errno));
+        return SOL_NIL_VAL;
+    }
+    return SOL_NIL_VAL;
+}
+
+/* `system:setModifiedAt(path, time)` -- so that a copy can keep the original's.
+ *
+ * The pair to `modifiedAt`, and the reason it exists: a copy made by reading
+ * and writing is stamped *now*, so a mirroring script comparing times has to
+ * ask "newer than" rather than "the same as" -- and then a file replaced with
+ * an older copy of itself goes unnoticed. With this, a copy can carry the time
+ * across and the comparison can be exact.
+ *
+ * Only the modification time. The access time is left alone with UTIME_OMIT,
+ * because nothing here has wanted it and setting it silently would be a second
+ * thing happening.
+ */
+static SolValue prim_system_set_modified_at(SolVM *vm, SolValue self, SolValue *args,
+                                            int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "setModifiedAt", argc, 2)) return SOL_NIL_VAL;
+    if (!path_argument(vm, "setModifiedAt", args[0])) return SOL_NIL_VAL;
+    if (!SOL_IS_TIME(args[1])) {
+        sol_vm_runtime_error(vm, "'setModifiedAt' expects a time, got %s",
+                             sol_type_name(args[1]));
+        return SOL_NIL_VAL;
+    }
+
+    int64_t nanos = SOL_AS_TIME(args[1]);
+    struct timespec when;
+    when.tv_sec = (time_t)(nanos / SOL_NANOS_PER_SECOND);
+    when.tv_nsec = (long)(nanos % SOL_NANOS_PER_SECOND);
+    if (when.tv_nsec < 0) {            /* before 1970: floor rather than truncate */
+        when.tv_sec -= 1;
+        when.tv_nsec += SOL_NANOS_PER_SECOND;
+    }
+
+    struct timespec times[2];
+    times[0].tv_sec = 0;
+    times[0].tv_nsec = UTIME_OMIT;     /* leave the access time alone */
+    times[1] = when;
+
+    const char *path = SOL_AS_STRING(args[0])->chars;
+    if (utimensat(AT_FDCWD, path, times, 0) != 0) {
+        sol_vm_runtime_error(vm, "cannot set the time of '%s': %s",
+                             path, strerror(errno));
+        return SOL_NIL_VAL;
+    }
+    return SOL_NIL_VAL;
+}
+
 /* `system:rename(from, to)` -- moving and renaming being the same operation.
  *
  * Works on a directory as readily as a file. It **replaces** an existing `to`
@@ -4173,6 +4290,9 @@ void sol_builtins_install(SolVM *vm)
     any_receiver(vm, system, "rename", prim_system_rename);
     any_receiver(vm, system, "time", prim_system_time);
     any_receiver(vm, system, "modifiedAt", prim_system_modified_at);
+    any_receiver(vm, system, "setModifiedAt", prim_system_set_modified_at);
+    any_receiver(vm, system, "modeOf", prim_system_mode_of);
+    any_receiver(vm, system, "setMode", prim_system_set_mode);
 
     SolArray *no_arguments = sol_array_new(vm, 0);
     sol_gc_push_temp(vm, &no_arguments->gc);

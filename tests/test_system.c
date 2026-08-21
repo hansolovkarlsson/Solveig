@@ -884,6 +884,122 @@ static void test_the_look_before_you_leap_idiom(void)
     printf("  looking first, and catching when you did not\n");
 }
 
+/* Whether a value is exactly this text. */
+static bool is_text(SolValue value, const char *expected)
+{
+    if (!SOL_IS_STRING(value)) return false;
+    const SolString *s = SOL_AS_STRING(value);
+    return s->length == (int)strlen(expected) &&
+           memcmp(s->chars, expected, (size_t)s->length) == 0;
+}
+
+/* A mode, read and written. An integer because that is what a mode is, with
+   `asBase` and `asInteger` crossing to the octal text people recognise -- Solum
+   has no octal literal, so #493 is what 0755 looks like written down. */
+static void test_a_mode_can_be_read_and_set(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "system:writeFile(\"build/tests/mode-a\", \"x\")."
+        "system:setMode(\"build/tests/mode-a\", \"755\":asInteger(#8))."
+        "as755 := system:modeOf(\"build/tests/mode-a\"):asBase(#8)."
+        "system:setMode(\"build/tests/mode-a\", \"600\":asInteger(#8))."
+        "as600 := system:modeOf(\"build/tests/mode-a\"):asBase(#8)."
+        /* The round trip a copy makes: read one, set the other. */
+        "system:writeFile(\"build/tests/mode-b\", \"y\")."
+        "system:setMode(\"build/tests/mode-b\","
+        "                system:modeOf(\"build/tests/mode-a\"))."
+        "same := system:modeOf(\"build/tests/mode-a\"):equals("
+        "            system:modeOf(\"build/tests/mode-b\")).") == SOL_OK);
+    assert(is_text(global(&vm, "as755"), "755"));
+    assert(is_text(global(&vm, "as600"), "600"));
+    assert(SOL_AS_BOOL(global(&vm, "same")) == true);
+    sol_chunk_free(&chunk);
+
+    /* The file type is masked off, so what comes back is permissions alone and
+       setMode(to, modeOf(from)) cannot try to change what a thing is. */
+    assert(run(&vm, &chunk,
+        "d := system:modeOf(\"build/tests\")."
+        "withinRange := d:greaterOrEqual(#0):and({ d:lessOrEqual(#4095) }).") == SOL_OK);
+    assert(SOL_AS_BOOL(global(&vm, "withinRange")) == true);
+    sol_chunk_free(&chunk);
+
+    remove("build/tests/mode-a");
+    remove("build/tests/mode-b");
+    sol_vm_free(&vm);
+    printf("  a mode is read and set as an integer\n");
+}
+
+/* A mode that is not one is refused rather than partly applied, which is what
+   chmod would do with the bits it does not know. */
+static void test_a_mode_out_of_range_is_refused(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk, "system:writeFile(\"build/tests/mode-c\", \"x\").") == SOL_OK);
+    sol_chunk_free(&chunk);
+
+    static const char *refused[] = {
+        "system:setMode(\"build/tests/mode-c\", #99999).",
+        "system:setMode(\"build/tests/mode-c\", #0:sub(#1)).",
+        "system:setMode(\"build/tests/mode-c\", \"755\").",   /* a string is not a mode */
+        "system:modeOf(\"build/tests/not-there-at-all\").",
+    };
+    for (size_t i = 0; i < sizeof refused / sizeof refused[0]; i++) {
+        assert(run(&vm, &chunk, refused[i]) == SOL_RUNTIME_ERROR);
+        sol_chunk_free(&chunk);
+    }
+
+    remove("build/tests/mode-c");
+    sol_vm_free(&vm);
+    printf("  a mode out of range, or of the wrong type, is refused\n");
+}
+
+/* `setModifiedAt` is why `modifiedAt` is worth having exactly: a copy can carry
+   the original's time, so two matching files compare equal rather than the
+   copy always being later. */
+static void test_a_time_can_be_carried_across(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "system:writeFile(\"build/tests/time-a\", \"one\")."
+        "system:writeFile(\"build/tests/time-b\", \"two\")."
+        "before := system:modifiedAt(\"build/tests/time-a\"):equals("
+        "              system:modifiedAt(\"build/tests/time-b\"))."
+        "system:setModifiedAt(\"build/tests/time-b\","
+        "                     system:modifiedAt(\"build/tests/time-a\"))."
+        "after := system:modifiedAt(\"build/tests/time-a\"):equals("
+        "             system:modifiedAt(\"build/tests/time-b\")).") == SOL_OK);
+    /* Two files written in turn are almost never stamped identically now that
+       the sub-second part survives -- but the test that matters is the second. */
+    assert(SOL_AS_BOOL(global(&vm, "after")) == true);
+    sol_chunk_free(&chunk);
+
+    /* A time from before the epoch, where the seconds and nanoseconds have to
+       be split by flooring rather than by truncating. */
+    assert(run(&vm, &chunk,
+        "old := \"1965-03-04T05:06:07Z\":asTime."
+        "system:setModifiedAt(\"build/tests/time-a\", old)."
+        "back := system:modifiedAt(\"build/tests/time-a\")."
+        "kept := back:equals(old).") == SOL_OK);
+    assert(SOL_AS_BOOL(global(&vm, "kept")) == true);
+    sol_chunk_free(&chunk);
+
+    assert(run(&vm, &chunk,
+        "system:setModifiedAt(\"build/tests/time-a\", #5).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+
+    remove("build/tests/time-a");
+    remove("build/tests/time-b");
+    sol_vm_free(&vm);
+    printf("  a time is carried from one file to another\n");
+}
+
 int main(void)
 {
     test_exit_carries_its_status();
@@ -923,6 +1039,9 @@ int main(void)
     test_a_file_that_is_not_there_is_an_error();
     test_file_exists_means_a_file();
 
+    test_a_mode_can_be_read_and_set();
+    test_a_mode_out_of_range_is_refused();
+    test_a_time_can_be_carried_across();
     printf("test_system: ok\n");
     return 0;
 }

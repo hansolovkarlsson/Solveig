@@ -76,6 +76,7 @@ pending:add("").
 
 made := array:new.
 copied := array:new.
+remoded := array:new.          ; the right bytes, the wrong permissions
 skipped := array:new.
 extra := array:new.
 
@@ -83,14 +84,25 @@ folders:do({ folder | | there |
     there := destination:concat("/"):concat(folder).
     system:isDirectory(there):ifFalse({ made:add(folder) }) }).
 
+; Same size and the **same** time, rather than "not newer".
+;
+; It used to be `lessOrEqual`, because a copy could not keep the original's time
+; and was always stamped later than it -- so the only question that could be
+; asked was "is the source newer?", and a source file replaced with an *older*
+; copy of itself went unnoticed. `setModifiedAt` below carries the time across,
+; so the times of a matching pair are equal and the comparison can be exact.
 relatives:do({ relative | | from, to |
     from := source:concat("/"):concat(relative).
     to := destination:concat("/"):concat(relative).
     system:fileExists(to):ifElse(
         { system:fileSize(from):equals(system:fileSize(to))
-            :and({ system:modifiedAt(from):lessOrEqual(system:modifiedAt(to)) })
+            :and({ system:modifiedAt(from):equals(system:modifiedAt(to)) })
             :ifElse(
-                { skipped:add(relative) },
+                { system:modeOf(from):equals(system:modeOf(to)):ifElse(
+                    { skipped:add(relative) },
+                    ; The bytes are right and the permissions are not, which is
+                    ; worth fixing without reading the file again.
+                    { remoded:add(relative) }) },
                 { copied:add(relative) }) },
         { copied:add(relative) }) }).
 
@@ -108,9 +120,17 @@ dryRun:ifFalse({
     ensure:value(destination).
     made:do({ folder |
         ensure:value(destination:concat("/"):concat(folder)) }).
-    copied:do({ relative |
-        system:writeFile(destination:concat("/"):concat(relative),
-                         system:readFile(source:concat("/"):concat(relative))) }) }).
+    copied:do({ relative | | from, to |
+        from := source:concat("/"):concat(relative).
+        to := destination:concat("/"):concat(relative).
+        system:writeFile(to, system:readFile(from)).
+        ; The mode first, then the time: writing sets the time, so setting it
+        ; before the write would be undone by it.
+        system:setMode(to, system:modeOf(from)).
+        system:setModifiedAt(to, system:modifiedAt(from)) }).
+    remoded:do({ relative |
+        system:setMode(destination:concat("/"):concat(relative),
+                       system:modeOf(source:concat("/"):concat(relative))) }) }).
 
 ; ---------------------------------------------------------------------------
 ; The report
@@ -130,10 +150,11 @@ report := { label, list |
 
 report:value("directories to make", made).
 report:value("files to copy", copied).
+report:value("permissions to fix", remoded).
 report:value("already there", skipped).
 report:value("in the destination and not the source", extra).
 
-made:size:add(copied:size):equals(#0):ifTrue({
+made:size:add(copied:size):add(remoded:size):equals(#0):ifTrue({
     "nothing to do":display }).
 
 ; ---------------------------------------------------------------------------
@@ -157,17 +178,21 @@ made:size:add(copied:size):equals(#0):ifTrue({
 ;          #1:print.        ; before: "nothing to do"
 ;          #1:print.        ; after:  1 file to copy
 ;
-;   3. **A copy does not keep the original's time**, so the comparison here has
-;      to be *newer than* rather than *the same as*. That works and is what
-;      every mirroring tool does, and it has a corner: a source file replaced
-;      with an **older** copy of itself is not noticed, because it is not newer.
-;      A content comparison would catch it, at the price of reading both files.
+;   3. **A copy could not keep the original's time**, so the comparison had to
+;      be *newer than* rather than *the same as* -- which has a corner: a source
+;      file replaced with an **older** copy of itself is not newer, so it went
+;      unnoticed. `system:setModifiedAt` was built for this, the times of a
+;      matching pair are equal now, and the comparison above is exact.
 ;
-;   4. **The executable bit is lost.** `-rwxr-xr-x` in the source is
-;      `-rw-r--r--` in the destination, because a copy here is `readFile` then
-;      `writeFile` and neither carries a mode. A backup of anything containing
-;      scripts is not runnable, which for a language aimed at scripting an OS is
-;      the sharpest of these. See ROADMAP 6.26.
+;   4. **The executable bit was lost.** `-rwxr-xr-x` in the source arrived as
+;      `-rw-r--r--`, because a copy here is `readFile` then `writeFile` and
+;      neither carries a mode -- so a backup of anything holding scripts was not
+;      runnable. `system:modeOf` and `system:setMode` were built for this, and
+;      the mode is carried across now. It also let this notice a file whose
+;      bytes are right and whose permissions are not, and fix that without
+;      reading the file again.
+;
+;      Both of those are 6.26, which this program is the whole case for.
 ;
 ; And one thing that is not a gap: **a whole-file copy is fine at this size and
 ; not at every size.** `readFile` answers the file as one string, so a mirror of
