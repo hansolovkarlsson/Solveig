@@ -8,7 +8,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
-### `isNil` and `notNil` — `pending`, 2026-08-20
+### `isNil` and `notNil` — `10ddf25`, 2026-08-20
 
 Roadmap 2.14, the last of the loose ends from 2.8.
 
