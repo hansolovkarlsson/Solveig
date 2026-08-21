@@ -86,38 +86,43 @@ system:readFile(path):split("\n"):do({ line |
 ; ---------------------------------------------------------------------------
 ; Counting by key
 ;
-; This is the one place the language made the job harder. There is no
-; dictionary, and no way to bind a slot whose name is computed -- `perform`
-; reads a computed name but nothing writes one -- so an object cannot stand in
-; for one either. Counting by key is a walk over an array of pairs, which is
-; O(n) a lookup where a dictionary would be O(1).
+; A dictionary keeps values under keys and finds them by hashing. This is the
+; one thing the language did not have when this example was first written: the
+; tally below was an array of pairs walked from the top, O(n) a lookup, and
+; saying so here is what got `dictionary` built.
 ;
-; It is fine at this size and it is the wrong shape at any real size.
+; Keys are values -- numbers, strings, symbols, booleans, nil -- because those
+; are compared by content. An array or an object is compared by identity, so two
+; that look alike would be two keys, and they are refused rather than surprising
+; anybody.
 
 counter := object:new.
 counter:key   := "".
 counter:count := #0.
 counter:total := #0.
 
-tally := { list, key, amount | | found |
-    found := nil.
-    list:do({ c | c:key:equals(key):ifTrue({ found := c }) }).
-    found:isNil:ifTrue({
-        found := counter:new.
-        found:key := key.
-        list:add(found) }).
-    found:count := found:count:add(#1).
-    found:total := found:total:add(amount).
-    found
+; `at(key, default)` is the form a counter wants: no separate "is it there?"
+; before the answer.
+bump := { table, key, amount | | c |
+    c := table:at(key, nil).
+    c:isNil:ifTrue({
+        c := counter:new.
+        c:key := key.
+        table:atPut(key, c) }).
+    c:count := c:count:add(#1).
+    c:total := c:total:add(amount)
 }.
 
-byStatus := array:new.
-byPath   := array:new.
+byStatus := dictionary:new.
+byPath   := dictionary:new.
 
 entries:do({ e |
-    tally:value(byStatus, e:status:asString, e:ms).
-    tally:value(byPath, e:path, e:bytes)
+    bump:value(byStatus, e:status:asString, e:ms).
+    bump:value(byPath, e:path, e:bytes)
 }).
+
+; `keys` and `values` answer arrays, in the table's order -- which is to say in
+; no order worth relying on, so anything shown below is sorted first.
 
 ; There is no `first(#n)` either, so taking the head of a sorted array is a walk
 ; with an index. `whileTrue` written literally compiles to jumps, so this is the
@@ -141,6 +146,8 @@ errors := entries:select({ e | e:status:greaterOrEqual(#400) }).
 
 "":display.
 "{} requests from {}":fill([count, path]):display.
+"{} distinct paths, {} distinct statuses":fill([
+    byPath:keys:size, byStatus:size]):display.
 "{} to {}":fill([entries:at(#1):time, entries:at(count):time]):display.
 "":display.
 
@@ -160,14 +167,14 @@ errors := entries:select({ e | e:status:greaterOrEqual(#400) }).
 
 "":display.
 "by status":display.
-byStatus:sorted({ a, b | a:count:greaterThan(b:count) }):do({ c |
+byStatus:values:sorted({ a, b | a:count:greaterThan(b:count) }):do({ c |
     "  {} {} requests, {} ms total":fill([
         c:key:asString("<5"), c:count:asString("3"), c:total:asString(",5")]):display
 }).
 
 "":display.
 "busiest paths":display.
-firstFew:value(byPath:sorted({ a, b | a:count:greaterThan(b:count) }), #5):do({ c |
+firstFew:value(byPath:values:sorted({ a, b | a:count:greaterThan(b:count) }), #5):do({ c |
     "  {} {} requests, {} bytes":fill([
         c:key:asString("<14"), c:count:asString("3"), c:total:asString(",8")]):display
 }).

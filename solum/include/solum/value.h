@@ -19,6 +19,7 @@ typedef struct SolArray  SolArray;
 typedef struct SolString SolString;
 typedef struct SolDelegate SolDelegate;
 typedef struct SolSymbol  SolSymbol;
+typedef struct SolDict    SolDict;
 
 typedef enum {
     SOL_NIL,
@@ -30,7 +31,8 @@ typedef enum {
     SOL_STRING,   /* "hello"         */
     SOL_SYMBOL,   /* 'foo            */
     SOL_DELEGATE, /* self:via(proto) */
-    SOL_OBJ
+    SOL_OBJ,
+    SOL_DICT      /* dictionary:new  */
 } SolValueType;
 
 typedef struct {
@@ -45,6 +47,7 @@ typedef struct {
         SolSymbol *symbol;
         SolDelegate *delegate;
         SolObject *obj;
+        SolDict   *dict;
     } as;
 } SolValue;
 
@@ -58,6 +61,7 @@ typedef struct {
 #define SOL_INT_VAL(i)    ((SolValue){ SOL_INT,   { .integer = (i) } })
 #define SOL_FLOAT_VAL(f)  ((SolValue){ SOL_FLOAT, { .real = (f) } })
 #define SOL_OBJ_VAL(o)    ((SolValue){ SOL_OBJ,   { .obj = (o) } })
+#define SOL_DICT_VAL(d)   ((SolValue){ SOL_DICT,  { .dict = (d) } })
 
 #define SOL_IS_NIL(v)     ((v).type == SOL_NIL)
 #define SOL_IS_BOOL(v)    ((v).type == SOL_BOOL)
@@ -69,6 +73,7 @@ typedef struct {
 #define SOL_IS_INT(v)     ((v).type == SOL_INT)
 #define SOL_IS_FLOAT(v)   ((v).type == SOL_FLOAT)
 #define SOL_IS_OBJ(v)     ((v).type == SOL_OBJ)
+#define SOL_IS_DICT(v)    ((v).type == SOL_DICT)
 
 #define SOL_AS_BOOL(v)    ((v).as.boolean)
 #define SOL_AS_BLOCK(v)   ((v).as.block)
@@ -79,6 +84,7 @@ typedef struct {
 #define SOL_AS_INT(v)     ((v).as.integer)
 #define SOL_AS_FLOAT(v)   ((v).as.real)
 #define SOL_AS_OBJ(v)     ((v).as.obj)
+#define SOL_AS_DICT(v)    ((v).as.dict)
 
 /* A growable text buffer, so a value can be rendered into a string as readily as
    onto stdout and the two cannot drift apart. */

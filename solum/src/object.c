@@ -178,6 +178,213 @@ uint32_t sol_hash_bytes(const char *chars, int length)
     return hash;
 }
 
+/* ---- dictionaries ------------------------------------------------------ *
+ *
+ * See object.h for why an object could not serve as one, and for why keys are
+ * values rather than anything at all.
+ */
+
+bool sol_value_equals(SolValue a, SolValue b)
+{
+    if (a.type != b.type) return false;
+
+    switch (a.type) {
+    case SOL_NIL:      return true;
+    case SOL_BOOL:     return SOL_AS_BOOL(a) == SOL_AS_BOOL(b);
+    case SOL_INT:      return SOL_AS_INT(a) == SOL_AS_INT(b);
+    case SOL_FLOAT:    return SOL_AS_FLOAT(a) == SOL_AS_FLOAT(b);
+    case SOL_BLOCK:    return SOL_AS_BLOCK(a) == SOL_AS_BLOCK(b);
+    case SOL_ARRAY:    return SOL_AS_ARRAY(a) == SOL_AS_ARRAY(b);
+    case SOL_DELEGATE: return SOL_AS_DELEGATE(a) == SOL_AS_DELEGATE(b);
+    case SOL_SYMBOL:   return SOL_AS_SYMBOL(a) == SOL_AS_SYMBOL(b);
+    case SOL_OBJ:      return SOL_AS_OBJ(a) == SOL_AS_OBJ(b);
+    case SOL_DICT:     return SOL_AS_DICT(a) == SOL_AS_DICT(b);
+    case SOL_STRING: {
+        const SolString *x = SOL_AS_STRING(a);
+        const SolString *y = SOL_AS_STRING(b);
+        return x->length == y->length &&
+               memcmp(x->chars, y->chars, (size_t)x->length) == 0;
+    }
+    }
+    return false;
+}
+
+bool sol_dict_key_ok(SolValue key)
+{
+    switch (key.type) {
+    case SOL_NIL: case SOL_BOOL: case SOL_INT:
+    case SOL_FLOAT: case SOL_STRING: case SOL_SYMBOL:
+        return true;
+    case SOL_BLOCK: case SOL_ARRAY: case SOL_OBJ:
+    case SOL_DELEGATE: case SOL_DICT:
+        return false;
+    }
+    return false;
+}
+
+static uint32_t mix64(uint64_t x)
+{
+    x ^= x >> 33;
+    x *= 0xff51afd7ed558ccdULL;
+    x ^= x >> 33;
+    x *= 0xc4ceb9fe1a85ec53ULL;
+    x ^= x >> 33;
+    return (uint32_t)x;
+}
+
+/* The type goes into the hash because `#1` and `1.0` are different keys --
+   `equals` says so -- and would otherwise land in the same bucket for no
+   reason. */
+static uint32_t hash_key(SolValue key)
+{
+    switch (key.type) {
+    case SOL_NIL:  return 0x9e3779b9u;
+    case SOL_BOOL: return SOL_AS_BOOL(key) ? 0x85ebca6bu : 0xc2b2ae35u;
+    case SOL_INT:  return mix64((uint64_t)SOL_AS_INT(key)) ^ 0x01u;
+    case SOL_FLOAT: {
+        double d = SOL_AS_FLOAT(key);
+        /* -0.0 equals 0.0, so it has to hash as 0.0 or the two would be one key
+           by `equals` and two by the table. `nan` is left alone: it equals
+           nothing, itself included, so a nan key can be stored and never found
+           again -- which is IEEE showing through rather than a decision here. */
+        if (d == 0.0) d = 0.0;
+        uint64_t bits;
+        memcpy(&bits, &d, sizeof bits);
+        return mix64(bits) ^ 0x02u;
+    }
+    case SOL_STRING: {
+        const SolString *s = SOL_AS_STRING(key);
+        return sol_hash_bytes(s->chars, s->length) ^ 0x03u;
+    }
+    /* Interned, so the address is the name and hashing it is hashing the name
+       -- the same reason `equals` compares symbols by pointer. */
+    case SOL_SYMBOL: return mix64((uint64_t)(uintptr_t)SOL_AS_SYMBOL(key)) ^ 0x04u;
+    default: return 0;
+    }
+}
+
+/* The entry `key` belongs in: the one holding it, or the first place to put it.
+   Tombstones are probed through, and the first one seen is remembered so an
+   insert reuses it rather than growing the table for nothing. */
+static SolDictEntry *find_entry(SolDictEntry *entries, int capacity, SolValue key)
+{
+    uint32_t index = hash_key(key) & (uint32_t)(capacity - 1);
+    SolDictEntry *tombstone = NULL;
+
+    for (;;) {
+        SolDictEntry *entry = &entries[index];
+
+        if (entry->state == SOL_DICT_EMPTY) {
+            return tombstone != NULL ? tombstone : entry;
+        }
+        if (entry->state == SOL_DICT_GONE) {
+            if (tombstone == NULL) tombstone = entry;
+        } else if (sol_value_equals(entry->key, key)) {
+            return entry;
+        }
+        index = (index + 1) & (uint32_t)(capacity - 1);
+    }
+}
+
+static void grow(SolVM *vm, SolDict *dict)
+{
+    int capacity = dict->capacity < 8 ? 8 : dict->capacity * 2;
+
+    SolDictEntry *entries = calloc((size_t)capacity, sizeof(SolDictEntry));
+    if (entries == NULL) {
+        fprintf(stderr, "solvm: out of memory\n");
+        exit(1);
+    }
+
+    /* Rebuilding drops the tombstones, which is why `used` can fall here. */
+    int count = 0;
+    for (int i = 0; i < dict->capacity; i++) {
+        SolDictEntry *old = &dict->entries[i];
+        if (old->state != SOL_DICT_LIVE) continue;
+
+        SolDictEntry *entry = find_entry(entries, capacity, old->key);
+        entry->key = old->key;
+        entry->value = old->value;
+        entry->state = SOL_DICT_LIVE;
+        count++;
+    }
+
+    /* Charge the growth the way `sol_array_add` does, so a dictionary that
+       grows large enough eventually triggers a collection on its own account.
+       calloc and free rather than a heap allocation, so nothing can be
+       collected in the middle of the rebuild. */
+    vm->bytes_allocated += sizeof(SolDictEntry) * (size_t)(capacity - dict->capacity);
+
+    free(dict->entries);
+    dict->entries = entries;
+    dict->capacity = capacity;
+    dict->count = count;
+    dict->used = count;
+}
+
+SolDict *sol_dict_new(SolVM *vm)
+{
+    sol_gc_maybe_collect(vm);
+
+    SolDict *dict = malloc(sizeof(SolDict));
+    if (dict == NULL) {
+        fprintf(stderr, "solvm: out of memory\n");
+        exit(1);
+    }
+    dict->entries = NULL;
+    dict->capacity = 0;
+    dict->count = 0;
+    dict->used = 0;
+
+    sol_gc_register(vm, &dict->gc, SOL_GC_DICT, sizeof(SolDict));
+    return dict;
+}
+
+bool sol_dict_get(const SolDict *dict, SolValue key, SolValue *out)
+{
+    if (dict->count == 0) return false;
+
+    SolDictEntry *entry = find_entry(dict->entries, dict->capacity, key);
+    if (entry->state != SOL_DICT_LIVE) return false;
+
+    *out = entry->value;
+    return true;
+}
+
+void sol_dict_put(SolVM *vm, SolDict *dict, SolValue key, SolValue value)
+{
+    /* Three quarters full counting tombstones, so a table full of them is
+       rebuilt rather than probed through forever. */
+    if (dict->used + 1 > dict->capacity - dict->capacity / 4) grow(vm, dict);
+
+    SolDictEntry *entry = find_entry(dict->entries, dict->capacity, key);
+    if (entry->state != SOL_DICT_LIVE) {
+        dict->count++;
+        if (entry->state == SOL_DICT_EMPTY) dict->used++;   /* not reusing one */
+    }
+    entry->key = key;
+    entry->value = value;
+    entry->state = SOL_DICT_LIVE;
+}
+
+bool sol_dict_remove(SolDict *dict, SolValue key, SolValue *out)
+{
+    if (dict->count == 0) return false;
+
+    SolDictEntry *entry = find_entry(dict->entries, dict->capacity, key);
+    if (entry->state != SOL_DICT_LIVE) return false;
+
+    *out = entry->value;
+    /* A tombstone rather than an empty: a key that probed past this one on the
+       way in has to be found on the way out. `used` stays put, so the table is
+       rebuilt once the tombstones crowd it. */
+    entry->state = SOL_DICT_GONE;
+    entry->key = SOL_NIL_VAL;
+    entry->value = SOL_NIL_VAL;
+    dict->count--;
+    return true;
+}
+
 static void symbol_table_grow(SolVM *vm)
 {
     int capacity = vm->symbol_capacity < 64 ? 64 : vm->symbol_capacity * 2;

@@ -8,6 +8,56 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased — 0.0.1
 
+### A dictionary — `pending`, 2026-08-20
+
+Roadmap 6.15, wanted by [examples/log.sol](../examples/log.sol) and now used by
+it.
+
+```
+counts := dictionary:new.
+"the fox the dog the":split(" "):do({ word |
+    counts:atPut(word, counts:at(word, #0):add(#1))
+}).
+counts:at("the"):print.          ; #3
+```
+
+`dictionary:new`, `at`, `at(key, default)`, `atPut`, `includes`, `remove`,
+`size`, `keys`, `values`, `do`, `keysAndValuesDo`. Open addressing, tombstones
+for removal, and a rebuild that drops them once they crowd the table.
+
+**The entry offered two answers and called the wrong one smaller.** It proposed
+`slotAtPut` — completing the reflection triple so an object could serve as a
+dictionary — as the cheap option. Checking killed it. A slot name is interned in
+the VM's **permanent** name table, so keys read from a file would leak a name
+apiece; and slots are a **linked list walked linearly**, so an object-as-
+dictionary would have had exactly the complexity of the array of pairs it was
+replacing. Not smaller — wrong.
+
+**Keys are values.** Numbers, strings, symbols, booleans and nil are compared by
+content, so two keys that look alike are one key. Arrays, blocks, objects and
+dictionaries are compared by identity, so two that look alike would be two keys —
+right for `equals`, useless here, refused rather than surprising anybody. It is
+the line the language already draws between values and references.
+
+Two things fell out of taking that seriously: `-0.0` hashes as `0.0`, since the
+two are equal and the table must not disagree with `equals`; and `nan` can be
+stored and never found again, since it equals nothing at all.
+
+`sol_value_equals` now exists and `prim_equals` calls it, so the table and
+`equals` cannot come to disagree about what one key being another means.
+
+**One bug, and it is the interesting part.** Adding a value type touches six
+places. Five are switches with no `default`, and `-Wswitch` named every one at
+the first build. The sixth — `mark_value` in the collector — was a chain of
+`if (SOL_IS_...)`, compiled silently, and swept live dictionaries. It took a
+segfault at 500 keys and a stack trace showing a freed struct to find. It is a
+switch now, so the next type cannot slip through the same gap.
+
+`tests/test_dict.c` has eleven groups: growth past several rehashes, churn until
+tombstones force a rebuild, a dictionary holding itself, and two hundred freshly
+allocated keys and values surviving a collection — that last confirmed to fail
+when the marking is taken out.
+
 ### A log analyser, and the two things it could not say — `de39331`, 2026-08-20
 
 [examples/log.sol](../examples/log.sol) reads an access log and reports on it:

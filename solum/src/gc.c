@@ -60,6 +60,10 @@ static size_t cell_size(const SolGCHeader *header)
         const SolArray *array = (const SolArray *)header;
         return sizeof(SolArray) + sizeof(SolValue) * (size_t)array->capacity;
     }
+    if (header->type == SOL_GC_DICT) {
+        const SolDict *dict = (const SolDict *)header;
+        return sizeof(SolDict) + sizeof(SolDictEntry) * (size_t)dict->capacity;
+    }
     if (header->type == SOL_GC_STRING) {
         return sizeof(SolString) + (size_t)((const SolString *)header)->length + 1;
     }
@@ -126,14 +130,29 @@ static void mark_cell(SolVM *vm, SolGCHeader *header)
     vm->gray[vm->gray_count++] = header;
 }
 
+/* A switch rather than a chain of `if (SOL_IS_...)`, and deliberately: with no
+   `default`, -Wswitch makes the compiler name any value type added later that
+   is not handled here.
+
+   It was a chain once, and SOL_DICT was added without a line in it. Every other
+   place a new type has to appear -- `sol_type_name`, `sol_vm_class_of`, the
+   renderer, the serializer -- is a switch and all four were flagged at the
+   first build. This one compiled cleanly and swept live dictionaries instead,
+   which took a segfault and a stack trace to find. The check was worth having
+   at the fifth site too. */
 static void mark_value(SolVM *vm, SolValue value)
 {
-    if (SOL_IS_OBJ(value))        mark_cell(vm, (SolGCHeader *)SOL_AS_OBJ(value));
-    else if (SOL_IS_BLOCK(value)) mark_cell(vm, (SolGCHeader *)SOL_AS_BLOCK(value));
-    else if (SOL_IS_ARRAY(value)) mark_cell(vm, (SolGCHeader *)SOL_AS_ARRAY(value));
-    else if (SOL_IS_STRING(value)) mark_cell(vm, (SolGCHeader *)SOL_AS_STRING(value));
-    else if (SOL_IS_DELEGATE(value)) mark_cell(vm, (SolGCHeader *)SOL_AS_DELEGATE(value));
-    else if (SOL_IS_SYMBOL(value)) mark_cell(vm, (SolGCHeader *)SOL_AS_SYMBOL(value));
+    switch (value.type) {
+    case SOL_OBJ:      mark_cell(vm, (SolGCHeader *)SOL_AS_OBJ(value)); break;
+    case SOL_BLOCK:    mark_cell(vm, (SolGCHeader *)SOL_AS_BLOCK(value)); break;
+    case SOL_ARRAY:    mark_cell(vm, (SolGCHeader *)SOL_AS_ARRAY(value)); break;
+    case SOL_DICT:     mark_cell(vm, (SolGCHeader *)SOL_AS_DICT(value)); break;
+    case SOL_STRING:   mark_cell(vm, (SolGCHeader *)SOL_AS_STRING(value)); break;
+    case SOL_DELEGATE: mark_cell(vm, (SolGCHeader *)SOL_AS_DELEGATE(value)); break;
+    case SOL_SYMBOL:   mark_cell(vm, (SolGCHeader *)SOL_AS_SYMBOL(value)); break;
+    /* Unboxed: nothing on the heap to reach. */
+    case SOL_NIL: case SOL_BOOL: case SOL_INT: case SOL_FLOAT: break;
+    }
 }
 
 /* A chunk's constants can hold heap values, so a live code tree keeps them
@@ -190,6 +209,21 @@ static void blacken(SolVM *vm, SolGCHeader *header)
         return;
     }
 
+    if (header->type == SOL_GC_DICT) {
+        /* Both halves of a live entry are edges. A tombstone holds nil in both,
+           so skipping it is tidiness rather than necessity -- but an entry that
+           was never used holds whatever calloc left, which is a zeroed
+           SolValue, and marking that would be marking SOL_NIL. Skip anything
+           not live and neither question arises. */
+        const SolDict *dict = (const SolDict *)header;
+        for (int i = 0; i < dict->capacity; i++) {
+            if (dict->entries[i].state != SOL_DICT_LIVE) continue;
+            mark_value(vm, dict->entries[i].key);
+            mark_value(vm, dict->entries[i].value);
+        }
+        return;
+    }
+
     if (header->type == SOL_GC_CODE) {
         mark_chunk_constants(vm, &((SolCode *)header)->chunk);
         return;
@@ -220,6 +254,7 @@ static void mark_roots(SolVM *vm)
     mark_cell(vm, (SolGCHeader *)vm->bool_class);
     mark_cell(vm, (SolGCHeader *)vm->block_class);
     mark_cell(vm, (SolGCHeader *)vm->array_class);
+    mark_cell(vm, (SolGCHeader *)vm->dict_class);
     mark_cell(vm, (SolGCHeader *)vm->string_class);
     mark_cell(vm, (SolGCHeader *)vm->object_class);
     mark_cell(vm, (SolGCHeader *)vm->symbol_class);
@@ -237,6 +272,12 @@ static void free_cell(SolGCHeader *header)
 
     if (header->type == SOL_GC_ARRAY) {
         free(((SolArray *)header)->items);
+        free(header);
+        return;
+    }
+
+    if (header->type == SOL_GC_DICT) {
+        free(((SolDict *)header)->entries);
         free(header);
         return;
     }

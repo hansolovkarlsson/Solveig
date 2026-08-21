@@ -98,6 +98,64 @@ SolBlock  *sol_block_new(SolVM *vm, const SolMethod *code, SolValue self,
 /* An empty array with room for `capacity` values, which may be zero. */
 SolArray *sol_array_new(SolVM *vm, int capacity);
 
+/* A dictionary: values kept under keys, found by hashing rather than by
+ * looking at every one.
+ *
+ * An object is already a set of named slots, and cannot serve as this. A slot
+ * name is interned in the VM's *permanent* name table -- it outlives every slot
+ * that uses it and is freed only with the VM -- so a dictionary of keys read
+ * from a file would leak a name per key. And slots are a linked list walked
+ * linearly, so it would not even be faster than the array of pairs it replaces.
+ *
+ * **Keys are values.** Integers, floats, strings, symbols, booleans and nil are
+ * compared by content, so two of them that look alike are the same key. Arrays,
+ * blocks, objects and delegates are references compared by identity, where two
+ * that look alike are two different keys -- a rule that is right for `equals`
+ * and useless in a dictionary, so they are refused rather than surprising
+ * somebody. It is the same line the language already draws between values and
+ * references.
+ *
+ * Open addressing: one allocation for the entries, a tombstone where one has
+ * been removed, and `used` counting live entries and tombstones together so the
+ * probe never runs long. Growth rebuilds and drops the tombstones. */
+typedef enum {
+    SOL_DICT_EMPTY = 0,      /* never used; a probe stops here                */
+    SOL_DICT_LIVE,
+    SOL_DICT_GONE            /* removed; a probe passes through               */
+} SolDictState;
+
+typedef struct {
+    SolValue key;
+    SolValue value;
+    uint8_t  state;
+} SolDictEntry;
+
+struct SolDict {
+    SolGCHeader   gc;
+    SolDictEntry *entries;
+    int           capacity;   /* a power of two, or 0 when entries is NULL */
+    int           count;      /* live entries */
+    int           used;       /* live plus tombstones */
+};
+
+SolDict *sol_dict_new(SolVM *vm);
+
+/* Whether `key` may be a key at all: true for the value types. */
+bool sol_dict_key_ok(SolValue key);
+
+/* Answers whether the key was there, and writes its value to `out` if so. */
+bool sol_dict_get(const SolDict *dict, SolValue key, SolValue *out);
+
+/* Binds `key` to `value`, replacing any previous binding. */
+void sol_dict_put(SolVM *vm, SolDict *dict, SolValue key, SolValue value);
+
+/* Removes `key`, writing what it held to `out`. False if it was not there. */
+bool sol_dict_remove(SolDict *dict, SolValue key, SolValue *out);
+
+/* The comparison `equals` makes, so that a dictionary and `equals` can never
+   come to disagree about what one key being another means. */
+bool sol_value_equals(SolValue a, SolValue b);
+
 /* An immutable string.
  *
  * Immutable, so a string is a *value* rather than a reference: `equals` compares

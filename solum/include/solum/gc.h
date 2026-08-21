@@ -32,6 +32,7 @@ typedef enum {
     SOL_GC_OBJECT,
     SOL_GC_BLOCK,
     SOL_GC_ARRAY,
+    SOL_GC_DICT,
     SOL_GC_STRING,
     SOL_GC_SYMBOL,
     SOL_GC_DELEGATE,

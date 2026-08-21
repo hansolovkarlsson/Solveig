@@ -145,6 +145,29 @@ static void render(SolVM *vm, SolValue value, SolText *out, int depth)
         sol_text_append(out, "]", 1);
         break;
     }
+    case SOL_DICT: {
+        /* Shown with its contents, because a dictionary you cannot look at is
+           hard to debug -- but in angle brackets rather than the brackets an
+           array gets, since there is no literal for one and this does not read
+           back as anything. The order is the table's, which is to say
+           arbitrary: sort `keys` if you want a stable one. */
+        const SolDict *dict = SOL_AS_DICT(value);
+        if (depth >= SOL_RENDER_MAX_DEPTH) { sol_text_append(out, "<...>", 5); break; }
+
+        sol_text_append(out, "<dictionary", 11);
+        bool first = true;
+        for (int i = 0; i < dict->capacity; i++) {
+            if (dict->entries[i].state != SOL_DICT_LIVE) continue;
+
+            sol_text_append(out, first ? " " : ", ", first ? 1 : 2);
+            first = false;
+            render(vm, dict->entries[i].key, out, depth + 1);
+            sol_text_append(out, ": ", 2);
+            render(vm, dict->entries[i].value, out, depth + 1);
+        }
+        sol_text_append(out, ">", 1);
+        break;
+    }
     case SOL_OBJ: {
         /* An object is rendered by asking it, so one that defines `asString` is
            shown that way even nested inside an array. The default `asString` on

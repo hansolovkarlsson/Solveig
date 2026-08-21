@@ -783,34 +783,16 @@ static SolValue prim_equals(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     if (!check_argc(vm, "equals", argc, 1)) return SOL_NIL_VAL;
 
-    SolValue other = args[0];
-    if (self.type != other.type) return SOL_BOOL_VAL(false);
-
-    switch (self.type) {
-    case SOL_NIL:   return SOL_BOOL_VAL(true);
-    case SOL_BOOL:  return SOL_BOOL_VAL(SOL_AS_BOOL(self) == SOL_AS_BOOL(other));
-    case SOL_INT:   return SOL_BOOL_VAL(SOL_AS_INT(self) == SOL_AS_INT(other));
-    case SOL_FLOAT: return SOL_BOOL_VAL(SOL_AS_FLOAT(self) == SOL_AS_FLOAT(other));
-    case SOL_BLOCK: return SOL_BOOL_VAL(SOL_AS_BLOCK(self) == SOL_AS_BLOCK(other));
-    /* Identity, like objects and blocks. Two arrays with equal elements are two
-       arrays; comparing contents is a different question and deserves its own
-       name rather than quietly changing what `equals` means. */
-    case SOL_ARRAY: return SOL_BOOL_VAL(SOL_AS_ARRAY(self) == SOL_AS_ARRAY(other));
-    case SOL_DELEGATE: return SOL_BOOL_VAL(SOL_AS_DELEGATE(self) == SOL_AS_DELEGATE(other));
-    /* Interned, so two symbols spelling the same thing are the same symbol and
-       a pointer comparison is a comparison of the names. */
-    case SOL_SYMBOL: return SOL_BOOL_VAL(SOL_AS_SYMBOL(self) == SOL_AS_SYMBOL(other));
-    /* A string is immutable, so it is a value like a number rather than a
-       reference like an array: equality compares contents. */
-    case SOL_STRING: {
-        const SolString *a = SOL_AS_STRING(self);
-        const SolString *b = SOL_AS_STRING(other);
-        return SOL_BOOL_VAL(a->length == b->length &&
-                            memcmp(a->chars, b->chars, (size_t)a->length) == 0);
-    }
-    case SOL_OBJ:   return SOL_BOOL_VAL(SOL_AS_OBJ(self) == SOL_AS_OBJ(other));
-    }
-    return SOL_BOOL_VAL(false);
+    /* `sol_value_equals` is the one definition, in object.c, because a
+       dictionary asks the same question of its keys and the two must not come
+       to disagree about what one key being another means. What it says, per
+       type: nil and booleans and numbers by their value; strings by their
+       contents, being immutable and so values themselves; symbols by pointer,
+       being interned, which is the same thing; and blocks, arrays, objects,
+       delegates and dictionaries by identity, two arrays with equal elements
+       being two arrays. Comparing contents is a different question and deserves
+       its own name rather than quietly changing what `equals` means. */
+    return SOL_BOOL_VAL(sol_value_equals(self, args[0]));
 }
 
 /* The negation of `equals`, defined in terms of it so the two can never
@@ -1794,6 +1776,196 @@ static SolValue prim_string_copy_from(SolVM *vm, SolValue self, SolValue *args, 
         sol_string_new(vm, text->chars + (from - 1), (int)(to - from + 1)));
 }
 
+/* ---- dictionary -------------------------------------------------------- *
+ *
+ * Values kept under keys. `examples/log.sol` is why: counting by key is most of
+ * what a log analyser does, and before this the only way to write it was an
+ * array of pairs walked from the top, O(n) a lookup.
+ *
+ * An object could not serve, and it is worth saying why rather than leaving it
+ * looking like an oversight. A slot name goes into the VM's *permanent* name
+ * table, which outlives every slot and is freed only with the VM -- so a
+ * dictionary of keys read from a file would leak a name per key. And slots are
+ * a linked list walked linearly, so an object-as-dictionary would not have been
+ * faster than the array it replaced. See object.h.
+ */
+
+/* Keys are values -- the types `equals` compares by content. A reference is
+   compared by identity, so two arrays that look alike are two keys, which is
+   the right answer for `equals` and a useless one here. */
+static bool key_from(SolVM *vm, const char *name, SolValue key)
+{
+    if (sol_dict_key_ok(key)) return true;
+
+    sol_vm_runtime_error(vm,
+        "'%s' wants a value for a key, got %s -- those are compared by identity, "
+        "so two that look alike would be two keys",
+        name, sol_type_name(key));
+    return false;
+}
+
+/* Names the key the way it would be written, so that `"1"` and `#1` and `'1`
+   are told apart in the complaint as they are in the table. */
+static void missing_key(SolVM *vm, const char *what, SolValue key)
+{
+    SolText text;
+    sol_text_init(&text);
+    sol_value_render(vm, key, &text);
+    sol_vm_runtime_error(vm, "no key %s %s", text.chars, what);
+    sol_text_free(&text);
+}
+
+static SolValue prim_dict_new(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self; (void)args;
+    if (!check_argc(vm, "new", argc, 0)) return SOL_NIL_VAL;
+    return SOL_DICT_VAL(sol_dict_new(vm));
+}
+
+static SolValue prim_dict_size(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "size", argc, 0)) return SOL_NIL_VAL;
+    return SOL_INT_VAL(SOL_AS_DICT(self)->count);
+}
+
+/* `at(key)` is an error when the key is not there, the same answer an
+   out-of-range index gets. `at(key, default)` is the form for a lookup that may
+   legitimately miss -- and it is the one a counter wants:
+
+       counts:atPut(word, counts:at(word, #0):add(#1)).
+ */
+static SolValue prim_dict_at(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (argc != 1 && argc != 2) {
+        sol_vm_runtime_error(vm, "'at' takes a key, or a key and a default, got %d",
+                             argc);
+        return SOL_NIL_VAL;
+    }
+    if (!key_from(vm, "at", args[0])) return SOL_NIL_VAL;
+
+    SolValue found;
+    if (sol_dict_get(SOL_AS_DICT(self), args[0], &found)) return found;
+    if (argc == 2) return args[1];
+
+    missing_key(vm, "in the dictionary", args[0]);
+    return SOL_NIL_VAL;
+}
+
+static SolValue prim_dict_at_put(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "atPut", argc, 2)) return SOL_NIL_VAL;
+    if (!key_from(vm, "atPut", args[0])) return SOL_NIL_VAL;
+
+    /* Receiver and both arguments are on the value stack for the duration of
+       this call, so they stay rooted while the table grows. */
+    sol_dict_put(vm, SOL_AS_DICT(self), args[0], args[1]);
+    return args[1];         /* the value stored, as `at_put` on an array does */
+}
+
+static SolValue prim_dict_includes(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "includes", argc, 1)) return SOL_NIL_VAL;
+    if (!key_from(vm, "includes", args[0])) return SOL_NIL_VAL;
+
+    SolValue found;
+    return SOL_BOOL_VAL(sol_dict_get(SOL_AS_DICT(self), args[0], &found));
+}
+
+static SolValue prim_dict_remove(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "remove", argc, 1)) return SOL_NIL_VAL;
+    if (!key_from(vm, "remove", args[0])) return SOL_NIL_VAL;
+
+    SolValue held;
+    if (sol_dict_remove(SOL_AS_DICT(self), args[0], &held)) return held;
+
+    missing_key(vm, "to remove", args[0]);
+    return SOL_NIL_VAL;
+}
+
+/* `keys` and `values` answer arrays, in the table's order -- which is to say in
+   no order worth relying on. Sort them if you want a stable one; log.sol does.
+   They are snapshots, so changing the dictionary afterwards does not change
+   them. */
+static SolValue dict_contents(SolVM *vm, SolValue self, bool want_keys)
+{
+    const SolDict *dict = SOL_AS_DICT(self);
+
+    SolArray *out = sol_array_new(vm, dict->count);
+    sol_gc_push_temp(vm, &out->gc);
+    for (int i = 0; i < dict->count; i++) sol_array_add(vm, out, SOL_NIL_VAL);
+
+    int at = 0;
+    for (int i = 0; i < dict->capacity && at < dict->count; i++) {
+        if (dict->entries[i].state != SOL_DICT_LIVE) continue;
+        out->items[at++] = want_keys ? dict->entries[i].key : dict->entries[i].value;
+    }
+
+    sol_gc_pop_temp(vm);
+    return SOL_ARRAY_VAL(out);
+}
+
+static SolValue prim_dict_keys(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "keys", argc, 0)) return SOL_NIL_VAL;
+    return dict_contents(vm, self, true);
+}
+
+static SolValue prim_dict_values(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "values", argc, 0)) return SOL_NIL_VAL;
+    return dict_contents(vm, self, false);
+}
+
+/* `do` runs the block once per *value*, one argument a call, exactly as an
+   array's does -- the same selector should not want a different shape of block
+   depending on the receiver. `keysAndValuesDo` is the two-argument form, and it
+   is worth having rather than leaving `keys:do` plus `at` to say it, since that
+   looks each key up a second time. */
+static SolValue dict_iterate(SolVM *vm, SolValue self, SolValue block, bool with_keys)
+{
+    /* A snapshot, so a block that adds to the dictionary it is walking does not
+       rehash the table underneath the walk. An array's `do` re-reads its
+       backing store each pass instead; that works because growth there does not
+       move an element to a different index, and here it would. */
+    SolValue keys = dict_contents(vm, self, true);
+    sol_gc_push_temp(vm, &SOL_AS_ARRAY(keys)->gc);
+
+    const SolArray *list = SOL_AS_ARRAY(keys);
+    for (int i = 0; i < list->count; i++) {
+        SolValue found;
+        if (!sol_dict_get(SOL_AS_DICT(self), list->items[i], &found)) {
+            continue;                     /* the block removed it on the way */
+        }
+
+        SolValue args[2] = { with_keys ? list->items[i] : found, found };
+        sol_vm_call_block(vm, block, args, with_keys ? 2 : 1);
+        if (vm->had_error) {
+            sol_gc_pop_temp(vm);
+            return SOL_NIL_VAL;
+        }
+    }
+
+    sol_gc_pop_temp(vm);
+    return self;
+}
+
+static SolValue prim_dict_do(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "do", argc, 1)) return SOL_NIL_VAL;
+    return dict_iterate(vm, self, args[0], false);
+}
+
+static SolValue prim_dict_keys_and_values_do(SolVM *vm, SolValue self,
+                                             SolValue *args, int argc)
+{
+    if (!check_argc(vm, "keysAndValuesDo", argc, 1)) return SOL_NIL_VAL;
+    return dict_iterate(vm, self, args[0], true);
+}
+
 /* ---- object ------------------------------------------------------------ */
 
 /* `new` answers a fresh object delegating to the receiver.
@@ -1812,7 +1984,7 @@ static SolValue prim_string_copy_from(SolVM *vm, SolValue self, SolValue *args, 
  *
  * A slot assigned on an instance is always the instance's own, so setting one
  * shadows the prototype rather than writing through to it. */
-/* `new` on a class that constructs nothing, which is six of the eight.
+/* `new` on a class that constructs nothing, which is six of the nine.
  *
  * The rule is mutability. `new` belongs where something is *made* -- where the
  * instances are references, so there is a fresh, distinct one to hand back.
@@ -1836,8 +2008,9 @@ static SolValue prim_string_copy_from(SolVM *vm, SolValue self, SolValue *args, 
  * what to write instead: the error is the only thing these classes have to offer
  * here, so it may as well teach.
  *
- * That leaves `new` meaning one thing -- make me a new one -- on the two classes
- * where something is made. */
+ * That leaves `new` meaning one thing -- make me a new one -- on the three
+ * classes where something is made: `object`, `array` and `dictionary`, all of
+ * them mutable, which is the rule. */
 static SolValue refuse_new(SolVM *vm, const char *how)
 {
     sol_vm_runtime_error(vm, "%s", how);
@@ -2542,6 +2715,24 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->array_class, SOL_ARRAY, "notEquals", prim_not_equals);
     instance(vm, vm->array_class, SOL_ARRAY, "asString", prim_rendered_as_string);
 
+    vm->dict_class = sol_object_new(vm, NULL);
+    any_receiver(vm, vm->dict_class, "new", prim_dict_new);
+    instance(vm, vm->dict_class, SOL_DICT, "size", prim_dict_size);
+    instance(vm, vm->dict_class, SOL_DICT, "at", prim_dict_at);
+    instance(vm, vm->dict_class, SOL_DICT, "atPut", prim_dict_at_put);
+    instance(vm, vm->dict_class, SOL_DICT, "includes", prim_dict_includes);
+    instance(vm, vm->dict_class, SOL_DICT, "remove", prim_dict_remove);
+    instance(vm, vm->dict_class, SOL_DICT, "keys", prim_dict_keys);
+    instance(vm, vm->dict_class, SOL_DICT, "values", prim_dict_values);
+    instance(vm, vm->dict_class, SOL_DICT, "do", prim_dict_do);
+    instance(vm, vm->dict_class, SOL_DICT, "keysAndValuesDo",
+             prim_dict_keys_and_values_do);
+    instance(vm, vm->dict_class, SOL_DICT, "print", prim_print);
+    instance(vm, vm->dict_class, SOL_DICT, "display", prim_display);
+    instance(vm, vm->dict_class, SOL_DICT, "equals", prim_equals);
+    instance(vm, vm->dict_class, SOL_DICT, "notEquals", prim_not_equals);
+    instance(vm, vm->dict_class, SOL_DICT, "asString", prim_rendered_as_string);
+
     /* The root of the user-defined side. The built-in classes deliberately do
        not delegate to it: `float` inheriting object's `new` would answer a plain
        object rather than a float. Untangling that is the class-side/instance-side
@@ -2595,7 +2786,7 @@ void sol_builtins_install(SolVM *vm)
     SolObject *classes[] = {
         vm->integer_class, vm->float_class, vm->nil_class,    vm->bool_class,
         vm->block_class,   vm->array_class, vm->object_class, vm->string_class,
-        vm->symbol_class,
+        vm->symbol_class,  vm->dict_class,
     };
     for (size_t i = 0; i < sizeof(classes) / sizeof(classes[0]); i++) {
         any_receiver(vm, classes[i], "perform",    prim_perform);
@@ -2629,6 +2820,7 @@ void sol_builtins_install(SolVM *vm)
     vm->bool_class->proto    = vm->object_class;
     vm->block_class->proto   = vm->object_class;
     vm->array_class->proto   = vm->object_class;
+    vm->dict_class->proto    = vm->object_class;
     vm->string_class->proto  = vm->object_class;
     vm->symbol_class->proto  = vm->object_class;
 
@@ -2636,6 +2828,7 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define(vm, vm->root, "integer", SOL_OBJ_VAL(vm->integer_class));
     sol_object_define(vm, vm->root, "float",   SOL_OBJ_VAL(vm->float_class));
     sol_object_define(vm, vm->root, "array",   SOL_OBJ_VAL(vm->array_class));
+    sol_object_define(vm, vm->root, "dictionary", SOL_OBJ_VAL(vm->dict_class));
     sol_object_define(vm, vm->root, "string",  SOL_OBJ_VAL(vm->string_class));
     sol_object_define(vm, vm->root, "object",  SOL_OBJ_VAL(vm->object_class));
     /* Now that isKindOf takes a class, the remaining ones need names to be

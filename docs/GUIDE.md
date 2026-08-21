@@ -556,6 +556,38 @@ falls out of counting from one.
 
 > **Run:** [examples/arrays.sol](../examples/arrays.sol)
 
+### Dictionaries
+
+An array finds things by position. A **dictionary** finds them by key, and it is
+the other collection:
+
+```
+counts := dictionary:new.
+"the fox the dog the":split(" "):do({ word |
+    counts:atPut(word, counts:at(word, #0):add(#1))
+}).
+counts:at("the"):print.          ; #3
+```
+
+`at(key)` is an error when the key is not there, like an out-of-range index.
+`at(key, default)` is the form above, for a lookup that may legitimately miss —
+which saves asking `includes` first.
+
+**Keys are values**: numbers, strings, symbols, booleans, nil. Those are compared
+by content, so two keys that look alike are one key. An array or an object is
+compared by identity, so two that look alike would be two keys — useless in a
+table, so they are refused rather than quietly behaving that way.
+
+`do` walks the values with a one-argument block, exactly as an array's does;
+`keysAndValuesDo` takes both. `keys` and `values` answer arrays in **no
+particular order**, so sort before showing anything.
+
+There is no literal for one. `[...]` builds an array; a dictionary is built by
+sending `new` and filling it.
+
+> **Run:** [examples/dictionaries.sol](../examples/dictionaries.sol) and
+> [examples/log.sol](../examples/log.sol), which is what a dictionary is for
+
 ## 13. Reflection
 
 Five messages, on every type: `slots`, `slotAt`, `respondsTo`, `isKindOf`, and

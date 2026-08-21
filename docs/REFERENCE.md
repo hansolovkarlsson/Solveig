@@ -372,10 +372,10 @@ cannot be one: `a:=(b)` would otherwise be both an assignment and a send.
 ### Reserved names
 
 None are keywords, but these are bound as globals at startup and shadowing them
-will surprise you: `integer`, `float`, `string`, `array`, `symbol`, `block`,
-`boolean`, `object`, `system`, `nil`, `true`, `false`, `infinity`, `nan`.
+will surprise you: `integer`, `float`, `string`, `array`, `dictionary`, `symbol`,
+`block`, `boolean`, `object`, `system`, `nil`, `true`, `false`, `infinity`, `nan`.
 
-The first eight are the class objects, `system` is
+The first nine are the class objects, `system` is
 [the process](#the-program-and-its-process), and the rest are values.
 
 `self` is not a global; it is recognised by the compiler inside a block.
@@ -396,6 +396,7 @@ sense and the `@` space cannot collide with a name you might want.
 | float | `45.5` | IEEE-754 binary64, **immutable** |
 | string | `"hi"` | **immutable** |
 | array | `[#1]` | growable, **mutable** |
+| dictionary | *none* — `dictionary:new` | values under keys, **mutable** |
 | symbol | `'foo` | an interned name, **immutable** |
 | block | `{ #1 }` | code as a value |
 | object | `object:new` | slots plus a prototype, **mutable** |
@@ -715,17 +716,17 @@ The messages a class answers for itself are the ones that make instances —
 side. `respondsTo` agrees with sending, so `array:respondsTo('add)` is false and
 `array:respondsTo('of)` is true.
 
-**Only two classes construct**, and the rule is mutability: `new` belongs where
-something is *made*, which is where the instances are references, so there is a
-fresh, distinct one to hand back.
+**Only three classes construct** — `object`, `array` and `dictionary` — and the
+rule is mutability: `new` belongs where something is *made*, which is where the
+instances are references, so there is a fresh, distinct one to hand back.
 
 ```
 array:new:equals(array:new):print.    ; false -- two arrays
 "":equals(""):print.                  ; true  -- one value
 ```
 
-A value class has no fresh distinct thing to answer with, so the other six
-refuse and say what to write instead:
+A value class has no fresh distinct thing to answer with, so the six that are
+left refuse and say what to write instead:
 
 ```
 integer:new(#45).
@@ -1273,6 +1274,66 @@ state:equals('running):ifTrue({ "go":display }).
 | `and(block)` `or(block)` | short-circuit; the block runs only if needed |
 | `ifTrue(block)` `ifFalse(block)` | the block's answer, or nil |
 | `ifElse(t, f)` | the chosen block's answer |
+
+### dictionary
+
+Values kept under keys, found by hashing. There is no literal — `dictionary:new`
+makes an empty one.
+
+| Message | Answers |
+| --- | --- |
+| `new` | an empty dictionary |
+| `size` | an integer |
+| `at(key)` | the value; **an error** when the key is not there |
+| `at(key, default)` | the value, or `default` when the key is not there |
+| `atPut(key, value)` | **the value stored**, so it chains |
+| `includes(key)` | a boolean |
+| `remove(key)` | the value removed; an error when the key is not there |
+| `keys` `values` | an array, in **no order worth relying on** |
+| `do(block)` | the dictionary, having run the block once per **value** |
+| `keysAndValuesDo(block)` | the same, the block taking a key and a value |
+
+**Keys are values.** Integers, floats, strings, symbols, booleans and nil are
+compared by content, so two keys that look alike are one key. Arrays, blocks,
+objects and other dictionaries are compared by identity, where two that look
+alike would be two keys — the right answer for `equals` and a useless one here,
+so they are refused rather than quietly behaving that way:
+
+```
+d:atPut([#1], "nope").
+solvm: 'atPut' wants a value for a key, got array -- those are compared by identity, so two that look alike would be two keys
+```
+
+It is the same line the language draws between
+[values and references](#values) everywhere else.
+
+`at(key, default)` is the form a counter wants, since it needs no separate
+question first:
+
+```
+counts:atPut(word, counts:at(word, #0):add(#1)).
+```
+
+`do` takes a one-argument block over the values, exactly as an array's does: the
+same selector should not want a different shape of block depending on what it is
+sent to. `keysAndValuesDo` is the two-argument form, and it beats `keys:do` with
+an `at` inside because it does not look each key up a second time.
+
+Both walk a **snapshot of the keys**, so a block that adds to the dictionary it
+is walking does not rehash the table underneath itself; one that removes a key
+it has not reached yet will not see it.
+
+`keys` and `values` are snapshots too, and their order is the table's, which is
+to say arbitrary. Sort before showing anything.
+
+A dictionary is a reference, like an array: `equals` is identity, so two with
+equal contents are two dictionaries. It cannot be a constant in a `.sob` for the
+same reason an array cannot — it is built at run time.
+
+`nan` is accepted as a key and can never be found again, since `nan:equals(nan)`
+is false. That is IEEE showing through rather than a decision made here.
+
+---
 
 ### block
 

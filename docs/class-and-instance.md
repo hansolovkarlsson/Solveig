@@ -448,7 +448,9 @@ because there is a `new` on `integer` at all.
 
 **So the tidier direction was the opposite of the question**: leave the four
 alone, and take `new` off `integer` and `float` — leaving it meaning one thing,
-*make me a new one*, on the two classes where something is actually made.
+*make me a new one*, on the classes where something is actually made -- which
+was `object` and `array`, and is `object`, `array` and `dictionary` now that
+there is one more mutable thing to construct.
 
 **They could not simply lose it.** Deleting the registration was tried, and
 `integer:new` then inherited object's and answered *an object delegating to

@@ -136,6 +136,14 @@ own.
   slot, so a shadowing one cannot be un-shadowed (1.4); and no re-parenting,
   which would need the delegation link to become a real slot rather than the
   internal pointer that keeps dispatch safe (2.9).
+
+  The strongest argument for `slotAtPut` used to be that it would make an object
+  serve as a dictionary. [6.15](COMPLETED.md#615-there-is-no-dictionary-and-no-way-to-build-one)
+  looked into that and found it would not: a slot name is interned in the VM's
+  *permanent* name table, so keys read from a file would leak a name apiece, and
+  slots are a linked list walked linearly, so it would not have been faster than
+  the array of pairs it replaced. A real dictionary was built instead, and what
+  is left here is reflection for its own sake.
 - **No `clone`** (1.4). `new` delegates rather than copying, which is cheaper and
   more useful, but there is no way to take a snapshot of an object's slots.
 - **A later range or slice API should use inclusive bounds at both ends** (2.3),
@@ -331,50 +339,6 @@ What this wants is a byte-buffer type. An array of integers would work and would
 cost sixteen bytes a byte. Worth building when a program needs it rather than on
 the chance that one might.
 
-### 6.15 There is no dictionary, and no way to build one
-
-Found by writing [examples/log.sol](../examples/log.sol), which is the first
-program here written to do a job rather than to show a feature. Counting by key
-is what a log analyser mostly does, and the language cannot express it directly.
-
-There is no dictionary type. An object is a set of named slots and would serve
-as one — except that **a slot name comes from the compiler**. `perform(name)`
-sends a computed name and `slotAt(name)` reads a computed slot, but nothing
-*binds* one: there is no `slotAtPut`, which 2.14 records as "reflection cannot
-write". So an object cannot stand in for a dictionary either.
-
-What log.sol does instead is keep an array of key/count objects and walk it:
-
-```
-tally := { list, key | | found |
-    found := nil.
-    list:do({ c | c:key:equals(key):ifTrue({ found := c }) }).
-    found:isNil:ifTrue({ found := counter:new. found:key := key. list:add(found) }).
-    found:count := found:count:add(#1) }.
-```
-
-That is O(n) a lookup and O(n²) over a file, where a dictionary is O(1) and O(n).
-Fine over eighteen lines and the wrong shape over eighteen thousand.
-
-Two ways to answer it, and they are not the same size:
-
-- **`slotAtPut(name, value)`**, completing the reflection triple against
-  `slotAt` and `perform`. Small, and it makes an object usable as a dictionary
-  with symbol keys. It also opens the writes 2.14 lists — removing a slot,
-  re-parenting — which have their own reasons for being refused, so this one
-  wants to be added on its own terms rather than as a side effect.
-- **A real dictionary type**, with its own hashing, which is a new built-in
-  alongside array. More work, better shape, and it does not need the object
-  model to change.
-
-The first is the smaller change and the second is the right one. A dictionary
-also wants an answer to what it does with a missing key — an error like `at`, or
-nil like `indexOf` — and to whether keys are strings, symbols, or anything with
-`equals`.
-
-**This is the entry section 6 was missing**: every other one that is left waits
-for a program to want it, and this is what a program wanted.
-
 ### 6.16 An array cannot be sliced
 
 Smaller, and from the same program. There is no `first(#n)`, no `last(#n)`, and
@@ -397,7 +361,8 @@ which 2.14 already records as the convention a later slice API should use.
 **Section 6 is the whole of the live list**, and it came from the right place:
 notes about what a program would want, rather than a plan written before there
 were any programs. The two newest entries came from further along the same road
-— from a program that wanted something and could not have it. Eleven of its items are built — a program can be split across
+— from a program that wanted something and could not have it, and one of them is
+already built. Eleven of its items are built — a program can be split across
 files, stop with a status, read its input, read and write files, take a string
 apart and put it back together, and time itself; the instruction set has a
 reference the test suite keeps honest, the guide contrasts a group with a block,
@@ -405,11 +370,9 @@ and every concept the guide names now has a runnable example; and the include
 that started it has since been given a syntax that admits what it is (6.13) —
 so in order of what would be missed next:
 
-1. **A dictionary** (6.15). The first program written here to do a job rather
-   than to show a feature could not express counting by key, which is most of
-   what it does. This is the entry that came from use rather than from a list.
-2. **Slicing an array** (6.16), from the same program and much smaller.
-3. **Inlining the loop constructs** (6.6), which has something to measure it
+1. **Slicing an array** (6.16), the other thing log.sol wanted and much smaller
+   than the dictionary was.
+2. **Inlining the loop constructs** (6.6), which has something to measure it
    with now: `timeToRun(#n)` says 1.30x, so it is real and modest.
 
 Not ordered: **a single keypress** (6.10) and **a byte type** (6.12) both wait

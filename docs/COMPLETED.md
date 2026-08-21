@@ -1191,3 +1191,75 @@ the value is already rooted wherever a collection can happen. It costs one stack
 slot and buys not having to rely on what another function does with its
 arguments, across an unbounded number of calls back into the language.
 
+
+---
+
+### 6.15 There is no dictionary, and no way to build one — **done**
+
+Found by writing [examples/log.sol](../examples/log.sol), the first program here
+written to do a job rather than to show a feature. Counting by key is most of
+what a log analyser does, and the language could not express it: the tally was an
+array of key/count objects walked from the top, O(n) a lookup and O(n²) over a
+file.
+
+The entry weighed two answers and called the first one smaller: **`slotAtPut`**,
+completing the reflection triple against `slotAt` and `perform`, so that an
+object could serve as a dictionary; or **a real dictionary type**.
+
+**Checking made the choice, and it was not the one the entry expected.**
+`slotAtPut` would not have worked at all:
+
+- A slot name is interned in the VM's **permanent** name table. `vm.h` says so
+  outright — those names outlive every slot and are freed only with the VM. A
+  dictionary of keys read from a file would leak a name apiece, by design.
+- Slots are a **linked list, walked linearly** (`sol_object_lookup`). So an
+  object-as-dictionary would have had exactly the complexity of the array of
+  pairs it was meant to replace.
+
+It was not the smaller option. It was the wrong one: prettier syntax for the
+same algorithm, plus a leak. So: the real type.
+
+Built as `pending`. `dictionary:new`, `at`, `at(key, default)`, `atPut`,
+`includes`, `remove`, `size`, `keys`, `values`, `do`, `keysAndValuesDo`. Open
+addressing, one allocation for the entries, tombstones for removal, and a
+rebuild that drops them once they crowd the table.
+
+**Keys are values.** Integers, floats, strings, symbols, booleans and nil are
+compared by content, so two keys that look alike are one key; arrays, blocks,
+objects and dictionaries are compared by identity, so two that look alike would
+be two keys — right for `equals`, useless here, and refused rather than
+surprising anybody. That is the same line the language already draws between
+values and references, so it needed no new idea.
+
+Two consequences fell out of taking it seriously. `-0.0` has to hash as `0.0`,
+since `0.0:equals(-0.0)` is true and the table would otherwise disagree with
+`equals` about what one key being another means. And `nan` can be stored and
+never found, since it equals nothing including itself — IEEE showing through
+rather than a decision.
+
+**`sol_value_equals` now exists**, in object.c, and `prim_equals` calls it. A
+dictionary asks the same question of its keys that `equals` asks, and two
+definitions could have drifted.
+
+#### What went wrong, and why it was allowed to
+
+A dictionary is the first type whose **keys** are edges as well as its values,
+and adding a value type touches six places. Five are switches over
+`SolValueType` with no `default`, so `-Wswitch` named them all at the first
+build: `sol_type_name`, `sol_vm_class_of`, the renderer, the serializer's
+constant writer, and its check.
+
+The sixth was `mark_value` in the collector, and it was a chain of
+`if (SOL_IS_...)`. It compiled without a word and swept live dictionaries
+instead, which took a segfault at 500 keys and a stack trace to find —
+`entries=0x2, capacity=388`, a struct that had been freed and reused.
+
+It is now a switch, with the comment saying why. The check was worth having at
+the sixth site too, and the only reason it was missing is that nobody had added a
+type since the check became the habit.
+
+`tests/test_dict.c` has eleven groups, including growth past several rehashes,
+churn until tombstones force a rebuild, a dictionary holding itself, and two
+hundred freshly-allocated keys and values surviving a collection. That last one
+fails if the marking is removed, which was confirmed rather than assumed.
+

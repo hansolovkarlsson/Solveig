@@ -59,7 +59,8 @@ static SolSerResult check_constants(const SolChunk *chunk)
         /* Arrays are mutable and built at run time, so a literal is a
            construction rather than a pooled constant. */
         if (type == SOL_OBJ || type == SOL_BLOCK || type == SOL_ARRAY ||
-            type == SOL_STRING || type == SOL_DELEGATE || type == SOL_SYMBOL) {
+            type == SOL_STRING || type == SOL_DELEGATE || type == SOL_SYMBOL ||
+            type == SOL_DICT) {
             return SOL_SER_UNSUPPORTED;
         }
     }
@@ -124,6 +125,7 @@ static void write_chunk_body(FILE *f, const SolChunk *chunk)
         case SOL_SYMBOL:
         case SOL_DELEGATE:
         case SOL_OBJ:
+        case SOL_DICT:
             break;      /* rejected by check_constants before we get here */
         }
     }
