@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### The embedding interface, written down — `pending`, 2026-08-22
+### The embedding interface, written down — `a46cee0`, 2026-08-22
 
 [solum/embed.h](../solum/include/solum/embed.h) is the whole supported surface a
 host embeds Solum through, [docs/embedding.md](embedding.md) is the contract in
