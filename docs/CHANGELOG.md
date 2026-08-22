@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### A failure can be the host's, and three gaps got numbers — `pending`, 2026-08-22
+### A failure can be the host's, and three gaps got numbers — `4df3c48`, 2026-08-22
 
 Two small things, both of them 0.15.0's leftovers.
 
