@@ -7,6 +7,65 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### `solis --interactive`: a prompt beside the wreck — `pending`, 2026-08-21
+
+Asked for as a question — if a program being traced fails, could it fall into
+the REPL rather than exit? — and the answer turned out to be yes, and to be
+worth more here than it would be in most languages.
+
+```
+$ solis --interactive report.sol
+solvm: index #99 is out of bounds for an array of size 4
+  [line 7] in script
+-- program failed; its names are here
+solis 0.8.0 -- ctrl-d to exit
+> tally:print.
+[#1, #4, #9, #16]
+```
+
+**A script's own names are globals**, which is what makes this work. A runtime
+error unwinds the frames and leaves the globals alone, so the dictionary the
+program built, the array it was filling and the objects it made are all still
+there. The check was one line before any code was written:
+
+```
+counter := #41.
+nil:boom.            ; the program stops
+counter:inc:print.   ; #42 -- it is still there
+```
+
+And a method the program defined can be **called again**, which is the part that
+makes it a half-stepper rather than a post-mortem: the failing call can be made
+once more with the same arguments and watched.
+
+```
+> a:balance:print.
+#70
+> { a:withdraw(#500) }:onError({ e | e:message:display }).
+not enough
+```
+
+What is gone is the frames. Nothing resumes, and a block's temporaries go with
+the stack — so this is a prompt beside the wreck rather than a break in the
+middle of it. Naming a local would need
+[6.28](ROADMAP.md#628-local-variables-have-no-names-at-run-time), which is
+recorded and not built.
+
+It stays after a program that **finishes** too, which is the other half: `python
+-i` is the precedent, and running something to then poke at what it made is as
+useful as inspecting a failure.
+
+`solis` also takes `--trace` and `--trace=N` now, the same as `solvm`. The
+prompt itself is not traced — what was being watched is the program.
+
+**Not `-i`**, deliberately: `solis` already has `-I` for the include path, and
+two flags a shift key apart, one of which takes an argument, is a trap.
+
+One tangent found and left alone: `solis` cannot read a program from an
+unseekable file, because `sol_read_file` uses `fseek` to size it. `cat prog.sol
+| solis` already works by a different route, so it is a curiosity rather than a
+gap.
+
 ### `solvm --trace`, and the rest of debugging written down — `a48ac3c`, 2026-08-21
 
 The first thing this project has built for looking at a program rather than

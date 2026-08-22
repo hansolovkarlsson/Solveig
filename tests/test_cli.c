@@ -229,6 +229,83 @@ static void test_trace_takes_a_depth(void)
     printf("  --trace=N follows the outermost calls, and a bad depth is refused\n");
 }
 
+/* `--interactive` runs the file and then stays at the prompt with what it left
+   behind. After a failure that is most of what a debugger would offer here: a
+   script's own names are globals, so they survive the unwind -- only a block's
+   temporaries are lost with the frames. */
+static void test_interactive_keeps_what_the_program_left(void)
+{
+    FILE *f = fopen(DIR "/failing.sol", "w");
+    assert(f != NULL);
+    fputs("tally := array:new.\n"
+          "#1:toDo(#4, { n | tally:add(n:mul(n)) }).\n"
+          "host := \"localhost\".\n"
+          "tally:at(#99).\n"                    /* out of bounds: it stops here */
+          "never := #1.\n", f);
+    fclose(f);
+
+    char out[8192];
+
+    /* Without the flag it fails and leaves, which is what a runner should do. */
+    assert(run("bin/solis " DIR "/failing.sol 2>/dev/null", out, sizeof out) == 70);
+    assert(strstr(out, "solis") == NULL);       /* no banner: no prompt */
+
+    /* With it, the prompt is there and so are the program's names. */
+    assert(run("printf 'tally:print.\\nhost:display.\\n"
+               "{ never:print }:onError({ e | \"unset\":display }).\\n' | "
+               "bin/solis --interactive " DIR "/failing.sol 2>/dev/null",
+               out, sizeof out) == 0);
+    assert(strstr(out, "program failed") != NULL);
+    assert(strstr(out, "[#1, #4, #9, #16]") != NULL);   /* built before the fall */
+    assert(strstr(out, "localhost") != NULL);
+    /* And what the program never reached is unbound -- reading it is an error
+       here rather than nil, so the prompt shows the line was never run. */
+    assert(strstr(out, "unset") != NULL);
+    printf("  --interactive keeps the program's names after it fails\n");
+}
+
+/* It stays after a program that finishes too, which is the other half of being
+   able to look at what a program did. */
+static void test_interactive_stays_after_success(void)
+{
+    FILE *f = fopen(DIR "/finishing.sol", "w");
+    assert(f != NULL);
+    fputs("answer := #6:mul(#7).\n", f);
+    fclose(f);
+
+    char out[8192];
+    assert(run("printf 'answer:print.\\n' | bin/solis --interactive "
+               DIR "/finishing.sol 2>/dev/null", out, sizeof out) == 0);
+    assert(strstr(out, "program finished") != NULL);
+    assert(strstr(out, "#42") != NULL);
+    printf("  --interactive stays after a program that finishes\n");
+}
+
+/* And a method the program defined can be called from the prompt, which is the
+   half-stepper part: the failing call can be made again, and looked at. */
+static void test_interactive_can_call_what_the_program_defined(void)
+{
+    FILE *f = fopen(DIR "/account.sol", "w");
+    assert(f != NULL);
+    fputs("account := object:new.\n"
+          "account:balance := #100.\n"
+          "account:withdraw := { amount |\n"
+          "    amount:greaterThan(self:balance):ifTrue({ error:raise(\"not enough\") }).\n"
+          "    self:balance := self:balance:sub(amount) }.\n"
+          "a := account:new.\n"
+          "a:withdraw(#30).\n"
+          "a:withdraw(#500).\n", f);
+    fclose(f);
+
+    char out[8192];
+    assert(run("printf 'a:balance:print.\\na:withdraw(#20).\\na:balance:print.\\n' | "
+               "bin/solis --interactive " DIR "/account.sol 2>/dev/null",
+               out, sizeof out) == 0);
+    assert(strstr(out, "#70") != NULL);         /* the first withdrawal stuck */
+    assert(strstr(out, "#50") != NULL);         /* and another one works now */
+    printf("  --interactive can call what the program defined\n");
+}
+
 /* The options still do what they did. A help flag that broke -I or --dump on
    the way in would pass every test above. */
 static void test_the_other_options_still_work(void)
@@ -251,6 +328,9 @@ int main(void)
     test_trace_writes_the_call_tree();
     test_trace_is_quiet_where_there_are_no_calls();
     test_trace_takes_a_depth();
+    test_interactive_keeps_what_the_program_left();
+    test_interactive_stays_after_success();
+    test_interactive_can_call_what_the_program_defined();
     test_the_other_options_still_work();
     printf("test_cli: ok\n");
     return 0;

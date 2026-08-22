@@ -21,6 +21,7 @@ a:print.
 - **[Running a program](#running-a-program)**
   - [The prompt](#the-prompt)
   - [Watching a program run](#watching-a-program-run)
+  - [Staying after a program](#staying-after-a-program)
   - [Running a script directly](#running-a-script-directly)
 - **[Splitting a program across files](#splitting-a-program-across-files)**
   - [The library](#the-library)
@@ -222,6 +223,46 @@ one.
 
 `solas --dump` also prints the disassembly. `solvm --dump` prints it for a
 compiled file before running.
+
+#### Staying after a program
+
+`solis --interactive file.sol` runs the file and then stays at the prompt, with
+everything the program bound still bound — **including after it fails**:
+
+```
+$ solis --interactive report.sol
+solvm: index #99 is out of bounds for an array of size 4
+  [line 7] in script
+-- program failed; its names are here
+solis 0.8.0 -- ctrl-d to exit
+> tally:print.
+[#1, #4, #9, #16]
+> config:at("host"):display.
+localhost
+```
+
+**A script's own names are globals**, so they survive the unwind: the dictionary
+it built, the array it was filling, the objects it made. A method it defined can
+be called again, which is how the failing call gets looked at:
+
+```
+> a:balance:print.
+#70
+> { a:withdraw(#500) }:onError({ e | e:message:display }).
+not enough
+```
+
+What is gone is the **frames**. Nothing can be resumed and a block's temporaries
+are lost with the stack, so this is a prompt beside the wreck rather than a
+break in the middle of it. That is most of what is available: a stepper would
+need [names for locals](ROADMAP.md#628-local-variables-have-no-names-at-run-time),
+which the chunk does not carry.
+
+It stays after a program that *finishes*, too, which is the other half of being
+able to look at what one did.
+
+`solis` also takes `--trace` and `--trace=N`, which do what they do for `solvm`.
+The prompt itself is not traced — what was being watched is the program.
 
 #### Watching a program run
 

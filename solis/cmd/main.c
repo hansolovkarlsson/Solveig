@@ -128,7 +128,10 @@ static bool is_bytecode(const char *path)
 /* Runs a file and answers the status to leave with: a `.sob` is loaded, and
    anything else is compiled first. Either way what runs is one program rather
    than a prompt, so `system:arguments` is what came after the file. */
-static int run_file(const char *path, const SolSearchPath *search,
+/* Runs a file on `vm`, which the caller owns -- so `--interactive` can hand the
+   same machine to the prompt afterwards, with everything the program bound
+   still bound. */
+static int run_file(SolVM *vm, const char *path, const SolSearchPath *search,
                     int argc, char **args)
 {
     SolChunk chunk;
@@ -157,16 +160,15 @@ static int run_file(const char *path, const SolSearchPath *search,
         }
     }
 
-    SolVM vm;
-    sol_vm_init(&vm);
-    sol_vm_set_arguments(&vm, argc, args);
+    sol_vm_set_arguments(vm, argc, args);
 
-    SolResult result = sol_vm_run(&vm, &chunk);
-    int status = vm.exit_code;              /* read before the VM goes away */
+    SolResult result = sol_vm_run(vm, &chunk);
+    int status = vm->exit_code;
 
-    sol_vm_free(&vm);
-    sol_chunk_free(&chunk);
-
+    /* The chunk is not freed: a block the program defined may still be reachable
+       from a global, and `--interactive` is about to let somebody call it. It
+       goes when the process does, which is the same bargain a script already
+       strikes with everything else it allocates. */
     if (result == SOL_EXIT) return status;
     return result == SOL_OK ? 0 : 70;
 }
@@ -193,6 +195,10 @@ static void usage(FILE *out)
         "so a script with a #! line and no extension runs as what it is.\n"
         "\n"
         "  -I <dir>     where an @include falls back to; repeatable\n"
+        "  --interactive after running the file, stay at the prompt with what\n"
+        "               it left behind -- including after it fails\n"
+        "  --trace      write the call tree to stderr as it runs\n"
+        "  --trace=N    the same, following calls only N deep\n"
         "  --version    show the version and the .sob format, and stop\n"
         "  --help, -h   show this and stop\n"
         "\n"
@@ -208,8 +214,35 @@ int main(int argc, char *argv[])
     SolSearchPath search;
     sol_search_path_init(&search);
 
+    bool interactive = false;
+    bool trace = false;
+    int  trace_depth = 0;
+
     int at = 1;
     while (at < argc) {
+        if (strcmp(argv[at], "--interactive") == 0) {
+            interactive = true;
+            at++;
+            continue;
+        }
+        if (strcmp(argv[at], "--trace") == 0) {
+            trace = true;
+            at++;
+            continue;
+        }
+        if (strncmp(argv[at], "--trace=", 8) == 0) {
+            char *end;
+            long depth = strtol(argv[at] + 8, &end, 10);
+            if (*end != '\0' || depth < 1 || depth > 64) {
+                fprintf(stderr, "solis: --trace=N wants a depth from 1 to 64\n");
+                sol_search_path_free(&search);
+                return 64;
+            }
+            trace = true;
+            trace_depth = (int)depth;
+            at++;
+            continue;
+        }
         if (strcmp(argv[at], "--help") == 0 || strcmp(argv[at], "-h") == 0) {
             usage(stdout);
             sol_search_path_free(&search);
@@ -230,16 +263,34 @@ int main(int argc, char *argv[])
     /* Everything after the file belongs to the program, so a script may take a
        `-I` of its own without this one intercepting it -- which is why the
        flags have to come first. */
-    if (at < argc) {
-        const char *path = argv[at++];
-        int status = run_file(path, &search, argc - at, argv + at);
-        sol_search_path_free(&search);
-        return status;
-    }
-
     SolVM vm;
     sol_vm_init(&vm);
-    int status = repl(&vm, &search);
+    vm.trace = trace;
+    vm.trace_depth = trace_depth;
+
+    int status = 0;
+    if (at < argc) {
+        const char *path = argv[at++];
+        status = run_file(&vm, path, &search, argc - at, argv + at);
+
+        /* Staying is the whole of `--interactive`: the globals the program
+           bound are still bound, so what it was doing can be looked at -- and
+           after a failure that is most of what a debugger would have offered,
+           since a script's own names are globals here rather than locals.
+         *
+           What is gone is the frames. Nothing can be resumed and no block's
+           temporaries survive, so this is a prompt beside the wreck rather than
+           a break in the middle of it. */
+        if (interactive) {
+            printf("%s\n", status == 0 ? "-- program finished; its names are here"
+                                        : "-- program failed; its names are here");
+            vm.trace = false;      /* the prompt is not what was being traced */
+            status = repl(&vm, &search);
+        }
+    } else {
+        status = repl(&vm, &search);
+    }
+
     sol_vm_free(&vm);
     sol_search_path_free(&search);
     return status;

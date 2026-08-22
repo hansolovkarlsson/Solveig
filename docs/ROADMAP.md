@@ -331,17 +331,26 @@ change rather than two.
 
 Breakpoints, stepping, and looking at the stack where it stopped.
 
-**The largest thing on this list and the one to do last.** It wants
+**Part of it exists already**, and it arrived from asking the question rather
+than from planning: `solis --interactive` runs a file and stays at the prompt
+afterwards, failure or not, with everything the program bound still bound. In
+this language that is more than it sounds — a script's own names are *globals*,
+so the dictionary it built and the objects it made survive the unwind, and a
+method it defined can be called again. What is missing is the frames: nothing
+resumes, and a block's temporaries go with the stack.
+
+**The rest is the largest thing on this list and the one to do last.** It wants
 [6.28](#628-local-variables-have-no-names-at-run-time) first — a stepper that
 shows `slot 3 = #5` rather than `count = #5` is most of the work for a fraction
 of the use — and it wants a front end of its own, which is a program rather than
 a flag.
 
-Worth knowing before starting: **`solis` already does the interactive half.** A
-block can be called from the prompt and what it answers looked at, objects
-inspected with `slots` and `slotAt`, and a suspect method replaced by binding a
-new block over it. What the prompt cannot do is stop a program that is already
-running, which is the part a stepper adds.
+Worth knowing before starting: **`solis --interactive` already does the
+interactive half**, at the point a program stops. A block can be called from the
+prompt and what it answers looked at, objects inspected with `slots` and
+`slotAt`, and a suspect method replaced by binding a new block over it. What
+that cannot do is stop a program *while* it is running, or show a local by name,
+which is the part a stepper adds and the part that needs 6.28.
 
 The order this list would take: `--trace` (built), then 6.27 because it improves
 every error, then 6.28, and only then this.
