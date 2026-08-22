@@ -234,6 +234,12 @@ static int declare_local(Scope *scope, const char *name, int length)
     Local *local = &scope->locals[scope->local_count];
     local->name = name;
     local->length = length;
+
+    /* Kept on the chunk as well as here, so that what the compiler knew about
+       slot 3 outlives the compiler. Anything looking at a running frame could
+       otherwise say `slot 3` and not `average`. */
+    sol_chunk_name_slot(scope->chunk, scope->local_count, name, length);
+
     return scope->local_count++;
 }
 

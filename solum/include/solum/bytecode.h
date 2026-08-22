@@ -124,6 +124,13 @@ typedef struct {
     SolNameArray  files;      /* the paths, each stored once */
     int           writing_file;   /* which of them `sol_chunk_write` records */
 
+    /* What each frame slot was called, in slot order. A slot is an index at run
+       time and that is the right thing -- an access is not a lookup -- but the
+       compiler knew the name and threw it away, so anything looking at a
+       running frame could say `slot 3` and not `average`. Slot 0 is the
+       receiver and has no name of its own. Empty for a chunk built by hand. */
+    SolNameArray  slot_names;
+
     SolValueArray constants;
     SolNameArray  names;
     SolMethodArray methods;
@@ -214,6 +221,13 @@ int  sol_chunk_file(SolChunk *chunk, const char *path);
 
 /* The path the byte at `offset` came from, or "" when nothing said. */
 const char *sol_chunk_file_of(const SolChunk *chunk, int offset);
+
+/* Records what slot `index` is called. Appends in slot order; a gap is filled
+   with "" so the table stays parallel to the slots. */
+void sol_chunk_name_slot(SolChunk *chunk, int index, const char *name, int length);
+
+/* What slot `index` is called, or "" when nothing said. */
+const char *sol_chunk_slot_name(const SolChunk *chunk, int index);
 
 /* Append without interning, so indices stay exactly as given. The loader uses
    these: a file's code refers to both tables by position, and collapsing a

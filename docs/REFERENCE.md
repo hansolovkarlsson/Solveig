@@ -276,6 +276,14 @@ entering each frame, a line leaving it, indented by depth.
   -> "x doubled is 42"
 ```
 
+Arguments are **named**, when the chunk remembers what the parameter was called:
+
+```
+  [locals.sol:7] value(numbers: [#10, #20, #33])
+    [locals.sol:4] value(n: #10)
+    -> #1
+```
+
 The place is where the **call** is written — file and line, since a chunk holds
 code from every file an `@include` reached — and the name is the selector it was
 **sent as** — so a block installed in a slot shows as the method it is, and a

@@ -171,6 +171,29 @@ static void test_trace_writes_the_call_tree(void)
     printf("  --trace writes the call tree to stderr and leaves stdout alone\n");
 }
 
+/* The trace names arguments, which is what the chunk's slot names are for --
+   and is how the table gets checked: if the names line up with the values, the
+   right name is against the right slot. */
+static void test_trace_names_arguments(void)
+{
+    char out[65536];
+
+    FILE *f = fopen(DIR "/named.sol", "w");
+    assert(f != NULL);
+    fputs("account := object:new.\n"
+          "account:balance := #100.\n"
+          "account:withdraw := { amount | self:balance:sub(amount) }.\n"
+          "a := account:new.\n"
+          "a:withdraw(#30):print.\n", f);
+    fclose(f);
+    assert(system("bin/solas " DIR "/named.sol -o " DIR "/named.sob") == 0);
+
+    assert(run("bin/solvm --trace " DIR "/named.sob 2>&1 >/dev/null",
+               out, sizeof out) == 0);
+    assert(strstr(out, "amount: #30") != NULL);
+    printf("  --trace names its arguments\n");
+}
+
 /* Inlined control flow costs no trace at all, which is what makes this readable
    on a real program: a loop that runs three hundred thousand times compiles to
    jumps, and jumps are not calls. */
@@ -328,6 +351,7 @@ int main(void)
     test_a_mistake_goes_to_stderr();
     test_the_program_keeps_its_own_arguments();
     test_trace_writes_the_call_tree();
+    test_trace_names_arguments();
     test_trace_is_quiet_where_there_are_no_calls();
     test_trace_takes_a_depth();
     test_interactive_keeps_what_the_program_left();

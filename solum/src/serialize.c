@@ -185,6 +185,16 @@ static void write_chunk_body(FILE *f, const SolChunk *chunk)
     put_u32(f, has_files ? count_runs(chunk->file_ids, chunk->count) : 0);
     if (has_files) write_runs(f, chunk->file_ids, chunk->count);
 
+    /* What each frame slot was called, in slot order. Short and few -- a
+       handful per method -- and written straight rather than run-length
+       encoded, since neighbouring slots share nothing. */
+    put_u16(f, (uint16_t)chunk->slot_names.count);
+    for (int i = 0; i < chunk->slot_names.count; i++) {
+        size_t len = strlen(chunk->slot_names.names[i]);
+        put_u16(f, (uint16_t)len);
+        fwrite(chunk->slot_names.names[i], 1, len, f);
+    }
+
     put_u32(f, (uint32_t)chunk->methods.count);
     for (int i = 0; i < chunk->methods.count; i++) {
         const SolMethod *method = chunk->methods.methods[i];
@@ -431,6 +441,18 @@ static SolSerResult read_chunk_body(Cursor *c, SolChunk *chunk, int depth)
        not record files has no runs, and its bytes stay at file 0, which names
        nothing and prints as a bare line. */
     if (placed != 0 && placed != code_length) return SOL_SER_MALFORMED;
+
+    /* Slot names, in slot order. */
+    uint16_t slot_name_count = get_u16(c);
+    if (c->overran) return SOL_SER_TRUNCATED;
+    if ((size_t)slot_name_count * 2 > c->size - c->pos) return SOL_SER_TRUNCATED;
+
+    for (uint16_t i = 0; i < slot_name_count; i++) {
+        uint16_t len = get_u16(c);
+        const uint8_t *text;
+        if (c->overran || !take(c, len, &text)) return SOL_SER_TRUNCATED;
+        sol_chunk_name_slot(chunk, (int)i, (const char *)text, (int)len);
+    }
 
     /* Methods, each carrying a chunk of its own. */
     uint32_t method_count = get_u32(c);

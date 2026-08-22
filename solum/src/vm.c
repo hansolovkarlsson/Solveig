@@ -403,6 +403,10 @@ static void trace_call(const SolVM *vm, const SolMethod *code, int argc,
         fputc('(', stderr);
         for (int i = 0; i < argc; i++) {
             if (i > 0) fputs(", ", stderr);
+            /* Named, when the chunk remembers what the parameter was called.
+               Arguments land in slots 1..arity, so the name is the slot's. */
+            const char *param = sol_chunk_slot_name(&code->chunk, i + 1);
+            if (param[0] != '\0') fprintf(stderr, "%s: ", param);
             trace_value(slots[i + 1]);
         }
         fputc(')', stderr);

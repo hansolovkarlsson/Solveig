@@ -24,6 +24,8 @@
  *                 each file: u16 path length, then that many bytes (no NUL)
  *           4     file-run count
  *                 each run: u32 length, u32 file index
+ *           2     slot-name count
+ *                 each name: u16 length, then that many bytes (no NUL)
  *           4     method count
  *                 each method: u16 name length + bytes, u16 arity,
  *                 u16 slot count, u16 flags (1 = block, 2 = captures its home
@@ -37,6 +39,12 @@
  * into the same one -- so a line number alone named a line in a file nobody had
  * recorded, and read as a line of the file being looked at (version 12).
  *
+ * Slot names are what each frame slot was called, in slot order, written
+ * straight rather than run-length encoded since neighbouring slots share
+ * nothing. A slot is an index at run time and that is the right thing, but the
+ * compiler knew the name and threw it away, so anything looking at a running
+ * frame could say `slot 3` and not `average` (version 13).
+ *
  * Everything loaded from disk is verified before it can run -- see
  * sol_chunk_verify. A .sob file is untrusted input.
  */
@@ -47,7 +55,7 @@
 #include "solum/bytecode.h"
 
 #define SOL_SOB_MAGIC   "SOLB"
-#define SOL_SOB_VERSION 12
+#define SOL_SOB_VERSION 13
 
 typedef enum {
     SOL_SER_OK,

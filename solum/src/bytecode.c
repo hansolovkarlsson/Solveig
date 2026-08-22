@@ -15,6 +15,9 @@ void sol_chunk_init(SolChunk *chunk)
     chunk->files.count = 0;
     chunk->files.capacity = 0;
     chunk->files.names = NULL;
+    chunk->slot_names.count = 0;
+    chunk->slot_names.capacity = 0;
+    chunk->slot_names.names = NULL;
     sol_value_array_init(&chunk->constants);
     chunk->names.count = 0;
     chunk->names.capacity = 0;
@@ -378,6 +381,44 @@ const char *sol_chunk_file_of(const SolChunk *chunk, int offset)
     return chunk->files.names[id];
 }
 
+void sol_chunk_name_slot(SolChunk *chunk, int index, const char *name, int length)
+{
+    SolNameArray *slots = &chunk->slot_names;
+    if (index < 0 || index > UINT8_MAX) return;   /* a slot index is a u8 */
+
+    while (slots->count <= index) {
+        if (slots->capacity < slots->count + 1) {
+            int capacity = slots->capacity < 8 ? 8 : slots->capacity * 2;
+            slots->names = realloc(slots->names, sizeof(char *) * capacity);
+            if (slots->names == NULL) {
+                fprintf(stderr, "solvm: out of memory\n");
+                exit(1);
+            }
+            slots->capacity = capacity;
+        }
+        /* A slot nobody named -- the receiver, or a gap -- still takes a place,
+           so that index N of this table is slot N and not the Nth named one. */
+        char *blank = malloc(1);
+        if (blank == NULL) { fprintf(stderr, "solvm: out of memory\n"); exit(1); }
+        blank[0] = '\0';
+        slots->names[slots->count++] = blank;
+    }
+
+    char *copy = malloc((size_t)length + 1);
+    if (copy == NULL) { fprintf(stderr, "solvm: out of memory\n"); exit(1); }
+    memcpy(copy, name, (size_t)length);
+    copy[length] = '\0';
+
+    free(slots->names[index]);
+    slots->names[index] = copy;
+}
+
+const char *sol_chunk_slot_name(const SolChunk *chunk, int index)
+{
+    if (index < 0 || index >= chunk->slot_names.count) return "";
+    return chunk->slot_names.names[index];
+}
+
 int sol_chunk_add_name(SolChunk *chunk, const char *name, int length)
 {
     int found = index_find_name(chunk, name, length);
@@ -426,6 +467,8 @@ void sol_chunk_free(SolChunk *chunk)
     free(chunk->file_ids);
     for (int i = 0; i < chunk->files.count; i++) free(chunk->files.names[i]);
     free(chunk->files.names);
+    for (int i = 0; i < chunk->slot_names.count; i++) free(chunk->slot_names.names[i]);
+    free(chunk->slot_names.names);
     sol_value_array_free(&chunk->constants);
     for (int i = 0; i < chunk->names.count; i++) free(chunk->names.names[i]);
     free(chunk->names.names);

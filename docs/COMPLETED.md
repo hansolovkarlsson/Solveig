@@ -1390,6 +1390,57 @@ for values, by identity for arrays, blocks, objects and dictionaries.
 [[#1]]:indexOf([#1]).            ; nil  -- an equal-looking array is a different one
 ```
 
+### 6.28 Local variables have no names at run time — **done**
+
+A chunk records what each frame slot was called, so `--trace` names its
+arguments:
+
+```
+  [locals.sol:7] value(numbers: [#10, #20, #33])
+    [locals.sol:4] value(n: #10)
+    -> #1
+```
+
+**The compiler always knew** — it had to, to resolve `total` to slot 2 — and
+threw it away once the index was emitted. The disassembly is what the runtime
+had left:
+
+```
+SETLOCL     2
+LOCAL       3
+```
+
+A slot is an index at run time and that is the right thing: an access is not a
+lookup. What was missing is the name beside it, for anything looking *at* a
+running frame rather than running in it.
+
+**A table per chunk, in slot order.** Written straight rather than run-length
+encoded, since neighbouring slots share nothing, and indexed by slot rather than
+filled in the order names arrive — a slot nobody named, like slot 0 which holds
+the receiver, still takes a place, so index N is slot N. There is a test that
+names slots out of order and leaves a gap, because that is the property worth
+holding: an off-by-one here would put the wrong name against the right value,
+which is worse than no name at all.
+
+**`--trace` naming arguments is how the table was checked.** If `amount:` lines
+up with `#30` then the right name is against the right slot, and that is visible
+rather than asserted at a distance.
+
+**The second `.sob` format change in two releases**, 12 to 13. The entry had said
+this should have ridden along with
+[6.27](#627-a-stack-trace-does-not-say-which-file--done) and it did not, so the
+honest accounting is: a bump costs a recompile, a recompile is cheap and
+automatic, and nothing here ships bytecode without its source. Two bumps cost
+two recompiles.
+
+The size, against version 12: +0.2% on `numbers.sob`, +3.4% on `page.sob`. Far
+cheaper than the file table, because a name is stored once per slot rather than
+once per method chunk.
+
+**What it unblocks** is [Solid](ROADMAP.md#629-a-stepper--solid). A stepper
+showing `slot 3 = #180` would have been most of the work for a fraction of the
+use; it can show `average = #180`.
+
 ### 6.27 A stack trace does not say which file — **done**
 
 A trace names the file as well as the line:

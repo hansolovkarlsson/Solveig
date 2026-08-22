@@ -609,6 +609,61 @@ static void test_unreachable_code_is_not_reached(void)
     printf("  accepted: code no path reaches, which therefore has no height\n");
 }
 
+/* Slot names survive the round trip, in slot order. What the compiler knew
+   about slot 3 has to outlive the compiler, or nothing looking at a running
+   frame can say `average` rather than `slot 3`. */
+static void test_slot_names_survive(void)
+{
+    SolChunk original;
+    build_valid(&original);
+
+    /* Slot 0 is the receiver and has no name; the rest are named out of order
+       on purpose, since the table is indexed by slot rather than filled in the
+       order names arrive. */
+    sol_chunk_name_slot(&original, 2, "count", 5);
+    sol_chunk_name_slot(&original, 1, "total", 5);
+    sol_chunk_name_slot(&original, 4, "average", 7);
+
+    assert(sol_chunk_save(&original, TMP) == SOL_SER_OK);
+
+    SolChunk loaded;
+    assert(sol_chunk_load(&loaded, TMP) == SOL_SER_OK);
+
+    assert(strcmp(sol_chunk_slot_name(&loaded, 0), "") == 0);
+    assert(strcmp(sol_chunk_slot_name(&loaded, 1), "total") == 0);
+    assert(strcmp(sol_chunk_slot_name(&loaded, 2), "count") == 0);
+    /* The gap at 3 is a place rather than a name, so the indices stay true. */
+    assert(strcmp(sol_chunk_slot_name(&loaded, 3), "") == 0);
+    assert(strcmp(sol_chunk_slot_name(&loaded, 4), "average") == 0);
+    /* And past the end is "" rather than a read off the array. */
+    assert(strcmp(sol_chunk_slot_name(&loaded, 99), "") == 0);
+    assert(strcmp(sol_chunk_slot_name(&loaded, -1), "") == 0);
+
+    sol_chunk_free(&loaded);
+    sol_chunk_free(&original);
+    remove(TMP);
+    printf("  slot names survive the round trip, in slot order\n");
+}
+
+/* A chunk that names no slot writes none and loads back the same, which is what
+   a chunk assembled by hand looks like. */
+static void test_a_chunk_with_no_slot_names(void)
+{
+    SolChunk original;
+    build_valid(&original);
+    assert(sol_chunk_save(&original, TMP) == SOL_SER_OK);
+
+    SolChunk loaded;
+    assert(sol_chunk_load(&loaded, TMP) == SOL_SER_OK);
+    assert(strcmp(sol_chunk_slot_name(&loaded, 0), "") == 0);
+    assert(strcmp(sol_chunk_slot_name(&loaded, 1), "") == 0);
+
+    sol_chunk_free(&loaded);
+    sol_chunk_free(&original);
+    remove(TMP);
+    printf("  a chunk that names no slot round trips as one\n");
+}
+
 int main(void)
 {
     test_more_entries_than_a_byte_can_index();
@@ -625,6 +680,8 @@ int main(void)
     test_duplicate_entries_keep_their_indices();
     test_rejects_files_it_should_not_run();
     test_verifier_rejects_unsafe_code();
+    test_slot_names_survive();
+    test_a_chunk_with_no_slot_names();
     printf("test_serialize: ok\n");
     return 0;
 }

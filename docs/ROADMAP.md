@@ -293,30 +293,14 @@ entries are in [COMPLETED.md](COMPLETED.md). This one was about making it a
 language you can write a *program* in: a program has to be split across files,
 read input, write files, and stop with a status.
 
-**Two entries, and they are about looking at a program rather than writing
-one.** `solvm --trace` writes the call tree and a trace names the file it is in;
-what is left is a name for a local and the debugger itself.
+**One entry, and it is the debugger itself.** `solvm --trace` writes the call
+tree, a trace names the file it is in, and a frame slot knows what it was
+called — so what a debugger would need is there and what is left is the
+debugger.
 
 Raised in a notes file and assessed in [ideas.md](ideas.md), which also records
 what was **not** worth building and why — integer widths, a JIT, cascades,
 trailing-block syntax, and Go-style concurrency among them.
-
-### 6.28 Local variables have no names at run time
-
-Slots are indices. The compiler knows a temporary is called `count` and nothing
-in the chunk records it, so anything inspecting a running program can show
-`slot 3` and not `count`.
-
-Nothing needs it today — `--trace` shows calls and their arguments, and the
-arguments are values rather than names. It is here because it is the thing a
-**stepper** would need first, and because a trace could name arguments with it:
-`p:double(count: #21)` rather than `p:double(#21)`.
-
-Another side table, and it should have ridden along with
-[6.27](COMPLETED.md#627-a-stack-trace-does-not-say-which-file--done), which is
-built: that was the format change, and doing this now means a second one. Worth
-weighing — the cost of a bump is that every `.sob` has to be recompiled, which
-is cheap, and the benefit of waiting is nothing in particular.
 
 ### 6.29 A stepper — **Solid**
 
@@ -342,8 +326,17 @@ Recorded here rather than in the README, which lists programs that exist.
 
 Breakpoints, stepping, and looking at the stack where it stopped.
 
-**Part of it exists already**, and it arrived from asking the question rather
-than from planning: `solis --interactive` runs a file and stays at the prompt
+**Everything underneath it is built.** `solvm --trace` writes the call tree,
+traces name the file as well as the line
+([6.27](COMPLETED.md#627-a-stack-trace-does-not-say-which-file--done)), and a
+frame slot knows what it was called
+([6.28](COMPLETED.md#628-local-variables-have-no-names-at-run-time--done)) — so a
+stepper can show `average = #180` rather than `slot 3 = #180`, which was the
+thing that would have made it most of the work for a fraction of the use.
+
+**Part of the front end exists too**, and it arrived from asking the question
+rather than from planning: `solis --interactive` runs a file and stays at the
+prompt
 afterwards, failure or not, with everything the program bound still bound. In
 this language that is more than it sounds — a script's own names are *globals*,
 so the dictionary it built and the objects it made survive the unwind, and a
@@ -351,7 +344,7 @@ method it defined can be called again. What is missing is the frames: nothing
 resumes, and a block's temporaries go with the stack.
 
 **The rest is the largest thing on this list and the one to do last.** It wants
-[6.28](#628-local-variables-have-no-names-at-run-time) first — a stepper that
+[6.28](COMPLETED.md#628-local-variables-have-no-names-at-run-time--done) first — a stepper that
 shows `slot 3 = #5` rather than `count = #5` is most of the work for a fraction
 of the use — and it wants a front end of its own, which is a program rather than
 a flag.
@@ -363,8 +356,8 @@ prompt and what it answers looked at, objects inspected with `slots` and
 that cannot do is stop a program *while* it is running, or show a local by name,
 which is the part a stepper adds and the part that needs 6.28.
 
-The order this list would take: `--trace` (built), then 6.27 because it improves
-every error, then 6.28, and only then this.
+The order this list took: `--trace`, then 6.27 because it improved every error,
+then 6.28. Only this is left.
 
 ## Suggested order
 
@@ -396,11 +389,13 @@ trace names the file as well as the line, which improves every error rather than
 only a debugging session, and it cost the first `.sob` format change since
 0.1.0.
 
-What is left is **[6.28](#628-local-variables-have-no-names-at-run-time)**, the
-side table that would let anything show a variable by its name, and
-**[6.29](#629-a-stepper--solid)** — Solid — which wants it first and is much the
-largest thing here. Both are worth weighing against `solis --interactive`, which
-already does the interactive half of what a debugger is for. `solis` grew raw-mode line editing for its own prompt
+[6.28](COMPLETED.md#628-local-variables-have-no-names-at-run-time--done) is built
+too, so a frame slot knows what it was called and `--trace` names its arguments.
+
+What is left is **[6.29](#629-a-stepper--solid)** — Solid — which is much the
+largest thing here, has everything it needs underneath it now, and is worth
+weighing against `solis --interactive`, which already does the interactive half
+of what a debugger is for. `solis` grew raw-mode line editing for its own prompt
 ([6.24](COMPLETED.md#624-the-prompt-has-no-history--done)), which needed the same
 machinery — and a *program* still cannot read a keypress, which is what this
 entry is. The machinery being built is the reason it is now small. The four papercuts —

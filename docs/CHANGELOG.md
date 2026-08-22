@@ -7,7 +7,50 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-Nothing yet.
+### A frame slot knows what it was called — `pending`, 2026-08-21
+
+[6.28](COMPLETED.md#628-local-variables-have-no-names-at-run-time--done), and
+`--trace` names its arguments:
+
+```
+  [locals.sol:7] value(numbers: [#10, #20, #33])
+    [locals.sol:4] value(n: #10)
+    -> #1
+```
+
+**The compiler always knew** — it had to, to resolve `total` to slot 2 — and
+threw the name away once the index was emitted. What the runtime had was this:
+
+```
+SETLOCL     2
+LOCAL       3
+```
+
+A slot being an index is right: an access is not a lookup. What was missing is
+the name beside it, for anything looking *at* a frame rather than running in it.
+
+**A table per chunk, in slot order**, indexed by slot rather than filled in the
+order names arrive — so a slot nobody named, like slot 0 which holds the
+receiver, still takes a place and index N is slot N. A test names slots out of
+order and leaves a gap, because that is the property worth holding: an
+off-by-one would put the wrong name against the right value, which is worse than
+no name.
+
+**Naming arguments in the trace is how the table was checked.** `amount:` lining
+up with `#30` says the right name is against the right slot, visibly, rather
+than asserted at a distance.
+
+**The second `.sob` format change in two releases**, 12 to 13. The entry had said
+this should have ridden along with 6.27 and it did not, so the honest accounting
+is that a bump costs a recompile, a recompile is cheap and automatic, and
+nothing here ships bytecode without its source. The size is far cheaper than the
+file table — +0.2% on `numbers.sob`, +3.4% on `page.sob` — because a name is
+stored once per slot rather than once per method chunk.
+
+**One entry left on the roadmap**, and it is Solid itself. Everything underneath
+it is built: the call tree, the file in a trace, and now a name for a local — so
+a stepper can show `average = #180` rather than `slot 3 = #180`, which was the
+thing that would have made it most of the work for a fraction of the use.
 
 ## 0.10.0 — 2026-08-21
 
