@@ -140,17 +140,31 @@ make test     # builds and runs the test suite
 
 `.sob` files are little-endian and portable, and are verified before they run.
 
-## Examples
+## Examples and programs
 
-Thirty programs. Every concept the [guide](docs/GUIDE.md) names has one,
-and five are whole programs written to do a job rather than to demonstrate a
-feature: [log](examples/log.sol) analyses an access log,
-[evaluator](examples/evaluator.sol) parses and folds an expression,
-[manifest](examples/manifest.sol) reads a JSON file, queries it and writes it
-back, [page](examples/page.sol) reads an HTML file and reports on it, and
-[mirror](examples/mirror.sol) copies one directory tree into another — two of
-them on [lib/json.sol](lib/json.sol) and [lib/html.sol](lib/html.sol),
-a JSON and an HTML reader written in Solum —
+Thirty-two files in two directories, and the split is what each was written for.
+
+**`programs/`** — seven whole programs, each written to do a job and using
+whatever the language turned out to have. They are where nearly every roadmap
+entry after the first dozen came from: somebody wrote one and found out what it
+wanted.
+
+| | |
+| --- | --- |
+| [log](programs/log.sol) | reads an access log and reports on it |
+| [evaluator](programs/evaluator.sol) | tokenises, parses and folds an expression |
+| [manifest](programs/manifest.sol) | reads a JSON file, queries it, writes it back |
+| [page](programs/page.sol) | reads an HTML file and reports on it |
+| [mirror](programs/mirror.sol) | copies one directory tree into another |
+| [tools](programs/tools.sol) | does its job by running other programs |
+| [serve](programs/serve.sol) | answers one HTTP request, without being injected |
+
+Two of them run on [lib/json.sol](lib/json.sol) and
+[lib/html.sol](lib/html.sol) — a JSON reader and an HTML reader written in
+Solum.
+
+**`examples/`** — twenty-five demonstrations, one for every concept the
+[guide](docs/GUIDE.md) names:
 [hello](examples/hello.sol),
 [binding](examples/binding.sol),
 [stock](examples/stock.sol),
@@ -173,11 +187,6 @@ a JSON and an HTML reader written in Solum —
 [dictionaries](examples/dictionaries.sol),
 [loops](examples/loops.sol),
 [errors](examples/errors.sol),
-[log](examples/log.sol),
-[evaluator](examples/evaluator.sol),
 [walk](examples/walk.sol),
 [time](examples/time.sol),
-[manifest](examples/manifest.sol),
-[page](examples/page.sol),
-[mirror](examples/mirror.sol),
 [keys](examples/keys.sol).

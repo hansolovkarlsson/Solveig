@@ -1537,7 +1537,7 @@ dispatch, so a primitive that reads a file or scans a string spends one of them
 however large the file is: `readFile` of 256MB plus an `indexOf` over all of it
 is eight instructions, and under a 1MB ceiling that read completes before the
 program is stopped holding 256 times its allowance. Found by writing
-[serve.sol](../examples/serve.sol) and running it as a guest with an allowance,
+[serve.sol](../programs/serve.sol) and running it as a guest with an allowance,
 and recorded as
 [3.7](ROADMAP.md#37-a-limit-bounds-dispatch-not-work).
 
@@ -1725,7 +1725,7 @@ system:makeDirectory("build/out").      ; false -- already there
 ```
 
 **The case was that every script carried the same block.**
-[mirror.sol](../examples/mirror.sol) and [files.sol](../examples/files.sol) both
+[mirror.sol](../programs/mirror.sol) and [files.sol](../examples/files.sol) both
 had a version of `isDirectory:ifFalse({ makeDirectory })`, because "make sure
 this exists" is what a script wants nine times in ten and refusing made it a
 test and a make.
@@ -1761,7 +1761,7 @@ it; this entry was only ever about the case where the work is already done.
 
 `system:modeOf`, `system:setMode`, `system:setModifiedAt`.
 
-**The case was one program.** [examples/mirror.sol](../examples/mirror.sol)
+**The case was one program.** [programs/mirror.sol](../programs/mirror.sol)
 copies a tree with `readFile` and `writeFile`, which carry bytes and nothing
 else, so what arrived was:
 
@@ -1947,7 +1947,7 @@ It is worth it, and the reason is the one that gets anything sorted: a tally
 kept under symbol keys needs a stable order to print in. Symbols are values and
 make good dictionary keys, so tallying by symbol is the natural thing to write,
 and then the report could not be printed the same way twice.
-[examples/manifest.sol](../examples/manifest.sol) had the workaround in it —
+[programs/manifest.sol](../programs/manifest.sol) had the workaround in it —
 `collect` the keys to strings, sort those, convert back with `asSymbol` to look
 each one up — and writing that is what made the case:
 
@@ -1964,7 +1964,7 @@ arrangement that lets a user-defined type order itself.
 
 Written to find out what the language wanted, which is how the last three
 entries here got their case. It is [lib/html.sol](../lib/html.sol), with
-[examples/page.sol](../examples/page.sol) as a program on top of it, and the
+[programs/page.sol](../programs/page.sol) as a program on top of it, and the
 entry predicted three things it would push on. All three happened, and one of
 them answered a question that had been open since 3.5 was written.
 
@@ -2101,7 +2101,7 @@ it.
 enough: the reference called it *occasionally a trap*, and it still took about a
 minute to fall into once `lib/` had a second file to collide with. The example
 built on the JSON library is called
-[manifest.sol](../examples/manifest.sol) for that reason and no other.
+[manifest.sol](../programs/manifest.sol) for that reason and no other.
 
 The compiler is holding both halves of the question — it knows the file it is
 compiling and the file the include resolved to — so it says so:
@@ -2132,7 +2132,7 @@ added for.
 
 ### 6.15 There is no dictionary, and no way to build one — **done**
 
-Found by writing [examples/log.sol](../examples/log.sol), the first program here
+Found by writing [programs/log.sol](../programs/log.sol), the first program here
 written to do a job rather than to show a feature. Counting by key is most of
 what a log analyser does, and the language could not express it: the tally was an
 array of key/count objects walked from the top, O(n) a lookup and O(n²) over a
@@ -2204,7 +2204,7 @@ fails if the marking is removed, which was confirmed rather than assumed.
 
 ### 6.16 An array cannot be sliced — **done**
 
-The other thing [examples/log.sol](../examples/log.sol) wanted, and it wanted it
+The other thing [programs/log.sol](../programs/log.sol) wanted, and it wanted it
 twice. There was no `first(#n)`, no `last(#n)` and no slice, so taking the head
 of a sorted array was a walk with an index that the example carried as a
 `firstFew` helper.

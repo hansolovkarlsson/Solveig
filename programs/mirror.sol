@@ -1,11 +1,11 @@
 ; mirror.sol -- copy one directory tree into another, and report what changed.
 ;
-; Run with:  ./bin/solas examples/mirror.sol && ./bin/solvm examples/mirror.sob
-; Over trees of your own:  ./bin/solvm examples/mirror.sob source destination
+; Run with:  ./bin/solas programs/mirror.sol && ./bin/solvm programs/mirror.sob
+; Over trees of your own:  ./bin/solvm programs/mirror.sob source destination
 ; To see what it would do without doing it:  ...:sob source destination dry
 ;
-; The fifth program here written to do a job rather than to show a feature, and
-; the first that *writes* to the filesystem rather than reading it. walk.sol
+; The fifth program here, and the first that *writes* to the filesystem rather
+; than reading it. walk.sol
 ; lists a tree; files.sol reads and writes one file. Mirroring is the ordinary
 ; job that needs the whole set at once -- list, test, measure, make, copy -- and
 ; it is the one every backup script is.

@@ -287,7 +287,7 @@ The two remaining ways to go further: raise the cap, which costs stack because
 `SOL_STACK_MAX` is derived from it; or make the limit dynamic rather than a
 fixed array.
 
-**A program has now reached it.** [examples/evaluator.sol](../examples/evaluator.sol)
+**A program has now reached it.** [programs/evaluator.sol](../programs/evaluator.sol)
 is a recursive-descent parser, which spends about three frames per level of
 bracket nesting — expression calls term calls factor calls expression again —
 so it manages **18 brackets deep** and stops at 19. That is more than anybody
@@ -339,7 +339,7 @@ primitive that reads a file, scans a string or joins an array does all of it
 between one step and the next, so a program can spend an unbounded amount of
 time and memory without spending steps.
 
-[serve.sol](../examples/serve.sol) answers a request in 393 to 798 instructions
+[serve.sol](../programs/serve.sol) answers a request in 393 to 798 instructions
 depending on which one, which is the sort of number a host would set a limit
 from. It is also the number that stops meaning anything the moment a request can
 name a file. Measured with the smallest program that shows it:
@@ -383,7 +383,7 @@ rather than in section 6:
 different. A restricted script can still fill a disk or compute the wrong
 answer; it turns out it can also spend a minute and a gigabyte inside a limit
 that was set to stop exactly that. Found by writing
-[serve.sol](../examples/serve.sol) and running it the way its own case would —
+[serve.sol](../programs/serve.sol) and running it the way its own case would —
 as a guest, with an allowance — which is a thing nobody had done to a program
 here before, because every earlier program was run by the person who wrote it.
 
@@ -449,7 +449,7 @@ halfway.
 **Which way round is the default** still matters for the command line, where the
 chooser is a person. Safe-by-default with `--unsafe` to enable protects the
 script you did not write and breaks every existing use, including this
-repository's own tests and `examples/tools.sol`. Unsafe-by-default with `--safe`
+repository's own tests and `programs/tools.sol`. Unsafe-by-default with `--safe`
 breaks nothing and helps only the people who remember to ask. For a person, that
 argues for safe-by-default and for paying the breakage; for an embedding it
 barely signifies, since the host states what it wants either way.
@@ -480,7 +480,7 @@ and the embedding case wants it: a template renderer wants to read files and
 never to run a program, which one boolean cannot say.
 
 **And one capability per message is not fine enough either.**
-[serve.sol](../examples/serve.sol) is the case written down, and it is told what
+[serve.sol](../programs/serve.sol) is the case written down, and it is told what
 it was asked entirely through `system:environment` — `PATH_INFO` and
 `QUERY_STRING` are how CGI hands a handler its request. So a scheme that can
 only say yes or no to `environment` has to say yes, and has then also said yes
@@ -544,21 +544,21 @@ rather than a plan written before there were any programs. And once those ran
 out, every further entry arrived the same way — somebody wrote a program and
 found out what it wanted.
 
-- [log.sol](../examples/log.sol) asked for a **dictionary** and **array
+- [log.sol](../programs/log.sol) asked for a **dictionary** and **array
   slicing**, and got both.
-- [evaluator.sol](../examples/evaluator.sol) found the **frame limit**, and that
+- [evaluator.sol](../programs/evaluator.sol) found the **frame limit**, and that
   it is catchable.
-- [manifest.sol](../examples/manifest.sol) and `lib/json.sol` found that a
+- [manifest.sol](../programs/manifest.sol) and `lib/json.sol` found that a
   **byte had no number** — for text rather than for the binary files the entry
   had been written about — and put a price on how the value dispatch is written.
-- [page.sol](../examples/page.sol) and `lib/html.sol` found that **an array
+- [page.sol](../programs/page.sol) and `lib/html.sol` found that **an array
   cannot be popped**, and that the frame limit is about traversal rather than
   about data.
-- [mirror.sol](../examples/mirror.sol) found a **defect in `modifiedAt`**, and
+- [mirror.sol](../programs/mirror.sol) found a **defect in `modifiedAt`**, and
   asked for a file's mode and time.
 - `lib/text.sol` broke a program **from a distance** by claiming a common global
   name, ten minutes after the entry saying that could happen was written.
-- [serve.sol](../examples/serve.sol) found that **a limit bounds dispatch and
+- [serve.sol](../programs/serve.sol) found that **a limit bounds dispatch and
   not work** (3.7), and that the permission a webserver cannot do without is the
   one that hands over its secrets — which is the first argument 6.32 has for
   capabilities finer than one per message. The first program here whose input

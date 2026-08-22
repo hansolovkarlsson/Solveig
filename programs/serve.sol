@@ -1,22 +1,21 @@
 ; serve.sol -- answer one HTTP request, and do it without being injected.
 ;
-; Run with:  ./bin/solas examples/serve.sol && ./bin/solvm examples/serve.sob
+; Run with:  ./bin/solas programs/serve.sol && ./bin/solvm programs/serve.sob
 ;
 ; With no CGI variables set it runs a handful of requests through the handler
 ; and prints each response, which is what makes it testable without a socket.
 ; To answer one real request, set the variables a webserver would set:
 ;
-;   PATH_INFO=/search QUERY_STRING=q=limit ./bin/solvm examples/serve.sob
-;   PATH_INFO=/note/limits ./bin/solvm examples/serve.sob
+;   PATH_INFO=/search QUERY_STRING=q=limit ./bin/solvm programs/serve.sob
+;   PATH_INFO=/note/limits ./bin/solvm programs/serve.sob
 ;
 ; And to run it the way its own case would -- as a guest, with an allowance:
 ;
-;   PATH_INFO=/ ./bin/solvm --steps=100000 --memory=8M examples/serve.sob
+;   PATH_INFO=/ ./bin/solvm --steps=100000 --memory=8M programs/serve.sob
 ;
-; The seventh program here written to do a job rather than to show a feature,
-; and the first one **whose input does not come from whoever ran it.** Every
-; other program in this directory is handed its arguments by the person who
-; started it. This one is handed a path and a query string by a stranger, and
+; The seventh program here, and the first one **whose input does not come from
+; whoever ran it.** Every other program in this directory is handed its
+; arguments by the person who started it. This one is handed a path and a query string by a stranger, and
 ; that is what it was written to find out about:
 ;
 ;   1. **The message that builds a page inserts exactly what it is given.**

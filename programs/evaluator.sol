@@ -1,8 +1,7 @@
 ; evaluator.sol -- a calculator: tokenise, parse, evaluate.
-; Run with:  ./bin/solas examples/evaluator.sol && ./bin/solvm examples/evaluator.sob
+; Run with:  ./bin/solas programs/evaluator.sol && ./bin/solvm programs/evaluator.sob
 ;
-; The second program here written to do a job rather than to show a feature, and
-; deliberately a different shape from the first. log.sol is line-oriented: read
+; The second program here, and deliberately a different shape from the first. log.sol is line-oriented: read
 ; text, split it, tally it. This one recurses, builds a tree of objects, and has
 ; to say something useful when its input is wrong -- which is the ground the
 ; other one never touched.

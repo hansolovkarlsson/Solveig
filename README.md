@@ -85,7 +85,8 @@ a different language.
 | `solid/`  | **Solid** -- the debugger: breakpoints, stepping, and locals      |
 | `docs/`   | [GUIDE.md](docs/GUIDE.md), [TUTORIAL.md](docs/TUTORIAL.md), [REFERENCE.md](docs/REFERENCE.md), [design.md](docs/design.md), [BYTECODE.md](docs/BYTECODE.md), [ROADMAP.md](docs/ROADMAP.md), [COMPLETED.md](docs/COMPLETED.md), [CHANGELOG.md](docs/CHANGELOG.md), [journal.md](docs/journal.md) |
 | `tests/`  | Test suite                                                        |
-| `examples/` | Sample `.sol` programs                                          |
+| `examples/` | One `.sol` demonstration per concept the guide names            |
+| `programs/` | Whole `.sol` programs, each written to do a job                 |
 | `lib/`    | The library that ships with the language, found on the search path |
 
 Each component keeps its public headers in `<component>/include/<component>/`
@@ -151,7 +152,7 @@ keyboard. `modeOf` and `setMode` so a copy keeps the executable bit,
 `setModifiedAt` so it keeps its time, `makeDirectory` answering whether it made
 one, and `readKey` for a program that wants a keypress rather than a line. Every
 one of them was asked for by a program rather than planned —
-[mirror.sol](examples/mirror.sol) copies a directory tree and found a defect in
+[mirror.sol](programs/mirror.sol) copies a directory tree and found a defect in
 `modifiedAt` on the way. The reference has a contents and an index of all 110
 messages. The roadmap is empty.
 
@@ -183,7 +184,7 @@ primitive or a library rather than an opcode. `solvm --version` says which
 format a build speaks.
 
 The language is settled enough to write programs in.
-[examples/log.sol](examples/log.sol) is one written to do a job rather than to
+[programs/log.sol](programs/log.sol) is one written to do a job rather than to
 show a feature — it reads an access log, tallies it, ranks it and reports — and
 [lib/json.sol](lib/json.sol) and [lib/html.sol](lib/html.sol) are a JSON reader
 and an HTML reader written in Solum, on the search path so a program says

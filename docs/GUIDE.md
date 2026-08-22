@@ -626,7 +626,7 @@ conditional kind for ranges and guards, and the two traps that come of putting
 closures in a table.
 
 > **Run:** [examples/dictionaries.sol](../examples/dictionaries.sol) and
-> [examples/log.sol](../examples/log.sol), which is what a dictionary is for
+> [programs/log.sol](../programs/log.sol), which is what a dictionary is for
 
 ## 13. Reflection
 

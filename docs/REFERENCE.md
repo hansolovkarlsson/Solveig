@@ -360,7 +360,7 @@ three hundred thousand times produces **no trace lines at all** — what shows u
 is the calls, which is what was wanted.
 
 `--trace=N` follows calls only `N` deep, which is where a program's shape is.
-On `examples/page.sol`:
+On `programs/page.sol`:
 
 | | lines of trace |
 | --- | --- |
@@ -600,7 +600,7 @@ Two things it will not do, each for a reason worth knowing:
 - **`null` and a missing name are both nil**, so `at(name, nil)` cannot separate
   them. Ask `includes(name)` when the difference matters.
 
-[examples/manifest.sol](../examples/manifest.sol) is a program built on it —
+[programs/manifest.sol](../programs/manifest.sol) is a program built on it —
 describing a document, pulling a value out by a dotted path, editing it and
 writing it back.
 
@@ -656,7 +656,7 @@ with one too, so [the frame limit](ROADMAP.md#35-recursion-is-limited-to-about-6
 that stops a recursive-descent parser at 28 levels does not apply. Measured at
 50,000 levels, built and walked.
 
-[examples/page.sol](../examples/page.sol) is a program on it — an outline, a
+[programs/page.sol](../programs/page.sol) is a program on it — an outline, a
 link list, images without alt text, and the complaints.
 
 **A file is compiled once** per compilation, however many ways it is reached,

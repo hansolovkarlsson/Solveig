@@ -1,14 +1,14 @@
 ; page.sol -- read an HTML file and report on it.
 ;
-; Run with:  ./bin/solas examples/page.sol && ./bin/solvm examples/page.sob
-; Over a file of your own:  ./bin/solvm examples/page.sob path/to/page.html
-; Listing one kind of element:  ./bin/solvm examples/page.sob page.html img
+; Run with:  ./bin/solas programs/page.sol && ./bin/solvm programs/page.sob
+; Over a file of your own:  ./bin/solvm programs/page.sob path/to/page.html
+; Listing one kind of element:  ./bin/solvm programs/page.sob page.html img
 ;
 ; The parser is [lib/html.sol](../lib/html.sol), on the search path, so this
 ; says `@include "html.sol".` and not where it lives.
 ;
-; The fourth program here written to do a job rather than to show a feature, and
-; the one that pushed on ground the other three did not:
+; The fourth program here, and the one that pushed on ground the other three did
+; not:
 ;
 ;   1. **It cannot fail on bad input, because bad input is the normal case.**
 ;      log.sol skips a bad line, json.sol refuses a bad document -- both right

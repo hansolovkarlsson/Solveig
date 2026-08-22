@@ -240,10 +240,12 @@ disassembler already exists and prints them; the document simply fell behind.
 **More examples**, chosen by auditing which concepts have none rather than by
 adding more of what is already covered.
 
-> **This is the one line in the section still open.** `examples/` has grown a
-> good deal since — and grown the right way, from programs written to find out
-> what the language wanted rather than to demonstrate a feature — but the audit
-> it asks for has not been done, so which concepts have no example is not known.
+> **This is the one line in the section still open**, and the reorganisation
+> sharpened it rather than settling it. The files now sit in two directories —
+> `examples/` for the twenty-five written to show a feature, `programs/` for the
+> seven written to do a job — so *which* audit this asks for is now a clear
+> question: does every concept the guide names have a demonstration beside it?
+> That is answerable, and it has not been answered.
 
 **A `(group)` versus `{block}` document.** Your own example is the whole of it:
 

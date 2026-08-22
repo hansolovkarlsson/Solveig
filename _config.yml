@@ -30,8 +30,8 @@ relative_links:
   collections: false
 
 # The compiler, the VM, the REPL and the tests are read on GitHub, not here.
-# examples/ is deliberately not excluded: the guide and the tutorial link to
-# those files, and Jekyll copies them through as plain text.
+# examples/ and programs/ are deliberately not excluded: the guide and the
+# tutorial link to those files, and Jekyll copies them through as plain text.
 exclude:
   - Makefile
   - LICENSE

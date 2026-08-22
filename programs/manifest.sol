@@ -1,8 +1,8 @@
 ; manifest.sol -- read a JSON file, describe it, query it, write it back.
 ;
-; Run with:  ./bin/solas examples/manifest.sol && ./bin/solvm examples/manifest.sob
-; Over a file of your own:  ./bin/solvm examples/manifest.sob path/to/file.json
-; With a path to pull out:  ./bin/solvm examples/manifest.sob file.json server.port
+; Run with:  ./bin/solas programs/manifest.sol && ./bin/solvm programs/manifest.sob
+; Over a file of your own:  ./bin/solvm programs/manifest.sob path/to/file.json
+; With a path to pull out:  ./bin/solvm programs/manifest.sob file.json server.port
 ;
 ; It is called manifest.sol and not json.sol because a file that includes a
 ; library of its own name finds *itself* on the search path first, and, a file
@@ -16,8 +16,7 @@
 ; Splitting it that way was the point: a JSON reader is library code, and the
 ; program above it is the thing that finds out whether the library is any good.
 ;
-; The third program here written to do a job rather than to show a feature.
-; log.sol reads lines and tallies them; evaluator.sol parses one expression and
+; The third program here. log.sol reads lines and tallies them; evaluator.sol parses one expression and
 ; folds it to a number; this one reads a *tree* and has to walk, query and
 ; rebuild it without knowing its shape in advance. That is the ground the other
 ; two never touched, and it is where the findings below came from.

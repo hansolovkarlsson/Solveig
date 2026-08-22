@@ -198,29 +198,42 @@ static void must_verify(const char *what, const char *source, const char *path)
     sol_search_path_free(&search);
 }
 
-/* Every shipped example, read from disk. They are the largest programs the
-   project has, and they exercise the emitter far past what a snippet reaches. */
-static const char *examples[] = {
-    "examples/hello.sol",   "examples/blocks.sol",  "examples/arrays.sol",
-    "examples/strings.sol", "examples/methods.sol", "examples/objects.sol",
-    "examples/reflect.sol", "examples/symbols.sol", "examples/numbers.sol",
-    "examples/format.sol",  "examples/values.sol",  "examples/stock.sol",
-    "examples/library.sol", "examples/include.sol", "examples/system.sol",
-    "examples/reading.sol", "examples/files.sol",   "examples/binding.sol",
-    "examples/strictness.sol", "examples/log.sol",
-    "examples/dictionaries.sol", "examples/loops.sol",
-    "examples/errors.sol",  "examples/evaluator.sol",
-    "examples/walk.sol",   "examples/time.sol",
-    "examples/manifest.sol", "examples/page.sol",
-    "examples/mirror.sol", "examples/keys.sol", "examples/tools.sol",
-    "examples/serve.sol",
+/* Every shipped .sol outside lib/, read from disk. They are the largest programs
+   the project has, and they exercise the emitter far past what a snippet
+   reaches.
+ *
+ * Two directories, and the split is the one the files already declared: a
+ * demonstration is written to show a feature, a program is written to do a job
+ * and uses whatever the language turned out to have. One list, because what
+ * this file asks of them is the same question -- does it compile to bytecode
+ * the verifier accepts -- and the directories below are what keeps the two
+ * kinds apart for a reader. */
+static const char *shipped[] = {
+    "examples/hello.sol",      "examples/blocks.sol",
+    "examples/arrays.sol",     "examples/strings.sol",
+    "examples/methods.sol",    "examples/objects.sol",
+    "examples/reflect.sol",    "examples/symbols.sol",
+    "examples/numbers.sol",    "examples/format.sol",
+    "examples/values.sol",     "examples/stock.sol",
+    "examples/library.sol",    "examples/include.sol",
+    "examples/system.sol",     "examples/reading.sol",
+    "examples/files.sol",      "examples/binding.sol",
+    "examples/strictness.sol", "examples/dictionaries.sol",
+    "examples/loops.sol",      "examples/errors.sol",
+    "examples/walk.sol",       "examples/time.sol",
+    "examples/keys.sol",
+
+    "programs/log.sol",        "programs/evaluator.sol",
+    "programs/manifest.sol",   "programs/page.sol",
+    "programs/mirror.sol",     "programs/tools.sol",
+    "programs/serve.sol",
 };
-#define EXAMPLE_COUNT (sizeof(examples) / sizeof(examples[0]))
+#define SHIPPED_COUNT (sizeof(shipped) / sizeof(shipped[0]))
 
 static void test_every_example_verifies(void)
 {
-    for (size_t i = 0; i < EXAMPLE_COUNT; i++) {
-        FILE *f = fopen(examples[i], "rb");
+    for (size_t i = 0; i < SHIPPED_COUNT; i++) {
+        FILE *f = fopen(shipped[i], "rb");
         assert(f != NULL);                    /* tests run from the repo root */
         assert(fseek(f, 0, SEEK_END) == 0);
         long size = ftell(f);
@@ -233,11 +246,11 @@ static void test_every_example_verifies(void)
         source[size] = '\0';
         fclose(f);
 
-        must_verify(examples[i], source, examples[i]);
+        must_verify(shipped[i], source, shipped[i]);
         free(source);
     }
-    printf("  all %zu examples compile to bytecode the verifier accepts\n",
-           sizeof(examples) / sizeof(examples[0]));
+    printf("  all %zu examples and programs compile to bytecode the verifier "
+           "accepts\n", SHIPPED_COUNT);
 }
 
 /* ---- what the examples cover ------------------------------------------- *
@@ -302,20 +315,24 @@ static bool is_sent(const char *text, const char *name)
     return false;
 }
 
-/* Every built-in message is sent by at least one example.
+/* Every built-in message is sent by at least one shipped file.
  *
  * The selectors come out of the registrations in builtins.c, so there is no
  * list here to fall behind: a primitive installed without an example to show it
  * fails this. When the audit ran, exactly one message had never been sent in an
- * example -- `lessOrEqual`. */
+ * example -- `lessOrEqual`.
+ *
+ * Both directories count. A message shown only by a program is shown, and
+ * several are: the filesystem messages arrived because mirror.sol wanted them
+ * and it is the natural place to see them used. */
 static void test_every_builtin_message_has_an_example(void)
 {
     char *builtins = slurp("solum/src/builtins.c");
 
     char *covered = NULL;
     size_t length = 0;
-    for (size_t i = 0; i < EXAMPLE_COUNT; i++) {
-        char *source = slurp(examples[i]);
+    for (size_t i = 0; i < SHIPPED_COUNT; i++) {
+        char *source = slurp(shipped[i]);
         blank_out_comments(source);
 
         size_t add = strlen(source);
@@ -414,13 +431,16 @@ static void test_every_builtin_message_is_in_the_index(void)
            checked);
 }
 
-/* And nothing ships unverified: every .sol in examples/ is in the list above,
-   so adding one without adding it here is caught rather than silently skipped.
-   `library.sol` and the rest are all included, being ordinary files. */
-static void test_no_example_is_left_out(void)
+/* And nothing ships unverified: every .sol in either directory is in the list
+   above, so adding one without adding it here is caught rather than silently
+   skipped. `library.sol` and the rest are all included, being ordinary files.
+ *
+ * Both directories are walked and the total is compared against the list, so a
+ * file cannot hide by being moved from one to the other either. */
+static int count_listed_in(const char *directory)
 {
-    DIR *dir = opendir("examples");
-    assert(dir != NULL);
+    DIR *dir = opendir(directory);
+    assert(dir != NULL);                      /* tests run from the repo root */
 
     int found = 0;
     for (struct dirent *entry = readdir(dir); entry != NULL; entry = readdir(dir)) {
@@ -429,11 +449,11 @@ static void test_no_example_is_left_out(void)
         if (length < 5 || strcmp(name + length - 4, ".sol") != 0) continue;
 
         char path[256];
-        snprintf(path, sizeof path, "examples/%s", name);
+        snprintf(path, sizeof path, "%s/%s", directory, name);
 
         bool listed = false;
-        for (size_t i = 0; i < EXAMPLE_COUNT; i++) {
-            if (strcmp(examples[i], path) == 0) { listed = true; break; }
+        for (size_t i = 0; i < SHIPPED_COUNT; i++) {
+            if (strcmp(shipped[i], path) == 0) { listed = true; break; }
         }
         if (!listed) {
             printf("\n%s is not in the list this file checks\n", path);
@@ -442,9 +462,18 @@ static void test_no_example_is_left_out(void)
         found++;
     }
     closedir(dir);
+    return found;
+}
 
-    assert(found == (int)EXAMPLE_COUNT);       /* and none listed that is gone */
-    printf("  every .sol in examples/ is checked (%d of them)\n", found);
+static void test_no_example_is_left_out(void)
+{
+    int examples = count_listed_in("examples");
+    int programs = count_listed_in("programs");
+
+    /* And none listed that is gone from both. */
+    assert(examples + programs == (int)SHIPPED_COUNT);
+    printf("  every .sol in examples/ (%d) and programs/ (%d) is checked\n",
+           examples, programs);
 }
 
 /* The shipped library, the same way. It is two files now rather than one, and

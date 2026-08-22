@@ -1,9 +1,9 @@
 ; tools.sol -- doing a job by running other programs.
 ;
-; Run with:  ./bin/solas examples/tools.sol && ./bin/solvm examples/tools.sob
+; Run with:  ./bin/solas programs/tools.sol && ./bin/solvm programs/tools.sob
 ;
-; The sixth program here written to do a job, and the first that does most of
-; the job by asking something else to do it -- which is what a scripting
+; The sixth program here, and the first that does most of the job by asking
+; something else to do it -- which is what a scripting
 ; language is for and what this one could not do until now.
 ;
 ; It reports on a directory: how many files, how big, what kind, and what the

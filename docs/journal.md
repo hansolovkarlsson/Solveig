@@ -25,13 +25,13 @@ things that shipped. It also claimed four loops were in `lib/control.sol` when
 all four had left for the VM. Fixed, with what each guess turned out to be
 rather than just a status, because the guesses are the part worth keeping.
 
-**Then the actual job**: [serve.sol](../examples/serve.sol), a CGI-shaped
+**Then the actual job**: [serve.sol](../programs/serve.sol), a CGI-shaped
 request handler. `/`, `/search?q=...`, `/note/<name>`, served out of a directory
 of files, with seven requests run through itself when no CGI variables are set
 so it is testable without a socket.
 
-The point was not the program. Every other program in `examples/` is handed its
-arguments by the person who started it; this is the first one handed a path and
+The point was not the program. Every other program is handed its arguments by
+the person who started it; this is the first one handed a path and
 a query string by a stranger, which is the case
 [6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
 is about and which no program here had ever been.
@@ -88,6 +88,23 @@ scheme with one switch per message must grant `environment`, and has then also
 granted `AWS_SECRET_ACCESS_KEY`. The permission a webserver cannot do without is
 the one that hands over its secrets. That does not settle the shape, but it
 rules one out: per-message is not fine enough where the message names something.
+
+**Then the directory split**, which was the day's second thing and came out of
+the first. `examples/` had thirty-two files doing two jobs, and adding serve.sol
+made that plain enough to act on: seven of them are whole programs written to do
+a job, twenty-five are demonstrations of one feature each. They now sit in
+`programs/` and `examples/`.
+
+What made it easy is that the split was not mine to draw. Each of the seven had
+been opening with *"the fourth program here written to do a job rather than to
+show a feature"*, numbered in arrival order, for as long as there had been more
+than one of them. The files had been maintaining the distinction all along; the
+directories only make it visible in a listing. No file needed a ruling — not
+even `stock.sol`, which is a real program and stays put because it exists to be
+the tutorial's worked example.
+
+109 paths rewritten, and each of the seven lost the second half of its own
+opening sentence, because the directory now says it.
 
 **The shape of the day**, which is the thing this file is for: the program was
 the instrument, not the result. It was written to be run by a stranger, and

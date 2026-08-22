@@ -1,11 +1,17 @@
 ; log.sol -- reading an access log and reporting on it.
 ;
-; Run with:  ./bin/solas examples/log.sol && ./bin/solvm examples/log.sob
-; Or over a log of your own:  ./bin/solvm examples/log.sob path/to/access.log
+; Run with:  ./bin/solas programs/log.sol && ./bin/solvm programs/log.sob
+; Or over a log of your own:  ./bin/solvm programs/log.sob path/to/access.log
 ;
-; The other examples were written to demonstrate a feature. This one was written
-; to do a job, and uses whatever the language turned out to have. Where it is
-; awkward, the comment says so rather than hiding it -- that is the useful part.
+; **The first program in this directory, and the reason the directory exists.**
+; The files in examples/ were each written to demonstrate a feature. This one was
+; written to do a job, and uses whatever the language turned out to have. Where
+; it is awkward, the comment says so rather than hiding it -- that is the useful
+; part, and it is what a program written to show a feature can never report,
+; because it was written after the feature and to suit it.
+;
+; Every entry the roadmap gained after the first dozen arrived this way: somebody
+; wrote one of these and found out what it wanted.
 ;
 ; It also expects its input to be damaged, because real input is. Three of the
 ; lines in the sample below are broken in different ways, and the report says so

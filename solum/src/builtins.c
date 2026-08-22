@@ -2360,7 +2360,7 @@ static SolValue prim_string_copy_from(SolVM *vm, SolValue self, SolValue *args, 
 
 /* ---- dictionary -------------------------------------------------------- *
  *
- * Values kept under keys. `examples/log.sol` is why: counting by key is most of
+ * Values kept under keys. `programs/log.sol` is why: counting by key is most of
  * what a log analyser does, and before this the only way to write it was an
  * array of pairs walked from the top, O(n) a lookup.
  *

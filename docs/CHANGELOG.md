@@ -7,15 +7,57 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### The examples divide in two, and now sit that way — `pending`, 2026-08-22
+
+`examples/` held thirty-two files doing two different jobs. Seven of them move
+to **`programs/`**.
+
+| | |
+| --- | --- |
+| `examples/` | 25 files, each written to show one feature |
+| `programs/` | 7 files, each written to do a job and use whatever the language turned out to have |
+
+**The split was already drawn — by the files themselves.** Each of the seven
+opens by saying which it is: *"the fourth program here written to do a job
+rather than to show a feature"*, numbered in the order they arrived. The line
+had been declared and maintained for as long as there had been more than one of
+them, and it was doing real work in the roadmap, where nearly every entry after
+the first dozen is attributed to one of these seven wanting something. All the
+directories do is make it visible in a listing.
+
+So there were no judgment calls. `stock.sol` is a real program and stays in
+`examples/`, because it exists to be the tutorial's worked example; `walk.sol`
+and `keys.sol` each demonstrate one message. Nothing needed a ruling that the
+files had not already given.
+
+It was also free. The only sibling `@include` is `include.sol` → `library.sol`,
+both demonstrations; the seven reach `lib/` through the search path and nothing
+else. `walk.sol`'s default root and `test_time.c`'s stamped file both name
+`examples/`, and both point at files that stayed.
+
+**109 paths rewritten**, including the 43 in CHANGELOG.md and COMPLETED.md. Those
+are dated records and their wording is untouched — but the file still exists,
+just elsewhere, and a link that resolves to nothing serves nobody.
+
+**The test that catches an unregistered file now walks both directories** and
+compares the total against one list, so a file cannot hide by being moved from
+one to the other either. `index.md` gained a table of the seven, having listed
+five of them and been written when there were thirty files.
+
+And each of the seven lost the second half of its own opening sentence. *"The
+fourth program here written to do a job rather than to show a feature"* is now
+*"the fourth program here"* — the directory says the rest. `log.sol`, being the
+first, keeps the explanation and says why the directory exists.
+
 ### A program written to be run by a stranger — `293b376`, 2026-08-22
 
-[examples/serve.sol](../examples/serve.sol): a CGI-shaped request handler. It
+[programs/serve.sol](../programs/serve.sol): a CGI-shaped request handler. It
 answers `/`, `/search?q=...` and `/note/<name>` from a directory of files, and
 with no CGI variables set it runs seven requests through itself and prints each
 response, so it is testable without a socket.
 
 ```
-$ PATH_INFO=/search QUERY_STRING=q=limit ./bin/solvm examples/serve.sob
+$ PATH_INFO=/search QUERY_STRING=q=limit ./bin/solvm programs/serve.sob
 HTTP/1.1 200 OK
 Content-Type: text/html; charset=utf-8
 Content-Length: 221
@@ -404,7 +446,7 @@ Space, tab, newline and carriage return, and nothing else: a string is bytes,
 and deciding what counts as blank in a text this language cannot otherwise read
 would be a promise it could not keep.
 
-[examples/tools.sol](../examples/tools.sol) reports on a directory by asking
+[programs/tools.sol](../programs/tools.sol) reports on a directory by asking
 other programs, and settles which of the two to reach for — **an array wherever
 a name comes from outside the program**, a string when the shell itself is the
 point.
@@ -941,7 +983,7 @@ rather than planned. That is the whole method this release ran on, and it is
 worth saying plainly because the roadmap had nothing on it when the release
 started.
 
-**[examples/mirror.sol](../examples/mirror.sol)** copies one directory tree into
+**[programs/mirror.sol](../programs/mirror.sol)** copies one directory tree into
 another. The first program here that *writes* to the filesystem, and it could
 not do its job: `modifiedAt` answered whole seconds, so *is the source newer
 than the copy?* was always no within a second of the last run. The filesystem
@@ -1159,7 +1201,7 @@ fix that without reading the file again.
 
 ### A mirroring script, and the defect it found in `modifiedAt` — `eac07ab`, 2026-08-21
 
-[examples/mirror.sol](../examples/mirror.sol) copies one directory tree into
+[programs/mirror.sol](../programs/mirror.sol) copies one directory tree into
 another and reports what changed. The fifth program here written to do a job,
 and the first that **writes** to the filesystem rather than reading it — walk.sol
 lists a tree, files.sol reads and writes one file, and mirroring is the ordinary
@@ -1563,7 +1605,7 @@ html:complaints:do({ c | c:display }).      ; and what was wrong with it
 ```
 
 **[lib/html.sol](../lib/html.sol)** reads HTML into a tree, with
-[examples/page.sol](../examples/page.sol) as a program on it. **It does not
+[programs/page.sol](../programs/page.sol) as a program on it. **It does not
 fail.** Every other parser here stops at the first problem, which is right when
 a person wrote the input and can fix it; HTML is generated, served, and wrong,
 so this one recovers — stray end tags, unclosed elements, implied ends, a bare
@@ -1592,7 +1634,7 @@ everyone thinks about.
 three came from workarounds that were already shipped: the HTML library kept a
 hand-rolled stack because an array could not be popped, and its element sets
 were delimited strings because an array could not be searched;
-`examples/manifest.sol` converted symbol keys to strings and back to sort them.
+`programs/manifest.sol` converted symbol keys to strings and back to sort them.
 `removeLast` refuses an empty array rather than answering nil, matching `at`;
 `indexOf` answers nil when absent, so `indexOf(v):notNil` is `includes` and
 there is no second message for it.
@@ -1626,7 +1668,7 @@ else wants.
 [6.23](COMPLETED.md#623-an-array-cannot-be-popped-or-asked-what-it-holds--done)
 and [6.19](COMPLETED.md#619-a-symbol-cannot-be-ordered--done). Neither was
 blocking anything; what made the case was that the code written around them was
-in `lib/html.sol` and `examples/manifest.sol`, where anyone could read it.
+in `lib/html.sol` and `programs/manifest.sol`, where anyone could read it.
 
 **`array:removeLast`** takes the last element off and answers it, which with
 `add` makes an array a stack. `lib/html.sol` had an object carrying its own
@@ -1679,7 +1721,7 @@ a user-defined type order itself.
 
 [6.20](COMPLETED.md#620-an-html-parser--done), written to find out what the
 language wanted. [lib/html.sol](../lib/html.sol) reads HTML into a tree;
-[examples/page.sol](../examples/page.sol) is a program on it — an outline, a
+[programs/page.sol](../programs/page.sol) is a program on it — an outline, a
 link list, images without alt text. The entry predicted three things it would
 push on, all three happened, and one answered a question open since 3.5 was
 written.
@@ -1846,7 +1888,7 @@ putting closures in a table. [one-hierarchy.md](one-hierarchy.md) — what the
 single root means from the outside: one method on `object` answered by every
 value, and the line between inheriting the behaviour and being an object.
 
-**Written by writing programs.** `lib/json.sol` and `examples/manifest.sol` were
+**Written by writing programs.** `lib/json.sol` and `programs/manifest.sol` were
 written to find out what the language wanted, and the answer moved the roadmap
 four times: 6.12 got built, 3.5 got a price list for how the dispatch is
 written, and 6.22, 6.19 and 6.21 are new entries for papercuts a program tripped
@@ -1956,7 +1998,7 @@ and `writeFile` byte-for-byte, so it added a spelling rather than a hazard.
 argument and arity is strict, so `onError({ nil })` fails with *'onError' takes
 1 argument, got 0* — an arity error **in place of** the recovery it was written
 to perform. It was in `lib/json.sol` on the bad-hex-digit path and in
-`examples/manifest.sol` on a non-numeric path segment, and both were invisible
+`programs/manifest.sol` on a non-numeric path segment, and both were invisible
 because nothing had taken those paths. A handler that ignores the error still
 has to accept it.
 
@@ -1970,7 +2012,7 @@ both said, in their own text, that they were waiting for a program to need them.
 So a program was written to find out.
 
 [lib/json.sol](../lib/json.sol) is a JSON reader and writer in Solum, on the
-search path beside `control.sol`, and [examples/manifest.sol](../examples/manifest.sol)
+search path beside `control.sol`, and [programs/manifest.sol](../programs/manifest.sol)
 is a program on top of it — describe a document, pull a value out by a dotted
 path, edit it, write it back, read it again and prove the text matches. It
 claims one global and hangs everything off it, which is what the reference has
@@ -2226,7 +2268,7 @@ reads the *local* zone, which is the one thing this type does not have. The
 civil-date arithmetic is written out instead — ten lines, exact, and beholden to
 no zone.
 
-**[examples/log.sol](../examples/log.sol) stops comparing timestamps as text.**
+**[programs/log.sol](../programs/log.sol) stops comparing timestamps as text.**
 That worked, because ISO-8601 sorts the same as text and as instants — luck
 rather than design, true of no other format, and it meant a malformed timestamp
 went unnoticed because nothing ever looked at one. The report now says *over 278
@@ -2394,7 +2436,7 @@ an extensionless script and a `chmod +x` one were each run.
 
 ### A calculator, and the frame limit met at last — `4bd7c7e`, 2026-08-21
 
-[examples/evaluator.sol](../examples/evaluator.sol) tokenises, parses and
+[programs/evaluator.sol](../programs/evaluator.sol) tokenises, parses and
 evaluates arithmetic — precedence, brackets, unary minus — and says where it
 went wrong when the input is bad.
 
@@ -2436,7 +2478,7 @@ enough on short input to look right.
 
 ### The log analyser survives damaged input — `041467d`, 2026-08-21
 
-[examples/log.sol](../examples/log.sol) assumed its input was well-formed:
+[programs/log.sol](../programs/log.sol) assumed its input was well-formed:
 every line split into exactly six fields and every field parsed. Fed a real
 log it would stop at the first truncated line. It does not any more, and three
 of the lines in its own sample are now broken on purpose so that running it
@@ -2799,7 +2841,7 @@ both options.
 
 ### An array can be sliced — `b156bcd`, 2026-08-21
 
-Roadmap 6.16, the other thing [log.sol](../examples/log.sol) wanted — twice.
+Roadmap 6.16, the other thing [log.sol](../programs/log.sol) wanted — twice.
 
 ```
 [#1, #2, #3, #4, #5]:copyFrom(#2, #4).   ; [#2, #3, #4]
@@ -2889,7 +2931,7 @@ because a program leaned on the library and noticed.
 
 ### A dictionary — `7e0726d`, 2026-08-20
 
-Roadmap 6.15, wanted by [examples/log.sol](../examples/log.sol) and now used by
+Roadmap 6.15, wanted by [programs/log.sol](../programs/log.sol) and now used by
 it.
 
 ```
@@ -2939,7 +2981,7 @@ when the marking is taken out.
 
 ### A log analyser, and the two things it could not say — `de39331`, 2026-08-20
 
-[examples/log.sol](../examples/log.sol) reads an access log and reports on it:
+[programs/log.sol](../programs/log.sol) reads an access log and reports on it:
 totals, a breakdown by status, the busiest paths, the slowest requests, and the
 failures. It takes a path from `system:arguments`, or writes a sample into
 `build/` so it runs anywhere.
