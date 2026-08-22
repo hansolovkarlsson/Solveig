@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### Scoped: extensions from a C binary — `pending`, 2026-08-22
+### Scoped: extensions from a C binary — `9fba95e`, 2026-08-22
 
 A question rather than a change: could Solum gain something it cannot express —
 a database, a graphics surface, a codec — from a C library loaded at run time,
