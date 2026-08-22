@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### A trace says which file — `pending`, 2026-08-21
+### A trace says which file — `8742f38`, 2026-08-21
 
 [6.27](COMPLETED.md#627-a-stack-trace-does-not-say-which-file--done), and the
 first `.sob` format change since 0.1.0.
