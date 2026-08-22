@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### 6.32 goes to the idea box, and the roadmap has nothing left to decide — `pending`, 2026-08-22
+### 6.32 goes to the idea box, and the roadmap has nothing left to decide — `ccd64e9`, 2026-08-22
 
 [6.32](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine) —
 whether a script should be able to run with less than the whole machine — moves
