@@ -11,6 +11,37 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-22 (evening) — the last decision, deferred
+
+Six releases and then a conversation rather than a commit.
+
+I had put 6.32 forward four times as the next thing and it had not been picked
+each time, so I said so — that if it was parked deliberately I would rather know
+than keep re-proposing it. That turned out to be exactly right and the answer
+was better than the question: it is parked, and for a reason I had not weighed
+properly.
+
+**Every other roadmap entry came from a program wanting something.** 6.32 came
+from a *concern* about a use this language does not have. It was raised as "this
+could be a thing in future", and I had been treating it as the last item on a
+list rather than as a guess about where the project might go. Those are
+different kinds of thing and only one of them is urgent.
+
+So it went to the idea box with a trigger — somebody runs a script they did not
+write, or embeds the machine where input arrives from a stranger — and the
+roadmap is down to section 3, which is restrictions and not work.
+
+**What it produced on the way out is the argument for having kept it open at
+all.** Two things came from trying to answer it, both built, neither a
+permission: the limits a host may set, and the entire embedding interface. The
+second exists only because working out what a permission would *attach to* meant
+first writing down what a host may rely on — and that write-down found a
+use-after-free in shipped code and a false claim I had made twice.
+
+That is a good record for a question that never got answered.
+
+---
+
 ## 2026-08-22 — the first program run by a stranger
 
 One program, and it corrected the release that shipped the day before.
@@ -33,7 +64,7 @@ so it is testable without a socket.
 The point was not the program. Every other program is handed its arguments by
 the person who started it; this is the first one handed a path and
 a query string by a stranger, which is the case
-[6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
+[6.32](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
 is about and which no program here had ever been.
 
 **What it wanted, in the order it wanted it.**

@@ -247,7 +247,7 @@ with escapes, and a name carrying the quote that would break out of an `href`.
 **The first of these whose input does not come from whoever ran it.** Every
 other program here is handed its arguments by the person who started it; this
 one is handed a path and a query string by a stranger, which is the case
-[6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
+[6.32](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
 is about.
 
 **What it found**:

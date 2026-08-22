@@ -5,6 +5,49 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+### 6.32 goes to the idea box, and the roadmap has nothing left to decide — `pending`, 2026-08-22
+
+[6.32](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine) —
+whether a script should be able to run with less than the whole machine — moves
+from [ROADMAP.md](ROADMAP.md) to [ideas.md](ideas.md), **deferred rather than
+taken**. It keeps its number, which is cited from about thirty places and is
+never reused.
+
+**Why it was the odd one out.** Every other entry the roadmap ever held came
+from a program wanting something and not having it. This one came from a
+*concern* about a use this language does not have: a webserver producing pages
+by running Solum, where injection could turn untrusted input into code the
+server runs. That is a real risk in that shape, and the shape is hypothetical.
+Solveig is experimental and was never planned for web services — the question
+was asked because it might one day be a thing, not because it is one, and it may
+never be. In which case the right amount of mechanism to have built is none.
+
+**The trigger, said exactly**: somebody runs a Solum script they did not write,
+or embeds the machine somewhere its input arrives from a stranger. Neither has
+happened. Until one does, the honest position is the one
+[embedding.md](embedding.md) already takes — a host gets limits, and gets told
+plainly that nothing here is a sandbox.
+
+**Everything the four days added is kept in full**, because deciding this later
+from a blank page would cost far more than keeping it does: the threat model,
+the two sets of dangerous messages, why `system:exit` is not one of them, why a
+capability per message is not fine enough, and the `@include` complication.
+
+**And it left two things behind that were worth having on their own**, both
+built and neither a permission:
+[6.33](COMPLETED.md#633-a-running-program-cannot-be-stopped-from-outside--done),
+the limits a host may set before a program runs; and the whole
+[embedding interface](embedding.md), which exists because working out what a
+permission would attach to meant first writing down what a host may rely on —
+and that write-down found a use-after-free and a false claim of this project's
+own.
+
+**So the roadmap is down to section 3 and nothing else**: no work, and no
+decision. What is there are the restrictions the language lives under, four of
+which were found rather than chosen.
+
 ## 0.18.0 — 2026-08-22
 
 **`.sob` format 14. Recompile: files from 0.17.0 and earlier are refused.**
@@ -526,7 +569,7 @@ every promise it makes.
 
 **Written before deciding permissions, deliberately.** A permission is a promise
 about what a host may rely on, and
-[6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
+[6.32](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
 had nothing to attach one to. That entry's precondition is met now; the decision
 itself is unchanged and still open.
 
@@ -556,7 +599,7 @@ promise it makes.
 
 **Written before deciding permissions, deliberately.** A permission is a promise
 about what a host may rely on, and
-[6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
+[6.32](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
 had nothing to attach one to: the headers made embedding possible and no page
 claimed it. That is also why the 0.14.1 use-after-free got out — with nothing
 stated there was nothing to test against, and four shipped binaries could not
@@ -644,7 +687,7 @@ Also in this release: [embed/host.c](../embed/host.c) and
 [embed/host.c](../embed/host.c), built with `make embed`: a C program that holds
 a `SolVM` and runs [serve.sol](../programs/serve.sol) through it once per
 request. Not a component and not in `all` — a demonstration of the interface
-[6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
+[6.32](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
 assumes exists, written to find out whether it does.
 [docs/embedding.md](embedding.md) is what it learned, written for a reader.
 
@@ -860,7 +903,7 @@ Content-Length: 221
 **The seventh program here written to do a job, and the first whose input does
 not come from whoever ran it.** That is the whole reason it exists: every other
 program in `examples/` is handed its arguments by the person who started it, and
-[6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
+[6.32](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
 is about the case where they are not. It asked four things of the language and
 one of the machine.
 
@@ -968,7 +1011,7 @@ same garbage under the same ceiling, only the one still keeping it is stopped.
 **And one decision recorded rather than built**: whether a script should be able
 to run with less than the whole machine, now that `system:run` means it can
 reach all of it. That entry is
-[6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine),
+[6.32](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine),
 and the case behind it — a webserver producing pages, where injection could make
 untrusted input into code the server runs — is what turned the limits above from
 a footnote into the half worth building first. Permissions are still open.
@@ -1037,7 +1080,7 @@ could not be caught, which stopped being true when `onError` landed.
 
 ### The threat model behind the safe-mode decision, and a second decision — `d518aa6`, 2026-08-21
 
-[6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
+[6.32](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
 was recorded from the command line's point of view: a person about to run a
 script somebody sent them. The case it actually came from is an **embedding** —
 a webserver producing pages by running Solum, where the risk is injection, and
@@ -1097,7 +1140,7 @@ Both remain recorded rather than built.
 
 ### A decision recorded: restricting what a script may reach — `56408a7`, 2026-08-21
 
-[6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine),
+[6.32](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine),
 written down rather than built. Raised by noticing what `system:run` had made
 possible rather than by anything going wrong.
 

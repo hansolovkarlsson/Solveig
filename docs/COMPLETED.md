@@ -730,7 +730,7 @@ something has already gone wrong. Worth revisiting if a debugger ever wants it.
 ## 6. Beyond the language
 
 The rest of this section is live, and is in
-[ROADMAP.md](ROADMAP.md#6-beyond-the-language).
+[ROADMAP.md](ROADMAP.md#6-beyond-the-language--gone-from-this-document).
 
 ### 6.1 There is no way to split a program across files — **done**
 
@@ -1461,7 +1461,7 @@ person with a terminal and a ctrl-c. It mattered as soon as the caller might be
 a webserver, where a request that never finishes is a worker that never returns,
 and enough of them is the whole server — with nothing dangerous called and no
 injection needed. It is the half of
-[6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
+[6.32](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
 that gets forgotten, because permissions are what people ask for and limits are
 what the case actually needed.
 

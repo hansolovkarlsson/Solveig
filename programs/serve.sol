@@ -38,13 +38,13 @@
 ;      that normalises `..` -- so the tempting wrong answer is not available and
 ;      what is left is to say which names are names.
 ;
-;   4. **A handler is told what it was asked by `system:environment`**, which
-;      ROADMAP 6.32 lists among the messages that *reveal* the machine. It is
-;      right to. But this program cannot be written without it, so a permission
-;      that can only say yes or no to `environment` has to say yes -- and has
-;      then also handed over every secret the server holds. Which is the first
-;      concrete argument this project has for the capabilities being finer than
-;      one per message.
+;   4. **A handler is told what it was asked by `system:environment`**,
+;      which docs/ideas.md 6.32 lists among the messages that *reveal* the
+;      machine. It is right to. But this program cannot be written without
+;      it, so a permission that can only say yes or no to `environment`
+;      has to say yes -- and has then also handed over every secret the
+;      server holds. Which is the first concrete argument this project has
+;      for the capabilities being finer than one per message.
 ;
 ;   5. **And running it under a step limit found the limit's edge.** A request
 ;      here costs 393 instructions for a note, 465 for the index and 798 for a
@@ -266,7 +266,7 @@ Content-Length: {}\r
 ; One request, from the environment
 ;
 ; This is how a webserver tells a CGI program anything, and it is worth noticing
-; which message that is. ROADMAP 6.32 lists `environment` among the messages
+; which message that is. docs/ideas.md 6.32 lists `environment` among the messages
 ; that *reveal* the machine rather than change it, and it is right to: it will
 ; hand over a token from half the CI systems there are. But a handler cannot be
 ; written without it -- the request arrives that way -- so a permission scheme

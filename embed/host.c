@@ -7,10 +7,10 @@
  * each a main.c linked against build/libsol.a; so is this. The difference is
  * that they *are* the interpreter and this one *contains* it -- a larger
  * program that runs somebody else's scripts on its own behalf, which is the
- * case ROADMAP 6.32 is about and which nothing in this repository had ever
+ * case 6.32 (docs/ideas.md) is about and which nothing in this repository had ever
  * done.
  *
- * It exists to find out whether the interface 6.32 assumes exists actually
+ * It exists to find out whether the interface 6.32 assumed exists actually
  * does. The shape is the webserver from that entry with the sockets taken out:
  * compile one script once, run it many times -- once per request -- each run
  * under its own allowance, and see what comes back.
@@ -92,7 +92,7 @@ static SolResult serve_one(SolChunk *chunk, const Request *request, int *status)
     SolVM vm;
     sol_vm_init(&vm);
 
-    /* Before it runs, and from C, which 6.32 says is the requirement: if the
+    /* Before it runs, and from C, which 6.32 gave as the requirement: if the
        mechanism is argv parsing then the case that asked for it cannot use it.
        For limits that requirement is met. */
     sol_vm_set_step_limit(&vm, request->steps);

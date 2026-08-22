@@ -844,7 +844,7 @@ the whole of it.
 **What this is not.** It bounds a program's work and its footprint. It does not
 bound what it reaches for -- a stopped program may already have deleted the
 files it was going to delete -- and it is not a sandbox. That half is
-[6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine),
+[6.32](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine),
 which is still a decision rather than a mechanism.
 
 ## Open questions

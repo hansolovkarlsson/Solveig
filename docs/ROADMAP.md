@@ -55,31 +55,35 @@ have been. Side-table operands are two bytes, a send compares pointers, and the
 script's frame has slots like every other, so a temporary may be declared
 anywhere.
 
-**What is left is section 3, and one decision.** Section 3 holds the
-restrictions the language lives under, each documented where a program would
-meet it. The older ones were chosen; the four newest were found —
+**What is left is section 3, and nothing else.** No work, and no decision.
+
+Section 3 holds the restrictions the language lives under, each documented where
+a program would meet it. The older ones were chosen; the four newest were found —
 [3.7](#37-a-limit-bounds-dispatch-not-work) by running a program the way its own
-case would, and [3.8](#38-a-host-and-a-script-agree-a-name-and-nothing-checks-that-they-do),
+case would, and
+[3.8](#38-a-host-and-a-script-agree-a-name-and-nothing-checks-that-they-do),
 [3.10](#310-a-vm-cannot-be-reused-across-runs) and
-[3.11](#311-a-chunk-cannot-be-shared-between-threads) by writing down what a host embedding
-the machine may rely on, which meant writing down what it may not. Section 2 has no open design question — the last one,
-2.5, is closed. And section 6, a program's dealings with the world outside it,
-is built: reading input, writing files, stopping with a status, walking the
-filesystem, knowing the time, a prompt with history, a debugger, and running
-another program.
+[3.11](#311-a-chunk-cannot-be-shared-between-threads) by writing down what a host
+embedding the machine may rely on, which meant writing down what it may not.
 
-The decision is
-[6.32](#632-a-script-cannot-be-run-with-less-than-the-whole-machine): whether a
-script should be able to run with less than the whole machine, now that it can
-reach all of it. Nothing is asking for it; it is recorded because the shape of
-the answer is much cheaper to choose now than later.
+Section 2 has no open design question — the last one, 2.5, is closed. And
+section 6, a program's dealings with the world outside it, is built: reading
+input, writing files, stopping with a status, walking the filesystem, knowing
+the time, a prompt with history, a debugger, and running another program.
 
-Its other half is built.
+**The last decision was deferred rather than taken**, on 2026-08-22.
+[6.32](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine) —
+whether a script should be able to run with less than the whole machine — is in
+[ideas.md](ideas.md) now, with the rest of what waits on a trigger. It was the
+only entry here that came from a *concern* rather than from a program wanting
+something, and the concern is about a use this language does not have. The
+trigger is somebody running a script they did not write.
+
+Its other half was never a decision and is built.
 [6.33](COMPLETED.md#633-a-running-program-cannot-be-stopped-from-outside--done)
 was the same webserver's other problem — a script that never finishes is a
 request that never finishes — and is now a step limit and a memory ceiling a
-host sets before the program runs. Permissions are still a decision; limits are
-not.
+host sets before the program runs.
 
 So this document no longer says what to build next. **The way to add to it is to
 write a program and find out what it wants**, which is how nearly every entry
@@ -425,7 +429,7 @@ while one person owns both sides of every call.
 **The trigger is somebody else writing the script.** A host and a script written
 by the same person can keep a convention. A host running a script it did not
 write cannot, and that is
-[6.32](#632-a-script-cannot-be-run-with-less-than-the-whole-machine)'s case
+[6.32](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)'s case
 exactly — so if that entry is ever decided, this one is decided with it rather
 than after.
 
@@ -589,168 +593,27 @@ an oversight: a program holding a large live set will pause proportionally to it
 Kept here rather than under the collector, which is otherwise done. The number is
 the one the changelog cites.
 
-## 6. Beyond the language
+## 6. Beyond the language — gone from this document
 
-Sections 1 to 5 were about making Solum a language, and they are done — the
-entries are in [COMPLETED.md](COMPLETED.md). This one was about making it a
-language you can write a *program* in: a program has to be split across files,
-read input, write files, and stop with a status.
+Sections 1 to 5 were about making Solum a language. This one was about making it
+a language you can write a *program* in: split across files, reading input,
+writing files, stopping with a status, running another program, a prompt, a
+debugger. **All of it is built**, and the entries are in
+[COMPLETED.md](COMPLETED.md).
 
-**One entry**, and it is a decision rather than work waiting to be done.
+The one thing that was left was never work — it was a decision, and it has been
+**deferred rather than taken**:
+[6.32, a script cannot be run with less than the whole machine](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine),
+now in [ideas.md](ideas.md) with the rest of what is deferred with a trigger.
 
-Raised in a notes file and assessed in [ideas.md](ideas.md), which also records
-what was **not** worth building and why — integer widths, a JIT, cascades,
-trailing-block syntax, and Go-style concurrency among them.
-
-### 6.32 A script cannot be run with less than the whole machine
-
-Everything a program can reach, it can reach: run another program, delete a
-file, write anywhere it has permission to. That is right for a script somebody
-wrote for themselves and wrong for one that arrived from elsewhere, and there is
-currently no way to say which this is.
-
-The shape suggested is a **restricted mode**, with the dangerous messages
-refusing, and a flag to allow them.
-
-**The case this came from is an embedding, not a shell.** A webserver that
-produces pages by running Solum, where the risk is injection — untrusted input
-reaching the program and becoming part of what it runs. The one choosing the
-restriction is the webserver, and what it is protecting is itself.
-
-That is a different shape from a person running a script they were sent, and it
-moves three things.
-
-*Who chooses, and how often.* Not somebody at a prompt who may not think to
-ask, but a program that decides once, at startup, and then runs the same policy
-over every request for as long as it is up. A server author thinks about this
-exactly once and deliberately, which weakens the argument that the protection
-must be on before anybody considers it — and strengthens a different one: **the
-restriction has to be settable from C, before the program runs.** A `--unsafe`
-argument is one front end for that, not the mechanism. If the mechanism is argv
-parsing, the case that asked for it cannot use it.
-
-*What is untrusted.* Not the file — the server wrote that. The **data**. So the
-permission cannot be attached to where the code came from, or decided per file:
-it is a property of the run, fixed before the first instruction and the same
-for everything the program subsequently reaches.
-
-*And embedding is not a documented use today.* The headers make it possible and
-nothing claims it: no page says how to hold a `SolVM` inside another program.
-Deciding this is therefore also deciding to have an embedding interface, which
-is the larger of the two and should be admitted up front rather than discovered
-halfway.
-
-**That has now been tried, and then written down** — in that order, and the
-order was the useful part. [embed/host.c](../embed/host.c) holds a machine and
-runs [serve.sol](../programs/serve.sol) once per request; it is 136 lines of
-code, two more than `solvm`'s own front end. It **found a use-after-free on its
-first run**: a chunk recorded which VM had interned its names by pointer, and a
-host builds each request's VM as a local, so every one landed at the same
-address and the chunk went on reading the freed machine's name table. Fixed in
-0.14.1 — the record is a serial now — and the point for this entry was that
-nothing in the repository was shaped to catch it, because nothing had ever run
-two VMs in sequence at one address.
-
-**The interface is now stated.** [solum/embed.h](../solum/include/solum/embed.h)
-is the whole supported surface, [embedding.md](embedding.md) is the contract in
-prose, and [tests/test_embed.c](../tests/test_embed.c) has a case for every
-promise it makes. Writing it caught a second mistake at once: this project had
-said a host must call `sol_vm_intern_chunk`, and `sol_vm_run` does it — the
-defect was inside that function rather than in a call somebody could miss, so
-the interface is one rule simpler than it had been written up as.
-
-**So this entry's precondition is met.** A permission is a promise about what a
-host may rely on, and there is a list of that now — including what is
-deliberately *not* promised, which is where a permission scheme would have to
-live: no route for a run's output except by an agreed name, no way to silence a
-failing run's stderr, and a fresh VM per request being the only safe choice.
-What remains here is the decision itself, unchanged in kind and better furnished
-than it was.
-
-**Which way round is the default** still matters for the command line, where the
-chooser is a person. Safe-by-default with `--unsafe` to enable protects the
-script you did not write and breaks every existing use, including this
-repository's own tests and `programs/tools.sol`. Unsafe-by-default with `--safe`
-breaks nothing and helps only the people who remember to ask. For a person, that
-argues for safe-by-default and for paying the breakage; for an embedding it
-barely signifies, since the host states what it wants either way.
-
-**What "dangerous" means is two things, not one.** The suggestion names the
-messages that *change* the machine, and there is a second set that *reveals* it:
-
-| | messages |
-| --- | --- |
-| changes | `run`, `capture`, `remove`, `makeDirectory`, `rename`, `writeFile`, `appendFile`, `setMode`, `setModifiedAt` |
-| reveals | `readFile`, `filesIn`, `isDirectory`, `fileExists`, `fileSize`, `modifiedAt`, `modeOf`, `environment` |
-
-Reading `~/.ssh/id_rsa` and printing it changes nothing and is not safe.
-`environment` alone will hand over a token from half the CI systems there are.
-So a mode that only stops writing is a mode that stops the obvious half — and
-in a server the revealing half is the worse one, since the process it is
-running inside holds the credentials the pages are built from.
-
-`system:exit` was in the first list and has been taken out of it: it sets a flag
-the interpreter loop unwinds on and `sol_vm_run` answers `SOL_EXIT`, so a script
-that exits ends *itself* and hands the decision back to whoever called. A
-webserver stays up. That is already the right behaviour and is worth naming
-here, because it is the one an embedding would most expect to be wrong.
-
-That suggests **capabilities rather than a switch** — something nearer
-`--allow-read --allow-run` than one flag — which is more useful and more work,
-and the embedding case wants it: a template renderer wants to read files and
-never to run a program, which one boolean cannot say.
-
-**And one capability per message is not fine enough either.**
-[serve.sol](../programs/serve.sol) is the case written down, and it is told what
-it was asked entirely through `system:environment` — `PATH_INFO` and
-`QUERY_STRING` are how CGI hands a handler its request. So a scheme that can
-only say yes or no to `environment` has to say yes, and has then also said yes
-to `AWS_SECRET_ACCESS_KEY` and everything else the server process is holding.
-The permission that a webserver *must* grant is the one that gives away its
-secrets.
-
-That does not settle the shape, but it rules one out: the granularity has to be
-finer than the message where the message names something. Which is a familiar
-answer — it is a list of allowed variables, or of allowed paths — and it is more
-work again, since a capability that names things is a capability that has to be
-matched against them.
-
-**A complication worth knowing before starting**: `@include` reads files, and
-the search path reads the shipped library. A mode with no reading at all cannot
-compile a program that uses `lib/json.sol`, so reading the *program* is not the
-same permission as reading *a file the program names*, and the line runs between
-them rather than around `readFile`.
-
-**Enforcement is cheap and must not be reachable from inside.** A flag on the VM
-and a check in each primitive costs a branch on messages that are already doing
-system calls. What matters more is that there is no message to turn it off:
-whatever sets it must be the host, before the program runs, or the whole thing
-is a suggestion.
-
-**And it is not a sandbox**, which is the thing to say loudest, because "safe
-mode" invites more trust than it can earn. A restricted script can still loop
-forever, allocate until the machine swaps, fill a disk through a file it *is*
-allowed to write, or simply compute the wrong answer and be believed. It stops a
-script reaching for the machine; it does not make a hostile script harmless.
-This is the same honesty as
-[3.3](#33-verification-does-not-promise-termination), which says the verifier
-proves a chunk is well-formed and not that it stops.
-
-The webserver case is what makes that caveat expensive rather than academic: on
-a command line a program that does not stop is an annoyance, and on a server it
-is the server. That half was
-[6.33](COMPLETED.md#633-a-running-program-cannot-be-stopped-from-outside--done)
-and is built: a host may now say how many instructions a program gets and how
-much it may hold. It was a different decision — limits, not permissions — which
-is why the two were separable, and why one of them could be settled while this
-one is still being thought about.
-
-**Raised after the fact**, by noticing what `system:run` had made possible
-rather than by anything going wrong; the embedding case above was supplied the
-following day as the reason it had occurred to anybody. Nothing is asking for it
-yet, and it is written down because the decisions above — where the mechanism
-lives, which default, capabilities or a switch — are much cheaper to take now
-than after somebody has written scripts that depend on either answer.
+It went there because of what it was: a concern raised about a use nobody has —
+a webserver running Solum, where injection could make untrusted input into code
+the server runs — rather than anything a program wanted and could not have. This
+is an experimental language and was never planned for web services; the question
+was asked because it *might* become a thing, not because it is one. The
+reasoning, the threat model and everything the last four days added to it are
+kept in full, because deciding it later from a blank page would cost more than
+keeping it did. The number stays 6.32 and is not reused.
 
 ## How this list emptied
 
@@ -814,20 +677,24 @@ a debugger that could not name a local would have been most of the work for a
 fraction of the use, and only then
 [Solid](COMPLETED.md#629-a-stepper--solid--done).
 
-**No decision is outstanding.** 2.5, the last one, is closed: 1.6 had answered it
-one message at a time to stop the crashes, and finishing that — every class-side
-message requiring an object receiver — turned out to be the whole of what
-splitting the two objects would have bought.
+**No decision is outstanding.** 2.5, the last *language* question, is closed:
+1.6 had answered it one message at a time to stop the crashes, and finishing
+that — every class-side message requiring an object receiver — turned out to be
+the whole of what splitting the two objects would have bought. And 6.32, the
+last one of any kind, was deferred to
+[ideas.md](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
+rather than answered, which is a decision about a decision and the honest one:
+it guards against a use nobody has.
 
 **A new entry means a program wanted something and could not have it** — or,
 twice, that something became possible and wanted a decision about it.
-[6.32](#632-a-script-cannot-be-run-with-less-than-the-whole-machine) came from
+[6.32](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine) came from
 noticing what `system:run` had opened up rather than from anything going wrong,
 and
 [6.33](COMPLETED.md#633-a-running-program-cannot-be-stopped-from-outside--done)
 came from asking what 6.32 would not cover. The second turned out to be
-buildable without deciding anything, and was built; the first is still a
-decision.
+buildable without deciding anything, and was built; the first turned out not to
+need deciding yet, and went to the idea box.
 
 Those two arrived a third way, worth naming because it is the one this document
 did not have before: **from a use nobody had written yet**. Not a program that

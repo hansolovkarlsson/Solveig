@@ -1033,7 +1033,7 @@ than by splitting the objects. One question about *running* a program is open,
 and it arrived with the ability to run another one: whether a script should be
 able to run with less than the whole machine — no shell, no deleting files, no
 reading whatever it likes. That is
-[6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine),
+[6.32](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine),
 and it is recorded rather than answered.
 
 Known restrictions worth carrying with you:

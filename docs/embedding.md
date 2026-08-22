@@ -7,7 +7,7 @@ what a host may rely on, and what it may not. The header is
 [tests/test_embed.c](../tests/test_embed.c) holds every promise on this page.*
 
 This is the case
-[6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
+[6.32](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
 is about: a program that runs somebody else's scripts on its own behalf, where
 the input arrives from a stranger and the host is what needs protecting. That
 entry noted in passing that *"embedding is not a documented use today: the
@@ -138,7 +138,7 @@ guess.
 
 **Anything about what a script may reach.** It may run another program, delete a
 file, read `~/.ssh/id_rsa`, and hand your environment to whoever asked. That is
-[6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
+[6.32](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
 and it is still a decision. Nothing on this page is a sandbox.
 
 ## What holds this page honest

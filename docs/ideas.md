@@ -5,10 +5,12 @@ recommended against are here so the reasons survive, and so the same idea does
 not have to be re-argued from scratch in six months.*
 
 *Everything this document said to build has been built, and the entries are in
-[COMPLETED.md](COMPLETED.md); what
-[ROADMAP.md](ROADMAP.md) section 6 still holds is one decision. So the verdicts
-below are read backwards now — not as a queue, but as a record of what was
-guessed and how the guess turned out.*
+[COMPLETED.md](COMPLETED.md). So the verdicts below are read backwards now — not
+as a queue, but as a record of what was guessed and how the guess turned out.*
+
+*[6.32](#632-a-script-cannot-be-run-with-less-than-the-whole-machine) arrived
+here the other way round: it was a roadmap entry, the last open decision, and
+came back to the idea box on 2026-08-22 without being taken. It kept its number.*
 
 Every code sample here has been run against the current build unless it is
 marked as a sketch.
@@ -43,6 +45,7 @@ marked as a sketch.
 | More `@` directives: `@define`, `@ifdef`, `@once` | **No** — each one's job is already done by something that is not a directive |
 | Namespaces for included files | **Defer** — the trigger is somebody else writing a library |
 | Splitting the reference into pages | **Defer** — the trigger is the message reference outgrowing the rest |
+| Restricting what a script may reach (6.32) | **Defer** — the trigger is a script somebody else wrote, or input from a stranger |
 | An `assert` that compiles away | **No** to stripping; **defer** the message itself |
 
 ---
@@ -192,7 +195,7 @@ and `exit` is the difference between a script and a program.
 > leaving from under the machine, so a script that exits ends *itself* and hands
 > the decision back to whoever called. That is what lets a host survive the
 > script it is running, and
-> [6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
+> [6.32](#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
 > names it as the behaviour an embedding would most expect to be wrong.
 
 **A clock**, which is what the performance-timing idea needs. This project's own
@@ -368,6 +371,185 @@ existing ones.
 - Somebody other than the author writes a Solum library.
 - One program needs two libraries that clash on a name. Today the answer is
   "rename one", which works right up until you do not own one of them.
+
+### 6.32 A script cannot be run with less than the whole machine
+
+**Deferred, and it kept its roadmap number** — cited from about thirty places,
+and numbers are never reused. It sat in section 6 for four days as the last open
+decision and was moved here on 2026-08-22 without being taken.
+
+**Why it is here and not there.** Every other entry that reached the roadmap came
+from a program wanting something and not having it. This one came from a
+*concern* about a use nobody has: a webserver producing pages by running Solum,
+where injection could turn untrusted input into code the server runs. That is a
+real risk in that shape and the shape is hypothetical. Solveig is an experimental
+language and was never planned for web services; the question was asked because
+this *might* one day be a thing, not because it is one — and it may never be,
+in which case the right amount of mechanism to have built is none.
+
+**The trigger, said exactly:** somebody runs a Solum script they did not write,
+or embeds the machine somewhere its input arrives from a stranger. Either makes
+this urgent and neither has happened. Until then the honest position is the one
+[embedding.md](embedding.md) already takes — a host gets limits, and gets told
+plainly that nothing here is a sandbox.
+
+**What was learned while it was open is kept in full below**, because deciding
+this later from a blank page would cost far more than keeping it does. Two
+things came out of it that were worth having on their own and are already built:
+[6.33](COMPLETED.md#633-a-running-program-cannot-be-stopped-from-outside--done),
+the limits a host may set, and the whole
+[embedding interface](embedding.md), which exists because working out what a
+permission would attach to meant first saying what a host may rely on.
+
+---
+
+Everything a program can reach, it can reach: run another program, delete a
+file, write anywhere it has permission to. That is right for a script somebody
+wrote for themselves and wrong for one that arrived from elsewhere, and there is
+currently no way to say which this is.
+
+The shape suggested is a **restricted mode**, with the dangerous messages
+refusing, and a flag to allow them.
+
+**The case this came from is an embedding, not a shell.** A webserver that
+produces pages by running Solum, where the risk is injection — untrusted input
+reaching the program and becoming part of what it runs. The one choosing the
+restriction is the webserver, and what it is protecting is itself.
+
+That is a different shape from a person running a script they were sent, and it
+moves three things.
+
+*Who chooses, and how often.* Not somebody at a prompt who may not think to
+ask, but a program that decides once, at startup, and then runs the same policy
+over every request for as long as it is up. A server author thinks about this
+exactly once and deliberately, which weakens the argument that the protection
+must be on before anybody considers it — and strengthens a different one: **the
+restriction has to be settable from C, before the program runs.** A `--unsafe`
+argument is one front end for that, not the mechanism. If the mechanism is argv
+parsing, the case that asked for it cannot use it.
+
+*What is untrusted.* Not the file — the server wrote that. The **data**. So the
+permission cannot be attached to where the code came from, or decided per file:
+it is a property of the run, fixed before the first instruction and the same
+for everything the program subsequently reaches.
+
+*And embedding is not a documented use today.* The headers make it possible and
+nothing claims it: no page says how to hold a `SolVM` inside another program.
+Deciding this is therefore also deciding to have an embedding interface, which
+is the larger of the two and should be admitted up front rather than discovered
+halfway.
+
+**That has now been tried, and then written down** — in that order, and the
+order was the useful part. [embed/host.c](../embed/host.c) holds a machine and
+runs [serve.sol](../programs/serve.sol) once per request; it is 136 lines of
+code, two more than `solvm`'s own front end. It **found a use-after-free on its
+first run**: a chunk recorded which VM had interned its names by pointer, and a
+host builds each request's VM as a local, so every one landed at the same
+address and the chunk went on reading the freed machine's name table. Fixed in
+0.14.1 — the record is a serial now — and the point for this entry was that
+nothing in the repository was shaped to catch it, because nothing had ever run
+two VMs in sequence at one address.
+
+**The interface is now stated.** [solum/embed.h](../solum/include/solum/embed.h)
+is the whole supported surface, [embedding.md](embedding.md) is the contract in
+prose, and [tests/test_embed.c](../tests/test_embed.c) has a case for every
+promise it makes. Writing it caught a second mistake at once: this project had
+said a host must call `sol_vm_intern_chunk`, and `sol_vm_run` does it — the
+defect was inside that function rather than in a call somebody could miss, so
+the interface is one rule simpler than it had been written up as.
+
+**So this entry's precondition is met.** A permission is a promise about what a
+host may rely on, and there is a list of that now — including what is
+deliberately *not* promised, which is where a permission scheme would have to
+live: no route for a run's output except by an agreed name, no way to silence a
+failing run's stderr, and a fresh VM per request being the only safe choice.
+What remains here is the decision itself, unchanged in kind and better furnished
+than it was.
+
+**Which way round is the default** still matters for the command line, where the
+chooser is a person. Safe-by-default with `--unsafe` to enable protects the
+script you did not write and breaks every existing use, including this
+repository's own tests and `programs/tools.sol`. Unsafe-by-default with `--safe`
+breaks nothing and helps only the people who remember to ask. For a person, that
+argues for safe-by-default and for paying the breakage; for an embedding it
+barely signifies, since the host states what it wants either way.
+
+**What "dangerous" means is two things, not one.** The suggestion names the
+messages that *change* the machine, and there is a second set that *reveals* it:
+
+| | messages |
+| --- | --- |
+| changes | `run`, `capture`, `remove`, `makeDirectory`, `rename`, `writeFile`, `appendFile`, `setMode`, `setModifiedAt` |
+| reveals | `readFile`, `filesIn`, `isDirectory`, `fileExists`, `fileSize`, `modifiedAt`, `modeOf`, `environment` |
+
+Reading `~/.ssh/id_rsa` and printing it changes nothing and is not safe.
+`environment` alone will hand over a token from half the CI systems there are.
+So a mode that only stops writing is a mode that stops the obvious half — and
+in a server the revealing half is the worse one, since the process it is
+running inside holds the credentials the pages are built from.
+
+`system:exit` was in the first list and has been taken out of it: it sets a flag
+the interpreter loop unwinds on and `sol_vm_run` answers `SOL_EXIT`, so a script
+that exits ends *itself* and hands the decision back to whoever called. A
+webserver stays up. That is already the right behaviour and is worth naming
+here, because it is the one an embedding would most expect to be wrong.
+
+That suggests **capabilities rather than a switch** — something nearer
+`--allow-read --allow-run` than one flag — which is more useful and more work,
+and the embedding case wants it: a template renderer wants to read files and
+never to run a program, which one boolean cannot say.
+
+**And one capability per message is not fine enough either.**
+[serve.sol](../programs/serve.sol) is the case written down, and it is told what
+it was asked entirely through `system:environment` — `PATH_INFO` and
+`QUERY_STRING` are how CGI hands a handler its request. So a scheme that can
+only say yes or no to `environment` has to say yes, and has then also said yes
+to `AWS_SECRET_ACCESS_KEY` and everything else the server process is holding.
+The permission that a webserver *must* grant is the one that gives away its
+secrets.
+
+That does not settle the shape, but it rules one out: the granularity has to be
+finer than the message where the message names something. Which is a familiar
+answer — it is a list of allowed variables, or of allowed paths — and it is more
+work again, since a capability that names things is a capability that has to be
+matched against them.
+
+**A complication worth knowing before starting**: `@include` reads files, and
+the search path reads the shipped library. A mode with no reading at all cannot
+compile a program that uses `lib/json.sol`, so reading the *program* is not the
+same permission as reading *a file the program names*, and the line runs between
+them rather than around `readFile`.
+
+**Enforcement is cheap and must not be reachable from inside.** A flag on the VM
+and a check in each primitive costs a branch on messages that are already doing
+system calls. What matters more is that there is no message to turn it off:
+whatever sets it must be the host, before the program runs, or the whole thing
+is a suggestion.
+
+**And it is not a sandbox**, which is the thing to say loudest, because "safe
+mode" invites more trust than it can earn. A restricted script can still loop
+forever, allocate until the machine swaps, fill a disk through a file it *is*
+allowed to write, or simply compute the wrong answer and be believed. It stops a
+script reaching for the machine; it does not make a hostile script harmless.
+This is the same honesty as
+[3.3](ROADMAP.md#33-verification-does-not-promise-termination), which says the verifier
+proves a chunk is well-formed and not that it stops.
+
+The webserver case is what makes that caveat expensive rather than academic: on
+a command line a program that does not stop is an annoyance, and on a server it
+is the server. That half was
+[6.33](COMPLETED.md#633-a-running-program-cannot-be-stopped-from-outside--done)
+and is built: a host may now say how many instructions a program gets and how
+much it may hold. It was a different decision — limits, not permissions — which
+is why the two were separable, and why one of them could be settled while this
+one is still being thought about.
+
+**Raised after the fact**, by noticing what `system:run` had made possible
+rather than by anything going wrong; the embedding case above was supplied the
+following day as the reason it had occurred to anybody. Nothing is asking for it
+yet, and it is written down because the decisions above — where the mechanism
+lives, which default, capabilities or a switch — are much cheaper to take now
+than after somebody has written scripts that depend on either answer.
 
 ### Splitting the reference into pages
 
