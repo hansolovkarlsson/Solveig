@@ -7,6 +7,60 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.10.0 — 2026-08-21
+
+**A stack trace says which file, and the `.sob` format changes for the first
+time since 0.1.0.**
+
+```
+solvm: index #99 is out of bounds for a string of size 4
+  [lib/parse.sol:4] in block
+  [main.sol:3] in script
+```
+
+**This is the release that breaks bytecode compatibility.** Version 11 stood
+through nine releases; this is 12. A `.sob` built by an earlier one is refused
+with `unsupported bytecode version` rather than misread, and the remedy is to
+recompile the `.sol`. `solvm --version` says which format a build speaks.
+
+**What it buys.** A `.sob` is one chunk, and `@include` compiles a library's
+code into the same one — so line numbers came along while the file name did
+not. The old trace was **misleading rather than merely thin**: in the case that
+prompted this, `main.sol` is three lines long and the trace said `[line 4] in
+block`, a line that does not exist in the file anybody would have opened. With
+four libraries and `@include` being how a program is meant to be built, that was
+going to get worse rather than better.
+
+The chunk already carried a line per byte, run-length encoded because
+neighbouring instructions share a line. It carries a file per byte the same way
+now, plus a table of paths, and the runs are better here since a method body
+comes from one file. `solvm --trace` reads the same table, so the call tree
+names files too.
+
+**The cost, measured**: +2.3% on `numbers.sob`, +15.6% on `manifest.sob`, the
+spread being the number of method chunks since each carries its own file table.
+Sharing one table from the top-level chunk would recover most of it and was not
+done — every chunk verifying on its own is worth more than two kilobytes.
+
+**[3.4](ROADMAP.md#34-no-compatibility-across-sob-versions) stops being
+hypothetical.** It used to say a compatibility policy was worth having *before*
+anything was released. Nine releases later the first break has happened, so the
+entry now records what the policy turned out to be: refuse rather than guess,
+recompile as the remedy, and `--version` to answer "will this file run" without
+trying it.
+
+**The debugger has a name.** *sol-interactive-debugger* reads as **Solid**, and
+*solidus* is Latin for firm, whole, sound — a fourth word that looks like the
+others and is unrelated to them, which is the pattern the other three names
+already play. It is recorded in
+[6.29](ROADMAP.md#629-a-stepper--solid) rather than the README, which lists
+programs that exist.
+
+**Two entries left on the roadmap**, both about looking at a running program: a
+name for a local, and Solid itself.
+
 ### A trace says which file — `8742f38`, 2026-08-21
 
 [6.27](COMPLETED.md#627-a-stack-trace-does-not-say-which-file--done), and the

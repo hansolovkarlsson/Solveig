@@ -97,6 +97,13 @@ No dependencies beyond a C11 compiler and `make`.
 
 ## Status
 
+**0.10.0** — a stack trace says which file, and the `.sob` format changes for
+the first time since 0.1.0 to carry that. It was misleading rather than merely
+thin: a chunk holds every included file's code, so a bare line number named a
+line in a file nobody had recorded and read as a line of the one you were
+looking at. **A `.sob` from an earlier release is refused rather than misread —
+recompile the `.sol`.** `solvm --version` says which format a build speaks.
+
 **0.9.0** — bits, and the first tools for looking at a program rather than
 writing one. `solvm --trace` writes the call tree, and because conditionals and
 loops compile to jumps a three-hundred-thousand-turn loop adds nothing to it.
@@ -137,7 +144,7 @@ search path. The HTML one **does not fail on bad input**, because bad input is
 what HTML is: it recovers and reports what it recovered from. Building it turned
 up where the recursion limit really lives — not in the data, but in how you walk
 it — and `array:removeLast`, `array:indexOf` and an ordering on symbols, each
-from a workaround that was already shipped. `.sob` files are format version 11,
+from a workaround that was already shipped. `.sob` files were format version 11,
 unchanged since 0.1.0, so one built then runs here; everything added since is a
 primitive or a library rather than an opcode. `solvm --version` says which
 format a build speaks.
