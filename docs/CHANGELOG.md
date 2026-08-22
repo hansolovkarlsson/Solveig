@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### The threat model behind the safe-mode decision, and a second decision — `pending`, 2026-08-21
+### The threat model behind the safe-mode decision, and a second decision — `d518aa6`, 2026-08-21
 
 [6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
 was recorded from the command line's point of view: a person about to run a
