@@ -7,6 +7,92 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.9.0 — 2026-08-21
+
+**Bits, and the first tools for looking at a program rather than writing one.**
+
+```
+solvm --trace=2 report.sob        # the call tree, two deep
+solis --interactive report.sol    # run it, then stay at the prompt with what it left
+```
+
+**`solvm --trace`** writes the call tree to stderr: a line entering each frame,
+a line leaving it, indented by depth, named by the selector it was **sent as**.
+
+```
+  [line 7] <object 0x1027ea980>:describe
+    [line 4] <object 0x1027ea980>:double
+    -> #42
+  -> "x doubled is 42"
+```
+
+Frames rather than sends, since a send is arithmetic as often as it is a call —
+and **the language suits this unusually well**. Conditionals and loops written
+literally compile to jumps, so a `whileTrue` running three hundred thousand
+times produces **no trace lines at all**. `--trace=N` follows calls N deep,
+which was added after measuring: `page.sol` gives 9,284 lines traced fully, 148
+at depth 1.
+
+**`solis --interactive`** runs a file and stays at the prompt afterwards, failure
+or not, with everything the program bound still bound. It came from a question —
+if a traced program fails, could it fall into the REPL instead of exiting? —
+and the answer is worth more here than it would be in most languages, because
+**a script's own names are globals** and survive the unwind:
+
+```
+-- program failed; its names are here
+> tally:print.
+[#1, #4, #9, #16]
+> { a:withdraw(#500) }:onError({ e | e:message:display }).
+not enough
+```
+
+A method the program defined can be called again, so the failing call can be
+made once more and watched. What is gone is the frames: nothing resumes, and a
+block's temporaries go with the stack. A prompt beside the wreck rather than a
+break in the middle of it.
+
+**Bit operations** — `bitAnd`, `bitOr`, `bitXor`, `bitNot`, `shiftLeft`,
+`shiftRight` — and the case for them was already written down. `lib/text.sol`
+encoded UTF-8 with `div(#64)` for a shift and `mod(#64)` for a mask, carrying a
+comment saying it did so for want of the real thing. It reads like the RFC now,
+and is checked against Python's UTF-8 at every boundary code point.
+
+A shift right **keeps the sign**, which makes it agree exactly with `div` by a
+power of two, since that is floored. A shift left **refuses to lose the number**,
+the way `mul` refuses to overflow.
+
+**`inc` and `dec`**, which are `add(#1)` and `sub(#1)` under shorter names — a
+second spelling, and this language has turned four of those down. What earned
+them was the count: **76 of the 256 arithmetic sends** in the examples and
+libraries are one or the other. Three in every ten, and that is what having no
+binary operators costs the commonest arithmetic there is.
+
+**Three entries written down rather than built**, all about looking at a running
+program: [6.27](ROADMAP.md#627-a-stack-trace-does-not-say-which-file), where a
+trace names lines and not files and so reads as though a library's failure were
+in your own file; [6.28](ROADMAP.md#628-local-variables-have-no-names-at-run-time),
+where slots are indices so nothing can show a variable by name; and
+[6.29](ROADMAP.md#629-a-stepper).
+
+**And an `assert` turned down**, recorded in [ideas.md](ideas.md) with the
+reasoning: no to a compile-time switch that strips it, because every hand-rolled
+check in this repository is *validation* that must never vanish rather than an
+assertion that could, and a switch that removes one kind will be pointed at the
+other.
+
+**`.sob` files are still format version 11**, unchanged since 0.1.0.
+
+**One bug caught by the collector rather than by a test.** `--interactive` first
+kept the program's chunk in `run_file`'s own frame, so a global still holding a
+block pointed into a dead stack frame the moment the prompt allocated — which is
+[restriction 3.6](ROADMAP.md#36-a-caller-owned-chunk-must-outlive-blocks-defined-in-it)
+exactly, written down years before it was tripped over. Every ordinary test
+passed; `SOLUM_GC_STRESS=1` aborted. The chunk belongs to `main` now, and
+outlives the prompt.
+
 ### `solis --interactive`: a prompt beside the wreck — `38b19d1`, 2026-08-21
 
 Asked for as a question — if a program being traced fails, could it fall into

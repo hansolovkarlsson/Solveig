@@ -97,6 +97,15 @@ No dependencies beyond a C11 compiler and `make`.
 
 ## Status
 
+**0.9.0** — bits, and the first tools for looking at a program rather than
+writing one. `solvm --trace` writes the call tree, and because conditionals and
+loops compile to jumps a three-hundred-thousand-turn loop adds nothing to it.
+`solis --interactive` runs a file and stays at the prompt with what it left —
+after a failure too, which works because a script's own names are globals and
+survive the unwind. Bit operations and shifts, which `lib/text.sol` had been
+writing as `div` and `mod` for want of them, and `inc` and `dec`, which are
+three in ten of all the arithmetic here.
+
 **0.8.0** — a program can deal with a filesystem it has to change, and with a
 keyboard. `modeOf` and `setMode` so a copy keeps the executable bit,
 `setModifiedAt` so it keeps its time, `makeDirectory` answering whether it made

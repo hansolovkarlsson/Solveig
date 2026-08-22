@@ -130,15 +130,21 @@ static bool is_bytecode(const char *path)
    than a prompt, so `system:arguments` is what came after the file. */
 /* Runs a file on `vm`, which the caller owns -- so `--interactive` can hand the
    same machine to the prompt afterwards, with everything the program bound
-   still bound. */
-static int run_file(SolVM *vm, const char *path, const SolSearchPath *search,
-                    int argc, char **args)
+   still bound.
+ *
+ * `chunk` is the caller's too, and that is not tidiness: a block the program
+ * defined holds a pointer into the code the chunk owns, and a global still
+ * holding that block outlives this call. A chunk living here would be a dead
+ * stack frame the collector walks into the moment the prompt allocates -- which
+ * is restriction 3.6, and which `SOLUM_GC_STRESS=1` found within a minute of
+ * this being written the wrong way. */
+static int run_file(SolVM *vm, SolChunk *chunk, const char *path,
+                    const SolSearchPath *search, int argc, char **args)
 {
-    SolChunk chunk;
     bool loaded = false;
 
     if (is_bytecode(path)) {
-        SolSerResult result = sol_chunk_load(&chunk, path);
+        SolSerResult result = sol_chunk_load(chunk, path);
         if (result != SOL_SER_OK) {
             fprintf(stderr, "solis: cannot load '%s': %s\n",
                     path, sol_ser_message(result));
@@ -151,18 +157,18 @@ static int run_file(SolVM *vm, const char *path, const SolSearchPath *search,
             fprintf(stderr, "solis: could not read '%s'\n", path);
             return 74;
         }
-        sol_chunk_init(&chunk);
-        loaded = sol_compile_file(source, path, search, &chunk);
+        sol_chunk_init(chunk);
+        loaded = sol_compile_file(source, path, search, chunk);
         free(source);
         if (!loaded) {
-            sol_chunk_free(&chunk);
+            sol_chunk_free(chunk);
             return 65;
         }
     }
 
     sol_vm_set_arguments(vm, argc, args);
 
-    SolResult result = sol_vm_run(vm, &chunk);
+    SolResult result = sol_vm_run(vm, chunk);
     int status = vm->exit_code;
 
     /* The chunk is not freed: a block the program defined may still be reachable
@@ -268,10 +274,14 @@ int main(int argc, char *argv[])
     vm.trace = trace;
     vm.trace_depth = trace_depth;
 
+    /* Outlives the prompt, for the reason in run_file's comment. */
+    SolChunk chunk;
+    sol_chunk_init(&chunk);
+
     int status = 0;
     if (at < argc) {
         const char *path = argv[at++];
-        status = run_file(&vm, path, &search, argc - at, argv + at);
+        status = run_file(&vm, &chunk, path, &search, argc - at, argv + at);
 
         /* Staying is the whole of `--interactive`: the globals the program
            bound are still bound, so what it was doing can be looked at -- and
@@ -292,6 +302,7 @@ int main(int argc, char *argv[])
     }
 
     sol_vm_free(&vm);
+    sol_chunk_free(&chunk);
     sol_search_path_free(&search);
     return status;
 }
