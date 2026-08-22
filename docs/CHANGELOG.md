@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### A program written to be run by a stranger — `pending`, 2026-08-22
+### A program written to be run by a stranger — `293b376`, 2026-08-22
 
 [examples/serve.sol](../examples/serve.sol): a CGI-shaped request handler. It
 answers `/`, `/search?q=...` and `/note/<name>` from a directory of files, and
@@ -55,7 +55,7 @@ must say yes, and has then also handed over every secret the server process
 holds. 6.32 now records that: the permission a webserver cannot do without is
 the one that gives away its secrets.
 
-### A limit bounds dispatch, not work — `pending`, 2026-08-22
+### A limit bounds dispatch, not work — `293b376`, 2026-08-22
 
 Running the above the way its own case would — as a guest, with an allowance —
 found the edge of [6.33](COMPLETED.md#633-a-running-program-cannot-be-stopped-from-outside--done),
