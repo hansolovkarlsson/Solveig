@@ -54,7 +54,7 @@ a footnote into the half worth building first. Permissions are still open.
 
 ### A program can be given a limit — `88a8ab4`, 2026-08-21
 
-[6.33](ROADMAP.md#633-a-running-program-cannot-be-stopped-from-outside--done),
+[6.33](COMPLETED.md#633-a-running-program-cannot-be-stopped-from-outside--done),
 built. A host may say what a program is allowed to spend before it starts it,
 and take it back when it has spent it.
 
@@ -146,7 +146,7 @@ expect to be wrong.
 The entry's quietest caveat — *it is not a sandbox, a restricted script can
 still loop forever* — is an annoyance on a command line and is the whole server
 in a webserver, with nothing dangerous called and no injection needed. That is
-[6.33](ROADMAP.md#633-a-running-program-cannot-be-stopped-from-outside): a
+[6.33](COMPLETED.md#633-a-running-program-cannot-be-stopped-from-outside--done): a
 running program cannot be stopped from outside.
 
 Some of the mechanism turns out to exist. The VM calls `debug_hook` when it

@@ -501,7 +501,7 @@ check, and a number is written rather than made. `new` is now the construction
 protocol and nothing else -- `object` and `array`, the two classes whose
 instances are references, so that there is a fresh distinct one to hand back.
 The other six refuse and say what to write. See
-[class-and-instance.md](class-and-instance.md#new-means-three-things).
+[class-and-instance.md](class-and-instance.md#new-used-to-mean-three-things).
 
 Numbers being immutable is what makes this coherent: with mutable integers,
 `b := a` would have to choose between copying the box and sharing it, and both

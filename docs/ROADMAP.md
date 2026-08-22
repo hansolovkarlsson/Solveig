@@ -143,10 +143,17 @@ own.
   [one-hierarchy.md](one-hierarchy.md#the-one-place-the-difference-shows).
 - **No `clone`** (1.4). `new` delegates rather than copying, which is cheaper and
   more useful, but there is no way to take a snapshot of an object's slots.
-- **A later range or slice API should use inclusive bounds at both ends** (2.3),
+- **A later range API should use inclusive bounds at both ends** (2.3),
   following Smalltalk. Half-open ranges are what make zero-based indexing tidy;
   mixing a half-open convention into one-based indexing is where languages get
   confusing.
+
+  **The slice half of this is settled and was decided by being built.**
+  `copyFrom(first, last)` is inclusive at both ends on strings and arrays —
+  `"abcdef":copyFrom(#2, #4)` answers `"bcd"` — so the convention above is the
+  one the language already keeps, rather than a preference waiting to be
+  applied. What is still hypothetical is a range as a *value*: there is no
+  `#1:to(#5)`, and `toDo` takes the two bounds and a block instead.
 
 ## 3. Known limitations
 
@@ -213,6 +220,17 @@ language can say `{ true }:whileTrue({})` in eleven characters, so nothing becam
 reachable that was not reachable before. The verifier checks that a jump lands on
 an instruction inside the chunk and that it arrives at the height that
 instruction runs at (3.9), and stops there.
+
+**What changed, and what did not.**
+[6.33](COMPLETED.md#633-a-running-program-cannot-be-stopped-from-outside--done)
+lets a host bound how long a program runs and how much it holds, so a chunk that
+spins forever need no longer spin *unboundedly* — `solvm --steps=N` ends it. That
+does not touch what this entry says. The verifier still does not decide
+termination and could not: proving a program stops is not a property of
+well-formedness, and no amount of checking a file would make it one. A limit is
+the other answer to the same problem — not knowing whether it will stop, and
+stopping it anyway. Which is why it is a limit and not a proof, and why nothing
+here is now promised that was not promised before.
 
 ### 3.4 No compatibility across `.sob` versions
 
