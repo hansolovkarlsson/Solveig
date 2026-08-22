@@ -46,6 +46,7 @@ marked as a sketch.
 | Namespaces for included files | **Defer** — the trigger is somebody else writing a library |
 | Splitting the reference into pages | **Defer** — the trigger is the message reference outgrowing the rest |
 | Restricting what a script may reach (6.32) | **Defer** — the trigger is a script somebody else wrote, or input from a stranger |
+| Extensions: a capability from a C binary | **Defer** — doable, and half of it works today; the trigger is wanting something Solum cannot express |
 | An `assert` that compiles away | **No** to stripping; **defer** the message itself |
 
 ---
@@ -550,6 +551,122 @@ following day as the reason it had occurred to anybody. Nothing is asking for it
 yet, and it is written down because the decisions above — where the mechanism
 lives, which default, capabilities or a switch — are much cheaper to take now
 than after somebody has written scripts that depend on either answer.
+
+### Extensions: a capability from a binary rather than from the VM
+
+Could Solum gain something it cannot express — a database, a graphics surface, a
+compression codec — from a C library loaded at run time, rather than by growing
+the core VM? The sketch offered with the question was a `load` message for the
+binary and a `.sol` file providing the interface.
+
+**Yes, and the architecture is more ready for it than anyone had noticed.** A
+primitive is already nothing but a C function pointer hung on an object, the
+functions that hang it there are already public, and `system` — the closest
+thing here to a namespace of C functions — is built from exactly the three calls
+an extension would make: `sol_object_new`, `sol_object_define` into the root,
+then a run of registrations. The `.sol`-interface half of the sketch needs no
+invention at all; it is [lib/shell.sol](../lib/shell.sol)'s shape exactly, one
+global with everything hung off it.
+
+**Half of it works today**, for anyone building their own binary.
+[embed/host.c](../embed/host.c) is most of the example: include
+`solum/object.h`, call `sol_object_define_primitive` before `sol_vm_run`, and
+the messages are there. That is how all 285 built-in slots are installed, and
+nothing distinguishes an extension's from a built-in's.
+
+The catch is a promise rather than a mechanism.
+[embed.h](../solum/include/solum/embed.h) says it is *the whole supported
+surface*, and that anything else under `solum/include` is the machine's own
+business and may change without notice — and `SolPrimitive` lives in
+`object.h`, outside it. So it works, and nothing says it will keep working.
+
+**Three things are missing**, in ascending order of difficulty.
+
+*A supported surface.* An `extend.h` standing to extensions as `embed.h` stands
+to hosts, saying what an extension may rely on. It would have to state three
+things a newcomer gets wrong: arity is not checked for you, only the receiver
+type is; errors are out of band, through `sol_vm_runtime_error`; and the
+collector's rule, which is that nothing may hold a heap pointer across an
+allocation unless it is reachable from a root. That last one has a trap worth
+naming — the temporary-root stack is eight deep and overflowing it calls
+`exit(1)` with no diagnostic.
+
+*A loader and an ABI.* `dlopen`, one exported entry point per library, and a
+version handshake. There is no ABI version today: `SOLUM_VERSION` is printed and
+never compared to anything, and the only version check in the project is
+`.sob`'s exact-equality refusal, whose policy — refuse, do not guess, recompile
+— is the one to copy. `SolValue` is passed by value and `SolObject`'s layout is
+exposed, so nearly any struct change is an ABI break.
+
+There is also a concrete build blocker. `libsol.a` is a static archive and the
+four binaries each link a private copy, with no `-fPIC` and nothing exported.
+**As built, a loaded bundle could not resolve `sol_*` back into `solvm` at
+all.** The fix is to build `libsol` shared and link everything against it, which
+is a real change to how the project ships.
+
+*Somewhere for a foreign resource to live, and something to close it.* This is
+the only real design decision, and it is the interesting one.
+
+**The collector has no finalizer of any kind.** Sweeping frees a cell's own
+parts and then the cell; nothing user-supplied runs. So a database connection
+stashed in a Solum value would be never marked (harmless), **never freed**, and
+never counted against `--memory`. The shape that answers it is a foreign cell
+carrying its own release function —
+
+```c
+typedef struct {
+    SolGCHeader gc;
+    void       *handle;
+    void      (*release)(void *handle);
+    const char *kind;      /* "sqlite connection", for the error message */
+} SolForeign;
+```
+
+— as a new value type rather than as a use of `SolObject.payload`, which is
+declared, written once as zero, read by nothing in the whole tree, and would
+still leave no home for the release function. A new *value* type also earns a
+compiler warning from `mark_value`, which has no `default` on purpose; the two
+to watch are `free_cell` and `cell_size`, which are `if`-chains and will not
+warn.
+
+**And that shape dissolves what would otherwise be ugly.** A limit-stop is
+deliberately not catchable and `ensure` does not run
+([6.33](COMPLETED.md#633-a-running-program-cannot-be-stopped-from-outside--done)),
+so a script relying on an explicit `close` leaks every time it is stopped. But
+the whole heap is freed at VM teardown regardless of reachability, and
+[3.10](ROADMAP.md#310-a-vm-cannot-be-reused-across-runs) already says a fresh VM
+per request is the only safe choice — so the VM always dies, and a release hook
+fires even for a program that was taken away. Explicit `close` has no such
+property.
+
+**What it would cost, said plainly.**
+
+- **It falsifies a sentence the design leans on.** `design.md` says *"nothing
+  has to be released: a file is read or written whole, and no message hands back
+  anything a program is obliged to close."* A connection would be the first, and
+  that sentence is the reason an uncatchable stop is cheap.
+- **Loading native code is unlimited authority**, past every check there is —
+  which reopens
+  [6.32](#632-a-script-cannot-be-run-with-less-than-the-whole-machine) in the
+  largest possible way. True of every language's FFI, and the mitigation is the
+  same: a host that does not want it does not enable it.
+- **An ABI is a promise that constrains refactoring.** Today `SolObject` and
+  `SolValue` can change freely because everything is rebuilt together.
+- **Extensions are where a portability story goes to die.** Four binaries and a
+  static archive build wherever `cc` does; bundles and `dlopen` do not.
+
+**Trigger:** somebody wants a capability that cannot be written in Solum and is
+not worth putting in the VM. A database, a window, a codec. Nothing wants one
+today, and the language has managed four days of real programs without.
+
+**And if it is ever picked up, the first move is not any of the above.** Write
+one throwaway extension — fifty lines, something with nothing to release, a
+hash or a checksum — build it, load it, and find out what the path actually
+wants. That is the method that has paid here repeatedly:
+[serve.sol](../programs/serve.sol) found 3.7, [host.c](../embed/host.c) found a
+use-after-free, [disasm.sol](../programs/disasm.sol) found three faults in the
+documents it was written from. An afternoon of that would settle more than
+another page of this.
 
 ### Splitting the reference into pages
 

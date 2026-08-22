@@ -7,6 +7,55 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### Scoped: extensions from a C binary — `pending`, 2026-08-22
+
+A question rather than a change: could Solum gain something it cannot express —
+a database, a graphics surface, a codec — from a C library loaded at run time,
+rather than by growing the VM? Answered and filed in
+[ideas.md](ideas.md#extensions-a-capability-from-a-binary-rather-than-from-the-vm)
+under *Deferred, with a trigger*. Nothing is built.
+
+**The answer is yes, and half of it works today.** A primitive is already only a
+C function pointer hung on an object, `sol_object_define_primitive` is already
+public, and `system` is built from exactly the three calls an extension would
+make. A host with its own binary can add messages right now; the sketch's `.sol`
+interface file is [lib/shell.sol](../lib/shell.sol)'s shape unchanged.
+
+Three things are missing, and the exploration turned up specifics worth having
+written down even if this is never picked up:
+
+- **The surface is unsupported, not absent.** `embed.h` says it is *the whole
+  supported surface* and that everything else under `solum/include` may change
+  without notice — and `SolPrimitive` is in `object.h`, outside it.
+- **There is no ABI version.** `SOLUM_VERSION` is printed and compared to
+  nothing; the only version check in the project is `.sob`'s. And there is a
+  concrete build blocker: `libsol.a` is static, nothing is `-fPIC`, nothing is
+  exported, so a loaded bundle could not resolve `sol_*` back into `solvm` at
+  all as built.
+- **The collector has no finalizer of any kind**, so a foreign handle would be
+  never freed and never counted against `--memory`. The shape that answers it is
+  a foreign cell carrying its own release function — and that shape dissolves an
+  otherwise ugly interaction, because the whole heap is freed at VM teardown, so
+  a release hook fires even for a program a limit stopped uncatchably.
+
+Two findings from the reading, both checked rather than reported:
+**`SolObject.payload` is declared, written once as zero, and read by nothing in
+the entire tree** — eight bytes on every object, waiting for roughly this
+purpose and not sufficient for it. And `sol_gc_push_temp` overflows at eight
+deep by calling `exit(1)` with no diagnostic, which any extension author would
+eventually meet.
+
+It also names a cost worth knowing before rather than after: `design.md` says
+*"nothing has to be released… no message hands back anything a program is
+obliged to close."* A database connection would be the first, and that sentence
+is the reason an uncatchable stop is cheap.
+
+**Trigger**: somebody wants a capability Solum cannot express and that is not
+worth putting in the VM. **First move if so**: not any of the above, but one
+throwaway extension with nothing to release, built and loaded, to find out what
+the path actually wants.
+
+
 ### 6.32 goes to the idea box, and the roadmap has nothing left to decide — `ccd64e9`, 2026-08-22
 
 [6.32](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine) —
