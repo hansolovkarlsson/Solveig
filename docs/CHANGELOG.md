@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### A disassembler in Solum, and the three document faults it found — `pending`, 2026-08-22
+### A disassembler in Solum, and the three document faults it found — `dcecd20`, 2026-08-22
 
 [programs/disasm.sol](../programs/disasm.sol) reads a `.sob` file and says what
 is in it — header, tables, and every instruction with its offset, line, operands
