@@ -18,6 +18,11 @@ void sol_vm_init(SolVM *vm)
     vm->exiting = false;
     vm->trace = false;
     vm->trace_depth = 0;
+    vm->debug_hook = NULL;
+    vm->debug_failed = false;
+    vm->debug_context = NULL;
+    vm->debug_last_line = -1;
+    vm->debug_last_frame_id = 0;
     vm->exit_code = 0;
     vm->next_frame_id = 1;
     reset_stack(vm);
@@ -246,6 +251,17 @@ void sol_vm_runtime_error(SolVM *vm, const char *format, ...)
         }
     }
     vm->had_error = true;
+
+    /* One last offer, with everything still standing. A debugger cannot resume
+       from here -- the unwind is already decided -- but it can be looked at,
+       which is the difference between a debugger and a prompt beside the wreck.
+       Guarded against re-entry: reporting an error from inside the hook must
+       not call the hook again. */
+    if (vm->debug_hook != NULL && !vm->debug_failed) {
+        vm->debug_failed = true;
+        vm->debug_hook(vm, vm->debug_context);
+        vm->debug_failed = false;
+    }
 }
 
 /* The receiver a primitive requires, spelled the way an error message wants it.
@@ -538,6 +554,28 @@ static SolResult run_frames(SolVM *vm, int base)
 #define READ_INTERNED() (frame->chunk->interned[READ_INDEX()])
 
     for (;;) {
+        /* A stop point, when something is driving. Offered before the
+           instruction runs, at each line the program moves to and each frame it
+           enters or leaves -- which is what a person means by a step. The hook
+           decides whether to take it; the machine only says where it is. */
+        if (vm->debug_hook != NULL) {
+            int offset = (int)(frame->ip - frame->chunk->code);
+            int line = offset < frame->chunk->count ? frame->chunk->lines[offset] : 0;
+
+            /* By frame *id* rather than by depth. A block whose whole body is
+               one line, called over and over from a primitive, never changes
+               either line or depth -- the frame goes and another is pushed at
+               the same depth -- so a depth test offered one stop for a loop of
+               a thousand. An id is unique for the life of the VM, so a new
+               frame is always a new place to be. */
+            if (line != vm->debug_last_line || frame->id != vm->debug_last_frame_id) {
+                vm->debug_last_line = line;
+                vm->debug_last_frame_id = frame->id;
+                vm->debug_hook(vm, vm->debug_context);
+                if (vm->had_error || vm->exiting) return SOL_RUNTIME_ERROR;
+            }
+        }
+
         uint8_t instruction = READ_BYTE();
         switch (instruction) {
 

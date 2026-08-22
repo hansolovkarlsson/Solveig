@@ -1,3 +1,16 @@
+All of it is built. `solvm --trace` writes the call tree, a trace names the file
+as well as the line
+([6.27](COMPLETED.md#627-a-stack-trace-does-not-say-which-file--done)), a frame
+slot knows what it was called
+([6.28](COMPLETED.md#628-local-variables-have-no-names-at-run-time--done)), and
+[Solid](COMPLETED.md#629-a-stepper--solid--done) stops a program where it is
+running and shows both.
+
+Those three arrived in that order on purpose, and the order was the useful part:
+each one made the next worth having. A trace that could not name a file was
+misleading; a debugger that could not name a local would have been most of the
+work for a fraction of the use.
+
 # Roadmap
 
 Everything still outstanding, grouped by what it blocks. This is the single list
@@ -293,132 +306,66 @@ entries are in [COMPLETED.md](COMPLETED.md). This one was about making it a
 language you can write a *program* in: a program has to be split across files,
 read input, write files, and stop with a status.
 
-**One entry, and it is the debugger itself.** `solvm --trace` writes the call
-tree, a trace names the file it is in, and a frame slot knows what it was
-called — so what a debugger would need is there and what is left is the
-debugger.
+**Empty.** Every entry is built, including the debugger the last few were laid
+down for. A new one means a program wanted something and could not have it.
 
 Raised in a notes file and assessed in [ideas.md](ideas.md), which also records
 what was **not** worth building and why — integer widths, a JIT, cascades,
 trailing-block syntax, and Go-style concurrency among them.
 
-### 6.29 A stepper — **Solid**
+## How this list emptied
 
-**The name is decided even though the thing is not**: *sol-interactive-debugger*
-reads as **Solid**, and it belongs to the family better than an acronym has any
-right to.
+**Nothing is on it.** Sections 2, 3 and 6 held the whole of what was left to
+decide or build, and 2 and 6 are done — what remains in 3 are restrictions kept
+on purpose, each documented where a program would meet it.
 
-The other names are not abbreviations, they are words. *Solveig* is Old Norse,
-*sól* joined to *veig*. *Solum* is Latin twice over — the **ground** as a noun,
-and **"only"** as an adverb, which is the design principle. *SolVM* is how
-*solum* was written before the alphabet split V into two letters. The README
-makes a point of these being separate words that happen to look alike rather
-than one word wearing several hats.
+That is worth a paragraph, because *how* it emptied is the part that transfers.
 
-*Solidus* is a fourth. It is Latin for **firm, whole, sound** — usually taken
-back to a root meaning "whole", the one behind *salvus*, "safe", and unrelated
-to either the ground or the sun however alike they look. A debugger is the tool
-for finding out whether a program is sound, standing on ground the language
-calls *solum*. The pun is in English and the sense is in the Latin, which is the
-same trick the other three names play.
+**Section 6 came from the right place**: notes about what a program would want,
+rather than a plan written before there were any programs. And once those ran
+out, every further entry arrived the same way — somebody wrote a program and
+found out what it wanted.
 
-Recorded here rather than in the README, which lists programs that exist.
+- [log.sol](../examples/log.sol) asked for a **dictionary** and **array
+  slicing**, and got both.
+- [evaluator.sol](../examples/evaluator.sol) found the **frame limit**, and that
+  it is catchable.
+- [manifest.sol](../examples/manifest.sol) and `lib/json.sol` found that a
+  **byte had no number** — for text rather than for the binary files the entry
+  had been written about — and put a price on how the value dispatch is written.
+- [page.sol](../examples/page.sol) and `lib/html.sol` found that **an array
+  cannot be popped**, and that the frame limit is about traversal rather than
+  about data.
+- [mirror.sol](../examples/mirror.sol) found a **defect in `modifiedAt`**, and
+  asked for a file's mode and time.
+- `lib/text.sol` broke a program **from a distance** by claiming a common global
+  name, ten minutes after the entry saying that could happen was written.
 
-Breakpoints, stepping, and looking at the stack where it stopped.
-
-**Everything underneath it is built.** `solvm --trace` writes the call tree,
-traces name the file as well as the line
-([6.27](COMPLETED.md#627-a-stack-trace-does-not-say-which-file--done)), and a
-frame slot knows what it was called
-([6.28](COMPLETED.md#628-local-variables-have-no-names-at-run-time--done)) — so a
-stepper can show `average = #180` rather than `slot 3 = #180`, which was the
-thing that would have made it most of the work for a fraction of the use.
-
-**Part of the front end exists too**, and it arrived from asking the question
-rather than from planning: `solis --interactive` runs a file and stays at the
-prompt
-afterwards, failure or not, with everything the program bound still bound. In
-this language that is more than it sounds — a script's own names are *globals*,
-so the dictionary it built and the objects it made survive the unwind, and a
-method it defined can be called again. What is missing is the frames: nothing
-resumes, and a block's temporaries go with the stack.
-
-**The rest is the largest thing on this list and the one to do last.** It wants
-[6.28](COMPLETED.md#628-local-variables-have-no-names-at-run-time--done) first — a stepper that
-shows `slot 3 = #5` rather than `count = #5` is most of the work for a fraction
-of the use — and it wants a front end of its own, which is a program rather than
-a flag.
-
-Worth knowing before starting: **`solis --interactive` already does the
-interactive half**, at the point a program stops. A block can be called from the
-prompt and what it answers looked at, objects inspected with `slots` and
-`slotAt`, and a suspect method replaced by binding a new block over it. What
-that cannot do is stop a program *while* it is running, or show a local by name,
-which is the part a stepper adds and the part that needs 6.28.
-
-The order this list took: `--trace`, then 6.27 because it improved every error,
-then 6.28. Only this is left.
-
-## Suggested order
-
-**Nothing is on the live list.** Section 6 came from the right place:
-notes about what a program would want, rather than a plan written before there
-were any programs. The two newest entries came from further along the same road
-— from a program that wanted something and could not have it, and one of them is
-already built. Fourteen of its items are built — a program can be split across
-files, stop with a status, read its input, read and write files, take a string
-apart and put it back together, keep values under keys, slice an array, and time
-itself; the instruction set has a
-reference the test suite keeps honest, the guide contrasts a group with a block,
-and every concept the guide names now has a runnable example; and the include
-that started it has since been given a syntax that admits what it is (6.13) —
-so in order of what would be missed next:
-
-**Nothing here is blocking a program.** [6.12](COMPLETED.md#612-taking-a-binary-file-apart--done)
-was, for about a day: it waited for something to need a number for a byte, and
-`lib/json.sol` needed one — not for the binary files the entry was written
-about, but for `\u0041`, which is text. `asByte` and `asCharacter` are built and
-it is done.
-
-**What is left is debugging**, and it arrived by the usual route: not from a
-program wanting something, but from asking how one would be debugged when it
-does. `solvm --trace` is built and was the cheap half.
-
-[6.27](COMPLETED.md#627-a-stack-trace-does-not-say-which-file--done) is built: a
-trace names the file as well as the line, which improves every error rather than
-only a debugging session, and it cost the first `.sob` format change since
-0.1.0.
-
-[6.28](COMPLETED.md#628-local-variables-have-no-names-at-run-time--done) is built
-too, so a frame slot knows what it was called and `--trace` names its arguments.
-
-What is left is **[6.29](#629-a-stepper--solid)** — Solid — which is much the
-largest thing here, has everything it needs underneath it now, and is worth
-weighing against `solis --interactive`, which already does the interactive half
-of what a debugger is for. `solis` grew raw-mode line editing for its own prompt
-([6.24](COMPLETED.md#624-the-prompt-has-no-history--done)), which needed the same
-machinery — and a *program* still cannot read a keypress, which is what this
-entry is. The machinery being built is the reason it is now small. The four papercuts —
+**Four of the entries were papercuts a library tripped over**, not things anybody
+reasoned out in advance:
 [6.19](COMPLETED.md#619-a-symbol-cannot-be-ordered--done),
 [6.21](COMPLETED.md#621-two-libraries-binding-one-name-collide-silently--done),
 [6.22](COMPLETED.md#622-a-file-that-includes-a-library-of-its-own-name-silently-does-nothing--done)
-and [6.23](COMPLETED.md#623-an-array-cannot-be-popped-or-asked-what-it-holds--done)
-— were all found by writing programs, and two of them by a library breaking from
-a distance rather than by anybody reasoning about the design.
+and [6.23](COMPLETED.md#623-an-array-cannot-be-popped-or-asked-what-it-holds--done).
 
-Three programs have now been written to do a job rather than to show a feature,
-and each one moved this list:
-[log.sol](../examples/log.sol) asked for a dictionary and array slicing and got
-both; [evaluator.sol](../examples/evaluator.sol) found the frame limit and that
-it is catchable; [manifest.sol](../examples/manifest.sol) and the library under
-it found the three above. It is worth noticing which entries survived contact
-with a real program and which have still never come up.
+**The last four came from a different question**: not *what does a program want*
+but *how would one be debugged*. They had to be done in order, and the order was
+the useful part — `solvm --trace`, then
+[6.27](COMPLETED.md#627-a-stack-trace-does-not-say-which-file--done) because a
+trace that could not name a file was misleading rather than thin, then
+[6.28](COMPLETED.md#628-local-variables-have-no-names-at-run-time--done) because
+a debugger that could not name a local would have been most of the work for a
+fraction of the use, and only then
+[Solid](COMPLETED.md#629-a-stepper--solid--done).
 
-**No decision is outstanding.** 2.5, the last one, is closed: 1.6 had answered
-it one message at a time to stop the crashes, and finishing that -- every
-class-side message requiring an object receiver -- turned out to be the whole of
-what splitting the two objects would have bought. Every question section 2 held
-has now been decided.
+**No decision is outstanding.** 2.5, the last one, is closed: 1.6 had answered it
+one message at a time to stop the crashes, and finishing that — every class-side
+message requiring an object receiver — turned out to be the whole of what
+splitting the two objects would have bought.
+
+**A new entry means a program wanted something and could not have it.** That is
+the only way one has arrived for a long time, and it is the way to add the next.
+
 
 [ideas.md](ideas.md) records what was considered and turned down, so the same
 arguments do not have to be had twice, and [COMPLETED.md](COMPLETED.md) records

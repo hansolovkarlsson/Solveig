@@ -23,9 +23,9 @@ xs:do({ x | x:print }).        ; { } is a block: code as a value
 ## The names
 
 **Solveig** is the project. The language it holds is **Solum**, compiled by
-**Solas**, run by **SolVM**, and explored through **Solis**. The program is
-`bin/solvm` and its sources are under `solum/` -- the same word in two hands, as
-below.
+**Solas**, run by **SolVM**, explored through **Solis**, and taken apart with
+**Solid**. The program is `bin/solvm` and its sources are under `solum/` -- the
+same word in two hands, as below.
 
 *Solveig* is Old Norse -- *Sólveig*, from *sól*, "sun", joined to *veig*, which
 is usually read as "strength", though the second element is not settled and has
@@ -60,6 +60,13 @@ from *sōlus*, "alone", and *sōl*, *sōlis*, the sun, is a root of its own. The
 are not one word wearing three hats. They are three words that happen to look
 alike, chosen for what each of them says.
 
+*Solidus* is a fourth, and the debugger's. It is Latin for **firm, whole,
+sound**, usually taken back to a root meaning "whole" -- the one behind *salvus*,
+"safe" -- and unrelated to either the ground or the sun however alike they look.
+A debugger is the tool for finding out whether a program is sound, standing on
+ground the language calls *solum*. It is also *sol-interactive-debugger*, which
+is the sort of coincidence a name should be chosen for.
+
 The sun is what ties them together. It is the single body everything else in the
 system turns around, and the one thing this planet's life has always depended on
 -- alone in the sky, central, and the reason anything else works. A language in
@@ -75,6 +82,7 @@ a different language.
 | `solas/`  | **Solas** -- the compiler: source text to bytecode                |
 | `solum/`  | **SolVM** -- the virtual machine, built as `bin/solvm`               |
 | `solis/`  | **Solis** -- the REPL: reads until the input could compile        |
+| `solid/`  | **Solid** -- the debugger: breakpoints, stepping, and locals      |
 | `docs/`   | [GUIDE.md](docs/GUIDE.md), [TUTORIAL.md](docs/TUTORIAL.md), [REFERENCE.md](docs/REFERENCE.md), [design.md](docs/design.md), [BYTECODE.md](docs/BYTECODE.md), [ROADMAP.md](docs/ROADMAP.md), [COMPLETED.md](docs/COMPLETED.md), [CHANGELOG.md](docs/CHANGELOG.md) |
 | `tests/`  | Test suite                                                        |
 | `examples/` | Sample `.sol` programs                                          |
@@ -88,7 +96,7 @@ sides include, so the instruction set is defined exactly once.
 ## Build
 
 ```sh
-make          # builds bin/solas, bin/solvm, bin/solis
+make          # builds bin/solas, bin/solvm, bin/solis, bin/solid
 make test     # builds and runs the test suite
 make clean
 ```

@@ -128,6 +128,26 @@ struct SolVM {
        and its innermost are usually a loop body. */
     bool trace;
     int  trace_depth;
+
+    /* A debugger, if one is driving. `debug_hook` is called before each
+       instruction that begins a new line or changes frame -- a statement
+       boundary, near enough -- and whatever it does happens on this VM, with
+       every frame still live. The VM decides *when* to offer a stop and the
+       hook decides whether to take it, which keeps the machine ignorant of
+       stepping, breakpoints, and what a debugger is for.
+     *
+       NULL when nothing is driving, which is the cost: one predictable branch
+       per instruction. See solid/. */
+    void (*debug_hook)(struct SolVM *vm, void *context);
+    void  *debug_context;
+
+    /* Set while the hook is being called because the program is *failing*
+       rather than because it reached a line. The frames are still standing at
+       that point -- the trace has just walked them -- so it is the one moment a
+       debugger can look at the wreck from inside. */
+    bool   debug_failed;
+    int      debug_last_line;
+    uint64_t debug_last_frame_id;
 };
 
 void sol_vm_init(SolVM *vm);

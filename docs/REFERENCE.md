@@ -20,6 +20,7 @@ a:print.
 
 - **[Running a program](#running-a-program)**
   - [The prompt](#the-prompt)
+  - [Stopping a program: Solid](#stopping-a-program-solid)
   - [Watching a program run](#watching-a-program-run)
   - [Staying after a program](#staying-after-a-program)
   - [Running a script directly](#running-a-script-directly)
@@ -91,6 +92,7 @@ And an alphabetical **[message index](#message-index)** at the end: every built-
 ./bin/solis                         # a prompt; input may span lines
 ./bin/solis program.sol             # compiles and runs it, without the two steps
 ./bin/solis program.sob a b c       # runs compiled bytecode, with arguments
+./bin/solid program.sol             # runs it under the debugger
 ```
 
 Each takes `--help` (or `-h`), which lists its options and stops, and
@@ -263,6 +265,67 @@ able to look at what one did.
 
 `solis` also takes `--trace` and `--trace=N`, which do what they do for `solvm`.
 The prompt itself is not traced — what was being watched is the program.
+
+#### Stopping a program: Solid
+
+`solid file.sol` runs a program and stops before its first line, ready for
+commands. It is the debugger — the fourth program, after Solas, SolVM and Solis.
+
+```
+$ solid report.sol
+solid 0.11.0 -- `help` for commands, `quit` to leave
+report.sol:1  in script
+    1  account := object:new.
+(solid) break report.sol:5
+break at report.sol:5
+(solid) continue
+report.sol:5  in block
+    5      after:lessThan(#0):ifTrue({ error:raise("overdrawn") }).
+(solid) locals
+  self             <object 0x10122e250>
+  amount           #30
+  after            #70
+```
+
+| command | does |
+| --- | --- |
+| `step`, `s` | run to the next line, **into** calls |
+| `next`, `n` | run to the next line, **over** calls |
+| `finish`, `f` | run until this frame returns |
+| `continue`, `c` | run to the next breakpoint |
+| `where`, `w` | the frames, innermost first, with file and line |
+| `locals`, `l` | this frame's slots, **by name** |
+| `print NAME`, `p` | a local, or a global, saying which |
+| `list [N]` | source around here, or from line N |
+| `break F:L`, `b` | stop at that line; `break L` for any file |
+| `breaks`, `delete N` | what is set, and dropping one |
+| `quit`, `q` | stop the program and leave |
+
+**A breakpoint's file is matched at the end of a path**, so `break json.sol:150`
+finds `lib/json.sol` without anybody having to type the include path it was
+found on. It fires on **arriving** at its line: a call written on line 10
+returns to line 10, and stopping twice would make one breakpoint look like two.
+
+**It stops where a program breaks**, with the frames still standing — which is
+the thing [`solis --interactive`](#staying-after-a-program) cannot do, since
+that starts after the unwind and sees only globals:
+
+```
+-- division by zero in 'div'
+breaks.sol:2  in block
+    2      result := a:div(b).
+   (it cannot go on from here; look around, then `quit`)
+(solid) locals
+  a                #100
+  b                #0
+```
+
+Nothing can be resumed from there — the unwind is already decided — but the
+values that caused it are still in the frame.
+
+**What it can show is what the chunk carries**: the file and line of every frame,
+and what each slot was called. Both were built before the debugger was, for it.
+A chunk compiled at the prompt has no file, and says so rather than guessing.
 
 #### Watching a program run
 

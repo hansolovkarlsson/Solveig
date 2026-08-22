@@ -7,7 +7,68 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-Nothing yet.
+### Solid — `pending`, 2026-08-21
+
+[6.29](COMPLETED.md#629-a-stepper--solid--done), the last entry on the roadmap.
+`bin/solid` is the fourth program: it runs a program, stops before its first
+line, and takes commands.
+
+```
+(solid) break report.sol:5
+break at report.sol:5
+(solid) continue
+report.sol:5  in block
+    5      after:lessThan(#0):ifTrue({ error:raise("overdrawn") }).
+(solid) locals
+  self             <object 0x10122e250>
+  amount           #30
+  after            #70
+```
+
+Step, next, finish, continue, breakpoints, a backtrace, and the locals of a
+frame **by name** — which is what
+[6.28](COMPLETED.md#628-local-variables-have-no-names-at-run-time--done) was
+built for, one release before there was anything to spend it on.
+
+**The machine knows nothing about debugging.** The VM offers a stop before each
+instruction that begins a new line or enters a new frame, and calls a hook if
+one is set; Solid decides whether that stop is interesting. Stepping,
+breakpoints, and what a person means by "over" all live in `solid/`. `solum/`
+gained a function pointer and a branch — and the branch costs nothing
+measurable: three million loop turns, 0.43s either way.
+
+**It stops where a program breaks**, which is the thing `solis --interactive`
+cannot do, since that begins after the unwind and sees only globals:
+
+```
+-- division by zero in 'div'
+breaks.sol:2  in block
+(solid) locals
+  a                #100
+  b                #0
+```
+
+Nothing resumes from there, but the frames are standing and the value that
+caused it is in one.
+
+**Three bugs, all in deciding when to stop, all found by using it.** `next`
+stopped twice on one line, because returning from a call lands on the line the
+call was written on. A breakpoint fired twice per visit, for the same reason —
+the signal that separates arriving from returning is the frame count *dropping*.
+And a breakpoint in a loop fired once: the first fix was too broad, and then the
+VM's own gate turned out to be wrong too, since a block whose whole body is one
+line never changes line *or* depth. Frames carry an id unique for the life of the
+VM, and gating on that is what makes a new frame always a new place to be.
+
+That third one is the one to remember: **two independent off-by-one judgements
+about "the same place", one in each component**, both invisible until a loop
+body happened to be a single line.
+
+**The roadmap is empty.** Sections 2 and 6 are done and section 3 is the
+restrictions kept on purpose. `ROADMAP.md` now ends with how it emptied rather
+than what is next, because the how is the part that transfers: almost every
+entry after the first dozen came from writing a program and finding out what it
+wanted, and the last four came from asking how a program would be debugged.
 
 ## 0.11.0 — 2026-08-21
 
@@ -40,7 +101,7 @@ table was checked — `amount:` lining up with `#30` is visible, where an
 assertion at a distance is not.
 
 **One entry left on the whole roadmap**, and it is
-[Solid](ROADMAP.md#629-a-stepper--solid), the debugger. Everything underneath it
+[Solid](COMPLETED.md#629-a-stepper--solid--done), the debugger. Everything underneath it
 is built: the call tree, the file a frame is in, a name for a local, and the
 interactive half in `solis --interactive`. What is left is stopping a program
 while it runs, and a front end to drive that.
@@ -136,7 +197,7 @@ trying it.
 *solidus* is Latin for firm, whole, sound — a fourth word that looks like the
 others and is unrelated to them, which is the pattern the other three names
 already play. It is recorded in
-[6.29](ROADMAP.md#629-a-stepper--solid) rather than the README, which lists
+[6.29](COMPLETED.md#629-a-stepper--solid--done) rather than the README, which lists
 programs that exist.
 
 **Two entries left on the roadmap**, both about looking at a running program: a
@@ -207,7 +268,7 @@ finding out whether a program is sound, standing on ground the language calls
 *solum*. The pun is in English and the sense is in the Latin, which is the trick
 the other three names play.
 
-Recorded in [6.29](ROADMAP.md#629-a-stepper--solid) rather than in the README,
+Recorded in [6.29](COMPLETED.md#629-a-stepper--solid--done) rather than in the README,
 which lists programs that exist.
 
 ## 0.9.0 — 2026-08-21
@@ -276,7 +337,7 @@ program: [6.27](COMPLETED.md#627-a-stack-trace-does-not-say-which-file--done), w
 trace names lines and not files and so reads as though a library's failure were
 in your own file; [6.28](COMPLETED.md#628-local-variables-have-no-names-at-run-time--done),
 where slots are indices so nothing can show a variable by name; and
-[6.29](ROADMAP.md#629-a-stepper--solid).
+[6.29](COMPLETED.md#629-a-stepper--solid--done).
 
 **And an `assert` turned down**, recorded in [ideas.md](ideas.md) with the
 reasoning: no to a compile-time switch that strips it, because every hand-rolled
@@ -404,7 +465,7 @@ program it was tracing would not be one.
 - [6.28](COMPLETED.md#628-local-variables-have-no-names-at-run-time--done) — slots are
   indices, so anything inspecting a running program shows `slot 3` and not
   `count`. The same kind of side table; it should ride along with 6.27.
-- [6.29](ROADMAP.md#629-a-stepper--solid) — much the largest, wants 6.28 first, and
+- [6.29](COMPLETED.md#629-a-stepper--solid--done) — much the largest, wants 6.28 first, and
   worth weighing against `solis`, which already does the interactive half of
   what a debugger is for.
 

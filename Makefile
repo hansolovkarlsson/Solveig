@@ -6,21 +6,21 @@
 
 CC      ?= cc
 CFLAGS  ?= -std=c11 -Wall -Wextra -Wpedantic -g
-INCLUDES = -Isolum/include -Isolas/include -Isolis/include
+INCLUDES = -Isolum/include -Isolas/include -Isolis/include -Isolid/include
 AR      ?= ar
 
 BUILD = build
 BIN   = bin
 
 LIB_SRCS  = $(wildcard solum/src/*.c) $(wildcard solas/src/*.c) \
-            $(wildcard solis/src/*.c)
+            $(wildcard solis/src/*.c) $(wildcard solid/src/*.c)
 LIB_OBJS  = $(LIB_SRCS:%.c=$(BUILD)/%.o)
 LIB       = $(BUILD)/libsol.a
 
 TEST_SRCS = $(wildcard tests/*.c)
 TEST_BINS = $(TEST_SRCS:tests/%.c=$(BUILD)/tests/%)
 
-BINARIES = $(BIN)/solas $(BIN)/solvm $(BIN)/solis
+BINARIES = $(BIN)/solas $(BIN)/solvm $(BIN)/solis $(BIN)/solid
 
 .PHONY: all test clean
 all: $(BINARIES)
@@ -34,6 +34,10 @@ $(BIN)/solvm: solum/cmd/main.c $(LIB)
 	$(CC) $(CFLAGS) $(INCLUDES) $^ -o $@
 
 $(BIN)/solis: solis/cmd/main.c $(LIB)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INCLUDES) $^ -o $@
+
+$(BIN)/solid: solid/cmd/main.c $(LIB)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(INCLUDES) $^ -o $@
 

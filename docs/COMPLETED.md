@@ -1390,6 +1390,74 @@ for values, by identity for arrays, blocks, objects and dictionaries.
 [[#1]]:indexOf([#1]).            ; nil  -- an equal-looking array is a different one
 ```
 
+### 6.29 A stepper — **Solid** — **done**
+
+`bin/solid`, the fourth program. It runs a program, stops before its first line,
+and takes commands: step, next, finish, continue, breakpoints, a backtrace, and
+the locals of any frame by name.
+
+```
+(solid) break report.sol:5
+break at report.sol:5
+(solid) continue
+report.sol:5  in block
+    5      after:lessThan(#0):ifTrue({ error:raise("overdrawn") }).
+(solid) locals
+  self             <object 0x10122e250>
+  amount           #30
+  after            #70
+```
+
+**The machine knows nothing about debugging.** The VM offers a stop before each
+instruction that begins a new line or enters a new frame, and calls a hook if
+one is set; Solid decides whether that stop is interesting. Stepping,
+breakpoints and what a person means by "over" all live in `solid/`, and `solum/`
+gained one function pointer and a branch.
+
+**The branch costs nothing measurable.** Three million loop turns: 0.43s with the
+check, 0.43s without.
+
+**It stops where a program breaks**, which is the thing
+[`solis --interactive`](#624-the-prompt-has-no-history--done) cannot do, since
+that begins after the unwind and sees only globals:
+
+```
+-- division by zero in 'div'
+breaks.sol:2  in block
+(solid) locals
+  a                #100
+  b                #0
+```
+
+Nothing resumes from there — the unwind is decided by the time the error is
+reported — but the frames are still standing and the value that caused it is in
+one. `sol_vm_runtime_error` calls the hook after building the trace and before
+returning, guarded against re-entry.
+
+**Three bugs, all in deciding when to stop**, and all found by using it:
+
+- **`next` stopped twice on one line.** Returning from a call lands on the line
+  the call was written on, so stepping over took two presses and looked like one
+  had been missed. It now requires a different line as well as the same frame.
+- **A breakpoint fired twice for one visit**, for the same reason. The signal
+  that tells them apart is the frame count *dropping* since the last offer,
+  which happens only on a return.
+- **A breakpoint in a loop fired once.** The first fix was too broad — it
+  suppressed by line and depth, which a loop repeats — and then the VM's own
+  gate turned out to be wrong too: a block whose whole body is one line, called
+  from a primitive, never changes line *or* depth. Frames carry an id unique for
+  the life of the VM, and gating on that is what makes a new frame always a new
+  place to be.
+
+The third of those is the one worth remembering: **two independent off-by-one
+judgements about "the same place", one in each component**, both invisible until
+a loop body happened to be a single line.
+
+**A line breakpoint matches any frame at that line**, which includes the frame
+that *defines* a block when the block's literal ends there. That is right and it
+made two tests wrong before it made them careful — the test programs now use a
+line only the body can be on.
+
 ### 6.28 Local variables have no names at run time — **done**
 
 A chunk records what each frame slot was called, so `--trace` names its
@@ -1437,7 +1505,7 @@ The size, against version 12: +0.2% on `numbers.sob`, +3.4% on `page.sob`. Far
 cheaper than the file table, because a name is stored once per slot rather than
 once per method chunk.
 
-**What it unblocks** is [Solid](ROADMAP.md#629-a-stepper--solid). A stepper
+**What it unblocks** is [Solid](COMPLETED.md#629-a-stepper--solid--done). A stepper
 showing `slot 3 = #180` would have been most of the work for a fraction of the
 use; it can show `average = #180`.
 
