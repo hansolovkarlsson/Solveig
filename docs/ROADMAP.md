@@ -55,7 +55,7 @@ have been. Side-table operands are two bytes, a send compares pointers, and the
 script's frame has slots like every other, so a temporary may be declared
 anywhere.
 
-**What is left is section 3, and one decision.** Section 3 holds the
+**What is left is section 3, and two decisions.** Section 3 holds the
 restrictions the language lives under on purpose, each documented where a
 program would meet it. Section 2 has no open design question — the last one,
 2.5, is closed. And section 6, a program's dealings with the world outside it,
@@ -63,11 +63,16 @@ is built: reading input, writing files, stopping with a status, walking the
 filesystem, knowing the time, a prompt with history, a debugger, and running
 another program.
 
-The decision is
-[6.32](#632-a-script-cannot-be-run-with-less-than-the-whole-machine): whether a
-script should be able to run with less than the whole machine, now that it can
-reach all of it. Nothing is asking for it; it is recorded because the shape of
-the answer is much cheaper to choose now than later.
+The decisions are
+[6.32](#632-a-script-cannot-be-run-with-less-than-the-whole-machine), whether a
+script should be able to run with less than the whole machine now that it can
+reach all of it, and
+[6.33](#633-a-running-program-cannot-be-stopped-from-outside), whether a running
+one can be stopped. Both come from the same place — a program embedding the
+VM, a webserver being the case in hand, which needs to say what a script reaches
+*and* to get the thread back. Nothing is asking for either yet; they are
+recorded because the shape of the answer is much cheaper to choose now than
+later.
 
 So this document no longer says what to build next. **The way to add to it is to
 write a program and find out what it wants**, which is how nearly every entry
@@ -329,34 +334,66 @@ currently no way to say which this is.
 The shape suggested is a **restricted mode**, with the dangerous messages
 refusing, and a flag to allow them.
 
-**Which way round is the default is the whole question.** Safe-by-default with
-`--unsafe` to enable protects the case that matters — a script you did not write
-— and breaks every existing use, including this repository's own tests and
-`examples/tools.sol`. Unsafe-by-default with `--safe` breaks nothing and helps
-only the people who remember to ask, which is not the people at risk.
+**The case this came from is an embedding, not a shell.** A webserver that
+produces pages by running Solum, where the risk is injection — untrusted input
+reaching the program and becoming part of what it runs. The one choosing the
+restriction is the webserver, and what it is protecting is itself.
 
-The deciding question is *who is choosing the flag*. If it is the person running
-their own script, either default works. If it is somebody about to run a script
-they were sent, the protection has to be on before they think about it — and
-they are exactly the person who will not think about it. That argues for
-safe-by-default, and for accepting the breakage as the price.
+That is a different shape from a person running a script they were sent, and it
+moves three things.
+
+*Who chooses, and how often.* Not somebody at a prompt who may not think to
+ask, but a program that decides once, at startup, and then runs the same policy
+over every request for as long as it is up. A server author thinks about this
+exactly once and deliberately, which weakens the argument that the protection
+must be on before anybody considers it — and strengthens a different one: **the
+restriction has to be settable from C, before the program runs.** A `--unsafe`
+argument is one front end for that, not the mechanism. If the mechanism is argv
+parsing, the case that asked for it cannot use it.
+
+*What is untrusted.* Not the file — the server wrote that. The **data**. So the
+permission cannot be attached to where the code came from, or decided per file:
+it is a property of the run, fixed before the first instruction and the same
+for everything the program subsequently reaches.
+
+*And embedding is not a documented use today.* The headers make it possible and
+nothing claims it: no page says how to hold a `SolVM` inside another program.
+Deciding this is therefore also deciding to have an embedding interface, which
+is the larger of the two and should be admitted up front rather than discovered
+halfway.
+
+**Which way round is the default** still matters for the command line, where the
+chooser is a person. Safe-by-default with `--unsafe` to enable protects the
+script you did not write and breaks every existing use, including this
+repository's own tests and `examples/tools.sol`. Unsafe-by-default with `--safe`
+breaks nothing and helps only the people who remember to ask. For a person, that
+argues for safe-by-default and for paying the breakage; for an embedding it
+barely signifies, since the host states what it wants either way.
 
 **What "dangerous" means is two things, not one.** The suggestion names the
 messages that *change* the machine, and there is a second set that *reveals* it:
 
 | | messages |
 | --- | --- |
-| changes | `run`, `capture`, `remove`, `makeDirectory`, `rename`, `writeFile`, `appendFile`, `setMode`, `setModifiedAt`, `exit` |
+| changes | `run`, `capture`, `remove`, `makeDirectory`, `rename`, `writeFile`, `appendFile`, `setMode`, `setModifiedAt` |
 | reveals | `readFile`, `filesIn`, `isDirectory`, `fileExists`, `fileSize`, `modifiedAt`, `modeOf`, `environment` |
 
 Reading `~/.ssh/id_rsa` and printing it changes nothing and is not safe.
 `environment` alone will hand over a token from half the CI systems there are.
-So a mode that only stops writing is a mode that stops the obvious half.
+So a mode that only stops writing is a mode that stops the obvious half — and
+in a server the revealing half is the worse one, since the process it is
+running inside holds the credentials the pages are built from.
+
+`system:exit` was in the first list and has been taken out of it: it sets a flag
+the interpreter loop unwinds on and `sol_vm_run` answers `SOL_EXIT`, so a script
+that exits ends *itself* and hands the decision back to whoever called. A
+webserver stays up. That is already the right behaviour and is worth naming
+here, because it is the one an embedding would most expect to be wrong.
 
 That suggests **capabilities rather than a switch** — something nearer
 `--allow-read --allow-run` than one flag — which is more useful and more work,
-and is the sort of thing that is easier to add at the start than to retrofit
-over a boolean.
+and the embedding case wants it: a template renderer wants to read files and
+never to run a program, which one boolean cannot say.
 
 **A complication worth knowing before starting**: `@include` reads files, and
 the search path reads the shipped library. A mode with no reading at all cannot
@@ -367,24 +404,81 @@ them rather than around `readFile`.
 **Enforcement is cheap and must not be reachable from inside.** A flag on the VM
 and a check in each primitive costs a branch on messages that are already doing
 system calls. What matters more is that there is no message to turn it off:
-whatever sets it must be the front end, before the program runs, or the whole
-thing is a suggestion.
+whatever sets it must be the host, before the program runs, or the whole thing
+is a suggestion.
 
 **And it is not a sandbox**, which is the thing to say loudest, because "safe
 mode" invites more trust than it can earn. A restricted script can still loop
 forever, allocate until the machine swaps, fill a disk through a file it *is*
 allowed to write, or simply compute the wrong answer and be believed. It stops a
-script reaching for the machine; it does not make a hostile script harmless, and
-anything that needs the second wants a container and not a flag. This is the
-same honesty as
+script reaching for the machine; it does not make a hostile script harmless.
+This is the same honesty as
 [3.3](#33-verification-does-not-promise-termination), which says the verifier
 proves a chunk is well-formed and not that it stops.
 
-**Raised after the fact**, by noticing what `system:run` had made possible rather
-than by anything going wrong. Nothing is asking for it yet, and it is written
-down because the decision above — which default, and capabilities or a switch —
-is much cheaper to take now than after somebody has written scripts that depend
-on either answer.
+The webserver case is what makes that caveat expensive rather than academic: on
+a command line a program that does not stop is an annoyance, and on a server it
+is the server. That half is
+[6.33](#633-a-running-program-cannot-be-stopped-from-outside), because it is a
+different decision — limits, not permissions — and the two are separable.
+
+**Raised after the fact**, by noticing what `system:run` had made possible
+rather than by anything going wrong; the embedding case above was supplied the
+following day as the reason it had occurred to anybody. Nothing is asking for it
+yet, and it is written down because the decisions above — where the mechanism
+lives, which default, capabilities or a switch — are much cheaper to take now
+than after somebody has written scripts that depend on either answer.
+
+### 6.33 A running program cannot be stopped from outside
+
+A program that does not stop cannot be made to. There is no time limit, no
+instruction budget, and no ceiling on what it may allocate; a host that starts
+one has no way to take it back.
+
+This has always been true and has never mattered, because the caller was a
+person with a terminal and ctrl-c. It matters in the webserver of
+[6.32](#632-a-script-cannot-be-run-with-less-than-the-whole-machine), where a
+request that never finishes is a worker that never returns, and enough
+of them is the whole server — with no injection needed and nothing dangerous
+called.
+
+**Some of the mechanism is already there, and its granularity is wrong.** The VM
+calls `debug_hook` when it offers a stop, and a hook may set `exiting` and
+`had_error` to unwind — which is how Solid quits out of a running program, so
+stopping one from outside is demonstrably possible. But the offer is gated on
+the line or the frame changing, and a loop written literally compiles to jumps
+rather than calls, so neither moves. Measured, with a breakpoint on the loop:
+
+| loop | iterations | times the host was offered a stop |
+| --- | --- | --- |
+| `{ ... }:whileTrue({ ... })`, one line | 3,000,000 | 1 |
+| `#1:toDo(#5, step)` | 5 | 5 |
+
+The inlined loop is offered once and then runs to completion uninterrupted. This
+is the same inlining that makes `--trace` quiet on a three-hundred-thousand-turn
+loop, seen from the other side: what makes the trace bearable makes the program
+unstoppable.
+
+So a budget cannot be built on the debug hook. It wants a counter in the
+interpreter loop itself — a decrement and a branch, tested every instruction
+or every N of them — which is cheap but sits on the hot path, so choosing N is
+a measurement rather than an opinion.
+
+**Memory is the other half and is easier.** The collector already tracks
+`bytes_allocated` and compares it against `next_gc` on every allocation, and a
+sweep leaves the live total behind; a ceiling is one more comparison at that
+same place, against the live figure after a collection rather than before.
+
+**What it would answer with** is the question underneath: exceeding a limit is
+not a runtime error the program should be able to catch and ignore, or the limit
+is advice. It wants to unwind the way `exit` does — the host gets a status
+saying *stopped, not finished*, and decides.
+
+**Not asking to be built.** It is recorded because it is the half of 6.32 that
+gets forgotten: permissions are what people ask for, limits are what the
+webserver actually needed, and a "safe mode" that stops `system:run` while
+leaving `{ true }:whileTrue({ })` alone would be the more reassuring of the two
+and the less useful.
 
 ## How this list emptied
 
@@ -436,11 +530,20 @@ one message at a time to stop the crashes, and finishing that — every class-si
 message requiring an object receiver — turned out to be the whole of what
 splitting the two objects would have bought.
 
-**A new entry means a program wanted something and could not have it** — or, once,
-that something became possible and wanted a decision about it:
+**A new entry means a program wanted something and could not have it** — or,
+twice, that something became possible and wanted a decision about it.
 [6.32](#632-a-script-cannot-be-run-with-less-than-the-whole-machine) came from
 noticing what `system:run` had opened up rather than from anything going wrong,
-and is recorded rather than built.
+and [6.33](#633-a-running-program-cannot-be-stopped-from-outside) came from
+asking what 6.32 would not cover. Both are recorded rather than built.
+
+Those two arrived a third way, worth naming because it is the one this document
+did not have before: **from a use nobody had written yet**. Not a program that
+wanted something, but a description of where the language might end up — inside
+a webserver, with untrusted input reaching it — which asked questions the
+existing programs could not, because every program so far was run by the person
+who wrote it. The measurement in 6.33 exists only because that question got
+asked; on a command line nobody would have thought to take it.
 
 That aside, wanting is how they have all arrived, including the two after the
 list emptied:

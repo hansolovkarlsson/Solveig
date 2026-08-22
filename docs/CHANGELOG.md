@@ -7,6 +7,66 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### The threat model behind the safe-mode decision, and a second decision — `pending`, 2026-08-21
+
+[6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
+was recorded from the command line's point of view: a person about to run a
+script somebody sent them. The case it actually came from is an **embedding** —
+a webserver producing pages by running Solum, where the risk is injection, and
+the one choosing the restriction is the server, protecting itself.
+
+That moves the entry's conclusions rather than confirming them.
+
+**The chooser is a program, not a person.** It decides once, at startup, and
+runs that policy over every request for as long as it is up. So the argument
+that protection must be on before anybody thinks to ask it for weakens — and
+another takes over: the restriction has to be settable **from C, before the
+program runs**. A `--unsafe` argument is one front end for it, not the
+mechanism. If the mechanism is argv parsing, the case that asked for it cannot
+use it. Which makes this partly a decision to have an embedding interface at
+all, since no page currently says how to hold a `SolVM` inside another program.
+
+**What is untrusted is the data, not the file.** The server wrote the script.
+So the permission cannot attach to where the code came from, or be decided per
+file — it is a property of the run.
+
+**`system:exit` came off the dangerous list.** It sets a flag the interpreter
+loop unwinds on and `sol_vm_run` answers `SOL_EXIT`, so a script that exits ends
+itself and hands the decision back to its caller. A webserver stays up. Already
+right, and named in the entry because it is the one an embedding would most
+expect to be wrong.
+
+### 6.33, the half that gets forgotten
+
+The entry's quietest caveat — *it is not a sandbox, a restricted script can
+still loop forever* — is an annoyance on a command line and is the whole server
+in a webserver, with nothing dangerous called and no injection needed. That is
+[6.33](ROADMAP.md#633-a-running-program-cannot-be-stopped-from-outside): a
+running program cannot be stopped from outside.
+
+Some of the mechanism turns out to exist. The VM calls `debug_hook` when it
+offers a stop, and a hook may set `exiting` and `had_error` to unwind — which is
+how Solid quits out of a running program. But the offer is gated on the line or
+the frame changing, and a loop written literally compiles to jumps rather than
+calls, so neither moves. Measured with a breakpoint on the loop:
+
+| loop | iterations | times the host was offered a stop |
+| --- | --- | --- |
+| `{ ... }:whileTrue({ ... })`, one line | 3,000,000 | 1 |
+| `#1:toDo(#5, step)` | 5 | 5 |
+
+The inlined loop is offered once and then runs to completion uninterrupted. It
+is the same inlining that makes `--trace` quiet on a three-hundred-thousand-turn
+loop, seen from the other side: what makes the trace bearable makes the program
+unstoppable. So a budget cannot be built on the debug hook — it wants a counter
+in the interpreter loop itself, which is cheap but sits on the hot path.
+
+Memory is the easier half: the collector already compares `bytes_allocated`
+against `next_gc` on every allocation, so a ceiling is one more comparison at
+that same place, against the live total a sweep leaves behind.
+
+Both remain recorded rather than built.
+
 ### A decision recorded: restricting what a script may reach — `56408a7`, 2026-08-21
 
 [6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine),
