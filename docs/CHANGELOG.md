@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### A page placing the language among its relatives — `pending`, 2026-08-22
+### A page placing the language among its relatives — `96f4649`, 2026-08-22
 
 [docs/lineage.md](lineage.md): what Solum borrowed and from whom, which living
 languages sit nearest it, and what will surprise somebody arriving with another
