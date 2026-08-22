@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### The examples now have to mean what they say — `pending`, 2026-08-22
+### The examples now have to mean what they say — `7ba94a1`, 2026-08-22
 
 [programs/expect.sol](../programs/expect.sol) runs every file in `examples/` and
 checks the inline comments that say what each line prints. It is in `make test`.
