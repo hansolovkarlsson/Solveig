@@ -153,7 +153,7 @@ static void test_a_chunk_resolves_its_names(void)
     assert(run(&vm, &chunk, "x := #1:add(#2). y := x:add(#3).") == SOL_OK);
 
     assert(chunk.interned != NULL);
-    assert(chunk.interned_for == &vm);
+    assert(chunk.interned_for == vm.id);
     for (int i = 0; i < chunk.names.count; i++) {
         const char *name = chunk.names.names[i];
         assert(chunk.interned[i] == sol_vm_intern_name(&vm, name, (int)strlen(name)));
@@ -178,7 +178,7 @@ static void test_nested_chunks_resolve(void)
     assert(chunk.methods.count > 0);
     for (int i = 0; i < chunk.methods.count; i++) {
         SolChunk *inner = &chunk.methods.methods[i]->chunk;
-        assert(inner->interned_for == &vm);
+        assert(inner->interned_for == vm.id);
         if (inner->names.count > 0) assert(inner->interned != NULL);
     }
 
@@ -197,12 +197,12 @@ static void test_a_second_vm_reresolves(void)
     SolVM first; sol_vm_init(&first);
     assert(sol_vm_run(&first, &chunk) == SOL_OK);
     const char *from_first = chunk.interned[0];
-    assert(chunk.interned_for == &first);
+    assert(chunk.interned_for == first.id);
     sol_vm_free(&first);
 
     SolVM second; sol_vm_init(&second);
     assert(sol_vm_run(&second, &chunk) == SOL_OK);
-    assert(chunk.interned_for == &second);
+    assert(chunk.interned_for == second.id);
     assert(chunk.interned[0] ==
            sol_vm_intern_name(&second, chunk.names.names[0], (int)strlen(chunk.names.names[0])));
     assert(SOL_AS_INT(global(&second, "x")) == 3);
@@ -211,6 +211,62 @@ static void test_a_second_vm_reresolves(void)
 
     sol_chunk_free(&chunk);
     printf("  a chunk run by a second VM is resolved again\n");
+}
+
+/* And again when the second VM lands where the first one was.
+ *
+ * The test above holds both machines as locals of one function, so they sit at
+ * different addresses and a chunk could tell them apart by pointer. A host
+ * running a script per request does not: the VM is a local of the function that
+ * serves one, so every request builds it at the same address, and a chunk that
+ * identified a VM by pointer believed it was already resolved and went on
+ * reading the freed machine's name table. It failed as `integer does not
+ * understand ''`, which names nothing a reader could act on.
+ *
+ * Hence the serial. This runs the same chunk through four VMs at what is very
+ * likely one address, which is the case that was wrong. */
+static SolResult run_in_a_fresh_vm(SolChunk *chunk, const void **address,
+                                   uint64_t *serial, long *answer)
+{
+    SolVM vm;
+    sol_vm_init(&vm);
+    *address = (const void *)&vm;
+    *serial  = vm.id;
+
+    sol_vm_intern_chunk(&vm, chunk);
+    SolResult result = sol_vm_run(&vm, chunk);
+    if (result == SOL_OK) *answer = (long)SOL_AS_INT(global(&vm, "x"));
+
+    sol_vm_free(&vm);
+    return result;
+}
+
+static void test_a_reused_address_is_not_the_same_vm(void)
+{
+    SolChunk chunk;
+    sol_chunk_init(&chunk);
+    assert(sol_compile("x := #1:add(#2).", &chunk));
+
+    const void *addresses[4];
+    uint64_t    serials[4];
+    for (int i = 0; i < 4; i++) {
+        long answer = 0;
+        assert(run_in_a_fresh_vm(&chunk, &addresses[i], &serials[i], &answer) == SOL_OK);
+        assert(answer == 3);              /* the names still resolve */
+        assert(chunk.interned_for == serials[i]);
+    }
+
+    /* Every machine was a different machine, whatever the addresses did. */
+    for (int i = 1; i < 4; i++) assert(serials[i] != serials[i - 1]);
+
+    /* And the case this is guarding is the one where they did collide, which is
+       what the loop above almost certainly produced. Not asserted -- a stack
+       address is not something a test may require -- but if they never collide
+       the test is merely not exercising the bug rather than failing. */
+    (void)addresses;
+
+    sol_chunk_free(&chunk);
+    printf("  a VM at a reused address is not mistaken for the last one\n");
 }
 
 /* ---- the side-table index ----------------------------------------------- */
@@ -365,6 +421,7 @@ int main(void)
     test_a_chunk_resolves_its_names();
     test_nested_chunks_resolve();
     test_a_second_vm_reresolves();
+    test_a_reused_address_is_not_the_same_vm();
     test_interning_is_the_same_either_side_of_the_threshold();
     test_the_hash_agrees_with_the_bits();
     test_the_loader_keeps_positions();

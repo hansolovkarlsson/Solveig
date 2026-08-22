@@ -83,10 +83,11 @@ a different language.
 | `solum/`  | **SolVM** -- the virtual machine, built as `bin/solvm`               |
 | `solis/`  | **Solis** -- the REPL: reads until the input could compile        |
 | `solid/`  | **Solid** -- the debugger: breakpoints, stepping, and locals      |
-| `docs/`   | [GUIDE.md](docs/GUIDE.md), [TUTORIAL.md](docs/TUTORIAL.md), [REFERENCE.md](docs/REFERENCE.md), [design.md](docs/design.md), [BYTECODE.md](docs/BYTECODE.md), [ROADMAP.md](docs/ROADMAP.md), [COMPLETED.md](docs/COMPLETED.md), [CHANGELOG.md](docs/CHANGELOG.md), [journal.md](docs/journal.md), [programs.md](docs/programs.md) |
+| `docs/`   | [GUIDE.md](docs/GUIDE.md), [TUTORIAL.md](docs/TUTORIAL.md), [REFERENCE.md](docs/REFERENCE.md), [design.md](docs/design.md), [BYTECODE.md](docs/BYTECODE.md), [ROADMAP.md](docs/ROADMAP.md), [COMPLETED.md](docs/COMPLETED.md), [CHANGELOG.md](docs/CHANGELOG.md), [journal.md](docs/journal.md), [programs.md](docs/programs.md), [embedding.md](docs/embedding.md) |
 | `tests/`  | Test suite                                                        |
 | `examples/` | One `.sol` demonstration per concept the guide names            |
 | `programs/` | Whole `.sol` programs, each written to do a job -- [what each does](docs/programs.md) |
+| `embed/`  | A C program that holds a `SolVM` -- see [embedding.md](docs/embedding.md) |
 | `lib/`    | The library that ships with the language, found on the search path |
 
 Each component keeps its public headers in `<component>/include/<component>/`

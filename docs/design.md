@@ -699,6 +699,9 @@ if (sol_vm_run(&vm, &chunk) == SOL_STOPPED) {
 }
 ```
 
+[embedding.md](embedding.md) is the rest of what a host needs, and
+[embed/host.c](../embed/host.c) is one that works.
+
 Zero is no limit and is the default, which is right for a person at a terminal:
 they have a ctrl-c, and a budget chosen in advance by somebody who did not know
 what the program would do is worse than no budget at all. It is the *embedded*

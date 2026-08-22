@@ -45,6 +45,13 @@ struct SolVM {
     SolObject *root;      /* globals namespace; also ends every proto chain */
     uint64_t   next_frame_id;
 
+    /* This machine's serial, unique for the life of the process. A chunk
+       records it to say whose interned names it is holding -- by serial and not
+       by pointer, because a freed VM's address can be handed straight back to
+       the next one, and a host that runs a script per request makes that the
+       normal case rather than a corner. See `interned_for` in bytecode.h. */
+    uint64_t   id;
+
     /* Heap. One list threads every collectable cell; `gray` is the mark
        worklist, kept explicit so a deep object graph cannot overflow the C
        stack the way recursive marking would. */

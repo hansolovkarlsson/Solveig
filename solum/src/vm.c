@@ -11,8 +11,15 @@ static void reset_stack(SolVM *vm)
     vm->stack_top = vm->stack;
 }
 
+/* Serials handed to VMs, so a chunk can say whose interned names it holds
+   without relying on an address that a later VM may be given again. Never
+   reused, never zero -- zero is what a chunk from Solas carries, meaning no VM
+   has resolved it yet. */
+static uint64_t next_vm_id = 1;
+
 void sol_vm_init(SolVM *vm)
 {
+    vm->id = next_vm_id++;
     vm->frame_count = 0;
     vm->had_error = false;
     vm->exiting = false;
@@ -1008,7 +1015,7 @@ SolValue sol_vm_send(SolVM *vm, SolValue receiver, const char *name,
  * a pointer comparison. */
 void sol_vm_intern_chunk(SolVM *vm, SolChunk *chunk)
 {
-    if (chunk->interned_for != vm) {
+    if (chunk->interned_for != vm->id) {
         free(chunk->interned);
         chunk->interned = NULL;
     }
@@ -1023,7 +1030,7 @@ void sol_vm_intern_chunk(SolVM *vm, SolChunk *chunk)
             chunk->interned[i] = sol_vm_intern_name(vm, name, (int)strlen(name));
         }
     }
-    chunk->interned_for = vm;
+    chunk->interned_for = vm->id;
 
     for (int i = 0; i < chunk->methods.count; i++) {
         sol_vm_intern_chunk(vm, &chunk->methods.methods[i]->chunk);

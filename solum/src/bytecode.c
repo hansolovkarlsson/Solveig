@@ -26,7 +26,7 @@ void sol_chunk_init(SolChunk *chunk)
     chunk->methods.capacity = 0;
     chunk->methods.methods = NULL;
     chunk->interned = NULL;
-    chunk->interned_for = NULL;
+    chunk->interned_for = 0;
     chunk->name_index.slots = NULL;
     chunk->name_index.capacity = 0;
     chunk->name_index.count = 0;

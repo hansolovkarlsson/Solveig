@@ -38,6 +38,7 @@ exclude:
   - solas/
   - solis/
   - solum/
+  - embed/
   - tests/
   - bin/
   - build/

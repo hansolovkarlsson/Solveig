@@ -5,6 +5,75 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+### A host, and the use-after-free it found on its first run — `pending`, 2026-08-22
+
+[embed/host.c](../embed/host.c), built with `make embed`: a C program that holds
+a `SolVM` and runs [serve.sol](../programs/serve.sol) through it once per
+request. Not a component and not in `all` — a demonstration of the interface
+[6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
+assumes exists, written to find out whether it does.
+[docs/embedding.md](embedding.md) is what it learned, written for a reader.
+
+**It found a use-after-free on its first run, and it is fixed.**
+`SolChunk.interned_for` recorded which VM had resolved a chunk's names, as a
+`const SolVM *`, and `sol_vm_intern_chunk` skipped the work when it matched. A
+host serves each request in a function that builds a VM as a local — so every
+request's machine landed at the same stack address, the chunk believed it was
+already resolved, and every run after the first read the **freed** previous VM's
+name table.
+
+```
+==== a search: /search?q=limit
+solvm: undefined name 'lessThan'
+==== a traversal: /note/..
+solvm: undefined name 'truncated'
+==== the index: /
+solvm: cannot bind 'shiftRight' on boolean
+```
+
+Six of seven requests failed that way, each naming a different built-in and none
+of it meaning anything. `interned_for` is a **serial** now — `vm->id`, assigned
+in `sol_vm_init` from a counter and unique for the life of the process — so an
+address handed back to a later VM cannot be taken for the same machine.
+
+**Why nothing caught it.** `test_a_second_vm_reresolves` exists and is exactly
+about this, but it holds both VMs as locals of one function, which puts them at
+different addresses and makes a pointer comparison work.
+`test_a_reused_address_is_not_the_same_vm` builds each in a called function,
+which is what a host does, and runs one chunk through four of them.
+
+`.sob` files are unaffected: `interned_for` is a runtime field and the format
+stays at version 13.
+
+**What else the host showed.**
+
+- **The allowance really is per run.** `sol_vm_run` resets `steps_remaining`
+  from `step_limit`, written for a server handing one machine a request and then
+  another, and never before given a second run to prove it. Two deliberately
+  starved requests stop and the ones on either side do not.
+- **The numbers to set a limit from**: a request costs 393 to 798 instructions
+  and about **15KB live**.
+- **There is no route for the answer**, which is the gap that matters. A
+  script's output goes to stdout because `display` writes there and nothing else
+  exists; a webserver needs the page as a value. `sol_object_lookup` on
+  `vm->root` and `sol_value_render` do it, but a host must assemble them, know
+  the value dies with the VM, and agree a global name with the script by
+  convention with nothing checking that they do.
+- **A fresh VM per request is the only safe choice**, since globals are one flat
+  namespace and nothing unbinds them — and it costs rebuilding the interned
+  names and the built-in classes every time.
+- **[3.6](ROADMAP.md#36-a-caller-owned-chunk-must-outlive-blocks-defined-in-it)
+  has its second case.** `sol_chunk_free` after `sol_vm_free`, never before. The
+  entry said the hazard bites code mixing caller-owned chunks with a long-lived
+  VM, "which today is the test suite"; it is a host as well, and a host is where
+  it turns up in somebody else's program.
+
+6.32 records the conclusion: the interface is worth writing down *before*
+deciding what permissions it carries, because a permission is a promise about
+what a host may rely on and there is no list of that yet.
+
 ## 0.14.0 — 2026-08-22
 
 **A program written to be run by a stranger, and the shipped files divide in

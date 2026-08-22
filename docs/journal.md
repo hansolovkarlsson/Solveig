@@ -128,8 +128,45 @@ Then [programs.md](programs.md), because a directory of seven programs with no
 page saying what they do is a directory people open once. Every invocation in it
 was run before it was written down.
 
+**And then the host**, which was the day's third thing and the one that paid
+best. 0.14.0 went out; the obvious next move was the C host, because 6.32 keeps
+saying "the restriction has to be settable from C, before the program runs" and
+nothing in this repository had ever held a `SolVM` inside another program. The
+whole claim was untested.
+
+It took about a hundred lines and **broke on the first run**. Six of seven
+requests failed with `undefined name 'lessThan'`, `undefined name 'truncated'`,
+`cannot bind 'shiftRight' on boolean` — different built-ins each time, none of
+it meaning anything, which is what reading freed memory looks like.
+
+The cause is the nicest kind of bug: a correct-looking thing that is wrong only
+in the case it was written for. A chunk records which VM interned its names so a
+second machine re-resolves them, and it recorded that machine **by pointer**. A
+host serves each request in a function that makes a VM as a local — so every
+request's machine sits at the same stack address, and the chunk concluded it had
+already done the work. It then went on reading the *freed* previous VM's name
+table.
+
+The test for this exists. `test_a_second_vm_reresolves`, written for exactly
+this hazard — and it holds both VMs as locals of one function, so they get
+different addresses and the pointer comparison works. It was never wrong; it was
+just never in the shape that fails.
+
+A serial fixed it, which is one field and one counter. The regression test
+builds each VM in a *called* function, which is the thing a host does and the
+thing nothing here had done.
+
+The rest of what the host found was more or less what I predicted before writing
+it, which is worth noting because it means the predictions were doing work: no
+route for the answer back out, a fresh VM per request being the only safe
+choice, and ROADMAP 3.6 collecting its second victim. What I did not predict was
+the defect. That is the argument for building the instrument rather than
+reasoning about the interface.
+
 **The shape of the day**, which is the thing this file is for: the program was
-the instrument, not the result. It was written to be run by a stranger, and
+the instrument, not the result. Three times now — serve.sol found 3.7, the split
+made the audit answerable, and the host found a use-after-free. None of the
+three came from reading the code. It was written to be run by a stranger, and
 almost everything it found came from being run *as* one — under a limit, against
 a hostile path, with input that was trying to become code. Nothing here had been
 run that way before, because until yesterday there was nothing to run it with.

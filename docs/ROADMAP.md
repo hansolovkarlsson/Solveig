@@ -446,6 +446,21 @@ Deciding this is therefore also deciding to have an embedding interface, which
 is the larger of the two and should be admitted up front rather than discovered
 halfway.
 
+**That has now been tried**, and the aside was understated.
+[embed/host.c](../embed/host.c) holds a machine and runs
+[serve.sol](../programs/serve.sol) once per request; it is about a hundred
+lines, the pieces compose, and [embedding.md](embedding.md) is what a host
+needs to know. It also **found a use-after-free on its first run**: a chunk
+recorded which VM had interned its names by pointer, and a host builds each
+request's VM as a local, so every one landed at the same address and the chunk
+went on reading the freed machine's name table. Fixed — the record is a serial
+now — and the point for this entry is that nothing in the repository was shaped
+to catch it, because nothing had ever run two VMs in sequence at one address.
+
+So the interface is worth writing down *before* deciding what permissions it
+carries. A permission is a promise about what a host may rely on, and there is
+no list of what a host may rely on yet.
+
 **Which way round is the default** still matters for the command line, where the
 chooser is a person. Safe-by-default with `--unsafe` to enable protects the
 script you did not write and breaks every existing use, including this

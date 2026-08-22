@@ -146,7 +146,20 @@ typedef struct {
        walking characters (4.3). Built once, before the chunk first runs.
        NULL in Solas, which has no VM to intern against. */
     const char  **interned;
-    const SolVM  *interned_for;
+
+    /* Which VM those pointers belong to, by **serial number rather than
+       address**. A VM used to be identified here by its own pointer, and that
+       is wrong in the one case it most needed to be right: free a VM and make
+       another, and the second can land at the address the first had -- which a
+       host running a script per request does every time, the VM being a local.
+       The chunk then believed it was already resolved and went on reading the
+       freed VM's name table, which fails as `integer does not understand ''`
+       rather than as anything a reader could act on.
+     *
+       A serial is unique for the life of the process, so a reused address
+       cannot be mistaken for the same machine. Zero means "no VM yet", which is
+       what a chunk from Solas holds. */
+    uint64_t      interned_for;
 
     /* The collectable cell owning this chunk's tree, or NULL when the chunk is
        owned by whoever created it. Solas and the tests use standalone chunks and

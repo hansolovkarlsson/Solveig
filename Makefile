@@ -1,7 +1,8 @@
 # Solum -- build for all three components.
 #
-#   make            build bin/solas, bin/solvm, bin/solis
+#   make            build bin/solas, bin/solvm, bin/solis, bin/solid
 #   make test       build and run the test suite
+#   make embed      build bin/solhost, the embedding demonstration
 #   make clean      remove build artefacts
 
 CC      ?= cc
@@ -22,8 +23,16 @@ TEST_BINS = $(TEST_SRCS:tests/%.c=$(BUILD)/tests/%)
 
 BINARIES = $(BIN)/solas $(BIN)/solvm $(BIN)/solis $(BIN)/solid
 
-.PHONY: all test clean
+.PHONY: all test embed clean
 all: $(BINARIES)
+
+# Not in `all`: it is a demonstration of the C interface rather than a program
+# anybody installs. See embed/host.c and docs/embedding.md.
+embed: $(BIN)/solhost
+
+$(BIN)/solhost: embed/host.c $(LIB)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INCLUDES) $^ -o $@
 
 $(BIN)/solas: solas/cmd/main.c $(LIB)
 	@mkdir -p $(@D)
