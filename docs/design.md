@@ -22,13 +22,19 @@ Example of creating an integer variable and assigning it, then printing it.
 	a:print.	; sends print message to object a to print out
 ```
 
-## The three parts
+## The four parts
 
 | Part      | Binary      | Job                                          |
 | --------- | ----------- | -------------------------------------------- |
 | **Solas** | `bin/solas` | Compiler: `.sol` source -> bytecode          |
 | **SolVM** | `bin/solvm` | Virtual machine: loads and executes bytecode; sources in `solum/` |
 | **Solis** | `bin/solis` | REPL: reads until the input could compile, then runs it |
+| **Solid** | `bin/solid` | Debugger: runs a program a step at a time; sources in `solid/` |
+
+Solid came last and is the one that changed the machine to exist: the VM offers
+a stop before each instruction that begins a new line or enters a new frame, and
+Solid decides whether that stop is interesting. The machine knows nothing about
+breakpoints or stepping.
 
 Solas and SolVM meet at exactly one place: `solum/include/solum/bytecode.h`.
 That header defines the opcodes, so a change to the instruction set is a change
@@ -38,9 +44,10 @@ it to the VM.
 
 ## The name
 
-**Solveig** names the project. The language is **Solum**, and the three programs
-are **Solas**, **SolVM**, and **Solis**. See the README for where the names come
-from.
+**Solveig** names the project. The language is **Solum**, and the four programs
+are **Solas**, **SolVM**, **Solis** and **Solid** -- the last being
+*sol-interactive-debugger*, which is also a word. See the README for where the
+names come from.
 
 ## Design principles
 
@@ -779,45 +786,30 @@ as one list rather than split across documents so it cannot drift.
 
 ## Status
 
-The vertical slice runs. `bin/solis` compiles and executes what you type:
+**0.13.0.** The language is Turing-complete, does not leak, and is what a
+program gets written in rather than a slice being demonstrated.
 
 ```
-> a := #45.
-> a:add(#5):print.
-#50
-> a:print.
-#45
+$ solas report.sol && solvm report.sob
 ```
 
-The full pipeline also runs, compiling to a file and executing it separately:
+Implemented: the scanner, the single-pass compiler, the re-entrant dispatch loop
+with call frames, methods and locals, blocks with lexical capture and
+parameters, message-based control flow with the common forms inlined to jumps,
+the `.sob` format with its verifier, and every built-in type the language
+has -- `integer`, `float`, `boolean`, `nil`, `block`, `string`, `symbol`,
+`array`, `dict`, `time`, `error` and `object`, each delegating to a single root.
 
-```
-$ ./bin/solas examples/hello.sol     # writes examples/hello.sob
-$ ./bin/solvm examples/hello.sob
-#45
-```
+The heap is collected by mark-sweep over objects, blocks and compiled code, so a
+block literal in a loop does not accumulate and Solis retains nothing between
+lines. A program reaches the world outside it: arguments, standard input, files,
+directories, the clock, another program, and a status to stop with. It can be
+traced (`solvm --trace`), stepped (`bin/solid`), and bounded (`--steps`,
+`--memory`).
 
-Methods defined in Solum source work too, in the REPL and through a file:
-
-```
-> integer:double := { self:mul(#2) }.
-> #21:double:print.
-#42
-```
-
-Blocks make the language Turing-complete:
-
-```
-integer:factorial := {
-    self:lessThan(#2):ifElse({ #1 }, { self:mul( self:sub(#1):factorial ) })
-}.
-#20:factorial:print.      ; #2432902008176640000
-```
-
-Implemented: the scanner, the single-pass compiler, the re-entrant dispatch
-loop with call frames, methods and locals, blocks with lexical capture, the
-`.sob` format with its verifier, and built-in `integer`, `float`, `boolean`,
-`nil`, and `block` classes. Not implemented: user-defined classes, strings,
-symbols, and user-defined classes. The heap is collected: a mark-sweep collector
-reclaims objects and blocks, so a block literal in a loop no longer accumulates.
-Compiled code is collected too, so Solis retains nothing between lines.
+What is deliberately not there is in
+[ROADMAP.md](ROADMAP.md#3-known-limitations), and it is short: a capturing block
+cannot outlive its frame, there is no non-local return, recursion reaches 62
+levels, text is bytes, and a `.sob` from an older format is refused rather than
+read hopefully. One decision is open -- whether a script can be run with less
+than the whole machine -- and it is a decision rather than work waiting.

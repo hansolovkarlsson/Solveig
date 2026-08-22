@@ -876,6 +876,27 @@ bits and `#256` would leave looking like success.
 array of strings every time you ask, and the empty array rather than nil when
 there were none, so it can be walked without first asking whether it is there.
 
+**A program may also be stopped by whoever runs it**, which is the one thing
+here that is not the program's own decision. `solvm --steps=N` says how many
+instructions it may execute and `--memory=N` how much it may hold at once;
+neither is set unless somebody asks, so nothing you run yourself is affected.
+Reaching either ends the program where it stands, with a status of 124.
+
+```
+$ solvm --steps=100000 loop.sob
+solvm: stopped: the step limit of 100000 was reached
+  [loop.sol:3] in script
+```
+
+**A stop cannot be caught.** `onError` does not see it and `ensure` does not run
+its cleanup, because both of those are ways of running more code and the
+allowance for running code is what ran out. There is no message that reads or
+changes either limit — a program cannot find out what it was given, and cannot
+give itself more. This matters if you are the one *embedding* the machine rather
+than the one writing the script: `sol_vm_set_step_limit` and
+`sol_vm_set_memory_limit` are how a program that runs other people's programs
+keeps the thread and the heap it lent them.
+
 **`readLine` answers one line of standard input**, without its terminator, or
 nil when there is no more. Nil is the end and `""` is an empty line, so a loop
 that reads to the end can be written the obvious way:
@@ -975,10 +996,18 @@ total:div(200000.0):asString(".9"):display.      ; 0.000000088 -- or thereabouts
 The language is Turing-complete and does not leak. What remains is in
 [ROADMAP.md](ROADMAP.md), and it is no longer about the language: a program can
 now be split across files, stop with a status, read its input, read and write
-files, take a string apart and put it back together, and time itself. **No design
-question is open**: the last one — whether the class side and the instance side
-should be separate objects — was closed by drawing the line between them with
-the receiver each message requires, rather than by splitting the objects.
+files, take a string apart and put it back together, time itself, and run
+another program.
+
+**No design question about the language is open**: the last one — whether the
+class side and the instance side should be separate objects — was closed by
+drawing the line between them with the receiver each message requires, rather
+than by splitting the objects. One question about *running* a program is open,
+and it arrived with the ability to run another one: whether a script should be
+able to run with less than the whole machine — no shell, no deleting files, no
+reading whatever it likes. That is
+[6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine),
+and it is recorded rather than answered.
 
 Known restrictions worth carrying with you:
 
@@ -986,3 +1015,4 @@ Known restrictions worth carrying with you:
 - There is no non-local return; a block answers its last expression.
 - Recursion reaches about 62 levels.
 - Text is bytes: `size` counts bytes, and `"café":size` is 5.
+- A program can be stopped by whoever runs it, and cannot catch that.

@@ -83,7 +83,7 @@ a different language.
 | `solum/`  | **SolVM** -- the virtual machine, built as `bin/solvm`               |
 | `solis/`  | **Solis** -- the REPL: reads until the input could compile        |
 | `solid/`  | **Solid** -- the debugger: breakpoints, stepping, and locals      |
-| `docs/`   | [GUIDE.md](docs/GUIDE.md), [TUTORIAL.md](docs/TUTORIAL.md), [REFERENCE.md](docs/REFERENCE.md), [design.md](docs/design.md), [BYTECODE.md](docs/BYTECODE.md), [ROADMAP.md](docs/ROADMAP.md), [COMPLETED.md](docs/COMPLETED.md), [CHANGELOG.md](docs/CHANGELOG.md) |
+| `docs/`   | [GUIDE.md](docs/GUIDE.md), [TUTORIAL.md](docs/TUTORIAL.md), [REFERENCE.md](docs/REFERENCE.md), [design.md](docs/design.md), [BYTECODE.md](docs/BYTECODE.md), [ROADMAP.md](docs/ROADMAP.md), [COMPLETED.md](docs/COMPLETED.md), [CHANGELOG.md](docs/CHANGELOG.md), [journal.md](docs/journal.md) |
 | `tests/`  | Test suite                                                        |
 | `examples/` | Sample `.sol` programs                                          |
 | `lib/`    | The library that ships with the language, found on the search path |
@@ -313,3 +313,5 @@ unbuilt work -- is in [docs/ROADMAP.md](docs/ROADMAP.md).
 See [docs/design.md](docs/design.md) for the object model,
 [docs/BYTECODE.md](docs/BYTECODE.md) for the instruction set, and
 [docs/CHANGELOG.md](docs/CHANGELOG.md) for what has changed.
+[docs/journal.md](docs/journal.md) is the day-by-day account: what was picked
+up and why, including the hours that produced no code.
