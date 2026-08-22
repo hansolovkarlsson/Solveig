@@ -7,7 +7,45 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-Nothing yet.
+### A decision recorded: restricting what a script may reach — `pending`, 2026-08-21
+
+[6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine),
+written down rather than built. Raised by noticing what `system:run` had made
+possible rather than by anything going wrong.
+
+Everything a program can reach, it can reach. That is right for a script
+somebody wrote for themselves and wrong for one that arrived from elsewhere, and
+there is no way to say which this is.
+
+The entry records three things worth deciding before any of it is built.
+
+**Which way round the default goes is the whole question.** Safe-by-default
+protects the case that matters — a script you did not write — and breaks every
+existing use including this repository's own tests. The deciding question is
+*who is choosing the flag*: somebody about to run a script they were sent is
+exactly the person who will not think to ask for protection, which argues for
+having it on before they think about it.
+
+**"Dangerous" is two sets, not one.** The messages that *change* the machine are
+the obvious half; the ones that *reveal* it are the other. Reading
+`~/.ssh/id_rsa` and printing it changes nothing, and `environment` alone will
+hand over a token from half the CI systems there are. A mode that only stops
+writing stops the obvious half — which argues for capabilities rather than a
+switch, and that is easier to start with than to retrofit.
+
+**And it is not a sandbox**, which the entry says loudest, because "safe mode"
+invites more trust than it can earn. A restricted script can still loop forever,
+allocate until the machine swaps, or fill a disk through a file it is allowed to
+write. It stops a script reaching for the machine; it does not make a hostile
+script harmless, and anything needing that wants a container rather than a flag.
+The same honesty as [3.3](ROADMAP.md#33-verification-does-not-promise-termination),
+which says the verifier proves a chunk well-formed and not that it stops.
+
+One complication found while writing it: `@include` reads files and the search
+path reads the shipped library, so a mode with no reading cannot compile a
+program that uses `lib/json.sol`. Reading the *program* is not the same
+permission as reading *a file the program names*, and the line runs between them
+rather than around `readFile`.
 
 ## 0.12.0 — 2026-08-21
 

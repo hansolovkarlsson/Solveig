@@ -55,17 +55,24 @@ have been. Side-table operands are two bytes, a send compares pointers, and the
 script's frame has slots like every other, so a temporary may be declared
 anywhere.
 
-**What is left is section 3, and only section 3.** Those are the restrictions
-the language lives under on purpose, each documented where a program would meet
-it. Section 2 has no open design question — the last one, 2.5, is closed — and
-section 6, a program's dealings with the world outside it, is finished: reading
-input, writing files, stopping with a status, walking the filesystem, knowing
-the time, and as of the last entry, a prompt with history.
+**What is left is section 3, and one decision.** Section 3 holds the
+restrictions the language lives under on purpose, each documented where a
+program would meet it. Section 2 has no open design question — the last one,
+2.5, is closed. And section 6, a program's dealings with the world outside it,
+is built: reading input, writing files, stopping with a status, walking the
+filesystem, knowing the time, a prompt with history, a debugger, and running
+another program.
+
+The decision is
+[6.32](#632-a-script-cannot-be-run-with-less-than-the-whole-machine): whether a
+script should be able to run with less than the whole machine, now that it can
+reach all of it. Nothing is asking for it; it is recorded because the shape of
+the answer is much cheaper to choose now than later.
 
 So this document no longer says what to build next. **The way to add to it is to
-write a program and find out what it wants**, which is how every one of the last
-eight entries arrived — several of them from a library breaking rather than from
-anyone reasoning about the design.
+write a program and find out what it wants**, which is how nearly every entry
+since the first dozen arrived — several of them from a library breaking rather
+than from anyone reasoning about the design.
 
 Sections 1, 4 and 5 are gone from this document. Everything they held is built:
 the collector and its roots, arrays, strings, user-defined objects, the three
@@ -306,12 +313,78 @@ entries are in [COMPLETED.md](COMPLETED.md). This one was about making it a
 language you can write a *program* in: a program has to be split across files,
 read input, write files, and stop with a status.
 
-**Empty.** Every entry is built, including the debugger the last few were laid
-down for. A new one means a program wanted something and could not have it.
+**One entry**, and it is a decision rather than work waiting to be done.
 
 Raised in a notes file and assessed in [ideas.md](ideas.md), which also records
 what was **not** worth building and why — integer widths, a JIT, cascades,
 trailing-block syntax, and Go-style concurrency among them.
+
+### 6.32 A script cannot be run with less than the whole machine
+
+Everything a program can reach, it can reach: run another program, delete a
+file, write anywhere it has permission to. That is right for a script somebody
+wrote for themselves and wrong for one that arrived from elsewhere, and there is
+currently no way to say which this is.
+
+The shape suggested is a **restricted mode**, with the dangerous messages
+refusing, and a flag to allow them.
+
+**Which way round is the default is the whole question.** Safe-by-default with
+`--unsafe` to enable protects the case that matters — a script you did not write
+— and breaks every existing use, including this repository's own tests and
+`examples/tools.sol`. Unsafe-by-default with `--safe` breaks nothing and helps
+only the people who remember to ask, which is not the people at risk.
+
+The deciding question is *who is choosing the flag*. If it is the person running
+their own script, either default works. If it is somebody about to run a script
+they were sent, the protection has to be on before they think about it — and
+they are exactly the person who will not think about it. That argues for
+safe-by-default, and for accepting the breakage as the price.
+
+**What "dangerous" means is two things, not one.** The suggestion names the
+messages that *change* the machine, and there is a second set that *reveals* it:
+
+| | messages |
+| --- | --- |
+| changes | `run`, `capture`, `remove`, `makeDirectory`, `rename`, `writeFile`, `appendFile`, `setMode`, `setModifiedAt`, `exit` |
+| reveals | `readFile`, `filesIn`, `isDirectory`, `fileExists`, `fileSize`, `modifiedAt`, `modeOf`, `environment` |
+
+Reading `~/.ssh/id_rsa` and printing it changes nothing and is not safe.
+`environment` alone will hand over a token from half the CI systems there are.
+So a mode that only stops writing is a mode that stops the obvious half.
+
+That suggests **capabilities rather than a switch** — something nearer
+`--allow-read --allow-run` than one flag — which is more useful and more work,
+and is the sort of thing that is easier to add at the start than to retrofit
+over a boolean.
+
+**A complication worth knowing before starting**: `@include` reads files, and
+the search path reads the shipped library. A mode with no reading at all cannot
+compile a program that uses `lib/json.sol`, so reading the *program* is not the
+same permission as reading *a file the program names*, and the line runs between
+them rather than around `readFile`.
+
+**Enforcement is cheap and must not be reachable from inside.** A flag on the VM
+and a check in each primitive costs a branch on messages that are already doing
+system calls. What matters more is that there is no message to turn it off:
+whatever sets it must be the front end, before the program runs, or the whole
+thing is a suggestion.
+
+**And it is not a sandbox**, which is the thing to say loudest, because "safe
+mode" invites more trust than it can earn. A restricted script can still loop
+forever, allocate until the machine swaps, fill a disk through a file it *is*
+allowed to write, or simply compute the wrong answer and be believed. It stops a
+script reaching for the machine; it does not make a hostile script harmless, and
+anything that needs the second wants a container and not a flag. This is the
+same honesty as
+[3.3](#33-verification-does-not-promise-termination), which says the verifier
+proves a chunk is well-formed and not that it stops.
+
+**Raised after the fact**, by noticing what `system:run` had made possible rather
+than by anything going wrong. Nothing is asking for it yet, and it is written
+down because the decision above — which default, and capabilities or a switch —
+is much cheaper to take now than after somebody has written scripts that depend
+on either answer.
 
 ## How this list emptied
 
@@ -363,9 +436,14 @@ one message at a time to stop the crashes, and finishing that — every class-si
 message requiring an object receiver — turned out to be the whole of what
 splitting the two objects would have bought.
 
-**A new entry means a program wanted something and could not have it.** That is
-the only way one has arrived for a long time, and it is how the two after the
-list emptied arrived as well:
+**A new entry means a program wanted something and could not have it** — or, once,
+that something became possible and wanted a decision about it:
+[6.32](#632-a-script-cannot-be-run-with-less-than-the-whole-machine) came from
+noticing what `system:run` had opened up rather than from anything going wrong,
+and is recorded rather than built.
+
+That aside, wanting is how they have all arrived, including the two after the
+list emptied:
 [6.30](COMPLETED.md#630-a-program-cannot-run-another-program--done), because a
 language for scripting an OS that cannot invoke another program is working with
 one hand, and
