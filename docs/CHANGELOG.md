@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### `solis --interactive`: a prompt beside the wreck — `pending`, 2026-08-21
+### `solis --interactive`: a prompt beside the wreck — `38b19d1`, 2026-08-21
 
 Asked for as a question — if a program being traced fails, could it fall into
 the REPL rather than exit? — and the answer turned out to be yes, and to be
