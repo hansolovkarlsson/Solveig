@@ -5,6 +5,61 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+### The embedding interface, written down — `pending`, 2026-08-22
+
+[solum/embed.h](../solum/include/solum/embed.h) is the whole supported surface a
+host embeds Solum through, [docs/embedding.md](embedding.md) is the contract in
+prose, and [tests/test_embed.c](../tests/test_embed.c) has a case for every
+promise it makes.
+
+**Written before deciding permissions, deliberately.** A permission is a promise
+about what a host may rely on, and
+[6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
+had nothing to attach one to: the headers made embedding possible and no page
+claimed it. That is also why the 0.14.1 use-after-free got out — with nothing
+stated there was nothing to test against, and four shipped binaries could not
+reach the path.
+
+**It caught a mistake in the first hour.** This project had twice said a host
+must call `sol_vm_intern_chunk` before each run. `sol_vm_run` calls it, and
+always did — the defect was *inside* that function rather than in a call
+somebody could miss. So the interface is one ordering rule simpler than it had
+been written up as, and `embed/host.c` no longer makes a call that did nothing.
+Corrected in the host, the page and the roadmap.
+
+**Four functions, and none of them new capability.** Each names two or three
+calls a host could already have made, which is the point: three internal calls
+in the right order is not something anybody can rely on.
+
+```c
+bool  sol_vm_global(vm, name, &value);       /* a global, or false */
+char *sol_vm_global_text(vm, name);          /* rendered, on the heap, caller frees */
+void  sol_vm_set_global(vm, name, value);    /* hand a script its input */
+void  sol_vm_set_global_text(vm, name, chars);
+```
+
+That closes the gap the host found first — a run's output went to stdout because
+`display` writes there and nothing else existed, and a webserver needs the page
+as a *value*. `sol_vm_error_message` and `sol_vm_error_trace` are there for the
+same reason, a host having previously had no way to read a failure it was
+already being shown on stderr.
+
+**And what is deliberately not promised**, which is the half a permission scheme
+would have to live in: no route for a run's output except a global name the two
+sides agree on with nothing checking that they do; no way to silence a failing
+run's stderr; no safe reuse of one VM across runs, globals being one flat
+namespace that nothing unbinds; nothing about threads; and nothing whatever
+about what a script may reach, which is 6.32 and still a decision.
+
+**The test file is shaped like a host**, not like a test: VMs are built inside
+*called* functions, chunks outlive the machines that ran them, and one chunk
+serves eight. That is the shape 0.14.1 needed and the shape
+`test_a_second_vm_reresolves` did not have — it holds both machines as locals of
+one function, which puts them at different addresses and makes a pointer
+comparison work. It was never wrong; it was never in the shape that fails.
+
 ## 0.14.1 — 2026-08-22
 
 **A use-after-free, found by the first program to embed the machine.**

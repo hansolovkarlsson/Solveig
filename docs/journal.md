@@ -163,13 +163,48 @@ choice, and ROADMAP 3.6 collecting its second victim. What I did not predict was
 the defect. That is the argument for building the instrument rather than
 reasoning about the interface.
 
+**Then the contract**, which was the conclusion of the host acted on rather than
+filed. The host's finding was that 6.32 could not be decided yet, because a
+permission is a promise about what a host may rely on and there was no list of
+what a host may rely on. So: `solum/embed.h` as the whole supported surface,
+`docs/embedding.md` as the contract in prose, `tests/test_embed.c` holding every
+promise on it.
+
+Writing it caught a mistake within the hour, and the mistake was mine from the
+day before. I had said twice — in the host's own comments and in the first
+version of the embedding page — that a host must call `sol_vm_intern_chunk`
+before each run. It does not. `sol_vm_run` calls it and always did; the defect
+was *inside* that function rather than in a call somebody could miss. I only
+found out because writing "here is what you must do" forces you to check that
+each item is true, which reading the same code twice had not.
+
+The four functions added are not new capability — each names two or three calls
+a host could already have made. That is the whole idea. Three internal calls in
+the right order is not something anybody can rely on, and the gap the host found
+first (a run's output going to stdout, where a webserver cannot pick it up) was
+never a missing mechanism, only a missing name for one.
+
+The part I am least comfortable with is written down as such: a host and a
+script agree on a global name, and nothing checks that they do. That is a
+convention wearing a contract's clothes, and saying so seemed better than
+dressing it up.
+
 **The shape of the day**, which is the thing this file is for: the program was
-the instrument, not the result. Three times now — serve.sol found 3.7, the split
-made the audit answerable, and the host found a use-after-free. None of the
-three came from reading the code. It was written to be run by a stranger, and
-almost everything it found came from being run *as* one — under a limit, against
-a hostile path, with input that was trying to become code. Nothing here had been
-run that way before, because until yesterday there was nothing to run it with.
+the instrument, not the result. Four times over:
+
+- **serve.sol found 3.7** by being run as a guest with an allowance, which no
+  program here had been, because every earlier one was run by whoever wrote it.
+- **The split made the audit answerable**, and the audit found four messages
+  that had never had a demonstration.
+- **The host found a use-after-free** on its first run, in a path four shipped
+  binaries could not reach.
+- **Writing the contract found a claim of mine that was false**, because
+  "here is what you must do" forces a check that reading the same code twice
+  does not.
+
+None of the four came from reading. Each came from putting the thing in a shape
+nobody had put it in before — run by a stranger, run under a limit, run twice at
+one address, or written down as a promise.
 
 ---
 

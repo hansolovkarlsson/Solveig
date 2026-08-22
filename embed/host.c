@@ -25,10 +25,7 @@
 #include <string.h>
 
 #include "solas/compiler.h"
-#include "solum/common.h"
-#include "solum/object.h"
-#include "solum/value.h"
-#include "solum/vm.h"
+#include "solum/embed.h"
 
 /* ------------------------------------------------------------------------ *
  * The requests
@@ -79,10 +76,10 @@ static const char *result_name(SolResult r)
  * the whole reason a host would rather hold the machine than shell out to
  * `solvm`.
  *
- * `sol_vm_intern_chunk` is why one chunk can serve two VMs: a chunk's names are
- * resolved against the VM about to run it, and re-resolved if it was last run
- * by a different one. Without that the second request would be reading the
- * first VM's name table.
+ * One chunk serves every machine because `sol_vm_run` resolves its names to
+ * whichever VM is about to run it, every time. A host does nothing to arrange
+ * that -- which is worth saying because this file used to call
+ * `sol_vm_intern_chunk` itself and claim it was required. It never was.
  */
 static SolResult serve_one(SolChunk *chunk, const Request *request, int *status)
 {
@@ -101,7 +98,6 @@ static SolResult serve_one(SolChunk *chunk, const Request *request, int *status)
     sol_vm_set_step_limit(&vm, request->steps);
     sol_vm_set_memory_limit(&vm, request->memory);
 
-    sol_vm_intern_chunk(&vm, chunk);
     SolResult result = sol_vm_run(&vm, chunk);
     *status = vm.exit_code;                 /* read before the VM goes away */
 
@@ -110,37 +106,19 @@ static SolResult serve_one(SolChunk *chunk, const Request *request, int *status)
 }
 
 /* ------------------------------------------------------------------------ *
- * Reading a value back out
+ * Text in, run, text out
  *
- * The host's other half of the conversation, and the one with no front door.
- * A global is a slot on the VM's root object, so `sol_object_lookup` finds one
- * and `sol_value_render` turns it into text -- the same machinery `print` uses.
- * Both are public. Nothing says a host may use them, and `sol_vm_free` is what
- * makes it urgent: the value is gone with the VM, so it has to be copied out
- * before the machine is torn down and not after.
+ * The whole of what a host and a script have to say to each other, and the half
+ * that had no front door when this file was written. It has one now:
+ * `sol_vm_set_global_text` before the run, `sol_vm_global_text` after, and the
+ * text is on the heap so it outlives the machine that made it.
+ *
+ * What the interface cannot supply is the *name*. This side says "request" and
+ * "answer"; the script has to say the same, and nothing checks that they do.
+ * That is the weakest joint in embedding and is written down as such rather
+ * than papered over.
  */
-static char *global_as_text(SolVM *vm, const char *name)
-{
-    SolSlot *slot = sol_object_lookup(vm->root, name);
-    if (slot == NULL) return NULL;
-
-    SolText text;
-    sol_text_init(&text);
-    sol_value_render(vm, slot->value, &text);
-
-    char *copy = malloc(text.length + 1);
-    if (copy != NULL) {
-        memcpy(copy, text.chars, text.length);
-        copy[text.length] = '\0';
-    }
-    sol_text_free(&text);
-    return copy;
-}
-
-/* Compiles and runs `source`, then answers what the global `answer` held, as
-   text the caller owns. This is the shape a host actually wants and has to
-   assemble for itself. */
-static char *evaluate(const char *source, const char *name)
+static char *evaluate(const char *source, const char *name, const char *request)
 {
     SolChunk chunk;
     sol_chunk_init(&chunk);
@@ -153,10 +131,11 @@ static char *evaluate(const char *source, const char *name)
     sol_vm_init(&vm);
     sol_vm_set_step_limit(&vm, 100000);
     sol_vm_set_memory_limit(&vm, 8u << 20);
+    if (request != NULL) sol_vm_set_global_text(&vm, "request", request);
 
-    sol_vm_intern_chunk(&vm, &chunk);
     char *out = NULL;
-    if (sol_vm_run(&vm, &chunk) == SOL_OK) out = global_as_text(&vm, "answer");
+    if (sol_vm_run(&vm, &chunk) == SOL_OK) out = sol_vm_global_text(&vm, "answer");
+    else fprintf(stderr, "solhost: %s\n", sol_vm_error_message(&vm));
 
     sol_vm_free(&vm);
 
@@ -230,13 +209,14 @@ int main(int argc, char **argv)
 
     sol_chunk_free(&chunk);
 
-    /* The other direction, on a script small enough to read. This is the piece
-       a webserver needs and the piece with no documented route. */
-    printf("\n  a value back out of a run:\n");
+    /* The other direction, on a script small enough to read: a value handed in
+       by name, and the answer taken back out as text that outlives the VM. */
+    printf("\n  text in, run, text out:\n");
     static const char *snippet =
-        "answer := [#1, #2, #3]:inject(#0, { a, b | a:add(b) }):asString.\n";
-    char *answer = evaluate(snippet, "<host>");
-    printf("    answer := ... -> %s\n", answer != NULL ? answer : "(nothing)");
+        "answer := request:split(\",\")"
+        ":collect({ w | w:trim:asUppercase }):join(\" | \").\n";
+    char *answer = evaluate(snippet, "<host>", "one, two, three");
+    printf("    \"one, two, three\" -> %s\n", answer != NULL ? answer : "(nothing)");
     free(answer);
 
     return 0;
@@ -264,17 +244,18 @@ int main(int argc, char **argv)
  *      reusing a chunk across VMs and not knowing that is reading another
  *      machine's name table.
  *
- *   3. **There is no route for the answer**, which is the real finding. The
- *      page goes to stdout, because `display` writes there and nothing else
- *      exists. A webserver needs the page as a *value*, and what this host gets
- *      instead is the script talking past it to the terminal -- so the run's
- *      product arrives somewhere the host cannot pick it up, and all a host can
- *      do is print a banner first and hope. `evaluate` above shows a mechanism
- *      is *there* --
- *      `sol_object_lookup` on `vm->root`, then `sol_value_render` -- but a
- *      host has to assemble it, know to copy the text out before `sol_vm_free`,
- *      and agree a global name with the script by convention. None of that is
- *      written down anywhere.
+ *   3. **There was no route for the answer**, which was the finding that
+ *      mattered most and was predicted. A script's output goes to stdout,
+ *      because `display` writes there and nothing else existed, so the run's
+ *      product arrived somewhere the host could not pick it up.
+ *
+ *      There is one now: `sol_vm_set_global_text` before the run and
+ *      `sol_vm_global_text` after, in solum/embed.h, which name the three
+ *      internal calls this file used to assemble by hand. What they still
+ *      cannot supply is the *name* -- this side says "request" and "answer",
+ *      the script has to agree, and nothing checks that it does. `serve.sol`
+ *      stays on the environment because CGI genuinely works that way; the
+ *      snippet at the bottom of `main` is the direct route.
  *
  *   4. **A fresh VM per request is the only safe choice today**, and it is not
  *      free. Globals are one flat namespace and nothing unbinds them, so a

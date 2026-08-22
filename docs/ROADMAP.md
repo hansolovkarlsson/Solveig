@@ -446,20 +446,32 @@ Deciding this is therefore also deciding to have an embedding interface, which
 is the larger of the two and should be admitted up front rather than discovered
 halfway.
 
-**That has now been tried**, and the aside was understated.
-[embed/host.c](../embed/host.c) holds a machine and runs
-[serve.sol](../programs/serve.sol) once per request; it is about a hundred
-lines, the pieces compose, and [embedding.md](embedding.md) is what a host
-needs to know. It also **found a use-after-free on its first run**: a chunk
-recorded which VM had interned its names by pointer, and a host builds each
-request's VM as a local, so every one landed at the same address and the chunk
-went on reading the freed machine's name table. Fixed — the record is a serial
-now — and the point for this entry is that nothing in the repository was shaped
-to catch it, because nothing had ever run two VMs in sequence at one address.
+**That has now been tried, and then written down** — in that order, and the
+order was the useful part. [embed/host.c](../embed/host.c) holds a machine and
+runs [serve.sol](../programs/serve.sol) once per request; it is 136 lines of
+code, two more than `solvm`'s own front end. It **found a use-after-free on its
+first run**: a chunk recorded which VM had interned its names by pointer, and a
+host builds each request's VM as a local, so every one landed at the same
+address and the chunk went on reading the freed machine's name table. Fixed in
+0.14.1 — the record is a serial now — and the point for this entry was that
+nothing in the repository was shaped to catch it, because nothing had ever run
+two VMs in sequence at one address.
 
-So the interface is worth writing down *before* deciding what permissions it
-carries. A permission is a promise about what a host may rely on, and there is
-no list of what a host may rely on yet.
+**The interface is now stated.** [solum/embed.h](../solum/include/solum/embed.h)
+is the whole supported surface, [embedding.md](embedding.md) is the contract in
+prose, and [tests/test_embed.c](../tests/test_embed.c) has a case for every
+promise it makes. Writing it caught a second mistake at once: this project had
+said a host must call `sol_vm_intern_chunk`, and `sol_vm_run` does it — the
+defect was inside that function rather than in a call somebody could miss, so
+the interface is one rule simpler than it had been written up as.
+
+**So this entry's precondition is met.** A permission is a promise about what a
+host may rely on, and there is a list of that now — including what is
+deliberately *not* promised, which is where a permission scheme would have to
+live: no route for a run's output except by an agreed name, no way to silence a
+failing run's stderr, and a fresh VM per request being the only safe choice.
+What remains here is the decision itself, unchanged in kind and better furnished
+than it was.
 
 **Which way round is the default** still matters for the command line, where the
 chooser is a person. Safe-by-default with `--unsafe` to enable protects the

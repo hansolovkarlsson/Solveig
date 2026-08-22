@@ -1,157 +1,144 @@
 # Embedding the machine
 
-*Holding a `SolVM` inside a larger C program and running scripts through it. The
-working example is [embed/host.c](../embed/host.c), built with `make embed` and
-run as `./bin/solhost`.*
+*Holding a `SolVM` inside a larger C program and running scripts through it —
+what a host may rely on, and what it may not. The header is
+[solum/embed.h](../solum/include/solum/embed.h), the working example is
+[embed/host.c](../embed/host.c) (`make embed`, then `./bin/solhost`), and
+[tests/test_embed.c](../tests/test_embed.c) holds every promise on this page.*
 
 This is the case
 [6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
-is about — a program that runs somebody else's scripts on its own behalf, where
-the script's input arrives from a stranger and the host is what needs
-protecting. The entry noted in passing that *"embedding is not a documented use
-today: the headers make it possible and nothing claims it."* This page is the
-smaller half of that, written after a host was built to find out what was
-actually there.
+is about: a program that runs somebody else's scripts on its own behalf, where
+the input arrives from a stranger and the host is what needs protecting. That
+entry noted in passing that *"embedding is not a documented use today: the
+headers make it possible and nothing claims it."*
 
-**It found a defect on the first run**, which is recorded below and is fixed.
+**This page is that half, and it came first on purpose.** A permission is a
+promise about what a host may rely on. There was no list of what a host may rely
+on, so there was nothing for a permission to attach to — and, as it turned out,
+nothing to test against: the first program to embed the machine found a
+use-after-free (0.14.1) in a code path four shipped binaries could not reach.
+
+---
 
 ## The shape
 
 `make` builds `build/libsol.a`, holding the compiler and the VM. `solas`,
-`solvm`, `solis` and `solid` are each a `main.c` linked against it, and a host
-is a fifth such program — except that instead of *being* the interpreter it
-contains one.
+`solvm`, `solis` and `solid` are each a `main.c` linked against it; a host is a
+fifth such program, except that instead of *being* the interpreter it contains
+one.
+
+Two headers, because the compiler and the machine are separate components and
+embedding does not change that:
 
 ```c
-#include "solas/compiler.h"
-#include "solum/vm.h"
+#include "solas/compiler.h"     /* source text -> a chunk */
+#include "solum/embed.h"        /* a chunk -> a run */
+```
 
-SolSearchPath search;
-sol_search_path_init(&search);
-sol_search_path_add_defaults(&search, argv[0]);   /* so @include finds lib/ */
+`solum/embed.h` is the **whole supported surface**. Anything else under
+`solum/include` is the machine's own business and may change without notice.
 
+```c
 SolChunk chunk;
 sol_chunk_init(&chunk);
-if (!sol_compile_file(source, path, &search, &chunk)) { /* reported to stderr */ }
-sol_search_path_free(&search);
+if (!sol_compile_source(source, "<host>", &chunk)) { /* reported to stderr */ }
 
 SolVM vm;
 sol_vm_init(&vm);
-sol_vm_set_step_limit(&vm, 200000);          /* before it runs, and from C */
+sol_vm_set_step_limit(&vm, 200000);
 sol_vm_set_memory_limit(&vm, 8u << 20);
+sol_vm_set_global_text(&vm, "request", body);
 
-sol_vm_intern_chunk(&vm, &chunk);            /* required; see below */
-SolResult result = sol_vm_run(&vm, &chunk);
+if (sol_vm_run(&vm, &chunk) == SOL_OK) {
+    char *answer = sol_vm_global_text(&vm, "answer");
+    /* ... */
+    free(answer);
+}
 
 sol_vm_free(&vm);
-sol_chunk_free(&chunk);                      /* after the VM, not before */
+sol_chunk_free(&chunk);          /* after the VM, never before */
 ```
 
-`SolResult` is the whole of what a host learns: `SOL_OK`, `SOL_EXIT` with
-`vm.exit_code`, `SOL_STOPPED` when a limit ended it, `SOL_RUNTIME_ERROR`,
-`SOL_COMPILE_ERROR`. Those three failure kinds are distinct on purpose — a
-stopped program did not fail, and a host treating it as a bug would go looking
-for one that is not there.
+## What a host may rely on
 
-## Compile once, run many
+| | |
+| --- | --- |
+| **One chunk, any number of machines** | Compile once and run it on as many VMs as you like. `sol_vm_run` resolves the chunk's names to whichever machine is about to run it, every time. A host does nothing to arrange this. |
+| **The allowance is per run** | `sol_vm_run` resets the step budget from `step_limit` at every call, so a machine handed one request and then another gives each the whole of it rather than the remains of the last. Zero lifts a limit; both are lifted to begin with. |
+| **Limits are settable only from C** | There is no message that sets, clears or reads either one. That is the whole of what makes them limits rather than suggestions, and it is what 6.32 requires of any mechanism: if the mechanism is argv parsing, the case that asked for it cannot use it. |
+| **Five endings, told apart** | `SOL_OK`, `SOL_EXIT` (with `vm.exit_code`), `SOL_STOPPED`, `SOL_RUNTIME_ERROR`, `SOL_COMPILE_ERROR`. A stopped program did not fail; a host treating it as a bug would go looking for one that is not there. |
+| **A script that exits ends itself** | `system:exit` unwinds rather than leaving from under the machine, so `sol_vm_run` answers `SOL_EXIT` and the host stays up. This is the behaviour an embedder would most expect to be wrong. |
+| **The failure is readable** | `sol_vm_error_message` and `sol_vm_error_trace` after a run that answered `SOL_RUNTIME_ERROR` or `SOL_STOPPED`. Cleared by the next run, so what they hold is this run's. |
+| **Text in, text out** | `sol_vm_set_global_text` before, `sol_vm_global_text` after. The text form is on the heap and the caller frees it, so it outlives the machine. |
+| **The search path is the host's to set** | `sol_search_path_add_defaults` gives a script the same `@include` and the same shipped library it gets from `solas`. A host that skips it offers a smaller language than the one documented. |
 
-The reason to hold the machine rather than shell out to `solvm`: the compiler
-runs once however many times the script does.
+## Three ordering rules
 
-`sol_vm_run` resets the step budget from `step_limit` at every call, so the
-allowance is **per run and not per VM**. That was written for a server handing
-one machine a request and then another, and until `host.c` existed no second run
-had ever happened. It works:
+None of these is checked, and each is the kind of thing found by crashing rather
+than by reading — which is the argument for their being written down at all.
 
-| request | steps | memory | result |
-| --- | --- | --- | --- |
-| the index | 200000 | 8192K | exit |
-| one note | 200000 | 8192K | exit |
-| a search | 200000 | 8192K | exit |
-| a script tag | 200000 | 8192K | exit |
-| a traversal | 200000 | 8192K | exit |
-| too little rope | **300** | 8192K | **stopped** |
-| too little room | 200000 | **12K** | **stopped** |
+1. **`sol_chunk_free` after `sol_vm_free`, never before.** Blocks made while the
+   chunk ran point into it. That is
+   [3.6](ROADMAP.md#36-a-caller-owned-chunk-must-outlive-blocks-defined-in-it),
+   and a host is its second case after the test suite.
+2. **Read what you want out before `sol_vm_free`.** Everything a run made dies
+   with the machine. `sol_vm_global_text` copies for exactly this reason;
+   `sol_vm_global` does not, and what it answers is valid only until the next
+   run or the free.
+3. **Set limits and globals before `sol_vm_run`, not during.** There is nothing
+   to call them from during a run in any case, but a limit lowered mid-run would
+   not be noticed until the counter next crossed it.
 
-The starved runs stop and the ones around them do not.
+> **Not** a rule: calling `sol_vm_intern_chunk` yourself. `sol_vm_run` does it.
+> An earlier version of this page said it was required, which was wrong — the
+> 0.14.1 defect was *inside* that function rather than in a call somebody could
+> miss. Writing the contract down is what caught the mistake.
 
-**The numbers to set a limit from**, measured on
-[programs/serve.sol](../programs/serve.sol): a request costs **393 to 798
-instructions** and about **15KB live**. Both are properties of that script
-rather than of the machine, and both are worth measuring rather than guessing —
-and see [3.7](ROADMAP.md#37-a-limit-bounds-dispatch-not-work) for what a step
-limit does not bound.
+## What is deliberately not promised
 
-## `sol_vm_intern_chunk` is required, and was where the defect was
+**Silence.** A failing run writes the message and the trace to stderr as well as
+leaving them readable, and there is no way to ask it not to. A host that wants
+failures in its own log gets them in two places. This is a real gap.
 
-A chunk's names are resolved to the *interned copies belonging to the VM about
-to run it*, so a send compares pointers instead of walking characters. Run one
-chunk on a second VM and they must be resolved again.
+**A name the two sides agree on.** A host says `"request"` and `"answer"`; the
+script has to say the same, and nothing checks that it does. This is the weakest
+joint in the interface. It is a convention, not a contract, and the honest thing
+is to say so rather than dress it up.
 
-**The defect**: `SolChunk.interned_for` recorded which machine had done that, as
-a `const SolVM *`, and the work was skipped when it matched. A host serves each
-request in a function that builds a VM as a local — so every request's machine
-lands at the same stack address, the chunk believed it was already resolved, and
-every run after the first read the **freed** previous VM's name table.
+**Reuse of one VM across runs.** It works and it leaks meaning: globals are one
+flat namespace and nothing unbinds them, so a second run sees the first one's
+names. That is the same flatness `@include` relies on, seen from the side where
+it hurts. **A fresh VM per request is the only safe choice today**, and it costs
+rebuilding the interned names and the built-in classes each time.
 
-```
-==== a search: /search?q=limit
-solvm: undefined name 'lessThan'
-==== a traversal: /note/..
-solvm: undefined name 'truncated'
-==== the index: /
-solvm: cannot bind 'shiftRight' on boolean
-```
+**Threads.** Nothing here is thread-safe and nothing has been tried. One VM per
+thread is presumably fine and is not tested, so it is not promised.
 
-Six of seven requests failed that way, each naming a different built-in and none
-of it meaning anything. `interned_for` is a **serial** now — `vm->id`, unique
-for the life of the process — so an address handed back to a later VM cannot be
-mistaken for the same machine.
+**That a limit bounds cost.** It bounds a program that *loops*. A primitive does
+all of its work between one step and the next, so `readFile` of 256MB plus a
+scan of all of it is eight instructions — see
+[3.7](ROADMAP.md#37-a-limit-bounds-dispatch-not-work). Measured on
+[serve.sol](../programs/serve.sol), one request costs 393 to 798 instructions
+and about 15KB live, which are the numbers to set a limit *from* rather than
+guess.
 
-The test that should have caught it, `test_a_second_vm_reresolves`, holds both
-VMs as locals of one function, which puts them at different addresses and made
-the pointer comparison work. `test_a_reused_address_is_not_the_same_vm` builds
-each in a called function, which is what a host does.
+**Anything about what a script may reach.** It may run another program, delete a
+file, read `~/.ssh/id_rsa`, and hand your environment to whoever asked. That is
+[6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
+and it is still a decision. Nothing on this page is a sandbox.
 
-## What is missing
+## What holds this page honest
 
-Three things, none of them large, none of them decided.
+[tests/test_embed.c](../tests/test_embed.c) has a case for every promise above.
+It deliberately does what a host does rather than what a test finds convenient:
+VMs are built inside *called* functions, chunks outlive the machines that ran
+them, and one chunk serves eight.
 
-**There is no route for the answer.** A script's output goes to stdout, because
-`display` writes there and nothing else exists. A webserver needs the page as a
-*value*. The mechanism is there —
+That last detail is the point of the whole file. The test that should have
+caught 0.14.1, `test_a_second_vm_reresolves`, holds both machines as locals of
+one function — which puts them at different addresses and makes a pointer
+comparison work. It was never wrong. It was never in the *shape* that fails, and
+nothing about reading it revealed that, because the assertion it makes is true.
 
-```c
-SolSlot *slot = sol_object_lookup(vm->root, "answer");
-SolText text;
-sol_text_init(&text);
-sol_value_render(vm, slot->value, &text);      /* copy it out before sol_vm_free */
-```
-
-— but a host has to assemble it, know that the value dies with the VM, and agree
-a global name with the script by convention with nothing to check that they do.
-
-**A fresh VM per request is the only safe choice.** Globals are one flat
-namespace and nothing unbinds them, so a second request on a reused VM sees the
-first one's names — the same flatness `@include` relies on, seen from the side
-where it hurts. Discarding the VM discards the interned names and the built-in
-classes with it, so every request pays to rebuild them.
-
-**Ordering rules you find out by crashing.** `sol_chunk_free` after
-`sol_vm_free`, never before, because blocks made while the chunk ran point into
-it — that is
-[3.6](ROADMAP.md#36-a-caller-owned-chunk-must-outlive-blocks-defined-in-it), and
-a host is its second case after the test suite. `sol_vm_intern_chunk` before
-each run. Copy a value out before the VM goes. None of the three is checked and
-none was written down for a host.
-
-## What this says about 6.32
-
-The entry's aside — that deciding it is also deciding to have an embedding
-interface — is right, and understated. The pieces exist and compose; a host is
-about a hundred lines. What is missing is that nothing said which of them a host
-may rely on, and the first program to try it found a use-after-free that
-nothing in the repository was shaped to catch.
-
-That is an argument for writing the interface down before deciding what
-permissions it should carry, rather than after.
+A contract is what tells you which shapes matter.

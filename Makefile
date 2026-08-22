@@ -2,7 +2,7 @@
 #
 #   make            build bin/solas, bin/solvm, bin/solis, bin/solid
 #   make test       build and run the test suite
-#   make embed      build bin/solhost, the embedding demonstration
+#   make embed      build bin/solhost -- see solum/include/solum/embed.h
 #   make clean      remove build artefacts
 
 CC      ?= cc
