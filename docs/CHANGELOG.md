@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### A program can be given a limit — `pending`, 2026-08-21
+### A program can be given a limit — `88a8ab4`, 2026-08-21
 
 [6.33](ROADMAP.md#633-a-running-program-cannot-be-stopped-from-outside--done),
 built. A host may say what a program is allowed to spend before it starts it,
