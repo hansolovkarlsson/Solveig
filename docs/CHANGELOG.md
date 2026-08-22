@@ -7,6 +7,64 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### A program can run another program — `d5826a4`, 2026-08-21
+
+[6.30](COMPLETED.md#630-a-program-cannot-run-another-program--done), and the
+first entry raised after the roadmap emptied. It arrived the way the list says
+entries do: something was wanted and could not be had. A language aimed at
+scripting an OS that cannot invoke another program is working with one hand.
+
+```
+system:run(["ls", "-l", path]).                  ; the exit status
+system:capture(["git", "rev-parse", "HEAD"]).    ; output and status
+```
+
+**An array of arguments, not a command line**, and that is the whole decision:
+
+```
+system:run(["rm", name]).       ; one argument, whatever `name` holds
+```
+
+A file called `; rm -rf ~` is a **name** there, because it is one string. Handed
+to a shell as text, the same name is a sentence. Every scripting language that
+took the convenient form regrets it, and the regret is a deleted home directory
+rather than a lint warning. Demonstrated rather than asserted: a directory
+holding a file of exactly that name survives being listed and measured.
+
+**The shell is reachable and spelled out** — `["/bin/sh", "-c", "..."]` — and
+[lib/shell.sol](../lib/shell.sol) wraps it with `run`, `capture`, `read` and
+`line`, so the convenience is one line away and the hazard is named in the file
+that takes it rather than hidden in a primitive.
+
+**`capture` answers a dictionary** of `"output"` and `"status"`, because a
+command's output is worth little without knowing whether it worked: `grep`
+finding nothing is not `grep` failing.
+
+**Conventions taken from the shell rather than invented.** `#127` for a command
+that cannot be run, 128 plus the signal for one that was killed, and **neither
+raises** — a script asking whether a tool is installed is asking a question.
+
+`capture` drains the pipe *before* waiting for the child, since a program
+writing more than a pipe holds would otherwise block forever against a parent
+waiting for it to exit. Tested with 1.3 MB of output.
+
+### And `string:trim` within the hour
+
+[6.31](COMPLETED.md#631-text-from-another-program-arrives-padded--done), wanted
+by the first program that read a command's output. `wc -l` answers
+`"     100\n"`, and `asInteger` is strict about the whole string being a number
+— rightly, since `"12abc"` is a mistake rather than twelve. Every command-line
+tool pads a number and every script that reads one trims it.
+
+Space, tab, newline and carriage return, and nothing else: a string is bytes,
+and deciding what counts as blank in a text this language cannot otherwise read
+would be a promise it could not keep.
+
+[examples/tools.sol](../examples/tools.sol) reports on a directory by asking
+other programs, and settles which of the two to reach for — **an array wherever
+a name comes from outside the program**, a string when the shell itself is the
+point.
+
 ### Solid — `d76b94b`, 2026-08-21
 
 [6.29](COMPLETED.md#629-a-stepper--solid--done), the last entry on the roadmap.
