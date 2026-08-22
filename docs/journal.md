@@ -275,8 +275,33 @@ been sitting there since version 12 and no amount of auditing the machine found
 them, because auditing checks a document against the code and this checked the
 document against *someone trying to use it*. Those are different tests.
 
+**And then the same trick again, pointed somewhere else.** The disassembler had
+worked by checking a document against somebody trying to use it. `examples/`
+carries about four hundred comments claiming what each line prints, and nothing
+had ever checked one — the suite compiles every example and never runs one. Same
+standing as the format table: true because somebody looked, once.
+
+[expect.sol](../programs/expect.sol) runs them all and checks the claims. Every
+one that states a value holds, all 398, which is the boring outcome and the one
+I wanted. What it found instead was that three different comment conventions had
+grown up unnoticed, because nothing had ever had to *parse* them — the value
+alone, an aside after a dash, and an aside with no dash at all.
+
+The temptation was to call two of those wrong and normalise. That would have
+been the checker measuring itself, so it learned all three instead. Nine
+comments turned out to be glosses rather than claims and now open with `--`.
+
+It is in `make test`, which is the part that lasts: a third of a second, and
+changing one `; #5` to `; #6` now fails the build. I checked that it does rather
+than assuming, having spent yesterday learning what an unchecked check is worth.
+
+**A note on my own error rate.** I wrote `x:ifTrue({...}):ifFalse({...})` again
+here — third time in this session. `ifTrue` answers the block's value, so it
+cannot be chained. Three times is not a slip, it is a wrong model I keep
+reaching for, and writing it down is the only thing likely to change it.
+
 **The shape of the day**, which is the thing this file is for: the program was
-the instrument, not the result. Six times over:
+the instrument, not the result. Seven times over:
 
 - **serve.sol found 3.7** by being run as a guest with an allowance, which no
   program here had been, because every earlier one was run by whoever wrote it.
@@ -291,8 +316,10 @@ the instrument, not the result. Six times over:
   defect the fix could not have touched.
 - **Writing a disassembler found three faults in the documents it was written
   from**, two of them shipped since version 12.
+- **Checking the examples against their own comments found three conventions**
+  where everyone assumed one — and put 398 claims under `make test`.
 
-None of the six came from reading. Each came from putting the thing in a shape
+None of the seven came from reading. Each came from putting the thing in a shape
 nobody had put it in before — run by a stranger, run under a limit, run twice at
 one address, written down as a promise, run on two threads at once, or handed to
 somebody trying to implement it from the documentation alone.

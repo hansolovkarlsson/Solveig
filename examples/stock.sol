@@ -86,4 +86,4 @@ marked:total:print.              ; 13.5
 ; It is an item as far as anything else is concerned.
 marked:isKindOf(sale):print.     ; true
 marked:isKindOf(item):print.     ; true
-row:value(marked):display.       ; the same report row works unchanged
+row:value(marked):display.       ; -- the same report row, unchanged

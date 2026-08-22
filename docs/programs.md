@@ -1,6 +1,6 @@
 # The programs
 
-*The eight files in [programs/](../programs/): what each one does, how to run
+*The nine files in [programs/](../programs/): what each one does, how to run
 it, and what it found. [examples/](../examples/) is the other directory — one
 file per concept the [guide](GUIDE.md) names, each written to show a feature.
 These were written to do a job.*
@@ -26,6 +26,7 @@ is the map; the file is the argument.
 | [tools](../programs/tools.sol) | reports on a directory by running other programs | `solvm tools.sob [directory]` |
 | [serve](../programs/serve.sol) | answers one HTTP request | `PATH_INFO=/ solvm serve.sob` |
 | [disasm](../programs/disasm.sol) | reads a `.sob` file and says what is in it | `solvm disasm.sob [file.sob] [brief]` |
+| [expect](../programs/expect.sol) | checks every example against its own comments | `solvm expect.sob [dir or file]` |
 
 Every one runs with no arguments at all, on input it supplies itself. That is
 deliberate — a program you have to feed before it will say anything is a program
@@ -322,6 +323,60 @@ going to the C only where those ran out. They ran out five times.
 **Checked against the oracle**: identical offsets, opcodes, operands and jump
 targets to `solvm --dump` over eight files and 7,673 instructions, including
 `lib/json.sol` and `lib/html.sol`.
+
+## expect — the examples, checked against what they claim
+
+Runs every file in `examples/` and checks the inline comments that say what each
+line prints.
+
+```sh
+./bin/solvm programs/expect.sob                      # all of examples/
+./bin/solvm programs/expect.sob examples/numbers.sol # one file
+./bin/solvm programs/expect.sob programs             # another directory
+```
+
+```
+21 files with expectations, 398 claims checked
+72 lines print without saying what, and are not checked
+2 ended with a non-zero status, which two of them do on purpose
+
+every claim holds
+```
+
+**The narrowest customer of the nine — this repository — and a real job all the
+same.** `examples/` carries about four hundred comments of the form
+`#2:add(#3):print.  ; #5`, and until this existed nothing checked one of them.
+The suite compiles every example and never ran one, so those comments were true
+because somebody looked, once, at the time — the same standing the `.sob` format
+table had when [disasm](#disasm--a-sob-file-read-and-disassembled) found it
+three sections out of date. They are also the first thing a newcomer reads.
+
+**It is in `make test` now**, in `tests/test_cli.c` with the other tests that
+run the binaries as a shell would. About a third of a second for all twenty-one
+files, and it fails the build if a claim stops holding.
+
+**What it found.** Every claim that states a value holds — all 398. What it
+turned up instead was that the examples used **three conventions** for these
+comments and nobody had noticed, because nobody had had to parse them:
+
+```
+; #5                      the value alone
+; #7 -- and why           an aside after a dash
+; #8 distinct words       an aside with no dash at all
+```
+
+The checker learned all three rather than declaring two of them wrong, which is
+the choice worth recording: a checker that insists on a convention its subject
+never agreed to is measuring itself. Nine comments were glosses rather than
+claims — a timestamp that changes every run, a duration at the clock's floor,
+`; midnight` beside a time — and those now open with `--`, which the checker
+reads as an aside claiming nothing.
+
+**What it deliberately does not do** is demand line-for-line agreement. A claim
+must appear in the output *after* the one before it, because one statement can
+print many lines. The cost is that a claim could be satisfied by a later
+coincidental match; the benefit is that it works on files with loops in them,
+which is most of them.
 
 ---
 

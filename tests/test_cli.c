@@ -448,6 +448,48 @@ static void test_the_limits_are_off_and_are_checked(void)
     printf("  the limits are off by default and refuse a nonsense value\n");
 }
 
+/* Every claim the examples make about their own output.
+ *
+ * `examples/` carries about 400 comments of the form
+ *
+ *     #2:add(#3):print.        ; #5
+ *
+ * and until programs/expect.sol existed nothing checked one of them. The rest
+ * of this suite compiles every example and never runs one, so those comments
+ * were true because somebody looked, once. They are also the first thing a
+ * newcomer reads.
+ *
+ * The checker is written in Solum and shells out to solas and solvm per file,
+ * which is why it lives here rather than in test_compile.c: this is the file
+ * that runs the binaries as a shell would. About a third of a second for all
+ * twenty-one. */
+static void test_the_examples_do_what_they_claim(void)
+{
+    char out[64 * 1024];
+
+    assert(run("bin/solas programs/expect.sol -o " DIR "/expect.sob 2>&1",
+               out, sizeof out) == 0);
+
+    int status = run("bin/solvm " DIR "/expect.sob 2>/dev/null", out, sizeof out);
+    if (status != 0 || strstr(out, "every claim holds") == NULL) {
+        printf("\n%s\n", out);
+        assert(false);
+    }
+
+    /* And the count, so that a checker which quietly stopped finding anything
+       to check fails too. It was 398 across 21 files when this went in; the
+       floor is there to catch a collapse, not to be updated for every example
+       that gains a line. */
+    int claims = 0;
+    const char *at = strstr(out, "claims checked");
+    assert(at != NULL);
+    while (at > out && *at != ',') at--;
+    assert(sscanf(at, ", %d claims checked", &claims) == 1);
+    assert(claims >= 350);
+
+    printf("  every claim the examples make holds (%d of them)\n", claims);
+}
+
 int main(void)
 {
     test_help_is_not_an_error();
@@ -465,6 +507,7 @@ int main(void)
     test_a_step_limit_stops_a_program();
     test_a_memory_limit_measures_what_is_held();
     test_the_limits_are_off_and_are_checked();
+    test_the_examples_do_what_they_claim();
     printf("test_cli: ok\n");
     return 0;
 }

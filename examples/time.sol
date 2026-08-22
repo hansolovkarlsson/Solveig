@@ -5,7 +5,7 @@
 ; time, nothing changes one, and there is no literal for one because there is
 ; nothing to write down that a clock or a file does not tell you.
 now := system:time.
-now:print.                                   ; 2026-08-21T16:57:41Z
+now:print.                                   ; -- a time, like 2026-08-21T16:57:41Z
 
 ; ---------------------------------------------------------------------------
 ; Everything is UTC, and that is the decision
@@ -78,17 +78,17 @@ y2k:asString("day %j of %Y"):display.        ; day 001 of 2000
 ; `asTime` is on `string`, beside `asInteger` and `asFloat` -- a conversion from
 ; text has always been the string's. With no argument it reads ISO-8601.
 "2000-01-01T00:00:00Z":asTime:equals(y2k):print.        ; true
-"2000-01-01":asTime:print.                              ; midnight
-"2026-08-20 09:14:02":asTime:print.                     ; T or a space
+"2000-01-01":asTime:print.                              ; 2000-01-01T00:00:00Z -- midnight
+"2026-08-20 09:14:02":asTime:print.                     ; 2026-08-20T09:14:02Z -- T or a space
 
 ; No zone means UTC, there being no other kind here. An *offset* is accepted,
 ; because an offset is arithmetic -- it says nothing about legislation.
-"2026-08-20T09:14:02+01:00":asTime:print.               ; 08:14:02Z
-"2026-08-20T09:14:02-05:00":asTime:print.               ; 14:14:02Z
+"2026-08-20T09:14:02+01:00":asTime:print.               ; 2026-08-20T08:14:02Z
+"2026-08-20T09:14:02-05:00":asTime:print.               ; 2026-08-20T14:14:02Z
 
 ; Strict, as asInteger is, and a date that does not exist is refused rather than
 ; rolled forward -- which is what almost every date parser does quietly.
-"2024-02-29":asTime:print.                              ; a real leap day
+"2024-02-29":asTime:print.                              ; 2024-02-29T00:00:00Z -- a real leap day
 ;   "2026-02-29":asTime  ->  'asTime' cannot read that as a date
 ;   "2026-04-31":asTime  ->  'asTime' cannot read that as a date
 

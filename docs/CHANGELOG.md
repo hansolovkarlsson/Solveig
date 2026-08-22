@@ -7,6 +7,57 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### The examples now have to mean what they say — `pending`, 2026-08-22
+
+[programs/expect.sol](../programs/expect.sol) runs every file in `examples/` and
+checks the inline comments that say what each line prints. It is in `make test`.
+
+```
+21 files with expectations, 398 claims checked
+72 lines print without saying what, and are not checked
+2 ended with a non-zero status, which two of them do on purpose
+
+every claim holds
+```
+
+**Nothing had ever checked one of them.** The suite compiles every example and
+never ran one, so about four hundred comments of the form
+`#2:add(#3):print.  ; #5` were true because somebody looked, once, at the time —
+the same standing the `.sob` format table had when
+[disasm.sol](../programs/disasm.sol) found it three sections out of date
+yesterday. They are also the first thing a newcomer reads, which makes them the
+documentation here with the widest audience and, until now, the least checking.
+
+**Every claim that states a value holds.** All 398. What the checker turned up
+instead is that three conventions for these comments had grown up unnoticed,
+because nothing had ever had to parse them:
+
+```
+; #5                      the value alone
+; #7 -- and why           an aside after a dash
+; #8 distinct words       an aside with no dash at all
+```
+
+It learned all three rather than declaring two of them wrong, which is the
+choice worth recording: a checker that insists on a convention its subject never
+agreed to is measuring itself.
+
+**Nine comments were glosses rather than claims** — a timestamp that changes
+every run, a duration at the clock's floor, `; midnight` beside a time, `; T or
+a space` beside a parsed one. Those now open with `--`, which the checker reads
+as an aside claiming nothing; and two that abbreviated a time to its interesting
+half now give it in full with the emphasis as an aside, which reads better
+against real output anyway.
+
+**In `tests/test_cli.c`**, with the other tests that run the binaries as a shell
+would — about a third of a second for all twenty-one files. Verified to fail:
+changing one `; #5` to `; #6` fails the build.
+
+Matching is by subsequence rather than line-for-line, because one statement can
+print many lines; a claim must appear in the output after the one before it. The
+cost is that a claim could be satisfied by a later coincidental match, and the
+benefit is that it works on files with loops in them, which is most of them.
+
 ### A disassembler in Solum, and the three document faults it found — `dcecd20`, 2026-08-22
 
 [programs/disasm.sol](../programs/disasm.sol) reads a `.sob` file and says what

@@ -47,13 +47,13 @@ elapsed := system:clock:sub(start).
 ; and one send and one add costs a small fraction of that. So a single run
 ; answers the floor rather than the block: 0 most times, and one whole
 ; microsecond when the two readings fall either side of a tick.
-{ #1:add(#1) }:timeToRun:print.                  ; 0, or 0.000001
+{ #1:add(#1) }:timeToRun:print.                  ; -- 0, or 0.000001: the floor
 
 ; Which is what the count is for. It runs the block that many times and answers
 ; the total, so dividing gives the cost of one.
 total := { #1:add(#1) }:timeToRun(#200000).
 total:greaterThan(0.0):print.                    ; true
-total:div(200000.0):asString(".9"):display.      ; seconds for one send and one add
+total:div(200000.0):asString(".9"):display.      ; -- seconds for a send and an add
 
 ; ---------------------------------------------------------------------------
 ; Stopping

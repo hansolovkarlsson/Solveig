@@ -743,6 +743,11 @@ found out what it wanted.
   one that hands over its secrets — which is the first argument 6.32 has for
   capabilities finer than one per message. The first program here whose input
   does not come from whoever ran it.
+- [expect.sol](../programs/expect.sol) found that **nothing had ever checked
+  the examples' own comments** — about four hundred claims about what each line
+  prints, true because somebody once looked. All of them hold; what was wrong
+  was that three different comment conventions had grown up unnoticed. It runs
+  in `make test` now.
 - [disasm.sol](../programs/disasm.sol) found **three faults in this project's
   own documents** by being a second implementation of a format that had one:
   BYTECODE.md gave no opcode numbers, design.md said both "big-endian" and
