@@ -107,6 +107,19 @@ No dependencies beyond a C11 compiler and `make`.
 
 ## Status
 
+**0.16.0** — a data race fixed, and threads settled by measuring. The serial a
+machine is stamped with in `sol_vm_init` was incremented non-atomically, so two
+threads building one at once could be handed the same number — 16 threads
+building 480,000 machines collided **10,319 times**, one in fifty. It matters to
+anybody embedding on more than one thread and to nobody else; `solvm`, `solas`,
+`solis` and `solid` each build one machine on one thread and could not reach it.
+**0.14.1 and 0.15.0 both carry the bug.** What is now tested and promised is one
+VM and one chunk per thread — a chunk cannot be shared, since running one mutates
+it. Also `sol_vm_set_error_reporting`, so a host can keep failures out of stderr
+and in its own log, and two things measured rather than guessed: a fresh VM per
+request is a third of a request, and compiling a script is 279µs paid once. No
+language change; `.sob` files are format version 13, unchanged since 0.11.0.
+
 **0.15.0** — embedding is a documented interface.
 [solum/embed.h](solum/include/solum/embed.h) is the whole supported surface a C
 program holds a `SolVM` through, [docs/embedding.md](docs/embedding.md) is the

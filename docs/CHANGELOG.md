@@ -5,7 +5,61 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## 0.16.0 — 2026-08-22
+
+**A data race, fixed; threads, settled by measuring; and a host can keep its
+failures to itself.**
+
+**The serial a machine is stamped with was not atomic**, which matters to
+anybody building VMs on more than one thread and to nobody else. `sol_vm_init`
+used a plain `next_vm_id++`, so two threads could be handed one number — and a
+chunk they shared would then believe it was already resolved for the second and
+dispatch against the first's name table. That is the 0.14.1 use-after-free
+reappearing inside its own fix, and **0.14.1 and 0.15.0 both carry it**.
+
+| 480,000 machines on 16 threads | |
+| --- | --- |
+| duplicate serials, before | **10,319** — one in fifty |
+| after `_Atomic` | **0** |
+
+Three instructions inside a `sol_vm_init` that takes 52µs, colliding at 2.1%. A
+contended increment is nothing like as brief as its instruction count suggests.
+
+**A chunk still cannot be shared between threads**, which no atomic would fix:
+running one *mutates* it, the interned names being cached on the chunk and keyed
+to one machine at a time. Eight threads and one chunk is a segmentation fault;
+the same serialised behind a mutex is 0 failures of 2,400. What is now tested
+and promised is **one VM and one chunk per thread**, with source text shared
+freely. That is
+[3.11](ROADMAP.md#311-a-chunk-cannot-be-shared-between-threads).
+
+**`sol_vm_set_error_reporting(vm, false)`** stops `sol_vm_run` writing an
+uncaught failure to stderr, and stops only that — the result still says what
+happened and the text is still readable. On unless asked, so the four front ends
+are unchanged. A host was getting every failure twice: once in its own log and
+once in a format it did not choose.
+
+**And two things got measured rather than guessed.** A fresh VM per request is
+**a third of a request** — 40.5µs of 121.0µs at `-O2`, and the ratio holds in a
+debug build, which makes it a property of the design rather than of the
+compiler. Compiling the script is 279µs, paid once. Both are in
+[3.10](ROADMAP.md#310-a-vm-cannot-be-reused-across-runs), which had said nobody
+had measured it.
+
+**The roadmap is the single list again.** Three limitations were living only in
+[embedding.md](embedding.md) — writing down what a host may rely on means
+writing down what it may not, and nobody had numbered the second half. They are
+[3.8](ROADMAP.md#38-a-host-and-a-script-agree-a-name-and-nothing-checks-that-they-do),
+[3.10](ROADMAP.md#310-a-vm-cannot-be-reused-across-runs) and
+[3.11](ROADMAP.md#311-a-chunk-cannot-be-shared-between-threads). Section 3 now
+separates the restrictions that were **chosen** from the ones that were **found**.
+
+**No language change.** `.sob` files are format version 13, unchanged since
+0.11.0, and `solvm`, `solas`, `solis` and `solid` behave exactly as they did —
+each builds one machine on one thread and could not reach the race.
+
+The test suite grows `-pthread` on one target and only that target.
+
 
 ### Threads, settled by measuring — `d03810f`, 2026-08-22
 

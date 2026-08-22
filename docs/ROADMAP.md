@@ -441,8 +441,28 @@ A host serving requests therefore builds a fresh VM per request, which is what
 [embedding.md](embedding.md#what-is-deliberately-not-promised) says is the only
 safe choice. That is not free: discarding a machine discards the interned names
 and the built-in classes with it, so every request pays to build them again.
-Nobody has measured what that costs, which is the first thing to do if it ever
-matters.
+
+**Measured, and it is a third of a request.** On
+[serve.sol](../programs/serve.sol) answering `/`:
+
+| | debug build | `-O2` |
+| --- | --- | --- |
+| build a machine and free it | 52.3µs | 40.5µs |
+| that, plus one whole request | 155.7µs | 121.0µs |
+| **so the machine is** | **33.6%** | **33.4%** |
+
+The ratio barely moves with the optimiser, which is what makes it a property of
+the design rather than of the build: **a third of the time a host spends on a
+request goes on rebuilding a machine that the last request had already built.**
+
+For scale, compiling that script is 279µs at `-O2` — about twice a request, and
+paid once. So the one-off cost of the flat namespace is nothing and the
+per-request cost is a third of everything, which is the shape of the argument
+for fixing this rather than the shape of an argument for tolerating it.
+
+What it is not yet is a *problem*: 121µs a request is 8,000 requests a second on
+one thread, and nothing here is serving any. The measurement is recorded so that
+whoever needs it has a number rather than a feeling.
 
 **It is the same flatness `@include` relies on**, seen from the side where it
 hurts. An included file's globals are the includer's, deliberately, because a
@@ -516,8 +536,9 @@ is per-VM state cached on shared data, which is the whole of the problem. Moving
 it to the machine means a lookup per chunk on a path that is currently one array
 index, and every nested method chunk has a table of its own — so it is a real
 cost on the hottest code there is, for a use nobody has yet. Recompiling per
-thread costs a few milliseconds once. That is the trade, and it is not close
-today.
+thread is **279µs once** — measured on [serve.sol](../programs/serve.sol) at
+`-O2`, and see [3.10](#310-a-vm-cannot-be-reused-across-runs) for the numbers
+around it. That is the trade, and it is not close today.
 
 ### 1.1d Collection is stop-the-world and non-incremental
 

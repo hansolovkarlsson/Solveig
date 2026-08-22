@@ -109,14 +109,20 @@ is to say so rather than dress it up. That is
 flat namespace and nothing unbinds them, so a second run sees the first one's
 names. That is the same flatness `@include` relies on, seen from the side where
 it hurts. **A fresh VM per request is the only safe choice today**, and it costs
-rebuilding the interned names and the built-in classes each time —
-[3.10](ROADMAP.md#310-a-vm-cannot-be-reused-across-runs).
+rebuilding the interned names and the built-in classes each time.
+
+Measured on [serve.sol](../programs/serve.sol) answering `/` at `-O2`: 40.5µs to
+build a machine and free it, 121.0µs for the whole request, so **a third of a
+request goes on the machine rather than on the work**. The ratio holds in a debug
+build too, which makes it a property of the design. 121µs is 8,000 requests a
+second on one thread, so this is a number to size a host with rather than a
+reason not to build one — [3.10](ROADMAP.md#310-a-vm-cannot-be-reused-across-runs).
 
 **A chunk shared between threads.** Running a chunk *mutates* it — the interned
 names are cached on it, keyed to one machine at a time — so two threads running
 one chunk free and rebuild that table under each other. Measured: eight threads,
 one chunk, 2,400 runs is a segmentation fault; the same serialised behind a
-mutex is 0 failures. Compile per thread, which costs milliseconds once. That is
+mutex is 0 failures. Compile per thread, which is 279µs once. That is
 [3.11](ROADMAP.md#311-a-chunk-cannot-be-shared-between-threads).
 
 **Two threads in one VM.** A machine has one stack, one heap and one frame
