@@ -1,9 +1,14 @@
 # Ideas considered
 
 *Each idea from the notes, with a verdict and the reasoning behind it. The ones
-worth building are in [ROADMAP.md](ROADMAP.md) section 6; the ones recommended
-against are here so the reasons survive, and so the same idea does not have to
-be re-argued from scratch in six months.*
+recommended against are here so the reasons survive, and so the same idea does
+not have to be re-argued from scratch in six months.*
+
+*Everything this document said to build has been built, and the entries are in
+[COMPLETED.md](COMPLETED.md); what
+[ROADMAP.md](ROADMAP.md) section 6 still holds is one decision. So the verdicts
+below are read backwards now — not as a queue, but as a record of what was
+guessed and how the guess turned out.*
 
 Every code sample here has been run against the current build unless it is
 marked as a sketch.
@@ -13,26 +18,26 @@ marked as a sketch.
 | Idea | Verdict |
 | --- | --- |
 | `do` is `forEach`? | **Yes** — and `collect` is map, `select` is filter |
-| Bytecode / assembly reference | **Build it** — and design.md's table is missing six opcodes |
+| Bytecode / assembly reference | **Built** — [BYTECODE.md](BYTECODE.md), checked against the header by the test suite |
 | `$character` literals, Unicode | **Defer** — gated on deciding what a string is |
 | Integer sizes: byte, word, long | **No** — reintroduces the coercion the language refuses |
 | Separate float and double | **No** — same reason, less benefit |
 | `include` another file | **Built** — was the most valuable thing on the list |
-| `System:exit(code)` | **Build it** — small and plainly needed |
-| Keyboard input | **Build `readLine`**; single-key is a different job |
-| File handling | **Build it**, whole-file first |
+| `System:exit(code)` | **Built** — as `system:exit`, and the `system` object grew well past it |
+| Keyboard input | **Both built** — `readLine`, and `readKey` once it earned its own entry |
+| File handling | **Built** — whole-file, and the filesystem around it |
 | JIT to native code | **No** — possible, and it would dwarf the project |
 | More examples covering everything | **Yes** — audit which concepts have none |
-| `doUntil` | **Already writable**; worth building in for the inlining |
+| `doUntil` | **Built in** — and inlined, so a definition in Solum would now be bypassed |
 | switch / case | **Already writable** — no new syntax needed |
-| `#10:repeat({...})` | **Already writable**; cheap to build in |
-| `for` loop with start/end/step | **Already writable** |
+| `#10:repeat({...})` | **Built in** — a primitive, measured 3.2x the version written in Solum |
+| `for` loop with start/end/step | **Built in** — `toDo` and `toByDo` |
 | `forIn` | **It is `do`** |
 | `ifTrue{...}` without parentheses | **No** — it would teach a rule that does not generalise |
-| Performance timing | **Build it** — needs a clock |
+| Performance timing | **Built** — the clock came with it |
 | `['red,'green,'blue]` as an enum | **Works today** — document the pattern |
 | `A:with{ :m1(#1). }` cascades | **No** — chaining already covers it |
-| Document `(group)` versus `{block}` | **Yes** — with your own example |
+| Document `(group)` versus `{block}` | **Written** — [in the guide](GUIDE.md#group-and-block), with your own example |
 | Go-style concurrency | **No, for now** — it changes the whole VM |
 | Subclass `integer`, a `byte` subclass | **Not possible** — see below |
 | More `@` directives: `@define`, `@ifdef`, `@once` | **No** — each one's job is already done by something that is not a directive |
@@ -45,20 +50,31 @@ marked as a sketch.
 ## Already there, or already writable
 
 The language has no control-flow syntax, so **most of the loop and branch ideas
-are library code, not language changes.** All of these run today — and the loops
-among them have since been collected into
-[lib/control.sol](../lib/control.sol), which ships on the search path, so a
-program has them with one line:
+are library code, not language changes.** All of these run today, and all of
+them were written in Solum first — which is the verdict this section was making
+and it was the right one.
+
+**Four of the five then left the library for the VM.** They were collected into
+[lib/control.sol](../lib/control.sol), measured, and `repeat`, `doUntil`, `toDo`
+and `toByDo` all turned out to be worth building in as primitives; a primitive
+`repeat` measured 3.2x the version that lived in the file. What is left in
+`control.sol` is `timesCollect`, the one nobody has measured, and a comment
+saying why the others are not there — redefining one now would shadow the
+primitive with the slow version, and for `doUntil` the compiler splices the loop
+in anyway, so the definition would be bypassed exactly where it was most wanted.
+
+So the snippets below are still the record of what the language can express
+without help, which is what they were written to show. They are no longer how
+you would get these loops:
 
 ```
 @include "control.sol".
 ```
 
-`repeat`, `doUntil`, `toDo`, `toByDo` and `timesCollect` are there. `caseOf`
-below is deliberately not: it is a fine demonstration that the language needs no
-`switch`, and an array of two-element arrays of blocks reached into with
-`pair:at(#1)` is not an interface worth committing to. A library is a promise,
-and the bar is higher than "it works".
+`caseOf` was deliberately never in that file: it is a fine demonstration that
+the language needs no `switch`, and an array of two-element arrays of blocks
+reached into with `pair:at(#1)` is not an interface worth committing to. A
+library is a promise, and the bar is higher than "it works".
 
 The snippets here also end in demonstration calls, which a library file must
 not: including one should bind names and print nothing.
@@ -148,10 +164,16 @@ real but modest gain, and it is in the roadmap as 6.6 rather than here.
 
 ---
 
-## Worth building
+## Worth building — and every one is now built
 
-These are in [ROADMAP.md](ROADMAP.md) section 6 with the detail. In rough order
-of what a real program would miss first:
+These were in [ROADMAP.md](ROADMAP.md) section 6 with the detail, in rough order
+of what a real program would miss first. The order held: the list was worked
+down roughly as written, and the entries are now in
+[COMPLETED.md](COMPLETED.md).
+
+Kept here with the original reasoning, and with what each one turned out to be,
+because **the guesses are the part worth keeping** — and the ones that missed
+are noted below, in place, rather than quietly corrected.
 
 **`include`** was the one that mattered, and it is built —
 `@include "lib.sol".`, and
@@ -164,13 +186,34 @@ much larger change to the object model, and nothing so far has needed it.
 **A `system` object** — `exit(code)` first, then arguments and a clock. Small,
 and `exit` is the difference between a script and a program.
 
+> Built, and it did not stay small: `system` answers its arguments and the
+> environment, walks the filesystem, and runs another program. `exit` turned out
+> to matter for a second reason nobody had in mind here — it unwinds rather than
+> leaving from under the machine, so a script that exits ends *itself* and hands
+> the decision back to whoever called. That is what lets a host survive the
+> script it is running, and
+> [6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
+> names it as the behaviour an embedding would most expect to be wrong.
+
 **A clock**, which is what the performance-timing idea needs. This project's own
 changelog is full of measurements taken with `/usr/bin/time`; being able to take
 them from inside the language would be better.
 
+> Built. The `time` class is there, and performance timing came with it.
+
 **Reading input**, starting with a whole line. `readLine` is a few lines of C and
 portable. Waiting for a single key is a different job — it needs raw terminal
 mode, which is platform-specific and belongs behind its own decision.
+
+> Both built, and splitting them was right: `readLine` came first and single-key
+> went off to be its own entry,
+> [6.10](COMPLETED.md#610-waiting-for-a-single-key--done). What that entry
+> then caught is the thing worth remembering: it was **closed once by mistake**,
+> because Solis had grown raw-mode line editing for its own prompt — the same
+> machinery, and not the same thing, since a *program* still could not read a
+> key. `system:readKey` is the message. It answers one byte rather than one key:
+> an arrow is three bytes, and which bytes make a key belongs to the terminal
+> rather than to the language.
 
 **File handling**, whole-file first: read a file into a string, write a string to
 a file. That covers most of what scripts do. Binary files want a byte-array type
@@ -187,8 +230,20 @@ six opcodes** — `OP_JUMP`, `OP_JUMP_IF_FALSE`, `OP_EXIT_IF_FALSE`, `OP_LOOP`,
 `OP_CHECK_BOOL` and `OP_SYMBOL`, which is every jump and the newest two. The
 disassembler already exists and prints them; the document simply fell behind.
 
+> Built, as [BYTECODE.md](BYTECODE.md), and the fix for *why* it fell behind is
+> the more useful half: the table is checked against
+> `solum/include/solum/bytecode.h` by `tests/test_bytecode.c`, so an opcode
+> added without a line describing it fails the suite. design.md now points here
+> rather than keeping a second table, because one document that cannot drift
+> beats two that agree today.
+
 **More examples**, chosen by auditing which concepts have none rather than by
 adding more of what is already covered.
+
+> **This is the one line in the section still open.** `examples/` has grown a
+> good deal since — and grown the right way, from programs written to find out
+> what the language wanted rather than to demonstrate a feature — but the audit
+> it asks for has not been done, so which concepts have no example is not known.
 
 **A `(group)` versus `{block}` document.** Your own example is the whole of it:
 
@@ -201,6 +256,11 @@ m := { x | x:add(#1) }.
 Both are "code in brackets"; one runs now and one is a value. That distinction
 is obvious once you have it and invisible before, which is exactly what a
 tutorial section is for.
+
+> Written: [`(group)` and `{block}`](GUIDE.md#group-and-block) in the guide, and
+> the entry is
+> [6.8](COMPLETED.md#68-group-and-block-are-not-contrasted-anywhere--done). Your
+> example is what it opens with, unchanged.
 
 ---
 
@@ -314,8 +374,8 @@ sections divide cleanly in two:
 
 | | lines |
 | --- | --- |
-| the language — syntax, values, blocks, control flow, objects, errors | ~1,700 |
-| [Message reference](REFERENCE.md#message-reference) — what each type answers | ~630 |
+| the language — syntax, values, blocks, control flow, objects, errors | ~1,910 |
+| [Message reference](REFERENCE.md#message-reference) — what each type answers | ~700 |
 
 Everything above the message reference describes a language that has nearly
 stopped changing; the message reference grows with every built-in. So the split,
@@ -327,7 +387,7 @@ rather than a thing to build later.
 sections above it. That is a number the file can be measured for, it does not
 depend on anyone's patience with scrolling, and it marks the point where the
 document is mostly a catalogue with a language attached rather than the other
-way round. At 630 against 1,700 it is not close.
+way round. At roughly 700 against 1,910 it is not close.
 
 **What to do before then, if it gets uncomfortable sooner**: the message
 reference could move to its own page while everything else stays, which is one
@@ -335,6 +395,13 @@ file and one link rather than a reorganisation. That is the same split, taken
 early, and it is worth preferring to a scheme with four pages and a navigation
 scheme of its own — this project has one reader today and adding a table of
 contents to a table of contents is not what would help them.
+
+**Re-measured**, since a trigger nobody checks is a trigger that never fires:
+the file is about 2,800 lines, the message reference is about 700 of them, and
+everything above it about 1,910. Both halves grew and the *ratio* barely moved,
+which is the answer — the language sections have gone on growing alongside the
+catalogue rather than standing still while it filled up. Not close, and not
+trending towards close.
 
 ### An `assert`, and compiling it away
 
