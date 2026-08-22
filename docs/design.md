@@ -723,8 +723,17 @@ breakpoint on the loop:
 
 The inlined loop is offered once and then runs to completion. It is the same
 inlining that makes `--trace` quiet on a long loop, seen from the other side:
-what makes the trace bearable makes the program unstoppable. Instructions are
-the one thing a program cannot hide from.
+what makes the trace bearable makes the program unstoppable. A loop cannot hide
+from an instruction count the way it hides from a line number.
+
+**What a step does not measure is work**, and the distinction is worth having
+straight before relying on either limit. An instruction is a unit of dispatch.
+A primitive that reads a file or scans a string does all of it between one step
+and the next, so `system:readFile` of 256MB and an `indexOf` over the whole of
+it is eight instructions -- the same eight as for 64MB, since the count does not
+follow the size. What the limits bound is a program that loops, which is what
+they were built for, and not the cost of one message. See
+[3.7](ROADMAP.md#37-a-limit-bounds-dispatch-not-work).
 
 The counter is a post-decrement and a compare, and there is no branch asking
 whether a limit was set: with none, `steps_remaining` starts at `UINT64_MAX`, so
@@ -751,8 +760,13 @@ has happened is a reason to stop.
 
 The allocation that crossed the line still completes -- its caller needs
 somewhere to put a half-built object -- and the program unwinds at the next
-instruction boundary. The overshoot is bounded by one instruction rather than
-open.
+instruction boundary.
+
+So the overshoot is bounded in *time* and not in *size*. One instruction is one
+allocation, and one allocation is however large the thing being allocated is:
+under a 1MB ceiling, reading a 256MB file succeeds and the program is stopped at
+the next instruction holding 268,450,673 live bytes. The ceiling is a ceiling on
+carrying on, not on going over.
 
 **A stop is not catchable, and that is not an oversight.** `sol_vm_stop` sets
 `stopped` alongside `had_error`, so it unwinds through every loop that already

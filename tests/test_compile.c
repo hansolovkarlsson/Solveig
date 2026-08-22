@@ -213,6 +213,7 @@ static const char *examples[] = {
     "examples/walk.sol",   "examples/time.sol",
     "examples/manifest.sol", "examples/page.sol",
     "examples/mirror.sol", "examples/keys.sol", "examples/tools.sol",
+    "examples/serve.sol",
 };
 #define EXAMPLE_COUNT (sizeof(examples) / sizeof(examples[0]))
 

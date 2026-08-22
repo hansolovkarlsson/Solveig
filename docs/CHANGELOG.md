@@ -5,6 +5,94 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+### A program written to be run by a stranger — `pending`, 2026-08-22
+
+[examples/serve.sol](../examples/serve.sol): a CGI-shaped request handler. It
+answers `/`, `/search?q=...` and `/note/<name>` from a directory of files, and
+with no CGI variables set it runs seven requests through itself and prints each
+response, so it is testable without a socket.
+
+```
+$ PATH_INFO=/search QUERY_STRING=q=limit ./bin/solvm examples/serve.sob
+HTTP/1.1 200 OK
+Content-Type: text/html; charset=utf-8
+Content-Length: 221
+...
+```
+
+**The seventh program here written to do a job, and the first whose input does
+not come from whoever ran it.** That is the whole reason it exists: every other
+program in `examples/` is handed its arguments by the person who started it, and
+[6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
+is about the case where they are not. It asked four things of the language and
+one of the machine.
+
+**`fill` is the injection.** It is the natural way to build a page, it reads
+well, and it inserts exactly what it is given. Nothing in the language or in
+`lib/` escapes HTML — `lib/html.sol` reads entities and cannot write one — so
+the escaping is in the program, and the safe twin of `fill` is the one with the
+worse name.
+
+**A template with two kinds of hole cannot be written with `fill` at all**,
+since it insists the placeholders and the values come to the same number. That
+check is what makes `fill` worth trusting, so the answer is not to weaken it —
+and the marker-and-`split` habit that replaces it is worse, because a marker is
+a string and a value can contain one. What is left is an array of pieces joined,
+which has seams a value cannot add to.
+
+**Refusing `/note/../../etc/passwd` is not string cleaning**, and the language
+helps by having nothing: no path joining, no basename, nothing that normalises
+`..`. The tempting wrong answer is unavailable, and what is left is to say which
+names are names.
+
+**A permission per message is not fine enough.** A CGI handler is told what it
+was asked entirely through `system:environment`, which 6.32 lists among the
+messages that *reveal* the machine — correctly. But the program cannot be
+written without it, so a scheme that can only say yes or no to `environment`
+must say yes, and has then also handed over every secret the server process
+holds. 6.32 now records that: the permission a webserver cannot do without is
+the one that gives away its secrets.
+
+### A limit bounds dispatch, not work — `pending`, 2026-08-22
+
+Running the above the way its own case would — as a guest, with an allowance —
+found the edge of [6.33](COMPLETED.md#633-a-running-program-cannot-be-stopped-from-outside--done),
+which shipped the day before. New entry
+[3.7](ROADMAP.md#37-a-limit-bounds-dispatch-not-work), and a correction to two
+documents that said otherwise.
+
+A request costs 393 instructions for a note, 465 for the index and 798 for a
+search, which is the number a host wants. But a step is a unit of *dispatch*,
+and a primitive does all of its work between one step and the next:
+
+| program | steps | time |
+| --- | --- | --- |
+| `nil:print.` | 4 | — |
+| `readFile` of 64MB, then `indexOf` over all of it | **8** | 0.27s |
+| the same over 256MB | **8** | 1.10s |
+
+The count does not follow the size, because the size is not what it counts.
+
+The memory ceiling is the same fact from the other side. It is checked in
+`sol_gc_maybe_collect`, so an allocation is measured after it has been made:
+under `--memory=1M` the 256MB read completes and the program is stopped at the
+next instruction holding 268,450,673 live bytes. The overshoot is bounded in
+time and not in size — the ceiling stops a program carrying on, not going over.
+
+**Neither limit is undone.** A program still cannot loop forever and cannot keep
+what it makes, which is what 6.33 was built for. What they do not bound is the
+cost of one message, which is the number a webserver actually wants. Both ways
+of fixing that — charging a primitive for what it handles, or refusing an
+allocation rather than noticing it afterwards — give up something the design
+currently leans on, so 3.7 records the choice rather than taking it.
+
+`docs/design.md` said instructions were the one thing a program could not hide
+from, and that the overshoot was bounded by one instruction. Both are now said
+accurately. 6.33's own entry said it bounded a program's work; it bounds a
+program that loops.
+
 ## 0.13.0 — 2026-08-21
 
 **A program can be given a limit, and the machine can take it back.**

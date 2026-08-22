@@ -56,8 +56,10 @@ script's frame has slots like every other, so a temporary may be declared
 anywhere.
 
 **What is left is section 3, and one decision.** Section 3 holds the
-restrictions the language lives under on purpose, each documented where a
-program would meet it. Section 2 has no open design question — the last one,
+restrictions the language lives under, each documented where a program would
+meet it. Most were chosen; the newest,
+[3.7](#37-a-limit-bounds-dispatch-not-work), was found by running a program the
+way its own case would. Section 2 has no open design question — the last one,
 2.5, is closed. And section 6, a program's dealings with the world outside it,
 is built: reading input, writing files, stopping with a status, walking the
 filesystem, knowing the time, a prompt with history, a debugger, and running
@@ -157,8 +159,14 @@ own.
 
 ## 3. Known limitations
 
-These are deliberate, safe, and documented. Each is a real restriction rather
-than a bug.
+Safe, and documented. Each is a real restriction rather than a bug.
+
+Most are deliberate — a decision taken and written down. **3.7 is not**: it is a
+consequence of a decision taken elsewhere, noticed afterwards, and it is kept
+here rather than in section 6 because the two ways of answering it both cost
+more than what they buy is currently worth. That distinction is worth keeping
+visible: a restriction chosen and a restriction discovered ask different
+questions of whoever reads the list.
 
 ### 2.13 Text is bytes, and case is ASCII only
 
@@ -323,6 +331,62 @@ caller-owned chunks with a long-lived VM, which today is the test suite.
 Collapsing the two ownership modes into one would fix it, at the cost of giving
 Solas a VM it otherwise does not need.
 
+### 3.7 A limit bounds dispatch, not work
+
+[6.33](COMPLETED.md#633-a-running-program-cannot-be-stopped-from-outside--done)
+counts instructions, and an instruction is not a fixed amount of work. A
+primitive that reads a file, scans a string or joins an array does all of it
+between one step and the next, so a program can spend an unbounded amount of
+time and memory without spending steps.
+
+[serve.sol](../examples/serve.sol) answers a request in 393 to 798 instructions
+depending on which one, which is the sort of number a host would set a limit
+from. It is also the number that stops meaning anything the moment a request can
+name a file. Measured with the smallest program that shows it:
+
+| program | steps | time |
+| --- | --- | --- |
+| `nil:print.` | 4 | — |
+| `readFile` of 64MB, then `indexOf` over all of it | **8** | 0.27s |
+| the same over 256MB | **8** | 1.10s |
+
+The step count does not move with the size, because the size is not what it is
+counting. Four of those eight are the four the empty program spends.
+
+The memory ceiling is the same fact from the other side. It is checked in
+`sol_gc_maybe_collect`, so an allocation is measured **after** it has been made:
+under `--memory=1M` the 256MB read completes, and the program is stopped at the
+next instruction holding 268,450,673 live bytes. It was stopped for going over
+by a factor of 256, having already gone over by a factor of 256.
+
+**What this does not undo.** A program still cannot loop forever, which is what
+6.33 was for: an inlined loop spends a step per turn and the ceiling stops a
+program that keeps what it makes. Both limits do the job they were built for.
+What they do not do is bound the *cost of one request* — which is the number a
+webserver wants, and the case 6.33 came from — because a single message can be
+arbitrarily expensive.
+
+**Two shapes of answer**, neither obviously right, which is why this is here
+rather than in section 6:
+
+- **Charge a primitive for what it handles**: `readFile` costs a step per
+  kilobyte, `indexOf` a step per kilobyte scanned. That makes the limit mean
+  work again, and it gives up the sentence the design leans on — that a step is
+  one instruction and therefore countable without anyone deciding a rate. Every
+  rate would be a number somebody chose.
+- **Refuse the allocation instead of noticing it afterwards**: check the ceiling
+  before a large allocation rather than after. That bounds the footprint
+  properly and needs every primitive that allocates to unwind cleanly from the
+  middle, which is a change to each of them rather than one to the collector.
+
+**And the honest note**: this makes the caveat 6.32 already carries larger, not
+different. A restricted script can still fill a disk or compute the wrong
+answer; it turns out it can also spend a minute and a gigabyte inside a limit
+that was set to stop exactly that. Found by writing
+[serve.sol](../examples/serve.sol) and running it the way its own case would —
+as a guest, with an allowance — which is a thing nobody had done to a program
+here before, because every earlier program was run by the person who wrote it.
+
 ### 1.1d Collection is stop-the-world and non-incremental
 
 Fine at this size and not worth touching yet. Noted so it is a choice rather than
@@ -415,6 +479,21 @@ That suggests **capabilities rather than a switch** — something nearer
 and the embedding case wants it: a template renderer wants to read files and
 never to run a program, which one boolean cannot say.
 
+**And one capability per message is not fine enough either.**
+[serve.sol](../examples/serve.sol) is the case written down, and it is told what
+it was asked entirely through `system:environment` — `PATH_INFO` and
+`QUERY_STRING` are how CGI hands a handler its request. So a scheme that can
+only say yes or no to `environment` has to say yes, and has then also said yes
+to `AWS_SECRET_ACCESS_KEY` and everything else the server process is holding.
+The permission that a webserver *must* grant is the one that gives away its
+secrets.
+
+That does not settle the shape, but it rules one out: the granularity has to be
+finer than the message where the message names something. Which is a familiar
+answer — it is a list of allowed variables, or of allowed paths — and it is more
+work again, since a capability that names things is a capability that has to be
+matched against them.
+
 **A complication worth knowing before starting**: `@include` reads files, and
 the search path reads the shipped library. A mode with no reading at all cannot
 compile a program that uses `lib/json.sol`, so reading the *program* is not the
@@ -479,6 +558,11 @@ found out what it wanted.
   asked for a file's mode and time.
 - `lib/text.sol` broke a program **from a distance** by claiming a common global
   name, ten minutes after the entry saying that could happen was written.
+- [serve.sol](../examples/serve.sol) found that **a limit bounds dispatch and
+  not work** (3.7), and that the permission a webserver cannot do without is the
+  one that hands over its secrets — which is the first argument 6.32 has for
+  capabilities finer than one per message. The first program here whose input
+  does not come from whoever ran it.
 
 **Four of the entries were papercuts a library tripped over**, not things anybody
 reasoned out in advance:

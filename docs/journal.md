@@ -11,6 +11,92 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-22 — the first program run by a stranger
+
+One program, and it corrected the release that shipped the day before.
+
+**How the day started: with nothing to build.** The roadmap says so in as many
+words — everything is built except one decision, and the way to add to it is to
+write a program and find out what it wants. So the first hour went on the one
+document yesterday's refresher pass had missed. `docs/ideas.md` exists so an
+idea does not have to be re-argued in six months, which only works if the
+verdicts are current, and nine rows of its table still said *build it* about
+things that shipped. It also claimed four loops were in `lib/control.sol` when
+all four had left for the VM. Fixed, with what each guess turned out to be
+rather than just a status, because the guesses are the part worth keeping.
+
+**Then the actual job**: [serve.sol](../examples/serve.sol), a CGI-shaped
+request handler. `/`, `/search?q=...`, `/note/<name>`, served out of a directory
+of files, with seven requests run through itself when no CGI variables are set
+so it is testable without a socket.
+
+The point was not the program. Every other program in `examples/` is handed its
+arguments by the person who started it; this is the first one handed a path and
+a query string by a stranger, which is the case
+[6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
+is about and which no program here had ever been.
+
+**What it wanted, in the order it wanted it.**
+
+`fill` is the injection. It is the obvious way to build a page and it inserts
+exactly what it is given, and nothing in the language or the libraries escapes
+HTML. Then: a template with a value-shaped hole and a fragment-shaped hole
+cannot use `fill` at all, because `fill` insists the counts match — which is the
+check that makes it trustworthy, so the answer is not to want it weakened. The
+marker-and-`split` habit that replaces it is worse, since a marker is a string
+and a value can contain one. What survived is an array of pieces joined.
+
+Refusing `/note/../../etc/passwd` turned out to be the easy one, and easy for an
+unexpected reason: the language has no path handling at all, so the tempting
+wrong answer — clean the name — was not available, and what is left is to say
+which names are names. Which is the right answer anyway. A restriction doing
+useful work by being a restriction.
+
+**The finding that mattered was not in the program.** It came from running it
+the way its own case would: as a guest, with an allowance. A request costs 393
+instructions for a note, 465 for the index, 798 for a search. Then, out of
+curiosity: how many instructions is reading a large file?
+
+| | steps | time |
+| --- | --- | --- |
+| `nil:print.` | 4 | — |
+| `readFile` of 64MB, then `indexOf` over all of it | **8** | 0.27s |
+| the same over 256MB | **8** | 1.10s |
+
+Eight, and eight, and the count does not follow the size. A step is a unit of
+dispatch. Yesterday's release counts them and calls it bounding a program's
+work, and it is not — it bounds a program that *loops*, which is what it was
+built for and is a real thing to bound, but a single message can cost whatever
+it likes. The memory ceiling is the same fact from the other side: it is checked
+after an allocation, so under a 1MB limit that 256MB read completes and the
+program is stopped holding 268 million live bytes.
+
+**Two documents said otherwise and now do not.** `design.md` claimed
+instructions were the one thing a program could not hide from, and that the
+overshoot was bounded by one instruction. Both are true of time and neither is
+true of size. 6.33's own entry claimed it bounded a program's work.
+[3.7](ROADMAP.md#37-a-limit-bounds-dispatch-not-work) is the new entry, and it
+is the first in section 3 that was *discovered* rather than chosen — which is
+worth the sentence it got in the section intro, because a restriction found and
+a restriction decided ask different things of a reader.
+
+**And 6.32 got its first concrete argument** rather than another paragraph of
+reasoning. A CGI handler is told what it was asked entirely through
+`system:environment` — which 6.32 correctly lists among the messages that
+*reveal* the machine. The handler cannot be written without it. So a permission
+scheme with one switch per message must grant `environment`, and has then also
+granted `AWS_SECRET_ACCESS_KEY`. The permission a webserver cannot do without is
+the one that hands over its secrets. That does not settle the shape, but it
+rules one out: per-message is not fine enough where the message names something.
+
+**The shape of the day**, which is the thing this file is for: the program was
+the instrument, not the result. It was written to be run by a stranger, and
+almost everything it found came from being run *as* one — under a limit, against
+a hostile path, with input that was trying to become code. Nothing here had been
+run that way before, because until yesterday there was nothing to run it with.
+
+---
+
 ## 2026-08-21 — 0.1.0 to 0.13.0
 
 Thirteen releases, 113 commits, 07:31 to 19:04. The project was three days old

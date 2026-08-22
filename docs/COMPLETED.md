@@ -1526,9 +1526,20 @@ suggestions.
 a host reading that as an ordinary failure would go looking for a bug that is
 not there. It is what `timeout` answers, for the same reason.
 
-**What it does not do.** It bounds a program's work and its footprint, not what
-it reaches for: a stopped program may already have deleted the files it was
-going to delete. That is 6.32, which is still a decision.
+**What it does not do.** It bounds a program that *loops* -- which is what the
+entry was written about -- and not what it reaches for: a stopped program may
+already have deleted the files it was going to delete. That is 6.32, which is
+still a decision.
+
+**And it does not bound the cost of one message**, which this entry originally
+claimed it did by saying it bounded a program's work. A step is a unit of
+dispatch, so a primitive that reads a file or scans a string spends one of them
+however large the file is: `readFile` of 256MB plus an `indexOf` over all of it
+is eight instructions, and under a 1MB ceiling that read completes before the
+program is stopped holding 256 times its allowance. Found by writing
+[serve.sol](../examples/serve.sol) and running it as a guest with an allowance,
+and recorded as
+[3.7](ROADMAP.md#37-a-limit-bounds-dispatch-not-work).
 
 ### 6.29 A stepper — **Solid** — **done**
 
