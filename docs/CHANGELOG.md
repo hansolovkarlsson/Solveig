@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### Solid — `pending`, 2026-08-21
+### Solid — `d76b94b`, 2026-08-21
 
 [6.29](COMPLETED.md#629-a-stepper--solid--done), the last entry on the roadmap.
 `bin/solid` is the fourth program: it runs a program, stops before its first
