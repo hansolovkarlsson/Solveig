@@ -364,7 +364,14 @@ message requiring an object receiver — turned out to be the whole of what
 splitting the two objects would have bought.
 
 **A new entry means a program wanted something and could not have it.** That is
-the only way one has arrived for a long time, and it is the way to add the next.
+the only way one has arrived for a long time, and it is how the two after the
+list emptied arrived as well:
+[6.30](COMPLETED.md#630-a-program-cannot-run-another-program--done), because a
+language for scripting an OS that cannot invoke another program is working with
+one hand, and
+[6.31](COMPLETED.md#631-text-from-another-program-arrives-padded--done) within
+the hour, because `wc -l` answers `"     100\n"` and `asInteger` will not have
+it. Both are built.
 
 
 [ideas.md](ideas.md) records what was considered and turned down, so the same

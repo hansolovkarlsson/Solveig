@@ -212,7 +212,7 @@ static const char *examples[] = {
     "examples/errors.sol",  "examples/evaluator.sol",
     "examples/walk.sol",   "examples/time.sol",
     "examples/manifest.sol", "examples/page.sol",
-    "examples/mirror.sol", "examples/keys.sol",
+    "examples/mirror.sol", "examples/keys.sol", "examples/tools.sol",
 };
 #define EXAMPLE_COUNT (sizeof(examples) / sizeof(examples[0]))
 
@@ -450,7 +450,7 @@ static void test_no_example_is_left_out(void)
    the second is a real program's worth of code, so leaving it unverified would
    be leaving the largest thing on the search path unchecked. */
 static const char *library[] = {
-    "lib/control.sol", "lib/text.sol", "lib/json.sol",
+    "lib/control.sol", "lib/text.sol", "lib/json.sol", "lib/shell.sol",
     "lib/html.sol",
 };
 #define LIBRARY_COUNT (sizeof(library) / sizeof(library[0]))

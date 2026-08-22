@@ -31,6 +31,7 @@ a:print.
   - [Arguments](#arguments)
   - [Reading input](#reading-input)
   - [Files](#files)
+  - [Running another program](#running-another-program)
   - [The clock](#the-clock)
 - **[Lexical structure](#lexical-structure)**
   - [Comments](#comments)
@@ -257,7 +258,7 @@ not enough
 What is gone is the **frames**. Nothing can be resumed and a block's temporaries
 are lost with the stack, so this is a prompt beside the wreck rather than a
 break in the middle of it. That is most of what is available: a stepper would
-need [names for locals](ROADMAP.md#628-local-variables-have-no-names-at-run-time),
+need [names for locals](COMPLETED.md#628-local-variables-have-no-names-at-run-time--done),
 which the chunk does not carry.
 
 It stays after a program that *finishes*, too, which is the other half of being
@@ -526,6 +527,29 @@ One method, wanted by more than one library:
 built-in class needs no name of its own, and the first draft, which bound an
 object called `text`, was shadowed by the first program that had a variable of
 that name.
+
+#### shell.sol
+
+Running a command through `/bin/sh`, when the shell is the point.
+
+```
+@include "shell.sol".
+
+shell:run("ls *.sol | wc -l").                  ; the status
+shell:capture("git status --porcelain").        ; output and status
+shell:read("date").                             ; the output, raising on failure
+shell:line("git rev-parse --short HEAD").       ; the same, without the newline
+```
+
+**It gives up what `system:run` protects**, and says so: a command line is text
+the shell parses, so a name that came from outside the program can be read as
+syntax there. Build the command out of things you wrote; where any part of it
+came from a file, an argument or a user, use `system:run` with an array and let
+the strings stay strings.
+
+`read` raises when the command fails where `capture` reports it — one asks, the
+other insists — and `line` is `read` with the trailing newline taken off, which
+is what a command's one-line answer wants.
 
 #### json.sol
 
@@ -958,6 +982,53 @@ There was a third reason once: include was spelled `"lib.sol":include` then, and
 were nothing alike. That collision is gone — an include is `@include "lib.sol"`
 now and looks like nothing else — but the first two reasons were the load-bearing
 ones and they still hold.
+
+### Running another program
+
+`system:run` takes the program and its arguments as an **array**, and answers
+the exit status. The child shares this program's output, so what it writes
+appears as it runs.
+
+```
+system:run(["ls", "-l", path]).            ; #0, or whatever it answered
+system:capture(["git", "rev-parse", "HEAD"]).
+```
+
+`system:capture` keeps what the command wrote instead, answering a **dictionary**
+of `"output"` and `"status"` — because a command's output is worth little
+without knowing whether it worked, and `grep` finding nothing is not `grep`
+failing.
+
+**An array rather than a command line**, and that is the design rather than a
+detail. An array is a list of arguments and nothing in it is ever read as
+syntax:
+
+```
+system:run(["rm", name]).       ; one argument, whatever `name` holds
+```
+
+A file called `; rm -rf ~` is a *name* there, because it is one string. Handed to
+a shell as text, the same name is a sentence. So anything that came from
+outside the program — an argument, a directory listing, a line of input — goes
+in the array and stays a string.
+
+**The shell is reachable and spelled out**, which is how it should look:
+
+```
+system:run(["/bin/sh", "-c", "ls *.sol | wc -l"]).
+```
+
+[lib/shell.sol](../lib/shell.sol) wraps that for programs where pipes and globs
+are the point, so the convenience is a line away and the hazard is named where
+it is taken.
+
+**A command that is not there answers `#127`**, which is what a shell answers,
+rather than raising: a script asking whether a tool is installed is asking a
+question. A command killed by a signal answers 128 plus the signal, the same
+convention. Neither is an error, so both are the caller's to notice.
+
+Output arrives as bytes, padding and all — `wc -l` answers `"     100\n"` — and
+[`trim`](#string) is what stands between that and `asInteger`.
 
 ### The clock
 
@@ -2015,6 +2086,7 @@ on the page: the `#` marks the integer.
 | `asInteger` `asFloat` | strict: the whole string must be a number |
 | `asInteger(#n)` | reads base `n`, 2 to 36; the digits alone, no `0x` |
 | `asByte` | the number of the one byte in it; strict about there being one |
+| `trim` | the same text without the space around it |
 | `asUppercase` `asLowercase` | a new string; ASCII letters only |
 | `asSymbol` | the interned symbol for these characters |
 | `asTime` | an instant, read as ISO-8601; strict |
@@ -2491,6 +2563,8 @@ it delegates to `object` like everything else. See
 | `filesIn(path)` | an array of the names in a directory; an error if it is not one |
 | `appendFile(path, text)` | nil, having added to the end; creates the file |
 | `environment(name)` | the variable, or **nil** when it is not set |
+| `run(argv)` | the exit status of another program; `argv` is an array |
+| `capture(argv)` | a dictionary of `"output"` and `"status"` |
 | `fileSize(path)` | an integer, without reading the file |
 | `remove(path)` | nil, having deleted a file or an **empty** directory |
 | `makeDirectory(path)` | **true** if it made one, **false** if a directory was there; the parent must exist |
@@ -2567,7 +2641,7 @@ division by zero, undeclared names, and a block outliving its frame.
 Every built-in message and the types that answer it. The question a reference
 gets asked is usually *what has `copyFrom`?* rather than *what does a string
 do?*, and the sections above answer only the second — so this answers the first.
-118 messages across 212 registrations.
+121 messages across 215 registrations.
 
 **A test keeps it honest**: a message registered in `builtins.c` and missing
 from here fails the build, which is the same bargain that makes every message
@@ -2598,6 +2672,7 @@ appear in an example.
 | `bitOr` | [integer](#integer) |
 | `bitXor` | [integer](#integer) |
 | `boundTo` | [block](#block) |
+| `capture` | [system](#system) |
 | `ceiling` | [float](#float) |
 | `clock` | [system](#system) |
 | `collect` | [array](#array) |
@@ -2668,6 +2743,7 @@ appear in an example.
 | `repeat` | [block](#block), [integer](#integer) |
 | `respondsTo` | [every type](#every-type) |
 | `rounded` | [float](#float) |
+| `run` | [system](#system) |
 | `second` | [time](#time) |
 | `secondsSince` | [time](#time) |
 | `select` | [array](#array) |
@@ -2685,6 +2761,7 @@ appear in an example.
 | `timeToRun` | [block](#block) |
 | `toByDo` | [integer](#integer) |
 | `toDo` | [integer](#integer) |
+| `trim` | [string](#string) |
 | `truncated` | [float](#float) |
 | `value` | [block](#block) |
 | `values` | [dictionary](#dictionary) |

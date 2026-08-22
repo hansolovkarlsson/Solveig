@@ -1390,6 +1390,63 @@ for values, by identity for arrays, blocks, objects and dictionaries.
 [[#1]]:indexOf([#1]).            ; nil  -- an equal-looking array is a different one
 ```
 
+### 6.30 A program cannot run another program — **done**
+
+`system:run(argv)` and `system:capture(argv)`, and
+[lib/shell.sol](../lib/shell.sol) over them.
+
+**The first entry raised after the list emptied**, and it came the way the list
+says entries come: something was wanted and could not be had. A language aimed
+at scripting an OS that cannot invoke another program is doing the job with one
+hand — most of what a shell script does is arrange other programs.
+
+**An array of arguments, not a command line**, which is the whole decision:
+
+```
+system:run(["rm", name]).       ; one argument, whatever `name` holds
+```
+
+A file called `; rm -rf ~` is a *name* there, because it is one string. Handed
+to a shell as text it is a sentence. Every scripting language that took the
+convenient form regrets it, and the regret is a deleted home directory rather
+than a lint warning. Demonstrated rather than asserted: a directory holding a
+file of exactly that name survives being listed and measured.
+
+**The shell is reachable and spelled out**, `["/bin/sh", "-c", "..."]`, which
+says what it is doing where it is done. `lib/shell.sol` wraps that with `run`,
+`capture`, `read` and `line`, so the convenience is one line away and the hazard
+is named in the file that takes it rather than hidden in a primitive.
+
+**`capture` answers a dictionary** of `"output"` and `"status"` rather than the
+text alone, because a command's output is worth little without knowing whether
+it worked: `grep` finding nothing is not `grep` failing, and only the status
+separates them.
+
+**Conventions taken from the shell rather than invented.** A command that cannot
+be run answers `#127`; one killed by a signal answers 128 plus the signal.
+Neither raises — a script asking whether a tool is installed is asking a
+question, not making a mistake.
+
+**Reading before waiting.** `capture` drains the pipe and only then waits for
+the child, because a program writing more than a pipe holds would block forever
+against a parent waiting for it to exit. Tested with 1.3 MB of output.
+
+### 6.31 Text from another program arrives padded — **done**
+
+`string:trim`, wanted within an hour of
+[6.30](#630-a-program-cannot-run-another-program--done) by the first program that
+read a command's output.
+
+`wc -l` answers `"     100\n"`. `asInteger` is strict about the whole string
+being a number — rightly, since `"12abc"` is a mistake rather than twelve — so
+the padding has to come off first. Every command-line tool pads a number, and
+every script that reads one trims it.
+
+Space, tab, newline and carriage return: the four a terminal produces. Nothing
+else, because a string is bytes and deciding what counts as blank in a text this
+language cannot otherwise read would be a promise it could not keep. A string
+with nothing to remove answers itself.
+
 ### 6.29 A stepper — **Solid** — **done**
 
 `bin/solid`, the fourth program. It runs a program, stops before its first line,

@@ -553,6 +553,34 @@ static void test_pieces_outlive_the_string_they_came_from(void)
     sol_vm_free(&vm);
 }
 
+/* `trim`, wanted by the first program that read another program's output: `wc`
+   pads its number with spaces and `asInteger` refuses anything but a number. */
+static void test_trim(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "a := \"   spaced   \":trim."
+        "b := \"  42\\n\":trim:asInteger."
+        "c := \"\":trim."
+        "d := \"    \":trim."
+        "e := \"none\":trim."
+        "f := \"a b\":trim."                 /* the middle is left alone */
+        "g := \"\\n\\tmixed\\r\":trim.") == SOL_OK);
+    assert(is_text(global(&vm, "a"), "spaced"));
+    assert(SOL_AS_INT(global(&vm, "b")) == 42);
+    assert(is_text(global(&vm, "c"), ""));
+    assert(is_text(global(&vm, "d"), ""));
+    assert(is_text(global(&vm, "e"), "none"));
+    assert(is_text(global(&vm, "f"), "a b"));
+    assert(is_text(global(&vm, "g"), "mixed"));
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+    printf("  trim takes the space off both ends and leaves the middle\n");
+}
+
 int main(void)
 {
     test_case();
@@ -571,6 +599,7 @@ int main(void)
     test_index_of();
     test_copy_from();
     test_pieces_outlive_the_string_they_came_from();
+    test_trim();
     printf("test_string: ok\n");
     return 0;
 }

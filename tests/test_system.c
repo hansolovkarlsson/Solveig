@@ -893,6 +893,82 @@ static bool is_text(SolValue value, const char *expected)
            memcmp(s->chars, expected, (size_t)s->length) == 0;
 }
 
+/* Running another program. An array of arguments rather than a command line,
+   which is the decision in it: nothing in an array is ever read as syntax. */
+static void test_running_a_program(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "ok := system:run([\"true\"])."
+        "no := system:run([\"false\"])."
+        "code := system:run([\"sh\", \"-c\", \"exit 3\"])."
+        /* A command that is not there answers 127, which is what a shell
+           answers, rather than failing: asking whether a tool is installed is a
+           question rather than a mistake. */
+        "missing := system:run([\"solveig-no-such-program\"]).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "ok")) == 0);
+    assert(SOL_AS_INT(global(&vm, "no")) == 1);
+    assert(SOL_AS_INT(global(&vm, "code")) == 3);
+    assert(SOL_AS_INT(global(&vm, "missing")) == 127);
+    sol_chunk_free(&chunk);
+
+    static const char *refused[] = {
+        "system:run(\"ls\").",              /* a string is not an argument list */
+        "system:run([]).",                  /* nothing to run */
+        "system:run([\"echo\", #1]).",      /* every argument is a string */
+        "system:run().",
+    };
+    for (size_t i = 0; i < sizeof refused / sizeof refused[0]; i++) {
+        assert(run(&vm, &chunk, refused[i]) == SOL_RUNTIME_ERROR);
+        sol_chunk_free(&chunk);
+    }
+
+    sol_vm_free(&vm);
+    printf("  running a program answers its status\n");
+}
+
+/* Capturing what it wrote, with the status beside it -- because a command's
+   output is worth little without knowing whether it worked. */
+static void test_capturing_output(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "r := system:capture([\"echo\", \"one two\"])."
+        "text := r:at(\"output\")."
+        "status := r:at(\"status\")."
+        /* An argument with a space in it is one argument, which is the whole
+           reason this takes an array. A shell would have made it two. */
+        "spaced := system:capture([\"echo\", \"a b c\"]):at(\"output\")."
+        /* And a failing command still hands back what it managed to say. */
+        "failed := system:capture([\"sh\", \"-c\", \"echo said; exit 2\"])."
+        "saidAnyway := failed:at(\"output\")."
+        "failedStatus := failed:at(\"status\").") == SOL_OK);
+
+    assert(is_text(global(&vm, "text"), "one two\n"));
+    assert(SOL_AS_INT(global(&vm, "status")) == 0);
+    assert(is_text(global(&vm, "spaced"), "a b c\n"));
+    assert(is_text(global(&vm, "saidAnyway"), "said\n"));
+    assert(SOL_AS_INT(global(&vm, "failedStatus")) == 2);
+    sol_chunk_free(&chunk);
+
+    /* More than a pipe holds, which deadlocks anything that waits for the child
+       before reading what it wrote. */
+    assert(run(&vm, &chunk,
+        "big := system:capture([\"sh\", \"-c\", \"seq 1 200000\"])."
+        "size := big:at(\"output\"):size."
+        "bigStatus := big:at(\"status\").") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "size")) > 1000000);
+    assert(SOL_AS_INT(global(&vm, "bigStatus")) == 0);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+    printf("  capturing answers the output and the status\n");
+}
+
 /* One byte at a time, without waiting for a line.
  *
  * Driven through a pipe, which is deterministic and is also half the contract:
@@ -1131,6 +1207,8 @@ int main(void)
     test_a_file_that_is_not_there_is_an_error();
     test_file_exists_means_a_file();
 
+    test_running_a_program();
+    test_capturing_output();
     test_read_key_takes_one_byte();
     test_making_a_directory_answers_whether_it_did();
     test_a_mode_can_be_read_and_set();

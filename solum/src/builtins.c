@@ -928,6 +928,42 @@ static SolValue prim_string_as_integer(SolVM *vm, SolValue self, SolValue *args,
     return SOL_INT_VAL((int64_t)value);
 }
 
+/* `"  42 ":trim` -- the same text without the space around it.
+ *
+ * Wanted by the first program that read another program's output. `wc -l`
+ * answers `"     100\n"`, and `asInteger` is strict about the whole string
+ * being a number -- rightly, since `"12abc"` is a mistake rather than twelve --
+ * so text arriving from outside needs the padding taken off before it can be
+ * anything else. Every tool that prints a number pads it, and every script that
+ * reads one trims it.
+ *
+ * Space, tab, newline and carriage return: the four a terminal produces.
+ * Nothing else is whitespace here, because a string is bytes and deciding what
+ * is blank in a text this language cannot otherwise read would be a promise it
+ * could not keep.
+ *
+ * A string with nothing to remove answers itself; strings are immutable, so
+ * nothing can tell, and it saves an allocation.
+ */
+static bool is_blank(char c)
+{
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r';
+}
+
+static SolValue prim_string_trim(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "trim", argc, 0)) return SOL_NIL_VAL;
+
+    const SolString *string = SOL_AS_STRING(self);
+    int from = 0, to = string->length;
+    while (from < to && is_blank(string->chars[from])) from++;
+    while (to > from && is_blank(string->chars[to - 1])) to--;
+
+    if (from == 0 && to == string->length) return self;
+    return SOL_STRING_VAL(sol_string_new(vm, string->chars + from, to - from));
+}
+
 /* `"A":asByte` -- the number of the one byte in the receiver.
  *
  * Named for what it answers rather than for what a caller might wish it
@@ -3824,6 +3860,203 @@ static SolValue prim_system_append_file(SolVM *vm, SolValue self, SolValue *args
  * to a legitimate question, the way the end of input is. `isNil` asks, and
  * `{ system:environment("HOME") }:onError` would be the wrong shape for
  * something that is not a failure. */
+/* ---- running another program -------------------------------------------- *
+ *
+ * `system:run(["ls", "-l", path])` and `system:capture([...])`, and the shape
+ * of those is the decision in them: **an array of arguments, not a string for a
+ * shell.**
+ *
+ * A string handed to `/bin/sh` is the convenient form and the one every
+ * scripting language regrets. `"rm " ++ name` is a command until `name` holds a
+ * space, and then it is two; a file called `; rm -rf ~` is a sentence the shell
+ * reads rather than a name the program passed. Building the argument list means
+ * a path with a space in it is one argument because it is one string, and
+ * nothing in it is ever read as syntax.
+ *
+ * The shell is still there and is spelled out when it is wanted:
+ *
+ *     system:run(["/bin/sh", "-c", "ls | wc -l"]).
+ *
+ * which says what it is doing. `lib/shell.sol` wraps that for programs that
+ * want pipes and globs, so the convenience is a line away and the hazard is
+ * named where it is taken rather than hidden in a primitive.
+ *
+ * A command that cannot be run answers **127**, which is what a shell answers
+ * for the same thing, rather than raising: a script asking whether a tool is
+ * installed is asking a question, not making a mistake.
+ */
+#if defined(__unix__) || defined(__APPLE__)
+#include <sys/wait.h>
+#include <unistd.h>
+
+/* The array, as execvp wants it: NULL-terminated, and every element a string.
+   The caller frees the vector; the strings belong to the array's values. */
+static char **argv_from(SolVM *vm, const char *name, SolValue value)
+{
+    if (!SOL_IS_ARRAY(value)) {
+        sol_vm_runtime_error(vm, "'%s' expects an array of strings, got %s"
+                                 " -- the program and then its arguments",
+                             name, sol_type_name(value));
+        return NULL;
+    }
+    const SolArray *array = SOL_AS_ARRAY(value);
+    if (array->count == 0) {
+        sol_vm_runtime_error(vm, "'%s' wants something to run", name);
+        return NULL;
+    }
+
+    char **argv = malloc(sizeof(char *) * (size_t)(array->count + 1));
+    if (argv == NULL) {
+        sol_vm_runtime_error(vm, "out of memory building a command");
+        return NULL;
+    }
+
+    for (int i = 0; i < array->count; i++) {
+        if (!SOL_IS_STRING(array->items[i])) {
+            sol_vm_runtime_error(vm,
+                "'%s' wants every argument as a string, and #%d is %s", name,
+                i + 1, sol_type_name(array->items[i]));
+            free(argv);
+            return NULL;
+        }
+        argv[i] = SOL_AS_STRING(array->items[i])->chars;
+    }
+    argv[array->count] = NULL;
+    return argv;
+}
+
+/* What waitpid's status means to a script: the exit code, or 128 + the signal
+   for a program killed by one, which is the shell's convention and the only
+   one anybody recognises. */
+static int status_of(int status)
+{
+    if (WIFEXITED(status)) return WEXITSTATUS(status);
+    if (WIFSIGNALED(status)) return 128 + WTERMSIG(status);
+    return -1;
+}
+
+static SolValue prim_system_run(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "run", argc, 1)) return SOL_NIL_VAL;
+
+    char **argv = argv_from(vm, "run", args[0]);
+    if (argv == NULL) return SOL_NIL_VAL;
+
+    fflush(stdout);          /* the child shares the terminal; ours goes first */
+    fflush(stderr);
+
+    pid_t pid = fork();
+    if (pid < 0) {
+        const char *what = argv[0];
+        free(argv);
+        sol_vm_runtime_error(vm, "cannot run '%s': %s", what, strerror(errno));
+        return SOL_NIL_VAL;
+    }
+    if (pid == 0) {
+        execvp(argv[0], argv);
+        _exit(127);          /* not found, or not runnable: the shell's answer */
+    }
+
+    int status = 0;
+    while (waitpid(pid, &status, 0) < 0 && errno == EINTR) { /* again */ }
+    free(argv);
+    return SOL_INT_VAL(status_of(status));
+}
+
+/* The same, keeping what it wrote. Answers a dictionary rather than the text
+   alone, because a script that reads a command's output almost always has to
+   know whether it worked -- `grep` finding nothing is not `grep` failing, and
+   only the status tells them apart. */
+static SolValue prim_system_capture(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "capture", argc, 1)) return SOL_NIL_VAL;
+
+    char **argv = argv_from(vm, "capture", args[0]);
+    if (argv == NULL) return SOL_NIL_VAL;
+
+    int fds[2];
+    if (pipe(fds) != 0) {
+        free(argv);
+        sol_vm_runtime_error(vm, "cannot make a pipe: %s", strerror(errno));
+        return SOL_NIL_VAL;
+    }
+
+    fflush(stdout);
+    fflush(stderr);
+
+    pid_t pid = fork();
+    if (pid < 0) {
+        close(fds[0]); close(fds[1]); free(argv);
+        sol_vm_runtime_error(vm, "cannot run a command: %s", strerror(errno));
+        return SOL_NIL_VAL;
+    }
+    if (pid == 0) {
+        close(fds[0]);
+        dup2(fds[1], STDOUT_FILENO);
+        if (fds[1] > STDOUT_FILENO) close(fds[1]);
+        execvp(argv[0], argv);
+        _exit(127);
+    }
+    close(fds[1]);
+
+    /* Read to the end before waiting: a child writing more than a pipe holds
+       would block forever against a parent waiting for it to finish. */
+    char  *text = NULL;
+    size_t length = 0, capacity = 0;
+    for (;;) {
+        if (capacity - length < 4096) {
+            size_t want = capacity < 8192 ? 8192 : capacity * 2;
+            char *grown = realloc(text, want);
+            if (grown == NULL) break;
+            text = grown;
+            capacity = want;
+        }
+        ssize_t got = read(fds[0], text + length, capacity - length);
+        if (got <= 0) break;
+        length += (size_t)got;
+    }
+    close(fds[0]);
+
+    int status = 0;
+    while (waitpid(pid, &status, 0) < 0 && errno == EINTR) { /* again */ }
+    free(argv);
+
+    SolDict *out = sol_dict_new(vm);
+    sol_gc_push_temp(vm, &out->gc);
+
+    SolValue output = SOL_STRING_VAL(sol_string_new(vm, text ? text : "", (int)length));
+    sol_gc_push_temp(vm, &SOL_AS_STRING(output)->gc);
+
+    sol_dict_put(vm, out, SOL_STRING_VAL(sol_string_new(vm, "output", 6)), output);
+    sol_dict_put(vm, out, SOL_STRING_VAL(sol_string_new(vm, "status", 6)),
+                 SOL_INT_VAL(status_of(status)));
+
+    sol_gc_pop_temp(vm);
+    sol_gc_pop_temp(vm);
+    free(text);
+    return SOL_DICT_VAL(out);
+}
+
+#else   /* no fork here: say so rather than pretending */
+
+static SolValue prim_system_run(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self; (void)args; (void)argc;
+    sol_vm_runtime_error(vm, "'run' needs a system with fork and exec");
+    return SOL_NIL_VAL;
+}
+
+static SolValue prim_system_capture(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self; (void)args; (void)argc;
+    sol_vm_runtime_error(vm, "'capture' needs a system with fork and exec");
+    return SOL_NIL_VAL;
+}
+
+#endif
+
 static SolValue prim_system_environment(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     (void)self;
@@ -4456,6 +4689,7 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->string_class, SOL_STRING, "asLowercase", prim_string_lower);
     instance(vm, vm->string_class, SOL_STRING, "asSymbol", prim_string_as_symbol);
     instance(vm, vm->string_class, SOL_STRING, "asByte", prim_string_as_byte);
+    instance(vm, vm->string_class, SOL_STRING, "trim", prim_string_trim);
     instance(vm, vm->string_class, SOL_STRING, "asTime", prim_string_as_time);
     instance(vm, vm->string_class, SOL_STRING, "notEquals", prim_not_equals);
     instance(vm, vm->string_class, SOL_STRING, "lessThan", prim_string_less);
@@ -4569,6 +4803,8 @@ void sol_builtins_install(SolVM *vm)
     any_receiver(vm, system, "filesIn", prim_system_files_in);
     any_receiver(vm, system, "appendFile", prim_system_append_file);
     any_receiver(vm, system, "environment", prim_system_environment);
+    any_receiver(vm, system, "run", prim_system_run);
+    any_receiver(vm, system, "capture", prim_system_capture);
     any_receiver(vm, system, "fileSize", prim_system_file_size);
     any_receiver(vm, system, "remove", prim_system_remove);
     any_receiver(vm, system, "makeDirectory", prim_system_make_directory);
