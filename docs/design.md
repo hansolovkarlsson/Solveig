@@ -406,15 +406,31 @@ of its code is verified.
 
 **The code stream is the exception to little-endian**, and this page used to
 say so in one section and deny it in another. A two-byte operand *inside* the
-code is **big-endian** — `emit_index` writes the high byte first and
-`sol_read_u16` reads it back the same way, as the
-[Instruction set](#instruction-set) section above has always said. The
-tables in this section are little-endian and the operands are not.
+code is **big-endian**, as the [Instruction set](#instruction-set) section above
+has always said. The tables in this section are little-endian and the operands
+are not.
 
 Getting that backwards does not look like a misreading; it looks like data
 corruption, every index landing 256 times too large. It cost
 [disasm.sol](../programs/disasm.sol) a debugging session, which is why it is
 said twice now.
+
+**The order is written down in one place**, and used to be written down in
+thirteen. `SOL_U16_FIRST_SHIFT` and `SOL_U16_SECOND_SHIFT` in `bytecode.h` are
+the whole of it; `sol_u16_first`, `sol_u16_second`, `sol_write_u16` and
+`sol_read_u16` are derived from them, and every emitter, patcher and reader goes
+through those four. Reading had been single-sourced since the beginning and
+writing never had — twelve copies of `(v >> 8) & 0xff` across the compiler and
+the tests, which is the shape of thing that drifts and the reason the
+instruction *lengths* once did.
+
+`tests/test_bytecode.c` holds the pair to each other, so changing one shift and
+not the other fails the build. **Changing both is now the whole of making the
+two halves of the format agree** — verified: setting them to 0 and 8 turns the
+code stream little-endian and the suite passes end to end. What that would still
+need is a `.sob` version bump, since the code section is stored verbatim and
+every existing file would misread, and an edit to the two decoders in
+`disasm.sol`, which is a reader in Solum that nothing checks against the C.
 
 Line numbers are run-length encoded: neighbouring instructions almost always
 share a line, so the runs are much smaller than one number per byte. They

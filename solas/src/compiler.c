@@ -137,11 +137,12 @@ static void emit_pair(Compiler *c, uint8_t a, uint8_t b)
     emit(c, b);
 }
 
-/* A side-table index, big-endian, the way every two-byte operand is written. */
+/* A side-table index, in whichever order `sol_u16_first` says. That pair is the
+   only place the byte order is written down -- see bytecode.h. */
 static void emit_index(Compiler *c, int index)
 {
-    emit(c, (uint8_t)((index >> 8) & 0xff));
-    emit(c, (uint8_t)(index & 0xff));
+    emit(c, sol_u16_first((uint16_t)index));
+    emit(c, sol_u16_second((uint16_t)index));
 }
 
 /* Interns the token's text and returns its operand index. Both tables intern,
@@ -798,8 +799,8 @@ static void emit_loop(Compiler *c, int top)
                          "loop body is too large to jump back over");
         distance = 0;
     }
-    emit(c, (uint8_t)((distance >> 8) & 0xff));
-    emit(c, (uint8_t)(distance & 0xff));
+    emit(c, sol_u16_first((uint16_t)distance));
+    emit(c, sol_u16_second((uint16_t)distance));
 }
 
 /* Emits a jump with a blank offset, answering where to patch it. */
@@ -826,8 +827,7 @@ static void patch_jump(Compiler *c, int slot)
                          "conditional is too large to jump over");
         return;
     }
-    chunk->code[slot]     = (uint8_t)((distance >> 8) & 0xff);
-    chunk->code[slot + 1] = (uint8_t)(distance & 0xff);
+    sol_write_u16(&chunk->code[slot], (uint16_t)distance);
 }
 
 /* Compiles one `{ ... }` argument straight into the enclosing chunk. Because it

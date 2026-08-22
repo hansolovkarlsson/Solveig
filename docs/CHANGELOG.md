@@ -5,6 +5,59 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+### The bytecode's byte order now lives in one place — `pending`, 2026-08-22
+
+No behaviour changes and no format changes. A `.sob` is still a little-endian
+container holding a big-endian instruction stream, which
+[0.17.0](#0170--2026-08-22) documented after
+[disasm.sol](../programs/disasm.sol) got the operands backwards; this makes that
+order a thing written down once rather than thirteen times.
+
+**Reading was single-sourced from the beginning and writing never was.**
+`sol_read_u16` had one definition and a comment explaining why — *"so the byte
+order cannot drift between the emitter, the verifier, and the executor the way
+the lengths once did"* — while the write side had **twelve** copies of
+`(v >> 8) & 0xff` scattered across `compiler.c` and four test files. One of
+those, in `test_inline.c`, was a hand-rolled *decode* that should have been
+`sol_read_u16` and was not.
+
+```c
+#define SOL_U16_FIRST_SHIFT  8      /* the whole of the byte order */
+#define SOL_U16_SECOND_SHIFT 0
+
+static inline uint8_t  sol_u16_first(uint16_t v);
+static inline uint8_t  sol_u16_second(uint16_t v);
+static inline void     sol_write_u16(uint8_t *at, uint16_t v);
+static inline uint16_t sol_read_u16(const uint8_t *at);
+```
+
+Named by *position* rather than by significance, because position is what a
+caller emitting one byte after another cares about. All thirteen sites go
+through these now — `emit_index`, `emit_loop`, `patch_jump`, and every test that
+hand-assembles a chunk or patches a jump offset to check the verifier rejects
+it.
+
+**A round-trip test holds the pair to each other**, so changing one shift and
+not the other fails the build rather than whatever runs next. Verified by doing
+it.
+
+**And this makes the two halves of the format agree on demand.** Setting the two
+shifts to 0 and 8 turns the code stream little-endian, and the whole suite
+passes end to end — verified, then reverted. What a real flip would still need
+is a `.sob` version bump, the code section being stored verbatim, and an edit to
+the two decoders in `disasm.sol`. That last one is worth naming: it is a reader
+written in Solum, and **nothing checks it against the C**, so a flip would leave
+it reading backwards quietly. The check that would catch it is the one that
+program already exists for — disassembling a fresh file and comparing against
+`solvm --dump`.
+
+Deferred deliberately: flipping now would spend format version 14 on consistency
+rather than correctness, and [3.4](ROADMAP.md#34-no-compatibility-across-sob-versions)
+makes a version bump a real event. The next time one happens for another reason,
+this costs two characters.
+
 ## 0.17.0 — 2026-08-22
 
 **Two programs that read this project's own work, and the four faults they

@@ -383,9 +383,17 @@ show := { chunk, title, depth | | indent, code, at, op, entry, shape, text, size
               size  := operandBytes:at(shape):add(#1).
 
               text := shape:equals("-"):ifElse({ "" }, { | a, b |
-                  ; **Big-endian**, unlike every table in the file. See the
-                  ; note at the top: design.md says little-endian throughout and
-                  ; the code stream is the one place that is not true.
+                  ; **Big-endian**, unlike every table in the file, and see the
+                  ; note at the top for how that reads when you get it wrong.
+                  ;
+                  ; This and the branch offset below are the only two places the
+                  ; order is written down on this side. The C now keeps its own
+                  ; in one pair of shifts, and **nothing checks these two
+                  ; against it** -- so a flip over there would leave this
+                  ; reading backwards and the test suite quiet about it. The
+                  ; check that would notice is the one this program already
+                  ; earns its keep by: disassembling a fresh file and comparing
+                  ; against `solvm --dump`.
                   a := shape:equals("slot"):ifElse(
                       { code:at(at:add(#1)):asByte },
                       { code:at(at:add(#1)):asByte:shiftLeft(#8):bitOr(

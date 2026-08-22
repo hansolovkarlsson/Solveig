@@ -96,11 +96,51 @@ static void test_names_are_interned(void)
     sol_chunk_free(&chunk);
 }
 
-/* A side-table index, big-endian, exactly as the compiler emits it. */
+/* Writing a two-byte operand and reading it back is the same number, whichever
+   order the two are in.
+ *
+ * The order lives in SOL_U16_FIRST_SHIFT and SOL_U16_SECOND_SHIFT and nowhere
+ * else now -- it used to live in twelve copies of `(v >> 8) & 0xff` across the
+ * compiler and this suite. This is what holds the writing pair and the reading
+ * function to each other, so changing one of the two and not the other fails
+ * here rather than in whatever runs next.
+ *
+ * The values are the edges: zero, both single bytes, the two-byte boundary, two
+ * asymmetric patterns that a swap could not leave looking right, and the
+ * largest an operand can be. */
+static void test_a_two_byte_operand_round_trips(void)
+{
+    static const uint16_t values[] = { 0, 1, 0x00ff, 0x0100, 0x1234, 0xabcd, 0xffff };
+
+    for (size_t i = 0; i < sizeof values / sizeof values[0]; i++) {
+        uint8_t bytes[2];
+
+        /* As the compiler emits it: one byte, then the other. */
+        bytes[0] = sol_u16_first(values[i]);
+        bytes[1] = sol_u16_second(values[i]);
+        assert(sol_read_u16(bytes) == values[i]);
+
+        /* And as a patch writes it, which must agree with the pair. */
+        uint8_t patched[2] = { 0, 0 };
+        sol_write_u16(patched, values[i]);
+        assert(patched[0] == bytes[0] && patched[1] == bytes[1]);
+    }
+
+    /* And the two shifts are a permutation of the halves rather than, say, both
+       8 -- which would round-trip nothing, and would still pass every case above
+       if the reader happened to be wrong the same way. */
+    assert(sol_u16_first(0xff00) != sol_u16_second(0xff00));
+    assert(SOL_U16_FIRST_SHIFT + SOL_U16_SECOND_SHIFT == 8);
+
+    printf("  a two-byte operand round-trips, whichever order it is in\n");
+}
+
+/* A side-table index, exactly as the compiler emits it -- through the same pair,
+   so a test cannot go on passing after the order changes under it. */
 static void write_index(SolChunk *chunk, int index, int line)
 {
-    sol_chunk_write(chunk, (uint8_t)((index >> 8) & 0xff), line);
-    sol_chunk_write(chunk, (uint8_t)(index & 0xff), line);
+    sol_chunk_write(chunk, sol_u16_first((uint16_t)index), line);
+    sol_chunk_write(chunk, sol_u16_second((uint16_t)index), line);
 }
 
 static void test_disassembler_walks_every_instruction(void)
@@ -355,6 +395,7 @@ static void test_documented_lengths_are_the_real_ones(void)
 
 int main(void)
 {
+    test_a_two_byte_operand_round_trips();
     test_chunk_grows();
     test_constants_are_indexed_in_order();
     test_constants_are_interned();

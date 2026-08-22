@@ -155,8 +155,8 @@ static void test_the_old_form_would_not_have_verified(void)
        compiler used to emit for `( | t | t := #5. t )` at the top level. */
     int five = sol_chunk_add_constant(&chunk, SOL_INT_VAL(5));
     sol_chunk_write(&chunk, OP_CONST, 1);
-    sol_chunk_write(&chunk, (uint8_t)((five >> 8) & 0xff), 1);
-    sol_chunk_write(&chunk, (uint8_t)(five & 0xff), 1);
+    sol_chunk_write(&chunk, sol_u16_first((uint16_t)five), 1);
+    sol_chunk_write(&chunk, sol_u16_second((uint16_t)five), 1);
     sol_chunk_write(&chunk, OP_SET_LOCAL, 1);
     sol_chunk_write(&chunk, 0, 1);
     sol_chunk_write(&chunk, OP_POP, 1);

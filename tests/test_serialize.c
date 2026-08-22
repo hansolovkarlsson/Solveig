@@ -10,11 +10,12 @@
 
 #define TMP "build/tests/test_serialize.tmp.sob"
 
-/* A side-table index, big-endian, exactly as the compiler emits it. */
+/* A side-table index, exactly as the compiler emits it -- through the same pair,
+   so a test cannot go on passing after the order changes under it. */
 static void write_index(SolChunk *chunk, int index, int line)
 {
-    sol_chunk_write(chunk, (uint8_t)((index >> 8) & 0xff), line);
-    sol_chunk_write(chunk, (uint8_t)(index & 0xff), line);
+    sol_chunk_write(chunk, sol_u16_first((uint16_t)index), line);
+    sol_chunk_write(chunk, sol_u16_second((uint16_t)index), line);
 }
 
 /* `a := #45. a:print.` hand-assembled, with a float and a nil along for the

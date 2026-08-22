@@ -19,11 +19,12 @@ static SolResult run(SolVM *vm, SolChunk *chunk, const char *source)
     return sol_vm_run(vm, chunk);
 }
 
-/* A two-byte side-table index, as the emitter writes it. */
+/* A two-byte side-table index, as the emitter writes it -- through the same
+   pair, so a test cannot go on passing after the order changes under it. */
 static void write_index(SolChunk *chunk, int index, int line)
 {
-    sol_chunk_write(chunk, (uint8_t)((index >> 8) & 0xff), line);
-    sol_chunk_write(chunk, (uint8_t)(index & 0xff), line);
+    sol_chunk_write(chunk, sol_u16_first((uint16_t)index), line);
+    sol_chunk_write(chunk, sol_u16_second((uint16_t)index), line);
 }
 
 static SolValue global(SolVM *vm, const char *name)
@@ -226,10 +227,9 @@ static void test_verifier_rejects_bad_jumps(void)
         bool patched = false;
         for (int offset = 0; offset + 3 < chunk.count; offset++) {
             if (chunk.code[offset] != OP_JUMP_IF_FALSE) continue;
-            int jump = (chunk.code[offset + 1] << 8) | chunk.code[offset + 2];
+            int jump = sol_read_u16(&chunk.code[offset + 1]);
             jump += cases[i].target_delta;
-            chunk.code[offset + 1] = (uint8_t)((jump >> 8) & 0xff);
-            chunk.code[offset + 2] = (uint8_t)(jump & 0xff);
+            sol_write_u16(&chunk.code[offset + 1], (uint16_t)jump);
             patched = true;
             break;
         }
@@ -255,8 +255,7 @@ static void test_verifier_checks_the_selector(void)
     for (int offset = 0; offset + 4 < chunk.count; offset++) {
         if (chunk.code[offset] != OP_JUMP_IF_FALSE) continue;
         int past = chunk.names.count;                  /* one past the end */
-        chunk.code[offset + 3] = (uint8_t)((past >> 8) & 0xff);
-        chunk.code[offset + 4] = (uint8_t)(past & 0xff);
+        sol_write_u16(&chunk.code[offset + 3], (uint16_t)past);
         patched = true;
         break;
     }
@@ -423,8 +422,7 @@ static void aim(SolChunk *chunk, uint8_t op, int target)
         if (chunk->code[at] != op) continue;
         int after = at + sol_op_length(op);
         int jump  = (op == OP_LOOP) ? after - target : target - after;
-        chunk->code[at + 1] = (uint8_t)((jump >> 8) & 0xff);
-        chunk->code[at + 2] = (uint8_t)(jump & 0xff);
+        sol_write_u16(&chunk->code[at + 1], (uint16_t)jump);
         return;
     }
     assert(false);                              /* no such instruction here */
@@ -748,8 +746,7 @@ static void test_verifier_checks_the_logical_selector(void)
     for (int offset = 0; offset + 2 < chunk.count; offset++) {
         if (chunk.code[offset] != OP_CHECK_BOOL) continue;
         int past = chunk.names.count;                  /* one past the end */
-        chunk.code[offset + 1] = (uint8_t)((past >> 8) & 0xff);
-        chunk.code[offset + 2] = (uint8_t)(past & 0xff);
+        sol_write_u16(&chunk.code[offset + 1], (uint16_t)past);
         patched = true;
         break;
     }

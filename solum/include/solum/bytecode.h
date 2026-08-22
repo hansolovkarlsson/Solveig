@@ -257,13 +257,56 @@ void sol_chunk_free(SolChunk *chunk);
    exactly how a jump comes to land in the middle of an instruction. */
 int sol_op_length(uint8_t op);
 
-/* The one place a two-byte operand is decoded. Big-endian, matching the way the
-   emitter writes it; everything that walks bytecode reads it through here so
-   the byte order cannot drift between the emitter, the verifier, and the
-   executor the way the lengths once did. */
+/* ---- the byte order of a two-byte operand -------------------------------- *
+ *
+ * Big-endian: the first byte carries the high half. That is **not** the order
+ * the .sob file's own tables use, which are little-endian -- a `.sob` is a
+ * little-endian container holding a big-endian instruction stream, and the two
+ * conventions were arrived at separately and never compared. Both are
+ * internally consistent, so nothing forced the comparison until
+ * programs/disasm.sol had to decode both in one program and got the operands
+ * backwards, which does not look like a misreading: every index comes out 256
+ * times too large, which looks like a corrupt file.
+ *
+ * See docs/design.md, which says so in both of its sections now.
+ *
+ * **The order lives in these two shifts and nowhere else.** Reading was already
+ * single-sourced here; writing was not, and had twelve copies of the expression
+ * across the compiler and the tests -- which is exactly the shape of thing that
+ * drifts, and the reason the lengths once did. Changing the order now means
+ * changing the two numbers below, and a round-trip test in tests/test_bytecode.c
+ * holds the pair to each other. */
+#define SOL_U16_FIRST_SHIFT  8
+#define SOL_U16_SECOND_SHIFT 0
+
+/* The two bytes of `v`, in the order they are written. Named by position rather
+   than by significance, because position is what a caller emitting one after
+   the other actually cares about. */
+static inline uint8_t sol_u16_first(uint16_t v)
+{
+    return (uint8_t)((v >> SOL_U16_FIRST_SHIFT) & 0xff);
+}
+
+static inline uint8_t sol_u16_second(uint16_t v)
+{
+    return (uint8_t)((v >> SOL_U16_SECOND_SHIFT) & 0xff);
+}
+
+/* The same, into two bytes a caller already has room for -- what patching a
+   jump offset already emitted needs. */
+static inline void sol_write_u16(uint8_t *at, uint16_t v)
+{
+    at[0] = sol_u16_first(v);
+    at[1] = sol_u16_second(v);
+}
+
+/* The one place a two-byte operand is decoded. Everything that walks bytecode
+   reads it through here, so the byte order cannot drift between the emitter,
+   the verifier, and the executor. */
 static inline uint16_t sol_read_u16(const uint8_t *at)
 {
-    return (uint16_t)(((uint16_t)at[0] << 8) | at[1]);
+    return (uint16_t)(((uint16_t)at[0] << SOL_U16_FIRST_SHIFT) |
+                      ((uint16_t)at[1] << SOL_U16_SECOND_SHIFT));
 }
 
 /* Disassembly -- the main debugging tool while the compiler is being written. */
