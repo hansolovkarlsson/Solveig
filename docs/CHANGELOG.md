@@ -5,7 +5,44 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## 0.14.1 — 2026-08-22
+
+**A use-after-free, found by the first program to embed the machine.**
+
+A chunk recorded which VM had interned its names **by pointer**, and
+`sol_vm_intern_chunk` skipped the work when it matched. Free a VM and make
+another and the second can land at the address the first had — which a host
+running a script per request does every time, the VM being a local of the
+function that serves one. The chunk concluded it was already resolved and went
+on reading the freed machine's name table.
+
+```
+solvm: undefined name 'lessThan'
+solvm: cannot bind 'shiftRight' on boolean
+```
+
+Six of seven requests failed that way, each naming a different built-in and none
+of it meaning anything.
+
+`SolChunk.interned_for` is a `uint64_t` serial now rather than a `const SolVM *`
+— `vm->id`, assigned in `sol_vm_init` from a counter, unique for the life of the
+process. **That is a type change in a public header**, so anything reading the
+field directly needs the one-line edit; nothing in this repository did outside
+the tests.
+
+**Nothing else is affected.** `solvm`, `solas`, `solis` and `solid` each build
+one VM and run, so none of them could reach it. `.sob` files are unchanged and
+still format 13. The language is unchanged.
+
+**Why the tests missed it.** `test_a_second_vm_reresolves` is about exactly this
+hazard and holds both VMs as locals of one function — which puts them at
+different addresses and makes a pointer comparison work. It was never wrong; it
+was never in the shape that fails.
+`test_a_reused_address_is_not_the_same_vm` builds each VM in a *called* function
+and runs one chunk through four of them.
+
+Also in this release: [embed/host.c](../embed/host.c) and
+[docs/embedding.md](embedding.md), which are what found it.
 
 ### A host, and the use-after-free it found on its first run — `12119b0`, 2026-08-22
 

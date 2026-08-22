@@ -107,6 +107,15 @@ No dependencies beyond a C11 compiler and `make`.
 
 ## Status
 
+**0.14.1** — a use-after-free, found by the first program to embed the machine.
+A chunk recorded which VM had interned its names by pointer, so a host that
+builds a VM per request — every one at the same stack address — had its second
+request reading the freed first machine's name table. `SolChunk.interned_for` is
+a serial now, which is a type change in a public header and nothing else.
+`solvm`, `solas`, `solis` and `solid` each build one VM and could not reach it;
+`.sob` files are unchanged. Also [embed/host.c](embed/host.c) and
+[docs/embedding.md](docs/embedding.md), which are what found it.
+
 **0.14.0** — the shipped files divide in two: `examples/` holds one
 demonstration per concept the guide names, `programs/` holds seven whole
 programs each written to do a job. The split was already drawn in the programs'
