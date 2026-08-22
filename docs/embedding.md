@@ -73,6 +73,7 @@ sol_chunk_free(&chunk);          /* after the VM, never before */
 | **The failure is the host's** | `sol_vm_set_error_reporting(vm, false)` stops `sol_vm_run` writing it to stderr, and stops only that: the result still says what happened and the text is still there to read. On unless asked, which is what the four front ends here rely on. |
 | **Text in, text out** | `sol_vm_set_global_text` before, `sol_vm_global_text` after. The text form is on the heap and the caller frees it, so it outlives the machine. |
 | **The search path is the host's to set** | `sol_search_path_add_defaults` gives a script the same `@include` and the same shipped library it gets from `solas`. A host that skips it offers a smaller language than the one documented. |
+| **One VM and one chunk per thread** | Machines on separate threads share nothing, including their collectors, and serials are handed out atomically. Source text may be shared freely — threads read one `.sol` and each compiles its own chunk. Tested, including under a collection on every allocation. |
 
 ## Three ordering rules
 
@@ -111,9 +112,15 @@ it hurts. **A fresh VM per request is the only safe choice today**, and it costs
 rebuilding the interned names and the built-in classes each time —
 [3.10](ROADMAP.md#310-a-vm-cannot-be-reused-across-runs).
 
-**Threads.** Nothing here is thread-safe and nothing has been tried. One VM per
-thread is presumably fine and is not tested, so it is not promised —
-[3.11](ROADMAP.md#311-nothing-is-known-about-threads).
+**A chunk shared between threads.** Running a chunk *mutates* it — the interned
+names are cached on it, keyed to one machine at a time — so two threads running
+one chunk free and rebuild that table under each other. Measured: eight threads,
+one chunk, 2,400 runs is a segmentation fault; the same serialised behind a
+mutex is 0 failures. Compile per thread, which costs milliseconds once. That is
+[3.11](ROADMAP.md#311-a-chunk-cannot-be-shared-between-threads).
+
+**Two threads in one VM.** A machine has one stack, one heap and one frame
+array, and nothing guards any of them. Not supported, and no plan to change it.
 
 **That a limit bounds cost.** It bounds a program that *loops*. A primitive does
 all of its work between one step and the next, so `readFile` of 256MB plus a

@@ -62,6 +62,10 @@ $(BUILD)/tests/%: tests/%.c $(LIB)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(INCLUDES) $^ -o $@
 
+# The one test that needs threads. Nothing else links anything, and the point of
+# keeping it to one target is that a build without pthreads still gets the rest.
+$(BUILD)/tests/test_threads: CFLAGS += -pthread
+
 # The binaries too: test_cli runs them as a shell would, a `main` not being
 # something the library holds.
 test: $(BINARIES) $(TEST_BINS)

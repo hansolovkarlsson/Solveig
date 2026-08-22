@@ -7,6 +7,58 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### Threads, settled by measuring — `pending`, 2026-08-22
+
+[3.11](ROADMAP.md#311-a-chunk-cannot-be-shared-between-threads) said nothing was
+known about threads and that what would settle it was a test rather than a
+decision. It said that for about an hour.
+[tests/test_threads.c](../tests/test_threads.c) is the test, and it found two
+things — only the first of which it was written to look for.
+
+**The serial was not atomic.** `sol_vm_init` stamped each machine from a plain
+`next_vm_id++`, which is a read-modify-write, so two threads building a machine
+at once could be handed the same number — and a chunk they shared would then
+believe it was already resolved for the second and dispatch against the first's
+name table. The 0.14.1 use-after-free, reappearing inside its own fix.
+
+| | |
+| --- | --- |
+| machines built, 16 threads | 480,000 |
+| duplicate serials, before | **10,319** — a rate of 2.1% |
+| duplicate serials, after `_Atomic` | **0** |
+
+Three instructions inside a `sol_vm_init` that takes 52µs, colliding one time in
+fifty. **A contended increment is nothing like as brief as its instruction count
+suggests**, which is the part worth carrying away. `_Atomic uint64_t` and
+`memory_order_relaxed` — relaxed being enough, since nothing is published
+alongside it and all that is needed is that no two machines get one number.
+
+**And a chunk cannot be shared between threads at all**, which no atomic would
+have fixed. Running a chunk *mutates* it: the interned names are cached on the
+chunk, keyed to one machine at a time, so two threads running one free and
+rebuild that table under each other.
+
+| eight threads, one chunk, 2,400 runs | |
+| --- | --- |
+| runs concurrent | **segmentation fault** |
+| runs serialised behind a mutex | **0 failures** |
+
+So the fault is entirely in the sharing. A host could put a mutex round
+`sol_vm_run`, and that serialises all execution, which is the opposite of why
+anybody wanted threads.
+
+**What is safe and is now tested and promised**: one VM and one chunk per
+thread. Source text is shared freely, because reading text mutates nothing — so
+threads share the `.sol` and each compiles its own chunk. Held under a
+collection on every allocation too, since each machine owns its heap and the
+collector never leaves it.
+
+Two threads in one VM is not supported and not tested: a machine has one stack,
+one heap and one frame array, and nothing guards any of them.
+
+The test suite grows a `-pthread` on one target, and only that target, so a
+build without pthreads still gets everything else.
+
 ### A failure can be the host's, and three gaps got numbers — `4df3c48`, 2026-08-22
 
 Two small things, both of them 0.15.0's leftovers.
@@ -34,7 +86,7 @@ means writing down what it may not, and nobody numbered the second half.
 | --- | --- |
 | [3.8](ROADMAP.md#38-a-host-and-a-script-agree-a-name-and-nothing-checks-that-they-do) | a host and a script agree a global name and nothing checks that they do |
 | [3.10](ROADMAP.md#310-a-vm-cannot-be-reused-across-runs) | a VM cannot be reused across runs, globals being one flat namespace nothing unbinds |
-| [3.11](ROADMAP.md#311-nothing-is-known-about-threads) | nothing is known about threads |
+| [3.11](ROADMAP.md#311-a-chunk-cannot-be-shared-between-threads) | nothing is known about threads |
 
 3.9 is skipped because it is taken, which is the roadmap's own convention: a gap
 in the numbering is a record rather than a mistake. The fourth gap was the

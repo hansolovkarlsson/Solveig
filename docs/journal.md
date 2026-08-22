@@ -205,8 +205,37 @@ run.
 Worth remembering as a technique: **an interface document is an audit of
 everything it declines to promise.** I did not know that going in.
 
+**And then threads, which I had recorded an hour earlier as unknown.** The entry
+said what would settle it was a test, not a decision, and there was a specific
+reason to suspect the answer: the counter I added this morning to fix the
+use-after-free is a `static uint64_t` incremented in `sol_vm_init`, and nothing
+synchronises it.
+
+I estimated the window at three instructions in 52 microseconds and expected
+collisions to be rare enough to be awkward to demonstrate. **Sixteen threads
+building 480,000 machines produced 10,319 duplicates — one in fifty.** I was
+wrong by orders of magnitude, and the reason is worth keeping: a contended
+increment is not brief, whatever its instruction count says, because the cache
+line has to be fought over.
+
+Then the fix worked and the test still failed, which was the better half of the
+day. Serials unique, per-thread machines fine — and *sharing a chunk* segfaults,
+because running a chunk mutates it. The interned names are cached on the chunk,
+keyed to one machine at a time, so two threads free and rebuild that table under
+each other. Serialised behind a mutex: 0 failures of 2,400. So it is the sharing
+and nothing else.
+
+That one is not a bug to fix. It is per-VM state living on shared data, and
+moving it costs a lookup on the hottest path in the machine for a use nobody
+has. Recompiling per thread costs milliseconds once. Written down rather than
+built.
+
+The thing I keep relearning: **I am bad at estimating how likely a race is, and
+good at reasoning about whether one exists.** The existence argument was right
+both times. Both magnitude guesses were wrong, and only running it told me.
+
 **The shape of the day**, which is the thing this file is for: the program was
-the instrument, not the result. Four times over:
+the instrument, not the result. Five times over:
 
 - **serve.sol found 3.7** by being run as a guest with an allowance, which no
   program here had been, because every earlier one was run by whoever wrote it.
@@ -217,10 +246,12 @@ the instrument, not the result. Four times over:
 - **Writing the contract found a claim of mine that was false**, because
   "here is what you must do" forces a check that reading the same code twice
   does not.
+- **Testing threads found a data race in this morning's fix**, and then a second
+  defect the fix could not have touched.
 
-None of the four came from reading. Each came from putting the thing in a shape
+None of the five came from reading. Each came from putting the thing in a shape
 nobody had put it in before — run by a stranger, run under a limit, run twice at
-one address, or written down as a promise.
+one address, written down as a promise, or run on two threads at once.
 
 ---
 

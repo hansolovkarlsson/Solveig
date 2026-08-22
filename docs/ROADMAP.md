@@ -61,7 +61,7 @@ meet it. The older ones were chosen; the four newest were found —
 [3.7](#37-a-limit-bounds-dispatch-not-work) by running a program the way its own
 case would, and [3.8](#38-a-host-and-a-script-agree-a-name-and-nothing-checks-that-they-do),
 [3.10](#310-a-vm-cannot-be-reused-across-runs) and
-[3.11](#311-nothing-is-known-about-threads) by writing down what a host embedding
+[3.11](#311-a-chunk-cannot-be-shared-between-threads) by writing down what a host embedding
 the machine may rely on, which meant writing down what it may not. Section 2 has no open design question — the last one,
 2.5, is closed. And section 6, a program's dealings with the world outside it,
 is built: reading input, writing files, stopping with a status, walking the
@@ -458,24 +458,66 @@ records — the built-in classes are ordinary objects with ordinary slots by the
 time a script has run, and telling the ones it added from the ones it changed
 would need a mark the collector does not keep.
 
-### 3.11 Nothing is known about threads
+### 3.11 A chunk cannot be shared between threads
 
-Nothing here is thread-safe and nothing has been tried. One VM per thread is
-presumably fine — a machine holds its own heap, its own name table and its own
-stack, and touches no global state except the serial counter that
-[0.14.1](CHANGELOG.md) added, which is not synchronised. Two threads in one VM
-is certainly not fine.
+**Settled by measurement**, which is what the entry said would settle it — it
+read *"nothing is known about threads"* and *"what would settle it is a test,
+not a design decision"* for about an hour. [tests/test_threads.c](../tests/test_threads.c)
+is the test. It found two things, and only the first was the one it was looking
+for.
 
-Recorded rather than answered, because "presumably fine" is not something a host
-should have to rely on. What would settle it is a test, not a design decision:
-build two machines on two threads, run the same chunk through both, and put
-`SOLUM_GC_STRESS=1` over it. That has not been done, so nothing is promised.
+**The serial was not atomic, and that is fixed.** `sol_vm_init` stamped each
+machine from a plain `next_vm_id++` — a read-modify-write, so two threads
+building a machine at once could be handed the same number, and a chunk they
+shared would then believe it was already resolved for the second and dispatch
+against the first's name table. The 0.14.1 use-after-free, reappearing inside
+its own fix.
 
-The serial counter is the one shared thing and would want an atomic increment.
-**Checked rather than assumed**: it is the only file-scope mutable state in the
-whole library — `solum/`, `solas/`, `solis/` and `solid/` together hold exactly
-one such definition, and it is that counter. Which is a reason to expect the
-answer to be short.
+The window looked negligible and was not:
+
+| | |
+| --- | --- |
+| machines built, 16 threads | 480,000 |
+| duplicate serials, before | **10,319** — a rate of 2.1% |
+| duplicate serials, after `_Atomic` | **0** |
+
+Three instructions inside a `sol_vm_init` that takes 52µs, and it collided one
+time in fifty. A contended increment is nothing like as brief as its
+instruction count suggests, which is the part worth remembering.
+
+**A chunk still cannot be shared, and no synchronisation inside the machine
+would help.** Running a chunk *mutates* it: `sol_vm_intern_chunk` resolves the
+names to whichever machine is about to run them and caches the result on the
+chunk, freeing what the last one left. Two threads running one chunk free and
+rebuild that table under each other.
+
+| eight threads, one chunk, 2,400 runs | |
+| --- | --- |
+| runs concurrent | **segmentation fault** |
+| runs serialised behind a mutex | **0 failures** |
+
+So the fault is entirely in the sharing. A host *could* put a mutex around
+`sol_vm_run`, and that serialises all execution, which is the opposite of why
+anybody wanted threads.
+
+**What is safe, and is now tested**: one VM and one chunk per thread. Source
+text may be shared freely, because reading text mutates nothing — so threads
+share the `.sol` and each compiles its own chunk. That is what the test does,
+including with a collection on every allocation, since each machine owns its
+heap and the collector never leaves it.
+
+**Two threads in one VM is not supported and not tested.** A machine has one
+stack, one heap and one frame array, and nothing guards any of them. There is no
+plan to change that.
+
+**What fixing the chunk would take**, if a host ever needs to compile once and
+serve from many threads: the interned table has to stop living on the chunk. It
+is per-VM state cached on shared data, which is the whole of the problem. Moving
+it to the machine means a lookup per chunk on a path that is currently one array
+index, and every nested method chunk has a table of its own — so it is a real
+cost on the hottest code there is, for a use nobody has yet. Recompiling per
+thread costs a few milliseconds once. That is the trade, and it is not close
+today.
 
 ### 1.1d Collection is stop-the-world and non-incremental
 

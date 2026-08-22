@@ -69,6 +69,12 @@
  *
  * A host does **not** need to call `sol_vm_intern_chunk`. `sol_vm_run` does it,
  * every time, which is what lets one chunk serve any number of machines.
+ *
+ * **One thread at a time per chunk.** That resolving is a write to the chunk, so
+ * machines on two threads may not run one chunk between them -- they would free
+ * and rebuild its name table under each other. Threads share the *source* and
+ * compile a chunk each; everything else about a machine is its own, collector
+ * included. See docs/embedding.md and ROADMAP 3.11.
  */
 
 /* ---- passing values in and out ----------------------------------------- *
