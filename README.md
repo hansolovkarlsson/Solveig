@@ -105,6 +105,14 @@ No dependencies beyond a C11 compiler and `make`.
 
 ## Status
 
+**0.12.0** — a debugger, and a program can run another program. `bin/solid`
+stops a program where it is running, or where it broke, and shows the frames and
+their locals by name. `system:run` and `system:capture` invoke other programs,
+taking an **array of arguments rather than a command line** so that a filename
+is never read as syntax; `lib/shell.sol` is there when pipes and globs are the
+point. Also `string:trim`, because every tool pads its output. `.sob` files are
+format version 13, unchanged from 0.11.0.
+
 **0.11.0** — a frame slot knows what it was called, so `solvm --trace` names its
 arguments and anything looking at a frame can say `average` rather than `slot
 3`. The compiler always knew and threw it away once the index was emitted.

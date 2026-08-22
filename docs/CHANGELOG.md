@@ -7,6 +7,59 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.12.0 — 2026-08-21
+
+**A debugger, and a program can run another program.**
+
+```
+$ solid report.sol
+(solid) break report.sol:5
+(solid) continue
+report.sol:5  in block
+(solid) locals
+  amount           #30
+  after            #70
+```
+
+**Solid** is the fourth program, and the last entry the roadmap held.
+`bin/solid` runs a program, stops before its first line, and takes commands:
+step, next, finish, continue, breakpoints, a backtrace, and the locals of a
+frame **by name**. It stops where a program *breaks*, with the frames still
+standing and the value that caused it still in one — which `solis --interactive`
+cannot do, since that begins after the unwind and sees only globals.
+
+The machine knows nothing about debugging: the VM offers a stop before each
+instruction that begins a new line or enters a new frame, and Solid decides
+whether that stop is interesting. `solum/` gained a function pointer and a
+branch, and the branch costs nothing measurable — three million loop turns,
+0.43s either way.
+
+**`system:run` and `system:capture`** let a program run another program, which a
+language aimed at scripting an OS could not do until now. They take an **array
+of arguments rather than a command line**, and that is the decision in them: a
+file called `; rm -rf ~` is a *name* when it is one string in an array, and a
+sentence when it is text a shell parses. The shell is reachable and spelled out
+— `["/bin/sh", "-c", "..."]` — and [lib/shell.sol](../lib/shell.sol) wraps it,
+so the convenience is a line away and the hazard is named where it is taken.
+
+`capture` answers a dictionary of `"output"` and `"status"`, because `grep`
+finding nothing is not `grep` failing. A missing command answers `#127` and a
+killed one 128 plus the signal, neither raising.
+
+**`string:trim`**, wanted within the hour by the first program that read a
+command's output: `wc -l` answers `"     100\n"` and `asInteger` will not have
+it.
+
+**`.sob` files are format version 13**, unchanged from 0.11.0 — nothing here
+touched the format.
+
+**The roadmap emptied and then grew again**, both in this release. Every entry
+it held is built, and the two raised since arrived the way it says they should:
+something was wanted and could not be had. `ROADMAP.md` now ends with *how it
+emptied* rather than what is next, because that is the part that transfers.
+
 ### A program can run another program — `d5826a4`, 2026-08-21
 
 [6.30](COMPLETED.md#630-a-program-cannot-run-another-program--done), and the
