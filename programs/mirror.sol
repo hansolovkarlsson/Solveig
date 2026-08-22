@@ -5,10 +5,9 @@
 ; To see what it would do without doing it:  ...:sob source destination dry
 ;
 ; The fifth program here, and the first that *writes* to the filesystem rather
-; than reading it. walk.sol
-; lists a tree; files.sol reads and writes one file. Mirroring is the ordinary
-; job that needs the whole set at once -- list, test, measure, make, copy -- and
-; it is the one every backup script is.
+; than reading it. walk.sol lists a tree; files.sol reads and writes one file.
+; Mirroring is the ordinary job that needs the whole set at once -- list, test,
+; measure, make, copy -- and it is the one every backup script is.
 ;
 ; It does not delete. A destination file with no counterpart in the source is
 ; reported and left alone, because a mirror that deletes is a different and much

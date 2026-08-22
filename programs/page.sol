@@ -7,8 +7,8 @@
 ; The parser is [lib/html.sol](../lib/html.sol), on the search path, so this
 ; says `@include "html.sol".` and not where it lives.
 ;
-; The fourth program here, and the one that pushed on ground the other three did
-; not:
+; The fourth program here, and the one that pushed on ground the other three
+; did not:
 ;
 ;   1. **It cannot fail on bad input, because bad input is the normal case.**
 ;      log.sol skips a bad line, json.sol refuses a bad document -- both right

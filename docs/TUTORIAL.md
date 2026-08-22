@@ -354,4 +354,4 @@ Nearly the whole language, without meeting it as a list:
   rather than to show a feature: [log.sol](../programs/log.sol) analyses an
   access log, [evaluator.sol](../programs/evaluator.sol) is a calculator, and
   five more. They are longer and messier, and they are where the language gets
-  found out.
+  found out. [programs.md](programs.md) says what each does and how to run it.

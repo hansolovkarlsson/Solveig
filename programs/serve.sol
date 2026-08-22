@@ -15,8 +15,8 @@
 ;
 ; The seventh program here, and the first one **whose input does not come from
 ; whoever ran it.** Every other program in this directory is handed its
-; arguments by the person who started it. This one is handed a path and a query string by a stranger, and
-; that is what it was written to find out about:
+; arguments by the person who started it. This one is handed a path and a query
+; string by a stranger, and that is what it was written to find out about:
 ;
 ;   1. **The message that builds a page inserts exactly what it is given.**
 ;      `fill` is the natural way to write a template, it reads well, and it is

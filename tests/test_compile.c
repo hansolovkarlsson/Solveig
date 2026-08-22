@@ -315,16 +315,22 @@ static bool is_sent(const char *text, const char *name)
     return false;
 }
 
-/* Every built-in message is sent by at least one shipped file.
+/* Every built-in message is sent by at least one file in examples/.
  *
  * The selectors come out of the registrations in builtins.c, so there is no
  * list here to fall behind: a primitive installed without an example to show it
  * fails this. When the audit ran, exactly one message had never been sent in an
  * example -- `lessOrEqual`.
  *
- * Both directories count. A message shown only by a program is shown, and
- * several are: the filesystem messages arrived because mirror.sol wanted them
- * and it is the natural place to see them used. */
+ * **examples/ only, deliberately.** A program in programs/ is written to do a
+ * job and reaches for whatever it needs; counting it here would let a message
+ * be "covered" by appearing incidentally in the middle of two hundred lines of
+ * log parsing, which is not what someone looking up a message wants to find.
+ * The demonstration has to exist.
+ *
+ * The split found four that only a program showed -- `values`, and `modeOf`,
+ * `setMode` and `setModifiedAt` from mirror.sol. Each went into the example it
+ * belonged in, which is why this can ask for the stricter thing. */
 static void test_every_builtin_message_has_an_example(void)
 {
     char *builtins = slurp("solum/src/builtins.c");
@@ -332,6 +338,8 @@ static void test_every_builtin_message_has_an_example(void)
     char *covered = NULL;
     size_t length = 0;
     for (size_t i = 0; i < SHIPPED_COUNT; i++) {
+        if (strncmp(shipped[i], "examples/", 9) != 0) continue;
+
         char *source = slurp(shipped[i]);
         blank_out_comments(source);
 
@@ -364,7 +372,8 @@ static void test_every_builtin_message_has_an_example(void)
         name[n] = '\0';
 
         if (!is_sent(covered, name)) {
-            printf("\n'%s' is a built-in message that no example sends\n", name);
+            printf("\n'%s' is a built-in message that nothing in examples/ "
+                   "sends\n", name);
             assert(false);
         }
         checked++;

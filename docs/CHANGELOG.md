@@ -7,6 +7,53 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### The audit the split asked for, and a page for the programs — `pending`, 2026-08-22
+
+Two things the reorganisation left owed.
+
+**The audit.** `docs/ideas.md` has carried *"more examples, chosen by auditing
+which concepts have none"* since the ideas file was written, and the split made
+the question answerable: does every concept the guide names have a demonstration
+in `examples/`, now that the programs are somewhere else?
+
+Run on three axes:
+
+| | |
+| --- | --- |
+| guide sections with no `Run:` pointer | **0** — every one of the 22 has an example |
+| built-in messages sent by nothing in `examples/` | **4** of 121 |
+| examples the guide never points at | **3** — `walk`, `time`, `keys` |
+
+The four were `values`, and `modeOf`, `setMode` and `setModifiedAt`. All were
+covered before the split, by `programs/mirror.sol` and `programs/log.sol` — so
+the split did not lose coverage, it revealed that four messages had never had a
+demonstration and were being carried by a program that happened to need them.
+
+- **`values`** went into `examples/dictionaries.sol`, whose own prose already
+  said *"keys and values answer arrays"* in a paragraph that then sent only
+  `keys`.
+- **`modeOf`, `setMode`, `setModifiedAt`** went into `examples/files.sol`, under
+  a new section on what a file is besides its contents. Writing it turned up
+  that `plusSeconds` wants a float, which the example now says.
+
+**And the test now asks for the stricter thing.** `test_every_builtin_message_has_an_example`
+built its corpus from both directories after the move; it is `examples/` only
+again. A message "covered" by appearing incidentally in the middle of two
+hundred lines of log parsing is not what someone looking it up wants to find.
+The demonstration has to exist, and a program is free to reach for whatever it
+needs without that counting.
+
+Guide §18 gained the two paragraphs its `Run:` line was now promising —
+`readKey`, and a file's mode and time — and points at `walk.sol`, `time.sol` and
+`keys.sol`, which it had been discussing without naming.
+
+**The page.** [docs/programs.md](programs.md): what each of the seven does, how
+to run it, and what it found. Every invocation in it was run. It ends with what
+the seven have in common, which is four things and no template — a job somebody
+would want done, running with no arguments on input it carries, a comment where
+the language was awkward rather than a quiet workaround, and a line in
+`tests/test_compile.c`.
+
 ### The examples divide in two, and now sit that way — `500b6ac`, 2026-08-22
 
 `examples/` held thirty-two files doing two different jobs. Seven of them move

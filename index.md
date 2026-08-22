@@ -147,7 +147,8 @@ Thirty-two files in two directories, and the split is what each was written for.
 **`programs/`** — seven whole programs, each written to do a job and using
 whatever the language turned out to have. They are where nearly every roadmap
 entry after the first dozen came from: somebody wrote one and found out what it
-wanted.
+wanted. [programs.md](docs/programs.md) says what each does, how to run it, and
+what it found.
 
 | | |
 | --- | --- |

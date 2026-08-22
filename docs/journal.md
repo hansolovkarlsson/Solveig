@@ -106,6 +106,28 @@ the tutorial's worked example.
 109 paths rewritten, and each of the seven lost the second half of its own
 opening sentence, because the directory now says it.
 
+**And the audit the split had asked for**, which `ideas.md` had been carrying
+unanswered since the ideas file was written: does every concept the guide names
+have a demonstration? The split is what made it answerable, because until today
+"an example" and "a program" were the same directory.
+
+Three axes, and the guide came out clean — all 22 sections have a `Run:` pointer
+and every pointer resolves. The interesting one was messages: four of 121 were
+sent by nothing in `examples/`. Not lost in the move — `values`, `modeOf`,
+`setMode` and `setModifiedAt` had *never* had a demonstration, and had been
+carried the whole time by `mirror.sol` and `log.sol` happening to need them.
+Which is exactly the thing an audit is for and exactly what nobody would notice
+by reading.
+
+Both gaps went into the example they belonged in, and then the test got
+stricter: message coverage is `examples/` only again. A message covered by
+appearing in the middle of two hundred lines of log parsing is not covered for
+anybody looking it up.
+
+Then [programs.md](programs.md), because a directory of seven programs with no
+page saying what they do is a directory people open once. Every invocation in it
+was run before it was written down.
+
 **The shape of the day**, which is the thing this file is for: the program was
 the instrument, not the result. It was written to be run by a stranger, and
 almost everything it found came from being run *as* one — under a limit, against

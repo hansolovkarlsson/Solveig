@@ -84,6 +84,32 @@ system:writeFile(scratch:concat("/note.txt"), "a line
 ").
 system:fileSize(scratch:concat("/note.txt")):print.     ; #7, without reading it
 
+; ---------------------------------------------------------------------------
+; What a file is besides its contents
+;
+; It has a mode and a time, and both can be read and written. A copy that keeps
+; neither is not a copy of the file, which is what asked for these:
+; programs/mirror.sol was giving every file it wrote today's date and the
+; default permissions.
+
+note := scratch:concat("/note.txt").
+
+; `modeOf` answers the permission bits as an integer, and `setMode` takes one.
+; There is no octal literal in this language -- an integer is written #493 --
+; so `asBase(#8)` is how you get the notation people recognise back out.
+system:setMode(note, #493).
+system:modeOf(note):asBase(#8):display.                 ; 755
+
+; The time, the same way round: `setModifiedAt` takes what `modifiedAt` answers,
+; so carrying a timestamp from one file to another is a read and a write of one
+; value rather than a conversion through anything.
+;
+; `plusSeconds` wants a float, because a time is a float count of seconds and
+; the language does not widen an integer for you -- see strictness.sol.
+stamp := system:modifiedAt(note).
+system:setModifiedAt(note, stamp:plusSeconds(86400.0:negated)).
+system:modifiedAt(note):lessThan(stamp):print.          ; true -- a day earlier
+
 ; Renaming and moving are the same operation, and it works on a directory too.
 system:rename(scratch:concat("/note.txt"), scratch:concat("/kept.txt")).
 system:filesIn(scratch):print.                          ; ["kept.txt"]

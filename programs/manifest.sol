@@ -16,10 +16,11 @@
 ; Splitting it that way was the point: a JSON reader is library code, and the
 ; program above it is the thing that finds out whether the library is any good.
 ;
-; The third program here. log.sol reads lines and tallies them; evaluator.sol parses one expression and
-; folds it to a number; this one reads a *tree* and has to walk, query and
-; rebuild it without knowing its shape in advance. That is the ground the other
-; two never touched, and it is where the findings below came from.
+; The third program here. log.sol reads lines and tallies them; evaluator.sol
+; parses one expression and folds it to a number; this one reads a *tree* and
+; has to walk, query and rebuild it without knowing its shape in advance. That
+; is the ground the other two never touched, and it is where the findings below
+; came from.
 ;
 ; Three things it found, in the order they bit:
 ;

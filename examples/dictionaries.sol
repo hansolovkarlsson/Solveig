@@ -58,6 +58,11 @@ total:print.                     ; #11 -- the words, counted
 counts:keys:size:print.          ; #8 distinct words
 counts:keys:sorted:join(" "):display.
 
+; `values` is the other half, and answers an array like `keys` does. `do` above
+; walked the same numbers without building one, which is the difference between
+; the two: ask for `values` when you want an array to work on rather than a walk.
+counts:values:select({ n | n:greaterThan(#1) }):size:print.   ; #2 words repeat
+
 ; A word appearing more than once, found by asking the pairs.
 repeated := array:new.
 counts:keysAndValuesDo({ word, n |

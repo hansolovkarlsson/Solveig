@@ -906,6 +906,14 @@ line := system:readLine.
 { line:notEquals(nil) }:whileTrue({ line:display. line := system:readLine }).
 ```
 
+**`readKey` answers one byte**, without waiting for a line, and nil at the end
+of input for the same reason `readLine` does. One byte rather than one key: an
+arrow is three bytes and a function key can be more, and which is which belongs
+to the terminal rather than to the language, so a program that wants arrows
+assembles them and one that only wants *any key* is not made to unpick a
+sequence it never asked about. Raw mode only when standard input is a terminal,
+so the same program reads the same way from a pipe.
+
 **Files are whole files**: `system:readFile(path)` answers one as a string, and
 `system:writeFile(path, text)` replaces it. A missing file is an error rather
 than nil — the same answer an out-of-range index gets — and
@@ -929,6 +937,22 @@ reading it, and `system:environment(name)` answers a variable or nil.
 there, and cannot be undone. `remove` takes a file or an **empty** directory —
 there is no recursive form, deleting a tree not being something to make one
 message wide. Every refusal names the reason the system gave.
+
+**A file is more than its contents.** `system:modeOf` answers the permission
+bits as an integer and `system:setMode` takes one; `system:modifiedAt` answers
+a time and `system:setModifiedAt` takes one. Each pair reads and writes the
+same kind of value, so copying an attribute from one file to another needs no
+conversion between them:
+
+```
+system:setMode(copy, system:modeOf(original)).
+system:setModifiedAt(copy, system:modifiedAt(original)).
+```
+
+There is no octal literal — an integer is written `#493` — so `asBase(#8)` is
+how the notation people recognise comes back out. Both pairs exist because
+[programs/mirror.sol](../programs/mirror.sol) was writing every copy with
+today's date and the default permissions, which is not a copy of the file.
 
 A `.sol` file can also be run directly: put `#!/usr/bin/env solis` on the first
 line, `chmod +x` it, and `./script.sol` works like any other script.
@@ -988,8 +1012,11 @@ total:div(200000.0):asString(".9"):display.      ; 0.000000088 -- or thereabouts
 ```
 
 > **Run:** [examples/system.sol](../examples/system.sol),
-> [examples/reading.sol](../examples/reading.sol) and
-> [examples/files.sol](../examples/files.sol)
+> [examples/reading.sol](../examples/reading.sol),
+> [examples/files.sol](../examples/files.sol),
+> [examples/walk.sol](../examples/walk.sol),
+> [examples/time.sol](../examples/time.sol) and
+> [examples/keys.sol](../examples/keys.sol)
 
 ## 19. What is left
 

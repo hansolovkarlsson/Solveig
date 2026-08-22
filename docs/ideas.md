@@ -27,7 +27,7 @@ marked as a sketch.
 | Keyboard input | **Both built** — `readLine`, and `readKey` once it earned its own entry |
 | File handling | **Built** — whole-file, and the filesystem around it |
 | JIT to native code | **No** — possible, and it would dwarf the project |
-| More examples covering everything | **Yes** — audit which concepts have none |
+| More examples covering everything | **Audited** — the guide was clean; four messages had no demonstration and now have one |
 | `doUntil` | **Built in** — and inlined, so a definition in Solum would now be bypassed |
 | switch / case | **Already writable** — no new syntax needed |
 | `#10:repeat({...})` | **Built in** — a primitive, measured 3.2x the version written in Solum |
@@ -240,12 +240,23 @@ disassembler already exists and prints them; the document simply fell behind.
 **More examples**, chosen by auditing which concepts have none rather than by
 adding more of what is already covered.
 
-> **This is the one line in the section still open**, and the reorganisation
-> sharpened it rather than settling it. The files now sit in two directories —
-> `examples/` for the twenty-five written to show a feature, `programs/` for the
-> seven written to do a job — so *which* audit this asks for is now a clear
-> question: does every concept the guide names have a demonstration beside it?
-> That is answerable, and it has not been answered.
+> **Done, and the split is what made it answerable.** The files now sit in two
+> directories — `examples/` for the twenty-five written to show a feature,
+> `programs/` for the seven written to do a job — so the question had a shape:
+> does every concept the guide names have a demonstration in `examples/`?
+>
+> The guide came out clean. All 22 of its sections carry a `Run:` pointer and
+> every pointer resolves. What the audit found was on the message axis: **four
+> of 121 built-in messages were sent by nothing in `examples/`** — `values`, and
+> `modeOf`, `setMode` and `setModifiedAt`. Not lost in the move. They had never
+> had a demonstration, and had been carried the whole time by `mirror.sol` and
+> `log.sol` happening to need them, which is precisely what nobody notices by
+> reading.
+>
+> Each went into the example it belonged in, and the coverage test now asks for
+> `examples/` alone, so a program can no longer stand in for a demonstration.
+> Three examples the guide discussed without naming — `walk`, `time`, `keys` —
+> are named now, and §18 gained the two paragraphs its pointer was promising.
 
 **A `(group)` versus `{block}` document.** Your own example is the whole of it:
 
