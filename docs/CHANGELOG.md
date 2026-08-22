@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### The bytecode's byte order now lives in one place — `pending`, 2026-08-22
+### The bytecode's byte order now lives in one place — `e9c7827`, 2026-08-22
 
 No behaviour changes and no format changes. A `.sob` is still a little-endian
 container holding a big-endian instruction stream, which
