@@ -5,7 +5,52 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## 0.14.0 — 2026-08-22
+
+**A program written to be run by a stranger, and the shipped files divide in
+two.**
+
+```
+examples/  25 files, one per concept the guide names
+programs/   7 files, each written to do a job
+```
+
+**No language change.** `.sob` files are format version 13, unchanged from
+0.11.0, and every program that ran under 0.13.0 runs unchanged under this. What
+moved is where the files are and what the documents say about them.
+
+**[programs/serve.sol](../programs/serve.sol)** is the seventh program written
+to do a job and the first whose input does not come from whoever ran it — a
+CGI-shaped request handler, run as a guest with an allowance. It asked four
+things of the language and found one about the machine.
+
+**[3.7](ROADMAP.md#37-a-limit-bounds-dispatch-not-work), a limit bounds
+dispatch and not work**, is the finding and it corrects 0.13.0. A step is a unit
+of dispatch, so `readFile` of 256MB plus an `indexOf` over all of it is eight
+instructions — the same eight as for 64MB. Neither limit is undone: a program
+still cannot loop forever or keep what it makes, which is what they were built
+for. What they do not bound is the cost of one message. `design.md` and 6.33's
+own entry both said otherwise and now do not.
+
+**6.32 has its first concrete argument** rather than another paragraph of
+reasoning: a CGI handler is told what it was asked entirely through
+`system:environment`, so a permission scheme with one switch per message must
+grant it — and has then granted every secret the server process holds. Per-message
+is not fine enough where the message names something. Still a decision.
+
+**The split**, which the seven programs had been declaring in their own headers
+since there was more than one of them. 109 paths rewritten, the test that
+catches an unregistered file walks both directories, and
+[docs/programs.md](programs.md) says what each of the seven does, how to run it,
+and what it found.
+
+**And the audit** `ideas.md` had been carrying since it was written: does every
+concept the guide names have a demonstration? The guide came out clean. Four of
+121 built-in messages did not — `values`, `modeOf`, `setMode`, `setModifiedAt`,
+all covered before the split by two programs that happened to need them, none of
+which had ever had a demonstration. Each went into the example it belonged in,
+and the coverage test asks for `examples/` alone again.
+
 
 ### The audit the split asked for, and a page for the programs — `97dc6ff`, 2026-08-22
 

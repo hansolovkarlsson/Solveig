@@ -106,13 +106,27 @@ No dependencies beyond a C11 compiler and `make`.
 
 ## Status
 
+**0.14.0** — the shipped files divide in two: `examples/` holds one
+demonstration per concept the guide names, `programs/` holds seven whole
+programs each written to do a job. The split was already drawn in the programs'
+own headers; [docs/programs.md](docs/programs.md) says what each does and how to
+run it. The seventh, [serve.sol](programs/serve.sol), is a CGI-shaped request
+handler and the first program here whose input does not come from whoever ran
+it — which found that **a limit bounds dispatch, not work**: `readFile` of 256MB
+and a scan of all of it is eight instructions, the same eight as for 64MB, so
+0.13.0's limits stop a program that loops and do not bound the cost of one
+message. That is [3.7](docs/ROADMAP.md#37-a-limit-bounds-dispatch-not-work), and
+two documents that claimed otherwise now do not. No language change: `.sob` files
+are format version 13, unchanged from 0.11.0.
+
 **0.13.0** — a program can be given a limit. `solvm --steps=N` bounds how many
 instructions it may execute and `--memory=N` how much it may hold at once, with
 `sol_vm_set_step_limit` and `sol_vm_set_memory_limit` for a program embedding
 the machine — which is the case that wanted them, a webserver having no ctrl-c
 to fall back on. **A stop cannot be caught**: `onError` does not see it and
 `ensure` does not run its cleanup, since both are ways of running more code and
-the allowance for running code is what ran out. A stopped program exits 124. The
+the allowance for running code is what ran out. A stopped program exits 124. What
+they bound is a program that *loops*, which 0.14.0 had to go on to say. The
 matching question — whether a script should also be able to run with less than
 the whole *machine* — is recorded on the roadmap and not answered. `.sob` files
 are format version 13, unchanged from 0.11.0.
