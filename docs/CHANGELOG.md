@@ -5,7 +5,51 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## 0.18.0 — 2026-08-22
+
+**`.sob` format 14. Recompile: files from 0.17.0 and earlier are refused.**
+
+```
+$ solvm old.sob
+solvm: cannot load 'old.sob': unsupported bytecode version
+$ solas program.sol && solvm program.sob      # the remedy, and it costs nothing
+```
+
+**Nothing about the language changes** — same syntax, same instructions, same
+semantics, same everything a program can observe. What changed is one byte order
+inside the file.
+
+A `.sob` was a little-endian container holding a **big-endian** instruction
+stream. The tables used one order and the two-byte operands inside the code
+section used the other: two conventions arrived at separately, each internally
+consistent, and never compared until
+[disasm.sol](../programs/disasm.sol) had to decode both in one program and got
+the operands backwards. That does not read as a misreading — every index comes
+out 256 times too large, which looks like a corrupt file. 0.17.0 documented the
+split; this removes it, and *"little-endian throughout"* is now simply true.
+
+**The order lives in two constants now**, and used to live in thirteen places.
+`SOL_U16_FIRST_SHIFT` and `SOL_U16_SECOND_SHIFT` in `bytecode.h` are the whole
+of it; reading had been single-sourced since the beginning and writing never had
+— twelve copies of `(v >> 8) & 0xff` across the compiler and the tests. That
+collapse is what made the flip itself a two-character edit, and a round-trip
+test holds the pair to each other so changing one and not the other fails the
+build.
+
+**One thing `make test` could not have caught.** `disasm.sol` is a reader
+written in Solum and nothing checks its two decoders against the C — the suite
+would have stayed green with it reading every operand backwards. What caught it
+is the thing that program exists for: disassembling a fresh file and comparing
+against `solvm --dump`, which agrees over **5,737 instructions** across five
+files including both shipped libraries. Two independent implementations having
+to be wrong identically is a better check than either alone.
+
+Also: `serialize.h`'s format table was missing constant tag 3, a boolean — the
+same gap `design.md` had, in the one document that was otherwise complete. And
+[3.4](ROADMAP.md#34-no-compatibility-across-sob-versions) said a format change
+had happened once; it has happened three times, and this is the only one that
+bought consistency rather than a capability.
+
 
 ### `.sob` format 14: little-endian throughout, and now that is true — `8a8dfd4`, 2026-08-22
 

@@ -107,6 +107,18 @@ No dependencies beyond a C11 compiler and `make`.
 
 ## Status
 
+**0.18.0** — **`.sob` format 14, so recompile**: a file built by 0.17.0 or
+earlier is refused with *unsupported bytecode version*, and the remedy is
+`solas` again, which costs nothing since a `.sob` is derived from a `.sol` that
+is still there. Nothing about the language changes. A `.sob` had been a
+little-endian container holding a *big-endian* instruction stream — two
+conventions arrived at separately and never compared until
+[disasm.sol](programs/disasm.sol) decoded both in one program and got the
+operands backwards. The order now lives in two constants rather than thirteen
+places, which made the flip a two-character edit; and the thing that caught the
+one reader `make test` cannot check was comparing that program's output against
+`solvm --dump` over 5,737 instructions.
+
 **0.17.0** — two programs that read this project's own work, and the four faults
 they found in it. [disasm.sol](programs/disasm.sol) disassembles a `.sob`, which
 is a *second* implementation of a format that had one — and that is how you find
