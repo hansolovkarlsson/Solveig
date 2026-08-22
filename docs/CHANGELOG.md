@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### The debugger has a name: Solid — `pending`, 2026-08-21
+### The debugger has a name: Solid — `00ac10b`, 2026-08-21
 
 *sol-interactive-debugger*, and it belongs to the family better than an acronym
 has any right to.
