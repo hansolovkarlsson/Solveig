@@ -365,9 +365,32 @@ void sol_gc_collect(SolVM *vm)
     if (vm->next_gc < SOL_GC_INITIAL_THRESHOLD) vm->next_gc = SOL_GC_INITIAL_THRESHOLD;
 }
 
+/* The ceiling is tested here, where a collection is already decided about, and
+ * it is tested *after* one rather than before.
+ *
+ * That is the whole difficulty of a memory limit: `bytes_allocated` before a
+ * sweep counts everything the program has ever asked for and not yet had taken
+ * back, most of which may be unreachable. A limit read off that figure stops a
+ * program for litter rather than for what it is holding, and a loop building
+ * one string at a time would trip it however small the strings were. After a
+ * sweep the figure is what is live, which is the thing worth having an opinion
+ * about.
+ *
+ * So going over is a reason to collect, and being over once that has happened
+ * is a reason to stop. The current allocation still completes -- the caller
+ * needs a cell to put its half-built object in -- and the program unwinds at
+ * the next instruction boundary, which is a bounded overshoot rather than an
+ * open one. */
 void sol_gc_maybe_collect(SolVM *vm)
 {
-    if (vm->gc_stress || vm->bytes_allocated > vm->next_gc) sol_gc_collect(vm);
+    bool over = vm->memory_limit > 0 && vm->bytes_allocated > vm->memory_limit;
+
+    if (vm->gc_stress || vm->bytes_allocated > vm->next_gc || over) sol_gc_collect(vm);
+
+    if (vm->memory_limit > 0 && vm->bytes_allocated > vm->memory_limit) {
+        sol_vm_stop(vm, "stopped: the memory limit of %zu bytes was reached, "
+                        "with %zu live", vm->memory_limit, vm->bytes_allocated);
+    }
 }
 
 void sol_gc_push_temp(SolVM *vm, SolGCHeader *header)

@@ -31,7 +31,8 @@ typedef enum {
     SOL_OK,
     SOL_COMPILE_ERROR,
     SOL_RUNTIME_ERROR,
-    SOL_EXIT              /* the program asked to stop; `exit_code` says with what */
+    SOL_EXIT,             /* the program asked to stop; `exit_code` says with what */
+    SOL_STOPPED           /* a limit stopped it: it neither finished nor asked to */
 } SolResult;
 
 struct SolVM {
@@ -120,6 +121,29 @@ struct SolVM {
     bool exiting;
     int  exit_code;
 
+    /* What a host is willing to lend the program, set before it runs. Zero is
+       no limit, which is the default and is right for a person at a terminal
+       with a ctrl-c to hand.
+     *
+       `steps_remaining` counts down in both cases: with no limit it starts at
+       UINT64_MAX, so the dispatch loop tests one counter rather than first
+       testing whether there is one to test. At a billion instructions a second
+       that runs out after five hundred years, which is near enough to never.
+     *
+       Reset by `sol_vm_run`, so a budget is per run and not per VM -- a server
+       handing one VM a request and then another wants each of them to get the
+       whole allowance rather than the remains of the last one's. */
+    uint64_t step_limit;
+    uint64_t steps_remaining;
+    size_t   memory_limit;        /* live bytes, measured after a collection */
+
+    /* Set when a limit stopped the program. It travels by `had_error`, as an
+       exit does, because that is the flag every loop already unwinds on -- and
+       is kept apart from `exiting` because the two say opposite things about
+       whose decision it was. Neither `onError` nor `ensure` may intercept it: a
+       limit a program can catch is a limit it can decline. */
+    bool stopped;
+
     /* `solvm --trace`: write a call and a return for every frame entered, to
        stderr, indented by depth. Off unless a front end turns it on.
      *
@@ -171,6 +195,32 @@ void sol_vm_free(SolVM *vm);
 
 /* Executes `chunk` to completion. */
 SolResult sol_vm_run(SolVM *vm, const SolChunk *chunk);
+
+/* What the program may spend, set by whoever is embedding the machine and not
+ * reachable from inside it. There is no message that sets, clears or reads
+ * either of these, which is the whole of what makes them limits rather than
+ * suggestions. Zero lifts one; both are lifted to begin with.
+ *
+ * A step is one instruction, which is a unit of work rather than of time --
+ * deliberately, because it does not vary with the machine or with what else it
+ * is running, so a limit chosen on a laptop means the same thing on a server.
+ *
+ * The memory figure is live bytes after a collection, so a program is stopped
+ * for holding too much and not for having allocated too much.
+ *
+ * Reaching either answers `SOL_STOPPED`, which is neither `SOL_OK` nor
+ * `SOL_EXIT`: the program did not finish and did not ask to stop. */
+void sol_vm_set_step_limit(SolVM *vm, uint64_t steps);
+void sol_vm_set_memory_limit(SolVM *vm, size_t bytes);
+
+/* Stops the program because a limit was reached, with `format` saying which.
+ *
+ * Not `sol_vm_runtime_error`, though it unwinds the same way, because a stop is
+ * not the program's fault and must not be catchable. The first stop wins, and a
+ * stop outranks an error already pending: whatever the program was in the
+ * middle of failing at, it is being stopped, and that is the outcome its host
+ * needs to hear about. */
+void sol_vm_stop(SolVM *vm, const char *format, ...);
 
 void     sol_vm_push(SolVM *vm, SolValue value);
 SolValue sol_vm_pop(SolVM *vm);

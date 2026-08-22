@@ -2619,7 +2619,8 @@ first error in a statement is reported; the parser then resynchronises at the
 next `.` and carries on, so one mistake gives one message.
 
 **A runtime error** stops the program and reports the line of each frame,
-innermost first. There is no way to catch one.
+innermost first — unless a handler catches it first, which is
+[Errors](#errors).
 
 ```
 solvm: integer does not understand 'frobnicate'
@@ -2633,6 +2634,24 @@ message only printed when something has already gone wrong.
 Errors, rather than silent answers, are the rule: unknown messages, wrong
 argument counts, type mismatches, out-of-range indices, integer overflow,
 division by zero, undeclared names, and a block outliving its frame.
+
+**A program may also be stopped**, which is neither of the above. Whoever runs
+it may say how many instructions it is allowed and how much it may hold at
+once — `solvm --steps=N` and `--memory=N`, or the same two settings from a
+program embedding the machine. Reaching either ends the program where it stands,
+with a status of 124 rather than the 0 of finishing or the 70 of failing.
+
+```
+solvm: stopped: the step limit of 100000 was reached
+  [loop.sol:3] in script
+```
+
+Neither limit is set unless somebody asks for one, so a program run from a
+terminal is not affected. **A stop cannot be caught.** `onError` does not see
+it and `ensure` does not run its cleanup, because both of those are ways of
+running more code and the allowance for running code is what ran out. There is
+no message that reads or changes either limit: a program cannot find out what it
+has been given, and cannot give itself more.
 
 ---
 

@@ -344,6 +344,110 @@ static void test_the_other_options_still_work(void)
     printf("  -I and --dump are unchanged\n");
 }
 
+/* A program that will not stop, stopped. 124 rather than 70, because it did
+   not fail: it was taken away, and a host that read that as a bug would go
+   looking for one that is not there. */
+static void test_a_step_limit_stops_a_program(void)
+{
+    char out[16384];
+
+    /* Written literally, so it compiles to jumps and enters no frames -- the
+       shape nothing watching calls could ever have caught. */
+    FILE *f = fopen(DIR "/endless.sol", "w");
+    assert(f != NULL);
+    fputs("started := true.\n"
+          "{ true }:whileTrue({ nil }).\n"
+          "\"never\":display.\n", f);
+    fclose(f);
+    assert(system("bin/solas " DIR "/endless.sol -o " DIR "/endless.sob") == 0);
+
+    assert(run("bin/solvm --steps=50000 " DIR "/endless.sob 2>&1 >/dev/null",
+               out, sizeof out) == 124);
+    assert(strstr(out, "step limit") != NULL);
+    assert(strstr(out, "endless.sol") != NULL);   /* and where it had got to */
+
+    /* Nothing after the loop ran. */
+    assert(run("bin/solvm --steps=50000 " DIR "/endless.sob 2>/dev/null",
+               out, sizeof out) == 124);
+    assert(strstr(out, "never") == NULL);
+
+    /* Without a limit it is the same program, and would not come back -- so
+       that half is not tested here, which is the point of the flag. */
+    printf("  --steps stops a loop that enters no frames, with 124\n");
+}
+
+/* Holding is what is measured, not allocating. The two programs below do the
+   same amount of work under the same ceiling and only one of them is holding
+   it when the collector looks. */
+static void test_a_memory_limit_measures_what_is_held(void)
+{
+    char out[16384];
+
+    FILE *f = fopen(DIR "/hoard.sol", "w");
+    assert(f != NULL);
+    fputs("held := array:new.\n"
+          "{ true }:whileTrue({ held:add(\"kept forever\") }).\n", f);
+    fclose(f);
+    assert(system("bin/solas " DIR "/hoard.sol -o " DIR "/hoard.sob") == 0);
+
+    assert(run("bin/solvm --memory=1M " DIR "/hoard.sob 2>&1 >/dev/null",
+               out, sizeof out) == 124);
+    assert(strstr(out, "memory limit") != NULL);
+
+    f = fopen(DIR "/churn.sol", "w");
+    assert(f != NULL);
+    fputs("i := #0.\n"
+          "{ i:lessThan(#20000) }:whileTrue({\n"
+          "    scratch := \"made and dropped\":concat(i:asString).\n"
+          "    i := i:inc }).\n"
+          "\"finished\":display.\n", f);
+    fclose(f);
+    assert(system("bin/solas " DIR "/churn.sol -o " DIR "/churn.sob") == 0);
+
+    assert(run("bin/solvm --memory=1M " DIR "/churn.sob 2>/dev/null",
+               out, sizeof out) == 0);
+    assert(strstr(out, "finished") != NULL);
+
+    printf("  --memory stops what is held, not what has been through\n");
+}
+
+/* Both limits are off unless asked for, and both refuse a value that is not a
+   count. */
+static void test_the_limits_are_off_and_are_checked(void)
+{
+    char out[4096];
+
+    FILE *f = fopen(DIR "/quick.sol", "w");
+    assert(f != NULL);
+    fputs("n := #0. #1:toDo(#2000, { i | n := n:inc }). n:print.\n", f);
+    fclose(f);
+    assert(system("bin/solas " DIR "/quick.sol -o " DIR "/quick.sob") == 0);
+
+    /* No flag, and the same program that a small budget would have stopped. */
+    assert(run("bin/solvm " DIR "/quick.sob 2>/dev/null", out, sizeof out) == 0);
+    assert(strstr(out, "#2000") != NULL);
+    assert(run("bin/solvm --steps=200 " DIR "/quick.sob 2>/dev/null",
+               out, sizeof out) == 124);
+
+    static const char *bad[] = {
+        "bin/solvm --steps=0 " DIR "/quick.sob 2>&1 >/dev/null",
+        "bin/solvm --steps=lots " DIR "/quick.sob 2>&1 >/dev/null",
+        "bin/solvm --memory=0 " DIR "/quick.sob 2>&1 >/dev/null",
+        "bin/solvm --memory=64X " DIR "/quick.sob 2>&1 >/dev/null",
+    };
+    for (size_t i = 0; i < sizeof bad / sizeof bad[0]; i++) {
+        assert(run(bad[i], out, sizeof out) == 64);
+        assert(strstr(out, "wants") != NULL);
+    }
+
+    /* A suffix is a suffix, and the program still runs under a real one. */
+    assert(run("bin/solvm --memory=64M " DIR "/quick.sob 2>/dev/null",
+               out, sizeof out) == 0);
+    assert(strstr(out, "#2000") != NULL);
+
+    printf("  the limits are off by default and refuse a nonsense value\n");
+}
+
 int main(void)
 {
     test_help_is_not_an_error();
@@ -358,6 +462,9 @@ int main(void)
     test_interactive_stays_after_success();
     test_interactive_can_call_what_the_program_defined();
     test_the_other_options_still_work();
+    test_a_step_limit_stops_a_program();
+    test_a_memory_limit_measures_what_is_held();
+    test_the_limits_are_off_and_are_checked();
     printf("test_cli: ok\n");
     return 0;
 }

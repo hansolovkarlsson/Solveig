@@ -1447,6 +1447,89 @@ else, because a string is bytes and deciding what counts as blank in a text this
 language cannot otherwise read would be a promise it could not keep. A string
 with nothing to remove answers itself.
 
+### 6.33 A running program cannot be stopped from outside — **done**
+
+`sol_vm_set_step_limit` and `sol_vm_set_memory_limit`, set by whoever embeds the
+machine before the program runs, and `solvm --steps=N` and `--memory=N` as the
+front end for them. Reaching either answers `SOL_STOPPED` and exits with 124.
+
+**The case.** A program that did not stop could not be made to. No time limit,
+no instruction budget, no ceiling on what it could hold; a host that started one
+had given away the thread and the heap until the program felt like giving them
+back. That had always been true and had never mattered, because the caller was a
+person with a terminal and a ctrl-c. It mattered as soon as the caller might be
+a webserver, where a request that never finishes is a worker that never returns,
+and enough of them is the whole server — with nothing dangerous called and no
+injection needed. It is the half of
+[6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
+that gets forgotten, because permissions are what people ask for and limits are
+what the case actually needed.
+
+**Why not the debug hook**, which already existed and could already stop a
+running program — Solid quits out of one that way. Because the hook is offered
+when the line or the frame changes, and a loop written literally compiles to
+jumps: it enters no frame and returns to no caller, so neither moves. Measured
+before anything was written, with a breakpoint on the loop:
+
+| loop | iterations | times the hook was offered a stop |
+| --- | --- | --- |
+| `{ ... }:whileTrue({ ... })`, one line | 3,000,000 | 1 |
+| `#1:toDo(#5, step)` | 5 | 5 |
+
+The inlined loop was offered once and then ran to completion. It is the same
+inlining that makes `--trace` quiet on a long loop, seen from the other side:
+what makes the trace bearable makes the program unstoppable. So the counter went
+in the dispatch loop, which is the one place every instruction goes through — a
+limit checked anywhere else is a limit with a way around it.
+
+**A step rather than a second**, because a unit of work does not vary with the
+machine, its load, or what else is running. A limit chosen once means the same
+thing everywhere, which a wall-clock timeout does not.
+
+**Cost, and why there is no test for whether a limit was set.** With none, the
+counter starts at `UINT64_MAX`, so the unlimited case runs the same
+post-decrement and compare as the limited one and reaches zero five hundred
+years from now. One branch either way rather than two.
+
+Measured on a five-million-turn inlined loop, which is around twenty million
+instructions: 0.74-0.75s with the counter and 0.76-1.04s without it. That is not
+a speed-up, it is the measurement saying the cost is below its own noise -- but
+it does put a ceiling on it, which is what the number was wanted for.
+
+**Memory is measured after a collection**, which is the whole difficulty.
+`bytes_allocated` before a sweep counts everything the program has ever asked
+for and not yet had taken back, most of which may be unreachable; a ceiling read
+off that figure stops a program for litter rather than for what it is holding,
+and a loop building one small string at a time would trip it however small the
+strings were. So going over is a reason to collect, and being over once that has
+happened is a reason to stop. Two programs make the same amount of garbage under
+the same ceiling and only the one still holding it is stopped, which is a test.
+
+**A stop is not catchable, and that is the point rather than an omission.** It
+travels by `had_error`, as an exit does, so it unwinds through every loop that
+already tests that flag — but `onError` lets it past and `ensure` does not run
+its cleanup. A handler is code; running a handler is spending the allowance that
+just ran out; and a handler wrapped around everything, which is the shape people
+write, would turn the limit into a suggestion. `ensure` is the sharper case,
+because it works by setting the failure aside precisely so that more code may
+run, and a program could otherwise put its work in a cleanup and carry on. What
+that costs is small here, because nothing in this language has to be released: a
+file is read or written whole, and no message hands back anything a program is
+obliged to close.
+
+**And nothing inside the language can reach either limit** — no message sets,
+clears or reads one. A program cannot find out what it was given and cannot give
+itself more, which is the whole of what makes them limits rather than
+suggestions.
+
+**124 rather than 70**, because the program did not fail. It was taken away, and
+a host reading that as an ordinary failure would go looking for a bug that is
+not there. It is what `timeout` answers, for the same reason.
+
+**What it does not do.** It bounds a program's work and its footprint, not what
+it reaches for: a stopped program may already have deleted the files it was
+going to delete. That is 6.32, which is still a decision.
+
 ### 6.29 A stepper — **Solid** — **done**
 
 `bin/solid`, the fourth program. It runs a program, stops before its first line,

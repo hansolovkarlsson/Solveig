@@ -7,6 +7,66 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### A program can be given a limit — `pending`, 2026-08-21
+
+[6.33](ROADMAP.md#633-a-running-program-cannot-be-stopped-from-outside--done),
+built. A host may say what a program is allowed to spend before it starts it,
+and take it back when it has spent it.
+
+```
+$ solvm --steps=100000 loop.sob
+solvm: stopped: the step limit of 100000 was reached
+  [loop.sol:3] in script
+$ echo $?
+124
+```
+
+From C, which is the case that wanted it:
+
+```c
+sol_vm_set_step_limit(&vm, 10000000);
+sol_vm_set_memory_limit(&vm, 64 * 1024 * 1024);
+if (sol_vm_run(&vm, &chunk) == SOL_STOPPED) { /* neither finished nor asked */ }
+```
+
+Both are off unless asked for, so a program run from a terminal is unchanged.
+
+**The counter is in the dispatch loop, and had to be.** The debug hook already
+existed and could already stop a running program — Solid quits out of one that
+way — but it is offered when the line or the frame changes, and a loop written
+literally compiles to jumps, so neither moves. Measured with a breakpoint on
+the loop: an inlined loop over 3,000,000 iterations offered one stop and then
+ran to completion, where a loop of calls offered one per iteration. What makes
+`--trace` bearable makes the program unstoppable, so the count went where every
+instruction has to pass.
+
+It costs one post-decrement and one compare, and there is no branch asking
+whether a limit was set: with none the counter starts at `UINT64_MAX` and
+reaches zero five hundred years from now. Measured on a five-million-turn
+inlined loop — around twenty million instructions — 0.74-0.75s with the counter
+against 0.76-1.04s without. Which is not a speed-up; it is the cost being below
+the noise of the measurement.
+
+**Memory is measured after a collection**, which is the whole difficulty of a
+memory limit. Before a sweep the figure counts everything the program has ever
+asked for and not had taken back, so a ceiling read off it would stop a program
+for litter rather than for what it holds. Going over is now a reason to collect,
+and being over once that has happened is a reason to stop — so of two programs
+making the same garbage under the same ceiling, only the one still holding it is
+stopped.
+
+**A stop cannot be caught.** `onError` lets it past and `ensure` does not run
+its cleanup, because both are ways of running more code and the allowance for
+running code is what ran out; a handler wrapped around everything would
+otherwise turn the limit into a suggestion. No message reads or changes either
+limit, so a program cannot find out what it was given or give itself more.
+
+**124 rather than 70**, since the program did not fail — it was taken away.
+Which is what `timeout` answers, for the same reason.
+
+A correction found while documenting it: REFERENCE.md still said a runtime error
+could not be caught, which stopped being true when `onError` landed.
+
 ### The threat model behind the safe-mode decision, and a second decision — `d518aa6`, 2026-08-21
 
 [6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)

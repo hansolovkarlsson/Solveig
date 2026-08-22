@@ -677,6 +677,99 @@ nothing points at yet -- cannot be swept. Two consequences worth knowing:
 Setting `SOLUM_GC_STRESS=1` collects on every allocation. Running the test suite
 under it is what actually finds a missing root.
 
+## Limits
+
+A host may say what a program is allowed to spend before it starts it:
+
+```c
+SolVM vm;
+sol_vm_init(&vm);
+sol_vm_set_step_limit(&vm, 10000000);      /* instructions */
+sol_vm_set_memory_limit(&vm, 64 * 1024 * 1024);   /* live bytes */
+
+if (sol_vm_run(&vm, &chunk) == SOL_STOPPED) {
+    /* it neither finished nor asked to stop */
+}
+```
+
+Zero is no limit and is the default, which is right for a person at a terminal:
+they have a ctrl-c, and a budget chosen in advance by somebody who did not know
+what the program would do is worse than no budget at all. It is the *embedded*
+case that wants them -- a program running scripts on behalf of somebody else,
+where starting one must not mean lending it the thread and the heap for as long
+as it cares to keep them.
+
+Neither limit is reachable from inside the language. There is no message that
+sets, clears or reads one, which is the whole of what makes them limits.
+
+**Steps are counted in the dispatch loop**, and it has to be there. The obvious
+cheaper place is the debug hook, which already exists and can already stop a
+running program -- Solid quits out of one that way. But the hook is offered when
+the line or the frame changes, and a loop written literally compiles to jumps:
+it enters no frame and returns to no caller, so neither moves. Measured, with a
+breakpoint on the loop:
+
+| loop | iterations | times the hook was offered a stop |
+| --- | --- | --- |
+| `{ ... }:whileTrue({ ... })`, one line | 3,000,000 | 1 |
+| `#1:toDo(#5, step)` | 5 | 5 |
+
+The inlined loop is offered once and then runs to completion. It is the same
+inlining that makes `--trace` quiet on a long loop, seen from the other side:
+what makes the trace bearable makes the program unstoppable. Instructions are
+the one thing a program cannot hide from.
+
+The counter is a post-decrement and a compare, and there is no branch asking
+whether a limit was set: with none, `steps_remaining` starts at `UINT64_MAX`, so
+the unlimited case runs the same two instructions and reaches zero five hundred
+years from now.
+
+Measured on a five-million-turn inlined loop, which is around twenty million
+instructions: 0.74-0.75s with the counter and 0.76-1.04s without it. That is not
+a speed-up, it is the measurement saying the cost is below its own noise -- but
+it does put a ceiling on it, which is what the number was wanted for.
+
+A step is a unit of work rather than of time, deliberately. It does not vary
+with the machine, its load, or what else is running, so a limit chosen once
+means the same thing everywhere -- which a wall-clock timeout does not.
+
+**Memory is measured after a collection**, in `sol_gc_maybe_collect`, and this is
+the whole difficulty of a memory limit. `bytes_allocated` before a sweep counts
+everything the program has ever asked for and not yet had taken back, most of
+which may be unreachable; a ceiling read off that figure stops a program for
+litter rather than for what it is holding, and a loop building one small string
+at a time would trip it however small the strings were. After a sweep the figure
+is what is live. So going over is a reason to collect, and being over once that
+has happened is a reason to stop.
+
+The allocation that crossed the line still completes -- its caller needs
+somewhere to put a half-built object -- and the program unwinds at the next
+instruction boundary. The overshoot is bounded by one instruction rather than
+open.
+
+**A stop is not catchable, and that is not an oversight.** `sol_vm_stop` sets
+`stopped` alongside `had_error`, so it unwinds through every loop that already
+tests that flag, and both `onError` and `ensure` let it past untouched. A
+handler is code; running a handler is spending the allowance that just ran out;
+and a handler wrapped around everything -- which is the shape people write --
+would turn the limit into a suggestion. `ensure` is the sharper case, because it
+works by setting the failure aside precisely so that more code may run, and a
+program could otherwise put its work in a cleanup and carry on.
+
+What that costs is small in this language, because nothing has to be released: a
+file is read or written whole, and no message hands back anything a program is
+obliged to close. It would cost more in a language where there were.
+
+The allowance is reset by `sol_vm_run`, so it is per run and not per VM: a
+server handing one machine a request and then another means each of them to have
+the whole of it.
+
+**What this is not.** It bounds a program's work and its footprint. It does not
+bound what it reaches for -- a stopped program may already have deleted the
+files it was going to delete -- and it is not a sandbox. That half is
+[6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine),
+which is still a decision rather than a mechanism.
+
 ## Open questions
 
 [REFERENCE.md](REFERENCE.md) describes the language as it is; this document is

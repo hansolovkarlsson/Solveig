@@ -55,7 +55,7 @@ have been. Side-table operands are two bytes, a send compares pointers, and the
 script's frame has slots like every other, so a temporary may be declared
 anywhere.
 
-**What is left is section 3, and two decisions.** Section 3 holds the
+**What is left is section 3, and one decision.** Section 3 holds the
 restrictions the language lives under on purpose, each documented where a
 program would meet it. Section 2 has no open design question — the last one,
 2.5, is closed. And section 6, a program's dealings with the world outside it,
@@ -63,16 +63,18 @@ is built: reading input, writing files, stopping with a status, walking the
 filesystem, knowing the time, a prompt with history, a debugger, and running
 another program.
 
-The decisions are
-[6.32](#632-a-script-cannot-be-run-with-less-than-the-whole-machine), whether a
-script should be able to run with less than the whole machine now that it can
-reach all of it, and
-[6.33](#633-a-running-program-cannot-be-stopped-from-outside), whether a running
-one can be stopped. Both come from the same place — a program embedding the
-VM, a webserver being the case in hand, which needs to say what a script reaches
-*and* to get the thread back. Nothing is asking for either yet; they are
-recorded because the shape of the answer is much cheaper to choose now than
-later.
+The decision is
+[6.32](#632-a-script-cannot-be-run-with-less-than-the-whole-machine): whether a
+script should be able to run with less than the whole machine, now that it can
+reach all of it. Nothing is asking for it; it is recorded because the shape of
+the answer is much cheaper to choose now than later.
+
+Its other half is built.
+[6.33](COMPLETED.md#633-a-running-program-cannot-be-stopped-from-outside--done)
+was the same webserver's other problem — a script that never finishes is a
+request that never finishes — and is now a step limit and a memory ceiling a
+host sets before the program runs. Permissions are still a decision; limits are
+not.
 
 So this document no longer says what to build next. **The way to add to it is to
 write a program and find out what it wants**, which is how nearly every entry
@@ -418,9 +420,12 @@ proves a chunk is well-formed and not that it stops.
 
 The webserver case is what makes that caveat expensive rather than academic: on
 a command line a program that does not stop is an annoyance, and on a server it
-is the server. That half is
-[6.33](#633-a-running-program-cannot-be-stopped-from-outside), because it is a
-different decision — limits, not permissions — and the two are separable.
+is the server. That half was
+[6.33](COMPLETED.md#633-a-running-program-cannot-be-stopped-from-outside--done)
+and is built: a host may now say how many instructions a program gets and how
+much it may hold. It was a different decision — limits, not permissions — which
+is why the two were separable, and why one of them could be settled while this
+one is still being thought about.
 
 **Raised after the fact**, by noticing what `system:run` had made possible
 rather than by anything going wrong; the embedding case above was supplied the
@@ -428,57 +433,6 @@ following day as the reason it had occurred to anybody. Nothing is asking for it
 yet, and it is written down because the decisions above — where the mechanism
 lives, which default, capabilities or a switch — are much cheaper to take now
 than after somebody has written scripts that depend on either answer.
-
-### 6.33 A running program cannot be stopped from outside
-
-A program that does not stop cannot be made to. There is no time limit, no
-instruction budget, and no ceiling on what it may allocate; a host that starts
-one has no way to take it back.
-
-This has always been true and has never mattered, because the caller was a
-person with a terminal and ctrl-c. It matters in the webserver of
-[6.32](#632-a-script-cannot-be-run-with-less-than-the-whole-machine), where a
-request that never finishes is a worker that never returns, and enough
-of them is the whole server — with no injection needed and nothing dangerous
-called.
-
-**Some of the mechanism is already there, and its granularity is wrong.** The VM
-calls `debug_hook` when it offers a stop, and a hook may set `exiting` and
-`had_error` to unwind — which is how Solid quits out of a running program, so
-stopping one from outside is demonstrably possible. But the offer is gated on
-the line or the frame changing, and a loop written literally compiles to jumps
-rather than calls, so neither moves. Measured, with a breakpoint on the loop:
-
-| loop | iterations | times the host was offered a stop |
-| --- | --- | --- |
-| `{ ... }:whileTrue({ ... })`, one line | 3,000,000 | 1 |
-| `#1:toDo(#5, step)` | 5 | 5 |
-
-The inlined loop is offered once and then runs to completion uninterrupted. This
-is the same inlining that makes `--trace` quiet on a three-hundred-thousand-turn
-loop, seen from the other side: what makes the trace bearable makes the program
-unstoppable.
-
-So a budget cannot be built on the debug hook. It wants a counter in the
-interpreter loop itself — a decrement and a branch, tested every instruction
-or every N of them — which is cheap but sits on the hot path, so choosing N is
-a measurement rather than an opinion.
-
-**Memory is the other half and is easier.** The collector already tracks
-`bytes_allocated` and compares it against `next_gc` on every allocation, and a
-sweep leaves the live total behind; a ceiling is one more comparison at that
-same place, against the live figure after a collection rather than before.
-
-**What it would answer with** is the question underneath: exceeding a limit is
-not a runtime error the program should be able to catch and ignore, or the limit
-is advice. It wants to unwind the way `exit` does — the host gets a status
-saying *stopped, not finished*, and decides.
-
-**Not asking to be built.** It is recorded because it is the half of 6.32 that
-gets forgotten: permissions are what people ask for, limits are what the
-webserver actually needed, and a "safe mode" that stops `system:run` while
-leaving `{ true }:whileTrue({ })` alone would be the more reassuring of the two
-and the less useful.
 
 ## How this list emptied
 
@@ -534,8 +488,11 @@ splitting the two objects would have bought.
 twice, that something became possible and wanted a decision about it.
 [6.32](#632-a-script-cannot-be-run-with-less-than-the-whole-machine) came from
 noticing what `system:run` had opened up rather than from anything going wrong,
-and [6.33](#633-a-running-program-cannot-be-stopped-from-outside) came from
-asking what 6.32 would not cover. Both are recorded rather than built.
+and
+[6.33](COMPLETED.md#633-a-running-program-cannot-be-stopped-from-outside--done)
+came from asking what 6.32 would not cover. The second turned out to be
+buildable without deciding anything, and was built; the first is still a
+decision.
 
 Those two arrived a third way, worth naming because it is the one this document
 did not have before: **from a use nobody had written yet**. Not a program that

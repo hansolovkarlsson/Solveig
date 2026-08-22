@@ -3168,6 +3168,12 @@ static SolValue prim_block_on_error(SolVM *vm, SolValue self, SolValue *args, in
     if (!vm->had_error) return answer;
     if (vm->exiting) return SOL_NIL_VAL;      /* a stop, not a failure */
 
+    /* Nor is a limit, and this one is not the program's to decline. Running the
+       handler would be running code after the budget that pays for code ran
+       out, and a handler wrapped around everything -- which is the shape people
+       write -- would turn the limit into a suggestion. */
+    if (vm->stopped) return SOL_NIL_VAL;
+
     /* Built before the flag is cleared, so nothing can allocate its way into
        another error while the message is still only in the VM's buffer. */
     SolValue caught = error_from(vm, vm->error_message.chars,
@@ -3205,6 +3211,17 @@ static SolValue prim_block_ensure(SolVM *vm, SolValue self, SolValue *args, int 
     if (!check_argc(vm, "ensure", argc, 1)) return SOL_NIL_VAL;
 
     SolValue answer = sol_vm_call_block(vm, self, NULL, 0);
+
+    /* A limit is the one thing the cleanup does not get to run for. Everything
+       below works by setting the failure aside so that the cleanup may run --
+       and a cleanup is code, which is what there is no longer any budget for.
+       A program could otherwise put its work in a cleanup and carry on.
+     *
+       What that costs is small here, because there is nothing in this language
+       that has to be released: a file is read or written whole, and no message
+       hands back anything a program is obliged to close. It would cost more in
+       a language where there were. */
+    if (vm->stopped) return SOL_NIL_VAL;
 
     if (!vm->had_error) {
         /* Nothing to set aside. A cleanup that fails here fails on its own

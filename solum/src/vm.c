@@ -24,6 +24,10 @@ void sol_vm_init(SolVM *vm)
     vm->debug_last_line = -1;
     vm->debug_last_frame_id = 0;
     vm->exit_code = 0;
+    vm->stopped = false;
+    vm->step_limit = 0;
+    vm->steps_remaining = UINT64_MAX;   /* no limit, spelled as one that never runs out */
+    vm->memory_limit = 0;
     vm->next_frame_id = 1;
     reset_stack(vm);
 
@@ -205,21 +209,15 @@ static void append_line(SolText *out, const char *format, ...)
    before returning, so nothing about the visible behaviour has changed -- but
    the message now exists as text the machine holds, which is what a handler
    will need in order to be given it. */
-void sol_vm_runtime_error(SolVM *vm, const char *format, ...)
+/* The stack beneath a message, innermost frame first, so the line that actually
+   failed leads.
+ *
+ * Shared by a failure and by a stop, which want the same picture for opposite
+ * reasons: one to say where the program went wrong, the other to say where it
+ * had got to when it was taken away. */
+static void append_stack_trace(SolVM *vm)
 {
-    /* The first error wins. Building a message can itself fail: a complaint
-       that names a value renders it, and rendering sends `asString`. The
-       failure that started it is the one worth reporting, and the one that
-       followed is a consequence of trying to report it. */
-    if (vm->had_error) return;
-
-    va_list args;
-    va_start(args, format);
-    append_formatted(&vm->error_message, format, args);
-    va_end(args);
-
-    /* Innermost frame first, so the line that actually failed leads. A runaway
-       recursion would otherwise bury the message under a full stack, so the
+    /* A runaway recursion would bury the message under a full stack, so the
        middle is elided. */
     const int head = 8, tail = 3;
     for (int i = vm->frame_count - 1; i >= 0; i--) {
@@ -231,7 +229,11 @@ void sol_vm_runtime_error(SolVM *vm, const char *format, ...)
             continue;
         }
         SolFrame *frame = &vm->frames[i];
-        size_t offset = (size_t)(frame->ip - frame->chunk->code) - 1;
+        /* The instruction just read, so back one from where `ip` now points.
+           A frame stopped before its first instruction has nothing behind it
+           and reports its first line, which is where it was about to be. */
+        size_t offset = (size_t)(frame->ip - frame->chunk->code);
+        if (offset > 0) offset--;
 
         /* The file as well as the line, when the chunk knows it. A chunk is one
            compiled unit and `@include` puts a library's code into the same one,
@@ -250,6 +252,23 @@ void sol_vm_runtime_error(SolVM *vm, const char *format, ...)
                         frame->chunk->lines[offset], what);
         }
     }
+}
+
+void sol_vm_runtime_error(SolVM *vm, const char *format, ...)
+{
+    /* The first error wins. Building a message can itself fail: a complaint
+       that names a value renders it, and rendering sends `asString`. The
+       failure that started it is the one worth reporting, and the one that
+       followed is a consequence of trying to report it. */
+    if (vm->had_error) return;
+
+    va_list args;
+    va_start(args, format);
+    append_formatted(&vm->error_message, format, args);
+    va_end(args);
+
+    append_stack_trace(vm);
+
     vm->had_error = true;
 
     /* One last offer, with everything still standing. A debugger cannot resume
@@ -262,6 +281,40 @@ void sol_vm_runtime_error(SolVM *vm, const char *format, ...)
         vm->debug_hook(vm, vm->debug_context);
         vm->debug_failed = false;
     }
+}
+
+/* A limit was reached. Unwinds like a failure and is not one.
+ *
+ * Not routed through `sol_vm_runtime_error` for two reasons that both matter.
+ * A runtime error is the program's fault and this is not: nothing it did was
+ * wrong, it was simply given less than it wanted. And a runtime error is
+ * catchable, where this must not be -- `onError` and `ensure` both let it
+ * through untouched, because a handler is code, running a handler is spending
+ * the budget that just ran out, and a program that can run code after the limit
+ * is a program the limit does not bind.
+ *
+ * A stop outranks an error already pending, and clears its message. The
+ * program may well have been in the middle of failing -- a memory limit is
+ * reached by allocating, and so is formatting the report of a failure -- but it
+ * is being stopped, and that is the outcome its host has to hear about.
+ */
+void sol_vm_stop(SolVM *vm, const char *format, ...)
+{
+    if (vm->stopped) return;         /* the first stop wins, as the first error does */
+
+    vm->error_message.length = 0;
+    vm->error_trace.length = 0;
+
+    va_list args;
+    va_start(args, format);
+    append_formatted(&vm->error_message, format, args);
+    va_end(args);
+
+    append_stack_trace(vm);
+
+    vm->stopped   = true;
+    vm->had_error = true;            /* the flag every loop already unwinds on */
+    vm->exiting   = false;           /* and not the one that means it asked to go */
 }
 
 /* The receiver a primitive requires, spelled the way an error message wants it.
@@ -554,6 +607,27 @@ static SolResult run_frames(SolVM *vm, int base)
 #define READ_INTERNED() (frame->chunk->interned[READ_INDEX()])
 
     for (;;) {
+        /* The budget. One instruction is one step, counted here because this is
+           the only place every instruction goes through -- a limit checked
+           anywhere else is a limit with a way around it.
+         *
+           Post-decrement, so a limit of N runs N instructions and stops before
+           the (N+1)th. With no limit the counter starts at UINT64_MAX and the
+           test is the same test, which is why there is no branch here asking
+           whether a limit was set: the unlimited case pays one decrement and
+           one predictable compare, and reaches zero five hundred years from
+           now.
+         *
+           An inlined loop is what makes this necessary. `whileTrue` written
+           literally compiles to jumps, so it enters no frames and returns to no
+           caller, and anything counting calls or watching the frame depth never
+           sees it go round. Instructions it cannot hide from. */
+        if (vm->steps_remaining-- == 0) {
+            sol_vm_stop(vm, "stopped: the step limit of %llu was reached",
+                        (unsigned long long)vm->step_limit);
+            return SOL_STOPPED;
+        }
+
         /* A stop point, when something is driving. Offered before the
            instruction runs, at each line the program moves to and each frame it
            enters or leaves -- which is what a person means by a step. The hook
@@ -572,7 +646,9 @@ static SolResult run_frames(SolVM *vm, int base)
                 vm->debug_last_line = line;
                 vm->debug_last_frame_id = frame->id;
                 vm->debug_hook(vm, vm->debug_context);
-                if (vm->had_error || vm->exiting) return SOL_RUNTIME_ERROR;
+                if (vm->had_error || vm->exiting) {
+                    return vm->stopped ? SOL_STOPPED : SOL_RUNTIME_ERROR;
+                }
             }
         }
 
@@ -863,7 +939,10 @@ static SolResult run_frames(SolVM *vm, int base)
            has to unwind already tests `had_error`, and an exit unwinds through
            exactly those, so it sets that one too rather than adding a second
            test to each of them. */
-        if (vm->had_error) return vm->exiting ? SOL_EXIT : SOL_RUNTIME_ERROR;
+        if (vm->had_error) {
+            if (vm->exiting) return SOL_EXIT;
+            return vm->stopped ? SOL_STOPPED : SOL_RUNTIME_ERROR;
+        }
     }
 
 #undef READ_INTERNED
@@ -951,10 +1030,28 @@ void sol_vm_intern_chunk(SolVM *vm, SolChunk *chunk)
     }
 }
 
+void sol_vm_set_step_limit(SolVM *vm, uint64_t steps)
+{
+    vm->step_limit = steps;
+    vm->steps_remaining = steps > 0 ? steps : UINT64_MAX;
+}
+
+void sol_vm_set_memory_limit(SolVM *vm, size_t bytes)
+{
+    vm->memory_limit = bytes;
+}
+
 SolResult sol_vm_run(SolVM *vm, const SolChunk *chunk)
 {
     vm->had_error = false;
     vm->exiting = false;
+    vm->stopped = false;
+
+    /* The allowance is per run, not per VM. A server that hands one machine a
+       request and then another means each request to have the whole of it,
+       rather than the second inheriting what the first left. */
+    vm->steps_remaining = vm->step_limit > 0 ? vm->step_limit : UINT64_MAX;
+
     vm->error_message.length = 0;   /* keeps the buffers, drops last run's text */
     vm->error_trace.length = 0;
     vm->frame_count = 0;
