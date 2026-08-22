@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### The examples divide in two, and now sit that way — `pending`, 2026-08-22
+### The examples divide in two, and now sit that way — `500b6ac`, 2026-08-22
 
 `examples/` held thirty-two files doing two different jobs. Seven of them move
 to **`programs/`**.
