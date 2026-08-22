@@ -5,7 +5,57 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## 0.17.0 — 2026-08-22
+
+**Two programs that read this project's own work, and the four faults they
+found in it.**
+
+```
+$ ./bin/solvm programs/expect.sob
+21 files with expectations, 398 claims checked
+every claim holds
+```
+
+**No language change and no API change.** `.sob` files are format version 13,
+unchanged since 0.11.0, and every binary behaves as it did. What changed is that
+three documents were wrong and are not, and that about four hundred claims which
+nothing checked are now checked on every build.
+
+**[disasm.sol](../programs/disasm.sol)** reads a `.sob` and disassembles it —
+the first program here to read a binary format, and a *second* implementation of
+one this project already had, which is how you find out whether a specification
+is true. Written from the documents, going to the C only where they ran out.
+They ran out five times.
+
+| the fault | now |
+| --- | --- |
+| BYTECODE.md never said what byte an opcode is | every row carries it, and a test checks it against the enum |
+| design.md said both "big-endian" and "little-endian throughout" about the same bytes | both sections agree, and say which is which |
+| the `.sob` format table had been missing three sections since version 12 | the file table, the file-run table and the slot names are in it, with constant tag 3 |
+| the table did not separate the file header from a chunk body | it does, so "recursively" means the body |
+
+**[expect.sol](../programs/expect.sol)** runs every example and checks the
+comments that say what each line prints. Nothing had ever checked one of them:
+the suite compiled every example and never ran one, so four hundred comments
+were true because somebody looked, once. **All 398 hold.** What it turned up
+instead is that three conventions for those comments had grown up unnoticed,
+because nothing had ever had to parse them. It runs in `make test` in a third of
+a second, and was verified to fail rather than assumed.
+
+**And one claim of this project's own, disproved by being written down.**
+disasm.sol reported `<i64 too large to read>` for integers with the top bit set,
+and three places said Solum could write an integer into a `.sob` it could not
+read back. Stating that as a roadmap entry meant checking it, and arithmetic
+reaches what shifting cannot — `(b - 256) * 2^56` — so the disassembler reads
+INT64_MIN correctly and what is left is
+[3.12](ROADMAP.md#312-no-shift-can-produce-a-negative-integer), which is much
+smaller and true. That is the second time in two days a written-down claim of
+mine failed at the moment it became a promise; the first was
+`sol_vm_intern_chunk` in 0.15.0.
+
+`programs/` is nine files now, and
+[docs/programs.md](programs.md) says what each does.
+
 
 ### 3.12, and the claim it disproved by being written — `7a29867`, 2026-08-22
 

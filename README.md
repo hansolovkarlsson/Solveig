@@ -107,6 +107,18 @@ No dependencies beyond a C11 compiler and `make`.
 
 ## Status
 
+**0.17.0** — two programs that read this project's own work, and the four faults
+they found in it. [disasm.sol](programs/disasm.sol) disassembles a `.sob`, which
+is a *second* implementation of a format that had one — and that is how you find
+out whether a specification is true. `BYTECODE.md` had never said what byte an
+opcode is, `design.md` said both "big-endian" and "little-endian throughout"
+about the same bytes, and the `.sob` format table had been missing three sections
+since version 12. All fixed, and the opcode numbers now have a test.
+[expect.sol](programs/expect.sol) runs every example and checks the comments
+saying what each line prints — nothing ever had, and all 398 hold; it is in
+`make test` now. No language change and no API change: `.sob` files are format
+version 13, unchanged since 0.11.0.
+
 **0.16.0** — a data race fixed, and threads settled by measuring. The serial a
 machine is stamped with in `sol_vm_init` was incremented non-atomically, so two
 threads building one at once could be handed the same number — 16 threads
