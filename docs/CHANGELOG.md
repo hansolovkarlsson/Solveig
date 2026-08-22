@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### The audit the split asked for, and a page for the programs — `pending`, 2026-08-22
+### The audit the split asked for, and a page for the programs — `97dc6ff`, 2026-08-22
 
 Two things the reorganisation left owed.
 
