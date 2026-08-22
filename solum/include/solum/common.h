@@ -6,7 +6,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define SOLUM_VERSION "0.14.1"
+#define SOLUM_VERSION "0.15.0"
 
 /* FNV-1a over `length` bytes. One hash for everything that needs one -- the
    symbol intern table, the VM's name table, and the hash index a chunk keeps

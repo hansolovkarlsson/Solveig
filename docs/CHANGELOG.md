@@ -5,7 +5,50 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## 0.15.0 — 2026-08-22
+
+**Embedding is a documented interface, and the order that happened in is the
+point.**
+
+```c
+#include "solas/compiler.h"     /* source text -> a chunk */
+#include "solum/embed.h"        /* a chunk -> a run */
+
+sol_vm_set_global_text(&vm, "request", body);
+if (sol_vm_run(&vm, &chunk) == SOL_OK) {
+    char *answer = sol_vm_global_text(&vm, "answer");
+    /* ... */  free(answer);
+}
+```
+
+[solum/embed.h](../solum/include/solum/embed.h) is the whole supported surface a
+host embeds Solum through — everything else under `solum/include` is now
+explicitly the machine's own business. [docs/embedding.md](embedding.md) is the
+contract in prose and [tests/test_embed.c](../tests/test_embed.c) has a case for
+every promise it makes.
+
+**Written before deciding permissions, deliberately.** A permission is a promise
+about what a host may rely on, and
+[6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
+had nothing to attach one to. That entry's precondition is met now; the decision
+itself is unchanged and still open.
+
+**Four functions, none of them new capability** — `sol_vm_global`,
+`sol_vm_global_text`, `sol_vm_set_global`, `sol_vm_set_global_text`, plus
+`sol_vm_error_message` and `sol_vm_error_trace`. Each names two or three calls a
+host could already have made, which is the whole idea: three internal calls in
+the right order is not something anybody can rely on.
+
+**What is deliberately not promised** is stated as plainly as what is, because
+that is where a permission scheme would have to live: no route for a run's
+output except a global name the two sides agree on with nothing checking that
+they do, no way to silence a failing run's stderr, no safe reuse of one VM
+across runs, nothing about threads, and nothing whatever about what a script may
+reach.
+
+**No language change.** `.sob` files are format version 13, unchanged since
+0.11.0. `solvm`, `solas`, `solis` and `solid` behave exactly as they did.
+
 
 ### The embedding interface, written down — `a46cee0`, 2026-08-22
 

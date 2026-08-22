@@ -107,6 +107,18 @@ No dependencies beyond a C11 compiler and `make`.
 
 ## Status
 
+**0.15.0** — embedding is a documented interface.
+[solum/embed.h](solum/include/solum/embed.h) is the whole supported surface a C
+program holds a `SolVM` through, [docs/embedding.md](docs/embedding.md) is the
+contract, and [tests/test_embed.c](tests/test_embed.c) holds every promise it
+makes. Six functions, none of them new capability — each names two or three
+calls a host could already have made, which is the point, since three internal
+calls in the right order is not something anybody can rely on. What is
+deliberately *not* promised is stated as plainly as what is. Written **before**
+deciding what permissions a host may impose, because a permission is a promise
+about what a host may rely on and there was no list of that. No language change;
+`.sob` files are format version 13, unchanged since 0.11.0.
+
 **0.14.1** — a use-after-free, found by the first program to embed the machine.
 A chunk recorded which VM had interned its names by pointer, so a host that
 builds a VM per request — every one at the same stack address — had its second
