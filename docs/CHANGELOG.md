@@ -7,7 +7,27 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-Nothing yet.
+### The debugger has a name: Solid — `pending`, 2026-08-21
+
+*sol-interactive-debugger*, and it belongs to the family better than an acronym
+has any right to.
+
+The other names are not abbreviations, they are words: *Solveig* is Old Norse,
+*sól* joined to *veig*; *Solum* is Latin twice over, the **ground** as a noun and
+**"only"** as an adverb, which is the design principle rather than a decoration;
+*SolVM* is how *solum* was written before the alphabet split V into two letters.
+The README makes a point of these being separate words that happen to look alike
+rather than one word wearing several hats.
+
+*Solidus* is a fourth — Latin for **firm, whole, sound**, usually taken back to a
+root meaning "whole", the one behind *salvus*, "safe", and unrelated to either
+the ground or the sun however alike they look. A debugger is the tool for
+finding out whether a program is sound, standing on ground the language calls
+*solum*. The pun is in English and the sense is in the Latin, which is the trick
+the other three names play.
+
+Recorded in [6.29](ROADMAP.md#629-a-stepper--solid) rather than in the README,
+which lists programs that exist.
 
 ## 0.9.0 — 2026-08-21
 
@@ -75,7 +95,7 @@ program: [6.27](ROADMAP.md#627-a-stack-trace-does-not-say-which-file), where a
 trace names lines and not files and so reads as though a library's failure were
 in your own file; [6.28](ROADMAP.md#628-local-variables-have-no-names-at-run-time),
 where slots are indices so nothing can show a variable by name; and
-[6.29](ROADMAP.md#629-a-stepper).
+[6.29](ROADMAP.md#629-a-stepper--solid).
 
 **And an `assert` turned down**, recorded in [ideas.md](ideas.md) with the
 reasoning: no to a compile-time switch that strips it, because every hand-rolled
@@ -203,7 +223,7 @@ program it was tracing would not be one.
 - [6.28](ROADMAP.md#628-local-variables-have-no-names-at-run-time) — slots are
   indices, so anything inspecting a running program shows `slot 3` and not
   `count`. The same kind of side table; it should ride along with 6.27.
-- [6.29](ROADMAP.md#629-a-stepper) — much the largest, wants 6.28 first, and
+- [6.29](ROADMAP.md#629-a-stepper--solid) — much the largest, wants 6.28 first, and
   worth weighing against `solis`, which already does the interactive half of
   what a debugger is for.
 

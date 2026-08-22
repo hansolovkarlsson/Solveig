@@ -327,7 +327,27 @@ Another side table, and it should ride along with
 [6.27](#627-a-stack-trace-does-not-say-which-file) if that is done: one format
 change rather than two.
 
-### 6.29 A stepper
+### 6.29 A stepper — **Solid**
+
+**The name is decided even though the thing is not**: *sol-interactive-debugger*
+reads as **Solid**, and it belongs to the family better than an acronym has any
+right to.
+
+The other names are not abbreviations, they are words. *Solveig* is Old Norse,
+*sól* joined to *veig*. *Solum* is Latin twice over — the **ground** as a noun,
+and **"only"** as an adverb, which is the design principle. *SolVM* is how
+*solum* was written before the alphabet split V into two letters. The README
+makes a point of these being separate words that happen to look alike rather
+than one word wearing several hats.
+
+*Solidus* is a fourth. It is Latin for **firm, whole, sound** — usually taken
+back to a root meaning "whole", the one behind *salvus*, "safe", and unrelated
+to either the ground or the sun however alike they look. A debugger is the tool
+for finding out whether a program is sound, standing on ground the language
+calls *solum*. The pun is in English and the sense is in the Latin, which is the
+same trick the other three names play.
+
+Recorded here rather than in the README, which lists programs that exist.
 
 Breakpoints, stepping, and looking at the stack where it stopped.
 
@@ -385,7 +405,7 @@ trace that names lines and not files is misleading rather than merely thin, and
 fixing it improves every error rather than only a debugging session.
 **[6.28](#628-local-variables-have-no-names-at-run-time)** rides along with it,
 being the same kind of side table and the thing a stepper needs first. And
-**[6.29](#629-a-stepper)** last, being much the largest — and worth weighing
+**[6.29](#629-a-stepper--solid)** last, being much the largest — and worth weighing
 against `solis`, which already does the interactive half of what a debugger is
 for. `solis` grew raw-mode line editing for its own prompt
 ([6.24](COMPLETED.md#624-the-prompt-has-no-history--done)), which needed the same
