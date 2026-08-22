@@ -300,8 +300,30 @@ here — third time in this session. `ifTrue` answers the block's value, so it
 cannot be chained. Three times is not a slip, it is a wrong model I keep
 reaching for, and writing it down is the only thing likely to change it.
 
+**Last thing, and the one I would keep if I could keep one.** The disassembler
+had reported `<i64 too large to read>` for constants with the top bit set, and I
+had written in three places that Solum could write an integer into a `.sob` it
+could not read back. The job was to give that a roadmap number.
+
+Writing it down disproved it inside five minutes. Stating a limitation exactly
+means checking it, and `(b - 256) * 2^56` reaches every value the shift cannot —
+INT64_MIN included. The shift failing was one route failing, and I had read it as
+the number being unreachable.
+
+So instead of a limitation there is a defect fixed, three documents corrected,
+and 3.12 saying something much smaller and true: no shift can produce a negative
+integer, because there is no unsigned type and shifts trap. Which follows from
+two decisions worth keeping and costs a line of arithmetic to avoid.
+
+**Twice in two days now.** Yesterday it was `sol_vm_intern_chunk` — I wrote that
+a host must call it, in a header and a page, and `sol_vm_run` calls it. Both
+errors survived being written into a program's comments *and* a document, and
+neither survived being written as a promise. There is something specific about
+the register: a comment explains, and a promise invites the question "is that
+so?".
+
 **The shape of the day**, which is the thing this file is for: the program was
-the instrument, not the result. Seven times over:
+the instrument, not the result. Seven times over — and once, the writing was:
 
 - **serve.sol found 3.7** by being run as a guest with an allowance, which no
   program here had been, because every earlier one was run by whoever wrote it.

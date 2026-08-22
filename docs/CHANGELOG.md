@@ -7,6 +7,39 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### 3.12, and the claim it disproved by being written — `pending`, 2026-08-22
+
+[disasm.sol](../programs/disasm.sol) reported `<i64 too large to read>` for any
+integer constant with its top bit set, and said in its own comments — and in
+[programs.md](programs.md), and in the entry below — that Solum could write an
+integer into a `.sob` that it could not read back.
+
+**That was wrong, and giving it a roadmap number is what found out.** Writing
+"here is the limitation" meant stating it exactly, and stating it exactly meant
+checking it, and it does not hold:
+
+```
+b:shiftLeft(#56)                    ; error, for any b of 128 or more
+b:sub(#256):mul(#72057594037927936) ; the same number, every step in range
+```
+
+`b - 256` is between -128 and -1, so the product lands between INT64_MIN and
+-2^56 and nothing overflows on the way. The disassembler reads every i64 now,
+INT64_MIN and -1 included, and still agrees with `solvm --dump` everywhere.
+
+What is true is much smaller and is
+[3.12](ROADMAP.md#312-no-shift-can-produce-a-negative-integer): **no shift can
+produce a negative integer.** There is no unsigned type and `shiftLeft` traps
+rather than wrapping, so nothing can put a one in bit 63 — which follows from two
+decisions worth keeping, and costs a line of arithmetic to work around.
+
+**Second time in two days.** The other was a claim that a host had to call
+`sol_vm_intern_chunk`, written up in a header and a page before being tried;
+`sol_vm_run` calls it. Both times the error survived being written into a
+program's comments and a document, and neither survived being written as a
+promise somebody might rely on. That is an argument for the roadmap entry, not
+against it.
+
 ### The examples now have to mean what they say — `7ba94a1`, 2026-08-22
 
 [programs/expect.sol](../programs/expect.sol) runs every file in `examples/` and
@@ -112,13 +145,19 @@ The table also did not separate the file's header from a chunk's body, so *"then
 that method's chunk, recursively"* read as though the whole thing recurred; only
 the body does.
 
-**And two findings about the language, neither a defect.** An i64 constant with
-its top bit set cannot be decoded, because assembling one means
-`shiftLeft(#56)` on a byte of 128 or more and the language traps on overflow
-rather than wrapping — so Solum can write an integer into a `.sob` that it
-cannot read back. And a float has to be decoded by hand, one bit-field at a
-time, because nothing reinterprets an integer's bits as a float; `readFloat` is
+**And two findings about the language, neither a defect.** No shift can produce
+a negative integer, there being no unsigned type: `shiftLeft(#56)` on a byte of
+128 or more is a value larger than an i64 holds and the language traps rather
+than wrapping. And a float has to be decoded by hand, one bit-field at a time,
+because nothing reinterprets an integer's bits as a float; `readFloat` is
 IEEE-754 binary64 written out in Solum, and `2.5` comes back `2.5`.
+
+> **Corrected the next day.** This entry first said an i64 with its top bit set
+> *could not be decoded*, and that Solum could write an integer into a `.sob` it
+> could not read back. Both were wrong — arithmetic reaches what shifting cannot,
+> and the disassembler reads INT64_MIN correctly now. See
+> [3.12](ROADMAP.md#312-no-shift-can-produce-a-negative-integer), which is the
+> entry that disproved the claim by being written.
 
 Not a finding, though the reference reads as though it might be:
 `system:readFile` handles a binary file exactly as it should. The Limits table's

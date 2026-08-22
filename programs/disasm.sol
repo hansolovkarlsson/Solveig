@@ -45,12 +45,16 @@
 ;      recur. Only the last five do -- the magic, the version and the script's
 ;      slot count are written once for the file.
 ;
-;   4. **An i64 constant with its top bit set cannot be decoded**, because
-;      assembling one means `shiftLeft(#56)` on a byte of 128 or more and the
-;      language traps on overflow rather than wrapping. That trap is right --
-;      see [strictness.sol](../examples/strictness.sol) -- and it means the
-;      language can *write* an integer into a .sob that it cannot read back.
-;      Reported per constant rather than fatally; see `readInteger`.
+;   4. **No shift can produce a negative integer**, there being no unsigned
+;      type: `b:shiftLeft(#56)` for a byte of 128 or more is a value larger than
+;      an i64 holds, and the language traps rather than wrapping. That trap is
+;      right -- see [strictness.sol](../examples/strictness.sol).
+;
+;      What is *not* true, though this file claimed it for a day, is that such
+;      an integer cannot be decoded. Arithmetic gets there where shifting
+;      cannot: `(b - 256) * 2^56` is the same number by a route where every step
+;      fits. See `readInteger`, which reads INT64_MIN correctly now, and
+;      ROADMAP 3.12, which is the note rather than the limitation it started as.
 ;
 ;   5. **A float has to be decoded by hand**, one bit-field at a time, because
 ;      nothing reinterprets the bits of an integer as a float. `asFloat` on an
@@ -108,11 +112,22 @@ u32 := { | a, b, c |
 ;
 ; Tag 0 is nil, 1 an i64, 2 an f64 -- design.md again.
 
-; An i64 as eight little-endian bytes, or nil when it will not fit.
+; An i64 as eight little-endian bytes. All of them, including the negative ones.
 ;
-; The top byte is the problem and the trap is correct: `shiftLeft` overflows
-; rather than wrapping, so a value with bit 63 set cannot be assembled this way
-; and there is no other way. Seven bytes and a sign is not the same number.
+; The top byte is where this gets interesting. `b:shiftLeft(#56)` overflows for
+; any b of 128 or more -- correctly, since as a *value* that is more than an i64
+; holds, and the language traps rather than wrapping. There being no unsigned
+; type, no shift can ever produce a number with bit 63 set.
+;
+; Arithmetic can. `(b - 256) * 2^56` is the same number by a route where every
+; step fits: b-256 is between -128 and -1, and the product lands between
+; INT64_MIN and -2^56. So the byte contributes its *signed* weight directly
+; rather than being shifted into a sign bit that would overflow on the way.
+;
+; **This file said for a day that it could not be done**, and so did
+; docs/programs.md and the changelog, on the strength of the shift failing. That
+; was one route failing, not the number being unreachable, and writing the
+; limitation down as a roadmap entry is what forced the check that disproved it.
 readInteger := { | value, b, i |
     value := #0.
     i := #0.
@@ -122,7 +137,7 @@ readInteger := { | value, b, i |
     b := byte:value.
     b:lessThan(#128):ifElse(
         { value:bitOr(b:shiftLeft(#56)) },
-        { nil })              ; would overflow, and honestly so
+        { value:add(b:sub(#256):mul(#72057594037927936)) })   ; 2^56
 }.
 
 ; IEEE-754 binary64, by hand.
@@ -341,9 +356,7 @@ constantAt := { chunk, index | | entry |
     entry := chunk:at("constants"):at(index:add(#1)).
     entry:at(#1):equals(#0):ifElse(
         { "nil" },
-        { entry:at(#2):isNil:ifElse(
-            { "<i64 too large to read>" },
-            { entry:at(#2):asString }) }) }.
+        { entry:at(#2):asString }) }.
 
 ; ---------------------------------------------------------------------------
 ; The disassembly
@@ -527,7 +540,6 @@ brief:ifElse(
       "  names:      {}":fill([top:at("names"):join(" ")]):display.
       "  constants:  {}":fill([
           top:at("constants"):collect({ c |
-              c:at(#1):equals(#0):ifElse({ "nil" }, {
-                  c:at(#2):isNil:ifElse({ "<too large>" }, { c:at(#2):asString }) })
+              c:at(#1):equals(#0):ifElse({ "nil" }, { c:at(#2):asString })
           }):join(" ")]):display },
     { show:value(top, "script", #0) }).

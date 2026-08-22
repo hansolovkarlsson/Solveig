@@ -311,11 +311,16 @@ going to the C only where those ran out. They ran out five times.
 
 **And two about the language**, neither a defect:
 
-- **An i64 constant with its top bit set cannot be decoded**, because assembling
-  one means `shiftLeft(#56)` on a byte of 128 or more and the language traps on
-  overflow rather than wrapping. The trap is right; the consequence is that
-  Solum can write an integer into a `.sob` that it cannot read back. Reported
-  per constant rather than fatally.
+- **No shift can produce a negative integer**, there being no unsigned type:
+  `shiftLeft(#56)` on a byte of 128 or more is a value larger than an i64 holds,
+  and the language traps rather than wrapping. The trap is right.
+
+  *This was first written up as "Solum can write an integer into a `.sob` that it
+  cannot read back", and that was wrong.* Arithmetic reaches what shifting
+  cannot — `(b - 256) * 2^56` is the same number by a route where every step
+  fits — and the disassembler reads INT64_MIN correctly. The claim was made on
+  the strength of one route failing and disproved by trying to write it down as
+  [3.12](ROADMAP.md#312-no-shift-can-produce-a-negative-integer).
 - **A float has to be decoded by hand**, one bit-field at a time, because
   nothing reinterprets an integer's bits as a float. `readFloat` is IEEE-754
   binary64 written out in Solum. It works — `2.5` comes back `2.5`.

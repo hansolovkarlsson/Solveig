@@ -540,6 +540,43 @@ thread is **279µs once** — measured on [serve.sol](../programs/serve.sol) at
 `-O2`, and see [3.10](#310-a-vm-cannot-be-reused-across-runs) for the numbers
 around it. That is the trade, and it is not close today.
 
+### 3.12 No shift can produce a negative integer
+
+There is no unsigned integer type, and `shiftLeft` traps on overflow rather than
+wrapping. So `#255:shiftLeft(#56)` is an error: as a *value* it is larger than an
+i64 holds, whatever the bit pattern was meant to be. **No shift can put a one in
+bit 63**, which is the whole of this entry.
+
+It is a consequence of two decisions this project would take again — one integer
+type, and arithmetic that refuses rather than silently wrapping
+([strictness.sol](../examples/strictness.sol)) — and it costs almost nothing,
+because arithmetic reaches what shifting cannot:
+
+```
+b:shiftLeft(#56)                    ; error, for any b of 128 or more
+b:sub(#256):mul(#72057594037927936) ; the same number, every step in range
+```
+
+`b - 256` is between -128 and -1, so the product lands between INT64_MIN and
+-2^56 and nothing overflows on the way. [disasm.sol](../programs/disasm.sol)
+decodes every i64 in a `.sob` this way, INT64_MIN included, and agrees with
+`solvm --dump` on all of them.
+
+**This entry began as a much larger claim and was wrong.** disasm.sol reported
+`<i64 too large to read>` for a day, and this page was about to record that
+Solum could write an integer into a `.sob` that it could not read back — on the
+strength of the shift failing. One route failing is not the number being
+unreachable. Writing the limitation down is what forced the check that disproved
+it, which is the second time in two days that has happened: the first was a
+claim that `sol_vm_intern_chunk` had to be called by a host, also written up
+before being tried.
+
+**What is left to want**, and it is small: a way to say "these bits" rather than
+"this number". A `bitPattern`-style reader, or an unsigned type, or shifts that
+wrap. All three are larger than the arithmetic above, and only a program
+assembling machine words from bytes wants any of them — which is one program,
+which has a workaround, and which now carries the comment explaining it.
+
 ### 1.1d Collection is stop-the-world and non-incremental
 
 Fine at this size and not worth touching yet. Noted so it is a choice rather than
