@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### A decision recorded: restricting what a script may reach — `pending`, 2026-08-21
+### A decision recorded: restricting what a script may reach — `56408a7`, 2026-08-21
 
 [6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine),
 written down rather than built. Raised by noticing what `system:run` had made
