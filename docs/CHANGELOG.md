@@ -5,7 +5,52 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## 0.13.0 — 2026-08-21
+
+**A program can be given a limit, and the machine can take it back.**
+
+```
+$ solvm --steps=100000 loop.sob
+solvm: stopped: the step limit of 100000 was reached
+  [loop.sol:3] in script
+$ echo $?
+124
+```
+
+**Limits**, set by whoever runs a program rather than by the program:
+`--steps=N` for how many instructions it may execute and `--memory=N` for how
+much it may hold at once, and `sol_vm_set_step_limit` / `sol_vm_set_memory_limit`
+for a program embedding the machine, which is the case that wanted them. Both
+are off unless asked for, so nothing about running a program from a terminal
+changes.
+
+The counter lives in the dispatch loop because nowhere else would do. The debug
+hook could already stop a running program — Solid quits out of one that way —
+but it is offered when the line or the frame changes, and a loop written
+literally compiles to jumps, so it saw an inlined loop of three million turns
+exactly once. Instructions are the one thing a program cannot hide from, and
+counting them costs less than this release could measure.
+
+**A stop is not catchable**, which is the whole of what makes it a limit.
+`onError` lets it past and `ensure` does not run its cleanup, because both are
+ways of running more code and the allowance for running code is what ran out.
+No message reads or changes either limit. A stopped program exits **124** —
+neither the 0 of finishing nor the 70 of failing, since it did not fail, it was
+taken away.
+
+**Memory is measured after a collection**, so a program is stopped for what it
+is holding rather than for what it has been through: of two programs making the
+same garbage under the same ceiling, only the one still keeping it is stopped.
+
+**And one decision recorded rather than built**: whether a script should be able
+to run with less than the whole machine, now that `system:run` means it can
+reach all of it. That entry is
+[6.32](ROADMAP.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine),
+and the case behind it — a webserver producing pages, where injection could make
+untrusted input into code the server runs — is what turned the limits above from
+a footnote into the half worth building first. Permissions are still open.
+
+`.sob` files are format version 13, unchanged from 0.11.0.
 
 ### A program can be given a limit — `88a8ab4`, 2026-08-21
 
