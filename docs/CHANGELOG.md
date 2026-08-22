@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### 3.12, and the claim it disproved by being written — `pending`, 2026-08-22
+### 3.12, and the claim it disproved by being written — `7a29867`, 2026-08-22
 
 [disasm.sol](../programs/disasm.sol) reported `<i64 too large to read>` for any
 integer constant with its top bit set, and said in its own comments — and in
