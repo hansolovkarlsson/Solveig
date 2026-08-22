@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### A frame slot knows what it was called — `pending`, 2026-08-21
+### A frame slot knows what it was called — `f644c9f`, 2026-08-21
 
 [6.28](COMPLETED.md#628-local-variables-have-no-names-at-run-time--done), and
 `--trace` names its arguments:
