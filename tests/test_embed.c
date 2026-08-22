@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>          /* to catch what a run writes to stderr */
 
 #include "solas/compiler.h"
 #include "solum/embed.h"
@@ -301,6 +302,66 @@ static void test_the_failure_is_this_run_s(void)
     printf("  a run clears what the last one left\n");
 }
 
+/* ---- whose stderr it is ------------------------------------------------- */
+
+/* Runs `source` with reporting on or off and answers how many bytes reached
+   stderr. A host's whole complaint was getting the failure twice, so the test
+   for it has to look at the place it was arriving. */
+static long stderr_bytes_from(const char *source, bool reporting)
+{
+    FILE *capture = tmpfile();
+    assert(capture != NULL);
+
+    fflush(stderr);
+    int saved = dup(fileno(stderr));
+    assert(saved >= 0);
+    assert(dup2(fileno(capture), fileno(stderr)) >= 0);
+
+    SolChunk chunk;
+    compile(&chunk, source);
+
+    SolVM vm;
+    sol_vm_init(&vm);
+    sol_vm_set_error_reporting(&vm, reporting);
+    SolResult result = sol_vm_run(&vm, &chunk);
+
+    /* Off or on, the run says the same thing and keeps the same text. That is
+       the half that matters: this is a switch about stderr, not about whether
+       the host is told. */
+    assert(result == SOL_RUNTIME_ERROR);
+    assert(sol_vm_error_message(&vm) != NULL);
+    assert(strstr(sol_vm_error_message(&vm), "boom") != NULL);
+    assert(sol_vm_error_trace(&vm) != NULL);
+
+    sol_vm_free(&vm);
+    sol_chunk_free(&chunk);
+
+    fflush(stderr);
+    assert(dup2(saved, fileno(stderr)) >= 0);
+    close(saved);
+
+    long size = ftell(capture);
+    fclose(capture);
+    return size;
+}
+
+static void test_a_host_may_keep_failures_off_stderr(void)
+{
+    assert(stderr_bytes_from("nil:boom.", true) > 0);
+    assert(stderr_bytes_from("nil:boom.", false) == 0);
+    printf("  a host may keep a failure off stderr and still read it\n");
+}
+
+/* Reporting is on unless asked, which is what the four front ends rely on. */
+static void test_reporting_is_on_by_default(void)
+{
+    SolVM vm;
+    sol_vm_init(&vm);
+    assert(vm.report_errors);
+    sol_vm_free(&vm);
+    printf("  reporting is on unless a host turns it off\n");
+}
+
 /* And a stop says which limit, since that is what a host has to act on. */
 static void test_a_stop_says_which_limit(void)
 {
@@ -357,6 +418,8 @@ int main(void)
     test_a_host_can_read_the_failure();
     test_the_failure_is_this_run_s();
     test_a_stop_says_which_limit();
+    test_a_host_may_keep_failures_off_stderr();
+    test_reporting_is_on_by_default();
     test_arguments_reach_the_script();
     printf("ok\n");
     return 0;

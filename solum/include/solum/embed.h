@@ -59,6 +59,7 @@
  *   sol_vm_set_step_limit(vm, n)        what it may spend, before it starts
  *   sol_vm_set_memory_limit(vm, bytes)
  *   sol_vm_set_arguments(vm, argc, argv)   what `system:arguments` answers
+ *   sol_vm_set_error_reporting(vm, false)  keep failures off stderr
  *
  * `sol_vm_run` answers a SolResult, and the five cases are the whole of what a
  * host learns about how it went: SOL_OK, SOL_EXIT (with `vm->exit_code`),
@@ -113,10 +114,10 @@ void sol_vm_set_global_text(SolVM *vm, const char *name, const char *chars);
  *
  * Both point into the VM and die with it. Copy what you mean to keep.
  *
- * A failing run **also writes both to stderr**, and there is currently no way
- * to ask it not to. A host that wants failures in its own log gets them in two
- * places. That is a real gap rather than an oversight in this comment; see
- * docs/embedding.md.
+ * A failing run also writes both to stderr, which is right for the four front
+ * ends here and wrong for a host that has its own log.
+ * `sol_vm_set_error_reporting(vm, false)` stops that, and stops only that: the
+ * result still says what happened and the text below is still there to read.
  */
 const char *sol_vm_error_message(const SolVM *vm);
 const char *sol_vm_error_trace(const SolVM *vm);

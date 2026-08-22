@@ -131,6 +131,9 @@ static char *evaluate(const char *source, const char *name, const char *request)
     sol_vm_init(&vm);
     sol_vm_set_step_limit(&vm, 100000);
     sol_vm_set_memory_limit(&vm, 8u << 20);
+
+    /* A failure here is this host's to report, in this host's words, once. */
+    sol_vm_set_error_reporting(&vm, false);
     if (request != NULL) sol_vm_set_global_text(&vm, "request", request);
 
     char *out = NULL;

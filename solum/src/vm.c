@@ -20,6 +20,7 @@ static uint64_t next_vm_id = 1;
 void sol_vm_init(SolVM *vm)
 {
     vm->id = next_vm_id++;
+    vm->report_errors = true;
     vm->frame_count = 0;
     vm->had_error = false;
     vm->exiting = false;
@@ -1048,6 +1049,11 @@ void sol_vm_set_memory_limit(SolVM *vm, size_t bytes)
     vm->memory_limit = bytes;
 }
 
+void sol_vm_set_error_reporting(SolVM *vm, bool on)
+{
+    vm->report_errors = on;
+}
+
 SolResult sol_vm_run(SolVM *vm, const SolChunk *chunk)
 {
     vm->had_error = false;
@@ -1098,8 +1104,13 @@ SolResult sol_vm_run(SolVM *vm, const SolChunk *chunk)
 
        This is why deferring the write changed no behaviour: the message still
        reaches stderr before `sol_vm_run` answers, exactly as it did when the
-       write happened where the failure was. */
-    if (vm->had_error && !vm->exiting && vm->error_message.length > 0) {
+       write happened where the failure was.
+
+       Unless a host asked for the failure to be its own. The text is kept
+       either way -- what `report_errors` decides is whether this function also
+       puts it somewhere the host did not choose. */
+    if (vm->report_errors && vm->had_error && !vm->exiting &&
+        vm->error_message.length > 0) {
         fprintf(stderr, "solvm: %s\n", vm->error_message.chars);
         if (vm->error_trace.length > 0) fputs(vm->error_trace.chars, stderr);
     }

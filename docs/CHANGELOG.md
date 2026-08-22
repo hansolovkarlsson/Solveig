@@ -5,6 +5,51 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+### A failure can be the host's, and three gaps got numbers — `pending`, 2026-08-22
+
+Two small things, both of them 0.15.0's leftovers.
+
+**`sol_vm_set_error_reporting(vm, false)`** stops `sol_vm_run` writing an
+uncaught failure to stderr. On unless asked, so `solvm`, `solas`, `solis` and
+`solid` are unchanged and a person at a terminal is still told what went wrong.
+
+The contract written yesterday listed this as a gap rather than fixing it: a
+host holding `error_message` and `error_trace` already, with its own log to put
+them in, was getting the failure twice and in a format it did not choose. It
+stops that and stops only that — the result still says what happened and the
+text is still there to read, which the test checks by capturing the descriptor
+and asserting both halves.
+
+[embed/host.c](../embed/host.c) turns it off and reports failures in its own
+words, which is what a host is for.
+
+**And the roadmap is the single list again.** It says so of itself, and it had
+stopped being true: [embedding.md](embedding.md) documented four limitations
+that existed in no other document, because writing down what a host may rely on
+means writing down what it may not, and nobody numbered the second half.
+
+| | |
+| --- | --- |
+| [3.8](ROADMAP.md#38-a-host-and-a-script-agree-a-name-and-nothing-checks-that-they-do) | a host and a script agree a global name and nothing checks that they do |
+| [3.10](ROADMAP.md#310-a-vm-cannot-be-reused-across-runs) | a VM cannot be reused across runs, globals being one flat namespace nothing unbinds |
+| [3.11](ROADMAP.md#311-nothing-is-known-about-threads) | nothing is known about threads |
+
+3.9 is skipped because it is taken, which is the roadmap's own convention: a gap
+in the numbering is a record rather than a mistake. The fourth gap was the
+stderr one, and it is fixed above rather than numbered.
+
+Section 3's introduction now separates the restrictions that were **chosen**
+from the ones that were **found** — 3.1 to 3.6 against 3.7, 3.8, 3.10 and 3.11 —
+because the two ask different questions of a reader.
+
+One claim in 3.11 is checked rather than assumed: the serial counter added in
+0.14.1 is the **only** file-scope mutable state in the library, across all four
+components. That is the whole of what one-VM-per-thread would have to
+synchronise, and a reason to expect the answer to be short when somebody tries
+it.
+
 ## 0.15.0 — 2026-08-22
 
 **Embedding is a documented interface, and the order that happened in is the

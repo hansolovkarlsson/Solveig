@@ -70,6 +70,7 @@ sol_chunk_free(&chunk);          /* after the VM, never before */
 | **Five endings, told apart** | `SOL_OK`, `SOL_EXIT` (with `vm.exit_code`), `SOL_STOPPED`, `SOL_RUNTIME_ERROR`, `SOL_COMPILE_ERROR`. A stopped program did not fail; a host treating it as a bug would go looking for one that is not there. |
 | **A script that exits ends itself** | `system:exit` unwinds rather than leaving from under the machine, so `sol_vm_run` answers `SOL_EXIT` and the host stays up. This is the behaviour an embedder would most expect to be wrong. |
 | **The failure is readable** | `sol_vm_error_message` and `sol_vm_error_trace` after a run that answered `SOL_RUNTIME_ERROR` or `SOL_STOPPED`. Cleared by the next run, so what they hold is this run's. |
+| **The failure is the host's** | `sol_vm_set_error_reporting(vm, false)` stops `sol_vm_run` writing it to stderr, and stops only that: the result still says what happened and the text is still there to read. On unless asked, which is what the four front ends here rely on. |
 | **Text in, text out** | `sol_vm_set_global_text` before, `sol_vm_global_text` after. The text form is on the heap and the caller frees it, so it outlives the machine. |
 | **The search path is the host's to set** | `sol_search_path_add_defaults` gives a script the same `@include` and the same shipped library it gets from `solas`. A host that skips it offers a smaller language than the one documented. |
 
@@ -97,23 +98,22 @@ than by reading — which is the argument for their being written down at all.
 
 ## What is deliberately not promised
 
-**Silence.** A failing run writes the message and the trace to stderr as well as
-leaving them readable, and there is no way to ask it not to. A host that wants
-failures in its own log gets them in two places. This is a real gap.
-
 **A name the two sides agree on.** A host says `"request"` and `"answer"`; the
 script has to say the same, and nothing checks that it does. This is the weakest
 joint in the interface. It is a convention, not a contract, and the honest thing
-is to say so rather than dress it up.
+is to say so rather than dress it up. That is
+[3.8](ROADMAP.md#38-a-host-and-a-script-agree-a-name-and-nothing-checks-that-they-do).
 
 **Reuse of one VM across runs.** It works and it leaks meaning: globals are one
 flat namespace and nothing unbinds them, so a second run sees the first one's
 names. That is the same flatness `@include` relies on, seen from the side where
 it hurts. **A fresh VM per request is the only safe choice today**, and it costs
-rebuilding the interned names and the built-in classes each time.
+rebuilding the interned names and the built-in classes each time —
+[3.10](ROADMAP.md#310-a-vm-cannot-be-reused-across-runs).
 
 **Threads.** Nothing here is thread-safe and nothing has been tried. One VM per
-thread is presumably fine and is not tested, so it is not promised.
+thread is presumably fine and is not tested, so it is not promised —
+[3.11](ROADMAP.md#311-nothing-is-known-about-threads).
 
 **That a limit bounds cost.** It bounds a program that *loops*. A primitive does
 all of its work between one step and the next, so `readFile` of 256MB plus a

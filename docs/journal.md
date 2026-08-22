@@ -189,6 +189,22 @@ script agree on a global name, and nothing checks that they do. That is a
 convention wearing a contract's clothes, and saying so seemed better than
 dressing it up.
 
+**And the day's last hour on its own leftovers.** The contract had listed four
+things as not promised; one of them was a wart rather than a decision — a host
+got every failure twice, once in its own log and once on stderr it did not ask
+for — so that became a flag and a test that captures the descriptor to prove it.
+
+The other three got numbers. The roadmap says of itself that it is the single
+list, and that had quietly stopped being true: `embedding.md` was carrying three
+real limitations that appeared in no other document. Numbering them is the sort
+of tidying that feels like bookkeeping and is not — it was the *interface
+document* that produced them, because stating what a host may rely on forces you
+to state what it may not, and that second list is an audit nobody set out to
+run.
+
+Worth remembering as a technique: **an interface document is an audit of
+everything it declines to promise.** I did not know that going in.
+
 **The shape of the day**, which is the thing this file is for: the program was
 the instrument, not the result. Four times over:
 

@@ -57,9 +57,12 @@ anywhere.
 
 **What is left is section 3, and one decision.** Section 3 holds the
 restrictions the language lives under, each documented where a program would
-meet it. Most were chosen; the newest,
-[3.7](#37-a-limit-bounds-dispatch-not-work), was found by running a program the
-way its own case would. Section 2 has no open design question — the last one,
+meet it. The older ones were chosen; the four newest were found —
+[3.7](#37-a-limit-bounds-dispatch-not-work) by running a program the way its own
+case would, and [3.8](#38-a-host-and-a-script-agree-a-name-and-nothing-checks-that-they-do),
+[3.10](#310-a-vm-cannot-be-reused-across-runs) and
+[3.11](#311-nothing-is-known-about-threads) by writing down what a host embedding
+the machine may rely on, which meant writing down what it may not. Section 2 has no open design question — the last one,
 2.5, is closed. And section 6, a program's dealings with the world outside it,
 is built: reading input, writing files, stopping with a status, walking the
 filesystem, knowing the time, a prompt with history, a debugger, and running
@@ -161,12 +164,21 @@ own.
 
 Safe, and documented. Each is a real restriction rather than a bug.
 
-Most are deliberate — a decision taken and written down. **3.7 is not**: it is a
-consequence of a decision taken elsewhere, noticed afterwards, and it is kept
-here rather than in section 6 because the two ways of answering it both cost
-more than what they buy is currently worth. That distinction is worth keeping
-visible: a restriction chosen and a restriction discovered ask different
-questions of whoever reads the list.
+**3.1 through 3.6 were chosen** — a decision taken and written down. **3.7, 3.8,
+3.10 and 3.11 were not.** Each is a consequence of a decision taken elsewhere,
+noticed afterwards, and each is kept here rather than in section 6 because the
+ways of answering it cost more than what they buy is currently worth. That
+distinction is worth keeping visible: a restriction chosen and a restriction
+discovered ask different questions of whoever reads the list.
+
+**The last three arrived together**, from writing
+[the embedding interface](embedding.md) down. Stating what a host may rely on
+means stating what it may not, and three of those turned out to be real
+limitations that had never had a number — they were living in one document
+while this one claimed to be the single list. Numbering them is what makes that
+claim true again, and it is a use for writing a contract that nobody had in mind
+going in: an interface document is an audit of everything it declines to
+promise.
 
 ### 2.13 Text is bytes, and case is ASCII only
 
@@ -386,6 +398,84 @@ that was set to stop exactly that. Found by writing
 [serve.sol](../programs/serve.sol) and running it the way its own case would —
 as a guest, with an allowance — which is a thing nobody had done to a program
 here before, because every earlier program was run by the person who wrote it.
+
+### 3.8 A host and a script agree a name, and nothing checks that they do
+
+A host hands a script its input by binding a global and takes the answer back by
+reading one — `sol_vm_set_global_text(vm, "request", ...)` on one side,
+`request` on the other. Both sides have to say the same word. Nothing verifies
+it, and getting it wrong fails as *undefined name 'request'* at run time, or, if
+the host reads a name the script never bound, as a silent `NULL`.
+
+This is the weakest joint in
+[the embedding interface](embedding.md#what-is-deliberately-not-promised), and
+it is a convention wearing a contract's clothes. It is written down as such
+rather than dressed up.
+
+**Why it is not simply a defect.** The alternative is a declared interface — a
+script saying what it expects and what it produces — and that is a language
+feature, not a C one. There is nowhere in Solum to write such a declaration
+today, and inventing somewhere is a larger change than the problem justifies
+while one person owns both sides of every call.
+
+**The trigger is somebody else writing the script.** A host and a script written
+by the same person can keep a convention. A host running a script it did not
+write cannot, and that is
+[6.32](#632-a-script-cannot-be-run-with-less-than-the-whole-machine)'s case
+exactly — so if that entry is ever decided, this one is decided with it rather
+than after.
+
+**What is cheap in the meantime** and has not been done: a host could ask
+whether a name is bound before running, and answer its own error rather than the
+language's. `sol_vm_global` already answers false for an unbound name, so this
+is a check a host may make and no help the interface gives it.
+
+### 3.10 A VM cannot be reused across runs
+
+It works, and it leaks meaning. Globals are one flat namespace and nothing
+unbinds them, so a second run on the same machine sees everything the first one
+bound — its variables, its methods on built-in classes, and its mistakes.
+
+A host serving requests therefore builds a fresh VM per request, which is what
+[embed/host.c](../embed/host.c) does and what
+[embedding.md](embedding.md#what-is-deliberately-not-promised) says is the only
+safe choice. That is not free: discarding a machine discards the interned names
+and the built-in classes with it, so every request pays to build them again.
+Nobody has measured what that costs, which is the first thing to do if it ever
+matters.
+
+**It is the same flatness `@include` relies on**, seen from the side where it
+hurts. An included file's globals are the includer's, deliberately, because a
+module system with a namespace of its own is a much larger change to the object
+model — see
+[namespaces for included files](ideas.md#namespaces-for-included-files), which is
+deferred for that reason and would answer this too.
+
+**The narrower fix, if the wider one stays deferred**: something that resets a
+VM to the state `sol_vm_init` left it in, cheaper than freeing and rebuilding.
+The obstacle is that "the state it started in" is not currently a thing the VM
+records — the built-in classes are ordinary objects with ordinary slots by the
+time a script has run, and telling the ones it added from the ones it changed
+would need a mark the collector does not keep.
+
+### 3.11 Nothing is known about threads
+
+Nothing here is thread-safe and nothing has been tried. One VM per thread is
+presumably fine — a machine holds its own heap, its own name table and its own
+stack, and touches no global state except the serial counter that
+[0.14.1](CHANGELOG.md) added, which is not synchronised. Two threads in one VM
+is certainly not fine.
+
+Recorded rather than answered, because "presumably fine" is not something a host
+should have to rely on. What would settle it is a test, not a design decision:
+build two machines on two threads, run the same chunk through both, and put
+`SOLUM_GC_STRESS=1` over it. That has not been done, so nothing is promised.
+
+The serial counter is the one shared thing and would want an atomic increment.
+**Checked rather than assumed**: it is the only file-scope mutable state in the
+whole library — `solum/`, `solas/`, `solis/` and `solid/` together hold exactly
+one such definition, and it is that counter. Which is a reason to expect the
+answer to be short.
 
 ### 1.1d Collection is stop-the-world and non-incremental
 

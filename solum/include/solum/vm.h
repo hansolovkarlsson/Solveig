@@ -151,6 +151,17 @@ struct SolVM {
        limit a program can catch is a limit it can decline. */
     bool stopped;
 
+    /* Whether an uncaught failure is written to stderr as the run ends. True
+       unless a host says otherwise, which is what every front end here relies
+       on -- a person at a terminal wants to be told.
+     *
+       A host does not. It is holding `error_message` and `error_trace` already
+       and has its own log to put them in, so the default gives it the failure
+       twice and in a format it did not choose. Turning this off does not make
+       the failure quieter, it makes it the host's: `sol_vm_run` still answers
+       SOL_RUNTIME_ERROR or SOL_STOPPED and the text is still there to read. */
+    bool report_errors;
+
     /* `solvm --trace`: write a call and a return for every frame entered, to
        stderr, indented by depth. Off unless a front end turns it on.
      *
@@ -219,6 +230,12 @@ SolResult sol_vm_run(SolVM *vm, const SolChunk *chunk);
  * `SOL_EXIT`: the program did not finish and did not ask to stop. */
 void sol_vm_set_step_limit(SolVM *vm, uint64_t steps);
 void sol_vm_set_memory_limit(SolVM *vm, size_t bytes);
+
+/* Whether `sol_vm_run` writes an uncaught failure to stderr before it answers.
+ * On unless a host turns it off; see `report_errors` above. Off does not lose
+ * the failure -- the result still says what happened and
+ * `sol_vm_error_message` still holds the text. */
+void sol_vm_set_error_reporting(SolVM *vm, bool on);
 
 /* Stops the program because a limit was reached, with `format` saying which.
  *
