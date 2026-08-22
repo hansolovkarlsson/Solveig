@@ -7,6 +7,52 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### A trace says which file — `pending`, 2026-08-21
+
+[6.27](COMPLETED.md#627-a-stack-trace-does-not-say-which-file--done), and the
+first `.sob` format change since 0.1.0.
+
+```
+solvm: index #99 is out of bounds for a string of size 4
+  [lib/parse.sol:4] in block
+  [main.sol:3] in script
+```
+
+**It was misleading rather than merely thin**, which is what made it worth the
+bump. In the example that prompted this, `main.sol` is *three lines long* and
+the old trace said `[line 4] in block` — a line that does not exist in the file
+anybody would have gone to look at. Had the file been longer it would have
+pointed confidently at the wrong line of the wrong one.
+
+A `.sob` is one chunk: `@include` compiles a library's code into the same one,
+and the line numbers come along while the file name did not.
+
+**The fix mirrors what was already there.** The chunk carried a line per byte,
+run-length encoded because neighbouring instructions share a line. It now
+carries a file per byte the same way, plus a table of paths — and the runs are
+better here, since a method body comes from one file and is one run. `--trace`
+reads the same table, so it names files too, for nothing.
+
+**Version 11 stood for nine releases; this is 12.** Older files are refused with
+`unsupported bytecode version` rather than misread, and the remedy is to
+recompile. That also makes
+[3.4](ROADMAP.md#34-no-compatibility-across-sob-versions) no longer
+hypothetical — it used to say a policy was worth having *before* anything was
+released, and it now records what the policy turned out to be.
+
+**The size, measured** rather than waved at: +2.3% on `numbers.sob`, +15.6% on
+`manifest.sob`. The spread is the number of method chunks, since each carries
+its own file table and a program with ninety small methods stores its path
+ninety times. Sharing one table from the top-level chunk would recover most of
+it and was not done: every chunk verifying on its own is worth more than two
+kilobytes.
+
+**Two tests caught things.** The trace-format assertions from last release
+failed, which is what they were for. And the serializer's round-trip test
+refused a chunk built without a path — the writer was emitting file ids into an
+empty table, so the loader rejected its own output. A chunk with no file, like
+one compiled at the prompt, prints a bare `[line 1]` exactly as before.
+
 ### The debugger has a name: Solid — `00ac10b`, 2026-08-21
 
 *sol-interactive-debugger*, and it belongs to the family better than an acronym
@@ -91,7 +137,7 @@ libraries are one or the other. Three in every ten, and that is what having no
 binary operators costs the commonest arithmetic there is.
 
 **Three entries written down rather than built**, all about looking at a running
-program: [6.27](ROADMAP.md#627-a-stack-trace-does-not-say-which-file), where a
+program: [6.27](COMPLETED.md#627-a-stack-trace-does-not-say-which-file--done), where a
 trace names lines and not files and so reads as though a library's failure were
 in your own file; [6.28](ROADMAP.md#628-local-variables-have-no-names-at-run-time),
 where slots are indices so nothing can show a variable by name; and
@@ -215,7 +261,7 @@ program it was tracing would not be one.
 
 **Three entries for the rest**, in the order worth doing them:
 
-- [6.27](ROADMAP.md#627-a-stack-trace-does-not-say-which-file) — a trace names
+- [6.27](COMPLETED.md#627-a-stack-trace-does-not-say-which-file--done) — a trace names
   lines and not files, so a failure inside a library reads as though it were in
   the file you are looking at. **Misleading rather than merely thin**, and worse
   with four libraries. A `.sob` format change, and it improves every error

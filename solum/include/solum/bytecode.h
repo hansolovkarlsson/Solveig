@@ -113,6 +113,17 @@ typedef struct {
     int           capacity;
     uint8_t      *code;
     int          *lines;      /* source line per byte, for error reporting */
+
+    /* Which file that line came from: an index into `files`, per byte. A chunk
+       is one compiled unit and an `@include` puts a library's code into the
+       same one, so a line number on its own names a line in a file nobody said
+       -- which read as a line of the file you were looking at, and was worse
+       than saying nothing. Almost always one run per chunk: a method body comes
+       from one file. */
+    int          *file_ids;
+    SolNameArray  files;      /* the paths, each stored once */
+    int           writing_file;   /* which of them `sol_chunk_write` records */
+
     SolValueArray constants;
     SolNameArray  names;
     SolMethodArray methods;
@@ -194,6 +205,15 @@ void sol_chunk_write(SolChunk *chunk, uint8_t byte, int line);
    compares them by their bits, so -0.0 stays distinct from 0.0. */
 int  sol_chunk_add_constant(SolChunk *chunk, SolValue value); /* returns index */
 int  sol_chunk_add_name(SolChunk *chunk, const char *name, int length);
+
+/* Interns `path` in the chunk's file table and answers its index; set
+   `writing_file` to it and the bytes written next are recorded as coming from
+   there. NULL is the same as "", which is what a chunk compiled from text
+   rather than from a file has. */
+int  sol_chunk_file(SolChunk *chunk, const char *path);
+
+/* The path the byte at `offset` came from, or "" when nothing said. */
+const char *sol_chunk_file_of(const SolChunk *chunk, int offset);
 
 /* Append without interning, so indices stay exactly as given. The loader uses
    these: a file's code refers to both tables by position, and collapsing a

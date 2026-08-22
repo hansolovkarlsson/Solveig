@@ -227,9 +227,23 @@ void sol_vm_runtime_error(SolVM *vm, const char *format, ...)
         }
         SolFrame *frame = &vm->frames[i];
         size_t offset = (size_t)(frame->ip - frame->chunk->code) - 1;
-        append_line(&vm->error_trace, "  [line %d] in %s\n",
-                    frame->chunk->lines[offset],
-                    frame->method ? frame->method->name : "script");
+
+        /* The file as well as the line, when the chunk knows it. A chunk is one
+           compiled unit and `@include` puts a library's code into the same one,
+           so a bare line number named a line in a file nobody had said -- which
+           read as a line of the file being looked at. A chunk compiled from
+           text rather than a file has no name to give, and says just the line
+           as it always did. */
+        const char *file = sol_chunk_file_of(frame->chunk, (int)offset);
+        const char *what = frame->method ? frame->method->name : "script";
+
+        if (file[0] != '\0') {
+            append_line(&vm->error_trace, "  [%s:%d] in %s\n",
+                        file, frame->chunk->lines[offset], what);
+        } else {
+            append_line(&vm->error_trace, "  [line %d] in %s\n",
+                        frame->chunk->lines[offset], what);
+        }
     }
     vm->had_error = true;
 }
@@ -339,22 +353,30 @@ static void trace_value(SolValue value)
     sol_text_free(&text);
 }
 
-/* The line the *caller* is on, which is where the call is written. */
-static int trace_caller_line(const SolVM *vm)
+/* Where the call is written: the caller's line, and the file it is in. */
+static void trace_caller_place(const SolVM *vm)
 {
-    if (vm->frame_count == 0) return 0;
+    if (vm->frame_count == 0) { fputs("[line 0] ", stderr); return; }
+
     const SolFrame *frame = &vm->frames[vm->frame_count - 1];
     int offset = (int)(frame->ip - frame->chunk->code) - 1;
     if (offset < 0) offset = 0;
     if (offset >= frame->chunk->count) offset = frame->chunk->count - 1;
-    return offset >= 0 ? frame->chunk->lines[offset] : 0;
+    if (offset < 0) { fputs("[line 0] ", stderr); return; }
+
+    const char *file = sol_chunk_file_of(frame->chunk, offset);
+    if (file[0] != '\0') {
+        fprintf(stderr, "[%s:%d] ", file, frame->chunk->lines[offset]);
+    } else {
+        fprintf(stderr, "[line %d] ", frame->chunk->lines[offset]);
+    }
 }
 
 static void trace_call(const SolVM *vm, const SolMethod *code, int argc,
                        const SolValue *slots, const char *sent_as)
 {
     trace_indent(vm);
-    fprintf(stderr, "[line %d] ", trace_caller_line(vm));
+    trace_caller_place(vm);
 
     /* Slot 0 is the receiver for a method, and for a block it is the `self` the
        block was *written under* -- nil for one written at the top level. Naming

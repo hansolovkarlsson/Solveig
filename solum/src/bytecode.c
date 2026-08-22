@@ -10,6 +10,11 @@ void sol_chunk_init(SolChunk *chunk)
     chunk->capacity = 0;
     chunk->code = NULL;
     chunk->lines = NULL;
+    chunk->file_ids = NULL;
+    chunk->writing_file = 0;
+    chunk->files.count = 0;
+    chunk->files.capacity = 0;
+    chunk->files.names = NULL;
     sol_value_array_init(&chunk->constants);
     chunk->names.count = 0;
     chunk->names.capacity = 0;
@@ -97,7 +102,8 @@ void sol_chunk_write(SolChunk *chunk, uint8_t byte, int line)
         int capacity = chunk->capacity < 8 ? 8 : chunk->capacity * 2;
         chunk->code = realloc(chunk->code, sizeof(uint8_t) * capacity);
         chunk->lines = realloc(chunk->lines, sizeof(int) * capacity);
-        if (chunk->code == NULL || chunk->lines == NULL) {
+        chunk->file_ids = realloc(chunk->file_ids, sizeof(int) * capacity);
+        if (chunk->code == NULL || chunk->lines == NULL || chunk->file_ids == NULL) {
             fprintf(stderr, "solvm: out of memory\n");
             exit(1);
         }
@@ -105,6 +111,7 @@ void sol_chunk_write(SolChunk *chunk, uint8_t byte, int line)
     }
     chunk->code[chunk->count] = byte;
     chunk->lines[chunk->count] = line;
+    chunk->file_ids[chunk->count] = chunk->writing_file;
     chunk->count++;
 }
 
@@ -329,6 +336,48 @@ int sol_chunk_append_constant(SolChunk *chunk, SolValue value)
     return at;
 }
 
+/* The file bytes written from here on came from. A chunk holds a handful of
+   these -- one for a method body, a few for a script that includes -- so this
+   scans rather than carrying an index of its own. */
+int sol_chunk_file(SolChunk *chunk, const char *path)
+{
+    if (path == NULL) path = "";
+
+    SolNameArray *files = &chunk->files;
+    for (int i = 0; i < files->count; i++) {
+        if (strcmp(files->names[i], path) == 0) return i;
+    }
+
+    if (files->capacity < files->count + 1) {
+        int capacity = files->capacity < 4 ? 4 : files->capacity * 2;
+        files->names = realloc(files->names, sizeof(char *) * capacity);
+        if (files->names == NULL) {
+            fprintf(stderr, "solvm: out of memory\n");
+            exit(1);
+        }
+        files->capacity = capacity;
+    }
+
+    size_t length = strlen(path);
+    char *copy = malloc(length + 1);
+    if (copy == NULL) {
+        fprintf(stderr, "solvm: out of memory\n");
+        exit(1);
+    }
+    memcpy(copy, path, length + 1);
+    files->names[files->count] = copy;
+    return files->count++;
+}
+
+/* The path a byte came from, or "" when nothing said. */
+const char *sol_chunk_file_of(const SolChunk *chunk, int offset)
+{
+    if (chunk->file_ids == NULL || offset < 0 || offset >= chunk->count) return "";
+    int id = chunk->file_ids[offset];
+    if (id < 0 || id >= chunk->files.count) return "";
+    return chunk->files.names[id];
+}
+
 int sol_chunk_add_name(SolChunk *chunk, const char *name, int length)
 {
     int found = index_find_name(chunk, name, length);
@@ -374,6 +423,9 @@ void sol_chunk_free(SolChunk *chunk)
 {
     free(chunk->code);
     free(chunk->lines);
+    free(chunk->file_ids);
+    for (int i = 0; i < chunk->files.count; i++) free(chunk->files.names[i]);
+    free(chunk->files.names);
     sol_value_array_free(&chunk->constants);
     for (int i = 0; i < chunk->names.count; i++) free(chunk->names.names[i]);
     free(chunk->names.names);

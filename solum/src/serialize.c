@@ -71,6 +71,35 @@ static SolSerResult check_constants(const SolChunk *chunk)
     return SOL_SER_OK;
 }
 
+/* Number of runs an int array collapses into. Lines and file ids are both
+   nearly constant along a chunk -- neighbouring instructions share a line, and
+   a whole method body usually comes from one file -- so both are stored the
+   same way. */
+static uint32_t count_runs(const int *values, int count)
+{
+    uint32_t runs = 0;
+    for (int i = 0; i < count; ) {
+        int value = values[i];
+        int j = i;
+        while (j < count && values[j] == value) j++;
+        runs++;
+        i = j;
+    }
+    return runs;
+}
+
+static void write_runs(FILE *f, const int *values, int count)
+{
+    for (int i = 0; i < count; ) {
+        int value = values[i];
+        int j = i;
+        while (j < count && values[j] == value) j++;
+        put_u32(f, (uint32_t)(j - i));
+        put_u32(f, (uint32_t)value);
+        i = j;
+    }
+}
+
 /* Number of runs the line array collapses into. */
 static uint32_t count_line_runs(const SolChunk *chunk)
 {
@@ -137,14 +166,24 @@ static void write_chunk_body(FILE *f, const SolChunk *chunk)
     /* Line numbers, run-length encoded -- neighbouring instructions nearly
        always share a line, so the runs are far smaller than the raw array. */
     put_u32(f, count_line_runs(chunk));
-    for (int i = 0; i < chunk->count; ) {
-        int line = chunk->lines[i];
-        int j = i;
-        while (j < chunk->count && chunk->lines[j] == line) j++;
-        put_u32(f, (uint32_t)(j - i));
-        put_u32(f, (uint32_t)line);
-        i = j;
+    write_runs(f, chunk->lines, chunk->count);
+
+    /* And which file each line came from: the paths, then a run per stretch of
+       code from one of them. A method body is one run; a script that includes
+       has a run per include and one back for what follows it. */
+    put_u32(f, (uint32_t)chunk->files.count);
+    for (int i = 0; i < chunk->files.count; i++) {
+        size_t len = strlen(chunk->files.names[i]);
+        put_u16(f, (uint16_t)len);
+        fwrite(chunk->files.names[i], 1, len, f);
     }
+    /* No files means no runs: an id has to index a real entry, and a chunk built
+       without a path -- the prompt's, or one assembled by hand -- has none to
+       give. It loads back as bytes belonging to no file and prints a bare line,
+       which is what it did before any of this. */
+    bool has_files = chunk->file_ids != NULL && chunk->files.count > 0;
+    put_u32(f, has_files ? count_runs(chunk->file_ids, chunk->count) : 0);
+    if (has_files) write_runs(f, chunk->file_ids, chunk->count);
 
     put_u32(f, (uint32_t)chunk->methods.count);
     for (int i = 0; i < chunk->methods.count; i++) {
@@ -351,6 +390,47 @@ static SolSerResult read_chunk_body(Cursor *c, SolChunk *chunk, int depth)
     }
     /* Every code byte must be covered by exactly one run. */
     if (written != code_length) return SOL_SER_MALFORMED;
+
+    /* The file table, then which stretch of code came from which of them. Read
+       after the code because that is the order it is written in, and expanded
+       straight into the parallel array -- `sol_chunk_write` has already sized
+       it, so this only fills it in. */
+    uint32_t file_count = get_u32(c);
+    if (c->overran) return SOL_SER_TRUNCATED;
+    if ((size_t)file_count * 2 > c->size - c->pos) return SOL_SER_TRUNCATED;
+
+    for (uint32_t i = 0; i < file_count; i++) {
+        uint16_t path_length = get_u16(c);
+        const uint8_t *path;
+        if (c->overran || !take(c, path_length, &path)) return SOL_SER_TRUNCATED;
+
+        char *copy = malloc((size_t)path_length + 1);
+        if (copy == NULL) return SOL_SER_MALFORMED;
+        memcpy(copy, path, path_length);
+        copy[path_length] = '\0';
+        sol_chunk_file(chunk, copy);
+        free(copy);
+    }
+
+    uint32_t file_run_count = get_u32(c);
+    if (c->overran) return SOL_SER_TRUNCATED;
+    if ((size_t)file_run_count * 8 > c->size - c->pos) return SOL_SER_TRUNCATED;
+
+    uint32_t placed = 0;
+    for (uint32_t i = 0; i < file_run_count; i++) {
+        uint32_t run = get_u32(c);
+        uint32_t id = get_u32(c);
+        if (c->overran) return SOL_SER_TRUNCATED;
+        if (run > code_length - placed) return SOL_SER_MALFORMED;
+        /* An id naming no file would read off the end of the table later. */
+        if (id >= file_count) return SOL_SER_MALFORMED;
+
+        for (uint32_t j = 0; j < run; j++, placed++) chunk->file_ids[placed] = (int)id;
+    }
+    /* Either every byte is covered or none is: a chunk from a build that did
+       not record files has no runs, and its bytes stay at file 0, which names
+       nothing and prints as a bare line. */
+    if (placed != 0 && placed != code_length) return SOL_SER_MALFORMED;
 
     /* Methods, each carrying a chunk of its own. */
     uint32_t method_count = get_u32(c);

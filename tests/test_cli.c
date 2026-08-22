@@ -161,7 +161,9 @@ static void test_trace_writes_the_call_tree(void)
                out, sizeof out) == 0);
     assert(strstr(out, ":double") != NULL);
     assert(strstr(out, "-> #42") != NULL);
-    assert(strstr(out, "[line 5]") != NULL);     /* where the call is written */
+    /* Where the call is written -- the file as well as the line, since a chunk
+       holds code from every file an include reached. */
+    assert(strstr(out, "traced.sol:5]") != NULL);
 
     /* And with it off, stderr is empty. */
     assert(run("bin/solvm " DIR "/traced.sob 2>&1 >/dev/null", out, sizeof out) == 0);
@@ -211,9 +213,9 @@ static void test_trace_takes_a_depth(void)
     assert(run("bin/solvm --trace " DIR "/nested.sob 2>&1 >/dev/null",
                deep, sizeof deep) == 0);
     assert(strlen(shallow) < strlen(deep));
-    assert(strstr(shallow, "[line 4]") != NULL);   /* the outermost call */
-    assert(strstr(shallow, "[line 3]") == NULL);   /* and not the one inside it */
-    assert(strstr(deep, "[line 3]") != NULL);
+    assert(strstr(shallow, "nested.sol:4]") != NULL);   /* the outermost call */
+    assert(strstr(shallow, "nested.sol:3]") == NULL);   /* and not the one inside */
+    assert(strstr(deep, "nested.sol:3]") != NULL);
 
     static const char *refused[] = {
         "bin/solvm --trace=0 " DIR "/nested.sob 2>&1 >/dev/null",

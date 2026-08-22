@@ -117,9 +117,18 @@ static bool inside_a_block(Scope *scope)
     return scope != NULL && scope->is_block;
 }
 
+/* Every byte carries the line it came from, and the file that line is in.
+ *
+ * A chunk is one compiled unit and `@include` puts a library's code into the
+ * same one, so a line number on its own named a line in a file nobody had
+ * recorded -- and it read as a line of the file being looked at, which is worse
+ * than saying nothing. The file is set on the chunk rather than passed here
+ * because it changes at an include and not per byte. */
 static void emit(Compiler *c, uint8_t byte)
 {
-    sol_chunk_write(c->scope->chunk, byte, c->parser.previous.line);
+    SolChunk *chunk = c->scope->chunk;
+    chunk->writing_file = sol_chunk_file(chunk, c->path);
+    sol_chunk_write(chunk, byte, c->parser.previous.line);
 }
 
 static void emit_pair(Compiler *c, uint8_t a, uint8_t b)

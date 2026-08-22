@@ -189,8 +189,26 @@ instruction runs at (3.9), and stops there.
 
 ### 3.4 No compatibility across `.sob` versions
 
-Each opcode-set change bumps the version and older files are refused outright.
-Fine while nothing is released; worth a policy before anything is.
+Each format change bumps the version and older files are refused outright.
+
+**It has happened once, at 0.9.0 to 0.10.0.** Version 11 stood from 0.1.0
+through nine releases, and 12 broke it to record which file each line came from
+([6.27](COMPLETED.md#627-a-stack-trace-does-not-say-which-file--done)). So the
+policy is no longer hypothetical, and what it turned out to be is:
+
+- **Refuse, do not guess.** An older file is rejected by version with a message
+  saying so, rather than read hopefully. That was already the behaviour and it
+  is the half that matters, since misreading bytecode is how a verifier gets
+  bypassed.
+- **The remedy is to recompile**, which costs nothing: a `.sob` is derived from
+  a `.sol` that is still there, and nothing here ships bytecode without its
+  source.
+- **`solvm --version` says which format a build speaks**, so the question "will
+  this file run" is answerable without trying it.
+
+What is deliberately *not* promised is reading old versions. A loader that
+handled two formats would double what the verifier has to be right about, and
+the thing it would buy — not recompiling — is worth less than that.
 
 ---
 
@@ -275,42 +293,13 @@ entries are in [COMPLETED.md](COMPLETED.md). This one was about making it a
 language you can write a *program* in: a program has to be split across files,
 read input, write files, and stop with a status.
 
-**Three entries, and they are about looking at a program rather than writing
-one.** `solvm --trace` writes the call tree, which was the cheap half; what is
-left is what a debugger would need and the debugger itself.
+**Two entries, and they are about looking at a program rather than writing
+one.** `solvm --trace` writes the call tree and a trace names the file it is in;
+what is left is a name for a local and the debugger itself.
 
 Raised in a notes file and assessed in [ideas.md](ideas.md), which also records
 what was **not** worth building and why — integer widths, a JIT, cascades,
 trailing-block syntax, and Go-style concurrency among them.
-
-### 6.27 A stack trace does not say which file
-
-A trace names lines and not files, so a failure inside an included library reads
-as though it were in the file you are looking at:
-
-```
-; the failing block is in lib/h.sol, line 1
-solvm: integer does not understand 'frobnicate'
-  [line 1] in block        <- reads as main.sol line 1
-  [line 2] in script
-```
-
-That is not merely missing, it is **misleading**, and it gets worse the more
-libraries there are — there are four now, and `@include` is how a program is
-meant to be built.
-
-The reason is recorded in
-[the reference](REFERENCE.md#splitting-a-program-across-files): a `.sob` is one
-chunk with no record of which file a line came from. The chunk already carries a
-**line per byte**, so the shape of the fix is a table of file names plus a file
-per line, or per run of lines — a `.sob` format change, and the first since
-0.1.0.
-
-Worth doing because it improves **every error**, not only a debugging session,
-and because the cost is bounded and known. What it needs deciding is how much to
-store: a name per line doubles the side table, where a run-length encoding of
-"lines 1 to 40 came from lib/json.sol" is a few entries per include and is what
-the data actually looks like.
 
 ### 6.28 Local variables have no names at run time
 
@@ -323,9 +312,11 @@ arguments are values rather than names. It is here because it is the thing a
 **stepper** would need first, and because a trace could name arguments with it:
 `p:double(count: #21)` rather than `p:double(#21)`.
 
-Another side table, and it should ride along with
-[6.27](#627-a-stack-trace-does-not-say-which-file) if that is done: one format
-change rather than two.
+Another side table, and it should have ridden along with
+[6.27](COMPLETED.md#627-a-stack-trace-does-not-say-which-file--done), which is
+built: that was the format change, and doing this now means a second one. Worth
+weighing — the cost of a bump is that every `.sob` has to be recompiled, which
+is cheap, and the benefit of waiting is nothing in particular.
 
 ### 6.29 A stepper — **Solid**
 
@@ -400,14 +391,16 @@ it is done.
 program wanting something, but from asking how one would be debugged when it
 does. `solvm --trace` is built and was the cheap half.
 
-In order: **[6.27](#627-a-stack-trace-does-not-say-which-file)** first, because a
-trace that names lines and not files is misleading rather than merely thin, and
-fixing it improves every error rather than only a debugging session.
-**[6.28](#628-local-variables-have-no-names-at-run-time)** rides along with it,
-being the same kind of side table and the thing a stepper needs first. And
-**[6.29](#629-a-stepper--solid)** last, being much the largest — and worth weighing
-against `solis`, which already does the interactive half of what a debugger is
-for. `solis` grew raw-mode line editing for its own prompt
+[6.27](COMPLETED.md#627-a-stack-trace-does-not-say-which-file--done) is built: a
+trace names the file as well as the line, which improves every error rather than
+only a debugging session, and it cost the first `.sob` format change since
+0.1.0.
+
+What is left is **[6.28](#628-local-variables-have-no-names-at-run-time)**, the
+side table that would let anything show a variable by its name, and
+**[6.29](#629-a-stepper--solid)** — Solid — which wants it first and is much the
+largest thing here. Both are worth weighing against `solis --interactive`, which
+already does the interactive half of what a debugger is for. `solis` grew raw-mode line editing for its own prompt
 ([6.24](COMPLETED.md#624-the-prompt-has-no-history--done)), which needed the same
 machinery — and a *program* still cannot read a keypress, which is what this
 entry is. The machinery being built is the reason it is now small. The four papercuts —

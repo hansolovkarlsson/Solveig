@@ -1390,6 +1390,60 @@ for values, by identity for arrays, blocks, objects and dictionaries.
 [[#1]]:indexOf([#1]).            ; nil  -- an equal-looking array is a different one
 ```
 
+### 6.27 A stack trace does not say which file — **done**
+
+A trace names the file as well as the line:
+
+```
+solvm: index #99 is out of bounds for a string of size 4
+  [lib/parse.sol:4] in block
+  [main.sol:3] in script
+```
+
+**It was misleading rather than merely thin**, which is what made it worth a
+format change. The example above has a three-line `main.sol`, and the old trace
+said `[line 4] in block` — a line that does not exist in the file anybody would
+have gone to look at. Had `main.sol` been longer it would have pointed
+confidently at the wrong line of the wrong file.
+
+A `.sob` is **one chunk**: `@include` compiles a library's code into the same
+one, and the line numbers come with it while the file name does not.
+
+**The fix mirrors what was already there.** The chunk carried a line per byte,
+run-length encoded in the file because neighbouring instructions share a line.
+Now it carries a file per byte the same way, plus a table of the paths — and the
+runs are even better here, since a method body comes from one file and is one
+run.
+
+`--trace` reads the same table, so it names files too, for free.
+
+**What it cost.** The first `.sob` format change since 0.1.0: version 11 stood
+for nine releases and this is 12. Files from an earlier build are refused with
+`unsupported bytecode version` rather than misread, and the remedy is to
+recompile.
+
+The size, measured across the examples:
+
+| | v11 | v12 | |
+| --- | --- | --- | --- |
+| `hello.sob` | 279 | 315 | +12.9% |
+| `numbers.sob` | 1,633 | 1,671 | +2.3% |
+| `mirror.sob` | 4,580 | 5,100 | +11.4% |
+| `manifest.sob` | 15,176 | 17,547 | +15.6% |
+| `page.sob` | 18,694 | 21,005 | +12.4% |
+
+The spread is the number of method chunks: **each carries its own file table**,
+so a program with ninety small methods stores its path ninety times. Sharing one
+table from the top-level chunk would recover most of it, and was not done —
+every chunk verifying on its own is a property worth more than two kilobytes,
+and `.sob` files are tens of kilobytes to begin with.
+
+**A chunk with no file still says just the line.** The prompt compiles from text
+rather than from a file, so it has no path to give, and prints `[line 1] in
+script` exactly as before. That case was found by a test rather than by thinking
+about it: the writer emitted file ids into an empty table, and the loader
+refused its own output.
+
 ### 6.25 `makeDirectory` refuses one that is already there — **done**
 
 It answers whether it made one instead: **true** if it did, **false** if a

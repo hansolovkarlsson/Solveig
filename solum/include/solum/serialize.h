@@ -20,6 +20,10 @@
  *           4     code length, then that many bytes
  *           4     line-run count
  *                 each run: u32 length, u32 line
+ *           4     file count
+ *                 each file: u16 path length, then that many bytes (no NUL)
+ *           4     file-run count
+ *                 each run: u32 length, u32 file index
  *           4     method count
  *                 each method: u16 name length + bytes, u16 arity,
  *                 u16 slot count, u16 flags (1 = block, 2 = captures its home
@@ -27,7 +31,11 @@
  *
  * Line numbers are run-length encoded because consecutive instructions almost
  * always share a line; the runs expand back into the chunk's parallel array on
- * load.
+ * load. Files are stored the same way and for a stronger version of the same
+ * reason: a method body comes from one file, so it is one run. They are there
+ * because a chunk is one compiled unit -- an `@include` puts a library's code
+ * into the same one -- so a line number alone named a line in a file nobody had
+ * recorded, and read as a line of the file being looked at (version 12).
  *
  * Everything loaded from disk is verified before it can run -- see
  * sol_chunk_verify. A .sob file is untrusted input.
@@ -39,7 +47,7 @@
 #include "solum/bytecode.h"
 
 #define SOL_SOB_MAGIC   "SOLB"
-#define SOL_SOB_VERSION 11
+#define SOL_SOB_VERSION 12
 
 typedef enum {
     SOL_SER_OK,

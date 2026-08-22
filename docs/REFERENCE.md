@@ -270,13 +270,14 @@ The prompt itself is not traced — what was being watched is the program.
 entering each frame, a line leaving it, indented by depth.
 
 ```
-  [line 7] <object 0x1027ea980>:describe
-    [line 4] <object 0x1027ea980>:double
+  [report.sol:7] <object 0x1027ea980>:describe
+    [lib/shapes.sol:4] <object 0x1027ea980>:double
     -> #42
   -> "x doubled is 42"
 ```
 
-The line is where the **call** is written, and the name is the selector it was
+The place is where the **call** is written — file and line, since a chunk holds
+code from every file an `@include` reached — and the name is the selector it was
 **sent as** — so a block installed in a slot shows as the method it is, and a
 block called with `value` shows as that.
 
@@ -602,9 +603,18 @@ If you want a namespace, the tiers are: **behaviour on an existing type is a
 method on the class and claims no name at all** — `lib/control.sol` and
 `lib/text.sol` do that; a thing with state binds **one** object and hangs the
 rest off it, which `json` and `html` do and
-[examples/library.sol](../examples/library.sol) shows. And a `.sob` file is
-one chunk with no record of which file a line came from, so a run-time stack
-trace gives a line number without saying which file counted it.
+[examples/library.sol](../examples/library.sol) shows. A `.sob` file is still
+**one chunk** — an included file's code is compiled into the same one — but it
+records which file each stretch of code came from, so a stack trace names both:
+
+```
+solvm: index #99 is out of bounds for a string of size 4
+  [lib/parse.sol:4] in block
+  [main.sol:3] in script
+```
+
+Without that a line number named a line in a file nobody had said, and read as a
+line of the file being looked at.
 
 ---
 
