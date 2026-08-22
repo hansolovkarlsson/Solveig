@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### Threads, settled by measuring — `pending`, 2026-08-22
+### Threads, settled by measuring — `d03810f`, 2026-08-22
 
 [3.11](ROADMAP.md#311-a-chunk-cannot-be-shared-between-threads) said nothing was
 known about threads and that what would settle it was a test rather than a
