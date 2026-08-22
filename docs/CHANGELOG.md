@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### A host, and the use-after-free it found on its first run — `pending`, 2026-08-22
+### A host, and the use-after-free it found on its first run — `12119b0`, 2026-08-22
 
 [embed/host.c](../embed/host.c), built with `make embed`: a C program that holds
 a `SolVM` and runs [serve.sol](../programs/serve.sol) through it once per
