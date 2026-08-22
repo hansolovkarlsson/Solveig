@@ -7,6 +7,45 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### A page placing the language among its relatives — `pending`, 2026-08-22
+
+[docs/lineage.md](lineage.md): what Solum borrowed and from whom, which living
+languages sit nearest it, and what will surprise somebody arriving with another
+language in their hands. Written for a reader who wants to *place* the language
+before learning it, which none of the existing pages does — the tutorial teaches,
+the guide tours, the reference looks things up, and design.md explains the
+inside.
+
+[design.md](design.md#object-model) already summed it up in three words —
+**"Smalltalk lineage, prototype flavour"** — and that turned out to be exactly
+right, so the page unpacks it rather than replacing it. Smalltalk gave the
+vocabulary and the central idea, that control flow is message sending. Self gave
+the object model: slots holding state and behaviour alike, no class as a
+separate kind of thing, `new` delegating rather than copying.
+
+Two languages the documents had never named. **Io** is the closest living
+relative and arrived at nearly this design point independently — worth knowing
+about if you do not. **Lua** is the closest in engineering: a small C VM,
+bytecode, a mark-sweep collector, and a serious intent to be embedded.
+
+The page also carries an *If you already know…* section for Smalltalk, Self and
+Io, Ruby, JavaScript and C, since what a newcomer needs is less "here is the
+family tree" than "here is what will trip you".
+
+**One claim was corrected by running it.** The page asserted that comparing an
+integer to a float is an error rather than `false`. Arithmetic and ordering do
+refuse — `#1:add(1.0)` and `#1:lessThan(1.0)` both raise — but `equals` answers
+`false`, because whether two values are the same is worth answering across types
+where which is larger is not. Everything said about Solum is checked against the
+reference, the roadmap, or the VM; everything said about the *other* languages
+is recollection, and the page says so at the bottom rather than leaving a reader
+to assume otherwise.
+
+Linked from the README, [index.md](../index.md), the guide's opening and the
+tutorial's where-next, since a page nobody finds before the tour is a page that
+has missed its reader.
+
+
 ### Scoped: extensions from a C binary — `9fba95e`, 2026-08-22
 
 A question rather than a change: could Solum gain something it cannot express —

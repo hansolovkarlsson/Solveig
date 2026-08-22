@@ -5,7 +5,9 @@ one idea, shows it working, and points at a runnable example that goes deeper.*
 
 This is the learning path. [REFERENCE.md](REFERENCE.md) is the lookup document —
 every message, every rule, no narrative. [design.md](design.md) is how it works
-inside and why it was built that way.
+inside and why it was built that way. And if you already write another language,
+[lineage.md](lineage.md) places this one in five minutes — what it took from
+Smalltalk and Self, and what will surprise you.
 
 **Every snippet here has been run.** The outputs shown are what the VM actually
 prints.

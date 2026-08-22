@@ -45,6 +45,9 @@ while staying ordinary messages you can send any other way.
   see the shape of the whole thing first.
 - **[Reference](docs/REFERENCE.md)** — syntax, semantics, and every built-in
   message, organised for looking things up.
+- **[Lineage](docs/lineage.md)** — what Solum borrowed from Smalltalk and Self,
+  which living languages sit nearest it, and what will surprise you if you
+  arrive knowing Ruby, JavaScript or C. Five minutes, and worth them first.
 
 Also: **[Design](docs/design.md)** for the object model and the `.sob` format;
 **[The instruction set](docs/BYTECODE.md)** for every opcode SolVM executes;
