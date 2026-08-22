@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### `.sob` format 14: little-endian throughout, and now that is true — `pending`, 2026-08-22
+### `.sob` format 14: little-endian throughout, and now that is true — `8a8dfd4`, 2026-08-22
 
 **A format change, so every existing `.sob` is refused and must be recompiled.**
 `solvm --version` says `format 14`. Nothing about running a program changes:
