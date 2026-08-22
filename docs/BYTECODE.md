@@ -41,30 +41,39 @@ format has, and `sol_read_u16` is where it is decoded.
 
 ## Every instruction
 
-`Bytes` is the whole instruction including its opcode. `Stack` reads
-*before* → *after*, with the top of the stack on the right.
+`Byte` is the value the opcode is, which is what a reader of a `.sob` file
+needs and what this page did not carry until
+[programs/disasm.sol](../programs/disasm.sol) tried to disassemble one from it
+and could not decode a single instruction. The numbers are the order of the enum
+in `bytecode.h`, and `tests/test_bytecode.c` now checks each one against it —
+so an opcode inserted in the middle, which renumbers everything after it, fails
+the suite rather than silently making this page wrong.
+
+They are grouped below by what they do rather than by number, so the column is
+not in order. `Bytes` is the whole instruction including its opcode. `Stack`
+reads *before* → *after*, with the top of the stack on the right.
 
 ### Pushing values
 
-| Opcode | Operands | Bytes | Stack | Effect |
-| --- | --- | --- | --- | --- |
-| `OP_CONST` | u16 const index | 3 | → v | Push `constants[idx]`. |
-| `OP_NIL` | — | 1 | → nil | Push nil. |
-| `OP_STRING` | u16 name index | 3 | → s | Build a string from that interned text. A literal's bytes ride in the chunk's text table beside selectors and global names; a `SolString` needs a VM to allocate it, and the compiler has none. |
-| `OP_SYMBOL` | u16 name index | 3 | → 'y | Intern that text as a symbol. |
-| `OP_BLOCK` | u16 method index | 3 | → b | Make a block over `methods[idx]`, capturing the current frame as its home. |
+| Byte | Opcode | Operands | Bytes | Stack | Effect |
+| --- | --- | --- | --- | --- | --- |
+| **0** | `OP_CONST` | u16 const index | 3 | → v | Push `constants[idx]`. |
+| **1** | `OP_NIL` | — | 1 | → nil | Push nil. |
+| **9** | `OP_STRING` | u16 name index | 3 | → s | Build a string from that interned text. A literal's bytes ride in the chunk's text table beside selectors and global names; a `SolString` needs a VM to allocate it, and the compiler has none. |
+| **10** | `OP_SYMBOL` | u16 name index | 3 | → 'y | Intern that text as a symbol. |
+| **8** | `OP_BLOCK` | u16 method index | 3 | → b | Make a block over `methods[idx]`, capturing the current frame as its home. |
 
 ### Names and slots
 
-| Opcode | Operands | Bytes | Stack | Effect |
-| --- | --- | --- | --- | --- |
-| `OP_GLOBAL` | u16 name index | 3 | → v | Push the named global. A lookup, not a send. |
-| `OP_SET_GLOBAL` | u16 name index | 3 | v → v | Bind the name, **leaving the value**. |
-| `OP_LOCAL` | u8 slot | 2 | → v | Push a frame slot. Slot 0 is `self` in a block and unused in a script, which has no receiver; 1..arity are the arguments. |
-| `OP_SET_LOCAL` | u8 slot | 2 | v → v | Store into a slot, leaving the value. |
-| `OP_OUTER` | u8 depth, u8 slot | 3 | → v | Read a slot `depth` frames out along the **lexical** chain. |
-| `OP_SET_OUTER` | u8 depth, u8 slot | 3 | v → v | Write one, leaving the value. |
-| `OP_SET_SLOT` | u16 name index | 3 | o v → v | Pop a value and an object, bind the name on the object, leave the value. |
+| Byte | Opcode | Operands | Bytes | Stack | Effect |
+| --- | --- | --- | --- | --- | --- |
+| **2** | `OP_GLOBAL` | u16 name index | 3 | → v | Push the named global. A lookup, not a send. |
+| **3** | `OP_SET_GLOBAL` | u16 name index | 3 | v → v | Bind the name, **leaving the value**. |
+| **4** | `OP_LOCAL` | u8 slot | 2 | → v | Push a frame slot. Slot 0 is `self` in a block and unused in a script, which has no receiver; 1..arity are the arguments. |
+| **5** | `OP_SET_LOCAL` | u8 slot | 2 | v → v | Store into a slot, leaving the value. |
+| **6** | `OP_OUTER` | u8 depth, u8 slot | 3 | → v | Read a slot `depth` frames out along the **lexical** chain. |
+| **7** | `OP_SET_OUTER` | u8 depth, u8 slot | 3 | v → v | Write one, leaving the value. |
+| **12** | `OP_SET_SLOT` | u16 name index | 3 | o v → v | Pop a value and an object, bind the name on the object, leave the value. |
 
 Every one of the four assignments leaves its value on the stack. That costs
 nothing and makes `c := b := #45` fall out for free — the statement that follows
@@ -72,9 +81,9 @@ discards it with `OP_POP`.
 
 ### Sending
 
-| Opcode | Operands | Bytes | Stack | Effect |
-| --- | --- | --- | --- | --- |
-| `OP_SEND` | u16 name index, u8 argc | 4 | r a₁..aₙ → v | Pop `argc` arguments and a receiver, send, push the reply. |
+| Byte | Opcode | Operands | Bytes | Stack | Effect |
+| --- | --- | --- | --- | --- | --- |
+| **11** | `OP_SEND` | u16 name index, u8 argc | 4 | r a₁..aₙ → v | Pop `argc` arguments and a receiver, send, push the reply. |
 
 The receiver and its arguments are already laid out contiguously, so the callee's
 frame points straight at them: slot 0 is the receiver, and no copying is needed
@@ -86,13 +95,13 @@ The compiler emits these only for control flow written literally with plain
 blocks — `ifTrue`, `ifFalse`, `ifElse`, `whileTrue`, `and`, `or`. Written any
 other way, those are ordinary sends and none of these instructions appears.
 
-| Opcode | Operands | Bytes | Stack | Effect |
-| --- | --- | --- | --- | --- |
-| `OP_JUMP` | u16 offset | 3 | — | Skip forward that many bytes. |
-| `OP_JUMP_IF_FALSE` | u16 offset, u16 name index | 5 | b → | Pop a boolean and skip forward when it is false. |
-| `OP_EXIT_IF_FALSE` | u16 offset | 3 | b → | Pop what a condition answered and leave an inlined loop when it is false. |
-| `OP_CHECK_BOOL` | u16 name index | 3 | b → b | Require the top of the stack to be a boolean, **leaving it there**. |
-| `OP_LOOP` | u16 offset | 3 | — | Jump *backward* that many bytes. |
+| Byte | Opcode | Operands | Bytes | Stack | Effect |
+| --- | --- | --- | --- | --- | --- |
+| **13** | `OP_JUMP` | u16 offset | 3 | — | Skip forward that many bytes. |
+| **14** | `OP_JUMP_IF_FALSE` | u16 offset, u16 name index | 5 | b → | Pop a boolean and skip forward when it is false. |
+| **15** | `OP_EXIT_IF_FALSE` | u16 offset | 3 | b → | Pop what a condition answered and leave an inlined loop when it is false. |
+| **16** | `OP_CHECK_BOOL` | u16 name index | 3 | b → b | Require the top of the stack to be a boolean, **leaving it there**. |
+| **17** | `OP_LOOP` | u16 offset | 3 | — | Jump *backward* that many bytes. |
 
 Three of these carry a name index they never push, and it is there for one
 reason: **an inlined message must complain exactly as the real send would.**
@@ -112,11 +121,11 @@ everything else stays forward by construction, and the verifier can rely on that
 
 ### Leaving
 
-| Opcode | Operands | Bytes | Stack | Effect |
-| --- | --- | --- | --- | --- |
-| `OP_POP` | — | 1 | v → | Discard the top of the stack. This is what a statement boundary compiles to. |
-| `OP_RETURN` | — | 1 | v → | Return the top of the stack from the current method. |
-| `OP_HALT` | — | 1 | — | Stop the machine. |
+| Byte | Opcode | Operands | Bytes | Stack | Effect |
+| --- | --- | --- | --- | --- | --- |
+| **18** | `OP_POP` | — | 1 | v → | Discard the top of the stack. This is what a statement boundary compiles to. |
+| **19** | `OP_RETURN` | — | 1 | v → | Return the top of the stack from the current method. |
+| **20** | `OP_HALT` | — | 1 | — | Stop the machine. |
 
 Every chunk's last instruction is `OP_HALT`, and the verifier requires it.
 

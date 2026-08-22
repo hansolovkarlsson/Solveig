@@ -237,6 +237,39 @@ static void test_every_opcode_is_documented(void)
     printf("  every opcode in the header is in %s (%d of them)\n", DOC_PATH, count);
 }
 
+/* And with the right number beside it.
+ *
+ * The document described every instruction and never said what byte any of them
+ * was, so a reader with only this page in front of them could not decode one
+ * instruction of a .sob file -- which programs/disasm.sol found by trying. The
+ * numbers are the enum's order, so inserting an opcode in the middle renumbers
+ * everything after it, and this is what makes that fail the suite instead of
+ * silently making the page wrong. */
+static void test_every_opcode_has_its_number(void)
+{
+    char *header = read_whole_file(HEADER_PATH);
+    char *doc    = read_whole_file(DOC_PATH);
+
+    char names[MAX_OPCODES][32];
+    int count = opcode_names(header, names);
+
+    for (int i = 0; i < count; i++) {
+        /* The row is "| **N** | `OP_NAME` |", so the number is what stands
+           immediately before the opcode in the table. */
+        char wanted[64];
+        snprintf(wanted, sizeof wanted, "| **%d** | `%s` |", i, names[i]);
+        if (strstr(doc, wanted) == NULL) {
+            printf("\n%s should give %s the byte %d, as \"%s\"\n",
+                   DOC_PATH, names[i], i, wanted);
+            assert(false);
+        }
+    }
+
+    free(header);
+    free(doc);
+    printf("  and every one carries its byte (0 to %d)\n", count - 1);
+}
+
 /* And the other way: nothing described that no longer exists. */
 static void test_nothing_documented_has_been_removed(void)
 {
@@ -328,6 +361,7 @@ int main(void)
     test_names_are_interned();
     test_disassembler_walks_every_instruction();
     test_every_opcode_is_documented();
+    test_every_opcode_has_its_number();
     test_nothing_documented_has_been_removed();
     test_documented_lengths_are_the_real_ones();
     printf("test_bytecode: ok\n");

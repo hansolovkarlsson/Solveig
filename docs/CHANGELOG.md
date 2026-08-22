@@ -5,6 +5,79 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+### A disassembler in Solum, and the three document faults it found — `pending`, 2026-08-22
+
+[programs/disasm.sol](../programs/disasm.sol) reads a `.sob` file and says what
+is in it — header, tables, and every instruction with its offset, line, operands
+and jump targets, recursing into each method and block.
+
+```
+$ ./bin/solvm programs/disasm.sob
+build/disasm-sample.sob  --  456 bytes, format version 13
+
+script  -- 1 slots, 10 names, 4 constants, 88 bytes
+     0 line 1   block        'block'
+     3 line 1   setGlobal    'greet'
+    ...
+    24 line 3   exitIfFalse  +32 -> 59
+    56 line 5   loop         -45 -> 14
+```
+
+**The first program here to read a binary format, and the first to read one this
+project defines.** `solvm --dump` already disassembles, so this is a *second*
+implementation — which is the point. It was written from
+[design.md](design.md#the-sob-file-format) and [BYTECODE.md](BYTECODE.md), going
+to the C only where those ran out, and they ran out five times.
+
+**Three faults in the documents, all fixed here.**
+
+**BYTECODE.md never said what byte an opcode is.** It described every
+instruction — operands, length, stack effect — and `tests/test_bytecode.c`
+checked that description against the header in both directions. The mapping from
+byte to instruction lived only in the order of a C enum, so a reader with the
+page in front of them could not decode a single instruction. Every row now
+carries its byte, and a new case in that test checks each against the enum, so
+an opcode inserted in the middle fails the suite rather than silently making the
+page wrong.
+
+**design.md contradicted itself about byte order**, a hundred lines apart. The
+instruction-set section says a side-table index "is a big-endian u16", which is
+right. The `.sob` section said "little-endian throughout", which is true of
+every table in the file and false of the two-byte operands inside the code — and
+a reader after the file format lands on the second one. Getting it backwards
+does not look like a misreading, it looks like corruption, every index 256 times
+too large. Both sections say it now.
+
+**The format table was missing three sections and a constant tag.** Between the
+line runs and the methods there are a file table, a run table saying which file
+each stretch of code came from, and the slot names; and a constant may be tagged
+3, a boolean. Those arrived with
+[6.27](COMPLETED.md#627-a-stack-trace-does-not-say-which-file--done) and
+[6.28](COMPLETED.md#628-local-variables-have-no-names-at-run-time--done), which
+bumped the format to 12 and then 13 — and the table was not bumped with them.
+The table also did not separate the file's header from a chunk's body, so *"then
+that method's chunk, recursively"* read as though the whole thing recurred; only
+the body does.
+
+**And two findings about the language, neither a defect.** An i64 constant with
+its top bit set cannot be decoded, because assembling one means
+`shiftLeft(#56)` on a byte of 128 or more and the language traps on overflow
+rather than wrapping — so Solum can write an integer into a `.sob` that it
+cannot read back. And a float has to be decoded by hand, one bit-field at a
+time, because nothing reinterprets an integer's bits as a float; `readFloat` is
+IEEE-754 binary64 written out in Solum, and `2.5` comes back `2.5`.
+
+Not a finding, though the reference reads as though it might be:
+`system:readFile` handles a binary file exactly as it should. The Limits table's
+"no `\0`" is about what a *literal* may contain — a string read from a file
+holds every byte the file had.
+
+**Checked against the oracle.** Identical offsets, opcodes, operands and jump
+targets to `solvm --dump` over eight files and 7,673 instructions, `lib/json.sol`
+and `lib/html.sol` among them.
+
 ## 0.16.0 — 2026-08-22
 
 **A data race, fixed; threads, settled by measuring; and a host can keep its

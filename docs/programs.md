@@ -1,6 +1,6 @@
 # The programs
 
-*The seven files in [programs/](../programs/): what each one does, how to run
+*The eight files in [programs/](../programs/): what each one does, how to run
 it, and what it found. [examples/](../examples/) is the other directory — one
 file per concept the [guide](GUIDE.md) names, each written to show a feature.
 These were written to do a job.*
@@ -25,6 +25,7 @@ is the map; the file is the argument.
 | [mirror](../programs/mirror.sol) | copies one directory tree into another | `solvm mirror.sob [src] [dst] [dry]` |
 | [tools](../programs/tools.sol) | reports on a directory by running other programs | `solvm tools.sob [directory]` |
 | [serve](../programs/serve.sol) | answers one HTTP request | `PATH_INFO=/ solvm serve.sob` |
+| [disasm](../programs/disasm.sol) | reads a `.sob` file and says what is in it | `solvm disasm.sob [file.sob] [brief]` |
 
 Every one runs with no arguments at all, on input it supplies itself. That is
 deliberate — a program you have to feed before it will say anything is a program
@@ -266,6 +267,61 @@ is about.
   the same eight as for 64MB. That is
   [3.7](ROADMAP.md#37-a-limit-bounds-dispatch-not-work), and it corrected two
   documents that said otherwise.
+
+## disasm — a `.sob` file, read and disassembled
+
+Reads a compiled Solum file and prints its header, tables and instructions —
+offsets, lines, opcodes, operands and jump targets — recursing into every method
+and block.
+
+```sh
+./bin/solvm programs/disasm.sob                    # compiles itself a sample
+./bin/solvm programs/disasm.sob path/to/file.sob   # your own
+./bin/solvm programs/disasm.sob file.sob brief     # header and tables only
+```
+
+**The first to read a binary format, and the first to read one this project
+defines.** `solvm --dump` already disassembles, so this is a *second*
+implementation — which is the point, because a second implementation is how you
+find out whether a specification is true. It was written from
+[design.md](design.md#the-sob-file-format) and [BYTECODE.md](BYTECODE.md),
+going to the C only where those ran out. They ran out five times.
+
+**What it found in the documents**, all three now fixed:
+
+- **BYTECODE.md never said what byte an opcode is.** It described every
+  instruction and the test suite checked that description against the header in
+  both directions — and the mapping from byte to instruction lived only in the
+  order of a C enum, so a reader with the page in front of them could not decode
+  one instruction. The page carries the numbers now and
+  `tests/test_bytecode.c` checks them.
+- **design.md contradicted itself about byte order.** Its instruction-set
+  section said a side-table index "is a big-endian u16", correctly. Its `.sob`
+  section said "little-endian throughout", which is true of every table in the
+  file and false of the operands inside the code. A reader after the file format
+  lands on the second. Getting it backwards does not look like a misreading, it
+  looks like corruption — every index 256 times too large.
+- **The format table was missing three sections and a constant tag** — the file
+  table, the file-run table and the slot names, plus tag 3 for a boolean. They
+  arrived with 6.27 and 6.28, which bumped the format to 12 and then 13; the
+  table was not bumped with them. It also did not separate the file's header
+  from a chunk's body, so *"then that method's chunk, recursively"* read as
+  though the whole thing recurred.
+
+**And two about the language**, neither a defect:
+
+- **An i64 constant with its top bit set cannot be decoded**, because assembling
+  one means `shiftLeft(#56)` on a byte of 128 or more and the language traps on
+  overflow rather than wrapping. The trap is right; the consequence is that
+  Solum can write an integer into a `.sob` that it cannot read back. Reported
+  per constant rather than fatally.
+- **A float has to be decoded by hand**, one bit-field at a time, because
+  nothing reinterprets an integer's bits as a float. `readFloat` is IEEE-754
+  binary64 written out in Solum. It works — `2.5` comes back `2.5`.
+
+**Checked against the oracle**: identical offsets, opcodes, operands and jump
+targets to `solvm --dump` over eight files and 7,673 instructions, including
+`lib/json.sol` and `lib/html.sol`.
 
 ---
 

@@ -234,8 +234,49 @@ The thing I keep relearning: **I am bad at estimating how likely a race is, and
 good at reasoning about whether one exists.** The existence argument was right
 both times. Both magnitude guesses were wrong, and only running it told me.
 
+**And last, the counterweight I had been recommending for six turns and not
+taking.** Everything since serve.sol had been about the machine — auditing it,
+documenting it, reorganising it, measuring it. Nothing had been *written in the
+language* to do a job, which is where every roadmap entry before this run came
+from.
+
+So: [disasm.sol](../programs/disasm.sol), a `.sob` reader. The job is real and
+`solvm --dump` already does it, which is the point — a second implementation is
+how you find out whether a specification is true. Written from design.md and
+BYTECODE.md, going to the C only where those ran out.
+
+They ran out five times, and three were the documents being *wrong* rather than
+thin:
+
+- BYTECODE.md described every instruction and never said what byte any of them
+  was. The test suite checked the description against the header in both
+  directions; nothing checked, or supplied, the numbers. You cannot decode one
+  instruction from that page.
+- design.md said "big-endian" in one section and "little-endian throughout" in
+  another, about the same bytes, a hundred lines apart. I read the second and
+  decoded every operand backwards. It does not look like a misreading — every
+  index came out 256 times too large, which looks like a corrupt file.
+- The format table had been missing three whole sections since version 12. Two
+  features bumped the format and neither updated the table.
+
+All three are fixed, and the opcode numbers now have a test, which is the part
+that lasts.
+
+The two language findings were smaller and both are the language being right:
+an i64 with its top bit set cannot be reassembled from bytes because shifting
+traps on overflow, and a float has to be decoded by hand because nothing
+reinterprets bits. So Solum can write an integer into a file it cannot read
+back. That is a consequence of a good decision, and worth knowing.
+
+**What I want to remember about this one**: I nearly did not write it. It was
+the option I kept listing last and recommending against my own advice. Six turns
+of inward-facing work had produced good things — but the document faults had
+been sitting there since version 12 and no amount of auditing the machine found
+them, because auditing checks a document against the code and this checked the
+document against *someone trying to use it*. Those are different tests.
+
 **The shape of the day**, which is the thing this file is for: the program was
-the instrument, not the result. Five times over:
+the instrument, not the result. Six times over:
 
 - **serve.sol found 3.7** by being run as a guest with an allowance, which no
   program here had been, because every earlier one was run by whoever wrote it.
@@ -248,10 +289,13 @@ the instrument, not the result. Five times over:
   does not.
 - **Testing threads found a data race in this morning's fix**, and then a second
   defect the fix could not have touched.
+- **Writing a disassembler found three faults in the documents it was written
+  from**, two of them shipped since version 12.
 
-None of the five came from reading. Each came from putting the thing in a shape
+None of the six came from reading. Each came from putting the thing in a shape
 nobody had put it in before — run by a stranger, run under a limit, run twice at
-one address, written down as a promise, or run on two threads at once.
+one address, written down as a promise, run on two threads at once, or handed to
+somebody trying to implement it from the documentation alone.
 
 ---
 

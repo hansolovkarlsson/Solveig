@@ -743,6 +743,13 @@ found out what it wanted.
   one that hands over its secrets — which is the first argument 6.32 has for
   capabilities finer than one per message. The first program here whose input
   does not come from whoever ran it.
+- [disasm.sol](../programs/disasm.sol) found **three faults in this project's
+  own documents** by being a second implementation of a format that had one:
+  BYTECODE.md gave no opcode numbers, design.md said both "big-endian" and
+  "little-endian throughout" about the same bytes in different sections, and the
+  `.sob` format table had been missing three sections since version 12. All
+  three are fixed, and the opcode numbers now have a test. It also found that
+  the language can write an i64 into a file that it cannot read back.
 
 **Four of the entries were papercuts a library tripped over**, not things anybody
 reasoned out in advance:

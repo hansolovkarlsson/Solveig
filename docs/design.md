@@ -361,20 +361,41 @@ Assignment leaving its value on the stack costs nothing and makes
 
 ## The .sob file format
 
-Little-endian throughout, independent of the host, so a `.sob` file is
-portable. `solum/include/solum/serialize.h` carries the byte-level layout.
+The file's tables are little-endian, independent of the host, so a `.sob` file
+is portable. `solum/include/solum/serialize.h` carries the byte-level layout.
+
+**The header, written once for the file:**
 
 ```
 magic     4  "SOLB"
 version   2  u16
 slots     2  u16, the script frame's slot count (was reserved before v11)
+```
+
+**Then a chunk body, which is what recurses:**
+
+```
 names     4  u32 count, then each: u16 length + bytes
-constants 4  u32 count, then each: u8 tag + payload (0 nil, 1 i64, 2 f64)
+constants 4  u32 count, then each: u8 tag + payload
+             (0 nil, no payload; 1 i64; 2 f64; 3 bool, one byte)
 code      4  u32 length, then that many bytes
 lines     4  u32 run count, then each: u32 run length + u32 line
+files     4  u32 count, then each: u16 length + bytes
+fileruns  4  u32 run count, then each: u32 run length + u32 file index
+slotnames 2  u16 count, then each: u16 length + bytes
 methods   4  u32 count, then each: u16 name length + bytes, u16 arity,
-             u16 slot count, u16 flags, then that method's chunk, recursively
+             u16 slot count, u16 flags, then that method's *body*
 ```
+
+**The header does not recur.** A method carries its own slot count in the four
+fields above, so a nested chunk begins at `names` — the magic, the version and
+the script's slot count belong to the file and are written once. Reading a
+method's chunk as though it were a whole file is the mistake a second
+implementation makes first, and
+[programs/disasm.sol](../programs/disasm.sol) made it.
+
+`slotnames` is counted by a **u16** where every other table here uses a u32,
+which is not a pattern, only what it is.
 
 Flags are `1` for a block and `2` for a block that captures its home frame.
 Blocks are compiled exactly like methods, so they share the method table.
@@ -382,6 +403,18 @@ Blocks are compiled exactly like methods, so they share the method table.
 A method owns a chunk, so the format nests. Reading is recursive with a depth
 cap, and a method's declared frame size is checked against its arity before any
 of its code is verified.
+
+**The code stream is the exception to little-endian**, and this page used to
+say so in one section and deny it in another. A two-byte operand *inside* the
+code is **big-endian** — `emit_index` writes the high byte first and
+`sol_read_u16` reads it back the same way, as the
+[Instruction set](#instruction-set) section above has always said. The
+tables in this section are little-endian and the operands are not.
+
+Getting that backwards does not look like a misreading; it looks like data
+corruption, every index landing 256 times too large. It cost
+[disasm.sol](../programs/disasm.sol) a debugging session, which is why it is
+said twice now.
 
 Line numbers are run-length encoded: neighbouring instructions almost always
 share a line, so the runs are much smaller than one number per byte. They
