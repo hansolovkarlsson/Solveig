@@ -7,6 +7,44 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.11.0 — 2026-08-21
+
+**A frame slot knows what it was called, and the roadmap is down to one entry.**
+
+```
+  [locals.sol:7] value(numbers: [#10, #20, #33])
+    [locals.sol:4] value(n: #10)
+    -> #1
+```
+
+The compiler always knew a temporary was called `total` — it had to, to resolve
+the name to slot 2 — and threw it away once the index was emitted. A chunk keeps
+it now, so `solvm --trace` names its arguments and anything looking at a frame
+can say `average` rather than `slot 3`.
+
+**Another `.sob` format change**, 12 to 13, one release after the last. Files
+from an earlier build are refused with `unsupported bytecode version` rather
+than misread; recompile the `.sol`. The size cost is small — +0.2% on
+`numbers.sob`, +3.4% on `page.sob` — because a name is stored once per slot
+rather than once per method chunk, which is what made the file table in 0.10.0
+dearer.
+
+**The table is indexed by slot rather than filled in the order names arrive**, so
+a slot nobody named still takes a place and index N is slot N. That is the
+property worth holding: an off-by-one would put the wrong name against the right
+value, which is worse than no name, and there is a test that names slots out of
+order and leaves a gap to hold it. Naming arguments in the trace is also how the
+table was checked — `amount:` lining up with `#30` is visible, where an
+assertion at a distance is not.
+
+**One entry left on the whole roadmap**, and it is
+[Solid](ROADMAP.md#629-a-stepper--solid), the debugger. Everything underneath it
+is built: the call tree, the file a frame is in, a name for a local, and the
+interactive half in `solis --interactive`. What is left is stopping a program
+while it runs, and a front end to drive that.
+
 ### A frame slot knows what it was called — `f644c9f`, 2026-08-21
 
 [6.28](COMPLETED.md#628-local-variables-have-no-names-at-run-time--done), and
@@ -236,7 +274,7 @@ binary operators costs the commonest arithmetic there is.
 **Three entries written down rather than built**, all about looking at a running
 program: [6.27](COMPLETED.md#627-a-stack-trace-does-not-say-which-file--done), where a
 trace names lines and not files and so reads as though a library's failure were
-in your own file; [6.28](ROADMAP.md#628-local-variables-have-no-names-at-run-time),
+in your own file; [6.28](COMPLETED.md#628-local-variables-have-no-names-at-run-time--done),
 where slots are indices so nothing can show a variable by name; and
 [6.29](ROADMAP.md#629-a-stepper--solid).
 
@@ -297,7 +335,7 @@ not enough
 What is gone is the frames. Nothing resumes, and a block's temporaries go with
 the stack — so this is a prompt beside the wreck rather than a break in the
 middle of it. Naming a local would need
-[6.28](ROADMAP.md#628-local-variables-have-no-names-at-run-time), which is
+[6.28](COMPLETED.md#628-local-variables-have-no-names-at-run-time--done), which is
 recorded and not built.
 
 It stays after a program that **finishes** too, which is the other half: `python
@@ -363,7 +401,7 @@ program it was tracing would not be one.
   the file you are looking at. **Misleading rather than merely thin**, and worse
   with four libraries. A `.sob` format change, and it improves every error
   rather than only a debugging session.
-- [6.28](ROADMAP.md#628-local-variables-have-no-names-at-run-time) — slots are
+- [6.28](COMPLETED.md#628-local-variables-have-no-names-at-run-time--done) — slots are
   indices, so anything inspecting a running program shows `slot 3` and not
   `count`. The same kind of side table; it should ride along with 6.27.
 - [6.29](ROADMAP.md#629-a-stepper--solid) — much the largest, wants 6.28 first, and

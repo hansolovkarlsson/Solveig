@@ -97,6 +97,12 @@ No dependencies beyond a C11 compiler and `make`.
 
 ## Status
 
+**0.11.0** — a frame slot knows what it was called, so `solvm --trace` names its
+arguments and anything looking at a frame can say `average` rather than `slot
+3`. The compiler always knew and threw it away once the index was emitted.
+Another `.sob` format change, 12 to 13 — **recompile the `.sol`** — costing
++0.2% to +3.4%. One entry left on the roadmap, and it is the debugger.
+
 **0.10.0** — a stack trace says which file, and the `.sob` format changes for
 the first time since 0.1.0 to carry that. It was misleading rather than merely
 thin: a chunk holds every included file's code, so a bare line number named a
