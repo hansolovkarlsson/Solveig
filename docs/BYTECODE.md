@@ -28,7 +28,7 @@ such, and no instruction that knows what a class is.
 rather than about the instruction:
 
 - An index into a side table — a constant, a name, a nested method — is a
-  **big-endian u16**, because those tables grow with the program and a long file
+  **little-endian u16**, because those tables grow with the program and a long file
   can fill one.
 - A frame slot, a nesting depth, an argument count is a **u8**, because those are
   bounded by the machine instead: a frame of more than 255 slots is refused

@@ -489,7 +489,7 @@ its time collapsing into one.
 
 So the width belongs to the operand rather than to the opcode, and there is one
 rule for it. An index into a side table -- a constant, a name, a nested method
--- is a big-endian u16, because those tables grow with the program. A frame
+-- is a u16, because those tables grow with the program. A frame
 slot, a nesting depth, an argument count stays a u8, because those are bounded
 by the machine rather than by the source: a frame of more than 255 slots is
 refused before it runs. Jump offsets were u16 already, so sixteen bits is now

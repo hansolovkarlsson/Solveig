@@ -256,9 +256,13 @@ here is now promised that was not promised before.
 
 Each format change bumps the version and older files are refused outright.
 
-**It has happened once, at 0.9.0 to 0.10.0.** Version 11 stood from 0.1.0
-through nine releases, and 12 broke it to record which file each line came from
-([6.27](COMPLETED.md#627-a-stack-trace-does-not-say-which-file--done)). So the
+**It has happened three times.** Version 11 stood from 0.1.0 through nine
+releases; 12 broke it to record which file each line came from
+([6.27](COMPLETED.md#627-a-stack-trace-does-not-say-which-file--done)), 13 to
+record what each frame slot was called
+([6.28](COMPLETED.md#628-local-variables-have-no-names-at-run-time--done)), and
+14 to make the code stream little-endian like the rest of the file, which is the
+only one of the three that bought consistency rather than a capability. So the
 policy is no longer hypothetical, and what it turned out to be is:
 
 - **Refuse, do not guess.** An older file is rejected by version with a message

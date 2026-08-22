@@ -298,10 +298,17 @@ going to the C only where those ran out. They ran out five times.
   `tests/test_bytecode.c` checks them.
 - **design.md contradicted itself about byte order.** Its instruction-set
   section said a side-table index "is a big-endian u16", correctly. Its `.sob`
-  section said "little-endian throughout", which is true of every table in the
+  section said "little-endian throughout", which was true of every table in the
   file and false of the operands inside the code. A reader after the file format
   lands on the second. Getting it backwards does not look like a misreading, it
   looks like corruption — every index 256 times too large.
+
+  *Settled rather than documented, in the end.* The order was collapsed into one
+  pair of shifts and then flipped: as of `.sob` format 14 the operands are
+  little-endian too, and the sentence is simply true. This program's own two
+  decoders had to be edited by hand, nothing checking them against the C — and
+  comparing its output against `solvm --dump` is what confirmed both sides had
+  moved.
 - **The format table was missing three sections and a constant tag** — the file
   table, the file-run table and the slot names, plus tag 3 for a boolean. They
   arrived with 6.27 and 6.28, which bumped the format to 12 and then 13; the

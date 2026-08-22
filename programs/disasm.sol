@@ -24,14 +24,20 @@
 ;      byte to instruction lives only in the order of a C enum, so a reader with
 ;      the document in front of them cannot decode one byte of a file.
 ;
-;   2. **design.md contradicts itself about byte order**, and both halves are a
-;      hundred lines apart. The instruction-set section says a side-table index
-;      "is a big-endian u16", which is true. The .sob section says
-;      "little-endian throughout", which is true of every table in the file and
+;   2. **design.md contradicted itself about byte order**, and both halves were
+;      a hundred lines apart. The instruction-set section said a side-table
+;      index "is a big-endian u16", which was true. The .sob section said
+;      "little-endian throughout", which was true of every table in the file and
 ;      false of the two-byte operands inside the code. A reader after the file
 ;      format lands on the second one, believes it, and decodes every operand
 ;      backwards -- which is what happened here, and it looks like data
 ;      corruption rather than like a misreading.
+;
+;      **Settled rather than documented, in the end.** The order was collapsed
+;      into one pair of shifts in the C, and then flipped: as of `.sob` format
+;      14 the operands are little-endian too, and "little-endian throughout" is
+;      simply true. This program was updated by hand, since nothing checks its
+;      two decoders against the C -- see the note beside them.
 ;
 ;   3. **The format table in design.md is missing three sections and a constant
 ;      tag.** Between the line runs and the methods there are a file table, a
@@ -383,21 +389,21 @@ show := { chunk, title, depth | | indent, code, at, op, entry, shape, text, size
               size  := operandBytes:at(shape):add(#1).
 
               text := shape:equals("-"):ifElse({ "" }, { | a, b |
-                  ; **Big-endian**, unlike every table in the file, and see the
-                  ; note at the top for how that reads when you get it wrong.
+                  ; Little-endian, the same as every table in the file, **as of
+                  ; format 14**. It was big-endian until then, which is the note
+                  ; at the top of this program and the reason for the version.
                   ;
                   ; This and the branch offset below are the only two places the
-                  ; order is written down on this side. The C now keeps its own
-                  ; in one pair of shifts, and **nothing checks these two
-                  ; against it** -- so a flip over there would leave this
-                  ; reading backwards and the test suite quiet about it. The
-                  ; check that would notice is the one this program already
-                  ; earns its keep by: disassembling a fresh file and comparing
-                  ; against `solvm --dump`.
+                  ; order is written down on this side. The C keeps its own in
+                  ; one pair of shifts, and **nothing checks these two against
+                  ; it** -- the flip to 14 would have left this reading
+                  ; backwards with the test suite quiet about it. What caught it
+                  ; is the thing this program earns its keep by: disassembling a
+                  ; fresh file and comparing against `solvm --dump`.
                   a := shape:equals("slot"):ifElse(
                       { code:at(at:add(#1)):asByte },
-                      { code:at(at:add(#1)):asByte:shiftLeft(#8):bitOr(
-                            code:at(at:add(#2)):asByte) }).
+                      { code:at(at:add(#1)):asByte:bitOr(
+                            code:at(at:add(#2)):asByte:shiftLeft(#8)) }).
                   shape:equals("name"):or({ shape:equals("send") })
                       :or({ shape:equals("branch") })
                       :ifTrue({ a := nameAt:value(chunk, a) }).
@@ -426,8 +432,8 @@ show := { chunk, title, depth | | indent, code, at, op, entry, shape, text, size
                   ; A branch carries the offset second, the name having been
                   ; read first above; put it back the way it is written.
                   shape:equals("branch"):ifTrue({ | offset |
-                      offset := code:at(at:add(#3)):asByte:shiftLeft(#8):bitOr(
-                                    code:at(at:add(#4)):asByte).
+                      offset := code:at(at:add(#3)):asByte:bitOr(
+                                    code:at(at:add(#4)):asByte:shiftLeft(#8)).
                       b := " +{} -> {}":fill([offset,
                               at:sub(#1):add(#5):add(offset)]) }).
                   " ":concat(a:asString):concat(b) }).

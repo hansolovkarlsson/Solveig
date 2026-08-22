@@ -3,6 +3,11 @@
  * This is how Solas hands work to Solum. The format is little-endian
  * throughout, independent of the host, so a .sob file is portable.
  *
+ * Throughout means throughout as of version 14. Before that the tables here
+ * were little-endian and the two-byte operands *inside* the code section were
+ * big-endian -- the one exception, undocumented in this file, and the reason
+ * for the version. See sol_u16_first in bytecode.h.
+ *
  *   offset  size  field
  *   0       4     magic "SOLB"
  *   4       2     format version (currently SOL_SOB_VERSION)
@@ -17,6 +22,7 @@
  *                   0 = nil    (no payload)
  *                   1 = int    (i64)
  *                   2 = float  (f64, IEEE-754 binary64)
+ *                   3 = bool   (u8, zero or one)
  *           4     code length, then that many bytes
  *           4     line-run count
  *                 each run: u32 length, u32 line
@@ -55,7 +61,7 @@
 #include "solum/bytecode.h"
 
 #define SOL_SOB_MAGIC   "SOLB"
-#define SOL_SOB_VERSION 13
+#define SOL_SOB_VERSION 14
 
 typedef enum {
     SOL_SER_OK,

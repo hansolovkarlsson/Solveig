@@ -332,7 +332,7 @@ not any more.
 
 Operand widths follow one rule, and it is about what bounds the number rather
 than about the instruction. An index into a side table -- a constant, a name, a
-nested method -- is a big-endian u16, because those tables grow with the
+nested method -- is a little-endian u16, because those tables grow with the
 program and a long file fills one. A frame slot, a nesting depth, an argument
 count is a u8, because those are bounded by the machine instead: a frame of
 more than 255 slots is refused before it runs. Jump offsets were u16 from the
@@ -404,16 +404,17 @@ A method owns a chunk, so the format nests. Reading is recursive with a depth
 cap, and a method's declared frame size is checked against its arity before any
 of its code is verified.
 
-**The code stream is the exception to little-endian**, and this page used to
-say so in one section and deny it in another. A two-byte operand *inside* the
-code is **big-endian**, as the [Instruction set](#instruction-set) section above
-has always said. The tables in this section are little-endian and the operands
-are not.
+**Little-endian means little-endian, as of format 14**, and it did not before.
+Until then the tables in this section were little-endian and the two-byte
+operands *inside* the code section were big-endian — two conventions arrived at
+separately, each internally consistent, and never compared. This page said both
+things, a hundred lines apart, and the section a reader of the file format lands
+on was the wrong one.
 
-Getting that backwards does not look like a misreading; it looks like data
+Getting it backwards does not look like a misreading; it looks like data
 corruption, every index landing 256 times too large. It cost
-[disasm.sol](../programs/disasm.sol) a debugging session, which is why it is
-said twice now.
+[disasm.sol](../programs/disasm.sol) a debugging session, which is what turned
+this up.
 
 **The order is written down in one place**, and used to be written down in
 thirteen. `SOL_U16_FIRST_SHIFT` and `SOL_U16_SECOND_SHIFT` in `bytecode.h` are
@@ -422,15 +423,17 @@ the whole of it; `sol_u16_first`, `sol_u16_second`, `sol_write_u16` and
 through those four. Reading had been single-sourced since the beginning and
 writing never had — twelve copies of `(v >> 8) & 0xff` across the compiler and
 the tests, which is the shape of thing that drifts and the reason the
-instruction *lengths* once did.
+instruction *lengths* once did. Collapsing them is what made the flip a
+two-character edit; `tests/test_bytecode.c` holds the pair to each other, so
+changing one and not the other fails the build.
 
-`tests/test_bytecode.c` holds the pair to each other, so changing one shift and
-not the other fails the build. **Changing both is now the whole of making the
-two halves of the format agree** — verified: setting them to 0 and 8 turns the
-code stream little-endian and the suite passes end to end. What that would still
-need is a `.sob` version bump, since the code section is stored verbatim and
-every existing file would misread, and an edit to the two decoders in
-`disasm.sol`, which is a reader in Solum that nothing checks against the C.
+**What the flip cost** was a format version, the code section being stored
+verbatim, and a hand edit to the two decoders in
+[disasm.sol](../programs/disasm.sol) — a reader written in Solum that nothing
+checks against the C. That last one is the interesting one: `make test` would
+have stayed green with it reading backwards. What caught it is the thing that
+program exists for, disassembling a fresh file and comparing against
+`solvm --dump`, which agrees over 5,737 instructions at format 14.
 
 Line numbers are run-length encoded: neighbouring instructions almost always
 share a line, so the runs are much smaller than one number per byte. They

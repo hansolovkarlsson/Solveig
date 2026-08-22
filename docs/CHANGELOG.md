@@ -7,6 +7,42 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### `.sob` format 14: little-endian throughout, and now that is true — `pending`, 2026-08-22
+
+**A format change, so every existing `.sob` is refused and must be recompiled.**
+`solvm --version` says `format 14`. Nothing about running a program changes:
+same language, same instructions, same semantics.
+
+A `.sob` was a little-endian container holding a **big-endian** instruction
+stream. The tables used one order and the two-byte operands inside the code
+section used the other — two conventions arrived at separately, each internally
+consistent, and never compared until [disasm.sol](../programs/disasm.sol) had to
+decode both in one program and got the operands backwards. That does not read as
+a misreading: every index comes out 256 times too large, which looks like a
+corrupt file.
+
+0.17.0 documented the split. This removes it. The operands are little-endian
+now, and *"little-endian throughout"* — which `design.md` and `serialize.h` had
+both been claiming — is simply true.
+
+**It cost two characters**, because the entry below had already collapsed the
+order into `SOL_U16_FIRST_SHIFT` and `SOL_U16_SECOND_SHIFT`. That was the point
+of doing that first.
+
+**And one thing `make test` could not have caught.** disasm.sol is a reader
+written in Solum and nothing checks its two decoders against the C — the suite
+would have stayed green with it reading backwards. What caught it is the thing
+that program exists for: disassembling a fresh file and comparing against
+`solvm --dump`, which agrees over **5,737 instructions** across five files at
+format 14. Two independent implementations having to be wrong identically is a
+better check than either alone.
+
+Also here: `serialize.h`'s format table was missing constant tag 3, a boolean —
+the same gap `design.md` had, in the one document that was otherwise complete.
+And [3.4](ROADMAP.md#34-no-compatibility-across-sob-versions) said a format
+change had happened once; it has happened three times, and this is the only one
+that bought consistency rather than a capability.
+
 ### The bytecode's byte order now lives in one place — `e9c7827`, 2026-08-22
 
 No behaviour changes and no format changes. A `.sob` is still a little-endian

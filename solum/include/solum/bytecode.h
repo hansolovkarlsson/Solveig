@@ -10,7 +10,7 @@
  *
  * Operands come in two widths, and which one an operand gets follows from what
  * bounds it. An index into a side table -- a constant, a name, a nested method
- * -- is a big-endian u16, because those tables grow with the program and a long
+ * -- is a little-endian u16, because those tables grow with the program and a long
  * file can fill one. A frame slot, a nesting depth, an argument count is a u8,
  * because those are bounded by the machine rather than by the source: a frame
  * of more than 255 slots is refused before it runs. Jump offsets were u16
@@ -259,25 +259,24 @@ int sol_op_length(uint8_t op);
 
 /* ---- the byte order of a two-byte operand -------------------------------- *
  *
- * Big-endian: the first byte carries the high half. That is **not** the order
- * the .sob file's own tables use, which are little-endian -- a `.sob` is a
- * little-endian container holding a big-endian instruction stream, and the two
- * conventions were arrived at separately and never compared. Both are
- * internally consistent, so nothing forced the comparison until
- * programs/disasm.sol had to decode both in one program and got the operands
- * backwards, which does not look like a misreading: every index comes out 256
- * times too large, which looks like a corrupt file.
+ * Little-endian: the first byte carries the low half, which is what the .sob
+ * file's own tables have always used. **The two agree as of format 14** and did
+ * not before -- a .sob used to be a little-endian container holding a
+ * big-endian instruction stream, two conventions arrived at separately and
+ * never compared. Both were internally consistent, so nothing forced the
+ * comparison until programs/disasm.sol had to decode both in one program and
+ * got the operands backwards. That does not read as a misreading: every index
+ * comes out 256 times too large, which looks like a corrupt file.
  *
- * See docs/design.md, which says so in both of its sections now.
- *
- * **The order lives in these two shifts and nowhere else.** Reading was already
- * single-sourced here; writing was not, and had twelve copies of the expression
- * across the compiler and the tests -- which is exactly the shape of thing that
- * drifts, and the reason the lengths once did. Changing the order now means
- * changing the two numbers below, and a round-trip test in tests/test_bytecode.c
- * holds the pair to each other. */
-#define SOL_U16_FIRST_SHIFT  8
-#define SOL_U16_SECOND_SHIFT 0
+ * **The order lives in these two shifts and nowhere else**, which is what made
+ * changing it a two-character edit. Reading was already single-sourced here;
+ * writing was not, and had twelve copies of the expression across the compiler
+ * and the tests -- the shape of thing that drifts, and the reason the
+ * instruction lengths once did. A round-trip test in tests/test_bytecode.c
+ * holds the pair to each other, so changing one and not the other fails the
+ * build. */
+#define SOL_U16_FIRST_SHIFT  0
+#define SOL_U16_SECOND_SHIFT 8
 
 /* The two bytes of `v`, in the order they are written. Named by position rather
    than by significance, because position is what a caller emitting one after
