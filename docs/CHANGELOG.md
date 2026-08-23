@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### The last two pages, and one test instead of two — `pending`, 2026-08-22
+### The last two pages, and one test instead of two — `7f5a3e5`, 2026-08-22
 
 The checker took one path; it now takes several, so `README.md` and `index.md`
 join the sweep. They are the first thing anyone reads and were the last two
