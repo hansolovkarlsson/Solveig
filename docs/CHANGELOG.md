@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### A float could print the stack behind it — `pending`, 2026-08-22
+### A float could print the stack behind it — `ad185d3`, 2026-08-22
 
 `1e150:asString("0.6")` answered a 157-character string of which **93 characters
 were whatever lay behind a stack buffer**. A script could print them.
@@ -32,7 +32,7 @@ the widest thing the spec can ask for, digit for digit against the C library —
 a length alone would have passed throughout, the length having been right all
 along.
 
-### Program ten wanted arithmetic — `pending`, 2026-08-22
+### Program ten wanted arithmetic — `79cf703`, 2026-08-22
 
 [bench.sol](../programs/bench.sol) times a command repeatedly and says whether
 two commands really differ. It is the first program here **written to press on a
