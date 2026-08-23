@@ -52,6 +52,16 @@ It is also the tenth site in this repository to carry a boolean whose only job
 is to stop a loop, which is one more argument for
 [3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing).
 
+**And it answers the `switch`/`case` entry in [ideas.md](ideas.md), which is
+worth reading for what it refused.** That entry showed a `caseOf` written in
+Solum years of commits ago and deliberately kept *out* of `control.sol`: *an
+array of two-element arrays of blocks reached into with `pair:at(#1)` is not an
+interface worth committing to. A library is a promise, and the bar is higher
+than "it works".* The judgement was right and the capability was never in
+question — what changed is the interface. Flat instead of pairs of pairs, plain
+blocks closing over what they test instead of one-argument blocks handed the
+receiver, and the else by position instead of `{ n | true }`.
+
 ### Default values for block parameters, recorded — `18274ea` and `6c89db4`, 2026-08-24
 
 Asked: could a block carry a default for a parameter, `{ x := #0 | body }`?

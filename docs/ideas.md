@@ -31,7 +31,7 @@ marked as a sketch.
 | JIT to native code | **No** — possible, and it would dwarf the project |
 | More examples covering everything | **Audited** — the guide was clean; four messages had no demonstration and now have one |
 | `doUntil` | **Built in** — and inlined, so a definition in Solum would now be bypassed |
-| switch / case | **Already writable** — no new syntax needed |
+| switch / case | **Already writable**, and now written — [`array:ifElseIf`](REFERENCE.md#the-library) in control.sol, once an interface turned up worth committing to |
 | `#10:repeat({...})` | **Built in** — a primitive, measured 3.2x the version written in Solum |
 | `for` loop with start/end/step | **Built in** — `toDo` and `toByDo` |
 | `forIn` | **It is `do`** |
@@ -162,6 +162,49 @@ commoner question — which of these **values** is it — a dictionary of blocks
 one hash rather than a walk, and is roughly nineteen times faster over twenty
 cases. [dispatch.md](dispatch.md) has both, and the two traps that come with
 putting blocks in a table.
+
+#### And it is in the library now, which took the interface rather than the idea
+
+`caseOf` above was refused a place in `control.sol` on a specific ground, and it
+is worth re-reading before the update: *an array of two-element arrays of blocks
+reached into with `pair:at(#1)` is not an interface worth committing to. A
+library is a promise, and the bar is higher than "it works".*
+
+**That judgement was right, and what changed is the interface.**
+[`array:ifElseIf`](REFERENCE.md#the-library) went into `control.sol` on
+2026-08-24 in this shape:
+
+```
+@include "control.sol".
+
+n := #2.
+[{ n:equals(#1) }, { "one" },
+ { n:equals(#2) }, { "two" },
+                   { "many" }]:ifElseIf:display.        ; two
+```
+
+Three differences from `caseOf`, and each is why it cleared the bar:
+
+- **Flat, not pairs of pairs.** No `pair:at(#1)` anywhere, and the conditions
+  and their answers line up in two columns a reader can scan.
+- **The conditions are plain blocks that close over whatever they test**, rather
+  than one-argument blocks handed the receiver. That gives up switching neatly
+  on `self` and buys testing anything at all — which is what a scanner deciding
+  between `isAlpha`, `isDigit` and six literal characters actually needs.
+- **The else is the odd one out**, positionally, rather than `{ n | true }`. A
+  list of pairs with one left over is exactly a list of pairs and a default.
+
+**What prompted it was not this entry.** It was a real complaint about real
+code: a ten-deep nest of `ifElse` in the scanner of the parked Solum compiler,
+and a four-deep one in [disasm.sol](../programs/disasm.sol) that is now flat. So
+this stayed an idea for as long as it was an idea, and became a library method
+when a program made the case — which is the same rule the roadmap runs on,
+applied to a library.
+
+The cost is measured and is in [control.sol](../lib/control.sol): 5.8× a nested
+chain over 200,000 dispatches, because the chain compiles to jumps and this
+makes a block call per condition; and three frames a level through a recursion,
+against none. Flat dispatch yes, recursive descent no.
 
 **Symbols already are enums.** `['red, 'green, 'blue]` is a list of interned
 names compared by pointer, which is what an enum is for. The only thing missing
