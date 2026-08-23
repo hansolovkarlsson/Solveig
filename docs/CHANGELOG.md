@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### `forever`, `break` and `continue`, explored and measured — `pending`, 2026-08-24
+### `forever`, `break` and `continue`, explored and measured — `7bb565b`, 2026-08-24
 
 A loop with **no condition at all**, left only by breaking out of it:
 
