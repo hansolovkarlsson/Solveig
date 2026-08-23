@@ -107,6 +107,17 @@ No dependencies beyond a C11 compiler and `make`.
 
 ## Status
 
+**0.21.0** — a fix release, and the fix is a memory-safety one: a large float
+asked for decimals could print **93 bytes of the stack behind it** —
+`1e150:asString("0.6")` answered 157 characters out of a 64-byte buffer — and a
+script could read them. `.sob` files are format version 14, unchanged. It was
+found by the tenth program: [bench.sol](programs/bench.sol), which times a
+command and says whether two commands really differ, needed a square root the
+language does not have, wrote one, and tested it at 1e300. The square root
+converged; the formatter did not. Three roadmap entries came with it — no
+`sqrt`, `min` or randomness anywhere in the language, a child's stderr that
+cannot be discarded, and what the new checker does not check.
+
 **0.20.0** — a testing release; no code changed and `.sob` files are format
 version 14, unchanged. **Everything this repository writes down about what it
 prints is now checked on every build** — 589 claims across 40 files, where

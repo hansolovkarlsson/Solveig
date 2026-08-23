@@ -5,7 +5,43 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## 0.21.0 — 2026-08-22
+
+**A fix release, and the fix is a memory-safety one.** `1e150:asString("0.6")`
+answered a 157-character string of which **93 characters were whatever lay
+behind a 64-byte stack buffer**, and a script could print them. An over-read
+rather than a write, so nothing was corrupted; what leaked was stack, into a
+value a program can inspect. For a host running a script it did not write, that
+is the wrong direction for bytes to travel. `.sob` files are format version 14,
+unchanged, and the only behaviour that differs is that a large float asked for
+decimals now answers its digits rather than the right number of the wrong bytes.
+
+**It was found by the tenth program**, and that is the part worth the note.
+[bench.sol](../programs/bench.sol) times a command repeatedly and says whether
+two commands really differ. It needed a square root the language does not have,
+wrote one, and tested it at 1e300 to see whether it converged. It did. The
+formatter did not. The bug is in the float printer and has nothing to do with
+square roots — two absences compounding, a program reaching for a function that
+is missing and the edges of what it wrote landing where the printer had never
+been.
+
+**Three roadmap entries, each by the admission rule.**
+[3.14](ROADMAP.md#314-there-is-no-square-root-no-minimum-and-no-randomness) —
+there is no `sqrt`, `pow`, `min`, `max`, and no source of randomness anywhere in
+the language; this had been deferred in [ideas.md](ideas.md) with the trigger *a
+program wanting one*, and this is that program.
+[3.15](ROADMAP.md#315-a-childs-streams-cannot-be-redirected) — a child's stderr
+cannot be discarded, and a benchmark harness is the one program that cannot buy
+its way out through `/bin/sh`, a shell being another fork and exec of the same
+order as the thing measured.
+[3.16](ROADMAP.md#316-what-the-checker-does-not-check) — what 0.20.0's checker
+does not check: a fenced block that fails to compile is counted and skipped, and
+prose is not read at all.
+
+**The measurement the tool was built for, first time out:** starting the machine
+at all costs 2.6ms, so about 15% of a 17.7ms run of the documentation checker is
+fork, exec, loader, and a VM built and thrown away. This repository has quoted
+timings for six releases, every one taken by hand, once.
 
 ### The day written down, and what the checker does not check — `0563781`, 2026-08-22
 
