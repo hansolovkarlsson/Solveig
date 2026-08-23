@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### Constants, and the measurement that redirected the question — `pending`, 2026-08-24
+### Constants, and the measurement that redirected the question — `1ec00a3`, 2026-08-24
 
 Asked whether the language should have constants, either as new assignment
 syntax or as a `@constant` directive. Written down in
