@@ -1,8 +1,13 @@
-; expect.sol -- run every example and check it does what its comments claim.
+; expect.sol -- check that what is written down is true.
 ;
 ; Run with:  ./bin/solas programs/expect.sol && ./bin/solvm programs/expect.sob
-; Over a directory of your own:  ./bin/solvm programs/expect.sob examples
-; One file:  ./bin/solvm programs/expect.sob examples/numbers.sol
+; Over the documentation:  ./bin/solvm programs/expect.sob docs
+; A directory or one file:  ./bin/solvm programs/expect.sob docs/GUIDE.md
+;
+; Two subjects, one job. `examples/` carries about four hundred claims in
+; comments; `docs/` carries two hundred more inside ``` fences, in the same
+; notation. Nothing checked either until this existed, and both are read far
+; more than anything else here.
 ;
 ; The ninth program here, and the one with the narrowest customer: this
 ; repository. The job is real all the same. `examples/` carries 276 inline
@@ -52,9 +57,9 @@ single := nil.
 
 system:arguments:size:greaterThan(#0):ifTrue({ | given |
     given := system:arguments:at(#1).
-    given:indexOf(".sol"):isNil:ifElse(
-        { directory := given },
-        { single := given. directory := nil }) }).
+    given:indexOf(".sol"):notNil:or({ given:indexOf(".md"):notNil }):ifElse(
+        { single := given. directory := nil },
+        { directory := given }) }).
 
 ; ---------------------------------------------------------------------------
 ; Reading the expectations out of a source file
@@ -137,6 +142,94 @@ silentPrintsIn := { source | | count, cut, code |
     count }.
 
 ; ---------------------------------------------------------------------------
+; Fenced blocks, for the documentation
+;
+; The guide and the reference make the same kind of claim the examples do, in
+; the same notation, inside ``` fences -- and until this nothing checked one of
+; those either. They are the two documents a newcomer actually reads.
+;
+; Three things differ from a .sol file.
+;
+;   1. **A block is its own program.** Almost all of them turn out to be
+;      self-contained: 78 of the 80 that carry a claim compile on their own,
+;      which says something good about how the documents were written.
+;
+;   2. **A claim may sit on a line that prints nothing.** `#4:timesCollect({...})
+;      ; [#1, #4, #9, #16]` describes the *answer*, not output. The rule from
+;      the examples -- the line must print -- excludes those, correctly, and
+;      they are counted as unchecked rather than guessed at.
+;
+;   3. **A block may show an error.** The two that do not compile are not
+;      broken; they carry the message inline as if it were code:
+;
+;          #2:add(1.5).
+;          solvm: 'add' expects integer, got float (no implicit coercion)
+;
+;      Those lines are output, not program. They are the most valuable thing
+;      here to check, because error wording drifts more than anything else in
+;      the documents, and nothing has ever checked one.
+
+string:isDocumentedOutput := { | t |
+    t := self:trim.
+    t:indexOf("solvm:"):equals(#1)
+        :or({ t:indexOf("solas:"):equals(#1) })
+        :or({ t:indexOf("solis:"):equals(#1) }) }.
+
+; Did the run fail in a way the block did not say it would? An error nobody
+; documented means the block needed something it did not carry.
+failed := { output, documented | | bad |
+    bad := false.
+    output:do({ line |
+        line:isDocumentedOutput:and({ documented:indexOf(line:trim):isNil })
+            :ifTrue({ bad := true }) }).
+    bad }.
+
+; The lines between a pair of ``` fences, each with the line it started on.
+blocksIn := { source | | out, n, inBlock, cur, start |
+    out := array:new. n := #0. inBlock := false. cur := array:new. start := #0.
+    source:split("\n"):do({ line |
+        n := n:add(#1).
+        line:size:greaterOrEqual(#3):and({ line:copyFrom(#1, #3):equals("```") })
+            :ifElse(
+                { inBlock:ifElse(
+                    { out:add([start, cur]). cur := array:new. inBlock := false },
+                    { inBlock := true. start := n }) },
+                { inBlock:ifTrue({ cur:add(line) }) }) }).
+    out }.
+
+; A block splits at its first documented output: everything before is the
+; program that produces it, and everything after is not reached, because the
+; error stopped the run. Reported rather than guessed at.
+;
+; Answers [codeText, expectedOutputs, linesNotReached].
+; Answers [codeText, expectedOutputs, linesNotReached].
+;
+; Only the **first** run of output lines is reachable. A page that shows four
+; refusals in one block --
+;
+;     symbol:new.
+;     solvm: a symbol is written 'name, or made from a string with asSymbol
+;     block:new.
+;     solvm: a block is written { ... } and compiled
+;
+; -- documents four errors and produces one, because the first stops the
+; program. Checking the rest would be asking a run to do what no run does.
+splitBlock := { lines | | code, outputs, unreached, seen, past |
+    code := array:new. outputs := array:new.
+    unreached := #0. seen := false. past := false.
+    lines:do({ line |
+        line:isDocumentedOutput:ifElse(
+            { past:ifElse(
+                { unreached := unreached:add(#1) },
+                { seen := true. outputs:add(line:trim) }) },
+            { seen:ifElse(
+                { past := true.
+                  line:trim:equals(""):ifFalse({
+                      unreached := unreached:add(#1) }) },
+                { code:add(line) }) }) }).
+    [code:join("\n"):concat("\n"), outputs, unreached] }.
+
+; ---------------------------------------------------------------------------
 ; Running one
 
 failures := array:new.
@@ -144,9 +237,131 @@ stopped := #0.
 checked := #0.
 unchecked := #0.
 files := #0.
+blocks := #0.
+standalone := #0.
+notReached := #0.
 
-check := { path | | source, name, sob, result, output, expected, at, i,
-                    found, gap, ok, built |
+; Writes `source`, compiles it, runs it, and answers its output as lines --
+; or nil when it would not compile, which the caller reports.
+;
+; `mergeErrors` is for the documentation, where a block may show the error a
+; statement makes and that message is the thing worth checking. The examples
+; keep stdout alone, so that a complaint on stderr cannot accidentally satisfy
+; a claim about what was printed.
+; Compiles `sol` and runs it. The .sol file is compiled **where it lies**,
+; because `@include` looks beside the including file first -- moving
+; examples/include.sol to build/ and compiling it there loses library.sol, which
+; is how this was found.
+sandbox := "build/expect-run".
+
+runFile := { sol, tag, mergeErrors, sandboxed | | sob, result, where |
+    sob := "build/expect-":concat(tag):concat(".sob").
+
+    system:run(["./bin/solas", sol, "-o", sob]):equals(#0):ifElse(
+        { ; **Run somewhere it cannot do any harm.** This executes
+          ; documentation, and documentation shows how to delete things:
+          ; `system:run(["rm", name])`, `system:remove("build")`,
+          ; `system:writeFile("notes.txt", ...)`. Most of those blocks name
+          ; something undefined and fail before they reach the filesystem, but
+          ; not all -- the writeFile one has literal arguments and put a file
+          ; back into the repository that a commit had deliberately deleted,
+          ; which is how this was noticed.
+          ;
+          ; So the run happens in a scratch directory. Anything a block writes
+          ; by a relative name lands there, and anything it deletes was already
+          ; disposable. Compiling still happens from the root, which is what
+          ; `@include` needs to find the shipped library.
+          ;
+          ; Standard input comes from nowhere too, because the reference
+          ; documents `readLine` and a block that calls one would otherwise wait
+          ; for a person who is not there. That one hung.
+          ; A shipped example is **not** sandboxed: those run from the repository
+          ; root by the project's own convention -- walk.sol defaults its root to
+          ; `examples` and time.sol stamps `examples/time.sol`, and both stop
+          ; working anywhere else. Only a block from a document, which belongs to
+          ; nowhere, is moved.
+          sandboxed:ifTrue({
+              system:isDirectory(sandbox):ifFalse({
+                  system:makeDirectory(sandbox) }) }).
+          where := sandboxed:ifElse(
+              { "cd ":concat(sandbox):concat(" && ../../bin/solvm ../../") },
+              { "./bin/solvm " }).
+          result := system:capture(["/bin/sh", "-c",
+              where:concat(sob)
+                   :concat(mergeErrors:ifElse(
+                       { " 2>&1" }, { " 2>/dev/null" }))
+                   :concat(" < /dev/null")]).
+          result:at("status"):equals(#0):ifFalse({ stopped := stopped:add(#1) }).
+          result:at("output"):split("\n") },
+        { nil }) }.
+
+; The same for source that has no file of its own -- a fenced block. It goes to
+; build/, which is right for it: a block in the documentation includes by name
+; from the search path, never from beside a file it does not have.
+runSource := { source, tag, mergeErrors | | sol |
+    sol := "build/expect-":concat(tag):concat(".sol").
+    system:writeFile(sol, source).
+    runFile:value(sol, tag, mergeErrors, true) }.
+
+; A line the block says the program writes, checked for presence and not for
+; position.
+;
+; **Order is not assertable here.** With stderr merged into stdout the two
+; interleave by buffering rather than by source: a `solvm:` complaint is
+; unbuffered and arrives before a `print` that ran earlier. Requiring these in
+; sequence with the claims reported a message that was word for word correct,
+; which is how this was found.
+matchAnywhere := { expected, output, subject | | ok |
+    ok := #0.
+    expected:do({ want | | seen |
+        seen := false.
+        output:do({ line | line:trim:equals(want):ifTrue({ seen := true }) }).
+        seen:ifElse(
+            { ok := ok:add(#1) },
+            { failures:add([subject, #0, want,
+                  "the run did not write this line"]) }) }).
+    ok }.
+
+; Each expectation must appear in the output, and after the one before it. Not
+; line for line, because one statement can print many lines. Answers how many
+; held; adds one report per subject on the first that did not.
+matchAll := { expected, output, subject | | at, i, found, ok |
+    at := #1. i := #1. ok := #0.
+    { i:lessOrEqual(expected:size) }:whileTrue({
+        found := nil.
+        { found:isNil:and({ at:lessOrEqual(output:size) }) }:whileTrue({
+            satisfies:value(output:at(at):trim, expected:at(i)):ifTrue({
+                found := at }).
+
+            ; A claim may describe several lines at once, which
+            ; `#3:repeat({ "tick":display })` does -- three lines of output
+            ; under one comment reading `tick tick tick`. Try the run of lines
+            ; from here, joined, before giving up on this one.
+            found:isNil:and({ at:lessThan(output:size) }):ifTrue({ | j, joined |
+                j := at. joined := output:at(at):trim.
+                { found:isNil:and({ j:lessThan(output:size) })
+                      :and({ joined:size:lessOrEqual(expected:at(i):size) })
+                }:whileTrue({
+                    j := j:add(#1).
+                    joined := joined:concat(" "):concat(output:at(j):trim).
+                    satisfies:value(joined, expected:at(i)):ifTrue({
+                        found := j }) }) }).
+
+            at := at:add(#1) }).
+
+        found:isNil:ifElse(
+            { failures:add([subject, i, expected:at(i),
+                  "no line of the output says this"]).
+              i := expected:size:add(#1) },       ; one report per subject
+            { at := found:add(#1).
+              ok := ok:add(#1).
+              i := i:add(#1) }) }).
+    ok }.
+
+; ---------------------------------------------------------------------------
+; A .sol file, checked against its own comments
+
+checkSol := { path | | source, expected, name, output |
     source := system:readFile(path).
     expected := expectationsIn:value(source).
     unchecked := unchecked:add(silentPrintsIn:value(source)).
@@ -154,61 +369,70 @@ check := { path | | source, name, sob, result, output, expected, at, i,
     expected:size:equals(#0):ifFalse({
         files := files:add(#1).
         name := path:split("/"):last(#1):at(#1).
-        sob := "build/expect-":concat(name:copyFrom(#1, name:size:sub(#4)))
-                              :concat(".sob").
+        name := name:copyFrom(#1, name:size:sub(#4)).
 
-        built := system:run(["./bin/solas", path, "-o", sob]):equals(#0).
-        built:ifElse(
-            { result := system:capture(["./bin/solvm", sob]).
-              output := result:at("output"):split("\n").
+        output := runFile:value(path, name, false, false).
+        output:isNil:ifElse(
+            { failures:add([path, #0, "would not compile", ""]) },
+            { checked := checked:add(matchAll:value(expected, output, path)) }) }) }.
 
-              ; A non-zero status is worth saying rather than hiding: an example
-              ; that stops early has not disproved its comments, it has stopped
-              ; answering for them. reading.sol is one, having no input to read.
-              ; A non-zero status is not a failure by itself: system.sol ends
-              ; with `system:exit(#2)` on purpose and strictness.sol ends with
-              ; an uncaught error on purpose, both to show what one looks like.
-              ; It is worth counting, because a program that stopped early has
-              ; not disproved its remaining comments so much as stopped
-              ; answering for them.
-              result:at("status"):equals(#0):ifFalse({
-                  stopped := stopped:add(#1) }).
+; ---------------------------------------------------------------------------
+; A .md file, checked block by block
 
-              at := #1. i := #1. ok := #0.
-              { i:lessOrEqual(expected:size) }:whileTrue({
-                  found := nil.
-                  { found:isNil:and({ at:lessOrEqual(output:size) }) }:whileTrue({
-                      satisfies:value(output:at(at):trim, expected:at(i))
-                          :ifTrue({ found := at }).
+checkMarkdown := { path | | source, name, n, expected, parts, output, label |
+    source := system:readFile(path).
+    name := path:split("/"):last(#1):at(#1).
+    name := name:split("."):at(#1).
+    n := #0.
 
-                      ; A claim may describe several lines at once, which
-                      ; `#3:repeat({ "tick":display })` does -- three lines of
-                      ; output under one comment reading `tick tick tick`. Try
-                      ; the run of lines from here, joined, before giving up on
-                      ; this one.
-                      found:isNil:and({ at:lessThan(output:size) }):ifTrue({
-                                | j, joined |
-                          j := at. joined := output:at(at):trim.
-                          { found:isNil:and({ j:lessThan(output:size) })
-                                :and({ joined:size:lessOrEqual(expected:at(i):size) })
-                          }:whileTrue({
-                              j := j:add(#1).
-                              joined := joined:concat(" "):concat(output:at(j):trim).
-                              satisfies:value(joined, expected:at(i)):ifTrue({
-                                  found := j }) }) }).
+    blocksIn:value(source):do({ block | | code, outputs |
+        n := n:add(#1).
+        parts := splitBlock:value(block:at(#2)).
+        code := parts:at(#1).
+        outputs := parts:at(#2).
 
-                      at := at:add(#1) }).
+        ; The claims written on printing lines, then the output the block says
+        ; the program makes. Both are lines of what it produced, in order, so
+        ; one list checks both.
+        expected := expectationsIn:value(code).
+        unchecked := unchecked:add(silentPrintsIn:value(code)).
+        notReached := notReached:add(parts:at(#3)).
 
-                  found:isNil:ifElse(
-                      { failures:add([path, i, expected:at(i),
-                            "no line of the output says this"]).
-                        i := expected:size:add(#1) },   ; one report per file
-                      { at := found:add(#1).
-                        ok := ok:add(#1).
-                        i := i:add(#1) }) }).
+        ; A block with no code is an illustration -- what an error looks like,
+        ; what a session looks like -- and there is nothing to run. Not
+        ; checkable, and saying so is better than running the empty program and
+        ; reporting that it did not produce the output.
+        expected:size:add(outputs:size):equals(#0)
+            :or({ code:trim:equals("") }):ifFalse({
+            label := "{}:{}":fill([path, block:at(#1)]).
+            output := runSource:value(code,
+                name:concat("-"):concat(n:asString), true).
 
-              checked := checked:add(ok) },
-            { failures:add([path, #0, "would not compile", ""]) }) }) }.
+            ; A block that will not compile, or that fails with an error it did
+            ; not document, is one that does not stand on its own -- it
+            ; continues a block further up, or it is a fragment showing syntax
+            ; rather than a program. **Not a failure, and not checked**: the two
+            ; are different and a checker that confused them would be reporting
+            ; the documentation for being written the way documentation is
+            ; written. Counted, and the count is printed, because a checker that
+            ; silently verified a quarter of its subject would be worse than
+            ; none.
+            output:isNil:ifElse(
+                { standalone := standalone:add(#1) },
+                { failed:value(output, outputs):ifElse(
+                    { standalone := standalone:add(#1) },
+                    { blocks := blocks:add(#1).
+                      checked := checked:add(
+                          matchAll:value(expected, output, label)).
+                      checked := checked:add(
+                          matchAnywhere:value(outputs, output, label)) }) }) }) }).
+
+    files := files:add(#1) }.
+
+check := { path |
+    path:indexOf(".md"):isNil:ifElse(
+        { checkSol:value(path) },
+        { checkMarkdown:value(path) }) }.
 
 ; ---------------------------------------------------------------------------
 ; Running all of them
@@ -218,7 +442,14 @@ single:isNil:ifElse(
           "{} is not a directory":fill([directory]):display.
           system:exit(#1) }).
       system:filesIn(directory):sorted:do({ name |
-          name:indexOf(".sol"):notNil:ifTrue({
+          ; The changelog is skipped, and it is the only exception. It is a
+          ; record of what was true at each release, so its snippets describe
+          ; past states on purpose -- an entry from 0.4.0 showing what an error
+          ; said then is right to keep saying it. Every other document in docs/
+          ; describes the language as it is now, and is checked.
+          name:equals("CHANGELOG.md"):not:and({
+              name:indexOf(".sol"):notNil:or({ name:indexOf(".md"):notNil })
+          }):ifTrue({
               check:value(directory:concat("/"):concat(name)) }) }) },
     { system:fileExists(single):ifFalse({
           "no such file: {}":fill([single]):display.
@@ -232,6 +463,16 @@ single:isNil:ifElse(
 "{} file{} with expectations, {} claim{} checked"
     :fill([files, files:equals(#1):ifElse({""},{"s"}),
            checked, checked:equals(#1):ifElse({""},{"s"})]):display.
+blocks:greaterThan(#0):ifTrue({
+    "{} of them fenced blocks that stand on their own"
+        :fill([blocks]):display }).
+standalone:greaterThan(#0):ifTrue({
+    "{} block{} not checked: each continues one further up, or shows syntax "
+        :concat("rather than a program")
+        :fill([standalone, standalone:equals(#1):ifElse({""},{"s"})]):display }).
+notReached:greaterThan(#0):ifTrue({
+    "{} line{} sit after an error a block documents, and never run"
+        :fill([notReached, notReached:equals(#1):ifElse({""},{"s"})]):display }).
 unchecked:greaterThan(#0):ifTrue({
     "{} line{} print without saying what, and are not checked"
         :fill([unchecked, unchecked:equals(#1):ifElse({""},{"s"})]):display }).

@@ -721,9 +721,9 @@ An error reports a message and a stack, innermost first:
 
 ```
 solvm: integer does not understand 'frobnicate'
-  [line 1] in block
-  [line 2] in block
-  [line 3] in script
+  [report.sol:1] in block
+  [report.sol:1] in block
+  [report.sol:2] in script
 ```
 
 Assignment inside a block will not quietly create a global, so a typo cannot
@@ -862,7 +862,7 @@ a value and not a class: one object, holding what belongs to the program rather
 than to anything inside it.
 
 ```
-system:arguments:size:print.            ; how many arguments it was given
+system:arguments:size:print.            ; -- how many it was given
 system:clock:isKindOf(float):print.     ; true -- monotonic seconds
 system:exit(#0).                        ; stop, and say it went well
 ```
@@ -965,7 +965,7 @@ useful thing to do with two readings is subtract them:
 ```
 start := system:clock.
 i := #0. { i:lessThan(#100000) }:whileTrue({ i := i:add(#1) }).
-system:clock:sub(start):asString("0.4"):display.     ; 0.0153
+system:clock:sub(start):asString("0.4"):display.     ; -- 0.0153, or thereabouts
 ```
 
 **`system:time` is a different thing from `system:clock`**, and the difference
@@ -975,9 +975,9 @@ of, and show:
 
 ```
 now := system:time.
-now:print.                                   ; 2026-08-21T16:57:41Z
+now:print.                                   ; -- a time, like 2026-08-21T16:57:41Z
 now:year:print.                              ; #2026
-now:asString("%Y-%m-%d"):display.            ; 2026-08-21
+now:asString("%Y-%m-%d"):display.            ; -- today, as %Y-%m-%d
 system:modifiedAt("notes.txt"):asString("%H:%M"):display.
 ```
 
@@ -1007,10 +1007,10 @@ are well under it. So a single run measures the floor rather than the block, and
 a count is how anything smaller gets measured:
 
 ```
-{ #1:add(#1) }:timeToRun:print.                  ; 0, or 0.000001 -- the floor
+{ #1:add(#1) }:timeToRun:print.                  ; -- 0, or 0.000001: the floor
 
 total := { #1:add(#1) }:timeToRun(#200000).      ; the total for all of them
-total:div(200000.0):asString(".9"):display.      ; 0.000000088 -- or thereabouts
+total:div(200000.0):asString(".9"):display.      ; -- 0.000000088, thereabouts
 ```
 
 > **Run:** [examples/system.sol](../examples/system.sol),

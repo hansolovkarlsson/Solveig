@@ -5,6 +5,65 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+### The documentation now has to mean what it says — `pending`, 2026-08-22
+
+[programs/expect.sol](../programs/expect.sol) checked the examples' comments;
+it now checks the documents' too. **586 claims on every build** — 398 in
+`examples/` and **188 across seventeen documents** — in about four seconds.
+
+The guide and the reference carry the same notation inside ``` fences that the
+examples carry in comments, and nothing checked one of those either. They are
+the two documents a newcomer actually reads.
+
+**Two things were wrong.**
+
+The guide showed a stack trace reading `[line 1] in block`. Traces have named
+the file since
+[6.27](COMPLETED.md#627-a-stack-trace-does-not-say-which-file--done) — the
+illustration predates that and was never updated.
+
+[class-and-instance.md](class-and-instance.md) said `integer` has **24** slots,
+in three places. It has **38**: messages were added over nine releases and the
+count was not. That number is safe to state precisely *because* it is checked
+now.
+
+**A block that does not stand alone is not checked, and not a failure.** 40 of
+152 blocks continue one further up or show syntax rather than a program. The
+checker counts them and prints the count — one that silently verified a quarter
+of its subject would be worse than none, which was the caveat given before any
+of this was written.
+
+**Five bugs in the checker, each found by it doing something visible.** A `.sol`
+must be compiled *where it lies*, because `@include` looks beside the including
+file — moving `examples/include.sol` to `build/` lost `library.sol`. Standard
+input must come from nowhere, or a block documenting `readLine` waits for a
+person who is not there; that one hung. Only the **first** documented error in a
+block is reachable, since the first stops the program — a page showing four
+refusals produces one. And documented output cannot be checked *in order* with
+the claims: with stderr merged, an unbuffered complaint arrives before a
+buffered `print` that ran earlier, which reported a message that was word for
+word correct.
+
+And the fifth, which is the one worth the entry: **the checker executes
+documentation, and documentation shows how to delete things.** `system:run(["rm",
+name])`, `system:remove("build")`, `system:writeFile("notes.txt", ...)`. Most of
+those name something undefined and fail before reaching the filesystem — but the
+`writeFile` has literal arguments, ran, and **put back a file that a commit had
+deliberately deleted**, which is how it was noticed. Blocks from a document now
+run in `build/expect-run`, so anything they write lands somewhere disposable.
+A shipped example is *not* moved: those run from the repository root by
+convention, and `walk.sol` and `time.sol` both stop working anywhere else.
+
+`CHANGELOG.md` is the one document skipped: it records what was true at each
+release, so its snippets describe past states on purpose.
+
+Twelve comments across the documents were marked as asides with a leading `--`,
+the convention the examples already use — a timestamp, three clock readings, and
+glosses like `; control flow is` / `; ordinary sending`, which read as a sentence
+across two lines rather than as claims about output.
+
 ## 0.19.0 — 2026-08-22
 
 **A documentation release. No code changed** — the only edit outside `docs/` is

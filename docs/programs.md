@@ -26,7 +26,7 @@ is the map; the file is the argument.
 | [tools](../programs/tools.sol) | reports on a directory by running other programs | `solvm tools.sob [directory]` |
 | [serve](../programs/serve.sol) | answers one HTTP request | `PATH_INFO=/ solvm serve.sob` |
 | [disasm](../programs/disasm.sol) | reads a `.sob` file and says what is in it | `solvm disasm.sob [file.sob] [brief]` |
-| [expect](../programs/expect.sol) | checks every example against its own comments | `solvm expect.sob [dir or file]` |
+| [expect](../programs/expect.sol) | checks the examples and the documents against their own claims | `solvm expect.sob [dir or file]` |
 
 Every one runs with no arguments at all, on input it supplies itself. That is
 deliberate — a program you have to feed before it will say anything is a program
@@ -336,7 +336,7 @@ going to the C only where those ran out. They ran out five times.
 targets to `solvm --dump` over eight files and 7,673 instructions, including
 `lib/json.sol` and `lib/html.sol`.
 
-## expect — the examples, checked against what they claim
+## expect — the examples and the documents, checked against what they claim
 
 Runs every file in `examples/` and checks the inline comments that say what each
 line prints.
@@ -364,8 +364,34 @@ table had when [disasm](#disasm--a-sob-file-read-and-disassembled) found it
 three sections out of date. They are also the first thing a newcomer reads.
 
 **It is in `make test` now**, in `tests/test_cli.c` with the other tests that
-run the binaries as a shell would. About a third of a second for all twenty-one
-files, and it fails the build if a claim stops holding.
+run the binaries as a shell would — **586 claims on every build**, in about four
+seconds, and it fails the build if one stops holding.
+
+**And it checks the documentation too.** The guide and the reference carry the
+same notation inside ``` fences, and nothing checked those either — they are the
+two documents a newcomer actually reads. 188 claims across seventeen documents.
+
+**A block from a document runs in a scratch directory**, because this executes
+documentation and documentation shows how to delete things — one block with
+literal arguments put back a file a commit had deliberately removed. A shipped
+example is not moved: those run from the repository root by convention.
+
+That half found two things. The guide showed a stack trace reading
+`[line 1] in block`, a format that predates
+[6.27](COMPLETED.md#627-a-stack-trace-does-not-say-which-file--done) adding the
+filename — the illustration was never updated when the format changed. And
+[class-and-instance.md](class-and-instance.md) said `integer` has 24 slots,
+three times, where it has **38**: messages were added and the count was not.
+That number is safe to state now precisely *because* it is checked.
+
+**A block that does not stand alone is not checked and not a failure.** Many
+continue a block further up, and some show syntax rather than a program; the
+checker counts them and prints the count, because one that silently verified a
+quarter of its subject would be worse than none. 40 of 152 blocks are in that
+category, and saying so is the point.
+
+`CHANGELOG.md` is the one document skipped — it records what was true at each
+release, so its snippets describe past states on purpose.
 
 **What it found.** Every claim that states a value holds — all 398. What it
 turned up instead was that the examples used **three conventions** for these

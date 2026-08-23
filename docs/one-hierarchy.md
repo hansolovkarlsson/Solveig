@@ -69,6 +69,8 @@ One definition, eleven kinds of receiver. Reflection walks the same chain, so it
 agrees:
 
 ```
+object:describe := { "understood by ":concat(self:asString) }.
+
 #45:respondsTo('describe):print.   ; true
 #45:isKindOf(integer):print.       ; true
 #45:isKindOf(object):print.        ; true

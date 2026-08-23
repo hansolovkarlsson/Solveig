@@ -562,7 +562,7 @@ writer, written in Solum.
 v := json:read("{\"server\": {\"port\": 8080}, \"tags\": [\"a\", \"b\"]}").
 v:at("server"):at("port"):print.       ; #8080
 v:asJson:display.                      ; {"server":{"port":8080},"tags":["a","b"]}
-json:write(v):display.                 ; the same, indented over several lines
+json:write(v):display.                 ; -- the same, indented over lines
 ```
 
 | Message | Answers |
@@ -1039,7 +1039,7 @@ subtract them, and a wall clock can go backwards in between.
 ```
 start := system:clock.
 i := #0. { i:lessThan(#100000) }:whileTrue({ i := i:add(#1) }).
-system:clock:sub(start):asString("0.4"):display.     ; 0.0147 -- whatever it took
+system:clock:sub(start):asString("0.4"):display.     ; -- 0.0147, or thereabouts -- whatever it took
 ```
 
 `{ ... }:timeToRun` does the same without the bookkeeping, answering the seconds
@@ -1054,7 +1054,7 @@ block — `0` most times, one whole microsecond when the two readings happen to
 fall either side of a tick:
 
 ```
-{ #1:add(#1) }:timeToRun:print.        ; 0, or 0.000001 -- the floor, either way
+{ #1:add(#1) }:timeToRun:print.        ; -- 0, or 0.000001: the floor
 ```
 
 `timeToRun(#n)` runs the block `n` times and answers the **total**, which is how
@@ -1062,7 +1062,7 @@ anything smaller than a microsecond gets measured:
 
 ```
 total := { #1:add(#1) }:timeToRun(#200000).
-total:div(200000.0):asString(".9"):display.      ; 0.000000088 -- or thereabouts
+total:div(200000.0):asString(".9"):display.      ; -- 0.000000088, thereabouts -- or thereabouts
 ```
 
 The total rather than the average, because the total is the measurement and the

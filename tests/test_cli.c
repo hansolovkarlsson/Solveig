@@ -490,6 +490,45 @@ static void test_the_examples_do_what_they_claim(void)
     printf("  every claim the examples make holds (%d of them)\n", claims);
 }
 
+/* And every claim the documentation makes about its own output.
+ *
+ * The guide and the reference carry the same notation inside ``` fences, and
+ * nothing checked one of those either -- they are the two documents a newcomer
+ * actually reads. Checking them found the guide showing a stack trace in a
+ * format that predates 6.27, and class-and-instance.md saying `integer` has 24
+ * slots when it has 38.
+ *
+ * A block that continues one further up, or that shows syntax rather than a
+ * program, is **not checked and not a failure** -- the checker counts those and
+ * prints the count, because one that silently verified a quarter of its subject
+ * would be worse than none.
+ *
+ * CHANGELOG.md is the one document skipped: it records what was true at each
+ * release, so its snippets describe past states on purpose. */
+static void test_the_documents_do_what_they_claim(void)
+{
+    char out[64 * 1024];
+
+    assert(run("bin/solas programs/expect.sol -o " DIR "/expect.sob 2>&1",
+               out, sizeof out) == 0);
+
+    int status = run("bin/solvm " DIR "/expect.sob docs 2>/dev/null",
+                     out, sizeof out);
+    if (status != 0 || strstr(out, "every claim holds") == NULL) {
+        printf("\n%s\n", out);
+        assert(false);
+    }
+
+    int claims = 0;
+    const char *at = strstr(out, "claims checked");
+    assert(at != NULL);
+    while (at > out && *at != ',') at--;
+    assert(sscanf(at, ", %d claims checked", &claims) == 1);
+    assert(claims >= 150);
+
+    printf("  every claim the documents make holds (%d of them)\n", claims);
+}
+
 int main(void)
 {
     test_help_is_not_an_error();
@@ -508,6 +547,7 @@ int main(void)
     test_a_memory_limit_measures_what_is_held();
     test_the_limits_are_off_and_are_checked();
     test_the_examples_do_what_they_claim();
+    test_the_documents_do_what_they_claim();
     printf("test_cli: ok\n");
     return 0;
 }

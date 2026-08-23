@@ -249,8 +249,8 @@ Braces make a block -- code as a value:
 b := { #21:add(#21) }.     ; nothing runs here
 b:value():print.           ; #42
 
-true:ifTrue({ #1:print }).                              ; control flow is
-#5:lessThan(#10):ifElse({ #100:print }, { #200:print }). ; ordinary sending
+true:ifTrue({ #1:print }).                              ; -- control flow is
+#5:lessThan(#10):ifElse({ #100:print }, { #200:print }). ; -- ordinary sending
 
 i := #0.
 { i:lessThan(#5) }:whileTrue({ i := i:add(#1) }).
