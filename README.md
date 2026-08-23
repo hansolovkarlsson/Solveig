@@ -107,6 +107,19 @@ No dependencies beyond a C11 compiler and `make`.
 
 ## Status
 
+**0.19.0** — a documentation release; no code changed and `.sob` files are
+format version 14, unchanged. The roadmap now has **nothing left to decide**:
+6.32, whether a script should run with less than the whole machine, was deferred
+rather than taken and moved to [ideas.md](docs/ideas.md), being the only entry
+that ever came from a concern rather than from a program.
+[docs/lineage.md](docs/lineage.md) is new and places the language among
+Smalltalk, Self, Io, Lua and Ruby — read it first if you already write another
+language. Surveying what those have that this might want produced exactly one
+roadmap entry, and it came from this repository's own programs:
+[3.13](docs/ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing), a
+loop is left by its condition or by failing, with nine of 69 loops here carrying
+a boolean whose only job is to stop one.
+
 **0.18.0** — **`.sob` format 14, so recompile**: a file built by 0.17.0 or
 earlier is refused with *unsupported bytecode version*, and the remedy is
 `solas` again, which costs nothing since a `.sob` is derived from a `.sol` that

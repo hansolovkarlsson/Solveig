@@ -5,7 +5,53 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## 0.19.0 — 2026-08-22
+
+**A documentation release. No code changed** — the only edit outside `docs/` is
+three comments in `embed/host.c` retargeted after 6.32 moved. `.sob` files are
+format version 14, unchanged, and every binary behaves exactly as it did in
+0.18.0.
+
+**The roadmap has nothing left to decide.**
+[6.32](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine) —
+whether a script should run with less than the whole machine — was **deferred
+rather than taken**, and moved to [ideas.md](ideas.md) keeping its number. It
+was the only entry the roadmap ever held that came from a *concern* rather than
+from a program wanting something, and the concern is about a use this language
+does not have. Four days of reasoning are kept in full; the trigger is somebody
+running a script they did not write.
+
+**[lineage.md](lineage.md) is new**, and is the page to read first if you
+already write another language: what Solum took from Smalltalk and Self, that Io
+is its closest living relative and Lua its closest in engineering, and an *"if
+you already know…"* section for the five. Linked from the README, the guide's
+opening and the tutorial.
+
+**And then the question that page invited** — what those languages have that
+this might want. Surveyed in ideas.md, one entry each with a verdict, split from
+the roadmap by evidence. It produced exactly one roadmap entry, and that one came
+from this repository's own programs:
+
+[3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing), **a loop
+is left by its condition, or by failing.** A `whileTrue` body cannot end its own
+loop; a flag ends it at the *next* test, after the rest of the body runs, and the
+only exit from inside a body is `error:raise` caught outside. Nine of 69 loops
+here carry the workaround and two of them mention it — the seven silent ones
+being the better evidence, since seven files reaching for one shape without
+comment is an idiom rather than a complaint.
+
+Deferred with triggers: an early exit from a loop, intercepting a message that
+was not understood, a set type, and mathematics with a source of randomness —
+there is no random number source anywhere today. Turned down with reasons: tail
+calls, coroutines, multiple return values, resuming from an error, more than one
+parent.
+
+**Native C extensions were scoped** and filed in ideas.md: yes in principle, and
+half of it works today, since a primitive is already a C function pointer hung on
+an object. What is missing is a supported surface, a loader with an ABI, and
+somewhere for a foreign resource to live — the collector has no finalizer of any
+kind.
+
 
 ### What the relatives have, surveyed — and one roadmap entry from it — `579fcd7`, 2026-08-22
 
