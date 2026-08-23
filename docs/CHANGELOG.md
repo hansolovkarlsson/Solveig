@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### `@include`, and the wall at the end of it — `pending`, 2026-08-23
+### `@include`, and the wall at the end of it — `aeee2fa`, 2026-08-23
 
 The last construct. [compile.sol](../programs/compile.sol) does `@include` with
 the search-beside-then-search-path rule, compile-once, the depth limit, and the
