@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### Solum scans Solum — `pending`, 2026-08-23
+### Solum scans Solum — `ed4d1c6`, 2026-08-23
 
 [lib/lexer.sol](../lib/lexer.sol) is Solum's own tokens, scanned by Solum: all
 nineteen kinds, the shebang, the comments, the escapes, `45.` against `45.5`,
