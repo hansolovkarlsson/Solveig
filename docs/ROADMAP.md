@@ -687,7 +687,12 @@ a message send look like syntax exactly where the language works hardest to
 prove it is not one.
 
 **Recorded rather than answered**, and the shape an answer might take is in
-[ideas.md](ideas.md#an-early-exit-from-a-loop) with a trigger. What would make
+[ideas.md](ideas.md#an-early-exit-from-a-loop) with a trigger — which now
+includes a **working library prototype**: `{ ... }:forever` with `break` and
+`continue` as messages on `boolean`, so nothing is a keyword and the first of
+the two naming objections above dissolves. It costs 1.7× the flag idiom for a
+`break` and 5.0× when a `continue` fires every other pass, because a skipped
+iteration is a raise. Both sides of the fork below now have numbers. What would make
 this urgent is a loop whose body must *skip its remainder* once the flag is set:
 today every site either sets it at the tail of a branch or wants the rest to
 run, and the moment one does not, the flag has to be threaded through the body

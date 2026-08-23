@@ -7,6 +7,53 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### `forever`, `break` and `continue`, explored and measured — `pending`, 2026-08-24
+
+A loop with **no condition at all**, left only by breaking out of it:
+
+```
+{ ... :break ... :continue ... }:forever
+```
+
+Recorded under [an early exit from a loop](ideas.md#an-early-exit-from-a-loop),
+which had not considered this shape. Nothing is built; the entry now carries a
+working prototype and numbers on both sides of the fork
+[3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing) describes.
+
+**Two things about it are better than what was written down.** `break` need not
+be a keyword: as a message on `boolean` it reads `i:greaterThan(#10):break.`,
+sitting exactly where `ifTrue` would and answering nil when the receiver is
+false — which dissolves the objection that a `break` keyword would be the
+language's first control-flow keyword. And a conditionless loop makes `break`
+unambiguous, where bolting an exit onto `whileTrue` raises the question of what
+it means when the condition would have stopped the loop anyway.
+
+The other recorded objection survives untouched: `break` and `continue` are
+still Solid's commands, so the word is taken inside the project's own toolchain.
+
+**It is writable today, entirely in the library**, with `break` raising a marker
+that `forever` catches and anything else passing through — a real error still
+escapes. Measured over 200 runs of a 1,000-iteration loop, against the flag
+idiom it would replace:
+
+| | |
+| --- | --- |
+| the flag, in a literal `whileTrue` the compiler inlines | 0.058s |
+| `forever` with `break` | 0.097s — **1.7×** |
+| `forever` with a `continue` firing every other pass | 0.289s — **5.0×** |
+
+About 1.30× of that is what `control.sol` already records for any library
+loop — a block call per iteration, which an inlined `whileTrue` does not pay.
+The rest is the error machinery, and **`continue` is where it hurts**: a raise
+per skipped iteration, which is backwards, since skipping is meant to be the
+cheap case.
+
+**The trigger has still not fired**, and the entry is exact about why, because
+this proposal is nearly it. The trigger is *a loop whose body must skip its
+remainder* — which is what `continue` is for — but wanting the construct is not
+the same as a loop needing it, and no loop here has yet had to thread
+`done:not:ifTrue({ ... })` through its body.
+
 ### Constants, and the measurement that redirected the question — `1ec00a3`, 2026-08-24
 
 Asked whether the language should have constants, either as new assignment

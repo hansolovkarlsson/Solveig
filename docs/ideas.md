@@ -1114,6 +1114,74 @@ threaded through the body as `done:not:ifTrue({ ... })` and the workaround stops
 being a condition and starts nesting. That is a bug class rather than a
 readability complaint, and you would know it had happened.
 
+#### `forever`, and `break` as a message — 2026-08-24
+
+A shape was proposed that this entry had not considered: a loop with **no
+condition at all**, left only by breaking out of it.
+
+```
+{ ... :break ... :continue ... }:forever
+```
+
+Two things about it are better than what is above, and one problem survives
+untouched.
+
+**`break` need not be a keyword.** Written as a message on `boolean` it reads
+`i:greaterThan(#10):break.` — a send, sitting exactly where `ifTrue` would sit,
+and answering nil when the receiver is false. That dissolves the first of the
+two objections recorded above: there is no new keyword, and nothing starts
+looking like syntax. The second objection survives: `break` and `continue` are
+still Solid's commands, and the word is still taken inside the project's own
+toolchain.
+
+**A conditionless loop makes `break` unambiguous.** Bolting an exit onto
+`whileTrue` raises the question of what it means when the condition would also
+have stopped the loop; `forever` has nothing but its exits, so a `break` is the
+only thing it can be about. That is a cleaner construct than the one this entry
+was imagining, not merely a different spelling.
+
+**And it is writable today, entirely in the library**, with `break` and
+`continue` raising markers that `forever` catches and anything else passing
+through:
+
+```
+boolean:break := { self:ifTrue({ error:raise("--break--") }) }.
+
+block:forever := {
+    { { true }:whileTrue({ self:value }) }:onError({ e |
+        e:message:equals("--break--"):ifFalse({ error:raise(e:message) }) }).
+    nil }.
+```
+
+**What it costs, measured over 200 runs of a 1,000-iteration loop against the
+flag idiom it would replace:**
+
+| | |
+| --- | --- |
+| the flag, in a literal `whileTrue` the compiler inlines | 0.058s |
+| `forever` with `break` | 0.097s — **1.7×** |
+| `forever` with a `continue` firing every other pass | 0.289s — **5.0×** |
+
+Some of that is unavoidable in any library loop: `control.sol` records about
+1.30× for a block call per iteration, which `{ ... }:forever` pays and an
+inlined `whileTrue` does not. The rest is the error machinery, and **`continue`
+is where it hurts** — a raise per skipped iteration, which is exactly backwards,
+since skipping is meant to be the cheap case.
+
+**So the fork in [3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing)
+is unchanged and now has numbers on both sides.** A compiled `forever` is free —
+a backward jump, a forward jump, and a jump to the top — and makes the inlining
+semantic, which the compiler's own comment warns against by calling it *"an
+optimisation only; the meaning is exactly that of the message"*. A library
+`forever` exists, works, and costs 1.7× to 5×.
+
+**The trigger has still not fired**, and it is worth being exact about why, since
+this proposal is nearly it. The trigger is *a loop whose body must skip its
+remainder* — which is what `continue` is for. But wanting the construct is not
+the same as a loop needing it: no loop in this repository has yet had to thread
+`done:not:ifTrue({ ... })` through its body. The prototype above is what to
+reach for on the day one does.
+
 ### Intercepting a message that was not understood
 
 Smalltalk's `doesNotUnderstand:` and Io's `forward`: when a lookup fails, send
