@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### Default values for block parameters, recorded — `18274ea`, 2026-08-24
+### Default values for block parameters, recorded — `18274ea` and `6c89db4`, 2026-08-24
 
 Asked: could a block carry a default for a parameter, `{ x := #0 | body }`?
 Written down in [ideas.md](ideas.md#default-values-for-block-parameters) with a
