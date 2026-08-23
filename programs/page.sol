@@ -18,7 +18,7 @@
 ;
 ;   2. **The tree is built against a stack, not by recursion**, and that is what
 ;      takes it out of reach of the 62-frame limit (ROADMAP 3.5) that stops
-;      json.sol at 28 levels of nesting. Measured: this reads a document nested
+;      json.sol at 124 levels of nesting. Measured: this reads a document nested
 ;      50,000 deep. The catch was that walking the tree back down recursed, and
 ;      capped at 28 again -- so `text`, `find` and `findAll` are written with a
 ;      stack too. The limit is not a property of the data; it is a property of

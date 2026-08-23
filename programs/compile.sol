@@ -12,7 +12,7 @@
 ; **It compiles 42 of this repository's 46 `.sol` files to bytes identical to
 ; what `solas` produces.** The four it cannot are not a construct it lacks:
 ; they nest deeper than the parser has frames for. See
-; [3.5](../docs/ROADMAP.md#35-recursion-is-limited-to-about-62-levels).
+; [3.5](../docs/ROADMAP.md#35-recursion-is-limited-to-about-254-levels).
 
 @include "compiler.sol".
 

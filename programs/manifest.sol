@@ -25,7 +25,7 @@
 ; Three things it found, in the order they bit:
 ;
 ;   1. A recursive-descent parser spends the frame budget several times over per
-;      level of the document. 62 frames (ROADMAP 3.5) is 28 levels of JSON --
+;      level of the document. 256 frames (ROADMAP 3.5) is 124 levels of JSON --
 ;      and 18 if the value dispatch goes through a dictionary of blocks. The
 ;      limit is not felt as "62 recursions"; it is felt as a document that is
 ;      too deep, which is a different and much smaller number.

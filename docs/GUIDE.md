@@ -1043,6 +1043,6 @@ Known restrictions worth carrying with you:
 
 - A capturing block cannot outlive the frame it was written in.
 - There is no non-local return; a block answers its last expression.
-- Recursion reaches about 62 levels.
+- Recursion reaches about 254 levels.
 - Text is bytes: `size` counts bytes, and `"café":size` is 5.
 - A program can be stopped by whoever runs it, and cannot catch that.

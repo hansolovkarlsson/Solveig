@@ -916,7 +916,7 @@ traced (`solvm --trace`), stepped (`bin/solid`), and bounded (`--steps`,
 
 What is deliberately not there is in
 [ROADMAP.md](ROADMAP.md#3-known-limitations), and it is short: a capturing block
-cannot outlive its frame, there is no non-local return, recursion reaches 62
+cannot outlive its frame, there is no non-local return, recursion reaches 254
 levels, text is bytes, and a `.sob` from an older format is refused rather than
 read hopefully. One decision is open -- whether a script can be run with less
 than the whole machine -- and it is a decision rather than work waiting.

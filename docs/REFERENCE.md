@@ -636,7 +636,7 @@ groups, arrays, blocks with their parameters and temporaries, slot assignment,
 
 It is a recursive-descent parser, so it recurses about four frames per level of
 nesting and runs out at ten
-([3.5](ROADMAP.md#35-recursion-is-limited-to-about-62-levels)). An explicit
+([3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels)). An explicit
 stack, as [html.sol](../lib/html.sol) uses, is what lifts that.
 
 The tree keeps a block's parameters and temporaries apart from its body, which
@@ -672,7 +672,7 @@ chunk:at("slots"):print.        ; #1
 It compiles the whole language and produces **the same bytes `solas` produces**,
 which the test suite checks over every `.sol` file here. What stops it is depth
 rather than any construct: it manages nine levels of nested blocks and fails at
-ten ([3.5](ROADMAP.md#35-recursion-is-limited-to-about-62-levels)).
+ten ([3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels)).
 
 **It is a library rather than part of [compile.sol](../programs/compile.sol)
 because a compiler needs testing on its own.** The parser runs out of frames at
@@ -768,7 +768,7 @@ Two things it will not do, each for a reason worth knowing:
 
 - **Documents nest about 28 deep** before `call depth exceeded`, which is
   catchable like any other error. See
-  [ROADMAP 3.5](ROADMAP.md#35-recursion-is-limited-to-about-62-levels).
+  [ROADMAP 3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels).
 - **`null` and a missing name are both nil**, so `at(name, nil)` cannot separate
   them. Ask `includes(name)` when the difference matters.
 
@@ -824,8 +824,8 @@ roots rather than counting references.
 
 **Nesting is not limited.** The reader builds against a stack of open elements
 rather than by recursion, and `text`, `find`, `findAll` and `selectNodes` walk
-with one too, so [the frame limit](ROADMAP.md#35-recursion-is-limited-to-about-62-levels)
-that stops a recursive-descent parser at 28 levels does not apply. Measured at
+with one too, so [the frame limit](ROADMAP.md#35-recursion-is-limited-to-about-254-levels)
+that stops a recursive-descent parser at 124 levels does not apply. Measured at
 50,000 levels, built and walked.
 
 [programs/page.sol](../programs/page.sol) is a program on it — an outline, a
@@ -2977,7 +2977,7 @@ appear in an example.
 
 | | |
 | --- | --- |
-| Recursion | about **62 levels** — the frame cap is 64 and a level costs one frame, now that an `ifElse` branch, a `whileTrue` body, and an `and`/`or` block are inlined rather than called |
+| Recursion | about **254 levels** — the frame cap is 256 and a level costs one frame, now that an `ifElse` branch, a `whileTrue` body, and an `and`/`or` block are inlined rather than called |
 | Constants, names, blocks per chunk | **65536** — a two-byte index, and both tables intern, so repeats cost nothing |
 | Arguments, parameters, array literal elements | 255 — an argument count is one byte |
 | Locals per frame | 255 |

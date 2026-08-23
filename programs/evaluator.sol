@@ -158,11 +158,21 @@ run:value("999999999999999999999999").       ; out of integer range
 ; This is the finding worth having written the program for.
 ;
 ; A recursive-descent parser spends about three frames per level of nesting --
-; expression calls term calls factor calls expression again for a bracket -- and
-; the machine has 62. So the limit is real and a program can reach it:
+; expression calls term calls factor calls expression again for a bracket -- so
+; the limit is real and a program can reach it. It was **18 brackets** when this
+; was written, against a machine with 62 frames; the cap is 256 now and this
+; reaches 83. The finding did not change, only the number: a generated
+; expression can still nest past it, and a hand-written one never will.
 
-run:value("((((((((((((((((((1+2))))))))))))))))))").      ; 18 deep: 3
-run:value("(((((((((((((((((((1+2)))))))))))))))))))").    ; 19 deep: it stops
+deep := { n | | text |
+    text := "".
+    n:repeat({ text := text:concat("(") }).
+    text := text:concat("1+2").
+    n:repeat({ text := text:concat(")") }).
+    text }.
+
+run:value(deep:value(#83)).      ; -- 83 brackets: 3
+run:value(deep:value(#84)).      ; -- 84: call depth exceeded, and reported
 
 ; **And it is catchable.** `call depth exceeded` arrives at `onError` like any
 ; other failure, is reported like any other failure, and the program carries on

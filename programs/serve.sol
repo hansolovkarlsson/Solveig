@@ -137,7 +137,7 @@ it can decline.").
 seed:atPut("blocks", "A block is a value. It can be stored, passed on, and
 called later. Written literally as the argument of ifTrue or whileTrue it
 compiles to a jump and no block is made at all.").
-seed:atPut("frames", "Recursion reaches about 62 levels, and the failure is
+seed:atPut("frames", "Recursion reaches about 254 levels, and the failure is
 catchable. The limit is a property of how you traverse a structure rather
 than of the structure -- a walk against a stack does not meet it.").
 

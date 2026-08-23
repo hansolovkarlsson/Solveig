@@ -825,50 +825,20 @@ static void test_solum_compiles_solum_to_the_same_bytes(void)
 static int deepest_that_works(const char *driver)
 {
     char command[1024], out[4 * 1024];
-    for (int depth = 1; depth <= 40; depth++) {
+    for (int depth = 1; depth <= 200; depth++) {
         snprintf(command, sizeof command,
                  "bin/solvm %s %d > /dev/null 2>&1", driver, depth);
         if (run(command, out, sizeof out) != 0) return depth - 1;
     }
-    return 40;
+    return 200;
 }
 
 static void test_the_parser_and_the_compiler_stop_together(void)
 {
     char out[8 * 1024];
 
-    /* A file of N nested conditionals, for the parser to chew on. */
-    FILE *f = fopen(DIR "/nest.sol", "wb");
-    assert(f != NULL);
-    fputs("x := ", f);
-    for (int i = 0; i < 9; i++) fputs("true:ifElse({ ", f);
-    fputs("#1", f);
-    for (int i = 0; i < 9; i++) fputs(" }, { #0 })", f);
-    fputs(".\n", f);
-    fclose(f);
-
-    /* Nine levels compile; the fixture above is the deepest that does. */
-    assert(run("bin/solvm " DIR "/compile.sob " DIR "/nest.sol -o " DIR "/nest.sob"
-               " -I lib > /dev/null 2>&1", out, sizeof out) == 0);
-
-    /* And ten do not, which is the number ROADMAP 3.5 quotes. */
-    f = fopen(DIR "/nest10.sol", "wb");
-    assert(f != NULL);
-    fputs("x := ", f);
-    for (int i = 0; i < 10; i++) fputs("true:ifElse({ ", f);
-    fputs("#1", f);
-    for (int i = 0; i < 10; i++) fputs(" }, { #0 })", f);
-    fputs(".\n", f);
-    fclose(f);
-
-    assert(run("bin/solvm " DIR "/compile.sob " DIR "/nest10.sol -o " DIR "/x.sob"
-               " -I lib > " DIR "/why.txt 2>&1", out, sizeof out) != 0);
-    run("cat " DIR "/why.txt", out, sizeof out);
-    assert(strstr(out, "call depth exceeded") != NULL);
-
-    /* Now each half on its own. The compiler is handed a tree built by a loop,
-       so no parsing happens at all. */
-    f = fopen(DIR "/depth.sol", "wb");
+    /* The compiler is handed a tree built by a loop, so no parsing happens. */
+    FILE *f = fopen(DIR "/depth.sol", "wb");
     assert(f != NULL);
     fputs("@include \"compiler.sol\".\n"
           "node := { kind | | n |\n"
@@ -914,13 +884,66 @@ static void test_the_parser_and_the_compiler_stop_together(void)
     int parsing   = deepest_that_works(DIR "/parseonly.sob");
     int compiling = deepest_that_works(DIR "/depth.sob");
 
+    /* Neither number is written down here, because both move whenever
+       SOL_FRAMES_MAX does and a test that has to be edited after every such
+       change is a test nobody trusts. What is asserted is the shape: they stop
+       together, so fixing one half alone would buy nothing -- and they get far
+       enough to compile this repository, which is the floor that matters. */
     if (parsing != compiling) {
         printf("\nROADMAP 3.5 says these stop together: parsing %d, compiling %d\n",
                parsing, compiling);
         assert(false);
     }
+    assert(parsing >= 20);
+
     printf("  the parser and the compiler stop together (%d levels, %d fails)\n",
            parsing, parsing + 1);
+}
+
+/* The fixpoint: the compiler compiles itself, and the compiler that comes out
+ * compiles itself again to the same file.
+ *
+ * This is what self-hosting means, and it is a stronger claim than the corpus
+ * test above. That one says the Solum compiler agrees with `solas` on every
+ * file here. This one says the Solum compiler agrees with *itself* when it is
+ * the thing being compiled -- so a bug that happened to affect only its own
+ * source, or only the second generation, has nowhere to hide.
+ *
+ * It was impossible until the frame cap moved: the compiler's own source nests
+ * deeper than 64 frames allowed it to parse. See ROADMAP 3.5. */
+static void test_the_compiler_compiles_itself(void)
+{
+    char out[8 * 1024];
+
+    /* Generation 1: solas compiles the Solum compiler. */
+    assert(run("bin/solas -I lib programs/compile.sol -o " DIR "/gen1.sob 2>&1",
+               out, sizeof out) == 0);
+
+    /* Generation 2: generation 1 compiles its own source. */
+    assert(run("bin/solvm " DIR "/gen1.sob programs/compile.sol -o " DIR "/gen2.sob"
+               " -I lib > /dev/null 2>&1", out, sizeof out) == 0);
+
+    /* Which must be the file solas produced from the same source. */
+    if (run("cmp " DIR "/gen1.sob " DIR "/gen2.sob 2>&1", out, sizeof out) != 0) {
+        printf("\nthe Solum compiler does not reproduce its own bytes:\n%s\n", out);
+        assert(false);
+    }
+
+    /* Generation 3: generation 2 compiles its own source, and stops moving. */
+    assert(run("bin/solvm " DIR "/gen2.sob programs/compile.sol -o " DIR "/gen3.sob"
+               " -I lib > /dev/null 2>&1", out, sizeof out) == 0);
+    assert(run("cmp " DIR "/gen2.sob " DIR "/gen3.sob 2>&1", out, sizeof out) == 0);
+
+    /* And the self-compiled compiler still agrees with solas on other work,
+       which is what says generation 2 is a working compiler and not merely an
+       identical file. */
+    assert(run("bin/solvm " DIR "/gen2.sob examples/hello.sol -o " DIR "/h1.sob"
+               " -I lib > /dev/null 2>&1", out, sizeof out) == 0);
+    assert(run("bin/solas -I lib examples/hello.sol -o " DIR "/h2.sob 2>&1",
+               out, sizeof out) == 0);
+    assert(run("cmp " DIR "/h1.sob " DIR "/h2.sob 2>&1", out, sizeof out) == 0);
+
+    printf("  the compiler compiles itself, and the result compiles itself\n");
 }
 
 int main(void)
@@ -945,6 +968,7 @@ int main(void)
     test_solum_scans_solum_the_way_c_does();
     test_solum_compiles_solum_to_the_same_bytes();
     test_the_parser_and_the_compiler_stop_together();
+    test_the_compiler_compiles_itself();
     printf("test_cli: ok\n");
     return 0;
 }

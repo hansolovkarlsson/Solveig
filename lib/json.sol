@@ -207,7 +207,7 @@ json:parseObject := { | out, done, key |
 ; A chain of comparisons rather than the dictionary of blocks that
 ; [dispatch.md](../docs/dispatch.md) recommends, and the reason is depth rather
 ; than speed. `table:at(c, default):value` puts one more frame between a value
-; and the value inside it, and with only 62 frames to spend (ROADMAP 3.5) that
+; and the value inside it, and with 254 frames to spend (ROADMAP 3.5) that
 ; frame is the scarcest thing this program has. Measured, over `[[[...1...]]]`:
 ;
 ;     dictionary of blocks    18 levels of nesting before "call depth exceeded"

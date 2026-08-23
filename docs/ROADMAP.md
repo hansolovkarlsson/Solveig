@@ -296,92 +296,83 @@ the thing it would buy — not recompiling — is worth less than that.
 
 ---
 
-### 3.5 Recursion is limited to about 62 levels
+### 3.5 Recursion is limited to about 254 levels
 
-`SOL_FRAMES_MAX` is 64 and a recursion level costs one frame, so 62 levels
-succeed and 63 reports "call depth exceeded". Measured again after the `new`
-change, and it is exactly 62:
+`SOL_FRAMES_MAX` is 256 and a recursion level costs one frame, so 254 levels
+succeed and 255 reports "call depth exceeded":
 
 ```
 integer:down := { self:greaterThan(#0):ifTrue({ self:sub(#1):down }). self }.
-#62:down.   ; ok
-#63:down.   ; solvm: call depth exceeded
+#254:down:print.                     ; #254
+{ #255:down }:onError({ e | e:message:display }).   ; call depth exceeded
 ```
 
-**It used to be 30**, and this entry was titled that way for longer than it was
-true. A level cost **two** frames then -- one for the method's block, one for the
-`ifElse` branch block carrying the recursive call. Inlining conditionals (4.1)
-took the second one away. Recursion through a `whileTrue` body stayed at 30 until
-the loop was inlined too, for exactly the same reason; both forms reach 62 now.
+**It was 62 until 0.23.0, and 30 before that**, and this entry was titled each of
+those for longer than it was true. A level cost *two* frames at 30 -- one for the
+method's block, one for the `ifElse` branch block carrying the recursive call --
+and inlining conditionals (4.1) took the second away.
 
-The two remaining ways to go further: raise the cap, which costs stack because
-`SOL_STACK_MAX` is derived from it; or make the limit dynamic rather than a
-fixed array.
+#### What moving it cost, which was the whole question
 
-**A program has now reached it.** [programs/evaluator.sol](../programs/evaluator.sol)
-is a recursive-descent parser, which spends about three frames per level of
-bracket nesting — expression calls term calls factor calls expression again —
-so it manages **18 brackets deep** and stops at 19. That is more than anybody
-writes by hand and less than a generated expression might hold.
+The cap had been left alone because raising it looked expensive: `SOL_STACK_MAX`
+was `SOL_FRAMES_MAX * 256`, on the reasoning that a frame may hold 256 slots
+since a slot index is a `u8`. A `SolVM` holds both arrays inline and lives on
+the C stack -- `embed/host.c` and every test writes `SolVM vm;` -- so at 64
+frames the machine was already 260KB, nearly all of it stack. Raising the cap
+eightfold would have made a VM too big to put on a thread, where the default
+stack is often 512KB.
 
-**A second one has now reached it, and put a number on the idiom.**
-[lib/json.sol](../lib/json.sol) is the same shape of parser over a format people
-generate rather than type, and it measured the cost of *how* the value dispatch
-is written:
+**The two numbers did not have to be one number.** Frames are 56 bytes each; the
+stack is sized on its own now, for how many values a program actually holds live
+rather than for a worst case no program reaches. Both ends are checked and both
+failures are ordinary catchable ones -- `call depth exceeded` at one, `stack
+overflow` at the other -- so nothing became a crash that was not one before.
 
-| dispatching on the first character | levels of JSON nesting before the cap |
-| --- | --- |
-| a dictionary of blocks, as [dispatch.md](dispatch.md) recommends | **18** |
-| a chain of `ifElse` | **28** |
+| | frames | stack | `sizeof(SolVM)` |
+| --- | --- | --- | --- |
+| before | 64 | 16,384 values, derived | 266,120 bytes |
+| after | **256** | 16,384 values, its own number | **276,872 bytes** |
 
-`table:at(c, default):value` puts one more frame between a value and the value
-inside it, and that frame is paid again at every level of the document — ten
-levels of nesting for one message. Both recommendations are right on their own;
-they pull against each other only where the cases recurse. The library takes the
-chain and says why in a comment.
+**Four times the depth for four percent more memory**, and the thread case is
+untouched.
 
-It also moves the number from "more than anybody writes by hand" to something
-closer: 28 levels of JSON is not deep for a document a program produced.
+#### What it bought
+
+| | before | after |
+| --- | --- | --- |
+| plain recursion | 62 | **254** |
+| [evaluator.sol](../programs/evaluator.sol), brackets deep | 18 | **83** |
+| [lib/json.sol](../lib/json.sol), levels of nesting | 28 | **124** |
+| [lib/compiler.sol](../lib/compiler.sol), nested blocks in a file it compiles | 9 | **41** |
+| `.sol` files in this repository it compiles to `solas`'s exact bytes | 42 of 46 | **all 47** |
+
+That last row is the one that mattered. The Solum compiler could not compile its
+own source, and now it can: it compiles itself, and the compiler that comes out
+compiles itself again to the same bytes.
+[ideas.md](ideas.md#solas-written-in-solum--self-hosting) has that.
+
+#### What is left
+
+**This is still a limit**, and a deep enough program still meets it -- 254 is a
+bigger number than 62 and not a different kind of number. What has not been done
+is making the limit dynamic rather than a fixed array, which is what would
+remove it rather than move it, and nothing has yet wanted that.
 
 What makes it bearable, and was not obvious: **the failure is catchable.** `call
 depth exceeded` arrives at `onError` like any other, is reported like any other,
-and the program carries on afterwards — running out of frames is exactly the
+and the program carries on afterwards -- running out of frames is exactly the
 sort of failure a machine might not be able to recover from, and this one can.
-So the limit is a limit rather than a crash, which lowers what raising it would
-buy.
 
-**And now the sharpest instance there is going to be: the Solum compiler cannot
-compile its own source.** [compile.sol](../programs/compile.sol) compiles 42 of
-this repository's 46 `.sol` files to bytes identical to `solas`. The four it
-cannot are the four that nest deepest, and they include `lib/lexer.sol`,
-`lib/parser.sol` and `compile.sol` itself. Measured on generated input it
-manages **nine levels of nested blocks and fails at ten**, where `solas`,
-recursing on the C stack, is untroubled at thirty.
+#### Both halves of the compiler run out together
 
-**Both halves run out at the same place, and that was worth measuring rather
-than assuming.** The first account of this said the parser was the problem and
-an explicit stack in it was the answer. It is not, and the numbers say so: the
-compiler was split into [lib/compiler.sol](../lib/compiler.sol) so that a tree
-nobody parsed could be handed to it directly, and
-
-| | 9 levels | 10 levels |
-| --- | --- | --- |
-| parsing alone | passes | **fails** |
-| compiling a tree, no parser involved | passes | **fails** |
-| both together | passes | **fails** |
-
-Each costs about six frames per level — `expression` calls `primary` calls
-`blockLiteral` calls `body` calls `expression` on the way in, and
-`expression` calls `inlineSend` calls `inlineConditional` calls `branch` calls
-`bodyWithPops` calls `expression` on the way out — against a budget of 62. So
-**an explicit stack in the parser alone would buy nothing**; the compiler would
-stop at the same depth. Either both halves carry their own stack, or the cap
-moves: built with `SOL_FRAMES_MAX` at 512 rather than 64, both halves reach 83
-levels and fail at 84, which is the same six frames a level with eight times the
-room.
-
-This entry has a program behind it that could not be more on the nose, since two
-of the files it cannot compile are the parser and the compiler that run out.
+Worth keeping, because the first account of it was wrong. When the Solum
+compiler could not compile four files, the parser was blamed and an explicit
+stack in it was proposed. Splitting the compiler into
+[lib/compiler.sol](../lib/compiler.sol) so a tree nobody parsed could be handed
+to it directly showed otherwise: parsing alone and compiling alone stopped at
+**exactly the same depth**, about six frames a level each. Fixing one would have
+bought nothing. The test that measured it is still in the suite, and it asserts
+the shape rather than the number, so it survives the cap moving.
 
 ### 3.6 A caller-owned chunk must outlive blocks defined in it
 

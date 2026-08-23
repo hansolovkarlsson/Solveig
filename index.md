@@ -127,7 +127,7 @@ status, and is split across files with `@include`.
 
 It is 0.1 rather than 1.0 because [the restrictions in the
 roadmap](docs/ROADMAP.md#3-known-limitations) are deliberate and documented: no
-non-local return, a capturing block tied to its frame, recursion to about 62
+non-local return, a capturing block tied to its frame, recursion to about 254
 levels, and text is bytes.
 
 Arithmetic is strict throughout: integers and floats never coerce, and integer

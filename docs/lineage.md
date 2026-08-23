@@ -124,8 +124,8 @@ documented where a program would meet it.
 - **Strings are bytes**
   ([2.13](ROADMAP.md#213-text-is-bytes-and-case-is-ascii-only)) — the Lua
   position rather than the Smalltalk one. `"café":size` is 5.
-- **Recursion reaches about 62 levels**
-  ([3.5](ROADMAP.md#35-recursion-is-limited-to-about-62-levels)), and running
+- **Recursion reaches about 254 levels**
+  ([3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels)), and running
   out is catchable like any other failure.
 
 ## What the relatives have that this does not

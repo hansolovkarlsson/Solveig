@@ -23,7 +23,7 @@
 ; The tree is built against a **stack of open elements** rather than by
 ; recursion, which is how HTML has to be parsed anyway -- the nesting is in the
 ; input rather than in the grammar. It has a consequence worth knowing: the
-; depth limit that stops json.sol at 28 levels does not apply here at all. See
+; depth limit that stops json.sol at 124 levels does not apply here at all. See
 ; ROADMAP 3.5.
 
 @include "text.sol".

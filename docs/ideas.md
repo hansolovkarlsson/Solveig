@@ -57,7 +57,7 @@ marked as a sketch.
 | Resuming from an error | **No** — the frames are gone by the time a handler runs; `retry` is writable, resuming is not |
 | More than one parent | **No** — `via` already names an ancestor, which is what multiple parents are wanted for |
 | An `assert` that compiles away | **No** to stripping; **defer** the message itself |
-| Solas written in Solum — self-hosting | **Being built** — stage 0 done and byte-identical, [below](#solas-written-in-solum--self-hosting) |
+| Solas written in Solum — self-hosting | **Done** — it compiles itself, and the result compiles itself to the same bytes, [below](#solas-written-in-solum--self-hosting) |
 
 ---
 
@@ -328,9 +328,9 @@ of emitter bug into a message instead of a crash.
 #### What is actually hard
 
 - **The frame limit dictates the parser's shape.**
-  [3.5](ROADMAP.md#35-recursion-is-limited-to-about-62-levels) is 62 frames and a
+  [3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels) was 62 frames and a
   recursive-descent parser spends about three per nesting level — `evaluator.sol`
-  manages 18 brackets, `lib/json.sol` 28. A Solum parser for Solum would run out
+  managed 18 brackets and `lib/json.sol` 28. A Solum parser for Solum would run out
   on ordinary source, so **it must carry an explicit stack**. That is not a
   workaround invented for this: `lib/html.sol` already does it and reaches a
   thousand levels.
@@ -348,8 +348,8 @@ of emitter bug into a message instead of a crash.
 | --- | --- |
 | **0** | **Done** — [emit.sol](../programs/emit.sol). Two chunks written out by hand, both byte-identical to `solas`, both running, both decoded by `disasm.sol`. In `make test` as `cmp`. |
 | **1** | **Done** — [compile.sol](../programs/compile.sol) turns source into bytes, and `examples/hello.sol` comes out byte-identical to `solas`. [lexer.sol](../lib/lexer.sol), [parser.sol](../lib/parser.sol) and [sob.sol](../lib/sob.sol) are the three pieces. Blocks, temporaries, methods and `@include` are stage 2. |
-| **2** | The full language, checked over every `.sol` here: both compilers, same bytes, in `make test`. **Done, and stopped by the frame limit rather than by a missing construct** — 42 of 46 files identical, 0 disagreements. The 4 refusals are `call depth exceeded` ([3.5](ROADMAP.md#35-recursion-is-limited-to-about-62-levels)), including on this compiler's own source. |
-| **3** | The fixpoint. The Solum compiler compiles its own source and produces the file `solas` produced from it. |
+| **2** | The full language, checked over every `.sol` here: both compilers, same bytes, in `make test`. **Done, and stopped by the frame limit rather than by a missing construct** — 42 of 46 files identical, 0 disagreements. The 4 refusals are `call depth exceeded` ([3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels)), including on this compiler's own source. |
+| **3** | **Done.** The Solum compiler compiles its own source and produces the file `solas` produced from it; the compiler that comes out compiles its own source again to the same bytes, and still agrees with `solas` on everything else. In `make test`. |
 
 Where byte-identity turns out to rest on something arbitrary — a table ordering
 neither compiler is obliged to agree on — the fallback is instruction-level
@@ -510,7 +510,7 @@ include `lib/lexer.sol`, `lib/parser.sol` and the compiler's own source.
 
 **So the language cannot yet compile its own compiler, and the reason is a
 documented limitation of the language rather than anything about the compiler.**
-That is [3.5](ROADMAP.md#35-recursion-is-limited-to-about-62-levels) with the
+That is [3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels) with the
 best evidence it will ever have, and it was predicted here before any of this
 was written: *the deep case, a block inside a block inside a block, is the one
 this subset does not do yet — when it does, it will carry an explicit stack the
@@ -536,6 +536,33 @@ One thing worth recording about the comparison: **both compilers have to be
 given the same search path.** The file table records where an included file was
 found, so the path is part of the output, and `solas` derives its default from
 where its own binary sits — which nothing in Solum can see.
+
+#### Stage 3: it compiles itself
+
+**Solum is self-hosting.** `solas` compiles
+[compile.sol](../programs/compile.sol) to a first generation; that generation
+compiles its own source to a second, **byte-identical to the first**; the second
+compiles its own source to a third, identical again; and the second still agrees
+with `solas` on every other file. All four claims are in `make test`.
+
+**It was one line of C away the whole time, and the line was not in the
+compiler.** The last four files failed on `call depth exceeded`, and the cap had
+been left at 64 frames because `SOL_STACK_MAX` was derived from it -- so raising
+it looked like it meant an eightfold larger `SolVM`, which lives on the C stack
+and would no longer fit on a thread. The two numbers did not have to be one
+number. Frames are 56 bytes; giving the stack its own size made 256 frames cost
+**4% more memory for four times the depth**, and
+[3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels) has the table.
+
+What that bought, beyond the compiler: plain recursion from 62 levels to 254,
+`evaluator.sol` from 18 brackets to 83, `lib/json.sol` from 28 levels of nesting
+to 124. Three programs that had each written down a limit found it moved.
+
+**The whole exercise added nothing to the language** except a number that was
+always a choice. Six library files and two programs, in Solum as it already was:
+[lexer.sol](../lib/lexer.sol), [parser.sol](../lib/parser.sol),
+[compiler.sol](../lib/compiler.sol), [sob.sol](../lib/sob.sol),
+[emit.sol](../programs/emit.sol) and [compile.sol](../programs/compile.sol).
 
 #### An aside: the trap the cheatsheet warns about, walked into
 
@@ -1453,14 +1480,15 @@ left".
 
 ### Tail calls
 
-The obvious motivation is [3.5](ROADMAP.md#35-recursion-is-limited-to-about-62-levels):
-recursion stops at about 62 levels, two programs have hit it, and a language
+The obvious motivation is [3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels):
+recursion stopped at about 62 levels then, two programs had hit it, and a language
 that reuses the frame for a call in tail position would relieve that. Scheme
 requires it, Lua has it, Smalltalk does not.
 
 **It would not have helped either program**, which is the whole entry.
-[evaluator.sol](../programs/evaluator.sol) stops at 18 brackets and
-[lib/json.sol](../lib/json.sol) at 28 levels of nesting, and both are
+[evaluator.sol](../programs/evaluator.sol) stopped at 18 brackets and
+[lib/json.sol](../lib/json.sol) at 28 levels of nesting — 83 and 124 since the
+cap moved — and both are
 recursive-descent parsers — where the recursion is *never* in tail position:
 
 ```

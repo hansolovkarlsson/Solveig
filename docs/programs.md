@@ -107,9 +107,10 @@ Deliberately a different shape from `log.sol`, which is line-oriented — read
 text, split it, tally it. This one recurses, builds a tree of objects, and has
 to say something useful when its input is wrong.
 
-**What it found**: the [frame limit](ROADMAP.md#35-recursion-is-limited-to-about-62-levels),
+**What it found**: the [frame limit](ROADMAP.md#35-recursion-is-limited-to-about-254-levels),
 and that it is catchable. A recursive-descent parser spends about three frames
-per level of bracket nesting, so it manages 18 brackets deep. Running out of
+per level of bracket nesting, so it manages 83 brackets deep — 18 when it was
+written, against a cap of 64 frames rather than 256. Running out of
 frames arrives at `onError` like any other failure and the program carries on
 after it, which is what makes the limit a limit rather than a crash.
 
@@ -608,7 +609,7 @@ lacks — they are `call depth exceeded`. It manages **nine levels of nested
 blocks and fails at ten**, where `solas` on the C stack is untroubled at thirty,
 and the files that nest deeper include `lib/lexer.sol`, `lib/parser.sol` and
 this compiler's own source. That is
-[3.5](ROADMAP.md#35-recursion-is-limited-to-about-62-levels), where the
+[3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels), where the
 measurement is written down: **parsing and compiling run out at the same depth**,
 about six frames per level each, so fixing one of them alone moves nothing.
 

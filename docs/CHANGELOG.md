@@ -7,6 +7,60 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### The frame cap moves, and Solum compiles itself — `pending`, 2026-08-23
+
+**`SOL_FRAMES_MAX` is 256 rather than 64, and recursion reaches 254 levels
+rather than 62.**
+
+**The reason it had not moved was a number that did not have to be a number.**
+`SOL_STACK_MAX` was `SOL_FRAMES_MAX * 256`, on the reasoning that a frame may
+hold 256 slots since a slot index is a `u8`. A `SolVM` holds both arrays inline
+and lives on the C stack — `embed/host.c` and every test writes `SolVM vm;` —
+so at 64 frames the machine was already 260KB, nearly all of it stack, and
+raising the cap eightfold would have made a VM too big to put on a thread, where
+the default stack is often 512KB.
+
+The two are separate now. Frames are 56 bytes each; the stack is sized on its
+own for how many values a program actually holds live. Both ends are still
+checked and both failures are still catchable — `call depth exceeded` at one,
+`stack overflow` at the other.
+
+| | frames | `sizeof(SolVM)` |
+| --- | --- | --- |
+| before | 64 | 266,120 bytes |
+| after | 256 | **276,872 bytes** |
+
+**Four times the depth for four percent more memory.**
+
+**And with that, Solum is self-hosting.** `solas` compiles
+[compile.sol](../programs/compile.sol) to a first generation; that generation
+compiles its own source to a second, **byte-identical to the first**; the second
+compiles its own source to a third, identical again; and the second still agrees
+with `solas` on every other file. All four claims are in `make test`, and **all
+47 `.sol` files in this repository now compile to exactly the bytes `solas`
+produces**, up from 42 of 46.
+
+The compiler's own source was among the files it could not compile, and it
+failed on depth rather than on any construct — so the last thing between here
+and self-hosting was a constant in `vm.h`.
+
+Three programs that had written a limit down found it moved:
+[evaluator.sol](../programs/evaluator.sol) from 18 brackets to **83**,
+[lib/json.sol](../lib/json.sol) from 28 levels of nesting to **124**, and the
+Solum compiler from 9 nested blocks to **41**. Every document quoting the old
+numbers has been brought up to date, and
+[3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels) is rewritten
+around what moving the cap cost and bought.
+
+**This is still a limit** — 254 is a bigger number than 62 and not a different
+kind of number. Making it dynamic rather than a fixed array is what would remove
+it, and nothing has wanted that yet.
+
+One thing the checker could not have caught: 3.5's own worked example said
+`#62:down` succeeds and `#63:down` fails, and neither line prints, so neither
+was ever a claim. It is written with `:print` now, so the next time the cap
+moves the suite will say so.
+
 ### Which half runs out — `e68f1b3`, 2026-08-23
 
 **A correction, and the measurement that forced it.** The entry below said the
@@ -28,7 +82,7 @@ tree built by a loop instead of by parsing:
 
 **They stop at exactly the same depth**, about six frames a level each. So
 fixing the parser alone would buy nothing at all, and
-[3.5](ROADMAP.md#35-recursion-is-limited-to-about-62-levels),
+[3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels),
 [programs.md](programs.md) and [ideas.md](ideas.md) now say so instead of what
 they said this morning.
 
@@ -65,7 +119,7 @@ nest deeper include `lib/lexer.sol`, `lib/parser.sol` and `compile.sol` itself.
 
 **So the language cannot yet compile its own compiler, and the reason is a
 documented limitation of the language rather than anything about the compiler.**
-That is [3.5](ROADMAP.md#35-recursion-is-limited-to-about-62-levels) with the
+That is [3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels) with the
 best evidence it is ever going to get, and it was predicted in
 [ideas.md](ideas.md#solas-written-in-solum--self-hosting) before a line of this
 was written: *the deep case, a block inside a block inside a block, is the one
@@ -859,7 +913,7 @@ resuming from an error, and more than one parent.
 Two of the "no"s are worth the reading:
 
 **Tail calls** look like the answer to
-[3.5](ROADMAP.md#35-recursion-is-limited-to-about-62-levels)'s 62-frame limit
+[3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels)'s 62-frame limit
 and are not. The two programs that hit that limit are recursive-descent parsers,
 and a recursive-descent parser never recurses in tail position —
 `parseExpression` calls `parseTerm` and *then* combines. The case evaporates on
@@ -4249,7 +4303,7 @@ machine's 62. It manages **18 brackets deep** and stops at 19.
 arrives at `onError` like any other, is reported like any other, and the program
 keeps working afterwards. Running out of frames is exactly the sort of failure a
 machine might not be able to recover from. Recorded against
-[ROADMAP 3.5](ROADMAP.md#35-recursion-is-limited-to-about-62-levels), because it
+[ROADMAP 3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels), because it
 lowers what raising the cap would buy.
 
 Two smaller things, both written into the example where they bit.

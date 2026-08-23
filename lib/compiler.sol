@@ -20,7 +20,7 @@
 ;
 ; **It is a library rather than part of the program because the compiler needs
 ; testing on its own.** The parser runs out of frames before the compiler does
-; ([3.5](../docs/ROADMAP.md#35-recursion-is-limited-to-about-62-levels)), so the
+; ([3.5](../docs/ROADMAP.md#35-recursion-is-limited-to-about-254-levels)), so the
 ; only way to find out how much room the compiler has is to hand it a tree
 ; nobody parsed -- which needs it reachable without a driver attached.
 ;

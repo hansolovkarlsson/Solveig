@@ -7,8 +7,22 @@
 #include "solum/object.h"
 #include "solum/value.h"
 
-#define SOL_FRAMES_MAX 64
-#define SOL_STACK_MAX  (SOL_FRAMES_MAX * 256)
+/* How deep calls may nest, and how many values may be live at once.
+ *
+ * The two used to be one number -- the stack was FRAMES * 256, on the reasoning
+ * that a frame may hold 256 slots because a slot index is a u8. That made the
+ * cap expensive to raise: a SolVM holds both arrays inline and lives on the C
+ * stack, including on threads, where the default is often 512KB. At the old 64
+ * frames the machine was already 260KB, nearly all of it stack, so raising the
+ * cap eightfold would have made a VM too big to put on a thread at all.
+ *
+ * They are separate now. Frames are cheap -- 56 bytes each -- and the stack is
+ * sized on its own, generously, for how many values a program actually holds
+ * live rather than for a worst case no program reaches. Both are checked: going
+ * past the frames is `call depth exceeded` and going past the stack is `stack
+ * overflow`, and each is an ordinary catchable failure rather than a crash. */
+#define SOL_FRAMES_MAX 256
+#define SOL_STACK_MAX  16384
 
 /* One activation. `slots` points into the value stack at the receiver, so
    slots[0] is self and slots[1..arity] are the arguments -- the caller has

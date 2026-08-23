@@ -46,7 +46,7 @@ parser:at := #1.
 ;
 ; **Not a recursive-descent parser over characters**, which matters more here
 ; than it looks. A parser that recurses once per nesting level runs out at about
-; 18 levels ([3.5](../docs/ROADMAP.md#35-recursion-is-limited-to-about-62-levels)),
+; 18 levels ([3.5](../docs/ROADMAP.md#35-recursion-is-limited-to-about-254-levels)),
 ; and Solum source nests further than that in ordinary use. The recursion below
 ; is over *expressions*, which nest shallowly -- a send chain is a loop, not a
 ; recursion -- and the deep case, a block inside a block inside a block, is the

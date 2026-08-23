@@ -311,7 +311,7 @@ and an HTML reader written in Solum, on the search path so a program says
 It is 0.1 rather than 1.0 because [the restrictions in the
 roadmap](docs/ROADMAP.md#3-known-limitations) are real and deliberate: no
 non-local return, a capturing block tied to the frame it was written in,
-recursion to about 62 levels, and text is bytes rather than characters. Each is
+recursion to about 254 levels, and text is bytes rather than characters. Each is
 documented where a program would meet it.
 
 Recovering from a failure was on that list until 0.2.0.
