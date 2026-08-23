@@ -32,10 +32,25 @@ as `u16 arity` per method — **a format version bump**. The callee has to learn
 how many arguments it actually got, which nothing tells it today. And a default
 is code, so a block gains a generated prologue with jumps.
 
-Three questions are listed unanswered on purpose: whether a default may see an
-earlier parameter, whether it is evaluated per call or once — `{ xs := [] | ... }`
-sharing one array between calls is the mistake every language with this feature
-has made at least once — and what the arity error should then say.
+**A second syntax was proposed, and comparing the two settled the spelling.**
+`{ x:{#0} | ... }` is cheaper to scan than `{ x := #0 | ... }` — `skip_block`
+already exists and balances braces, so the rule is bounded by construction —
+but it spends `:`, which in this language always sends a message, on something
+that is not one. That is the objection that refused `ifTrue{...}` seen from the
+other side: one made a send look like syntax, this makes syntax look like a
+send.
+
+**What they suggest between them is `{ x := { #0 } | ... }`**, which keeps `:=`
+meaning bind, keeps the bounded scan, and makes the default *code that runs when
+the argument is missing* rather than a value fixed once. That answers one of the
+three open questions before it is asked: `{ xs := { [] } | ... }` makes a fresh
+array per call, where a value evaluated once would share one array between every
+caller — the mistake nearly every language with this feature has shipped at
+least once. The block spelling makes the right answer the only one writable.
+
+Two questions are left open on purpose: whether a default may see an earlier
+parameter, and what `respondsTo` and the arity error should say about a block
+that takes one argument or two.
 
 ## 0.23.0 — 2026-08-23
 

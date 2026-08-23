@@ -1315,15 +1315,62 @@ class is an object, control flow is message sending, `[a, b]` really is
 `array:of(a, b)`. That asymmetry is the argument, and it is a better one than
 saving a word at a call site.
 
-**The syntax works, at a price paid in the scanner.** `{ x := #0 | body }` is
-unambiguous, because `|` cannot follow an expression — there are no operators,
-so nothing else could be meant. But deciding *is* this a parameter list requires
-scanning past an arbitrary expression to find the `|`, where today the probe
-skips identifiers and commas and stops. And a default that is itself a block —
-`{ x := { | t | t } | body }` — means the probe has to balance braces. Solas
-decides parameters with a copy of the lexer rather than a parser
-([lexer.h](../solas/include/solas/lexer.h) and `block_parameters`), and that is
-what would have to grow.
+#### Three spellings, and the third is the one to build
+
+Two were proposed, and the difference between them is not taste — one of them
+answers a design question the other leaves open.
+
+```
+{ x := #0 | body }        ; a sketch; the first proposal
+{ x:{#0} | body }         ; a sketch; the second
+{ x := { #0 } | body }    ; a sketch; what they suggest between them
+```
+
+**All three are free.** The grammar refuses each today, so nothing becomes
+ambiguous:
+
+```
+> f := { a:{45} | a }.
+[line 1:10] solas: expected a message name after ':' at '{'
+> f := { a := #0 | a }.
+[line 1:16] solas: expected '.' between statements at '|'
+```
+
+**`{ x := #0 | ... }`** reads the way a default reads and costs the most to
+scan. `solas` decides parameters with a copy of the lexer rather than a parser,
+skipping identifiers and commas; this makes it skip an *arbitrary expression* to
+find the `|`, and one containing a block means balancing braces anyway.
+
+**`{ x:{#0} | ... }`** is cheaper to scan and says the wrong thing. Cheaper
+because `skip_block` already exists — it balances braces and is what the
+inlining probe uses — so the rule is `IDENT COLON LBRACE`, and the scan is
+bounded by construction. Wrong because **`:` is how this language sends a
+message**, and `a:{45}` is not one. That is
+[the objection that refused `ifTrue{...}`](#iftrue--a-block-argument-without-parentheses)
+seen from the other side: that proposal made a send look like syntax, and this
+makes syntax look like a send. The language spends a lot of ink insisting `:` is
+always a send; a second meaning for it is expensive in a way fifteen lines of
+parser is not.
+
+**`{ x := { #0 } | ... }` takes what each got right.** `:=` still means bind,
+which is what a default does; the default is a block, so the scan is `skip_block`
+and stays bounded; and — the part that matters most — **the default is code that
+runs when the argument is missing**, rather than a value fixed once.
+
+That last point settles one of the three questions below before it is asked.
+`{ xs := { [] } | ... }` makes a fresh array per call, where a value evaluated
+once would share one array between every caller — the mistake nearly every
+language with this feature has shipped at least once, and Python's
+`def f(xs=[])` is the famous one. The block spelling makes the right answer the
+only one that can be written.
+
+It costs two characters against the first proposal and reads honestly: a block
+is code, and a default that can call `system:clock` was always going to be code.
+A parameter defaulting to a block *value* nests, `{ x := { { #0 } } | ... }`,
+which is consistent and rare.
+
+**None of this is built.** The trigger below has not fired, and the syntax being
+settled does not change that — it means the entry is ready if it does.
 
 **The machine is the larger half, and it reaches the file format.**
 
@@ -1333,12 +1380,10 @@ what would have to grow.
 | the callee has to know what it got | `sol_vm_call` checks `argc != code->arity` and builds the frame; nothing tells the body how many arguments actually arrived, and filling defaults means knowing. |
 | a default is code, not a constant | `{ x := system:clock \| ... }` has to run *somewhere*. Running it in the callee's frame gives a block a prologue with jumps — the same shape an inlined conditional has, but generated rather than written. |
 
-**Three questions to settle before any of that**, none of which has an obvious
-answer: may a default see an earlier parameter (`{ a, b := a:inc | ... }`), which
-decides whether the prologue is one pass or ordered; is it evaluated per call or
-once, which decides whether `{ xs := [] | ... }` shares one array between calls,
-the mistake every language with this feature has made at least once; and what
-`respondsTo` and the arity error should then say.
+**Two questions left to settle**, the third having been answered by the spelling
+above: may a default see an earlier parameter (`{ a, b := { a:inc } | ... }`),
+which decides whether the prologue is one pass or ordered; and what `respondsTo`
+and the arity error should say about a block that takes one argument or two.
 
 **What works today**, and it is not nothing. The caller says nil and the block
 substitutes:
