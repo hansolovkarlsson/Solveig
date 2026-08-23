@@ -108,6 +108,15 @@ No dependencies beyond a C11 compiler and `make`.
 
 ## Status
 
+**0.25.0** — a journal release; no code changed and `.sob` files are format
+version 14, unchanged. [docs/journal.md](docs/journal.md) gains a day that was
+three releases long, with a six-item postmortem whose items share one shape:
+each is a claim made from reasoning where a short measurement would have refuted
+it. Alongside it, the observation that
+[3.16](docs/ROADMAP.md#316-what-the-checker-does-not-check) now has more
+instances behind it than any other open entry — **the checker cannot catch a
+claim that stops being checked**, and three arrived in one day.
+
 **0.24.0** — a library and documentation release; no language change and `.sob`
 files are format version 14, unchanged. **`array:ifElseIf`** writes a chain of
 alternatives flat instead of as nested `ifElse`, measured at 5.8× a chain and

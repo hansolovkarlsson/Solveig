@@ -5,7 +5,48 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## 0.25.0 — 2026-08-23
+
+**A journal release. No code changed** — `.sob` files are format version 14,
+unchanged, and every binary behaves as it did in 0.24.0.
+
+[journal.md](journal.md) gains the day, which was three releases long: `sqrt`
+into the machine and the whole language on one page, then Solum compiling
+itself, then four design questions of which one was built.
+
+**The postmortem is six items with one shape between them.** A square root's
+convergence claimed in a changelog and a release tag on the strength of checking
+how the answer *printed* rather than what it was. *"An explicit-stack parser
+unlocks the last four files"* — unmeasured and wrong — then corrected with a
+second unmeasured claim that only surfaced because somebody asked whether the
+two statements matched. A chained `ifTrue({...}):ifFalse({...})` written about
+four hours after documenting that exact trap. A benchmark comparing two loops
+doing unequal work, thrown away rather than reported. An argument under-sold by
+measuring a diluted expression, which when isolated produced
+[3.17](ROADMAP.md#317-a-global-is-found-by-walking-a-list) and redirected the
+question it was asked in service of. And five changelog entries dated a day
+ahead, in a document whose header says dates are the day the work was done,
+corrected in the same commit.
+
+Every one is a claim made from reasoning where a two-minute measurement would
+have refuted it, in a stretch of work whose whole method is measuring.
+
+**The second theme is about the tools rather than the hands.** The checker
+cannot catch a claim that *stops* being checked, and three instances arrived in
+one day: the front page's block that failed to compile and was silently skipped;
+the reference's four library examples, which stopped compiling when their files
+moved to `experiment/` and took 13 claims out of the count with every remaining
+claim still holding; and
+[3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels)'s own worked
+example, which was never a claim at all because neither of its lines prints.
+[3.16](ROADMAP.md#316-what-the-checker-does-not-check) now has more instances
+behind it than any other open entry.
+
+**What went right is recorded at the same length**, because it is the same
+lesson from the other side: deliberately breaking a rule to check a test would
+fail caught two tests that would have passed on broken code, and the
+byte-identity bar found three faults that behaviour tests could not have, all
+three of which produced files that ran correctly.
 
 ### The day written down, and five entries dated a day ahead — `cf61901`, 2026-08-23
 
