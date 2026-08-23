@@ -448,36 +448,42 @@ static void test_the_limits_are_off_and_are_checked(void)
     printf("  the limits are off by default and refuse a nonsense value\n");
 }
 
-/* Every claim the examples make about their own output.
+/* Everything this repository writes down about what it prints.
  *
- * `examples/` carries about 400 comments of the form
+ * Two notations, one job. `examples/` carries about four hundred claims in
+ * comments -- `#2:add(#3):print.  ; #5` -- and the documents carry two hundred
+ * more inside ``` fences, in the same notation. Nothing checked either until
+ * programs/expect.sol existed: the rest of this suite compiles every example
+ * and never ran one, so those comments were true because somebody looked, once.
  *
- *     #2:add(#3):print.        ; #5
+ * Checking them found two things wrong: the guide showed a stack trace in a
+ * format that predates 6.27 adding the filename, and class-and-instance.md said
+ * `integer` has 24 slots where it has 38.
  *
- * and until programs/expect.sol existed nothing checked one of them. The rest
- * of this suite compiles every example and never runs one, so those comments
- * were true because somebody looked, once. They are also the first thing a
- * newcomer reads.
+ * A block that continues one further up, or that shows syntax rather than a
+ * program, is **not checked and not a failure**. The checker counts those and
+ * prints the count, because one that silently verified a quarter of its subject
+ * would be worse than none.
  *
- * The checker is written in Solum and shells out to solas and solvm per file,
- * which is why it lives here rather than in test_compile.c: this is the file
- * that runs the binaries as a shell would. About a third of a second for all
- * twenty-one. */
-static void test_the_examples_do_what_they_claim(void)
+ * CHANGELOG.md is the one document skipped: it records what was true at each
+ * release, so its snippets describe past states on purpose. */
+static void test_everything_written_down_is_true(void)
 {
     char out[64 * 1024];
 
     assert(run("bin/solas programs/expect.sol -o " DIR "/expect.sob 2>&1",
                out, sizeof out) == 0);
 
-    int status = run("bin/solvm " DIR "/expect.sob 2>/dev/null", out, sizeof out);
+    int status = run("bin/solvm " DIR "/expect.sob"
+                     " examples docs README.md index.md 2>/dev/null",
+                     out, sizeof out);
     if (status != 0 || strstr(out, "every claim holds") == NULL) {
         printf("\n%s\n", out);
         assert(false);
     }
 
     /* And the count, so that a checker which quietly stopped finding anything
-       to check fails too. It was 398 across 21 files when this went in; the
+       to check fails too. It was 589 across 40 files when this went in; the
        floor is there to catch a collapse, not to be updated for every example
        that gains a line. */
     int claims = 0;
@@ -485,48 +491,9 @@ static void test_the_examples_do_what_they_claim(void)
     assert(at != NULL);
     while (at > out && *at != ',') at--;
     assert(sscanf(at, ", %d claims checked", &claims) == 1);
-    assert(claims >= 350);
+    assert(claims >= 500);
 
-    printf("  every claim the examples make holds (%d of them)\n", claims);
-}
-
-/* And every claim the documentation makes about its own output.
- *
- * The guide and the reference carry the same notation inside ``` fences, and
- * nothing checked one of those either -- they are the two documents a newcomer
- * actually reads. Checking them found the guide showing a stack trace in a
- * format that predates 6.27, and class-and-instance.md saying `integer` has 24
- * slots when it has 38.
- *
- * A block that continues one further up, or that shows syntax rather than a
- * program, is **not checked and not a failure** -- the checker counts those and
- * prints the count, because one that silently verified a quarter of its subject
- * would be worse than none.
- *
- * CHANGELOG.md is the one document skipped: it records what was true at each
- * release, so its snippets describe past states on purpose. */
-static void test_the_documents_do_what_they_claim(void)
-{
-    char out[64 * 1024];
-
-    assert(run("bin/solas programs/expect.sol -o " DIR "/expect.sob 2>&1",
-               out, sizeof out) == 0);
-
-    int status = run("bin/solvm " DIR "/expect.sob docs 2>/dev/null",
-                     out, sizeof out);
-    if (status != 0 || strstr(out, "every claim holds") == NULL) {
-        printf("\n%s\n", out);
-        assert(false);
-    }
-
-    int claims = 0;
-    const char *at = strstr(out, "claims checked");
-    assert(at != NULL);
-    while (at > out && *at != ',') at--;
-    assert(sscanf(at, ", %d claims checked", &claims) == 1);
-    assert(claims >= 150);
-
-    printf("  every claim the documents make holds (%d of them)\n", claims);
+    printf("  everything written down is true (%d claims)\n", claims);
 }
 
 int main(void)
@@ -546,8 +513,7 @@ int main(void)
     test_a_step_limit_stops_a_program();
     test_a_memory_limit_measures_what_is_held();
     test_the_limits_are_off_and_are_checked();
-    test_the_examples_do_what_they_claim();
-    test_the_documents_do_what_they_claim();
+    test_everything_written_down_is_true();
     printf("test_cli: ok\n");
     return 0;
 }

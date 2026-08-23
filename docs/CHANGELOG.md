@@ -7,6 +7,28 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### The last two pages, and one test instead of two — `pending`, 2026-08-22
+
+The checker took one path; it now takes several, so `README.md` and `index.md`
+join the sweep. They are the first thing anyone reads and were the last two
+documents nothing checked. **589 claims across 40 files** — 398 in `examples/`,
+189 across seventeen documents, and two on the front pages.
+
+**And the front page did not compile.** Its opening snippet — the four lines
+that introduce the language to everybody who arrives — was missing the `.` after
+`a := #45`. The checker had seen it and said nothing: a block that fails to
+compile is classified *shows syntax rather than a program* and skipped, which is
+right for the `$ ./bin/solis` transcript further down and wrong here. So the
+category that keeps the checker honest about what it cannot check is also where
+a real fault can hide. Four annotations on those lines were marked as asides
+with a leading `--`, and two more in `index.md`, so what remains is a program
+that runs.
+
+`test_the_examples_do_what_they_claim` and `test_the_documents_do_what_they_claim`
+are now one case, `test_everything_written_down_is_true`, because there is no
+longer a distinction to draw: one invocation, one floor, everything in the
+repository that says what it prints.
+
 ### The documentation now has to mean what it says — `b381479`, 2026-08-22
 
 [programs/expect.sol](../programs/expect.sol) checked the examples' comments;

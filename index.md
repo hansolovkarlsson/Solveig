@@ -13,10 +13,10 @@ messages to them.
 
 ```
 a := #45.        ; ':=' binds a name; '#' tags an integer ( bare 45 is a float )
-a:print.         ; ':' sends a message, '.' ends the statement
+a:print.         ; -- ':' sends a message, '.' ends the statement
 
 xs := [#1, #2, #3].
-xs:do({ x | x:print }).        ; { } is a block: code as a value
+xs:do({ x | x:print }).        ; -- { } is a block: code as a value
 ```
 
 There is **no control-flow syntax at all**. `ifTrue`, `ifElse`, and `whileTrue`

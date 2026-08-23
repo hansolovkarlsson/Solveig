@@ -52,14 +52,11 @@
 ; hypothetical, so the report says how far apart the match was found when it was
 ; not the next line.
 
-directory := "examples".
-single := nil.
-
-system:arguments:size:greaterThan(#0):ifTrue({ | given |
-    given := system:arguments:at(#1).
-    given:indexOf(".sol"):notNil:or({ given:indexOf(".md"):notNil }):ifElse(
-        { single := given. directory := nil },
-        { directory := given }) }).
+; Several subjects at once, because there are three: the examples, the
+; documents, and the two pages at the root that belong to neither.
+subjects := system:arguments:size:equals(#0):ifElse(
+    { ["examples"] },
+    { system:arguments }).
 
 ; ---------------------------------------------------------------------------
 ; Reading the expectations out of a source file
@@ -437,24 +434,22 @@ check := { path |
 ; ---------------------------------------------------------------------------
 ; Running all of them
 
-single:isNil:ifElse(
-    { system:isDirectory(directory):ifFalse({
-          "{} is not a directory":fill([directory]):display.
-          system:exit(#1) }).
-      system:filesIn(directory):sorted:do({ name |
-          ; The changelog is skipped, and it is the only exception. It is a
-          ; record of what was true at each release, so its snippets describe
-          ; past states on purpose -- an entry from 0.4.0 showing what an error
-          ; said then is right to keep saying it. Every other document in docs/
-          ; describes the language as it is now, and is checked.
-          name:equals("CHANGELOG.md"):not:and({
-              name:indexOf(".sol"):notNil:or({ name:indexOf(".md"):notNil })
-          }):ifTrue({
-              check:value(directory:concat("/"):concat(name)) }) }) },
-    { system:fileExists(single):ifFalse({
-          "no such file: {}":fill([single]):display.
-          system:exit(#1) }).
-      check:value(single) }).
+subjects:do({ subject |
+    system:isDirectory(subject):ifElse(
+        { system:filesIn(subject):sorted:do({ name |
+              ; The changelog is skipped, and it is the only exception. It is a
+              ; record of what was true at each release, so its snippets
+              ; describe past states on purpose -- an entry from 0.4.0 showing
+              ; what an error said then is right to keep saying it. Every other
+              ; document describes the language as it is now, and is checked.
+              name:equals("CHANGELOG.md"):not:and({
+                  name:indexOf(".sol"):notNil:or({ name:indexOf(".md"):notNil })
+              }):ifTrue({
+                  check:value(subject:concat("/"):concat(name)) }) }) },
+        { system:fileExists(subject):ifFalse({
+              "no such file or directory: {}":fill([subject]):display.
+              system:exit(#1) }).
+          check:value(subject) }) }).
 
 ; ---------------------------------------------------------------------------
 ; The report
