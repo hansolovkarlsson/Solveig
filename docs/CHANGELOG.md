@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### The checker agreed with you eventually — `pending`, 2026-08-22
+### The checker agreed with you eventually — `358a55d`, 2026-08-22
 
 **589 claims on a warm tree, 588 on a clean one.** The count depended on how
 many times the checker had been run before, which is the one property a checker
