@@ -5,7 +5,50 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## 0.22.0 — 2026-08-23
+
+**One new message, one new library file, and one new document.** `.sob` files
+are format version 14, unchanged.
+
+**`sqrt` is a message a float understands**, and it is in the machine rather
+than the library for a reason worth the release note: it was written in Solum
+twice, and **both versions were wrong and neither said so**. Twenty fixed
+iterations of Newton's method answered `100000.000156` for `sqrt(1e10)`; the
+capped loop written to correct that answered `8.67e281` for `sqrt(1e300)`, which
+is nineteen orders of magnitude, from the fix. Getting it right means scaling by
+the exponent before iterating, which is asking a script to know how a double is
+laid out. `min`, `max` and `between` were written correctly the first time and
+are therefore only [math.sol](../lib/math.sol) — the line between the two is not
+importance, it is whether every program would get the same thing wrong.
+
+That answers the arithmetic half of
+[3.14](ROADMAP.md#314-there-is-no-source-of-randomness). **Randomness is the
+half still open** and the entry is now about that alone: where the state lives,
+where the seed comes from, and whether a host can set it.
+
+**This release corrects 0.21.0.** That entry said the hand-written square root
+converged at 1e300 and only the formatter was wrong. It had not converged. What
+was checked against the C library was the digits the formatter produced, never
+the value they were the digits of — **a wrong number can survive careful
+checking if what you check is how it prints.** The 0.21.0 entries and the
+journal now carry that correction where they made the claim.
+
+**[CHEATSHEET.md](CHEATSHEET.md) is the new document**: the syntax, every type,
+every message it answers and every global, one line each, for when you know what
+you want and not what it is called. Two tests hold it to the language — one
+fails if a message is registered without being listed, and the 64 examples run
+on every build like every other example here. The suite checks **662 claims**,
+up from 589 at 0.21.0.
+
+**And [design.md](design.md#what-the-language-is-for) now says what the language
+is for**, which had never been written down: Solum is meant to be a
+general-purpose language, and the shell-and-text character of the first ten
+programs is a discovery about what has been built rather than a decision about
+what it is. The rule that follows is for reading the roadmap — *no program here
+has wanted X* is a reason to wait for one before choosing a shape, and never a
+reason to rule a direction out. It is written down because it was got wrong
+once, on the trigonometry question, and both documents record the wrong reason
+as wrong.
 
 ### The whole language on one page — `4a0ca23`, 2026-08-23
 

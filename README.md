@@ -107,6 +107,18 @@ No dependencies beyond a C11 compiler and `make`.
 
 ## Status
 
+**0.22.0** — `sqrt` is a message a float understands, and it is a primitive
+rather than a library method because it was written in Solum twice and **both
+versions were wrong and silent** — the second, written to fix the first, was
+wrong by nineteen orders of magnitude above 1e21. `min`, `max` and `between` are
+in the new `lib/math.sol`, being the half nothing can get wrong.
+[docs/CHEATSHEET.md](docs/CHEATSHEET.md) is new: the whole language on one page,
+a line each, with a test that fails if a message is missing from it. And
+[design.md](docs/design.md#what-the-language-is-for) now states what had never
+been written down — Solum is meant to be a general-purpose language, and what
+the ten programs happen to do is not a boundary. `.sob` files are format version
+14, unchanged.
+
 **0.21.0** — a fix release, and the fix is a memory-safety one: a large float
 asked for decimals could print **93 bytes of the stack behind it** —
 `1e150:asString("0.6")` answered 157 characters out of a 64-byte buffer — and a
