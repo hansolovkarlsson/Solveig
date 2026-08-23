@@ -566,6 +566,43 @@ the moment something is, measure before promoting it.
 `sqrt` is not here. It is a message on [float](#float), because it is the one
 piece of this arithmetic a program cannot write for itself and get right.
 
+#### lexer.sol
+
+Solum's own tokens, scanned by Solum.
+
+```
+@include "lexer.sol".
+
+tokens := lexer:all("a := #45.").
+tokens:size:print.                       ; #5   -- the 'eof one is always there
+tokens:at(#1):at("type"):print.          ; 'ident
+tokens:at(#3):at("text"):display.        ; #45
+tokens:at(#3):at("column"):print.        ; #6
+tokens:at(#5):at("type"):print.          ; 'eof
+```
+
+| Message | Answers |
+| --- | --- |
+| `lexer:all(source)` | every token as an array, ending with the `'eof` one |
+| `lexer:on(source)` | nil, having pointed the scanner at that text |
+| `lexer:next` | the next token; `'eof` for ever after the end |
+| `lexer:atEnd` | a boolean |
+
+A token is a dictionary of `"type"` — a symbol, one of `'ident`, `'int`,
+`'float`, `'string`, `'symbol`, `'directive`, `'colon`, `'assign`, `'lparen`,
+`'rparen`, `'lbrace`, `'rbrace`, `'lbracket`, `'rbracket`, `'pipe`, `'comma`,
+`'dot`, `'error`, `'eof` — with `"text"`, `"line"`, `"column"` and, for an
+error, `"message"`. The text is **raw source**: a string token keeps its quotes
+and its backslashes undecoded, because which escapes are legal is the
+compiler's business and is decided in one place.
+
+**It is held to [solas/src/lexer.c](../solas/src/lexer.c) by the test suite**,
+which scans every `.sol` file here with both and compares kind, line, column and
+text token for token — 33,000 of them — plus a fixture of the corners working
+code does not contain. It exists because of the question in
+[ideas.md](ideas.md#solas-written-in-solum--self-hosting): whether Solas could
+be written in Solum.
+
 #### shell.sol
 
 Running a command through `/bin/sh`, when the shell is the point.

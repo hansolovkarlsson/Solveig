@@ -347,7 +347,7 @@ of emitter bug into a message instead of a crash.
 | | |
 | --- | --- |
 | **0** | **Done** — [emit.sol](../programs/emit.sol). Two chunks written out by hand, both byte-identical to `solas`, both running, both decoded by `disasm.sol`. In `make test` as `cmp`. |
-| **1** | A subset compiler — literals, sends, binding, blocks — enough for `examples/hello.sol`, byte-identical to `solas`. |
+| **1** | A subset compiler, enough for `examples/hello.sol`, byte-identical to `solas`. **The scanner is done** — [lexer.sol](../lib/lexer.sol), checked against the C one over every `.sol` here. The parser and the front half of the emitter are what is left. |
 | **2** | The full language, checked over every `.sol` in `examples/`, `programs/` and `lib/`: both compilers, same bytes. In `make test`. |
 | **3** | The fixpoint. The Solum compiler compiles its own source and produces the file `solas` produced from it. |
 
@@ -379,6 +379,43 @@ names, constants, code, line runs, files, file runs, slot names.
 **So the gate is passed and stage 1 is a real option** rather than a hope. What
 it costs is unchanged: 2,500 to 3,500 lines, and a second compiler that has to
 be kept honest by the corpus test.
+
+#### What stage 1 has found so far — the tokenizer question, answered
+
+[lexer.sol](../lib/lexer.sol) scans every token Solum has, and the test suite
+compares it against [solas/src/lexer.c](../solas/src/lexer.c) over every `.sol`
+file in the repository: **33,034 tokens across 44 files, kind, line, column and
+text, all identical.**
+
+**The question it was written to answer was whether a pattern class or a
+built-in scanner had to come first. It did not.** The evidence is the file:
+
+| | |
+| --- | --- |
+| `solas/src/lexer.c` | 265 lines |
+| `lib/lexer.sol` | 297 lines, 169 of them code |
+
+Solum needed **fewer lines of code than the C** to say the same rules, and what
+it wanted was `at`, `copyFrom` and comparison — all of which the language had
+before it had a collector. Nothing was added for this and nothing was missed.
+The one place the language showed through is that a 14-way character dispatch is
+a nest of `ifElse` where C has a `switch`, and the punctuation half of it moved
+into a dictionary of symbols to keep it flat. That is a readability note, not a
+capability gap, and it is [3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing)'s
+territory rather than a new entry.
+
+**Speed**: 3,470 tokens from a 475-line file in **62ms**, VM start included.
+Slow next to C and irrelevant at this scale — a 500-line file scans in the time
+it takes to fork a process.
+
+**And the corpus was not enough on its own**, which is the more useful finding.
+It passed on the first run, so a rule was deliberately broken to check the test
+could fail — and the corpus still passed, because **33,000 tokens of working
+Solum contain no `1e` followed by a non-digit**. Working code does not contain
+the corners. A fixture of them now runs beside the corpus: bare exponents, `45.`
+against `45.5`, a string with a newline inside it, and five ways to be wrong,
+since an error token has a position too and both scanners have to recover from
+it identically or everything after it disagrees.
 
 #### No features were added to make it possible, and that is the point
 

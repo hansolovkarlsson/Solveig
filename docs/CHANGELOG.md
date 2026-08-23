@@ -7,6 +7,45 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### Solum scans Solum — `pending`, 2026-08-23
+
+[lib/lexer.sol](../lib/lexer.sol) is Solum's own tokens, scanned by Solum: all
+nineteen kinds, the shebang, the comments, the escapes, `45.` against `45.5`,
+and `:` against `:=`. Stage 1 of
+[the self-hosting question](ideas.md#solas-written-in-solum--self-hosting), and
+the half that answers whether the language needed help before it could tokenise
+anything serious.
+
+**It did not, and the file is the evidence.** `solas/src/lexer.c` is 265 lines;
+`lib/lexer.sol` is 297, of which 169 are code. Solum said the same rules in
+fewer lines of code than the C, using `at`, `copyFrom` and comparison — all of
+which it had before it had a garbage collector. **Nothing was added to the
+language for this.** The question came with a suggestion to build a pattern
+class and a scanner class first; neither turned out to be wanted, and the one
+place the language shows through is that a fourteen-way character dispatch is a
+nest of `ifElse` where C has a `switch`, which is readability rather than
+capability.
+
+**The test is the corpus.** Every `.sol` file in the repository is scanned by
+both and compared kind, line, column and text, token for token: **33,034 tokens
+across 44 files, all identical.**
+
+**And the corpus was not enough**, which is the finding worth keeping. It passed
+on the first run, so a rule was broken deliberately to check the test could
+fail — and it still passed, because 33,000 tokens of working Solum contain no
+`1e` followed by a non-digit. **Working code does not contain the corners.** A
+fixture of them runs beside the corpus now: bare exponents, a string with a
+newline inside it — the one place a token's line and the scanner's line differ —
+and five ways to be wrong, since an error token has a position too and both
+scanners have to recover identically or everything after it disagrees. With the
+fixture in place the broken rule is caught.
+
+Scanning a 475-line file takes 62ms including VM start, which is slow next to C
+and irrelevant at this scale.
+
+[REFERENCE.md](REFERENCE.md#the-library) documents the new file, and the suite
+checks 667 claims, up from 662.
+
 ### A `.sob` written by Solum — `1170ded`, 2026-08-23
 
 **Could Solas be written in Solum?** Asked on 2026-08-23, never discussed here

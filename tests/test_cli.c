@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "solas/lexer.h"
 #include "solum/common.h"
 #include "solum/serialize.h"
 
@@ -543,6 +544,203 @@ static void test_a_sob_written_by_solum_matches_the_compiler(void)
     printf("  a .sob written by Solum is the one the compiler writes\n");
 }
 
+/* Stage 1 of asking whether Solas could be written in Solum: the scanner.
+ *
+ * lib/lexer.sol is written against solas/src/lexer.c rule for rule, and this is
+ * what holds it there. Every .sol file in the repository is scanned by both and
+ * the tokens compared -- kind, line, column and text, in order, to the end of
+ * the file. Not "produces something reasonable": the same tokens.
+ *
+ * The corpus is the point. Hand-written cases test the rules somebody thought
+ * of; a few thousand tokens of real Solum test the ones they did not, and the
+ * awkward corners here -- `45.` against `45.5`, a bare `e` that is not an
+ * exponent, ':' against ':=' -- are all in it because the language uses them.
+ *
+ * See docs/ideas.md, "Solas written in Solum". */
+static const char *const token_kind[] = {
+    "ident", "int", "float", "string", "symbol", "directive",
+    "colon", "assign", "lparen", "rparen", "lbrace", "rbrace",
+    "lbracket", "rbracket", "pipe", "comma", "dot", "error", "eof"
+};
+
+/* The same escaping lib/lexer.sol's dumper does, so that a token carrying a
+   newline stays on one line of the dump on both sides. */
+static void write_escaped(FILE *f, const char *text, int length)
+{
+    for (int i = 0; i < length; i++) {
+        char c = text[i];
+        if      (c == '\\') fputs("\\\\", f);
+        else if (c == '\n') fputs("\\n", f);
+        else if (c == '\r') fputs("\\r", f);
+        else if (c == '\t') fputs("\\t", f);
+        else                fputc(c, f);
+    }
+}
+
+static void dump_tokens_with_c(const char *source, const char *out_path)
+{
+    FILE *f = fopen(out_path, "wb");
+    assert(f != NULL);
+
+    SolLexer lexer;
+    sol_lexer_init(&lexer, source);
+    for (;;) {
+        SolToken token = sol_lexer_next(&lexer);
+        fprintf(f, "%s|%d|%d|", token_kind[token.type], token.line, token.column);
+        write_escaped(f, token.start, token.length);
+        fputc('\n', f);
+        if (token.type == TOK_EOF) break;
+    }
+    fclose(f);
+}
+
+/* The whole file, for handing to the C scanner. */
+static char *read_source(const char *path)
+{
+    FILE *f = fopen(path, "rb");
+    assert(f != NULL);
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    char *text = malloc((size_t)size + 1);
+    assert(text != NULL);
+    assert(fread(text, 1, (size_t)size, f) == (size_t)size);
+    text[size] = '\0';
+    fclose(f);
+    return text;
+}
+
+/* Both scanners over one file, compared line for line. Answers the token count.
+ *
+ * The paths come from the shell rather than from opendir because this file
+ * defines DIR as its own scratch directory, and dirent.h wants that name for a
+ * type. Shelling out is what the rest of this file does anyway. */
+static int scan_file_with_both(const char *path)
+{
+    char command[1024], out[8 * 1024];
+
+    char *source = read_source(path);
+    dump_tokens_with_c(source, DIR "/tokens-c.txt");
+    free(source);
+
+    snprintf(command, sizeof command,
+             "bin/solvm " DIR "/lexdump.sob %s > " DIR "/tokens-sol.txt 2>&1", path);
+    if (run(command, out, sizeof out) != 0) {
+        printf("\nlib/lexer.sol failed on %s\n", path);
+        run("cat " DIR "/tokens-sol.txt", out, sizeof out);
+        printf("%s\n", out);
+        assert(false);
+    }
+
+    if (run("cmp " DIR "/tokens-c.txt " DIR "/tokens-sol.txt 2>&1",
+            out, sizeof out) != 0) {
+        printf("\nlib/lexer.sol disagrees with solas/src/lexer.c on %s:\n%s\n",
+               path, out);
+        run("diff " DIR "/tokens-c.txt " DIR "/tokens-sol.txt | head -10",
+            out, sizeof out);
+        printf("%s\n", out);
+        assert(false);
+    }
+
+    int tokens = 0;
+    FILE *counted = fopen(DIR "/tokens-c.txt", "rb");
+    assert(counted != NULL);
+    for (int c = fgetc(counted); c != EOF; c = fgetc(counted)) {
+        if (c == '\n') tokens++;
+    }
+    fclose(counted);
+    return tokens;
+}
+
+/* The corner cases, as one file. */
+static const char fixture[] =
+          "; the awkward corners, which real code does not always reach\n"
+          "a := #45. b := 45. c := 45.5.\n"
+          "d := 1e3. e := 1E+3. f := 1.5e-3.\n"
+          "g := 1e. h := 1E. i := 1e+. j := 45.\n"
+          "k := #-5. m := -5. n := -5.5.\n"
+          "s := \"a\\\"b\\n\\\\c\". t := \"spans\n"
+          "a line\". u := 'sym. v := 'a1_b.\n"
+          "@include \"x.sol\".\n"
+          "w := [#1, #2]. x := { p , q | | r | p }. y := (a).\n"
+          "z := a:print. aa:bb := #1.\n"
+          "%\n"
+          "#x\n"
+          "-x\n"
+          "'1\n"
+          "@1\n"
+          "\"unterminated\n"
+          "";
+
+static void test_solum_scans_solum_the_way_c_does(void)
+{
+    char out[8 * 1024];
+
+    /* The dumper is written here rather than shipped: it exists to be compared
+       against, and a program in programs/ would have to earn its place by doing
+       a job somebody wants done. */
+    FILE *f = fopen(DIR "/lexdump.sol", "wb");
+    assert(f != NULL);
+    fputs("@include \"lexer.sol\".\n"
+          "escaped := { s | | out |\n"
+          "    out := array:new.\n"
+          "    #1:toDo(s:size, { i | | c |\n"
+          "        c := s:at(i).\n"
+          "        c:equals(\"\\\\\"):ifElse(\n"
+          "            { out:add(\"\\\\\\\\\") },\n"
+          "            { c:equals(\"\\n\"):ifElse(\n"
+          "                { out:add(\"\\\\n\") },\n"
+          "                { c:equals(\"\\r\"):ifElse(\n"
+          "                    { out:add(\"\\\\r\") },\n"
+          "                    { c:equals(\"\\t\"):ifElse({ out:add(\"\\\\t\") },\n"
+          "                                            { out:add(c) }) }) }) }) }).\n"
+          "    out:join(\"\") }.\n"
+          "lexer:all(system:readFile(system:arguments:at(#1))):do({ t |\n"
+          "    \"{}|{}|{}|{}\":fill([t:at(\"type\"):asString, t:at(\"line\"),\n"
+          "                        t:at(\"column\"), escaped:value(t:at(\"text\"))]):display }).\n",
+          f);
+    fclose(f);
+
+    assert(run("bin/solas " DIR "/lexdump.sol -o " DIR "/lexdump.sob -I lib 2>&1",
+               out, sizeof out) == 0);
+
+    char list[16 * 1024];
+    assert(run("ls examples/*.sol lib/*.sol programs/*.sol", list, sizeof list) == 0);
+
+    int files = 0, tokens = 0;
+    for (char *path = strtok(list, "\n"); path != NULL; path = strtok(NULL, "\n")) {
+        if (path[0] == '\0') continue;
+        tokens += scan_file_with_both(path);
+        files++;
+    }
+
+    /* And the corners the corpus does not reach, because working code does not
+       contain them: a bare `e` that is not an exponent, `45.` against `45.5`, a
+       string with a newline inside it -- which is the one place a token's line
+       and the scanner's line differ -- and five ways to be wrong, since an
+       error token has a position too and the two scanners have to recover from
+       it identically or everything after it disagrees.
+
+       This was written after the corpus passed on the first run and a
+       deliberately broken exponent rule still passed: 33,000 tokens of real
+       Solum contain no `1e` followed by a non-digit. A corpus tests what nobody
+       thought of, and cases like these test what somebody did. */
+    f = fopen(DIR "/corners.sol", "wb");
+    assert(f != NULL);
+    fputs(fixture, f);
+    fclose(f);
+    tokens += scan_file_with_both(DIR "/corners.sol");
+    files++;
+
+    /* A corpus that quietly stopped being scanned would pass every comparison
+       it made, so the size is asserted too. */
+    assert(files >= 40);
+    assert(tokens >= 20000);
+
+    printf("  Solum scans Solum the way C does (%d files, %d tokens)\n",
+           files, tokens);
+}
+
 int main(void)
 {
     test_help_is_not_an_error();
@@ -562,6 +760,7 @@ int main(void)
     test_the_limits_are_off_and_are_checked();
     test_everything_written_down_is_true();
     test_a_sob_written_by_solum_matches_the_compiler();
+    test_solum_scans_solum_the_way_c_does();
     printf("test_cli: ok\n");
     return 0;
 }
