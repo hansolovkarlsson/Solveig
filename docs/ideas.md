@@ -347,7 +347,7 @@ of emitter bug into a message instead of a crash.
 | | |
 | --- | --- |
 | **0** | **Done** — [emit.sol](../programs/emit.sol). Two chunks written out by hand, both byte-identical to `solas`, both running, both decoded by `disasm.sol`. In `make test` as `cmp`. |
-| **1** | A subset compiler, enough for `examples/hello.sol`, byte-identical to `solas`. **The scanner is done** — [lexer.sol](../lib/lexer.sol), checked against the C one over every `.sol` here. The parser and the front half of the emitter are what is left. |
+| **1** | **Done** — [compile.sol](../programs/compile.sol) turns source into bytes, and `examples/hello.sol` comes out byte-identical to `solas`. [lexer.sol](../lib/lexer.sol), [parser.sol](../lib/parser.sol) and [sob.sol](../lib/sob.sol) are the three pieces. Blocks, temporaries, methods and `@include` are stage 2. |
 | **2** | The full language, checked over every `.sol` in `examples/`, `programs/` and `lib/`: both compilers, same bytes. In `make test`. |
 | **3** | The fixpoint. The Solum compiler compiles its own source and produces the file `solas` produced from it. |
 
@@ -416,6 +416,41 @@ the corners. A fixture of them now runs beside the corpus: bare exponents, `45.`
 against `45.5`, a string with a newline inside it, and five ways to be wrong,
 since an error token has a position too and both scanners have to recover from
 it identically or everything after it disagrees.
+
+#### And stage 1 is done: source in, the same bytes out
+
+[compile.sol](../programs/compile.sol) compiles
+[examples/hello.sol](../examples/hello.sol) to the file `solas` produces from
+it, byte for byte, first attempt. The test offers **every** `.sol` file in the
+repository to it: **3 accepted and identical, 43 refused as outside the subset,
+0 disagreements.** The zero is the number that matters — nothing is quietly
+mis-compiled — and the shape of the test means a construct that starts
+compiling is counted the moment it does.
+
+**Byte-identity earned its keep.** It forces agreement on what a compiler is
+otherwise free to decide, and each of these had to be worked out rather than
+guessed:
+
+- Names are interned **when the instruction mentioning them is emitted**, so the
+  table's order is the order the code refers to things.
+- Constants are shared by value **and type**. `#45` and `45` are two entries,
+  and keying them by text alone produces a program that pushes an integer where
+  a float was written — which runs, and is wrong. Breaking exactly that is what
+  the test was checked against.
+- Line runs count bytes rather than instructions.
+
+**The one thing that was real work** is the float encoder in
+[sob.sol](../lib/sob.sol). Nothing reinterprets a float's bits as an integer, so
+a double is taken apart by arithmetic — sign, the exponent by halving and
+doubling into `[1, 2)`, then 52 bits of mantissa — and reassembled as two 32-bit
+halves so nothing has to reach bit 63, which would overflow on the way in
+exactly as it does when reading. Checked against the C library at twelve values
+including `-0.0`, `DBL_MAX` and infinity, **bit for bit**, because a byte count
+would have passed on any of them. Stage 0 had listed this as the one thing not
+yet writable; it is written.
+
+**Still nothing added to the language.** Three library files and a program, all
+in Solum as it already was.
 
 #### No features were added to make it possible, and that is the point
 

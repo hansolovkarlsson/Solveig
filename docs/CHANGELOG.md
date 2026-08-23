@@ -7,6 +7,54 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### Solum compiles Solum — `pending`, 2026-08-23
+
+**[compile.sol](../programs/compile.sol) turns Solum source into the bytes
+`solas` produces from it.** `examples/hello.sol` comes out byte-identical, first
+attempt. Stage 1 of
+[the self-hosting question](ideas.md#solas-written-in-solum--self-hosting) —
+[emit.sol](../programs/emit.sol) proved the format could be written,
+[lexer.sol](../lib/lexer.sol) scanned it, and the two new library files close
+the gap: [parser.sol](../lib/parser.sol) for the grammar and
+[sob.sol](../lib/sob.sol) for the file, which `emit.sol` now shares rather than
+carrying its own copy of.
+
+**The test offers every `.sol` file in the repository to it: 3 accepted and
+identical, 43 refused as outside the subset, 0 disagreements.** The zero is the
+number that matters — nothing is quietly mis-compiled — and nothing lists which
+files ought to work, so a construct that starts compiling is counted the moment
+it does.
+
+The subset is statements, bindings, sends, parentheses, arrays and every
+literal. Not blocks, temporaries, methods or `@include`, which is where slot
+allocation, capture analysis and nested chunks come in, and is stage 2.
+
+**Byte-identity earned its keep**, which was not obvious when it was chosen over
+"runs the same". It forces agreement on what a compiler is otherwise free to
+decide, and each of these had to be worked out and matched:
+
+- Names are interned **when the instruction mentioning them is emitted**, so the
+  name table's order is the order the code refers to things.
+- Constants are shared by value **and type** — `#45` and `45` are two entries.
+  Keying them by text alone yields a program that pushes an integer where a
+  float was written: it runs, it is wrong, and only a byte comparison notices.
+  That mutation is what the test was checked against.
+- Line runs count bytes rather than instructions.
+
+**The real work was the float encoder.** Nothing in Solum reinterprets a float's
+bits as an integer, so `sob:f64` takes a double apart by arithmetic — sign, the
+exponent by halving and doubling into `[1, 2)`, then 52 bits of mantissa — and
+reassembles it as two 32-bit halves so nothing has to reach bit 63, which would
+overflow on the way exactly as it does when reading. It is `readFloat` in
+`disasm.sol` inverted, and it was checked against the C library at twelve values
+including `-0.0`, `DBL_MAX` and infinity, **bit for bit**. A byte count would
+have passed on every one of them, which is the mistake this repository made in
+0.21.0 and does not intend to make twice. Stage 0 had recorded a float constant
+as the one thing not yet writable; it is written.
+
+Still **nothing added to the language** for any of it. The suite checks 672
+claims, up from 667.
+
 ### Solum scans Solum — `ed4d1c6`, 2026-08-23
 
 [lib/lexer.sol](../lib/lexer.sol) is Solum's own tokens, scanned by Solum: all

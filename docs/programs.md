@@ -1,6 +1,6 @@
 # The programs
 
-*The eleven files in [programs/](../programs/): what each one does, how to run
+*The twelve files in [programs/](../programs/): what each one does, how to run
 it, and what it found. [examples/](../examples/) is the other directory — one
 file per concept the [guide](GUIDE.md) names, each written to show a feature.
 These were written to do a job.*
@@ -9,7 +9,7 @@ That distinction is the reason for the split, and it is not cosmetic. **A
 program written to show a feature is written after the feature and to suit it,
 so it can never report that the feature was awkward.** These can, and did:
 nearly every entry the [roadmap](ROADMAP.md) gained after the first dozen came
-from one of these eleven wanting something the language did not have.
+from one of these twelve wanting something the language did not have.
 
 **What this page is not is a description of what Solum is for.** These ten lean
 towards text and processes because they are the tools this project needed while
@@ -35,6 +35,7 @@ is the map; the file is the argument.
 | [expect](../programs/expect.sol) | checks the examples and the documents against their own claims | `solvm expect.sob [dir or file]...` |
 | [bench](../programs/bench.sol) | times a command, and says whether two of them really differ | `solvm bench.sob [runs] [cmd] [-- cmd]` |
 | [emit](../programs/emit.sol) | writes a `.sob` file by hand, the one the compiler writes | `solvm emit.sob [directory]` |
+| [compile](../programs/compile.sol) | compiles Solum to the bytes `solas` produces | `solvm compile.sob [file.sol] [-o out.sob]` |
 
 Every one runs with no arguments at all, on input it supplies itself. That is
 deliberate — a program you have to feed before it will say anything is a program
@@ -572,9 +573,58 @@ It also found `disasm.sol` announcing *this reader was written against version
 and that flip was this program's own doing. A reader that cries wolf on correct
 input teaches you to ignore it.
 
+
+## compile — Solum compiled by Solum
+
+```
+./bin/solvm compile.sob                              ; -- examples/hello.sol
+./bin/solvm compile.sob examples/hello.sol -o out.sob
+```
+
+Source in, bytecode out. [emit.sol](#emit--a-sob-written-by-hand-and-the-one-the-compiler-writes)
+proved a `.sob` could be written at all; [lexer.sol](../lib/lexer.sol) and
+[parser.sol](../lib/parser.sol) turn text into a tree; this turns the tree into
+the bytes, and it is stage 1 of
+[the self-hosting question](ideas.md#solas-written-in-solum--self-hosting).
+
+**The test is `cmp` against `solas`, over every `.sol` file in the repository.**
+What this compiler accepts must come out byte-identical; what it refuses is
+counted. Today that is **3 accepted, 43 outside the subset, 0 disagreements** —
+and the zero is the number that matters, because it says nothing is quietly
+mis-compiled.
+
+**What it does**: statements, bindings, sends, parentheses, arrays, and every
+literal. **What it does not**: blocks, temporaries, methods and `@include` —
+which is where slot allocation, capture analysis and nested chunks come in, and
+is the half of `solas/src/compiler.c` that is a compiler rather than a
+translator. A construct it cannot compile is refused by name.
+
+**Byte-identity is a much harder bar than "runs the same", and that is why it
+was chosen.** It forces agreement on everything a compiler is otherwise free to
+decide, and each of these had to be worked out and matched rather than guessed:
+
+- **Names are interned when the instruction mentioning them is emitted**, so the
+  name table's order is the order the code refers to things. Any other order
+  runs identically and compares differently.
+- **Constants are shared by value *and type*.** `#45` and `45` are two entries,
+  and a compiler that keyed them by text alone would silently emit a program
+  that pushed an integer where a float was written. Breaking exactly that is
+  what the test was checked against.
+- **Line runs count bytes, not instructions**, and end where the line changes.
+
+The float encoder in [sob.sol](../lib/sob.sol) is the other thing worth knowing
+about. **Nothing in Solum reinterprets a float's bits as an integer**, so a
+double has to be taken apart by arithmetic — sign, then the exponent by halving
+and doubling into `[1, 2)`, then 52 bits of mantissa — and reassembled as two
+32-bit halves so nothing has to reach bit 63, which would overflow on the way.
+`readFloat` in [disasm.sol](../programs/disasm.sol) is the same thing read
+rather than written. It was checked against the C library at twelve values
+including `-0.0`, `DBL_MAX` and infinity, bit for bit, because a byte count
+would have passed on any of them.
+
 ## Adding one
 
-There is no template and there should not be. What the eleven have in common is
+There is no template and there should not be. What the twelve have in common is
 only this:
 
 1. **It does a job somebody would want done**, rather than exercising a feature.

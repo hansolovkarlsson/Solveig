@@ -603,6 +603,57 @@ code does not contain. It exists because of the question in
 [ideas.md](ideas.md#solas-written-in-solum--self-hosting): whether Solas could
 be written in Solum.
 
+#### parser.sol
+
+Solum's grammar, parsed by Solum. Includes [lexer.sol](#lexersol), so a program
+wanting a tree asks only for this.
+
+```
+@include "parser.sol".
+
+tree := parser:statements("a := #45.").
+tree:size:print.                              ; #1
+tree:at(#1):at("kind"):print.                 ; 'bind
+tree:at(#1):at("text"):display.               ; a
+tree:at(#1):at("value"):at("kind"):print.     ; 'int
+tree:at(#1):at("value"):at("text"):display.   ; #45
+```
+
+| Message | Answers |
+| --- | --- |
+| `parser:statements(source)` | an array of nodes, one per statement |
+| `parser:endLine` | the line the source ended on, after a parse |
+
+A node is a dictionary of `"kind"` — `'int`, `'float`, `'string`, `'symbol`,
+`'name`, `'bind`, `'send` or `'array` — and `"line"`, plus what that kind needs:
+`"text"` for a literal or a name, `"value"` for a binding, `"receiver"` and
+`"arguments"` for a send, `"elements"` for an array. A parenthesised expression
+leaves **no node**: brackets group and are not a second semantics.
+
+**The subset is deliberate**: statements, bindings, sends, parentheses, arrays
+and every literal, and not yet blocks, temporaries or directives. Anything else
+is refused by name rather than parsed wrongly.
+
+#### sob.sol
+
+Writing a `.sob` file, which is what a compiler does last.
+
+| Message | Answers |
+| --- | --- |
+| `sob:file(chunk)` | the whole file as a string, magic and version included |
+| `sob:chunk(chunk)` | nil, having appended one chunk to `sob:out` |
+| `sob:u8` `u16` `u32` `i64` `f64` `text` | nil, having appended that field |
+
+A chunk is a dictionary — `"slots"`, `"names"`, `"constants"`, `"code"`,
+`"lines"`, `"files"`, `"fileRuns"`, `"slotNames"`, `"methods"` — laid out in
+[serialize.h](../solum/include/solum/serialize.h)'s order. `sob:f64` is the
+interesting one: **nothing reinterprets a float's bits as an integer**, so a
+double is taken apart by arithmetic and reassembled as two 32-bit halves, which
+is `readFloat` in [disasm.sol](../programs/disasm.sol) inverted.
+
+Used by [emit.sol](../programs/emit.sol), which builds chunks by hand, and
+[compile.sol](../programs/compile.sol), which builds them from source.
+
 #### shell.sol
 
 Running a command through `/bin/sh`, when the shell is the point.

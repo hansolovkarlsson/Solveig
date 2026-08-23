@@ -228,7 +228,7 @@ static const char *shipped[] = {
     "programs/mirror.sol",     "programs/tools.sol",
     "programs/serve.sol",      "programs/disasm.sol",
     "programs/expect.sol",     "programs/bench.sol",
-    "programs/emit.sol",
+    "programs/emit.sol",     "programs/compile.sol",
 };
 #define SHIPPED_COUNT (sizeof(shipped) / sizeof(shipped[0]))
 
@@ -555,7 +555,8 @@ static void test_no_example_is_left_out(void)
    be leaving the largest thing on the search path unchecked. */
 static const char *library[] = {
     "lib/control.sol", "lib/text.sol", "lib/json.sol", "lib/shell.sol",
-    "lib/html.sol", "lib/math.sol", "lib/lexer.sol",
+    "lib/html.sol", "lib/math.sol", "lib/lexer.sol", "lib/parser.sol",
+    "lib/sob.sol",
 };
 #define LIBRARY_COUNT (sizeof(library) / sizeof(library[0]))
 

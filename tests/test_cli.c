@@ -741,6 +741,61 @@ static void test_solum_scans_solum_the_way_c_does(void)
            files, tokens);
 }
 
+/* Stage 1: source in, bytecode out, and the bytecode is the compiler's.
+ *
+ * Every .sol file in the repository is offered to programs/compile.sol. What it
+ * accepts must come out byte-identical to what solas produces from the same
+ * path; what it refuses is fine and counted, because the subset is deliberate
+ * and named in the program's own header.
+ *
+ * Both are given the *same* spelling of the path, which is not fussiness: the
+ * path goes into the file's table so a stack trace can name it, so compiling
+ * `hello.sol` and `corpus/hello.sol` correctly produces two different files.
+ *
+ * The shape of this test is what makes it useful as the compiler grows: nothing
+ * lists which files ought to work, so a construct that starts compiling is
+ * counted the moment it does, and one that starts compiling *wrongly* fails.
+ *
+ * See docs/ideas.md, "Solas written in Solum". */
+static void test_solum_compiles_solum_to_the_same_bytes(void)
+{
+    char out[8 * 1024], list[16 * 1024], command[1024];
+
+    assert(run("bin/solas programs/compile.sol -o " DIR "/compile.sob 2>&1",
+               out, sizeof out) == 0);
+    assert(run("ls examples/*.sol lib/*.sol programs/*.sol", list, sizeof list) == 0);
+
+    int accepted = 0, refused = 0;
+    for (char *path = strtok(list, "\n"); path != NULL; path = strtok(NULL, "\n")) {
+        if (path[0] == '\0') continue;
+
+        snprintf(command, sizeof command,
+                 "bin/solvm " DIR "/compile.sob %s -o " DIR "/mine.sob"
+                 " > /dev/null 2>&1", path);
+        if (run(command, out, sizeof out) != 0) { refused++; continue; }
+
+        snprintf(command, sizeof command,
+                 "bin/solas %s -o " DIR "/theirs.sob 2>&1", path);
+        assert(run(command, out, sizeof out) == 0);
+
+        if (run("cmp " DIR "/mine.sob " DIR "/theirs.sob 2>&1", out, sizeof out) != 0) {
+            printf("\nprograms/compile.sol and solas disagree on %s:\n%s\n", path, out);
+            assert(false);
+        }
+
+        /* And it runs, which cmp would not tell you if both were wrong. */
+        snprintf(command, sizeof command, "bin/solvm " DIR "/mine.sob > /dev/null 2>&1");
+        assert(run(command, out, sizeof out) == 0);
+        accepted++;
+    }
+
+    /* A compiler that quietly stopped accepting anything would pass every
+       comparison it made. */
+    assert(accepted >= 3);
+    printf("  Solum compiles Solum to the same bytes (%d files, %d outside the subset)\n",
+           accepted, refused);
+}
+
 int main(void)
 {
     test_help_is_not_an_error();
@@ -761,6 +816,7 @@ int main(void)
     test_everything_written_down_is_true();
     test_a_sob_written_by_solum_matches_the_compiler();
     test_solum_scans_solum_the_way_c_does();
+    test_solum_compiles_solum_to_the_same_bytes();
     printf("test_cli: ok\n");
     return 0;
 }

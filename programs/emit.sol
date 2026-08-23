@@ -30,107 +30,12 @@
 ; ---------------------------------------------------------------------------
 ; The bytes
 ;
-; `asCharacter` turns a number into a one-byte string, which is the whole of the
-; language's binary writing, the way `at` and `asByte` are the whole of its
-; binary reading. Bytes accumulate in an array and are joined **once**, because
-; growing a string by `concat` is quadratic and a chunk is not small.
-;
-; `system:writeFile` then writes every byte it is given, NUL included. That was
-; the one thing about this program that could not be assumed, and it is the
-; reason the first thing written here was a file of all 256 byte values read
-; back and compared.
+; All of it moved to [sob.sol](../lib/sob.sol) once a second program wanted it:
+; this one, which builds chunks by hand, and
+; [compile.sol](compile.sol), which builds them from source. What is left here
+; is the chunks themselves, which is what this program is about.
 
-out := [].
-
-u8 := { n | out := out:add(n:bitAnd(#255):asCharacter) }.
-
-; Little-endian throughout, matching `disasm.sol` and design.md.
-u16 := { n | u8:value(n). u8:value(n:shiftRight(#8)) }.
-
-u32 := { n | | i |
-    i := #0.
-    { i:lessThan(#4) }:whileTrue({ u8:value(n:shiftRight(i:mul(#8))). i := i:inc }) }.
-
-; An i64, and **the direction that is easy**. Reading one back is where the
-; trouble is: `disasm.sol` cannot rebuild the top byte by shifting it left,
-; because a byte of 128 or more shifted into bit 63 is a value no i64 holds and
-; this language traps rather than wrapping, so that program reconstructs the
-; sign by arithmetic instead. Writing has no such problem. `shiftRight` here is
-; arithmetic -- `#-1:shiftRight(#56)` is `#-1`, not a large positive -- so
-; masking after it lands on the right byte for negatives as readily as for
-; positives, and nothing overflows on the way.
-i64 := { n | | i |
-    i := #0.
-    { i:lessThan(#8) }:whileTrue({ u8:value(n:shiftRight(i:mul(#8))). i := i:inc }) }.
-
-; Text with a u16 length in front and no terminator, which is how every name,
-; path and method name is stored.
-text := { s | u16:value(s:size). #1:toDo(s:size, { i | u8:value(s:at(i):asByte) }) }.
-
-; ---------------------------------------------------------------------------
-; A chunk
-;
-; The layout is solum/include/solum/serialize.h, field for field and in its
-; order. A chunk is a dictionary here rather than an object because it is data
-; being written out rather than behaviour, and because the next stage will build
-; these from a parse rather than by hand.
-;
-; The one field that is not a list of things is `"slots"`, the frame slot count,
-; which sits in the header beside the version.
-;
-;   "slots"      an integer, at least #1
-;   "names"      strings -- selectors and string literals share this table
-;   "constants"  [tag, value] pairs; tag #0 nil, #1 integer, #2 float, #3 boolean
-;   "code"       the instruction bytes, already assembled
-;   "lines"      [runLength, lineNumber], run-length encoded over the code
-;   "files"      the source paths this chunk's code came from
-;   "fileRuns"   [runLength, fileIndex], the same encoding over the same bytes
-;   "slotNames"  what each frame slot was called, in slot order
-;   "methods"    nested chunks -- empty here, and the next thing to grow
-
-writeChunk := { chunk |
-    u16:value(chunk:at("slots")).
-
-    u32:value(chunk:at("names"):size).
-    chunk:at("names"):do({ name | text:value(name) }).
-
-    u32:value(chunk:at("constants"):size).
-    chunk:at("constants"):do({ pair |
-        u8:value(pair:at(#1)).
-        ; Only the integer tag is written here. A float would have to be taken
-        ; apart into sign, exponent and mantissa by arithmetic, because nothing
-        ; reinterprets the bits of a float as an integer -- `readFloat` in
-        ; disasm.sol is that done in the reading direction and is the thing to
-        ; invert when a program with a float literal needs compiling.
-        pair:at(#1):equals(#1):ifTrue({ i64:value(pair:at(#2)) }) }).
-
-    u32:value(chunk:at("code"):size).
-    chunk:at("code"):do({ b | u8:value(b) }).
-
-    u32:value(chunk:at("lines"):size).
-    chunk:at("lines"):do({ run | u32:value(run:at(#1)). u32:value(run:at(#2)) }).
-
-    u32:value(chunk:at("files"):size).
-    chunk:at("files"):do({ path | text:value(path) }).
-
-    u32:value(chunk:at("fileRuns"):size).
-    chunk:at("fileRuns"):do({ run | u32:value(run:at(#1)). u32:value(run:at(#2)) }).
-
-    ; A u16 where the others are u32, which is the format's own asymmetry and
-    ; not a slip here: a frame has at most 65,535 slots and the compiler says so.
-    u16:value(chunk:at("slotNames"):size).
-    chunk:at("slotNames"):do({ name | text:value(name) }).
-
-    u32:value(chunk:at("methods"):size) }.
-
-; The file, which is the magic and the version and then a chunk.
-writeFile := { path, chunk |
-    out := [].
-    u8:value(#83). u8:value(#79). u8:value(#76). u8:value(#66).   ; SOLB
-    u16:value(#14).
-    writeChunk:value(chunk).
-    system:writeFile(path, out:join("")).
-    out:size }.
+@include "sob.sol".
 
 ; ---------------------------------------------------------------------------
 ; The instructions
@@ -207,10 +112,11 @@ system:isDirectory(where):ifFalse({ system:makeDirectory(where) }).
 "writing into {}":fill([where]):display.
 
 [[hello, "hi.sob", "hi.sol"], [number, "num.sob", "num.sol"]]:do({ job |
-    | path, size |
+    | path, text |
     path := where:concat("/"):concat(job:at(#2)).
-    size := writeFile:value(path, job:at(#1)).
-    "  {}  {} bytes":fill([job:at(#2), size:asString("4")]):display }).
+    text := sob:file(job:at(#1)).
+    system:writeFile(path, text).
+    "  {}  {} bytes":fill([job:at(#2), text:size:asString("4")]):display }).
 
 "":display.
 "check them against the compiler:":display.
