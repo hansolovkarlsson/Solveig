@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### The day written down, and what the checker does not check — `pending`, 2026-08-22
+### The day written down, and what the checker does not check — `0563781`, 2026-08-22
 
 [journal.md](journal.md) gains the night's account, including a postmortem of
 what went wrong: warm numbers reported as if they were the numbers, an "each
