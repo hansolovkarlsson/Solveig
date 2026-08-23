@@ -1,15 +1,22 @@
 # The programs
 
-*The twelve files in [programs/](../programs/): what each one does, how to run
+*The ten files in [programs/](../programs/): what each one does, how to run
 it, and what it found. [examples/](../examples/) is the other directory — one
 file per concept the [guide](GUIDE.md) names, each written to show a feature.
 These were written to do a job.*
+
+**Two used to be here and are not.** `emit.sol` and `compile.sol` taught Solum
+to compile itself, which it now does — its own source, to a fixpoint. They live
+in [experiment/](../experiment/) with the four libraries they used, off the
+search path and out of `make test`, because keeping them in step with `solas`
+taxed every change to the real compiler and the proof does not need repeating.
+[experiment/README.md](../experiment/README.md) has the account.
 
 That distinction is the reason for the split, and it is not cosmetic. **A
 program written to show a feature is written after the feature and to suit it,
 so it can never report that the feature was awkward.** These can, and did:
 nearly every entry the [roadmap](ROADMAP.md) gained after the first dozen came
-from one of these twelve wanting something the language did not have.
+from one of these ten wanting something the language did not have.
 
 **What this page is not is a description of what Solum is for.** These ten lean
 towards text and processes because they are the tools this project needed while
@@ -34,8 +41,6 @@ is the map; the file is the argument.
 | [disasm](../programs/disasm.sol) | reads a `.sob` file and says what is in it | `solvm disasm.sob [file.sob] [brief]` |
 | [expect](../programs/expect.sol) | checks the examples and the documents against their own claims | `solvm expect.sob [dir or file]...` |
 | [bench](../programs/bench.sol) | times a command, and says whether two of them really differ | `solvm bench.sob [runs] [cmd] [-- cmd]` |
-| [emit](../programs/emit.sol) | writes a `.sob` file by hand, the one the compiler writes | `solvm emit.sob [directory]` |
-| [compile](../programs/compile.sol) | compiles Solum to the bytes `solas` produces | `solvm compile.sob [file.sol] [-o out.sob]` |
 
 Every one runs with no arguments at all, on input it supplies itself. That is
 deliberate — a program you have to feed before it will say anything is a program
@@ -512,153 +517,9 @@ answer.
 
 ---
 
-## emit — a `.sob` written by hand, and the one the compiler writes
-
-```
-./bin/solvm emit.sob                 ; -- writes into build/emit
-./bin/solvm emit.sob somewhere/else
-```
-
-**[disasm](#disasm--a-sob-file-read-and-disassembled) backwards.** No lexer, no
-parser, no source input: two chunks written out byte by byte and handed to the
-machine.
-
-It is the first stage of asking whether **Solas could be written in Solum**, and
-the reason that question starts here rather than at the front of a compiler.
-Scanning characters and building a tree is ordinary work in any language, and
-`lib/json.sol` and `lib/html.sol` already do it. Producing an exact binary file
-is the half that could have turned out to be impossible — a language that cannot
-write a NUL byte, or an i64, or a length-prefixed name cannot emit bytecode at
-all, whatever its front end looks like. So the back end goes first, on the
-smallest input there is.
-
-**It works, and the test is `cmp`.** Both files come out byte-identical to what
-`solas` produces from the same source, `solvm` runs them, and `disasm.sol`
-decodes them:
-
-| | | |
-| --- | --- | --- |
-| `"hi":display.` | 94 bytes | names, code, line runs, files, slot names |
-| `#45:print.` | 98 bytes | all of that and the constant table |
-
-Byte-identity is the assertion rather than *behaves the same*, deliberately. A
-file that runs correctly and differs in its tables would leave the interesting
-question open, and the interesting question is whether two compilers can be held
-to one answer.
-
-**Three things this program found**, none of which was certain in advance:
-
-- **Writing binary works.** Every one of the 256 byte values, NUL included,
-  survives `asCharacter`, `join` and `writeFile`. This was the single unknown,
-  and it was checked before a line of the emitter was written.
-- **Writing an i64 is easier than reading one.** `disasm.sol` carries a careful
-  piece of arithmetic because rebuilding the top byte by shifting it left into
-  bit 63 overflows, and integer arithmetic traps here. Going the other way,
-  `shiftRight` is arithmetic — `#-1:shiftRight(#56)` is `#-1` — so masking after
-  it lands on the right byte for negatives as readily as positives. The
-  asymmetry is real and it favours the writer.
-- **The verifier catches a bad emitter.** A `.sob` is untrusted input, so
-  corrupting one opcode byte of the emitted file gets *bytecode is internally
-  inconsistent* and exit 65, not a crash. A whole class of back-end bug arrives
-  as a message.
-
-**A float constant is the one thing it cannot yet write**, and the reason is on
-the record already: nothing reinterprets the bits of a float as an integer, so
-`readFloat` in `disasm.sol` takes a double apart by hand, field by field. The
-emitter needs that inverted, which is laborious rather than blocked. No program
-being compiled here has a float literal yet; the first one that does is where
-that gets written.
-
-It also found `disasm.sol` announcing *this reader was written against version
-13* on every file it read perfectly well — the format has been 14 since 0.18.0,
-and that flip was this program's own doing. A reader that cries wolf on correct
-input teaches you to ignore it.
-
-
-## compile — Solum compiled by Solum
-
-```
-./bin/solvm compile.sob                              ; -- examples/hello.sol
-./bin/solvm compile.sob examples/hello.sol -o out.sob
-```
-
-Source in, bytecode out. [emit.sol](#emit--a-sob-written-by-hand-and-the-one-the-compiler-writes)
-proved a `.sob` could be written at all; [lexer.sol](../lib/lexer.sol) and
-[parser.sol](../lib/parser.sol) turn text into a tree; this turns the tree into
-the bytes, and it is stage 1 of
-[the self-hosting question](ideas.md#solas-written-in-solum--self-hosting).
-
-**The test is `cmp` against `solas`, over every `.sol` file in the repository.**
-What this compiler accepts must come out byte-identical; what it refuses is
-counted. Today that is **42 accepted, 4 refused, 0 disagreements** — and the
-zero is the number that matters, because it says nothing is quietly
-mis-compiled.
-
-**What it does**: statements, bindings, sends, parentheses, groups, arrays,
-blocks with their parameters and temporaries, slot assignment, and every
-literal — with the frame slots, the lexical capture and the nested chunks all
-of that needs. And the **control flow compiled to jumps**: `ifTrue`, `ifFalse`,
-`ifElse`, `and`, `or`, `whileTrue` and `doUntil`, with the same restrictions
-`solas` applies and the same fall back to a real send when they are not met.
-
-`@include` too, with the search-beside-then-search-path rule, compile-once, and
-the per-chunk file table that lets a line number say which file it is in.
-
-**What it does not do is finish.** The four refusals are not a construct it
-lacks — they are `call depth exceeded`. It manages **nine levels of nested
-blocks and fails at ten**, where `solas` on the C stack is untroubled at thirty,
-and the files that nest deeper include `lib/lexer.sol`, `lib/parser.sol` and
-this compiler's own source. That is
-[3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels), where the
-measurement is written down: **parsing and compiling run out at the same depth**,
-about six frames per level each, so fixing one of them alone moves nothing.
-
-**Both compilers must be given the same search path**, and that is not a
-convenience: the file table records where an included file was *found*, so the
-path is part of the output. `solas` works its default out from where its own
-binary sits, which nothing in Solum can see, so `-I` says it instead.
-
-**Byte-identity is a much harder bar than "runs the same", and that is why it
-was chosen.** It forces agreement on everything a compiler is otherwise free to
-decide, and each of these had to be worked out and matched rather than guessed:
-
-- **Names are interned when the instruction mentioning them is emitted**, so the
-  name table's order is the order the code refers to things. Any other order
-  runs identically and compares differently.
-- **Constants are shared by value *and type*.** `#45` and `45` are two entries,
-  and a compiler that keyed them by text alone would silently emit a program
-  that pushed an integer where a float was written. Breaking exactly that is
-  what the test was checked against.
-- **Line runs count bytes, not instructions**, and end where the line changes.
-- **A byte takes the line of the token the compiler had just consumed**, not the
-  line its construct began on. Those are the same for a one-line statement,
-  which is why the first version of this matched `hello.sol` without knowing the
-  difference, and different for a send whose arguments run over three lines. The
-  parser records the emit line on every node for this reason alone.
-- **A block's slot count is written in its method header and nowhere else.** A
-  chunk begins at its name table; writing the count in both places was the first
-  thing this got wrong, and only the byte comparison said so.
-- **A jump's distance is measured from the end of its whole instruction**, which
-  is not the end of the operand being patched: `JUMPIF` carries the selector
-  after its offset, so that a non-boolean can be blamed on the message it came
-  from, and the jump has to clear that too.
-- **A short-circuit answers a constant `true` or `false`, not the global.** A
-  program can rebind `true`, and reading it would make the shortcut and the long
-  path disagree about what `and` answered.
-
-The float encoder in [sob.sol](../lib/sob.sol) is the other thing worth knowing
-about. **Nothing in Solum reinterprets a float's bits as an integer**, so a
-double has to be taken apart by arithmetic — sign, then the exponent by halving
-and doubling into `[1, 2)`, then 52 bits of mantissa — and reassembled as two
-32-bit halves so nothing has to reach bit 63, which would overflow on the way.
-`readFloat` in [disasm.sol](../programs/disasm.sol) is the same thing read
-rather than written. It was checked against the C library at twelve values
-including `-0.0`, `DBL_MAX` and infinity, bit for bit, because a byte count
-would have passed on any of them.
-
 ## Adding one
 
-There is no template and there should not be. What the twelve have in common is
+There is no template and there should not be. What the ten have in common is
 only this:
 
 1. **It does a job somebody would want done**, rather than exercising a feature.

@@ -57,7 +57,7 @@ marked as a sketch.
 | Resuming from an error | **No** — the frames are gone by the time a handler runs; `retry` is writable, resuming is not |
 | More than one parent | **No** — `via` already names an ancestor, which is what multiple parents are wanted for |
 | An `assert` that compiles away | **No** to stripping; **defer** the message itself |
-| Solas written in Solum — self-hosting | **Done** — it compiles itself, and the result compiles itself to the same bytes, [below](#solas-written-in-solum--self-hosting) |
+| Solas written in Solum — self-hosting | **Proved, then parked** — it compiles itself to a fixpoint; the code is in [experiment/](../experiment/), off the search path, [below](#solas-written-in-solum--self-hosting) |
 
 ---
 
@@ -346,8 +346,8 @@ of emitter bug into a message instead of a crash.
 
 | | |
 | --- | --- |
-| **0** | **Done** — [emit.sol](../programs/emit.sol). Two chunks written out by hand, both byte-identical to `solas`, both running, both decoded by `disasm.sol`. In `make test` as `cmp`. |
-| **1** | **Done** — [compile.sol](../programs/compile.sol) turns source into bytes, and `examples/hello.sol` comes out byte-identical to `solas`. [lexer.sol](../lib/lexer.sol), [parser.sol](../lib/parser.sol) and [sob.sol](../lib/sob.sol) are the three pieces. Blocks, temporaries, methods and `@include` are stage 2. |
+| **0** | **Done** — [emit.sol](../experiment/emit.sol). Two chunks written out by hand, both byte-identical to `solas`, both running, both decoded by `disasm.sol`. In `make test` as `cmp`. |
+| **1** | **Done** — [compile.sol](../experiment/compile.sol) turns source into bytes, and `examples/hello.sol` comes out byte-identical to `solas`. [lexer.sol](../experiment/lexer.sol), [parser.sol](../experiment/parser.sol) and [sob.sol](../experiment/sob.sol) are the three pieces. Blocks, temporaries, methods and `@include` are stage 2. |
 | **2** | The full language, checked over every `.sol` here: both compilers, same bytes, in `make test`. **Done, and stopped by the frame limit rather than by a missing construct** — 42 of 46 files identical, 0 disagreements. The 4 refusals are `call depth exceeded` ([3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels)), including on this compiler's own source. |
 | **3** | **Done.** The Solum compiler compiles its own source and produces the file `solas` produced from it; the compiler that comes out compiles its own source again to the same bytes, and still agrees with `solas` on everything else. In `make test`. |
 
@@ -358,7 +358,7 @@ equivalence through `disasm.sol`.
 #### What stage 0 found
 
 **The back end is not the problem.** `"hi":display.` and `#45:print.` both come
-out of [emit.sol](../programs/emit.sol) byte-identical to `solas`, run, and
+out of [emit.sol](../experiment/emit.sol) byte-identical to `solas`, run, and
 disassemble. Between them they cover every section a method-free chunk has:
 names, constants, code, line runs, files, file runs, slot names.
 
@@ -382,7 +382,7 @@ be kept honest by the corpus test.
 
 #### What stage 1 has found so far — the tokenizer question, answered
 
-[lexer.sol](../lib/lexer.sol) scans every token Solum has, and the test suite
+[lexer.sol](../experiment/lexer.sol) scans every token Solum has, and the test suite
 compares it against [solas/src/lexer.c](../solas/src/lexer.c) over every `.sol`
 file in the repository: **33,034 tokens across 44 files, kind, line, column and
 text, all identical.**
@@ -393,7 +393,7 @@ built-in scanner had to come first. It did not.** The evidence is the file:
 | | |
 | --- | --- |
 | `solas/src/lexer.c` | 265 lines |
-| `lib/lexer.sol` | 297 lines, 169 of them code |
+| `experiment/lexer.sol` | 297 lines, 169 of them code |
 
 Solum needed **fewer lines of code than the C** to say the same rules, and what
 it wanted was `at`, `copyFrom` and comparison — all of which the language had
@@ -419,7 +419,7 @@ it identically or everything after it disagrees.
 
 #### And stage 1 is done: source in, the same bytes out
 
-[compile.sol](../programs/compile.sol) compiles
+[compile.sol](../experiment/compile.sol) compiles
 [examples/hello.sol](../examples/hello.sol) to the file `solas` produces from
 it, byte for byte, first attempt. The test offers **every** `.sol` file in the
 repository to it: **3 accepted and identical, 43 refused as outside the subset,
@@ -440,7 +440,7 @@ guessed:
 - Line runs count bytes rather than instructions.
 
 **The one thing that was real work** is the float encoder in
-[sob.sol](../lib/sob.sol). Nothing reinterprets a float's bits as an integer, so
+[sob.sol](../experiment/sob.sol). Nothing reinterprets a float's bits as an integer, so
 a double is taken apart by arithmetic — sign, the exponent by halving and
 doubling into `[1, 2)`, then 52 bits of mantissa — and reassembled as two 32-bit
 halves so nothing has to reach bit 63, which would overflow on the way in
@@ -506,7 +506,7 @@ it is in. **42 of 46 files now compile byte-identically and 0 disagree.**
 exceeded`** — and this is the finding the whole exercise was most likely to
 produce. It manages nine levels of nested blocks and fails at ten; `solas`,
 recursing on the C stack, is untroubled at thirty. The files that nest deeper
-include `lib/lexer.sol`, `lib/parser.sol` and the compiler's own source.
+include `experiment/lexer.sol`, `experiment/parser.sol` and the compiler's own source.
 
 **So the language cannot yet compile its own compiler, and the reason is a
 documented limitation of the language rather than anything about the compiler.**
@@ -519,7 +519,7 @@ way `lib/html.sol` does*.
 **The prediction named the right fix and the wrong half**, which took a
 measurement to find out. The first account of this said the parser was what ran
 out and an explicit stack in it was the answer. So the compiler was split into
-[compiler.sol](../lib/compiler.sol) — a library rather than part of the program,
+[compiler.sol](../experiment/compiler.sol) — a library rather than part of the program,
 so that a tree nobody parsed could be handed to it directly — and it fails at
 **exactly the same depth**: nine levels pass, ten do not, whether you parse
 alone, compile a hand-built tree alone, or do both. Each half spends about six
@@ -540,7 +540,7 @@ where its own binary sits — which nothing in Solum can see.
 #### Stage 3: it compiles itself
 
 **Solum is self-hosting.** `solas` compiles
-[compile.sol](../programs/compile.sol) to a first generation; that generation
+[compile.sol](../experiment/compile.sol) to a first generation; that generation
 compiles its own source to a second, **byte-identical to the first**; the second
 compiles its own source to a third, identical again; and the second still agrees
 with `solas` on every other file. All four claims are in `make test`.
@@ -560,9 +560,30 @@ to 124. Three programs that had each written down a limit found it moved.
 
 **The whole exercise added nothing to the language** except a number that was
 always a choice. Six library files and two programs, in Solum as it already was:
-[lexer.sol](../lib/lexer.sol), [parser.sol](../lib/parser.sol),
-[compiler.sol](../lib/compiler.sol), [sob.sol](../lib/sob.sol),
-[emit.sol](../programs/emit.sol) and [compile.sol](../programs/compile.sol).
+[lexer.sol](../experiment/lexer.sol), [parser.sol](../experiment/parser.sol),
+[compiler.sol](../experiment/compiler.sol), [sob.sol](../experiment/sob.sol),
+[emit.sol](../experiment/emit.sol) and [compile.sol](../experiment/compile.sol).
+
+#### Parked, on purpose
+
+**The proof is finished, so the code stops being maintained.** Everything moved
+to [experiment/](../experiment/): the four libraries off the search path, the
+two programs out of `programs/`, and all of it out of `make test`.
+
+The reason is the one the roadmap's admission rule would give. A second compiler
+has to be taught every construct the first one learns, and that tax falls on
+every change to `solas` — for no gain, because **the proof does not need
+repeating to stay true.** It was true on 2026-08-23 and the account of what was
+true is written down.
+
+So this is expected to fall behind the language, and the first sign will be a
+file in there failing to compile. That is the trade, not a defect.
+[experiment/prove.sh](../experiment/prove.sh) runs both halves again on demand —
+the 47-file comparison and the fixpoint — and
+[experiment/README.md](../experiment/README.md) says what would have to happen
+to bring it back: not the compiler, which is correct on every input here, but
+the front door, where an error is raised with a VM stack trace instead of
+reported the way `solas` reports one.
 
 #### An aside: the trap the cheatsheet warns about, walked into
 

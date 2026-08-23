@@ -12,7 +12,7 @@
 ;
 ; **Stage 1 of asking whether Solas could be written in Solum** -- see
 ; [ideas.md](../docs/ideas.md#solas-written-in-solum--self-hosting).
-; [emit.sol](../programs/emit.sol) answered the back end; this is the front.
+; [emit.sol](emit.sol) answered the back end; this is the front.
 ;
 ; It is written against [solas/src/lexer.c](../solas/src/lexer.c) rule for rule,
 ; and it is held to it: `make test` scans every `.sol` file in the repository

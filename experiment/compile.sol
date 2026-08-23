@@ -5,7 +5,7 @@
 ; Elsewhere: ./bin/solvm programs/compile.sob prog.sol -I some/lib
 ;
 ; The twelfth program. Everything it does is in
-; [lib/compiler.sol](../lib/compiler.sol) and the three libraries under it; this
+; [lib/compiler.sol](compiler.sol) and the three libraries under it; this
 ; is the argument handling, the search path, and writing the file -- which is
 ; all a compiler's front door ever is.
 ;

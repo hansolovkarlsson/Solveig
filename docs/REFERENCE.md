@@ -566,139 +566,15 @@ the moment something is, measure before promoting it.
 `sqrt` is not here. It is a message on [float](#float), because it is the one
 piece of this arithmetic a program cannot write for itself and get right.
 
-#### lexer.sol
+#### Not here any more: the self-hosting libraries
 
-Solum's own tokens, scanned by Solum.
-
-```
-@include "lexer.sol".
-
-tokens := lexer:all("a := #45.").
-tokens:size:print.                       ; #5   -- the 'eof one is always there
-tokens:at(#1):at("type"):print.          ; 'ident
-tokens:at(#3):at("text"):display.        ; #45
-tokens:at(#3):at("column"):print.        ; #6
-tokens:at(#5):at("type"):print.          ; 'eof
-```
-
-| Message | Answers |
-| --- | --- |
-| `lexer:all(source)` | every token as an array, ending with the `'eof` one |
-| `lexer:on(source)` | nil, having pointed the scanner at that text |
-| `lexer:next` | the next token; `'eof` for ever after the end |
-| `lexer:atEnd` | a boolean |
-
-A token is a dictionary of `"type"` — a symbol, one of `'ident`, `'int`,
-`'float`, `'string`, `'symbol`, `'directive`, `'colon`, `'assign`, `'lparen`,
-`'rparen`, `'lbrace`, `'rbrace`, `'lbracket`, `'rbracket`, `'pipe`, `'comma`,
-`'dot`, `'error`, `'eof` — with `"text"`, `"line"`, `"column"` and, for an
-error, `"message"`. The text is **raw source**: a string token keeps its quotes
-and its backslashes undecoded, because which escapes are legal is the
-compiler's business and is decided in one place.
-
-**It is held to [solas/src/lexer.c](../solas/src/lexer.c) by the test suite**,
-which scans every `.sol` file here with both and compares kind, line, column and
-text token for token — 33,000 of them — plus a fixture of the corners working
-code does not contain. It exists because of the question in
-[ideas.md](ideas.md#solas-written-in-solum--self-hosting): whether Solas could
-be written in Solum.
-
-#### parser.sol
-
-Solum's grammar, parsed by Solum. Includes [lexer.sol](#lexersol), so a program
-wanting a tree asks only for this.
-
-```
-@include "parser.sol".
-
-tree := parser:statements("a := #45.").
-tree:size:print.                              ; #1
-tree:at(#1):at("kind"):print.                 ; 'bind
-tree:at(#1):at("text"):display.               ; a
-tree:at(#1):at("value"):at("kind"):print.     ; 'int
-tree:at(#1):at("value"):at("text"):display.   ; #45
-```
-
-| Message | Answers |
-| --- | --- |
-| `parser:statements(source)` | an array of nodes, one per statement |
-| `parser:endLine` | the line the source ended on, after a parse |
-
-A node is a dictionary of `"kind"` — `'int`, `'float`, `'string`, `'symbol`,
-`'name`, `'bind`, `'send` or `'array` — and `"line"`, plus what that kind needs:
-`"text"` for a literal or a name, `"value"` for a binding, `"receiver"` and
-`"arguments"` for a send, `"elements"` for an array. A parenthesised expression
-leaves **no node**: brackets group and are not a second semantics.
-
-**It parses the whole language**: statements, bindings, sends, parentheses,
-groups, arrays, blocks with their parameters and temporaries, slot assignment,
-`@include` and every literal.
-
-It is a recursive-descent parser, so it recurses about four frames per level of
-nesting and runs out at ten
-([3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels)). An explicit
-stack, as [html.sol](../lib/html.sol) uses, is what lifts that.
-
-The tree keeps a block's parameters and temporaries apart from its body, which
-is what lets [compile.sol](../programs/compile.sol) decide whether a block may
-be inlined into a conditional: one with either is compiled as a real block, for
-the reasons `solas` gives.
-
-A **binding is an expression** here, not a statement, which is how the grammar
-actually works: a block body is a list of expressions and bindings appear in
-them, and `a := #1:print` binds what `print` answered rather than sending
-`print` to what was bound.
-
-#### compiler.sol
-
-A tree in, a chunk out. Includes [parser.sol](#parsersol) and
-[sob.sol](#sobsol), so a program wanting to compile asks only for this.
-
-| Message | Answers |
-| --- | --- |
-| `compiler:compile(source, path)` | a chunk, ready for `sob:file` |
-| `compiler:expression(node)` | nil, having emitted that node into the current unit |
-| `compiler:search` | the directories `@include` looks in, after the includer's own |
-
-```
-@include "compiler.sol".
-
-chunk := compiler:compile("a := #45. a:print.", "demo.sol").
-chunk:at("names"):print.        ; ["a", "print"]
-chunk:at("code"):size:print.    ; #16
-chunk:at("slots"):print.        ; #1
-```
-
-It compiles the whole language and produces **the same bytes `solas` produces**,
-which the test suite checks over every `.sol` file here. What stops it is depth
-rather than any construct: it manages nine levels of nested blocks and fails at
-ten ([3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels)).
-
-**It is a library rather than part of [compile.sol](../programs/compile.sol)
-because a compiler needs testing on its own.** The parser runs out of frames at
-the same depth, so the only way to learn how much room the compiler has is to
-hand it a tree nobody parsed — which needs it reachable without a driver
-attached.
-
-#### sob.sol
-
-Writing a `.sob` file, which is what a compiler does last.
-
-| Message | Answers |
-| --- | --- |
-| `sob:file(chunk)` | the whole file as a string, magic and version included |
-| `sob:chunk(chunk)` | nil, having appended one chunk to `sob:out` |
-| `sob:u8` `u16` `u32` `i64` `f64` `text` | nil, having appended that field |
-
-A chunk is a dictionary — `"slots"`, `"names"`, `"constants"`, `"code"`,
-`"lines"`, `"files"`, `"fileRuns"`, `"slotNames"`, `"methods"` — laid out in
-[serialize.h](../solum/include/solum/serialize.h)'s order. `sob:f64` is the
-interesting one: **nothing reinterprets a float's bits as an integer**, so a
-double is taken apart by arithmetic and reassembled as two 32-bit halves, which
-is `readFloat` in [disasm.sol](../programs/disasm.sol) inverted.
-
-Used by [emit.sol](../programs/emit.sol), which builds chunks by hand, and
-[compile.sol](../programs/compile.sol), which builds them from source.
+`lexer.sol`, `parser.sol`, `compiler.sol` and `sob.sol` were on the search path
+while Solum was being taught to compile itself. That is done — it compiles its
+own source and reaches a fixpoint — and they now live in
+[experiment/](../experiment/), off the search path, because keeping them in step
+with `solas` was a tax on every change to the real compiler and the proof does
+not need repeating. [experiment/README.md](../experiment/README.md) says what
+they are and how to run the proof again.
 
 #### shell.sol
 

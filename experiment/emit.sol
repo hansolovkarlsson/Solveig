@@ -30,7 +30,7 @@
 ; ---------------------------------------------------------------------------
 ; The bytes
 ;
-; All of it moved to [sob.sol](../lib/sob.sol) once a second program wanted it:
+; All of it moved to [sob.sol](sob.sol) once a second program wanted it:
 ; this one, which builds chunks by hand, and
 ; [compile.sol](compile.sol), which builds them from source. What is left here
 ; is the chunks themselves, which is what this program is about.

@@ -7,6 +7,39 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### The self-hosting compiler is parked — `pending`, 2026-08-23
+
+**The proof is finished, so the code stops being maintained.** Everything that
+taught Solum to compile itself has moved to
+[experiment/](../experiment/README.md): `lexer.sol`, `parser.sol`,
+`compiler.sol` and `sob.sol` off the search path, `compile.sol` and `emit.sol`
+out of `programs/`, and all six out of `make test`.
+
+**The reason is the tax rather than the code.** A second compiler has to be
+taught every construct the first one learns, and that falls on every change to
+`solas` — for no gain, because the proof does not need repeating to stay true.
+It was true on 2026-08-23: all 47 `.sol` files compiled to bytes identical to
+`solas`, and the compiler compiled its own source to a fixpoint. That is written
+down rather than re-run.
+
+So the experiment is **expected to fall behind the language**, and the first
+sign will be a file in there failing to compile. That is the trade, stated in
+[experiment/README.md](../experiment/README.md) so nobody reports it as a bug.
+
+[experiment/prove.sh](../experiment/prove.sh) runs both halves again on demand —
+the 47-file comparison and the three generations — and says whether the proof
+still holds. A script rather than a test, because it is a thing to run when
+somebody wants to know.
+
+**Removing them cost 13 claims, and the checker could not have told you.** The
+reference documented the four libraries with worked examples; with the files off
+the search path those blocks no longer compile, so they are classified *shows
+syntax rather than a program* and skipped — the count went from 677 to 664 with
+every remaining claim still holding. The sections are gone now and the
+subtraction is exact, but this is
+[3.16](ROADMAP.md#316-what-the-checker-does-not-check) again: a block that stops
+working stops being checked rather than failing.
+
 ### The frame cap moves, and Solum compiles itself — `6037fdf`, 2026-08-23
 
 **`SOL_FRAMES_MAX` is 256 rather than 64, and recursion reaches 254 levels
@@ -33,7 +66,7 @@ checked and both failures are still catchable — `call depth exceeded` at one,
 **Four times the depth for four percent more memory.**
 
 **And with that, Solum is self-hosting.** `solas` compiles
-[compile.sol](../programs/compile.sol) to a first generation; that generation
+[compile.sol](../experiment/compile.sol) to a first generation; that generation
 compiles its own source to a second, **byte-identical to the first**; the second
 compiles its own source to a third, identical again; and the second still agrees
 with `solas` on every other file. All four claims are in `make test`, and **all
@@ -68,8 +101,8 @@ parser was what ran out of frames and that an explicit stack in it was the
 answer. That was written from reading the call chain rather than from running
 anything, and it is wrong.
 
-The compiler is now [lib/compiler.sol](../lib/compiler.sol) rather than part of
-[compile.sol](../programs/compile.sol) — a library, so that **a tree nobody
+The compiler is now [lib/compiler.sol](../experiment/compiler.sol) rather than part of
+[compile.sol](../experiment/compile.sol) — a library, so that **a tree nobody
 parsed can be handed to it directly**. That is the only way to ask how much room
 the compiler has, since on real source the parser always fails first. With the
 tree built by a loop instead of by parsing:
@@ -104,7 +137,7 @@ what made that visible.
 
 ### `@include`, and the wall at the end of it — `aeee2fa`, 2026-08-23
 
-The last construct. [compile.sol](../programs/compile.sol) does `@include` with
+The last construct. [compile.sol](../experiment/compile.sol) does `@include` with
 the search-beside-then-search-path rule, compile-once, the depth limit, and the
 per-chunk file table that lets a line number say which file it is in.
 
@@ -115,7 +148,7 @@ per-chunk file table that lets a line number say which file it is in.
 exceeded`.** The parser recurses about four frames per level of nesting against
 a budget of 62, so it manages **nine levels of nested blocks and fails at ten**;
 `solas`, recursing on the C stack, is untroubled at thirty. The four files that
-nest deeper include `lib/lexer.sol`, `lib/parser.sol` and `compile.sol` itself.
+nest deeper include `experiment/lexer.sol`, `experiment/parser.sol` and `compile.sol` itself.
 
 **So the language cannot yet compile its own compiler, and the reason is a
 documented limitation of the language rather than anything about the compiler.**
@@ -140,7 +173,7 @@ warning, four hours later.
 
 ### Control flow compiled to jumps — `057ea62`, 2026-08-23
 
-[compile.sol](../programs/compile.sol) now inlines `ifTrue`, `ifFalse`,
+[compile.sol](../experiment/compile.sol) now inlines `ifTrue`, `ifFalse`,
 `ifElse`, `and`, `or`, `whileTrue` and `doUntil` exactly as `solas` does, with
 the jump patching, the backward loop, and the two restrictions that keep the
 optimisation from changing what a program means — every block written right
@@ -179,7 +212,7 @@ what `and` answered.
 
 The first half of stage 2 of
 [the self-hosting question](ideas.md#solas-written-in-solum--self-hosting):
-[compile.sol](../programs/compile.sol) now does **blocks with their parameters
+[compile.sol](../experiment/compile.sol) now does **blocks with their parameters
 and temporaries, groups, slot assignment, frame slot allocation, lexical capture
 and nested chunks** — which is the half of a compiler that is a compiler rather
 than a translator.
@@ -197,7 +230,7 @@ And a byte takes **the line of the token just consumed**, not the line its
 construct began on. Those coincide for a one-line statement, which is the whole
 of `examples/hello.sol`, so stage 1 matched without ever knowing the difference;
 they part company the moment a send's arguments run over two lines.
-[parser.sol](../lib/parser.sol) now records an emit line on every node for this
+[parser.sol](../experiment/parser.sol) now records an emit line on every node for this
 alone.
 
 **The refusals are deliberate, and are the design decision worth stating.**
@@ -216,14 +249,14 @@ Still nothing added to the language.
 
 ### Solum compiles Solum — `561ecc6`, 2026-08-23
 
-**[compile.sol](../programs/compile.sol) turns Solum source into the bytes
+**[compile.sol](../experiment/compile.sol) turns Solum source into the bytes
 `solas` produces from it.** `examples/hello.sol` comes out byte-identical, first
 attempt. Stage 1 of
 [the self-hosting question](ideas.md#solas-written-in-solum--self-hosting) —
-[emit.sol](../programs/emit.sol) proved the format could be written,
-[lexer.sol](../lib/lexer.sol) scanned it, and the two new library files close
-the gap: [parser.sol](../lib/parser.sol) for the grammar and
-[sob.sol](../lib/sob.sol) for the file, which `emit.sol` now shares rather than
+[emit.sol](../experiment/emit.sol) proved the format could be written,
+[lexer.sol](../experiment/lexer.sol) scanned it, and the two new library files close
+the gap: [parser.sol](../experiment/parser.sol) for the grammar and
+[sob.sol](../experiment/sob.sol) for the file, which `emit.sol` now shares rather than
 carrying its own copy of.
 
 **The test offers every `.sol` file in the repository to it: 3 accepted and
@@ -264,7 +297,7 @@ claims, up from 667.
 
 ### Solum scans Solum — `ed4d1c6`, 2026-08-23
 
-[lib/lexer.sol](../lib/lexer.sol) is Solum's own tokens, scanned by Solum: all
+[lib/lexer.sol](../experiment/lexer.sol) is Solum's own tokens, scanned by Solum: all
 nineteen kinds, the shebang, the comments, the escapes, `45.` against `45.5`,
 and `:` against `:=`. Stage 1 of
 [the self-hosting question](ideas.md#solas-written-in-solum--self-hosting), and
@@ -272,7 +305,7 @@ the half that answers whether the language needed help before it could tokenise
 anything serious.
 
 **It did not, and the file is the evidence.** `solas/src/lexer.c` is 265 lines;
-`lib/lexer.sol` is 297, of which 169 are code. Solum said the same rules in
+`experiment/lexer.sol` is 297, of which 169 are code. Solum said the same rules in
 fewer lines of code than the C, using `at`, `copyFrom` and comparison — all of
 which it had before it had a garbage collector. **Nothing was added to the
 language for this.** The question came with a suggestion to build a pattern
@@ -308,7 +341,7 @@ before, and now on the record in
 [ideas.md](ideas.md#solas-written-in-solum--self-hosting) with a staged answer
 and the first stage built.
 
-[emit.sol](../programs/emit.sol) is the eleventh program, and it is
+[emit.sol](../experiment/emit.sol) is the eleventh program, and it is
 **[disasm.sol](../programs/disasm.sol) backwards.** No lexer, no parser, no
 source input — two
 chunks written out byte by byte and handed to the machine. The back end goes

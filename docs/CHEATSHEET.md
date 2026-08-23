@@ -396,10 +396,6 @@ without being told where they live.
 | [control.sol](../lib/control.sol) | `integer:timesCollect(block)` | `n` results, gathered |
 | [math.sol](../lib/math.sol) | `min` `max` `between` on numbers; `min` `max` on arrays | the comparisons written out by hand too often |
 | [text.sol](../lib/text.sol) | `integer:asUtf8` | a code point as the bytes UTF-8 spells it |
-| [lexer.sol](../lib/lexer.sol) | `lexer:all` `on` `next` `atEnd` | Solum's own tokens, scanned by Solum |
-| [parser.sol](../lib/parser.sol) | `parser:statements` `endLine` | Solum's grammar, parsed by Solum |
-| [sob.sol](../lib/sob.sol) | `sob:file` `chunk` `u8` `u16` `u32` `i64` `f64` `text` | writing a `.sob`, which is what a compiler does last |
-| [compiler.sol](../lib/compiler.sol) | `compiler:compile` `expression` `search` | a tree in, a chunk out — the same bytes `solas` writes |
 | [shell.sol](../lib/shell.sol) | `shell:run` `capture` `read` `line` | when the shell's pipes and globs are the point |
 | [json.sol](../lib/json.sol) | `json:read` `json:write` `value:asJson` | JSON in and out |
 | [html.sol](../lib/html.sol) | `html:read`, a tree with `find`, `text`, `attribute` | HTML that recovers from bad markup |

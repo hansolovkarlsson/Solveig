@@ -10,7 +10,7 @@
 ; The back half of [the self-hosting question](../docs/ideas.md#solas-written-in-solum--self-hosting).
 ; [lexer.sol](lexer.sol) and [parser.sol](parser.sol) turn source into a tree,
 ; this turns the tree into a chunk, and [sob.sol](sob.sol) writes the chunk out.
-; [compile.sol](../programs/compile.sol) is the program that drives all four.
+; [compile.sol](compile.sol) is the program that drives all four.
 ;
 ; **The test is `cmp` against `solas`.** Not "runs the same" -- the same file.
 ; That is a harder bar than it sounds, because it means agreeing on everything a

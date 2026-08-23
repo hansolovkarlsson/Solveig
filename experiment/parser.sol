@@ -7,7 +7,7 @@
 ; docs/REFERENCE.md#the-library.
 ;
 ; Stage 1 of [the self-hosting question](../docs/ideas.md#solas-written-in-solum--self-hosting),
-; between [lexer.sol](lexer.sol) and [compile.sol](../programs/compile.sol).
+; between [lexer.sol](lexer.sol) and [compile.sol](compile.sol).
 ; It includes the scanner, so a program wanting to parse asks only for this.
 ;
 ; **This parses the whole language**: statements, bindings, sends, parentheses,

@@ -87,6 +87,7 @@ a different language.
 | `tests/`  | Test suite                                                        |
 | `examples/` | One `.sol` demonstration per concept the guide names            |
 | `programs/` | Whole `.sol` programs, each written to do a job -- [what each does](docs/programs.md) |
+| `experiment/` | Solum's compiler written in Solum: proved, then parked -- [what it was](experiment/README.md) |
 | `embed/`  | A C program that holds a `SolVM` -- see [embedding.md](docs/embedding.md) |
 | `lib/`    | The library that ships with the language, found on the search path |
 

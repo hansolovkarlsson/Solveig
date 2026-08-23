@@ -343,7 +343,7 @@ untouched.
 | plain recursion | 62 | **254** |
 | [evaluator.sol](../programs/evaluator.sol), brackets deep | 18 | **83** |
 | [lib/json.sol](../lib/json.sol), levels of nesting | 28 | **124** |
-| [lib/compiler.sol](../lib/compiler.sol), nested blocks in a file it compiles | 9 | **41** |
+| [lib/compiler.sol](../experiment/compiler.sol), nested blocks in a file it compiles | 9 | **41** |
 | `.sol` files in this repository it compiles to `solas`'s exact bytes | 42 of 46 | **all 47** |
 
 That last row is the one that mattered. The Solum compiler could not compile its
@@ -368,7 +368,7 @@ sort of failure a machine might not be able to recover from, and this one can.
 Worth keeping, because the first account of it was wrong. When the Solum
 compiler could not compile four files, the parser was blamed and an explicit
 stack in it was proposed. Splitting the compiler into
-[lib/compiler.sol](../lib/compiler.sol) so a tree nobody parsed could be handed
+[lib/compiler.sol](../experiment/compiler.sol) so a tree nobody parsed could be handed
 to it directly showed otherwise: parsing alone and compiling alone stopped at
 **exactly the same depth**, about six frames a level each. Fixing one would have
 bought nothing. The test that measured it is still in the suite, and it asserts
