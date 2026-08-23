@@ -738,6 +738,51 @@ static void test_the_json_library_reads_and_writes(void)
     printf("  the json library reads and writes, escapes included\n");
 }
 
+/* The maths library. Small enough that the interesting assertions are the
+   edges rather than the arithmetic: `between` is inclusive at both ends, the
+   array pair works on anything that answers `lessThan` rather than on numbers
+   only, and an empty array raises instead of answering nil. */
+static void test_the_math_library_compares(void)
+{
+    write_file(DIR "/uses_math.sol",
+        "@include \"math.sol\".\n"
+        "a := #3:min(#7). b := #3:max(#7).\n"
+        "c := 2.5:min(1.5). d := 2.5:max(1.5).\n"
+        "inLow := #1:between(#1, #10). inHigh := #10:between(#1, #10).\n"
+        "out := #0:between(#1, #10).\n"
+        "smallest := [#4, #1, #9]:min. largest := [#4, #1, #9]:max.\n"
+        "word := [\"pear\", \"apple\", \"fig\"]:min.\n"
+        "one := [#7]:min.\n"
+        "empty := { []:min }:onError({ e | e:message }).\n");
+
+    SolSearchPath search;
+    sol_search_path_init(&search);
+    sol_search_path_add(&search, "lib");
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    assert(compile_with_path(DIR "/uses_math.sol", &search, &chunk));
+    assert(sol_vm_run(&vm, &chunk) == SOL_OK);
+
+    assert(SOL_AS_INT(global(&vm, "a")) == 3);
+    assert(SOL_AS_INT(global(&vm, "b")) == 7);
+    assert(SOL_AS_FLOAT(global(&vm, "c")) == 1.5);
+    assert(SOL_AS_FLOAT(global(&vm, "d")) == 2.5);
+    assert(SOL_AS_BOOL(global(&vm, "inLow")) == true);
+    assert(SOL_AS_BOOL(global(&vm, "inHigh")) == true);
+    assert(SOL_AS_BOOL(global(&vm, "out")) == false);
+    assert(SOL_AS_INT(global(&vm, "smallest")) == 1);
+    assert(SOL_AS_INT(global(&vm, "largest")) == 9);
+    assert(SOL_AS_INT(global(&vm, "one")) == 7);
+    assert(SOL_IS_STRING(global(&vm, "word")));
+    assert(SOL_IS_STRING(global(&vm, "empty")));
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    sol_search_path_free(&search);
+    printf("  the math library compares, and says so on an empty array\n");
+}
+
 /* Whether a value is exactly this text. test_convert.c has the same three
    lines; they are three lines. */
 static bool is_text(SolValue value, const char *expected)
@@ -880,6 +925,7 @@ int main(void)
     test_updating_and_rebinding_are_silent();
     test_the_json_library_reads_and_writes();
     test_the_html_library_reads_and_recovers();
+    test_the_math_library_compares();
     test_the_library_is_silent_when_included();
 
     printf("test_include: ok\n");

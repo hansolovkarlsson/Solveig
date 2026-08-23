@@ -79,7 +79,7 @@ in the file. What the experiment measured is the cost of writing them:
   and modulus chosen to stay inside 64 bits — but "write your own" is narrower
   advice than it sounds when the reason is nothing to do with randomness.
 
-That is [3.14](ROADMAP.md#314-there-is-no-square-root-no-minimum-and-no-randomness),
+That is [3.14](ROADMAP.md#314-there-is-no-source-of-randomness),
 and [3.15](ROADMAP.md#315-a-childs-streams-cannot-be-redirected) came with it: a
 child's stderr cannot be discarded, and a benchmark harness is the one program
 that cannot buy its way out through `/bin/sh`.
@@ -138,6 +138,14 @@ document, so nothing had ever formatted one.
    different double. The two disagreed for a legitimate reason and I nearly
    filed it as a second bug. Checking the exact value directly is what separated
    them.
+
+   > **This was not a near-miss.** Written the next day: the two disagreed
+   > because `sqrt(1e300)` was *wrong* — the hand-written square root answered
+   > 8.67e281 where the answer is 1e150. Resolving the disagreement by formatting
+   > `1e150` directly proved the formatter's digits were right and said nothing
+   > about the value, and I recorded that as a false alarm. Item 2 above was
+   > therefore still true when this was written: the second `sqrt` was as wrong
+   > as the first, by a great deal more.
 
 **What went right is worth the same attention.** Every one of today's findings
 came from running something rather than reading it: the drift from a clean

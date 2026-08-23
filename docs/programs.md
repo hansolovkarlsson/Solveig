@@ -1,6 +1,6 @@
 # The programs
 
-*The nine files in [programs/](../programs/): what each one does, how to run
+*The ten files in [programs/](../programs/): what each one does, how to run
 it, and what it found. [examples/](../examples/) is the other directory — one
 file per concept the [guide](GUIDE.md) names, each written to show a feature.
 These were written to do a job.*
@@ -9,7 +9,7 @@ That distinction is the reason for the split, and it is not cosmetic. **A
 program written to show a feature is written after the feature and to suit it,
 so it can never report that the feature was awkward.** These can, and did:
 nearly every entry the [roadmap](ROADMAP.md) gained after the first dozen came
-from one of these seven wanting something the language did not have.
+from one of these ten wanting something the language did not have.
 
 Each is a single `.sol` file with its reasoning in its own comments. This page
 is the map; the file is the argument.
@@ -476,12 +476,17 @@ Given the same command twice it answers `1.001, interval 0.985 to 1.015` — whi
 is the test the tool has to pass before any of its other answers are worth
 reading.
 
-**What it found is [3.14](ROADMAP.md#314-there-is-no-square-root-no-minimum-and-no-randomness)
-and [3.15](ROADMAP.md#315-a-childs-streams-cannot-be-redirected).** There is no
+**What it found is [3.14](ROADMAP.md#314-there-is-no-source-of-randomness)
+and [3.15](ROADMAP.md#315-a-childs-streams-cannot-be-redirected).** There was no
 `sqrt`, no `min`, no `max` and no randomness in the language, so this file
-carries all four. Writing them is easy; **getting them right is not**, and the
-square root here was wrong on the first attempt and said nothing about it —
-right to twelve places at 2 and wrong in the fourth digit at 1e10.
+carried all four. Writing them is easy; **getting them right is not**, and the
+square root here was wrong twice, each time silently: first as twenty fixed
+iterations, right to twelve places at 2 and wrong in the fourth digit at 1e10,
+and then — in the version written to fix that — as a capped loop that answered
+`8.67e281` for `sqrt(1e300)`. Three of the four are now the language's: `sqrt`
+is a message a float understands and `min`, `max` and `between` are in
+[math.sol](../lib/math.sol). The generator stays here, because randomness is the
+half of 3.14 still open.
 
 **And testing that square root at 1e300 found a bug in the VM.** Formatting a
 float with a fixed number of decimals wrote into a 64-byte buffer and then used
@@ -490,11 +495,17 @@ result, so `1e150:asString("0.6")` returned 157 characters of which 93 were the
 stack behind the buffer. Fixed, with the buffer sized for the worst case the
 format spec allows and the length clamped to it regardless.
 
+**The two faults hid each other.** The 1e300 test was read as showing a
+formatter bug and a square root that had converged, because the digits were
+checked against the C library and matched. They were the right digits of the
+wrong number. A test that compares how an answer *prints* is not a test of the
+answer.
+
 ---
 
 ## Adding one
 
-There is no template and there should not be. What the seven have in common is
+There is no template and there should not be. What the ten have in common is
 only this:
 
 1. **It does a job somebody would want done**, rather than exercising a feature.

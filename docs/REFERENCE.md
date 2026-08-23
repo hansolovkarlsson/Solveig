@@ -528,6 +528,42 @@ built-in class needs no name of its own, and the first draft, which bound an
 object called `text`, was shadowed by the first program that had a variable of
 that name.
 
+#### math.sol
+
+The comparisons a program keeps writing out by hand. It binds **no global**
+either, for the same reason.
+
+```
+@include "math.sol".
+
+#3:min(#7):print.               ; #3
+2.5:max(1.5):print.             ; 2.5
+#5:between(#1, #10):print.      ; true
+[4.0, 1.0, 9.0]:min:print.      ; 1
+["pear", "apple"]:max:print.    ; "pear"
+```
+
+| Message | Answers |
+| --- | --- |
+| `min(other)` `max(other)` | on `integer` and `float`: the smaller or larger of the two |
+| `between(low, high)` | a boolean, **inclusive** at both ends |
+| `array:min` `array:max` | the smallest or largest element; raises on an empty array |
+
+The array pair names no type, so it works on anything that answers `lessThan` —
+strings sort, so an array of them has a smallest.
+
+**Every one of these was written out longhand somewhere first**, which is the
+whole case for the file: `min` and `max` twice over in
+[bench.sol](../programs/bench.sol), and `between` three times in
+[json.sol](../lib/json.sol) as a surrogate range plus once more in `bench.sol`
+as *does this interval contain 1*. They are ordinary Solum methods bound on
+`integer`, `float` and `array`, and they cost a block call and a frame each —
+the measured lesson `control.sol` records above. Nothing here is in a hot loop;
+the moment something is, measure before promoting it.
+
+`sqrt` is not here. It is a message on [float](#float), because it is the one
+piece of this arithmetic a program cannot write for itself and get right.
+
 #### shell.sol
 
 Running a command through `/bin/sh`, when the shell is the point.
@@ -2044,6 +2080,7 @@ Everything integer has, minus `asFloat`, `asBase`, and the overflow traps, plus:
 | Message | Answers |
 | --- | --- |
 | `floor` `ceiling` `rounded` `truncated` | an **integer**; errors on infinity, not-a-number, or out of range |
+| `sqrt` | a float; `nan` for a negative |
 
 There is no `asInteger`: narrowing names its direction so there is no default to
 remember. `rounded` is half away from zero. Bases are an integer's business, so
@@ -2051,7 +2088,17 @@ remember. `rounded` is half away from zero. Bases are an integer's business, so
 
 Dividing by zero answers a float rather than erring: `1:div(0)` is `infinity`,
 `-1:div(0)` is `-infinity`, and `0:div(0)` is `nan`, which is IEEE rather than a
-choice made here. `nan:equals(nan)` is false for the same reason.
+choice made here. `nan:equals(nan)` is false for the same reason. `sqrt` of a
+negative falls on the same line and answers `nan` rather than raising.
+
+`sqrt` is the one piece of arithmetic here that a program cannot write for
+itself and get right. Newton's method converges quadratically only once the
+guess is near, and from `x` itself the approach is one halving per octave, so a
+fixed iteration count is wrong for large `x` and a capped loop is wrong by
+orders of magnitude — both were written in this repository and both were silent
+about it ([3.14](ROADMAP.md#314-there-is-no-source-of-randomness)). It is float
+only: `#2:asFloat:sqrt` is how an integer asks, since no arithmetic message here
+crosses the two types.
 
 A float is written as the shortest text that reads back as the same value, so
 `0.1` prints as `0.1` and not as the seventeen digits it really is. A whole
@@ -2775,6 +2822,7 @@ appear in an example.
 | `slots` | [every type](#every-type) |
 | `sorted` | [array](#array) |
 | `split` | [string](#string) |
+| `sqrt` | [float](#float) |
 | `sub` | [float](#float), [integer](#integer) |
 | `time` | [system](#system) |
 | `timeToRun` | [block](#block) |

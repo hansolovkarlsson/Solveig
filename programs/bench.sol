@@ -14,15 +14,20 @@
 ; two commands and say whether the difference between them is real, which is a
 ; harder question and the one that actually gets asked.
 ;
-; **What it found is that the arithmetic is not there.** Not the language's
-; shape, which took all of this without complaint -- the *messages*. There is no
-; `sqrt`, no `min`, no `max`, and no source of randomness anywhere. Each is
-; written below, in Solum, and each works -- but the first `sqrt` here did not,
-; and said so nowhere: it was right to twelve places at 2 and wrong in the fourth
-; digit at 1e10. What they cost is that a program wanting a standard deviation
-; has to know Newton's method *and its failure mode*, and a program wanting to
-; resample has to know what a Lehmer generator is and why its multiplier is
-; 16807. See ROADMAP 3.14.
+; **What it found is that the arithmetic was not there.** Not the language's
+; shape, which took all of this without complaint -- the *messages*. There was no
+; `sqrt`, no `min`, no `max`, and there is still no source of randomness
+; anywhere. Every one of them was written here in Solum first, and the square
+; root was wrong twice, silently, before a primitive replaced it -- the story is
+; in the changelog and the moral is in
+; [3.14](../docs/ROADMAP.md#314-there-is-no-source-of-randomness). `sqrt` is now
+; a message a float understands and `min`, `max` and `between` are in
+; [math.sol](../lib/math.sol); the generator below is still this program's own,
+; because randomness is the half of that entry still open.
+
+; `min`, `max` and `between`, which this program wrote out longhand and which
+; now live where the next program can have them too.
+@include "math.sol".
 
 ; ---------------------------------------------------------------------------
 ; What was asked for
@@ -66,44 +71,26 @@ first:size:equals(#0):ifTrue({ usage:value }).
 second:notNil:and({ second:size:equals(#0) }):ifTrue({ usage:value }).
 
 ; ---------------------------------------------------------------------------
-; The arithmetic that is not there
+; The statistics
 ;
-; Five of these. None is hard and none is interesting, which is the complaint:
-; every one is a thing a scripting language is expected to have already, and
-; writing them is a tax on the first program that needs numbers rather than a
-; contribution to it.
-
-; **`sqrt` by Newton's method**, because a standard deviation is a square root
-; and there is no square root.
+; What is left here after `sqrt`, `min` and `max` went into the language and
+; into math.sol: three functions that are this tool's own business rather than
+; anything a language owes a program. A mean, a sample standard deviation and a
+; quantile belong to the thing doing statistics.
 ;
-; This was written first as twenty iterations of the step, on the reasoning that
-; Newton converges quadratically so six would do. **That version was wrong**, and
-; wrong quietly: `sqrt(2)` was right to twelve places and `sqrt(1e10)` answered
-; `100000.000156`. Quadratic convergence is what happens *after* the guess is
-; near, and starting from `x` itself the first phase is a halving per octave --
-; seventeen of the twenty iterations gone before the good part starts.
+; **The square root that used to be here was wrong twice.** First as twenty
+; fixed iterations of Newton's method -- right to twelve places at 2 and wrong in
+; the fourth digit at 1e10, because quadratic convergence is what happens once
+; the guess is near and from `x` itself the approach is one halving per octave.
+; Then, corrected, as a loop running until the answer stopped moving with a cap
+; of sixty steps to stop it oscillating -- which returned `x` divided by 2^60 for
+; anything above about 1e21, so `sqrt(1e300)` answered 8.67e281 rather than
+; 1e150. Nineteen orders of magnitude, silently, from the version written to fix
+; the first mistake. Neither was caught by testing; both were caught by
+; comparing against something that already knew the answer.
 ;
-; It ran until the answer stopped moving instead, with a cap, because in floating
-; point Newton can settle into an oscillation between two adjacent values rather
-; than a fixed point, and a loop waiting for equality would then never end.
-;
-; The point is not that this is hard. It is that it is *easy to get wrong in a
-; way nothing tells you about*, and that every program needing a square root
-; gets to make the same mistake privately.
-sqrt := { x | | guess, previous, steps |
-    x:lessOrEqual(0.0):ifElse(
-        { 0.0 },
-        { guess := x. previous := 0.0. steps := #0.
-          { guess:equals(previous):not:and({ steps:lessThan(#60) }) }:whileTrue({
-              previous := guess.
-              guess := guess:add(x:div(guess)):div(2.0).
-              steps := steps:inc }).
-          guess }) }.
-
-; **`min` and `max`**, which are two lines each and are two lines each in every
-; program that ever wants them.
-minOf := { xs | xs:inject(xs:at(#1), { a, b | a:lessThan(b):ifElse({ a }, { b }) }) }.
-maxOf := { xs | xs:inject(xs:at(#1), { a, b | a:lessThan(b):ifElse({ b }, { a }) }) }.
+; That is why `sqrt` is a primitive now and not a library method. See
+; [3.14](../docs/ROADMAP.md#314-there-is-no-source-of-randomness).
 
 mean := { xs |
     xs:inject(0.0, { total, x | total:add(x) }):div(xs:size:asFloat) }.
@@ -114,14 +101,14 @@ mean := { xs |
 stddev := { xs | | m, ss |
     m := mean:value(xs).
     ss := xs:inject(0.0, { total, x | | d | d := x:sub(m). total:add(d:mul(d)) }).
-    sqrt:value(ss:div(xs:size:dec:asFloat)) }.
+    ss:div(xs:size:dec:asFloat):sqrt }.
 
 ; A quantile by nearest rank, on an array already sorted. Nearest rank rather
 ; than interpolating, because at twenty runs the interpolation would be
 ; inventing precision the sample does not have.
 quantile := { sorted, p | | i |
     i := p:mul(sorted:size:dec:asFloat):rounded:inc.
-    sorted:at(i:lessThan(#1):ifElse({ #1 }, { i })) }.
+    sorted:at(i:max(#1)) }.
 
 ; ---------------------------------------------------------------------------
 ; A source of randomness, which is also not there
@@ -207,10 +194,10 @@ report := { label, xs | | sorted |
     "":display.
     "{}":fill([label]):display.
     "  runs     {}":fill([xs:size]):display.
-    "  min      {} ms":fill([ms:value(minOf:value(sorted)):asString("8.3")]):display.
+    "  min      {} ms":fill([ms:value(sorted:min):asString("8.3")]):display.
     "  median   {} ms":fill([ms:value(quantile:value(sorted, 0.5)):asString("8.3")]):display.
     "  p90      {} ms":fill([ms:value(quantile:value(sorted, 0.9)):asString("8.3")]):display.
-    "  max      {} ms":fill([ms:value(maxOf:value(sorted)):asString("8.3")]):display.
+    "  max      {} ms":fill([ms:value(sorted:max):asString("8.3")]):display.
     "  mean     {} ms  +/- {}":fill([
         ms:value(mean:value(xs)):asString("8.3"),
         ms:value(stddev:value(xs)):asString("0.3")]):display }.
@@ -300,7 +287,7 @@ point := medianOf:value(timesA):div(medianOf:value(timesB)).
 "A / B    {} times, 95% interval {} to {}":fill([
     point:asString("0.3"), low:asString("0.3"), high:asString("0.3")]):display.
 
-low:lessOrEqual(1.0):and({ high:greaterOrEqual(1.0) }):ifElse(
+1.0:between(low, high):ifElse(
     { "         the interval contains 1, so this many runs cannot tell them apart":display },
     { point:lessThan(1.0):ifElse(
         { "         A is faster":display },

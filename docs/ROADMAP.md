@@ -669,49 +669,69 @@ today every site either sets it at the tail of a branch or wants the rest to
 run, and the moment one does not, the flag has to be threaded through the body
 as `done:not:ifTrue({ ... })` and the workaround starts nesting.
 
-### 3.14 There is no square root, no minimum, and no randomness
+### 3.14 There is no source of randomness
 
-The arithmetic is `add`, `sub`, `mul`, `div`, `mod`, `abs`, `negated`, the bit
-operations, and the comparisons. There is no `sqrt`, no `pow`, no `min`, no
-`max`, no `between`, and **no source of randomness anywhere in the language**.
+**No random number anywhere in the language.** Not on `system`, not on
+`integer`, not in the library. A program that wants one writes a generator, and
+the usual one cannot be written here at all: a linear congruential generator
+relies on the multiplication wrapping, and integer arithmetic traps on overflow
+instead. What works is Lehmer's, whose multiplier and modulus are chosen so the
+product cannot exceed 64 bits — [bench.sol](../programs/bench.sol) carries one.
+The seed can only come from `system:clock`, that being the only entropy a Solum
+program can reach.
 
-This sat in [ideas.md](ideas.md) as *defer, the trigger is a program wanting
-one*. [bench.sol](../programs/bench.sol) is that program: it times a command
-repeatedly and says whether the difference between two commands is real, which
-needs a standard deviation and therefore a square root, a minimum and a maximum
-for the range, and a source of randomness twice over — to decide which of two
-commands runs first in each round, and to resample the timings for a confidence
-interval.
+That is not a complaint about the trap, which is right. It is that **"write your
+own generator" is narrower advice than it sounds** when the construction
+everybody knows is unavailable for a reason that has nothing to do with
+randomness.
 
-**All of it was writable, and that is not the answer it first looks like.**
-Every one of those is in `bench.sol` today, in Solum, working. What the
-experiment measured is what writing them costs:
+**This entry was larger and is now this.** It read *there is no square root, no
+minimum, and no randomness*, and the arithmetic half was answered — `sqrt` is a
+message a float understands and `min`, `max` and `between` are in
+[math.sol](../lib/math.sol). What that half cost is recorded below, because it
+is the more useful half of the finding.
 
-| | |
-| --- | --- |
-| `min`, `max`, `mean` | one line each with `inject`. No complaint beyond their absence. |
-| `sqrt` | **wrong on the first attempt, and quietly.** Twenty iterations of Newton's method, on the reasoning that it converges quadratically — `sqrt(2)` came out right to twelve places and `sqrt(1e10)` came out as `100000.000156`. Quadratic convergence is what happens once the guess is close; from `x` itself the first phase is one halving per octave, so seventeen of the twenty iterations were spent before the good part began. The fix is to iterate until the answer stops moving, with a cap, because in floating point Newton can settle into an oscillation between two adjacent values rather than a fixed point. |
-| randomness | writable, but **not the way it is usually written**. A linear congruential generator relies on the multiplication wrapping, and integer arithmetic here traps on overflow instead — so the textbook one cannot be written in this language at all. What works is Lehmer's, whose multiplier and modulus are chosen so the product cannot exceed 64 bits. And the seed can only come from `system:clock`, that being the only entropy a Solum program can reach. |
-
-So the cost is not the lines. It is that **`sqrt` is easy to get wrong in a way
-nothing tells you about**, and every program that needs one gets to make the
-same mistake privately; and that "write your own generator" is narrower advice
-than it sounds when the usual construction is unavailable for a reason that has
-nothing to do with randomness.
-
-**What an answer would look like**, cheapest first:
+**Why `sqrt` became a primitive and the comparisons did not.** Both were
+writable. `min` and `max` were written correctly the first time, in one line
+each, and there is nothing to get wrong. `sqrt` was written **twice, and both
+versions were wrong and silent about it**:
 
 | | |
 | --- | --- |
-| `min`, `max`, `between` in `lib/` | Solum, today, no VM change. The measured lesson from `lib/control.sol` applies — a library version costs a block and a frame per call — but nothing here is in a hot loop. |
-| `sqrt`, `pow`, `log`, `exp` as primitives | Small: C has them, they are pure, and a float is already a double. The only question is how many, and the honest answer is the ones a program has asked for rather than all of `<math.h>`. |
-| randomness | **the interesting one, and the reason this is an entry rather than a commit.** A random number is *state*, and this language has nowhere obvious to put it. On `system`, and a machine is no longer a value with no history — two runs of one chunk stop being identical, which the embedding interface currently promises. In an object a program makes and holds, and it is honest but is `object:new` for something most callers want one of. Seeded from where — the clock is not entropy, and there is no other source. Whether a host can set the seed matters to anybody embedding, since a reproducible run is worth more than an unpredictable one for most of what this language does. |
+| twenty fixed iterations | Right to twelve places at 2, and `sqrt(1e10)` answered `100000.000156`. Newton converges quadratically once the guess is near; from `x` itself the approach is one halving per octave, so seventeen of the twenty iterations went before the good part began. |
+| iterate until it stops moving, capped at sixty steps | Written to fix the first, and worse. The cap is needed, because in floating point Newton can settle into an oscillation between two adjacent values rather than a fixed point — but a value above about 1e21 has not finished halving in sixty steps, so the loop returns `x` divided by 2^60. `sqrt(1e300)` answered `8.67e281` rather than `1e150`. **Nineteen orders of magnitude, silently.** |
 
-**Not urgent, and the reason is worth stating**: nine programs came before the
-one that wanted any of this, and it wanted it for statistics rather than for the
-work. What would change that is a program wanting randomness for what it *does*
-rather than for how it measures — a sample, a shuffle, a simulation, a test that
-generates its own inputs.
+Getting it right means scaling by the exponent before iterating, which is asking
+a script to know how a double is laid out. The C library already knows and is
+correctly rounded, so the answer is one line of C and no lines of Solum.
+
+**The second version was checked and passed.** Its 1e300 answer was printed and
+read, and what the reading found was a bug in the *formatter* — the over-read
+fixed in 0.21.0 — because 8.67e281 rendered at six decimal places is 157
+characters out of a 64-byte buffer. The formatter was fixed, the digits were
+compared against the C library, they matched, and the value they were the digits
+*of* was never compared to anything. A wrong number can survive being looked at
+carefully if what you look at is how it is printed.
+
+**What is left, and why it is an entry rather than a commit.** A random number
+is *state*, and this language has nowhere obvious to put it:
+
+| | |
+| --- | --- |
+| on `system` | A machine stops being a value with no history, and two runs of one chunk stop being identical — which [embedding.md](embedding.md) currently promises. |
+| in an object a program makes and holds | Honest, and it is `object:new` for something most callers want exactly one of. |
+| seeded from where | The clock is not entropy, and there is no other source. |
+| set by a host | Matters to anybody embedding: a reproducible run is worth more than an unpredictable one for most of what this language does. |
+
+**Still not urgent**, and the reason is unchanged: ten programs came before the
+one that wanted this, and it wanted it for how it measures rather than for what
+it does. What would change that is a program wanting randomness for the work — a
+sample, a shuffle, a simulation, a test that generates its own inputs.
+
+**`pow`, `log` and `exp` are still not here either**, and were not added with
+`sqrt`. C has them and they would each be a line, but no program in this
+repository has asked for one, and *the ones a program has asked for rather than
+all of `<math.h>`* is the rule this entry set for itself.
 
 ### 3.15 A child's streams cannot be redirected
 
@@ -769,6 +789,15 @@ outside both. The second of those was found because it also appeared in a block;
 the first was stale for a day and was found by reading. Every count this
 repository states about itself in a sentence has the standing that the examples'
 comments had before any of this existed.
+
+**And it happened again the day after this was written.**
+[programs.md](programs.md) said *the nine files in programs/*, *one of these
+seven*, and *what the seven have in common*, on a page describing ten programs —
+three stale counts on one page, two of them wrong by three. Found by reading it
+for another reason. That is the third instance, which is enough to say the
+category is not hypothetical: **this document's third row, recomputing the
+handful of counts the repository states about itself, is the one worth building
+if any of them is.**
 
 **What an answer would cost.**
 
@@ -857,13 +886,15 @@ found out what it wanted.
   had never mentioned it, which is the better evidence.
 - [bench.sol](../programs/bench.sol) found that **there is no square root, no
   minimum and no randomness** (3.14) — all of them writable, and the point is
-  what writing them costs: the `sqrt` was wrong on the first attempt and said
-  nothing, and the textbook random generator cannot be written here at all
-  because integer arithmetic traps on overflow rather than wrapping. It also
-  found that **a child's streams cannot be redirected** (3.15), and, by testing
-  its own square root at 1e300, **a stack over-read in the float formatter**
-  that let a script print the bytes behind a buffer. The first program here
-  written to press on a gap rather than to do a job.
+  what writing them costs: the `sqrt` written here was wrong **twice**, and both
+  times said nothing, which is why it is a primitive now and `min`, `max` and
+  `between` are only a library. The textbook random generator cannot be written
+  here at all, because integer arithmetic traps on overflow rather than wrapping,
+  and that half of the entry is still open. It also found that **a child's
+  streams cannot be redirected** (3.15), and, by testing its own square root at
+  1e300, **a stack over-read in the float formatter** that let a script print the
+  bytes behind a buffer. The first program here written to press on a gap rather
+  than to do a job.
 - [disasm.sol](../programs/disasm.sol) found **three faults in this project's
   own documents** by being a second implementation of a format that had one:
   BYTECODE.md gave no opcode numbers, design.md said both "big-endian" and

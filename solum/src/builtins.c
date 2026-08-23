@@ -247,6 +247,27 @@ static SolValue prim_float_abs(SolVM *vm, SolValue self, SolValue *args, int arg
     return SOL_FLOAT_VAL(fabs(SOL_AS_FLOAT(self)));
 }
 
+/* Here because two attempts at writing it in Solum were both wrong and both
+   silent about it -- see ROADMAP 3.14. Newton's method converges quadratically
+   only once the guess is near, and from `x` itself the approach is one halving
+   per octave, so a fixed iteration count is wrong for large `x` and a capped
+   loop is wrong by orders of magnitude. Getting it right means scaling by the
+   exponent first, which is asking a script to know how a double is laid out.
+   The C library already knows, and is correctly rounded.
+
+   Float only. `#2:sqrt` would have to answer a float, and no arithmetic message
+   here crosses the two types; `#2:asFloat:sqrt` is how an integer asks.
+
+   A negative answers nan rather than raising, which is the rule float division
+   already follows below: this arithmetic reaches infinity and nan instead of
+   trapping, because both are representable floats. */
+static SolValue prim_float_sqrt(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "sqrt", argc, 0)) return SOL_NIL_VAL;
+    return SOL_FLOAT_VAL(sqrt(SOL_AS_FLOAT(self)));
+}
+
 /* Floats divide by zero to infinity rather than erroring. That is not a new
    rule: float multiplication already overflows silently to infinity where
    integer multiplication traps, because infinity is a representable float and
@@ -4576,6 +4597,7 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->float_class, SOL_OBJ, "new", prim_float_no_new);
     instance(vm, vm->float_class, SOL_FLOAT, "negated", prim_float_negated);
     instance(vm, vm->float_class, SOL_FLOAT, "abs", prim_float_abs);
+    instance(vm, vm->float_class, SOL_FLOAT, "sqrt", prim_float_sqrt);
     instance(vm, vm->float_class, SOL_FLOAT, "notEquals", prim_not_equals);
     instance(vm, vm->float_class, SOL_FLOAT, "lessOrEqual", prim_less_or_equal);
     instance(vm, vm->float_class, SOL_FLOAT, "greaterOrEqual", prim_greater_or_equal);

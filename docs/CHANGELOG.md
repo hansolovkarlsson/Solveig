@@ -5,6 +5,70 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+### A square root that is right — `pending`, 2026-08-23
+
+**`sqrt` is a message a float understands**, and `min`, `max` and `between` are
+in the new [math.sol](../lib/math.sol). That is the arithmetic half of
+[3.14](ROADMAP.md#314-there-is-no-source-of-randomness) answered; randomness is
+the half still open, and the entry is now about that alone.
+
+**The reason `sqrt` is in the machine and the comparisons are not is the whole
+of this entry.** Both were writable in Solum, and
+[bench.sol](../programs/bench.sol) had written all of them. `min` and `max` came
+out right the first time, one line each, and there is nothing in them to get
+wrong. The square root was written **twice, and both versions were wrong and
+said nothing**:
+
+- Twenty fixed iterations of Newton's method — right to twelve places at 2, and
+  `sqrt(1e10)` answered `100000.000156`.
+- Then, written to fix that, a loop running until the answer stopped moving with
+  a cap of sixty steps. The cap is needed, because in floating point Newton can
+  oscillate between two adjacent values rather than settle. But a value above
+  about 1e21 has not finished halving in sixty steps, so the loop returns `x`
+  divided by 2^60: **`sqrt(1e300)` answered `8.67e281` rather than `1e150`.**
+  Nineteen orders of magnitude, from the corrected version, silently.
+
+Getting it right means scaling by the exponent before iterating, which is asking
+a script to know how a double is laid out. So this is not *the language should
+be convenient*; it is that every program needing a square root here was going to
+get the same wrong answer privately.
+
+**A correction to 0.21.0.** That release said the hand-written square root
+converged at 1e300 and only the formatter was wrong. It had not converged. What
+was checked against the C library was the *digits the formatter produced* —
+which were right, once the formatter was fixed — and never the value they were
+the digits of. A wrong number can survive careful checking if what you check is
+how it prints. The 0.21.0 entries now carry that correction, and
+[tests/test_ops.c](../tests/test_ops.c) compares `sqrt` against the C library at
+eleven values including 1e40 and 1e300, where the second hand-written version
+failed.
+
+`nan` for a negative rather than raising, which is the rule float division
+already follows — this arithmetic reaches nan and infinity instead of trapping.
+Float only: `#4:asFloat:sqrt`, since no arithmetic message here crosses the two
+types. **No `pow`, `log` or `exp`**: C has them and each would be a line, but no
+program here has asked for one, and *the ones a program has asked for rather
+than all of `<math.h>`* is the rule the entry set itself.
+
+**math.sol is a library because nothing in it can be got wrong.** `min`, `max`
+and `between` on `integer` and `float`, `min` and `max` on `array`, every one of
+them written out longhand somewhere first — twice in `bench.sol`, and `between`
+three times in [lib/json.sol](../lib/json.sol) as a surrogate range. `json.sol`
+is deliberately **not** rewritten to use it: a parser would pay a block and a
+frame per escape sequence for a readability gain, and the measured lesson from
+`lib/control.sol` cuts the other way there.
+
+`.sob` files are format version 14, unchanged. The suite now checks 598 claims,
+up from 589.
+
+**Three stale counts, found by reading.** `programs.md` said *the nine files in
+programs/* and twice *the seven*, on a page describing ten. Fixed, and recorded
+as the third instance under
+[3.16](ROADMAP.md#316-what-the-checker-does-not-check) — enough to say which of
+that entry's three options is the one worth building.
+
 ## 0.21.0 — 2026-08-22
 
 **A fix release, and the fix is a memory-safety one.** `1e150:asString("0.6")`
@@ -19,14 +83,22 @@ decimals now answers its digits rather than the right number of the wrong bytes.
 **It was found by the tenth program**, and that is the part worth the note.
 [bench.sol](../programs/bench.sol) times a command repeatedly and says whether
 two commands really differ. It needed a square root the language does not have,
-wrote one, and tested it at 1e300 to see whether it converged. It did. The
-formatter did not. The bug is in the float printer and has nothing to do with
-square roots — two absences compounding, a program reaching for a function that
-is missing and the edges of what it wrote landing where the printer had never
-been.
+wrote one, and tested it at 1e300 to see whether it converged. The bug is in the
+float printer and has nothing to do with square roots — two absences
+compounding, a program reaching for a function that is missing and the edges of
+what it wrote landing where the printer had never been.
+
+> **Corrected after the fact.** This section, and the entry below it, said the
+> square root converged and only the formatter was wrong. **The square root did
+> not converge**: at 1e300 it answered 8.67e281. What was compared against the C
+> library was the *digits the formatter produced*, never the value they were the
+> digits of. The formatter bug was real and the fix stands; the sentence about
+> the square root was not. See
+> [3.14](ROADMAP.md#314-there-is-no-source-of-randomness) and the entry that
+> made `sqrt` a primitive.
 
 **Three roadmap entries, each by the admission rule.**
-[3.14](ROADMAP.md#314-there-is-no-square-root-no-minimum-and-no-randomness) —
+[3.14](ROADMAP.md#314-there-is-no-source-of-randomness) —
 there is no `sqrt`, `pow`, `min`, `max`, and no source of randomness anywhere in
 the language; this had been deferred in [ideas.md](ideas.md) with the trigger *a
 program wanting one*, and this is that program.
@@ -79,7 +151,8 @@ instead of over-reading.
 
 **Found by [bench.sol](../programs/bench.sol)**, which needed a square root the
 language does not have, wrote one, and tested it at 1e300 to see whether it
-converged. It did. The formatter did not.
+converged — see the correction above: it had not, and that went unnoticed
+because what was checked was how the answer printed.
 [tests/test_format.c](../tests/test_format.c) now checks five large floats and
 the widest thing the spec can ask for, digit for digit against the C library —
 a length alone would have passed throughout, the length having been right all
@@ -103,7 +176,7 @@ command twice it answers `1.001, interval 0.985 to 1.015`.
 
 **Two roadmap entries, both by the admission rule.**
 
-[3.14](ROADMAP.md#314-there-is-no-square-root-no-minimum-and-no-randomness) —
+[3.14](ROADMAP.md#314-there-is-no-source-of-randomness) —
 there is no `sqrt`, `pow`, `min`, `max`, and **no source of randomness anywhere
 in the language**. This had been deferred in ideas.md with the trigger *a
 program wanting one*, and this is that program. All four were writable and all

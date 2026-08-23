@@ -81,6 +81,16 @@ infinity:print.                  ; infinity
 #-5:abs:print.                   ; #5
 #3:mul(#4):sub(#2):print.        ; #10
 
+; A square root is a float's, and an integer says which way it is converting --
+; nothing here crosses the two types on its own.
+4.0:sqrt:print.                  ; 2
+2.0:sqrt:print.                  ; 1.4142135623730951
+#9:asFloat:sqrt:print.           ; 3
+
+; A negative answers nan rather than erring, which is the rule dividing by zero
+; already follows: this arithmetic reaches nan and infinity instead of trapping.
+-1.0:sqrt:print.                 ; nan
+
 ; Comparison answers a boolean, and the ordering messages are spelled out.
 #3:lessThan(#4):print.           ; true
 #3:greaterOrEqual(#3):print.     ; true

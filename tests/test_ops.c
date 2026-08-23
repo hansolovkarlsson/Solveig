@@ -1,6 +1,7 @@
 /* The operations filled in around the core: short-circuit logic, ordering,
  * negation, and asString on composites. */
 #include <assert.h>
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -174,6 +175,51 @@ static void test_negation_and_abs(void)
     assert(run(&vm, &chunk, "#-9223372036854775808:negated.") == SOL_RUNTIME_ERROR);
     sol_chunk_free(&chunk);
     assert(run(&vm, &chunk, "#-9223372036854775808:abs.") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
+/* Checked against the C library rather than against a written-down constant,
+   because that is the whole argument for the primitive: two hand-written
+   versions in programs/bench.sol were both wrong and neither was caught by
+   looking at its answers. 1e10 is where the first went wrong in the fourth
+   digit; 1e40 and 1e300 are where the second, written to fix the first, went
+   wrong by nineteen orders of magnitude and said nothing. */
+static void test_square_root(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    static const double cases[] = { 0.0, 1.0, 4.0, 0.25, 2.0, 1e-10, 1e10,
+                                    1e20, 1e40, 1e300, 1e-300 };
+    for (size_t i = 0; i < sizeof cases / sizeof cases[0]; i++) {
+        char source[64];
+        snprintf(source, sizeof source, "a := %.17g:sqrt.", cases[i]);
+        assert(run(&vm, &chunk, source) == SOL_OK);
+        assert(SOL_AS_FLOAT(global(&vm, "a")) == sqrt(cases[i]));
+        sol_chunk_free(&chunk);
+    }
+
+    /* A negative answers nan and does not raise, which is the rule float
+       division already follows: this arithmetic reaches nan and infinity
+       instead of trapping. nan is not equal to itself, so ask it that. */
+    assert(run(&vm, &chunk, "a := -1.0:sqrt. b := a:equals(a)."
+                            "c := infinity:sqrt. d := -0.0:sqrt.") == SOL_OK);
+    assert(isnan(SOL_AS_FLOAT(global(&vm, "a"))));
+    assert(SOL_AS_BOOL(global(&vm, "b")) == false);
+    assert(isinf(SOL_AS_FLOAT(global(&vm, "c"))));
+    assert(signbit(SOL_AS_FLOAT(global(&vm, "d"))));
+    sol_chunk_free(&chunk);
+
+    /* Float only: an integer says which way it is converting. */
+    assert(run(&vm, &chunk, "#4:sqrt.") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "a := #4:asFloat:sqrt.") == SOL_OK);
+    assert(SOL_AS_FLOAT(global(&vm, "a")) == 2.0);
+    sol_chunk_free(&chunk);
+
+    assert(run(&vm, &chunk, "4.0:sqrt(#1).") == SOL_RUNTIME_ERROR);
     sol_chunk_free(&chunk);
 
     sol_vm_free(&vm);
@@ -430,6 +476,7 @@ int main(void)
     test_string_ordering();
     test_not_equals_tracks_equals();
     test_negation_and_abs();
+    test_square_root();
     test_composite_as_string();
     test_inc_and_dec();
     test_bit_operations();
