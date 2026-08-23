@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### What the relatives have, surveyed — and one roadmap entry from it — `pending`, 2026-08-22
+### What the relatives have, surveyed — and one roadmap entry from it — `579fcd7`, 2026-08-22
 
 [lineage.md](lineage.md) placed the language among Smalltalk, Self, Io, Lua and
 Ruby; this is the follow-on question — what those have that this might want.
