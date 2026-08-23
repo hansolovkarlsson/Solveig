@@ -57,6 +57,7 @@ marked as a sketch.
 | Resuming from an error | **No** — the frames are gone by the time a handler runs; `retry` is writable, resuming is not |
 | More than one parent | **No** — `via` already names an ancestor, which is what multiple parents are wanted for |
 | An `assert` that compiles away | **No** to stripping; **defer** the message itself |
+| Default values for block parameters | **Defer** — the trigger is a program threading a nil it did not want to pass; the case for it is that built-ins already do this and user code cannot |
 | Solas written in Solum — self-hosting | **Proved, then parked** — it compiles itself to a fixpoint; the code is in [experiment/](../experiment/), off the search path, [below](#solas-written-in-solum--self-hosting) |
 
 ---
@@ -1274,6 +1275,103 @@ adding a second meaning to the same file.
 
 **The trigger**: a program that writes a check it would genuinely want off in
 production, and can say why the inline form is not enough. None has.
+
+### Default values for block parameters
+
+Asked on 2026-08-23: if a block takes a parameter the caller usually gives the
+same value for, could it carry that value itself?
+
+```
+myfun := { x := #0 | doSomething }.   ; a sketch; not valid today
+myfun:value.                          ; -- x would be #0
+myfun:value(#5).                      ; -- x would be #5
+```
+
+**The case for it is stronger than convenience, and it is not the syntax.** The
+language already has defaulted arguments — it is just that only C can write
+them:
+
+```
+d := dictionary:new.
+d:atPut("port", #80).
+d:at("port"):print.             ; #80    -- one argument
+d:at("host", "any"):display.    ; any    -- two, and the second is a default
+"45":asInteger:print.           ; #45
+"2d":asInteger(#16):print.      ; #45    -- and again
+```
+
+`at`, `asInteger`, `asString`, `sorted`, `first`, `last`, `timeToRun` and
+`perform` all take an argument or do not, and in several of them the extra
+argument is *exactly* a default value. A block cannot:
+
+```
+f := { x | x }.
+{ f:value }:onError({ e | e:message:display }).   ; 'block' takes 1 argument, got 0
+```
+
+So this is one of the few places where **user code cannot do what built-in code
+does**, and the language otherwise works hard to keep those the same thing — a
+class is an object, control flow is message sending, `[a, b]` really is
+`array:of(a, b)`. That asymmetry is the argument, and it is a better one than
+saving a word at a call site.
+
+**The syntax works, at a price paid in the scanner.** `{ x := #0 | body }` is
+unambiguous, because `|` cannot follow an expression — there are no operators,
+so nothing else could be meant. But deciding *is* this a parameter list requires
+scanning past an arbitrary expression to find the `|`, where today the probe
+skips identifiers and commas and stops. And a default that is itself a block —
+`{ x := { | t | t } | body }` — means the probe has to balance braces. Solas
+decides parameters with a copy of the lexer rather than a parser
+([lexer.h](../solas/include/solas/lexer.h) and `block_parameters`), and that is
+what would have to grow.
+
+**The machine is the larger half, and it reaches the file format.**
+
+| | |
+| --- | --- |
+| arity stops being a number | It becomes a range, `[required, total]`. `.sob` carries `u16 arity` per method ([serialize.h](../solum/include/solum/serialize.h)), so a second number is a **format version bump** — every `.sob` recompiled. |
+| the callee has to know what it got | `sol_vm_call` checks `argc != code->arity` and builds the frame; nothing tells the body how many arguments actually arrived, and filling defaults means knowing. |
+| a default is code, not a constant | `{ x := system:clock \| ... }` has to run *somewhere*. Running it in the callee's frame gives a block a prologue with jumps — the same shape an inlined conditional has, but generated rather than written. |
+
+**Three questions to settle before any of that**, none of which has an obvious
+answer: may a default see an earlier parameter (`{ a, b := a:inc | ... }`), which
+decides whether the prologue is one pass or ordered; is it evaluated per call or
+once, which decides whether `{ xs := [] | ... }` shares one array between calls,
+the mistake every language with this feature has made at least once; and what
+`respondsTo` and the arity error should then say.
+
+**What works today**, and it is not nothing. The caller says nil and the block
+substitutes:
+
+```
+greet := { name |
+    name:isNil:ifTrue({ name := "world" }).
+    "hello, {}":fill([name]):display }.
+greet:value(nil).               ; hello, world
+```
+
+Or one parameter carries the options, and the defaults are spelled with the tool
+the language already has:
+
+```
+draw := { options |
+    "{} at {}":fill([options:at("shape", "circle"),
+                     options:at("size", #10)]):display }.
+o := dictionary:new.
+o:atPut("shape", "square").
+draw:value(o).                  ; square at 10
+```
+
+Both cost the caller something — a `nil` it did not want to write, or a
+dictionary to build — and neither is wrong.
+
+**Trigger: a program here writing the same block twice, or threading a `nil`
+through a call it did not want to make, for one optional argument.** Nothing has
+yet. This is written down rather than started because
+[ROADMAP.md](ROADMAP.md)'s admission rule is that an entry means *a program
+wanted something and could not have it*, and no program here has — the idea came
+from thinking about the language rather than from writing in it, which is what
+this document is for.
 
 ## Recommended against
 

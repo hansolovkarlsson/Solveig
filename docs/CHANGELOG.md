@@ -5,6 +5,38 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+### Default values for block parameters, recorded — `pending`, 2026-08-24
+
+Asked: could a block carry a default for a parameter, `{ x := #0 | body }`?
+Written down in [ideas.md](ideas.md#default-values-for-block-parameters) with a
+verdict of **defer** and a trigger, rather than into the roadmap — no program
+here has wanted one, and the roadmap's admission rule is that an entry means a
+program wanted something and could not have it.
+
+**The case for it turned out to be better than the convenience**, and it is not
+about syntax. The language already has defaulted arguments; only C can write
+them. `at(key)` and `at(key, default)`, `asInteger` and `asInteger(#n)`,
+`sorted` and `sorted(block)`, `timeToRun` and `timeToRun(#n)` — a built-in takes
+an argument or does not, and in several the extra argument is exactly a default.
+A block cannot: `'block' takes 1 argument, got 0`. **That is one of the few
+places user code cannot do what built-in code does**, and the language otherwise
+works hard to keep those the same thing.
+
+What it would cost is recorded too, because the syntax is the small half. The
+scanner decides parameters with a copy of the lexer rather than a parser, and
+would have to skip an arbitrary expression and balance braces to find the `|`.
+Arity stops being a number and becomes a range, which the `.sob` format carries
+as `u16 arity` per method — **a format version bump**. The callee has to learn
+how many arguments it actually got, which nothing tells it today. And a default
+is code, so a block gains a generated prologue with jumps.
+
+Three questions are listed unanswered on purpose: whether a default may see an
+earlier parameter, whether it is evaluated per call or once — `{ xs := [] | ... }`
+sharing one array between calls is the mistake every language with this feature
+has made at least once — and what the arity error should then say.
+
 ## 0.23.0 — 2026-08-23
 
 **Solum compiles Solum.** The compiler is written in the language it compiles,
