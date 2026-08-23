@@ -358,12 +358,30 @@ cannot are the four that nest deepest, and they include `lib/lexer.sol`,
 manages **nine levels of nested blocks and fails at ten**, where `solas`,
 recursing on the C stack, is untroubled at thirty.
 
-That is about four parser frames per level — `expression` calls `primary` calls
-`blockLiteral` calls `body` calls `expression` — against a budget of 62. **The
-answer is not more frames but fewer**: an explicit stack, which
-[lib/html.sol](../lib/html.sol) already uses to reach a thousand levels. Until
-then this entry has a program behind it that could not be more on the nose,
-since one of the files it cannot compile is the parser that runs out.
+**Both halves run out at the same place, and that was worth measuring rather
+than assuming.** The first account of this said the parser was the problem and
+an explicit stack in it was the answer. It is not, and the numbers say so: the
+compiler was split into [lib/compiler.sol](../lib/compiler.sol) so that a tree
+nobody parsed could be handed to it directly, and
+
+| | 9 levels | 10 levels |
+| --- | --- | --- |
+| parsing alone | passes | **fails** |
+| compiling a tree, no parser involved | passes | **fails** |
+| both together | passes | **fails** |
+
+Each costs about six frames per level — `expression` calls `primary` calls
+`blockLiteral` calls `body` calls `expression` on the way in, and
+`expression` calls `inlineSend` calls `inlineConditional` calls `branch` calls
+`bodyWithPops` calls `expression` on the way out — against a budget of 62. So
+**an explicit stack in the parser alone would buy nothing**; the compiler would
+stop at the same depth. Either both halves carry their own stack, or the cap
+moves: built with `SOL_FRAMES_MAX` at 512 rather than 64, both halves reach 83
+levels and fail at 84, which is the same six frames a level with eight times the
+room.
+
+This entry has a program behind it that could not be more on the nose, since two
+of the files it cannot compile are the parser and the compiler that run out.
 
 ### 3.6 A caller-owned chunk must outlive blocks defined in it
 

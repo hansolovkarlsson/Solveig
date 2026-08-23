@@ -811,6 +811,118 @@ static void test_solum_compiles_solum_to_the_same_bytes(void)
            accepted, refused);
 }
 
+/* Where the Solum compiler stops, and which half stops first.
+ *
+ * The four files it cannot compile fail with `call depth exceeded` rather than
+ * on any construct, and the first account of that blamed the parser and said an
+ * explicit stack in it was the answer. This is the measurement that showed
+ * otherwise, kept as a test so the claim in ROADMAP 3.5 cannot quietly go
+ * stale: parsing alone and compiling a hand-built tree alone stop at the *same*
+ * depth, so fixing one buys nothing.
+ *
+ * The tree is built with a loop rather than by parsing, which is the whole
+ * reason lib/compiler.sol is a library. */
+static int deepest_that_works(const char *driver)
+{
+    char command[1024], out[4 * 1024];
+    for (int depth = 1; depth <= 40; depth++) {
+        snprintf(command, sizeof command,
+                 "bin/solvm %s %d > /dev/null 2>&1", driver, depth);
+        if (run(command, out, sizeof out) != 0) return depth - 1;
+    }
+    return 40;
+}
+
+static void test_the_parser_and_the_compiler_stop_together(void)
+{
+    char out[8 * 1024];
+
+    /* A file of N nested conditionals, for the parser to chew on. */
+    FILE *f = fopen(DIR "/nest.sol", "wb");
+    assert(f != NULL);
+    fputs("x := ", f);
+    for (int i = 0; i < 9; i++) fputs("true:ifElse({ ", f);
+    fputs("#1", f);
+    for (int i = 0; i < 9; i++) fputs(" }, { #0 })", f);
+    fputs(".\n", f);
+    fclose(f);
+
+    /* Nine levels compile; the fixture above is the deepest that does. */
+    assert(run("bin/solvm " DIR "/compile.sob " DIR "/nest.sol -o " DIR "/nest.sob"
+               " -I lib > /dev/null 2>&1", out, sizeof out) == 0);
+
+    /* And ten do not, which is the number ROADMAP 3.5 quotes. */
+    f = fopen(DIR "/nest10.sol", "wb");
+    assert(f != NULL);
+    fputs("x := ", f);
+    for (int i = 0; i < 10; i++) fputs("true:ifElse({ ", f);
+    fputs("#1", f);
+    for (int i = 0; i < 10; i++) fputs(" }, { #0 })", f);
+    fputs(".\n", f);
+    fclose(f);
+
+    assert(run("bin/solvm " DIR "/compile.sob " DIR "/nest10.sol -o " DIR "/x.sob"
+               " -I lib > " DIR "/why.txt 2>&1", out, sizeof out) != 0);
+    run("cat " DIR "/why.txt", out, sizeof out);
+    assert(strstr(out, "call depth exceeded") != NULL);
+
+    /* Now each half on its own. The compiler is handed a tree built by a loop,
+       so no parsing happens at all. */
+    f = fopen(DIR "/depth.sol", "wb");
+    assert(f != NULL);
+    fputs("@include \"compiler.sol\".\n"
+          "node := { kind | | n |\n"
+          "    n := dictionary:new.\n"
+          "    n:atPut(\"kind\", kind). n:atPut(\"line\", #1). n:atPut(\"emit\", #1). n }.\n"
+          "leaf := { text | | n | n := node:value('int). n:atPut(\"text\", text). n }.\n"
+          "blockOf := { body | | n |\n"
+          "    n := node:value('block).\n"
+          "    n:atPut(\"parameters\", []). n:atPut(\"temporaries\", []).\n"
+          "    body:atPut(\"dot\", #1). n:atPut(\"body\", [body]). n }.\n"
+          "depth := system:arguments:at(#1):asInteger.\n"
+          "tree := leaf:value(\"#1\").\n"
+          "depth:repeat({ | s, r |\n"
+          "    r := node:value('name). r:atPut(\"text\", \"true\").\n"
+          "    s := node:value('send). s:atPut(\"receiver\", r).\n"
+          "    s:atPut(\"text\", \"ifElse\"). s:atPut(\"lparenLine\", #1).\n"
+          "    s:atPut(\"arguments\",\n"
+          "        [blockOf:value(tree), blockOf:value(leaf:value(\"#0\"))]).\n"
+          "    tree := s }).\n"
+          "compiler:path := \"deep.sol\". compiler:current := \"deep.sol\".\n"
+          "compiler:included := dictionary:new. compiler:depth := #0.\n"
+          "compiler:units := []. compiler:scopes := [].\n"
+          "compiler:pushUnit. compiler:pushScope(false). compiler:declareLocal(\"\").\n"
+          "compiler:expression(tree).\n"
+          "compiler:unit:at(\"code\"):size:print.\n", f);
+    fclose(f);
+    assert(run("bin/solas " DIR "/depth.sol -o " DIR "/depth.sob -I lib 2>&1",
+               out, sizeof out) == 0);
+
+    f = fopen(DIR "/parseonly.sol", "wb");
+    assert(f != NULL);
+    fputs("@include \"parser.sol\".\n"
+          "depth := system:arguments:at(#1):asInteger.\n"
+          "text := \"x := \".\n"
+          "depth:repeat({ text := text:concat(\"true:ifElse({ \") }).\n"
+          "text := text:concat(\"#1\").\n"
+          "depth:repeat({ text := text:concat(\" }, { #0 })\") }).\n"
+          "parser:statements(text:concat(\".\")):size:print.\n", f);
+    fclose(f);
+    assert(run("bin/solas " DIR "/parseonly.sol -o " DIR "/parseonly.sob -I lib 2>&1",
+               out, sizeof out) == 0);
+
+    int parsing   = deepest_that_works(DIR "/parseonly.sob");
+    int compiling = deepest_that_works(DIR "/depth.sob");
+
+    if (parsing != compiling) {
+        printf("\nROADMAP 3.5 says these stop together: parsing %d, compiling %d\n",
+               parsing, compiling);
+        assert(false);
+    }
+    printf("  the parser and the compiler stop together (%d levels, %d fails)\n",
+           parsing, parsing + 1);
+}
+
 int main(void)
 {
     test_help_is_not_an_error();
@@ -832,6 +944,7 @@ int main(void)
     test_a_sob_written_by_solum_matches_the_compiler();
     test_solum_scans_solum_the_way_c_does();
     test_solum_compiles_solum_to_the_same_bytes();
+    test_the_parser_and_the_compiler_stop_together();
     printf("test_cli: ok\n");
     return 0;
 }

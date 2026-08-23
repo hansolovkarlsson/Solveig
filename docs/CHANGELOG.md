@@ -7,6 +7,47 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### Which half runs out — `pending`, 2026-08-23
+
+**A correction, and the measurement that forced it.** The entry below said the
+parser was what ran out of frames and that an explicit stack in it was the
+answer. That was written from reading the call chain rather than from running
+anything, and it is wrong.
+
+The compiler is now [lib/compiler.sol](../lib/compiler.sol) rather than part of
+[compile.sol](../programs/compile.sol) — a library, so that **a tree nobody
+parsed can be handed to it directly**. That is the only way to ask how much room
+the compiler has, since on real source the parser always fails first. With the
+tree built by a loop instead of by parsing:
+
+| | 9 levels | 10 levels |
+| --- | --- | --- |
+| parsing alone | passes | fails |
+| compiling a hand-built tree | passes | fails |
+| both together | passes | fails |
+
+**They stop at exactly the same depth**, about six frames a level each. So
+fixing the parser alone would buy nothing at all, and
+[3.5](ROADMAP.md#35-recursion-is-limited-to-about-62-levels),
+[programs.md](programs.md) and [ideas.md](ideas.md) now say so instead of what
+they said this morning.
+
+The honest options are two, and they differ in kind. **Both halves carry their
+own stack** — the shape `lib/html.sol` uses to reach a thousand levels, and
+twice the work the first account implied. Or **the cap moves**: built with
+`SOL_FRAMES_MAX` at 512 rather than 64, both halves reach 83 levels and fail at
+84, which is the same six frames a level with eight times the room. That is the
+one-line change 3.5 has always named, and it is a decision about the language
+rather than about this program.
+
+The measurement is kept as a test rather than as a paragraph, so the claim
+cannot go stale: it builds the deep tree both ways, finds where each stops, and
+fails if they stop in different places.
+
+Also: `compile.sol`'s own header still said it did neither `@include` nor the
+inlined control flow, four commits after it learned both. Splitting the file is
+what made that visible.
+
 ### `@include`, and the wall at the end of it — `aeee2fa`, 2026-08-23
 
 The last construct. [compile.sol](../programs/compile.sol) does `@include` with

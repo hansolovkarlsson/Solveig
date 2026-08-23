@@ -604,14 +604,13 @@ of that needs. And the **control flow compiled to jumps**: `ifTrue`, `ifFalse`,
 the per-chunk file table that lets a line number say which file it is in.
 
 **What it does not do is finish.** The four refusals are not a construct it
-lacks — they are `call depth exceeded`. Its own parser recurses about four
-frames per level of nesting against a budget of 62, so it manages **nine levels
-of nested blocks and fails at ten**, where `solas` on the C stack is untroubled
-at thirty. The four files that nest deeper than that include `lib/lexer.sol`,
-`lib/parser.sol` and this program itself. That is
-[3.5](ROADMAP.md#35-recursion-is-limited-to-about-62-levels), and the answer is
-an explicit stack rather than more frames — the shape `lib/html.sol` already
-uses to reach a thousand levels.
+lacks — they are `call depth exceeded`. It manages **nine levels of nested
+blocks and fails at ten**, where `solas` on the C stack is untroubled at thirty,
+and the files that nest deeper include `lib/lexer.sol`, `lib/parser.sol` and
+this compiler's own source. That is
+[3.5](ROADMAP.md#35-recursion-is-limited-to-about-62-levels), where the
+measurement is written down: **parsing and compiling run out at the same depth**,
+about six frames per level each, so fixing one of them alone moves nothing.
 
 **Both compilers must be given the same search path**, and that is not a
 convenience: the file table records where an included file was *found*, so the

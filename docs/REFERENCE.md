@@ -649,6 +649,37 @@ actually works: a block body is a list of expressions and bindings appear in
 them, and `a := #1:print` binds what `print` answered rather than sending
 `print` to what was bound.
 
+#### compiler.sol
+
+A tree in, a chunk out. Includes [parser.sol](#parsersol) and
+[sob.sol](#sobsol), so a program wanting to compile asks only for this.
+
+| Message | Answers |
+| --- | --- |
+| `compiler:compile(source, path)` | a chunk, ready for `sob:file` |
+| `compiler:expression(node)` | nil, having emitted that node into the current unit |
+| `compiler:search` | the directories `@include` looks in, after the includer's own |
+
+```
+@include "compiler.sol".
+
+chunk := compiler:compile("a := #45. a:print.", "demo.sol").
+chunk:at("names"):print.        ; ["a", "print"]
+chunk:at("code"):size:print.    ; #16
+chunk:at("slots"):print.        ; #1
+```
+
+It compiles the whole language and produces **the same bytes `solas` produces**,
+which the test suite checks over every `.sol` file here. What stops it is depth
+rather than any construct: it manages nine levels of nested blocks and fails at
+ten ([3.5](ROADMAP.md#35-recursion-is-limited-to-about-62-levels)).
+
+**It is a library rather than part of [compile.sol](../programs/compile.sol)
+because a compiler needs testing on its own.** The parser runs out of frames at
+the same depth, so the only way to learn how much room the compiler has is to
+hand it a tree nobody parsed — which needs it reachable without a driver
+attached.
+
 #### sob.sol
 
 Writing a `.sob` file, which is what a compiler does last.

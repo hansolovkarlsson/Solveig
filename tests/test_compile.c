@@ -556,7 +556,7 @@ static void test_no_example_is_left_out(void)
 static const char *library[] = {
     "lib/control.sol", "lib/text.sol", "lib/json.sol", "lib/shell.sol",
     "lib/html.sol", "lib/math.sol", "lib/lexer.sol", "lib/parser.sol",
-    "lib/sob.sol",
+    "lib/sob.sol", "lib/compiler.sol",
 };
 #define LIBRARY_COUNT (sizeof(library) / sizeof(library[0]))
 

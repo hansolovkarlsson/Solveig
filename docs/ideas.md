@@ -504,10 +504,9 @@ it is in. **42 of 46 files now compile byte-identically and 0 disagree.**
 
 **The four that do not are not a missing construct. They are `call depth
 exceeded`** — and this is the finding the whole exercise was most likely to
-produce. The parser recurses about four frames per level of nesting against a
-budget of 62, so it manages nine levels of nested blocks and fails at ten;
-`solas`, recursing on the C stack, is untroubled at thirty. The four files that
-nest deeper include `lib/lexer.sol`, `lib/parser.sol` and `compile.sol` itself.
+produce. It manages nine levels of nested blocks and fails at ten; `solas`,
+recursing on the C stack, is untroubled at thirty. The files that nest deeper
+include `lib/lexer.sol`, `lib/parser.sol` and the compiler's own source.
 
 **So the language cannot yet compile its own compiler, and the reason is a
 documented limitation of the language rather than anything about the compiler.**
@@ -515,7 +514,23 @@ That is [3.5](ROADMAP.md#35-recursion-is-limited-to-about-62-levels) with the
 best evidence it will ever have, and it was predicted here before any of this
 was written: *the deep case, a block inside a block inside a block, is the one
 this subset does not do yet — when it does, it will carry an explicit stack the
-way `lib/html.sol` does*. That is now the next piece of work rather than a note.
+way `lib/html.sol` does*.
+
+**The prediction named the right fix and the wrong half**, which took a
+measurement to find out. The first account of this said the parser was what ran
+out and an explicit stack in it was the answer. So the compiler was split into
+[compiler.sol](../lib/compiler.sol) — a library rather than part of the program,
+so that a tree nobody parsed could be handed to it directly — and it fails at
+**exactly the same depth**: nine levels pass, ten do not, whether you parse
+alone, compile a hand-built tree alone, or do both. Each half spends about six
+frames a level.
+
+So fixing the parser alone buys nothing at all, and the honest options are two:
+both halves carry their own stack, or the cap moves. Built with
+`SOL_FRAMES_MAX` at 512 rather than 64 both halves reach 83 levels — the same
+six frames a level with eight times the room — which is the one-line change 3.5
+has always named, and a decision about the language rather than about this
+program.
 
 One thing worth recording about the comparison: **both compilers have to be
 given the same search path.** The file table records where an included file was
