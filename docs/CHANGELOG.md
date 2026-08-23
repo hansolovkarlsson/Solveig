@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### The whole language on one page — `pending`, 2026-08-23
+### The whole language on one page — `4a0ca23`, 2026-08-23
 
 **[CHEATSHEET.md](CHEATSHEET.md) is new**: the syntax, every type, every message
 it answers and every global, one line each, in tables — for when you know what
