@@ -11,10 +11,10 @@
 ; It includes the scanner, so a program wanting to parse asks only for this.
 ;
 ; **The subset is deliberate and is named here so nothing has to guess**: this
-; parses statements, bindings, sends, parentheses, arrays and every literal.
-; It does **not** yet parse blocks, temporaries or directives, which are the
-; next stage's work and are where slot allocation and nested chunks come in.
-; A construct it does not know is an error rather than a silence.
+; parses statements, bindings, sends, parentheses, groups, arrays, blocks with
+; their parameters and temporaries, slot assignment, and every literal. It does
+; **not** yet parse directives, which is where `@include` and a second file come
+; in. A construct it does not know is an error rather than a silence.
 ;
 ; ---------------------------------------------------------------------------
 ; The shape of a node
@@ -25,7 +25,10 @@
 ;   'name                          "text" -- an identifier being read
 ;   'bind                          "text", "value"
 ;   'send                          "receiver", "text", "arguments"
+;   'slot                          "receiver", "text", "value" -- `a:b := c`
 ;   'array                         "elements"
+;   'block                         "parameters", "temporaries", "body"
+;   'group                         "temporaries", "body" -- `( | t | ... )`
 ;
 ; There is no node for a parenthesised expression: brackets group and leave no
 ; trace, which is what design.md means by two spellings of the same thing being
@@ -54,7 +57,22 @@ parser:peek := { self:tokens:at(self:at) }.
 parser:kind := { self:peek:at("type") }.
 parser:line := { self:peek:at("line") }.
 parser:text := { self:peek:at("text") }.
-parser:step := { | t | t := self:peek. self:at := self:at:inc. t }.
+; The line of the token most recently consumed.
+;
+; **This is here because of how the C compiler numbers a line**: every byte it
+; emits takes the line of the token it had just consumed, not the line the
+; construct began on. For a one-line statement the two are the same, which is
+; why the first version of this compiler matched `hello.sol` without knowing the
+; difference. For a send whose arguments run over three lines they are not, and
+; the whole file compares differently. So each node below records the line that
+; was current when the instruction it stands for would have been emitted.
+parser:previousLine := #1.
+
+parser:step := { | t |
+    t := self:peek.
+    self:previousLine := t:at("line").
+    self:at := self:at:inc.
+    t }.
 
 parser:fail := { message |
     error:raise("[line {}] {} at {}":fill([
@@ -82,9 +100,25 @@ parser:node := { kind, line | | n |
 ; operators -- `#2:add(#3):mul(#4)` is (2+3)*4 because it reads left to right,
 ; and the loop below is that reading.
 
+; **A binding is an expression**, not a statement, which is easy to get the
+; wrong way round -- and did get it wrong here, until a block body refused
+; `t := x:add(a)`. It has to be an expression because a block body is a list of
+; expressions and bindings appear in them; and because the value takes the whole
+; of the rest, `a := #1:print` binds what `print` answered rather than sending
+; `print` to what was bound.
 parser:expression := { | node |
-    node := self:primary.
-    { self:kind:equals('colon) }:whileTrue({ node := self:sendOnto(node) }).
+    self:kind:equals('ident):and({
+        self:tokens:at(self:at:inc):at("type"):equals('assign)
+    }):ifTrue({
+        node := self:node('bind, self:line).
+        node:atPut("text", self:step:at("text")).
+        self:step.                              ; the ':='
+        node:atPut("value", self:expression).
+        node:atPut("emit", self:previousLine) }).
+
+    node:isNil:ifTrue({
+        node := self:primary.
+        { self:kind:equals('colon) }:whileTrue({ node := self:sendOnto(node) }) }).
     node }.
 
 parser:sendOnto := { receiver | | line, name, node, args |
@@ -105,6 +139,17 @@ parser:sendOnto := { receiver | | line, name, node, args |
                 args:add(self:expression) }) }).
         self:expect('rparen, "')'")  }).
     node:atPut("arguments", args).
+    node:atPut("emit", self:previousLine).
+
+    ; `a:b := c` binds a slot rather than sending. It is spotted here, after the
+    ; send has been built, because it is only a binding when the send took no
+    ; arguments -- the C compiler settles it the same way round, by emitting the
+    ; send and then unemitting it.
+    args:size:equals(#0):and({ self:kind:equals('assign) }):ifTrue({
+        self:step.
+        node:atPut("kind", 'slot).
+        node:atPut("value", self:expression).
+        node:atPut("emit", self:previousLine) }).
     node }.
 
 ; A literal, a name, a group, or an array.
@@ -112,11 +157,8 @@ parser:primary := { | kind, line, node |
     kind := self:kind.
     line := self:line.
 
-    kind:equals('lparen):ifTrue({
-        self:step.
-        node := self:expression.
-        self:expect('rparen, "')'").
-        node := node }).
+    kind:equals('lparen):ifTrue({ node := self:group }).
+    kind:equals('lbrace):ifTrue({ node := self:blockLiteral }).
 
     node:isNil:ifTrue({
         kind:equals('lbracket):ifElse(
@@ -125,12 +167,83 @@ parser:primary := { | kind, line, node |
                 { self:fail("expected an expression") },
                 { node := self:node(
                       kind:equals('ident):ifElse({ 'name }, { kind }), line).
-                  node:atPut("text", self:step:at("text")) }) }) }).
+                  node:atPut("text", self:step:at("text")).
+                  node:atPut("emit", line) }) }) }).
     node }.
+
+; `( ... )` groups, and may open with `| a, b |` declaring temporaries of the
+; frame it sits in -- not of a frame of its own, which is the whole difference
+; between a group and a block.
+parser:group := { | node |
+    node := self:node('group, self:line).
+    self:step.                                  ; the '('
+    node:atPut("temporaries", self:declarations).
+    node:atPut("body", self:body('rparen, "')'")).
+    node }.
+
+; `{ params | | temps | body }`.
+parser:blockLiteral := { | node |
+    node := self:node('block, self:line).
+    self:step.                                  ; the '{'
+    node:atPut("parameters", self:parameters).
+    node:atPut("temporaries", self:declarations).
+    node:atPut("body", self:body('rbrace, "'}'")).
+    node:atPut("emit", self:previousLine).
+    node }.
+
+; `a, b |` is a parameter list and a bare `a` is a body, which takes looking
+; past the identifiers to the `|`. The tokens are already an array, so this
+; counts forward over a copy of the cursor rather than probing a second scanner
+; the way the C does -- the one place having scanned everything first pays.
+parser:parameters := { | at, names |
+    names := array:new.
+    self:kind:equals('ident):ifTrue({
+        at := self:at.
+        { self:tokens:at(at):at("type"):equals('ident):and({
+              self:tokens:at(at:inc):at("type"):equals('comma) }) }
+            :whileTrue({ at := at:add(#2) }).
+        self:tokens:at(at):at("type"):equals('ident):and({
+            self:tokens:at(at:inc):at("type"):equals('pipe)
+        }):ifTrue({
+            { self:kind:equals('ident) }:whileTrue({
+                names:add(self:step:at("text")).
+                self:kind:equals('comma):ifTrue({ self:step }) }).
+            self:expect('pipe, "'|' after the block parameters") }) }).
+    names }.
+
+; `| a, b |` if it is there, and nothing if it is not.
+parser:declarations := { | names |
+    names := array:new.
+    self:kind:equals('pipe):ifTrue({
+        self:step.
+        { self:kind:equals('ident) }:whileTrue({
+            names:add(self:step:at("text")).
+            self:kind:equals('comma):ifTrue({ self:step }) }).
+        self:expect('pipe, "'|' to close the declarations") }).
+    names }.
+
+; The statements up to a closing bracket. A trailing `.` is allowed, and an
+; empty body is allowed too -- it answers nil.
+parser:body := { closer, what | | out, last |
+    out := array:new.
+    self:kind:equals(closer):ifFalse({
+        last := self:expression.
+        out:add(last).
+        { self:kind:equals(closer):not }:whileTrue({
+            self:expect('dot, "'.' between statements").
+            ; The `.` is what the POP between two statements takes its line
+            ; from, and a trailing one before the closing bracket emits nothing.
+            last:atPut("dot", self:previousLine).
+            self:kind:equals(closer):ifFalse({
+                last := self:expression.
+                out:add(last) }) }) }).
+    self:expect(closer, what).
+    out }.
 
 parser:arrayLiteral := { | node, elements |
     node := self:node('array, self:line).
     self:step.                                  ; the '['
+    node:atPut("openEmit", self:previousLine).
     elements := array:new.
     self:kind:equals('rbracket):ifFalse({
         elements:add(self:expression).
@@ -139,28 +252,16 @@ parser:arrayLiteral := { | node, elements |
             elements:add(self:expression) }) }).
     self:expect('rbracket, "']'").
     node:atPut("elements", elements).
+    node:atPut("emit", self:previousLine).
     node }.
 
 ; ---------------------------------------------------------------------------
 ; A statement
 ;
-; `name := expression` or an expression, and then a `.`. The binding is spotted
-; by looking one token past an identifier, which is the only lookahead this
-; grammar needs -- and it needs it only because `:=` is one token, which is
-; itself why selectors have to be identifiers.
+; An expression and then a `.`. There is nothing else: a binding is an
+; expression, so this exists to be read rather than to do anything.
 
-parser:statement := { | line, name, node |
-    self:kind:equals('ident):and({
-        self:tokens:at(self:at:inc):at("type"):equals('assign)
-    }):ifElse(
-        { line := self:line.
-          name := self:step:at("text").
-          self:step.                            ; the ':='
-          node := self:node('bind, line).
-          node:atPut("text", name).
-          node:atPut("value", self:expression).
-          node },
-        { self:expression }) }.
+parser:statement := { self:expression }.
 
 ; Every statement in the source, as an array. The `.` after the last one is
 ; required, as it is everywhere: this language terminates statements rather
@@ -169,9 +270,11 @@ parser:statements := { source | | out |
     self:tokens := lexer:all(source).
     self:at := #1.
     out := array:new.
-    { self:kind:equals('eof):not }:whileTrue({
-        out:add(self:statement).
-        self:expect('dot, "'.'") }).
+    { self:kind:equals('eof):not }:whileTrue({ | s |
+        s := self:statement.
+        self:expect('dot, "'.'").
+        s:atPut("dot", self:previousLine).
+        out:add(s) }).
     out }.
 
 ; The line the file ended on, which is the line the compiler puts its final

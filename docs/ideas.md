@@ -348,7 +348,7 @@ of emitter bug into a message instead of a crash.
 | --- | --- |
 | **0** | **Done** — [emit.sol](../programs/emit.sol). Two chunks written out by hand, both byte-identical to `solas`, both running, both decoded by `disasm.sol`. In `make test` as `cmp`. |
 | **1** | **Done** — [compile.sol](../programs/compile.sol) turns source into bytes, and `examples/hello.sol` comes out byte-identical to `solas`. [lexer.sol](../lib/lexer.sol), [parser.sol](../lib/parser.sol) and [sob.sol](../lib/sob.sol) are the three pieces. Blocks, temporaries, methods and `@include` are stage 2. |
-| **2** | The full language, checked over every `.sol` in `examples/`, `programs/` and `lib/`: both compilers, same bytes. In `make test`. |
+| **2** | The full language, checked over every `.sol` here: both compilers, same bytes, in `make test`. **Blocks, temporaries, groups, slot assignment, frame slots, lexical capture and nested chunks are done** — 9 files identical, 0 disagreements. What is left is the inlined control flow and `@include`. |
 | **3** | The fixpoint. The Solum compiler compiles its own source and produces the file `solas` produced from it. |
 
 Where byte-identity turns out to rest on something arbitrary — a table ordering
@@ -451,6 +451,31 @@ yet writable; it is written.
 
 **Still nothing added to the language.** Three library files and a program, all
 in Solum as it already was.
+
+#### Stage 2, first half: blocks and the frames they need
+
+Blocks, parameters, temporaries, groups, slot assignment, frame slot allocation,
+lexical capture and nested chunks. **9 of the repository's 46 `.sol` files now
+compile byte-identically, and 0 disagree** — the 37 refusals are all the same
+thing, a file using control flow that `solas` compiles to jumps.
+
+Two things it got wrong, both caught by the byte comparison and neither by
+anything else:
+
+- **A chunk's slot count was written twice** — once in the method header, where
+  the format wants it, and again at the head of the nested chunk. The file was
+  four bytes long and ran perfectly well, because nothing reads past what it
+  needs.
+- **A byte takes the line of the token just consumed**, not the line its
+  construct began on. Those coincide for one-line statements, which is the whole
+  of `hello.sol`, so stage 1 passed without knowing. `parser.sol` now records an
+  emit line on every node for this alone.
+
+**The refusals are deliberate and are the interesting design decision here.**
+Compiling `ifTrue` as a real send would produce a file that runs correctly and
+compares differently. That is the one answer this program must not give, because
+the whole value of the exercise is that the comparison means something — so it
+refuses by name instead.
 
 #### No features were added to make it possible, and that is the point
 

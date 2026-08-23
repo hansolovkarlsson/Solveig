@@ -630,9 +630,15 @@ A node is a dictionary of `"kind"` — `'int`, `'float`, `'string`, `'symbol`,
 `"arguments"` for a send, `"elements"` for an array. A parenthesised expression
 leaves **no node**: brackets group and are not a second semantics.
 
-**The subset is deliberate**: statements, bindings, sends, parentheses, arrays
-and every literal, and not yet blocks, temporaries or directives. Anything else
-is refused by name rather than parsed wrongly.
+**The subset is deliberate**: statements, bindings, sends, parentheses, groups,
+arrays, blocks with their parameters and temporaries, slot assignment and every
+literal — and not yet directives. Anything else is refused by name rather than
+parsed wrongly.
+
+A **binding is an expression** here, not a statement, which is how the grammar
+actually works: a block body is a list of expressions and bindings appear in
+them, and `a := #1:print` binds what `print` answered rather than sending
+`print` to what was bound.
 
 #### sob.sol
 

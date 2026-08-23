@@ -7,6 +7,45 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### Blocks, and the frames they need — `pending`, 2026-08-23
+
+The first half of stage 2 of
+[the self-hosting question](ideas.md#solas-written-in-solum--self-hosting):
+[compile.sol](../programs/compile.sol) now does **blocks with their parameters
+and temporaries, groups, slot assignment, frame slot allocation, lexical capture
+and nested chunks** — which is the half of a compiler that is a compiler rather
+than a translator.
+
+**9 of the repository's 46 `.sol` files compile byte-identically, up from 3, and
+0 disagree.** The 37 refusals are all the same thing.
+
+**Two mistakes, both caught by the byte comparison and by nothing else.**
+
+A chunk's slot count was **written twice** — once in the method header, where the
+format wants it, and again at the head of the nested chunk. The file was four
+bytes long, and it ran perfectly well, because nothing reads past what it needs.
+
+And a byte takes **the line of the token just consumed**, not the line its
+construct began on. Those coincide for a one-line statement, which is the whole
+of `examples/hello.sol`, so stage 1 matched without ever knowing the difference;
+they part company the moment a send's arguments run over two lines.
+[parser.sol](../lib/parser.sol) now records an emit line on every node for this
+alone.
+
+**The refusals are deliberate, and are the design decision worth stating.**
+`ifTrue`, `ifElse`, `whileTrue`, `doUntil`, `and` and `or` are compiled to jumps
+by `solas` when written literally. Compiling them as real sends would produce a
+file that **runs correctly and compares differently** — and an answer that is
+right and unequal is the one thing this program must not give, because the whole
+value of the exercise is that the comparison means something. So it refuses them
+by name until it can inline them, which is the next piece of work.
+
+A binding turned out to be an **expression** rather than a statement, which is
+how the grammar actually works and which a block body refusing `t := x:add(a)`
+is what revealed.
+
+Still nothing added to the language.
+
 ### Solum compiles Solum — `561ecc6`, 2026-08-23
 
 **[compile.sol](../programs/compile.sol) turns Solum source into the bytes

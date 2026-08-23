@@ -73,9 +73,11 @@ sob:text := { s | self:u16(s:size). #1:toDo(s:size, { i | self:u8(s:at(i):asByte
 ; ---------------------------------------------------------------------------
 ; A chunk
 
+; **The slot count is not written here.** It sits at a fixed offset in the file
+; header for the top-level chunk, and in the method header for every other one,
+; so a chunk itself begins at its name table. Writing it in both places is the
+; first thing this got wrong, and the byte comparison is what said so.
 sob:chunk := { chunk |
-    self:u16(chunk:at("slots")).
-
     self:u32(chunk:at("names"):size).
     chunk:at("names"):do({ name | self:text(name) }).
 
@@ -171,5 +173,6 @@ sob:file := { chunk |
     self:out := [].
     self:u8(#83). self:u8(#79). self:u8(#76). self:u8(#66).   ; SOLB
     self:u16(self:version).
+    self:u16(chunk:at("slots")).
     self:chunk(chunk).
     self:out:join("") }.

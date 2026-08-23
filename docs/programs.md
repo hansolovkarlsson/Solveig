@@ -589,15 +589,22 @@ the bytes, and it is stage 1 of
 
 **The test is `cmp` against `solas`, over every `.sol` file in the repository.**
 What this compiler accepts must come out byte-identical; what it refuses is
-counted. Today that is **3 accepted, 43 outside the subset, 0 disagreements** —
+counted. Today that is **9 accepted, 37 outside the subset, 0 disagreements** —
 and the zero is the number that matters, because it says nothing is quietly
 mis-compiled.
 
-**What it does**: statements, bindings, sends, parentheses, arrays, and every
-literal. **What it does not**: blocks, temporaries, methods and `@include` —
-which is where slot allocation, capture analysis and nested chunks come in, and
-is the half of `solas/src/compiler.c` that is a compiler rather than a
-translator. A construct it cannot compile is refused by name.
+**What it does**: statements, bindings, sends, parentheses, groups, arrays,
+blocks with their parameters and temporaries, slot assignment, and every
+literal — with the frame slots, the lexical capture and the nested chunks all
+of that needs.
+
+**What it does not**: `@include`, and the inlined control flow. `ifTrue`,
+`ifElse`, `whileTrue`, `doUntil`, `and` and `or` are compiled to jumps by
+`solas` when they are written literally, and reproducing that exactly is the
+next piece of work. Until then a file using one is **refused rather than
+compiled to a real send** — which would run correctly and compare differently,
+and an answer that is right and unequal is the one thing this program must not
+produce.
 
 **Byte-identity is a much harder bar than "runs the same", and that is why it
 was chosen.** It forces agreement on everything a compiler is otherwise free to
@@ -611,6 +618,14 @@ decide, and each of these had to be worked out and matched rather than guessed:
   that pushed an integer where a float was written. Breaking exactly that is
   what the test was checked against.
 - **Line runs count bytes, not instructions**, and end where the line changes.
+- **A byte takes the line of the token the compiler had just consumed**, not the
+  line its construct began on. Those are the same for a one-line statement,
+  which is why the first version of this matched `hello.sol` without knowing the
+  difference, and different for a send whose arguments run over three lines. The
+  parser records the emit line on every node for this reason alone.
+- **A block's slot count is written in its method header and nowhere else.** A
+  chunk begins at its name table; writing the count in both places was the first
+  thing this got wrong, and only the byte comparison said so.
 
 The float encoder in [sob.sol](../lib/sob.sol) is the other thing worth knowing
 about. **Nothing in Solum reinterprets a float's bits as an integer**, so a
