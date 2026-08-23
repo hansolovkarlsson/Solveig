@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### The documentation now has to mean what it says — `pending`, 2026-08-22
+### The documentation now has to mean what it says — `b381479`, 2026-08-22
 
 [programs/expect.sol](../programs/expect.sol) checked the examples' comments;
 it now checks the documents' too. **586 claims on every build** — 398 in
