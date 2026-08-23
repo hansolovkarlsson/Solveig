@@ -689,7 +689,9 @@ randomness.
 minimum, and no randomness*, and the arithmetic half was answered — `sqrt` is a
 message a float understands and `min`, `max` and `between` are in
 [math.sol](../lib/math.sol). What that half cost is recorded below, because it
-is the more useful half of the finding.
+is the more useful half of the finding. It also stays the home for the rest of
+the mathematics that is not here — `pow`, `log`, `exp` and trigonometry — each
+deferred with a trigger at the end.
 
 **Why `sqrt` became a primitive and the comparisons did not.** Both were
 writable. `min` and `max` were written correctly the first time, in one line
@@ -732,6 +734,51 @@ sample, a shuffle, a simulation, a test that generates its own inputs.
 `sqrt`. C has them and they would each be a line, but no program in this
 repository has asked for one, and *the ones a program has asked for rather than
 all of `<math.h>`* is the rule this entry set for itself.
+
+**Nor is there any trigonometry, or a `pi`.** Asked about directly, so the
+answer belongs here rather than in a conversation.
+
+The case for building it is the one that made `sqrt` a primitive, and it is
+**stronger** rather than weaker. A hand-written sine fails the same silent way
+and fails harder: the series is the easy half, and the difficulty is argument
+reduction. Reducing `x` modulo 2π needs π to far more bits than a double holds,
+so the obvious `x:sub(twoPi:mul(x:div(twoPi):rounded))` loses a digit of the
+answer for every octave of the argument and is returning noise well before 1e16.
+That is the same shape as the defect this entry already records — plausible
+output, catastrophically wrong in a range nobody thinks to test, silent
+throughout. If *a thing every program would get wrong the same way belongs in
+the machine* is the rule, trigonometry meets it more clearly than `sqrt` did.
+
+**What it is waiting for is a program, and that is all it is waiting for.** No
+file here has ever wanted an angle. The first draft of this paragraph gave a
+second reason — that the ten programs are text and process work, so geometry is
+not what this language is for — and that reason is **wrong and is worth leaving
+recorded as wrong**. The programs are the tools this project needed while
+building itself; they describe what has been written, not what may be. Solum is
+meant to be a general-purpose language, which
+[design.md](design.md#what-the-language-is-for) now states outright, and no
+entry in this document should be read as ruling a direction out because nothing
+has gone that way yet.
+
+So the trigger is ordinary: **a program that wants an angle** — a plotter, a
+simulation, anything with coordinates or a waveform. When one arrives, the
+sensible thing is to land trigonometry and `pow`/`log`/`exp` as a **single
+decision** rather than a message at a time, since arriving one convenience at a
+time is exactly what the rule above exists to prevent.
+
+Three questions it raises that `sqrt` did not, worth having answered before a
+program forces them:
+
+| | |
+| --- | --- |
+| where `pi` lives | `infinity` and `nan` are globals, so `pi` would be the third — and the first that is not an IEEE special. `float:pi` as a class-side slot is the alternative, and the two read very differently on the page. |
+| radians or degrees | Decided once and regretted afterwards, in every language that has chosen. C gives radians; the places a person types an angle by hand usually want degrees. |
+| `atan2` belongs to neither argument | It takes two coordinates and there is no receiver that is obviously the subject, so `y:atan2(x)` reads badly in a language where the receiver is what the sentence is about. |
+
+And a note on size, since it is the one argument that is about the shape of the
+language rather than about the maths: `float` answers 21 messages today, and
+`sin`, `cos`, `tan`, `asin`, `acos`, `atan` and `atan2` would be a third again.
+That is a reason to add them deliberately and together, not a reason to refuse.
 
 ### 3.15 A child's streams cannot be redirected
 

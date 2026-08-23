@@ -49,6 +49,43 @@ are **Solas**, **SolVM**, **Solis** and **Solid** -- the last being
 *sol-interactive-debugger*, which is also a word. See the README for where the
 names come from.
 
+## What the language is for
+
+**Solum is meant to be a general-purpose language.** Not a scripting language,
+not a shell language, not a teaching language -- those are shapes it can take,
+and one of them is the shape it happens to have taken first.
+
+That first shape was a *discovery* rather than a decision. The ten programs in
+[programs/](../programs/) are a webserver, three parsers, a disassembler, a log
+analyser, a documentation checker, a benchmark harness, a mirror and a page
+generator, and they lean towards text and processes for a reason that has
+nothing to do with the language: they are the tools this project needed while
+building the thing that runs them. Written against a different need they would
+have leaned somewhere else.
+
+The languages worth comparing against all did the same thing and none of them
+stopped there. Python, Java and the rest write shell tools, servers, games,
+music and instruments, and none of that was settled in advance -- it followed
+from the language being practical enough that somebody reached for it.
+
+**The consequence, and it is a rule for reading the roadmap:** *no program here
+has wanted X* is a statement about what has been built. It is never a statement
+about what the language is for. It is a good reason to **wait for a program
+before choosing a shape**, because the program is what tells you which shape is
+right -- and it is not a reason to rule a direction out.
+
+The distinction is easy to lose, and it was lost once already: trigonometry was
+very nearly argued away on the grounds that *there is no geometry anywhere near
+this language*, which is a true sentence about ten programs and an empty one
+about a language. The entry it belongs to,
+[3.14](ROADMAP.md#314-there-is-no-source-of-randomness), now says so.
+
+The admission rule for [ROADMAP.md](ROADMAP.md) is unchanged and is not what
+this is about: an entry still means a program wanted something and could not
+have it. What changes is the reading of an entry's *absence*. There are further
+directions intended for the language, and each will be written down here as it
+is decided rather than inferred from what has been built so far.
+
 ## Design principles
 
 Not laid down in advance -- these are what the decisions so far have in common,
@@ -856,7 +893,7 @@ as one list rather than split across documents so it cannot drift.
 
 ## Status
 
-**0.13.0.** The language is Turing-complete, does not leak, and is what a
+**0.21.0.** The language is Turing-complete, does not leak, and is what a
 program gets written in rather than a slice being demonstrated.
 
 ```

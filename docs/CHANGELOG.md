@@ -7,6 +7,53 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### What the language is for, and where trigonometry sits — `pending`, 2026-08-23
+
+**[design.md](design.md#what-the-language-is-for) now states the goal outright:
+Solum is meant to be a general-purpose language.** Not a scripting language, not
+a shell language — those are shapes it can take, and one of them is the shape it
+took first. That first shape was a discovery rather than a decision: the ten
+programs lean towards text and processes because they are the tools this project
+needed while building the thing that runs them, and written against a different
+need they would have leaned somewhere else.
+
+The rule that follows is for reading the roadmap: ***no program here has wanted
+X* is a statement about what has been built, never about what the language is
+for.** It is a good reason to wait for a program before choosing a shape,
+because the program is what tells you which shape is right. It is not a reason
+to rule a direction out. The admission rule is unchanged — an entry still means
+a program wanted something and could not have it — and what changes is the
+reading of an entry's *absence*.
+
+**This is written down because it was got wrong once.** Asked about
+trigonometry, the first answer argued it away partly on the grounds that *there
+is no geometry anywhere near this language* — a true sentence about ten programs
+and an empty one about a language. Both documents now record that, the wrong
+reason included.
+
+**[3.14](ROADMAP.md#314-there-is-no-source-of-randomness) gains the
+trigonometry answer**, which is: not yet, and only for want of a program. The
+case for eventually building it is the one that made `sqrt` a primitive and is
+stronger — a hand-written sine fails the same silent way and fails harder, since
+the series is the easy half and the difficulty is argument reduction. Reducing
+modulo 2π needs π to more bits than a double holds, so the obvious reduction
+loses a digit per octave of the argument and is noise well before 1e16: the same
+shape as the defect this entry already records, and invisible for the same
+reason.
+
+Three questions it raises that `sqrt` did not are written down while they are
+cheap — where `pi` lives, given `infinity` and `nan` are globals and `pi` would
+be the first that is not an IEEE special; radians or degrees, decided once and
+regretted afterwards; and that `atan2` takes two coordinates and has no receiver
+that is obviously the subject. When a program does want an angle, trigonometry
+and `pow`/`log`/`exp` should land as one decision rather than a message at a
+time.
+
+Also: `design.md` said **0.13.0** in its status section, eight releases stale.
+Another prose count outside what the checker reads
+([3.16](ROADMAP.md#316-what-the-checker-does-not-check)), found the same way as
+the last three — by reading the page for another reason.
+
 ### A square root that is right — `2e438fb`, 2026-08-23
 
 **`sqrt` is a message a float understands**, and `min`, `max` and `between` are

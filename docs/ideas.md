@@ -50,7 +50,7 @@ marked as a sketch.
 | An early exit from a loop | **Defer** — nine sites carry a flag; the trigger is a body that must skip its remainder ([3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing)) |
 | Intercepting a message not understood | **Defer** — Smalltalk's `doesNotUnderstand`; small to build, and nothing has wanted a proxy |
 | A set, and the collections that are not there | **Defer** — write them in Solum and measure first, as the four loops did |
-| Mathematics, and randomness | **Promoted, half answered** — `sqrt` and the comparisons landed; randomness is still [3.14](ROADMAP.md#314-there-is-no-source-of-randomness) |
+| Mathematics, and randomness | **Promoted, half answered** — `sqrt` and the comparisons landed; randomness, and trigonometry, are still [3.14](ROADMAP.md#314-there-is-no-source-of-randomness) |
 | Tail calls | **No** — the programs that seem to ask for them are recursive-descent parsers, which never recurse in tail position |
 | Coroutines | **No** — the interpreter re-enters on the C stack, so a Solum stack is not a value |
 | Multiple return values | **No** — every send has a fixed stack effect, and the verifier checks height on that basis |
@@ -825,6 +825,11 @@ The paragraph above about where randomness should live survived contact with the
 program and is still the open question. Its trigger is unchanged and has still
 not fired: a program wanting randomness for what it does rather than for how it
 measures.
+
+The trigonometry named at the top of this entry is in 3.14 too, with its own
+trigger and the reason it would be a primitive rather than a library when it
+comes — argument reduction, which is harder to get right than the square root
+was and fails the same way.
 
 ### Splitting the reference into pages
 

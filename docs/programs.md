@@ -11,6 +11,12 @@ so it can never report that the feature was awkward.** These can, and did:
 nearly every entry the [roadmap](ROADMAP.md) gained after the first dozen came
 from one of these ten wanting something the language did not have.
 
+**What this page is not is a description of what Solum is for.** These ten lean
+towards text and processes because they are the tools this project needed while
+building itself, and the language is meant to be general —
+[design.md](design.md#what-the-language-is-for) says so, and says what happened
+the once that was forgotten.
+
 Each is a single `.sol` file with its reasoning in its own comments. This page
 is the map; the file is the argument.
 
