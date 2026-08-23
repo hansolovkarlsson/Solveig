@@ -893,7 +893,7 @@ as one list rather than split across documents so it cannot drift.
 
 ## Status
 
-**0.22.0.** The language is Turing-complete, does not leak, and is what a
+**0.23.0.** The language is Turing-complete, does not leak, and is what a
 program gets written in rather than a slice being demonstrated.
 
 ```

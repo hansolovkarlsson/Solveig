@@ -5,7 +5,53 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## 0.23.0 — 2026-08-23
+
+**Solum compiles Solum.** The compiler is written in the language it compiles,
+it compiles its own source, and the compiler that comes out compiles its own
+source again to the same bytes. All 47 `.sol` files in the repository compiled
+to bytes **identical** to what `solas` produces — not "runs the same", the same
+file.
+
+**The one change to the language is a number.** `SOL_FRAMES_MAX` is 256 rather
+than 64, so recursion reaches **254 levels rather than 62**. `.sob` files are
+format version 14, unchanged, and nothing else about the language moved.
+
+That cap had been left alone because raising it looked expensive: `SOL_STACK_MAX`
+was derived from it, and a `SolVM` holds both arrays inline and lives on the C
+stack, so eight times the frames meant a machine too big to put on a thread. **The
+two did not have to be one number.** Sized separately, four times the depth cost
+**4% more memory** — 266,120 bytes to 276,872 — and both ends stay bounds-checked,
+so `call depth exceeded` and `stack overflow` are still ordinary catchable
+failures.
+
+Three programs that had each written a limit down found it moved:
+[evaluator.sol](../programs/evaluator.sol) from 18 brackets to **83**,
+[lib/json.sol](../lib/json.sol) from 28 levels of nesting to **124**, and the
+Solum compiler from 9 nested blocks to **41** — which is what let it compile its
+own source at last. [3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels)
+is rewritten around what moving the cap cost and bought, and every document
+quoting the old numbers is brought up to date.
+
+**Nothing was added to the language to make the compiler possible**, which was
+the rule the exercise ran under from the start. The suggestion that raised it
+proposed a pattern class and a built-in tokenizer first; neither turned out to be
+wanted. `lexer.sol` is 297 lines against `solas/src/lexer.c`'s 265, and 169 of
+those are code.
+
+**What it found along the way**, each recorded where it belongs: writing binary
+works, NUL included; writing an i64 is *easier* than reading one, because
+`shiftRight` is arithmetic where reconstruction by shifting left overflows; a
+float has to be taken apart by hand, since nothing reinterprets its bits, and the
+encoder was checked bit for bit at `-0.0`, `DBL_MAX` and infinity; and the four
+files that would not compile failed on depth rather than on any construct, which
+is how a constant in `vm.h` turned out to be the last thing in the way.
+
+**And then it was parked.** The six files live in
+[experiment/](../experiment/README.md), off the search path and out of
+`make test`, because a second compiler has to be taught every construct the first
+one learns and the proof does not need repeating to stay true.
+[experiment/prove.sh](../experiment/prove.sh) runs it again on demand.
 
 ### The self-hosting compiler is parked — `a5a49ff`, 2026-08-23
 

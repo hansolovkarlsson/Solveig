@@ -108,6 +108,17 @@ No dependencies beyond a C11 compiler and `make`.
 
 ## Status
 
+**0.23.0** — **Solum compiles Solum.** The compiler is written in the language
+it compiles, it compiles its own source, and the result compiles its own source
+again to the same bytes; all 47 `.sol` files here compile to bytes identical to
+what `solas` produces. The one language change is a number: `SOL_FRAMES_MAX` is
+256 rather than 64, so **recursion reaches 254 levels rather than 62** — which
+cost 4% more memory once the value stack stopped being sized from the frame
+count, and which was the last thing standing between the compiler and its own
+source. `.sob` files are format version 14, unchanged. Nothing was added to the
+language to make any of it possible, and the code is now parked in
+[experiment/](experiment/README.md).
+
 **0.22.0** — `sqrt` is a message a float understands, and it is a primitive
 rather than a library method because it was written in Solum twice and **both
 versions were wrong and silent** — the second, written to fix the first, was
