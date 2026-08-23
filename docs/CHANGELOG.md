@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### What the language is for, and where trigonometry sits — `pending`, 2026-08-23
+### What the language is for, and where trigonometry sits — `99826df`, 2026-08-23
 
 **[design.md](design.md#what-the-language-is-for) now states the goal outright:
 Solum is meant to be a general-purpose language.** Not a scripting language, not
