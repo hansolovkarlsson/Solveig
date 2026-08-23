@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### The frame cap moves, and Solum compiles itself — `pending`, 2026-08-23
+### The frame cap moves, and Solum compiles itself — `6037fdf`, 2026-08-23
 
 **`SOL_FRAMES_MAX` is 256 rather than 64, and recursion reaches 254 levels
 rather than 62.**
