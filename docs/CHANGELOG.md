@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### A `.sob` written by Solum — `pending`, 2026-08-23
+### A `.sob` written by Solum — `1170ded`, 2026-08-23
 
 **Could Solas be written in Solum?** Asked on 2026-08-23, never discussed here
 before, and now on the record in
