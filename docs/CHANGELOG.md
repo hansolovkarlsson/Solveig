@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### The self-hosting compiler is parked — `pending`, 2026-08-23
+### The self-hosting compiler is parked — `a5a49ff`, 2026-08-23
 
 **The proof is finished, so the code stops being maintained.** Everything that
 taught Solum to compile itself has moved to
