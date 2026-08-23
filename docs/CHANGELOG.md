@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### Which half runs out — `pending`, 2026-08-23
+### Which half runs out — `e68f1b3`, 2026-08-23
 
 **A correction, and the measurement that forced it.** The entry below said the
 parser was what ran out of frames and that an explicit stack in it was the
