@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### Blocks, and the frames they need — `pending`, 2026-08-23
+### Blocks, and the frames they need — `14001b1`, 2026-08-23
 
 The first half of stage 2 of
 [the self-hosting question](ideas.md#solas-written-in-solum--self-hosting):
