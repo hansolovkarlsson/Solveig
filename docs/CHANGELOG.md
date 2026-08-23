@@ -5,7 +5,41 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-## 0.24.0 — 2026-08-24
+## Unreleased
+
+### The day written down, and five entries dated a day ahead — `pending`, 2026-08-23
+
+[journal.md](journal.md) gains the day: three releases in one stretch — `sqrt`
+into the machine and the whole language on one page, then Solum compiling
+itself, then four design questions of which one was built.
+
+**The postmortem is six items and they have one shape.** The square root's
+convergence claimed in a changelog and a tag on the strength of checking how the
+answer *printed*. "An explicit-stack parser unlocks the last four files", said
+unmeasured and wrong, then corrected with a second unmeasured claim that only
+came out because somebody asked whether the two matched. A chained
+`ifTrue({...}):ifFalse({...})` written four hours after documenting that exact
+trap. A benchmark comparing two loops doing unequal work, thrown away rather
+than reported. An argument under-sold by measuring a diluted expression, which
+when isolated produced [3.17](ROADMAP.md#317-a-global-is-found-by-walking-a-list)
+and redirected the whole question. And five changelog entries dated **2026-08-24
+on the 23rd**, in a document whose header says dates are the day the work was
+done — corrected here.
+
+Every one is a claim made from reasoning where a two-minute measurement would
+have refuted it, in a session whose method is measuring.
+
+The second theme is about the tools: **the checker cannot catch a claim that
+stops being checked.** Three instances in one day — the front page's block that
+failed to compile and was skipped, the reference's four library examples that
+stopped compiling when their files moved to `experiment/` and took 13 claims out
+of the count with every remaining claim still holding, and
+[3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels)'s own worked
+example, which was never a claim at all because neither of its lines prints.
+[3.16](ROADMAP.md#316-what-the-checker-does-not-check) now has the most
+instances behind it of any open entry.
+
+## 0.24.0 — 2026-08-23
 
 **One library method, one new limitation, and three questions answered without
 building anything.** No language change; `.sob` files are format version 14,
@@ -57,7 +91,7 @@ Each of the three is deferred with a trigger, and none of the triggers has
 fired. What they have in common is that the argument for each was strengthened,
 weakened or redirected by a measurement rather than by an opinion.
 
-### `forever`, `break` and `continue`, explored and measured — `7bb565b`, 2026-08-24
+### `forever`, `break` and `continue`, explored and measured — `7bb565b`, 2026-08-23
 
 A loop with **no condition at all**, left only by breaking out of it:
 
@@ -104,7 +138,7 @@ remainder* — which is what `continue` is for — but wanting the construct is 
 the same as a loop needing it, and no loop here has yet had to thread
 `done:not:ifTrue({ ... })` through its body.
 
-### Constants, and the measurement that redirected the question — `1ec00a3`, 2026-08-24
+### Constants, and the measurement that redirected the question — `1ec00a3`, 2026-08-23
 
 Asked whether the language should have constants, either as new assignment
 syntax or as a `@constant` directive. Written down in
@@ -140,7 +174,7 @@ Rebindability is a hazard in one place and load-bearing in the other.
 Nothing was built. `pi` needs none of it — two lines in `lib/math.sol` whenever
 a program wants one, and none has.
 
-### `ifElseIf` — a chain of alternatives, written flat — `b222a76`, 2026-08-24
+### `ifElseIf` — a chain of alternatives, written flat — `b222a76`, 2026-08-23
 
 ```
 value := [
@@ -195,7 +229,7 @@ question — what changed is the interface. Flat instead of pairs of pairs, plai
 blocks closing over what they test instead of one-argument blocks handed the
 receiver, and the else by position instead of `{ n | true }`.
 
-### Default values for block parameters, recorded — `18274ea` and `6c89db4`, 2026-08-24
+### Default values for block parameters, recorded — `18274ea` and `6c89db4`, 2026-08-23
 
 Asked: could a block carry a default for a parameter, `{ x := #0 | body }`?
 Written down in [ideas.md](ideas.md#default-values-for-block-parameters) with a

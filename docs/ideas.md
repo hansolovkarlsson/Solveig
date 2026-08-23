@@ -173,7 +173,7 @@ library is a promise, and the bar is higher than "it works".*
 
 **That judgement was right, and what changed is the interface.**
 [`array:ifElseIf`](REFERENCE.md#the-library) went into `control.sol` on
-2026-08-24 in this shape:
+2026-08-23 in this shape:
 
 ```
 @include "control.sol".
@@ -1114,7 +1114,7 @@ threaded through the body as `done:not:ifTrue({ ... })` and the workaround stops
 being a condition and starts nesting. That is a bug class rather than a
 readability complaint, and you would know it had happened.
 
-#### `forever`, and `break` as a message — 2026-08-24
+#### `forever`, and `break` as a message — 2026-08-23
 
 A shape was proposed that this entry had not considered: a loop with **no
 condition at all**, left only by breaking out of it.
@@ -1532,7 +1532,7 @@ this document is for.
 
 ### Constants, and whether they should be a thing
 
-Asked on 2026-08-24. There are no constants: every name is a binding and `:=`
+Asked on 2026-08-23. There are no constants: every name is a binding and `:=`
 can rebind any of them. Two ways to add them were put:
 
 1. **New syntax** — a second kind of assignment the compiler refuses to rebind.

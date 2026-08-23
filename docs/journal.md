@@ -11,6 +11,198 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-23 — a square root, a compiler that compiles itself, and six things measured wrong
+
+Three releases. 0.22.0 put `sqrt` in the machine and the whole language on one
+page; 0.23.0 made Solum compile itself; 0.24.0 answered four design questions,
+built one of them, and found a new limitation by measuring an argument.
+
+### The square root was wrong twice, and the second time was worse
+
+`bench.sol` needed a square root the language did not have, so it wrote one.
+Yesterday's entry recorded that the first attempt — twenty fixed iterations of
+Newton's method — was wrong at 1e10 and silent about it, and that the fix was to
+iterate until the answer stopped moving with a cap of sixty steps.
+
+**The fix was wrong too.** A value above about 1e21 has not finished halving in
+sixty steps, so the loop returns `x` divided by 2^60: `sqrt(1e300)` answered
+8.67e281 rather than 1e150. Nineteen orders of magnitude, from the version
+written to correct the first mistake.
+
+**And 0.21.0 had said it converged.** That release's changelog and its tag both
+stated that testing the square root at 1e300 found a bug in the formatter and
+nothing wrong with the square root. What had been compared against the C library
+was *the digits the formatter produced* — right, once the formatter was fixed —
+and never the value they were the digits of. A wrong number can survive being
+looked at carefully if what you look at is how it prints. The 0.21.0 entries and
+yesterday's journal item now carry that correction where they made the claim.
+
+So `sqrt` is a primitive, and the argument for it is not convenience. `min`,
+`max` and `between` came out right the first time and are only
+[math.sol](../lib/math.sol); the square root was written twice, wrong twice, and
+silent twice. **A thing every program would get wrong the same way belongs in
+the machine.**
+
+### One page, and the gaps writing it found
+
+[CHEATSHEET.md](CHEATSHEET.md) is the whole language on one page — every type,
+every message, the six rules that bite, and the command lines. Two tests hold it
+there: one fails if a message is registered without being listed, the other runs
+all 64 examples.
+
+Writing sixty-four examples in one file met every edge the checker has, and
+found a third gap for [3.16](ROADMAP.md#316-what-the-checker-does-not-check).
+**A claim on a line that does not itself print is never read.** `point:show.`
+prints from inside the method, so `; #3` beside it is decoration. Six of the
+first draft's sixty-eight claims were in that state, including the `repeat` and
+`toByDo` loops where only the first of three output lines was ever compared. The
+checker reports those lines rather than hiding them, which is why this is a
+paragraph in that entry and not a fourth row.
+
+### What the language is for, which had never been written down
+
+Asked about trigonometry, the first answer argued it away partly on the grounds
+that the ten programs here are text and process work, so geometry is not what
+this language is for. **That reasoning was wrong and was called out**: the
+programs describe what has been built, not what the language is. They lean
+towards text and processes because they are the tools this project needed while
+building the thing that runs them.
+
+[design.md](design.md#what-the-language-is-for) now says the goal outright —
+general-purpose — with the rule that follows for reading the roadmap: *no
+program here has wanted X* is a reason to wait for one before choosing a shape,
+never a reason to rule a direction out. Both documents record the wrong reason
+as wrong.
+
+### Solum compiles Solum
+
+Six files, in stages, each with a gate.
+[emit.sol](../experiment/emit.sol) wrote a `.sob` by hand — no lexer, no parser,
+two chunks byte by byte — because the back end was the half that could have been
+impossible. Then the scanner, then the parser and a subset compiler, then blocks
+and frames and lexical capture, then the control flow `solas` compiles to jumps,
+then `@include`.
+
+The bar throughout was `cmp` against `solas`, not "runs the same", and that bar
+earned its keep repeatedly. It caught a chunk's slot count being written twice —
+a file four bytes long that ran perfectly well, because nothing reads past what
+it needs. It caught constants keyed without their type, so `#45` and `45` shared
+a slot: a program that pushes an integer where a float was written, which runs,
+and which only a byte comparison notices. It caught a byte taking the line of
+the token just consumed rather than the line its construct began on — the two
+coincide for one-line statements, which is the whole of `hello.sol`, so an
+earlier stage had passed without knowing the rule existed.
+
+**And then it stopped at 42 of 46 files, on depth rather than on any
+construct.** The four it could not compile included its own parser and its own
+source.
+
+### The cap that was one number pretending to be two
+
+`SOL_FRAMES_MAX` had been left at 64 because `SOL_STACK_MAX` was derived from
+it, and a `SolVM` holds both arrays inline and lives on the C stack — including
+on threads, where the default is often 512KB. Eight times the frames meant a
+machine too big to put on a thread.
+
+**They did not have to be one number.** Frames are 56 bytes each. Sized
+separately, 256 frames cost **4% more memory for four times the depth**, and
+both ends stay bounds-checked, so nothing became a crash that was not one
+before. Recursion went from 62 levels to 254, `evaluator.sol` from 18 brackets
+to 83, `lib/json.sol` from 28 levels of nesting to 124 — three programs that had
+each written a limit down found it moved — and the compiler compiled its own
+source.
+
+The fixpoint: `solas` compiles the compiler; that compiler compiles its own
+source to a byte-identical file; that one compiles its own source again,
+identical; and it still agrees with `solas` on everything else. Four claims, all
+in `make test`.
+
+**Then it was parked.** A second compiler has to be taught every construct the
+first one learns, and the proof does not need repeating to stay true. Six files
+to [experiment/](../experiment/README.md), off the search path and out of the
+suite, with a script that runs the proof again on demand.
+
+### Four questions, one built
+
+`ifElseIf` went into the library: a chain of alternatives written flat, which
+`disasm.sol` now uses for its constant tags. Its costs were measured before the
+guidance was written — 5.8× a nested chain, three frames a level through a
+recursion — so the advice is *flat dispatch yes, recursive descent no* rather
+than a preference. It also closed the `switch`/`case` entry, which had refused
+this as a library years of commits ago on interface grounds that turned out to
+be right: what changed was not the capability but the shape.
+
+Default parameter values, constants, and `forever`/`break`/`continue` were
+recorded and not built. Each argument was moved by a measurement rather than an
+opinion, and the constants one moved furthest — see below.
+
+---
+
+### Postmortem
+
+**Six things I got wrong, and the pattern in them is the same.**
+
+1. **"The square root converged."** Written into a changelog and a release tag
+   on the strength of comparing the formatter's digits against the C library —
+   which was checking the printing, not the number. The right check took one
+   line and I did not do it.
+
+2. **"An explicit-stack parser unlocks the last four files."** Said at the end
+   of a message, unmeasured, as if it followed. It does not: the compiler stops
+   at the same depth. Then, correcting it, I said the compiler was "sitting
+   immediately behind the parser" — which was *also* unmeasured, an inference
+   dressed as a result, and only came out because I was asked whether the two
+   statements matched. Splitting the compiler into a library so a tree nobody
+   parsed could be handed to it is what settled it. Both claims had reached
+   three documents by then.
+
+3. **Chained `ifTrue({...}):ifFalse({...})`** in the include code — the exact
+   trap written into the cheatsheet's *six rules that bite* about four hours
+   earlier, by the same hand.
+
+4. **A benchmark comparing unequal work.** Trying to separate a library loop's
+   block-call cost from its error machinery, I compared `repeat` against an
+   inlined `whileTrue` that was doing two more operations a pass, and it came
+   out *faster*. The number was meaningless. I threw it away rather than
+   reporting it, which is the only part of that worth keeping.
+
+5. **Under-selling an argument by measuring the wrong thing.** Asked whether
+   constants would be faster than a global, I measured `r:mul(r):mul(pi)` — an
+   expression where the lookup is a fifth of the work — and reported 25ns as if
+   that settled it. Pushed on it, isolating the lookup gave 16× in the
+   pathological case and, more usefully,
+   [3.17](ROADMAP.md#317-a-global-is-found-by-walking-a-list): global lookup
+   walks a list, linearly, recency-ordered, so the name a *library* bound is the
+   slowest to read. **The measurement redirected the question from "should we
+   have constants" to "why is a global read O(n)".**
+
+6. **Five changelog entries dated a day ahead**, in a document whose header says
+   dates are the day the work was done. Corrected in the same commit as this.
+
+**The theme is one thing said several ways.** Every one of the six is a claim
+made from reasoning that a two-minute measurement would have refuted, in a
+session whose entire method is measuring. The ones that got caught were caught
+by somebody asking, or by a byte comparison, and not by me re-reading what I had
+written.
+
+**And a second theme, about the tools rather than about me.** The checker cannot
+catch a claim that *stops* being checked. Three instances today: the README
+block that failed to compile and was silently skipped; the reference's four
+library examples, which stopped compiling when their files moved to
+`experiment/` and took 13 claims out of the count with every remaining claim
+still holding; and 3.5's own worked example, which said `#62:down` succeeds and
+`#63:down` fails and was never a claim at all, because neither line prints. That
+is [3.16](ROADMAP.md#316-what-the-checker-does-not-check), and it is now the
+entry with the most instances behind it.
+
+**What went right is worth the same attention.** Deliberately breaking a rule to
+check that a test would fail caught two tests that would have passed on broken
+code — the lexer corpus, where 33,000 tokens of working Solum contain no `1e`
+followed by a non-digit, and the compiler's constant keying. Working code does
+not contain the corners, so a corpus needs a fixture beside it. And the
+byte-identity bar found three faults that behaviour tests could not have,
+because all three produced files that ran correctly.
+
 ## 2026-08-22 (night) — everything written down, and then a benchmark
 
 Two releases' worth of work in one stretch, and both halves ended by finding
