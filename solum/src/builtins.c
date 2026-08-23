@@ -298,6 +298,10 @@ static SolValue string_from(SolVM *vm, const char *text, int length)
  * text the value produces, so they work the same everywhere.
  */
 #define SOL_SPEC_MAX_WIDTH 1024
+#define SOL_SPEC_MAX_DECIMALS 40
+
+/* 309 digits for DBL_MAX, a sign, a point, the decimals, and the NUL. */
+#define SOL_FLOAT_DECIMALS_MAX (309 + 2 + SOL_SPEC_MAX_DECIMALS + 1)
 
 typedef struct {
     char align;        /* '<', '>', '^', or 0 for the type's own preference */
@@ -359,7 +363,7 @@ static bool spec_parse(SolVM *vm, const SolString *text, SolSpec *out)
             out->decimals = out->decimals * 10 + (s[i++] - '0');
             digits++;
         }
-        if (digits == 0 || out->decimals > 40) {
+        if (digits == 0 || out->decimals > SOL_SPEC_MAX_DECIMALS) {
             sol_vm_runtime_error(vm, "'%s' is not a usable number of decimals",
                                  text->chars);
             return false;
@@ -520,8 +524,27 @@ static SolValue prim_float_as_string(SolVM *vm, SolValue self, SolValue *args, i
        their names either way; rounding them to two places means nothing. */
     double d = SOL_AS_FLOAT(self);
     if (spec.decimals >= 0 && !isnan(d) && !isinf(d)) {
-        char buffer[64];
+        /* Big enough for the worst case there is: DBL_MAX has 309 digits before
+           the point, the spec allows 40 after it, and a sign and a point sit
+           between -- 351 characters.
+
+           This was 64, and the bug that hid there is worth naming because it is
+           not the one a short buffer is usually blamed for. `snprintf` does not
+           overflow; it truncates. What it *answers* is the length it would have
+           written had there been room, and that length went straight to
+           `spec_finish` as the length of the text. So `1e150:asString("0.6")`
+           produced a 157-character string of which 93 characters were whatever
+           lay behind the buffer on the stack -- an over-read, and stack bytes
+           handed to a script as a string it can print. Found by bench.sol, which
+           wanted a square root and tested it at 1e300.
+
+           The clamp below makes the length agree with the buffer whatever the
+           buffer is, so this cannot come back if the sizing is ever wrong
+           again. */
+        char buffer[SOL_FLOAT_DECIMALS_MAX];
         int n = snprintf(buffer, sizeof buffer, "%.*f", spec.decimals, d);
+        if (n < 0) n = 0;
+        if (n >= (int)sizeof buffer) n = (int)sizeof buffer - 1;
         return spec_finish(vm, buffer, n, &spec, '>');
     }
 

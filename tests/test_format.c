@@ -275,9 +275,53 @@ static void test_grouping_is_refused_where_it_means_nothing(void)
     sol_vm_free(&vm);
 }
 
+/* A number too long for the buffer it is written into.
+ *
+ * `snprintf` does not overflow -- it truncates, and answers the length it
+ * *would* have written. That length was handed on as the length of the text, so
+ * a float needing more than 64 characters produced a string whose tail was the
+ * stack behind the buffer. `1e150:asString("0.6")` is 157 characters, of which
+ * 93 came from nowhere; a script could print them.
+ *
+ * Found by programs/bench.sol, which needed a square root the language does not
+ * have, wrote one, and tested it at 1e300.
+ *
+ * What is checked here is the whole text, digit for digit, against what the C
+ * library writes -- a length alone would have passed while the bug was live,
+ * the length having been right all along. */
+static void test_a_float_longer_than_its_buffer(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    const double values[] = { 1e150, 1e300, 1.7976931348623157e308, -1e200, 1e39 };
+    for (size_t i = 0; i < sizeof values / sizeof values[0]; i++) {
+        char source[128], expected[512];
+        snprintf(source, sizeof source, "text := %.17g:asString(\"0.6\").", values[i]);
+        snprintf(expected, sizeof expected, "%.6f", values[i]);
+
+        assert(run(&vm, &chunk, source) == SOL_OK);
+        assert(is_text(global(&vm, "text"), expected));
+        sol_chunk_free(&chunk);
+    }
+
+    /* And the widest thing the spec can ask for: 40 decimals on the largest
+       double there is, which is 350 characters. */
+    char expected[512];
+    snprintf(expected, sizeof expected, "%.40f", 1.7976931348623157e308);
+    assert(run(&vm, &chunk,
+        "widest := 1.7976931348623157e308:asString(\".40\").") == SOL_OK);
+    assert(is_text(global(&vm, "widest"), expected));
+    assert(strlen(expected) == 350);       /* 309 digits, a point, 40 decimals */
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
 int main(void)
 {
     test_grouping();
+    test_a_float_longer_than_its_buffer();
     test_grouping_is_refused_where_it_means_nothing();
     test_width_and_decimals();
     test_alignment();
