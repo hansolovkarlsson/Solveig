@@ -496,6 +496,53 @@ static void test_everything_written_down_is_true(void)
     printf("  everything written down is true (%d claims)\n", claims);
 }
 
+/* Stage 0 of asking whether Solas could be written in Solum: a .sob written by
+ * a Solum program, byte for byte, and run.
+ *
+ * The assertion is `cmp`, not "it behaves the same". A file that runs correctly
+ * and differs in its tables would leave the interesting question open, and the
+ * interesting question is whether the two compilers can be held to the same
+ * answer -- which is what the later stages need if they are ever built.
+ *
+ * See docs/ideas.md, "Solas written in Solum". */
+static void test_a_sob_written_by_solum_matches_the_compiler(void)
+{
+    char out[8 * 1024];
+
+    assert(run("bin/solas programs/emit.sol -o " DIR "/emit.sob 2>&1",
+               out, sizeof out) == 0);
+    assert(run("bin/solvm " DIR "/emit.sob " DIR "/emitted 2>&1",
+               out, sizeof out) == 0);
+
+    /* The same two programs, through the compiler this is being compared to. */
+    assert(run("printf '\"hi\":display.\\n' > " DIR "/hi.sol && "
+               "printf '#45:print.\\n' > " DIR "/num.sol", out, sizeof out) == 0);
+
+    static const char *const names[] = { "hi", "num" };
+    for (size_t i = 0; i < sizeof names / sizeof names[0]; i++) {
+        char command[512];
+
+        /* Compiled from the same directory the emitter claims in the file's
+           path table, since that path is part of the bytes being compared. */
+        snprintf(command, sizeof command,
+                 "cd " DIR " && ../../../bin/solas %s.sol 2>&1", names[i]);
+        assert(run(command, out, sizeof out) == 0);
+
+        snprintf(command, sizeof command,
+                 "cmp " DIR "/%s.sob " DIR "/emitted/%s.sob 2>&1", names[i], names[i]);
+        if (run(command, out, sizeof out) != 0) {
+            printf("\n%s.sob differs from what solas produced:\n%s\n", names[i], out);
+            assert(false);
+        }
+
+        /* And it runs, which cmp alone would not tell you if both were wrong. */
+        snprintf(command, sizeof command, "bin/solvm " DIR "/emitted/%s.sob", names[i]);
+        assert(run(command, out, sizeof out) == 0);
+    }
+
+    printf("  a .sob written by Solum is the one the compiler writes\n");
+}
+
 int main(void)
 {
     test_help_is_not_an_error();
@@ -514,6 +561,7 @@ int main(void)
     test_a_memory_limit_measures_what_is_held();
     test_the_limits_are_off_and_are_checked();
     test_everything_written_down_is_true();
+    test_a_sob_written_by_solum_matches_the_compiler();
     printf("test_cli: ok\n");
     return 0;
 }

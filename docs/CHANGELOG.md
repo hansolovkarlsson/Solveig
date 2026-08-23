@@ -5,6 +5,60 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+### A `.sob` written by Solum — `pending`, 2026-08-23
+
+**Could Solas be written in Solum?** Asked on 2026-08-23, never discussed here
+before, and now on the record in
+[ideas.md](ideas.md#solas-written-in-solum--self-hosting) with a staged answer
+and the first stage built.
+
+[emit.sol](../programs/emit.sol) is the eleventh program, and it is
+**[disasm.sol](../programs/disasm.sol) backwards.** No lexer, no parser, no
+source input — two
+chunks written out byte by byte and handed to the machine. The back end goes
+first because it is the half that could have been impossible: scanning
+characters is ordinary work in any language and two shipped libraries already do
+it, but a language that cannot write a NUL byte or an i64 cannot emit bytecode
+at all.
+
+**It works, and the assertion is `cmp` rather than *behaves the same*.**
+`"hi":display.` at 94 bytes and `#45:print.` at 98 both come out identical to
+what `solas` produces, both run, and `disasm.sol` decodes both. Byte-identity is
+deliberate: a file that ran correctly and differed in its tables would leave the
+interesting question open, and the interesting question is whether two compilers
+can be held to one answer.
+
+Three things it found:
+
+- **Writing an i64 is easier than reading one**, which is not the direction
+  anybody would guess. `disasm.sol` carries careful arithmetic because
+  reconstructing the top byte by shifting it into bit 63 overflows and integer
+  arithmetic traps here; going out, `shiftRight` is arithmetic, so masking after
+  it is right for negatives as readily as positives.
+- **The verifier catches a bad emitter.** A `.sob` is untrusted input, so one
+  corrupted opcode byte gets *bytecode is internally inconsistent* and exit 65
+  instead of a crash — a whole class of back-end bug arrives as a message.
+- **A float constant is the one thing not yet writable.** Nothing reinterprets
+  a float's bits as an integer, so `readFloat` in `disasm.sol` takes a double
+  apart field by field and the emitter needs that inverted. Laborious, not
+  blocked, and nothing compiled so far has a float literal.
+
+**No features were added to make this possible, and that is the point.** The
+question came with a suggestion to build a pattern class and a tokenizer first;
+the entry records why not. A language that compiles itself with help from a
+tokenizer written in C proves something smaller — and a 3,000-line Solum program
+is the largest evidence generator this repository will ever have, pressing on
+the frame limit, on blocks that cannot escape, on the missing early return and
+on string building all at once. Smoothing its path in advance throws that away
+before it is collected.
+
+Also fixed: `disasm.sol` announced *this reader was written against version 13*
+on every file it read perfectly well. The format has been 14 since 0.18.0 and
+that flip was `disasm.sol`'s own doing. A reader that cries wolf on correct
+input teaches you to ignore it.
+
 ## 0.22.0 — 2026-08-23
 
 **One new message, one new library file, and one new document.** `.sob` files

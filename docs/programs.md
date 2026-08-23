@@ -1,6 +1,6 @@
 # The programs
 
-*The ten files in [programs/](../programs/): what each one does, how to run
+*The eleven files in [programs/](../programs/): what each one does, how to run
 it, and what it found. [examples/](../examples/) is the other directory — one
 file per concept the [guide](GUIDE.md) names, each written to show a feature.
 These were written to do a job.*
@@ -9,7 +9,7 @@ That distinction is the reason for the split, and it is not cosmetic. **A
 program written to show a feature is written after the feature and to suit it,
 so it can never report that the feature was awkward.** These can, and did:
 nearly every entry the [roadmap](ROADMAP.md) gained after the first dozen came
-from one of these ten wanting something the language did not have.
+from one of these eleven wanting something the language did not have.
 
 **What this page is not is a description of what Solum is for.** These ten lean
 towards text and processes because they are the tools this project needed while
@@ -34,6 +34,7 @@ is the map; the file is the argument.
 | [disasm](../programs/disasm.sol) | reads a `.sob` file and says what is in it | `solvm disasm.sob [file.sob] [brief]` |
 | [expect](../programs/expect.sol) | checks the examples and the documents against their own claims | `solvm expect.sob [dir or file]...` |
 | [bench](../programs/bench.sol) | times a command, and says whether two of them really differ | `solvm bench.sob [runs] [cmd] [-- cmd]` |
+| [emit](../programs/emit.sol) | writes a `.sob` file by hand, the one the compiler writes | `solvm emit.sob [directory]` |
 
 Every one runs with no arguments at all, on input it supplies itself. That is
 deliberate — a program you have to feed before it will say anything is a program
@@ -509,9 +510,71 @@ answer.
 
 ---
 
+## emit — a `.sob` written by hand, and the one the compiler writes
+
+```
+./bin/solvm emit.sob                 ; -- writes into build/emit
+./bin/solvm emit.sob somewhere/else
+```
+
+**[disasm](#disasm--a-sob-file-read-and-disassembled) backwards.** No lexer, no
+parser, no source input: two chunks written out byte by byte and handed to the
+machine.
+
+It is the first stage of asking whether **Solas could be written in Solum**, and
+the reason that question starts here rather than at the front of a compiler.
+Scanning characters and building a tree is ordinary work in any language, and
+`lib/json.sol` and `lib/html.sol` already do it. Producing an exact binary file
+is the half that could have turned out to be impossible — a language that cannot
+write a NUL byte, or an i64, or a length-prefixed name cannot emit bytecode at
+all, whatever its front end looks like. So the back end goes first, on the
+smallest input there is.
+
+**It works, and the test is `cmp`.** Both files come out byte-identical to what
+`solas` produces from the same source, `solvm` runs them, and `disasm.sol`
+decodes them:
+
+| | | |
+| --- | --- | --- |
+| `"hi":display.` | 94 bytes | names, code, line runs, files, slot names |
+| `#45:print.` | 98 bytes | all of that and the constant table |
+
+Byte-identity is the assertion rather than *behaves the same*, deliberately. A
+file that runs correctly and differs in its tables would leave the interesting
+question open, and the interesting question is whether two compilers can be held
+to one answer.
+
+**Three things this program found**, none of which was certain in advance:
+
+- **Writing binary works.** Every one of the 256 byte values, NUL included,
+  survives `asCharacter`, `join` and `writeFile`. This was the single unknown,
+  and it was checked before a line of the emitter was written.
+- **Writing an i64 is easier than reading one.** `disasm.sol` carries a careful
+  piece of arithmetic because rebuilding the top byte by shifting it left into
+  bit 63 overflows, and integer arithmetic traps here. Going the other way,
+  `shiftRight` is arithmetic — `#-1:shiftRight(#56)` is `#-1` — so masking after
+  it lands on the right byte for negatives as readily as positives. The
+  asymmetry is real and it favours the writer.
+- **The verifier catches a bad emitter.** A `.sob` is untrusted input, so
+  corrupting one opcode byte of the emitted file gets *bytecode is internally
+  inconsistent* and exit 65, not a crash. A whole class of back-end bug arrives
+  as a message.
+
+**A float constant is the one thing it cannot yet write**, and the reason is on
+the record already: nothing reinterprets the bits of a float as an integer, so
+`readFloat` in `disasm.sol` takes a double apart by hand, field by field. The
+emitter needs that inverted, which is laborious rather than blocked. No program
+being compiled here has a float literal yet; the first one that does is where
+that gets written.
+
+It also found `disasm.sol` announcing *this reader was written against version
+13* on every file it read perfectly well — the format has been 14 since 0.18.0,
+and that flip was this program's own doing. A reader that cries wolf on correct
+input teaches you to ignore it.
+
 ## Adding one
 
-There is no template and there should not be. What the ten have in common is
+There is no template and there should not be. What the eleven have in common is
 only this:
 
 1. **It does a job somebody would want done**, rather than exercising a feature.

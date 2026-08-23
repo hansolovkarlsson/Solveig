@@ -57,6 +57,7 @@ marked as a sketch.
 | Resuming from an error | **No** — the frames are gone by the time a handler runs; `retry` is writable, resuming is not |
 | More than one parent | **No** — `via` already names an ancestor, which is what multiple parents are wanted for |
 | An `assert` that compiles away | **No** to stripping; **defer** the message itself |
+| Solas written in Solum — self-hosting | **Being built** — stage 0 done and byte-identical, [below](#solas-written-in-solum--self-hosting) |
 
 ---
 
@@ -287,6 +288,124 @@ tutorial section is for.
 > the entry is
 > [6.8](COMPLETED.md#68-group-and-block-are-not-contrasted-anywhere--done). Your
 > example is what it opens with, unchanged.
+
+---
+
+## Being built
+
+### Solas written in Solum — self-hosting
+
+**The question**, asked on 2026-08-23: could the compiler be written in Solum
+itself? Not to replace `solas`, but as proof that this is a language you can
+write a system in rather than a scripting language that happens to be pleasant.
+
+Nothing here had ever discussed it. No roadmap entry, no idea, no note — so this
+is the first record.
+
+**The strongest form of the proof is the classic one**: the Solum-written
+compiler, compiled by itself, produces the same bytes the C compiler produces.
+That is checkable to the byte, and this repository already knows how to make
+that comparison — [disasm.sol](../programs/disasm.sol) was written to check one
+implementation of the `.sob` format against another and found three faults doing
+it.
+
+#### What was measured before anything was written
+
+Four things could have killed it. None did.
+
+| | |
+| --- | --- |
+| Solum can **read** a `.sob` | Already shipped. `disasm.sol` decodes the whole format, i64 sign edge included, and agrees with `solvm --dump` over 5,737 instructions. **Half the format work exists.** |
+| Solum can **write** arbitrary binary | The one real unknown. All 256 byte values, NUL included, built with `asCharacter`, joined, written and read back identical. |
+| The format is **documented** | [serialize.h](../solum/include/solum/serialize.h) gives every field, [BYTECODE.md](BYTECODE.md) every opcode, and a test holds the document to the header. |
+| It is **fast enough** | `disasm.sol` decodes a 12.6KB `.sob` — 1,462 instructions — and prints all of it in 60ms of CPU. Compiling is heavier per byte than decoding; this says seconds, not minutes. |
+
+**And the verifier is on the writer's side.** A `.sob` is untrusted input, so
+`solvm` verifies every chunk before running it. A Solum-emitted file with a bad
+jump target or a wrong stack height is *reported*, not run — which turns a class
+of emitter bug into a message instead of a crash.
+
+#### What is actually hard
+
+- **The frame limit dictates the parser's shape.**
+  [3.5](ROADMAP.md#35-recursion-is-limited-to-about-62-levels) is 62 frames and a
+  recursive-descent parser spends about three per nesting level — `evaluator.sol`
+  manages 18 brackets, `lib/json.sol` 28. A Solum parser for Solum would run out
+  on ordinary source, so **it must carry an explicit stack**. That is not a
+  workaround invented for this: `lib/html.sol` already does it and reaches a
+  thousand levels.
+- **The size.** `solas` is 2,323 lines of C. The Solum version is likely 2,500 to
+  3,500, against 3,774 lines of Solum in `programs/` and `lib/` together — it
+  roughly doubles the Solum in the repository.
+- **Two compilers rot.** Every language change becomes two changes and the second
+  is easy to forget. The mitigation is not discipline, it is the corpus test in
+  stage 2: compile every `.sol` here with both and compare, in `make test`, so
+  the rot is immediate rather than silent.
+
+#### The stages, and the gate
+
+| | |
+| --- | --- |
+| **0** | **Done** — [emit.sol](../programs/emit.sol). Two chunks written out by hand, both byte-identical to `solas`, both running, both decoded by `disasm.sol`. In `make test` as `cmp`. |
+| **1** | A subset compiler — literals, sends, binding, blocks — enough for `examples/hello.sol`, byte-identical to `solas`. |
+| **2** | The full language, checked over every `.sol` in `examples/`, `programs/` and `lib/`: both compilers, same bytes. In `make test`. |
+| **3** | The fixpoint. The Solum compiler compiles its own source and produces the file `solas` produced from it. |
+
+Where byte-identity turns out to rest on something arbitrary — a table ordering
+neither compiler is obliged to agree on — the fallback is instruction-level
+equivalence through `disasm.sol`.
+
+#### What stage 0 found
+
+**The back end is not the problem.** `"hi":display.` and `#45:print.` both come
+out of [emit.sol](../programs/emit.sol) byte-identical to `solas`, run, and
+disassemble. Between them they cover every section a method-free chunk has:
+names, constants, code, line runs, files, file runs, slot names.
+
+- **Writing an i64 is easier than reading one**, which was not the expected
+  direction. `disasm.sol` carries careful arithmetic because rebuilding the top
+  byte by shifting it into bit 63 overflows and this language traps; writing,
+  `shiftRight` is arithmetic and masking after it is right for negatives as
+  readily as positives.
+- **The verifier catches a bad emitter.** One corrupted opcode byte gets
+  *bytecode is internally inconsistent* and exit 65 rather than a crash, so a
+  whole class of back-end bug arrives as a message.
+- **A float constant is the one thing not yet writable**, and the reason was
+  already on the record: nothing reinterprets a float's bits as an integer, so
+  `readFloat` in `disasm.sol` takes a double apart field by field and the
+  emitter needs that inverted. Laborious, not blocked, and no program compiled
+  so far has a float literal.
+
+**So the gate is passed and stage 1 is a real option** rather than a hope. What
+it costs is unchanged: 2,500 to 3,500 lines, and a second compiler that has to
+be kept honest by the corpus test.
+
+#### No features were added to make it possible, and that is the point
+
+The suggestion that raised this also proposed a pattern class and a built-in
+tokenizer, to make the compiler shorter to write. **Deliberately not done**, for
+two reasons.
+
+The first is that it would weaken the claim: a language that compiles itself with
+help from a tokenizer written in C is proving something smaller, and the proof is
+strongest when nothing was added to make it possible.
+
+The second is the more useful one. **A 3,000-line Solum program is the biggest
+evidence generator this repository will ever have.** It presses on the frame
+limit, on blocks that cannot escape their frame, on the absence of an early
+return, and on string building at a scale nothing here has reached — all at once,
+in one program that has to work. Adding features in advance to smooth its path
+throws that evidence away before it is collected. Whatever it genuinely cannot
+have becomes an entry the ordinary way, with a program behind it.
+
+**The tokenizer question specifically is open and gets answered by stage 1**: the
+lexer gets written by hand, and if 300 lines of character scanning is tolerable
+the question is closed, while if it fights the language that is the entry.
+Nothing here argues against a scanner — only against building one before knowing.
+Worth noting that pattern matching has never appeared in this document at all,
+so stage 1 would be the first evidence either way; and that Solum's own lexer is
+265 lines of C for a language with no keywords, which is a small thing for a
+regular expression engine to be bigger than.
 
 ---
 

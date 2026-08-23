@@ -507,8 +507,14 @@ magic:equals("SOLB"):ifFalse({
 version := u16:value.
 
 "{}  --  {} bytes, format version {}":fill([path, raw:size, version]):display.
-version:equals(#13):ifFalse({
-    "  this reader was written against version 13; going on anyway":display }).
+; Version 14, and this program is the reason for it: reading a `.sob` against
+; the document is what found the two-byte operands inside the code running
+; big-endian while every table around them ran little-endian. It said 13 here
+; for four releases after that flip, so it warned about every file it could read
+; perfectly well -- a reader that cries wolf on correct input teaches you to
+; ignore it.
+version:equals(#14):ifFalse({
+    "  this reader was written against version 14; going on anyway":display }).
 
 ; The script's slot count, and it is read *here* rather than in `readBody`
 ; because it is written here -- once for the file, not once per chunk. See the
