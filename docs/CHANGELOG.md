@@ -5,7 +5,57 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## 0.24.0 — 2026-08-24
+
+**One library method, one new limitation, and three questions answered without
+building anything.** No language change; `.sob` files are format version 14,
+unchanged, and every binary behaves as it did in 0.23.0.
+
+**[`array:ifElseIf`](REFERENCE.md#the-library)** is the addition: a chain of
+alternatives written flat rather than as nested `ifElse`, which past three or
+four cases ends in a wall of `}) }) })` where a reader has to count brackets to
+know which branch they are in. Pairs of blocks, first match wins, and an odd
+number means the last is the else. [disasm.sol](../programs/disasm.sol) reads
+its constant tags with it now.
+
+It cost nothing in the language — control flow is message sending, so a chain of
+alternatives is something a library can add — and what it *does* cost was
+measured before it was written down: **5.8×** a nested chain over 200,000
+dispatches, because the chain compiles to jumps and this makes a block call per
+condition; and **three frames a level** through a recursion, against none. So
+the guidance is specific rather than a preference: for a flat dispatch, not
+inside a recursive descent.
+
+It also answers the `switch`/`case` entry in [ideas.md](ideas.md), which is
+worth reading for what it refused. That entry showed a `caseOf` written in Solum
+and deliberately kept *out* of `control.sol`: *an array of two-element arrays of
+blocks reached into with `pair:at(#1)` is not an interface worth committing to.
+A library is a promise, and the bar is higher than "it works".* The judgement was
+right and the capability was never in question — what changed is the interface.
+
+**[3.17](ROADMAP.md#317-a-global-is-found-by-walking-a-list) is the new
+limitation, and it was found by measuring an argument rather than by anything
+being slow.** Global lookup walks the root's slot list, linearly, at about
+1.35ns a slot — and the order is recency, so the name a *library* bound first is
+the slowest to read and the one the program bound last is the fastest. At 800
+globals a constant is 16× faster than a global. At the 16 to 38 globals a real
+program here has, a badly placed read costs about 50ns.
+
+**Three explorations, recorded and not built.** Default values for block
+parameters, where comparing two proposed syntaxes settled a third —
+`{ x := { #0 } | ... }`, whose default is a block and therefore evaluated per
+call, which avoids the shared-mutable-default bug nearly every language with
+this feature has shipped. **Constants**, where the speed argument turned out to
+be right and to point at 3.17 instead, and the memory argument turned out to run
+backwards: a constant table is per chunk and a block is a chunk, so three blocks
+sharing a literal hold three copies where the global they would replace is one
+slot. And **`forever` with `break` and `continue`**, which has a working library
+prototype and numbers on both sides of 3.13's fork — 1.7× for a break, 5.0× when
+a continue fires every other pass, since a skipped iteration is a raise.
+
+Each of the three is deferred with a trigger, and none of the triggers has
+fired. What they have in common is that the argument for each was strengthened,
+weakened or redirected by a measurement rather than by an opinion.
 
 ### `forever`, `break` and `continue`, explored and measured — `7bb565b`, 2026-08-24
 

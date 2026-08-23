@@ -108,6 +108,17 @@ No dependencies beyond a C11 compiler and `make`.
 
 ## Status
 
+**0.24.0** — a library and documentation release; no language change and `.sob`
+files are format version 14, unchanged. **`array:ifElseIf`** writes a chain of
+alternatives flat instead of as nested `ifElse`, measured at 5.8× a chain and
+three frames a level through a recursion, so it is for a flat dispatch and not a
+recursive descent. **[3.17](docs/ROADMAP.md#317-a-global-is-found-by-walking-a-list)**
+is new: global lookup walks a list, linearly, and the order is recency — so the
+name a library bound first is the slowest to read. Three design questions were
+explored and recorded rather than built — default parameter values, constants,
+and `forever`/`break`/`continue` — each redirected by a measurement rather than
+an opinion.
+
 **0.23.0** — **Solum compiles Solum.** The compiler is written in the language
 it compiles, it compiles its own source, and the result compiles its own source
 again to the same bytes; all 47 `.sol` files here compile to bytes identical to
