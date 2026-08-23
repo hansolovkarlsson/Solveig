@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### A square root that is right — `pending`, 2026-08-23
+### A square root that is right — `2e438fb`, 2026-08-23
 
 **`sqrt` is a message a float understands**, and `min`, `max` and `between` are
 in the new [math.sol](../lib/math.sol). That is the arithmetic half of
