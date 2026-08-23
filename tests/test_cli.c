@@ -783,9 +783,19 @@ static void test_solum_compiles_solum_to_the_same_bytes(void)
             assert(false);
         }
 
-        /* And it runs, which cmp would not tell you if both were wrong. */
-        snprintf(command, sizeof command, "bin/solvm " DIR "/mine.sob > /dev/null 2>&1");
-        assert(run(command, out, sizeof out) == 0);
+        /* And the machine will load it. Not that it exits zero -- several
+           examples exit non-zero on purpose -- and not that it prints what the
+           other one printed, since a program that reads the clock prints
+           something different every time it runs. What is checked is the one
+           thing a byte comparison cannot already tell you: that the file gets
+           past the verifier, which is where a malformed chunk is caught. */
+        run("bin/solvm " DIR "/mine.sob < /dev/null > " DIR "/mine.out 2>&1",
+            out, sizeof out);
+        run("cat " DIR "/mine.out", out, sizeof out);
+        if (strstr(out, "cannot load") != NULL) {
+            printf("\n%s produced a file the machine refuses:\n%s\n", path, out);
+            assert(false);
+        }
         accepted++;
     }
 

@@ -589,22 +589,19 @@ the bytes, and it is stage 1 of
 
 **The test is `cmp` against `solas`, over every `.sol` file in the repository.**
 What this compiler accepts must come out byte-identical; what it refuses is
-counted. Today that is **9 accepted, 37 outside the subset, 0 disagreements** —
+counted. Today that is **33 accepted, 13 outside the subset, 0 disagreements** —
 and the zero is the number that matters, because it says nothing is quietly
 mis-compiled.
 
 **What it does**: statements, bindings, sends, parentheses, groups, arrays,
 blocks with their parameters and temporaries, slot assignment, and every
 literal — with the frame slots, the lexical capture and the nested chunks all
-of that needs.
+of that needs. And the **control flow compiled to jumps**: `ifTrue`, `ifFalse`,
+`ifElse`, `and`, `or`, `whileTrue` and `doUntil`, with the same restrictions
+`solas` applies and the same fall back to a real send when they are not met.
 
-**What it does not**: `@include`, and the inlined control flow. `ifTrue`,
-`ifElse`, `whileTrue`, `doUntil`, `and` and `or` are compiled to jumps by
-`solas` when they are written literally, and reproducing that exactly is the
-next piece of work. Until then a file using one is **refused rather than
-compiled to a real send** — which would run correctly and compare differently,
-and an answer that is right and unequal is the one thing this program must not
-produce.
+**What it does not**: `@include`. All thirteen refusals are that one construct,
+and it is the last thing between here and the whole language.
 
 **Byte-identity is a much harder bar than "runs the same", and that is why it
 was chosen.** It forces agreement on everything a compiler is otherwise free to
@@ -626,6 +623,13 @@ decide, and each of these had to be worked out and matched rather than guessed:
 - **A block's slot count is written in its method header and nowhere else.** A
   chunk begins at its name table; writing the count in both places was the first
   thing this got wrong, and only the byte comparison said so.
+- **A jump's distance is measured from the end of its whole instruction**, which
+  is not the end of the operand being patched: `JUMPIF` carries the selector
+  after its offset, so that a non-boolean can be blamed on the message it came
+  from, and the jump has to clear that too.
+- **A short-circuit answers a constant `true` or `false`, not the global.** A
+  program can rebind `true`, and reading it would make the shortcut and the long
+  path disagree about what `and` answered.
 
 The float encoder in [sob.sol](../lib/sob.sol) is the other thing worth knowing
 about. **Nothing in Solum reinterprets a float's bits as an integer**, so a

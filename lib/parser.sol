@@ -132,6 +132,9 @@ parser:sendOnto := { receiver | | line, name, node, args |
     args := array:new.
     self:kind:equals('lparen):ifTrue({
         self:step.
+        ; The `(` is where an inlined conditional's first jump is emitted, so
+        ; its line is worth keeping even though an ordinary send never reads it.
+        node:atPut("lparenLine", self:previousLine).
         self:kind:equals('rparen):ifFalse({
             args:add(self:expression).
             { self:kind:equals('comma) }:whileTrue({

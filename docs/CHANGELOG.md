@@ -7,6 +7,43 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### Control flow compiled to jumps — `pending`, 2026-08-23
+
+[compile.sol](../programs/compile.sol) now inlines `ifTrue`, `ifFalse`,
+`ifElse`, `and`, `or`, `whileTrue` and `doUntil` exactly as `solas` does, with
+the jump patching, the backward loop, and the two restrictions that keep the
+optimisation from changing what a program means — every block written right
+there, with no parameters and no temporaries, or it falls back to a real send.
+
+**33 of the repository's 46 `.sol` files now compile byte-identically, up from
+9, and 0 disagree.** All thirteen refusals are `@include`, which is the last
+construct in the language this does not do.
+
+**One mistake, and it was the interesting kind.** The first version never
+compiled the receiver at all. In `solas` the condition is already on the stack
+by the time the selector is read, because the send loop put it there; splitting
+the inlined path out into a method of its own dropped that step silently, and
+the jump offsets then looked wrong in a way that pointed at the patching rather
+than at the missing value. The ordinary lesson about extracting a function from
+a loop: what the loop had already done for you goes with it.
+
+**And the test's *it runs* check turned out to be three claims wearing one
+coat**, of which only the third holds. Requiring exit zero failed on the
+examples that exit non-zero deliberately. Comparing the two files' output failed
+because a byte-identical program that reads the clock prints something different
+every time it runs. What is left is the one thing a byte comparison cannot
+already tell you: that the file gets past the verifier. It also needed its stdin
+closed, because one of the newly-accepted examples reads a line and the suite
+sat waiting for it.
+
+Two jump details worth having written down, both of which only a byte
+comparison catches: a jump's distance is measured from the end of its **whole
+instruction**, and `JUMPIF` carries the selector after its offset so a
+non-boolean can be blamed on the message it came from. And a short-circuit
+answers a **constant** `true` or `false` rather than the global, which a program
+can rebind — reading it would make the shortcut and the long path disagree about
+what `and` answered.
+
 ### Blocks, and the frames they need — `14001b1`, 2026-08-23
 
 The first half of stage 2 of

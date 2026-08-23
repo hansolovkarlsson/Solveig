@@ -632,8 +632,13 @@ leaves **no node**: brackets group and are not a second semantics.
 
 **The subset is deliberate**: statements, bindings, sends, parentheses, groups,
 arrays, blocks with their parameters and temporaries, slot assignment and every
-literal — and not yet directives. Anything else is refused by name rather than
-parsed wrongly.
+literal — and not yet directives, which is the one thing left. Anything else is
+refused by name rather than parsed wrongly.
+
+The tree keeps a block's parameters and temporaries apart from its body, which
+is what lets [compile.sol](../programs/compile.sol) decide whether a block may
+be inlined into a conditional: one with either is compiled as a real block, for
+the reasons `solas` gives.
 
 A **binding is an expression** here, not a statement, which is how the grammar
 actually works: a block body is a list of expressions and bindings appear in

@@ -190,16 +190,69 @@ compiler:STRING   := #9.
 compiler:SYMBOL   := #10.
 compiler:SEND     := #11.
 compiler:SETSLOT  := #12.
+compiler:JUMP     := #13.
+compiler:JUMPIF   := #14.      ; jump if false, carrying the selector to blame
+compiler:EXITIF   := #15.      ; leave an inlined loop when the condition is false
+compiler:CHECKBOOL := #16.
+compiler:LOOP     := #17.
 compiler:POP      := #18.
 compiler:RETURN   := #19.
 compiler:HALT     := #20.
 
-; The selectors `solas` compiles to jumps when they are written with literal
-; blocks. Until this does the same, a file using one is refused: compiling it as
-; a send would be correct and would not compare equal, and an answer that is
-; right and unequal is the one thing this program must not produce.
-compiler:inlined := ["ifTrue", "ifFalse", "ifElse", "and", "or",
-                     "whileTrue", "doUntil"].
+; How many bytes each instruction occupies. A dictionary rather than a chain of
+; comparisons because it is looked up rather than walked, and because the one
+; place this has to agree with the machine byte for byte is a bad place to be
+; clever.
+compiler:lengths := dictionary:new.
+compiler:lengths:atPut(#4, #2).    ; LOCAL      op + slot
+compiler:lengths:atPut(#5, #2).    ; SETLOCAL
+compiler:lengths:atPut(#6, #3).    ; OUTER      op + depth + slot
+compiler:lengths:atPut(#7, #3).    ; SETOUTER
+compiler:lengths:atPut(#11, #4).   ; SEND       op + name + argc
+compiler:lengths:atPut(#14, #5).   ; JUMPIF     op + offset + name
+
+compiler:opLength := { op | | fixed |
+    fixed := self:lengths:at(op, nil).
+    fixed:isNil:ifElse(
+        { [#0, #2, #3, #8, #9, #10, #12, #13, #15, #16, #17]:indexOf(op)
+              :isNil:ifElse({ #1 }, { #3 }) },
+        { fixed }) }.
+
+; ---------------------------------------------------------------------------
+; Jumps
+;
+; A forward jump is emitted with a blank offset and pointed at its destination
+; once that is known -- the same two-pass-in-one-pass trick every single-pass
+; compiler uses, and the reason the offsets are distances rather than addresses.
+;
+; The distance is measured **from the end of the whole instruction**, which is
+; not always the end of the operand being patched: `JUMPIF` carries the selector
+; after its offset so that a non-boolean can be blamed on the message it came
+; from, and the jump has to clear that too.
+
+compiler:emitJump := { op, line |
+    self:emit(op, line).
+    self:emit(#255, line).
+    self:emit(#255, line).
+    self:unit:at("code"):size:dec }.        ; where the offset sits
+
+compiler:patchJump := { slot | | code, distance |
+    code := self:unit:at("code").
+    distance := code:size:sub(slot):add(#2):sub(self:opLength(code:at(slot:dec))).
+    distance:greaterThan(#65535):ifTrue({
+        error:raise("conditional is too large to jump over") }).
+    code:at_put(slot, distance:bitAnd(#255)).
+    code:at_put(slot:inc, distance:shiftRight(#8):bitAnd(#255)) }.
+
+; The only backward jump, and the offset is subtracted rather than added so that
+; it stays unsigned like the others.
+compiler:emitLoop := { top, line | | distance |
+    self:emit(self:LOOP, line).
+    distance := self:unit:at("code"):size:add(#2):sub(top).
+    distance:greaterThan(#65535):ifTrue({
+        error:raise("loop body is too large to jump back over") }).
+    self:emit(distance, line).
+    self:emit(distance:shiftRight(#8), line) }.
 
 ; ---------------------------------------------------------------------------
 ; Reading a literal
@@ -256,6 +309,198 @@ compiler:access := { store, depth, slot, line |
           self:emit(depth, line).
           self:emit(slot, line) }) }.
 
+; ---------------------------------------------------------------------------
+; Control flow compiled to jumps
+;
+; `ifTrue`, `ifFalse`, `ifElse`, `and`, `or`, `whileTrue` and `doUntil` are
+; ordinary messages, and a program can still send them as messages -- through
+; `perform`, or with a block held in a variable. Written literally, which is how
+; they are almost always written, `solas` emits jumps around the bodies instead
+; of allocating a block and entering a frame per branch or per pass, and this
+; has to do the same or the files differ.
+;
+; **It is an optimisation and must not change what the program means**, which is
+; where the restrictions come from. Every block involved must be written right
+; there with no parameters and no temporaries:
+;
+;   - a block with parameters is an arity error when `ifElse` calls it with
+;     none, and inlining would quietly make it work;
+;   - a block's temporaries belong to its own frame, and inlining would declare
+;     them in the enclosing one, where they could collide with a name already
+;     there -- turning an optimisation into a compile error.
+;
+; Anything else falls back to a real send, so the slow path stays correct rather
+; than merely unused.
+
+compiler:isPlainBlock := { node |
+    node:notNil:and({ node:at("kind"):equals('block) })
+        :and({ node:at("parameters"):size:equals(#0) })
+        :and({ node:at("temporaries"):size:equals(#0) }) }.
+
+; A branch compiles **straight into the enclosing chunk**. Because it is the
+; enclosing scope, a name resolves exactly as it would have from inside the
+; block, one lexical level nearer -- so the `OUTER` depths come out right
+; without anything having to adjust them.
+compiler:branch := { node |
+    self:bodyWithPops(node:at("body"), node:at("emit")) }.
+
+compiler:conditionals := ["ifTrue", "ifFalse", "ifElse"].
+
+; Answers whether it handled the send. Nothing is emitted when it did not.
+;
+; A chain rather than a table of blocks, because each arm asks a different
+; question of a different part of the node -- and because the order matters:
+; `whileTrue` and `doUntil` have to be recognised before anything else, their
+; receiver being spliced in rather than compiled.
+compiler:inlineSend := { node | | selector, args, wanted |
+    selector := node:at("text").
+    args := node:at("arguments").
+
+    self:loopShaped(node, "whileTrue"):ifElse(
+        { self:inlineWhile(node). true },
+        { self:loopShaped(node, "doUntil"):ifElse(
+            { self:inlineDoUntil(node). true },
+            { wanted := selector:equals("ifElse"):ifElse({ #2 }, { #1 }).
+              self:conditionals:indexOf(selector):notNil
+                  :and({ self:allPlain(args, wanted) })
+                  :ifElse(
+                { self:inlineConditional(node, selector, args). true },
+                { ["and", "or"]:indexOf(selector):notNil
+                      :and({ self:allPlain(args, #1) })
+                      :ifElse(
+                    { self:inlineLogical(node, selector, args:at(#1)). true },
+                    { false }) }) }) }) }.
+
+; `{ ... }:name({ ... })`, both blocks written right there and both plain.
+compiler:loopShaped := { node, selector |
+    node:at("text"):equals(selector)
+        :and({ self:isPlainBlock(node:at("receiver")) })
+        :and({ self:allPlain(node:at("arguments"), #1) }) }.
+
+compiler:allPlain := { args, wanted |
+    args:size:equals(wanted)
+        :and({ args:inject(true, { ok, a | ok:and({ self:isPlainBlock(a) }) }) }) }.
+
+; ---------------------------------------------------------------------------
+; The four shapes
+;
+; The jump layouts are `solas`'s, and the comments there are worth reading
+; beside these. What is repeated here is only what this program has to get
+; exactly right.
+
+; The condition is already on the stack; `JUMPIF` pops it and branches, carrying
+; the selector so that a non-boolean is reported as not understanding the
+; message -- which is what the real send would have said.
+compiler:inlineConditional := { node, selector, args | | name, open, toElse, toEnd |
+    ; The receiver is the condition and is compiled first, exactly where an
+    ; ordinary send would have put it -- the selector is interned after it, and
+    ; that order is the name table's order.
+    self:expression(node:at("receiver")).
+    open := node:at("lparenLine").
+    name := self:name(selector).
+    toElse := self:emitJump(self:JUMPIF, open).
+    self:emitU16(name, open).
+
+    selector:equals("ifFalse"):ifElse(
+        ; Inverted: the branch that *is* taken runs the body, so falling through
+        ; is the true case and answers nil.
+        { self:emit(self:NIL, open).
+          toEnd := self:emitJump(self:JUMP, open).
+          self:patchJump(toElse).
+          self:branch(args:at(#1)).
+          self:patchJump(toEnd) },
+        { self:branch(args:at(#1)).
+          toEnd := self:emitJump(self:JUMP, args:at(#1):at("emit")).
+          self:patchJump(toElse).
+          selector:equals("ifElse"):ifElse(
+            { self:branch(args:at(#2)) },
+            { self:emit(self:NIL, args:at(#1):at("emit")) }).
+          self:patchJump(toEnd) }) }.
+
+; `and` and `or` short-circuit through a block exactly as `ifTrue` does, and
+; differ in what comes out: a boolean either way, and on the long path it is
+; whatever the block said -- so `CHECKBOOL` refuses anything else, in the same
+; words the primitive would have used.
+;
+; The short-circuit answer is a **constant** rather than the global `true` or
+; `false`, which a program can rebind: reading it would make the shortcut and
+; the long path disagree about what `and` answers.
+compiler:inlineLogical := { node, selector, body | | name, open, toShortcut, toEnd |
+    ; The receiver is the condition and is compiled first, exactly where an
+    ; ordinary send would have put it -- the selector is interned after it, and
+    ; that order is the name table's order.
+    self:expression(node:at("receiver")).
+    open := node:at("lparenLine").
+    name := self:name(selector).
+    toShortcut := self:emitJump(self:JUMPIF, open).
+    self:emitU16(name, open).
+
+    selector:equals("and"):ifElse(
+        { self:branch(body).
+          self:emit(self:CHECKBOOL, body:at("emit")).
+          self:emitU16(name, body:at("emit")).
+          toEnd := self:emitJump(self:JUMP, body:at("emit")).
+          self:patchJump(toShortcut).
+          self:emit(self:CONST, body:at("emit")).
+          self:emitU16(self:constant(#3, false), body:at("emit")).
+          self:patchJump(toEnd) },
+        ; Inverted, as `ifFalse` is: a true receiver settles `or`, so the branch
+        ; that falls through is the shortcut and the one taken runs the block.
+        { self:emit(self:CONST, open).
+          self:emitU16(self:constant(#3, true), open).
+          toEnd := self:emitJump(self:JUMP, open).
+          self:patchJump(toShortcut).
+          self:branch(body).
+          self:emit(self:CHECKBOOL, body:at("emit")).
+          self:emitU16(name, body:at("emit")).
+          self:patchJump(toEnd) }) }.
+
+; `{ condition }:whileTrue({ body })`. The condition is the receiver and is
+; re-run every pass, which is why it is a block in the source and not a value.
+compiler:inlineWhile := { node | | top, condition, body, toEnd |
+    condition := node:at("receiver").
+    body := node:at("arguments"):at(#1).
+
+    top := self:unit:at("code"):size.
+    self:branch(condition).
+    toEnd := self:emitJump(self:EXITIF, condition:at("emit")).
+
+    self:branch(body).
+    self:emit(self:POP, body:at("emit")).
+    self:emitLoop(top, body:at("emit")).
+
+    self:patchJump(toEnd).
+    self:emit(self:NIL, body:at("emit")) }.
+
+; `{ body }:doUntil({ condition })` -- the body first, then the test, and the
+; sense inverted: this leaves when the condition is *true*.
+;
+; There is no exit-if-true instruction, and `CHECKBOOL` goes in front instead:
+; it already carries a name to complain with, so the check errors as `doUntil`
+; if the condition answered something other than a boolean, and by the time
+; `EXITIF` sees the value it can only be one.
+compiler:inlineDoUntil := { node | | top, body, condition, toAgain, toEnd, name |
+    body := node:at("receiver").
+    condition := node:at("arguments"):at(#1).
+
+    top := self:unit:at("code"):size.
+    self:branch(body).
+    self:emit(self:POP, body:at("emit")).
+
+    self:branch(condition).
+    name := self:name("doUntil").
+    self:emit(self:CHECKBOOL, condition:at("emit")).
+    self:emitU16(name, condition:at("emit")).
+
+    toAgain := self:emitJump(self:EXITIF, condition:at("emit")).
+    toEnd := self:emitJump(self:JUMP, condition:at("emit")).
+
+    self:patchJump(toAgain).
+    self:emitLoop(top, condition:at("emit")).
+
+    self:patchJump(toEnd).
+    self:emit(self:NIL, condition:at("emit")) }.
+
 compiler:expression := { node | | kind, line, emitAt, found |
     kind := node:at("kind").
     line := node:at("line").
@@ -303,14 +548,12 @@ compiler:expression := { node | | kind, line, emitAt, found |
             { self:access(true, found:at(#2), found:at(#1), emitAt) }) }).
 
     kind:equals('send):ifTrue({
-        self:inlined:indexOf(node:at("text")):isNil:ifFalse({
-            error:raise("'{}' compiles to jumps and this does not do that yet"
-                :fill([node:at("text")])) }).
-        self:expression(node:at("receiver")).
-        node:at("arguments"):do({ a | self:expression(a) }).
-        self:emit(self:SEND, emitAt).
-        self:emitU16(self:name(node:at("text")), emitAt).
-        self:emit(node:at("arguments"):size, emitAt) }).
+        self:inlineSend(node):ifFalse({
+            self:expression(node:at("receiver")).
+            node:at("arguments"):do({ a | self:expression(a) }).
+            self:emit(self:SEND, emitAt).
+            self:emitU16(self:name(node:at("text")), emitAt).
+            self:emit(node:at("arguments"):size, emitAt) }) }).
 
     ; `a:b := c`. The selector is interned where the send would have been
     ; emitted -- before the value is compiled -- because that is where `solas`
@@ -391,17 +634,6 @@ compiler:touchesHome := { code | | at, found, op |
         op:equals(self:OUTER):or({ op:equals(self:SETOUTER) })
             :ifElse({ found := true }, { at := at:add(self:opLength(op)) }) }).
     found }.
-
-; How many bytes an instruction occupies, which is the one thing about the
-; instruction set this program has to know beyond the opcode numbers.
-compiler:opLength := { op |
-    [self:LOCAL, self:SETLOCAL, self:OUTER, self:SETOUTER]:indexOf(op):isNil
-        :ifElse(
-        { [self:CONST, self:GLOBAL, self:SETGLOB, self:BLOCK, self:STRING,
-           self:SYMBOL, self:SETSLOT]:indexOf(op):isNil:ifElse(
-            { op:equals(self:SEND):ifElse({ #4 }, { #1 }) },
-            { #3 }) },
-        { [self:OUTER, self:SETOUTER]:indexOf(op):isNil:ifElse({ #2 }, { #3 }) }) }.
 
 ; Statements with a POP between them, which is what a block body and a group
 ; body both are.

@@ -348,7 +348,7 @@ of emitter bug into a message instead of a crash.
 | --- | --- |
 | **0** | **Done** — [emit.sol](../programs/emit.sol). Two chunks written out by hand, both byte-identical to `solas`, both running, both decoded by `disasm.sol`. In `make test` as `cmp`. |
 | **1** | **Done** — [compile.sol](../programs/compile.sol) turns source into bytes, and `examples/hello.sol` comes out byte-identical to `solas`. [lexer.sol](../lib/lexer.sol), [parser.sol](../lib/parser.sol) and [sob.sol](../lib/sob.sol) are the three pieces. Blocks, temporaries, methods and `@include` are stage 2. |
-| **2** | The full language, checked over every `.sol` here: both compilers, same bytes, in `make test`. **Blocks, temporaries, groups, slot assignment, frame slots, lexical capture and nested chunks are done** — 9 files identical, 0 disagreements. What is left is the inlined control flow and `@include`. |
+| **2** | The full language, checked over every `.sol` here: both compilers, same bytes, in `make test`. **Blocks, frames, capture, nested chunks and the inlined control flow are done** — 33 files identical, 0 disagreements. All 13 refusals are `@include`. |
 | **3** | The fixpoint. The Solum compiler compiles its own source and produces the file `solas` produced from it. |
 
 Where byte-identity turns out to rest on something arbitrary — a table ordering
@@ -476,6 +476,32 @@ Compiling `ifTrue` as a real send would produce a file that runs correctly and
 compares differently. That is the one answer this program must not give, because
 the whole value of the exercise is that the comparison means something — so it
 refuses by name instead.
+
+#### Stage 2, second half: control flow compiled to jumps
+
+`ifTrue`, `ifFalse`, `ifElse`, `and`, `or`, `whileTrue` and `doUntil`, with the
+jump patching, the backward loop, and the two restrictions that keep the
+optimisation from changing what a program means — every block written right
+there, with no parameters and no temporaries, or it falls back to a real send.
+
+**33 of 46 files now compile byte-identically, up from 9, and 0 disagree.** All
+thirteen refusals are `@include`, which is the last construct in the language
+this does not do.
+
+One mistake, and it was the interesting kind: the first version **never compiled
+the receiver**. In `solas` the condition is already on the stack by the time the
+selector is read, because the send loop put it there; splitting the inlined path
+out into its own method dropped that step silently, and the jump offsets then
+looked wrong in a way that pointed at the patching rather than at the missing
+value. The lesson is the ordinary one about extracting a function from a loop —
+what the loop had already done for you goes with it.
+
+**The test's `it runs` check turned out to be three different claims**, and only
+one of them was true. Requiring exit zero failed on the examples that exit
+non-zero deliberately. Comparing the two files' output failed because a
+byte-identical program that reads the clock prints something different every
+time. What is left is the only thing a byte comparison cannot already tell you:
+that the file gets past the verifier.
 
 #### No features were added to make it possible, and that is the point
 
