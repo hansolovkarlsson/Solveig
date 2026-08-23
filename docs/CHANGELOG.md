@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### Control flow compiled to jumps — `pending`, 2026-08-23
+### Control flow compiled to jumps — `057ea62`, 2026-08-23
 
 [compile.sol](../programs/compile.sol) now inlines `ifTrue`, `ifFalse`,
 `ifElse`, `and`, `or`, `whileTrue` and `doUntil` exactly as `solas` does, with
