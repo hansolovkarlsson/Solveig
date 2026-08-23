@@ -7,6 +7,42 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### Constants, and the measurement that redirected the question — `pending`, 2026-08-24
+
+Asked whether the language should have constants, either as new assignment
+syntax or as a `@constant` directive. Written down in
+[ideas.md](ideas.md#constants-and-whether-they-should-be-a-thing) as **defer,
+and probably no** — and the reason is a measurement rather than a preference.
+
+**The speed argument for constants is right.** `OP_CONST` is an array index
+where `OP_GLOBAL` is a lookup. Measuring how much turned up
+[3.17](ROADMAP.md#317-a-global-is-found-by-walking-a-list), which is new: global
+lookup **walks a list**, linearly, at about 1.35ns a slot, and the order is
+recency — so the name a *library* bound first is the slowest to read and the one
+the program bound last is the fastest. At 800 globals a constant is 16× faster.
+
+**But that argues for fixing the lookup, not for adding constants.** A hash on
+the root or an inline cache at the `OP_GLOBAL` site speeds up every global read
+in every program; a constant speeds up only the names somebody declared. That is
+the same reasoning the `@define` entry gave for making loops primitives rather
+than macros. And the number is small here: a root holds 15 built-in globals plus
+what a program binds — 23 in `expect.sol`, 1 in `lib/html.sol` — so a badly
+placed read costs about 50ns.
+
+**The memory argument runs backwards, which was the surprise.** A constant table
+is **per chunk and a block is a chunk**, so three blocks using one literal
+compile to three chunks with one constant each — three copies of the double,
+where the global they would replace is one slot read from all three.
+
+Two positions the language already holds, now written down together: the inlined
+`and`/`or` emit a **constant** `true`/`false` rather than read the globals,
+because a program can rebind them; and `[a, b]` deliberately sends to the
+**ordinary global** `array` so the two spellings cannot drift apart.
+Rebindability is a hazard in one place and load-bearing in the other.
+
+Nothing was built. `pi` needs none of it — two lines in `lib/math.sol` whenever
+a program wants one, and none has.
+
 ### `ifElseIf` — a chain of alternatives, written flat — `b222a76`, 2026-08-24
 
 ```

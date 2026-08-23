@@ -58,6 +58,7 @@ marked as a sketch.
 | More than one parent | **No** — `via` already names an ancestor, which is what multiple parents are wanted for |
 | An `assert` that compiles away | **No** to stripping; **defer** the message itself |
 | Default values for block parameters | **Defer** — the trigger is a program threading a nil it did not want to pass; the case for it is that built-ins already do this and user code cannot |
+| Constants | **Defer, and probably no** — the speed argument is real and points at [3.17](ROADMAP.md#317-a-global-is-found-by-walking-a-list) instead; the memory argument runs backwards |
 | Solas written in Solum — self-hosting | **Proved, then parked** — it compiles itself to a fixpoint; the code is in [experiment/](../experiment/), off the search path, [below](#solas-written-in-solum--self-hosting) |
 
 ---
@@ -1460,6 +1461,93 @@ yet. This is written down rather than started because
 wanted something and could not have it*, and no program here has — the idea came
 from thinking about the language rather than from writing in it, which is what
 this document is for.
+
+### Constants, and whether they should be a thing
+
+Asked on 2026-08-24. There are no constants: every name is a binding and `:=`
+can rebind any of them. Two ways to add them were put:
+
+1. **New syntax** — a second kind of assignment the compiler refuses to rebind.
+   Set aside by whoever asked, on the grounds that the syntax is clean and this
+   would cost some of that.
+2. **A directive** — `@constant pi 3.14159`, which the compiler knows, refuses
+   to rebind, and can substitute at the use site. Then `pi` need not be a
+   primitive; it can live in a library and cost nothing at run time.
+
+**Two different things are being asked for**, and only one is new. *A name for a
+value* already exists — the [`@define` entry](#more--directives-define-ifdef-once)
+settled it: `maxRetries := #3.` is a name holding a value, and it obeys scope.
+The idiom for a library is a slot on an object, `math:pi := 3.141592653589793.`,
+which needs no language change and namespaces better than a flat directive
+could: two libraries with `@constant max` would be an unshadowable collision
+where two objects with a `max` slot are simply two objects.
+
+*Enforced immutability* is the new part, and it collides with a bargain already
+struck. The collision warning (6.21) is a warning rather than an error, and
+[compiler.c](../solas/src/compiler.c) says why: **"rebinding is legal and
+sometimes meant: a program may want to replace something a library bound."** A
+constant would be the first name a program is forbidden to replace.
+
+The language holds both positions at once, which is worth seeing together. The
+inlined `and`/`or` emit a **constant** `true`/`false` rather than reading the
+globals, because *"a program can rebind"* them and the shortcut and the long
+path would disagree. And `[a, b]` deliberately sends to the **ordinary global**
+`array`, so that rebinding that name changes both spellings and they cannot
+drift apart. Rebindability is a hazard in one place and load-bearing in the
+other.
+
+#### The performance argument is right, and it points somewhere else
+
+The case for constants is that `OP_CONST` is an array index where `OP_GLOBAL` is
+a lookup. That is true, and measuring how *much* it is true is what made this
+entry interesting: global lookup walks a list, linearly, at about 1.35ns a slot
+— [3.17](ROADMAP.md#317-a-global-is-found-by-walking-a-list) has the numbers. At
+800 globals a constant is 16× faster.
+
+**But the fix that number argues for is not constants.** A hash on the root, or
+an inline cache at the `OP_GLOBAL` site, speeds up **every** global read in every
+program; a constant speeds up only the names somebody remembered to declare.
+That is the same reasoning the `@define` entry gave for making loops primitives
+rather than macros — *it speeds up every caller rather than the ones who
+remembered*.
+
+And in this repository the number is small: a root holds 15 built-in globals
+plus what a program binds, which is 23 in `expect.sol` and 1 in `lib/html.sol`.
+At 38 globals a badly-placed read costs about 50ns.
+
+#### The memory argument runs backwards
+
+A constant is *not* cheaper to hold than a global, because **the constant table
+is per chunk and a block is a chunk**. Three blocks using the same literal:
+
+```
+a := { 3.141592653589793 }.
+b := { 3.141592653589793 }.
+c := { 3.141592653589793 }.
+```
+
+compiles to three chunks with **one constant each** — three copies of the
+double. The global it would have replaced is one slot on one object, read from
+all three. So substituting a constant into `n` chunks costs `n` copies where the
+binding cost one.
+
+#### Verdict
+
+**Defer, and probably no.** Not because the speed argument is wrong — it is
+right — but because the measurement it rests on argues for fixing the lookup,
+which helps everything, over adding a second kind of name, which helps what it
+is told to. And a second kind of name is expensive in a language that has one
+kind of everything: `:=` binds, later wins, the warning says so, and `slots`
+lists what is there.
+
+**Trigger:** a program measurably slowed by global reads, which would be
+[3.17](ROADMAP.md#317-a-global-is-found-by-walking-a-list) first and this only if
+the lookup were already fast; or a case where a name genuinely must not be
+rebindable and a warning is not enough.
+
+`pi` needs none of this, incidentally. It is two lines in
+[math.sol](../lib/math.sol) whenever a program wants one — and none has, there
+being no trigonometry either ([3.14](ROADMAP.md#314-there-is-no-source-of-randomness)).
 
 ## Recommended against
 
