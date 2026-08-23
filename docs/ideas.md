@@ -348,7 +348,7 @@ of emitter bug into a message instead of a crash.
 | --- | --- |
 | **0** | **Done** — [emit.sol](../programs/emit.sol). Two chunks written out by hand, both byte-identical to `solas`, both running, both decoded by `disasm.sol`. In `make test` as `cmp`. |
 | **1** | **Done** — [compile.sol](../programs/compile.sol) turns source into bytes, and `examples/hello.sol` comes out byte-identical to `solas`. [lexer.sol](../lib/lexer.sol), [parser.sol](../lib/parser.sol) and [sob.sol](../lib/sob.sol) are the three pieces. Blocks, temporaries, methods and `@include` are stage 2. |
-| **2** | The full language, checked over every `.sol` here: both compilers, same bytes, in `make test`. **Blocks, frames, capture, nested chunks and the inlined control flow are done** — 33 files identical, 0 disagreements. All 13 refusals are `@include`. |
+| **2** | The full language, checked over every `.sol` here: both compilers, same bytes, in `make test`. **Done, and stopped by the frame limit rather than by a missing construct** — 42 of 46 files identical, 0 disagreements. The 4 refusals are `call depth exceeded` ([3.5](ROADMAP.md#35-recursion-is-limited-to-about-62-levels)), including on this compiler's own source. |
 | **3** | The fixpoint. The Solum compiler compiles its own source and produces the file `solas` produced from it. |
 
 Where byte-identity turns out to rest on something arbitrary — a table ordering
@@ -495,6 +495,40 @@ out into its own method dropped that step silently, and the jump offsets then
 looked wrong in a way that pointed at the patching rather than at the missing
 value. The lesson is the ordinary one about extracting a function from a loop —
 what the loop had already done for you goes with it.
+
+#### `@include`, and the wall at the end of it
+
+The last construct: the search-beside-then-search-path rule, compile-once, the
+depth limit, and the per-chunk file table that lets a line number say which file
+it is in. **42 of 46 files now compile byte-identically and 0 disagree.**
+
+**The four that do not are not a missing construct. They are `call depth
+exceeded`** — and this is the finding the whole exercise was most likely to
+produce. The parser recurses about four frames per level of nesting against a
+budget of 62, so it manages nine levels of nested blocks and fails at ten;
+`solas`, recursing on the C stack, is untroubled at thirty. The four files that
+nest deeper include `lib/lexer.sol`, `lib/parser.sol` and `compile.sol` itself.
+
+**So the language cannot yet compile its own compiler, and the reason is a
+documented limitation of the language rather than anything about the compiler.**
+That is [3.5](ROADMAP.md#35-recursion-is-limited-to-about-62-levels) with the
+best evidence it will ever have, and it was predicted here before any of this
+was written: *the deep case, a block inside a block inside a block, is the one
+this subset does not do yet — when it does, it will carry an explicit stack the
+way `lib/html.sol` does*. That is now the next piece of work rather than a note.
+
+One thing worth recording about the comparison: **both compilers have to be
+given the same search path.** The file table records where an included file was
+found, so the path is part of the output, and `solas` derives its default from
+where its own binary sits — which nothing in Solum can see.
+
+#### An aside: the trap the cheatsheet warns about, walked into
+
+`self:included:includes(path):ifTrue({ nil }):ifFalse({ ... })` — chaining
+`ifTrue` into `ifFalse`, which the cheatsheet's *six rules that bite* names in
+so many words. `ifTrue` answers the block's value, so the `ifFalse` went to nil
+and the send failed. Written by the same hand that wrote the warning, four hours
+later.
 
 **The test's `it runs` check turned out to be three different claims**, and only
 one of them was true. Requiring exit zero failed on the examples that exit

@@ -70,6 +70,8 @@ compiler:pushUnit := { | u |
     u:atPut("names", []).       u:atPut("nameIndex", dictionary:new).
     u:atPut("constants", []).   u:atPut("constantIndex", dictionary:new).
     u:atPut("code", []).        u:atPut("codeLines", []).
+    u:atPut("codeFiles", []).
+    u:atPut("files", []).       u:atPut("fileIndex", dictionary:new).
     u:atPut("methods", []).
     self:units := self:units:add(u).
     u }.
@@ -93,6 +95,18 @@ compiler:name := { text | | u, found |
         { u:atPut("names", u:at("names"):add(text)).
           u:at("nameIndex"):atPut(text, u:at("names"):size:dec).
           u:at("names"):size:dec },
+        { found }) }.
+
+; The file a byte came from, interned per chunk in the order the chunk's code
+; first mentions each -- the same rule as names and constants, and for the same
+; reason.
+compiler:file := { path | | u, found |
+    u := self:unit.
+    found := u:at("fileIndex"):at(path, nil).
+    found:isNil:ifElse(
+        { u:atPut("files", u:at("files"):add(path)).
+          u:at("fileIndex"):atPut(path, u:at("files"):size:dec).
+          u:at("files"):size:dec },
         { found }) }.
 
 ; Keyed by tag and by the value's shortest text, which is unique per double and
@@ -165,10 +179,16 @@ compiler:resolve := { name | | i, depth, found, s, at |
 ; A byte and the line it came from, side by side, so the run-length encoding at
 ; the end is a fold over one array rather than bookkeeping during emission.
 
+; Every byte carries the line it came from **and the file that line is in**. A
+; chunk is one compiled unit and `@include` puts a library's code into the same
+; one, so a line number on its own named a line in a file nobody had recorded --
+; and it read as a line of the file being looked at, which is worse than saying
+; nothing.
 compiler:emit := { byte, line | | u |
     u := self:unit.
     u:atPut("code", u:at("code"):add(byte:bitAnd(#255))).
-    u:atPut("codeLines", u:at("codeLines"):add(line)) }.
+    u:atPut("codeLines", u:at("codeLines"):add(line)).
+    u:atPut("codeFiles", u:at("codeFiles"):add(self:file(self:current))) }.
 
 compiler:emitU16 := { n, line |
     self:emit(n, line).
@@ -670,28 +690,120 @@ compiler:runsOf := { values | | runs, current, length |
 ; ---------------------------------------------------------------------------
 ; The whole file
 
+; ---------------------------------------------------------------------------
+; @include
+;
+; A compile-time directive rather than a message: the named file is compiled
+; into this chunk at that point, as though its text had been written there.
+; Globals are one flat namespace and stay one, so there is nothing to it beyond
+; finding the file and not compiling it twice.
+;
+; **Beside the includer first, then the search path** -- C's rule for a quoted
+; include, and for C's reason: your own files are found without saying where
+; they are, and a name you do not have locally comes from the library. An
+; absolute name is taken as it stands and searches nothing.
+
 compiler:path := "".
+compiler:current := "".        ; the file whose statements are being compiled
+compiler:search := [].
+compiler:included := dictionary:new.
+compiler:depth := #0.
+
+compiler:directoryOf := { path | | at |
+    at := #0.
+    #1:toDo(path:size, { i | path:at(i):equals("/"):ifTrue({ at := i }) }).
+    at:equals(#0):ifElse({ "" }, { path:copyFrom(#1, at) }) }.
+
+compiler:resolveAgainst := { including, name | | directory |
+    name:copyFrom(#1, #1):equals("/"):ifElse(
+        { name },
+        { directory := self:directoryOf(including).
+          directory:equals(""):ifElse({ name }, { directory:concat(name) }) }) }.
+
+compiler:resolveInclude := { name | | relative, found |
+    relative := self:resolveAgainst(self:current, name).
+    name:copyFrom(#1, #1):equals("/"):or({ system:fileExists(relative) }):ifElse(
+        { relative },
+        { found := nil.
+          self:search:do({ directory |
+              found:isNil:ifTrue({ | candidate |
+                  candidate := directory:concat("/"):concat(name).
+                  system:fileExists(candidate):ifTrue({ found := candidate }) }) }).
+          ; The relative candidate when nothing is found anywhere, so that the
+          ; error names the file the program most likely meant.
+          found:isNil:ifElse({ relative }, { found }) }) }.
+
+; **Keyed by the resolved path rather than by where the file really is.** `solas`
+; calls `realpath`, so two spellings of one file are one file to it; nothing in
+; Solum answers that question, so two spellings would be compiled twice here.
+; Every include in this repository is reached by one spelling, and the day one is
+; not, this is the line that has to change.
+compiler:includeFile := { node | | name, path, source, outer, statements |
+    name := self:stringOf(node:at("text")).
+    name:size:equals(#0):ifTrue({ error:raise("@include needs a file name") }).
+
+    path := self:resolveInclude(name).
+    self:included:includes(path):ifFalse({
+        self:depth:greaterOrEqual(#64):ifTrue({
+            error:raise("includes nested too deeply") }).
+        system:fileExists(path):ifFalse({
+            error:raise("cannot read the included file '{}', and it is not on "
+                :concat("the search path either"):fill([path])) }).
+
+        ; Remembered **before** compiling, so a cycle ends here rather than
+        ; recurring.
+        self:included:atPut(path, true).
+        source := system:readFile(path).
+
+        ; The parser is finished with the outer file by the time this runs --
+        ; the whole of it is already a tree -- so re-entering it costs nothing.
+        ; What has to be saved is which file the compiler is emitting *for*.
+        outer := self:current.
+        self:current := path.
+        self:depth := self:depth:inc.
+        statements := parser:statements(source).
+        self:statements(statements).
+        self:depth := self:depth:dec.
+        self:current := outer }) }.
+
 compiler:slotNames := [].
 
 ; A finished unit, plus everything the format wants that is not code: the file
 ; table, the run-length encodings, and the slot names. Shared by the script and
 ; by every block, which differ only in what surrounds them.
+; A file's statements. A directive emits nothing at all -- it is not an
+; expression, so there is no value for a `POP` to discard.
+compiler:statements := { statements |
+    statements:do({ statement |
+        statement:at("kind"):equals('include):ifElse(
+            { self:includeFile(statement) },
+            { self:expression(statement).
+              ; The POP that ends a statement takes the line of the `.` that
+              ; ended it.
+              self:emit(self:POP, statement:at("dot")) }) }) }.
+
 compiler:chunkOf := { unit, path | | chunk |
     chunk := dictionary:new.
     chunk:atPut("names", unit:at("names")).
     chunk:atPut("constants", unit:at("constants")).
     chunk:atPut("code", unit:at("code")).
     chunk:atPut("lines", self:runsOf(unit:at("codeLines"))).
-    chunk:atPut("files", [path]).
-    chunk:atPut("fileRuns", [[unit:at("code"):size, #0]]).
+    chunk:atPut("files", unit:at("files")).
+    chunk:atPut("fileRuns", self:runsOf(unit:at("codeFiles"))).
     chunk:atPut("slotNames", self:slotNames).
     chunk:atPut("methods", unit:at("methods")).
     ; A block's own header carries its slot count; the script's goes here.
     chunk:atPut("slots", self:slotNames:size).
     chunk }.
 
-compiler:compile := { source, path | | chunk, scope, statements |
+compiler:compile := { source, path | | chunk, scope, statements, endLine |
     self:path := path.
+    self:current := path.
+    self:included := dictionary:new.
+    ; The file being compiled counts as included, so that a file reached through
+    ; its own includes is not compiled a second time.
+    self:included:atPut(path, true).
+    self:depth := #0.
     self:units := [].
     self:scopes := [].
     self:pushUnit.
@@ -699,14 +811,14 @@ compiler:compile := { source, path | | chunk, scope, statements |
     self:declareLocal("").
 
     statements := parser:statements(source).
-    statements:do({ statement |
-        self:expression(statement).
-        ; The POP that ends a statement takes the line of the `.` that ended it.
-        self:emit(self:POP, statement:at("dot")) }).
+    ; Read before anything is compiled, because an `@include` re-enters the
+    ; parser and this would then be the included file's last line.
+    endLine := parser:endLine.
+    self:statements(statements).
 
     ; The machine stops at the line after the last one, which is where the
     ; scanner's end-of-file token sits.
-    self:emit(self:HALT, parser:endLine).
+    self:emit(self:HALT, endLine).
 
     scope := self:popScope.
     self:slotNames := scope:at("locals").
@@ -728,6 +840,18 @@ given:size:equals(#0):ifTrue({
 
 source := given:at(#1).
 output := nil.
+
+; **The search path has to be given**, where `solas` works its default out from
+; where its own binary sits -- `bin/../lib`. A Solum program cannot see the path
+; it was started with, so `-I` says it, and `lib` is the default because that is
+; where this repository keeps its library. Compiling from another directory
+; means saying so.
+compiler:search := ["lib"].
+given:indexOf("-I"):isNil:ifFalse({
+    compiler:search := [].
+    #1:toDo(given:size, { i |
+        given:at(i):equals("-I"):and({ i:lessThan(given:size) }):ifTrue({
+            compiler:search := compiler:search:add(given:at(i:inc)) }) }) }).
 given:indexOf("-o"):isNil:ifElse(
     { output := source:copyFrom(#1, source:size:sub(#4)):concat(".sob") },
     { output := given:at(given:indexOf("-o"):inc) }).

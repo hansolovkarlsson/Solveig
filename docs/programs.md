@@ -589,8 +589,8 @@ the bytes, and it is stage 1 of
 
 **The test is `cmp` against `solas`, over every `.sol` file in the repository.**
 What this compiler accepts must come out byte-identical; what it refuses is
-counted. Today that is **33 accepted, 13 outside the subset, 0 disagreements** —
-and the zero is the number that matters, because it says nothing is quietly
+counted. Today that is **42 accepted, 4 refused, 0 disagreements** — and the
+zero is the number that matters, because it says nothing is quietly
 mis-compiled.
 
 **What it does**: statements, bindings, sends, parentheses, groups, arrays,
@@ -600,8 +600,23 @@ of that needs. And the **control flow compiled to jumps**: `ifTrue`, `ifFalse`,
 `ifElse`, `and`, `or`, `whileTrue` and `doUntil`, with the same restrictions
 `solas` applies and the same fall back to a real send when they are not met.
 
-**What it does not**: `@include`. All thirteen refusals are that one construct,
-and it is the last thing between here and the whole language.
+`@include` too, with the search-beside-then-search-path rule, compile-once, and
+the per-chunk file table that lets a line number say which file it is in.
+
+**What it does not do is finish.** The four refusals are not a construct it
+lacks — they are `call depth exceeded`. Its own parser recurses about four
+frames per level of nesting against a budget of 62, so it manages **nine levels
+of nested blocks and fails at ten**, where `solas` on the C stack is untroubled
+at thirty. The four files that nest deeper than that include `lib/lexer.sol`,
+`lib/parser.sol` and this program itself. That is
+[3.5](ROADMAP.md#35-recursion-is-limited-to-about-62-levels), and the answer is
+an explicit stack rather than more frames — the shape `lib/html.sol` already
+uses to reach a thousand levels.
+
+**Both compilers must be given the same search path**, and that is not a
+convenience: the file table records where an included file was *found*, so the
+path is part of the output. `solas` works its default out from where its own
+binary sits, which nothing in Solum can see, so `-I` says it instead.
 
 **Byte-identity is a much harder bar than "runs the same", and that is why it
 was chosen.** It forces agreement on everything a compiler is otherwise free to

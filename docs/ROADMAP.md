@@ -350,6 +350,21 @@ sort of failure a machine might not be able to recover from, and this one can.
 So the limit is a limit rather than a crash, which lowers what raising it would
 buy.
 
+**And now the sharpest instance there is going to be: the Solum compiler cannot
+compile its own source.** [compile.sol](../programs/compile.sol) compiles 42 of
+this repository's 46 `.sol` files to bytes identical to `solas`. The four it
+cannot are the four that nest deepest, and they include `lib/lexer.sol`,
+`lib/parser.sol` and `compile.sol` itself. Measured on generated input it
+manages **nine levels of nested blocks and fails at ten**, where `solas`,
+recursing on the C stack, is untroubled at thirty.
+
+That is about four parser frames per level — `expression` calls `primary` calls
+`blockLiteral` calls `body` calls `expression` — against a budget of 62. **The
+answer is not more frames but fewer**: an explicit stack, which
+[lib/html.sol](../lib/html.sol) already uses to reach a thousand levels. Until
+then this entry has a program behind it that could not be more on the nose,
+since one of the files it cannot compile is the parser that runs out.
+
 ### 3.6 A caller-owned chunk must outlive blocks defined in it
 
 Chunks from `sol_chunk_init` are freed by the caller. A block defined in one and

@@ -7,6 +7,42 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### `@include`, and the wall at the end of it — `pending`, 2026-08-23
+
+The last construct. [compile.sol](../programs/compile.sol) does `@include` with
+the search-beside-then-search-path rule, compile-once, the depth limit, and the
+per-chunk file table that lets a line number say which file it is in.
+
+**42 of the repository's 46 `.sol` files now compile byte-identically, up from
+33, and 0 disagree.**
+
+**The four that do not are not a missing construct. They are `call depth
+exceeded`.** The parser recurses about four frames per level of nesting against
+a budget of 62, so it manages **nine levels of nested blocks and fails at ten**;
+`solas`, recursing on the C stack, is untroubled at thirty. The four files that
+nest deeper include `lib/lexer.sol`, `lib/parser.sol` and `compile.sol` itself.
+
+**So the language cannot yet compile its own compiler, and the reason is a
+documented limitation of the language rather than anything about the compiler.**
+That is [3.5](ROADMAP.md#35-recursion-is-limited-to-about-62-levels) with the
+best evidence it is ever going to get, and it was predicted in
+[ideas.md](ideas.md#solas-written-in-solum--self-hosting) before a line of this
+was written: *the deep case, a block inside a block inside a block, is the one
+this subset does not do yet — when it does, it will carry an explicit stack the
+way `lib/html.sol` does.* That is now the next piece of work rather than a note.
+
+**Both compilers have to be given the same search path**, which is worth knowing
+rather than working around: the file table records where an included file was
+*found*, so the path is part of the output. `solas` derives its default from
+where its own binary sits, which nothing in Solum can see, so the test gives
+both `-I lib`.
+
+And an aside worth keeping: this walked into
+`ifTrue({ ... }):ifFalse({ ... })`, which the cheatsheet's *six rules that bite*
+names in so many words — `ifTrue` answers the block's value, so the `ifFalse`
+went to nil and the send failed. Written by the same hand that wrote the
+warning, four hours later.
+
 ### Control flow compiled to jumps — `057ea62`, 2026-08-23
 
 [compile.sol](../programs/compile.sol) now inlines `ifTrue`, `ifFalse`,

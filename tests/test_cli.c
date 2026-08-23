@@ -769,13 +769,18 @@ static void test_solum_compiles_solum_to_the_same_bytes(void)
     for (char *path = strtok(list, "\n"); path != NULL; path = strtok(NULL, "\n")) {
         if (path[0] == '\0') continue;
 
+        /* Both are given the same search path, and that is not a convenience:
+           the file table records where an included file was *found*, so a
+           compiler whose default search path is spelled differently produces a
+           different file for the same source. `solas` works its default out
+           from where its own binary sits, which nothing in Solum can see. */
         snprintf(command, sizeof command,
-                 "bin/solvm " DIR "/compile.sob %s -o " DIR "/mine.sob"
+                 "bin/solvm " DIR "/compile.sob %s -o " DIR "/mine.sob -I lib"
                  " > /dev/null 2>&1", path);
         if (run(command, out, sizeof out) != 0) { refused++; continue; }
 
         snprintf(command, sizeof command,
-                 "bin/solas %s -o " DIR "/theirs.sob 2>&1", path);
+                 "bin/solas -I lib %s -o " DIR "/theirs.sob 2>&1", path);
         assert(run(command, out, sizeof out) == 0);
 
         if (run("cmp " DIR "/mine.sob " DIR "/theirs.sob 2>&1", out, sizeof out) != 0) {

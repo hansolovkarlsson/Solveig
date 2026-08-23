@@ -630,10 +630,14 @@ A node is a dictionary of `"kind"` — `'int`, `'float`, `'string`, `'symbol`,
 `"arguments"` for a send, `"elements"` for an array. A parenthesised expression
 leaves **no node**: brackets group and are not a second semantics.
 
-**The subset is deliberate**: statements, bindings, sends, parentheses, groups,
-arrays, blocks with their parameters and temporaries, slot assignment and every
-literal — and not yet directives, which is the one thing left. Anything else is
-refused by name rather than parsed wrongly.
+**It parses the whole language**: statements, bindings, sends, parentheses,
+groups, arrays, blocks with their parameters and temporaries, slot assignment,
+`@include` and every literal.
+
+It is a recursive-descent parser, so it recurses about four frames per level of
+nesting and runs out at ten
+([3.5](ROADMAP.md#35-recursion-is-limited-to-about-62-levels)). An explicit
+stack, as [html.sol](../lib/html.sol) uses, is what lifts that.
 
 The tree keeps a block's parameters and temporaries apart from its body, which
 is what lets [compile.sol](../programs/compile.sol) decide whether a block may

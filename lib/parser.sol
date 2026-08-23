@@ -10,11 +10,10 @@
 ; between [lexer.sol](lexer.sol) and [compile.sol](../programs/compile.sol).
 ; It includes the scanner, so a program wanting to parse asks only for this.
 ;
-; **The subset is deliberate and is named here so nothing has to guess**: this
-; parses statements, bindings, sends, parentheses, groups, arrays, blocks with
-; their parameters and temporaries, slot assignment, and every literal. It does
-; **not** yet parse directives, which is where `@include` and a second file come
-; in. A construct it does not know is an error rather than a silence.
+; **This parses the whole language**: statements, bindings, sends, parentheses,
+; groups, arrays, blocks with their parameters and temporaries, slot assignment,
+; `@include`, and every literal. A construct it does not know is an error rather
+; than a silence.
 ;
 ; ---------------------------------------------------------------------------
 ; The shape of a node
@@ -29,6 +28,7 @@
 ;   'array                         "elements"
 ;   'block                         "parameters", "temporaries", "body"
 ;   'group                         "temporaries", "body" -- `( | t | ... )`
+;   'include                       "text" -- the file name, still in quotes
 ;
 ; There is no node for a parenthesised expression: brackets group and leave no
 ; trace, which is what design.md means by two spellings of the same thing being
@@ -264,7 +264,19 @@ parser:arrayLiteral := { | node, elements |
 ; An expression and then a `.`. There is nothing else: a binding is an
 ; expression, so this exists to be read rather than to do anything.
 
-parser:statement := { self:expression }.
+; A directive stands alone, and a statement is the only place one may stand --
+; buried in an expression there would be nowhere for a compiled-in file to go.
+parser:statement := { | node |
+    self:kind:equals('directive):ifElse(
+        { self:peek:at("text"):equals("@include"):ifFalse({
+              self:fail("unknown directive") }).
+          node := self:node('include, self:line).
+          self:step.
+          self:kind:equals('string):ifFalse({
+              self:fail("@include needs a file name in quotes") }).
+          node:atPut("text", self:step:at("text")).
+          node },
+        { self:expression }) }.
 
 ; Every statement in the source, as an array. The `.` after the last one is
 ; required, as it is everywhere: this language terminates statements rather
