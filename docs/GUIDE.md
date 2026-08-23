@@ -978,7 +978,8 @@ now := system:time.
 now:print.                                   ; -- a time, like 2026-08-21T16:57:41Z
 now:year:print.                              ; #2026
 now:asString("%Y-%m-%d"):display.            ; -- today, as %Y-%m-%d
-system:modifiedAt("notes.txt"):asString("%H:%M"):display.
+system:writeFile("notes.txt", "a line\n").
+system:modifiedAt("notes.txt"):asString("%H:%M"):display.  ; -- just now
 ```
 
 A time is a **value**, like a number: two of the same instant are equal, nothing

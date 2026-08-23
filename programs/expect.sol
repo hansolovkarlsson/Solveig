@@ -251,6 +251,17 @@ notReached := #0.
 ; is how this was found.
 sandbox := "build/expect-run".
 
+; **Emptied before anything runs, so that a run cannot inherit its own past.**
+; A block from the guide asks `system:modifiedAt("notes.txt")` and no block
+; creates that file; the reference's block, further down the alphabet, does.
+; The guide's therefore failed on a clean tree and passed on every run after,
+; off the leftovers of the one before -- 588 claims the first time and 589
+; every time since. A checker whose answer depends on how often it has been run
+; is worth less than no checker, because it agrees with you eventually.
+;
+; `rm -rf` on a literal path this file chose, never on anything from a document.
+system:run(["rm", "-rf", sandbox]).
+
 runFile := { sol, tag, mergeErrors, sandboxed | | sob, result, where |
     sob := "build/expect-":concat(tag):concat(".sob").
 

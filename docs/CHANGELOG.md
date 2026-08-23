@@ -7,6 +7,28 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### The checker agreed with you eventually — `pending`, 2026-08-22
+
+**589 claims on a warm tree, 588 on a clean one.** The count depended on how
+many times the checker had been run before, which is the one property a checker
+may not have.
+
+[GUIDE.md](GUIDE.md) asks `system:modifiedAt("notes.txt")` and no block in it
+creates that file; [REFERENCE.md](REFERENCE.md), further down the alphabet,
+writes one. Both now run in the sandbox 0.20.0 put them in — so on a clean tree
+the guide's block failed, and on every run afterwards it passed, off the
+leftovers of the run before. The sandbox that stopped documentation from
+reaching the repository had quietly become a way for one run to reach the next.
+
+Two fixes, and both are needed. The sandbox is **emptied before anything runs**,
+so a run cannot inherit its own past. And the guide's block now writes the file
+it asks about, which reads better anyway: you write a file, then ask when it was
+written, and the answer is *just now*.
+
+The lesson is the ordering one. A doc block is checked in isolation, so it must
+*be* isolated — and the failure here was invisible precisely because the second
+run of anything is the one you usually look at.
+
 ### The last two pages, and one test instead of two — `7f5a3e5`, 2026-08-22
 
 The checker took one path; it now takes several, so `README.md` and `index.md`
