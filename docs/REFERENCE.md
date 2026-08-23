@@ -491,10 +491,38 @@ program asks for it by name:
 | Message | Answers |
 | --- | --- |
 | `#n:timesCollect(block)` | an array of `n` answers, the block given the pass number |
+| `array:ifElseIf` | the first matching alternative's answer; see below |
 
-**None of it is language.** These are methods bound on `integer` and `block` by
-an ordinary Solum file, because control flow is message sending and a loop is
-therefore something a library can add.
+**None of it is language.** These are methods bound on `integer`, `array` and
+`block` by an ordinary Solum file, because control flow is message sending and a
+loop — or a chain of alternatives — is therefore something a library can add.
+
+`ifElseIf` is that chain, written flat instead of nested:
+
+```
+@include "control.sol".
+
+c := "'".
+[{ c:equals("#") },  { "integer" },
+ { c:equals("\"") }, { "string" },
+ { c:equals("'") },  { "symbol" },
+                     { "something else" }]:ifElseIf:display.   ; symbol
+[{ false }, { "no" }]:ifElseIf:print.                          ; nil
+```
+
+Pairs of blocks — a condition and what to do when it holds. The first condition
+answering true wins and nothing after it runs. **An odd number of blocks means
+the last is the else**; an even number with no match answers nil. Lisp calls
+this `cond`.
+
+**It costs what nesting does not, and the numbers decide where to use it.** A
+nested `ifElse` written literally compiles to jumps; this makes a block call per
+condition tested. Measured: 200,000 six-way dispatches take 0.145s as a chain
+and 0.835s here, **5.8×**; and recursion *through* it costs three frames a level
+rather than none, so a method reaching 254 levels as a chain reaches 84. So it
+is for a flat dispatch — a scanner deciding what a character starts, a reader
+deciding what a tag means — and not for the inside of a recursion.
+[disasm.sol](../programs/disasm.sol) reads its constant tags with it.
 
 **Four things were here once and are not any more.** `doUntil`, `repeat`, `toDo`
 and `toByDo` all started as Solum in this file, all four were measured, and all

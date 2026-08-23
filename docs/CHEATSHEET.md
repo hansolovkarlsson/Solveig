@@ -393,7 +393,7 @@ without being told where they live.
 
 | File | Binds | For |
 | --- | --- | --- |
-| [control.sol](../lib/control.sol) | `integer:timesCollect(block)` | `n` results, gathered |
+| [control.sol](../lib/control.sol) | `integer:timesCollect(block)`, `array:ifElseIf` | `n` results gathered; a chain of alternatives written flat |
 | [math.sol](../lib/math.sol) | `min` `max` `between` on numbers; `min` `max` on arrays | the comparisons written out by hand too often |
 | [text.sol](../lib/text.sol) | `integer:asUtf8` | a code point as the bytes UTF-8 spells it |
 | [shell.sol](../lib/shell.sol) | `shell:run` `capture` `read` `line` | when the shell's pipes and globs are the point |

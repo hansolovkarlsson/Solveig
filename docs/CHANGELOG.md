@@ -7,6 +7,51 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### `ifElseIf` — a chain of alternatives, written flat — `pending`, 2026-08-24
+
+```
+value := [
+    { tag:equals(#0) }, { nil },
+    { tag:equals(#1) }, { readInteger:value },
+    { tag:equals(#2) }, { readFloat:value },
+                        { error:raise("unknown tag") }]:ifElseIf.
+```
+
+Pairs of blocks in [control.sol](../lib/control.sol): a condition and what to do
+when it holds, first match wins, and **an odd number means the last is the
+else** — a list of pairs with one left over is exactly a list of pairs and a
+default, so no marker is needed. Lisp calls it `cond`.
+
+**It answers a real complaint about real code.** Nested `ifElse` is what this
+repository writes for a multi-way dispatch, and past three or four cases it ends
+in a wall of `}) }) })` where the reader has to count brackets to know which
+branch they are in. [disasm.sol](../programs/disasm.sol) had a four-way chain on
+a constant tag and now reads its tags flat; the scanner in the parked
+[experiment/lexer.sol](../experiment/lexer.sol) had ten levels of it, which is
+what raised the question.
+
+**No language change was needed**, which is the answer to the question as asked.
+Control flow here is message sending, so a chain of alternatives is something a
+library can add — the same reason `lib/control.sol` could add loops without
+touching the compiler.
+
+**What it costs was measured before it was written down**, because a nested
+`ifElse` written literally compiles to *jumps* and this cannot:
+
+| | chain | `ifElseIf` |
+| --- | --- | --- |
+| 200,000 six-way dispatches | 0.145s | **0.835s**, 5.8× |
+| recursion depth through it | 254 levels | **84**, three frames a level |
+
+So the guidance is specific rather than a preference: **use it for a flat
+dispatch and not inside a recursion.** In a loop the frames are transient,
+peaking at three rather than accumulating, and the legibility is free; in a
+recursive descent it spends a third of the depth 0.23.0 just bought.
+
+It is also the tenth site in this repository to carry a boolean whose only job
+is to stop a loop, which is one more argument for
+[3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing).
+
 ### Default values for block parameters, recorded — `18274ea` and `6c89db4`, 2026-08-24
 
 Asked: could a block carry a default for a parameter, `{ x := #0 | body }`?

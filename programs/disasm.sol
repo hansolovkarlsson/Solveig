@@ -81,6 +81,8 @@
 ; among them.
 
 ; ---------------------------------------------------------------------------
+@include "control.sol".
+
 ; The bytes, and a cursor over them
 ;
 ; `at` answers a one-character string and `asByte` its number, which is the
@@ -264,16 +266,19 @@ readBody := { | chunk, count, i, tag, value, length, line, name, m |
     i := #0.
     { i:lessThan(count) }:whileTrue({
         tag := byte:value.
-        value := tag:equals(#0):ifElse(
-            { nil },
-            { tag:equals(#1):ifElse(
-                { readInteger:value },
-                { tag:equals(#2):ifElse(
-                    { { readFloat:value }:onError({ e | e:message }) },
-                    { tag:equals(#3):ifElse(
-                        { byte:value:equals(#0):not },   ; undocumented tag 3
-                        { error:raise("constant tag {} is not one of 0, 1, 2, 3"
-                              :fill([tag])) }) }) }) }).
+        ; Flat rather than a chain of nested `ifElse`, which this was and which
+        ; ended in a wall of brackets four deep. `ifElseIf` costs a frame per
+        ; condition tested where the chain compiled to jumps, and that is the
+        ; right trade here: this is a loop rather than a recursion, so the
+        ; frames are transient, and the tags line up where a reader can see
+        ; them. See lib/control.sol for the measurement.
+        value := [
+            { tag:equals(#0) }, { nil },
+            { tag:equals(#1) }, { readInteger:value },
+            { tag:equals(#2) }, { { readFloat:value }:onError({ e | e:message }) },
+            { tag:equals(#3) }, { byte:value:equals(#0):not },  ; undocumented
+                                { error:raise("constant tag {} is not one of 0, 1, 2, 3"
+                                      :fill([tag])) }]:ifElseIf.
         chunk:at("constants"):add([tag, value]).
         i := i:add(#1) }).
 
