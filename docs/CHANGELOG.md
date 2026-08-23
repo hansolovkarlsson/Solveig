@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### `ifElseIf` — a chain of alternatives, written flat — `pending`, 2026-08-24
+### `ifElseIf` — a chain of alternatives, written flat — `b222a76`, 2026-08-24
 
 ```
 value := [
