@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### The day written down, and five entries dated a day ahead — `pending`, 2026-08-23
+### The day written down, and five entries dated a day ahead — `cf61901`, 2026-08-23
 
 [journal.md](journal.md) gains the day: three releases in one stretch — `sqrt`
 into the machine and the whole language on one page, then Solum compiling
