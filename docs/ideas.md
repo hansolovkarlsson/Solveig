@@ -50,7 +50,7 @@ marked as a sketch.
 | An early exit from a loop | **Defer** — nine sites carry a flag; the trigger is a body that must skip its remainder ([3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing)) |
 | Intercepting a message not understood | **Defer** — Smalltalk's `doesNotUnderstand`; small to build, and nothing has wanted a proxy |
 | A set, and the collections that are not there | **Defer** — write them in Solum and measure first, as the four loops did |
-| Mathematics, and randomness | **Defer** — `min`/`max` are two lines; randomness is state, and where it lives is the question |
+| Mathematics, and randomness | **Promoted** — the trigger fired: [3.14](ROADMAP.md#314-there-is-no-square-root-no-minimum-and-no-randomness) |
 | Tail calls | **No** — the programs that seem to ask for them are recursive-descent parsers, which never recurse in tail position |
 | Coroutines | **No** — the interpreter re-enters on the C stack, so a Solum stack is not a value |
 | Multiple return values | **No** — every send has a fixed stack effect, and the verifier checks height on that basis |
@@ -806,6 +806,15 @@ no trigonometry, no `pi`, and — more conspicuously for a scripting language �
 **Trigger:** a program that wants one. None has — and the absence has gone
 unnoticed for nine programs, which is itself a finding about what this language
 has been used for.
+
+**The trigger fired**, with the tenth.
+[bench.sol](../programs/bench.sol) wanted a standard deviation, a minimum, a
+maximum and two uses of randomness, and carries all of them itself. The entry
+moved to [3.14](ROADMAP.md#314-there-is-no-square-root-no-minimum-and-no-randomness),
+where what it found is written down: writing them is easy, and the `sqrt` was
+*wrong* on the first attempt in a way nothing reported. The paragraph above
+about where randomness should live survived contact with the program and is
+still the open question.
 
 ### Splitting the reference into pages
 

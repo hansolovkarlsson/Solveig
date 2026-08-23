@@ -173,7 +173,7 @@ own.
 Safe, and documented. Each is a real restriction rather than a bug.
 
 **3.1 through 3.6 were chosen** — a decision taken and written down. **3.7, 3.8,
-3.10, 3.11, 3.12 and 3.13 were not.** Each is a consequence of a decision taken elsewhere,
+3.10, 3.11, 3.12, 3.13, 3.14 and 3.15 were not.** Each is a consequence of a decision taken elsewhere,
 noticed afterwards, and each is kept here rather than in section 6 because the
 ways of answering it cost more than what they buy is currently worth. That
 distinction is worth keeping visible: a restriction chosen and a restriction
@@ -668,6 +668,80 @@ this urgent is a loop whose body must *skip its remainder* once the flag is set:
 today every site either sets it at the tail of a branch or wants the rest to
 run, and the moment one does not, the flag has to be threaded through the body
 as `done:not:ifTrue({ ... })` and the workaround starts nesting.
+
+### 3.14 There is no square root, no minimum, and no randomness
+
+The arithmetic is `add`, `sub`, `mul`, `div`, `mod`, `abs`, `negated`, the bit
+operations, and the comparisons. There is no `sqrt`, no `pow`, no `min`, no
+`max`, no `between`, and **no source of randomness anywhere in the language**.
+
+This sat in [ideas.md](ideas.md) as *defer, the trigger is a program wanting
+one*. [bench.sol](../programs/bench.sol) is that program: it times a command
+repeatedly and says whether the difference between two commands is real, which
+needs a standard deviation and therefore a square root, a minimum and a maximum
+for the range, and a source of randomness twice over — to decide which of two
+commands runs first in each round, and to resample the timings for a confidence
+interval.
+
+**All of it was writable, and that is not the answer it first looks like.**
+Every one of those is in `bench.sol` today, in Solum, working. What the
+experiment measured is what writing them costs:
+
+| | |
+| --- | --- |
+| `min`, `max`, `mean` | one line each with `inject`. No complaint beyond their absence. |
+| `sqrt` | **wrong on the first attempt, and quietly.** Twenty iterations of Newton's method, on the reasoning that it converges quadratically — `sqrt(2)` came out right to twelve places and `sqrt(1e10)` came out as `100000.000156`. Quadratic convergence is what happens once the guess is close; from `x` itself the first phase is one halving per octave, so seventeen of the twenty iterations were spent before the good part began. The fix is to iterate until the answer stops moving, with a cap, because in floating point Newton can settle into an oscillation between two adjacent values rather than a fixed point. |
+| randomness | writable, but **not the way it is usually written**. A linear congruential generator relies on the multiplication wrapping, and integer arithmetic here traps on overflow instead — so the textbook one cannot be written in this language at all. What works is Lehmer's, whose multiplier and modulus are chosen so the product cannot exceed 64 bits. And the seed can only come from `system:clock`, that being the only entropy a Solum program can reach. |
+
+So the cost is not the lines. It is that **`sqrt` is easy to get wrong in a way
+nothing tells you about**, and every program that needs one gets to make the
+same mistake privately; and that "write your own generator" is narrower advice
+than it sounds when the usual construction is unavailable for a reason that has
+nothing to do with randomness.
+
+**What an answer would look like**, cheapest first:
+
+| | |
+| --- | --- |
+| `min`, `max`, `between` in `lib/` | Solum, today, no VM change. The measured lesson from `lib/control.sol` applies — a library version costs a block and a frame per call — but nothing here is in a hot loop. |
+| `sqrt`, `pow`, `log`, `exp` as primitives | Small: C has them, they are pure, and a float is already a double. The only question is how many, and the honest answer is the ones a program has asked for rather than all of `<math.h>`. |
+| randomness | **the interesting one, and the reason this is an entry rather than a commit.** A random number is *state*, and this language has nowhere obvious to put it. On `system`, and a machine is no longer a value with no history — two runs of one chunk stop being identical, which the embedding interface currently promises. In an object a program makes and holds, and it is honest but is `object:new` for something most callers want one of. Seeded from where — the clock is not entropy, and there is no other source. Whether a host can set the seed matters to anybody embedding, since a reproducible run is worth more than an unpredictable one for most of what this language does. |
+
+**Not urgent, and the reason is worth stating**: nine programs came before the
+one that wanted any of this, and it wanted it for statistics rather than for the
+work. What would change that is a program wanting randomness for what it *does*
+rather than for how it measures — a sample, a shuffle, a simulation, a test that
+generates its own inputs.
+
+### 3.15 A child's streams cannot be redirected
+
+`system:run` shares this program's stdout and stderr with the child.
+`system:capture` keeps the child's stdout and answers it with the exit status.
+There is no third thing, and in particular **no way to discard a child's stderr**
+or to send either stream to a file.
+
+Found by [bench.sol](../programs/bench.sol), where it is sharper than it sounds:
+a benchmark harness must run a command many times without its output getting
+into the report, and a command that complains on stderr writes straight over
+that report through `capture`. The way round is the shell —
+`["/bin/sh", "-c", "\"$@\" 2>/dev/null", "sh", ...]`, which passes the
+arguments as positional parameters and so keeps the array's safety — and a
+benchmark harness is the one program that cannot afford it: a shell is another
+fork and another exec on **every measurement**, of the same order as the thing
+being measured. So the program takes the noise instead, and the numbers stay the
+command's.
+
+What it costs everywhere else is smaller but real: a program that shells out to
+something chatty has no way to quieten it, and a program that wants a child's
+output in a file has to capture it and write it, which holds the whole of it in
+memory first.
+
+**The shape of an answer is the open question.** A fourth argument to `capture`
+is the smallest thing that works and the least general. `system:capture` already
+answers a dictionary; taking one — `system:capture(argv, ["stderr", "discard"])`
+— generalises without new messages, at the cost of an options bag, which is a
+shape nothing else in this language uses. Neither is obviously right, and
+nothing is blocked while it stays undecided.
 
 ### 1.1d Collection is stop-the-world and non-incremental
 

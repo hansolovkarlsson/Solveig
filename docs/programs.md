@@ -26,7 +26,8 @@ is the map; the file is the argument.
 | [tools](../programs/tools.sol) | reports on a directory by running other programs | `solvm tools.sob [directory]` |
 | [serve](../programs/serve.sol) | answers one HTTP request | `PATH_INFO=/ solvm serve.sob` |
 | [disasm](../programs/disasm.sol) | reads a `.sob` file and says what is in it | `solvm disasm.sob [file.sob] [brief]` |
-| [expect](../programs/expect.sol) | checks the examples and the documents against their own claims | `solvm expect.sob [dir or file]` |
+| [expect](../programs/expect.sol) | checks the examples and the documents against their own claims | `solvm expect.sob [dir or file]...` |
+| [bench](../programs/bench.sol) | times a command, and says whether two of them really differ | `solvm bench.sob [runs] [cmd] [-- cmd]` |
 
 Every one runs with no arguments at all, on input it supplies itself. That is
 deliberate — a program you have to feed before it will say anything is a program
@@ -355,7 +356,7 @@ line prints.
 every claim holds
 ```
 
-**The narrowest customer of the nine — this repository — and a real job all the
+**The narrowest customer of the ten — this repository — and a real job all the
 same.** `examples/` carries about four hundred comments of the form
 `#2:add(#3):print.  ; #5`, and until this existed nothing checked one of them.
 The suite compiles every example and never ran one, so those comments were true
@@ -364,12 +365,13 @@ table had when [disasm](#disasm--a-sob-file-read-and-disassembled) found it
 three sections out of date. They are also the first thing a newcomer reads.
 
 **It is in `make test` now**, in `tests/test_cli.c` with the other tests that
-run the binaries as a shell would — **586 claims on every build**, in about four
+run the binaries as a shell would — **589 claims on every build**, in about four
 seconds, and it fails the build if one stops holding.
 
 **And it checks the documentation too.** The guide and the reference carry the
 same notation inside ``` fences, and nothing checked those either — they are the
-two documents a newcomer actually reads. 188 claims across seventeen documents.
+two documents a newcomer actually reads. 189 claims across seventeen documents, and two more on `README.md` and
+`index.md` — the front pages, which were the last two things nothing checked.
 
 **A block from a document runs in a scratch directory**, because this executes
 documentation and documentation shows how to delete things — one block with
@@ -387,7 +389,7 @@ That number is safe to state now precisely *because* it is checked.
 **A block that does not stand alone is not checked and not a failure.** Many
 continue a block further up, and some show syntax rather than a program; the
 checker counts them and prints the count, because one that silently verified a
-quarter of its subject would be worse than none. 40 of 152 blocks are in that
+quarter of its subject would be worse than none. 42 of 155 blocks are in that
 category, and saying so is the point.
 
 `CHANGELOG.md` is the one document skipped — it records what was true at each
@@ -415,6 +417,78 @@ must appear in the output *after* the one before it, because one statement can
 print many lines. The cost is that a claim could be satisfied by a later
 coincidental match; the benefit is that it works on files with loops in them,
 which is most of them.
+
+---
+
+## bench — how long does it take, and is the difference real?
+
+Runs a command many times and reports the shape of what came back; given two
+commands, says whether the difference between them survives the noise.
+
+```sh
+./bin/solvm programs/bench.sob                       # 20 runs of `solvm --version`
+./bin/solvm programs/bench.sob 20 ls -l              # one command
+./bin/solvm programs/bench.sob 40 cmd a -- cmd b     # two, interleaved
+```
+
+```
+A:  ./bin/solvm nothing.sob
+  runs     40
+  min         2.372 ms
+  median      2.617 ms
+  p90         2.852 ms
+  max         3.477 ms
+  mean        2.656 ms  +/- 0.233
+
+B:  ./bin/solvm expect.sob index.md
+  runs     40
+  min        16.755 ms
+  median     17.683 ms
+  p90        18.219 ms
+  max        18.735 ms
+  mean       17.695 ms  +/- 0.462
+
+A / B    0.148 times, 95% interval 0.145 to 0.151
+         A is faster
+```
+
+**Written to press on a gap rather than to do a job that happened to need one**,
+which makes it the odd one out here. Every program before it was a job first.
+This one starts from a fact about the repository: it has been quoting timings
+for six releases — 40.5µs to build a machine, 121µs for a request, 279µs to
+compile a chunk — and every one of them was taken by hand, once. A number taken
+once is a sample of one, and the run above shows why that matters: the maximum
+is 47% above the minimum on a quiet machine.
+
+**Two commands are interleaved, and a coin decides which goes first each round.**
+A machine drifts over the course of a minute — something else starts, the CPU
+warms and throttles — so timing all of A and then all of B measures the minute.
+Strict alternation is better and is still a pattern: anything on the machine
+with a period of two runs lines up with it exactly.
+
+**The interval is a bootstrap, and it is what makes the answer honest.** Timings
+are skewed — bounded below by the work and unbounded above by whatever else
+happened — so the tests that assume a normal distribution do not apply. Instead
+it resamples both sets two thousand times and reports where the middle 95% of
+the ratios fell. If that interval contains 1, the right answer is *this many
+runs cannot tell them apart*, and it says so rather than reporting a winner.
+Given the same command twice it answers `1.001, interval 0.985 to 1.015` — which
+is the test the tool has to pass before any of its other answers are worth
+reading.
+
+**What it found is [3.14](ROADMAP.md#314-there-is-no-square-root-no-minimum-and-no-randomness)
+and [3.15](ROADMAP.md#315-a-childs-streams-cannot-be-redirected).** There is no
+`sqrt`, no `min`, no `max` and no randomness in the language, so this file
+carries all four. Writing them is easy; **getting them right is not**, and the
+square root here was wrong on the first attempt and said nothing about it —
+right to twelve places at 2 and wrong in the fourth digit at 1e10.
+
+**And testing that square root at 1e300 found a bug in the VM.** Formatting a
+float with a fixed number of decimals wrote into a 64-byte buffer and then used
+`snprintf`'s answer — the length it *would* have written — as the length of the
+result, so `1e150:asString("0.6")` returned 157 characters of which 93 were the
+stack behind the buffer. Fixed, with the buffer sized for the worst case the
+format spec allows and the length clamped to it regardless.
 
 ---
 

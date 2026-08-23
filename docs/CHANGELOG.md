@@ -5,6 +5,75 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+### A float could print the stack behind it — `pending`, 2026-08-22
+
+`1e150:asString("0.6")` answered a 157-character string of which **93 characters
+were whatever lay behind a stack buffer**. A script could print them.
+
+`snprintf` does not overflow — it truncates, and answers the length it *would*
+have written. That length went straight on as the length of the result, beside a
+64-byte buffer holding the first 63 characters. Everything downstream then read
+157 bytes out of 64. An over-read rather than a write, so nothing was corrupted;
+what leaked was stack, into a value a program can inspect. For a host running a
+script it did not write, that is the wrong direction for bytes to travel.
+
+The buffer is now sized for the worst case the format spec permits — 309 digits
+for `DBL_MAX`, a sign, a point and up to 40 decimals, so 350 characters — and
+the length is clamped to the buffer regardless, so a future mis-sizing truncates
+instead of over-reading.
+
+**Found by [bench.sol](../programs/bench.sol)**, which needed a square root the
+language does not have, wrote one, and tested it at 1e300 to see whether it
+converged. It did. The formatter did not.
+[tests/test_format.c](../tests/test_format.c) now checks five large floats and
+the widest thing the spec can ask for, digit for digit against the C library —
+a length alone would have passed throughout, the length having been right all
+along.
+
+### Program ten wanted arithmetic — `pending`, 2026-08-22
+
+[bench.sol](../programs/bench.sol) times a command repeatedly and says whether
+two commands really differ. It is the first program here **written to press on a
+gap rather than to do a job that happened to need one**, and it exists because
+this repository has quoted timings for six releases — 40.5µs to build a machine,
+121µs for a request — every one taken by hand, once. A number taken once is a
+sample of one; the tool's own first run shows a maximum 47% above the minimum on
+a quiet machine.
+
+It interleaves two commands with a coin flip deciding the order each round, and
+reports a bootstrap interval rather than a winner: resample both sets two
+thousand times, report where the middle 95% of the ratios fell, and say *this
+many runs cannot tell them apart* when that interval contains 1. Given the same
+command twice it answers `1.001, interval 0.985 to 1.015`.
+
+**Two roadmap entries, both by the admission rule.**
+
+[3.14](ROADMAP.md#314-there-is-no-square-root-no-minimum-and-no-randomness) —
+there is no `sqrt`, `pow`, `min`, `max`, and **no source of randomness anywhere
+in the language**. This had been deferred in ideas.md with the trigger *a
+program wanting one*, and this is that program. All four were writable and all
+four are in the file — the finding is what writing them costs. `min` and `max`
+are one line each. The **`sqrt` was wrong on the first attempt and silent about
+it**: twenty iterations of Newton's method, right to twelve places at 2 and
+wrong in the fourth digit at 1e10, because quadratic convergence is what happens
+*after* the guess is close and from `x` itself the first phase is one halving per
+octave. And the textbook random generator **cannot be written in this language
+at all**: a linear congruential generator relies on the multiplication wrapping,
+and integer arithmetic here traps on overflow. Lehmer's works, with a multiplier
+and modulus chosen to stay inside 64 bits.
+
+[3.15](ROADMAP.md#315-a-childs-streams-cannot-be-redirected) — `run` shares both
+of a child's streams and `capture` keeps its stdout; there is no way to discard
+stderr. A benchmark harness is the one program that cannot buy its way out
+through `/bin/sh`, a shell being another fork and exec on every measurement, of
+the same order as the thing measured.
+
+The measurement the tool was built for, first time out: **starting the machine
+at all costs 2.6ms**, so about 15% of a 17.7ms run of the documentation checker
+is fork, exec, loader and a VM built and thrown away.
+
 ## 0.20.0 — 2026-08-22
 
 **A testing release. No code changed** outside the version string — `.sob` files
