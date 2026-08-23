@@ -83,7 +83,7 @@ a different language.
 | `solum/`  | **SolVM** -- the virtual machine, built as `bin/solvm`               |
 | `solis/`  | **Solis** -- the REPL: reads until the input could compile        |
 | `solid/`  | **Solid** -- the debugger: breakpoints, stepping, and locals      |
-| `docs/`   | [GUIDE.md](docs/GUIDE.md), [TUTORIAL.md](docs/TUTORIAL.md), [REFERENCE.md](docs/REFERENCE.md), [design.md](docs/design.md), [BYTECODE.md](docs/BYTECODE.md), [ROADMAP.md](docs/ROADMAP.md), [COMPLETED.md](docs/COMPLETED.md), [CHANGELOG.md](docs/CHANGELOG.md), [journal.md](docs/journal.md), [programs.md](docs/programs.md), [embedding.md](docs/embedding.md), [lineage.md](docs/lineage.md) |
+| `docs/`   | [GUIDE.md](docs/GUIDE.md), [TUTORIAL.md](docs/TUTORIAL.md), [REFERENCE.md](docs/REFERENCE.md), [CHEATSHEET.md](docs/CHEATSHEET.md), [design.md](docs/design.md), [BYTECODE.md](docs/BYTECODE.md), [ROADMAP.md](docs/ROADMAP.md), [COMPLETED.md](docs/COMPLETED.md), [CHANGELOG.md](docs/CHANGELOG.md), [journal.md](docs/journal.md), [programs.md](docs/programs.md), [embedding.md](docs/embedding.md), [lineage.md](docs/lineage.md) |
 | `tests/`  | Test suite                                                        |
 | `examples/` | One `.sol` demonstration per concept the guide names            |
 | `programs/` | Whole `.sol` programs, each written to do a job -- [what each does](docs/programs.md) |
@@ -413,6 +413,10 @@ order that builds, each pointing at a runnable example. Start there.
 
 [docs/REFERENCE.md](docs/REFERENCE.md) is the language reference: syntax,
 semantics, and every built-in message.
+
+[docs/CHEATSHEET.md](docs/CHEATSHEET.md) is the same surface on one page, a line
+each -- for when you know what you want and not what it is called. Every
+built-in message is on it and a test says so.
 
 [docs/lineage.md](docs/lineage.md) places it: what it borrowed from Smalltalk
 and Self, what Io and Lua are near it, and what to expect if you arrive knowing

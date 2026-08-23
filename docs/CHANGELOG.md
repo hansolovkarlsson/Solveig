@@ -7,6 +7,41 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### The whole language on one page — `pending`, 2026-08-23
+
+**[CHEATSHEET.md](CHEATSHEET.md) is new**: the syntax, every type, every message
+it answers and every global, one line each, in tables — for when you know what
+you want and not what it is called. The reference stays the full account of each
+message; this is the index to your own memory.
+
+**Two tests hold it to that.** `test_every_builtin_message_is_in_the_cheatsheet`
+fails if a message is registered without being listed — the same guard the
+reference's index has had, and the reason to have it twice is that a one-page
+list is exactly the kind of document that quietly falls a release behind. It
+differs from the index test in how it looks: the index writes bare names in a
+column and the cheatsheet writes them as they are called, so the name is looked
+for straight after a backtick or a receiver's colon and straight before an open
+paren or the closing backtick. That accepts a table cell and refuses a mention
+in a sentence, because being *used* on the page is not being *listed* on it.
+The other test is the one that was already there: all **64 examples are run on
+every build** and their answers checked, so the page cannot drift from the
+language it describes.
+
+**Writing it found a third gap in the checker**, now recorded under
+[3.16](ROADMAP.md#316-what-the-checker-does-not-check). A claim on a line that
+does not itself send `print` or `display` is not checked — `point:show. ; #3`
+prints from inside the method, so the expectation is never read — and neither
+is a second line of output written under the first. Six of the first draft's 68
+claims were in that state. The checker *reports* those lines rather than hiding
+them, which is why this is a paragraph in the entry and not a fourth row, but a
+page of sixty examples is where it becomes easy to hit.
+
+Three of the examples were also wrong in a way that only running them shows:
+a padded float whose leading spaces a trimmed claim could not express, and two
+where the file's own trailing newline printed a phantom blank line. Fixed by
+running every block and diffing against its comments before committing, which is
+the same thing the build now does.
+
 ### What the language is for, and where trigonometry sits — `99826df`, 2026-08-23
 
 **[design.md](design.md#what-the-language-is-for) now states the goal outright:

@@ -441,6 +441,69 @@ static void test_every_builtin_message_is_in_the_index(void)
            checked);
 }
 
+/* The cheatsheet is the one-page list of everything the language answers, so it
+   goes stale the same way the index does and is held to the same standard: every
+   built-in message must appear in it.
+ *
+   It differs from the index in how a message is written. The index lists bare
+   names in a column; the cheatsheet lists them the way they are called, so `add`
+   appears as `add(n)` and `fromSeconds` appears as `time:fromSeconds(f)`. So the
+   name is looked for where a listing would put it -- straight after a backtick
+   or a receiver's colon, and straight before an open paren or the closing
+   backtick. That accepts every shape a table cell uses and refuses a bare
+   mention in a sentence or a use inside an example, which is the point: being
+   *used* on the page is not being *listed* on it. */
+static bool is_listed(const char *page, const char *name)
+{
+    size_t n = strlen(name);
+    for (const char *at = strstr(page, name); at != NULL; at = strstr(at + 1, name)) {
+        if (at == page) continue;
+        char before = at[-1], after = at[n];
+        if ((before == '`' || before == ':') && (after == '(' || after == '`')) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void test_every_builtin_message_is_in_the_cheatsheet(void)
+{
+    char *page = slurp("docs/CHEATSHEET.md");
+    char *builtins = slurp("solum/src/builtins.c");
+    int checked = 0;
+
+    for (char *line = strtok(builtins, "\n"); line != NULL; line = strtok(NULL, "\n")) {
+        if (strstr(line, "instance(vm,") == NULL &&
+            strstr(line, "any_receiver(vm,") == NULL) {
+            continue;
+        }
+
+        const char *open = strchr(line, '"');
+        assert(open != NULL);
+        const char *close = strchr(open + 1, '"');
+        assert(close != NULL);
+
+        char name[64];
+        size_t n = (size_t)(close - open - 1);
+        assert(n > 0 && n < sizeof name);
+        memcpy(name, open + 1, n);
+        name[n] = '\0';
+
+        if (!is_listed(page, name)) {
+            printf("\n'%s' is a built-in message and docs/CHEATSHEET.md does "
+                   "not list it\n", name);
+            assert(false);
+        }
+        checked++;
+    }
+
+    assert(checked > 60);
+    free(builtins);
+    free(page);
+    printf("  every built-in message is on the cheatsheet (%d registrations)\n",
+           checked);
+}
+
 /* And nothing ships unverified: every .sol in either directory is in the list
    above, so adding one without adding it here is caught rather than silently
    skipped. `library.sol` and the rest are all included, being ordinary files.
@@ -695,6 +758,7 @@ int main(void)
     test_every_example_verifies();
     test_every_builtin_message_has_an_example();
     test_every_builtin_message_is_in_the_index();
+    test_every_builtin_message_is_in_the_cheatsheet();
     test_no_example_is_left_out();
     test_every_library_file_verifies();
     test_no_library_file_is_left_out();

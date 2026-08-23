@@ -846,6 +846,27 @@ category is not hypothetical: **this document's third row, recomputing the
 handful of counts the repository states about itself, is the one worth building
 if any of them is.**
 
+**A claim on a line that does not itself print is not checked either**, and this
+one was found by writing [CHEATSHEET.md](CHEATSHEET.md), which is 64 examples on
+one page and so met every edge the checker has. A block that ends
+
+```
+point := object:new.
+point:x := #3.
+point:show := { self:x:print }.
+point:show.                     ; #3
+```
+
+runs, prints `#3`, and checks nothing: the expectation is read from the line
+that *says* `print` or `display`, and here the printing happens inside the
+method. The same goes for a second and third line of output written under the
+first — only the first carries a claim. **The checker says so** — it counts
+those lines and reports *N lines print without saying what, and are not
+checked* — so this is a milder thing than the two above, which is why it is a
+paragraph rather than a row. But a page of sixty examples makes it easy for one
+to drift into that bucket, and the fix on the document's side is to write the
+example so the printing line is the claiming line.
+
 **What an answer would cost.**
 
 | | |

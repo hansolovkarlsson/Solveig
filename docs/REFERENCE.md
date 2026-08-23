@@ -7,7 +7,9 @@ message, for looking things up.
 If you are meeting the language for the first time, read [GUIDE.md](GUIDE.md)
 instead — the same ground in an order that builds, with a runnable example behind
 each concept. For why the language is this way see [design.md](design.md); for
-what is still missing see [ROADMAP.md](ROADMAP.md).
+what is still missing see [ROADMAP.md](ROADMAP.md). For the same surface as this
+document compressed onto one page, a line each, see
+[CHEATSHEET.md](CHEATSHEET.md).
 
 Everything is an object and all work happens by sending messages.
 
