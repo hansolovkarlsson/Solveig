@@ -58,13 +58,17 @@ anywhere.
 **What is left is section 3, and nothing else.** No work, and no decision.
 
 Section 3 holds the restrictions the language lives under, each documented where
-a program would meet it. The older ones were chosen; the four newest were found —
+a program would meet it. The older ones were chosen; the six newest were found —
 [3.7](#37-a-limit-bounds-dispatch-not-work) by running a program the way its own
-case would, and
+case would;
 [3.8](#38-a-host-and-a-script-agree-a-name-and-nothing-checks-that-they-do),
 [3.10](#310-a-vm-cannot-be-reused-across-runs) and
 [3.11](#311-a-chunk-cannot-be-shared-between-threads) by writing down what a host
-embedding the machine may rely on, which meant writing down what it may not.
+embedding the machine may rely on, which meant writing down what it may not;
+[3.12](#312-no-shift-can-produce-a-negative-integer) by a program trying to
+decode a `.sob`; and
+[3.13](#313-a-loop-is-left-by-its-condition-or-by-failing) by counting how many
+loops in this repository carry a boolean whose only job is to stop them.
 
 Section 2 has no open design question — the last one, 2.5, is closed. And
 section 6, a program's dealings with the world outside it, is built: reading
@@ -169,7 +173,7 @@ own.
 Safe, and documented. Each is a real restriction rather than a bug.
 
 **3.1 through 3.6 were chosen** — a decision taken and written down. **3.7, 3.8,
-3.10 and 3.11 were not.** Each is a consequence of a decision taken elsewhere,
+3.10, 3.11, 3.12 and 3.13 were not.** Each is a consequence of a decision taken elsewhere,
 noticed afterwards, and each is kept here rather than in section 6 because the
 ways of answering it cost more than what they buy is currently worth. That
 distinction is worth keeping visible: a restriction chosen and a restriction
@@ -221,6 +225,13 @@ safe rather than silently wrong.
 A block answers its last expression. Smalltalk's `^` returns from the enclosing
 *method* from inside a block, which needs frames unwound and is a much larger
 change. Plenty of languages do without it.
+
+**Two shipped libraries have now hit it**, and what they wanted was narrower
+than what this entry offers. [lib/json.sol](../lib/json.sol) and
+[lib/html.sol](../lib/html.sol) both cite this number for a loop they could not
+leave, and neither wanted to return from an enclosing *method* — they wanted to
+stop a loop. That is [3.13](#313-a-loop-is-left-by-its-condition-or-by-failing),
+which is a smaller thing that `^` would also answer.
 
 **The unwinding half of it exists now**, which is worth noticing: `onError`
 stops an error part-way out and carries on, and `ensure` sets a failure aside
@@ -585,6 +596,79 @@ wrap. All three are larger than the arithmetic above, and only a program
 assembling machine words from bytes wants any of them — which is one program,
 which has a workaround, and which now carries the comment explaining it.
 
+### 3.13 A loop is left by its condition, or by failing
+
+A `whileTrue` body cannot end its own loop. Setting a flag ends it at the *next*
+test, after the rest of the body has run, and the only exit from inside the body
+is `error:raise` caught by an `onError` outside it — failure machinery doing
+control flow's job.
+
+That second route works, including out of a loop the compiler has inlined to
+jumps, and [lib/json.sol](../lib/json.sol) already uses it for parse failure.
+What it cannot be is *ordinary*: leaving a loop because you found what you were
+looking for is not an error, and spelling it as one costs a handler on every
+caller who must then tell a real failure from a deliberate exit.
+
+**Nine sites carry the workaround, and two of them mention it.** Of 69
+`whileTrue` sites across `lib/`, `programs/` and `examples/`:
+
+| | sites |
+| --- | --- |
+| a `done` boolean whose only job is to stop the loop | **6** — `json.sol` ×3, `html.sol` ×2, `keys.sol` |
+| an accumulator tested for the same purpose | **3** — `html.sol:97`, `expect.sol` ×2 |
+| said anything about it | **2** |
+
+The seven silent ones are the better evidence. A complaint is somebody noticing;
+seven files reaching for the same shape without comment is an idiom.
+
+The two that spoke:
+
+> *"There is no early return (ROADMAP 3.2), so a loop that stops on a closing
+> bracket carries a flag to stop it. It reads worse than a `break` would and it
+> is the only shape available; both collections below have the same skeleton."*
+> — [lib/json.sol](../lib/json.sol)
+
+> *"The loop stops as soon as there is a match, which is the shape a `break`
+> would have written more plainly."* — [lib/html.sol](../lib/html.sol)
+
+**They are not equal weight.** `json.sol`'s `done` is pure overhead — a boolean
+declared in three methods for no reason but to stop a loop. `html.sol`'s `found`
+is the answer the method returns anyway, and testing it costs one send in the
+condition. One is a wart; the other is a loop reading its own result.
+
+**And a flag is sometimes right.** `html:closeThrough` sets `done` and then runs
+`self:pop` deliberately — the rest of the body is wanted. A `break` there would
+be wrong. Any answer has to leave that case alone.
+
+**What an answer would cost, and the fork is the whole of it.** `whileTrue`
+written literally compiles to jumps, so a `break` inside one is a jump the
+compiler already knows how to emit. But `do`, `collect`, `select`, `repeat`,
+`toDo` and `toByDo` are primitives that call a block per element, and there a
+`break` needs a run-time signal from a block to whoever called it — which is
+[3.2](#32-no-non-local-return)'s machinery, not something smaller. So:
+
+| | |
+| --- | --- |
+| a jump-based `break` | works only in the spelling the compiler inlines — and the inlining is documented as *"an optimisation only; the meaning is exactly that of the message"*, so this would make a feature of it |
+| a signal from block to caller | covers every loop, and is most of 3.2 |
+| leave it | nine sites, seven of them content |
+
+**Two things it may not be called.** `break` and `continue` are already Solid's
+commands ([the reference](REFERENCE.md#the-keys) lists them), so a language
+`break` collides with the toolchain's own vocabulary. And control flow here is
+message sending — a `break` keyword would be the language's first control-flow
+keyword, which is the objection that already refused
+[`ifTrue{...}`](ideas.md#iftrue--a-block-argument-without-parentheses): it makes
+a message send look like syntax exactly where the language works hardest to
+prove it is not one.
+
+**Recorded rather than answered**, and the shape an answer might take is in
+[ideas.md](ideas.md#an-early-exit-from-a-loop) with a trigger. What would make
+this urgent is a loop whose body must *skip its remainder* once the flag is set:
+today every site either sets it at the tail of a branch or wants the rest to
+run, and the moment one does not, the flag has to be threaded through the body
+as `done:not:ifTrue({ ... })` and the workaround starts nesting.
+
 ### 1.1d Collection is stop-the-world and non-incremental
 
 Fine at this size and not worth touching yet. Noted so it is a choice rather than
@@ -652,6 +736,10 @@ found out what it wanted.
   prints, true because somebody once looked. All of them hold; what was wrong
   was that three different comment conventions had grown up unnoticed. It runs
   in `make test` now.
+- **`lib/json.sol` and `lib/html.sol` between them** found that **a loop cannot
+  be left from inside its body** (3.13) — each carrying a boolean to stop one,
+  and each saying so. Counting the idiom afterwards found seven more sites that
+  had never mentioned it, which is the better evidence.
 - [disasm.sol](../programs/disasm.sol) found **three faults in this project's
   own documents** by being a second implementation of a format that had one:
   BYTECODE.md gave no opcode numbers, design.md said both "big-endian" and

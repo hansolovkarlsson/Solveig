@@ -88,8 +88,10 @@ html:element:attribute := { name | self:attributes:at(name:asLowercase, nil) }.
 ; the answer a caller can test rather than an error it has to catch.
 ;
 ; The loop stops as soon as there is a match, which is the shape a `break` would
-; have written more plainly -- there is no non-local return (ROADMAP 3.2), so
-; the flag is in the loop's own condition instead.
+; have written more plainly -- a loop here is left by its condition or by
+; failing (ROADMAP 3.13), so the test is in the loop's own condition instead.
+; Cheaper here than in json.sol: `found` is the answer this method returns
+; anyway, so the condition costs one send rather than a variable of its own.
 html:element:find := { name | | found, work, node, i |
     found := nil.
     work := array:new.

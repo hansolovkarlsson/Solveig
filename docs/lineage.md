@@ -128,6 +128,23 @@ documented where a program would meet it.
   ([3.5](ROADMAP.md#35-recursion-is-limited-to-about-62-levels)), and running
   out is catchable like any other failure.
 
+## What the relatives have that this does not
+
+Placing the language invited the next question, and
+[ideas.md](ideas.md) now carries the survey: what Smalltalk, Self, Io, Lua and
+Ruby have that Solum might want, each with a verdict.
+
+The short version. **Deferred with a trigger**: an early exit from a loop,
+intercepting a message that was not understood, a set type, and mathematics with
+a source of randomness. **Turned down, each for a stated reason**: tail calls,
+coroutines, multiple return values, resuming from an error, and more than one
+parent.
+
+Only one of them produced a roadmap entry, and it came from this repository's
+own programs rather than from the other languages —
+[3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing), because
+nine loops here carry a boolean whose only job is to stop them.
+
 ## What is genuinely its own
 
 Two things, as far as anyone here can tell.

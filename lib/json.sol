@@ -167,9 +167,11 @@ json:word := { text, value | | end |
     self:pos := end:add(#1).
     value }.
 
-; There is no early return (ROADMAP 3.2), so a loop that stops on a closing
-; bracket carries a flag to stop it. It reads worse than a `break` would and it
-; is the only shape available; both collections below have the same skeleton.
+; A loop is left by its condition or by failing (ROADMAP 3.13), so a loop that
+; stops on a closing bracket carries a flag to stop it. It reads worse than a
+; `break` would and it is the only shape available; both collections below have
+; the same skeleton. This file and lib/html.sol are the two sites that said so,
+; out of the nine that use the idiom.
 json:parseArray := { | out, done |
     self:expect("[").
     out := array:new. done := false.

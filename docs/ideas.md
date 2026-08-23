@@ -47,6 +47,15 @@ marked as a sketch.
 | Splitting the reference into pages | **Defer** — the trigger is the message reference outgrowing the rest |
 | Restricting what a script may reach (6.32) | **Defer** — the trigger is a script somebody else wrote, or input from a stranger |
 | Extensions: a capability from a C binary | **Defer** — doable, and half of it works today; the trigger is wanting something Solum cannot express |
+| An early exit from a loop | **Defer** — nine sites carry a flag; the trigger is a body that must skip its remainder ([3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing)) |
+| Intercepting a message not understood | **Defer** — Smalltalk's `doesNotUnderstand`; small to build, and nothing has wanted a proxy |
+| A set, and the collections that are not there | **Defer** — write them in Solum and measure first, as the four loops did |
+| Mathematics, and randomness | **Defer** — `min`/`max` are two lines; randomness is state, and where it lives is the question |
+| Tail calls | **No** — the programs that seem to ask for them are recursive-descent parsers, which never recurse in tail position |
+| Coroutines | **No** — the interpreter re-enters on the C stack, so a Solum stack is not a value |
+| Multiple return values | **No** — every send has a fixed stack effect, and the verifier checks height on that basis |
+| Resuming from an error | **No** — the frames are gone by the time a handler runs; `retry` is writable, resuming is not |
+| More than one parent | **No** — `via` already names an ancestor, which is what multiple parents are wanted for |
 | An `assert` that compiles away | **No** to stripping; **defer** the message itself |
 
 ---
@@ -668,6 +677,136 @@ use-after-free, [disasm.sol](../programs/disasm.sol) found three faults in the
 documents it was written from. An afternoon of that would settle more than
 another page of this.
 
+### An early exit from a loop
+
+[3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing) records the
+fact: a `whileTrue` body cannot end its own loop, so nine sites in this
+repository carry a boolean whose only job is to stop one, and the only exit from
+inside a body is to raise an error and catch it outside. This is the feature
+that would answer it, and why it is not being built yet.
+
+**What the relatives do:**
+
+| | |
+| --- | --- |
+| Lua, Ruby, JavaScript, C | a `break` keyword |
+| Ruby, additionally | `throw`/`catch` — a *tagged* non-local exit, kept deliberately separate from exceptions because leaving a loop is control flow and not failure |
+| Common Lisp | `block` / `return-from`, named and lexical |
+| Smalltalk | nothing of its own — `detect:ifNone:` and friends, each implemented *with* `^` |
+| Scheme | `call/cc`, which is every answer at once and none of them small |
+
+Ruby's pair is the interesting one, because it is exactly the distinction Solum
+is missing: `error:raise` already works as an exit and is the wrong register, in
+the same way `throw` exists in Ruby so that leaving a loop does not have to
+pretend to be an error.
+
+**Why not a `break` keyword.** Two reasons, neither about difficulty. Control
+flow here is message sending, and a keyword would be the language's first
+control-flow keyword — which is the argument that already refused
+[`ifTrue{...}`](#iftrue--a-block-argument-without-parentheses): it makes a
+message send look like syntax exactly where the language works hardest to prove
+it is not one. And `break` and `continue` are already Solid's commands, so the
+word is taken inside the project's own toolchain.
+
+**Why not `detect` and its family**, which is the Smalltalk-flavoured answer:
+neither site it would have to serve is a collection enumeration.
+`html:element:find` is a worklist traversal that pushes onto the very array it
+is walking, and `json:parseArray` is a scanner over a cursor. It would also have
+to answer the reference's standing argument against multiplying search messages
+— *"one message that answers where is worth more than two, one of which only
+answers whether"* — which is why there is no `includes`.
+
+**The shape that would fit**, if this is ever built: a message a block sends to
+leave the loop it is the body of, answering a value, and distinct from
+`error:raise` so that a caller's `onError` is not the thing that catches it.
+Cheap in the spelling the compiler inlines and not cheap anywhere else — see
+3.13 for that fork, which is the whole cost.
+
+**Trigger, said exactly:** a loop whose body must *skip its remainder* once the
+flag is set. Today none does — every site either sets the flag at the tail of a
+branch or wants the rest to run, and `html:closeThrough` deliberately runs a
+`self:pop` after setting it. The moment one does not, the flag has to be
+threaded through the body as `done:not:ifTrue({ ... })` and the workaround stops
+being a condition and starts nesting. That is a bug class rather than a
+readability complaint, and you would know it had happened.
+
+### Intercepting a message that was not understood
+
+Smalltalk's `doesNotUnderstand:` and Io's `forward`: when a lookup fails, send
+the receiver a message *about* the failed send instead of reporting it. It is
+the single largest capability on this list — proxies, recording mocks, remote
+objects, a DSL that answers anything — and it has never been considered here.
+
+**Mechanically it is small**, which is the surprise. There are exactly two real
+lookup failures in the machine: `vm.c` in the dispatch loop, and again in
+`sol_vm_send` for the C-side entry. At the first, the receiver and its arguments
+are still laid out on the value stack in frame order and nothing has been popped
+— which is most of what a re-send needs.
+
+**Three things it would cost.**
+
+A recursion guard: a receiver whose `doesNotUnderstand` is itself missing would
+come straight back to the same site.
+
+The error message. Today a typo answers *"integer does not understand 'pritn'"*
+and that is one of the language's better diagnostics; the default handler would
+have to keep producing it, so the feature is really "a hook *before* the
+existing error" rather than a replacement for it.
+
+And a third site that cannot play. Inlined conditionals report *"boolean does
+not understand 'ifTrue'"* from a synthesised failure with no receiver object and
+no lookup — the compiler kept the selector purely so the complaint matches. A
+program could not intercept that one, so the feature would be *almost* uniform,
+which is the kind of exception this language usually declines.
+
+**Trigger:** a program that wants to stand in front of an object — a proxy, a
+recorder, a stub — and cannot. Nothing here has wanted one; every program so far
+has owned both sides of every call.
+
+### A set, and the collections that are not there
+
+There is no set, no bag, and no way to ask whether a value is in one except
+`indexOf(v):notNil` down an array. A dictionary with values nobody reads is the
+only stand-in, and `dictionaries.sol` uses exactly that shape to count distinct
+words.
+
+Related absences, all of them writable in Solum today: `detect`, `reject`,
+`any`, `all`, `sortBy`, `zip`, `flatten`, `reverse`, `isEmpty`, `sum`.
+
+**The measured lesson applies before any of it is built.** Four loops began in
+[lib/control.sol](../lib/control.sol) and left for the VM because a Solum
+version costs a block and a frame per element — a primitive `repeat` measured
+3.2× the library one. So the answer to "should there be a `detect`" is not yes
+or no but *write it in Solum, use it, and measure before promoting it*, which is
+the route every one of those loops took.
+
+A set is different in kind: it wants hashing, and `sol_dict_key_ok` already
+settles what may be hashed — values only, never an object, because two that look
+alike would be two keys.
+
+**Trigger:** a program that keeps a dictionary whose values it never reads.
+
+### Mathematics, and a source of randomness
+
+`integer` and `float` have arithmetic, comparison, bit operations and rounding,
+and nothing else. There is no `sqrt`, `pow`, `min`, `max`, `between` or `clamp`,
+no trigonometry, no `pi`, and — more conspicuously for a scripting language —
+**no random number source at all**, anywhere in the VM, the library or `system`.
+
+`min` and `max` are two lines of Solum and want no decision. The rest divides:
+
+- **Pure functions of a number** — `sqrt`, `pow`, `abs` on a float — are
+  primitives over `libm` and cost nothing but the decision to have them.
+- **Randomness is not a function**, it is state, and where that state lives is
+  the actual question: a global seed makes two runs of a program differ, which
+  is exactly what a test suite is built to prevent, and this project's own
+  suite compares output byte for byte. So a random source wants to be a *thing
+  you make* with a seed you can name, not a message on `integer`.
+
+**Trigger:** a program that wants one. None has — and the absence has gone
+unnoticed for nine programs, which is itself a finding about what this language
+has been used for.
+
 ### Splitting the reference into pages
 
 `docs/REFERENCE.md` is about 2,500 lines. Should it become several pages?
@@ -996,6 +1135,92 @@ So the syntax would buy a second way to do something the language already does,
 at the cost of a construct where `:m1(#1)` means a send to a receiver that is
 not written down. That is a large exception to "`:` sends to what is on the
 left".
+
+### Tail calls
+
+The obvious motivation is [3.5](ROADMAP.md#35-recursion-is-limited-to-about-62-levels):
+recursion stops at about 62 levels, two programs have hit it, and a language
+that reuses the frame for a call in tail position would relieve that. Scheme
+requires it, Lua has it, Smalltalk does not.
+
+**It would not have helped either program**, which is the whole entry.
+[evaluator.sol](../programs/evaluator.sol) stops at 18 brackets and
+[lib/json.sol](../lib/json.sol) at 28 levels of nesting, and both are
+recursive-descent parsers — where the recursion is *never* in tail position:
+
+```
+parseExpression := { | left |
+    left := parseTerm:value.                    ; the recursive call, and then
+    { isOneOf:value("+-") }:whileTrue({ | op |
+        op := next:value:text.
+        left := binary:value(op, left, parseTerm:value) }).    ; work after it
+    left }.
+```
+
+`parseFactor` is the same: it calls `parseExpression`, then checks for a closing
+bracket, then answers. A tree walk has work waiting on the way out by
+definition, so the frames cannot be reused and the depth is real.
+
+So tail calls would buy loops-written-as-recursion, which nothing here writes,
+because the language has loops. **Verdict: no** — not because it is hard, but
+because the case for it evaporates on inspection, and the programs that appear
+to ask for it are asking for something else.
+
+### Coroutines
+
+Lua's headline feature and one of Io's, and the natural way to write a generator,
+an incremental parser, or a scheduler. Rejected for a reason more specific than
+the one that refused [Go-style concurrency](#go-style-concurrency) below.
+
+**The interpreter re-enters itself on the C stack.** When a primitive calls back
+into the language — `whileTrue` calling its body, `collect` calling its block —
+`sol_vm_call_block` calls `run_frames` *again*, nested inside the C frame of the
+primitive, which is nested inside the `run_frames` that dispatched it. So the
+live state of a running Solum program is not only in `vm->frames`: it is also
+`prim_while_true`'s `for(;;)`, `prim_array_collect`'s loop index, and the GC
+temp-root push each of them is holding.
+
+A coroutine has to suspend a Solum stack and resume it elsewhere. The Solum
+frames would move — `SolFrame` is plain data and `slots` points into a stack
+that could be relocated. **The C frames interleaved with them cannot.**
+
+**Verdict: no**, and the note worth keeping is that this is a consequence of a
+choice that has paid elsewhere: re-entrancy is what lets `ifTrue` and
+`whileTrue` be ordinary messages implemented in C, which is the thing this
+language is most pleased with. The price is that its stack is not a value.
+
+### Multiple return values
+
+Lua's `a, b = f()`. **No.** Every send here has a fixed stack effect — the
+design leans on `SEND 'add' (1 args)` always having exactly two values beneath
+it, and the verifier checks the height at every instruction on that basis. A
+second return value would make the height depend on what a method decided at run
+time, which is the property the verifier exists to have.
+
+An array already carries several answers, and
+[programs/disasm.sol](../programs/disasm.sol) returns `['ok, page]` pairs
+throughout without the shape being uncomfortable.
+
+### Resuming from an error
+
+Smalltalk's `retry`, `resume:` and `pass`. **No.** The error system is
+unwind-only on purpose and the reference says so — *"What is gone is the
+frames. Nothing can be resumed."* By the time a handler runs, the stack between
+the raise and the catch is gone; resuming would mean keeping it, which is a
+different error system rather than an addition to this one.
+
+`retry` specifically is writable today: a block that calls itself, or a loop
+around the `onError`. What is not writable is resuming *at the raise*, and that
+is the part that would cost the design.
+
+### More than one parent
+
+Self allows an object several parent slots, and multiple inheritance with it.
+**No.** One `proto` is the model, and the thing multiple parents are usually
+wanted for — reaching a specific ancestor's version of a message — is already
+`self:via(ancestor)`, which names the ancestor rather than inferring it. That
+naming is what lets no frame record where a method was found; several parents
+would put the ambiguity back and need a rule to resolve it.
 
 ### Go-style concurrency
 

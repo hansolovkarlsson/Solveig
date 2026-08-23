@@ -7,6 +7,72 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### What the relatives have, surveyed — and one roadmap entry from it — `pending`, 2026-08-22
+
+[lineage.md](lineage.md) placed the language among Smalltalk, Self, Io, Lua and
+Ruby; this is the follow-on question — what those have that this might want.
+Split by evidence, since the roadmap's rule is that an entry means *a program
+wanted something and could not have it*.
+
+**The survey produced exactly one roadmap entry**, and it came from this
+repository's own programs rather than from the other languages.
+[3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing): a
+`whileTrue` body cannot end its own loop. Setting a flag ends it at the *next*
+test, after the rest of the body runs, and the only exit from inside a body is
+`error:raise` caught outside — failure machinery doing control flow's job.
+
+| of 69 `whileTrue` sites | |
+| --- | --- |
+| carry a `done` boolean whose only job is to stop the loop | **6** |
+| test an accumulator for the same purpose | **3** |
+| said anything about it | **2** |
+
+The seven silent ones are the better evidence: a complaint is somebody noticing,
+and seven files reaching for the same shape without comment is an idiom.
+
+**The entry began as a false claim and was corrected before it shipped.** It was
+going to be titled *"a loop cannot be left early"*, and that is not true —
+`error:raise` with an `onError` outside does leave a loop, including one the
+compiler has inlined to jumps, and `lib/json.sol` already uses exactly that for
+parse failure. What is true is narrower and more interesting.
+
+Also corrected: the two libraries that complained cite 3.2, and what they wanted
+is smaller than 3.2 — not a return from an enclosing method, but a way out of a
+loop. Both now cite 3.13, and 3.2 records that two libraries hit it. Section 3's
+introduction had never added 3.12 to its list of restrictions that were *found*
+rather than *chosen*; it now lists six.
+
+**And a flag is sometimes right**, which kills the simple reading:
+`html:closeThrough` sets `done` and then deliberately runs `self:pop`, because
+the rest of the body is wanted.
+
+**[ideas.md](ideas.md) takes the other nine**, one entry each with a verdict.
+Deferred with a trigger: an early exit from a loop, intercepting a message that
+was not understood, a set type, and mathematics with a source of randomness.
+Turned down with a reason: tail calls, coroutines, multiple return values,
+resuming from an error, and more than one parent.
+
+Two of the "no"s are worth the reading:
+
+**Tail calls** look like the answer to
+[3.5](ROADMAP.md#35-recursion-is-limited-to-about-62-levels)'s 62-frame limit
+and are not. The two programs that hit that limit are recursive-descent parsers,
+and a recursive-descent parser never recurses in tail position —
+`parseExpression` calls `parseTerm` and *then* combines. The case evaporates on
+inspection.
+
+**Coroutines** are blocked by something specific: the interpreter re-enters
+itself on the C stack, so `prim_while_true`'s loop and `prim_array_collect`'s
+index sit *between* Solum frames with no representation in `vm->frames`. The
+frames would move; the C frames interleaved with them cannot. That is the price
+of re-entrancy, which is also what lets `ifTrue` and `whileTrue` be ordinary
+messages.
+
+Nothing in the survey re-proposes something already decided — cascades,
+`ifTrue{...}`, `@ifdef`, integer widths, a JIT, Go-style concurrency and
+subclassing `integer` are all previously argued and left alone.
+
+
 ### A page placing the language among its relatives — `96f4649`, 2026-08-22
 
 [docs/lineage.md](lineage.md): what Solum borrowed and from whom, which living
