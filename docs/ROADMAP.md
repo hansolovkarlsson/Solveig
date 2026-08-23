@@ -173,7 +173,7 @@ own.
 Safe, and documented. Each is a real restriction rather than a bug.
 
 **3.1 through 3.6 were chosen** — a decision taken and written down. **3.7, 3.8,
-3.10, 3.11, 3.12, 3.13, 3.14 and 3.15 were not.** Each is a consequence of a decision taken elsewhere,
+3.10, 3.11, 3.12, 3.13, 3.14, 3.15 and 3.16 were not.** Each is a consequence of a decision taken elsewhere,
 noticed afterwards, and each is kept here rather than in section 6 because the
 ways of answering it cost more than what they buy is currently worth. That
 distinction is worth keeping visible: a restriction chosen and a restriction
@@ -743,6 +743,47 @@ answers a dictionary; taking one — `system:capture(argv, ["stderr", "discard"]
 shape nothing else in this language uses. Neither is obviously right, and
 nothing is blocked while it stays undecided.
 
+### 3.16 What the checker does not check
+
+The odd one out in this section: it is about this repository's own verification
+rather than about the language. It is here because this document claims to be
+the single list of what is outstanding, and a gap in what `make test` proves is
+outstanding.
+
+[expect.sol](../programs/expect.sol) checks 589 claims across 40 files on every
+build. Two kinds of thing in those same files are outside it.
+
+**A fenced block that does not compile is not checked and not a failure.** It is
+counted and reported — 42 of 155 blocks — and the classification is *continues
+one further up, or shows syntax rather than a program*, both of which are real:
+a `$ ./bin/solis` transcript is not a program, and a block that carries on from
+the one above it cannot be run alone. But a block with a typo in it lands in
+exactly the same bucket, and one did: **`README.md`'s opening snippet, the four
+lines that introduce the language to everybody who arrives, was missing the `.`
+after `a := #45`** and had been seen and skipped every run.
+
+**Prose is not checked at all.** The checker reads comments in `.sol` files and
+fenced blocks in `.md` files. A sentence that states a number — *"586 claims on
+every build"*, *"`integer` has 24 slots"*, *"the fifth program here"* — is
+outside both. The second of those was found because it also appeared in a block;
+the first was stale for a day and was found by reading. Every count this
+repository states about itself in a sentence has the standing that the examples'
+comments had before any of this existed.
+
+**What an answer would cost.**
+
+| | |
+| --- | --- |
+| a marker for a block that is deliberately not a program | Smallest, and it puts the work on every document. A fence could be ` ```text ` where it is not Solum, and then a block that *claims* to be Solum and does not compile is a failure. The cost is that the convention has to be applied to 42 blocks before it can be enforced on the 43rd, and a document is a bad place to be strict about something a reader cannot see. |
+| report the two categories separately | Cheap and partial: *continues one above* is detectable (the block does not compile *and* the one before it exists), where *does not compile at all and starts a new thought* is the suspicious case. It would have caught the README. It would not catch a block that compiles and is wrong about what it prints, but that case is already checked. |
+| check the prose | Not obviously possible, and probably not worth it. A number in a sentence has no notation saying what it counts. What is available is narrower and might be enough: this repository states a handful of counts about *itself*, and a test could recompute those and grep for a stale one. |
+
+**Nothing is blocked**, and the reason it is written down rather than fixed is
+that the second column is a judgement about documents rather than about code,
+which is yours. What the entry preserves is the specific failure: the category
+that keeps a checker honest about what it cannot check is also the place a real
+fault can hide.
+
 ### 1.1d Collection is stop-the-world and non-incremental
 
 Fine at this size and not worth touching yet. Noted so it is a choice rather than
@@ -814,6 +855,15 @@ found out what it wanted.
   be left from inside its body** (3.13) — each carrying a boolean to stop one,
   and each saying so. Counting the idiom afterwards found seven more sites that
   had never mentioned it, which is the better evidence.
+- [bench.sol](../programs/bench.sol) found that **there is no square root, no
+  minimum and no randomness** (3.14) — all of them writable, and the point is
+  what writing them costs: the `sqrt` was wrong on the first attempt and said
+  nothing, and the textbook random generator cannot be written here at all
+  because integer arithmetic traps on overflow rather than wrapping. It also
+  found that **a child's streams cannot be redirected** (3.15), and, by testing
+  its own square root at 1e300, **a stack over-read in the float formatter**
+  that let a script print the bytes behind a buffer. The first program here
+  written to press on a gap rather than to do a job.
 - [disasm.sol](../programs/disasm.sol) found **three faults in this project's
   own documents** by being a second implementation of a format that had one:
   BYTECODE.md gave no opcode numbers, design.md said both "big-endian" and

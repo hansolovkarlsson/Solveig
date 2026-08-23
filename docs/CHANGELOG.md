@@ -7,6 +7,23 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+### The day written down, and what the checker does not check — `pending`, 2026-08-22
+
+[journal.md](journal.md) gains the night's account, including a postmortem of
+what went wrong: warm numbers reported as if they were the numbers, an "each
+works" written from reasoning rather than from a run, and a bisect that could
+not find a cross-file interaction because it looked at one file at a time.
+
+And one outstanding thing that had not been written down anywhere:
+[3.16](ROADMAP.md#316-what-the-checker-does-not-check). The checker proves 589
+claims and two kinds of thing in the same files sit outside it — a fenced block
+that does not compile, which is counted and skipped and is where the front
+page's missing `.` hid; and prose, which is not read at all, so every count this
+repository states about *itself* in a sentence has the standing the examples'
+comments had before any of this existed. Odd for this document, being about the
+repository rather than the language, and it is here because this is meant to be
+the single list.
+
 ### A float could print the stack behind it — `ad185d3`, 2026-08-22
 
 `1e150:asString("0.6")` answered a 157-character string of which **93 characters

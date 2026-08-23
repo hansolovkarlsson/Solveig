@@ -11,6 +11,142 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-22 (night) — everything written down, and then a benchmark
+
+Two releases' worth of work in one stretch, and both halves ended by finding
+something the work itself had put there.
+
+### Finishing the sweep
+
+The documentation checker took one path. It now takes several, so `README.md`
+and `index.md` — the first thing anybody reads, and the last two documents
+nothing checked — joined the run. The two claim tests became one,
+`test_everything_written_down_is_true`, because once everything is checked there
+is no distinction left to draw: 589 claims across 40 files, one invocation, one
+floor.
+
+**And the front page did not compile.** The opening snippet, four lines that
+introduce the language, was missing the `.` after `a := #45`. The checker had
+seen it every run and said nothing, because a block that fails to compile is
+classified *shows syntax rather than a program* — which is right for the
+`$ ./bin/solis` transcript further down the same page, and wrong here. The
+category that keeps the tool honest about what it cannot check is also where a
+real fault can hide. That is now [3.16](ROADMAP.md#316-what-the-checker-does-not-check).
+
+### The cut that found the drift
+
+Bumping the version for 0.20.0 forced a rebuild from clean, and the claim count
+came back **588 where it had been 589**. Not a flake — one number on a clean
+tree and another on a warm one, every time.
+
+`GUIDE.md` asks `system:modifiedAt("notes.txt")` and no block in it creates that
+file; `REFERENCE.md`, further down the alphabet, writes one. Both run in the
+sandbox introduced hours earlier, so the guide's block failed on a clean tree and
+passed on every run afterwards **off the leftovers of the run before**. The
+sandbox that stopped documentation from reaching the repository had quietly
+become a way for one run to reach the next.
+
+Worth being blunt about what that meant: every number reported in the previous
+session was the warm one. *Everything written down is checked* was true on this
+machine and false on a fresh clone until the second `make test`. What made it
+invisible is that the second run of anything is the one you look at.
+
+### Program ten, aimed at a gap
+
+Nine programs came before and every one was a job first. [bench.sol](../programs/bench.sol)
+is the first written the other way round — pointed at the most conspicuous
+absence in the language for a scripting language, which is arithmetic.
+
+It times a command repeatedly, interleaves two of them with a coin flip deciding
+the order each round, and answers with a bootstrap interval rather than a
+winner. Given the same command twice it says `1.001, interval 0.985 to 1.015`
+and *this many runs cannot tell them apart*, which is the test a tool like this
+has to pass before its other answers are worth anything.
+
+**The gap is real and it is not the one it looks like.** There is no `sqrt`, no
+`min`, no `max` and no randomness — and all four were writable, and all four are
+in the file. What the experiment measured is the cost of writing them:
+
+- **The `sqrt` was wrong on the first attempt, and silent.** Twenty iterations of
+  Newton's method, on the reasoning that it converges quadratically. `sqrt(2)`
+  was right to twelve places; `sqrt(1e10)` answered `100000.000156`. Quadratic
+  convergence is what happens *after* the guess is close, and starting from `x`
+  itself the first phase is one halving per octave — seventeen of the twenty
+  iterations gone before the good part began.
+- **The textbook random generator cannot be written in this language at all.** A
+  linear congruential generator relies on the multiplication wrapping, and
+  integer arithmetic here traps on overflow. Lehmer's works, with a multiplier
+  and modulus chosen to stay inside 64 bits — but "write your own" is narrower
+  advice than it sounds when the reason is nothing to do with randomness.
+
+That is [3.14](ROADMAP.md#314-there-is-no-square-root-no-minimum-and-no-randomness),
+and [3.15](ROADMAP.md#315-a-childs-streams-cannot-be-redirected) came with it: a
+child's stderr cannot be discarded, and a benchmark harness is the one program
+that cannot buy its way out through `/bin/sh`.
+
+### And the bug under all of it
+
+Testing that hand-written square root at 1e300 printed sixty-three digits and
+then binary garbage.
+
+`prim_float_as_string` wrote into a 64-byte buffer and passed `snprintf`'s answer
+— the length it *would* have written — on as the length of the result. `snprintf`
+truncates rather than overflowing, so nothing was corrupted; instead everything
+downstream read 157 bytes out of 64, and `1e150:asString("0.6")` returned a
+string whose last 93 characters were the stack behind the buffer. A script can
+print them. Reachable from one line of Solum, and in a code path four shipped
+binaries use.
+
+Fixed by sizing the buffer for the worst case the spec permits and clamping the
+length to it regardless. The other four `snprintf` sites were audited: two
+already clamp, two cannot overflow their buffers.
+
+**The shape of this find is the thing to remember.** The bug is in the formatter
+and has nothing to do with square roots. It surfaced because a program needed a
+function the language lacks, wrote it, and then tested that function at the edges
+— and the edges of `sqrt` are where the *printer* had never been. Two absences
+compounding: no `sqrt` to use, so one gets written; nobody writes `1e300` into a
+document, so nothing had ever formatted one.
+
+### Postmortem
+
+**Five things went wrong today, and four of them were mine.**
+
+1. **I reported warm numbers as if they were the numbers.** Every claim-count
+   quoted in the previous session was from a tree that had already run the
+   checker once. The property I said was established — everything written down
+   is checked — did not hold on a clean tree. I did not think to run it twice,
+   and there was no reason not to. The fix is in the tool now; the habit worth
+   keeping is that a verification tool must be run *from clean* before its result
+   is quoted.
+2. **I wrote "each works" about the arithmetic before testing it at scale.** The
+   `sqrt` header said so while `sqrt(1e10)` was wrong in the fourth digit. The
+   claim was written from the reasoning (Newton converges quadratically) rather
+   than from a run, which is exactly the mistake this repository built a checker
+   to stop, made in a file the checker does not read.
+3. **A bisect that could not find what it was looking for.** Hunting the 588/589
+   drift I ran each document twice and diffed — and concluded no file differed,
+   which was true and useless, because the dependency was *between* files. It
+   took seeding the artifact by hand to locate it. A per-item search cannot find
+   a cross-item interaction, and I should have reached for that a step sooner.
+4. **An off-by-one asserted rather than computed.** The new format test claimed
+   `DBL_MAX` at 40 decimals is 351 characters; it is 350. The assertion caught
+   it, which is what assertions are for, but it was arithmetic I did in my head
+   next to a `python3 -c` that would have answered it.
+5. **A near-miss worth recording**: comparing the VM's output against Python's
+   formatting of `1e150`, when what the VM had printed was `sqrt(1e300)` — a
+   different double. The two disagreed for a legitimate reason and I nearly
+   filed it as a second bug. Checking the exact value directly is what separated
+   them.
+
+**What went right is worth the same attention.** Every one of today's findings
+came from running something rather than reading it: the drift from a clean
+build, the `sqrt` from testing an obvious edge, the formatter bug from testing
+the `sqrt`'s edge, the README typo from pointing an existing tool at one more
+file. Nothing was found by inspection.
+
+---
+
 ## 2026-08-22 (evening) — the last decision, deferred
 
 Six releases and then a conversation rather than a commit.
