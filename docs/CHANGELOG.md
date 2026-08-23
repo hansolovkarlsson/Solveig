@@ -5,7 +5,48 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## 0.20.0 — 2026-08-22
+
+**A testing release. No code changed** outside the version string — `.sob` files
+are format version 14, unchanged, and every binary behaves exactly as it did in
+0.19.0. What changed is that the documentation can no longer be wrong quietly.
+
+**Everything this repository writes down about what it prints is now checked on
+every build.** 589 claims across 40 files: 398 in `examples/`, 189 across
+seventeen documents, two on the front pages. Before this, `examples/` carried
+about four hundred comments saying what each line printed and the suite compiled
+every one of them without running any — those comments were true because somebody
+looked, once. The documents carried two hundred more in the same notation inside
+``` fences, and nothing checked those either.
+
+**Three things were wrong, and the third is the one worth the release.** The
+guide showed a stack trace in a format that predates 6.27 adding the filename.
+[class-and-instance.md](class-and-instance.md) said `integer` has 24 slots where
+it has 38, in three places. And **the front page's opening snippet did not
+compile** — the four lines that introduce the language to everybody who arrives
+were missing the `.` after `a := #45`.
+
+That last one had been *seen* and passed over. A block that fails to compile is
+classified *shows syntax rather than a program* and skipped, which is right for
+the `$ ./bin/solis` transcript further down the same page and wrong here. The
+category that keeps the checker honest about what it cannot check is also where
+a real fault can hide, and that is worth knowing about any such tool.
+
+**The checker had five bugs of its own**, each found by it doing something
+visible, and one of them put back a file a commit had deliberately deleted:
+documentation shows how to delete things, and executing documentation executes
+that. Blocks from a document now run in a sandbox. The details are in the two
+entries below.
+
+`CHANGELOG.md` is the one document skipped: it records what was true at each
+release, so its snippets describe past states on purpose.
+
+**And the checker's own answer drifted.** It reported 589 claims on a tree it
+had run in before and 588 on a clean one, because a block in the guide read a
+file a block in the reference wrote — so it failed the first time and passed
+ever after, off the previous run's leftovers. Fixed twice over: the sandbox is
+emptied before anything runs, and the block writes the file it asks about. A
+checker that agrees with you eventually is worth less than none.
 
 ### The checker agreed with you eventually — `358a55d`, 2026-08-22
 

@@ -107,6 +107,15 @@ No dependencies beyond a C11 compiler and `make`.
 
 ## Status
 
+**0.20.0** — a testing release; no code changed and `.sob` files are format
+version 14, unchanged. **Everything this repository writes down about what it
+prints is now checked on every build** — 589 claims across 40 files, where
+before the suite compiled every example and ran none of them. It found a stale
+stack trace in the guide, a slot count nine releases out of date, **an opening
+snippet on this page that did not compile** — the four lines that introduce the
+language were missing a `.` — and, in the checker itself, an answer that
+depended on how many times it had been run.
+
 **0.19.0** — a documentation release; no code changed and `.sob` files are
 format version 14, unchanged. The roadmap now has **nothing left to decide**:
 6.32, whether a script should run with less than the whole machine, was deferred
