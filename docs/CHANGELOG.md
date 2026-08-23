@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-### Solum compiles Solum — `pending`, 2026-08-23
+### Solum compiles Solum — `561ecc6`, 2026-08-23
 
 **[compile.sol](../programs/compile.sol) turns Solum source into the bytes
 `solas` produces from it.** `examples/hello.sol` comes out byte-identical, first
