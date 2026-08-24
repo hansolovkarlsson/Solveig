@@ -1,13 +1,16 @@
 # Solveig
 
-A small object-oriented language, its bytecode virtual machine, and a REPL.
+The Solum language and its toolchain — bytecode compiler (Solas), virtual
+machine (SolVM), REPL (Solis) and debugger (Solid). Prototype-based,
+everything is a message send, 125 messages, no operators or control-flow
+syntax. 15k lines of C11, no dependencies.
 
-**Documentation: <https://hansolovkarlsson.github.io/solveig/>** — a
-[tutorial](https://hansolovkarlsson.github.io/solveig/docs/TUTORIAL.html) that
+**Documentation: <https://hansolovkarlsson.github.io/Solveig/>** — a
+[tutorial](https://hansolovkarlsson.github.io/Solveig/docs/TUTORIAL.html) that
 builds one program from nothing, a
-[guide](https://hansolovkarlsson.github.io/solveig/docs/GUIDE.html) to every
+[guide](https://hansolovkarlsson.github.io/Solveig/docs/GUIDE.html) to every
 concept, and the
-[reference](https://hansolovkarlsson.github.io/solveig/docs/REFERENCE.html).
+[reference](https://hansolovkarlsson.github.io/Solveig/docs/REFERENCE.html).
 
 Everything is an object, including classes, and work happens by sending
 messages to them:
