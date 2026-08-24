@@ -11,6 +11,226 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-24 — the recommendation was right and the spelling was wrong
+
+One entry closed, and the useful part of the day is the twenty minutes between
+recommending a shape and finding out the language could not write it.
+
+### What was left, asked and answered
+
+The morning began by asking what was still outstanding, which took reading the
+roadmap against the code rather than against its own summary. The answer was
+smaller than it looks: one release uncut, **one** buildable limitation with a
+program behind it (3.15), one that needs a decision before it can be built
+(3.14), six that are consequences documented where a program would meet them,
+and eight ideas waiting on triggers that have not fired. The roadmap no longer
+says what to build next, and that is deliberate — the way to add to it is to
+write a program and find out what it wants.
+
+### The shape was the whole of 3.15
+
+The entry had done the hard half already. It named the limitation, named two
+possible answers, and **picked neither**: a fourth argument to `capture`, which
+is the smallest thing that works and the least general, or an options bag, which
+generalises without new messages at the cost of a shape nothing else here uses.
+
+The bag won on an argument the entry did not contain. There are four things a
+caller might want to say, not one, and the fourth is the one nobody had written
+down: **there was no way to give a child anything to read, either.** `stdin` was
+inherited by both messages and unmentioned in the entry, the reference and the
+cheatsheet alike. Four optional things is more than positional arguments can
+carry, so the bag was not a preference by then.
+
+### And then the language said no
+
+**I recommended a dictionary. The language has no dictionary literal.**
+
+`dictionary:new`, then `atPut` — and `atPut` answers the value stored rather
+than the dictionary, so it does not even chain. Saying one thing costs three
+statements at the call site:
+
+```text
+opts := dictionary:new.
+opts:atPut("stderr", 'discard).
+system:capture(argv, opts).
+```
+
+That is not a bag anybody would use. What replaced it was already written down:
+an **array of alternating name and value**, which is the notation 3.15 itself
+sketched, a day before either question was asked. The names are the strings
+`capture` already answers with, so a stream is spelled the same going in as
+coming out, and a value is a **manner as a symbol** or a **path as a string** —
+the type telling them apart, which is what keeps a file called `discard` a file.
+
+The recommendation survived; its spelling did not. I had argued the trade-off
+between two shapes without checking whether the language could write the one I
+preferred.
+
+### Two decisions in the plumbing worth the words
+
+- **The files are opened before the fork.** A path that cannot be opened is then
+  the caller's error to read, rather than a child that silently did nothing.
+  They are opened close-on-exec, and the copy `dup2` makes is the only one the
+  child carries — `dup2` not passing the flag on is the property that rests on.
+- **`'merge` follows stdout to where it is now**, which is `>file 2>&1` and not
+  `2>&1 >file`. Those are the two orders a shell distinguishes, the classic way
+  to get this wrong, and it falls out for free by doing stdout first.
+
+### The test had to watch its own stderr
+
+`'discard` is the claim whose failure is invisible: output that should not
+appear looks exactly like output that appeared somewhere else, and a test that
+merely checks the captured string passes either way. So the test points the
+**test process's** stderr at a file for the length of the call and reads it back
+empty. Three hundred redirected children after it say nothing was left open,
+which under a 256-descriptor limit fails loudly rather than quietly.
+
+`bench.sol` is what asked for the entry and is what proves it closed. It had
+been taking the noise on purpose — a shell to drop stderr is another fork and
+another exec on every measurement, of the same order as the thing being measured
+— and its report is clean now, with the failure count untouched, because what
+says a command failed was always the status.
+
+---
+
+### Postmortem
+
+**Three mistakes, and two of them were caught by yesterday's work.**
+
+1. **The dictionary I recommended could not be written.** Covered above. The
+   pattern is the familiar one from the day before: a claim from reasoning that
+   a two-minute check refutes, in this case grepping the cheatsheet for a
+   literal.
+
+2. **An untagged fence in `COMPLETED.md` would have run `make`.** The entry's
+   illustrative block opens `system:run(["make"], ["stderr", 'discard]).`, and
+   an untagged fence is a program — which is exactly what
+   [3.16](COMPLETED.md#316-what-the-checker-does-not-check--done) established
+   the day before. Written by the same hand that wrote *a reader can see a fence
+   that says `text`*, one day later. It is tagged now, and the block that
+   demonstrates the dictionary above is tagged for the same reason.
+
+3. **A test asserted the wrong thing about `'share`.** It said
+   `capture(argv, ["stdout", 'share])` should change nothing, on the reasoning
+   that naming the default is harmless. The implementation refuses the *name*
+   `"stdout"` for `capture` whatever the value, because keeping stdout is what
+   that message is for. The refusal is right and the test was wrong — but the
+   test is what surfaced the question, which is the argument for writing the
+   awkward cases down.
+
+**What the day's tooling was worth**: the documentation added four claims, which
+moved two numbers stated in prose in three different documents, and every one of
+them was named by `expect.sol` with the file and the line — a day after the
+notation existed. Nothing about that check was manual, and none of those numbers
+would have been noticed by reading.
+
+---
+
+## 2026-08-23 (evening) — a page read as a page, a number that says what it counts, and a walk that became a lookup
+
+Three commits after the release, closing two entries — and the shape of the
+evening was measuring what a guess had got backwards, twice.
+
+### 54 claims were hiding in plain sight
+
+The checker had a rule that sounded generous: a fenced block that will not run
+alone is *reported* rather than failed, because it might continue one further up
+the page or show syntax rather than a program. Both are real. **Both are also
+true of a block with a typo in it.**
+
+Counting what was inside those blocks settled it — **54 claims in 42 blocks, one
+claim in thirteen** — and the split was the opposite of what
+[3.16](COMPLETED.md#316-what-the-checker-does-not-check--done) had guessed. The
+entry proposed telling *would not compile* from *compiled and then failed* on
+the theory that the first was the suspicious one, since that is what had caught
+`README.md`'s opening snippet. Ten blocks failed to compile and held **2**
+claims between them, all of them shell and REPL transcripts, as harmless as they
+looked. Thirty-one compiled and then failed, and held the other **52**.
+
+So the fix was not a filter, it was a reading: **each block that runs joins the
+document's context**, and a block that will not run alone is run again on
+everything accepted before it. That is what the prose says out loud, since
+*continuing the `point` above* can stand 370 lines and ninety blocks after the
+`point` in question. It recovers 28 of the 42. The cheap version does not work
+and it is worth knowing why: a fixed window of the nearest blocks recovers 24 of
+the 54 claims at depth five and **not one more at twenty**, because the distance
+is not the problem — what is between them is.
+
+Three things had to be right and each was wrong first. The context cannot be
+allowed to satisfy the block's own claims. A complaint is read wherever it
+lands, and with stderr merged the streams interleave by buffering rather than by
+source, so taking the context's line *count* off the front does not take the
+context's *lines* off the front — nine blocks were accepted as having run when
+they had produced nothing. And the program has to say it reached the end:
+`system:exit` unwinds, which is documented behaviour with a block of its own in
+the reference, and once that block joined the context every page below it was a
+program that exited before reaching anything, for ninety blocks. A sentinel line
+the run must echo is what stopped that.
+
+**Eight blocks were broken**, in documents that have been read for months, and
+the one wrong longest was `#45:new(#1):print.  ; #1` — a claim about what the
+language *does*, which the language stopped doing, in a document whose first
+paragraph promises every snippet has been run.
+
+### A number in a sentence had no notation
+
+The last gap in 3.16 was prose, and the difficulty is exact: a sentence is
+neither a comment on a printing line nor a fenced block, so a number in one sat
+outside everything `make test` proves. It has a notation now — `<!--count
+claims-->`, which renders as nothing — and a name the table does not know is a
+**failure**, so a marker cannot be misspelled into silence.
+
+What recounting found is the argument for it. ROADMAP 3.14 said `float` answers
+**21** messages; it answers **26**, five releases out of date, and that entry's
+whole size argument rests on the number. The reference's message index said 121
+across 215 where it is 122 across 216. And a position needs no marker because
+the phrase is already one: nine programs open with *the fifth program here*, and
+nothing had held that against the order they appear in.
+
+### A global was found by walking a list
+
+The morning's postmortem had turned a question about constants into
+[3.17](COMPLETED.md#317-a-global-is-found-by-walking-a-list--done), and the
+evening built it. An object with more than a dozen slots keeps an
+open-addressed table beside its list, on the interned name pointer.
+
+**What the entry got wrong was where the time was.** It was written about
+globals; it is worth more to *sends*, because built-in messages are registered
+in order and a new slot goes on the front of the list, so `add` — registered
+first and used most — sat 35 slots down `integer`'s list of 38.
+
+The first version was **30% slower** on a shallow send, which is the part worth
+remembering. A probe counter said 2.00 probes a lookup, so the table was not the
+problem; the table held slot *pointers* alone, so each probe followed one to
+read `slot->name` — three dependent loads where a list walk has one. **A short
+linked list is not slow**, because an object's slots are allocated together and
+the walk reads memory the prefetcher already has. Putting the key in the table
+beside the slot took it from 30% to 12%; a stronger hash measured slower and was
+thrown away.
+
+The trade is real and it is written down: a send four slots deep is 0.88× and
+reading the most recently bound global 0.89×, both intervals entirely below 1.
+What makes that the right way round is that the old order was **recency**, so a
+library's name was the slowest to read and the program's own the fastest, which
+is backwards for the case it matters in.
+
+---
+
+### Postmortem
+
+**Breaking a rule deliberately to check the test would catch it hung the
+suite.** A full table makes linear probing spin, and the insert loop had no
+bound. It is bounded with an assert now — the failure a test is checked against
+should be a message, not a wait.
+
+**And I reported a test as failing to catch a deliberate break when it had
+not.** The binary was stale: `make` does not rebuild tests, `make test` does. On
+a proper rebuild the break was caught loudly — it breaks `object:new` itself.
+The lesson is smaller than the last few but the same shape: I read an old
+artifact and reported it as a result.
+
+---
+
 ## 2026-08-23 — a square root, a compiler that compiles itself, and six things measured wrong
 
 Three releases. 0.22.0 put `sqrt` in the machine and the whole language on one
