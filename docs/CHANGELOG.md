@@ -5,6 +5,44 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The debugger lists what a program bound — `pending`, 2026-08-24
+
+**`solid` gains `globals`**, and it answers the one question a program cannot
+ask about itself. `object:slots` lists the root *class*'s messages, which is not
+the global namespace and is a reasonable thing to mistake for it; the globals
+are slots on an object with no name in the language, so neither `slots` nor
+`perform` reaches them. A debugger holds the root object directly.
+
+```text
+(solid) globals
+  account          <object 0x10122e250>
+  rate             0.05
+  -- and 18 built in; `globals all` for those too
+```
+
+**Two decisions, and each is about what the listing is *for*.**
+
+It lists **what this program bound**, not the eighty-odd names the machine
+arrived with — those are counted and offered rather than printed, since a
+listing they dominate answers a question nobody asked. The split needs no
+bookkeeping per slot: a new name goes on the front of the root's slot list, so a
+count taken the moment the built-ins finish installing is a permanent boundary,
+and nothing removes a slot.
+
+And it lists them **in the order they were bound**, which is the reverse of the
+order they are stored in — the same front-insertion means reading the list
+straight through would put the last line of the program first. That is the order
+`slots` already answers in, so the two agree.
+
+A method is a slot on a class rather than a global, so `integer:double :=
+{ ... }` is not in the list; `integer:slots` is where that lives. Documented in
+[REFERENCE.md](REFERENCE.md#stopping-a-program-solid), and the test drives a
+real session through the prompt as the others do.
+
+**The in-language version of this is still not there and is still not an entry.**
+Reading or listing a namespace by computed name is 2.10's gap; a debugger
+answering *what is in scope right now* is tooling, which is what `solid` is for.
+
 ### Why binding is syntax, written down where it gets asked — `d935c45`, 2026-08-24
 
 **A question about the language rather than a change to it.** Everything in

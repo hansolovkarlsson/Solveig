@@ -101,6 +101,64 @@ static void test_breakpoint_and_locals(void)
     printf("  a breakpoint stops, and locals are named\n");
 }
 
+/* The globals, which is the one namespace a program cannot ask about itself:
+   they are slots on an object with no name in the language, so neither `slots`
+   nor `perform` reaches them. The debugger holds the root, so it can.
+
+   Two claims, and the second is the one worth having. The names this program
+   bound are listed **in the order they were bound**, not the order the slot
+   list holds them in -- a new slot goes on the front, so reading the list
+   straight through would put the last line of the program first. And the
+   eighty-odd names the machine arrived with stay out of the way until asked
+   for, since a listing they dominate answers a question nobody asked. */
+static void test_globals_are_what_this_program_bound(void)
+{
+    char out[16384];
+    /* The breakpoint is on a line that does not mention the method, so that
+       "not in the listing" is about the listing rather than about the source
+       line the debugger echoes when it stops. */
+    const char *program =
+        "first := #1.\n"
+        "second := \"two\".\n"
+        "integer:tripled := { self:mul(#3) }.\n"
+        "answer := #5:tripled.\n"
+        "answer:print.\n";
+
+    session(program, "break program.sol:5\\ncontinue\\nglobals\\nquit\\n",
+            out, sizeof out);
+
+    const char *a = strstr(out, "first");
+    const char *b = strstr(out, "second");
+    assert(a != NULL && b != NULL);
+    assert(a < b);                       /* bound first, listed first */
+    assert(strstr(out, "#1") != NULL);
+    assert(strstr(out, "\"two\"") != NULL);
+
+    /* A method is a slot on `integer`, not a global, so it is not here. */
+    assert(strstr(out, "tripled") == NULL);
+
+    /* And what the machine brought is counted rather than printed. */
+    assert(strstr(out, "built in") != NULL);
+    assert(strstr(out, "system") == NULL);
+
+    /* Until it is asked for, and then it is marked. */
+    session(program, "break program.sol:5\\ncontinue\\nglobals all\\nquit\\n",
+            out, sizeof out);
+    assert(strstr(out, "system") != NULL);
+    assert(strstr(out, "random") != NULL);
+    assert(strstr(out, "(built in)") != NULL);
+    /* The program's own are still last, and still unmarked. */
+    const char *mine = strstr(out, "second");
+    assert(mine != NULL && strstr(out, "system") < mine);
+
+    /* A program that binds nothing says so rather than printing an empty list. */
+    session("integer:doubled := { self:mul(#2) }.\n#5:doubled:print.\n",
+            "break program.sol:2\\ncontinue\\nglobals\\nquit\\n", out, sizeof out);
+    assert(strstr(out, "none bound by this program") != NULL);
+
+    printf("  globals are what this program bound, in the order it bound them\n");
+}
+
 /* A breakpoint inside a loop fires every time round. The first version of this
    suppressed the repeats, having confused "coming back to a line" with "coming
    back from a call written on it". */
@@ -181,6 +239,7 @@ int main(void)
     test_it_stops_at_the_start();
     test_stepping();
     test_breakpoint_and_locals();
+    test_globals_are_what_this_program_bound();
     test_a_breakpoint_in_a_loop_fires_each_time();
     test_a_breakpoint_fires_once_per_visit();
     test_it_stops_where_it_broke();

@@ -72,6 +72,7 @@ void sol_vm_init(SolVM *vm)
     vm->object_class = NULL;
     vm->symbol_class = NULL;
     vm->random_class = NULL;
+    vm->builtin_globals = 0;
     vm->symbols = NULL;
     vm->symbol_capacity = 0;
     vm->symbol_count = 0;
@@ -97,6 +98,7 @@ void sol_vm_init(SolVM *vm)
     vm->root = sol_object_new(vm, NULL);
 
     sol_builtins_install(vm);
+    vm->builtin_globals = vm->root->slot_count;   /* everything after is theirs */
 }
 
 /* The array `system:arguments` answers. Built the way every array of fresh
@@ -144,6 +146,7 @@ void sol_vm_free(SolVM *vm)
     vm->object_class = NULL;
     vm->symbol_class = NULL;
     vm->random_class = NULL;
+    vm->builtin_globals = 0;
 
     sol_text_free(&vm->error_message);
     sol_text_free(&vm->error_trace);

@@ -234,6 +234,39 @@ and `perform` take a computed name and a global takes only a literal one. No
 program here has wanted otherwise, so it is a note with a trigger rather than an
 entry.
 
+### And the same gap asked again, from the other side
+
+The follow-up question was practical rather than theoretical: *`object:slots` is
+perfect for seeing what an object answers — where do I print what is in the
+global space, or the local one?* Which is the same gap, met by someone trying to
+use the language rather than reasoning about it. `object:slots` lists the root
+*class*'s fifteen messages and is a reasonable thing to mistake for the globals.
+
+Laying out what actually exists made the answer obvious:
+
+| | list them | read one by name |
+| --- | --- | --- |
+| locals, from a program | no | no |
+| locals, in `solid` | **yes** | yes |
+| globals, from a program | no | no |
+| globals, in `solid` | **no** | yes |
+
+One empty cell, and the cheap one — the debugger already resolves a global by
+name off the root object, so listing is a walk of the same slot list. `globals`
+is fifteen lines and no language change, and **a debugger answering what is in
+scope needs no admission-rule argument at all**; that is what it is for.
+
+Two things fell out of the slot list's shape rather than needing bookkeeping. A
+new name goes on the *front*, so the count of slots taken the moment the
+built-ins finish installing is a permanent boundary between what the machine
+brought and what the program bound — and the same front-insertion means the list
+has to be walked backwards to show bindings in the order they were written.
+
+**The one mistake was in the test, not the code**: asserting that `tripled` did
+not appear anywhere in the session, when the breakpoint's own echoed source line
+was `#5:tripled:print.`. The listing was right; the assertion was asking a
+sloppier question than the one it meant.
+
 ---
 
 ### Postmortem

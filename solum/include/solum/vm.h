@@ -95,6 +95,13 @@ struct SolVM {
     SolObject *object_class;
     SolObject *symbol_class;
 
+    /* How many globals the built-ins bound, counted the moment they were
+       installed. A new name goes on the front of the root's slot list, so
+       everything a program binds sits ahead of that many slots -- which is what
+       lets a debugger show what this program bound rather than the whole root.
+       Nothing removes a slot, so the number stays true. */
+    int builtin_globals;
+
     /* Not a value type: `random` is an object whose children hold a generator's
        state in their payload. Kept here so a primitive can tell the prototype
        from something made with `random:new`, which is the difference between a

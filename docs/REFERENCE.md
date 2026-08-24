@@ -299,11 +299,32 @@ report.sol:5  in block
 | `continue`, `c` | run to the next breakpoint |
 | `where`, `w` | the frames, innermost first, with file and line |
 | `locals`, `l` | this frame's slots, **by name** |
+| `globals`, `g` | what this program bound; `globals all` adds the built-in names |
 | `print NAME`, `p` | a local, or a global, saying which |
 | `list [N]` | source around here, or from line N |
 | `break F:L`, `b` | stop at that line; `break L` for any file |
 | `breaks`, `delete N` | what is set, and dropping one |
 | `quit`, `q` | stop the program and leave |
+
+**`globals` is the one question a program cannot ask itself.** The globals are
+slots on an object with no name in the language, so neither `slots` nor
+`perform` reaches them — see
+[design.md](design.md#why-binding-is-syntax-and-not-a-message) and 2.10 in
+[ROADMAP.md](ROADMAP.md). A debugger holds the root object directly, so here it
+is answerable:
+
+```text
+(solid) globals
+  account          <object 0x10122e250>
+  rate             0.05
+  -- and 18 built in; `globals all` for those too
+```
+
+Listed **in the order they were bound**, which is not the order they are stored
+in — a new name goes on the front of the slot list, so reading it straight
+through would put the last line of the program first. And a method is a slot on
+a class rather than a global, so `integer:double := { ... }` is not in this
+list; `integer:slots` is where that lives.
 
 **A breakpoint's file is matched at the end of a path**, so `break json.sol:150`
 finds `lib/json.sol` without anybody having to type the include path it was

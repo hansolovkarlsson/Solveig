@@ -183,6 +183,53 @@ static void show_locals(const SolVM *vm)
     if (!any) printf("  (none)\n");
 }
 
+/* The globals, which is the one thing a program cannot ask for itself: they are
+   slots on an object with no name in the language, so `slots` cannot reach them
+   and neither can `perform` (2.10 in ROADMAP.md). A debugger holds the root
+   directly, so here the question is answerable.
+
+   What a person means by "the globals" is almost never the eighty-odd names the
+   machine arrived with. A new name goes on the front of the slot list, so the
+   ones this program bound are exactly the run ahead of `builtin_globals` -- and
+   they are printed oldest first, the order `slots` answers in and the order
+   they were written. `globals all` includes what was already there. */
+static void show_globals(const SolVM *vm, bool everything)
+{
+    int total = vm->root->slot_count;
+    int mine  = total - vm->builtin_globals;
+    int shown = everything ? total : mine;
+
+    if (shown <= 0) {
+        printf("  (none bound by this program)\n");
+        return;
+    }
+
+    /* The list runs newest first, and reading it that way would put the last
+       line of the program at the top. Collected and walked back instead. */
+    SolSlot **order = malloc(sizeof(SolSlot *) * (size_t)total);
+    if (order == NULL) { printf("  out of memory\n"); return; }
+
+    int count = 0;
+    for (SolSlot *slot = vm->root->slots; slot != NULL && count < total;
+         slot = slot->next) {
+        order[count++] = slot;
+    }
+
+    for (int i = shown - 1; i >= 0; i--) {
+        if (i >= count) continue;
+        printf("  %-16s ", order[i]->name);
+        print_value(order[i]->value);
+        if (everything && i >= mine) printf("    (built in)");
+        printf("\n");
+    }
+    free(order);
+
+    if (!everything && vm->builtin_globals > 0) {
+        printf("  -- and %d built in; `globals all` for those too\n",
+               vm->builtin_globals);
+    }
+}
+
 /* A name, looked for where a person would expect it: this frame first, then the
    globals. A local shadows a global of the same name inside its frame, and this
    answers the one the code at this line would have got. */
@@ -285,6 +332,7 @@ static void show_help(void)
         "  continue, c    run to the next breakpoint\n"
         "  where, w       the frames, innermost first\n"
         "  locals, l      this frame's slots, by name\n"
+        "  globals, g     what this program bound; `globals all` for the rest\n"
         "  print NAME, p  a local, or a global\n"
         "  list [N]       source around here, or from line N\n"
         "  break F:L, b   stop at that line; `break L` for any file\n"
@@ -336,6 +384,10 @@ static bool command(Solid *solid, SolVM *vm, char *line)
 
     if (!strcmp(word, "where") || !strcmp(word, "w")) { show_where(vm); return false; }
     if (!strcmp(word, "locals") || !strcmp(word, "l")) { show_locals(vm); return false; }
+    if (!strcmp(word, "globals") || !strcmp(word, "g")) {
+        show_globals(vm, !strcmp(rest, "all"));
+        return false;
+    }
     if (!strcmp(word, "help") || !strcmp(word, "?")) { show_help(); return false; }
     if (!strcmp(word, "breaks")) { show_breaks(solid); return false; }
 
