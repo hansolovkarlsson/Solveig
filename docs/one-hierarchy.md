@@ -61,8 +61,8 @@ nil:describe:display.               ; understood by nil
 [#1, #2]:describe:display.          ; understood by [#1, #2]
 { #1 }:describe:display.            ; understood by <block>
 dictionary:new:describe:display.    ; understood by <dictionary>
-system:time:describe:display.       ; understood by 2026-08-21T18:26:14Z
-error:new:describe:display.         ; understood by <object 0x102dfa500>
+system:time:describe:display.       ; -- understood by the moment it runs
+error:new:describe:display.         ; -- understood by <object 0x102dfa500>, at whatever address
 ```
 
 One definition, eleven kinds of receiver. Reflection walks the same chain, so it

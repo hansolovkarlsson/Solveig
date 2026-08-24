@@ -14,7 +14,7 @@ Languages with declared types usually give each type its own emptiness — a
 `String` that is `null` is still a `String`. Solum has one nil for everything,
 and asking a class for its own is not a thing you can do:
 
-```
+```text
 > a := string:nil.
 solvm: object does not understand 'nil'
 > b := integer:nil.
@@ -70,7 +70,7 @@ An empty value is a value, and answers everything its type answers:
 Which is what the refusal to make one with `new` is about — the empty string is
 not made, it is written:
 
-```
+```text
 > b := string:new.
 solvm: a string is written as a literal, not made with 'new' -- "" is the empty one
 ```
@@ -90,7 +90,7 @@ nil:respondsTo('print):print.      ; true
 
 Anything else is an error where it is asked:
 
-```
+```text
 > mystring:size.
 solvm: nil does not understand 'size'
 ```
@@ -105,7 +105,7 @@ type where a boolean was wanted is told so.
 Reflection is the one place nil is turned away by name rather than by not
 understanding, since the question only makes sense for objects:
 
-```
+```text
 > nil:slots.
 solvm: 'slots' expects an object, got nil -- only an object has slots of its own
 ```
@@ -136,7 +136,7 @@ so "declare it now, fill it in later" already works and needs no ceremony.
 
 A temporary and a slot behave differently, and the difference catches people:
 
-```
+```text
 > o := object:new.
 > o:missing:print.
 solvm: object does not understand 'missing'

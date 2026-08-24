@@ -350,7 +350,7 @@ Recovering from a failure was on that list until 0.2.0.
 
 Source text goes through the scanner, compiler, and dispatch loop:
 
-```
+```sh
 $ ./bin/solis
 > a := #45.
 > a:add(#5):print.

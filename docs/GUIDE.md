@@ -495,6 +495,9 @@ An override reaches the version it overrides through `self:via(ancestor)`, which
 begins the lookup at the ancestor but keeps `self` as the receiver:
 
 ```
+animal := object:new.
+dog := animal:new.
+
 animal:intro := { "I am ":concat(self:name) }.
 dog:intro := { self:via(animal):intro:concat("!") }.
 
@@ -636,9 +639,11 @@ Five messages, on every type: `slots`, `slotAt`, `respondsTo`, `isKindOf`, and
 `perform`. Names are given as symbols, which is what symbols were wanted for:
 
 ```
-point:slots:print.               ; ['x, 'y, 'show]
-p:respondsTo('show):print.       ; true
-p:perform('show):display.        ; (3, 4)
+p := point:new. p:x := #3. p:y := #4.
+
+point:slots:print.               ; ['x, 'sum]
+p:respondsTo('sum):print.        ; true
+p:perform('sum):print.           ; #7
 ```
 
 Because the built-in classes are just objects whose slots hold primitives,
@@ -654,7 +659,12 @@ value. What comes back is the plain block — and `self` comes from a send rathe
 than being carried by the block, so a fetched method has no receiver:
 
 ```
+counter := object:new. counter:n := #0.
+counter:bump := { self:n:add(#1) }.
 m := counter:slotAt('bump).
+```
+
+```
 m:value.
 solvm: nil does not understand 'n'
 ```
@@ -663,6 +673,9 @@ solvm: nil does not understand 'n'
 set:
 
 ```
+a := counter:new. a:n := #10.
+b := counter:new. b:n := #100.
+
 m:boundTo(a):value:print.        ; #11
 m:boundTo(b):value:print.        ; #101
 ```
@@ -884,7 +897,7 @@ instructions it may execute and `--memory=N` how much it may hold at once;
 neither is set unless somebody asks, so nothing you run yourself is affected.
 Reaching either ends the program where it stands, with a status of 124.
 
-```
+```sh
 $ solvm --steps=100000 loop.sob
 solvm: stopped: the step limit of 100000 was reached
   [loop.sol:3] in script

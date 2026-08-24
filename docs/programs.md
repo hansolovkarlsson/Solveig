@@ -379,13 +379,14 @@ table had when [disasm](#disasm--a-sob-file-read-and-disassembled) found it
 three sections out of date. They are also the first thing a newcomer reads.
 
 **It is in `make test` now**, in `tests/test_cli.c` with the other tests that
-run the binaries as a shell would — **589 claims on every build**, in about four
-seconds, and it fails the build if one stops holding.
+run the binaries as a shell would — **729 claims on every build**, in about
+sixteen seconds, and it fails the build if one stops holding.
 
 **And it checks the documentation too.** The guide and the reference carry the
 same notation inside ``` fences, and nothing checked those either — they are the
-two documents a newcomer actually reads. 189 claims across seventeen documents, and two more on `README.md` and
-`index.md` — the front pages, which were the last two things nothing checked.
+two documents a newcomer actually reads. 325 claims across eighteen documents,
+and two more on `README.md` and `index.md` — the front pages, which were the
+last two things nothing checked.
 
 **A block from a document runs in a scratch directory**, because this executes
 documentation and documentation shows how to delete things — one block with
@@ -400,18 +401,39 @@ filename — the illustration was never updated when the format changed. And
 three times, where it has **38**: messages were added and the count was not.
 That number is safe to state now precisely *because* it is checked.
 
-**A block that does not stand alone is not checked and not a failure.** Many
-continue a block further up, and some show syntax rather than a program; the
-checker counts them and prints the count, because one that silently verified a
-quarter of its subject would be worse than none. 42 of 155 blocks are in that
-category, and saying so is the point.
+**A block that does not run is a failure**, and that is a change: it used to be
+a count. The reading was that such a block continues one further up or shows
+syntax rather than a program — both true, and both also true of a block with a
+typo in it. Counting what was in them found **54 claims in 42 blocks**, one
+claim in thirteen, none of them checked and none of them reported.
+
+Two things emptied the category. **A page is read as a page**: a block that will
+not run alone is run again on everything the document established before it, so
+the reference's *continuing the `point` above* reaches a `point` 370 lines back.
+That accounts for 28 of the 42. And **a block that is not a program says so**,
+with a word after its fence — a `text` tag for a session or a sketch, `sh` for
+a shell transcript, `c` for C, the last two of which the documents were already
+writing. That accounts for 14. The remaining 8 were broken.
+
+The escape hatch is deliberately the visible one: a reader can see a fence that
+says `text`, and cannot see a silence in a count.
 
 `CHANGELOG.md` is the one document skipped — it records what was true at each
 release, so its snippets describe past states on purpose.
 
-**What it found.** Every claim that states a value holds — all 398. What it
-turned up instead was that the examples used **three conventions** for these
-comments and nobody had noticed, because nobody had had to parse them:
+**What it found**, once every block was actually being run: the guide asking
+`point:slots` for slots that page never defined, and `p:perform('show)` for a
+method nobody had written; the reference binding `integer:slotAt('poly)` where
+`poly` appears nowhere else in the document; a `lines` counter used and never
+initialised; a `point:slots` answer that had gone stale when the section above
+it gave `point` an `asString`; and, in `class-and-instance.md`,
+`#45:new(#1):print. ; #1` — a claim about what the language does that the
+language stopped doing, in a document whose own opening line says *every snippet
+here has been run*.
+
+Every claim that states a value now holds — all 729. What the first pass turned
+up instead was that the examples used **three conventions** for these comments
+and nobody had noticed, because nobody had had to parse them:
 
 ```
 ; #5                      the value alone

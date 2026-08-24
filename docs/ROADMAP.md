@@ -846,40 +846,94 @@ rather than about the language. It is here because this document claims to be
 the single list of what is outstanding, and a gap in what `make test` proves is
 outstanding.
 
-[expect.sol](../programs/expect.sol) checks 589 claims across 40 files on every
-build. Two kinds of thing in those same files are outside it.
+[expect.sol](../programs/expect.sol) checks 729 claims across 41 files on every
+build. **Two of the three gaps this entry opened with are closed**, and closing
+them found eight things wrong. What is left is the third, which is the one the
+entry expected least.
 
-**A fenced block that does not compile is not checked and not a failure.** It is
-counted and reported — 42 of 155 blocks — and the classification is *continues
-one further up, or shows syntax rather than a program*, both of which are real:
-a `$ ./bin/solis` transcript is not a program, and a block that carries on from
-the one above it cannot be run alone. But a block with a typo in it lands in
-exactly the same bucket, and one did: **`README.md`'s opening snippet, the four
-lines that introduce the language to everybody who arrives, was missing the `.`
-after `a := #45`** and had been seen and skipped every run.
+#### What a block that would not run was hiding — closed
 
-**Prose is not checked at all.** The checker reads comments in `.sol` files and
-fenced blocks in `.md` files. A sentence that states a number — *"586 claims on
-every build"*, *"`integer` has 24 slots"*, *"the fifth program here"* — is
-outside both. The second of those was found because it also appeared in a block;
-the first was stale for a day and was found by reading. Every count this
+A fenced block that did not compile was counted and reported rather than
+failed, on the reading that it *continues one further up, or shows syntax rather
+than a program*. Both are real, and both are also true of a block with a typo in
+it — `README.md`'s opening snippet, the four lines that introduce the language
+to everybody who arrives, was missing the `.` after `a := #45` and had been seen
+and skipped on every run.
+
+**Counting what was inside those blocks is what settled it: 54 claims in 42
+blocks, against 672 checked. One claim in thirteen.** And the split says where,
+which is not where this entry guessed. It proposed reporting the two categories
+apart on the theory that *does not compile at all* was the suspicious one, since
+that is what caught the README. It is the opposite. Ten blocks failed to compile
+and held **2** claims between them — the shell and REPL transcripts, as harmless
+as they looked. Thirty-one compiled and then failed at run time, and held the
+other **52**. A name defined in the block above is not a fragment showing syntax;
+it is a program with its first half on the previous page.
+
+So the block is given its first half. **A page is read as a page**: each block
+that runs is added to the document's context, and a block that will not run
+alone is run again on everything accepted before it. That is what the prose
+already says out loud — *continuing the `point` above* stands 370 lines and
+ninety blocks after the `point` in question — and it is why the cheaper thing
+does not work: prepending a fixed window of the nearest blocks recovers 24 of
+the 54 at a depth of five and not one more at twenty, because the distance is
+not the problem, what is between them is.
+
+**And a block that is not a program now says so**, with a word after its fence.
+The cost this entry named — *the convention has to be applied to 42 blocks
+before it can be enforced on the 43rd* — turned out to be 14 blocks, because 28
+of the 42 were programs all along. The documents were already tagging 31 fences
+`sh` and `c`, and the checker was compiling those as Solum anyway; a `text` tag
+joins them for a REPL session, a syntax exhibit, a sketch of a language that was
+never built. **A reader can see a fence that says `text`. Nobody can see a
+silence in a count.**
+
+With every remaining block either running or marked, a block that claims to be
+Solum and does not run **is a failure**, which was the whole point.
+
+#### What that found
+
+Eight blocks were broken, in documents that had been read for months:
+
+| | |
+| --- | --- |
+| [GUIDE.md](GUIDE.md) | `point:slots` asked for slots that page never defined, `p:respondsTo('show)` for a method nobody wrote, and `rex:intro` for an `animal` and a `dog` that appear nowhere in the file |
+| [REFERENCE.md](REFERENCE.md) | `integer:slotAt('poly)` where `poly` occurs exactly once in the document — at the line that uses it; a `lines` counter used and never initialised; `d:atPut` on an undeclared `d`; the same missing `animal` and `dog` |
+| [REFERENCE.md](REFERENCE.md) | `point:slots` answering `['x, 'y, 'sum, 'make]` when the section above it had already given `point` an `asString` |
+| [class-and-instance.md](class-and-instance.md) | `#45:new(#1):print. ; #1` — a claim about what the language *does*, which the language stopped doing. In a document whose first paragraph says *every snippet here has been run; the outputs are what the VM actually prints* |
+| [one-hierarchy.md](one-hierarchy.md) | two claims that could never hold — a timestamp and a heap address — now written as the asides they are |
+
+The two things worth keeping from that list: the failures cluster where a
+document runs one example through a long section, and the one that had been
+wrong longest was a claim about the language rather than about a value.
+
+#### Prose is still not checked
+
+The checker reads comments in `.sol` files and fenced blocks in `.md` files. A
+sentence that states a number — *"729 claims on every build"*, *"`integer` has
+24 slots"*, *"the fifth program here"* — is outside both, and every count this
 repository states about itself in a sentence has the standing that the examples'
 comments had before any of this existed.
 
-**And it happened again the day after this was written.**
-[programs.md](programs.md) said *the nine files in programs/*, *one of these
-seven*, and *what the seven have in common*, on a page describing ten programs —
-three stale counts on one page, two of them wrong by three. Found by reading it
-for another reason. That is the third instance, which is enough to say the
-category is not hypothetical: **this document's third row, recomputing the
-handful of counts the repository states about itself, is the one worth building
-if any of them is.**
+It keeps happening. [programs.md](programs.md) said *the nine files in
+programs/*, *one of these seven*, and *what the seven have in common*, on a page
+describing ten programs. `README.md`, `programs.md` and this entry all said
+*589 claims* for three releases after it stopped being 589. And `expect.sol`
+itself carried a comment promising that the report *says how far apart the match
+was found when it was not the next line*, which it has never done — the fault
+the program exists to catch, sitting in the program, in the one place it does
+not look.
 
-**A claim on a line that does not itself print is not checked either**, and this
-one was found by writing [CHEATSHEET.md](CHEATSHEET.md), which is 64 examples on
-one page and so met every edge the checker has. A block that ends
+**What is available is narrower than checking prose and might be enough.** This
+repository states a handful of counts about *itself*, and a test could recompute
+those and grep for a stale one. That is now the whole of this entry, and it has
+more instances behind it than anything else here.
 
-```
+#### A claim on a line that does not print, still
+
+A block that ends
+
+```text
 point := object:new.
 point:x := #3.
 point:show := { self:x:print }.
@@ -891,24 +945,16 @@ that *says* `print` or `display`, and here the printing happens inside the
 method. The same goes for a second and third line of output written under the
 first — only the first carries a claim. **The checker says so** — it counts
 those lines and reports *N lines print without saying what, and are not
-checked* — so this is a milder thing than the two above, which is why it is a
-paragraph rather than a row. But a page of sixty examples makes it easy for one
-to drift into that bucket, and the fix on the document's side is to write the
-example so the printing line is the claiming line.
+checked* — which is why this is a heading rather than the entry. The fix on the
+document's side is to write the example so the printing line is the claiming
+line.
 
-**What an answer would cost.**
-
-| | |
-| --- | --- |
-| a marker for a block that is deliberately not a program | Smallest, and it puts the work on every document. A fence could be ` ```text ` where it is not Solum, and then a block that *claims* to be Solum and does not compile is a failure. The cost is that the convention has to be applied to 42 blocks before it can be enforced on the 43rd, and a document is a bad place to be strict about something a reader cannot see. |
-| report the two categories separately | Cheap and partial: *continues one above* is detectable (the block does not compile *and* the one before it exists), where *does not compile at all and starts a new thought* is the suspicious case. It would have caught the README. It would not catch a block that compiles and is wrong about what it prints, but that case is already checked. |
-| check the prose | Not obviously possible, and probably not worth it. A number in a sentence has no notation saying what it counts. What is available is narrower and might be enough: this repository states a handful of counts about *itself*, and a test could recompute those and grep for a stale one. |
-
-**Nothing is blocked**, and the reason it is written down rather than fixed is
-that the second column is a judgement about documents rather than about code,
-which is yours. What the entry preserves is the specific failure: the category
-that keeps a checker honest about what it cannot check is also the place a real
-fault can hide.
+**What it costs to run.** `make test` went from about seven seconds to about
+twenty, and nearly all of it is here: a page's context is a second program that
+grows with the page and is re-run for every block under it. The cheap thing —
+adding up what each block wrote by itself instead of measuring the two together
+— is wrong in the way that matters, because being one line out is not a failure
+that shows, it is a claim matched against somebody else's output.
 
 ### 3.17 A global is found by walking a list
 

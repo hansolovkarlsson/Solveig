@@ -460,10 +460,14 @@ static void test_the_limits_are_off_and_are_checked(void)
  * format that predates 6.27 adding the filename, and class-and-instance.md said
  * `integer` has 24 slots where it has 38.
  *
- * A block that continues one further up, or that shows syntax rather than a
- * program, is **not checked and not a failure**. The checker counts those and
- * prints the count, because one that silently verified a quarter of its subject
- * would be worse than none.
+ * A block that will not run is a failure, and the escape is a word after the
+ * fence: a `text` tag for a session or a sketch, `sh` for a shell transcript.
+ * That
+ * used to be a count instead, and the count hid 54 claims in 42 blocks --
+ * including the guide's `point:slots` answering slots that page never defined,
+ * the reference using an `integer:poly` that appears nowhere else in it, and
+ * class-and-instance.md's `#45:new(#1):print. ; #1`, which the language stopped
+ * doing at some point without the document noticing.
  *
  * CHANGELOG.md is the one document skipped: it records what was true at each
  * release, so its snippets describe past states on purpose. */
@@ -483,15 +487,16 @@ static void test_everything_written_down_is_true(void)
     }
 
     /* And the count, so that a checker which quietly stopped finding anything
-       to check fails too. It was 589 across 40 files when this went in; the
-       floor is there to catch a collapse, not to be updated for every example
-       that gains a line. */
+       to check fails too. It was 589 across 40 files when this went in and 729
+       across 41 once blocks began to be read on the page they were written
+       under; the floor is there to catch a collapse, not to be updated for
+       every example that gains a line. */
     int claims = 0;
     const char *at = strstr(out, "claims checked");
     assert(at != NULL);
     while (at > out && *at != ',') at--;
     assert(sscanf(at, ", %d claims checked", &claims) == 1);
-    assert(claims >= 500);
+    assert(claims >= 700);
 
     printf("  everything written down is true (%d claims)\n", claims);
 }

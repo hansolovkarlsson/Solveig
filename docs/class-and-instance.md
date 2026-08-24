@@ -37,15 +37,26 @@ One bag of slots, two roles, and nothing in the object distinguishes them.
 
 ## What that costs
 
-### An instance answers a class-side message
+### An instance still finds a class-side message
 
 ```
-#45:new(#1):print.               ; #1
-[#1]:of(#1, #2):print.           ; [#1, #2]
+#45:new(#1).                     ; solvm: 'new' expects an object, got integer
 ```
 
-`#45:new(#1)` is nonsense, and it works. Lookup for `#45` starts at `integer`,
-and `new` is sitting there beside `add`.
+```
+[#1]:of(#1, #2).                 ; solvm: 'of' expects an object, got array
+```
+
+`#45:new(#1)` is nonsense, and **lookup finds it anyway**. Lookup for `#45`
+starts at `integer`, and `new` is sitting there beside `add`, so the send
+resolves; what stops it is the primitive on the other end checking what it was
+handed. The slot is on one side and the refusal is on the other, which is the
+shape of the whole answer: nothing in the object separates the two roles, so
+the separation has to be drawn where the work happens.
+
+*Both of those used to answer `#1` and `[#1, #2]`, and this document said so for
+a long time after they stopped. Nothing ran them: they sat in the pile of blocks
+the checker could not compile, which is [3.16](ROADMAP.md#316-what-the-checker-does-not-check).*
 
 ### It used to be a crash going the other way
 
@@ -150,7 +161,7 @@ about. Built as an experiment — `integer:new` with no argument answering
 `sol_object_new(vm, vm->integer_class)`, on a throwaway copy of the tree — it
 looks right at first:
 
-```
+```text
 a := integer:new.
 a:isKindOf(integer):print.       ; true
 a:tag := #7.
@@ -417,7 +428,7 @@ the literal `#45`."*
 
 It was not even a uniform protocol, because the arities disagreed:
 
-```
+```text
 integer:new.        ; solvm: 'new' takes 1 argument, got 0
 array:new(#1).      ; solvm: 'new' takes 0 arguments, got 1
 ```

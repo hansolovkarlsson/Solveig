@@ -176,7 +176,7 @@ wearing two hats. Both are fixed.
 
 ### 1.5 `array:print` crashed the VM — **done**
 
-```
+```text
 array:print.        ; was: segmentation fault
 block:print.        ; was: segmentation fault
 ```
@@ -1975,6 +1975,8 @@ who can fix it. HTML is generated, served, and wrong. A reader that stops is no
 use, so this one recovers and keeps a list:
 
 ```
+@include "html.sol".
+
 page := html:read("<b>bold</i>").
 page:text:display.                              ; bold
 html:complaints:do({ c | c:display }).

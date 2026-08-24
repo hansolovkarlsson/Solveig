@@ -234,7 +234,7 @@ compiled file before running.
 `solis --interactive file.sol` runs the file and then stays at the prompt, with
 everything the program bound still bound — **including after it fails**:
 
-```
+```sh
 $ solis --interactive report.sol
 solvm: index #99 is out of bounds for an array of size 4
   [line 7] in script
@@ -482,10 +482,12 @@ program asks for it by name:
 ```
 @include "control.sol".
 
-#3:repeat({ "tick":display }).
+#3:repeat({ "tick":display }).               ; tick tick tick
+lines := #0.
 { lines := lines:add(#1) }:doUntil({ lines:greaterOrEqual(#3) }).
+lines:print.                                 ; #3
 #1:toByDo(#10, #3, { n | n:display }).       ; 1 4 7 10
-#4:timesCollect({ n | n:mul(n) }).           ; [#1, #4, #9, #16]
+#4:timesCollect({ n | n:mul(n) }):print.     ; [#1, #4, #9, #16]
 ```
 
 | Message | Answers |
@@ -875,7 +877,7 @@ not here.
 `system:readKey` answers **one byte** as a one-character string, or **nil** at
 the end of input, and does not wait for return:
 
-```
+```text
 key := system:readKey.
 key:asByte:print.        ; #97 for "a", pressed on its own
 ```
@@ -1039,6 +1041,8 @@ Every refusal names the reason the system gave, so a script can tell a missing
 file from a directory that still has something in it:
 
 ```
+system:makeDirectory("build").
+system:writeFile("build/kept.txt", "something").
 system:remove("build").
 solvm: cannot remove 'build': Directory not empty
 ```
@@ -1719,6 +1723,9 @@ is an easy loop to write.
 `self` inside the ancestor's method is still the instance.
 
 ```
+animal := object:new.
+dog := animal:new.
+
 animal:intro := { "I am ":concat(self:name) }.
 dog:intro := { self:via(animal):intro:concat("!") }.
 
@@ -1917,10 +1924,11 @@ because a symbol is what a name is and comparing one is a pointer comparison.
 | `isKindOf(class)` | whether the receiver delegates to `class`, at any depth |
 | `perform(name, ...)` | the answer to a send whose name is decided at run time |
 
-Continuing the `point` above:
+Continuing the `point` above -- which by now carries the `asString` the section
+before gave it, and `slots` says so:
 
 ```
-point:slots:print.               ; ['x, 'y, 'sum, 'make]
+point:slots:print.               ; ['x, 'y, 'sum, 'make, 'asString]
 p:isKindOf(point):print.         ; true
 p:respondsTo('sum):print.        ; true
 p:perform('sum):print.           ; #7
@@ -1955,6 +1963,7 @@ p:perform('sum):print.   ; #7 -- the receiver comes from the send
 including what it is for, is in [fetched-methods.md](fetched-methods.md):
 
 ```
+m := point:slotAt('sum).
 bound := m:boundTo(p).
 bound:value:print.       ; #7
 ```
@@ -1964,6 +1973,7 @@ means exactly what it always meant -- the arguments are the block's own, and the
 receiver is not one of them:
 
 ```
+integer:poly := { a, b | self:mul(a):add(b) }.
 n := integer:slotAt('poly):boundTo(#10).
 n:value(#3, #7):print.   ; #37
 ```
@@ -2481,6 +2491,7 @@ alike would be two keys — the right answer for `equals` and a useless one here
 so they are refused rather than quietly behaving that way:
 
 ```
+d := dictionary:new.
 d:atPut([#1], "nope").
 solvm: 'atPut' wants a value for a key, got array -- those are compared by identity, so two that look alike would be two keys
 ```

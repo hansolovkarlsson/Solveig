@@ -5,6 +5,96 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### A page is read as a page, and a block that will not run is a failure — `pending`, 2026-08-23
+
+**[3.16](ROADMAP.md#316-what-the-checker-does-not-check) had three gaps in it
+and two are now closed.** [expect.sol](../programs/expect.sol) checks **729
+claims** where it checked 672, and the difference is not new documentation: it
+is claims that were being written down, printed past, and never read.
+
+**What was hiding.** A fenced block that would not run alone was counted and
+reported rather than failed, on the reading that it *continues one further up,
+or shows syntax rather than a program*. Both are real. Both are also true of a
+block with a typo in it. Counting what was inside those blocks settled it:
+**54 claims in 42 blocks, one claim in thirteen.**
+
+And the split says where, which is not where the entry guessed. It proposed
+telling the two categories apart on the theory that *would not compile* was the
+suspicious one, since that is what caught `README.md`'s opening snippet. It is
+the other way round. Ten blocks failed to compile and held **2** claims between
+them — the shell and REPL transcripts, as harmless as they looked. Thirty-one
+compiled and then failed at run time, and held the other **52**.
+
+**A page is now read as a page.** Each block that runs joins the document's
+context, and a block that will not run alone is run again on everything accepted
+before it — which is what the prose says out loud, since *continuing the `point`
+above* stands 370 lines and ninety blocks after the `point` in question. That
+recovers 28 of the 42. The cheaper thing does not work: a fixed window of the
+nearest blocks recovers 24 of the 54 claims at a depth of five and not one more
+at twenty, because the distance is not the problem, what is between them is.
+
+Three things had to be got right, and each was got wrong first.
+
+- **The context cannot satisfy the block's claims.** How much it writes on its
+  own is known before the block is appended, and only what came after is read.
+- **A complaint is read wherever it lands.** With stderr merged the streams
+  interleave by buffering rather than by source, so taking the context's line
+  *count* off the front does not take the context's *lines* off the front. It
+  left `solvm: undefined name 'animal'` in the part being skipped, and nine
+  blocks were accepted as having run when they had produced nothing.
+- **The program has to say it reached the end.** `system:exit` unwinds, which is
+  documented behaviour with a block of its own on page 801 of the reference —
+  and that block joined the context, after which the page's context was a
+  program that exited before reaching anything, for ninety blocks. A line
+  printing a word nothing else prints is appended, and if it does not come back
+  the context does not grow.
+
+**And a block that is not a program says so.** The cost the entry named — *the
+convention has to be applied to 42 blocks before it can be enforced on the 43rd*
+— was 14 blocks, because 28 of the 42 were programs all along. The documents
+were already tagging 31 fences `sh` and `c`; a `text` tag joins them for a REPL
+session, a syntax exhibit, a sketch of a language that was never built. A reader
+can see a fence that says `text`; nobody can see a silence in a count.
+
+**With that, a block claiming to be Solum and failing to run is a failure**,
+which was the point of the entry. Confirmed by breaking one deliberately, both
+ways: a missing `.` and an undefined name each fail the build.
+
+**Eight blocks were broken**, in documents that have been read for months:
+
+| | |
+| --- | --- |
+| [GUIDE.md](GUIDE.md) | `point:slots` asked for slots that page never defined and `p:respondsTo('show)` for a method nobody wrote; `rex:intro` wanted an `animal` and a `dog` that appear nowhere in the file; `m:boundTo(a)` wanted a `counter` from a different document |
+| [REFERENCE.md](REFERENCE.md) | `integer:slotAt('poly)` where `poly` occurs exactly once in the document — at the line that uses it; a `lines` counter used and never initialised; `d:atPut` on an undeclared `d`; the same missing `animal` and `dog`; and `point:slots` answering `['x, 'y, 'sum, 'make]` when the section above had already given `point` an `asString` |
+| [class-and-instance.md](class-and-instance.md) | `#45:new(#1):print.  ; #1` — a claim about what the language *does*, which the language stopped doing. In a document whose first paragraph says *every snippet here has been run; the outputs are what the VM actually prints* |
+| [one-hierarchy.md](one-hierarchy.md) | two claims that could never hold — a timestamp and a heap address — now written as the asides they are |
+
+The one that had been wrong longest was a claim about the language rather than
+about a value, and the failures cluster where a document runs one example
+through a long section.
+
+**An error written on the line that raised it is now read as one.** The
+reference writes `m:value.  ; solvm: nil does not understand 'x'` where the
+guide writes the same thing on two lines, and only the two-line form was
+recognised — so the one-line form was read as a claim about what that line
+*printed*, which it cannot be, and the block went in the not-checked pile with
+everything else it claimed.
+
+**What it costs**: `make test` goes from about seven seconds to about twenty. A
+page's context is a second program that grows with the page and is re-run for
+every block under it. The cheap version — adding up what each block wrote by
+itself instead of measuring the two together — is wrong in the way that matters,
+because being one line out is not a failure that shows, it is a claim matched
+against somebody else's output.
+
+**What is left of 3.16 is prose**, which is now the whole entry and has more
+instances behind it than anything else open. `README.md`, `programs.md` and the
+entry itself all said *589 claims* for three releases after it stopped being
+589 — and `expect.sol` carried a comment promising the report *says how far
+apart the match was found when it was not the next line*, which it has never
+done. The fault the program exists to catch, sitting in the program, in the one
+place it does not look.
+
 ## 0.25.0 — 2026-08-23
 
 **A journal release. No code changed** — `.sob` files are format version 14,

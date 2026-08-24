@@ -4,7 +4,7 @@
 
 The whole project started from this sketch (`notes.txt`, kept verbatim):
 
-```
+```text
 new virtual machine
 
 parts:
@@ -213,7 +213,7 @@ holding that same object. This split is what lets numbers ride unboxed in
 
 ## Syntax
 
-```
+```text
 a := #45         ; ':=' binds a name; '#' tags an integer literal
 b := 45          ; a bare number is a float
 s := "hello"     ; double quotes are strings
