@@ -95,6 +95,12 @@ struct SolVM {
     SolObject *object_class;
     SolObject *symbol_class;
 
+    /* Not a value type: `random` is an object whose children hold a generator's
+       state in their payload. Kept here so a primitive can tell the prototype
+       from something made with `random:new`, which is the difference between a
+       generator and a shared global one. */
+    SolObject *random_class;
+
     /* The intern table: buckets of symbols chained by `chain`. Weak, so being
        here does not keep a symbol alive. */
     SolSymbol **symbols;

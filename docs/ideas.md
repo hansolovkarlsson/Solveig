@@ -50,7 +50,7 @@ marked as a sketch.
 | An early exit from a loop | **Defer** — nine sites carry a flag; the trigger is a body that must skip its remainder ([3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing)) |
 | Intercepting a message not understood | **Defer** — Smalltalk's `doesNotUnderstand`; small to build, and nothing has wanted a proxy |
 | A set, and the collections that are not there | **Defer** — write them in Solum and measure first, as the four loops did |
-| Mathematics, and randomness | **Promoted, half answered** — `sqrt` and the comparisons landed; randomness, and trigonometry, are still [3.14](ROADMAP.md#314-there-is-no-source-of-randomness) |
+| Mathematics, and randomness | **Promoted, and built but for the trigonometry** — `sqrt`, the comparisons and `random:new` all landed; what is left is [3.14](ROADMAP.md#314-the-mathematics-that-is-not-here) |
 | Tail calls | **No** — the programs that seem to ask for them are recursive-descent parsers, which never recurse in tail position |
 | Coroutines | **No** — the interpreter re-enters on the C stack, so a Solum stack is not a value |
 | Multiple return values | **No** — every send has a fixed stack effect, and the verifier checks height on that basis |
@@ -1262,7 +1262,7 @@ has been used for.
 **The trigger fired**, with the tenth.
 [bench.sol](../programs/bench.sol) wanted a standard deviation, a minimum, a
 maximum and two uses of randomness, and carried all of them itself. The entry
-moved to [3.14](ROADMAP.md#314-there-is-no-source-of-randomness).
+moved to [3.14](ROADMAP.md#314-the-mathematics-that-is-not-here).
 
 **Half of it is now answered, and the split is the interesting part.** `sqrt` is
 a primitive; `min`, `max` and `between` are [math.sol](../lib/math.sol), a
@@ -1273,10 +1273,25 @@ and there is nothing in them to get wrong, and the square root was written
 than the first by nineteen orders of magnitude above 1e21. A thing every program
 would get wrong the same way belongs in the machine.
 
-The paragraph above about where randomness should live survived contact with the
-program and is still the open question. Its trigger is unchanged and has still
-not fired: a program wanting randomness for what it does rather than for how it
-measures.
+**The paragraph above about where randomness should live was right, and it is
+what got built.** *A random source wants to be a thing you make with a seed you
+can name, not a message on `integer`* — which is `random:new` and
+`random:new(#seed)`, state in the object, nothing global, written here before
+anything was measured and not improved on afterwards.
+
+**The trigger was the part that was wrong.** It said this waited on a program
+wanting randomness *for what it does rather than for how it measures*, and
+counted `bench.sol` as the second kind. That misread the program: its product is
+the confidence interval and the interval is computed by bootstrap resampling, so
+the randomness is the algorithm rather than the instrumentation. The trigger had
+fired on the day it was written and went on looking unfired for four releases.
+
+What actually settled it was measuring the generator that program carried. It
+was correct and its *seeding* was not — the clock being the only entropy a Solum
+program can reach, two runs a microsecond apart got consecutive seeds, and the
+first coin flip was then exactly the parity of the start time. Neither that nor
+the modulo bias on the way out could be fixed in Solum, which is the argument
+that made `sqrt` a primitive.
 
 The trigonometry named at the top of this entry is in 3.14 too, with its own
 trigger and the reason it would be a primitive rather than a library when it
@@ -1621,7 +1636,7 @@ and a warning is not enough.
 
 `pi` needs none of this, incidentally. It is two lines in
 [math.sol](../lib/math.sol) whenever a program wants one — and none has, there
-being no trigonometry either ([3.14](ROADMAP.md#314-there-is-no-source-of-randomness)).
+being no trigonometry either ([3.14](ROADMAP.md#314-the-mathematics-that-is-not-here)).
 
 ## Recommended against
 

@@ -71,6 +71,7 @@ void sol_vm_init(SolVM *vm)
     vm->string_class = NULL;
     vm->object_class = NULL;
     vm->symbol_class = NULL;
+    vm->random_class = NULL;
     vm->symbols = NULL;
     vm->symbol_capacity = 0;
     vm->symbol_count = 0;
@@ -142,6 +143,7 @@ void sol_vm_free(SolVM *vm)
     vm->string_class = NULL;
     vm->object_class = NULL;
     vm->symbol_class = NULL;
+    vm->random_class = NULL;
 
     sol_text_free(&vm->error_message);
     sol_text_free(&vm->error_trace);

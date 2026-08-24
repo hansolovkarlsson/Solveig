@@ -221,7 +221,7 @@ static const char *shipped[] = {
     "examples/strictness.sol", "examples/dictionaries.sol",
     "examples/loops.sol",      "examples/errors.sol",
     "examples/walk.sol",       "examples/time.sol",
-    "examples/keys.sol",
+    "examples/keys.sol",      "examples/random.sol",
 
     "programs/log.sol",        "programs/evaluator.sol",
     "programs/manifest.sol",   "programs/page.sol",

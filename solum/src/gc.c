@@ -261,6 +261,7 @@ static void mark_roots(SolVM *vm)
     mark_cell(vm, (SolGCHeader *)vm->dict_class);
     mark_cell(vm, (SolGCHeader *)vm->error_class);
     mark_cell(vm, (SolGCHeader *)vm->time_class);
+    mark_cell(vm, (SolGCHeader *)vm->random_class);
     mark_cell(vm, (SolGCHeader *)vm->string_class);
     mark_cell(vm, (SolGCHeader *)vm->object_class);
     mark_cell(vm, (SolGCHeader *)vm->symbol_class);

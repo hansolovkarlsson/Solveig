@@ -172,7 +172,7 @@ Two of them run on [lib/json.sol](lib/json.sol) and
 [lib/html.sol](lib/html.sol) — a JSON reader and an HTML reader written in
 Solum.
 
-**`examples/`** — twenty-five demonstrations, one for every concept the
+**`examples/`** — twenty-six<!--count examples--> demonstrations, one for every concept the
 [guide](docs/GUIDE.md) names:
 [hello](examples/hello.sol),
 [binding](examples/binding.sol),
@@ -198,4 +198,5 @@ Solum.
 [errors](examples/errors.sol),
 [walk](examples/walk.sol),
 [time](examples/time.sol),
-[keys](examples/keys.sol).
+[keys](examples/keys.sol),
+[random](examples/random.sol).

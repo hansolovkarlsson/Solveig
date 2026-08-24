@@ -78,6 +78,7 @@ a:print.
   - [block](#block)
   - [object](#object)
   - [system](#system)
+  - [random](#random)
   - [nil](#nil)
 - **[How errors are reported](#how-errors-are-reported)**
 - **[Limits](#limits)**
@@ -2196,7 +2197,7 @@ itself and get right. Newton's method converges quadratically only once the
 guess is near, and from `x` itself the approach is one halving per octave, so a
 fixed iteration count is wrong for large `x` and a capped loop is wrong by
 orders of magnitude — both were written in this repository and both were silent
-about it ([3.14](ROADMAP.md#314-there-is-no-source-of-randomness)). It is float
+about it ([3.14](ROADMAP.md#314-the-mathematics-that-is-not-here)). It is float
 only: `#2:asFloat:sqrt` is how an integer asks, since no arithmetic message here
 crosses the two types.
 
@@ -2724,6 +2725,75 @@ it delegates to `object` like everything else. See
 | `modeOf(path)` | the permission bits, as an integer |
 | `setMode(path, #mode)` | nil, having set them; `#0` to `#4095` |
 
+### random
+
+A generator, and **you make one**: `random:new` is seeded by the machine and
+`random:new(#seed)` is seeded by you and repeats. The prototype answers neither
+`upTo` nor `fraction` — a generator has to be something `new` made, because one
+shared by everything that reached for it is what having `new` avoids.
+
+| Message | Answers |
+| --- | --- |
+| `new` | a generator, seeded by the machine |
+| `new(#seed)` | a generator seeded by you, which repeats exactly |
+| `seed` | the integer it was made with — a **slot**, so `slots` shows it |
+| `upTo(#n)` | an integer from `#1` to `#n`, both included |
+| `between(#a, #b)` | an integer from `#a` to `#b`, both included |
+| `fraction` | a float, at least `0.0` and always less than `1.0` |
+
+```
+r := random:new(#20260824).
+r:upTo(#6):print.                ; #3
+r:between(#-3, #3):print.        ; #0
+r:seed:print.                    ; #20260824
+
+colours := ["red", "green", "blue"].
+colours:at(r:upTo(colours:size)):display.        ; red
+```
+
+**`upTo` counts from #1** because an array is indexed from #1 and picking one of
+something is what it is mostly for: `xs:at(r:upTo(xs:size))` needs no
+adjustment, and an off-by-one there is the mistake this shape removes.
+
+**Where the state lives is the decision.** It is in the object, so a program
+that never says `random:new` is exactly as deterministic as it was before this
+existed, and two runs of one chunk still produce the same bytes. That matters
+to an embedder: [embedding.md](embedding.md) promises *one chunk, any number of
+machines*, and a chunk carrying a generator's state would not be that. A
+generator on `system` would have given the machine a history instead.
+
+**The seed is a slot rather than a message**, because it is data: it records
+what this generator was made with, so a run seeded by the machine can be had
+again by writing the number down. Assigning to it records something untrue
+rather than reseeding; there is no message that reseeds, since a generator you
+can restart from the middle is one nobody can reason about.
+
+```
+machine := random:new.
+machine:seed:print.              ; -- whatever the machine chose
+random:new(machine:seed).        ; -- and that run again
+```
+
+**Why this is in the machine and not a library.** Lehmer's generator is eight
+lines of Solum, and [bench.sol](../programs/bench.sol) carried one for four
+releases. Every part around those eight lines is a trap:
+
+- The textbook generator needs multiplication that **wraps**, and integer
+  arithmetic here traps on overflow instead — so the one everybody knows cannot
+  be written in this language at all.
+- A seed could only come from `system:clock`, and a clock's low bits are not
+  entropy. Measured on the generator `bench.sol` carried: two runs a microsecond
+  apart get consecutive seeds, and the **first coin flip is then exactly the
+  parity of the start time**, while the first index into 21 takes three values
+  out of 21 — forever, in every run.
+- `mod n` on the way out is biased toward the low values, by the fraction of the
+  word that does not divide evenly.
+
+None of the three shows in the output, which is the same argument that made
+`sqrt` a primitive: a thing every program gets wrong the same way belongs in the
+machine. The generator is PCG XSH RR 32/64, its state is the object's payload,
+and `upTo` draws again rather than taking a remainder.
+
 ### nil
 
 `print`, `display`, `asString`, `equals`, `notEquals`, `isNil`, `notNil`, and the
@@ -2808,7 +2878,7 @@ has been given, and cannot give itself more.
 Every built-in message and the types that answer it. The question a reference
 gets asked is usually *what has `copyFrom`?* rather than *what does a string
 do?*, and the sections above answer only the second — so this answers the first.
-122 messages across 216 registrations.
+125 messages across 220 registrations.
 
 **A test keeps it honest**: a message registered in `builtins.c` and missing
 from here fails the build, which is the same bargain that makes every message
@@ -2838,6 +2908,7 @@ appear in an example.
 | `bitNot` | [integer](#integer) |
 | `bitOr` | [integer](#integer) |
 | `bitXor` | [integer](#integer) |
+| `between` | [random](#random) |
 | `boundTo` | [block](#block) |
 | `capture` | [system](#system) |
 | `ceiling` | [float](#float) |
@@ -2861,6 +2932,7 @@ appear in an example.
 | `fill` | [string](#string) |
 | `first` | [array](#array) |
 | `floor` | [float](#float) |
+| `fraction` | [random](#random) |
 | `fromSeconds` | [time](#time) |
 | `greaterOrEqual` | [float](#float), [integer](#integer), [string](#string), [symbol](#symbol), [time](#time) |
 | `greaterThan` | [float](#float), [integer](#integer), [string](#string), [symbol](#symbol), [time](#time) |
@@ -2889,7 +2961,7 @@ appear in an example.
 | `month` | [time](#time) |
 | `mul` | [float](#float), [integer](#integer) |
 | `negated` | [float](#float), [integer](#integer) |
-| `new` | [object](#object), [array](#array), [dictionary](#dictionary) — the rest refuse and say what to write |
+| `new` | [object](#object), [array](#array), [dictionary](#dictionary), [random](#random) — the rest refuse and say what to write |
 | `not` | [boolean](#boolean) |
 | `notEquals` | [every type](#every-type) |
 | `notNil` | [every type](#every-type) |
@@ -2931,6 +3003,7 @@ appear in an example.
 | `toDo` | [integer](#integer) |
 | `trim` | [string](#string) |
 | `truncated` | [float](#float) |
+| `upTo` | [random](#random) |
 | `value` | [block](#block) |
 | `values` | [dictionary](#dictionary) |
 | `via` | [object](#object) |

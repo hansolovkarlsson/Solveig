@@ -573,9 +573,29 @@ numberWords := ["zero", "one", "two", "three", "four", "five", "six", "seven",
                 "fourteen", "fifteen", "sixteen", "seventeen", "eighteen",
                 "nineteen", "twenty"].
 
+; And the tens, so that *twenty-six examples* is a number this can read. The
+; alternative was to list every word up to ninety-nine, and the one after that
+; was to ask the prose to write `26`, which is the thing the comment below
+; refuses to do about emphasis marks and is no more reasonable here.
+tensWords := ["twenty", "thirty", "forty", "fifty",
+              "sixty", "seventy", "eighty", "ninety"].
+
+hyphenated := { t | | at, tens, units |
+    at := t:indexOf("-").
+    at:isNil:ifElse(
+        { nil },
+        { tens  := tensWords:indexOf(t:copyFrom(#1, at:sub(#1))).
+          units := numberWords:indexOf(t:copyFrom(at:add(#1), t:size)).
+          tens:isNil:or({ units:isNil }):or({ units:greaterThan(#10) }):ifElse(
+              { nil },
+              { tens:add(#1):mul(#10):add(units:sub(#1)) }) }) }.
+
 asCount := { text | | t, at, digits, i, c, ok |
     t := text:trim:asLowercase.
     at := numberWords:indexOf(t).
+    at:isNil:ifTrue({ | pair |
+        pair := hyphenated:value(t).
+        pair:notNil:ifTrue({ at := pair:add(#1) }) }).
     at:isNil:ifElse(
         { digits := "". ok := true. i := #1.
           { i:lessOrEqual(t:size) }:whileTrue({

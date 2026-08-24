@@ -11,10 +11,12 @@ that a document was still true. That is what this is for.
 
 ---
 
-## 2026-08-24 — the recommendation was right and the spelling was wrong
+## 2026-08-24 — a spelling the language would not take, and a trigger that had already fired
 
-One entry closed, and the useful part of the day is the twenty minutes between
-recommending a shape and finding out the language could not write it.
+Two entries closed. The useful part of the first is the twenty minutes between
+recommending a shape and finding out the language could not write it; of the
+second, that the thing blocking it had stopped being true four releases ago and
+nobody had looked.
 
 ### What was left, asked and answered
 
@@ -91,6 +93,70 @@ another exec on every measurement, of the same order as the thing being measured
 — and its report is clean now, with the failure count untouched, because what
 says a command failed was always the status.
 
+### 3.14 was not waiting for what it said it was waiting for
+
+The randomness half of 3.14 had been open since the tenth program, blocked on
+one question — **where does the state live** — with four candidates written down
+and none picked. It is built now: `random:new` seeded by the machine,
+`random:new(#seed)` seeded by you and repeatable, state in the object.
+
+`system` was the candidate to rule out, and the entry had already written the
+reason against it: a generator there gives a VM a history, and two runs of one
+chunk stop being identical. [embedding.md](embedding.md) does not say so in
+those words — what it promises is *one chunk, any number of machines*, and a
+chunk holding a generator's state would not be that. In an object, a program
+that never
+says `random:new` is exactly as deterministic as it was before any of this
+existed — and that is a test rather than a claim, run across two VMs.
+
+### The generator was fine; the seeding was invisible
+
+What actually settled the entry was measuring what was already here.
+[bench.sol](../programs/bench.sol) had carried Lehmer's for four releases, and
+in bulk it was blameless: 100,232 heads in 200,000 flips, and 21 buckets over
+210,000 draws spread from 9,799 to 10,157.
+
+Then the seeding, which the entry had described as *the only entropy a Solum
+program can reach* without asking what it was worth:
+
+| | before | after |
+| --- | --- | --- |
+| the first coin flip, over consecutive seeds | `1, 2, 1, 2, …` — **the parity of the start microsecond** | no pattern |
+| the first resample index of 21, over 2,000 consecutive seeds | **3 distinct values** of 21 | **21** |
+
+A Lehmer generator's first output moves by the multiplier when its seed moves by
+one, and two runs a microsecond apart get consecutive seeds. **Neither half of
+that was fixable in Solum**: mixing a seed properly needs the wrapping
+multiplication that traps here, and a program cannot reach `/dev/urandom` while
+the machine can. With the modulo bias on the way out that is three ways to get
+this wrong that a reader cannot see, which is the `sqrt` argument holding more
+clearly than it did for `sqrt`.
+
+### The trigger had fired on the day it was written
+
+The entry said it waited for *a program wanting randomness for the work rather
+than for how it measures*, and filed `bench.sol` under the second. That is a
+misreading of that program: its product is the confidence interval, and the
+interval is computed by bootstrap resampling. The randomness is the algorithm,
+not the instrumentation.
+
+**A trigger can be written down wrongly and go on looking unfired**, which is a
+more useful thing to know than the entry it was attached to. Nothing about the
+world had to change for this to become buildable — only somebody re-reading the
+condition against the program it was written about.
+
+What [ideas.md](ideas.md) had predicted, years of commits ago, needed no
+correction at all: *a random source wants to be a thing you make with a seed you
+can name, not a message on `integer`*. That is what got built, word for word.
+
+### A seed you can name makes the documentation checkable
+
+[examples/random.sol](../examples/random.sol) is the twenty-sixth example and
+**every number in it is a claim the build checks** — `#3`, `#-2`,
+`0.09265158547740904` — because a named seed is a named sequence. A generator
+that could only be seeded by the machine would have made that file a page of
+prose about what it might print.
+
 ---
 
 ### Postmortem
@@ -117,6 +183,18 @@ says a command failed was always the status.
    that message is for. The refusal is right and the test was wrong — but the
    test is what surfaced the question, which is the argument for writing the
    awkward cases down.
+
+4. **Two numbers invented in documentation, both caught.** Writing the reference
+   section I put plausible-looking outputs in a fenced block rather than running
+   it — `#2` where the generator answers `#0` — and the checker named the file,
+   the line and the claim. The same reflex, in a document without a checker,
+   is how a reference goes quietly wrong.
+
+5. **Two `make test` runs at once, into one build directory.** The sanitizer
+   build and the plain build were compiling the same objects with different
+   flags at the same time, which makes both results meaningless. Killed and
+   re-run in sequence. The build directory is shared state and nothing enforces
+   that.
 
 **What the day's tooling was worth**: the documentation added four claims, which
 moved two numbers stated in prose in three different documents, and every one of
@@ -491,7 +569,7 @@ in the file. What the experiment measured is the cost of writing them:
   and modulus chosen to stay inside 64 bits — but "write your own" is narrower
   advice than it sounds when the reason is nothing to do with randomness.
 
-That is [3.14](ROADMAP.md#314-there-is-no-source-of-randomness),
+That is [3.14](ROADMAP.md#314-the-mathematics-that-is-not-here),
 and [3.15](COMPLETED.md#315-a-childs-streams-cannot-be-redirected--done) came with it: a
 child's stderr cannot be discarded, and a benchmark harness is the one program
 that cannot buy its way out through `/bin/sh`.

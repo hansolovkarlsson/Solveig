@@ -3522,6 +3522,234 @@ static SolValue prim_slot_at(SolVM *vm, SolValue self, SolValue *args, int argc)
  * two names are the class-side/instance-side distinction 2.5 is about, written
  * down one message at a time rather than decided all at once.
  */
+/* ---- random: a generator you make, rather than one everybody shares ------ *
+ *
+ * A random number is **state**, and where that state lives was the whole of
+ * 3.14. It lives in an object you make:
+ *
+ *     r := random:new.              ; seeded by the machine
+ *     r := random:new(#20260824).   ; seeded by you, and it repeats
+ *     r:upTo(#6):print.
+ *
+ * Not on `system`, and that is the decision. A generator there would give a VM
+ * a history, and two runs of one chunk would stop being identical -- which
+ * [embedding.md] promises and this project's own suite relies on. Made this
+ * way, a program that never says `random:new` is as deterministic as it ever
+ * was, and one that does can say which seed it used and have the run back.
+ *
+ * The generator is PCG XSH RR 32/64 (O'Neill): 64 bits of state, which is
+ * exactly the room an object's payload has, so an instance allocates nothing
+ * and the collector has nothing extra to free. Two draws make 64 bits where a
+ * bound needs them.
+ *
+ * **Why this is in the machine at all**, when Lehmer's is eight lines of Solum:
+ * because the eight lines are the easy part and every part around them is a
+ * trap this language makes worse. Wrapping multiplication is what the textbook
+ * generator needs and integer arithmetic here traps on overflow instead. A
+ * seed can only come from `system:clock`, and a clock's low bits are not
+ * entropy: measured on the generator [bench.sol](../programs/bench.sol)
+ * carries, two runs a microsecond apart get consecutive seeds, and the first
+ * coin flip is then exactly the parity of the start time, while the first
+ * index into 21 takes three values out of 21. And `mod n` on the way out is
+ * biased. Each is invisible in the output, which is the same argument that put
+ * `sqrt` in the machine and not in a library.
+ */
+#define SOL_PCG_MULT 6364136223846793005ULL
+#define SOL_PCG_INC  1442695040888963407ULL
+
+static uint32_t pcg_step(uint64_t *state)
+{
+    uint64_t previous = *state;
+    *state = previous * SOL_PCG_MULT + SOL_PCG_INC;
+
+    uint32_t xorshifted = (uint32_t)(((previous >> 18u) ^ previous) >> 27u);
+    uint32_t rotation   = (uint32_t)(previous >> 59u);
+    return (xorshifted >> rotation) | (xorshifted << ((32u - rotation) & 31u));
+}
+
+static uint64_t pcg_draw(uint64_t *state)
+{
+    uint64_t high = pcg_step(state);
+    return (high << 32) | pcg_step(state);
+}
+
+/* The seeding PCG specifies: a step, the seed added, another step. Handing the
+   seed straight to the state would make near seeds start near each other, which
+   is the defect measured above rather than a theoretical one. */
+static uint64_t pcg_seeded(uint64_t seed)
+{
+    uint64_t state = 0;
+    (void)pcg_step(&state);
+    state += seed;
+    (void)pcg_step(&state);
+    return state;
+}
+
+/* An integer in [0, span), with no modulo bias: the low `2^64 mod span` draws
+   would be one more likely than the rest, so they are drawn again. */
+static uint64_t pcg_below(uint64_t *state, uint64_t span)
+{
+    uint64_t reject = (0u - span) % span;      /* 2^64 mod span, in one step */
+    for (;;) {
+        uint64_t drawn = pcg_draw(state);
+        if (drawn >= reject) return drawn % span;
+    }
+}
+
+/* Somewhere to start that is not the clock. `/dev/urandom` rather than
+   `getentropy`, which lives in a different header on each system this builds
+   on; if it cannot be read the fallback says so by being obviously worse. */
+static uint64_t entropy(void)
+{
+    uint64_t seed = 0;
+    FILE *f = fopen("/dev/urandom", "rb");
+    if (f != NULL) {
+        size_t got = fread(&seed, 1, sizeof seed, f);
+        fclose(f);
+        if (got == sizeof seed) return seed;
+    }
+
+    struct timespec now;
+    if (clock_gettime(CLOCK_REALTIME, &now) != 0) { now.tv_sec = 0; now.tv_nsec = 0; }
+    uint64_t here = (uint64_t)(uintptr_t)&now;    /* wherever this frame landed */
+    return ((uint64_t)now.tv_sec * 1000000000u + (uint64_t)now.tv_nsec) ^ (here << 16);
+}
+
+/* The receiver has to be something `random:new` made. The prototype answering
+   these would be one generator shared by everything that reached for it, which
+   is the thing this design is arranged to prevent. */
+static bool made_random(SolVM *vm, const char *name, SolValue self, uint64_t *state)
+{
+    if (!SOL_IS_OBJ(self) || SOL_AS_OBJ(self) == vm->random_class) {
+        sol_vm_runtime_error(vm,
+            "'%s' wants a random of its own -- random:new, or random:new(#seed)",
+            name);
+        return false;
+    }
+    *state = (uint64_t)SOL_AS_OBJ(self)->payload;
+    return true;
+}
+
+static void keep_state(SolValue self, uint64_t state)
+{
+    SOL_AS_OBJ(self)->payload = (int64_t)state;
+}
+
+static SolValue prim_random_new(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (argc != 0 && argc != 1) {
+        sol_vm_runtime_error(vm, "'new' takes a seed, or nothing at all, got %d",
+                             argc);
+        return SOL_NIL_VAL;
+    }
+    if (!SOL_IS_OBJ(self)) {
+        sol_vm_runtime_error(vm, "'new' expects an object, got %s",
+                             sol_type_name(self));
+        return SOL_NIL_VAL;
+    }
+    if (argc == 1 && !SOL_IS_INT(args[0])) {
+        sol_vm_runtime_error(vm, "'new' wants the seed as an integer, got %s",
+                             sol_type_name(args[0]));
+        return SOL_NIL_VAL;
+    }
+
+    /* Non-negative, so a seed the machine chose reads and types like one a
+       person would, and so it survives being printed and handed back. */
+    int64_t seed = argc == 1 ? SOL_AS_INT(args[0])
+                             : (int64_t)(entropy() >> 1);
+
+    /* `self` is on the value stack for this call; the child is pushed because
+       defining its slot allocates. */
+    SolObject *made = sol_object_new(vm, SOL_AS_OBJ(self));
+    sol_gc_push_temp(vm, &made->gc);
+    made->payload = (int64_t)pcg_seeded((uint64_t)seed);
+
+    /* The seed is an ordinary slot, because it is ordinary data: it records
+       what this generator was made with so a run can be had again. Assigning to
+       it records something untrue rather than reseeding -- there is no message
+       that reseeds, since a generator you can restart from the middle is one
+       nobody can reason about. */
+    sol_object_define(vm, made, "seed", SOL_INT_VAL(seed));
+    sol_gc_pop_temp(vm);
+
+    return SOL_OBJ_VAL(made);
+}
+
+/* `r:upTo(#n)` -- an integer from 1 to n, which is the range an array is
+   indexed by, since that is what asking for a random one of something means
+   here. */
+static SolValue prim_random_up_to(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    uint64_t state;
+    if (!check_argc(vm, "upTo", argc, 1)) return SOL_NIL_VAL;
+    if (!made_random(vm, "upTo", self, &state)) return SOL_NIL_VAL;
+
+    if (!SOL_IS_INT(args[0])) {
+        sol_vm_runtime_error(vm, "'upTo' wants an integer, got %s",
+                             sol_type_name(args[0]));
+        return SOL_NIL_VAL;
+    }
+    int64_t top = SOL_AS_INT(args[0]);
+    if (top < 1) {
+        sol_vm_runtime_error(vm, "'upTo' wants at least #1 to choose from, got #%lld",
+                             (long long)top);
+        return SOL_NIL_VAL;
+    }
+
+    uint64_t drawn = pcg_below(&state, (uint64_t)top);
+    keep_state(self, state);
+    return SOL_INT_VAL((int64_t)drawn + 1);
+}
+
+/* `r:between(#a, #b)` -- both ends included, which is the reading that needs no
+   footnote and the one `first`/`last` and `copyFrom` already take. */
+static SolValue prim_random_between(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    uint64_t state;
+    if (!check_argc(vm, "between", argc, 2)) return SOL_NIL_VAL;
+    if (!made_random(vm, "between", self, &state)) return SOL_NIL_VAL;
+
+    if (!SOL_IS_INT(args[0]) || !SOL_IS_INT(args[1])) {
+        sol_vm_runtime_error(vm, "'between' wants two integers, got %s and %s",
+                             sol_type_name(args[0]), sol_type_name(args[1]));
+        return SOL_NIL_VAL;
+    }
+    int64_t low = SOL_AS_INT(args[0]), high = SOL_AS_INT(args[1]);
+    if (low > high) {
+        sol_vm_runtime_error(vm, "'between' wants the low end first, got #%lld and #%lld",
+                             (long long)low, (long long)high);
+        return SOL_NIL_VAL;
+    }
+
+    /* The whole of int64 is one more than a uint64 can count, and that is the
+       one case where every draw is already in range. */
+    uint64_t span = (uint64_t)high - (uint64_t)low + 1u;
+    uint64_t drawn = span == 0u ? pcg_draw(&state) : pcg_below(&state, span);
+    keep_state(self, state);
+    return SOL_INT_VAL((int64_t)((uint64_t)low + drawn));
+}
+
+/* `r:fraction` -- at least 0.0 and always less than 1.0.
+ *
+ * Named for what it answers rather than for its type: a message called `float`
+ * on something that is not one reads as a conversion of the receiver, which is
+ * what `asFloat` means everywhere else here.
+ *
+ * 53 bits, which is every bit a double can tell apart in [0, 1). The version
+ * everyone writes instead -- an integer over its bound -- is coarser than the
+ * type and biased on top of it. */
+static SolValue prim_random_fraction(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    uint64_t state;
+    (void)args;
+    if (!check_argc(vm, "fraction", argc, 0)) return SOL_NIL_VAL;
+    if (!made_random(vm, "fraction", self, &state)) return SOL_NIL_VAL;
+
+    double answer = (double)(pcg_draw(&state) >> 11) * (1.0 / 9007199254740992.0);
+    keep_state(self, state);
+    return SOL_FLOAT_VAL(answer);
+}
+
 /* ---- system: the process, rather than any value --------------------- */
 
 /* Stopping is a message, and it unwinds rather than leaving from under the
@@ -5071,6 +5299,17 @@ void sol_builtins_install(SolVM *vm)
 
        Bound into the globals first and filled in after, so that it is reachable
        while the slots that follow allocate. */
+    /* `random` is a prototype rather than a class of a value type: what it
+       makes are ordinary objects whose payload is a generator's state. Bound
+       into the globals before its slots are defined, so it is reachable while
+       they allocate. */
+    vm->random_class = sol_object_new(vm, vm->object_class);
+    sol_object_define(vm, vm->root, "random", SOL_OBJ_VAL(vm->random_class));
+    any_receiver(vm, vm->random_class, "new",      prim_random_new);
+    any_receiver(vm, vm->random_class, "upTo",     prim_random_up_to);
+    any_receiver(vm, vm->random_class, "between",  prim_random_between);
+    any_receiver(vm, vm->random_class, "fraction", prim_random_fraction);
+
     SolObject *system = sol_object_new(vm, vm->object_class);
     sol_object_define(vm, vm->root, "system", SOL_OBJ_VAL(system));
     any_receiver(vm, system, "exit", prim_system_exit);

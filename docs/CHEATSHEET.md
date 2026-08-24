@@ -392,6 +392,32 @@ system:capture(["echo", "hi"], ["stderr", 'discard]):at("status"):print.  ; #0
 system:remove("note.txt").
 ```
 
+## random
+
+A generator you make: `random:new` is seeded by the machine, `random:new(#seed)`
+repeats.
+
+| Message | Answers |
+| --- | --- |
+| `new` / `new(#seed)` | a generator — by the machine, or by you and repeatable |
+| `seed` | the integer it was made with; a **slot**, so `slots` shows it |
+| `upTo(#n)` | an integer `#1` to `#n`, both included — the range an array is indexed by |
+| `between(#a, #b)` | an integer `#a` to `#b`, both included |
+| `fraction` | a float, at least `0.0` and less than `1.0` |
+
+```
+r := random:new(#20260824).
+r:upTo(#6):print.                       ; #3
+r:between(#10, #20):print.              ; #13
+r:seed:print.                           ; #20260824
+random:new(#7):upTo(#100):equals(random:new(#7):upTo(#100)):print.   ; true
+```
+
+The prototype answers none of these — `random:upTo(#6)` is an error, because a
+generator everything shares is what `new` exists to avoid. State on `system`
+would have given a VM a history; in an object, a program that never says
+`random:new` runs the same twice.
+
 ## The library
 
 Shipped `.sol` files on the search path — `@include "name.sol".` finds them

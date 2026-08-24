@@ -711,34 +711,24 @@ today every site either sets it at the tail of a branch or wants the rest to
 run, and the moment one does not, the flag has to be threaded through the body
 as `done:not:ifTrue({ ... })` and the workaround starts nesting.
 
-### 3.14 There is no source of randomness
+### 3.14 The mathematics that is not here
 
-**No random number anywhere in the language.** Not on `system`, not on
-`integer`, not in the library. A program that wants one writes a generator, and
-the usual one cannot be written here at all: a linear congruential generator
-relies on the multiplication wrapping, and integer arithmetic traps on overflow
-instead. What works is Lehmer's, whose multiplier and modulus are chosen so the
-product cannot exceed 64 bits — [bench.sol](../programs/bench.sol) carries one.
-The seed can only come from `system:clock`, that being the only entropy a Solum
-program can reach.
+**No `pow`, no `log`, no `exp`, no trigonometry and no `pi`.** C has all of them
+and each would be a line, and none is here because no program in this repository
+has asked for one — *the ones a program has asked for rather than all of
+`<math.h>`* being the rule this entry set for itself.
 
-That is not a complaint about the trap, which is right. It is that **"write your
-own generator" is narrower advice than it sounds** when the construction
-everybody knows is unavailable for a reason that has nothing to do with
-randomness.
+**This entry was larger twice and is now this.** It read *there is no square
+root, no minimum, and no randomness*, and both of those halves have since been
+answered. What each cost is recorded here, because the cost is the useful part.
 
-**This entry was larger and is now this.** It read *there is no square root, no
-minimum, and no randomness*, and the arithmetic half was answered — `sqrt` is a
-message a float understands and `min`, `max` and `between` are in
-[math.sol](../lib/math.sol). What that half cost is recorded below, because it
-is the more useful half of the finding. It also stays the home for the rest of
-the mathematics that is not here — `pow`, `log`, `exp` and trigonometry — each
-deferred with a trigger at the end.
+#### The square root, and why it is a primitive
 
-**Why `sqrt` became a primitive and the comparisons did not.** Both were
-writable. `min` and `max` were written correctly the first time, in one line
-each, and there is nothing to get wrong. `sqrt` was written **twice, and both
-versions were wrong and silent about it**:
+`sqrt` is a message a float understands and `min`, `max` and `between` are in
+[math.sol](../lib/math.sol). Both were writable in Solum; the line between them
+is not importance. `min` and `max` were written correctly the first time, in one
+line each, and there is nothing in them to get wrong. `sqrt` was written
+**twice, and both versions were wrong and silent about it**:
 
 | | |
 | --- | --- |
@@ -757,21 +747,58 @@ compared against the C library, they matched, and the value they were the digits
 *of* was never compared to anything. A wrong number can survive being looked at
 carefully if what you look at is how it is printed.
 
-**What is left, and why it is an entry rather than a commit.** A random number
-is *state*, and this language has nowhere obvious to put it:
+#### And randomness, which was the open half until it was measured
 
-| | |
-| --- | --- |
-| on `system` | A machine stops being a value with no history, and two runs of one chunk stop being identical — which [embedding.md](embedding.md) currently promises. |
-| in an object a program makes and holds | Honest, and it is `object:new` for something most callers want exactly one of. |
-| seeded from where | The clock is not entropy, and there is no other source. |
-| set by a host | Matters to anybody embedding: a reproducible run is worth more than an unpredictable one for most of what this language does. |
+**`random:new` is the answer, and the question was where the state lives.** It
+lives in an object you make, seeded by the machine or by a number you name —
+never on `system`, because a generator there would give a VM a history and two
+runs of one chunk would stop being identical. That is not a promise
+[embedding.md](embedding.md) makes in so many words, and the wording of this
+entry used to say it was: what that page promises is *one chunk, any number of
+machines*, which a chunk carrying a generator's state would not be. A program
+that never says `random:new`
+is exactly as deterministic as it was before any of this existed.
 
-**Still not urgent**, and the reason is unchanged: ten<!--count programs--> programs
-came before the
-one that wanted this, and it wanted it for how it measures rather than for what
-it does. What would change that is a program wanting randomness for the work — a
-sample, a shuffle, a simulation, a test that generates its own inputs.
+**What settled it was measuring the generator that was already here.**
+[bench.sol](../programs/bench.sol) carried Lehmer's — multiplier 16807, modulus
+2^31-1, chosen so the product could not exceed a signed 64-bit integer, because
+integer arithmetic traps on overflow rather than wrapping and so the generator
+everybody knows cannot be written in this language at all. It was correct, and
+in bulk it was fine: 100,232 heads in 200,000 flips, and 21 buckets over 210,000
+draws spread from 9,799 to 10,157.
+
+**The seeding was the defect, and it was invisible.** The clock was the only
+entropy a Solum program could reach, so two runs a microsecond apart got
+consecutive seeds — and a Lehmer generator's first output moves by the
+multiplier when its seed moves by one:
+
+| | before | after |
+| --- | --- | --- |
+| the first coin flip, over consecutive seeds | `1, 2, 1, 2, 1, 2, …` — **the parity of the start time** | no pattern |
+| the first resample index of 21, over 2,000 consecutive seeds | **3 distinct values** of 21 | **21** |
+
+Neither shows in the output, and neither was fixable in Solum: mixing a seed
+properly needs the wrapping multiplication that traps here, and there is no
+entropy but the clock for a *program* — the machine has `/dev/urandom` sitting
+right there, which is the asymmetry the whole entry turned on. Add the modulo
+bias that `mod n` leaves on the way out and there are three ways to get this
+wrong that a reader cannot see, which is the argument that made `sqrt` a
+primitive, holding more clearly here than it did there.
+
+**The generator is PCG XSH RR 32/64**, its 64 bits of state are the object's
+payload so an instance allocates nothing, `upTo` draws again rather than taking
+a remainder, and the seed is recorded in an ordinary slot so a run the machine
+seeded can be had back by writing the number down.
+
+**What the trigger taught, since the entry named one and it was the wrong one.**
+It said this waited for *a program wanting randomness for the work rather than
+for how it measures*, and counted `bench.sol` as the second kind. That was a
+misreading of that program: its product is the confidence interval, and the
+interval is computed by bootstrap resampling. The randomness is the algorithm,
+not the instrumentation. **A trigger can be written down wrongly and go on
+looking unfired**, which is worth more than the entry it was attached to.
+
+#### What is left
 
 **`pow`, `log` and `exp` are still not here either**, and were not added with
 `sqrt`. C has them and they would each be a line, but no program in this
@@ -901,8 +928,10 @@ found out what it wanted.
   what writing them costs: the `sqrt` written here was wrong **twice**, and both
   times said nothing, which is why it is a primitive now and `min`, `max` and
   `between` are only a library. The textbook random generator cannot be written
-  here at all, because integer arithmetic traps on overflow rather than wrapping,
-  and that half of the entry is still open. It also found that **a child's
+  here at all, because integer arithmetic traps on overflow rather than wrapping
+  — and the one this program wrote instead was correct and **seeded from the
+  clock**, which measuring it found was the actual defect: `random:new` closed
+  that half. It also found that **a child's
   streams could not be redirected** ([3.15](COMPLETED.md#315-a-childs-streams-cannot-be-redirected--done),
   closed), and, by testing its own square root at
   1e300, **a stack over-read in the float formatter** that let a script print the

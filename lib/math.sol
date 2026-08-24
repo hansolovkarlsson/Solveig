@@ -9,7 +9,7 @@
 ;
 ; Every method here was written out longhand somewhere first, and that is the
 ; whole of the case for the file -- see
-; [3.14](../docs/ROADMAP.md#314-there-is-no-source-of-randomness):
+; [3.14](../docs/ROADMAP.md#314-the-mathematics-that-is-not-here):
 ;
 ;   `min` and `max` over an array   programs/bench.sol, as two `inject` folds
 ;   `max` of two values             programs/bench.sol, as a clamp on a rank

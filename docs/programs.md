@@ -362,8 +362,8 @@ line prints.
 ./bin/solvm programs/expect.sob programs             # another directory
 ```
 
-Over `examples/` alone that is 21<!--count examples-files--> files and
-402<!--count examples-claims--> claims:
+Over `examples/` alone that is 22<!--count examples-files--> files and
+414<!--count examples-claims--> claims:
 
 ```text
 21 files with expectations, 402 claims checked
@@ -386,12 +386,12 @@ table had when [disasm](#disasm--a-sob-file-read-and-disassembled) found it
 three sections out of date. They are also the first thing a newcomer reads.
 
 **It is in `make test` now**, in `tests/test_cli.c` with the other tests that
-run the binaries as a shell would — **734<!--count claims--> claims on every build**, in about
+run the binaries as a shell would — **754<!--count claims--> claims on every build**, in about
 sixteen seconds, and it fails the build if one stops holding.
 
 **And it checks the documentation too.** The guide and the reference carry the
 same notation inside ``` fences, and nothing checked those either — they are the
-two documents a newcomer actually reads. 330<!--count docs-claims--> claims
+two documents a newcomer actually reads. 338<!--count docs-claims--> claims
 across eighteen<!--count docs-documents--> documents,
 and two more on `README.md` and `index.md` — the front pages, which were the
 last two things nothing checked.
@@ -433,7 +433,7 @@ no notation saying what it counts — so it is given one, which renders as nothi
 and leaves the sentence as it was:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 734<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 754<!--count claims--> claims
 ```
 
 Each name is recounted from the repository as it stands. A name the table does
@@ -541,17 +541,21 @@ Given the same command twice it answers `1.001, interval 0.985 to 1.015` — whi
 is the test the tool has to pass before any of its other answers are worth
 reading.
 
-**What it found is [3.14](ROADMAP.md#314-there-is-no-source-of-randomness)
+**What it found is [3.14](ROADMAP.md#314-the-mathematics-that-is-not-here)
 and [3.15](COMPLETED.md#315-a-childs-streams-cannot-be-redirected--done).** There was no
 `sqrt`, no `min`, no `max` and no randomness in the language, so this file
 carried all four. Writing them is easy; **getting them right is not**, and the
 square root here was wrong twice, each time silently: first as twenty fixed
 iterations, right to twelve places at 2 and wrong in the fourth digit at 1e10,
 and then — in the version written to fix that — as a capped loop that answered
-`8.67e281` for `sqrt(1e300)`. Three of the four are now the language's: `sqrt`
-is a message a float understands and `min`, `max` and `between` are in
-[math.sol](../lib/math.sol). The generator stays here, because randomness is the
-half of 3.14 still open.
+`8.67e281` for `sqrt(1e300)`. All four are the language's now: `sqrt` is a
+message a float understands, `min`, `max` and `between` are in
+[math.sol](../lib/math.sol), and the generator this file carried is
+`random:new` — which was built because **measuring the one here found what was
+wrong with it**. The generator was fine; the seeding was not, and neither half
+of that was fixable in Solum. Two runs a microsecond apart got consecutive
+seeds, and the first coin flip was then exactly the parity of the start time
+while the first resample index of 21 took three values out of 21.
 
 **And testing that square root at 1e300 found a bug in the VM.** Formatting a
 float with a fixed number of decimals wrote into a 64-byte buffer and then used

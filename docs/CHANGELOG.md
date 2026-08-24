@@ -5,6 +5,76 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### A generator you make, and the seeding was the defect — `pending`, 2026-08-24
+
+**The randomness half of
+[3.14](ROADMAP.md#314-the-mathematics-that-is-not-here) closes.** There was no
+random number anywhere in the language — not on `system`, not on `integer`, not
+in the library. There is now, and it is a thing you make:
+
+```
+r := random:new.              ; seeded by the machine
+r := random:new(#20260824).   ; seeded by you, and it repeats
+r:upTo(#6):print.
+```
+
+`upTo(#n)` answers `#1` to `#n` — the range an array is indexed by, so
+`xs:at(r:upTo(xs:size))` needs no adjustment. `between(#a, #b)` takes both ends.
+`fraction` is a float, at least `0.0` and less than `1.0`, named for what it
+answers because `asFloat` is what converting a receiver is called everywhere
+else here. And `seed` is an ordinary **slot** recording what the generator was
+made with, so a run the machine seeded can be had again by writing the number
+down.
+
+**Where the state lives was the whole of the open question**, and the entry had
+listed four places without picking one. It is in the object, and the reason is
+the row the entry wrote against `system`: a generator there gives a VM a history
+and two runs of one chunk stop being identical. Nothing in
+[embedding.md](embedding.md) states that in so many words — *one chunk, any
+number of machines* is what it says, and a chunk that carried a generator's
+state would not be that. A
+program that never says `random:new` is exactly as deterministic as it was
+before this existed, and a test asserts that across two VMs.
+
+**What settled it was measuring the generator already here.**
+[bench.sol](../programs/bench.sol) carried Lehmer's for four releases, and it
+was correct: 100,232 heads in 200,000 flips, 21 buckets over 210,000 draws
+spread from 9,799 to 10,157. **The seeding was the defect**, and it was
+invisible:
+
+| | before | after |
+| --- | --- | --- |
+| the first coin flip, over consecutive seeds | `1, 2, 1, 2, …` — **the parity of the start microsecond** | no pattern |
+| the first resample index of 21, over 2,000 consecutive seeds | **3 distinct values** of 21 | **21** |
+
+Two runs a microsecond apart get consecutive seeds, and a Lehmer generator's
+first output moves by the multiplier when its seed moves by one. **Neither half
+of that was fixable in Solum**: mixing a seed needs the wrapping multiplication
+that traps here, and the clock is the only entropy a *program* can reach, while
+the machine has `/dev/urandom`. Add the bias `mod n` leaves on the way out and
+there are three ways to get this wrong that a reader cannot see — the argument
+that made `sqrt` a primitive, holding more clearly here than it did there.
+
+**PCG XSH RR 32/64**, whose 64 bits of state are the object's payload, so an
+instance allocates nothing and the collector has nothing extra to free. `upTo`
+draws again rather than taking a remainder. `random` itself answers none of the
+draws — a generator has to be made, since one everything shares is what `new`
+exists to avoid.
+
+**The trigger had fired four releases ago and nobody noticed.** The entry said
+this waited on a program wanting randomness *for what it does rather than for
+how it measures*, and filed `bench.sol` as the second kind. That misreads it:
+the program's product is a confidence interval and the interval is computed by
+bootstrap resampling, so the randomness is the algorithm. **A trigger can be
+written down wrongly and go on looking unfired**, which is worth more than the
+entry it was attached to. What [ideas.md](ideas.md) predicted years of commits
+ago — *a thing you make with a seed you can name, not a message on `integer`* —
+is exactly what got built.
+
+`bench.sol` uses it now, and [examples/random.sol](../examples/random.sol) is the
+twenty-sixth example: every number in it is a claim the build checks, which is
+the case for a nameable seed written out.
+
 ### A child's streams go where they are told — `899eca8`, 2026-08-24
 
 **[3.15](COMPLETED.md#315-a-childs-streams-cannot-be-redirected--done) closes.**
@@ -1015,7 +1085,7 @@ are therefore only [math.sol](../lib/math.sol) — the line between the two is n
 importance, it is whether every program would get the same thing wrong.
 
 That answers the arithmetic half of
-[3.14](ROADMAP.md#314-there-is-no-source-of-randomness). **Randomness is the
+[3.14](ROADMAP.md#314-the-mathematics-that-is-not-here). **Randomness is the
 half still open** and the entry is now about that alone: where the state lives,
 where the seed comes from, and whether a host can set it.
 
@@ -1102,7 +1172,7 @@ is no geometry anywhere near this language* — a true sentence about ten progra
 and an empty one about a language. Both documents now record that, the wrong
 reason included.
 
-**[3.14](ROADMAP.md#314-there-is-no-source-of-randomness) gains the
+**[3.14](ROADMAP.md#314-the-mathematics-that-is-not-here) gains the
 trigonometry answer**, which is: not yet, and only for want of a program. The
 case for eventually building it is the one that made `sqrt` a primitive and is
 stronger — a hand-written sine fails the same silent way and fails harder, since
@@ -1129,7 +1199,7 @@ the last three — by reading the page for another reason.
 
 **`sqrt` is a message a float understands**, and `min`, `max` and `between` are
 in the new [math.sol](../lib/math.sol). That is the arithmetic half of
-[3.14](ROADMAP.md#314-there-is-no-source-of-randomness) answered; randomness is
+[3.14](ROADMAP.md#314-the-mathematics-that-is-not-here) answered; randomness is
 the half still open, and the entry is now about that alone.
 
 **The reason `sqrt` is in the machine and the comparisons are not is the whole
@@ -1212,11 +1282,11 @@ what it wrote landing where the printer had never been.
 > library was the *digits the formatter produced*, never the value they were the
 > digits of. The formatter bug was real and the fix stands; the sentence about
 > the square root was not. See
-> [3.14](ROADMAP.md#314-there-is-no-source-of-randomness) and the entry that
+> [3.14](ROADMAP.md#314-the-mathematics-that-is-not-here) and the entry that
 > made `sqrt` a primitive.
 
 **Three roadmap entries, each by the admission rule.**
-[3.14](ROADMAP.md#314-there-is-no-source-of-randomness) —
+[3.14](ROADMAP.md#314-the-mathematics-that-is-not-here) —
 there is no `sqrt`, `pow`, `min`, `max`, and no source of randomness anywhere in
 the language; this had been deferred in [ideas.md](ideas.md) with the trigger *a
 program wanting one*, and this is that program.
@@ -1294,7 +1364,7 @@ command twice it answers `1.001, interval 0.985 to 1.015`.
 
 **Two roadmap entries, both by the admission rule.**
 
-[3.14](ROADMAP.md#314-there-is-no-source-of-randomness) —
+[3.14](ROADMAP.md#314-the-mathematics-that-is-not-here) —
 there is no `sqrt`, `pow`, `min`, `max`, and **no source of randomness anywhere
 in the language**. This had been deferred in ideas.md with the trigger *a
 program wanting one*, and this is that program. All four were writable and all

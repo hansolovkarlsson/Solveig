@@ -16,14 +16,15 @@
 ;
 ; **What it found is that the arithmetic was not there.** Not the language's
 ; shape, which took all of this without complaint -- the *messages*. There was no
-; `sqrt`, no `min`, no `max`, and there is still no source of randomness
-; anywhere. Every one of them was written here in Solum first, and the square
-; root was wrong twice, silently, before a primitive replaced it -- the story is
-; in the changelog and the moral is in
-; [3.14](../docs/ROADMAP.md#314-there-is-no-source-of-randomness). `sqrt` is now
-; a message a float understands and `min`, `max` and `between` are in
-; [math.sol](../lib/math.sol); the generator below is still this program's own,
-; because randomness is the half of that entry still open.
+; `sqrt`, no `min`, no `max` and no source of randomness anywhere. Every one of
+; them was written here in Solum first, and the square root was wrong twice,
+; silently, before a primitive replaced it -- the story is in the changelog and
+; the moral is in
+; [3.14](../docs/ROADMAP.md#314-the-mathematics-that-is-not-here). All four are
+; the language's now: `sqrt` is a message a float understands, `min`, `max` and
+; `between` are in [math.sol](../lib/math.sol), and the generator this file
+; carried is `random:new` -- which was built because measuring the one here
+; found what was wrong with it.
 
 ; `min`, `max` and `between`, which this program wrote out longhand and which
 ; now live where the next program can have them too.
@@ -90,7 +91,7 @@ second:notNil:and({ second:size:equals(#0) }):ifTrue({ usage:value }).
 ; comparing against something that already knew the answer.
 ;
 ; That is why `sqrt` is a primitive now and not a library method. See
-; [3.14](../docs/ROADMAP.md#314-there-is-no-source-of-randomness).
+; [3.14](../docs/ROADMAP.md#314-the-mathematics-that-is-not-here).
 
 mean := { xs |
     xs:inject(0.0, { total, x | total:add(x) }):div(xs:size:asFloat) }.
@@ -111,30 +112,24 @@ quantile := { sorted, p | | i |
     sorted:at(i:max(#1)) }.
 
 ; ---------------------------------------------------------------------------
-; A source of randomness, which is also not there
+; A source of randomness, which this program asked for and now has
 ;
-; **There is no random number anywhere in the language**, so this program
-; carries a generator. It is Lehmer's, the multiplier is 16807 and the modulus
-; 2^31-1, and both numbers are chosen so that the product cannot exceed a signed
-; 64-bit integer -- which matters here more than it does elsewhere, because
-; **integer arithmetic traps on overflow rather than wrapping**. The usual
-; linear congruential generator relies on the wrap, so the usual one cannot be
-; written in this language at all. That is not a complaint about the trap, which
-; is right; it is a note that "write your own" is narrower advice than it sounds.
+; This carried its own generator for four releases -- Lehmer's, multiplier
+; 16807 and modulus 2^31-1, chosen so the product could not exceed a signed
+; 64-bit integer, because **integer arithmetic traps on overflow rather than
+; wrapping** and the textbook generator relies on the wrap. That is not a
+; complaint about the trap, which is right. It is that "write your own" was
+; narrower advice than it sounded, and measuring the thing it produced is what
+; closed the half of 3.14 that was open.
 ;
-; The seed is the clock, and the clock's epoch is deliberately unspecified --
-; monotonic seconds from somewhere. Multiplied out to microseconds it is as good
-; a seed as this needs, and it is the only entropy a Solum program can reach.
+; **The generator was fine and the seeding was not.** The clock was the only
+; entropy a Solum program could reach, so two runs a microsecond apart got
+; consecutive seeds -- and the first coin flip was then exactly the parity of
+; the start time, while the first resample index of 21 took three values out of
+; 21, forever. Neither shows in the output. `random:new` is seeded by the
+; machine and mixes what it is given, and the same measurement now finds all 21.
 
-seed := system:clock:mul(1000000.0):truncated:mod(#2147483646):inc.
-
-random := {
-    seed := seed:mul(#16807):mod(#2147483647).
-    seed }.
-
-; A number in `[#1, n]`. The modulo bias is real and is about one part in a
-; hundred thousand here, which is far below the noise in anything being timed.
-randomUpTo := { n | random:value:mod(n):inc }.
+dice := random:new.
 
 ; ---------------------------------------------------------------------------
 ; The measurement
@@ -246,7 +241,7 @@ warmUp:value(first).
 warmUp:value(second).
 
 runs:repeat({
-    randomUpTo:value(#2):equals(#1):ifElse(
+    dice:upTo(#2):equals(#1):ifElse(
         { timesA:add(timeOnce:value(first)).
           timesB:add(timeOnce:value(second)) },
         { timesB:add(timeOnce:value(second)).
@@ -273,7 +268,7 @@ warnFailures:value.
 
 resample := { xs | | out |
     out := [].
-    xs:size:repeat({ out:add(xs:at(randomUpTo:value(xs:size))) }).
+    xs:size:repeat({ out:add(xs:at(dice:upTo(xs:size))) }).
     out }.
 
 medianOf := { xs | quantile:value(xs:sorted, 0.5) }.
