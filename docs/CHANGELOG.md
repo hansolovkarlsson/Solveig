@@ -5,6 +5,43 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## 0.27.0 — 2026-08-24
+
+**One new debugger command, and three questions answered without touching the
+language.** `.sob` files are format version 14, unchanged, and nothing a program
+can say changed with them.
+
+**`solid` gains `globals`**, which lists what a program bound, in the order it
+bound them. That is the one question a program cannot ask about itself:
+`object:slots` lists the root *class*'s messages and is a reasonable thing to
+mistake for the global namespace, while the globals themselves are slots on an
+object with no name in the language, so neither `slots` nor `perform` reaches
+them. A debugger holds that object directly, so the answer was fifteen lines.
+
+**Why `:=` is syntax and not a message** is now written down in
+[design.md](design.md#why-binding-is-syntax-and-not-a-message), with pointers
+from the guide and the reference — the two places a reader is standing when the
+question occurs to them. It is four operations wearing one spelling and two of
+them have no receiver to send to; and the compiler being able to *see* a binding
+is load-bearing, since that is what the *already bound by* warning and frame
+slots are both made of.
+
+**Regular expressions were argued three ways**: no to a literal, defer an engine
+to the extension mechanism that does not exist yet, and the half that is
+actionable today is a cursor library, because **what repeats across the 460
+lines of scanning in this repository is the cursor and not the pattern**. Three
+arguments against were made wrongly and each was overturned by a measurement
+rather than by a better argument, which the entry records rather than tidies
+away.
+
+**And the checker stopped confusing a suffix with a substring**, at six sites
+where `hello.sol.bak` passed as a Solum file and `a.md.sol` would have been
+handed to the markdown checker. Nothing in the tree is named that way, so the
+fix changes no result — which is how it survived unnoticed.
+
+[journal.md](journal.md) gains the afternoon. The suite checks **762** claims,
+up from 756.
+
 ### A suffix is not a substring — `694b329`, 2026-08-24
 
 **The defect the regular expression survey turned up, fixed.** Six sites in

@@ -108,6 +108,17 @@ No dependencies beyond a C11 compiler and `make`.
 
 ## Status
 
+**0.27.0** — one new debugger command and no change to the language; `.sob`
+files are format version 14, unchanged. **`solid` gains `globals`**, which lists
+what a program bound in the order it bound them — the one question a program
+cannot ask about itself, since the globals are slots on an object with no name
+in the language. **Why `:=` is syntax and not a message** is written down where
+a reader asks it. **Regular expressions** were argued three ways and the finding
+is that what repeats across the scanning here is the cursor, not the pattern.
+And the documentation checker **stopped confusing a suffix with a substring**,
+at six sites where `hello.sol.bak` passed as a Solum file. Documented claims go
+from 756 to **762**.
+
 **0.26.0** — two known limitations close and `.sob` files are format version 14,
 unchanged. **A child's streams go where they are told**: `system:run` and
 `system:capture` take an optional second argument, so a command that complains
