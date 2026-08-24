@@ -1,0 +1,58 @@
+# Builds and runs the suite somewhere that is not the machine this was written
+# on.
+#
+# The README says "no dependencies beyond a C11 compiler and `make`", and until
+# this existed that claim had been checked by one compiler on one machine: Apple
+# clang, arm64, macOS. `gcc` there is a shim for clang, so nothing had ever been
+# through GCC or glibc or an x86 register allocator. A claim on the front page
+# held true by somebody having looked once is the thing this repository keeps
+# finding and does not keep.
+#
+# `fail-fast` is off on purpose. The question a first run answers is *what is
+# not portable*, and stopping at the first answer turns one run into several.
+
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  suite:
+    name: ${{ matrix.os }} / ${{ matrix.cc }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Two compilers on Linux, because the interesting difference is glibc
+          # and GCC rather than the kernel.
+          - { os: ubuntu-latest, cc: gcc }
+          - { os: ubuntu-latest, cc: clang }
+          # And the machine it already builds on, so a regression there is
+          # caught by the same run rather than by somebody noticing.
+          - { os: macos-latest, cc: clang }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Named in the log, so a failure says which compiler produced it rather
+      # than which label the matrix gave it.
+      - name: Compiler
+        run: ${{ matrix.cc }} --version
+
+      # Two steps rather than one: `make test` builds what it needs, and
+      # separating them says whether a red run failed to compile or failed a
+      # check.
+      - name: Build
+        run: make CC=${{ matrix.cc }}
+
+      - name: Test
+        run: make test CC=${{ matrix.cc }}
