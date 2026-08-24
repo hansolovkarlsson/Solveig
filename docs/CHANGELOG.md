@@ -5,6 +5,79 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Regular expressions, and where they would go if they came — `pending`, 2026-08-24
+
+**A question about a feature the language does not have**, and the answer split
+three ways rather than settling on one. Written up in
+[ideas.md](ideas.md#regular-expressions), with a second entry raised behind it:
+if the objection to an engine is its size, is that not what
+[extensions](ideas.md#extensions-a-capability-from-a-binary-rather-than-from-the-vm)
+are for?
+
+**The argument that could not be used was the obvious one.** *No program here
+has wanted one* is the reading of an absence that
+[design.md](design.md#what-the-language-is-for) ruled out two days earlier, so
+this had to be settled on shape. It is also false: a survey of every `.sol` file
+found **about 460 lines of genuine character-class, repetition and alternation
+scanning**, most of it in `lib/html.sol`, `experiment/lexer.sol`,
+`programs/expect.sol` and `lib/json.sol` — which has the canonical JSON number
+expression written out by hand.
+
+**But what repeats across those files is the cursor, not the pattern.**
+
+| idiom | sites | what it is |
+| --- | --- | --- |
+| `{ pred(peek) }:whileTrue({ step })`, then `copyFrom(start, pos:dec)` | at least 15 | `X+` with a capture |
+| `"<set>":indexOf(c):notNil` | at least 12 | a character class |
+| `split(x):join(y)` | 2 | replace, which the language does not have |
+
+The first is `takeWhile` and the second is a predicate — methods on something
+holding a position, which all five files hand-roll separately. So the actionable
+half is a `lib/scan.sol`, writable today, no change to the VM.
+
+**And [3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame) decides its
+shape before anyone chooses one.** A matcher built the combinator way, as a
+block returning a block, dies with `block outlived the frame it was written in`.
+Built from objects it composes today. A cursor holds a position and position is
+state, so the object spelling is the one it wanted anyway.
+
+**Three things were argued wrongly and are recorded that way.**
+
+*The size objection was the weakest.* An engine is ~1,500 lines and would be the
+third-largest C file here — but an extension answers that completely, and POSIX
+regex is in libc, so it is zero.
+
+*The "second language in a string" objection was aimed at the wrong target.*
+It holds against a **literal**, which would be invisible to `solas` and the one
+thing here that could not be overridden; `fill` was already kept from growing
+into a format language for the same reason. It does not hold against a
+**library**, because [lib/shell.sol](../lib/shell.sol) already carries an entire
+foreign grammar in a string, deliberately, with the bargain written into its
+header.
+
+*The termination objection was about Perl, not regex.* Catastrophic backtracking
+needs leftmost-first semantics and backreferences; POSIX ERE has neither.
+Measured against the system `regexec`, the classic bad patterns are flat through
+n=40, and matching is linear — 77ms at 1MB, 2,562ms at 64MB.
+[3.7](ROADMAP.md#37-a-limit-bounds-dispatch-not-work)'s own table has `indexOf`
+over 64MB at 0.27s, so it is **the same complexity class, ten times the
+constant**: the existing hole one primitive wider, not a new one.
+
+**Verdict: no to a literal, defer the engine, and the finding is the cursor.**
+Regex *fails* the extensions trigger, because a matcher can be written in Solum
+and that entry is for things that cannot — but it is close to the ideal
+throwaway to build the first extension *with*, since `regcomp` allocates a
+`regex_t` that `regfree` must take back, making a compiled pattern the smallest
+possible test of the foreign cell and its release hook.
+
+**One defect fell out of the survey and is not about patterns.** `expect.sol`
+uses `indexOf(suffix):notNil` where it means `endsWith`, at six sites, because
+the language has neither `startsWith` nor `endsWith`. `notes.solid` and
+`hello.sol.bak` both pass as `.sol`, and `a.md.sol` would be run through the
+markdown checker. Nothing triggers it today; it is the one thing in this
+discussion that satisfies the roadmap's admission rule outright, and it is
+**still unfixed**.
+
 ### The debugger lists what a program bound — `60e2f74`, 2026-08-24
 
 **`solid` gains `globals`**, and it answers the one question a program cannot

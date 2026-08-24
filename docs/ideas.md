@@ -47,6 +47,7 @@ marked as a sketch.
 | Splitting the reference into pages | **Defer** — the trigger is the message reference outgrowing the rest |
 | Restricting what a script may reach (6.32) | **Defer** — the trigger is a script somebody else wrote, or input from a stranger |
 | Extensions: a capability from a C binary | **Defer** — doable, and half of it works today; the trigger is wanting something Solum cannot express |
+| Regular expressions | **No** to a literal; **defer** the engine to an [extension](#regular-expressions); the finding is that what repeats is the cursor, not the pattern |
 | An early exit from a loop | **Defer** — nine sites carry a flag; the trigger is a body that must skip its remainder ([3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing)) |
 | Intercepting a message not understood | **Defer** — Smalltalk's `doesNotUnderstand`; small to build, and nothing has wanted a proxy |
 | A set, and the collections that are not there | **Defer** — write them in Solum and measure first, as the four loops did |
@@ -1060,6 +1061,222 @@ wants. That is the method that has paid here repeatedly:
 use-after-free, [disasm.sol](../programs/disasm.sol) found three faults in the
 documents it was written from. An afternoon of that would settle more than
 another page of this.
+
+**The first candidate to be proposed for this was a regular expression engine**,
+on 2026-08-24, and it is worth saying where that landed: it fails the trigger
+above, because a matcher can be written in Solum and this entry is for things
+that cannot — but it is close to the ideal *throwaway*, because a compiled
+pattern is the smallest thing that has to be given back and so the smallest test
+of the foreign cell. The reasoning is [below](#regular-expressions).
+
+### Regular expressions
+
+**No to a literal; defer the capability; and the most useful finding is neither
+of those.** Raised on 2026-08-24, with a second question behind it: if the
+objection to an engine is its size, is this what
+[extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm) are
+for? It is. But size was the weakest of the four objections, and two of the
+other three turned out to be answered already, by things this repository had
+decided for other reasons.
+
+#### The argument that was not available, and would have been false
+
+*No program here has wanted one* is exactly the reading of an absence that
+[design.md](design.md#what-the-language-is-for) now rules out, and it was written
+down two days before this was asked. So the question had to be settled on shape.
+
+It is also untrue. Every `.sol` file in the repository was surveyed for
+hand-written scanning, and there is **roughly 460 lines of genuine
+character-class, repetition and alternation work**:
+
+| file | scanning lines | what |
+| --- | --- | --- |
+| [lib/html.sol](../lib/html.sol) | ~150 of 475 | names, entities, attribute values, text runs |
+| [experiment/lexer.sol](../experiment/lexer.sol) | ~120 | every token class; the float scanner backtracks by hand |
+| [programs/expect.sol](../programs/expect.sol) | ~100 | `commentAt`, `asCount`, `wordBefore`, `markersIn` |
+| [lib/json.sol](../lib/json.sol) | ~70 | the number grammar, string escapes, control bytes on output |
+| [programs/serve.sol](../programs/serve.sol) | ~20 | `urlDecoded`, `isNoteName` |
+
+`json.sol` has `-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?` written out by
+hand — the canonical textbook expression — and `html.sol` has three-way
+alternation over quoted attribute values. The demand is real and it is not
+small.
+
+#### What repeats is the cursor, not the pattern
+
+Three idioms account for most of it, and the counts are the finding:
+
+| idiom | sites | what it is |
+| --- | --- | --- |
+| `{ pred(peek) }:whileTrue({ step })`, then `copyFrom(start, pos:dec)` | at least 15 | `X+` with a capture |
+| `"<set>":indexOf(c):notNil` | at least 12 | a character class |
+| `split(x):join(y)` | 2 | replace, which the language does not have |
+
+The first is `takeWhile`; the second is a character-class predicate. Neither is
+a pattern *language* — they are methods on something holding a position, and
+every one of the five files above hand-rolls that same cursor. `page.sol` even
+fakes a six-way alternation out of one: `"h1 h2 h3 h4 h5 h6":indexOf(node:name)`.
+
+**So the actionable half of this entry is a `lib/scan.sol`** — `peek`, `match`,
+`skipWhile`, `takeWhile`, `takeUntil` — which is perhaps eighty lines of Solum,
+needs no change to the VM, adds no notation, forces no decision about what a
+string is, and is bounded by `--steps` because every step it spends is an
+instruction. It would collapse the first idiom across five files. Nothing about
+it requires this entry to be settled first.
+
+#### And [3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame) decides its shape
+
+Whatever gets built, the combinator spelling — the one everybody reaches for
+first, where a matcher is a block returning a block — does not work:
+
+```
+makeDigit := { | lo, hi |
+    lo := "0". hi := "9".
+    { c | c:greaterOrEqual(lo):and({ c:lessOrEqual(hi) }) } }.
+
+makeDigit:value:value("7"):print.
+solvm: block outlived the frame it was written in
+```
+
+It has to be object-shaped instead, which composes today with nothing added:
+
+```
+range := object:new.
+range:lo := "0".
+range:hi := "9".
+range:matches := { c | c:greaterOrEqual(self:lo):and({ c:lessOrEqual(self:hi) }) }.
+
+runOf := object:new.
+runOf:inner := nil.
+runOf:matches := { s | | i, n |
+    i := #1. n := #0.
+    { i:lessOrEqual(s:size):and({ self:inner:matches(s:at(i)) }) }:whileTrue({
+        n := n:inc. i := i:inc }).
+    n }.
+
+digits := runOf:new.
+digits:inner := range:new.
+digits:matches("8080ab"):print.       ; #4
+```
+
+That is not a workaround: a cursor holds a position, and position is state, so
+the object spelling is the one the thing wanted anyway. It is the same finding
+[lib/html.sol](../lib/html.sol) reached by writing an explicit stack.
+
+#### Against a literal in the language, and this part is a firm no
+
+A regular expression is a second language with its own operators — `*`, `+`,
+`?`, `|`, `{n,m}` — its own precedence, its own escaping, and its own control
+flow, since alternation and repetition are branching and looping. Put in a
+literal, it is invisible to `solas`, unreportable until run, and **the one thing
+here that could not be overridden**: `integer:add := ...` works, and no
+spelling of `regex:\d := ...` ever could.
+
+The precedent is already set at a smaller scale and went the other way.
+`fill` was kept from growing into a format language — bases went out to `asBase`
+and `asInteger(#n)` so that, as the reference puts it, *nothing in the spec
+starts looking like a conversion character*. The three notations that do live
+inside strings here — `fill`'s blanks, `asString`'s padding spec, `asTime`'s
+`strptime` format — are descriptive and terminate trivially. A pattern is
+computational. That is the line, and it was drawn before this came up.
+
+#### But a *library* carrying a foreign grammar in a string is settled precedent
+
+[lib/shell.sol](../lib/shell.sol) takes an entire second language inside a
+string — sh, with operators, quoting, globbing and `&&` — and the design
+accepted it, with the bargain written into the header: *build the command out of
+things you wrote, not out of things a file or a user gave you.*
+
+A `lib/re.sol` taking a pattern as an ordinary string is that shape exactly,
+down to the identical hazard: a pattern built from a stranger's input is the
+same class of mistake as a command built from one. **So the objection above is
+to the literal, not to a library**, and conflating the two was an error made in
+arguing this out.
+
+#### As an extension, which was the question
+
+Of the four objections, the extension route settles two outright:
+
+| objection | does an extension answer it? |
+| --- | --- |
+| ~1,500 lines, and the third-largest C file in the project | **Yes** — and POSIX regex is in libc, so it is zero lines |
+| [2.13](ROADMAP.md#213-text-is-bytes-and-case-is-ascii-only): byte semantics become migration debt | **Yes** — an extension's semantics are not a language promise; version the bundle |
+| `sōlum`: a second language in a string | **Not its to answer** — `shell.sol` answered it, for libraries |
+| [3.7](ROADMAP.md#37-a-limit-bounds-dispatch-not-work): unbounded work inside one instruction | **No** — but see below; the engine decides this, not the mechanism |
+
+The last one was argued badly. Catastrophic backtracking is a *Perl* property,
+not a regex property: POSIX requires leftmost-longest and ERE has no
+backreferences, which pushes an implementation towards simulating the automaton
+rather than backtracking through it. Measured against the system `regexec`, the
+classic bad patterns are flat —
+
+```text
+^(a+)+b$          n=24…40    0.0 ms
+^(a|a)*b$         n=18…34    0.0 ms
+^(a|aa)+b$        n=18…34    0.0 ms
+^(a*)*b$          n=18…34    0.0 ms
+^(a?){20}a{20}$   n=18…26    0.0 ms
+```
+
+— and matching is linear in the input, four times the bytes for four times the
+time: 77ms at 1MB, 2,562ms at 64MB. 3.7's own table has `indexOf` over 64MB at
+0.27s, so this is **the same complexity class, about ten times the constant**.
+It is not a new hole in `--steps`; it is the existing one, one primitive wider.
+Choosing POSIX ERE over PCRE2 removes the objection and the dependency together,
+and leaves a bundle that builds wherever `cc` does — which softens *extensions
+are where a portability story goes to die* rather more than a third-party engine
+would.
+
+#### It fails the trigger, and suits the first experiment
+
+The trigger above is *a capability that cannot be written in Solum and is not
+worth putting in the VM*. Regex satisfies the second half and **fails the
+first** — a POSIX-semantics matcher is a couple of hundred lines of Solum, built
+the object way for the reason given above. A codec, a socket, a window cannot be
+written here. This can.
+
+But the extensions entry closes by asking for something else: one throwaway,
+fifty lines, *something with nothing to release*, built to find out what the
+path actually wants. **Regex is close to the ideal thing to build it with, and
+the wrong thing to want it for.** `regcomp` allocates a `regex_t` that
+`regfree` must take back, which makes a compiled pattern the smallest possible
+test of the one real design decision in that entry — the foreign cell carrying
+its own release function, and whether the hook fires for a program stopped by a
+limit. A checksum cannot test that. A database can, but costs a dependency, I/O
+and a network first. A compiled pattern is deterministic and holds exactly one
+thing that must be given back.
+
+Staged, that is two afternoons: **v0** compiles, matches and frees in one call,
+retaining nothing — the literal *nothing to release* case, which finds out what
+`dlopen` and the version handshake want. **v1** keeps the compiled pattern and
+tests the finalizer, including under a limit-stop. Both come after the build
+restructure and the supported surface, which are the real work and are
+regex-independent: `libsol.a` is still a static archive with no `-fPIC`, so as
+built, a loaded bundle could not resolve `sol_*` back into `solvm` at all.
+
+#### One thing the survey found that is not about patterns at all
+
+`expect.sol` uses `indexOf(suffix):notNil` where it means `endsWith`, at six
+sites, because the language has neither `startsWith` nor `endsWith`:
+
+```text
+isSol:value("hello.sol.bak").   ; true  -- not meant
+isSol:value("notes.solid").     ; true  -- not meant
+isMd:value("draft.md.orig").    ; true  -- not meant
+isMd:value("a.md.sol").         ; true  -- a .sol file, checked as markdown
+```
+
+`check` dispatches on `path:indexOf(".md"):isNil`, so the last of those would be
+run through the markdown checker. Nothing triggers it today — no such file
+exists — but `notes.solid` is not a fanciful spelling in a repository that ships
+a binary called `solid`. That is a real defect with a program behind it, and it
+is the one thing here that satisfies the roadmap's admission rule outright.
+
+**Trigger:** for `lib/scan.sol`, none — it is writable now and wants only
+somebody to decide the interface is worth committing to, the way
+[`array:ifElseIf`](REFERENCE.md#the-library) was. For regex itself, the
+extension mechanism existing, which has its own trigger and is not this one. The
+literal stays refused whatever happens to the other two.
 
 ### An early exit from a loop
 
