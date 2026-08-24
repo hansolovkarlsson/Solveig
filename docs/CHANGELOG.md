@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### Why binding is syntax, written down where it gets asked — `pending`, 2026-08-24
+### Why binding is syntax, written down where it gets asked — `d935c45`, 2026-08-24
 
 **A question about the language rather than a change to it.** Everything in
 Solum is a message and every message can be overridden — `integer:add := { n |
