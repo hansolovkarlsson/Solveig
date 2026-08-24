@@ -498,7 +498,27 @@ static void test_everything_written_down_is_true(void)
     assert(sscanf(at, ", %d claims checked", &claims) == 1);
     assert(claims >= 700);
 
-    printf("  everything written down is true (%d claims)\n", claims);
+    /* And the counts the prose states about this repository, which are neither
+       a comment on a printing line nor a fenced block, and so went stale in
+       three documents at once for three releases. A marker in the sentence says
+       what the number counts and the checker recounts it -- so a floor here
+       catches the other direction, a run that quietly stops finding any. */
+    int counts = 0;
+    at = strstr(out, "counts stated in prose");
+    assert(at != NULL);
+    while (at > out && at[-1] != '\n') at--;
+    assert(sscanf(at, "%d counts stated in prose", &counts) == 1);
+    assert(counts >= 15);
+
+    int placed = 0;
+    at = strstr(out, "programs say where they come in the order");
+    assert(at != NULL);
+    while (at > out && at[-1] != '\n') at--;
+    assert(sscanf(at, "%d programs say where they come", &placed) == 1);
+    assert(placed >= 8);
+
+    printf("  everything written down is true (%d claims, %d counts, %d "
+           "positions)\n", claims, counts, placed);
 }
 
 int main(void)

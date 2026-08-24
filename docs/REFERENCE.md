@@ -2758,7 +2758,7 @@ has been given, and cannot give itself more.
 Every built-in message and the types that answer it. The question a reference
 gets asked is usually *what has `copyFrom`?* rather than *what does a string
 do?*, and the sections above answer only the second — so this answers the first.
-121 messages across 215 registrations.
+122 messages across 216 registrations.
 
 **A test keeps it honest**: a message registered in `builtins.c` and missing
 from here fails the build, which is the same bargain that makes every message

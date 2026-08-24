@@ -51,7 +51,7 @@ there: one fails if a message is registered without being listed, the other runs
 all 64 examples.
 
 Writing sixty-four examples in one file met every edge the checker has, and
-found a third gap for [3.16](ROADMAP.md#316-what-the-checker-does-not-check).
+found a third gap for [3.16](COMPLETED.md#316-what-the-checker-does-not-check--done).
 **A claim on a line that does not itself print is never read.** `point:show.`
 prints from inside the method, so `; #3` beside it is decoration. Six of the
 first draft's sixty-eight claims were in that state, including the `repeat` and
@@ -192,7 +192,7 @@ library examples, which stopped compiling when their files moved to
 `experiment/` and took 13 claims out of the count with every remaining claim
 still holding; and 3.5's own worked example, which said `#62:down` succeeds and
 `#63:down` fails and was never a claim at all, because neither line prints. That
-is [3.16](ROADMAP.md#316-what-the-checker-does-not-check), and it is now the
+is [3.16](COMPLETED.md#316-what-the-checker-does-not-check--done), and it is now the
 entry with the most instances behind it.
 
 **What went right is worth the same attention.** Deliberately breaking a rule to
@@ -223,7 +223,7 @@ seen it every run and said nothing, because a block that fails to compile is
 classified *shows syntax rather than a program* — which is right for the
 `$ ./bin/solis` transcript further down the same page, and wrong here. The
 category that keeps the tool honest about what it cannot check is also where a
-real fault can hide. That is now [3.16](ROADMAP.md#316-what-the-checker-does-not-check).
+real fault can hide. That is now [3.16](COMPLETED.md#316-what-the-checker-does-not-check--done).
 
 ### The cut that found the drift
 

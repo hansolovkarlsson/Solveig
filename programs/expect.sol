@@ -9,8 +9,9 @@
 ; notation. Nothing checked either until this existed, and both are read far
 ; more than anything else here.
 ;
-; A program with the narrowest customer there is: this repository. The job is
-; real all the same. `examples/` carries inline expectations --
+; The ninth program here, and the one with the narrowest customer: this
+; repository. The job is real all the same. `examples/` carries inline
+; expectations --
 ;
 ;     #2:add(#3):print.                ; #5
 ;     "abc":asUppercase:display.       ; ABC
@@ -278,6 +279,11 @@ notCompiled := #0.
 ranError := #0.
 continued := #0.
 tagged := #0.
+docsClaims := #0.
+docsFiles := #0.
+exampleClaims := #0.
+exampleFiles := #0.
+seen := array:new.
 skipped := array:new.
 
 ; Writes `source`, compiles it, runs it, and answers its output as lines --
@@ -411,8 +417,10 @@ matchAll := { expected, output, subject | | at, i, found, ok |
 ; ---------------------------------------------------------------------------
 ; A .sol file, checked against its own comments
 
-checkSol := { path | | source, expected, name, output |
+checkSol := { path | | source, expected, name, output, before |
     source := system:readFile(path).
+    seen:add(path).
+    before := checked.
     expected := expectationsIn:value(source).
     unchecked := unchecked:add(silentPrintsIn:value(source)).
 
@@ -424,7 +432,11 @@ checkSol := { path | | source, expected, name, output |
         output := runFile:value(path, name, false, false).
         output:isNil:ifElse(
             { failures:add([path, #0, "would not compile", ""]) },
-            { checked := checked:add(matchAll:value(expected, output, path)) }) }) }.
+            { checked := checked:add(matchAll:value(expected, output, path)) }).
+
+        path:indexOf("examples/"):equals(#1):ifTrue({
+            exampleClaims := exampleClaims:add(checked:sub(before)).
+            exampleFiles := exampleFiles:add(#1) }) }) }.
 
 ; ---------------------------------------------------------------------------
 ; A block that continues the one above it
@@ -527,11 +539,103 @@ theirsAlone := { lines, before | | out, i |
     out }.
 
 ; ---------------------------------------------------------------------------
+; Counts stated in prose
+;
+; **The third gap, and the one that kept happening.** The checker reads comments
+; in `.sol` files and fenced blocks in `.md` files, and a sentence is neither. A
+; number in a sentence has no notation saying what it counts, which is the whole
+; difficulty -- so it is given one:
+;
+;     [expect.sol](../programs/expect.sol) checks 729<!--count claims--> claims
+;
+; The comment renders as nothing and the reader sees the sentence. What it buys
+; is that the number now says what it is a count *of*, which is the one thing
+; missing, and the table below says how to recount it.
+;
+; What went stale without it, each found by reading rather than by running:
+; `README.md`, `programs.md` and ROADMAP 3.16 all said *589 claims* for three
+; releases after it stopped being 589; `programs.md` said *the nine files in
+; programs/*, *one of these seven* and *what the seven have in common* on a page
+; describing ten; `class-and-instance.md` said `integer` has 24 slots, three
+; times, where it has 38; and ROADMAP 3.14 said `float` answers 21 messages
+; where it answers 29, which is the count the entry's whole argument rests on.
+;
+; A name the table does not know is a failure, so a marker cannot be misspelled
+; into silence -- which is the failure mode this entry is about.
+
+marker := "<!--count ".
+
+; A number written for a person: digits, with the thousands separators a reader
+; wants, or the small ones spelled out, because a page that says *ten programs*
+; is right to.
+numberWords := ["zero", "one", "two", "three", "four", "five", "six", "seven",
+                "eight", "nine", "ten", "eleven", "twelve", "thirteen",
+                "fourteen", "fifteen", "sixteen", "seventeen", "eighteen",
+                "nineteen", "twenty"].
+
+asCount := { text | | t, at, digits, i, c, ok |
+    t := text:trim:asLowercase.
+    at := numberWords:indexOf(t).
+    at:isNil:ifElse(
+        { digits := "". ok := true. i := #1.
+          { i:lessOrEqual(t:size) }:whileTrue({
+              c := t:at(i).
+
+              ; A separator or an emphasis mark is not part of the number.
+              ; `**729` is 729, and a checker that says otherwise is asking
+              ; the prose to be written for it.
+              ",*_`":indexOf(c):isNil:ifTrue({
+                  "0123456789":indexOf(c):isNil:ifElse(
+                      { ok := false },
+                      { digits := digits:concat(c) }) }).
+              i := i:add(#1) }).
+          ok:and({ digits:notEquals("") }):ifElse(
+              { digits:asInteger(#10) },
+              { nil }) },
+        { at:sub(#1) }) }.
+
+; The word immediately before a position: the number the marker is attached to.
+wordBefore := { text | | i |
+    i := text:size.
+    { i:greaterThan(#0):and({ text:at(i):equals(" "):not }) }:whileTrue({
+        i := i:sub(#1) }).
+    i:equals(text:size):ifElse(
+        { "" },
+        { text:copyFrom(i:add(#1), text:size) }) }.
+
+; Every marker in a document, with the number it is attached to. More than one
+; to a line, because a sentence may state two counts and often does.
+stated := array:new.
+
+markersIn := { path, source | | n |
+    n := #0.
+    source:split("\n"):do({ line | | rest, from, at, close, name |
+        n := n:add(#1).
+        rest := line.
+        from := #0.
+        { at := rest:indexOf(marker). at:notNil }:whileTrue({
+            close := rest:copyFrom(at:add(marker:size), rest:size):indexOf("-->").
+            close:isNil:ifElse(
+                { rest := "" },
+                { name := rest:copyFrom(at:add(marker:size),
+                              at:add(marker:size):add(close):sub(#2)):trim.
+                  stated:add(["{}:{}":fill([path, n]), name,
+                              wordBefore:value(rest:copyFrom(#1, at:sub(#1)))]).
+                  from := at:add(marker:size):add(close):add(#1).
+                  rest := from:greaterThan(rest:size):ifElse(
+                      { "" },
+                      { rest:copyFrom(from, rest:size) }) }) }) }).
+    nil }.
+
+; ---------------------------------------------------------------------------
 ; A .md file, checked block by block
 
 checkMarkdown := { path | | source, name, n, expected, parts, output, label,
-                           context, contextLines, clean, joined |
+                           context, contextLines, clean, joined, before |
     source := system:readFile(path).
+    markersIn:value(path, source).
+    seen:add(path).
+    before := checked.
     name := path:split("/"):last(#1):at(#1).
     name := name:split("."):at(#1).
     n := #0.
@@ -680,6 +784,12 @@ checkMarkdown := { path | | source, name, n, expected, parts, output, label,
 
         { tagged := tagged:add(#1) }) }).
 
+    ; What the documents alone account for, since `programs.md` states that
+    ; separately from the total and both numbers have to stay true.
+    path:indexOf("docs/"):equals(#1):ifTrue({
+        docsClaims := docsClaims:add(checked:sub(before)).
+        docsFiles := docsFiles:add(#1) }).
+
     files := files:add(#1) }.
 
 check := { path |
@@ -708,6 +818,153 @@ subjects:do({ subject |
           check:value(subject) }) }).
 
 ; ---------------------------------------------------------------------------
+; Recounting what the prose said
+;
+; **Two kinds of count, and only one of them survives a partial run.** How many
+; programs there are, or how many slots `integer` has, is true whatever this
+; program was pointed at. How many claims held is a fact about *this run*, so
+; when the run did not cover everything those markers are reported as skipped
+; rather than compared against a total that means something narrower.
+;
+; Completeness is not taken on trust from the command line: it is whether every
+; file this program would check was in fact checked.
+
+solFilesIn := { dir | | n |
+    n := #0.
+    system:filesIn(dir):do({ name |
+        name:indexOf(".sol"):notNil:ifTrue({ n := n:add(#1) }) }).
+    n }.
+
+wanted := array:new.
+system:filesIn("examples"):sorted:do({ name |
+    name:indexOf(".sol"):notNil:ifTrue({
+        wanted:add("examples/":concat(name)) }) }).
+system:filesIn("docs"):sorted:do({ name |
+    name:equals("CHANGELOG.md"):not:and({ name:indexOf(".md"):notNil }):ifTrue({
+        wanted:add("docs/":concat(name)) }) }).
+wanted:add("README.md").
+wanted:add("index.md").
+
+complete := true.
+wanted:do({ path | seen:indexOf(path):isNil:ifTrue({ complete := false }) }).
+
+; What each name counts. A marker naming something not here is a failure: a
+; checker that shrugs at a name it does not know is the silence this was written
+; to end.
+count := dictionary:new.
+count:atPut("programs",      solFilesIn:value("programs")).
+count:atPut("examples",      solFilesIn:value("examples")).
+count:atPut("library",       solFilesIn:value("lib")).
+count:atPut("integer-slots", integer:slots:size).
+count:atPut("float-slots",   float:slots:size).
+count:atPut("string-slots",  string:slots:size).
+count:atPut("array-slots",   array:slots:size).
+count:atPut("object-slots",  object:slots:size).
+
+; **What a class holds and what a value answers are two numbers**, and since
+; 1.6 they are different: a class object's slots carry the class side as well
+; as the instance side, so `integer:slots:size` is 38 where an integer answers
+; 35. ROADMAP 3.14 said `float` answers 21 messages and rested an argument
+; about size on it; it answers 26, and had for five releases.
+answers := { class, sample | | n |
+    n := #0.
+    class:slots:do({ s | sample:respondsTo(s):ifTrue({ n := n:add(#1) }) }).
+    n }.
+count:atPut("integer-answers", answers:value(integer, #45)).
+count:atPut("float-answers",   answers:value(float, 1.5)).
+count:atPut("string-answers",  answers:value(string, "a")).
+count:atPut("array-answers",   answers:value(array, [#1])).
+
+; The ones that are facts about this run.
+perRun := ["claims", "checked-files", "docs-claims", "docs-documents",
+           "examples-claims", "examples-files"].
+complete:ifTrue({
+    count:atPut("claims",         checked).
+    count:atPut("checked-files",  files).
+    count:atPut("docs-claims",    docsClaims).
+    count:atPut("docs-documents", docsFiles).
+    count:atPut("examples-claims", exampleClaims).
+    count:atPut("examples-files",  exampleFiles) }).
+
+recounted := #0.
+deferred := #0.
+stated:do({ c | | name, want, got |
+    name := c:at(#2).
+    count:at(name, nil):isNil:ifElse(
+        { perRun:indexOf(name):notNil:and({ complete:not }):ifElse(
+            { deferred := deferred:add(#1) },
+            { failures:add([c:at(#1), #0,
+                  "nothing counts '":concat(name):concat("'"), ""]) }) },
+        { want := count:at(name).
+          got := asCount:value(c:at(#3)).
+          got:isNil:ifElse(
+              { failures:add([c:at(#1), #0,
+                    "'":concat(c:at(#3))
+                        :concat("' is not a number this can read"), ""]) },
+              { got:equals(want):ifElse(
+                  { recounted := recounted:add(#1) },
+                  { failures:add([c:at(#1), #0,
+                        "says {} {}, and there are {}"
+                            :fill([c:at(#3), name, want]), ""]) }) }) }) }).
+
+; ---------------------------------------------------------------------------
+; Where a program says it comes in the order
+;
+; Seven of the ten open with a line reading *The fifth program here, and the
+; first that writes to the filesystem*, and [programs.md](../docs/programs.md)
+; puts them in that order under its headings. Nothing held the two together, and
+; this entry names *"the fifth program here"* as its own example of a number in
+; a sentence that nothing counts.
+;
+; **This one needs no marker, because the phrase is the marker.** It is written
+; the same way in every file that uses it, which is what makes it findable --
+; and a count that is already stated in a fixed form does not need a second
+; notation bolted to it.
+
+ordinals := ["first", "second", "third", "fourth", "fifth", "sixth", "seventh",
+             "eighth", "ninth", "tenth", "eleventh", "twelfth"].
+
+placed := #0.
+system:fileExists("docs/programs.md"):ifTrue({ | order |
+
+    ; The order the page puts them in: the first word of every `## ` heading
+    ; that names a file in programs/.
+    order := array:new.
+    system:readFile("docs/programs.md"):split("\n"):do({ line | | name |
+        line:size:greaterThan(#3):and({ line:copyFrom(#1, #3):equals("## ") })
+            :ifTrue({
+                name := line:copyFrom(#4, line:size):trim:split(" "):at(#1).
+                system:fileExists("programs/":concat(name):concat(".sol"))
+                    :ifTrue({ order:add(name) }) }) }).
+
+    system:filesIn("programs"):sorted:do({ file | | path, source, at, word, was |
+        file:indexOf(".sol"):isNil:ifFalse({
+            path := "programs/":concat(file).
+            source := system:readFile(path).
+
+            ; The line has to *open* with it. Looking anywhere in the file finds
+            ; this program's own paragraph about the convention, and a checker
+            ; that reports its own documentation has learnt nothing.
+            word := nil.
+            source:split("\n"):do({ line |
+                word:isNil:and({ line:size:greaterThan(#6) })
+                    :and({ line:copyFrom(#1, #6):equals("; The ") })
+                    :and({ line:indexOf(" program here"):notNil }):ifTrue({
+                        at := line:indexOf(" program here").
+                        word := line:copyFrom(#7, at:sub(#1)):trim
+                                    :asLowercase }) }).
+            word:notNil:ifTrue({
+                was := order:indexOf(file:copyFrom(#1, file:size:sub(#4))).
+                ordinals:indexOf(word):equals(was):ifElse(
+                    { placed := placed:add(#1) },
+                    { failures:add([path, #0,
+                          "calls itself the {} program, and programs.md puts it {}"
+                              :fill([word,
+                                     was:isNil:ifElse(
+                                         { "nowhere" },
+                                         { ordinals:at(was) })]), ""]) }) }) }) }) }).
+
+; ---------------------------------------------------------------------------
 ; The report
 
 "":display.
@@ -733,6 +990,18 @@ notReached:greaterThan(#0):ifTrue({
 unchecked:greaterThan(#0):ifTrue({
     "{} line{} print without saying what, and are not checked"
         :fill([unchecked, unchecked:equals(#1):ifElse({""},{"s"})]):display }).
+placed:greaterThan(#0):ifTrue({
+    "{} program{} say where {} come{} in the order, and are there"
+        :fill([placed, placed:equals(#1):ifElse({""},{"s"}),
+               placed:equals(#1):ifElse({"it"},{"they"}),
+               placed:equals(#1):ifElse({"s"},{""})]):display }).
+recounted:add(deferred):greaterThan(#0):ifTrue({
+    "{} count{} stated in prose, recounted{}"
+        :fill([recounted, recounted:equals(#1):ifElse({""},{"s"}),
+               deferred:greaterThan(#0):ifElse(
+                   { "; {} more want the whole set to be checked"
+                         :fill([deferred]) },
+                   { "" })]):display }).
 stopped:greaterThan(#0):ifTrue({
     "{} run{} ended with a non-zero status, which is what a documented error "
         :concat("does")

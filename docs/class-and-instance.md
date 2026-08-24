@@ -26,7 +26,7 @@ But look at what is actually in those slots:
 integer:slots:size:print.        ; #38
 ```
 
-Those 38 slots serve **two different audiences**:
+Those 38<!--count integer-slots--> slots serve **two different audiences**:
 
 | slot | sent as | who it is for |
 | --- | --- | --- |
@@ -56,7 +56,7 @@ the separation has to be drawn where the work happens.
 
 *Both of those used to answer `#1` and `[#1, #2]`, and this document said so for
 a long time after they stopped. Nothing ran them: they sat in the pile of blocks
-the checker could not compile, which is [3.16](ROADMAP.md#316-what-the-checker-does-not-check).*
+the checker could not compile, which is [3.16](COMPLETED.md#316-what-the-checker-does-not-check--done).*
 
 ### It used to be a crash going the other way
 
@@ -235,7 +235,7 @@ What falls out:
 | --- | --- | --- |
 | `#45:new(#1)` | answers `#1` | `integer does not understand 'new'` — it was never in the object `#45` dispatches to |
 | `array:add(#1)` | needs 1.6's receiver check to refuse it | refuses structurally; `add` is not there to find |
-| `integer:slots` | 38 slots, both sides mixed | the class side; the instance side is a separate object to ask |
+| `integer:slots` | 38<!--count integer-slots--> slots, both sides mixed | the class side; the instance side is a separate object to ask |
 | `slots` vs `respondsTo` | disagree | agree again |
 
 **1.6's per-message receiver requirement becomes mostly redundant.** It exists

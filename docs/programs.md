@@ -1,6 +1,6 @@
 # The programs
 
-*The ten files in [programs/](../programs/): what each one does, how to run
+*The ten<!--count programs--> files in [programs/](../programs/): what each one does, how to run
 it, and what it found. [examples/](../examples/) is the other directory — one
 file per concept the [guide](GUIDE.md) names, each written to show a feature.
 These were written to do a job.*
@@ -362,13 +362,20 @@ line prints.
 ./bin/solvm programs/expect.sob programs             # another directory
 ```
 
-```
-21 files with expectations, 398 claims checked
+Over `examples/` alone that is 21<!--count examples-files--> files and
+402<!--count examples-claims--> claims:
+
+```text
+21 files with expectations, 402 claims checked
 72 lines print without saying what, and are not checked
-2 ended with a non-zero status, which two of them do on purpose
+2 runs ended with a non-zero status, which is what a documented error does
 
 every claim holds
 ```
+
+The two numbers in the sentence above the block are recounted on every build;
+the block itself is a transcript, and a transcript is the one thing here nothing
+can check. That is the shape of the remaining gap, in miniature.
 
 **The narrowest customer of the ten — this repository — and a real job all the
 same.** `examples/` carries about four hundred comments of the form
@@ -379,12 +386,13 @@ table had when [disasm](#disasm--a-sob-file-read-and-disassembled) found it
 three sections out of date. They are also the first thing a newcomer reads.
 
 **It is in `make test` now**, in `tests/test_cli.c` with the other tests that
-run the binaries as a shell would — **729 claims on every build**, in about
+run the binaries as a shell would — **729<!--count claims--> claims on every build**, in about
 sixteen seconds, and it fails the build if one stops holding.
 
 **And it checks the documentation too.** The guide and the reference carry the
 same notation inside ``` fences, and nothing checked those either — they are the
-two documents a newcomer actually reads. 325 claims across eighteen documents,
+two documents a newcomer actually reads. 325<!--count docs-claims--> claims
+across eighteen<!--count docs-documents--> documents,
 and two more on `README.md` and `index.md` — the front pages, which were the
 last two things nothing checked.
 
@@ -398,7 +406,8 @@ That half found two things. The guide showed a stack trace reading
 [6.27](COMPLETED.md#627-a-stack-trace-does-not-say-which-file--done) adding the
 filename — the illustration was never updated when the format changed. And
 [class-and-instance.md](class-and-instance.md) said `integer` has 24 slots,
-three times, where it has **38**: messages were added and the count was not.
+three times, where it has **38<!--count integer-slots-->**: messages were added
+and the count was not.
 That number is safe to state now precisely *because* it is checked.
 
 **A block that does not run is a failure**, and that is a change: it used to be
@@ -417,6 +426,26 @@ writing. That accounts for 14. The remaining 8 were broken.
 
 The escape hatch is deliberately the visible one: a reader can see a fence that
 says `text`, and cannot see a silence in a count.
+
+**And it recounts what the prose says about this repository.** A sentence is
+neither a comment on a printing line nor a fenced block, and a number in one has
+no notation saying what it counts — so it is given one, which renders as nothing
+and leaves the sentence as it was:
+
+```text
+[expect.sol](../programs/expect.sol) checks 729<!--count claims--> claims
+```
+
+Each name is recounted from the repository as it stands. A name the table does
+not know is a failure, so a marker cannot be misspelled into silence. A
+program's *position* needs no marker, because the phrase is already one: nine of
+the ten open with `The fifth program here`, and the headings on this page put
+them in that order.
+
+That found `float` answering 26 messages where ROADMAP 3.14 said 21 and rested
+an argument on it, the reference's index saying 121 messages across 215
+registrations where it is 122 across 216, and the sample output above, which had
+been showing 398 claims for a while.
 
 `CHANGELOG.md` is the one document skipped — it records what was true at each
 release, so its snippets describe past states on purpose.

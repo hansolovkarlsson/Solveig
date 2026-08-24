@@ -172,8 +172,14 @@ own.
 
 Safe, and documented. Each is a real restriction rather than a bug.
 
+**3.9 and 3.16 are gone from here** and are in
+[COMPLETED.md](COMPLETED.md#3-known-limitations). 3.16 was the odd one out —
+about this repository's own verification rather than about the language — and it
+closed by reading a document as a document, failing on a block that will not
+run, and giving a number in a sentence a notation saying what it counts.
+
 **3.1 through 3.6 were chosen** — a decision taken and written down. **3.7, 3.8,
-3.10, 3.11, 3.12, 3.13, 3.14, 3.15, 3.16 and 3.17 were not.** Each is a consequence of a decision taken elsewhere,
+3.10, 3.11, 3.12, 3.13, 3.14, 3.15 and 3.17 were not.** Each is a consequence of a decision taken elsewhere,
 noticed afterwards, and each is kept here rather than in section 6 because the
 ways of answering it cost more than what they buy is currently worth. That
 distinction is worth keeping visible: a restriction chosen and a restriction
@@ -754,7 +760,8 @@ is *state*, and this language has nowhere obvious to put it:
 | seeded from where | The clock is not entropy, and there is no other source. |
 | set by a host | Matters to anybody embedding: a reproducible run is worth more than an unpredictable one for most of what this language does. |
 
-**Still not urgent**, and the reason is unchanged: ten programs came before the
+**Still not urgent**, and the reason is unchanged: ten<!--count programs--> programs
+came before the
 one that wanted this, and it wanted it for how it measures rather than for what
 it does. What would change that is a program wanting randomness for the work — a
 sample, a shuffle, a simulation, a test that generates its own inputs.
@@ -780,7 +787,8 @@ the machine* is the rule, trigonometry meets it more clearly than `sqrt` did.
 
 **What it is waiting for is a program, and that is all it is waiting for.** No
 file here has ever wanted an angle. The first draft of this paragraph gave a
-second reason — that the ten programs are text and process work, so geometry is
+second reason — that the ten<!--count programs--> programs are text and process
+work, so geometry is
 not what this language is for — and that reason is **wrong and is worth leaving
 recorded as wrong**. The programs are the tools this project needed while
 building itself; they describe what has been written, not what may be. Solum is
@@ -805,7 +813,8 @@ program forces them:
 | `atan2` belongs to neither argument | It takes two coordinates and there is no receiver that is obviously the subject, so `y:atan2(x)` reads badly in a language where the receiver is what the sentence is about. |
 
 And a note on size, since it is the one argument that is about the shape of the
-language rather than about the maths: `float` answers 21 messages today, and
+language rather than about the maths: `float` answers 26<!--count float-answers-->
+messages today, and
 `sin`, `cos`, `tan`, `asin`, `acos`, `atan` and `atan2` would be a third again.
 That is a reason to add them deliberately and together, not a reason to refuse.
 
@@ -838,123 +847,6 @@ answers a dictionary; taking one — `system:capture(argv, ["stderr", "discard"]
 — generalises without new messages, at the cost of an options bag, which is a
 shape nothing else in this language uses. Neither is obviously right, and
 nothing is blocked while it stays undecided.
-
-### 3.16 What the checker does not check
-
-The odd one out in this section: it is about this repository's own verification
-rather than about the language. It is here because this document claims to be
-the single list of what is outstanding, and a gap in what `make test` proves is
-outstanding.
-
-[expect.sol](../programs/expect.sol) checks 729 claims across 41 files on every
-build. **Two of the three gaps this entry opened with are closed**, and closing
-them found eight things wrong. What is left is the third, which is the one the
-entry expected least.
-
-#### What a block that would not run was hiding — closed
-
-A fenced block that did not compile was counted and reported rather than
-failed, on the reading that it *continues one further up, or shows syntax rather
-than a program*. Both are real, and both are also true of a block with a typo in
-it — `README.md`'s opening snippet, the four lines that introduce the language
-to everybody who arrives, was missing the `.` after `a := #45` and had been seen
-and skipped on every run.
-
-**Counting what was inside those blocks is what settled it: 54 claims in 42
-blocks, against 672 checked. One claim in thirteen.** And the split says where,
-which is not where this entry guessed. It proposed reporting the two categories
-apart on the theory that *does not compile at all* was the suspicious one, since
-that is what caught the README. It is the opposite. Ten blocks failed to compile
-and held **2** claims between them — the shell and REPL transcripts, as harmless
-as they looked. Thirty-one compiled and then failed at run time, and held the
-other **52**. A name defined in the block above is not a fragment showing syntax;
-it is a program with its first half on the previous page.
-
-So the block is given its first half. **A page is read as a page**: each block
-that runs is added to the document's context, and a block that will not run
-alone is run again on everything accepted before it. That is what the prose
-already says out loud — *continuing the `point` above* stands 370 lines and
-ninety blocks after the `point` in question — and it is why the cheaper thing
-does not work: prepending a fixed window of the nearest blocks recovers 24 of
-the 54 at a depth of five and not one more at twenty, because the distance is
-not the problem, what is between them is.
-
-**And a block that is not a program now says so**, with a word after its fence.
-The cost this entry named — *the convention has to be applied to 42 blocks
-before it can be enforced on the 43rd* — turned out to be 14 blocks, because 28
-of the 42 were programs all along. The documents were already tagging 31 fences
-`sh` and `c`, and the checker was compiling those as Solum anyway; a `text` tag
-joins them for a REPL session, a syntax exhibit, a sketch of a language that was
-never built. **A reader can see a fence that says `text`. Nobody can see a
-silence in a count.**
-
-With every remaining block either running or marked, a block that claims to be
-Solum and does not run **is a failure**, which was the whole point.
-
-#### What that found
-
-Eight blocks were broken, in documents that had been read for months:
-
-| | |
-| --- | --- |
-| [GUIDE.md](GUIDE.md) | `point:slots` asked for slots that page never defined, `p:respondsTo('show)` for a method nobody wrote, and `rex:intro` for an `animal` and a `dog` that appear nowhere in the file |
-| [REFERENCE.md](REFERENCE.md) | `integer:slotAt('poly)` where `poly` occurs exactly once in the document — at the line that uses it; a `lines` counter used and never initialised; `d:atPut` on an undeclared `d`; the same missing `animal` and `dog` |
-| [REFERENCE.md](REFERENCE.md) | `point:slots` answering `['x, 'y, 'sum, 'make]` when the section above it had already given `point` an `asString` |
-| [class-and-instance.md](class-and-instance.md) | `#45:new(#1):print. ; #1` — a claim about what the language *does*, which the language stopped doing. In a document whose first paragraph says *every snippet here has been run; the outputs are what the VM actually prints* |
-| [one-hierarchy.md](one-hierarchy.md) | two claims that could never hold — a timestamp and a heap address — now written as the asides they are |
-
-The two things worth keeping from that list: the failures cluster where a
-document runs one example through a long section, and the one that had been
-wrong longest was a claim about the language rather than about a value.
-
-#### Prose is still not checked
-
-The checker reads comments in `.sol` files and fenced blocks in `.md` files. A
-sentence that states a number — *"729 claims on every build"*, *"`integer` has
-24 slots"*, *"the fifth program here"* — is outside both, and every count this
-repository states about itself in a sentence has the standing that the examples'
-comments had before any of this existed.
-
-It keeps happening. [programs.md](programs.md) said *the nine files in
-programs/*, *one of these seven*, and *what the seven have in common*, on a page
-describing ten programs. `README.md`, `programs.md` and this entry all said
-*589 claims* for three releases after it stopped being 589. And `expect.sol`
-itself carried a comment promising that the report *says how far apart the match
-was found when it was not the next line*, which it has never done — the fault
-the program exists to catch, sitting in the program, in the one place it does
-not look.
-
-**What is available is narrower than checking prose and might be enough.** This
-repository states a handful of counts about *itself*, and a test could recompute
-those and grep for a stale one. That is now the whole of this entry, and it has
-more instances behind it than anything else here.
-
-#### A claim on a line that does not print, still
-
-A block that ends
-
-```text
-point := object:new.
-point:x := #3.
-point:show := { self:x:print }.
-point:show.                     ; #3
-```
-
-runs, prints `#3`, and checks nothing: the expectation is read from the line
-that *says* `print` or `display`, and here the printing happens inside the
-method. The same goes for a second and third line of output written under the
-first — only the first carries a claim. **The checker says so** — it counts
-those lines and reports *N lines print without saying what, and are not
-checked* — which is why this is a heading rather than the entry. The fix on the
-document's side is to write the example so the printing line is the claiming
-line.
-
-**What it costs to run.** `make test` went from about seven seconds to about
-twenty, and nearly all of it is here: a page's context is a second program that
-grows with the page and is re-run for every block under it. The cheap thing —
-adding up what each block wrote by itself instead of measuring the two together
-— is wrong in the way that matters, because being one line out is not a failure
-that shows, it is a claim matched against somebody else's output.
 
 ### 3.17 A global is found by walking a list
 

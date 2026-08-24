@@ -337,8 +337,129 @@ entry named is where the reasoning lives.
 ## 3. Known limitations
 
 The limitations themselves are still live and are in
-[ROADMAP.md](ROADMAP.md#3-known-limitations). This one was a limitation until it
-stopped being one.
+[ROADMAP.md](ROADMAP.md#3-known-limitations). These were limitations until they
+stopped being ones.
+
+### 3.16 What the checker does not check — **done**
+
+The odd one out of the whole list: about this repository's own verification
+rather than about the language. It was here because [ROADMAP.md](ROADMAP.md)
+claims to be the single list of what is outstanding, and a gap in what
+`make test` proves is outstanding.
+
+It named three gaps. Two were closed by reading a page as a page and making an
+unrunnable block a failure; the third was closed by giving a number in a
+sentence a notation saying what it counts.
+
+#### A block that would not run
+
+It was counted and reported rather than failed, on the reading that it
+*continues one further up, or shows syntax rather than a program*. Both are
+real. Both are also true of a block with a typo in it — `README.md`'s opening
+snippet, the four lines that introduce the language to everybody who arrives,
+was missing the `.` after `a := #45` and had been seen and skipped on every run.
+
+**Counting what was inside those blocks settled it: 54 claims in 42 blocks,
+against 672 checked. One claim in thirteen.** And the split says where, which is
+not where the entry guessed — it proposed telling the two categories apart on
+the theory that *would not compile* was the suspicious one, since that is what
+caught the README. It is the opposite:
+
+| | blocks | claims inside them |
+| --- | --- | --- |
+| would not compile | 10 | **2** |
+| compiled, then failed at run time | 31 | **52** |
+
+The compile failures were the shell and REPL transcripts, as harmless as they
+looked. A name defined in the block above is not a fragment showing syntax; it
+is a program with its first half on the previous page.
+
+**So a page is read as a page.** Each block that runs joins the document's
+context, and a block that will not run alone is run again on everything accepted
+before it — which is what the prose says out loud, since *continuing the `point`
+above* stands 370 lines and ninety blocks after the `point` in question. That
+accounts for 28 of the 42. The cheaper thing does not work: a fixed window of
+the nearest blocks recovers 24 of the 54 claims at a depth of five and not one
+more at twenty, because the distance is not the problem, what is between them
+is.
+
+Three things had to be right, and each was wrong first.
+
+- **The context may not satisfy the block's claims.** What it writes alone is
+  measured before the block is appended, and only what came after is read.
+- **A complaint is read wherever it lands.** With stderr merged the streams
+  interleave by buffering rather than by source, so taking the context's line
+  *count* off the front does not take its *lines* off the front. It left
+  `solvm: undefined name 'animal'` in the part being skipped, and nine blocks
+  were accepted as having run when they had produced nothing.
+- **The program has to say it reached the end.** `system:exit` unwinds, which is
+  documented behaviour with a block of its own in the reference — and that block
+  joined the context, after which the page's context was a program that exited
+  before reaching anything, for ninety blocks. A line printing a word nothing
+  else prints is appended, and if it does not come back the context does not
+  grow.
+
+**And a block that is not a program says so**, with a word after its fence. The
+cost the entry named — *the convention has to be applied to 42 blocks before it
+can be enforced on the 43rd* — was 14 blocks, because 28 of the 42 were programs
+all along. The documents were already tagging 31 fences `sh` and `c`; a `text`
+tag joins them. **A reader can see a fence that says `text`; nobody can see a
+silence in a count.** With that, a block claiming to be Solum and failing to run
+is a failure, confirmed by breaking one both ways.
+
+#### A number in a sentence
+
+*"Prose is not checked at all"* was the second gap, and the difficulty is exact:
+**a number in a sentence has no notation saying what it counts.** So it is given
+one. The comment renders as nothing and the reader sees the sentence:
+
+```text
+[expect.sol](../programs/expect.sol) checks 729<!--count claims--> claims
+```
+
+[expect.sol](../programs/expect.sol) recounts each of them from the repository
+as it stands — the programs on disk, the slots a class holds, the claims this
+run checked — and **a name the table does not know is a failure**, so a marker
+cannot be misspelled into silence, which is the failure mode the entry is about.
+The counts that are facts about a particular run are deferred rather than
+compared when the run covered less than everything.
+
+A position needs no marker, because the phrase is already one: nine programs
+open with *The fifth program here*, and [programs.md](programs.md) puts them in
+that order under its headings. The two are now held together.
+
+**What it found**, all of it by recounting rather than by reading:
+
+| | said | is |
+| --- | --- | --- |
+| ROADMAP 3.14, on whether `float` should gain trigonometry | `float` answers **21** messages | **26**<!--count float-answers--> — the count that entry's whole size argument rests on, five releases out of date |
+| [REFERENCE.md](REFERENCE.md)'s message index | **121** messages across **215** registrations | **122** across **216** |
+| [programs.md](programs.md)'s sample output | 21 files, **398** claims | 21 files, **402**<!--count examples-claims--> claims |
+| `README.md`, `programs.md` and the entry itself | **589** claims | **729**<!--count claims--> |
+
+#### What is left, which is not a gap
+
+A sentence can say anything, and no checker reaches that. The entry's own
+example is the sharpest one: `expect.sol` carried a comment promising that the
+report *says how far apart the match was found when it was not the next line*,
+which it has never done — the fault the program exists to catch, sitting in the
+program, in the one place it does not look. That is now corrected in place, and
+what replaced it says the checker does not detect a coincidental match.
+
+A claim on a line that does not itself print is still not checked, and **the
+report says so** — it counts those lines and prints the count. The same goes for
+a transcript in a fence: [programs.md](programs.md) shows what `expect.sol`
+prints, and nothing can hold a transcript to anything. Both are visible in the
+output rather than hidden in it, which is the difference this entry was about.
+
+**What it costs**: `make test` went from about seven seconds to about twenty. A
+page's context is a second program that grows with the page and is re-run for
+every block under it. The cheap version — adding up what each block wrote by
+itself instead of measuring the two together — is wrong in the way that matters,
+because being one line out is not a failure that shows, it is a claim matched
+against somebody else's output.
+
+---
 
 ### 3.9 The verifier does not know the stack height — **done**
 

@@ -405,6 +405,14 @@ static void test_every_builtin_message_is_in_the_index(void)
     char *builtins = slurp("solum/src/builtins.c");
     int checked = 0;
 
+    /* And the two numbers the index states about itself, which are prose and so
+       outside what programs/expect.sol can reach -- see ROADMAP 3.16. They said
+       215 registrations where there are 216, and the count of distinct names is
+       arrived at here for the same reason: this is the only place that already
+       knows it. */
+    static char names[512][80];
+    int name_count = 0;
+
     for (char *line = strtok(builtins, "\n"); line != NULL; line = strtok(NULL, "\n")) {
         if (strstr(line, "instance(vm,") == NULL &&
             strstr(line, "any_receiver(vm,") == NULL) {
@@ -433,12 +441,29 @@ static void test_every_builtin_message_is_in_the_index(void)
             assert(false);
         }
         checked++;
+
+        bool seen = false;
+        for (int i = 0; i < name_count; i++) {
+            if (strcmp(names[i], wanted) == 0) { seen = true; break; }
+        }
+        if (!seen) {
+            assert(name_count < (int)(sizeof names / sizeof names[0]));
+            snprintf(names[name_count++], sizeof names[0], "%s", wanted);
+        }
+    }
+
+    char sentence[80];
+    snprintf(sentence, sizeof sentence, "%d messages across %d registrations.",
+             name_count, checked);
+    if (strstr(reference, sentence) == NULL) {
+        printf("\nthe reference should say: %s\n", sentence);
+        assert(false);
     }
 
     free(builtins);
     free(reference);
-    printf("  every built-in message is in the reference's index (%d registrations)\n",
-           checked);
+    printf("  the index lists every built-in message, and says how many "
+           "(%d across %d)\n", name_count, checked);
 }
 
 /* The cheatsheet is the one-page list of everything the language answers, so it

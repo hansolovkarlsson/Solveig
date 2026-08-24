@@ -5,9 +5,57 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### A number in a sentence says what it counts, and 3.16 closes — `pending`, 2026-08-23
+
+**The third gap, and the one that kept happening.** A sentence is neither a
+comment on a printing line nor a fenced block, so a number in one was outside
+everything `make test` proves — and the difficulty is exact: **a number in a
+sentence has no notation saying what it counts.**
+
+So it is given one, and it renders as nothing:
+
+```text
+[expect.sol](../programs/expect.sol) checks 729<!--count claims--> claims
+```
+
+[expect.sol](../programs/expect.sol) recounts each name from the repository as
+it stands — the programs on disk, the slots a class holds, the messages a value
+answers, the claims this run checked. **A name the table does not know is a
+failure**, so a marker cannot be misspelled into silence, which is the failure
+mode this entry is about. Counts that are facts about a particular run are
+deferred rather than compared when the run covered less than everything.
+
+**A position needs no marker, because the phrase is already one.** Nine programs
+open with *The fifth program here*, and [programs.md](programs.md) puts them in
+that order under its headings; nothing had held the two together, and 3.16 named
+*"the fifth program here"* as its own example of a number nothing counts.
+
+**What recounting found:**
+
+| | said | is |
+| --- | --- | --- |
+| ROADMAP 3.14, on whether `float` should gain trigonometry | `float` answers **21** messages | **26** — five releases out of date, and the count that entry's whole size argument rests on |
+| [REFERENCE.md](REFERENCE.md)'s message index | **121** messages across **215** registrations | **122** across **216** |
+| [programs.md](programs.md)'s sample output | **398** claims | **402** |
+
+The middle one is checked in `tests/test_compile.c` rather than by `expect.sol`,
+because that test already parses every registration in `builtins.c` to hold the
+index and the cheatsheet honest — so it is the only place that already knows the
+number, and asking a second program to recount it would be inventing a second
+source of truth for one fact.
+
+**[3.16](COMPLETED.md#316-what-the-checker-does-not-check--done) is closed** and
+moves to [COMPLETED.md](COMPLETED.md), which is the first time anything has left
+section 3 since 3.9. What remains is not a gap: a sentence can say anything, and
+no checker reaches that. The entry's own sharpest example was `expect.sol`
+carrying a comment promising the report *says how far apart the match was found*,
+which it has never done — corrected in place. A claim on a line that does not
+print, and a transcript in a fence, are still unchecked and **the report says
+so**, which is the difference the entry was about.
+
 ### A page is read as a page, and a block that will not run is a failure — `b0ee07e`, 2026-08-23
 
-**[3.16](ROADMAP.md#316-what-the-checker-does-not-check) had three gaps in it
+**[3.16](COMPLETED.md#316-what-the-checker-does-not-check--done) had three gaps in it
 and two are now closed.** [expect.sol](../programs/expect.sol) checks **729
 claims** where it checked 672, and the difference is not new documentation: it
 is claims that were being written down, printed past, and never read.
@@ -129,7 +177,7 @@ moved to `experiment/` and took 13 claims out of the count with every remaining
 claim still holding; and
 [3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels)'s own worked
 example, which was never a claim at all because neither of its lines prints.
-[3.16](ROADMAP.md#316-what-the-checker-does-not-check) now has more instances
+[3.16](COMPLETED.md#316-what-the-checker-does-not-check--done) now has more instances
 behind it than any other open entry.
 
 **What went right is recorded at the same length**, because it is the same
@@ -167,7 +215,7 @@ stopped compiling when their files moved to `experiment/` and took 13 claims out
 of the count with every remaining claim still holding, and
 [3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels)'s own worked
 example, which was never a claim at all because neither of its lines prints.
-[3.16](ROADMAP.md#316-what-the-checker-does-not-check) now has the most
+[3.16](COMPLETED.md#316-what-the-checker-does-not-check--done) now has the most
 instances behind it of any open entry.
 
 ## 0.24.0 — 2026-08-23
@@ -483,7 +531,7 @@ the search path those blocks no longer compile, so they are classified *shows
 syntax rather than a program* and skipped — the count went from 677 to 664 with
 every remaining claim still holding. The sections are gone now and the
 subtraction is exact, but this is
-[3.16](ROADMAP.md#316-what-the-checker-does-not-check) again: a block that stops
+[3.16](COMPLETED.md#316-what-the-checker-does-not-check--done) again: a block that stops
 working stops being checked rather than failing.
 
 ### The frame cap moves, and Solum compiles itself — `6037fdf`, 2026-08-23
@@ -898,7 +946,7 @@ every build** and their answers checked, so the page cannot drift from the
 language it describes.
 
 **Writing it found a third gap in the checker**, now recorded under
-[3.16](ROADMAP.md#316-what-the-checker-does-not-check). A claim on a line that
+[3.16](COMPLETED.md#316-what-the-checker-does-not-check--done). A claim on a line that
 does not itself send `print` or `display` is not checked — `point:show. ; #3`
 prints from inside the method, so the expectation is never read — and neither
 is a second line of output written under the first. Six of the first draft's 68
@@ -956,7 +1004,7 @@ time.
 
 Also: `design.md` said **0.13.0** in its status section, eight releases stale.
 Another prose count outside what the checker reads
-([3.16](ROADMAP.md#316-what-the-checker-does-not-check)), found the same way as
+([3.16](COMPLETED.md#316-what-the-checker-does-not-check--done)), found the same way as
 the last three — by reading the page for another reason.
 
 ### A square root that is right — `2e438fb`, 2026-08-23
@@ -1018,7 +1066,7 @@ up from 589.
 **Three stale counts, found by reading.** `programs.md` said *the nine files in
 programs/* and twice *the seven*, on a page describing ten. Fixed, and recorded
 as the third instance under
-[3.16](ROADMAP.md#316-what-the-checker-does-not-check) — enough to say which of
+[3.16](COMPLETED.md#316-what-the-checker-does-not-check--done) — enough to say which of
 that entry's three options is the one worth building.
 
 ## 0.21.0 — 2026-08-22
@@ -1058,7 +1106,7 @@ program wanting one*, and this is that program.
 cannot be discarded, and a benchmark harness is the one program that cannot buy
 its way out through `/bin/sh`, a shell being another fork and exec of the same
 order as the thing measured.
-[3.16](ROADMAP.md#316-what-the-checker-does-not-check) — what 0.20.0's checker
+[3.16](COMPLETED.md#316-what-the-checker-does-not-check--done) — what 0.20.0's checker
 does not check: a fenced block that fails to compile is counted and skipped, and
 prose is not read at all.
 
@@ -1075,7 +1123,7 @@ works" written from reasoning rather than from a run, and a bisect that could
 not find a cross-file interaction because it looked at one file at a time.
 
 And one outstanding thing that had not been written down anywhere:
-[3.16](ROADMAP.md#316-what-the-checker-does-not-check). The checker proves 589
+[3.16](COMPLETED.md#316-what-the-checker-does-not-check--done). The checker proves 589
 claims and two kinds of thing in the same files sit outside it — a fenced block
 that does not compile, which is counted and skipped and is where the front
 page's missing `.` hid; and prose, which is not read at all, so every count this
