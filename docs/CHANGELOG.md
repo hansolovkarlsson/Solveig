@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### A number in a sentence says what it counts, and 3.16 closes — `pending`, 2026-08-23
+### A number in a sentence says what it counts, and 3.16 closes — `ef5fbd0`, 2026-08-23
 
 **The third gap, and the one that kept happening.** A sentence is neither a
 comment on a printing line nor a fenced block, so a number in one was outside
