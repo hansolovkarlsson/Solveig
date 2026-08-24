@@ -5,6 +5,46 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## 0.26.0 — 2026-08-24
+
+**Two known limitations close and one silent acceptance stops being silent.**
+`.sob` files are format version 14, unchanged.
+
+**[3.15](COMPLETED.md#315-a-childs-streams-cannot-be-redirected--done)**: `run`
+and `capture` take an optional second argument saying where a child's `stdin`,
+`stdout` and `stderr` go — an array of alternating name and value, a symbol for
+a manner and a string for a path. The entry had named two possible shapes and
+picked neither; what decided it was the half the entry never mentioned, that a
+child could not be given anything to *read* either.
+
+**The randomness half of
+[3.14](ROADMAP.md#314-the-mathematics-that-is-not-here)**: `random:new` is
+seeded by the machine, `random:new(#seed)` repeats, and the state lives in the
+object rather than on `system`. What settled where it should live was measuring
+the generator [bench.sol](../programs/bench.sol) already carried: correct, and
+seeded from a clock whose low bits made the first coin flip the parity of the
+start microsecond.
+
+**A block argument is checked when the message is sent**, not when the block
+would have run — fourteen messages where a wrong program was accepted because of
+the data it happened to meet. `false:and(#45)` used to answer `false` and say
+nothing.
+
+**And the checker reads a page as a page.** Documented claims go from 729 to
+**756**, the difference being claims that were written down and never read: a
+fenced block that will not run alone is now run again on the page above it, and
+one that will not run either way is a failure. A number in a sentence carries a
+notation saying what it counts, and 20 of them are recounted on every build.
+[3.16](COMPLETED.md#316-what-the-checker-does-not-check--done) closed with that,
+and [3.17](COMPLETED.md#317-a-global-is-found-by-walking-a-list--done) with an
+index beside an object's slot list — worth more to *sends* than to the globals
+it was written about.
+
+**Two of the entries closed on a re-reading rather than on new work.** 3.14's
+trigger had fired four releases ago and nobody had checked; 3.15's shape was
+decided by an argument the entry did not contain. Both are recorded as
+mis-filings rather than quietly corrected.
+
 ### A block argument is checked when the message is sent — `858b3f2`, 2026-08-24
 
 **A wrong program was accepted because of the data it happened to meet.**

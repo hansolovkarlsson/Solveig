@@ -108,6 +108,17 @@ No dependencies beyond a C11 compiler and `make`.
 
 ## Status
 
+**0.26.0** — two known limitations close and `.sob` files are format version 14,
+unchanged. **A child's streams go where they are told**: `system:run` and
+`system:capture` take an optional second argument, so a command that complains
+on stderr can be quietened without a shell. **`random:new`** is a generator you
+make — seeded by the machine, or by a number you name and then repeatable —
+which is where the state had to live for a chunk to keep running the same twice.
+And **a block argument is checked when the message is sent**, closing fourteen
+places where `false:and(#45)` was accepted because a false receiver never
+reaches its argument. Documented claims go from 729 to **756**, the difference
+being claims that were written down and never read.
+
 **0.25.0** — a journal release; no code changed and `.sob` files are format
 version 14, unchanged. [docs/journal.md](docs/journal.md) gains a day that was
 three releases long, with a six-item postmortem whose items share one shape:
