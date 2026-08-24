@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### The debugger lists what a program bound — `pending`, 2026-08-24
+### The debugger lists what a program bound — `60e2f74`, 2026-08-24
 
 **`solid` gains `globals`**, and it answers the one question a program cannot
 ask about itself. `object:slots` lists the root *class*'s messages, which is not
