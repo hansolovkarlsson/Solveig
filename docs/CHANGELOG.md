@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### A suffix is not a substring — `pending`, 2026-08-24
+### A suffix is not a substring — `694b329`, 2026-08-24
 
 **The defect the regular expression survey turned up, fixed.** Six sites in
 [expect.sol](../programs/expect.sol) asked `indexOf(suffix):notNil` a question
