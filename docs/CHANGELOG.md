@@ -7156,7 +7156,7 @@ assertion.
 runnable file cannot drift apart. `tests/test_compile.c` compiles all twelve
 examples now.
 
-**The site is at <https://hansolovkarlsson.github.io/solveig/>**, built from the
+**The site is at <https://hansolovkarlsson.github.io/Solveig/>**, built from the
 markdown already in the repository. There is no generated copy of any document,
 so a page cannot fall out of step with the file it came from: editing
 `docs/GUIDE.md` is editing the Guide page. Three plugins do it —
