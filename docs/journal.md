@@ -272,7 +272,7 @@ in the file. What the experiment measured is the cost of writing them:
   advice than it sounds when the reason is nothing to do with randomness.
 
 That is [3.14](ROADMAP.md#314-there-is-no-source-of-randomness),
-and [3.15](ROADMAP.md#315-a-childs-streams-cannot-be-redirected) came with it: a
+and [3.15](COMPLETED.md#315-a-childs-streams-cannot-be-redirected--done) came with it: a
 child's stderr cannot be discarded, and a benchmark harness is the one program
 that cannot buy its way out through `/bin/sh`.
 

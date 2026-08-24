@@ -386,12 +386,12 @@ table had when [disasm](#disasm--a-sob-file-read-and-disassembled) found it
 three sections out of date. They are also the first thing a newcomer reads.
 
 **It is in `make test` now**, in `tests/test_cli.c` with the other tests that
-run the binaries as a shell would — **729<!--count claims--> claims on every build**, in about
+run the binaries as a shell would — **734<!--count claims--> claims on every build**, in about
 sixteen seconds, and it fails the build if one stops holding.
 
 **And it checks the documentation too.** The guide and the reference carry the
 same notation inside ``` fences, and nothing checked those either — they are the
-two documents a newcomer actually reads. 325<!--count docs-claims--> claims
+two documents a newcomer actually reads. 330<!--count docs-claims--> claims
 across eighteen<!--count docs-documents--> documents,
 and two more on `README.md` and `index.md` — the front pages, which were the
 last two things nothing checked.
@@ -433,7 +433,7 @@ no notation saying what it counts — so it is given one, which renders as nothi
 and leaves the sentence as it was:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 729<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 734<!--count claims--> claims
 ```
 
 Each name is recounted from the repository as it stands. A name the table does
@@ -542,7 +542,7 @@ is the test the tool has to pass before any of its other answers are worth
 reading.
 
 **What it found is [3.14](ROADMAP.md#314-there-is-no-source-of-randomness)
-and [3.15](ROADMAP.md#315-a-childs-streams-cannot-be-redirected).** There was no
+and [3.15](COMPLETED.md#315-a-childs-streams-cannot-be-redirected--done).** There was no
 `sqrt`, no `min`, no `max` and no randomness in the language, so this file
 carried all four. Writing them is easy; **getting them right is not**, and the
 square root here was wrong twice, each time silently: first as twenty fixed

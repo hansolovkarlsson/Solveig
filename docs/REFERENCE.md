@@ -1110,6 +1110,56 @@ convention. Neither is an error, so both are the caller's to notice.
 Output arrives as bytes, padding and all — `wc -l` answers `"     100\n"` — and
 [`trim`](#string) is what stands between that and `asInteger`.
 
+#### Where the child's streams go
+
+Both take an optional second argument saying what the child's `stdin`, `stdout`
+and `stderr` should be. It is an **array of alternating name and value** — the
+options bag this language can spell, since there is an array literal and no
+dictionary literal.
+
+```
+noisy := ["/bin/sh", "-c", "echo out; echo err 1>&2"].
+
+system:capture(noisy, ["stderr", 'discard]):at("output"):print.   ; "out\n"
+system:capture(noisy, ["stderr", 'merge]):at("output"):print.     ; "out\nerr\n"
+```
+
+The names are the same strings `capture` answers with. A value is either a
+**manner, as a symbol**, or a **path, as a string** — and the type is what tells
+them apart, which is what keeps a file called `discard` a file.
+
+| Value | Means |
+| --- | --- |
+| `'share` | the child gets ours, which is what happens when nothing is said |
+| `'discard` | `/dev/null` |
+| `'merge` | **`"stderr"` only** — wherever stdout ended up |
+| `"a/path"` | the file, truncated for a stream going out, read for `"stdin"` |
+
+```
+system:run(["/bin/sh", "-c", "echo out; echo err 1>&2"],
+           ["stdout", "log.txt", "stderr", 'merge]).
+system:readFile("log.txt"):print.                    ; "out\nerr\n"
+system:remove("log.txt").
+
+system:writeFile("in.txt", "fed in").
+system:capture(["cat"], ["stdin", "in.txt"]):at("output"):print.  ; "fed in"
+system:remove("in.txt").
+```
+
+**`'merge` follows stdout to where it is now**, not to where it was. That is
+`>file 2>&1` and not `2>&1 >file`, which are the two orders a shell distinguishes
+and the classic way to get this wrong. For `capture` it means stderr lands in the
+answer, because the pipe is where stdout already is.
+
+**`capture` refuses `"stdout"`**, whatever the value, since keeping stdout is
+what the message is for; `run` is the one that can send it elsewhere. A stream
+named twice is refused too, and so is a path that cannot be opened — the files
+are opened **before** the fork, so a bad path is this program's error to report
+rather than a child that silently did nothing.
+
+Anything not said is inherited, so `system:run(argv)` is exactly what it always
+was.
+
 ### The clock
 
 `system:clock` answers **monotonic seconds as a float**. The epoch is
@@ -2661,8 +2711,8 @@ it delegates to `object` like everything else. See
 | `filesIn(path)` | an array of the names in a directory; an error if it is not one |
 | `appendFile(path, text)` | nil, having added to the end; creates the file |
 | `environment(name)` | the variable, or **nil** when it is not set |
-| `run(argv)` | the exit status of another program; `argv` is an array |
-| `capture(argv)` | a dictionary of `"output"` and `"status"` |
+| `run(argv)` `run(argv, streams)` | the exit status of another program; `argv` is an array |
+| `capture(argv)` `capture(argv, streams)` | a dictionary of `"output"` and `"status"` |
 | `fileSize(path)` | an integer, without reading the file |
 | `remove(path)` | nil, having deleted a file or an **empty** directory |
 | `makeDirectory(path)` | **true** if it made one, **false** if a directory was there; the parent must exist |

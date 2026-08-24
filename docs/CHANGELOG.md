@@ -5,6 +5,64 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### A child's streams go where they are told — `pending`, 2026-08-24
+
+**[3.15](COMPLETED.md#315-a-childs-streams-cannot-be-redirected--done) closes.**
+`system:run` gave the child this program's stdout and stderr, `system:capture`
+kept the child's stdout, and there was no third thing — no way to discard a
+child's stderr, and no way to send either stream to a file. Both messages now
+take an optional second argument saying where the streams go:
+
+```text
+system:run(["make"], ["stderr", 'discard]).
+system:capture(argv, ["stderr", 'merge]).
+system:run(argv, ["stdout", "build.log", "stderr", 'merge]).
+```
+
+An array of alternating name and value. A value is a **manner, as a symbol** —
+`'share`, `'discard`, and `'merge` for stderr alone — or a **path, as a
+string**, and the type is what tells them apart, which keeps a file called
+`discard` a file.
+
+**The entry named two shapes and picked neither**, so the first thing this cost
+was that decision: a fourth argument to `capture`, smallest and least general,
+against an options bag that generalises without new messages. The bag won on an
+argument the entry did not contain — **there was no way to give a child anything
+to read, either**, and `stdin` was inherited by both messages and unmentioned
+everywhere. Four optional things is more than positional arguments can carry.
+
+**Then the language chose the spelling.** A dictionary was the obvious bag and
+is the wrong one here, because there is an array literal and no dictionary
+literal: `dictionary:new` and an `atPut` is three statements at every call site
+to say one thing. So it is the array of names and values the entry itself had
+sketched, keyed by the same strings `capture` answers with — the same spelling
+going in as coming out.
+
+**[bench.sol](../programs/bench.sol) is what asked, and is the proof.** A
+benchmark harness must run a command many times without its output reaching the
+report, and `capture` fenced off stdout while stderr went straight through it.
+The way round was `/bin/sh -c '"$@" 2>/dev/null' sh ...` — another fork and
+another exec on every measurement, of the same order as the thing being
+measured, which is the one program that cannot pay for it. It passes
+`["stderr", 'discard]` now, and a command that complains no longer writes over
+its own timings. What said the command failed was always the status, and that is
+untouched.
+
+Two things in the plumbing were worth the care: the files are opened **before**
+the fork, so a bad path is the caller's error to read rather than a child that
+silently did nothing; and `'merge` follows stdout to where it is **now**, which
+is `>file 2>&1` and not `2>&1 >file` — the two orders a shell distinguishes and
+the classic way to get this wrong.
+
+**The test watches its own stderr**, because `'discard` is the claim whose
+failure is invisible: output that should not appear looks exactly like output
+that appeared somewhere else. It points the test process's stderr at a file for
+the length of the call and reads it back empty, then runs three hundred
+redirected children to say nothing was left open — which under a 256-descriptor
+limit fails loudly if it is false. Thirteen refusals are checked beside it,
+`"stdout"` handed to `capture` among them: that is refused whatever the value,
+since keeping stdout is what the message is for.
+
 ### An object with more than a dozen slots keeps a table beside its list — `f4cbfcc`, 2026-08-23
 
 **[3.17](COMPLETED.md#317-a-global-is-found-by-walking-a-list--done) closes.**
@@ -1162,7 +1220,7 @@ what it wrote landing where the printer had never been.
 there is no `sqrt`, `pow`, `min`, `max`, and no source of randomness anywhere in
 the language; this had been deferred in [ideas.md](ideas.md) with the trigger *a
 program wanting one*, and this is that program.
-[3.15](ROADMAP.md#315-a-childs-streams-cannot-be-redirected) — a child's stderr
+[3.15](COMPLETED.md#315-a-childs-streams-cannot-be-redirected--done) — a child's stderr
 cannot be discarded, and a benchmark harness is the one program that cannot buy
 its way out through `/bin/sh`, a shell being another fork and exec of the same
 order as the thing measured.
@@ -1250,7 +1308,7 @@ at all**: a linear congruential generator relies on the multiplication wrapping,
 and integer arithmetic here traps on overflow. Lehmer's works, with a multiplier
 and modulus chosen to stay inside 64 bits.
 
-[3.15](ROADMAP.md#315-a-childs-streams-cannot-be-redirected) — `run` shares both
+[3.15](COMPLETED.md#315-a-childs-streams-cannot-be-redirected--done) — `run` shares both
 of a child's streams and `capture` keeps its stdout; there is no way to discard
 stderr. A benchmark harness is the one program that cannot buy its way out
 through `/bin/sh`, a shell being another fork and exec on every measurement, of

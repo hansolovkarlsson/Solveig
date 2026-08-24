@@ -145,21 +145,27 @@ randomUpTo := { n | random:value:mod(n):inc }.
 ; benchmark of something under a millisecond belongs inside the process instead
 ; (`{ ... }:timeToRun(#n)` is that, and is cheaper by four orders of magnitude).
 
-; **A child's streams cannot be redirected**, and that shapes this. `run` shares
-; both of them and `capture` keeps stdout, so a command that complains on stderr
-; writes over the report and there is no message that stops it. The way round is
-; `/bin/sh -c '"$@" 2>/dev/null' sh ...`, and a benchmark harness is the one
-; program that cannot pay for it: a shell is another fork and another exec on
-; every measurement, of the same order as the thing being measured. So the array
-; form is used, the number is the command, and a noisy command prints above the
-; report. See ROADMAP 3.15.
+; **The child's stderr is discarded**, and this program is the reason that is
+; possible. `capture` keeps stdout, so what was left was a command that
+; complains on stderr writing straight over the report, with no message that
+; stopped it. The way round was `/bin/sh -c '"$@" 2>/dev/null' sh ...`, and a
+; benchmark harness is the one program that cannot pay for it: a shell is
+; another fork and another exec on every measurement, of the same order as the
+; thing being measured. `["stderr", 'discard]` is that redirection without the
+; shell, and it closed ROADMAP 3.15.
+;
+; The noise goes; the *failure* does not. A command that writes to stderr and
+; works is quiet now, and a command that fails is still counted below, because
+; what says it failed is the status and never the noise.
+
+quiet := ["stderr", 'discard].
 
 failures := #0.
 lastStatus := #0.
 
 timeOnce := { argv | | start, result, elapsed |
     start := system:clock.
-    result := system:capture(argv).
+    result := system:capture(argv, quiet).
     elapsed := system:clock:sub(start).
     ; The status, always. tools.sol learned this the other way round: reading a
     ; command's output without looking at whether it worked is how a report says

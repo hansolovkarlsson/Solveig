@@ -172,8 +172,12 @@ own.
 
 Safe, and documented. Each is a real restriction rather than a bug.
 
-**3.9, 3.16 and 3.17 are gone from here** and are in
-[COMPLETED.md](COMPLETED.md#3-known-limitations). 3.16 was the odd one out —
+**3.9, 3.15, 3.16 and 3.17 are gone from here** and are in
+[COMPLETED.md](COMPLETED.md#3-known-limitations). 3.15 closed by giving `run`
+and `capture` an optional second argument saying where the child's streams go,
+which is the entry that had named two possible shapes and picked neither — and
+the half that decided it was the half the entry never mentioned, that a child
+could not be given anything to read either. 3.16 was the odd one out —
 about this repository's own verification rather than about the language — and it
 closed by reading a document as a document, failing on a block that will not
 run, and giving a number in a sentence a notation saying what it counts. 3.17
@@ -182,7 +186,7 @@ which turned out to be worth more to *sends* than to the globals it was written
 about.
 
 **3.1 through 3.6 were chosen** — a decision taken and written down. **3.7, 3.8,
-3.10, 3.11, 3.12, 3.13, 3.14 and 3.15 were not.** Each is a consequence of a decision taken elsewhere,
+3.10, 3.11, 3.12, 3.13 and 3.14 were not.** Each is a consequence of a decision taken elsewhere,
 noticed afterwards, and each is kept here rather than in section 6 because the
 ways of answering it cost more than what they buy is currently worth. That
 distinction is worth keeping visible: a restriction chosen and a restriction
@@ -821,36 +825,6 @@ messages today, and
 `sin`, `cos`, `tan`, `asin`, `acos`, `atan` and `atan2` would be a third again.
 That is a reason to add them deliberately and together, not a reason to refuse.
 
-### 3.15 A child's streams cannot be redirected
-
-`system:run` shares this program's stdout and stderr with the child.
-`system:capture` keeps the child's stdout and answers it with the exit status.
-There is no third thing, and in particular **no way to discard a child's stderr**
-or to send either stream to a file.
-
-Found by [bench.sol](../programs/bench.sol), where it is sharper than it sounds:
-a benchmark harness must run a command many times without its output getting
-into the report, and a command that complains on stderr writes straight over
-that report through `capture`. The way round is the shell —
-`["/bin/sh", "-c", "\"$@\" 2>/dev/null", "sh", ...]`, which passes the
-arguments as positional parameters and so keeps the array's safety — and a
-benchmark harness is the one program that cannot afford it: a shell is another
-fork and another exec on **every measurement**, of the same order as the thing
-being measured. So the program takes the noise instead, and the numbers stay the
-command's.
-
-What it costs everywhere else is smaller but real: a program that shells out to
-something chatty has no way to quieten it, and a program that wants a child's
-output in a file has to capture it and write it, which holds the whole of it in
-memory first.
-
-**The shape of an answer is the open question.** A fourth argument to `capture`
-is the smallest thing that works and the least general. `system:capture` already
-answers a dictionary; taking one — `system:capture(argv, ["stderr", "discard"])`
-— generalises without new messages, at the cost of an options bag, which is a
-shape nothing else in this language uses. Neither is obviously right, and
-nothing is blocked while it stays undecided.
-
 ### 1.1d Collection is stop-the-world and non-incremental
 
 Fine at this size and not worth touching yet. Noted so it is a choice rather than
@@ -929,7 +903,8 @@ found out what it wanted.
   `between` are only a library. The textbook random generator cannot be written
   here at all, because integer arithmetic traps on overflow rather than wrapping,
   and that half of the entry is still open. It also found that **a child's
-  streams cannot be redirected** (3.15), and, by testing its own square root at
+  streams could not be redirected** ([3.15](COMPLETED.md#315-a-childs-streams-cannot-be-redirected--done),
+  closed), and, by testing its own square root at
   1e300, **a stack over-read in the float formatter** that let a script print the
   bytes behind a buffer. The first program here written to press on a gap rather
   than to do a job.

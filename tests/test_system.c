@@ -969,6 +969,131 @@ static void test_capturing_output(void)
     printf("  capturing answers the output and the status\n");
 }
 
+/* Whatever a file holds now, as a string the caller frees. */
+static char *file_holds(const char *path)
+{
+    FILE *f = fopen(path, "rb");
+    assert(f != NULL);
+    static char text[4096];
+    size_t got = fread(text, 1, sizeof text - 1, f);
+    text[got] = '\0';
+    fclose(f);
+    return text;
+}
+
+/* Where a child's streams go: an array of alternating name and value, a symbol
+   for a manner and a string for a path.
+ *
+ * The claim worth testing hardest is `'discard`, because it is the one a
+ * benchmark harness rests on and the one whose failure is invisible -- output
+ * that should not appear looks exactly like output that appeared somewhere
+ * else. So this test points its *own* stderr at a file for the length of the
+ * call and reads it back, which is the only way to say "nothing reached ours"
+ * rather than "we did not notice anything". */
+static void test_a_childs_streams_go_where_they_are_told(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    /* Discarded, and proved by watching our own stderr. */
+    static const char *ours = "build/tests/our-stderr";
+    fflush(stderr);
+    int saved = dup(STDERR_FILENO);
+    FILE *sink = fopen(ours, "wb");
+    assert(saved >= 0 && sink != NULL);
+    assert(dup2(fileno(sink), STDERR_FILENO) >= 0);
+
+    SolResult quiet = run(&vm, &chunk,
+        "noisy := [\"/bin/sh\", \"-c\", \"echo out; echo err 1>&2; exit 3\"]."
+        "r := system:capture(noisy, [\"stderr\", 'discard])."
+        "quietText := r:at(\"output\")."
+        "quietStatus := r:at(\"status\").");
+
+    fflush(stderr);
+    assert(dup2(saved, STDERR_FILENO) >= 0);
+    close(saved);
+    fclose(sink);
+
+    assert(quiet == SOL_OK);
+    assert(is_text(global(&vm, "quietText"), "out\n"));
+    assert(SOL_AS_INT(global(&vm, "quietStatus")) == 3);   /* the status stays */
+    assert(file_holds(ours)[0] == '\0');                   /* and nothing else */
+    sol_chunk_free(&chunk);
+
+    /* Merged, which for `capture` means into the answer. Order matters: stderr
+       follows stdout to where it is *now*, so both land in the same place. */
+    assert(run(&vm, &chunk,
+        "merged := system:capture(noisy, [\"stderr\", 'merge]):at(\"output\").") == SOL_OK);
+    assert(is_text(global(&vm, "merged"), "out\nerr\n"));
+    sol_chunk_free(&chunk);
+
+    /* To a file, through `run`, which is the message that can move stdout. */
+    static const char *out = "build/tests/child-out";
+    assert(run(&vm, &chunk,
+        "status := system:run(noisy, [\"stdout\", \"build/tests/child-out\","
+        "                             \"stderr\", 'merge]).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "status")) == 3);
+    assert(strcmp(file_holds(out), "out\nerr\n") == 0);
+    sol_chunk_free(&chunk);
+
+    /* And in, which is the half the entry never mentioned: there was no way to
+       give a child anything to read either. */
+    assert(run(&vm, &chunk,
+        "system:writeFile(\"build/tests/child-in\", \"fed in\")."
+        "fed := system:capture([\"cat\"], [\"stdin\", \"build/tests/child-in\"])"
+        "           :at(\"output\")."
+        "starved := system:capture([\"cat\"], [\"stdin\", 'discard]):at(\"output\")."
+        /* Saying 'share is saying the default out loud, and must change nothing.
+           Not "stdout" though, even to share it: `capture` refuses that name
+           whatever the value, because sharing stdout is the one thing it does
+           not do. */
+        "same := system:capture([\"echo\", \"hi\"], [\"stdin\", 'share, \"stderr\", 'share])"
+        "            :at(\"output\")."
+        ) == SOL_OK);
+    assert(is_text(global(&vm, "fed"), "fed in"));
+    assert(is_text(global(&vm, "starved"), ""));
+    assert(is_text(global(&vm, "same"), "hi\n"));
+    sol_chunk_free(&chunk);
+
+    static const char *refused[] = {
+        "system:run([\"true\"], \"stderr\").",          /* not an array */
+        "system:run([\"true\"], [\"stderr\"]).",        /* a name with no value */
+        "system:run([\"true\"], [#1, 'discard]).",      /* a name is a string */
+        "system:run([\"true\"], [\"stdrr\", 'discard])."/* no such stream */,
+        "system:run([\"true\"], [\"stderr\", 'quiet]).",/* no such manner */
+        "system:run([\"true\"], [\"stdout\", 'merge]).",/* only stderr follows */
+        "system:run([\"true\"], [\"stderr\", #1]).",    /* neither a manner nor a path */
+        "system:run([\"true\"], [\"stderr\", 'share, \"stderr\", 'discard]).", /* twice */
+        "system:run([\"true\"], [\"stdin\", \"build/tests/no-such-file\"]).",
+        "system:run([\"true\"], [\"stdout\", \"build/tests/no/such/directory/x\"]).",
+        /* `capture` keeps stdout by definition, so moving it is refused rather
+           than quietly emptying the answer. */
+        "system:capture([\"true\"], [\"stdout\", \"build/tests/child-out\"]).",
+        "system:capture([\"true\"], [\"stdout\", 'discard]).",
+        "system:run([\"true\"], [], []).",
+    };
+    for (size_t i = 0; i < sizeof refused / sizeof refused[0]; i++) {
+        assert(run(&vm, &chunk, refused[i]) == SOL_RUNTIME_ERROR);
+        sol_chunk_free(&chunk);
+    }
+
+    /* Nothing was left open by any of that -- thirteen refusals, several of
+       which opened a file before meeting the pair that was wrong. */
+    static const char *loop =
+        "i := #0."
+        "{ i:lessThan(#300) }:whileTrue({"
+        "    system:run([\"true\"], [\"stdout\", \"build/tests/child-out\","
+        "                           \"stderr\", 'discard, \"stdin\", 'discard])."
+        "    i := i:inc })."
+        "reached := i.";
+    assert(run(&vm, &chunk, loop) == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "reached")) == 300);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+    printf("  a child's streams go where they are told\n");
+}
+
 /* One byte at a time, without waiting for a line.
  *
  * Driven through a pipe, which is deterministic and is also half the contract:
@@ -1209,6 +1334,7 @@ int main(void)
 
     test_running_a_program();
     test_capturing_output();
+    test_a_childs_streams_go_where_they_are_told();
     test_read_key_takes_one_byte();
     test_making_a_directory_answers_whether_it_did();
     test_a_mode_can_be_read_and_set();

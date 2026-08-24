@@ -340,6 +340,97 @@ The limitations themselves are still live and are in
 [ROADMAP.md](ROADMAP.md#3-known-limitations). These were limitations until they
 stopped being ones.
 
+### 3.15 A child's streams cannot be redirected — **done**
+
+`system:run` gave the child this program's stdout and stderr; `system:capture`
+kept the child's stdout and answered it with the status. There was no third
+thing, and in particular **no way to discard a child's stderr** or to send
+either stream to a file.
+
+**Both messages now take an optional second argument** saying where the child's
+streams go — an array of alternating name and value:
+
+```text
+system:run(["make"], ["stderr", 'discard]).
+system:capture(argv, ["stderr", 'merge]).
+system:run(argv, ["stdout", "build.log", "stderr", 'merge]).
+```
+
+A value is either a **manner, as a symbol** — `'share`, `'discard`, and
+`'merge` for stderr alone — or a **path, as a string**. The type is what tells
+them apart, which is what keeps a file called `discard` a file.
+
+#### The shape was the whole question, and the language answered it
+
+The entry named two candidates and picked neither: a fourth argument to
+`capture`, which is the smallest thing that works and the least general, or an
+options bag, which generalises without new messages at the cost of a shape
+nothing else here uses.
+
+**The bag won, and then the language chose how to spell it.** The argument for
+the bag is that there are four things a caller might want to say and positional
+arguments cannot carry four optional ones — and the fourth is the one this entry
+never mentioned: there was no way to give a child anything to *read*, either.
+`stdin` was inherited by both messages and unmentioned by the roadmap, which is
+what settled it. But the bag could not be a dictionary, because **this language
+has an array literal and no dictionary literal** — a dictionary here would have
+cost three statements at every call site to say one thing:
+
+```text
+opts := dictionary:new.
+opts:atPut("stderr", 'discard).
+system:capture(argv, opts).
+```
+
+So it is an array of alternating name and value, which is the notation the entry
+itself had sketched before either question was asked. The names are the strings
+`capture` already answers with, so a stream is spelled the same going in as
+coming out.
+
+#### What it cost, and what it caught
+
+Thirty lines of plumbing around code that already forked, and the rest was
+refusals. Every one of them reports rather than guesses: a stream named twice, a
+name that is not a stream, `'merge` on anything but stderr, a manner that does
+not exist, a value that is neither a symbol nor a string, and `"stdout"` handed
+to `capture` — which is refused whatever the value, since keeping stdout is what
+that message is for.
+
+Two decisions in the plumbing are worth the words they took:
+
+- **The files are opened before the fork**, so a path that cannot be opened is
+  the caller's error to read rather than a child that silently did nothing.
+  They are opened close-on-exec, and the copy `dup2` makes is the only one the
+  child carries, `dup2` not passing the flag on.
+- **`'merge` follows stdout to where it is now**, which is `>file 2>&1` and not
+  `2>&1 >file`. Those are the two orders a shell distinguishes and the classic
+  way to get this wrong, and it falls out of doing stdout first.
+
+**[bench.sol](../programs/bench.sol) is the proof, because it is what asked.**
+It had used `capture` so that a timed command could not write over the report,
+and stderr went straight through that and did exactly what `capture` was there
+to prevent. The way round was `/bin/sh -c '"$@" 2>/dev/null' sh ...` — a second
+fork and a second exec on *every measurement*, of the same order as the thing
+being measured, which is the one program that cannot pay it. It now passes
+`["stderr", 'discard]` and its report is clean:
+
+```text
+$ ./bin/solvm programs/bench.sob 8 /bin/sh -c 'echo noise 1>&2; true'
+  runs     8
+  min         4.594 ms
+  median      5.278 ms
+```
+
+The noise goes and the failure does not: what says a command failed is the
+status, which `'discard` leaves alone.
+
+**The test that mattered watches its own stderr.** `'discard` is the claim whose
+failure is invisible — output that should not appear looks exactly like output
+that appeared somewhere else — so the test points the *test process's* stderr at
+a file for the length of the call and reads it back empty. Three hundred
+redirected children in a loop afterwards say nothing was left open, which under
+a 256-descriptor limit is a claim that fails loudly if it is false.
+
 ### 3.17 A global is found by walking a list — **done**
 
 `OP_GLOBAL` resolved a name by walking the root object's slots and comparing
@@ -496,7 +587,7 @@ is a failure, confirmed by breaking one both ways.
 one. The comment renders as nothing and the reader sees the sentence:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 729<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 734<!--count claims--> claims
 ```
 
 [expect.sol](../programs/expect.sol) recounts each of them from the repository
@@ -517,7 +608,7 @@ that order under its headings. The two are now held together.
 | ROADMAP 3.14, on whether `float` should gain trigonometry | `float` answers **21** messages | **26**<!--count float-answers--> — the count that entry's whole size argument rests on, five releases out of date |
 | [REFERENCE.md](REFERENCE.md)'s message index | **121** messages across **215** registrations | **122** across **216** |
 | [programs.md](programs.md)'s sample output | 21 files, **398** claims | 21 files, **402**<!--count examples-claims--> claims |
-| `README.md`, `programs.md` and the entry itself | **589** claims | **729**<!--count claims--> |
+| `README.md`, `programs.md` and the entry itself | **589** claims | **734**<!--count claims--> |
 
 #### What is left, which is not a gap
 

@@ -371,11 +371,16 @@ The process, rather than any value. One object with slots, not a class.
 | `modifiedAt(path)` `setModifiedAt(path, t)` | when a file was last written |
 | `modeOf(path)` `setMode(path, #mode)` | the permission bits, `#0` to `#4095` |
 | `environment(name)` | the variable, or **nil** when unset |
-| `run(argv)` | the exit status; `argv` is an **array**, never a command line |
-| `capture(argv)` | a dictionary of `"output"` and `"status"` |
+| `run(argv)` `run(argv, streams)` | the exit status; `argv` is an **array**, never a command line |
+| `capture(argv)` `capture(argv, streams)` | a dictionary of `"output"` and `"status"` |
 
 `run` and `capture` take an array so that nothing in it is ever read as syntax.
 `#127` is the status for *no such command*.
+
+`streams` is an array of alternating name and value — `"stdin"`, `"stdout"` or
+`"stderr"`, then `'share`, `'discard`, `'merge` (stderr only, and it follows
+stdout) or a **path as a string**. `capture` refuses `"stdout"`, which is the
+one it keeps.
 
 ```
 system:writeFile("note.txt", "hello").
@@ -383,6 +388,7 @@ system:readFile("note.txt"):display.        ; hello
 system:fileExists("note.txt"):print.        ; true
 system:fileSize("note.txt"):print.          ; #5
 system:capture(["echo", "hi"]):at("output"):trim:display.  ; hi
+system:capture(["echo", "hi"], ["stderr", 'discard]):at("status"):print.  ; #0
 system:remove("note.txt").
 ```
 

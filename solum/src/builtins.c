@@ -3996,13 +3996,209 @@ static int status_of(int status)
     return -1;
 }
 
+/* ---- where a child's streams go ------------------------------------------ *
+ *
+ * Both take an optional second argument saying what the child's stdin, stdout
+ * and stderr should be: **an array of alternating name and value**, which is
+ * the options bag this language can spell. There is an array literal and no
+ * dictionary literal, so a dictionary here would cost three statements at every
+ * call site to say one thing.
+ *
+ *     system:run(["make"], ["stderr", 'discard]).
+ *     system:capture(argv, ["stderr", 'merge]).
+ *     system:run(argv, ["stdout", "build.log", "stderr", 'merge]).
+ *
+ * The names are the strings `capture` answers with, so a stream is spelled the
+ * same going in as coming out. A value is either a **manner, as a symbol** --
+ * `'share`, `'discard`, and `'merge` for stderr alone -- or a **path, as a
+ * string**. The type is what tells them apart, which is what keeps a file
+ * called `discard` a file.
+ *
+ * Files are opened **before** the fork, so a path that cannot be opened is this
+ * program's error to report rather than a child that silently did nothing. They
+ * are opened close-on-exec, so the copy `dup2` makes is the only one the child
+ * carries -- `dup2` does not pass the flag on, which is the property this rests
+ * on.
+ */
+typedef struct {
+    int  fd;        /* what the child gets, or -1 to inherit ours */
+    bool merge;     /* stderr only: wherever stdout ends up */
+    bool opened;    /* we opened it, so we close it again */
+    bool named;     /* the caller mentioned this stream */
+} SolStream;
+
+static void close_streams(SolStream *in, SolStream *out, SolStream *err)
+{
+    SolStream *all[3] = { in, out, err };
+    for (int i = 0; i < 3; i++) {
+        if (all[i]->opened) close(all[i]->fd);
+        all[i]->opened = false;
+    }
+}
+
+/* In the child, between fork and exec. Nothing here may allocate or fail in a
+   way worth reporting: there is nobody left to report to. */
+static void child_streams(const SolStream *in, const SolStream *out,
+                          const SolStream *err)
+{
+    if (in->fd  >= 0) dup2(in->fd,  STDIN_FILENO);
+    if (out->fd >= 0) dup2(out->fd, STDOUT_FILENO);
+
+    /* After stdout, and that order is the whole of it: `2>&1 >file` sends
+       stderr where stdout *was*, `>file 2>&1` where it now is, and the second
+       is what `'merge` means. */
+    if (err->merge)        dup2(STDOUT_FILENO, STDERR_FILENO);
+    else if (err->fd >= 0) dup2(err->fd, STDERR_FILENO);
+}
+
+/* One value: a manner as a symbol, or a path as a string. */
+static bool stream_value(SolVM *vm, const char *name, const char *which,
+                         SolValue value, SolStream *stream)
+{
+    bool input = strcmp(which, "stdin") == 0;
+    bool error_stream = strcmp(which, "stderr") == 0;
+
+    if (SOL_IS_SYMBOL(value)) {
+        const char *manner = SOL_AS_SYMBOL(value)->chars;
+
+        if (strcmp(manner, "share") == 0) return true;   /* the default, said */
+
+        if (strcmp(manner, "merge") == 0) {
+            if (!error_stream) {
+                sol_vm_runtime_error(vm,
+                    "'%s' takes 'merge for \"stderr\", which is the stream that"
+                    " can follow another", name);
+                return false;
+            }
+            stream->merge = true;
+            return true;
+        }
+
+        if (strcmp(manner, "discard") == 0) {
+            stream->fd = open("/dev/null", (input ? O_RDONLY : O_WRONLY) | O_CLOEXEC);
+            if (stream->fd < 0) {
+                sol_vm_runtime_error(vm, "cannot discard the child's %s: %s",
+                                     which, strerror(errno));
+                return false;
+            }
+            stream->opened = true;
+            return true;
+        }
+
+        sol_vm_runtime_error(vm,
+            "'%s' does not know '%s' for \"%s\" -- a stream takes 'share,"
+            " 'discard%s, or a path as a string",
+            name, manner, which, error_stream ? ", 'merge" : "");
+        return false;
+    }
+
+    if (SOL_IS_STRING(value)) {
+        const char *path = SOL_AS_STRING(value)->chars;
+        stream->fd = input
+            ? open(path, O_RDONLY | O_CLOEXEC)
+            : open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0666);
+        if (stream->fd < 0) {
+            sol_vm_runtime_error(vm, "cannot open '%s' for the child's %s: %s",
+                                 path, which, strerror(errno));
+            return false;
+        }
+        stream->opened = true;
+        return true;
+    }
+
+    sol_vm_runtime_error(vm,
+        "'%s' wants a manner as a symbol or a path as a string for \"%s\","
+        " got %s", name, which, sol_type_name(value));
+    return false;
+}
+
+/* The whole array. Opens what it has to; closes it again if a later pair is
+   wrong, so a refused call leaves no descriptor behind. */
+static bool streams_from(SolVM *vm, const char *name, SolValue value,
+                         bool capturing,
+                         SolStream *in, SolStream *out, SolStream *err)
+{
+    if (!SOL_IS_ARRAY(value)) {
+        sol_vm_runtime_error(vm,
+            "'%s' expects the streams as an array of names and values, got %s"
+            " -- [\"stderr\", 'discard]", name, sol_type_name(value));
+        return false;
+    }
+
+    const SolArray *given = SOL_AS_ARRAY(value);
+    if (given->count % 2 != 0) {
+        sol_vm_runtime_error(vm,
+            "'%s' wants a value for every stream named, and got %d of them",
+            name, given->count);
+        return false;
+    }
+
+    for (int i = 0; i < given->count; i += 2) {
+        if (!SOL_IS_STRING(given->items[i])) {
+            sol_vm_runtime_error(vm,
+                "'%s' wants a stream's name as a string, and #%d is %s",
+                name, i + 1, sol_type_name(given->items[i]));
+            close_streams(in, out, err);
+            return false;
+        }
+
+        const char *which = SOL_AS_STRING(given->items[i])->chars;
+        SolStream  *stream = NULL;
+        if      (strcmp(which, "stdin")  == 0) stream = in;
+        else if (strcmp(which, "stdout") == 0) stream = out;
+        else if (strcmp(which, "stderr") == 0) stream = err;
+        else {
+            sol_vm_runtime_error(vm,
+                "'%s' does not know the stream \"%s\" -- there is \"stdin\","
+                " \"stdout\" and \"stderr\"", name, which);
+            close_streams(in, out, err);
+            return false;
+        }
+
+        if (stream->named) {
+            sol_vm_runtime_error(vm, "'%s' is given \"%s\" twice", name, which);
+            close_streams(in, out, err);
+            return false;
+        }
+        stream->named = true;
+
+        /* `capture` is the message that keeps stdout. Redirecting it would
+           leave the answer's "output" with nothing in it and no way to say so,
+           which is a worse thing to allow than to refuse. */
+        if (capturing && stream == out) {
+            sol_vm_runtime_error(vm,
+                "'capture' keeps the child's stdout, which is what it is for"
+                " -- 'run' is the one that can send it elsewhere");
+            close_streams(in, out, err);
+            return false;
+        }
+
+        if (!stream_value(vm, name, which, given->items[i + 1], stream)) {
+            close_streams(in, out, err);
+            return false;
+        }
+    }
+    return true;
+}
+
 static SolValue prim_system_run(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     (void)self;
-    if (!check_argc(vm, "run", argc, 1)) return SOL_NIL_VAL;
+    if (argc != 1 && argc != 2) {
+        sol_vm_runtime_error(vm,
+            "'run' takes a command, or a command and its streams, got %d", argc);
+        return SOL_NIL_VAL;
+    }
 
     char **argv = argv_from(vm, "run", args[0]);
     if (argv == NULL) return SOL_NIL_VAL;
+
+    SolStream in = { -1, false, false, false };
+    SolStream out = in, err = in;
+    if (argc == 2 && !streams_from(vm, "run", args[1], false, &in, &out, &err)) {
+        free(argv);
+        return SOL_NIL_VAL;
+    }
 
     fflush(stdout);          /* the child shares the terminal; ours goes first */
     fflush(stderr);
@@ -4011,13 +4207,17 @@ static SolValue prim_system_run(SolVM *vm, SolValue self, SolValue *args, int ar
     if (pid < 0) {
         const char *what = argv[0];
         free(argv);
+        close_streams(&in, &out, &err);
         sol_vm_runtime_error(vm, "cannot run '%s': %s", what, strerror(errno));
         return SOL_NIL_VAL;
     }
     if (pid == 0) {
+        child_streams(&in, &out, &err);
         execvp(argv[0], argv);
         _exit(127);          /* not found, or not runnable: the shell's answer */
     }
+
+    close_streams(&in, &out, &err);      /* the child has its own copies now */
 
     int status = 0;
     while (waitpid(pid, &status, 0) < 0 && errno == EINTR) { /* again */ }
@@ -4032,14 +4232,27 @@ static SolValue prim_system_run(SolVM *vm, SolValue self, SolValue *args, int ar
 static SolValue prim_system_capture(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     (void)self;
-    if (!check_argc(vm, "capture", argc, 1)) return SOL_NIL_VAL;
+    if (argc != 1 && argc != 2) {
+        sol_vm_runtime_error(vm,
+            "'capture' takes a command, or a command and its streams, got %d",
+            argc);
+        return SOL_NIL_VAL;
+    }
 
     char **argv = argv_from(vm, "capture", args[0]);
     if (argv == NULL) return SOL_NIL_VAL;
 
+    SolStream in = { -1, false, false, false };
+    SolStream out = in, err = in;
+    if (argc == 2 && !streams_from(vm, "capture", args[1], true, &in, &out, &err)) {
+        free(argv);
+        return SOL_NIL_VAL;
+    }
+
     int fds[2];
     if (pipe(fds) != 0) {
         free(argv);
+        close_streams(&in, &out, &err);
         sol_vm_runtime_error(vm, "cannot make a pipe: %s", strerror(errno));
         return SOL_NIL_VAL;
     }
@@ -4050,17 +4263,23 @@ static SolValue prim_system_capture(SolVM *vm, SolValue self, SolValue *args, in
     pid_t pid = fork();
     if (pid < 0) {
         close(fds[0]); close(fds[1]); free(argv);
+        close_streams(&in, &out, &err);
         sol_vm_runtime_error(vm, "cannot run a command: %s", strerror(errno));
         return SOL_NIL_VAL;
     }
     if (pid == 0) {
         close(fds[0]);
-        dup2(fds[1], STDOUT_FILENO);
-        if (fds[1] > STDOUT_FILENO) close(fds[1]);
+        /* The pipe is this message's stdout, so `'merge` on stderr lands in
+           the answer rather than on the terminal -- one rule, and it falls out
+           of stdout being where it already is. */
+        SolStream piped = { fds[1], false, false, false };
+        child_streams(&in, &piped, &err);
+        if (fds[1] > STDERR_FILENO) close(fds[1]);
         execvp(argv[0], argv);
         _exit(127);
     }
     close(fds[1]);
+    close_streams(&in, &out, &err);
 
     /* Read to the end before waiting: a child writing more than a pipe holds
        would block forever against a parent waiting for it to finish. */
@@ -4084,20 +4303,20 @@ static SolValue prim_system_capture(SolVM *vm, SolValue self, SolValue *args, in
     while (waitpid(pid, &status, 0) < 0 && errno == EINTR) { /* again */ }
     free(argv);
 
-    SolDict *out = sol_dict_new(vm);
-    sol_gc_push_temp(vm, &out->gc);
+    SolDict *out_dict = sol_dict_new(vm);
+    sol_gc_push_temp(vm, &out_dict->gc);
 
     SolValue output = SOL_STRING_VAL(sol_string_new(vm, text ? text : "", (int)length));
     sol_gc_push_temp(vm, &SOL_AS_STRING(output)->gc);
 
-    sol_dict_put(vm, out, SOL_STRING_VAL(sol_string_new(vm, "output", 6)), output);
-    sol_dict_put(vm, out, SOL_STRING_VAL(sol_string_new(vm, "status", 6)),
+    sol_dict_put(vm, out_dict, SOL_STRING_VAL(sol_string_new(vm, "output", 6)), output);
+    sol_dict_put(vm, out_dict, SOL_STRING_VAL(sol_string_new(vm, "status", 6)),
                  SOL_INT_VAL(status_of(status)));
 
     sol_gc_pop_temp(vm);
     sol_gc_pop_temp(vm);
     free(text);
-    return SOL_DICT_VAL(out);
+    return SOL_DICT_VAL(out_dict);
 }
 
 #else   /* no fork here: say so rather than pretending */
