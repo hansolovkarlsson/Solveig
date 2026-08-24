@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### A child's streams go where they are told — `pending`, 2026-08-24
+### A child's streams go where they are told — `899eca8`, 2026-08-24
 
 **[3.15](COMPLETED.md#315-a-childs-streams-cannot-be-redirected--done) closes.**
 `system:run` gave the child this program's stdout and stderr, `system:capture`
