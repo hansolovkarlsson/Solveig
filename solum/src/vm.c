@@ -869,9 +869,18 @@ static SolResult run_frames(SolVM *vm, int base)
             break;
         }
 
-        case OP_JUMP:
-            frame->ip += READ_SHORT();
+        /* The offset is read into a name before it is used, because
+           READ_SHORT() advances the ip itself: `frame->ip += READ_SHORT()`
+           writes the ip twice with no sequence point between, and the standard
+           does not say which value the outer `+=` started from. It has always
+           done the right thing here, and GCC is the first compiler to have
+           said so out loud. OP_EXIT_IF_FALSE below was already written this
+           way. */
+        case OP_JUMP: {
+            uint16_t offset = READ_SHORT();
+            frame->ip += offset;
             break;
+        }
 
         /* An inlined `whileTrue`, closing the loop. The only instruction that
            moves the ip backwards; the verifier has established that it lands
@@ -879,9 +888,11 @@ static SolResult run_frames(SolVM *vm, int base)
            the loop it was compiled from -- non-termination is something the
            source language already allows, not something bytecode can reach that
            source cannot. */
-        case OP_LOOP:
-            frame->ip -= READ_SHORT();
+        case OP_LOOP: {
+            uint16_t offset = READ_SHORT();
+            frame->ip -= offset;
             break;
+        }
 
         /* An inlined `whileTrue`, testing its condition. */
         case OP_EXIT_IF_FALSE: {

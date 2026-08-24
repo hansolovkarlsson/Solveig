@@ -5,9 +5,11 @@
  * coercion, so `#45:add(1.5)` is an error rather than a quiet promotion.
  */
 #define _POSIX_C_SOURCE 200809L    /* clock_gettime, for system:clock */
-#if defined(__APPLE__)
 /* `struct stat`'s sub-second fields are hidden by _POSIX_C_SOURCE alone here,
-   and they are spelled differently. See prim_system_modified_at. */
+   and they are spelled differently. See prim_system_modified_at. The Makefile
+   passes this for every file on Darwin; the guard is so that saying it twice
+   is not a warning, and it stays here because this is the file that needs it. */
+#if defined(__APPLE__) && !defined(_DARWIN_C_SOURCE)
 #define _DARWIN_C_SOURCE
 #endif
 
