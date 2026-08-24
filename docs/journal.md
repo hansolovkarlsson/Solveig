@@ -11,6 +11,96 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-24 (evening) — the first build on a machine nobody here owns
+
+One workflow, four commits, and the useful part is that **the run found a bug
+that has nothing to do with portability and everything to do with nobody having
+compiled this with a second compiler**.
+
+### Two predictions, written down before the run
+
+The session had spent the afternoon learning that reasoning loses to
+measurement, so the predictions went into the commit message and the pull
+request *before* the first run, where they could be scored rather than
+remembered charitably:
+
+1. **No `-lm`.** libm is part of libSystem on macOS and a separate library
+   everywhere else.
+2. **POSIX declarations hidden by `-std=c11`.** Named five files that use POSIX
+   functions with no feature-test macro.
+
+Both happened. The first was exactly right, and larger than the grep behind it:
+eight math functions failed to link, including `llround` and `log10`, which the
+grep had missed. The second was **right about the cause and wrong about the
+files** — `strptime` failed inside `builtins.c`, which already declares
+`_POSIX_C_SOURCE 200809L` and needed `_XOPEN_SOURCE`. Reasoning from a grep got
+the class right and the instances wrong, which is roughly the accuracy the
+afternoon would have predicted.
+
+### The one that was not predicted
+
+```text
+#define READ_SHORT() (frame->ip += 2, sol_read_u16(frame->ip - 2))
+
+case OP_JUMP:  frame->ip += READ_SHORT();
+case OP_LOOP:  frame->ip -= READ_SHORT();
+```
+
+GCC: *operation on `frame->ip` may be undefined*. It is. `READ_SHORT()` moves
+the ip itself, so the outer `+=` reads and writes an object the right operand
+also writes, with no sequence point between them, and C11 does not say which
+value the addition started from. **A compiler that loaded the left operand first
+would make every forward jump two bytes short** — which is not a subtle
+misbehaviour, it is a VM that runs the wrong instruction.
+
+Three cases further down, `OP_EXIT_IF_FALSE` already read the offset into a name
+before using it, which is the correct spelling. So the shape was known and two
+sites did not have it. Every test has passed on this hardware for the project's
+whole life, and nothing in the suite could have found it, because the suite runs
+the compiler that happens to choose the order we wanted.
+
+### What the green run is worth
+
+All 762 documentation claims hold under gcc on Linux. Every fenced block in
+every document produces the same output on a machine with a different libc, a
+different compiler and a different instruction set. That is a stronger statement
+about the documents than anything measured here so far, and it came free with a
+workflow written for a different reason.
+
+It also settles a claim that had been on the front page since long before today,
+and that I had *rewritten into the repository's description this morning* while
+it was still unchecked — and, as it turned out, false.
+
+---
+
+### Postmortem
+
+1. **The prediction was right in class and wrong in detail, and the detail was
+   the part that mattered for fixing it.** Had the fix been written from the
+   prediction alone — feature-test macros added to five named files — it would
+   have missed `builtins.c` and fixed three files that did not need it. The run
+   named the lines.
+
+2. **My warning count was taken from the wrong command.** After the portability
+   fixes I checked `make` for new warnings, saw zero, and pushed. `tests/`
+   is built by `make test`, and `test_line.c` had a redefinition warning waiting
+   in it. The runner builds everything, so it saw what a habit did not; the
+   count now comes from `make && make test`.
+
+3. **A local check cannot find a portability bug, and I knew that going in.**
+   No container runtime here, so there was no way to test glibc before pushing.
+   The right move was to push and read the answer, which took four runs and
+   about fifteen minutes — considerably less than the reasoning it replaced.
+
+**Where this leaves the sanitizers.** ASan and UBSan appear throughout the
+changelog as hand-run passes attached to particular commits: 3,205 corruptions
+here, `SOLUM_GC_STRESS=1` there. There is no target and nothing that runs them
+unprompted, which is precisely the standing the portability claim had this
+morning. A compiler warning found one instance of undefined behaviour today. The
+class is what UBSan is for.
+
+---
+
 ## 2026-08-24 (afternoon) — a feature argued three ways, and the defect the argument found
 
 No language change and no roadmap entry closed. The afternoon was one question

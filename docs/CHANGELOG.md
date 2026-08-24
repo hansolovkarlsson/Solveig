@@ -5,6 +5,60 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The suite runs where it was not written, and a jump that was right by luck — `9a623fb`, 2026-08-24
+
+**The README says *no dependencies beyond a C11 compiler and `make`*, and until
+now that had been checked by one compiler on one machine.** Apple clang, arm64,
+macOS — where `gcc` is a shim for clang, so nothing here had ever been through
+GCC, glibc, or an x86 register allocator. A claim on the front page held true
+because somebody looked once is the thing this repository keeps finding in
+other people's documents.
+
+`.github/workflows/build.yml` builds and runs the whole suite three ways: gcc
+and clang on Linux, clang on macOS. `fail-fast` is off, because the question a
+first run answers is *what* is not portable, and stopping at the first answer
+turns one run into four.
+
+**Two failures were predicted before the run and both happened.** No `-lm`:
+`sqrt`, `fmod`, `floor`, `ceil`, `round`, `trunc`, `log10` and `llround` all
+failed to link and not one of them failed to compile, libm being part of
+libSystem on macOS and a separate library everywhere else. And POSIX
+declarations hidden by `-std=c11`, which asks for ISO C and nothing besides —
+glibc takes that at its word where Apple's headers show `realpath`, `gmtime_r`
+and `strptime` regardless. The prediction named the wrong files: `strptime`
+failed inside `builtins.c`, which already declared `_POSIX_C_SOURCE` and needed
+`_XOPEN_SOURCE`.
+
+**The third was not predicted, and it is not about portability.**
+
+```text
+#define READ_SHORT() (frame->ip += 2, sol_read_u16(frame->ip - 2))
+
+case OP_JUMP:  frame->ip += READ_SHORT();
+case OP_LOOP:  frame->ip -= READ_SHORT();
+```
+
+`READ_SHORT()` advances the ip itself, so each of those writes `frame->ip`
+twice with no sequence point between, and the standard does not say which value
+the outer `+=` started from. **A compiler that loaded the left operand first
+would make every forward jump two bytes short.** It has always done the right
+thing under clang, and GCC is the first compiler to have said out loud that it
+did not have to. `OP_EXIT_IF_FALSE`, three cases below, was already written the
+safe way — the offset read into a name first — and now all three are. Fixed in
+[`1b93a7a`](https://github.com/hansolovkarlsson/Solveig/commit/1b93a7a).
+
+**What the run proves, beyond the fixes.** The whole documentation suite passes
+under gcc on Linux: **762 claims, 21 counts, 9 positions**, every fenced block
+producing the same output there as here. The front-page claim is now checked
+rather than asserted — and it was false at the moment it was written into the
+repository's description this morning.
+
+The build is warning-free on all three ([`9421f53`](https://github.com/hansolovkarlsson/Solveig/commit/9421f53),
+[`8279373`](https://github.com/hansolovkarlsson/Solveig/commit/8279373)). The
+second of those was a warning the runner could see and a local check
+structurally could not: the count had been taken from `make`, and the file was
+one that only `make test` builds.
+
 ## 0.27.0 — 2026-08-24
 
 **One new debugger command, and three questions answered without touching the
