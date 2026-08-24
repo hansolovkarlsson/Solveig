@@ -546,8 +546,13 @@ static int count_listed_in(const char *directory)
         size_t length = strlen(name);
         if (length < 5 || strcmp(name + length - 4, ".sol") != 0) continue;
 
+        /* The return value is used, which is both how truncation becomes a
+           failure here rather than a quietly shortened path, and what tells
+           GCC the call was not careless -- d_name may be 255 bytes and it
+           says so. */
         char path[256];
-        snprintf(path, sizeof path, "%s/%s", directory, name);
+        int written = snprintf(path, sizeof path, "%s/%s", directory, name);
+        assert(written > 0 && (size_t)written < sizeof path);
 
         bool listed = false;
         for (size_t i = 0; i < SHIPPED_COUNT; i++) {
@@ -606,7 +611,8 @@ static void test_no_library_file_is_left_out(void)
         if (length < 5 || strcmp(name + length - 4, ".sol") != 0) continue;
 
         char path[256];
-        snprintf(path, sizeof path, "lib/%s", name);
+        int written = snprintf(path, sizeof path, "lib/%s", name);
+        assert(written > 0 && (size_t)written < sizeof path);
 
         bool listed = false;
         for (size_t i = 0; i < LIBRARY_COUNT; i++) {
