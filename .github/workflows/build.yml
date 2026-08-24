@@ -41,7 +41,7 @@ jobs:
           - { os: macos-latest, cc: clang }
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # Named in the log, so a failure says which compiler produced it rather
       # than which label the matrix gave it.
