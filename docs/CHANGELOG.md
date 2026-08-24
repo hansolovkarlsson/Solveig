@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### A generator you make, and the seeding was the defect — `pending`, 2026-08-24
+### A generator you make, and the seeding was the defect — `08484a0`, 2026-08-24
 
 **The randomness half of
 [3.14](ROADMAP.md#314-the-mathematics-that-is-not-here) closes.** There was no
