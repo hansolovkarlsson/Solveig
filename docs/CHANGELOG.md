@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### An object with more than a dozen slots keeps a table beside its list — `pending`, 2026-08-23
+### An object with more than a dozen slots keeps a table beside its list — `f4cbfcc`, 2026-08-23
 
 **[3.17](COMPLETED.md#317-a-global-is-found-by-walking-a-list--done) closes.**
 A global was found by walking the root's slots and comparing interned pointers,
