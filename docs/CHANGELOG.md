@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### A block argument is checked when the message is sent — `pending`, 2026-08-24
+### A block argument is checked when the message is sent — `858b3f2`, 2026-08-24
 
 **A wrong program was accepted because of the data it happened to meet.**
 `false:and(#45)` answered `false` and said nothing; `true:and(#45)` failed. One
