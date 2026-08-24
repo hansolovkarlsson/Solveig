@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### Regular expressions, and where they would go if they came — `pending`, 2026-08-24
+### Regular expressions, and where they would go if they came — `1f72916`, 2026-08-24
 
 **A question about a feature the language does not have**, and the answer split
 three ways rather than settling on one. Written up in
