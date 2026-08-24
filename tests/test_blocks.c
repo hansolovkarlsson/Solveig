@@ -262,6 +262,86 @@ static void test_nested_blocks_share_the_home_frame(void)
     sol_vm_free(&vm);
 }
 
+/* A block argument is wrong the moment the message is sent, not the moment the
+ * block would have run.
+ *
+ * Every case below used to be **accepted**, silently, and each was accepted for
+ * the same reason: the argument was only ever looked at by the code that called
+ * it, so an argument that was never called was never looked at. That made the
+ * complaint a function of the data rather than of the program -- `[]:collect(#45)`
+ * answered `[]` and `[#1]:collect(#45)` failed, from one line of source. A
+ * mistyped `a:and(b)` could sit in a file for as long as `a` kept coming out
+ * false.
+ *
+ * So each case here is paired with the data that used to hide it: the branch not
+ * taken, the empty collection, the loop that runs no passes, the block that did
+ * not fail. */
+static void test_a_block_argument_is_checked_when_it_is_sent(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    static const char *hidden[] = {
+        /* The short-circuit pair, on the side that settles the answer. */
+        "false:and(#45).",
+        "true:or(#45).",
+        /* The branch not taken -- including the untaken half of `ifElse`, which
+           is the one a passing test would still miss. */
+        "false:ifTrue(#45).",
+        "true:ifFalse(#45).",
+        "true:ifElse({ #1 }, #45).",
+        "false:ifElse(#45, { #2 }).",
+        /* A loop that runs no passes. */
+        "{ false }:whileTrue(#45).",
+        "#0:repeat(#45).",
+        "#1:toDo(#0, #45).",
+        "#1:toByDo(#0, #1, #45).",
+        /* An empty collection. */
+        "[]:do(#45).",
+        "[]:collect(#45).",
+        "[]:select(#45).",
+        "[]:inject(#0, #45).",
+        "dictionary:new:do(#45).",
+        "dictionary:new:keysAndValuesDo(#45).",
+        /* A block that did not fail, so the handler was never wanted. */
+        "{ #1 }:onError(#45).",
+        /* And one that was already checked, kept here so the set is the whole
+           set rather than only the part that was broken. */
+        "{ #1 }:ensure(#45).",
+    };
+    for (size_t i = 0; i < sizeof hidden / sizeof hidden[0]; i++) {
+        assert(run(&vm, &chunk, hidden[i]) == SOL_RUNTIME_ERROR);
+        sol_chunk_free(&chunk);
+    }
+
+    /* What the check must not break: a block reached through a name is still a
+       block, and that is the form the inlining does *not* apply to -- so it is
+       the form that goes through these primitives at all. */
+    assert(run(&vm, &chunk,
+        "c := { false }."
+        "sent := [true:and(c), false:and(c), true:or(c), false:or(c)]."
+        "inlined := [true:and({ false }), false:or({ true })]."
+        "sum := #0."
+        "[#1, #2, #3]:do({ e | sum := sum:add(e) })."
+        "[]:do({ e | sum := sum:add(e) })."
+        "empties := [[]:collect({ e | e }), []:select({ e | true }),"
+        "            []:inject(#7, { a, b | a })]."
+        "i := #0."
+        "{ i:lessThan(#0) }:whileTrue({ i := i:inc })."
+        "#0:repeat({ i := i:inc })."
+        "caught := { #5 }:onError({ e | #0 })."
+        "cleaned := { #6 }:ensure({ nil }).") == SOL_OK);
+
+    assert(SOL_AS_INT(global(&vm, "sum")) == 6);
+    assert(SOL_AS_INT(global(&vm, "i")) == 0);
+    assert(SOL_AS_INT(global(&vm, "caught")) == 5);
+    assert(SOL_AS_INT(global(&vm, "cleaned")) == 6);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+    printf("  a block argument is checked when the message is sent\n");
+}
+
 int main(void)
 {
     test_a_block_defers_its_body();
@@ -276,6 +356,7 @@ int main(void)
     test_escaping_capture_is_caught();
     test_errors_are_reported();
     test_nested_blocks_share_the_home_frame();
+    test_a_block_argument_is_checked_when_it_is_sent();
     printf("test_blocks: ok\n");
     return 0;
 }

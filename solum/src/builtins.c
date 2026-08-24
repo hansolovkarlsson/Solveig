@@ -34,6 +34,26 @@ static bool check_argc(SolVM *vm, const char *name, int argc, int expected)
     return false;
 }
 
+/* A block argument, checked when the message is *received* rather than when the
+   block is called.
+
+   Those are the same moment for a block that always runs and different moments
+   for one that might not, and the difference was a hole: `false:and(#45)` never
+   reaches the argument, so nothing looked at it, so it answered `false` and said
+   nothing. The same held for the branch `ifElse` does not take, a `whileTrue`
+   whose condition is false the first time, `do` over an empty array, `onError`
+   over a block that did not fail -- fourteen messages where a wrong program was
+   accepted **because of the data it happened to meet**. Checking here makes the
+   complaint the same on every run of the same text, which is the only kind of
+   complaint a program can be written against. */
+static bool wants_block(SolVM *vm, const char *name, SolValue value)
+{
+    if (SOL_IS_BLOCK(value)) return true;
+    sol_vm_runtime_error(vm, "'%s' expects a block, got %s", name,
+                         sol_type_name(value));
+    return false;
+}
+
 /* Strict type check on an argument -- the rule that makes #45 and 45 distinct. */
 static bool check_same_type(SolVM *vm, const char *name, SolValue self, SolValue arg)
 {
@@ -1205,6 +1225,7 @@ static SolValue prim_greater(SolVM *vm, SolValue self, SolValue *args, int argc)
 static SolValue prim_if_true(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     if (!check_argc(vm, "ifTrue", argc, 1)) return SOL_NIL_VAL;
+    if (!wants_block(vm, "ifTrue", args[0])) return SOL_NIL_VAL;
     if (!SOL_AS_BOOL(self)) return SOL_NIL_VAL;
     return sol_vm_call_block(vm, args[0], NULL, 0);
 }
@@ -1212,6 +1233,7 @@ static SolValue prim_if_true(SolVM *vm, SolValue self, SolValue *args, int argc)
 static SolValue prim_if_false(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     if (!check_argc(vm, "ifFalse", argc, 1)) return SOL_NIL_VAL;
+    if (!wants_block(vm, "ifFalse", args[0])) return SOL_NIL_VAL;
     if (SOL_AS_BOOL(self)) return SOL_NIL_VAL;
     return sol_vm_call_block(vm, args[0], NULL, 0);
 }
@@ -1219,6 +1241,9 @@ static SolValue prim_if_false(SolVM *vm, SolValue self, SolValue *args, int argc
 static SolValue prim_if_else(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     if (!check_argc(vm, "ifElse", argc, 2)) return SOL_NIL_VAL;
+    /* Both, not the one about to run: a branch is not checked by being taken. */
+    if (!wants_block(vm, "ifElse", args[0])) return SOL_NIL_VAL;
+    if (!wants_block(vm, "ifElse", args[1])) return SOL_NIL_VAL;
     return sol_vm_call_block(vm, SOL_AS_BOOL(self) ? args[0] : args[1], NULL, 0);
 }
 
@@ -1241,6 +1266,7 @@ static SolValue boolean_block(SolVM *vm, const char *name, SolValue block)
 static SolValue prim_and(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     if (!check_argc(vm, "and", argc, 1)) return SOL_NIL_VAL;
+    if (!wants_block(vm, "and", args[0])) return SOL_NIL_VAL;
     if (!SOL_AS_BOOL(self)) return SOL_BOOL_VAL(false);   /* the block never runs */
     return boolean_block(vm, "and", args[0]);
 }
@@ -1248,6 +1274,7 @@ static SolValue prim_and(SolVM *vm, SolValue self, SolValue *args, int argc)
 static SolValue prim_or(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     if (!check_argc(vm, "or", argc, 1)) return SOL_NIL_VAL;
+    if (!wants_block(vm, "or", args[0])) return SOL_NIL_VAL;
     if (SOL_AS_BOOL(self)) return SOL_BOOL_VAL(true);
     return boolean_block(vm, "or", args[0]);
 }
@@ -1326,6 +1353,7 @@ static SolValue prim_bound_to(SolVM *vm, SolValue self, SolValue *args, int argc
 static SolValue prim_integer_repeat(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     if (!check_argc(vm, "repeat", argc, 1)) return SOL_NIL_VAL;
+    if (!wants_block(vm, "repeat", args[0])) return SOL_NIL_VAL;
 
     int64_t times = SOL_AS_INT(self);
     for (int64_t i = 0; i < times; i++) {
@@ -1367,6 +1395,7 @@ static SolValue prim_block_repeat(SolVM *vm, SolValue self, SolValue *args, int 
 static SolValue prim_integer_to_by_do(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     if (!check_argc(vm, "toByDo", argc, 3)) return SOL_NIL_VAL;
+    if (!wants_block(vm, "toByDo", args[2])) return SOL_NIL_VAL;
     if (!SOL_IS_INT(args[0]) || !SOL_IS_INT(args[1])) {
         sol_vm_runtime_error(vm, "'toByDo' expects an integer limit and step, got %s and %s",
                              sol_type_name(args[0]), sol_type_name(args[1]));
@@ -1400,6 +1429,9 @@ static SolValue prim_integer_to_by_do(SolVM *vm, SolValue self, SolValue *args, 
 static SolValue prim_integer_to_do(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     if (!check_argc(vm, "toDo", argc, 2)) return SOL_NIL_VAL;
+    /* Here rather than in `toByDo` below, so the complaint names what was
+       written. */
+    if (!wants_block(vm, "toDo", args[1])) return SOL_NIL_VAL;
 
     SolValue stepped[3] = { args[0], SOL_INT_VAL(1), args[1] };
     return prim_integer_to_by_do(vm, self, stepped, 3);
@@ -1420,6 +1452,7 @@ static SolValue prim_integer_to_do(SolVM *vm, SolValue self, SolValue *args, int
 static SolValue prim_do_until(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     if (!check_argc(vm, "doUntil", argc, 1)) return SOL_NIL_VAL;
+    if (!wants_block(vm, "doUntil", args[0])) return SOL_NIL_VAL;
 
     for (;;) {
         sol_vm_call_block(vm, self, NULL, 0);
@@ -1439,6 +1472,9 @@ static SolValue prim_do_until(SolVM *vm, SolValue self, SolValue *args, int argc
 static SolValue prim_while_true(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     if (!check_argc(vm, "whileTrue", argc, 1)) return SOL_NIL_VAL;
+    /* Before the first test, so a loop whose condition is false to begin with
+       still complains about a body that is not one. */
+    if (!wants_block(vm, "whileTrue", args[0])) return SOL_NIL_VAL;
 
     for (;;) {
         SolValue condition = sol_vm_call_block(vm, self, NULL, 0);
@@ -1538,6 +1574,7 @@ static SolValue prim_array_add(SolVM *vm, SolValue self, SolValue *args, int arg
 static SolValue prim_array_do(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     if (!check_argc(vm, "do", argc, 1)) return SOL_NIL_VAL;
+    if (!wants_block(vm, "do", args[0])) return SOL_NIL_VAL;
 
     SolArray *array = SOL_AS_ARRAY(self);
 
@@ -1564,6 +1601,7 @@ static SolValue prim_array_do(SolVM *vm, SolValue self, SolValue *args, int argc
 static SolValue prim_array_collect(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     if (!check_argc(vm, "collect", argc, 1)) return SOL_NIL_VAL;
+    if (!wants_block(vm, "collect", args[0])) return SOL_NIL_VAL;
 
     SolArray *source = SOL_AS_ARRAY(self);
     SolArray *result = sol_array_new(vm, source->count);
@@ -1748,6 +1786,7 @@ static SolValue prim_array_index_of(SolVM *vm, SolValue self, SolValue *args, in
 static SolValue prim_array_select(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     if (!check_argc(vm, "select", argc, 1)) return SOL_NIL_VAL;
+    if (!wants_block(vm, "select", args[0])) return SOL_NIL_VAL;
 
     SolArray *source = SOL_AS_ARRAY(self);
     SolArray *result = sol_array_new(vm, 0);
@@ -1913,6 +1952,7 @@ static SolValue prim_array_last(SolVM *vm, SolValue self, SolValue *args, int ar
 static SolValue prim_array_inject(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     if (!check_argc(vm, "inject", argc, 2)) return SOL_NIL_VAL;
+    if (!wants_block(vm, "inject", args[1])) return SOL_NIL_VAL;
 
     SolArray *source = SOL_AS_ARRAY(self);
 
@@ -2582,6 +2622,7 @@ static SolValue dict_iterate(SolVM *vm, SolValue self, SolValue block, bool with
 static SolValue prim_dict_do(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     if (!check_argc(vm, "do", argc, 1)) return SOL_NIL_VAL;
+    if (!wants_block(vm, "do", args[0])) return SOL_NIL_VAL;
     return dict_iterate(vm, self, args[0], false);
 }
 
@@ -2589,6 +2630,7 @@ static SolValue prim_dict_keys_and_values_do(SolVM *vm, SolValue self,
                                              SolValue *args, int argc)
 {
     if (!check_argc(vm, "keysAndValuesDo", argc, 1)) return SOL_NIL_VAL;
+    if (!wants_block(vm, "keysAndValuesDo", args[0])) return SOL_NIL_VAL;
     return dict_iterate(vm, self, args[0], true);
 }
 
@@ -3207,6 +3249,9 @@ static SolValue prim_error_raise(SolVM *vm, SolValue self, SolValue *args, int a
 static SolValue prim_block_on_error(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     if (!check_argc(vm, "onError", argc, 1)) return SOL_NIL_VAL;
+    /* Before the body runs, not after it fails: a handler that is not a block
+       is wrong whether or not anything goes wrong. */
+    if (!wants_block(vm, "onError", args[0])) return SOL_NIL_VAL;
 
     SolValue answer = sol_vm_call_block(vm, self, NULL, 0);
     if (!vm->had_error) return answer;
@@ -3253,6 +3298,7 @@ static SolValue prim_block_on_error(SolVM *vm, SolValue self, SolValue *args, in
 static SolValue prim_block_ensure(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     if (!check_argc(vm, "ensure", argc, 1)) return SOL_NIL_VAL;
+    if (!wants_block(vm, "ensure", args[0])) return SOL_NIL_VAL;
 
     SolValue answer = sol_vm_call_block(vm, self, NULL, 0);
 

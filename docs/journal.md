@@ -157,6 +157,37 @@ can name, not a message on `integer`*. That is what got built, word for word.
 that could only be seeded by the machine would have made that file a page of
 prose about what it might print.
 
+### A question about `and` that was not about `and`
+
+The day ended with a question rather than a plan: `a:and(b)` without the braces
+is an error when `a` is true and *fine* when `a` is false, so a mistyped line
+can sit in a file until the data changes. Should there be a check? Should there
+be two spellings, an eager `and` and a short-circuiting `andsc`?
+
+**Measuring it first turned a two-message question into a fourteen-message
+one.** The argument was being checked inside the code that *calls* a block, so a
+block that was never called was never looked at — and every message that might
+not run what it is given had the same hole: both short-circuit pairs, the branch
+`ifElse` does not take, a `whileTrue` whose condition is false to begin with, a
+`repeat` of zero, `do`/`collect`/`select`/`inject` over an empty collection, and
+an `onError` whose block did not fail. `[]:collect(#45)` answered `[]` where
+`[#1]:collect(#45)` failed, from one line of source.
+
+That reframed both questions. **The check moves to where the message is
+received**, which makes the complaint a function of the program text rather than
+of the data, and costs nothing on the inlined path because a literal block
+compiles to jumps and is never sent. And the second spelling answers nothing:
+twelve of the fourteen have no `and` in them, and two selectors differing only
+in whether side effects happen is a quieter bug than the one being removed.
+
+**It caught a line here on the first run**, which is the part worth keeping.
+[examples/blocks.sol](../examples/blocks.sol) demonstrates that an argument is
+evaluated before the send by handing `ifTrue` a *group*:
+`false:ifTrue(("the group ran anyway":display. nil))`. The group runs, prints,
+and answers nil — and `ifTrue` took the nil, because a false receiver never
+reaches its argument. **The demonstration was standing on the hole it was
+standing next to**, in the file whose whole job is to show how blocks work.
+
 ---
 
 ### Postmortem

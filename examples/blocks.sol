@@ -25,8 +25,10 @@ m := { x | x:add(#1) }.
 
 ; Which is the whole of why control flow above works. An argument is evaluated
 ; before the send, like any other argument, so a group would have run before
-; `ifTrue` could decide anything about it.
-false:ifTrue(("the group ran anyway":display. nil)).
+; `ifTrue` could decide anything about it. The group still has to *answer* a
+; block, because what the argument is gets checked when the message is sent --
+; so this line prints, and then hands `ifTrue` something it can refuse to run.
+false:ifTrue(("the group ran anyway":display. { nil })).
 false:ifTrue({ "the block did not":display }).
 
 ; A block makes a frame; a group borrows the one it is in. So a group's

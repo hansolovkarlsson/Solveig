@@ -5,6 +5,54 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### A block argument is checked when the message is sent — `pending`, 2026-08-24
+
+**A wrong program was accepted because of the data it happened to meet.**
+`false:and(#45)` answered `false` and said nothing; `true:and(#45)` failed. One
+line of source, two behaviours, decided by the receiver. So a mistyped
+`a:and(b)` — the braces left off — was correct for exactly as long as `a` kept
+coming out false, and became a runtime error the first time it did not.
+
+**Raised as a question about `and`/`or`, and it was not about `and`/`or`.** The
+argument was checked inside the code that *calls* a block, so a block that was
+never called was never checked, and every message that might not run what it is
+given had the same hole:
+
+| | hidden when |
+| --- | --- |
+| `and` · `or` | the receiver settles the answer |
+| `ifTrue` · `ifFalse` · `ifElse` | the branch is not taken — including the untaken half of `ifElse`, where the other half is a real block |
+| `whileTrue` | the condition is false on the first test |
+| `repeat` · `toDo` · `toByDo` | the count is zero |
+| `do` · `collect` · `select` · `inject` · `keysAndValuesDo` | the collection is empty |
+| `onError` | the block did not fail |
+
+Fourteen messages. `[]:collect(#45)` answered `[]` and `[#1]:collect(#45)`
+failed, from the same line.
+
+**The fix is where the check lives, not what it checks.** A block argument is
+vetted when the message is *received*, so the complaint is the same on every run
+of the same text — which is the only kind of complaint a program can be written
+against. The inlined path pays nothing: a literal block with no parameters and
+no temporaries compiles to jumps and is never sent at all. The rule is a block
+*value*, so a block reached through a name still works, and that is the form
+these primitives see in the first place.
+
+**It caught a line in this repository's own examples on the first run.**
+[blocks.sol](../examples/blocks.sol) demonstrates that an argument is evaluated
+before the send by passing a *group* to `ifTrue`:
+`false:ifTrue(("the group ran anyway":display. nil))`. The group ran, printed,
+answered nil — and `ifTrue` accepted the nil, because false never reaches its
+argument. The demonstration was resting on the hole it was standing next to. It
+answers `{ nil }` now, and the point it was making survives intact.
+
+Two spellings were considered and refused: an eager `and(value)` beside a
+short-circuiting `andsc(block)`. It would not have fixed anything — twelve of
+the fourteen messages have nothing to do with `and` — and two selectors that
+differ only in whether side effects happen is a quieter bug than the one being
+removed. One rule, *a block argument is a block*, holds across `ifTrue`,
+`whileTrue`, `and`, `do` and the rest.
+
 ### A generator you make, and the seeding was the defect — `08484a0`, 2026-08-24
 
 **The randomness half of

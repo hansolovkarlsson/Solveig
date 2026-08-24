@@ -1519,6 +1519,34 @@ x:greaterThan(#0):and({ x:lessThan(#10) }).
 
 `whileTrue` and `and`/`or` are strict about the block answering a boolean.
 
+**A block argument is checked when the message is sent**, not when the block is
+run — and the two are different moments for every message that might not run
+what it is given. `false:and(#45)` never reaches its argument, so a version that
+checked only on the way into the block accepted it and answered `false`. That
+made the complaint depend on the data: `[]:collect(#45)` answered `[]` where
+`[#1]:collect(#45)` failed, from the same line of source, and a mistyped
+`a:and(b)` was correct for exactly as long as `a` kept coming out false.
+
+So all of these are refused, whatever the receiver, the count or the collection
+holds:
+
+```
+false:and(#45).                 ; solvm: 'and' expects a block, got integer
+true:ifElse({ #1 }, #45).       ; solvm: 'ifElse' expects a block, got integer
+[]:collect(#45).                ; solvm: 'collect' expects a block, got integer
+{ #1 }:onError(#45).            ; solvm: 'onError' expects a block, got integer
+```
+
+The rule is a **block value**, not the literal `{ … }`: a block reached through
+a name is a block, which is the form these primitives see at all, since a
+literal one written on the spot is inlined to jumps and never sent.
+
+```
+x := #3.
+c := { x:lessThan(#10) }.
+x:greaterThan(#0):and(c):print.          ; true
+```
+
 ### What the compiler does with them
 
 Written literally, `ifTrue`, `ifFalse`, `ifElse`, `whileTrue`, `doUntil`, `and`,

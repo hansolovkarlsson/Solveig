@@ -80,6 +80,12 @@ blocks, and the compiler inlines them to jumps when written literally.
 | `toByDo(#b, #step, block)` | integer | the same by `#step`; negative counts down |
 | `do(block)` | array, dictionary | the receiver, block per element |
 
+**Where the table says `block`, it means one** — and it is checked when the
+message is sent, not when the block would have run. So `false:and(#45)`,
+`true:ifElse({ #1 }, #45)` and `[]:collect(#45)` are all errors, though none of
+them would ever have reached the argument. A block held in a name counts; only
+the literal form is inlined to jumps.
+
 ```
 #3:greaterThan(#2):ifTrue({ "yes":display }).       ; yes
 n := #5:greaterThan(#9):ifElse({ "big" }, { "small" }).
