@@ -1256,7 +1256,7 @@ built, a loaded bundle could not resolve `sol_*` back into `solvm` at all.
 
 #### One thing the survey found that is not about patterns at all
 
-`expect.sol` uses `indexOf(suffix):notNil` where it means `endsWith`, at six
+`expect.sol` used `indexOf(suffix):notNil` where it meant `endsWith`, at six
 sites, because the language has neither `startsWith` nor `endsWith`:
 
 ```text
@@ -1266,11 +1266,30 @@ isMd:value("draft.md.orig").    ; true  -- not meant
 isMd:value("a.md.sol").         ; true  -- a .sol file, checked as markdown
 ```
 
-`check` dispatches on `path:indexOf(".md"):isNil`, so the last of those would be
-run through the markdown checker. Nothing triggers it today — no such file
+`check` dispatched on `path:indexOf(".md"):isNil`, so the last of those would
+have been run through the markdown checker. Nothing triggered it — no such file
 exists — but `notes.solid` is not a fanciful spelling in a repository that ships
 a binary called `solid`. That is a real defect with a program behind it, and it
 is the one thing here that satisfies the roadmap's admission rule outright.
+
+**Fixed the same day.** Not by adding `endsWith` to the language: the six sites
+share one helper in the program that needed it, which is the answer this entry
+reaches for scanning as a whole, at a scale small enough to settle in an
+afternoon.
+
+```
+string:endsWith := { suffix |
+    self:size:greaterOrEqual(suffix:size):and({
+        self:copyFrom(self:size:sub(suffix:size):add(#1), self:size)
+            :equals(suffix) }) }.
+
+"hello.sol":endsWith(".sol"):print.       ; true
+"hello.sol.bak":endsWith(".sol"):print.   ; false
+"a.md.sol":endsWith(".md"):print.         ; false
+```
+
+Whether that belongs on `string` for everyone is the same question
+`lib/scan.sol` asks, and it is not answered by one program wanting it once.
 
 **Trigger:** for `lib/scan.sol`, none — it is writable now and wants only
 somebody to decide the interface is worth committing to, the way

@@ -5,6 +5,35 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### A suffix is not a substring — `pending`, 2026-08-24
+
+**The defect the regular expression survey turned up, fixed.** Six sites in
+[expect.sol](../programs/expect.sol) asked `indexOf(suffix):notNil` a question
+about how a name *ends*, and got back whether the suffix appeared *anywhere*.
+`hello.sol.bak` passed as a Solum file, `draft.md.orig` as a document, and
+`a.md.sol` would have been handed to the markdown checker — the checker for this
+repository, quietly checking the wrong things, which is the fault it exists to
+catch.
+
+**Not fixed by adding `endsWith` to the language.** The six sites share one
+four-line helper in the program that needed it:
+
+```
+string:endsWith := { suffix |
+    self:size:greaterOrEqual(suffix:size):and({
+        self:copyFrom(self:size:sub(suffix:size):add(#1), self:size)
+            :equals(suffix) }) }.
+```
+
+That is the same answer [ideas.md](ideas.md#regular-expressions) reaches at a
+larger scale for scanning — write it in Solum, in a library, and let a real
+program decide whether it is worth committing to as an interface.
+
+**Nothing in the tree is named `.sol.bak` today**, so the fix changes no result:
+the same files are checked and the same claims hold. Which is how it went
+unnoticed for nine programs' worth of runs, and why this is preventive rather
+than a repair.
+
 ### Regular expressions, and where they would go if they came — `1f72916`, 2026-08-24
 
 **A question about a feature the language does not have**, and the answer split
@@ -75,8 +104,9 @@ uses `indexOf(suffix):notNil` where it means `endsWith`, at six sites, because
 the language has neither `startsWith` nor `endsWith`. `notes.solid` and
 `hello.sol.bak` both pass as `.sol`, and `a.md.sol` would be run through the
 markdown checker. Nothing triggers it today; it is the one thing in this
-discussion that satisfies the roadmap's admission rule outright, and it is
-**still unfixed**.
+discussion that satisfies the roadmap's admission rule outright, and it was left
+unfixed rather than folded into a documentation commit. It is fixed in the entry
+above.
 
 ### The debugger lists what a program bound — `60e2f74`, 2026-08-24
 

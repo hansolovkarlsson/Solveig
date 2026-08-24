@@ -812,10 +812,21 @@ checkMarkdown := { path | | source, name, n, expected, parts, output, label,
 
     files := files:add(#1) }.
 
+; **A suffix is not a substring.** These questions are about how a name ends,
+; and `indexOf` answers a different one: it found `.sol` in `hello.sol.bak` and
+; `.md` in `draft.md.orig`, called both of them files to check, and would have
+; handed `a.md.sol` to the markdown checker. Nothing in the tree is named that
+; way today, which is exactly how it went unnoticed. Named for the question it
+; answers, so the next reader does not have to spot the difference.
+string:endsWith := { suffix |
+    self:size:greaterOrEqual(suffix:size):and({
+        self:copyFrom(self:size:sub(suffix:size):add(#1), self:size)
+            :equals(suffix) }) }.
+
 check := { path |
-    path:indexOf(".md"):isNil:ifElse(
-        { checkSol:value(path) },
-        { checkMarkdown:value(path) }) }.
+    path:endsWith(".md"):ifElse(
+        { checkMarkdown:value(path) },
+        { checkSol:value(path) }) }.
 
 ; ---------------------------------------------------------------------------
 ; Running all of them
@@ -829,7 +840,7 @@ subjects:do({ subject |
               ; what an error said then is right to keep saying it. Every other
               ; document describes the language as it is now, and is checked.
               name:equals("CHANGELOG.md"):not:and({
-                  name:indexOf(".sol"):notNil:or({ name:indexOf(".md"):notNil })
+                  name:endsWith(".sol"):or({ name:endsWith(".md") })
               }):ifTrue({
                   check:value(subject:concat("/"):concat(name)) }) }) },
         { system:fileExists(subject):ifFalse({
@@ -852,15 +863,15 @@ subjects:do({ subject |
 solFilesIn := { dir | | n |
     n := #0.
     system:filesIn(dir):do({ name |
-        name:indexOf(".sol"):notNil:ifTrue({ n := n:add(#1) }) }).
+        name:endsWith(".sol"):ifTrue({ n := n:add(#1) }) }).
     n }.
 
 wanted := array:new.
 system:filesIn("examples"):sorted:do({ name |
-    name:indexOf(".sol"):notNil:ifTrue({
+    name:endsWith(".sol"):ifTrue({
         wanted:add("examples/":concat(name)) }) }).
 system:filesIn("docs"):sorted:do({ name |
-    name:equals("CHANGELOG.md"):not:and({ name:indexOf(".md"):notNil }):ifTrue({
+    name:equals("CHANGELOG.md"):not:and({ name:endsWith(".md") }):ifTrue({
         wanted:add("docs/":concat(name)) }) }).
 wanted:add("README.md").
 wanted:add("index.md").
@@ -958,7 +969,7 @@ system:fileExists("docs/programs.md"):ifTrue({ | order |
                     :ifTrue({ order:add(name) }) }) }).
 
     system:filesIn("programs"):sorted:do({ file | | path, source, at, word, was |
-        file:indexOf(".sol"):isNil:ifFalse({
+        file:endsWith(".sol"):ifTrue({
             path := "programs/":concat(file).
             source := system:readFile(path).
 
