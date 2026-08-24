@@ -11,6 +11,179 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-24 (afternoon) — a feature argued three ways, and the defect the argument found
+
+No language change and no roadmap entry closed. The afternoon was one question
+— *should Solum have regular expressions?* — and the useful part is that **three
+of the arguments against were wrong, and each one was overturned by a
+measurement rather than by a better argument**.
+
+### The argument that was not available
+
+The obvious answer is *no program here has wanted one*. That reading of an
+absence was ruled out two days earlier, in the paragraph
+[design.md](design.md#what-the-language-is-for) gained when trigonometry was
+very nearly argued away by it: **"no program here has wanted X" is a statement
+about what has been built, and never a statement about what the language is
+for.** So the question had to be settled on shape.
+
+It is also false, which the survey found in twenty minutes.
+
+### What the survey actually found
+
+Every `.sol` file in the repository, read for scanning rather than for patterns:
+**about 460 lines of genuine character-class, repetition and alternation work**,
+most of it in `lib/html.sol`, `experiment/lexer.sol`, `programs/expect.sol` and
+`lib/json.sol` — which carries the canonical JSON number expression written out
+by hand.
+
+But what repeats across those files is **not** a pattern.
+
+| idiom | sites | what it is |
+| --- | --- | --- |
+| `{ pred(peek) }:whileTrue({ step })`, then `copyFrom(start, pos:dec)` | at least 15 | `X+` with a capture |
+| `"<set>":indexOf(c):notNil` | at least 12 | a character class |
+| `split(x):join(y)` | 2 | replace, which the language does not have |
+
+The first is `takeWhile`; the second is a predicate. Both are methods on
+something holding a position, and **five files hand-roll that position
+separately**. So the demand is real and it is not demand for a pattern language:
+it is demand for a cursor, which is `lib/scan.sol`, writable today, no change to
+the VM.
+
+### The shape was decided before anyone chose one
+
+[3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame) settles how such
+a library may be written, and it does not leave two options. A matcher built the
+combinator way — a block that returns a block — dies:
+
+```text
+makeDigit := { | lo, hi |
+    lo := "0". hi := "9".
+    { c | c:greaterOrEqual(lo):and({ c:lessOrEqual(hi) }) } }.
+
+makeDigit:value:value("7"):print.
+solvm: block outlived the frame it was written in
+```
+
+The same matcher built from objects composes today, and a `runOf` over a
+`range` answers `#4` for `"8080ab"` on the first try. A cursor holds a position,
+position is state, and **the spelling the language allows is the one a cursor
+wanted anyway**. That is a limitation doing design work rather than obstructing
+it.
+
+### Three things argued wrongly, and how each was overturned
+
+1. **Termination.** I said an engine would be exponential and would punch a hole
+   in [3.7](ROADMAP.md#37-a-limit-bounds-dispatch-not-work). Measured against
+   the system `regexec`, the five classic ReDoS patterns — `^(a+)+b$`,
+   `^(a|a)*b$`, `^(a|aa)+b$`, `^(a*)*b$`, `^(a?){20}a{20}$` — are **flat through
+   n=40**, and matching is linear in input: 77ms at 1MB, 163ms at 4MB, 642ms at
+   16MB, 2,562ms at 64MB. Catastrophic backtracking needs leftmost-first
+   semantics and backreferences, and POSIX ERE has neither. **The objection was
+   about Perl, not about regex.** 3.7's own table has `indexOf` over 64MB at
+   0.27s: the same complexity class, ten times the constant — the existing hole
+   one primitive wider, not a new one.
+
+2. **A second language in a string.** A fair argument against a *literal*, which
+   I then let slide into an argument against a *library* without noticing the
+   step. `lib/shell.sol` already carries an entire foreign grammar in a string,
+   deliberately, with the bargain written into its own header. The argument does
+   not survive its own precedent and was withdrawn.
+
+3. **Small demand.** Implied before the survey, contradicted by it, and it was
+   never an argument that was available in the first place — see above.
+
+While measuring, one more thing came out that is worth keeping: **`--steps` does
+not bound work inside a primitive.** A program of `system:run(["sleep","2"])`
+run under `--steps=6` stopped at 2.021s of wall clock with exit 124 — the limit
+fired *after* the two seconds, because the two seconds happened inside one
+dispatch. That is exactly what 3.7 says, demonstrated rather than restated.
+
+### If the objection is size, is that not what extensions are for?
+
+The follow-up question, and the honest answer is **no, and yes.**
+
+No, because regex *fails* the trigger in that idea:
+[extensions](ideas.md#extensions-a-capability-from-a-binary-rather-than-from-the-vm)
+are for capabilities that cannot be written in Solum, and a matcher can be. An
+engine would be 800–1,500 lines of C, which would make it the third-largest file
+in the repository, against `compiler.c` at 1,718 and the whole front end —
+`lexer.c` and `parser.c` together — at 405.
+
+Yes, because it is close to the ideal thing to build the *first* extension
+**with**. `regcomp` allocates a `regex_t` that `regfree` must take back, which
+makes a compiled pattern the smallest possible test of the one real design
+decision in that entry: a foreign cell carrying its own release function, and
+whether the hook fires for a program stopped by a limit. A checksum cannot test
+that. A database can, and costs a dependency, I/O and a network first.
+
+Both stages come after the build restructure, which is the real work and is
+regex-independent: `libsol.a` is a static archive with no `-fPIC`, so as built,
+a loaded bundle could not resolve `sol_*` back into `solvm` at all.
+
+### The defect that fell out of a survey about something else
+
+Reading `expect.sol` for scanning idioms found one that was not an idiom.
+**Six sites asked `indexOf(suffix):notNil` a question about how a name ends**,
+and got back whether the suffix appeared anywhere:
+
+```text
+hello.sol.bak    passes as a Solum file
+notes.solid      passes as a Solum file
+draft.md.orig    passes as a document
+a.md.sol         a Solum file, handed to the markdown checker
+```
+
+The checker for this repository, quietly checking the wrong things — which is
+the fault it exists to catch. Nothing in the tree is named that way today, which
+is exactly why it survived nine programs' worth of runs.
+
+It was **left unfixed on purpose** for one commit, rather than folded into a
+documentation commit that was about something else, and fixed in the next one
+with a four-line `string:endsWith` in the program that needed it. Not by adding
+`endsWith` to the language: whether it belongs on `string` for everyone is the
+same question `lib/scan.sol` asks, and one program wanting it once is not an
+answer. The counts moved from 759 claims to 762, and all three of the new ones
+are the ideas entry's own worked example — **the fix itself changed no result**,
+which is the point.
+
+---
+
+### Postmortem
+
+**One shape, four times.** Every mistake below is a claim made from reasoning
+that a short measurement refuted, which is the same shape as the previous two
+days' postmortems.
+
+1. **The termination argument was the strongest thing I said and it was wrong.**
+   It was also the easiest to check: five patterns, one C file, ten minutes.
+   Ten minutes of measuring would have replaced an hour of arguing from
+   half-remembered received wisdom about a different regex flavour.
+
+2. **An argument slid one category sideways without being re-examined.** *A
+   second language in a string* is sound against a literal and unsound against a
+   library, and I used it in both places. The tell was available the whole time
+   — `lib/shell.sol` is in this repository and does the thing being called
+   impermissible.
+
+3. **I nearly used an argument that had been explicitly retired two days
+   earlier**, in a paragraph written after it nearly cost the language
+   trigonometry. Writing a rule down does not make it reach the next argument.
+
+4. **My anchor checker reported nine broken links, and every one was a false
+   positive** — my own slugifier mishandling em-dashes in headings. Verified the
+   seven new anchors by hand instead. A checker that cries wolf about existing
+   text is worse than no checker, and it is not one of the ones that ships.
+
+**What went right, and it was not an argument.** Three of the day's conclusions
+came from running something: the combinator matcher's failure, the flat ReDoS
+table, and the `sleep 2` under `--steps=6`. The two conclusions that came from
+reasoning alone were both overturned. That ratio is the argument for the
+repository's whole habit of making documents run.
+
+---
+
 ## 2026-08-24 — a spelling the language would not take, and a trigger that had already fired
 
 Two entries closed. The useful part of the first is the twenty minutes between
