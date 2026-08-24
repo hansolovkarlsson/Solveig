@@ -10,7 +10,11 @@
  * telling us nothing about whether the editing worked. `#3` came out means the
  * cursor went where it was asked to. */
 #define _POSIX_C_SOURCE 200809L
+/* Guarded because the Makefile passes this for every file on Darwin, and
+   saying it twice is a warning. It stays because this file needs it. */
+#if !defined(_DARWIN_C_SOURCE)
 #define _DARWIN_C_SOURCE
+#endif
 
 #include <assert.h>
 #include <fcntl.h>
