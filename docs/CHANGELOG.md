@@ -5,6 +5,47 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Why binding is syntax, written down where it gets asked — `pending`, 2026-08-24
+
+**A question about the language rather than a change to it.** Everything in
+Solum is a message and every message can be overridden — `integer:add := { n |
+#999 }` really does replace addition. `:=` stands outside that, and a reader who
+notices asks the obvious thing: is it only spelled that way because it reads
+better, or does it do something a method could not?
+
+**It does. It is four operations wearing one spelling, and two of them have no
+receiver to send to:**
+
+| What the name is | Compiles to | Could a method do it? |
+| --- | --- | --- |
+| a parameter or `\| a \|` temporary | `OP_SET_LOCAL slot` | **No** — the slot is a byte decided while compiling, in a fixed-size frame the verifier bounds-checks, and the name is gone by the time the program runs |
+| a local of an enclosing frame | `OP_SET_OUTER depth, slot` | **No**, the same, with a depth |
+| a global | `OP_SET_GLOBAL name` | **Almost** — a global is an ordinary slot on an ordinary object, but that object has no name in Solum: `object` is the root *class*, a different one |
+| `a:b := c` | `OP_SET_SLOT name` | **Yes**, and the compiler parses it as a send before rewinding over its own `OP_SEND` |
+
+**And the reason not to make the last one a message is not readability.** The
+compiler can see bindings, and that is load-bearing: the *'x' was already bound
+by lib/text.sol* warning exists only because a binding is something it can
+recognise, as does deciding at compile time whether a name is a frame slot,
+which is what makes locals possible at all. Overriding `add` affects programs
+that add; overriding `bind` would affect every assignment in every program, the
+shipped library included, reentrantly. And you would need a binding to bind the
+name of the binding method.
+
+**One thing the answer turned up is now recorded in
+[2.10](ROADMAP.md#2-language-decisions).** *Reflection cannot write* understates
+it: the **globals cannot be read by computed name either**, because the object
+holding them cannot be named. `slotAt` and `perform` take a computed name; a
+global takes only a literal one. No program here has wanted otherwise — nothing
+in `programs/` or `lib/` uses `perform` at all — so it stays a note rather than
+an entry, with the trigger named.
+
+The account is in
+[design.md](design.md#why-binding-is-syntax-and-not-a-message), with pointers
+from [GUIDE.md](GUIDE.md#2-names-and-binding) and
+[REFERENCE.md](REFERENCE.md#names-and-binding) — the two places a reader is
+standing when the question occurs to them.
+
 ## 0.26.0 — 2026-08-24
 
 **Two known limitations close and one silent acceptance stops being silent.**

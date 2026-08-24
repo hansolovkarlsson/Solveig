@@ -92,6 +92,16 @@ integer:triple := maker:value.
 
 That falls out of `:=` meaning one thing. Nothing special was added to allow it.
 
+**One question this raises early**, since everything else here is a message that
+can be overridden: why is `:=` not one too — `thing:bind('name, value)`? Short
+answer: it is four operations wearing one spelling, and two of them have no
+receiver to send to. Binding a temporary writes a numbered slot in a frame,
+decided while compiling, with no name left at run time; binding a global writes
+a slot on an object that has no name in the language. Only `a:b := c` could be a
+message, and the compiler does parse it as one before rewriting it.
+[design.md](design.md#why-binding-is-syntax-and-not-a-message) has the whole
+answer, including what it costs.
+
 > **Run:** [examples/binding.sol](../examples/binding.sol)
 
 ## 3. Statements, groups, and temporaries

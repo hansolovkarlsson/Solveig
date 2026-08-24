@@ -146,6 +146,18 @@ own.
   slots are a linked list walked linearly, so it would not have been faster than
   the array of pairs it replaced. A real dictionary was built instead, and what
   is left here is reflection for its own sake.
+
+  **The globals are further out of reach than "reflection cannot write" says.**
+  A slot can be read by computed name (`slotAt`) and a message sent by one
+  (`perform`); a global can be reached only by writing its name literally, in
+  either direction, because the object holding the globals has no name in the
+  language — `object` is the root *class*, a different object. So there is no
+  reading a global by computed name either, which is a gap the sentence above
+  does not cover. Nothing here has wanted one: no file in `programs/` or `lib/`
+  uses `perform` at all. The trigger would be a program that does — an
+  interpreter with an environment, a debugger handed a name, a serialiser. See
+  [design.md](design.md#why-binding-is-syntax-and-not-a-message) for why binding
+  is syntax in the first place.
 - **`via` refuses a value receiver** (2.9). Override on a value class a message
   that `object` defines and the override cannot reach the one it displaced:
   `self:via(object)` answers *'via' expects an object, got integer*. The check

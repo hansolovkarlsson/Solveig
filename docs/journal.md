@@ -188,6 +188,52 @@ and answers nil — and `ifTrue` took the nil, because a false receiver never
 reaches its argument. **The demonstration was standing on the hole it was
 standing next to**, in the file whose whole job is to show how blocks work.
 
+### The question about `:=` that a reader will keep asking
+
+The day's last piece is a document rather than a change. Everything in this
+language is a message and every message can be overridden — `integer:add := { n
+| #999 }` really replaces addition — and `:=` stands outside that. Is it syntax
+because it reads better, or because it does something a method could not?
+
+**Answering it by reading the compiler rather than reasoning about it split the
+question four ways**, which is the part worth keeping. `a := b` is not one
+operation: it compiles to `OP_SET_LOCAL`, `OP_SET_OUTER`, `OP_SET_GLOBAL` or
+`OP_SET_SLOT` depending on what the name turns out to be, and only the last has
+a receiver anything could be sent to. A local is a numbered slot in a fixed-size
+frame, decided while compiling, with no name left at run time. A global is an
+ordinary slot on an ordinary object — and **that object has no name in Solum**,
+which took one line to check and settled the case:
+
+```text
+zzz := #42.
+object:respondsTo('zzz):print.       ; false
+```
+
+`object` is the root *class*; the one holding globals is a different object and
+unreachable. So the alternative spelling is not one the language declines to
+offer — there is no receiver to offer it to.
+
+**The fourth form is compiled as a message and then taken back.** `a:b := c` is
+parsed as an ordinary send, `OP_SEND b` is emitted, and on seeing `:=` the
+compiler rewinds its own write cursor over the instruction. That is as close to
+sugar as anything here gets, and it is why `integer:double := { ... }` and
+`p:x := #3` are the same sentence.
+
+**And the case against making even that one a message is not about taste.** The
+compiler can *see* bindings, and three things depend on it: the warning when two
+files bind one name, resolving a name to a frame slot at compile time, and
+knowing whether a block reaches out of its frame. A binding arriving as a send
+would be invisible to all three. Overriding `add` affects programs that add;
+overriding `bind` would affect every assignment ever written, reentrantly.
+
+**It turned up one thing worth recording**, which is why the answer went into
+the documents rather than only into the conversation. 2.10 says *reflection
+cannot write*; it understates the case. The globals cannot be **read** by
+computed name either, since the object holding them cannot be named — `slotAt`
+and `perform` take a computed name and a global takes only a literal one. No
+program here has wanted otherwise, so it is a note with a trigger rather than an
+entry.
+
 ---
 
 ### Postmortem

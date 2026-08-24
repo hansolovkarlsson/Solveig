@@ -1333,7 +1333,13 @@ there is no such integer.
 
 ## Names and binding
 
-`:=` binds a name to an evaluated value. It means the same thing everywhere.
+`:=` binds a name to an evaluated value. It means the same thing everywhere —
+and it is the one thing in the language that is **not** a message, so it cannot
+be overridden the way `add` or `print` can.
+[design.md](design.md#why-binding-is-syntax-and-not-a-message) says why: it
+compiles to four different instructions depending on what the name turns out to
+be, and two of them address a numbered slot in a frame rather than a slot on any
+object there would be a way to name.
 
 ```
 a := #45.                            ; a global

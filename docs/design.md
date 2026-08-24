@@ -304,6 +304,86 @@ A block resolves names the same way: its own declarations, then the enclosing
 method's, then the globals. So `{ i := i:add(#1) }` updates the `i` everyone
 else can see rather than a private copy that vanishes when the block returns.
 
+### Why binding is syntax and not a message
+
+**The question everyone arrives at**, and it is a fair one. Everything else in
+this language is a message, and every message can be overridden — `integer:add
+:= { n | #999 }` really does replace addition. `:=` stands outside that. If a
+method is *a name bound on a class*, why is the binding itself not
+`thing:bind('name, value)`, sent like everything else?
+
+**Because `:=` is not one operation. It is four, and only one of them could be
+a message.** What it compiles to depends entirely on what the name turns out to
+be:
+
+| What the name is | What it compiles to | Could a method do it? |
+| --- | --- | --- |
+| a parameter, or a `\| a \|` temporary | `OP_SET_LOCAL slot` | **No** |
+| a local of an enclosing frame | `OP_SET_OUTER depth, slot` | **No** |
+| anything else — a global | `OP_SET_GLOBAL name` | **Almost** |
+| `a:b := c`, a slot on an object | `OP_SET_SLOT name` | **Yes** |
+
+**The locals are structural.** That `slot` is a byte decided while compiling; a
+frame is a fixed-size array whose size is written into the chunk header and
+which the verifier bounds-checks before the code runs. By the time the program
+exists the name is gone — [bytecode.md](BYTECODE.md)'s slot-name table keeps it
+only so a debugger can print `average` rather than `slot 3`. There is no
+receiver to send to and no name to send. This is not a preference about how
+assignment should read; there is nothing there to say it about.
+
+**The global case fails for a subtler reason.** A global *is* an ordinary slot
+on an ordinary object, so `a := b` genuinely is `root:bind('a, b)` in every
+respect but one: **that object has no name in Solum.** The global `object` is
+the root *class*, which is a different object entirely, and the one holding the
+globals is not reachable from a program at all:
+
+```
+zzz := #42.
+object:respondsTo('zzz):print.       ; false
+```
+
+So the alternative spelling is not one the language declines to offer. There is
+no receiver for it to be sent to.
+
+**And `a:b := c` — the one that could be a message — is compiled as one.** The
+parser reads `a:b` as an ordinary send, emits `OP_SEND b`, then sees `:=` and
+rewinds its own write cursor over the instruction it just wrote:
+
+```c
+if (target_at >= 0 && sol_parser_match(p, TOK_ASSIGN)) {
+    c->scope->chunk->count = target_at;      /* unemit the send */
+```
+
+That is as close to sugar as anything here gets, and it is the form that makes
+`integer:double := { ... }` and `p:x := #3` the same sentence.
+
+#### Why not make that last one a message anyway
+
+Three reasons, and none of them is that `:=` reads better.
+
+**The compiler can see bindings, and that is load-bearing.** Compiling
+`lib/text.sol` beside a program that binds the same name produces *'x' was
+already bound by lib/text.sol -- this one wins, and nothing else will say so*.
+That warning exists only because a binding is a thing the compiler can
+recognise. So does deciding at compile time whether a name is a frame slot,
+which is what makes locals possible at all; so does knowing whether a block
+reaches out of its frame, which decides whether it may outlive it. A binding
+that arrived as a send would be invisible to every one of those.
+
+**Overridability is the one property you would not want here.** Overriding `add`
+affects programs that add. Overriding `bind` would affect every assignment in
+every program, the shipped library included, and it would be reentrant — the
+override's own body assigns.
+
+**And it could not be defined.** You would need a binding to bind the name of
+the binding method.
+
+**What this costs, stated plainly:** there is no way to bind a computed name.
+Reflection reads and never writes (2.10 in [ROADMAP.md](ROADMAP.md)), and the
+globals are further out of reach than that entry says — they cannot be read by
+computed name either, since the object holding them cannot be named. A program
+that wanted either would be an ordinary roadmap entry; none has.
+
 ### Literals
 
 | Form      | Type    | Note                                          |
