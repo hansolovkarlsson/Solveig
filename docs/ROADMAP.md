@@ -172,14 +172,17 @@ own.
 
 Safe, and documented. Each is a real restriction rather than a bug.
 
-**3.9 and 3.16 are gone from here** and are in
+**3.9, 3.16 and 3.17 are gone from here** and are in
 [COMPLETED.md](COMPLETED.md#3-known-limitations). 3.16 was the odd one out —
 about this repository's own verification rather than about the language — and it
 closed by reading a document as a document, failing on a block that will not
-run, and giving a number in a sentence a notation saying what it counts.
+run, and giving a number in a sentence a notation saying what it counts. 3.17
+closed by giving an object with more than a dozen slots a table beside its list,
+which turned out to be worth more to *sends* than to the globals it was written
+about.
 
 **3.1 through 3.6 were chosen** — a decision taken and written down. **3.7, 3.8,
-3.10, 3.11, 3.12, 3.13, 3.14, 3.15 and 3.17 were not.** Each is a consequence of a decision taken elsewhere,
+3.10, 3.11, 3.12, 3.13, 3.14 and 3.15 were not.** Each is a consequence of a decision taken elsewhere,
 noticed afterwards, and each is kept here rather than in section 6 because the
 ways of answering it cost more than what they buy is currently worth. That
 distinction is worth keeping visible: a restriction chosen and a restriction
@@ -847,51 +850,6 @@ answers a dictionary; taking one — `system:capture(argv, ["stderr", "discard"]
 — generalises without new messages, at the cost of an options bag, which is a
 shape nothing else in this language uses. Neither is obviously right, and
 nothing is blocked while it stays undecided.
-
-### 3.17 A global is found by walking a list
-
-`OP_GLOBAL` resolves a name by walking the root object's slots and comparing
-interned pointers — `sol_object_lookup_interned` in
-[object.c](../solum/src/object.c). It is **linear in the number of globals**,
-and exactly linear. One million reads of a name with `n` globals ahead of it:
-
-| globals ahead | time |
-| --- | --- |
-| 0 | 0.034s |
-| 100 | 0.156s |
-| 200 | 0.299s |
-| 400 | 0.590s |
-| 800 | 1.111s |
-
-About **1.35ns per slot walked**, so at 800 globals a read costs 16× what
-pushing a constant costs.
-
-**And the order is recency**: a new slot goes on the front of the list, so the
-name a *library* bound first is the slowest to read and the one the program
-bound last is the fastest. That is the wrong way round for the case it matters
-in — a library's constant, read in somebody's loop.
-
-**Nothing here is slow because of it**, which is why this is a limitation rather
-than a defect. A real program's root holds the 15 built-in globals plus what it
-binds: 23 in [expect.sol](../programs/expect.sol), 14 in
-[serve.sol](../programs/serve.sol), 1 in `lib/html.sol`, which a library binds
-once and hangs everything else off. At 38 globals a badly-placed read costs about
-50ns and a well-placed one about 2ns. The 16× wants 800 globals, and nothing here
-has 40.
-
-**Two ways out, and both help every read.** A hash on the root object, which is
-what every other name table in the VM already is; or an inline cache at the
-`OP_GLOBAL` site, since the answer for a given site almost never changes. Either
-speeds up every global in every program, which is the argument that decided
-against the alternative — see
-[constants](ideas.md#constants-and-whether-they-should-be-a-thing) in ideas.md,
-where a compile-time constant would have sped up only the names somebody
-remembered to declare.
-
-**How this was found is worth recording**, because it was not found by anything
-being slow. It came out of asking whether the language should have constants:
-the case for them is that a constant is faster than a global, which is true, and
-measuring *how much* faster turned up the reason rather than the number.
 
 ### 1.1d Collection is stop-the-world and non-incremental
 

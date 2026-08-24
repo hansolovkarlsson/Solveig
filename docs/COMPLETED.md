@@ -340,6 +340,88 @@ The limitations themselves are still live and are in
 [ROADMAP.md](ROADMAP.md#3-known-limitations). These were limitations until they
 stopped being ones.
 
+### 3.17 A global is found by walking a list — **done**
+
+`OP_GLOBAL` resolved a name by walking the root object's slots and comparing
+interned pointers, and every *send* resolved its message the same way, down the
+class object's slots. Linear, and exactly linear: about 1.35ns a slot walked, so
+a name with 800 globals ahead of it cost 16× what pushing a constant costs.
+
+**An object with more than a dozen slots now keeps a table beside its list.**
+Not instead of it: the list is still the object's state — it holds definition
+order, which `slots` answers with, and it is what the collector walks and frees.
+The table is a lookup index over the same slots, open-addressed on the interned
+name pointer, which is the identity of a name and stable for the life of the VM.
+Below the threshold there is no table at all, so a point with three slots pays
+nothing, in memory or in a branch.
+
+#### What it was worth, and what it cost
+
+Against the same programs, `bin/solvm` before and after, 21 runs each through
+[bench.sol](../programs/bench.sol):
+
+| | |
+| --- | --- |
+| a global with 60 ahead of it | **2.88×** |
+| a global with 16 ahead of it | **1.37×** |
+| a send to a slot 400 deep | **4.89×** |
+| a send to `add`, 35 deep on `integer` | **1.35×** |
+| [disasm.sol](../programs/disasm.sol) over an 8.7K `.sob` | **1.31×** |
+| [page.sol](../programs/page.sol) over the site | **1.20×** |
+| [evaluator.sol](../programs/evaluator.sol) | **1.09×** |
+| [manifest.sol](../programs/manifest.sol) | 1.06×, and the interval crosses 1 |
+| [log.sol](../programs/log.sol) | unchanged |
+| **a send to a slot 4 deep** | **0.88× — 12% slower** |
+| **reading the most recently bound global** | **0.89× — 11% slower** |
+
+**The last two rows are the trade, and they are real** — both intervals sit
+entirely below 1. A hash is a constant where a walk is a step, so the shallowest
+lookups pay for the deepest ones. What makes that the right way round is that
+the shallow case was never the one that mattered: the old order was *recency*,
+so the name a library bound first was the slowest to read and the one the
+program bound last was the fastest, which is backwards for the case it matters
+in — a library's constant, read in somebody's loop. Every real program measured
+is faster or unchanged.
+
+**Memory is not the cost it looks like.** Peak RSS over `disasm.sol` is 0.94 MB
+before and after: the tables are two seats a slot at sixteen bytes, so the ten
+built-in classes come to about six kilobytes between them, and nothing else in
+the repository has enough slots to get one.
+
+#### What the measuring found, which was not what the entry expected
+
+The entry is about globals. **Sends turned out to be where the time was**, and
+for a reason the entry did not see: the built-in messages are registered in
+order and a new slot goes on the *front* of the list, so `add`, `sub`, `mul` and
+`print` — registered first, used most — ended up deepest. `add` sat 35 slots
+down a list of 38. Padding `integer` and timing the walk gave 1.1ns a slot on
+the send path, the same as on the global path, which is what made it clear the
+fix belonged in `sol_object_lookup_interned` rather than at the `OP_GLOBAL` site.
+
+**The first version was 30% slower on a shallow send**, and finding out why is
+what produced the design that shipped. A counter said 2.00 probes a lookup; the
+table held slot pointers alone, so each probe had to follow one to read
+`slot->name` — three dependent loads where the list has one. **A short linked
+list is not slow**: an object's slots are allocated together, so the walk reads
+memory the prefetcher has already fetched. Putting the key in the table beside
+the slot, in the same sixteen bytes, took the shallow-send loss from 30% to 12%.
+
+Two things measured the opposite of the obvious guess. **A stronger hash was
+slower** — splitmix64's finaliser is two multiplies on the critical path of
+every lookup in the language, and it bought fewer probes than it cost. And
+**a table twice the size made no difference** once the key moved into it, so the
+density stayed at two seats a slot rather than four.
+
+#### One thing worth leaving behind
+
+Breaking the growth rule deliberately, to check that the test would catch it,
+**hung the suite** instead of failing it: a full table makes linear probing spin
+rather than answer wrongly. The insert loop is bounded now, so the same mistake
+is an assertion. A wrong answer is a bug; a hang is a bug that takes the test
+run with it.
+
+---
+
 ### 3.16 What the checker does not check — **done**
 
 The odd one out of the whole list: about this repository's own verification

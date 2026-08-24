@@ -178,7 +178,10 @@ Smalltalk lineage, prototype flavour:
 - Message send is the only way to make anything happen. `:` is the send
   operator: `receiver:message(args)`.
 - Slot lookup walks the proto chain and terminates at the root Object, which
-  doubles as the globals namespace where class objects like `integer` live.
+  doubles as the globals namespace where class objects like `integer` live. Each
+  object's own slots are a list; an object with more than a dozen keeps a table
+  beside it, which is what makes the walk a step per object rather than a step
+  per slot ([3.17](COMPLETED.md#317-a-global-is-found-by-walking-a-list--done)).
 - Every built-in class delegates to `object`, so there is one hierarchy:
   `#45:isKindOf(object)` is true, and "everything is an object" holds of the
   type graph as well as the slogan. The four classes whose instances are not
@@ -190,7 +193,9 @@ selector goes through one table on the VM, which answers the same address for
 the same characters -- so a lookup walking a proto chain compares pointers, and
 never looks at a byte of either name. A chunk's name table is resolved through
 that table once, before the chunk first runs, which is what keeps the hash off
-the path a send takes: the send reads a pointer already resolved.
+the path a send takes: the send reads a pointer already resolved. It is also
+what lets an object index its own slots by that pointer, since the address is
+the identity and is stable for the life of the VM.
 
 This is the VM's own table and not the symbol table behind `'foo`. The two do
 the same job and hold it differently: a symbol is a value a program can drop, so

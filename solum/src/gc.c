@@ -80,6 +80,9 @@ static size_t cell_size(const SolGCHeader *header)
     for (const SolSlot *slot = obj->slots; slot != NULL; slot = slot->next) {
         size += sizeof(SolSlot);       /* the name is shared, not this object's */
     }
+    if (obj->index != NULL) {
+        size += sizeof(SolIndexEntry) * (size_t)(obj->index_mask + 1);
+    }
     return size;
 }
 
@@ -306,6 +309,8 @@ static void free_cell(SolGCHeader *header)
             free(slot);
             slot = next;
         }
+        /* The index holds the same slots and owns none of them. */
+        free(obj->index);
     }
     free(header);
 }

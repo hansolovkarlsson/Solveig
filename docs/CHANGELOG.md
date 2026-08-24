@@ -5,6 +5,66 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### An object with more than a dozen slots keeps a table beside its list — `pending`, 2026-08-23
+
+**[3.17](COMPLETED.md#317-a-global-is-found-by-walking-a-list--done) closes.**
+A global was found by walking the root's slots and comparing interned pointers,
+linearly, at about 1.35ns a slot. So was every message, down the class object's
+slots. An object with more than a dozen slots now keeps an index beside the
+list — open-addressed on the interned name pointer, which is a name's identity
+and stable for the life of the VM.
+
+**The list is still the object's state.** It holds definition order, which
+`slots` answers with; it is what the collector walks and frees; the table is a
+lookup index over the same slots and is rebuilt from the list if it ever needs
+to be. Below the threshold there is no table, so a point with three slots pays
+nothing.
+
+**Measured against the same programs, 21 runs each:**
+
+| | |
+| --- | --- |
+| a global with 60 ahead of it | **2.88×** |
+| a global with 16 ahead of it | **1.37×** |
+| a send to a slot 400 deep | **4.89×** |
+| a send to `add`, 35 deep on `integer` | **1.35×** |
+| [disasm.sol](../programs/disasm.sol) over an 8.7K `.sob` | **1.31×** |
+| [page.sol](../programs/page.sol) over the site | **1.20×** |
+| [evaluator.sol](../programs/evaluator.sol) | **1.09×** |
+| a send to a slot **4** deep | **0.88×** |
+| reading the **most recently bound** global | **0.89×** |
+
+**The last two rows are the trade and they are real** — both intervals sit
+entirely below 1. A hash is a constant where a walk is a step, so the shallowest
+lookups pay for the deepest. What makes that the right way round is that the old
+order was *recency*: the name a library bound first was the slowest to read and
+the one the program bound last was the fastest, which is backwards for the case
+it matters in. Peak RSS is unchanged at 0.94 MB — the tables come to about six
+kilobytes across the ten built-in classes, and nothing else has enough slots.
+
+**Sends were where the time was, and the entry is about globals.** The reason
+the entry did not see it: built-in messages are registered in order and a new
+slot goes on the *front* of the list, so `add`, `sub`, `mul` and `print` —
+registered first, used most — ended up deepest. `add` sat 35 slots down a list
+of 38.
+
+**The first version was 30% slower on a shallow send**, and finding out why
+produced the design that shipped. A counter said 2.00 probes a lookup, and the
+table held slot pointers alone, so each probe followed one to read `slot->name`
+— three dependent loads where the list has one. **A short linked list is not
+slow**: an object's slots are allocated together, so the walk reads memory the
+prefetcher has already fetched. Putting the key in the table beside the slot, in
+the same sixteen bytes, took that loss from 30% to 12%. Two other guesses
+measured the wrong way round: a stronger hash was *slower*, splitmix64's
+finaliser being two multiplies on the critical path of every lookup in the
+language; and doubling the table again made no difference once the key was in it.
+
+**And one thing worth leaving behind.** Breaking the growth rule deliberately,
+to check the new test would catch it, **hung the suite** rather than failing it:
+a full table makes linear probing spin instead of answering wrongly. The insert
+loop is bounded now, so the same mistake is an assertion. A wrong answer is a
+bug; a hang is a bug that takes the test run with it.
+
 ### A number in a sentence says what it counts, and 3.16 closes — `ef5fbd0`, 2026-08-23
 
 **The third gap, and the one that kept happening.** A sentence is neither a
@@ -161,7 +221,7 @@ two statements matched. A chained `ifTrue({...}):ifFalse({...})` written about
 four hours after documenting that exact trap. A benchmark comparing two loops
 doing unequal work, thrown away rather than reported. An argument under-sold by
 measuring a diluted expression, which when isolated produced
-[3.17](ROADMAP.md#317-a-global-is-found-by-walking-a-list) and redirected the
+[3.17](COMPLETED.md#317-a-global-is-found-by-walking-a-list--done) and redirected the
 question it was asked in service of. And five changelog entries dated a day
 ahead, in a document whose header says dates are the day the work was done,
 corrected in the same commit.
@@ -200,7 +260,7 @@ came out because somebody asked whether the two matched. A chained
 `ifTrue({...}):ifFalse({...})` written four hours after documenting that exact
 trap. A benchmark comparing two loops doing unequal work, thrown away rather
 than reported. An argument under-sold by measuring a diluted expression, which
-when isolated produced [3.17](ROADMAP.md#317-a-global-is-found-by-walking-a-list)
+when isolated produced [3.17](COMPLETED.md#317-a-global-is-found-by-walking-a-list--done)
 and redirected the whole question. And five changelog entries dated **2026-08-24
 on the 23rd**, in a document whose header says dates are the day the work was
 done — corrected here.
@@ -246,7 +306,7 @@ blocks reached into with `pair:at(#1)` is not an interface worth committing to.
 A library is a promise, and the bar is higher than "it works".* The judgement was
 right and the capability was never in question — what changed is the interface.
 
-**[3.17](ROADMAP.md#317-a-global-is-found-by-walking-a-list) is the new
+**[3.17](COMPLETED.md#317-a-global-is-found-by-walking-a-list--done) is the new
 limitation, and it was found by measuring an argument rather than by anything
 being slow.** Global lookup walks the root's slot list, linearly, at about
 1.35ns a slot — and the order is recency, so the name a *library* bound first is
@@ -326,7 +386,7 @@ and probably no** — and the reason is a measurement rather than a preference.
 
 **The speed argument for constants is right.** `OP_CONST` is an array index
 where `OP_GLOBAL` is a lookup. Measuring how much turned up
-[3.17](ROADMAP.md#317-a-global-is-found-by-walking-a-list), which is new: global
+[3.17](COMPLETED.md#317-a-global-is-found-by-walking-a-list--done), which is new: global
 lookup **walks a list**, linearly, at about 1.35ns a slot, and the order is
 recency — so the name a *library* bound first is the slowest to read and the one
 the program bound last is the fastest. At 800 globals a constant is 16× faster.

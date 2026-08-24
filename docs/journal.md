@@ -171,7 +171,7 @@ opinion, and the constants one moved furthest — see below.
    expression where the lookup is a fifth of the work — and reported 25ns as if
    that settled it. Pushed on it, isolating the lookup gave 16× in the
    pathological case and, more usefully,
-   [3.17](ROADMAP.md#317-a-global-is-found-by-walking-a-list): global lookup
+   [3.17](COMPLETED.md#317-a-global-is-found-by-walking-a-list--done): global lookup
    walks a list, linearly, recency-ordered, so the name a *library* bound is the
    slowest to read. **The measurement redirected the question from "should we
    have constants" to "why is a global read O(n)".**

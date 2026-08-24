@@ -43,11 +43,43 @@ typedef struct SolSlot {
     struct SolSlot *next;
 } SolSlot;
 
+/* Above this many slots an object keeps an index beside the list. Below it the
+   list wins: every name is an interned pointer, so a step is one comparison on
+   a cache line the walk is already reading, and a hash is a multiply, a mask
+   and a dependent load before the first comparison happens at all. Measured --
+   see ROADMAP 3.17. */
+#define SOL_INDEX_THRESHOLD 12
+
+/* An entry carries the key beside the slot so that a probe compares without
+   dereferencing the slot. That is one dependent load rather than two, and the
+   two live in the same sixteen bytes, so the compare and the answer come off
+   one cache line -- which is what the linked list gets for free by having its
+   slots allocated together, and what a table has to be built to match. */
+typedef struct SolIndexEntry {
+    const char *name;
+    SolSlot    *slot;
+} SolIndexEntry;
+
 struct SolObject {
     SolGCHeader gc;        /* must be first: the collector casts between them */
     SolObject *proto;      /* delegation target; NULL for the root Object */
     SolSlot   *slots;
     int64_t    payload;    /* raw storage for integer/boolean-like objects */
+
+    /* An index over `slots`, and only over this object's own -- the proto chain
+       is walked object by object as it always was.
+     *
+     * The list stays the object's state: it holds definition order, which
+       `slots` answers with, and it is what the collector walks and frees. This
+       is a lookup table beside it, built when the list gets long enough to be
+       worth one, and holding the same SolSlot pointers. Open addressing on the
+       interned name pointer, which is stable for the life of the VM.
+     *
+     * NULL until the object crosses SOL_INDEX_THRESHOLD, which most objects
+       never do: a point with three slots pays nothing. */
+    SolIndexEntry *index;
+    int            index_mask;   /* capacity - 1; capacity is a power of two */
+    int            slot_count;
 };
 
 /* A block: unevaluated code plus the frame it was written in.
@@ -241,6 +273,11 @@ SolSlot *sol_object_lookup(SolObject *obj, const char *name);
  * the two spellings of this function have different names rather than one
  * taking a flag. */
 SolSlot *sol_object_lookup_interned(SolVM *vm, SolObject *obj, const char *name);
+
+/* Binds a name the caller has already interned, which every name the VM reads
+   out of a chunk is. */
+void sol_object_define_interned(SolVM *vm, SolObject *obj, const char *name,
+                                SolValue value);
 
 void     sol_object_define(SolVM *vm, SolObject *obj, const char *name, SolValue value);
 void     sol_object_define_primitive(SolVM *vm, SolObject *obj, const char *name,

@@ -121,7 +121,7 @@ claim that stops being checked**, and three arrived in one day.
 files are format version 14, unchanged. **`array:ifElseIf`** writes a chain of
 alternatives flat instead of as nested `ifElse`, measured at 5.8× a chain and
 three frames a level through a recursion, so it is for a flat dispatch and not a
-recursive descent. **[3.17](docs/ROADMAP.md#317-a-global-is-found-by-walking-a-list)**
+recursive descent. **[3.17](docs/COMPLETED.md#317-a-global-is-found-by-walking-a-list--done)**
 is new: global lookup walks a list, linearly, and the order is recency — so the
 name a library bound first is the slowest to read. Three design questions were
 explored and recorded rather than built — default parameter values, constants,

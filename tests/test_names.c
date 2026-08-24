@@ -120,6 +120,80 @@ static void test_both_lookups_agree(void)
     printf("  the interned lookup answers exactly what the spelling one does\n");
 }
 
+/* An object large enough to be indexed must answer exactly what the list would.
+ *
+ * The index is a second copy of a fact the list already holds, which is the
+ * shape of bug worth a test: the two can drift, and nothing about a lookup that
+ * quietly misses looks wrong -- it reads as a name that was never bound. So
+ * every name is asked for through the fast path and checked against a walk of
+ * the list, at a size that forces several rebuilds on the way up.
+ *
+ * `slots` order is checked with it, because that is the reason the list is
+ * still the object's state rather than being replaced: the reference says
+ * `slots` answers own slots in the order they were defined, and a table has no
+ * order to answer with. */
+static void test_a_large_object_is_indexed_and_agrees(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    /* Well past SOL_INDEX_THRESHOLD, and past several doublings of the table. */
+    char source[8192];
+    int at = snprintf(source, sizeof source, "o := object:new.");
+    for (int i = 0; i < 200; i++) {
+        at += snprintf(source + at, sizeof source - (size_t)at,
+                       "o:n%d := #%d.", i, i);
+    }
+    assert(run(&vm, &chunk, source) == SOL_OK);
+
+    SolObject *o = SOL_AS_OBJ(global(&vm, "o"));
+    assert(o->index != NULL);                 /* it crossed the threshold */
+    assert(o->slot_count == 200);
+
+    /* Every name, through the index, against a walk of the list. */
+    for (int i = 0; i < 200; i++) {
+        char name[16];
+        snprintf(name, sizeof name, "n%d", i);
+        const char *interned = sol_vm_intern_name(&vm, name, (int)strlen(name));
+
+        SolSlot *walked = NULL;
+        for (SolSlot *slot = o->slots; slot != NULL; slot = slot->next) {
+            if (slot->name == interned) { walked = slot; break; }
+        }
+        SolSlot *found = sol_object_lookup_interned(&vm, o, interned);
+        assert(found != NULL && found == walked);
+        assert(SOL_AS_INT(found->value) == i);
+    }
+
+    /* A name that is not there, on an object whose table is mostly empty seats:
+       the probe has to stop rather than run to the end and read past it. */
+    assert(sol_object_lookup_interned(
+        &vm, o, sol_vm_intern_name(&vm, "n200", 4)) == NULL);
+
+    /* Rebinding finds the slot rather than making a second one, which is what
+       keeps the table's one-entry-per-name true. */
+    SolChunk again;
+    assert(run(&vm, &again, "o:n7 := #4242.") == SOL_OK);
+    assert(o->slot_count == 200);
+    assert(SOL_AS_INT(sol_object_lookup_interned(
+        &vm, o, sol_vm_intern_name(&vm, "n7", 2))->value) == 4242);
+
+    /* And the list still holds definition order, newest first, which is what
+       `slots` reverses to answer with. */
+    int seen = 0;
+    for (SolSlot *slot = o->slots; slot != NULL; slot = slot->next) {
+        char expect[16];
+        snprintf(expect, sizeof expect, "n%d", 199 - seen);
+        assert(strcmp(slot->name, expect) == 0);
+        seen++;
+    }
+    assert(seen == 200);
+
+    sol_chunk_free(&again); sol_chunk_free(&chunk); sol_vm_free(&vm);
+    printf("  a large object is indexed, and the index answers what the list "
+           "does\n");
+}
+
 #ifndef SOLUM_CHECK_INTERNED
 /* The trap the two names guard against, pinned so it stays a known shape: an
    equal string that is not *the* string finds nothing. Building with
@@ -415,6 +489,7 @@ int main(void)
     test_the_table_grows();
     test_slots_share_their_names();
     test_both_lookups_agree();
+    test_a_large_object_is_indexed_and_agrees();
 #ifndef SOLUM_CHECK_INTERNED
     test_an_uninterned_name_finds_nothing();
 #endif

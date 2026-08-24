@@ -714,7 +714,7 @@ static SolResult run_frames(SolVM *vm, int base)
 
             /* Assignment is an expression: the value stays on the stack so
                `c := b := #45` works and the statement's POP discards it. */
-            sol_object_define(vm, vm->root, name, vm->stack_top[-1]);
+            sol_object_define_interned(vm, vm->root, name, vm->stack_top[-1]);
             break;
         }
 
@@ -790,7 +790,7 @@ static SolResult run_frames(SolVM *vm, int base)
                                      sol_type_name(target));
                 break;
             }
-            sol_object_define(vm, SOL_AS_OBJ(target), name, value);
+            sol_object_define_interned(vm, SOL_AS_OBJ(target), name, value);
             sol_vm_push(vm, value);          /* assignment answers its value */
             break;
         }

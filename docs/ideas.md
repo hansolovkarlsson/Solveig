@@ -58,7 +58,7 @@ marked as a sketch.
 | More than one parent | **No** — `via` already names an ancestor, which is what multiple parents are wanted for |
 | An `assert` that compiles away | **No** to stripping; **defer** the message itself |
 | Default values for block parameters | **Defer** — the trigger is a program threading a nil it did not want to pass; the case for it is that built-ins already do this and user code cannot |
-| Constants | **Defer, and probably no** — the speed argument is real and points at [3.17](ROADMAP.md#317-a-global-is-found-by-walking-a-list) instead; the memory argument runs backwards |
+| Constants | **Defer, and probably no** — the speed argument pointed at [3.17](COMPLETED.md#317-a-global-is-found-by-walking-a-list--done), which is now built and took the argument with it; the memory argument runs backwards |
 | Solas written in Solum — self-hosting | **Proved, then parked** — it compiles itself to a fixpoint; the code is in [experiment/](../experiment/), off the search path, [below](#solas-written-in-solum--self-hosting) |
 
 ---
@@ -1569,19 +1569,24 @@ other.
 The case for constants is that `OP_CONST` is an array index where `OP_GLOBAL` is
 a lookup. That is true, and measuring how *much* it is true is what made this
 entry interesting: global lookup walks a list, linearly, at about 1.35ns a slot
-— [3.17](ROADMAP.md#317-a-global-is-found-by-walking-a-list) has the numbers. At
+— [3.17](COMPLETED.md#317-a-global-is-found-by-walking-a-list--done) has the numbers. At
 800 globals a constant is 16× faster.
 
-**But the fix that number argues for is not constants.** A hash on the root, or
-an inline cache at the `OP_GLOBAL` site, speeds up **every** global read in every
-program; a constant speeds up only the names somebody remembered to declare.
-That is the same reasoning the `@define` entry gave for making loops primitives
-rather than macros — *it speeds up every caller rather than the ones who
-remembered*.
+**But the fix that number argues for is not constants.** A hash on the root
+speeds up **every** global read in every program; a constant speeds up only the
+names somebody remembered to declare. That is the same reasoning the `@define`
+entry gave for making loops primitives rather than macros — *it speeds up every
+caller rather than the ones who remembered*.
 
-And in this repository the number is small: a root holds 15 built-in globals
-plus what a program binds, which is 23 in `expect.sol` and 1 in `lib/html.sol`.
-At 38 globals a badly-placed read costs about 50ns.
+**That is now built**, and it argues against constants harder than this entry
+did. An object with more than a dozen slots keeps a table beside its list, and a
+global read is a constant-time lookup at any depth: 2.88× at 60 globals, 1.37×
+at 16. It also turned out to be worth more to *sends* than to globals, which is
+the half of the reasoning nothing here had — the built-in messages are
+registered in order and a new slot goes on the front, so `add` sat 35 slots down
+`integer`'s list of 38 and every integer send paid for it. Real programs came
+out 1.09× to 1.31× faster with no change to the language at all. See
+[3.17](COMPLETED.md#317-a-global-is-found-by-walking-a-list--done).
 
 #### The memory argument runs backwards
 
@@ -1608,10 +1613,11 @@ is told to. And a second kind of name is expensive in a language that has one
 kind of everything: `:=` binds, later wins, the warning says so, and `slots`
 lists what is there.
 
-**Trigger:** a program measurably slowed by global reads, which would be
-[3.17](ROADMAP.md#317-a-global-is-found-by-walking-a-list) first and this only if
-the lookup were already fast; or a case where a name genuinely must not be
-rebindable and a warning is not enough.
+**Trigger:** a program measurably slowed by global reads — which was
+[3.17](COMPLETED.md#317-a-global-is-found-by-walking-a-list--done), and is now
+done, so this would have to be a program still slowed by a lookup that is
+already constant-time; or a case where a name genuinely must not be rebindable
+and a warning is not enough.
 
 `pi` needs none of this, incidentally. It is two lines in
 [math.sol](../lib/math.sol) whenever a program wants one — and none has, there

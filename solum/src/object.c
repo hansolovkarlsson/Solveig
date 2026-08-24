@@ -94,6 +94,9 @@ SolObject *sol_object_new(SolVM *vm, SolObject *proto)
     obj->proto = proto;
     obj->slots = NULL;
     obj->payload = 0;
+    obj->index = NULL;
+    obj->index_mask = 0;
+    obj->slot_count = 0;
 
     sol_gc_register(vm, &obj->gc, SOL_GC_OBJECT, sizeof(SolObject));
     return obj;
@@ -502,6 +505,95 @@ SolSlot *sol_object_lookup(SolObject *obj, const char *name)
     return NULL;
 }
 
+/* A name is an interned pointer, so the pointer *is* the key. Mixing is still
+   needed: the low bits of a malloc'd address carry no information -- every one
+   of them is aligned the same way -- so using the address raw would leave three
+   quarters of the table empty.
+ *
+   Two shifts and an xor, and not something stronger. splitmix64's finaliser was
+   the first thing here and it is two multiplies; it measured *slower* on every
+   benchmark, because what this costs is one dependent load and the arithmetic
+   before it is on the critical path of every lookup in the language. Spreading
+   the keys better bought fewer probes than the mixing cost -- 1.38 probes a
+   lookup over a real program, which is close enough to one. */
+static inline size_t name_hash(const char *name)
+{
+    uintptr_t h = (uintptr_t)name;
+    return (size_t)((h >> 4) ^ (h >> 11));
+}
+
+/* Open addressing with linear probing, at two seats a slot, so a probe run is
+   short and there is always an empty seat to stop at.
+ *
+   The name is compared before the slot is touched, which is the difference
+   between this and the version that stored slot pointers alone: that one had to
+   follow the pointer to read `slot->name`, three dependent loads to the list's
+   one, and it cost a shallow send 30%. The linked list is not slow for a short
+   chain -- an object's slots are allocated together, so the walk reads memory
+   the prefetcher has already fetched. A table has to be built to match that,
+   and this is what it takes: the key beside the answer, in the same sixteen
+   bytes, so one cache line settles both.
+ *
+   No deletion, because a slot is never removed from an object -- redefining a
+   name finds the slot and overwrites its value, and the only thing that ends a
+   slot's life is the object being swept. That is what makes this a table and
+   not a hash map: there are no tombstones to reason about. */
+static SolSlot *index_find(SolObject *obj, const char *name)
+{
+    size_t i = name_hash(name) & (size_t)obj->index_mask;
+    for (;;) {
+        const SolIndexEntry *entry = &obj->index[i];
+        if (entry->name == name) return entry->slot;
+        if (entry->name == NULL) return NULL;
+        i = (i + 1) & (size_t)obj->index_mask;
+    }
+}
+
+/* The caller keeps the table at least twice the size of what it holds, so there
+   is always an empty seat and this always stops -- and `index_find` relies on
+   the same thing, since an empty seat is what tells it a name is not there.
+ *
+   The bound is here rather than trusted, because the failure mode of a full
+   table is not a wrong answer but a spin: breaking the growth rule deliberately
+   to check this test would catch it hung the suite instead, which is a worse
+   thing to leave possible than the bug it was standing in for. */
+static void index_put(SolObject *obj, SolSlot *slot)
+{
+    size_t i = name_hash(slot->name) & (size_t)obj->index_mask;
+    for (int seats = obj->index_mask + 1; seats > 0; seats--) {
+        if (obj->index[i].name == NULL) {
+            obj->index[i].name = slot->name;
+            obj->index[i].slot = slot;
+            return;
+        }
+        i = (i + 1) & (size_t)obj->index_mask;
+    }
+    assert(false && "the index filled, which the growth rule should prevent");
+}
+
+/* Build or grow the table, then fill it from the list. Rebuilding from the list
+   rather than rehashing in place keeps one copy of the truth: if the two ever
+   disagree the list is right, and the table is discarded and made again. */
+static void index_rebuild(SolObject *obj)
+{
+    int capacity = 16;
+    while (capacity < obj->slot_count * 2) capacity *= 2;
+
+    SolIndexEntry *table = calloc((size_t)capacity, sizeof(SolIndexEntry));
+    if (table == NULL) {
+        /* The list is still correct and still complete, so a failure here costs
+           speed and nothing else. */
+        return;
+    }
+
+    free(obj->index);
+    obj->index = table;
+    obj->index_mask = capacity - 1;
+    for (SolSlot *slot = obj->slots; slot != NULL; slot = slot->next) {
+        index_put(obj, slot);
+    }
+}
+
 SolSlot *sol_object_lookup_interned(SolVM *vm, SolObject *obj, const char *name)
 {
     /* Every slot name went through the table, so a name that did not is one
@@ -519,18 +611,14 @@ SolSlot *sol_object_lookup_interned(SolVM *vm, SolObject *obj, const char *name)
     (void)vm;
 
     for (SolObject *o = obj; o != NULL; o = o->proto) {
+        if (o->index != NULL) {
+            SolSlot *slot = index_find(o, name);
+            if (slot != NULL) return slot;
+            continue;
+        }
         for (SolSlot *slot = o->slots; slot != NULL; slot = slot->next) {
             if (slot->name == name) return slot;
         }
-    }
-    return NULL;
-}
-
-/* Finds a slot on `obj` itself, ignoring the proto chain. */
-static SolSlot *lookup_local(SolObject *obj, const char *name)
-{
-    for (SolSlot *slot = obj->slots; slot != NULL; slot = slot->next) {
-        if (strcmp(slot->name, name) == 0) return slot;
     }
     return NULL;
 }
@@ -539,9 +627,20 @@ static SolSlot *lookup_local(SolObject *obj, const char *name)
    the collector; cell_size counts its bytes when the object is swept. Its name
    is *not* owned: it is the VM's interned copy, shared with every other slot
    spelling the same thing, and outlives them all. */
-static SolSlot *ensure_local(SolVM *vm, SolObject *obj, const char *name)
+/* The name must already be interned. Every assignment the VM runs comes through
+   here, and interning is a hash of the string -- paid on a name that is already
+   a pointer into the table, on the hot path, to learn nothing. The callers that
+   hold a C literal go through `ensure_local` below and pay it once. */
+static SolSlot *ensure_local_interned(SolVM *vm, SolObject *obj, const char *name)
 {
-    SolSlot *slot = lookup_local(obj, name);
+    (void)vm;
+
+    SolSlot *slot = obj->index != NULL ? index_find(obj, name) : NULL;
+    if (slot == NULL && obj->index == NULL) {
+        for (SolSlot *s = obj->slots; s != NULL; s = s->next) {
+            if (s->name == name) { slot = s; break; }
+        }
+    }
     if (slot != NULL) return slot;
 
     slot = malloc(sizeof(SolSlot));
@@ -549,13 +648,42 @@ static SolSlot *ensure_local(SolVM *vm, SolObject *obj, const char *name)
         fprintf(stderr, "solvm: out of memory\n");
         exit(1);
     }
-    slot->name = sol_vm_intern_name(vm, name, (int)strlen(name));
+    slot->name = name;
     slot->value = SOL_NIL_VAL;
     slot->primitive = NULL;
     slot->receiver_type = SOL_ANY_RECEIVER;
     slot->next = obj->slots;
     obj->slots = slot;
+    obj->slot_count++;
+
+    /* Crossing the threshold builds the table; after that it is kept in step,
+       and grown when it would otherwise fill past half. */
+    if (obj->index == NULL) {
+        if (obj->slot_count > SOL_INDEX_THRESHOLD) index_rebuild(obj);
+    } else if (obj->slot_count * 2 > obj->index_mask + 1) {
+        index_rebuild(obj);
+    } else {
+        index_put(obj, slot);
+    }
     return slot;
+}
+
+static SolSlot *ensure_local(SolVM *vm, SolObject *obj, const char *name)
+{
+    return ensure_local_interned(
+        vm, obj, sol_vm_intern_name(vm, name, (int)strlen(name)));
+}
+
+/* The same as sol_object_define, for a caller that already holds the interned
+   name -- which the VM always does, since it reads names out of a chunk's table
+   and those were interned when the chunk was loaded. */
+void sol_object_define_interned(SolVM *vm, SolObject *obj, const char *name,
+                                SolValue value)
+{
+    SolSlot *slot = ensure_local_interned(vm, obj, name);
+    slot->value = value;
+    slot->primitive = NULL;
+    slot->receiver_type = SOL_ANY_RECEIVER;
 }
 
 void sol_object_define(SolVM *vm, SolObject *obj, const char *name, SolValue value)
