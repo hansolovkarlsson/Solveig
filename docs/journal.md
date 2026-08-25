@@ -11,6 +11,96 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-25 (afternoon) — installing it, and two verifications that verified nothing
+
+`make install`, `make uninstall`, `make dist`. The interesting part is not any
+of them: it is that **two of my checks passed while measuring the wrong thing**,
+in a session whose last three postmortems have all been about preferring
+measurement to reasoning. Measuring the wrong thing is the failure mode
+underneath that one, and it is quieter.
+
+### The defect was known before the work started
+
+It had been measured hours earlier, while answering a different question: an
+installed binary, run by bare name off `PATH`, cannot find its library.
+`argv[0]` names a directory only when the program was invoked with a path, and
+[compiler.c](../solas/src/compiler.c) deliberately refuses to search `PATH`
+again to guess. Which is right, and left an installed `solas` with nothing.
+
+The answer is that a path the *install* wrote down is not a guess. Four tiers
+now, with the install last so a checkout keeps winning — otherwise testing a
+change silently reads the library installed on the machine.
+
+### The rule that became the default goal
+
+The generated header carrying `SOL_LIB_DIR` needs a rule. I wrote it in the
+variables section at the top of the Makefile, which is where its comment
+belonged, and **make's default goal is whichever target it reads first**.
+
+So bare `make` generated a header, built nothing, and exited **0**.
+
+And the check I ran was `make >/dev/null 2>&1 && echo "build ok"`. It printed
+*build ok*. The binaries it then ran were left over from before the change. A
+green check, a silent no-op, and a conclusion drawn from neither.
+
+### The counts that counted nothing
+
+The property worth having is that changing `PREFIX` rebuilds what depends on
+it, because a binary carrying a stale prefix fails silently. I checked it three
+times with `make PREFIX=… | grep -c "compiler.c"` and got **0** every time, and
+started reading GNU Make's documentation on generated prerequisites, and the
+`.d` files, and `-MP`'s phony header targets.
+
+It was rebuilding the whole time. The zeros came from the broken default goal
+above: make was building nothing at all, so of course nothing mentioned
+`compiler.c`. Two faults, and the first one made the second one unreadable.
+
+What settled it was `stat -f %m` on the two files, which is a smaller and
+duller measurement than the one I had been running, and unlike it, it could not
+be satisfied by the wrong thing:
+
+```text
+1787663669 build/config.h        1787663669 build/solas/src/compiler.o
+--- switch prefix ---
+1787663686 build/config.h        1787663686 build/solas/src/compiler.o
+```
+
+Then, properly: a `PREFIX` change recompiles all fourteen sources and relinks;
+the same `PREFIX` again produces zero lines.
+
+### And the machine turned out to be running make from 2006
+
+`make --version` on this Mac says **GNU Make 3.81**. The Linux runners have 4.x.
+That did not cause anything here, but it is worth knowing that the two makes in
+play differ by nineteen years, and that the older of them is the one the author
+sits in front of.
+
+---
+
+### Postmortem
+
+1. **A check that cannot fail is not a check.** `make && echo ok` passes when
+   make does nothing, and `grep -c` on an empty build passes as a zero that
+   means what a real zero would mean. Both were written to confirm rather than
+   to discriminate.
+
+2. **When a measurement disagrees with a strong expectation, suspect the
+   measurement before the theory.** I spent longer than I want to admit
+   reasoning about `-MP` phony targets, on evidence produced by a build that
+   was not running.
+
+3. **The fix for both was a smaller measurement, not a cleverer one.** File
+   mtimes, and the line count of make's output. Nothing about the second attempt
+   was more sophisticated than the first; it was just harder to satisfy
+   accidentally.
+
+**What is now checked rather than claimed**: that an installed binary finds its
+library, and that the tarball builds. Both are in CI, because both are exactly
+the kind of thing that is true on the day it is written and quietly false a
+month later, and this repository has a list of those.
+
+---
+
 ## 2026-08-25 — the sanitizers, and a hang that erased its own evidence
 
 A short day with one lesson in it, and the lesson is about *logs* rather than

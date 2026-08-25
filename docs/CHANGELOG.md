@@ -5,6 +5,83 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## 0.28.0 — 2026-08-25
+
+**Nothing in the language changed, and everything about how it is checked did.**
+`.sob` files are format version 14, unchanged. This is the release where three
+claims that had been held true by somebody having looked once became claims a
+machine re-checks on every push — which is the standard this repository already
+applied to its documents and had never applied to itself.
+
+**The suite now runs where it was not written.** gcc and clang on Linux, clang
+on macOS. The README's *no dependencies beyond a C11 compiler and `make`* had
+been checked by one compiler on one machine, where `gcc` is a shim for clang.
+It was false: libm went unlinked, and POSIX declarations were hidden by
+`-std=c11` under glibc. **All 762 documentation claims hold on Linux too** —
+every fenced block producing the same output on a different libc and a
+different instruction set.
+
+**And GCC found a bug that was not about portability.**
+`frame->ip += READ_SHORT()` wrote the instruction pointer twice with no
+sequence point between them, so the standard did not say which value the
+addition started from. A compiler that loaded the left operand first would make
+every forward jump two bytes short. It had been correct under clang for the
+project's whole life.
+
+**ASan and UBSan run the whole suite on every push**, where before they were a
+pass somebody remembered to make against whatever had just changed. Linux, so
+that LeakSanitizer works — `design.md` says the language does not leak, and
+until now nothing had checked it. It reports nothing.
+
+**And it installs.** `make install`, `make uninstall`, `make dist`. An installed
+binary could not previously find its library at all: `argv[0]` names no
+directory when a program is found on `PATH`. There are four tiers on the search
+path now, with the install location last so a checkout keeps winning over
+anything installed on the machine. CI installs to a prefix, runs a program by
+bare name off `PATH`, uninstalls, and builds from the tarball.
+
+The suite checks 762 claims, unchanged from 0.27.0 — no document gained a claim
+this release, and that is the point of it.
+
+### Install it somewhere, and let it find its library when you do — `254ab14`, 2026-08-25
+
+**`make install`, `make uninstall` and `make dist`**, and the defect that had to
+be fixed before the first of those meant anything.
+
+**An installed binary could not find its library.** `argv[0]` names a directory
+only when the program was invoked with a path; found on `PATH` by bare name it
+says nothing, so the `bin/../lib` fallback contributed nothing and
+`@include "text.sol"` failed with no hint as to why. Running out of the
+checkout, which is how everything here has always been run, hid it completely.
+
+The search path is four deep now, and the order is the whole design:
+
+| | |
+| --- | --- |
+| `-I dir` | what the caller said, first |
+| `SOLUM_PATH` | what the environment said |
+| `bin/../lib` | the library beside the binary — what a checkout has |
+| `SOL_LIB_DIR` | where `make install` put it |
+
+**The install location is last on purpose.** A checkout has to keep winning
+over anything installed on the machine, or testing a change means reading the
+old library and not knowing it.
+
+**`SOL_LIB_DIR` is written into a generated header rather than passed as `-D`.**
+A binary carrying a path from a previous `PREFIX` fails silently, and a
+command-line `-D` leaves stale objects holding the old value. Measured both
+ways: changing `PREFIX` recompiles all fourteen sources and relinks, and
+repeating the same one produces no output at all.
+
+**CI checks both of the claims this adds**, because they are exactly the kind
+that go stale in silence — an installed binary that works, and a tarball that
+builds. It installs to a prefix, runs a program by bare name off `PATH` from a
+directory with no `lib/` in it, uninstalls and checks the files are gone, then
+builds from the tarball `make dist` produced.
+
+`docs/GUIDE.md`, `docs/REFERENCE.md` and the README each listed three places on
+the search path and now list four.
+
 ### The sanitizers stop being something somebody remembers — `87050d9`, 2026-08-25
 
 **ASan and UBSan now run the whole suite on every push.** They have been run

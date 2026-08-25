@@ -137,6 +137,17 @@ version the binaries inside it report.
 
 ## Status
 
+**0.28.0** — nothing in the language changed and everything about how it is
+checked did; `.sob` files are format version 14, unchanged. **The suite runs
+where it was not written**: gcc and clang on Linux, clang on macOS, and all
+**762** documentation claims hold there too. The front-page claim of *no
+dependencies beyond a C11 compiler and `make`* turned out to be false when
+first tested, and GCC found **undefined behaviour in the interpreter's jump**
+that clang had been quietly getting right. **ASan and UBSan** now run the whole
+suite on every push, with leak detection, which had never been checked. And
+**it installs** — `make install`, `make uninstall`, `make dist`, with an
+installed binary now able to find its own library.
+
 **0.27.0** — one new debugger command and no change to the language; `.sob`
 files are format version 14, unchanged. **`solid` gains `globals`**, which lists
 what a program bound in the order it bound them — the one question a program
