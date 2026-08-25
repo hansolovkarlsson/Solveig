@@ -11,6 +11,201 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-25 (late) — the third entry closed, and the prompt BASIC always had
+
+0.32.0 shipped at 13:18 with one entry open. It was shut by 14:51, and the rest
+of the day was giving BASIC the interface it actually had in 1964.
+
+### system:writeError, and the thing the question was not about
+
+[3.19](COMPLETED.md#319-a-program-cannot-write-to-standard-error--done) posed
+itself as a naming question — its own message, or a destination argument on
+`write`. That part was easy: a destination would make the common case carry an
+argument it never wants, and two names read as the two streams a process has.
+
+**The part that mattered was the one nobody asked.** What must *not* happen is a
+second `display`. That message and `print` are about rendering a value and they
+serve every type; a variant of each pointing elsewhere is precisely the second
+mechanism behind the first that this language exists to refuse. There is one way
+to reach standard error and it is spelled as writing, not as displaying.
+
+It also fixed a bug I had not been looking for.
+[examples/reading.sol](../examples/reading.sol) had been putting its *nothing on
+standard input* complaint on standard output for as long as it has existed,
+mixed in with the numbered lines that are its actual result. Nobody had noticed
+because until that afternoon there was nowhere else to put it.
+
+**And one test failed in a way that was the entry in miniature.** It compared
+the merged streams with `2>&1` and broke the moment they were separated — both
+because the two now carry different things, and because merging them puts them
+in the wrong order, stdout being block-buffered down a pipe where stderr is not.
+The test had been passing for an hour by asserting the thing the entry existed
+to stop.
+
+### The prompt
+
+A line beginning with a number goes into the program; a line that does not
+happens now. That is the whole rule, and it is why the language looks the way it
+does — line numbers are not decoration on a file, they are how you say *where
+this goes* to a machine with no editor.
+
+**Two things had to come apart.** The four load-time passes need the whole
+program, because a `GOTO` cannot be resolved until every line exists, and a file
+supplies that at once. A prompt does not: `10 GOTO 100` before line 100 exists is
+an ordinary thing to type. So entering a line now only parses it — which catches
+a syntax error where it was typed, as BASIC does — and `RUN` links.
+
+That is the cost of yesterday's optimisation arriving where it was always going
+to. **The thing that makes a jump an array index is the thing that makes an edit
+invalidate one.**
+
+### The frame that LIST cost
+
+`LIST` has to show back what was typed, and the parser had been throwing the text
+away. Keeping it put one more call between reading a line and parsing it, which
+stands on the stack while the expression parser recurses beneath — and the
+deepest listing this reads went from **60 brackets to 59**.
+
+I would have shipped that without noticing. What caught it is that the number is
+a *running claim* in the file rather than a sentence about it: the demonstration
+at the bottom runs `deep:value(#60)` and prints what happens, so it stopped
+printing ` 3` and started printing `call depth exceeded`. A comment saying "it
+reaches 60" would have stayed true-looking for ever.
+
+### Four mistakes, one shape
+
+Driving the prompt by hand found that every error it reported carried a line
+number, and the number was whatever line had run last:
+
+```text
+LOAD "missing.bas"  ->  line 99: there is no file missing.bas
+```
+
+Line 99 had nothing to do with it. That is the fourth of these in two days, and
+they are all the same shape — a value that was correct where it was set and
+meaningless where it was read.
+
+---
+
+### Postmortem
+
+1. **The same anchor mistake twice in one day.** Moving an entry to
+   `COMPLETED.md` changes its heading, and I wrote links pointing at the new file
+   with the *old* anchor — before the move, so my repointing pass did not see
+   them. Once for 3.18 and once for 3.19, two hours apart. The link checker
+   caught both, which is the system working; needing it twice for one lesson is
+   not.
+
+2. **Four "true sentences about the wrong thing" in two days.**
+   `'floor' is out of integer range` from taking a logarithm of infinity;
+   `SIN is not an array` from a name falling down the wrong branch of a fork;
+   `line 0:` for a line with no number; and now `line 99:` for a file that does
+   not exist. Every one is a value read in a context that was not the one it was
+   set in. They are not typos and they are not carelessness in the message — they
+   are the message being *given* something stale, which means the fix is never in
+   the wording.
+
+3. **I dated two changelog entries a day forward.** Writing them late in a long
+   session, I assumed the date had rolled; every commit says 2026-08-25. Caught
+   only because writing this journal meant reading the commit dates, which is an
+   accident rather than a check.
+
+---
+
+## 2026-08-25 (cutting 0.32.0) — three numbers nothing was checking, and a status that lied
+
+Cutting a release here is version, changelog heading, README, `design.md`, tag,
+push, tarball. The interesting part was that doing it carefully found three
+things wrong, none of which any test could have found.
+
+### Reading the pages a newcomer reads
+
+The version bump takes five minutes. What took the hour was reading
+[index.md](../index.md) and the README as though arriving at them.
+
+**index.md said there were nine programs, and listed nine.** There have been ten
+since `bench.sol` and eleven since `basic.sol` — wrong for two releases, on the
+page that is the front door. It also said *thirty-two files in two directories*,
+a sum of two numbers that had both moved.
+
+**The reason is the interesting part: that sentence had no marker.** Every other
+count of its kind carries one — the number, then an HTML comment naming what it
+counts — and the checker recounts it on every build. This one did not, so nothing ever looked. The fix is
+the marker, not the number. The sum is gone rather than corrected, being a third
+number no marker can check.
+
+**And the README's own first paragraph said 123 messages**, where there were 135.
+That is the number this repository gets wrong most often: the journal three
+entries down records it going 125 → 124 → 123 in one evening, by hand, from grep,
+twice. The reference's index has been held to the registry by a test all along.
+Nothing held the prose to the index.
+
+So `messages` is a marker now too, and the checker computes it rather than
+reading it off a page. A name a class holds is a **message** when it is built in
+and a **slot** when it has a value, and `slotAt` tells them apart by refusing the
+first kind and answering the second — without that, `system:arguments` and
+`error:message` count as messages and the total is two too high. Verified by
+writing the wrong number down and watching the build fail, which is the only way
+to know a check checks anything.
+
+### A question found the third one
+
+*"Can the BASIC load .bas files and run them now?"* — a factual question with a
+one-word answer, and demonstrating it rather than asserting it turned up this:
+
+```text
+$ solvm basic.sob broken.bas ; echo $?
+line 20: there is no line 999
+0
+```
+
+**A listing that failed exited zero.** A missing file exited 1 correctly; a
+broken listing reported its error and then claimed success, so
+`solvm basic.sob x.bas && ...` ran the next thing after a program that never
+worked. The cause is that one block ran both the demonstrations inside the file
+and the listing named on the command line, and swallowing the error is right for
+the first and wrong for the second.
+
+Fixing it turned up a second: `PRINT` buffers a line and ends it, so a listing
+that failed halfway through one had already produced text that nothing wrote.
+The `A` in `10 PRINT "A";` was being dropped silently. Same class of thing —
+buffering that is invisible until it is not.
+
+### And then the diagnostic itself was on the wrong stream
+
+Which is [3.19](COMPLETED.md#319-a-program-cannot-write-to-standard-error--done),
+raised an hour after the roadmap had emptied. Both workarounds were measured
+before the entry was written, because 3.18's whole value was that its workaround
+was *worse than the gap*. These are not: `/dev/stderr` is Unix-only and spells
+the thing as writing a file, and a shell costs five milliseconds a line to write
+a line. Ugly rather than wrong, which makes it a smaller entry, and that
+distinction is the entry's most useful sentence.
+
+---
+
+### Postmortem
+
+1. **index.md was wrong for two releases because I never gave it a marker.** Not
+   a number I got wrong — a number I never arranged to have checked, in a
+   repository whose whole apparatus for this already existed and which I had used
+   that same morning on four other sentences. The marker system is only as good
+   as the discipline of reaching for it, and I did not.
+
+2. **A direct question found the exit status, and no test would have.** That is
+   the third time in two days: *is it done*, *can it load files*, and before
+   those the `ifElseIf` question. Every one found something real. The tests here
+   check what I thought to check, and a question from outside is the only
+   instrument that reaches what I did not.
+
+3. **I described this project's own release process wrongly, from memory.** I
+   said the rhythm was *wait for CI green on the tag*; the workflow triggers on
+   pushes to `main` and not on tags at all, so pushing the tag fired nothing.
+   The substance was fine — the tagged commit was already green — but I stated a
+   procedural fact about this repository without checking it, in a session that
+   had already caught me doing exactly that about `lib/`.
+
+---
+
 ## 2026-08-25 (midday) — finishing it, and being asked whether it was finished
 
 The morning ended with 3.14 decided and eleven messages in the machine. The rest
