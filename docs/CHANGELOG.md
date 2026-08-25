@@ -36,7 +36,7 @@ This is the same call made this morning on `index.md`'s *thirty-two files in two
 directories*: a number that cannot be checked **and** does not carry the argument
 is better deleted than corrected.
 
-### The NBS conformance suite, and the seven things it found — `pending`, 2026-08-25
+### The NBS conformance suite, and the seven things it found — `6ca6245`, 2026-08-25
 
 **Every test of [programs/basic.sol](../programs/basic.sol) was one this
 repository wrote**, so they checked that the interpreter does what its author
