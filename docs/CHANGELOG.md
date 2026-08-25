@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### The library shipped this morning had nothing checking it — `pending`, 2026-08-25
+### The library shipped this morning had nothing checking it — `df65a47`, 2026-08-25
 
 **[examples/scanning.sol](../examples/scanning.sol) and
 [examples/commands.sol](../examples/commands.sol)**, 44 claims between them, run
