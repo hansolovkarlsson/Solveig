@@ -167,7 +167,7 @@ numbers together**: `[#1,#10,#3]:loop(block)` replaces `toDo` and `toByDo`,
 which read as *todo* and hid the start value in the receiver. The language
 answers **123** messages across **219** registrations, down from 125 across 220,
 and nothing became unaskable. The roadmap has one entry on it again —
-[a cursor five programs each wrote for themselves](docs/ROADMAP.md#55-five-programs-each-wrote-the-same-cursor).
+[a cursor five programs each wrote for themselves](docs/COMPLETED.md#55-five-programs-each-wrote-the-same-cursor--done).
 
 **0.28.0** — nothing in the language changed and everything about how it is
 checked did; `.sob` files are format version 14, unchanged. **The suite runs
@@ -242,7 +242,7 @@ in the new `lib/math.sol`, being the half nothing can get wrong.
 a line each, with a test that fails if a message is missing from it. And
 [design.md](docs/design.md#what-the-language-is-for) now states what had never
 been written down — Solum is meant to be a general-purpose language, and what
-the ten<!--count programs--> programs happen to do is not a boundary. `.sob` files are format version
+the eleven<!--count programs--> programs happen to do is not a boundary. `.sob` files are format version
 14, unchanged.
 
 **0.21.0** — a fix release, and the fix is a memory-safety one: a large float

@@ -521,6 +521,60 @@ static void test_everything_written_down_is_true(void)
            "positions)\n", claims, counts, placed);
 }
 
+/* The BASIC interpreter, held to the standard it says it implements.
+ *
+ * programs/basic.sol carries its listings inline with their output in comments,
+ * the way every program here does -- and nothing checks a comment in
+ * programs/, because expect.sol's subjects are the examples and the documents.
+ * So these lines were true because somebody looked, once, which is exactly the
+ * shape 0.31.0 went back and fixed for two libraries.
+ *
+ * What is asserted is not the whole transcript but the handful of lines that
+ * encode a rule from ECMA-55 rather than a choice made here. A golden file
+ * would churn on every stage that adds a listing; these do not, because the
+ * standard does not.
+ *
+ * Stage five replaces this with the same comparison over `.bas` files in
+ * programs/basic/, which is when a whole recorded transcript starts being worth
+ * keeping. */
+static void test_basic_prints_the_way_the_standard_says(void)
+{
+    char out[64 * 1024];
+
+    assert(run("bin/solas programs/basic.sol -o " DIR "/basic.sob 2>&1",
+               out, sizeof out) == 0);
+    assert(run("bin/solvm " DIR "/basic.sob 2>/dev/null",
+               out, sizeof out) == 0);
+
+    /* A number is a sign character -- a space when it is not negative -- then
+       the digits, then a trailing space. Every one of these would still read
+       correctly to a person with the spaces wrong, which is why they are here
+       and not left to the eye. */
+    assert(strstr(out, "\n 14 \n") != NULL);
+    assert(strstr(out, "\n 2.5 \n") != NULL);
+    assert(strstr(out, "\n-7 \n") != NULL);
+
+    /* A comma moves to the next print zone; a semicolon moves nowhere. */
+    assert(strstr(out, "\nA              B              C\n") != NULL);
+    assert(strstr(out, "\n 1  2  3 \n") != NULL);
+    assert(strstr(out, "\nCOUNT:  99 \n") != NULL);
+
+    /* Lines run in the order of their numbers, not the order they were typed. */
+    assert(strstr(out, "\nFIRST\nSECOND\nTHIRD\n") != NULL);
+
+    /* A sign belongs at the front of an expression and nowhere inside one, so
+       `2 * -3` is not a BASIC expression -- a rule every dialect since 1978
+       relaxed, which makes it the one most likely to be "fixed" by accident. */
+    assert(strstr(out, "line 10: '-' cannot start a value") != NULL);
+
+    /* And the finding: `^` refuses rather than answering something plausible.
+       If this assertion ever fails because the message changed, the thing to
+       check is that it did not fail because the operator was quietly stubbed. */
+    assert(strstr(out, "^ needs 'pow', which this language does not have") != NULL);
+
+    printf("  BASIC prints the way ECMA-55 says, and refuses ^\n");
+}
+
 int main(void)
 {
     test_help_is_not_an_error();
@@ -539,6 +593,7 @@ int main(void)
     test_a_memory_limit_measures_what_is_held();
     test_the_limits_are_off_and_are_checked();
     test_everything_written_down_is_true();
+    test_basic_prints_the_way_the_standard_says();
     printf("test_cli: ok\n");
     return 0;
 }

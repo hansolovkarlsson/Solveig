@@ -5,6 +5,79 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### A BASIC interpreter, and the trigger 3.14 was holding open — `pending`, 2026-08-25
+
+**[programs/basic.sol](../programs/basic.sol) is the eleventh program, and the
+first that is an interpreter for another language rather than a tool for this
+one.** The dialect is ECMA-55 Minimal BASIC (1978), chosen because a published
+standard settles what counts as finished without the interpreter's author having
+a vote. This is stage one of six: `LET`, `PRINT`, `REM`, `END` and the whole
+numeric expression grammar, which is enough to run a listing from its lowest
+line number to its highest.
+
+**It fired [3.14](ROADMAP.md#314-the-mathematics-that-is-not-here) on its first
+day.** That entry — no `pow`, no `log`, no `exp`, no trigonometry — had been
+waiting since it was written for *a program that wants an angle*, and had never
+had one. Six of Minimal BASIC's eleven supplied functions are `SIN`, `COS`,
+`TAN`, `ATN`, `EXP` and `LOG`, and `^` needs `pow`.
+
+**What makes it a stronger case than the plotter that entry imagined is that
+this program cannot decide to want less.** A plotter that wanted one angle could
+have been written to want none. An interpreter is measured against a document it
+did not write: either `PRINT SIN(0)` gives `0`, or it is not an interpreter for
+that language. The trigger fired by accident, too — BASIC was picked for being a
+different *shape* from the other ten programs, not for wanting arithmetic.
+
+**`^` raises rather than being stubbed**, naming the entry in the message. The
+obvious stub is repeated multiplication, which is exact for `2^3` and cannot
+answer `2^0.5` at all — right wherever anybody tests it and silently wrong
+outside, which is how both of that entry's hand-written square roots got
+through. So there is now **one decision outstanding**, the first since 6.32 was
+deferred, and stage three cannot start until it is taken. BASIC settles two of
+the three questions 3.14 parked: its functions take radians, and its `ATN` takes
+one argument, so `atan2`'s missing receiver need not be answered to unblock it.
+
+**And a happier finding: line numbers are what make the job fit.**
+`SOL_FRAMES_MAX` caps recursion at about 254
+([3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels)), and a
+tree-walking interpreter for a modern language spends frames in proportion to
+how deeply its *input* nests — it would run out of machine before it ran out of
+program. A line-numbered BASIC never nests: the run loop is a program counter
+over a sorted table of lines, and `GOSUB` and `FOR` will be explicit stacks in
+arrays, which is heap and not frames. The only recursion is in the expression
+parser, and it runs once at load rather than once per execution.
+
+**All three ways of writing a dispatch turned out to be needed, and the file
+now says why at each site.** [3.2](ROADMAP.md#32-no-non-local-return) gives no
+early return to leave a chain from, so a staircase of `ifElse` is as deep as it
+has arms — which is what `array:ifElseIf` in
+[lib/control.sol](../lib/control.sol) exists to fix, and that library states its
+own price: *use it for a flat dispatch and not inside a recursion*. Both halves
+were checked here rather than quoted. The tokeniser is flat, so it uses
+`ifElseIf`, and the cost is a third more load time (2,000 lines in 0.43s rather
+than 0.32s) and **no depth at all**. `primary` and `evaluate` recurse, so they
+keep their staircases: the deepest listing this reads is **60 brackets**, and
+the same measurement with `ifElseIf` in `primary` gives **39**. The keyword
+table is a dictionary, because nineteen keywords through `ifElseIf` would be
+nineteen block calls and nineteen string comparisons to recognise `STOP`, where
+one hash lookup does — the trade turning on whether the conditions are
+arbitrary questions or one question asked about different constants.
+
+Two smaller things. The run loop is left four ways and only one of them is its
+condition, so it carries a boolean whose whole job is to stop it — another site
+for [3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing), and
+`ifElseIf` itself is another, which the library already counted.
+And `PRINT` buffers a whole line, because `display` is the only way this
+language has to put text on a terminal and it ends the line; that models `PRINT`
+exactly and will stop doing so at stage four, where `INPUT "NAME"; N$` has to
+show a prompt and read the answer beside it.
+
+It is the sixth file to use [lib/scan.sol](../lib/scan.sol) and the first that
+is not a rewrite of a cursor it had already written for itself, and the second
+program to use [lib/control.sol](../lib/control.sol)'s `ifElseIf` — after
+`disasm.sol`, which reaches for it in the same place and for the same reason: a
+flat decision about what a byte starts.
+
 ## 0.31.0 — 2026-08-25
 
 **Nothing in the language changed. What changed is that two libraries and every

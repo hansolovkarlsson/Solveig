@@ -55,7 +55,7 @@ names come from.
 not a shell language, not a teaching language -- those are shapes it can take,
 and one of them is the shape it happens to have taken first.
 
-That first shape was a *discovery* rather than a decision. The ten<!--count programs-->
+That first shape was a *discovery* rather than a decision. The eleven<!--count programs-->
 programs in
 [programs/](../programs/) are a webserver, three parsers, a disassembler, a log
 analyser, a documentation checker, a benchmark harness, a mirror and a page
@@ -77,7 +77,7 @@ right -- and it is not a reason to rule a direction out.
 
 The distinction is easy to lose, and it was lost once already: trigonometry was
 very nearly argued away on the grounds that *there is no geometry anywhere near
-this language*, which is a true sentence about ten<!--count programs--> programs
+this language*, which is a true sentence about eleven<!--count programs--> programs
 and an empty one
 about a language. The entry it belongs to,
 [3.14](ROADMAP.md#314-the-mathematics-that-is-not-here), now says so.

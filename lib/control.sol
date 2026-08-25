@@ -91,9 +91,38 @@ integer:timesCollect := { body | | out, i |
 ; descent spends a third of its depth on it, which is the wrong trade in a
 ; language whose depth is 254.
 ;
-; The measured lesson above applies here too: four loops left this file for the
-; VM once measuring said they were worth building in. Nothing has measured this
-; one in anger yet, and the numbers above are what a decision would start from.
+; ---------------------------------------------------------------------------
+; And what a primitive would buy, which was measured when something finally
+; used this in anger
+;
+; Four loops left this file for the VM once measuring said they were worth
+; building in, and the obvious next question is whether this should follow.
+; [programs/basic.sol](../programs/basic.sol) is the second program to reach for
+; it, after `disasm.sol`, so there was something to measure at last. Both halves
+; were, and **the answer is that a primitive fixes neither problem fully**:
+;
+;   speed  200,000 six-way dispatches landing on the third arm: 0.08s as a
+;          chain, 0.49s here, and **0.15s** for the four block calls alone with
+;          nothing else -- which is the floor a primitive could reach, since the
+;          block calls are the part it cannot remove. So about **3.3x**, in line
+;          with what `repeat` got, and still 2x the inlined chain.
+;
+;   depth  a recursion reaches 251 levels plain, **125** with one extra block
+;          call per level, and **83** through this. The three frames are: this
+;          method, the condition block, the action block -- and the action
+;          block's frame is live while the recursion continues, so a primitive
+;          takes three to **two** and no lower.
+;
+; **Two is still twice one.** `basic.sol` reads 60 brackets deep with a
+; staircase in its `primary` and 39 with `ifElseIf` there; a primitive would put
+; that near 46. So the advice above does not change -- a recursive descent still
+; wants the staircase -- which is the useful half of the measurement, because it
+; says the thing a primitive would be *for* is not the thing it would fix.
+;
+; And nothing is hot on it. The tokeniser in `basic.sol` runs this once per
+; character **at load**, which is 5ms for a listing anybody types; 3.3x of that
+; is 3.5ms, once. What would change the answer is a program running it per
+; iteration of something rather than per character of something read once.
 ;
 ; **No early exit** ([3.13](../docs/ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing)),
 ; so the loop carries a flag whose only job is to stop it -- the tenth site in

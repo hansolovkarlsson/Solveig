@@ -1,6 +1,6 @@
 # The programs
 
-*The ten<!--count programs--> files in [programs/](../programs/): what each one does, how to run
+*The eleven<!--count programs--> files in [programs/](../programs/): what each one does, how to run
 it, and what it found. [examples/](../examples/) is the other directory — one
 file per concept the [guide](GUIDE.md) names, each written to show a feature.
 These were written to do a job.*
@@ -41,6 +41,7 @@ is the map; the file is the argument.
 | [disasm](../programs/disasm.sol) | reads a `.sob` file and says what is in it | `solvm disasm.sob [file.sob] [brief]` |
 | [expect](../programs/expect.sol) | checks the examples and the documents against their own claims | `solvm expect.sob [dir or file]...` |
 | [bench](../programs/bench.sol) | times a command, and says whether two of them really differ | `solvm bench.sob [runs] [cmd] [-- cmd]` |
+| [basic](../programs/basic.sol) | runs a BASIC listing | `solvm basic.sob` |
 
 Every one runs with no arguments at all, on input it supplies itself. That is
 deliberate — a program you have to feed before it will say anything is a program
@@ -377,7 +378,7 @@ The two numbers in the sentence above the block are recounted on every build;
 the block itself is a transcript, and a transcript is the one thing here nothing
 can check. That is the shape of the remaining gap, in miniature.
 
-**The narrowest customer of the ten — this repository — and a real job all the
+**The narrowest customer of the eleven — this repository — and a real job all the
 same.** `examples/` carries about four hundred comments of the form
 `#2:add(#3):print.  ; #5`, and until this existed nothing checked one of them.
 The suite compiles every example and never ran one, so those comments were true
@@ -439,7 +440,7 @@ and leaves the sentence as it was:
 Each name is recounted from the repository as it stands. A name the table does
 not know is a failure, so a marker cannot be misspelled into silence. A
 program's *position* needs no marker, because the phrase is already one: nine of
-the ten open with `The fifth program here`, and the headings on this page put
+the eleven open with `The fifth program here`, and the headings on this page put
 them in that order.
 
 That found `float` answering 26 messages where ROADMAP 3.14 said 21 and rested
@@ -570,11 +571,72 @@ checked against the C library and matched. They were the right digits of the
 wrong number. A test that compares how an answer *prints* is not a test of the
 answer.
 
+## basic — an interpreter for another language
+
+Reads a BASIC listing and runs it. The dialect is **ECMA-55 Minimal BASIC
+(1978)**, chosen because a published standard means what counts as finished is
+settled by somebody other than the author of the interpreter — nineteen keywords
+and eleven supplied functions, and no room to declare victory early.
+
+```sh
+./bin/solvm programs/basic.sob
+```
+
+```text
+HELLO, WORLD
+ 14 
+ 20 
+ 2.5 
+-7 
+ 42 
+ 0 
+A              B              C
+ 1  2  3 
+COUNT:  99 
+```
+
+Those spaces are the standard rather than an accident. A number is written as a
+sign character — a minus, or a space when it is not negative — then the digits,
+then a trailing space, which is why BASIC output has its airy look and why a
+negative number lines up under a positive one.
+
+**Stage one of six.** `LET`, `PRINT`, `REM`, `END` and the whole numeric
+expression grammar, which is enough for a listing to run from its lowest line
+number to its highest and stop. Control flow, the supplied functions, the data
+statements, the rest of `PRINT`'s formatting, and listings read from `.bas`
+files in `programs/basic/` come after.
+
+The first of the eleven to be an interpreter for another language rather than a
+tool for this one. It holds a second language's whole state — a variable table,
+a program counter, a listing — and what makes it different from the other
+programs here is that it is judged against a specification: either a listing
+gives the answer the standard says, or the interpreter is wrong.
+
+**What it found**: the trigger
+[3.14](ROADMAP.md#314-the-mathematics-that-is-not-here) has been waiting for.
+That entry holds `pow`, `log`, `exp` and trigonometry, and says it is waiting
+for *a program that wants an angle*. Six of Minimal BASIC's eleven supplied
+functions are `SIN`, `COS`, `TAN`, `ATN`, `EXP` and `LOG`, and the `^` operator
+needs `pow` — so this is not a program that would like an angle, it is one that
+cannot be finished without them. `^` raises rather than being stubbed with
+repeated multiplication, because an operator right for `2^3` and quietly wrong
+for `2^0.5` is the same silent failure that entry already records twice.
+
+**And a happier finding, about line numbers.** They are usually a joke, and here
+they are what makes the job possible. `SOL_FRAMES_MAX` caps recursion at about
+254 ([3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels)), and a
+tree-walking interpreter for a modern language spends frames in proportion to
+how deeply its *source* nests — so it would run out of machine before it ran out
+of program. A line-numbered BASIC never nests: the run loop is a program counter
+over a sorted table of lines, and `GOSUB` and `FOR` are explicit stacks in
+arrays, which is heap rather than frames. The only recursion is in the
+expression parser, and it runs once at load rather than once per execution.
+
 ---
 
 ## Adding one
 
-There is no template and there should not be. What the ten have in common is
+There is no template and there should not be. What the eleven have in common is
 only this:
 
 1. **It does a job somebody would want done**, rather than exercising a feature.

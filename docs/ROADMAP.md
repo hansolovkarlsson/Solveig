@@ -55,7 +55,13 @@ have been. Side-table operands are two bytes, a send compares pointers, and the
 script's frame has slots like every other, so a temporary may be declared
 anywhere.
 
-**What is left is section 3, and nothing else.** No work, and no decision. 5.5 was on it for a day — a cursor five programs had each written for themselves — and is [done](COMPLETED.md#55-five-programs-each-wrote-the-same-cursor--done).
+**Section 3 is what is left, and one entry on it now has a program behind
+it.** [3.14](#314-the-mathematics-that-is-not-here) spent its whole life waiting
+for a program that wanted an angle, and [basic.sol](../programs/basic.sol) is
+one: an interpreter for a language whose own definition contains `SIN`, `COS`,
+`TAN`, `ATN`, `EXP`, `LOG` and an exponent operator. So there is a **decision**
+outstanding again, for the first time since 6.32 was deferred — see 3.14, where
+the case and the three questions it turns on are written out.
 
 Section 3 holds the restrictions the language lives under, each documented where
 a program would meet it. The older ones were chosen; the six newest were found —
@@ -831,9 +837,10 @@ output, catastrophically wrong in a range nobody thinks to test, silent
 throughout. If *a thing every program would get wrong the same way belongs in
 the machine* is the rule, trigonometry meets it more clearly than `sqrt` did.
 
-**What it is waiting for is a program, and that is all it is waiting for.** No
-file here has ever wanted an angle. The first draft of this paragraph gave a
-second reason — that the ten<!--count programs--> programs are text and process
+**What it was waiting for was a program, and the program has arrived.** For most
+of this entry's life no file here had ever wanted an angle. The first draft of
+this paragraph gave a
+second reason — that the eleven<!--count programs--> programs are text and process
 work, so geometry is
 not what this language is for — and that reason is **wrong and is worth leaving
 recorded as wrong**. The programs are the tools this project needed while
@@ -843,11 +850,44 @@ meant to be a general-purpose language, which
 entry in this document should be read as ruling a direction out because nothing
 has gone that way yet.
 
-So the trigger is ordinary: **a program that wants an angle** — a plotter, a
-simulation, anything with coordinates or a waveform. When one arrives, the
-sensible thing is to land trigonometry and `pow`/`log`/`exp` as a **single
+So the trigger was ordinary: **a program that wants an angle** — a plotter, a
+simulation, anything with coordinates or a waveform. When one arrived, the
+sensible thing would be to land trigonometry and `pow`/`log`/`exp` as a **single
 decision** rather than a message at a time, since arriving one convenience at a
 time is exactly what the rule above exists to prevent.
+
+#### The program that arrived, and why it is a harder case than a plotter
+
+[basic.sol](../programs/basic.sol) is an interpreter for **ECMA-55 Minimal BASIC
+(1978)**. Six of that standard's eleven supplied functions are `SIN`, `COS`,
+`TAN`, `ATN`, `EXP` and `LOG`, and its `^` operator needs `pow`.
+
+**The difference from a plotter is that this program cannot decide to want less.**
+A plotter that wanted one angle could be written to want none — plot something
+else, or take the coordinates ready-made. An interpreter is measured against a
+document it did not write. Either `PRINT SIN(0)` gives `0` or the interpreter is
+not an interpreter for that language, and no amount of taste about what belongs
+in a small language changes what is on page 27 of the standard. That is the
+strongest form the trigger could have taken, and it took it by accident: the
+program was chosen for being a different *shape* from the other ten, not for
+wanting arithmetic.
+
+**`^` is where it bites first, and it is the same failure this entry already
+records twice.** The obvious stub is repeated multiplication, which is exact for
+`2^3` and cannot answer `2^0.5` at all; the next one is `exp(y * log x)`, which
+needs two of the six missing functions. So `basic.sol` raises on `^` and names
+this entry, rather than shipping an operator that is right in the cases anybody
+tests and silently wrong outside them — which is precisely how both hand-written
+square roots got through.
+
+**What is decided by BASIC rather than by us**, of the three questions below:
+the standard's functions take **radians**, and its `ATN` takes one argument, so
+`atan2`'s missing receiver need not be answered to unblock this program. Only
+where `pi` lives is still open, and Minimal BASIC has no `PI` at all — so even
+that can wait for the second program.
+
+Stage three of `basic.sol` is the supplied functions, and it cannot start until
+this is decided.
 
 Three questions it raises that `sqrt` did not, worth having answered before a
 program forces them:
@@ -896,9 +936,11 @@ keeping it did. The number stays 6.32 and is not reused.
 
 ## How this list emptied, and how it filled and emptied again
 
-**Nothing is on it.** Sections 2, 3 and 6 held the whole of what was left to
-decide or build, and 2 and 6 are done — what remains in 3 are restrictions kept
-on purpose, each documented where a program would meet it.
+**One decision is on it.** Sections 2, 3 and 6 held the whole of what was left
+to decide or build, and 2 and 6 are done — what remains in 3 are restrictions
+kept on purpose, each documented where a program would meet it. One of those
+restrictions, [3.14](#314-the-mathematics-that-is-not-here), was kept on purpose
+*until a program wanted otherwise*, and on 2026-08-25 one did.
 
 It gained one back on 2026-08-25 and lost it the same day:
 [5.5](COMPLETED.md#55-five-programs-each-wrote-the-same-cursor--done), a cursor
@@ -960,6 +1002,15 @@ found out what it wanted.
   `.sob` format table had been missing three sections since version 12. All
   three are fixed, and the opcode numbers now have a test. It also found that
   the language can write an i64 into a file that it cannot read back.
+- [basic.sol](../programs/basic.sol) fired the trigger **3.14** had been holding
+  open — `pow`, `log`, `exp` and trigonometry, waiting for a program that wanted
+  an angle. An interpreter for ECMA-55 Minimal BASIC wants six of them and an
+  exponent operator, and cannot decide to want fewer: the functions are in the
+  standard it is being measured against. It also found, more cheerfully, that
+  **line numbers are what make the job fit inside the frame limit** — a program
+  counter over a sorted table of lines nests no frames at all, where a
+  tree-walking interpreter for a modern language would spend them in proportion
+  to how deeply its input nests.
 
 **Four of the entries were papercuts a library tripped over**, not things anybody
 reasoned out in advance:
@@ -978,8 +1029,10 @@ a debugger that could not name a local would have been most of the work for a
 fraction of the use, and only then
 [Solid](COMPLETED.md#629-a-stepper--solid--done).
 
-**No decision is outstanding.** 2.5, the last *language* question, is closed:
-1.6 had answered it one message at a time to stop the crashes, and finishing
+**One decision is outstanding, and it is 3.14.** It is the first since 6.32 was
+deferred, and unlike 6.32 it has a program behind it rather than a use nobody
+has. The older questions stay closed. 2.5, the last *language* question, is
+closed: 1.6 had answered it one message at a time to stop the crashes, and finishing
 that — every class-side message requiring an object receiver — turned out to be
 the whole of what splitting the two objects would have bought. And 6.32, the
 last one of any kind, was deferred to
