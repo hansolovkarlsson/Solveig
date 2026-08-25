@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### json.sol could not read a newline — `pending`, 2026-08-25
+### json.sol could not read a newline — `a32a7a0`, 2026-08-25
 
 **`json:read` answered *object does not understand 'escapes'* for any string
 containing `\n`**, and had done since 2026-08-21. Four days and four releases.
