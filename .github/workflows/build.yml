@@ -54,7 +54,13 @@ jobs:
       - name: Build
         run: make CC=${{ matrix.cc }}
 
+      # Bounded at the *step*, not only at the job. A job that hits its own
+      # timeout is cancelled, and a cancelled job keeps no log -- which is how
+      # a 25-minute hang on macOS left nothing behind saying which test it was
+      # standing in. A step that times out fails, and the log survives, and
+      # `make test` names each binary before running it.
       - name: Test
+        timeout-minutes: 5
         run: make test CC=${{ matrix.cc }}
 
   # Undefined behaviour is the thing this repository has already been bitten by
@@ -84,6 +90,7 @@ jobs:
         run: make CC=clang SANITIZE="$SANITIZE"
 
       - name: Test
+        timeout-minutes: 10
         run: make test CC=clang SANITIZE="$SANITIZE"
         env:
           # Without halt_on_error, UBSan prints what it found and carries on,

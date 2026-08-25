@@ -23,8 +23,10 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
+#include <signal.h>
 #include <sys/select.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -227,8 +229,28 @@ static void session_end(Session *s)
     }
 
     close(s->master);
+
+    /* Bounded, because this was the only wait in the suite that could not end.
+       Everything above it is careful -- 20ms selects, a drain that gives up
+       after two seconds -- and then it blocked forever if solis did not take
+       the ctrl-d. A test that waits without end turns a hung program into a
+       hung build, and a build cancelled by its runner has no log left to say
+       which test it was standing in.
+
+       The graceful path is unchanged. This only says what happens when the
+       graceful path does not work. */
     int status;
-    waitpid(s->pid, &status, 0);
+    bool reaped = false;
+    for (int waited = 0; waited < 2000 && !reaped; waited += 20) {
+        pid_t done = waitpid(s->pid, &status, WNOHANG);
+        if (done == s->pid) { reaped = true; break; }
+        if (done < 0) break;
+        nanosleep(&(struct timespec){ 0, 20000000 }, NULL);
+    }
+    if (!reaped) {
+        kill(s->pid, SIGKILL);
+        waitpid(s->pid, &status, 0);
+    }
     free(s->out);
 }
 
