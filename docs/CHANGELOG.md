@@ -46,7 +46,7 @@ that had never been written down.
 **`float` answers 26 messages before this release and
 35<!--count float-answers--> after.** Claims go 764 to 830<!--count claims-->.
 
-### A listing that failed said it had not, and left zero — `pending`, 2026-08-25
+### A listing that failed said it had not, and left zero — `648977e`, 2026-08-25
 
 **`solvm basic.sob x.bas` reported the error and exited 0**, so
 `solvm basic.sob x.bas && ...` ran the next thing after a program that never
