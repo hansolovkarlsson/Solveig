@@ -5,6 +5,64 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The sanitizers stop being something somebody remembers — `87050d9`, 2026-08-25
+
+**ASan and UBSan now run the whole suite on every push.** They have been run
+here before — the changelog carries several passes, some of which found real
+faults — but by hand, when somebody remembered, aimed at whatever had just
+changed. That is the standing the portability claim had the day before, and it
+is not a standing this repository keeps for anything else.
+
+**The case for it was made by the compiler warning a day earlier.**
+`frame->ip += READ_SHORT()` had been right for the project's whole life
+because clang happened to evaluate it in the order that made it right. A
+warning found that one. UBSan is for the ones no warning states.
+
+**The flags go in their own `SANITIZE` variable, not in `CFLAGS`, and that was
+measured rather than assumed:**
+
+```text
+make -Bn build/tests/test_threads
+  ... -pthread ...
+
+make -Bn build/tests/test_threads CFLAGS="-std=c11 -g"
+  ... (no -pthread)
+```
+
+`CFLAGS` is `?=`, so setting it on the command line replaces the warning flags,
+and — less visibly — `build/tests/test_threads: CFLAGS += -pthread` stops
+applying, linking the one test that needs threads without them and saying
+nothing about it.
+
+**Linux and clang, for a reason.** LeakSanitizer does not work on macOS/arm64,
+and [design.md](design.md#status) says in its status line that the language does
+not leak. That is a claim, so it wants somewhere it can be checked. The job
+takes 1m26s and reports nothing: no leaks, no undefined behaviour, and all 762
+documentation claims, whose subprocesses are the instrumented binaries too.
+
+#### And what the first push found, which was not a sanitizer report
+
+**The macOS job hung in `make test` for 25 minutes and was cancelled by its own
+job timeout.** A re-run passed in 39 seconds, so it is intermittent, and a
+cancelled job keeps no log — there is nothing on the record saying which test
+it was standing in.
+
+Fixed in [`2808674`](https://github.com/hansolovkarlsson/Solveig/commit/2808674)
+in two parts. The Test step now carries **its own** timeout: a step that times
+out fails and its log survives, where a job that times out is cancelled and its
+log does not, and `make test` names each binary before running it. And
+`session_end` in `test_line.c` — which drives `solis` through a pty, with 20ms
+`select`s and a drain that gives up after two seconds — no longer ends on a
+`waitpid` with no deadline. It was the only wait in the suite that could not
+end.
+
+**Whether that is what hung is not established**, and the entry says so rather
+than implying the fix was a diagnosis. It is the only unbounded wait there was,
+which is reason enough to bound it; the step timeout is what will name the
+culprit if it was something else. The two blocking `waitpid` calls in
+`builtins.c` are left alone — those are `system:run` waiting for its child,
+where waiting until the child is done is the whole contract.
+
 ### The suite runs where it was not written, and a jump that was right by luck — `9a623fb`, 2026-08-24
 
 **The README says *no dependencies beyond a C11 compiler and `make`*, and until

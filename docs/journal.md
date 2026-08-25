@@ -11,6 +11,92 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-25 — the sanitizers, and a hang that erased its own evidence
+
+A short day with one lesson in it, and the lesson is about *logs* rather than
+about sanitizers.
+
+### The job itself was the easy half
+
+ASan and UBSan over the whole suite, on every push. The design question was
+where the flags go, and it was settled by measurement rather than by taste:
+
+```text
+make -Bn build/tests/test_threads
+  ... -pthread ...
+
+make -Bn build/tests/test_threads CFLAGS="-std=c11 -g"
+  ... (no -pthread)
+```
+
+`CFLAGS` is `?=` and `test_threads` appends `-pthread` to it, and a
+command-line `CFLAGS` stops that append from applying. So the obvious spelling
+— `make test CFLAGS="… -fsanitize=…"` — would have linked the one test that
+needs threads without them, dropped `-Wall -Wextra -Wpedantic` on the way, and
+said nothing about either. A separate `SANITIZE` variable leaves both alone.
+
+Run locally first: clean under clang on macOS, zero reports. Then on Linux with
+leak detection, which macOS/arm64 cannot do: **also clean**, in 1m26s. That is
+the first time the *whole* suite has been under both sanitizers at once rather
+than a pass aimed at whatever had just changed — and the first check of any
+kind behind `design.md`'s claim that the language does not leak.
+
+### The half that mattered
+
+The first push to `main` went red, and not from the sanitizers. **The macOS job
+hung in `make test` for 25 minutes and was cancelled by its job timeout.** A
+re-run passed in 39 seconds.
+
+Then the part worth writing down: **a cancelled job keeps no log.** The
+evidence was gone. Twenty-five minutes of a hang, and nothing on the record
+saying which test was running when it stopped. I spent the next stretch reading
+the suite for candidates — which is exactly the reasoning-instead-of-measuring
+that the last three days of postmortems have been about, and here there was no
+alternative, because the measurement had been destroyed by the thing that took
+it.
+
+So the first fix is not to the hang. It is to the *next* hang: the Test step
+carries its own timeout now. A step that times out **fails**, and its log
+survives; a job that times out is **cancelled**, and its log does not. `make
+test` already names each binary before running it, so the last line will say
+which one.
+
+The second fix is the only unbounded wait the suite had — `session_end` in
+`test_line.c`, which drives `solis` through a pty. Everything in it is careful:
+20ms `select`s, a drain loop that gives up after two seconds. Then it ended on
+`waitpid(pid, &status, 0)`, with no `WNOHANG` and no deadline.
+
+**Whether that is what hung is not established, and the commit says so.** It is
+the only wait that *could* hang, which is reason enough to bound it. It is not a
+diagnosis, and calling it one would be the same move as an entry claiming a
+trigger fired when nobody checked.
+
+---
+
+### Postmortem
+
+1. **I let a job cancel itself and lose the only copy of what happened.** The
+   20-minute job timeout was written yesterday as a hang backstop, and it works
+   as a backstop and destroys evidence doing it. Bounding the *step* instead
+   was available the whole time and I did not think of it until the evidence
+   was already gone.
+
+2. **A flake was one green re-run away from being invisible.** The re-run
+   passed in 39 seconds and turned the whole run green, including the badge. If
+   the habit had been to re-run and move on, `main` would look like nothing
+   happened, and a 20-minute intermittent hang would still be there.
+
+3. **The fix is honest about not being a diagnosis.** Both the commit and the
+   changelog say the hang's cause is unestablished. The temptation to write
+   *fixed the hang* was real and would have been the more satisfying sentence.
+
+**What the day is worth beyond the job**: the suite has now been run under both
+sanitizers, on two operating systems, under three compilers, with leak
+detection, and reports nothing. That was three separate hand-run habits and a
+claim in a status line; it is one workflow now.
+
+---
+
 ## 2026-08-24 (evening) — the first build on a machine nobody here owns
 
 One workflow, four commits, and the useful part is that **the run found a bug
