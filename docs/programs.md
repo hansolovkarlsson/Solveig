@@ -624,6 +624,13 @@ the output of a BASIC program is exactly where a comment goes stale unnoticed:
 print zones, six digits and the trailing space after every number are invisible
 to a reader and all load-bearing.
 
+**One thing here is not the standard, and it is written down in the file rather
+than left to be found.** ECMA-55 makes a space insignificant outside a string,
+so `FORI=1TO10` and `PRI NT` are both legal BASIC; here they are not. Fixing it
+means a tokeniser that knows where it is in the grammar — `FORI` is `FOR I` only
+because a statement begins with a keyword — which is a different design rather
+than a missing branch.
+
 A BASIC program is a graph rather than a sequence, and its edges are line
 numbers, so all of them are followed in three passes at load: a jump becomes an
 array index instead of a search of the listing, a jump to a line that does not

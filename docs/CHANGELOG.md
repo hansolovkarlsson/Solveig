@@ -5,6 +5,39 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Asking whether BASIC was finished, and finding it was not — `pending`, 2026-08-25
+
+Two things, both found by asking the question rather than by a test failing.
+
+**`PRINT 1/0` failed inside the formatter**, with `'floor' is out of integer
+range` — a true sentence naming a Solum primitive the listing never sent. The
+cause was `digits` taking the logarithm of an infinity to find its decimal
+exponent. The fix is not in the formatter: Solum's arithmetic reaches `infinity`
+and `nan` rather than trapping, which is IEEE and right for Solum, and the
+standard makes both an error a listing is told about. So the check went where
+the value is *made* — every arithmetic result, every numeric literal and every
+supplied function's answer — and division by zero is named separately, because
+`0/0` is `nan` and `1/0` is `infinity` and neither message would have said what
+happened.
+
+**And one deviation from the standard was undocumented, which is worse than the
+deviation.** ECMA-55 makes a space insignificant outside a string, so
+`FORI=1TO10` and `PRI NT` are legal BASIC. Neither runs here. Nothing in the
+file said so, while the file said in several places that it implements the
+standard.
+
+It is written down now, in a *Where this is not the standard* section, along
+with what fixing it would take: a tokeniser that ignores spaces cannot work left
+to right on characters alone, since `FORI` is `FOR I` only because a statement
+begins with a keyword, and `1TO10` is three tokens only because `TO` cannot
+continue a number. The scanner would have to know where it is in the grammar.
+That is a different design, not a missing branch. A second section records the
+four places the standard *lets* an implementation choose, so that a choice does
+not read as an accident.
+
+Both are demonstrated rather than only described — six more listings at the
+bottom of the file, and the inline claims go from 77 to 83.
+
 ### BASIC finished: what a number looks like, and transcripts that hold it to it — `5e88c1d`, 2026-08-25
 
 **Stage five, and [programs/basic.sol](../programs/basic.sol) is done.** The rest

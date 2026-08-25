@@ -50,8 +50,44 @@
 ;         which is what the claims in comments here cannot be, `programs/` not
 ;         being one of the documentation checker's subjects.
 ;
-; **It is finished.** Twenty statements, eleven functions, and every rule of the
-; standard this file has found a way to check.
+; **It is finished as a language.** Twenty statements, eleven functions, and
+; every rule of the standard this file has found a way to check.
+;
+; ---------------------------------------------------------------------------
+; Where this is not the standard
+;
+; One place, and it is written here rather than left to be discovered:
+;
+; **Spaces between tokens are required, and ECMA-55 says they are not.** In the
+; standard a space is insignificant outside a string, so `FORI=1TO10` and
+; `PRI NT` are both legal and mean what you would guess. Here they are
+; `'FORI' is not a statement` and `'PRI' is not a statement`.
+;
+; The cost of fixing it is why it has not been: a tokeniser that ignores spaces
+; cannot work left to right on characters alone. `FORI` is `FOR I` only because
+; a statement begins with a keyword, and `1TO10` is three tokens only because
+; `TO` cannot continue a number -- so the scanner has to know where it is in the
+; grammar, and this one deliberately does not. It is a day's work and a
+; different design, not a missing branch.
+;
+; **What nobody writes is not the same as what the standard allows**, so this is
+; a real gap rather than a pedantic one, and it is the only one.
+;
+; ---------------------------------------------------------------------------
+; And where the standard let this choose
+;
+; Four things ECMA-55 leaves to the implementation, decided here and recorded so
+; they read as decisions:
+;
+;   six significant digits   `PRINT 1/3` is `.333333`. The standard requires at
+;                            least six and no more than that.
+;   print zones of 15        and a margin at 72, which is the paper everybody
+;                            had.
+;   `END` need not be last   the standard has exactly one and it closes the
+;                            program; a listing typed to try something out is
+;                            not improved by being told so.
+;   `INPUT` gives up         where the standard asks again. A listing being fed
+;                            from a file cannot usefully be asked twice.
 ;
 ; Stage four went ahead of stage three because it turned out not to depend on
 ; it, and then took part of it anyway: `A(1)` and `ABS(1)` are the same syntax,
@@ -1010,7 +1046,7 @@ basic:factor := { | left |
 
 basic:primary := { | t, inner |
     t := self:takeToken.
-    t:kind:equals('number):ifElse({ numberNode:value(t:text:asFloat) }, {
+    t:kind:equals('number):ifElse({ numberNode:value(self:finite(t:text:asFloat)) }, {
     t:kind:equals('string):ifElse({ stringNode:value(t:text) }, {
     t:kind:equals('word):ifElse({ self:nameOrCall(t) }, {
     t:text:equals("("):ifElse({
@@ -1252,9 +1288,11 @@ basic:onlyArgument := { name, args |
         self:fail("{} takes one number":fill([name])) }).
     self:numeric(self:evaluate(args:at(#1))) }.
 
+; `EXP(1000)` is an infinity and `LOG` of a very small number is a very large
+; negative one, so the answers are checked as well as the arguments.
 basic:apply := { n |
     functions:includes(n:name):ifElse(
-        { functions:at(n:name):value(self, n:args) },
+        { self:finite(functions:at(n:name):value(self, n:args)) },
         { self:userFunction(n) }) }.
 
 ; A `DEF` binds its parameter to the actual variable of that name for the
@@ -1281,10 +1319,38 @@ basic:numeric := { v |
         self:fail("expected a number, got the string \"{}\"":fill([v])) }).
     v }.
 
+; ---------------------------------------------------------------------------
+; Where a number stops being one
+;
+; Solum's arithmetic reaches `infinity` and `nan` instead of trapping, which is
+; IEEE and is right for Solum. **It is not right for BASIC**: the standard makes
+; overflow and division by zero errors a program is told about, and a listing
+; that carries on with an infinity in a variable is not running the program
+; anybody wrote.
+;
+; Found by asking what `PRINT 1/0` did, which was to fail inside the *formatter*
+; with `'floor' is out of integer range` -- a true sentence naming a message the
+; listing never sent, from `digits` taking the logarithm of an infinity. The
+; check belongs where the value is made, not where it is printed.
+
+negativeInfinity := 0.0:sub(infinity).
+
+basic:finite := { v |
+    v:equals(v):ifFalse({ self:fail("the result is not a number") }).
+    v:equals(infinity):or({ v:equals(negativeInfinity) }):ifTrue({
+        self:fail("the result is too large to be a number") }).
+    v }.
+
 basic:combine := { n | | l, r, op |
     l := self:numeric(self:evaluate(n:left)).
     r := self:numeric(self:evaluate(n:right)).
     op := n:op.
+
+    ; Named separately rather than caught by `finite` below, because `0/0` is
+    ; `nan` and `1/0` is `infinity` and neither message would say what happened.
+    op:equals("/"):and({ r:equals(0.0) }):ifTrue({
+        self:fail("division by zero") }).
+    self:finite(
     op:equals("+"):ifElse({ l:add(r) }, {
     op:equals("-"):ifElse({ l:sub(r) }, {
     op:equals("*"):ifElse({ l:mul(r) }, {
@@ -1299,7 +1365,7 @@ basic:combine := { n | | l, r, op |
     ; exponents only, and `exp(y * log x)` needed two more functions the
     ; language also lacked. Landing the whole set made it `pow`.
     op:equals("^"):ifElse({ l:pow(r) }, {
-        self:fail("'{}' is not an operator":fill([op])) }) }) }) }) }) }.
+        self:fail("'{}' is not an operator":fill([op])) }) }) }) }) })) }.
 
 ; ---------------------------------------------------------------------------
 ; Running
@@ -2192,6 +2258,37 @@ listing:value([
     "50 END"]).
 ;    1              2              3              4              5
 ;    6              7              8
+
+; ---------------------------------------------------------------------------
+; Where a number stops being one
+;
+; Solum's arithmetic reaches `infinity` and `nan` rather than trapping, which is
+; IEEE and is right for Solum. The standard makes both an error a listing is
+; told about, and this follows the standard -- checked where the value is made
+; rather than where it is printed, which is where the first version of it failed
+; with a message naming a Solum primitive the listing had never sent.
+
+listing:value(["10 PRINT 1/0", "20 END"]).
+;   line 10: division by zero
+listing:value(["10 PRINT 0/0", "20 END"]).
+;   line 10: division by zero
+listing:value(["10 PRINT 1E200 * 1E200", "20 END"]).
+;   line 10: the result is too large to be a number
+listing:value(["10 PRINT EXP(1000)", "20 END"]).
+;   line 10: the result is too large to be a number
+
+; ---------------------------------------------------------------------------
+; The one place this is not the standard
+;
+; A space between tokens is required here and insignificant in ECMA-55, so both
+; of these are legal BASIC and neither runs. The header says what fixing it
+; would take; this is here so that the gap is demonstrated rather than only
+; described.
+
+listing:value(["10 FORI=1TO3", "20 PRINT I", "30 NEXTI", "40 END"]).
+;   line 10: 'FORI' is not a statement in Minimal BASIC
+listing:value(["10 PRI NT 1", "20 END"]).
+;   line 10: 'PRI' is not a statement in Minimal BASIC
 
 ; ---------------------------------------------------------------------------
 ; How deep a listing can nest
