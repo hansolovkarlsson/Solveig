@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### BASIC gets a prompt — `pending`, 2026-08-26
+### BASIC gets a prompt — `8e01bf8`, 2026-08-26
 
 **`./bin/solvm programs/basic.sob --repl`** is the interface BASIC actually had.
 One rule and six commands: a line beginning with a number goes into the program,
