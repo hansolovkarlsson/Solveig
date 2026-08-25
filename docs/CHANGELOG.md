@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### Asking whether BASIC was finished, and finding it was not — `pending`, 2026-08-25
+### Asking whether BASIC was finished, and finding it was not — `6757f56`, 2026-08-25
 
 Two things, both found by asking the question rather than by a test failing.
 
