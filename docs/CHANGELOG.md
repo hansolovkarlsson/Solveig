@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### A BASIC interpreter, and the trigger 3.14 was holding open — `pending`, 2026-08-25
+### A BASIC interpreter, and the trigger 3.14 was holding open — `513a280`, 2026-08-25
 
 **[programs/basic.sol](../programs/basic.sol) is the eleventh program, and the
 first that is an interpreter for another language rather than a tool for this
