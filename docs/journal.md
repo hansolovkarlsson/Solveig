@@ -11,6 +11,112 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-25 (midday) — finishing it, and being asked whether it was finished
+
+The morning ended with 3.14 decided and eleven messages in the machine. The rest
+of the day was the two things that decision unblocked, and then a question that
+turned out to be worth more than either.
+
+### system:write, and a question that had a wrong-looking right answer
+
+[3.18](COMPLETED.md#318-a-program-cannot-write-without-ending-the-line--done)
+came down to where the message goes: `system:write`, beside `readLine`, or
+`string:write`, beside `display`. The argument that settled it is that `print`,
+`display` and `asString` are a trio about **rendering a value** — the literal
+form, the text, and the text as a value — and a `write` is not a fourth member
+of that. It is about a **destination**, and the destination is where `readLine`
+already lives.
+
+**The entry had not thought of the thing that mattered most.** Text with no
+newline after it sits in a line-buffered `stdout` until one arrives — which for
+a prompt means until after the answer has been read. The primitive has to flush,
+and the entry that spent a paragraph on where the message should live said
+nothing about that. It was found by running the thing rather than by reasoning
+about it.
+
+`INPUT` got more than it asked for: whatever a `PRINT` left open now goes out
+without a newline before the `?`, so a prompt the listing wrote and the `?` the
+interpreter writes land on one line. Two days of `TWO NUMBERS?` on its own line
+became `TWO NUMBERS? 3, 4`.
+
+### The number format, and the oldest trap in it
+
+BASIC shows six significant digits and no nought before the point. Solum prints
+the shortest text that reads back as the same double, so `1/3` is
+`0.3333333333333333` — right, and not what BASIC shows.
+
+Getting the decimal exponent needed `log`, which had landed three hours earlier.
+And it walked straight into the thing every language walks into:
+`log(1000000)/log(10)` is **5.999999999999999**, whose floor is 5, which would
+print a million with its digits counted from the wrong place. The fix is the one
+everybody arrives at — work it out, then look at what you got and correct it —
+and it is worth recording that having the primitive did not save me from the
+trap the primitive exists to avoid elsewhere.
+
+A million prints as `1E+06`, which looks like a defect and is the standard:
+seven digits to the left of the point is more than six significant digits can
+describe.
+
+### Transcripts, because comments cannot do this job
+
+`programs/` is not one of the documentation checker's subjects, so every claim in
+`basic.sol`'s comments is true because somebody looked. For most programs that is
+tolerable. For this one it is not: print zones, six significant digits and the
+trailing space after every number are invisible to a reader and all load-bearing.
+
+Four listings in `programs/basic/` have a recorded `.out` beside them now,
+compared byte for byte on every build. `wave.bas` is there for a second reason —
+3.14 spent its life waiting for *"a plotter, a simulation, anything with
+coordinates or a waveform"*, and until that morning this interpreter could not
+run one.
+
+### And then: "so the BASIC interpreter is done?"
+
+I had said *finished* twice. Asked directly, I went and looked, and it was not.
+
+**`PRINT 1/0` failed inside the formatter** with `'floor' is out of integer
+range` — a true sentence naming a Solum primitive the listing never sent, from
+`digits` taking the logarithm of an infinity. The fix is not in the formatter.
+Solum reaches `infinity` and `nan` rather than trapping, which is IEEE and right
+for Solum; the standard makes both an error a listing is told about. So the check
+went where the value is *made*, and division by zero is named separately, because
+`0/0` is `nan` and `1/0` is `infinity` and neither message would say what
+happened.
+
+**And one deviation from the standard was undocumented**, which is worse than
+the deviation. ECMA-55 makes a space insignificant outside a string, so
+`FORI=1TO10` and `PRI NT` are legal BASIC and neither runs here. Nothing said
+so, while the file said in several places that it implements the standard.
+
+---
+
+### Postmortem
+
+1. **I called it finished twice without checking.** Not a guess that turned out
+   wrong — a claim made from the inside, about a program measured against an
+   external document, without going back to the document. The two things a
+   direct question found had been there for hours.
+
+2. **The undocumented deviation is the worse of the two.** A gap that is written
+   down is a known limit; the same gap unwritten, in a file that says four times
+   that it follows a standard, is the file being wrong about itself. Everything
+   else this program does — refusing to stub `^`, refusing `LOG(0)`, naming the
+   dialect in error messages — was about not letting a reader believe something
+   untrue, and this was the one place I had let one.
+
+3. **The formatter bug was reachable by the shortest program that could reach
+   it.** `PRINT 1/0` is four tokens. It was never tried, because the demos were
+   written to show things working, and 83 of them are still not a test suite —
+   they are a description of the parts I thought to describe.
+
+4. **Having `log` did not save me from `log`.** Three hours after landing
+   trigonometry with a long argument about how hand-written argument reduction
+   fails silently, I wrote a decimal exponent by logarithm and had to be caught
+   by the same class of error at the same magnitude. The primitive removes the
+   hard part; it does not remove the arithmetic around it.
+
+---
+
 ## 2026-08-25 (after the release) — a BASIC interpreter, and the two things it asked for
 
 0.31.0 went out at 09:13 with the roadmap empty and a note saying so. By 12:20

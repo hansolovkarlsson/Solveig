@@ -5,6 +5,47 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## 0.32.0 — 2026-08-25
+
+**The language gained twelve messages, which is the most it has gained at once
+in a long time — and every one of them because a single program asked.**
+`.sob` files are format version 14, unchanged, and bytecode from 0.31.0 still
+runs: these are messages, not instructions.
+
+**[programs/basic.sol](../programs/basic.sol) is the eleventh program**, an
+interpreter for ECMA-55 Minimal BASIC (1978). All twenty statements of that
+standard and all eleven of its supplied functions, running about 420,000 BASIC
+statements a second, with four recorded transcripts compared byte for byte on
+every build. It was chosen for being a different *shape* from the other ten — an
+interpreter for another language rather than a tool for this one — and what it
+found came from that shape rather than from anything anybody planned.
+
+**It emptied the roadmap by filling it first.** Two entries went on in a morning
+and both were closed the same day.
+[3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done) had been waiting
+since it was written for *a program that wants an angle*; this one wanted six of
+them and an exponent operator, because they are on the page of the standard it is
+measured against, and **an interpreter cannot decide to want less**. Eleven
+messages landed as one decision: `pow`, `exp`, `log`, `sin`, `cos`, `tan`,
+`asin`, `acos` and `atan` on `float`, and `float:pi` and `float:atan2(y, x)` on
+the class.
+[3.18](COMPLETED.md#318-a-program-cannot-write-without-ending-the-line--done)
+was found by the same program's `INPUT`: there was no way to write to standard
+output without ending the line, so a prompt could not sit beside its answer.
+That is `system:write` now.
+
+**Two of the wrong turns are recorded rather than tidied away**, because both are
+about the same thing. A dispatch comment offered a choice between two options
+when the repository already contained a third, documented and measured, in
+`lib/control.sol` — and the recovery measured both halves of that library's own
+advice and settled, with numbers, what a primitive for it would and would not
+buy. And the interpreter was called *finished* twice before a direct question
+found a formatter that crashed on `PRINT 1/0` and a deviation from the standard
+that had never been written down.
+
+**`float` answers 26 messages before this release and
+35<!--count float-answers--> after.** Claims go 764 to 830<!--count claims-->.
+
 ### Asking whether BASIC was finished, and finding it was not — `6757f56`, 2026-08-25
 
 Two things, both found by asking the question rather than by a test failing.
