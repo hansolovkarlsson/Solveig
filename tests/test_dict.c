@@ -43,7 +43,7 @@ static void test_binding_and_reading(void)
         "n := d:size. a := d:at(\"a\"). b := d:at(\"b\")."
         /* binding again replaces rather than adding */
         "d:atPut(\"a\", #9). again := d:size. nine := d:at(\"a\")."
-        /* atPut answers the value stored, as at_put on an array does */
+        /* atPut answers the value stored, as atPut on an array does */
         "answered := d:atPut(\"c\", #3).") == SOL_OK);
 
     assert(SOL_AS_INT(global(&vm, "empty")) == 0);

@@ -189,7 +189,7 @@ static void test_no_bound_is_favoured(void)
         "counts := []."
         "#7:repeat({ counts:add(#0) })."
         "#700000:repeat({ | v | v := r:upTo(#7)."
-        "    counts:at_put(v, counts:at(v):inc) })."
+        "    counts:atPut(v, counts:at(v):inc) })."
         "lowest := counts:at(#1). highest := counts:at(#1)."
         "counts:do({ c | c:lessThan(lowest):ifTrue({ lowest := c })."
         "               c:greaterThan(highest):ifTrue({ highest := c }) }).") == SOL_OK);

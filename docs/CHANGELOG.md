@@ -5,6 +5,35 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### One idea had two names — `pending`, 2026-08-25
+
+**`array:at_put` is `array:atPut`.** It was the only message of 125 with an
+underscore in it, and — worse than inconsistent — it was the *same message*
+under two spellings, since `dictionary` had answered `atPut` all along. The C
+comment beside the dictionary primitive said so out loud: *the value stored, as
+`at_put` on an array does*. The code knew they were one operation and named
+them differently anyway.
+
+**No alias.** Keeping `at_put` working beside `atPut` is exactly the second
+mechanism behind the first that the language exists to refuse, and it would
+leave the inconsistency in the message index permanently instead of removing it.
+
+**It breaks bytecode compiled before it.** Message names live in the chunk as
+strings, so a `.sob` built yesterday meets a VM that answers `does not
+understand 'at_put'`.
+[3.4](ROADMAP.md#34-no-compatibility-across-sob-versions) already says there is
+no compatibility across versions and this is that cost being paid; recompiling
+is the whole of the fix.
+
+**The count moved the right way**: **124** distinct messages across the same
+**220** registrations. Nothing can be asked of the language that could not be
+asked before — there is one fewer way to spell one of the questions.
+
+That number is stated in four places, and three of them were written yesterday
+into the README, the site description and the repository's own description on
+GitHub, where nothing checks them. `tests/test_compile.c` catches the one in the
+reference, and caught this. The other three were found by grep, by remembering.
+
 ## 0.28.0 — 2026-08-25
 
 **Nothing in the language changed, and everything about how it is checked did.**

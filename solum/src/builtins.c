@@ -1554,11 +1554,11 @@ static SolValue prim_array_at(SolVM *vm, SolValue self, SolValue *args, int argc
 
 static SolValue prim_array_at_put(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
-    if (!check_argc(vm, "at_put", argc, 2)) return SOL_NIL_VAL;
+    if (!check_argc(vm, "atPut", argc, 2)) return SOL_NIL_VAL;
 
     SolArray *array = SOL_AS_ARRAY(self);
     int index;
-    if (!array_index(vm, "at_put", array, args[0], &index)) return SOL_NIL_VAL;
+    if (!array_index(vm, "atPut", array, args[0], &index)) return SOL_NIL_VAL;
     array->items[index] = args[1];
     return args[1];                 /* answers the value stored, as `:=` does */
 }
@@ -2528,7 +2528,7 @@ static SolValue prim_dict_at_put(SolVM *vm, SolValue self, SolValue *args, int a
     /* Receiver and both arguments are on the value stack for the duration of
        this call, so they stay rooted while the table grows. */
     sol_dict_put(vm, SOL_AS_DICT(self), args[0], args[1]);
-    return args[1];         /* the value stored, as `at_put` on an array does */
+    return args[1];         /* the value stored, as `atPut` on an array does */
 }
 
 static SolValue prim_dict_includes(SolVM *vm, SolValue self, SolValue *args, int argc)
@@ -5142,7 +5142,7 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->array_class, SOL_OBJ, "of", prim_array_of);
     instance(vm, vm->array_class, SOL_ARRAY, "size", prim_array_size);
     instance(vm, vm->array_class, SOL_ARRAY, "at", prim_array_at);
-    instance(vm, vm->array_class, SOL_ARRAY, "at_put", prim_array_at_put);
+    instance(vm, vm->array_class, SOL_ARRAY, "atPut", prim_array_at_put);
     instance(vm, vm->array_class, SOL_ARRAY, "add", prim_array_add);
     instance(vm, vm->array_class, SOL_ARRAY, "do", prim_array_do);
     instance(vm, vm->array_class, SOL_ARRAY, "collect", prim_array_collect);

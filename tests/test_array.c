@@ -83,11 +83,11 @@ static void test_at_put_and_add(void)
 
     assert(run(&vm, &chunk,
         "a := array:of(#1, #2, #3)."
-        "r := a:at_put(#2, #99)."
+        "r := a:atPut(#2, #99)."
         "v := a:at(#2). n := a:size.") == SOL_OK);
     assert(SOL_AS_INT(global(&vm, "v")) == 99);
     assert(SOL_AS_INT(global(&vm, "r")) == 99);   /* answers the value stored */
-    assert(SOL_AS_INT(global(&vm, "n")) == 3);    /* at_put does not grow */
+    assert(SOL_AS_INT(global(&vm, "n")) == 3);    /* atPut does not grow */
     sol_chunk_free(&chunk);
 
     /* add answers the array, so it chains. */
@@ -99,7 +99,7 @@ static void test_at_put_and_add(void)
     assert(SOL_AS_INT(global(&vm, "last")) == 3);
     sol_chunk_free(&chunk);
 
-    assert(run(&vm, &chunk, "array:new:at_put(#1, #5).") == SOL_RUNTIME_ERROR);
+    assert(run(&vm, &chunk, "array:new:atPut(#1, #5).") == SOL_RUNTIME_ERROR);
     sol_chunk_free(&chunk);
 
     sol_vm_free(&vm);
@@ -182,7 +182,7 @@ static void test_arrays_are_references(void)
     assert(run(&vm, &chunk,
         "a := array:of(#1, #2)."
         "b := a."
-        "b:at_put(#1, #99)."
+        "b:atPut(#1, #99)."
         "through_a := a:at(#1)."
         "same := a:equals(b)."
         "other := a:equals(array:of(#99, #2)).") == SOL_OK);
@@ -330,7 +330,7 @@ static void test_each_evaluation_builds_a_fresh_array(void)
     assert(run(&vm, &chunk,
         "integer:make := { [#1, #2] }."
         "p := #0:make. q := #0:make."
-        "p:at_put(#1, #99)."
+        "p:atPut(#1, #99)."
         "through_q := q:at(#1)."
         "same := p:equals(q).") == SOL_OK);
     assert(SOL_AS_INT(global(&vm, "through_q")) == 1);   /* q is untouched */
@@ -611,7 +611,7 @@ static void test_copy_from(void)
         /* the receiver is untouched, as collect and select leave it */
         "source := a:size."
         /* and it is a copy: changing one does not change the other */
-        "mid:at_put(#1, #99). unchanged := a:at(#2).") == SOL_OK);
+        "mid:atPut(#1, #99). unchanged := a:at(#2).") == SOL_OK);
 
     assert(SOL_AS_INT(global(&vm, "n")) == 3);
     assert(SOL_AS_INT(global(&vm, "first")) == 2);

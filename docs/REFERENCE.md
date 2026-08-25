@@ -2415,7 +2415,7 @@ one like any other byte.
 | `of(...)` | an array of the arguments — what `[...]` compiles to |
 | `size` | an integer |
 | `at(#i)` | the element; **one-based**, out of range is an error |
-| `at_put(#i, v)` | the value stored |
+| `atPut(#i, v)` | the value stored |
 | `add(v)` | **the array**, so it chains |
 | `removeLast` | the last element, taken off; **an error** when empty |
 | `indexOf(v)` | where `v` first is, **one-based**, or nil |
@@ -2936,7 +2936,7 @@ has been given, and cannot give itself more.
 Every built-in message and the types that answer it. The question a reference
 gets asked is usually *what has `copyFrom`?* rather than *what does a string
 do?*, and the sections above answer only the second — so this answers the first.
-125 messages across 220 registrations.
+124 messages across 220 registrations.
 
 **A test keeps it honest**: a message registered in `builtins.c` and missing
 from here fails the build, which is the same bargain that makes every message
@@ -2960,7 +2960,7 @@ appear in an example.
 | `asTime` | [string](#string) |
 | `asUppercase` | [string](#string) |
 | `at` | [array](#array), [dictionary](#dictionary), [string](#string) |
-| `at_put` | [array](#array) |
+| `atPut` | [array](#array) |
 | `atPut` | [dictionary](#dictionary) |
 | `bitAnd` | [integer](#integer) |
 | `bitNot` | [integer](#integer) |

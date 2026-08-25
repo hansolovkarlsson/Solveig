@@ -15,8 +15,8 @@ b := [].                     ; an empty array; array:new says the same thing
 b:add(#1):add(#2):add(#3).
 b:print.                     ; [#1, #2, #3]
 
-; at_put replaces in place and answers the value stored, as ':=' does.
-b:at_put(#2, #99).
+; atPut replaces in place and answers the value stored, as ':=' does.
+b:atPut(#2, #99).
 b:print.                     ; [#1, #99, #3]
 
 ; do runs a block per element, in order.
@@ -26,7 +26,7 @@ sum:print.                   ; #103
 
 ; Arrays are references, like objects: two names, one array.
 c := b.
-c:at_put(#1, #7).
+c:atPut(#1, #7).
 b:at(#1):print.              ; #7 -- the change is visible through b
 
 ; They nest, which is where the brackets earn their keep.

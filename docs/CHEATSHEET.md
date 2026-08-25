@@ -241,7 +241,7 @@ One-based, and `add` answers the array so it chains.
 | `new` / `of(...)` | an empty array / one of the arguments |
 | `size` | an integer |
 | `at(#i)` | the element; out of range is an error |
-| `at_put(#i, v)` | the value stored |
+| `atPut(#i, v)` | the value stored |
 | `add(v)` | **the array**, so it chains |
 | `removeLast` | the last element, taken off; an error when empty |
 | `indexOf(v)` | where `v` first is, or nil |

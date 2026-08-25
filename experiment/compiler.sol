@@ -266,8 +266,8 @@ compiler:patchJump := { slot | | code, distance |
     distance := code:size:sub(slot):add(#2):sub(self:opLength(code:at(slot:dec))).
     distance:greaterThan(#65535):ifTrue({
         error:raise("conditional is too large to jump over") }).
-    code:at_put(slot, distance:bitAnd(#255)).
-    code:at_put(slot:inc, distance:shiftRight(#8):bitAnd(#255)) }.
+    code:atPut(slot, distance:bitAnd(#255)).
+    code:atPut(slot:inc, distance:shiftRight(#8):bitAnd(#255)) }.
 
 ; The only backward jump, and the offset is subtracted rather than added so that
 ; it stays unsigned like the others.

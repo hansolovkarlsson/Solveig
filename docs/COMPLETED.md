@@ -63,7 +63,7 @@ and non-incremental — so it stayed behind, in
 
 ### 1.2 Arrays — **done**
 
-`SolArray` and the `array` class: `new`, `of`, `size`, `at`, `at_put`, `add`,
+`SolArray` and the `array` class: `new`, `of`, `size`, `at`, `atPut`, `add`,
 `do`, `collect`, `select`, `print`, `equals`, plus the `[...]` literal. Indices
 are one-based, an index must be an integer, and out of bounds is an error.
 Arrays are references, like objects.
@@ -1647,7 +1647,7 @@ not quite serve. Both workarounds were written and shipped before the messages
 were, which is what made the case for them.
 
 **`removeLast`** takes the last element off and answers it. The workaround had
-been an object carrying its own `top` index, overwriting with `at_put` rather
+been an object carrying its own `top` index, overwriting with `atPut` rather
 than shrinking — eight lines, written twice in one file before being factored
 out. The library is a plain array again:
 
