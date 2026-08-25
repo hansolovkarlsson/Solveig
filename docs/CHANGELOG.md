@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### The mathematics 3.14 was holding, all eleven at once — `pending`, 2026-08-25
+### The mathematics 3.14 was holding, all eleven at once — `5018395`, 2026-08-25
 
 **`pow`, `exp`, `log`, `sin`, `cos`, `tan`, `asin`, `acos` and `atan` on `float`,
 and `float:pi` and `float:atan2(y, x)` on the class.**
