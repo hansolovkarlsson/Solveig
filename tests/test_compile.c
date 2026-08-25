@@ -600,6 +600,87 @@ static void test_every_library_file_verifies(void)
            LIBRARY_COUNT);
 }
 
+/* ---- a warning nobody fails on is a comment ----------------------------- *
+ *
+ * `solas` has warnings, and both were added because the failure they describe
+ * surfaces a long way from its cause: a file that includes a library of its own
+ * name (6.22), and two libraries binding one name (6.21). Until this existed
+ * nothing in the build failed on either. The check above asks each shipped file
+ * one question -- does it compile to bytecode the verifier accepts -- and never
+ * looks at what the compiler said on the way.
+ *
+ * That is not hypothetical. `examples/scanning.sol` was written as
+ * `examples/scan.sol`, which includes itself; the warning fired, named the
+ * shadowed file exactly, and the file compiled and would have shipped. Only
+ * running it found the problem, which is precisely what the warning exists to
+ * make unnecessary.
+ *
+ * `experiment/` is deliberately not here. It is parked and expected to fall
+ * behind the language, so holding it to this would make it a maintenance
+ * burden rather than a proof. */
+static bool compiles_saying_nothing(const char *path, char *said, size_t size)
+{
+    char temp[] = "build/tests/solum-warn-XXXXXX";
+    int fd = mkstemp(temp);
+    assert(fd >= 0);
+
+    char *source = slurp(path);
+    SolSearchPath search;
+    sol_search_path_init(&search);
+    sol_search_path_add(&search, "lib");
+
+    fflush(stderr);
+    int saved = dup(STDERR_FILENO);
+    assert(saved >= 0);
+    assert(dup2(fd, STDERR_FILENO) >= 0);
+
+    SolChunk chunk;
+    sol_chunk_init(&chunk);
+    bool ok = sol_compile_file(source, path, &search, &chunk);
+
+    fflush(stderr);
+    assert(dup2(saved, STDERR_FILENO) >= 0);
+    close(saved);
+
+    sol_chunk_free(&chunk);
+    sol_search_path_free(&search);
+    free(source);
+
+    assert(lseek(fd, 0, SEEK_SET) == 0);
+    ssize_t got = read(fd, said, size - 1);
+    said[got > 0 ? (size_t)got : 0] = '\0';
+    close(fd);
+    remove(temp);
+    return ok;
+}
+
+static void test_nothing_shipped_compiles_with_a_warning(void)
+{
+    static char said[4096];
+    size_t checked = 0;
+
+    for (size_t i = 0; i < SHIPPED_COUNT; i++) {
+        assert(compiles_saying_nothing(shipped[i], said, sizeof said));
+        if (said[0] != '\0') {
+            printf("\n%s compiles, and says so on the way:\n%s", shipped[i], said);
+            assert(false);
+        }
+        checked++;
+    }
+
+    for (size_t i = 0; i < LIBRARY_COUNT; i++) {
+        assert(compiles_saying_nothing(library[i], said, sizeof said));
+        if (said[0] != '\0') {
+            printf("\n%s compiles, and says so on the way:\n%s", library[i], said);
+            assert(false);
+        }
+        checked++;
+    }
+
+    printf("  %zu shipped files compile without the compiler saying anything\n",
+           checked);
+}
+
 static void test_no_library_file_is_left_out(void)
 {
     DIR *dir = opendir("lib");
@@ -794,6 +875,7 @@ int main(void)
     test_no_example_is_left_out();
     test_every_library_file_verifies();
     test_no_library_file_is_left_out();
+    test_nothing_shipped_compiles_with_a_warning();
     test_every_accepted_form_verifies();
     test_an_error_names_a_line_and_a_column();
     test_the_caret_lands_under_the_token();

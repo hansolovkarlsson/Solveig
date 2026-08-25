@@ -5,6 +5,42 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### A warning nobody fails on is a comment — `pending`, 2026-08-25
+
+**45 shipped files now have to compile without `solas` saying anything**, and
+until this they only had to compile.
+
+`solas` has two warnings, and both were added because the failure they describe
+surfaces a long way from its cause: a file that includes a library of its own
+name ([6.22](COMPLETED.md#622-a-file-that-includes-a-library-of-its-own-name-silently-does-nothing--done))
+and two libraries binding one name
+([6.21](COMPLETED.md#621-two-libraries-binding-one-name-collide-silently--done)).
+`test_compile.c` asked each shipped file one question — does it compile to
+bytecode the verifier accepts — and never looked at what the compiler said on
+the way. `test_include.c` checks that warnings appear, but only for files it
+writes itself.
+
+**Which is not hypothetical.** `examples/scanning.sol` was written this morning
+as `examples/scan.sol`, which includes itself. The warning fired, named the
+shadowed file exactly, and **the file compiled and would have shipped** — only
+running it found the problem, which is the thing the warning exists to make
+unnecessary. It went to a terminal where the output had been redirected away.
+
+Every one of the 45 passes today, so this costs nothing and locks in what is
+already true — the position `-Werror`, the sanitizers and cross-platform CI were
+each in before they were locked in.
+
+**Verified by planting a warning and watching it fail**, on a freshly built
+binary, because a check that has never failed is a claim about a check. The
+plant was instructive beyond its purpose: putting `examples/scan.sol` back
+shadowed `lib/scan.sol` for `examples/scanning.sol` as well, so the failure
+reported came from the *neighbouring* file rather than the planted one. That is
+6.22's hazard reaching one file further than the file that has it.
+
+`experiment/` is deliberately outside this. It is parked and expected to fall
+behind the language, and holding it to a warning check would make it a
+maintenance burden rather than a proof.
+
 ### The library shipped this morning had nothing checking it — `df65a47`, 2026-08-25
 
 **[examples/scanning.sol](../examples/scanning.sol) and
