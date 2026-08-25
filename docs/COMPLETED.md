@@ -340,6 +340,235 @@ The limitations themselves are still live and are in
 [ROADMAP.md](ROADMAP.md#3-known-limitations). These were limitations until they
 stopped being ones.
 
+### 3.14 The mathematics that is not here — **done**
+
+**The title is the problem as it stood, and it stood for a long time.** All of
+it landed on 2026-08-25, as one decision: `pow`, `exp`, `log`, `sin`, `cos`,
+`tan`, `asin`, `acos`, `atan` on `float`, and `float:pi` and `float:atan2(y, x)`
+on the class. `float` went from 26 messages to
+35<!--count float-answers-->. What the entry argued about for weeks is kept
+below in full, because the argument is the part worth having.
+
+**No `pow`, no `log`, no `exp`, no trigonometry and no `pi`.** C has all of them
+and each would be a line, and none is here because no program in this repository
+has asked for one — *the ones a program has asked for rather than all of
+`<math.h>`* being the rule this entry set for itself.
+
+**This entry was larger twice and is now this.** It read *there is no square
+root, no minimum, and no randomness*, and both of those halves have since been
+answered. What each cost is recorded here, because the cost is the useful part.
+
+#### The square root, and why it is a primitive
+
+`sqrt` is a message a float understands and `min`, `max` and `between` are in
+[math.sol](../lib/math.sol). Both were writable in Solum; the line between them
+is not importance. `min` and `max` were written correctly the first time, in one
+line each, and there is nothing in them to get wrong. `sqrt` was written
+**twice, and both versions were wrong and silent about it**:
+
+| | |
+| --- | --- |
+| twenty fixed iterations | Right to twelve places at 2, and `sqrt(1e10)` answered `100000.000156`. Newton converges quadratically once the guess is near; from `x` itself the approach is one halving per octave, so seventeen of the twenty iterations went before the good part began. |
+| iterate until it stops moving, capped at sixty steps | Written to fix the first, and worse. The cap is needed, because in floating point Newton can settle into an oscillation between two adjacent values rather than a fixed point — but a value above about 1e21 has not finished halving in sixty steps, so the loop returns `x` divided by 2^60. `sqrt(1e300)` answered `8.67e281` rather than `1e150`. **Nineteen orders of magnitude, silently.** |
+
+Getting it right means scaling by the exponent before iterating, which is asking
+a script to know how a double is laid out. The C library already knows and is
+correctly rounded, so the answer is one line of C and no lines of Solum.
+
+**The second version was checked and passed.** Its 1e300 answer was printed and
+read, and what the reading found was a bug in the *formatter* — the over-read
+fixed in 0.21.0 — because 8.67e281 rendered at six decimal places is 157
+characters out of a 64-byte buffer. The formatter was fixed, the digits were
+compared against the C library, they matched, and the value they were the digits
+*of* was never compared to anything. A wrong number can survive being looked at
+carefully if what you look at is how it is printed.
+
+#### And randomness, which was the open half until it was measured
+
+**`random:new` is the answer, and the question was where the state lives.** It
+lives in an object you make, seeded by the machine or by a number you name —
+never on `system`, because a generator there would give a VM a history and two
+runs of one chunk would stop being identical. That is not a promise
+[embedding.md](embedding.md) makes in so many words, and the wording of this
+entry used to say it was: what that page promises is *one chunk, any number of
+machines*, which a chunk carrying a generator's state would not be. A program
+that never says `random:new`
+is exactly as deterministic as it was before any of this existed.
+
+**What settled it was measuring the generator that was already here.**
+[bench.sol](../programs/bench.sol) carried Lehmer's — multiplier 16807, modulus
+2^31-1, chosen so the product could not exceed a signed 64-bit integer, because
+integer arithmetic traps on overflow rather than wrapping and so the generator
+everybody knows cannot be written in this language at all. It was correct, and
+in bulk it was fine: 100,232 heads in 200,000 flips, and 21 buckets over 210,000
+draws spread from 9,799 to 10,157.
+
+**The seeding was the defect, and it was invisible.** The clock was the only
+entropy a Solum program could reach, so two runs a microsecond apart got
+consecutive seeds — and a Lehmer generator's first output moves by the
+multiplier when its seed moves by one:
+
+| | before | after |
+| --- | --- | --- |
+| the first coin flip, over consecutive seeds | `1, 2, 1, 2, 1, 2, …` — **the parity of the start time** | no pattern |
+| the first resample index of 21, over 2,000 consecutive seeds | **3 distinct values** of 21 | **21** |
+
+Neither shows in the output, and neither was fixable in Solum: mixing a seed
+properly needs the wrapping multiplication that traps here, and there is no
+entropy but the clock for a *program* — the machine has `/dev/urandom` sitting
+right there, which is the asymmetry the whole entry turned on. Add the modulo
+bias that `mod n` leaves on the way out and there are three ways to get this
+wrong that a reader cannot see, which is the argument that made `sqrt` a
+primitive, holding more clearly here than it did there.
+
+**The generator is PCG XSH RR 32/64**, its 64 bits of state are the object's
+payload so an instance allocates nothing, `upTo` draws again rather than taking
+a remainder, and the seed is recorded in an ordinary slot so a run the machine
+seeded can be had back by writing the number down.
+
+**What the trigger taught, since the entry named one and it was the wrong one.**
+It said this waited for *a program wanting randomness for the work rather than
+for how it measures*, and counted `bench.sol` as the second kind. That was a
+misreading of that program: its product is the confidence interval, and the
+interval is computed by bootstrap resampling. The randomness is the algorithm,
+not the instrumentation. **A trigger can be written down wrongly and go on
+looking unfired**, which is worth more than the entry it was attached to.
+
+#### What is left
+
+**`pow`, `log` and `exp` are still not here either**, and were not added with
+`sqrt`. C has them and they would each be a line, but no program in this
+repository has asked for one, and *the ones a program has asked for rather than
+all of `<math.h>`* is the rule this entry set for itself.
+
+**Nor is there any trigonometry, or a `pi`.** Asked about directly, so the
+answer belongs here rather than in a conversation.
+
+The case for building it is the one that made `sqrt` a primitive, and it is
+**stronger** rather than weaker. A hand-written sine fails the same silent way
+and fails harder: the series is the easy half, and the difficulty is argument
+reduction. Reducing `x` modulo 2π needs π to far more bits than a double holds,
+so the obvious `x:sub(twoPi:mul(x:div(twoPi):rounded))` loses a digit of the
+answer for every octave of the argument and is returning noise well before 1e16.
+That is the same shape as the defect this entry already records — plausible
+output, catastrophically wrong in a range nobody thinks to test, silent
+throughout. If *a thing every program would get wrong the same way belongs in
+the machine* is the rule, trigonometry meets it more clearly than `sqrt` did.
+
+**What it was waiting for was a program, and the program has arrived.** For most
+of this entry's life no file here had ever wanted an angle. The first draft of
+this paragraph gave a
+second reason — that the eleven<!--count programs--> programs are text and process
+work, so geometry is
+not what this language is for — and that reason is **wrong and is worth leaving
+recorded as wrong**. The programs are the tools this project needed while
+building itself; they describe what has been written, not what may be. Solum is
+meant to be a general-purpose language, which
+[design.md](design.md#what-the-language-is-for) now states outright, and no
+entry in this document should be read as ruling a direction out because nothing
+has gone that way yet.
+
+So the trigger was ordinary: **a program that wants an angle** — a plotter, a
+simulation, anything with coordinates or a waveform. When one arrived, the
+sensible thing would be to land trigonometry and `pow`/`log`/`exp` as a **single
+decision** rather than a message at a time, since arriving one convenience at a
+time is exactly what the rule above exists to prevent.
+
+#### The program that arrived, and why it is a harder case than a plotter
+
+[basic.sol](../programs/basic.sol) is an interpreter for **ECMA-55 Minimal BASIC
+(1978)**. Six of that standard's eleven supplied functions are `SIN`, `COS`,
+`TAN`, `ATN`, `EXP` and `LOG`, and its `^` operator needs `pow`.
+
+**The difference from a plotter is that this program cannot decide to want less.**
+A plotter that wanted one angle could be written to want none — plot something
+else, or take the coordinates ready-made. An interpreter is measured against a
+document it did not write. Either `PRINT SIN(0)` gives `0` or the interpreter is
+not an interpreter for that language, and no amount of taste about what belongs
+in a small language changes what is on page 27 of the standard. That is the
+strongest form the trigger could have taken, and it took it by accident: the
+program was chosen for being a different *shape* from the other ten, not for
+wanting arithmetic.
+
+**`^` is where it bites first, and it is the same failure this entry already
+records twice.** The obvious stub is repeated multiplication, which is exact for
+`2^3` and cannot answer `2^0.5` at all; the next one is `exp(y * log x)`, which
+needs two of the six missing functions. So `basic.sol` raises on `^` and names
+this entry, rather than shipping an operator that is right in the cases anybody
+tests and silently wrong outside them — which is precisely how both hand-written
+square roots got through.
+
+**What is decided by BASIC rather than by us**, of the three questions below:
+the standard's functions take **radians**, and its `ATN` takes one argument, so
+`atan2`'s missing receiver need not be answered to unblock this program. Only
+where `pi` lives is still open, and Minimal BASIC has no `PI` at all — so even
+that can wait for the second program.
+
+Stage three of `basic.sol` is the supplied functions, and it cannot start until
+this is decided.
+
+Three questions it raises that `sqrt` did not, worth having answered before a
+program forces them:
+
+| | |
+| --- | --- |
+| where `pi` lives | `infinity` and `nan` are globals, so `pi` would be the third — and the first that is not an IEEE special. `float:pi` as a class-side slot is the alternative, and the two read very differently on the page. |
+| radians or degrees | Decided once and regretted afterwards, in every language that has chosen. C gives radians; the places a person types an angle by hand usually want degrees. |
+| `atan2` belongs to neither argument | It takes two coordinates and there is no receiver that is obviously the subject, so `y:atan2(x)` reads badly in a language where the receiver is what the sentence is about. |
+
+And a note on size, since it is the one argument that is about the shape of the
+language rather than about the maths: `float` answers 35<!--count float-answers-->
+messages today, and
+`sin`, `cos`, `tan`, `asin`, `acos`, `atan` and `atan2` would be a third again.
+That is a reason to add them deliberately and together, not a reason to refuse.
+
+#### How it was decided, and what the deciding was actually about
+
+**The program was [basic.sol](../programs/basic.sol), and it fired the trigger
+by accident.** BASIC was chosen for being a different *shape* from the other ten
+programs here — an interpreter for another language rather than a tool for this
+one — and not for wanting arithmetic. It turned out to want six functions and an
+exponent operator, because they are on the page of ECMA-55 Minimal BASIC it is
+measured against.
+
+**That made it a harder case than the plotter this entry imagined.** A plotter
+that wanted one angle could have been written to want none. An interpreter is
+measured against a document it did not write: either `PRINT SIN(0)` gives `0`,
+or it is not an interpreter for that language. There was no version of the
+program that wanted less.
+
+**Eleven, not the seven that were wanted.** `asin`, `acos`, `atan2` and `pi` are
+here although no program has asked for one, and the reason is this entry's own
+rule rather than generosity. Written by hand, `asin(x)` is
+`atan(x / sqrt(1 - x*x))`, which divides by zero at the ends of its own domain;
+`atan2` is `atan(y/x)` with quadrant fixups everybody gets wrong on the axes.
+Both fail the same test `sqrt` failed. **`pi` is the one member that does not** —
+anybody can type 3.141592653589793 and have the nearest double exactly. It is
+here so that a language with `sin` and `cos` is not one where the first thing
+every program does is write out a constant.
+
+**The three questions above were answered, two of them by BASIC.**
+
+| | |
+| --- | --- |
+| where `pi` lives | `float:pi`, on the class, not a third global. `infinity` and `nan` are globals because they are values this arithmetic *reaches* and has no other way to name. `pi` is a constant — and `pi` is a name a program is entitled to want, which is the argument [math.sol](../lib/math.sol) already makes for binding no global of its own. |
+| radians or degrees | **Radians**, following C and following the standard `basic.sol` implements. No degree variants: a conversion is a multiplication, and a multiplication is not something the machine has to supply. That is the same line this entry drew between `sqrt` and `min`. |
+| `atan2` belongs to neither argument | So neither argument is the receiver. `float:atan2(y, x)` is class-side, the way `time:fromSeconds` and `array:of` are, and then the arguments are in the order the name has always had them. |
+
+**None of them raise.** `sqrt` answers `nan` for a negative and division reaches
+`infinity`, so `log(0)` is `-infinity` and `log` of a negative is `nan`. A
+language with stricter rules imposes them itself, and `basic.sol` demonstrates
+exactly that: it raises for `SQR(-1)` and `LOG(0)` because ECMA-55 says to, on
+top of a Solum that quietly answers `nan`. The stricter rule belongs to the
+language being interpreted.
+
+**And the size argument this entry worried about turned out to be the small
+part.** Eleven primitives are eleven lines of C. The work was the four things a
+new message obliges, each held by a test: it must be sent by an example with a
+checked claim, be in the reference's type table, be in the message index, and be
+on the cheatsheet. That is where the afternoon went, and it is the right place
+for it to go.
+
 ### 3.15 A child's streams cannot be redirected — **done**
 
 `system:run` gave the child this program's stdout and stderr; `system:capture`
@@ -587,7 +816,7 @@ is a failure, confirmed by breaking one both ways.
 one. The comment renders as nothing and the reader sees the sentence:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 808<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 828<!--count claims--> claims
 ```
 
 [expect.sol](../programs/expect.sol) recounts each of them from the repository
@@ -605,10 +834,10 @@ that order under its headings. The two are now held together.
 
 | | said | is |
 | --- | --- | --- |
-| ROADMAP 3.14, on whether `float` should gain trigonometry | `float` answers **21** messages | **26**<!--count float-answers--> — the count that entry's whole size argument rests on, five releases out of date |
+| ROADMAP 3.14, on whether `float` should gain trigonometry | `float` answers **21** messages | **35**<!--count float-answers--> — the count that entry's whole size argument rests on, five releases out of date |
 | [REFERENCE.md](REFERENCE.md)'s message index | **121** messages across **215** registrations | **122** across **216** |
-| [programs.md](programs.md)'s sample output | 21 files, **398** claims | 22 files, **458**<!--count examples-claims--> claims |
-| `README.md`, `programs.md` and the entry itself | **589** claims | **808**<!--count claims--> |
+| [programs.md](programs.md)'s sample output | 21 files, **398** claims | 22 files, **474**<!--count examples-claims--> claims |
+| `README.md`, `programs.md` and the entry itself | **589** claims | **828**<!--count claims--> |
 
 #### What is left, which is not a gap
 

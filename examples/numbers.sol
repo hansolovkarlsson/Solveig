@@ -91,6 +91,51 @@ infinity:print.                  ; infinity
 ; already follows: this arithmetic reaches nan and infinity instead of trapping.
 -1.0:sqrt:print.                 ; nan
 
+; ---------------------------------------------------------------------------
+; The rest of the mathematics
+;
+; Powers, logarithms and angles. All float, like `sqrt` and for the same reason:
+; no arithmetic message here crosses the two types, so `#2:asFloat` is how an
+; integer asks.
+
+2.0:pow(10.0):print.             ; 1024
+2.0:pow(0.5):print.              ; 1.4142135623730951
+1.0:exp:print.                   ; 2.718281828459045
+
+; `log` is the natural one, which is what every language that spells it this way
+; means. A base-ten logarithm is this divided by `10:log`.
+1.0:log:print.                   ; 0
+
+; Angles are in **radians**, following C. Degrees are a multiplication, and a
+; multiplication is not something the machine has to provide.
+0.0:sin:print.                   ; 0
+0.0:cos:print.                   ; 1
+0.0:tan:print.                   ; 0
+1.0:atan:print.                  ; 0.7853981633974483
+1.0:asin:print.                  ; 1.5707963267948966
+1.0:acos:print.                  ; 0
+
+; `pi` is on the class rather than being a third global beside `infinity` and
+; `nan`. Those two are values a float arithmetic reaches and has no other way to
+; name; this is a constant, and `pi` is a name a program is entitled to want.
+float:pi:print.                  ; 3.141592653589793
+float:pi:div(2.0):sin:print.     ; 1
+
+; `atan2` is on the class too, and that is the answer to a question the message
+; asks: it takes two coordinates and neither of them is what the angle is about,
+; so there is no receiver that reads as the subject.
+float:atan2(1.0, 1.0):print.     ; 0.7853981633974483
+
+; The domain errors answer nan, the same way `sqrt` of a negative does.
+2.0:asin:print.                  ; nan
+0.0:log:print.                   ; -infinity
+
+; And the reason these are in the machine rather than written out in Solum: a
+; sine of a large angle needs pi to more bits than a double holds, so a
+; hand-written reduction returns noise long before here and says nothing about
+; it. This agrees with the C library to the last bit.
+1e17:sin:print.                  ; -0.4645301048353727
+
 ; Comparison answers a boolean, and the ordering messages are spelled out.
 #3:lessThan(#4):print.           ; true
 #3:greaterOrEqual(#3):print.     ; true

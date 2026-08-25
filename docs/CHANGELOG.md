@@ -5,6 +5,68 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The mathematics 3.14 was holding, all eleven at once — `pending`, 2026-08-25
+
+**`pow`, `exp`, `log`, `sin`, `cos`, `tan`, `asin`, `acos` and `atan` on `float`,
+and `float:pi` and `float:atan2(y, x)` on the class.**
+[3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done) is decided, built
+and moved to [COMPLETED.md](COMPLETED.md) with its whole argument intact. `.sob`
+files are format version 14, unchanged, and bytecode from 0.31.0 still runs —
+this adds messages, not instructions.
+
+**The trigger was [basic.sol](../programs/basic.sol), and it fired by accident.**
+BASIC was picked for being a different *shape* from the other ten programs — an
+interpreter for another language rather than a tool for this one — not for
+wanting arithmetic. It turned out to want six functions and an exponent operator
+because they are on the page of ECMA-55 it is measured against, which made it a
+harder case than the plotter the entry imagined: **a plotter that wanted one
+angle could have been written to want none, and an interpreter cannot decide to
+want less.**
+
+**Eleven, not the seven that were wanted.** `asin`, `acos` and `atan2` are here
+although no program asked, because they fail the same test `sqrt` failed:
+`asin(x)` written by hand is `atan(x / sqrt(1 - x*x))`, which divides by zero at
+the ends of its own domain, and `atan2` is `atan(y/x)` with quadrant fixups
+everybody gets wrong on the axes. `pi` is the one member that does *not* fail
+that test — anybody can type 3.141592653589793 and have the nearest double
+exactly — and it is in so that a language with `sin` and `cos` is not one where
+the first thing every program does is write out a constant.
+
+**The three questions that entry parked are answered, two of them by BASIC.**
+`pi` is `float:pi` rather than a third global: `infinity` and `nan` are globals
+because they are values the arithmetic *reaches* and has no other way to name,
+while `pi` is a constant — and `pi` is a name a program is entitled to want,
+which is the argument [lib/math.sol](../lib/math.sol) already makes for binding
+no global of its own. Angles are **radians**, following C and the standard;
+degrees are a multiplication, and a multiplication is not something the machine
+has to supply. And `atan2` takes two coordinates of which neither is the subject
+of the sentence, so **neither is the receiver**: `float:atan2(y, x)` is
+class-side, the way `time:fromSeconds` and `array:of` are.
+
+**None of them raise.** `log(0)` is `-infinity` and `log` of a negative is
+`nan`, following `sqrt` and division. A language with stricter rules imposes
+them itself — `basic.sol` raises for `SQR(-1)` and `LOG(0)` because ECMA-55 says
+to, on top of a Solum that quietly answers `nan`.
+
+**And the size argument the entry worried about turned out to be the small
+part.** Eleven primitives are eleven lines of C. The work was the four things a
+new message obliges, each held by a test: sent by an example with a checked
+claim, in the reference's type table, in the message index, and on the
+cheatsheet. `float` answers 26 messages before and
+35<!--count float-answers--> after — nine rather than eleven, because `pi` and
+`atan2` are class-side, so the class answers them and a float does not. Claims
+go 808 to 828<!--count claims-->.
+
+**`basic.sol` is finished as a language.** Stage three landed the same day:
+`^` and the six functions that had been raising for two days, each of them one
+line. All twenty statements of Minimal BASIC and all eleven supplied functions
+now work, and `2^3^2` is 64 — the standard's left grouping, which could not be
+demonstrated until there was an operator to demonstrate it with.
+
+One tidy-up found on the way: the reference's message index listed `atPut`
+twice, once for `array` and once for `dictionary`, where every other message
+listing two types puts them in one row.
+
 ### BASIC gets its data, and every statement in the standard — `6c25056`, 2026-08-25
 
 **Stage four of [programs/basic.sol](../programs/basic.sol): text variables,
@@ -12,7 +74,7 @@ arrays, `DIM`, `OPTION BASE`, `DATA`/`READ`/`RESTORE`, `INPUT`, `DEF FN`,
 `RANDOMIZE`, and five of the eleven supplied functions.** With those, **all
 twenty statements of ECMA-55 Minimal BASIC are implemented**, and what is left
 of the language is six functions: `SIN`, `COS`, `TAN`, `ATN`, `EXP` and `LOG`,
-which are [3.14](ROADMAP.md#314-the-mathematics-that-is-not-here) and a decision
+which are [3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done) and a decision
 rather than work.
 
 **Twenty, not the nineteen this program has been claiming since it was scoped.**
@@ -142,7 +204,7 @@ a vote. This is stage one of six: `LET`, `PRINT`, `REM`, `END` and the whole
 numeric expression grammar, which is enough to run a listing from its lowest
 line number to its highest.
 
-**It fired [3.14](ROADMAP.md#314-the-mathematics-that-is-not-here) on its first
+**It fired [3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done) on its first
 day.** That entry — no `pow`, no `log`, no `exp`, no trigonometry — had been
 waiting since it was written for *a program that wants an angle*, and had never
 had one. Six of Minimal BASIC's eleven supplied functions are `SIN`, `COS`,
@@ -1035,7 +1097,7 @@ picked neither; what decided it was the half the entry never mentioned, that a
 child could not be given anything to *read* either.
 
 **The randomness half of
-[3.14](ROADMAP.md#314-the-mathematics-that-is-not-here)**: `random:new` is
+[3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done)**: `random:new` is
 seeded by the machine, `random:new(#seed)` repeats, and the state lives in the
 object rather than on `system`. What settled where it should live was measuring
 the generator [bench.sol](../programs/bench.sol) already carried: correct, and
@@ -1113,7 +1175,7 @@ removed. One rule, *a block argument is a block*, holds across `ifTrue`,
 ### A generator you make, and the seeding was the defect — `08484a0`, 2026-08-24
 
 **The randomness half of
-[3.14](ROADMAP.md#314-the-mathematics-that-is-not-here) closes.** There was no
+[3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done) closes.** There was no
 random number anywhere in the language — not on `system`, not on `integer`, not
 in the library. There is now, and it is a thing you make:
 
@@ -2190,7 +2252,7 @@ are therefore only [math.sol](../lib/math.sol) — the line between the two is n
 importance, it is whether every program would get the same thing wrong.
 
 That answers the arithmetic half of
-[3.14](ROADMAP.md#314-the-mathematics-that-is-not-here). **Randomness is the
+[3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done). **Randomness is the
 half still open** and the entry is now about that alone: where the state lives,
 where the seed comes from, and whether a host can set it.
 
@@ -2277,7 +2339,7 @@ is no geometry anywhere near this language* — a true sentence about ten progra
 and an empty one about a language. Both documents now record that, the wrong
 reason included.
 
-**[3.14](ROADMAP.md#314-the-mathematics-that-is-not-here) gains the
+**[3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done) gains the
 trigonometry answer**, which is: not yet, and only for want of a program. The
 case for eventually building it is the one that made `sqrt` a primitive and is
 stronger — a hand-written sine fails the same silent way and fails harder, since
@@ -2304,7 +2366,7 @@ the last three — by reading the page for another reason.
 
 **`sqrt` is a message a float understands**, and `min`, `max` and `between` are
 in the new [math.sol](../lib/math.sol). That is the arithmetic half of
-[3.14](ROADMAP.md#314-the-mathematics-that-is-not-here) answered; randomness is
+[3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done) answered; randomness is
 the half still open, and the entry is now about that alone.
 
 **The reason `sqrt` is in the machine and the comparisons are not is the whole
@@ -2387,11 +2449,11 @@ what it wrote landing where the printer had never been.
 > library was the *digits the formatter produced*, never the value they were the
 > digits of. The formatter bug was real and the fix stands; the sentence about
 > the square root was not. See
-> [3.14](ROADMAP.md#314-the-mathematics-that-is-not-here) and the entry that
+> [3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done) and the entry that
 > made `sqrt` a primitive.
 
 **Three roadmap entries, each by the admission rule.**
-[3.14](ROADMAP.md#314-the-mathematics-that-is-not-here) —
+[3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done) —
 there is no `sqrt`, `pow`, `min`, `max`, and no source of randomness anywhere in
 the language; this had been deferred in [ideas.md](ideas.md) with the trigger *a
 program wanting one*, and this is that program.
@@ -2469,7 +2531,7 @@ command twice it answers `1.001, interval 0.985 to 1.015`.
 
 **Two roadmap entries, both by the admission rule.**
 
-[3.14](ROADMAP.md#314-the-mathematics-that-is-not-here) —
+[3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done) —
 there is no `sqrt`, `pow`, `min`, `max`, and **no source of randomness anywhere
 in the language**. This had been deferred in ideas.md with the trigger *a
 program wanting one*, and this is that program. All four were writable and all

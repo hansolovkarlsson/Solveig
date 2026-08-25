@@ -364,7 +364,7 @@ line prints.
 ```
 
 Over `examples/` alone that is 24<!--count examples-files--> files and
-458<!--count examples-claims--> claims:
+474<!--count examples-claims--> claims:
 
 ```text
 21 files with expectations, 402 claims checked
@@ -387,12 +387,12 @@ table had when [disasm](#disasm--a-sob-file-read-and-disassembled) found it
 three sections out of date. They are also the first thing a newcomer reads.
 
 **It is in `make test` now**, in `tests/test_cli.c` with the other tests that
-run the binaries as a shell would — **808<!--count claims--> claims on every build**, in about
+run the binaries as a shell would — **828<!--count claims--> claims on every build**, in about
 sixteen seconds, and it fails the build if one stops holding.
 
 **And it checks the documentation too.** The guide and the reference carry the
 same notation inside ``` fences, and nothing checked those either — they are the
-two documents a newcomer actually reads. 348<!--count docs-claims--> claims
+two documents a newcomer actually reads. 352<!--count docs-claims--> claims
 across eighteen<!--count docs-documents--> documents,
 and two more on `README.md` and `index.md` — the front pages, which were the
 last two things nothing checked.
@@ -434,7 +434,7 @@ no notation saying what it counts — so it is given one, which renders as nothi
 and leaves the sentence as it was:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 808<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 828<!--count claims--> claims
 ```
 
 Each name is recounted from the repository as it stands. A name the table does
@@ -542,7 +542,7 @@ Given the same command twice it answers `1.001, interval 0.985 to 1.015` — whi
 is the test the tool has to pass before any of its other answers are worth
 reading.
 
-**What it found is [3.14](ROADMAP.md#314-the-mathematics-that-is-not-here)
+**What it found is [3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done)
 and [3.15](COMPLETED.md#315-a-childs-streams-cannot-be-redirected--done).** There was no
 `sqrt`, no `min`, no `max` and no randomness in the language, so this file
 carried all four. Writing them is easy; **getting them right is not**, and the
@@ -613,7 +613,7 @@ of its own:
 
 **What is missing is six functions and nothing else** — `SIN`, `COS`, `TAN`,
 `ATN`, `EXP` and `LOG`, which are
-[3.14](ROADMAP.md#314-the-mathematics-that-is-not-here) and a decision rather
+[3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done) and a decision rather
 than work. `^` waits on the same entry.
 
 A BASIC program is a graph rather than a sequence, and its edges are line
@@ -630,14 +630,20 @@ programs here is that it is judged against a specification: either a listing
 gives the answer the standard says, or the interpreter is wrong.
 
 **What it found**: the trigger
-[3.14](ROADMAP.md#314-the-mathematics-that-is-not-here) has been waiting for.
-That entry holds `pow`, `log`, `exp` and trigonometry, and says it is waiting
-for *a program that wants an angle*. Six of Minimal BASIC's eleven supplied
-functions are `SIN`, `COS`, `TAN`, `ATN`, `EXP` and `LOG`, and the `^` operator
-needs `pow` — so this is not a program that would like an angle, it is one that
-cannot be finished without them. `^` raises rather than being stubbed with
-repeated multiplication, because an operator right for `2^3` and quietly wrong
-for `2^0.5` is the same silent failure that entry already records twice.
+[3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done) had been holding
+open. That entry held `pow`, `log`, `exp` and trigonometry, waiting for *a
+program that wants an angle*. Six of Minimal BASIC's eleven supplied functions
+are `SIN`, `COS`, `TAN`, `ATN`, `EXP` and `LOG`, and `^` needs `pow` — so this
+was not a program that would like an angle, it was one that could not be
+finished without them, and could not decide to want fewer: they are in the
+standard it is measured against. For two days `^` raised rather than being
+stubbed with repeated multiplication, an operator right for `2^3` and quietly
+wrong for `2^0.5` being the same silent failure that entry already recorded
+twice. Then the decision was taken and all eleven landed at once.
+
+It also found [3.18](ROADMAP.md#318-a-program-cannot-write-without-ending-the-line),
+which is still open: `INPUT` has to show a `?` and read the answer beside it,
+and there is no way to write to standard output without ending the line.
 
 **And a happier finding, about line numbers.** They are usually a joke, and here
 they are what makes the job possible. `SOL_FRAMES_MAX` caps recursion at about

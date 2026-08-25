@@ -567,10 +567,19 @@ static void test_basic_runs_the_way_the_standard_says(void)
        relaxed, which makes it the one most likely to be "fixed" by accident. */
     assert(strstr(out, "line 10: '-' cannot start a value") != NULL);
 
-    /* And the finding: `^` refuses rather than answering something plausible.
-       If this assertion ever fails because the message changed, the thing to
-       check is that it did not fail because the operator was quietly stubbed. */
-    assert(strstr(out, "^ needs 'pow', which this language does not have") != NULL);
+    /* `^` and the six functions that waited on ROADMAP 3.14. This used to assert
+       that they refused; the entry was decided and they are arithmetic now.
+       2^0.5 is here because it is the case repeated multiplication cannot do
+       and the reason the operator was never stubbed, and ATN(1)*4 because it is
+       the shortest program that would notice if an angle were wrong. */
+    assert(strstr(out, "\n 8  1.4142135623730951 \n") != NULL);
+    assert(strstr(out, "\n 0  1  0 \n") != NULL);
+    assert(strstr(out, "\n 3.141592653589793 \n") != NULL);
+
+    /* Equal precedence groups left, so 2^3^2 is 64 here and 512 in almost every
+       BASIC since. The one rule of the dialect that no other assertion covers,
+       because it needed an operator that did not work until today. */
+    assert(strstr(out, "\n 64 \n") != NULL);
 
     /* Control flow, by way of two programs a BASIC book opens with. Fibonacci
        is the loop, the accumulator and the counted range in one line each; the
@@ -614,7 +623,7 @@ static void test_basic_runs_the_way_the_standard_says(void)
     /* A DATA word with no quotes round it is text, which catches everybody. */
     assert(strstr(out, "\n 1  2 THREE\n") != NULL);
 
-    printf("  BASIC runs a program the way ECMA-55 says, and refuses ^\n");
+    printf("  BASIC runs a program the way ECMA-55 says, arithmetic included\n");
 }
 
 /* And a listing of its own, from a file, which is the only way INPUT can be

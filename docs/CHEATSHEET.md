@@ -169,15 +169,26 @@ overflow traps, plus:
 | --- | --- |
 | `floor` `ceiling` `rounded` `truncated` | an **integer**; errors on infinity, nan, out of range |
 | `sqrt` | a float; `nan` for a negative |
-| `asString(spec)` | padded text — `[align][,][0][width][.decimals]` |
+| `sqrt` | a float; `nan` for a negative |
+| `pow(other)` | self raised to `other` |
+| `exp` `log` | e to the self; the **natural** logarithm |
+| `sin` `cos` `tan` | **radians** |
+| `asin` `acos` `atan` | radians; `nan` outside the domain |
+| `float:pi` | 3.141592653589793 — on the class |
+| `float:atan2(y, x)` | the angle to a point, all four quadrants — on the class |
 
 There is no `asInteger`: narrowing names its direction. Dividing by zero answers
-`infinity` rather than erring.
+`infinity` rather than erring. The mathematics is float only and radians only;
+degrees are a multiplication.
 
 ```
 2.7:floor:print.                ; #2
 -2.7:truncated:print.           ; #-2   -- floor goes down, truncate to zero
 9.0:sqrt:print.                 ; 3
+2.0:pow(10.0):print.            ; 1024
+1.0:exp:print.                  ; 2.718281828459045
+float:pi:div(2.0):sin:print.    ; 1
+float:atan2(1.0, 1.0):print.    ; 0.7853981633974483
 1:div(3):print.                 ; 0.3333333333333333
 3.14159:asString("0.2"):display.  ; 3.14
 "[":concat(1234.5:asString(",10.2")):concat("]"):display.  ; [  1,234.50]

@@ -2290,6 +2290,18 @@ Everything integer has, minus `asFloat`, `asBase`, and the overflow traps, plus:
 | --- | --- |
 | `floor` `ceiling` `rounded` `truncated` | an **integer**; errors on infinity, not-a-number, or out of range |
 | `sqrt` | a float; `nan` for a negative |
+| `pow(other)` | self raised to `other` |
+| `exp` `log` | e to the self, and the **natural** logarithm |
+| `sin` `cos` `tan` | **radians** |
+| `asin` `acos` `atan` | radians; `nan` outside the domain |
+
+And two on the class rather than on a float, because neither has a receiver
+that reads as the subject:
+
+| Message | Answers |
+| --- | --- |
+| `float:pi` | 3.141592653589793 |
+| `float:atan2(y, x)` | the angle to the point, radians, all four quadrants |
 
 There is no `asInteger`: narrowing names its direction so there is no default to
 remember. `rounded` is half away from zero. Bases are an integer's business, so
@@ -2300,12 +2312,23 @@ Dividing by zero answers a float rather than erring: `1:div(0)` is `infinity`,
 choice made here. `nan:equals(nan)` is false for the same reason. `sqrt` of a
 negative falls on the same line and answers `nan` rather than raising.
 
+**The mathematics is float only and radians only.** `#2:asFloat:sqrt` is how an
+integer asks, since no arithmetic message here crosses the two types. Degrees
+are a multiplication, and a multiplication is not something the machine has to
+supply — `lib/math.sol` is where that would go if a program wanted it.
+
+`pi` and `atan2` are on the class. `infinity` and `nan` are globals because they
+are values this arithmetic *reaches* and has no other way to name; `pi` is a
+constant, and `pi` is a name a program is entitled to want. `atan2` takes two
+coordinates and neither of them is what the angle is about, so `y:atan2(x)`
+would read as though the y were the subject.
+
 `sqrt` is the one piece of arithmetic here that a program cannot write for
 itself and get right. Newton's method converges quadratically only once the
 guess is near, and from `x` itself the approach is one halving per octave, so a
 fixed iteration count is wrong for large `x` and a capped loop is wrong by
 orders of magnitude — both were written in this repository and both were silent
-about it ([3.14](ROADMAP.md#314-the-mathematics-that-is-not-here)). It is float
+about it ([3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done)). It is float
 only: `#2:asFloat:sqrt` is how an integer asks, since no arithmetic message here
 crosses the two types.
 
@@ -2321,6 +2344,13 @@ on the page: the `#` marks the integer.
 1e21:print.          ; 1e+21
 0.000001:print.      ; 1e-06
 ```
+
+A hand-written `sin` fails the same way and fails harder, which is why these are
+here rather than in a library: the series is the easy half, and reducing an
+angle modulo 2π needs π to far more bits than a double holds. The obvious
+reduction loses a digit per octave of the argument and is returning noise well
+before 1e16, silently. `1e17:sin` here agrees with the C library to the last
+bit.
 
 `infinity` and `nan` are written by name, and both read back — `infinity` and
 `nan` are globals, and `asFloat` parses either. `-infinity` has no literal;
@@ -2987,7 +3017,7 @@ has been given, and cannot give itself more.
 Every built-in message and the types that answer it. The question a reference
 gets asked is usually *what has `copyFrom`?* rather than *what does a string
 do?*, and the sections above answer only the second — so this answers the first.
-123 messages across 219 registrations.
+134 messages across 230 registrations.
 
 **A test keeps it honest**: a message registered in `builtins.c` and missing
 from here fails the build, which is the same bargain that makes every message
@@ -2996,6 +3026,7 @@ appear in an example.
 | Message | Answered by |
 | --- | --- |
 | `abs` | [float](#float), [integer](#integer) |
+| `acos` | [float](#float) |
 | `add` | [array](#array), [float](#float), [integer](#integer) |
 | `and` | [boolean](#boolean) |
 | `appendFile` | [system](#system) |
@@ -3003,6 +3034,7 @@ appear in an example.
 | `asByte` | [string](#string) |
 | `asCharacter` | [integer](#integer) |
 | `asFloat` | [integer](#integer), [string](#string) |
+| `asin` | [float](#float) |
 | `asInteger` | [string](#string) |
 | `asLowercase` | [string](#string) |
 | `asSeconds` | [time](#time) |
@@ -3011,13 +3043,14 @@ appear in an example.
 | `asTime` | [string](#string) |
 | `asUppercase` | [string](#string) |
 | `at` | [array](#array), [dictionary](#dictionary), [string](#string) |
-| `atPut` | [array](#array) |
-| `atPut` | [dictionary](#dictionary) |
+| `atan` | [float](#float) |
+| `atan2` | [float](#float) |
+| `atPut` | [array](#array), [dictionary](#dictionary) |
+| `between` | [random](#random) |
 | `bitAnd` | [integer](#integer) |
 | `bitNot` | [integer](#integer) |
 | `bitOr` | [integer](#integer) |
 | `bitXor` | [integer](#integer) |
-| `between` | [random](#random) |
 | `boundTo` | [block](#block) |
 | `capture` | [system](#system) |
 | `ceiling` | [float](#float) |
@@ -3025,6 +3058,7 @@ appear in an example.
 | `collect` | [array](#array) |
 | `concat` | [string](#string) |
 | `copyFrom` | [array](#array), [string](#string) |
+| `cos` | [float](#float) |
 | `day` | [time](#time) |
 | `dec` | [integer](#integer) |
 | `display` | [every type](#every-type) |
@@ -3035,6 +3069,7 @@ appear in an example.
 | `environment` | [system](#system) |
 | `equals` | [every type](#every-type) |
 | `exit` | [system](#system) |
+| `exp` | [float](#float) |
 | `fileExists` | [system](#system) |
 | `filesIn` | [system](#system) |
 | `fileSize` | [system](#system) |
@@ -3062,6 +3097,7 @@ appear in an example.
 | `last` | [array](#array) |
 | `lessOrEqual` | [float](#float), [integer](#integer), [string](#string), [symbol](#symbol), [time](#time) |
 | `lessThan` | [float](#float), [integer](#integer), [string](#string), [symbol](#symbol), [time](#time) |
+| `log` | [float](#float) |
 | `loop` | [array](#array) |
 | `makeDirectory` | [system](#system) |
 | `minute` | [time](#time) |
@@ -3080,7 +3116,9 @@ appear in an example.
 | `or` | [boolean](#boolean) |
 | `parent` | [object](#object) |
 | `perform` | [every type](#every-type) |
+| `pi` | [float](#float) |
 | `plusSeconds` | [time](#time) |
+| `pow` | [float](#float) |
 | `print` | [every type](#every-type) |
 | `raise` | [error](#errors) |
 | `readFile` | [system](#system) |
@@ -3100,6 +3138,7 @@ appear in an example.
 | `setModifiedAt` | [system](#system) |
 | `shiftLeft` | [integer](#integer) |
 | `shiftRight` | [integer](#integer) |
+| `sin` | [float](#float) |
 | `size` | [array](#array), [dictionary](#dictionary), [string](#string), [symbol](#symbol) |
 | `slotAt` | [every type](#every-type) |
 | `slots` | [every type](#every-type) |
@@ -3107,6 +3146,7 @@ appear in an example.
 | `split` | [string](#string) |
 | `sqrt` | [float](#float) |
 | `sub` | [float](#float), [integer](#integer) |
+| `tan` | [float](#float) |
 | `time` | [system](#system) |
 | `timeToRun` | [block](#block) |
 | `trim` | [string](#string) |

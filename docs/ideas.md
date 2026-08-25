@@ -51,7 +51,7 @@ marked as a sketch.
 | An early exit from a loop | **Defer** — nine sites carry a flag; the trigger is a body that must skip its remainder ([3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing)) |
 | Intercepting a message not understood | **Defer** — Smalltalk's `doesNotUnderstand`; small to build, and nothing has wanted a proxy |
 | A set, and the collections that are not there | **Defer** — write them in Solum and measure first, as the four loops did |
-| Mathematics, and randomness | **Promoted, and built but for the trigonometry** — `sqrt`, the comparisons and `random:new` all landed; what is left is [3.14](ROADMAP.md#314-the-mathematics-that-is-not-here) |
+| Mathematics, and randomness | **Promoted, and built** — `sqrt`, the comparisons, `random:new`, and then the whole of [3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done): `pow`, `exp`, `log`, the trigonometry, `float:pi` and `float:atan2` |
 | Tail calls | **No** — the programs that seem to ask for them are recursive-descent parsers, which never recurse in tail position |
 | Coroutines | **No** — the interpreter re-enters on the C stack, so a Solum stack is not a value |
 | Multiple return values | **No** — every send has a fixed stack effect, and the verifier checks height on that basis |
@@ -1507,7 +1507,7 @@ has been used for.
 **The trigger fired**, with the tenth.
 [bench.sol](../programs/bench.sol) wanted a standard deviation, a minimum, a
 maximum and two uses of randomness, and carried all of them itself. The entry
-moved to [3.14](ROADMAP.md#314-the-mathematics-that-is-not-here).
+moved to [3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done).
 
 **Half of it is now answered, and the split is the interesting part.** `sqrt` is
 a primitive; `min`, `max` and `between` are [math.sol](../lib/math.sol), a
@@ -1538,10 +1538,11 @@ first coin flip was then exactly the parity of the start time. Neither that nor
 the modulo bias on the way out could be fixed in Solum, which is the argument
 that made `sqrt` a primitive.
 
-The trigonometry named at the top of this entry is in 3.14 too, with its own
-trigger and the reason it would be a primitive rather than a library when it
-comes — argument reduction, which is harder to get right than the square root
-was and fails the same way.
+The trigonometry named at the top of this entry went to 3.14 too, with its own
+trigger and the reason it would be a primitive rather than a library — argument
+reduction, harder to get right than the square root was and failing the same
+way. The trigger fired on 2026-08-25 and it is
+[built](COMPLETED.md#314-the-mathematics-that-is-not-here--done).
 
 ### Splitting the reference into pages
 
@@ -1879,9 +1880,13 @@ done, so this would have to be a program still slowed by a lookup that is
 already constant-time; or a case where a name genuinely must not be rebindable
 and a warning is not enough.
 
-`pi` needs none of this, incidentally. It is two lines in
-[math.sol](../lib/math.sol) whenever a program wants one — and none has, there
-being no trigonometry either ([3.14](ROADMAP.md#314-the-mathematics-that-is-not-here)).
+`pi` needs none of this, incidentally, and in the end it did not go in
+[math.sol](../lib/math.sol) either. It is `float:pi`, a class-side message that
+arrived with the trigonometry
+([3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done)) — the argument
+being that `infinity` and `nan` are globals because they are values the
+arithmetic *reaches*, while `pi` is a constant and `pi` is a name a program is
+entitled to want.
 
 ## Recommended against
 

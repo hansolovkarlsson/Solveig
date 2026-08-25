@@ -20,7 +20,7 @@
 ; them was written here in Solum first, and the square root was wrong twice,
 ; silently, before a primitive replaced it -- the story is in the changelog and
 ; the moral is in
-; [3.14](../docs/ROADMAP.md#314-the-mathematics-that-is-not-here). All four are
+; [3.14](../docs/COMPLETED.md#314-the-mathematics-that-is-not-here--done). All four are
 ; the language's now: `sqrt` is a message a float understands, `min`, `max` and
 ; `between` are in [math.sol](../lib/math.sol), and the generator this file
 ; carried is `random:new` -- which was built because measuring the one here
@@ -91,7 +91,7 @@ second:notNil:and({ second:size:equals(#0) }):ifTrue({ usage:value }).
 ; comparing against something that already knew the answer.
 ;
 ; That is why `sqrt` is a primitive now and not a library method. See
-; [3.14](../docs/ROADMAP.md#314-the-mathematics-that-is-not-here).
+; [3.14](../docs/COMPLETED.md#314-the-mathematics-that-is-not-here--done).
 
 mean := { xs |
     xs:inject(0.0, { total, x | total:add(x) }):div(xs:size:asFloat) }.

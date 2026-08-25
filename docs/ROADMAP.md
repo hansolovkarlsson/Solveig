@@ -55,19 +55,20 @@ have been. Side-table operands are two bytes, a send compares pointers, and the
 script's frame has slots like every other, so a temporary may be declared
 anywhere.
 
-**Section 3 is what is left, and one program has now put two things on it.**
-[3.14](#314-the-mathematics-that-is-not-here) spent its whole life waiting for a
-program that wanted an angle, and [basic.sol](../programs/basic.sol) is one: an
-interpreter for a language whose own definition contains `SIN`, `COS`, `TAN`,
-`ATN`, `EXP`, `LOG` and an exponent operator. So there is a **decision**
-outstanding again, for the first time since 6.32 was deferred — see 3.14, where
-the case and the three questions it turns on are written out.
+**Section 3 is what is left, and one entry on it is open.** One program put two
+things there on the same day and one of them is already gone.
+[3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done) spent its whole
+life waiting for a program that wanted an angle;
+[basic.sol](../programs/basic.sol) was one, wanting six of them and an exponent
+operator because they are in the standard it implements. It was decided rather
+than deferred — eleven messages, landed as one set — and is
+[done](COMPLETED.md#314-the-mathematics-that-is-not-here--done).
 
-The same program then found
-[3.18](#318-a-program-cannot-write-without-ending-the-line): there is no way to
-write to standard output without ending the line, so a prompt cannot sit beside
-its answer. That one is **work** rather than a decision — one primitive, and one
-question about where it goes.
+What is left is [3.18](#318-a-program-cannot-write-without-ending-the-line),
+found by the same program's `INPUT`: there is no way to write to standard output
+without ending the line, so a prompt cannot sit beside its answer. That one is
+**work** rather than a decision — one primitive, and one question about where it
+goes.
 
 Section 3 holds the restrictions the language lives under, each documented where
 a program would meet it. The older ones were chosen; the six newest were found —
@@ -210,7 +211,7 @@ which turned out to be worth more to *sends* than to the globals it was written
 about.
 
 **3.1 through 3.6 were chosen** — a decision taken and written down. **3.7, 3.8,
-3.10, 3.11, 3.12, 3.13 and 3.14 were not.** Each is a consequence of a decision taken elsewhere,
+3.10, 3.11, 3.12 and 3.13 were not.** Each is a consequence of a decision taken elsewhere,
 noticed afterwards, and each is kept here rather than in section 6 because the
 ways of answering it cost more than what they buy is currently worth. That
 distinction is worth keeping visible: a restriction chosen and a restriction
@@ -735,181 +736,6 @@ today every site either sets it at the tail of a branch or wants the rest to
 run, and the moment one does not, the flag has to be threaded through the body
 as `done:not:ifTrue({ ... })` and the workaround starts nesting.
 
-### 3.14 The mathematics that is not here
-
-**No `pow`, no `log`, no `exp`, no trigonometry and no `pi`.** C has all of them
-and each would be a line, and none is here because no program in this repository
-has asked for one — *the ones a program has asked for rather than all of
-`<math.h>`* being the rule this entry set for itself.
-
-**This entry was larger twice and is now this.** It read *there is no square
-root, no minimum, and no randomness*, and both of those halves have since been
-answered. What each cost is recorded here, because the cost is the useful part.
-
-#### The square root, and why it is a primitive
-
-`sqrt` is a message a float understands and `min`, `max` and `between` are in
-[math.sol](../lib/math.sol). Both were writable in Solum; the line between them
-is not importance. `min` and `max` were written correctly the first time, in one
-line each, and there is nothing in them to get wrong. `sqrt` was written
-**twice, and both versions were wrong and silent about it**:
-
-| | |
-| --- | --- |
-| twenty fixed iterations | Right to twelve places at 2, and `sqrt(1e10)` answered `100000.000156`. Newton converges quadratically once the guess is near; from `x` itself the approach is one halving per octave, so seventeen of the twenty iterations went before the good part began. |
-| iterate until it stops moving, capped at sixty steps | Written to fix the first, and worse. The cap is needed, because in floating point Newton can settle into an oscillation between two adjacent values rather than a fixed point — but a value above about 1e21 has not finished halving in sixty steps, so the loop returns `x` divided by 2^60. `sqrt(1e300)` answered `8.67e281` rather than `1e150`. **Nineteen orders of magnitude, silently.** |
-
-Getting it right means scaling by the exponent before iterating, which is asking
-a script to know how a double is laid out. The C library already knows and is
-correctly rounded, so the answer is one line of C and no lines of Solum.
-
-**The second version was checked and passed.** Its 1e300 answer was printed and
-read, and what the reading found was a bug in the *formatter* — the over-read
-fixed in 0.21.0 — because 8.67e281 rendered at six decimal places is 157
-characters out of a 64-byte buffer. The formatter was fixed, the digits were
-compared against the C library, they matched, and the value they were the digits
-*of* was never compared to anything. A wrong number can survive being looked at
-carefully if what you look at is how it is printed.
-
-#### And randomness, which was the open half until it was measured
-
-**`random:new` is the answer, and the question was where the state lives.** It
-lives in an object you make, seeded by the machine or by a number you name —
-never on `system`, because a generator there would give a VM a history and two
-runs of one chunk would stop being identical. That is not a promise
-[embedding.md](embedding.md) makes in so many words, and the wording of this
-entry used to say it was: what that page promises is *one chunk, any number of
-machines*, which a chunk carrying a generator's state would not be. A program
-that never says `random:new`
-is exactly as deterministic as it was before any of this existed.
-
-**What settled it was measuring the generator that was already here.**
-[bench.sol](../programs/bench.sol) carried Lehmer's — multiplier 16807, modulus
-2^31-1, chosen so the product could not exceed a signed 64-bit integer, because
-integer arithmetic traps on overflow rather than wrapping and so the generator
-everybody knows cannot be written in this language at all. It was correct, and
-in bulk it was fine: 100,232 heads in 200,000 flips, and 21 buckets over 210,000
-draws spread from 9,799 to 10,157.
-
-**The seeding was the defect, and it was invisible.** The clock was the only
-entropy a Solum program could reach, so two runs a microsecond apart got
-consecutive seeds — and a Lehmer generator's first output moves by the
-multiplier when its seed moves by one:
-
-| | before | after |
-| --- | --- | --- |
-| the first coin flip, over consecutive seeds | `1, 2, 1, 2, 1, 2, …` — **the parity of the start time** | no pattern |
-| the first resample index of 21, over 2,000 consecutive seeds | **3 distinct values** of 21 | **21** |
-
-Neither shows in the output, and neither was fixable in Solum: mixing a seed
-properly needs the wrapping multiplication that traps here, and there is no
-entropy but the clock for a *program* — the machine has `/dev/urandom` sitting
-right there, which is the asymmetry the whole entry turned on. Add the modulo
-bias that `mod n` leaves on the way out and there are three ways to get this
-wrong that a reader cannot see, which is the argument that made `sqrt` a
-primitive, holding more clearly here than it did there.
-
-**The generator is PCG XSH RR 32/64**, its 64 bits of state are the object's
-payload so an instance allocates nothing, `upTo` draws again rather than taking
-a remainder, and the seed is recorded in an ordinary slot so a run the machine
-seeded can be had back by writing the number down.
-
-**What the trigger taught, since the entry named one and it was the wrong one.**
-It said this waited for *a program wanting randomness for the work rather than
-for how it measures*, and counted `bench.sol` as the second kind. That was a
-misreading of that program: its product is the confidence interval, and the
-interval is computed by bootstrap resampling. The randomness is the algorithm,
-not the instrumentation. **A trigger can be written down wrongly and go on
-looking unfired**, which is worth more than the entry it was attached to.
-
-#### What is left
-
-**`pow`, `log` and `exp` are still not here either**, and were not added with
-`sqrt`. C has them and they would each be a line, but no program in this
-repository has asked for one, and *the ones a program has asked for rather than
-all of `<math.h>`* is the rule this entry set for itself.
-
-**Nor is there any trigonometry, or a `pi`.** Asked about directly, so the
-answer belongs here rather than in a conversation.
-
-The case for building it is the one that made `sqrt` a primitive, and it is
-**stronger** rather than weaker. A hand-written sine fails the same silent way
-and fails harder: the series is the easy half, and the difficulty is argument
-reduction. Reducing `x` modulo 2π needs π to far more bits than a double holds,
-so the obvious `x:sub(twoPi:mul(x:div(twoPi):rounded))` loses a digit of the
-answer for every octave of the argument and is returning noise well before 1e16.
-That is the same shape as the defect this entry already records — plausible
-output, catastrophically wrong in a range nobody thinks to test, silent
-throughout. If *a thing every program would get wrong the same way belongs in
-the machine* is the rule, trigonometry meets it more clearly than `sqrt` did.
-
-**What it was waiting for was a program, and the program has arrived.** For most
-of this entry's life no file here had ever wanted an angle. The first draft of
-this paragraph gave a
-second reason — that the eleven<!--count programs--> programs are text and process
-work, so geometry is
-not what this language is for — and that reason is **wrong and is worth leaving
-recorded as wrong**. The programs are the tools this project needed while
-building itself; they describe what has been written, not what may be. Solum is
-meant to be a general-purpose language, which
-[design.md](design.md#what-the-language-is-for) now states outright, and no
-entry in this document should be read as ruling a direction out because nothing
-has gone that way yet.
-
-So the trigger was ordinary: **a program that wants an angle** — a plotter, a
-simulation, anything with coordinates or a waveform. When one arrived, the
-sensible thing would be to land trigonometry and `pow`/`log`/`exp` as a **single
-decision** rather than a message at a time, since arriving one convenience at a
-time is exactly what the rule above exists to prevent.
-
-#### The program that arrived, and why it is a harder case than a plotter
-
-[basic.sol](../programs/basic.sol) is an interpreter for **ECMA-55 Minimal BASIC
-(1978)**. Six of that standard's eleven supplied functions are `SIN`, `COS`,
-`TAN`, `ATN`, `EXP` and `LOG`, and its `^` operator needs `pow`.
-
-**The difference from a plotter is that this program cannot decide to want less.**
-A plotter that wanted one angle could be written to want none — plot something
-else, or take the coordinates ready-made. An interpreter is measured against a
-document it did not write. Either `PRINT SIN(0)` gives `0` or the interpreter is
-not an interpreter for that language, and no amount of taste about what belongs
-in a small language changes what is on page 27 of the standard. That is the
-strongest form the trigger could have taken, and it took it by accident: the
-program was chosen for being a different *shape* from the other ten, not for
-wanting arithmetic.
-
-**`^` is where it bites first, and it is the same failure this entry already
-records twice.** The obvious stub is repeated multiplication, which is exact for
-`2^3` and cannot answer `2^0.5` at all; the next one is `exp(y * log x)`, which
-needs two of the six missing functions. So `basic.sol` raises on `^` and names
-this entry, rather than shipping an operator that is right in the cases anybody
-tests and silently wrong outside them — which is precisely how both hand-written
-square roots got through.
-
-**What is decided by BASIC rather than by us**, of the three questions below:
-the standard's functions take **radians**, and its `ATN` takes one argument, so
-`atan2`'s missing receiver need not be answered to unblock this program. Only
-where `pi` lives is still open, and Minimal BASIC has no `PI` at all — so even
-that can wait for the second program.
-
-Stage three of `basic.sol` is the supplied functions, and it cannot start until
-this is decided.
-
-Three questions it raises that `sqrt` did not, worth having answered before a
-program forces them:
-
-| | |
-| --- | --- |
-| where `pi` lives | `infinity` and `nan` are globals, so `pi` would be the third — and the first that is not an IEEE special. `float:pi` as a class-side slot is the alternative, and the two read very differently on the page. |
-| radians or degrees | Decided once and regretted afterwards, in every language that has chosen. C gives radians; the places a person types an angle by hand usually want degrees. |
-| `atan2` belongs to neither argument | It takes two coordinates and there is no receiver that is obviously the subject, so `y:atan2(x)` reads badly in a language where the receiver is what the sentence is about. |
-
-And a note on size, since it is the one argument that is about the shape of the
-language rather than about the maths: `float` answers 26<!--count float-answers-->
-messages today, and
-`sin`, `cos`, `tan`, `asin`, `acos`, `atan` and `atan2` would be a third again.
-That is a reason to add them deliberately and together, not a reason to refuse.
-
 ### 3.18 A program cannot write without ending the line
 
 **`display` and `print` are the only ways a Solum program has to put text on its
@@ -954,7 +780,7 @@ five
 The prompt arrives before the three lines written before it. **It works when
 tried by hand and silently reorders the transcript the moment anything is
 redirected**, which is the same shape as the two hand-written square roots in
-[3.14](#314-the-mathematics-that-is-not-here): plausible under the test anybody
+[3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done): plausible under the test anybody
 runs, wrong under the conditions nobody thinks to try.
 
 #### What it would take, and the one question it raises
@@ -1006,11 +832,12 @@ keeping it did. The number stays 6.32 and is not reused.
 
 ## How this list emptied, and how it filled and emptied again
 
-**One decision and one piece of work are on it.** Sections 2, 3 and 6 held the whole of what was left
-to decide or build, and 2 and 6 are done — what remains in 3 are restrictions
-kept on purpose, each documented where a program would meet it. One of those
-restrictions, [3.14](#314-the-mathematics-that-is-not-here), was kept on purpose
-*until a program wanted otherwise*, and on 2026-08-25 one did.
+**One piece of work is on it.** Sections 2, 3 and 6 held the whole of what was
+left to decide or build, and 2 and 6 are done — what remains in 3 are
+restrictions kept on purpose, each documented where a program would meet it. One
+of those restrictions, [3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done),
+was kept on purpose *until a program wanted otherwise*; on 2026-08-25 one did,
+and it was lifted the same day.
 
 It gained one back on 2026-08-25 and lost it the same day:
 [5.5](COMPLETED.md#55-five-programs-each-wrote-the-same-cursor--done), a cursor
@@ -1076,7 +903,9 @@ found out what it wanted.
   open — `pow`, `log`, `exp` and trigonometry, waiting for a program that wanted
   an angle. An interpreter for ECMA-55 Minimal BASIC wants six of them and an
   exponent operator, and cannot decide to want fewer: the functions are in the
-  standard it is being measured against. It also found, more cheerfully, that
+  standard it is being measured against. Decided and
+  [built](COMPLETED.md#314-the-mathematics-that-is-not-here--done) the same day,
+  as one set of eleven rather than the seven that were wanted. It also found, more cheerfully, that
   **line numbers are what make the job fit inside the frame limit** — a program
   counter over a sorted table of lines nests no frames at all, where a
   tree-walking interpreter for a modern language would spend them in proportion
@@ -1103,10 +932,11 @@ a debugger that could not name a local would have been most of the work for a
 fraction of the use, and only then
 [Solid](COMPLETED.md#629-a-stepper--solid--done).
 
-**One decision is outstanding, and it is 3.14.** It is the first since 6.32 was
-deferred, and unlike 6.32 it has a program behind it rather than a use nobody
-has. The older questions stay closed. 2.5, the last *language* question, is
-closed: 1.6 had answered it one message at a time to stop the crashes, and finishing
+**No decision is outstanding.** 3.14 was the first since 6.32 was deferred, and
+unlike 6.32 it had a program behind it rather than a use nobody has — so it was
+taken rather than deferred, the same day it was raised. What is left on this list
+is one piece of work, 3.18, and no question at all. The older ones stay closed.
+2.5, the last *language* question, is closed: 1.6 had answered it one message at a time to stop the crashes, and finishing
 that — every class-side message requiring an object receiver — turned out to be
 the whole of what splitting the two objects would have bought. And 6.32, the
 last one of any kind, was deferred to

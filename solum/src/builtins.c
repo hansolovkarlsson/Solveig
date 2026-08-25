@@ -290,6 +290,140 @@ static SolValue prim_float_sqrt(SolVM *vm, SolValue self, SolValue *args, int ar
     return SOL_FLOAT_VAL(sqrt(SOL_AS_FLOAT(self)));
 }
 
+/* The rest of the mathematics, landed as one set rather than a message at a
+ * time -- ROADMAP 3.14, which spent its whole life waiting for a program that
+ * wanted an angle and got programs/basic.sol: an interpreter for a language
+ * whose own definition contains SIN, COS, TAN, ATN, EXP, LOG and an exponent
+ * operator, and which cannot decide to want fewer of them.
+ *
+ * The case is the one that made sqrt a primitive above, and it is stronger.
+ * The series for a sine is the easy half; the difficulty is argument
+ * reduction, and reducing x modulo 2*pi needs pi to far more bits than a
+ * double holds -- so the obvious `x - 2pi*round(x/2pi)` loses a digit of the
+ * answer per octave of the argument and is returning noise well before 1e16.
+ * Plausible output, catastrophically wrong in a range nobody thinks to test,
+ * silent throughout. The C library already knows how to do it.
+ *
+ * asin, acos and atan2 are here although no program has asked for one, for the
+ * same reason as the rest: written by hand, asin(x) is atan(x/sqrt(1-x*x)),
+ * which divides by zero at the ends of its own domain, and atan2 is atan(y/x)
+ * with quadrant fixups everybody gets wrong on the axes. Shipping the half a
+ * program asked for is how the other half arrives one convenience at a time,
+ * which is what that entry's rule exists to prevent.
+ *
+ * Radians, following C and following the standard basic.sol is written to.
+ * Degrees are a multiplication and belong in lib/math.sol, which is the same
+ * line this entry already drew between sqrt and min.
+ *
+ * None of them raise. sqrt answers nan for a negative and division reaches
+ * infinity, so log(0) is -infinity and log of a negative is nan. A language
+ * with stricter rules imposes them itself -- basic.sol raises for SQR(-1)
+ * because ECMA-55 says so, on top of a sqrt that quietly answers nan, and that
+ * is the right place for it. */
+static SolValue prim_float_pow(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "pow", argc, 1)) return SOL_NIL_VAL;
+    if (!check_same_type(vm, "pow", self, args[0])) return SOL_NIL_VAL;
+    return SOL_FLOAT_VAL(pow(SOL_AS_FLOAT(self), SOL_AS_FLOAT(args[0])));
+}
+
+static SolValue prim_float_exp(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "exp", argc, 0)) return SOL_NIL_VAL;
+    return SOL_FLOAT_VAL(exp(SOL_AS_FLOAT(self)));
+}
+
+/* The natural logarithm, which is what every language calling it `log` means
+   and what BASIC's LOG is. A base-ten one is log(x)/log(10) and needs nothing
+   the machine has to supply. */
+static SolValue prim_float_log(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "log", argc, 0)) return SOL_NIL_VAL;
+    return SOL_FLOAT_VAL(log(SOL_AS_FLOAT(self)));
+}
+
+static SolValue prim_float_sin(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "sin", argc, 0)) return SOL_NIL_VAL;
+    return SOL_FLOAT_VAL(sin(SOL_AS_FLOAT(self)));
+}
+
+static SolValue prim_float_cos(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "cos", argc, 0)) return SOL_NIL_VAL;
+    return SOL_FLOAT_VAL(cos(SOL_AS_FLOAT(self)));
+}
+
+static SolValue prim_float_tan(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "tan", argc, 0)) return SOL_NIL_VAL;
+    return SOL_FLOAT_VAL(tan(SOL_AS_FLOAT(self)));
+}
+
+/* Outside -1 to 1 these answer nan, which is the domain error IEEE gives and
+   the same answer sqrt gives for a negative. */
+static SolValue prim_float_asin(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "asin", argc, 0)) return SOL_NIL_VAL;
+    return SOL_FLOAT_VAL(asin(SOL_AS_FLOAT(self)));
+}
+
+static SolValue prim_float_acos(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "acos", argc, 0)) return SOL_NIL_VAL;
+    return SOL_FLOAT_VAL(acos(SOL_AS_FLOAT(self)));
+}
+
+static SolValue prim_float_atan(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "atan", argc, 0)) return SOL_NIL_VAL;
+    return SOL_FLOAT_VAL(atan(SOL_AS_FLOAT(self)));
+}
+
+/* Class-side, and that is the answer to the question this message raises: it
+   takes two coordinates and neither is the subject of the sentence, so
+   `y:atan2(x)` reads as though the y were what the angle is about. `float` is
+   the receiver instead, the way `time:fromSeconds` and `array:of` are written,
+   and then the arguments are in the order the name has always had them. */
+static SolValue prim_float_atan2(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "atan2", argc, 2)) return SOL_NIL_VAL;
+    for (int i = 0; i < 2; i++) {
+        if (!SOL_IS_FLOAT(args[i])) {
+            sol_vm_runtime_error(vm, "'atan2' expects a float, got %s",
+                                 sol_type_name(args[i]));
+            return SOL_NIL_VAL;
+        }
+    }
+    return SOL_FLOAT_VAL(atan2(SOL_AS_FLOAT(args[0]), SOL_AS_FLOAT(args[1])));
+}
+
+/* Class-side too, and not a global. `infinity` and `nan` are globals because
+   they are values this type produces and has no other way to name; pi is a
+   constant, and `pi` is a name a program is entitled to want -- which is the
+   argument lib/math.sol already makes for binding no global of its own.
+
+   It is the one member of this set that a script could have got right on its
+   own: 3.141592653589793 is the nearest double and anybody can type it. It is
+   here so that a language with sin and cos is not a language where the first
+   thing every program does is write out a constant. */
+static SolValue prim_float_pi(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    (void)args;
+    if (!check_argc(vm, "pi", argc, 0)) return SOL_NIL_VAL;
+    return SOL_FLOAT_VAL(3.14159265358979311599796346854418516159057617187500);
+}
+
 /* Floats divide by zero to infinity rather than erroring. That is not a new
    rule: float multiplication already overflows silently to infinity where
    integer multiplication traps, because infinity is a representable float and
@@ -5101,6 +5235,17 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->float_class, SOL_FLOAT, "negated", prim_float_negated);
     instance(vm, vm->float_class, SOL_FLOAT, "abs", prim_float_abs);
     instance(vm, vm->float_class, SOL_FLOAT, "sqrt", prim_float_sqrt);
+    instance(vm, vm->float_class, SOL_FLOAT, "pow", prim_float_pow);
+    instance(vm, vm->float_class, SOL_FLOAT, "exp", prim_float_exp);
+    instance(vm, vm->float_class, SOL_FLOAT, "log", prim_float_log);
+    instance(vm, vm->float_class, SOL_FLOAT, "sin", prim_float_sin);
+    instance(vm, vm->float_class, SOL_FLOAT, "cos", prim_float_cos);
+    instance(vm, vm->float_class, SOL_FLOAT, "tan", prim_float_tan);
+    instance(vm, vm->float_class, SOL_FLOAT, "asin", prim_float_asin);
+    instance(vm, vm->float_class, SOL_FLOAT, "acos", prim_float_acos);
+    instance(vm, vm->float_class, SOL_FLOAT, "atan", prim_float_atan);
+    instance(vm, vm->float_class, SOL_OBJ, "atan2", prim_float_atan2);
+    instance(vm, vm->float_class, SOL_OBJ, "pi", prim_float_pi);
     instance(vm, vm->float_class, SOL_FLOAT, "notEquals", prim_not_equals);
     instance(vm, vm->float_class, SOL_FLOAT, "lessOrEqual", prim_less_or_equal);
     instance(vm, vm->float_class, SOL_FLOAT, "greaterOrEqual", prim_greater_or_equal);

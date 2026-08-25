@@ -1353,7 +1353,7 @@ in the file. What the experiment measured is the cost of writing them:
   and modulus chosen to stay inside 64 bits — but "write your own" is narrower
   advice than it sounds when the reason is nothing to do with randomness.
 
-That is [3.14](ROADMAP.md#314-the-mathematics-that-is-not-here),
+That is [3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done),
 and [3.15](COMPLETED.md#315-a-childs-streams-cannot-be-redirected--done) came with it: a
 child's stderr cannot be discarded, and a benchmark harness is the one program
 that cannot buy its way out through `/bin/sh`.

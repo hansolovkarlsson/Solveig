@@ -37,12 +37,16 @@
 ;         fourth pass at load, because `DATA`, `DEF` and `OPTION BASE` are all
 ;         in force for the whole listing wherever they are written.
 ;
-; **What is missing is six functions and nothing else.** `SIN`, `COS`, `TAN`,
-; `ATN`, `EXP` and `LOG` are stage three, and stage three is
-; [3.14](../docs/ROADMAP.md#314-the-mathematics-that-is-not-here) -- a decision
-; rather than work. `^` waits on the same entry. After that, stage five: the
-; rest of `PRINT`'s formatting, and a recorded transcript for each listing in
-; [basic/](basic/) rather than the claims in comments this file uses now.
+;   three All eleven supplied functions and the `^` operator. Six of them and
+;         the operator waited two days on
+;         [3.14](../docs/COMPLETED.md#314-the-mathematics-that-is-not-here--done),
+;         an entry that had been waiting since it was written for a program
+;         that wanted an angle. This was that program, and it wanted six.
+;
+; **The language is complete**: twenty statements, eleven functions, and every
+; rule of the standard this file has found a way to check. What is left is
+; stage five -- the rest of `PRINT`'s formatting, and a recorded transcript for
+; each listing in [basic/](basic/) rather than the claims in comments used here.
 ;
 ; Stage four went ahead of stage three because it turned out not to depend on
 ; it, and then took part of it anyway: `A(1)` and `ABS(1)` are the same syntax,
@@ -1021,14 +1025,8 @@ basic:nameOrCall := { t | | name |
             { callNode:value("RND", array:new) },
             { variableNode:value(self:variableName(t)) }) }) }.
 
-; The six that 3.14 blocks are still *names of functions*, so they belong on
-; this side of the fork even though nothing can run them. Leaving them out sent
-; `SIN(0)` down the array branch, where it was refused for being more than one
-; letter long -- a true sentence about the wrong thing, and the sort of message
-; that sends somebody looking in the wrong place for an afternoon.
 basic:applied := { name, args |
     functions:includes(name)
-        :or({ blocked:indexOf(name):notNil })
         :or({ self:looksLikeFn(name) })
         :ifElse(
             { callNode:value(name, args) },
@@ -1168,13 +1166,20 @@ basic:element := { n | | arr |
 ; ---------------------------------------------------------------------------
 ; The supplied functions, and the five that are here
 ;
-; Minimal BASIC supplies eleven. `ABS`, `INT`, `SGN`, `SQR` and `RND` are
-; below. The other six -- `SIN`, `COS`, `TAN`, `ATN`, `EXP` and `LOG` -- are
-; [3.14](../docs/ROADMAP.md#314-the-mathematics-that-is-not-here), the same
-; entry `^` waits on, and they refuse for the same reason: an implementation
-; that is plausible and quietly wrong is worse than one that says what it needs.
-
-blocked := ["SIN", "COS", "TAN", "ATN", "EXP", "LOG"].
+; **All eleven of them, which is the whole language.** Five of these were here
+; from the day arrays were, because `A(1)` and `ABS(1)` are the same syntax. The
+; other six -- `SIN`, `COS`, `TAN`, `ATN`, `EXP` and `LOG` -- waited on
+; [3.14](../docs/COMPLETED.md#314-the-mathematics-that-is-not-here--done),
+; which this program is what finally moved: an entry that had been waiting since
+; it was written for a program that wanted an angle.
+;
+; Each of the six is now one line. That is the shape of the thing that entry was
+; arguing about: the cost was never the code, it was that a hand-written one is
+; wrong in a range nobody tests and says nothing about it.
+;
+; `ATN` is BASIC's name for `atan`, and it takes one argument -- so `atan2`,
+; which the language gained at the same time, is not needed to finish this and
+; sits unused here.
 
 functions := dictionary:new.
 
@@ -1205,15 +1210,29 @@ functions:atPut("RND", { m, args |
         m:fail("RND takes no argument in this dialect") }).
     m:rng:fraction }).
 
+; The six that 3.14 was holding, each of them a line once the decision was
+; taken. `ATN` is the standard's spelling of `atan`; the rest keep their names.
+functions:atPut("SIN", { m, args | m:onlyArgument("SIN", args):sin }).
+functions:atPut("COS", { m, args | m:onlyArgument("COS", args):cos }).
+functions:atPut("TAN", { m, args | m:onlyArgument("TAN", args):tan }).
+functions:atPut("ATN", { m, args | m:onlyArgument("ATN", args):atan }).
+functions:atPut("EXP", { m, args | m:onlyArgument("EXP", args):exp }).
+
+; The standard makes `LOG` of a non-positive number an error, where Solum
+; answers `-infinity` or `nan` and lets it travel. The stricter rule belongs to
+; the language being interpreted, which is the same division `SQR` follows above.
+functions:atPut("LOG", { m, args | | v |
+    v := m:onlyArgument("LOG", args).
+    v:greaterThan(0.0):ifFalse({
+        m:fail("LOG of {}, which is not positive":fill([v])) }).
+    v:log }).
+
 basic:onlyArgument := { name, args |
     args:size:equals(#1):ifFalse({
         self:fail("{} takes one number":fill([name])) }).
     self:numeric(self:evaluate(args:at(#1))) }.
 
 basic:apply := { n |
-    blocked:indexOf(n:name):notNil:ifTrue({
-        self:fail("{} is not here: it needs the mathematics of ROADMAP 3.14"
-            :fill([n:name])) }).
     functions:includes(n:name):ifElse(
         { functions:at(n:name):value(self, n:args) },
         { self:userFunction(n) }) }.
@@ -1252,28 +1271,14 @@ basic:combine := { n | | l, r, op |
     op:equals("/"):ifElse({ l:div(r) }, {
 
     ; -----------------------------------------------------------------------
-    ; And here is the finding this program was written to produce
+    ; This one was the finding, and now it is a line
     ;
-    ; `^` is in the language being interpreted, and it cannot be implemented.
-    ; Solum has no `pow`, and the ways round it are all wrong:
-    ;
-    ;   * repeated multiplication answers integer exponents only, and BASIC's
-    ;     `^` takes any number -- `2^0.5` is the square root of two;
-    ;   * `exp(y * log x)` needs two more functions this language also lacks.
-    ;
-    ; It is not stubbed with something plausible, because that is exactly the
-    ; failure [3.14](../docs/ROADMAP.md#314-the-mathematics-that-is-not-here)
-    ; already records twice: a hand-written `sqrt` wrong in the fourth digit,
-    ; and a second one wrong by nineteen orders of magnitude, both silent. An
-    ; operator that is right for `2^3` and quietly wrong for `2^0.5` would be
-    ; the third.
-    ;
-    ; So it says what is missing, and the last demonstration below shows it
-    ; saying so. Six of Minimal BASIC's eleven supplied functions -- SIN, COS,
-    ; TAN, ATN, EXP and LOG -- are the same entry, and stage three cannot start
-    ; until it is decided.
-    op:equals("^"):ifElse({
-        self:fail("^ needs 'pow', which this language does not have (ROADMAP 3.14)") }, {
+    ; `^` raised for two days, naming
+    ; [3.14](../docs/COMPLETED.md#314-the-mathematics-that-is-not-here--done)
+    ; and refusing to be stubbed: repeated multiplication answers integer
+    ; exponents only, and `exp(y * log x)` needed two more functions the
+    ; language also lacked. Landing the whole set made it `pow`.
+    op:equals("^"):ifElse({ l:pow(r) }, {
         self:fail("'{}' is not an operator":fill([op])) }) }) }) }) }) }.
 
 ; ---------------------------------------------------------------------------
@@ -2060,13 +2065,42 @@ listing:value(deep:value(#61)).
 ; reason.
 
 ; ---------------------------------------------------------------------------
-; And the one it cannot run
+; The half that was missing for two days
 ;
-; `^` is in the language and is not in this one. ROADMAP 3.14 has been waiting
-; for a program that wants an angle; this is a program that wants six of them
-; and an exponent operator besides, and it cannot be finished without them.
+; `^` and six of the eleven supplied functions raised for two days, naming
+; [3.14](../docs/COMPLETED.md#314-the-mathematics-that-is-not-here--done) and
+; refusing to be stubbed with anything plausible. That entry had been waiting
+; since it was written for a program that wanted an angle. This was the program,
+; the decision was taken, and each of the seven became a line.
 
 listing:value([
-    "10 PRINT 2 ^ 3",
+    "10 PRINT 2 ^ 3; 2 ^ 0.5",
+    "20 PRINT SIN(0); COS(0); TAN(0)",
+    "30 PRINT EXP(1); LOG(1)",
+    "40 END"]).
+;    8  1.4142135623730951
+;    0  1  0
+;    2.718281828459045  0
+
+; `ATN` is the standard's `atan`, and four of it is pi -- which BASIC has no
+; constant for, so this is how a listing gets one.
+
+listing:value([
+    "10 PRINT ATN(1) * 4",
     "20 END"]).
-;   line 10: ^ needs 'pow', which this language does not have (ROADMAP 3.14)
+;    3.141592653589793
+
+; And the left-grouping promised at the top of this file, now that it can be
+; shown: `2^3^2` is 64 here and 512 in almost every BASIC since 1978.
+
+listing:value([
+    "10 PRINT 2 ^ 3 ^ 2",
+    "20 END"]).
+;    64
+
+; `LOG` of a non-positive number is an error in the standard, where Solum
+; answers `-infinity` and lets it travel. The stricter rule belongs to the
+; language being interpreted, which is where `SQR` puts it too.
+
+listing:value(["10 PRINT LOG(0)", "20 END"]).
+;   line 10: LOG of 0, which is not positive
