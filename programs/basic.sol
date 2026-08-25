@@ -1334,7 +1334,7 @@ runners:atPut('randomize, { m, st | m:rng := random:new }).
 ; BASIC prompts with `?` and waits on the same line, and for two days this could
 ; not: `display` and `print` were the only ways a Solum program had to write and
 ; both end the line. That was
-; [3.18](../docs/COMPLETED.md#318-a-program-cannot-write-without-ending-the-line),
+; [3.18](../docs/COMPLETED.md#318-a-program-cannot-write-without-ending-the-line--done),
 ; which this statement is what found -- and it is now `system:write`.
 ;
 ; **Whatever a `PRINT` left open goes out first, and without a newline.** So a
@@ -2030,7 +2030,7 @@ listing:value([
 ;
 ; The prompt sits beside the answer, which it did not for the two days between
 ; this statement being written and
-; [3.18](../docs/COMPLETED.md#318-a-program-cannot-write-without-ending-the-line)
+; [3.18](../docs/COMPLETED.md#318-a-program-cannot-write-without-ending-the-line--done)
 ; being closed.
 
 ; ---------------------------------------------------------------------------

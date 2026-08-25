@@ -931,7 +931,7 @@ It writes to the same stream `display` does, so the two interleave in the order
 they were written — including when the output is a pipe or a file. Anything that
 opened its own stream on the same output would not: the two buffer differently
 away from a terminal, and the unbuffered one arrives first
-([3.18](COMPLETED.md#318-a-program-cannot-write-without-ending-the-line) records
+([3.18](COMPLETED.md#318-a-program-cannot-write-without-ending-the-line--done) records
 what that looked like).
 
 ```
