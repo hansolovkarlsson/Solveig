@@ -56,3 +56,40 @@ jobs:
 
       - name: Test
         run: make test CC=${{ matrix.cc }}
+
+  # Undefined behaviour is the thing this repository has already been bitten by
+  # once, and by luck rather than by a check: `frame->ip += READ_SHORT()` was
+  # right for the project's whole life because clang happened to evaluate it in
+  # the order that made it right. A compiler warning found that one. UBSan is
+  # for the ones no warning states.
+  #
+  # ASan and UBSan have been run here before -- the changelog has several passes
+  # of them against particular commits, some of which found real faults -- but
+  # by hand, when somebody remembered, aimed at whatever had just changed. This
+  # runs the whole suite, every push, which is the difference the portability
+  # job made this morning.
+  #
+  # Linux, and clang, for a reason: LeakSanitizer does not work on macOS/arm64,
+  # and `design.md` says in its status line that the language does not leak.
+  # That is a claim, so it wants somewhere it can be checked.
+  sanitizers:
+    name: asan + ubsan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build
+        run: make CC=clang SANITIZE="$SANITIZE"
+
+      - name: Test
+        run: make test CC=clang SANITIZE="$SANITIZE"
+        env:
+          # Without halt_on_error, UBSan prints what it found and carries on,
+          # and the job stays green while saying it should not be.
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+          ASAN_OPTIONS: detect_leaks=1
+
+    env:
+      SANITIZE: -fsanitize=address,undefined -fno-omit-frame-pointer

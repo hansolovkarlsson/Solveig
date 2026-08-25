@@ -34,6 +34,20 @@ endif
 # macOS, which is why it is not conditional.
 LDLIBS = -lm
 
+# Empty by default; the sanitizers go here rather than into CFLAGS.
+#
+#   make clean && make test SANITIZE="-fsanitize=address,undefined"
+#
+# CFLAGS is not the place for them. It is `?=`, so setting it on the command
+# line replaces the warning flags -- and, less visibly, `+=` on a target below
+# stops applying, which would link test_threads without `-pthread` and say
+# nothing about it. A separate variable leaves both alone.
+#
+# The same value has to reach the link, which it does: every rule that links
+# passes this too, and -fsanitize is a link-time flag as much as a compile-time
+# one.
+SANITIZE =
+
 BUILD = build
 BIN   = bin
 
@@ -56,23 +70,23 @@ embed: $(BIN)/solhost
 
 $(BIN)/solhost: embed/host.c $(LIB)
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(STANDARD) $(INCLUDES) $^ -o $@ $(LDLIBS)
+	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) $^ -o $@ $(LDLIBS)
 
 $(BIN)/solas: solas/cmd/main.c $(LIB)
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(STANDARD) $(INCLUDES) $^ -o $@ $(LDLIBS)
+	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) $^ -o $@ $(LDLIBS)
 
 $(BIN)/solvm: solum/cmd/main.c $(LIB)
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(STANDARD) $(INCLUDES) $^ -o $@ $(LDLIBS)
+	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) $^ -o $@ $(LDLIBS)
 
 $(BIN)/solis: solis/cmd/main.c $(LIB)
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(STANDARD) $(INCLUDES) $^ -o $@ $(LDLIBS)
+	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) $^ -o $@ $(LDLIBS)
 
 $(BIN)/solid: solid/cmd/main.c $(LIB)
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(STANDARD) $(INCLUDES) $^ -o $@ $(LDLIBS)
+	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) $^ -o $@ $(LDLIBS)
 
 $(LIB): $(LIB_OBJS)
 	@mkdir -p $(@D)
@@ -80,11 +94,11 @@ $(LIB): $(LIB_OBJS)
 
 $(BUILD)/%.o: %.c
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(STANDARD) $(INCLUDES) -MMD -MP -c $< -o $@
+	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) -MMD -MP -c $< -o $@
 
 $(BUILD)/tests/%: tests/%.c $(LIB)
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(STANDARD) $(INCLUDES) $^ -o $@ $(LDLIBS)
+	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) $^ -o $@ $(LDLIBS)
 
 # The one test that needs threads. Nothing else links anything, and the point of
 # keeping it to one target is that a build without pthreads still gets the rest.
