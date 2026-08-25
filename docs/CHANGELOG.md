@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### BASIC gets its data, and every statement in the standard — `pending`, 2026-08-25
+### BASIC gets its data, and every statement in the standard — `6c25056`, 2026-08-25
 
 **Stage four of [programs/basic.sol](../programs/basic.sol): text variables,
 arrays, `DIM`, `OPTION BASE`, `DATA`/`READ`/`RESTORE`, `INPUT`, `DEF FN`,
