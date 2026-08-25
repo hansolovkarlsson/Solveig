@@ -384,7 +384,7 @@ before it checked, so a malformed `\u00` complained about a character four
 further on than it used to. It asks before it takes now.
 
 One thing fell out that is worth having on its own: the baseline found that
-[json.sol could not read a newline](#jsonsol-could-not-read-a-newline--a32a7a0),
+[json.sol could not read a newline](#jsonsol-could-not-read-a-newline--a32a7a0-2026-08-25),
 which is the entry below.
 
 **And one claim was nearly overstated in the other direction.** `json.sol`'s
@@ -418,7 +418,7 @@ it claims does not look at the library.
 
 **Found by writing a baseline before a refactor** rather than by looking for it:
 38 inputs through `json:read` with their output recorded, so that
-[5.5](ROADMAP.md#55-five-programs-each-wrote-the-same-cursor)'s conversion of
+[5.5](COMPLETED.md#55-five-programs-each-wrote-the-same-cursor--done)'s conversion of
 this file could be proved to change nothing. Two of the 38 were already wrong.
 
 `\b` and `\f` were missing from the table even before it was deleted, so they
@@ -460,7 +460,7 @@ messages across **219** registrations, down from 125 across 220. Nothing became
 askable that was not askable before.
 
 **And the roadmap has an entry on it again**, after being empty of buildable
-work since 0.26.0. [5.5](ROADMAP.md#55-five-programs-each-wrote-the-same-cursor)
+work since 0.26.0. [5.5](COMPLETED.md#55-five-programs-each-wrote-the-same-cursor--done)
 is `lib/scan.sol`: five programs each hand-wrote the same cursor — `pos`,
 `peek`, `step` or `advance`, `skipSpace` — and two of them cannot agree what to
 call the method that moves forward. It arrived the way the roadmap says entries
