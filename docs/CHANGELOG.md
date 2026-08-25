@@ -5,6 +5,48 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## 0.30.0 — 2026-08-25
+
+**One new library file, one four-day-old defect fixed, and nothing else in the
+language changed.** `.sob` files are format version 14, unchanged, and bytecode
+from 0.29.0 still runs.
+
+**[lib/scan.sol](../lib/scan.sol) is a cursor over text** — a position, and the
+handful of questions you ask at one. Five files here had each written that
+object for themselves, two of them unable to agree whether the method that moves
+forward is called `step` or `advance`. All five are converted, each checked
+against a recorded baseline and each byte-identical afterwards.
+
+```
+@include "scan.sol".
+
+digit := { c | c:greaterOrEqual("0"):and({ c:lessOrEqual("9") }) }.
+s := scan:on("8080ab").
+s:takeWhile(digit):display.           ; 8080
+s:rest:display.                       ; ab
+```
+
+**It is not a pattern language**, and that was the finding behind it: what
+repeated across those five files was never a pattern, it was a position.
+
+**The honest number is 46 recovered against 48 spent.** The library pays for
+itself and no more. What it bought is one implementation instead of five, which
+is worth having and is not a line count.
+
+**`json:read` could not read a string containing `\n`**, and had not been able
+to since 2026-08-21 — the escape table was deleted and the two lines that read
+it were left behind, so every escape but `\uXXXX` raised. Four days and four
+releases. It was found by recording a baseline before a refactor rather than by
+looking for it, and `\b` and `\f` work here for the first time.
+
+**Two things this release says about the checking**, both worth more than the
+code. The documentation checker's subjects are `examples`, `docs`, `README.md`
+and `index.md`: **it does not look at `lib/` at all**, which is what let the
+escapes defect stand. And `experiment/prove.sh` had built one generation with a
+different search path from the others since the day it was written — invisible
+until a conversion crossed it, then failing the fixpoint on file names while
+both compilers agreed about every instruction.
+
 ### The other four, and what converting them cost — `cfd08e7`, 2026-08-25
 
 **`html.sol`, `experiment/lexer.sol`, `serve.sol` and `expect.sol` are on the

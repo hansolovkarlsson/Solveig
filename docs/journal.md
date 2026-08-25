@@ -11,6 +11,102 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-25 (night) — the cursor, and two defects it walked into
+
+ROADMAP 5.5 went on the list this morning and came off tonight. The library is
+the least interesting thing that happened.
+
+### The plan was the good part
+
+The entry said: write it, convert `json.sol` **only**, and let that say whether
+the interface is right before anything else moves. That is a rule against
+guessing, and it caught me guessing twice.
+
+The entry's own list was `peek`, `match`, `skipWhile`, `takeWhile`,
+`takeUntil`. Converting one file added two more that no amount of staring at
+the survey would have produced:
+
+- **`since(start)`**, because `takeWhile` describes a run of *one* kind of
+  character and JSON's number is four kinds in a row — sign, digits, fraction,
+  exponent — and what the caller wants at the end is the whole span.
+- **`take(#n)`**, because `\uXXXX` is exactly four characters and no predicate
+  says *four*.
+
+A third came from `html.sol`: **`pos` is written as well as read**, because
+scanners backtrack. `&notanentity;` is read all the way to the `;` before being
+rejected, and the cursor goes back. That is why there is no `mark` message —
+there is nothing for it to do that assigning `pos` does not.
+
+### The number, which is not the one I would have guessed
+
+| | |
+| --- | --- |
+| five files, code lines recovered | 46 |
+| `lib/scan.sol`, code lines spent | 48 |
+
+**It pays for itself and nothing more.** I would have guessed a clear win before
+starting, and the entry would have been written to promise one. What it actually
+bought is one implementation instead of five — which is the thing the entry
+*did* claim, and is worth having on its own, and is not a line count.
+
+`expect.sol` recovered **nothing**, and that corrects the survey rather than the
+file. It was counted as four scanning sites; one is cursor-shaped. `wordBefore`
+runs backwards, `markersIn` searches for a substring, `asCount` filters every
+character rather than stopping at one. Counting scanning by eye had counted
+three things that a forward, stopping, character-at-a-time cursor cannot do.
+
+### Two defects, neither in the code being changed
+
+**`json.sol` could not read a newline.** Before converting it I recorded 38
+inputs and their output, so the conversion could be *proved* to change nothing.
+Two of the 38 were already wrong: `json:escapes` was referenced twice and bound
+nowhere, deleted on 2026-08-21 by the commit that wrote the HTML reader, with
+the two lines that read it left behind. Four days, four releases, and every
+escape but `\uXXXX` raised.
+
+Why nothing caught it is the better half. The library test exercises exactly one
+escape — `é` — chosen when the question was whether a code point above
+ASCII survived, which is the branch that was never broken. And the documentation
+checker's subjects are `examples`, `docs`, `README.md` and `index.md`: **it does
+not look at `lib/` at all.** The one thing here that reads code and checks what
+it claims has never seen the library.
+
+**And `experiment/prove.sh` built one generation with a different search path
+from the others.** `bin/solas experiment/compile.sol` had no `-I lib`, because
+the experiment's files only ever included each other; every other invocation in
+the script had it. The moment `lexer.sol` included `scan.sol`, the fixpoint
+failed — on *file names*, because a `.sob` records the file each line came from
+and `lib/scan.sol` reached two ways is two different strings. Both compilers
+agreed about every instruction. The asymmetry had been in that script since it
+was written and nothing could see it until something crossed it.
+
+---
+
+### Postmortem
+
+1. **The rule in the entry did the work, not the design.** *Convert one file and
+   listen* is a rule against guessing, and it produced two messages I had not
+   thought of and would not have. The version of this I would have written in
+   one go would have shipped an interface that could not express JSON's number.
+
+2. **I would have promised a line-count win.** The 46-against-48 result is the
+   sort of number that gets quietly left out of a summary. It is in the entry,
+   in the changelog and above, because a library that breaks even is a fact
+   about libraries and worth knowing next time one is proposed.
+
+3. **Both defects were found by preparation rather than by looking.** The
+   baseline was written to protect a refactor and found a four-day-old bug
+   before the refactor started. The proof broke because a conversion crossed an
+   asymmetry that had been sitting in a script for weeks. Neither was on
+   anybody's list, and neither would have been.
+
+4. **`lib/` is unchecked, and that is now the largest hole here.** Everything
+   else this repository has learned to check, it checks. The library is read by
+   `test_include.c` for a handful of behaviours and by nothing that reads its
+   documentation. `json:escapes` is what that gap produces.
+
+---
+
 ## 2026-08-25 (evening) — two names the language did not need
 
 Housekeeping, asked for as housekeeping, and both items turned out to be about

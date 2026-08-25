@@ -137,6 +137,17 @@ version the binaries inside it report.
 
 ## Status
 
+**0.30.0** — one new library file and no change to the language; `.sob` files
+are format version 14, unchanged, and bytecode from 0.29.0 still runs.
+**[lib/scan.sol](lib/scan.sol) is a cursor over text** — five files here had
+each written that object for themselves, two of them disagreeing about whether
+the method that moves forward is `step` or `advance`, and all five are converted
+onto it. It is **not** a pattern language: what repeated across those files was
+never a pattern, it was a position. The honest cost is **46 lines recovered
+against 48 spent**, so it pays for itself and no more. And **`json:read` could
+not read a string containing a newline** — for four days and four releases,
+found by recording a baseline before a refactor rather than by looking for it.
+
 **0.29.0** — three names go and nothing is lost with them; `.sob` files are
 format version 14, unchanged, though **bytecode compiled before this release
 will not run**, because the names inside it moved. **`array:at_put` is
