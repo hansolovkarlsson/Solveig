@@ -611,6 +611,10 @@ functions. It also takes a listing of its own:
 ./bin/solvm programs/basic.sob programs/basic/wave.bas
 ```
 
+Given a file it runs only that — the demonstrations it carries are skipped,
+because a tool asked to run your listing should not print its own first. A
+listing that failed leaves a **non-zero status**, so it composes with a shell.
+
 `PRINT` shows **six significant digits** with no nought before the point, which
 is what BASIC shows and what Solum does not — `1/3` is `0.3333333333333333` in
 Solum and `.333333` here. A million comes out as `1E+06`, which looks like a

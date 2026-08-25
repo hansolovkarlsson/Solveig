@@ -724,6 +724,27 @@ static void test_basic_runs_a_listing_from_a_file(void)
                out, sizeof out) == 1);
     assert(strstr(out, "there is no file no-such-file.bas") != NULL);
 
+    /* **A listing that failed leaves non-zero**, which it did not until it was
+     * asked for directly: the error was reported and the status was 0, so
+     * `solvm basic.sob x.bas && ...` ran the next thing after a program that
+     * never worked. One case fails at load and one part-way through, because
+     * the two leave by different paths.
+     *
+     * The second also checks that output a PRINT left pending is written before
+     * the error. PRINT builds a line and ends it, so a listing that fails
+     * halfway through one has already produced text -- the cost of buffering,
+     * invisible until the moment it is not. */
+    assert(run("printf '10 GOTO 999\\n' > " DIR "/broken.bas", out, sizeof out) == 0);
+    assert(run("bin/solvm " DIR "/basic.sob " DIR "/broken.bas 2>&1",
+               out, sizeof out) == 1);
+    assert(strcmp(out, "line 10: there is no line 999\n") == 0);
+
+    assert(run("printf '10 PRINT \"A\";\\n20 PRINT 1/0\\n' > " DIR "/half.bas",
+               out, sizeof out) == 0);
+    assert(run("bin/solvm " DIR "/basic.sob " DIR "/half.bas 2>&1",
+               out, sizeof out) == 1);
+    assert(strcmp(out, "A\nline 20: division by zero\n") == 0);
+
     printf("  BASIC runs a .bas file, INPUT included\n");
 }
 

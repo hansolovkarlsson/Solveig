@@ -46,6 +46,37 @@ that had never been written down.
 **`float` answers 26 messages before this release and
 35<!--count float-answers--> after.** Claims go 764 to 830<!--count claims-->.
 
+### A listing that failed said it had not, and left zero — `pending`, 2026-08-25
+
+**`solvm basic.sob x.bas` reported the error and exited 0**, so
+`solvm basic.sob x.bas && ...` ran the next thing after a program that never
+worked. A missing file exited 1 correctly; a broken listing did not, which is
+the worse of the two because it is the case a script will actually meet.
+
+The cause is that the same block ran the demonstrations inside the file and the
+listing named on the command line, and swallowing the error is right for the
+first and wrong for the second. It answers whether the listing ran now, which
+the demonstrations ignore and the file path does not.
+
+**And the pending output is flushed before the error**, which the same fix
+turned up. `PRINT` builds a line and ends it, so a listing that fails halfway
+through one has already produced text that nothing would otherwise write — the
+cost of buffering, invisible until the moment it is not:
+
+```text
+A
+line 20: division by zero
+```
+
+Both are held by `test_cli` now, one failing at load and one part-way through,
+because the two leave by different paths.
+
+**One thing this could not fix**: the message goes to standard output, where a
+diagnostic belongs on standard error. Solum has no way to write there —
+`display`, `print` and the new `system:write` all go to stdout. That is a
+sibling of [3.18](COMPLETED.md#318-a-program-cannot-write-without-ending-the-line--done)
+and has a program behind it now, but it is not this release.
+
 ### The counts nothing was checking — `ae5b5ea`, 2026-08-25
 
 Found while cutting this release, by reading the pages a newcomer reads.

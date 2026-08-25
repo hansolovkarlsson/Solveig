@@ -1777,8 +1777,19 @@ basic:flushPending := {
 ; newlines in it, so that a listing on the page looks like a listing. Stage five
 ; reads the same text out of a `.bas` file and hands it to the same `run`.
 
-listing := { lines |
-    { basic:new:run(lines:join("\n")) }:onError({ e | e:message:display }) }.
+; Answers whether the listing ran, which the demonstrations below ignore and the
+; file path above does not: a program that failed has to say so with its status
+; as well as its output, or `solvm basic.sob x.bas && ...` runs the next thing
+; after a listing that never worked.
+;
+; **The pending output is flushed before the error.** `PRINT` builds a line and
+; ends it, so a listing that fails halfway through one has already produced text
+; that nothing would otherwise write -- which is the cost of buffering, and is
+; invisible until the moment it is not.
+listing := { lines | | m |
+    m := basic:new.
+    { m:run(lines:join("\n")). true }
+        :onError({ e | m:flushPending. e:message:display. false }) }.
 
 ; ---------------------------------------------------------------------------
 ; A listing from a file
@@ -1796,8 +1807,8 @@ system:arguments:size:greaterThan(#0):ifTrue({ | path |
     system:fileExists(path):ifFalse({
         "basic: there is no file {}":fill([path]):display.
         system:exit(#1) }).
-    listing:value(system:readFile(path):split("\n")).
-    system:exit(#0) }).
+    listing:value(system:readFile(path):split("\n"))
+        :ifElse({ system:exit(#0) }, { system:exit(#1) }) }).
 
 
 ; ---------------------------------------------------------------------------
