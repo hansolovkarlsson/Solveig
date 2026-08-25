@@ -5,6 +5,45 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## 0.29.0 — 2026-08-25
+
+**Two messages were renamed and two were replaced by one, and both changes break
+bytecode compiled before them.** `.sob` files are format version 14, unchanged —
+the format did not move, the names inside it did. Recompiling is the whole of
+the remedy, and
+[3.4](ROADMAP.md#34-no-compatibility-across-sob-versions) is where the project
+already accepted that cost.
+
+**`array:at_put` is `array:atPut`.** It was the only message of 125 with an
+underscore in it, and worse than inconsistent: `dictionary` had answered `atPut`
+all along, so one idea had two spellings depending on which type you sent it to.
+
+**The counted loop takes its numbers together.** `#1:toDo(#5, block)` and
+`#1:toByDo(#10, #3, block)` are gone:
+
+```
+[#1,#5]:loop({ n | n:display }).               ; 1 2 3 4 5
+[#1,#10,#3]:loop({ n | n:display }).           ; 1 4 7 10
+[#10,#7,#0:sub(#1)]:loop({ n | n:display }).   ; 10 9 8 7
+```
+
+`toDo` read as *todo* rather than as a loop, `toByDo` wedged `By` into the
+middle of a name that was already a sentence fragment, and the start value hid
+in the receiver while the other two numbers sat in arguments. The three numbers
+a counted loop is made of are now written together and in order, and the step is
+optional because an array knows its own size.
+
+**The language is smaller by three names and answers exactly as much**: **123**
+messages across **219** registrations, down from 125 across 220. Nothing became
+askable that was not askable before.
+
+**And the roadmap has an entry on it again**, after being empty of buildable
+work since 0.26.0. [5.5](ROADMAP.md#55-five-programs-each-wrote-the-same-cursor)
+is `lib/scan.sol`: five programs each hand-wrote the same cursor — `pos`,
+`peek`, `step` or `advance`, `skipSpace` — and two of them cannot agree what to
+call the method that moves forward. It arrived the way the roadmap says entries
+arrive, from programs rather than from reasoning about the design.
+
 ### The counted loop takes its numbers together — `90ba128`, 2026-08-25
 
 **`#1:toDo(#5, block)` and `#1:toByDo(#10, #3, block)` are gone.** In their place

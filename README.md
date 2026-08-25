@@ -137,6 +137,17 @@ version the binaries inside it report.
 
 ## Status
 
+**0.29.0** — three names go and nothing is lost with them; `.sob` files are
+format version 14, unchanged, though **bytecode compiled before this release
+will not run**, because the names inside it moved. **`array:at_put` is
+`array:atPut`** — it was the only message of 125 with an underscore, and
+`dictionary` had answered `atPut` all along. **The counted loop takes its
+numbers together**: `[#1,#10,#3]:loop(block)` replaces `toDo` and `toByDo`,
+which read as *todo* and hid the start value in the receiver. The language
+answers **123** messages across **219** registrations, down from 125 across 220,
+and nothing became unaskable. The roadmap has one entry on it again —
+[a cursor five programs each wrote for themselves](docs/ROADMAP.md#55-five-programs-each-wrote-the-same-cursor).
+
 **0.28.0** — nothing in the language changed and everything about how it is
 checked did; `.sob` files are format version 14, unchanged. **The suite runs
 where it was not written**: gcc and clang on Linux, clang on macOS, and all

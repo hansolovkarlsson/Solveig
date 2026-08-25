@@ -11,6 +11,101 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-25 (evening) — two names the language did not need
+
+Housekeeping, asked for as housekeeping, and both items turned out to be about
+the same thing: a name that had never been looked at since the day it was
+typed.
+
+### One idea had two names
+
+`array:at_put` was raised as a style point — everything else is camel case.
+Checking it found something sharper than style. Of **125 distinct messages it
+was the only one with an underscore**, and it was not merely inconsistent with
+the others: `dictionary` had answered `atPut` all along, so the *same idea* had
+two spellings depending on which type you sent it to. The C comment beside the
+dictionary primitive said so out loud — *the value stored, as `at_put` on an
+array does*. The code knew they were one operation and named them differently
+anyway.
+
+No alias, because an alias is the second mechanism behind the first that this
+language exists to refuse, and because keeping both would have left the
+inconsistency in the message index permanently rather than removing it.
+
+The count moved the right way: **124** distinct messages across the same **220**
+registrations. Nothing became askable that was not askable before; there is one
+fewer way to spell one of the questions.
+
+### The counted loop, and an objection that should not have been accepted
+
+`#1:toDo(#5, block)` and `#1:toByDo(#10, #3, block)`. Three fair complaints:
+`toDo` reads as *todo*, `toByDo` wedges `By` into a name that was already a
+sentence fragment, and the start value hid in the receiver while the other two
+numbers sat in arguments.
+
+The proposal was `[#1,#10,#3]:loop(block)`. I raised one objection to the array
+form — that `array` already answers `do`, so `[#1,#10]:do` and the new message
+would mean different things on the same receiver — and offered a choice between
+accepting that cost and keeping an integer receiver instead. The name I put in
+the option was `loopDo`.
+
+**That was the wrong pair of options, and the reply said why.** Nothing else
+here announces its block in its name: `repeat`, `collect`, `select`, `inject`
+and `whileTrue` all take one without saying so. And `loop` is far enough from
+`do` that the confusion I had described as a cost to be accepted simply does not
+arise. The objection was real; I offered to trade it away when a better name
+removed it for nothing.
+
+```text
+[#1,#5]:loop({ n | n:display }).               ; 1 2 3 4 5
+[#1,#10,#3]:loop({ n | n:display }).           ; 1 4 7 10
+[#10,#7,#0:sub(#1)]:loop({ n | n:display }).   ; 10 9 8 7
+```
+
+`loopDo` existed for twenty minutes and no release carried it. What survives of
+the trade is the half that is real: arity moved from send time to run time,
+because an array of the wrong size can only be caught by looking at it.
+
+### What the checker did while this went on
+
+Removing two messages from `integer` took its slot count from 38 to 36, and
+[class-and-instance.md](class-and-instance.md) asserts that number in a *live*
+example — `integer:slots:size:print. ; #38`. It failed within a second of the
+new primitive being registered, along with two prose markers stating the same
+number elsewhere. Nobody had to remember that the document existed.
+
+The message count is stated in four places now, and only one of them is checked.
+The other three — the README, the site description, and the repository's
+description on GitHub — went **125 → 124 → 123** in one evening, by hand, from
+grep, twice.
+
+---
+
+### Postmortem
+
+1. **The same mistake three times in one day, and I only fixed the process on
+   the third.** Renaming `at_put` I wrote the file list by hand and missed
+   `tests/test_random.c`, which had live Solum in it. Renaming `toDo` I wrote
+   the list by hand again and missed three test files and every multi-line call.
+   Renaming `loopDo` I finally derived the list with `grep -rl` and missed
+   nothing. The follow-up sweep caught the first two, so nothing shipped
+   broken — but the sweep was doing the work the list should have done, and it
+   is only a safety net because I kept needing one.
+
+2. **I offered a trade instead of looking for a better option.** The
+   array-versus-`do` ambiguity was correctly identified and then treated as
+   fixed cost, presented as *accept this or take the conservative design*. A
+   third option existed and was one word long.
+
+3. **I over-corrected a count from a stale reading.** When the claim total fell
+   to 761 I edited four markers to match, then found that the total was only
+   761 *because* a claim was failing; fixing the failing claim put it back to
+   762 and I had to undo all four. Reading a count taken while something was
+   broken, and believing it — a smaller version of the morning's `grep -c` on a
+   build that was not running.
+
+---
+
 ## 2026-08-25 (afternoon) — installing it, and two verifications that verified nothing
 
 `make install`, `make uninstall`, `make dist`. The interesting part is not any
