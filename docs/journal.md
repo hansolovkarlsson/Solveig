@@ -11,6 +11,200 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-25 (after the release) — a BASIC interpreter, and the two things it asked for
+
+0.31.0 went out at 09:13 with the roadmap empty and a note saying so. By 12:20
+there were two entries on it, one of them was closed, and the language had eleven
+messages it did not have at breakfast. None of that was planned; all of it came
+from writing one program.
+
+### Why BASIC, and why a standard
+
+The ask was an interpreter. The choice that mattered was **ECMA-55 Minimal BASIC
+(1978)** rather than a BASIC of my own, and the reason is that a published
+standard decides what *finished* means without the author of the interpreter
+having a vote. Twenty statements, eleven supplied functions, and no room to
+declare victory early.
+
+The scoping found something pleasing before a line was written. Line numbers are
+usually a joke, and here they are the whole reason the job fits:
+[3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels) caps recursion near
+254, and a tree-walking interpreter for a modern language spends frames in
+proportion to how deeply its *input* nests — it would run out of machine before
+it ran out of program. A line-numbered BASIC never nests. The run loop is a
+program counter over a sorted table, `GOSUB` and `FOR` are explicit stacks in
+arrays, and the only recursion is an expression parser that runs once at load.
+
+It reads 60 brackets deep, measured rather than asserted, and no BASIC anybody
+writes comes near.
+
+### The operator that refused for two days
+
+`^` is in the language and could not be implemented. Solum had no `pow`, and both
+ways round it are wrong: repeated multiplication answers integer exponents only,
+and `exp(y * log x)` needs two more functions that were also missing. So it
+raised, and named the entry.
+
+That was the right call and it was not a comfortable one — a stub that is exact
+for `2^3` would have passed every test anybody writes. It is exactly the shape
+[3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done) already recorded
+twice, in two hand-written square roots that were plausible and silent and wrong.
+
+**The trigger fired by accident, which is what makes it good evidence.** BASIC
+was picked for being a different *shape* from the other ten programs, not for
+wanting arithmetic. It turned out to want six functions and an operator because
+they are on the page of the standard, and — the part that made it a harder case
+than the plotter that entry imagined — **there was no version of the program that
+wanted less.** A plotter that wanted one angle could have been written to want
+none. An interpreter is measured against a document it did not write.
+
+### Being shown a library I had not read
+
+Stage one's dispatch comment said there were two ways to write a statement
+dispatch: a dictionary, or a staircase of `ifElse` nineteen levels deep. It was
+answered with a question about `ifElseIf` — which is in `lib/control.sol`, in
+this repository, with a worked example and its own cost analysis.
+
+I had reached into that same directory for `scan.sol` an hour earlier.
+
+The recovery was better than the miss. That file states its own price — *use it
+for a flat dispatch and not inside a recursion* — so both halves got measured
+rather than quoted:
+
+```text
+plain recursion    251 levels     1 frame per level
+one block call     125 levels     2
+through ifElseIf    83 levels     3
+```
+
+Which settles more than the question asked. **A primitive could remove one of
+those two extra frames and no more**, because the action block has to be entered
+and that is a frame. The speed floor came out the same way: 0.08s for a chain,
+0.49s through `ifElseIf`, and **0.15s for the four block calls alone** — so about
+3.3x is available, and 2x the inlined chain is the wall.
+
+The tokeniser took it: flat, not recursive, a third more load time and no depth
+at all. `primary` and `evaluate` kept their staircases: 60 brackets against 39.
+
+### And then a hot loop arrived and finished the argument
+
+`control.sol` said a primitive would need *a program running it per iteration of
+something*. Stage two grew one that afternoon, because every `IF` in a running
+listing goes through one dispatch. I wrote it with `ifElseIf` first:
+
+```text
+20,000 iterations, IF and GOTO      0.30s   ifElseIf
+                                    0.246s  staircase
+```
+
+**Twenty-two per cent of the whole interpreter, for six arms.** It went back to
+the staircase.
+
+So both edges of that library's niche are now measured, and the niche is narrow:
+out of the recursive dispatches on depth, out of the hot one on speed, and where
+a hot dispatch has many arms it wants a dictionary rather than either. That is
+the sharpest thing anybody knows about whether the VM should take it over, and it
+points both ways — a program reached for it and had to give it up, which is what
+happened to the four loops before they were built in; but what it gave it up for
+was a six-arm staircase that reads perfectly well.
+
+### The interpreter runs at 420,000 statements a second
+
+Ten times the scope's estimate, and the argument for having parsed once at load
+rather than once per pass. Three passes over the listing before anything runs: a
+jump becomes an index instead of a search, a jump to a line that does not exist
+is reported before the program prints anything, and `FOR` finds its `NEXT`.
+
+**[3.2](ROADMAP.md#32-no-non-local-return) never came up**, which is worth
+recording because it sounds like it should have been the whole problem — a
+language with no non-local return interpreting one whose defining feature is
+`GOTO`. Every jump is an assignment to a counter and a flag saying the counter
+already moved. Nothing is unwound because nothing was wound.
+
+### What INPUT found
+
+BASIC prompts with `?` and reads the answer typed beside it. This cannot:
+`display` and `print` are the only ways a Solum program has to write, and both
+end the line. That is
+[3.18](ROADMAP.md#318-a-program-cannot-write-without-ending-the-line).
+
+**The workaround is worse than the gap, and that is the part worth having.**
+`system:writeFile("/dev/stdout", "? ")` writes without a newline and looks like
+the answer. It opens a second stream on the same file, so when the output is not
+a terminal the two buffer differently:
+
+```text
+one            what the program printed, in order
+two? four? one
+three          what came out of a pipe
+five
+```
+
+Works by hand, silently reorders the transcript the moment anything is
+redirected. Same shape as the square roots again: fine under the test anybody
+runs, wrong under the conditions nobody thinks to try.
+
+### Eleven, not seven
+
+3.14 was discussed rather than assumed, and the discussion changed the answer.
+Seven messages were *wanted*; eleven went in, because `asin`, `acos` and `atan2`
+fail the same test `sqrt` failed — written by hand, `asin(x)` is
+`atan(x / sqrt(1 - x*x))`, which divides by zero at the ends of its own domain.
+`pi` is the one member that fails no test at all and went in anyway, so that a
+language with `sin` and `cos` is not one where every program starts by writing
+out a constant.
+
+The three questions that entry had parked for weeks took about ten minutes once
+there was a program forcing them, and two were settled by BASIC rather than by
+taste. `pi` is `float:pi` and not a third global, on the argument `math.sol`
+already makes about names a program is entitled to want.
+
+**The size worry turned out to be the small part.** Eleven primitives are eleven
+lines of C. The afternoon went into the four things a new message obliges, each
+held by a test: an example that sends it with a checked claim, the reference's
+type table, the message index, the cheatsheet. That is the right place for an
+afternoon to go.
+
+---
+
+### Postmortem
+
+1. **I wrote `^` for a non-local return.** Fifteen compile errors at once, in a
+   session where I had read
+   [3.2](ROADMAP.md#32-no-non-local-return) and cited it in a comment. Not a
+   knowledge gap — a habit from another language firing while I was thinking
+   about something else.
+
+2. **I did not read the library I was writing about.** The dispatch comment
+   presented a choice between two options when the repository contained a third,
+   documented, with measurements. Reaching for `scan.sol` from the same directory
+   an hour earlier makes it worse rather than better: I treated `lib/` as a place
+   to take one thing from rather than a place with things in it.
+
+3. **I invented a heading convention and nearly shipped it.** Marking 3.14 with
+   `— **decision**` matched no entry in the document and would have broken 22
+   inbound anchors. My own link check caught it, which is the system working —
+   but the check ran because I ran it, after writing the thing it caught.
+
+4. **My scope was wrong about the size of the language it was scoping.**
+   "Nineteen keywords" was repeated in four places for two days; there are
+   twenty. `OPTION BASE` was found by running out of statements to implement and
+   going back to the standard to see what was left, which is not a method.
+
+5. **I was caught by the oldest trap in the language I was implementing.** The
+   `ON GOTO` demonstration fell out of its loop and straight into its own
+   subroutines, printing `one` a fourth time. Correct BASIC, badly written
+   program — and I had to read my own interpreter's output twice before
+   believing it was right and the listing was wrong.
+
+6. **`SIN(0)` said "SIN is not an array".** A true sentence about the wrong
+   thing: the blocked names were absent from the function table, so they fell
+   down the array branch of a fork and were refused for being more than one
+   letter long. The kind of message that costs somebody an afternoon in the
+   wrong file.
+
+---
+
 ## 2026-08-25 (night) — the cursor, and two defects it walked into
 
 ROADMAP 5.5 went on the list this morning and came off tonight. The library is
