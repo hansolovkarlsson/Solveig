@@ -939,6 +939,13 @@ system:write("how many? ").
 "none":display.                  ; how many? none
 ```
 
+`system:writeError` is the other stream, and the only way to reach it: a
+diagnostic says something went wrong *producing* the output and is not part of
+it, so a reader redirecting one should still see the other. There is no variant
+of `display` or `print` that goes there, and there should not be — those are
+about rendering a value and serve every type, and a second one pointing
+elsewhere is the second mechanism behind the first that this language refuses.
+
 `system:readLine` answers one line from standard input **without its
 terminator**, or **nil** when there is no more.
 
@@ -2861,6 +2868,7 @@ it delegates to `object` like everything else. See
 | `exit(status)` | nothing — the program stops, with `status` from #0 to #255 |
 | `arguments` | an array of strings; the empty array when there were none |
 | `write(text)` | writes `text` to standard output and adds nothing — no newline, no rendering |
+| `writeError(text)` | the same, to standard **error** |
 | `readLine` | one line of standard input without its terminator, or nil at the end |
 | `readKey` | one byte as a one-character string, or nil at the end; no wait for return |
 | `readFile(path)` | the whole file as a string; an error if it is not there |
@@ -3036,7 +3044,7 @@ has been given, and cannot give itself more.
 Every built-in message and the types that answer it. The question a reference
 gets asked is usually *what has `copyFrom`?* rather than *what does a string
 do?*, and the sections above answer only the second — so this answers the first.
-135 messages across 231 registrations.
+136 messages across 232 registrations.
 
 **A test keeps it honest**: a message registered in `builtins.c` and missing
 from here fails the build, which is the same bargain that makes every message
@@ -3177,6 +3185,7 @@ appear in an example.
 | `weekday` | [time](#time) |
 | `whileTrue` | [block](#block) |
 | `write` | [system](#system) |
+| `writeError` | [system](#system) |
 | `writeFile` | [system](#system) |
 | `year` | [time](#time) |
 ## Limits

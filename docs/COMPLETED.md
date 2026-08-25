@@ -340,6 +340,115 @@ The limitations themselves are still live and are in
 [ROADMAP.md](ROADMAP.md#3-known-limitations). These were limitations until they
 stopped being ones.
 
+### 3.19 A program cannot write to standard error — **done**
+
+**`system:writeError(text)` is the answer**, landed the day after the entry was
+written and the day it was raised. The case is kept below as it stood.
+
+**`display`, `print` and `system:write` all go to standard output, and nothing
+goes to standard error.** So a program has no way to separate what it *produced*
+from what went *wrong* with producing it.
+
+**The machine has the stream the language does not.** `solvm` writes its own
+diagnostics to standard error, and a test holds it to that — *a mistake goes to
+stderr*. A Solum program running on that machine cannot do the same thing.
+
+#### The program, and why the earlier ones do not count
+
+[basic.sol](../programs/basic.sol) run over a `.bas` file reports a bad listing
+on standard output:
+
+```text
+$ solvm basic.sob broken.bas > out.txt
+$ cat out.txt
+line 10: there is no line 999
+```
+
+The error is *in the output file*, and `2>/dev/null` does not suppress it. The
+status is right — that was fixed the same day — and the stream is not, so a
+shell can tell the run failed but cannot separate the failure from the results.
+
+**Two programs here already mention stderr and neither is this.**
+[bench.sol](../programs/bench.sol) discards a *child's* stderr so a noisy
+command cannot write over its report, and [expect.sol](../programs/expect.sol)
+keeps a child's stderr apart from its stdout so a complaint cannot accidentally
+satisfy an expectation. Both are about reading somebody else's stderr, which
+[3.15](COMPLETED.md#315-a-childs-streams-cannot-be-redirected--done) settled.
+This is the first program that wants to **write** one.
+
+#### Both workarounds, measured
+
+| | |
+| --- | --- |
+| `system:writeFile("/dev/stderr", text)` | Works on this machine. It is a path that only exists on Unix, `writeFile` opens and truncates a file per call, and the whole thing is spelled as writing a *file* — which is what it is, and not what was meant. |
+| `system:run(["sh", "-c", "echo ... 1>&2"])` | Also works, and costs a process. **0.5 seconds for a hundred diagnostics** — five milliseconds a line to write a line. |
+
+Neither is worse than the gap the way
+[3.18](COMPLETED.md#318-a-program-cannot-write-without-ending-the-line--done)'s
+was: they are ugly rather than wrong. That makes this a smaller entry than that
+one, and it is why it is written down rather than worked around.
+
+#### What it would take, and the question to answer first
+
+One primitive, and the question is the same shape as 3.18's and has a different
+answer available:
+
+| | |
+| --- | --- |
+| `system:writeError(text)` | Its own message, beside `write`. Says what it does, and the pair reads as the two streams a process has. |
+| `system:write(text, 'error)` | One message with a destination. Fewer names, and it makes the common case carry an argument it never wants. |
+
+**What should not happen is a second `display`.** `display` and `print` are
+about rendering a value, they serve every type, and a variant of each that goes
+somewhere else would be exactly the second mechanism behind the first that this
+language exists to refuse. Whatever this becomes, it belongs beside `write` on
+`system` — which is where 3.18 put the first half for the same reason.
+
+#### What was decided
+
+**Its own message, not a destination on `write`.** Of the two shapes the entry
+offered, `system:write(text, 'error)` would make the common case carry an
+argument it never wants, and every call site would have to say which stream it
+meant even though almost all of them mean the same one. Two names read as the
+two streams a process has.
+
+**And no second `display`.** That was the thing to get right rather than the
+naming: `display` and `print` are about rendering a value and serve every type,
+so a variant of each pointing elsewhere would be the second mechanism behind the
+first that this language exists to refuse. There is one way to reach standard
+error and it is spelled as writing, not as displaying.
+
+**It flushes**, which C does not require — stderr is unbuffered — but the whole
+point of both `write` and this is text that arrives when it is written, and that
+is not worth depending on a platform for.
+
+#### What it fixed, in the program that asked
+
+`solvm basic.sob broken.bas` now puts the program's output on one stream and the
+complaint on the other:
+
+```text
+$ solvm basic.sob half.bas > out.txt
+line 20: division by zero
+$ cat out.txt
+A
+```
+
+`A` is what the listing printed before it failed; the diagnostic is not part of
+that and is no longer in the file. `2>/dev/null` silences the complaint without
+silencing the program, and the status is still 1.
+
+**[examples/reading.sol](../examples/reading.sol) had the same bug** and was
+fixed by the same message. Its *nothing on standard input* complaint had always
+gone to standard output, mixed in with the numbered lines that are its actual
+result. Nobody had noticed, because until this there was nowhere else to put it.
+
+**One test had to be rewritten, and the way it failed is the entry in
+miniature.** It compared the merged streams — `2>&1` — and broke the moment they
+were separated, both because the two now carry different things and because
+merging them puts them in the wrong order: stdout is block-buffered down a pipe
+and stderr is not. It asserts each stream on its own now.
+
 ### 3.18 A program cannot write without ending the line — **done**
 
 **`system:write(text)` is the answer, landed the same day this was written.**

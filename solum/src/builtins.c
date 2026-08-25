@@ -4117,6 +4117,46 @@ static SolValue prim_system_write(SolVM *vm, SolValue self, SolValue *args, int 
     return SOL_NIL_VAL;
 }
 
+/* `system:writeError(text)` -- the other stream a process has.
+ *
+ * ROADMAP 3.19. Until this, `display`, `print` and `system:write` all went to
+ * standard output and nothing went to standard error, so a program had no way
+ * to separate what it produced from what went wrong producing it. The machine
+ * had the stream the language did not: `solvm` writes its own diagnostics to
+ * stderr and a test holds it to that.
+ *
+ * programs/basic.sol asked. Run over a `.bas` file it reports a bad listing,
+ * and that report was going to standard output -- so redirecting the output
+ * captured the error into the file and `2>/dev/null` did not suppress it.
+ *
+ * Its own message rather than a destination argument on `write`, which was the
+ * question the entry left. A destination would make the common case carry an
+ * argument it never wants; two names read as the two streams a process has.
+ * What is deliberately *not* here is a second `display`: that message and
+ * `print` are about rendering a value and serve every type, and a variant of
+ * each pointing somewhere else is the second mechanism behind the first that
+ * this language exists to refuse.
+ *
+ * Flushed like its sibling. C leaves stderr unbuffered, so this is belt and
+ * braces rather than necessary -- but the whole point of both messages is text
+ * that arrives when it is written, and that is worth not depending on. */
+static SolValue prim_system_write_error(SolVM *vm, SolValue self, SolValue *args,
+                                        int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "writeError", argc, 1)) return SOL_NIL_VAL;
+    if (!SOL_IS_STRING(args[0])) {
+        sol_vm_runtime_error(vm, "'writeError' expects a string, got %s",
+                             sol_type_name(args[0]));
+        return SOL_NIL_VAL;
+    }
+
+    const SolString *text = SOL_AS_STRING(args[0]);
+    fwrite(text->chars, 1, (size_t)text->length, stderr);
+    fflush(stderr);
+    return SOL_NIL_VAL;
+}
+
 static SolValue prim_system_read_line(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     (void)self;
@@ -5561,6 +5601,7 @@ void sol_builtins_install(SolVM *vm)
     any_receiver(vm, system, "exit", prim_system_exit);
     any_receiver(vm, system, "clock", prim_system_clock);
     any_receiver(vm, system, "write", prim_system_write);
+    any_receiver(vm, system, "writeError", prim_system_write_error);
     any_receiver(vm, system, "readLine", prim_system_read_line);
     any_receiver(vm, system, "readKey", prim_system_read_key);
     any_receiver(vm, system, "readFile", prim_system_read_file);

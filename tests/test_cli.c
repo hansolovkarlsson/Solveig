@@ -719,8 +719,12 @@ static void test_basic_runs_a_listing_from_a_file(void)
     printf("  %zu recorded transcripts still match\n",
            sizeof listings / sizeof listings[0]);
 
-    /* A file that is not there is a message and a status, not a stack trace. */
-    assert(run("bin/solvm " DIR "/basic.sob no-such-file.bas 2>&1",
+    /* A file that is not there is a message and a status, not a stack trace --
+       and the message is on stderr, so stdout stays empty. */
+    assert(run("bin/solvm " DIR "/basic.sob no-such-file.bas 2>/dev/null",
+               out, sizeof out) == 1);
+    assert(strcmp(out, "") == 0);
+    assert(run("bin/solvm " DIR "/basic.sob no-such-file.bas 2>&1 >/dev/null",
                out, sizeof out) == 1);
     assert(strstr(out, "there is no file no-such-file.bas") != NULL);
 
@@ -735,15 +739,28 @@ static void test_basic_runs_a_listing_from_a_file(void)
      * halfway through one has already produced text -- the cost of buffering,
      * invisible until the moment it is not. */
     assert(run("printf '10 GOTO 999\\n' > " DIR "/broken.bas", out, sizeof out) == 0);
-    assert(run("bin/solvm " DIR "/basic.sob " DIR "/broken.bas 2>&1",
+    assert(run("bin/solvm " DIR "/basic.sob " DIR "/broken.bas 2>/dev/null",
+               out, sizeof out) == 1);
+    assert(strcmp(out, "") == 0);
+    assert(run("bin/solvm " DIR "/basic.sob " DIR "/broken.bas 2>&1 >/dev/null",
                out, sizeof out) == 1);
     assert(strcmp(out, "line 10: there is no line 999\n") == 0);
 
+    /* **The two streams carry different things**, which is ROADMAP 3.19 and the
+     * reason this is asserted twice rather than once with 2>&1. The listing
+     * prints `A` and then fails: `A` is the program's output and belongs in a
+     * redirect, and the complaint is not and does not. Merging them would also
+     * put them in the wrong order -- stdout is block-buffered down a pipe and
+     * stderr is not -- which is how this assertion was written the first time
+     * and why it failed the moment the streams were separated. */
     assert(run("printf '10 PRINT \"A\";\\n20 PRINT 1/0\\n' > " DIR "/half.bas",
                out, sizeof out) == 0);
-    assert(run("bin/solvm " DIR "/basic.sob " DIR "/half.bas 2>&1",
+    assert(run("bin/solvm " DIR "/basic.sob " DIR "/half.bas 2>/dev/null",
                out, sizeof out) == 1);
-    assert(strcmp(out, "A\nline 20: division by zero\n") == 0);
+    assert(strcmp(out, "A\n") == 0);
+    assert(run("bin/solvm " DIR "/basic.sob " DIR "/half.bas 2>&1 >/dev/null",
+               out, sizeof out) == 1);
+    assert(strcmp(out, "line 20: division by zero\n") == 0);
 
     printf("  BASIC runs a .bas file, INPUT included\n");
 }

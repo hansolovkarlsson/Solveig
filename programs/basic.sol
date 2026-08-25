@@ -1777,26 +1777,40 @@ basic:flushPending := {
 ; newlines in it, so that a listing on the page looks like a listing. Stage five
 ; reads the same text out of a `.bas` file and hands it to the same `run`.
 
-; Answers whether the listing ran, which the demonstrations below ignore and the
-; file path above does not: a program that failed has to say so with its status
-; as well as its output, or `solvm basic.sob x.bas && ...` runs the next thing
-; after a listing that never worked.
-;
-; **The message goes to standard output, where a diagnostic belongs on standard
-; error.** Nothing in this language can write there --
-; [3.19](../docs/ROADMAP.md#319-a-program-cannot-write-to-standard-error), which
-; this program is what raised. So `solvm basic.sob x.bas > out.txt` puts the
-; error in `out.txt` and `2>/dev/null` does not suppress it. The status is right
-; and the stream is not.
-;
 ; **The pending output is flushed before the error.** `PRINT` builds a line and
 ; ends it, so a listing that fails halfway through one has already produced text
 ; that nothing would otherwise write -- which is the cost of buffering, and is
 ; invisible until the moment it is not.
+;
+; This one prints its error on **standard output**, because these are the
+; demonstrations at the bottom of this file: the error *is* what is being shown,
+; and a reader is looking at the same stream as the rest. A listing from a file
+; is the other way round, and `runFile` below is that.
 listing := { lines | | m |
     m := basic:new.
     { m:run(lines:join("\n")). true }
         :onError({ e | m:flushPending. e:message:display. false }) }.
+
+; ---------------------------------------------------------------------------
+; A listing from a file, whose diagnostics are not its output
+;
+; A bad listing goes to **standard error** here, which it could not do until
+; [3.19](../docs/COMPLETED.md#319-a-program-cannot-write-to-standard-error--done) --
+; this program is what raised that entry, by putting its own errors in the
+; output file. `solvm basic.sob x.bas > out.txt` now leaves `out.txt` holding
+; what the program printed and nothing else, and `2>/dev/null` suppresses the
+; complaint the way it suppresses every other one.
+;
+; The status says so too: a listing that failed leaves 1, so this composes with
+; a shell instead of only reading well.
+
+runFile := { path | | m |
+    m := basic:new.
+    { m:run(system:readFile(path)). true }
+        :onError({ e |
+            m:flushPending.
+            system:writeError(e:message:concat("\n")).
+            false }) }.
 
 ; ---------------------------------------------------------------------------
 ; A listing from a file
@@ -1812,10 +1826,9 @@ listing := { lines | | m |
 system:arguments:size:greaterThan(#0):ifTrue({ | path |
     path := system:arguments:at(#1).
     system:fileExists(path):ifFalse({
-        "basic: there is no file {}":fill([path]):display.
+        system:writeError("basic: there is no file {}\n":fill([path])).
         system:exit(#1) }).
-    listing:value(system:readFile(path):split("\n"))
-        :ifElse({ system:exit(#0) }, { system:exit(#1) }) }).
+    runFile:value(path):ifElse({ system:exit(#0) }, { system:exit(#1) }) }).
 
 
 ; ---------------------------------------------------------------------------

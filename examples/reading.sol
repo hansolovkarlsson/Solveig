@@ -50,8 +50,15 @@ line := system:readLine.
 "":display.
 "{} lines; the longest is {} characters":fill([count, longest:size]):display.
 
-; Nothing to read is not a failure, but it is worth saying so.
+; Nothing to read is not a failure, but it is worth saying so -- and saying it
+; **on the other stream**, which is the whole of what `system:writeError` is
+; for. The numbered lines above are this program's output; that nothing arrived
+; is a different kind of thing, and a reader who redirects the output should get
+; the lines in the file and the complaint on the terminal.
+;
+; `display`, `print` and `system:write` all go to standard output. This is the
+; only way to reach the other one.
 count:equals(#0):ifTrue({
-    "nothing on standard input":display.
+    system:writeError("reading.sol: nothing on standard input\n").
     system:exit(#1)
 }).

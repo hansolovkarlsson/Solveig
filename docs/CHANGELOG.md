@@ -5,6 +5,52 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### system:writeError, and the third entry closed — `pending`, 2026-08-26
+
+**`system:writeError(text)` writes a string to standard error and adds nothing**,
+which is the only way a Solum program can reach that stream.
+[3.19](COMPLETED.md#319-a-program-cannot-write-to-standard-error--done) is built
+and moved to [COMPLETED.md](COMPLETED.md), and the roadmap is empty again — three
+entries from one program, all three closed.
+
+**Its own message rather than a destination on `write`**, which was the question
+the entry left. `system:write(text, 'error)` would make the common case carry an
+argument it never wants and force every call site to name a stream almost all of
+them agree about. Two names read as the two streams a process has.
+
+**And deliberately no second `display`.** That was the thing to get right rather
+than the naming: `display` and `print` are about rendering a value and serve
+every type, so a variant of each pointing elsewhere would be the second
+mechanism behind the first that this language refuses. There is one way to reach
+standard error and it is spelled as writing.
+
+**In the program that asked**, the two streams now carry different things:
+
+```text
+$ solvm basic.sob half.bas > out.txt
+line 20: division by zero
+$ cat out.txt
+A
+```
+
+`A` is what the listing printed before it failed. The diagnostic is not part of
+that and is no longer in the file; `2>/dev/null` silences the complaint without
+silencing the program, and the status is still 1.
+
+**[examples/reading.sol](../examples/reading.sol) had the same bug**, and nobody
+had noticed because until now there was nowhere else to put it: its *nothing on
+standard input* complaint had always gone to standard output, mixed in with the
+numbered lines that are its result.
+
+**One test had to be rewritten, and how it failed is the entry in miniature.**
+It compared the merged streams with `2>&1`, and broke the moment they were
+separated — both because the two carry different things now and because merging
+puts them in the wrong order, stdout being block-buffered down a pipe where
+stderr is not. It asserts each stream on its own.
+
+The message count goes 135 to 136<!--count messages-->, which is the third place
+that number has had to move today and the first time a marker moved it.
+
 ## 0.32.0 — 2026-08-25
 
 **The language gained twelve messages, which is the most it has gained at once
@@ -35,7 +81,7 @@ the class.
 was found by the same program's `INPUT`: there was no way to write to standard
 output without ending the line, so a prompt could not sit beside its answer.
 That is `system:write` now. The third,
-[3.19](ROADMAP.md#319-a-program-cannot-write-to-standard-error), is **open**:
+[3.19](COMPLETED.md#319-a-program-cannot-write-to-standard-error--done), is **open**:
 there is no way to write to standard *error* either, so a listing that fails
 puts its diagnostic in the output file. It was raised an hour after the list had
 emptied.
@@ -78,7 +124,7 @@ Both are held by `test_cli` now, one failing at load and one part-way through,
 because the two leave by different paths.
 
 **One thing this could not fix, and it is
-[3.19](ROADMAP.md#319-a-program-cannot-write-to-standard-error) now**: the
+[3.19](COMPLETED.md#319-a-program-cannot-write-to-standard-error--done) now**: the
 message goes to standard output, where a diagnostic belongs on standard error.
 Solum has no way to write there — `display`, `print` and the new `system:write`
 all go to stdout — so `solvm basic.sob x.bas > out.txt` puts the error in

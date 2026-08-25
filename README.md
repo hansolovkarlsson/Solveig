@@ -2,7 +2,7 @@
 
 The Solum language and its toolchain — bytecode compiler (Solas), virtual
 machine (SolVM), REPL (Solis) and debugger (Solid). Prototype-based,
-everything is a message send, 135<!--count messages--> messages, no operators or control-flow
+everything is a message send, 136<!--count messages--> messages, no operators or control-flow
 syntax. 15k lines of C11, no dependencies.
 
 **Documentation: <https://hansolovkarlsson.github.io/Solveig/>** — a
