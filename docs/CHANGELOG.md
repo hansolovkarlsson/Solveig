@@ -5,6 +5,38 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### json.sol could not read a newline — `pending`, 2026-08-25
+
+**`json:read` answered *object does not understand 'escapes'* for any string
+containing `\n`**, and had done since 2026-08-21. Four days and four releases.
+
+The table it looks in was deleted by
+[`a4dc0c2`](https://github.com/hansolovkarlsson/Solveig/commit/a4dc0c2), the
+commit that wrote the HTML reader, while things were being moved into
+`text.sol`. The two lines that read the table were left behind. So every escape
+JSON names except `\uXXXX` — `\"`, `\\`, `\/`, `\b`, `\f`, `\n`, `\r`,
+`\t` — raised, and `\uXXXX` kept working because it takes the other branch
+three lines earlier.
+
+**Nothing caught it, and the reason is worth more than the fix.** The library
+test in `tests/test_include.c` exercises exactly one escape, `\u00e9`, chosen
+when the interesting question was whether a code point above ASCII survived. It
+is the branch that was never broken. The documentation checker never sees
+`lib/` at all — its subjects are `examples`, `docs`, `README.md` and
+`index.md` — so the one thing in this repository that reads code and checks what
+it claims does not look at the library.
+
+**Found by writing a baseline before a refactor** rather than by looking for it:
+38 inputs through `json:read` with their output recorded, so that
+[5.5](ROADMAP.md#55-five-programs-each-wrote-the-same-cursor)'s conversion of
+this file could be proved to change nothing. Two of the 38 were already wrong.
+
+`\b` and `\f` were missing from the table even before it was deleted, so they
+work here for the first time. The test now reads a string containing a newline
+and a string containing all eight, and fails without the fix — checked by
+reverting the fix and watching it fail, because a test that has never failed is
+a claim about a test rather than about the code.
+
 ## 0.29.0 — 2026-08-25
 
 **Two messages were renamed and two were replaced by one, and both changes break

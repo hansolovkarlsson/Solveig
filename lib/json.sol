@@ -103,6 +103,23 @@ json:unicodeEscape := { | code, low |
         self:fail("a low surrogate with no high one before it") }).
     code:asUtf8 }.
 
+; The eight escapes JSON names besides `\uXXXX`. This table was deleted on
+; 2026-08-21 while the HTML reader was being written, and the two references to
+; it below were left behind -- so for four days and four releases `json:read`
+; answered *object does not understand 'escapes'* for any string containing
+; `\n`, and the test suite did not notice because the one escape it exercises
+; is `\uXXXX`, which takes the other branch. `\b` and `\f` were missing from
+; the table even before it went, so they are here for the first time.
+json:escapes := dictionary:new.
+json:escapes:atPut("\"", "\"").
+json:escapes:atPut("\\", "\\").
+json:escapes:atPut("/",  "/").
+json:escapes:atPut("b",  #8:asCharacter).
+json:escapes:atPut("f",  #12:asCharacter).
+json:escapes:atPut("n",  "\n").
+json:escapes:atPut("r",  "\r").
+json:escapes:atPut("t",  "\t").
+
 json:escape := { | c |
     c := self:peek.
     c:isNil:ifTrue({ self:fail("the input ends in a backslash") }).

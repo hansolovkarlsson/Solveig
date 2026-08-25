@@ -707,7 +707,17 @@ static void test_the_json_library_reads_and_writes(void)
         "pairSize := pair:size.\n"
         /* And out again: a control byte becomes \u00XX, which also needs the
            number of a byte. */
-        "control := array:of(#0:asCharacter:concat(\"x\")):asJson.\n");
+        "control := array:of(#0:asCharacter:concat(\"x\")):asJson.\n"
+        /* Every escape JSON names besides \\uXXXX. The table behind these was
+           deleted on 2026-08-21 and the code that reads it was left behind, so
+           `json:read` answered *object does not understand 'escapes'* for any
+           string with a \\n in it -- through four releases, because the only
+           escape tested was \\uXXXX, which takes the other branch. */
+        "escaped := json:read(\"\\\"a\\\\nb\\\"\").\n"
+        "escapedSize := escaped:size.\n"
+        "newlineAt := escaped:indexOf(\"\\n\").\n"
+        "allEight := json:read(\"\\\"\\\\\\\"\\\\\\\\\\\\/\\\\b\\\\f\\\\n\\\\r\\\\t\\\"\").\n"
+        "allEightSize := allEight:size.\n");
 
     SolSearchPath search;
     sol_search_path_init(&search);
@@ -731,6 +741,12 @@ static void test_the_json_library_reads_and_writes(void)
 
     const SolString *control = SOL_AS_STRING(global(&vm, "control"));
     assert(strstr(control->chars, "\\u0000") != NULL);
+
+    /* "a\nb": three bytes, with the newline in the middle. */
+    assert(SOL_AS_INT(global(&vm, "escapedSize")) == 3);
+    assert(SOL_AS_INT(global(&vm, "newlineAt")) == 2);
+    /* " \\ / backspace formfeed \n \r \t -- eight characters, one each. */
+    assert(SOL_AS_INT(global(&vm, "allEightSize")) == 8);
 
     sol_chunk_free(&chunk);
     sol_vm_free(&vm);
