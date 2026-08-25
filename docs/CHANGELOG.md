@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### A warning nobody fails on is a comment — `pending`, 2026-08-25
+### A warning nobody fails on is a comment — `2529c55`, 2026-08-25
 
 **45 shipped files now have to compile without `solas` saying anything**, and
 until this they only had to compile.
