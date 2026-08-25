@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### system:writeError, and the third entry closed — `pending`, 2026-08-26
+### system:writeError, and the third entry closed — `084e130`, 2026-08-26
 
 **`system:writeError(text)` writes a string to standard error and adds nothing**,
 which is the only way a Solum program can reach that stream.
