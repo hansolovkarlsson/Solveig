@@ -5,6 +5,53 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### BASIC gets a prompt — `pending`, 2026-08-26
+
+**`./bin/solvm programs/basic.sob --repl`** is the interface BASIC actually had.
+One rule and six commands: a line beginning with a number goes into the program,
+a line that does not happens now, and `LIST`, `RUN`, `NEW`, `LOAD`, `SAVE` and
+`BYE` do the rest. A number on its own deletes that line, which is how a line is
+removed when the only editor you have is the line you type again.
+
+**It uses both of the things this program asked the language for**, a day after
+asking: the prompt is written with `system:write` and the answer read with
+`system:readLine`, which is [3.18](COMPLETED.md#318-a-program-cannot-write-without-ending-the-line--done)
+in use rather than in an entry.
+
+**Reading a program and linking it had to come apart.** The four load-time
+passes need the whole program — a `GOTO` cannot be resolved until every line
+exists — and a file supplies that at once. A prompt does not: `10 GOTO 100` is an
+ordinary thing to type before line 100 exists. So entering a line now only
+*parses* it, which catches a syntax error where it was typed, and `RUN` links.
+That is the cost of having moved the line lookups to load time arriving where it
+was always going to — **the thing that makes a jump an array index is the thing
+that makes an edit invalidate one**.
+
+**And keeping the text cost a frame.** `LIST` has to show back what was typed,
+and the parser had been throwing it away; remembering it put one more call
+between reading a line and parsing it, which stands on the stack while the
+expression parser recurses beneath. The deepest listing this reads went from
+**60 brackets to 59**. A feature at the prompt paid for itself in nesting
+somewhere else, which is invisible unless something is measuring it — and
+something was, because that number is a running claim in the file.
+
+**One defect found by driving it**: every error at the prompt carried a line
+number, and it was whatever line had run last. `LOAD "missing.bas"` reported
+*line 99: there is no file missing.bas*. Line zero means there is no line now,
+and then the message says only what went wrong. It improves a file's messages
+too — a first line with no number said `line 0:` before, which is a line that
+does not exist.
+
+**A recorded session is the test**, because a prompt is exactly what a claim in
+a comment cannot check: what it does is a conversation, and the interesting part
+is what it remembers between one line and the next.
+`programs/basic/session.in` types a program out of order, lists it, runs it,
+reads a variable the run left behind, inserts and deletes a line, saves, clears,
+loads back, runs again, and then makes four different mistakes to check the
+prompt survives each. `session.out` is what it must still print, compared byte
+for byte — and what `SAVE` wrote is compared against what `LIST` showed, which
+is the claim that nothing is regenerated from the parsed form on the way out.
+
 ### system:writeError, and the third entry closed — `084e130`, 2026-08-26
 
 **`system:writeError(text)` writes a string to standard error and adds nothing**,

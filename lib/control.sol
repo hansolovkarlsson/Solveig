@@ -113,9 +113,10 @@ integer:timesCollect := { body | | out, i |
 ;          block's frame is live while the recursion continues, so a primitive
 ;          takes three to **two** and no lower.
 ;
-; **Two is still twice one.** `basic.sol` reads 60 brackets deep with a
-; staircase in its `primary` and 39 with `ifElseIf` there; a primitive would put
-; that near 46. So the advice above does not change -- a recursive descent still
+; **Two is still twice one.** `basic.sol` read 60 brackets deep with a staircase
+; in its `primary` and 39 with `ifElseIf` there; a primitive would put that near
+; 46. (Both numbers moved down by one when that program grew a prompt, for a
+; reason that had nothing to do with this: the ratio is the point.) So the advice above does not change -- a recursive descent still
 ; wants the staircase -- which is the useful half of the measurement, because it
 ; says the thing a primitive would be *for* is not the thing it would fix.
 ;

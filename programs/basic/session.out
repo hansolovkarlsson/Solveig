@@ -1,0 +1,53 @@
+READY.
+READY.
+READY.
+READY.
+READY.
+10 PRINT "SQUARES"
+20 FOR I = 1 TO 4
+30 PRINT I; I * I
+40 NEXT I
+READY.
+SQUARES
+ 1  1 
+ 2  4 
+ 3  9 
+ 4  16 
+READY.
+ 5 
+READY.
+READY.
+10 PRINT "SQUARES"
+15 REM inserted between two lines
+20 FOR I = 1 TO 4
+30 PRINT I; I * I
+40 NEXT I
+READY.
+READY.
+READY.
+READY.
+READY.
+READY.
+10 PRINT "SQUARES"
+20 FOR I = 1 TO 4
+30 PRINT I; I * I
+40 NEXT I
+READY.
+SQUARES
+ 1  1 
+ 2  4 
+ 3  9 
+ 4  16 
+READY.
+ 1024 
+READY.
+'GARBAGE' is not a statement in Minimal BASIC
+READY.
+division by zero
+READY.
+there is no file no-such-file.bas
+READY.
+line 99: there is no line to delete
+READY.
+STILL HERE
+READY.

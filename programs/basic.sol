@@ -50,6 +50,11 @@
 ;         which is what the claims in comments here cannot be, `programs/` not
 ;         being one of the documentation checker's subjects.
 ;
+;   six   **A prompt**, which is the interface BASIC actually had: a line with a
+;         number goes into the program, a line without one happens now, and six
+;         commands -- `LIST`, `RUN`, `NEW`, `LOAD`, `SAVE`, `BYE` -- do the
+;         rest. `./bin/solvm programs/basic.sob --repl`.
+;
 ; **It is finished as a language.** Twenty statements, eleven functions, and
 ; every rule of the standard this file has found a way to check.
 ;
@@ -110,7 +115,7 @@
 ; rather than once per execution, and BASIC expressions are shallow.
 ;
 ; [evaluator.sol](evaluator.sol) reaches 83 brackets with a three-level grammar.
-; This one has four levels and reaches **60**, measured at the bottom of this
+; This one has four levels and reaches **59**, measured at the bottom of this
 ; file. No BASIC program written by a person will come near either number.
 
 @include "scan.sol".
@@ -206,6 +211,13 @@ statement:step := nil.     ; 'for, nil when none was written
 statement:pair := #0.      ; 'for and 'next: each other's place in the run order
 statement:target := nil.   ; 'let: the variable or array element assigned to
 
+; **What was typed, kept so that `LIST` can print it.** The rest of this file
+; parses a line and throws the text away, which is right for a program read from
+; a file and wrong at a prompt: a listing you are editing has to be shown back
+; to you, and re-deriving the text from the tree would print something you did
+; not write.
+statement:source := "".
+
 ; **Line numbers written in a statement, and where they landed.** A `GOTO` says
 ; a line number and the run loop wants an index into `order`, so the lookup
 ; happens once at load rather than once per jump -- which matters because the
@@ -261,12 +273,22 @@ basic:defined := nil.      ; FNx -> the DEF statement that defines it
 basic:data := nil.         ; every DATA value in the listing, in line order
 basic:dataAt := #1.        ; how far READ has got through it
 basic:rng := nil.          ; RND's generator; RANDOMIZE replaces it
+basic:dirty := true.       ; whether the load-time passes need running again
 basic:base := #0.          ; the lowest subscript, which OPTION BASE sets
 
 ; Every failure names the line it happened on, because in a language whose
 ; control flow is line numbers that is the only address a person has.
+;
+; **Line zero means there is no line**, and then the message says only what went
+; wrong. That is a prompt, where `LOAD "nothing.bas"` has no more to do with the
+; last line that ran than with any other -- and it is also a file whose first
+; line has no number at all. Naming a line that had nothing to do with it is the
+; kind of true sentence about the wrong thing this file has already been caught
+; by twice.
 basic:fail := { message |
-    error:raise("line {}: {}":fill([self:atLine, message])) }.
+    self:atLine:equals(#0):ifElse(
+        { error:raise(message) },
+        { error:raise("line {}: {}":fill([self:atLine, message])) }) }.
 
 ; ---------------------------------------------------------------------------
 ; Tokenising
@@ -292,7 +314,7 @@ basic:fail := { message |
 ; 0.32s as a nest and 0.43s this way, a third more; a listing anybody actually
 ; types is a few hundred lines, so that is single-digit milliseconds. And it
 ; costs no depth at all, because this loop is not inside the recursion -- the
-; measurement at the bottom of the file reads 60 either way. Both halves of
+; measurement at the bottom of the file is unchanged either way. Both halves of
 ; control.sol's advice, checked rather than quoted.
 
 basic:tokenise := { text | | s, out, c |
@@ -365,11 +387,33 @@ basic:load := { source |
     self:vars := dictionary:new.
     self:out := "".
     source:split("\n"):do({ line | self:loadLine(line) }).
+    self:link }.
+
+; ---------------------------------------------------------------------------
+; Linking, and why it is separate from reading
+;
+; The four passes below need the **whole** program: a `GOTO` cannot be resolved
+; until every line exists, and a `FOR` cannot find its `NEXT`. Reading a file
+; hands over the whole thing at once, so the two used to be one step.
+;
+; At a prompt they cannot be. `10 GOTO 100` is a perfectly ordinary thing to
+; type before line 100 exists, and refusing it would make the prompt unusable.
+; So entering a line **parses** it -- which catches a syntax error where it was
+; typed, as BASIC does -- and marks the program unlinked; `RUN` links it.
+;
+; That is the cost of having moved the line lookups to load time, arriving where
+; it was always going to: the thing that makes a jump an array index is the
+; thing that makes an edit invalidate one.
+
+basic:link := {
     self:order := self:lines:keys:sorted.
     self:placeLines.
     self:resolveTargets.
     self:pairLoops.
-    self:gather }.
+    self:gather.
+    self:dirty := false }.
+
+basic:linkIfNeeded := { self:dirty:ifTrue({ self:link }) }.
 
 ; ---------------------------------------------------------------------------
 ; Three passes over the loaded listing, all of them at load
@@ -390,14 +434,16 @@ basic:placeLines := {
 ; be per iteration. It is the one place where an interpreter for a language with
 ; line numbers has to do something a tree-walking one never would.
 basic:resolveTargets := {
-    self:order:do({ line | | st |
-        st := self:lines:at(line).
-        st:targets:isNil:ifFalse({
-            self:atLine := line.
-            st:resolved := st:targets:collect({ n |
-                self:index:includes(n):ifFalse({
-                    self:fail("there is no line {}":fill([n])) }).
-                self:index:at(n) }) }) }) }.
+    self:order:do({ line |
+        self:atLine := line.
+        self:resolveOne(self:lines:at(line)) }) }.
+
+basic:resolveOne := { st |
+    st:targets:isNil:ifFalse({
+        st:resolved := st:targets:collect({ n |
+            self:index:includes(n):ifFalse({
+                self:fail("there is no line {}":fill([n])) }).
+            self:index:at(n) }) }) }.
 
 ; `FOR` and `NEXT` find each other here rather than at run time, which needs
 ; them properly nested -- and the standard requires that, so following it is
@@ -461,14 +507,22 @@ basic:loadLine := { line | | s, number, rest |
 
         ; Two lines with one number is a mistake in a listing rather than a
         ; redefinition: the second would silently win, and which of the two ran
-        ; would depend on nothing the person reading the listing can see.
+        ; would depend on nothing the person reading the listing can see. At a
+        ; prompt the same thing is an edit, which is `enterLine` below and the
+        ; one place these two disagree.
         self:lines:includes(self:atLine):ifTrue({
             self:fail("line {} appears twice":fill([self:atLine])) }).
 
         rest := s:rest:trim.
         rest:equals(""):ifTrue({
             self:fail("this line has a number and nothing else") }).
-        self:lines:atPut(self:atLine, self:parseStatement(rest)) }) }.
+        self:store(self:atLine, rest) }) }.
+
+basic:store := { number, rest | | st |
+    st := self:parseStatement(rest).
+    st:source := "{} {}":fill([number, rest]).
+    self:lines:atPut(number, st).
+    self:dirty := true }.
 
 ; ---------------------------------------------------------------------------
 ; Which statement it is
@@ -1116,7 +1170,7 @@ basic:arguments := { | args |
 ; dispatch and not inside a recursion*, three frames a level, 254 becoming 84.
 ;
 ; **Measured in this program rather than taken on trust.** A listing nests as
-; deep as its brackets, and the deepest one this reads is 60 -- see the
+; deep as its brackets, and the deepest one this reads is 59 -- see the
 ; demonstration at the bottom. Written with `ifElseIf` in `primary` instead of a
 ; staircase, the same measurement gives **39**. A third of the depth, for four
 ; lines that read better.
@@ -1602,16 +1656,36 @@ basic:compare := { st | | l, r, op |
 
 basic:run := { source |
     self:load(source).
-    self:running := true.
+    self:start }.
+
+; **`RUN` clears the variables and keeps the program**, which is the standard
+; and is why these are two things rather than one. `NEW` is the other: it clears
+; both.
+basic:clear := {
+    self:vars := dictionary:new.
+    self:arrays := dictionary:new.
     self:calls := array:new.
     self:loops := array:new.
-    self:arrays := dictionary:new.
+    self:out := "".
 
     ; Seeded the same way every time, so a listing without `RANDOMIZE` gives
     ; the same answers on every run. That is the standard, and it is what makes
     ; `RANDOMIZE` a statement worth having rather than a formality.
-    self:rng := random:new(#19780101).
+    self:rng := random:new(#19780101) }.
+
+basic:fresh := {
+    self:lines := dictionary:new.
+    self:clear.
+    self:dirty := true }.
+
+basic:start := {
+    self:linkIfNeeded.
+    self:clear.
+    self:running := true.
     self:pc := #1.
+    self:loop }.
+
+basic:loop := {
     { self:running:and({ self:pc:lessOrEqual(self:order:size) }) }:whileTrue({
         self:atLine := self:order:at(self:pc).
         self:jumped := false.
@@ -1771,6 +1845,124 @@ basic:flushPending := {
     self:out:equals(""):ifFalse({ self:flush }) }.
 
 ; ---------------------------------------------------------------------------
+; The prompt, which is the interface BASIC actually had
+;
+; **One rule and six commands.** A line beginning with a number goes into the
+; program; a line that does not happens now. That is the whole of it, and it is
+; why the language looks the way it does -- the line numbers are not decoration
+; on a file, they are how you say *where this goes* to a machine that has no
+; editor.
+;
+;     ./bin/solvm programs/basic.sob --repl
+;     ./bin/solvm programs/basic.sob --repl programs/basic/sieve.bas
+;
+; The commands are not BASIC statements and none of them collides with one:
+; `LIST`, `RUN`, `NEW`, `LOAD`, `SAVE`, `BYE`.
+
+commands := dictionary:new.
+
+basic:command := { text | | trimmed |
+    self:atLine := #0.
+    trimmed := text:trim.
+    trimmed:equals(""):ifElse({ true }, {
+        isDigit:value(trimmed:at(#1)):ifElse(
+            { self:enterLine(trimmed). true },
+            { self:immediate(trimmed) }) }) }.
+
+; A number and a statement stores or replaces it; **a number on its own deletes
+; the line**, which is how a line is removed when the only editor you have is
+; the line you type again.
+;
+; Replacing is the one place this disagrees with reading a file, where a
+; repeated line number is an error. Both are right: in a listing it is a mistake
+; nobody can see, and at a prompt it is the only way to correct anything.
+basic:enterLine := { text | | s, number, rest |
+    s := scan:on(text).
+    number := s:takeWhile({ c | isDigit:value(c) }):asInteger.
+    self:atLine := number.
+    rest := s:rest:trim.
+    rest:equals(""):ifElse(
+        { self:lines:includes(number):ifElse(
+            { self:lines:remove(number). self:dirty := true },
+            { self:fail("there is no line to delete") }) },
+        { self:store(number, rest) }) }.
+
+basic:immediate := { text | | tokens |
+    tokens := self:tokenise(text).
+    commands:includes(tokens:at(#1):text):ifElse(
+        { commands:at(tokens:at(#1):text):value(self, tokens) },
+        { self:runOne(text). true }) }.
+
+; A statement typed with no line number runs against the machine that is
+; already there, so `PRINT X` after a `RUN` shows what the program left behind.
+; And a jump starts the program at that line, which is what `GOTO 100` has meant
+; in immediate mode since 1964.
+basic:runOne := { text | | st |
+    st := self:parseStatement(text).
+
+    ; Linking walks the program and leaves `atLine` on the last line it looked
+    ; at, so it is put back before the statement runs -- otherwise a failure
+    ; here would be reported against whatever line happened to be last.
+    self:linkIfNeeded.
+    self:atLine := #0.
+    self:resolveOne(st).
+    self:jumped := false.
+    self:execute(st).
+    self:flushPending.
+    self:jumped:ifTrue({ self:running := true. self:loop }) }.
+
+; `LIST` reads the sorted keys rather than `order`, on purpose: `order` is
+; linked and listing must work on a program that will not link. A listing with a
+; `GOTO` to a line you have not typed yet is exactly the thing you want to look
+; at.
+basic:list := {
+    self:lines:keys:sorted:do({ n | self:lines:at(n):source:display }) }.
+
+basic:fileName := { what, tokens |
+    tokens:size:equals(#2):and({ tokens:at(#2):kind:equals('string) })
+        :ifFalse({ self:fail("{} needs a file name in quotes":fill([what])) }).
+    tokens:at(#2):text }.
+
+basic:loadFrom := { path |
+    system:fileExists(path):ifFalse({
+        self:fail("there is no file {}":fill([path])) }).
+    self:fresh.
+    system:readFile(path):split("\n"):do({ line | self:loadLine(line) }) }.
+
+; What `SAVE` writes is what `LIST` shows, which is what was typed. Nothing is
+; regenerated from the tree, so a file saved and loaded again is the same file.
+basic:saveTo := { path | | out |
+    out := array:new.
+    self:lines:keys:sorted:do({ n | out:add(self:lines:at(n):source) }).
+    system:writeFile(path, out:join("\n"):concat("\n")) }.
+
+commands:atPut("LIST", { m, tokens | m:list. true }).
+commands:atPut("RUN",  { m, tokens | m:start. true }).
+commands:atPut("NEW",  { m, tokens | m:fresh. true }).
+commands:atPut("BYE",  { m, tokens | false }).
+commands:atPut("LOAD", { m, tokens | m:loadFrom(m:fileName("LOAD", tokens)). true }).
+commands:atPut("SAVE", { m, tokens | m:saveTo(m:fileName("SAVE", tokens)). true }).
+
+; `READY.` before each line, which is what the machine said. The prompt is
+; written with `system:write` and the answer read with `system:readLine` -- the
+; two halves of ROADMAP 3.18, which this program asked for and now uses.
+;
+; **An error here goes to standard output**, where a listing run from a file
+; sends it to standard error. That is not an inconsistency: at a prompt the
+; complaint is the *answer to what you typed*, part of the conversation and on
+; the screen you are looking at. From a file it is a diagnostic about producing
+; output and belongs on the other stream.
+prompt := { m | | going, line |
+    going := true.
+    { going }:whileTrue({
+        system:write("READY.\n").
+        line := system:readLine.
+        line:isNil:ifElse(
+            { going := false },
+            { going := { m:command(line) }
+                :onError({ e | m:flushPending. e:message:display. true }) }) }) }.
+
+; ---------------------------------------------------------------------------
 ; Running one, and reporting what went wrong
 ;
 ; A listing is written here as an array of lines rather than as one string with
@@ -1823,8 +2015,23 @@ runFile := { path | | m |
 ; reads standard input, so a listing that uses it cannot also be one of the
 ; demonstrations that run on every build.
 
-system:arguments:size:greaterThan(#0):ifTrue({ | path |
+system:arguments:size:greaterThan(#0):ifTrue({ | path, m |
     path := system:arguments:at(#1).
+
+    path:equals("--repl"):ifTrue({
+        m := basic:new.
+        m:fresh.
+
+        ; `--repl file.bas` loads and then prompts, the way `solis --interactive`
+        ; runs a file and stays. A file that will not load is a failure to start
+        ; rather than something to sit at a prompt about.
+        system:arguments:size:greaterThan(#1):ifTrue({
+            { m:loadFrom(system:arguments:at(#2)) }:onError({ e |
+                system:writeError("basic: {}\n":fill([e:message])).
+                system:exit(#1) }) }).
+        prompt:value(m).
+        system:exit(#0) }).
+
     system:fileExists(path):ifFalse({
         system:writeError("basic: there is no file {}\n":fill([path])).
         system:exit(#1) }).
@@ -2090,7 +2297,7 @@ listing:value(["10 LET 3 = 4", "20 END"]).
 listing:value(["10 LET TOTAL = 1", "20 END"]).
 ;   line 10: 'TOTAL' is not a variable: a letter, a letter and a digit, or a letter and $
 listing:value(["PRINT 1"]).
-;   line 0: a line must start with a line number: PRINT 1
+;   a line must start with a line number: PRINT 1
 listing:value(["10 PRINT 1", "10 PRINT 2"]).
 ;   line 10: line 10 appears twice
 listing:value(["10 WHILE X < 3", "20 END"]).
@@ -2326,7 +2533,14 @@ listing:value(["10 PRI NT 1", "20 END"]).
 ;
 ; The measurement the two dispatch comments above refer to, run rather than
 ; asserted. A bracket costs four frames -- `expression`, `term`, `factor`,
-; `primary` -- so 254 frames is 60 of them.
+; `primary` -- so 254 frames is about sixty of them.
+;
+; **It was 60 and is 59**, and the missing one is worth naming because it was
+; not free. Remembering what was typed, so that `LIST` can show it back, put
+; `store` between reading a line and parsing it -- one more frame standing on
+; the stack while the expression parser recurses beneath it. A feature at the
+; prompt cost a level of nesting in the parser, which is the sort of trade that
+; is invisible unless something is measuring it.
 ;
 ; What makes this a footnote here and a finding in
 ; [evaluator.sol](evaluator.sol) is that it is paid **once, at load**. A BASIC
@@ -2342,9 +2556,9 @@ deep := { n | | text |
     n:repeat({ text := text:concat(")") }).
     [text, "20 END"] }.
 
-listing:value(deep:value(#60)).
+listing:value(deep:value(#59)).
 ;    3
-listing:value(deep:value(#61)).
+listing:value(deep:value(#60)).
 ;   call depth exceeded
 
 ; Running out of frames arrives at `onError` like any other failure and the

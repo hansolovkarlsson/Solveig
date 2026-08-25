@@ -1,0 +1,23 @@
+10 PRINT "SQUARES"
+20 FOR I = 1 TO 4
+40 NEXT I
+30 PRINT I; I * I
+LIST
+RUN
+PRINT I
+15 REM inserted between two lines
+LIST
+15
+SAVE "build/basic-session.bas"
+NEW
+LIST
+LOAD "build/basic-session.bas"
+LIST
+RUN
+PRINT 2 ^ 10
+GARBAGE
+PRINT 1/0
+LOAD "no-such-file.bas"
+99
+PRINT "STILL HERE"
+BYE

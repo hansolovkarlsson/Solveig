@@ -765,6 +765,47 @@ static void test_basic_runs_a_listing_from_a_file(void)
     printf("  BASIC runs a .bas file, INPUT included\n");
 }
 
+/* The prompt, driven by a recorded session and compared against a recorded
+ * transcript.
+ *
+ * A REPL is exactly the thing that cannot be checked by a claim in a comment:
+ * what it does is a *conversation*, and the interesting part is what it
+ * remembers between one line and the next. programs/basic/session.in types a
+ * program out of order, lists it, runs it, reads a variable the run left
+ * behind, inserts a line, deletes it, saves, clears, loads back, runs again,
+ * and then makes four different mistakes to check the prompt survives each.
+ *
+ * The SAVE in it writes into build/, which exists because this suite has just
+ * built. That is deliberate: a round trip through a file is the only way to
+ * check that what LIST shows and what SAVE writes are the same text. */
+static void test_basic_has_a_prompt(void)
+{
+    char out[64 * 1024];
+
+    assert(run("bin/solvm " DIR "/basic.sob --repl < programs/basic/session.in"
+               " 2>&1", out, sizeof out) == 0);
+
+    char *expected = slurp_file("programs/basic/session.out");
+    if (strcmp(out, expected) != 0) {
+        printf("\nthe session printed\n%s\nand session.out records\n%s\n",
+               out, expected);
+        assert(false);
+    }
+    free(expected);
+
+    /* And what SAVE wrote is what LIST showed, byte for byte -- which is the
+       claim that nothing is regenerated from the parsed form on the way out. */
+    char *saved = slurp_file("build/basic-session.bas");
+    assert(strcmp(saved,
+                  "10 PRINT \"SQUARES\"\n"
+                  "20 FOR I = 1 TO 4\n"
+                  "30 PRINT I; I * I\n"
+                  "40 NEXT I\n") == 0);
+    free(saved);
+
+    printf("  BASIC has a prompt, and it remembers between lines\n");
+}
+
 int main(void)
 {
     test_help_is_not_an_error();
@@ -785,6 +826,7 @@ int main(void)
     test_everything_written_down_is_true();
     test_basic_runs_the_way_the_standard_says();
     test_basic_runs_a_listing_from_a_file();
+    test_basic_has_a_prompt();
     printf("test_cli: ok\n");
     return 0;
 }

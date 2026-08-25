@@ -613,7 +613,22 @@ functions. It also takes a listing of its own:
 
 Given a file it runs only that — the demonstrations it carries are skipped,
 because a tool asked to run your listing should not print its own first. A
-listing that failed leaves a **non-zero status**, so it composes with a shell.
+listing that failed leaves a **non-zero status**, so it composes with a shell,
+and says why on **standard error**, so a redirect keeps the two apart.
+
+**And it has a prompt**, which is the interface BASIC actually had:
+
+```sh
+./bin/solvm programs/basic.sob --repl
+./bin/solvm programs/basic.sob --repl programs/basic/sieve.bas
+```
+
+One rule and six commands. A line beginning with a number goes into the program,
+a line that does not happens now, and a number on its own deletes that line —
+which is how a line is removed when the only editor you have is the line you
+type again. `LIST`, `RUN`, `NEW`, `LOAD`, `SAVE` and `BYE` are the rest.
+`programs/basic/session.in` is a recorded session and `session.out` the
+transcript it must still produce.
 
 `PRINT` shows **six significant digits** with no nought before the point, which
 is what BASIC shows and what Solum does not — `1/3` is `0.3333333333333333` in
