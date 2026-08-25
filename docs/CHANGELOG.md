@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### system:write, and the roadmap empties again — `pending`, 2026-08-25
+### system:write, and the roadmap empties again — `c3fa1ec`, 2026-08-25
 
 **`system:write(text)` writes a string to standard output and adds nothing** —
 no newline, no rendering.
