@@ -46,6 +46,37 @@ that had never been written down.
 **`float` answers 26 messages before this release and
 35<!--count float-answers--> after.** Claims go 764 to 830<!--count claims-->.
 
+### The counts nothing was checking — `pending`, 2026-08-25
+
+Found while cutting this release, by reading the pages a newcomer reads.
+
+**[index.md](../index.md) said there were nine programs**, and listed nine. There
+have been ten since `bench.sol` and eleven since `basic.sol`, so it had been
+wrong for two releases. It said *thirty-two files in two directories* as well,
+which was a sum of two numbers that had both moved.
+
+**The reason is that it had no marker.** Every other count of this kind carries
+one — `ten<!--count programs-->` — and the checker recounts it on every build;
+this sentence did not, so nothing looked. It has one now, which is the actual
+fix. The sum is gone rather than corrected, being a third number no marker can
+check.
+
+**And the README's own first paragraph said 123 messages**, where there are
+now 135. That number is the one this repository has got wrong most often: the
+journal records it going 125 to 124 to 123 in a single evening, by hand, from
+grep, twice. The reference's index has been held to the registry by a test all
+along — nothing held the prose to the index.
+
+**So `messages` is a marker now too**, and the checker computes it rather than
+reading it off a page. A name a class holds is a message when it is built in and
+a slot when it has a value, and `slotAt` tells them apart by refusing the first
+kind and answering the second. Without that distinction `system:arguments` and
+`error:message` count as messages and the total comes out two too high. It was
+verified by writing the wrong number down and watching the build fail.
+
+The repository's description on GitHub still says 123 and is the one place no
+test can reach.
+
 ### Asking whether BASIC was finished, and finding it was not — `6757f56`, 2026-08-25
 
 Two things, both found by asking the question rather than by a test failing.

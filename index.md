@@ -148,9 +148,9 @@ make test     # builds and runs the test suite
 
 ## Examples and programs
 
-Thirty-two files in two directories, and the split is what each was written for.
+Two directories, and the split is what each was written for.
 
-**`programs/`** — nine whole programs, each written to do a job and using
+**`programs/`** — eleven<!--count programs--> whole programs, each written to do a job and using
 whatever the language turned out to have. They are where nearly every roadmap
 entry after the first dozen came from: somebody wrote one and found out what it
 wanted. [programs.md](docs/programs.md) says what each does, how to run it, and
@@ -167,10 +167,13 @@ what it found.
 | [serve](programs/serve.sol) | answers one HTTP request, without being injected |
 | [disasm](programs/disasm.sol) | reads a `.sob` file and says what is in it |
 | [expect](programs/expect.sol) | checks every example against its own comments |
+| [bench](programs/bench.sol) | times a command, and says whether two really differ |
+| [basic](programs/basic.sol) | runs a BASIC listing — an interpreter for ECMA-55 |
 
 Two of them run on [lib/json.sol](lib/json.sol) and
 [lib/html.sol](lib/html.sol) — a JSON reader and an HTML reader written in
-Solum.
+Solum. The last one is an interpreter for another language, and is where the
+mathematics in 0.32.0 came from.
 
 **`examples/`** — twenty-eight<!--count examples--> demonstrations, one for every concept the
 [guide](docs/GUIDE.md) names:

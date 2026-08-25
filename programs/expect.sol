@@ -914,6 +914,25 @@ count:atPut("float-answers",   answers:value(float, 1.5)).
 count:atPut("string-answers",  answers:value(string, "a")).
 count:atPut("array-answers",   answers:value(array, [#1])).
 
+; **How many distinct messages the language has**, which is the number this
+; repository has got wrong most often: it is stated in the README and in the
+; repository's description on GitHub, and went 125 to 124 to 123 in one evening,
+; by hand, from grep, twice. The reference's index has been held to the registry
+; by a test all along; nothing held the prose to the index.
+;
+; A name a class holds is a **message** when it is built in and a **slot** when
+; it has a value, and `slotAt` is what tells them apart: it refuses the first
+; kind and answers the second. Without that, `system:arguments` and
+; `error:message` count as messages and the total is two too many.
+messages := { names |
+    [integer, float, string, array, dictionary, symbol, boolean, block,
+     time, error, object, random, system]:do({ class |
+        class:slots:do({ s |
+            names:indexOf(s):isNil:ifTrue({
+                { class:slotAt(s) }:onError({ e | names:add(s) }) }) }) }).
+    names:size }.
+count:atPut("messages", messages:value(array:new)).
+
 ; The ones that are facts about this run.
 perRun := ["claims", "checked-files", "docs-claims", "docs-documents",
            "examples-claims", "examples-files"].
