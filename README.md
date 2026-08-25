@@ -142,12 +142,13 @@ while, and every one because a single program asked. `.sob` files are format
 version 14, unchanged, and bytecode from 0.31.0 still runs.
 **[programs/basic.sol](programs/basic.sol) is an interpreter for ECMA-55 Minimal
 BASIC** — all twenty statements and all eleven supplied functions, about 420,000
-BASIC statements a second. It put two entries on the roadmap in a morning and
-both were closed the same day: `pow`, `exp`, `log` and the trigonometry
-(**3.14**, which had been waiting since it was written for a program that wanted
-an angle), and `system:write` (**3.18**, no way to write without ending the
-line, found by `INPUT` needing a prompt beside its answer). **830** documented
-claims, up from 808.
+BASIC statements a second. It put **three entries on the roadmap in a day** and
+closed two: `pow`, `exp`, `log` and the trigonometry (**3.14**, which had been
+waiting since it was written for a program that wanted an angle), and
+`system:write` (**3.18**, no way to write without ending the line, found by
+`INPUT` needing a prompt beside its answer). The third is open — no way to write
+to standard *error*, so a failing listing puts its diagnostic in the output
+file. **830** documented claims, up from 808.
 
 **0.31.0** — nothing in the language changed; `.sob` files are format version
 14, unchanged, and bytecode from 0.30.0 still runs. What changed is that two

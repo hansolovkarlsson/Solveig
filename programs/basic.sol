@@ -1782,6 +1782,13 @@ basic:flushPending := {
 ; as well as its output, or `solvm basic.sob x.bas && ...` runs the next thing
 ; after a listing that never worked.
 ;
+; **The message goes to standard output, where a diagnostic belongs on standard
+; error.** Nothing in this language can write there --
+; [3.19](../docs/ROADMAP.md#319-a-program-cannot-write-to-standard-error), which
+; this program is what raised. So `solvm basic.sob x.bas > out.txt` puts the
+; error in `out.txt` and `2>/dev/null` does not suppress it. The status is right
+; and the stream is not.
+;
 ; **The pending output is flushed before the error.** `PRINT` builds a line and
 ; ends it, so a listing that fails halfway through one has already produced text
 ; that nothing would otherwise write -- which is the cost of buffering, and is

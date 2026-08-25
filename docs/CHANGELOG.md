@@ -20,8 +20,10 @@ every build. It was chosen for being a different *shape* from the other ten — 
 interpreter for another language rather than a tool for this one — and what it
 found came from that shape rather than from anything anybody planned.
 
-**It emptied the roadmap by filling it first.** Two entries went on in a morning
-and both were closed the same day.
+**It put three entries on the roadmap in a day and closed two of them.** The
+list was empty when this release opened and has one thing on it now, which is
+the mechanism this project runs on working at speed rather than an exception to
+it.
 [3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done) had been waiting
 since it was written for *a program that wants an angle*; this one wanted six of
 them and an exponent operator, because they are on the page of the standard it is
@@ -32,7 +34,11 @@ the class.
 [3.18](COMPLETED.md#318-a-program-cannot-write-without-ending-the-line--done)
 was found by the same program's `INPUT`: there was no way to write to standard
 output without ending the line, so a prompt could not sit beside its answer.
-That is `system:write` now.
+That is `system:write` now. The third,
+[3.19](ROADMAP.md#319-a-program-cannot-write-to-standard-error), is **open**:
+there is no way to write to standard *error* either, so a listing that fails
+puts its diagnostic in the output file. It was raised an hour after the list had
+emptied.
 
 **Two of the wrong turns are recorded rather than tidied away**, because both are
 about the same thing. A dispatch comment offered a choice between two options
@@ -71,11 +77,23 @@ line 20: division by zero
 Both are held by `test_cli` now, one failing at load and one part-way through,
 because the two leave by different paths.
 
-**One thing this could not fix**: the message goes to standard output, where a
-diagnostic belongs on standard error. Solum has no way to write there —
-`display`, `print` and the new `system:write` all go to stdout. That is a
-sibling of [3.18](COMPLETED.md#318-a-program-cannot-write-without-ending-the-line--done)
-and has a program behind it now, but it is not this release.
+**One thing this could not fix, and it is
+[3.19](ROADMAP.md#319-a-program-cannot-write-to-standard-error) now**: the
+message goes to standard output, where a diagnostic belongs on standard error.
+Solum has no way to write there — `display`, `print` and the new `system:write`
+all go to stdout — so `solvm basic.sob x.bas > out.txt` puts the error in
+`out.txt` and `2>/dev/null` does not suppress it.
+
+Both workarounds were measured before the entry was written, and neither is
+*worse* than the gap the way 3.18's was — they are ugly rather than wrong.
+`/dev/stderr` is a path that only exists on Unix and spells the thing as writing
+a file; a shell costs **half a second for a hundred diagnostics**, five
+milliseconds a line to write a line. That is what makes this a smaller entry
+than its sibling, and why it is written down rather than worked around.
+
+**The list emptied at midday and had this on it an hour later**, which is three
+entries from one program in a day. The roadmap says so in as many words: *empty*
+is a description of a moment rather than a destination.
 
 ### The counts nothing was checking — `ae5b5ea`, 2026-08-25
 

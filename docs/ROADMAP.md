@@ -55,8 +55,10 @@ have been. Side-table operands are two bytes, a send compares pointers, and the
 script's frame has slots like every other, so a temporary may be declared
 anywhere.
 
-**Section 3 is what is left, and nothing on it is open.** One program put two
-entries there in a morning and both were closed the same day.
+**Section 3 is what is left, and one entry on it is open.** One program put
+three entries there in a day; two were closed the same day and the third,
+[3.19](#319-a-program-cannot-write-to-standard-error), is work with a clear
+shape and one question in it.
 [3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done) spent its whole
 life waiting for a program that wanted an angle;
 [basic.sol](../programs/basic.sol) was one, wanting six of them and an exponent
@@ -70,9 +72,13 @@ no way to write to standard output without ending the line, so a prompt could
 not sit beside its answer. That one was work rather than a decision, and it is
 `system:write` now.
 
-**So the list is empty again.** One program put two entries on it in a morning
-and both are closed by the afternoon, which is the mechanism this document
-describes working at speed rather than an exception to it.
+**And then the same program found a third**, an hour after the list had emptied:
+[3.19](#319-a-program-cannot-write-to-standard-error), no way to write to
+standard error, so a listing that fails puts its diagnostic in the output file.
+Three entries from one program in a day, two of them closed. That is the
+mechanism this document describes running at speed rather than an exception to
+it — and a fair warning that *empty* is a description of a moment rather than a
+destination.
 
 Section 3 holds the restrictions the language lives under, each documented where
 a program would meet it. The older ones were chosen; the six newest were found —
@@ -740,6 +746,67 @@ today every site either sets it at the tail of a branch or wants the rest to
 run, and the moment one does not, the flag has to be threaded through the body
 as `done:not:ifTrue({ ... })` and the workaround starts nesting.
 
+### 3.19 A program cannot write to standard error
+
+**`display`, `print` and `system:write` all go to standard output, and nothing
+goes to standard error.** So a program has no way to separate what it *produced*
+from what went *wrong* with producing it.
+
+**The machine has the stream the language does not.** `solvm` writes its own
+diagnostics to standard error, and a test holds it to that — *a mistake goes to
+stderr*. A Solum program running on that machine cannot do the same thing.
+
+#### The program, and why the earlier ones do not count
+
+[basic.sol](../programs/basic.sol) run over a `.bas` file reports a bad listing
+on standard output:
+
+```text
+$ solvm basic.sob broken.bas > out.txt
+$ cat out.txt
+line 10: there is no line 999
+```
+
+The error is *in the output file*, and `2>/dev/null` does not suppress it. The
+status is right — that was fixed the same day — and the stream is not, so a
+shell can tell the run failed but cannot separate the failure from the results.
+
+**Two programs here already mention stderr and neither is this.**
+[bench.sol](../programs/bench.sol) discards a *child's* stderr so a noisy
+command cannot write over its report, and [expect.sol](../programs/expect.sol)
+keeps a child's stderr apart from its stdout so a complaint cannot accidentally
+satisfy an expectation. Both are about reading somebody else's stderr, which
+[3.15](COMPLETED.md#315-a-childs-streams-cannot-be-redirected--done) settled.
+This is the first program that wants to **write** one.
+
+#### Both workarounds, measured
+
+| | |
+| --- | --- |
+| `system:writeFile("/dev/stderr", text)` | Works on this machine. It is a path that only exists on Unix, `writeFile` opens and truncates a file per call, and the whole thing is spelled as writing a *file* — which is what it is, and not what was meant. |
+| `system:run(["sh", "-c", "echo ... 1>&2"])` | Also works, and costs a process. **0.5 seconds for a hundred diagnostics** — five milliseconds a line to write a line. |
+
+Neither is worse than the gap the way
+[3.18](COMPLETED.md#318-a-program-cannot-write-without-ending-the-line--done)'s
+was: they are ugly rather than wrong. That makes this a smaller entry than that
+one, and it is why it is written down rather than worked around.
+
+#### What it would take, and the question to answer first
+
+One primitive, and the question is the same shape as 3.18's and has a different
+answer available:
+
+| | |
+| --- | --- |
+| `system:writeError(text)` | Its own message, beside `write`. Says what it does, and the pair reads as the two streams a process has. |
+| `system:write(text, 'error)` | One message with a destination. Fewer names, and it makes the common case carry an argument it never wants. |
+
+**What should not happen is a second `display`.** `display` and `print` are
+about rendering a value, they serve every type, and a variant of each that goes
+somewhere else would be exactly the second mechanism behind the first that this
+language exists to refuse. Whatever this becomes, it belongs beside `write` on
+`system` — which is where 3.18 put the first half for the same reason.
+
 ### 1.1d Collection is stop-the-world and non-incremental
 
 Fine at this size and not worth touching yet. Noted so it is a choice rather than
@@ -772,13 +839,15 @@ keeping it did. The number stays 6.32 and is not reused.
 
 ## How this list emptied, and how it filled and emptied again
 
-**Nothing is on it.** Sections 2, 3 and 6 held the whole of what was left to
-decide or build, and 2 and 6 are done — what remains in 3 are restrictions kept
-on purpose, each documented where a program would meet it. Two of them were only
-kept *until a program wanted otherwise*, and on 2026-08-25 one program wanted
-both: [3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done) and
+**One piece of work is on it.** Sections 2, 3 and 6 held the whole of what was
+left to decide or build, and 2 and 6 are done — what remains in 3 are
+restrictions kept on purpose, each documented where a program would meet it. Two
+of them were only kept *until a program wanted otherwise*, and on 2026-08-25 one
+program wanted both:
+[3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done) and
 [3.18](COMPLETED.md#318-a-program-cannot-write-without-ending-the-line--done),
-raised and closed between breakfast and the afternoon.
+raised and closed between breakfast and the afternoon. The same program then
+raised [3.19](#319-a-program-cannot-write-to-standard-error), which is open.
 
 It gained one back on 2026-08-25 and lost it the same day:
 [5.5](COMPLETED.md#55-five-programs-each-wrote-the-same-cursor--done), a cursor
@@ -855,7 +924,10 @@ found out what it wanted.
   write without ending the line** — and, more usefully, that the obvious
   workaround reorders the whole transcript the moment the output is not a
   terminal. `system:write` closed it the same day, on `system` beside
-  `readLine`, being about a destination rather than about rendering a value.
+  `readLine`, being about a destination rather than about rendering a value. Its
+  sibling [3.19](#319-a-program-cannot-write-to-standard-error) — no way to write
+  to standard *error*, so a failing listing puts its diagnostic in the output
+  file — was raised an hour after the list had emptied and is still open.
 
 **Four of the entries were papercuts a library tripped over**, not things anybody
 reasoned out in advance:
@@ -874,11 +946,12 @@ a debugger that could not name a local would have been most of the work for a
 fraction of the use, and only then
 [Solid](COMPLETED.md#629-a-stepper--solid--done).
 
-**Nothing is outstanding, and nothing is undecided.** 3.14 was the first decision
-since 6.32 was deferred, and unlike 6.32 it had a program behind it rather than a
-use nobody has — so it was taken rather than deferred, the same day it was
-raised. 3.18 was work and was done the same day too. The older ones stay closed.
-2.5, the last *language* question, is closed: 1.6 had answered it one message at a time to stop the crashes, and finishing
+**Nothing is undecided, and one thing is outstanding.** 3.14 was the first
+decision since 6.32 was deferred, and unlike 6.32 it had a program behind it
+rather than a use nobody has — so it was taken rather than deferred, the same
+day it was raised. 3.18 was work and was done the same day too. 3.19 is work as
+well and is not, which is the only item on this list. The older questions stay
+closed. 2.5, the last *language* question, is closed: 1.6 had answered it one message at a time to stop the crashes, and finishing
 that — every class-side message requiring an object receiver — turned out to be
 the whole of what splitting the two objects would have bought. And 6.32, the
 last one of any kind, was deferred to
