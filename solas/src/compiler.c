@@ -2,6 +2,8 @@
  * chunk, so there is no AST. */
 #define _POSIX_C_SOURCE 200809L    /* realpath, for resolving an include */
 
+#include "config.h"                 /* generated: SOL_LIB_DIR, from PREFIX */
+
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -1161,13 +1163,20 @@ void sol_search_path_free(SolSearchPath *search)
     sol_search_path_init(search);
 }
 
-/* `SOLUM_PATH` first, then the library beside the binary.
+/* `SOLUM_PATH` first, then the library beside the binary, then where the
+ * install put it.
  *
  * The second is derived from argv[0], which says where the binary is only when
  * it was named with a path -- `./bin/solas` or an absolute one. Invoked by bare
- * name through PATH it says nothing, and rather than search PATH over again to
- * guess, nothing is added: `SOLUM_PATH` and `-I` are how an installed binary is
- * told where its library went. */
+ * name through PATH it says nothing, and searching PATH over again to guess is
+ * not done here.
+ *
+ * The third is what an installed binary has instead, and it is not a guess: the
+ * Makefile writes SOL_LIB_DIR from the same PREFIX that `make install` copies
+ * the library to, so the binary is told rather than left to work it out. It is
+ * last because a checkout has to keep winning over anything installed on the
+ * machine -- otherwise testing a change would silently read the old library.
+ * `SOLUM_PATH` and `-I` still come first and still override everything. */
 void sol_search_path_add_defaults(SolSearchPath *search, const char *argv0)
 {
     const char *env = getenv("SOLUM_PATH");
@@ -1191,21 +1200,24 @@ void sol_search_path_add_defaults(SolSearchPath *search, const char *argv0)
         }
     }
 
-    if (argv0 == NULL) return;
-    const char *slash = strrchr(argv0, '/');
-    if (slash == NULL) return;
-
     /* `bin/solas` -> `bin/../lib`, which is `lib` beside it. */
-    size_t directory = (size_t)(slash - argv0) + 1;
-    static const char *suffix = "../lib";
+    const char *slash = argv0 == NULL ? NULL : strrchr(argv0, '/');
+    if (slash != NULL) {
+        size_t directory = (size_t)(slash - argv0) + 1;
+        static const char *suffix = "../lib";
 
-    char *shipped = malloc(directory + strlen(suffix) + 1);
-    if (shipped == NULL) return;
-    memcpy(shipped, argv0, directory);
-    memcpy(shipped + directory, suffix, strlen(suffix) + 1);
+        char *shipped = malloc(directory + strlen(suffix) + 1);
+        if (shipped != NULL) {
+            memcpy(shipped, argv0, directory);
+            memcpy(shipped + directory, suffix, strlen(suffix) + 1);
+            sol_search_path_add(search, shipped);
+            free(shipped);
+        }
+    }
 
-    sol_search_path_add(search, shipped);
-    free(shipped);
+#if defined(SOL_LIB_DIR)
+    sol_search_path_add(search, SOL_LIB_DIR);
+#endif
 }
 
 static char *resolve_against(const char *including, const char *name)

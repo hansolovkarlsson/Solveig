@@ -9,6 +9,9 @@ bin/
 # Compiled Solum bytecode
 *.sob
 
+# What `make dist` writes
+*.tar.gz
+
 # Editor / OS
 .DS_Store
 *.swp

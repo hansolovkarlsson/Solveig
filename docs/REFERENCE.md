@@ -466,7 +466,10 @@ has it wins:
 
 - `-I dir` arguments to `solas` or `solis`, in the order given;
 - then the entries of `SOLUM_PATH`, colon-separated;
-- then the library shipped beside the binary — `bin/solas` looks in `bin/../lib`.
+- then the library shipped beside the binary — `bin/solas` looks in `bin/../lib`;
+- then where `make install` put it, which is how a binary found on `PATH`
+  finds a library at all: `argv[0]` names no directory then, so the location is
+  written into the build rather than worked out at run time.
 
 That is C's rule for a quoted include, and for C's reason: your own files are
 found without saying where they are, and a name you do not have locally comes

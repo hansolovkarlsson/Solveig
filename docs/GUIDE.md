@@ -841,8 +841,8 @@ exactly.
 
 A name not found beside the file including it is looked for on a **search
 path** — `-I` arguments, then `SOLUM_PATH`, then the library that ships beside
-the binary. So a program asks for what it wants without saying where that
-lives:
+the binary, then where an install put it. So a program asks for what it wants
+without saying where that lives:
 
 ```
 @include "control.sol".
