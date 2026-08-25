@@ -197,10 +197,18 @@ static void integer_literal(Compiler *c)
 {
     const SolToken *token = &c->parser.previous;
 
-    /* Skip the '#' type tag; strtoll handles the optional sign. */
+    /* The tag says the base: '#' decimal, '$' hexadecimal, '%' binary. All
+       three are integers and all three reach the same constant, so this is the
+       whole of what the three spellings cost -- the machine never learns that
+       there was more than one. */
+    int base = token->start[0] == '$' ? 16
+             : token->start[0] == '%' ? 2
+             : 10;
+
+    /* Skip the tag; strtoll handles the optional sign, which only decimal has. */
     errno = 0;
     char *end;
-    long long value = strtoll(token->start + 1, &end, 10);
+    long long value = strtoll(token->start + 1, &end, base);
     if (errno == ERANGE) {
         sol_parser_error(&c->parser, token, "integer literal out of range");
         return;

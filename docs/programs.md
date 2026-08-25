@@ -364,7 +364,7 @@ line prints.
 ```
 
 Over `examples/` alone that is 25<!--count examples-files--> files and
-475<!--count examples-claims--> claims:
+480<!--count examples-claims--> claims:
 
 ```text
 21 files with expectations, 402 claims checked
@@ -387,12 +387,12 @@ table had when [disasm](#disasm--a-sob-file-read-and-disassembled) found it
 three sections out of date. They are also the first thing a newcomer reads.
 
 **It is in `make test` now**, in `tests/test_cli.c` with the other tests that
-run the binaries as a shell would — **830<!--count claims--> claims on every build**, in about
+run the binaries as a shell would — **839<!--count claims--> claims on every build**, in about
 sixteen seconds, and it fails the build if one stops holding.
 
 **And it checks the documentation too.** The guide and the reference carry the
 same notation inside ``` fences, and nothing checked those either — they are the
-two documents a newcomer actually reads. 353<!--count docs-claims--> claims
+two documents a newcomer actually reads. 357<!--count docs-claims--> claims
 across eighteen<!--count docs-documents--> documents,
 and two more on `README.md` and `index.md` — the front pages, which were the
 last two things nothing checked.
@@ -434,7 +434,7 @@ no notation saying what it counts — so it is given one, which renders as nothi
 and leaves the sentence as it was:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 830<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 839<!--count claims--> claims
 ```
 
 Each name is recounted from the repository as it stands. A name the table does

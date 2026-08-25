@@ -40,6 +40,7 @@ point:show:print.               ; #3
 | Written | Is |
 | --- | --- |
 | `#45` | an integer |
+| `$FF08` `%10101100` | the same, in hexadecimal or binary — no `#`, no sign |
 | `45` `4.5` `4e2` | a **float** — the unmarked number is the float here |
 | `"text"` | a string, bytes, with `\n \t \" \\` escapes |
 | `'name` | a symbol, interned, compared by pointer |

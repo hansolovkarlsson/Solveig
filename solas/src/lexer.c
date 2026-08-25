@@ -158,6 +158,49 @@ static SolToken integer(SolLexer *lexer)
     return make_token(lexer, TOK_INT);
 }
 
+static bool is_hex(char c)
+{
+    return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+}
+
+static bool is_binary(char c) { return c == '0' || c == '1'; }
+
+/* `$FF08` and `%10101100` -- the same integer written in the base you are
+ * thinking in. A colour, a file mode and a set of flags are all patterns of
+ * bits, and `#493` does not look like `rwxr-xr-x` to anybody.
+ *
+ * **No '#' in front.** That tag exists because `45` and `#45` are the same
+ * characters with two readings, and it says which. There is no hexadecimal
+ * float here, so `$FF` has one reading and a tag on it would be noise.
+ *
+ * **And no sign.** `#-3` is allowed because a decimal integer is a number you
+ * may want the negative of; these are for looking at bits, and this language
+ * already declines to reach a negative that way -- see ROADMAP 3.12, where no
+ * shift produces one. `#0:sub($FF)` is how you ask.
+ *
+ * A digit or letter left over after the digits is an error rather than the next
+ * token, which decimal does not need to check: `%1012` would otherwise be the
+ * binary 5 followed by the float 2, and that is the kind of misreading that is
+ * plausible enough to survive being looked at. */
+static SolToken based(SolLexer *lexer, bool (*belongs)(char),
+                      const char *complaint, const char *no_float)
+{
+    if (!belongs(peek(lexer))) return error_token(lexer, complaint);
+    while (belongs(peek(lexer))) advance(lexer);
+    if (is_alpha(peek(lexer)) || is_digit(peek(lexer))) {
+        return error_token(lexer, complaint);
+    }
+
+    /* `#45.5` is refused because it looks like somebody wanting a float, and
+       `$FF.5` looks like the same mistake in a base that has no floats at all.
+       Without this it is two statements -- `$FF.` and `5` -- which compiles,
+       runs, prints 5 and says nothing. */
+    if (peek(lexer) == '.' && is_digit(peek_next(lexer))) {
+        return error_token(lexer, no_float);
+    }
+    return make_token(lexer, TOK_INT);
+}
+
 /* A bare number is a float. The '.' only continues the number when a digit
    follows, so `45.` is the float 45 plus a statement terminator. */
 static SolToken number(SolLexer *lexer)
@@ -241,6 +284,11 @@ SolToken sol_lexer_next(SolLexer *lexer)
 
     switch (c) {
     case '#':  return integer(lexer);
+    case '$':  return based(lexer, is_hex,
+                            "expected hexadecimal digits after '$'",
+                            "'$' marks an integer; there is no hexadecimal float");
+    case '%':  return based(lexer, is_binary, "expected 0 or 1 after '%'",
+                            "'%' marks an integer; there is no binary float");
     case '"':  return string(lexer);
     case '\'': return symbol(lexer);
     case '@':  return directive(lexer);

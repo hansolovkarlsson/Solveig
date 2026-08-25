@@ -82,6 +82,48 @@ so it cannot be held as data and asked for back — `self:report` *calls* it. Th
 default is a block that does nothing rather than a nil to test for, which is
 shorter and has no branch in it.
 
+### Hexadecimal and binary integers — `pending`, 2026-08-25
+
+**`$FF08` and `%10101100` write the same integer in the base you are thinking
+in.** A colour, a file mode and a set of flags are all patterns of bits, and
+`#493` does not look like `rwxr-xr-x` to anybody.
+
+```
+%111101101:asBase(#8):display.   ; 755
+$FF08:print.                     ; #65288
+```
+
+**It is sugar and nothing else.** One case in the lexer, one branch in the
+compiler; all three spellings reach the same constant and nothing downstream is
+told there was more than one. No opcode, no message, and `.sob` files are
+unchanged at format version 14.
+
+**The gap was already written down.** The reference's own passage on file modes
+said *"Solum has no octal literal, so `#493` is what `0755` looks like written
+down"*, and then showed the round trip through `asBase` and `asInteger` as the
+way round it — a language that could **print** hex and binary and not read one
+back. That passage says `%111101101` now, which has the three permission
+triples where a reader can see them.
+
+**Two decisions, both saying no to something.** They carry **no `#`**: that tag
+exists because `45` and `#45` are the same characters with two readings and it
+says which, and `$FF` has one reading, there being no hexadecimal float. And
+they take **no sign**, where `#-45` is allowed — these are for looking at bits,
+and the language already declines to reach a negative that way
+([3.12](ROADMAP.md#312-no-shift-can-produce-a-negative-integer)). `#0:sub($FF)`
+is how to ask.
+
+**A digit the base does not use is an error rather than the next token.**
+Without that, `%1012` is the binary `%101` followed by the float `2` — two
+good tokens, a wrong reading and no complaint. `$FF.5` is refused for the same
+reason `#45.5` is, and it had to be added deliberately: it compiled, ran,
+printed `5` and said nothing.
+
+One test had to move. `test_an_error_token_points_at_the_source` needs a
+character nothing has claimed, and used `%`; the comment beside it already
+recorded losing `@` to directives. It uses `?` now, and says that the list of
+unclaimed characters gets shorter each time the language grows.
+
 ## 0.33.0 — 2026-08-25
 
 **One message, and the program that asked for it got an interface.** `.sob`

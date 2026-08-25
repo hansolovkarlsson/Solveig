@@ -67,6 +67,31 @@ static void test_hash_tags_integers(void)
     expect_tokens("#45.5", bad, 1);
 }
 
+/* `$FF08` and `%10101100` -- the same integer written in another base. They are
+ * TOK_INT like `#45`, because that is all they are: the base is a property of
+ * how it was typed and nothing downstream is told. */
+static void test_dollar_and_percent_are_integers(void)
+{
+    const SolTokenType ints[] = { TOK_INT, TOK_INT, TOK_INT, TOK_EOF };
+    expect_tokens("$FF08 $ff %10101100", ints, 4);
+
+    /* The tag needs digits of its own base, and nothing else may follow them.
+     * Without that last rule `%1012` would be the binary `%101` and the float
+     * `2` -- two good tokens, a wrong reading, and no complaint. */
+    const SolTokenType bad[] = { TOK_ERROR };
+    expect_tokens("$", bad, 1);
+    expect_tokens("%", bad, 1);
+    expect_tokens("%1012", bad, 1);
+    expect_tokens("$FFg", bad, 1);
+
+    /* No sign, unlike `#-45`: these are for looking at bits. */
+    expect_tokens("$-FF", bad, 1);
+
+    /* And no float in either base, for the reason `#45.5` is refused. */
+    expect_tokens("$FF.5", bad, 1);
+    expect_tokens("%101.1", bad, 1);
+}
+
 static void test_strings_symbols_and_comments(void)
 {
     const SolTokenType expected[] = { TOK_STRING, TOK_SYMBOL, TOK_EOF };
@@ -223,10 +248,12 @@ static void test_a_multiline_token_is_placed_where_it_opens(void)
    separately -- so a caller can underline what went wrong. */
 static void test_an_error_token_points_at_the_source(void)
 {
-    /* '%' rather than '@': '@' opens a directive now, and is refused for what
-       follows it rather than for being itself. */
+    /* '?' is the third character to hold this job. '@' lost it to directives and
+       '%' to binary literals, each time because the language grew a use for it
+       -- so what this test really needs is a character nothing has claimed, and
+       the list of those gets shorter. */
     SolLexer lexer;
-    sol_lexer_init(&lexer, "b := %.");
+    sol_lexer_init(&lexer, "b := ?.");
 
     SolToken t = sol_lexer_next(&lexer);   /* b  */
     t = sol_lexer_next(&lexer);            /* := */
@@ -235,7 +262,7 @@ static void test_an_error_token_points_at_the_source(void)
     assert(t.message != NULL);
     assert(strcmp(t.message, "unexpected character") == 0);
     assert(t.line == 1 && t.column == 6);
-    assert(t.start[0] == '%');             /* into the source, not the message */
+    assert(t.start[0] == '?');             /* into the source, not the message */
     assert(t.length == 1);
 }
 
@@ -247,6 +274,7 @@ int main(void)
     test_colon_still_sends();
     test_period_disambiguation();
     test_hash_tags_integers();
+    test_dollar_and_percent_are_integers();
     test_strings_symbols_and_comments();
     test_directives_scan();
     test_a_shebang_is_skipped();

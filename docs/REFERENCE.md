@@ -1047,13 +1047,20 @@ system:setModifiedAt(to, system:modifiedAt(from)).
 
 The mode before the time, since writing sets the time and would undo it.
 
-A **mode is an integer**, because that is what a mode is. Solum has no octal
-literal, so `#493` is what `0755` looks like written down — and `asBase` and
-`asInteger` cross to the text people recognise:
+A **mode is an integer**, because that is what a mode is. There is no octal
+literal, but there is a binary one, and permissions are three triples of bits —
+so `%111101101` is what `0755` looks like written down, with the triples where
+you can see them. `asBase` and `asInteger` cross to the text people recognise:
 
 ```
 system:modeOf(path):asBase(#8).      ; "755"
 "755":asInteger(#8).                 ; #493
+```
+
+And `%111101101` is `#493` written so the triples show:
+
+```
+%111101101:asBase(#8):display.       ; 755
 ```
 
 The file-type bits are masked off, so what comes back is permissions alone and
@@ -1338,6 +1345,8 @@ is one statement, not two.
 | Form | Type | Notes |
 | --- | --- | --- |
 | `#45`, `#-45` | integer | `#` is a type tag, not a marker |
+| `$FF08`, `$ff08` | integer | hexadecimal; either case |
+| `%10101100` | integer | binary |
 | `45`, `45.5` | float | a bare number is a float |
 | `1e3`, `1.5e-3`, `1E+3` | float | exponent optional, sign optional |
 | `"hello"` | string | see escapes below |
@@ -1351,6 +1360,36 @@ meaning exact.
 
 A `.` only continues a number when a digit follows it, so `45.` is the float
 `45` followed by a statement separator.
+
+#### Bases
+
+`$` and `%` write the same integer in the base you are thinking in. A colour, a
+file mode and a set of flags are all patterns of bits, and `#493` does not look
+like `rwxr-xr-x` to anybody:
+
+```
+%111101101:asBase(#8):display.   ; 755
+$FF08:print.                     ; #65288
+$ff:equals(#255):print.          ; true
+```
+
+**They carry no `#`.** That tag is there because `45` and `#45` are the same
+characters with two readings and it says which; `$FF` has one reading, there
+being no hexadecimal float, so a tag would be noise.
+
+**And they take no sign.** `#-3` is allowed because a decimal integer is a
+number you may want the negative of. These are for looking at bits, and this
+language already declines to reach a negative that way —
+[no shift produces one](ROADMAP.md#312-no-shift-can-produce-a-negative-integer).
+`#0:sub($FF)` is how to ask.
+
+A digit or letter the base does not use ends the literal with an error rather
+than starting the next token, so `%1012` is refused instead of quietly being the
+binary `%101` followed by the float `2`. `$FF.5` is refused for the same reason
+`#45.5` is.
+
+Nothing downstream knows there were three spellings: all of them reach the same
+constant, and `.sob` files are unchanged.
 
 ### String escapes
 

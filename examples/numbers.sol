@@ -92,6 +92,28 @@ infinity:print.                  ; infinity
 -1.0:sqrt:print.                 ; nan
 
 ; ---------------------------------------------------------------------------
+; The same integer, in the base you are thinking in
+;
+; A colour, a file mode and a set of flags are patterns of bits, and `#493` does
+; not look like `rwxr-xr-x` to anybody. `$` is hexadecimal and `%` is binary,
+; and both make ordinary integers -- nothing downstream knows there was more
+; than one spelling.
+
+$FF08:print.                     ; #65288
+%10101100:print.                 ; #172
+$ff:equals(#255):print.          ; true
+
+; Permissions are three triples of bits, and this is where writing them out
+; earns its keep: the triples are where you can see them.
+%111101101:asBase(#8):display.   ; 755
+
+; **No `#` in front**, because that tag is there to say which of two readings
+; `45` has and these have only one -- there is no hexadecimal float. **And no
+; sign**: these are for looking at bits, and the language declines to reach a
+; negative that way, so `#0:sub($FF)` is how to ask.
+#0:sub($FF):print.               ; #-255
+
+; ---------------------------------------------------------------------------
 ; The rest of the mathematics
 ;
 ; Powers, logarithms and angles. All float, like `sqrt` and for the same reason:
