@@ -5,6 +5,49 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The library shipped this morning had nothing checking it — `pending`, 2026-08-25
+
+**[examples/scanning.sol](../examples/scanning.sol) and
+[examples/commands.sol](../examples/commands.sol)**, 44 claims between them, run
+and compared on every build.
+
+`lib/scan.sol` went out in 0.30.0 verified by a harness written once in a
+scratch file and then deleted. That is the shape of every claim this repository
+has since had to go back and check, and it was two hours old. `lib/shell.sol`
+had never had a test of any kind.
+
+**The diagnosis in between was wrong and is worth recording.** The night's
+journal said the largest hole was that the documentation checker's subjects are
+`examples`, `docs`, `README.md` and `index.md` — that it never looks at `lib/`.
+That is true and nearly irrelevant: across all seven library files there are
+**nine** lines that print with a comment, because a library is an
+implementation and not a demonstration. Pointing the checker at `lib/` would
+have gained nine claims and would not have caught the escapes defect, which
+lived in a branch no example exercised. The hole was never *where the checker
+looks*. It was that three libraries had nothing to look **at**.
+
+So the fix is an example each, in `examples/`, which the checker already runs —
+and the claims are now counted with everything else: **808**, up from 764.
+
+**Both files are named for the trap they fell into.** An example of `scan.sol`
+called `scan.sol` includes *itself*: a file beside the includer wins, so the
+include finds the example and does nothing.
+[6.22](COMPLETED.md#622-a-file-that-includes-a-library-of-its-own-name-silently-does-nothing--done)
+is that entry, and the warning it added said so exactly —
+
+```text
+[examples/scan.sol:12:10] solas: warning: this file includes itself, so the
+include does nothing -- a file beside the includer wins, and
+'./bin/../lib/scan.sol' on the search path is what it shadowed
+```
+
+— to a terminal where it had been redirected to `/dev/null`. They are
+`scanning.sol` and `commands.sol` now, for the same reason
+[manifest.sol](../programs/manifest.sol) is not called `json.sol`.
+
+`lib/text.sol` is the one left, and it is two methods reached by `json.sol` and
+`html.sol` on every build, so it has cover even if it has no file.
+
 ## 0.30.0 — 2026-08-25
 
 **One new library file, one four-day-old defect fixed, and nothing else in the

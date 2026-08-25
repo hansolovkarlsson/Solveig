@@ -362,8 +362,8 @@ line prints.
 ./bin/solvm programs/expect.sob programs             # another directory
 ```
 
-Over `examples/` alone that is 22<!--count examples-files--> files and
-414<!--count examples-claims--> claims:
+Over `examples/` alone that is 24<!--count examples-files--> files and
+458<!--count examples-claims--> claims:
 
 ```text
 21 files with expectations, 402 claims checked
@@ -386,7 +386,7 @@ table had when [disasm](#disasm--a-sob-file-read-and-disassembled) found it
 three sections out of date. They are also the first thing a newcomer reads.
 
 **It is in `make test` now**, in `tests/test_cli.c` with the other tests that
-run the binaries as a shell would — **764<!--count claims--> claims on every build**, in about
+run the binaries as a shell would — **808<!--count claims--> claims on every build**, in about
 sixteen seconds, and it fails the build if one stops holding.
 
 **And it checks the documentation too.** The guide and the reference carry the
@@ -433,7 +433,7 @@ no notation saying what it counts — so it is given one, which renders as nothi
 and leaves the sentence as it was:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 764<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 808<!--count claims--> claims
 ```
 
 Each name is recounted from the repository as it stands. A name the table does
