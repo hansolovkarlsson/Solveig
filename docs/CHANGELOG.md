@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### BASIC finished: what a number looks like, and transcripts that hold it to it — `pending`, 2026-08-25
+### BASIC finished: what a number looks like, and transcripts that hold it to it — `5e88c1d`, 2026-08-25
 
 **Stage five, and [programs/basic.sol](../programs/basic.sol) is done.** The rest
 of `PRINT`'s formatting, and a recorded transcript for four of the listings in
