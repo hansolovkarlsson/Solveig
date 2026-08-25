@@ -5,6 +5,41 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## 0.31.0 — 2026-08-25
+
+**Nothing in the language changed. What changed is that two libraries and every
+compiler warning are now checked, where before they were not.** `.sob` files are
+format version 14, unchanged, and bytecode from 0.30.0 still runs.
+
+**[lib/scan.sol](../lib/scan.sol) shipped this morning with nothing checking
+it** — verified by a harness written once in a scratch file and then deleted,
+which is the shape of every claim this repository has since had to go back and
+check. `lib/shell.sol` had never had a test of any kind.
+[examples/scanning.sol](../examples/scanning.sol) and
+[examples/commands.sol](../examples/commands.sol) are 44 claims between them,
+run and compared on every build, and they take the documented claim count from
+764 to **808**.
+
+**A diagnosis was wrong on the way and is recorded rather than quietly fixed.**
+The obvious reading was that the documentation checker never looks at `lib/`.
+It does not, and it barely matters: across all seven library files there are
+nine lines that print with a comment, because a library is an implementation and
+not a demonstration. The hole was never *where the checker looks* — it was that
+three libraries had nothing to look **at**.
+
+**And 45 shipped files now have to compile without `solas` saying anything**,
+where before they only had to compile. Both of the compiler's warnings exist
+because the failure they describe surfaces a long way from its cause, and
+nothing in the build failed on either. `examples/scanning.sol` was written as
+`examples/scan.sol`, which includes itself; the warning fired, named the
+shadowed file exactly, and the file compiled and would have shipped. Every one
+of the 45 passes today, so the check locks in what is already true — and it was
+verified by planting a warning and watching it fail.
+
+**The roadmap is empty and every idea is waiting on a trigger that has not
+fired.** That is the stable point this release marks, rather than a pause in the
+middle of something.
+
 ### A warning nobody fails on is a comment — `2529c55`, 2026-08-25
 
 **45 shipped files now have to compile without `solas` saying anything**, and

@@ -107,6 +107,50 @@ was written and nothing could see it until something crossed it.
 
 ---
 
+### Afterwards: closing the hole, and finding item 4 was wrong
+
+Two more commits after 0.30.0, and the first thing they established is that the
+postmortem above is mistaken.
+
+**Item 4 said the largest hole was that the checker never looks at `lib/`.** It
+does not, and it barely matters. Across all seven library files there are
+**nine** lines that print with a comment, because a library is an implementation
+and not a demonstration. Pointing the checker at `lib/` would have gained nine
+claims and would not have caught the escapes defect, which lived in a branch no
+example exercised. The hole was never *where the checker looks*; it was that
+three libraries had nothing to look **at**.
+
+That is a better mistake than it looks, because it is the same one twice in a
+day: reaching for the mechanism I had just been thinking about rather than the
+question in front of me. In the afternoon it was `grep -c` against a build that
+was not running. Here it was *the checker* — the tool I had spent three days
+extending — offered as the answer to a problem it does not fit.
+
+So: `examples/scanning.sol` and `examples/commands.sol`, 44 claims, run every
+build. `lib/scan.sol` had shipped two hours earlier verified by a harness I
+wrote once in a scratch file and deleted; `lib/shell.sol` had never had a test
+of any kind.
+
+**And writing them fell into 6.22.** An example of `scan.sol` called `scan.sol`
+includes itself. The warning fired, named the shadowed file exactly, and the
+file compiled — into a program that fails at run time with `undefined name
+'scan'`. It went to a terminal where I had redirected stderr to `/dev/null`.
+
+Which is the fourth time in one day that something passed or failed quietly
+because I had silenced what was telling me. That is not a thing to resolve to do
+better about; it is a thing to make impossible. **45 shipped files now have to
+compile without `solas` saying anything**, where before they only had to
+compile. Every one of them passes today, so the check locks in what is already
+true — and it was verified by planting a warning and watching it fail, on a
+freshly built binary.
+
+The plant taught something on its own: putting `examples/scan.sol` back shadowed
+`lib/scan.sol` for `examples/scanning.sol` too, so the reported failure came
+from the *neighbouring* file. 6.22's hazard reaches one file further than the
+file that has it.
+
+---
+
 ## 2026-08-25 (evening) — two names the language did not need
 
 Housekeeping, asked for as housekeeping, and both items turned out to be about

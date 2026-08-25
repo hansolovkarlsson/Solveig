@@ -137,6 +137,16 @@ version the binaries inside it report.
 
 ## Status
 
+**0.31.0** — nothing in the language changed; `.sob` files are format version
+14, unchanged, and bytecode from 0.30.0 still runs. What changed is that two
+libraries and every compiler warning are now **checked**. `lib/scan.sol` shipped
+in 0.30.0 verified by a harness that was written once and deleted, and
+`lib/shell.sol` had never had a test at all — they have an example each now,
+**808** documented claims in total, up from 764. And **45 shipped files must
+compile without `solas` saying anything**, where before they only had to
+compile: both of the compiler's warnings exist because the failure they describe
+surfaces far from its cause, and nothing in the build failed on either.
+
 **0.30.0** — one new library file and no change to the language; `.sob` files
 are format version 14, unchanged, and bytecode from 0.29.0 still runs.
 **[lib/scan.sol](lib/scan.sol) is a cursor over text** — five files here had
