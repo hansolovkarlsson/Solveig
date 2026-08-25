@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### The other four, and what converting them cost — `pending`, 2026-08-25
+### The other four, and what converting them cost — `cfd08e7`, 2026-08-25
 
 **`html.sol`, `experiment/lexer.sol`, `serve.sol` and `expect.sol` are on the
 cursor too**, so all five files that had written one for themselves now share
