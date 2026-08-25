@@ -43,10 +43,15 @@
 ;         an entry that had been waiting since it was written for a program
 ;         that wanted an angle. This was that program, and it wanted six.
 ;
-; **The language is complete**: twenty statements, eleven functions, and every
-; rule of the standard this file has found a way to check. What is left is
-; stage five -- the rest of `PRINT`'s formatting, and a recorded transcript for
-; each listing in [basic/](basic/) rather than the claims in comments used here.
+;   five  The rest of `PRINT`: six significant digits, no nought before a
+;         point, exponential form outside the range that can describe, `TAB(n)`,
+;         and a margin a comma wraps at. And a **recorded transcript** for each
+;         listing in [basic/](basic/), compared byte for byte on every build --
+;         which is what the claims in comments here cannot be, `programs/` not
+;         being one of the documentation checker's subjects.
+;
+; **It is finished.** Twenty statements, eleven functions, and every rule of the
+; standard this file has found a way to check.
 ;
 ; Stage four went ahead of stage three because it turned out not to depend on
 ; it, and then took part of it anyway: `A(1)` and `ABS(1)` are the same syntax,
@@ -189,6 +194,7 @@ loopFrame:body := #1.
 ; item on its left rather than sitting between two of them.
 printItem := object:new.
 printItem:expr := nil.
+printItem:tab := nil.      ; the column of a TAB(n), when the item is one
 printItem:sep := 'none.    ; 'none 'comma 'semi
 
 ; ---------------------------------------------------------------------------
@@ -905,10 +911,24 @@ parsers:atPut("PRINT", { m, tokens | | st, i, item, t |
     { i:lessOrEqual(tokens:size) }:whileTrue({
         item := printItem:new.
         item:expr := nil.
+        item:tab := nil.
         item:sep := 'none.
         m:isSeparator(tokens:at(i)):ifFalse({
-            item:expr := m:parse(tokens, i).
-            i := m:cursor }).
+
+            ; `TAB(n)` is a print item and not a function, which is why it is
+            ; caught here rather than in the expression grammar: it says where
+            ; the next thing goes, and there is nowhere in an expression for
+            ; that to mean anything.
+            tokens:at(i):text:equals("TAB")
+                :and({ m:tokenAt(tokens, i:add(#1)):notNil })
+                :and({ m:tokenAt(tokens, i:add(#1)):text:equals("(") })
+                :ifElse({
+                    item:tab := m:parse(tokens, i:add(#2)).
+                    i := m:cursor.
+                    m:expect(tokens, i, ")", "TAB: a ( was never closed").
+                    i := i:add(#1) },
+                    { item:expr := m:parse(tokens, i).
+                      i := m:cursor }) }).
         i:lessOrEqual(tokens:size):ifTrue({
             t := tokens:at(i).
             t:text:equals(","):ifTrue({ item:sep := 'comma. i := i:add(#1) }).
@@ -1557,30 +1577,117 @@ basic:execute := { st |
 ; where `INPUT "NAME"; N$` has to show a prompt and then read the answer from
 ; the same line, and nothing here can do that.
 
-basic:zone := #15.         ; the width of a print zone; the standard leaves it open
+; Both of these are choices the standard leaves open, so they are written down
+; rather than assumed. Seventy-two is the width of the paper everybody had.
+basic:zone := #15.         ; the width of a print zone
+basic:margin := #72.       ; where a line ends and the next one starts
 
 basic:doPrint := { st | | last |
     st:items:size:equals(#0):ifElse({ self:flush }, {
         st:items:do({ item |
+            item:tab:isNil:ifFalse({ self:tabTo(item:tab) }).
             item:expr:isNil:ifFalse({ self:emit(self:evaluate(item:expr)) }).
             item:sep:equals('comma):ifTrue({ self:tab }) }).
         last := st:items:at(st:items:size).
         last:sep:equals('none):ifTrue({ self:flush }) }) }.
 
-basic:emit := { v |
-    self:out := v:isKindOf(float):ifElse(
-        { self:out:concat(self:formatted(v)) },
-        { self:out:concat(v) }) }.
+; `TAB(n)` puts the next thing in column n, counting from one. A column already
+; passed is left alone rather than wrapping, because the alternative is a blank
+; line appearing in the middle of a table for a reason nobody can see.
+basic:tabTo := { where | | column |
+    column := self:numeric(self:evaluate(where)):rounded.
+    column:lessThan(#1):ifTrue({ column := #1 }).
+    self:padTo(column:sub(#1)) }.
+
+basic:padTo := { width |
+    { self:out:size:lessThan(width) }:whileTrue({
+        self:out := self:out:concat(" ") }) }.
+
+; An item that will not fit goes on the next line, which is what a terminal does
+; when the paper runs out and what the standard says to do about it. An item
+; longer than the whole margin is written anyway rather than being broken up.
+basic:emit := { v | | text |
+    text := v:isKindOf(float):ifElse({ self:formatted(v) }, { v }).
+    self:out:size:greaterThan(#0)
+        :and({ self:out:size:add(text:size):greaterThan(self:margin) })
+        :ifTrue({ self:flush }).
+    self:out := self:out:concat(text) }.
 
 basic:formatted := { v |
     v:lessThan(0.0):ifElse(
-        { v:asString:concat(" ") },
-        { " ":concat(v:asString):concat(" ") }) }.
+        { "-":concat(self:digits(0.0:sub(v))):concat(" ") },
+        { " ":concat(self:digits(v)):concat(" ") }) }.
 
+; ---------------------------------------------------------------------------
+; Six significant digits, which is what BASIC shows and Solum does not
+;
+; Solum prints the shortest text that reads back as the same double, so `1/3` is
+; `0.3333333333333333` -- seventeen digits, and right. BASIC shows **six
+; significant digits**, so it is `.333333`, and the leading nought is not there
+; either. The standard fixes neither number: it requires at least six and leaves
+; the rest to the implementation, so six is a choice made here and written down
+; rather than a rule being followed.
+;
+; The two thresholds below are the same kind of choice. Outside them a number is
+; written in exponential form, which is the only way six digits can describe
+; something very large or very small.
+
+basic:significance := #6.
+
+basic:digits := { v | | e |
+    v:equals(0.0):ifElse({ "0" }, {
+        e := self:exponentOf(v).
+        e:greaterThan(#5):or({ e:lessThan(#0:sub(#6)) })
+            :ifElse({ self:exponential(v, e) }, { self:fixed(v, e) }) }) }.
+
+; The power of ten just below `v`, by logarithm and then checked -- because
+; `log(1000000)/log(10)` is 5.999999999999999 and its floor is 5, which would
+; print a million as `1000000` with the digits counted from the wrong place.
+; Every language that has computed a decimal exponent this way has met that, and
+; the fix is the same everywhere: work it out, then look at what you got.
+basic:exponentOf := { v | | e, m |
+    e := v:log:div(10.0:log):floor.
+    m := v:div(10.0:pow(e:asFloat)).
+    m:greaterOrEqual(10.0):ifTrue({ e := e:add(#1) }).
+    m:lessThan(1.0):ifTrue({ e := e:sub(#1) }).
+    e }.
+
+basic:fixed := { v, e | | places |
+    places := self:significance:sub(#1):sub(e).
+    places:lessThan(#0):ifTrue({ places := #0 }).
+    self:trimmed(v:asString("0.":concat(places:asString))) }.
+
+basic:exponential := { v, e | | m |
+    m := v:div(10.0:pow(e:asFloat)).
+    self:trimmed(m:asString("0.":concat(self:significance:sub(#1):asString)))
+        :concat("E")
+        :concat(e:lessThan(#0):ifElse({ "-" }, { "+" }))
+        :concat(self:twoDigits(e:abs)) }.
+
+basic:twoDigits := { n |
+    n:lessThan(#10):ifElse({ "0":concat(n:asString) }, { n:asString }) }.
+
+; Trailing noughts after a point mean nothing, the point itself means nothing
+; with them gone, and a nought before the point is not how BASIC writes a
+; fraction: `.5`, not `0.5`.
+basic:trimmed := { text | | out |
+    out := text.
+    out:indexOf("."):notNil:ifTrue({
+        { out:at(out:size):equals("0") }:whileTrue({
+            out := out:copyFrom(#1, out:size:sub(#1)) }).
+        out:at(out:size):equals("."):ifTrue({
+            out := out:copyFrom(#1, out:size:sub(#1)) }) }).
+    out:size:greaterThan(#1):and({ out:copyFrom(#1, #2):equals("0.") })
+        :ifTrue({ out := out:copyFrom(#2, out:size) }).
+    out }.
+
+; A comma moves to the next zone, and to the next *line* when there is no zone
+; left on this one.
 basic:tab := { | target |
     target := self:out:size:div(self:zone):add(#1):mul(self:zone).
-    { self:out:size:lessThan(target) }:whileTrue({
-        self:out := self:out:concat(" ") }) }.
+    target:greaterThan(self:margin):ifElse(
+        { self:flush },
+        { self:padTo(target) }) }.
 
 ; `PRINT` with nothing after it prints a blank line, so ending the line is
 ; unconditional here and the emptiness of the buffer is not a reason to skip it.
@@ -2034,6 +2141,59 @@ listing:value([
 ; being closed.
 
 ; ---------------------------------------------------------------------------
+; What a number looks like on the page
+;
+; **Six significant digits, and no nought before the point.** Solum prints the
+; shortest text that reads back as the same double, so `1/3` is
+; `0.3333333333333333` and right; BASIC shows `.333333`. The standard requires
+; at least six digits and leaves the rest open, so six is a choice made here.
+;
+; Outside a range the standard also leaves open, a number is written in
+; exponential form -- which is why a million comes out as `1E+06`. That looks
+; wrong and is not: seven digits to the left of the point is more than six
+; significant digits can describe, so the scaled form is the only honest one.
+
+listing:value([
+    "10 PRINT 1/3; 2/3",
+    "20 PRINT .5; .05",
+    "30 PRINT 1000000; 123456789",
+    "40 PRINT 1E20; 1E-20",
+    "50 END"]).
+;    .333333  .666667
+;    .5  .05
+;    1E+06  1.23457E+08
+;    1E+20  1E-20
+
+; ---------------------------------------------------------------------------
+; TAB, and where a line ends
+;
+; `TAB(n)` puts the next thing in column n. A column already passed is left
+; alone rather than wrapping, because a blank line appearing in the middle of a
+; table is harder to explain than a column that did not move.
+
+listing:value([
+    "10 PRINT TAB(10); \"X\"; TAB(20); \"Y\"",
+    "20 PRINT \"AB\"; TAB(5); \"C\"",
+    "30 PRINT TAB(3); \"Z\"; TAB(2); \"W\"",
+    "40 END"]).
+;            X         Y
+;   AB  C
+;     ZW
+
+; A comma moves to the next print zone, and to the next *line* when there is no
+; zone left on this one. Seventy-two columns is five zones, so the sixth number
+; starts a line.
+
+listing:value([
+    "10 FOR I = 1 TO 8",
+    "20 PRINT I,",
+    "30 NEXT I",
+    "40 PRINT",
+    "50 END"]).
+;    1              2              3              4              5
+;    6              7              8
+
+; ---------------------------------------------------------------------------
 ; How deep a listing can nest
 ;
 ; The measurement the two dispatch comments above refer to, run rather than
@@ -2078,9 +2238,9 @@ listing:value([
     "20 PRINT SIN(0); COS(0); TAN(0)",
     "30 PRINT EXP(1); LOG(1)",
     "40 END"]).
-;    8  1.4142135623730951
+;    8  1.41421
 ;    0  1  0
-;    2.718281828459045  0
+;    2.71828  0
 
 ; `ATN` is the standard's `atan`, and four of it is pi -- which BASIC has no
 ; constant for, so this is how a listing gets one.
@@ -2088,7 +2248,11 @@ listing:value([
 listing:value([
     "10 PRINT ATN(1) * 4",
     "20 END"]).
-;    3.141592653589793
+;    3.14159
+
+; Six digits is what BASIC shows, so this is pi to the precision the language
+; has rather than to the precision the machine has -- the number itself is the
+; full double and only the printing is short.
 
 ; And the left-grouping promised at the top of this file, now that it can be
 ; shown: `2^3^2` is 64 here and 512 in almost every BASIC since 1978.

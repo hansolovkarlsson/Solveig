@@ -5,6 +5,56 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### BASIC finished: what a number looks like, and transcripts that hold it to it — `pending`, 2026-08-25
+
+**Stage five, and [programs/basic.sol](../programs/basic.sol) is done.** The rest
+of `PRINT`'s formatting, and a recorded transcript for four of the listings in
+[programs/basic/](../programs/basic/) compared byte for byte on every build.
+
+**`PRINT` shows six significant digits**, with no nought before the point. Solum
+prints the shortest text that reads back as the same double, so `1/3` is
+`0.3333333333333333` and right; BASIC shows `.333333`. The standard requires at
+least six digits and leaves the rest open, so six is a choice made here rather
+than a rule being followed, and it is written down as one.
+
+**A million comes out as `1E+06`, which looks like a defect and is the
+standard**: seven digits to the left of the point is more than six significant
+digits can describe, so the scaled form is the only honest one. The thresholds
+either side of it are the same kind of implementation choice, also written down.
+
+**Computing the decimal exponent needed the mathematics that landed this
+morning** — and it met the oldest trap in doing so. `log(1000000)/log(10)` is
+5.999999999999999, whose floor is 5, which would print a million with its digits
+counted from the wrong place. The fix is the one every language has arrived at:
+work the exponent out, then look at what you got and correct it.
+
+**`TAB(n)`** puts the next thing in a column, and does nothing when the column
+has already gone by — a blank line appearing in the middle of a table being
+harder to explain than a column that did not move. It is caught in `PRINT`'s own
+parser rather than in the expression grammar, because it says *where the next
+thing goes* and there is nowhere in an expression for that to mean anything.
+**A margin at 72 columns**, which a comma wraps at: five print zones fit, so a
+sixth number starts a line.
+
+**And the transcripts, which are what the claims in comments cannot be.**
+`programs/` is not one of the documentation checker's subjects, so a comment
+there is true because somebody looked — and the output of a BASIC program is
+exactly where that fails: print zones, six significant digits and the trailing
+space after every number are invisible to a reader and all load-bearing.
+`sieve.bas`, `temperature.bas`, `stats.bas` and `wave.bas` each have a `.out`
+beside them now, compared exactly.
+
+**`wave.bas` is there for a second reason.**
+[3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done) said it was
+waiting for *"a plotter, a simulation, anything with coordinates or a
+waveform"*, and until this morning this interpreter could not run one. It draws
+a sine wave with `ATN`, `SIN` and `TAB`.
+
+**The documented claim count does not move**, and that is the point of the
+transcripts. It stays at 830<!--count claims--> because `programs/` is not a
+subject of the checker: this file's own inline claims went from 68 to 77 and
+none of them is checked by it. The four `.out` files are what checks them.
+
 ### system:write, and the roadmap empties again — `c3fa1ec`, 2026-08-25
 
 **`system:write(text)` writes a string to standard output and adds nothing** —

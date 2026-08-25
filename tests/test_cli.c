@@ -18,6 +18,24 @@
 /* Runs `command` and answers its exit status, copying up to `size` bytes of
    whatever it wrote to `out`. Only one stream is captured per call, so the
    caller redirects the one it does not want. */
+/* Reads a whole file, for comparing a program's output against a recorded one. */
+static char *slurp_file(const char *path)
+{
+    FILE *f = fopen(path, "rb");
+    assert(f != NULL);
+    assert(fseek(f, 0, SEEK_END) == 0);
+    long size = ftell(f);
+    assert(size >= 0);
+    rewind(f);
+
+    char *text = malloc((size_t)size + 1);
+    assert(text != NULL);
+    assert(fread(text, 1, (size_t)size, f) == (size_t)size);
+    text[size] = '\0';
+    fclose(f);
+    return text;
+}
+
 static int run(const char *command, char *out, size_t size)
 {
     out[0] = '\0';
@@ -572,9 +590,9 @@ static void test_basic_runs_the_way_the_standard_says(void)
        2^0.5 is here because it is the case repeated multiplication cannot do
        and the reason the operator was never stubbed, and ATN(1)*4 because it is
        the shortest program that would notice if an angle were wrong. */
-    assert(strstr(out, "\n 8  1.4142135623730951 \n") != NULL);
+    assert(strstr(out, "\n 8  1.41421 \n") != NULL);
     assert(strstr(out, "\n 0  1  0 \n") != NULL);
-    assert(strstr(out, "\n 3.141592653589793 \n") != NULL);
+    assert(strstr(out, "\n 3.14159 \n") != NULL);
 
     /* Equal precedence groups left, so 2^3^2 is 64 here and 512 in almost every
        BASIC since. The one rule of the dialect that no other assertion covers,
@@ -594,6 +612,18 @@ static void test_basic_runs_the_way_the_standard_says(void)
        to, and a range that is already empty runs its body no times -- which
        shows up as the absence of anything between these two lines. */
     assert(strstr(out, "\n 1  2  3  4  5 \n 10  7  4  1 \n") != NULL);
+
+    /* Six significant digits and no nought before the point, which is what
+       BASIC shows and what Solum does not: 1/3 is 0.3333333333333333 here and
+       .333333 there. A million in scaled form looks like a defect and is the
+       standard -- seven digits to the left is more than six can describe. */
+    assert(strstr(out, "\n .333333  .666667 \n") != NULL);
+    assert(strstr(out, "\n 1E+06  1.23457E+08 \n") != NULL);
+
+    /* TAB puts the next thing in a column, and does nothing when the column has
+       already gone by. */
+    assert(strstr(out, "\n         X         Y\n") != NULL);
+    assert(strstr(out, "\nAB  C\n") != NULL);
 
     /* Two rules of the dialect that every later BASIC relaxed, and so the two
        most likely to be "fixed" by somebody who knows a later one: THEN takes
@@ -654,6 +684,40 @@ static void test_basic_runs_a_listing_from_a_file(void)
     assert(strstr(out, "AND YOUR NAME? THANK YOU, Hans\n") != NULL);
     assert(strstr(out, "PRODUCT IS 12 \n") != NULL);
     assert(strstr(out, "THANK YOU, Hans\n") != NULL);
+
+    /* Every listing in programs/basic/ that needs no input, against a recorded
+       transcript, byte for byte.
+     *
+     * This is what the claims in comments cannot be. programs/ is not one of
+     * expect.sol's subjects, so a comment there is true because somebody looked
+     * -- and the output of a BASIC program is exactly where that fails: print
+     * zones, six significant digits and a trailing space after every number are
+     * all invisible to a reader and all load-bearing.
+     *
+     * wave.bas is here for a second reason. ROADMAP 3.14 said it was waiting
+     * for "a plotter, a simulation, anything with coordinates or a waveform",
+     * and for two days this interpreter could not run one. */
+    static const char *listings[] = { "sieve", "wave", "temperature", "stats" };
+    for (size_t i = 0; i < sizeof listings / sizeof listings[0]; i++) {
+        char command[512], expected_path[512];
+        snprintf(command, sizeof command,
+                 "bin/solvm " DIR "/basic.sob programs/basic/%s.bas 2>&1",
+                 listings[i]);
+        snprintf(expected_path, sizeof expected_path,
+                 "programs/basic/%s.out", listings[i]);
+
+        assert(run(command, out, sizeof out) == 0);
+
+        char *expected = slurp_file(expected_path);
+        if (strcmp(out, expected) != 0) {
+            printf("\n%s.bas printed\n%s\nand %s.out records\n%s\n",
+                   listings[i], out, listings[i], expected);
+            assert(false);
+        }
+        free(expected);
+    }
+    printf("  %zu recorded transcripts still match\n",
+           sizeof listings / sizeof listings[0]);
 
     /* A file that is not there is a message and a status, not a stack trace. */
     assert(run("bin/solvm " DIR "/basic.sob no-such-file.bas 2>&1",

@@ -600,21 +600,29 @@ sign character — a minus, or a space when it is not negative — then the digi
 then a trailing space, which is why BASIC output has its airy look and why a
 negative number lines up under a positive one.
 
-**All twenty statements of the standard are here**, and it runs about **420,000
-BASIC statements a second**. `LET`, `PRINT`, `REM`, `END` and the expression
-grammar; `GOTO`, `IF-THEN`, `FOR/NEXT`, `GOSUB/RETURN`, `ON-GOTO`, `STOP`; then
-text, arrays, `DIM`, `OPTION BASE`, `DATA`/`READ`/`RESTORE`, `INPUT`, `DEF FN`,
-`RANDOMIZE` and five of the eleven supplied functions. It also takes a listing
-of its own:
+**The whole language is here** — all twenty statements and all eleven supplied
+functions — and it runs about **420,000 BASIC statements a second**. `LET`,
+`PRINT`, `REM`, `END` and the expression grammar; `GOTO`, `IF-THEN`,
+`FOR/NEXT`, `GOSUB/RETURN`, `ON-GOTO`, `STOP`; then text, arrays, `DIM`,
+`OPTION BASE`, `DATA`/`READ`/`RESTORE`, `INPUT`, `DEF FN`, `RANDOMIZE` and the
+functions. It also takes a listing of its own:
 
 ```sh
-./bin/solvm programs/basic.sob programs/basic/sieve.bas
+./bin/solvm programs/basic.sob programs/basic/wave.bas
 ```
 
-**What is missing is six functions and nothing else** — `SIN`, `COS`, `TAN`,
-`ATN`, `EXP` and `LOG`, which are
-[3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done) and a decision rather
-than work. `^` waits on the same entry.
+`PRINT` shows **six significant digits** with no nought before the point, which
+is what BASIC shows and what Solum does not — `1/3` is `0.3333333333333333` in
+Solum and `.333333` here. A million comes out as `1E+06`, which looks like a
+defect and is the standard: seven digits to the left of the point is more than
+six significant digits can describe.
+
+Four of the listings in `programs/basic/` carry a **recorded transcript**
+compared byte for byte on every build. That is what the claims in comments
+cannot be — `programs/` is not one of the documentation checker's subjects, and
+the output of a BASIC program is exactly where a comment goes stale unnoticed:
+print zones, six digits and the trailing space after every number are invisible
+to a reader and all load-bearing.
 
 A BASIC program is a graph rather than a sequence, and its edges are line
 numbers, so all of them are followed in three passes at load: a jump becomes an
