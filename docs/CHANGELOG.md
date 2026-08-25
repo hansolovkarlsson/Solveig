@@ -5,6 +5,73 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### BASIC gets its data, and every statement in the standard — `pending`, 2026-08-25
+
+**Stage four of [programs/basic.sol](../programs/basic.sol): text variables,
+arrays, `DIM`, `OPTION BASE`, `DATA`/`READ`/`RESTORE`, `INPUT`, `DEF FN`,
+`RANDOMIZE`, and five of the eleven supplied functions.** With those, **all
+twenty statements of ECMA-55 Minimal BASIC are implemented**, and what is left
+of the language is six functions: `SIN`, `COS`, `TAN`, `ATN`, `EXP` and `LOG`,
+which are [3.14](ROADMAP.md#314-the-mathematics-that-is-not-here) and a decision
+rather than work.
+
+**Twenty, not the nineteen this program has been claiming since it was scoped.**
+`OPTION BASE` was missing from the count and from the plan, found by running out
+of statements to implement and going back to the standard to see what was left.
+It is implemented too, including the standard's two rules about it — one per
+program, and before any `DIM` — because an `OPTION BASE` written after the array
+it was meant to shape changes every answer quietly.
+
+**Stage four went ahead of stage three because it did not depend on it, and then
+took most of it anyway.** `A(1)` and `ABS(1)` are the same shape, and nothing in
+BASIC's grammar tells an array reference from a function call — a language with
+no keywords for its own library has nowhere to put the distinction except the
+name. So arrays could not be built without the machinery that calls a function,
+and the five functions that do not need 3.14 came with it. Fortran made the same
+choice in 1957 for the same reason.
+
+**And `INPUT` found [3.18](ROADMAP.md#318-a-program-cannot-write-without-ending-the-line):
+a program cannot write to its own output without ending the line.** BASIC prompts
+with `?` and reads the answer typed beside it; this prints the `?` and reads from
+the line below, because `display` and `print` are the only ways a Solum program
+has to write and both end the line.
+
+**The workaround is worse than the gap, which is the part worth recording.**
+`system:writeFile("/dev/stdout", "? ")` writes without a newline and looks like
+the answer. It opens a second stream on the same file, so when the output is a
+pipe or a file — where the first stream is block-buffered and this one is not —
+the prompt overtakes everything printed before it:
+
+```text
+one          what the program printed, in order
+two? four? one
+three        what came out of a pipe
+five
+```
+
+It works when tried by hand and silently reorders the transcript the moment
+anything is redirected, which is the shape of both hand-written square roots in
+3.14. The entry asks for one primitive and one question: whether it goes on
+`system`, beside `readLine`, or on `string`, beside `display`.
+
+**It also runs a listing from a file now** —
+`solvm basic.sob programs/basic/sieve.bas` — which is part of stage five brought
+forward, because `INPUT` reads standard input and so cannot be one of the
+demonstrations that run on every build. [programs/basic/](../programs/basic/) has
+the sieve and an adder, and `test_cli` runs both, the second with its answers
+piped in.
+
+Two smaller things. A near miss with
+[3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame): the six blocked
+functions were nearly written as a loop binding one block per name into a
+dictionary, which would have stored six blocks that outlived the frame they were
+written in. They are a list of names tested before the lookup instead, which is
+shorter anyway. And `SIN(0)` reported *`SIN` is not an array: an array is named
+by a single letter* — a true sentence about the wrong thing, because the blocked
+names were not in the function table and so fell down the array branch of the
+fork. The kind of message that sends somebody looking in the wrong place for an
+afternoon.
+
 ### BASIC gets control flow, and a hot loop settles an argument — `16c0b30`, 2026-08-25
 
 **Stage two of [programs/basic.sol](../programs/basic.sol): `GOTO`, `IF-THEN`,

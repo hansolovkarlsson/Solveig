@@ -575,7 +575,7 @@ answer.
 
 Reads a BASIC listing and runs it. The dialect is **ECMA-55 Minimal BASIC
 (1978)**, chosen because a published standard means what counts as finished is
-settled by somebody other than the author of the interpreter — nineteen keywords
+settled by somebody other than the author of the interpreter — twenty statements
 and eleven supplied functions, and no room to declare victory early.
 
 ```sh
@@ -600,12 +600,21 @@ sign character — a minus, or a space when it is not negative — then the digi
 then a trailing space, which is why BASIC output has its airy look and why a
 negative number lines up under a positive one.
 
-**Stages one and two of six.** `LET`, `PRINT`, `REM`, `END` and the whole
-numeric expression grammar; then `GOTO`, `IF-THEN`, `FOR/NEXT`, `GOSUB/RETURN`,
-`ON-GOTO` and `STOP`, which between them make it a language you can write a
-program in. It runs about **420,000 BASIC statements a second**. The supplied
-functions, the data statements, the rest of `PRINT`'s formatting, and listings
-read from `.bas` files in `programs/basic/` come after.
+**All twenty statements of the standard are here**, and it runs about **420,000
+BASIC statements a second**. `LET`, `PRINT`, `REM`, `END` and the expression
+grammar; `GOTO`, `IF-THEN`, `FOR/NEXT`, `GOSUB/RETURN`, `ON-GOTO`, `STOP`; then
+text, arrays, `DIM`, `OPTION BASE`, `DATA`/`READ`/`RESTORE`, `INPUT`, `DEF FN`,
+`RANDOMIZE` and five of the eleven supplied functions. It also takes a listing
+of its own:
+
+```sh
+./bin/solvm programs/basic.sob programs/basic/sieve.bas
+```
+
+**What is missing is six functions and nothing else** — `SIN`, `COS`, `TAN`,
+`ATN`, `EXP` and `LOG`, which are
+[3.14](ROADMAP.md#314-the-mathematics-that-is-not-here) and a decision rather
+than work. `^` waits on the same entry.
 
 A BASIC program is a graph rather than a sequence, and its edges are line
 numbers, so all of them are followed in three passes at load: a jump becomes an

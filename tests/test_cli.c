@@ -598,7 +598,57 @@ static void test_basic_runs_the_way_the_standard_says(void)
     assert(strstr(out, "line 20: NEXT J closes FOR I") != NULL);
     assert(strstr(out, "line 10: there is no line 999") != NULL);
 
+    /* Arrays start at nought and an array nobody declared has a bound of ten,
+       both of which are the standard and neither of which is guessable. */
+    assert(strstr(out, "\n 0  1  4  9  16  25 \n") != NULL);
+    assert(strstr(out, "\n 3  0 \n") != NULL);
+
+    /* INT floors rather than truncating, so INT(-2.5) is -3 and not -2. */
+    assert(strstr(out, "\n 3 -3 -1  4 \n") != NULL);
+
+    /* RND repeats until RANDOMIZE says otherwise, so the same three numbers
+       come out twice. Written as one search for both lines, which is the
+       claim: not that they are those numbers, but that they are the same. */
+    assert(strstr(out, "\n 18  31  12 \n 18  31  12 \n") != NULL);
+
+    /* A DATA word with no quotes round it is text, which catches everybody. */
+    assert(strstr(out, "\n 1  2 THREE\n") != NULL);
+
     printf("  BASIC runs a program the way ECMA-55 says, and refuses ^\n");
+}
+
+/* And a listing of its own, from a file, which is the only way INPUT can be
+ * tested: it reads standard input, so a listing using it cannot be one of the
+ * demonstrations that run on every build.
+ *
+ * The sieve is here because it is the shortest program that would fail if
+ * anything about arrays, nested loops or jumps were wrong, and it says so in
+ * one line of output that is checked against the primes rather than against
+ * what this interpreter happened to print. */
+static void test_basic_runs_a_listing_from_a_file(void)
+{
+    char out[8192];
+
+    assert(run("bin/solvm " DIR "/basic.sob programs/basic/sieve.bas 2>&1",
+               out, sizeof out) == 0);
+    assert(strcmp(out, " 2  3  5  7  11  13  17  19  23  29  31  37  41  43  47 \n")
+           == 0);
+
+    /* INPUT, with the answers piped in. The `?` on a line of its own rather
+       than beside the answer is ROADMAP 3.18 and not a defect here -- if this
+       ever reads "? 3, 4" the entry has been closed and this should say so. */
+    assert(run("printf '3, 4\\nHans\\n' | bin/solvm " DIR "/basic.sob"
+               " programs/basic/adder.bas 2>&1", out, sizeof out) == 0);
+    assert(strstr(out, "\n?\nSUM IS 7 \n") != NULL);
+    assert(strstr(out, "PRODUCT IS 12 \n") != NULL);
+    assert(strstr(out, "THANK YOU, Hans\n") != NULL);
+
+    /* A file that is not there is a message and a status, not a stack trace. */
+    assert(run("bin/solvm " DIR "/basic.sob no-such-file.bas 2>&1",
+               out, sizeof out) == 1);
+    assert(strstr(out, "there is no file no-such-file.bas") != NULL);
+
+    printf("  BASIC runs a .bas file, INPUT included\n");
 }
 
 int main(void)
@@ -620,6 +670,7 @@ int main(void)
     test_the_limits_are_off_and_are_checked();
     test_everything_written_down_is_true();
     test_basic_runs_the_way_the_standard_says();
+    test_basic_runs_a_listing_from_a_file();
     printf("test_cli: ok\n");
     return 0;
 }
