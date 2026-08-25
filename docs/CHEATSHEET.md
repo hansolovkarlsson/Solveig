@@ -76,8 +76,8 @@ blocks, and the compiler inlines them to jumps when written literally.
 | `doUntil(condition)` | block | nil; **body first**, so always at least once |
 | `repeat(#n)` | block | nil, having run the receiver `n` times |
 | `#n:repeat(block)` | integer | nil, having run the block `n` times |
-| `loopDo(block)` | array | `[#a, #b]` counts up to `#b` **inclusive**, block given each |
-| `loopDo(block)` | array | `[#a, #b, #step]` the same by `#step`; negative counts down |
+| `loop(block)` | array | `[#a, #b]` counts up to `#b` **inclusive**, block given each |
+| `loop(block)` | array | `[#a, #b, #step]` the same by `#step`; negative counts down |
 | `do(block)` | array, dictionary | the receiver, block per element |
 
 **Where the table says `block`, it means one** — and it is checked when the
@@ -100,7 +100,7 @@ ticks := #0.
 ticks:print.                                        ; #3
 
 seen := "".
-[#1,#7,#3]:loopDo({ n | seen := seen:concat(n:asString) }).
+[#1,#7,#3]:loop({ n | seen := seen:concat(n:asString) }).
 seen:display.                                       ; 147
 ```
 
@@ -149,7 +149,7 @@ random generator cannot be written here at all.
 | `asString` | the digits, without the `#` |
 | `asBase(#n)` | the digits in base `n`, 2 to 36 |
 | `asCharacter` | the one-byte string that byte spells; `#0` to `#255` |
-| `repeat(block)` on integer, `loopDo(block)` on `[#a, #b]` or `[#a, #b, #s]` | loops — see above |
+| `repeat(block)` on integer, `loop(block)` on `[#a, #b]` or `[#a, #b, #s]` | loops — see above |
 
 ```
 #7:div(#2):print.               ; #3

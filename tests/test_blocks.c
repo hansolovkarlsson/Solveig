@@ -294,8 +294,8 @@ static void test_a_block_argument_is_checked_when_it_is_sent(void)
         /* A loop that runs no passes. */
         "{ false }:whileTrue(#45).",
         "#0:repeat(#45).",
-        "[#1,#0]:loopDo(#45).",
-        "[#1,#0,#1]:loopDo(#45).",
+        "[#1,#0]:loop(#45).",
+        "[#1,#0,#1]:loop(#45).",
         /* An empty collection. */
         "[]:do(#45).",
         "[]:collect(#45).",

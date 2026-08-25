@@ -174,7 +174,7 @@ static void test_a_breakpoint_in_a_loop_fires_each_time(void)
         "adder := { n |\n"
         "    total := total:add(n).\n"
         "    total }.\n"
-        "[#1,#3]:loopDo(adder).\n"
+        "[#1,#3]:loop(adder).\n"
         "total:print.\n";
 
     session(program, "break program.sol:3\\ncontinue\\nprint n\\ncontinue\\n"

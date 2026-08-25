@@ -68,7 +68,7 @@ sob:i64 := { n | | i |
 
 ; Text with a u16 length in front and no terminator, which is how every name,
 ; path and method name is stored.
-sob:text := { s | self:u16(s:size). [#1,s:size]:loopDo({ i | self:u8(s:at(i):asByte) }) }.
+sob:text := { s | self:u16(s:size). [#1,s:size]:loop({ i | self:u8(s:at(i):asByte) }) }.
 
 ; ---------------------------------------------------------------------------
 ; A chunk

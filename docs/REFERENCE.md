@@ -511,7 +511,7 @@ program asks for it by name:
 lines := #0.
 { lines := lines:add(#1) }:doUntil({ lines:greaterOrEqual(#3) }).
 lines:print.                                 ; #3
-[#1,#10,#3]:loopDo({ n | n:display }).      ; 1 4 7 10
+[#1,#10,#3]:loop({ n | n:display }).      ; 1 4 7 10
 #4:timesCollect({ n | n:mul(n) }):print.     ; [#1, #4, #9, #16]
 ```
 
@@ -564,7 +564,7 @@ measuring does. The machinery around it — the search path, `@include` finding 
 name it was not told the location of — is unchanged and is the part that
 matters.
 
-A step of `#0` would never finish, so `loopDo` says so rather than hanging.
+A step of `#0` would never finish, so `loop` says so rather than hanging.
 
 Written in Solum, they cost a block call per iteration — about 1.30× a literal
 `whileTrue`, which compiles to jumps. See
@@ -1582,7 +1582,7 @@ x:greaterThan(#0):and(c):print.          ; true
 Written literally, `ifTrue`, `ifFalse`, `ifElse`, `whileTrue`, `doUntil`, `and`,
 and `or` compile to jumps: no block is allocated and no frame is entered.
 
-`repeat` and `loopDo` are **not** in that list and deliberately so. They
+`repeat` and `loop` are **not** in that list and deliberately so. They
 are primitives, which is faster here than inlining would have been: inlining
 removes the block call an iteration and keeps two bytecode sends for the
 counter, where a primitive removes the two sends and keeps the block call. The
@@ -2419,7 +2419,7 @@ one like any other byte.
 | `removeLast` | the last element, taken off; **an error** when empty |
 | `indexOf(v)` | where `v` first is, **one-based**, or nil |
 | `do(block)` | the array, having run the block per element |
-| `loopDo(block)` | nil; a *counted loop* over `[#a, #b]` or `[#a, #b, #step]` — the bounds, not the elements, both ends included |
+| `loop(block)` | nil; a *counted loop* over `[#a, #b]` or `[#a, #b, #step]` — the bounds, not the elements, both ends included |
 | `collect(block)` | a new array of the block's answers |
 | `select(block)` | a new array of the elements the block accepted |
 | `inject(start, block)` | one value, folded left to right |
@@ -3011,7 +3011,7 @@ appear in an example.
 | `last` | [array](#array) |
 | `lessOrEqual` | [float](#float), [integer](#integer), [string](#string), [symbol](#symbol), [time](#time) |
 | `lessThan` | [float](#float), [integer](#integer), [string](#string), [symbol](#symbol), [time](#time) |
-| `loopDo` | [array](#array) |
+| `loop` | [array](#array) |
 | `makeDirectory` | [system](#system) |
 | `minute` | [time](#time) |
 | `mod` | [float](#float), [integer](#integer) |

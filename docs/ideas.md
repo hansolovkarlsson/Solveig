@@ -33,7 +33,7 @@ marked as a sketch.
 | `doUntil` | **Built in** — and inlined, so a definition in Solum would now be bypassed |
 | switch / case | **Already writable**, and now written — [`array:ifElseIf`](REFERENCE.md#the-library) in control.sol, once an interface turned up worth committing to |
 | `#10:repeat({...})` | **Built in** — a primitive, measured 3.2x the version written in Solum |
-| `for` loop with start/end/step | **Built in** — `[#a, #b, #step]:loopDo` |
+| `for` loop with start/end/step | **Built in** — `[#a, #b, #step]:loop` |
 | `forIn` | **It is `do`** |
 | `ifTrue{...}` without parentheses | **No** — it would teach a rule that does not generalise |
 | Performance timing | **Built** — the clock came with it |

@@ -1386,7 +1386,7 @@ static SolValue prim_block_repeat(SolVM *vm, SolValue self, SolValue *args, int 
     return SOL_NIL_VAL;
 }
 
-/* `[#from, #to, #step]:loopDo({ n | ... })` -- inclusive at both ends,
+/* `[#from, #to, #step]:loop({ n | ... })` -- inclusive at both ends,
  * following `at` and `copyFrom`: an index here is an ordinal, and half-open
  * ranges are what make *zero*-based indexing tidy. The step is optional, and a
  * two-element array means a step of #1.
@@ -1400,15 +1400,15 @@ static SolValue prim_block_repeat(SolVM *vm, SolValue self, SolValue *args, int 
  * would never finish, so it is refused -- the Solum version could only print a
  * complaint and carry on, which is the sort of thing a primitive can do
  * properly. */
-static SolValue prim_array_loop_do(SolVM *vm, SolValue self, SolValue *args, int argc)
+static SolValue prim_array_loop(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
-    if (!check_argc(vm, "loopDo", argc, 1)) return SOL_NIL_VAL;
-    if (!wants_block(vm, "loopDo", args[0])) return SOL_NIL_VAL;
+    if (!check_argc(vm, "loop", argc, 1)) return SOL_NIL_VAL;
+    if (!wants_block(vm, "loop", args[0])) return SOL_NIL_VAL;
 
     SolArray *range = SOL_AS_ARRAY(self);
     if (range->count != 2 && range->count != 3) {
         sol_vm_runtime_error(vm,
-            "'loopDo' wants [from, to] or [from, to, step], got %d element%s",
+            "'loop' wants [from, to] or [from, to, step], got %d element%s",
             range->count, range->count == 1 ? "" : "s");
         return SOL_NIL_VAL;
     }
@@ -1419,7 +1419,7 @@ static SolValue prim_array_loop_do(SolVM *vm, SolValue self, SolValue *args, int
     for (int i = 0; i < range->count; i++) {
         if (!SOL_IS_INT(range->items[i])) {
             static const char *part[3] = { "from", "to", "step" };
-            sol_vm_runtime_error(vm, "'loopDo' expects an integer for '%s', got %s",
+            sol_vm_runtime_error(vm, "'loop' expects an integer for '%s', got %s",
                                  part[i], sol_type_name(range->items[i]));
             return SOL_NIL_VAL;
         }
@@ -1430,7 +1430,7 @@ static SolValue prim_array_loop_do(SolVM *vm, SolValue self, SolValue *args, int
     int64_t step  = range->count == 3 ? SOL_AS_INT(range->items[2]) : 1;
 
     if (step == 0) {
-        sol_vm_runtime_error(vm, "'loopDo' needs a step other than #0");
+        sol_vm_runtime_error(vm, "'loop' needs a step other than #0");
         return SOL_NIL_VAL;
     }
 
@@ -5151,7 +5151,7 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->array_class, SOL_ARRAY, "size", prim_array_size);
     instance(vm, vm->array_class, SOL_ARRAY, "at", prim_array_at);
     instance(vm, vm->array_class, SOL_ARRAY, "atPut", prim_array_at_put);
-    instance(vm, vm->array_class, SOL_ARRAY, "loopDo", prim_array_loop_do);
+    instance(vm, vm->array_class, SOL_ARRAY, "loop", prim_array_loop);
     instance(vm, vm->array_class, SOL_ARRAY, "add", prim_array_add);
     instance(vm, vm->array_class, SOL_ARRAY, "do", prim_array_do);
     instance(vm, vm->array_class, SOL_ARRAY, "collect", prim_array_collect);

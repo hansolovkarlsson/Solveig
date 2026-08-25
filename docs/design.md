@@ -899,7 +899,7 @@ breakpoint on the loop:
 | loop | iterations | times the hook was offered a stop |
 | --- | --- | --- |
 | `{ ... }:whileTrue({ ... })`, one line | 3,000,000 | 1 |
-| `[#1,#5]:loopDo(step)` | 5 | 5 |
+| `[#1,#5]:loop(step)` | 5 | 5 |
 
 The inlined loop is offered once and then runs to completion. It is the same
 inlining that makes `--trace` quiet on a long loop, seen from the other side:

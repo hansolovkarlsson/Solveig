@@ -11,9 +11,9 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 is one message on an array:
 
 ```
-[#1,#5]:loopDo({ n | n:display }).               ; 1 2 3 4 5
-[#1,#10,#3]:loopDo({ n | n:display }).           ; 1 4 7 10
-[#10,#7,#0:sub(#1)]:loopDo({ n | n:display }).   ; 10 9 8 7
+[#1,#5]:loop({ n | n:display }).               ; 1 2 3 4 5
+[#1,#10,#3]:loop({ n | n:display }).           ; 1 4 7 10
+[#10,#7,#0:sub(#1)]:loop({ n | n:display }).   ; 10 9 8 7
 ```
 
 **Three complaints, and all three were fair.** `toDo` reads as *todo* and not as
@@ -23,18 +23,26 @@ numbers sat in arguments, so the three things a counted loop is made of were
 written in two different places. Now they are one array, in order, and the step
 is optional because an array knows its own size.
 
+**It landed as `loop` after twenty minutes as `loopDo`**, renamed in
+[`pending`](https://github.com/hansolovkarlsson/Solveig/commit/pending) before
+any release carried either. Two reasons, and the second is the better one:
+nothing else here announces its block in its name — `repeat`, `collect`,
+`select`, `inject` and `whileTrue` all take one without saying so — and `loop`
+is far enough from `do` that the two cannot be misread for each other on the
+same receiver, which `loopDo` was not.
+
 **What it cost, recorded because it was argued before it was chosen.** `array`
-already answers `do`, so `[#1,#10]:do` and `[#1,#10]:loopDo` now mean different
-things on the same receiver — the two elements, and the range between them. And
-the arity check moved from send time to run time: a wrong-sized array can only
-be caught by looking, which is why the complaint names what it wanted rather
-than only what it got.
+already answers `do`, so `[#1,#10]:do` and `[#1,#10]:loop` mean different things
+on the same receiver — the two elements, and the range between them. And the
+arity check moved from send time to run time: a wrong-sized array can only be
+caught by looking, which is why the complaint names what it wanted rather than
+only what it got.
 
 ```text
-[#1]:loopDo({ n | n })              'loopDo' wants [from, to] or [from, to, step], got 1 element
-[#1,#2,#3,#4]:loopDo({ n | n })     'loopDo' wants [from, to] or [from, to, step], got 4 elements
-[#1,1.5]:loopDo({ n | n })          'loopDo' expects an integer for 'to', got float
-[#1,#5,#0]:loopDo({ n | n })        'loopDo' needs a step other than #0
+[#1]:loop({ n | n })              'loop' wants [from, to] or [from, to, step], got 1 element
+[#1,#2,#3,#4]:loop({ n | n })     'loop' wants [from, to] or [from, to, step], got 4 elements
+[#1,1.5]:loop({ n | n })          'loop' expects an integer for 'to', got float
+[#1,#5,#0]:loop({ n | n })        'loop' needs a step other than #0
 ```
 
 Everything else is unchanged: inclusive at both ends, an empty range runs the

@@ -40,7 +40,7 @@ output := nil.
 compiler:search := ["lib"].
 given:indexOf("-I"):isNil:ifFalse({
     compiler:search := [].
-    [#1,given:size]:loopDo({ i |
+    [#1,given:size]:loop({ i |
         given:at(i):equals("-I"):and({ i:lessThan(given:size) }):ifTrue({
             compiler:search := compiler:search:add(given:at(i:inc)) }) }) }).
 given:indexOf("-o"):isNil:ifElse(
