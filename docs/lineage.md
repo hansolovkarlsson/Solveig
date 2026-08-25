@@ -143,7 +143,8 @@ parent.
 Only one of them produced a roadmap entry, and it came from this repository's
 own programs rather than from the other languages —
 [3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing), because
-nine loops here carry a boolean whose only job is to stop them.
+loops here keep carrying a boolean whose only job is to stop them, in file after
+file and mostly without comment.
 
 ## What is genuinely its own
 

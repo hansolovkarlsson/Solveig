@@ -48,7 +48,7 @@ marked as a sketch.
 | Restricting what a script may reach (6.32) | **Defer** — the trigger is a script somebody else wrote, or input from a stranger |
 | Extensions: a capability from a C binary | **Defer** — doable, and half of it works today; the trigger is wanting something Solum cannot express |
 | Regular expressions | **No** to a literal; **defer** the engine to an [extension](#regular-expressions); the cursor that repeats instead is [built](COMPLETED.md#55-five-programs-each-wrote-the-same-cursor--done) |
-| An early exit from a loop | **Defer** — nine sites carry a flag; the trigger is a body that must skip its remainder ([3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing)) |
+| An early exit from a loop | **Defer** — the flag idiom recurs across six files; the trigger is a body that must skip its remainder ([3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing)) |
 | Intercepting a message not understood | **Defer** — Smalltalk's `doesNotUnderstand`; small to build, and nothing has wanted a proxy |
 | A set, and the collections that are not there | **Defer** — write them in Solum and measure first, as the four loops did |
 | Mathematics, and randomness | **Promoted, and built** — `sqrt`, the comparisons, `random:new`, and then the whole of [3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done): `pow`, `exp`, `log`, the trigonometry, `float:pi` and `float:atan2` |
@@ -1309,9 +1309,11 @@ stays refused whatever happens to the other two.
 ### An early exit from a loop
 
 [3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing) records the
-fact: a `whileTrue` body cannot end its own loop, so nine sites in this
-repository carry a boolean whose only job is to stop one, and the only exit from
-inside a body is to raise an error and catch it outside. This is the feature
+fact: a `whileTrue` body cannot end its own loop, so a loop that must stop from
+inside carries a boolean whose only job is to stop it, and the only other exit is
+to raise an error and catch it outside. Six files do the first, and that entry
+deliberately no longer counts them — the number went stale twice and is not what
+the case rests on. This is the feature
 that would answer it, and why it is not being built yet.
 
 **What the relatives do:**

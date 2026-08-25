@@ -150,8 +150,10 @@ integer:timesCollect := { body | | out, i |
 ; and no program here has had one yet.
 ;
 ; **No early exit** ([3.13](../docs/ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing)),
-; so the loop carries a flag whose only job is to stop it -- the tenth site in
-; this repository to do that, and one more argument for that entry.
+; so the loop below carries a flag whose only job is to stop it -- one more file
+; reaching for the shape that entry is about. It used to say *the tenth site*,
+; and that entry has since stopped counting them: the number went stale twice and
+; was never what the case rested on.
 
 array:ifElseIf := { | i, answer, done |
     i := #1.

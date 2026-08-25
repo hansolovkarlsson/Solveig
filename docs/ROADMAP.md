@@ -680,17 +680,32 @@ What it cannot be is *ordinary*: leaving a loop because you found what you were
 looking for is not an error, and spelling it as one costs a handler on every
 caller who must then tell a real failure from a deliberate exit.
 
-**Nine sites carry the workaround, and two of them mention it.** Of 69
-`whileTrue` sites across `lib/`, `programs/` and `examples/`:
+**The workaround has a shape, and it recurs**, in two forms, across `lib/`,
+`programs/` and `examples/`:
 
-| | sites |
+| | where |
 | --- | --- |
-| a `done` boolean whose only job is to stop the loop | **6** — `json.sol` ×3, `html.sol` ×2, `keys.sol` |
-| an accumulator tested for the same purpose | **3** — `html.sol:97`, `expect.sol` ×2 |
-| said anything about it | **2** |
+| a `done` boolean whose only job is to stop the loop | [json.sol](../lib/json.sol), [html.sol](../lib/html.sol), [control.sol](../lib/control.sol), [keys.sol](../examples/keys.sol) |
+| an accumulator or a nil tested for the same purpose | [html.sol](../lib/html.sol), [expect.sol](../programs/expect.sol), [basic.sol](../programs/basic.sol) |
 
-The seven silent ones are the better evidence. A complaint is somebody noticing;
-seven files reaching for the same shape without comment is an idiom.
+**Almost none of them says anything about it, and that is the better evidence.**
+A complaint is somebody noticing; a file reaching for the same shape without
+comment is an idiom. Two did say something, and they are quoted below.
+
+#### There was a count here, and it is gone on purpose
+
+It said **nine sites**, and it was nine when it was written and is not now:
+`basic.sol` alone added two, one of them the loop its prompt runs on.
+
+A repository that keeps finding stale numbers in its own prose should not keep a
+number it has no way to check. Every other count in these documents carries a
+marker the build recounts — and **this one cannot**. *A loop carrying a flag* is
+a property of source text, not of the running machine, and a grep cannot tell it
+from an ordinary counted loop: the first attempt at recounting returned **sixty**,
+which is how that was learned rather than assumed.
+
+The argument here never rested on the number. It rests on the shape recurring,
+which it does, in more files than when this was written.
 
 The two that spoke:
 
@@ -722,7 +737,7 @@ compiler already knows how to emit. But `do`, `collect`, `select`,
 | --- | --- |
 | a jump-based `break` | works only in the spelling the compiler inlines — and the inlining is documented as *"an optimisation only; the meaning is exactly that of the message"*, so this would make a feature of it |
 | a signal from block to caller | covers every loop, and is most of 3.2 |
-| leave it | nine sites, seven of them content |
+| leave it | the sites are content, and nearly all of them silent about it |
 
 **Two things it may not be called.** `break` and `continue` are already Solid's
 commands ([the reference](REFERENCE.md#the-keys) lists them), so a language

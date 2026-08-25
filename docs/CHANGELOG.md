@@ -5,6 +5,37 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### A number 3.13 kept getting wrong, removed rather than corrected — `pending`, 2026-08-25
+
+**[3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing) said nine
+sites carry a boolean whose only job is to stop a loop.** It was nine when it was
+written and is not now — `basic.sol` alone added two, one of them the loop its
+prompt runs on. The number was stated in **four** places: the entry, its decision
+table, [ideas.md](ideas.md) twice, and [lineage.md](lineage.md).
+
+**It is described rather than counted now**, which is the third time today a
+number in prose has turned out to be unchecked and the first time the answer was
+to delete it instead of fixing it.
+
+`index.md` said nine programs and the README said 123 messages; both got markers,
+because the checker can recount them from the running machine. **This one cannot.**
+*A loop carrying a flag* is a property of source text, and a grep cannot tell one
+from an ordinary counted loop — the first attempt at recounting returned
+**sixty**, which is how that was learned rather than assumed. A real count would
+need an analysis of the parse, which is a great deal of machinery to keep a
+number that was never doing any work.
+
+**Because the argument never rested on it.** It rests on the shape recurring,
+which it does, in more files than when the entry was written — and on almost none
+of them saying anything about it, since a complaint is somebody noticing and a
+file reaching for the same shape without comment is an idiom. The entry names the
+files and drops the tally, and says outright that the count is gone on purpose so
+that its absence reads as a decision.
+
+This is the same call made this morning on `index.md`'s *thirty-two files in two
+directories*: a number that cannot be checked **and** does not carry the argument
+is better deleted than corrected.
+
 ## 0.33.0 — 2026-08-25
 
 **One message, and the program that asked for it got an interface.** `.sob`
