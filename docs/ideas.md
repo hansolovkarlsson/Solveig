@@ -47,7 +47,7 @@ marked as a sketch.
 | Splitting the reference into pages | **Defer** — the trigger is the message reference outgrowing the rest |
 | Restricting what a script may reach (6.32) | **Defer** — the trigger is a script somebody else wrote, or input from a stranger |
 | Extensions: a capability from a C binary | **Defer** — doable, and half of it works today; the trigger is wanting something Solum cannot express |
-| Regular expressions | **No** to a literal; **defer** the engine to an [extension](#regular-expressions); the finding is that what repeats is the cursor, not the pattern |
+| Regular expressions | **No** to a literal; **defer** the engine to an [extension](#regular-expressions); the cursor that repeats instead is now [ROADMAP 5.5](ROADMAP.md#55-five-programs-each-wrote-the-same-cursor) |
 | An early exit from a loop | **Defer** — nine sites carry a flag; the trigger is a body that must skip its remainder ([3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing)) |
 | Intercepting a message not understood | **Defer** — Smalltalk's `doesNotUnderstand`; small to build, and nothing has wanted a proxy |
 | A set, and the collections that are not there | **Defer** — write them in Solum and measure first, as the four loops did |
@@ -1124,6 +1124,14 @@ string is, and is bounded by `--steps` because every step it spends is an
 instruction. It would collapse the first idiom across five files. Nothing about
 it requires this entry to be settled first.
 
+**That half is no longer deferred.** It moved to
+[ROADMAP 5.5](ROADMAP.md#55-five-programs-each-wrote-the-same-cursor) on
+2026-08-25, with the survey above as its case: five programs wanted a cursor and
+each wrote its own, which is the admission rule met as duplication rather than
+as a failure. What stays here is the argument about regular expressions, which
+is what this entry is for. The two are separable, and separating them is most of
+the finding.
+
 #### And [3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame) decides its shape
 
 Whatever gets built, the combinator spelling — the one everybody reaches for
@@ -1291,11 +1299,11 @@ string:endsWith := { suffix |
 Whether that belongs on `string` for everyone is the same question
 `lib/scan.sol` asks, and it is not answered by one program wanting it once.
 
-**Trigger:** for `lib/scan.sol`, none — it is writable now and wants only
-somebody to decide the interface is worth committing to, the way
-[`array:ifElseIf`](REFERENCE.md#the-library) was. For regex itself, the
-extension mechanism existing, which has its own trigger and is not this one. The
-literal stays refused whatever happens to the other two.
+**Trigger:** `lib/scan.sol` no longer has one — it is
+[ROADMAP 5.5](ROADMAP.md#55-five-programs-each-wrote-the-same-cursor), which is
+work rather than a question. For regex itself, the trigger is the extension
+mechanism existing, which has its own trigger and is not this one. The literal
+stays refused whatever happens to the other two.
 
 ### An early exit from a loop
 
