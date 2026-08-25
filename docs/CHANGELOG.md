@@ -5,6 +5,66 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### BASIC gets control flow, and a hot loop settles an argument — `pending`, 2026-08-25
+
+**Stage two of [programs/basic.sol](../programs/basic.sol): `GOTO`, `IF-THEN`,
+`FOR/NEXT`, `GOSUB/RETURN`, `ON-GOTO` and `STOP`.** That is the whole of Minimal
+BASIC's control flow, and it turns the thing from a calculator that reads line
+numbers into a language you can write a program in — Fibonacci and a times table
+run on every build, because the only reason to put them in the file is that they
+work.
+
+**A BASIC program is a graph and its edges are line numbers, so all of them are
+followed at load** in three passes. A jump becomes an index into the run order
+rather than a search of the listing, which matters because the jumps in a BASIC
+program *are* its loops and the search would be per iteration. A jump to a line
+that does not exist is reported before the program prints anything. And `FOR`
+finds its `NEXT`, which is what lets a loop with an empty range skip its body —
+it already knows where the body ends.
+
+**It runs about 420,000 BASIC statements a second**, or 384,000 for the same
+work written with `IF` and `GOTO` instead of a counted loop. That is roughly ten
+times what the scope estimated, and it is the argument for having parsed once at
+load rather than once per pass.
+
+**[3.2](ROADMAP.md#32-no-non-local-return) never came up, which is worth
+recording because it sounds like it should have been the whole problem.** A
+language with no non-local return, interpreting one whose defining feature is
+`GOTO`: every jump here is an assignment to a program counter and a flag saying
+the counter has already moved. No frame is entered and nothing is unwound, so a
+`GOTO` out of the middle of anything is the same statement as any other. The
+same goes for [3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels) —
+`GOSUB` and `FOR` keep explicit stacks in arrays, so nesting costs an array
+entry and no frames at all.
+
+**And the hot loop settled the `ifElseIf` question, which had been asked in the
+abstract that morning.** [lib/control.sol](../lib/control.sol) said a primitive
+would need *a program running it per iteration of something*; `basic.sol` grew
+one the same day, since every `IF` in a running listing goes through one
+dispatch. Written with `ifElseIf`, a 20,000-iteration loop took **0.30s**;
+written as a staircase, **0.246s**. **Twenty-two per cent of the whole
+interpreter**, for six arms. It went back to the staircase, and the number is in
+`control.sol` beside the depth measurement from the morning.
+
+**So both edges of that library's niche are now measured, and the niche is
+narrow.** `ifElseIf` is out of the recursive dispatches on depth — 60 brackets
+against 39 — and out of the hot one on speed. What is left to it is the flat,
+cool, many-armed case: a tokeniser, and `disasm.sol` reading constant tags.
+Where a hot dispatch has many arms it wants a dictionary rather than either,
+because a dictionary asks one question instead of n. That points both ways on
+whether the VM should take it over, and the entry says so: a program reached for
+it in a hot path and had to give it up, which is what happened to the four loops
+before they were built in — but what it gave it up *for* was a six-arm staircase
+that reads perfectly well.
+
+Two rules of the dialect are enforced and will look like bugs to anyone who
+knows a later BASIC. `THEN` takes a **line number and not a statement**, so
+`IF X > 0 THEN PRINT "YES"` is refused with a message that says where to put the
+`PRINT`. And text compares with `=` and `<>` only, `<` on strings having no
+meaning in Minimal BASIC — refused rather than falling back on the byte order
+Solum would happily supply. `GO TO` and `GO SUB` written as two words are the
+same statements as one, since spaces are not significant in this dialect.
+
 ### A BASIC interpreter, and the trigger 3.14 was holding open — `513a280`, 2026-08-25
 
 **[programs/basic.sol](../programs/basic.sol) is the eleventh program, and the

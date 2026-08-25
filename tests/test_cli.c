@@ -537,7 +537,7 @@ static void test_everything_written_down_is_true(void)
  * Stage five replaces this with the same comparison over `.bas` files in
  * programs/basic/, which is when a whole recorded transcript starts being worth
  * keeping. */
-static void test_basic_prints_the_way_the_standard_says(void)
+static void test_basic_runs_the_way_the_standard_says(void)
 {
     char out[64 * 1024];
 
@@ -572,7 +572,33 @@ static void test_basic_prints_the_way_the_standard_says(void)
        check is that it did not fail because the operator was quietly stubbed. */
     assert(strstr(out, "^ needs 'pow', which this language does not have") != NULL);
 
-    printf("  BASIC prints the way ECMA-55 says, and refuses ^\n");
+    /* Control flow, by way of two programs a BASIC book opens with. Fibonacci
+       is the loop, the accumulator and the counted range in one line each; the
+       times table is the same nesting seen through print zones. Either one
+       going wrong says the jumps are wrong, which no assertion about a single
+       statement would catch. */
+    assert(strstr(out, "\n 1  1  2  3  5  8  13  21  34  55  89  144 \n") != NULL);
+    assert(strstr(out, "\n 4              8              12             16") != NULL);
+    assert(strstr(out, "\nSUM 1..100 IS 5050 \n") != NULL);
+
+    /* A counted loop reads its limit and step once and counts down when told
+       to, and a range that is already empty runs its body no times -- which
+       shows up as the absence of anything between these two lines. */
+    assert(strstr(out, "\n 1  2  3  4  5 \n 10  7  4  1 \n") != NULL);
+
+    /* Two rules of the dialect that every later BASIC relaxed, and so the two
+       most likely to be "fixed" by somebody who knows a later one: THEN takes
+       a line number rather than a statement, and text compares with = and <>
+       only. */
+    assert(strstr(out, "THEN takes a line number in this dialect") != NULL);
+    assert(strstr(out, "'<' compares numbers, not strings") != NULL);
+
+    /* FOR and NEXT are paired at load, so crossed loops are a listing error
+       and not a surprise thirty seconds into a run. */
+    assert(strstr(out, "line 20: NEXT J closes FOR I") != NULL);
+    assert(strstr(out, "line 10: there is no line 999") != NULL);
+
+    printf("  BASIC runs a program the way ECMA-55 says, and refuses ^\n");
 }
 
 int main(void)
@@ -593,7 +619,7 @@ int main(void)
     test_a_memory_limit_measures_what_is_held();
     test_the_limits_are_off_and_are_checked();
     test_everything_written_down_is_true();
-    test_basic_prints_the_way_the_standard_says();
+    test_basic_runs_the_way_the_standard_says();
     printf("test_cli: ok\n");
     return 0;
 }

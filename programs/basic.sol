@@ -17,20 +17,27 @@
 ; ---------------------------------------------------------------------------
 ; What is here so far
 ;
-; **Stage one of six: `LET`, `PRINT`, `REM`, `END`, and the whole numeric
-; expression grammar.** No control flow yet -- a listing runs from its lowest
-; line number to its highest and stops -- so nothing below needs a jump. What is
-; built is the part every later stage sits on: the tokeniser, the expression
-; parser and its tree, the line table, the run loop and its program counter, and
-; `PRINT`'s output rules, which are stranger than they look and are why the
-; demonstrations at the bottom have spaces in them where you would not expect
-; any.
+; **Stages one and two of six**, which between them make it a language you can
+; write a program in rather than a calculator that reads line numbers:
 ;
-; The stages after this one, in order: control flow (`GOTO`, `IF-THEN`,
-; `FOR/NEXT`, `GOSUB/RETURN`, `ON-GOTO`, `STOP`); the supplied functions; data
-; (`DIM`, arrays, `READ/DATA/RESTORE`, `INPUT`, `DEF FN`, `RANDOMIZE`); the rest
-; of `PRINT`'s formatting; then listings read from `.bas` files in
-; `programs/basic/` rather than written inline here.
+;   one   `LET`, `PRINT`, `REM`, `END`, and the whole numeric expression
+;         grammar. The tokeniser, the expression parser and its tree, the line
+;         table, the run loop and its program counter, and `PRINT`'s output
+;         rules -- which are stranger than they look, and are why the
+;         demonstrations at the bottom have spaces in them where you would not
+;         expect any.
+;
+;   two   `GOTO`, `IF-THEN`, `FOR/NEXT`, `GOSUB/RETURN`, `ON-GOTO` and `STOP`.
+;         Three passes over the listing at load, so that a jump is an array
+;         index rather than a search, a jump to a line that does not exist is
+;         reported before anything runs, and a `FOR` knows where its `NEXT` is.
+;         It runs about 420,000 BASIC statements a second.
+;
+; The stages after these, in order: the supplied functions -- which is where
+; this stops until 3.14 is decided; data (`DIM`, arrays, `READ/DATA/RESTORE`,
+; `INPUT`, `DEF FN`, `RANDOMIZE`); the rest of `PRINT`'s formatting; then
+; listings read from `.bas` files in `programs/basic/` rather than written
+; inline here.
 ;
 ; ---------------------------------------------------------------------------
 ; Why a line-numbered language is the easy case, which is not the obvious way round
@@ -116,10 +123,36 @@ negateNode := { x | | n | n := node:new. n:kind := 'negate. n:left := x. n }.
 ; each pass would make the cost of the loop the cost of parsing it.
 
 statement := object:new.
-statement:kind := 'rem.    ; 'rem 'let 'print 'end
-statement:name := "".      ; 'let
-statement:expr := nil.     ; 'let
+statement:kind := 'rem.    ; 'rem 'let 'print 'end 'goto 'gosub 'return
+                           ; 'if 'for 'next 'ongoto 'stop
+statement:name := "".      ; 'let, 'for, 'next
+statement:expr := nil.     ; 'let, 'for (the initial value), 'ongoto
 statement:items := nil.    ; 'print
+statement:left := nil.     ; 'if
+statement:op := "".        ; 'if
+statement:right := nil.    ; 'if
+statement:limit := nil.    ; 'for
+statement:step := nil.     ; 'for, nil when none was written
+statement:pair := #0.      ; 'for and 'next: each other's place in the run order
+
+; **Line numbers written in a statement, and where they landed.** A `GOTO` says
+; a line number and the run loop wants an index into `order`, so the lookup
+; happens once at load rather than once per jump -- which matters because the
+; jumps in a BASIC program are the loop. `targets` is what the listing said and
+; `resolved` is where it points; a target that names no line is caught at load,
+; where it can be reported before anything has run.
+statement:targets := nil.
+statement:resolved := nil.
+
+; A `FOR` in flight: the control variable, where the body starts, and the limit
+; and step as they were **when the loop began**. Evaluating them once is the
+; standard's rule and not an optimisation -- `FOR I = 1 TO N` where the body
+; assigns to `N` runs the number of times `N` named at the start.
+loopFrame := object:new.
+loopFrame:name := "".
+loopFrame:limit := 0.0.
+loopFrame:step := 1.0.
+loopFrame:body := #1.
 
 ; A `PRINT` item is an expression and the separator that came *after* it, which
 ; is what decides where the next thing goes -- so the separator belongs to the
@@ -147,6 +180,10 @@ basic:atLine := #0.        ; the line being parsed or run, for error messages
 basic:out := "".           ; the print line being built -- see `flush`
 basic:tokens := nil.       ; the line being parsed, tokenised
 basic:cursor := #1.        ; the index of the next unread token
+basic:index := nil.        ; line number -> its place in `order`
+basic:jumped := false.     ; whether the statement just run moved the counter
+basic:calls := nil.        ; GOSUB return places, innermost last
+basic:loops := nil.        ; FOR frames, innermost last
 
 ; Every failure names the line it happened on, because in a language whose
 ; control flow is line numbers that is the only address a person has.
@@ -247,7 +284,61 @@ basic:load := { source |
     self:vars := dictionary:new.
     self:out := "".
     source:split("\n"):do({ line | self:loadLine(line) }).
-    self:order := self:lines:keys:sorted }.
+    self:order := self:lines:keys:sorted.
+    self:placeLines.
+    self:resolveTargets.
+    self:pairLoops }.
+
+; ---------------------------------------------------------------------------
+; Three passes over the loaded listing, all of them at load
+;
+; A BASIC program is a graph and not a sequence, and the edges are line numbers.
+; Every one of them is followed here before anything runs, which buys three
+; things: a jump is an array index rather than a search, a `GOTO` to a line that
+; does not exist is reported before the program prints anything, and a `FOR`
+; with no `NEXT` is a listing error rather than a surprise at run time.
+
+basic:placeLines := {
+    self:index := dictionary:new.
+    [#1, self:order:size]:loop({ i |
+        self:index:atPut(self:order:at(i), i) }) }.
+
+; Without this a jump would be `order:indexOf(line)`, a scan of the whole
+; listing -- and the jumps in a BASIC program are its loops, so the scan would
+; be per iteration. It is the one place where an interpreter for a language with
+; line numbers has to do something a tree-walking one never would.
+basic:resolveTargets := {
+    self:order:do({ line | | st |
+        st := self:lines:at(line).
+        st:targets:isNil:ifFalse({
+            self:atLine := line.
+            st:resolved := st:targets:collect({ n |
+                self:index:includes(n):ifFalse({
+                    self:fail("there is no line {}":fill([n])) }).
+                self:index:at(n) }) }) }) }.
+
+; `FOR` and `NEXT` find each other here rather than at run time, which needs
+; them properly nested -- and the standard requires that, so following it is
+; free. The pairing is what lets a `FOR` whose range is empty skip its body: it
+; already knows where the body ends.
+basic:pairLoops := { | stack, st, opening |
+    stack := array:new.
+    [#1, self:order:size]:loop({ i |
+        st := self:lines:at(self:order:at(i)).
+        self:atLine := self:order:at(i).
+        st:kind:equals('for):ifTrue({ stack:add(i) }).
+        st:kind:equals('next):ifTrue({
+            stack:size:equals(#0):ifTrue({ self:fail("NEXT without a FOR") }).
+            opening := stack:at(stack:size).
+            stack:removeLast.
+            self:lines:at(self:order:at(opening)):name:equals(st:name):ifFalse({
+                self:fail("NEXT {} closes FOR {}"
+                    :fill([st:name, self:lines:at(self:order:at(opening)):name])) }).
+            self:lines:at(self:order:at(opening)):pair := i.
+            st:pair := opening }) }).
+    stack:size:equals(#0):ifFalse({
+        self:atLine := self:order:at(stack:at(stack:size)).
+        self:fail("FOR without a NEXT") }) }.
 
 basic:loadLine := { line | | s, number, rest |
     s := scan:on(line).
@@ -308,6 +399,7 @@ basic:parseStatement := { text | | tokens, keyword |
         :ifElse({ self:statementOf('rem) }, {
             tokens := self:tokenise(text).
             tokens:size:equals(#0):ifTrue({ self:fail("there is no statement here") }).
+            tokens := self:joinGo(tokens).
             keyword := tokens:at(#1).
             keyword:kind:equals('word):ifFalse({
                 self:fail("a statement starts with a keyword, not '{}'"
@@ -336,6 +428,172 @@ parsers:atPut("LET", { m, tokens | | st |
 parsers:atPut("END", { m, tokens |
     tokens:size:equals(#1):ifFalse({ m:fail("END takes nothing after it") }).
     m:statementOf('end) }).
+
+; `STOP` and `END` do the same thing here. The standard distinguishes them by
+; where they may appear -- `END` is the last line of the program and there is
+; exactly one -- and this does not enforce that, because a listing typed to try
+; something out is not improved by being told it has no `END`.
+parsers:atPut("STOP", { m, tokens |
+    tokens:size:equals(#1):ifFalse({ m:fail("STOP takes nothing after it") }).
+    m:statementOf('stop) }).
+
+; ---------------------------------------------------------------------------
+; GO TO, which is two words
+;
+; The standard writes `GO TO` and `GO SUB` with a space, because spaces are not
+; significant in Minimal BASIC and the two spellings are the same statement.
+; This tokeniser splits on spaces, so it sees either one word or two, and the
+; two are put back together here -- before the keyword table is asked, so the
+; table has one entry per statement rather than two.
+
+basic:joinGo := { tokens | | rest |
+    tokens:at(#1):text:equals("GO"):and({ tokens:size:greaterThan(#1) })
+        :and({ tokens:at(#2):text:equals("TO"):or({
+                   tokens:at(#2):text:equals("SUB") }) })
+        :ifElse({
+            rest := array:of(makeToken:value('word,
+                "GO":concat(tokens:at(#2):text))).
+            [#3, tokens:size]:loop({ i | rest:add(tokens:at(i)) }).
+            rest },
+            { tokens }) }.
+
+; A line number is a whole number and nothing else. `10.5` tokenises as a
+; perfectly good numeric literal, which is why this is checked rather than
+; assumed: `GOTO 10.5` should say what is wrong with it and not round.
+basic:lineNumber := { t |
+    t:kind:equals('number)
+        :and({ t:text:indexOf("."):isNil })
+        :and({ t:text:asUppercase:indexOf("E"):isNil })
+        :ifFalse({ self:fail("'{}' is not a line number":fill([t:text])) }).
+    t:text:asInteger }.
+
+basic:tokenAt := { tokens, i |
+    i:greaterThan(tokens:size):ifElse({ nil }, { tokens:at(i) }) }.
+
+parsers:atPut("GOTO", { m, tokens | | st |
+    tokens:size:equals(#2):ifFalse({ m:fail("GOTO takes one line number") }).
+    st := m:statementOf('goto).
+    st:targets := [m:lineNumber(tokens:at(#2))].
+    st }).
+
+parsers:atPut("GOSUB", { m, tokens | | st |
+    tokens:size:equals(#2):ifFalse({ m:fail("GOSUB takes one line number") }).
+    st := m:statementOf('gosub).
+    st:targets := [m:lineNumber(tokens:at(#2))].
+    st }).
+
+parsers:atPut("RETURN", { m, tokens |
+    tokens:size:equals(#1):ifFalse({ m:fail("RETURN takes nothing after it") }).
+    m:statementOf('return) }).
+
+; ---------------------------------------------------------------------------
+; IF, which in this dialect can only jump
+;
+;     IF <expression> <relation> <expression> THEN <line number>
+;
+; **`THEN` takes a line number and not a statement.** `IF X > 0 THEN PRINT "YES"`
+; is not Minimal BASIC; it is `IF X > 0 THEN 100`, with the work on line 100 and
+; a `GOTO` round it. Every dialect after this one allowed the statement form,
+; which is why the restriction reads like a missing feature rather than the
+; standard being kept -- the same shape as the sign rule in the expression
+; grammar, and refused for the same reason.
+
+relations := ["=", "<>", "<", "<=", ">", ">="].
+
+parsers:atPut("IF", { m, tokens | | st, t |
+    st := m:statementOf('if).
+    st:left := m:parse(tokens, #2).
+
+    t := m:tokenAt(tokens, m:cursor).
+    t:isNil:ifTrue({ m:fail("IF needs a comparison") }).
+    relations:indexOf(t:text):isNil:ifTrue({
+        m:fail("'{}' is not a comparison: one of = <> < <= > >=":fill([t:text])) }).
+    st:op := t:text.
+    st:right := m:parse(tokens, m:cursor:add(#1)).
+
+    t := m:tokenAt(tokens, m:cursor).
+    t:isNil:or({ t:text:equals("THEN"):not }):ifTrue({
+        m:fail("IF needs THEN and a line number") }).
+    t := m:tokenAt(tokens, m:cursor:add(#1)).
+    t:isNil:ifTrue({ m:fail("THEN needs a line number") }).
+    ; Named rather than left to `lineNumber`, because the mistake here is
+    ; almost never a mistyped number -- it is knowing a later BASIC.
+    t:kind:equals('word):ifTrue({
+        m:fail("THEN takes a line number in this dialect, not a statement: "
+               :concat("put the {} on its own line and jump to it")
+               :fill([t:text])) }).
+    st:targets := [m:lineNumber(t)].
+    m:cursor:add(#2):lessOrEqual(tokens:size):ifTrue({
+        m:fail("THEN takes a line number and nothing after it") }).
+    st }).
+
+; ---------------------------------------------------------------------------
+; ON ... GOTO -- the computed jump
+;
+;     ON <expression> GOTO <line>, <line>, ...
+;
+; The value picks a line by its position in the list, counting from one. Out of
+; range is an error rather than a fall-through, which is the standard's reading
+; and the useful one: a computed jump that quietly does nothing is a bug that
+; looks like a working program.
+
+parsers:atPut("ON", { m, tokens | | st, t, i |
+    st := m:statementOf('ongoto).
+    st:expr := m:parse(tokens, #2).
+    t := m:tokenAt(tokens, m:cursor).
+    t:isNil:or({ t:text:equals("GOTO"):not }):ifTrue({
+        m:fail("ON needs GOTO and a list of line numbers") }).
+    st:targets := array:new.
+    i := m:cursor:add(#1).
+    { i:lessOrEqual(tokens:size) }:whileTrue({
+        st:targets:add(m:lineNumber(tokens:at(i))).
+        i := i:add(#1).
+        i:lessOrEqual(tokens:size):ifTrue({
+            tokens:at(i):text:equals(","):ifFalse({
+                m:fail("line numbers after GOTO are separated by commas") }).
+            i := i:add(#1).
+            i:greaterThan(tokens:size):ifTrue({
+                m:fail("a comma with no line number after it") }) }) }).
+    st:targets:size:equals(#0):ifTrue({ m:fail("ON GOTO needs a line number") }).
+    st }).
+
+; ---------------------------------------------------------------------------
+; FOR and NEXT
+;
+;     FOR <variable> = <expression> TO <expression> [STEP <expression>]
+;     NEXT <variable>
+;
+; The limit and the step are evaluated **once, when the loop starts**, which is
+; the standard's rule rather than an optimisation: `FOR I = 1 TO N` where the
+; body assigns to `N` runs the number of times `N` named at the start. The test
+; happens before the body, so a loop whose range is already empty runs no times.
+
+parsers:atPut("FOR", { m, tokens | | st, t |
+    st := m:statementOf('for).
+    st:name := m:variableName(m:tokenAt(tokens, #2)).
+    t := m:tokenAt(tokens, #3).
+    t:isNil:or({ t:text:equals("=") :not }):ifTrue({
+        m:fail("FOR needs an = after the variable") }).
+    st:expr := m:parse(tokens, #4).
+
+    t := m:tokenAt(tokens, m:cursor).
+    t:isNil:or({ t:text:equals("TO"):not }):ifTrue({ m:fail("FOR needs TO") }).
+    st:limit := m:parse(tokens, m:cursor:add(#1)).
+
+    t := m:tokenAt(tokens, m:cursor).
+    t:isNil:ifElse({ st:step := nil }, {
+        t:text:equals("STEP"):ifFalse({
+            m:fail("FOR takes STEP and nothing else after the limit") }).
+        st:step := m:parse(tokens, m:cursor:add(#1)).
+        m:cursor:lessOrEqual(tokens:size):ifTrue({
+            m:fail("STEP takes one value") }) }).
+    st }).
+
+parsers:atPut("NEXT", { m, tokens | | st |
+    tokens:size:equals(#2):ifFalse({ m:fail("NEXT takes one variable") }).
+    st := m:statementOf('next).
+    st:name := m:variableName(tokens:at(#2)).
+    st }).
 
 ; A numeric variable in Minimal BASIC is a letter, or a letter and one digit.
 ; Two hundred and eighty-six of them, and that is the whole namespace -- so
@@ -568,14 +826,163 @@ runners:atPut('end, { m, st | m:running := false }).
 ; listing and another to anything that ever tried to look at the machine.
 runners:atPut('print, { m, st | m:doPrint(st) }).
 
+runners:atPut('stop, { m, st | m:running := false }).
+
+; ---------------------------------------------------------------------------
+; The jumps
+;
+; Every one of these is an assignment to the program counter and a flag saying
+; the counter has already moved. That flag is the whole of what control flow
+; costs here: no frame is entered, nothing is unwound, and a `GOTO` out of the
+; middle of anything is the same statement as a `GOTO` anywhere else -- which is
+; why [3.2](../docs/ROADMAP.md#32-no-non-local-return) never comes up, although
+; a language with no non-local return interpreting one with `GOTO` sounds like
+; it should be the whole problem.
+
+basic:jumpTo := { where |
+    self:pc := where.
+    self:jumped := true }.
+
+runners:atPut('goto, { m, st | m:jumpTo(st:resolved:at(#1)) }).
+
+runners:atPut('gosub, { m, st |
+    m:calls:add(m:pc).
+    m:jumpTo(st:resolved:at(#1)) }).
+
+; The stack holds the place the `GOSUB` was at, so the return goes to the one
+; after it. Storing the destination instead would be the same number written
+; less obviously.
+runners:atPut('return, { m, st | | back |
+    m:calls:size:equals(#0):ifTrue({ m:fail("RETURN with no GOSUB to return to") }).
+    back := m:calls:at(m:calls:size).
+    m:calls:removeLast.
+    m:jumpTo(back:add(#1)) }).
+
+runners:atPut('if, { m, st |
+    m:compare(st):ifTrue({ m:jumpTo(st:resolved:at(#1)) }) }).
+
+runners:atPut('ongoto, { m, st | | k |
+    k := m:numeric(m:evaluate(st:expr)):rounded.
+    k:lessThan(#1):or({ k:greaterThan(st:resolved:size) }):ifTrue({
+        m:fail("ON needs a number from 1 to {}, and chose {}"
+            :fill([st:resolved:size, k])) }).
+    m:jumpTo(st:resolved:at(k)) }).
+
+; ---------------------------------------------------------------------------
+; The loop stack
+;
+; `FOR` pushes a frame and `NEXT` pops it, so nesting costs an array entry and
+; no frames at all. This is the half of the program that would have met
+; [3.5](../docs/ROADMAP.md#35-recursion-is-limited-to-about-254-levels) in an
+; interpreter for a language whose loops nest lexically, and here it simply
+; does not arise.
+
+runners:atPut('for, { m, st | | frame |
+    frame := loopFrame:new.
+    frame:name := st:name.
+    m:vars:atPut(st:name, m:numeric(m:evaluate(st:expr))).
+    frame:limit := m:numeric(m:evaluate(st:limit)).
+    frame:step := st:step:isNil:ifElse({ 1.0 }, { m:numeric(m:evaluate(st:step)) }).
+    frame:body := m:pc:add(#1).
+
+    ; Reaching a `FOR` whose variable is already looping abandons the old loop
+    ; rather than starting a second one on the same name. A listing that jumps
+    ; back to its own `FOR` is doing something the standard forbids; growing the
+    ; stack for ever would make that a slow leak instead of a fresh start.
+    m:dropLoop(st:name).
+    m:loops:add(frame).
+
+    ; Tested before the body, so an empty range runs it no times -- and the
+    ; place to skip to is known because `pairLoops` found it at load.
+    m:continues(frame):ifFalse({
+        m:loops:removeLast.
+        m:jumpTo(st:pair:add(#1)) }) }).
+
+runners:atPut('next, { m, st | | frame |
+    m:loops:size:equals(#0):ifTrue({ m:fail("NEXT with no FOR running") }).
+    frame := m:loops:at(m:loops:size).
+    frame:name:equals(st:name):ifFalse({
+        m:fail("NEXT {} but the loop running is FOR {}"
+            :fill([st:name, frame:name])) }).
+    m:vars:atPut(frame:name, m:variable(frame:name):add(frame:step)).
+    m:continues(frame):ifElse(
+        { m:jumpTo(frame:body) },
+        { m:loops:removeLast }) }).
+
+; A negative step counts down and finishes when it passes the limit, which is
+; the only thing the direction changes. A step of zero is legal and loops for
+; ever -- the standard says so, and refusing it here would be inventing a rule.
+basic:continues := { frame | | v |
+    v := self:variable(frame:name).
+    frame:step:lessThan(0.0):ifElse(
+        { v:greaterOrEqual(frame:limit) },
+        { v:lessOrEqual(frame:limit) }) }.
+
+basic:dropLoop := { name | | at |
+    at := #0.
+    [#1, self:loops:size]:loop({ i |
+        self:loops:at(i):name:equals(name):ifTrue({ at := i }) }).
+    at:greaterThan(#0):ifTrue({
+        { self:loops:size:greaterOrEqual(at) }:whileTrue({
+            self:loops:removeLast }) }) }.
+
+; ---------------------------------------------------------------------------
+; Comparing
+;
+; Six relations on numbers and two on strings, which is the standard: `<` on
+; text has no meaning in Minimal BASIC, and this refuses it rather than falling
+; back on the byte order Solum would happily supply.
+;
+; **This was written with `ifElseIf` first, and measured, and changed back.**
+; It is the one dispatch in this program that is genuinely hot -- every `IF` in
+; a running listing comes through here -- and a loop of 20,000 iterations
+; driven by `IF` and `GOTO` ran in 0.246s as the staircase below and **0.30s**
+; through `ifElseIf`. Twenty-two per cent of the whole interpreter, for six arms
+; that a staircase holds legibly anyway.
+;
+; So the niche `ifElseIf` has turns out to be narrow, and this program found
+; both of its edges in a day: it is out of the recursive dispatches on depth,
+; and out of the hot one on speed. What is left for it is the flat, cool,
+; many-armed case -- the tokeniser, and `disasm.sol`'s constant tags. That is a
+; real niche and a small one, and it is the sharpest thing anybody knows about
+; whether the VM should take it over. See
+; [lib/control.sol](../lib/control.sol), which now records the number.
+
+basic:compare := { st | | l, r, op |
+    l := self:evaluate(st:left).
+    r := self:evaluate(st:right).
+    op := st:op.
+    l:isKindOf(float):ifElse({
+        r:isKindOf(float):ifFalse({
+            self:fail("cannot compare a number with a string") }).
+        op:equals("="):ifElse({ l:equals(r) }, {
+        op:equals("<>"):ifElse({ l:equals(r):not }, {
+        op:equals("<"):ifElse({ l:lessThan(r) }, {
+        op:equals("<="):ifElse({ l:lessOrEqual(r) }, {
+        op:equals(">"):ifElse({ l:greaterThan(r) }, {
+                               l:greaterOrEqual(r) }) }) }) }) }) },
+        { r:isKindOf(float):ifTrue({
+              self:fail("cannot compare a string with a number") }).
+          [ { op:equals("=") },  { l:equals(r) },
+            { op:equals("<>") }, { l:equals(r):not },
+                                 { self:fail(
+                                     "'{}' compares numbers, not strings"
+                                         :fill([op])) } ]:ifElseIf }) }.
+
+; ---------------------------------------------------------------------------
+; Running
+
 basic:run := { source |
     self:load(source).
     self:running := true.
+    self:calls := array:new.
+    self:loops := array:new.
     self:pc := #1.
     { self:running:and({ self:pc:lessOrEqual(self:order:size) }) }:whileTrue({
         self:atLine := self:order:at(self:pc).
+        self:jumped := false.
         self:execute(self:lines:at(self:atLine)).
-        self:pc := self:pc:add(#1) }).
+        self:jumped:ifFalse({ self:pc := self:pc:add(#1) }) }).
     self:flushPending }.
 
 basic:execute := { st |
@@ -744,6 +1151,162 @@ listing:value([
 ;   THIRD
 
 ; ---------------------------------------------------------------------------
+; It jumps
+;
+; `IF` takes a line number rather than a statement, so a conditional and the
+; work it guards are two lines and a jump. This is the whole of Minimal BASIC's
+; control flow and it is enough for anything.
+
+listing:value([
+    "10 LET N = 1",
+    "20 IF N > 5 THEN 60",
+    "30 PRINT N;",
+    "40 LET N = N + 1",
+    "50 GOTO 20",
+    "60 PRINT",
+    "70 END"]).
+;    1  2  3  4  5
+
+; `GO TO` written as two words is the same statement, which is what the standard
+; actually prints -- spaces are not significant, so the tokeniser puts them back
+; together before the keyword is looked up.
+
+listing:value([
+    "10 GO TO 30",
+    "20 PRINT \"skipped\"",
+    "30 PRINT \"jumped\"",
+    "40 STOP",
+    "50 PRINT \"never\""]).
+;   jumped
+
+; ---------------------------------------------------------------------------
+; It loops
+;
+; The limit and the step are read once, when the loop starts. A negative step
+; counts down. A range that is already empty runs the body no times, and knows
+; where to skip to because `FOR` and `NEXT` found each other at load.
+
+listing:value([
+    "10 FOR I = 1 TO 5",
+    "20 PRINT I;",
+    "30 NEXT I",
+    "40 PRINT",
+    "50 FOR I = 10 TO 1 STEP -3",
+    "60 PRINT I;",
+    "70 NEXT I",
+    "80 PRINT",
+    "90 FOR I = 5 TO 1",
+    "100 PRINT \"never\"",
+    "110 NEXT I",
+    "120 END"]).
+;    1  2  3  4  5
+;    10  7  4  1
+
+; Nesting costs an entry on an array and no frames at all, which is the point
+; made at the top of this file arriving in practice.
+
+listing:value([
+    "10 FOR I = 1 TO 3",
+    "20 FOR J = 1 TO 3",
+    "30 PRINT I * J;",
+    "40 NEXT J",
+    "50 PRINT",
+    "60 NEXT I",
+    "70 END"]).
+;    1  2  3
+;    2  4  6
+;    3  6  9
+
+; ---------------------------------------------------------------------------
+; It calls, and it computes where to go
+
+listing:value([
+    "10 FOR I = 1 TO 3",
+    "20 GOSUB 100",
+    "30 NEXT I",
+    "40 END",
+    "100 PRINT \"line\"; I",
+    "110 RETURN"]).
+;   line 1
+;   line 2
+;   line 3
+
+; `ON` picks by position, counting from one, and being out of range is an error
+; rather than a fall-through -- a computed jump that quietly does nothing is a
+; bug that looks like a working program.
+
+listing:value([
+    "10 FOR I = 1 TO 3",
+    "20 ON I GOTO 100, 200, 300",
+    "30 NEXT I",
+    "40 END",
+    "100 PRINT \"one\"",
+    "110 GOTO 30",
+    "200 PRINT \"two\"",
+    "210 GOTO 30",
+    "300 PRINT \"three\"",
+    "310 GOTO 30"]).
+;   one
+;   two
+;   three
+
+; The `END` on line 40 is not decoration. Without it the loop finishes and
+; execution carries straight on into line 100, which is a subroutine and not a
+; continuation -- so the program prints `one` a fourth time and then meets a
+; `NEXT` with no loop running. That is exactly what BASIC does, and it is the
+; oldest trap in the language: the lines after a loop are whatever was typed
+; next, not whatever comes logically after.
+
+; ---------------------------------------------------------------------------
+; And now it is a language you can write a program in
+;
+; Nothing below is a feature being shown off. These are the programs a BASIC
+; book opens with, and the only reason they are here is that they run.
+
+listing:value([
+    "10 REM the first twelve Fibonacci numbers",
+    "20 LET A = 0",
+    "30 LET B = 1",
+    "40 FOR I = 1 TO 12",
+    "50 PRINT B;",
+    "60 LET C = A + B",
+    "70 LET A = B",
+    "80 LET B = C",
+    "90 NEXT I",
+    "100 PRINT",
+    "110 END"]).
+;    1  1  2  3  5  8  13  21  34  55  89  144
+
+listing:value([
+    "10 REM a times table, which is what print zones are for",
+    "20 FOR I = 1 TO 4",
+    "30 FOR J = 1 TO 4",
+    "40 PRINT I * J,",
+    "50 NEXT J",
+    "60 PRINT",
+    "70 NEXT I",
+    "80 END"]).
+;    1              2              3              4
+;    2              4              6              8
+;    3              6              9              12
+;    4              8              12             16
+
+; **How fast that is**: 420,000 BASIC statements a second for the FOR loop
+; above, 384,000 for the same count written with `IF` and `GOTO`, measured on
+; 20,000 iterations. The number is here because it is the first thing anybody
+; asks of an interpreter written in an interpreted language, and because it was
+; the argument for parsing once at load rather than once per pass.
+
+listing:value([
+    "10 LET S = 0",
+    "20 FOR I = 1 TO 100",
+    "30 LET S = S + I",
+    "40 NEXT I",
+    "50 PRINT \"SUM 1..100 IS\"; S",
+    "60 END"]).
+;   SUM 1..100 IS 5050
+
+; ---------------------------------------------------------------------------
 ; It says where a listing is wrong
 ;
 ; Each of these is reported and the interpreter carries on, the way
@@ -759,8 +1322,27 @@ listing:value(["PRINT 1"]).
 ;   line 0: a line must start with a line number: PRINT 1
 listing:value(["10 PRINT 1", "10 PRINT 2"]).
 ;   line 10: line 10 appears twice
-listing:value(["10 GOTO 20", "20 END"]).
-;   line 10: 'GOTO' is not a statement this understands yet
+listing:value(["10 DIM A(5)", "20 END"]).
+;   line 10: 'DIM' is not a statement this understands yet
+
+; The control flow has its own listing errors, and all of them are found at
+; load -- before the program has printed anything, which is the whole reason the
+; line numbers are followed in a pass of their own.
+
+listing:value(["10 GOTO 999", "20 END"]).
+;   line 10: there is no line 999
+listing:value(["10 FOR I = 1 TO 3", "20 END"]).
+;   line 10: FOR without a NEXT
+listing:value(["10 NEXT I", "20 END"]).
+;   line 10: NEXT without a FOR
+listing:value(["10 FOR I = 1 TO 3", "20 NEXT J", "30 END"]).
+;   line 20: NEXT J closes FOR I
+listing:value(["10 RETURN", "20 END"]).
+;   line 10: RETURN with no GOSUB to return to
+listing:value(["10 IF 1 > 0 THEN PRINT", "20 END"]).
+;   line 10: THEN takes a line number in this dialect, not a statement: put the PRINT on its own line and jump to it
+listing:value(["10 IF \"A\" < \"B\" THEN 20", "20 END"]).
+;   line 10: '<' compares numbers, not strings
 listing:value(["10 PRINT \"A\" + 1", "20 END"]).
 ;   line 10: expected a number, got the string "A"
 

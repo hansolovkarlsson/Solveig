@@ -600,11 +600,19 @@ sign character — a minus, or a space when it is not negative — then the digi
 then a trailing space, which is why BASIC output has its airy look and why a
 negative number lines up under a positive one.
 
-**Stage one of six.** `LET`, `PRINT`, `REM`, `END` and the whole numeric
-expression grammar, which is enough for a listing to run from its lowest line
-number to its highest and stop. Control flow, the supplied functions, the data
-statements, the rest of `PRINT`'s formatting, and listings read from `.bas`
-files in `programs/basic/` come after.
+**Stages one and two of six.** `LET`, `PRINT`, `REM`, `END` and the whole
+numeric expression grammar; then `GOTO`, `IF-THEN`, `FOR/NEXT`, `GOSUB/RETURN`,
+`ON-GOTO` and `STOP`, which between them make it a language you can write a
+program in. It runs about **420,000 BASIC statements a second**. The supplied
+functions, the data statements, the rest of `PRINT`'s formatting, and listings
+read from `.bas` files in `programs/basic/` come after.
+
+A BASIC program is a graph rather than a sequence, and its edges are line
+numbers, so all of them are followed in three passes at load: a jump becomes an
+array index instead of a search of the listing, a jump to a line that does not
+exist is reported before the program prints anything, and a `FOR` finds its
+`NEXT`. That last one is what lets a loop with an empty range skip its body —
+it already knows where the body ends.
 
 The first of the eleven to be an interpreter for another language rather than a
 tool for this one. It holds a second language's whole state — a variable table,

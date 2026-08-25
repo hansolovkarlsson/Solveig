@@ -119,10 +119,34 @@ integer:timesCollect := { body | | out, i |
 ; wants the staircase -- which is the useful half of the measurement, because it
 ; says the thing a primitive would be *for* is not the thing it would fix.
 ;
-; And nothing is hot on it. The tokeniser in `basic.sol` runs this once per
-; character **at load**, which is 5ms for a listing anybody types; 3.3x of that
-; is 3.5ms, once. What would change the answer is a program running it per
-; iteration of something rather than per character of something read once.
+; And at the time that was measured, nothing was hot on it: the tokeniser in
+; `basic.sol` runs this once per character **at load**, which is 5ms for a
+; listing anybody types.
+;
+; ---------------------------------------------------------------------------
+; Then something was, and the number is worth having
+;
+; The paragraph above said what would change the answer -- *a program running it
+; per iteration of something* -- and `basic.sol` grew one the same day. Every
+; `IF` in a running listing goes through one dispatch, and a loop of 20,000
+; iterations driven by `IF` and `GOTO` ran in **0.246s** as a staircase and
+; **0.30s** through this. **Twenty-two per cent of the whole interpreter**, for
+; six arms. It went back to the staircase.
+;
+; **So both edges of the niche are now measured, and the niche is narrow.** This
+; is out of the recursive dispatches on depth and out of the hot one on speed,
+; and what is left to it is the flat, cool, many-armed case: a tokeniser, and
+; `disasm.sol` reading constant tags. Where a hot dispatch has *many* arms it
+; wants a dictionary rather than either of these, because a dictionary asks one
+; question instead of n.
+;
+; That is the honest case for and against a primitive, and it points both ways.
+; For: a program reached for this in a hot path, measured it, and had to give it
+; up -- which is exactly what happened to the four loops before they were built
+; in. Against: what it had to give it up *for* was a six-arm staircase that
+; reads perfectly well, and a primitive at 3.3x would still be slower than one.
+; The decision wants a site with many arms, arbitrary conditions and a hot loop,
+; and no program here has had one yet.
 ;
 ; **No early exit** ([3.13](../docs/ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing)),
 ; so the loop carries a flag whose only job is to stop it -- the tenth site in
