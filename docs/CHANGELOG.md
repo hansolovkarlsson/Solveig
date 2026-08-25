@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### One idea had two names — `pending`, 2026-08-25
+### One idea had two names — `aab4526`, 2026-08-25
 
 **`array:at_put` is `array:atPut`.** It was the only message of 125 with an
 underscore in it, and — worse than inconsistent — it was the *same message*
