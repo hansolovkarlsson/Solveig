@@ -17,8 +17,8 @@
 ; which is why the language has no syntax for any of these and does not need any.
 ;
 ; They all began in lib/control.sol, written in Solum. Four of them were then
-; measured and moved into the VM, so `repeat`, `toDo`, `toByDo` and `doUntil`
-; are primitives now and only `timesCollect` is still library code. Nothing you
+; measured and moved into the VM, so `repeat`, `loopDo` and `doUntil` are
+; primitives now and only `timesCollect` is still library code. Nothing you
 ; write below changes, which is the point: where a message lives is not part of
 ; what it means.
 
@@ -49,20 +49,20 @@ once:print.                               ; #1
 
 ; Inclusive at both ends, following `at` and `copyFrom`: an index here is an
 ; ordinal, and half-open ranges are what make zero-based indexing tidy.
-#1:toDo(#5, { n | n:display }).           ; 1 2 3 4 5
+[#1,#5]:loopDo({ n | n:display }).               ; 1 2 3 4 5
 
 ; With a step.
-#1:toByDo(#10, #3, { n | n:display }).    ; 1 4 7 10
+[#1,#10,#3]:loopDo({ n | n:display }).           ; 1 4 7 10
 
 ; A negative step counts down and stops when it passes the limit.
-#10:toByDo(#7, #0:sub(#1), { n | n:display }).   ; 10 9 8 7
+[#10,#7,#0:sub(#1)]:loopDo({ n | n:display }).   ; 10 9 8 7
 
 ; An empty range runs the body no times rather than complaining.
-#5:toDo(#1, { n | "never":display }).
+[#5,#1]:loopDo({ n | "never":display }).
 
 ; A step of #0 would never finish, so it says so instead of hanging.
-;   #1:toByDo(#5, #0, { n | n })
-;   ->  toByDo needs a step other than #0, and was given one
+;   [#1,#5,#0]:loopDo({ n | n })
+;   ->  'loopDo' needs a step other than #0
 
 ; ---------------------------------------------------------------------------
 ; Gathering results

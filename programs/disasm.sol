@@ -373,7 +373,7 @@ constantAt := { chunk, index | | entry |
 ; The disassembly
 
 show := { chunk, title, depth | | indent, code, at, op, entry, shape, text, size |
-    indent := "". #1:toDo(depth, { n | indent := indent:concat("    ") }).
+    indent := "". [#1,depth]:loopDo({ n | indent := indent:concat("    ") }).
 
     "":display.
     "{}{}  -- {} slots, {} names, {} constants, {} bytes"

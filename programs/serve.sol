@@ -164,7 +164,7 @@ allowed := "abcdefghijklmnopqrstuvwxyz0123456789-".
 string:isNoteName := {
     self:size:greaterThan(#0):and({ self:size:lessOrEqual(#40) }):and({ | ok |
         ok := true.
-        #1:toDo(self:size, { i |
+        [#1,self:size]:loopDo({ i |
             allowed:indexOf(self:at(i)):isNil:ifTrue({ ok := false }) }).
         ok }) }.
 

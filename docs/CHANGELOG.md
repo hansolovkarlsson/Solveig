@@ -5,6 +5,50 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The counted loop takes its numbers together — `pending`, 2026-08-25
+
+**`#1:toDo(#5, block)` and `#1:toByDo(#10, #3, block)` are gone.** In their place
+is one message on an array:
+
+```
+[#1,#5]:loopDo({ n | n:display }).               ; 1 2 3 4 5
+[#1,#10,#3]:loopDo({ n | n:display }).           ; 1 4 7 10
+[#10,#7,#0:sub(#1)]:loopDo({ n | n:display }).   ; 10 9 8 7
+```
+
+**Three complaints, and all three were fair.** `toDo` reads as *todo* and not as
+a loop. `toByDo` wedges `By` into the middle of a name that was already a
+sentence fragment. And the start value hid in the receiver while the other two
+numbers sat in arguments, so the three things a counted loop is made of were
+written in two different places. Now they are one array, in order, and the step
+is optional because an array knows its own size.
+
+**What it cost, recorded because it was argued before it was chosen.** `array`
+already answers `do`, so `[#1,#10]:do` and `[#1,#10]:loopDo` now mean different
+things on the same receiver — the two elements, and the range between them. And
+the arity check moved from send time to run time: a wrong-sized array can only
+be caught by looking, which is why the complaint names what it wanted rather
+than only what it got.
+
+```text
+[#1]:loopDo({ n | n })              'loopDo' wants [from, to] or [from, to, step], got 1 element
+[#1,#2,#3,#4]:loopDo({ n | n })     'loopDo' wants [from, to] or [from, to, step], got 4 elements
+[#1,1.5]:loopDo({ n | n })          'loopDo' expects an integer for 'to', got float
+[#1,#5,#0]:loopDo({ n | n })        'loopDo' needs a step other than #0
+```
+
+Everything else is unchanged: inclusive at both ends, an empty range runs the
+body no times, a negative step counts down, and the overflow check still stops a
+step near `INT64_MAX` wrapping past the limit.
+
+**Two messages became one**, so the language answers **123** across **219**
+registrations, and `integer` is down to 36 slots from 38 — which
+[class-and-instance.md](class-and-instance.md) asserts in a live example and
+which the checker caught within a second of the primitive being registered.
+
+Bytecode compiled before this fails with *integer does not understand 'toDo'*,
+for the same reason and with the same remedy as the entry below it.
+
 ### One idea had two names — `aab4526`, 2026-08-25
 
 **`array:at_put` is `array:atPut`.** It was the only message of 125 with an

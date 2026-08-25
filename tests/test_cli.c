@@ -263,7 +263,7 @@ static void test_interactive_keeps_what_the_program_left(void)
     FILE *f = fopen(DIR "/failing.sol", "w");
     assert(f != NULL);
     fputs("tally := array:new.\n"
-          "#1:toDo(#4, { n | tally:add(n:mul(n)) }).\n"
+          "[#1,#4]:loopDo({ n | tally:add(n:mul(n)) }).\n"
           "host := \"localhost\".\n"
           "tally:at(#99).\n"                    /* out of bounds: it stops here */
           "never := #1.\n", f);
@@ -419,7 +419,7 @@ static void test_the_limits_are_off_and_are_checked(void)
 
     FILE *f = fopen(DIR "/quick.sol", "w");
     assert(f != NULL);
-    fputs("n := #0. #1:toDo(#2000, { i | n := n:inc }). n:print.\n", f);
+    fputs("n := #0. [#1,#2000]:loopDo({ i | n := n:inc }). n:print.\n", f);
     fclose(f);
     assert(system("bin/solas " DIR "/quick.sol -o " DIR "/quick.sob") == 0);
 

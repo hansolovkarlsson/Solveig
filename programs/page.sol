@@ -114,7 +114,7 @@ headings:size:equals(#0):ifElse(
       headings:do({ h | | level, indent |
         level := h:name:copyFrom(#2, #2):asInteger.
         indent := "".
-        #1:toDo(level:sub(#1), { n | indent := indent:concat("  ") }).
+        [#1,level:sub(#1)]:loopDo({ n | indent := indent:concat("  ") }).
         "  {}{}":fill([indent, h:text]):display }) }).
 
 ; ---------------------------------------------------------------------------

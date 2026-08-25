@@ -848,7 +848,7 @@ without saying where that lives:
 @include "control.sol".
 
 #3:repeat({ "tick":display }).
-#1:toByDo(#10, #3, { n | n:display }).       ; 1 4 7 10
+[#1,#10,#3]:loopDo({ n | n:display }).      ; 1 4 7 10
 #4:timesCollect({ n | n:mul(n) }):print.     ; [#1, #4, #9, #16]
 ```
 
@@ -857,7 +857,7 @@ and `block` by an ordinary Solum file — which is possible at all because contr
 flow here is message sending, so a loop is something a library can add. That is
 why §8 could say the language has no loop syntax and mean it.
 
-`repeat`, `toDo`, `toByDo` and `doUntil` were all in that list once and are all
+`repeat`, `loopDo` and `doUntil` were all in that list once and are all
 part of the language now, because measuring said they were worth building in.
 `doUntil` is the interesting one — it is the shape `whileTrue` cannot express, the body
 running *before* the test so it always runs at least once:

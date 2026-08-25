@@ -1332,7 +1332,7 @@ static SolValue prim_bound_to(SolVM *vm, SolValue self, SolValue *args, int argc
    which is the whole reason it has to be a block rather than a value. */
 /* ---- counted loops ----------------------------------------------------- *
  *
- * `repeat`, `toDo` and `toByDo` lived in lib/control.sol, written in Solum.
+ * `repeat` and the counted loop lived in lib/control.sol, written in Solum.
  * Roadmap 6.6 was about inlining them the way `whileTrue` and `doUntil` are
  * inlined, and that turned out to be both harder and worse than making them
  * primitives.
@@ -1386,39 +1386,60 @@ static SolValue prim_block_repeat(SolVM *vm, SolValue self, SolValue *args, int 
     return SOL_NIL_VAL;
 }
 
-/* `#a:toByDo(#b, #step, { n | ... })` -- inclusive at both ends, following
- * `at` and `copyFrom`: an index here is an ordinal, and half-open ranges are
- * what make *zero*-based indexing tidy.
+/* `[#from, #to, #step]:loopDo({ n | ... })` -- inclusive at both ends,
+ * following `at` and `copyFrom`: an index here is an ordinal, and half-open
+ * ranges are what make *zero*-based indexing tidy. The step is optional, and a
+ * two-element array means a step of #1.
+ *
+ * The range arrives as an array so that the three numbers are written together
+ * and in order. It cost the send-time arity check the two-message spelling had:
+ * an array of the wrong size can only be caught here, at run time, which is why
+ * the complaint below names what it wanted rather than only what it got.
  *
  * A negative step counts down and stops when it passes the limit. A step of #0
  * would never finish, so it is refused -- the Solum version could only print a
  * complaint and carry on, which is the sort of thing a primitive can do
  * properly. */
-static SolValue prim_integer_to_by_do(SolVM *vm, SolValue self, SolValue *args, int argc)
+static SolValue prim_array_loop_do(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
-    if (!check_argc(vm, "toByDo", argc, 3)) return SOL_NIL_VAL;
-    if (!wants_block(vm, "toByDo", args[2])) return SOL_NIL_VAL;
-    if (!SOL_IS_INT(args[0]) || !SOL_IS_INT(args[1])) {
-        sol_vm_runtime_error(vm, "'toByDo' expects an integer limit and step, got %s and %s",
-                             sol_type_name(args[0]), sol_type_name(args[1]));
+    if (!check_argc(vm, "loopDo", argc, 1)) return SOL_NIL_VAL;
+    if (!wants_block(vm, "loopDo", args[0])) return SOL_NIL_VAL;
+
+    SolArray *range = SOL_AS_ARRAY(self);
+    if (range->count != 2 && range->count != 3) {
+        sol_vm_runtime_error(vm,
+            "'loopDo' wants [from, to] or [from, to, step], got %d element%s",
+            range->count, range->count == 1 ? "" : "s");
         return SOL_NIL_VAL;
     }
 
-    int64_t limit = SOL_AS_INT(args[0]);
-    int64_t step  = SOL_AS_INT(args[1]);
+    /* Named rather than indexed from here down, because `values[2]` meaning the
+       step is exactly the thing this spelling was chosen to stop a reader
+       having to remember. */
+    for (int i = 0; i < range->count; i++) {
+        if (!SOL_IS_INT(range->items[i])) {
+            static const char *part[3] = { "from", "to", "step" };
+            sol_vm_runtime_error(vm, "'loopDo' expects an integer for '%s', got %s",
+                                 part[i], sol_type_name(range->items[i]));
+            return SOL_NIL_VAL;
+        }
+    }
+
+    int64_t from  = SOL_AS_INT(range->items[0]);
+    int64_t limit = SOL_AS_INT(range->items[1]);
+    int64_t step  = range->count == 3 ? SOL_AS_INT(range->items[2]) : 1;
+
     if (step == 0) {
-        sol_vm_runtime_error(vm, "'toByDo' needs a step other than #0");
+        sol_vm_runtime_error(vm, "'loopDo' needs a step other than #0");
         return SOL_NIL_VAL;
     }
 
     /* The index is handed to the block, so it has to be a value each pass. The
        overflow check is what stops a step near INT64_MAX wrapping past the
        limit and running forever. */
-    for (int64_t i = SOL_AS_INT(self);
-         step > 0 ? i <= limit : i >= limit;
-         ) {
+    for (int64_t i = from; step > 0 ? i <= limit : i >= limit; ) {
         SolValue index = SOL_INT_VAL(i);
-        sol_vm_call_block(vm, args[2], &index, 1);
+        sol_vm_call_block(vm, args[0], &index, 1);
         if (vm->had_error) return SOL_NIL_VAL;
 
         int64_t next;
@@ -1426,17 +1447,6 @@ static SolValue prim_integer_to_by_do(SolVM *vm, SolValue self, SolValue *args, 
         i = next;
     }
     return SOL_NIL_VAL;
-}
-
-static SolValue prim_integer_to_do(SolVM *vm, SolValue self, SolValue *args, int argc)
-{
-    if (!check_argc(vm, "toDo", argc, 2)) return SOL_NIL_VAL;
-    /* Here rather than in `toByDo` below, so the complaint names what was
-       written. */
-    if (!wants_block(vm, "toDo", args[1])) return SOL_NIL_VAL;
-
-    SolValue stepped[3] = { args[0], SOL_INT_VAL(1), args[1] };
-    return prim_integer_to_by_do(vm, self, stepped, 3);
 }
 
 /* `{ body }:doUntil({ condition })` -- the body first, then the test, so it
@@ -5064,8 +5074,6 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->integer_class, SOL_INT, "shiftLeft", prim_integer_shift_left);
     instance(vm, vm->integer_class, SOL_INT, "shiftRight", prim_integer_shift_right);
     instance(vm, vm->integer_class, SOL_INT, "repeat", prim_integer_repeat);
-    instance(vm, vm->integer_class, SOL_INT, "toDo", prim_integer_to_do);
-    instance(vm, vm->integer_class, SOL_INT, "toByDo", prim_integer_to_by_do);
     instance(vm, vm->integer_class, SOL_INT, "asString", prim_integer_as_string);
     instance(vm, vm->integer_class, SOL_INT, "negated", prim_integer_negated);
     instance(vm, vm->integer_class, SOL_INT, "abs", prim_integer_abs);
@@ -5143,6 +5151,7 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->array_class, SOL_ARRAY, "size", prim_array_size);
     instance(vm, vm->array_class, SOL_ARRAY, "at", prim_array_at);
     instance(vm, vm->array_class, SOL_ARRAY, "atPut", prim_array_at_put);
+    instance(vm, vm->array_class, SOL_ARRAY, "loopDo", prim_array_loop_do);
     instance(vm, vm->array_class, SOL_ARRAY, "add", prim_array_add);
     instance(vm, vm->array_class, SOL_ARRAY, "do", prim_array_do);
     instance(vm, vm->array_class, SOL_ARRAY, "collect", prim_array_collect);

@@ -952,9 +952,9 @@ static void test_counted_loops_count(void)
     assert(run(&vm, &chunk,
         "ticks := #0. #3:repeat({ ticks := ticks:add(#1) })."
         "tocks := #0. { tocks := tocks:add(#1) }:repeat(#2)."
-        "up := array:new. #1:toDo(#3, { n | up:add(n) })."
-        "stepped := array:new. #1:toByDo(#10, #3, { n | stepped:add(n) })."
-        "down := array:new. #3:toByDo(#1, #0:sub(#1), { n | down:add(n) })."
+        "up := array:new. [#1,#3]:loopDo({ n | up:add(n) })."
+        "stepped := array:new. [#1,#10,#3]:loopDo({ n | stepped:add(n) })."
+        "down := array:new. [#3,#1,#0:sub(#1)]:loopDo({ n | down:add(n) })."
         /* they answer nil, as the other loops do */
         "answer := #1:repeat({ #2 }).") == SOL_OK);
 
@@ -969,7 +969,7 @@ static void test_counted_loops_count(void)
     assert(SOL_IS_NIL(global(&vm, "answer")));
 
     sol_chunk_free(&chunk); sol_vm_free(&vm);
-    printf("  repeat, toDo and toByDo count what they say\n");
+    printf("  repeat and loopDo count what they say\n");
 }
 
 /* An empty range runs the body no times rather than complaining, which is what
@@ -983,8 +983,8 @@ static void test_counted_loops_over_nothing(void)
         "a := #0. #0:repeat({ a := a:add(#1) })."
         "b := #0. #0:sub(#5):repeat({ b := b:add(#1) })."     /* a negative count */
         "c := #0. { c := c:add(#1) }:repeat(#0)."
-        "d := #0. #5:toDo(#1, { n | d := d:add(#1) })."
-        "e := #0. #1:toByDo(#5, #0:sub(#1), { n | e := e:add(#1) })."
+        "d := #0. [#5,#1]:loopDo({ n | d := d:add(#1) })."
+        "e := #0. [#1,#5,#0:sub(#1)]:loopDo({ n | e := e:add(#1) })."
         "n := a:add(b):add(c):add(d):add(e).") == SOL_OK);
     assert(SOL_AS_INT(global(&vm, "n")) == 0);
 
@@ -1003,10 +1003,10 @@ static void test_counted_loops_refuse(void)
         "#3:repeat(#1).",                    /* not a block */
         "#3:repeat.",
         "{ #1 }:repeat(1.5).",
-        "#1:toByDo(#5, #0, { n | n }).",     /* a step of #0 never finishes */
-        "#1:toByDo(1.5, #1, { n | n }).",
-        "#1:toDo(#3, { n | n }, #4).",
-        "#1:toDo(#3, { }).",                 /* the block is handed the index */
+        "[#1,#5,#0]:loopDo({ n | n }).",     /* a step of #0 never finishes */
+        "[#1,1.5,#1]:loopDo({ n | n }).",
+        "[#1,#3]:loopDo({ n | n }, #4).",
+        "[#1,#3]:loopDo({ }).",                 /* the block is handed the index */
     };
 
     for (size_t i = 0; i < sizeof(refused) / sizeof(refused[0]); i++) {
@@ -1033,7 +1033,7 @@ static void test_an_error_in_the_body_stops_the_loop(void)
     sol_vm_init(&vm);
     assert(run(&vm, &chunk,
         "seen := #0."
-        "#1:toDo(#10, { n | seen := seen:add(#1). nil:frobnicate }).") == SOL_RUNTIME_ERROR);
+        "[#1,#10]:loopDo({ n | seen := seen:add(#1). nil:frobnicate }).") == SOL_RUNTIME_ERROR);
     assert(SOL_AS_INT(global(&vm, "seen")) == 1);
     sol_chunk_free(&chunk); sol_vm_free(&vm);
 
@@ -1052,7 +1052,7 @@ static void test_a_huge_step_terminates(void)
        the bottom and running for ever. */
     assert(run(&vm, &chunk,
         "seen := #0."
-        "#9223372036854775806:toByDo(#9223372036854775807, #1,"
+        "[#9223372036854775806,#9223372036854775807,#1]:loopDo("
         "    { n | seen := seen:add(#1) }).") == SOL_OK);
     assert(SOL_AS_INT(global(&vm, "seen")) == 2);
     sol_chunk_free(&chunk); sol_vm_free(&vm);
@@ -1062,7 +1062,7 @@ static void test_a_huge_step_terminates(void)
     sol_vm_init(&vm);
     assert(run(&vm, &chunk,
         "seen := #0."
-        "#9223372036854775806:toByDo(#9223372036854775807, #9223372036854775807,"
+        "[#9223372036854775806,#9223372036854775807,#9223372036854775807]:loopDo("
         "    { n | seen := seen:add(#1) }).") == SOL_OK);
     assert(SOL_AS_INT(global(&vm, "seen")) == 1);
     sol_chunk_free(&chunk); sol_vm_free(&vm);
@@ -1071,7 +1071,7 @@ static void test_a_huge_step_terminates(void)
     sol_vm_init(&vm);
     assert(run(&vm, &chunk,
         "seen := #0."
-        "#0:sub(#9223372036854775807):toByDo(#0:sub(#9223372036854775807), #0:sub(#1),"
+        "[#0:sub(#9223372036854775807),#0:sub(#9223372036854775807),#0:sub(#1)]:loopDo("
         "    { n | seen := seen:add(#1) }).") == SOL_OK);
     assert(SOL_AS_INT(global(&vm, "seen")) == 1);
     sol_chunk_free(&chunk); sol_vm_free(&vm);

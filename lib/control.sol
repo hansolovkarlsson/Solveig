@@ -17,7 +17,7 @@
 ; when you included it would be a poor guest.
 
 ; ---------------------------------------------------------------------------
-; repeat, toDo and toByDo are not here any more
+; repeat and the counted loop are not here any more
 ;
 ; Nor is doUntil. All four started in this file, written in Solum, and all four
 ; turned out to be worth building into the VM -- which is what ROADMAP 6.6 was

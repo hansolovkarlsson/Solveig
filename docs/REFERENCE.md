@@ -511,7 +511,7 @@ program asks for it by name:
 lines := #0.
 { lines := lines:add(#1) }:doUntil({ lines:greaterOrEqual(#3) }).
 lines:print.                                 ; #3
-#1:toByDo(#10, #3, { n | n:display }).       ; 1 4 7 10
+[#1,#10,#3]:loopDo({ n | n:display }).      ; 1 4 7 10
 #4:timesCollect({ n | n:mul(n) }):print.     ; [#1, #4, #9, #16]
 ```
 
@@ -551,8 +551,8 @@ is for a flat dispatch — a scanner deciding what a character starts, a reader
 deciding what a tag means — and not for the inside of a recursion.
 [disasm.sol](../programs/disasm.sol) reads its constant tags with it.
 
-**Four things were here once and are not any more.** `doUntil`, `repeat`, `toDo`
-and `toByDo` all started as Solum in this file, all four were measured, and all
+**Four things were here once and are not any more.** `doUntil`, `repeat` and
+the counted loop all started as Solum in this file, all were measured, and all
 four turned out to be worth building into the VM — see
 [integer](#integer) and [block](#block). Defining any of them here again would be
 a trap rather than an override: a slot bound on `integer` shadows the primitive,
@@ -564,7 +564,7 @@ measuring does. The machinery around it — the search path, `@include` finding 
 name it was not told the location of — is unchanged and is the part that
 matters.
 
-A step of `#0` would never finish, so `toByDo` says so rather than hanging.
+A step of `#0` would never finish, so `loopDo` says so rather than hanging.
 
 Written in Solum, they cost a block call per iteration — about 1.30× a literal
 `whileTrue`, which compiles to jumps. See
@@ -1582,7 +1582,7 @@ x:greaterThan(#0):and(c):print.          ; true
 Written literally, `ifTrue`, `ifFalse`, `ifElse`, `whileTrue`, `doUntil`, `and`,
 and `or` compile to jumps: no block is allocated and no frame is entered.
 
-`repeat`, `toDo` and `toByDo` are **not** in that list and deliberately so. They
+`repeat` and `loopDo` are **not** in that list and deliberately so. They
 are primitives, which is faster here than inlining would have been: inlining
 removes the block call an iteration and keeps two bytecode sends for the
 counter, where a primitive removes the two sends and keeps the block call. The
@@ -2168,8 +2168,7 @@ objects.
 | `asBase(#n)` | the digits in base `n`, 2 to 36, as a string |
 | `asCharacter` | the one-byte string that byte spells; `#0` to `#255` |
 | `repeat(block)` | nil, having run the block that many times |
-| `toDo(#b, block)` | nil; the block is given each of the receiver to `#b`, **inclusive** |
-| `toByDo(#b, #step, block)` | the same, by `#step`; negative counts down |
+
 
 `#-7:div(#2)` is `#-4` and `#-7:mod(#2)` is `#1`: division floors, so the
 remainder takes the divisor's sign and stays in `[0, n)` for positive `n`.
@@ -2420,6 +2419,7 @@ one like any other byte.
 | `removeLast` | the last element, taken off; **an error** when empty |
 | `indexOf(v)` | where `v` first is, **one-based**, or nil |
 | `do(block)` | the array, having run the block per element |
+| `loopDo(block)` | nil; a *counted loop* over `[#a, #b]` or `[#a, #b, #step]` — the bounds, not the elements, both ends included |
 | `collect(block)` | a new array of the block's answers |
 | `select(block)` | a new array of the elements the block accepted |
 | `inject(start, block)` | one value, folded left to right |
@@ -2936,7 +2936,7 @@ has been given, and cannot give itself more.
 Every built-in message and the types that answer it. The question a reference
 gets asked is usually *what has `copyFrom`?* rather than *what does a string
 do?*, and the sections above answer only the second — so this answers the first.
-124 messages across 220 registrations.
+123 messages across 219 registrations.
 
 **A test keeps it honest**: a message registered in `builtins.c` and missing
 from here fails the build, which is the same bargain that makes every message
@@ -3011,6 +3011,7 @@ appear in an example.
 | `last` | [array](#array) |
 | `lessOrEqual` | [float](#float), [integer](#integer), [string](#string), [symbol](#symbol), [time](#time) |
 | `lessThan` | [float](#float), [integer](#integer), [string](#string), [symbol](#symbol), [time](#time) |
+| `loopDo` | [array](#array) |
 | `makeDirectory` | [system](#system) |
 | `minute` | [time](#time) |
 | `mod` | [float](#float), [integer](#integer) |
@@ -3057,8 +3058,6 @@ appear in an example.
 | `sub` | [float](#float), [integer](#integer) |
 | `time` | [system](#system) |
 | `timeToRun` | [block](#block) |
-| `toByDo` | [integer](#integer) |
-| `toDo` | [integer](#integer) |
 | `trim` | [string](#string) |
 | `truncated` | [float](#float) |
 | `upTo` | [random](#random) |

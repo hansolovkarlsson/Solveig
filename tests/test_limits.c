@@ -63,7 +63,7 @@ static void test_a_program_inside_its_allowance_is_untouched(void)
     sol_vm_set_step_limit(&vm, 1000000);
     assert(run(&vm, &chunk,
         "total := #0."
-        "#1:toDo(#100, { n | total := total:add(n) }).") == SOL_OK);
+        "[#1,#100]:loopDo({ n | total := total:add(n) }).") == SOL_OK);
     assert(SOL_AS_INT(global(&vm, "total")) == 5050);
 
     sol_chunk_free(&chunk);
@@ -79,7 +79,7 @@ static void test_no_limit_is_the_default(void)
 
     assert(vm.step_limit == 0);
     assert(vm.memory_limit == 0);
-    assert(run(&vm, &chunk, "n := #0. #1:toDo(#10000, { i | n := n:inc }).") == SOL_OK);
+    assert(run(&vm, &chunk, "n := #0. [#1,#10000]:loopDo({ i | n := n:inc }).") == SOL_OK);
     assert(SOL_AS_INT(global(&vm, "n")) == 10000);
 
     sol_chunk_free(&chunk);

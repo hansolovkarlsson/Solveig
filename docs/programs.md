@@ -406,7 +406,7 @@ That half found two things. The guide showed a stack trace reading
 [6.27](COMPLETED.md#627-a-stack-trace-does-not-say-which-file--done) adding the
 filename — the illustration was never updated when the format changed. And
 [class-and-instance.md](class-and-instance.md) said `integer` has 24 slots,
-three times, where it has **38<!--count integer-slots-->**: messages were added
+three times, where it has **36<!--count integer-slots-->**: messages were added
 and the count was not.
 That number is safe to state now precisely *because* it is checked.
 

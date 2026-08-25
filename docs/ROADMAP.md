@@ -178,7 +178,7 @@ own.
   `"abcdef":copyFrom(#2, #4)` answers `"bcd"` — so the convention above is the
   one the language already keeps, rather than a preference waiting to be
   applied. What is still hypothetical is a range as a *value*: there is no
-  `#1:to(#5)`, and `toDo` takes the two bounds and a block instead.
+  `#1:to(#5)`, and `[#1,#5]:loopDo` takes the bounds as an array instead.
 
 ## 3. Known limitations
 
@@ -691,8 +691,8 @@ be wrong. Any answer has to leave that case alone.
 
 **What an answer would cost, and the fork is the whole of it.** `whileTrue`
 written literally compiles to jumps, so a `break` inside one is a jump the
-compiler already knows how to emit. But `do`, `collect`, `select`, `repeat`,
-`toDo` and `toByDo` are primitives that call a block per element, and there a
+compiler already knows how to emit. But `do`, `collect`, `select`,
+`repeat` and `loopDo` are primitives that call a block per element, and there a
 `break` needs a run-time signal from a block to whoever called it — which is
 [3.2](#32-no-non-local-return)'s machinery, not something smaller. So:
 

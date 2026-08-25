@@ -572,11 +572,11 @@ static void test_the_shipped_library_works(void)
         "ticks := #0. #3:repeat({ ticks := ticks:add(#1) }).\n"
         "tocks := #0. { tocks := tocks:add(#1) }:repeat(#2).\n"
         "once := #0. { once := once:add(#1) }:doUntil({ true }).\n"
-        "counted := array:new. #1:toDo(#3, { n | counted:add(n) }).\n"
-        "stepped := array:new. #1:toByDo(#10, #3, { n | stepped:add(n) }).\n"
-        "down := array:new. #3:toByDo(#1, #0:sub(#1), { n | down:add(n) }).\n"
+        "counted := array:new. [#1,#3]:loopDo({ n | counted:add(n) }).\n"
+        "stepped := array:new. [#1,#10,#3]:loopDo({ n | stepped:add(n) }).\n"
+        "down := array:new. [#3,#1,#0:sub(#1)]:loopDo({ n | down:add(n) }).\n"
         "squares := #4:timesCollect({ n | n:mul(n) }).\n"
-        "empty := #5:toDo(#1, { n | n }).\n");
+        "empty := [#5,#1]:loopDo({ n | n }).\n");
 
     SolSearchPath search;
     sol_search_path_init(&search);
@@ -595,7 +595,7 @@ static void test_the_shipped_library_works(void)
     assert(SOL_AS_ARRAY(global(&vm, "down"))->count == 3);
     assert(SOL_AS_ARRAY(global(&vm, "squares"))->count == 4);
     assert(SOL_AS_INT(SOL_AS_ARRAY(global(&vm, "squares"))->items[3]) == 16);
-    assert(SOL_IS_NIL(global(&vm, "empty")));       /* toDo answers nil */
+    assert(SOL_IS_NIL(global(&vm, "empty")));       /* loopDo answers nil */
 
     sol_chunk_free(&chunk);
     sol_vm_free(&vm);

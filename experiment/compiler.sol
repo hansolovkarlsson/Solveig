@@ -716,7 +716,7 @@ compiler:depth := #0.
 
 compiler:directoryOf := { path | | at |
     at := #0.
-    #1:toDo(path:size, { i | path:at(i):equals("/"):ifTrue({ at := i }) }).
+    [#1,path:size]:loopDo({ i | path:at(i):equals("/"):ifTrue({ at := i }) }).
     at:equals(#0):ifElse({ "" }, { path:copyFrom(#1, at) }) }.
 
 compiler:resolveAgainst := { including, name | | directory |

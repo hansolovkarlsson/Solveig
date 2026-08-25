@@ -33,7 +33,7 @@ marked as a sketch.
 | `doUntil` | **Built in** — and inlined, so a definition in Solum would now be bypassed |
 | switch / case | **Already writable**, and now written — [`array:ifElseIf`](REFERENCE.md#the-library) in control.sol, once an interface turned up worth committing to |
 | `#10:repeat({...})` | **Built in** — a primitive, measured 3.2x the version written in Solum |
-| `for` loop with start/end/step | **Built in** — `toDo` and `toByDo` |
+| `for` loop with start/end/step | **Built in** — `[#a, #b, #step]:loopDo` |
 | `forIn` | **It is `do`** |
 | `ifTrue{...}` without parentheses | **No** — it would teach a rule that does not generalise |
 | Performance timing | **Built** — the clock came with it |
@@ -72,8 +72,8 @@ them were written in Solum first — which is the verdict this section was makin
 and it was the right one.
 
 **Four of the five then left the library for the VM.** They were collected into
-[lib/control.sol](../lib/control.sol), measured, and `repeat`, `doUntil`, `toDo`
-and `toByDo` all turned out to be worth building in as primitives; a primitive
+[lib/control.sol](../lib/control.sol), measured, and `repeat`, `doUntil` and the
+counted loop all turned out to be worth building in as primitives; a primitive
 `repeat` measured 3.2x the version that lived in the file. What is left in
 `control.sol` is `timesCollect`, the one nobody has measured, and a comment
 saying why the others are not there — redefining one now would shadow the

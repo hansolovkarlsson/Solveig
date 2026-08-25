@@ -393,7 +393,7 @@ static void test_a_byte_and_its_number(void)
        range rather than a sample of it. */
     assert(run(&vm, &chunk,
         "ok := true."
-        "#0:toDo(#255, { n | n:asCharacter:asByte:equals(n):ifFalse("
+        "[#0,#255]:loopDo({ n | n:asCharacter:asByte:equals(n):ifFalse("
         "    { ok := false }) }).") == SOL_OK);
     assert(SOL_AS_BOOL(global(&vm, "ok")) == true);
     sol_chunk_free(&chunk);
