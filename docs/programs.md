@@ -643,6 +643,23 @@ the output of a BASIC program is exactly where a comment goes stale unnoticed:
 print zones, six digits and the trailing space after every number are invisible
 to a reader and all load-bearing.
 
+**It is checked against a suite somebody else wrote.** The
+[NBS Minimal BASIC Test Programs](../programs/basic/conformance.sh) are 208
+programs written at the National Bureau of Standards in 1980 to test an
+implementation against ANSI X3.60-1978, the standard ECMA-55 mirrors — a US
+government work, public domain, and the only test of this interpreter not
+written by its author. `programs/basic/conformance.sh` fetches and runs them;
+it is not part of `make test`, because it needs the network and because the
+suite is written for a person to read rather than for a machine to score.
+
+**It found seven defects, and none of them had been caught by the eighty-three
+claims in the file** — `DATA` being raw text rather than tokens, a datum having
+no type until a `READ` takes it, `DEF` needing no parameter, `NEXT` having to
+search the loop stack, `FOR` having to nest dynamically through `GOSUB`, `DIM`
+being a declaration rather than a statement, and exceptions that report and
+carry on. Those claims check what the author of the interpreter thought to
+check, which is exactly what an external suite is for.
+
 **One thing here is not the standard, and it is written down in the file rather
 than left to be found.** ECMA-55 makes a space insignificant outside a string,
 so `FORI=1TO10` and `PRI NT` are both legal BASIC; here they are not. Fixing it

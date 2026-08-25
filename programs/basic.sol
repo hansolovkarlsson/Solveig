@@ -59,6 +59,46 @@
 ; every rule of the standard this file has found a way to check.
 ;
 ; ---------------------------------------------------------------------------
+; What the conformance suite says
+;
+; The **NBS Minimal BASIC Test Programs, Version 2** are 208 programs written at
+; the National Bureau of Standards in 1980 to test an implementation against
+; ANSI X3.60-1978, which is the standard ECMA-55 mirrors. They are a US
+; government work and in the public domain, and they are the only test of this
+; interpreter that somebody else wrote. `basic/conformance.sh` fetches and runs
+; them.
+;
+;   ran to the end                            99
+;   refused, and the test wanted that         99
+;   refused, and the test did not              5   -- all of them want a person
+;                                                     at a keyboard; the harness
+;                                                     has no one to offer
+;   over the harness's step limit              5   -- the statistical RND tests
+;   accepted where the standard is stricter   30   -- the table below
+;
+; **They found seven things, and every one of them was a real defect.** Not one
+; had been caught by the eighty-three claims in this file, because those check
+; what the author of the interpreter thought to check:
+;
+;   `DATA` is raw text        an unquoted datum runs to the next comma and may
+;                             hold anything but one -- `DATA +.   -` is legal.
+;                             Reading it with the tokeniser refused a fifth of
+;                             the suite.
+;   a datum has no type       until a `READ` takes it. `DATA F,6` into `D$` is
+;                             the string "6"; the same `6` into `A` is a number.
+;   `DEF` needs no parameter  `DEF FNM=123`, referenced as a bare `FNM`.
+;   `NEXT` searches           a listing may `GOTO` out of an inner loop, and
+;                             then its `NEXT` must find its own `FOR` further
+;                             down the stack.
+;   `FOR` always pushes       two loops may run on one variable when the inner
+;                             one is reached through `GOSUB`. Abandoning the
+;                             outer frame was invented here, not read anywhere.
+;   `DIM` is a declaration    the suite references arrays *before* the line that
+;                             dimensions them, and says so in a comment.
+;   exceptions that continue   `TAB(0)` must use 1, carry on, **and say so**.
+;                             Every failure here was fatal until then.
+;
+; ---------------------------------------------------------------------------
 ; Where this is not the standard
 ;
 ; One place, and it is written here rather than left to be discovered:
@@ -93,6 +133,36 @@
 ;                            not improved by being told so.
 ;   `INPUT` gives up         where the standard asks again. A listing being fed
 ;                            from a file cannot usefully be asked twice.
+;
+; ---------------------------------------------------------------------------
+; And where it accepts what the standard refuses
+;
+; Thirty of the suite's programs are legal here and are meant not to be. That is
+; allowed -- P054 says a processor may *either* reject such a program *or*
+; accept it and be accompanied by documentation describing what it does with it.
+; This is that documentation.
+;
+;   lower case                accepted everywhere. Keywords fold; text in quotes
+;                             does not, so `PRINT "Hello"` prints Hello.
+;   lines out of order        a file's lines are sorted by number, not required
+;                             to arrive in order. At a prompt that is the whole
+;                             point, and the two cannot sensibly differ.
+;   any line number           the standard allows 1 to 9999. Any positive whole
+;                             number works here, and zero is refused because
+;                             zero is this interpreter's word for *no line*.
+;   lines of any length       the standard stops at 72 characters.
+;   `END` anywhere, or none   the standard has exactly one and it comes last.
+;   strings of any length     so the string overflow the standard requires a
+;                             report for cannot happen.
+;   `A` and `A(1)` together   the standard forbids one letter being both a
+;                             variable and an array; here they are separate.
+;   `FOR I` inside `FOR I`    lexically nested loops on one control variable are
+;                             accepted, and **the inner loop wins**: `FOR`
+;                             pushes a second frame and the first `NEXT I`
+;                             closes the inner one, leaving the outer running.
+;   underflow is silent       a value too small to represent becomes zero or a
+;                             denormal without a word, where the standard asks
+;                             for a report.
 ;
 ; Stage four went ahead of stage three because it turned out not to depend on
 ; it, and then took part of it anyway: `A(1)` and `ABS(1)` are the same syntax,
@@ -274,6 +344,12 @@ basic:data := nil.         ; every DATA value in the listing, in line order
 basic:dataAt := #1.        ; how far READ has got through it
 basic:rng := nil.          ; RND's generator; RANDOMIZE replaces it
 basic:dirty := true.       ; whether the load-time passes need running again
+basic:dims := nil.         ; the arrays DIM declares, name -> bounds
+; How a non-fatal exception is announced. **A block in a slot is a method**, so
+; this cannot be held as data and asked for back -- `self:report` *calls* it. The
+; default is therefore a block that does nothing rather than a nil to test for,
+; which is shorter anyway and has no branch in it.
+basic:report := { text | nil }.
 basic:base := #0.          ; the lowest subscript, which OPTION BASE sets
 
 ; Every failure names the line it happened on, because in a language whose
@@ -285,6 +361,25 @@ basic:base := #0.          ; the lowest subscript, which OPTION BASE sets
 ; line has no number at all. Naming a line that had nothing to do with it is the
 ; kind of true sentence about the wrong thing this file has already been caught
 ; by twice.
+; ---------------------------------------------------------------------------
+; The exceptions that are not failures
+;
+; ECMA-55 has a class of exception the standard says to **report and carry on
+; from**, with a defined value put in place of the bad one -- `TAB(0)` is one:
+; the argument becomes 1, execution continues, and a message must say so. Every
+; error here was fatal until the conformance suite asked for that, because
+; nothing had needed a complaint that was not also a stop.
+;
+; Where it goes is the caller's business, which is why it is a block in a slot
+; rather than a `display` written here: a listing run from a file sends it to
+; standard error with the failures, and the prompt puts it on the screen with
+; everything else it says.
+
+basic:warn := { message |
+    self:report(self:atLine:equals(#0):ifElse(
+        { message },
+        { "line {}: {}":fill([self:atLine, message]) })) }.
+
 basic:fail := { message |
     self:atLine:equals(#0):ifElse(
         { error:raise(message) },
@@ -455,6 +550,7 @@ basic:resolveOne := { st |
 basic:gather := { | dimmed, based |
     self:data := array:new.
     self:defined := dictionary:new.
+    self:dims := dictionary:new.
     self:base := #0.
     dimmed := false.
     based := false.
@@ -463,7 +559,12 @@ basic:gather := { | dimmed, based |
         self:atLine := line.
         st:kind:equals('data):ifTrue({
             st:items:do({ v | self:data:add(v) }) }).
-        st:kind:equals('dim):ifTrue({ dimmed := true }).
+        st:kind:equals('dim):ifTrue({
+            dimmed := true.
+            st:items:do({ each |
+                self:dims:includes(each:at(#1)):ifTrue({
+                    self:fail("{} is given bounds twice":fill([each:at(#1)])) }).
+                self:dims:atPut(each:at(#1), each:at(#2)) }) }).
         st:kind:equals('option):ifTrue({
             based:ifTrue({ self:fail("OPTION BASE is said twice") }).
             dimmed:ifTrue({
@@ -557,6 +658,15 @@ basic:parseStatement := { text | | tokens, keyword |
     ; what follows it is not a token sequence. A line beginning `REMOVE` is a
     ; remark too: the standard says the rest of the line is ignored after `REM`,
     ; and every BASIC ever written reads that as literally as this does.
+    ;
+    ; **`DATA` is the same, and that took the NBS suite to notice.** Its items
+    ; are not tokens either: an unquoted datum runs to the next comma and may
+    ; hold anything but one, so `DATA +.   -` is three characters of perfectly
+    ; legal string. Reading DATA with the tokeniser rejected a fifth of the
+    ; conformance programs.
+    text:size:greaterOrEqual(#4)
+        :and({ text:copyFrom(#1, #4):asUppercase:equals("DATA") })
+        :ifElse({ self:parseData(text:copyFrom(#5, text:size)) }, {
     text:size:greaterOrEqual(#3)
         :and({ text:copyFrom(#1, #3):asUppercase:equals("REM") })
         :ifElse({ self:statementOf('rem) }, {
@@ -570,7 +680,7 @@ basic:parseStatement := { text | | tokens, keyword |
             parsers:includes(keyword:text):ifFalse({
                 self:fail("'{}' is not a statement in Minimal BASIC"
                     :fill([keyword:text])) }).
-            parsers:at(keyword:text):value(self, tokens) }) }.
+            parsers:at(keyword:text):value(self, tokens) }) }) }.
 
 basic:statementOf := { kind | | st |
     st := statement:new. st:kind := kind. st }.
@@ -836,11 +946,20 @@ parsers:atPut("DEF", { m, tokens | | st, name |
         :ifFalse({ m:fail("'{}' is not a function name: FN and one letter"
             :fill([name:text])) }).
     st:name := name:text.
-    m:expect(tokens, #3, "(", "DEF needs a parameter in brackets").
-    st:items := [m:numericName(m:tokenAt(tokens, #4))].
-    m:expect(tokens, #5, ")", "DEF: a ( was never closed").
-    m:expect(tokens, #6, "=", "DEF needs an = and then the expression").
-    st:expr := m:parse(tokens, #7).
+
+    ; **The parameter is optional**, which the NBS suite found: `DEF FNM=123` is
+    ; a function of nothing, referenced as a bare `FNM`. An empty list rather
+    ; than a nil, so that everything downstream counts rather than asks.
+    m:tokenAt(tokens, #3):isNil:ifTrue({
+        m:fail("DEF needs an = and then the expression") }).
+    m:tokenAt(tokens, #3):text:equals("("):ifElse({
+        st:items := [m:numericName(m:tokenAt(tokens, #4))].
+        m:expect(tokens, #5, ")", "DEF: a ( was never closed").
+        m:expect(tokens, #6, "=", "DEF needs an = and then the expression").
+        st:expr := m:parse(tokens, #7) }, {
+        st:items := array:new.
+        m:expect(tokens, #3, "=", "DEF needs an = and then the expression").
+        st:expr := m:parse(tokens, #4) }).
     m:cursor:lessOrEqual(tokens:size):ifTrue({
         m:fail("DEF takes one expression") }).
     st }).
@@ -857,31 +976,41 @@ parsers:atPut("DEF", { m, tokens | | st, name |
 ; and not parsed into a tree. An unquoted word is text -- `DATA JANUARY` is the
 ; string, not a variable -- which is the standard and catches everybody once.
 
-parsers:atPut("DATA", { m, tokens | | st, i, t, negate |
-    st := m:statementOf('data).
+; **A datum is kept as the text that was written**, and turned into a number or
+; a string by the `READ` that takes it -- because in this language the *variable*
+; decides which it is. `DATA F,6` read into `D$` is the string "6", and the same
+; `6` read into `A` is the number. Deciding at DATA time, which is what this did
+; first, gets that exactly backwards.
+basic:parseData := { text | | st, s, item |
+    st := self:statementOf('data).
     st:items := array:new.
-    i := #2.
-    { i:lessOrEqual(tokens:size) }:whileTrue({
-        negate := false.
-        m:tokenAt(tokens, i):text:equals("-"):ifTrue({
-            negate := true. i := i:add(#1) }).
-        t := m:tokenAt(tokens, i).
-        t:isNil:ifTrue({ m:fail("DATA: a comma with nothing after it") }).
-        t:kind:equals('number):ifElse(
-            { st:items:add(negate:ifElse(
-                  { 0.0:sub(t:text:asFloat) }, { t:text:asFloat })) },
-            { negate:ifTrue({ m:fail("DATA: '-' before text") }).
-              t:kind:equals('string):or({ t:kind:equals('word) }):ifElse(
-                  { st:items:add(t:text) },
-                  { m:fail("'{}' is not a DATA value":fill([t:text])) }) }).
-        i := i:add(#1).
-        m:tokenAt(tokens, i):notNil:ifTrue({
-            m:expect(tokens, i, ",", "DATA separates values with commas").
-            i := i:add(#1).
-            m:tokenAt(tokens, i):isNil:ifTrue({
-                m:fail("DATA: a comma with nothing after it") }) }) }).
-    st:items:size:equals(#0):ifTrue({ m:fail("DATA needs a value") }).
-    st }).
+    s := scan:on(text).
+    { true }:doUntil({
+        s:skipWhile({ c | isSpace:value(c) }).
+        item := s:peek:notNil:and({ s:peek:equals("\"") })
+            :ifElse({ self:quotedDatum(s) }, { self:plainDatum(s) }).
+        st:items:add(item).
+        s:skipWhile({ c | isSpace:value(c) }).
+        s:atEnd:ifElse({ true }, {
+            s:match(","):ifFalse({
+                self:fail("DATA separates values with commas") }).
+            false }) }).
+    st:items:size:equals(#0):ifTrue({ self:fail("DATA needs a value") }).
+    st }.
+
+basic:quotedDatum := { s | | text |
+    s:step.
+    text := s:takeUntil({ c | c:equals("\"") }).
+    s:match("\""):ifFalse({ self:fail("a string was never closed") }).
+    text }.
+
+; Everything up to the next comma, with the spaces either side taken off. That
+; is the whole rule, and it is why `+.   -` is a datum: the standard's unquoted
+; string is any run of characters that does not contain a comma.
+basic:plainDatum := { s | | text |
+    text := s:takeUntil({ c | c:equals(",") }):trim.
+    text:equals(""):ifTrue({ self:fail("DATA: a comma with nothing after it") }).
+    text }.
 
 ; `READ` and `INPUT` both fill in a list of places, so they share the reading of
 ; that list. The places are parsed as expressions and then checked, the same way
@@ -1129,10 +1258,12 @@ basic:nameOrCall := { t | | name |
     name := t:text.
     self:atOneOf("("):ifElse(
         { self:applied(name, self:arguments) },
-        { ; `RND` is the one function written with no brackets at all, which is
-          ; the standard and the only reason this branch is not just a variable.
-          name:equals("RND"):ifElse(
-            { callNode:value("RND", array:new) },
+        { ; `RND` is written with no brackets at all, and so is a `DEF` that was
+          ; given no parameter -- `DEF FNM=123` is referenced as a bare `FNM`.
+          ; Those are the only two names here that are calls without a bracket
+          ; after them.
+          name:equals("RND"):or({ self:looksLikeFn(name) }):ifElse(
+            { callNode:value(name, array:new) },
             { variableNode:value(self:variableName(t)) }) }) }.
 
 basic:applied := { name, args |
@@ -1357,14 +1488,17 @@ basic:userFunction := { n | | def, param, saved, answer |
     self:defined:includes(n:name):ifFalse({
         self:fail("{} was never defined":fill([n:name])) }).
     def := self:defined:at(n:name).
-    n:args:size:equals(#1):ifFalse({
-        self:fail("{} takes one number":fill([n:name])) }).
-    param := def:items:at(#1).
-    saved := self:variable(param).
-    self:vars:atPut(param, self:numeric(self:evaluate(n:args:at(#1)))).
-    answer := self:numeric(self:evaluate(def:expr)).
-    self:vars:atPut(param, saved).
-    answer }.
+    n:args:size:equals(def:items:size):ifFalse({
+        self:fail("{} takes {} argument(s) and was given {}"
+            :fill([n:name, def:items:size, n:args:size])) }).
+    def:items:size:equals(#0):ifElse(
+        { self:numeric(self:evaluate(def:expr)) },
+        { param := def:items:at(#1).
+          saved := self:variable(param).
+          self:vars:atPut(param, self:numeric(self:evaluate(n:args:at(#1)))).
+          answer := self:numeric(self:evaluate(def:expr)).
+          self:vars:atPut(param, saved).
+          answer }) }.
 
 ; The two types do not mix, and the check is here rather than at each operator
 ; so that the message names the value rather than the machinery.
@@ -1451,11 +1585,16 @@ runners:atPut('def, { m, st | nil }).
 runners:atPut('data, { m, st | nil }).
 runners:atPut('option, { m, st | nil }).
 
-runners:atPut('dim, { m, st |
-    st:items:do({ each |
-        m:arrays:includes(each:at(#1)):ifTrue({
-            m:fail("{} is given bounds twice":fill([each:at(#1)])) }).
-        m:makeArray(each:at(#1), each:at(#2)) }) }).
+; **`DIM` is a declaration and not a statement that runs**, which the NBS suite
+; found: its own programs reference an array *before* the line that dimensions
+; it, and say so in a comment -- *references to implicitly-dimensioned arrays
+; may also precede DIM-statements*. Executing it in line order made that
+; `D is given bounds twice`, because the reference had already made a default
+; array before the `DIM` was reached.
+;
+; So it joins `DEF`, `DATA` and `OPTION BASE`, all of which were already
+; collected before anything runs. Meeting one at run time is a step over it.
+runners:atPut('dim, { m, st | nil }).
 
 runners:atPut('restore, { m, st | m:dataAt := #1 }).
 
@@ -1463,7 +1602,7 @@ runners:atPut('read, { m, st |
     st:items:do({ place |
         m:dataAt:greaterThan(m:data:size):ifTrue({
             m:fail("READ has run out of DATA") }).
-        m:assign(place, m:data:at(m:dataAt)).
+        m:assign(place, m:typed(place, m:data:at(m:dataAt))).
         m:dataAt := m:dataAt:add(#1) }) }).
 
 runners:atPut('randomize, { m, st | m:rng := random:new }).
@@ -1567,11 +1706,16 @@ runners:atPut('for, { m, st | | frame |
     frame:step := st:step:isNil:ifElse({ 1.0 }, { m:numeric(m:evaluate(st:step)) }).
     frame:body := m:pc:add(#1).
 
-    ; Reaching a `FOR` whose variable is already looping abandons the old loop
-    ; rather than starting a second one on the same name. A listing that jumps
-    ; back to its own `FOR` is doing something the standard forbids; growing the
-    ; stack for ever would make that a slow leak instead of a fresh start.
-    m:dropLoop(st:name).
+    ; **It always pushes.** This used to abandon any loop already running on the
+    ; same variable, which was invented here rather than taken from the standard
+    ; -- and the standard's own conformance programs break under it. P046 runs
+    ; `FOR I1` and, inside a subroutine that loop calls, another `FOR I1`: that
+    ; is *dynamic* nesting through `GOSUB`, which the test names as legal, and
+    ; abandoning the outer frame left its `NEXT I1` with nothing to close.
+    ;
+    ; What the old rule guarded against was a listing jumping back into its own
+    ; `FOR` and growing this stack for ever. That is a listing the standard
+    ; already forbids, and guessing at a repair for it broke one it allows.
     m:loops:add(frame).
 
     ; Tested before the body, so an empty range runs it no times -- and the
@@ -1580,16 +1724,29 @@ runners:atPut('for, { m, st | | frame |
         m:loops:removeLast.
         m:jumpTo(st:pair:add(#1)) }) }).
 
-runners:atPut('next, { m, st | | frame |
-    m:loops:size:equals(#0):ifTrue({ m:fail("NEXT with no FOR running") }).
-    frame := m:loops:at(m:loops:size).
-    frame:name:equals(st:name):ifFalse({
-        m:fail("NEXT {} but the loop running is FOR {}"
-            :fill([st:name, frame:name])) }).
+; **`NEXT` looks down the stack for its own loop and abandons everything above
+; it**, rather than insisting the innermost frame matches. That is not
+; permissiveness: a listing may `GOTO` out of an inner loop, and the standard's
+; own conformance programs do -- three of them failed here with *NEXT I but the
+; loop running is FOR J*, which was true and was the interpreter's problem
+; rather than the listing's. The abandoned frames are gone, which is what
+; leaving a loop by jumping out of it means.
+runners:atPut('next, { m, st | | at, frame |
+    at := m:findLoop(st:name).
+    at:equals(#0):ifTrue({
+        m:fail("NEXT {} with no FOR {} running":fill([st:name, st:name])) }).
+    { m:loops:size:greaterThan(at) }:whileTrue({ m:loops:removeLast }).
+    frame := m:loops:at(at).
     m:vars:atPut(frame:name, m:variable(frame:name):add(frame:step)).
     m:continues(frame):ifElse(
         { m:jumpTo(frame:body) },
         { m:loops:removeLast }) }).
+
+basic:findLoop := { name | | at |
+    at := #0.
+    [#1, self:loops:size]:loop({ i |
+        self:loops:at(i):name:equals(name):ifTrue({ at := i }) }).
+    at }.
 
 ; A negative step counts down and finishes when it passes the limit, which is
 ; the only thing the direction changes. A step of zero is legal and loops for
@@ -1599,14 +1756,6 @@ basic:continues := { frame | | v |
     frame:step:lessThan(0.0):ifElse(
         { v:greaterOrEqual(frame:limit) },
         { v:lessOrEqual(frame:limit) }) }.
-
-basic:dropLoop := { name | | at |
-    at := #0.
-    [#1, self:loops:size]:loop({ i |
-        self:loops:at(i):name:equals(name):ifTrue({ at := i }) }).
-    at:greaterThan(#0):ifTrue({
-        { self:loops:size:greaterOrEqual(at) }:whileTrue({
-            self:loops:removeLast }) }) }.
 
 ; ---------------------------------------------------------------------------
 ; Comparing
@@ -1663,7 +1812,13 @@ basic:run := { source |
 ; both.
 basic:clear := {
     self:vars := dictionary:new.
+
+    ; The declared arrays are made here rather than when the `DIM` is reached,
+    ; so a reference earlier in the listing finds the bounds the listing gives
+    ; it rather than the default ten.
     self:arrays := dictionary:new.
+    self:dims:isNil:ifFalse({
+        self:dims:keys:do({ name | self:makeArray(name, self:dims:at(name)) }) }).
     self:calls := array:new.
     self:loops := array:new.
     self:out := "".
@@ -1734,9 +1889,13 @@ basic:doPrint := { st | | last |
 ; `TAB(n)` puts the next thing in column n, counting from one. A column already
 ; passed is left alone rather than wrapping, because the alternative is a blank
 ; line appearing in the middle of a table for a reason nobody can see.
+; A column below one becomes one and the program carries on, which is what the
+; standard requires -- and it requires saying so, which is what `warn` is for.
 basic:tabTo := { where | | column |
     column := self:numeric(self:evaluate(where)):rounded.
-    column:lessThan(#1):ifTrue({ column := #1 }).
+    column:lessThan(#1):ifTrue({
+        self:warn("TAB({}) is below 1, so 1 was used":fill([column])).
+        column := #1 }).
     self:padTo(column:sub(#1)) }.
 
 basic:padTo := { width |
@@ -1980,6 +2139,7 @@ prompt := { m | | going, line |
 ; is the other way round, and `runFile` below is that.
 listing := { lines | | m |
     m := basic:new.
+    m:report := { text | text:display }.
     { m:run(lines:join("\n")). true }
         :onError({ e | m:flushPending. e:message:display. false }) }.
 
@@ -1998,6 +2158,7 @@ listing := { lines | | m |
 
 runFile := { path | | m |
     m := basic:new.
+    m:report := { text | system:writeError(text:concat("\n")) }.
     { m:run(system:readFile(path)). true }
         :onError({ e |
             m:flushPending.
@@ -2020,6 +2181,7 @@ system:arguments:size:greaterThan(#0):ifTrue({ | path, m |
 
     path:equals("--repl"):ifTrue({
         m := basic:new.
+        m:report := { text | text:display }.
         m:fresh.
 
         ; `--repl file.bas` loads and then prompts, the way `solis --interactive`

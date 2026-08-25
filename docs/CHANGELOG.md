@@ -36,6 +36,52 @@ This is the same call made this morning on `index.md`'s *thirty-two files in two
 directories*: a number that cannot be checked **and** does not carry the argument
 is better deleted than corrected.
 
+### The NBS conformance suite, and the seven things it found — `pending`, 2026-08-25
+
+**Every test of [programs/basic.sol](../programs/basic.sol) was one this
+repository wrote**, so they checked that the interpreter does what its author
+read ECMA-55 to say rather than what it says. The **NBS Minimal BASIC Test
+Programs, Version 2** — 208 programs written at the National Bureau of Standards
+in 1980 against ANSI X3.60-1978, a US government work and public domain — are
+the first test of it that somebody else wrote.
+
+[programs/basic/conformance.sh](../programs/basic/conformance.sh) fetches and
+runs them. They are **not vendored**: they are somebody else's 208 files, this
+repository has never carried a dependency, and a suite is not the sort of thing
+to fork quietly. It is not in `make test` either — it needs the network, and the
+suite is written for a person to read rather than for a machine to score.
+
+**Seven defects, and not one had been caught by the eighty-three claims in the
+file.**
+
+| | |
+| --- | --- |
+| `DATA` is raw text | an unquoted datum runs to the next comma and may hold anything but one, so `DATA +.   -` is legal. Reading it with the tokeniser refused a fifth of the suite. |
+| a datum has no type | until a `READ` takes it. `DATA F,6` into `D$` is the string `6`; the same `6` into `A` is the number. Deciding at `DATA` time had it exactly backwards. |
+| `DEF` needs no parameter | `DEF FNM=123`, referenced as a bare `FNM`. |
+| `NEXT` searches the stack | a listing may `GOTO` out of an inner loop, and then its `NEXT` must find its own `FOR` further down rather than insisting the innermost matches. |
+| `FOR` always pushes | two loops may run on one control variable when the inner is reached through `GOSUB`. **Abandoning the outer frame was invented here** — a guard against a listing the standard already forbids, which broke three it allows. |
+| `DIM` is a declaration | the suite references arrays *before* the line that dimensions them, and says so in a comment. It joins `DEF`, `DATA` and `OPTION BASE`, all collected before anything runs. |
+| exceptions that continue | `TAB(0)` must use 1, carry on, **and say so**. Every failure here was fatal until this; there is a `warn` now, and where it goes is the caller's business — standard error from a file, the screen at the prompt. |
+
+**The result**: 99 of 208 run to the end, 99 are refused *and meant to be*, and
+the five still refused all want a person at a keyboard the harness cannot offer.
+Five more exceed its step limit — the statistical `RND` tests, which is an
+interpreter running inside an interpreter and not a defect.
+
+**Thirty programs are accepted where the standard is stricter**, and that is
+allowed: P054 says a processor may either reject such a program *or* accept it
+**and be accompanied by documentation describing what it does with it**. That
+documentation is now a table in `basic.sol` — lower case, lines out of order,
+line numbers outside 1–9999, long lines, `END` anywhere, unbounded strings, a
+letter used as both variable and array, lexically nested `FOR` on one variable
+(and which loop wins), and silent underflow.
+
+One thing the language taught along the way: **a block in a slot is a method**,
+so it cannot be held as data and asked for back — `self:report` *calls* it. The
+default is a block that does nothing rather than a nil to test for, which is
+shorter and has no branch in it.
+
 ## 0.33.0 — 2026-08-25
 
 **One message, and the program that asked for it got an interface.** `.sob`
