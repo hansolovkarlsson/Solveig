@@ -46,7 +46,7 @@ that had never been written down.
 **`float` answers 26 messages before this release and
 35<!--count float-answers--> after.** Claims go 764 to 830<!--count claims-->.
 
-### The counts nothing was checking — `pending`, 2026-08-25
+### The counts nothing was checking — `ae5b5ea`, 2026-08-25
 
 Found while cutting this release, by reading the pages a newcomer reads.
 
