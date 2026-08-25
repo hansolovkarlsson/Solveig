@@ -24,7 +24,7 @@ written in two different places. Now they are one array, in order, and the step
 is optional because an array knows its own size.
 
 **It landed as `loop` after twenty minutes as `loopDo`**, renamed in
-[`pending`](https://github.com/hansolovkarlsson/Solveig/commit/pending) before
+[`ffcf16e`](https://github.com/hansolovkarlsson/Solveig/commit/ffcf16e) before
 any release carried either. Two reasons, and the second is the better one:
 nothing else here announces its block in its name — `repeat`, `collect`,
 `select`, `inject` and `whileTrue` all take one without saying so — and `loop`
