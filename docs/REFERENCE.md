@@ -707,6 +707,53 @@ Two things it will not do, each for a reason worth knowing:
 describing a document, pulling a value out by a dotted path, editing it and
 writing it back.
 
+#### scan.sol
+
+A cursor over text: a position, and the questions you ask at one. It is not a
+pattern language — what repeated across the five files that each wrote one of
+these was never a pattern, it was a position.
+
+```
+@include "scan.sol".
+
+digit := { c | c:greaterOrEqual("0"):and({ c:lessOrEqual("9") }) }.
+s := scan:on("8080ab").
+s:takeWhile(digit):display.           ; 8080
+s:rest:display.                       ; ab
+```
+
+| Message | Answers |
+| --- | --- |
+| `scan:on(text)` | a new cursor at the first character |
+| `pos` | where it is, **one-based** |
+| `atEnd` | whether there is nothing left |
+| `peek` | the character here, or **nil** at the end |
+| `peekAt(#n)` | `#0` is `peek`, `#1` the one after; nil past either end |
+| `looksLike(text)` | whether the text from here starts with it, **without moving** |
+| `step` | **the cursor**, so it chains, one further on |
+| `next` | the character passed, or nil at the end — where it stays put |
+| `match(text)` | true and consumed if it was here; false and unmoved if not |
+| `skipWhile(block)` | the cursor, moved past every character the block accepts |
+| `takeWhile(block)` | the text it moved over |
+| `takeUntil(block)` | the same, stopping where the block *accepts* — or at the end |
+| `take(#n)` | the next `#n` characters, or fewer if the text runs out |
+| `since(#start)` | everything between a remembered `pos` and here |
+| `rest` | everything left, leaving the cursor at the end |
+
+**The block is never handed nil.** Every hand-written version of this loop
+opened `peek:notNil:and({ ... })`, which is the cursor's business: a predicate
+here is a question about a character, and running out is not a character.
+
+**`since` is what `takeWhile` cannot say.** One predicate describes a run of one
+kind of character, which is most of them, and not a grammar in parts — JSON's
+number is a sign, then digits, then perhaps a fraction and an exponent, and what
+the caller wants at the end is all of it. `pos` is the mark; there is no `mark`
+message because it would do nothing reading `pos` does not.
+
+**Two cursors can be in flight at once**, which is the one thing `json.sol`'s
+header used to say it could not manage. `on` answers a new object rather than
+resetting a shared one.
+
 #### html.sol
 
 Reads HTML into a tree of elements. It needs `text.sol`, which it includes

@@ -587,7 +587,7 @@ is a failure, confirmed by breaking one both ways.
 one. The comment renders as nothing and the reader sees the sentence:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 762<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 764<!--count claims--> claims
 ```
 
 [expect.sol](../programs/expect.sol) recounts each of them from the repository
@@ -608,7 +608,7 @@ that order under its headings. The two are now held together.
 | ROADMAP 3.14, on whether `float` should gain trigonometry | `float` answers **21** messages | **26**<!--count float-answers--> — the count that entry's whole size argument rests on, five releases out of date |
 | [REFERENCE.md](REFERENCE.md)'s message index | **121** messages across **215** registrations | **122** across **216** |
 | [programs.md](programs.md)'s sample output | 21 files, **398** claims | 22 files, **414**<!--count examples-claims--> claims |
-| `README.md`, `programs.md` and the entry itself | **589** claims | **762**<!--count claims--> |
+| `README.md`, `programs.md` and the entry itself | **589** claims | **764**<!--count claims--> |
 
 #### What is left, which is not a gap
 
@@ -1020,6 +1020,53 @@ would be a second table in every `.sob`, carried always and printed only when
 something has already gone wrong. Worth revisiting if a debugger ever wants it.
 
 ---
+
+
+### 5.5 Five programs each wrote the same cursor — **done**
+
+[lib/scan.sol](../lib/scan.sol) — a position and the questions you ask at one.
+Raised on 2026-08-25 out of a survey done for a different reason, and closed the
+same day.
+
+**The case.** `lib/json.sol`, `lib/html.sol` and `experiment/lexer.sol` each
+defined `pos`, `peek` and a step — two calling it `step` and the third
+`advance` — and `programs/expect.sol` and `programs/serve.sol` did the same
+scanning inline without naming a cursor at all. Roughly 460 lines of it.
+Nothing was blocked, which is why it went in section 5 rather than section 1:
+the cost was that a fix to the cursor was a fix in five places, and nobody
+would make the other four.
+
+**The entry said: write it, convert `json.sol` only, and let that say whether
+the interface is right before anything else moves.** That is what happened, and
+the conversion changed the interface twice.
+
+| | |
+| --- | --- |
+| **`since(start)`** | `takeWhile` describes a run of *one* kind of character. JSON's number is a sign, then digits, then perhaps a fraction and an exponent, and the caller wants all of it. Not in the entry's list; the conversion demanded it. |
+| **`take(#n)`** | `\uXXXX` wants exactly four characters. Also not in the list. |
+| **The block is never handed nil** | Every hand-written version opened `peek:notNil:and({ ... })`. That is the cursor's business: a predicate is a question about a character, and running out is not a character. |
+
+**What it cost and what it paid.** `scan.sol` is 48 lines of code; `json.sol`
+went from 215 to 197, so the first conversion returns 18 of the 48. Four files
+are left, and whether they follow is the decision this entry deferred to
+itself — it is now a decision with a number behind it rather than a guess.
+
+**The conversion was proved rather than asserted.** 38 inputs through
+`json:read`, output recorded before and after, identical at the end. It caught
+one difference no test covered: `hex4` built on `take` moved before it checked,
+so a malformed `\u00` complained about a character four further on than it used
+to. The check is asked before the take now.
+
+**And the baseline found a defect that had nothing to do with any of this**:
+`json:read` had been unable to read a string containing `\n` since 2026-08-21,
+because the escape table was deleted and the two lines reading it were left
+behind. Four days, four releases. Two of the 38 inputs were already wrong before
+the refactor started.
+
+**The one thing this did not answer** is whether `endsWith` belongs on `string`
+for everyone, deferred on 2026-08-24. `scan.sol` did not need it, so it is still
+open and still has no program behind it.
+
 
 ## 6. Beyond the language
 

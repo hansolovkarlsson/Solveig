@@ -5,6 +5,62 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### A cursor five programs had each written for themselves — `pending`, 2026-08-25
+
+**[lib/scan.sol](../lib/scan.sol)**, and `lib/json.sol` converted onto it.
+[5.5](COMPLETED.md#55-five-programs-each-wrote-the-same-cursor--done) went on the
+roadmap in the morning and came off the same day.
+
+```
+@include "scan.sol".
+
+digit := { c | c:greaterOrEqual("0"):and({ c:lessOrEqual("9") }) }.
+s := scan:on("8080ab").
+s:takeWhile(digit):display.           ; 8080
+s:rest:display.                       ; ab
+```
+
+**The entry's plan was to convert one file and listen.** It said `peek`,
+`match`, `skipWhile`, `takeWhile`, `takeUntil`. Converting `json.sol` added two
+more, and neither was guessable from the survey:
+
+- **`since(#start)`** — `takeWhile` describes a run of *one* kind of character.
+  JSON's number is a sign, then digits, then perhaps a fraction and an exponent,
+  and what the caller wants at the end is all of it. `pos` is the mark, and
+  there is no `mark` message because it would do nothing reading `pos` does not.
+- **`take(#n)`** — `\uXXXX` wants exactly four characters, which no predicate
+  describes.
+
+**And one decision the survey did make plain.** The block is never handed nil.
+All fifteen hand-written versions of this loop open
+`peek:notNil:and({ ... })`, which is the cursor's business and not the caller's:
+a predicate here is a question about a character, and running out is not a
+character.
+
+**What it cost and what it paid.** `scan.sol` is 48 lines of code. `json.sol`
+went from 215 to 197, so the first conversion returns 18 of the 48. Four files
+are left — `html.sol`, `expect.sol`, `serve.sol` and `experiment/lexer.sol` —
+and whether they follow is now a decision with a number behind it rather than a
+guess.
+
+**The conversion was proved rather than asserted.** 38 inputs through
+`json:read` with their output recorded before and after, identical at the end.
+That caught a difference no test covered: `hex4` written with `take` moved
+before it checked, so a malformed `\u00` complained about a character four
+further on than it used to. It asks before it takes now.
+
+One thing fell out that is worth having on its own: the baseline found that
+[json.sol could not read a newline](#jsonsol-could-not-read-a-newline--a32a7a0),
+which is the entry below.
+
+**And one claim was nearly overstated in the other direction.** `json.sol`'s
+header says one parse is in flight at a time. A cursor made per call looks like
+it settles that, and it does not: the cursor is still held in a slot on `json`
+while the call runs. Nothing can re-enter it — `read` calls no code the caller
+wrote — so the limit is real and unreachable, which is what the header says now.
+`scan.sol` itself has no such limit, and that *was* verified: two cursors over
+two strings, interleaved.
+
 ### json.sol could not read a newline — `a32a7a0`, 2026-08-25
 
 **`json:read` answered *object does not understand 'escapes'* for any string

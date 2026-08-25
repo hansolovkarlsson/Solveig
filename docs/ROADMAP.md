@@ -55,7 +55,7 @@ have been. Side-table operands are two bytes, a send compares pointers, and the
 script's frame has slots like every other, so a temporary may be declared
 anywhere.
 
-**What is left is section 3, and one entry in section 5.** No decision — [5.5](#55-five-programs-each-wrote-the-same-cursor) is work with a clear shape, and it arrived the way the intro below says entries arrive: by somebody writing programs and noticing what all of them wanted.
+**What is left is section 3, and nothing else.** No work, and no decision. 5.5 was on it for a day — a cursor five programs had each written for themselves — and is [done](COMPLETED.md#55-five-programs-each-wrote-the-same-cursor--done).
 
 Section 3 holds the restrictions the language lives under, each documented where
 a program would meet it. The older ones were chosen; the six newest were found —
@@ -94,7 +94,7 @@ write a program and find out what it wants**, which is how nearly every entry
 since the first dozen arrived — several of them from a library breaking rather
 than from anyone reasoning about the design.
 
-Sections 1 and 4 are gone from this document. Everything they held is built:
+Sections 1, 4 and 5 are gone from this document. Everything they held is built:
 the collector and its roots, arrays, strings, user-defined objects, the three
 crashes that led the list, the inlining, the two-byte operands, dispatch by
 pointer, the prompt, and source positions in compile errors. The entries are in
@@ -872,75 +872,6 @@ an oversight: a program holding a large live set will pause proportionally to it
 Kept here rather than under the collector, which is otherwise done. The number is
 the one the changelog cites.
 
-## 5. Tooling and ergonomics
-
-Back after four entries closed, and this one is not a limitation: everything it
-describes works today. What it records is that it works five separate times.
-
-### 5.5 Five programs each wrote the same cursor
-
-Every `.sol` file in the repository was surveyed on 2026-08-24, while answering
-a different question — whether the language should have [regular
-expressions](ideas.md#regular-expressions). The answer to that was no, and this
-is what the survey found instead: **roughly 460 lines of hand-written character
-scanning, in which what repeats is not a pattern but a position.**
-
-Three files define the same object, one of them under a different name:
-
-| file | what it defines |
-| --- | --- |
-| [lib/json.sol](../lib/json.sol) | `pos` `peek` `step` `skipSpace` `expect` `isDigit` |
-| [lib/html.sol](../lib/html.sol) | `pos` `peek` `step` `skipSpace` |
-| [experiment/lexer.sol](../experiment/lexer.sol) | `pos` `peek` `advance` `match` `isDigit` `isAlpha` |
-
-[programs/expect.sol](../programs/expect.sol) and
-[programs/serve.sol](../programs/serve.sol) do the same scanning inline without
-naming a cursor at all. Two of the three cannot agree whether the method that
-moves forward is called `step` or `advance`.
-
-And three idioms account for most of what they write with it:
-
-| idiom | sites | what it is |
-| --- | --- | --- |
-| `{ pred(peek) }:whileTrue({ step })`, then `copyFrom(start, pos:dec)` | at least 15 | `X+` with a capture |
-| `"<set>":indexOf(c):notNil` | at least 12 | a character class |
-| `split(x):join(y)` | 2 | replace, which the language does not have |
-
-**Why this is an entry and not an idea.** The admission rule is that a program
-wanted something and could not have it. Five did, and each answered it alone —
-which is the same fact, arriving as duplication rather than as a failure. It is
-in this section rather than section 1 because nothing here is blocked: `json.sol`
-parses JSON correctly today. What it costs is that a fix to the cursor is a fix
-in five places, and nobody would find the other four.
-
-**The shape is already decided**, by
-[3.1](#31-capturing-blocks-cannot-escape-their-frame) rather than by taste. The
-combinator spelling — a matcher as a block returning a block, which is what
-anyone reaches for first — fails with *block outlived the frame it was written
-in*. Object-shaped composes today with nothing added, and since a cursor holds a
-position and a position is state, that is the spelling it wanted anyway. This is
-a limitation doing design work rather than obstructing it.
-
-**What it is:** `lib/scan.sol`, about eighty lines — `peek`, `match`,
-`skipWhile`, `takeWhile`, `takeUntil`. No change to the VM, no new notation, no
-decision about what a string is, and bounded by `--steps` like anything else,
-because every step it takes is an instruction.
-
-**What it is not:** a pattern language. The programs express these grammars
-perfectly well already; they are each carrying their own machinery for doing it.
-
-**How to build it without guessing at the interface.** A library nothing uses is
-evidence of nothing, and converting five working, tested files at once is where
-the risk is. So: write it, convert **`json.sol` only**, and let that say whether
-the interface is right before anything else moves. Whether the other four follow
-is a decision taken after, on what the first one showed.
-
-Two things it has to answer on the way. Whether `endsWith` belongs on `string`
-for everyone — deferred on 2026-08-24 when `expect.sol` got a local helper
-instead — is the same question at a smaller size. And `tests/test_compile.c`
-keeps the library's file list by hand, so a new file has to be added there or
-the count fails.
-
 ## 6. Beyond the language — gone from this document
 
 Sections 1 to 5 were about making Solum a language. This one was about making it
@@ -963,16 +894,17 @@ reasoning, the threat model and everything the last four days added to it are
 kept in full, because deciding it later from a blank page would cost more than
 keeping it did. The number stays 6.32 and is not reused.
 
-## How this list emptied, and how it gained one back
+## How this list emptied, and how it filled and emptied again
 
-**One entry is on it**, [5.5](#55-five-programs-each-wrote-the-same-cursor), and
-it arrived exactly the way the list below describes: from programs, not from
-reasoning about the design. Sections 2, 3 and 6 held the whole of what was left
-to decide or build, and 2 and 6 are done — what remains in 3 are restrictions
-kept on purpose, each documented where a program would meet it.
+**Nothing is on it.** Sections 2, 3 and 6 held the whole of what was left to
+decide or build, and 2 and 6 are done — what remains in 3 are restrictions kept
+on purpose, each documented where a program would meet it.
 
-That is worth a paragraph, because *how* it emptied is the part that transfers —
-and 5.5 is the same paragraph continuing rather than an exception to it.
+It gained one back on 2026-08-25 and lost it the same day:
+[5.5](COMPLETED.md#55-five-programs-each-wrote-the-same-cursor--done), a cursor
+that five programs had each written for themselves. That is worth saying,
+because *how* it emptied is the part that transfers, and 5.5 arriving and
+leaving is that paragraph continuing rather than an exception to it.
 
 **Section 6 came from the right place**: notes about what a program would want,
 rather than a plan written before there were any programs. And once those ran

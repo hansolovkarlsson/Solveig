@@ -29,34 +29,36 @@
 ; is one of the few formats that draws the line at all.
 ;
 ; This file binds one name, `json`, and adds `asJson` to the built-in classes.
-; The reader keeps its position in slots on that object, so one parse is in
-; flight at a time -- fine for a program, and worth knowing before you call it
-; from inside itself.
+; The reader's position lives in a cursor from `scan.sol`, made fresh per call
+; -- but held in a slot on `json` while the call runs, so one parse is still in
+; flight at a time. Nothing can re-enter it: `read` calls no code the caller
+; wrote. `scan.sol` itself has no such limit, and two cursors over two strings
+; are fine.
 
 json := object:new.
-json:src := "".
-json:pos := #1.
+
+; The reader's position lives in a cursor from `scan.sol` rather than in slots
+; here. That library exists because five files in this repository had each
+; written the same object (ROADMAP 5.5), and this is the first of them to be
+; converted -- deliberately the only one, so what the conversion says about the
+; interface is heard before anything else moves.
+@include "scan.sol".
+json:cur := nil.
 
 ; ---------------------------------------------------------------------------
 ; Reading
 
 json:fail := { message |
-    error:raise("{} at character {}":fill([message, self:pos])) }.
-
-json:peek := {
-    self:pos:lessOrEqual(self:src:size)
-        :ifElse({ self:src:at(self:pos) }, { nil }) }.
-
-json:step := { self:pos := self:pos:add(#1) }.
+    error:raise("{} at character {}":fill([message, self:cur:pos])) }.
 
 json:space := " \t\n\r".
 json:skipSpace := {
-    { self:peek:notNil:and({ self:space:indexOf(self:peek):notNil }) }
-        :whileTrue({ self:step }) }.
+    self:cur:skipWhile({ c | self:space:indexOf(c):notNil }) }.
 
+; `match` answers whether it consumed, so the test and the step are one thing
+; and there is no way to write the second without the first.
 json:expect := { c |
-    self:peek:equals(c):ifFalse({ self:fail("wanted '{}'":fill([c])) }).
-    self:step }.
+    self:cur:match(c):ifFalse({ self:fail("wanted '{}'":fill([c])) }) }.
 
 ; Encoding a code point lives in text.sol, which html.sol wants too. It used to
 ; be here, and before that it was a table of printable ASCII written out as a
@@ -66,11 +68,14 @@ json:expect := { c |
 ; 95 characters.
 @include "text.sol".
 
+; Asked before it is taken, not after. `take` moves, and a complaint that names
+; where it happened has to be raised from where it happened -- taking first put
+; the reported character four further on, which the baseline caught and no test
+; would have.
 json:hex4 := { | hex |
-    self:pos:add(#3):greaterThan(self:src:size):ifTrue({
+    self:cur:peekAt(#3):isNil:ifTrue({
         self:fail("\\u wants four hex digits") }).
-    hex := self:src:copyFrom(self:pos, self:pos:add(#3)).
-    self:pos := self:pos:add(#4).
+    hex := self:cur:take(#4).
     ; asInteger(#16) is strict, so a bad digit raises. Caught and re-raised, so
     ; the complaint names the escape and where it was rather than the four
     ; characters on their own.
@@ -89,12 +94,12 @@ json:hex4 := { | hex |
 json:unicodeEscape := { | code, low |
     code := self:hex4.
     code:greaterOrEqual(#55296):and({ code:lessOrEqual(#56319) }):ifTrue({
-        self:peek:equals("\\"):ifFalse({
+        self:cur:peek:equals("\\"):ifFalse({
             self:fail("a high surrogate needs a low one after it") }).
-        self:step.
-        self:peek:equals("u"):ifFalse({
+        self:cur:step.
+        self:cur:peek:equals("u"):ifFalse({
             self:fail("a high surrogate needs a low one after it") }).
-        self:step.
+        self:cur:step.
         low := self:hex4.
         low:greaterOrEqual(#56320):and({ low:lessOrEqual(#57343) }):ifFalse({
             self:fail("a high surrogate needs a low one after it") }).
@@ -121,9 +126,9 @@ json:escapes:atPut("r",  "\r").
 json:escapes:atPut("t",  "\t").
 
 json:escape := { | c |
-    c := self:peek.
+    c := self:cur:peek.
     c:isNil:ifTrue({ self:fail("the input ends in a backslash") }).
-    self:step.
+    self:cur:step.
     c:equals("u"):ifElse(
         { self:unicodeEscape },
         { self:escapes:at(c, nil):isNil:ifElse(
@@ -133,55 +138,54 @@ json:escape := { | c |
 ; Copied a span at a time rather than a character at a time: the common case is
 ; a string with no escapes in it at all, and that is then one `copyFrom` rather
 ; than one `concat` per character.
-json:parseString := { | out, start, done, c |
+; `takeUntil` says the span optimisation directly: run to the next thing that
+; is not ordinary text, and hand back everything crossed. The hand-written
+; version tracked `start` across the loop and copied at two of the three exits;
+; this one cannot forget an exit, because there is only one.
+json:parseString := { | out, done, c |
     self:expect("\"").
-    out := "". start := self:pos. done := false.
+    out := "". done := false.
     { done:not }:whileTrue({
-        c := self:peek.
+        out := out:concat(self:cur:takeUntil({ c |
+            c:equals("\""):or({ c:equals("\\") }) })).
+        c := self:cur:next.
         c:isNil:ifTrue({ self:fail("the string never ends") }).
         c:equals("\""):ifElse(
-            { out := out:concat(self:src:copyFrom(start, self:pos:sub(#1))).
-              self:step.
-              done := true },
-            { c:equals("\\"):ifElse(
-                { out := out:concat(self:src:copyFrom(start, self:pos:sub(#1))).
-                  self:step.
-                  out := out:concat(self:escape).
-                  start := self:pos },
-                { self:step }) }) }).
+            { done := true },
+            { out := out:concat(self:escape) }) }).
     out }.
 
 json:digits := "0123456789".
 json:isDigit := { c | c:notNil:and({ self:digits:indexOf(c):notNil }) }.
 
 json:digitRun := {
-    self:isDigit(self:peek):ifFalse({ self:fail("wanted a digit") }).
-    { self:isDigit(self:peek) }:whileTrue({ self:step }) }.
+    self:isDigit(self:cur:peek):ifFalse({ self:fail("wanted a digit") }).
+    self:cur:skipWhile({ c | self:digits:indexOf(c):notNil }) }.
 
+; The one shape `takeWhile` cannot describe: four parts with different
+; character classes, and what the caller wants is all of it. `pos` is the mark
+; and `since` is the span, which is why `scan.sol` has both.
 json:parseNumber := { | start, float, text |
-    start := self:pos. float := false.
-    self:peek:equals("-"):ifTrue({ self:step }).
+    start := self:cur:pos. float := false.
+    self:cur:match("-").
     ; A leading zero stands alone in JSON: 01 is not a number, it is a zero with
     ; rubbish after it, and saying so here is what makes the caller's "more text
     ; after the value" true rather than merely tidy.
-    self:peek:equals("0"):ifElse({ self:step }, { self:digitRun }).
-    self:peek:equals("."):ifTrue({
-        float := true. self:step. self:digitRun }).
-    self:peek:notNil:and({ "eE":indexOf(self:peek):notNil }):ifTrue({
-        float := true. self:step.
-        self:peek:notNil:and({ "+-":indexOf(self:peek):notNil })
-            :ifTrue({ self:step }).
+    self:cur:match("0"):ifFalse({ self:digitRun }).
+    self:cur:match("."):ifTrue({ float := true. self:digitRun }).
+    self:cur:peek:notNil:and({ "eE":indexOf(self:cur:peek):notNil }):ifTrue({
+        float := true. self:cur:step.
+        self:cur:peek:notNil:and({ "+-":indexOf(self:cur:peek):notNil })
+            :ifTrue({ self:cur:step }).
         self:digitRun }).
-    text := self:src:copyFrom(start, self:pos:sub(#1)).
+    text := self:cur:since(start).
     float:ifElse({ text:asFloat }, { text:asInteger }) }.
 
-json:word := { text, value | | end |
-    end := self:pos:add(text:size:sub(#1)).
-    end:greaterThan(self:src:size):ifTrue({
-        self:fail("wanted '{}'":fill([text])) }).
-    self:src:copyFrom(self:pos, end):equals(text):ifFalse({
-        self:fail("wanted '{}'":fill([text])) }).
-    self:pos := end:add(#1).
+; `match` is the whole of this: it checks the length, compares, and moves only
+; if it matched. Six lines became one, and the two ways of failing that had to
+; say the same thing became one way.
+json:word := { text, value |
+    self:cur:match(text):ifFalse({ self:fail("wanted '{}'":fill([text])) }).
     value }.
 
 ; A loop is left by its condition or by failing (ROADMAP 3.13), so a loop that
@@ -193,13 +197,13 @@ json:parseArray := { | out, done |
     self:expect("[").
     out := array:new. done := false.
     self:skipSpace.
-    self:peek:equals("]"):ifElse(
-        { self:step },
+    self:cur:peek:equals("]"):ifElse(
+        { self:cur:step },
         { { done:not }:whileTrue({
             out:add(self:parseValue).
             self:skipSpace.
-            self:peek:equals(","):ifElse(
-                { self:step },
+            self:cur:peek:equals(","):ifElse(
+                { self:cur:step },
                 { self:expect("]"). done := true }) }) }).
     out }.
 
@@ -207,8 +211,8 @@ json:parseObject := { | out, done, key |
     self:expect("{").
     out := dictionary:new. done := false.
     self:skipSpace.
-    self:peek:equals("}"):ifElse(
-        { self:step },
+    self:cur:peek:equals("}"):ifElse(
+        { self:cur:step },
         { { done:not }:whileTrue({
             self:skipSpace.
             key := self:parseString.
@@ -216,8 +220,8 @@ json:parseObject := { | out, done, key |
             self:expect(":").
             out:atPut(key, self:parseValue).
             self:skipSpace.
-            self:peek:equals(","):ifElse(
-                { self:step },
+            self:cur:peek:equals(","):ifElse(
+                { self:cur:step },
                 { self:expect("}"). done := true }) }) }).
     out }.
 
@@ -235,7 +239,7 @@ json:parseObject := { | out, done, key |
 ; at every level of the document.
 json:parseValue := { | c |
     self:skipSpace.
-    c := self:peek.
+    c := self:cur:peek.
     c:isNil:ifTrue({ self:fail("wanted a value, found the end of the input") }).
     c:equals("{"):ifElse({ self:parseObject }, {
     c:equals("["):ifElse({ self:parseArray }, {
@@ -247,13 +251,13 @@ json:parseValue := { | c |
         self:fail("'{}' starts no value":fill([c])) }) }) }) }) }) }) }) }.
 
 json:read := { text | | out |
-    self:src := text. self:pos := #1.
+    self:cur := scan:on(text).
     out := self:parseValue.
     self:skipSpace.
-    self:peek:notNil:ifTrue({ self:fail("more text after the value") }).
-    ; The source is dropped rather than left in a slot, so a parsed document
+    self:cur:peek:notNil:ifTrue({ self:fail("more text after the value") }).
+    ; The cursor is dropped rather than left in a slot, so a parsed document
     ; does not keep the text it came from alive.
-    self:src := "".
+    self:cur := nil.
     out }.
 
 ; ---------------------------------------------------------------------------
