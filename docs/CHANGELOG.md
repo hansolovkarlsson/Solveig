@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### The counted loop takes its numbers together — `pending`, 2026-08-25
+### The counted loop takes its numbers together — `90ba128`, 2026-08-25
 
 **`#1:toDo(#5, block)` and `#1:toByDo(#10, #3, block)` are gone.** In their place
 is one message on an array:
