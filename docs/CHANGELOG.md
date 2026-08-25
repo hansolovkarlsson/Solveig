@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### BASIC gets control flow, and a hot loop settles an argument — `pending`, 2026-08-25
+### BASIC gets control flow, and a hot loop settles an argument — `16c0b30`, 2026-08-25
 
 **Stage two of [programs/basic.sol](../programs/basic.sol): `GOTO`, `IF-THEN`,
 `FOR/NEXT`, `GOSUB/RETURN`, `ON-GOTO` and `STOP`.** That is the whole of Minimal
