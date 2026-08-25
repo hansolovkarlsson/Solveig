@@ -137,6 +137,15 @@ version the binaries inside it report.
 
 ## Status
 
+**0.33.0** — one message, and the program that asked for it got an interface.
+`.sob` files are format version 14, unchanged, and bytecode from 0.32.0 still
+runs. **`system:writeError`** closes the last thing on the roadmap (**3.19**):
+`display`, `print` and `system:write` all went to standard output and nothing
+went to standard error, so a program could not separate what it produced from
+what went wrong producing it. And **BASIC gained a prompt** — a line with a
+number goes into the program, a line without one happens now, plus `LIST`,
+`RUN`, `NEW`, `LOAD`, `SAVE` and `BYE`. **136** messages, up from 135.
+
 **0.32.0** — the language gained **twelve messages**, the most at once in a long
 while, and every one because a single program asked. `.sob` files are format
 version 14, unchanged, and bytecode from 0.31.0 still runs.

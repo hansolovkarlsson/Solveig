@@ -5,6 +5,46 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## 0.33.0 — 2026-08-25
+
+**One message, and the program that asked for it got an interface.** `.sob`
+files are format version 14, unchanged, and bytecode from 0.32.0 still runs.
+
+**`system:writeError(text)` closes the last thing on the roadmap.**
+[3.19](COMPLETED.md#319-a-program-cannot-write-to-standard-error--done): until
+this, `display`, `print` and `system:write` all went to standard output and
+nothing went to standard error, so a program had no way to separate what it
+*produced* from what went wrong producing it. The machine had the stream the
+language did not — `solvm` writes its own diagnostics there and a test holds it
+to that. With it, [programs/basic.sol](../programs/basic.sol) run over a `.bas`
+file leaves the program's output in a redirect and the complaint on the
+terminal.
+
+**Its own message rather than a destination on `write`**, and deliberately *not*
+a second `display`: that message and `print` are about rendering a value and
+serve every type, so a variant of each pointing elsewhere would be the second
+mechanism behind the first this language exists to refuse.
+
+**And BASIC gained the interface it actually had**, which is the thing the last
+three releases were building towards without saying so. One rule and six
+commands: a line beginning with a number goes into the program, a line that does
+not happens now, and `LIST`, `RUN`, `NEW`, `LOAD`, `SAVE` and `BYE` do the rest.
+It is written with `system:write` and read with `system:readLine` — the two
+halves of 3.18, in use a day after being asked for.
+
+**Two costs are recorded because they were measured rather than noticed.**
+Reading a program and linking it had to come apart, because a prompt is where
+`10 GOTO 100` gets typed before line 100 exists — the thing that makes a jump an
+array index is the thing that makes an edit invalidate one. And keeping the
+source text so `LIST` can show it back put one more call between reading a line
+and parsing it, which took the deepest listing the parser handles from **60
+brackets to 59**. That would have shipped unnoticed if the number were a
+sentence rather than a running claim.
+
+`float` and the rest are unchanged; the language answers
+136<!--count messages--> messages, up from 135. Claims stay at
+830<!--count claims-->.
+
 ### BASIC gets a prompt — `8e01bf8`, 2026-08-25
 
 **`./bin/solvm programs/basic.sob --repl`** is the interface BASIC actually had.
