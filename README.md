@@ -107,7 +107,33 @@ make test     # builds and runs the test suite
 make clean
 ```
 
-No dependencies beyond a C11 compiler and `make`.
+No dependencies beyond a C11 compiler and `make`. Every push is built and the
+suite run three ways — gcc and clang on Linux, clang on macOS — and again under
+[ASan and UBSan](.github/workflows/build.yml), so that sentence is checked
+rather than asserted.
+
+## Install
+
+```sh
+make install               # to /usr/local
+make install PREFIX=~/opt  # or anywhere
+make uninstall
+```
+
+The binaries go to `$PREFIX/bin` and the library to `$PREFIX/lib/solum`, which
+is where an installed `solas` looks for `@include "text.sol"`. It has to be
+*told*: `argv[0]` says where the binary is only when it was named with a path,
+and a program found on `PATH` has nothing to work from — so the Makefile writes
+the location into the build, and changing `PREFIX` rebuilds what depends on it.
+
+Four places are searched, in this order: `-I` arguments, then the
+colon-separated `SOLUM_PATH`, then the library beside the binary
+(`bin/../lib`, which is what a checkout has), then where the install put it. A
+checkout keeps winning over anything installed on the machine, which is what
+makes testing a change mean anything.
+
+`make dist` writes `solveig-<version>.tar.gz` from `HEAD`, named for the
+version the binaries inside it report.
 
 ## Status
 

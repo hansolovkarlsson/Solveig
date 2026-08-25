@@ -100,3 +100,52 @@ jobs:
 
     env:
       SANITIZE: -fsanitize=address,undefined -fno-omit-frame-pointer
+
+  # `make install` and `make dist` make two claims that go stale silently, which
+  # is the shape of every other thing that has gone wrong here: an installed
+  # binary can find its library, and the tarball contains enough to build from.
+  #
+  # The first is the one that was actually broken. `argv[0]` says nothing when a
+  # program is found on PATH, so before SOL_LIB_DIR existed, an installed
+  # `solas` could not resolve `@include "text.sol"` at all -- and running it out
+  # of the checkout, which is how it is always run here, hid that completely.
+  install:
+    name: install + dist
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install to a prefix
+        run: make install PREFIX="$HOME/opt"
+
+      # From a directory with no `lib/` in it and no `./bin`, by bare name off
+      # PATH, which is the way an installed binary is actually used and the one
+      # case a checkout never exercises.
+      - name: Use it the way an install is used
+        timeout-minutes: 5
+        run: |
+          mkdir -p "$RUNNER_TEMP/elsewhere"
+          cd "$RUNNER_TEMP/elsewhere"
+          printf '@include "text.sol".\n"installed":display.\n' > check.sol
+          export PATH="$HOME/opt/bin:$PATH"
+          solas check.sol
+          test "$(solvm check.sob)" = installed
+
+      - name: Take it back out
+        run: |
+          make uninstall PREFIX="$HOME/opt"
+          test ! -e "$HOME/opt/bin/solas"
+          test ! -e "$HOME/opt/lib/solum"
+
+      # A tarball that does not build is worse than no tarball, because it is
+      # found by somebody who wanted the thing to work.
+      - name: Build from the tarball
+        timeout-minutes: 10
+        run: |
+          make dist
+          tar xzf solveig-*.tar.gz -C "$RUNNER_TEMP"
+          cd "$RUNNER_TEMP"/solveig-*/
+          make
+          ./bin/solvm --version
