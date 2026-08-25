@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### A number 3.13 kept getting wrong, removed rather than corrected — `pending`, 2026-08-25
+### A number 3.13 kept getting wrong, removed rather than corrected — `65f04e2`, 2026-08-25
 
 **[3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing) said nine
 sites carry a boolean whose only job is to stop a loop.** It was nine when it was
