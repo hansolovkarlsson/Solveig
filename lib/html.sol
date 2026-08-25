@@ -177,43 +177,37 @@ html:implied:atPut("option", ["option"]).
 ; State on the object, like json.sol: one parse at a time, which is what a
 ; program does.
 
-html:src := "".
-html:pos := #1.
+; The position lives in a cursor from `scan.sol` rather than in slots here.
+; That library exists because this file was one of five that had each written
+; the same object -- see COMPLETED.md 5.5.
+@include "scan.sol".
+html:cur := nil.
 html:stack := nil.
 html:complaints := nil.
 
 html:complain := { message |
-    html:complaints:add("{} at character {}":fill([message, self:pos])) }.
-
-html:peek := {
-    self:pos:lessOrEqual(self:src:size)
-        :ifElse({ self:src:at(self:pos) }, { nil }) }.
-
-html:peekAt := { n | | i |
-    i := self:pos:add(n).
-    i:lessOrEqual(self:src:size):ifElse({ self:src:at(i) }, { nil }) }.
-
-html:step := { self:pos := self:pos:add(#1) }.
+    html:complaints:add("{} at character {}":fill([message, self:cur:pos])) }.
 
 html:space := " \t\n\r".
 html:isSpace := { c | c:notNil:and({ self:space:indexOf(c):notNil }) }.
-html:skipSpace := { { self:isSpace(self:peek) }:whileTrue({ self:step }) }.
+html:skipSpace := {
+    self:cur:skipWhile({ c | self:space:indexOf(c):notNil }) }.
 
 ; A name is what runs until something that cannot be in one. Deliberately loose:
 ; the job is to get through a real document, not to police it.
 html:nameStop := " \t\n\r/>=".
-html:readName := { | start |
-    start := self:pos.
-    { self:peek:notNil:and({ self:nameStop:indexOf(self:peek):isNil }) }
-        :whileTrue({ self:step }).
-    self:src:copyFrom(start, self:pos:sub(#1)):asLowercase }.
+html:readName := {
+    self:cur:takeWhile({ c | self:nameStop:indexOf(c):isNil }):asLowercase }.
 
-; Whether the text at `pos` is `what`, without moving.
-html:looksLike := { what | | end |
-    end := self:pos:add(what:size:sub(#1)).
-    end:greaterThan(self:src:size):ifElse(
-        { false },
-        { self:src:copyFrom(self:pos, end):asLowercase:equals(what) }) }.
+; Whether the text at the cursor is `what`, without moving. `scan:looksLike`
+; compares exactly and this has to fold case, so it takes and puts the cursor
+; back -- which is the same backtracking `readEntity` does below, and the reason
+; a cursor's `pos` is assignable and not only readable.
+html:looksLike := { what | | start, text |
+    start := self:cur:pos.
+    text := self:cur:take(what:size).
+    self:cur:pos := start.
+    text:asLowercase:equals(what) }.
 
 ; --- entities --------------------------------------------------------------
 ;
@@ -234,52 +228,46 @@ html:entities:atPut("mdash", #8212:asUtf8).
 html:hexDigits := "0123456789abcdef".
 
 html:readEntity := { | mark, name, digits, code, hex |
-    mark := self:pos.
-    self:step.                                  ; the &
-    self:peek:equals("#"):ifElse(
-        { self:step.
-          hex := self:peek:notNil:and({ "xX":indexOf(self:peek):notNil }).
-          hex:ifTrue({ self:step }).
+    mark := self:cur:pos.
+    self:cur:step.                                  ; the &
+    self:cur:peek:equals("#"):ifElse(
+        { self:cur:step.
+          hex := self:cur:peek:notNil:and({ "xX":indexOf(self:cur:peek):notNil }).
+          hex:ifTrue({ self:cur:step }).
           digits := self:readDigits(hex).
-          digits:equals(""):or({ self:peek:equals(";"):not }):ifElse(
-              { self:pos := mark. self:step. "&" },
-              { self:step.
+          digits:equals(""):or({ self:cur:peek:equals(";"):not }):ifElse(
+              { self:cur:pos := mark. self:cur:step. "&" },
+              { self:cur:step.
                 code := digits:asInteger(hex:ifElse({ #16 }, { #10 })).
                 { code:asUtf8 }:onError({ e |
-                    self:pos := mark.
+                    self:cur:pos := mark.
                     self:complain("&#{}; is not a character":fill([digits])).
-                    self:pos := mark:add(digits:size):add(hex:ifElse({ #4 }, { #3 })).
+                    self:cur:pos := mark:add(digits:size):add(hex:ifElse({ #4 }, { #3 })).
                     "" }) }) },
         { name := self:readEntityName.
-          self:entities:includes(name):and({ self:peek:equals(";") }):ifElse(
-              { self:step. self:entities:at(name) },
-              { self:pos := mark. self:step. "&" }) }) }.
+          self:entities:includes(name):and({ self:cur:peek:equals(";") }):ifElse(
+              { self:cur:step. self:entities:at(name) },
+              { self:cur:pos := mark. self:cur:step. "&" }) }) }.
 
-html:readDigits := { hex | | start, set |
-    start := self:pos.
+html:readDigits := { hex | | set |
     set := hex:ifElse({ self:hexDigits }, { "0123456789" }).
-    { self:peek:notNil:and({ set:indexOf(self:peek:asLowercase):notNil }) }
-        :whileTrue({ self:step }).
-    self:src:copyFrom(start, self:pos:sub(#1)) }.
+    self:cur:takeWhile({ c | set:indexOf(c:asLowercase):notNil }) }.
 
-html:readEntityName := { | start |
-    start := self:pos.
-    { self:peek:notNil:and({ self:peek:asLowercase:greaterOrEqual("a") })
-        :and({ self:peek:asLowercase:lessOrEqual("z") }) }
-        :whileTrue({ self:step }).
-    self:src:copyFrom(start, self:pos:sub(#1)):asLowercase }.
+html:readEntityName := {
+    self:cur:takeWhile({ c |
+        c:asLowercase:greaterOrEqual("a"):and({ c:asLowercase:lessOrEqual("z") })
+    }):asLowercase }.
 
 ; Text up to the next tag, with entities resolved. Kept as spans so the common
 ; case is a copy rather than a character at a time.
-html:readText := { | out, start |
-    out := "". start := self:pos.
-    { self:peek:notNil:and({ self:peek:equals("<"):not }) }:whileTrue({
-        self:peek:equals("&"):ifElse(
-            { out := out:concat(self:src:copyFrom(start, self:pos:sub(#1)))
-                        :concat(self:readEntity).
-              start := self:pos },
-            { self:step }) }).
-    out:concat(self:src:copyFrom(start, self:pos:sub(#1))) }.
+html:readText := { | out |
+    out := "".
+    { self:cur:peek:notNil:and({ self:cur:peek:equals("<"):not }) }:whileTrue({
+        out := out:concat(self:cur:takeUntil({ c |
+            c:equals("<"):or({ c:equals("&") }) })).
+        self:cur:peek:equals("&"):ifTrue({
+            out := out:concat(self:readEntity) }) }).
+    out }.
 
 ; --- attributes ------------------------------------------------------------
 ;
@@ -288,38 +276,35 @@ html:readText := { | out, start |
 ; and `checked=""` mean the same thing in HTML, and answering one type for both
 ; saves every caller a test.
 
-html:readAttributeValue := { | quote, start, out |
+html:readAttributeValue := { | quote, out |
     self:skipSpace.
-    quote := self:peek.
+    quote := self:cur:peek.
     quote:equals("\""):or({ quote:equals("'") }):ifElse(
-        { self:step.
-          start := self:pos. out := "".
-          { self:peek:notNil:and({ self:peek:equals(quote):not }) }:whileTrue({
-              self:peek:equals("&"):ifElse(
-                  { out := out:concat(self:src:copyFrom(start, self:pos:sub(#1)))
-                              :concat(self:readEntity).
-                    start := self:pos },
-                  { self:step }) }).
-          out := out:concat(self:src:copyFrom(start, self:pos:sub(#1))).
-          self:peek:isNil:ifElse(
+        { self:cur:step.
+          out := "".
+          { self:cur:peek:notNil:and({ self:cur:peek:equals(quote):not }) }
+              :whileTrue({
+                  out := out:concat(self:cur:takeUntil({ c |
+                      c:equals(quote):or({ c:equals("&") }) })).
+                  self:cur:peek:equals("&"):ifTrue({
+                      out := out:concat(self:readEntity) }) }).
+          self:cur:peek:isNil:ifElse(
               { self:complain("an attribute value is never closed") },
-              { self:step }).
+              { self:cur:step }).
           out },
-        { start := self:pos.
-          { self:peek:notNil:and({ self:isSpace(self:peek):not })
-              :and({ self:peek:equals(">"):not }) }:whileTrue({ self:step }).
-          self:src:copyFrom(start, self:pos:sub(#1)) }) }.
+        { self:cur:takeWhile({ c |
+              self:isSpace(c):not:and({ c:equals(">"):not }) }) }) }.
 
 html:readAttributes := { element | | name |
     { self:skipSpace.
-      self:peek:notNil:and({ self:peek:equals(">"):not })
-          :and({ self:peek:equals("/"):not }) }:whileTrue({
+      self:cur:peek:notNil:and({ self:cur:peek:equals(">"):not })
+          :and({ self:cur:peek:equals("/"):not }) }:whileTrue({
         name := self:readName.
         name:equals(""):ifElse(
-            { self:step },                      ; nothing readable; do not spin
+            { self:cur:step },                      ; nothing readable; do not spin
             { self:skipSpace.
-              self:peek:equals("="):ifElse(
-                  { self:step.
+              self:cur:peek:equals("="):ifElse(
+                  { self:cur:step.
                     element:attributes:atPut(name, self:readAttributeValue) },
                   { element:attributes:atPut(name, "") }) }) }) }.
 
@@ -361,7 +346,7 @@ html:applyImplied := { name | | closes |
 ; --- tags ------------------------------------------------------------------
 
 html:readEndTag := { | name |
-    self:pos := self:pos:add(#2).               ; "</"
+    self:cur:pos := self:cur:pos:add(#2).       ; "</"
     name := self:readName.
     self:skipToTagEnd.
     self:void:includes(name):ifTrue({
@@ -376,21 +361,21 @@ html:readEndTag := { | name |
             { self:complain("</{}> closes nothing that is open":fill([name])) }) }) }.
 
 html:skipToTagEnd := {
-    { self:peek:notNil:and({ self:peek:equals(">"):not }) }:whileTrue({ self:step }).
-    self:peek:notNil:ifTrue({ self:step }) }.
+    self:cur:skipWhile({ c | c:equals(">"):not }).
+    self:cur:peek:notNil:ifTrue({ self:cur:step }) }.
 
 html:readStartTag := { | name, e, selfClosing, at |
-    at := self:pos.
-    self:step.                                  ; "<"
+    at := self:cur:pos.
+    self:cur:step.                                  ; "<"
     name := self:readName.
     e := self:newElement(name, at).
     self:readAttributes(e).
 
-    selfClosing := self:peek:equals("/").
-    selfClosing:ifTrue({ self:step }).
-    self:peek:isNil:ifElse(
+    selfClosing := self:cur:peek:equals("/").
+    selfClosing:ifTrue({ self:cur:step }).
+    self:cur:peek:isNil:ifElse(
         { self:complain("<{}> is never finished":fill([name])) },
-        { self:step }).
+        { self:cur:step }).
 
     self:applyImplied(name).
     self:current:add(e).
@@ -403,19 +388,19 @@ html:readStartTag := { | name, e, selfClosing, at |
 ; tag. Getting this wrong is how a parser swallows a page: one `if (a < b)` and
 ; everything after it becomes an element.
 html:readRawText := { name | | start, closing, done |
-    start := self:pos.
+    start := self:cur:pos.
     closing := "</":concat(name).
     done := false.
     { done:not }:whileTrue({
-        self:peek:isNil:ifElse(
+        self:cur:peek:isNil:ifElse(
             { done := true },
             { self:looksLike(closing):ifElse(
                 { done := true },
-                { self:step }) }) }).
-    self:pos:greaterThan(start):ifTrue({
-        self:current:add(self:src:copyFrom(start, self:pos:sub(#1))) }).
-    self:peek:isNil:ifFalse({
-        self:pos := self:pos:add(closing:size).
+                { self:cur:step }) }) }).
+    self:cur:pos:greaterThan(start):ifTrue({
+        self:current:add(self:cur:src:copyFrom(start, self:cur:pos:sub(#1))) }).
+    self:cur:peek:isNil:ifFalse({
+        self:cur:pos := self:cur:pos:add(closing:size).
         self:skipToTagEnd.
         self:pop }) }.
 
@@ -424,38 +409,37 @@ html:readRawText := { name | | start, closing, done |
 ; browser does too, so it is worth a complaint.
 html:skipBang := {
     self:looksLike("<!--"):ifElse(
-        { self:pos := self:pos:add(#4).
-          { self:peek:notNil:and({ self:looksLike("-->"):not }) }
-              :whileTrue({ self:step }).
-          self:peek:isNil:ifElse(
+        { self:cur:pos := self:cur:pos:add(#4).
+          { self:cur:peek:notNil:and({ self:looksLike("-->"):not }) }
+              :whileTrue({ self:cur:step }).
+          self:cur:peek:isNil:ifElse(
               { self:complain("a comment is never closed") },
-              { self:pos := self:pos:add(#3) }) },
+              { self:cur:pos := self:cur:pos:add(#3) }) },
         { self:skipToTagEnd }) }.
 
 ; --- the loop --------------------------------------------------------------
 
 html:read := { source | | document |
-    self:src := source.
-    self:pos := #1.
+    self:cur := scan:on(source).
     self:complaints := array:new.
     self:open := array:new.
 
     document := self:newElement("#document", #1).
     self:push(document).
 
-    { self:peek:notNil }:whileTrue({
-        self:peek:equals("<"):ifElse(
-            { self:peekAt(#1):equals("!"):or({ self:peekAt(#1):equals("?") })
+    { self:cur:peek:notNil }:whileTrue({
+        self:cur:peek:equals("<"):ifElse(
+            { self:cur:peekAt(#1):equals("!"):or({ self:cur:peekAt(#1):equals("?") })
                 :ifElse(
                 { self:skipBang },
-                { self:peekAt(#1):equals("/"):ifElse(
+                { self:cur:peekAt(#1):equals("/"):ifElse(
                     { self:readEndTag },
                     ; A `<` that starts no tag is a less-than sign. Without this
                     ; the parser would stall on it, and stalling is worse than
                     ; any wrong answer.
-                    { self:isNameStart(self:peekAt(#1)):ifElse(
+                    { self:isNameStart(self:cur:peekAt(#1)):ifElse(
                         { self:readStartTag },
-                        { self:current:add("<"). self:step }) }) }) },
+                        { self:current:add("<"). self:cur:step }) }) }) },
             { | run | run := self:readText.
               run:equals(""):ifFalse({ self:current:add(run) }) }) }).
 
@@ -467,7 +451,9 @@ html:read := { source | | document |
             :fill([self:current:name, self:current:at])).
         self:pop }).
 
-    self:src := "".
+    ; The cursor is dropped rather than left in a slot, so a parsed document
+    ; does not keep the text it came from alive.
+    self:cur := nil.
     document }.
 
 html:isNameStart := { c |

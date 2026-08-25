@@ -725,7 +725,7 @@ s:rest:display.                       ; ab
 | Message | Answers |
 | --- | --- |
 | `scan:on(text)` | a new cursor at the first character |
-| `pos` | where it is, **one-based** |
+| `pos` | where it is, **one-based** — and assignable, which is how a scanner backtracks |
 | `atEnd` | whether there is nothing left |
 | `peek` | the character here, or **nil** at the end |
 | `peekAt(#n)` | `#0` is `peek`, `#1` the one after; nil past either end |
@@ -750,9 +750,13 @@ number is a sign, then digits, then perhaps a fraction and an exponent, and what
 the caller wants at the end is all of it. `pos` is the mark; there is no `mark`
 message because it would do nothing reading `pos` does not.
 
-**Two cursors can be in flight at once**, which is the one thing `json.sol`'s
-header used to say it could not manage. `on` answers a new object rather than
+**Two cursors can be in flight at once.** `on` answers a new object rather than
 resetting a shared one.
+
+**`pos` is written as well as read**, because scanners backtrack: `html.sol`
+reads `&notanentity;` as far as the `;` before deciding it is not an entity
+after all, and puts the cursor back. Saving `pos` and restoring it is the whole
+mechanism, and it is why there is no separate `mark`.
 
 #### html.sol
 

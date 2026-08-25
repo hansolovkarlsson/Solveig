@@ -54,6 +54,8 @@
 ; Which is the same fault the program was written to catch, sitting in the
 ; program, in the one place it does not look: prose.
 
+@include "scan.sol".
+
 ; Several subjects at once, because there are three: the examples, the
 ; documents, and the two pages at the root that belong to neither.
 subjects := system:arguments:size:equals(#0):ifElse(
@@ -68,17 +70,23 @@ subjects := system:arguments:size:equals(#0):ifElse(
 ; four lines and guessing is a bug that would only show up in the file it was
 ; least convenient to be wrong about.
 
-string:commentAt := { | i, inString, c, found |
-    i := #1. inString := false. found := nil.
-    { found:isNil:and({ i:lessOrEqual(self:size) }) }:whileTrue({
-        c := self:at(i).
+; On a cursor from `scan.sol`, which is the only one of this program's four
+; scanning sites that a cursor fits. `wordBefore` runs *backwards* from the end
+; of a line; `markersIn` searches for a substring rather than reading characters;
+; and `asCount` filters every character rather than stopping at one. A cursor is
+; forward, character-at-a-time, and stops -- so it is right here and wrong for
+; those three, which stay as they are. That is worth writing down, because the
+; survey behind COMPLETED.md 5.5 counted all four as scanning.
+string:commentAt := { | s, inString, c, found |
+    s := scan:on(self). inString := false. found := nil.
+    { found:isNil:and({ s:atEnd:not }) }:whileTrue({
+        c := s:next.
         inString:ifElse(
             { c:equals("\\"):ifElse(
-                { i := i:add(#1) },
+                { s:step },
                 { c:equals("\""):ifTrue({ inString := false }) }) },
             { c:equals("\""):ifTrue({ inString := true }).
-              c:equals(";"):ifTrue({ found := i }) }).
-        i := i:add(#1) }).
+              c:equals(";"):ifTrue({ found := s:pos:sub(#1) }) }) }).
     found }.
 
 ; The value a comment claims, with any aside after ` -- ` taken off. That is one

@@ -5,6 +5,51 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The other four, and what converting them cost — `pending`, 2026-08-25
+
+**`html.sol`, `experiment/lexer.sol`, `serve.sol` and `expect.sol` are on the
+cursor too**, so all five files that had written one for themselves now share
+[lib/scan.sol](../lib/scan.sol). Every conversion was checked against a recorded
+baseline and every one is byte-identical: 23 HTML documents through a tree
+outliner, 23 URL-decode and note-name cases, the self-hosting proof, and the
+checker's own 1,161-line report.
+
+**The arithmetic, which is not flattering:**
+
+| file | code lines | |
+| --- | --- | --- |
+| `lib/json.sol` | 215 → 197 | −18 |
+| `lib/html.sol` | 296 → 277 | −19 |
+| `experiment/lexer.sol` | 169 → 163 | −6 |
+| `programs/serve.sol` | 129 → 126 | −3 |
+| `programs/expect.sol` | 534 → 534 | 0 |
+| **`lib/scan.sol`** | | **+48** |
+
+**46 recovered against 48 spent.** The library pays for itself and nothing more.
+What it bought is one implementation instead of five, and two files that could
+not agree whether the method is `step` or `advance` no longer get to choose.
+
+**`expect.sol` returned nothing, and that corrects the survey this all came
+from.** It was counted as four scanning sites. One is cursor-shaped.
+`wordBefore` runs *backwards* from the end of a line, `markersIn` searches for a
+substring rather than reading characters, and `asCount` filters every character
+rather than stopping at one. A cursor is forward, character-at-a-time, and
+stops. Counting scanning by eye counted three things that were not this.
+
+**And the conversions found a defect in the self-hosting proof.**
+`experiment/prove.sh` built generation 1 with `bin/solas experiment/compile.sol`
+and no `-I lib`, because the experiment's files only ever included each other;
+every other invocation in the script had it. The moment `lexer.sol` included
+`scan.sol` the fixpoint failed — on *file names*, since a `.sob` records the
+file each line came from and `lib/scan.sol` found two ways is two strings. Both
+compilers agreed about every instruction. The asymmetry had been in the script
+since it was written and nothing could see it until something crossed it.
+
+**One thing the interface gained by being used**: `pos` is assignable, not only
+readable, because scanners backtrack — `html.sol` reads `&notanentity;` to the
+`;` before deciding it is not an entity and puts the cursor back. That is why
+there is no separate `mark`, and the reference says so now.
+
 ### A cursor five programs had each written for themselves — `edd2470`, 2026-08-25
 
 **[lib/scan.sol](../lib/scan.sol)**, and `lib/json.sol` converted onto it.

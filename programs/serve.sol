@@ -97,17 +97,21 @@ string:fillEscaped := { values |
 ; nothing to do with what it is asking for, and a handler that raises on it
 ; answers 500 to a request that is merely untidy.
 
-string:urlDecoded := { | out, i, c |
-    out := "". i := #1.
-    { i:lessOrEqual(self:size) }:whileTrue({
-        c := self:at(i).
-        c:equals("%"):and({ i:add(#2):lessOrEqual(self:size) }):ifElse(
-            { { out := out:concat(
-                    self:copyFrom(i:add(#1), i:add(#2)):asInteger(#16):asCharacter).
-                i := i:add(#3) }:onError({ e |
-                    out := out:concat(c). i := i:inc }) },
-            { out := out:concat(c:equals("+"):ifElse({ " " }, { c })).
-              i := i:inc }) }).
+; On a cursor from `scan.sol`, which is where the index arithmetic went. The
+; mark is what makes the malformed case above work: `take` has already moved by
+; the time the conversion fails, so the failure puts the cursor back to just
+; after the `%` rather than three characters on.
+@include "scan.sol".
+
+string:urlDecoded := { | s, out, c, mark |
+    s := scan:on(self). out := "".
+    { s:atEnd:not }:whileTrue({
+        mark := s:pos.
+        c := s:next.
+        c:equals("%"):and({ s:peekAt(#1):notNil }):ifElse(
+            { { out := out:concat(s:take(#2):asInteger(#16):asCharacter) }
+                :onError({ e | s:pos := mark:add(#1). out := out:concat(c) }) },
+            { out := out:concat(c:equals("+"):ifElse({ " " }, { c })) }) }).
     out }.
 
 string:asQuery := { | out |
@@ -161,12 +165,13 @@ system:isDirectory(store):ifFalse({
 
 allowed := "abcdefghijklmnopqrstuvwxyz0123456789-".
 
+; The `ok` flag this used to carry existed only because a loop cannot be left
+; early (ROADMAP 3.13). `takeWhile` stops at the first character that fails, so
+; asking how far it got is the same question without the flag.
 string:isNoteName := {
-    self:size:greaterThan(#0):and({ self:size:lessOrEqual(#40) }):and({ | ok |
-        ok := true.
-        [#1,self:size]:loop({ i |
-            allowed:indexOf(self:at(i)):isNil:ifTrue({ ok := false }) }).
-        ok }) }.
+    self:size:greaterThan(#0):and({ self:size:lessOrEqual(#40) }):and({
+        scan:on(self):takeWhile({ c | allowed:indexOf(c):notNil })
+            :size:equals(self:size) }) }.
 
 ; ---------------------------------------------------------------------------
 ; The pages

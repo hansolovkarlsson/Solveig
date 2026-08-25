@@ -1046,10 +1046,31 @@ the conversion changed the interface twice.
 | **`take(#n)`** | `\uXXXX` wants exactly four characters. Also not in the list. |
 | **The block is never handed nil** | Every hand-written version opened `peek:notNil:and({ ... })`. That is the cursor's business: a predicate is a question about a character, and running out is not a character. |
 
-**What it cost and what it paid.** `scan.sol` is 48 lines of code; `json.sol`
-went from 215 to 197, so the first conversion returns 18 of the 48. Four files
-are left, and whether they follow is the decision this entry deferred to
-itself — it is now a decision with a number behind it rather than a guess.
+**What it cost and what it paid.** All five are converted now, and the honest
+total is that the library roughly pays for itself and no more:
+
+| file | code lines | |
+| --- | --- | --- |
+| `lib/json.sol` | 215 → 197 | −18 |
+| `lib/html.sol` | 296 → 277 | −19 |
+| `experiment/lexer.sol` | 169 → 163 | −6 |
+| `programs/serve.sol` | 129 → 126 | −3 |
+| `programs/expect.sol` | 534 → 534 | 0 |
+| **`lib/scan.sol`** | | **+48** |
+
+**46 recovered against 48 spent.** Anyone expecting a library to shrink the
+repository should read that and stop expecting it. What was actually bought is
+that there is one implementation of a cursor instead of five, and the two files
+that could not agree whether the method is called `step` or `advance` no longer
+have the choice.
+
+**`expect.sol` returned nothing, and that is the finding that corrects the
+survey.** The survey counted four scanning sites in it. Only one — `commentAt` —
+is cursor-shaped. `wordBefore` runs *backwards* from the end of a line;
+`markersIn` searches for a substring rather than reading characters; `asCount`
+filters every character rather than stopping at one. A cursor is forward,
+character-at-a-time, and stops. Counting a program's scanning by eye counted
+three things that were not this.
 
 **The conversion was proved rather than asserted.** 38 inputs through
 `json:read`, output recorded before and after, identical at the end. It caught
@@ -1066,6 +1087,23 @@ the refactor started.
 **The one thing this did not answer** is whether `endsWith` belongs on `string`
 for everyone, deferred on 2026-08-24. `scan.sol` did not need it, so it is still
 open and still has no program behind it.
+
+#### What the conversions turned up that was not about cursors
+
+Two defects, neither of them in the code being changed.
+
+**`json.sol` could not read a newline**, and had not been able to since
+2026-08-21 — found by recording a baseline before the refactor rather than by
+looking for it. Two of the 38 inputs were wrong before a line was touched.
+
+**`experiment/prove.sh` built one generation with a different search path from
+the others.** `bin/solas experiment/compile.sol` had no `-I lib`, because the
+experiment's files only ever included each other; every other invocation had it.
+The moment `lexer.sol` included `scan.sol` the fixpoint failed — and failed on
+*file names*, because a `.sob` records the file each line came from and
+`lib/scan.sol` found two ways is two different strings. Both compilers agreed
+about every instruction. The asymmetry had been there since the proof was
+written and could not be seen until something crossed it.
 
 
 ## 6. Beyond the language

@@ -31,10 +31,16 @@
 ; alternative, hanging methods off `string`, would be worse: scanning is *state*
 ; and a string is a value.
 
+; The position lives in a cursor from `lib/scan.sol`. This file was one of the
+; five that had each written that object for themselves -- see COMPLETED.md 5.5
+; -- and the header above already argued its shape: scanning is state, and a
+; string is a value. What stays here is the line accounting, which is the
+; lexer's business and not a cursor's.
+@include "scan.sol".
+
 lexer := object:new.
 
-lexer:src := "".
-lexer:pos := #1.          ; the next character, one-based
+lexer:cur := nil.
 lexer:line := #1.
 lexer:lineStart := #1.    ; where the line `pos` sits on begins
 
@@ -53,8 +59,7 @@ lexer:tokenLineStart := #1.
 ; shebang is line 2 and every position names the line an editor shows.
 
 lexer:on := { source |
-    self:src := source.
-    self:pos := #1.
+    self:cur := scan:on(source).
     self:line := #1.
     self:lineStart := #1.
     self:start := #1.
@@ -62,33 +67,29 @@ lexer:on := { source |
     self:tokenLineStart := #1.
     source:size:greaterOrEqual(#2):and({ source:copyFrom(#1, #2):equals("#!") })
         :ifTrue({
-            { self:atEnd:not:and({ self:peek:equals("\n"):not }) }
-                :whileTrue({ self:pos := self:pos:inc }).
-            self:lineStart := self:pos }) }.
+            self:cur:skipWhile({ c | c:equals("\n"):not }).
+            self:lineStart := self:cur:pos }) }.
 
 ; ---------------------------------------------------------------------------
 ; The cursor
 
-lexer:atEnd := { self:pos:greaterThan(self:src:size) }.
+lexer:atEnd   := { self:cur:atEnd }.
+lexer:peek    := { self:cur:peek }.
+lexer:peekNext := { self:cur:peekAt(#1) }.
 
-lexer:peek := { self:atEnd:ifElse({ nil }, { self:src:at(self:pos) }) }.
-
-lexer:peekNext := {
-    self:pos:inc:greaterThan(self:src:size)
-        :ifElse({ nil }, { self:src:at(self:pos:inc) }) }.
-
-lexer:advance := { | c | c := self:peek. self:pos := self:pos:inc. c }.
+; Not `scan:next`, which stays put at the end. This one has always stepped past
+; it, and the callers below count on the position moving.
+lexer:advance := { | c | c := self:cur:peek. self:cur:pos := self:cur:pos:inc. c }.
 
 ; Every place that crosses a newline goes through here, so the line number and
 ; the line's first character cannot come apart -- and a column is only
 ; meaningful if they agree.
 lexer:newline := {
     self:line := self:line:inc.
-    self:pos := self:pos:inc.
-    self:lineStart := self:pos }.
+    self:cur:pos := self:cur:pos:inc.
+    self:lineStart := self:cur:pos }.
 
-lexer:match := { c |
-    self:peek:equals(c):ifElse({ self:pos := self:pos:inc. true }, { false }) }.
+lexer:match := { c | self:cur:match(c) }.
 
 ; ---------------------------------------------------------------------------
 ; What a character is
@@ -119,7 +120,7 @@ lexer:isNameByte := { c | self:isAlpha(c):or({ self:isDigit(c) }) }.
 lexer:token := { type | | t |
     t := dictionary:new.
     t:atPut("type", type).
-    t:atPut("text", self:src:copyFrom(self:start, self:pos:dec)).
+    t:atPut("text", self:cur:src:copyFrom(self:start, self:cur:pos:dec)).
     t:atPut("line", self:tokenLine).
     t:atPut("column", self:start:sub(self:tokenLineStart):inc).
     t:atPut("message", nil).
@@ -144,24 +145,23 @@ lexer:skipIgnorable := { | going |
             c:equals("\n"):ifElse(
                 { self:newline },
                 { " \r\t":indexOf(c):notNil:ifElse(
-                    { self:pos := self:pos:inc },
+                    { self:cur:pos := self:cur:pos:inc },
                     { c:equals(";"):ifElse(
-                        { { self:atEnd:not:and({ self:peek:equals("\n"):not }) }
-                              :whileTrue({ self:pos := self:pos:inc }) },
+                        { self:cur:skipWhile({ c | c:equals("\n"):not }) },
                         { going := false }) }) }) }) }) }.
 
 ; ---------------------------------------------------------------------------
 ; The kinds that have to be scanned
 
 lexer:identifier := {
-    { self:isNameByte(self:peek) }:whileTrue({ self:pos := self:pos:inc }).
+    self:cur:skipWhile({ c | self:isNameByte(c) }).
     self:token('ident) }.
 
 ; `#45` -- the `#` is a type tag, so the digits must follow immediately.
 lexer:integer := {
     self:match("-").
     self:isDigit(self:peek):ifElse(
-        { { self:isDigit(self:peek) }:whileTrue({ self:pos := self:pos:inc }).
+        { self:cur:skipWhile({ c | self:isDigit(c) }).
           self:peek:equals("."):and({ self:isDigit(self:peekNext) }):ifElse(
               { self:error("'#' marks an integer; drop it for a float") },
               { self:token('int) }) },
@@ -170,23 +170,23 @@ lexer:integer := {
 ; A bare number is a float. The `.` only continues the number when a digit
 ; follows, so `45.` is the float 45 plus a statement terminator.
 lexer:number := { | before |
-    { self:isDigit(self:peek) }:whileTrue({ self:pos := self:pos:inc }).
+    self:cur:skipWhile({ c | self:isDigit(c) }).
     self:peek:equals("."):and({ self:isDigit(self:peekNext) }):ifTrue({
-        self:pos := self:pos:inc.
-        { self:isDigit(self:peek) }:whileTrue({ self:pos := self:pos:inc }) }).
+        self:cur:pos := self:cur:pos:inc.
+        self:cur:skipWhile({ c | self:isDigit(c) }) }).
 
     ; An exponent, but only if it really is one. A bare `e` is left alone rather
     ; than claimed, so `1e` stays a float followed by an identifier instead of
     ; becoming a malformed number -- which is why the cursor is remembered and
     ; put back.
     self:peek:equals("e"):or({ self:peek:equals("E") }):ifTrue({
-        before := self:pos.
-        self:pos := self:pos:inc.
+        before := self:cur:pos.
+        self:cur:pos := self:cur:pos:inc.
         self:peek:equals("+"):or({ self:peek:equals("-") })
-            :ifTrue({ self:pos := self:pos:inc }).
+            :ifTrue({ self:cur:pos := self:cur:pos:inc }).
         self:isDigit(self:peek):ifElse(
-            { { self:isDigit(self:peek) }:whileTrue({ self:pos := self:pos:inc }) },
-            { self:pos := before }) }).
+            { self:cur:skipWhile({ c | self:isDigit(c) }) },
+            { self:cur:pos := before }) }).
     self:token('float) }.
 
 ; Scanning only needs to know that a backslash claims the next character, so
@@ -198,18 +198,18 @@ lexer:string := { | going |
             { going := false },
             { self:peek:equals("\n"):ifElse(
                 { self:newline },
-                { self:peek:equals("\\"):ifTrue({ self:pos := self:pos:inc }).
+                { self:peek:equals("\\"):ifTrue({ self:cur:pos := self:cur:pos:inc }).
                   self:atEnd:ifElse({ going := false },
-                                    { self:pos := self:pos:inc }) }) }) }).
+                                    { self:cur:pos := self:cur:pos:inc }) }) }) }).
     self:atEnd:ifElse(
         { self:error("unterminated string") },
-        { self:pos := self:pos:inc.                 ; the closing quote
+        { self:cur:pos := self:cur:pos:inc.                 ; the closing quote
           self:token('string) }) }.
 
 ; `'foo` -- a quote prefix and no closing quote, the way Lisp reads a symbol.
 lexer:symbol := {
     self:isAlpha(self:peek):ifElse(
-        { { self:isNameByte(self:peek) }:whileTrue({ self:pos := self:pos:inc }).
+        { self:cur:skipWhile({ c | self:isNameByte(c) }).
           self:token('symbol) },
         { self:error("expected a name after \"'\"") }) }.
 
@@ -217,7 +217,7 @@ lexer:symbol := {
 ; never an identifier that happens to follow a symbol.
 lexer:directive := {
     self:isAlpha(self:peek):ifElse(
-        { { self:isNameByte(self:peek) }:whileTrue({ self:pos := self:pos:inc }).
+        { self:cur:skipWhile({ c | self:isNameByte(c) }).
           self:token('directive) },
         { self:error("expected a name after '@'") }) }.
 
@@ -245,7 +245,7 @@ lexer:single:atPut(".", 'dot).
 
 lexer:next := { | c, kind |
     self:skipIgnorable.
-    self:start := self:pos.
+    self:start := self:cur:pos.
     self:tokenLine := self:line.
     self:tokenLineStart := self:lineStart.
 

@@ -23,12 +23,15 @@ fi
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-# The experiment's own files include each other, and a file is found beside the
-# file including it, so no -I is needed to build the compiler itself. Compiling
-# *other* files needs lib/ on the path, because that is where the library the
-# repository actually ships lives.
+# The experiment's own files include each other and are found beside the file
+# including them -- but lexer.sol now includes lib/scan.sol, so lib/ has to be
+# on the path here too. It did not used to be, and that asymmetry was invisible
+# until it was not: a `.sob` records the file each line came from, so finding
+# scan.sol as `lib/scan.sol` rather than through the library path beside the
+# binary changes the bytes. The fixpoint failed on the file *names*, with both
+# compilers agreeing about every instruction.
 echo "building the Solum compiler with solas"
-bin/solas experiment/compile.sol -o "$work/gen1.sob"
+bin/solas experiment/compile.sol -I lib -o "$work/gen1.sob"
 
 echo
 echo "1. every .sol file, both compilers, byte for byte"
