@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### A cursor five programs had each written for themselves — `pending`, 2026-08-25
+### A cursor five programs had each written for themselves — `edd2470`, 2026-08-25
 
 **[lib/scan.sol](../lib/scan.sol)**, and `lib/json.sol` converted onto it.
 [5.5](COMPLETED.md#55-five-programs-each-wrote-the-same-cursor--done) went on the
