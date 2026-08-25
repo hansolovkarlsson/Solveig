@@ -55,8 +55,8 @@ have been. Side-table operands are two bytes, a send compares pointers, and the
 script's frame has slots like every other, so a temporary may be declared
 anywhere.
 
-**Section 3 is what is left, and one entry on it is open.** One program put two
-things there on the same day and one of them is already gone.
+**Section 3 is what is left, and nothing on it is open.** One program put two
+entries there in a morning and both were closed the same day.
 [3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done) spent its whole
 life waiting for a program that wanted an angle;
 [basic.sol](../programs/basic.sol) was one, wanting six of them and an exponent
@@ -64,11 +64,15 @@ operator because they are in the standard it implements. It was decided rather
 than deferred — eleven messages, landed as one set — and is
 [done](COMPLETED.md#314-the-mathematics-that-is-not-here--done).
 
-What is left is [3.18](#318-a-program-cannot-write-without-ending-the-line),
-found by the same program's `INPUT`: there is no way to write to standard output
-without ending the line, so a prompt cannot sit beside its answer. That one is
-**work** rather than a decision — one primitive, and one question about where it
-goes.
+The same program's `INPUT` then found
+[3.18](COMPLETED.md#318-a-program-cannot-write-without-ending-the-line--done) —
+no way to write to standard output without ending the line, so a prompt could
+not sit beside its answer. That one was work rather than a decision, and it is
+`system:write` now.
+
+**So the list is empty again.** One program put two entries on it in a morning
+and both are closed by the afternoon, which is the mechanism this document
+describes working at speed rather than an exception to it.
 
 Section 3 holds the restrictions the language lives under, each documented where
 a program would meet it. The older ones were chosen; the six newest were found —
@@ -736,70 +740,6 @@ today every site either sets it at the tail of a branch or wants the rest to
 run, and the moment one does not, the flag has to be threaded through the body
 as `done:not:ifTrue({ ... })` and the workaround starts nesting.
 
-### 3.18 A program cannot write without ending the line
-
-**`display` and `print` are the only ways a Solum program has to put text on its
-own output, and both end the line.** So a prompt cannot sit beside the answer to
-it, a counter cannot be overwritten in place, and a line cannot be built from
-pieces that are decided as it goes.
-
-**Unlike everything else in this section, this one is not kept on purpose.** The
-restrictions around it were chosen, or found and then judged worth living with.
-This is work with a clear shape and a program already waiting on it.
-
-**The program is [basic.sol](../programs/basic.sol), and the statement is
-`INPUT`.** BASIC prompts with `?` and reads the answer typed after it on the
-same line; this interpreter prints the `?` and reads the answer from the line
-below, which is not what a BASIC program looks like:
-
-```text
-TWO NUMBERS, SEPARATED BY A COMMA
-?
-SUM IS 7
-```
-
-#### The workaround exists and is worse than the gap
-
-`system:writeFile("/dev/stdout", "? ")` writes without a newline and looks like
-the answer. It is not, and the way it fails is the reason this entry is worth
-writing down rather than leaving as folklore.
-
-`writeFile` opens its own stream on the file. `display` writes through the one
-the process started with. When the output is a terminal that stream is
-line-buffered and the two happen to interleave correctly; when it is a pipe or a
-file it is block-buffered, and everything written with `display` is still sitting
-in a buffer while the `writeFile` goes straight out. Measured:
-
-```text
-one          $ what the program printed, in order
-two? four? one
-three        $ what came out of a pipe
-five
-```
-
-The prompt arrives before the three lines written before it. **It works when
-tried by hand and silently reorders the transcript the moment anything is
-redirected**, which is the same shape as the two hand-written square roots in
-[3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done): plausible under the test anybody
-runs, wrong under the conditions nobody thinks to try.
-
-#### What it would take, and the one question it raises
-
-One primitive that writes a string to standard output and adds nothing. The
-question is not how but where it goes, and it is a real one, because this
-language has kept its output on `display` and `print` — messages every object
-answers, on the object being written.
-
-| | |
-| --- | --- |
-| `system:write(text)` | Puts it beside `readLine`, which is the symmetry: the two halves of a terminal. Against it: everything else that writes is a message on the value, and this would be the first that is not. |
-| `string:write` | Keeps the receiver as the thing being written, next to `display`. Against it: it reads as a third of a pair whose other two members serve every type, and a `write` that only strings answer is not that. |
-
-Either would be one line of C. Neither should be added on the way past
-something else — a language whose whole claim is that there is no second
-mechanism should not gain a third way to print without deciding which of the
-three is the one.
-
 ### 1.1d Collection is stop-the-world and non-incremental
 
 Fine at this size and not worth touching yet. Noted so it is a choice rather than
@@ -832,12 +772,13 @@ keeping it did. The number stays 6.32 and is not reused.
 
 ## How this list emptied, and how it filled and emptied again
 
-**One piece of work is on it.** Sections 2, 3 and 6 held the whole of what was
-left to decide or build, and 2 and 6 are done — what remains in 3 are
-restrictions kept on purpose, each documented where a program would meet it. One
-of those restrictions, [3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done),
-was kept on purpose *until a program wanted otherwise*; on 2026-08-25 one did,
-and it was lifted the same day.
+**Nothing is on it.** Sections 2, 3 and 6 held the whole of what was left to
+decide or build, and 2 and 6 are done — what remains in 3 are restrictions kept
+on purpose, each documented where a program would meet it. Two of them were only
+kept *until a program wanted otherwise*, and on 2026-08-25 one program wanted
+both: [3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done) and
+[3.18](COMPLETED.md#318-a-program-cannot-write-without-ending-the-line--done),
+raised and closed between breakfast and the afternoon.
 
 It gained one back on 2026-08-25 and lost it the same day:
 [5.5](COMPLETED.md#55-five-programs-each-wrote-the-same-cursor--done), a cursor
@@ -910,10 +851,11 @@ found out what it wanted.
   counter over a sorted table of lines nests no frames at all, where a
   tree-walking interpreter for a modern language would spend them in proportion
   to how deeply its input nests. Its `INPUT` statement then found
-  [3.18](#318-a-program-cannot-write-without-ending-the-line) — **no way to
+  [3.18](COMPLETED.md#318-a-program-cannot-write-without-ending-the-line--done) — **no way to
   write without ending the line** — and, more usefully, that the obvious
   workaround reorders the whole transcript the moment the output is not a
-  terminal.
+  terminal. `system:write` closed it the same day, on `system` beside
+  `readLine`, being about a destination rather than about rendering a value.
 
 **Four of the entries were papercuts a library tripped over**, not things anybody
 reasoned out in advance:
@@ -932,10 +874,10 @@ a debugger that could not name a local would have been most of the work for a
 fraction of the use, and only then
 [Solid](COMPLETED.md#629-a-stepper--solid--done).
 
-**No decision is outstanding.** 3.14 was the first since 6.32 was deferred, and
-unlike 6.32 it had a program behind it rather than a use nobody has — so it was
-taken rather than deferred, the same day it was raised. What is left on this list
-is one piece of work, 3.18, and no question at all. The older ones stay closed.
+**Nothing is outstanding, and nothing is undecided.** 3.14 was the first decision
+since 6.32 was deferred, and unlike 6.32 it had a program behind it rather than a
+use nobody has — so it was taken rather than deferred, the same day it was
+raised. 3.18 was work and was done the same day too. The older ones stay closed.
 2.5, the last *language* question, is closed: 1.6 had answered it one message at a time to stop the crashes, and finishing
 that — every class-side message requiring an object receiver — turned out to be
 the whole of what splitting the two objects would have bought. And 6.32, the

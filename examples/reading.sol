@@ -8,6 +8,29 @@
 ; is no more input. Nil is the end and "" is an empty line, so the two are never
 ; confused -- which is what lets the loop below be written the obvious way.
 
+; ---------------------------------------------------------------------------
+; Asking, which comes before reading
+;
+; `display` ends the line, which is right for output and wrong for a question:
+; a prompt and the answer typed after it belong on one line. `system:write` is
+; the other half of the terminal from `readLine` -- it writes the string it is
+; given and adds nothing, no newline and no rendering.
+;
+; It takes a string rather than any value, so there is no second rule about how
+; things are turned into text: `#42:asString` says which form it wants.
+
+system:write("how many lines? ").
+"(reading from a file, so nothing was typed)":display.
+;   how many lines? (reading from a file, so nothing was typed)
+
+; The same stream `display` uses, so the two interleave in the order they were
+; written -- including when the output is a pipe or a file rather than a
+; terminal, where anything opening its own stream on the same output would not.
+
+system:write("a").
+system:write("b").
+"c":display.                     ; abc
+
 count := #0.
 longest := "".
 

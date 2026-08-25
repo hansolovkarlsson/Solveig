@@ -921,6 +921,24 @@ program's copy and nothing else.
 
 ### Reading input
 
+`system:write` is the other half of the terminal. `display` and `print` end the
+line, which is right for output and wrong for a question — a prompt and the
+answer typed after it belong on one line. It takes a **string** and not any
+value, so there is no second rule about how things become text; `#42:asString`
+says which form it wants.
+
+It writes to the same stream `display` does, so the two interleave in the order
+they were written — including when the output is a pipe or a file. Anything that
+opened its own stream on the same output would not: the two buffer differently
+away from a terminal, and the unbuffered one arrives first
+([3.18](COMPLETED.md#318-a-program-cannot-write-without-ending-the-line) records
+what that looked like).
+
+```
+system:write("how many? ").
+"none":display.                  ; how many? none
+```
+
 `system:readLine` answers one line from standard input **without its
 terminator**, or **nil** when there is no more.
 
@@ -2842,6 +2860,7 @@ it delegates to `object` like everything else. See
 | --- | --- |
 | `exit(status)` | nothing — the program stops, with `status` from #0 to #255 |
 | `arguments` | an array of strings; the empty array when there were none |
+| `write(text)` | writes `text` to standard output and adds nothing — no newline, no rendering |
 | `readLine` | one line of standard input without its terminator, or nil at the end |
 | `readKey` | one byte as a one-character string, or nil at the end; no wait for return |
 | `readFile(path)` | the whole file as a string; an error if it is not there |
@@ -3017,7 +3036,7 @@ has been given, and cannot give itself more.
 Every built-in message and the types that answer it. The question a reference
 gets asked is usually *what has `copyFrom`?* rather than *what does a string
 do?*, and the sections above answer only the second — so this answers the first.
-134 messages across 230 registrations.
+135 messages across 231 registrations.
 
 **A test keeps it honest**: a message registered in `builtins.c` and missing
 from here fails the build, which is the same bargain that makes every message
@@ -3157,6 +3176,7 @@ appear in an example.
 | `via` | [object](#object) |
 | `weekday` | [time](#time) |
 | `whileTrue` | [block](#block) |
+| `write` | [system](#system) |
 | `writeFile` | [system](#system) |
 | `year` | [time](#time) |
 ## Limits

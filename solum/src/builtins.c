@@ -4073,6 +4073,50 @@ static SolValue prim_system_read_key(SolVM *vm, SolValue self, SolValue *args, i
 
 #endif
 
+/* `system:write(text)` -- the half of the terminal `readLine` did not have.
+ *
+ * ROADMAP 3.18. `display` and `print` were the only ways a program had to put
+ * text on its own output and both end the line, so a prompt could not sit beside
+ * the answer to it, a counter could not be overwritten in place, and a line
+ * could not be built from pieces decided as it went. programs/basic.sol met all
+ * three at once in one statement: BASIC's INPUT prompts with `?` and reads what
+ * is typed after it.
+ *
+ * On `system` rather than on `string`, which was the one question the entry
+ * left. `print`, `display` and `asString` are a trio about *rendering a value* --
+ * the literal form, the text, and the text as a value -- and this is not a
+ * fourth member of that: it is about a destination. The destination is where
+ * `readLine` already lives, and the two are the two halves of one terminal.
+ *
+ * A string and not any value, so there is no second rendering rule to remember:
+ * `system:write(#45:asString)` says which of the two forms it wants. That
+ * follows `writeFile`, which is the neighbour it most resembles.
+ *
+ * Crucially it writes to the same `stdout` the rest of this file writes to.
+ * `system:writeFile("/dev/stdout", text)` was the workaround, and it opens a
+ * second stream on the same file: when the output is not a terminal the two
+ * buffer differently and the prompt overtakes everything printed before it. That
+ * failed only when redirected, which is the worst way for it to fail. */
+static SolValue prim_system_write(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "write", argc, 1)) return SOL_NIL_VAL;
+    if (!SOL_IS_STRING(args[0])) {
+        sol_vm_runtime_error(vm, "'write' expects a string, got %s",
+                             sol_type_name(args[0]));
+        return SOL_NIL_VAL;
+    }
+
+    const SolString *text = SOL_AS_STRING(args[0]);
+    fwrite(text->chars, 1, (size_t)text->length, stdout);
+
+    /* Flushed, because the whole point is text that is not followed by a
+       newline -- and a line-buffered stdout would hold it until one arrived,
+       which for a prompt means until after the answer had been read. */
+    fflush(stdout);
+    return SOL_NIL_VAL;
+}
+
 static SolValue prim_system_read_line(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     (void)self;
@@ -5516,6 +5560,7 @@ void sol_builtins_install(SolVM *vm)
     sol_object_define(vm, vm->root, "system", SOL_OBJ_VAL(system));
     any_receiver(vm, system, "exit", prim_system_exit);
     any_receiver(vm, system, "clock", prim_system_clock);
+    any_receiver(vm, system, "write", prim_system_write);
     any_receiver(vm, system, "readLine", prim_system_read_line);
     any_receiver(vm, system, "readKey", prim_system_read_key);
     any_receiver(vm, system, "readFile", prim_system_read_file);

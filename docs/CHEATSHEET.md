@@ -376,6 +376,7 @@ The process, rather than any value. One object with slots, not a class.
 | `exit(#status)` | nothing — the program stops, `#0` to `#255` |
 | `clock` | monotonic seconds as a float; only differences mean anything |
 | `time` | the current instant |
+| `write(text)` | writes a string to standard output, adding nothing — no newline |
 | `readLine` `readKey` | one line, or one byte, of standard input; nil at the end |
 | `readFile(path)` | the whole file as a string |
 | `writeFile(path, text)` `appendFile(path, text)` | nil, having written |

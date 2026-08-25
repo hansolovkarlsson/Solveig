@@ -1331,22 +1331,24 @@ runners:atPut('randomize, { m, st | m:rng := random:new }).
 ; ---------------------------------------------------------------------------
 ; INPUT, and the one thing this language cannot do
 ;
-; BASIC prompts with `?` and waits on the same line. **This one cannot**, and
-; the reason is [3.18](../docs/ROADMAP.md#318-a-program-cannot-write-without-ending-the-line):
-; `display` is the only way a Solum program has to put text on its own output
-; and it ends the line, so the `?` goes on a line of its own and the answer is
-; typed under it rather than beside it.
+; BASIC prompts with `?` and waits on the same line, and for two days this could
+; not: `display` and `print` were the only ways a Solum program had to write and
+; both end the line. That was
+; [3.18](../docs/COMPLETED.md#318-a-program-cannot-write-without-ending-the-line),
+; which this statement is what found -- and it is now `system:write`.
 ;
-; The workaround does not work. `system:writeFile("/dev/stdout", "? ")` opens a
-; second stream on the same file, and when the output is anything but a
-; terminal the two buffer differently -- so the prompt overtakes everything
-; printed before it and the transcript comes out in an order the program never
-; wrote. That is worse than the missing newline, being wrong rather than ugly,
-; and it is why this waits for the entry rather than reaching for the trick.
+; **Whatever a `PRINT` left open goes out first, and without a newline.** So a
+; prompt the listing wrote and the `?` the interpreter writes land on one line,
+; which is what they do on a real terminal:
+;
+;     10 PRINT "YOUR NAME";
+;     20 INPUT N$
+;     ->  YOUR NAME? _
 
 runners:atPut('input, { m, st | | line, parts |
-    m:flushPending.
-    "?":display.
+    system:write(m:out).
+    m:out := "".
+    system:write("? ").
     line := system:readLine.
     line:isNil:ifTrue({ m:fail("INPUT has nothing left to read") }).
     parts := line:split(",").
@@ -2023,15 +2025,13 @@ listing:value([
 ; [basic/adder.bas](basic/adder.bas) instead, run by hand:
 ;
 ;     $ ./bin/solvm programs/basic.sob programs/basic/adder.bas
-;     TWO NUMBERS, SEPARATED BY A COMMA
-;     ?
-;     3, 4
+;     TWO NUMBERS, SEPARATED BY A COMMA? 3, 4
 ;     SUM IS 7
 ;
-; The `?` is on a line of its own and should be beside the answer. That is
-; [3.18](../docs/ROADMAP.md#318-a-program-cannot-write-without-ending-the-line),
-; which this statement found: `display` is the only way this language has to
-; write to its own output, and it ends the line.
+; The prompt sits beside the answer, which it did not for the two days between
+; this statement being written and
+; [3.18](../docs/COMPLETED.md#318-a-program-cannot-write-without-ending-the-line)
+; being closed.
 
 ; ---------------------------------------------------------------------------
 ; How deep a listing can nest

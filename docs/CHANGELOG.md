@@ -5,6 +5,48 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### system:write, and the roadmap empties again — `pending`, 2026-08-25
+
+**`system:write(text)` writes a string to standard output and adds nothing** —
+no newline, no rendering.
+[3.18](COMPLETED.md#318-a-program-cannot-write-without-ending-the-line--done) is
+built and moved to [COMPLETED.md](COMPLETED.md), which leaves the roadmap empty:
+one program raised two entries in a morning and both were closed the same day.
+
+**It went on `system`, beside `readLine`**, which was the one question the entry
+left open. `print`, `display` and `asString` are a trio about *rendering a
+value* — the literal form, the text, and the text as a value — and this is not a
+fourth member of that. It is about a **destination**, and the destination is
+where `readLine` already lives; the two are the two halves of one terminal. It
+takes a string rather than any value, following `writeFile`, so there is no
+second rule about how a value becomes text.
+
+**It flushes, which the entry did not think of and which is most of the point.**
+Text with no newline after it sits in a line-buffered `stdout` until one arrives
+— and for a prompt that means until after the answer has been read, which is the
+bug this was built to fix wearing a different hat.
+
+**And it writes to the same stream `display` does**, which is the difference
+between this and the workaround the entry recorded.
+`system:writeFile("/dev/stdout", text)` opened a second stream on the same file
+and reordered the whole transcript the moment the output was not a terminal.
+
+**[basic.sol](../programs/basic.sol)'s `INPUT` got more than it asked for.**
+Whatever a `PRINT` left open is now written out without a newline before the
+`?`, so a prompt the listing wrote and the `?` the interpreter writes land on one
+line:
+
+```text
+TWO NUMBERS, SEPARATED BY A COMMA? 3, 4
+SUM IS 7
+```
+
+That was two lines and a stray `?` for the two days between the statement being
+written and the entry being closed.
+
+`examples/reading.sol` gains it — the example about the terminal, where asking
+now comes before reading. Claims go 828 to 830<!--count claims-->.
+
 ### The mathematics 3.14 was holding, all eleven at once — `5018395`, 2026-08-25
 
 **`pow`, `exp`, `log`, `sin`, `cos`, `tan`, `asin`, `acos` and `atan` on `float`,
@@ -92,7 +134,7 @@ name. So arrays could not be built without the machinery that calls a function,
 and the five functions that do not need 3.14 came with it. Fortran made the same
 choice in 1957 for the same reason.
 
-**And `INPUT` found [3.18](ROADMAP.md#318-a-program-cannot-write-without-ending-the-line):
+**And `INPUT` found [3.18](COMPLETED.md#318-a-program-cannot-write-without-ending-the-line--done):
 a program cannot write to its own output without ending the line.** BASIC prompts
 with `?` and reads the answer typed beside it; this prints the `?` and reads from
 the line below, because `display` and `print` are the only ways a Solum program

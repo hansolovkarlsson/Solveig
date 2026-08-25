@@ -340,6 +340,115 @@ The limitations themselves are still live and are in
 [ROADMAP.md](ROADMAP.md#3-known-limitations). These were limitations until they
 stopped being ones.
 
+### 3.18 A program cannot write without ending the line — **done**
+
+**`system:write(text)` is the answer, landed the same day this was written.**
+It takes a string, adds nothing to it, and writes to the same `stdout` the rest
+of the machine writes to. What the entry argued is kept below as it stood.
+
+**`display` and `print` are the only ways a Solum program has to put text on its
+own output, and both end the line.** So a prompt cannot sit beside the answer to
+it, a counter cannot be overwritten in place, and a line cannot be built from
+pieces that are decided as it goes.
+
+**Unlike everything else in this section, this one is not kept on purpose.** The
+restrictions around it were chosen, or found and then judged worth living with.
+This is work with a clear shape and a program already waiting on it.
+
+**The program is [basic.sol](../programs/basic.sol), and the statement is
+`INPUT`.** BASIC prompts with `?` and reads the answer typed after it on the
+same line; this interpreter prints the `?` and reads the answer from the line
+below, which is not what a BASIC program looks like:
+
+```text
+TWO NUMBERS, SEPARATED BY A COMMA
+?
+SUM IS 7
+```
+
+#### The workaround exists and is worse than the gap
+
+`system:writeFile("/dev/stdout", "? ")` writes without a newline and looks like
+the answer. It is not, and the way it fails is the reason this entry is worth
+writing down rather than leaving as folklore.
+
+`writeFile` opens its own stream on the file. `display` writes through the one
+the process started with. When the output is a terminal that stream is
+line-buffered and the two happen to interleave correctly; when it is a pipe or a
+file it is block-buffered, and everything written with `display` is still sitting
+in a buffer while the `writeFile` goes straight out. Measured:
+
+```text
+one          $ what the program printed, in order
+two? four? one
+three        $ what came out of a pipe
+five
+```
+
+The prompt arrives before the three lines written before it. **It works when
+tried by hand and silently reorders the transcript the moment anything is
+redirected**, which is the same shape as the two hand-written square roots in
+[3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done): plausible under the test anybody
+runs, wrong under the conditions nobody thinks to try.
+
+#### What it would take, and the one question it raises
+
+One primitive that writes a string to standard output and adds nothing. The
+question is not how but where it goes, and it is a real one, because this
+language has kept its output on `display` and `print` — messages every object
+answers, on the object being written.
+
+| | |
+| --- | --- |
+| `system:write(text)` | Puts it beside `readLine`, which is the symmetry: the two halves of a terminal. Against it: everything else that writes is a message on the value, and this would be the first that is not. |
+| `string:write` | Keeps the receiver as the thing being written, next to `display`. Against it: it reads as a third of a pair whose other two members serve every type, and a `write` that only strings answer is not that. |
+
+Either would be one line of C. Neither should be added on the way past
+something else — a language whose whole claim is that there is no second
+mechanism should not gain a third way to print without deciding which of the
+three is the one.
+
+#### What was decided, and the one thing the entry did not think of
+
+**It went on `system`, beside `readLine`.** The entry offered that or
+`string:write` and called the question real, which it was. What settled it:
+`print`, `display` and `asString` are a trio about *rendering a value* — the
+literal form, the text, and the text as a value — and this is not a fourth
+member of that family. It is about a **destination**, and the destination is
+where `readLine` already lives. The two are the two halves of one terminal.
+
+**A string and not any value**, following `writeFile`, which is the neighbour it
+most resembles. `system:write(#42:asString)` says which of the two renderings it
+wants, so there is no second rule to remember about how a value becomes text.
+
+**It flushes, which the entry did not think about and which is the whole point.**
+Text not followed by a newline sits in a line-buffered `stdout` until one
+arrives — and for a prompt, that means until after the answer has been read,
+which is the bug this was built to fix wearing a different hat. So the primitive
+flushes and the ordering holds:
+
+```text
+one
+two? three
+four? five
+```
+
+That is the same program whose broken output is recorded above, now through a
+pipe and in the order it was written.
+
+**[basic.sol](../programs/basic.sol)'s `INPUT` is what asked, and it got more
+than it asked for.** Whatever a `PRINT` left open is now written out without a
+newline before the `?`, so a prompt the listing wrote and the `?` the
+interpreter writes land on one line:
+
+```text
+TWO NUMBERS, SEPARATED BY A COMMA? 3, 4
+SUM IS 7
+```
+
+That was two lines and a stray `?` for the two days between the statement being
+written and this being closed.
+
 ### 3.14 The mathematics that is not here — **done**
 
 **The title is the problem as it stood, and it stood for a long time.** All of
@@ -816,7 +925,7 @@ is a failure, confirmed by breaking one both ways.
 one. The comment renders as nothing and the reader sees the sentence:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 828<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 830<!--count claims--> claims
 ```
 
 [expect.sol](../programs/expect.sol) recounts each of them from the repository
@@ -836,8 +945,8 @@ that order under its headings. The two are now held together.
 | --- | --- | --- |
 | ROADMAP 3.14, on whether `float` should gain trigonometry | `float` answers **21** messages | **35**<!--count float-answers--> — the count that entry's whole size argument rests on, five releases out of date |
 | [REFERENCE.md](REFERENCE.md)'s message index | **121** messages across **215** registrations | **122** across **216** |
-| [programs.md](programs.md)'s sample output | 21 files, **398** claims | 22 files, **474**<!--count examples-claims--> claims |
-| `README.md`, `programs.md` and the entry itself | **589** claims | **828**<!--count claims--> |
+| [programs.md](programs.md)'s sample output | 21 files, **398** claims | 22 files, **475**<!--count examples-claims--> claims |
+| `README.md`, `programs.md` and the entry itself | **589** claims | **830**<!--count claims--> |
 
 #### What is left, which is not a gap
 

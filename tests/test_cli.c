@@ -643,12 +643,15 @@ static void test_basic_runs_a_listing_from_a_file(void)
     assert(strcmp(out, " 2  3  5  7  11  13  17  19  23  29  31  37  41  43  47 \n")
            == 0);
 
-    /* INPUT, with the answers piped in. The `?` on a line of its own rather
-       than beside the answer is ROADMAP 3.18 and not a defect here -- if this
-       ever reads "? 3, 4" the entry has been closed and this should say so. */
+    /* INPUT, with the answers piped in. The prompt sits beside the answer now:
+       whatever the PRINT on the line before left open goes out without a
+       newline, then the `?`, then what was typed. It read "?\n" on a line of
+       its own until ROADMAP 3.18 was closed with system:write. Nothing echoes
+       a piped answer, so what follows the `?` here is the next PRINT. */
     assert(run("printf '3, 4\\nHans\\n' | bin/solvm " DIR "/basic.sob"
                " programs/basic/adder.bas 2>&1", out, sizeof out) == 0);
-    assert(strstr(out, "\n?\nSUM IS 7 \n") != NULL);
+    assert(strstr(out, "TWO NUMBERS, SEPARATED BY A COMMA? SUM IS 7 \n") != NULL);
+    assert(strstr(out, "AND YOUR NAME? THANK YOU, Hans\n") != NULL);
     assert(strstr(out, "PRODUCT IS 12 \n") != NULL);
     assert(strstr(out, "THANK YOU, Hans\n") != NULL);
 

@@ -126,7 +126,7 @@ already moved. Nothing is unwound because nothing was wound.
 BASIC prompts with `?` and reads the answer typed beside it. This cannot:
 `display` and `print` are the only ways a Solum program has to write, and both
 end the line. That is
-[3.18](ROADMAP.md#318-a-program-cannot-write-without-ending-the-line).
+[3.18](COMPLETED.md#318-a-program-cannot-write-without-ending-the-line--done).
 
 **The workaround is worse than the gap, and that is the part worth having.**
 `system:writeFile("/dev/stdout", "? ")` writes without a newline and looks like
