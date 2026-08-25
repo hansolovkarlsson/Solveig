@@ -82,7 +82,7 @@ so it cannot be held as data and asked for back — `self:report` *calls* it. Th
 default is a block that does nothing rather than a nil to test for, which is
 shorter and has no branch in it.
 
-### Hexadecimal and binary integers — `pending`, 2026-08-25
+### Hexadecimal and binary integers — `deeb34b`, 2026-08-25
 
 **`$FF08` and `%10101100` write the same integer in the base you are thinking
 in.** A colour, a file mode and a set of flags are all patterns of bits, and
