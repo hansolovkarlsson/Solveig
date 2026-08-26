@@ -5,6 +5,27 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Files, and the eight stages are done — `391aba6`, 2026-08-26
+
+**`OPEN`, `CLOSE`, `PRINT #`, `WRITE #`, `INPUT #`, `LINE INPUT #` and `EOF`**,
+sequential only — and they **matched QuickBASIC byte for byte on the first
+comparison**, which no other stage managed. Sixteen `agree/` programs, and every
+stage of [SOLABASIC.md](SOLABASIC.md) is now held against a real QuickBASIC.
+
+**There is no streaming underneath**, the machine reading and writing whole
+files, so a channel open for reading holds the file and one open for writing
+holds what has been written until it is closed. Stopping the program closes what
+is still open.
+
+**Two things came out of writing it.** `INPUT #` was not taking the quotes off a
+field `WRITE #` had put them on, so a round trip gave back `"Hans"` rather than
+`Hans` — and fixing it properly meant making the field splitter quote-aware, so
+a comma inside quotes stops separating and text with one in it survives.
+
+**And one divergence is new**: a file is written with line feeds where QBasic
+writes CR LF. A carriage return is taken off what is read, so a file written by
+either is readable here.
+
 ### PRINT USING, measured before it was written — `%s`, 2026-08-26
 
 **The first feature here built the other way round.** Twenty-one formats went
