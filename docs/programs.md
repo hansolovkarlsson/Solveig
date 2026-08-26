@@ -951,9 +951,9 @@ i = 5
 counted to 5
 ```
 
-**Stages 1, 2, 3 and 4** of the eight [SOLABASIC.md](SOLABASIC.md) lists —
-everything but arrays, `PRINT`'s real formatting, files, and the QuickBASIC
-comparison harness. Stage 3 —
+**Stages 1, 2, 3 and 4** of the eight [SOLABASIC.md](SOLABASIC.md) lists, plus
+the half of stage 6 that is `PRINT`'s real formatting — which leaves arrays,
+`INPUT`, files, `PRINT USING` and the QuickBASIC comparison harness. Stage 3 —
 `GOTO` and labels — went first, because it is the claim the whole design rests on
 and the document says to reach it in week one rather than week six. Stage 2 is
 the structured half, stage 4 is procedures, and
@@ -1085,10 +1085,29 @@ that reads its home frame cannot outlive it, and the machine said exactly that:
 *block outlived the frame it was written in*. The table holds a symbol and a
 selector now.
 
-**What is not here is stages 5 to 7**: no arrays, no `DIM`, no files, and a
-`PRINT` that joins its items and shows them with none of BASIC's zones or
-spacing. That last one is the thing most likely to be mistaken for a bug, which
-is why it is written down twice.
+**`PRINT`'s rules were brought forward out of stage 6**, because stage 7 is a
+comparison against a real QuickBASIC and it cannot compare anything while every
+line differs in its spacing. A number is a sign character, the digits, and a
+trailing space; `,` moves to the next zone of 14 and `;` moves nowhere; a
+separator at the end of a line holds it open; the margin is 80.
+
+**And the runtime for it is written in SolaBasic**, compiled by this same
+compiler and emitted into any program that prints. That is not a flourish: those
+rules are a line buffer, three loops and a decision about a leading nought, and
+each of them is easier to read as BASIC than as a sequence of `emit` calls —
+which is what `SGN` had to be, and what got `SGN` wrong the first time. It costs
+a reserved prefix: names beginning `SOLA` belong to the runtime.
+
+**Writing it turned up two things the compiler had wrong**, which is the argument
+for writing the runtime in the language rather than around it. `nextIs` compared
+a token's text without its kind, so the string literal `"-"` answered yes to
+*is the next token a minus* and `T$ = "-" + MID$(T$, 3)` would not parse. And
+`CALL` was missing from the statements a one-line `IF` may hold, so
+`IF x > 80 THEN CALL Wrap` was refused. Neither was reachable from anything in
+this repository until a real program was written.
+
+**What is not here is the rest of stages 5 to 7**: no arrays, no `DIM`, no
+files, no `PRINT USING`.
 
 ## Adding one
 

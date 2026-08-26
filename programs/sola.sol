@@ -9,9 +9,9 @@
 ;
 ; The language is [SolaBasic](../docs/SOLABASIC.md), and there is a
 ; [reference manual](../docs/SOLABASIC-REFERENCE.md) for people who want to
-; write it rather than read about it. Stages 1, 2, 3 and 4 of the eight that
-; document lists are here -- everything except arrays, `PRINT`'s real
-; formatting, files, and the QuickBASIC comparison harness.
+; write it rather than read about it. Stages 1, 2, 3 and 4 are here, and so is
+; the half of stage 6 that is `PRINT`'s real formatting -- which leaves arrays,
+; `INPUT`, files, `PRINT USING`, and the QuickBASIC comparison harness.
 ;
 ; **Stage 3 went first on purpose** -- it is `GOTO` and labels, the claim the
 ; whole design rests on, and the document says to reach it in week one rather
@@ -158,7 +158,9 @@
 ;   STATIC        a local that survives between calls
 ;   DECLARE       read and dropped; nothing needs declaring here
 ;   assignment    `LET` optional, scalars only
-;   PRINT         expressions and strings, `;` and `,`
+;   PRINT         BASIC's rules: the sign space and the trailing space on a
+;                 number, print zones of 14, a margin of 80, `TAB` and `SPC`,
+;                 and a separator at the end of the line that holds it open
 ;   END           stops
 ;   types         Integer, Double and String, by suffix or by `DEF`
 ;   expressions   `^ * / \\ MOD + -`, the six comparisons, `NOT AND OR XOR`
@@ -166,7 +168,8 @@
 ;   RANDOMIZE     reseeds the one generator
 ;   comments      `REM` and `'`
 ;
-; **Not here, and not pretended:** arrays, `DIM`, `CONST`, `INPUT` and files. `PRINT`'s real formatting is
+; **Not here, and not pretended:** arrays, `DIM`, `CONST`, `INPUT`, files and
+; `PRINT USING`. `PRINT`'s real formatting is
 ; stage 6; here the items of one `PRINT` are joined and shown, with no zones and
 ; no trailing space, so its output is **not** what a BASIC prints. That is a
 ; stage, not a divergence, and it is the one thing here most likely to be
@@ -314,6 +317,7 @@ stmt:limit := nil.          ; 'for
 stmt:step := nil.           ; 'for, nil when none was written
 stmt:test := 'none.         ; 'do and 'loop: 'none 'while 'until
 stmt:alternatives := nil.   ; 'case
+stmt:seps := nil.           ; 'print: what followed each item -- ; or , or nothing
 stmt:body := nil.           ; 'sub and 'function: the statements between them
 
 ; ---------------------------------------------------------------------------
@@ -422,6 +426,15 @@ sola:numberToken := { s | | start |
 ; taken here rather than left to the parser as an operator.
 sola:wordToken := { s | | text, suffix |
     text := s:takeWhile({ c | isLetter:value(c):or({ isDigit:value(c) }) }):asUppercase.
+    ; **Names beginning `SOLA` belong to the runtime.** `PRINT`'s rules are
+    ; written in SolaBasic and compiled with everything else, so its routines and
+    ; its line buffer are ordinary names and would collide with a listing that
+    ; happened to pick one. Reserving four letters is the whole of the defence,
+    ; and it is one rule rather than a renaming pass.
+    self:inPrelude:not:and({ text:size:greaterOrEqual(#4) })
+        :and({ text:copyFrom(#1, #4):equals("SOLA") }):ifTrue({
+        self:fail("names beginning SOLA belong to the runtime: '{}'"
+            :fill([text])) }).
     s:match("!"):ifTrue({
         self:fail("'{}!' is a SINGLE, and SolaBasic has no SINGLE -- see "
             :concat("docs/SOLABASIC.md. Write {} or {}# for a Double.")
@@ -483,15 +496,24 @@ sola:takeToken := { | t |
 ; while the two halves of such an IF are being parsed, so ELSE is an ordinary
 ; word everywhere else -- including where it opens a block on a line of its own.
 sola:stopAtElse := false.
+sola:inPrelude := false.
+sola:hasPrelude := false.
 
 sola:atEndOfLine := {
     self:cursor:greaterThan(self:tokens:size):or({
         self:stopAtElse:and({ self:nextIs("ELSE") }) }) }.
 
 ; Is the next token this punctuation or word?
+;
+; **The kind is checked and not only the text**, which looks like belt and
+; braces and is not: a string literal carries its contents as its text, so
+; `"-"` answered yes to *is the next token a minus* and
+; `T$ = "-" + MID$(T$, 3)` was read as an assignment beginning with a unary
+; minus. Found by writing SolaBasic rather than by testing the compiler.
 sola:nextIs := { text | | t |
     t := self:peekToken.
-    t:notNil:and({ t:text:equals(text) }) }.
+    t:notNil:and({ ['word, 'punct]:indexOf(t:kind):notNil })
+        :and({ t:text:equals(text) }) }.
 
 ; ---------------------------------------------------------------------------
 ; A line: an optional label, then at most one statement
@@ -535,8 +557,10 @@ sola:parseStatement := { st | | t |
         { self:parseAssignment(st) }) }.
 
 ; The statements a one-line IF may hold. A block cannot go on one, because its
-; closing line would have nowhere to be.
-inlineKinds := ['let, 'print, 'goto, 'end, 'exit].
+; closing line would have nowhere to be. Everything else can, and `CALL` in
+; particular -- `IF x > 80 THEN CALL Wrap` is how BASIC is written, and leaving
+; it out was found by the runtime below failing to compile.
+inlineKinds := ['let, 'print, 'goto, 'end, 'exit, 'call, 'randomize, 'rem].
 
 ; The label a jump names. A word or a number, and nothing else -- the error
 ; here is worth naming because the mistake is almost always a later BASIC:
@@ -650,7 +674,7 @@ sola:parseInlineStatement := { | sub, t, next, lead |
         { sub:kind := 'goto. sub:target := self:takeToken:text },
         { self:parseStatement(sub) }).
     inlineKinds:indexOf(sub:kind):isNil:ifTrue({
-        self:fail("'{}' opens a block, and a one-line IF holds one statement"
+        self:fail("'{}' cannot go on a one-line IF, which holds one statement"
             :fill([lead])) }).
     sub }.
 
@@ -907,16 +931,26 @@ sola:parseCallArguments := { | args, more |
     self:takeToken.
     args }.
 
+; **The separator after each item is part of the statement**, not punctuation
+; to be dropped: a comma moves to the next print zone, a semicolon moves
+; nowhere, and one at the end of the line holds the line open for the next
+; PRINT to carry on.
 sola:parsePrint := { st | | t |
     st:kind := 'print.
     st:items := array:new.
+    st:seps := array:new.
     { self:atEndOfLine:not }:whileTrue({
         st:items:add(self:parseExpression).
-        self:atEndOfLine:ifFalse({
-            t := self:peekToken.
-            t:text:equals(";"):or({ t:text:equals(",") }):ifElse(
-                { self:takeToken },
-                { self:fail("PRINT separates its items with ';' or ','") }) }) }) }.
+        self:atEndOfLine:ifElse(
+            { st:seps:add("none") },
+            { t := self:peekToken.
+              t:text:equals(";"):or({ t:text:equals(",") }):ifElse(
+                  { st:seps:add(self:takeToken:text:equals(","):ifElse(
+                        { "comma" }, { "semi" })).
+                    self:atEndOfLine:ifTrue({
+                        ; a separator with nothing after it keeps the line open
+                        st:items:add(nil). st:seps:add("open") }) },
+                  { self:fail("PRINT separates its items with ';' or ','") }) }) }) }.
 
 ; ---------------------------------------------------------------------------
 ; Expressions
@@ -1371,6 +1405,7 @@ sola:variablesInStatement := { st, names |
     ['let, 'for]:indexOf(st:kind):notNil:ifTrue({ self:noteName(names, st:name) }).
     ['print, 'call]:indexOf(st:kind):notNil:ifTrue({
         st:items:do({ a | self:variablesInExpression(a, names) }) }).
+    st:kind:equals('print):ifTrue({ nil }).
     self:variablesInExpression(st:expr, names).
     self:variablesInExpression(st:limit, names).
     self:variablesInExpression(st:step, names).
@@ -1569,7 +1604,7 @@ sola:emitStatement := { st |
 ; Everything in one statement, typed before any of it is emitted.
 sola:typeStatement := { st |
     ['print, 'call]:indexOf(st:kind):notNil:ifTrue({
-        st:items:do({ a | self:typeExpression(a) }) }).
+        st:items:do({ a | a:isNil:ifFalse({ self:typeExpression(a) }) }) }).
     st:expr:notNil:ifTrue({ self:typeExpression(st:expr) }).
     st:limit:notNil:ifTrue({ self:typeExpression(st:limit) }).
     st:step:notNil:ifTrue({ self:typeExpression(st:step) }).
@@ -1584,7 +1619,10 @@ sola:typeStatement := { st |
     st:otherwise:notNil:ifTrue({ self:typeStatement(st:otherwise) }) }.
 
 emitters:atPut('rem, { m, st | nil }).
-emitters:atPut('end, { m, st | m:byte(HALT) }).
+; **A line left open goes out before the program stops.** `PRINT "x";` holds
+; the line for the next PRINT to continue, and if there is no next PRINT it
+; still has to be written -- so every way out of the program flushes first.
+emitters:atPut('end, { m, st | m:emitFinalFlush. m:byte(HALT) }).
 emitters:atPut('goto, { m, st | m:emitJump(st:target) }).
 emitters:atPut('print, { m, st | m:emitPrint(st) }).
 emitters:atPut('let, { m, st |
@@ -2230,7 +2268,8 @@ sola:callsInStatement := { st, found |
         found:add([st:name, st:items]).
         st:items:do({ a | self:callsInExpression(a, found) }) }).
     st:kind:equals('print):ifTrue({
-        st:items:do({ a | self:callsInExpression(a, found) }) }).
+        st:items:do({ a | self:isPlacement(a):ifFalse({
+            self:callsInExpression(a, found) }) }) }).
     self:callsInExpression(st:expr, found).
     self:callsInExpression(st:limit, found).
     self:callsInExpression(st:step, found).
@@ -2464,7 +2503,7 @@ sola:simpleBuiltin("SQR",   'double, 'double, "sqrt").
 sola:simpleBuiltin("LEN",   'string, 'integer, "size").
 sola:simpleBuiltin("UCASE$", 'string, 'string, "asUppercase").
 sola:simpleBuiltin("LCASE$", 'string, 'string, "asLowercase").
-sola:simpleBuiltin("STR$",  'double, 'string, "asString").
+
 sola:simpleBuiltin("CHR$",  'integer, 'string, "asCharacter").
 
 ; `ABS` on an Integer must stay an Integer, so the argument is not forced to a
@@ -2476,6 +2515,27 @@ builtins:atPut("ABS", [['numeric], 'sameAsArg, 'block,
 ; a number, and `VAL("12ab")` is an error rather than `12`. Reading a number out
 ; of the front of a string wants a scanner, and there is not one in the emitted
 ; program -- see the reference manual, which says so where somebody will look.
+builtins:atPut("STR$", [['numeric], 'string, 'block,
+    { m, args |
+        args:at(#1):type:equals('string):ifTrue({
+            m:fail("STR$ turns a number into text, and was given text") }).
+        m:emitExpression(args:at(#1)).
+        m:emitSend("asString", #0) }]).
+
+; Writing a finished line, which is the one thing the runtime below cannot do
+; for itself: SolaBasic has no way to put text on the terminal except `PRINT`,
+; and `PRINT` is what it is implementing.
+builtins:atPut("SOLAWRITE", [['string], 'string, 'block,
+    { m, args | m:builtinArg(args, #1, 'string). m:emitSend("display", #0) }]).
+
+; `TAB` and `SPC` are not functions -- they move the place the next thing goes,
+; which only means anything inside a PRINT. They are here so that a call to one
+; has a type, and they refuse to be emitted anywhere else.
+builtins:atPut("TAB", [['integer], 'integer, 'block,
+    { m, args | m:fail("TAB moves PRINT along, so it only goes inside one") }]).
+builtins:atPut("SPC", [['integer], 'integer, 'block,
+    { m, args | m:fail("SPC moves PRINT along, so it only goes inside one") }]).
+
 builtins:atPut("VAL", [['string], 'double, 'block,
     { m, args | m:builtinArg(args, #1, 'string). m:emitSend("asFloat", #0) }]).
 
@@ -2761,17 +2821,56 @@ sola:emitCondition := { n | self:emitTyped(n, 'boolean) }.
 ; is one line. **This is not BASIC's PRINT**: there are no print zones, no
 ; leading space in front of a positive number and no trailing space after one,
 ; and `,` does the same thing as `;`. That is stage 6 and this is stage 3.
-sola:emitPrint := { st | | first |
-    st:items:size:equals(#0):ifElse(
-        { self:emitString("") },
-        { first := true.
-          st:items:do({ item |
-              ; Anything already a string converts for nothing, which is what
-              ; keeps a literal from costing a send.
-              self:emitTyped(item, 'string).
-              first:ifElse({ first := false }, { self:emitSend("concat", #1) }) }) }).
-    self:emitSend("display", #0).
+; A call into the runtime: the block, its arguments, `value`, and the answer
+; thrown away.
+sola:runtime := { name, emitArgs, argc |
+    self:emitGlobal(name).
+    emitArgs:value.
+    self:emitSend("value", argc).
     self:emitPop }.
+
+sola:isPlacement := { item |
+    item:notNil:and({ item:kind:equals('call) })
+        :and({ ["TAB", "SPC"]:indexOf(item:name):notNil }) }.
+
+; A string goes out as it is; a number is turned into text and then given the
+; sign character and the trailing space that make BASIC output look the way it
+; does.
+sola:emitItemText := { item |
+    item:type:equals('string):ifElse(
+        { self:emitTyped(item, 'string) },
+        { self:emitGlobal("SOLASIGN$").
+          self:emitExpression(item).
+          self:emitSend("asString", #0).
+          self:emitSend("value", #1) }) }.
+
+sola:emitFinalFlush := { | done |
+    self:hasPrelude:ifTrue({
+        self:emitGlobal("SOLABUF$").
+        self:emitSend("size", #0).
+        self:emitIntConst(#0).
+        self:emitSend("greaterThan", #1).
+        done := self:branchHole.
+        self:runtime("SOLAEOL", { nil }, #0).
+        self:fillBranch(done) }) }.
+
+sola:emitPrint := { st | | i, item |
+    st:items:size:equals(#0):ifElse(
+        { self:runtime("SOLAEOL", { nil }, #0) },
+        { i := #1.
+          { i:lessOrEqual(st:items:size) }:whileTrue({
+              item := st:items:at(i).
+              item:isNil:ifFalse({
+                  self:isPlacement(item):ifElse(
+                      { self:runtime(
+                            item:name:equals("TAB"):ifElse({ "SOLATAB" }, { "SOLASPC" }),
+                            { self:emitTyped(item:args:at(#1), 'integer) }, #1) },
+                      { self:runtime("SOLAOUT", { self:emitItemText(item) }, #1) }) }).
+              st:seps:at(i):equals("comma"):ifTrue({
+                  self:runtime("SOLAZONE", { nil }, #0) }).
+              i := i:add(#1) }).
+          st:seps:at(st:seps:size):equals("none"):ifTrue({
+              self:runtime("SOLAEOL", { nil }, #0) }) }) }.
 
 ; ---------------------------------------------------------------------------
 ; Which line a byte came from
@@ -2816,6 +2915,8 @@ sola:compile := { source, path |
 
     self:readStatements(source).
     self:extractRoutines.
+    self:hasPrelude := self:usesPrint.
+    self:hasPrelude:ifTrue({ self:readPrelude }).
     self:analyseByRef.
 
     self:atLine := #1.
@@ -2826,6 +2927,10 @@ sola:compile := { source, path |
     ; Procedures first, so that every name a call needs is bound before the
     ; module's first line runs.
     self:emitRandomGenerator.
+    self:hasPrelude:ifTrue({
+        self:emitString("").
+        self:emitStore("SOLABUF$").
+        self:emitPop }).
     self:emitStaticInitialisers.
     self:routineOrder:do({ r | self:emitRoutine(r) }).
     self:statementsOfScope := self:statements.
@@ -2842,7 +2947,7 @@ sola:compile := { source, path |
         { #1 }, { self:statements:at(self:statements:size):line:add(#1) }).
     self:mark(self:atLine).
     self:trailingLabels.
-    self:needsHalt:ifTrue({ self:byte(HALT) }).
+    self:needsHalt:ifTrue({ self:emitFinalFlush. self:byte(HALT) }).
 
     self:chunkOfUnit }.
 
@@ -2896,6 +3001,114 @@ sola:readStatements := { source | | line, st |
 ; A statement that is nothing but a label, so that the label gets an offset.
 sola:labelOnly := { label, line | | st |
     st := stmt:new. st:kind := 'rem. st:label := label. st:line := line. st }.
+
+
+; ---------------------------------------------------------------------------
+; PRINT's rules, written in SolaBasic
+;
+; **The runtime is written in the language it serves**, compiled by this same
+; compiler and emitted into the program that needs it. That is not a flourish:
+; `PRINT`'s rules are a line buffer, three loops and a decision about a leading
+; nought, and every one of those is easier to read as BASIC than as a sequence
+; of `emit` calls -- which is what `SGN` had to be, and what got `SGN` wrong the
+; first time.
+;
+; It costs a reserved prefix. These are ordinary names to the compiler, so a
+; listing that wrote `SOLAOUT` would collide with one; four letters are reserved
+; in `wordToken` instead of a renaming pass.
+;
+; **The numbers here are QBasic's and are not all settled.** A print zone is 14
+; and the margin is 80; the digits a Double shows come from the machine's own
+; shortest round-trip rather than from a count BASIC fixes, and the exponent
+; letter is `D` because SolaBasic's only float is a Double. Stage 7 is where
+; those get held against a real QuickBASIC -- see SOLABASIC.md.
+
+prelude := "
+FUNCTION SOLASIGN$ (T$)
+  U$ = T$
+  IF LEFT$(U$, 2) = \"0.\" THEN
+    U$ = MID$(U$, 2)
+  ELSEIF LEFT$(U$, 3) = \"-0.\" THEN
+    U$ = \"-\" + MID$(U$, 3)
+  END IF
+  P% = INSTR(U$, \"e\")
+  IF P% > 0 THEN U$ = LEFT$(U$, P% - 1) + \"D\" + MID$(U$, P% + 1)
+  IF LEFT$(U$, 1) = \"-\" THEN
+    SOLASIGN$ = U$ + \" \"
+  ELSE
+    SOLASIGN$ = \" \" + U$ + \" \"
+  END IF
+END FUNCTION
+
+SUB SOLAEOL
+  SHARED SOLABUF$
+  SOLAWRITE SOLABUF$
+  SOLABUF$ = \"\"
+END SUB
+
+SUB SOLAOUT (T$)
+  SHARED SOLABUF$
+  IF LEN(SOLABUF$) > 0 THEN
+    IF LEN(SOLABUF$) + LEN(T$) > 80 THEN CALL SOLAEOL
+  END IF
+  SOLABUF$ = SOLABUF$ + T$
+END SUB
+
+SUB SOLAPAD (N%)
+  SHARED SOLABUF$
+  DO WHILE LEN(SOLABUF$) < N%
+    SOLABUF$ = SOLABUF$ + \" \"
+  LOOP
+END SUB
+
+SUB SOLAZONE
+  SHARED SOLABUF$
+  IF LEN(SOLABUF$) >= 70 THEN
+    CALL SOLAEOL
+  ELSE
+    DO
+      SOLABUF$ = SOLABUF$ + \" \"
+    LOOP UNTIL LEN(SOLABUF$) MOD 14 = 0
+  END IF
+END SUB
+
+SUB SOLATAB (N%)
+  SHARED SOLABUF$
+  M% = N%
+  IF M% < 1 THEN M% = 1
+  IF LEN(SOLABUF$) > M% - 1 THEN CALL SOLAEOL
+  CALL SOLAPAD(M% - 1)
+END SUB
+
+SUB SOLASPC (N%)
+  SHARED SOLABUF$
+  IF N% > 0 THEN CALL SOLAPAD(LEN(SOLABUF$) + N%)
+END SUB
+".
+
+; The runtime is read in only when the listing prints, so a program that never
+; does carries none of it.
+sola:usesPrint := { | found |
+    found := false.
+    self:statements:do({ st |
+        self:printsIn(st):ifTrue({ found := true }) }).
+    self:routineOrder:do({ r |
+        r:body:do({ st | self:printsIn(st):ifTrue({ found := true }) }) }).
+    found }.
+
+sola:printsIn := { st |
+    st:kind:equals('print)
+        :or({ st:then:notNil:and({ self:printsIn(st:then) }) })
+        :or({ st:otherwise:notNil:and({ self:printsIn(st:otherwise) }) }) }.
+
+sola:readPrelude := { | saved |
+    saved := self:statements.
+    self:statements := array:new.
+    self:inPrelude := true.
+    self:readStatements(prelude).
+    self:extractRoutines.
+    self:inPrelude := false.
+    self:statements := saved }.
 
 ; ---------------------------------------------------------------------------
 ; The command line

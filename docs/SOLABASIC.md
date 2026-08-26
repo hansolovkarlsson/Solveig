@@ -667,12 +667,12 @@ The language above is the finish line. The order to reach it in:
 | | |
 | --- | --- |
 | **0** | **Done** — [programs/sola.sol](../programs/sola.sol). A `.sob` out of a SolaBasic program, running, with nothing of the compiler present. |
-| **1** | **Done**, except `PRINT`'s rules, which are stage 6. The three types, the whole operator table, and all twenty-seven supplied functions. |
+| **1** | **Done.** The three types, the whole operator table, all twenty-seven supplied functions — and `PRINT`'s rules, brought forward out of stage 6 because stage 7 cannot compare anything until output matches. |
 | **2** | **Done.** `IF` in both shapes, `SELECT CASE`, `FOR`/`NEXT`, `DO`/`LOOP`, `WHILE`/`WEND`, `EXIT FOR` and `EXIT DO`, all compiled to jumps. |
 | **3** | **Done, and first, as this table said it should be.** `GOTO` and labels, forwards and backwards, to any label in the program. What it found is below. |
 | **4** | **Done.** `SUB`, `FUNCTION`, `CALL`, locals, `SHARED`, `STATIC`, `EXIT SUB`/`EXIT FUNCTION`, and by-reference parameters. |
 | **5** | Arrays, `DIM`, `OPTION BASE`. |
-| **6** | `INPUT`, files, `PRINT USING`. |
+| **6** | `INPUT`, files, `PRINT USING`. **`PRINT`'s own rules are done** — see stage 1. |
 | **7** | The QuickBASIC 4.5 comparison harness, and the divergence list settled against it. |
 
 Stage 3 is the one to reach early even though the ordering does not demand it,

@@ -1,39 +1,39 @@
-up 1
-up 2
-up 3
-down 3
-down 2
-down 1
-cell 1,1
-cell 1,2
-cell 2,1
-cell 2,2
-by two 1
-by two 3
-by two 5
-1 one
-2 two
-3 three
-4 many
+up  1 
+up  2 
+up  3 
+down  3 
+down  2 
+down  1 
+cell  1 , 1 
+cell  1 , 2 
+cell  2 , 1 
+cell  2 , 2 
+by two  1 
+by two  3 
+by two  5 
+ 1  one
+ 2  two
+ 3  three
+ 4  many
 one-line then
 one-line else
-1 is one or two
-2 is one or two
-3 is in three to four
-4 is in three to four
-5 is none of those
-6 is six or more
-do while 1
-do while 2
-do while 3
-loop until 1
-loop until 2
-loop until 3
-do until 1
-do until 2
-wend 1
-wend 2
-exit for 1
-exit for 2
-exit do 1
+ 1  is one or two
+ 2  is one or two
+ 3  is in three to four
+ 4  is in three to four
+ 5  is none of those
+ 6  is six or more
+do while  1 
+do while  2 
+do while  3 
+loop until  1 
+loop until  2 
+loop until  3 
+do until  1 
+do until  2 
+wend  1 
+wend  2 
+exit for  1 
+exit for  2 
+exit do  1 
 done

@@ -184,6 +184,10 @@ PRINT z        ' 1
 A name is a letter followed by letters and digits, optionally ending in a type
 suffix. See [what a name's type is](#what-a-names-type-is).
 
+**Names beginning `SOLA` are reserved.** `PRINT`'s rules are themselves written
+in SolaBasic and compiled into your program, and those four letters are what
+keeps its routines and its line buffer out of your way.
+
 **At module level every variable is global.** Inside a `SUB` or `FUNCTION` every
 variable is local to that call, unless [`SHARED`](#shared) or
 [`STATIC`](#static) says otherwise — see [Procedures](#procedures).
@@ -299,15 +303,49 @@ PRINT a, b, c
 PRINT
 ```
 
-Items are separated by `;` or `,`, and **both do the same thing**: the items of
-one `PRINT` are joined and shown as one line. `PRINT` with nothing after it
-prints an empty line.
+**A number is a sign character — a minus, or a space where one would go — then
+the digits, then a trailing space.** A string gets neither. That is why BASIC
+output has its airy look, and why a negative number lines up under a positive
+one:
 
-> **This is not BASIC's `PRINT` yet.** There are no print zones, no leading space
-> in front of a positive number and no trailing space after one, and `,` does not
-> move to the next zone. That is stage 6 of
-> [SOLABASIC.md](SOLABASIC.md#stages), and it is the thing here most likely to be
-> mistaken for a bug.
+```text
+ 14
+-7
+ 2.5
+ .5
+text
+```
+
+There is no nought before the point, and a number too large or small for plain
+digits is written with a `D` exponent.
+
+**`,` moves to the next print zone; `;` moves nowhere.** A zone is 14 columns:
+
+```basic
+PRINT 1, 2, 3        '  1             2             3
+PRINT "a"; "b"; "c"  ' abc
+```
+
+**A separator at the end of the line holds the line open** for the next `PRINT`
+to carry on, and `PRINT` with nothing after it ends the line it is on:
+
+```basic
+PRINT "open";
+PRINT " continued"   ' open continued
+```
+
+A line still open when the program stops is written out before it does.
+
+**`TAB(n)` puts the next thing in column `n`**, counting from one, and starts a
+new line if that column has gone by. **`SPC(n)`** is `n` spaces from wherever it
+is. Both are only meaningful inside a `PRINT`.
+
+```basic
+PRINT TAB(10); "at ten"
+PRINT "x"; SPC(5); "y"
+```
+
+**The margin is 80.** An item that will not fit goes on the next line.
 
 ---
 
@@ -635,7 +673,7 @@ each belongs to is in [SOLABASIC.md](SOLABASIC.md#stages).
 | | |
 | --- | --- |
 | `AS INTEGER`, `AS DOUBLE`, `AS STRING` | stage 5, with `DIM` — a suffix or a `DEF` says the same thing today |
-| `PRINT`'s zones, `TAB`, `SPC`, `PRINT USING` | stage 6 |
+| `PRINT USING` | stage 6 |
 | `DIM`, arrays, `OPTION BASE` | stage 5 |
 | `INPUT`, `LINE INPUT`, files | stage 6 |
 | `CONST` | stage 5 |
@@ -661,9 +699,13 @@ are the ones that bite while typing.
 3. **Spaces between words are required.** `FORI=1TO10` is not a `FOR`.
 4. **A string may not contain a double quote.** `CHR$(34)` is the way round it,
    as it is in QBasic.
-5. **`PRINT` does not format like BASIC's**, as above — and `STR$` does not put
-   the leading space in front of a positive number that BASIC's does, for the
-   same reason.
+5. **How many digits a Double shows is the machine's choice, not BASIC's.**
+   `PRINT 1 / 3` gives `.3333333333333333` — the shortest text that reads back
+   as the same number — where QBasic fixes a count. The print zones (14) and the
+   margin (80) are QBasic's numbers; the digit count is not yet settled against
+   a real one, and [stage 7](SOLABASIC.md#stages) is where it will be.
+   `STR$` does not add the leading space that BASIC's does — `PRINT` adds it,
+   which is where BASIC puts it too.
 6. **`VAL` is strict.** BASIC's reads a number off the front of a string and
    answers `0` for junk; this one wants the whole string to be a number. Reading
    a number out of the front of text wants a scanner, and there is none in the

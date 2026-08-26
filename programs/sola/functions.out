@@ -1,21 +1,21 @@
-ABS   4.5 7
-SGN   -1 0 1
-INT   2 -3
-FIX   2 -2
-SQR   4
-EXPLOG1 0
-TRIG  0 1 0 0
-LEN   5
+ABS    4.5   7 
+SGN   -1   0   1 
+INT    2  -3 
+FIX    2  -2 
+SQR    4 
+EXPLOG 1   0 
+TRIG   0   1   0   0 
+LEN    5 
 LEFT  hel|hi||
 RIGHT llo|hi||
 MID2  llo||
 MID3  ell|lo|
-INSTR 3 0 4
+INSTR  3   0   4 
 CASE  MIXED mixed
 TRIM  |pad   |   pad|
-ASCCHR65 B
+ASCCHR 65  B
 STR   |42|
-VAL   4.5
+VAL    4.5 
 SPACE |    |
 STRING|*****|
 RND    in range
