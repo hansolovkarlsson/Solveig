@@ -5,6 +5,39 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### PRINT USING, measured before it was written — `%s`, 2026-08-26
+
+**The first feature here built the other way round.** Twenty-one formats went
+through QuickBASIC 4.5 *first* — digit positions, decimals, thousands
+separators, leading and trailing signs, asterisk fill, floating dollar,
+exponential, the literal escape, the three string fields, and a format shorter
+than its list of items — and the formatter was written to reproduce what came
+back rather than what anybody remembered.
+
+**Every case matched on the first comparison but one**, and that one was this
+compiler disagreeing with itself: `PRINT USING` wrote an exponent with `E` where
+plain `PRINT` already wrote `D`. Fifteen `agree/` programs now, all matching.
+
+**The formatter is written in SolaBasic**, beside `PRINT`'s and `INPUT`'s — it is
+a field scanner, a rounding routine and a good deal of padding, and each reads
+better as BASIC than as a sequence of `emit` calls.
+
+### Three defects, all found by writing a real program in the language — `fc27e85`, 2026-08-26
+
+Building that formatter turned these up before a line of `PRINT USING` was wired
+in. None was reachable from the transcripts or the corpus, and all three are in
+what stages 4 and 5 had already shipped.
+
+- **`DIM SHARED` on a plain variable did nothing** — the flag was recorded only
+  for arrays, so every procedure quietly got a local of its own.
+- **A procedure zero-initialised the module's shared variables**, replacing what
+  the module had put there. A `SUB` that assigns survived by luck of ordering; a
+  `FUNCTION` that only reads saw nought.
+- **A `FUNCTION` of no arguments called without brackets was read as a
+  variable** — the same defect the oracle found in `RND`, one level up. And the
+  name of a procedure holds the procedure, so the walker deciding which names
+  want a nought was overwriting the block with `0`.
+
 ### The corpus covers GOTO now, and finds nothing — `b757f07`, 2026-08-26
 
 **Five programs into [oracle/agree/](../programs/sola/oracle/agree/)**, closing
