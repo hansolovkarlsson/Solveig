@@ -939,6 +939,15 @@ assembles them and one that only wants *any key* is not made to unpick a
 sequence it never asked about. Raw mode only when standard input is a terminal,
 so the same program reads the same way from a pipe.
 
+**`system:keyWaiting(seconds)` asks whether one is coming**, waiting up to that
+long, and answers true or false. That is how the escape key is told from the
+start of an escape sequence — an arrow begins with an escape and arrives all at
+once, a person's escape does not, and nothing follows one within fifty
+milliseconds except a machine. A question rather than a second reader, because
+nil already means *the end of input* and a program has to be able to tell that
+from *nothing yet*. **`readLine` and these two do not share a buffer**, so use
+one or the other on the same input; the reference says what that costs.
+
 **`system:terminalSize` answers how big the screen is** — a dictionary of
 `"rows"` and `"columns"`, or **nil** when the output is not a terminal. One
 message for both numbers, because two asks can straddle a resize and compose a

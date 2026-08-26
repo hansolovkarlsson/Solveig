@@ -1077,10 +1077,65 @@ key:equals(escape):ifTrue({
     ["up", "down", "right", "left"]:at("ABCD":indexOf(system:readKey)) }).
 ```
 
-[examples/keys.sol](../examples/keys.sol) does that, and says what it costs: a
-byte-level reader **cannot tell the escape key from the start of a sequence**,
-since telling them apart needs a read that gives up after a few milliseconds and
-there is none here.
+[examples/keys.sol](../examples/keys.sol) does that. A byte-level reader on its
+own **cannot tell the escape key from the start of a sequence** — telling them
+apart needs a read that gives up after a few milliseconds, which is the next
+message.
+
+#### Whether a key is coming
+
+`system:keyWaiting(seconds)` answers **true or false**: is there a byte to read,
+waiting up to that long for one to arrive.
+
+```
+escape := #27:asCharacter.
+key:equals(escape):and({ system:keyWaiting(0.05) }):ifTrue({
+    system:readKey.                       ; the "["
+    ["up", "down", "right", "left"]:at("ABCD":indexOf(system:readKey)) }).
+```
+
+**The escape key is why it exists.** An arrow arrives as three bytes and the
+escape key as one, and `readKey` blocks until a byte is there — so a program
+that has just read an escape cannot tell a sequence from a keypress without
+reading on, and reading on is exactly what it must not do if nothing is coming.
+Nothing follows an escape within fifty milliseconds except a machine.
+
+**A question rather than a second reader.** `readKey(seconds)` answering the
+byte or nil was the other shape, and **nil already means the end of input** —
+which is how every read loop here finishes. Overloading it with *nothing yet*
+would leave a program unable to tell *there is nobody there* from *they have not
+typed yet*, where the first is final and the second is normal.
+
+**True at the end of input**, where the `readKey` after it answers nil: there is
+something to read, and what is there is the end. `0.0` asks about right now and
+waits for nothing. Seconds are a **float**, like every other duration here, and
+a negative one is refused rather than taken for *wait for ever*.
+
+**On a terminal it looks past the line discipline.** A terminal in its ordinary
+mode holds what is typed until a newline, so a program that asked this between
+two `readKey`s would be told nothing had been typed however much had — and the
+arrow keys it exists to recognise would stop working, their `[` and `B` sitting
+in the driver's buffer. It sets the same non-canonical mode `readKey` does for
+the length of the question, and puts it back.
+
+**It knows nothing about `readLine`'s buffer**, which is the limitation
+`readKey` has and for the same reason — see below.
+
+#### Two readers, one input
+
+`readLine` reads through the C library, which reads a block ahead; `readKey` and
+`keyWaiting` read the file descriptor underneath it. **They do not share a
+buffer**, so a program that calls `readLine` and then `readKey` loses whatever
+arrived in the same block as the line:
+
+```text
+printf 'one\nXY\n' | solvm program.sob     # readLine → "one";  readKey → nil
+```
+
+Use one or the other. Making them share one buffer is
+[6.36](ROADMAP.md#636-readline-and-readkey-do-not-share-an-input-buffer) and is
+not built; a test pins the present behaviour so that changing it is a decision
+rather than an accident.
 
 **No echo**, because raw mode does not; a program that wants the key shown
 prints it. **Raw mode only on a terminal** — through a pipe or a file a byte is
@@ -3028,6 +3083,7 @@ it delegates to `object` like everything else. See
 | `readLine` | one line of standard input without its terminator, or nil at the end |
 | `readKey` | one byte as a one-character string, or nil at the end; no wait for return |
 | `terminalSize` | a dictionary of `"rows"` and `"columns"`, or **nil** when the output is not a terminal |
+| `keyWaiting(seconds)` | whether a byte is there to read, waiting up to that long for one |
 | `readFile(path)` | the whole file as a string; an error if it is not there |
 | `writeFile(path, text)` | nil, having replaced the file's contents |
 | `fileExists(path)` | true if a file — not a directory — is at that path |
@@ -3201,7 +3257,7 @@ has been given, and cannot give itself more.
 Every built-in message and the types that answer it. The question a reference
 gets asked is usually *what has `copyFrom`?* rather than *what does a string
 do?*, and the sections above answer only the second — so this answers the first.
-137 messages across 233 registrations.
+138 messages across 234 registrations.
 
 **A test keeps it honest**: a message registered in `builtins.c` and missing
 from here fails the build, which is the same bargain that makes every message
@@ -3274,6 +3330,7 @@ appear in an example.
 | `inject` | [array](#array) |
 | `isDirectory` | [system](#system) |
 | `isKindOf` | [every type](#every-type) |
+| `keyWaiting` | [system](#system) |
 | `isNil` | [every type](#every-type) |
 | `join` | [array](#array) |
 | `keys` | [dictionary](#dictionary) |

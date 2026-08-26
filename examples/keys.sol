@@ -46,7 +46,7 @@ done := false.
         key:equals("q"):ifTrue({ "bye":display. done := true }).
 
         key:notNil:and({ key:equals("q"):not }):ifTrue({
-            key:equals(escape):ifElse(
+            key:equals(escape):and({ system:keyWaiting(0.05) }):ifElse(
                 ; An escape may begin an arrow or be the escape key itself, and
                 ; the only way to know is to read on. `onError` is what makes
                 ; that safe to try: a sequence that turns out to be something
@@ -57,13 +57,33 @@ done := false.
                     { "  control byte #{}":fill([key:asByte]):display },
                     { "  {} (#{})":fill([key, key:asByte]):display }) }) }) }) }).
 
-; One thing it cannot do, and no byte-level reader can: **tell the escape key
-; from the start of a sequence.** Pressing escape and then tab reads the tab as
-; the byte after the escape and reports "not an arrow" -- the tab is gone. A
-; terminal tells them apart by waiting a few milliseconds and giving up, which
-; needs a read with a timeout, and `readKey` has none. Worth knowing before
-; writing anything that binds the escape key on its own.
+; **The escape key, and how it is told from the start of a sequence.** A
+; byte-level reader cannot do it on its own: pressing escape and then tab reads
+; the tab as the byte after the escape, and the tab is gone. A terminal tells
+; them apart by waiting a few milliseconds and giving up, and that is
+; `system:keyWaiting(0.05)` above -- *is a byte coming?* Nothing follows an
+; escape that fast except a machine, so a false there means somebody pressed the
+; key, and this program reports it as one rather than eating whatever is typed
+; next.
 ;
-; What this wanted otherwise: nothing. It is the first program here to find the
-; language already had what it needed -- which is only true because it is the
-; program 6.10 was waiting for, and 6.10 was built the day before it.
+; **This file asked for that message and did not get it for a day.** What is
+; written just above used to end *"and `readKey` has none. Worth knowing before
+; writing anything that binds the escape key on its own"*, and it stood as a
+; warning nobody had tested, because nothing here bound that key. Then
+; [programs/edit.sol](../programs/edit.sol) bound it to the most frequent action
+; a modal editor has, found that escape did nothing until the *next* key
+; arrived, and `keyWaiting` was built -- [6.35](../docs/COMPLETED.md#635-a-read-that-gives-up--done).
+;
+; **Piped input has no timing in it**, and this is where that shows. Down a pipe
+; every byte is already there, so `keyWaiting` says true and an escape is always
+; read as the start of a sequence:
+;
+;     printf '\033q' | ./bin/solvm examples/keys.sob    ; the q is eaten
+;
+; which is right rather than a compromise -- a program cannot invent a pause
+; nobody typed. It is worth knowing before testing an editor through a pipe and
+; concluding that its escape key is broken.
+;
+; The rule that stayed: a *program* is what turns a known limitation into a
+; fixed one. The warning was right, it was written on the day `readKey` landed,
+; and it waited for somebody to be annoyed by it.

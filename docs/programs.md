@@ -754,16 +754,20 @@ a window it drew wrong until it was restarted. One ioctl is about a microsecond,
 so it now measures on every frame and the resize notification the language has
 not got stops being something anybody needs.
 
-**And it confirmed a warning that had only ever been theoretical.**
-[examples/keys.sol](../examples/keys.sol) says a byte-level reader cannot tell
-the escape key from the start of an escape sequence, since telling them apart
-needs a read that gives up after a few milliseconds. In a modal editor escape is
-the most-pressed key there is, and here it does not take effect until the *next*
-key arrives — the editor reads that byte, finds it does not spell an arrow, and
-keeps it to act on. Nothing is lost and nothing is misread; the screen simply
-does not change until you press the next thing. That is the sharpest form the
-warning could have taken, and it was found by binding the key rather than by
-reasoning about it.
+**And it confirmed a warning that had only ever been theoretical — then got it
+fixed.** [examples/keys.sol](../examples/keys.sol) had said since the day
+`readKey` landed that a byte-level reader cannot tell the escape key from the
+start of an escape sequence, since telling them apart needs a read that gives up
+after a few milliseconds. Nothing had ever bound that key, so the warning stood
+untested. A modal editor binds it to the most frequent action there is, and
+escape stopped taking effect until the *next* key arrived.
+
+That is
+[6.35](COMPLETED.md#635-a-read-that-gives-up--done): `system:keyWaiting(0.05)`,
+*is a byte coming?* — and nothing follows an escape that fast except a machine.
+The editor asks, and leaves insert mode there and then. **The warning was
+right, it was written by a program that was not annoyed by it, and it waited for
+one that was.**
 
 **Three smaller things it found**, none of them worth an entry:
 

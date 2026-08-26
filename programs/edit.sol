@@ -54,23 +54,27 @@
 ; ---------------------------------------------------------------------------
 ; What it confirmed, which had only ever been a warning
 ;
-; **The escape key cannot be told from the start of an escape sequence.**
-; examples/keys.sol says so and could only say it in the abstract: nothing had
-; yet bound the escape key to anything. A modal editor binds it to the most
-; frequent action there is, and here is what that costs.
+; **The escape key cannot be told from the start of an escape sequence** by a
+; byte-level reader alone. examples/keys.sol said so and could only say it in
+; the abstract: nothing had yet bound that key. A modal editor binds it to the
+; most frequent action there is, and what it cost was this -- an arrow is
+; `escape [ A`, three bytes, and `readKey` answers one, so an escape had to be
+; followed by a read, and that read **blocked until the next key**. Press escape
+; in insert mode and nothing happened; press the next key and both happened at
+; once.
 ;
-; An arrow is `escape [ A`, three bytes, and `readKey` answers one. So an escape
-; is followed by a read, and that read **blocks until the next key**. Press
-; escape in insert mode and nothing happens; press the next key and both happen
-; at once -- the escape leaves insert mode and the byte after it is acted on as
-; a normal-mode command. `edit:pushed` is what makes the second half true: the
-; byte that turned out not to be part of a sequence is kept rather than thrown
-; away, which is one line more than examples/keys.sol does and the difference
-; between a lost keystroke and a late one.
+; **That is what `system:keyWaiting` is, and this program is why it exists**
+; ([6.35](../docs/COMPLETED.md#635-a-read-that-gives-up--done)). *Is a byte
+; coming within fifty milliseconds?* -- and nothing follows an escape that fast
+; except a machine, so a false is a person pressing the key and the editor
+; leaves insert mode there and then.
 ;
-; Nothing here can fix it. Telling the two apart needs a read that gives up
-; after a few milliseconds, and the language has no such read -- which is a
-; sentence worth writing exactly once, in the program that most wanted it.
+; `edit:pushed` is still what makes the other half right: a byte that turned out
+; not to be part of a sequence is kept rather than thrown away. And **piped
+; input has no timing in it** -- every byte is already there, so an escape is
+; always read as the start of a sequence, which is exactly how this editor
+; behaved before the message existed and is why its recorded transcript did not
+; change by a byte when it landed.
 ;
 ; ---------------------------------------------------------------------------
 ; Three smaller findings, none of them worth an entry
@@ -415,9 +419,9 @@ edit:render := { | out, index, left, column |
 ; Keys
 ;
 ; One byte at a time, which is what `system:readKey` answers. An arrow is three
-; of them and has to be assembled; the escape *key* is one, and cannot be told
-; from the first byte of an arrow without a read that gives up after a few
-; milliseconds. There is none, and what that costs is at the top of this file.
+; of them and has to be assembled; the escape *key* is one, and is told from the
+; first byte of an arrow by `system:keyWaiting` -- a read that gives up, which
+; the top of this file explains and this program is the reason for.
 
 edit:nextKey := { | key |
     self:pushed:notNil:ifElse(
@@ -427,8 +431,25 @@ edit:nextKey := { | key |
 edit:arrowFor := { letter |
     ['up, 'down, 'right, 'left]:at("ABCD":indexOf(letter)) }.
 
-edit:decode := { key | | second, third |
+; How long an escape waits for the rest of a sequence before it is taken for the
+; escape key. Nothing follows an escape that fast except a machine, and fifty
+; milliseconds is what every terminal program settles on: long enough to cross a
+; slow link, short enough that nobody notices the key is thinking.
+edit:escapeWait := 0.05.
+
+edit:decode := { key |
     key:notNil:and({ key:equals(esc) }):ifElse(
+        { self:decodeEscape },
+        { key }) }.
+
+; **An escape is a keypress if nothing follows it.** `system:keyWaiting` is what
+; makes that decidable: without it this had to read the next byte to find out
+; whether there was one, which meant the escape key did nothing until the key
+; after it arrived. A byte already pushed back counts as one waiting -- it is
+; here, so nothing has to be asked about it.
+edit:decodeEscape := { | second, third |
+    self:pushed:isNil:and({ system:keyWaiting(self:escapeWait):not }):ifElse(
+        { esc },
         { second := self:nextKey.
           second:isNil:ifElse({ esc }, {
           second:equals("["):ifElse(
@@ -443,8 +464,7 @@ edit:decode := { key | | second, third |
                       'unknown }) }) },
               ; An escape that begins nothing: the key itself, and the byte
               ; after it is a key in its own right and is kept.
-              { self:pushed := second. esc }) }) },
-        { key }) }.
+              { self:pushed := second. esc }) }) }) }.
 
 ; ---------------------------------------------------------------------------
 ; Moving
@@ -1454,8 +1474,8 @@ A pattern is . * [abc] [^a-z] ^ $ and \\ to escape one of them.
 :s/find/replace/ changes this line, /g every match on it, :%s every line.
 
 :w  :w name  :q  :q!  :wq       and a bare number goes to that line
-escape leaves insert mode -- and is read on the key after it, which is
-the one thing this editor cannot do anything about. See the file.
+escape leaves insert mode, and takes effect the moment you press it --
+which needed a message the language did not have. See the file.
 
 Type in this buffer. `:w` writes it where it came from.
 ".

@@ -1558,6 +1558,69 @@ written and could not be seen until something crossed it.
 The rest of this section is live, and is in
 [ROADMAP.md](ROADMAP.md#6-beyond-the-language--gone-from-this-document).
 
+### 6.35 A read that gives up — **done**
+
+**`system:keyWaiting(seconds)`**, answering true or false: is there a byte to
+read, waiting up to that long for one to arrive.
+
+**The oldest known gap in this language, and the one with the longest paper
+trail.** [6.10](#610-waiting-for-a-single-key--done) closed with a paragraph
+headed *what it cannot do*: tell the escape key from the start of an escape
+sequence, because an arrow is three bytes and `readKey` answers one and blocks.
+[examples/keys.sol](../examples/keys.sol) said the same thing on the day it was
+written, and ended *"worth knowing before writing anything that binds the escape
+key on its own"*. Nothing bound it. The warning sat there, correct and untested,
+until [programs/edit.sol](../programs/edit.sol) bound it to the most frequent
+action a modal editor has and found that escape did nothing until the next key
+arrived.
+
+**A question, not a second reader.** The obvious shape is `readKey(seconds)`
+answering the byte or nil, and it has a collision in it: **nil already means the
+end of input**, which is how every read loop in this language finishes. Adding
+*nothing yet* to the same answer leaves a program unable to tell *there is
+nobody there* from *they have not typed yet* — the first final, the second
+normal, and a loop that confuses them either spins for ever or stops early. So
+`readKey` is untouched and this answers a boolean. Two messages, each with one
+meaning.
+
+**True at the end of input**, where the `readKey` after it answers nil. That is
+the coherent pair: there is something to read, and what is there is the end.
+
+**Seconds as a float**, like every other duration here, and `0.0` is a question
+about right now. A negative wait is refused rather than taken for *wait for
+ever*, which is what `poll` would make of it — a hidden mode reached by a sign
+is not an interface.
+
+#### What it cost to get right, which was not the poll
+
+Fifteen lines of `poll` and a boolean, and then a bug that no test in this
+repository could have caught, because every test here reads through a pipe.
+
+**A terminal in canonical mode holds what is typed until a newline.** `readKey`
+sets non-canonical mode for the length of one read and puts it back, so between
+two reads the terminal is canonical again — and a `poll` there is told that
+nothing has been typed however much has. The arrow keys this message exists to
+recognise stopped working the moment it was used, their `[` and `B` sitting in
+the driver's line buffer where `poll` cannot see them. **A pipe has no line
+discipline**, so all 118 of the editor's behaviour checks and every C test
+passed either way.
+
+It was found on a pseudo-terminal, by driving the editor through one and
+pressing an arrow. The fix is the same raw-mode dance `readKey` does, around a
+call that reads nothing:
+
+    tcsetattr → poll → tcsetattr back
+
+and the test that pins it makes its own pseudo-terminal, writes `[B` with no
+newline, and asks. Without the dance that test fails and every other test in the
+suite passes.
+
+#### What it does not know about
+
+`readLine`'s buffer, which is [6.36](ROADMAP.md#636-readline-and-readkey-do-not-share-an-input-buffer)
+and open. It reads the file descriptor, like `readKey`, and neither can see
+bytes the C library has already read ahead.
+
 ### 6.34 A program cannot ask how big the terminal is — **done**
 
 **`system:terminalSize`**, answering a dictionary of `"rows"` and `"columns"`,

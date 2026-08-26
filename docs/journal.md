@@ -11,6 +11,92 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-26 (fifth) — the oldest gap, and the bug that was hiding beside it
+
+`system:keyWaiting(seconds)` — *is there a byte to read, waiting up to that long
+for one*. Fifteen lines of `poll`, and the most interesting hour of the five.
+
+### The gap had been written down twice and was still there
+
+[6.10](COMPLETED.md#610-waiting-for-a-single-key--done) closed with a paragraph
+headed *what it cannot do*. [examples/keys.sol](../examples/keys.sol) said it
+again on the same day, and ended with *"worth knowing before writing anything
+that binds the escape key on its own"*. Both were right. Neither mattered,
+because nothing in this repository bound the escape key — and a warning nobody
+has been annoyed by is a warning that never gets acted on.
+
+The editor bound it to the most frequent action a modal editor has. That is the
+whole mechanism by which this got built: **the warning waited for somebody to be
+annoyed by it.** Worth remembering the next time an entry closes with a list of
+what it cannot do — that list is a queue, and it is sorted by who turns up.
+
+### The interface was the decision, and it was about nil
+
+The obvious shape is `readKey(seconds)`, answering the byte or nil. It has a
+collision in it that is easy to miss: **nil already means the end of input**, and
+that is how every read loop in this language finishes, the editor's included.
+Overload it with *nothing yet* and a program can no longer tell *there is nobody
+there* from *they have not typed yet* — the first final, the second normal, and
+a loop that confuses them either spins for ever or stops early.
+
+So: a question, answering a boolean, with `readKey` untouched. Two messages with
+one meaning each rather than one message with two. And the pair is coherent at
+the end of input — `keyWaiting` says true and the `readKey` after it says nil:
+*there is something to read, and what is there is the end.*
+
+### The bug that every test in the repository would have missed
+
+Fifteen lines of `poll` went in, the editor used it, and the arrow keys stopped
+working.
+
+**A terminal in canonical mode holds what is typed until a newline.** `readKey`
+sets non-canonical mode for the length of one read and puts it back — so between
+two reads the terminal is canonical again, and a `poll` there is told nothing has
+been typed however much has. An arrow's `[` and `B` sit in the driver's line
+buffer, invisible.
+
+**All 118 of the editor's checks passed. Every C test passed.** They read through
+a pipe, and a pipe has no line discipline — there is no mode for it to be in, so
+nothing under a pipe can show this. It was found by driving the editor through a
+**pseudo-terminal** and pressing an arrow, which is now how it is tested: the
+suite makes its own pty, writes `[B` with no newline, and asks. Remove the
+raw-mode dance from the primitive and that one test fails while everything else
+in the suite passes.
+
+The lesson is not *test on a terminal*. It is that **the thing a pipe cannot
+have is the thing a pipe cannot test**, and every interactive feature here has
+been tested through one since `readKey` landed. That is a class of blind spot,
+not an incident.
+
+### And the bug hiding next to it
+
+While reading `readKey` to copy its termios dance, its comment said buffered
+input from `readLine` was *"kept from disagreeing by flushing what stdio holds
+before going underneath it."*
+
+There is no flush. There cannot portably be one — `fflush` on an input stream is
+undefined in C. `readLine` reads a block ahead through stdio and `readKey` reads
+the descriptor, so this loses "XY" and says nothing:
+
+```text
+printf 'one\nXY\n' | solvm program.sob     # readLine → "one";  readKey → nil
+```
+
+It is [6.36](ROADMAP.md#636-readline-and-readkey-do-not-share-an-input-buffer)
+now, the only open entry on the roadmap, with a test pinning the loss so that
+fixing it is a decision rather than an accident. The fix — one buffer both
+readers take from — is sixty lines and its own argument, and it landed on the
+same day as the message that made it visible. One at a time.
+
+**It is the first entry that arrived from reading rather than from wanting.**
+Every other one on that list came from somebody wanting something and not
+getting it. This came from somebody being told, by a comment, that they already
+had it — which is the failure mode of a repository that writes its reasoning
+down: the prose is load-bearing, and a sentence that describes an intention as
+though it were the behaviour is worse than no sentence at all.
+
+---
+
 ## 2026-08-26 (the same morning, still) — undo, and what an unchangeable string is worth
 
 Four entries dated today, and it is not yet seven in the morning. This one is

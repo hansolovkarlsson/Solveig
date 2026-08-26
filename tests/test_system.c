@@ -1177,6 +1177,194 @@ static int pty_of_size(int rows, int columns, int *slave_out)
     return master;
 }
 
+/* `keyWaiting` answers whether a byte is there, waiting up to that long for
+   one. The escape key is why it exists: an arrow is three bytes and the escape
+   key is one, and nothing follows an escape within a few milliseconds except a
+   machine. */
+static void test_key_waiting_sees_what_is_there(void)
+{
+    FILE *script = fopen("build/tests/waiting-in", "w");
+    assert(script != NULL);
+    fputs("ab", script);
+    fclose(script);
+
+    int saved = dup(STDIN_FILENO);
+    assert(saved >= 0);
+    assert(freopen("build/tests/waiting-in", "r", stdin) != NULL);
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    SolResult result = run(&vm, &chunk,
+        "before := system:keyWaiting(0.0)."
+        "one := system:readKey."
+        "between := system:keyWaiting(0.0)."
+        "two := system:readKey."
+        /* True at the end, and the read after it answers nil: there is
+           something to read, and what is there is the end. */
+        "atEnd := system:keyWaiting(0.05)."
+        "past := system:readKey.");
+
+    fflush(stdin);
+    dup2(saved, STDIN_FILENO);
+    close(saved);
+    clearerr(stdin);
+
+    assert(result == SOL_OK);
+    assert(SOL_AS_BOOL(global(&vm, "before")) == true);
+    assert(is_text(global(&vm, "one"), "a"));
+    assert(SOL_AS_BOOL(global(&vm, "between")) == true);
+    assert(is_text(global(&vm, "two"), "b"));
+    assert(SOL_AS_BOOL(global(&vm, "atEnd")) == true);
+    assert(SOL_IS_NIL(global(&vm, "past")));
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    remove("build/tests/waiting-in");
+    printf("  keyWaiting sees a byte, and sees the end as one\n");
+}
+
+/* And says no when nothing is coming, which is the answer the whole thing is
+   for. A pipe with its writing end held open is input that has not arrived
+   rather than input that has ended -- the two the caller must be able to tell
+   apart. */
+static void test_key_waiting_says_no_when_nothing_comes(void)
+{
+    int ends[2];
+    assert(pipe(ends) == 0);
+
+    int saved = dup(STDIN_FILENO);
+    assert(saved >= 0);
+    fflush(stdin);
+    assert(dup2(ends[0], STDIN_FILENO) >= 0);
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    SolResult result = run(&vm, &chunk,
+        "nothing := system:keyWaiting(0.02)."
+        "norIsThereNow := system:keyWaiting(0.0).");
+
+    dup2(saved, STDIN_FILENO);
+    close(saved);
+    close(ends[0]);
+    close(ends[1]);
+    clearerr(stdin);
+
+    assert(result == SOL_OK);
+    assert(SOL_AS_BOOL(global(&vm, "nothing")) == false);
+    assert(SOL_AS_BOOL(global(&vm, "norIsThereNow")) == false);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    printf("  keyWaiting says no when the input has not arrived\n");
+}
+
+/* **The test that pins the bug this message was born with.** A terminal in
+   canonical mode holds what is typed until a newline, so a `poll` between two
+   `readKey`s sees an empty descriptor however much has been typed -- and the
+   arrow key this exists to tell from the escape key stops working, its `[` and
+   `B` sitting in the driver's line buffer. Every pipe test above passes either
+   way, because a pipe has no line discipline; this one needs a real terminal
+   and fails without the raw-mode dance inside the primitive. */
+static void test_key_waiting_looks_past_the_line_discipline(void)
+{
+    int slave = -1;
+    int master = pty_of_size(24, 80, &slave);
+    if (master < 0) {
+        printf("  keyWaiting on a terminal: no pseudo-terminal here, skipped\n");
+        return;
+    }
+
+    /* Two bytes and no newline: a canonical read would wait for the rest of
+       the line, and an arrow key never sends one. */
+    assert(write(master, "[B", 2) == 2);
+
+    int saved = dup(STDIN_FILENO);
+    assert(saved >= 0);
+    fflush(stdin);
+    assert(dup2(slave, STDIN_FILENO) >= 0);
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    SolResult result = run(&vm, &chunk,
+        "typed := system:keyWaiting(0.2)."
+        "first := system:readKey.");
+
+    dup2(saved, STDIN_FILENO);
+    close(saved);
+    close(slave);
+    close(master);
+    clearerr(stdin);
+
+    assert(result == SOL_OK);
+    assert(SOL_AS_BOOL(global(&vm, "typed")) == true);
+    assert(is_text(global(&vm, "first"), "["));
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    printf("  keyWaiting sees a line the terminal has not finished\n");
+}
+
+static void test_key_waiting_refuses_a_wait_it_cannot_make(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk, "system:keyWaiting(#1).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+
+    sol_vm_init(&vm);
+    assert(run(&vm, &chunk, "system:keyWaiting(-1.0).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+
+    sol_vm_init(&vm);
+    assert(run(&vm, &chunk, "system:keyWaiting.") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+
+    printf("  keyWaiting refuses an integer, a negative wait and no wait\n");
+}
+
+/* **A defect, pinned rather than fixed**, so that fixing it is a decision
+   somebody takes rather than something that happens. `readLine` reads through
+   stdio, which reads a block ahead; `readKey` reads the descriptor. The bytes
+   after the line `readLine` answered are held by the C library where `read`
+   cannot see them, and they are lost. ROADMAP 6.36. */
+static void test_read_line_and_read_key_do_not_share_a_buffer(void)
+{
+    FILE *script = fopen("build/tests/mixed-in", "w");
+    assert(script != NULL);
+    fputs("one\nXY\n", script);
+    fclose(script);
+
+    int saved = dup(STDIN_FILENO);
+    assert(saved >= 0);
+    assert(freopen("build/tests/mixed-in", "r", stdin) != NULL);
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    SolResult result = run(&vm, &chunk,
+        "line := system:readLine."
+        "next := system:readKey.");
+
+    fflush(stdin);
+    dup2(saved, STDIN_FILENO);
+    close(saved);
+    clearerr(stdin);
+
+    assert(result == SOL_OK);
+    assert(is_text(global(&vm, "line"), "one"));
+    /* "XY" is gone. When 6.36 lands this assertion is what has to change, and
+       changing it is the point of writing it down. */
+    assert(SOL_IS_NIL(global(&vm, "next")));
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    remove("build/tests/mixed-in");
+    printf("  readLine and readKey do not share a buffer (6.36)\n");
+}
+
 /* The size is the *output's*, because that is where a program draws. Standard
    input being a script -- which is how programs/edit.sol is tested at all --
    does not make the screen go away. */
@@ -1481,6 +1669,11 @@ int main(void)
     test_capturing_output();
     test_a_childs_streams_go_where_they_are_told();
     test_read_key_takes_one_byte();
+    test_key_waiting_sees_what_is_there();
+    test_key_waiting_says_no_when_nothing_comes();
+    test_key_waiting_looks_past_the_line_discipline();
+    test_key_waiting_refuses_a_wait_it_cannot_make();
+    test_read_line_and_read_key_do_not_share_a_buffer();
     test_terminal_size_answers_the_screen_it_draws_on();
     test_terminal_size_is_nil_without_a_terminal();
     test_terminal_size_survives_a_collection();

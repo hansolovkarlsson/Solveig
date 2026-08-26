@@ -5,6 +5,69 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### A read that gives up, and a bug found beside it — `pending`, 2026-08-26
+
+**`system:keyWaiting(seconds)`** answers true or false: is there a byte to read,
+waiting up to that long for one to arrive.
+
+```
+escape := #27:asCharacter.
+key:equals(escape):and({ system:keyWaiting(0.05) }):ifTrue({
+    system:readKey.                       ; the "["
+    ["up", "down", "right", "left"]:at("ABCD":indexOf(system:readKey)) }).
+```
+
+**This closes the oldest known gap in the language.**
+[6.10](COMPLETED.md#610-waiting-for-a-single-key--done) ended with a paragraph
+headed *what it cannot do*: tell the escape key from the start of a sequence,
+because an arrow is three bytes and `readKey` answers one and blocks.
+[examples/keys.sol](../examples/keys.sol) said the same on the day it was
+written and added *"worth knowing before writing anything that binds the escape
+key on its own"*. Nothing bound it, so the warning stood correct and untested —
+until [programs/edit.sol](../programs/edit.sol) bound it to the most frequent
+action a modal editor has, and escape stopped taking effect until the next key
+arrived. **The warning was written by a program that was not annoyed by it and
+waited for one that was.**
+
+**A question, not a second reader.** `readKey(seconds)` answering the byte or
+nil was the other shape, and nil already means *the end of input* — which is how
+every read loop here finishes. Overloading it with *nothing yet* leaves a
+program unable to tell *there is nobody there* from *they have not typed yet*.
+True at the end of input, where the `readKey` after it answers nil: there is
+something to read, and what is there is the end.
+
+**Fifteen lines of `poll`, and then a bug no test here could have caught.** A
+terminal in canonical mode holds what is typed until a newline, and `readKey`
+sets non-canonical mode only for the length of one read — so asking *between*
+two reads was told nothing had been typed however much had, and every arrow key
+stopped working the moment this message was used. All 118 of the editor's
+behaviour checks and every C test passed either way, **because they read through
+a pipe and a pipe has no line discipline.** It was found by driving the editor
+through a pseudo-terminal and pressing an arrow. The fix is the same raw-mode
+dance `readKey` does, around a call that reads nothing, and the test that pins
+it makes its own pseudo-terminal, writes `[B` with no newline, and asks.
+
+**And a defect found by reading the code beside it, now
+[6.36](ROADMAP.md#636-readline-and-readkey-do-not-share-an-input-buffer).** The
+comment above `readKey` claimed buffered input from `readLine` was *"flushed
+before going underneath it"*. There is no such flush and there cannot portably
+be one — `fflush` on an input stream is undefined in C — so a program that calls
+`readLine` and then `readKey` loses whatever arrived in the same block as the
+line:
+
+```text
+printf 'one\nXY\n' | solvm program.sob     # readLine → "one";  readKey → nil
+```
+
+The comment now describes the behaviour instead of an intention, a test pins the
+loss, and the fix — one buffer both readers take from — is its own change with
+its own argument. **This is the first entry on the roadmap that arrived from
+reading rather than from wanting**: every other one came from somebody wanting
+something and not getting it, and this came from somebody being told they
+already had it.
+
+The language answers 138<!--count messages--> messages, up from 137.
+
 ### Undo, which is one array copy per change — `33be6b9`, 2026-08-26
 
 **`u` undoes and `ctrl-r` redoes, a hundred changes deep**, in

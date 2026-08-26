@@ -4032,9 +4032,12 @@ static SolValue prim_system_read_key(SolVM *vm, SolValue self, SolValue *args, i
     (void)args;
     if (!check_argc(vm, "readKey", argc, 0)) return SOL_NIL_VAL;
 
-    /* Anything already buffered by an earlier `readLine` would be read by
-       `fgets` and not by `read`, so the two are kept from disagreeing by
-       flushing what stdio holds before going underneath it. */
+    /* This reads the descriptor and `readLine` reads through stdio, and the two
+       do not share a buffer: `fgets` reads a block ahead, so bytes that arrived
+       after the line it answered are held by the C library where `read` cannot
+       see them. A program that calls `readLine` and then `readKey` loses them.
+       ROADMAP 6.36 is the fix -- one buffer both readers take from -- and this
+       comment used to claim it was already handled, which it never was. */
     struct termios original;
     bool raw = isatty(STDIN_FILENO) && tcgetattr(STDIN_FILENO, &original) == 0;
 
@@ -4069,6 +4072,119 @@ static SolValue prim_system_read_key(SolVM *vm, SolValue self, SolValue *args, i
     if (c == EOF) return SOL_NIL_VAL;
     char byte = (char)c;
     return SOL_STRING_VAL(sol_string_new(vm, &byte, 1));
+}
+
+#endif
+
+/* `system:keyWaiting(seconds)` -- whether a byte is there to be read, waiting
+ * up to that long for one to arrive.
+ *
+ * The escape key is why this exists. An arrow arrives as three bytes and the
+ * escape key as one, and `readKey` answers a byte and blocks until there is
+ * one -- so a program that has just read an escape cannot tell a sequence from
+ * a keypress without reading on, and reading on is exactly what it must not do
+ * if nothing more is coming. Every terminal program in the world resolves that
+ * the same way: read the next byte, but give up after a few milliseconds,
+ * because nothing follows an escape that fast except a machine.
+ * examples/keys.sol said this was missing on the day `readKey` landed, and
+ * programs/edit.sol is what made it worth having: a modal editor binds the most
+ * frequent action there is to that key.
+ *
+ * **A question, not a second reader.** `readKey(seconds)` answering the byte or
+ * nil was the other shape, and nil already means *the end of input* -- which is
+ * how every read loop here finishes. Overloading it with *nothing yet* would
+ * leave a program unable to tell "there is nobody there" from "they have not
+ * typed yet", where the first is final and the second is normal. So `readKey`
+ * is untouched and this answers a boolean.
+ *
+ * **True at the end of input**, where `poll` reports the descriptor readable
+ * and the `readKey` after it answers nil. That is the coherent pair: there is
+ * something to read, and what is there is the end.
+ *
+ * **It knows nothing about stdio's buffer**, the same blind spot `readKey` has
+ * and for the same reason -- see the note there, and ROADMAP 6.36.
+ *
+ * Seconds as a float, like every other duration in this language, and `0.0` is
+ * a question about right now.
+ */
+#if defined(__unix__) || defined(__APPLE__)
+#include <poll.h>
+
+static SolValue prim_system_key_waiting(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "keyWaiting", argc, 1)) return SOL_NIL_VAL;
+    if (!SOL_IS_FLOAT(args[0])) {
+        sol_vm_runtime_error(vm, "'keyWaiting' expects a float, got %s",
+                             sol_type_name(args[0]));
+        return SOL_NIL_VAL;
+    }
+
+    double seconds = SOL_AS_FLOAT(args[0]);
+    /* A negative wait is a mistake rather than a way of asking to wait for
+       ever, which `poll` would take it for. nan is refused for the same reason:
+       there is no length of time it could mean. */
+    if (seconds != seconds || seconds < 0.0) {
+        sol_vm_runtime_error(vm, "'keyWaiting' cannot wait for %s seconds",
+                             seconds != seconds ? "nan" : "a negative number of");
+        return SOL_NIL_VAL;
+    }
+
+    double milliseconds = seconds * 1000.0;
+    if (milliseconds > 2.0e9) milliseconds = 2.0e9;
+
+    /* **The same raw-mode dance `readKey` does, for a call that reads
+       nothing.** In canonical mode the terminal driver holds what is typed
+       until a newline, so a `poll` between two `readKey`s sees an empty
+       descriptor however much has been typed -- and the arrow key this message
+       exists to tell apart from the escape key stops working, since its `[` and
+       `B` are sitting in the driver's line buffer. Non-canonical mode delivers
+       bytes as they arrive, which is what makes the question answerable.
+
+       Found on a pseudo-terminal after every test that runs through a pipe had
+       passed: a pipe has no line discipline and no canonical mode, so nothing
+       under a pipe can show this. */
+    struct termios original;
+    bool raw = isatty(STDIN_FILENO) && tcgetattr(STDIN_FILENO, &original) == 0;
+
+    if (raw) {
+        struct termios mode = original;
+        mode.c_lflag &= (tcflag_t)~(ICANON | ECHO);
+        mode.c_cc[VMIN] = 0;      /* nothing is read here; this only stops the */
+        mode.c_cc[VTIME] = 0;     /* driver from waiting for a line */
+        if (tcsetattr(STDIN_FILENO, TCSANOW, &mode) != 0) raw = false;
+    }
+
+    struct pollfd waiting;
+    waiting.fd = STDIN_FILENO;
+    waiting.events = POLLIN;
+    waiting.revents = 0;
+
+    int ready;
+    do {
+        ready = poll(&waiting, 1, (int)(milliseconds + 0.5));
+    } while (ready < 0 && errno == EINTR);   /* a signal is not an answer */
+
+    if (raw) tcsetattr(STDIN_FILENO, TCSANOW, &original);
+
+    return SOL_BOOL_VAL(ready > 0);
+}
+
+#else   /* no poll: say a byte is coming, which is what waiting for one does */
+
+static SolValue prim_system_key_waiting(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "keyWaiting", argc, 1)) return SOL_NIL_VAL;
+    if (!SOL_IS_FLOAT(args[0])) {
+        sol_vm_runtime_error(vm, "'keyWaiting' expects a float, got %s",
+                             sol_type_name(args[0]));
+        return SOL_NIL_VAL;
+    }
+    /* True, so a caller reads and blocks -- which is what it would have done
+       without this message at all. False would make a program decide nothing is
+       coming when it cannot know. */
+    return SOL_BOOL_VAL(true);
 }
 
 #endif
@@ -5678,6 +5794,7 @@ void sol_builtins_install(SolVM *vm)
     any_receiver(vm, system, "readLine", prim_system_read_line);
     any_receiver(vm, system, "readKey", prim_system_read_key);
     any_receiver(vm, system, "terminalSize", prim_system_terminal_size);
+    any_receiver(vm, system, "keyWaiting", prim_system_key_waiting);
     any_receiver(vm, system, "readFile", prim_system_read_file);
     any_receiver(vm, system, "writeFile", prim_system_write_file);
     any_receiver(vm, system, "fileExists", prim_system_file_exists);
