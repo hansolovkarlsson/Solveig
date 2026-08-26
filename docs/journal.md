@@ -11,6 +11,72 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-26 (seventh) — `.` and the bug that only a command running commands could find
+
+The last piece of vi's grammar the editor did not have. Two ways to build it,
+and the choice is the whole entry.
+
+### Repeat the keys, or repeat a description of the keys
+
+The tidy-sounding design is to remember **what was done** — an operator, a
+motion, a count, the text that was inserted — and do it again from that record.
+It is also a second description of every command that can change the text, kept
+in step with the first by hand, and exercised only when somebody presses `.`.
+Two descriptions of one thing, which is the shape three of the last four
+findings in this editor have taken.
+
+So: **repeat the keys**. The dispatcher already turns keys into changes, and
+feeding the recorded ones back through it is the same path they took the first
+time. `iX` and escape, `3dw`, `o` and two lines of typing, `p` — one mechanism,
+no cases. vim does the same thing and I suspect for the same reason.
+
+### The recording rule was already written
+
+What is a change? Undo answered that yesterday: `remember` is called by the
+three methods that alter the text, so it is the one place that knows. It sets a
+flag on the way past, and the dispatcher — which already knows where a command
+begins and ends, because undo needed that too — saves the keys when a command
+finishes having set it.
+
+Two things fell out rather than being decided. **`yy` is not repeatable**,
+because a yank changes nothing and never reaches `remember`; that is vi's rule
+and I did not write it. And **an insert is repeated whole**, because the group
+stays open until escape, so the keys recorded run from `i` to escape with the
+typed text in the middle.
+
+### The bug
+
+`x3.` deleted the whole line.
+
+`.` is the first thing in this editor that **runs other commands**. The count
+was being cleared *after* an action ran rather than before it, which nothing had
+ever noticed because no action had ever dispatched a key. So when `.` replayed
+its `3`, the count still pending was `3`, and `count * 10 + 3` is 33 — `x33.`
+and `x3.` did the same thing, which is what made it obvious.
+
+The fix is three lines: take the count, clear it, then run the action with what
+was taken. **An action that runs other commands has to start from a clean state,
+and the only way to be sure of that is to leave one behind.**
+
+Worth noticing that this is the same class of bug as the clamp two days ago: one
+piece of state serving two readers who disagreed about when it applied. The
+editor keeps finding them, and it keeps finding them at the moment a second
+customer appears.
+
+### Four of eighteen
+
+Four of the eighteen new checks failed on the first run, and **three were the
+check**: `J` here joins without a space where vi inserts one (a real difference,
+now written down rather than assumed); `.` after a `:%s` repeats the `x` at the
+cursor the substitution left, which is correct and not what I had typed as the
+expectation; and one where I doubled a `%` for a `printf` that does not need it.
+
+The fourth was the count. That ratio is now the norm across seven changes, and
+the reason it is worth reporting is that it costs nothing: a wrong expectation
+takes a minute to read and a real bug is found in the same minute.
+
+---
+
 ## 2026-08-26 (sixth, and last) — one window, and the third time the same fix worked
 
 [6.36](ROADMAP.md) was filed an hour ago and is closed. The entry said the fix

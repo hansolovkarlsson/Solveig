@@ -731,8 +731,8 @@ line, `gg` and `G` to the ends of the file, ctrl-f and ctrl-b by a screen.
 `i a I A o O` begin insert, `x` deletes a character, `J` joins two.
 `d` and `y` take a motion — `dw`, `d$`, `dj`, `dG`, `d'a`, and `dd`/`yy` for
 whole lines — `p` and `P` put back what they took, `ma` marks a place and `'a`
-and `` `a `` go to it, `u` and ctrl-r undo and redo, and a count repeats: `3j`,
-`2dd`, `d2w`, `10G`, `3p`.
+and `` `a `` go to it, `u` and ctrl-r undo and redo, `.` does the last change
+again, and a count repeats: `3j`, `2dd`, `d2w`, `10G`, `3p`, `3.`.
 `/pattern` and `?pattern` search forwards and back, `n` and `N` do it again,
 and `:s/find/replace/` changes what they find — `/g` for every match on the
 line, `:%s` for every line in the file.
@@ -867,9 +867,33 @@ escape is one: that boundary is drawn in the dispatcher rather than in the
 commands, which is what makes `u` after a typed paragraph useful rather than
 infuriating.
 
+**And `.` repeats the keys rather than a description of them.** The other way is
+to remember *what was done* — an operator, a motion, a count, some inserted
+text — and do it again, which is a second description of every command that can
+change the text and a second place for them to disagree. Keys are what the
+editor already understands, so feeding them back in is the same path they took
+the first time and `.` cannot drift from what it repeats.
+
+**What counts as a change is what undo already decided.** `remember` is called
+by the three methods that alter the text, so it is the one place that knows
+whether a command changed anything; it sets a flag for `.` on the way past. A
+command that only moves the cursor records nothing, and neither does `yy` — a
+yank is not a change, which is vi's rule and falls out here rather than being
+written down. Colon commands are left out on purpose: `:s/a/b/` changes the text
+and `.` does not repeat it, here or in vi, because a colon command takes a line
+of its own syntax and can name a range.
+
+**It found one bug, and it was the first command able to.** `.` dispatches keys
+of its own, and the count was being cleared *after* an action ran rather than
+before — so the `3` of a replayed `3x` joined the count still pending and `x3.`
+deleted the whole line. An action that runs other commands has to start from a
+clean state, and nothing before `.` had ever run one.
+
 **What it does not do**: no `U` — vi's *undo every change on this line* is a
 different mechanism, not a level of this one. No `c`, no `e f t`, no named
-registers, and no line ranges beyond `%` — `:1,5s/a/b/` is a parser this has not
+registers, no line ranges beyond `%`, and `J` joins without inserting the space
+vi inserts — that rule has exceptions in it, and a rule with exceptions should
+be wanted by somebody before it is written — `:1,5s/a/b/` is a parser this has not
 got. Each of those is more of the same rather than more of the language, and
 this program was written to ask the language a question.
 

@@ -5,6 +5,40 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### `.` repeats the last change, by repeating its keys — `pending`, 2026-08-26
+
+**`.` in [programs/edit.sol](../programs/edit.sol)**, and `3.` to do it three
+times. It is the last piece of vi's grammar the editor was missing.
+
+**It repeats the keys, not a description of them.** The other way is to remember
+*what was done* — an operator, a motion, a count, some inserted text — and do it
+again, which is a second description of every command that can change the text
+and a second place for the two to disagree. Keys are what the editor already
+understands: feeding them back through the dispatcher is the same path they took
+the first time, so `.` cannot drift from what it repeats. `iX` and escape,
+`3dw`, `o` and two lines of typing, `p` — all one mechanism.
+
+**What counts as a change is what undo already decided.** `remember` is called
+by the three methods that alter the text, so it is the one place that knows
+whether a command changed anything; it sets a flag for `.` on the way past. A
+command that only moves the cursor records nothing, and **`yy` records nothing
+either — a yank is not a change**, which is vi's rule arriving as a consequence
+rather than as a special case. Colon commands are left out on purpose: `:s/a/b/`
+changes the text and `.` does not repeat it, here or in vi.
+
+**A count in front of `.` replaces the one that was typed**, so `x` then `3.`
+deletes three, not one three times.
+
+**And it found a bug by being the first command that runs other commands.** The
+count was cleared *after* an action ran rather than before, so the `3` of a
+replayed `3x` joined the count still pending: `x3.` deleted the whole line. An
+action that dispatches keys of its own has to start from a clean state, and
+nothing before `.` had ever dispatched one.
+
+Eighteen new behaviour checks, and the editor's recorded transcript now repeats
+a change as well as making one. No message was added to the language:
+138<!--count messages--> messages, unchanged.
+
 ### One window over standard input — `1ca018d`, 2026-08-26
 
 **[6.36](COMPLETED.md#636-readline-and-readkey-did-not-share-an-input-buffer--done)**,

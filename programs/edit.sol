@@ -16,9 +16,9 @@
 ;   ma                mark here      p P       put it back, after or before
 ;   'a  `a            back to it     /pat ?pat search on, and back
 ;   ''                where you were n N       the same search again, either way
-;   u  ctrl-r         undo, and back
+;   u  ctrl-r         undo, and back  .         do that last change again
 ;
-;   3j   d2w   2dd   10G   3p        a count repeats it, or reaches that far
+;   3j   d2w   2dd   10G   3p   3.   a count repeats it, or reaches that far
 ;   :s/a/b/   :s/a/b/g   :%s/a/b/g   :w :q :q! :wq :w name :17
 ;
 ; ---------------------------------------------------------------------------
@@ -179,7 +179,8 @@
 ; No `U` -- vi's *undo every change on this line*, which is a different
 ; mechanism and not a level of this one. No `c`, no `e f t`, and no named
 ; registers: one unnamed register is what `d`, `y` and `x` all write to and `p`
-; reads. No line ranges beyond `%`;
+; reads. `J` joins without inserting a space, where vi inserts one and has
+; exceptions about when. No line ranges beyond `%`;
 ; `:1,5s/a/b/` is a parser this has not got. Each of those is more of the same
 ; rather than more of the language, and this was written to ask the language a
 ; question rather than to replace anybody's editor. What is here is what it
@@ -253,6 +254,10 @@ edit:marks := nil.          ; name -> [row, column]
 edit:undone := nil.         ; states to go back to, oldest first
 edit:redone := nil.         ; states undo took away, for ctrl-r
 edit:group := false.        ; whether this change joins the one before it
+edit:typing := nil.         ; the keys of the command being typed, for `.`
+edit:lastChange := nil.     ; the keys of the last one that changed the text
+edit:changedHere := false.  ; whether the command being typed has changed it
+edit:replaying := false.    ; whether those keys are being fed back in
 edit:undoLimit := #100.     ; how many changes are kept
 edit:prompt := ":".         ; which bottom line is being typed: ':', '/' or '?'
 edit:command := "".         ; that line, as it is typed
@@ -267,6 +272,8 @@ edit:open := { path |
     self:undone := array:new.
     self:redone := array:new.
     self:group := false.
+    self:typing := nil.
+    self:lastChange := nil.
     self:lines := (path:notNil:and({ system:fileExists(path) })):ifElse(
         { self:linesOf(system:readFile(path)) },
         { [""] }).
@@ -611,6 +618,11 @@ edit:deleteChars := { n | | line, last |
             :concat(line:copyFrom(last:add(#1), line:size))).
         self:clamp }) }.
 
+; **`J` joins without putting a space in, where vi puts one.** vi's rule has
+; exceptions -- not after a line that already ends in white space, two spaces
+; after a full stop in some versions -- and the exceptions are the reason this
+; does not copy it: a rule with three cases in it should be wanted by somebody
+; before it is written. `xJ` and a typed space are the two keys it costs.
 edit:joinLine := { | next |
     self:row:lessThan(self:lines:size):ifTrue({
         next := self:lines:at(self:row:add(#1)).
@@ -770,6 +782,7 @@ normalKeys:atPut("x", { n | edit:deleteChars(edit:times(n)) }).
 normalKeys:atPut("J", { n | edit:times(n):repeat({ edit:joinLine }) }).
 normalKeys:atPut("p", { n | edit:put(true, edit:times(n)) }).
 normalKeys:atPut("P", { n | edit:put(false, edit:times(n)) }).
+normalKeys:atPut(".", { n | edit:repeatChange(n) }).
 normalKeys:atPut("u", { n | edit:undo }).
 normalKeys:atPut(#18:asCharacter, { n | edit:redo }).      ; ctrl-r
 normalKeys:atPut(":", { n | edit:beginPrompt(":") }).
@@ -807,7 +820,7 @@ edit:isDigit := { key |
         :and({ digits:indexOf(key):notNil })
         :and({ key:equals("0"):not:or({ self:count:greaterThan(#0) }) }) }.
 
-edit:normalCommand := { key | | place, done |
+edit:normalCommand := { key | | place, done, given |
     done := false.
 
     ; `dd` and `yy`: an operator standing where its motion would go means the
@@ -835,10 +848,18 @@ edit:normalCommand := { key | | place, done |
                 { operators:indexOf(key):notNil:and({ self:operator:isNil })
                       :ifElse(
                     { self:operator := key },
+                    ; **The count is taken and cleared before the action runs**,
+                    ; not after. `.` is the first action that dispatches keys of
+                    ; its own, and with the count still pending its `3` became
+                    ; the `33` of the count in progress -- `x3.` deleted the
+                    ; line. An action that runs other commands has to start from
+                    ; a clean state, and the only way to be sure is to leave one
+                    ; behind.
                     { self:operator := nil.
+                      given := self:count.
+                      self:count := #0.
                       normalKeys:includes(key):ifTrue({
-                          normalKeys:at(key):value(self:count) }).
-                      self:count := #0 }) }) }) }) }.
+                          normalKeys:at(key):value(given) }) }) }) }) }) }.
 
 edit:resolvePrefix := { key | | which, place |
     which := self:prefix.
@@ -947,6 +968,10 @@ edit:restore := { st |
 ; Called by the three methods that change the text, and by nothing else. The
 ; group flag is what makes a hundred keystrokes in insert mode one change.
 edit:remember := {
+    ; The one place that knows a command has changed the text, which is exactly
+    ; what `.` needs to know as well. Undo and repeat want the same boundary and
+    ; the same fact, so they are told by the same line.
+    self:changedHere := true.
     self:group:ifFalse({
         self:undone:add(self:stateNow).
         self:undone:size:greaterThan(self:undoLimit):ifTrue({
@@ -1198,11 +1223,95 @@ edit:dispatch := { key |
     ; closes the group, so whatever it does to the text is one thing to undo;
     ; insert mode does not, so everything typed until escape is one thing.
     self:mode:equals('insert):ifFalse({ self:group := false }).
+
+    self:replaying:ifFalse({ self:recordBefore(key) }).
+
     self:mode:equals('insert):ifElse(
         { self:insertKey(key) },
         { self:mode:equals('command):ifElse(
             { self:commandKey(key) },
-            { self:normalKey(key) }) }) }.
+            { self:normalKey(key) }) }).
+
+    self:replaying:ifFalse({ self:recordAfter }) }.
+
+; ---------------------------------------------------------------------------
+; Repeating a change
+;
+; **`.` repeats the keys, not a description of them.** The other way is to
+; remember *what was done* -- an operator, a motion, a count, some inserted text
+; -- and do it again, which is a second description of every command that can
+; change the text and a second place for them to disagree. Keys are the thing
+; the editor already understands: feeding them back in is the same path they
+; took the first time, so `.` cannot drift from what it repeats.
+;
+; **What counts as a change is what `undo` already decided.** `remember` is
+; called by the three methods that alter the text, so it is the one place that
+; knows; it sets a flag here on the way past. A command that only moves the
+; cursor records nothing, and neither does `yy` -- a yank is not a change, which
+; is vi's rule and falls out rather than being written.
+;
+; **The colon line is left out on purpose.** `:s/a/b/` changes the text and `.`
+; does not repeat it, here or in vi: a colon command takes a line of its own
+; syntax and can name a range, and repeating one with a single key would be a
+; different feature wearing the same key. `&` is what vi offers instead, and it
+; is not here either.
+
+; A key that arrives with nothing pending begins a new command, and that is
+; where the recording starts.
+edit:recordBefore := { key |
+    self:mode:equals('normal)
+        :and({ self:operator:isNil })
+        :and({ self:prefix:isNil })
+        :and({ self:count:equals(#0) }):ifTrue({
+        self:typing := array:new.
+        self:changedHere := false }).
+    self:typing:notNil:ifTrue({ self:typing:add(key) }) }.
+
+; And a command is over when nothing is pending again. The colon line takes the
+; recording with it, which is how `:` commands stay out of `.`.
+edit:recordAfter := {
+    self:mode:equals('command):ifTrue({ self:typing := nil }).
+    self:mode:equals('normal)
+        :and({ self:operator:isNil })
+        :and({ self:prefix:isNil })
+        :and({ self:count:equals(#0) }):ifTrue({
+        self:typing:notNil:and({ self:changedHere }):ifTrue({
+            self:lastChange := self:typing }).
+        self:typing := nil.
+        self:changedHere := false }) }.
+
+edit:repeatChange := { n |
+    self:lastChange:isNil:ifElse(
+        { self:message := "nothing to repeat" },
+        { self:replaying := true.
+          self:withCount(self:lastChange, n):do({ key | self:dispatch(key) }).
+          self:replaying := false.
+          ; The `.` itself is not a change to remember -- what it repeated
+          ; already is, and a `.` that recorded itself would repeat a repeat.
+          self:typing := nil.
+          self:changedHere := false }) }.
+
+; A count in front of `.` replaces the one that was typed the first time, which
+; is what makes `3.` mean *three of those* rather than *that, three times*.
+edit:withCount := { keys, n | | out, digits, past |
+    n:lessThan(#1):ifElse({ keys }, {
+        out := array:new.
+        digits := n:asString.
+        [#1, digits:size]:loop({ i | out:add(digits:at(i)) }).
+
+        ; Everything the command was except the count it opened with. A `0` that
+        ; is a *motion* is never first, so dropping the leading digits cannot
+        ; take one.
+        past := false.
+        keys:do({ key |
+            past:ifFalse({
+                key:isKindOf(string)
+                    :and({ "0123456789":indexOf(key):notNil }):ifFalse({
+                    past := true }) }).
+            past:ifTrue({ out:add(key) }) }).
+        out }) }.
+
+
 
 ; ---------------------------------------------------------------------------
 ; The colon line
@@ -1466,8 +1575,8 @@ gg and G                the file      J         join the line below
 
 d and y take a motion: dw d$ dj dG d'a, and dd yy for whole lines.
 p and P put it back. x deletes a character. ma marks, 'a and `a go back.
-u undoes, ctrl-r redoes; a hundred changes are kept.
-A count repeats: 3j, 2dd, d2w, 10G, 3p.
+u undoes, ctrl-r redoes; a hundred changes are kept. . does it again.
+A count repeats: 3j, 2dd, d2w, 10G, 3p, and 3. means three of those.
 
 /pattern and ?pattern search, forwards and back; n and N do it again.
 A pattern is . * [abc] [^a-z] ^ $ and \\ to escape one of them.

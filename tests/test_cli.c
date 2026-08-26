@@ -818,7 +818,8 @@ static void test_basic_has_a_prompt(void)
  * deletes a character of it, searches again and is told there is no second
  * one, substitutes across the whole file, deletes a word with `dw`, yanks a
  * line and puts it at the end, marks that line and comes back to it with `'a`,
- * deletes it and undoes that, redoes it and undoes it again, writes and quits
+ * deletes a character there and repeats that with `.`, deletes the line and
+ * undoes that, redoes it and undoes it again, writes and quits
  * -- and programs/edit/session.out is every byte that reached the terminal
  * while it did.
  *
@@ -860,9 +861,9 @@ static void test_the_editor_draws_what_it_recorded(void)
        line deleted, a character taken off the line the search found, four
        substitutions across three lines -- the last of them twice on the long
        line, which is what `g` is for -- a word deleted by `dw`, a yanked line
-       put back at the end and edited where the mark said it was, and a line
-       deleted, restored, deleted again and restored again, which is why the
-       file ends where it did before any of that. The fourth line is untouched and is there to be
+       put back at the end, edited where the mark said it was and edited again
+       by `.`, and a line deleted, restored, deleted again and restored again,
+       which is why the file ends where it did before any of that. The fourth line is untouched and is there to be
        *drawn* -- it opens with a tab and runs past the eightieth column, so
        the transcript covers both of the things a screen does to a line it
        cannot show as it is. */
@@ -873,7 +874,7 @@ static void test_the_editor_draws_what_it_recorded(void)
                   "THE third line\n"
                   "\tan indented line that runs well past THE eightieth column,"
                   " so THE screen has to scroll sideways to show its end\n"
-                  "HE line END\n") == 0);
+                  "E line END\n") == 0);
     free(edited);
 
     printf("  the editor draws the screen it recorded, and writes the file\n");
