@@ -5,6 +5,45 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Three types, ten operators, and twenty-seven functions — `4a98f91`, 2026-08-26
+
+**Stage 1** of the eight [SOLABASIC.md](SOLABASIC.md) lists, which leaves only
+arrays, `PRINT`'s real formatting, files and the QuickBASIC harness. Integer,
+Double and String by suffix or by `DEF`; the whole operator table including `^`,
+`\`, `MOD`, `NOT`, `AND`, `OR` and `XOR`; `&H` and `&O` literals; and every
+supplied function the definition names.
+[SOLABASIC-REFERENCE.md](SOLABASIC-REFERENCE.md) is brought up to it.
+
+**Types have to be settled before a byte is emitted**, and that is the finding.
+A conversion acts on the top of the stack, so widening an Integer must happen
+*after* it is pushed and *before* the value beside it — by which time it is far
+too late to discover it was needed. The tree is typed in a pass of its own;
+emitting is a second walk that already knows where the conversions go.
+
+**There is no boolean type**, as the definition says. A comparison is `-1` or
+`0` used as a number, so `NOT`, `AND` and `OR` are bit operations and still read
+correctly. Internally it answers the machine's boolean — a conditional jump
+wants one — and the jump that turns it into `-1` is emitted only where the value
+really is a number.
+
+**Two operators follow QBasic against the machine.** SolVM's integer divide and
+remainder are floored, so `-7 \ 2` would be `-4` and `-7 MOD 2` would be `1`.
+QBasic says `-3` and `-1`, and this says QBasic. The cost is exactness above
+2^53.
+
+**A supplied function is emitted where it is called**, there being nowhere to
+put a library — `SGN` is a scratch slot and two conditional jumps, `LEFT$`
+clamps before `copyFrom` is allowed near it, `LTRIM$` is a loop.
+
+**Two things went wrong in ways worth keeping.**
+[3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame) caught this
+compiler — a helper built the block that emits a builtin and stored it, and the
+block read the helper's parameters, so it captured a frame that had returned:
+*block outlived the frame it was written in*, exactly as the roadmap says. And
+`SGN`'s first draft had three arms sharing two jump holes, so one was patched
+twice; **the verifier refused the file at load**, exit 65, rather than running
+it — which is why a Solum-emitted `.sob` is checked before it runs at all.
+
 ### Procedures, and a reference manual for the dialect — `4562ea0`, 2026-08-26
 
 **`SUB`, `FUNCTION`, `CALL`, locals, `SHARED`, `STATIC`, `EXIT SUB`/`EXIT
