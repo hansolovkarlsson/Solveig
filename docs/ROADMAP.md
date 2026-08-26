@@ -291,6 +291,17 @@ leave, and neither wanted to return from an enclosing *method* — they wanted t
 stop a loop. That is [3.13](#313-a-loop-is-left-by-its-condition-or-by-failing),
 which is a smaller thing that `^` would also answer.
 
+**And on 2026-08-26 a program hit the entry itself**, rather than the loop half
+of it. [programs/edit.sol](../programs/edit.sol)'s key dispatcher decides what a
+key is — an operator, a motion, an action — and the first branch that answers
+wants to *stop the method*, not a loop: `dd` having been handled, nothing after
+it applies. It carries a `done` flag and wraps the remainder in
+`done:ifFalse({ ... })`, which is the same workaround the libraries wrote for
+the smaller case. **This is the local case rather than the non-local one** — the
+method wants to leave its own body, not an enclosing frame — and it is worth
+recording because a chain of *this key, else that key* is a shape every dispatch
+table has, and the flag grows one nesting level per branch.
+
 **The unwinding half of it exists now**, which is worth noticing: `onError`
 stops an error part-way out and carries on, and `ensure` sets a failure aside
 and puts it back. Both had to leave the machine level -- frames, stack and the

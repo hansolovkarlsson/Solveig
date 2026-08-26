@@ -718,7 +718,8 @@ line at a time and reads a line at a time; this one owns the screen, puts the
 cursor where it wants it, and redraws the whole of what you are looking at
 between one keystroke and the next.
 
-A modal editor in the manner of vi, in about six hundred lines.
+A modal editor in the manner of vi, in about fourteen hundred lines — two
+fifths of them comment, which is where its arguments are.
 
 ```sh
 ./bin/solvm programs/edit.sob                 # a buffer it writes for itself
@@ -727,7 +728,10 @@ A modal editor in the manner of vi, in about six hundred lines.
 
 `h j k l` and the arrows move, `w` and `b` by word, `0` and `$` to the ends of a
 line, `gg` and `G` to the ends of the file, ctrl-f and ctrl-b by a screen.
-`i a I A o O` begin insert, `x` deletes a character, `dd` a line, `J` joins one.
+`i a I A o O` begin insert, `x` deletes a character, `J` joins two.
+`d` and `y` take a motion — `dw`, `d$`, `dj`, `dG`, `d'a`, and `dd`/`yy` for
+whole lines — `p` and `P` put back what they took, `ma` marks a place and `'a`
+and `` `a `` go to it, and a count repeats: `3j`, `2dd`, `d2w`, `10G`, `3p`.
 `/pattern` and `?pattern` search forwards and back, `n` and `N` do it again,
 and `:s/find/replace/` changes what they find — `/g` for every match on the
 line, `:%s` for every line in the file.
@@ -800,10 +804,42 @@ and a wrong one: replacing `a` with `a` changes nothing and is still a
 substitution. And `:%s` is the first thing here that can change a hundred lines
 at once with **still no undo**, which is what the count and `:q!` are for.
 
-**What it does not do**: no undo, no counts before a command, no registers, no
-marks, and no line ranges beyond `%` — `:1,5s/a/b/` is a parser this has not
-got. Each of those is more of the same rather than more of the language, and
-this program was written to ask the language a question.
+**And then it was made to be vi rather than to look like it.** The notation is
+`[count] operator [count] motion`, where any of the three may be absent — and an
+editor that implements that as a table of keys is a pile of special cases, one
+row per pair. So there are two dictionaries and one dispatcher: a **motion**
+answers a *place* and moves nothing, an **action** does something, and the
+dispatcher decides which a key is and whether an operator is waiting for a place
+to work over. `dw`, `3dw`, `d3w`, `d$`, `dj`, `dG`, `y'a`, `2yy` and `3p` are
+then all the same code. Adding `e` or `f` later is one line in the motion table
+and no change anywhere else, which is the test of whether the grammar was
+implemented or imitated.
+
+The motions are **the ones the cursor uses**: an operator runs `wordForward` and
+puts the cursor back, so `dw` and `w` cannot disagree about where a word ends.
+That is also where the one bug of the rewrite lived — a *cursor* may not stand
+past the last character of a line and a *range end* must be able to, which is
+what `dw` on the last word of a file needs and what the clamp did not know.
+
+A **place** carries how it should be read: whole lines or a piece of text, and
+whether the character it lands on is inside the range. `dj` is two whole lines,
+`d$` includes the last character, `dw` does not include the first character of
+the next word. And an exclusive motion that ends in the first column ends at the
+end of the line before instead — the real vi rule, and what stops `dw` on the
+last word of a line from dragging the next line up into it.
+
+One unnamed register, holding either lines or a piece of text, and **which of
+the two decides what `p` does** — `yy p` copies a line below this one, `yw p`
+copies a word after the cursor. A mark is a row and a column, and the row moves
+when the text does: `insertLine` and `removeLine` shift the marks below them,
+and a mark on a line that is deleted is dropped rather than left pointing at
+whatever moved into its place.
+
+**What it does not do**: **no undo**, which is now the largest thing missing and
+the next thing to build. No `c`, no `e f t`, no named registers, and no line
+ranges beyond `%` — `:1,5s/a/b/` is a parser this has not got. Each of those is
+more of the same rather than more of the language, and this program was written
+to ask the language a question.
 
 ---
 

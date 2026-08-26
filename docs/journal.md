@@ -11,6 +11,97 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-26 (last thing) — the editor stops imitating vi and starts implementing it
+
+Asked for: marks, `y`, `d`, `p`, and a leading number. Those five are not five
+features. They are one grammar, and the editor did not have it — it had a
+dictionary of keys, each doing its own thing, with `dd` as a two-key special
+case bolted on beside `gg`.
+
+    [count] operator [count] motion
+
+Any of the three may be absent. With no operator the motion moves; with no count
+it happens once; an operator standing where its own motion would go means whole
+lines, which is what `dd` and `yy` are. **A table of keys needs a row per
+pair** — `dw`, `dj`, `d$`, `dG`, `2dd`, `y'a` — and the table is the wrong
+shape for the language it is trying to speak.
+
+So the key handling was rewritten: two dictionaries and one dispatcher. A
+**motion** answers a *place* and moves nothing; an **action** does something;
+the dispatcher works out which a key is and whether an operator is waiting for a
+place to work over. Everything asked for fell out of that, and so did `d2w`,
+`2d3w`, `dG`, `10G` and `3p`, none of which was written down anywhere.
+
+### The trick that kept it short
+
+**The motions are the ones the cursor already used.** An operator runs
+`wordForward` and puts the cursor back afterwards — that is the whole of
+`placeAfter` — so `dw` and `w` cannot disagree about where a word ends, because
+there is one `wordForward` and it is the same code both times.
+
+That is also where the one bug of the rewrite lived, and it is a good one: **a
+cursor may not stand past the last character of a line, and a range end must be
+able to.** `dw` on the last word of a file left the last character behind,
+because the motion clamped itself to a place a *cursor* may occupy. One function
+was serving two different notions of "where you are allowed to be" and had never
+been asked to tell them apart, because until today nothing measured a range.
+
+### Three booleans that are most of vi
+
+A place carries how it should be read. `linewise`: `dj` is two whole lines, not
+the tail of one and the head of another. `inclusive`: `d$` takes the last
+character and `dw` does not take the first character of the next word. `home`:
+`G` and `'a` land on the first non-blank rather than keeping the column.
+
+And one rule copied from the real thing rather than invented: **an exclusive
+motion that ends in the first column ends at the end of the line before
+instead.** Without it, `dw` on the last word of a line drags the next line up
+into it — which is a thing vi has never done and which nobody would think to
+test for. It is four lines and it is the difference between an editor that
+behaves and one that surprises you twice a day.
+
+### Marks move, or they lie
+
+A mark is a row and a column. The row has to move when the text does: a mark
+below the line you delete comes up with it, and a mark **on** the line you
+delete is dropped rather than left pointing at whatever slid into its place.
+`insertLine` and `removeLine` are the only two places lines shift, so both call
+`shiftMarks` and that is the whole mechanism. The version without it is not
+broken in any way you would notice for an hour, which is exactly why it was
+worth doing on the first day rather than the second.
+
+`''` — where you last jumped from — is the mark nobody has to remember to set,
+and it is one line in `G`, `gg` and the mark jumps.
+
+### 3.2 got its first real customer
+
+[3.2, no non-local return](ROADMAP.md#32-no-non-local-return) has been carrying
+a note that two shipped libraries cite it and **neither wanted what it offers**:
+both wanted to stop a `whileTrue`, which is the smaller
+[3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing).
+
+The dispatcher wants the entry itself. `dd` having been handled, nothing after
+it in the method applies — it wants to *leave the method*, and a block answers
+its last expression, so it carries a `done` flag and wraps everything after the
+first branch in `done:ifFalse({ ... })`. This is the local case rather than the
+non-local one, and the shape is worth naming because every dispatch table has
+it: a chain of *this key, else that key*, growing one nesting level per branch.
+
+### And the checks were wrong four times again
+
+Four of the forty-three new cases failed on the first run; **three of them were
+the check and not the editor.** `y$` yanks to the end of the line and not the
+word under the cursor. A mark on a deleted line leaves the cursor where it was,
+so the `x` after it lands somewhere the expectation had not thought about. And
+twice I typed a key sequence into the harness that was not the one I meant —
+including one with a space in it, and a space is a motion.
+
+The fourth was the clamp. That ratio is the argument for writing the expectation
+down first: three of the four failures cost nothing but a re-read, and the
+fourth was a real defect found in the same minute.
+
+---
+
 ## 2026-08-26 (later) — substitution, and a sentence that was wrong the day it was written
 
 The search went in, and the next thing anybody wants after finding something is

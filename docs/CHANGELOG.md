@@ -5,6 +5,68 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The editor learns vi's grammar: counts, operators, registers and marks — `pending`, 2026-08-26
+
+**`d` and `y` over any motion, `p` and `P`, `ma` and `'a`, and a count in front
+of all of it.** `dw`, `3dw`, `d3w`, `d$`, `dj`, `dG`, `d'a`, `dd`, `2dd`, `yy`,
+`y'a`, `xp`, `3p`, `10G`, `3j` — and none of them is a special case.
+
+**Because the notation is a grammar and not a table of keys**, which is the
+structural point of the change:
+
+```text
+[count] operator [count] motion
+```
+
+Any of the three may be absent: with no operator the motion just moves, with no
+count it happens once, and an operator standing where its own motion would go
+means whole lines — which is what `dd` and `yy` are. An editor that implements
+that as a table needs a row per pair; this one has **two dictionaries and one
+dispatcher**. A *motion* answers a place and moves nothing, an *action* does
+something, and the dispatcher decides which a key is and whether an operator is
+waiting for a place to work over. Adding `e` or `f` later is one line in the
+motion table and no change anywhere else, which is the test of whether the
+grammar was implemented or imitated.
+
+**The motions are the ones the cursor already used.** An operator runs
+`wordForward` and puts the cursor back afterwards, so `dw` and `w` cannot
+disagree about where a word ends. That is the whole of `placeAfter`, and it is
+where the one bug of the rewrite lived: **a cursor may not stand past the last
+character of a line, and a range end must be able to.** `dw` on the last word of
+a file left the last character behind, because the motion clamped itself to a
+place a cursor may be. `clamp` knows the difference now, and it is one boolean.
+
+**A place carries how it should be read** — whole lines or a piece of text,
+whether the character it lands on is inside the range, and whether the jump
+lands on the first non-blank. `dj` is two whole lines, `d$` includes the last
+character, `dw` does not include the first character of the next word. Those
+three sentences are most of why vi's deletions feel right. And one real vi rule
+that is not decoration: **an exclusive motion ending in the first column ends at
+the end of the line before instead**, which is what stops `dw` on the last word
+of a line from dragging the next line up into it.
+
+**One unnamed register, and which kind of thing it holds decides what `p`
+does**: `yy p` copies a line below this one, `yw p` copies a word after the
+cursor. `x` fills it too, so `xp` swaps two characters — the smallest thing in
+vi that only works because deleting and yanking put their result in one place.
+
+**A mark is a row and a column, and the row moves when the text does.**
+`insertLine` and `removeLine` shift the marks below them, and a mark on a line
+that is deleted is dropped rather than left pointing at whatever moved into its
+place — the failure that would otherwise say nothing. `''` is where you last
+jumped from, which is the mark nobody has to remember to set.
+
+**And it gave [3.2](ROADMAP.md#32-no-non-local-return) its first real
+customer.** The two libraries that cite that entry wanted to stop a *loop*,
+which is the smaller [3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing).
+This dispatcher wants to stop a *method*: `dd` having been handled, nothing
+after it applies. It carries a `done` flag and wraps the remainder in
+`done:ifFalse({ ... })` — the local case of the same absence, in the shape every
+dispatch table has.
+
+No message was added to the language: 137<!--count messages--> messages,
+unchanged.
+
 ### Substitution, and a claim about absence that was wrong when it was written — `6156a6c`, 2026-08-26
 
 **`:s/find/replace/` in [programs/edit.sol](../programs/edit.sol)**, with `/g`

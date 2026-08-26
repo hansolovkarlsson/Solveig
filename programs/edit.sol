@@ -8,13 +8,17 @@
 ; wants it, and redraws the whole of what you are looking at between one
 ; keystroke and the next.
 ;
-;   h j k l, arrows   move           i a I A   insert here, at the start, at the end
+;   h j k l, arrows   move           i a I A   insert here, or at the ends
 ;   w b               by word        o O       open a line below or above
-;   0 $               line ends      x dd J    a character, a line, join
-;   gg G              file ends      /pat ?pat search on, and back
-;   ctrl-f ctrl-b     by a screen    n N       the same search again, either way
-;                                    :s/a/b/ :s/a/b/g :%s/a/b/g
-;                                    :w :q :q! :wq :w name :17
+;   0 $               line ends      x J       a character, join
+;   gg G              file ends      d y       delete, yank -- over any motion
+;   ctrl-f ctrl-b     by a screen    dd yy     the line, or the count of them
+;   ma                mark here      p P       put it back, after or before
+;   'a  `a            back to it     /pat ?pat search on, and back
+;   ''                where you were n N       the same search again, either way
+;
+;   3j   d2w   2dd   10G   3p        a count repeats it, or reaches that far
+;   :s/a/b/   :s/a/b/g   :%s/a/b/g   :w :q :q! :wq :w name :17
 ;
 ; ---------------------------------------------------------------------------
 ; What it was written to find, which was written down before it was written
@@ -128,14 +132,55 @@
 ; there is still no undo.** What it has instead is the count, and `:q!`.
 ;
 ; ---------------------------------------------------------------------------
+; The grammar, which is the part worth reading
+;
+; **vi is not a table of keys, and an editor that implements it as one is a pile
+; of special cases.** The notation is
+;
+;     [count] operator [count] motion
+;
+; where any of the three may be absent. With no operator the motion just moves;
+; with no count it is once; and an operator standing where its own motion would
+; go means whole lines, which is what `dd` and `yy` are. Everything else falls
+; out: `dw`, `3dw`, `d3w`, `2d3w`, `d$`, `dj`, `dG`, `y'a`, `2yy`, `10G`, `3p`.
+;
+; So this file has **two dictionaries and one dispatcher**. A *motion* answers a
+; place and moves nothing; an *action* does something. `edit:normalKey` decides
+; which a key is, and whether an operator is waiting for a place to work over.
+; Adding `e` or `f` later is one line in the motion table and no change anywhere
+; else -- which is the test of whether the grammar was implemented or imitated.
+;
+; **The motions are the ones the cursor uses.** `dw` and `w` cannot disagree
+; about where a word ends, because there is one `wordForward`: an operator runs
+; it and puts the cursor back, which is what `placeAfter` is. That trick is why
+; the table is short, and it is the reason the one bug this refactor produced was
+; where it was -- see `clamp`, which had to learn that a *range end* may stand
+; one past the last character of a line where a *cursor* may not.
+;
+; **A place carries how it should be read**: whole lines or a piece of text, and
+; whether the character it lands on is inside the range. `dj` is two whole lines,
+; `d$` includes the last character, `dw` does not include the first character of
+; the next word. Those three sentences are the whole of why vi's deletions feel
+; right, and every one of them is a boolean on `edit:place`.
+;
+; And one rule from the real thing, which is not decoration: **an exclusive
+; motion that ends in the first column ends at the end of the line before it
+; instead.** That is what makes `dw` on the last word of a line clear the tail of
+; that line rather than dragging the next line up into it.
+;
+; ---------------------------------------------------------------------------
 ; What it does not do
 ;
-; No undo, no counts before a command, no registers, no marks, and no line
-; ranges beyond `%` -- `:1,5s/a/b/` is a parser this has not got. Each of those
-; is more of the same rather than more of the language, and this was written to
-; ask the language a question rather than to replace anybody's editor. What is
-; here is what it takes to open a file, move around it, change it and write it
-; back -- which is enough to have edited this comment.
+; **No undo**, which is now the largest thing missing and the next thing to
+; build: there are three ways to lose a line by mistake and none to get it back.
+;
+; No `c`, no `e f t`, no named registers -- one unnamed register is what `d`,
+; `y` and `x` all write to and `p` reads. No line ranges beyond `%`;
+; `:1,5s/a/b/` is a parser this has not got. Each of those is more of the same
+; rather than more of the language, and this was written to ask the language a
+; question rather than to replace anybody's editor. What is here is what it
+; takes to open a file, move around it, change it and write it back -- which is
+; enough to have edited this comment.
 ;
 ; It is held to a **recorded transcript** in tests/test_cli.c: a fixed screen
 ; size, a scripted stream of keystrokes, and the bytes it writes compared with
@@ -194,7 +239,13 @@ edit:mode := 'normal.       ; 'normal, 'insert or 'command
 edit:message := "".         ; the bottom line, when it is not a command
 edit:dirty := false.        ; whether there is anything to lose
 edit:running := true.
-edit:pending := nil.        ; the first key of a two-key command: d, g
+edit:count := #0.           ; the digits typed before a command; #0 is none
+edit:measuring := false.    ; a motion is being run to find a place, not to move
+edit:operator := nil.       ; "d" or "y", waiting for a motion to work over
+edit:prefix := nil.         ; a key that needs a second one: m, ', ` or g
+edit:register := nil.       ; what was last deleted or yanked
+edit:registerIsLines := false.   ; whether that is whole lines or a piece of text
+edit:marks := nil.          ; name -> [row, column]
 edit:prompt := ":".         ; which bottom line is being typed: ':', '/' or '?'
 edit:command := "".         ; that line, as it is typed
 edit:pushed := nil.         ; one key read and not used -- see `nextKey`
@@ -204,6 +255,7 @@ edit:direction := 'forward. ; which way `n` goes
 
 edit:open := { path |
     self:path := path.
+    self:marks := dictionary:new.
     self:lines := (path:notNil:and({ system:fileExists(path) })):ifElse(
         { self:linesOf(system:readFile(path)) },
         { [""] }).
@@ -235,15 +287,19 @@ edit:insertLine := { at, text | | out |
     out:add(text).
     self:lines:copyFrom(at, self:lines:size):do({ each | out:add(each) }).
     self:lines := out.
+    self:shiftMarks(at, #1).
     self:dirty := true }.
 
 edit:removeLine := { at | | out |
     self:lines:size:equals(#1):ifElse(
+        ; The last line is emptied rather than removed, because a buffer with no
+        ; lines has nowhere to put the cursor. Nothing moved, so no mark does.
         { self:lines:atPut(#1, "") },
         { out := self:lines:copyFrom(#1, at:sub(#1)).
           self:lines:copyFrom(at:add(#1), self:lines:size):do({ each |
               out:add(each) }).
-          self:lines := out }).
+          self:lines := out.
+          self:shiftMarks(at, #-1) }).
     self:dirty := true }.
 
 ; ---------------------------------------------------------------------------
@@ -378,8 +434,13 @@ edit:decode := { key | | second, third |
 ; is on the screen is decided at the last moment, by `render`. A motion that
 ; walks off the end of a line therefore has no screen to fall off.
 
+; **A cursor may not stand past the last character; a range end must be able
+; to.** `dw` on the last word of a file ends *after* it, and a motion that
+; clamped itself to the last character would leave that character behind. Insert
+; mode is allowed there for the same reason -- something has to be able to name
+; the place after the end.
 edit:clamp := { | limit |
-    limit := self:mode:equals('insert):ifElse(
+    limit := self:mode:equals('insert):or({ self:measuring }):ifElse(
         { self:line:size:add(#1) },
         { self:line:size }).
     limit:lessThan(#1):ifTrue({ limit := #1 }).
@@ -497,17 +558,19 @@ edit:splitLine := { | line |
     self:row := self:row:add(#1).
     self:column := #1 }.
 
-edit:deleteChar := { | line |
+; `x`, and `3x`. It fills the register like every other delete, so `xp` swaps
+; two characters -- which is the smallest thing in vi that is only possible
+; because deleting and yanking put their result in the same place.
+edit:deleteChars := { n | | line, last |
     line := self:line.
     line:size:greaterThan(#0):ifTrue({
+        last := self:column:add(n):sub(#1).
+        last:greaterThan(line:size):ifTrue({ last := line:size }).
+        self:register := line:copyFrom(self:column, last).
+        self:registerIsLines := false.
         self:setLine(line:copyFrom(#1, self:column:sub(#1))
-            :concat(line:copyFrom(self:column:add(#1), line:size))).
+            :concat(line:copyFrom(last:add(#1), line:size))).
         self:clamp }) }.
-
-edit:deleteLine := {
-    self:removeLine(self:row).
-    self:row:greaterThan(self:lines:size):ifTrue({ self:row := self:lines:size }).
-    self:column := #1 }.
 
 edit:joinLine := { | next |
     self:row:lessThan(self:lines:size):ifTrue({
@@ -533,61 +596,418 @@ edit:openAbove := {
 ; ---------------------------------------------------------------------------
 ; What each key does
 ;
-; A dictionary of blocks rather than a nest of `ifElse`, because this is a table
-; in every editor ever written and it reads as one here too. The keys are the
-; bytes themselves, and the four arrows are symbols, which is what `decode`
-; makes of the three bytes each of them arrives as.
+; **This is vi's grammar and not a table of keys**, which is the one structural
+; thing an editor of this shape has to get right: `[count] operator [count]
+; motion`, where the operator may be absent (and then the motion just moves),
+; the count may be absent, and `dd` is the operator standing in for its own
+; motion. `dw`, `3dw`, `d3w`, `d$`, `dj`, `y'a`, `2yy` and `10G` all fall out of
+; that; a table of keys would need a row for each of them.
+;
+; So there are two dictionaries. **A motion answers a *place*** and moves
+; nothing. **An action does something** and answers nothing anybody reads. The
+; dispatcher below decides which of the two a key is, and whether an operator is
+; waiting for a place to work over.
+
+; ---------------------------------------------------------------------------
+; A place
+;
+; Where a motion says to go, and how the text between here and there should be
+; read. `linewise` is whole lines -- `dj` takes two of them, not the tail of one
+; and the head of another. `inclusive` is whether the character it lands on is
+; part of the range: `$` includes it and `w` does not, which is why `dw` leaves
+; the next word alone and `d$` clears the line. `home` is for the jumps that
+; land on the first non-blank character rather than keeping the column.
+
+edit:place := object:new.
+edit:place:row := #1.
+edit:place:column := #1.
+edit:place:linewise := false.
+edit:place:inclusive := false.
+edit:place:home := false.
+
+edit:placeAt := { row, column | | p |
+    p := self:place:new.
+    p:row := row.
+    p:column := column.
+    p }.
+
+edit:linePlace := { row | | p |
+    p := self:placeAt(row, #1).
+    p:linewise := true.
+    p }.
+
+; A jump: linewise, and it lands on the text rather than in the indentation.
+edit:jumpPlace := { row | | p |
+    p := self:linePlace(row).
+    p:home := true.
+    p }.
+
+edit:times := { n | n:lessThan(#1):ifElse({ #1 }, { n }) }.
+
+edit:lineWithin := { n |
+    n:lessThan(#1):ifElse({ #1 }, {
+    n:greaterThan(self:lines:size):ifElse({ self:lines:size }, { n }) }) }.
+
+edit:firstNonBlank := { row | | line, i |
+    line := self:lines:at(row).
+    i := #1.
+    { i:lessOrEqual(line:size):and({ " \t":indexOf(line:at(i)):notNil }) }
+        :whileTrue({ i := i:add(#1) }).
+    i }.
+
+; **The motions were written to move the cursor**, and an operator needs to know
+; where they would have gone without their having gone there. Running one and
+; putting the cursor back is the whole of the difference, and it is why `dw` and
+; `w` cannot disagree about what a word is: there is one `wordForward`.
+edit:placeAfter := { block, count | | row, column, p |
+    row := self:row.
+    column := self:column.
+    self:measuring := true.
+    self:times(count):repeat(block).
+    self:measuring := false.
+    p := self:placeAt(self:row, self:column).
+    self:row := row.
+    self:column := column.
+    p }.
+
+edit:linePlaceAfter := { block, count | | p |
+    p := self:placeAfter(block, count).
+    p:linewise := true.
+    p }.
+
+; ---------------------------------------------------------------------------
+; The motions
+
+motions := dictionary:new.
+
+motions:atPut("h", { n | edit:placeAfter({ edit:left }, n) }).
+motions:atPut("l", { n | edit:placeAfter({ edit:right }, n) }).
+motions:atPut("w", { n | edit:placeAfter({ edit:wordForward }, n) }).
+motions:atPut("b", { n | edit:placeAfter({ edit:wordBack }, n) }).
+motions:atPut('left, { n | edit:placeAfter({ edit:left }, n) }).
+motions:atPut('right, { n | edit:placeAfter({ edit:right }, n) }).
+
+motions:atPut("j", { n | edit:linePlaceAfter({ edit:down }, n) }).
+motions:atPut("k", { n | edit:linePlaceAfter({ edit:up }, n) }).
+motions:atPut('down, { n | edit:linePlaceAfter({ edit:down }, n) }).
+motions:atPut('up, { n | edit:linePlaceAfter({ edit:up }, n) }).
+motions:atPut(#6:asCharacter, { n | edit:linePlaceAfter({ edit:pageDown }, n) }).
+motions:atPut(#2:asCharacter, { n | edit:linePlaceAfter({ edit:pageUp }, n) }).
+
+motions:atPut("0", { n | edit:placeAt(edit:row, #1) }).
+
+; `$` is inclusive -- the character it lands on is the last one on the line, and
+; `d$` that left it behind would be a strange thing to have typed. With a count
+; it is the end of the line that many further down.
+motions:atPut("$", { n | | row, p |
+    row := edit:lineWithin(edit:row:add(edit:times(n):sub(#1))).
+    p := edit:placeAt(row, edit:lines:at(row):size).
+    p:inclusive := true.
+    p }).
+
+; `G` is the last line, or the line the count names -- which is why `:17` and
+; `17G` are the same thing said twice, as they are in vi.
+motions:atPut("G", { n |
+    edit:rememberJump.
+    edit:jumpPlace(n:greaterThan(#0):ifElse(
+        { edit:lineWithin(n) },
+        { edit:lines:size })) }).
+
+; ---------------------------------------------------------------------------
+; The actions
+;
+; Everything that is not a motion and not an operator. Each takes the count,
+; which most of them ignore.
 
 normalKeys := dictionary:new.
 
-normalKeys:atPut("h", { edit:left }).
-normalKeys:atPut("l", { edit:right }).
-normalKeys:atPut("k", { edit:up }).
-normalKeys:atPut("j", { edit:down }).
-normalKeys:atPut('left, { edit:left }).
-normalKeys:atPut('right, { edit:right }).
-normalKeys:atPut('up, { edit:up }).
-normalKeys:atPut('down, { edit:down }).
-normalKeys:atPut("0", { edit:lineStart }).
-normalKeys:atPut("$", { edit:lineEnd }).
-normalKeys:atPut("w", { edit:wordForward }).
-normalKeys:atPut("b", { edit:wordBack }).
-normalKeys:atPut("G", { edit:lastLine }).
-normalKeys:atPut(#6:asCharacter, { edit:pageDown }).      ; ctrl-f
-normalKeys:atPut(#2:asCharacter, { edit:pageUp }).        ; ctrl-b
-
-normalKeys:atPut("i", { edit:enterInsert }).
-normalKeys:atPut("a", { edit:column := edit:column:add(#1). edit:enterInsert }).
-normalKeys:atPut("A", { edit:column := edit:line:size:add(#1). edit:enterInsert }).
-normalKeys:atPut("I", { edit:column := #1. edit:enterInsert }).
-normalKeys:atPut("o", { edit:openBelow }).
-normalKeys:atPut("O", { edit:openAbove }).
-normalKeys:atPut("x", { edit:deleteChar }).
-normalKeys:atPut("J", { edit:joinLine }).
-
-; The two-key commands. The first key is remembered rather than read, because a
-; key that waits for the next one is a key the screen cannot redraw behind.
-normalKeys:atPut("d", { edit:pending := "d" }).
-normalKeys:atPut("g", { edit:pending := "g" }).
-normalKeys:atPut(":", { edit:beginPrompt(":") }).
+normalKeys:atPut("i", { n | edit:enterInsert }).
+normalKeys:atPut("a", { n | edit:column := edit:column:add(#1). edit:enterInsert }).
+normalKeys:atPut("A", { n | edit:column := edit:line:size:add(#1). edit:enterInsert }).
+normalKeys:atPut("I", { n | edit:column := edit:firstNonBlank(edit:row). edit:enterInsert }).
+normalKeys:atPut("o", { n | edit:openBelow }).
+normalKeys:atPut("O", { n | edit:openAbove }).
+normalKeys:atPut("x", { n | edit:deleteChars(edit:times(n)) }).
+normalKeys:atPut("J", { n | edit:times(n):repeat({ edit:joinLine }) }).
+normalKeys:atPut("p", { n | edit:put(true, edit:times(n)) }).
+normalKeys:atPut("P", { n | edit:put(false, edit:times(n)) }).
+normalKeys:atPut(":", { n | edit:beginPrompt(":") }).
 
 ; Searching. `/` and `?` are the same line the colon commands are typed on, with
 ; a different first character -- which is what `prompt` holds and the only thing
 ; that tells the three apart. `n` and `N` repeat the last one, forwards and the
 ; other way, and neither reads a line at all.
-normalKeys:atPut("/", { edit:beginPrompt("/") }).
-normalKeys:atPut("?", { edit:beginPrompt("?") }).
-normalKeys:atPut("n", { edit:repeatSearch(edit:direction) }).
-normalKeys:atPut("N", { edit:repeatSearch(
+normalKeys:atPut("/", { n | edit:beginPrompt("/") }).
+normalKeys:atPut("?", { n | edit:beginPrompt("?") }).
+normalKeys:atPut("n", { n | edit:repeatSearch(edit:direction) }).
+normalKeys:atPut("N", { n | edit:repeatSearch(
     edit:direction:equals('forward):ifElse({ 'backward }, { 'forward })) }).
 
-edit:normalKey := { key | | first |
-    self:pending:notNil:ifElse(
-        { first := self:pending.
-          self:pending := nil.
-          first:equals("d"):and({ key:equals("d") }):ifTrue({ self:deleteLine }).
-          first:equals("g"):and({ key:equals("g") }):ifTrue({ self:firstLine }) },
-        { normalKeys:includes(key):ifTrue({ normalKeys:at(key):value }) }) }.
+operators := ["d", "y"].
+prefixes := ["m", "'", "`", "g"].
+digits := "0123456789".
+
+; ---------------------------------------------------------------------------
+; The dispatcher
+
+edit:normalKey := { key |
+    self:isDigit(key):ifElse(
+        { self:count := self:count:mul(#10)
+              :add(digits:indexOf(key):sub(#1)) },
+        { self:prefix:notNil:ifElse(
+            { self:resolvePrefix(key) },
+            { self:normalCommand(key) }) }) }.
+
+; A digit builds the count -- except a `0` with no count under way, which is the
+; motion to the start of the line. Every vi has that rule and it is the only
+; ambiguity in the notation. Arrows arrive as symbols and are never digits.
+edit:isDigit := { key |
+    key:isKindOf(string)
+        :and({ digits:indexOf(key):notNil })
+        :and({ key:equals("0"):not:or({ self:count:greaterThan(#0) }) }) }.
+
+edit:normalCommand := { key | | place, done |
+    done := false.
+
+    ; `dd` and `yy`: an operator standing where its motion would go means the
+    ; whole line, and the count is how many.
+    self:operator:notNil:and({ key:equals(self:operator) }):ifTrue({
+        self:operateLines(self:operator,
+            self:lineWithin(self:row:add(self:times(self:count):sub(#1)))).
+        self:operator := nil.
+        self:count := #0.
+        done := true }).
+
+    ; A flag rather than a return, which is
+    ; [3.2](../docs/ROADMAP.md#32-no-non-local-return) in its simplest form:
+    ; a block answers its last expression and there is no way to leave one
+    ; early, so the rest of the method has to ask whether it still has anything
+    ; to do. Not a loop this time -- the two libraries that cite that entry
+    ; wanted to stop a `whileTrue`, and this wants to stop a *method*.
+    done:ifFalse({
+        prefixes:indexOf(key):notNil:ifElse(
+            { self:prefix := key },
+            { motions:includes(key):ifElse(
+                { place := motions:at(key):value(self:count).
+                  self:count := #0.
+                  self:applyPlace(place) },
+                { operators:indexOf(key):notNil:and({ self:operator:isNil })
+                      :ifElse(
+                    { self:operator := key },
+                    { self:operator := nil.
+                      normalKeys:includes(key):ifTrue({
+                          normalKeys:at(key):value(self:count) }).
+                      self:count := #0 }) }) }) }) }.
+
+edit:resolvePrefix := { key | | which, place |
+    which := self:prefix.
+    self:prefix := nil.
+
+    which:equals("m"):ifTrue({
+        self:marks:atPut(key, array:of(self:row, self:column)).
+        self:count := #0 }).
+
+    which:equals("g"):ifTrue({
+        key:equals("g"):ifElse(
+            { self:rememberJump.
+              place := self:jumpPlace(self:count:greaterThan(#0):ifElse(
+                  { self:lineWithin(self:count) },
+                  { #1 })).
+              self:count := #0.
+              self:applyPlace(place) },
+            { self:operator := nil. self:count := #0 }) }).
+
+    which:equals("'"):or({ which:equals("`") }):ifTrue({
+        place := self:markPlace(key, which:equals("`")).
+        self:count := #0.
+        place:isNil:ifElse(
+            { self:operator := nil },
+            { self:rememberJump. self:applyPlace(place) }) }) }.
+
+edit:applyPlace := { place |
+    self:operator:isNil:ifElse(
+        { place:linewise:ifElse(
+            { self:row := place:row.
+              place:home:ifTrue({ self:column := self:firstNonBlank(self:row) }).
+              self:clamp },
+            { self:row := place:row.
+              self:column := place:column.
+              self:clamp }) },
+        { self:applyOperator(place) }) }.
+
+; ---------------------------------------------------------------------------
+; The operators
+;
+; `d` and `y` differ in one line -- whether the text is taken out as well as
+; taken down -- which is why they are one pair of methods with the operator
+; passed in rather than two of everything.
+;
+; **One register**, holding either whole lines or a piece of text, and which of
+; the two it is decides what `p` does with it. That flag is the whole of the
+; difference between `yy` `p` (a copy of the line, below this one) and `yw` `p`
+; (a copy of the word, after the cursor), and an editor that lost it would put
+; text in the wrong place about half the time.
+
+edit:applyOperator := { place | | op |
+    op := self:operator.
+    self:operator := nil.
+    place:linewise:ifElse(
+        { self:operateLines(op, place:row) },
+        { self:operateChars(op, place) }) }.
+
+edit:operateLines := { op, row | | from, to |
+    from := self:row:lessOrEqual(row):ifElse({ self:row }, { row }).
+    to := self:row:lessOrEqual(row):ifElse({ row }, { self:row }).
+    from := self:lineWithin(from).
+    to := self:lineWithin(to).
+
+    self:register := self:lines:copyFrom(from, to).
+    self:registerIsLines := true.
+
+    op:equals("y"):ifElse(
+        { self:row := from },
+        { to:sub(from):add(#1):repeat({ self:removeLine(from) }).
+          self:row := self:lineWithin(from).
+          self:dirty := true }).
+    self:column := self:firstNonBlank(self:row).
+    self:clamp }.
+
+edit:operateChars := { op, place | | fromRow, fromColumn, toRow, toColumn |
+    self:row:lessThan(place:row):or({
+        self:row:equals(place:row)
+            :and({ self:column:lessOrEqual(place:column) }) }):ifElse(
+        { fromRow := self:row.     fromColumn := self:column.
+          toRow := place:row.      toColumn := place:column.
+          ; The character a motion lands on belongs to the range only if the
+          ; motion says so, and then the range ends one past it.
+          place:inclusive:ifTrue({ toColumn := toColumn:add(#1) }) },
+        { fromRow := place:row.    fromColumn := place:column.
+          toRow := self:row.       toColumn := self:column }).
+
+    ; vi's rule for an exclusive motion that ends in the first column: the range
+    ; ends at the end of the line before instead. It is what makes `dw` on the
+    ; last word of a line clear the tail of that line rather than dragging the
+    ; next line up into it.
+    place:inclusive:not
+        :and({ toColumn:equals(#1) })
+        :and({ toRow:greaterThan(fromRow) }):ifTrue({
+        toRow := toRow:sub(#1).
+        toColumn := self:lines:at(toRow):size:add(#1) }).
+
+    self:register := self:textBetween(fromRow, fromColumn, toRow, toColumn).
+    self:registerIsLines := false.
+
+    op:equals("d"):ifTrue({
+        self:removeBetween(fromRow, fromColumn, toRow, toColumn) }).
+    self:row := fromRow.
+    self:column := fromColumn.
+    self:clamp }.
+
+; From one place up to but not including another, newlines and all. A range
+; inside one line is a slice; a range across several is a head, some whole
+; lines, and a tail -- which is the same shape `removeBetween` puts back.
+edit:textBetween := { fromRow, fromColumn, toRow, toColumn | | out |
+    fromRow:equals(toRow):ifElse(
+        { self:lines:at(fromRow):copyFrom(fromColumn, toColumn:sub(#1)) },
+        { out := self:lines:at(fromRow):copyFrom(
+              fromColumn, self:lines:at(fromRow):size).
+          fromRow:add(#1):lessOrEqual(toRow:sub(#1)):ifTrue({
+              [fromRow:add(#1), toRow:sub(#1)]:loop({ r |
+                  out := out:concat("\n"):concat(self:lines:at(r)) }) }).
+          out:concat("\n")
+             :concat(self:lines:at(toRow):copyFrom(#1, toColumn:sub(#1))) }) }.
+
+edit:removeBetween := { fromRow, fromColumn, toRow, toColumn | | head, tail |
+    head := self:lines:at(fromRow):copyFrom(#1, fromColumn:sub(#1)).
+    tail := self:lines:at(toRow):copyFrom(toColumn, self:lines:at(toRow):size).
+    self:lines:atPut(fromRow, head:concat(tail)).
+    toRow:sub(fromRow):repeat({ self:removeLine(fromRow:add(#1)) }).
+    self:dirty := true }.
+
+; ---------------------------------------------------------------------------
+; Putting it back
+
+edit:put := { after, n |
+    self:register:isNil:ifElse(
+        { self:message := "nothing to put" },
+        { self:registerIsLines:ifElse(
+            { self:putLines(after, n) },
+            { self:putText(after, n) }) }) }.
+
+edit:putLines := { after, n | | at, put |
+    at := after:ifElse({ self:row:add(#1) }, { self:row }).
+    put := #0.
+    n:repeat({
+        self:register:do({ line |
+            self:insertLine(at:add(put), line).
+            put := put:add(#1) }) }).
+    self:row := at.
+    self:column := self:firstNonBlank(self:row).
+    self:clamp }.
+
+edit:putText := { after, n | | text, at, line, tail, pieces, last |
+    text := "".
+    n:repeat({ text := text:concat(self:register) }).
+
+    line := self:line.
+    at := after:ifElse({ self:column:add(#1) }, { self:column }).
+    at:greaterThan(line:size:add(#1)):ifTrue({ at := line:size:add(#1) }).
+
+    pieces := text:split("\n").
+    pieces:size:equals(#1):ifElse(
+        { self:setLine(line:copyFrom(#1, at:sub(#1)):concat(text)
+              :concat(line:copyFrom(at, line:size))).
+          self:column := at:add(text:size):sub(#1) },
+        ; A piece of text with newlines in it -- `yw` never makes one, `y`a`
+        ; across lines does -- goes in as a head, some lines, and a tail.
+        { tail := line:copyFrom(at, line:size).
+          self:setLine(line:copyFrom(#1, at:sub(#1)):concat(pieces:at(#1))).
+          [#2, pieces:size]:loop({ k |
+              self:insertLine(self:row:add(k:sub(#1)), pieces:at(k)) }).
+          last := self:row:add(pieces:size):sub(#1).
+          self:lines:atPut(last, self:lines:at(last):concat(tail)).
+          self:row := last.
+          self:column := pieces:at(pieces:size):size }).
+    self:dirty := true.
+    self:clamp }.
+
+; ---------------------------------------------------------------------------
+; Marks
+;
+; `ma` remembers where the cursor is; `'a` goes back to that line and `` `a ``
+; to that exact spot. The difference is the same one the operators care about,
+; so `d'a` deletes whole lines and ``d`a`` deletes a piece of text.
+;
+; **A mark is a row and a column, and the row moves when the text does.** A mark
+; set below the line you are deleting has to come up with it, or it points at
+; the wrong text and says nothing about being wrong -- so `insertLine` and
+; `removeLine` are the two places that call `shiftMarks`, and a mark on a line
+; that is deleted is dropped rather than left pointing at whatever moved into
+; its place.
+
+edit:markPlace := { name, exact | | m |
+    m := self:marks:at(name, nil).
+    m:isNil:or({ m:at(#1):greaterThan(self:lines:size) }):ifElse(
+        { self:message := "mark not set: {}":fill([name]). nil },
+        { exact:ifElse(
+            { self:placeAt(m:at(#1), m:at(#2)) },
+            { self:jumpPlace(m:at(#1)) }) }) }.
+
+edit:shiftMarks := { at, by |
+    self:marks:keys:do({ name | | m |
+        m := self:marks:at(name).
+        by:greaterThan(#0):ifTrue({
+            m:at(#1):greaterOrEqual(at):ifTrue({
+                m:atPut(#1, m:at(#1):add(#1)) }) }).
+        by:lessThan(#0):ifTrue({
+            m:at(#1):equals(at):ifTrue({ self:marks:remove(name) }).
+            m:at(#1):greaterThan(at):ifTrue({
+                m:atPut(#1, m:at(#1):sub(#1)) }) }) }) }.
+
+; The place a jump was made from, under the name `'` -- so `''` goes back to
+; where you were, which is the mark you never have to remember to set.
+edit:rememberJump := {
+    self:marks:atPut("'", array:of(self:row, self:column)) }.
 
 edit:arrowMove := { key |
     key:equals('up):ifTrue({ self:up }).
@@ -902,8 +1322,12 @@ sample := "-- edit.sol --
 
 h j k l or the arrows   move          i a I A   insert, here or at the ends
 0 and $                 the ends      o and O   a new line below or above
-w and b                 by word       x  dd     a character, a line
+w and b                 by word       x         delete a character
 gg and G                the file      J         join the line below
+
+d and y take a motion: dw d$ dj dG d'a, and dd yy for whole lines.
+p and P put it back. x deletes a character. ma marks, 'a and `a go back.
+A count repeats: 3j, 2dd, d2w, 10G, 3p.
 
 /pattern and ?pattern search, forwards and back; n and N do it again.
 A pattern is . * [abc] [^a-z] ^ $ and \\ to escape one of them.
