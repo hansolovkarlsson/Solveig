@@ -5,6 +5,32 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### A real program, and what it asked for — `1eb063a`, 2026-08-26
+
+**Not a feature but a program**: a sales report that reads records out of a file
+into parallel arrays, totals them, and lays out a table — written to find out
+what a real one would want. Four of the defects found so far came out of writing
+the runtime in SolaBasic, and none at all out of the transcripts.
+
+**It wanted `INPUT` into an array element.** That was on the *not yet* list with
+the trigger *the first program that asks*, and
+`INPUT #1, nm$(n), qty(n), price#(n)` is how records go into parallel arrays —
+so the trigger fired because a listing wanted it, not because somebody decided
+it was time.
+
+**And it found a defect on the way.** Those subscripts were never being typed —
+the walkers knew about an assignment's subscripts but not an `INPUT` target's —
+so an integer subscript was coerced as though it were a Double, giving
+`integer does not understand 'rounded'` from a perfectly ordinary line.
+
+[The report](../programs/sola/oracle/agree/report.bas) matches QuickBASIC byte
+for byte. Eighteen `agree/` programs.
+
+**What it did not want was `ON ERROR`**, the entry I had said was closest to
+firing: its trigger is *the first program that needs to survive a bad file*, and
+this one writes the file it reads. The trigger stays unfired — which is the point
+of having written a trigger down rather than a plan.
+
 ### The colon the definition had promised, and two bad errors — `b79c301`, 2026-08-26
 
 Three things a reader hits at once, and not one of them a new feature.
