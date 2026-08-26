@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### Searching, and a regular expression small enough to fit — `pending`, 2026-08-26
+### Searching, and a regular expression small enough to fit — `b066a18`, 2026-08-26
 
 **[programs/edit.sol](../programs/edit.sol) searches**: `/pattern`, `?pattern`,
 `n` and `N`. Most of it is a new library.
