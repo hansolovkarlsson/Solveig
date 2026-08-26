@@ -44,6 +44,7 @@ compiles a demonstration and tells you how to run it.
 - **[Repeating](#repeating)** — `FOR` · `DO` · `WHILE` · `EXIT`
 - **[Jumping](#jumping)** — `GOTO`
 - **[Procedures](#procedures)** — `SUB` · `FUNCTION` · `CALL` · `SHARED` · `STATIC` · `DECLARE`
+- **[Reading](#reading)** — `INPUT` · `LINE INPUT`
 - **[Stopping](#stopping)** — `END`
 - **[What is not here yet](#what-is-not-here-yet)**
 - **[Where this is not QBasic](#where-this-is-not-qbasic)**
@@ -749,6 +750,52 @@ there is nothing for it to say. Listings that carry them still compile.
 
 ---
 
+## Reading
+
+### INPUT
+
+```basic
+INPUT n                          ' shows "? "
+INPUT "NAME"; n$                 ' shows "NAME? "
+INPUT "NAME", n$                 ' shows "NAME" and no question mark
+INPUT "TWO NUMBERS"; a, b        ' one line, split on the comma
+```
+
+**A prompt followed by `;` gets a question mark and one followed by `,` does
+not.** No prompt at all still gets one. The answer is read as a single line and
+split on commas, so several variables are filled from one line.
+
+A field going into a numeric variable has to look like a number, and the count
+has to match. When either is wrong, `Redo from start` is shown and the question
+asked again — which is what BASIC has always done.
+
+```basic
+INPUT "TWO NUMBERS, SEPARATED BY A COMMA"; a, b
+PRINT "SUM IS"; a + b
+```
+
+```text
+TWO NUMBERS, SEPARATED BY A COMMA? 3, 4
+SUM IS 7
+```
+
+**An answer read from a file is echoed**, so a redirected session reads the way
+the interactive one looked. At a terminal it is not, the terminal having shown
+it already.
+
+**Running out of answers is an error** — `Input past end of file` — and not a
+question asked for ever.
+
+### LINE INPUT
+
+Reads the line whole, commas and all, into one string variable.
+
+```basic
+LINE INPUT "A WHOLE LINE: "; whole$
+```
+
+---
+
 ## Stopping
 
 `END` stops the program. It may appear anywhere, including on a one-line `IF`.
@@ -763,7 +810,8 @@ each belongs to is in [SOLABASIC.md](SOLABASIC.md#stages).
 | | |
 | --- | --- |
 | `PRINT USING` | stage 6 |
-| `INPUT`, `LINE INPUT`, files | stage 6 |
+| files — `OPEN`, `CLOSE`, `PRINT #`, `INPUT #`, `EOF` | stage 6 |
+| `INPUT` filling an array element | not written yet; it fills variables |
 | `LBOUND`, `UBOUND` | not written yet — an array's bounds are in the listing that `DIM`med it |
 | an array parameter of more than one dimension | not written yet; its strides would have to travel with it |
 | `ON ERROR`, `TYPE`, `REDIM`, `OPTION EXPLICIT` | listed as *not yet* in the language definition |

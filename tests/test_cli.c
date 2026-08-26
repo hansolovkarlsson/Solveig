@@ -965,6 +965,26 @@ static void test_sola_compiles_a_program_that_runs(void)
     assert(run("bin/solvm " DIR "/sub.sob 2>&1", out, sizeof out) != 0);
     assert(strstr(out, "subscript 2 of G is above 8") != NULL);
 
+    /* INPUT, with the answers piped in. The prompt sits beside the answer, and
+       a redirected answer is echoed -- which is what QuickBASIC does so that a
+       piped session reads the way the interactive one looked, and is a thing
+       the oracle comparison taught this compiler rather than the other way
+       round. programs/sola/oracle/agree/input.bas is the same program held
+       against a real QuickBASIC. */
+    system("printf 'INPUT \"NAME\"; n$\\nPRINT \"HELLO, \"; n$\\nEND\\n' > "
+           DIR "/ask.bas");
+    assert(run("bin/solvm " DIR "/sola.sob " DIR "/ask.bas " DIR "/ask.sob 2>&1",
+               out, sizeof out) == 0);
+    assert(run("printf 'Hans\\n' | bin/solvm " DIR "/ask.sob 2>&1",
+               out, sizeof out) == 0);
+    assert(strcmp(out, "NAME? Hans\nHELLO, Hans\n") == 0);
+
+    /* And running out of answers is an error rather than a loop that asks for
+       ever, which is what it was before the end of input could be told from a
+       blank line somebody typed. */
+    assert(run("bin/solvm " DIR "/ask.sob < /dev/null 2>&1", out, sizeof out) != 0);
+    assert(strstr(out, "Input past end of file") != NULL);
+
     /* The oracle corpus is not run here -- comparing it needs a QuickBASIC,
        which is what programs/sola/oracle.sh is for and why that is a script
        rather than a test. What is checked is that it still compiles, so it
@@ -973,6 +993,7 @@ static void test_sola_compiles_a_program_that_runs(void)
         static const char *corpus[] = {
             "agree/arith", "agree/arrays", "agree/control", "agree/numbers",
             "agree/procs", "agree/select", "agree/strings", "agree/zones",
+            "agree/input",
             "differ/defaulttype", "differ/digits", "differ/intwidth",
             "differ/strdollar", "differ/val",
         };

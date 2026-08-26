@@ -9,9 +9,9 @@
 ;
 ; The language is [SolaBasic](../docs/SOLABASIC.md), and there is a
 ; [reference manual](../docs/SOLABASIC-REFERENCE.md) for people who want to
-; write it rather than read about it. Stages 1 to 5 are here, and so is the half
-; of stage 6 that is `PRINT`'s real formatting -- which leaves `INPUT`, files,
-; `PRINT USING`, and the QuickBASIC comparison harness.
+; write it rather than read about it. Stages 1 to 5 and 7 are here, and so is
+; most of 6: `PRINT`'s real formatting, `INPUT` and `LINE INPUT`. What is left
+; is files and `PRINT USING`.
 ;
 ; **Stage 3 went first on purpose** -- it is `GOTO` and labels, the claim the
 ; whole design rests on, and the document says to reach it in week one rather
@@ -180,6 +180,8 @@
 ;   DECLARE       read and dropped; nothing needs declaring here
 ;   DIM           arrays of up to eight dimensions, bounds fixed at compile
 ;                 time, with `AS` or a suffix for the type, and `SHARED`
+;   INPUT         one line split on commas, with the prompt beside the answer
+;   LINE INPUT    the line whole, commas and all
 ;   OPTION BASE   0 or 1, asked once, before the first `DIM`
 ;   CONST         folded where it stands
 ;   assignment    `LET` optional, scalars only
@@ -193,7 +195,7 @@
 ;   RANDOMIZE     reseeds the one generator
 ;   comments      `REM` and `'`
 ;
-; **Not here, and not pretended:** `INPUT`, files, `PRINT USING`, `REDIM`,
+; **Not here, and not pretended:** files, `PRINT USING`, `REDIM`,
 ; `LBOUND`/`UBOUND`, and an array parameter of more than one dimension. `PRINT`'s real formatting is
 ; stage 6; here the items of one `PRINT` are joined and shown, with no zones and
 ; no trailing space, so its output is **not** what a BASIC prints. That is a
@@ -277,7 +279,7 @@ keywords := ["PRINT", "GOTO", "IF", "THEN", "ELSE", "ELSEIF", "END", "REM",
              "SUB", "FUNCTION", "CALL", "SHARED", "STATIC", "DECLARE",
              "AND", "OR", "XOR", "NOT", "MOD",
              "DEFINT", "DEFLNG", "DEFDBL", "DEFSTR", "RANDOMIZE",
-             "DIM", "OPTION", "BASE", "CONST", "AS"].
+             "DIM", "OPTION", "BASE", "CONST", "AS", "INPUT", "LINE"].
 
 ; ---------------------------------------------------------------------------
 ; A token, and a node
@@ -894,6 +896,45 @@ parsers:atPut("CALL", { m, st |
 ; because each of them answers a question the next line may ask: what the lowest
 ; subscript is, what a name stands for, and how big an array is.
 
+; ---------------------------------------------------------------------------
+; INPUT and LINE INPUT
+;
+;     INPUT ["prompt"{;|,}] variable[, variable]...
+;     LINE INPUT ["prompt"{;|,}] variable$
+;
+; **A prompt followed by `;` gets a question mark after it and one followed by
+; `,` does not**, which is BASIC's rule and the only thing the two separators
+; do here. No prompt at all still gets the question mark, because that is what
+; `INPUT N` has always shown.
+;
+; `INPUT` reads one line and splits it on commas, so several variables are
+; filled from one answer; `LINE INPUT` reads the line whole, commas and all.
+
+parsers:atPut("INPUT", { m, st |
+    st:kind := 'input.
+    m:parseInputPrompt(st).
+    st:items := m:nameList.
+    m:expectEndOfLine("INPUT") }).
+
+parsers:atPut("LINE", { m, st |
+    m:nextIs("INPUT"):ifFalse({ m:fail("LINE takes INPUT after it") }).
+    m:takeToken.
+    st:kind := 'lineinput.
+    m:parseInputPrompt(st).
+    st:items := [m:plainName("LINE INPUT")].
+    m:expectEndOfLine("LINE INPUT") }).
+
+sola:parseInputPrompt := { st | | t |
+    st:test := 'none.
+    t := self:peekToken.
+    t:notNil:and({ t:kind:equals('string) }):ifTrue({
+        st:expr := stringNode:value(self:takeToken:text).
+        self:nextIs(";"):ifElse(
+            { self:takeToken. st:test := 'semi },
+            { self:nextIs(","):ifElse(
+                { self:takeToken. st:test := 'comma },
+                { self:fail("a prompt is followed by ';' or ','") }) }) }) }.
+
 parsers:atPut("OPTION", { m, st |
     st:kind := 'rem.
     m:nextIs("BASE"):ifFalse({ m:fail("OPTION takes BASE") }).
@@ -1236,9 +1277,17 @@ sola:parsePrimary := { | t, inner |
           inner:grouped := true.
           inner },
       { t:kind:equals('word) },
+        ; **A function of no arguments is written without brackets**, so a bare
+        ; `RND` is a call and not a variable. Reading it as a variable is what
+        ; it was doing, which meant `r = RND` quietly read an uninitialised name
+        ; and answered nought -- and the test written for it passed, because
+        ; nought is in the range it checked.
         { self:nextIs("("):ifElse(
             { callNode:value(t:text, self:parseCallArguments) },
-            { variableNode:value(t:text) }) },
+            { builtins:includes(t:text)
+                :and({ builtins:at(t:text):at(#1):size:equals(#0) }):ifElse(
+                { callNode:value(t:text, array:new) },
+                { variableNode:value(t:text) }) }) },
         { self:fail("'{}' cannot start an expression":fill([t:text])) }
     ]:ifElseIf }.
 
@@ -2462,6 +2511,56 @@ emitters:atPut('arrayset, { m, st |
     m:emitSend("atPut", #2).
     m:emitPop }).
 
+; The runtime is asked once for a whole answer, already checked, and the
+; fields are pulled out of it here. Everything that could need doing twice --
+; counting the commas, deciding whether a field is a number, saying *Redo from
+; start* and asking again -- is in the runtime where it is written once.
+emitters:atPut('input, { m, st | | slot, i, name, spec |
+    st:items:do({ each |
+        m:isArray(each):ifTrue({
+            m:fail("INPUT fills a variable, and '{}' is an array":fill([each])) }) }).
+    spec := "".
+    st:items:do({ each |
+        spec := spec:concat(m:typeOfName(each):equals('string):ifElse(
+            { "S" }, { "N" })) }).
+
+    m:emitGlobal("SOLAASK$").
+    st:expr:isNil:ifElse({ m:emitString("") }, { m:emitString(st:expr:value) }).
+    m:emitIntConst(st:test:equals('comma):ifElse({ #0 }, { #1 })).
+    m:emitString(spec).
+    m:emitSend("value", #3).
+    slot := m:takeScratch.
+    m:emitSetLocal(slot).
+    m:emitPop.
+
+    i := #1.
+    { i:lessOrEqual(st:items:size) }:whileTrue({
+        name := st:items:at(i).
+        m:beginAssign(name).
+        m:typeOfName(name):equals('string):ifElse({ nil }, {
+            m:emitGlobal("SOLAVAL#") }).
+        m:emitGlobal("SOLAFIELD$").
+        m:emitLocal(slot).
+        m:emitIntConst(i).
+        m:emitSend("value", #2).
+        m:typeOfName(name):equals('string):ifElse(
+            { nil },
+            { m:emitSend("value", #1).
+              m:coerce('double, m:typeOfName(name)) }).
+        m:endAssign(name).
+        i := i:add(#1) }).
+    m:dropScratch }).
+
+emitters:atPut('lineinput, { m, st | | name |
+    name := st:items:at(#1).
+    m:typeOfName(name):equals('string):ifFalse({
+        m:fail("LINE INPUT reads text, and '{}' is a number":fill([name])) }).
+    m:beginAssign(name).
+    m:emitGlobal("SOLAASKLINE$").
+    st:expr:isNil:ifElse({ m:emitString("") }, { m:emitString(st:expr:value) }).
+    m:emitSend("value", #1).
+    m:endAssign(name) }).
+
 emitters:atPut('randomize, { m, st |
     m:emitGlobal("random").
     m:emitTyped(st:expr, 'integer).
@@ -2974,6 +3073,54 @@ builtins:atPut("STR$", [['numeric], 'string, 'block,
 ; and `PRINT` is what it is implementing.
 builtins:atPut("SOLAWRITE", [['string], 'string, 'block,
     { m, args | m:builtinArg(args, #1, 'string). m:emitSend("display", #0) }]).
+
+; The same, without ending the line. `INPUT "NAME"; N$` has to show its prompt
+; and then read the answer beside it, which is the one thing `display` cannot
+; do -- and the reason basic.sol's header says its line buffer stops being
+; enough at stage four.
+builtins:atPut("SOLAWRITERAW", [['string], 'string, 'block,
+    { m, args |
+        m:emitGlobal("system").
+        m:builtinArg(args, #1, 'string).
+        m:emitSend("write", #1) }]).
+
+; One line of standard input, or the empty string once there is no more. The
+; machine answers nil at the end and SolaBasic has no nil to answer with.
+builtins:atPut("SOLAREAD$", [[], 'string, 'block,
+    { m, args | | slot, empty, done |
+        m:emitGlobal("system").
+        m:emitSend("readLine", #0).
+        slot := m:takeScratch.
+        m:emitSetLocal(slot). m:emitPop.
+        m:emitLocal(slot). m:emitSend("notNil", #0).
+        empty := m:branchHole.
+        m:emitLocal(slot).
+        done := m:hole.
+        m:fillBranch(empty).
+        ; **A NUL says the input ran out**, which an ordinary line cannot: the
+        ; empty string is a blank line somebody typed and has to stay one.
+        m:emitIntConst(#0).
+        m:emitSend("asCharacter", #0).
+        m:fillJump(done).
+        m:dropScratch }]).
+
+; **Whether anybody is watching.** QuickBASIC echoes an answer it read from a
+; redirected file, so that a transcript reads the way the session looked; at a
+; terminal it does not, because the terminal has already shown what was typed.
+; There is no way here to ask whether *input* is a terminal, so this asks about
+; output, which is the same thing every time it matters.
+builtins:atPut("SOLAPIPED%", [[], 'integer, 'block,
+    { m, args |
+        m:emitGlobal("system").
+        m:emitSend("terminalSize", #0).
+        m:emitSend("isNil", #0).
+        m:materialise('integer) }]).
+
+builtins:atPut("SOLAFAIL", [['string], 'string, 'block,
+    { m, args |
+        m:emitGlobal("error").
+        m:builtinArg(args, #1, 'string).
+        m:emitSend("raise", #1) }]).
 
 ; `TAB` and `SPC` are not functions -- they move the place the next thing goes,
 ; which only means anything inside a PRINT. They are here so that a call to one
@@ -3504,6 +3651,131 @@ SUB SOLAEOL
   SOLABUF$ = \"\"
 END SUB
 
+SUB SOLARAW
+  SHARED SOLABUF$
+  SOLAWRITERAW SOLABUF$
+  SOLABUF$ = \"\"
+END SUB
+
+FUNCTION SOLACOUNT% (S$)
+  DIM N%
+  DIM I%
+  N% = 1
+  FOR I% = 1 TO LEN(S$)
+    IF MID$(S$, I%, 1) = \",\" THEN N% = N% + 1
+  NEXT I%
+  SOLACOUNT% = N%
+END FUNCTION
+
+FUNCTION SOLAFIELD$ (S$, WHICH%)
+  DIM N%
+  DIM I%
+  DIM START%
+  N% = 1
+  START% = 1
+  FOR I% = 1 TO LEN(S$)
+    IF MID$(S$, I%, 1) = \",\" THEN
+      IF N% = WHICH% THEN
+        SOLAFIELD$ = LTRIM$(RTRIM$(MID$(S$, START%, I% - START%)))
+        EXIT FUNCTION
+      END IF
+      N% = N% + 1
+      START% = I% + 1
+    END IF
+  NEXT I%
+  IF N% = WHICH% THEN
+    SOLAFIELD$ = LTRIM$(RTRIM$(MID$(S$, START%, LEN(S$) - START% + 1)))
+  END IF
+END FUNCTION
+
+FUNCTION SOLANUMOK% (T$)
+  DIM I%
+  DIM C$
+  DIM SEEN%
+  DIM DOT%
+  DIM EXPO%
+  SOLANUMOK% = 0
+  IF LEN(T$) = 0 THEN
+    SOLANUMOK% = 1
+    EXIT FUNCTION
+  END IF
+  I% = 1
+  C$ = MID$(T$, 1, 1)
+  IF C$ = \"+\" OR C$ = \"-\" THEN I% = 2
+  SEEN% = 0
+  DOT% = 0
+  EXPO% = 0
+  DO WHILE I% <= LEN(T$)
+    C$ = MID$(T$, I%, 1)
+    IF C$ >= \"0\" AND C$ <= \"9\" THEN
+      SEEN% = 1
+    ELSEIF C$ = \".\" AND DOT% = 0 AND EXPO% = 0 THEN
+      DOT% = 1
+    ELSEIF (C$ = \"E\" OR C$ = \"e\" OR C$ = \"D\" OR C$ = \"d\") AND SEEN% = 1 AND EXPO% = 0 THEN
+      EXPO% = 1
+      SEEN% = 0
+      IF I% < LEN(T$) THEN
+        C$ = MID$(T$, I% + 1, 1)
+        IF C$ = \"+\" OR C$ = \"-\" THEN I% = I% + 1
+      END IF
+    ELSE
+      EXIT FUNCTION
+    END IF
+    I% = I% + 1
+  LOOP
+  SOLANUMOK% = SEEN%
+END FUNCTION
+
+FUNCTION SOLAVAL# (T$)
+  IF LEN(T$) = 0 THEN
+    SOLAVAL# = 0
+  ELSE
+    SOLAVAL# = VAL(T$)
+  END IF
+END FUNCTION
+
+FUNCTION SOLAASK$ (P$, Q%, SPEC$)
+  DIM L$
+  DIM OK%
+  DIM I%
+  DO
+    CALL SOLAOUT(P$)
+    IF Q% <> 0 THEN CALL SOLAOUT(\"? \")
+    CALL SOLARAW
+    L$ = SOLAREAD$
+    IF L$ = CHR$(0) THEN SOLAFAIL \"Input past end of file\"
+    IF SOLAPIPED% <> 0 THEN
+      CALL SOLAOUT(L$)
+      CALL SOLAEOL
+    END IF
+    OK% = 1
+    IF SOLACOUNT%(L$) <> LEN(SPEC$) THEN OK% = 0
+    IF OK% <> 0 THEN
+      FOR I% = 1 TO LEN(SPEC$)
+        IF MID$(SPEC$, I%, 1) = \"N\" THEN
+          IF SOLANUMOK%(SOLAFIELD$(L$, I%)) = 0 THEN OK% = 0
+        END IF
+      NEXT I%
+    END IF
+    IF OK% <> 0 THEN EXIT DO
+    PRINT \"Redo from start\"
+  LOOP
+  SOLAASK$ = L$
+END FUNCTION
+
+FUNCTION SOLAASKLINE$ (P$)
+  DIM L$
+  CALL SOLAOUT(P$)
+  CALL SOLARAW
+  L$ = SOLAREAD$
+  IF L$ = CHR$(0) THEN SOLAFAIL \"Input past end of file\"
+  IF SOLAPIPED% <> 0 THEN
+    CALL SOLAOUT(L$)
+    CALL SOLAEOL
+  END IF
+  SOLAASKLINE$ = L$
+END FUNCTION
+
 SUB SOLAOUT (T$)
   SHARED SOLABUF$
   IF LEN(SOLABUF$) > 0 THEN
@@ -3555,7 +3827,7 @@ sola:usesPrint := { | found |
     found }.
 
 sola:printsIn := { st |
-    st:kind:equals('print)
+    ['print, 'input, 'lineinput]:indexOf(st:kind):notNil
         :or({ st:then:notNil:and({ self:printsIn(st:then) }) })
         :or({ st:otherwise:notNil:and({ self:printsIn(st:otherwise) }) }) }.
 

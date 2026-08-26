@@ -92,15 +92,21 @@ elif command -v fbc >/dev/null 2>&1; then
     oracle_kind="fbc"
 fi
 
+# A program that reads gets its answers from a .in beside it, on both sides.
+stdin_for() {
+    base=${1%.bas}
+    if [ -f "$base.in" ]; then echo "$base.in"; else echo "/dev/null"; fi
+}
+
 run_oracle() {
     case "$oracle_kind" in
-      SOLA_ORACLE) sh -c "$SOLA_ORACLE \"\$1\"" _ "$1" 2>&1 ;;
+      SOLA_ORACLE) sh -c "$SOLA_ORACLE \"\$1\"" _ "$1" <"$(stdin_for "$1")" 2>&1 ;;
       qb64pe|qb64)
           "$oracle_kind" -x "$1" -o "$work/oracle_exe" >/dev/null 2>&1 \
-              && "$work/oracle_exe" 2>&1 ;;
+              && "$work/oracle_exe" <"$(stdin_for "$1")" 2>&1 ;;
       fbc)
           fbc -lang qb "$1" -x "$work/oracle_exe" >/dev/null 2>&1 \
-              && "$work/oracle_exe" 2>&1 ;;
+              && "$work/oracle_exe" <"$(stdin_for "$1")" 2>&1 ;;
       dosbox) run_dosbox "$1" ;;
     esac
 }
@@ -115,6 +121,7 @@ run_dosbox() {
     # prints nothing at all -- which looks exactly like a program whose output
     # cannot be redirected, and cost an hour of looking at the wrong thing.
     sed 's/$/\r/' "$1" > "$work/dos/P.BAS"
+    sed 's/$/\r/' "$(stdin_for "$1")" > "$work/dos/IN.TXT"
     SDL_VIDEODRIVER=dummy "$dosbox" \
         -c "mount c $SOLA_QB_DIR" \
         -c "mount d $work/dos" \
@@ -122,7 +129,7 @@ run_dosbox() {
         -c "d:" \
         -c "c:\\BC.EXE P.BAS /O;" \
         -c "c:\\LINK.EXE P.OBJ,,NUL,C:\\BCOM45.LIB;" \
-        -c "P.EXE > OUT.TXT" \
+        -c "P.EXE < IN.TXT > OUT.TXT" \
         -c "exit" >"$work/dos/dosbox.log" 2>&1
     # **The .EXE is what says the toolchain worked, not the .TXT.** DOS creates
     # the file a redirection names before it discovers there is nothing to run,
@@ -139,7 +146,7 @@ run_dosbox() {
 run_sola() {
     if "$root/bin/solvm" "$root/programs/sola.sob" "$1" "$work/prog.sob" \
             >/dev/null 2>&1; then
-        "$root/bin/solvm" "$work/prog.sob" 2>&1
+        "$root/bin/solvm" "$work/prog.sob" <"$(stdin_for "$1")" 2>&1
     else
         "$root/bin/solvm" "$root/programs/sola.sob" "$1" "$work/prog.sob" 2>&1
     fi

@@ -602,6 +602,29 @@ stack depth are each refused *at load*, exit 65, as a message rather than a
 crash. The depth-0 discipline is load-bearing rather than tidy, and nothing in
 the design section above needed changing.
 
+**2026-08-26 — `INPUT`, and the oracle earned its keep twice more.**
+`INPUT` and `LINE INPUT` are in, and match QuickBASIC byte for byte. Two of the
+three things worth recording came out of the comparison rather than out of
+writing the feature.
+
+**A function of no arguments was being read as a variable.** `RND` on its own
+is a call; the parser made it a name, so `r = RND` quietly read an
+uninitialised variable and answered nought — **and the test written for it
+passed**, because it checked that the answer was at least nought and less than
+one. Found when `SOLAREAD$` did the same thing and made the runtime loop for
+ever.
+
+**QuickBASIC echoes an answer it read from a file**, so that a redirected
+session reads the way the interactive one looked. SolaBasic did not, and
+`basic.sol` had recorded that as a limitation of its own. It does now, when the
+output is not a terminal — there is no way to ask whether *input* is one, and
+output is the same question every time it matters.
+
+**And the end of input has to be told from a blank line.** Both are the empty
+string to a program; the machine answers nil for one and not the other, so the
+runtime is handed a NUL, which no typed line can contain, and stops with *Input
+past end of file* rather than asking again for ever.
+
 **2026-08-26 — the oracle ran, and it was worth building.**
 QuickBASIC 4.5 under DOSBox, through
 [oracle.sh](../programs/sola/oracle.sh). **All eight `agree/` programs match
@@ -786,7 +809,7 @@ The language above is the finish line. The order to reach it in:
 | **3** | **Done, and first, as this table said it should be.** `GOTO` and labels, forwards and backwards, to any label in the program. What it found is below. |
 | **4** | **Done.** `SUB`, `FUNCTION`, `CALL`, locals, `SHARED`, `STATIC`, `EXIT SUB`/`EXIT FUNCTION`, and by-reference parameters. |
 | **5** | **Done.** `DIM` with constant bounds and up to eight dimensions, `OPTION BASE`, `CONST`, `DIM SHARED`, and arrays passed to procedures. |
-| **6** | `INPUT`, files, `PRINT USING`. **`PRINT`'s own rules are done** — see stage 1. |
+| **6** | **`PRINT`'s rules, `INPUT` and `LINE INPUT` are done**, all three held against a real QuickBASIC. Files and `PRINT USING` are what is left of it. |
 | **7** | **Done, and the verdict is in.** [oracle.sh](../programs/sola/oracle.sh) against QuickBASIC 4.5 under DOSBox: **all eight `agree/` programs match byte for byte**, and all five divergences are still there. It found one real defect and corrected two entries in the list below. |
 
 Stage 3 is the one to reach early even though the ordering does not demand it,
