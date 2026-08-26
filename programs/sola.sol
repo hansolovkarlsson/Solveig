@@ -7,12 +7,16 @@
 ; but where [basic.sol](basic.sol) *interprets* one, this **compiles** one, and
 ; the file it writes is run by `solvm` with nothing of this program present.
 ;
-; The language is [SolaBasic](../docs/SOLABASIC.md). Stages 2 and 3 of the eight
-; that document lists are here, and they were done in that order backwards.
+; The language is [SolaBasic](../docs/SOLABASIC.md), and there is a
+; [reference manual](../docs/SOLABASIC-REFERENCE.md) for people who want to
+; write it rather than read about it. Stages 2, 3 and 4 of the eight that
+; document lists are here.
+;
 ; **Stage 3 went first on purpose** -- it is `GOTO` and labels, the claim the
 ; whole design rests on, and the document says to reach it in week one rather
-; than week six. Stage 2 is the structured half, and it turned out to need
-; nothing the first half had not already built.
+; than week six. Stage 2, the structured half, then needed nothing the first
+; half had not already built. Stage 4 is procedures, and it is the one the
+; document called the most expensive item in the language.
 ;
 ; ---------------------------------------------------------------------------
 ; Why a compiler at all, when there is already an interpreter
@@ -70,7 +74,41 @@
 ; That is four lines against a tree walk.
 ;
 ; ---------------------------------------------------------------------------
-; What is here, and what is stage 4 onwards
+; What stage 4 cost, which was the expensive one
+;
+; **A SUB is a block and a call is `value`.** That is a close fit rather than a
+; contrivance: a block has its own frame, takes its arguments in slots 1..n, and
+; answers its last expression. A `FUNCTION` answers by assigning to its own
+; name, so the name is a local and the body's last act is to push it.
+;
+; **It never captures its home frame.** ROADMAP 3.1 says a block that reads the
+; frame it was written in cannot outlive it, and that would have been in the way
+; -- except that a SolaBasic procedure has no reason to reach outside itself,
+; because every name it uses is its own slot or a global. So the flags say
+; block-and-not-capturing and the limitation never bites.
+;
+; **What does bite is 3.5**, exactly as SOLABASIC.md predicted before any of
+; this existed: a call is a real frame, so recursion stops around 254 levels.
+; The trace names the BASIC procedure and the BASIC line when it does.
+;
+; **By reference is a box, and the variable *is* the box.** QBasic passes by
+; reference -- assigning to a parameter assigns to the caller's variable -- and
+; passing by value instead would leave `SWAP`-shaped programs running and
+; answering *differently*, which is the one outcome this project does not take.
+; The implementation is a one-element array: a variable that is ever passed by
+; reference is kept in one everywhere, so the call hands over the array itself
+; and the callee's `atPut` reaches the caller's storage. No wrapping at the
+; call, no copying back, nothing to keep alive across it, and nothing to get
+; wrong when the call is recursive.
+;
+; **Which parameters are by reference is a fixed point.** A parameter is one
+; when the procedure assigns to it, or when it hands it on to somewhere that
+; does -- and that second half chains, so it takes as many rounds as the chain
+; is long. It settles because a parameter only ever turns from by-value to
+; by-reference and never back.
+;
+; ---------------------------------------------------------------------------
+; What is here, and what is stage 5 onwards
 ;
 ;   labels        `Name:` at the start of a line, and a bare number, which is a
 ;                 label and not a line number -- CB80's rule, so it need not be
@@ -82,16 +120,21 @@
 ;   FOR / NEXT    with `STEP`, nested, and `NEXT j, i` closing two at once
 ;   DO / LOOP     `WHILE` or `UNTIL` at either end, or neither
 ;   WHILE / WEND  the same loop under its older spelling
-;   EXIT          `EXIT FOR` and `EXIT DO`
+;   EXIT          `EXIT FOR`, `EXIT DO`, `EXIT SUB`, `EXIT FUNCTION`
+;   SUB           with parameters, called as `CALL S(a)` or `S a`
+;   FUNCTION      answering by assignment to its own name, and recursive
+;   SHARED        inside a procedure, naming a module variable to use
+;   STATIC        a local that survives between calls
+;   DECLARE       read and dropped; nothing needs declaring here
 ;   assignment    `LET` optional, scalars only
 ;   PRINT         expressions and strings, `;` and `,`
 ;   END           stops
 ;   expressions   `+ - * /`, unary minus, parentheses, and the six comparisons
 ;   comments      `REM` and `'`
 ;
-; **Not here, and not pretended:** `SUB`, `FUNCTION`, arrays, `INPUT`, files,
-; and the whole type system -- every number is a Double, which is SolaBasic's
-; default type and the only one these stages have. `PRINT`'s real formatting is
+; **Not here, and not pretended:** arrays, `INPUT`, files, and the whole type
+; system -- every number is a Double, which is SolaBasic's default type and the
+; only one these stages have. `PRINT`'s real formatting is
 ; stage 6; here the items of one `PRINT` are joined and shown, with no zones and
 ; no trailing space, so its output is **not** what a BASIC prints. That is a
 ; stage, not a divergence, and it is the one thing here most likely to be
@@ -109,14 +152,19 @@
 ; now gives the byte for each, which it did not when disasm.sol first wanted one.
 
 CONST   := #0.
+NIL     := #1.
 GLOBAL  := #2.
+LOCAL   := #4.
+SETLOCAL := #5.
 SETGLOB := #3.
 STRING  := #9.
+BLOCK   := #8.
 SEND    := #11.
 JUMP    := #13.
 JMPF    := #14.
 LOOP    := #17.
 POP     := #18.
+RETURN  := #19.
 HALT    := #20.
 
 ; A jump's operand is a u16, so no jump reaches further than this. SolaBasic
@@ -146,7 +194,8 @@ multiplicative := ["*", "/"].
 
 keywords := ["PRINT", "GOTO", "IF", "THEN", "ELSE", "ELSEIF", "END", "REM",
              "LET", "SELECT", "CASE", "IS", "TO", "FOR", "STEP", "NEXT",
-             "DO", "LOOP", "WHILE", "WEND", "UNTIL", "EXIT"].
+             "DO", "LOOP", "WHILE", "WEND", "UNTIL", "EXIT",
+             "SUB", "FUNCTION", "CALL", "SHARED", "STATIC", "DECLARE"].
 
 ; ---------------------------------------------------------------------------
 ; A token, and a node
@@ -159,12 +208,17 @@ makeToken := { kind, text | | t |
     t := token:new. t:kind := kind. t:text := text. t }.
 
 node := object:new.
-node:kind := 'number.       ; 'number 'string 'variable 'binary 'negate
+node:kind := 'number.       ; 'number 'string 'variable 'binary 'negate 'call
 node:value := nil.
-node:name := "".
+node:name := "".            ; 'variable, 'call
 node:op := "".
 node:left := nil.
 node:right := nil.
+node:args := nil.           ; 'call
+; **Whether it was written in brackets**, which matters in exactly one place:
+; `CALL Foo((x))` passes a copy where `CALL Foo(x)` passes the variable. That is
+; QBasic's own way of spelling by-value and the only one SolaBasic has.
+node:grouped := false.
 
 numberNode   := { v | | n | n := node:new. n:kind := 'number. n:value := v. n }.
 stringNode   := { v | | n | n := node:new. n:kind := 'string. n:value := v. n }.
@@ -172,6 +226,8 @@ variableNode := { s | | n | n := node:new. n:kind := 'variable. n:name := s. n }
 negateNode   := { x | | n | n := node:new. n:kind := 'negate. n:left := x. n }.
 binaryNode   := { op, l, r | | n |
     n := node:new. n:kind := 'binary. n:op := op. n:left := l. n:right := r. n }.
+callNode     := { name, args | | n |
+    n := node:new. n:kind := 'call. n:name := name. n:args := args. n }.
 
 ; A statement, with the label that stands in front of it and the source line it
 ; came from -- the line is carried this far because the `.sob` records which
@@ -194,6 +250,7 @@ stmt:limit := nil.          ; 'for
 stmt:step := nil.           ; 'for, nil when none was written
 stmt:test := 'none.         ; 'do and 'loop: 'none 'while 'until
 stmt:alternatives := nil.   ; 'case
+stmt:body := nil.           ; 'sub and 'function: the statements between them
 
 ; ---------------------------------------------------------------------------
 ; A block being compiled
@@ -217,7 +274,10 @@ frame:pending := nil.       ; forward holes waiting for the next arm of the bloc
 frame:exits := nil.         ; forward holes waiting for the end of the block
 frame:top := #0.            ; a loop: the offset to jump back to
 frame:name := "".           ; 'for: the counter, so NEXT can be checked against it
-frame:index := #0.          ; 'for and 'select: which hidden globals are theirs
+frame:index := #0.          ; 'for: the counter's slot, when the counter is one
+frame:limitSlot := #0.      ; 'for: where the limit was put, evaluated once
+frame:stepSlot := #0.       ; 'for: where a computed step was put
+frame:subject := #0.        ; 'select: where the subject was put, evaluated once
 frame:step := nil.          ; 'for: the step, when it was written as a literal
 frame:seenElse := false.    ; 'if and 'select: whether ELSE has gone by
 
@@ -405,14 +465,18 @@ sola:parseAssignment := { st | | t |
     t:text:equals("LET"):ifTrue({ t := self:takeToken }).
     t:isNil:or({ t:kind:equals('word):not }):ifTrue({
         self:fail("a statement starts with a keyword or a variable") }).
-    self:nextIs("="):ifFalse({
-        self:fail("'{}' is not a statement, and is not followed by '='"
-            :fill([t:text])) }).
-    self:takeToken.
-    st:kind := 'let.
-    st:name := t:text.
-    st:expr := self:parseExpression.
-    self:expectEndOfLine("an assignment") }.
+    self:nextIs("="):ifElse(
+        { self:takeToken.
+          st:kind := 'let.
+          st:name := t:text.
+          st:expr := self:parseExpression.
+          self:expectEndOfLine("an assignment") },
+        { ; Not an assignment, so it is a call written without CALL --
+          ; `Greet "world"`, which is how BASIC has always spelt one.
+          st:kind := 'call.
+          st:name := t:text.
+          st:items := self:parseArguments(false).
+          self:expectEndOfLine("a call") }) }.
 
 ; `IF <condition> THEN GOTO <label>`, and `THEN <label>` for short, which is
 ; what every BASIC has allowed since there were labels to write.
@@ -435,6 +499,10 @@ parsers:atPut("END", { m, st |
         { m:takeToken. st:kind := 'endif. m:expectEndOfLine("END IF") },
       { m:nextIs("SELECT") },
         { m:takeToken. st:kind := 'endselect. m:expectEndOfLine("END SELECT") },
+      { m:nextIs("SUB") },
+        { m:takeToken. st:kind := 'endsub. m:expectEndOfLine("END SUB") },
+      { m:nextIs("FUNCTION") },
+        { m:takeToken. st:kind := 'endfunction. m:expectEndOfLine("END FUNCTION") },
         { st:kind := 'end. m:expectEndOfLine("END") } ]:ifElseIf }).
 
 ; ---------------------------------------------------------------------------
@@ -598,10 +666,115 @@ parsers:atPut("WEND", { m, st | st:kind := 'wend. m:expectEndOfLine("WEND") }).
 parsers:atPut("EXIT", { m, st | | t |
     st:kind := 'exit.
     t := m:takeToken.
-    t:isNil:or({ ["FOR", "DO"]:indexOf(t:text):isNil }):ifTrue({
-        m:fail("EXIT takes FOR or DO") }).
+    t:isNil:or({ ["FOR", "DO", "SUB", "FUNCTION"]:indexOf(t:text):isNil }):ifTrue({
+        m:fail("EXIT takes FOR, DO, SUB or FUNCTION") }).
     st:target := t:text.
     m:expectEndOfLine("EXIT") }).
+
+; ---------------------------------------------------------------------------
+; SUB and FUNCTION
+;
+; A procedure is not a statement that runs where it is written. It is collected
+; out of the listing before anything is emitted, compiled into a chunk of its
+; own, and bound to its name before the module's first line runs -- which is why
+; a listing may call something defined below it and `DECLARE` has nothing to do.
+
+parsers:atPut("SUB", { m, st |
+    st:kind := 'sub.
+    st:name := m:plainName("SUB").
+    st:items := m:parseParameters.
+    m:expectEndOfLine("SUB") }).
+
+parsers:atPut("FUNCTION", { m, st |
+    st:kind := 'function.
+    st:name := m:plainName("FUNCTION").
+    st:items := m:parseParameters.
+    m:expectEndOfLine("FUNCTION") }).
+
+; `DECLARE` is read and dropped. QBasic needs one for a procedure used before it
+; is defined and its editor writes them for you; this resolves every name in a
+; pass over the whole listing first, so there is nothing for it to say.
+parsers:atPut("DECLARE", { m, st |
+    st:kind := 'rem.
+    m:cursor := m:tokens:size:add(#1) }).
+
+parsers:atPut("CALL", { m, st |
+    st:kind := 'call.
+    st:name := m:plainName("CALL").
+    st:items := m:nextIs("("):ifElse({ m:parseArguments(true) }, { m:parseArguments(false) }).
+    m:expectEndOfLine("CALL") }).
+
+parsers:atPut("SHARED", { m, st |
+    st:kind := 'shared. st:items := m:nameList. m:expectEndOfLine("SHARED") }).
+
+parsers:atPut("STATIC", { m, st |
+    st:kind := 'static. st:items := m:nameList. m:expectEndOfLine("STATIC") }).
+
+sola:plainName := { what | | t |
+    t := self:takeToken.
+    t:isNil:or({ t:kind:equals('word):not }):ifTrue({
+        self:fail("{} needs a name":fill([what])) }).
+    parsers:includes(t:text):ifTrue({
+        self:fail("'{}' is a keyword and cannot be a name":fill([t:text])) }).
+    t:text }.
+
+sola:nameList := { | names, more |
+    names := array:new.
+    more := true.
+    { more }:whileTrue({
+        names:add(self:plainName("this")).
+        self:nextIs(","):ifElse({ self:takeToken }, { more := false }) }).
+    names }.
+
+; A parameter list, in brackets or not -- `SUB Greet (name)` and `SUB Greet name`
+; are the same declaration, as they are in QBasic.
+sola:parseParameters := { | names, more, bracketed |
+    names := array:new.
+    bracketed := self:nextIs("(").
+    bracketed:ifTrue({ self:takeToken }).
+    self:atEndOfLine:not:and({ self:nextIs(")"):not }):ifTrue({
+        more := true.
+        { more }:whileTrue({
+            names:add(self:plainName("a parameter")).
+            self:nextIs(","):ifElse({ self:takeToken }, { more := false }) }) }).
+    bracketed:ifTrue({
+        self:nextIs(")"):ifFalse({ self:fail("a '(' was never closed") }).
+        self:takeToken }).
+    names }.
+
+; The arguments of a statement call.
+;
+; **Only `CALL`'s brackets are an argument list.** Written without `CALL`, a
+; leading `(` belongs to the first argument instead, so `Double (n)` passes a
+; *copy* of `n` where `CALL Double(n)` passes `n` itself. That reads like a
+; quibble and is the whole of how QBasic spells by-value, so it is kept.
+sola:parseArguments := { bracketed | | args, more |
+    args := array:new.
+    bracketed:ifTrue({
+        self:nextIs("("):ifFalse({ self:fail("CALL needs brackets round its arguments") }).
+        self:takeToken }).
+    self:atEndOfLine:not:and({ self:nextIs(")"):not }):ifTrue({
+        more := true.
+        { more }:whileTrue({
+            args:add(self:parseExpression).
+            self:nextIs(","):ifElse({ self:takeToken }, { more := false }) }) }).
+    bracketed:ifTrue({
+        self:nextIs(")"):ifFalse({ self:fail("a '(' was never closed") }).
+        self:takeToken }).
+    args }.
+
+; The arguments of a call inside an expression, where they are not optional.
+sola:parseCallArguments := { | args, more |
+    self:takeToken.
+    args := array:new.
+    self:nextIs(")"):ifFalse({
+        more := true.
+        { more }:whileTrue({
+            args:add(self:parseExpression).
+            self:nextIs(","):ifElse({ self:takeToken }, { more := false }) }) }).
+    self:nextIs(")"):ifFalse({ self:fail("a '(' was never closed") }).
+    self:takeToken.
+    args }.
 
 sola:parsePrint := { st | | t |
     st:kind := 'print.
@@ -659,8 +832,12 @@ sola:parsePrimary := { | t, inner |
         { inner := self:parseExpression.
           self:nextIs(")"):ifFalse({ self:fail("a '(' was never closed") }).
           self:takeToken.
+          inner:grouped := true.
           inner },
-      { t:kind:equals('word) },    { variableNode:value(t:text) },
+      { t:kind:equals('word) },
+        { self:nextIs("("):ifElse(
+            { callNode:value(t:text, self:parseCallArguments) },
+            { variableNode:value(t:text) }) },
         { self:fail("'{}' cannot start an expression":fill([t:text])) }
     ]:ifElseIf }.
 
@@ -706,6 +883,180 @@ sola:emitStore  := { s | self:byte(SETGLOB). self:u16(self:nameFor(s)) }.
 sola:emitSend   := { sel, argc |
     self:byte(SEND). self:u16(self:nameFor(sel)). self:byte(argc) }.
 sola:emitPop    := { self:byte(POP) }.
+sola:emitNil    := { self:byte(NIL) }.
+
+; An **integer** constant, which this language has only one use for: the
+; subscript of a one-element array, which is what a variable passed by
+; reference is kept in. Everything a SolaBasic program computes is a Double.
+sola:emitIntConst := { n | self:byte(CONST). self:u16(self:constFor(#1, n)) }.
+
+; A frame slot. `u8`, because a frame of more than 255 slots is refused before
+; it runs and the format says so by giving the operand one byte.
+sola:emitLocal    := { slot | self:byte(LOCAL).    self:byte(slot) }.
+sola:emitSetLocal := { slot | self:byte(SETLOCAL). self:byte(slot) }.
+
+; ---------------------------------------------------------------------------
+; Slots
+;
+; Slot 0 is the receiver -- `self` inside a block, and unused in the script,
+; which has none. Everything after it is a parameter, a local, or a temporary
+; this compiler needed somewhere to put.
+;
+; **The temporaries are slots and not hidden globals**, and that is a
+; correctness matter rather than tidiness. A `FOR` keeps its limit and its step
+; somewhere for the life of the loop; if that somewhere were a global, a
+; recursive `FUNCTION` containing a `FOR` would have its inner call overwrite
+; the outer call's limit. A slot is per-frame, so each call has its own.
+
+sola:newSlot := { name | | slot |
+    slot := self:localNames:size.
+    slot:greaterThan(#255):ifTrue({
+        self:fail("more than 255 names in one procedure, which is a frame the machine will not make") }).
+    self:localNames:add(name).
+    slot }.
+
+sola:newLocal := { name | | slot |
+    slot := self:newSlot(name).
+    self:locals:atPut(name, slot).
+    slot }.
+
+sola:slotFor := { name |
+    self:locals:includes(name):ifElse(
+        { self:locals:at(name) },
+        { self:newLocal(name) }) }.
+
+; ---------------------------------------------------------------------------
+; Where a name lives
+;
+; Inside a procedure a name is a slot unless `SHARED` sent it back to the module
+; or `STATIC` gave it a private global; at module level everything is a global.
+
+sola:isLocalName := { name |
+    self:inProcedure:and({ self:shared:indexOf(name):isNil })
+        :and({ self:statics:includes(name):not }) }.
+
+sola:globalNameFor := { name |
+    self:statics:includes(name):ifElse(
+        { self:statics:at(name) }, { name }) }.
+
+; The variable itself, without looking inside it -- which is what a boxed one
+; wants when it is being assigned to or passed on by reference.
+sola:emitRawVar := { name |
+    self:isLocalName(name):ifElse(
+        { self:emitLocal(self:slotFor(name)) },
+        { self:emitGlobal(self:globalNameFor(name)) }) }.
+
+; ---------------------------------------------------------------------------
+; A variable passed by reference lives in a box
+;
+; **The box is a one-element array, and the variable *is* the box** rather than
+; being wrapped at the call and unwrapped after it. That is the whole of the
+; by-reference machinery, and choosing it this way is what kept it small:
+; passing `a` to a by-reference parameter passes the array, the callee's
+; `at(#1)` and `atPut(#1, v)` reach the caller's storage directly, and there is
+; no copy back, no temporary to keep alive across the call, and nothing to get
+; wrong when the call is recursive.
+;
+; The cost is one send on every read and every write of a boxed variable, and it
+; is paid only by variables that are actually passed by reference somewhere.
+
+sola:isBoxed := { name | self:boxed:indexOf(name):notNil }.
+
+sola:emitLoadVar := { name |
+    self:emitRawVar(name).
+    self:isBoxed(name):ifTrue({
+        self:emitIntConst(#1).
+        self:emitSend("at", #1) }) }.
+
+; An assignment is emitted in two halves, because a boxed one puts the box and
+; its subscript *before* the value and an ordinary one puts the name after it.
+sola:beginAssign := { name |
+    self:isBoxed(name):ifTrue({
+        self:emitRawVar(name).
+        self:emitIntConst(#1) }) }.
+
+sola:endAssign := { name |
+    self:isBoxed(name):ifElse(
+        { self:emitSend("atPut", #2) },
+        { self:isLocalName(name):ifElse(
+            { self:emitSetLocal(self:slotFor(name)) },
+            { self:emitStore(self:globalNameFor(name)) }) }).
+    self:emitPop }.
+
+; ---------------------------------------------------------------------------
+; Every variable starts at nought
+;
+; **That is BASIC's rule and it has to be done rather than assumed**: a global
+; this compiler never stored into is an *undefined name* to the machine, not a
+; zero, and `PRINT Z` would be an error where every BASIC ever written prints
+; ` 0 `. So the names a scope mentions are collected and given their nought
+; before its first line runs.
+;
+; Skipped: parameters, which arrive with values; a FUNCTION's own name, which is
+; set up as its answer; anything `SHARED`, which belongs to the module and would
+; be wiped by initialising it again on every call; anything `STATIC`, which is
+; initialised once at module level and would stop surviving if it were done
+; here; and anything boxed, which gets its nought inside its box below.
+
+sola:emitVariableInitialisers := { skip |
+    self:variablesIn(self:statementsOfScope):do({ name |
+        skip:indexOf(name):isNil
+            :and({ self:shared:indexOf(name):isNil })
+            :and({ self:statics:includes(name):not })
+            :and({ self:isBoxed(name):not }):ifTrue({
+            self:emitConst(0.0).
+            self:isLocalName(name):ifElse(
+                { self:emitSetLocal(self:slotFor(name)) },
+                { self:emitStore(self:globalNameFor(name)) }).
+            self:emitPop }) }) }.
+
+sola:statementsOfScope := nil.
+
+; Every name a body uses as a variable, in the order it first appears.
+sola:variablesIn := { body | | names |
+    names := array:new.
+    body:do({ st | self:variablesInStatement(st, names) }).
+    names }.
+
+sola:noteName := { names, name |
+    names:indexOf(name):isNil:ifTrue({ names:add(name) }) }.
+
+sola:variablesInStatement := { st, names |
+    ['let, 'for]:indexOf(st:kind):notNil:ifTrue({ self:noteName(names, st:name) }).
+    ['print, 'call]:indexOf(st:kind):notNil:ifTrue({
+        st:items:do({ a | self:variablesInExpression(a, names) }) }).
+    self:variablesInExpression(st:expr, names).
+    self:variablesInExpression(st:limit, names).
+    self:variablesInExpression(st:step, names).
+    st:alternatives:notNil:ifTrue({
+        st:alternatives:do({ alt |
+            alt:at(#1):equals("is"):ifElse(
+                { self:variablesInExpression(alt:at(#3), names) },
+                { self:variablesInExpression(alt:at(#2), names).
+                  alt:at(#1):equals("range"):ifTrue({
+                      self:variablesInExpression(alt:at(#3), names) }) }) }) }).
+    st:then:notNil:ifTrue({ self:variablesInStatement(st:then, names) }).
+    st:otherwise:notNil:ifTrue({ self:variablesInStatement(st:otherwise, names) }) }.
+
+sola:variablesInExpression := { n, names |
+    n:isNil:ifFalse({
+        n:kind:equals('variable):ifTrue({ self:noteName(names, n:name) }).
+        n:kind:equals('call):ifTrue({
+            n:args:do({ a | self:variablesInExpression(a, names) }) }).
+        self:variablesInExpression(n:left, names).
+        self:variablesInExpression(n:right, names) }) }.
+
+; Every boxed name is given its box before anything runs, because the first
+; thing that happens to it may be a call that assigns through it.
+sola:emitBoxes := {
+    self:toBox:do({ name |
+        self:emitGlobal("array").
+        self:emitConst(0.0).
+        self:emitSend("of", #1).
+        self:isLocalName(name):ifElse(
+            { self:emitSetLocal(self:slotFor(name)) },
+            { self:emitStore(self:globalNameFor(name)) }).
+        self:emitPop }) }.
 
 ; ---------------------------------------------------------------------------
 ; The jump, which is the whole of stage 3
@@ -762,7 +1113,8 @@ sola:resolveJumps := {
 sola:emitExpression := { n |
     [ { n:kind:equals('number) },   { self:emitConst(n:value) },
       { n:kind:equals('string) },   { self:emitString(n:value) },
-      { n:kind:equals('variable) }, { self:emitGlobal(n:name) },
+      { n:kind:equals('variable) }, { self:emitLoadVar(n:name) },
+      { n:kind:equals('call) },     { self:emitCall(n:name, n:args, false) },
       { n:kind:equals('negate) },
         { self:emitExpression(n:left). self:emitSend("negated", #0) },
         { self:emitExpression(n:left).
@@ -795,7 +1147,7 @@ emitters:atPut('end, { m, st | m:byte(HALT) }).
 emitters:atPut('goto, { m, st | m:emitJump(st:target) }).
 emitters:atPut('print, { m, st | m:emitPrint(st) }).
 emitters:atPut('let, { m, st |
-    m:emitExpression(st:expr). m:emitStore(st:name). m:emitPop }).
+    m:beginAssign(st:name). m:emitExpression(st:expr). m:endAssign(st:name) }).
 
 ; ---------------------------------------------------------------------------
 ; Holes
@@ -849,6 +1201,87 @@ sola:emitLoopTo := { target | | offset |
 sola:blocks := nil.
 sola:forCount := #0.
 sola:selectCount := #0.
+
+; ---------------------------------------------------------------------------
+; A unit is a chunk being built
+;
+; A `SUB` compiles to a chunk of its own, held in the module's method table, and
+; a chunk owns everything: its code, its own name and constant tables, its own
+; frame, its own labels. So the compiler's state is pushed and restored around
+; each one rather than being threaded through every routine as an argument.
+;
+; **Labels are per-unit, which is the language's rule and not an accident of
+; this.** SolaBasic says a `GOTO` may not cross between module level and a
+; procedure, and it could not if it wanted to: a jump is an offset inside one
+; chunk and there is no instruction that leaves a frame and lands somewhere.
+
+sola:localNames := nil.
+sola:locals := nil.
+sola:shared := nil.
+sola:statics := nil.
+sola:boxed := nil.
+sola:toBox := nil.
+sola:methods := nil.
+sola:inProcedure := false.
+sola:returnName := "".
+sola:unitStack := nil.
+
+sola:pushUnit := { | saved |
+    saved := dictionary:new.
+    saved:atPut("code", self:code).             saved:atPut("names", self:names).
+    saved:atPut("nameIndex", self:nameIndex).   saved:atPut("constants", self:constants).
+    saved:atPut("constIndex", self:constIndex). saved:atPut("lineMarks", self:lineMarks).
+    saved:atPut("labelAt", self:labelAt).       saved:atPut("fixups", self:fixups).
+    saved:atPut("blocks", self:blocks).         saved:atPut("localNames", self:localNames).
+    saved:atPut("locals", self:locals).         saved:atPut("shared", self:shared).
+    saved:atPut("statics", self:statics).       saved:atPut("boxed", self:boxed).
+    saved:atPut("toBox", self:toBox).           saved:atPut("methods", self:methods).
+    saved:atPut("inProcedure", self:inProcedure).
+    saved:atPut("returnName", self:returnName).
+    self:unitStack:add(saved).
+    self:freshUnit }.
+
+sola:freshUnit := {
+    self:code := array:new.        self:names := array:new.
+    self:nameIndex := dictionary:new.
+    self:constants := array:new.   self:constIndex := dictionary:new.
+    self:lineMarks := array:new.   self:labelAt := dictionary:new.
+    self:fixups := array:new.      self:blocks := array:new.
+    self:localNames := array:new.  self:locals := dictionary:new.
+    self:shared := array:new.      self:statics := dictionary:new.
+    self:boxed := array:new.       self:toBox := array:new.
+    self:methods := array:new.
+    self:inProcedure := false.     self:returnName := "".
+    self:newSlot("") }.
+
+sola:popUnit := { | saved |
+    saved := self:unitStack:removeLast.
+    self:code := saved:at("code").             self:names := saved:at("names").
+    self:nameIndex := saved:at("nameIndex").   self:constants := saved:at("constants").
+    self:constIndex := saved:at("constIndex"). self:lineMarks := saved:at("lineMarks").
+    self:labelAt := saved:at("labelAt").       self:fixups := saved:at("fixups").
+    self:blocks := saved:at("blocks").         self:localNames := saved:at("localNames").
+    self:locals := saved:at("locals").         self:shared := saved:at("shared").
+    self:statics := saved:at("statics").       self:boxed := saved:at("boxed").
+    self:toBox := saved:at("toBox").           self:methods := saved:at("methods").
+    self:inProcedure := saved:at("inProcedure").
+    self:returnName := saved:at("returnName") }.
+
+; The chunk the current unit has become. Everything a `.sob` wants about one
+; chunk, and the same shape whether it is the script or a procedure.
+sola:chunkOfUnit := { | chunk |
+    self:resolveJumps.
+    chunk := dictionary:new.
+    chunk:atPut("slots", self:localNames:size).
+    chunk:atPut("names", self:names).
+    chunk:atPut("constants", self:constants).
+    chunk:atPut("code", self:code).
+    chunk:atPut("lines", self:lineRuns).
+    chunk:atPut("files", [self:path]).
+    chunk:atPut("fileRuns", [[self:code:size, #0]]).
+    chunk:atPut("slotNames", self:localNames).
+    chunk:atPut("methods", self:methods).
+    chunk }.
 
 sola:pushBlock := { kind | | f |
     f := makeFrame:value(kind, self:atLine).
@@ -960,15 +1393,13 @@ emitters:atPut('endif, { m, st | | f |
 ; produce such a name, which makes the guarantee structural rather than a
 ; convention about prefixes.
 
-sola:selectName := { i | "select ":concat(i:asString) }.
-
-emitters:atPut('select, { m, st | | f |
-    m:selectCount := m:selectCount:add(#1).
+emitters:atPut('select, { m, st | | f, slot |
     m:emitExpression(st:expr).
-    m:emitStore(m:selectName(m:selectCount)).
+    slot := m:newSlot("select subject").
+    m:emitSetLocal(slot).
     m:emitPop.
     f := m:pushBlock('select).
-    f:index := m:selectCount }).
+    f:subject := slot }).
 
 emitters:atPut('case, { m, st | | f, count, i, misses, toBody |
     f := m:openFrame("CASE", 'select).
@@ -983,7 +1414,7 @@ emitters:atPut('case, { m, st | | f, count, i, misses, toBody |
     toBody := array:new.
     i := #1.
     { i:lessOrEqual(count) }:whileTrue({
-        misses := m:emitAlternative(f:index, st:alternatives:at(i)).
+        misses := m:emitAlternative(f:subject, st:alternatives:at(i)).
         i:equals(count):ifElse(
             { misses:do({ at | f:pending:add([at, 'branch]) }) },
             { toBody:add([m:hole, 'jump]).
@@ -1015,24 +1446,24 @@ emitters:atPut('endselect, { m, st | | f |
 ; A value, a range, or a comparison. Answers the holes to fill when it does
 ; **not** match -- a range is two of them, because it is an AND and either half
 ; can refuse.
-sola:emitAlternative := { index, alt | | misses |
+sola:emitAlternative := { slot, alt | | misses |
     misses := array:new.
     alt:at(#1):equals("value"):ifTrue({
-        self:emitGlobal(self:selectName(index)).
+        self:emitLocal(slot).
         self:emitExpression(alt:at(#2)).
         self:emitSend("equals", #1).
         misses:add(self:branchHole) }).
     alt:at(#1):equals("range"):ifTrue({
-        self:emitGlobal(self:selectName(index)).
+        self:emitLocal(slot).
         self:emitExpression(alt:at(#2)).
         self:emitSend("greaterOrEqual", #1).
         misses:add(self:branchHole).
-        self:emitGlobal(self:selectName(index)).
+        self:emitLocal(slot).
         self:emitExpression(alt:at(#3)).
         self:emitSend("lessOrEqual", #1).
         misses:add(self:branchHole) }).
     alt:at(#1):equals("is"):ifTrue({
-        self:emitGlobal(self:selectName(index)).
+        self:emitLocal(slot).
         self:emitExpression(alt:at(#3)).
         self:emitSend(selectors:at(alt:at(#2)), #1).
         misses:add(self:branchHole) }).
@@ -1045,9 +1476,6 @@ sola:emitAlternative := { index, alt | | misses |
 ; is: readable after the loop and assignable inside it. The limit and the step
 ; are globals too, named the way the SELECT subject is, because they are
 ; evaluated once and the body may change what they were computed from.
-
-sola:forLimitName := { i | "for limit ":concat(i:asString) }.
-sola:forStepName  := { i | "for step ":concat(i:asString) }.
 
 ; **A written-out step fixes the direction at compile time**, which is worth the
 ; ten lines because it is nearly every loop: `FOR I = 1 TO 10` and
@@ -1062,20 +1490,19 @@ sola:literalStep := { n |
                 { nil }) }) }) }.
 
 emitters:atPut('for, { m, st | | f, step |
-    m:forCount := m:forCount:add(#1).
-    m:emitExpression(st:expr).  m:emitStore(st:name). m:emitPop.
-    m:emitExpression(st:limit). m:emitStore(m:forLimitName(m:forCount)). m:emitPop.
-
-    step := m:literalStep(st:step).
-    step:isNil:ifTrue({
-        m:emitExpression(st:step).
-        m:emitStore(m:forStepName(m:forCount)).
-        m:emitPop }).
+    m:beginAssign(st:name). m:emitExpression(st:expr). m:endAssign(st:name).
 
     f := m:pushBlock('for).
-    f:index := m:forCount.
     f:name := st:name.
+    f:limitSlot := m:newSlot("for limit").
+    m:emitExpression(st:limit). m:emitSetLocal(f:limitSlot). m:emitPop.
+
+    step := m:literalStep(st:step).
     f:step := step.
+    step:isNil:ifTrue({
+        f:stepSlot := m:newSlot("for step").
+        m:emitExpression(st:step). m:emitSetLocal(f:stepSlot). m:emitPop }).
+
     f:top := m:here.
     m:emitForTest(f).
     f:pending:add([m:branchHole, 'branch]) }).
@@ -1093,15 +1520,15 @@ emitters:atPut('for, { m, st | | f, step |
 ; `STEP <expression>`.
 sola:emitForTest := { f |
     f:step:isNil:ifElse(
-        { self:emitGlobal(self:forLimitName(f:index)).
-          self:emitGlobal(f:name).
+        { self:emitLocal(f:limitSlot).
+          self:emitLoadVar(f:name).
           self:emitSend("sub", #1).
-          self:emitGlobal(self:forStepName(f:index)).
+          self:emitLocal(f:stepSlot).
           self:emitSend("mul", #1).
           self:emitConst(0.0).
           self:emitSend("greaterOrEqual", #1) },
-        { self:emitGlobal(f:name).
-          self:emitGlobal(self:forLimitName(f:index)).
+        { self:emitLoadVar(f:name).
+          self:emitLocal(f:limitSlot).
           self:emitSend(
               f:step:lessThan(0.0):ifElse({ "greaterOrEqual" }, { "lessOrEqual" }),
               #1) }) }.
@@ -1123,13 +1550,13 @@ sola:closeFor := { name | | f |
             :fill([name, f:line, f:name])) }).
     self:popBlock("NEXT").
 
-    self:emitGlobal(f:name).
+    self:beginAssign(f:name).
+    self:emitLoadVar(f:name).
     f:step:isNil:ifElse(
-        { self:emitGlobal(self:forStepName(f:index)) },
+        { self:emitLocal(f:stepSlot) },
         { self:emitConst(f:step) }).
     self:emitSend("add", #1).
-    self:emitStore(f:name).
-    self:emitPop.
+    self:endAssign(f:name).
     self:emitLoopTo(f:top).
     self:fillAll(f:pending).
     self:fillAll(f:exits) }.
@@ -1176,10 +1603,332 @@ emitters:atPut('wend, { m, st | | f |
 ; why this searches the stack rather than looking at the top of it: an EXIT FOR
 ; inside an IF inside the loop is the ordinary way to write one.
 emitters:atPut('exit, { m, st | | f |
-    f := m:enclosing(st:target:equals("FOR"):ifElse({ 'for }, { 'do })).
-    f:isNil:ifTrue({
-        m:fail("EXIT {} with no {} loop around it":fill([st:target, st:target])) }).
-    f:exits:add([m:hole, 'jump]) }).
+    ["SUB", "FUNCTION"]:indexOf(st:target):notNil:ifElse(
+        { m:inProcedure:ifFalse({
+              m:fail("EXIT {} outside a {}":fill([st:target, st:target])) }).
+          m:emitReturnValue.
+          m:byte(RETURN) },
+        { f := m:enclosing(st:target:equals("FOR"):ifElse({ 'for }, { 'do })).
+          f:isNil:ifTrue({
+              m:fail("EXIT {} with no {} loop around it"
+                  :fill([st:target, st:target])) }).
+          f:exits:add([m:hole, 'jump]) }) }).
+
+emitters:atPut('call, { m, st | m:emitCall(st:name, st:items, true) }).
+
+; SHARED and STATIC did their work before the body was emitted -- they are in
+; force for the whole procedure wherever they are written, so reading them in
+; order would be the wrong answer for a listing that puts them at the bottom.
+emitters:atPut('shared, { m, st | nil }).
+emitters:atPut('static, { m, st | nil }).
+
+; ---------------------------------------------------------------------------
+; Procedures
+;
+; A `SUB` is a **block**, bound to a global with the procedure's name, and a call
+; is `value`. That is the whole mapping, and it is a close fit rather than a
+; contrivance: a block has its own frame, takes arguments in slots 1..n, and
+; answers its last expression, which is what a procedure needs.
+;
+; **It never captures its home frame**, which matters more than it looks.
+; ROADMAP 3.1 says a block that reads the frame it was written in cannot outlive
+; it -- and a SolaBasic procedure has no reason to, because every name it uses is
+; either its own slot or a global. So the flags say block-and-not-capturing, the
+; procedure escapes freely, and the limitation that would have been in the way is
+; not.
+;
+; **What it does meet is 3.5.** Each call is a real frame, so a recursive
+; procedure runs out at about 254 levels. SOLABASIC.md predicted exactly that.
+
+routine := object:new.
+routine:name := "".
+routine:kind := 'sub.
+routine:params := nil.
+routine:body := nil.
+routine:line := #1.
+routine:byref := nil.       ; one boolean per parameter
+
+sola:routines := nil.
+sola:routineOrder := nil.
+
+; Procedures are lifted out of the listing before anything is emitted, which is
+; what makes a call to something defined further down work and DECLARE useless.
+sola:extractRoutines := { | rest, current |
+    rest := array:new.
+    current := nil.
+    self:statements:do({ st |
+        self:atLine := st:line.
+        current:isNil:ifElse(
+            { ['sub, 'function]:indexOf(st:kind):notNil:ifElse(
+                { current := self:beginRoutine(st) },
+                { ['endsub, 'endfunction]:indexOf(st:kind):notNil:ifTrue({
+                      self:fail("{} with no procedure open"
+                          :fill([st:kind:equals('endsub):ifElse(
+                              { "END SUB" }, { "END FUNCTION" })])) }).
+                  rest:add(st) }) },
+            { ['sub, 'function]:indexOf(st:kind):notNil:ifTrue({
+                  self:fail("a procedure cannot be written inside another") }).
+              self:closesRoutine(current, st:kind):ifElse(
+                  { ; a label on the closing line belongs to the body, so that
+                    ; `GOTO Done` where `Done:` is the last line still lands.
+                    st:label:notNil:ifTrue({
+                        current:body:add(self:labelOnly(st:label, st:line)) }).
+                    current := nil },
+                  { current:body:add(st) }) }) }).
+    current:notNil:ifTrue({
+        self:atLine := current:line.
+        self:fail("this {} is never closed by its END {}"
+            :fill([current:kind:asString:asUppercase,
+                   current:kind:asString:asUppercase])) }).
+    self:statements := rest }.
+
+sola:beginRoutine := { st | | r |
+    self:routines:includes(st:name):ifTrue({
+        self:fail("there are two procedures called '{}'":fill([st:name])) }).
+    r := routine:new.
+    r:name := st:name.
+    r:kind := st:kind.
+    r:params := st:items.
+    r:body := array:new.
+    r:line := st:line.
+    self:routines:atPut(st:name, r).
+    self:routineOrder:add(r).
+    r }.
+
+sola:closesRoutine := { r, kind |
+    r:kind:equals('sub):ifElse(
+        { kind:equals('endsub) }, { kind:equals('endfunction) }) }.
+
+; ---------------------------------------------------------------------------
+; Which parameters are by reference
+;
+; QBasic passes by reference: assigning to a parameter assigns to the caller's
+; variable. Passing everything by value instead would leave `SWAP`-shaped
+; programs running and answering *differently*, which is the one outcome this
+; project does not take -- so the analysis is here.
+;
+; **A parameter is by reference when the procedure assigns to it, or hands it on
+; to somewhere that does.** The second half is why this is a fixed point rather
+; than one pass: `A` passes its parameter to `B`, `B` passes it to `C`, and `C`
+; assigns to it, so all three are by reference and finding that out takes as
+; many rounds as the chain is long. It settles because a parameter only ever
+; turns from by-value to by-reference and never back.
+
+sola:analyseByRef := { | changed |
+    self:routineOrder:do({ r |
+        r:byref := r:params:collect({ p | self:assignsTo(r:body, p) }) }).
+    changed := true.
+    { changed }:whileTrue({
+        changed := false.
+        self:routineOrder:do({ r |
+            self:callsIn(r:body):do({ c |
+                self:propagate(r, c):ifTrue({ changed := true }) }) }) }) }.
+
+sola:propagate := { r, call | | callee, changed, i, arg, at |
+    changed := false.
+    self:routines:includes(call:at(#1)):ifTrue({
+        callee := self:routines:at(call:at(#1)).
+        i := #1.
+        { i:lessOrEqual(call:at(#2):size)
+            :and({ i:lessOrEqual(callee:byref:size) }) }:whileTrue({
+            callee:byref:at(i):ifTrue({
+                arg := call:at(#2):at(i).
+                arg:kind:equals('variable):and({ arg:grouped:not }):ifTrue({
+                    at := r:params:indexOf(arg:name).
+                    at:notNil:and({ r:byref:at(at):not }):ifTrue({
+                        r:byref:atPut(at, true).
+                        changed := true }) }) }).
+            i := i:add(#1) }) }).
+    changed }.
+
+sola:assignsTo := { body, name | | found |
+    found := false.
+    body:do({ st | self:assignsIn(st, name):ifTrue({ found := true }) }).
+    found }.
+
+sola:assignsIn := { st, name |
+    st:kind:equals('let):and({ st:name:equals(name) })
+        :or({ st:kind:equals('for):and({ st:name:equals(name) }) })
+        :or({ st:then:notNil:and({ self:assignsIn(st:then, name) }) })
+        :or({ st:otherwise:notNil:and({ self:assignsIn(st:otherwise, name) }) }) }.
+
+; Every call written in a body, statement and expression alike, as
+; [name, arguments].
+sola:callsIn := { body | | found |
+    found := array:new.
+    body:do({ st | self:callsInStatement(st, found) }).
+    found }.
+
+sola:callsInStatement := { st, found |
+    st:kind:equals('call):ifTrue({
+        found:add([st:name, st:items]).
+        st:items:do({ a | self:callsInExpression(a, found) }) }).
+    st:kind:equals('print):ifTrue({
+        st:items:do({ a | self:callsInExpression(a, found) }) }).
+    self:callsInExpression(st:expr, found).
+    self:callsInExpression(st:limit, found).
+    self:callsInExpression(st:step, found).
+    st:alternatives:notNil:ifTrue({
+        st:alternatives:do({ alt |
+            alt:at(#1):equals("is"):ifElse(
+                { self:callsInExpression(alt:at(#3), found) },
+                { self:callsInExpression(alt:at(#2), found).
+                  alt:at(#1):equals("range"):ifTrue({
+                      self:callsInExpression(alt:at(#3), found) }) }) }) }).
+    st:then:notNil:ifTrue({ self:callsInStatement(st:then, found) }).
+    st:otherwise:notNil:ifTrue({ self:callsInStatement(st:otherwise, found) }) }.
+
+sola:callsInExpression := { n, found |
+    n:isNil:ifFalse({
+        n:kind:equals('call):ifTrue({
+            found:add([n:name, n:args]).
+            n:args:do({ a | self:callsInExpression(a, found) }) }).
+        self:callsInExpression(n:left, found).
+        self:callsInExpression(n:right, found) }) }.
+
+; The names a body hands to a by-reference parameter as a plain variable. Those
+; are the ones that have to live in a box, because the callee will reach into it.
+sola:boxesFor := { body | | names |
+    names := array:new.
+    self:callsIn(body):do({ c |
+        self:routines:includes(c:at(#1)):ifTrue({ | callee, i, arg |
+            callee := self:routines:at(c:at(#1)).
+            i := #1.
+            { i:lessOrEqual(c:at(#2):size)
+                :and({ i:lessOrEqual(callee:byref:size) }) }:whileTrue({
+                callee:byref:at(i):ifTrue({
+                    arg := c:at(#2):at(i).
+                    arg:kind:equals('variable):and({ arg:grouped:not }):ifTrue({
+                        names:indexOf(arg:name):isNil:ifTrue({
+                            names:add(arg:name) }) }) }).
+                i := i:add(#1) }) }) }).
+    names }.
+
+; ---------------------------------------------------------------------------
+; A procedure, compiled
+
+; A STATIC survives between calls, so it cannot be a frame slot -- a frame is
+; new every call. It is a global of its own instead, named after the procedure
+; that owns it and with spaces in the name so that nothing a BASIC program can
+; spell will collide with it.
+; "1 argument" and "2 arguments", because a message that says "1 argument(s)"
+; was written by somebody who did not want to look at it again.
+sola:countOf := { n, what |
+    n:asString:concat(" "):concat(what):concat(n:equals(#1):ifElse({ "" }, { "s" })) }.
+
+sola:staticName := { routineName, name |
+    "static ":concat(routineName):concat(" "):concat(name) }.
+
+; **And it is given its nought before anything runs**, because the first thing a
+; counter does is read itself. A global that was never assigned is an undefined
+; name, not a zero.
+sola:emitStaticInitialisers := {
+    self:routineOrder:do({ r |
+        r:body:do({ st |
+            st:kind:equals('static):ifTrue({
+                st:items:do({ n |
+                    self:emitConst(0.0).
+                    self:emitStore(self:staticName(r:name, n)).
+                    self:emitPop }) }) }) }) }.
+
+sola:emitReturnValue := {
+    self:returnName:equals(""):ifElse(
+        { self:emitNil },
+        { self:emitLoadVar(self:returnName) }) }.
+
+sola:emitRoutine := { r | | method, index, i |
+    self:pushUnit.
+    self:inProcedure := true.
+    self:atLine := r:line.
+    self:returnName := r:kind:equals('function):ifElse({ r:name }, { "" }).
+
+    r:body:do({ st |
+        st:kind:equals('shared):ifTrue({
+            st:items:do({ n | self:shared:add(n) }) }).
+        st:kind:equals('static):ifTrue({
+            st:items:do({ n |
+                self:statics:atPut(n, self:staticName(r:name, n)) }) }) }).
+
+    ; Slots 1..n are the parameters, in the order they were written, because
+    ; that is where a block's arguments arrive.
+    r:params:do({ p | self:newLocal(p) }).
+    i := #1.
+    { i:lessOrEqual(r:params:size) }:whileTrue({
+        r:byref:at(i):ifTrue({ self:boxed:add(r:params:at(i)) }).
+        i := i:add(#1) }).
+    self:boxesFor(r:body):do({ n |
+        self:boxed:indexOf(n):isNil:ifTrue({
+            self:boxed:add(n).
+            self:toBox:add(n) }) }).
+
+    ; A FUNCTION answers by assigning to its own name, so the name is a local
+    ; and the body's last act is to push it.
+    r:kind:equals('function):ifTrue({ self:newLocal(r:name) }).
+
+    self:mark(r:line).
+    r:kind:equals('function):ifTrue({
+        self:emitConst(0.0).
+        self:emitSetLocal(self:slotFor(r:name)).
+        self:emitPop }).
+    self:statementsOfScope := r:body.
+    self:emitVariableInitialisers(
+        r:params:copyFrom(#1, r:params:size):add(r:name)).
+    self:emitBoxes.
+    r:body:do({ st | self:emitStatement(st) }).
+    self:checkBlocksClosed.
+    self:mark(self:atLine).
+    self:emitReturnValue.
+    self:byte(RETURN).
+
+    method := self:chunkOfUnit.
+    method:atPut("name", r:name).
+    method:atPut("arity", r:params:size).
+    ; Flag 1 says block. Flag 2 would say it reaches out of its own frame, and
+    ; nothing here ever does -- see the note above about 3.1.
+    method:atPut("flags", #1).
+    self:popUnit.
+
+    index := self:methods:size.
+    self:methods:add(method).
+    self:byte(BLOCK).
+    self:u16(index).
+    self:emitStore(r:name).
+    self:emitPop }.
+
+; ---------------------------------------------------------------------------
+; A call
+;
+; The block, then the arguments, then `value`. A by-reference argument that is a
+; plain variable hands over **the box itself**, so the callee's `atPut` writes
+; the caller's storage and there is nothing to copy back.
+;
+; An argument at a by-reference position that is *not* a plain variable -- an
+; expression, or a name in brackets -- gets a box of its own that nobody keeps.
+; That is QBasic's rule and it is what `CALL Foo((x))` is for.
+
+sola:emitCall := { name, args, asStatement | | r, i, arg |
+    self:routines:includes(name):ifFalse({
+        self:fail("there is no SUB or FUNCTION called '{}'":fill([name])) }).
+    r := self:routines:at(name).
+    args:size:equals(r:params:size):ifFalse({
+        self:fail("{} takes {} and was given {}"
+            :fill([name, self:countOf(r:params:size, "argument"),
+                   args:size])) }).
+
+    self:emitGlobal(name).
+    i := #1.
+    { i:lessOrEqual(args:size) }:whileTrue({
+        arg := args:at(i).
+        r:byref:at(i):ifElse(
+            { arg:kind:equals('variable):and({ arg:grouped:not }):ifElse(
+                { self:emitRawVar(arg:name) },
+                { self:emitGlobal("array").
+                  self:emitExpression(arg).
+                  self:emitSend("of", #1) }) },
+            { self:emitExpression(arg) }).
+        i := i:add(#1) }).
+    self:emitSend("value", args:size).
+    asStatement:ifTrue({ self:emitPop }) }.
 
 ; `IF <condition> THEN GOTO <label>` is the condition, a conditional jump over
 ; the `GOTO`, and the `GOTO`.
@@ -1249,22 +1998,30 @@ sola:lineRuns := { | runs, i, at, next, line |
 ; ---------------------------------------------------------------------------
 ; The whole of it
 
-sola:compile := { source, path | | chunk |
+sola:compile := { source, path |
     self:path := path.
     self:statements := array:new.
-    self:code := array:new.
-    self:names := array:new.
-    self:nameIndex := dictionary:new.
-    self:constants := array:new.
-    self:constIndex := dictionary:new.
-    self:labelAt := dictionary:new.
-    self:fixups := array:new.
-    self:lineMarks := array:new.
-    self:blocks := array:new.
-    self:forCount := #0.
-    self:selectCount := #0.
+    self:unitStack := array:new.
+    self:routines := dictionary:new.
+    self:routineOrder := array:new.
+    self:freshUnit.
 
     self:readStatements(source).
+    self:extractRoutines.
+    self:analyseByRef.
+
+    self:atLine := #1.
+    self:mark(#1).
+    self:boxesFor(self:statements):do({ n |
+        self:boxed:add(n). self:toBox:add(n) }).
+
+    ; Procedures first, so that every name a call needs is bound before the
+    ; module's first line runs.
+    self:emitStaticInitialisers.
+    self:routineOrder:do({ r | self:emitRoutine(r) }).
+    self:statementsOfScope := self:statements.
+    self:emitVariableInitialisers([]).
+    self:emitBoxes.
     self:statements:do({ st | self:emitStatement(st) }).
     self:checkBlocksClosed.
 
@@ -1278,19 +2035,7 @@ sola:compile := { source, path | | chunk |
     self:trailingLabels.
     self:needsHalt:ifTrue({ self:byte(HALT) }).
 
-    self:resolveJumps.
-
-    chunk := dictionary:new.
-    chunk:atPut("slots", #1).
-    chunk:atPut("names", self:names).
-    chunk:atPut("constants", self:constants).
-    chunk:atPut("code", self:code).
-    chunk:atPut("lines", self:lineRuns).
-    chunk:atPut("files", [path]).
-    chunk:atPut("fileRuns", [[self:code:size, #0]]).
-    chunk:atPut("slotNames", [""]).
-    chunk:atPut("methods", []).
-    chunk }.
+    self:chunkOfUnit }.
 
 ; **The chunk's last instruction must be a HALT and the verifier requires it**,
 ; so one is added -- unless the program already ends in `END`, which is that
@@ -1372,6 +2117,14 @@ demo := "' Stage 2's structure and stage 3's jumps, in one program. The GOTO\n"
     :concat("  IF k = 3 THEN EXIT DO\n")
     :concat("LOOP\n")
     :concat("PRINT \"left the DO at \"; k\n")
+    :concat("FUNCTION Triangle (n)\n")
+    :concat("  IF n <= 1 THEN\n")
+    :concat("    Triangle = 1\n")
+    :concat("  ELSE\n")
+    :concat("    Triangle = n + Triangle(n - 1)\n")
+    :concat("  END IF\n")
+    :concat("END FUNCTION\n")
+    :concat("PRINT \"the tenth triangular number is \"; Triangle(10)\n")
     :concat("END\n").
 
 source := nil.

@@ -862,7 +862,8 @@ static void test_sola_compiles_a_program_that_runs(void)
                out, sizeof out) == 0);
 
     static const char *listings[] = { "counter", "spaghetti", "labels",
-                                      "structure", "escape" };
+                                      "structure", "escape", "procedures",
+                                      "byref" };
     for (size_t i = 0; i < sizeof listings / sizeof listings[0]; i++) {
         char command[512], expected_path[512];
 
@@ -926,6 +927,32 @@ static void test_sola_compiles_a_program_that_runs(void)
     assert(run("bin/solvm " DIR "/sola.sob " DIR "/exit.bas " DIR "/exit.sob 2>&1",
                out, sizeof out) != 0);
     assert(strstr(out, "EXIT FOR with no FOR loop around it") != NULL);
+
+    /* A call to something that is not there, and a call with the wrong number
+       of arguments, are both compile-time. Nothing about either has to wait
+       for the program to reach that line. */
+    system("printf 'CALL Nope(1)\\n' > " DIR "/nope.bas");
+    assert(run("bin/solvm " DIR "/sola.sob " DIR "/nope.bas " DIR "/nope.sob 2>&1",
+               out, sizeof out) != 0);
+    assert(strstr(out, "there is no SUB or FUNCTION called 'NOPE'") != NULL);
+
+    system("printf 'SUB S (a)\\nEND SUB\\nCALL S(1, 2)\\n' > " DIR "/arity.bas");
+    assert(run("bin/solvm " DIR "/sola.sob " DIR "/arity.bas " DIR "/arity.sob 2>&1",
+               out, sizeof out) != 0);
+    assert(strstr(out, "S takes 1 argument and was given 2") != NULL);
+
+    /* A procedure is a frame, so SolaBasic recursion is SolVM recursion and
+       stops where ROADMAP 3.5 says -- which SOLABASIC.md predicted before any
+       of this was written. The trace names the BASIC procedure and the BASIC
+       line, not this compiler's. */
+    system("printf 'FUNCTION D (n)\\nIF n <= 0 THEN\\nD = 0\\nELSE\\n"
+           "D = 1 + D(n - 1)\\nEND IF\\nEND FUNCTION\\nPRINT D(400)\\n' > "
+           DIR "/deep.bas");
+    assert(run("bin/solvm " DIR "/sola.sob " DIR "/deep.bas " DIR "/deep.sob 2>&1",
+               out, sizeof out) == 0);
+    assert(run("bin/solvm " DIR "/deep.sob 2>&1", out, sizeof out) != 0);
+    assert(strstr(out, "call depth exceeded") != NULL);
+    assert(strstr(out, "in D") != NULL);
 
     printf("  %zu SolaBasic listings compile, run and still match\n",
            sizeof listings / sizeof listings[0]);

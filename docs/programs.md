@@ -395,7 +395,7 @@ sixteen seconds, and it fails the build if one stops holding.
 **And it checks the documentation too.** The guide and the reference carry the
 same notation inside ``` fences, and nothing checked those either — they are the
 two documents a newcomer actually reads. 363<!--count docs-claims--> claims
-across nineteen<!--count docs-documents--> documents,
+across twenty<!--count docs-documents--> documents,
 and two more on `README.md` and `index.md` — the front pages, which were the
 last two things nothing checked.
 
@@ -951,11 +951,12 @@ i = 5
 counted to 5
 ```
 
-**Stages 2 and 3** of the eight [SOLABASIC.md](SOLABASIC.md) lists, done in that
-order backwards. Stage 3 is `GOTO` and labels, the claim the whole design rests
-on, and the document says to reach it in week one rather than week six. Stage 2
-is the structured half — `IF` in both shapes, `SELECT CASE`, `FOR`/`NEXT`,
-`DO`/`LOOP`, `WHILE`/`WEND`, `EXIT FOR` and `EXIT DO`.
+**Stages 2, 3 and 4** of the eight [SOLABASIC.md](SOLABASIC.md) lists. Stage 3 —
+`GOTO` and labels — went first, because it is the claim the whole design rests on
+and the document says to reach it in week one rather than week six. Stage 2 is
+the structured half, stage 4 is procedures, and
+[SOLABASIC-REFERENCE.md](SOLABASIC-REFERENCE.md) is what the three of them add up
+to for somebody writing the language rather than reading about it.
 
 **The claim is that `GOTO` cannot be written in Solum.** There is no
 control-flow syntax here — a loop is a message send — so a translator from BASIC
@@ -1041,11 +1042,29 @@ down the stack rather than a walk over a tree.
 later language calls `continue` — both in [escape.bas](../programs/sola/escape.bas),
 because the two halves meeting is the thing worth a transcript.
 
-**What is not here is stages 4 to 7**, and the header says so at length rather
-than leaving it to be discovered: no `SUB`, no arrays, no type system — every
-number is a Double — and a `PRINT` that joins its items and shows them with none
-of BASIC's zones or spacing. That last one is the thing most likely to be
-mistaken for a bug, which is why it is written down twice.
+**Stage 4's expensive item cost less than billed, because of how it is
+represented.** QBasic passes by reference — assigning to a parameter assigns to
+the caller's variable — and [SOLABASIC.md](SOLABASIC.md) called that the most
+expensive thing in the language. It is a **one-element array**: a variable ever
+passed by reference is kept in one *always*, so the call hands the array over and
+the callee's `atPut` reaches the caller's storage. No wrapping at the call site,
+no copying back, no temporary to keep alive across it, and nothing to get wrong
+when the call is recursive. The part that was as billed is deciding *which*
+parameters — a fixed point, because a parameter is by reference when its
+procedure assigns to it or hands it on to something that does, and that chains.
+
+**A procedure is a block, and it never captures its home frame** — every name it
+uses is its own slot or a global — so [3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame)
+never bites. [3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels) does:
+a call is a real frame, recursion stops around 254 levels, and the trace names
+the *BASIC* procedure and the *BASIC* line when it happens. SOLABASIC.md
+predicted that before the compiler existed.
+
+**What is not here is stages 5 to 7**, and the header says so at length rather
+than leaving it to be discovered: no arrays, no type system — every number is a
+Double — and a `PRINT` that joins its items and shows them with none of BASIC's
+zones or spacing. That last one is the thing most likely to be mistaken for a
+bug, which is why it is written down twice.
 
 ## Adding one
 

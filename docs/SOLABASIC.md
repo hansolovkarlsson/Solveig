@@ -9,6 +9,11 @@ numbers, `SUB` and `FUNCTION`, block `IF` and `SELECT CASE` — compiled to a
 `.sob` file and run by `bin/solvm`. It is **not** QBasic and does not try to be.
 It is a subset, and this document is the whole of it.
 
+**For writing SolaBasic rather than reading about it**, see the
+[reference manual](SOLABASIC-REFERENCE.md), which describes what the compiler
+accepts *today* — statement by statement, with what it says when it refuses.
+This page is the definition and the reasoning; that one is the desk copy.
+
 ## The name
 
 *Sola* is Norwegian for the sun — the definite form of *sol*, which is how it
@@ -547,6 +552,39 @@ stack depth are each refused *at load*, exit 65, as a message rather than a
 crash. The depth-0 discipline is load-bearing rather than tidy, and nothing in
 the design section above needed changing.
 
+**2026-08-26 — stage 4, the expensive one, and by reference is a box.**
+`SUB`, `FUNCTION`, locals, `SHARED`, `STATIC` and by-reference parameters are in
+[programs/sola.sol](../programs/sola.sol). A procedure is a **block** bound to a
+global and a call is `value`, which fits closely: a block has its own frame,
+takes arguments in slots 1..n, and answers its last expression.
+
+**It never captures its home frame**, so [3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame)
+does not bite — every name a procedure uses is its own slot or a global, so
+there is nothing to reach out for. **[3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels)
+does**, exactly as [What this costs](#what-this-costs) predicted before any of
+this was written: recursion stops around 254 levels, and the trace names the
+BASIC procedure and the BASIC line.
+
+**By reference cost far less than billed.** The document called it the most
+expensive item in the language, and the reason it was not is the representation:
+a variable ever passed by reference is kept in a **one-element array**, always,
+so the call hands the array itself over and the callee's `atPut` reaches the
+caller's storage. No wrapping at the call site, no copying back, no temporary to
+keep alive across the call, and nothing to get wrong when the call is recursive.
+What it costs is one send on each read and write of such a variable, paid only by
+variables that are actually passed that way.
+
+The analysis is a fixed point and that part was as billed: a parameter is by
+reference when its procedure assigns to it *or hands it on to something that
+does*, and the second half chains through as many procedures as the listing has.
+
+**And two things BASIC requires turned out to need doing rather than assuming.**
+A variable this compiler never stores into is an *undefined name* to the machine
+rather than a nought, so every name a scope mentions is now given its nought
+before the scope's first line — `PRINT Z` prints `0`, as it must. And a `STATIC`
+cannot be a frame slot, because a frame is new every call; it is a private
+global instead, initialised once at module level.
+
 **2026-08-26 — stage 2 needed nothing the back end did not already have.**
 `IF`, `SELECT CASE`, `FOR`, `DO`, `WHILE` and `EXIT` are in
 [programs/sola.sol](../programs/sola.sol), and the whole of them is one stack of
@@ -593,7 +631,7 @@ The language above is the finish line. The order to reach it in:
 | **1** | **Partly.** Expressions, variables and `PRINT` are here; the three types are not — every number is a Double — and `PRINT`'s rules are stage 6. |
 | **2** | **Done.** `IF` in both shapes, `SELECT CASE`, `FOR`/`NEXT`, `DO`/`LOOP`, `WHILE`/`WEND`, `EXIT FOR` and `EXIT DO`, all compiled to jumps. |
 | **3** | **Done, and first, as this table said it should be.** `GOTO` and labels, forwards and backwards, to any label in the program. What it found is below. |
-| **4** | `SUB`, `FUNCTION`, `CALL`, locals, `SHARED`, `STATIC` — and the boxing analysis. The largest stage by some distance. |
+| **4** | **Done.** `SUB`, `FUNCTION`, `CALL`, locals, `SHARED`, `STATIC`, `EXIT SUB`/`EXIT FUNCTION`, and by-reference parameters. |
 | **5** | Arrays, `DIM`, `OPTION BASE`. |
 | **6** | `INPUT`, files, `PRINT USING`. |
 | **7** | The QuickBASIC 4.5 comparison harness, and the divergence list settled against it. |
