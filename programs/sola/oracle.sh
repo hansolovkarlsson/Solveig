@@ -110,7 +110,11 @@ run_oracle() {
 run_dosbox() {
     rm -rf "$work/dos"
     mkdir -p "$work/dos"
-    cp "$1" "$work/dos/P.BAS"
+    # **BC.EXE wants CR LF and says nothing when it does not get it.** A file
+    # with Unix line endings compiles, links, produces a .EXE, and that .EXE
+    # prints nothing at all -- which looks exactly like a program whose output
+    # cannot be redirected, and cost an hour of looking at the wrong thing.
+    sed 's/$/\r/' "$1" > "$work/dos/P.BAS"
     SDL_VIDEODRIVER=dummy "$dosbox" \
         -c "mount c $SOLA_QB_DIR" \
         -c "mount d $work/dos" \

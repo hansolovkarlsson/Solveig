@@ -283,8 +283,11 @@ keywords := ["PRINT", "GOTO", "IF", "THEN", "ELSE", "ELSEIF", "END", "REM",
 ; A token, and a node
 
 token := object:new.
-token:kind := 'word.        ; 'number 'string 'word 'punct
+token:kind := 'word.        ; 'number 'based 'string 'word 'punct
 token:text := "".
+; A numeric literal may say its own type: `1#` is a Double and `1%` an Integer,
+; which is how QBasic writes one and is separate from the digits themselves.
+token:suffix := nil.
 
 makeToken := { kind, text | | t |
     t := token:new. t:kind := kind. t:text := text. t }.
@@ -440,15 +443,28 @@ sola:tokenise := { text | | s, out, c |
                                      { out:add(self:punctToken(s)) } ]:ifElseIf }).
     out }.
 
-sola:numberToken := { s | | start |
+; **`D` is an exponent as well as `E`.** QBasic writes a Double's exponent with
+; a D and a Single's with an E; SolaBasic has one float, so both are read and
+; the text is normalised to the E that `asFloat` understands.
+sola:numberToken := { s | | start, text, t, mark |
     start := s:pos.
     s:skipWhile({ c | isDigit:value(c) }).
     s:match("."):ifTrue({ s:skipWhile({ c | isDigit:value(c) }) }).
-    s:peek:notNil:and({ s:peek:asUppercase:equals("E") }):ifTrue({
+    s:peek:notNil:and({ ["E", "D"]:indexOf(s:peek:asUppercase):notNil }):ifTrue({
         s:step.
         s:match("+"):ifFalse({ s:match("-") }).
         s:skipWhile({ c | isDigit:value(c) }) }).
-    makeToken:value('number, s:since(start)) }.
+    text := s:since(start).
+    ["D", "d"]:do({ letter |
+        text := text:split(letter):join("E") }).
+    t := makeToken:value('number, text).
+    s:match("!"):ifTrue({
+        self:fail("'{}!' is a SINGLE, and SolaBasic has no SINGLE -- see "
+            :concat("docs/SOLABASIC.md. A plain {} is a Double.")
+            :fill([text, text])) }).
+    mark := ["%", "&", "#"]:select({ each | s:looksLike(each) }).
+    mark:size:equals(#0):ifFalse({ s:step. t:suffix := mark:at(#1) }).
+    t }.
 
 ; Folded to uppercase, so `print x` and `PRINT X` are one program. A string
 ; literal is not folded, which is why this happens here and not to the line.
@@ -1202,11 +1218,15 @@ sola:parsePrimary := { | t, inner |
     [ { t:kind:equals('number) },
         ; **A literal with no point and no exponent is an Integer**, which is
         ; QBasic's rule and the reason `7 / 2` and `7 \\ 2` differ without
-        ; anything being declared.
-        { t:text:indexOf("."):isNil
-            :and({ t:text:asUppercase:indexOf("E"):isNil }):ifElse(
-            { numberNode:value(t:text:asInteger, 'integer) },
-            { numberNode:value(t:text:asFloat, 'double) }) },
+        ; anything being declared -- unless the literal says its own type.
+        { t:suffix:notNil:ifElse(
+            { suffixTypes:at(t:suffix):equals('integer):ifElse(
+                { numberNode:value(t:text:asFloat:rounded, 'integer) },
+                { numberNode:value(t:text:asFloat, 'double) }) },
+            { t:text:indexOf("."):isNil
+                :and({ t:text:asUppercase:indexOf("E"):isNil }):ifElse(
+                { numberNode:value(t:text:asInteger, 'integer) },
+                { numberNode:value(t:text:asFloat, 'double) }) }) },
       { t:kind:equals('based) }, { numberNode:value(t:text:asInteger, 'integer) },
       { t:kind:equals('string) }, { stringNode:value(t:text) },
       { t:text:equals("(") },
@@ -3263,11 +3283,17 @@ sola:isPlacement := { item |
 ; A string goes out as it is; a number is turned into text and then given the
 ; sign character and the trailing space that make BASIC output look the way it
 ; does.
+; **A comparison is `-1` or `0` here, like anywhere else it is used as a
+; number.** Emitting it without saying so printed `true`, and then the runtime's
+; exponent swap turned that into `truD` -- which is what a real QuickBASIC found
+; on the first run of the oracle harness, and what eleven recorded transcripts
+; had not, because none of them thought to print a comparison.
 sola:emitItemText := { item |
     item:type:equals('string):ifElse(
         { self:emitTyped(item, 'string) },
         { self:emitGlobal("SOLASIGN$").
-          self:emitExpression(item).
+          self:emitTyped(item,
+              item:type:equals('boolean):ifElse({ 'integer }, { item:type })).
           self:emitSend("asString", #0).
           self:emitSend("value", #1) }) }.
 

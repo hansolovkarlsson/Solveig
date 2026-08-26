@@ -460,8 +460,10 @@ suffix, and `AS SINGLE` is refused rather than silently widened. **A ported
 program will print more digits than it used to.** This is the largest single
 divergence and the one most likely to surprise.
 
-**2. `INTEGER` is 64 bits.** QBasic's is 16 and `LONG` is 32, and both overflow
-at their boundary. SolaBasic has one integer type, and `LONG` is a synonym for
+**2. `INTEGER` is 64 bits.** QBasic's is 16 and `LONG` is 32. **Measured**: a
+QuickBASIC 4.5 program compiled with `BC.EXE` *wraps* at `32767` rather than
+stopping — `BC` compiles without overflow checking unless `/D` asks for it,
+where the `QB.EXE` environment would raise *Overflow*. Either way, SolaBasic has one integer type, and `LONG` is a synonym for
 it. A program relying on `32767 + 1` failing will not fail here — it will be
 right, which is worse.
 
@@ -475,17 +477,26 @@ branch. Nobody writes it; it is still a gap.
 **4. A string may not contain a double quote.** QBasic has the same restriction,
 and `CHR$(34)` is the same answer. Recorded because it looks like an oversight.
 
-**5. `VAL` is strict.** BASIC's reads a number off the front of a string and
+**5. A Double prints to the shortest text that reads back as the same number**,
+where QuickBASIC prints sixteen significant digits. **Measured**, against
+QuickBASIC 4.5: `1# / 3#` is `.3333333333333334` there and `.3333333333333333`
+here, and `1# / 7#` is `.1428571428571429` against `.14285714285714285`. So they
+agree whenever the shortest round-trip is sixteen digits or fewer and rounds the
+same way, and part company on a seventeenth digit or on the last one.
+Exponential form agrees exactly. This is the entry that
+[said it was not settled](#stages); it is.
+
+**6. `VAL` is strict.** BASIC's reads a number off the front of a string and
 answers nought for junk; this one wants the whole string to be a number. Reading
 a number out of the front of text wants a scanner, and there is no library in
 the file the compiler writes to hold one.
 
-**6. An array name means one array in the whole listing.** QBasic lets two
+**7. An array name means one array in the whole listing.** QBasic lets two
 procedures each `DIM` a `Temp` of their own; here the second is *dimensioned
 twice*. And an array parameter is one-dimensional — a bigger one's strides would
 have to travel with it.
 
-**7. Procedures are resolved before compilation.** QBasic requires `DECLARE` for
+**8. Procedures are resolved before compilation.** QBasic requires `DECLARE` for
 a procedure used before it is defined, and QB's editor writes them for you.
 SolaBasic takes a pass first, so `DECLARE` is accepted and does nothing.
 
@@ -590,6 +601,31 @@ jump into the middle of an instruction and a jump to a point at a different
 stack depth are each refused *at load*, exit 65, as a message rather than a
 crash. The depth-0 discipline is load-bearing rather than tidy, and nothing in
 the design section above needed changing.
+
+**2026-08-26 — the oracle ran, and it was worth building.**
+QuickBASIC 4.5 under DOSBox, through
+[oracle.sh](../programs/sola/oracle.sh). **All eight `agree/` programs match
+byte for byte** and all five divergences are still there. Three things came out
+of the first run, and not one of them was reachable from anything already here.
+
+**A real defect.** `PRINT (1 < 2)` printed `truD`. A comparison used as a number
+is `-1`, and this document has said so since it was written — but `PRINT` was
+emitting the value without saying what type it wanted, so the machine's boolean
+went out as text, and the runtime's exponent swap turned `true` into `truD`.
+**Eleven recorded transcripts were green**, and one of them *recorded `truD` as
+correct*, because a transcript records what a program does rather than what it
+should do and re-recording after a change bakes the change in. That is the whole
+argument for this stage, demonstrated on the first attempt.
+
+**Two entries in the divergence list were wrong.** `INTEGER` overflow was
+predicted to stop the program and does not — `BC.EXE` compiles without overflow
+checking, so QuickBASIC *wraps* to `-32768`. And the digit count, the one thing
+this document said was **not settled**, is settled: QuickBASIC prints sixteen
+significant digits and SolaBasic prints the shortest that reads back the same.
+
+**And two literal forms were missing.** `1#` and `1D20` are how QBasic writes a
+Double, and were needed to ask the digits question properly at all — found by a
+corpus file refusing to compile rather than by anything looking for them.
 
 **2026-08-26 — the oracle harness is built, and its verdict is not in.**
 [programs/sola/oracle.sh](../programs/sola/oracle.sh) compares SolaBasic against
@@ -751,7 +787,7 @@ The language above is the finish line. The order to reach it in:
 | **4** | **Done.** `SUB`, `FUNCTION`, `CALL`, locals, `SHARED`, `STATIC`, `EXIT SUB`/`EXIT FUNCTION`, and by-reference parameters. |
 | **5** | **Done.** `DIM` with constant bounds and up to eight dimensions, `OPTION BASE`, `CONST`, `DIM SHARED`, and arrays passed to procedures. |
 | **6** | `INPUT`, files, `PRINT USING`. **`PRINT`'s own rules are done** — see stage 1. |
-| **7** | **The harness is built** — [programs/sola/oracle.sh](../programs/sola/oracle.sh), with a corpus in two halves. **The verdict is not in**: it needs a QuickBASIC to compare against, and there was none on the machine it was written on. |
+| **7** | **Done, and the verdict is in.** [oracle.sh](../programs/sola/oracle.sh) against QuickBASIC 4.5 under DOSBox: **all eight `agree/` programs match byte for byte**, and all five divergences are still there. It found one real defect and corrected two entries in the list below. |
 
 Stage 3 is the one to reach early even though the ordering does not demand it,
 because it is the claim the whole design rests on. If arbitrary `GOTO` between

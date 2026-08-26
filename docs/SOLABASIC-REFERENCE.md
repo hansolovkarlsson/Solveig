@@ -788,11 +788,13 @@ are the ones that bite while typing.
 3. **Spaces between words are required.** `FORI=1TO10` is not a `FOR`.
 4. **A string may not contain a double quote.** `CHR$(34)` is the way round it,
    as it is in QBasic.
-5. **How many digits a Double shows is the machine's choice, not BASIC's.**
-   `PRINT 1 / 3` gives `.3333333333333333` — the shortest text that reads back
-   as the same number — where QBasic fixes a count. The print zones (14) and the
-   margin (80) are QBasic's numbers; the digit count is not yet settled against
-   a real one, and [stage 7](SOLABASIC.md#stages) is where it will be.
+5. **A Double prints to the shortest text that reads back as the same number**,
+   where QuickBASIC prints sixteen significant digits. Measured against
+   QuickBASIC 4.5: `1# / 3#` is `.3333333333333334` there and
+   `.3333333333333333` here. They agree whenever the shortest round-trip is
+   sixteen digits or fewer and rounds the same way, and part company on a
+   seventeenth digit or the last one. Print zones, the margin and the `D`
+   exponent all agree exactly.
    `STR$` does not add the leading space that BASIC's does — `PRINT` adds it,
    which is where BASIC puts it too.
 6. **`VAL` is strict.** BASIC's reads a number off the front of a string and
