@@ -11,6 +11,120 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-26 (SolaBasic) — a language in an afternoon, and the thing that held it honest
+
+Forty commits between 10:28 and 16:31, twenty of them the changelog follow-ups
+this repository pairs with every landing. A compiler for a BASIC dialect:
+4,778 lines, 23% comment, and 2,230 lines of documentation beside it.
+
+**The day did not start with a plan, it started with a question** — whether a
+QBasic could be compiled to bytecode at all — and the first hour produced no
+code. It went on finding out that there *is* a standardised structured BASIC,
+that it is ECMA-116 and free to read, that it still requires line numbers, that
+it is 176 keywords across five optional modules, and that nobody appears to have
+built a conforming implementation. So the standard route was closed, and the
+boundary had to be borrowed from somewhere else: CB80, Digital Research's 1982
+compiler, which produced an intermediate file run by a separate runtime and is
+this design fifty years early.
+
+That hour is the reason the dialect has its own name and a written boundary
+rather than being "QBasic, roughly".
+
+### The spec was written first, and it still went wrong
+
+[SOLABASIC.md](SOLABASIC.md) was written before any compiler, frozen when one
+started, and every change to it since is dated and reasoned in its own change
+log. That discipline is the whole of what a standard would have given, and it
+worked for eight stages of features.
+
+It did not work for `:`. *Lexical structure* has said "`:` joins statements on
+one line" since the day it was written, and the compiler refused it — through
+every stage, while the divergence list was being checked against a real
+QuickBASIC by machine. **A definition promising what the implementation does not
+do is the same failure as a transcript recording what a program does rather than
+what it should**, and this one lasted longer than any of them. It was found by
+going looking for it rather than by anything failing.
+
+### The stages were done in the wrong order on purpose
+
+Stage 3 — `GOTO` and labels — went first, because it is the claim everything
+else stands on: `GOTO` cannot be written in Solum, which has no control-flow
+syntax, so the whole case for compiling rather than translating rests on
+`OP_JUMP` existing. That was measured before a compiler existed, by
+hand-assembling a chunk with a backward jump to an arbitrary offset and a
+forward one over dead code, and by breaking it two ways to check the verifier
+would notice. It did, at load, as a message.
+
+Stage 2 then turned out to be stage 3 with a stack on top — every structured
+statement is the same hole punched in the code, filled when the closing line
+turns up instead of when a label does. **Doing them the other way round would
+have made that a thing to notice afterwards.**
+
+### The oracle changed what the work was
+
+Until 14:22 everything was held to transcripts this compiler had recorded of
+itself. That is precisely the failure [basic.sol](../programs/basic.sol)'s header
+describes at length — eighty-three claims that caught none of the seven defects
+the NBS suite found — and the first run against a real QuickBASIC 4.5 under
+DOSBox proved it on the spot: `PRINT (1 < 2)` printed `truD`, and **one of the
+eleven green transcripts had recorded `truD` as the correct answer.**
+
+Two things about getting there are worth keeping. Homebrew installs DOSBox as a
+cask, so nothing lands on the `PATH` and it looks uninstalled. And `BC.EXE`
+wants CR LF and says nothing when it does not get it: a file with Unix line
+endings compiles, links, produces a `.EXE`, and that `.EXE` prints nothing at
+all — which looks exactly like output that cannot be redirected, and cost an
+hour of looking at the wrong thing.
+
+### What found what
+
+| | |
+| --- | --- |
+| the QuickBASIC comparison | **5** defects |
+| writing the runtime and real programs *in SolaBasic* | **7** |
+| twelve recorded transcripts | **0** |
+
+The second row is the surprise. `PRINT`'s rules, `INPUT` and the file statements
+are written in SolaBasic and compiled into any program that uses them, and
+building them that way found three defects in what stages 4 and 5 had already
+shipped — `DIM SHARED` on a plain variable doing nothing, a procedure
+zero-initialising the module's shared variables, a `FUNCTION` of no arguments
+read as a variable. **Writing a real program in the language kept finding what
+testing the compiler did not.**
+
+Three programs at the end were written for that reason alone: a sales report,
+Conway's Life, and a word count. They found two things, two things, and nothing
+— and the nothing is the useful one, because the word count was aimed at the
+string functions, where all the hand-emitted clamping lives.
+
+### The question that was best answered "no"
+
+Late on, integer division came up: it floors, where BASIC truncates, and would
+`divRounded` fix it? It would not — rounding disagrees with truncation in *both*
+directions, so it would have fixed nothing and broken the positive case that
+already worked. What that question did produce was better than a new message: the
+workaround in the compiler was going through a float divide, which is exact for
+neither, and `9007199254740993 \ 1` came out one short. **A workaround that looks
+like a performance trade and is quietly a correctness one** — replaced with an
+identity that stays in integers, and the message that would make it one send is
+deferred in [ideas.md](ideas.md) with one customer named.
+
+### What to carry
+
+**A trigger written down beats a plan.** `ON ERROR` was the entry I twice
+thought was about to be needed, and twice a real program did not need it — it
+writes the file it reads. Both times I would have built it on my own say-so and
+been wrong about why. The entries that *did* get built — `INPUT` into an array
+element, multi-dimensional array parameters — were built because a listing
+wanted them that morning.
+
+**And the thing that holds a language honest is somebody else's implementation.**
+Twenty programs match QuickBASIC byte for byte and five differ exactly where the
+definition says they should, so the divergence list is no longer prose: a
+program in `differ/` that starts agreeing means the list has gone wrong. That is
+what an afternoon of building a harness bought, and it is worth more than any
+feature that went in after it.
+
 ## 2026-08-26 (the editor, finished) — a postmortem
 
 Eleven commits. The first at 18:43 on the 25th, the last at 09:44 on the 26th,
