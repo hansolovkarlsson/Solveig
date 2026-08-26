@@ -5,6 +5,44 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### SolaBasic can GOTO, and the claim the design rests on holds — `4f4f74e`, 2026-08-26
+
+**[programs/sola.sol](../programs/sola.sol)** compiles
+[SolaBasic](SOLABASIC.md) to a `.sob` that `solvm` runs with nothing of the
+compiler present. Stage 3 of the eight, taken **first**, because that document
+says stage 3 is the claim everything else stands on.
+
+**The verifier was checked rather than assumed.** Every statement compiles at
+depth 0 and ends with a `POP`, so a label is a depth-0 merge point by
+construction. Measured before anything was written, by hand-assembling a chunk
+with a backward jump to an arbitrary earlier offset, a forward jump over dead
+code and a conditional between them. **Both ways of getting it wrong were
+checked too**, because a test that cannot fail proves nothing:
+
+| | |
+| --- | --- |
+| a jump into the middle of an instruction | refused at load, exit 65 |
+| a jump to a point at a different stack depth | refused at load, exit 65 |
+
+**The opcode is not known when the jump is emitted**, and that is the whole of
+the back end. Forward is `OP_JUMP`, backward is `OP_LOOP`, and which one a
+`GOTO` is depends on where its label turns out to be. Both are three bytes, so
+three zero bytes go down as a placeholder and a fixup list remembers where —
+nothing moves afterwards, which is the trap in every backpatching scheme that
+emits a short jump and grows it.
+
+**A label is a string of characters, not a number** — CB80's rule taken over
+whole, so an old listing passes through unaltered and nothing ever sorts one.
+[programs/sola/](../programs/sola/) carries three listings and their recorded
+transcripts, compared byte for byte on every build. `spaghetti.bas` nests
+nothing on purpose: two loops woven from `GOTO` alone, with jumps that cross,
+because a structured program would not test the claim.
+
+**And it is 45 times the tree-walker** — the same 200,000-iteration loop is
+1.54s under [basic.sol](../programs/basic.sol) and 0.034s compiled, against the
+"order of magnitude" SOLABASIC.md first guessed. Both revisions are in that
+document's own change log, which is what it is for.
+
 ### A compiled BASIC gets its definition before it gets a compiler — `9e9ac55`, 2026-08-26
 
 **[SOLABASIC.md](SOLABASIC.md)** is the whole of SolaBasic — labels rather than
