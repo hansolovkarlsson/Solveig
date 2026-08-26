@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### One window over standard input — `pending`, 2026-08-26
+### One window over standard input — `1ca018d`, 2026-08-26
 
 **[6.36](COMPLETED.md#636-readline-and-readkey-did-not-share-an-input-buffer--done)**,
 opened and closed the same day, which is the shortest life any entry on that
