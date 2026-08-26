@@ -1558,6 +1558,74 @@ written and could not be seen until something crossed it.
 The rest of this section is live, and is in
 [ROADMAP.md](ROADMAP.md#6-beyond-the-language--gone-from-this-document).
 
+### 6.36 `readLine` and `readKey` did not share an input buffer — **done**
+
+**A program that called `readLine` and then `readKey` lost input, silently.**
+
+```text
+printf 'one\nXY\n' | solvm program.sob     # readLine → "one";  readKey → nil
+```
+
+`readLine` read through stdio, which reads a **block** ahead into the C
+library's buffer. `readKey` — and `keyWaiting` — read the file descriptor
+underneath it. The bytes that arrived in the same block as the line were held
+where `read` could not see them, and nothing said so.
+
+**It was found by reading the code rather than by being bitten**, an hour after
+[6.35](#635-a-read-that-gives-up--done) had been built on top of it. The comment
+above `readKey` claimed the two were *"kept from disagreeing by flushing what
+stdio holds before going underneath it"* — and there was no such flush, and
+there cannot portably be one: `fflush` on an input stream is undefined in C. The
+comment described an intention. **Every other entry on that list came from
+somebody wanting something and not getting it; this one came from somebody being
+told they already had it.**
+
+#### What it is now
+
+`solum/src/stdin.c`, a window over standard input that everything reads
+through — `system:readLine`, `system:readKey`, `system:keyWaiting`, and **Solis'
+own reader**, both the line editor at a terminal and the plain reader behind a
+pipe. Four kilobytes, filled by one `read`, handed out as lines or as bytes.
+
+**It belongs to the process, not to a VM.** Standard input is one descriptor
+however many machines are pointed at it, and a per-VM buffer would divide what
+the operating system does not. `sol_vm_init` forgets whatever is held, which is
+what lets a test replace stdin between cases and start clean — and is the one
+place the process-wide thing and the per-VM thing touch.
+
+**The terminal modes moved there too**, out of `builtins.c`. A byte is read in
+non-canonical mode so a keypress needs no newline; `keyWaiting` sets the same
+mode for the length of its question. `readKey` is four lines now.
+
+#### Three things that came with it
+
+**`keyWaiting` had to learn about the window**, or one buffer would have been
+worse than two: it would have answered *nothing is coming* while holding a byte.
+It answers true for a held byte without asking the system anything.
+
+**Solis is exact now rather than nearly.** The reference has always said *the
+program and the prompt are reading the same input*; behind a pipe, the prompt
+read a block ahead through `fgets` and a script asking for a key got whatever
+was left. Both of Solis' readers take from the window, and its
+`sol_input_read_line` lost its `FILE *` parameter — it reads standard input,
+which is the only thing it was ever given.
+
+**A line may hold a NUL.** `fgets` plus `strlen` ended a line at the first one
+and threw the rest of the line away; taking the line by length makes `readLine`
+agree with `readFile`, which has always kept them. That was not the point of the
+change and is the best thing in it.
+
+#### What it does not change
+
+**Reading ahead still reads ahead** — up to four kilobytes from a pipe or a
+file. That matters only when another *process* wants the same input: a program
+that reads a line and then hands standard input to a child with `run` may find
+the child short of what the window holds. It was true of stdio's buffer before
+and is true of this one now, with the difference that it is this repository's
+behaviour to describe rather than the C library's to discover. A terminal is
+unaffected: it delivers a line at a time, so nothing is taken that was not asked
+for.
+
 ### 6.35 A read that gives up — **done**
 
 **`system:keyWaiting(seconds)`**, answering true or false: is there a byte to

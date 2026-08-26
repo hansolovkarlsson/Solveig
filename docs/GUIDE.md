@@ -945,8 +945,10 @@ start of an escape sequence — an arrow begins with an escape and arrives all a
 once, a person's escape does not, and nothing follows one within fifty
 milliseconds except a machine. A question rather than a second reader, because
 nil already means *the end of input* and a program has to be able to tell that
-from *nothing yet*. **`readLine` and these two do not share a buffer**, so use
-one or the other on the same input; the reference says what that costs.
+from *nothing yet*. **All three read through one window**, so a program can take
+a line, then a key, then another line, and lose nothing in between — which was a
+real defect until [6.36](COMPLETED.md#636-readline-and-readkey-did-not-share-an-input-buffer--done)
+closed it.
 
 **`system:terminalSize` answers how big the screen is** — a dictionary of
 `"rows"` and `"columns"`, or **nil** when the output is not a terminal. One

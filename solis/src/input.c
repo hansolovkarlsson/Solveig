@@ -1,12 +1,18 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "solum/stdin.h"
 #include "solis/input.h"
 
 void sol_input_append(SolisInput *input, const char *chunk)
 {
-    size_t added = strlen(chunk);
+    sol_input_append_bytes(input, chunk, strlen(chunk));
+}
 
+/* By length rather than to a NUL, because what it appends is now a slice of the
+   window over standard input and a slice is not terminated. */
+void sol_input_append_bytes(SolisInput *input, const char *chunk, size_t added)
+{
     if (input->length + added + 1 > input->capacity) {
         size_t capacity = input->capacity < 256 ? 256 : input->capacity;
         while (capacity < input->length + added + 1) capacity *= 2;
@@ -19,8 +25,9 @@ void sol_input_append(SolisInput *input, const char *chunk)
         input->text = grown;
         input->capacity = capacity;
     }
-    memcpy(input->text + input->length, chunk, added + 1);
+    memcpy(input->text + input->length, chunk, added);
     input->length += added;
+    input->text[input->length] = '\0';
 }
 
 void sol_input_clear(SolisInput *input)
@@ -37,16 +44,27 @@ void sol_input_free(SolisInput *input)
     input->capacity = 0;
 }
 
-bool sol_input_read_line(SolisInput *input, FILE *in)
+/* **Takes from the window the language reads through** when the input is
+   standard input, which is every caller there is. It used to be `fgets`, and
+   `fgets` reads a block ahead into the C library's buffer -- so a script run at
+   this prompt could ask for a key and be handed nothing, the bytes it wanted
+   being held where nothing else could reach them. ROADMAP 6.36. */
+bool sol_input_read_line(SolisInput *input)
 {
-    char chunk[256];
     bool got_anything = false;
 
     for (;;) {
-        if (fgets(chunk, sizeof chunk, in) == NULL) return got_anything;
+        if (!sol_stdin_fill()) return got_anything;
         got_anything = true;
-        sol_input_append(input, chunk);
-        if (strchr(chunk, '\n') != NULL) return true;
+
+        size_t available;
+        const char *bytes = sol_stdin_window(&available);
+        const char *newline = memchr(bytes, '\n', available);
+        size_t take = newline != NULL ? (size_t)(newline - bytes) + 1 : available;
+
+        sol_input_append_bytes(input, bytes, take);
+        sol_stdin_take(take);
+        if (newline != NULL) return true;
     }
 }
 

@@ -24,7 +24,11 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <time.h>
+#if defined(__unix__) || defined(__APPLE__)
+#include <unistd.h>
+#endif
 
+#include "solum/stdin.h"
 #include "solum/vm.h"
 
 /* Checks arity and reports a usable message if it is wrong. */
@@ -3986,95 +3990,48 @@ static SolValue prim_system_exit(SolVM *vm, SolValue self, SolValue *args, int a
  * empty line is `""` and is not the end, so the two stay distinguishable.
  *
  * `\r\n` is one terminator, so a file written on another system reads the same
- * as one written here. A NUL byte in the input ends the line as far as this is
- * concerned, the same limit a string literal has.
+ * as one written here. A NUL byte is a byte like any other: the line is taken
+ * by length, so this and `readFile` agree about what a string may hold, where
+ * the `fgets` this used to be stopped at the first NUL and dropped the rest of
+ * the line with it.
  *
- * Not shared with Solis' reader, which keeps the newline (its scanner needs it)
- * and appends to a buffer that outlives the call. Different enough that sharing
- * would mean parameterising both.
+ * **It takes from the same window `readKey` does** -- solum/src/input.c, and
+ * ROADMAP 6.36 for what it was before. Solis' reader takes from it too when it
+ * is not editing a line at a terminal, which is what makes *the program and the
+ * prompt are reading the same input* true rather than nearly true.
  */
 /* `system:readKey` -- one byte from standard input, without waiting for a line.
- *
- * The three questions this entry left open, answered:
  *
  * **One byte, not a whole escape sequence.** An arrow key is three bytes and a
  * function key can be more, and which is which is the terminal's business
  * rather than this one's. Answering the byte is the smaller promise and lets a
- * program assemble whatever it wants from them -- and a program that only cares
- * whether *any* key was pressed gets that without unpicking a sequence it did
- * not want. A one-character string, so `asByte` gives the number and the value
- * is a value like any other.
+ * program assemble whatever it wants from them. A one-character string, so
+ * `asByte` gives the number and the value is a value like any other.
  *
  * **nil at the end of input**, which is `readLine`'s answer and for the same
- * reason: running out of input is how a loop that reads finishes, rather than
- * something that went wrong.
+ * reason: running out of input is how a loop that reads finishes.
  *
  * **No echo.** Raw mode does not, and a program that wants the key shown can
  * print it. Showing it would be a second thing happening.
  *
- * Raw mode only when standard input is a terminal. A pipe or a file needs none
- * of it -- a byte is already a byte there -- so this works under `solis <
- * script` and in a test harness, which is what makes it testable at all.
- *
- * The mode is restored before answering, so a program's own output is normal
- * between keys and ctrl-c still interrupts. `solis/src/line.c` does the same
- * dance and is not shared with this: it holds raw mode across a whole line of
- * editing where this holds it for one byte, and an interface with both
- * lifetimes in it would be larger than the twelve lines it saved.
+ * The terminal handling is in solum/src/input.c, along with the window this
+ * takes its byte from -- the same one `readLine` takes its line from, which is
+ * ROADMAP 6.36 and is why this is four lines now. Raw mode only when standard
+ * input is a terminal, and only around a read that has to happen: a byte
+ * already held needs no mode at all.
  */
-#if defined(__unix__) || defined(__APPLE__)
-#include <termios.h>
-#include <unistd.h>
-
 static SolValue prim_system_read_key(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     (void)self;
     (void)args;
     if (!check_argc(vm, "readKey", argc, 0)) return SOL_NIL_VAL;
 
-    /* This reads the descriptor and `readLine` reads through stdio, and the two
-       do not share a buffer: `fgets` reads a block ahead, so bytes that arrived
-       after the line it answered are held by the C library where `read` cannot
-       see them. A program that calls `readLine` and then `readKey` loses them.
-       ROADMAP 6.36 is the fix -- one buffer both readers take from -- and this
-       comment used to claim it was already handled, which it never was. */
-    struct termios original;
-    bool raw = isatty(STDIN_FILENO) && tcgetattr(STDIN_FILENO, &original) == 0;
+    int byte = sol_stdin_byte_raw();
+    if (byte < 0) return SOL_NIL_VAL;          /* the end of input */
 
-    if (raw) {
-        struct termios mode = original;
-        /* ISIG stays, so ctrl-c interrupts a program that is waiting for a key
-           rather than handing it the byte and carrying on. */
-        mode.c_lflag &= (tcflag_t)~(ICANON | ECHO);
-        mode.c_cc[VMIN] = 1;
-        mode.c_cc[VTIME] = 0;
-        if (tcsetattr(STDIN_FILENO, TCSANOW, &mode) != 0) raw = false;
-    }
-
-    char byte;
-    ssize_t got = read(STDIN_FILENO, &byte, 1);
-
-    if (raw) tcsetattr(STDIN_FILENO, TCSANOW, &original);
-
-    if (got != 1) return SOL_NIL_VAL;          /* the end of input */
-    return SOL_STRING_VAL(sol_string_new(vm, &byte, 1));
+    char one = (char)byte;
+    return SOL_STRING_VAL(sol_string_new(vm, &one, 1));
 }
-
-#else   /* no termios: a byte is still a byte, it just cannot turn off a tty */
-
-static SolValue prim_system_read_key(SolVM *vm, SolValue self, SolValue *args, int argc)
-{
-    (void)self;
-    (void)args;
-    if (!check_argc(vm, "readKey", argc, 0)) return SOL_NIL_VAL;
-
-    int c = fgetc(stdin);
-    if (c == EOF) return SOL_NIL_VAL;
-    char byte = (char)c;
-    return SOL_STRING_VAL(sol_string_new(vm, &byte, 1));
-}
-
-#endif
 
 /* `system:keyWaiting(seconds)` -- whether a byte is there to be read, waiting
  * up to that long for one to arrive.
@@ -4083,33 +4040,24 @@ static SolValue prim_system_read_key(SolVM *vm, SolValue self, SolValue *args, i
  * escape key as one, and `readKey` answers a byte and blocks until there is
  * one -- so a program that has just read an escape cannot tell a sequence from
  * a keypress without reading on, and reading on is exactly what it must not do
- * if nothing more is coming. Every terminal program in the world resolves that
- * the same way: read the next byte, but give up after a few milliseconds,
- * because nothing follows an escape that fast except a machine.
- * examples/keys.sol said this was missing on the day `readKey` landed, and
- * programs/edit.sol is what made it worth having: a modal editor binds the most
- * frequent action there is to that key.
+ * if nothing more is coming. Nothing follows an escape within a few
+ * milliseconds except a machine. examples/keys.sol said this was missing on the
+ * day `readKey` landed; programs/edit.sol is what made it worth having.
  *
  * **A question, not a second reader.** `readKey(seconds)` answering the byte or
  * nil was the other shape, and nil already means *the end of input* -- which is
  * how every read loop here finishes. Overloading it with *nothing yet* would
  * leave a program unable to tell "there is nobody there" from "they have not
- * typed yet", where the first is final and the second is normal. So `readKey`
- * is untouched and this answers a boolean.
+ * typed yet", where the first is final and the second is normal.
  *
- * **True at the end of input**, where `poll` reports the descriptor readable
- * and the `readKey` after it answers nil. That is the coherent pair: there is
- * something to read, and what is there is the end.
- *
- * **It knows nothing about stdio's buffer**, the same blind spot `readKey` has
- * and for the same reason -- see the note there, and ROADMAP 6.36.
+ * **True at the end of input**, where the `readKey` after it answers nil: there
+ * is something to read, and what is there is the end. True as well when the
+ * shared window already holds a byte, which costs nothing to know. The waiting
+ * itself, and the terminal mode it needs, are in solum/src/input.c.
  *
  * Seconds as a float, like every other duration in this language, and `0.0` is
  * a question about right now.
  */
-#if defined(__unix__) || defined(__APPLE__)
-#include <poll.h>
-
 static SolValue prim_system_key_waiting(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     (void)self;
@@ -4133,61 +4081,8 @@ static SolValue prim_system_key_waiting(SolVM *vm, SolValue self, SolValue *args
     double milliseconds = seconds * 1000.0;
     if (milliseconds > 2.0e9) milliseconds = 2.0e9;
 
-    /* **The same raw-mode dance `readKey` does, for a call that reads
-       nothing.** In canonical mode the terminal driver holds what is typed
-       until a newline, so a `poll` between two `readKey`s sees an empty
-       descriptor however much has been typed -- and the arrow key this message
-       exists to tell apart from the escape key stops working, since its `[` and
-       `B` are sitting in the driver's line buffer. Non-canonical mode delivers
-       bytes as they arrive, which is what makes the question answerable.
-
-       Found on a pseudo-terminal after every test that runs through a pipe had
-       passed: a pipe has no line discipline and no canonical mode, so nothing
-       under a pipe can show this. */
-    struct termios original;
-    bool raw = isatty(STDIN_FILENO) && tcgetattr(STDIN_FILENO, &original) == 0;
-
-    if (raw) {
-        struct termios mode = original;
-        mode.c_lflag &= (tcflag_t)~(ICANON | ECHO);
-        mode.c_cc[VMIN] = 0;      /* nothing is read here; this only stops the */
-        mode.c_cc[VTIME] = 0;     /* driver from waiting for a line */
-        if (tcsetattr(STDIN_FILENO, TCSANOW, &mode) != 0) raw = false;
-    }
-
-    struct pollfd waiting;
-    waiting.fd = STDIN_FILENO;
-    waiting.events = POLLIN;
-    waiting.revents = 0;
-
-    int ready;
-    do {
-        ready = poll(&waiting, 1, (int)(milliseconds + 0.5));
-    } while (ready < 0 && errno == EINTR);   /* a signal is not an answer */
-
-    if (raw) tcsetattr(STDIN_FILENO, TCSANOW, &original);
-
-    return SOL_BOOL_VAL(ready > 0);
+    return SOL_BOOL_VAL(sol_stdin_waiting((int)(milliseconds + 0.5)));
 }
-
-#else   /* no poll: say a byte is coming, which is what waiting for one does */
-
-static SolValue prim_system_key_waiting(SolVM *vm, SolValue self, SolValue *args, int argc)
-{
-    (void)self;
-    if (!check_argc(vm, "keyWaiting", argc, 1)) return SOL_NIL_VAL;
-    if (!SOL_IS_FLOAT(args[0])) {
-        sol_vm_runtime_error(vm, "'keyWaiting' expects a float, got %s",
-                             sol_type_name(args[0]));
-        return SOL_NIL_VAL;
-    }
-    /* True, so a caller reads and blocks -- which is what it would have done
-       without this message at all. False would make a program decide nothing is
-       coming when it cannot know. */
-    return SOL_BOOL_VAL(true);
-}
-
-#endif
 
 /* `system:terminalSize` -- how many rows and columns the screen has, or nil
  * when there is not one.
@@ -4358,14 +4253,17 @@ static SolValue prim_system_read_line(SolVM *vm, SolValue self, SolValue *args, 
     bool   read_anything = false;
 
     for (;;) {
-        char chunk[256];
-        if (fgets(chunk, sizeof chunk, stdin) == NULL) break;
+        if (!sol_stdin_fill()) break;
         read_anything = true;
 
-        size_t got = strlen(chunk);
-        if (length + got + 1 > capacity) {
+        size_t available;
+        const char *bytes = sol_stdin_window(&available);
+        const char *newline = memchr(bytes, '\n', available);
+        size_t take = newline != NULL ? (size_t)(newline - bytes) + 1 : available;
+
+        if (length + take + 1 > capacity) {
             size_t want = capacity < 128 ? 128 : capacity;
-            while (want < length + got + 1) want *= 2;
+            while (want < length + take + 1) want *= 2;
 
             char *grown = realloc(line, want);
             if (grown == NULL) {
@@ -4376,11 +4274,12 @@ static SolValue prim_system_read_line(SolVM *vm, SolValue self, SolValue *args, 
             line = grown;
             capacity = want;
         }
-        memcpy(line + length, chunk, got);
-        length += got;
+        memcpy(line + length, bytes, take);
+        length += take;
         line[length] = '\0';
 
-        if (chunk[got - 1] == '\n') break;   /* fgets never answers an empty chunk */
+        sol_stdin_take(take);
+        if (newline != NULL) break;
     }
 
     if (!read_anything) {

@@ -55,14 +55,14 @@ have been. Side-table operands are two bytes, a send compares pointers, and the
 script's frame has slots like every other, so a temporary may be declared
 anywhere.
 
-**One entry is open, and it is a defect rather than a capability**:
-[6.36](#636-readline-and-readkey-do-not-share-an-input-buffer) — `readLine` and
-`readKey` read the same input through two buffers and lose what falls between
-them. It was found on 2026-08-26 by reading the code next to a message being
+**One entry opened and closed on 2026-08-26**, which is the shortest life any
+has had: [6.36](COMPLETED.md#636-readline-and-readkey-did-not-share-an-input-buffer--done)
+— `readLine` and `readKey` read the same input through two buffers and lost what
+fell between them. It was found by reading the code beside a message being
 built, where a comment claimed the problem was already handled and it never had
-been. A test pins the loss; the fix is its own change.
+been. It is one window now, Solis reading through it too.
 
-**Section 3 is what is left besides, and nothing on it is open.** One program put three
+**Section 3 is what is left, and nothing on it is open.** One program put three
 entries there and all three are closed: two on the day they were raised and the
 third on the next.
 [3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done) spent its whole
@@ -797,52 +797,14 @@ an oversight: a program holding a large live set will pause proportionally to it
 Kept here rather than under the collector, which is otherwise done. The number is
 the one the changelog cites.
 
-## 6. Beyond the language — one entry, and it is a defect
-
-### 6.36 `readLine` and `readKey` do not share an input buffer
-
-**A program that calls `readLine` and then `readKey` loses input, silently.**
-
-```text
-printf 'one\nXY\n' | solvm program.sob     # readLine → "one";  readKey → nil
-```
-
-`readLine` reads through stdio, which reads a **block** ahead into the C
-library's buffer. `readKey` — and now
-[`keyWaiting`](COMPLETED.md#635-a-read-that-gives-up--done) — read the file
-descriptor underneath it. The bytes that arrived in the same block as the line
-are held where `read` cannot see them, and nothing says so.
-
-**It was found by reading the code rather than by being bitten.** The comment
-above `readKey` claimed the two were *"kept from disagreeing by flushing what
-stdio holds before going underneath it"* — and there is no such flush, and there
-cannot portably be one: `fflush` on an input stream is undefined in C. The
-comment described an intention. It has been corrected to describe the behaviour,
-and a test in `tests/test_system.c` pins the loss, so that fixing it is a
-decision somebody takes rather than something that happens.
-
-**The fix is one buffer both readers take from** — perhaps sixty lines in
-`builtins.c`: `readLine` fills it and takes a line out of it, `readKey` takes a
-byte, and `keyWaiting` answers true when it is not empty without asking the
-descriptor at all. That last part is not optional: a shared buffer that
-`keyWaiting` did not know about would answer *no key is coming* while holding
-one.
-
-**Why it is not done here.** It is a change to how every program in this
-repository reads its input, and it landed on the same day as the message that
-made it visible. One at a time.
-
-**The trigger is somebody writing a program that wants both** — a prompt that
-reads a line and then waits for a keypress is the obvious one, and no program
-here does it yet.
+## 6. Beyond the language — gone from this document
 
 Sections 1 to 5 were about making Solum a language. This one was about making it
 a language you can write a *program* in: split across files, reading input,
 writing files, stopping with a status, running another program, a prompt, a
 debugger, and — since an editor asked for them — the size of the screen it draws
 on and a read that gives up. **All of that is built**, and the entries are in
-[COMPLETED.md](COMPLETED.md). What is above is not a capability anybody is
-waiting for; it is a defect the same day's work uncovered.
+[COMPLETED.md](COMPLETED.md).
 
 The one thing that was left was never work — it was a decision, and it has been
 **deferred rather than taken**:
@@ -860,7 +822,7 @@ keeping it did. The number stays 6.32 and is not reused.
 
 ## How this list emptied, and how it filled and emptied again
 
-**One thing is on it, and it is not a feature.** Sections 2, 3 and 6 held the
+**Nothing is on it.** Sections 2, 3 and 6 held the
 whole of what was left to decide or build, and 2 and 6 are done — what remains in 3 are
 restrictions kept on purpose, each documented where a program would meet it. Two
 of them were only kept *until a program wanted otherwise*, and on 2026-08-25 one
@@ -992,13 +954,13 @@ a debugger that could not name a local would have been most of the work for a
 fraction of the use, and only then
 [Solid](COMPLETED.md#629-a-stepper--solid--done).
 
-**Nothing is undecided, and the one thing outstanding is a defect rather than a
-decision** — [6.36](#636-readline-and-readkey-do-not-share-an-input-buffer),
-which arrived a way this document had not seen before: not from a program
-wanting something, but from **reading the code beside a message being built**
-and finding a comment that described an intention as though it were the
-behaviour. Every other entry here came from somebody wanting something and not
-getting it; this one came from somebody being told they already had it.
+**One entry arrived a way this document had not seen before**, and left the same
+day: [6.36](COMPLETED.md#636-readline-and-readkey-did-not-share-an-input-buffer--done)
+came not from a program wanting something, but from **reading the code beside a
+message being built** and finding a comment that described an intention as
+though it were the behaviour. Every other entry here came from somebody wanting
+something and not getting it; that one came from somebody being told they
+already had it.
 
 **Nothing is undecided and nothing is outstanding.** 3.14 was the first decision
 since 6.32 was deferred, and unlike 6.32 it had a program behind it rather than a

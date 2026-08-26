@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "solum/gc.h"
+#include "solum/stdin.h"
 #include "solum/vm.h"
 
 static void reset_stack(SolVM *vm)
@@ -34,6 +35,12 @@ static _Atomic uint64_t next_vm_id = 1;
 
 void sol_vm_init(SolVM *vm)
 {
+    /* Standard input is the process's, not this machine's, so the window over
+       it lives outside the VM -- but a machine starting up is the moment to
+       forget what an earlier one read ahead and never used. It is what lets a
+       test replace stdin between cases and start clean. See solum/input.h. */
+    sol_stdin_forget();
+
     vm->id = atomic_fetch_add_explicit(&next_vm_id, 1, memory_order_relaxed);
     vm->report_errors = true;
     vm->frame_count = 0;

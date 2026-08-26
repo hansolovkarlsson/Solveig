@@ -5,6 +5,58 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### One window over standard input — `pending`, 2026-08-26
+
+**[6.36](COMPLETED.md#636-readline-and-readkey-did-not-share-an-input-buffer--done)**,
+opened and closed the same day, which is the shortest life any entry on that
+list has had.
+
+`readLine` read through stdio, which reads a **block** ahead; `readKey` and
+`keyWaiting` read the descriptor underneath it; and everything that arrived in
+the same block as the line was lost without a word:
+
+```text
+printf 'one\nXY\n' | solvm program.sob     # was: readLine → "one";  readKey → nil
+                                           # now: readLine → "one";  readKey → "X"
+```
+
+**`solum/src/stdin.c` is the whole of the fix**: one window over standard input
+that everything reads through — `system:readLine`, `system:readKey`,
+`system:keyWaiting`, and **Solis' own reader**, both the line editor at a
+terminal and the plain one behind a pipe. Four kilobytes, filled by one `read`,
+handed out as lines or as bytes.
+
+**It belongs to the process, not to a VM.** Standard input is one descriptor
+however many machines are pointed at it, and a per-VM buffer would divide what
+the operating system does not. `sol_vm_init` forgets what is held, which is what
+lets a test replace stdin between cases and start clean.
+
+**`keyWaiting` had to learn about the window**, or one buffer would be worse
+than two — it would answer *nothing is coming* while holding a byte. It answers
+true for a held byte without asking the system anything.
+
+**Solis is exact now rather than nearly.** The reference has always said *the
+program and the prompt are reading the same input*; behind a pipe the prompt
+read a block ahead and a script asking for a key got what was left of it. Both
+its readers take from the window now, and `sol_input_read_line` lost its
+`FILE *` parameter — it reads standard input, which is the only thing it was
+ever given.
+
+**And a line may hold a NUL**, which was not the point of the change and is the
+best thing in it. `fgets` plus `strlen` ended a line at the first one and threw
+the rest of the line away; taking the line by length makes `readLine` agree with
+`readFile`, which has always kept them.
+
+**What has not changed**: reading ahead still reads ahead, up to four kilobytes
+from a pipe or a file, which matters only when another *process* wants the same
+input — a program that reads a line and then hands stdin to a child with `run`
+may find the child short. That was true of stdio's buffer before; the difference
+is that it is now this repository's behaviour to describe rather than the C
+library's to discover.
+
+`readKey` is four lines. The language answers 138<!--count messages--> messages,
+unchanged.
+
 ### A read that gives up, and a bug found beside it — `dcf05f5`, 2026-08-26
 
 **`system:keyWaiting(seconds)`** answers true or false: is there a byte to read,

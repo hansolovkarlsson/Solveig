@@ -31,12 +31,13 @@ typedef struct {
 } SolisInput;
 
 void sol_input_append(SolisInput *input, const char *chunk);
+void sol_input_append_bytes(SolisInput *input, const char *chunk, size_t added);
 void sol_input_clear(SolisInput *input);
 void sol_input_free(SolisInput *input);
 
 /* Appends one line of any length. Answers false only at end of input with
    nothing read; a final line carrying no newline of its own still counts. */
-bool sol_input_read_line(SolisInput *input, FILE *in);
+bool sol_input_read_line(SolisInput *input);
 
 /* How much is still open. Both an unclosed bracket and an unclosed string
    outlive a line, so the state carries across them. */

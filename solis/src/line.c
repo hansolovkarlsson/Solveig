@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "solum/stdin.h"
 #include "solis/line.h"
 
 /* ---- history ----------------------------------------------------------- */
@@ -230,10 +231,16 @@ static void show_history(const SolisHistory *history, const char *prompt,
     refresh(prompt, line);
 }
 
+/* From the window `system:readKey` and `system:readLine` take from, so that a
+   script run at the prompt and the prompt itself never disagree about what has
+   been typed. This one holds raw mode for a whole line of editing, so it wants
+   the plain fill rather than the one that sets the mode per byte. */
 static bool read_byte(char *out)
 {
-    ssize_t got = read(STDIN_FILENO, out, 1);
-    return got == 1;
+    int byte = sol_stdin_byte();
+    if (byte < 0) return false;
+    *out = (char)byte;
+    return true;
 }
 
 bool sol_line_read(SolisInput *input, SolisHistory *history, const char *prompt)

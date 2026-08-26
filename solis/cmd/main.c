@@ -76,7 +76,7 @@ static int repl(SolVM *vm, const SolSearchPath *search)
         } else {
             printf("%s", prompt);
             fflush(stdout);
-            read = sol_input_read_line(&input, stdin);
+            read = sol_input_read_line(&input);
         }
 
         if (!read) {

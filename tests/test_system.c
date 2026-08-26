@@ -1326,12 +1326,12 @@ static void test_key_waiting_refuses_a_wait_it_cannot_make(void)
     printf("  keyWaiting refuses an integer, a negative wait and no wait\n");
 }
 
-/* **A defect, pinned rather than fixed**, so that fixing it is a decision
-   somebody takes rather than something that happens. `readLine` reads through
-   stdio, which reads a block ahead; `readKey` reads the descriptor. The bytes
-   after the line `readLine` answered are held by the C library where `read`
-   cannot see them, and they are lost. ROADMAP 6.36. */
-static void test_read_line_and_read_key_do_not_share_a_buffer(void)
+/* **One window over standard input**, which is ROADMAP 6.36 and was a defect
+   until this landed: `readLine` read through stdio and read a *block* ahead,
+   `readKey` read the descriptor underneath it, and everything that arrived in
+   the same block as the line was lost without a word. The assertion here used
+   to be `SOL_IS_NIL`, with a comment saying what would have to change. */
+static void test_read_line_and_read_key_share_one_input(void)
 {
     FILE *script = fopen("build/tests/mixed-in", "w");
     assert(script != NULL);
@@ -1346,7 +1346,12 @@ static void test_read_line_and_read_key_do_not_share_a_buffer(void)
     SolChunk chunk;
     SolResult result = run(&vm, &chunk,
         "line := system:readLine."
-        "next := system:readKey.");
+        "first := system:readKey."
+        "second := system:readKey."
+        /* And back to lines: what is left of that one is nothing, which is a
+           line and not the end. */
+        "rest := system:readLine."
+        "ended := system:readLine.");
 
     fflush(stdin);
     dup2(saved, STDIN_FILENO);
@@ -1355,14 +1360,126 @@ static void test_read_line_and_read_key_do_not_share_a_buffer(void)
 
     assert(result == SOL_OK);
     assert(is_text(global(&vm, "line"), "one"));
-    /* "XY" is gone. When 6.36 lands this assertion is what has to change, and
-       changing it is the point of writing it down. */
-    assert(SOL_IS_NIL(global(&vm, "next")));
+    assert(is_text(global(&vm, "first"), "X"));
+    assert(is_text(global(&vm, "second"), "Y"));
+    assert(is_text(global(&vm, "rest"), ""));
+    assert(SOL_IS_NIL(global(&vm, "ended")));
 
     sol_chunk_free(&chunk);
     sol_vm_free(&vm);
     remove("build/tests/mixed-in");
-    printf("  readLine and readKey do not share a buffer (6.36)\n");
+    printf("  readLine and readKey take from one window (6.36)\n");
+}
+
+/* And `keyWaiting` has to see what the window holds, or one buffer is worse
+   than two: it would answer "nothing is coming" while holding the byte. No
+   system call is involved in that answer. */
+static void test_key_waiting_sees_what_read_line_left(void)
+{
+    FILE *script = fopen("build/tests/waiting-left", "w");
+    assert(script != NULL);
+    fputs("one\nXY\n", script);
+    fclose(script);
+
+    int saved = dup(STDIN_FILENO);
+    assert(saved >= 0);
+    assert(freopen("build/tests/waiting-left", "r", stdin) != NULL);
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    SolResult result = run(&vm, &chunk,
+        "line := system:readLine."
+        "held := system:keyWaiting(0.0).");
+
+    fflush(stdin);
+    dup2(saved, STDIN_FILENO);
+    close(saved);
+    clearerr(stdin);
+
+    assert(result == SOL_OK);
+    assert(is_text(global(&vm, "line"), "one"));
+    assert(SOL_AS_BOOL(global(&vm, "held")) == true);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    remove("build/tests/waiting-left");
+    printf("  keyWaiting sees a byte the line reader left behind\n");
+}
+
+/* A NUL is a byte like any other now. `fgets` and `strlen` ended the line at
+   the first one and threw the rest of it away; taking the line by length makes
+   `readLine` agree with `readFile`, which has always kept them. */
+static void test_a_line_may_hold_a_nul(void)
+{
+    FILE *script = fopen("build/tests/nul-in", "wb");
+    assert(script != NULL);
+    assert(fwrite("a\0b\nnext\n", 1, 9, script) == 9);
+    fclose(script);
+
+    int saved = dup(STDIN_FILENO);
+    assert(saved >= 0);
+    assert(freopen("build/tests/nul-in", "rb", stdin) != NULL);
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    SolResult result = run(&vm, &chunk,
+        "line := system:readLine."
+        "size := line:size."
+        "middle := line:at(#2):asByte."
+        "after := system:readLine.");
+
+    fflush(stdin);
+    dup2(saved, STDIN_FILENO);
+    close(saved);
+    clearerr(stdin);
+
+    assert(result == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "size")) == 3);
+    assert(SOL_AS_INT(global(&vm, "middle")) == 0);
+    assert(is_text(global(&vm, "after"), "next"));
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    remove("build/tests/nul-in");
+    printf("  a line may hold a NUL, the way a file always could\n");
+}
+
+/* A line longer than the window, so the reader has to fill more than once and
+   join what it took -- and the line after it is still the line after it, which
+   is the failure that shape of bug produces. */
+static void test_a_line_longer_than_the_window(void)
+{
+    FILE *script = fopen("build/tests/long-line-in", "w");
+    assert(script != NULL);
+    for (int i = 0; i < 10000; i++) fputc('x', script);
+    fputc('\n', script);
+    fputs("second\n", script);
+    fclose(script);
+
+    int saved = dup(STDIN_FILENO);
+    assert(saved >= 0);
+    assert(freopen("build/tests/long-line-in", "r", stdin) != NULL);
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    SolResult result = run(&vm, &chunk,
+        "first := system:readLine."
+        "size := first:size."
+        "second := system:readLine.");
+
+    fflush(stdin);
+    dup2(saved, STDIN_FILENO);
+    close(saved);
+    clearerr(stdin);
+
+    assert(result == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "size")) == 10000);
+    assert(is_text(global(&vm, "second"), "second"));
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    remove("build/tests/long-line-in");
+    printf("  a line longer than the window arrives whole\n");
 }
 
 /* The size is the *output's*, because that is where a program draws. Standard
@@ -1673,7 +1790,10 @@ int main(void)
     test_key_waiting_says_no_when_nothing_comes();
     test_key_waiting_looks_past_the_line_discipline();
     test_key_waiting_refuses_a_wait_it_cannot_make();
-    test_read_line_and_read_key_do_not_share_a_buffer();
+    test_read_line_and_read_key_share_one_input();
+    test_key_waiting_sees_what_read_line_left();
+    test_a_line_may_hold_a_nul();
+    test_a_line_longer_than_the_window();
     test_terminal_size_answers_the_screen_it_draws_on();
     test_terminal_size_is_nil_without_a_terminal();
     test_terminal_size_survives_a_collection();

@@ -8,6 +8,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "solum/stdin.h"
 #include "solis/input.h"
 
 /* Feeds `text` a line at a time, the way the loop does, and answers whether
@@ -151,24 +152,32 @@ static void test_a_long_line_is_not_cut(void)
     fputs("second\n", out);
     fclose(out);
 
-    FILE *in = fopen(path, "rb");
-    assert(in != NULL);
+    /* The reader reads standard input now -- one window, shared with
+       `system:readLine` and `system:readKey` (ROADMAP 6.36) -- so the file is
+       put there rather than handed over. */
+    int saved = dup(STDIN_FILENO);
+    assert(saved >= 0);
+    assert(freopen(path, "rb", stdin) != NULL);
+    sol_stdin_forget();
 
     SolisInput input = { NULL, 0, 0 };
-    assert(sol_input_read_line(&input, in));
+    assert(sol_input_read_line(&input));
     assert(input.length == 5001);            /* the x's and the newline */
     assert(input.text[0] == 'x' && input.text[4999] == 'x');
     assert(input.text[5000] == '\n');
 
     sol_input_clear(&input);
-    assert(sol_input_read_line(&input, in));
+    assert(sol_input_read_line(&input));
     assert(strcmp(input.text, "second\n") == 0);
 
     /* And nothing left to read. */
     sol_input_clear(&input);
-    assert(!sol_input_read_line(&input, in));
+    assert(!sol_input_read_line(&input));
 
-    fclose(in);
+    dup2(saved, STDIN_FILENO);
+    close(saved);
+    clearerr(stdin);
+    sol_stdin_forget();
     remove(path);
     sol_input_free(&input);
     printf("  a 5000-byte line arrives whole, and the next line is the next line\n");
@@ -184,13 +193,20 @@ static void test_a_last_line_without_a_newline(void)
     fputs("#1:print.", out);                 /* no trailing newline */
     fclose(out);
 
-    FILE *in = fopen(path, "rb");
-    SolisInput input = { NULL, 0, 0 };
-    assert(sol_input_read_line(&input, in));
-    assert(strcmp(input.text, "#1:print.") == 0);
-    assert(!sol_input_read_line(&input, in));
+    int saved = dup(STDIN_FILENO);
+    assert(saved >= 0);
+    assert(freopen(path, "rb", stdin) != NULL);
+    sol_stdin_forget();
 
-    fclose(in);
+    SolisInput input = { NULL, 0, 0 };
+    assert(sol_input_read_line(&input));
+    assert(strcmp(input.text, "#1:print.") == 0);
+    assert(!sol_input_read_line(&input));
+
+    dup2(saved, STDIN_FILENO);
+    close(saved);
+    clearerr(stdin);
+    sol_stdin_forget();
     remove(path);
     sol_input_free(&input);
     printf("  a last line with no newline is still a line\n");

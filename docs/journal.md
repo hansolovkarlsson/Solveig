@@ -11,6 +11,80 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-26 (sixth, and last) — one window, and the third time the same fix worked
+
+[6.36](ROADMAP.md) was filed an hour ago and is closed. The entry said the fix
+was *one buffer both readers take from*, sixty lines, and its own argument. It
+was ninety, and the argument turned out to be worth having.
+
+### Where the buffer lives was the only real decision
+
+Standard input is **one file descriptor** however many machines are pointed at
+it. A buffer on the VM would divide what the operating system does not, and two
+VMs in one process would each read ahead into their own — which is a worse
+version of the bug being fixed. So it is a module, `solum/src/stdin.c`, and the
+window is the process's.
+
+The one place that touches the per-VM world: `sol_vm_init` forgets whatever is
+held. Without it a test that replaces stdin between cases inherits the previous
+case's read-ahead, and every test in this suite does exactly that.
+
+### Everything that reads standard input now goes through one door
+
+`system:readLine`, `system:readKey`, `system:keyWaiting` — and **both of Solis'
+readers**, which is the part I had not planned. The reference has said since it
+was written that *the program and the prompt are reading the same input*, and
+behind a pipe that was not quite true: the prompt read a block ahead with
+`fgets`, so a script asking for a key got whatever was left of it. It is exact
+now. `sol_input_read_line` lost its `FILE *` parameter on the way — it reads
+standard input, which is the only argument it was ever given.
+
+**And `keyWaiting` had to learn about the window**, or one buffer would have
+been worse than two: it would have answered *nothing is coming* while holding
+the byte. That is the shape of thing that makes a good fix into a subtle bug,
+and it was in the entry because writing the entry is what found it.
+
+### The third time in three days
+
+`readKey` is four lines now. The termios dance, the `read`, the end-of-input
+check — all of it moved into the module, and what is left is *take a byte, or
+nil*.
+
+This is the third change running whose fix was **making there be one of
+something**:
+
+- one `wordForward`, run by both `w` and `dw`, so a motion and an operator
+  cannot disagree about where a word ends;
+- three methods that change the text, so a command cannot forget to be undoable;
+- one window over standard input, so two readers cannot disagree about what has
+  been typed.
+
+Each was found as a *disagreement between two things that should have been one*,
+and in each case the fix removed the second one rather than teaching the two to
+agree. I do not think that is a coincidence, and it is worth carrying: when two
+places have to be kept in step, the question is not *how do we keep them in
+step* but *why are there two*.
+
+### A gift nobody asked for
+
+A line may hold a NUL now. `fgets` plus `strlen` ended a line at the first one
+and threw the rest of the line away — silently, of course. Taking the line by
+length makes `readLine` agree with `readFile`, which has kept NULs since the day
+it was written. It was not the point of the change; it fell out of not using
+`fgets`, and it is the best thing in it.
+
+### What was left alone, deliberately
+
+Reading ahead still reads ahead: four kilobytes from a pipe or a file. It only
+matters when another **process** wants the same input — a program that reads a
+line and then hands standard input to a child with `run` may find the child
+short of what the window is holding. That was true of stdio's buffer before and
+is true of this one now. The difference is that it is this repository's
+behaviour to describe rather than the C library's to discover, and it is written
+down in the reference beside the guarantee it qualifies.
+
+---
+
 ## 2026-08-26 (fifth) — the oldest gap, and the bug that was hiding beside it
 
 `system:keyWaiting(seconds)` — *is there a byte to read, waiting up to that long

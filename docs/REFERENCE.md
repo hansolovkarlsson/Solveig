@@ -1027,7 +1027,8 @@ about rendering a value and serve every type, and a second one pointing
 elsewhere is the second mechanism behind the first that this language refuses.
 
 `system:readLine` answers one line from standard input **without its
-terminator**, or **nil** when there is no more.
+terminator**, or **nil** when there is no more. A **NUL** in the input is a byte
+like any other and stays in the line, the same way `readFile` keeps one.
 
 ```
 line := system:readLine.
@@ -1121,21 +1122,36 @@ the length of the question, and puts it back.
 **It knows nothing about `readLine`'s buffer**, which is the limitation
 `readKey` has and for the same reason — see below.
 
-#### Two readers, one input
+#### One window over standard input
 
-`readLine` reads through the C library, which reads a block ahead; `readKey` and
-`keyWaiting` read the file descriptor underneath it. **They do not share a
-buffer**, so a program that calls `readLine` and then `readKey` loses whatever
-arrived in the same block as the line:
+`readLine`, `readKey` and `keyWaiting` **all take from one window**, so a program
+may use whichever suits each moment and lose nothing between them:
 
 ```text
-printf 'one\nXY\n' | solvm program.sob     # readLine → "one";  readKey → nil
+printf 'one\nXY\n' | solvm program.sob     # readLine → "one";  readKey → "X"
 ```
 
-Use one or the other. Making them share one buffer is
-[6.36](ROADMAP.md#636-readline-and-readkey-do-not-share-an-input-buffer) and is
-not built; a test pins the present behaviour so that changing it is a decision
-rather than an accident.
+That is worth saying because it was not always true and the failure was silent.
+`readLine` used to read through the C library, which reads a **block** ahead;
+`readKey` read the descriptor underneath it; and everything that arrived in the
+same block as the line was held where nothing else could reach it —
+[6.36](COMPLETED.md#636-readline-and-readkey-did-not-share-an-input-buffer--done).
+
+**Solis reads through the same window**, which is what makes *the program and
+the prompt are reading the same input* exact rather than nearly so: a script run
+at the prompt asking for a key gets the key you typed, not the one after
+whatever the prompt read ahead.
+
+**A byte already in the window is not read again**, so `keyWaiting` answers true
+for one without asking the system anything, and `readKey` takes it without
+touching the terminal's mode.
+
+**What reads ahead still reads ahead**: up to four kilobytes at a time from a
+pipe or a file, which matters only if another *process* is waiting on the same
+input. A program that reads a line and then hands standard input to a child with
+`run` may find the child short of what the window is holding. A terminal is
+unaffected — it delivers a line at a time, so nothing is taken that was not
+asked for.
 
 **No echo**, because raw mode does not; a program that wants the key shown
 prints it. **Raw mode only on a terminal** — through a pipe or a file a byte is
@@ -1257,9 +1273,9 @@ fine and the other never will be.
 A string is bytes, so a file of them survives the round trip — a NUL is a byte
 like any other, `size` counts it, and reading a file and writing it back copies
 it exactly. `split`, `indexOf` and `copyFrom` work on it too, all three going by
-the length rather than stopping at the first NUL. What is still missing is a
-*number* for a byte: `at` answers a one-character string, so there is nothing to
-do arithmetic on.
+the length rather than stopping at the first NUL, and `asByte` gives the number
+of one so there is something to do arithmetic on. `readLine` keeps a NUL as
+well, so a line and a file agree about what a string may hold.
 
 These are on `system` rather than on the string naming the file, though
 `"notes.txt":readFile` reads well. A string knows nothing about files, and
