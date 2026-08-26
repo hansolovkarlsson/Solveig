@@ -5,6 +5,47 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### PRINT's rules, and a runtime written in the language it serves — `724e277`, 2026-08-26
+
+**A number is a sign character — a minus, or a space where one would go — then
+the digits, then a trailing space.** A string gets neither. `,` moves to the
+next print zone of 14, `;` moves nowhere, a separator at the end of a line holds
+it open, `TAB` and `SPC` place things, and the margin is 80.
+
+```text
+ 14
+-7
+ .5
+ 1             2             3
+```
+
+**Brought forward out of stage 6 on purpose.** Stage 7 is a comparison against a
+real QuickBASIC, and it cannot compare anything while every line differs in its
+spacing — so output has to match before the oracle is worth building.
+
+**The runtime is written in SolaBasic**, compiled by this same compiler and
+emitted into any program that prints. Those rules are a line buffer, three loops
+and a decision about a leading nought, and each reads better as BASIC than as a
+sequence of `emit` calls — which is what `SGN` had to be, and what got `SGN`
+wrong the first time. It costs a reserved prefix: names beginning `SOLA` belong
+to the runtime.
+
+**And writing it turned up two things the compiler had wrong**, which is the
+argument for writing the runtime *in* the language rather than around it.
+`nextIs` compared a token's text without its kind, so the string literal `"-"`
+answered yes to *is the next token a minus* and `T$ = "-" + MID$(T$, 3)` would
+not parse. And `CALL` was missing from the statements a one-line `IF` may hold,
+so `IF x > 80 THEN CALL Wrap` was refused. Neither was reachable from anything
+in this repository until a real program was written.
+
+**The numbers are QBasic's and are not all settled** — the zone, the margin and
+the `D` exponent are; how many digits a Double shows comes from the machine's
+shortest round-trip rather than a count BASIC fixes. That is
+[stage 7](SOLABASIC.md#stages)'s to settle, and the reference manual says so.
+
+Ten transcripts, all re-recorded, and [print.bas](../programs/sola/print.bas)
+covers the rules themselves.
+
 ### Integer divide and MOD are exact now — `31e579a`, 2026-08-26
 
 **SolVM's integer `div` and `mod` are floored and should stay so** — a remainder
