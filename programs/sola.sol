@@ -10,8 +10,8 @@
 ; The language is [SolaBasic](../docs/SOLABASIC.md), and there is a
 ; [reference manual](../docs/SOLABASIC-REFERENCE.md) for people who want to
 ; write it rather than read about it. Stages 1 to 5 and 7 are here, and so is
-; most of 6: `PRINT`'s real formatting, `INPUT` and `LINE INPUT`. What is left
-; is files and `PRINT USING`.
+; most of 6: `PRINT`'s real formatting, `PRINT USING`, `INPUT` and `LINE INPUT`.
+; What is left is files.
 ;
 ; **Stage 3 went first on purpose** -- it is `GOTO` and labels, the claim the
 ; whole design rests on, and the document says to reach it in week one rather
@@ -180,6 +180,8 @@
 ;   DECLARE       read and dropped; nothing needs declaring here
 ;   DIM           arrays of up to eight dimensions, bounds fixed at compile
 ;                 time, with `AS` or a suffix for the type, and `SHARED`
+;   PRINT USING   `# . , + - ** $$ ^^^^ _` for numbers, `! \\ \\ &` for text,
+;                 and a format shorter than the list starts again
 ;   INPUT         one line split on commas, with the prompt beside the answer
 ;   LINE INPUT    the line whole, commas and all
 ;   OPTION BASE   0 or 1, asked once, before the first `DIM`
@@ -195,8 +197,8 @@
 ;   RANDOMIZE     reseeds the one generator
 ;   comments      `REM` and `'`
 ;
-; **Not here, and not pretended:** files, `PRINT USING`, `REDIM`,
-; `LBOUND`/`UBOUND`, and an array parameter of more than one dimension. `PRINT`'s real formatting is
+; **Not here, and not pretended:** files, `REDIM`, `LBOUND`/`UBOUND`, and an
+; array parameter of more than one dimension. `PRINT`'s real formatting is
 ; stage 6; here the items of one `PRINT` are joined and shown, with no zones and
 ; no trailing space, so its output is **not** what a BASIC prints. That is a
 ; stage, not a divergence, and it is the one thing here most likely to be
@@ -279,7 +281,8 @@ keywords := ["PRINT", "GOTO", "IF", "THEN", "ELSE", "ELSEIF", "END", "REM",
              "SUB", "FUNCTION", "CALL", "SHARED", "STATIC", "DECLARE",
              "AND", "OR", "XOR", "NOT", "MOD",
              "DEFINT", "DEFLNG", "DEFDBL", "DEFSTR", "RANDOMIZE",
-             "DIM", "OPTION", "BASE", "CONST", "AS", "INPUT", "LINE"].
+             "DIM", "OPTION", "BASE", "CONST", "AS", "INPUT", "LINE",
+             "USING"].
 
 ; ---------------------------------------------------------------------------
 ; A token, and a node
@@ -355,6 +358,7 @@ stmt:bounds := nil.         ; 'dim: [low, high] per dimension, already constant
 stmt:shared := false.       ; 'dim: whether a procedure may see it
 stmt:subscripts := nil.     ; 'arrayset: the subscripts of the element assigned
 stmt:arrayParams := nil.    ; 'sub and 'function: which parameters are arrays
+stmt:using := nil.          ; 'print: the format, when there is a USING
 stmt:body := nil.           ; 'sub and 'function: the statements between them
 
 ; ---------------------------------------------------------------------------
@@ -1151,6 +1155,12 @@ sola:parsePrint := { st | | t |
     st:kind := 'print.
     st:items := array:new.
     st:seps := array:new.
+    self:nextIs("USING"):ifTrue({
+        self:takeToken.
+        st:using := self:parseExpression.
+        self:nextIs(";"):ifFalse({
+            self:fail("PRINT USING wants ';' between the format and the items") }).
+        self:takeToken }).
     { self:atEndOfLine:not }:whileTrue({
         st:items:add(self:parseExpression).
         self:atEndOfLine:ifElse(
@@ -3499,7 +3509,40 @@ sola:emitFinalFlush := { | done |
         self:runtime("SOLAEOL", { nil }, #0).
         self:fillBranch(done) }) }.
 
+; ---------------------------------------------------------------------------
+; PRINT USING
+;
+; The format is walked by the runtime rather than by the compiler, because it is
+; an expression and may be a variable -- so nothing about it is known until the
+; program runs. The runtime keeps its place between items, which is what lets a
+; format shorter than the list of items start again from the beginning.
+
+sola:emitPrintUsing := { st | | i, item |
+    self:runtime("SOLAUSTART", { self:emitTyped(st:using, 'string) }, #1).
+    i := #1.
+    { i:lessOrEqual(st:items:size) }:whileTrue({
+        item := st:items:at(i).
+        item:isNil:ifFalse({
+            self:runtime("SOLAOUT", {
+                self:emitGlobal("SOLAUONE$").
+                item:type:equals('string):ifElse(
+                    { self:emitConst(0.0).
+                      self:emitTyped(item, 'string).
+                      self:emitIntConst(#0) },
+                    { self:emitTyped(item, 'double).
+                      self:emitString("").
+                      self:emitIntConst(#1) }).
+                self:emitSend("value", #3) }, #1) }).
+        i := i:add(#1) }).
+    self:runtime("SOLAOUT", {
+        self:emitGlobal("SOLAUTAIL$").
+        self:emitSend("value", #0) }, #1).
+    st:seps:at(st:seps:size):equals("none"):ifTrue({
+        self:runtime("SOLAEOL", { nil }, #0) }) }.
+
 sola:emitPrint := { st | | i, item |
+    st:using:notNil:ifTrue({ self:emitPrintUsing(st) }).
+    st:using:notNil:ifElse({ nil }, {
     st:items:size:equals(#0):ifElse(
         { self:runtime("SOLAEOL", { nil }, #0) },
         { i := #1.
@@ -3515,7 +3558,7 @@ sola:emitPrint := { st | | i, item |
                   self:runtime("SOLAZONE", { nil }, #0) }).
               i := i:add(#1) }).
           st:seps:at(st:seps:size):equals("none"):ifTrue({
-              self:runtime("SOLAEOL", { nil }, #0) }) }) }.
+              self:runtime("SOLAEOL", { nil }, #0) }) }) }) }.
 
 ; ---------------------------------------------------------------------------
 ; Which line a byte came from
@@ -3579,9 +3622,11 @@ sola:compile := { source, path |
     ; module's first line runs.
     self:emitRandomGenerator.
     self:hasPrelude:ifTrue({
-        self:emitString("").
-        self:emitStore("SOLABUF$").
-        self:emitPop }).
+        preludeGlobals:do({ each |
+            self:sharedNames:add(each:at(#1)).
+            self:emitZero(each:at(#2)).
+            self:emitStore(each:at(#1)).
+            self:emitPop }) }).
     self:emitStaticInitialisers.
     self:routineOrder:do({ r | self:emitRoutine(r) }).
     self:statementsOfScope := self:statements.
@@ -3673,6 +3718,20 @@ sola:labelOnly := { label, line | | st |
 ; shortest round-trip rather than from a count BASIC fixes, and the exponent
 ; letter is `D` because SolaBasic's only float is a Double. Stage 7 is where
 ; those get held against a real QuickBASIC -- see SOLABASIC.md.
+
+; The runtime's own variables. They are module-level globals that every one of
+; its procedures shares, and the prelude has no module-level lines to declare
+; them on -- so the compiler makes them, and puts them where a procedure will
+; find them rather than shadow them.
+preludeGlobals := [
+    ["SOLABUF$", 'string],
+    ["SOLAUF$", 'string],   ["SOLAUP%", 'integer],
+    ["SOLAUKIND%", 'integer], ["SOLAUEND%", 'integer],
+    ["SOLAUINT%", 'integer],  ["SOLAUDEC%", 'integer],
+    ["SOLAUCOM%", 'integer],  ["SOLAUFILL$", 'string],
+    ["SOLAUDOL%", 'integer],  ["SOLAULEAD%", 'integer],
+    ["SOLAUTRL$", 'string],   ["SOLAUEXP%", 'integer],
+    ["SOLAUW%", 'integer]].
 
 prelude := "
 FUNCTION SOLASIGN$ (T$)
@@ -3807,6 +3866,303 @@ FUNCTION SOLAASK$ (P$, Q%, SPEC$)
     PRINT \"Redo from start\"
   LOOP
   SOLAASK$ = L$
+END FUNCTION
+
+FUNCTION SOLAUINT$ (V#)
+  SOLAUINT$ = STR$(V#)
+END FUNCTION
+
+FUNCTION SOLAUZERO$ (T$, N%)
+  DIM R$
+  R$ = T$
+  DO WHILE LEN(R$) < N%
+    R$ = \"0\" + R$
+  LOOP
+  SOLAUZERO$ = R$
+END FUNCTION
+
+FUNCTION SOLAUPAD$ (T$, N%, FILL$)
+  DIM R$
+  R$ = T$
+  DO WHILE LEN(R$) < N%
+    R$ = FILL$ + R$
+  LOOP
+  SOLAUPAD$ = R$
+END FUNCTION
+
+FUNCTION SOLAUCOMMA$ (T$)
+  DIM R$
+  DIM I%
+  DIM N%
+  R$ = \"\"
+  N% = 0
+  FOR I% = LEN(T$) TO 1 STEP -1
+    R$ = MID$(T$, I%, 1) + R$
+    N% = N% + 1
+    IF N% MOD 3 = 0 AND I% > 1 THEN R$ = \",\" + R$
+  NEXT I%
+  SOLAUCOMMA$ = R$
+END FUNCTION
+
+FUNCTION SOLAUABS$ (V#, D%, WANTCOM%)
+  DIM A#
+  DIM W#
+  DIM F#
+  DIM SC#
+  DIM R$
+  A# = ABS(V#)
+  SC# = 10# ^ D%
+  A# = INT(A# * SC# + .5#) / SC#
+  W# = INT(A#)
+  R$ = SOLAUINT$(W#)
+  IF WANTCOM% <> 0 THEN R$ = SOLAUCOMMA$(R$)
+  IF D% > 0 THEN
+    F# = INT((A# - W#) * SC# + .5#)
+    R$ = R$ + \".\" + SOLAUZERO$(SOLAUINT$(F#), D%)
+  END IF
+  SOLAUABS$ = R$
+END FUNCTION
+
+SUB SOLAUSCAN (P%)
+  SHARED SOLAUF$, SOLAUKIND%, SOLAUEND%, SOLAUINT%, SOLAUDEC%
+  SHARED SOLAUCOM%, SOLAUFILL$, SOLAUDOL%, SOLAULEAD%, SOLAUTRL$
+  SHARED SOLAUEXP%, SOLAUW%
+  DIM I%
+  DIM J%
+  DIM C$
+  DIM BS$
+  BS$ = CHR$(92)
+  SOLAUKIND% = 0
+  SOLAUINT% = 0
+  SOLAUDEC% = 0
+  SOLAUCOM% = 0
+  SOLAUFILL$ = \" \"
+  SOLAUDOL% = 0
+  SOLAULEAD% = 0
+  SOLAUTRL$ = \"\"
+  SOLAUEXP% = 0
+  SOLAUW% = 0
+  I% = P%
+  SOLAUEND% = I% + 1
+  C$ = MID$(SOLAUF$, I%, 1)
+  IF C$ = \"!\" THEN
+    SOLAUKIND% = 2
+    SOLAUW% = 1
+    EXIT SUB
+  END IF
+  IF C$ = \"&\" THEN
+    SOLAUKIND% = 2
+    SOLAUW% = -1
+    EXIT SUB
+  END IF
+  IF C$ = BS$ THEN
+    FOR J% = I% + 1 TO LEN(SOLAUF$)
+      IF MID$(SOLAUF$, J%, 1) = BS$ THEN
+        SOLAUKIND% = 2
+        SOLAUW% = J% - I% + 1
+        SOLAUEND% = J% + 1
+        EXIT SUB
+      END IF
+    NEXT J%
+    EXIT SUB
+  END IF
+  IF C$ = \"+\" THEN
+    SOLAULEAD% = 1
+    SOLAUINT% = 1
+    I% = I% + 1
+  END IF
+  IF MID$(SOLAUF$, I%, 3) = \"**$\" THEN
+    SOLAUFILL$ = \"*\"
+    SOLAUDOL% = 1
+    SOLAUINT% = SOLAUINT% + 3
+    I% = I% + 3
+  ELSEIF MID$(SOLAUF$, I%, 2) = \"**\" THEN
+    SOLAUFILL$ = \"*\"
+    SOLAUINT% = SOLAUINT% + 2
+    I% = I% + 2
+  ELSEIF MID$(SOLAUF$, I%, 2) = \"$$\" THEN
+    SOLAUDOL% = 1
+    SOLAUINT% = SOLAUINT% + 2
+    I% = I% + 2
+  END IF
+  DO WHILE MID$(SOLAUF$, I%, 1) = \"#\"
+    SOLAUINT% = SOLAUINT% + 1
+    I% = I% + 1
+  LOOP
+  IF MID$(SOLAUF$, I%, 1) = \",\" THEN
+    SOLAUCOM% = 1
+    I% = I% + 1
+  END IF
+  IF MID$(SOLAUF$, I%, 1) = \".\" THEN
+    I% = I% + 1
+    DO WHILE MID$(SOLAUF$, I%, 1) = \"#\"
+      SOLAUDEC% = SOLAUDEC% + 1
+      I% = I% + 1
+    LOOP
+  END IF
+  IF MID$(SOLAUF$, I%, 4) = \"^^^^\" THEN
+    SOLAUEXP% = 1
+    I% = I% + 4
+  END IF
+  IF MID$(SOLAUF$, I%, 1) = \"+\" OR MID$(SOLAUF$, I%, 1) = \"-\" THEN
+    SOLAUTRL$ = MID$(SOLAUF$, I%, 1)
+    I% = I% + 1
+  END IF
+  IF SOLAUINT% > 0 OR SOLAUDEC% > 0 THEN SOLAUKIND% = 1
+  SOLAUEND% = I%
+END SUB
+
+FUNCTION SOLAUNUM$ (V#)
+  SHARED SOLAUINT%, SOLAUDEC%, SOLAUCOM%, SOLAUFILL$, SOLAUDOL%
+  SHARED SOLAULEAD%, SOLAUTRL$, SOLAUEXP%
+  DIM B$
+  DIM IP$
+  DIM FP$
+  DIM SG$
+  DIM HEAD$
+  DIM TAIL$
+  DIM X$
+  DIM D%
+  DIM E%
+  DIM M#
+  M# = V#
+  E% = 0
+  IF SOLAUEXP% <> 0 AND M# <> 0 THEN
+    DO WHILE ABS(M#) >= 10#
+      M# = M# / 10#
+      E% = E% + 1
+    LOOP
+    DO WHILE ABS(M#) < 1#
+      M# = M# * 10#
+      E% = E% - 1
+    LOOP
+  END IF
+  B$ = SOLAUABS$(M#, SOLAUDEC%, SOLAUCOM%)
+  D% = INSTR(B$, \".\")
+  IF D% = 0 THEN
+    IP$ = B$
+    FP$ = \"\"
+  ELSE
+    IP$ = LEFT$(B$, D% - 1)
+    FP$ = MID$(B$, D%)
+  END IF
+  SG$ = \"\"
+  IF SOLAULEAD% <> 0 THEN
+    IF M# < 0 THEN
+      SG$ = \"-\"
+    ELSE
+      SG$ = \"+\"
+    END IF
+  ELSEIF SOLAUTRL$ = \"\" THEN
+    IF M# < 0 THEN SG$ = \"-\"
+  END IF
+  HEAD$ = SG$ + IP$
+  IF SOLAUDOL% <> 0 THEN HEAD$ = \"$\" + HEAD$
+  TAIL$ = \"\"
+  IF SOLAUTRL$ <> \"\" THEN
+    IF M# < 0 THEN
+      TAIL$ = \"-\"
+    ELSEIF SOLAUTRL$ = \"+\" THEN
+      TAIL$ = \"+\"
+    ELSE
+      TAIL$ = \" \"
+    END IF
+  END IF
+  IF SOLAUEXP% <> 0 THEN
+    ' D and not E, because SolaBasic's only float is a Double and QuickBASIC
+    ' writes a Double's exponent with a D. Plain PRINT already did; this did
+    ' not, and the comparison found the two disagreeing with each other.
+    IF E% < 0 THEN
+      X$ = \"D-\"
+    ELSE
+      X$ = \"D+\"
+    END IF
+    TAIL$ = X$ + SOLAUZERO$(SOLAUINT$(ABS(E%)), 2) + TAIL$
+  END IF
+  IF LEN(HEAD$) > SOLAUINT% THEN
+    SOLAUNUM$ = \"%\" + HEAD$ + FP$ + TAIL$
+  ELSE
+    SOLAUNUM$ = SOLAUPAD$(HEAD$, SOLAUINT%, SOLAUFILL$) + FP$ + TAIL$
+  END IF
+END FUNCTION
+
+FUNCTION SOLAUSTR$ (S$)
+  SHARED SOLAUW%
+  DIM R$
+  IF SOLAUW% < 0 THEN
+    SOLAUSTR$ = S$
+  ELSE
+    R$ = S$
+    DO WHILE LEN(R$) < SOLAUW%
+      R$ = R$ + \" \"
+    LOOP
+    SOLAUSTR$ = LEFT$(R$, SOLAUW%)
+  END IF
+END FUNCTION
+
+SUB SOLAUSTART (F$)
+  SHARED SOLAUF$, SOLAUP%
+  SOLAUF$ = F$
+  SOLAUP% = 1
+END SUB
+
+FUNCTION SOLAUONE$ (V#, S$, ISNUM%)
+  SHARED SOLAUF$, SOLAUP%, SOLAUKIND%, SOLAUEND%
+  DIM OUT$
+  DIM C$
+  DIM GUARD%
+  OUT$ = \"\"
+  GUARD% = 0
+  DO
+    GUARD% = GUARD% + 1
+    IF GUARD% > 500 THEN EXIT DO
+    IF SOLAUP% > LEN(SOLAUF$) THEN SOLAUP% = 1
+    IF LEN(SOLAUF$) = 0 THEN EXIT DO
+    C$ = MID$(SOLAUF$, SOLAUP%, 1)
+    IF C$ = \"_\" THEN
+      OUT$ = OUT$ + MID$(SOLAUF$, SOLAUP% + 1, 1)
+      SOLAUP% = SOLAUP% + 2
+    ELSE
+      CALL SOLAUSCAN(SOLAUP%)
+      IF SOLAUKIND% = 0 THEN
+        OUT$ = OUT$ + C$
+        SOLAUP% = SOLAUP% + 1
+      ELSE
+        IF SOLAUKIND% = 1 THEN
+          OUT$ = OUT$ + SOLAUNUM$(V#)
+        ELSE
+          OUT$ = OUT$ + SOLAUSTR$(S$)
+        END IF
+        SOLAUP% = SOLAUEND%
+        EXIT DO
+      END IF
+    END IF
+  LOOP
+  SOLAUONE$ = OUT$
+END FUNCTION
+
+FUNCTION SOLAUTAIL$
+  SHARED SOLAUF$, SOLAUP%, SOLAUKIND%
+  DIM OUT$
+  DIM C$
+  DIM GUARD%
+  OUT$ = \"\"
+  GUARD% = 0
+  DO WHILE SOLAUP% <= LEN(SOLAUF$)
+    GUARD% = GUARD% + 1
+    IF GUARD% > 500 THEN EXIT DO
+    C$ = MID$(SOLAUF$, SOLAUP%, 1)
+    IF C$ = \"_\" THEN
+      OUT$ = OUT$ + MID$(SOLAUF$, SOLAUP% + 1, 1)
+      SOLAUP% = SOLAUP% + 2
+    ELSE
+      CALL SOLAUSCAN(SOLAUP%)
+      IF SOLAUKIND% <> 0 THEN EXIT DO
+      OUT$ = OUT$ + C$
+      SOLAUP% = SOLAUP% + 1
+    END IF
+  LOOP
+  SOLAUTAIL$ = OUT$
 END FUNCTION
 
 FUNCTION SOLAASKLINE$ (P$)

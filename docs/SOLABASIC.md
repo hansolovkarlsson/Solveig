@@ -608,6 +608,22 @@ stack depth are each refused *at load*, exit 65, as a message rather than a
 crash. The depth-0 discipline is load-bearing rather than tidy, and nothing in
 the design section above needed changing.
 
+**2026-08-26 — `PRINT USING`, measured before it was written.**
+The fiddliest formatting in BASIC, and the first feature here built the other
+way round: twenty-one formats were run through QuickBASIC 4.5 *first*, and the
+formatter was written to reproduce what came back. Every one matched on the
+first comparison but one — the exponent letter, where `PRINT USING` said `E` and
+plain `PRINT` already said `D`, so the oracle caught this compiler disagreeing
+with itself.
+
+**The formatter is written in SolaBasic**, beside `PRINT`'s and `INPUT`'s, and
+building it there is what turned up
+[three defects](../docs/CHANGELOG.md) in what stages 4 and 5 had already
+shipped — `DIM SHARED` on a plain variable doing nothing, a procedure
+zero-initialising the module's shared variables, and a `FUNCTION` of no
+arguments called without brackets being read as a variable. **Writing a real
+program in the language keeps being the thing that finds them.**
+
 **2026-08-26 — the corpus grew to cover what it had been missing, and found
 nothing.** `GOTO` was not tested against QuickBASIC at all, which was a hole in
 the middle of the design: interleaved jumps, a jump out of a block, a label
@@ -833,7 +849,7 @@ The language above is the finish line. The order to reach it in:
 | **3** | **Done, and first, as this table said it should be.** `GOTO` and labels, forwards and backwards, to any label in the program. What it found is below. |
 | **4** | **Done.** `SUB`, `FUNCTION`, `CALL`, locals, `SHARED`, `STATIC`, `EXIT SUB`/`EXIT FUNCTION`, and by-reference parameters. |
 | **5** | **Done.** `DIM` with constant bounds and up to eight dimensions, `OPTION BASE`, `CONST`, `DIM SHARED`, and arrays passed to procedures. |
-| **6** | **`PRINT`'s rules, `INPUT` and `LINE INPUT` are done**, all three held against a real QuickBASIC. Files and `PRINT USING` are what is left of it. |
+| **6** | **`PRINT`'s rules, `PRINT USING`, `INPUT` and `LINE INPUT` are done**, all held against a real QuickBASIC. **Files are what is left** — of stage 6 and of the whole list. |
 | **7** | **Done, and the verdict is in.** [oracle.sh](../programs/sola/oracle.sh) against QuickBASIC 4.5 under DOSBox: **all fourteen `agree/` programs match byte for byte**, and all five divergences are still there. It has found three real defects and corrected two entries in the list below. |
 
 Stage 3 is the one to reach early even though the ordering does not demand it,

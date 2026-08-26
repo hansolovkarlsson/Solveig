@@ -864,7 +864,7 @@ static void test_sola_compiles_a_program_that_runs(void)
     static const char *listings[] = { "counter", "spaghetti", "labels",
                                       "structure", "escape", "procedures",
                                       "byref", "types", "functions", "print",
-                                      "arrays" };
+                                      "arrays", "using" };
     for (size_t i = 0; i < sizeof listings / sizeof listings[0]; i++) {
         char command[512], expected_path[512];
 
@@ -994,7 +994,7 @@ static void test_sola_compiles_a_program_that_runs(void)
             "agree/arith", "agree/arrays", "agree/control", "agree/numbers",
             "agree/procs", "agree/select", "agree/strings", "agree/zones",
             "agree/input", "agree/goto", "agree/spaghetti", "agree/labels",
-            "agree/byref", "agree/maths",
+            "agree/byref", "agree/maths", "agree/printusing",
             "differ/defaulttype", "differ/digits", "differ/intwidth",
             "differ/strdollar", "differ/val",
         };

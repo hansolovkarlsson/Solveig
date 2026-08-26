@@ -1123,10 +1123,17 @@ to go except outside the array, and the machine refuses that itself.
 
 **And it is compared against a real QuickBASIC**, which is the only check here
 that can find something nobody thought of — everything else this compiler is
-held to is a transcript recorded by its own author. **Fourteen programs match
-byte for byte**, five differ exactly where the language definition says they
-should, and the comparison has found **three real defects that eleven
-transcripts did not** — one of which a transcript had recorded as correct.
+held to is a transcript recorded by its own author. **Fifteen programs match byte for
+byte**, five differ exactly where the language definition says they should, and
+the comparison has found **four real defects that the transcripts did not** —
+one of which a transcript had recorded as correct.
+
+**And `PRINT USING` was built the other way round**, which is what having an
+oracle is for: twenty-one formats went through QuickBASIC 4.5 *first*, and the
+formatter was written to reproduce what came back rather than to reproduce what
+somebody remembered. Every case matched on the first comparison but one, and
+that one was this compiler disagreeing with itself — `PRINT USING` writing an
+exponent with `E` where plain `PRINT` already wrote `D`.
 [oracle.sh](../programs/sola/oracle.sh) runs a corpus in two halves:
 `oracle/agree/`, which must produce the same bytes under both, and
 `oracle/differ/`, which must not and says at the head of each file why. **That

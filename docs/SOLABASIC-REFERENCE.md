@@ -438,6 +438,45 @@ PRINT "x"; SPC(5); "y"
 
 **The margin is 80.** An item that will not fit goes on the next line.
 
+### PRINT USING
+
+```basic
+PRINT USING "###.##"; 3.14159#      '   3.14
+PRINT USING "value: ### units"; 9   ' value:   9 units
+PRINT USING "###"; 1; 2; 3          '   1  2  3
+```
+
+The format is walked once per item, literal characters going out as they are.
+**A format shorter than the list of items starts again from the beginning**, and
+anything after the last field is written when the items run out.
+
+| for a number | |
+| --- | --- |
+| `#` | a digit position |
+| `.` | where the point goes; digits after it are decimals, rounded |
+| `,` | thousands separators in the whole part |
+| `+` | in front: always show the sign, in its own position |
+| `-` | at the end: a trailing minus for a negative, a space otherwise |
+| `**` | two more positions, and the padding is asterisks |
+| `$$` | two more positions, one of them a `$` that floats up against the digits |
+| `**$` | three more, both of the above |
+| `^^^^` | exponential — the mantissa in the positions given, then `D±dd` |
+
+| for text | |
+| --- | --- |
+| `!` | the first character |
+| `\   \` | as many characters as the backslashes and the spaces between them |
+| `&` | the whole string |
+
+`_` makes the next character literal, so `_#` prints a `#`.
+
+**A number too wide for its field is written in full behind a `%`** rather than
+cut — `PRINT USING "###"; 1234` gives `%1234`.
+
+**Every one of these was measured against QuickBASIC 4.5 before it was
+written**, and is compared against it on demand by
+[oracle.sh](../programs/sola/oracle.sh).
+
 ---
 
 ## Choosing
@@ -809,8 +848,7 @@ each belongs to is in [SOLABASIC.md](SOLABASIC.md#stages).
 
 | | |
 | --- | --- |
-| `PRINT USING` | stage 6 |
-| files — `OPEN`, `CLOSE`, `PRINT #`, `INPUT #`, `EOF` | stage 6 |
+| files — `OPEN`, `CLOSE`, `PRINT #`, `INPUT #`, `EOF` | stage 6, and the last of it |
 | `INPUT` filling an array element | not written yet; it fills variables |
 | `LBOUND`, `UBOUND` | not written yet — an array's bounds are in the listing that `DIM`med it |
 | an array parameter of more than one dimension | not written yet; its strides would have to travel with it |
