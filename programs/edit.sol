@@ -9,10 +9,11 @@
 ; keystroke and the next.
 ;
 ;   h j k l, arrows   move           i a I A   insert here, or at the ends
-;   w b               by word        o O       open a line below or above
-;   0 $               line ends      x J       a character, join
-;   gg G              file ends      d y       delete, yank -- over any motion
-;   ctrl-f ctrl-b     by a screen    dd yy     the line, or the count of them
+;   w b e             by word        o O       open a line below or above
+;   0 $               line ends      x r ~     a character: cut, replace, swap case
+;   fx tx Fx Tx       to a character J         join the line below
+;   gg G              file ends      d y c     delete, yank, change -- over a motion
+;   ctrl-f ctrl-b     by a screen    dd yy cc  the line, or the count of them
 ;   ma                mark here      p P       put it back, after or before
 ;   'a  `a            back to it     /pat ?pat search on, and back
 ;   ''                where you were n N       the same search again, either way
@@ -177,10 +178,10 @@
 ; What it does not do
 ;
 ; No `U` -- vi's *undo every change on this line*, which is a different
-; mechanism and not a level of this one. No `c`, no `e f t`, and no named
-; registers: one unnamed register is what `d`, `y` and `x` all write to and `p`
-; reads. `J` joins without inserting a space, where vi inserts one and has
-; exceptions about when. No line ranges beyond `%`;
+; mechanism and not a level of this one. No `;` and `,` to repeat an `f`, no
+; named registers -- one unnamed register is what `d`, `y`, `c` and `x` all
+; write to and `p` reads. `J` joins without inserting a space, where vi inserts
+; one and has exceptions about when. No line ranges beyond `%`;
 ; `:1,5s/a/b/` is a parser this has not got. Each of those is more of the same
 ; rather than more of the language, and this was written to ask the language a
 ; question rather than to replace anybody's editor. What is here is what it
@@ -575,6 +576,72 @@ edit:wordBack := { | class, moved |
             :whileTrue({ self:column := self:column:sub(#1) }) }).
     self:clamp }.
 
+; `e` is the end of the word rather than the start of the next, which is a
+; different question and the one `cw` really asks -- see the note on the change
+; operator. It lands *on* the last character, so as a motion it is inclusive.
+edit:wordEnd := { | class, moved |
+    moved := self:stepForward.
+    { moved:and({ self:classOf(self:charHere):equals('space) }) }
+        :whileTrue({ moved := self:stepForward }).
+    class := self:classOf(self:charHere).
+    class:equals('space):ifFalse({
+        { self:column:lessThan(self:line:size)
+            :and({ self:classOf(self:line:at(self:column:add(#1))):equals(class) }) }
+            :whileTrue({ self:column := self:column:add(#1) }) }).
+    self:clamp }.
+
+; ---------------------------------------------------------------------------
+; Finding a character on this line
+;
+; `fx` goes to the next `x`, `tx` to just before it, `F` and `T` the same way
+; back. **A count picks the third one**, and none of them leaves the line -- a
+; character search that wandered onto the next line would be a search, and `/`
+; is that.
+;
+; Forwards, this is `string:indexOf(what, #from)`, which was built an hour
+; before these motions were and is why `3fx` is three primitive calls rather
+; than a walk. Backwards there is no such message, so it walks forwards keeping
+; the last one it passed -- the same shape `pattern:findLast` has, and for the
+; same reason.
+
+edit:findForward := { line, target, from | line:indexOf(target, from) }.
+
+edit:findBack := { line, target, before | | from, hit |
+    from := #1.
+    hit := nil.
+    { from:lessThan(before) }:whileTrue({ | where |
+        where := line:indexOf(target, from).
+        where:isNil:or({ where:greaterOrEqual(before) }):ifElse(
+            { from := before },
+            { hit := where. from := where:add(#1) }) }).
+    hit }.
+
+edit:placeOfFind := { which, target, n | | line, at, ahead, p |
+    line := self:line.
+    ahead := which:equals("f"):or({ which:equals("t") }).
+    at := self:column.
+
+    n:repeat({
+        at:notNil:ifTrue({
+            at := ahead:ifElse(
+                { at:greaterOrEqual(line:size):ifElse(
+                    { nil },
+                    { self:findForward(line, target, at:add(#1)) }) },
+                { self:findBack(line, target, at) }) }) }).
+
+    at:isNil:ifElse(
+        { self:message := "not on this line: {}":fill([target]).
+          nil },
+        { ; `t` and `T` stop one short of what they found, which is what makes
+          ; `dt,` leave the comma where it is.
+          which:equals("t"):ifTrue({ at := at:sub(#1) }).
+          which:equals("T"):ifTrue({ at := at:add(#1) }).
+          p := self:placeAt(self:row, at).
+          ; Forwards takes the character it lands on; backwards stops before the
+          ; one the cursor is on, which is what an ordered range already does.
+          p:inclusive := ahead.
+          p }) }.
+
 ; ---------------------------------------------------------------------------
 ; Changing the text
 
@@ -629,6 +696,39 @@ edit:joinLine := { | next |
         self:column := self:line:size:add(#1).
         self:setLine(self:line:concat(next:trim)).
         self:removeLine(self:row:add(#1)).
+        self:clamp }) }.
+
+; `rx` puts `x` where the cursor is and stays there; `3rx` does three of them.
+; It refuses rather than doing part of the job when there are fewer characters
+; left than that, which is vi's rule and the right one: a partial replacement is
+; a mistake nobody can see.
+edit:replaceChars := { target, n | | line, out |
+    line := self:line.
+    self:column:add(n):sub(#1):greaterThan(line:size):ifElse(
+        { self:message := "fewer than {} characters left":fill([n]) },
+        { out := "".
+          n:repeat({ out := out:concat(target) }).
+          self:setLine(line:copyFrom(#1, self:column:sub(#1)):concat(out)
+              :concat(line:copyFrom(self:column:add(n), line:size))).
+          self:column := self:column:add(n):sub(#1).
+          self:clamp }) }.
+
+; `~` swaps the case of the character under the cursor and moves past it, which
+; is vi's odd little command that is a change and a motion at once. A character
+; that has no case is passed over unchanged rather than refused.
+edit:swapCase := { n | | line, out, c |
+    line := self:line.
+    line:size:greaterThan(#0):ifTrue({
+        out := "".
+        [self:column, self:column:add(n):sub(#1)]:loop({ i |
+            i:lessOrEqual(line:size):ifTrue({
+                c := line:at(i).
+                out := out:concat(c:equals(c:asLowercase):ifElse(
+                    { c:asUppercase },
+                    { c:asLowercase })) }) }).
+        self:setLine(line:copyFrom(#1, self:column:sub(#1)):concat(out)
+            :concat(line:copyFrom(self:column:add(out:size), line:size))).
+        self:column := self:column:add(out:size).
         self:clamp }) }.
 
 edit:enterInsert := { self:mode := 'insert. self:clamp }.
@@ -735,6 +835,11 @@ motions:atPut("h", { n | edit:placeAfter({ edit:left }, n) }).
 motions:atPut("l", { n | edit:placeAfter({ edit:right }, n) }).
 motions:atPut("w", { n | edit:placeAfter({ edit:wordForward }, n) }).
 motions:atPut("b", { n | edit:placeAfter({ edit:wordBack }, n) }).
+motions:atPut("e", { n | | p |
+    p := edit:placeAfter({ edit:wordEnd }, n).
+    ; The last character of the word is part of the word, so `de` takes it.
+    p:inclusive := true.
+    p }).
 motions:atPut('left, { n | edit:placeAfter({ edit:left }, n) }).
 motions:atPut('right, { n | edit:placeAfter({ edit:right }, n) }).
 
@@ -780,6 +885,7 @@ normalKeys:atPut("o", { n | edit:openBelow }).
 normalKeys:atPut("O", { n | edit:openAbove }).
 normalKeys:atPut("x", { n | edit:deleteChars(edit:times(n)) }).
 normalKeys:atPut("J", { n | edit:times(n):repeat({ edit:joinLine }) }).
+normalKeys:atPut("~", { n | edit:swapCase(edit:times(n)) }).
 normalKeys:atPut("p", { n | edit:put(true, edit:times(n)) }).
 normalKeys:atPut("P", { n | edit:put(false, edit:times(n)) }).
 normalKeys:atPut(".", { n | edit:repeatChange(n) }).
@@ -797,8 +903,8 @@ normalKeys:atPut("n", { n | edit:repeatSearch(edit:direction) }).
 normalKeys:atPut("N", { n | edit:repeatSearch(
     edit:direction:equals('forward):ifElse({ 'backward }, { 'forward })) }).
 
-operators := ["d", "y"].
-prefixes := ["m", "'", "`", "g"].
+operators := ["d", "y", "c"].
+prefixes := ["m", "'", "`", "g", "f", "t", "F", "T", "r"].
 digits := "0123456789".
 
 ; ---------------------------------------------------------------------------
@@ -842,7 +948,12 @@ edit:normalCommand := { key | | place, done, given |
         prefixes:indexOf(key):notNil:ifElse(
             { self:prefix := key },
             { motions:includes(key):ifElse(
-                { place := motions:at(key):value(self:count).
+                ; **`cw` is `ce`**, which is vi's oldest special case and the
+                ; one people notice: changing a word should not swallow the
+                ; space after it, because what is typed next needs somewhere to
+                ; sit. `dw` keeps taking the space, because deleting a word and
+                ; leaving two spaces behind is not what anybody meant either.
+                { place := motions:at(self:motionFor(key)):value(self:count).
                   self:count := #0.
                   self:applyPlace(place) },
                 { operators:indexOf(key):notNil:and({ self:operator:isNil })
@@ -861,6 +972,14 @@ edit:normalCommand := { key | | place, done, given |
                       normalKeys:includes(key):ifTrue({
                           normalKeys:at(key):value(given) }) }) }) }) }) }.
 
+edit:motionFor := { key |
+    self:operator:notNil
+        :and({ self:operator:equals("c") })
+        :and({ key:equals("w") })
+        :and({ self:classOf(self:charHere):equals('space):not }):ifElse(
+        { "e" },
+        { key }) }.
+
 edit:resolvePrefix := { key | | which, place |
     which := self:prefix.
     self:prefix := nil.
@@ -878,6 +997,17 @@ edit:resolvePrefix := { key | | which, place |
               self:count := #0.
               self:applyPlace(place) },
             { self:operator := nil. self:count := #0 }) }).
+
+    which:equals("r"):ifTrue({
+        self:replaceChars(key, self:times(self:count)).
+        self:count := #0 }).
+
+    "ftFT":indexOf(which):notNil:ifTrue({
+        place := self:placeOfFind(which, key, self:times(self:count)).
+        self:count := #0.
+        place:isNil:ifElse(
+            { self:operator := nil },
+            { self:applyPlace(place) }) }).
 
     which:equals("'"):or({ which:equals("`") }):ifTrue({
         place := self:markPlace(key, which:equals("`")).
@@ -1024,13 +1154,24 @@ edit:operateLines := { op, row | | from, to |
     self:register := self:lines:copyFrom(from, to).
     self:registerIsLines := true.
 
-    op:equals("y"):ifElse(
-        { self:row := from },
-        { to:sub(from):add(#1):repeat({ self:removeLine(from) }).
-          self:row := self:lineWithin(from).
-          self:dirty := true }).
+    op:equals("y"):ifTrue({ self:row := from }).
+
+    op:equals("y"):ifFalse({
+        to:sub(from):add(#1):repeat({ self:removeLine(from) }).
+        ; **`cc` empties the lines rather than removing them**, which is vi and
+        ; is the difference between changing a line and deleting one: the cursor
+        ; has to have somewhere to type. `removeLine` leaves a single empty line
+        ; behind when it takes the last one, so that case needs no second line
+        ; put back.
+        op:equals("c"):ifTrue({
+            self:lines:size:equals(#1):and({ self:lines:at(#1):equals("") })
+                :ifFalse({ self:insertLine(self:lineWithin(from), "") }) }).
+        self:row := self:lineWithin(from).
+        self:dirty := true }).
+
     self:column := self:firstNonBlank(self:row).
-    self:clamp }.
+    self:clamp.
+    op:equals("c"):ifTrue({ self:column := #1. self:enterInsert }) }.
 
 edit:operateChars := { op, place | | fromRow, fromColumn, toRow, toColumn |
     self:row:lessThan(place:row):or({
@@ -1057,10 +1198,17 @@ edit:operateChars := { op, place | | fromRow, fromColumn, toRow, toColumn |
     self:register := self:textBetween(fromRow, fromColumn, toRow, toColumn).
     self:registerIsLines := false.
 
-    op:equals("d"):ifTrue({
+    op:equals("y"):ifFalse({
         self:removeBetween(fromRow, fromColumn, toRow, toColumn) }).
+
     self:row := fromRow.
     self:column := fromColumn.
+    ; **The mode changes before the clamp**, for the third time in this file and
+    ; always for the same reason: a change that took the tail of a line leaves
+    ; the cursor one past its end, which is where insert may stand and a cursor
+    ; may not. Clamping first put `c$` one character early and ate the space
+    ; before it.
+    op:equals("c"):ifTrue({ self:mode := 'insert }).
     self:clamp }.
 
 ; From one place up to but not including another, newlines and all. A range
@@ -1573,10 +1721,11 @@ h j k l or the arrows   move          i a I A   insert, here or at the ends
 w and b                 by word       x         delete a character
 gg and G                the file      J         join the line below
 
-d and y take a motion: dw d$ dj dG d'a, and dd yy for whole lines.
-p and P put it back. x deletes a character. ma marks, 'a and `a go back.
-u undoes, ctrl-r redoes; a hundred changes are kept. . does it again.
-A count repeats: 3j, 2dd, d2w, 10G, 3p, and 3. means three of those.
+d, y and c take a motion: dw ce d$ dj dG d'a, and dd yy cc for whole lines.
+p and P put it back. x cuts a character, rZ replaces one, ~ swaps its case.
+e is the end of a word; fx tx Fx Tx find a character on this line.
+ma marks, 'a and `a go back. u undoes, ctrl-r redoes, . does it again.
+A count repeats: 3j, 2dd, d2w, 10G, 3p, 3fx, and 3. means three of those.
 
 /pattern and ?pattern search, forwards and back; n and N do it again.
 A pattern is . * [abc] [^a-z] ^ $ and \\ to escape one of them.

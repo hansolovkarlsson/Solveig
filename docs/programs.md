@@ -728,9 +728,11 @@ fifths of them comment, which is where its arguments are.
 
 `h j k l` and the arrows move, `w` and `b` by word, `0` and `$` to the ends of a
 line, `gg` and `G` to the ends of the file, ctrl-f and ctrl-b by a screen.
-`i a I A o O` begin insert, `x` deletes a character, `J` joins two.
-`d` and `y` take a motion — `dw`, `d$`, `dj`, `dG`, `d'a`, and `dd`/`yy` for
-whole lines — `p` and `P` put back what they took, `ma` marks a place and `'a`
+`i a I A o O` begin insert, `x` deletes a character, `r` replaces one, `~` swaps
+its case, `J` joins two lines, `e` goes to the end of a word and `fx tx Fx Tx`
+find a character on the line.
+`d`, `y` and `c` take a motion — `dw`, `ce`, `d$`, `dj`, `dG`, `d'a`, and
+`dd`/`yy`/`cc` for whole lines — `p` and `P` put back what they took, `ma` marks a place and `'a`
 and `` `a `` go to it, `u` and ctrl-r undo and redo, `.` does the last change
 again, and a count repeats: `3j`, `2dd`, `d2w`, `10G`, `3p`, `3.`.
 `/pattern` and `?pattern` search forwards and back, `n` and `N` do it again,
@@ -908,10 +910,19 @@ and the same scan written as a loop here takes 0.85 s. **A library's speed lives
 at the boundary with the primitives**, and the way to be fast is to hand the
 scanning back across it.
 
+**And its behaviour is pinned by a hundred and sixty-five scripted sessions.**
+[programs/edit/checks.sol](../programs/edit/checks.sol) writes a file, feeds the
+editor a string of keys through a pipe and compares what was written against
+what those keys should have done. It runs in `make test` and takes under a
+second, and it exists because four days of building this produced one defect per
+feature — the clamp that let `dw` leave the last character of a file, the count
+cleared after an action rather than before, `c$` eating the space in front of
+the cursor. Every one of those is a line in that file now.
+
 **What it does not do**: no `U` — vi's *undo every change on this line* is a
-different mechanism, not a level of this one. No `c`, no `e f t`, no named
-registers, no line ranges beyond `%`, and `J` joins without inserting the space
-vi inserts — that rule has exceptions in it, and a rule with exceptions should
+different mechanism, not a level of this one. No `;` and `,` to repeat an `f`,
+no named registers, no line ranges beyond `%`, and `J` joins without inserting
+the space vi inserts — that rule has exceptions in it, and a rule with exceptions should
 be wanted by somebody before it is written — `:1,5s/a/b/` is a parser this has not
 got. Each of those is more of the same rather than more of the language, and
 this program was written to ask the language a question.

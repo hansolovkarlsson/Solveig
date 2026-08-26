@@ -880,6 +880,40 @@ static void test_the_editor_draws_what_it_recorded(void)
     printf("  the editor draws the screen it recorded, and writes the file\n");
 }
 
+/* The editor's behaviour, where the transcript above is its drawing.
+ *
+ * programs/edit/checks.sol writes a file, feeds the editor a string of keys
+ * through a pipe, and compares what was written against what those keys should
+ * have done -- a hundred and sixty-five times. It is a Solum program because
+ * that is what this repository writes its tools in, and because `readKey`
+ * reading a pipe exactly as it reads a terminal is what makes an editor
+ * testable at all.
+ *
+ * The floor is here rather than in that file: a checker that quietly stopped
+ * finding anything to check would pass every one of its own assertions. */
+static void test_the_editor_does_what_the_keys_say(void)
+{
+    char out[64 * 1024];
+
+    assert(run("bin/solas programs/edit/checks.sol -o " DIR "/checks.sob 2>&1",
+               out, sizeof out) == 0);
+
+    int status = run("bin/solvm " DIR "/checks.sob 2>&1", out, sizeof out);
+    if (status != 0 || strstr(out, "every session holds") == NULL) {
+        printf("\n%s\n", out);
+        assert(false);
+    }
+
+    int sessions = 0;
+    const char *at = strstr(out, "sessions checked");
+    assert(at != NULL);
+    while (at > out && at[-1] != '\n') at--;
+    assert(sscanf(at, "%d sessions checked", &sessions) == 1);
+    assert(sessions >= 160);
+
+    printf("  the editor does what %d scripted sessions say it does\n", sessions);
+}
+
 int main(void)
 {
     test_help_is_not_an_error();
@@ -902,6 +936,7 @@ int main(void)
     test_basic_runs_a_listing_from_a_file();
     test_basic_has_a_prompt();
     test_the_editor_draws_what_it_recorded();
+    test_the_editor_does_what_the_keys_say();
     printf("test_cli: ok\n");
     return 0;
 }

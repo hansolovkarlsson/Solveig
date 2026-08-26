@@ -5,6 +5,52 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The editor finishes vi's alphabet, and its sessions become tests — `pending`, 2026-08-26
+
+**`c`, `e`, `f`, `t`, `F`, `T`, `r` and `~`** in
+[programs/edit.sol](../programs/edit.sol), which is the last of what a person
+who knows vi reaches for.
+
+**`c` is `d` and then insert**, and it took two of vi's rules with it. `cc`
+*empties* the lines rather than removing them — changing a line and deleting one
+are different, and the cursor has to have somewhere to type. And **`cw` is
+`ce`**: changing a word does not swallow the space after it, where deleting one
+does, which is vi's oldest special case and the one people notice.
+
+**`fx`, `tx`, `Fx`, `Tx`** find a character on the line, with a count, and none
+of them leaves it — a character search that wandered onto the next line would be
+a search, and `/` is that. Forwards they are
+[`indexOf(what, #from)`](COMPLETED.md#637-indexof-cannot-say-where-to-start--done),
+built an hour earlier for the matcher and now with a third customer, so `3fx` is
+three primitive calls rather than a walk.
+
+**`e`** is the end of a word — a different question from `w`, and the one `cw`
+really asks. **`r`** replaces the character under the cursor and refuses rather
+than doing part of the job when a count asks for more characters than are left.
+**`~`** swaps its case and moves on, vi's one command that is a change and a
+motion at once.
+
+**The clamp caught a third customer, too.** `c$` deleted the space before the
+cursor, because the cursor was clamped to the end of the shortened line *before*
+the mode changed to insert — where a cursor may not stand one past the end and
+an insert may. That is the same distinction that let `dw` leave the last
+character of a file two days ago, in its third disguise.
+
+#### And the editor's own tests are in the repository now
+
+**[programs/edit/checks.sol](../programs/edit/checks.sol): 165 scripted
+sessions**, each writing a file, feeding the editor keys through a pipe and
+comparing what was written against what those keys should have done. It runs in
+`make test` in under a second.
+
+They existed as a scratch harness across the four days this editor was built,
+and a hundred and sixty-five checks that live in a temporary directory are worth
+nothing on the fifth day. Every defect those four days produced — one per
+feature — is a line in that file now.
+
+No message was added to the language: 138<!--count messages--> messages,
+unchanged.
+
 ### `indexOf` can say where to start — `fd1e5fa`, 2026-08-26
 
 **`indexOf(s, #from)`**, a second arity on the message that was already there,

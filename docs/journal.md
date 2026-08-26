@@ -11,6 +11,74 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-26 (tenth, and the editor is finished) — the rest of the alphabet
+
+`c`, `e`, `f`, `t`, `F`, `T`, `r`, `~`. The last of what somebody who knows vi
+reaches for, and all of it fitted into tables that already existed: two motions
+in the motion table, four prefixes in the prefix list, one operator in the
+operator list, two actions. That was the claim made when the grammar went in —
+*adding `e` or `f` later is one line in the motion table and no change anywhere
+else* — and it held, which is the only way that claim ever gets checked.
+
+### Two of vi's rules came with `c`
+
+**`cc` empties the lines rather than removing them.** Changing a line and
+deleting one are different: the cursor has to have somewhere to type. And **`cw`
+is `ce`** — changing a word does not swallow the space after it, where deleting
+one does. That is vi's oldest special case, it looks arbitrary written down, and
+it is not: what you type next needs somewhere to sit.
+
+### The clamp, a third time
+
+`c$` ate the space in front of the cursor.
+
+The cursor was being clamped to the end of the shortened line *before* the mode
+changed to insert — and a cursor may not stand one past the end of a line where
+an insert may. **That is the same distinction that let `dw` leave the last
+character of a file two days ago**, and the same one that made a range end
+different from a cursor position the day before that. Third disguise, same
+sentence, and I still did not see it coming.
+
+Something to carry: when one piece of state means *where you are* and another
+means *where you may be*, every command that changes the mode is a place they
+can disagree. There is no way to make that impossible in this design; the honest
+mitigation is that all three were caught by a check written before the code.
+
+### The tests moved into the repository, which is what finished it
+
+A hundred and sixty-five sessions had accumulated over four days in a scratch
+directory: keys in, expected file out. On the fifth day they would have been
+worth nothing.
+
+[programs/edit/checks.sol](../programs/edit/checks.sol) is those sessions as a
+Solum program — write a file, feed the editor keys through a pipe, compare what
+was written. It runs in `make test` in under a second, and it is a program
+rather than a shell script because that is what this repository writes its tools
+in, and because `readKey` reading a pipe exactly as it reads a terminal is what
+made the editor testable from its first hour.
+
+**Every defect the four days produced is a line in it**: the clamp that let `dw`
+leave the last character, the count cleared after an action rather than before,
+`c$` and the space. One defect per feature, every one caught by a check written
+before the code, and roughly three of every four failures along the way were the
+check rather than the editor. That ratio is the argument for writing the
+expectation first — a wrong one costs a minute of reading, and a real defect is
+found in the same minute.
+
+### What the editor was for
+
+It found three things the language did not have — the size of the terminal, a
+read that gives up, and (by standing next to the second one) two readers that
+did not share a buffer. It gave 3.2 its first real customer. It taught
+lib/pattern.sol where a library's speed lives, and it produced a primitive on
+its last day but one.
+
+And it stopped finding language gaps three changes before it stopped being
+built, which is the signal I would look for again: when a program starts finding
+only its *own* bugs, it has said what it has to say.
+
+---
+
 ## 2026-08-26 (ninth) — a primitive that was worth building for the wrong reason
 
 `indexOf(s, #from)`. I said before building it that it would be worth about ten
