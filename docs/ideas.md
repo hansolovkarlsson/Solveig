@@ -43,6 +43,10 @@ marked as a sketch.
 | Go-style concurrency | **No, for now** — it changes the whole VM |
 | Subclass `integer`, a `byte` subclass | **Not possible** — see below |
 | More `@` directives: `@define`, `@ifdef`, `@once` | **No** — each one's job is already done by something that is not a directive |
+| Programs that would press on something — an editor, Pascal, predicate logic, a parser toolkit | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written |
+| Networking, and sending code to a running machine | **Defer** — [no socket exists](#networking-and-sending-code-to-a-machine-that-is-already-running); the second needs 3.4 and 6.32 as well |
+| SQLite, SDL2 | **One project, not two** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); SDL2 fires that trigger and SQLite does not |
+| Fuzzy logic | **A library that would teach nothing** — arithmetic on floats, and the arithmetic all landed |
 | Namespaces for included files | **Defer** — the trigger is somebody else writing a library |
 | Splitting the reference into pages | **Defer** — the trigger is the message reference outgrowing the rest |
 | Restricting what a script may reach (6.32) | **Defer** — the trigger is a script somebody else wrote, or input from a stranger |
@@ -948,6 +952,25 @@ than after somebody has written scripts that depend on either answer.
 
 ### Extensions: a capability from a binary rather than from the VM
 
+**Asked again on 2026-08-25, with two customers named: SQLite and SDL2.** They
+do not stand alike, and the difference is this entry's own trigger — *wanting
+something Solum cannot express*.
+
+**SDL2 fires it.** A graphics surface cannot be expressed in Solum at all, at
+any speed, and no amount of library writing gets there. That is the trigger
+stated exactly.
+
+**SQLite does not.** A database *can* be written in Solum — slowly, and without
+thirty years of somebody else's work in it, but written. The argument for it is
+performance and ecosystem, which are good arguments and are not this one. It
+would ride along after the mechanism exists rather than justifying it.
+
+**And the cost is the sentence on the front page.** *No dependencies beyond a
+C11 compiler and `make`* is checked on three platforms by CI, and an extension
+mechanism is the first crack in it even if every extension is optional. That is
+possibly worth paying and it should be paid **deliberately**, which is why this
+is a decision and not a task.
+
 Could Solum gain something it cannot express — a database, a graphics surface, a
 compression codec — from a C library loaded at run time, rather than by growing
 the core VM? The sketch offered with the question was a `load` message for the
@@ -1436,6 +1459,12 @@ the receiver a message *about* the failed send instead of reporting it. It is
 the single largest capability on this list — proxies, recording mocks, remote
 objects, a DSL that answers anything — and it has never been considered here.
 
+**A customer for it was named on 2026-08-25**, and it is not a proxy for its own
+sake: sending code to a machine that is already running wants a **remote
+object**, which is the canonical use of this message everywhere it exists. See
+[networking](#networking-and-sending-code-to-a-machine-that-is-already-running).
+Neither has fired; if either does, they arrive together.
+
 **Mechanically it is small**, which is the surprise. There are exactly two real
 lookup failures in the machine: `vm.c` in the dispatch loop, and again in
 `sol_vm_send` for the C-side entry. At the first, the receiver and its arguments
@@ -1889,6 +1918,82 @@ arrived with the trigonometry
 being that `infinity` and `nan` are globals because they are values the
 arithmetic *reaches*, while `pi` is a constant and `pi` is a name a program is
 entitled to want.
+
+### Programs that would press on something
+
+These are programs rather than language features, and they are here because what
+makes each of them interesting is the **language question it would answer**. A
+program needs no permission to be written — the rule this repository runs on is
+that you write one and find out what it wants. What follows is the finding each
+is predicted to produce, written down *before* it is written, so that *it found
+nothing* stays an available answer.
+
+**A terminal editor**, in the manner of vi. Predicted finding, and this one is
+already confirmed absent rather than guessed: **nothing lets a program ask the
+terminal its size**. No rows, no columns, and no notification when either
+changes. Every full-screen editor needs that in its first hour.
+`system:write` and `system:readKey` cover the rest — escape sequences out, raw
+bytes in — and both landed on 2026-08-25, so the editor is the first program in
+a position to want the third thing.
+
+**A Pascal interpreter.** Not another BASIC: that shape has been taken, and
+[basic.sol](../programs/basic.sol) argues at length that a line-numbered
+language never nests and *that* is why it fits inside 254 frames. Pascal's
+recursive procedures are the case the comment sets up and never runs. A
+tree-walker for a lexically nested language spends frames in proportion to the
+**interpreted** program's call depth, so
+[3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels) would be met head
+on rather than dodged. That is the whole of its value, and it is a real one.
+
+**Predicate logic** — unification, resolution and backtracking. Wanted:
+coroutines, continuations, and a non-local return, all three of which are
+recorded as **No** further down this page with reasons. It would need an
+explicit trail and choice-point stack instead, which is exactly what `basic.sol`
+found `GOSUB` and `FOR` to be, so the shape is not unprecedented. Prediction: it
+works, awkwardly, and 3.5 bites on deep resolution. The sharpest single finding
+on this list and the largest job.
+
+**A parser toolkit** in the manner of lex, yacc, sed and awk — grammars written
+in something like BNF. **The most interesting of these**, because the answer to
+the obvious design is already on record: [lib/scan.sol](../lib/scan.sol) says a
+matcher built the combinator way dies with `block outlived the frame it was
+written in`, which is
+[3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame). So this program
+either gives that entry its first customer, or shows that a non-combinator
+design is fine and the limitation is livable. Both outcomes are worth having,
+which is rare enough to be the reason to pick it.
+
+**Fuzzy logic.** A library, and worth an honest note rather than a place in the
+queue: it is arithmetic on floats, and all of the arithmetic landed with
+[3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done). It would teach
+nothing about the language. Build it if the thing itself is wanted; not to find
+something.
+
+### Networking, and sending code to a machine that is already running
+
+[serve.sol](../programs/serve.sol) answers an HTTP request through environment
+variables — *there is no socket anywhere in this repository*. So a client and
+server pair that talk to each other means new primitives in the VM: connect,
+bind, listen, accept, and a read and a write that are not files.
+
+**Sending code fragments to a running `solvm` is a step further, and depends on
+three things rather than one.** The sockets above; then
+[3.4](ROADMAP.md#34-no-compatibility-across-sob-versions), because a `.sob` is
+not compatible across versions, so a service and its clients are lockstep or the
+wire carries source; and then
+[6.32](#632-a-script-cannot-be-run-with-less-than-the-whole-machine), because
+this is that entry's threat model stated exactly — *input from a stranger* — and
+it is deferred precisely because nobody had one.
+
+It has a fourth dependency that is a feature rather than a decision. **A remote
+object is the canonical customer for
+[intercepting a message that was not understood](#intercepting-a-message-that-was-not-understood)**,
+which is deferred below because nothing has wanted a proxy. Networking would
+want one, and the two should be considered together if either is.
+
+**The trigger: two machines that need to talk.** Nothing here has needed one,
+and `serve.sol` was written to answer a request without a socket precisely so
+that it would not need to.
 
 ## Recommended against
 
