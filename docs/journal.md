@@ -11,6 +11,123 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-26 (the editor, finished) — a postmortem
+
+Eleven commits. The first at 18:43 on the 25th, the last at 09:44 on the 26th,
+and **ten of them inside three hours and forty-seven minutes** of one morning.
+1,766 lines of editor, 44% of it comment; 429 lines of matcher; 771 lines of
+checks. It edits itself, which is the only acceptance test a text editor has.
+
+### What it was for, and what it got
+
+The rule this repository runs on is *write a program and find out what the
+language wants*. [ideas.md](ideas.md) had predicted, in writing and before the
+first line, that an editor would want **the size of the terminal** and find
+nothing to ask.
+
+It wanted four things, and the prediction named one of them:
+
+- **[6.34](COMPLETED.md#634-a-program-cannot-ask-how-big-the-terminal-is--done),
+  `system:terminalSize`** — predicted, and found in the first hour.
+- **[6.35](COMPLETED.md#635-a-read-that-gives-up--done), `system:keyWaiting`** —
+  the oldest known gap in the language, written down twice and never fixed
+  because nothing had bound the escape key.
+- **[6.36](COMPLETED.md#636-readline-and-readkey-did-not-share-an-input-buffer--done)**
+  — found by *reading the code beside* 6.35, where a comment claimed a problem
+  was handled that never had been.
+- **[6.37](COMPLETED.md#637-indexof-cannot-say-where-to-start--done),
+  `indexOf(s, #from)`** — wanted by the matcher the editor's search needed, and
+  by `expect.sol` independently.
+
+And it gave [3.2](ROADMAP.md#32-no-non-local-return) its first real customer: a
+dispatcher that wants to stop a *method* rather than a loop, which is what that
+entry is actually about and what neither library citing it had wanted.
+
+### What went wrong inside it
+
+One defect per feature, near enough, and they have one shape between them.
+
+| | |
+| --- | --- |
+| `visible` | `copyFrom` refuses a start past the end — a screen scrolled right past a short line |
+| `clamp` | a cursor may not stand past the last character; **a range end must** |
+| `keyWaiting` | a terminal in canonical mode holds what is typed, so a poll between two reads sees nothing |
+| the count | cleared *after* an action ran, so `.` replaying `3x` made it `33` |
+| `c$` | clamped before the mode changed, so a change ate the space in front of it |
+
+**Three of those five are the same sentence in different clothes** — one piece
+of state meaning *where you are* and another meaning *where you may be* — and
+each appeared the moment a second customer for that state turned up. Not one of
+them was visible when the state was written; every one was obvious the moment it
+broke.
+
+---
+
+### Postmortem
+
+1. **The prediction was right and the finding was not what it predicted.**
+   *Nothing lets a program ask the terminal its size* was true, and the number
+   was always reachable through `stty` — at 7ms an ask, which is a fork per
+   keystroke. **The absence was never the finding; the price of the workaround
+   was.** A prediction that names the right thing is enough to make the work
+   quick even when it is wrong about why the thing matters.
+
+2. **I started with a table of keys and had to throw it away.** The first
+   version bound `dd` as a two-key special case beside `gg`, which is what a key
+   table does to vi. The notation is `[count] operator [count] motion` and it is
+   a *grammar*; the rewrite made `dw`, `3dw`, `d3w`, `y'a`, `2yy` and `3p` one
+   mechanism with no cases. **When a program is imitating something well
+   designed, find its grammar before writing its table.**
+
+3. **Every fix that worked was "make there be one of something."** One
+   `wordForward`, run by both `w` and `dw`. Three methods that change the text,
+   so nothing can forget to be undoable. One window over standard input. `.`
+   repeating *keys* rather than a description of keys. The alternative — keep
+   two things in step — never once turned out to be the right answer. When two
+   places must agree, the question is not how to keep them agreeing but why
+   there are two.
+
+4. **Roughly three of every four failing checks were the check.** Across two
+   hundred or so, the ratio never moved. That is the argument for writing the
+   expectation before the code: a wrong expectation costs a minute of reading,
+   and a real defect turns up in the same minute. It is also a warning about
+   trusting one's own sense of what a command *should* do — vi's rules are
+   forty years old and mine were four minutes old.
+
+5. **The tests nearly did not survive.** A hundred and sixty-five sessions lived
+   in a scratch directory for four days. Had the editor been called finished one
+   commit earlier they would have been deleted with the job, and the record of
+   every defect above would have gone with them. **A test harness needs a home
+   in the repository on the day it is written, not the day the work ends.**
+
+6. **I recommended a change on the weakest number I had.** `indexOf(s, #from)`
+   was worth 4% on the workload that asked for it, where I had said ten. The
+   real arguments were that the copy it replaced is *quadratic in the length of
+   a line*, and that a second program's code got shorter. I led with a benchmark
+   because a benchmark is easy to quote, and the shape of the cost and the
+   second customer were both in hand before I said anything.
+
+7. **The measurement that mattered most was the one nobody asked for.** Nothing
+   in four days had opened the editor on a file bigger than its own four-line
+   sample. Fifty thousand lines: everything interactive instant, and `:%s`
+   across the file a **seven-second hang**. A program tested only on the input
+   it ships with is untested at the size people have.
+
+8. **The language helped more than it hindered, and the ledger is short.**
+   Against: no early return, which cost a flag in the dispatcher. In favour:
+   strings that cannot change, which made undo a stack of whole buffers and one
+   array copy per keystroke — the design a mutable-string language cannot afford
+   and would have replaced with a second implementation of every command. The
+   254-frame limit, which this file expected to meet, never bit once.
+
+9. **It stopped finding language gaps three changes before it stopped being
+   built.** Marks, undo and `.` each found only the editor's own bugs. That is
+   the signal to look for: **when a program starts finding only its own
+   defects, it has said what it has to say**, and everything after that is
+   craft rather than evidence.
+
+---
+
 ## 2026-08-26 (tenth, and the editor is finished) — the rest of the alphabet
 
 `c`, `e`, `f`, `t`, `F`, `T`, `r`, `~`. The last of what somebody who knows vi

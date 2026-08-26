@@ -1957,9 +1957,28 @@ It also confirmed something that had only ever been a warning: a byte-level
 reader **cannot tell the escape key from the start of a sequence**, which
 [examples/keys.sol](../examples/keys.sol) had said in the abstract because
 nothing had yet bound that key. A modal editor binds it to the most frequent
-action there is, and escape now takes effect on the key *after* it. Nothing is
-lost; nothing is misread; the screen simply waits. That is as sharp as that
-warning can be made, and it took a program to make it.
+action there is — and that warning became
+[6.35](COMPLETED.md#635-a-read-that-gives-up--done) the next morning, which is
+the oldest known gap in this language closed by the first program to be annoyed
+by it.
+
+**Finished on 2026-08-26, and the score is worth keeping.** The prediction named
+one finding and the program produced **four**, plus a first customer for an
+entry that had been waiting for one:
+
+| | |
+| --- | --- |
+| [6.34](COMPLETED.md#634-a-program-cannot-ask-how-big-the-terminal-is--done) | the terminal's size — **the predicted one** |
+| [6.35](COMPLETED.md#635-a-read-that-gives-up--done) | a read that gives up, so the escape key can be told from an arrow |
+| [6.36](COMPLETED.md#636-readline-and-readkey-did-not-share-an-input-buffer--done) | two readers that did not share a buffer, found by reading the code beside 6.35 |
+| [6.37](COMPLETED.md#637-indexof-cannot-say-where-to-start--done) | `indexOf` could not say where to start, wanted by the matcher its search needed |
+| [3.2](ROADMAP.md#32-no-non-local-return) | its first real customer: a dispatcher that wants to leave a *method* |
+
+Eleven commits, ten of them inside one morning, and
+[the postmortem](journal.md) is in the journal. **The prediction being partly
+wrong is the useful part**: what the editor could not have was never in doubt,
+and what that cost — a fork per keystroke to ask `stty` — is what made it an
+entry rather than a shrug.
 
 **A Pascal interpreter.** Not another BASIC: that shape has been taken, and
 [basic.sol](../programs/basic.sol) argues at length that a line-numbered
