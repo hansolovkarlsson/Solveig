@@ -364,8 +364,8 @@ line prints.
 ./bin/solvm programs/expect.sob programs             # another directory
 ```
 
-Over `examples/` alone that is 25<!--count examples-files--> files and
-480<!--count examples-claims--> claims:
+Over `examples/` alone that is 26<!--count examples-files--> files and
+503<!--count examples-claims--> claims:
 
 ```text
 21 files with expectations, 402 claims checked
@@ -388,12 +388,12 @@ table had when [disasm](#disasm--a-sob-file-read-and-disassembled) found it
 three sections out of date. They are also the first thing a newcomer reads.
 
 **It is in `make test` now**, in `tests/test_cli.c` with the other tests that
-run the binaries as a shell would — **839<!--count claims--> claims on every build**, in about
+run the binaries as a shell would — **865<!--count claims--> claims on every build**, in about
 sixteen seconds, and it fails the build if one stops holding.
 
 **And it checks the documentation too.** The guide and the reference carry the
 same notation inside ``` fences, and nothing checked those either — they are the
-two documents a newcomer actually reads. 357<!--count docs-claims--> claims
+two documents a newcomer actually reads. 360<!--count docs-claims--> claims
 across eighteen<!--count docs-documents--> documents,
 and two more on `README.md` and `index.md` — the front pages, which were the
 last two things nothing checked.
@@ -435,7 +435,7 @@ no notation saying what it counts — so it is given one, which renders as nothi
 and leaves the sentence as it was:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 839<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 865<!--count claims--> claims
 ```
 
 Each name is recounted from the repository as it stands. A name the table does
@@ -728,6 +728,7 @@ A modal editor in the manner of vi, in about six hundred lines.
 `h j k l` and the arrows move, `w` and `b` by word, `0` and `$` to the ends of a
 line, `gg` and `G` to the ends of the file, ctrl-f and ctrl-b by a screen.
 `i a I A o O` begin insert, `x` deletes a character, `dd` a line, `J` joins one.
+`/pattern` and `?pattern` search forwards and back, `n` and `N` do it again.
 `:w`, `:w name`, `:q`, `:q!`, `:wq` and a bare number to go to that line. Escape
 leaves insert mode, with the caveat below.
 
@@ -771,9 +772,23 @@ reasoning about it.
   every editor ever written has this — but it is where most of the arithmetic
   in this file went.
 
-**What it does not do**: no undo, no search, no counts before a command, no
-registers, no marks. Each of those is more of the same rather than more of the
-language, and this program was written to ask the language a question.
+**Searching came a day later, and most of it is a library.**
+[lib/pattern.sol](../lib/pattern.sol) is regular expressions in the subset vi
+searches with — `.`, `*`, `[abc]`, `[^a-z]`, `^`, `$` and `\` — and the editor
+is `/`, `?`, `n`, `N` on top of it. What the program added to the library was
+the part a matcher cannot know: **a file here is not one string.** It is an
+array of lines and the cursor is a row and a column, so a search is a walk over
+lines, and `^` and `$` mean the ends of a *line* without anybody having decided
+that they should. Both directions wrap and say when they did, because a search
+that comes back round to where it started looks exactly like one that found
+something new. And a pattern that will not compile puts its complaint on the
+bottom line rather than ending the editor.
+
+**What it does not do**: no undo, no counts before a command, no registers, no
+marks, and no `:s///` — substitution wants the *extent* of a match where the
+library answers only where one begins, which is the one place that file was
+left deliberately short. Each of those is more of the same rather than more of
+the language, and this program was written to ask the language a question.
 
 ---
 

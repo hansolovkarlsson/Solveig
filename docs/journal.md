@@ -11,6 +11,74 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-26 — a search, and a prediction of my own that did not hold
+
+The editor could not find anything, and `/` in a vi-shaped editor does not mean
+*substring*, it means *pattern*. So the day was a regular expression engine and
+about forty lines of editor on top of it.
+
+### Where it went, and why not into the editor
+
+Into [lib/pattern.sol](../lib/pattern.sol), on the search path, and the argument
+is [manifest.sol](../programs/manifest.sol)'s from months back: *a JSON reader is
+library code, and the program above it is the thing that finds out whether the
+library is any good.* A matcher is the same kind of thing. The editor is now a
+customer of it rather than the owner of it, and the parts that turned out to be
+interesting are all on the library side.
+
+It includes [scan.sol](../lib/scan.sol) to read the pattern, which makes it the
+third library to do that and the first to be written *after* the cursor existed
+rather than having written its own first.
+
+### The prediction I made and got wrong
+
+I expected [3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels) to bite,
+and to bite on the **pattern**: the textbook matcher recurses once per pattern
+character, and a repository that keeps saying *recursion is about 62 levels here*
+suggests `/somewhere in a long sentence` would die on its own length.
+
+Measured, both halves of that are wrong. Each nested call in this matcher is
+**one frame**, not the four a method recursing through a chain costs, so the
+ceiling is 250 rather than 62 — and the design that walks ordinary items in a
+loop never recursed on pattern length in the first place. **250 stars in one
+pattern work and 251 does not**, which is not a pattern anybody writes.
+
+What the measurement did find is a different danger, and a much better one. The
+textbook `*` recurses over the **text** — *match the rest here, or take one more
+character and try again* — and then the depth is the length of the line being
+searched. A pattern is something the person types and keeps short; a line is
+whatever is in the file. The 2,001-character line I tested on would have wanted
+two thousand frames and gets two. **The entry to guard against was never the one
+the entry is written about**, and the only way to find that out was to write the
+thing and count.
+
+### Two smaller things
+
+**A Solum library cannot answer one message at two arities.** A dictionary has
+`at(key)` and `at(key, default)`; `find(text)` and `findFrom(text, at)` are two
+names for one idea because a block has one parameter list and a slot holds one
+block. Primitives get the overload, Solum does not. Not a limitation worth an
+entry — the two names read fine, and any single-arity language has this — but it
+is the first time the difference between what a primitive may do and what a
+library may do has shown up in an interface rather than in performance.
+
+**The cheatsheet's library table was missing `scan.sol`.** It has been shipped
+since 0.30.0, and the one-page index of the whole language never listed it. Two
+files went in today: the missing one and the new one.
+
+### The checks that failed were the checks
+
+Three of the fifteen editor search cases failed on the first run and all three
+were my expectations rather than the editor: `/b*e` matches "beta" at the **first**
+character and not the second, because a star that can match nothing still leaves
+the match starting where the pattern started; and `findLast(text, #2)` on a
+match at position 1 answers 1, which is what *before position two* means. Writing
+the expectation down first is what turned all three into thirty seconds of
+reading rather than a debugging session, and it is the second day running that
+the thing written before the work was the thing that made the work quick.
+
+---
+
 ## 2026-08-25 (later still) — an editor, and a prediction that held
 
 Ten directions went into [ideas.md](ideas.md) an hour before this, four of them

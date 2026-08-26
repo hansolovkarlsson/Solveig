@@ -1988,6 +1988,17 @@ either gives that entry its first customer, or shows that a non-combinator
 design is fine and the limitation is livable. Both outcomes are worth having,
 which is rare enough to be the reason to pick it.
 
+**A first data point arrived on 2026-08-26, from the side.**
+[lib/pattern.sol](../lib/pattern.sol) is a matcher rather than a toolkit and was
+written because an editor wanted `/`, not to answer this — and it is
+non-combinator by construction: the pattern compiles to an **array of items**
+walked by a loop, and 3.1 never came up, because nothing there is a block that
+outlives anything. It also measured what recursion costs when it is unavoidable:
+one frame per `*`, so 250 of them fit. **That is the smaller half of the
+question.** A grammar is a tree where a pattern is a list, and a tree is exactly
+what multiplies that measurement — so the entry stands, with its second outcome
+now the likelier of the two.
+
 **Fuzzy logic.** A library, and worth an honest note rather than a place in the
 queue: it is arithmetic on floats, and all of the arithmetic landed with
 [3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done). It would teach

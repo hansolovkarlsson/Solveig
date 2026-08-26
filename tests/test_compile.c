@@ -223,6 +223,7 @@ static const char *shipped[] = {
     "examples/walk.sol",       "examples/time.sol",
     "examples/keys.sol",      "examples/random.sol",
     "examples/scanning.sol", "examples/commands.sol",
+    "examples/matching.sol",
 
     "programs/log.sol",        "programs/evaluator.sol",
     "programs/manifest.sol",   "programs/page.sol",
@@ -586,7 +587,7 @@ static void test_no_example_is_left_out(void)
    be leaving the largest thing on the search path unchecked. */
 static const char *library[] = {
     "lib/control.sol", "lib/text.sol", "lib/json.sol", "lib/shell.sol",
-    "lib/html.sol", "lib/math.sol", "lib/scan.sol",
+    "lib/html.sol", "lib/math.sol", "lib/scan.sol", "lib/pattern.sol",
 };
 #define LIBRARY_COUNT (sizeof(library) / sizeof(library[0]))
 

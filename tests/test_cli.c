@@ -814,8 +814,10 @@ static void test_basic_has_a_prompt(void)
  * sequence went where. programs/edit/session.in moves by word, deletes a
  * character, appends to a line, opens a new one, goes to the top, deletes a
  * line, goes to the bottom, runs off the end of a line long enough to scroll
- * the screen sideways, writes and quits -- and programs/edit/session.out is
- * every byte that reached the terminal while it did.
+ * the screen sideways, searches for a pattern and wraps round to find it,
+ * deletes a character of it, searches again and is told there is no second
+ * one, writes and quits -- and programs/edit/session.out is every byte that
+ * reached the terminal while it did.
  *
  * The sideways scroll is in there because leaving it out cost a crash: a line
  * that ends before the scrolled screen begins asks `copyFrom` for a start past
@@ -851,15 +853,15 @@ static void test_the_editor_draws_what_it_recorded(void)
     free(expected);
 
     /* And what it wrote is what the keys asked for: a character gone from the
-       second line, four added to its end, a line opened after it, and the
-       first line deleted. The fourth line is untouched and is there to be
+       second line, four added to its end, a line opened after it, the first
+       line deleted, and a character taken off the line the search found. The fourth line is untouched and is there to be
        *drawn* -- it opens with a tab and runs past the eightieth column, so
        the transcript covers both of the things a screen does to a line it
        cannot show as it is. */
     char *edited = slurp_file(DIR "/edit-session.txt");
     assert(strcmp(edited,
                   "the econd line END\n"
-                  "new\n"
+                  "ew\n"
                   "the third line\n"
                   "\tan indented line that runs well past the eightieth column,"
                   " so the screen has to scroll sideways to show its end\n") == 0);

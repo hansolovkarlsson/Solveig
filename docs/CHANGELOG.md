@@ -5,6 +5,60 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Searching, and a regular expression small enough to fit — `pending`, 2026-08-26
+
+**[programs/edit.sol](../programs/edit.sol) searches**: `/pattern`, `?pattern`,
+`n` and `N`. Most of it is a new library.
+
+**[lib/pattern.sol](../lib/pattern.sol)** is regular expressions in the subset
+vi searches with — a character matching itself, `.`, `*`, `[abc]` `[a-z]`
+`[^abc]`, `^`, `$`, and `\` to escape any of them:
+
+```
+@include "pattern.sol".
+
+pattern:on("^[a-z]*ing$"):find("everything"):print.   ; #1
+pattern:on("[0-9]"):find("port 80"):print.            ; #6
+```
+
+**No groups, no alternation, no `+` or `?`, no captures.** Those want a
+backtracker over a tree rather than over a list, and nothing has wanted one.
+What is here is the half vi searches with, and it is the half that earns its
+keep.
+
+**The shape it had to have, and the number that decided it.** The matcher
+**recurses once per `*` and nowhere else**; a run of ordinary items is walked in
+a loop. Measured against
+[3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels): 250 stars in one
+pattern work and 251 answers `call depth exceeded`, while the length of the
+pattern and the length of the text cost no depth at all — a 2,001-character line
+is searched at a depth of two, in 0.9ms. The textbook shape spends a frame per
+character of the **text** it is searching, which would have made the length of
+somebody's line the thing that broke it, and a line is longer than a pattern by
+a factor nobody controls.
+
+**A small thing the language decided.** `find(text)` and `findFrom(text, at)`
+are two names for one idea, because a block has one parameter list and a slot
+holds one block: a library written in Solum cannot answer one message at two
+arities the way `at(key)` and `at(key, default)` do on a dictionary. Primitives
+can; Solum cannot.
+
+**What the editor added on top.** A file here is not one string — it is an array
+of lines and the cursor is a row and a column — so a search is a walk over lines
+rather than one call over the text, and `^` and `$` therefore mean the ends of a
+*line* without anybody having decided that they should. Both directions wrap and
+say so when they do, because a search that comes round to the line it started on
+looks exactly like one that found something new. And a pattern that will not
+compile is a typing mistake rather than a fault: `/[ab` puts *a pattern has an
+unclosed '['* on the bottom line and leaves the cursor where it was.
+
+[examples/matching.sol](../examples/matching.sol) is the library's example and
+carries 23 of the claims checked on every build; the editor's recorded
+transcript now searches, wraps, and is told there is no second match.
+
+No message was added: the language answers 137<!--count messages--> messages,
+unchanged. Documented claims go 839 to 865<!--count claims-->.
+
 ### An editor, and the one message it asked for — `56706dc`, 2026-08-25
 
 **[programs/edit.sol](../programs/edit.sol) is a modal terminal editor in the

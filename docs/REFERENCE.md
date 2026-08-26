@@ -758,6 +758,61 @@ reads `&notanentity;` as far as the `;` before deciding it is not an entity
 after all, and puts the cursor back. Saving `pos` and restoring it is the whole
 mechanism, and it is why there is no separate `mark`.
 
+#### pattern.sol
+
+Regular expressions, in the subset vi searches with. It needs `scan.sol`, which
+it includes itself.
+
+```
+@include "pattern.sol".
+
+p := pattern:on("^[a-z]*ing$").
+p:find("everything"):print.           ; #1
+p:find("thingy"):print.               ; nil
+pattern:on("[0-9]"):find("port 80"):print.   ; #6
+```
+
+| Message | Answers |
+| --- | --- |
+| `pattern:on(text)` | a compiled pattern; **raises** on one it cannot read |
+| `find(text)` | where the first match begins, **one-based**, or nil |
+| `findFrom(text, #at)` | the same, starting at `#at` rather than at the beginning |
+| `findLast(text, #before)` | where the last match beginning before `#before` is, or nil |
+| `matches(text)` | whether there is a match anywhere — `find:notNil` |
+| `endOfMatchAt(text, #at)` | where a match beginning at `#at` ends, or nil |
+
+The language is seven things: a character matching itself, `.` for any one, `*`
+for zero or more of the item before it, `[abc]` `[a-z]` `[^abc]` for a class,
+`^` and `$` for the ends, and `\` to escape any of them. `^` and `$` are
+ordinary characters anywhere but the ends of the pattern, and a `*` with nothing
+before it is ordinary too — which is vi's rule, and is what lets a price or a
+shell variable be searched for unescaped.
+
+**What is not here**: groups, alternation, `+`, `?`, captures, counted
+repetition. Those want a backtracker over a tree rather than over a list, and
+nothing has wanted one.
+
+**The pattern is compiled once**, because the caller is usually a search — the
+same pattern against a hundred thousand lines, and re-reading `[a-z]` at every
+one of them is the work worth not doing.
+
+**It recurses once per `*` and nowhere else**, which is what makes it fit inside
+[3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels). 250 stars in one
+pattern work and 251 answers `call depth exceeded`; the length of the pattern
+and the length of the text cost no depth at all, so a 2,001-character line is
+searched at a depth of two. The textbook shape — a star that recurses over the
+*text* — would have spent a frame per character of the line, and a line is
+longer than a pattern by a factor nobody controls.
+
+**`find` and `findFrom` are two names for one idea**, because a block has one
+parameter list and a slot holds one block: a library written in Solum cannot
+answer one message at two arities the way `at(key)` and `at(key, default)` do.
+Primitives can; Solum cannot, and two names are the honest way round it.
+
+[programs/edit.sol](../programs/edit.sol) is the program built on it: `/`, `?`,
+`n` and `N` are this library plus a walk over the buffer's lines, which is why
+`^` and `$` mean the ends of a *line* there without anybody having decided so.
+
 #### html.sol
 
 Reads HTML into a tree of elements. It needs `text.sol`, which it includes

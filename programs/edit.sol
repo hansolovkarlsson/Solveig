@@ -11,8 +11,9 @@
 ;   h j k l, arrows   move           i a I A   insert here, at the start, at the end
 ;   w b               by word        o O       open a line below or above
 ;   0 $               line ends      x dd J    a character, a line, join
-;   gg G              file ends      :w :q :q! :wq :w name
-;   ctrl-f ctrl-b     by a screen    :17       go to a line
+;   gg G              file ends      /pat ?pat search on, and back
+;   ctrl-f ctrl-b     by a screen    n N       the same search again, either way
+;                                    :w :q :q! :wq :w name :17
 ;
 ; ---------------------------------------------------------------------------
 ; What it was written to find, which was written down before it was written
@@ -84,18 +85,44 @@
 ; where most of the arithmetic in this file went.
 ;
 ; ---------------------------------------------------------------------------
+; Searching, which came a day later
+;
+; `/pattern`, `?pattern`, `n` and `N`, over the regular expressions in
+; [lib/pattern.sol](../lib/pattern.sol) -- `.`, `*`, `[abc]`, `[^a-z]`, `^`, `$`
+; and `\` to escape any of them. The library is the interesting half and says
+; why it is shaped as it is; what the editor added to it was three things:
+;
+; **A file is not one string.** It is an array of lines and the cursor is a row
+; and a column, so a search is a walk over lines rather than one call over the
+; text -- and `^` and `$` mean the ends of a *line* without anybody deciding
+; that they should. A matcher over the whole buffer would have had to be told.
+;
+; **Wrapping has to be said out loud.** A search that comes round to the line it
+; started on looks exactly like a search that found something new, so both
+; directions report the wrap.
+;
+; **A pattern that will not compile is a typing mistake, not a fault.** `/[ab`
+; puts *a pattern has an unclosed '['* on the bottom line and leaves the cursor
+; where it was; the alternative is an editor that dies of a missing bracket.
+;
+; ---------------------------------------------------------------------------
 ; What it does not do
 ;
-; No undo, no search, no counts before a command, no registers, no marks. Each
-; of those is more of the same rather than more of the language, and this was
-; written to ask the language a question rather than to replace anybody's
-; editor. What is here is what it takes to open a file, move around it, change
-; it and write it back -- which is enough to have edited this comment.
+; No undo, no counts before a command, no registers, no marks, and no
+; substitution -- `:s/a/b/` would want the *extent* of a match and the library
+; answers only where one begins, which is the one place it was left deliberately
+; short. Each of those is more of the same rather than more of the language, and
+; this was written to ask the language a question rather than to replace
+; anybody's editor. What is here is what it takes to open a file, move around
+; it, change it and write it back -- which is enough to have edited this
+; comment.
 ;
 ; It is held to a **recorded transcript** in tests/test_cli.c: a fixed screen
 ; size, a scripted stream of keystrokes, and the bytes it writes compared with
 ; the bytes it wrote when somebody last looked at them. `readKey` reading a pipe
 ; the same way it reads a terminal is what makes that possible at all.
+
+@include "pattern.sol".
 
 esc := #27:asCharacter.
 csi := esc:concat("[").
@@ -148,8 +175,12 @@ edit:message := "".         ; the bottom line, when it is not a command
 edit:dirty := false.        ; whether there is anything to lose
 edit:running := true.
 edit:pending := nil.        ; the first key of a two-key command: d, g
-edit:command := "".         ; the ':' line as it is typed
+edit:prompt := ":".         ; which bottom line is being typed: ':', '/' or '?'
+edit:command := "".         ; that line, as it is typed
 edit:pushed := nil.         ; one key read and not used -- see `nextKey`
+edit:pattern := nil.        ; the last search, compiled
+edit:patternSource := "".   ; and as it was typed, for the message
+edit:direction := 'forward. ; which way `n` goes
 
 edit:open := { path |
     self:path := path.
@@ -256,7 +287,7 @@ edit:pad := { text | | wide |
 
 edit:bottom := {
     self:mode:equals('command):ifElse(
-        { ":":concat(self:command) },
+        { self:prompt:concat(self:command) },
         { self:message:equals(""):and({ self:mode:equals('insert) }):ifElse(
             { "-- INSERT --" },
             { self:message }) }) }.
@@ -518,7 +549,17 @@ normalKeys:atPut("J", { edit:joinLine }).
 ; key that waits for the next one is a key the screen cannot redraw behind.
 normalKeys:atPut("d", { edit:pending := "d" }).
 normalKeys:atPut("g", { edit:pending := "g" }).
-normalKeys:atPut(":", { edit:mode := 'command. edit:command := "" }).
+normalKeys:atPut(":", { edit:beginPrompt(":") }).
+
+; Searching. `/` and `?` are the same line the colon commands are typed on, with
+; a different first character -- which is what `prompt` holds and the only thing
+; that tells the three apart. `n` and `N` repeat the last one, forwards and the
+; other way, and neither reads a line at all.
+normalKeys:atPut("/", { edit:beginPrompt("/") }).
+normalKeys:atPut("?", { edit:beginPrompt("?") }).
+normalKeys:atPut("n", { edit:repeatSearch(edit:direction) }).
+normalKeys:atPut("N", { edit:repeatSearch(
+    edit:direction:equals('forward):ifElse({ 'backward }, { 'forward })) }).
 
 edit:normalKey := { key | | first |
     self:pending:notNil:ifElse(
@@ -550,6 +591,11 @@ edit:insertKey := { key | | byte |
                       { byte:equals(#9):or({ byte:greaterOrEqual(#32) }):ifTrue({
                           self:insertText(key) }) }) }) }) }) }.
 
+edit:beginPrompt := { which |
+    self:mode := 'command.
+    self:prompt := which.
+    self:command := "" }.
+
 edit:commandKey := { key | | byte, text |
     key:isKindOf(symbol):ifFalse({
         key:equals(esc):ifElse(
@@ -559,7 +605,10 @@ edit:commandKey := { key | | byte, text |
                   { text := self:command.
                     self:command := "".
                     self:mode := 'normal.
-                    self:runCommand(text) },
+                    self:prompt:equals(":"):ifElse(
+                        { self:runCommand(text) },
+                        { self:runSearch(text, self:prompt:equals("/"):ifElse(
+                            { 'forward }, { 'backward })) }) },
                   { byte:equals(#127):or({ byte:equals(#8) }):ifElse(
                       { self:command:size:equals(#0):ifElse(
                           { self:mode := 'normal },
@@ -622,6 +671,92 @@ edit:runCommand := { text | | words, name, rest, force |
         :onError({ e | self:message := "not an editor command: {}":fill([text]) }) }.
 
 ; ---------------------------------------------------------------------------
+; Searching
+;
+; The pattern is [lib/pattern.sol](../lib/pattern.sol)'s, compiled once when it
+; is typed and asked about one line at a time. A file is not one string here --
+; it is an array of lines, and the cursor is a row and a column -- so the search
+; is a walk over lines rather than one call over the text. `^` and `$` therefore
+; mean the ends of a *line*, which is what they mean in vi and is a property of
+; how the buffer is held rather than a decision anybody took.
+;
+; Both directions wrap, and say so when they do. Wrapping without a word for it
+; is how a search that found the thing you started on looks exactly like a
+; search that found a new one.
+
+edit:runSearch := { text, direction | | source |
+    ; An empty pattern repeats the last one, which is what typing `/` and
+    ; return means everywhere this key has ever existed.
+    source := text:equals(""):ifElse({ self:patternSource }, { text }).
+    source:equals(""):ifElse(
+        { self:message := "no previous search" },
+        { { self:pattern := pattern:on(source).
+            self:patternSource := source.
+            self:direction := direction.
+            self:jumpToMatch(direction) }
+            ; A pattern that will not compile is a typing mistake, not a fault:
+            ; it says what is wrong with it and the editor carries on.
+            :onError({ e |
+                self:pattern := nil.
+                self:message := e:message }) }) }.
+
+; `n` and `N`. The stored direction is not changed by `N` -- it reverses this
+; search rather than turning the searching around, which is vi's rule and the
+; one that makes `N` usable for stepping back over something you passed.
+edit:repeatSearch := { direction |
+    self:pattern:isNil:ifElse(
+        { self:message := "no previous search" },
+        { self:jumpToMatch(direction) }) }.
+
+edit:jumpToMatch := { direction | | hit |
+    hit := direction:equals('forward):ifElse(
+        { self:matchAfter },
+        { self:matchBefore }).
+    hit:isNil:ifElse(
+        { self:message := "pattern not found: {}":fill([self:patternSource]) },
+        { self:row := hit:at(#1).
+          self:column := hit:at(#2).
+          self:clamp.
+          hit:at(#3):ifTrue({
+              self:message := direction:equals('forward):ifElse(
+                  { "search hit the bottom, continued at the top" },
+                  { "search hit the top, continued at the bottom" }) }) }) }.
+
+; Every line once, starting on the one the cursor is on and coming back to it:
+; a match earlier in the current line is found on the last pass rather than the
+; first, which is what makes the wrap complete rather than nearly so. Answers
+; the row, the column, and whether it went round.
+edit:matchAfter := { | found, i, row, from, wrapped |
+    found := nil.
+    i := #0.
+    { found:isNil:and({ i:lessOrEqual(self:lines:size) }) }:whileTrue({ | at |
+        row := self:row:add(i).
+        wrapped := row:greaterThan(self:lines:size).
+        wrapped:ifTrue({ row := row:sub(self:lines:size) }).
+        from := i:equals(#0):ifElse({ self:column:add(#1) }, { #1 }).
+        at := self:pattern:findFrom(self:lines:at(row), from).
+        at:notNil:ifTrue({ found := [row, at, wrapped] }).
+        i := i:add(#1) }).
+    found }.
+
+edit:matchBefore := { | found, i, row, before, wrapped |
+    found := nil.
+    i := #0.
+    { found:isNil:and({ i:lessOrEqual(self:lines:size) }) }:whileTrue({ | at |
+        row := self:row:sub(i).
+        wrapped := row:lessThan(#1).
+        wrapped:ifTrue({ row := row:add(self:lines:size) }).
+        ; One past the end of the line, so `findLast` will consider a match
+        ; that begins at its last character.
+        before := i:equals(#0):ifElse(
+            { self:column },
+            { self:lines:at(row):size:add(#2) }).
+        at := self:pattern:findLast(self:lines:at(row), before).
+        at:notNil:ifTrue({ found := [row, at, wrapped] }).
+        i := i:add(#1) }).
+    found }.
+
+; ---------------------------------------------------------------------------
 ; Running it
 ;
 ; With no argument it writes a file of its own and opens that, the same as every
@@ -634,6 +769,9 @@ h j k l or the arrows   move          i a I A   insert, here or at the ends
 0 and $                 the ends      o and O   a new line below or above
 w and b                 by word       x  dd     a character, a line
 gg and G                the file      J         join the line below
+
+/pattern and ?pattern search, forwards and back; n and N do it again.
+A pattern is . * [abc] [^a-z] ^ $ and \\ to escape one of them.
 
 :w  :w name  :q  :q!  :wq       and a bare number goes to that line
 escape leaves insert mode -- and is read on the key after it, which is
