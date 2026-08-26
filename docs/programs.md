@@ -1,6 +1,6 @@
 # The programs
 
-*The twelve<!--count programs--> files in [programs/](../programs/): what each one does, how to run
+*The thirteen<!--count programs--> files in [programs/](../programs/): what each one does, how to run
 it, and what it found. [examples/](../examples/) is the other directory — one
 file per concept the [guide](GUIDE.md) names, each written to show a feature.
 These were written to do a job.*
@@ -43,6 +43,7 @@ is the map; the file is the argument.
 | [bench](../programs/bench.sol) | times a command, and says whether two of them really differ | `solvm bench.sob [runs] [cmd] [-- cmd]` |
 | [basic](../programs/basic.sol) | runs a BASIC listing | `solvm basic.sob` |
 | [edit](../programs/edit.sol) | edits a file on the screen, in the manner of vi | `solvm edit.sob [file]` |
+| [sola](../programs/sola.sol) | compiles SolaBasic to a `.sob` | `solvm sola.sob [prog.bas] [out.sob]` |
 
 Every one runs with no arguments at all, on input it supplies itself. That is
 deliberate — a program you have to feed before it will say anything is a program
@@ -394,7 +395,7 @@ sixteen seconds, and it fails the build if one stops holding.
 **And it checks the documentation too.** The guide and the reference carry the
 same notation inside ``` fences, and nothing checked those either — they are the
 two documents a newcomer actually reads. 363<!--count docs-claims--> claims
-across eighteen<!--count docs-documents--> documents,
+across nineteen<!--count docs-documents--> documents,
 and two more on `README.md` and `index.md` — the front pages, which were the
 last two things nothing checked.
 
@@ -929,9 +930,95 @@ this program was written to ask the language a question.
 
 ---
 
+## sola — a compiler for another language
+
+Reads a [SolaBasic](SOLABASIC.md) program and writes a `.sob`. The file it
+produces is run by `solvm` with nothing of this program present, which is the
+difference between it and [basic](../programs/basic.sol) — that one *interprets*
+another language, this one **compiles** one.
+
+```sh
+./bin/solvm programs/sola.sob                        # the demonstration
+./bin/solvm programs/sola.sob prog.bas [prog.sob]    # a file
+```
+
+```text
+i = 1
+i = 2
+i = 3
+i = 4
+i = 5
+counted to 5
+```
+
+This is **stage 3** of the eight [SOLABASIC.md](SOLABASIC.md) lists, and it is
+deliberately out of order. Stage 3 is `GOTO` and labels, which is the claim the
+whole design rests on, and the document says to reach it in week one rather than
+week six.
+
+**The claim is that `GOTO` cannot be written in Solum.** There is no
+control-flow syntax here — a loop is a message send — so a translator from BASIC
+to Solum *source* would have to compile every statement into a block, put the
+blocks in an array, and dispatch on a label variable. That is a full send per
+statement, which is roughly what `basic.sol` already pays as a tree-walker: a
+slower interpreter wearing a compiler's name. In bytecode, `GOTO` is `OP_JUMP`
+and `OP_LOOP`.
+
+**And the verifier cooperates, which had to be checked rather than assumed.**
+SolVM requires the paths into an instruction to agree on stack height. Every
+SolaBasic statement compiles at depth 0 and ends with a `POP`, so a label is a
+depth-0 merge point *by construction* and an arbitrary jump between statements
+needs no analysis at all. That was measured before the compiler was written, by
+hand-assembling a chunk with a backward jump to an arbitrary earlier offset, a
+forward jump over dead code, and a conditional between them — and by breaking it
+two ways to check the test could fail:
+
+| | |
+| --- | --- |
+| a jump into the middle of an instruction | refused at load, exit 65 |
+| a jump to a point at a different stack depth | refused at load, exit 65 |
+
+The second is the one that matters, because it is what a compiler that got
+clever would emit. **The depth-0 discipline is load-bearing rather than tidy.**
+
+**The opcode is not known when the jump is emitted**, which is the whole of the
+back end here. Forward is `OP_JUMP` and backward is `OP_LOOP` — two opcodes,
+because the machine has no signed offset and the verifier relies on everything
+else moving forwards — and which one a `GOTO` is depends on where its label
+turns out to be. Both are three bytes, so three zero bytes go down as a
+placeholder and a fixup list remembers where. Nothing moves afterwards, so no
+offset already computed can be invalidated by a later patch, which is the trap in
+every backpatching scheme that emits a short jump and grows it.
+
+**A label is a string of characters, not a number.** That is CB80's rule taken
+over whole, and it is what lets an old listing through unaltered: labels need not
+ascend, need not be present, and nothing here ever sorts one.
+
+```basic
+100 PRINT "at one hundred"
+GOTO 50
+30 PRINT "never"
+50 PRINT "at fifty, which is written after one hundred"
+END
+```
+
+**And it is 45 times faster than the tree-walker.** The same counting loop —
+200,000 iterations, two statements each — is 1.54s under `basic.sol` and 0.034s
+compiled, both including VM start. [SOLABASIC.md](SOLABASIC.md) predicted
+"roughly an order of magnitude" and was too modest; the entry that says so is in
+that document's own change log, which is what it is for. It is still *a much
+faster interpreter* rather than *compiled* — SolVM has no arithmetic
+instruction, so a SolaBasic `+` is one `OP_SEND` and not an add.
+
+**What is not here is stages 4 to 7**, and the header says so at length rather
+than leaving it to be discovered: no `SUB`, no arrays, no `FOR`, no type system,
+and a `PRINT` that joins its items and shows them with none of BASIC's zones or
+spacing. That last one is the thing most likely to be mistaken for a bug, which
+is why it is written down twice.
+
 ## Adding one
 
-There is no template and there should not be. What the twelve have in common is
+There is no template and there should not be. What the thirteen have in common is
 only this:
 
 1. **It does a job somebody would want done**, rather than exercising a feature.

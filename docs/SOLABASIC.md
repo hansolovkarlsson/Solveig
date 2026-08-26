@@ -501,10 +501,12 @@ accept.
 procedure — generous, and a hard wall for one long module-level program.
 
 **Arithmetic stays a message send.** SolVM has no arithmetic instruction; `a + b`
-compiles to one `OP_SEND`, not an add. Against the tree-walker's several sends
-per node this should be worth roughly an order of magnitude, but it is *"a much
-faster interpreter"* rather than *"compiled"*, and the document should say so
-before the benchmark does.
+compiles to one `OP_SEND`, not an add. It is *"a much faster interpreter"*
+rather than *"compiled"*, and the document should say so before the benchmark
+does — but the benchmark has now spoken and it is **45 times** the tree-walker,
+not the order of magnitude first written here. The same counting loop, 200,000
+iterations of two statements, is 1.54s under
+[basic.sol](../programs/basic.sol) and 0.034s compiled, both including VM start.
 
 ---
 
@@ -534,7 +536,24 @@ interpreter, and it is the part that can be had without a standard.
 
 ### Changes to this document
 
-*Nothing yet. The compiler has not started.*
+**2026-08-26 — stage 3 was built first, and the claim it tests holds.**
+[programs/sola.sol](../programs/sola.sol) compiles labels and `GOTO` to
+`OP_JUMP` and `OP_LOOP`. Before it was written, a chunk was hand-assembled with
+a backward jump to an arbitrary earlier offset, a forward jump over dead code,
+and a conditional between them: it verified and ran. **Both ways of getting it
+wrong were checked too**, because a test that cannot fail proves nothing — a
+jump into the middle of an instruction and a jump to a point at a different
+stack depth are each refused *at load*, exit 65, as a message rather than a
+crash. The depth-0 discipline is load-bearing rather than tidy, and nothing in
+the design section above needed changing.
+
+**2026-08-26 — the speed estimate was too modest, and is now measured.**
+[What this costs](#what-this-costs) said compiling should be worth "roughly an
+order of magnitude" over the tree-walker. It is 45 times: the same 200,000-
+iteration loop is 1.54s under `basic.sol` and 0.034s compiled. The sentence has
+been replaced with the measurement. The claim it qualifies — that this is a much
+faster *interpreter* rather than compiled code, because arithmetic is still a
+send — is unchanged and still the honest description.
 
 ---
 
@@ -544,10 +563,10 @@ The language above is the finish line. The order to reach it in:
 
 | | |
 | --- | --- |
-| **0** | A `.sob` out of a SolaBasic program with one `PRINT` of a literal, running. The back end is proven — [experiment/emit.sol](../experiment/emit.sol) writes byte-identical chunks already — so this stage is the front door, not the emitter. |
-| **1** | Expressions, variables, the three types, `PRINT`'s rules. No control flow. |
-| **2** | `IF`, `SELECT CASE`, `FOR`, `DO`, `WHILE`, `EXIT` — all as jumps. |
-| **3** | **`GOTO` and labels.** The reason the project exists, and the first thing that could not have been written in Solum source. |
+| **0** | **Done** — [programs/sola.sol](../programs/sola.sol). A `.sob` out of a SolaBasic program, running, with nothing of the compiler present. |
+| **1** | **Partly.** Expressions, variables and `PRINT` are here; the three types are not — every number is a Double — and `PRINT`'s rules are stage 6. |
+| **2** | `SELECT CASE`, `FOR`, `DO`, `WHILE`, `EXIT`. Only `IF ... THEN GOTO` is here. |
+| **3** | **Done, and first, as this table said it should be.** `GOTO` and labels, forwards and backwards, to any label in the program. What it found is below. |
 | **4** | `SUB`, `FUNCTION`, `CALL`, locals, `SHARED`, `STATIC` — and the boxing analysis. The largest stage by some distance. |
 | **5** | Arrays, `DIM`, `OPTION BASE`. |
 | **6** | `INPUT`, files, `PRINT USING`. |

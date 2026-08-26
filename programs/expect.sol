@@ -982,7 +982,7 @@ stated:do({ c | | name, want, got |
 ; notation bolted to it.
 
 ordinals := ["first", "second", "third", "fourth", "fifth", "sixth", "seventh",
-             "eighth", "ninth", "tenth", "eleventh", "twelfth"].
+             "eighth", "ninth", "tenth", "eleventh", "twelfth", "thirteenth"].
 
 placed := #0.
 system:fileExists("docs/programs.md"):ifTrue({ | order |

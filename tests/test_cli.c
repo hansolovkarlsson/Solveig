@@ -836,6 +836,77 @@ static void test_basic_has_a_prompt(void)
  *
  * The file it edits is copied into build/ first, because a test that edits a
  * tracked file passes once. */
+/* ------------------------------------------------------------------------
+ * sola: a compiler rather than an interpreter
+ *
+ * programs/sola.sol turns SolaBasic into a .sob, and what is checked here is
+ * the file it writes rather than the compiler -- each listing is compiled,
+ * then run by solvm with nothing of the compiler present, and its output
+ * compared against a recorded transcript byte for byte.
+ *
+ * That is docs/SOLABASIC.md's second mechanism for deciding done, and it is
+ * the one that can be had today: there is no standard for this dialect and no
+ * conformance suite, so a transcript is what holds a feature true.
+ *
+ * The listings are chosen for the jumps they make, not the answers they get.
+ * spaghetti.bas in particular nests nothing -- two loops woven from GOTO
+ * alone, with jumps that cross -- because the claim being tested is that an
+ * arbitrary jump between statements verifies, and a structured program would
+ * not test it.
+ */
+static void test_sola_compiles_a_program_that_runs(void)
+{
+    char out[8192];
+
+    assert(run("bin/solas programs/sola.sol -o " DIR "/sola.sob 2>&1",
+               out, sizeof out) == 0);
+
+    static const char *listings[] = { "counter", "spaghetti", "labels" };
+    for (size_t i = 0; i < sizeof listings / sizeof listings[0]; i++) {
+        char command[512], expected_path[512];
+
+        snprintf(command, sizeof command,
+                 "bin/solvm " DIR "/sola.sob programs/sola/%s.bas "
+                 DIR "/%s.sob >/dev/null 2>&1", listings[i], listings[i]);
+        assert(run(command, out, sizeof out) == 0);
+
+        snprintf(command, sizeof command,
+                 "bin/solvm " DIR "/%s.sob 2>&1", listings[i]);
+        assert(run(command, out, sizeof out) == 0);
+
+        snprintf(expected_path, sizeof expected_path,
+                 "programs/sola/%s.out", listings[i]);
+        char *expected = slurp_file(expected_path);
+        if (strcmp(out, expected) != 0) {
+            printf("\n%s.bas printed\n%s\nand %s.out records\n%s\n",
+                   listings[i], out, listings[i], expected);
+            assert(false);
+        }
+        free(expected);
+    }
+
+    /* A jump to a label that is not there is refused before anything runs,
+       which is the same rule basic.sol keeps for a GOTO to a missing line: a
+       program that prints half its output and then discovers it cannot go
+       where it was told has already done that half wrongly. */
+    system("printf 'PRINT \"before\"\\nGOTO Nowhere\\n' > " DIR "/missing.bas");
+    assert(run("bin/solvm " DIR "/sola.sob " DIR "/missing.bas "
+               DIR "/missing.sob 2>&1", out, sizeof out) != 0);
+    assert(strstr(out, "there is no label 'NOWHERE' to jump to") != NULL);
+    assert(strstr(out, "before") == NULL);
+
+    /* And a label written twice is a mistake rather than a silent choice of
+       one of them. The line it names is the line the label is on. */
+    system("printf 'Top:\\nPRINT \"one\"\\nTop:\\nPRINT \"two\"\\n' > "
+           DIR "/twice.bas");
+    assert(run("bin/solvm " DIR "/sola.sob " DIR "/twice.bas "
+               DIR "/twice.sob 2>&1", out, sizeof out) != 0);
+    assert(strstr(out, "line 3: the label 'TOP' is used twice") != NULL);
+
+    printf("  %zu SolaBasic listings compile, run and still match\n",
+           sizeof listings / sizeof listings[0]);
+}
+
 static void test_the_editor_draws_what_it_recorded(void)
 {
     char out[64 * 1024];
@@ -935,6 +1006,7 @@ int main(void)
     test_basic_runs_the_way_the_standard_says();
     test_basic_runs_a_listing_from_a_file();
     test_basic_has_a_prompt();
+    test_sola_compiles_a_program_that_runs();
     test_the_editor_draws_what_it_recorded();
     test_the_editor_does_what_the_keys_say();
     printf("test_cli: ok\n");
