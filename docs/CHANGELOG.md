@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### Undo, which is one array copy per change — `pending`, 2026-08-26
+### Undo, which is one array copy per change — `33be6b9`, 2026-08-26
 
 **`u` undoes and `ctrl-r` redoes, a hundred changes deep**, in
 [programs/edit.sol](../programs/edit.sol).
