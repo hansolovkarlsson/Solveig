@@ -5,6 +5,34 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Arrays, and by-reference that costs nothing — `42a7091`, 2026-08-26
+
+**`DIM` with constant bounds and up to eight dimensions, `OPTION BASE`, `CONST`,
+`DIM SHARED`, and arrays passed to procedures** — stage 5, leaving `INPUT`,
+files, `PRINT USING` and the QuickBASIC harness.
+
+**By-reference for an array is free**, which is the opposite of what a scalar
+cost. Stage 4 needed a box, an analysis and a fixed point; a Solum array *is* a
+reference, so `Sort(n(), 6)` hands it over and the callee's `atPut` writes the
+caller's storage because it is the same array.
+[arrays.bas](../programs/sola/arrays.bas) is a bubble sort that sorts the
+caller's array in place to say so.
+
+**Every subscript of a multi-dimensional array is checked, and a
+one-dimensional one is not.** That asymmetry is deliberate: one out of range
+would otherwise land on a *different element* rather than off the end — `a(1, 9)`
+in an eight-by-eight is index 9, which is `a(2, 1)` — and answering the wrong
+element quietly is the one thing this must not do. A one-dimensional array has
+nowhere for a bad subscript to go except outside itself, and the machine refuses
+that already.
+
+**Two things are narrower than QBasic**, and are in the divergence list: an
+array name means one array in the whole listing, and an array parameter is
+one-dimensional.
+
+Eleven transcripts, and the test holds the subscript check — the one place a
+wrong answer would have looked like a right one.
+
 ### PRINT's rules, and a runtime written in the language it serves — `724e277`, 2026-08-26
 
 **A number is a sign character — a minus, or a space where one would go — then
