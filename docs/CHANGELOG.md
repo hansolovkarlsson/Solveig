@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### `.` repeats the last change, by repeating its keys — `pending`, 2026-08-26
+### `.` repeats the last change, by repeating its keys — `f362d97`, 2026-08-26
 
 **`.` in [programs/edit.sol](../programs/edit.sol)**, and `3.` to do it three
 times. It is the last piece of vi's grammar the editor was missing.
