@@ -11,6 +11,73 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-26 (the same morning, still) — undo, and what an unchangeable string is worth
+
+Four entries dated today, and it is not yet seven in the morning. This one is
+`u`, and it took less time than any of the three before it for a reason worth
+writing down.
+
+### The design was decided by a property of the language
+
+A change is remembered by **keeping the whole buffer**. Written down like that
+it sounds extravagant — ten thousand lines copied because somebody pressed `x` —
+and it is not, because a line here is a **string** and a string cannot be
+changed. A copy of the array of lines shares every line with the buffer it came
+from: one pointer per line, and the text is never touched.
+
+Measured, because that is exactly the kind of claim that gets believed and is
+wrong:
+
+| buffer | a snapshot |
+| --- | --- |
+| 10,000 lines × 10 characters | 0.095 ms |
+| 10,000 lines × 1,000 characters | 0.078 ms |
+
+One measurement twice. A hundred times the text costs nothing, which is what
+sharing looks like from outside — and 0.09ms per keystroke on a ten-thousand-line
+file is a number nobody will ever notice.
+
+**The alternative would have been a list of inverse operations** — *this delete
+took these three lines from line 40*, and undo puts them back. That is the
+design a language with mutable strings pushes you towards, and it is a second
+implementation of every command: one to do it, one to undo it, with the second
+one exercised only after something has already gone wrong. Twice the commands
+and half the testing. Here it buys nothing, and the reason it buys nothing is a
+language decision made long before there was an editor.
+
+The price is stated rather than hidden: a hundred states of a ten-thousand-line
+file runs under `--memory=16M` and not under 15M. Sixteen bytes a line a state.
+
+### Two things that make it hard to get wrong
+
+**Every change to the text goes through three methods** — `setLineAt`,
+`insertLine`, `removeLine` — and those three are the only callers of `remember`.
+A command that forgot to be undoable would have to change the text without
+changing a line. That is the same instinct as yesterday's *one `wordForward`, run
+by both `w` and `dw`*: the way to stop two things disagreeing is to have one of
+them.
+
+**Where a change begins and ends is the dispatcher's business, not the
+commands'.** A key arriving in normal mode closes the group; the next thing that
+touches the text opens a new one; insert mode does not close it. So one
+keystroke is one undo, and everything typed between `i` and escape is one undo,
+and no command had to be told either.
+
+### The boring result
+
+Twenty-two checks, and every one of them passed the first time — the first
+change in four that surprised me at all. Three days of this editor have produced
+one bug per feature, each in the place where two ideas met (a cursor and a
+range; a claim and the file it described). This one has no such place: the state
+is copied whole and put back whole, and there is nothing for two ideas to
+disagree about.
+
+That is worth noticing rather than celebrating. **An architecture that cannot go
+wrong in an interesting way is the one to prefer**, and the way to recognise it
+in advance is that it has fewer joints — not that it is cleverer.
+
+---
+
 ## 2026-08-26 (last thing) — the editor stops imitating vi and starts implementing it
 
 Asked for: marks, `y`, `d`, `p`, and a leading number. Those five are not five

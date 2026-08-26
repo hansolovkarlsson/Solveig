@@ -731,7 +731,8 @@ line, `gg` and `G` to the ends of the file, ctrl-f and ctrl-b by a screen.
 `i a I A o O` begin insert, `x` deletes a character, `J` joins two.
 `d` and `y` take a motion — `dw`, `d$`, `dj`, `dG`, `d'a`, and `dd`/`yy` for
 whole lines — `p` and `P` put back what they took, `ma` marks a place and `'a`
-and `` `a `` go to it, and a count repeats: `3j`, `2dd`, `d2w`, `10G`, `3p`.
+and `` `a `` go to it, `u` and ctrl-r undo and redo, and a count repeats: `3j`,
+`2dd`, `d2w`, `10G`, `3p`.
 `/pattern` and `?pattern` search forwards and back, `n` and `N` do it again,
 and `:s/find/replace/` changes what they find — `/g` for every match on the
 line, `:%s` for every line in the file.
@@ -835,11 +836,38 @@ when the text does: `insertLine` and `removeLine` shift the marks below them,
 and a mark on a line that is deleted is dropped rather than left pointing at
 whatever moved into its place.
 
-**What it does not do**: **no undo**, which is now the largest thing missing and
-the next thing to build. No `c`, no `e f t`, no named registers, and no line
-ranges beyond `%` — `:1,5s/a/b/` is a parser this has not got. Each of those is
-more of the same rather than more of the language, and this program was written
-to ask the language a question.
+**And undo is one array copy per change**, which is the finding worth having out
+of this program's third day. A change is remembered by keeping the **whole
+buffer**, which sounds extravagant and is not: a line is a **string**, a string
+cannot be changed, so a copy of the array of lines shares every line with the
+buffer it came from. The copy is one pointer per line and the text is never
+copied at all.
+
+Measured, because the claim is exactly the kind that is believed and wrong: ten
+thousand lines of ten characters and ten thousand lines of a *thousand*
+characters snapshot in **0.095ms and 0.078ms** — one measurement twice. A
+hundred times the text costs nothing, which is what sharing looks like from
+outside.
+
+That is why this is a stack of buffers rather than a list of inverse operations.
+*How to undo a delete* is the design a mutable-string language is pushed
+towards, and it is a second implementation of every command — one to do it and
+one to undo it, with the second exercised only when something has already gone
+wrong. The price here is array slots instead: a hundred states of a
+ten-thousand-line file runs under `--memory=16M` and not under 15M.
+
+**Every change goes through three methods** — `setLineAt`, `insertLine`,
+`removeLine` — so a command cannot forget to be undoable. And **a change is one
+keystroke, except in insert mode**, where everything typed between `i` and
+escape is one: that boundary is drawn in the dispatcher rather than in the
+commands, which is what makes `u` after a typed paragraph useful rather than
+infuriating.
+
+**What it does not do**: no `U` — vi's *undo every change on this line* is a
+different mechanism, not a level of this one. No `c`, no `e f t`, no named
+registers, and no line ranges beyond `%` — `:1,5s/a/b/` is a parser this has not
+got. Each of those is more of the same rather than more of the language, and
+this program was written to ask the language a question.
 
 ---
 

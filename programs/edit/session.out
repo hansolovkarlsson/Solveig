@@ -1355,6 +1355,121 @@ HE line END[K
 ~[K
 ~[K
 [7mbuild/tests/cli/edit-session.txt [+]  line 5 of 5, column 1                    [0m
+[K[5;1H[HTHE line END[K
+ew[K
+THE third line[K
+        an indented line that runs well past THE eightieth column, so THE scree[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt [+]  line 4 of 4, column 2                    [0m
+[K[4;9H[HTHE line END[K
+ew[K
+THE third line[K
+        an indented line that runs well past THE eightieth column, so THE scree[K
+HE line END[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt [+]  line 5 of 5, column 1                    [0m
+undone[K[5;1H[HTHE line END[K
+ew[K
+THE third line[K
+        an indented line that runs well past THE eightieth column, so THE scree[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt [+]  line 4 of 4, column 2                    [0m
+redone[K[4;9H[HTHE line END[K
+ew[K
+THE third line[K
+        an indented line that runs well past THE eightieth column, so THE scree[K
+HE line END[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt [+]  line 5 of 5, column 1                    [0m
+undone[K[5;1H[HTHE line END[K
+ew[K
+THE third line[K
+        an indented line that runs well past THE eightieth column, so THE scree[K
+HE line END[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt [+]  line 5 of 5, column 1                    [0m
 :[K[24;2H[HTHE line END[K
 ew[K
 THE third line[K

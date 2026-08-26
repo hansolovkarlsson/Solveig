@@ -16,6 +16,7 @@
 ;   ma                mark here      p P       put it back, after or before
 ;   'a  `a            back to it     /pat ?pat search on, and back
 ;   ''                where you were n N       the same search again, either way
+;   u  ctrl-r         undo, and back
 ;
 ;   3j   d2w   2dd   10G   3p        a count repeats it, or reaches that far
 ;   :s/a/b/   :s/a/b/g   :%s/a/b/g   :w :q :q! :wq :w name :17
@@ -171,11 +172,10 @@
 ; ---------------------------------------------------------------------------
 ; What it does not do
 ;
-; **No undo**, which is now the largest thing missing and the next thing to
-; build: there are three ways to lose a line by mistake and none to get it back.
-;
-; No `c`, no `e f t`, no named registers -- one unnamed register is what `d`,
-; `y` and `x` all write to and `p` reads. No line ranges beyond `%`;
+; No `U` -- vi's *undo every change on this line*, which is a different
+; mechanism and not a level of this one. No `c`, no `e f t`, and no named
+; registers: one unnamed register is what `d`, `y` and `x` all write to and `p`
+; reads. No line ranges beyond `%`;
 ; `:1,5s/a/b/` is a parser this has not got. Each of those is more of the same
 ; rather than more of the language, and this was written to ask the language a
 ; question rather than to replace anybody's editor. What is here is what it
@@ -246,6 +246,10 @@ edit:prefix := nil.         ; a key that needs a second one: m, ', ` or g
 edit:register := nil.       ; what was last deleted or yanked
 edit:registerIsLines := false.   ; whether that is whole lines or a piece of text
 edit:marks := nil.          ; name -> [row, column]
+edit:undone := nil.         ; states to go back to, oldest first
+edit:redone := nil.         ; states undo took away, for ctrl-r
+edit:group := false.        ; whether this change joins the one before it
+edit:undoLimit := #100.     ; how many changes are kept
 edit:prompt := ":".         ; which bottom line is being typed: ':', '/' or '?'
 edit:command := "".         ; that line, as it is typed
 edit:pushed := nil.         ; one key read and not used -- see `nextKey`
@@ -256,6 +260,9 @@ edit:direction := 'forward. ; which way `n` goes
 edit:open := { path |
     self:path := path.
     self:marks := dictionary:new.
+    self:undone := array:new.
+    self:redone := array:new.
+    self:group := false.
     self:lines := (path:notNil:and({ system:fileExists(path) })):ifElse(
         { self:linesOf(system:readFile(path)) },
         { [""] }).
@@ -277,12 +284,23 @@ edit:linesOf := { text | | out |
 edit:text := { self:lines:join("\n"):concat("\n") }.
 
 edit:line := { self:lines:at(self:row) }.
-edit:setLine := { text | self:lines:atPut(self:row, text). self:dirty := true }.
+edit:setLine := { text | self:setLineAt(self:row, text) }.
+
+; **Every change to the text goes through one of three methods** -- this one,
+; `insertLine` and `removeLine` -- which is what makes undo possible without a
+; call to `remember` at the top of every command that might change something.
+; A command cannot forget to be undoable, because the forgetting would have to
+; happen in the three places that do the changing.
+edit:setLineAt := { row, text |
+    self:remember.
+    self:lines:atPut(row, text).
+    self:dirty := true }.
 
 ; An array can be appended to and popped, and neither is what a line does when
 ; it arrives in the middle. Both of these rebuild the array around the point of
 ; the change -- one of the three smaller findings at the top of this file.
 edit:insertLine := { at, text | | out |
+    self:remember.
     out := self:lines:copyFrom(#1, at:sub(#1)).
     out:add(text).
     self:lines:copyFrom(at, self:lines:size):do({ each | out:add(each) }).
@@ -291,6 +309,7 @@ edit:insertLine := { at, text | | out |
     self:dirty := true }.
 
 edit:removeLine := { at | | out |
+    self:remember.
     self:lines:size:equals(#1):ifElse(
         ; The last line is emptied rather than removed, because a buffer with no
         ; lines has nowhere to put the cursor. Nothing moved, so no mark does.
@@ -546,7 +565,7 @@ edit:backspace := { | line, previous |
           self:column := self:column:sub(#1) },
         { self:row:greaterThan(#1):ifTrue({
             previous := self:lines:at(self:row:sub(#1)).
-            self:lines:atPut(self:row:sub(#1), previous:concat(self:line)).
+            self:setLineAt(self:row:sub(#1), previous:concat(self:line)).
             self:removeLine(self:row).
             self:row := self:row:sub(#1).
             self:column := previous:size:add(#1) }) }) }.
@@ -731,6 +750,8 @@ normalKeys:atPut("x", { n | edit:deleteChars(edit:times(n)) }).
 normalKeys:atPut("J", { n | edit:times(n):repeat({ edit:joinLine }) }).
 normalKeys:atPut("p", { n | edit:put(true, edit:times(n)) }).
 normalKeys:atPut("P", { n | edit:put(false, edit:times(n)) }).
+normalKeys:atPut("u", { n | edit:undo }).
+normalKeys:atPut(#18:asCharacter, { n | edit:redo }).      ; ctrl-r
 normalKeys:atPut(":", { n | edit:beginPrompt(":") }).
 
 ; Searching. `/` and `?` are the same line the colon commands are typed on, with
@@ -836,6 +857,100 @@ edit:applyPlace := { place |
         { self:applyOperator(place) }) }.
 
 ; ---------------------------------------------------------------------------
+; Undo
+;
+; **A change is remembered by keeping the whole buffer**, which sounds
+; extravagant and is not, because of one property of the language: **a string
+; cannot be changed.** A line is a string, so a copy of the array of lines
+; shares every line with the buffer it came from -- the copy is one allocation
+; of one pointer per line, and the text itself is never copied at all. Editing a
+; line makes a new string and puts it in one slot of one of the arrays; every
+; other line in every other state is the same object it always was.
+;
+; That is why this is a stack of buffers rather than a list of inverse
+; operations. Recording *how to undo a delete* is the design a mutable-string
+; language is pushed towards, and it is a second implementation of every command
+; -- one to do it and one to undo it, with the second one exercised only when
+; something has already gone wrong. Here it buys nothing: the whole state costs
+; a `copyFrom`.
+;
+; **What a change is**: one keystroke, except in insert mode, where everything
+; typed between `i` and escape is one change. That is what makes `u` useful
+; after typing a paragraph rather than infuriating. The boundary is drawn in
+; `dispatch` -- a key arriving in normal mode closes the group, and the next
+; thing that touches the text opens a new one.
+;
+; **Measured rather than argued.** Ten thousand lines of ten characters and ten
+; thousand lines of a *thousand* characters snapshot in the same time --
+; 0.095ms and 0.078ms, which is one measurement twice -- and a hundred times the
+; text costing nothing is what sharing looks like from the outside.
+;
+; **`u` is a stack and not a toggle.** Real vi has one level and `u` undoes the
+; undo; this keeps a hundred, and `ctrl-r` is the way back. The price is the
+; array slots: a hundred states of a ten-thousand-line file runs under
+; `--memory=16M` and not under 15M, which is sixteen bytes a line a state and is
+; the cost of the simple design stated plainly rather than hidden.
+
+edit:state := object:new.
+edit:state:lines := nil.
+edit:state:row := #1.
+edit:state:column := #1.
+edit:state:dirty := false.
+edit:state:marks := nil.
+
+edit:stateNow := { | st |
+    st := self:state:new.
+    st:lines := self:lines:copyFrom(#1, self:lines:size).
+    st:row := self:row.
+    st:column := self:column.
+    st:dirty := self:dirty.
+    ; Marks are part of the state, because a mark that survived an undo would be
+    ; pointing at a line the undo has moved -- which is the failure this editor
+    ; already refused once, when a mark had to move with the text.
+    st:marks := self:copyOfMarks.
+    st }.
+
+edit:copyOfMarks := { | out |
+    out := dictionary:new.
+    self:marks:keysAndValuesDo({ name, m |
+        out:atPut(name, array:of(m:at(#1), m:at(#2))) }).
+    out }.
+
+edit:restore := { st |
+    self:lines := st:lines:copyFrom(#1, st:lines:size).
+    self:marks := st:marks.
+    self:row := st:row.
+    self:column := st:column.
+    self:dirty := st:dirty.
+    self:clamp }.
+
+; Called by the three methods that change the text, and by nothing else. The
+; group flag is what makes a hundred keystrokes in insert mode one change.
+edit:remember := {
+    self:group:ifFalse({
+        self:undone:add(self:stateNow).
+        self:undone:size:greaterThan(self:undoLimit):ifTrue({
+            self:undone := self:undone:copyFrom(#2, self:undone:size) }).
+        ; A new change is a new future: whatever was undone cannot be redone
+        ; over the top of it.
+        self:redone := array:new.
+        self:group := true }) }.
+
+edit:undo := {
+    self:undone:size:equals(#0):ifElse(
+        { self:message := "nothing left to undo" },
+        { self:redone:add(self:stateNow).
+          self:restore(self:undone:removeLast).
+          self:message := "undone" }) }.
+
+edit:redo := {
+    self:redone:size:equals(#0):ifElse(
+        { self:message := "nothing to redo" },
+        { self:undone:add(self:stateNow).
+          self:restore(self:redone:removeLast).
+          self:message := "redone" }) }.
+
+; ---------------------------------------------------------------------------
 ; The operators
 ;
 ; `d` and `y` differ in one line -- whether the text is taken out as well as
@@ -920,7 +1035,7 @@ edit:textBetween := { fromRow, fromColumn, toRow, toColumn | | out |
 edit:removeBetween := { fromRow, fromColumn, toRow, toColumn | | head, tail |
     head := self:lines:at(fromRow):copyFrom(#1, fromColumn:sub(#1)).
     tail := self:lines:at(toRow):copyFrom(toColumn, self:lines:at(toRow):size).
-    self:lines:atPut(fromRow, head:concat(tail)).
+    self:setLineAt(fromRow, head:concat(tail)).
     toRow:sub(fromRow):repeat({ self:removeLine(fromRow:add(#1)) }).
     self:dirty := true }.
 
@@ -965,7 +1080,7 @@ edit:putText := { after, n | | text, at, line, tail, pieces, last |
           [#2, pieces:size]:loop({ k |
               self:insertLine(self:row:add(k:sub(#1)), pieces:at(k)) }).
           last := self:row:add(pieces:size):sub(#1).
-          self:lines:atPut(last, self:lines:at(last):concat(tail)).
+          self:setLineAt(last, self:lines:at(last):concat(tail)).
           self:row := last.
           self:column := pieces:at(pieces:size):size }).
     self:dirty := true.
@@ -1059,6 +1174,10 @@ edit:commandKey := { key | | byte, text |
 
 edit:dispatch := { key |
     self:message := "".
+    ; Where one change ends and the next begins. A key pressed in normal mode
+    ; closes the group, so whatever it does to the text is one thing to undo;
+    ; insert mode does not, so everything typed until escape is one thing.
+    self:mode:equals('insert):ifFalse({ self:group := false }).
     self:mode:equals('insert):ifElse(
         { self:insertKey(key) },
         { self:mode:equals('command):ifElse(
@@ -1294,7 +1413,7 @@ edit:runSubstitute := { text | | everywhere, rest, delimiter, parts, source,
               ; otherwise would be wrong in the one case somebody is checking.
               hits := p:countIn(was).
               hits:greaterThan(#0):ifTrue({
-                  self:lines:atPut(r, all:ifElse(
+                  self:setLineAt(r, all:ifElse(
                       { p:replaceAllIn(was, replacement) },
                       { p:replaceIn(was, replacement) })).
                   total := total:add(all:ifElse({ hits }, { #1 })).
@@ -1327,6 +1446,7 @@ gg and G                the file      J         join the line below
 
 d and y take a motion: dw d$ dj dG d'a, and dd yy for whole lines.
 p and P put it back. x deletes a character. ma marks, 'a and `a go back.
+u undoes, ctrl-r redoes; a hundred changes are kept.
 A count repeats: 3j, 2dd, d2w, 10G, 3p.
 
 /pattern and ?pattern search, forwards and back; n and N do it again.

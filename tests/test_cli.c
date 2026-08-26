@@ -818,8 +818,9 @@ static void test_basic_has_a_prompt(void)
  * deletes a character of it, searches again and is told there is no second
  * one, substitutes across the whole file, deletes a word with `dw`, yanks a
  * line and puts it at the end, marks that line and comes back to it with `'a`,
- * writes and quits -- and programs/edit/session.out is every byte that reached
- * the terminal while it did.
+ * deletes it and undoes that, redoes it and undoes it again, writes and quits
+ * -- and programs/edit/session.out is every byte that reached the terminal
+ * while it did.
  *
  * The sideways scroll is in there because leaving it out cost a crash: a line
  * that ends before the scrolled screen begins asks `copyFrom` for a start past
@@ -858,8 +859,10 @@ static void test_the_editor_draws_what_it_recorded(void)
        second line, four added to its end, a line opened after it, the first
        line deleted, a character taken off the line the search found, four
        substitutions across three lines -- the last of them twice on the long
-       line, which is what `g` is for -- a word deleted by `dw`, and a yanked
-       line put back at the end and edited where the mark said it was. The fourth line is untouched and is there to be
+       line, which is what `g` is for -- a word deleted by `dw`, a yanked line
+       put back at the end and edited where the mark said it was, and a line
+       deleted, restored, deleted again and restored again, which is why the
+       file ends where it did before any of that. The fourth line is untouched and is there to be
        *drawn* -- it opens with a tab and runs past the eightieth column, so
        the transcript covers both of the things a screen does to a line it
        cannot show as it is. */

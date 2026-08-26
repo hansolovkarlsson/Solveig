@@ -5,6 +5,55 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Undo, which is one array copy per change — `pending`, 2026-08-26
+
+**`u` undoes and `ctrl-r` redoes, a hundred changes deep**, in
+[programs/edit.sol](../programs/edit.sol).
+
+**A change is remembered by keeping the whole buffer**, which sounds
+extravagant and is not. A line is a **string**, and a string in this language
+cannot be changed — so a copy of the array of lines shares every line with the
+buffer it came from. The copy is one pointer per line, and the text is never
+copied at all.
+
+**Measured, because that is exactly the sort of claim that is believed and
+wrong.** Ten thousand lines of ten characters, and ten thousand lines of a
+*thousand* characters:
+
+| buffer | a snapshot |
+| --- | --- |
+| 10,000 lines × 10 characters | 0.095 ms |
+| 10,000 lines × 1,000 characters | 0.078 ms |
+
+That is one measurement twice. A hundred times the text costing nothing is what
+sharing looks like from the outside, and it is the whole argument for the design.
+
+**So it is a stack of buffers and not a list of inverse operations.** *How to
+undo a delete* is the shape a mutable-string language is pushed towards, and it
+is a second implementation of every command — one to do it, one to undo it, and
+the second one exercised only when something has already gone wrong. The price
+here is array slots instead: a hundred states of a ten-thousand-line file runs
+under `--memory=16M` and not under 15M.
+
+**A command cannot forget to be undoable.** Every change to the text goes
+through one of three methods — `setLineAt`, `insertLine`, `removeLine` — and
+those three are the only callers of `remember`. Adding a command that changes
+text and forgetting to make it undoable would mean writing one that changes text
+without changing a line.
+
+**A change is one keystroke, except in insert mode**, where everything typed
+between `i` and escape is one. That boundary is drawn in the dispatcher rather
+than in the commands: a key arriving in normal mode closes the group, and the
+next thing that touches the text opens a new one. It is what makes `u` after a
+typed paragraph useful rather than infuriating.
+
+**Marks are part of the state.** A mark that survived an undo would point at a
+line the undo had moved — the same silent failure the marks themselves were
+built to avoid a day earlier.
+
+No message was added to the language: 137<!--count messages--> messages,
+unchanged.
+
 ### The editor learns vi's grammar: counts, operators, registers and marks — `198fdbc`, 2026-08-26
 
 **`d` and `y` over any motion, `p` and `P`, `ma` and `'a`, and a count in front
