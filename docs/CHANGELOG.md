@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### An editor, and the one message it asked for — `pending`, 2026-08-25
+### An editor, and the one message it asked for — `56706dc`, 2026-08-25
 
 **[programs/edit.sol](../programs/edit.sol) is a modal terminal editor in the
 manner of vi**, and the twelfth program here. It is the first that *draws*:
