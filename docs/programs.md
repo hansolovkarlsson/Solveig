@@ -1121,8 +1121,25 @@ index 9, which is `a(2, 1)` — and answering the wrong element quietly is the o
 thing this must not do. A one-dimensional array has nowhere for a bad subscript
 to go except outside the array, and the machine refuses that itself.
 
-**What is not here is the rest of stages 6 and 7**: no `INPUT`, no files, no
-`PRINT USING`, and no comparison against a real QuickBASIC.
+**And there is a harness to compare it against a real QuickBASIC**, which is
+the only check here that can find something nobody thought of — everything else
+this compiler is held to is a transcript recorded by its own author.
+[oracle.sh](../programs/sola/oracle.sh) runs a corpus in two halves:
+`oracle/agree/`, which must produce the same bytes under both, and
+`oracle/differ/`, which must not and says at the head of each file why. **That
+turns the divergence list from prose into something that can fail** — a program
+in `differ/` that starts agreeing means the divergence has gone and
+[SOLABASIC.md](SOLABASIC.md) is now wrong about it.
+
+**The verdict is not in.** The harness needs a QuickBASIC and this repository
+has no dependencies beyond a C11 compiler and `make`; it keeps that by saying
+what it needs rather than fetching it. Both of its paths were exercised with
+SolaBasic standing in as its own oracle — every `agree/` matched and every
+`differ/` was reported as having lost its divergence, which is exactly what that
+arrangement should produce — so the mechanism is not taken on trust either.
+
+**What is not here is the rest of stage 6**: no `INPUT`, no files, no
+`PRINT USING`.
 
 ## Adding one
 

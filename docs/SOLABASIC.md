@@ -530,13 +530,29 @@ iterations of two statements, is 1.54s under
 There is no standard and no conformance suite, so the authority has to be
 manufactured. Three mechanisms, in descending order of how much they are worth:
 
-**1. A real QBasic is the oracle.** Every program in the test corpus runs under
-QuickBASIC 4.5 in DOSBox and under SolaBasic, and the two outputs are compared.
-Where they differ, either SolaBasic is wrong or the difference is one of the
-five divergences above — and if it is neither, the divergence list gains an
-entry before the build goes green. This is the nearest thing to somebody else's
-test, and it is the only mechanism here that can find something nobody thought
-of.
+**1. A real QBasic is the oracle**, and
+[programs/sola/oracle.sh](../programs/sola/oracle.sh) is how it is asked. The
+corpus is in two halves, and the split is the whole design:
+
+| | |
+| --- | --- |
+| `oracle/agree/` | must produce the same bytes under both. A difference is news — a defect, or a divergence nobody wrote down. |
+| `oracle/differ/` | must **not**. Each exercises a divergence recorded above and says at its head what each language should do. One that suddenly *agrees* is also news: the divergence has gone and the list still claims it. |
+
+**So the divergence list stops being prose and becomes something that can
+fail.** This is the nearest thing to somebody else's test, and the only
+mechanism here that can find something nobody thought of.
+
+Every program in `agree/` says its types outright — `DEFINT`, `AS INTEGER`, a
+suffix — because QBasic's default numeric type is `SINGLE` and SolaBasic's is a
+Double. A bare name is not the same variable in the two languages, and a file
+testing `PRINT` must not be testing that instead.
+
+**The harness needs an oracle it does not carry.** It takes any command that
+runs a `.bas`, finds `qb64` or `fbc` if one is installed, and explains the
+DOSBox route otherwise — where the thing to reach for is `BC.EXE` rather than
+`QB.EXE`, the environment writing to the screen where a compiled `.EXE` can be
+redirected.
 
 **2. A recorded transcript per feature**, compared byte for byte on every build,
 in the manner of [programs/basic/](../programs/basic/). Every statement in this
@@ -561,6 +577,26 @@ jump into the middle of an instruction and a jump to a point at a different
 stack depth are each refused *at load*, exit 65, as a message rather than a
 crash. The depth-0 discipline is load-bearing rather than tidy, and nothing in
 the design section above needed changing.
+
+**2026-08-26 — the oracle harness is built, and its verdict is not in.**
+[programs/sola/oracle.sh](../programs/sola/oracle.sh) compares SolaBasic against
+a real QuickBASIC over a corpus in two halves: `agree/`, which must match, and
+`differ/`, which must not and says why at the head of each file. **That turns
+this document's divergence list from prose into something that can fail** — a
+program in `differ/` that starts agreeing means the divergence has gone and the
+list is now wrong.
+
+**No verdict yet.** The machine this was written on has no QuickBASIC, no
+DOSBox, no `qb64` and no `fbc`, and installing one is not this script's business
+— the repository claims no dependencies beyond a C11 compiler and `make`, and
+the harness keeps that claim by saying what it needs instead of fetching it. So
+what is recorded here is the mechanism and the corpus; the answers arrive when
+somebody runs it.
+
+**Both paths are exercised**, so the harness itself is not taken on trust: run
+with SolaBasic standing in as its own oracle, every `agree/` matched and every
+`differ/` was reported as having lost its divergence, which is precisely what
+that arrangement should produce.
 
 **2026-08-26 — stage 5, and an array is already a reference.**
 `DIM` with constant bounds and up to eight dimensions, `OPTION BASE`, `CONST`,
@@ -702,7 +738,7 @@ The language above is the finish line. The order to reach it in:
 | **4** | **Done.** `SUB`, `FUNCTION`, `CALL`, locals, `SHARED`, `STATIC`, `EXIT SUB`/`EXIT FUNCTION`, and by-reference parameters. |
 | **5** | **Done.** `DIM` with constant bounds and up to eight dimensions, `OPTION BASE`, `CONST`, `DIM SHARED`, and arrays passed to procedures. |
 | **6** | `INPUT`, files, `PRINT USING`. **`PRINT`'s own rules are done** — see stage 1. |
-| **7** | The QuickBASIC 4.5 comparison harness, and the divergence list settled against it. |
+| **7** | **The harness is built** — [programs/sola/oracle.sh](../programs/sola/oracle.sh), with a corpus in two halves. **The verdict is not in**: it needs a QuickBASIC to compare against, and there was none on the machine it was written on. |
 
 Stage 3 is the one to reach early even though the ordering does not demand it,
 because it is the claim the whole design rests on. If arbitrary `GOTO` between

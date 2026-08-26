@@ -965,6 +965,31 @@ static void test_sola_compiles_a_program_that_runs(void)
     assert(run("bin/solvm " DIR "/sub.sob 2>&1", out, sizeof out) != 0);
     assert(strstr(out, "subscript 2 of G is above 8") != NULL);
 
+    /* The oracle corpus is not run here -- comparing it needs a QuickBASIC,
+       which is what programs/sola/oracle.sh is for and why that is a script
+       rather than a test. What is checked is that it still compiles, so it
+       cannot rot quietly between the days somebody has an oracle to hand. */
+    {
+        static const char *corpus[] = {
+            "agree/arith", "agree/arrays", "agree/control", "agree/numbers",
+            "agree/procs", "agree/select", "agree/strings", "agree/zones",
+            "differ/defaulttype", "differ/digits", "differ/intwidth",
+            "differ/strdollar", "differ/val",
+        };
+        for (size_t i = 0; i < sizeof corpus / sizeof corpus[0]; i++) {
+            char command[512];
+            snprintf(command, sizeof command,
+                     "bin/solvm " DIR "/sola.sob programs/sola/oracle/%s.bas "
+                     DIR "/corpus.sob 2>&1", corpus[i]);
+            if (run(command, out, sizeof out) != 0) {
+                printf("\n%s.bas will not compile:\n%s\n", corpus[i], out);
+                assert(false);
+            }
+        }
+        printf("  %zu oracle-corpus listings still compile\n",
+               sizeof corpus / sizeof corpus[0]);
+    }
+
     printf("  %zu SolaBasic listings compile, run and still match\n",
            sizeof listings / sizeof listings[0]);
 }
