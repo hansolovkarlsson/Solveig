@@ -5,6 +5,32 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The colon the definition had promised, and two bad errors — `b79c301`, 2026-08-26
+
+Three things a reader hits at once, and not one of them a new feature.
+
+**`:` between statements was in [SOLABASIC.md](SOLABASIC.md) from the day it was
+written** — *Lexical structure* says it joins statements on one line — **and the
+compiler refused it.** That is precisely what the frozen-document discipline
+exists to catch, and it sat there through all eight stages while the divergence
+list was being checked by machine. A definition that promises what the
+implementation does not do is the same failure as a transcript recording what a
+program does rather than what it should, and it lasted longer.
+
+A one-line `IF` takes everything after `THEN` to the end of the line, so
+`IF c THEN a : b` runs both when true and neither when false. Both readings were
+plausible; QuickBASIC was asked rather than guessed.
+
+**A missing file said the wrong thing in the wrong place.** `OPEN` on something
+absent gave the machine's own *cannot read*, against a line number **inside the
+runtime** reported as a line of the user's listing — which that listing did not
+have. It says `File not found` now, measured.
+
+**And a chunk carries the file it was compiled from.** The runtime is compiled
+into every program that prints, so its lines were attributed to whatever the user
+called their file. A failure inside it now says *the SolaBasic runtime*, and the
+trace goes on to the line the user wrote. Seventeen `agree/` programs.
+
 ### Files, and the eight stages are done — `391aba6`, 2026-08-26
 
 **`OPEN`, `CLOSE`, `PRINT #`, `WRITE #`, `INPUT #`, `LINE INPUT #` and `EOF`**,
