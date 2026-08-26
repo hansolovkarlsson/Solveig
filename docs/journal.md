@@ -11,6 +11,132 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-25 (evening) — a suite written by strangers, and a number that left
+
+0.33.0 shipped at 15:52. What followed was the only hour of the day that
+produced no new capability and changed my mind about more than any of the
+others: someone else's tests were run against a program I had called finished.
+
+### A number that could not be checked, and so went
+
+3.13 counted the loops in this repository that carry a boolean whose only job is
+to stop them. Nine, it said, in four places — the entry, its own decision table,
+`ideas.md` twice — and it had been nine when it was written and was not any more.
+`basic.sol` alone had added two.
+
+Two numbers earlier the same day had gone the other way: `index.md` said nine
+programs and the README said 123 messages, and both got **markers**, because the
+checker can recount them from the running machine. This one cannot. *A loop
+carrying a flag* is a property of source text, not of the machine, and a grep
+cannot tell one from an ordinary counted loop — my first attempt at recounting
+returned **sixty**, which is how I know rather than assume.
+
+So it was deleted. The entry names the files the shape appears in and says
+outright that the count is gone on purpose, so its absence reads as a decision
+rather than an oversight. The argument never rested on the number: it rests on
+the shape recurring, which it does, and on almost none of those files saying
+anything about it, since a complaint is somebody noticing and silence is an
+idiom.
+
+**The rule that fell out of it** is worth keeping, because three unchecked
+numbers in one day got three different answers: *a number that cannot be checked
+and does not carry the argument is better deleted than corrected.*
+
+### Then the suite
+
+I had said, twice and without being asked, that every test of `basic.sol` was one
+I wrote — that they check the interpreter does what I *read* ECMA-55 to say
+rather than what it says, and that the NBS conformance suite was the only
+instrument that would settle it. Asked to do it, the first honest step was to
+find out whether the suite could be had at all, because reproducing it from
+memory would have been fabricating a standards document and worse than useless.
+
+It exists: 208 programs written at the National Bureau of Standards in 1980,
+public domain, typed back in by somebody who kept them. Running all 208 took
+about three minutes.
+
+**Sixteen disagreements, and every one was mine.**
+
+```text
+DATA is raw text          an unquoted datum runs to the next comma and may
+                          hold anything but one. Reading it with the tokeniser
+                          refused a fifth of the suite.
+a datum has no type       until a READ takes it. I decided at DATA time, which
+                          is exactly backwards.
+DEF needs no parameter    DEF FNM=123, referenced as a bare FNM.
+NEXT searches the stack   a listing may GOTO out of an inner loop.
+FOR always pushes         two loops may run on one variable through GOSUB.
+DIM is a declaration      the suite references arrays before dimensioning them.
+exceptions that continue  TAB(0) uses 1, carries on, and must say so.
+```
+
+Sixteen became five, and the five want a person at a keyboard the harness cannot
+offer.
+
+### The one that was mine in a different way
+
+`FOR always pushes`. The rule I had written was that reaching a `FOR` whose
+control variable is already looping abandons the old frame — and I had written a
+comment justifying it, about a listing that jumps back into its own loop and
+would otherwise grow the stack for ever.
+
+That listing is one **the standard already forbids**. The rule was a repair for a
+problem nobody has, and it broke three programs the standard allows: an outer
+`FOR I1` calling a subroutine that runs its own `FOR I1` is *dynamic* nesting
+through `GOSUB`, and one of the suite's tests is named for it.
+
+I invented a rule, documented it convincingly, and it was wrong in exactly the
+direction inventing rules is wrong.
+
+### And two literals, which were asked for rather than found
+
+`$FF08` and `%10101100`. Sugar: one case in the scanner, one branch in the
+compiler, no opcode and no message. The gap turned out to be written down
+already — the reference's own page on file modes said *"Solum has no octal
+literal"* and then showed the round trip through `asBase` as the way round it, a
+language that could print hex and binary and could not read one back.
+
+Two things were refused on purpose. No `#` in front, because that tag exists to
+say which of two readings `45` has and `$FF` has one. No sign, because these are
+for looking at bits and the language already declines to reach a negative that
+way.
+
+And one guard earned itself twice over: a digit the base does not use ends the
+literal with an error rather than starting the next token. Without it `%1012` is
+the binary `%101` followed by the float `2` — two good tokens, a wrong reading,
+no complaint. `$FF.5` needed the same treatment and I only noticed because I
+tried it: it compiled, ran, printed `5` and said nothing.
+
+---
+
+### Postmortem
+
+1. **I called it finished, and it was eleven kinds of wrong.** Not carelessly —
+   `basic.sol` carries eighty-three claims, four recorded transcripts and a
+   dozen C assertions, and I had gone back over it once already when asked
+   directly. None of that caught any of the seven. Tests written by the author
+   of a thing check what the author thought to check, and there is no amount of
+   care that converts one into the other.
+
+2. **The rule I invented was the worst finding, and it read the best.** It had a
+   justification, a named failure mode, and a comment explaining the trade. All
+   of that was reasoning about a case the standard had already ruled out, and
+   none of it was reading the standard. A confident comment is not evidence.
+
+3. **Getting the suite was the part that could have gone wrong silently.** The
+   temptation was to write "NBS-style" tests from memory of what Minimal BASIC
+   requires. They would have passed, they would have looked like validation, and
+   they would have been the same author checking the same assumptions with a
+   more official-sounding name on them.
+
+4. **I read the index instead of the programs, and nearly reported two things
+   wrongly.** The suite's own summary labels P054 and P008 as ERROR and
+   EXCEPTION tests, which made them look like failures to fix. Their text says
+   otherwise: P054 passes if a processor documents what it does, and P008 wants
+   a message *and* a substituted value. A one-line label is not the test.
+
+---
+
 ## 2026-08-25 (late) — the third entry closed, and the prompt BASIC always had
 
 0.32.0 shipped at 13:18 with one entry open. It was shut by 14:51, and the rest
