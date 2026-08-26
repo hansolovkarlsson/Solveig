@@ -22,6 +22,7 @@ marked as a sketch.
 | `do` is `forEach`? | **Yes** — and `collect` is map, `select` is filter |
 | Bytecode / assembly reference | **Built** — [BYTECODE.md](BYTECODE.md), checked against the header by the test suite |
 | `$character` literals, Unicode | **Defer** — gated on deciding what a string is |
+| A truncating divide on integer | **Defer** — one customer, and its workaround is exact rather than approximate |
 | Integer sizes: byte, word, long | **No** — reintroduces the coercion the language refuses |
 | Separate float and double | **No** — same reason, less benefit |
 | `include` another file | **Built** — was the most valuable thing on the list |
@@ -680,6 +681,72 @@ regular expression engine to be bigger than.
 ---
 
 ## Deferred, with a trigger
+
+### A truncating divide on integer
+
+`quotient(n)` and `remainder(n)` beside `div` and `mod` — the same division
+cutting **towards nought** instead of flooring.
+
+**The floored pair is not in question and should not change.** `#-7:div(#2)` is
+`#-4` and `#-7:mod(#2)` is `#1`, which keeps a remainder inside `[0, n)` where
+indexing and cyclic arithmetic want it; [design.md](design.md) gives that
+reason and it is the right default. This is about the *other* pair, which some
+languages mean by the same two symbols.
+
+**One program wants it.** BASIC's `\` and `MOD` cut towards nought and take the
+sign of the left-hand side — `-7 \ 2` is `-3` and `-7 MOD 2` is `-1` — and so
+do C's `/` and `%`. [programs/sola.sol](../programs/sola.sol) compiles them, and
+is the only customer there has ever been.
+
+**It already gets the right answer, which is why this is deferred and not
+needed.** The truncating quotient is the floored one plus one when there is a
+remainder *and* the two signs differ, and nothing in that leaves i64:
+
+```
+#-7:div(#2).                     ; #-4   -- floored
+#-7:mod(#2).                     ; #1    -- so there is a remainder
+; the signs differ, so add one:  ; #-3   -- which is what BASIC says
+```
+
+So the case for building it is **size and speed, not correctness**: one send
+against twelve instructions and two frame slots, at every `\` and every `MOD` a
+listing writes.
+
+**What it replaced is the useful part of the story.** The first version of that
+compiler went through the float divide — `a:asFloat:div(b:asFloat):truncated` —
+which is four sends, gets every sign right, and is **wrong above 2^53** where a
+double can no longer hold every whole number:
+
+```
+#9007199254740993 \ #1     via float 9007199254740992     exact 9007199254740993
+#9007199254740993 \ #3     via float 3002399751580330     exact 3002399751580331
+```
+
+That is the shape of thing this list exists to catch: a workaround that looks
+like a performance trade and is quietly a correctness one. Trading bytes in a
+file nobody reads for an answer that is always right is the easy direction, and
+it was taken.
+
+**Not `divRounded`**, which was the first name suggested for it and is wrong
+twice over. Rounding is a third operation and it disagrees with truncation in
+*both* directions, so it would fix nothing and break the positive case that
+already works:
+
+| | true | `div` (floored) | rounded | truncating (wanted) |
+| --- | --- | --- | --- | --- |
+| `#-7 ? #2` | -3.5 | **-4** | **-4** | **-3** |
+| `#7 ? #2` | 3.5 | 3 | **4** | **3** |
+
+`quotient` and `remainder` are the ordinary names for the truncating pair, they
+do not collide with `div` and `mod`, and they sit beside a float half that
+already says which way it goes — `floor`, `ceiling`, `rounded`, `truncated`.
+
+**Trigger:** a second customer, or somebody measuring a SolaBasic loop where `\`
+or `MOD` is the cost. One program wanting a message is what
+[`indexOf(what, #from)`](REFERENCE.md#string) had before a second one turned up
+and it was built; this is at the same stage.
+
+---
 
 ### `$character` literals and Unicode
 

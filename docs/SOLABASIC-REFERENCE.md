@@ -674,9 +674,9 @@ are the ones that bite while typing.
 worth knowing because the machine's answer is the one you would get by guessing.
 `\` cuts towards nought and `MOD` takes the sign of its left-hand side, where
 SolVM's own integer divide and remainder are *floored*: `-7 \ 2` is `-3` here
-and `-7 MOD 2` is `-1`, as QBasic says and not as the machine would. What that
-costs is exactness above 2^53, where a Double can no longer hold every whole
-number.
+and `-7 MOD 2` is `-1`, as QBasic says and not as the machine would. Both are
+**exact for every number an Integer can hold** — there is no large-value corner
+where they stop agreeing with QBasic.
 
 ---
 

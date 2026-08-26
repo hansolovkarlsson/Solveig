@@ -94,9 +94,9 @@
 ;
 ; **Two operators follow QBasic against the machine.** SolVM's integer `div` and
 ; `mod` are floored, so `-7 \\ 2` would be `-4` and `-7 MOD 2` would be `1`.
-; QBasic says `-3` and `-1`, and going through the float divide and `truncated`
-; gets the sign right. What it costs is exactness above 2^53, which is a smaller
-; wrong answer than the sign being wrong and is written down rather than left.
+; QBasic says `-3` and `-1`. The correction is exact and stays in integers -- the
+; truncating quotient is the floored one plus one when there is a remainder and
+; the signs differ -- so this is right for every number an Integer can hold.
 ;
 ; **A supplied function is emitted where it is called.** There is nowhere to put
 ; a library: the `.sob` this writes is the whole program and none of `lib/` is in
@@ -1486,27 +1486,58 @@ sola:emitBinary := { n |
 
 ; **`\\` truncates towards nought and so does `MOD`'s remainder**, which is
 ; QBasic's rule and *not* the machine's: SolVM's integer `div` and `mod` are
-; floored, so `-7 \\ 2` would be `-4` where QBasic says `-3`. Going through the
-; float divide and `truncated` gets the sign right. What it costs is exactness
-; above 2^53, where a double can no longer hold every integer -- which is a
-; smaller wrong answer than the sign being wrong, and is written down rather
-; than left to be found.
-sola:emitIntegerDivide := { n |
-    self:emitTyped(n:left, 'integer).  self:emitSend("asFloat", #0).
-    self:emitTyped(n:right, 'integer). self:emitSend("asFloat", #0).
-    self:emitSend("div", #1).
-    self:emitSend("truncated", #0) }.
+; **floored**, so `-7 \\ 2` would be `-4` where QBasic says `-3`, and
+; `-7 MOD 2` would be `1` where QBasic says `-1`.
+;
+; **The correction is exact and stays in integers**: the truncating quotient is
+; the floored one, plus one when there is a remainder *and* the two signs
+; differ. Nothing else is true of any sign combination, and nothing here leaves
+; i64 -- so this is right for every number an Integer can hold.
+;
+; An earlier version went through the float divide and `truncated` instead. That
+; is four sends against these twelve instructions and it gets every sign right
+; too, but it is **wrong above 2^53**, where a double can no longer hold every
+; whole number. Trading bytes in a file nobody reads for an answer that is
+; always right is the easy direction of that trade.
+;
+; A single `quotient` message on integer would be one send and exact, and is
+; [deferred with a trigger](../docs/ideas.md#a-truncating-divide-on-integer)
+; with this as its one customer.
 
-; `a - (a \\ b) * b`, which needs `a` and `b` twice each and so needs somewhere
-; to put them: there is no instruction that duplicates the top of the stack.
+sola:emitTruncatingQuotient := { a, b | | noRemainder, sameSign |
+    self:emitLocal(a). self:emitLocal(b). self:emitSend("div", #1).
+
+    ; ... and one more when the division was not exact ...
+    self:emitLocal(a). self:emitLocal(b). self:emitSend("mod", #1).
+    self:emitIntConst(#0). self:emitSend("notEquals", #1).
+    noRemainder := self:branchHole.
+
+    ; ... and the signs disagreed, which is the only case where flooring and
+    ; truncating part company.
+    self:emitLocal(a). self:emitIntConst(#0). self:emitSend("lessThan", #1).
+    self:emitLocal(b). self:emitIntConst(#0). self:emitSend("lessThan", #1).
+    self:emitSend("notEquals", #1).
+    sameSign := self:branchHole.
+
+    self:emitIntConst(#1). self:emitSend("add", #1).
+
+    self:fillBranch(noRemainder).
+    self:fillBranch(sameSign) }.
+
+sola:emitIntegerDivide := { n | | a, b |
+    a := self:intoScratchAs(n:left, 'integer).
+    b := self:intoScratchAs(n:right, 'integer).
+    self:emitTruncatingQuotient(a, b).
+    self:dropScratch.
+    self:dropScratch }.
+
+; `a - (a \\ b) * b`, with `\\` meaning the truncating one above -- which is what
+; makes the remainder take the sign of the left-hand side, as BASIC's does.
 sola:emitModulo := { n | | a, b |
     a := self:intoScratchAs(n:left, 'integer).
     b := self:intoScratchAs(n:right, 'integer).
     self:emitLocal(a).
-    self:emitLocal(a). self:emitSend("asFloat", #0).
-    self:emitLocal(b). self:emitSend("asFloat", #0).
-    self:emitSend("div", #1).
-    self:emitSend("truncated", #0).
+    self:emitTruncatingQuotient(a, b).
     self:emitLocal(b).
     self:emitSend("mul", #1).
     self:emitSend("sub", #1).

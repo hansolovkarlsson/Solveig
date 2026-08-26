@@ -578,8 +578,12 @@ really is used as a number.
 
 **Two operators follow QBasic against the machine.** SolVM's integer divide and
 remainder are floored, so `-7 \ 2` would be `-4` and `-7 MOD 2` would be `1`.
-QBasic says `-3` and `-1`, and this says QBasic. What that costs is exactness
-above 2^53, which is a smaller wrong answer than the sign being wrong.
+QBasic says `-3` and `-1`, and this says QBasic — **exactly**, in integers, by
+adding one to the floored quotient when there is a remainder and the signs
+differ. An earlier version went through the float divide and was wrong above
+2^53; [a truncating divide on
+integer](ideas.md#a-truncating-divide-on-integer) is what would make it one
+send instead of twelve instructions.
 
 **And `VAL` is strict, which is a new divergence** rather than one this document
 predicted. BASIC's `VAL` reads a number off the front of a string and answers
