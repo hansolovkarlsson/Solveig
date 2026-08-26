@@ -5,6 +5,42 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The oracle ran, and it found what transcripts could not — `7edfa49`, 2026-08-26
+
+QuickBASIC 4.5 under DOSBox, against the corpus. **All eight `agree/` programs
+match byte for byte** and all five divergences are still there. Three things came
+out of the first run, and not one was reachable from anything already here.
+
+**A real defect.** `PRINT (1 < 2)` printed `truD`. A comparison used as a number
+is `-1` and [SOLABASIC.md](SOLABASIC.md) has said so since it was written, but
+`PRINT` emitted the value without saying what type it wanted — so the machine's
+boolean went out as text, and the runtime's exponent swap turned `true` into
+`truD`.
+
+**Eleven transcripts were green while that was true**, and `types.out` recorded
+`truD` as the correct answer. A transcript records what a program *does*, not
+what it *should* do, so re-recording after a change bakes the change in whether
+it is right or wrong. That is precisely what
+[basic.sol](../programs/basic.sol)'s header says about the eighty-three claims
+that caught none of the seven defects the NBS suite found — demonstrated here on
+the first run.
+
+**Two divergence entries were wrong.** `INTEGER` overflow does not stop the
+program: `BC.EXE` compiles without overflow checking, so QuickBASIC *wraps* to
+`-32768`. And the digit count — the one thing the definition said was **not
+settled** — is settled: QuickBASIC prints sixteen significant digits, SolaBasic
+prints the shortest that reads back the same.
+
+**Two literal forms were missing** and were needed to ask the digits question at
+all: `1#` and `1D20`, both ordinary QBasic, both found by a corpus file refusing
+to compile.
+
+**And two notes for whoever runs it next.** `BC.EXE` wants CR LF and says
+nothing when it does not get it — a Unix-ended file compiles, links, produces a
+`.EXE`, and that `.EXE` prints nothing, which looks exactly like output that
+cannot be redirected. And `BC /O` linked against `BCOM45.LIB` redirects into a
+file where the `BRUN` runtime cannot find itself.
+
 ### An oracle harness, and no verdict yet — `ef40e9a`, 2026-08-26
 
 **[programs/sola/oracle.sh](../programs/sola/oracle.sh)** compares SolaBasic
