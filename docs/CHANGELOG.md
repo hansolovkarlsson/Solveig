@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### The matcher stops looking where it cannot match — `pending`, 2026-08-26
+### The matcher stops looking where it cannot match — `35dee28`, 2026-08-26
 
 **[programs/edit.sol](../programs/edit.sol) was measured on a file worth the
 name for the first time** — 50,000 lines, 2.3 MB — and everything interactive
