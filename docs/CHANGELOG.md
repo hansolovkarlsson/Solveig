@@ -5,6 +5,55 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Substitution, and a claim about absence that was wrong when it was written — `pending`, 2026-08-26
+
+**`:s/find/replace/` in [programs/edit.sol](../programs/edit.sol)**, with `/g`
+for every match on the line and `:%s` for every line in the file. `&` in a
+replacement is what was matched, and **the delimiter is whatever character
+follows the `s`** — so `:s#/usr/bin#/usr/local/bin#` needs no escaping, which is
+vi's rule and worth having the moment a path is being edited.
+
+**It is deliberately not `/find/replace/`.** `/src/lib` is a perfectly good
+search for a pattern with a slash in it, so a bare `/a/b/` would mean deciding
+that certain searches are silently substitutions instead. vi put substitution on
+the colon line for exactly that reason.
+
+**[lib/pattern.sol](../lib/pattern.sol) gained three messages**: `replaceIn`,
+`replaceAllIn` and `countIn`.
+
+```
+@include "pattern.sol".
+
+pattern:on("an"):replaceAllIn("banana", "[&]"):display.   ; b[an][an]a
+pattern:on("x*"):replaceAllIn("abc", "-"):display.        ; -a-b-c-
+```
+
+**A match that consumed nothing gets out of its own way.** `x*` matches the
+empty string at every position, and a replace that searched again from where it
+started would never finish — so a zero-width match carries the character it
+stood on across and moves one further. `sed` answers the same, and it is the
+only answer that terminates.
+
+**`countIn` is there because the report is counted rather than compared.** *17
+substitutions on 9 lines*, where the number of lines whose text ended up
+different would be a smaller number and a wrong one: replacing `a` with `a`
+changes nothing and is still a substitution, and that is exactly the case
+somebody checks by hand.
+
+**And the entry's own title.** The editor's file said, in yesterday's commit,
+that substitution was missing because *the library answers only where a match
+begins, which is the one place it was left deliberately short*. The library has
+answered where a match **ends** since the hour it was written —
+`endOfMatchAt`, two screens above the sentence claiming it was absent. Nothing
+caught it, because
+[programs/expect.sol](../programs/expect.sol) checks claims about what a line
+**prints** and there is no way to check a claim about what does not exist. It
+cost nothing this time, and it is the second kind of stale that
+[3.16](COMPLETED.md#316-what-the-checker-does-not-check--done) is about.
+
+No message was added to the language: 137<!--count messages--> messages,
+unchanged. Documented claims go 865 to 874<!--count claims-->.
+
 ### Searching, and a regular expression small enough to fit — `b066a18`, 2026-08-26
 
 **[programs/edit.sol](../programs/edit.sol) searches**: `/pattern`, `?pattern`,

@@ -13,6 +13,7 @@
 ;   0 $               line ends      x dd J    a character, a line, join
 ;   gg G              file ends      /pat ?pat search on, and back
 ;   ctrl-f ctrl-b     by a screen    n N       the same search again, either way
+;                                    :s/a/b/ :s/a/b/g :%s/a/b/g
 ;                                    :w :q :q! :wq :w name :17
 ;
 ; ---------------------------------------------------------------------------
@@ -106,16 +107,35 @@
 ; where it was; the alternative is an editor that dies of a missing bracket.
 ;
 ; ---------------------------------------------------------------------------
+; And replacing, which is the other half of the same day
+;
+; `:s/find/replace/`, `/g` for every match on the line, `:%s` for every line in
+; the file, and `&` in a replacement standing for what was matched. The
+; delimiter is whatever character follows the `s`, so
+; `:s#/usr/bin#/usr/local/bin#` needs no escaping.
+;
+; **It is not `/find/replace/`**, and it cannot be. `/src/lib` is a perfectly
+; good search for a pattern with a slash in it, so a bare `/a/b/` would mean
+; deciding that certain searches are silently substitutions instead. vi put
+; substitution on the colon line for that reason, and so does this.
+;
+; **The report is counted, not compared.** *17 substitutions on 9 lines*, where
+; the number of lines whose text ended up different would be a smaller number
+; and a wrong one: replacing `a` with `a` changes nothing and is still a
+; substitution, and that is exactly the case somebody checks by hand.
+;
+; **`:%s` is the first thing here that can change a hundred lines at once, and
+; there is still no undo.** What it has instead is the count, and `:q!`.
+;
+; ---------------------------------------------------------------------------
 ; What it does not do
 ;
-; No undo, no counts before a command, no registers, no marks, and no
-; substitution -- `:s/a/b/` would want the *extent* of a match and the library
-; answers only where one begins, which is the one place it was left deliberately
-; short. Each of those is more of the same rather than more of the language, and
-; this was written to ask the language a question rather than to replace
-; anybody's editor. What is here is what it takes to open a file, move around
-; it, change it and write it back -- which is enough to have edited this
-; comment.
+; No undo, no counts before a command, no registers, no marks, and no line
+; ranges beyond `%` -- `:1,5s/a/b/` is a parser this has not got. Each of those
+; is more of the same rather than more of the language, and this was written to
+; ask the language a question rather than to replace anybody's editor. What is
+; here is what it takes to open a file, move around it, change it and write it
+; back -- which is enough to have edited this comment.
 ;
 ; It is held to a **recorded transcript** in tests/test_cli.c: a fixed screen
 ; size, a scripted stream of keystrokes, and the bytes it writes compared with
@@ -649,9 +669,20 @@ edit:goToLine := { n |
         n:greaterThan(self:lines:size):ifElse({ self:lines:size }, { n }) }).
     self:column := #1 }.
 
-edit:runCommand := { text | | words, name, rest, force |
-    text:trim:equals(""):ifTrue({ text := "q" }).
-    words := text:trim:split(" ").
+; `s/a/b/` and `%s/a/b/` take the whole of the rest of the line as their own
+; syntax -- a pattern may hold spaces and a replacement usually does -- so they
+; are recognised before the line is cut into words, and everything else is a
+; word and its argument.
+edit:runCommand := { text | | trimmed |
+    trimmed := text:trim.
+    trimmed:equals(""):ifTrue({ trimmed := "q" }).
+    self:looksLikeSubstitute(trimmed):ifElse(
+        { { self:runSubstitute(trimmed) }
+            :onError({ e | self:message := e:message }) },
+        { self:runWordCommand(trimmed) }) }.
+
+edit:runWordCommand := { text | | words, name, rest, force |
+    words := text:split(" ").
     name := words:at(#1).
     rest := words:copyFrom(#2, words:size):join(" "):trim.
     force := false.
@@ -757,6 +788,110 @@ edit:matchBefore := { | found, i, row, before, wrapped |
     found }.
 
 ; ---------------------------------------------------------------------------
+; Substituting
+;
+; `:s/find/replace/`, `:s/find/replace/g` for every match on the line, and
+; `:%s/...` for every line in the file. The `&` in a replacement is what was
+; matched; [lib/pattern.sol](../lib/pattern.sol) does that part, and everything
+; here is about which lines to offer it.
+;
+; **The delimiter is whatever follows the `s`**, so `:s#/usr/bin#/usr/local/bin#`
+; needs no escaping at all -- which is vi's rule and is worth having the moment a
+; path is being edited. `\/` inside a pattern is a `/` either way.
+;
+; **`/find/replace/` is not this command**, and cannot be: `/src/lib` is a
+; perfectly good search for a pattern with a slash in it, and there is no way to
+; tell the two apart without deciding that some searches are now substitutions.
+; vi solved this by putting substitution on the colon line, which is where it is
+; here.
+;
+; **There is still no undo**, and `:%s` is the first command in this editor that
+; can change a hundred lines at once. What it has instead is a count -- *17
+; substitutions on 9 lines* -- and `:q!`, which is a coarse undo for anything not
+; yet written.
+
+edit:looksLikeSubstitute := { text | | rest |
+    rest := text:size:greaterThan(#0):and({ text:at(#1):equals("%") }):ifElse(
+        { text:copyFrom(#2, text:size) },
+        { text }).
+    ; `s` and then something that is not a letter, a digit or a space: that
+    ; something is the delimiter. `s` on its own is not a substitution here, and
+    ; neither is anything that merely begins with an s.
+    rest:size:greaterThan(#1):and({ rest:at(#1):equals("s") })
+        :and({ "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 "
+                   :indexOf(rest:at(#2)):isNil }) }.
+
+; The pattern and the replacement, cut apart on the delimiter -- honouring a
+; backslash before one, so a delimiter can appear inside either half.
+edit:cutOn := { text, delimiter | | parts, current, s, c |
+    parts := array:new.
+    current := "".
+    s := scan:on(text).
+    { s:atEnd:not }:whileTrue({
+        c := s:next.
+        c:equals("\\"):and({ s:peek:notNil })
+            :and({ s:peek:equals(delimiter) }):ifElse(
+            { current := current:concat(s:next) },
+            { c:equals(delimiter):ifElse(
+                { parts:add(current). current := "" },
+                { current := current:concat(c) }) }) }).
+    parts:add(current).
+    parts }.
+
+edit:runSubstitute := { text | | everywhere, rest, delimiter, parts, source,
+                               replacement, all, p, last, changed, total |
+    everywhere := text:at(#1):equals("%").
+    rest := everywhere:ifElse(
+        { text:copyFrom(#3, text:size) },
+        { text:copyFrom(#2, text:size) }).
+    delimiter := rest:at(#1).
+    parts := self:cutOn(rest:copyFrom(#2, rest:size), delimiter).
+
+    source := parts:at(#1).
+    replacement := parts:size:greaterThan(#1):ifElse({ parts:at(#2) }, { "" }).
+    all := parts:size:greaterThan(#2)
+        :and({ parts:at(#3):indexOf("g"):notNil }).
+
+    ; An empty pattern is the last one searched for, the same as `/` alone.
+    source:equals(""):ifTrue({ source := self:patternSource }).
+    source:equals(""):ifElse(
+        { self:message := "no previous search" },
+        { p := pattern:on(source).
+          ; A substitution sets the search too, so `n` walks what it changed --
+          ; which is vi's rule and the reason to look before writing.
+          self:pattern := p.
+          self:patternSource := source.
+          self:direction := 'forward.
+
+          last := nil.
+          changed := #0.
+          total := #0.
+          [everywhere:ifElse({ #1 }, { self:row }),
+           everywhere:ifElse({ self:lines:size }, { self:row })]:loop({ r | | was, hits |
+              was := self:lines:at(r).
+              ; Counted rather than compared: replacing `a` with `a` changes
+              ; nothing and is still a substitution, and a report that said
+              ; otherwise would be wrong in the one case somebody is checking.
+              hits := p:countIn(was).
+              hits:greaterThan(#0):ifTrue({
+                  self:lines:atPut(r, all:ifElse(
+                      { p:replaceAllIn(was, replacement) },
+                      { p:replaceIn(was, replacement) })).
+                  total := total:add(all:ifElse({ hits }, { #1 })).
+                  changed := changed:add(#1).
+                  last := r }) }).
+
+          last:isNil:ifElse(
+              { self:message := "pattern not found: {}":fill([source]) },
+              { self:dirty := true.
+                self:row := last.
+                self:column := #1.
+                self:clamp.
+                self:message := "{} substitution{} on {} line{}":fill([
+                    total, total:equals(#1):ifElse({ "" }, { "s" }),
+                    changed, changed:equals(#1):ifElse({ "" }, { "s" })]) }) }) }.
+
+; ---------------------------------------------------------------------------
 ; Running it
 ;
 ; With no argument it writes a file of its own and opens that, the same as every
@@ -772,6 +907,7 @@ gg and G                the file      J         join the line below
 
 /pattern and ?pattern search, forwards and back; n and N do it again.
 A pattern is . * [abc] [^a-z] ^ $ and \\ to escape one of them.
+:s/find/replace/ changes this line, /g every match on it, :%s every line.
 
 :w  :w name  :q  :q!  :wq       and a bare number goes to that line
 escape leaves insert mode -- and is read on the key after it, which is

@@ -11,6 +11,71 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-26 (later) — substitution, and a sentence that was wrong the day it was written
+
+The search went in, and the next thing anybody wants after finding something is
+changing it. Asked for as `/find/replace/`; built as `:s/find/replace/`, and the
+reason is worth the paragraph.
+
+### Why not the syntax that was asked for
+
+`/src/lib` is a perfectly good search for a pattern with a slash in it, and the
+editor has to be able to run it. A bare `/a/b/` is the same keystrokes, so
+accepting it means deciding that a search containing a delimiter is *silently* a
+substitution instead — the failure being that the file changes when you meant to
+look at it. vi put substitution on the colon line for that reason, forty years
+before this, and the delimiter is free there because `s` says what follows it:
+`:s#/usr/bin#/usr/local/bin#` needs no escaping at all.
+
+So: `:s/a/b/`, `:s/a/b/g` for the line, `:%s/a/b/g` for the file, `&` in a
+replacement standing for what was matched.
+
+### The sentence
+
+Yesterday's commit wrote, in the editor's own file and again on
+[the programs page](programs.md), that substitution was missing because *the
+library answers only where a match begins, which is the one place it was left
+deliberately short*.
+
+That was false when it was written. `endOfMatchAt` — *where a match beginning at
+`at` ends* — has been in [lib/pattern.sol](../lib/pattern.sol) since the hour it
+was written, two screens above the sentence saying it was absent, with its own
+comment explaining why it was kept separate. Building substitution today needed
+**nothing added to the matcher**: `replaceIn` is `findFrom` and `endOfMatchAt`
+in a loop.
+
+Nothing caught it, and nothing could have.
+[expect.sol](../programs/expect.sol) checks what a line **prints**; there is no
+notation for *this file does not contain X*, and a claim about an absence is
+exactly the claim that goes stale silently — the thing said to be missing turns
+up, or is added, and the sentence stays technically about a version of the file
+nobody has any more. It is
+[3.16](COMPLETED.md#316-what-the-checker-does-not-check--done)'s subject in a
+form that entry did not have: not a claim the checker skipped, but a claim it
+has no way to express.
+
+**The cheap lesson**: a sentence that says why something is *not* here should
+name the thing it would need, and then somebody rereading it can look. This one
+did name it, which is how it was caught within a day — by writing the feature it
+said was impossible and finding the message already there.
+
+### Two smaller things
+
+**The colon line had to be cut in two.** Every other command is a word and an
+argument, so `runCommand` split on spaces; `s/a b/c d/` is one word and four
+spaces and means nothing under that rule. Substitution is recognised first and
+takes the whole line as its own syntax, and the rest is unchanged. Two methods
+where there was one, which is the shape the moment two syntaxes share a prompt.
+
+**A zero-width match has exactly one answer that terminates.** `s/x*/-/g` over
+`abc` is `-a-b-c-`: the match that consumed nothing carries the character it
+stood on across and moves one further. Getting that wrong is an editor that
+hangs, and getting it *nearly* right is one that drops a character. It was
+written down as a rule before the loop was written, and the loop was right first
+time; `sed` agrees, which is the check that mattered.
+
+---
+
 ## 2026-08-26 — a search, and a prediction of my own that did not hold
 
 The editor could not find anything, and `/` in a vi-shaped editor does not mean

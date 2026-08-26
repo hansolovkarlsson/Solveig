@@ -365,7 +365,7 @@ line prints.
 ```
 
 Over `examples/` alone that is 26<!--count examples-files--> files and
-503<!--count examples-claims--> claims:
+510<!--count examples-claims--> claims:
 
 ```text
 21 files with expectations, 402 claims checked
@@ -388,12 +388,12 @@ table had when [disasm](#disasm--a-sob-file-read-and-disassembled) found it
 three sections out of date. They are also the first thing a newcomer reads.
 
 **It is in `make test` now**, in `tests/test_cli.c` with the other tests that
-run the binaries as a shell would — **865<!--count claims--> claims on every build**, in about
+run the binaries as a shell would — **874<!--count claims--> claims on every build**, in about
 sixteen seconds, and it fails the build if one stops holding.
 
 **And it checks the documentation too.** The guide and the reference carry the
 same notation inside ``` fences, and nothing checked those either — they are the
-two documents a newcomer actually reads. 360<!--count docs-claims--> claims
+two documents a newcomer actually reads. 362<!--count docs-claims--> claims
 across eighteen<!--count docs-documents--> documents,
 and two more on `README.md` and `index.md` — the front pages, which were the
 last two things nothing checked.
@@ -435,7 +435,7 @@ no notation saying what it counts — so it is given one, which renders as nothi
 and leaves the sentence as it was:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 865<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 874<!--count claims--> claims
 ```
 
 Each name is recounted from the repository as it stands. A name the table does
@@ -728,7 +728,9 @@ A modal editor in the manner of vi, in about six hundred lines.
 `h j k l` and the arrows move, `w` and `b` by word, `0` and `$` to the ends of a
 line, `gg` and `G` to the ends of the file, ctrl-f and ctrl-b by a screen.
 `i a I A o O` begin insert, `x` deletes a character, `dd` a line, `J` joins one.
-`/pattern` and `?pattern` search forwards and back, `n` and `N` do it again.
+`/pattern` and `?pattern` search forwards and back, `n` and `N` do it again,
+and `:s/find/replace/` changes what they find — `/g` for every match on the
+line, `:%s` for every line in the file.
 `:w`, `:w name`, `:q`, `:q!`, `:wq` and a bare number to go to that line. Escape
 leaves insert mode, with the caveat below.
 
@@ -784,11 +786,24 @@ that comes back round to where it started looks exactly like one that found
 something new. And a pattern that will not compile puts its complaint on the
 bottom line rather than ending the editor.
 
+**And substitution came with it.** `:s/find/replace/` is the search plus
+`replaceAllIn`, with `&` in a replacement standing for what was matched and the
+delimiter being whatever character follows the `s` — so
+`:s#/usr/bin#/usr/local/bin#` needs no escaping. It is deliberately *not*
+`/find/replace/`: `/src/lib` is a good search for a pattern with a slash in it,
+so a bare `/a/b/` would mean deciding that some searches are silently
+substitutions. vi put substitution on the colon line for that reason.
+
+The report is **counted rather than compared** — *17 substitutions on 9 lines* —
+because the number of lines whose text ended up different is a smaller number
+and a wrong one: replacing `a` with `a` changes nothing and is still a
+substitution. And `:%s` is the first thing here that can change a hundred lines
+at once with **still no undo**, which is what the count and `:q!` are for.
+
 **What it does not do**: no undo, no counts before a command, no registers, no
-marks, and no `:s///` — substitution wants the *extent* of a match where the
-library answers only where one begins, which is the one place that file was
-left deliberately short. Each of those is more of the same rather than more of
-the language, and this program was written to ask the language a question.
+marks, and no line ranges beyond `%` — `:1,5s/a/b/` is a parser this has not
+got. Each of those is more of the same rather than more of the language, and
+this program was written to ask the language a question.
 
 ---
 

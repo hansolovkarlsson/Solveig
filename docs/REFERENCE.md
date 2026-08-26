@@ -780,6 +780,9 @@ pattern:on("[0-9]"):find("port 80"):print.   ; #6
 | `findLast(text, #before)` | where the last match beginning before `#before` is, or nil |
 | `matches(text)` | whether there is a match anywhere — `find:notNil` |
 | `endOfMatchAt(text, #at)` | where a match beginning at `#at` ends, or nil |
+| `replaceIn(text, with)` | the text with the **first** match replaced |
+| `replaceAllIn(text, with)` | the same, for every match |
+| `countIn(text)` | how many non-overlapping matches there are |
 
 The language is seven things: a character matching itself, `.` for any one, `*`
 for zero or more of the item before it, `[abc]` `[a-z]` `[^abc]` for a class,
@@ -791,6 +794,28 @@ shell variable be searched for unescaped.
 **What is not here**: groups, alternation, `+`, `?`, captures, counted
 repetition. Those want a backtracker over a tree rather than over a list, and
 nothing has wanted one.
+
+**`&` in a replacement is what was matched**, which is sed's rule and vi's;
+`\&` is an ampersand and `\\` is a backslash. A replacement ending in a
+backslash is refused the way a pattern ending in one is — it is always a typing
+mistake.
+
+```
+@include "pattern.sol".
+
+pattern:on("an"):replaceAllIn("banana", "[&]"):display.   ; b[an][an]a
+pattern:on("x*"):replaceAllIn("abc", "-"):display.        ; -a-b-c-
+```
+
+**A match that consumed nothing gets out of its own way.** `x*` matches the
+empty string at every position, and a replace that searched again from where it
+started would never finish — so a zero-width match carries the character it
+stood on across and moves one further. That is what `sed` answers, and it is the
+only answer that terminates.
+
+**`countIn` exists because a substitution has to report a number** and cannot
+get it by comparing the text with itself: replacing `a` with `a` changes nothing
+and is still a substitution.
 
 **The pattern is compiled once**, because the caller is usually a search — the
 same pattern against a hundred thousand lines, and re-reading `[a-z]` at every

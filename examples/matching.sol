@@ -70,6 +70,31 @@ pattern:on("ab"):findFrom("abxab", #2):print.           ; #4
 pattern:on("ab"):findLast("abxabxab", #7):print.        ; #4
 
 ; ---------------------------------------------------------------------------
+; Putting something in a match's place
+;
+; The other half of `s/find/replace/`, and the reason `endOfMatchAt` is here at
+; all: replacing a match needs to know where it ends.
+
+pattern:on("a"):replaceIn("banana", "X"):display.        ; bXnana
+pattern:on("a"):replaceAllIn("banana", "X"):display.     ; bXnXnX
+
+; `&` in the replacement is what was matched, which is sed's rule and vi's;
+; `\&` is an ampersand, and `\\` is a backslash.
+pattern:on("an"):replaceAllIn("banana", "[&]"):display.  ; b[an][an]a
+pattern:on("an"):replaceIn("banana", "\\&"):display.     ; b&ana
+
+; A match that consumed nothing carries the character it stood on across and
+; moves one further, because a loop that searched again from where it started
+; would replace for ever. This is what sed answers too.
+pattern:on("x*"):replaceAllIn("abc", "-"):display.       ; -a-b-c-
+
+; And how many there are, which is what a substitution reports. Counted rather
+; than compared: replacing `a` with `a` changes nothing and is still a
+; substitution.
+pattern:on("an"):countIn("banana"):print.                ; #2
+pattern:on("q"):countIn("banana"):print.                 ; #0
+
+; ---------------------------------------------------------------------------
 ; A pattern that will not read
 ;
 ; It raises, with a message a person can act on -- `programs/edit.sol` puts it

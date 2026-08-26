@@ -453,7 +453,7 @@ without being told where they live.
 | [json.sol](../lib/json.sol) | `json:read` `json:write` `value:asJson` | JSON in and out |
 | [html.sol](../lib/html.sol) | `html:read`, a tree with `find`, `text`, `attribute` | HTML that recovers from bad markup |
 | [scan.sol](../lib/scan.sol) | `scan:on`, a cursor: `peek` `next` `takeWhile` `since` | reading text a character at a time |
-| [pattern.sol](../lib/pattern.sol) | `pattern:on`, then `find` `findFrom` `findLast` `matches` | regular expressions, in the subset vi searches with |
+| [pattern.sol](../lib/pattern.sol) | `pattern:on`, then `find` `findLast` `matches` `replaceAllIn` | regular expressions and substitution, in the subset vi searches with |
 
 ```
 @include "math.sol".
