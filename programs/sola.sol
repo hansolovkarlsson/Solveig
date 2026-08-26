@@ -989,7 +989,10 @@ sola:parseOneDim := { st | | name, bounds, low, more |
     self:nextIs("AS"):ifTrue({ self:takeToken. self:declareType(name, self:typeName) }).
     st:items:add(name).
     st:bounds:add(bounds).
-    bounds:isNil:ifFalse({ self:declareArray(name, bounds, st:shared) }) }.
+    bounds:isNil:ifElse(
+        { st:shared:and({ self:sharedNames:indexOf(name):isNil }):ifTrue({
+              self:sharedNames:add(name) }) },
+        { self:declareArray(name, bounds, st:shared) }) }.
 
 ; `()` with nothing between them, consumed if it is there.
 sola:emptyBrackets := {
@@ -1393,6 +1396,11 @@ sola:intoScratchAs := { node, wanted | | slot |
 ; everywhere, and `OPTION BASE` is asked once.
 
 sola:arrays := nil.         ; name -> [bounds, shared]
+; **`DIM SHARED` on a plain variable, which is not the same list as the arrays.**
+; Recording the flag only on an array was the first version of this, and it made
+; `DIM SHARED Total` compile and then quietly give every procedure a local of its
+; own -- found by writing a program that wanted one.
+sola:sharedNames := nil.
 sola:declaredTypes := nil.  ; name -> type, from an AS clause
 sola:optionBase := #0.
 sola:baseFixed := false.
@@ -1527,6 +1535,8 @@ sola:typeExpression := { n |
         n:type := self:typeOfCall(n) }).
     n:kind:equals('variable):and({ self:isConstant(n:name) }):ifTrue({
         n:type := self:constants2:at(n:name):at(#2) }).
+    n:kind:equals('variable):and({ self:isBareCall(n:name) }):ifTrue({
+        n:type := self:typeOfName(n:name) }).
     n:kind:equals('negate):ifTrue({
         self:typeExpression(n:left).
         n:left:type:equals('string):ifTrue({ self:fail("text cannot be negated") }).
@@ -1632,7 +1642,8 @@ sola:slotFor := { name |
 ; A `DIM SHARED` array is one array wherever it is named, so it is a global
 ; everywhere rather than a local that happens to have the same name.
 sola:isLocalName := { name |
-    self:isArray(name):and({ self:arrayIsShared(name) }):ifElse(
+    self:isArray(name):and({ self:arrayIsShared(name) })
+        :or({ self:sharedNames:indexOf(name):notNil }):ifElse(
         { false },
         { self:inProcedure:and({ self:shared:indexOf(name):isNil })
             :and({ self:statics:includes(name):not }) }) }.
@@ -1704,6 +1715,17 @@ sola:emitVariableInitialisers := { skip |
     self:variablesIn(self:statementsOfScope):do({ name |
         skip:indexOf(name):isNil
             :and({ self:shared:indexOf(name):isNil })
+            ; **A `DIM SHARED` name belongs to the module**, so a procedure that
+            ; mentions it must not give it a nought -- that would replace what
+            ; the module put there. A `SUB` that assigns to it survived this by
+            ; luck of ordering; a `FUNCTION` that only reads it saw nought.
+            :and({ self:inProcedure:and({
+                self:sharedNames:indexOf(name):notNil }):not })
+            ; **A procedure's name holds the procedure**, and giving it a nought
+            ; replaces it with one. A bare `Total` that means `FUNCTION Total`
+            ; reads as a variable to the walker that collects these, so the
+            ; walker's answer has to be filtered here.
+            :and({ self:routines:includes(name):not })
             :and({ self:statics:includes(name):not })
             :and({ self:isBoxed(name):not }):ifTrue({
             self:emitZero(self:typeOfName(name)).
@@ -1725,6 +1747,15 @@ sola:noteName := { names, name |
 
 sola:variablesInStatement := { st, names |
     ['let, 'for]:indexOf(st:kind):notNil:ifTrue({ self:noteName(names, st:name) }).
+    ; A `DIM`med plain variable is a variable like any other and wants its
+    ; nought; a `DIM`med array is made by the DIM itself and must not be given
+    ; one, which would replace the array with a number.
+    st:kind:equals('dim):ifTrue({ | i |
+        i := #1.
+        { i:lessOrEqual(st:items:size) }:whileTrue({
+            st:bounds:at(i):isNil:ifTrue({
+                self:noteName(names, st:items:at(i)) }).
+            i := i:add(#1) }) }).
     ['print, 'call]:indexOf(st:kind):notNil:ifTrue({
         st:items:do({ a | self:variablesInExpression(a, names) }) }).
     st:kind:equals('print):ifTrue({ nil }).
@@ -1824,7 +1855,9 @@ sola:emitExpression := { n |
       { n:kind:equals('variable) },
         { self:isConstant(n:name):ifElse(
             { self:emitConstantValue(n:name) },
-            { self:emitLoadVar(n:name) }) },
+            { self:isBareCall(n:name):ifElse(
+                { self:emitCall(n:name, array:new, false) },
+                { self:emitLoadVar(n:name) }) }) },
       { n:kind:equals('call) },
         { self:isArray(n:name):ifElse(
             { self:emitRawVar(n:name).
@@ -2790,6 +2823,18 @@ sola:emitStaticInitialisers := {
 
 ; What a call answers: a builtin says so itself, and a FUNCTION says so with
 ; the suffix on its own name, exactly as a variable does.
+; **A FUNCTION of no arguments is written without brackets**, the same as a
+; supplied one -- `x = Total` calls `FUNCTION Total`. The parser cannot know,
+; because procedures are collected after the whole listing is read, so the
+; decision waits until there is something to ask.
+;
+; Inside the function itself the name is its answer and not a call to itself,
+; which is what `returnName` is doing here.
+sola:isBareCall := { name |
+    self:routines:includes(name)
+        :and({ self:routines:at(name):params:size:equals(#0) })
+        :and({ self:returnName:equals(name):not }) }.
+
 sola:emitConstantValue := { name | | pair |
     pair := self:constants2:at(name).
     pair:at(#2):equals('string):ifElse(
@@ -3512,6 +3557,7 @@ sola:compile := { source, path |
     self:routineOrder := array:new.
     self:defaultTypes := dictionary:new.
     self:arrays := dictionary:new.
+    self:sharedNames := array:new.
     self:declaredTypes := dictionary:new.
     self:constants2 := dictionary:new.
     self:optionBase := #0.
