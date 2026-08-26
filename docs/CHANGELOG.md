@@ -5,6 +5,49 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### A compiled BASIC gets its definition before it gets a compiler — `9e9ac55`, 2026-08-26
+
+**[SOLABASIC.md](SOLABASIC.md)** is the whole of SolaBasic — labels rather than
+line numbers, `SUB` and `FUNCTION`, block `IF` and `SELECT CASE`, three types,
+twenty-eight statements and twenty-seven functions, compiled to a `.sob` and run
+by `solvm`. Written before any of it exists, because there is no standard for
+this dialect and somebody has to hold the line a standard would have held.
+
+**There is no standard, and not for want of looking.** Full BASIC — ECMA-116,
+ANSI X3.113-1987, ISO 10279 — is the only standardised structured BASIC, and it
+fails three ways: line numbers are still mandatory, it is 176 keywords and five
+optional modules against Minimal BASIC's twenty statements, and nobody appears to
+have built a conforming implementation, so there is no counterpart to the NBS
+test programs either.
+
+**So the boundary is borrowed rather than invented, and it is CB80's.** The
+CBASIC Compiler of 1982 compiled to an intermediate file run by a separate
+runtime — this design, fifty years early — and added alphanumeric labels, nested
+`IF`, type declarations and multiple-line functions with locals. Everything
+QBasic has that CB80 also had is language; everything past it is the PC.
+
+**The reason to compile rather than transpile is that `GOTO` is not expressible
+in Solum.** A transpiler would compile each statement to a block and dispatch on
+a label variable, which is a send per statement and is what
+[basic.sol](../programs/basic.sol) already pays as a tree-walker. In bytecode
+`GOTO` is `OP_JUMP`, and the verifier cooperates: statements compile at depth 0
+with a `POP` at each boundary, so every label is a depth-0 merge point by
+construction.
+
+**Three decisions are the ones most likely to be wrong.** `SINGLE` is removed
+rather than aliased, so a ported program prints more digits than it used to.
+`GOSUB`, `RETURN` and `ON n GOTO` are cut permanently, both needing the computed
+jump the machine does not have. By-reference parameters stay, with the boxing
+they cost, because passing by value would leave `SWAP`-shaped programs running
+and answering *differently*.
+
+**And it meets [3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels) head
+on.** A `SUB` compiles to a Solum block, so an interpreted call is a real frame
+and recursion stops around 254 levels — exactly what
+[ideas.md](ideas.md) predicted when it argued for a Pascal interpreter. A
+line-numbered BASIC never could, which is why `basic.sol` fit inside the limit
+without noticing it.
+
 ### The editor finishes vi's alphabet, and its sessions become tests — `8018261`, 2026-08-26
 
 **`c`, `e`, `f`, `t`, `F`, `T`, `r` and `~`** in
