@@ -1121,9 +1121,12 @@ index 9, which is `a(2, 1)` — and answering the wrong element quietly is the o
 thing this must not do. A one-dimensional array has nowhere for a bad subscript
 to go except outside the array, and the machine refuses that itself.
 
-**And there is a harness to compare it against a real QuickBASIC**, which is
-the only check here that can find something nobody thought of — everything else
-this compiler is held to is a transcript recorded by its own author.
+**And it is compared against a real QuickBASIC**, which is the only check here
+that can find something nobody thought of — everything else this compiler is
+held to is a transcript recorded by its own author. **Fourteen programs match
+byte for byte**, five differ exactly where the language definition says they
+should, and the comparison has found **three real defects that eleven
+transcripts did not** — one of which a transcript had recorded as correct.
 [oracle.sh](../programs/sola/oracle.sh) runs a corpus in two halves:
 `oracle/agree/`, which must produce the same bytes under both, and
 `oracle/differ/`, which must not and says at the head of each file why. **That

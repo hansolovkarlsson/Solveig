@@ -116,6 +116,12 @@ and mean nothing except as the target of a jump. `100` and `100.0` are two
 different labels. Old listings therefore pass through unaltered, and nothing in
 the compiler ever sorts them.
 
+**QuickBASIC agrees**, which was not known when this was written and is now
+[measured](../programs/sola/oracle/agree/labels.bas): 4.5 compiles a listing
+whose numeric labels descend, and prints what SolaBasic prints. So the rule
+borrowed from CB80 is not a divergence from QBasic, and the list below needs no
+entry for it.
+
 A program is one file. There is no `CHAIN`, no `COMMON`, and no linker.
 
 ### Module level and procedure level
@@ -602,6 +608,24 @@ stack depth are each refused *at load*, exit 65, as a message rather than a
 crash. The depth-0 discipline is load-bearing rather than tidy, and nothing in
 the design section above needed changing.
 
+**2026-08-26 — the corpus grew to cover what it had been missing, and found
+nothing.** `GOTO` was not tested against QuickBASIC at all, which was a hole in
+the middle of the design: interleaved jumps, a jump out of a block, a label
+before `NEXT`, out-of-order numeric labels, the by-reference chain, and the
+numeric functions all went in. **All fourteen `agree/` programs match**, and no
+new defect turned up.
+
+That is worth recording as a result rather than a non-event. Three defects came
+out of the first fourteen programs, and the five written to close the biggest
+gap in the coverage came out clean — so the areas the design rests on are
+answering the way they should, and are now held to it by somebody else.
+
+**One thing was settled on the way.** [Labels](#labels) says a number at the
+start of a line is a label and not a line number, taken from CB80, and that it
+lets old listings through unaltered. QuickBASIC does the same: it compiles a
+listing whose numeric labels descend. The rule is not a divergence and the list
+needs no entry for it.
+
 **2026-08-26 — `INPUT`, and the oracle earned its keep twice more.**
 `INPUT` and `LINE INPUT` are in, and match QuickBASIC byte for byte. Two of the
 three things worth recording came out of the comparison rather than out of
@@ -810,7 +834,7 @@ The language above is the finish line. The order to reach it in:
 | **4** | **Done.** `SUB`, `FUNCTION`, `CALL`, locals, `SHARED`, `STATIC`, `EXIT SUB`/`EXIT FUNCTION`, and by-reference parameters. |
 | **5** | **Done.** `DIM` with constant bounds and up to eight dimensions, `OPTION BASE`, `CONST`, `DIM SHARED`, and arrays passed to procedures. |
 | **6** | **`PRINT`'s rules, `INPUT` and `LINE INPUT` are done**, all three held against a real QuickBASIC. Files and `PRINT USING` are what is left of it. |
-| **7** | **Done, and the verdict is in.** [oracle.sh](../programs/sola/oracle.sh) against QuickBASIC 4.5 under DOSBox: **all eight `agree/` programs match byte for byte**, and all five divergences are still there. It found one real defect and corrected two entries in the list below. |
+| **7** | **Done, and the verdict is in.** [oracle.sh](../programs/sola/oracle.sh) against QuickBASIC 4.5 under DOSBox: **all fourteen `agree/` programs match byte for byte**, and all five divergences are still there. It has found three real defects and corrected two entries in the list below. |
 
 Stage 3 is the one to reach early even though the ordering does not demand it,
 because it is the claim the whole design rests on. If arbitrary `GOTO` between

@@ -993,7 +993,8 @@ static void test_sola_compiles_a_program_that_runs(void)
         static const char *corpus[] = {
             "agree/arith", "agree/arrays", "agree/control", "agree/numbers",
             "agree/procs", "agree/select", "agree/strings", "agree/zones",
-            "agree/input",
+            "agree/input", "agree/goto", "agree/spaghetti", "agree/labels",
+            "agree/byref", "agree/maths",
             "differ/defaulttype", "differ/digits", "differ/intwidth",
             "differ/strdollar", "differ/val",
         };
