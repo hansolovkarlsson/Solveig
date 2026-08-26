@@ -95,9 +95,11 @@ system:fileSize(scratch:concat("/note.txt")):print.     ; #7, without reading it
 note := scratch:concat("/note.txt").
 
 ; `modeOf` answers the permission bits as an integer, and `setMode` takes one.
-; There is no octal literal in this language -- an integer is written #493 --
-; so `asBase(#8)` is how you get the notation people recognise back out.
-system:setMode(note, #493).
+; A mode is three triples of bits, which is exactly what a binary literal is
+; for: `%111101101` is `0755` with the triples where you can see them, where
+; `#493` is the same number and tells you nothing. `asBase(#8)` gets the
+; notation people recognise back out.
+system:setMode(note, %111101101).
 system:modeOf(note):asBase(#8):display.                 ; 755
 
 ; The time, the same way round: `setModifiedAt` takes what `modifiedAt` answers,

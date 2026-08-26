@@ -221,4 +221,4 @@ count:print.                     ; #9
 ;   #1:shiftLeft(#64)   ->  'shiftLeft' wants #0 to #63, got #64
 
 ; Which is how a mode gets its executable bit without arithmetic:
-;   system:setMode(path, system:modeOf(path):bitOr("111":asInteger(#8))).
+;   system:setMode(path, system:modeOf(path):bitOr(%111)).
