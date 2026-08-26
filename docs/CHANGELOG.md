@@ -5,6 +5,32 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### sob.sol goes back on the search path, and the other three stay parked — `dbf2e01`, 2026-08-26
+
+**[lib/sob.sol](../lib/sob.sol)** again, rather than
+[experiment/](../experiment/). [programs/sola.sol](../programs/sola.sol) wanted
+the `.sob` writer and was reaching into the one directory whose README says
+nothing in it is on the search path and everything in it is expected to fall
+behind — a live program depending on parked code is the wrong shape.
+
+**Why only this one comes back is the useful part.** The tax that parked the
+self-hosting compiler is that a second compiler has to be taught every construct
+the first one learns, and that falls on `lexer.sol`, `parser.sol` and
+`compiler.sol`, which track the **language**. `sob.sol` tracks the **file
+format** — it changes on a version bump, a deliberate act already held to
+`serialize.h` by the test suite, and not when Solum gains a construct. Different
+rates, conflated only because all four files arrived on the same day.
+
+**Nothing in `experiment/` needed editing.** Both files there say
+`@include "sob.sol"`, and a name not found beside the includer is looked for on
+the search path, so they find it in `lib/` without knowing it moved.
+[prove.sh](../experiment/prove.sh) was run before and after and says the same
+thing both times — 54 identical, 0 differing, 2 refused, fixpoint intact. The
+two refusals predate this and are the falling-behind that README promises.
+
+And it is registered in `tests/test_compile.c` now, so it is verified on every
+build where the experiment was not.
+
 ### SolaBasic can GOTO, and the claim the design rests on holds — `4f4f74e`, 2026-08-26
 
 **[programs/sola.sol](../programs/sola.sol)** compiles
