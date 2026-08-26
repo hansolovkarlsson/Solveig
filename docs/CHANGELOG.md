@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### The editor finishes vi's alphabet, and its sessions become tests — `pending`, 2026-08-26
+### The editor finishes vi's alphabet, and its sessions become tests — `8018261`, 2026-08-26
 
 **`c`, `e`, `f`, `t`, `F`, `T`, `r` and `~`** in
 [programs/edit.sol](../programs/edit.sol), which is the last of what a person
