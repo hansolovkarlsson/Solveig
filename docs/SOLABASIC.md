@@ -549,10 +549,23 @@ Double. A bare name is not the same variable in the two languages, and a file
 testing `PRINT` must not be testing that instead.
 
 **The harness needs an oracle it does not carry.** It takes any command that
-runs a `.bas`, finds `qb64` or `fbc` if one is installed, and explains the
-DOSBox route otherwise — where the thing to reach for is `BC.EXE` rather than
-`QB.EXE`, the environment writing to the screen where a compiled `.EXE` can be
-redirected.
+runs a `.bas` through `SOLA_ORACLE`, and finds `qb64` or `fbc` if either is
+installed. For the article:
+
+```sh
+SOLA_QB_DIR=/path/to/qb45 ./programs/sola/oracle.sh
+```
+
+That directory wants **`BC.EXE`, `LINK.EXE` and `BCOM45.LIB`** from QuickBASIC
+4.5. DOSBox is found on the `PATH` or inside `/Applications/dosbox.app`, which
+is where Homebrew's cask puts it and is why it is not on the `PATH` at all.
+
+**`BC.EXE` and not `QB.EXE`**: the QuickBASIC environment writes to the screen,
+which a script cannot read, where a compiled `.EXE` redirects into a file the
+host picks up off the mounted drive. That is why this wants QuickBASIC 4.5 and
+not the QBasic 1.1 that came with MS-DOS, which has no compiler in it. DOS ends
+its lines with CR LF and the harness strips the CR before comparing, so a
+difference it reports is a difference in what was printed.
 
 **2. A recorded transcript per feature**, compared byte for byte on every build,
 in the manner of [programs/basic/](../programs/basic/). Every statement in this

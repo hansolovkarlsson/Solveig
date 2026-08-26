@@ -41,15 +41,21 @@
 # real QuickBASIC 4.5 reports -- when they and SolaBasic disagree, either may be
 # the one that is wrong.
 #
-# For the article: DOSBox with QuickBASIC 4.5, and **BC.EXE rather than QB.EXE**.
-# The environment writes to the screen and cannot be redirected; the compiler
-# makes a .EXE whose output can be. Roughly:
+# For the article: DOSBox with QuickBASIC 4.5.
 #
-#     BC prog.bas;
-#     LINK prog;
-#     prog > out.txt
+#   SOLA_QB_DIR   a directory holding BC.EXE, LINK.EXE and BCOM45.LIB.
 #
-# Wrap that in a command, point SOLA_ORACLE at it, and this script does the rest.
+# DOSBox is found on the PATH or inside /Applications/dosbox.app, which is where
+# Homebrew's cask puts it and is why it is not on the PATH at all.
+#
+# **BC.EXE and not QB.EXE.** The QuickBASIC environment writes to the screen,
+# which a script cannot read; the compiler makes a .EXE, and a .EXE's output
+# redirects into a file the host can pick up off the mounted drive. That is the
+# whole reason this wants QuickBASIC 4.5 rather than the QBasic 1.1 that came
+# with MS-DOS, which has no compiler in it.
+#
+# DOS ends its lines with CR LF and this strips the CR before comparing, so a
+# difference reported here is a difference in what was printed.
 
 set -u
 
@@ -66,9 +72,18 @@ fi
 # ---------------------------------------------------------------------------
 # Which oracle, if any
 
+dosbox=""
+for candidate in dosbox /Applications/dosbox.app/Contents/MacOS/DOSBox \
+                 /Applications/DOSBox.app/Contents/MacOS/DOSBox; do
+    if command -v "$candidate" >/dev/null 2>&1; then dosbox="$candidate"; break; fi
+    if [ -x "$candidate" ]; then dosbox="$candidate"; break; fi
+done
+
 oracle_kind=""
 if [ -n "${SOLA_ORACLE:-}" ]; then
     oracle_kind="SOLA_ORACLE"
+elif [ -n "${SOLA_QB_DIR:-}" ] && [ -n "$dosbox" ]; then
+    oracle_kind="dosbox"
 elif command -v qb64pe >/dev/null 2>&1; then
     oracle_kind="qb64pe"
 elif command -v qb64 >/dev/null 2>&1; then
@@ -86,7 +101,35 @@ run_oracle() {
       fbc)
           fbc -lang qb "$1" -x "$work/oracle_exe" >/dev/null 2>&1 \
               && "$work/oracle_exe" 2>&1 ;;
+      dosbox) run_dosbox "$1" ;;
     esac
+}
+
+# QuickBASIC 4.5 under DOSBox: compile, link against the standalone runtime,
+# run with the output redirected, and read it back off the mounted drive.
+run_dosbox() {
+    rm -rf "$work/dos"
+    mkdir -p "$work/dos"
+    cp "$1" "$work/dos/P.BAS"
+    SDL_VIDEODRIVER=dummy "$dosbox" \
+        -c "mount c $SOLA_QB_DIR" \
+        -c "mount d $work/dos" \
+        -c "set LIB=C:\\" \
+        -c "d:" \
+        -c "c:\\BC.EXE P.BAS /O;" \
+        -c "c:\\LINK.EXE P.OBJ,,NUL,C:\\BCOM45.LIB;" \
+        -c "P.EXE > OUT.TXT" \
+        -c "exit" >"$work/dos/dosbox.log" 2>&1
+    # **The .EXE is what says the toolchain worked, not the .TXT.** DOS creates
+    # the file a redirection names before it discovers there is nothing to run,
+    # so OUT.TXT exists either way -- and a missing BC.EXE would otherwise be
+    # reported as though the program had printed "Illegal command".
+    if [ -f "$work/dos/P.EXE" ] || [ -f "$work/dos/p.exe" ]; then
+        tr -d '\r' < "$work/dos/OUT.TXT" 2>/dev/null
+    else
+        echo "(QuickBASIC produced no program to run -- is BC.EXE in SOLA_QB_DIR?)"
+        tr -d '\r' < "$work/dos/OUT.TXT" 2>/dev/null | head -5
+    fi
 }
 
 run_sola() {
@@ -105,8 +148,14 @@ if [ -z "$oracle_kind" ]; then
     echo
     echo "No QuickBASIC to compare against, so there is no verdict."
     echo
-    echo "  SOLA_ORACLE='<command taking a .bas and printing its output>'"
-    echo "  or install qb64 or fbc, or read the header for the DOSBox route."
+    if [ -n "$dosbox" ]; then
+        echo "  DOSBox is here: $dosbox"
+        echo "  Point SOLA_QB_DIR at a directory holding QuickBASIC 4.5's"
+        echo "  BC.EXE, LINK.EXE and BCOM45.LIB, and this will use it."
+    else
+        echo "  SOLA_ORACLE='<command taking a .bas and printing its output>'"
+        echo "  or install qb64 or fbc, or read the header for the DOSBox route."
+    fi
     echo
     echo "What the corpus does under SolaBasic alone:"
     echo
