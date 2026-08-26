@@ -1,6 +1,6 @@
 # The programs
 
-*The eleven<!--count programs--> files in [programs/](../programs/): what each one does, how to run
+*The twelve<!--count programs--> files in [programs/](../programs/): what each one does, how to run
 it, and what it found. [examples/](../examples/) is the other directory — one
 file per concept the [guide](GUIDE.md) names, each written to show a feature.
 These were written to do a job.*
@@ -16,9 +16,9 @@ That distinction is the reason for the split, and it is not cosmetic. **A
 program written to show a feature is written after the feature and to suit it,
 so it can never report that the feature was awkward.** These can, and did:
 nearly every entry the [roadmap](ROADMAP.md) gained after the first dozen came
-from one of these ten wanting something the language did not have.
+from one of these twelve wanting something the language did not have.
 
-**What this page is not is a description of what Solum is for.** These ten lean
+**What this page is not is a description of what Solum is for.** These twelve lean
 towards text and processes because they are the tools this project needed while
 building itself, and the language is meant to be general —
 [design.md](design.md#what-the-language-is-for) says so, and says what happened
@@ -42,6 +42,7 @@ is the map; the file is the argument.
 | [expect](../programs/expect.sol) | checks the examples and the documents against their own claims | `solvm expect.sob [dir or file]...` |
 | [bench](../programs/bench.sol) | times a command, and says whether two of them really differ | `solvm bench.sob [runs] [cmd] [-- cmd]` |
 | [basic](../programs/basic.sol) | runs a BASIC listing | `solvm basic.sob` |
+| [edit](../programs/edit.sol) | edits a file on the screen, in the manner of vi | `solvm edit.sob [file]` |
 
 Every one runs with no arguments at all, on input it supplies itself. That is
 deliberate — a program you have to feed before it will say anything is a program
@@ -674,7 +675,7 @@ exist is reported before the program prints anything, and a `FOR` finds its
 `NEXT`. That last one is what lets a loop with an empty range skip its body —
 it already knows where the body ends.
 
-The first of the eleven to be an interpreter for another language rather than a
+The first of these to be an interpreter for another language rather than a
 tool for this one. It holds a second language's whole state — a variable table,
 a program counter, a listing — and what makes it different from the other
 programs here is that it is judged against a specification: either a listing
@@ -692,9 +693,11 @@ stubbed with repeated multiplication, an operator right for `2^3` and quietly
 wrong for `2^0.5` being the same silent failure that entry already recorded
 twice. Then the decision was taken and all eleven landed at once.
 
-It also found [3.18](COMPLETED.md#318-a-program-cannot-write-without-ending-the-line--done),
-which is still open: `INPUT` has to show a `?` and read the answer beside it,
-and there is no way to write to standard output without ending the line.
+It also found [3.18](COMPLETED.md#318-a-program-cannot-write-without-ending-the-line--done):
+`INPUT` has to show a `?` and read the answer beside it, and there was no way to
+write to standard output without ending the line. `system:write` closed that the
+same day, and it is half of what [edit](#edit--a-file-on-the-screen) needed
+before it could draw anything at all.
 
 **And a happier finding, about line numbers.** They are usually a joke, and here
 they are what makes the job possible. `SOL_FRAMES_MAX` caps recursion at about
@@ -708,9 +711,75 @@ expression parser, and it runs once at load rather than once per execution.
 
 ---
 
+## edit — a file on the screen
+
+**The twelfth, and the first that draws.** Every other program here writes a
+line at a time and reads a line at a time; this one owns the screen, puts the
+cursor where it wants it, and redraws the whole of what you are looking at
+between one keystroke and the next.
+
+A modal editor in the manner of vi, in about six hundred lines.
+
+```sh
+./bin/solvm programs/edit.sob                 # a buffer it writes for itself
+./bin/solvm programs/edit.sob notes.txt       # your own file
+```
+
+`h j k l` and the arrows move, `w` and `b` by word, `0` and `$` to the ends of a
+line, `gg` and `G` to the ends of the file, ctrl-f and ctrl-b by a screen.
+`i a I A o O` begin insert, `x` deletes a character, `dd` a line, `J` joins one.
+`:w`, `:w name`, `:q`, `:q!`, `:wq` and a bare number to go to that line. Escape
+leaves insert mode, with the caveat below.
+
+**It was written to find one thing, and the thing was written down first.**
+[ideas.md](ideas.md#programs-that-would-press-on-something) predicted, before
+this file existed, that an editor would want *the terminal's size* and find
+nothing to ask. That is exactly what happened, in the first hour, and it is
+[6.34](COMPLETED.md#634-a-program-cannot-ask-how-big-the-terminal-is--done):
+`system:terminalSize` now, closed the same day it was raised.
+
+**What made it an entry was a measurement rather than the absence.** The number
+was always reachable — `stty size` through a shell — at 7.0ms an ask, which is a
+fork, an exec and a pipe per keystroke if a program measures each time it draws.
+So the editor measured once at startup, and every window resized after that was
+a window it drew wrong until it was restarted. One ioctl is about a microsecond,
+so it now measures on every frame and the resize notification the language has
+not got stops being something anybody needs.
+
+**And it confirmed a warning that had only ever been theoretical.**
+[examples/keys.sol](../examples/keys.sol) says a byte-level reader cannot tell
+the escape key from the start of an escape sequence, since telling them apart
+needs a read that gives up after a few milliseconds. In a modal editor escape is
+the most-pressed key there is, and here it does not take effect until the *next*
+key arrives — the editor reads that byte, finds it does not spell an arrow, and
+keeps it to act on. Nothing is lost and nothing is misread; the screen simply
+does not change until you press the next thing. That is the sharpest form the
+warning could have taken, and it was found by binding the key rather than by
+reasoning about it.
+
+**Three smaller things it found**, none of them worth an entry:
+
+- **An array cannot have an element put into the middle or taken out of it.**
+  `add` appends and `removeLast` pops, so `o` and `dd` rebuild the array around
+  the change. That is one pass over the lines per line inserted, which for a
+  file anybody edits is nothing, and it is why the two are one method each here
+  rather than one call each.
+- **`system:write` flushes**, which is what makes one frame one call. A redraw
+  that arrived in pieces would be a redraw you can watch happening.
+- **A tab is one byte and eight columns**, and everything that positions a
+  cursor has to hold both numbers at once. That is not the language's doing —
+  every editor ever written has this — but it is where most of the arithmetic
+  in this file went.
+
+**What it does not do**: no undo, no search, no counts before a command, no
+registers, no marks. Each of those is more of the same rather than more of the
+language, and this program was written to ask the language a question.
+
+---
+
 ## Adding one
 
-There is no template and there should not be. What the eleven have in common is
+There is no template and there should not be. What the twelve have in common is
 only this:
 
 1. **It does a job somebody would want done**, rather than exercising a feature.

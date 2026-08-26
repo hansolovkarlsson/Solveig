@@ -1008,6 +1008,43 @@ already a byte, so this reads the same way under `solvm program.sob < input`,
 which is also what makes it testable. `ctrl-c` still interrupts a program
 waiting for a key.
 
+#### How big the screen is
+
+`system:terminalSize` answers a dictionary of `"rows"` and `"columns"`, or
+**nil** when the output is not a terminal:
+
+```
+size := system:terminalSize.
+size:isNil:ifElse({ "no screen" }, {
+    "{} by {}":fill([size:at("rows"), size:at("columns")]) }):display.
+```
+
+It is the third thing a full-screen program needs, after `readKey` and `write`,
+and [programs/edit.sol](../programs/edit.sol) is the program that asked for it:
+an editor cannot draw a screen it cannot measure.
+
+**One message for both numbers**, rather than `rows` and `columns` separately.
+Two asks can straddle a resize and give a screen that never existed — an old
+width with a new height — and one ask cannot.
+
+**Nil rather than 24 by 80** when there is no terminal, which is the same answer
+`readLine` and `environment` give for absence. A default would be a lie a
+program cannot see through, and what to do instead belongs to the program: an
+editor picks a size, a pager gives up, a report ignores the question. `tput
+lines` is the counter-example — down a pipe it answers the terminfo default,
+confidently and wrongly.
+
+**The output's size**, because that is where the drawing goes. A program whose
+input is a script and whose output is a terminal still gets an answer, which is
+what makes a full-screen program testable at all; one whose output is a file
+gets nil, which is the truth about the file.
+
+**There is no notification that it changed.** Asking costs one system call —
+about a microsecond, against 7ms for `stty size` through a shell, which is what
+a program had to do before this existed — so a program that draws can ask every
+time it draws, and then a resize needs no telling. That is the whole reason this
+is a message and not a signal.
+
 ### Files
 
 Whole files, as strings.
@@ -2910,6 +2947,7 @@ it delegates to `object` like everything else. See
 | `writeError(text)` | the same, to standard **error** |
 | `readLine` | one line of standard input without its terminator, or nil at the end |
 | `readKey` | one byte as a one-character string, or nil at the end; no wait for return |
+| `terminalSize` | a dictionary of `"rows"` and `"columns"`, or **nil** when the output is not a terminal |
 | `readFile(path)` | the whole file as a string; an error if it is not there |
 | `writeFile(path, text)` | nil, having replaced the file's contents |
 | `fileExists(path)` | true if a file — not a directory — is at that path |
@@ -3083,7 +3121,7 @@ has been given, and cannot give itself more.
 Every built-in message and the types that answer it. The question a reference
 gets asked is usually *what has `copyFrom`?* rather than *what does a string
 do?*, and the sections above answer only the second — so this answers the first.
-136 messages across 232 registrations.
+137 messages across 233 registrations.
 
 **A test keeps it honest**: a message registered in `builtins.c` and missing
 from here fails the build, which is the same bargain that makes every message
@@ -3213,6 +3251,7 @@ appear in an example.
 | `sqrt` | [float](#float) |
 | `sub` | [float](#float), [integer](#integer) |
 | `tan` | [float](#float) |
+| `terminalSize` | [system](#system) |
 | `time` | [system](#system) |
 | `timeToRun` | [block](#block) |
 | `trim` | [string](#string) |

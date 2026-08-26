@@ -806,6 +806,68 @@ static void test_basic_has_a_prompt(void)
     printf("  BASIC has a prompt, and it remembers between lines\n");
 }
 
+/* The editor, driven by a recorded stream of keys and compared against the
+ * bytes it drew.
+ *
+ * A full-screen program is the other thing a claim in a comment cannot check:
+ * what it does is a *picture*, and the interesting part is which escape
+ * sequence went where. programs/edit/session.in moves by word, deletes a
+ * character, appends to a line, opens a new one, goes to the top, deletes a
+ * line, goes to the bottom, runs off the end of a line long enough to scroll
+ * the screen sideways, writes and quits -- and programs/edit/session.out is
+ * every byte that reached the terminal while it did.
+ *
+ * The sideways scroll is in there because leaving it out cost a crash: a line
+ * that ends before the scrolled screen begins asks `copyFrom` for a start past
+ * the end of a string, which is an error rather than an empty answer, and the
+ * first session recorded had no long line in it to find that.
+ *
+ * It is deterministic for one reason: standard output is a pipe here, so
+ * `system:terminalSize` answers nil and the editor falls back to the 24 by 80
+ * it names in its own file. On a terminal this transcript would be a different
+ * size and would still be right, which is why the fallback is the program's
+ * decision and not the language's.
+ *
+ * The file it edits is copied into build/ first, because a test that edits a
+ * tracked file passes once. */
+static void test_the_editor_draws_what_it_recorded(void)
+{
+    char out[64 * 1024];
+
+    assert(run("bin/solas programs/edit.sol -o " DIR "/edit.sob 2>&1",
+               out, sizeof out) == 0);
+    assert(run("cp programs/edit/session.txt " DIR "/edit-session.txt",
+               out, sizeof out) == 0);
+
+    assert(run("bin/solvm " DIR "/edit.sob " DIR "/edit-session.txt"
+               " < programs/edit/session.in 2>&1", out, sizeof out) == 0);
+
+    char *expected = slurp_file("programs/edit/session.out");
+    if (strcmp(out, expected) != 0) {
+        printf("\nthe editor drew %zu bytes and session.out records %zu\n",
+               strlen(out), strlen(expected));
+        assert(false);
+    }
+    free(expected);
+
+    /* And what it wrote is what the keys asked for: a character gone from the
+       second line, four added to its end, a line opened after it, and the
+       first line deleted. The fourth line is untouched and is there to be
+       *drawn* -- it opens with a tab and runs past the eightieth column, so
+       the transcript covers both of the things a screen does to a line it
+       cannot show as it is. */
+    char *edited = slurp_file(DIR "/edit-session.txt");
+    assert(strcmp(edited,
+                  "the econd line END\n"
+                  "new\n"
+                  "the third line\n"
+                  "\tan indented line that runs well past the eightieth column,"
+                  " so the screen has to scroll sideways to show its end\n") == 0);
+    free(edited);
+
+    printf("  the editor draws the screen it recorded, and writes the file\n");
+}
+
 int main(void)
 {
     test_help_is_not_an_error();
@@ -827,6 +889,7 @@ int main(void)
     test_basic_runs_the_way_the_standard_says();
     test_basic_runs_a_listing_from_a_file();
     test_basic_has_a_prompt();
+    test_the_editor_draws_what_it_recorded();
     printf("test_cli: ok\n");
     return 0;
 }

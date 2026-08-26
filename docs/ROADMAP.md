@@ -79,6 +79,17 @@ all three closed — the mechanism this document describes running at speed rath
 than an exception to it, and a fair warning that *empty* is a description of a
 moment rather than a destination.
 
+**And the next entry arrived the same way, from a program written to find out
+what it would want.** [edit.sol](../programs/edit.sol) is a terminal editor, and
+[ideas.md](ideas.md#programs-that-would-press-on-something) had written down
+before it existed what it would find: *nothing lets a program ask the terminal
+its size*. It found that in its first hour, and
+[6.34](COMPLETED.md#634-a-program-cannot-ask-how-big-the-terminal-is--done)
+closed it the same day — `system:terminalSize`, one message answering both
+numbers, nil when there is no screen. The prediction having been written first
+is the part worth keeping: it is what would have made *it found nothing* a real
+answer rather than a disappointment.
+
 Section 3 holds the restrictions the language lives under, each documented where
 a program would meet it. The older ones were chosen; the six newest were found —
 [3.7](#37-a-limit-bounds-dispatch-not-work) by running a program the way its own
@@ -773,7 +784,8 @@ the one the changelog cites.
 Sections 1 to 5 were about making Solum a language. This one was about making it
 a language you can write a *program* in: split across files, reading input,
 writing files, stopping with a status, running another program, a prompt, a
-debugger. **All of it is built**, and the entries are in
+debugger, and — since an editor asked for it — the size of the screen it is
+drawing on. **All of it is built**, and the entries are in
 [COMPLETED.md](COMPLETED.md).
 
 The one thing that was left was never work — it was a decision, and it has been
@@ -883,6 +895,19 @@ found out what it wanted.
   to standard *error*, so a failing listing put its diagnostic in the output
   file — was raised an hour after the list had emptied and closed the next day,
   as `system:writeError`.
+- [edit.sol](../programs/edit.sol) found that **nothing could ask the terminal
+  its size** ([6.34](COMPLETED.md#634-a-program-cannot-ask-how-big-the-terminal-is--done)),
+  which [ideas.md](ideas.md#programs-that-would-press-on-something) had predicted
+  in writing before the editor was written. What made it an entry rather than a
+  shrug was the **measurement**: the workaround is `stty size` through a shell at
+  7ms an ask, so an editor that measured on every redraw would fork a process per
+  keystroke, and one that measured at startup drew a resized window wrong until
+  it was restarted. The ioctl behind `system:terminalSize` is about a
+  microsecond, so the editor asks every frame and the resize signal the language
+  has not got stops mattering. It also confirmed, by binding the most-used key in
+  a modal editor to it, what [examples/keys.sol](../examples/keys.sol) had only
+  warned about: **the escape key cannot be told from the start of an escape
+  sequence** without a read that times out.
 
 **Four of the entries were papercuts a library tripped over**, not things anybody
 reasoned out in advance:

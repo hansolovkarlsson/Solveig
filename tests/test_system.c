@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <string.h>
 
+#include <fcntl.h>
+#include <sys/ioctl.h>
 #include <sys/stat.h>
 
 #include "solas/compiler.h"
@@ -1145,6 +1147,149 @@ static void test_read_key_takes_one_byte(void)
     printf("  readKey takes one byte, and answers nil at the end\n");
 }
 
+/* A pseudo-terminal of a size this test chooses, so that "there is a screen and
+   it is this big" is something the suite arranges rather than something it has
+   to be run inside. `posix_openpt` is XSI and needs no library beyond libc,
+   where `openpty` would need -lutil on Linux and the README promises no
+   dependencies.
+
+   Answers the master, or -1 where a system has no pseudo-terminals to give --
+   which is a reason to skip the test and not to fail it. */
+static int pty_of_size(int rows, int columns, int *slave_out)
+{
+    int master = posix_openpt(O_RDWR | O_NOCTTY);
+    if (master < 0) return -1;
+    if (grantpt(master) != 0 || unlockpt(master) != 0) { close(master); return -1; }
+
+    const char *name = ptsname(master);
+    if (name == NULL) { close(master); return -1; }
+
+    int slave = open(name, O_RDWR | O_NOCTTY);
+    if (slave < 0) { close(master); return -1; }
+
+    struct winsize size;
+    memset(&size, 0, sizeof size);
+    size.ws_row = (unsigned short)rows;
+    size.ws_col = (unsigned short)columns;
+    if (ioctl(slave, TIOCSWINSZ, &size) != 0) { close(slave); close(master); return -1; }
+
+    *slave_out = slave;
+    return master;
+}
+
+/* The size is the *output's*, because that is where a program draws. Standard
+   input being a script -- which is how programs/edit.sol is tested at all --
+   does not make the screen go away. */
+static void test_terminal_size_answers_the_screen_it_draws_on(void)
+{
+    int slave = -1;
+    int master = pty_of_size(31, 101, &slave);
+    if (master < 0) {
+        printf("  terminalSize: no pseudo-terminal here, skipped\n");
+        return;
+    }
+
+    int saved = dup(STDOUT_FILENO);
+    assert(saved >= 0);
+    fflush(stdout);
+    assert(dup2(slave, STDOUT_FILENO) >= 0);
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    SolResult result = run(&vm, &chunk,
+        "size := system:terminalSize."
+        "rows := size:at(\"rows\")."
+        "columns := size:at(\"columns\")."
+        "keys := size:keys:size.");
+
+    fflush(stdout);
+    dup2(saved, STDOUT_FILENO);
+    close(saved);
+    close(slave);
+    close(master);
+
+    assert(result == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "rows")) == 31);
+    assert(SOL_AS_INT(global(&vm, "columns")) == 101);
+    assert(SOL_AS_INT(global(&vm, "keys")) == 2);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    printf("  terminalSize answers the rows and columns of the output\n");
+}
+
+/* Nil, and not a default. A program that is not drawing on a terminal has to
+   decide for itself what to do about it, and a number would take that decision
+   away from it while looking like an answer. */
+static void test_terminal_size_is_nil_without_a_terminal(void)
+{
+    static const char *path = "build/tests/test_system.stdout";
+
+    int saved = dup(STDOUT_FILENO);
+    assert(saved >= 0);
+    fflush(stdout);
+    FILE *f = freopen(path, "wb", stdout);
+    assert(f != NULL);
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    SolResult result = run(&vm, &chunk,
+        "size := system:terminalSize."
+        "absent := size:isNil.");
+
+    fflush(stdout);
+    dup2(saved, STDOUT_FILENO);
+    close(saved);
+    clearerr(stdout);
+
+    assert(result == SOL_OK);
+    assert(SOL_AS_BOOL(global(&vm, "absent")) == true);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    remove(path);
+    printf("  terminalSize is nil when the output is a file\n");
+}
+
+/* The dictionary and its two keys are three allocations, and the dictionary is
+   live across the other two. Under stress every one of them collects. */
+static void test_terminal_size_survives_a_collection(void)
+{
+    int slave = -1;
+    int master = pty_of_size(24, 80, &slave);
+    if (master < 0) {
+        printf("  terminalSize under stress: no pseudo-terminal here, skipped\n");
+        return;
+    }
+
+    int saved = dup(STDOUT_FILENO);
+    assert(saved >= 0);
+    fflush(stdout);
+    assert(dup2(slave, STDOUT_FILENO) >= 0);
+
+    SolVM vm; sol_vm_init(&vm);
+    vm.gc_stress = true;
+    SolChunk chunk;
+    SolResult result = run(&vm, &chunk,
+        "total := #0."
+        "#20:repeat({ | size |"
+        "    size := system:terminalSize."
+        "    total := total:add(size:at(\"rows\")):add(size:at(\"columns\")) }).");
+
+    fflush(stdout);
+    dup2(saved, STDOUT_FILENO);
+    close(saved);
+    close(slave);
+    close(master);
+
+    assert(result == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "total")) == 20 * (24 + 80));
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    printf("  terminalSize survives a collection between its allocations\n");
+}
+
 /* `makeDirectory` answers whether it made one, rather than refusing a directory
    that is already there. "Make sure this exists" is what a script wants nine
    times in ten, and it was a test and a make before this. */
@@ -1336,6 +1481,9 @@ int main(void)
     test_capturing_output();
     test_a_childs_streams_go_where_they_are_told();
     test_read_key_takes_one_byte();
+    test_terminal_size_answers_the_screen_it_draws_on();
+    test_terminal_size_is_nil_without_a_terminal();
+    test_terminal_size_survives_a_collection();
     test_making_a_directory_answers_whether_it_did();
     test_a_mode_can_be_read_and_set();
     test_a_mode_out_of_range_is_refused();

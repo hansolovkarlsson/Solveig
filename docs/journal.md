@@ -11,6 +11,145 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-25 (later still) — an editor, and a prediction that held
+
+Ten directions went into [ideas.md](ideas.md) an hour before this, four of them
+programs with a **prediction written above each** — what it would find, recorded
+before it was written, so that *it found nothing* would stay an available answer.
+This is the first of the four taken, and it is the one whose prediction was about
+an absence already confirmed rather than guessed at: **an editor will want the
+terminal's size and find nothing to ask.**
+
+It did, in its first hour. But the finding that came out of writing it is not the
+one that went in, and the difference is the whole value of having written the
+program rather than reasoning about it.
+
+### The program first, with the workaround in it
+
+[programs/edit.sol](../programs/edit.sol) is a modal editor in the manner of vi:
+`h j k l` and the arrows, `w` and `b`, `0` and `$`, `gg` and `G`, `i a I A o O`,
+`x`, `dd`, `J`, and a colon line with `:w`, `:q`, `:q!`, `:wq` and a bare number.
+664 lines. It is the twelfth program here and **the first that draws** — every
+other one writes a line and reads a line.
+
+The first version measured the screen the only way there was: `stty size` through
+a shell, parsed out of `capture`. That was deliberate. Writing the program around
+the absence is what put a number on it, and the number is what turned a
+missing feature into an entry:
+
+| asked | each ask |
+| --- | --- |
+| `stty size` through `/bin/sh` | 7.0 ms |
+| `stty size` with no shell | 2.3 ms |
+| `system:environment`, which cannot answer it at all | 0.0002 ms |
+| the ioctl, once it existed | about 0.001 ms |
+
+**7ms is a fork, an exec and a pipe per keystroke** for an editor that measures
+every time it draws. So the first version measured once at startup, and any
+window resized after that was drawn wrong until the editor was restarted. That is
+the real finding: not *the size cannot be reached* — it always could — but *the
+price of reaching it decides the design of the program around it*.
+
+`COLUMNS` and `LINES` are shell locals and are not exported, so the environment
+answers nothing. `tput lines` is worse than useless: down a pipe it answers the
+terminfo default, confidently and wrongly, which is a wrong number wearing the
+clothes of a right one.
+
+### The message, and the four small decisions in it
+
+[6.34](COMPLETED.md#634-a-program-cannot-ask-how-big-the-terminal-is--done) was
+raised and closed the same day, because it was work rather than a decision.
+`system:terminalSize` answers a dictionary of `"rows"` and `"columns"`, or nil.
+
+- **One message for both numbers.** Two asks can straddle a resize and compose a
+  screen that never existed — an old width with a new height.
+- **A dictionary**, the way `capture` answers `"output"` and `"status"`. An array
+  would be two integers in an order the reader has to remember, and rows and
+  columns are precisely the pair everybody remembers backwards.
+- **Nil rather than 24 by 80.** A default is a lie a program cannot see through,
+  and what to do without a screen belongs to the program. The editor picks 24 by
+  80 *in its own file*, where a reader can see the choice being made.
+- **The output's size, not the input's**, because that is where the drawing goes.
+  It is also what makes a full-screen program testable: standard input can be a
+  script while standard output is a real terminal.
+
+And the one it deliberately does not do: **there is no notification that the size
+changed.** A resize is `SIGWINCH` and this language has no signals. It does not
+need them at a microsecond an ask — the editor measures at the top of every
+frame, so a resize is wrong for one frame instead of until a restart. **The cheap
+ask is what makes the missing signal not matter**, and at 7ms that sentence would
+have been false and the entry would have had to answer a much larger question.
+
+### What the editor confirmed, having been the first to bind the key
+
+[examples/keys.sol](../examples/keys.sol) has said since it was written that a
+byte-level reader **cannot tell the escape key from the start of an escape
+sequence**, and it could only ever say that in the abstract: nothing had bound
+the escape key to anything. A modal editor binds it to the most frequent action
+there is.
+
+What it costs, exactly: press escape in insert mode and nothing happens. Press
+the *next* key and both happen at once — the escape leaves insert mode, and the
+byte after it is acted on as a normal-mode command. The editor keeps that byte
+rather than dropping it, which is one line more than the example does and the
+difference between a lost keystroke and a late one. Nothing is misread. The
+screen simply waits, and no amount of care in this program can make it not wait.
+
+Three smaller things, none of them filed:
+
+- **An array cannot have an element put into the middle or taken out of it**, so
+  `o` and `dd` rebuild the array around the change. One pass per line inserted,
+  which for a file a person is typing into is nothing.
+- **`system:write` flushes**, so one call is one frame — the language already
+  right about something the program would otherwise have had to work around.
+- **A tab is one byte and eight columns**, and everything that positions a cursor
+  holds both numbers at once. Not the language's doing; where most of the
+  arithmetic in the file went.
+
+### Two things about testing a program that draws
+
+**The GC root is load-bearing, and was proved so rather than assumed.** The
+message allocates three things — a dictionary and two key strings — and the
+dictionary is live while the strings allocate. Removing its temp root and
+running the new stress case under ASan reports a heap-use-after-free inside
+`sol_dict_put`. Put back, silent. That check has never once been skipped here and
+has never once been wasted.
+
+**The suite makes its own terminal.** `posix_openpt`, `grantpt`, `unlockpt`, a
+`TIOCSWINSZ` of a size the test chose, and `dup2` over standard output for the
+length of one run — so *there is a screen and it is 31 by 101* is arranged rather
+than inherited. `openpty` would have been three lines shorter and wants `-lutil`
+on Linux, which the front page's *no dependencies beyond a C11 compiler and make*
+does not allow. A real terminal is never 31 by 101, which is the point.
+
+The editor itself is held to a **recorded transcript**, the way `basic` is: a
+scripted stream of keys and every byte that reached the terminal. That is
+deterministic only because standard output is a pipe there, `terminalSize`
+answers nil, and the editor's own fallback decides — the fallback earning its
+keep as a test fixture as well as an honesty measure.
+
+**The first session recorded was too tidy to catch a crash.** Twenty-two
+behaviour checks and a transcript, all on lines of a dozen characters, and none
+of them ever scrolled the screen sideways. Pressing `$` on a long line with a
+short one under it took the editor down: a line that ends *before* the scrolled
+screen begins asks `copyFrom` for a start past the end of a string, and that is
+an error rather than an empty answer — where a start past the *end* argument,
+which is the case the short lines exercised, answers `""` quite happily. The
+session has a tab-indented line running past the eightieth column in it now, so
+the recorded screen covers both of the things a screen does to a line it cannot
+show as it is.
+
+**And the transcript found something the moment it was recorded.** It differed
+from the run inside `make test` by exactly **eight bytes**, because the test
+writes into `build/tests/cli` and the recording had been made in `build/tests` —
+four characters, in the two lines that are *not* padded to the width of the
+screen. Everything else in a frame is padded or truncated to the terminal's
+width and is therefore insensitive to what it says; the message line is not. A
+recorded screen is a test of where the test puts its files as much as of what the
+program draws, which is worth knowing before the next program that draws.
+
+---
+
 ## 2026-08-25 (last thing) — a question answered no, which found two bugs anyway
 
 0.34.0 went out, and then the day ended on three questions and no new capability.

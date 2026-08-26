@@ -1,0 +1,599 @@
+[?1049h[Hthe first line[K
+the second line[K
+the third line[K
+        an indented line that runs well past the eightieth column, so the scree[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt  line 1 of 4, column 1                        [0m
+build/tests/cli/edit-session.txt -- :q to leave[K[1;1H[Hthe first line[K
+the second line[K
+the third line[K
+        an indented line that runs well past the eightieth column, so the scree[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt  line 2 of 4, column 1                        [0m
+[K[2;1H[Hthe first line[K
+the second line[K
+the third line[K
+        an indented line that runs well past the eightieth column, so the scree[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt  line 2 of 4, column 5                        [0m
+[K[2;5H[Hthe first line[K
+the econd line[K
+the third line[K
+        an indented line that runs well past the eightieth column, so the scree[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt [+]  line 2 of 4, column 5                    [0m
+[K[2;5H[Hthe first line[K
+the econd line[K
+the third line[K
+        an indented line that runs well past the eightieth column, so the scree[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt [+]  line 2 of 4, column 15                   [0m
+-- INSERT --[K[2;15H[Hthe first line[K
+the econd line [K
+the third line[K
+        an indented line that runs well past the eightieth column, so the scree[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt [+]  line 2 of 4, column 16                   [0m
+-- INSERT --[K[2;16H[Hthe first line[K
+the econd line E[K
+the third line[K
+        an indented line that runs well past the eightieth column, so the scree[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt [+]  line 2 of 4, column 17                   [0m
+-- INSERT --[K[2;17H[Hthe first line[K
+the econd line EN[K
+the third line[K
+        an indented line that runs well past the eightieth column, so the scree[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt [+]  line 2 of 4, column 18                   [0m
+-- INSERT --[K[2;18H[Hthe first line[K
+the econd line END[K
+the third line[K
+        an indented line that runs well past the eightieth column, so the scree[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt [+]  line 2 of 4, column 19                   [0m
+-- INSERT --[K[2;19H[Hthe first line[K
+the econd line END[K
+the third line[K
+        an indented line that runs well past the eightieth column, so the scree[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt [+]  line 2 of 4, column 18                   [0m
+[K[2;18H[Hthe first line[K
+the econd line END[K
+[K
+the third line[K
+        an indented line that runs well past the eightieth column, so the scree[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt [+]  line 3 of 5, column 1                    [0m
+-- INSERT --[K[3;1H[Hthe first line[K
+the econd line END[K
+n[K
+the third line[K
+        an indented line that runs well past the eightieth column, so the scree[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt [+]  line 3 of 5, column 2                    [0m
+-- INSERT --[K[3;2H[Hthe first line[K
+the econd line END[K
+ne[K
+the third line[K
+        an indented line that runs well past the eightieth column, so the scree[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt [+]  line 3 of 5, column 3                    [0m
+-- INSERT --[K[3;3H[Hthe first line[K
+the econd line END[K
+new[K
+the third line[K
+        an indented line that runs well past the eightieth column, so the scree[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt [+]  line 3 of 5, column 4                    [0m
+-- INSERT --[K[3;4H[Hthe first line[K
+the econd line END[K
+new[K
+the third line[K
+        an indented line that runs well past the eightieth column, so the scree[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt [+]  line 3 of 5, column 3                    [0m
+[K[3;3H[Hthe first line[K
+the econd line END[K
+new[K
+the third line[K
+        an indented line that runs well past the eightieth column, so the scree[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt [+]  line 3 of 5, column 3                    [0m
+[K[3;3H[Hthe first line[K
+the econd line END[K
+new[K
+the third line[K
+        an indented line that runs well past the eightieth column, so the scree[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt [+]  line 1 of 5, column 1                    [0m
+[K[1;1H[Hthe first line[K
+the econd line END[K
+new[K
+the third line[K
+        an indented line that runs well past the eightieth column, so the scree[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt [+]  line 1 of 5, column 1                    [0m
+[K[1;1H[Hthe econd line END[K
+new[K
+the third line[K
+        an indented line that runs well past the eightieth column, so the scree[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt [+]  line 1 of 4, column 1                    [0m
+[K[1;1H[Hthe econd line END[K
+new[K
+the third line[K
+        an indented line that runs well past the eightieth column, so the scree[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt [+]  line 4 of 4, column 1                    [0m
+[K[4;1H[H[K
+[K
+[K
+past the eightieth column, so the screen has to scroll sideways to show its end[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt [+]  line 4 of 4, column 112                  [0m
+[K[4;79H[H[K
+[K
+[K
+past the eightieth column, so the screen has to scroll sideways to show its end[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt [+]  line 4 of 4, column 112                  [0m
+:[K[24;2H[H[K
+[K
+[K
+past the eightieth column, so the screen has to scroll sideways to show its end[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt [+]  line 4 of 4, column 112                  [0m
+:w[K[24;3H[H[K
+[K
+[K
+past the eightieth column, so the screen has to scroll sideways to show its end[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt  line 4 of 4, column 112                      [0m
+"build/tests/cli/edit-session.txt" 4 lines written[K[4;79H[H[K
+[K
+[K
+past the eightieth column, so the screen has to scroll sideways to show its end[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt  line 4 of 4, column 112                      [0m
+:[K[24;2H[H[K
+[K
+[K
+past the eightieth column, so the screen has to scroll sideways to show its end[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+~[K
+[7mbuild/tests/cli/edit-session.txt  line 4 of 4, column 112                      [0m
+:q[K[24;3H[?1049l

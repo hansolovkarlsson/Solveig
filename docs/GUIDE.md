@@ -939,6 +939,15 @@ assembles them and one that only wants *any key* is not made to unpick a
 sequence it never asked about. Raw mode only when standard input is a terminal,
 so the same program reads the same way from a pipe.
 
+**`system:terminalSize` answers how big the screen is** — a dictionary of
+`"rows"` and `"columns"`, or **nil** when the output is not a terminal. One
+message for both numbers, because two asks can straddle a resize and compose a
+screen that never existed; nil rather than a default, because a default is a lie
+a program cannot see through. Asking costs one system call, so a program that
+draws can ask every time it draws rather than remembering an answer that a
+dragged window makes wrong. Those three, with `write`, are the whole of what
+[programs/edit.sol](../programs/edit.sol) needed to be an editor.
+
 **Files are whole files**: `system:readFile(path)` answers one as a string, and
 `system:writeFile(path, text)` replaces it. A missing file is an error rather
 than nil — the same answer an out-of-range index gets — and

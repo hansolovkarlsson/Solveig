@@ -4073,6 +4073,79 @@ static SolValue prim_system_read_key(SolVM *vm, SolValue self, SolValue *args, i
 
 #endif
 
+/* `system:terminalSize` -- how many rows and columns the screen has, or nil
+ * when there is not one.
+ *
+ * programs/edit.sol asked for this, and it is the third thing a full-screen
+ * program needs after `readKey` and `write`: an editor cannot draw a screen it
+ * cannot measure. Until this existed the only answer was to fork a shell and
+ * read `stty size` -- 7ms an ask, measured, against about a microsecond here,
+ * which is the difference between measuring once at startup and measuring on
+ * every redraw. That difference is the whole of what this buys, and it is why
+ * there is no way to be *told* the size changed: at this price a program can
+ * ask again every time it draws, and then a resize needs no notification.
+ *
+ * **One message answering both numbers**, rather than `rows` and `columns`.
+ * Two asks straddle a resize, and a program that catches one can compute a
+ * screen that never existed -- an old width with a new height. One ask cannot.
+ *
+ * **A dictionary**, the way `capture` answers `"output"` and `"status"`: an
+ * array would be two numbers in an order the reader has to remember, and rows
+ * and columns are exactly the pair everybody remembers backwards.
+ *
+ * **Nil rather than 24 by 80** when the output is not a terminal. A default is
+ * a lie a program cannot see through, and what to do instead is the program's
+ * decision and not this one's: an editor picks a size, a pager gives up, a
+ * report ignores the question. `tput lines` is the counter-example -- it
+ * answers the terminfo default down a pipe, confidently and wrongly.
+ *
+ * **Standard output**, because that is where the drawing goes. A program whose
+ * input is a script and whose output is the screen still gets an answer, which
+ * is what makes an editor testable; one whose output is a file gets nil, which
+ * is the truth about the file.
+ */
+#if defined(__unix__) || defined(__APPLE__)
+#include <sys/ioctl.h>
+
+static SolValue prim_system_terminal_size(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    (void)args;
+    if (!check_argc(vm, "terminalSize", argc, 0)) return SOL_NIL_VAL;
+
+    struct winsize size;
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &size) != 0) return SOL_NIL_VAL;
+
+    /* A terminal that reports nothing is not a terminal to draw on. Some
+       pseudo-terminals answer the ioctl with zeroes before anything has been
+       attached to them, and a program dividing a screen into zero rows would
+       be worse off than one told there is no screen. */
+    if (size.ws_row == 0 || size.ws_col == 0) return SOL_NIL_VAL;
+
+    SolDict *answer = sol_dict_new(vm);
+    /* Rooted because the two keys are allocated after it and either may
+       collect. `sol_dict_put` itself cannot -- it rebuilds with calloc. */
+    sol_gc_push_temp(vm, &answer->gc);
+    sol_dict_put(vm, answer, SOL_STRING_VAL(sol_string_new(vm, "rows", 4)),
+                 SOL_INT_VAL(size.ws_row));
+    sol_dict_put(vm, answer, SOL_STRING_VAL(sol_string_new(vm, "columns", 7)),
+                 SOL_INT_VAL(size.ws_col));
+    sol_gc_pop_temp(vm);
+    return SOL_DICT_VAL(answer);
+}
+
+#else   /* no ioctl: there is no size to answer, which nil already says */
+
+static SolValue prim_system_terminal_size(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    (void)args;
+    if (!check_argc(vm, "terminalSize", argc, 0)) return SOL_NIL_VAL;
+    return SOL_NIL_VAL;
+}
+
+#endif
+
 /* `system:write(text)` -- the half of the terminal `readLine` did not have.
  *
  * ROADMAP 3.18. `display` and `print` were the only ways a program had to put
@@ -5604,6 +5677,7 @@ void sol_builtins_install(SolVM *vm)
     any_receiver(vm, system, "writeError", prim_system_write_error);
     any_receiver(vm, system, "readLine", prim_system_read_line);
     any_receiver(vm, system, "readKey", prim_system_read_key);
+    any_receiver(vm, system, "terminalSize", prim_system_terminal_size);
     any_receiver(vm, system, "readFile", prim_system_read_file);
     any_receiver(vm, system, "writeFile", prim_system_write_file);
     any_receiver(vm, system, "fileExists", prim_system_file_exists);

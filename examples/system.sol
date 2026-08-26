@@ -56,7 +56,25 @@ total:greaterThan(0.0):print.                    ; true
 total:div(200000.0):asString(".9"):display.      ; -- seconds for a send and an add
 
 ; ---------------------------------------------------------------------------
-; Stopping
+; The screen
+;
+; `terminalSize` answers a dictionary of `"rows"` and `"columns"`, or **nil**
+; when the output is not a terminal -- which is what it is whenever the
+; documentation checker runs this file, because that reads what it prints
+; through a pipe. Nil rather than 24 by 80: a default is a lie a program cannot
+; see through, and what to do without a screen belongs to the program.
+;
+; One message rather than two, because two asks can straddle a resize and
+; compose a screen that never existed -- an old width with a new height. And
+; asking is one system call, so a program that draws can ask every time it
+; draws rather than keeping an answer that goes stale the moment a window is
+; dragged. programs/edit.sol is the program that wanted this, and does that.
+
+size := system:terminalSize.
+size:isNil:ifElse(
+    { "no terminal on the output" },
+    { "{} rows by {} columns":fill([size:at("rows"), size:at("columns")]) })
+    :display.
 
 ; ---------------------------------------------------------------------------
 ; Running another program

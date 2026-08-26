@@ -43,7 +43,7 @@ marked as a sketch.
 | Go-style concurrency | **No, for now** — it changes the whole VM |
 | Subclass `integer`, a `byte` subclass | **Not possible** — see below |
 | More `@` directives: `@define`, `@ifdef`, `@once` | **No** — each one's job is already done by something that is not a directive |
-| Programs that would press on something — an editor, Pascal, predicate logic, a parser toolkit | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written |
+| Programs that would press on something — Pascal, predicate logic, a parser toolkit | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would |
 | Networking, and sending code to a running machine | **Defer** — [no socket exists](#networking-and-sending-code-to-a-machine-that-is-already-running); the second needs 3.4 and 6.32 as well |
 | SQLite, SDL2 | **One project, not two** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); SDL2 fires that trigger and SQLite does not |
 | Fuzzy logic | **A library that would teach nothing** — arithmetic on floats, and the arithmetic all landed |
@@ -1928,13 +1928,38 @@ that you write one and find out what it wants. What follows is the finding each
 is predicted to produce, written down *before* it is written, so that *it found
 nothing* stays an available answer.
 
-**A terminal editor**, in the manner of vi. Predicted finding, and this one is
-already confirmed absent rather than guessed: **nothing lets a program ask the
-terminal its size**. No rows, no columns, and no notification when either
-changes. Every full-screen editor needs that in its first hour.
-`system:write` and `system:readKey` cover the rest — escape sequences out, raw
-bytes in — and both landed on 2026-08-25, so the editor is the first program in
-a position to want the third thing.
+**One of the four has been written since**, and its prediction is kept above its
+outcome rather than replaced by it — a prediction rewritten after the fact
+teaches nobody anything.
+
+**A terminal editor**, in the manner of vi. **Written on 2026-08-25, and the
+prediction held.** It is
+[programs/edit.sol](../programs/edit.sol), and it wanted the terminal's size in
+its first hour, exactly as this entry said it would. The prediction as it stood:
+
+> Predicted finding, and this one is already confirmed absent rather than
+> guessed: **nothing lets a program ask the terminal its size**. No rows, no
+> columns, and no notification when either changes. Every full-screen editor
+> needs that in its first hour. `system:write` and `system:readKey` cover the
+> rest — escape sequences out, raw bytes in — and both landed on 2026-08-25, so
+> the editor is the first program in a position to want the third thing.
+
+**What the writing added to it** is the part the prediction could not have: the
+number was always *reachable*, through `stty size` in a shell, at 7ms an ask. A
+program that measures every time it draws forks a process per keystroke; one
+that measures at startup draws a resized window wrong until it is restarted. So
+the absence was never the finding — **the price was**, and one ioctl at about a
+microsecond is what made the missing resize notification stop mattering.
+[6.34](COMPLETED.md#634-a-program-cannot-ask-how-big-the-terminal-is--done) was
+raised and closed the same day.
+
+It also confirmed something that had only ever been a warning: a byte-level
+reader **cannot tell the escape key from the start of a sequence**, which
+[examples/keys.sol](../examples/keys.sol) had said in the abstract because
+nothing had yet bound that key. A modal editor binds it to the most frequent
+action there is, and escape now takes effect on the key *after* it. Nothing is
+lost; nothing is misread; the screen simply waits. That is as sharp as that
+warning can be made, and it took a program to make it.
 
 **A Pascal interpreter.** Not another BASIC: that shape has been taken, and
 [basic.sol](../programs/basic.sol) argues at length that a line-numbered

@@ -676,7 +676,7 @@ the machine* is the rule, trigonometry meets it more clearly than `sqrt` did.
 **What it was waiting for was a program, and the program has arrived.** For most
 of this entry's life no file here had ever wanted an angle. The first draft of
 this paragraph gave a
-second reason — that the eleven<!--count programs--> programs are text and process
+second reason — that the twelve<!--count programs--> programs are text and process
 work, so geometry is
 not what this language is for — and that reason is **wrong and is worth leaving
 recorded as wrong**. The programs are the tools this project needed while
@@ -1557,6 +1557,87 @@ written and could not be seen until something crossed it.
 
 The rest of this section is live, and is in
 [ROADMAP.md](ROADMAP.md#6-beyond-the-language--gone-from-this-document).
+
+### 6.34 A program cannot ask how big the terminal is — **done**
+
+**`system:terminalSize`**, answering a dictionary of `"rows"` and `"columns"`,
+or **nil** when the output is not a terminal.
+
+**The program that wanted it was [edit.sol](../programs/edit.sol)**, and it
+wanted it in its first hour, exactly as
+[ideas.md](ideas.md#programs-that-would-press-on-something) predicted it would
+before the editor was written. That prediction is the only one of the four on
+that list that was made about an absence already confirmed rather than guessed
+at, which is why it is the one that closed the same day.
+
+**What the workaround was, and what it cost.** There is no environment variable
+to read — `COLUMNS` and `LINES` are shell locals and are not exported, so a
+program sees neither — so the only route to the number was to run a program that
+asks the kernel and read what it printed:
+
+| asked | each ask |
+| --- | --- |
+| `stty size` through `/bin/sh` | 7.0 ms |
+| `stty size` with no shell | 2.3 ms |
+| `system:environment`, which does not answer the question | 0.0002 ms |
+| the ioctl this message is | about 0.001 ms |
+
+7ms is a fork, an exec and a pipe **per keystroke** if the size is asked for on
+every redraw, so the editor asked once at startup instead — and a window resized
+after that was a window the editor drew wrong until it was restarted. **That is
+the whole finding**: not that the number was unreachable, but that reaching it
+cost enough to change the design around it.
+
+**And the obvious second answer is worse.** `tput lines` down a pipe answers the
+terminfo default rather than failing — 24, confidently, whatever the screen is —
+which is a wrong number that looks like a right one.
+
+#### The four decisions in it
+
+**One message answering both numbers**, rather than `rows` and `columns`. Two
+asks can straddle a resize and compose a screen that never existed: an old width
+with a new height. One ask cannot, and there is no version of this where two
+messages are the safer pair.
+
+**A dictionary**, the way `capture` answers `"output"` and `"status"`. An array
+would be two integers in an order the reader has to remember, and rows and
+columns are precisely the pair that everybody remembers backwards.
+
+**Nil rather than 24 by 80**, which is what `readLine`, `readKey` and
+`environment` all answer for absence. A default is a lie a program cannot see
+through, and what to do without a terminal is the program's decision and not the
+language's: an editor picks a size, a pager gives up, a report ignores the
+question. edit.sol picks 24 by 80 — in its own file, where a reader can see it.
+
+**The output's size**, not the input's. That is where the drawing goes, and it
+means a program whose standard input is a script and whose output is a terminal
+still gets a true answer — which is what makes a full-screen program testable at
+all. One whose output is a file gets nil, which is the truth about the file.
+
+#### What it deliberately does not do
+
+**There is no notification that the size changed.** A resize is a signal,
+`SIGWINCH`, and the language has no signals and gains none here. It does not
+need them at this price: one system call per redraw is about a microsecond, so a
+program that draws can measure every time it draws and never be wrong for longer
+than one frame. edit.sol does exactly that, in three lines with the reason
+written beside them. **The cheap ask is what makes the missing signal not
+matter**, and if the ask had stayed at 7ms this entry would have had to answer a
+much larger question.
+
+#### Testing it
+
+The suite makes its own terminal: `posix_openpt`, `grantpt`, `unlockpt`, a
+`TIOCSWINSZ` of a size the test chose, and `dup2` over standard output for the
+length of one run. `openpty` would have been shorter and wants `-lutil` on
+Linux, which the front page's *no dependencies beyond a C11 compiler and make*
+does not allow. So the size is arranged rather than inherited, and the test says
+31 by 101 because a real terminal never is.
+
+The three allocations — the dictionary and its two key strings — are one root
+and a GC-stress case. Removing the root and running under ASan reports a
+heap-use-after-free inside `sol_dict_put`, which is the proof that it is
+load-bearing rather than decorative.
 
 ### 6.1 There is no way to split a program across files — **done**
 

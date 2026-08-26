@@ -5,6 +5,76 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### An editor, and the one message it asked for — `pending`, 2026-08-25
+
+**[programs/edit.sol](../programs/edit.sol) is a modal terminal editor in the
+manner of vi**, and the twelfth program here. It is the first that *draws*:
+every other one writes a line and reads a line, and this one owns the screen,
+places the cursor and redraws between one keystroke and the next.
+
+**It was written to find one thing, and the thing was written down first.**
+[ideas.md](ideas.md#programs-that-would-press-on-something) predicted, before the
+file existed, that an editor would want the terminal's size and find nothing to
+ask — the one prediction on that list about an absence already confirmed rather
+than guessed at. That is what happened, in the first hour.
+
+**`system:terminalSize`** answers a dictionary of `"rows"` and `"columns"`, or
+**nil** when the output is not a terminal
+([6.34](COMPLETED.md#634-a-program-cannot-ask-how-big-the-terminal-is--done),
+raised and closed the same day).
+
+```
+size := system:terminalSize.
+size:isNil:ifElse({ "no screen" }, {
+    "{} by {}":fill([size:at("rows"), size:at("columns")]) }):display.
+```
+
+**The absence was never the finding; the price of the workaround was.** The
+number was always reachable, because `stty` prints it:
+
+| asked | each ask |
+| --- | --- |
+| `stty size` through `/bin/sh` | 7.0 ms |
+| `stty size` with no shell | 2.3 ms |
+| the ioctl this message is | about 0.001 ms |
+
+7ms is a fork, an exec and a pipe **per keystroke** for a program that measures
+each time it draws — so the editor measured once at startup instead, and a
+window resized after that was one it drew wrong until it was restarted. At a
+microsecond it measures every frame, and **the missing resize signal stops
+mattering**: there is no `SIGWINCH` here and none is added. `tput lines` is the
+counter-example worth naming — down a pipe it answers the terminfo default
+rather than failing, confidently and wrongly.
+
+**Four decisions in one small message.** One message for both numbers, because
+two asks can straddle a resize and compose a screen that never existed. A
+dictionary, the way `capture` answers `"output"` and `"status"`, because rows and
+columns are exactly the pair everybody remembers backwards. Nil rather than 24
+by 80, because a default is a lie a program cannot see through and what to do
+without a screen belongs to the program — edit.sol picks 24 by 80 in its own
+file, where a reader can see it. And the **output's** size, not the input's,
+which is why a program reading a script and drawing on a terminal still gets a
+true answer.
+
+**The editor confirmed a warning that had only ever been theoretical.**
+[examples/keys.sol](../examples/keys.sol) says a byte-level reader cannot tell
+the escape key from the start of an escape sequence. A modal editor binds escape
+to the most frequent action there is, and here it takes effect on the key
+*after* it — the editor reads that byte, finds it does not spell an arrow, and
+keeps it to act on rather than dropping it. Nothing is lost and nothing is
+misread; the screen waits. That is as sharp as that warning can be made, and it
+took a program to make it.
+
+**Tested by a recorded transcript**, the way `basic` is: a scripted stream of
+keys, and every byte that reached the terminal compared with the bytes it wrote
+when somebody last looked. It is deterministic because standard output is a pipe
+there, so the size is nil and the editor's own fallback decides. The suite makes
+a real terminal for `terminalSize` itself — `posix_openpt` and a `TIOCSWINSZ` of
+a size the test chose, rather than `openpty`, which would want `-lutil` on Linux
+and the front page promises no dependencies.
+
+The language answers 137<!--count messages--> messages, up from 136.
+
 ## 0.34.0 — 2026-08-25
 
 **Two integer literals, and an interpreter checked against a suite it did not
