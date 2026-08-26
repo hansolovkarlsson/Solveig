@@ -861,7 +861,8 @@ static void test_sola_compiles_a_program_that_runs(void)
     assert(run("bin/solas programs/sola.sol -o " DIR "/sola.sob 2>&1",
                out, sizeof out) == 0);
 
-    static const char *listings[] = { "counter", "spaghetti", "labels" };
+    static const char *listings[] = { "counter", "spaghetti", "labels",
+                                      "structure", "escape" };
     for (size_t i = 0; i < sizeof listings / sizeof listings[0]; i++) {
         char command[512], expected_path[512];
 
@@ -902,6 +903,29 @@ static void test_sola_compiles_a_program_that_runs(void)
     assert(run("bin/solvm " DIR "/sola.sob " DIR "/twice.bas "
                DIR "/twice.sob 2>&1", out, sizeof out) != 0);
     assert(strstr(out, "line 3: the label 'TOP' is used twice") != NULL);
+
+    /* A block left open is reported where it was *opened*, which is the line
+       somebody has to go and look at -- the end of the file is where you
+       already know something is wrong. */
+    system("printf 'FOR i = 1 TO 3\\nPRINT i\\n' > " DIR "/open.bas");
+    assert(run("bin/solvm " DIR "/sola.sob " DIR "/open.bas " DIR "/open.sob 2>&1",
+               out, sizeof out) != 0);
+    assert(strstr(out, "line 1: this FOR is never closed by its NEXT") != NULL);
+
+    /* And a closing line that closes the wrong thing says which thing, and
+       where it was opened. This is what the stack of open blocks buys that a
+       parser building a tree would have had to refuse without explaining. */
+    system("printf 'DO\\nNEXT i\\n' > " DIR "/cross.bas");
+    assert(run("bin/solvm " DIR "/sola.sob " DIR "/cross.bas " DIR "/cross.sob 2>&1",
+               out, sizeof out) != 0);
+    assert(strstr(out, "NEXT closes the DO opened on line 1") != NULL);
+
+    /* EXIT FOR looks for the innermost FOR rather than the innermost block,
+       so being inside only a DO is a mistake it can name. */
+    system("printf 'DO\\nEXIT FOR\\nLOOP\\n' > " DIR "/exit.bas");
+    assert(run("bin/solvm " DIR "/sola.sob " DIR "/exit.bas " DIR "/exit.sob 2>&1",
+               out, sizeof out) != 0);
+    assert(strstr(out, "EXIT FOR with no FOR loop around it") != NULL);
 
     printf("  %zu SolaBasic listings compile, run and still match\n",
            sizeof listings / sizeof listings[0]);

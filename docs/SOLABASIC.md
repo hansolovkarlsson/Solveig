@@ -547,6 +547,32 @@ stack depth are each refused *at load*, exit 65, as a message rather than a
 crash. The depth-0 discipline is load-bearing rather than tidy, and nothing in
 the design section above needed changing.
 
+**2026-08-26 — stage 2 needed nothing the back end did not already have.**
+`IF`, `SELECT CASE`, `FOR`, `DO`, `WHILE` and `EXIT` are in
+[programs/sola.sol](../programs/sola.sol), and the whole of them is one stack of
+open blocks over the hole-and-fill the `GOTO` work had already built: a forward
+jump emitted before its target exists, patched when the closing line turns up
+instead of when a label does. **Nothing was added to the emitter**, which is the
+finding — the structured half of the language is the unstructured half with a
+stack on top, and doing stage 3 first is what made that visible rather than
+lucky.
+
+Two things this settled that the document had left open. **The blocks are a
+stack and the statements stay flat**, rather than a parser that builds a tree:
+BASIC's blocks are an opening line and a closing line, half the errors worth
+reporting are the two not matching, and a stack has the mismatch in its hand
+where a tree would refuse to parse and have less to say. And **`EXIT FOR` leaves
+the innermost `FOR` rather than the innermost block**, so it searches down that
+stack — four lines, against a tree walk.
+
+**Where `FOR` is not exact** is now written down, because it was decided here.
+A step written as a literal fixes the loop's direction at compile time, which is
+nearly every loop. A step that is an expression does not, so the test becomes
+`(limit - counter) * step >= 0` — right for either sign, and forever on a step
+of nought, as BASIC is. The one case it gets wrong is a product that underflows
+to `-0.0`, which compares as `>= 0` and buys one extra iteration. Unreachable
+from a literal step.
+
 **2026-08-26 — the speed estimate was too modest, and is now measured.**
 [What this costs](#what-this-costs) said compiling should be worth "roughly an
 order of magnitude" over the tree-walker. It is 45 times: the same 200,000-
@@ -565,7 +591,7 @@ The language above is the finish line. The order to reach it in:
 | --- | --- |
 | **0** | **Done** — [programs/sola.sol](../programs/sola.sol). A `.sob` out of a SolaBasic program, running, with nothing of the compiler present. |
 | **1** | **Partly.** Expressions, variables and `PRINT` are here; the three types are not — every number is a Double — and `PRINT`'s rules are stage 6. |
-| **2** | `SELECT CASE`, `FOR`, `DO`, `WHILE`, `EXIT`. Only `IF ... THEN GOTO` is here. |
+| **2** | **Done.** `IF` in both shapes, `SELECT CASE`, `FOR`/`NEXT`, `DO`/`LOOP`, `WHILE`/`WEND`, `EXIT FOR` and `EXIT DO`, all compiled to jumps. |
 | **3** | **Done, and first, as this table said it should be.** `GOTO` and labels, forwards and backwards, to any label in the program. What it found is below. |
 | **4** | `SUB`, `FUNCTION`, `CALL`, locals, `SHARED`, `STATIC` — and the boxing analysis. The largest stage by some distance. |
 | **5** | Arrays, `DIM`, `OPTION BASE`. |

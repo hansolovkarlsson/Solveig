@@ -951,10 +951,11 @@ i = 5
 counted to 5
 ```
 
-This is **stage 3** of the eight [SOLABASIC.md](SOLABASIC.md) lists, and it is
-deliberately out of order. Stage 3 is `GOTO` and labels, which is the claim the
-whole design rests on, and the document says to reach it in week one rather than
-week six.
+**Stages 2 and 3** of the eight [SOLABASIC.md](SOLABASIC.md) lists, done in that
+order backwards. Stage 3 is `GOTO` and labels, the claim the whole design rests
+on, and the document says to reach it in week one rather than week six. Stage 2
+is the structured half — `IF` in both shapes, `SELECT CASE`, `FOR`/`NEXT`,
+`DO`/`LOOP`, `WHILE`/`WEND`, `EXIT FOR` and `EXIT DO`.
 
 **The claim is that `GOTO` cannot be written in Solum.** There is no
 control-flow syntax here — a loop is a message send — so a translator from BASIC
@@ -1010,11 +1011,41 @@ that document's own change log, which is what it is for. It is still *a much
 faster interpreter* rather than *compiled* — SolVM has no arithmetic
 instruction, so a SolaBasic `+` is one `OP_SEND` and not an add.
 
+**Stage 2 needed nothing the back end did not already have**, and that is the
+finding rather than the feature. A `GOTO` needs a hole punched in the code and
+filled in when its label turns up; `IF`, `SELECT CASE`, `FOR`, `DO` and `WHILE`
+need exactly the same hole, filled in when their *closing line* turns up
+instead. So the whole of stage 2 is one stack of open blocks, each frame holding
+the holes it still owes an answer to. **The structured half of the language is
+the unstructured half with a stack on top** — and doing stage 3 first is what
+made that visible rather than lucky.
+
+**The blocks are a stack and the statements stay flat**, which is the decision
+worth arguing about. A parser building a tree is the other way and it is the
+wrong way here: BASIC's blocks are not written as nesting, they are an opening
+line and a closing line, and half the errors worth reporting are the two failing
+to match. A stack has the mismatch in its hand —
+
+```text
+DO
+NEXT i        →  line 2: NEXT closes the DO opened on line 1
+```
+
+— where a tree would have refused to parse and had less to say about why. It is
+also what makes `EXIT FOR` reach the right loop: the innermost `FOR`, not the
+innermost block, so an `EXIT FOR` inside an `IF` inside the loop is a search
+down the stack rather than a walk over a tree.
+
+**And a jump still goes wherever it likes.** `GOTO` out of a loop from inside an
+`IF` works, and a label placed just before `NEXT` is how BASIC spells what a
+later language calls `continue` — both in [escape.bas](../programs/sola/escape.bas),
+because the two halves meeting is the thing worth a transcript.
+
 **What is not here is stages 4 to 7**, and the header says so at length rather
-than leaving it to be discovered: no `SUB`, no arrays, no `FOR`, no type system,
-and a `PRINT` that joins its items and shows them with none of BASIC's zones or
-spacing. That last one is the thing most likely to be mistaken for a bug, which
-is why it is written down twice.
+than leaving it to be discovered: no `SUB`, no arrays, no type system — every
+number is a Double — and a `PRINT` that joins its items and shows them with none
+of BASIC's zones or spacing. That last one is the thing most likely to be
+mistaken for a bug, which is why it is written down twice.
 
 ## Adding one
 
