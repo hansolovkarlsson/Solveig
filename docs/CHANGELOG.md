@@ -5,6 +5,38 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### An oracle harness, and no verdict yet — `ef40e9a`, 2026-08-26
+
+**[programs/sola/oracle.sh](../programs/sola/oracle.sh)** compares SolaBasic
+against a real QuickBASIC — stage 7, and the only check here that can find
+something nobody thought of. Everything else this compiler is held to is a
+transcript recorded by its own author, which is the failure
+[basic.sol](../programs/basic.sol)'s header describes: eighty-three claims in
+that file caught none of the seven real defects the NBS suite found.
+
+**The corpus is in two halves and the split is the design.**
+
+| | |
+| --- | --- |
+| `oracle/agree/` | must produce the same bytes under both — a difference is news |
+| `oracle/differ/` | must **not**, each naming the divergence it exercises — one that *agrees* is also news |
+
+**So the divergence list stops being prose and becomes something that can
+fail.**
+
+**No verdict.** This machine has no QuickBASIC, no DOSBox, no `qb64`, no `fbc` —
+and installing one is not the script's business, the repository claiming no
+dependencies beyond a C11 compiler and `make`. The harness keeps that claim by
+saying what it needs rather than fetching it.
+
+**Nor is the harness taken on trust.** Run with SolaBasic standing in as its own
+oracle, every `agree/` matched and every `differ/` was reported as having lost
+its divergence — precisely what that arrangement should produce, so both paths
+and the exit status are known good before anybody points it at the real thing.
+
+`make test` checks that all thirteen corpus programs still compile, so they
+cannot rot between the days somebody has an oracle to hand.
+
 ### Arrays, and by-reference that costs nothing — `42a7091`, 2026-08-26
 
 **`DIM` with constant bounds and up to eight dimensions, `OPTION BASE`, `CONST`,
