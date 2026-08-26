@@ -951,7 +951,9 @@ i = 5
 counted to 5
 ```
 
-**Stages 2, 3 and 4** of the eight [SOLABASIC.md](SOLABASIC.md) lists. Stage 3 —
+**Stages 1, 2, 3 and 4** of the eight [SOLABASIC.md](SOLABASIC.md) lists —
+everything but arrays, `PRINT`'s real formatting, files, and the QuickBASIC
+comparison harness. Stage 3 —
 `GOTO` and labels — went first, because it is the claim the whole design rests on
 and the document says to reach it in week one rather than week six. Stage 2 is
 the structured half, stage 4 is procedures, and
@@ -1060,11 +1062,33 @@ a call is a real frame, recursion stops around 254 levels, and the trace names
 the *BASIC* procedure and the *BASIC* line when it happens. SOLABASIC.md
 predicted that before the compiler existed.
 
-**What is not here is stages 5 to 7**, and the header says so at length rather
-than leaving it to be discovered: no arrays, no type system — every number is a
-Double — and a `PRINT` that joins its items and shows them with none of BASIC's
-zones or spacing. That last one is the thing most likely to be mistaken for a
-bug, which is why it is written down twice.
+**Stage 1 is the type system, and types have to be settled before a byte is
+emitted.** A conversion is an instruction acting on the top of the stack, so
+widening an Integer has to happen *after* it is pushed and *before* the value
+beside it — by which time it is far too late to discover it was needed. The tree
+is typed in a pass of its own and emitting is a second walk that already knows
+where the conversions go. **There is no boolean type**, as the language
+definition says: a comparison is `-1` or `0` used as a number, so `NOT`, `AND`
+and `OR` are bit operations and still read correctly.
+
+**A supplied function is emitted where it is called**, because there is nowhere
+to put a library — the `.sob` is the whole program and none of `lib/` is in it.
+So `SGN` is a scratch slot and two conditional jumps, `LEFT$` clamps with two
+comparisons before `copyFrom` is allowed near it, and `LTRIM$` is a loop. All of
+it the same jumps a `SELECT CASE` compiles to.
+
+**And 3.1 caught the compiler.** A helper here built the block that emits a
+one-send builtin and stored it in a table — and that block read the helper's
+parameters, so it captured a frame that had already returned.
+[3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame) says a block
+that reads its home frame cannot outlive it, and the machine said exactly that:
+*block outlived the frame it was written in*. The table holds a symbol and a
+selector now.
+
+**What is not here is stages 5 to 7**: no arrays, no `DIM`, no files, and a
+`PRINT` that joins its items and shows them with none of BASIC's zones or
+spacing. That last one is the thing most likely to be mistaken for a bug, which
+is why it is written down twice.
 
 ## Adding one
 

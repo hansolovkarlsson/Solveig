@@ -9,8 +9,9 @@
 ;
 ; The language is [SolaBasic](../docs/SOLABASIC.md), and there is a
 ; [reference manual](../docs/SOLABASIC-REFERENCE.md) for people who want to
-; write it rather than read about it. Stages 2, 3 and 4 of the eight that
-; document lists are here.
+; write it rather than read about it. Stages 1, 2, 3 and 4 of the eight that
+; document lists are here -- everything except arrays, `PRINT`'s real
+; formatting, files, and the QuickBASIC comparison harness.
 ;
 ; **Stage 3 went first on purpose** -- it is `GOTO` and labels, the claim the
 ; whole design rests on, and the document says to reach it in week one rather
@@ -74,6 +75,36 @@
 ; That is four lines against a tree walk.
 ;
 ; ---------------------------------------------------------------------------
+; What stage 1 cost, which was the type system and the library
+;
+; **Types have to be worked out before a single byte is emitted.** A conversion
+; is an instruction acting on the top of the stack, so turning an Integer into a
+; Double must be emitted *after* that Integer is pushed and *before* the value
+; beside it -- and by then it is much too late to discover it was needed. So
+; every node learns its type in a pass of its own, and emitting is a second walk
+; that already knows where the conversions go. Getting that order wrong is the
+; whole difficulty of the stage; everything after it is a table.
+;
+; **There is no boolean type, and that is BASIC's rule rather than a shortcut.**
+; A comparison answers `-1` or `0` when it is used as a number, which is why
+; `NOT`, `AND` and `OR` are bit operations and still read correctly. Internally a
+; comparison answers the machine's boolean, because that is what a conditional
+; jump wants; turning one into `-1` costs a jump, so the jump is emitted only
+; where the value really is used as a number -- which is almost nowhere.
+;
+; **Two operators follow QBasic against the machine.** SolVM's integer `div` and
+; `mod` are floored, so `-7 \\ 2` would be `-4` and `-7 MOD 2` would be `1`.
+; QBasic says `-3` and `-1`, and going through the float divide and `truncated`
+; gets the sign right. What it costs is exactness above 2^53, which is a smaller
+; wrong answer than the sign being wrong and is written down rather than left.
+;
+; **A supplied function is emitted where it is called.** There is nowhere to put
+; a library: the `.sob` this writes is the whole program and none of `lib/` is in
+; it. So `SGN` is a scratch slot and two conditional jumps, `LEFT$` is two
+; comparisons that clamp before `copyFrom` is allowed near it, and `LTRIM$` is a
+; loop -- all of it the same jumps a `SELECT CASE` compiles to.
+;
+; ---------------------------------------------------------------------------
 ; What stage 4 cost, which was the expensive one
 ;
 ; **A SUB is a block and a call is `value`.** That is a close fit rather than a
@@ -129,12 +160,13 @@
 ;   assignment    `LET` optional, scalars only
 ;   PRINT         expressions and strings, `;` and `,`
 ;   END           stops
-;   expressions   `+ - * /`, unary minus, parentheses, and the six comparisons
+;   types         Integer, Double and String, by suffix or by `DEF`
+;   expressions   `^ * / \\ MOD + -`, the six comparisons, `NOT AND OR XOR`
+;   functions     all twenty-seven, compiled where they are called
+;   RANDOMIZE     reseeds the one generator
 ;   comments      `REM` and `'`
 ;
-; **Not here, and not pretended:** arrays, `INPUT`, files, and the whole type
-; system -- every number is a Double, which is SolaBasic's default type and the
-; only one these stages have. `PRINT`'s real formatting is
+; **Not here, and not pretended:** arrays, `DIM`, `CONST`, `INPUT` and files. `PRINT`'s real formatting is
 ; stage 6; here the items of one `PRINT` are joined and shown, with no zones and
 ; no trailing space, so its output is **not** what a BASIC prints. That is a
 ; stage, not a divergence, and it is the one thing here most likely to be
@@ -187,15 +219,36 @@ selectors:atPut("*", "mul").          selectors:atPut("/", "div").
 selectors:atPut("=", "equals").       selectors:atPut("<>", "notEquals").
 selectors:atPut("<", "lessThan").     selectors:atPut(">", "greaterThan").
 selectors:atPut("<=", "lessOrEqual"). selectors:atPut(">=", "greaterOrEqual").
+selectors:atPut("AND", "bitAnd").     selectors:atPut("OR", "bitOr").
+selectors:atPut("XOR", "bitXor").
 
 comparisons := ["=", "<>", "<", "<=", ">", ">="].
 additive    := ["+", "-"].
 multiplicative := ["*", "/"].
+bitwise     := ["AND", "OR", "XOR"].
+
+; The three types, and the fourth that is not one.
+;
+; `'boolean` is what a comparison answers and is **not a SolaBasic type**: the
+; language has no boolean, and `A = B` used as a number is `-1` or `0` as it is
+; in every BASIC. It exists here because a condition wants the machine's boolean
+; and turning one into `-1` costs a jump -- so the jump is emitted only where the
+; value is used as a number, which is almost nowhere.
+types := ['integer, 'double, 'string].
+
+; Filled in below, once the emitters they need exist.
+builtins := dictionary:new.
+
+suffixTypes := dictionary:new.
+suffixTypes:atPut("%", 'integer).  suffixTypes:atPut("&", 'integer).
+suffixTypes:atPut("#", 'double).   suffixTypes:atPut("$", 'string).
 
 keywords := ["PRINT", "GOTO", "IF", "THEN", "ELSE", "ELSEIF", "END", "REM",
              "LET", "SELECT", "CASE", "IS", "TO", "FOR", "STEP", "NEXT",
              "DO", "LOOP", "WHILE", "WEND", "UNTIL", "EXIT",
-             "SUB", "FUNCTION", "CALL", "SHARED", "STATIC", "DECLARE"].
+             "SUB", "FUNCTION", "CALL", "SHARED", "STATIC", "DECLARE",
+             "AND", "OR", "XOR", "NOT", "MOD",
+             "DEFINT", "DEFLNG", "DEFDBL", "DEFSTR", "RANDOMIZE"].
 
 ; ---------------------------------------------------------------------------
 ; A token, and a node
@@ -215,15 +268,26 @@ node:op := "".
 node:left := nil.
 node:right := nil.
 node:args := nil.           ; 'call
+; The type the value will have, worked out over the whole tree before any of it
+; is emitted -- because a conversion has to be inserted *before* the value it
+; converts is pushed, and by then it is too late to ask.
+node:type := nil.
+; What both sides of a binary node have to be turned into before the send. Not
+; always the answer's type: `/` answers a Double from two Integers, `\\` answers
+; an Integer from two Doubles, and a comparison answers neither.
+node:operandType := nil.
 ; **Whether it was written in brackets**, which matters in exactly one place:
 ; `CALL Foo((x))` passes a copy where `CALL Foo(x)` passes the variable. That is
 ; QBasic's own way of spelling by-value and the only one SolaBasic has.
 node:grouped := false.
 
-numberNode   := { v | | n | n := node:new. n:kind := 'number. n:value := v. n }.
-stringNode   := { v | | n | n := node:new. n:kind := 'string. n:value := v. n }.
+numberNode   := { v, t | | n |
+    n := node:new. n:kind := 'number. n:value := v. n:type := t. n }.
+stringNode   := { v | | n |
+    n := node:new. n:kind := 'string. n:value := v. n:type := 'string. n }.
 variableNode := { s | | n | n := node:new. n:kind := 'variable. n:name := s. n }.
 negateNode   := { x | | n | n := node:new. n:kind := 'negate. n:left := x. n }.
+notNode      := { x | | n | n := node:new. n:kind := 'not. n:left := x. n }.
 binaryNode   := { op, l, r | | n |
     n := node:new. n:kind := 'binary. n:op := op. n:left := l. n:right := r. n }.
 callNode     := { name, args | | n |
@@ -279,6 +343,8 @@ frame:limitSlot := #0.      ; 'for: where the limit was put, evaluated once
 frame:stepSlot := #0.       ; 'for: where a computed step was put
 frame:subject := #0.        ; 'select: where the subject was put, evaluated once
 frame:step := nil.          ; 'for: the step, when it was written as a literal
+frame:varType := 'double.   ; 'for: the counter's type, which the loop runs in
+frame:subjectType := 'double.  ; 'select: the subject's type
 frame:seenElse := false.    ; 'if and 'select: whether ELSE has gone by
 
 makeFrame := { kind, line | | f |
@@ -326,6 +392,7 @@ sola:tokenise := { text | | s, out, c |
           { isDigit:value(c):or({ c:equals("."):and({
                 isDigit:value(s:peekAt(#1)) }) }) },
                                      { out:add(self:numberToken(s)) },
+          { c:equals("&") },         { out:add(self:basedToken(s)) },
           { isLetter:value(c) },
             ; REM takes the rest of its line as raw text, which need not be
             ; anything this could tokenise -- `REM don't` is a legal comment and
@@ -349,9 +416,37 @@ sola:numberToken := { s | | start |
 
 ; Folded to uppercase, so `print x` and `PRINT X` are one program. A string
 ; literal is not folded, which is why this happens here and not to the line.
-sola:wordToken := { s |
-    makeToken:value('word,
-        s:takeWhile({ c | isLetter:value(c):or({ isDigit:value(c) }) }):asUppercase) }.
+;
+; **A type suffix is part of the name.** `A%` and `A$` are two variables, not one
+; variable read two ways, which is QBasic's rule -- and it is why the suffix is
+; taken here rather than left to the parser as an operator.
+sola:wordToken := { s | | text, suffix |
+    text := s:takeWhile({ c | isLetter:value(c):or({ isDigit:value(c) }) }):asUppercase.
+    s:match("!"):ifTrue({
+        self:fail("'{}!' is a SINGLE, and SolaBasic has no SINGLE -- see "
+            :concat("docs/SOLABASIC.md. Write {} or {}# for a Double.")
+            :fill([text, text, text])) }).
+    suffix := ["%", "&", "#", "$"]:select({ mark | s:looksLike(mark) }).
+    suffix:size:equals(#0):ifElse(
+        { makeToken:value('word, text) },
+        { s:step. makeToken:value('word, text:concat(suffix:at(#1))) }) }.
+
+; `&HFF` and `&O17`, which are integers however they are written.
+sola:basedToken := { s | | mark, digits |
+    s:step.
+    mark := s:peek.
+    mark:isNil:ifTrue({ self:fail("'&' needs H or O after it") }).
+    mark := mark:asUppercase.
+    ["H", "O"]:indexOf(mark):isNil:ifTrue({
+        self:fail("'&{}' is not a number: write &H for hex or &O for octal"
+            :fill([s:peek])) }).
+    s:step.
+    digits := s:takeWhile({ c |
+        isDigit:value(c):or({ c:notNil:and({
+            "ABCDEFabcdef":indexOf(c):notNil }) }) }).
+    digits:size:equals(#0):ifTrue({ self:fail("'&{}' has no digits":fill([mark])) }).
+    makeToken:value('based,
+        digits:asInteger(mark:equals("H"):ifElse({ #16 }, { #8 })):asString) }.
 
 sola:quotedToken := { s | | text |
     s:step.
@@ -364,7 +459,7 @@ sola:punctToken := { s | | c |
     c:equals("<"):ifTrue({
         s:match("="):ifElse({ c := "<=" }, { s:match(">"):ifTrue({ c := "<>" }) }) }).
     c:equals(">"):ifTrue({ s:match("="):ifTrue({ c := ">=" }) }).
-    "+-*/(),;=<>:":indexOf(c:at(#1)):isNil:ifTrue({
+    "+-*/(),;=<>:^\\":indexOf(c:at(#1)):isNil:ifTrue({
         self:fail("'{}' means nothing here":fill([c])) }).
     makeToken:value('punct, c) }.
 
@@ -704,6 +799,41 @@ parsers:atPut("CALL", { m, st |
     st:items := m:nextIs("("):ifElse({ m:parseArguments(true) }, { m:parseArguments(false) }).
     m:expectEndOfLine("CALL") }).
 
+parsers:atPut("RANDOMIZE", { m, st |
+    st:kind := 'randomize.
+    st:expr := m:parseExpression.
+    m:expectEndOfLine("RANDOMIZE") }).
+
+parsers:atPut("DEFINT", { m, st | m:parseDefaults(st, 'integer) }).
+parsers:atPut("DEFLNG", { m, st | m:parseDefaults(st, 'integer) }).
+parsers:atPut("DEFDBL", { m, st | m:parseDefaults(st, 'double) }).
+parsers:atPut("DEFSTR", { m, st | m:parseDefaults(st, 'string) }).
+
+; `DEFINT A-N, X` -- the default type for every name starting with one of those
+; letters. It applies to the whole listing wherever it is written, which is one
+; fewer rule to remember than QBasic's, where it applies from where it stands.
+sola:parseDefaults := { st, t | | more, first, last, i |
+    st:kind := 'rem.
+    more := true.
+    { more }:whileTrue({
+        first := self:defLetter.
+        last := first.
+        self:nextIs("-"):ifTrue({ self:takeToken. last := self:defLetter }).
+        i := letters:indexOf(first).
+        i:greaterThan(letters:indexOf(last)):ifTrue({
+            self:fail("{}-{} is not a range of letters":fill([first, last])) }).
+        { i:lessOrEqual(letters:indexOf(last)) }:whileTrue({
+            self:defaultTypes:atPut(letters:copyFrom(i, i), t).
+            i := i:add(#1) }).
+        self:nextIs(","):ifElse({ self:takeToken }, { more := false }) }).
+    self:expectEndOfLine("a DEF") }.
+
+sola:defLetter := { | t |
+    t := self:takeToken.
+    t:isNil:or({ t:kind:equals('word):not }):or({ t:text:size:notEquals(#1) })
+        :ifTrue({ self:fail("a DEF names single letters, like A-N") }).
+    t:text }.
+
 parsers:atPut("SHARED", { m, st |
     st:kind := 'shared. st:items := m:nameList. m:expectEndOfLine("SHARED") }).
 
@@ -714,8 +844,9 @@ sola:plainName := { what | | t |
     t := self:takeToken.
     t:isNil:or({ t:kind:equals('word):not }):ifTrue({
         self:fail("{} needs a name":fill([what])) }).
-    parsers:includes(t:text):ifTrue({
-        self:fail("'{}' is a keyword and cannot be a name":fill([t:text])) }).
+    parsers:includes(t:text):or({ builtins:includes(t:text) }):ifTrue({
+        self:fail("'{}' is already a keyword or a supplied function"
+            :fill([t:text])) }).
     t:text }.
 
 sola:nameList := { | names, more |
@@ -794,7 +925,43 @@ sola:parsePrint := { st | | t |
 ; and a primary. Comparison is lowest, which is what lets `IF A + 1 < B THEN`
 ; read the way it looks.
 
-sola:parseExpression := { | left, op |
+; Ten levels, loosest first, which is BASIC's table:
+;
+;     OR XOR
+;     AND
+;     NOT              (unary)
+;     = <> < <= > >=
+;     + -
+;     MOD
+;     \\
+;     * /
+;     -                (unary)
+;     ^                (right-associative, and tighter than unary minus, so
+;                       -2 ^ 2 is -(2 ^ 2) and not (-2) ^ 2)
+
+sola:parseExpression := { self:parseOr }.
+
+sola:parseOr := { | left, op |
+    left := self:parseAnd.
+    { self:peekToken:notNil:and({
+        ["OR", "XOR"]:indexOf(self:peekToken:text):notNil }) }:whileTrue({
+        op := self:takeToken:text.
+        left := binaryNode:value(op, left, self:parseAnd) }).
+    left }.
+
+sola:parseAnd := { | left |
+    left := self:parseNot.
+    { self:nextIs("AND") }:whileTrue({
+        self:takeToken.
+        left := binaryNode:value("AND", left, self:parseNot) }).
+    left }.
+
+sola:parseNot := {
+    self:nextIs("NOT"):ifElse(
+        { self:takeToken. notNode:value(self:parseNot) },
+        { self:parseComparison }) }.
+
+sola:parseComparison := { | left, op |
     left := self:parseAdditive.
     { self:peekToken:notNil:and({
         comparisons:indexOf(self:peekToken:text):notNil }) }:whileTrue({
@@ -803,11 +970,25 @@ sola:parseExpression := { | left, op |
     left }.
 
 sola:parseAdditive := { | left, op |
-    left := self:parseMultiplicative.
+    left := self:parseMod.
     { self:peekToken:notNil:and({
         additive:indexOf(self:peekToken:text):notNil }) }:whileTrue({
         op := self:takeToken:text.
-        left := binaryNode:value(op, left, self:parseMultiplicative) }).
+        left := binaryNode:value(op, left, self:parseMod) }).
+    left }.
+
+sola:parseMod := { | left |
+    left := self:parseIntegerDivide.
+    { self:nextIs("MOD") }:whileTrue({
+        self:takeToken.
+        left := binaryNode:value("MOD", left, self:parseIntegerDivide) }).
+    left }.
+
+sola:parseIntegerDivide := { | left |
+    left := self:parseMultiplicative.
+    { self:nextIs("\\") }:whileTrue({
+        self:takeToken.
+        left := binaryNode:value("\\", left, self:parseMultiplicative) }).
     left }.
 
 sola:parseMultiplicative := { | left, op |
@@ -821,12 +1002,26 @@ sola:parseMultiplicative := { | left, op |
 sola:parseUnary := {
     self:nextIs("-"):ifElse(
         { self:takeToken. negateNode:value(self:parseUnary) },
-        { self:parsePrimary }) }.
+        { self:parsePower }) }.
+
+sola:parsePower := { | base |
+    base := self:parsePrimary.
+    self:nextIs("^"):ifElse(
+        { self:takeToken. binaryNode:value("^", base, self:parseUnary) },
+        { base }) }.
 
 sola:parsePrimary := { | t, inner |
     t := self:takeToken.
     t:isNil:ifTrue({ self:fail("an expression stops short") }).
-    [ { t:kind:equals('number) }, { numberNode:value(t:text:asFloat) },
+    [ { t:kind:equals('number) },
+        ; **A literal with no point and no exponent is an Integer**, which is
+        ; QBasic's rule and the reason `7 / 2` and `7 \\ 2` differ without
+        ; anything being declared.
+        { t:text:indexOf("."):isNil
+            :and({ t:text:asUppercase:indexOf("E"):isNil }):ifElse(
+            { numberNode:value(t:text:asInteger, 'integer) },
+            { numberNode:value(t:text:asFloat, 'double) }) },
+      { t:kind:equals('based) }, { numberNode:value(t:text:asInteger, 'integer) },
       { t:kind:equals('string) }, { stringNode:value(t:text) },
       { t:text:equals("(") },
         { inner := self:parseExpression.
@@ -890,13 +1085,164 @@ sola:emitNil    := { self:byte(NIL) }.
 ; reference is kept in. Everything a SolaBasic program computes is a Double.
 sola:emitIntConst := { n | self:byte(CONST). self:u16(self:constFor(#1, n)) }.
 
+; A numeric constant of whichever type is wanted. `#0` and `0.0` are two
+; constants and two types, and pushing the wrong one is a program that runs and
+; is wrong -- the trap experiment/compile.sol names in ideas.md.
+; The same number as a Double, whichever it arrived as. The compiler holds a
+; literal step as whatever the listing wrote, and `#1` and `1.0` are two types
+; that do not compare with each other.
+sola:asDouble := { v | v:respondsTo('asFloat):ifElse({ v:asFloat }, { v }) }.
+
+sola:emitZero := { t |
+    t:equals('string):ifElse({ self:emitString("") }, { self:emitNumber(#0, t) }) }.
+
+sola:emitNumber := { v, t |
+    t:equals('integer):ifElse(
+        { self:emitIntConst(v:respondsTo('rounded):ifElse({ v:rounded }, { v })) },
+        { self:emitConst(self:asDouble(v)) }) }.
+
 ; A frame slot. `u8`, because a frame of more than 255 slots is refused before
 ; it runs and the format says so by giving the operand one byte.
 sola:emitLocal    := { slot | self:byte(LOCAL).    self:byte(slot) }.
 sola:emitSetLocal := { slot | self:byte(SETLOCAL). self:byte(slot) }.
 
 ; ---------------------------------------------------------------------------
-; Slots
+; A place to put a value that is needed twice
+;
+; There is no instruction that duplicates the top of the stack, so anything
+; wanting its argument twice -- `SGN`, `MOD`, `INSTR` -- has to put it
+; somewhere. A scratch slot is that somewhere, handed out by nesting depth so
+; that `SGN(SGN(x))` gets two and two uses in a row share one.
+
+sola:takeScratch := { | slot |
+    self:scratchDepth := self:scratchDepth:add(#1).
+    self:scratchSlots:size:lessThan(self:scratchDepth):ifTrue({
+        self:scratchSlots:add(self:newSlot("scratch")) }).
+    self:scratchSlots:at(self:scratchDepth) }.
+
+sola:dropScratch := { self:scratchDepth := self:scratchDepth:sub(#1) }.
+
+; Evaluate something into a scratch slot and leave nothing on the stack.
+sola:intoScratchAs := { node, wanted | | slot |
+    slot := self:takeScratch.
+    self:emitTyped(node, wanted).
+    self:emitSetLocal(slot).
+    self:emitPop.
+    slot }.
+
+; ---------------------------------------------------------------------------
+; Types
+;
+; **A name carries its type.** A suffix says it outright; otherwise the `DEF`
+; ranges decide by first letter; otherwise it is a Double. `A%` and `A$` are two
+; variables and not one, which is QBasic's rule.
+
+sola:defaultTypes := nil.
+
+sola:typeOfName := { name | | last |
+    last := name:copyFrom(name:size, name:size).
+    suffixTypes:includes(last):ifElse(
+        { suffixTypes:at(last) },
+        { self:defaultTypes:at(name:copyFrom(#1, #1), 'double) }) }.
+
+sola:isNumeric := { t | t:notEquals('string) }.
+
+sola:unify := { a, b, where |
+    a:equals('string):or({ b:equals('string) }):ifTrue({
+        a:equals(b):ifFalse({
+            self:fail("{} cannot mix text and numbers":fill([where])) }).
+        'string:equals('string) }).
+    a:equals('string):ifElse(
+        { 'string },
+        { a:equals('double):or({ b:equals('double) })
+            :or({ a:equals('boolean) }):or({ b:equals('boolean) })
+            :ifElse({ 'double }, { 'integer }) }) }.
+
+; ---------------------------------------------------------------------------
+; Typing the tree
+;
+; **This happens before a single byte is emitted, and it has to.** A conversion
+; is an instruction that acts on the top of the stack, so turning an Integer into
+; a Double must be emitted *after* that Integer is pushed and *before* the value
+; beside it -- and by then it is far too late to work out that it was needed. So
+; every node learns its type first, and emitting is then a walk that already
+; knows where the conversions go.
+
+sola:typeExpression := { n |
+    n:kind:equals('number):ifTrue({ n:type }).
+    n:kind:equals('string):ifTrue({ n:type := 'string }).
+    n:kind:equals('variable):ifTrue({ n:type := self:typeOfName(n:name) }).
+    n:kind:equals('call):ifTrue({
+        n:args:do({ a | self:typeExpression(a) }).
+        n:type := self:typeOfCall(n) }).
+    n:kind:equals('negate):ifTrue({
+        self:typeExpression(n:left).
+        n:left:type:equals('string):ifTrue({ self:fail("text cannot be negated") }).
+        n:operandType := n:left:type:equals('boolean):ifElse({ 'integer }, { n:left:type }).
+        n:type := n:operandType }).
+    n:kind:equals('not):ifTrue({
+        self:typeExpression(n:left).
+        n:left:type:equals('string):ifTrue({ self:fail("NOT wants a number") }).
+        n:operandType := 'integer.
+        n:type := 'integer }).
+    n:kind:equals('binary):ifTrue({ self:typeBinary(n) }).
+    n:type }.
+
+sola:typeBinary := { n | | left, right |
+    left := self:typeExpression(n:left).
+    right := self:typeExpression(n:right).
+
+    [ { comparisons:indexOf(n:op):notNil },
+        { n:operandType := self:unify(left, right, "a comparison").
+          n:type := 'boolean },
+      { bitwise:indexOf(n:op):notNil },
+        { n:operandType := 'integer. n:type := 'integer },
+      { n:op:equals("+") },
+        { n:operandType := self:unify(left, right, "'+'").
+          n:type := n:operandType },
+      { n:op:equals("/") },   { n:operandType := 'double.  n:type := 'double },
+      { n:op:equals("^") },   { n:operandType := 'double.  n:type := 'double },
+      { n:op:equals("\\") }, { n:operandType := 'integer. n:type := 'integer },
+      { n:op:equals("MOD") }, { n:operandType := 'integer. n:type := 'integer },
+        { n:operandType := self:unify(left, right, "arithmetic").
+          n:operandType:equals('string):ifTrue({
+              self:fail("text cannot be used with '{}'":fill([n:op])) }).
+          n:type := n:operandType } ]:ifElseIf.
+    n:type }.
+
+; ---------------------------------------------------------------------------
+; Conversions
+
+sola:coerce := { from, to |
+    from:equals(to):ifFalse({
+        [ { to:equals('string) },
+            { from:equals('boolean):ifTrue({ self:materialise('integer) }).
+              self:emitSend("asString", #0) },
+          { from:equals('string) },
+            { self:fail("text cannot be used as a number here -- VAL reads one out of it") },
+          { to:equals('boolean) },
+            { from:equals('integer):ifElse({ self:emitIntConst(#0) }, { self:emitConst(0.0) }).
+              self:emitSend("notEquals", #1) },
+          { from:equals('boolean) }, { self:materialise(to) },
+          { to:equals('double) },    { self:emitSend("asFloat", #0) },
+                                     { self:emitSend("rounded", #0) } ]:ifElseIf }) }.
+
+; **A comparison is `-1` or `0` when it is used as a number**, which is BASIC's
+; rule and the reason there is no boolean type in the language. It costs a jump,
+; so it is emitted only where the value really is used as a number -- never for
+; a condition, which wants the machine's boolean as it stands.
+sola:materialise := { to | | zero, done |
+    zero := self:branchHole.
+    to:equals('integer):ifElse({ self:emitIntConst(#-1) }, { self:emitConst(-1.0) }).
+    done := self:hole.
+    self:fillBranch(zero).
+    to:equals('integer):ifElse({ self:emitIntConst(#0) }, { self:emitConst(0.0) }).
+    self:fillJump(done) }.
+
+; Emit a node and leave a value of the wanted type on the stack.
+sola:emitTyped := { n, wanted |
+    self:emitExpression(n).
+    self:coerce(n:type, wanted) }.
 ;
 ; Slot 0 is the receiver -- `self` inside a block, and unused in the script,
 ; which has none. Everything after it is a parameter, a local, or a temporary
@@ -1004,7 +1350,7 @@ sola:emitVariableInitialisers := { skip |
             :and({ self:shared:indexOf(name):isNil })
             :and({ self:statics:includes(name):not })
             :and({ self:isBoxed(name):not }):ifTrue({
-            self:emitConst(0.0).
+            self:emitZero(self:typeOfName(name)).
             self:isLocalName(name):ifElse(
                 { self:emitSetLocal(self:slotFor(name)) },
                 { self:emitStore(self:globalNameFor(name)) }).
@@ -1051,7 +1397,7 @@ sola:variablesInExpression := { n, names |
 sola:emitBoxes := {
     self:toBox:do({ name |
         self:emitGlobal("array").
-        self:emitConst(0.0).
+        self:emitZero(self:typeOfName(name)).
         self:emitSend("of", #1).
         self:isLocalName(name):ifElse(
             { self:emitSetLocal(self:slotFor(name)) },
@@ -1111,15 +1457,61 @@ sola:resolveJumps := {
 ; makes per node, which is where the difference between the two comes from.
 
 sola:emitExpression := { n |
-    [ { n:kind:equals('number) },   { self:emitConst(n:value) },
+    [ { n:kind:equals('number) },
+        { n:type:equals('integer):ifElse(
+            { self:emitIntConst(n:value) }, { self:emitConst(n:value) }) },
       { n:kind:equals('string) },   { self:emitString(n:value) },
       { n:kind:equals('variable) }, { self:emitLoadVar(n:name) },
       { n:kind:equals('call) },     { self:emitCall(n:name, n:args, false) },
       { n:kind:equals('negate) },
-        { self:emitExpression(n:left). self:emitSend("negated", #0) },
-        { self:emitExpression(n:left).
-          self:emitExpression(n:right).
+        { self:emitTyped(n:left, n:operandType). self:emitSend("negated", #0) },
+      { n:kind:equals('not) },
+        { self:emitTyped(n:left, 'integer). self:emitSend("bitNot", #0) },
+        { self:emitBinary(n) } ]:ifElseIf }.
+
+sola:emitBinary := { n |
+    [ { n:op:equals("MOD") }, { self:emitModulo(n) },
+      { n:op:equals("\\") },  { self:emitIntegerDivide(n) },
+      { n:op:equals("^") },
+        { self:emitTyped(n:left, 'double).
+          self:emitTyped(n:right, 'double).
+          self:emitSend("pow", #1) },
+      { n:op:equals("+"):and({ n:operandType:equals('string) }) },
+        { self:emitTyped(n:left, 'string).
+          self:emitTyped(n:right, 'string).
+          self:emitSend("concat", #1) },
+        { self:emitTyped(n:left, n:operandType).
+          self:emitTyped(n:right, n:operandType).
           self:emitSend(selectors:at(n:op), #1) } ]:ifElseIf }.
+
+; **`\\` truncates towards nought and so does `MOD`'s remainder**, which is
+; QBasic's rule and *not* the machine's: SolVM's integer `div` and `mod` are
+; floored, so `-7 \\ 2` would be `-4` where QBasic says `-3`. Going through the
+; float divide and `truncated` gets the sign right. What it costs is exactness
+; above 2^53, where a double can no longer hold every integer -- which is a
+; smaller wrong answer than the sign being wrong, and is written down rather
+; than left to be found.
+sola:emitIntegerDivide := { n |
+    self:emitTyped(n:left, 'integer).  self:emitSend("asFloat", #0).
+    self:emitTyped(n:right, 'integer). self:emitSend("asFloat", #0).
+    self:emitSend("div", #1).
+    self:emitSend("truncated", #0) }.
+
+; `a - (a \\ b) * b`, which needs `a` and `b` twice each and so needs somewhere
+; to put them: there is no instruction that duplicates the top of the stack.
+sola:emitModulo := { n | | a, b |
+    a := self:intoScratchAs(n:left, 'integer).
+    b := self:intoScratchAs(n:right, 'integer).
+    self:emitLocal(a).
+    self:emitLocal(a). self:emitSend("asFloat", #0).
+    self:emitLocal(b). self:emitSend("asFloat", #0).
+    self:emitSend("div", #1).
+    self:emitSend("truncated", #0).
+    self:emitLocal(b).
+    self:emitSend("mul", #1).
+    self:emitSend("sub", #1).
+    self:dropScratch.
+    self:dropScratch }.
 
 ; ---------------------------------------------------------------------------
 ; Statements, into instructions
@@ -1140,14 +1532,34 @@ sola:emitStatement := { st |
             self:fail("the label '{}' is used twice":fill([st:label])) }).
         self:labelAt:atPut(st:label, self:here) }).
     self:guardSelect(st:kind).
+    self:typeStatement(st).
     emitters:at(st:kind):value(self, st) }.
+
+; Everything in one statement, typed before any of it is emitted.
+sola:typeStatement := { st |
+    ['print, 'call]:indexOf(st:kind):notNil:ifTrue({
+        st:items:do({ a | self:typeExpression(a) }) }).
+    st:expr:notNil:ifTrue({ self:typeExpression(st:expr) }).
+    st:limit:notNil:ifTrue({ self:typeExpression(st:limit) }).
+    st:step:notNil:ifTrue({ self:typeExpression(st:step) }).
+    st:alternatives:notNil:ifTrue({
+        st:alternatives:do({ alt |
+            alt:at(#1):equals("is"):ifElse(
+                { self:typeExpression(alt:at(#3)) },
+                { self:typeExpression(alt:at(#2)).
+                  alt:at(#1):equals("range"):ifTrue({
+                      self:typeExpression(alt:at(#3)) }) }) }) }).
+    st:then:notNil:ifTrue({ self:typeStatement(st:then) }).
+    st:otherwise:notNil:ifTrue({ self:typeStatement(st:otherwise) }) }.
 
 emitters:atPut('rem, { m, st | nil }).
 emitters:atPut('end, { m, st | m:byte(HALT) }).
 emitters:atPut('goto, { m, st | m:emitJump(st:target) }).
 emitters:atPut('print, { m, st | m:emitPrint(st) }).
 emitters:atPut('let, { m, st |
-    m:beginAssign(st:name). m:emitExpression(st:expr). m:endAssign(st:name) }).
+    m:beginAssign(st:name).
+    m:emitTyped(st:expr, m:typeOfName(st:name)).
+    m:endAssign(st:name) }).
 
 ; ---------------------------------------------------------------------------
 ; Holes
@@ -1217,6 +1629,9 @@ sola:selectCount := #0.
 
 sola:localNames := nil.
 sola:locals := nil.
+sola:varTypes := nil.
+sola:scratchSlots := nil.
+sola:scratchDepth := #0.
 sola:shared := nil.
 sola:statics := nil.
 sola:boxed := nil.
@@ -1234,6 +1649,9 @@ sola:pushUnit := { | saved |
     saved:atPut("labelAt", self:labelAt).       saved:atPut("fixups", self:fixups).
     saved:atPut("blocks", self:blocks).         saved:atPut("localNames", self:localNames).
     saved:atPut("locals", self:locals).         saved:atPut("shared", self:shared).
+    saved:atPut("varTypes", self:varTypes).
+    saved:atPut("scratchSlots", self:scratchSlots).
+    saved:atPut("scratchDepth", self:scratchDepth).
     saved:atPut("statics", self:statics).       saved:atPut("boxed", self:boxed).
     saved:atPut("toBox", self:toBox).           saved:atPut("methods", self:methods).
     saved:atPut("inProcedure", self:inProcedure).
@@ -1248,6 +1666,8 @@ sola:freshUnit := {
     self:lineMarks := array:new.   self:labelAt := dictionary:new.
     self:fixups := array:new.      self:blocks := array:new.
     self:localNames := array:new.  self:locals := dictionary:new.
+    self:varTypes := dictionary:new.
+    self:scratchSlots := array:new. self:scratchDepth := #0.
     self:shared := array:new.      self:statics := dictionary:new.
     self:boxed := array:new.       self:toBox := array:new.
     self:methods := array:new.
@@ -1262,6 +1682,9 @@ sola:popUnit := { | saved |
     self:labelAt := saved:at("labelAt").       self:fixups := saved:at("fixups").
     self:blocks := saved:at("blocks").         self:localNames := saved:at("localNames").
     self:locals := saved:at("locals").         self:shared := saved:at("shared").
+    self:varTypes := saved:at("varTypes").
+    self:scratchSlots := saved:at("scratchSlots").
+    self:scratchDepth := saved:at("scratchDepth").
     self:statics := saved:at("statics").       self:boxed := saved:at("boxed").
     self:toBox := saved:at("toBox").           self:methods := saved:at("methods").
     self:inProcedure := saved:at("inProcedure").
@@ -1399,7 +1822,8 @@ emitters:atPut('select, { m, st | | f, slot |
     m:emitSetLocal(slot).
     m:emitPop.
     f := m:pushBlock('select).
-    f:subject := slot }).
+    f:subject := slot.
+    f:subjectType := st:expr:type }).
 
 emitters:atPut('case, { m, st | | f, count, i, misses, toBody |
     f := m:openFrame("CASE", 'select).
@@ -1414,7 +1838,8 @@ emitters:atPut('case, { m, st | | f, count, i, misses, toBody |
     toBody := array:new.
     i := #1.
     { i:lessOrEqual(count) }:whileTrue({
-        misses := m:emitAlternative(f:subject, st:alternatives:at(i)).
+        misses := m:emitAlternative(f:subject, f:subjectType,
+                                    st:alternatives:at(i)).
         i:equals(count):ifElse(
             { misses:do({ at | f:pending:add([at, 'branch]) }) },
             { toBody:add([m:hole, 'jump]).
@@ -1446,25 +1871,25 @@ emitters:atPut('endselect, { m, st | | f |
 ; A value, a range, or a comparison. Answers the holes to fill when it does
 ; **not** match -- a range is two of them, because it is an AND and either half
 ; can refuse.
-sola:emitAlternative := { slot, alt | | misses |
+sola:emitAlternative := { slot, t, alt | | misses |
     misses := array:new.
     alt:at(#1):equals("value"):ifTrue({
         self:emitLocal(slot).
-        self:emitExpression(alt:at(#2)).
+        self:emitTyped(alt:at(#2), t).
         self:emitSend("equals", #1).
         misses:add(self:branchHole) }).
     alt:at(#1):equals("range"):ifTrue({
         self:emitLocal(slot).
-        self:emitExpression(alt:at(#2)).
+        self:emitTyped(alt:at(#2), t).
         self:emitSend("greaterOrEqual", #1).
         misses:add(self:branchHole).
         self:emitLocal(slot).
-        self:emitExpression(alt:at(#3)).
+        self:emitTyped(alt:at(#3), t).
         self:emitSend("lessOrEqual", #1).
         misses:add(self:branchHole) }).
     alt:at(#1):equals("is"):ifTrue({
         self:emitLocal(slot).
-        self:emitExpression(alt:at(#3)).
+        self:emitTyped(alt:at(#3), t).
         self:emitSend(selectors:at(alt:at(#2)), #1).
         misses:add(self:branchHole) }).
     misses }.
@@ -1484,24 +1909,27 @@ sola:literalStep := { n |
     n:isNil:ifElse(
         { 1.0 },
         { n:kind:equals('number):ifElse(
-            { n:value },
+            { self:asDouble(n:value) },
             { n:kind:equals('negate):and({ n:left:kind:equals('number) }):ifElse(
-                { n:left:value:negated },
+                { self:asDouble(n:left:value):negated },
                 { nil }) }) }) }.
 
-emitters:atPut('for, { m, st | | f, step |
-    m:beginAssign(st:name). m:emitExpression(st:expr). m:endAssign(st:name).
+emitters:atPut('for, { m, st | | f, step, t |
+    t := m:typeOfName(st:name).
+    t:equals('string):ifTrue({ m:fail("a FOR counts, so its variable is a number") }).
+    m:beginAssign(st:name). m:emitTyped(st:expr, t). m:endAssign(st:name).
 
     f := m:pushBlock('for).
     f:name := st:name.
+    f:varType := t.
     f:limitSlot := m:newSlot("for limit").
-    m:emitExpression(st:limit). m:emitSetLocal(f:limitSlot). m:emitPop.
+    m:emitTyped(st:limit, t). m:emitSetLocal(f:limitSlot). m:emitPop.
 
     step := m:literalStep(st:step).
     f:step := step.
     step:isNil:ifTrue({
         f:stepSlot := m:newSlot("for step").
-        m:emitExpression(st:step). m:emitSetLocal(f:stepSlot). m:emitPop }).
+        m:emitTyped(st:step, t). m:emitSetLocal(f:stepSlot). m:emitPop }).
 
     f:top := m:here.
     m:emitForTest(f).
@@ -1525,7 +1953,7 @@ sola:emitForTest := { f |
           self:emitSend("sub", #1).
           self:emitLocal(f:stepSlot).
           self:emitSend("mul", #1).
-          self:emitConst(0.0).
+          self:emitNumber(#0, f:varType).
           self:emitSend("greaterOrEqual", #1) },
         { self:emitLoadVar(f:name).
           self:emitLocal(f:limitSlot).
@@ -1554,7 +1982,7 @@ sola:closeFor := { name | | f |
     self:emitLoadVar(f:name).
     f:step:isNil:ifElse(
         { self:emitLocal(f:stepSlot) },
-        { self:emitConst(f:step) }).
+        { self:emitNumber(f:step, f:varType) }).
     self:emitSend("add", #1).
     self:endAssign(f:name).
     self:emitLoopTo(f:top).
@@ -1615,6 +2043,13 @@ emitters:atPut('exit, { m, st | | f |
           f:exits:add([m:hole, 'jump]) }) }).
 
 emitters:atPut('call, { m, st | m:emitCall(st:name, st:items, true) }).
+
+emitters:atPut('randomize, { m, st |
+    m:emitGlobal("random").
+    m:emitTyped(st:expr, 'integer).
+    m:emitSend("new", #1).
+    m:emitStore(randomName).
+    m:emitPop }).
 
 ; SHARED and STATIC did their work before the body was emitted -- they are in
 ; force for the whole procedure wherever they are written, so reading them in
@@ -1827,9 +2262,24 @@ sola:emitStaticInitialisers := {
         r:body:do({ st |
             st:kind:equals('static):ifTrue({
                 st:items:do({ n |
-                    self:emitConst(0.0).
+                    self:emitZero(self:typeOfName(n)).
                     self:emitStore(self:staticName(r:name, n)).
                     self:emitPop }) }) }) }) }.
+
+; What a call answers: a builtin says so itself, and a FUNCTION says so with
+; the suffix on its own name, exactly as a variable does.
+sola:typeOfCall := { n | | answers |
+    builtins:includes(n:name):ifElse(
+        { answers := builtins:at(n:name):at(#2).
+          answers:equals('sameAsArg):ifElse(
+              { n:args:size:equals(#0):ifElse(
+                  { 'double },
+                  { n:args:at(#1):type:equals('integer):ifElse(
+                      { 'integer }, { 'double }) }) },
+              { answers }) },
+        { self:routines:includes(n:name):ifElse(
+            { self:typeOfName(n:name) },
+            { self:fail("there is no SUB or FUNCTION called '{}'":fill([n:name])) }) }) }.
 
 sola:emitReturnValue := {
     self:returnName:equals(""):ifElse(
@@ -1867,7 +2317,7 @@ sola:emitRoutine := { r | | method, index, i |
 
     self:mark(r:line).
     r:kind:equals('function):ifTrue({
-        self:emitConst(0.0).
+        self:emitZero(self:typeOfName(r:name)).
         self:emitSetLocal(self:slotFor(r:name)).
         self:emitPop }).
     self:statementsOfScope := r:body.
@@ -1906,7 +2356,11 @@ sola:emitRoutine := { r | | method, index, i |
 ; expression, or a name in brackets -- gets a box of its own that nobody keeps.
 ; That is QBasic's rule and it is what `CALL Foo((x))` is for.
 
-sola:emitCall := { name, args, asStatement | | r, i, arg |
+sola:emitCall := { name, args, asStatement | | r, i, arg, wanted |
+    builtins:includes(name):ifTrue({
+        self:emitBuiltin(name, args).
+        asStatement:ifTrue({ self:emitPop }) }).
+    builtins:includes(name):ifFalse({
     self:routines:includes(name):ifFalse({
         self:fail("there is no SUB or FUNCTION called '{}'":fill([name])) }).
     r := self:routines:at(name).
@@ -1919,16 +2373,343 @@ sola:emitCall := { name, args, asStatement | | r, i, arg |
     i := #1.
     { i:lessOrEqual(args:size) }:whileTrue({
         arg := args:at(i).
+        wanted := self:typeOfName(r:params:at(i)).
         r:byref:at(i):ifElse(
             { arg:kind:equals('variable):and({ arg:grouped:not }):ifElse(
-                { self:emitRawVar(arg:name) },
+                { ; The box is handed over as it stands, so the two names have to
+                  ; agree about what is in it: the callee writes through it and
+                  ; the caller reads back what it wrote.
+                  self:typeOfName(arg:name):equals(wanted):ifFalse({
+                      self:fail("{} and {}'s {} are different types, and a "
+                          :concat("variable passed by reference must match")
+                          :fill([arg:name, name, r:params:at(i)])) }).
+                  self:emitRawVar(arg:name) },
                 { self:emitGlobal("array").
-                  self:emitExpression(arg).
+                  self:emitTyped(arg, wanted).
                   self:emitSend("of", #1) }) },
-            { self:emitExpression(arg) }).
+            { self:emitTyped(arg, wanted) }).
         i := i:add(#1) }).
     self:emitSend("value", args:size).
-    asStatement:ifTrue({ self:emitPop }) }.
+    asStatement:ifTrue({ self:emitPop }) }) }.
+
+; ---------------------------------------------------------------------------
+; The supplied functions
+;
+; **Each one is emitted where it is called rather than being a procedure that is
+; called.** There is nowhere to put a library: the `.sob` this compiler writes is
+; the whole program, and none of `lib/` is in it. So a builtin is a short
+; sequence of instructions, and the ones that need to decide something -- `SGN`,
+; `INSTR`, the clamping in `LEFT$` -- decide it with the same jumps a `SELECT
+; CASE` uses.
+;
+; An entry is `[argument types, what it answers, how, detail]`, and
+; `'sameAsArg` answers whatever its argument was, which is how `ABS` and `INT`
+; keep an Integer an Integer.
+;
+; **`how` is a symbol and not a block, and that is 3.1's doing.** The first
+; version of this had a helper that built the emitting block and stored it --
+; and the block read the helper's parameters, so it captured a frame that had
+; already returned by the time anything called it.
+; [3.1](../docs/ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame) says a
+; block that reads its home frame cannot outlive it, and the machine said so
+; exactly: *block outlived the frame it was written in*. The blocks further down
+; are written at the top level, read nothing but their own parameters, and are
+; fine; the two shapes that were not are a symbol and a selector instead.
+
+sola:builtinArg := { args, i, t | self:emitTyped(args:at(i), t) }.
+
+; A builtin of one argument that is one send.
+sola:simpleBuiltin := { name, argType, answers, selector |
+    builtins:atPut(name, [[argType], answers, 'simple, selector]) }.
+
+sola:simpleBuiltin("ABS",   'double, 'sameAsArg, "abs").
+sola:simpleBuiltin("ATN",   'double, 'double, "atan").
+sola:simpleBuiltin("COS",   'double, 'double, "cos").
+sola:simpleBuiltin("SIN",   'double, 'double, "sin").
+sola:simpleBuiltin("TAN",   'double, 'double, "tan").
+sola:simpleBuiltin("EXP",   'double, 'double, "exp").
+sola:simpleBuiltin("LOG",   'double, 'double, "log").
+sola:simpleBuiltin("SQR",   'double, 'double, "sqrt").
+sola:simpleBuiltin("LEN",   'string, 'integer, "size").
+sola:simpleBuiltin("UCASE$", 'string, 'string, "asUppercase").
+sola:simpleBuiltin("LCASE$", 'string, 'string, "asLowercase").
+sola:simpleBuiltin("STR$",  'double, 'string, "asString").
+sola:simpleBuiltin("CHR$",  'integer, 'string, "asCharacter").
+
+; `ABS` on an Integer must stay an Integer, so the argument is not forced to a
+; Double first. The table above says `'double`; this overrides it.
+builtins:atPut("ABS", [['numeric], 'sameAsArg, 'block,
+    { m, args | m:emitExpression(args:at(#1)). m:emitSend("abs", #0) }]).
+
+; **`VAL` is strict here**, where BASIC's is lenient: the whole string has to be
+; a number, and `VAL("12ab")` is an error rather than `12`. Reading a number out
+; of the front of a string wants a scanner, and there is not one in the emitted
+; program -- see the reference manual, which says so where somebody will look.
+builtins:atPut("VAL", [['string], 'double, 'block,
+    { m, args | m:builtinArg(args, #1, 'string). m:emitSend("asFloat", #0) }]).
+
+builtins:atPut("ASC", [['string], 'integer, 'block,
+    { m, args |
+        m:builtinArg(args, #1, 'string).
+        m:emitIntConst(#1). m:emitSend("at", #1).
+        m:emitSend("asByte", #0) }]).
+
+; `INT` is the floor and `FIX` cuts towards nought, and they differ only for a
+; negative: INT(-2.5) is -3 and FIX(-2.5) is -2.
+sola:roundingBuiltin := { name, selector |
+    builtins:atPut(name, [['numeric], 'sameAsArg, 'rounding, selector]) }.
+sola:roundingBuiltin("INT", "floor").
+sola:roundingBuiltin("FIX", "truncated").
+
+; `SGN` needs its argument twice and there is no instruction that duplicates the
+; top of the stack, so it goes into a scratch slot first.
+builtins:atPut("SGN", [['double], 'integer, 'block,
+    { m, args | | x, notNegative, isZero, fromNegative, fromPositive |
+        x := m:intoScratchAs(args:at(#1), 'double).
+        m:emitLocal(x). m:emitConst(0.0). m:emitSend("lessThan", #1).
+        notNegative := m:branchHole.
+        m:emitIntConst(#-1).
+        fromNegative := m:hole.
+
+        m:fillBranch(notNegative).
+        m:emitLocal(x). m:emitConst(0.0). m:emitSend("greaterThan", #1).
+        isZero := m:branchHole.
+        m:emitIntConst(#1).
+        fromPositive := m:hole.
+
+        m:fillBranch(isZero).
+        m:emitIntConst(#0).
+
+        ; **Three arms and three jumps.** An earlier draft had two arms sharing
+        ; one hole, which patched it twice and sent the first arm wherever the
+        ; second one landed. The verifier refused the file rather than running
+        ; it -- *bytecode is internally inconsistent*, at load, exit 65 -- which
+        ; is the whole reason a Solum-emitted `.sob` is checked before it runs.
+        m:fillJump(fromNegative).
+        m:fillJump(fromPositive).
+        m:dropScratch }]).
+
+; **`INSTR` answers 0 when it does not find it**, where the machine answers nil.
+builtins:atPut("INSTR", [['string, 'string], 'integer, 'block,
+    { m, args | | found, zero, done |
+        args:size:equals(#3):ifElse(
+            { m:builtinArg(args, #2, 'string).
+              m:builtinArg(args, #3, 'string).
+              m:builtinArg(args, #1, 'integer).
+              m:emitSend("indexOf", #2) },
+            { m:builtinArg(args, #1, 'string).
+              m:builtinArg(args, #2, 'string).
+              m:emitSend("indexOf", #1) }).
+        found := m:takeScratch.
+        m:emitSetLocal(found). m:emitPop.
+        m:emitLocal(found). m:emitSend("notNil", #0).
+        zero := m:branchHole.
+        m:emitLocal(found).
+        done := m:hole.
+        m:fillBranch(zero).
+        m:emitIntConst(#0).
+        m:fillJump(done).
+        m:dropScratch }]).
+
+; ---------------------------------------------------------------------------
+; The ones that take a piece of a string
+;
+; `copyFrom` refuses a range outside the string and BASIC clamps, so the bounds
+; are pushed into a slot and squared up with two comparisons before they are
+; used. That is what most of the length here is.
+
+sola:emitClampLow := { slot, low | | fine |
+    self:emitLocal(slot). self:emitIntConst(low). self:emitSend("lessThan", #1).
+    fine := self:branchHole.
+    self:emitIntConst(low). self:emitSetLocal(slot). self:emitPop.
+    self:fillBranch(fine) }.
+
+sola:emitClampToSize := { slot, strSlot | | fine |
+    self:emitLocal(slot).
+    self:emitLocal(strSlot). self:emitSend("size", #0).
+    self:emitSend("greaterThan", #1).
+    fine := self:branchHole.
+    self:emitLocal(strSlot). self:emitSend("size", #0).
+    self:emitSetLocal(slot). self:emitPop.
+    self:fillBranch(fine) }.
+
+builtins:atPut("LEFT$", [['string, 'integer], 'string, 'block,
+    { m, args | | str, n |
+        str := m:intoScratchAs(args:at(#1), 'string).
+        n := m:intoScratchAs(args:at(#2), 'integer).
+        m:emitClampLow(n, #0).
+        m:emitClampToSize(n, str).
+        m:emitLocal(str). m:emitIntConst(#1). m:emitLocal(n).
+        m:emitSend("copyFrom", #2).
+        m:dropScratch. m:dropScratch }]).
+
+builtins:atPut("RIGHT$", [['string, 'integer], 'string, 'block,
+    { m, args | | str, n |
+        str := m:intoScratchAs(args:at(#1), 'string).
+        n := m:intoScratchAs(args:at(#2), 'integer).
+        m:emitClampLow(n, #0).
+        m:emitClampToSize(n, str).
+        ; from = size - n + 1
+        m:emitLocal(str). m:emitSend("size", #0).
+        m:emitLocal(n). m:emitSend("sub", #1).
+        m:emitIntConst(#1). m:emitSend("add", #1).
+        m:emitSetLocal(n). m:emitPop.
+        m:emitLocal(str). m:emitLocal(n).
+        m:emitLocal(str). m:emitSend("size", #0).
+        m:emitSend("copyFrom", #2).
+        m:dropScratch. m:dropScratch }]).
+
+; `MID$(s, start)` and `MID$(s, start, length)`. A start past the end is the
+; empty string rather than an error, which is BASIC's rule.
+builtins:atPut("MID$", [['string, 'integer], 'string, 'block,
+    { m, args | | str, from, last, empty, done |
+        str := m:intoScratchAs(args:at(#1), 'string).
+        from := m:intoScratchAs(args:at(#2), 'integer).
+        last := m:takeScratch.
+        m:emitClampLow(from, #1).
+
+        args:size:equals(#3):ifElse(
+            { m:emitLocal(from).
+              m:builtinArg(args, #3, 'integer).
+              m:emitSend("add", #1).
+              m:emitIntConst(#1). m:emitSend("sub", #1) },
+            { m:emitLocal(str). m:emitSend("size", #0) }).
+        m:emitSetLocal(last). m:emitPop.
+        m:emitClampToSize(last, str).
+
+        m:emitLocal(from).
+        m:emitLocal(last).
+        m:emitSend("greaterThan", #1).
+        empty := m:branchHole.
+        m:emitString("").
+        done := m:hole.
+        m:fillBranch(empty).
+        m:emitLocal(str). m:emitLocal(from). m:emitLocal(last).
+        m:emitSend("copyFrom", #2).
+        m:fillJump(done).
+        m:dropScratch. m:dropScratch. m:dropScratch }]).
+
+; ---------------------------------------------------------------------------
+; The ones that need a loop
+;
+; A loop in a builtin is the same `LOOP` and `JUMP_IF_FALSE` a `WHILE` compiles
+; to, which is why these cost lines here and nothing new in the machine.
+
+sola:emitTrim := { args, fromLeft | | str, i, top, out |
+    str := self:intoScratchAs(args:at(#1), 'string).
+    i := self:takeScratch.
+    fromLeft:ifElse(
+        { self:emitIntConst(#1) },
+        { self:emitLocal(str). self:emitSend("size", #0) }).
+    self:emitSetLocal(i). self:emitPop.
+
+    top := self:here.
+    ; while i is in range and the character there is a space
+    fromLeft:ifElse(
+        { self:emitLocal(i).
+          self:emitLocal(str). self:emitSend("size", #0).
+          self:emitSend("lessOrEqual", #1) },
+        { self:emitLocal(i). self:emitIntConst(#1).
+          self:emitSend("greaterOrEqual", #1) }).
+    out := self:branchHole.
+    self:emitLocal(str). self:emitLocal(i). self:emitSend("at", #1).
+    self:emitString(" "). self:emitSend("equals", #1).
+    out := [out, self:branchHole].
+    self:emitLocal(i).
+    self:emitIntConst(fromLeft:ifElse({ #1 }, { #-1 })).
+    self:emitSend("add", #1).
+    self:emitSetLocal(i). self:emitPop.
+    self:emitLoopTo(top).
+    self:fillBranch(out:at(#1)).
+    self:fillBranch(out:at(#2)).
+
+    fromLeft:ifElse(
+        { self:emitLocal(str). self:emitLocal(i).
+          self:emitLocal(str). self:emitSend("size", #0) },
+        { self:emitLocal(str). self:emitIntConst(#1). self:emitLocal(i) }).
+    self:emitSend("copyFrom", #2).
+    self:dropScratch. self:dropScratch }.
+
+builtins:atPut("LTRIM$", [['string], 'string, 'block,
+    { m, args | m:emitTrim(args, true) }]).
+builtins:atPut("RTRIM$", [['string], 'string, 'block,
+    { m, args | m:emitTrim(args, false) }]).
+
+; `STRING$(n, s)` is `s`'s first character n times; `SPACE$(n)` is that with a
+; space.
+sola:emitRepeatString := { countNode, charNode | | out, i, n, top, done |
+    n := self:intoScratchAs(countNode, 'integer).
+    out := self:takeScratch.
+    i := self:takeScratch.
+    charNode:isNil:ifElse(
+        { self:emitString(" ") },
+        { self:emitTyped(charNode, 'string).
+          self:emitIntConst(#1). self:emitSend("at", #1) }).
+    self:emitSetLocal(out). self:emitPop.
+    self:emitString("").
+    self:emitSetLocal(i). self:emitPop.
+
+    top := self:here.
+    self:emitLocal(n). self:emitIntConst(#0). self:emitSend("greaterThan", #1).
+    done := self:branchHole.
+    self:emitLocal(i). self:emitLocal(out). self:emitSend("concat", #1).
+    self:emitSetLocal(i). self:emitPop.
+    self:emitLocal(n). self:emitIntConst(#1). self:emitSend("sub", #1).
+    self:emitSetLocal(n). self:emitPop.
+    self:emitLoopTo(top).
+    self:fillBranch(done).
+    self:emitLocal(i).
+    self:dropScratch. self:dropScratch. self:dropScratch }.
+
+builtins:atPut("SPACE$", [['integer], 'string, 'block,
+    { m, args | m:emitRepeatString(args:at(#1), nil) }]).
+builtins:atPut("STRING$", [['integer, 'string], 'string, 'block,
+    { m, args | m:emitRepeatString(args:at(#1), args:at(#2)) }]).
+
+; ---------------------------------------------------------------------------
+; RND, and the generator it reads from
+;
+; One generator for the program, made before its first line runs. `RANDOMIZE`
+; replaces it with one seeded to repeat.
+
+randomName := "the random generator".
+
+builtins:atPut("RND", [[], 'double, 'block,
+    { m, args |
+        m:emitGlobal(randomName).
+        m:emitSend("fraction", #0) }]).
+
+sola:emitRandomGenerator := {
+    self:emitGlobal("random").
+    self:emitSend("new", #0).
+    self:emitStore(randomName).
+    self:emitPop }.
+
+; ---------------------------------------------------------------------------
+; Emitting one, and checking it was called properly
+
+sola:emitBuiltin := { name, args | | entry, how |
+    entry := builtins:at(name).
+    self:checkBuiltinArity(name, args, entry).
+    how := entry:at(#3).
+    [ { how:equals('simple) },
+        { self:builtinArg(args, #1, entry:at(#1):at(#1)).
+          self:emitSend(entry:at(#4), #0) },
+      { how:equals('rounding) },
+        { args:at(#1):type:equals('integer):ifElse(
+            { self:emitExpression(args:at(#1)) },
+            { self:builtinArg(args, #1, 'double).
+              self:emitSend(entry:at(#4), #0).
+              self:emitSend("asFloat", #0) }) },
+        { entry:at(#4):value(self, args) } ]:ifElseIf }.
+
+sola:checkBuiltinArity := { name, args, entry | | least, most |
+    least := entry:at(#1):size.
+    most := least.
+    ["MID$", "INSTR"]:indexOf(name):notNil:ifTrue({ most := #3 }).
+    args:size:lessThan(least):or({ args:size:greaterThan(most) }):ifTrue({
+        self:fail("{} takes {} and was given {}"
+            :fill([name, self:countOf(least, "argument"), args:size])) }) }.
 
 ; `IF <condition> THEN GOTO <label>` is the condition, a conditional jump over
 ; the `GOTO`, and the `GOTO`.
@@ -1943,11 +2724,7 @@ sola:emitCall := { name, args, asStatement | | r, i, arg |
 ; A condition that is already a comparison answers a boolean. Anything else is
 ; a number, and BASIC's rule is that a non-zero number is true -- so it is
 ; compared with nought rather than handed to the machine, which would refuse it.
-sola:emitCondition := { n |
-    self:emitExpression(n).
-    n:kind:equals('binary):and({ comparisons:indexOf(n:op):notNil }):ifFalse({
-        self:emitConst(0.0).
-        self:emitSend("notEquals", #1) }) }.
+sola:emitCondition := { n | self:emitTyped(n, 'boolean) }.
 
 ; The items of one PRINT are joined and shown once, so that `PRINT "x = "; x`
 ; is one line. **This is not BASIC's PRINT**: there are no print zones, no
@@ -1958,10 +2735,9 @@ sola:emitPrint := { st | | first |
         { self:emitString("") },
         { first := true.
           st:items:do({ item |
-              self:emitExpression(item).
-              ; A string literal is already the thing `asString` would answer,
-              ; and the send is the most expensive instruction there is.
-              item:kind:equals('string):ifFalse({ self:emitSend("asString", #0) }).
+              ; Anything already a string converts for nothing, which is what
+              ; keeps a literal from costing a send.
+              self:emitTyped(item, 'string).
               first:ifElse({ first := false }, { self:emitSend("concat", #1) }) }) }).
     self:emitSend("display", #0).
     self:emitPop }.
@@ -2004,6 +2780,7 @@ sola:compile := { source, path |
     self:unitStack := array:new.
     self:routines := dictionary:new.
     self:routineOrder := array:new.
+    self:defaultTypes := dictionary:new.
     self:freshUnit.
 
     self:readStatements(source).
@@ -2017,6 +2794,7 @@ sola:compile := { source, path |
 
     ; Procedures first, so that every name a call needs is bound before the
     ; module's first line runs.
+    self:emitRandomGenerator.
     self:emitStaticInitialisers.
     self:routineOrder:do({ r | self:emitRoutine(r) }).
     self:statementsOfScope := self:statements.

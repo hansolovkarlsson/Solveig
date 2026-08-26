@@ -475,7 +475,12 @@ branch. Nobody writes it; it is still a gap.
 **4. A string may not contain a double quote.** QBasic has the same restriction,
 and `CHR$(34)` is the same answer. Recorded because it looks like an oversight.
 
-**5. Procedures are resolved before compilation.** QBasic requires `DECLARE` for
+**5. `VAL` is strict.** BASIC's reads a number off the front of a string and
+answers nought for junk; this one wants the whole string to be a number. Reading
+a number out of the front of text wants a scanner, and there is no library in
+the file the compiler writes to hold one.
+
+**6. Procedures are resolved before compilation.** QBasic requires `DECLARE` for
 a procedure used before it is defined, and QB's editor writes them for you.
 SolaBasic takes a pass first, so `DECLARE` is accepted and does nothing.
 
@@ -551,6 +556,36 @@ jump into the middle of an instruction and a jump to a point at a different
 stack depth are each refused *at load*, exit 65, as a message rather than a
 crash. The depth-0 discipline is load-bearing rather than tidy, and nothing in
 the design section above needed changing.
+
+**2026-08-26 — stage 1: types first, then everything else falls out.**
+The three types, the whole operator table and all twenty-seven supplied
+functions are in [programs/sola.sol](../programs/sola.sol). Only `PRINT`'s
+formatting is left of this stage, and that is stage 6's business.
+
+**Types have to be settled before a byte is emitted**, which is the finding. A
+conversion is an instruction acting on the top of the stack, so widening an
+Integer must happen *after* it is pushed and *before* the value beside it — by
+which time it is far too late to work out that it was needed. So the tree is
+typed in a pass of its own and emitting is a second walk that already knows
+where the conversions go. Everything else in the stage is a table.
+
+**There is no boolean type, and this document was right to say so.** A
+comparison answers `-1` or `0` used as a number, which is why `NOT`, `AND` and
+`OR` are bit operations and still read correctly. Internally a comparison
+answers the machine's boolean, because that is what a conditional jump wants —
+turning one into `-1` costs a jump, so the jump is emitted only where the value
+really is used as a number.
+
+**Two operators follow QBasic against the machine.** SolVM's integer divide and
+remainder are floored, so `-7 \ 2` would be `-4` and `-7 MOD 2` would be `1`.
+QBasic says `-3` and `-1`, and this says QBasic. What that costs is exactness
+above 2^53, which is a smaller wrong answer than the sign being wrong.
+
+**And `VAL` is strict, which is a new divergence** rather than one this document
+predicted. BASIC's `VAL` reads a number off the front of a string and answers
+nought for junk; that wants a scanner, and the file this compiler writes has no
+library in it to hold one. It is in
+[Where this is not QBasic](#where-this-is-not-qbasic) now.
 
 **2026-08-26 — stage 4, the expensive one, and by reference is a box.**
 `SUB`, `FUNCTION`, locals, `SHARED`, `STATIC` and by-reference parameters are in
@@ -628,7 +663,7 @@ The language above is the finish line. The order to reach it in:
 | | |
 | --- | --- |
 | **0** | **Done** — [programs/sola.sol](../programs/sola.sol). A `.sob` out of a SolaBasic program, running, with nothing of the compiler present. |
-| **1** | **Partly.** Expressions, variables and `PRINT` are here; the three types are not — every number is a Double — and `PRINT`'s rules are stage 6. |
+| **1** | **Done**, except `PRINT`'s rules, which are stage 6. The three types, the whole operator table, and all twenty-seven supplied functions. |
 | **2** | **Done.** `IF` in both shapes, `SELECT CASE`, `FOR`/`NEXT`, `DO`/`LOOP`, `WHILE`/`WEND`, `EXIT FOR` and `EXIT DO`, all compiled to jumps. |
 | **3** | **Done, and first, as this table said it should be.** `GOTO` and labels, forwards and backwards, to any label in the program. What it found is below. |
 | **4** | **Done.** `SUB`, `FUNCTION`, `CALL`, locals, `SHARED`, `STATIC`, `EXIT SUB`/`EXIT FUNCTION`, and by-reference parameters. |

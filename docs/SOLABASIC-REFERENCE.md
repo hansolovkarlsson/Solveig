@@ -32,9 +32,10 @@ compiles a demonstration and tells you how to run it.
 ## Contents
 
 - **[A program](#a-program)** — [lines](#lines) · [labels](#labels) · [comments](#comments)
-- **[Values](#values)** — [numbers](#numbers) · [strings](#strings)
+- **[Types](#types)** — [numbers](#numbers) · [strings](#strings) · [what a name's type is](#what-a-names-type-is)
 - **[Variables](#variables)**
 - **[Expressions](#expressions)**
+- **[The supplied functions](#the-supplied-functions)**
 - **[Assigning](#assigning)** — `LET`
 - **[Printing](#printing)** — `PRINT`
 - **[Choosing](#choosing)** — `IF` · `SELECT CASE`
@@ -98,45 +99,81 @@ apostrophe, an unclosed quote. `'` may follow a statement on the same line.
 
 ---
 
-## Values
+## Types
+
+**Three, and no more.**
+
+| Type | Suffix | Backed by |
+| --- | --- | --- |
+| Integer | `%` or `&` | a 64-bit whole number |
+| Double | `#` | 64-bit binary floating point |
+| String | `$` | text of any length |
 
 ### Numbers
 
-**Every number is a Double**: a 64-bit binary floating point value. There is one
-numeric type and no way to ask for another.
+**A literal with no point and no exponent is an Integer**; anything else is a
+Double. That one rule is why `7 / 2` and `7 \ 2` differ without anything being
+declared.
 
 ```basic
-PRINT 42
-PRINT 3.14159
-PRINT 1.5E-3
-PRINT -7
+PRINT 42          ' an Integer
+PRINT 3.14159     ' a Double
+PRINT 1.5E-3      ' a Double
+PRINT &HFF        ' 255, written in hex
+PRINT &O17        ' 15, written in octal
 ```
 
-`7 / 2` is `3.5`. Division is never integer division.
+Mixing the two in one expression gives a Double. Assigning a Double to an
+Integer **rounds** it.
+
+```basic
+n% = 3 / 2        ' 2, rounded from 1.5
+```
 
 ### Strings
 
 Between double quotes. **There is no escape**, so a string cannot contain a
-double quote.
+double quote — `CHR$(34)` is how you write one.
 
 ```basic
 PRINT "hello, world"
+PRINT "con" + "cat"
 ```
 
-Strings may be compared with the same operators numbers are, which compares
-their characters:
+`+` joins two strings. Strings compare with the same operators numbers do,
+comparing their characters:
 
 ```basic
-s = "abc"
-IF s < "abd" THEN PRINT "less"
+s$ = "abc"
+IF s$ < "abd" THEN PRINT "less"
 ```
+
+**Text and numbers never turn into each other by themselves.** `STR$` and `VAL`
+are how you cross.
+
+### What a name's type is
+
+In order:
+
+1. **Its suffix**, if it has one. `A%` and `A$` are two different variables.
+2. **A `DEF` statement** covering its first letter.
+3. Otherwise **Double**.
+
+```basic
+DEFINT I-N        ' every name starting I to N is an Integer
+DEFSTR S
+DEFDBL A-H, O-Z
+```
+
+A `DEF` applies to the whole listing wherever it is written.
 
 ---
 
 ## Variables
 
-A variable springs into being on first use. **Every variable starts at nought**,
-so reading one before assigning to it is `0` and not an error.
+A variable springs into being on first use. **Every variable starts at nought**
+— or at the empty string, if it is one — so reading one before assigning to it
+is `0` and not an error.
 
 ```basic
 PRINT z        ' 0
@@ -144,8 +181,8 @@ z = z + 1
 PRINT z        ' 1
 ```
 
-A name is a letter followed by letters and digits. There are no type suffixes:
-`A$` is not a name, it is an error.
+A name is a letter followed by letters and digits, optionally ending in a type
+suffix. See [what a name's type is](#what-a-names-type-is).
 
 **At module level every variable is global.** Inside a `SUB` or `FUNCTION` every
 variable is local to that call, unless [`SHARED`](#shared) or
@@ -157,22 +194,89 @@ variable is local to that call, unless [`SHARED`](#shared) or
 
 Highest binding first. Every level is left-associative.
 
+Tightest first.
+
 | | |
 | --- | --- |
+| `^` | raise to a power; always a Double, and **right-associative** |
 | `-` | negation |
-| `*` `/` | multiply, divide |
-| `+` `-` | add, subtract |
+| `*` `/` | multiply, divide; `/` always answers a Double |
+| `\` | integer divide — both sides rounded first, and it cuts **towards nought** |
+| `MOD` | remainder, taking the sign of the left-hand side |
+| `+` `-` | add, subtract; `+` also joins text |
 | `=` `<>` `<` `<=` `>` `>=` | comparison |
+| `NOT` | flip every bit |
+| `AND` | bit-by-bit and |
+| `OR` `XOR` | bit-by-bit or, exclusive or |
+
+`^` binds tighter than negation, so `-2 ^ 2` is `-4` and not `4`.
 
 Brackets group. `(a + b) * c` is what it looks like.
 
-**A condition is a comparison, or a number.** Where a statement wants a
-condition, a comparison answers one directly and any other value is true when it
-is not nought — which is BASIC's rule:
+**There is no boolean type.** A comparison answers `-1` when true and `0` when
+false, which is why `NOT`, `AND` and `OR` are bit operations and still read
+correctly:
+
+```basic
+PRINT (1 < 2)                        ' -1
+IF a > 0 AND b > 0 THEN PRINT "both"
+IF NOT (a = b) THEN PRINT "differ"
+```
+
+**A condition is true when it is not nought**, so a plain number works where one
+is wanted:
 
 ```basic
 IF count THEN PRINT "there are some"
 ```
+
+---
+
+## The supplied functions
+
+Twenty-seven. Each is compiled **where it is called** — there is no library in
+the file this writes, so a function is a short run of instructions rather than
+something to call.
+
+### Numbers
+
+| | |
+| --- | --- |
+| `ABS(x)` | size without a sign; an Integer stays an Integer |
+| `SGN(x)` | `-1`, `0` or `1` |
+| `INT(x)` | the **floor** — `INT(-2.5)` is `-3` |
+| `FIX(x)` | cut towards nought — `FIX(-2.5)` is `-2` |
+| `SQR(x)` | square root |
+| `EXP(x)` `LOG(x)` | e to the x, and the **natural** logarithm |
+| `SIN(x)` `COS(x)` `TAN(x)` `ATN(x)` | **radians** |
+| `RND` | a Double, at least 0 and always less than 1 |
+
+`RANDOMIZE n` is a statement, and replaces the generator with one seeded to
+repeat.
+
+### Text
+
+| | |
+| --- | --- |
+| `LEN(s$)` | how many characters |
+| `LEFT$(s$, n)` `RIGHT$(s$, n)` | the first or last `n`; **clamps** rather than failing |
+| `MID$(s$, start)` | from `start` to the end |
+| `MID$(s$, start, n)` | `n` characters from `start`; a start past the end is `""` |
+| `INSTR(s$, part$)` | where `part$` first is, one-based, or **0** |
+| `INSTR(start, s$, part$)` | the same, looking from `start` |
+| `UCASE$(s$)` `LCASE$(s$)` | case folded |
+| `LTRIM$(s$)` `RTRIM$(s$)` | spaces off the front, or off the back |
+| `SPACE$(n)` | `n` spaces |
+| `STRING$(n, s$)` | `s$`'s first character, `n` times |
+| `ASC(s$)` | the number of the first character |
+| `CHR$(n)` | the one-character string that number spells |
+
+### Between the two
+
+| | |
+| --- | --- |
+| `STR$(x)` | the number as text |
+| `VAL(s$)` | the number that text spells — **strictly**; see the divergences |
 
 ---
 
@@ -530,17 +634,13 @@ each belongs to is in [SOLABASIC.md](SOLABASIC.md#stages).
 
 | | |
 | --- | --- |
-| `INTEGER`, `STRING`, `AS`, `DEFINT`, type suffixes | stage 1 — there is one numeric type and no way to name it |
-| `^`, `\`, `MOD`, `AND`, `OR`, `NOT`, `XOR` | stage 1 |
-| `+` joining two strings | stage 1 — it is numeric only, and two strings are an error when it runs |
-| `&H` and `&O` literals | stage 1 |
+| `AS INTEGER`, `AS DOUBLE`, `AS STRING` | stage 5, with `DIM` — a suffix or a `DEF` says the same thing today |
 | `PRINT`'s zones, `TAB`, `SPC`, `PRINT USING` | stage 6 |
 | `DIM`, arrays, `OPTION BASE` | stage 5 |
 | `INPUT`, `LINE INPUT`, files | stage 6 |
 | `CONST` | stage 5 |
 | `ON ERROR`, `TYPE`, `REDIM`, `OPTION EXPLICIT` | listed as *not yet* in the language definition |
 | `:` between statements on one line | not written yet |
-| the built-in functions — `ABS`, `LEFT$`, `LEN`, `RND` and the rest | stage 1 |
 
 `GOSUB`, `RETURN`, `ON n GOTO`, `DATA`, `READ`, `SINGLE` and the whole of the PC
 — `SCREEN`, `PEEK`, `POKE` — are **not coming**. See
@@ -553,13 +653,30 @@ each belongs to is in [SOLABASIC.md](SOLABASIC.md#stages).
 The full list is in [SOLABASIC.md](SOLABASIC.md#where-this-is-not-qbasic); these
 are the ones that bite while typing.
 
-1. **There is no `SINGLE`, and one numeric type.** Everything is a Double, so a
-   ported program prints more digits than it used to.
-2. **Spaces between words are required.** `FORI=1TO10` is not a `FOR`.
-3. **A string may not contain a double quote**, and there is no `CHR$` yet to
-   get round it.
-4. **`PRINT` does not format like BASIC's**, as above.
-5. **`DECLARE` does nothing**, because nothing needs declaring.
+1. **There is no `SINGLE`.** QBasic's default numeric type is a 32-bit float;
+   here the default is a Double, so a ported program prints more digits than it
+   used to. Writing `A!` is refused by name rather than quietly widened.
+2. **`INTEGER` is 64 bits**, where QBasic's is 16 and overflows at `32767`. A
+   program relying on that failure will not fail here.
+3. **Spaces between words are required.** `FORI=1TO10` is not a `FOR`.
+4. **A string may not contain a double quote.** `CHR$(34)` is the way round it,
+   as it is in QBasic.
+5. **`PRINT` does not format like BASIC's**, as above — and `STR$` does not put
+   the leading space in front of a positive number that BASIC's does, for the
+   same reason.
+6. **`VAL` is strict.** BASIC's reads a number off the front of a string and
+   answers `0` for junk; this one wants the whole string to be a number. Reading
+   a number out of the front of text wants a scanner, and there is none in the
+   file the compiler writes.
+7. **`DECLARE` does nothing**, because nothing needs declaring.
+
+**And two places where SolaBasic follows QBasic against the machine**, which is
+worth knowing because the machine's answer is the one you would get by guessing.
+`\` cuts towards nought and `MOD` takes the sign of its left-hand side, where
+SolVM's own integer divide and remainder are *floored*: `-7 \ 2` is `-3` here
+and `-7 MOD 2` is `-1`, as QBasic says and not as the machine would. What that
+costs is exactness above 2^53, where a Double can no longer hold every whole
+number.
 
 ---
 

@@ -1,7 +1,7 @@
-DECLARE SUB Greet (who)
+DECLARE SUB Greet (who$)
 ' --- a SUB, called both ways
-SUB Greet (who)
-  PRINT "hello, "; who
+SUB Greet (who$)
+  PRINT "hello, "; who$
 END SUB
 CALL Greet("world")
 Greet "again"
