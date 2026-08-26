@@ -60,7 +60,9 @@ reaches a number, and where a value is still not an object; **[Choosing what to 
 tables and the traps in them; **[Absence](docs/absence.md)** for nil, empty and
 unset;
 **[The class side and the instance side](docs/class-and-instance.md)**
-for the last design question and how it was closed; **[Ideas considered](docs/ideas.md)**
+for the last design question and how it was closed; **[SolaBasic](docs/SOLABASIC.md)** for
+the compiled BASIC that targets this bytecode, and where its subset stops;
+**[Ideas considered](docs/ideas.md)**
 for what was weighed and what was turned down; **[Roadmap](docs/ROADMAP.md)**
 for what is left; **[Completed](docs/COMPLETED.md)** for the case behind each
 piece of work that is done; and **[Changelog](docs/CHANGELOG.md)** for what has
