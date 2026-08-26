@@ -612,6 +612,21 @@ stack depth are each refused *at load*, exit 65, as a message rather than a
 crash. The depth-0 discipline is load-bearing rather than tidy, and nothing in
 the design section above needed changing.
 
+**2026-08-26 — a third program, and it found nothing.**
+A word-frequency count: read a text, split it on anything that is not a letter,
+tally the words in parallel arrays, sort by count and then alphabetically, and
+lay out the table. It was written to work the string functions hard, those being
+where the hand-emitted clamping lives and the likeliest place for an edge to be
+wrong — `MID$` a character at a time down a line, `UCASE$`, string comparison,
+concatenation in a loop, and two arrays of different types handed to one
+procedure.
+
+**It matched QuickBASIC byte for byte on the first run**, and asked for nothing.
+That is the first real program here to find neither a defect nor a missing
+feature, and it is worth recording as a result rather than a quiet success: the
+string half of the language is answering the way it should, and is now held to
+that by somebody else. Twenty `agree/` programs.
+
 **2026-08-26 — a second program, and it asked for more.**
 Conway's Life on a grid, which is the canonical BASIC program and the only
 thing here that works a two-dimensional array hard. It wanted two things and
