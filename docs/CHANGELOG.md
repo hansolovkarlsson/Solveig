@@ -5,6 +5,46 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Stage 2 is stage 3 with a stack on top — `fa35e34`, 2026-08-26
+
+**`IF` in both shapes, `SELECT CASE`, `FOR`/`NEXT`, `DO`/`LOOP`, `WHILE`/`WEND`,
+`EXIT FOR` and `EXIT DO`**, all compiled to jumps by
+[programs/sola.sol](../programs/sola.sol). Stage 2 of the eight
+[SOLABASIC.md](SOLABASIC.md) lists, done *after* stage 3 — and the order is what
+made the finding visible.
+
+**Nothing was added to the back end.** A `GOTO` needs a hole punched in the code
+and filled when its label turns up; `IF`, `SELECT CASE`, `FOR`, `DO` and `WHILE`
+need the same hole, filled when their *closing line* turns up instead. The whole
+of stage 2 is one stack of open blocks over machinery that already existed. Had
+stage 2 come first this would have been a thing to notice afterwards; this way
+round it fell out first.
+
+**The blocks are a stack and the statements stay flat**, rather than a parser
+building a tree. BASIC's blocks are an opening line and a closing line, half the
+errors worth reporting are the two not matching, and a stack has the mismatch in
+its hand:
+
+```text
+DO
+NEXT i        →  line 2: NEXT closes the DO opened on line 1
+```
+
+A tree would have refused to parse and had less to say about why. It is also
+what lets `EXIT FOR` find the innermost `FOR` rather than the innermost block —
+four lines down a stack, against a tree walk.
+
+**`FOR` is exact except in one place, and the place is written down.** A literal
+step fixes the direction at compile time; an expression step does not, so the
+test is `(limit - counter) * step >= 0` — right for either sign, and forever on
+a step of nought, as BASIC is. It is wrong only on a product underflowing to
+`-0.0`, which buys one extra iteration and is unreachable from a literal step.
+
+**And the two halves meet.** A `GOTO` still leaves a loop from inside an `IF`,
+and a label just before `NEXT` is how BASIC spells `continue`. Both are in
+[escape.bas](../programs/sola/escape.bas), with a recorded transcript, because
+the halves meeting is the part worth a byte comparison. Five listings now.
+
 ### sob.sol goes back on the search path, and the other three stay parked — `dbf2e01`, 2026-08-26
 
 **[lib/sob.sol](../lib/sob.sol)** again, rather than
