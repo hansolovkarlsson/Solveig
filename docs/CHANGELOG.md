@@ -5,36 +5,91 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### A number 3.13 kept getting wrong, removed rather than corrected — `65f04e2`, 2026-08-25
+## 0.34.0 — 2026-08-25
 
-**[3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing) said nine
-sites carry a boolean whose only job is to stop a loop.** It was nine when it was
-written and is not now — `basic.sol` alone added two, one of them the loop its
-prompt runs on. The number was stated in **four** places: the entry, its decision
-table, [ideas.md](ideas.md) twice, and [lineage.md](lineage.md).
+**Two integer literals, and an interpreter checked against a suite it did not
+write.** `.sob` files are format version 14, unchanged, and bytecode from 0.33.0
+still runs — the only C touched is the scanner and one branch of the compiler.
 
-**It is described rather than counted now**, which is the third time today a
-number in prose has turned out to be unchecked and the first time the answer was
-to delete it instead of fixing it.
+**`$FF08` and `%10101100` write the same integer in the base you are thinking
+in.** A colour, a file mode and a set of flags are all patterns of bits, and
+`#493` does not look like `rwxr-xr-x` to anybody. It is sugar: all three
+spellings reach the same constant and nothing downstream is told there was more
+than one. The gap was already written down — the reference's own passage on file
+modes said *"Solum has no octal literal"* and then showed the round trip through
+`asBase` as the way round it, a language that could print hex and binary and not
+read one back.
 
-`index.md` said nine programs and the README said 123 messages; both got markers,
-because the checker can recount them from the running machine. **This one cannot.**
-*A loop carrying a flag* is a property of source text, and a grep cannot tell one
-from an ordinary counted loop — the first attempt at recounting returned
-**sixty**, which is how that was learned rather than assumed. A real count would
-need an analysis of the parse, which is a great deal of machinery to keep a
-number that was never doing any work.
+**And [programs/basic.sol](../programs/basic.sol) was run against the NBS
+Minimal BASIC Test Programs** — 208 programs written at the National Bureau of
+Standards in 1980 against the standard ECMA-55 mirrors, and the first test of
+that interpreter this repository did not write. **It found seven defects, and
+none of them had been caught by the eighty-three claims in the file**, which is
+the whole argument for an external suite: those claims check what the author
+thought to check.
 
-**Because the argument never rested on it.** It rests on the shape recurring,
-which it does, in more files than when the entry was written — and on almost none
-of them saying anything about it, since a complaint is somebody noticing and a
-file reaching for the same shape without comment is an idiom. The entry names the
-files and drops the tally, and says outright that the count is gone on purpose so
-that its absence reads as a decision.
+The disagreements went **16 to 5**, and the five that remain want a person at a
+keyboard the harness cannot offer. The sharpest of the seven was a rule that had
+been *invented here* — a `FOR` re-entered on the same control variable abandoned
+the old frame, which guarded against a listing the standard already forbids and
+broke three it allows.
 
-This is the same call made this morning on `index.md`'s *thirty-two files in two
-directories*: a number that cannot be checked **and** does not carry the argument
-is better deleted than corrected.
+**Thirty of the suite's programs are accepted where the standard is stricter**,
+and that is allowed only with documentation describing what the processor does
+with them. That documentation is now a table in `basic.sol`.
+
+One number left these documents rather than being corrected.
+[3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing) had counted
+the loops carrying a flag to stop themselves, in four places, and the count was
+stale again. It cannot carry a marker — *a loop carrying a flag* is a property
+of source text, and the first attempt at recounting it returned sixty. The
+argument never rested on the number, so the number is gone and its absence is
+recorded as a decision.
+
+The language answers 136<!--count messages--> messages, unchanged. Claims go 830
+to 839<!--count claims-->.
+
+### Hexadecimal and binary integers — `deeb34b`, 2026-08-25
+
+**`$FF08` and `%10101100` write the same integer in the base you are thinking
+in.** A colour, a file mode and a set of flags are all patterns of bits, and
+`#493` does not look like `rwxr-xr-x` to anybody.
+
+```
+%111101101:asBase(#8):display.   ; 755
+$FF08:print.                     ; #65288
+```
+
+**It is sugar and nothing else.** One case in the lexer, one branch in the
+compiler; all three spellings reach the same constant and nothing downstream is
+told there was more than one. No opcode, no message, and `.sob` files are
+unchanged at format version 14.
+
+**The gap was already written down.** The reference's own passage on file modes
+said *"Solum has no octal literal, so `#493` is what `0755` looks like written
+down"*, and then showed the round trip through `asBase` and `asInteger` as the
+way round it — a language that could **print** hex and binary and not read one
+back. That passage says `%111101101` now, which has the three permission
+triples where a reader can see them.
+
+**Two decisions, both saying no to something.** They carry **no `#`**: that tag
+exists because `45` and `#45` are the same characters with two readings and it
+says which, and `$FF` has one reading, there being no hexadecimal float. And
+they take **no sign**, where `#-45` is allowed — these are for looking at bits,
+and the language already declines to reach a negative that way
+([3.12](ROADMAP.md#312-no-shift-can-produce-a-negative-integer)). `#0:sub($FF)`
+is how to ask.
+
+**A digit the base does not use is an error rather than the next token.**
+Without that, `%1012` is the binary `%101` followed by the float `2` — two
+good tokens, a wrong reading and no complaint. `$FF.5` is refused for the same
+reason `#45.5` is, and it had to be added deliberately: it compiled, ran,
+printed `5` and said nothing.
+
+One test had to move. `test_an_error_token_points_at_the_source` needs a
+character nothing has claimed, and used `%`; the comment beside it already
+recorded losing `@` to directives. It uses `?` now, and says that the list of
+unclaimed characters gets shorter each time the language grows.
 
 ### The NBS conformance suite, and the seven things it found — `6ca6245`, 2026-08-25
 
@@ -82,47 +137,36 @@ so it cannot be held as data and asked for back — `self:report` *calls* it. Th
 default is a block that does nothing rather than a nil to test for, which is
 shorter and has no branch in it.
 
-### Hexadecimal and binary integers — `deeb34b`, 2026-08-25
+### A number 3.13 kept getting wrong, removed rather than corrected — `65f04e2`, 2026-08-25
 
-**`$FF08` and `%10101100` write the same integer in the base you are thinking
-in.** A colour, a file mode and a set of flags are all patterns of bits, and
-`#493` does not look like `rwxr-xr-x` to anybody.
+**[3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing) said nine
+sites carry a boolean whose only job is to stop a loop.** It was nine when it was
+written and is not now — `basic.sol` alone added two, one of them the loop its
+prompt runs on. The number was stated in **four** places: the entry, its decision
+table, [ideas.md](ideas.md) twice, and [lineage.md](lineage.md).
 
-```
-%111101101:asBase(#8):display.   ; 755
-$FF08:print.                     ; #65288
-```
+**It is described rather than counted now**, which is the third time today a
+number in prose has turned out to be unchecked and the first time the answer was
+to delete it instead of fixing it.
 
-**It is sugar and nothing else.** One case in the lexer, one branch in the
-compiler; all three spellings reach the same constant and nothing downstream is
-told there was more than one. No opcode, no message, and `.sob` files are
-unchanged at format version 14.
+`index.md` said nine programs and the README said 123 messages; both got markers,
+because the checker can recount them from the running machine. **This one cannot.**
+*A loop carrying a flag* is a property of source text, and a grep cannot tell one
+from an ordinary counted loop — the first attempt at recounting returned
+**sixty**, which is how that was learned rather than assumed. A real count would
+need an analysis of the parse, which is a great deal of machinery to keep a
+number that was never doing any work.
 
-**The gap was already written down.** The reference's own passage on file modes
-said *"Solum has no octal literal, so `#493` is what `0755` looks like written
-down"*, and then showed the round trip through `asBase` and `asInteger` as the
-way round it — a language that could **print** hex and binary and not read one
-back. That passage says `%111101101` now, which has the three permission
-triples where a reader can see them.
+**Because the argument never rested on it.** It rests on the shape recurring,
+which it does, in more files than when the entry was written — and on almost none
+of them saying anything about it, since a complaint is somebody noticing and a
+file reaching for the same shape without comment is an idiom. The entry names the
+files and drops the tally, and says outright that the count is gone on purpose so
+that its absence reads as a decision.
 
-**Two decisions, both saying no to something.** They carry **no `#`**: that tag
-exists because `45` and `#45` are the same characters with two readings and it
-says which, and `$FF` has one reading, there being no hexadecimal float. And
-they take **no sign**, where `#-45` is allowed — these are for looking at bits,
-and the language already declines to reach a negative that way
-([3.12](ROADMAP.md#312-no-shift-can-produce-a-negative-integer)). `#0:sub($FF)`
-is how to ask.
-
-**A digit the base does not use is an error rather than the next token.**
-Without that, `%1012` is the binary `%101` followed by the float `2` — two
-good tokens, a wrong reading and no complaint. `$FF.5` is refused for the same
-reason `#45.5` is, and it had to be added deliberately: it compiled, ran,
-printed `5` and said nothing.
-
-One test had to move. `test_an_error_token_points_at_the_source` needs a
-character nothing has claimed, and used `%`; the comment beside it already
-recorded losing `@` to directives. It uses `?` now, and says that the list of
-unclaimed characters gets shorter each time the language grows.
+This is the same call made this morning on `index.md`'s *thirty-two files in two
+directories*: a number that cannot be checked **and** does not carry the argument
+is better deleted than corrected.
 
 ## 0.33.0 — 2026-08-25
 

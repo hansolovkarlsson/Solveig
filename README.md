@@ -137,6 +137,16 @@ version the binaries inside it report.
 
 ## Status
 
+**0.34.0** — two integer literals and an interpreter checked against a suite it
+did not write. `.sob` files are format version 14, unchanged, and bytecode from
+0.33.0 still runs. **`$FF08` and `%10101100`** write the same integer in
+hexadecimal or binary, which is where a colour, a file mode or a set of flags is
+readable and `#493` is not — sugar in the scanner, no opcode and no message. And
+`programs/basic.sol` was run against the **NBS Minimal BASIC Test Programs**,
+208 programs written at the National Bureau of Standards in 1980: **it found
+seven defects, none of which the eighty-three claims in that file had caught**.
+Disagreements went 16 to 5, and those five want a person at a keyboard.
+
 **0.33.0** — one message, and the program that asked for it got an interface.
 `.sob` files are format version 14, unchanged, and bytecode from 0.32.0 still
 runs. **`system:writeError`** closes the last thing on the roadmap (**3.19**):
