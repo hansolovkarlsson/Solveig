@@ -5,6 +5,33 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### INPUT, and two more things the oracle found — `3e0caae`, 2026-08-26
+
+**`INPUT` and `LINE INPUT`**, matching QuickBASIC byte for byte. A prompt
+followed by `;` gets a question mark and one followed by `,` does not; the answer
+is one line split on commas; a field that must be a number and is not gets
+*Redo from start*. The runtime for it is written in SolaBasic beside `PRINT`'s.
+
+**A function of no arguments was being read as a variable.** `RND` on its own is
+a call and the parser made it a name, so `r = RND` quietly read an uninitialised
+variable and answered nought — **and the test written for it passed**, because
+it checked the answer was at least nought and less than one. Found only when
+`SOLAREAD$` did the same and made the runtime ask for ever, which is a louder
+way to be wrong.
+
+**QuickBASIC echoes an answer it read from a file**, so a redirected session
+reads the way the interactive one looked. SolaBasic did not, and
+[basic.sol](../programs/basic.sol) had recorded that as a limitation of its own
+rather than a difference from anything. It does now, when output is not a
+terminal.
+
+**And the end of input has to be told from a blank line** — both are the empty
+string to a program. The runtime is handed a NUL, which no typed line contains,
+and stops with *Input past end of file*.
+
+The harness feeds standard input now, from a `.in` beside the `.bas`, on both
+sides. Nine `agree/` programs, all matching.
+
 ### The oracle ran, and it found what transcripts could not — `7edfa49`, 2026-08-26
 
 QuickBASIC 4.5 under DOSBox, against the corpus. **All eight `agree/` programs
