@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### The editor learns vi's grammar: counts, operators, registers and marks — `pending`, 2026-08-26
+### The editor learns vi's grammar: counts, operators, registers and marks — `198fdbc`, 2026-08-26
 
 **`d` and `y` over any motion, `p` and `P`, `ma` and `'a`, and a count in front
 of all of it.** `dw`, `3dw`, `d3w`, `d$`, `dj`, `dG`, `d'a`, `dd`, `2dd`, `yy`,
