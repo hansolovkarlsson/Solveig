@@ -5,6 +5,48 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Procedures, and a reference manual for the dialect — `4562ea0`, 2026-08-26
+
+**`SUB`, `FUNCTION`, `CALL`, locals, `SHARED`, `STATIC`, `EXIT SUB`/`EXIT
+FUNCTION` and by-reference parameters** in
+[programs/sola.sol](../programs/sola.sol) — stage 4, the one
+[SOLABASIC.md](SOLABASIC.md) called the most expensive item in the language. And
+**[SOLABASIC-REFERENCE.md](SOLABASIC-REFERENCE.md)**, what stages 2, 3 and 4 add
+up to for somebody writing the language rather than reading about it.
+
+**A procedure is a block and a call is `value`** — a close fit rather than a
+contrivance, since a block has its own frame, takes arguments in slots 1..n, and
+answers its last expression. **It never captures its home frame**, so
+[3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame) never bites:
+every name a procedure uses is its own slot or a global.
+[3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels) does, exactly as
+predicted before the compiler existed — recursion stops around 254 levels, and
+the trace names the *BASIC* procedure and the *BASIC* line.
+
+**By reference cost far less than billed, because of the representation.** A
+variable ever passed by reference lives in a one-element array *always*, so the
+call hands the array over and the callee's `atPut` reaches the caller's storage —
+no wrapping, no copying back, no temporary to keep alive, nothing to get wrong
+when the call recurses. The part that was as billed is deciding which parameters:
+a fixed point, since a parameter is by reference when its procedure assigns to it
+**or hands it on to something that does**.
+[byref.bas](../programs/sola/byref.bas) is three procedures deep with only the
+last assigning, and the write still reaches the caller.
+
+**Only `CALL`'s brackets are an argument list.** `CALL Double(n)` passes `n`;
+`Double (n)` has no argument list to be, so the brackets group an expression and
+a copy goes instead. That is QBasic's own spelling of by-value.
+
+**Two things BASIC requires needed doing rather than assuming.** A variable never
+stored into is an *undefined name* to the machine, not a nought, so `PRINT Z` was
+an error where every BASIC prints `0` — every name a scope mentions now gets its
+nought first. And a `STATIC` cannot be a frame slot, a frame being new every
+call; it is a private global initialised once.
+
+**And `FOR`'s temporaries moved from hidden globals to frame slots**, which is a
+correctness fix: a recursive `FUNCTION` containing a `FOR` would have had its
+inner call overwrite the outer call's limit.
+
 ### Stage 2 is stage 3 with a stack on top — `fa35e34`, 2026-08-26
 
 **`IF` in both shapes, `SELECT CASE`, `FOR`/`NEXT`, `DO`/`LOOP`, `WHILE`/`WEND`,
