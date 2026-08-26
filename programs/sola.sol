@@ -1019,8 +1019,22 @@ parsers:atPut("INPUT", { m, st |
           m:nextIs(","):ifFalse({ m:fail("INPUT # needs a comma after the number") }).
           m:takeToken },
         { m:parseInputPrompt(st) }).
-    st:items := m:nameList.
+    st:items := m:parseInputTargets.
     m:expectEndOfLine("INPUT") }).
+
+; **What `INPUT` fills may be an array element**, which is what a program
+; reading records into parallel arrays wants and is the first thing one asked
+; for. A target is a name, and a name may be followed by subscripts.
+sola:parseInputTargets := { | targets, more, name, subs |
+    targets := array:new.
+    more := true.
+    { more }:whileTrue({
+        name := self:plainName("a variable").
+        subs := nil.
+        self:nextIs("("):ifTrue({ subs := self:parseCallArguments }).
+        targets:add([name, subs]).
+        self:nextIs(","):ifElse({ self:takeToken }, { more := false }) }).
+    targets }.
 
 parsers:atPut("LINE", { m, st |
     m:nextIs("INPUT"):ifFalse({ m:fail("LINE takes INPUT after it") }).
@@ -1032,7 +1046,7 @@ parsers:atPut("LINE", { m, st |
               m:fail("LINE INPUT # needs a comma after the number") }).
           m:takeToken },
         { m:parseInputPrompt(st) }).
-    st:items := [m:plainName("LINE INPUT")].
+    st:items := [m:parseInputTargets:at(#1)].
     m:expectEndOfLine("LINE INPUT") }).
 
 sola:parseInputPrompt := { st | | t |
@@ -1863,6 +1877,13 @@ sola:variablesIn := { body | | names |
     body:do({ st | self:variablesInStatement(st, names) }).
     names }.
 
+; The subscripts of every INPUT or LINE INPUT target, if there are any.
+sola:inputTargetsDo := { st, block |
+    ['input, 'lineinput]:indexOf(st:kind):notNil:ifTrue({
+        st:items:do({ each |
+            each:at(#2):notNil:ifTrue({
+                each:at(#2):do({ a | block:value(a) }) }) }) }) }.
+
 sola:noteName := { names, name |
     names:indexOf(name):isNil:ifTrue({ names:add(name) }) }.
 
@@ -1885,6 +1906,7 @@ sola:variablesInStatement := { st, names |
     self:variablesInExpression(st:step, names).
     st:subscripts:notNil:ifTrue({
         st:subscripts:do({ a | self:variablesInExpression(a, names) }) }).
+    self:inputTargetsDo(st, { a | self:variablesInExpression(a, names) }).
     st:alternatives:notNil:ifTrue({
         st:alternatives:do({ alt |
             alt:at(#1):equals("is"):ifElse(
@@ -2099,6 +2121,10 @@ sola:typeStatement := { st |
     st:step:notNil:ifTrue({ self:typeExpression(st:step) }).
     st:subscripts:notNil:ifTrue({
         st:subscripts:do({ a | self:typeExpression(a) }) }).
+    ; **An INPUT target may be an array element**, and its subscripts are
+    ; expressions like any other -- untyped, `emitTyped` had nothing to compare
+    ; against and coerced an integer subscript as though it were a Double.
+    self:inputTargetsDo(st, { a | self:typeExpression(a) }).
     st:alternatives:notNil:ifTrue({
         st:alternatives:do({ alt |
             alt:at(#1):equals("is"):ifElse(
@@ -2682,13 +2708,30 @@ emitters:atPut('arrayset, { m, st |
 ; fields are pulled out of it here. Everything that could need doing twice --
 ; counting the commas, deciding whether a field is a number, saying *Redo from
 ; start* and asking again -- is in the runtime where it is written once.
+; A target is a name and, when it is an element, its subscripts. Filling one is
+; the ordinary assignment in both halves -- what differs is only where the value
+; is put.
+sola:beginTarget := { target |
+    target:at(#2):isNil:ifElse(
+        { self:beginAssign(target:at(#1)) },
+        { self:isArray(target:at(#1)):ifFalse({
+              self:fail("'{}' is not an array":fill([target:at(#1)])) }).
+          self:emitRawVar(target:at(#1)).
+          self:emitSubscript(target:at(#1), target:at(#2)) }) }.
+
+sola:endTarget := { target |
+    target:at(#2):isNil:ifElse(
+        { self:endAssign(target:at(#1)) },
+        { self:emitSend("atPut", #2). self:emitPop }) }.
+
 emitters:atPut('input, { m, st | | slot, i, name, spec |
     st:items:do({ each |
-        m:isArray(each):ifTrue({
-            m:fail("INPUT fills a variable, and '{}' is an array":fill([each])) }) }).
+        each:at(#2):isNil:and({ m:isArray(each:at(#1)) }):ifTrue({
+            m:fail("INPUT fills a variable or an element, and '{}' is a whole array"
+                :fill([each:at(#1)])) }) }).
     spec := "".
     st:items:do({ each |
-        spec := spec:concat(m:typeOfName(each):equals('string):ifElse(
+        spec := spec:concat(m:typeOfName(each:at(#1)):equals('string):ifElse(
             { "S" }, { "N" })) }).
 
     st:channel:isNil:ifElse(
@@ -2706,8 +2749,8 @@ emitters:atPut('input, { m, st | | slot, i, name, spec |
 
     i := #1.
     { i:lessOrEqual(st:items:size) }:whileTrue({
-        name := st:items:at(i).
-        m:beginAssign(name).
+        name := st:items:at(i):at(#1).
+        m:beginTarget(st:items:at(i)).
         m:typeOfName(name):equals('string):ifElse({ nil }, {
             m:emitGlobal("SOLAVAL#") }).
         m:emitGlobal("SOLAFIELD$").
@@ -2718,15 +2761,15 @@ emitters:atPut('input, { m, st | | slot, i, name, spec |
             { nil },
             { m:emitSend("value", #1).
               m:coerce('double, m:typeOfName(name)) }).
-        m:endAssign(name).
+        m:endTarget(st:items:at(i)).
         i := i:add(#1) }).
     m:dropScratch }).
 
 emitters:atPut('lineinput, { m, st | | name |
-    name := st:items:at(#1).
+    name := st:items:at(#1):at(#1).
     m:typeOfName(name):equals('string):ifFalse({
         m:fail("LINE INPUT reads text, and '{}' is a number":fill([name])) }).
-    m:beginAssign(name).
+    m:beginTarget(st:items:at(#1)).
     st:channel:isNil:ifElse(
         { m:emitGlobal("SOLAASKLINE$").
           st:expr:isNil:ifElse({ m:emitString("") }, { m:emitString(st:expr:value) }).
@@ -2734,7 +2777,7 @@ emitters:atPut('lineinput, { m, st | | name |
         { m:emitGlobal("SOLAFLINE$").
           m:emitTyped(st:channel, 'integer).
           m:emitSend("value", #1) }).
-    m:endAssign(name) }).
+    m:endTarget(st:items:at(#1)) }).
 
 ; ---------------------------------------------------------------------------
 ; The file statements
@@ -2921,7 +2964,11 @@ sola:assignsIn := { st, name | | found |
     st:kind:equals('let):and({ st:name:equals(name) })
         :or({ st:kind:equals('for):and({ st:name:equals(name) }) })
         :or({ ['input, 'lineinput]:indexOf(st:kind):notNil
-              :and({ st:items:indexOf(name):notNil }) })
+              :and({ | hit |
+                  hit := false.
+                  st:items:do({ each |
+                      each:at(#1):equals(name):ifTrue({ hit := true }) }).
+                  hit }) })
         :or({ st:then:notNil:and({ self:assignsIn(st:then, name) }) })
         :or({ st:otherwise:notNil:and({ self:assignsIn(st:otherwise, name) }) }) }) }.
 
@@ -2944,6 +2991,7 @@ sola:callsInStatement := { st, found |
     self:callsInExpression(st:step, found).
     st:subscripts:notNil:ifTrue({
         st:subscripts:do({ a | self:callsInExpression(a, found) }) }).
+    self:inputTargetsDo(st, { a | self:callsInExpression(a, found) }).
     st:alternatives:notNil:ifTrue({
         st:alternatives:do({ alt |
             alt:at(#1):equals("is"):ifElse(

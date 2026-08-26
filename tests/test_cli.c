@@ -997,6 +997,17 @@ static void test_sola_compiles_a_program_that_runs(void)
     assert(strstr(out, "lines now 4 \n") != NULL);
     assert(strstr(out, "Hans is 42 \n") != NULL);
 
+    /* A real program rather than a test of a feature: records read out of a
+       file into parallel arrays and laid out as a table. It is what asked for
+       INPUT into an array element, and what found that such a subscript was
+       never being typed. Run in the test's own directory because it writes. */
+    assert(run("bin/solvm " DIR "/sola.sob programs/sola/oracle/agree/report.bas "
+               DIR "/report.sob 2>&1", out, sizeof out) == 0);
+    assert(run("cd " DIR " && ../../../bin/solvm report.sob 2>&1",
+               out, sizeof out) == 0);
+    assert(strstr(out, "Widgets         12       $2.50      $30.00\n") != NULL);
+    assert(strstr(out, "TOTAL                                $398.77\n") != NULL);
+
     /* The oracle corpus is not run here -- comparing it needs a QuickBASIC,
        which is what programs/sola/oracle.sh is for and why that is a script
        rather than a test. What is checked is that it still compiles, so it
@@ -1007,7 +1018,7 @@ static void test_sola_compiles_a_program_that_runs(void)
             "agree/procs", "agree/select", "agree/strings", "agree/zones",
             "agree/input", "agree/goto", "agree/spaghetti", "agree/labels",
             "agree/byref", "agree/maths", "agree/printusing", "agree/files",
-            "agree/colons",
+            "agree/colons", "agree/report",
             "differ/defaulttype", "differ/digits", "differ/intwidth",
             "differ/strdollar", "differ/val",
         };

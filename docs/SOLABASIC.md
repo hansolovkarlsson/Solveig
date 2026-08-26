@@ -612,6 +612,32 @@ stack depth are each refused *at load*, exit 65, as a message rather than a
 crash. The depth-0 discipline is load-bearing rather than tidy, and nothing in
 the design section above needed changing.
 
+**2026-08-26 — a real program, and what it asked for.**
+Not a feature but a *program*: a sales report that reads records out of a file
+into parallel arrays, totals them, and lays out a table. Written to find out
+what a real one would want, which has been the most productive thing on this
+list — four of the defects found so far came out of writing the runtime rather
+than out of testing the compiler.
+
+**It wanted `INPUT` into an array element**, which was on the *not yet* list
+with the trigger *the first program that asks*. `INPUT #1, nm$(n), qty(n),
+price#(n)` is how records go into parallel arrays, and the trigger fired the
+moment a real listing was written. It is in.
+
+**And it found a defect on the way.** Those subscripts were never being typed,
+so the compiler had nothing to compare against and coerced an integer subscript
+as though it were a Double — `integer does not understand 'rounded'`, from a
+statement that looked perfectly ordinary. Every walker that visits expressions
+now visits those too.
+
+**The report matches QuickBASIC byte for byte**, and is
+[in the corpus](../programs/sola/oracle/agree/report.bas). Eighteen agree.
+
+**What it did not want was `ON ERROR`.** That entry's trigger is *the first
+program that needs to survive a bad file*, and this one writes the file it
+reads, so it never does. The trigger stays unfired and the entry stays where it
+is, which is the point of writing them down.
+
 **2026-08-26 — the `:` the definition had promised, and two bad errors.**
 Three things a reader hits at once, none of them a new feature.
 

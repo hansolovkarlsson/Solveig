@@ -815,6 +815,13 @@ INPUT "TWO NUMBERS"; a, b        ' one line, split on the comma
 not.** No prompt at all still gets one. The answer is read as a single line and
 split on commas, so several variables are filled from one line.
 
+**What is filled may be an array element**, which is what reading records into
+parallel arrays wants:
+
+```basic
+INPUT #1, nm$(count), qty(count), price#(count)
+```
+
 A field going into a numeric variable has to look like a number, and the count
 has to match. When either is wrong, `Redo from start` is shown and the question
 asked again — which is what BASIC has always done.
@@ -873,7 +880,7 @@ CLOSE #1
 | `PRINT #n, ...` | as `PRINT`, zones and all, into the file |
 | `PRINT #n, USING f; ...` | as `PRINT USING` |
 | `WRITE #n, ...` | commas between the items and quotes round the text |
-| `INPUT #n, var[, var]...` | one line, split on commas, quotes taken off |
+| `INPUT #n, var[, var]...` | one line, split on commas, quotes taken off; a target may be an array element |
 | `LINE INPUT #n, var$` | the line whole |
 | `EOF(n)` | true once there is no more to read |
 
@@ -911,7 +918,7 @@ each belongs to is in [SOLABASIC.md](SOLABASIC.md#stages).
 | | |
 | --- | --- |
 | random-access files — `GET`, `PUT`, `FIELD`, `LOF`, `SEEK` | not written yet; sequential files are here |
-| `INPUT` filling an array element | not written yet; it fills variables |
+
 | `LBOUND`, `UBOUND` | not written yet — an array's bounds are in the listing that `DIM`med it |
 | an array parameter of more than one dimension | not written yet; its strides would have to travel with it |
 | `ON ERROR`, `TYPE`, `REDIM`, `OPTION EXPLICIT` | listed as *not yet* in the language definition |
