@@ -5,6 +5,44 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### `indexOf` can say where to start — `pending`, 2026-08-26
+
+**`indexOf(s, #from)`**, a second arity on the message that was already there,
+and [6.37](COMPLETED.md#637-indexof-cannot-say-where-to-start--done).
+
+**Two shipped files had written the workaround**, which is the number this
+repository takes to mean *build it*. A second search in the same string could
+only be had by copying what was left of it —
+[lib/pattern.sol](../lib/pattern.sol) jumping from one candidate to the next,
+and [programs/expect.sol](../programs/expect.sol) walking the markers in a line.
+
+```
+at := "a-b-c":indexOf("-").
+at := "a-b-c":indexOf("-", at:add(#1)).
+at:print.                    ; #4
+```
+
+`#from` may be one past the end, where the answer is nil rather than an error —
+the rule `copyFrom` has, so a walk that runs off the end gets an answer rather
+than a fault.
+
+**What it was worth, including where it was worth nothing.** On the workload
+that started this — a substitution over 50,000 short lines — it is 2.35s to
+2.25s, four per cent, which is noise. A short line makes a short copy. **The
+copy is quadratic in the length of a line**, so where it matters is a long one:
+searching a single 80,000-character line for a pattern with a common first
+character and no match goes **0.14s to 0.05s**, and a megabyte on one line would
+have been twenty seconds. Minified JSON, generated code and a log line are all
+one long line.
+
+**And the second customer got shorter rather than faster**, which is the better
+argument: `expect.sol` walked its markers by cutting the line down after each
+one, with arithmetic to keep track of where the cuts had come from, and now
+walks an index over one string — four lines shorter with the bookkeeping gone.
+
+The language answers 138<!--count messages--> messages, unchanged: a second
+arity is not a second message. Claims go 876 to 877<!--count claims-->.
+
 ### The matcher stops looking where it cannot match — `35dee28`, 2026-08-26
 
 **[programs/edit.sol](../programs/edit.sol) was measured on a file worth the

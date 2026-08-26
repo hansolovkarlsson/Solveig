@@ -296,14 +296,16 @@ pattern:findFrom := { text, at | | from, found, last |
 
         { found:isNil:and({ from:lessOrEqual(last) }) }:whileTrue({ | where |
             ; Where the next candidate is, asked of `indexOf` when the pattern
-            ; knows what it must start with. The slice is what `indexOf` costs
-            ; for want of somewhere to start -- see the note at the top.
+            ; knows what it must start with. **From a position**, which is what
+            ; [6.37](../docs/COMPLETED.md#637-indexof-cannot-say-where-to-start--done)
+            ; added for this line: the version of it that could only search from
+            ; the beginning made this copy the tail of the line at every jump,
+            ; and that is quadratic in the length of a line.
             self:leader:isNil:ifFalse({
-                where := from:greaterThan(text:size):ifElse({ nil }, {
-                    text:copyFrom(from, text:size):indexOf(self:leader) }).
+                where := text:indexOf(self:leader, from).
                 where:isNil:ifElse(
                     { from := last:add(#1) },
-                    { from := from:add(where):sub(#1) }) }).
+                    { from := where }) }).
 
             from:lessOrEqual(last):ifTrue({
                 self:matchFrom(text, from, #1):notNil:ifTrue({ found := from }).

@@ -2540,13 +2540,58 @@ static SolValue prim_string_split(SolVM *vm, SolValue self, SolValue *args, int 
  * language whose indices start at #1, and a second way of saying "nothing"
  * beside the one the language already has. `text:indexOf(","):equals(nil)` is
  * the same question asked of an unset slot or the end of input. */
+/* `indexOf(what)` -- where it first appears, one-based, or nil.
+ *
+ * `indexOf(what, #from)` is the same question asked from a position, and it is
+ * here because a *second* search in the same string could not be written
+ * without copying what was left of it. lib/pattern.sol's matcher jumps from one
+ * candidate to the next and paid a `copyFrom` of the tail at every jump --
+ * quadratic in the length of the line, which on an eighty-thousand-character
+ * line is 0.14 seconds of copying for one search. programs/expect.sol wrote the
+ * same workaround for a different reason, which is two, and two is the number
+ * this repository has taken to mean *build it* (see 6.19, 6.23).
+ *
+ * A second arity rather than a second message, because it is the same question:
+ * `at(key)` and `at(key, default)` on a dictionary set the shape, and `run`,
+ * `sorted`, `asString` and `random:new` all follow it. The message count does
+ * not move.
+ *
+ * `#from` may be one past the end, where the answer is nil rather than an
+ * error -- the same rule `copyFrom` has, and for the same reason: a loop that
+ * walks off the end should get an answer rather than a fault. Further out is a
+ * mistake and says so.
+ */
 static SolValue prim_string_index_of(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
-    if (!check_argc(vm, "indexOf", argc, 1)) return SOL_NIL_VAL;
+    if (argc != 1 && argc != 2) {
+        sol_vm_runtime_error(vm,
+            "'indexOf' takes what to look for, or that and where to start, got %d",
+            argc);
+        return SOL_NIL_VAL;
+    }
+
     const SolString *needle;
     if (!needle_from(vm, "indexOf", args[0], &needle)) return SOL_NIL_VAL;
 
-    int at = find_substring(SOL_AS_STRING(self), needle, 0);
+    const SolString *text = SOL_AS_STRING(self);
+    int64_t from = 1;
+
+    if (argc == 2) {
+        if (!SOL_IS_INT(args[1])) {
+            sol_vm_runtime_error(vm, "'indexOf' expects an integer position, got %s",
+                                 sol_type_name(args[1]));
+            return SOL_NIL_VAL;
+        }
+        from = SOL_AS_INT(args[1]);
+        if (from < 1 || from > (int64_t)text->length + 1) {
+            sol_vm_runtime_error(vm,
+                "'indexOf' starts at #%lld, outside a string of size %d",
+                (long long)from, text->length);
+            return SOL_NIL_VAL;
+        }
+    }
+
+    int at = find_substring(text, needle, (int)(from - 1));
     return at < 0 ? SOL_NIL_VAL : SOL_INT_VAL(at + 1);
 }
 

@@ -11,6 +11,56 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-26 (ninth) — a primitive that was worth building for the wrong reason
+
+`indexOf(s, #from)`. I said before building it that it would be worth about ten
+per cent on the workload that asked for it. It was worth **four**, which is
+noise, and it was still the right thing to build. Both halves of that are worth
+writing down.
+
+### What the measurement actually said
+
+| | before | after |
+| --- | --- | --- |
+| substitution over 50,000 short lines | 2.35 s | 2.25 s |
+| one 80,000-character line, common leader, no match | 0.14 s | **0.05 s** |
+
+The first line is the workload that produced the complaint, and on it this
+change does nothing. The second is where the copy was never a constant factor:
+**copying the tail at every candidate is quadratic in the length of a line**, so
+the cost hides completely on lines of forty characters and becomes the whole
+cost on lines of eighty thousand. A megabyte on one line — minified JSON,
+generated code, a log line nobody wrapped — would have been twenty seconds.
+
+So the case for it was never the number I quoted. It was the *shape* of the
+number, and I had that in hand before building it and still led with the wrong
+one.
+
+### The better argument was not about speed at all
+
+`programs/expect.sol` walks the *count* markers in a line — the HTML comments
+that say what a number in prose is counting. It used to
+do that by cutting the line down after each marker and cutting it again to find
+the closing `-->`, with arithmetic carried along to translate positions in the
+offcut back into positions in the line. It now walks an index over one string:
+four lines shorter, one variable fewer, and no copies.
+
+**A primitive that lets a program say what it means removes the bookkeeping that
+saying it another way required.** The speed is a side effect; the code that
+stops existing is the point. I think that is the better test for whether a
+message is missing, and it is not the test I applied when I recommended this
+one.
+
+### And the rule that decided it
+
+Two shipped files had written the same workaround. That is the number this
+repository has used before — 6.19 and 6.23 were both papercuts two files had
+tripped over — and it is a better trigger than a benchmark, because a benchmark
+measures the case you thought to measure and two independent workarounds measure
+what people actually reach for.
+
+---
+
 ## 2026-08-26 (eighth) — the first big file, and where a library's speed lives
 
 The editor has been finished for an hour and had never been opened on anything

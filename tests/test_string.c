@@ -484,6 +484,56 @@ static void test_index_of(void)
     sol_vm_free(&vm);
 }
 
+/* **From a position**, which is what a second search in the same string needs
+   and what it could not say before (6.37). Without it the only way on was to
+   copy what was left of the string, which is quadratic in a loop -- and two
+   shipped files were writing exactly that. */
+static void test_index_of_from_a_position(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "first := \"banana\":indexOf(\"an\")."
+        "second := \"banana\":indexOf(\"an\", #3)."
+        "none := \"banana\":indexOf(\"an\", #5)."
+        /* Starting where it already is finds it there. */
+        "here := \"banana\":indexOf(\"an\", #2)."
+        /* One past the end is a position, and the answer there is nil rather
+           than an error -- the rule `copyFrom` has, so a loop that walks off
+           the end gets an answer instead of a fault. */
+        "past := \"banana\":indexOf(\"a\", #7).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "first")) == 2);
+    assert(SOL_AS_INT(global(&vm, "second")) == 4);
+    assert(SOL_IS_NIL(global(&vm, "none")));
+    assert(SOL_AS_INT(global(&vm, "here")) == 2);
+    assert(SOL_IS_NIL(global(&vm, "past")));
+    sol_chunk_free(&chunk);
+
+    /* The walk it exists for: every occurrence, without copying anything. */
+    assert(run(&vm, &chunk,
+        "text := \"a-b-c-d\"."
+        "count := #0."
+        "at := text:indexOf(\"-\")."
+        "{ at:notNil }:whileTrue({"
+        "    count := count:add(#1)."
+        "    at := text:indexOf(\"-\", at:add(#1)) }).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "count")) == 3);
+    sol_chunk_free(&chunk);
+
+    assert(run(&vm, &chunk, "\"banana\":indexOf(\"a\", #8).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "\"banana\":indexOf(\"a\", #0).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "\"banana\":indexOf(\"a\", 2.0).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "\"banana\":indexOf(\"a\", #1, #2).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+    printf("  indexOf searches from a position, and says so when it cannot\n");
+}
+
 /* Both ends included and both one-based, so `copyFrom(#i, #i)` is `at(#i)`. */
 static void test_copy_from(void)
 {
@@ -597,6 +647,7 @@ int main(void)
     test_round_trip();
     test_split();
     test_index_of();
+    test_index_of_from_a_position();
     test_copy_from();
     test_pieces_outlive_the_string_they_came_from();
     test_trim();

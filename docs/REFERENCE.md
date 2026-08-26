@@ -2631,6 +2631,7 @@ bit.
 | `concat(s)` | a new string; strict about its argument |
 | `split(s)` | an array of the pieces between occurrences of `s` |
 | `indexOf(s)` | where `s` first appears, **one-based**, or nil |
+| `indexOf(s, #from)` | the same, looking from `#from` — for the second occurrence and the ones after it |
 | `copyFrom(#a, #b)` | the characters `#a` to `#b`, both ends included |
 | `fill([...])` | a new string with the blanks filled; see below |
 | `lessThan(s)` `greaterThan(s)` | a boolean, comparing characters |
@@ -2673,6 +2674,23 @@ is three empty pieces rather than two.
 `#1`, so `#0` would be an out-of-band value and a second way of saying "nothing"
 beside the one the language already has; `text:indexOf(","):isNil` is the
 same question asked of an unset slot or the end of input.
+
+**`indexOf(s, #from)` asks the same question from a position**, which is how the
+second occurrence is found and every one after it:
+
+```
+at := "a-b-c":indexOf("-").
+at := "a-b-c":indexOf("-", at:add(#1)).
+at:print.                    ; #4
+```
+
+Without it a second search meant copying what was left of the string — which is
+quadratic in a loop, and is what
+[lib/pattern.sol](../lib/pattern.sol) and [programs/expect.sol](../programs/expect.sol)
+were both doing ([6.37](COMPLETED.md#637-indexof-cannot-say-where-to-start--done)).
+`#from` may be **one past the end**, where the answer is nil rather than an
+error — the rule `copyFrom` has, so a walk that runs off the end gets an answer
+instead of a fault. Further out is a mistake and says so.
 
 `copyFrom` includes both ends and both are one-based, so `copyFrom(#i, #i)` is
 exactly `at(#i)`. An empty result is spelled with `to` **one** before `from`, and

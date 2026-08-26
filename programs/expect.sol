@@ -637,22 +637,24 @@ stated := array:new.
 
 markersIn := { path, source | | n |
     n := #0.
-    source:split("\n"):do({ line | | rest, from, at, close, name |
+    ; **Walked with an index rather than by re-slicing.** This used to cut the
+    ; line down after every marker it found, and cut it again to look for the
+    ; closing `-->`, because `indexOf` could only search from the beginning.
+    ; `indexOf(what, #from)` -- [6.37](../docs/COMPLETED.md#637-indexof-cannot-say-where-to-start--done),
+    ; which lib/pattern.sol wanted first and this file wanted second -- makes it
+    ; a walk over one string, and the copies go away with the arithmetic that
+    ; kept track of where the slices had come from.
+    source:split("\n"):do({ line | | from, at, close, name |
         n := n:add(#1).
-        rest := line.
-        from := #0.
-        { at := rest:indexOf(marker). at:notNil }:whileTrue({
-            close := rest:copyFrom(at:add(marker:size), rest:size):indexOf("-->").
+        from := #1.
+        { at := line:indexOf(marker, from). at:notNil }:whileTrue({
+            close := line:indexOf("-->", at:add(marker:size)).
             close:isNil:ifElse(
-                { rest := "" },
-                { name := rest:copyFrom(at:add(marker:size),
-                              at:add(marker:size):add(close):sub(#2)):trim.
+                { from := line:size:add(#1) },
+                { name := line:copyFrom(at:add(marker:size), close:sub(#1)):trim.
                   stated:add(["{}:{}":fill([path, n]), name,
-                              wordBefore:value(rest:copyFrom(#1, at:sub(#1)))]).
-                  from := at:add(marker:size):add(close):add(#1).
-                  rest := from:greaterThan(rest:size):ifElse(
-                      { "" },
-                      { rest:copyFrom(from, rest:size) }) }) }) }).
+                              wordBefore:value(line:copyFrom(#1, at:sub(#1)))]).
+                  from := close:add(#3) }) }) }).
     nil }.
 
 ; ---------------------------------------------------------------------------

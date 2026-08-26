@@ -1034,7 +1034,7 @@ is a failure, confirmed by breaking one both ways.
 one. The comment renders as nothing and the reader sees the sentence:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 876<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 877<!--count claims--> claims
 ```
 
 [expect.sol](../programs/expect.sol) recounts each of them from the repository
@@ -1055,7 +1055,7 @@ that order under its headings. The two are now held together.
 | ROADMAP 3.14, on whether `float` should gain trigonometry | `float` answers **21** messages | **35**<!--count float-answers--> — the count that entry's whole size argument rests on, five releases out of date |
 | [REFERENCE.md](REFERENCE.md)'s message index | **121** messages across **215** registrations | **122** across **216** |
 | [programs.md](programs.md)'s sample output | 21 files, **398** claims | 22 files, **512**<!--count examples-claims--> claims |
-| `README.md`, `programs.md` and the entry itself | **589** claims | **876**<!--count claims--> |
+| `README.md`, `programs.md` and the entry itself | **589** claims | **877**<!--count claims--> |
 
 #### What is left, which is not a gap
 
@@ -1557,6 +1557,58 @@ written and could not be seen until something crossed it.
 
 The rest of this section is live, and is in
 [ROADMAP.md](ROADMAP.md#6-beyond-the-language--gone-from-this-document).
+
+### 6.37 `indexOf` cannot say where to start — **done**
+
+**`indexOf(s, #from)`**, a second arity on the message that was already there.
+
+**Two shipped files had written the workaround**, which is the number this
+repository has taken to mean *build it* — [6.19](#619-a-symbol-cannot-be-ordered--done)
+and [6.23](#623-an-array-cannot-be-popped-or-asked-what-it-holds--done) were
+papercuts of the same shape. A second search in the same string could only be
+written by copying what was left of it:
+
+```text
+lib/pattern.sol     text:copyFrom(from, text:size):indexOf(leader)
+programs/expect.sol rest:copyFrom(at:add(marker:size), rest:size):indexOf("-->")
+```
+
+**A second arity rather than a second message**, because it is the same
+question. `at(key)` and `at(key, default)` set that shape and `run`, `sorted`,
+`asString`, `random:new` and `timeToRun` all follow it. The message count does
+not move: 138 before and after.
+
+`#from` may be **one past the end**, where the answer is nil rather than an
+error — the rule `copyFrom` has, so a walk that runs off the end gets an answer
+rather than a fault. Further out is a mistake and says so, as is a float.
+
+#### What it was worth, measured, including where it was worth nothing
+
+**The honest part first.** On the workload that started this — a global
+substitution over 50,000 short lines — it is **2.35s to 2.25s**, four per cent,
+which is nothing. A short line makes a short copy, and copying a short line is
+cheap.
+
+**Where it matters is a long line**, because the copy is quadratic in the length
+of one. Searching a single 80,000-character line for a pattern with a common
+first character and no match:
+
+| | |
+| --- | --- |
+| copying the tail at every candidate | 0.14 s |
+| searching from a position | **0.05 s** |
+
+Minified JSON, generated code and a log line are all one long line, and the
+editor will meet one. A megabyte on one line would have been twenty seconds and
+is now under a second.
+
+**And the second customer got shorter rather than faster.**
+`programs/expect.sol` walked its markers by cutting the line down after each
+one, with arithmetic to keep track of where the cuts had come from. It walks an
+index over one string now: four lines shorter, one variable fewer, and the
+copies gone. That is the better argument of the two — a primitive that lets a
+program say what it means removes the bookkeeping that saying it another way
+required.
 
 ### 6.36 `readLine` and `readKey` did not share an input buffer — **done**
 

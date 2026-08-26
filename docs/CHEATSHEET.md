@@ -205,7 +205,7 @@ Bytes, not characters: `"café":size` is 5.
 | `at(#i)` | a one-character string; **one-based** |
 | `concat(s)` | a new string; strict about its argument |
 | `split(s)` | an array of the pieces between occurrences of `s` |
-| `indexOf(s)` | where `s` first appears, one-based, or nil |
+| `indexOf(s)` `indexOf(s, #from)` | where `s` first appears, one-based, or nil — from the start or from `#from` |
 | `copyFrom(#a, #b)` | the characters `#a` to `#b`, both ends included |
 | `fill([...])` | the blanks `{}` filled in from the array |
 | `trim` | the same text without the space around it |
