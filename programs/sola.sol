@@ -9,9 +9,9 @@
 ;
 ; The language is [SolaBasic](../docs/SOLABASIC.md), and there is a
 ; [reference manual](../docs/SOLABASIC-REFERENCE.md) for people who want to
-; write it rather than read about it. Stages 1, 2, 3 and 4 are here, and so is
-; the half of stage 6 that is `PRINT`'s real formatting -- which leaves arrays,
-; `INPUT`, files, `PRINT USING`, and the QuickBASIC comparison harness.
+; write it rather than read about it. Stages 1 to 5 are here, and so is the half
+; of stage 6 that is `PRINT`'s real formatting -- which leaves `INPUT`, files,
+; `PRINT USING`, and the QuickBASIC comparison harness.
 ;
 ; **Stage 3 went first on purpose** -- it is `GOTO` and labels, the claim the
 ; whole design rests on, and the document says to reach it in week one rather
@@ -73,6 +73,27 @@
 ; innermost `FOR`, not the innermost block, so an `EXIT FOR` inside an `IF`
 ; inside the loop is a search down the stack for the first frame of that kind.
 ; That is four lines against a tree walk.
+;
+; ---------------------------------------------------------------------------
+; What stage 5 cost, which was less than by-reference had been
+;
+; **A Solum array is already a reference**, so passing one to a procedure needs
+; none of the boxing a scalar needs: `Sort(n(), 6)` hands the array over and the
+; callee's `atPut` writes the caller's storage because it is the same array.
+; That is the whole of by-reference for arrays, and it is free.
+;
+; **The bounds are constant, so most of the index arithmetic is.** A SolaBasic
+; array is a Solum array, which is one-dimensional and counts from one, so
+; `a(i)` is `i - low + 1` and a second dimension multiplies by the size of the
+; ones inside it. Those strides are worked out while compiling.
+;
+; **Every subscript of a multi-dimensional array is checked, and a
+; one-dimensional one is not.** One out of range would otherwise land on a
+; *different element* rather than off the end -- `a(1, 9)` in an eight-by-eight
+; is index 9, which is `a(2, 1)` -- and answering the wrong element quietly is
+; the one thing this must not do. A one-dimensional array needs no check because
+; there is nowhere for a bad subscript to land except outside the array, and the
+; machine refuses that itself.
 ;
 ; ---------------------------------------------------------------------------
 ; What stage 1 cost, which was the type system and the library
@@ -157,6 +178,10 @@
 ;   SHARED        inside a procedure, naming a module variable to use
 ;   STATIC        a local that survives between calls
 ;   DECLARE       read and dropped; nothing needs declaring here
+;   DIM           arrays of up to eight dimensions, bounds fixed at compile
+;                 time, with `AS` or a suffix for the type, and `SHARED`
+;   OPTION BASE   0 or 1, asked once, before the first `DIM`
+;   CONST         folded where it stands
 ;   assignment    `LET` optional, scalars only
 ;   PRINT         BASIC's rules: the sign space and the trailing space on a
 ;                 number, print zones of 14, a margin of 80, `TAB` and `SPC`,
@@ -168,8 +193,8 @@
 ;   RANDOMIZE     reseeds the one generator
 ;   comments      `REM` and `'`
 ;
-; **Not here, and not pretended:** arrays, `DIM`, `CONST`, `INPUT`, files and
-; `PRINT USING`. `PRINT`'s real formatting is
+; **Not here, and not pretended:** `INPUT`, files, `PRINT USING`, `REDIM`,
+; `LBOUND`/`UBOUND`, and an array parameter of more than one dimension. `PRINT`'s real formatting is
 ; stage 6; here the items of one `PRINT` are joined and shown, with no zones and
 ; no trailing space, so its output is **not** what a BASIC prints. That is a
 ; stage, not a divergence, and it is the one thing here most likely to be
@@ -251,7 +276,8 @@ keywords := ["PRINT", "GOTO", "IF", "THEN", "ELSE", "ELSEIF", "END", "REM",
              "DO", "LOOP", "WHILE", "WEND", "UNTIL", "EXIT",
              "SUB", "FUNCTION", "CALL", "SHARED", "STATIC", "DECLARE",
              "AND", "OR", "XOR", "NOT", "MOD",
-             "DEFINT", "DEFLNG", "DEFDBL", "DEFSTR", "RANDOMIZE"].
+             "DEFINT", "DEFLNG", "DEFDBL", "DEFSTR", "RANDOMIZE",
+             "DIM", "OPTION", "BASE", "CONST", "AS"].
 
 ; ---------------------------------------------------------------------------
 ; A token, and a node
@@ -283,6 +309,8 @@ node:operandType := nil.
 ; `CALL Foo((x))` passes a copy where `CALL Foo(x)` passes the variable. That is
 ; QBasic's own way of spelling by-value and the only one SolaBasic has.
 node:grouped := false.
+
+arrayRefNode := { name | | n | n := node:new. n:kind := 'arrayref. n:name := name. n }.
 
 numberNode   := { v, t | | n |
     n := node:new. n:kind := 'number. n:value := v. n:type := t. n }.
@@ -318,6 +346,10 @@ stmt:step := nil.           ; 'for, nil when none was written
 stmt:test := 'none.         ; 'do and 'loop: 'none 'while 'until
 stmt:alternatives := nil.   ; 'case
 stmt:seps := nil.           ; 'print: what followed each item -- ; or , or nothing
+stmt:bounds := nil.         ; 'dim: [low, high] per dimension, already constant
+stmt:shared := false.       ; 'dim: whether a procedure may see it
+stmt:subscripts := nil.     ; 'arrayset: the subscripts of the element assigned
+stmt:arrayParams := nil.    ; 'sub and 'function: which parameters are arrays
 stmt:body := nil.           ; 'sub and 'function: the statements between them
 
 ; ---------------------------------------------------------------------------
@@ -584,6 +616,22 @@ sola:parseAssignment := { st | | t |
     t:text:equals("LET"):ifTrue({ t := self:takeToken }).
     t:isNil:or({ t:kind:equals('word):not }):ifTrue({
         self:fail("a statement starts with a keyword or a variable") }).
+    ; `a(i) = v` and `Greet (x)` both begin with a name and a bracket, and only
+    ; the `=` afterwards tells them apart -- so the subscripts are read, and put
+    ; back if what follows is not an assignment.
+    self:nextIs("("):ifTrue({ | mark, subs |
+        mark := self:cursor.
+        subs := self:parseCallArguments.
+        self:nextIs("="):ifElse(
+            { self:takeToken.
+              st:kind := 'arrayset.
+              st:name := t:text.
+              st:subscripts := subs.
+              st:expr := self:parseExpression.
+              self:expectEndOfLine("an assignment") },
+            { self:cursor := mark }) }).
+
+    st:kind:equals('arrayset):ifElse({ nil }, {
     self:nextIs("="):ifElse(
         { self:takeToken.
           st:kind := 'let.
@@ -595,7 +643,7 @@ sola:parseAssignment := { st | | t |
           st:kind := 'call.
           st:name := t:text.
           st:items := self:parseArguments(false).
-          self:expectEndOfLine("a call") }) }.
+          self:expectEndOfLine("a call") }) }) }.
 
 ; `IF <condition> THEN GOTO <label>`, and `THEN <label>` for short, which is
 ; what every BASIC has allowed since there were labels to write.
@@ -801,13 +849,13 @@ parsers:atPut("EXIT", { m, st | | t |
 parsers:atPut("SUB", { m, st |
     st:kind := 'sub.
     st:name := m:plainName("SUB").
-    st:items := m:parseParameters.
+    st:items := m:parseParameters(st).
     m:expectEndOfLine("SUB") }).
 
 parsers:atPut("FUNCTION", { m, st |
     st:kind := 'function.
     st:name := m:plainName("FUNCTION").
-    st:items := m:parseParameters.
+    st:items := m:parseParameters(st).
     m:expectEndOfLine("FUNCTION") }).
 
 ; `DECLARE` is read and dropped. QBasic needs one for a procedure used before it
@@ -822,6 +870,100 @@ parsers:atPut("CALL", { m, st |
     st:name := m:plainName("CALL").
     st:items := m:nextIs("("):ifElse({ m:parseArguments(true) }, { m:parseArguments(false) }).
     m:expectEndOfLine("CALL") }).
+
+; ---------------------------------------------------------------------------
+; OPTION BASE, CONST and DIM
+;
+; All three are read as the listing is read rather than when it is emitted,
+; because each of them answers a question the next line may ask: what the lowest
+; subscript is, what a name stands for, and how big an array is.
+
+parsers:atPut("OPTION", { m, st |
+    st:kind := 'rem.
+    m:nextIs("BASE"):ifFalse({ m:fail("OPTION takes BASE") }).
+    m:takeToken.
+    m:setOptionBase(m:constantInteger(m:parseExpression)).
+    m:expectEndOfLine("OPTION BASE") }).
+
+parsers:atPut("CONST", { m, st | | more, name |
+    st:kind := 'rem.
+    more := true.
+    { more }:whileTrue({
+        name := m:plainName("CONST").
+        m:nextIs("="):ifFalse({ m:fail("CONST needs an = after the name") }).
+        m:takeToken.
+        m:defineConstant(name, m:parseExpression).
+        m:nextIs(","):ifElse({ m:takeToken }, { more := false }) }).
+    m:expectEndOfLine("CONST") }).
+
+; `DIM a(10)`, `DIM Grid(1 TO 8, 1 TO 8) AS INTEGER`, `DIM SHARED Names$(100)`,
+; and `DIM Total AS DOUBLE` for a plain variable.
+parsers:atPut("DIM", { m, st | | more |
+    st:kind := 'dim.
+    st:items := array:new.
+    st:bounds := array:new.
+    st:shared := m:nextIs("SHARED"):ifElse({ m:takeToken. true }, { false }).
+    more := true.
+    { more }:whileTrue({
+        m:parseOneDim(st).
+        m:nextIs(","):ifElse({ m:takeToken }, { more := false }) }).
+    m:expectEndOfLine("DIM") }).
+
+sola:parseOneDim := { st | | name, bounds, low, more |
+    name := self:plainName("DIM").
+    bounds := nil.
+    self:nextIs("("):ifTrue({
+        self:takeToken.
+        bounds := array:new.
+        more := true.
+        { more }:whileTrue({
+            low := self:constantInteger(self:parseExpression).
+            ; `DIM a(10)` runs from OPTION BASE to 10; `DIM a(1 TO 10)` says both.
+            self:nextIs("TO"):ifElse(
+                { self:takeToken.
+                  bounds:add([low, self:constantInteger(self:parseExpression)]) },
+                { bounds:add([self:optionBase, low]) }).
+            self:nextIs(","):ifElse({ self:takeToken }, { more := false }) }).
+        self:nextIs(")"):ifFalse({ self:fail("a '(' was never closed") }).
+        self:takeToken.
+        bounds:size:greaterThan(#8):ifTrue({
+            self:fail("{} has {} dimensions, and eight is the most"
+                :fill([name, bounds:size])) }) }).
+    self:nextIs("AS"):ifTrue({ self:takeToken. self:declareType(name, self:typeName) }).
+    st:items:add(name).
+    st:bounds:add(bounds).
+    bounds:isNil:ifFalse({ self:declareArray(name, bounds, st:shared) }) }.
+
+; `()` with nothing between them, consumed if it is there.
+sola:emptyBrackets := {
+    self:nextIs("("):and({ | n | n := self:tokenAt(self:cursor:add(#1)).
+                                 n:notNil:and({ n:text:equals(")") }) }):ifElse(
+        { self:takeToken. self:takeToken. true },
+        { false }) }.
+
+; An argument written `a()` is the array itself rather than one of its elements.
+sola:maybeArrayRef := { | t, after, closing |
+    t := self:peekToken.
+    after := self:tokenAt(self:cursor:add(#1)).
+    closing := self:tokenAt(self:cursor:add(#2)).
+    t:notNil:and({ t:kind:equals('word) })
+        :and({ after:notNil:and({ after:text:equals("(") }) })
+        :and({ closing:notNil:and({ closing:text:equals(")") }) }):ifElse(
+        { self:takeToken. self:takeToken. self:takeToken.
+          arrayRefNode:value(t:text) },
+        { self:parseExpression }) }.
+
+sola:typeName := { | t |
+    t := self:takeToken.
+    t:isNil:ifTrue({ self:fail("AS needs a type") }).
+    [ { ["INTEGER", "LONG"]:indexOf(t:text):notNil }, { 'integer },
+      { t:text:equals("DOUBLE") },                    { 'double },
+      { t:text:equals("STRING") },                    { 'string },
+      { t:text:equals("SINGLE") },
+        { self:fail("SolaBasic has no SINGLE -- see docs/SOLABASIC.md. "
+            :concat("DOUBLE is the one it has.")) },
+        { self:fail("'{}' is not a type: INTEGER, LONG, DOUBLE or STRING"
+            :fill([t:text])) } ]:ifElseIf }.
 
 parsers:atPut("RANDOMIZE", { m, st |
     st:kind := 'randomize.
@@ -873,24 +1015,34 @@ sola:plainName := { what | | t |
             :fill([t:text])) }).
     t:text }.
 
+; `SHARED total` and `SHARED counts()` -- the brackets say it is an array and
+; are otherwise empty, which is how BASIC names one without subscripting it.
 sola:nameList := { | names, more |
     names := array:new.
     more := true.
     { more }:whileTrue({
         names:add(self:plainName("this")).
+        self:nextIs("("):ifTrue({
+            self:takeToken.
+            self:nextIs(")"):ifFalse({ self:fail("an array is named as 'a()'") }).
+            self:takeToken }).
         self:nextIs(","):ifElse({ self:takeToken }, { more := false }) }).
     names }.
 
 ; A parameter list, in brackets or not -- `SUB Greet (name)` and `SUB Greet name`
 ; are the same declaration, as they are in QBasic.
-sola:parseParameters := { | names, more, bracketed |
+sola:parseParameters := { st | | names, more, bracketed |
     names := array:new.
+    st:arrayParams := array:new.
     bracketed := self:nextIs("(").
     bracketed:ifTrue({ self:takeToken }).
     self:atEndOfLine:not:and({ self:nextIs(")"):not }):ifTrue({
         more := true.
         { more }:whileTrue({
             names:add(self:plainName("a parameter")).
+            ; `SUB Sort (a())` -- the empty brackets say the parameter is an
+            ; array, which is how BASIC names one without subscripting it.
+            st:arrayParams:add(self:emptyBrackets).
             self:nextIs(","):ifElse({ self:takeToken }, { more := false }) }) }).
     bracketed:ifTrue({
         self:nextIs(")"):ifFalse({ self:fail("a '(' was never closed") }).
@@ -911,7 +1063,7 @@ sola:parseArguments := { bracketed | | args, more |
     self:atEndOfLine:not:and({ self:nextIs(")"):not }):ifTrue({
         more := true.
         { more }:whileTrue({
-            args:add(self:parseExpression).
+            args:add(self:maybeArrayRef).
             self:nextIs(","):ifElse({ self:takeToken }, { more := false }) }) }).
     bracketed:ifTrue({
         self:nextIs(")"):ifFalse({ self:fail("a '(' was never closed") }).
@@ -925,7 +1077,7 @@ sola:parseCallArguments := { | args, more |
     self:nextIs(")"):ifFalse({
         more := true.
         { more }:whileTrue({
-            args:add(self:parseExpression).
+            args:add(self:maybeArrayRef).
             self:nextIs(","):ifElse({ self:takeToken }, { more := false }) }) }).
     self:nextIs(")"):ifFalse({ self:fail("a '(' was never closed") }).
     self:takeToken.
@@ -1165,6 +1317,99 @@ sola:intoScratchAs := { node, wanted | | slot |
     slot }.
 
 ; ---------------------------------------------------------------------------
+; Arrays, constants, and the lowest subscript
+;
+; All three are program-wide rather than per-unit: an array declared at module
+; level is one array however many procedures see it, a `CONST` means the same
+; everywhere, and `OPTION BASE` is asked once.
+
+sola:arrays := nil.         ; name -> [bounds, shared]
+sola:declaredTypes := nil.  ; name -> type, from an AS clause
+sola:optionBase := #0.
+sola:baseFixed := false.
+
+sola:setOptionBase := { n |
+    self:baseFixed:ifTrue({ self:fail("OPTION BASE is asked once") }).
+    ["0", "1"]:indexOf(n:asString):isNil:ifTrue({
+        self:fail("OPTION BASE is 0 or 1") }).
+    self:arrays:size:equals(#0):ifFalse({
+        self:fail("OPTION BASE comes before the first DIM") }).
+    self:optionBase := n.
+    self:baseFixed := true }.
+
+sola:declareType := { name, t | self:declaredTypes:atPut(name, t) }.
+
+sola:declareArray := { name, bounds, shared |
+    self:arrays:includes(name):ifTrue({
+        self:fail("'{}' is dimensioned twice":fill([name])) }).
+    self:arrays:atPut(name, [bounds, shared]) }.
+
+; An array parameter is an array the unit knows about and the program does
+; not: its bounds arrive with it, so the only thing fixed at compile time is
+; where its subscripts start, which is `OPTION BASE`.
+sola:arrayParams := nil.
+
+sola:isArray := { name |
+    self:arrayParams:includes(name):or({ self:arrays:includes(name) }) }.
+
+sola:boundsOf := { name |
+    self:arrayParams:includes(name):ifElse(
+        { self:arrayParams:at(name) },
+        { self:arrays:at(name):at(#1) }) }.
+
+sola:arrayIsShared := { name |
+    self:arrayParams:includes(name):ifElse(
+        { false }, { self:arrays:at(name):at(#2) }) }.
+
+sola:defineConstant := { name, node |
+    self:constants2:includes(name):ifTrue({
+        self:fail("'{}' is declared CONST twice":fill([name])) }).
+    self:constants2:atPut(name, [self:constantValue(node), self:typeOfName(name)]) }.
+
+sola:isConstant := { name | self:constants2:includes(name) }.
+
+; ---------------------------------------------------------------------------
+; Constants
+;
+; `CONST` is folded where it stands, and array bounds have to be: an array is
+; made once, at the size the listing wrote, so `DIM a(N)` where `N` is a variable
+; has no answer at the time the question is asked. A constant expression is
+; therefore worked out by the compiler rather than emitted, which is what makes
+; `CONST Size = 10` and `DIM a(Size)` both mean something.
+
+sola:constants2 := nil.     ; name -> [value, type]
+
+sola:constantValue := { n | | left, right |
+    [ { n:kind:equals('number) }, { n:value },
+      { n:kind:equals('string) }, { n:value },
+      { n:kind:equals('variable) },
+        { self:constants2:includes(n:name):ifFalse({
+              self:fail("'{}' is not a constant, and this has to be one"
+                  :fill([n:name])) }).
+          self:constants2:at(n:name):at(#1) },
+      { n:kind:equals('negate) }, { self:constantValue(n:left):negated },
+      { n:kind:equals('binary) },
+        { left := self:constantValue(n:left).
+          right := self:constantValue(n:right).
+          self:constantArithmetic(n:op, left, right) },
+        { self:fail("this has to be a constant, and is not") } ]:ifElseIf }.
+
+sola:constantArithmetic := { op, left, right |
+    [ { op:equals("+") },
+        { left:respondsTo('concat):ifElse(
+            { left:concat(right) }, { left:add(right) }) },
+      { op:equals("-") }, { left:sub(right) },
+      { op:equals("*") }, { left:mul(right) },
+      { op:equals("/") }, { self:asDouble(left):div(self:asDouble(right)) },
+      { op:equals("\\") }, { self:asDouble(left):div(self:asDouble(right)):truncated },
+        { self:fail("'{}' cannot be worked out at compile time":fill([op])) }
+    ]:ifElseIf }.
+
+sola:constantInteger := { n | | v |
+    v := self:constantValue(n).
+    v:respondsTo('rounded):ifElse({ v:rounded }, { v }) }.
+
+; ---------------------------------------------------------------------------
 ; Types
 ;
 ; **A name carries its type.** A suffix says it outright; otherwise the `DEF`
@@ -1174,10 +1419,11 @@ sola:intoScratchAs := { node, wanted | | slot |
 sola:defaultTypes := nil.
 
 sola:typeOfName := { name | | last |
-    last := name:copyFrom(name:size, name:size).
-    suffixTypes:includes(last):ifElse(
-        { suffixTypes:at(last) },
-        { self:defaultTypes:at(name:copyFrom(#1, #1), 'double) }) }.
+    self:declaredTypes:includes(name):ifElse({ self:declaredTypes:at(name) }, {
+        last := name:copyFrom(name:size, name:size).
+        suffixTypes:includes(last):ifElse(
+            { suffixTypes:at(last) },
+            { self:defaultTypes:at(name:copyFrom(#1, #1), 'double) }) }) }.
 
 sola:isNumeric := { t | t:notEquals('string) }.
 
@@ -1206,9 +1452,12 @@ sola:typeExpression := { n |
     n:kind:equals('number):ifTrue({ n:type }).
     n:kind:equals('string):ifTrue({ n:type := 'string }).
     n:kind:equals('variable):ifTrue({ n:type := self:typeOfName(n:name) }).
+    n:kind:equals('arrayref):ifTrue({ n:type := self:typeOfName(n:name) }).
     n:kind:equals('call):ifTrue({
         n:args:do({ a | self:typeExpression(a) }).
         n:type := self:typeOfCall(n) }).
+    n:kind:equals('variable):and({ self:isConstant(n:name) }):ifTrue({
+        n:type := self:constants2:at(n:name):at(#2) }).
     n:kind:equals('negate):ifTrue({
         self:typeExpression(n:left).
         n:left:type:equals('string):ifTrue({ self:fail("text cannot be negated") }).
@@ -1311,9 +1560,13 @@ sola:slotFor := { name |
 ; Inside a procedure a name is a slot unless `SHARED` sent it back to the module
 ; or `STATIC` gave it a private global; at module level everything is a global.
 
+; A `DIM SHARED` array is one array wherever it is named, so it is a global
+; everywhere rather than a local that happens to have the same name.
 sola:isLocalName := { name |
-    self:inProcedure:and({ self:shared:indexOf(name):isNil })
-        :and({ self:statics:includes(name):not }) }.
+    self:isArray(name):and({ self:arrayIsShared(name) }):ifElse(
+        { false },
+        { self:inProcedure:and({ self:shared:indexOf(name):isNil })
+            :and({ self:statics:includes(name):not }) }) }.
 
 sola:globalNameFor := { name |
     self:statics:includes(name):ifElse(
@@ -1409,6 +1662,8 @@ sola:variablesInStatement := { st, names |
     self:variablesInExpression(st:expr, names).
     self:variablesInExpression(st:limit, names).
     self:variablesInExpression(st:step, names).
+    st:subscripts:notNil:ifTrue({
+        st:subscripts:do({ a | self:variablesInExpression(a, names) }) }).
     st:alternatives:notNil:ifTrue({
         st:alternatives:do({ alt |
             alt:at(#1):equals("is"):ifElse(
@@ -1496,8 +1751,17 @@ sola:emitExpression := { n |
         { n:type:equals('integer):ifElse(
             { self:emitIntConst(n:value) }, { self:emitConst(n:value) }) },
       { n:kind:equals('string) },   { self:emitString(n:value) },
-      { n:kind:equals('variable) }, { self:emitLoadVar(n:name) },
-      { n:kind:equals('call) },     { self:emitCall(n:name, n:args, false) },
+      { n:kind:equals('arrayref) }, { self:emitRawVar(n:name) },
+      { n:kind:equals('variable) },
+        { self:isConstant(n:name):ifElse(
+            { self:emitConstantValue(n:name) },
+            { self:emitLoadVar(n:name) }) },
+      { n:kind:equals('call) },
+        { self:isArray(n:name):ifElse(
+            { self:emitRawVar(n:name).
+              self:emitSubscript(n:name, n:args).
+              self:emitSend("at", #1) },
+            { self:emitCall(n:name, n:args, false) }) },
       { n:kind:equals('negate) },
         { self:emitTyped(n:left, n:operandType). self:emitSend("negated", #0) },
       { n:kind:equals('not) },
@@ -1608,6 +1872,8 @@ sola:typeStatement := { st |
     st:expr:notNil:ifTrue({ self:typeExpression(st:expr) }).
     st:limit:notNil:ifTrue({ self:typeExpression(st:limit) }).
     st:step:notNil:ifTrue({ self:typeExpression(st:step) }).
+    st:subscripts:notNil:ifTrue({
+        st:subscripts:do({ a | self:typeExpression(a) }) }).
     st:alternatives:notNil:ifTrue({
         st:alternatives:do({ alt |
             alt:at(#1):equals("is"):ifElse(
@@ -1722,6 +1988,7 @@ sola:pushUnit := { | saved |
     saved:atPut("scratchSlots", self:scratchSlots).
     saved:atPut("scratchDepth", self:scratchDepth).
     saved:atPut("statics", self:statics).       saved:atPut("boxed", self:boxed).
+    saved:atPut("arrayParams", self:arrayParams).
     saved:atPut("toBox", self:toBox).           saved:atPut("methods", self:methods).
     saved:atPut("inProcedure", self:inProcedure).
     saved:atPut("returnName", self:returnName).
@@ -1738,6 +2005,7 @@ sola:freshUnit := {
     self:varTypes := dictionary:new.
     self:scratchSlots := array:new. self:scratchDepth := #0.
     self:shared := array:new.      self:statics := dictionary:new.
+    self:arrayParams := dictionary:new.
     self:boxed := array:new.       self:toBox := array:new.
     self:methods := array:new.
     self:inProcedure := false.     self:returnName := "".
@@ -1755,6 +2023,7 @@ sola:popUnit := { | saved |
     self:scratchSlots := saved:at("scratchSlots").
     self:scratchDepth := saved:at("scratchDepth").
     self:statics := saved:at("statics").       self:boxed := saved:at("boxed").
+    self:arrayParams := saved:at("arrayParams").
     self:toBox := saved:at("toBox").           self:methods := saved:at("methods").
     self:inProcedure := saved:at("inProcedure").
     self:returnName := saved:at("returnName") }.
@@ -2113,6 +2382,66 @@ emitters:atPut('exit, { m, st | | f |
 
 emitters:atPut('call, { m, st | m:emitCall(st:name, st:items, true) }).
 
+; ---------------------------------------------------------------------------
+; Making an array
+;
+; A Solum array starts empty and grows, so `DIM` is a loop that adds the right
+; number of noughts -- or empty strings. It runs where it is written, so a `DIM`
+; inside a procedure makes a fresh array on every call, which is what BASIC does
+; with one.
+
+sola:emitStoreRaw := { name |
+    self:isLocalName(name):ifElse(
+        { self:emitSetLocal(self:slotFor(name)) },
+        { self:emitStore(self:globalNameFor(name)) }).
+    self:emitPop }.
+
+sola:emitMakeArray := { name, bounds | | total, slot, top, done |
+    total := #1.
+    bounds:do({ b |
+        b:at(#2):lessThan(b:at(#1)):ifTrue({
+            self:fail("{}({} TO {}) has no elements"
+                :fill([name, b:at(#1), b:at(#2)])) }).
+        total := total:mul(b:at(#2):sub(b:at(#1)):add(#1)) }).
+
+    self:emitGlobal("array").
+    self:emitSend("new", #0).
+    self:emitStoreRaw(name).
+
+    slot := self:takeScratch.
+    self:emitIntConst(total).
+    self:emitSetLocal(slot).
+    self:emitPop.
+    top := self:here.
+    self:emitLocal(slot). self:emitIntConst(#0). self:emitSend("greaterThan", #1).
+    done := self:branchHole.
+    self:emitRawVar(name).
+    self:emitZero(self:typeOfName(name)).
+    self:emitSend("add", #1).
+    self:emitPop.
+    self:emitLocal(slot). self:emitIntConst(#1). self:emitSend("sub", #1).
+    self:emitSetLocal(slot). self:emitPop.
+    self:emitLoopTo(top).
+    self:fillBranch(done).
+    self:dropScratch }.
+
+emitters:atPut('dim, { m, st | | i |
+    i := #1.
+    { i:lessOrEqual(st:items:size) }:whileTrue({
+        st:bounds:at(i):isNil:ifFalse({
+            m:emitMakeArray(st:items:at(i), st:bounds:at(i)) }).
+        i := i:add(#1) }) }).
+
+emitters:atPut('arrayset, { m, st |
+    m:isArray(st:name):ifFalse({
+        m:fail("'{}' is not an array: DIM it before subscripting it"
+            :fill([st:name])) }).
+    m:emitRawVar(st:name).
+    m:emitSubscript(st:name, st:subscripts).
+    m:emitTyped(st:expr, m:typeOfName(st:name)).
+    m:emitSend("atPut", #2).
+    m:emitPop }).
+
 emitters:atPut('randomize, { m, st |
     m:emitGlobal("random").
     m:emitTyped(st:expr, 'integer).
@@ -2151,6 +2480,7 @@ routine:params := nil.
 routine:body := nil.
 routine:line := #1.
 routine:byref := nil.       ; one boolean per parameter
+routine:arrayParams := nil. ; one boolean per parameter
 
 sola:routines := nil.
 sola:routineOrder := nil.
@@ -2193,6 +2523,7 @@ sola:beginRoutine := { st | | r |
     r:name := st:name.
     r:kind := st:kind.
     r:params := st:items.
+    r:arrayParams := st:arrayParams.
     r:body := array:new.
     r:line := st:line.
     self:routines:atPut(st:name, r).
@@ -2273,6 +2604,8 @@ sola:callsInStatement := { st, found |
     self:callsInExpression(st:expr, found).
     self:callsInExpression(st:limit, found).
     self:callsInExpression(st:step, found).
+    st:subscripts:notNil:ifTrue({
+        st:subscripts:do({ a | self:callsInExpression(a, found) }) }).
     st:alternatives:notNil:ifTrue({
         st:alternatives:do({ alt |
             alt:at(#1):equals("is"):ifElse(
@@ -2338,7 +2671,90 @@ sola:emitStaticInitialisers := {
 
 ; What a call answers: a builtin says so itself, and a FUNCTION says so with
 ; the suffix on its own name, exactly as a variable does.
+sola:emitConstantValue := { name | | pair |
+    pair := self:constants2:at(name).
+    pair:at(#2):equals('string):ifElse(
+        { self:emitString(pair:at(#1)) },
+        { self:emitNumber(pair:at(#1), pair:at(#2)) }) }.
+
+; ---------------------------------------------------------------------------
+; A subscript, turned into one index
+;
+; A SolaBasic array is a Solum array, which is one-dimensional and counts from
+; one. So `a(i)` is `i - low + 1`, and a second dimension multiplies by the size
+; of the ones inside it -- the strides are constant because the bounds are, so
+; all of that arithmetic that can be done at compile time is.
+;
+; **Every subscript of a multi-dimensional array is checked.** One out of range
+; would otherwise land on a different element rather than off the end: `a(1, 9)`
+; in an eight-by-eight is index 9, which is `a(2, 1)`, and answering the wrong
+; element quietly is the one thing this must not do. A one-dimensional array
+; needs no check, because there is nowhere for a bad subscript to land except
+; outside the array, and the machine refuses that itself.
+
+sola:emitSubscript := { name, subs | | bounds, count, strides, i, k, stride |
+    bounds := self:boundsOf(name).
+    count := bounds:size.
+    subs:size:equals(count):ifFalse({
+        self:fail("{} has {} and was given {}"
+            :fill([name, self:countOf(count, "subscript"), subs:size])) }).
+
+    strides := array:new.
+    i := #1.
+    { i:lessOrEqual(count) }:whileTrue({
+        stride := #1.
+        k := i:add(#1).
+        { k:lessOrEqual(count) }:whileTrue({
+            stride := stride:mul(
+                bounds:at(k):at(#2):sub(bounds:at(k):at(#1)):add(#1)).
+            k := k:add(#1) }).
+        strides:add(stride).
+        i := i:add(#1) }).
+
+    i := #1.
+    { i:lessOrEqual(count) }:whileTrue({
+        self:emitOneSubscript(name, subs:at(i), bounds:at(i), i, count:greaterThan(#1)).
+        self:emitIntConst(bounds:at(i):at(#1)).
+        self:emitSend("sub", #1).
+        strides:at(i):equals(#1):ifFalse({
+            self:emitIntConst(strides:at(i)).
+            self:emitSend("mul", #1) }).
+        i:equals(#1):ifFalse({ self:emitSend("add", #1) }).
+        i := i:add(#1) }).
+    self:emitIntConst(#1).
+    self:emitSend("add", #1) }.
+
+sola:emitOneSubscript := { name, node, bound, which, checked | | slot, fine |
+    checked:ifElse(
+        { slot := self:intoScratchAs(node, 'integer).
+          self:emitLocal(slot).
+          self:emitIntConst(bound:at(#1)).
+          self:emitSend("lessThan", #1).
+          fine := self:branchHole.
+          self:emitRaise("subscript {} of {} is below {}"
+              :fill([which, name, bound:at(#1)])).
+          self:fillBranch(fine).
+          self:emitLocal(slot).
+          self:emitIntConst(bound:at(#2)).
+          self:emitSend("greaterThan", #1).
+          fine := self:branchHole.
+          self:emitRaise("subscript {} of {} is above {}"
+              :fill([which, name, bound:at(#2)])).
+          self:fillBranch(fine).
+          self:emitLocal(slot).
+          self:dropScratch },
+        { self:emitTyped(node, 'integer) }) }.
+
+; Stopping the program with something to read. `raise` answers, as far as the
+; verifier is concerned, so its answer is popped -- it never gets there.
+sola:emitRaise := { message |
+    self:emitGlobal("error").
+    self:emitString(message).
+    self:emitSend("raise", #1).
+    self:emitPop }.
+
 sola:typeOfCall := { n | | answers |
+    self:isArray(n:name):ifElse({ self:typeOfName(n:name) }, {
     builtins:includes(n:name):ifElse(
         { answers := builtins:at(n:name):at(#2).
           answers:equals('sameAsArg):ifElse(
@@ -2349,7 +2765,8 @@ sola:typeOfCall := { n | | answers |
               { answers }) },
         { self:routines:includes(n:name):ifElse(
             { self:typeOfName(n:name) },
-            { self:fail("there is no SUB or FUNCTION called '{}'":fill([n:name])) }) }) }.
+            { self:fail("there is no SUB, FUNCTION or array called '{}' -- an "
+                :concat("array is DIMmed before it is used"):fill([n:name])) }) }) }) }.
 
 sola:emitReturnValue := {
     self:returnName:equals(""):ifElse(
@@ -2372,6 +2789,11 @@ sola:emitRoutine := { r | | method, index, i |
     ; Slots 1..n are the parameters, in the order they were written, because
     ; that is where a block's arguments arrive.
     r:params:do({ p | self:newLocal(p) }).
+    i := #1.
+    { i:lessOrEqual(r:params:size) }:whileTrue({
+        r:arrayParams:at(i):ifTrue({
+            self:arrayParams:atPut(r:params:at(i), [[self:optionBase, nil]]) }).
+        i := i:add(#1) }).
     i := #1.
     { i:lessOrEqual(r:params:size) }:whileTrue({
         r:byref:at(i):ifTrue({ self:boxed:add(r:params:at(i)) }).
@@ -2444,6 +2866,11 @@ sola:emitCall := { name, args, asStatement | | r, i, arg, wanted |
     { i:lessOrEqual(args:size) }:whileTrue({
         arg := args:at(i).
         wanted := self:typeOfName(r:params:at(i)).
+        arg:kind:equals('arrayref):ifTrue({
+            r:arrayParams:at(i):ifFalse({
+                self:fail("{}'s {} is not an array":fill([name, r:params:at(i)])) }).
+            self:emitRawVar(arg:name) }).
+        arg:kind:equals('arrayref):ifElse({ nil }, {
         r:byref:at(i):ifElse(
             { arg:kind:equals('variable):and({ arg:grouped:not }):ifElse(
                 { ; The box is handed over as it stands, so the two names have to
@@ -2457,7 +2884,7 @@ sola:emitCall := { name, args, asStatement | | r, i, arg, wanted |
                 { self:emitGlobal("array").
                   self:emitTyped(arg, wanted).
                   self:emitSend("of", #1) }) },
-            { self:emitTyped(arg, wanted) }).
+            { self:emitTyped(arg, wanted) }) }).
         i := i:add(#1) }).
     self:emitSend("value", args:size).
     asStatement:ifTrue({ self:emitPop }) }) }.
@@ -2911,6 +3338,11 @@ sola:compile := { source, path |
     self:routines := dictionary:new.
     self:routineOrder := array:new.
     self:defaultTypes := dictionary:new.
+    self:arrays := dictionary:new.
+    self:declaredTypes := dictionary:new.
+    self:constants2 := dictionary:new.
+    self:optionBase := #0.
+    self:baseFixed := false.
     self:freshUnit.
 
     self:readStatements(source).

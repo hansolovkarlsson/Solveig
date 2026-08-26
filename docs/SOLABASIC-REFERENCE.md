@@ -36,6 +36,8 @@ compiles a demonstration and tells you how to run it.
 - **[Variables](#variables)**
 - **[Expressions](#expressions)**
 - **[The supplied functions](#the-supplied-functions)**
+- **[Declaring](#declaring)** — `CONST` · `DIM` · `OPTION BASE`
+- **[Arrays](#arrays)**
 - **[Assigning](#assigning)** — `LET`
 - **[Printing](#printing)** — `PRINT`
 - **[Choosing](#choosing)** — `IF` · `SELECT CASE`
@@ -281,6 +283,94 @@ repeat.
 | --- | --- |
 | `STR$(x)` | the number as text |
 | `VAL(s$)` | the number that text spells — **strictly**; see the divergences |
+
+---
+
+## Declaring
+
+### CONST
+
+A name for a value, worked out **while compiling** and never stored anywhere.
+
+```basic
+CONST Size = 10
+CONST Pi# = 3.14159265358979
+CONST Greeting$ = "hello"
+```
+
+A `CONST` may be built from literals and earlier `CONST`s, and must come before
+anything that uses it. It is what makes `DIM a(Size)` mean something.
+
+### OPTION BASE
+
+The lowest subscript an array has when its `DIM` gives only an upper bound.
+`0` or `1`, **asked once, before the first `DIM`**.
+
+```basic
+OPTION BASE 1
+```
+
+### DIM
+
+```basic
+DIM a(10)                        ' OPTION BASE to 10
+DIM Grid(1 TO 8, 1 TO 8)         ' both bounds said
+DIM Names$(100)
+DIM Counts(20) AS INTEGER
+DIM SHARED Totals(12)
+DIM Balance AS DOUBLE            ' a plain variable, given a type
+```
+
+**Bounds are constant expressions** — literals and `CONST`s — because an array
+is made once, at the size the listing wrote. Up to eight dimensions. There is
+no `REDIM`, so an array is the size it was given.
+
+`AS INTEGER`, `AS LONG`, `AS DOUBLE` or `AS STRING` says the type outright; a
+suffix on the name says the same thing.
+
+**`DIM SHARED` makes an array visible inside every procedure.** A plain `DIM` at
+module level does not — a procedure names it with `SHARED a()` or does not see
+it, exactly as with a plain variable. A `DIM` written inside a procedure makes a
+fresh array on every call.
+
+---
+
+## Arrays
+
+```basic
+DIM squares(10)
+FOR i = 0 TO 10
+  squares(i) = i * i
+NEXT i
+PRINT squares(7)                 ' 49
+```
+
+Subscripts count from `OPTION BASE` unless the `DIM` said otherwise, and both
+bounds are included.
+
+**An array is passed to a procedure by writing `a()`**, at the declaration and
+at the call. It is passed **by reference** — the procedure works on the caller's
+array, not a copy — and unlike a scalar this costs nothing, because an array is
+already a reference.
+
+```basic
+SUB Sort (v(), count%)
+  ...
+  v(j%) = v(j% + 1)              ' the caller sees this
+END SUB
+
+CALL Sort(n(), 6)
+```
+
+An array parameter is **one-dimensional**, and its subscripts start at
+`OPTION BASE`.
+
+**A subscript out of range is refused when the program runs.** For an array of
+more than one dimension the compiler checks each subscript by name and says
+which one — `subscript 2 of G is above 8` — because one out of range would
+otherwise land on a *different element* rather than off the end. A
+one-dimensional array needs no such check: there is nowhere for a bad subscript
+to go except outside the array, and the machine refuses that itself.
 
 ---
 
@@ -672,11 +762,10 @@ each belongs to is in [SOLABASIC.md](SOLABASIC.md#stages).
 
 | | |
 | --- | --- |
-| `AS INTEGER`, `AS DOUBLE`, `AS STRING` | stage 5, with `DIM` — a suffix or a `DEF` says the same thing today |
 | `PRINT USING` | stage 6 |
-| `DIM`, arrays, `OPTION BASE` | stage 5 |
 | `INPUT`, `LINE INPUT`, files | stage 6 |
-| `CONST` | stage 5 |
+| `LBOUND`, `UBOUND` | not written yet — an array's bounds are in the listing that `DIM`med it |
+| an array parameter of more than one dimension | not written yet; its strides would have to travel with it |
 | `ON ERROR`, `TYPE`, `REDIM`, `OPTION EXPLICIT` | listed as *not yet* in the language definition |
 | `:` between statements on one line | not written yet |
 
@@ -711,6 +800,10 @@ are the ones that bite while typing.
    a number out of the front of text wants a scanner, and there is none in the
    file the compiler writes.
 7. **`DECLARE` does nothing**, because nothing needs declaring.
+8. **An array name means one array in the whole listing.** QBasic lets two
+   procedures each `DIM` a `Temp` of their own; here the second one is
+   *dimensioned twice*. Bounds are settled while compiling and are looked up by
+   name, so the name has to be the whole of the question.
 
 **And two places where SolaBasic follows QBasic against the machine**, which is
 worth knowing because the machine's answer is the one you would get by guessing.

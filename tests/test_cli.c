@@ -863,7 +863,8 @@ static void test_sola_compiles_a_program_that_runs(void)
 
     static const char *listings[] = { "counter", "spaghetti", "labels",
                                       "structure", "escape", "procedures",
-                                      "byref", "types", "functions", "print" };
+                                      "byref", "types", "functions", "print",
+                                      "arrays" };
     for (size_t i = 0; i < sizeof listings / sizeof listings[0]; i++) {
         char command[512], expected_path[512];
 
@@ -953,6 +954,16 @@ static void test_sola_compiles_a_program_that_runs(void)
     assert(run("bin/solvm " DIR "/deep.sob 2>&1", out, sizeof out) != 0);
     assert(strstr(out, "call depth exceeded") != NULL);
     assert(strstr(out, "in D") != NULL);
+
+    /* A subscript out of range on a multi-dimensional array would otherwise
+       land on a different element rather than off the end -- a(1, 9) in an
+       eight-by-eight is index 9, which is a(2, 1). Answering the wrong element
+       quietly is the one thing this must not do. */
+    system("printf 'DIM g(1 TO 8, 1 TO 8)\\nPRINT g(1, 9)\\n' > " DIR "/sub.bas");
+    assert(run("bin/solvm " DIR "/sola.sob " DIR "/sub.bas " DIR "/sub.sob 2>&1",
+               out, sizeof out) == 0);
+    assert(run("bin/solvm " DIR "/sub.sob 2>&1", out, sizeof out) != 0);
+    assert(strstr(out, "subscript 2 of G is above 8") != NULL);
 
     printf("  %zu SolaBasic listings compile, run and still match\n",
            sizeof listings / sizeof listings[0]);

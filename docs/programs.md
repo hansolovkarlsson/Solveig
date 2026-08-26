@@ -951,9 +951,9 @@ i = 5
 counted to 5
 ```
 
-**Stages 1, 2, 3 and 4** of the eight [SOLABASIC.md](SOLABASIC.md) lists, plus
-the half of stage 6 that is `PRINT`'s real formatting — which leaves arrays,
-`INPUT`, files, `PRINT USING` and the QuickBASIC comparison harness. Stage 3 —
+**Stages 1 to 5** of the eight [SOLABASIC.md](SOLABASIC.md) lists, plus the half
+of stage 6 that is `PRINT`'s real formatting — which leaves `INPUT`, files,
+`PRINT USING` and the QuickBASIC comparison harness. Stage 3 —
 `GOTO` and labels — went first, because it is the claim the whole design rests on
 and the document says to reach it in week one rather than week six. Stage 2 is
 the structured half, stage 4 is procedures, and
@@ -1106,8 +1106,23 @@ a token's text without its kind, so the string literal `"-"` answered yes to
 `IF x > 80 THEN CALL Wrap` was refused. Neither was reachable from anything in
 this repository until a real program was written.
 
-**What is not here is the rest of stages 5 to 7**: no arrays, no `DIM`, no
-files, no `PRINT USING`.
+**Stage 5's by-reference was free, which is the opposite of what a scalar
+cost.** A Solum array *is* a reference, so `Sort(n(), 6)` hands the array over
+and the callee's `atPut` writes the caller's storage because it is the same
+array — no box, no analysis, nothing to keep alive across the call. And the
+bounds being constant means most of the index arithmetic happens while
+compiling: `a(i)` is `i - low + 1`, and a second dimension multiplies by a
+stride the compiler already knows.
+
+**Every subscript of a multi-dimensional array is checked, and a
+one-dimensional one is not.** One out of range would otherwise land on a
+*different element* rather than off the end — `a(1, 9)` in an eight-by-eight is
+index 9, which is `a(2, 1)` — and answering the wrong element quietly is the one
+thing this must not do. A one-dimensional array has nowhere for a bad subscript
+to go except outside the array, and the machine refuses that itself.
+
+**What is not here is the rest of stages 6 and 7**: no `INPUT`, no files, no
+`PRINT USING`, and no comparison against a real QuickBASIC.
 
 ## Adding one
 

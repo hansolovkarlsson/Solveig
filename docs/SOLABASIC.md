@@ -480,7 +480,12 @@ answers nought for junk; this one wants the whole string to be a number. Reading
 a number out of the front of text wants a scanner, and there is no library in
 the file the compiler writes to hold one.
 
-**6. Procedures are resolved before compilation.** QBasic requires `DECLARE` for
+**6. An array name means one array in the whole listing.** QBasic lets two
+procedures each `DIM` a `Temp` of their own; here the second is *dimensioned
+twice*. And an array parameter is one-dimensional — a bigger one's strides would
+have to travel with it.
+
+**7. Procedures are resolved before compilation.** QBasic requires `DECLARE` for
 a procedure used before it is defined, and QB's editor writes them for you.
 SolaBasic takes a pass first, so `DECLARE` is accepted and does nothing.
 
@@ -556,6 +561,30 @@ jump into the middle of an instruction and a jump to a point at a different
 stack depth are each refused *at load*, exit 65, as a message rather than a
 crash. The depth-0 discipline is load-bearing rather than tidy, and nothing in
 the design section above needed changing.
+
+**2026-08-26 — stage 5, and an array is already a reference.**
+`DIM` with constant bounds and up to eight dimensions, `OPTION BASE`, `CONST`,
+`DIM SHARED`, and arrays passed to procedures.
+
+**By-reference for an array is free**, which is the finding — and it is the
+opposite of what a scalar cost. A Solum array *is* a reference, so `Sort(n(), 6)`
+hands the array over and the callee's `atPut` writes the caller's storage
+because it is the same array. No box, no analysis, nothing to keep alive.
+
+**Every subscript of a multi-dimensional array is checked, and a
+one-dimensional one is not.** One out of range would otherwise land on a
+*different element* rather than off the end — `a(1, 9)` in an eight-by-eight is
+index 9, which is `a(2, 1)` — and answering the wrong element quietly is the one
+thing this must not do. A one-dimensional array needs no check, because there is
+nowhere for a bad subscript to go except outside the array and the machine
+refuses that itself.
+
+**Two things are narrower than QBasic and are recorded as divergences.** An
+array name means one array in the whole listing, where QBasic lets two
+procedures each `DIM` a `Temp` of their own — bounds are settled while compiling
+and looked up by name, so the name has to be the whole of the question. And an
+array parameter is one-dimensional, because the strides of a bigger one would
+have to travel with it and there is no descriptor to carry them.
 
 **2026-08-26 — stage 1: types first, then everything else falls out.**
 The three types, the whole operator table and all twenty-seven supplied
@@ -671,7 +700,7 @@ The language above is the finish line. The order to reach it in:
 | **2** | **Done.** `IF` in both shapes, `SELECT CASE`, `FOR`/`NEXT`, `DO`/`LOOP`, `WHILE`/`WEND`, `EXIT FOR` and `EXIT DO`, all compiled to jumps. |
 | **3** | **Done, and first, as this table said it should be.** `GOTO` and labels, forwards and backwards, to any label in the program. What it found is below. |
 | **4** | **Done.** `SUB`, `FUNCTION`, `CALL`, locals, `SHARED`, `STATIC`, `EXIT SUB`/`EXIT FUNCTION`, and by-reference parameters. |
-| **5** | Arrays, `DIM`, `OPTION BASE`. |
+| **5** | **Done.** `DIM` with constant bounds and up to eight dimensions, `OPTION BASE`, `CONST`, `DIM SHARED`, and arrays passed to procedures. |
 | **6** | `INPUT`, files, `PRINT USING`. **`PRINT`'s own rules are done** — see stage 1. |
 | **7** | The QuickBASIC 4.5 comparison harness, and the divergence list settled against it. |
 
