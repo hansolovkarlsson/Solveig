@@ -11,6 +11,103 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-25 (last thing) — a question answered no, which found two bugs anyway
+
+0.34.0 went out, and then the day ended on three questions and no new capability.
+Two of them were answered *no*, and one of those two was the most productive
+thing in the hour.
+
+### The release, and a tag in the wrong place
+
+Cutting it found the three unreleased changelog entries in **oldest-first order**
+in a file that is newest-first everywhere else. Each had been inserted directly
+above the previous version heading rather than at the top, so each new entry
+landed *below* the one before it. Three entries is small; the habit is not, and
+it would have gone on doing that for ever.
+
+Then the journal was asked for before the tag, which is the right order and left
+`v0.34.0` pointing at the journal commit rather than at the one titled
+*Release 0.34.0*. The content is right — the tarball contains the entry
+describing the release — and the tag no longer sits on the commit named for it.
+Not worth re-tagging, worth writing down.
+
+### Octal: no, and here is what asking found
+
+*"Perhaps we need a prefix for octal codes too? Or maybe it's too rarely used."*
+
+The second half was right, and the reasoning matters more than the answer. `$`
+and `%` went in because there was a **documented gap with a program behind it**:
+`asBase` could print hex and binary and nothing could read one back. That gap is
+closed. Octal's remaining case is Unix file modes, this repository has exactly
+one site that writes one, and it is an example rather than a program. Binary
+covers it and covers it better — `%111101101` shows *why* 755 means what it
+does, where `&755` only repeats what you already knew.
+
+The counter-argument deserved a fair hearing: 2, 8 and 16 are a conventional
+trio, and 3.14's lesson was that half-sets invite the rest one at a time. It does
+not hold, and the difference is worth keeping: **3.14's extra messages were
+justified by correctness** — a hand-written `asin` is wrong near ±1 — and there
+is no correctness argument here. `#493` is exactly right, only unreadable.
+
+**But going to look found two things stale.** `examples/files.sol` still said
+*"There is no octal literal in this language — an integer is written #493"*,
+which is a sentence describing precisely the gap `%` had closed the day before.
+`examples/numbers.sol` reached for `"111":asInteger(#8)` in a comment where
+`%111` now does. The commit that added the literals had updated the reference's
+file-mode passage and missed the two examples saying the same thing.
+
+### A trigger, measured rather than remembered
+
+Asked what was next, the useful move was to check the one deferred idea with a
+**measurable** trigger: splitting the reference, which fires *when the message
+reference is longer than everything above it*.
+
+```text
+above the message reference   2,220 lines   (was ~1,910)
+the message reference         1,026 lines   (was ~700)
+```
+
+Both halves grew and the ratio barely moved. Not fired — and now checked against
+a number instead of a feeling, which is the whole reason that entry chose a
+measurable trigger over a judgement.
+
+### And a scope, for the shape nothing has taken
+
+Every program here reads input, does its job and forgets. `changed.sol` would
+report what has been added, removed or modified in a directory **since the last
+time it was run** — the purest form of state outliving a process, since a run
+with no memory cannot answer the question at all.
+
+The prediction on the record before any of it is written: **the file API is
+whole-file only** — no handles, no seek, no partial read — so a store is read
+with `readFile`, all of it or none. And a positive prediction too:
+`makeDirectory` answers true if it made one and false if a directory was there,
+which is a test-and-set, and is the only atomic lock the language has.
+
+---
+
+### Postmortem
+
+1. **A change landed in three places out of five.** The literals commit updated
+   the reference where it described the gap and missed two examples describing
+   the same gap in the same words. What would have caught it is a grep for the
+   *claim* — "no octal literal" — rather than for the feature. I searched for
+   where the feature would be used and not for where its absence was written
+   down.
+
+2. **The answer was no and the work was real**, which is worth noting because
+   the temptation with a proposal is to treat building it as the productive
+   outcome. Going to look at whether octal was wanted is what found the stale
+   passages; agreeing and adding `&` would have shipped a third prefix and left
+   both sentences wrong.
+
+3. **Inserting above the wrong anchor built a habit**, not a mistake. Each
+   changelog entry went above `## 0.33.0` because that was the nearest landmark,
+   and each was individually reasonable. The file's ordering is a property of
+   the whole, and no single edit was in a position to notice.
+
+---
+
 ## 2026-08-25 (evening) — a suite written by strangers, and a number that left
 
 0.33.0 shipped at 15:52. What followed was the only hour of the day that
