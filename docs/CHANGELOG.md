@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### Substitution, and a claim about absence that was wrong when it was written — `pending`, 2026-08-26
+### Substitution, and a claim about absence that was wrong when it was written — `6156a6c`, 2026-08-26
 
 **`:s/find/replace/` in [programs/edit.sol](../programs/edit.sol)**, with `/g`
 for every match on the line and `:%s` for every line in the file. `&` in a
