@@ -5,6 +5,26 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### A word count, which found nothing — `0c22c00`, 2026-08-26
+
+**A third real program**: read a text, split it on anything that is not a
+letter, tally the words in parallel arrays, sort by count then alphabetically,
+and lay out the table.
+
+**Written to work the string functions hard** — that being where the
+hand-emitted clamping lives and the likeliest place left for an edge to be
+wrong. `MID$` a character at a time down a line, `UCASE$` on each, string
+comparison for the sort, concatenation in a loop, `LINE INPUT #` over a file,
+and two arrays of *different types* handed to one procedure, which nothing had
+done before.
+
+**It matched QuickBASIC byte for byte on the first run and asked for nothing.**
+
+That is the first real program here to find neither a defect nor a missing
+feature, and it is a result rather than a quiet success: the two before it found
+four things between them, and this one was pointed at the likeliest remaining
+weak spot and came back clean. Twenty `agree/` programs.
+
 ### Conway's Life, and the two things it wanted — `c465ab0`, 2026-08-26
 
 **A second real program**: Life on a grid, the canonical BASIC one and the only
