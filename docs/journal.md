@@ -11,6 +11,68 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-26 (eighth) — the first big file, and where a library's speed lives
+
+The editor has been finished for an hour and had never been opened on anything
+bigger than the four-line sample its own tests use. So: fifty thousand lines,
+2.3 MB, generated.
+
+Loading it, going to the end, searching, editing, undoing — 0.03 to 0.05
+seconds, all of it. Then `:%s/alpha/ALPHA/g` across the whole file: **7.7
+seconds.** That is not slow. That is a hang, and it is the sort of thing a
+program only tells you when you give it work of the size somebody would actually
+have.
+
+### Both faults were the program's, which is worth saying
+
+The instinct after a number like that is to blame the interpreter. It was not
+the interpreter.
+
+**The matcher tried a match at every position of every line.** A pattern
+starting with a plain literal can only match where that character is — so work
+that character out once, when the pattern is compiled, and ask `indexOf` where
+the next candidate is. `indexOf` is a primitive: it scans in C.
+
+| | before | after |
+| --- | --- | --- |
+| `alpha` over 50k lines | 2.45 s | 1.08 s |
+| `zeta` over 50k lines | 2.20 s | 0.27 s |
+
+The spread between those two is the interesting part. The win is not the
+scanning, it is **the verifying that no longer happens**: `zeta` has few false
+candidates and `alpha` has many, and the matcher still has to check each one it
+lands on. So the optimisation is worth most exactly where a search is worth
+least, which is a pleasing sort of unfairness.
+
+**And the editor walked every line twice** — `countIn` for the report, then
+`replaceAllIn` to do the work. That second walk was two seconds of the seven.
+The library answers both in one walk now, in a dictionary, the way `capture`
+answers `"output"` and `"status"`. I had argued for the count on the grounds
+that comparing texts would under-report a substitution that replaces something
+with itself; that argument survives, and paying for it twice did not.
+
+**7.7 s to 2.4 s.** Same 32,818 lines changed, all 136 behaviour checks unmoved.
+
+### Where a library's speed lives
+
+This is the number to keep:
+
+    string:indexOf over 50,000 lines          0.007 s
+    the same scan written as a Solum loop     0.854 s
+
+**A hundred and twenty times.** Everything a library written in this language
+does in a loop over characters is paying that, and the way to be fast is not to
+write a tighter loop — it is to find the primitive that already does the walking
+and hand the work across the boundary to it. The leader is exactly that trick:
+it does not make the matcher faster, it makes the matcher run less often.
+
+I do not think that is special to Solum. It is what every regular expression
+engine in a scripting language does — Python's `re` scans in C for a literal
+prefix for the same reason — and it is the sort of thing you can only see once
+you have measured the two sides of your own boundary.
+
+---
+
 ## 2026-08-26 (seventh) — `.` and the bug that only a command running commands could find
 
 The last piece of vi's grammar the editor did not have. Two ways to build it,

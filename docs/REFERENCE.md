@@ -783,6 +783,7 @@ pattern:on("[0-9]"):find("port 80"):print.   ; #6
 | `replaceIn(text, with)` | the text with the **first** match replaced |
 | `replaceAllIn(text, with)` | the same, for every match |
 | `countIn(text)` | how many non-overlapping matches there are |
+| `substitutionIn(text, with, all)` | a dictionary of the new `"text"` and the `"count"` of changes, in one walk |
 
 The language is seven things: a character matching itself, `.` for any one, `*`
 for zero or more of the item before it, `[abc]` `[a-z]` `[^abc]` for a class,
@@ -815,7 +816,20 @@ only answer that terminates.
 
 **`countIn` exists because a substitution has to report a number** and cannot
 get it by comparing the text with itself: replacing `a` with `a` changes nothing
-and is still a substitution.
+and is still a substitution. **`substitutionIn` answers both in one walk**, the
+way `capture` answers `"output"` and `"status"` — counting the matches and then
+replacing them walks every line twice, which over fifty thousand lines is
+seconds rather than milliseconds.
+
+**A pattern that begins with a plain literal searches by `indexOf`.** Every
+match must start with that character, so the search asks a primitive where the
+next candidate is instead of trying `matchFrom` at every position — 2.45s to
+1.08s over fifty thousand lines for `alpha`, and 2.20s to 0.27s for `zeta`, the
+difference between those two being how often the first character turns up as a
+candidate that still has to be checked. A pattern beginning with `.`, a class or
+anything starred has no such character and searches as it always did. A pattern
+also knows the shortest match it can make, and stops looking when fewer
+characters than that are left.
 
 **The pattern is compiled once**, because the caller is usually a search — the
 same pattern against a hundred thousand lines, and re-reading `[a-z]` at every

@@ -1535,17 +1535,17 @@ edit:runSubstitute := { text | | everywhere, rest, delimiter, parts, source,
           changed := #0.
           total := #0.
           [everywhere:ifElse({ #1 }, { self:row }),
-           everywhere:ifElse({ self:lines:size }, { self:row })]:loop({ r | | was, hits |
-              was := self:lines:at(r).
+           everywhere:ifElse({ self:lines:size }, { self:row })]:loop({ r | | done |
+              ; **One walk of the line, answering the text and the count.**
               ; Counted rather than compared: replacing `a` with `a` changes
               ; nothing and is still a substitution, and a report that said
               ; otherwise would be wrong in the one case somebody is checking.
-              hits := p:countIn(was).
-              hits:greaterThan(#0):ifTrue({
-                  self:setLineAt(r, all:ifElse(
-                      { p:replaceAllIn(was, replacement) },
-                      { p:replaceIn(was, replacement) })).
-                  total := total:add(all:ifElse({ hits }, { #1 })).
+              ; Counting it in a *second* walk was 2.2 seconds of the 7.7 that
+              ; `:%s` over fifty thousand lines used to take.
+              done := p:substitutionIn(self:lines:at(r), replacement, all).
+              done:at("count"):greaterThan(#0):ifTrue({
+                  self:setLineAt(r, done:at("text")).
+                  total := total:add(done:at("count")).
                   changed := changed:add(#1).
                   last := r }) }).
 

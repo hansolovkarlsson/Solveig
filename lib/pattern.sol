@@ -78,6 +78,8 @@ pattern := object:new.
 pattern:source := "".
 pattern:items := nil.
 pattern:anchored := false.          ; the pattern opened with `^`
+pattern:leader := nil.              ; the character every match must begin with
+pattern:least := #0.                ; how many characters the shortest match takes
 
 ; Hung off `pattern` rather than bound beside it, so this file claims **one**
 ; global. [6.21](../docs/COMPLETED.md#621-two-libraries-binding-one-name-collide-silently--done)
@@ -102,6 +104,8 @@ pattern:on := { source | | p, s, item |
     p:source := source.
     p:items := array:new.
     p:anchored := false.
+    p:leader := nil.
+    p:least := #0.
 
     s := scan:on(source).
     s:looksLike("^"):ifTrue({ p:anchored := true. s:step }).
@@ -121,6 +125,12 @@ pattern:on := { source | | p, s, item |
               ; already read it as one.
               s:looksLike("*"):ifTrue({ item:star := true. s:step }).
               p:items:add(item) }) }).
+
+    ; Worked out once, here, because a search asks about them at every position
+    ; of every line and they are properties of the pattern rather than of the
+    ; text.
+    p:leader := p:leaderOf.
+    p:least := p:leastOf.
     p }.
 
 pattern:itemFrom := { s | | item, c |
@@ -189,6 +199,42 @@ pattern:setInto := { item, s | | c, from, to, closed |
 ; gives a character back at a time until the rest of the pattern fits, which is
 ; leftmost-longest and is what everybody's `.*` expects.
 
+; ---------------------------------------------------------------------------
+; Two things a pattern knows about itself
+;
+; **The leader**: if the first item is a plain literal with no `*` after it,
+; every match must begin with that character -- so a search can ask `indexOf`,
+; which is a primitive and scans in C, instead of trying `matchFrom` at every
+; position, which is a loop in Solum. Measured over fifty thousand lines: 2.45s
+; to 1.08s for `alpha`, and **2.20s to 0.27s for `zeta`**, the difference
+; between the two being how often the first character turns up as a false
+; candidate that still has to be checked.
+;
+; A pattern beginning with `.`, a class, or anything starred has no leader and
+; searches as it always did. `[ag]lpha` could in principle jump to either
+; character, and `indexOf` takes one string rather than a set of them, so that
+; is left alone rather than half-done.
+;
+; **The least**: how many characters the shortest possible match takes -- every
+; item that is neither starred nor the `$`. A match that begins later than
+; `size - least + 1` cannot fit, so a search stops there instead of walking to
+; the end of the line. It costs one comparison and saves the tail of every
+; failing search.
+
+pattern:leaderOf := { | first |
+    self:items:size:equals(#0):ifElse({ nil }, {
+        first := self:items:at(#1).
+        first:star:or({ first:kind:equals('literal):not }):ifElse(
+            { nil },
+            { first:value }) }) }.
+
+pattern:leastOf := { | least |
+    least := #0.
+    self:items:do({ item |
+        item:star:or({ item:kind:equals('end) }):ifFalse({
+            least := least:add(#1) }) }).
+    least }.
+
 pattern:accepts := { item, c |
     item:kind:equals('any):ifElse({ true }, {
     item:kind:equals('literal):ifElse({ item:value:equals(c) }, {
@@ -241,11 +287,27 @@ pattern:findFrom := { text, at | | from, found, last |
 
     self:anchored:and({ from:greaterThan(#1) }):ifFalse({
         ; One past the end is a position too: `x*` matches nothing at the end of
-        ; a line, and a search that could not stand there would miss it.
-        last := self:anchored:ifElse({ #1 }, { text:size:add(#1) }).
-        { found:isNil:and({ from:lessOrEqual(last) }) }:whileTrue({
-            self:matchFrom(text, from, #1):notNil:ifTrue({ found := from }).
-            from := from:add(#1) }) }).
+        ; a line, and a search that could not stand there would miss it. A
+        ; pattern that needs characters cannot begin later than the last place
+        ; they fit.
+        last := self:anchored:ifElse(
+            { #1 },
+            { text:size:add(#1):sub(self:least) }).
+
+        { found:isNil:and({ from:lessOrEqual(last) }) }:whileTrue({ | where |
+            ; Where the next candidate is, asked of `indexOf` when the pattern
+            ; knows what it must start with. The slice is what `indexOf` costs
+            ; for want of somewhere to start -- see the note at the top.
+            self:leader:isNil:ifFalse({
+                where := from:greaterThan(text:size):ifElse({ nil }, {
+                    text:copyFrom(from, text:size):indexOf(self:leader) }).
+                where:isNil:ifElse(
+                    { from := last:add(#1) },
+                    { from := from:add(where):sub(#1) }) }).
+
+            from:lessOrEqual(last):ifTrue({
+                self:matchFrom(text, from, #1):notNil:ifTrue({ found := from }).
+                from := from:add(#1) }) }) }).
     found }.
 
 pattern:find := { text | self:findFrom(text, #1) }.
@@ -302,16 +364,24 @@ pattern:replacementFor := { replacement, matched | | out, s, c |
                 { out := out:concat(c) }) }) }).
     out }.
 
-pattern:substituteIn := { text, replacement, all | | out, at, start, stop, done |
+; **Answers the text and how many times it changed**, in a dictionary, the way
+; `capture` answers `"output"` and `"status"`. One walk rather than two: the
+; caller that reports *17 substitutions on 9 lines* would otherwise count the
+; matches and then replace them, and over fifty thousand lines that second walk
+; is seconds. `replaceIn` and `replaceAllIn` are this with the count dropped,
+; for the caller that does not want it.
+pattern:substitutionIn := { text, replacement, all | | out, at, start, stop, done, count, answer |
     out := "".
     at := #1.
     done := false.
+    count := #0.
 
     { done:not }:whileTrue({
         start := self:findFrom(text, at).
         start:isNil:ifElse(
             { done := true },
-            { stop := self:endOfMatchAt(text, start).
+            { count := count:add(#1).
+              stop := self:endOfMatchAt(text, start).
               out := out:concat(text:copyFrom(at, start:sub(#1)))
                         :concat(self:replacementFor(
                             replacement, text:copyFrom(start, stop:sub(#1)))).
@@ -325,15 +395,20 @@ pattern:substituteIn := { text, replacement, all | | out, at, start, stop, done 
     ; What is left, if the last match did not run to the end. One past the end
     ; is a position `copyFrom` will take; two past it is not, and a zero-width
     ; match at the very end leaves the cursor there.
-    out:concat(at:greaterThan(text:size):ifElse(
+    out := out:concat(at:greaterThan(text:size):ifElse(
         { "" },
-        { text:copyFrom(at, text:size) })) }.
+        { text:copyFrom(at, text:size) })).
+
+    answer := dictionary:new.
+    answer:atPut("text", out).
+    answer:atPut("count", count).
+    answer }.
 
 pattern:replaceIn := { text, replacement |
-    self:substituteIn(text, replacement, false) }.
+    self:substitutionIn(text, replacement, false):at("text") }.
 
 pattern:replaceAllIn := { text, replacement |
-    self:substituteIn(text, replacement, true) }.
+    self:substitutionIn(text, replacement, true):at("text") }.
 
 ; How many non-overlapping matches there are, which is what a substitution has
 ; to report and cannot get from comparing the text with itself -- replacing `a`

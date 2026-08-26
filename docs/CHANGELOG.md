@@ -5,6 +5,50 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The matcher stops looking where it cannot match — `pending`, 2026-08-26
+
+**[programs/edit.sol](../programs/edit.sol) was measured on a file worth the
+name for the first time** — 50,000 lines, 2.3 MB — and everything interactive
+was 0.03 to 0.05 seconds. Then `:%s/alpha/ALPHA/g` across the whole file took
+**7.7 seconds**, which is not slow, it is a hang.
+
+Two things were wrong and both were the program's rather than the language's.
+
+**The matcher tried a match at every position of every line.** A pattern
+beginning with a plain literal can only match where that character is, so
+[lib/pattern.sol](../lib/pattern.sol) works that character out when the pattern
+is compiled and asks `indexOf` — a primitive, scanning in C — where the next
+candidate is. Measured over the same 50,000 lines:
+
+| pattern | before | after |
+| --- | --- | --- |
+| `alpha` | 2.45 s | 1.08 s |
+| `zeta` | 2.20 s | **0.27 s** |
+| `theta` | 2.33 s | 0.76 s |
+
+The difference between `alpha` and `zeta` is how often the leading character
+turns up as a candidate that still has to be checked — the win is skipping
+verification, so a rare first character wins more. A pattern beginning with `.`,
+a class or anything starred has no such character and searches as it always did.
+A pattern now also knows **the shortest match it can make** and stops looking
+when fewer characters than that are left.
+
+**And the editor walked every line twice** — once to count the matches for its
+report, once to replace them. `pattern:substitutionIn` answers the new text and
+the count together, in one walk, the way `capture` answers `"output"` and
+`"status"`; `replaceIn` and `replaceAllIn` are that with the count dropped.
+
+**7.7 s to 2.4 s**, the same 32,818 lines changed, and all 136 of the editor's
+behaviour checks unmoved.
+
+**What is left is the honest floor.** `string:indexOf` scans those 50,000 lines
+in 0.007 s and the same scan written as a loop in Solum takes 0.85 s — 120
+times. A library's speed lives at the boundary with the primitives, and the way
+to be fast is to hand the scanning back across it.
+
+No message was added to the language: 138<!--count messages--> messages,
+unchanged. Documented claims go 874 to 876<!--count claims-->.
+
 ### `.` repeats the last change, by repeating its keys — `f362d97`, 2026-08-26
 
 **`.` in [programs/edit.sol](../programs/edit.sol)**, and `3.` to do it three

@@ -94,6 +94,13 @@ pattern:on("x*"):replaceAllIn("abc", "-"):display.       ; -a-b-c-
 pattern:on("an"):countIn("banana"):print.                ; #2
 pattern:on("q"):countIn("banana"):print.                 ; #0
 
+; `substitutionIn` answers both in one walk of the text -- the new text and how
+; many times it changed -- which is what a program replacing across a whole file
+; wants and what `replaceAllIn` is with the count dropped.
+done := pattern:on("an"):substitutionIn("banana", "AN", true).
+done:at("text"):display.                                 ; bANANa
+done:at("count"):print.                                  ; #2
+
 ; ---------------------------------------------------------------------------
 ; A pattern that will not read
 ;

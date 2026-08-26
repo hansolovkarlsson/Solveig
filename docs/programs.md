@@ -365,7 +365,7 @@ line prints.
 ```
 
 Over `examples/` alone that is 26<!--count examples-files--> files and
-510<!--count examples-claims--> claims:
+512<!--count examples-claims--> claims:
 
 ```text
 21 files with expectations, 402 claims checked
@@ -388,7 +388,7 @@ table had when [disasm](#disasm--a-sob-file-read-and-disassembled) found it
 three sections out of date. They are also the first thing a newcomer reads.
 
 **It is in `make test` now**, in `tests/test_cli.c` with the other tests that
-run the binaries as a shell would — **874<!--count claims--> claims on every build**, in about
+run the binaries as a shell would — **876<!--count claims--> claims on every build**, in about
 sixteen seconds, and it fails the build if one stops holding.
 
 **And it checks the documentation too.** The guide and the reference carry the
@@ -435,7 +435,7 @@ no notation saying what it counts — so it is given one, which renders as nothi
 and leaves the sentence as it was:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 874<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 876<!--count claims--> claims
 ```
 
 Each name is recounted from the repository as it stands. A name the table does
@@ -888,6 +888,25 @@ of its own, and the count was being cleared *after* an action ran rather than
 before — so the `3` of a replayed `3x` joined the count still pending and `x3.`
 deleted the whole line. An action that runs other commands has to start from a
 clean state, and nothing before `.` had ever run one.
+
+**And then it was measured on a file worth the name**, which nothing here had
+done: 50,000 lines, 2.3 MB. Loading, moving to the end, searching, editing and
+undoing are all 0.03–0.05 s — and `:%s/alpha/ALPHA/g` across the whole file took
+**7.7 seconds**, which is not slow, it is a hang.
+
+Two things were wrong and both were the program's rather than the language's.
+The matcher tried a match at **every position of every line**, where a pattern
+beginning with a plain literal can ask `indexOf` — a primitive, scanning in C —
+where the next candidate is. And the editor walked every line **twice**, once to
+count the matches for its report and once to replace them. The library answers
+both in one walk now, the way `capture` answers `"output"` and `"status"`.
+
+**7.7 s to 2.4 s**, with the same 32,818 lines changed and all 136 behaviour
+checks unmoved. The remaining cost is the matcher itself, which is Solum, and
+that is the honest floor: `string:indexOf` scans those 50,000 lines in 0.007 s,
+and the same scan written as a loop here takes 0.85 s. **A library's speed lives
+at the boundary with the primitives**, and the way to be fast is to hand the
+scanning back across it.
 
 **What it does not do**: no `U` — vi's *undo every change on this line* is a
 different mechanism, not a level of this one. No `c`, no `e f t`, no named
