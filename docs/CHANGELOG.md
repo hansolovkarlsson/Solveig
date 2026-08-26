@@ -5,6 +5,27 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The corpus covers GOTO now, and finds nothing — `b757f07`, 2026-08-26
+
+**Five programs into [oracle/agree/](../programs/sola/oracle/agree/)**, closing
+the biggest hole in the coverage: `GOTO` forwards and backwards, a jump out of a
+block, a label just before `NEXT`, two loops woven from nothing but `GOTO`,
+numeric labels that descend, the three-deep by-reference chain, and the numeric
+functions with their edges.
+
+**`GOTO` was not tested against QuickBASIC at all** — a hole in the middle of
+the design, it being the claim everything else stands on, and the only thing
+holding it was a transcript this compiler recorded of itself.
+
+**All fourteen match, and nothing new turned up.** That is a result rather than a
+non-event: three defects came out of the first fourteen programs, and the five
+written to close the widest gap came out clean.
+
+**And one thing was settled.** [SOLABASIC.md](SOLABASIC.md) says a number at the
+start of a line is a label and not a line number, taken from CB80, and that
+labels need not ascend — whether QuickBASIC agreed was not known when that was
+written. It does. The rule is not a divergence and the list needs no entry.
+
 ### INPUT, and two more things the oracle found — `3e0caae`, 2026-08-26
 
 **`INPUT` and `LINE INPUT`**, matching QuickBASIC byte for byte. A prompt
