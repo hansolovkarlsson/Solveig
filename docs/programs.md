@@ -1123,7 +1123,7 @@ to go except outside the array, and the machine refuses that itself.
 
 **And it is compared against a real QuickBASIC**, which is the only check here
 that can find something nobody thought of — everything else this compiler is
-held to is a transcript recorded by its own author. **Eighteen programs match byte for
+held to is a transcript recorded by its own author. **Nineteen programs match byte for
 byte**, five differ exactly where the language definition says they should, and
 the comparison has found **four real defects that the transcripts did not** —
 one of which a transcript had recorded as correct.

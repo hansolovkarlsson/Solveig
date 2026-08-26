@@ -374,8 +374,15 @@ END SUB
 CALL Sort(n(), 6)
 ```
 
-An array parameter is **one-dimensional**, and its subscripts start at
-`OPTION BASE`.
+**An array parameter may have any number of dimensions.** Its bounds are not
+written on it — they are read off the places it is called from, because that is
+where the arrays are. Every array handed to one parameter must be the same
+shape, and a listing that hands it two is refused rather than answering the
+wrong element.
+
+**Spell the array's type on the parameter** — `g%()` rather than `g()` — if the
+listing is also to compile under QuickBASIC, which will not take the type from a
+`DEF` there.
 
 **A subscript out of range is refused when the program runs.** For an array of
 more than one dimension the compiler checks each subscript by name and says
@@ -521,8 +528,9 @@ ELSE
 END IF
 ```
 
-A one-line `IF` holds **one** statement on each side, and it may not be a
-statement that opens a block.
+A one-line `IF` may hold several statements, separated by `:`, and they all
+belong to the arm. What it may not hold is a statement that **opens a block**,
+whose closing line would have nowhere to be.
 
 ### SELECT CASE
 
@@ -920,7 +928,7 @@ each belongs to is in [SOLABASIC.md](SOLABASIC.md#stages).
 | random-access files — `GET`, `PUT`, `FIELD`, `LOF`, `SEEK` | not written yet; sequential files are here |
 
 | `LBOUND`, `UBOUND` | not written yet — an array's bounds are in the listing that `DIM`med it |
-| an array parameter of more than one dimension | not written yet; its strides would have to travel with it |
+
 | `ON ERROR`, `TYPE`, `REDIM`, `OPTION EXPLICIT` | listed as *not yet* in the language definition |
 
 

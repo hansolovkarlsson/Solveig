@@ -612,6 +612,31 @@ stack depth are each refused *at load*, exit 65, as a message rather than a
 crash. The depth-0 discipline is load-bearing rather than tidy, and nothing in
 the design section above needed changing.
 
+**2026-08-26 — a second program, and it asked for more.**
+Conway's Life on a grid, which is the canonical BASIC program and the only
+thing here that works a two-dimensional array hard. It wanted two things and
+found a third.
+
+**An array parameter may now have any number of dimensions.** This was on the
+*not yet* list with the reason *its strides would have to travel with it* — and
+they need not. **The bounds are read off the call sites**, every array handed to
+one parameter having to be the same shape, and a listing that hands it two being
+refused rather than answering the wrong element. A descriptor travelling with
+the array would cost every subscript in the language a lookup to buy a case this
+refuses out loud.
+
+**An array element could not be assigned on a one-line `IF`.**
+`IF n = 3 THEN nxt%(r, c) = 1` is as ordinary as `IF n = 3 THEN x = 1`, and the
+list of what may go there had simply never had `'arrayset` added to it. Nor the
+file statements. It has now.
+
+**And QuickBASIC wants the type spelled on an array parameter** — `g%()` and not
+`g()` — where SolaBasic will take it from a `DEF`. That is SolaBasic being the
+more permissive of the two, so a listing written here may not compile there; it
+is in the reference manual where somebody writing one will look.
+
+**Nineteen `agree/` programs.**
+
 **2026-08-26 — a real program, and what it asked for.**
 Not a feature but a *program*: a sales report that reads records out of a file
 into parallel arrays, totals them, and lays out a table. Written to find out

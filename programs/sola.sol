@@ -636,7 +636,11 @@ sola:parseStatement := { st | | t |
 ; closing line would have nowhere to be. Everything else can, and `CALL` in
 ; particular -- `IF x > 80 THEN CALL Wrap` is how BASIC is written, and leaving
 ; it out was found by the runtime below failing to compile.
-inlineKinds := ['let, 'print, 'goto, 'end, 'exit, 'call, 'randomize, 'rem].
+; Anything that is not a block may go on one. `IF c THEN a(i) = 1` is as
+; ordinary as `IF c THEN x = 1`, and leaving the first out was found by a
+; program that wanted it rather than by anything looking.
+inlineKinds := ['let, 'arrayset, 'print, 'goto, 'end, 'exit, 'call, 'randomize,
+                'rem, 'input, 'lineinput, 'open, 'close, 'write].
 
 ; The label a jump names. A word or a number, and nothing else -- the error
 ; here is worth naming because the mistake is almost always a later BASIC:
@@ -3168,6 +3172,62 @@ sola:typeOfCall := { n | | answers |
             { self:fail("there is no SUB, FUNCTION or array called '{}' -- an "
                 :concat("array is DIMmed before it is used"):fill([n:name])) }) }) }) }.
 
+; ---------------------------------------------------------------------------
+; What shape an array parameter has
+;
+; The bounds of an array are settled while compiling, and a parameter's are not
+; -- they arrive with whatever is passed. **So they are read off the call
+; sites.** Every array handed to a given parameter is looked at, and if they all
+; agree the parameter has that shape; if two disagree the listing is refused,
+; naming both, rather than a wrong element being answered quietly.
+;
+; That is what lets a two-dimensional array be passed at all. A descriptor
+; travelling with the array would be the other way, and would cost every
+; subscript in the language a lookup to buy a case this one refuses out loud.
+
+sola:arrayShapes := nil.
+
+sola:shapeKey := { name, i | name:concat(" "):concat(i:asString) }.
+
+sola:sameShape := { a, b | | same, i |
+    a:size:equals(b:size):ifElse(
+        { same := true.
+          i := #1.
+          { i:lessOrEqual(a:size) }:whileTrue({
+              a:at(i):at(#1):equals(b:at(i):at(#1))
+                  :and({ a:at(i):at(#2):equals(b:at(i):at(#2)) }):ifFalse({
+                  same := false }).
+              i := i:add(#1) }).
+          same },
+        { false }) }.
+
+sola:resolveArrayShapes := {
+    self:arrayShapes := dictionary:new.
+    self:routineOrder:do({ r | self:shapesFromCalls(r:body) }).
+    self:shapesFromCalls(self:statements) }.
+
+sola:shapesFromCalls := { body |
+    self:callsIn(body):do({ c |
+        self:routines:includes(c:at(#1)):ifTrue({ | callee, i, arg, key, bounds |
+            callee := self:routines:at(c:at(#1)).
+            i := #1.
+            { i:lessOrEqual(c:at(#2):size)
+                :and({ i:lessOrEqual(callee:params:size) }) }:whileTrue({
+                callee:arrayParams:at(i):and({
+                    c:at(#2):at(i):kind:equals('arrayref) }):ifTrue({
+                    arg := c:at(#2):at(i).
+                    self:arrays:includes(arg:name):ifTrue({
+                        bounds := self:arrays:at(arg:name):at(#1).
+                        key := self:shapeKey(c:at(#1), i).
+                        self:arrayShapes:includes(key):ifElse(
+                            { self:sameShape(self:arrayShapes:at(key), bounds):ifFalse({
+                                  self:fail("{}'s {} is given arrays of two shapes, "
+                                      :concat("and its subscripts are worked out while ")
+                                      :concat("compiling")
+                                      :fill([c:at(#1), callee:params:at(i)])) }) },
+                            { self:arrayShapes:atPut(key, bounds) }) }) }).
+                i := i:add(#1) }) }) }) }.
+
 sola:emitReturnValue := {
     self:returnName:equals(""):ifElse(
         { self:emitNil },
@@ -3192,8 +3252,12 @@ sola:emitRoutine := { r | | method, index, i |
     r:params:do({ p | self:newLocal(p) }).
     i := #1.
     { i:lessOrEqual(r:params:size) }:whileTrue({
-        r:arrayParams:at(i):ifTrue({
-            self:arrayParams:atPut(r:params:at(i), [[self:optionBase, nil]]) }).
+        r:arrayParams:at(i):ifTrue({ | key |
+            key := self:shapeKey(r:name, i).
+            self:arrayParams:atPut(r:params:at(i),
+                self:arrayShapes:includes(key):ifElse(
+                    { self:arrayShapes:at(key) },
+                    { [[self:optionBase, nil]] })) }).
         i := i:add(#1) }).
     i := #1.
     { i:lessOrEqual(r:params:size) }:whileTrue({
@@ -3903,6 +3967,7 @@ sola:compile := { source, path |
                 self:declareArray(each:at(#1), [[#1, each:at(#3)]], true) }) }).
         self:readPrelude }).
     self:analyseByRef.
+    self:resolveArrayShapes.
 
     self:atLine := #1.
     self:mark(#1).
