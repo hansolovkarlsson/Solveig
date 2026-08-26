@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### A read that gives up, and a bug found beside it — `pending`, 2026-08-26
+### A read that gives up, and a bug found beside it — `dcf05f5`, 2026-08-26
 
 **`system:keyWaiting(seconds)`** answers true or false: is there a byte to read,
 waiting up to that long for one to arrive.
