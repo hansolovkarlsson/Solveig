@@ -5,6 +5,31 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Conway's Life, and the two things it wanted — `c465ab0`, 2026-08-26
+
+**A second real program**: Life on a grid, the canonical BASIC one and the only
+thing here that works a two-dimensional array hard.
+
+**An array parameter may now have any number of dimensions.** That was on the
+*not yet* list with the reason *its strides would have to travel with it* — and
+they need not. **The bounds are read off the call sites**, every array handed to
+one parameter having to be the same shape, and a listing that hands it two being
+refused by name rather than answering the wrong element. A descriptor travelling
+with the array would cost every subscript a lookup to buy a case this refuses
+out loud.
+
+**An array element could not be assigned on a one-line `IF`.**
+`IF n = 3 THEN nxt%(r, c) = 1` is as ordinary as `IF n = 3 THEN x = 1`, and the
+list of what may go there had never had `'arrayset` in it — nor the file
+statements. All of them do now.
+
+**And QuickBASIC wants the type spelled on an array parameter** — `g%()` and not
+`g()` — where SolaBasic takes it from a `DEF`. SolaBasic is the more permissive,
+so a listing written here may not compile there; that is in the reference manual
+rather than the divergence list, being guidance rather than a different answer.
+
+Nineteen `agree/` programs, and the glider glides.
+
 ### A real program, and what it asked for — `1eb063a`, 2026-08-26
 
 **Not a feature but a program**: a sales report that reads records out of a file
