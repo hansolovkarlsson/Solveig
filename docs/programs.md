@@ -951,9 +951,9 @@ i = 5
 counted to 5
 ```
 
-**Stages 1 to 5** of the eight [SOLABASIC.md](SOLABASIC.md) lists, plus the half
-of stage 6 that is `PRINT`'s real formatting — which leaves `INPUT`, files,
-`PRINT USING` and the QuickBASIC comparison harness. Stage 3 —
+**All eight stages** of [SOLABASIC.md](SOLABASIC.md), and every one of them held
+against a real QuickBASIC 4.5 rather than only against transcripts this compiler
+recorded of itself. Stage 3 —
 `GOTO` and labels — went first, because it is the claim the whole design rests on
 and the document says to reach it in week one rather than week six. Stage 2 is
 the structured half, stage 4 is procedures, and
@@ -1123,7 +1123,7 @@ to go except outside the array, and the machine refuses that itself.
 
 **And it is compared against a real QuickBASIC**, which is the only check here
 that can find something nobody thought of — everything else this compiler is
-held to is a transcript recorded by its own author. **Fifteen programs match byte for
+held to is a transcript recorded by its own author. **Sixteen programs match byte for
 byte**, five differ exactly where the language definition says they should, and
 the comparison has found **four real defects that the transcripts did not** —
 one of which a transcript had recorded as correct.
@@ -1148,8 +1148,9 @@ SolaBasic standing in as its own oracle — every `agree/` matched and every
 `differ/` was reported as having lost its divergence, which is exactly what that
 arrangement should produce — so the mechanism is not taken on trust either.
 
-**What is not here is the rest of stage 6**: no `INPUT`, no files, no
-`PRINT USING`.
+**What is not here** is what the language definition marked *not yet* from the
+start: random-access files, `ON ERROR`, `TYPE`, `REDIM`, `OPTION EXPLICIT`, and
+`:` between statements on one line.
 
 ## Adding one
 

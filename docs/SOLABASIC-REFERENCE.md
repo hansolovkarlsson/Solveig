@@ -45,6 +45,7 @@ compiles a demonstration and tells you how to run it.
 - **[Jumping](#jumping)** — `GOTO`
 - **[Procedures](#procedures)** — `SUB` · `FUNCTION` · `CALL` · `SHARED` · `STATIC` · `DECLARE`
 - **[Reading](#reading)** — `INPUT` · `LINE INPUT`
+- **[Files](#files)** — `OPEN` · `CLOSE` · `PRINT #` · `WRITE #` · `INPUT #` · `EOF`
 - **[Stopping](#stopping)** — `END`
 - **[What is not here yet](#what-is-not-here-yet)**
 - **[Where this is not QBasic](#where-this-is-not-qbasic)**
@@ -835,6 +836,57 @@ LINE INPUT "A WHOLE LINE: "; whole$
 
 ---
 
+## Files
+
+Sequential only.
+
+```basic
+OPEN "data.txt" FOR OUTPUT AS #1
+PRINT #1, "a line"
+WRITE #1, "Hans", 42
+CLOSE #1
+
+OPEN "data.txt" FOR INPUT AS #1
+DO UNTIL EOF(1)
+  LINE INPUT #1, line$
+  PRINT line$
+LOOP
+CLOSE #1
+```
+
+| | |
+| --- | --- |
+| `OPEN path FOR INPUT AS #n` | reading, from the start |
+| `OPEN path FOR OUTPUT AS #n` | writing, replacing what was there |
+| `OPEN path FOR APPEND AS #n` | writing, onto the end |
+| `CLOSE #n[, #n]...` | closes those; **`CLOSE` on its own closes them all** |
+| `PRINT #n, ...` | as `PRINT`, zones and all, into the file |
+| `PRINT #n, USING f; ...` | as `PRINT USING` |
+| `WRITE #n, ...` | commas between the items and quotes round the text |
+| `INPUT #n, var[, var]...` | one line, split on commas, quotes taken off |
+| `LINE INPUT #n, var$` | the line whole |
+| `EOF(n)` | true once there is no more to read |
+
+**`WRITE #` is the form `INPUT #` reads back.** A comma inside quotes does not
+separate, so text with one in it survives the round trip. `PRINT #`'s spacing is
+for a person to look at.
+
+File numbers are `1` to `15`, and the `#` is not part of the number — `#N%`
+names a channel too.
+
+**A file open for writing is written when it is closed**, and stopping the
+program closes it. There is no streaming underneath: a channel open for reading
+holds the file, and one open for writing holds what has been written.
+
+> **Lines are ended with a line feed**, where QBasic ends them with a carriage
+> return and a line feed. A carriage return at the end of a line read back is
+> taken off, so a file written by either can be read by this — but a file
+> written here has DOS's other convention.
+
+Random access — `GET`, `PUT`, `FIELD`, `LOF`, `LOC`, `SEEK` — is not here.
+
+---
+
 ## Stopping
 
 `END` stops the program. It may appear anywhere, including on a one-line `IF`.
@@ -848,7 +900,7 @@ each belongs to is in [SOLABASIC.md](SOLABASIC.md#stages).
 
 | | |
 | --- | --- |
-| files — `OPEN`, `CLOSE`, `PRINT #`, `INPUT #`, `EOF` | stage 6, and the last of it |
+| random-access files — `GET`, `PUT`, `FIELD`, `LOF`, `SEEK` | not written yet; sequential files are here |
 | `INPUT` filling an array element | not written yet; it fills variables |
 | `LBOUND`, `UBOUND` | not written yet — an array's bounds are in the listing that `DIM`med it |
 | an array parameter of more than one dimension | not written yet; its strides would have to travel with it |
@@ -892,6 +944,9 @@ are the ones that bite while typing.
    procedures each `DIM` a `Temp` of their own; here the second one is
    *dimensioned twice*. Bounds are settled while compiling and are looked up by
    name, so the name has to be the whole of the question.
+9. **A file is written with line feeds**, where QBasic writes a carriage return
+   and a line feed. Reading takes a carriage return off, so a file written by
+   either is readable here; one written here is not in DOS's convention.
 
 **And two places where SolaBasic follows QBasic against the machine**, which is
 worth knowing because the machine's answer is the one you would get by guessing.

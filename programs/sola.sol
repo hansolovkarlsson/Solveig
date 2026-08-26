@@ -9,9 +9,10 @@
 ;
 ; The language is [SolaBasic](../docs/SOLABASIC.md), and there is a
 ; [reference manual](../docs/SOLABASIC-REFERENCE.md) for people who want to
-; write it rather than read about it. Stages 1 to 5 and 7 are here, and so is
-; most of 6: `PRINT`'s real formatting, `PRINT USING`, `INPUT` and `LINE INPUT`.
-; What is left is files.
+; write it rather than read about it. **All eight stages are here**, and every
+; one of them is held against a real QuickBASIC 4.5 by
+; [oracle.sh](sola/oracle.sh) rather than only against transcripts this
+; compiler recorded of itself.
 ;
 ; **Stage 3 went first on purpose** -- it is `GOTO` and labels, the claim the
 ; whole design rests on, and the document says to reach it in week one rather
@@ -184,6 +185,9 @@
 ;                 and a format shorter than the list starts again
 ;   INPUT         one line split on commas, with the prompt beside the answer
 ;   LINE INPUT    the line whole, commas and all
+;   OPEN / CLOSE  sequential files, for INPUT, OUTPUT or APPEND
+;   PRINT # / WRITE #   to a file; WRITE quotes its text and commas its items
+;   INPUT # / LINE INPUT #   back out again, and `EOF(n)` says when to stop
 ;   OPTION BASE   0 or 1, asked once, before the first `DIM`
 ;   CONST         folded where it stands
 ;   assignment    `LET` optional, scalars only
@@ -197,8 +201,8 @@
 ;   RANDOMIZE     reseeds the one generator
 ;   comments      `REM` and `'`
 ;
-; **Not here, and not pretended:** files, `REDIM`, `LBOUND`/`UBOUND`, and an
-; array parameter of more than one dimension. `PRINT`'s real formatting is
+; **Not here, and not pretended:** random-access files, `REDIM`,
+; `LBOUND`/`UBOUND`, and an array parameter of more than one dimension. `PRINT`'s real formatting is
 ; stage 6; here the items of one `PRINT` are joined and shown, with no zones and
 ; no trailing space, so its output is **not** what a BASIC prints. That is a
 ; stage, not a divergence, and it is the one thing here most likely to be
@@ -282,7 +286,7 @@ keywords := ["PRINT", "GOTO", "IF", "THEN", "ELSE", "ELSEIF", "END", "REM",
              "AND", "OR", "XOR", "NOT", "MOD",
              "DEFINT", "DEFLNG", "DEFDBL", "DEFSTR", "RANDOMIZE",
              "DIM", "OPTION", "BASE", "CONST", "AS", "INPUT", "LINE",
-             "USING"].
+             "USING", "OPEN", "CLOSE", "OUTPUT", "APPEND", "WRITE"].
 
 ; ---------------------------------------------------------------------------
 ; A token, and a node
@@ -359,6 +363,7 @@ stmt:shared := false.       ; 'dim: whether a procedure may see it
 stmt:subscripts := nil.     ; 'arrayset: the subscripts of the element assigned
 stmt:arrayParams := nil.    ; 'sub and 'function: which parameters are arrays
 stmt:using := nil.          ; 'print: the format, when there is a USING
+stmt:channel := nil.        ; a file number, when the statement names one
 stmt:body := nil.           ; 'sub and 'function: the statements between them
 
 ; ---------------------------------------------------------------------------
@@ -526,7 +531,7 @@ sola:punctToken := { s | | c |
     c:equals("<"):ifTrue({
         s:match("="):ifElse({ c := "<=" }, { s:match(">"):ifTrue({ c := "<>" }) }) }).
     c:equals(">"):ifTrue({ s:match("="):ifTrue({ c := ">=" }) }).
-    "+-*/(),;=<>:^\\":indexOf(c:at(#1)):isNil:ifTrue({
+    "+-*/(),;=<>:^\\#":indexOf(c:at(#1)):isNil:ifTrue({
         self:fail("'{}' means nothing here":fill([c])) }).
     makeToken:value('punct, c) }.
 
@@ -914,9 +919,75 @@ parsers:atPut("CALL", { m, st |
 ; `INPUT` reads one line and splits it on commas, so several variables are
 ; filled from one answer; `LINE INPUT` reads the line whole, commas and all.
 
+; ---------------------------------------------------------------------------
+; Files
+;
+;     OPEN <path> FOR INPUT|OUTPUT|APPEND AS #<n>
+;     CLOSE [#<n>[, #<n>]...]
+;     PRINT #<n>, ...      WRITE #<n>, ...
+;     INPUT #<n>, ...      LINE INPUT #<n>, <variable$>
+;     EOF(<n>)
+;
+; Sequential only. There is no streaming underneath -- the machine reads and
+; writes whole files -- so a channel open for reading holds the file and one
+; open for writing holds what has been written until it is closed.
+
+modes := dictionary:new.
+modes:atPut("INPUT", #1).
+modes:atPut("OUTPUT", #2).
+modes:atPut("APPEND", #3).
+
+parsers:atPut("OPEN", { m, st | | t |
+    st:kind := 'open.
+    st:expr := m:parseExpression.
+    m:nextIs("FOR"):ifFalse({ m:fail("OPEN needs FOR and a mode") }).
+    m:takeToken.
+    t := m:takeToken.
+    t:isNil:or({ modes:includes(t:text):not }):ifTrue({
+        m:fail("OPEN takes FOR INPUT, FOR OUTPUT or FOR APPEND") }).
+    st:test := modes:at(t:text).
+    m:nextIs("AS"):ifFalse({ m:fail("OPEN needs AS and a file number") }).
+    m:takeToken.
+    st:channel := m:parseChannel.
+    m:expectEndOfLine("OPEN") }).
+
+parsers:atPut("CLOSE", { m, st | | more |
+    st:kind := 'close.
+    st:items := array:new.
+    m:atEndOfLine:ifFalse({
+        more := true.
+        { more }:whileTrue({
+            st:items:add(m:parseChannel).
+            m:nextIs(","):ifElse({ m:takeToken }, { more := false }) }) }).
+    m:expectEndOfLine("CLOSE") }).
+
+parsers:atPut("WRITE", { m, st | | more |
+    st:kind := 'write.
+    st:items := array:new.
+    m:nextIs("#"):ifTrue({
+        st:channel := m:parseChannel.
+        m:nextIs(","):ifTrue({ m:takeToken }) }).
+    m:atEndOfLine:ifFalse({
+        more := true.
+        { more }:whileTrue({
+            st:items:add(m:parseExpression).
+            m:nextIs(","):ifElse({ m:takeToken }, { more := false }) }) }).
+    m:expectEndOfLine("WRITE") }).
+
+; `#1`, and the `#` is not part of the number -- a file number is an expression
+; like any other, so `#N%` names one too.
+sola:parseChannel := {
+    self:nextIs("#"):ifFalse({ self:fail("a file number is written '#1'") }).
+    self:takeToken.
+    self:parseExpression }.
+
 parsers:atPut("INPUT", { m, st |
     st:kind := 'input.
-    m:parseInputPrompt(st).
+    m:nextIs("#"):ifElse(
+        { st:channel := m:parseChannel.
+          m:nextIs(","):ifFalse({ m:fail("INPUT # needs a comma after the number") }).
+          m:takeToken },
+        { m:parseInputPrompt(st) }).
     st:items := m:nameList.
     m:expectEndOfLine("INPUT") }).
 
@@ -924,7 +995,12 @@ parsers:atPut("LINE", { m, st |
     m:nextIs("INPUT"):ifFalse({ m:fail("LINE takes INPUT after it") }).
     m:takeToken.
     st:kind := 'lineinput.
-    m:parseInputPrompt(st).
+    m:nextIs("#"):ifElse(
+        { st:channel := m:parseChannel.
+          m:nextIs(","):ifFalse({
+              m:fail("LINE INPUT # needs a comma after the number") }).
+          m:takeToken },
+        { m:parseInputPrompt(st) }).
     st:items := [m:plainName("LINE INPUT")].
     m:expectEndOfLine("LINE INPUT") }).
 
@@ -1155,6 +1231,10 @@ sola:parsePrint := { st | | t |
     st:kind := 'print.
     st:items := array:new.
     st:seps := array:new.
+    self:nextIs("#"):ifTrue({
+        st:channel := self:parseChannel.
+        self:nextIs(","):ifFalse({ self:fail("PRINT # needs a comma after the number") }).
+        self:takeToken }).
     self:nextIs("USING"):ifTrue({
         self:takeToken.
         st:using := self:parseExpression.
@@ -2567,11 +2647,15 @@ emitters:atPut('input, { m, st | | slot, i, name, spec |
         spec := spec:concat(m:typeOfName(each):equals('string):ifElse(
             { "S" }, { "N" })) }).
 
-    m:emitGlobal("SOLAASK$").
-    st:expr:isNil:ifElse({ m:emitString("") }, { m:emitString(st:expr:value) }).
-    m:emitIntConst(st:test:equals('comma):ifElse({ #0 }, { #1 })).
-    m:emitString(spec).
-    m:emitSend("value", #3).
+    st:channel:isNil:ifElse(
+        { m:emitGlobal("SOLAASK$").
+          st:expr:isNil:ifElse({ m:emitString("") }, { m:emitString(st:expr:value) }).
+          m:emitIntConst(st:test:equals('comma):ifElse({ #0 }, { #1 })).
+          m:emitString(spec).
+          m:emitSend("value", #3) },
+        { m:emitGlobal("SOLAFLINE$").
+          m:emitTyped(st:channel, 'integer).
+          m:emitSend("value", #1) }).
     slot := m:takeScratch.
     m:emitSetLocal(slot).
     m:emitPop.
@@ -2599,10 +2683,50 @@ emitters:atPut('lineinput, { m, st | | name |
     m:typeOfName(name):equals('string):ifFalse({
         m:fail("LINE INPUT reads text, and '{}' is a number":fill([name])) }).
     m:beginAssign(name).
-    m:emitGlobal("SOLAASKLINE$").
-    st:expr:isNil:ifElse({ m:emitString("") }, { m:emitString(st:expr:value) }).
-    m:emitSend("value", #1).
+    st:channel:isNil:ifElse(
+        { m:emitGlobal("SOLAASKLINE$").
+          st:expr:isNil:ifElse({ m:emitString("") }, { m:emitString(st:expr:value) }).
+          m:emitSend("value", #1) },
+        { m:emitGlobal("SOLAFLINE$").
+          m:emitTyped(st:channel, 'integer).
+          m:emitSend("value", #1) }).
     m:endAssign(name) }).
+
+; ---------------------------------------------------------------------------
+; The file statements
+
+emitters:atPut('open, { m, st |
+    m:runtime("SOLAOPEN", {
+        m:emitTyped(st:channel, 'integer).
+        m:emitTyped(st:expr, 'string).
+        m:emitIntConst(st:test) }, #3) }).
+
+emitters:atPut('close, { m, st |
+    st:items:size:equals(#0):ifElse(
+        { m:runtime("SOLACLOSEALL", { nil }, #0) },
+        { st:items:do({ each |
+            m:runtime("SOLACLOSE", { m:emitTyped(each, 'integer) }, #1) }) }) }).
+
+; `WRITE` puts commas between its items and quotes round its text, which is the
+; form `INPUT #` reads back -- where `PRINT #`'s zones and spacing are for a
+; person to look at.
+emitters:atPut('write, { m, st | | i, item |
+    m:onChannel(st, {
+        i := #1.
+        { i:lessOrEqual(st:items:size) }:whileTrue({
+            item := st:items:at(i).
+            i:equals(#1):ifFalse({ m:runtime("SOLAOUT", { m:emitString(",") }, #1) }).
+            m:runtime("SOLAOUT", {
+                item:type:equals('string):ifElse(
+                    { m:emitString("\"").
+                      m:emitTyped(item, 'string).
+                      m:emitSend("concat", #1).
+                      m:emitString("\"").
+                      m:emitSend("concat", #1) },
+                    { m:emitExpression(item).
+                      m:emitSend("asString", #0) }) }, #1).
+            i := i:add(#1) }).
+        m:runtime("SOLAEOL", { nil }, #0) }) }).
 
 emitters:atPut('randomize, { m, st |
     m:emitGlobal("random").
@@ -3171,6 +3295,36 @@ builtins:atPut("SOLAPIPED%", [[], 'integer, 'block,
         m:emitSend("isNil", #0).
         m:materialise('integer) }]).
 
+; Whole-file reading and writing, which is all the machine offers -- there is
+; no streaming here, so a channel open for reading holds the file and a channel
+; open for writing holds what has been written until it is closed.
+builtins:atPut("SOLAREADFILE$", [['string], 'string, 'block,
+    { m, args |
+        m:emitGlobal("system").
+        m:builtinArg(args, #1, 'string).
+        m:emitSend("readFile", #1) }]).
+
+builtins:atPut("SOLAWRITEFILE", [['string, 'string], 'string, 'block,
+    { m, args |
+        m:emitGlobal("system").
+        m:builtinArg(args, #1, 'string).
+        m:builtinArg(args, #2, 'string).
+        m:emitSend("writeFile", #2) }]).
+
+builtins:atPut("SOLAAPPENDFILE", [['string, 'string], 'string, 'block,
+    { m, args |
+        m:emitGlobal("system").
+        m:builtinArg(args, #1, 'string).
+        m:builtinArg(args, #2, 'string).
+        m:emitSend("appendFile", #2) }]).
+
+; `EOF(n)` is the runtime's answer, not an instruction -- it asks the channel.
+builtins:atPut("EOF", [['integer], 'integer, 'block,
+    { m, args |
+        m:emitGlobal("SOLAFEOF%").
+        m:builtinArg(args, #1, 'integer).
+        m:emitSend("value", #1) }]).
+
 builtins:atPut("SOLAFAIL", [['string], 'string, 'block,
     { m, args |
         m:emitGlobal("error").
@@ -3472,6 +3626,19 @@ sola:emitCondition := { n | self:emitTyped(n, 'boolean) }.
 ; and `,` does the same thing as `;`. That is stage 6 and this is stage 3.
 ; A call into the runtime: the block, its arguments, `value`, and the answer
 ; thrown away.
+; A statement that names a file number does its work with the runtime pointed
+; at that channel, and puts it back on the screen afterwards.
+sola:onChannel := { st, body |
+    st:channel:isNil:ifElse(
+        { body:value },
+        { self:emitTyped(st:channel, 'integer).
+          self:emitStore("SOLACH%").
+          self:emitPop.
+          body:value.
+          self:emitIntConst(#0).
+          self:emitStore("SOLACH%").
+          self:emitPop }) }.
+
 sola:runtime := { name, emitArgs, argc |
     self:emitGlobal(name).
     emitArgs:value.
@@ -3507,7 +3674,10 @@ sola:emitFinalFlush := { | done |
         self:emitSend("greaterThan", #1).
         done := self:branchHole.
         self:runtime("SOLAEOL", { nil }, #0).
-        self:fillBranch(done) }) }.
+        self:fillBranch(done).
+        ; A file open for writing has not been written yet, so stopping the
+        ; program has to close it.
+        self:runtime("SOLACLOSEALL", { nil }, #0) }) }.
 
 ; ---------------------------------------------------------------------------
 ; PRINT USING
@@ -3540,7 +3710,10 @@ sola:emitPrintUsing := { st | | i, item |
     st:seps:at(st:seps:size):equals("none"):ifTrue({
         self:runtime("SOLAEOL", { nil }, #0) }) }.
 
-sola:emitPrint := { st | | i, item |
+sola:emitPrint := { st |
+    self:onChannel(st, { self:emitPrintBody(st) }) }.
+
+sola:emitPrintBody := { st | | i, item |
     st:using:notNil:ifTrue({ self:emitPrintUsing(st) }).
     st:using:notNil:ifElse({ nil }, {
     st:items:size:equals(#0):ifElse(
@@ -3610,7 +3783,15 @@ sola:compile := { source, path |
     self:readStatements(source).
     self:extractRoutines.
     self:hasPrelude := self:usesPrint.
-    self:hasPrelude:ifTrue({ self:readPrelude }).
+    ; The runtime's own names have to be known before its source is read, so
+    ; that its procedures see globals where they would otherwise make locals --
+    ; and so that its arrays are arrays.
+    self:hasPrelude:ifTrue({
+        preludeGlobals:do({ each |
+            self:sharedNames:add(each:at(#1)).
+            each:size:equals(#3):ifTrue({
+                self:declareArray(each:at(#1), [[#1, each:at(#3)]], true) }) }).
+        self:readPrelude }).
     self:analyseByRef.
 
     self:atLine := #1.
@@ -3623,10 +3804,11 @@ sola:compile := { source, path |
     self:emitRandomGenerator.
     self:hasPrelude:ifTrue({
         preludeGlobals:do({ each |
-            self:sharedNames:add(each:at(#1)).
-            self:emitZero(each:at(#2)).
-            self:emitStore(each:at(#1)).
-            self:emitPop }) }).
+            each:size:equals(#2):ifElse(
+                { self:emitZero(each:at(#2)).
+                  self:emitStore(each:at(#1)).
+                  self:emitPop },
+                { self:emitMakeArray(each:at(#1), [[#1, each:at(#3)]]) }) }) }).
     self:emitStaticInitialisers.
     self:routineOrder:do({ r | self:emitRoutine(r) }).
     self:statementsOfScope := self:statements.
@@ -3723,8 +3905,14 @@ sola:labelOnly := { label, line | | st |
 ; its procedures shares, and the prelude has no module-level lines to declare
 ; them on -- so the compiler makes them, and puts them where a procedure will
 ; find them rather than shadow them.
+channels := #15.
+
 preludeGlobals := [
-    ["SOLABUF$", 'string],
+    ["SOLABUF$", 'string],  ["SOLACH%", 'integer],
+    ["SOLAFMODE%", 'integer, channels],
+    ["SOLAFPATH$", 'string, channels],
+    ["SOLAFBUF$", 'string, channels],
+    ["SOLAFPOS%", 'integer, channels],
     ["SOLAUF$", 'string],   ["SOLAUP%", 'integer],
     ["SOLAUKIND%", 'integer], ["SOLAUEND%", 'integer],
     ["SOLAUINT%", 'integer],  ["SOLAUDEC%", 'integer],
@@ -3751,9 +3939,13 @@ FUNCTION SOLASIGN$ (T$)
 END FUNCTION
 
 SUB SOLAEOL
-  SHARED SOLABUF$
-  SOLAWRITE SOLABUF$
-  SOLABUF$ = \"\"
+  SHARED SOLABUF$, SOLACH%
+  IF SOLACH% <> 0 THEN
+    SOLAFBUF$(SOLACH%) = SOLAFBUF$(SOLACH%) + CHR$(10)
+  ELSE
+    SOLAWRITE SOLABUF$
+    SOLABUF$ = \"\"
+  END IF
 END SUB
 
 SUB SOLARAW
@@ -3762,26 +3954,49 @@ SUB SOLARAW
   SOLABUF$ = \"\"
 END SUB
 
+' **A comma inside quotes does not separate**, which is what lets WRITE # and
+' INPUT # round-trip a piece of text that has one in it.
 FUNCTION SOLACOUNT% (S$)
   DIM N%
   DIM I%
+  DIM Q%
+  DIM C$
   N% = 1
+  Q% = 0
   FOR I% = 1 TO LEN(S$)
-    IF MID$(S$, I%, 1) = \",\" THEN N% = N% + 1
+    C$ = MID$(S$, I%, 1)
+    IF C$ = CHR$(34) THEN Q% = 1 - Q%
+    IF C$ = \",\" AND Q% = 0 THEN N% = N% + 1
   NEXT I%
   SOLACOUNT% = N%
+END FUNCTION
+
+' The quotes WRITE # puts round a piece of text are not part of it.
+FUNCTION SOLAUNQUOTE$ (T$)
+  IF LEN(T$) >= 2 THEN
+    IF LEFT$(T$, 1) = CHR$(34) AND RIGHT$(T$, 1) = CHR$(34) THEN
+      SOLAUNQUOTE$ = MID$(T$, 2, LEN(T$) - 2)
+      EXIT FUNCTION
+    END IF
+  END IF
+  SOLAUNQUOTE$ = T$
 END FUNCTION
 
 FUNCTION SOLAFIELD$ (S$, WHICH%)
   DIM N%
   DIM I%
   DIM START%
+  DIM Q%
+  DIM C$
   N% = 1
   START% = 1
+  Q% = 0
   FOR I% = 1 TO LEN(S$)
-    IF MID$(S$, I%, 1) = \",\" THEN
+    C$ = MID$(S$, I%, 1)
+    IF C$ = CHR$(34) THEN Q% = 1 - Q%
+    IF C$ = \",\" AND Q% = 0 THEN
       IF N% = WHICH% THEN
-        SOLAFIELD$ = LTRIM$(RTRIM$(MID$(S$, START%, I% - START%)))
+        SOLAFIELD$ = SOLAUNQUOTE$(LTRIM$(RTRIM$(MID$(S$, START%, I% - START%))))
         EXIT FUNCTION
       END IF
       N% = N% + 1
@@ -3789,7 +4004,7 @@ FUNCTION SOLAFIELD$ (S$, WHICH%)
     END IF
   NEXT I%
   IF N% = WHICH% THEN
-    SOLAFIELD$ = LTRIM$(RTRIM$(MID$(S$, START%, LEN(S$) - START% + 1)))
+    SOLAFIELD$ = SOLAUNQUOTE$(LTRIM$(RTRIM$(MID$(S$, START%, LEN(S$) - START% + 1))))
   END IF
 END FUNCTION
 
@@ -4179,12 +4394,82 @@ FUNCTION SOLAASKLINE$ (P$)
 END FUNCTION
 
 SUB SOLAOUT (T$)
-  SHARED SOLABUF$
-  IF LEN(SOLABUF$) > 0 THEN
-    IF LEN(SOLABUF$) + LEN(T$) > 80 THEN CALL SOLAEOL
+  SHARED SOLABUF$, SOLACH%
+  IF SOLACH% <> 0 THEN
+    SOLAFBUF$(SOLACH%) = SOLAFBUF$(SOLACH%) + T$
+  ELSE
+    IF LEN(SOLABUF$) > 0 THEN
+      IF LEN(SOLABUF$) + LEN(T$) > 80 THEN CALL SOLAEOL
+    END IF
+    SOLABUF$ = SOLABUF$ + T$
   END IF
-  SOLABUF$ = SOLABUF$ + T$
 END SUB
+
+' ---------------------------------------------------------------------------
+' Channels
+'
+' A channel open for reading holds the whole file and a position in it; one open
+' for writing holds what has been written and puts it out when it is closed.
+' There is no streaming underneath, so there is none here.
+
+SUB SOLAOPEN (N%, PATH$, MODE%)
+  IF N% < 1 OR N% > 15 THEN SOLAFAIL \"Bad file number\"
+  IF SOLAFMODE%(N%) <> 0 THEN SOLAFAIL \"File already open\"
+  SOLAFMODE%(N%) = MODE%
+  SOLAFPATH$(N%) = PATH$
+  SOLAFPOS%(N%) = 1
+  IF MODE% = 1 THEN
+    SOLAFBUF$(N%) = SOLAREADFILE$(PATH$)
+  ELSE
+    SOLAFBUF$(N%) = \"\"
+  END IF
+END SUB
+
+SUB SOLACLOSE (N%)
+  IF N% < 1 OR N% > 15 THEN SOLAFAIL \"Bad file number\"
+  IF SOLAFMODE%(N%) = 2 THEN
+    SOLAWRITEFILE SOLAFPATH$(N%), SOLAFBUF$(N%)
+  END IF
+  IF SOLAFMODE%(N%) = 3 THEN
+    SOLAAPPENDFILE SOLAFPATH$(N%), SOLAFBUF$(N%)
+  END IF
+  SOLAFMODE%(N%) = 0
+  SOLAFBUF$(N%) = \"\"
+END SUB
+
+SUB SOLACLOSEALL
+  DIM I%
+  FOR I% = 1 TO 15
+    IF SOLAFMODE%(I%) <> 0 THEN CALL SOLACLOSE(I%)
+  NEXT I%
+END SUB
+
+FUNCTION SOLAFEOF% (N%)
+  IF SOLAFPOS%(N%) > LEN(SOLAFBUF$(N%)) THEN
+    SOLAFEOF% = -1
+  ELSE
+    SOLAFEOF% = 0
+  END IF
+END FUNCTION
+
+FUNCTION SOLAFLINE$ (N%)
+  DIM P%
+  DIM E%
+  DIM R$
+  IF SOLAFMODE%(N%) <> 1 THEN SOLAFAIL \"File not open for reading\"
+  P% = SOLAFPOS%(N%)
+  IF P% > LEN(SOLAFBUF$(N%)) THEN SOLAFAIL \"Input past end of file\"
+  E% = INSTR(P%, SOLAFBUF$(N%), CHR$(10))
+  IF E% = 0 THEN
+    R$ = MID$(SOLAFBUF$(N%), P%)
+    SOLAFPOS%(N%) = LEN(SOLAFBUF$(N%)) + 1
+  ELSE
+    R$ = MID$(SOLAFBUF$(N%), P%, E% - P%)
+    SOLAFPOS%(N%) = E% + 1
+  END IF
+  IF RIGHT$(R$, 1) = CHR$(13) THEN R$ = LEFT$(R$, LEN(R$) - 1)
+  SOLAFLINE$ = R$
+END FUNCTION
 
 SUB SOLAPAD (N%)
   SHARED SOLABUF$
@@ -4229,7 +4514,7 @@ sola:usesPrint := { | found |
     found }.
 
 sola:printsIn := { st |
-    ['print, 'input, 'lineinput]:indexOf(st:kind):notNil
+    ['print, 'input, 'lineinput, 'open, 'close, 'write]:indexOf(st:kind):notNil
         :or({ st:then:notNil:and({ self:printsIn(st:then) }) })
         :or({ st:otherwise:notNil:and({ self:printsIn(st:otherwise) }) }) }.
 

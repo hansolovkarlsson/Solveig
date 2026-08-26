@@ -502,7 +502,11 @@ procedures each `DIM` a `Temp` of their own; here the second is *dimensioned
 twice*. And an array parameter is one-dimensional — a bigger one's strides would
 have to travel with it.
 
-**8. Procedures are resolved before compilation.** QBasic requires `DECLARE` for
+**8. A file is written with line feeds**, where QBasic writes a carriage return
+and a line feed. Reading takes a carriage return off, so a file written by either
+is readable here; one written here is not in DOS's convention.
+
+**9. Procedures are resolved before compilation.** QBasic requires `DECLARE` for
 a procedure used before it is defined, and QB's editor writes them for you.
 SolaBasic takes a pass first, so `DECLARE` is accepted and does nothing.
 
@@ -607,6 +611,28 @@ jump into the middle of an instruction and a jump to a point at a different
 stack depth are each refused *at load*, exit 65, as a message rather than a
 crash. The depth-0 discipline is load-bearing rather than tidy, and nothing in
 the design section above needed changing.
+
+**2026-08-26 — files, and the list is finished.**
+`OPEN`, `CLOSE`, `PRINT #`, `WRITE #`, `INPUT #`, `LINE INPUT #` and `EOF`,
+sequential only — **and they matched QuickBASIC byte for byte on the first
+comparison**, which no other stage managed. Sixteen `agree/` programs now.
+
+**There is no streaming underneath**, the machine reading and writing whole
+files, so a channel open for reading holds the file and a position in it, and
+one open for writing holds what has been written until it is closed. Stopping
+the program closes what is still open, because otherwise nothing would have been
+written at all.
+
+**Two things came out of writing it.** `INPUT #` was not taking the quotes off a
+field that `WRITE #` had put them on, so a round trip through a file gave back
+`"Hans"` rather than `Hans` — and fixing it properly meant making the field
+splitter quote-aware, so that a comma inside quotes stops separating and text
+with one in it survives.
+
+**And one divergence is new**: a file is written with line feeds where QBasic
+writes a carriage return and a line feed. A carriage return is taken off what is
+read, so a file written by either is readable here; one written here is not in
+DOS's convention. It is in [the list](#where-this-is-not-qbasic).
 
 **2026-08-26 — `PRINT USING`, measured before it was written.**
 The fiddliest formatting in BASIC, and the first feature here built the other
@@ -839,7 +865,12 @@ send — is unchanged and still the honest description.
 
 ## Stages
 
-The language above is the finish line. The order to reach it in:
+The language above is the finish line. **It is reached**: every stage below is
+done, and each is held against a real QuickBASIC 4.5 rather than only against
+transcripts this compiler recorded of itself. What is left over is the list of
+things this document marked [*not yet*](#not-yet) from the start.
+
+The order it was reached in:
 
 | | |
 | --- | --- |
@@ -849,7 +880,7 @@ The language above is the finish line. The order to reach it in:
 | **3** | **Done, and first, as this table said it should be.** `GOTO` and labels, forwards and backwards, to any label in the program. What it found is below. |
 | **4** | **Done.** `SUB`, `FUNCTION`, `CALL`, locals, `SHARED`, `STATIC`, `EXIT SUB`/`EXIT FUNCTION`, and by-reference parameters. |
 | **5** | **Done.** `DIM` with constant bounds and up to eight dimensions, `OPTION BASE`, `CONST`, `DIM SHARED`, and arrays passed to procedures. |
-| **6** | **`PRINT`'s rules, `PRINT USING`, `INPUT` and `LINE INPUT` are done**, all held against a real QuickBASIC. **Files are what is left** — of stage 6 and of the whole list. |
+| **6** | **Done.** `PRINT`'s rules, `PRINT USING`, `INPUT`, `LINE INPUT`, and sequential files — `OPEN`, `CLOSE`, `PRINT #`, `WRITE #`, `INPUT #`, `LINE INPUT #`, `EOF`. |
 | **7** | **Done, and the verdict is in.** [oracle.sh](../programs/sola/oracle.sh) against QuickBASIC 4.5 under DOSBox: **all fourteen `agree/` programs match byte for byte**, and all five divergences are still there. It has found three real defects and corrected two entries in the list below. |
 
 Stage 3 is the one to reach early even though the ordering does not demand it,

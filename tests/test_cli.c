@@ -985,6 +985,18 @@ static void test_sola_compiles_a_program_that_runs(void)
     assert(run("bin/solvm " DIR "/ask.sob < /dev/null 2>&1", out, sizeof out) != 0);
     assert(strstr(out, "Input past end of file") != NULL);
 
+    /* Files, run in the test's own directory because the program writes some.
+       The same program is held against a real QuickBASIC by
+       programs/sola/oracle/agree/files.bas. */
+    assert(run("bin/solvm " DIR "/sola.sob programs/sola/oracle/agree/files.bas "
+               DIR "/files.sob 2>&1", out, sizeof out) == 0);
+    assert(run("cd " DIR " && ../../../bin/solvm files.sob 2>&1",
+               out, sizeof out) == 0);
+    assert(strstr(out, "[first line]\n") != NULL);
+    assert(strstr(out, "[\"Hans\",7,\"end\"]\n") != NULL);
+    assert(strstr(out, "lines now 4 \n") != NULL);
+    assert(strstr(out, "Hans is 42 \n") != NULL);
+
     /* The oracle corpus is not run here -- comparing it needs a QuickBASIC,
        which is what programs/sola/oracle.sh is for and why that is a script
        rather than a test. What is checked is that it still compiles, so it
@@ -994,7 +1006,7 @@ static void test_sola_compiles_a_program_that_runs(void)
             "agree/arith", "agree/arrays", "agree/control", "agree/numbers",
             "agree/procs", "agree/select", "agree/strings", "agree/zones",
             "agree/input", "agree/goto", "agree/spaghetti", "agree/labels",
-            "agree/byref", "agree/maths", "agree/printusing",
+            "agree/byref", "agree/maths", "agree/printusing", "agree/files",
             "differ/defaulttype", "differ/digits", "differ/intwidth",
             "differ/strdollar", "differ/val",
         };

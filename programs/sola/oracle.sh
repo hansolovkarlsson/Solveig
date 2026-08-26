@@ -146,7 +146,10 @@ run_dosbox() {
 run_sola() {
     if "$root/bin/solvm" "$root/programs/sola.sob" "$1" "$work/prog.sob" \
             >/dev/null 2>&1; then
-        "$root/bin/solvm" "$work/prog.sob" <"$(stdin_for "$1")" 2>&1
+        # In its own directory, because a program may write files and the
+        # DOS side is already confined to the drive it was given.
+        ( cd "$work" && "$root/bin/solvm" "$work/prog.sob" ) \
+            <"$(stdin_for "$1")" 2>&1
     else
         "$root/bin/solvm" "$root/programs/sola.sob" "$1" "$work/prog.sob" 2>&1
     fi
