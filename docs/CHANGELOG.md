@@ -5,6 +5,36 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Integer divide and MOD are exact now — `31e579a`, 2026-08-26
+
+**SolVM's integer `div` and `mod` are floored and should stay so** — a remainder
+inside `[0, n)` is what indexing and cyclic arithmetic want, and
+[design.md](design.md) gives that reason. BASIC's `\` and `MOD` are the other
+pair, cutting towards nought, so [sola.sol](../programs/sola.sol) has to bridge.
+
+**It was bridging through the float divide, which was quietly wrong above
+2^53.** `9007199254740993 \ 1` came out `9007199254740992`. That is the shape of
+thing worth catching: a workaround that looks like a performance trade and is
+really a correctness one.
+
+**The correction is exact and stays in integers** — the truncating quotient is
+the floored one plus one when there is a remainder *and* the signs differ, and
+nothing else is true of any sign combination. Twelve instructions against four
+sends, and right for every number an Integer can hold.
+[types.bas](../programs/sola/types.bas) holds all four sign combinations and the
+three large values the old route got wrong.
+
+**A `quotient` message on integer would make it one send**, and is
+[deferred with a trigger](ideas.md#a-truncating-divide-on-integer) rather than
+built: the workaround is exact, so building it buys size and speed and not
+correctness, and one customer is below this project's bar. The entry also
+records why `divRounded` is the wrong name — rounding disagrees with truncation
+in *both* directions, so it would fix nothing and break the positive case.
+
+**And the premise was half wrong**, which is worth keeping: `basic.sol` never had
+this problem. Minimal BASIC has no integer-division operator, its `INT` is a
+floor and so is the machine's, and its `/` is float division.
+
 ### Three types, ten operators, and twenty-seven functions — `4a98f91`, 2026-08-26
 
 **Stage 1** of the eight [SOLABASIC.md](SOLABASIC.md) lists, which leaves only
