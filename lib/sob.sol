@@ -12,10 +12,23 @@
 ; other by the test suite, which compiles a file with `solas` and with the Solum
 ; compiler and compares the bytes.
 ;
-; This is here rather than in one program because two wanted it: `emit.sol`,
-; which builds chunks by hand to prove the format can be written at all, and
-; `compile.sol`, which builds them from source. `lib/text.sol` exists for the
-; same reason and its header makes the same argument.
+; This is here rather than in one program because three want it:
+; [experiment/emit.sol](../experiment/emit.sol), which builds chunks by hand to
+; prove the format can be written at all, `experiment/compile.sol`, which builds
+; them from source, and [programs/sola.sol](../programs/sola.sol), which
+; compiles another language into one. `lib/text.sol` exists for the same reason
+; and its header makes the same argument.
+;
+; **It went to `experiment/` with the self-hosting compiler and came back**,
+; which is worth a sentence because the reason it was parked does not apply to
+; it. That reason was the tax: a second compiler has to be taught every
+; construct the first one learns, so `lexer.sol`, `parser.sol` and
+; `compiler.sol` fall behind `solas` on every change to the language. **This
+; file tracks the file format, not the language.** It changes when a `.sob`
+; changes -- which is a version bump, a thing that happens deliberately and is
+; already checked in three other places -- and not when Solum gains a
+; construct. Those are different rates, and they were only conflated because
+; all four files arrived on the same day.
 ;
 ; A chunk is a **dictionary**, because it is data being written out rather than
 ; behaviour:

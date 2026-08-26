@@ -23,9 +23,17 @@ compile. That is the trade being made on purpose, not a defect to report.
 | [lexer.sol](lexer.sol) | Solum's tokens, scanned by Solum — all nineteen kinds |
 | [parser.sol](parser.sol) | the grammar: statements, sends, blocks, groups, `@include`, every literal |
 | [compiler.sol](compiler.sol) | a tree in, a chunk out, including the control flow `solas` compiles to jumps |
-| [sob.sol](sob.sol) | writing the `.sob` file, floats taken apart by hand |
-| [compile.sol](compile.sol) | the command line on top of all four |
+| [compile.sol](compile.sol) | the command line on top of the three above and `sob.sol` |
 | [emit.sol](emit.sol) | the first stage: a `.sob` written byte by byte with no compiler at all |
+
+**The fourth piece went back to the library.** `sob.sol` — writing the `.sob`
+file, floats taken apart by hand — is [lib/sob.sol](../lib/sob.sol) again,
+because the reason the rest of this is parked does not apply to it. The tax is
+that a second compiler has to be taught every construct the first one learns;
+that falls on `lexer.sol`, `parser.sol` and `compiler.sol`, which track the
+**language**. `sob.sol` tracks the **file format**, which changes on a version
+bump and not on a new construct. The two files here still find it, on the search
+path, without saying where it lives.
 
 ## What it proved, on 2026-08-23
 

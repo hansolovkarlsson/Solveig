@@ -3289,7 +3289,7 @@ attempt. Stage 1 of
 [emit.sol](../experiment/emit.sol) proved the format could be written,
 [lexer.sol](../experiment/lexer.sol) scanned it, and the two new library files close
 the gap: [parser.sol](../experiment/parser.sol) for the grammar and
-[sob.sol](../experiment/sob.sol) for the file, which `emit.sol` now shares rather than
+[sob.sol](../lib/sob.sol) for the file, which `emit.sol` now shares rather than
 carrying its own copy of.
 
 **The test offers every `.sol` file in the repository to it: 3 accepted and

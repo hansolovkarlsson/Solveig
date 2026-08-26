@@ -72,7 +72,7 @@
 
 @include "scan.sol".
 @include "control.sol".
-@include "../experiment/sob.sol".
+@include "sob.sol".
 
 ; ---------------------------------------------------------------------------
 ; The instruction set -- the ten this stage needs

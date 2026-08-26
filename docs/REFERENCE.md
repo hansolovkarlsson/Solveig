@@ -623,13 +623,51 @@ piece of this arithmetic a program cannot write for itself and get right.
 
 #### Not here any more: the self-hosting libraries
 
-`lexer.sol`, `parser.sol`, `compiler.sol` and `sob.sol` were on the search path
-while Solum was being taught to compile itself. That is done — it compiles its
-own source and reaches a fixpoint — and they now live in
-[experiment/](../experiment/), off the search path, because keeping them in step
-with `solas` was a tax on every change to the real compiler and the proof does
-not need repeating. [experiment/README.md](../experiment/README.md) says what
-they are and how to run the proof again.
+`lexer.sol`, `parser.sol` and `compiler.sol` were on the search path while Solum
+was being taught to compile itself. That is done — it compiles its own source and
+reaches a fixpoint — and they now live in [experiment/](../experiment/), off the
+search path, because keeping them in step with `solas` was a tax on every change
+to the real compiler and the proof does not need repeating.
+[experiment/README.md](../experiment/README.md) says what they are and how to run
+the proof again.
+
+**`sob.sol` went with them and came back**, and the split is the useful part.
+The tax is that a second compiler has to be taught every construct the first one
+learns, which is a cost the three above pay on every change to the *language*.
+`sob.sol` writes the *file format*, which changes on a version bump — a
+deliberate act, already held to `serialize.h` by the test suite — and not when
+Solum gains a construct. Those are different rates, and they were conflated only
+because all four files arrived on the same day.
+
+#### sob.sol
+
+Writing a `.sob` file, which is what a compiler does last.
+
+```
+@include "sob.sol".
+
+system:writeFile("out.sob", sob:file(chunk)).
+```
+
+A chunk is a **dictionary**, because it is data being written out rather than
+behaviour — `"names"`, `"constants"`, `"code"`, `"lines"`, `"files"`,
+`"fileRuns"`, `"slotNames"`, `"methods"` and the frame's `"slots"`. The layout is
+[serialize.h](../solum/include/solum/serialize.h) field for field, and
+[disasm.sol](../programs/disasm.sol) is the same format read rather than written.
+
+It binds one global, `sob`, which is the file extension and so is unlikely to be
+a name a program wants for something else.
+
+**The float encoder is the part that is real work.** Nothing reinterprets a
+float's bits as an integer, so a double is taken apart by arithmetic — sign, the
+exponent by halving and doubling into `[1, 2)`, then 52 bits of mantissa — and
+reassembled as two 32-bit halves so nothing has to reach bit 63, which would
+overflow on the way in exactly as it does when reading. Checked against the C
+library at twelve values including `-0.0`, `DBL_MAX` and infinity, bit for bit.
+
+Three files want it: [programs/sola.sol](../programs/sola.sol), which compiles
+another language into a `.sob`, and `emit.sol` and `compile.sol` in
+[experiment/](../experiment/), which are how it came to exist.
 
 #### shell.sol
 

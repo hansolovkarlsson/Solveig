@@ -397,7 +397,7 @@ of emitter bug into a message instead of a crash.
 | | |
 | --- | --- |
 | **0** | **Done** — [emit.sol](../experiment/emit.sol). Two chunks written out by hand, both byte-identical to `solas`, both running, both decoded by `disasm.sol`. In `make test` as `cmp`. |
-| **1** | **Done** — [compile.sol](../experiment/compile.sol) turns source into bytes, and `examples/hello.sol` comes out byte-identical to `solas`. [lexer.sol](../experiment/lexer.sol), [parser.sol](../experiment/parser.sol) and [sob.sol](../experiment/sob.sol) are the three pieces. Blocks, temporaries, methods and `@include` are stage 2. |
+| **1** | **Done** — [compile.sol](../experiment/compile.sol) turns source into bytes, and `examples/hello.sol` comes out byte-identical to `solas`. [lexer.sol](../experiment/lexer.sol), [parser.sol](../experiment/parser.sol) and [sob.sol](../lib/sob.sol) are the three pieces. Blocks, temporaries, methods and `@include` are stage 2. |
 | **2** | The full language, checked over every `.sol` here: both compilers, same bytes, in `make test`. **Done, and stopped by the frame limit rather than by a missing construct** — 42 of 46 files identical, 0 disagreements. The 4 refusals are `call depth exceeded` ([3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels)), including on this compiler's own source. |
 | **3** | **Done.** The Solum compiler compiles its own source and produces the file `solas` produced from it; the compiler that comes out compiles its own source again to the same bytes, and still agrees with `solas` on everything else. In `make test`. |
 
@@ -490,7 +490,7 @@ guessed:
 - Line runs count bytes rather than instructions.
 
 **The one thing that was real work** is the float encoder in
-[sob.sol](../experiment/sob.sol). Nothing reinterprets a float's bits as an integer, so
+[sob.sol](../lib/sob.sol). Nothing reinterprets a float's bits as an integer, so
 a double is taken apart by arithmetic — sign, the exponent by halving and
 doubling into `[1, 2)`, then 52 bits of mantissa — and reassembled as two 32-bit
 halves so nothing has to reach bit 63, which would overflow on the way in
@@ -611,7 +611,7 @@ to 124. Three programs that had each written down a limit found it moved.
 **The whole exercise added nothing to the language** except a number that was
 always a choice. Six library files and two programs, in Solum as it already was:
 [lexer.sol](../experiment/lexer.sol), [parser.sol](../experiment/parser.sol),
-[compiler.sol](../experiment/compiler.sol), [sob.sol](../experiment/sob.sol),
+[compiler.sol](../experiment/compiler.sol), [sob.sol](../lib/sob.sol),
 [emit.sol](../experiment/emit.sol) and [compile.sol](../experiment/compile.sol).
 
 #### Parked, on purpose
