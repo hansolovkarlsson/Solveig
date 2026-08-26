@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### `indexOf` can say where to start — `pending`, 2026-08-26
+### `indexOf` can say where to start — `fd1e5fa`, 2026-08-26
 
 **`indexOf(s, #from)`**, a second arity on the message that was already there,
 and [6.37](COMPLETED.md#637-indexof-cannot-say-where-to-start--done).
