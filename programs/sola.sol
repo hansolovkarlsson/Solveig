@@ -558,9 +558,15 @@ sola:stopAtElse := false.
 sola:inPrelude := false.
 sola:hasPrelude := false.
 
+; **A `:` ends a statement as surely as the end of the line does.** It cannot
+; appear inside an expression, and a label's colon is taken before any statement
+; is parsed, so there is nowhere else for one to be.
 sola:atEndOfLine := {
-    self:cursor:greaterThan(self:tokens:size):or({
-        self:stopAtElse:and({ self:nextIs("ELSE") }) }) }.
+    self:cursor:greaterThan(self:tokens:size)
+        :or({ self:nextIs(":") })
+        :or({ self:stopAtElse:and({ self:nextIs("ELSE") }) }) }.
+
+sola:atEndOfRealLine := { self:cursor:greaterThan(self:tokens:size) }.
 
 ; Is the next token this punctuation or word?
 ;
@@ -582,12 +588,15 @@ sola:nextIs := { text | | t |
 ; a numeric quantity -- and it is what lets an old listing through unaltered
 ; while nothing in this program ever sorts one or expects them to ascend.
 
-sola:parseLine := { text, line | | st, t |
+; A line answers however many statements are written on it, the label going to
+; the first of them.
+sola:parseLine := { text, line | | out, st, t |
     self:atLine := line.
     self:tokens := self:tokenise(text).
     self:cursor := #1.
     self:stopAtElse := false.
-    self:atEndOfLine:ifElse({ nil }, {
+    out := array:new.
+    self:atEndOfRealLine:ifElse({ out }, {
         st := stmt:new.
         st:line := line.
 
@@ -601,7 +610,15 @@ sola:parseLine := { text, line | | st, t |
             st:label := t:text. self:takeToken. self:takeToken }).
 
         self:atEndOfLine:ifElse({ st:kind := 'rem }, { self:parseStatement(st) }).
-        st }) }.
+        out:add(st).
+        { self:nextIs(":") }:whileTrue({
+            self:takeToken.
+            self:atEndOfRealLine:ifFalse({
+                st := stmt:new.
+                st:line := line.
+                self:parseStatement(st).
+                out:add(st) }) }).
+        out }) }.
 
 ; One entry per keyword that opens a statement. A dictionary rather than a nest
 ; of tests, for the reason lib/control.sol gives and basic.sol's parser found
@@ -749,8 +766,22 @@ sola:parseInlineStatement := { | sub, t, next, lead |
         { sub:kind := 'goto. sub:target := self:takeToken:text },
         { self:parseStatement(sub) }).
     inlineKinds:indexOf(sub:kind):isNil:ifTrue({
-        self:fail("'{}' cannot go on a one-line IF, which holds one statement"
+        self:fail("'{}' cannot go on a one-line IF"
             :fill([lead])) }).
+
+    ; **`IF c THEN a : b` runs both when c is true**, which is QuickBASIC's
+    ; answer and was measured rather than assumed. So everything up to the end
+    ; of the line -- or to an ELSE -- belongs to the arm, and a group holds it.
+    self:nextIs(":"):ifTrue({ | group |
+        group := stmt:new.
+        group:kind := 'group.
+        group:line := sub:line.
+        group:body := array:new:add(sub).
+        { self:nextIs(":") }:whileTrue({
+            self:takeToken.
+            self:atEndOfLine:ifFalse({
+                group:body:add(self:parseInlineStatement) }) }).
+        sub := group }).
     sub }.
 
 ; ---------------------------------------------------------------------------
@@ -1862,7 +1893,9 @@ sola:variablesInStatement := { st, names |
                   alt:at(#1):equals("range"):ifTrue({
                       self:variablesInExpression(alt:at(#3), names) }) }) }) }).
     st:then:notNil:ifTrue({ self:variablesInStatement(st:then, names) }).
-    st:otherwise:notNil:ifTrue({ self:variablesInStatement(st:otherwise, names) }) }.
+    st:otherwise:notNil:ifTrue({ self:variablesInStatement(st:otherwise, names) }).
+    st:kind:equals('group):ifTrue({
+        st:body:do({ each | self:variablesInStatement(each, names) }) }) }.
 
 sola:variablesInExpression := { n, names |
     n:isNil:ifFalse({
@@ -2074,9 +2107,12 @@ sola:typeStatement := { st |
                   alt:at(#1):equals("range"):ifTrue({
                       self:typeExpression(alt:at(#3)) }) }) }) }).
     st:then:notNil:ifTrue({ self:typeStatement(st:then) }).
-    st:otherwise:notNil:ifTrue({ self:typeStatement(st:otherwise) }) }.
+    st:otherwise:notNil:ifTrue({ self:typeStatement(st:otherwise) }).
+    st:kind:equals('group):ifTrue({
+        st:body:do({ each | self:typeStatement(each) }) }) }.
 
 emitters:atPut('rem, { m, st | nil }).
+emitters:atPut('group, { m, st | st:body:do({ each | m:emitStatement(each) }) }).
 ; **A line left open goes out before the program stops.** `PRINT "x";` holds
 ; the line for the next PRINT to continue, and if there is no next PRINT it
 ; still has to be written -- so every way out of the program flushes first.
@@ -2156,6 +2192,11 @@ sola:selectCount := #0.
 
 sola:localNames := nil.
 sola:locals := nil.
+; **Which file a chunk's lines belong to.** The runtime is compiled into the
+; program that uses it, so without this a failure inside it reported a line
+; number of its own against the *user's* filename -- a line that listing does
+; not have, in a routine they did not write.
+sola:unitPath := "".
 sola:varTypes := nil.
 sola:scratchSlots := nil.
 sola:scratchDepth := #0.
@@ -2177,6 +2218,7 @@ sola:pushUnit := { | saved |
     saved:atPut("blocks", self:blocks).         saved:atPut("localNames", self:localNames).
     saved:atPut("locals", self:locals).         saved:atPut("shared", self:shared).
     saved:atPut("varTypes", self:varTypes).
+    saved:atPut("unitPath", self:unitPath).
     saved:atPut("scratchSlots", self:scratchSlots).
     saved:atPut("scratchDepth", self:scratchDepth).
     saved:atPut("statics", self:statics).       saved:atPut("boxed", self:boxed).
@@ -2195,6 +2237,7 @@ sola:freshUnit := {
     self:fixups := array:new.      self:blocks := array:new.
     self:localNames := array:new.  self:locals := dictionary:new.
     self:varTypes := dictionary:new.
+    self:unitPath := self:path.
     self:scratchSlots := array:new. self:scratchDepth := #0.
     self:shared := array:new.      self:statics := dictionary:new.
     self:arrayParams := dictionary:new.
@@ -2212,6 +2255,7 @@ sola:popUnit := { | saved |
     self:blocks := saved:at("blocks").         self:localNames := saved:at("localNames").
     self:locals := saved:at("locals").         self:shared := saved:at("shared").
     self:varTypes := saved:at("varTypes").
+    self:unitPath := saved:at("unitPath").
     self:scratchSlots := saved:at("scratchSlots").
     self:scratchDepth := saved:at("scratchDepth").
     self:statics := saved:at("statics").       self:boxed := saved:at("boxed").
@@ -2230,7 +2274,7 @@ sola:chunkOfUnit := { | chunk |
     chunk:atPut("constants", self:constants).
     chunk:atPut("code", self:code).
     chunk:atPut("lines", self:lineRuns).
-    chunk:atPut("files", [self:path]).
+    chunk:atPut("files", [self:unitPath]).
     chunk:atPut("fileRuns", [[self:code:size, #0]]).
     chunk:atPut("slotNames", self:localNames).
     chunk:atPut("methods", self:methods).
@@ -2767,6 +2811,7 @@ routine:body := nil.
 routine:line := #1.
 routine:byref := nil.       ; one boolean per parameter
 routine:arrayParams := nil. ; one boolean per parameter
+routine:fromRuntime := false.
 
 sola:routines := nil.
 sola:routineOrder := nil.
@@ -2810,6 +2855,7 @@ sola:beginRoutine := { st | | r |
     r:kind := st:kind.
     r:params := st:items.
     r:arrayParams := st:arrayParams.
+    r:fromRuntime := self:inPrelude.
     r:body := array:new.
     r:line := st:line.
     self:routines:atPut(st:name, r).
@@ -2867,11 +2913,17 @@ sola:assignsTo := { body, name | | found |
     body:do({ st | self:assignsIn(st, name):ifTrue({ found := true }) }).
     found }.
 
-sola:assignsIn := { st, name |
+sola:assignsIn := { st, name | | found |
+    st:kind:equals('group):ifElse({
+        found := false.
+        st:body:do({ each | self:assignsIn(each, name):ifTrue({ found := true }) }).
+        found }, {
     st:kind:equals('let):and({ st:name:equals(name) })
         :or({ st:kind:equals('for):and({ st:name:equals(name) }) })
+        :or({ ['input, 'lineinput]:indexOf(st:kind):notNil
+              :and({ st:items:indexOf(name):notNil }) })
         :or({ st:then:notNil:and({ self:assignsIn(st:then, name) }) })
-        :or({ st:otherwise:notNil:and({ self:assignsIn(st:otherwise, name) }) }) }.
+        :or({ st:otherwise:notNil:and({ self:assignsIn(st:otherwise, name) }) }) }) }.
 
 ; Every call written in a body, statement and expression alike, as
 ; [name, arguments].
@@ -2900,7 +2952,9 @@ sola:callsInStatement := { st, found |
                   alt:at(#1):equals("range"):ifTrue({
                       self:callsInExpression(alt:at(#3), found) }) }) }) }).
     st:then:notNil:ifTrue({ self:callsInStatement(st:then, found) }).
-    st:otherwise:notNil:ifTrue({ self:callsInStatement(st:otherwise, found) }) }.
+    st:otherwise:notNil:ifTrue({ self:callsInStatement(st:otherwise, found) }).
+    st:kind:equals('group):ifTrue({
+        st:body:do({ each | self:callsInStatement(each, found) }) }) }.
 
 sola:callsInExpression := { n, found |
     n:isNil:ifFalse({
@@ -3074,6 +3128,7 @@ sola:emitReturnValue := {
 sola:emitRoutine := { r | | method, index, i |
     self:pushUnit.
     self:inProcedure := true.
+    r:fromRuntime:ifTrue({ self:unitPath := "the SolaBasic runtime" }).
     self:atLine := r:line.
     self:returnName := r:kind:equals('function):ifElse({ r:name }, { "" }).
 
@@ -3303,6 +3358,13 @@ builtins:atPut("SOLAREADFILE$", [['string], 'string, 'block,
         m:emitGlobal("system").
         m:builtinArg(args, #1, 'string).
         m:emitSend("readFile", #1) }]).
+
+builtins:atPut("SOLAEXISTS%", [['string], 'integer, 'block,
+    { m, args |
+        m:emitGlobal("system").
+        m:builtinArg(args, #1, 'string).
+        m:emitSend("fileExists", #1).
+        m:materialise('integer) }]).
 
 builtins:atPut("SOLAWRITEFILE", [['string, 'string], 'string, 'block,
     { m, args |
@@ -3864,8 +3926,7 @@ sola:readStatements := { source | | line, st |
     line := #0.
     source:split("\n"):do({ text |
         line := line:add(#1).
-        st := self:parseLine(text, line).
-        st:notNil:ifTrue({
+        self:parseLine(text, line):do({ st |
             ; A bare label on a line of its own belongs to the next statement
             ; there is, which may be none -- in which case it is the HALT's.
             st:kind:equals('rem):and({ st:label:notNil }):ifElse(
@@ -4419,6 +4480,7 @@ SUB SOLAOPEN (N%, PATH$, MODE%)
   SOLAFPATH$(N%) = PATH$
   SOLAFPOS%(N%) = 1
   IF MODE% = 1 THEN
+    IF SOLAEXISTS%(PATH$) = 0 THEN SOLAFAIL \"File not found\"
     SOLAFBUF$(N%) = SOLAREADFILE$(PATH$)
   ELSE
     SOLAFBUF$(N%) = \"\"
@@ -4513,10 +4575,14 @@ sola:usesPrint := { | found |
         r:body:do({ st | self:printsIn(st):ifTrue({ found := true }) }) }).
     found }.
 
-sola:printsIn := { st |
+sola:printsIn := { st | | found |
+    st:kind:equals('group):ifElse({
+        found := false.
+        st:body:do({ each | self:printsIn(each):ifTrue({ found := true }) }).
+        found }, {
     ['print, 'input, 'lineinput, 'open, 'close, 'write]:indexOf(st:kind):notNil
         :or({ st:then:notNil:and({ self:printsIn(st:then) }) })
-        :or({ st:otherwise:notNil:and({ self:printsIn(st:otherwise) }) }) }.
+        :or({ st:otherwise:notNil:and({ self:printsIn(st:otherwise) }) }) }) }.
 
 sola:readPrelude := { | saved |
     saved := self:statements.

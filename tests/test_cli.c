@@ -1007,6 +1007,7 @@ static void test_sola_compiles_a_program_that_runs(void)
             "agree/procs", "agree/select", "agree/strings", "agree/zones",
             "agree/input", "agree/goto", "agree/spaghetti", "agree/labels",
             "agree/byref", "agree/maths", "agree/printusing", "agree/files",
+            "agree/colons",
             "differ/defaulttype", "differ/digits", "differ/intwidth",
             "differ/strdollar", "differ/val",
         };

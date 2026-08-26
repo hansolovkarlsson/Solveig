@@ -612,6 +612,25 @@ stack depth are each refused *at load*, exit 65, as a message rather than a
 crash. The depth-0 discipline is load-bearing rather than tidy, and nothing in
 the design section above needed changing.
 
+**2026-08-26 — the `:` the definition had promised, and two bad errors.**
+Three things a reader hits at once, none of them a new feature.
+
+**`:` between statements was in this document from the start and was never
+built.** [Lexical structure](#lexical-structure) says it joins statements on one
+line; the compiler refused it. That is the one thing the frozen-document
+discipline exists to catch, and it sat there through eight stages. It works now,
+and a one-line `IF` takes everything after `THEN` to the end of the line —
+measured against QuickBASIC rather than guessed, because both readings are
+plausible.
+
+**A missing file said the wrong thing in the wrong place.** `OPEN` on something
+that is not there gave the machine's own *cannot read* against a line number
+inside the runtime, reported as though it were a line of the user's listing —
+which that listing did not have. It says **`File not found`**, which is
+QuickBASIC's message, and a chunk now carries the file it was compiled from, so
+a failure inside the runtime says *the SolaBasic runtime* and the trace goes on
+to the user's own line.
+
 **2026-08-26 — files, and the list is finished.**
 `OPEN`, `CLOSE`, `PRINT #`, `WRITE #`, `INPUT #`, `LINE INPUT #` and `EOF`,
 sequential only — **and they matched QuickBASIC byte for byte on the first

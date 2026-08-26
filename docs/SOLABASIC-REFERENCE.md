@@ -57,9 +57,19 @@ compiles a demonstration and tells you how to run it.
 
 ### Lines
 
-**One statement to a line.** There is no `:` between statements and no
-continuation onto the next line: a statement begins where its line begins and
-ends where its line ends.
+**A `:` puts several statements on one line**, and there is no continuation
+onto the next: a line ends where it ends.
+
+```basic
+a = 1 : PRINT a : PRINT "two"
+```
+
+**A one-line `IF` takes everything after `THEN` to the end of the line**, so
+both of these run when the condition holds and neither runs when it does not:
+
+```basic
+IF a = 1 THEN PRINT "yes" : PRINT "also"
+```
 
 **Keywords and names are case-insensitive.** `PRINT`, `Print` and `print` are one
 word, and `Total` and `TOTAL` are one variable. Text inside a string is left
@@ -905,7 +915,7 @@ each belongs to is in [SOLABASIC.md](SOLABASIC.md#stages).
 | `LBOUND`, `UBOUND` | not written yet — an array's bounds are in the listing that `DIM`med it |
 | an array parameter of more than one dimension | not written yet; its strides would have to travel with it |
 | `ON ERROR`, `TYPE`, `REDIM`, `OPTION EXPLICIT` | listed as *not yet* in the language definition |
-| `:` between statements on one line | not written yet |
+
 
 `GOSUB`, `RETURN`, `ON n GOTO`, `DATA`, `READ`, `SINGLE` and the whole of the PC
 — `SCREEN`, `PEEK`, `POKE` — are **not coming**. See
@@ -979,6 +989,13 @@ Compile-time refusals name the line. The ones worth recognising:
 | `more than 255 names in one procedure` | the machine's frame is a byte wide |
 | `a jump of N bytes: no jump reaches further than 65535` | one procedure holding more code than a jump can cross |
 
-Two things are refused when the **program** runs rather than when it compiles:
-`undefined name` for a procedure never bound, and `call depth exceeded` for
-recursion past about 254 levels.
+Some things are refused when the **program** runs rather than when it compiles:
+`File not found` for an `OPEN ... FOR INPUT` on something that is not there,
+`Input past end of file` when the answers run out, `subscript N of X is above M`
+for a multi-dimensional array, and `call depth exceeded` for recursion past about
+254 levels.
+
+**A failure inside the runtime says so.** `PRINT`, `INPUT` and the file
+statements are written in SolaBasic and compiled into your program, so a trace
+may name *the SolaBasic runtime* and one of its routines before it reaches a line
+you wrote. The line you wrote is the one below it.
