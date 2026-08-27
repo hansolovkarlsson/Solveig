@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### Pascal, stage 8: the language, finished — `pending`, 2026-08-27
+### Pascal, stage 8: the language, finished — `f784f81`, 2026-08-27
 
 **`sqrt`, `sin`, `cos`, `arctan`, `exp`, `ln`, `trunc`, `round`, `page`, and
 field widths worked out while running.** **Twenty-one programs now produce the
