@@ -42,6 +42,42 @@ that would have been wrong: a number is a sign character, then the digits, then
 a trailing space, and no amount of reading the reference tells you whether you
 have transcribed that correctly.
 
+### And then the examples were made to check themselves
+
+That listing was mine and ran once. The seventy ```basic blocks in the three
+documents had never run at all, which is the same gap `expect.sol` closed for
+`examples/` and had left open in the one corner it could not reach: a fenced
+block naming a language is skipped, and SolaBasic is a language this repository
+*defines*.
+
+**The convention had to be different, and BASIC's output is why.** Everywhere
+else here a claim is a comment on the line that printed it. `PRINT 42` writes a
+space where a minus would go, then the digits, then a trailing space — leading
+spaces are what a print zone is made of and a comment cannot show them, and a
+trailing space in a comment is invisible and would not survive the first editor
+to touch the file. So the expectation is a ```text block under the ```basic one,
+and the fence keeps the leading spaces. Trailing whitespace is ignored on both
+sides, and that one thing is left to `programs/sola/*.out`.
+
+**Forty-one of the seventy are not checked and are counted instead**, which is
+this program's rule about itself: sixteen print nothing, thirteen name a label
+or a `SUB` from the prose around them, three loop for ever on purpose, and one
+reads from the terminal so its ```text is a session rather than an output.
+
+**The outputs were generated and then read, one at a time, against the prose
+above each one.** That is the step that mattered, and it found five examples
+that only ever demonstrated half of themselves: an `IF ... ELSE` that always
+took the `ELSE` because its variable was never assigned, an `ELSEIF` chain and a
+`SELECT CASE` that both fell through to the last arm, and a loop printing twenty
+lines where three say the same thing. Not one of them was *wrong*. **An example
+nobody runs cannot report that it is demonstrating the wrong branch** — it is
+correct, and it is teaching the reader the least interesting thing it could.
+
+Generating an expectation from a run is the failure this repository has already
+written up once, as *a transcript recording what a program does rather than what
+it should*. The defence is that reading the prose is the check, and the five
+above are what reading it produced.
+
 ## 2026-08-26 (evening) — a checker that is told what to check
 
 Two commits, 16:47 to 17:44. 1,591 lines of program, 32% of it comment; 185

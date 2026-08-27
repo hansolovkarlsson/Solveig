@@ -535,8 +535,25 @@ static void test_everything_written_down_is_true(void)
     assert(sscanf(at, "%d programs say where they come", &placed) == 1);
     assert(placed >= 8);
 
+    /* The other language in these documents. `docs/SOLABASIC*.md` define a
+       BASIC dialect, ship a compiler for it, and had been checking their own
+       examples by eye -- a fenced block naming a language was skipped here.
+       A block followed by the output it prints is now compiled and run, so the
+       floor catches a run that quietly stops compiling any of them. */
+    int basic = 0, basicChecked = 0;
+    at = strstr(out, "SolaBasic block");
+    assert(at != NULL);
+    while (at > out && at[-1] != '\n') at--;
+    assert(sscanf(at, "%d SolaBasic block%*[s] %d checked", &basic,
+                  &basicChecked) == 2 ||
+           sscanf(at, "%d SolaBasic blocks, %d checked", &basic,
+                  &basicChecked) == 2);
+    assert(basic >= 60);
+    assert(basicChecked >= 20);
+
     printf("  everything written down is true (%d claims, %d counts, %d "
-           "positions)\n", claims, counts, placed);
+           "positions, %d of %d SolaBasic blocks)\n",
+           claims, counts, placed, basicChecked, basic);
 }
 
 /* The BASIC interpreter, held to the standard it says it implements.

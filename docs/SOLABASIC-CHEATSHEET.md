@@ -164,6 +164,12 @@ Greet "world"                    ' the same call
 PRINT Square(5)                  ' in an expression, always with brackets
 ```
 
+```text
+hello, world
+hello, world
+ 25
+```
+
 Both may be written anywhere at module level and called from above where they
 are written. A `FUNCTION` that never assigns to its name answers nought.
 Recursion works, and **stops at about 254 levels** with `call depth exceeded`.
@@ -193,6 +199,12 @@ no nought before the point, and the margin is 80.
 PRINT USING "###.##"; 3.14159#
 PRINT USING "value: ### units"; 9
 PRINT USING "###"; 1; 2; 3       ' the format starts again per item
+```
+
+```text
+  3.14
+value:   9 units
+  1  2  3
 ```
 
 | in a number field | | | in a text field | |
@@ -235,6 +247,11 @@ DO UNTIL EOF(1)
   PRINT row$
 LOOP
 CLOSE #1
+```
+
+```text
+a line
+"Hans",42
 ```
 
 | | |

@@ -66,6 +66,11 @@ onto the next: a line ends where it ends.
 a = 1 : PRINT a : PRINT "two"
 ```
 
+```text
+ 1
+two
+```
+
 **A one-line `IF` takes everything after `THEN` to the end of the line**, so
 both of these run when the condition holds and neither runs when it does not:
 
@@ -110,6 +115,10 @@ REM this is a comment, and the rest of the line is not read at all
 PRINT "x"      ' and this
 ```
 
+```text
+x
+```
+
 `REM` takes the rest of its line as raw text, so it may hold anything — an
 apostrophe, an unclosed quote. `'` may follow a statement on the same line.
 
@@ -139,6 +148,14 @@ PRINT &HFF        ' 255, written in hex
 PRINT &O17        ' 15, written in octal
 ```
 
+```text
+ 42
+ 3.14159
+ .0015
+ 255
+ 15
+```
+
 Mixing the two in one expression gives a Double. Assigning a Double to an
 Integer **rounds** it.
 
@@ -156,12 +173,21 @@ PRINT "hello, world"
 PRINT "con" + "cat"
 ```
 
+```text
+hello, world
+concat
+```
+
 `+` joins two strings. Strings compare with the same operators numbers do,
 comparing their characters:
 
 ```basic
 s$ = "abc"
 IF s$ < "abd" THEN PRINT "less"
+```
+
+```text
+less
 ```
 
 **Text and numbers never turn into each other by themselves.** `STR$` and `VAL`
@@ -198,6 +224,11 @@ is `0` and not an error.
 PRINT z        ' 0
 z = z + 1
 PRINT z        ' 1
+```
+
+```text
+ 0
+ 1
 ```
 
 A name is a letter followed by letters and digits, optionally ending in a type
@@ -244,6 +275,10 @@ correctly:
 PRINT (1 < 2)                        ' -1
 IF a > 0 AND b > 0 THEN PRINT "both"
 IF NOT (a = b) THEN PRINT "differ"
+```
+
+```text
+-1
 ```
 
 **A condition is true when it is not nought**, so a plain number works where one
@@ -362,6 +397,10 @@ NEXT i
 PRINT squares(7)                 ' 49
 ```
 
+```text
+ 49
+```
+
 Subscripts count from `OPTION BASE` unless the `DIM` said otherwise, and both
 bounds are included.
 
@@ -412,9 +451,17 @@ x = 1
 ## Printing
 
 ```basic
+x = 42
+a = 1 : b = 2 : c = 3
 PRINT "answer: "; x
 PRINT a, b, c
 PRINT
+```
+
+```text
+answer:  42
+ 1             2             3
+
 ```
 
 **A number is a sign character — a minus, or a space where one would go — then
@@ -440,12 +487,21 @@ PRINT 1, 2, 3        '  1             2             3
 PRINT "a"; "b"; "c"  ' abc
 ```
 
+```text
+ 1             2             3
+abc
+```
+
 **A separator at the end of the line holds the line open** for the next `PRINT`
 to carry on, and `PRINT` with nothing after it ends the line it is on:
 
 ```basic
 PRINT "open";
 PRINT " continued"   ' open continued
+```
+
+```text
+open continued
 ```
 
 A line still open when the program stops is written out before it does.
@@ -459,6 +515,11 @@ PRINT TAB(10); "at ten"
 PRINT "x"; SPC(5); "y"
 ```
 
+```text
+         at ten
+x     y
+```
+
 **The margin is 80.** An item that will not fit goes on the next line.
 
 ### PRINT USING
@@ -467,6 +528,12 @@ PRINT "x"; SPC(5); "y"
 PRINT USING "###.##"; 3.14159#      '   3.14
 PRINT USING "value: ### units"; 9   ' value:   9 units
 PRINT USING "###"; 1; 2; 3          '   1  2  3
+```
+
+```text
+  3.14
+value:   9 units
+  1  2  3
 ```
 
 The format is walked once per item, literal characters going out as they are.
@@ -510,8 +577,17 @@ written**, and is compared against it on demand by
 block; anything else is the one-line form.
 
 ```basic
+x = 5
 IF x > 0 THEN PRINT "positive"
 IF x > 0 THEN PRINT "positive" ELSE PRINT "not"
+x = -1
+IF x > 0 THEN PRINT "positive" ELSE PRINT "not"
+```
+
+```text
+positive
+positive
+not
 ```
 
 A bare label after `THEN` or `ELSE` is a `GOTO`:
@@ -524,6 +600,7 @@ The block form runs until `END IF`, with any number of `ELSEIF` arms and at most
 one `ELSE`:
 
 ```basic
+n = 2
 IF n = 1 THEN
   PRINT "one"
 ELSEIF n = 2 THEN
@@ -533,6 +610,10 @@ ELSE
 END IF
 ```
 
+```text
+two
+```
+
 A one-line `IF` may hold several statements, separated by `:`, and they all
 belong to the arm. What it may not hold is a statement that **opens a block**,
 whose closing line would have nowhere to be.
@@ -540,6 +621,7 @@ whose closing line would have nowhere to be.
 ### SELECT CASE
 
 ```basic
+n = 4
 SELECT CASE n
 CASE 1, 2
   PRINT "one or two"
@@ -550,6 +632,10 @@ CASE IS >= 10
 CASE ELSE
   PRINT "none of those"
 END SELECT
+```
+
+```text
+somewhere in three to six
 ```
 
 The subject is evaluated **once**. A `CASE` takes any number of alternatives
@@ -571,13 +657,22 @@ last. **Nothing may come between `SELECT CASE` and its first `CASE`.**
 ### FOR
 
 ```basic
-FOR i = 1 TO 10
+FOR i = 1 TO 3
   PRINT i
 NEXT i
 
-FOR i = 10 TO 1 STEP -1
+FOR i = 3 TO 1 STEP -1
   PRINT i
 NEXT
+```
+
+```text
+ 1
+ 2
+ 3
+ 3
+ 2
+ 1
 ```
 
 The limit and the step are evaluated **once, when the loop starts**, so a body
@@ -593,6 +688,13 @@ FOR a = 1 TO 2
   FOR b = 1 TO 2
     PRINT a; ","; b
 NEXT b, a
+```
+
+```text
+ 1 , 1
+ 1 , 2
+ 2 , 1
+ 2 , 2
 ```
 
 ### DO
@@ -645,6 +747,11 @@ FOR i = 1 TO 10
 NEXT i
 ```
 
+```text
+ 1
+ 2
+```
+
 `EXIT SUB` and `EXIT FUNCTION` are in [Procedures](#procedures).
 
 ---
@@ -679,6 +786,11 @@ FOR j = 1 TO 3
   PRINT j
 Skip:
 NEXT j
+```
+
+```text
+ 1
+ 3
 ```
 
 A jump to a label that does not exist is refused **before the program runs**.
@@ -718,6 +830,10 @@ END FUNCTION
 PRINT Square(5)
 ```
 
+```text
+ 25
+```
+
 A call in an expression always takes brackets. Recursion works:
 
 ```basic
@@ -746,6 +862,10 @@ END SUB
 a = 21
 Double a
 PRINT a            ' 42
+```
+
+```text
+ 42
 ```
 
 It works through a chain, too: if `A` hands its parameter to `B` and `B` hands
@@ -882,6 +1002,11 @@ DO UNTIL EOF(1)
   PRINT line$
 LOOP
 CLOSE #1
+```
+
+```text
+a line
+"Hans",42
 ```
 
 | | |

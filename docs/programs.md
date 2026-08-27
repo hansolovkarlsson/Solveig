@@ -390,12 +390,46 @@ table had when [disasm](#disasm--a-sob-file-read-and-disassembled) found it
 three sections out of date. They are also the first thing a newcomer reads.
 
 **It is in `make test` now**, in `tests/test_cli.c` with the other tests that
-run the binaries as a shell would — **877<!--count claims--> claims on every build**, in about
+run the binaries as a shell would — **940<!--count claims--> claims on every build**, in about
 sixteen seconds, and it fails the build if one stops holding.
+
+**And it checks the SolaBasic documents, which are in another language
+entirely.** [SOLABASIC.md](SOLABASIC.md), its
+[reference](SOLABASIC-REFERENCE.md) and its
+[cheatsheet](SOLABASIC-CHEATSHEET.md) carry seventy ```basic blocks, and a
+fenced block naming a language was the one thing this checker skipped — so a
+repository that defines a dialect, ships a compiler for it and writes three
+documents about it was checking all three by eye.
+
+**The expectation is a ```text block under the ```basic one, not a comment on
+the line**, and the reason is BASIC's own output: `PRINT 42` writes a space
+where a minus would go, then the digits, then a *trailing* space. Leading spaces
+are what a print zone and `TAB` are made of and a comment cannot show them; a
+trailing space in a comment is invisible and the first editor to touch the file
+would strip it. Inside a fence the leading ones survive. So trailing whitespace
+is ignored on both sides and leading whitespace is not — the trailing space
+after a number is held instead by `programs/sola/*.out`, which `test_cli`
+compares byte for byte.
+
+**Twenty-nine of the seventy are checked, and the rest are counted rather than
+guessed at.** Sixteen are declarations that print nothing, thirteen name a label
+or a `SUB` that lives in the prose around them rather than in the block, three
+loop for ever on purpose — that being what a backwards `GOTO` looks like — and
+one reads from the terminal, so what is shown under it is a *session* and not an
+output. That last one is told apart by reading the statement rather than by the
+run failing: `INPUT #1, a` takes from a file and is fine.
+
+**Writing them down found five examples that only ever demonstrated half of
+themselves.** A one-line `IF ... ELSE` whose variable was never assigned took
+the `ELSE` every time; an `ELSEIF` chain and a `SELECT CASE` both fell through
+to the last arm; and a counted loop printed twenty lines where three would have
+said the same thing. None was *wrong* — each is now assigned a value that lands
+on the arm it is there to show. **An example nobody runs cannot report that it
+is demonstrating the wrong branch.**
 
 **And it checks the documentation too.** The guide and the reference carry the
 same notation inside ``` fences, and nothing checked those either — they are the
-two documents a newcomer actually reads. 363<!--count docs-claims--> claims
+two documents a newcomer actually reads. 426<!--count docs-claims--> claims
 across twenty-two<!--count docs-documents--> documents,
 and two more on `README.md` and `index.md` — the front pages, which were the
 last two things nothing checked.
@@ -437,7 +471,7 @@ no notation saying what it counts — so it is given one, which renders as nothi
 and leaves the sentence as it was:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 877<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 940<!--count claims--> claims
 ```
 
 Each name is recounted from the repository as it stands. A name the table does

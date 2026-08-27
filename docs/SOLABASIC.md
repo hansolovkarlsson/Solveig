@@ -278,6 +278,11 @@ ELSE
 END IF
 ```
 
+```text
+not
+zero
+```
+
 ```basic
 SELECT CASE grade$
     CASE "A", "B"
@@ -287,6 +292,10 @@ SELECT CASE grade$
     CASE ELSE
         PRINT "fail"
 END SELECT
+```
+
+```text
+fail
 ```
 
 `CASE` takes a list of values, ranges written `low TO high`, or `IS` followed by
@@ -342,6 +351,12 @@ END FUNCTION
 CALL Greet("world")
 Greet "world"
 PRINT Area#(2)
+```
+
+```text
+Hello, world
+Hello, world
+ 12.56637061435916
 ```
 
 A `FUNCTION` answers by assigning to its own name. `EXIT SUB` and

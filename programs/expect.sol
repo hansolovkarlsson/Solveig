@@ -4,10 +4,17 @@
 ; Over the documentation:  ./bin/solvm programs/expect.sob docs
 ; A directory or one file:  ./bin/solvm programs/expect.sob docs/GUIDE.md
 ;
-; Two subjects, one job. `examples/` carries 402 claims in comments; `docs/` and
-; the two pages at the root carry 327 more inside ``` fences, in the same
-; notation. Nothing checked either until this existed, and both are read far
-; more than anything else here.
+; Three subjects, one job. `examples/` carries claims in comments; `docs/` and
+; the two pages at the root carry more inside ``` fences, in the same notation;
+; and the SolaBasic documents carry programs in a *second language*, which are
+; compiled and run against the output printed under them. Nothing checked any of
+; the three until this existed, and all three are read far more than anything
+; else here.
+;
+; The numbers move every time an example gains a line, so they are not written
+; down here -- `docs/programs.md` states them beside a marker this program
+; recounts, which is the arrangement that stopped three documents going stale at
+; once.
 ;
 ; The ninth program here, and the one with the narrowest customer: this
 ; repository. The job is real all the same. `examples/` carries inline
@@ -272,6 +279,157 @@ splitBlock := { lines | | code, outputs, unreached, seen, past |
                       unreached := unreached:add(#1) }) },
                 { code:add(line) }) }) }).
     [code:join("\n"):concat("\n"), outputs, unreached] }.
+
+; ---------------------------------------------------------------------------
+; The other language in these documents
+;
+; **`docs/SOLABASIC*.md` carry sixty-nine ```basic blocks and nothing ran one.**
+; That is the same gap this program was written to close for `examples/`, in the
+; one corner it could not reach: a fenced block naming a language is skipped
+; here, and SolaBasic is a language these documents define, ship a compiler for,
+; and had been checking by eye.
+;
+; **The expectation is a ```text block immediately after the ```basic one**, and
+; not a comment on the line. That is a different convention from the rest of
+; this checker and the reason is BASIC's own output: `PRINT 42` writes a space
+; where a minus would go, then the digits, then a *trailing* space. A claim
+; written in a comment cannot show either — leading spaces are what a print zone
+; and `TAB` are made of, and a trailing space in a comment is invisible and
+; would be stripped by the first editor to touch the file. Inside a fence the
+; leading ones survive.
+;
+;     ```basic
+;     PRINT 1, 2, 3
+;     ```
+;
+;     ```text
+;      1             2             3
+;     ```
+;
+; **Trailing whitespace is ignored on both sides and leading whitespace is
+; not.** The trailing space after a number is real output and unrepresentable
+; safely in a markdown file, so it is the one thing not held here — it is held
+; instead by `programs/sola/*.out`, which `test_cli` compares byte for byte.
+;
+; **A block with no ```text after it is not checked, and is counted.** Most of
+; them cannot be: sixteen are declarations that print nothing, thirteen name a
+; label or a `SUB` that lives in the prose around them rather than in the block,
+; and three loop for ever on purpose, being what a `GOTO` backwards looks like.
+; A checker that guessed which was which would be worse than one that says how
+; many it left alone.
+
+solaSob := "build/expect-sola.sob".
+solaState := 'notyet.
+
+; Built from source rather than trusted from `programs/`, where a stale `.sob`
+; may be lying about, and built once however many blocks want it.
+solaReady := {
+    solaState:equals('notyet):ifTrue({
+        solaState := system:run(["./bin/solas", "programs/sola.sol", "-o", solaSob],
+                                ["stdout", 'discard, "stderr", 'discard])
+            :equals(#0):ifElse({ 'ready }, { 'broken }) }).
+    solaState:equals('ready) }.
+
+basicBlocks := #0.
+basicChecked := #0.
+
+; Answers the output as lines, or nil if it would not compile.
+;
+; **A step limit, because a document may show a loop that never ends** -- and
+; three of these do, that being what a backwards `GOTO` looks like. Without one
+; the checker hangs on documentation that is perfectly correct.
+runBasic := { source, tag | | bas, sob, result |
+    solaReady:value:ifElse({
+        bas := "build/expect-":concat(tag):concat(".bas").
+        sob := "build/expect-":concat(tag):concat(".sob").
+        system:writeFile(bas, source).
+        system:isDirectory(sandbox):ifFalse({ system:makeDirectory(sandbox) }).
+        system:run(["./bin/solvm", solaSob, bas, sob],
+                   ["stdout", 'discard, "stderr", 'discard]):equals(#0):ifElse({
+            result := system:capture(["/bin/sh", "-c",
+                "cd ":concat(sandbox)
+                     :concat(" && ../../bin/solvm --steps=100000000 ../../")
+                     :concat(sob):concat(" 2>&1 < /dev/null")]).
+            result:at("output"):split("\n") },
+          { nil }) },
+      { nil }) }.
+
+; Right only, since a leading space is a print zone and a trailing one is the
+; space BASIC puts after a number.
+string:trimRight := { | i |
+    i := self:size.
+    { i:greaterThan(#0):and({ self:at(i):equals(" ")
+                                  :or({ self:at(i):equals("\t") }) }) }
+        :whileTrue({ i := i:sub(#1) }).
+    i:equals(#0):ifElse({ "" }, { self:copyFrom(#1, i) }) }.
+
+; The whole output, in order, and nothing besides -- which a subsequence would
+; not say. A ```basic block is a complete program and its output is knowable, so
+; the check is equality rather than presence.
+matchExactly := { expected, actual, subject | | ok, i, want, got |
+    ok := true.
+
+    ; The empty string after the final newline is not a line of output.
+    actual:size:greaterThan(#0):and({ actual:at(actual:size):equals("") })
+        :ifTrue({ actual := actual:first(actual:size:sub(#1)) }).
+
+    actual:size:equals(expected:size):ifFalse({
+        ok := false.
+        failures:add([subject, #0,
+            "prints {} line{} where the block shows {}"
+                :fill([actual:size, actual:size:equals(#1):ifElse({""},{"s"}),
+                       expected:size]),
+            ""]) }).
+
+    i := #1.
+    { ok:and({ i:lessOrEqual(expected:size) }) }:whileTrue({
+        want := expected:at(i):trimRight.
+        got := actual:at(i):trimRight.
+        want:equals(got):ifFalse({
+            ok := false.
+            failures:add([subject, i, want,
+                "printed: {}":fill([got])]) }).
+        i := i:add(#1) }).
+    ok }.
+
+; **A block that reads from the terminal cannot be checked against a ```text
+; block, because that text is a session and not an output.** The reference shows
+;
+;     TWO NUMBERS, SEPARATED BY A COMMA? 3, 4
+;     SUM IS 7
+;
+; where the `3, 4` was typed by a person. Running it with nothing on standard
+; input produces neither line. Told apart by reading the statement rather than
+; by the run failing: `INPUT #1, a` and `LINE INPUT #1, s$` take from a file and
+; are fine, and `OPEN "x" FOR INPUT AS #1` is not an `INPUT` statement at all.
+readsTyping := { source | | asks |
+    asks := false.
+    source:split("\n"):do({ line |
+        line:split(":"):do({ part | | t |
+            t := part:trim:asUppercase.
+            t:indexOf("LINE INPUT"):equals(#1):ifTrue({
+                t := t:copyFrom(#6, t:size):trim }).
+            t:indexOf("INPUT"):equals(#1):ifTrue({
+                t := t:copyFrom(#6, t:size):trim.
+                t:size:equals(#0):or({ t:at(#1):equals("#"):not })
+                    :ifTrue({ asks := true }) }) }) }).
+    asks }.
+
+basicTyping := #0.
+
+checkBasic := { path, name, n, lines, expected | | source, output, subject |
+    subject := "{}#{}":fill([path, n]).
+    source := lines:join("\n"):concat("\n").
+    readsTyping:value(source):ifTrue({ basicTyping := basicTyping:add(#1) }).
+    output := readsTyping:value(source):ifElse({ nil },
+        { runBasic:value(source, "{}-{}-bas":fill([name, n])) }).
+    output:isNil:ifElse(
+        { readsTyping:value(source):ifFalse({
+              failures:add([subject, #0, "would not compile as SolaBasic", ""]) }) },
+        { matchExactly:value(expected, output, subject):ifTrue({
+              basicChecked := basicChecked:add(#1).
+              checked := checked:add(expected:size) }) }).
+    nil }.
 
 ; ---------------------------------------------------------------------------
 ; Running one
@@ -661,7 +819,8 @@ markersIn := { path, source | | n |
 ; A .md file, checked block by block
 
 checkMarkdown := { path | | source, name, n, expected, parts, output, label,
-                           context, contextLines, clean, joined, before |
+                           context, contextLines, clean, joined, before,
+                           all, shown, i |
     source := system:readFile(path).
     markersIn:value(path, source).
     seen:add(path).
@@ -672,7 +831,24 @@ checkMarkdown := { path | | source, name, n, expected, parts, output, label,
     context := "".
     contextLines := #0.
 
-    blocksIn:value(source):do({ block | | code, outputs, tag, alone, spare |
+    ; **A ```basic block's expectation is the ```text block under it**, so the
+    ; pairing has to be worked out before the walk rather than during it: a
+    ; block cannot see the one after it from inside a `do`. Adjacent means no
+    ; more than a blank line between the fences -- prose in the gap is prose
+    ; about something else, and a transcript that far from its program is not
+    ; attached to it.
+    all := blocksIn:value(source).
+    shown := dictionary:new.
+    i := #1.
+    { i:lessThan(all:size) }:whileTrue({ | a, b, gap |
+        a := all:at(i). b := all:at(i:add(#1)).
+        gap := b:at(#1):sub(a:at(#1):add(a:at(#2):size):add(#1)).
+        a:at(#3):equals("basic"):and({ b:at(#3):equals("text") })
+            :and({ gap:greaterOrEqual(#1) }):and({ gap:lessOrEqual(#2) })
+            :ifTrue({ shown:atPut(i, b:at(#2)) }).
+        i := i:add(#1) }).
+
+    all:do({ block | | code, outputs, tag, alone, spare |
         n := n:add(#1).
         parts := splitBlock:value(block:at(#2)).
         code := parts:at(#1).
@@ -812,7 +988,14 @@ checkMarkdown := { path | | source, name, n, expected, parts, output, label,
                 context := context:concat(code).
                 contextLines := joined }) }) },
 
-        { tagged := tagged:add(#1) }) }).
+        ; A fenced block naming a language. `basic` is one this repository
+        ; defines and ships a compiler for, so it is checked rather than
+        ; counted -- when the block says what it prints.
+        { block:at(#3):equals("basic"):ifElse({
+              basicBlocks := basicBlocks:add(#1).
+              shown:includes(n):ifTrue({
+                  checkBasic:value(path, name, n, block:at(#2), shown:at(n)) }) },
+            { tagged := tagged:add(#1) }) }) }).
 
     ; What the documents alone account for, since `programs.md` states that
     ; separately from the total and both numbers have to stay true.
@@ -1060,6 +1243,15 @@ notReached:greaterThan(#0):ifTrue({
 unchecked:greaterThan(#0):ifTrue({
     "{} line{} print without saying what, and are not checked"
         :fill([unchecked, unchecked:equals(#1):ifElse({""},{"s"})]):display }).
+basicBlocks:greaterThan(#0):ifTrue({
+    "{} SolaBasic block{}, {} checked against the output shown under {}"
+        :fill([basicBlocks, basicBlocks:equals(#1):ifElse({""},{"s"}),
+               basicChecked,
+               basicChecked:equals(#1):ifElse({"it"},{"them"})]):display.
+    basicTyping:greaterThan(#0):ifTrue({
+        "{} of them read from the terminal, so what is shown is a session"
+            :fill([basicTyping]):display }) }).
+
 placed:greaterThan(#0):ifTrue({
     "{} program{} say where {} come{} in the order, and are there"
         :fill([placed, placed:equals(#1):ifElse({""},{"s"}),

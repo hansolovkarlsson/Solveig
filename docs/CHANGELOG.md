@@ -5,6 +5,43 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The SolaBasic documents check their own examples — `pending`, 2026-08-27
+
+**[expect.sol](../programs/expect.sol) reads a second language now.** The three
+SolaBasic documents carry **seventy ```basic blocks and nothing ran one** — a
+fenced block naming a language was the one thing this checker skipped, so a
+repository that defines a dialect, ships a compiler for it and writes three
+documents about it was checking all three by eye. **Twenty-nine are compiled and
+run on every test, against the output printed under them.**
+
+**The expectation is a ```text block, not a comment on the line**, which is a
+different convention from the rest of the checker and BASIC's output is the
+reason: `PRINT 42` writes a space where a minus would go, then the digits, then
+a *trailing* space. Leading spaces are what a print zone and `TAB` are made of
+and a comment cannot show them; a trailing space in a comment is invisible and
+the first editor to touch the file would strip it. So trailing whitespace is
+ignored on both sides and leading whitespace is not — the trailing space is held
+instead by `programs/sola/*.out`, which `test_cli` already compares byte for
+byte.
+
+**The forty-one that are not checked are counted, not guessed at.** Sixteen are
+declarations that print nothing, thirteen name a label or a `SUB` that lives in
+the prose rather than in the block, three loop for ever on purpose — that being
+what a backwards `GOTO` looks like — and one reads from the terminal, so what is
+shown under it is a session and not an output. The last is told apart by reading
+the statement rather than by the run failing, since `INPUT #1, a` takes from a
+file and is fine.
+
+**Writing the outputs down found five examples that only ever demonstrated half
+of themselves.** A one-line `IF ... ELSE` whose variable was never assigned took
+the `ELSE` every time; an `ELSEIF` chain and a `SELECT CASE` both fell through to
+their last arm; and a counted loop printed twenty lines where three say the same
+thing. None was wrong. Each now lands on the arm it exists to show. **An example
+nobody runs cannot report that it is demonstrating the wrong branch.**
+
+`DEFLNG` came back too — the reference gained it yesterday and the cheatsheet
+already had it, and now a program using it is compiled on every run.
+
 ### A cheatsheet for SolaBasic, and the keyword the reference had lost — `bc784e2`, 2026-08-27
 
 **[SOLABASIC-CHEATSHEET.md](SOLABASIC-CHEATSHEET.md)**: every statement and
