@@ -1203,7 +1203,8 @@ static void test_pascal_compiles_a_program_that_runs(void)
                                       "reals", "writes",
                                       "ordinals", "loops", "cases",
                                       "consts", "jumps",
-                                      "procs", "byref", "forward", "nested" };
+                                      "procs", "byref", "forward", "nested",
+                                      "arrays", "records" };
     for (size_t i = 0; i < sizeof programs / sizeof programs[0]; i++) {
         char command[512], expected_path[512];
 
@@ -1251,6 +1252,17 @@ static void test_pascal_compiles_a_program_that_runs(void)
                out, sizeof out) != 0);
     assert(strstr(out, "has to be a variable") != NULL);
 
+    /* Assigning a whole record copies it, which the standard says and the
+       machine does not: a Solum array is a reference, so without the copy two
+       names would mean one thing. */
+    system("printf 'program T(output);\\ntype P = record x : integer end;"
+           "\\nvar a, b : P;\\nbegin a.x := 1; b := a; b.x := 2;"
+           " writeln(a.x, b.x) end.\\n' > " DIR "/copy.pas");
+    assert(run("bin/solvm " DIR "/pascal.sob " DIR "/copy.pas " DIR "/copy.sob"
+               " >/dev/null 2>&1 && bin/solvm " DIR "/copy.sob 2>&1",
+               out, sizeof out) == 0);
+    assert(strstr(out, "          1          2") != NULL);
+
     /* **The first blocks in this repository that capture their home.** A
        nested procedure reads its parent's variables with OP_OUTER, so its
        chunk carries flag 2 -- and sola.sol has never emitted one, SolaBasic
@@ -1271,7 +1283,7 @@ static void test_pascal_compiles_a_program_that_runs(void)
     assert(strstr(out, "one more than a multiple of three") != NULL);
     assert(strstr(out, "over three hundred") != NULL);
 
-    printf("  14 Pascal programs compile, run, and match what fpc -Miso printed,\n"
+    printf("  16 Pascal programs compile, run, and match what fpc -Miso printed,\n"
            "  and the nested ones are the first blocks here that capture a home\n");
 }
 

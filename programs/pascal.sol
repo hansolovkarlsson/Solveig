@@ -383,6 +383,9 @@ ptype:members := nil.        ; an enumeration's names, in order
 ptype:base    := nil.        ; a subrange's base type
 ptype:lo      := #0.
 ptype:hi      := #0.
+ptype:elem    := nil.        ; an array's element type
+ptype:count   := #0.         ; how many elements an array has, or fields a record
+ptype:fields  := nil.        ; a record's [name, type, offset], in order
 
 makeType := { kind, run, name | | t |
     t := ptype:new. t:kind := kind. t:run := run. t:name := name. t }.
@@ -392,6 +395,32 @@ tReal    := makeType:value('real,    'real,    "real").
 tChar    := makeType:value('char,    'char,    "char").
 tBoolean := makeType:value('boolean, 'boolean, "boolean").
 tText    := makeType:value('text,    'text,    "string").
+
+; **An array and a record are both a Solum array at run time**, and the
+; difference is entirely in what the compiler knows. A record's field is an
+; index worked out while compiling, so it costs an `at` and not a lookup; an
+; array's subscript is the Pascal index less its lower bound, folded in the same
+; way. Neither is a dictionary and neither carries its shape at run time.
+isStructured := { t | t:kind:equals('array):or({ t:kind:equals('record) }) }.
+
+; The ordinal a bound stands for. A char subrange holds its ends as characters,
+; because that is what the source wrote and what a `case` label compares
+; against -- so the arithmetic has to ask for the number.
+ordinalOf := { t, v | t:run:equals('char):ifElse({ v:asByte }, { v }) }.
+
+; How many elements an ordinal type has, which is what an index range is worth.
+spanOf := { t |
+    t:kind:equals('subrange):ifElse({
+        ordinalOf:value(t, t:hi):sub(ordinalOf:value(t, t:lo)):add(#1) },
+    { t:kind:equals('enum):ifElse({ t:members:size },
+    { t:run:equals('boolean):ifElse({ #2 },
+      { nil }) }) }) }.
+
+; The lowest value an index type takes, as the integer the machine will see.
+originOf := { t |
+    t:kind:equals('subrange):ifElse({ ordinalOf:value(t, t:lo) },
+    { t:kind:equals('enum):ifElse({ #0 },
+      { #0 }) }) }.
 
 ; A subrange stands for its base wherever compatibility is asked about, which
 ; is the standard's rule and the reason `1 .. 20` may be assigned to an
@@ -705,6 +734,106 @@ pas:emitStoreVar := { name, entry | | tmp |
         self:emitPop }).
     nil }.
 
+; ---------------------------------------------------------------------------
+; Designators
+;
+; `a[i]`, `r.f`, and any run of the two. **A read leaves the value; a store
+; stops one step short**, leaving the container and the index for an `atPut`.
+; Which of those is wanted is known before the last step is emitted, which is
+; the only lookahead any of this needs.
+;
+; A whole variable with no selectors is a third case, because a store into one
+; is a `SETLOCAL` and has no container at all.
+
+pas:withStack := array:new.
+
+pas:lookupWith := { name | | found, i, w |
+    found := nil.
+    i := self:withStack:size.
+    { found:isNil:and({ i:greaterOrEqual(#1) }) }:whileTrue({
+        w := self:withStack:at(i).
+        w:at(#2):fields:do({ f |
+            found:isNil:and({ f:at(#1):equals(name) }):ifTrue({
+                found := [w:at(#1), f] }) }).
+        i := i:sub(#1) }).
+    found }.
+
+pas:atSelector := { self:isPunct("["):or({ self:isPunct(".") }) }.
+
+pas:emitIndexStep := { t | | it |
+    t:kind:equals('array):ifFalse({
+        self:fail("a {} cannot be subscripted":fill([self:typeName(t)])) }).
+    it := self:expression.
+    sameType:value(it, t:base):ifFalse({
+        self:fail("this array is indexed by a {} and that is a {}"
+            :fill([self:typeName(t:base), self:typeName(it)])) }).
+    ; Whatever the index type is, what the machine needs is its ordinal --
+    ; `asByte` for a char, a jump for a boolean, and nothing at all for an
+    ; integer or an enumeration.
+    self:emitOrd(it).
+
+    ; Solum counts from one and Pascal from wherever it was told, so the
+    ; difference is folded in here and costs nothing at run time when it is nought.
+    t:lo:equals(#1):ifFalse({
+        self:emitInt(t:lo:sub(#1)). self:emitSend("sub", #1) }).
+    t:elem }.
+
+pas:emitFieldStep := { t, name | | found |
+    t:kind:equals('record):ifFalse({
+        self:fail("a {} has no fields":fill([self:typeName(t)])) }).
+    found := nil.
+    t:fields:do({ f | f:at(#1):equals(name):ifTrue({ found := f }) }).
+    found:isNil:ifTrue({
+        self:fail("this record has no field '{}'":fill([name])) }).
+    self:emitInt(found:at(#3)).
+    found:at(#2) }.
+
+pas:selectors := { t, forStore | | going, more, mode, f |
+    mode := 'value.
+    going := true.
+    { going }:whileTrue({
+        self:acceptPunct("["):ifElse({
+            more := true.
+            { more }:whileTrue({
+                t := self:emitIndexStep(t).
+                more := self:acceptPunct(",").
+                more:ifElse({ self:emitSend("at", #1) },
+                  { self:expectPunct("]").
+                    going := self:atSelector.
+                    going:not:and({ forStore }):ifElse({ mode := 'element },
+                        { self:emitSend("at", #1) }) }) }) },
+
+          { self:expectPunct(".").
+            f := self:expectName.
+            t := self:emitFieldStep(t, f).
+            going := self:atSelector.
+            going:not:and({ forStore }):ifElse({ mode := 'element },
+                { self:emitSend("at", #1) }) }) }).
+    [mode, t, nil] }.
+
+pas:designator := { name, forStore | | entry, t, w |
+    w := self:lookupWith(name).
+    w:notNil:ifElse({
+        ; A field made visible by `with`: the record is already in a slot and
+        ; the field is an index into it.
+        self:emitLocal(w:at(#1)).
+        self:emitInt(w:at(#2):at(#3)).
+        t := w:at(#2):at(#2).
+        self:atSelector:ifElse({
+            self:emitSend("at", #1).
+            self:selectors(t, forStore) },
+          { forStore:ifElse({ ['element, t, nil] },
+              { self:emitSend("at", #1). ['value, t, nil] }) }) },
+
+    { entry := self:lookupVar(name).
+      entry:isNil:ifTrue({ self:fail("'{}' is not declared":fill([name])) }).
+      t := entry:at(#2).
+      self:atSelector:ifElse({
+          self:emitReadVar(name, entry).
+          self:selectors(t, forStore) },
+        { forStore:ifElse({ ['whole, t, entry] },
+            { self:emitReadVar(name, entry). ['value, t, nil] }) }) }) }.
+
 pas:emitValue := { t, v |
     t:run:equals('integer):ifTrue({ self:emitInt(v) }).
     t:run:equals('real):ifTrue({ self:emitReal(v) }).
@@ -742,11 +871,10 @@ pas:factor := { | t, name, v, over, pair, found |
             self:next.
             self:callRoutine(name, true) },
 
-        { self:lookupVar(name):notNil:ifElse({
+        { self:lookupVar(name):notNil:or({ self:lookupWith(name):notNil })
+            :ifElse({
             self:next.
-            found := self:lookupVar(name).
-            self:emitReadVar(name, found).
-            found:at(#2) },
+            self:designator(name, false):at(#2) },
 
           ; Everything left is a constant of some kind -- a `const`, an
           ; enumeration member, `true`, `false` or `maxint` -- and all of them
@@ -919,6 +1047,9 @@ pas:writeItem := { | t, width, places |
     ; string, and a `Colour` is none of them however it is held.
     t:kind:equals('enum):ifTrue({
         self:fail("an enumeration cannot be written -- ord() can") }).
+    isStructured:value(t):ifTrue({
+        self:fail("a {} cannot be written; write its parts"
+            :fill([self:typeName(t)])) }).
 
     places:notNil:ifTrue({
         t:run:equals('real):ifFalse({
@@ -1054,6 +1185,8 @@ pas:statement := { | name, over, past, top, target, ends |
         self:emitLoop(top).
         self:patch(past) },
 
+    { self:accept("with"):ifElse({ self:withStatement },
+
     { self:accept("for"):ifElse({ self:forStatement },
     { self:accept("case"):ifElse({ self:caseStatement },
     { self:accept("goto"):ifElse({
@@ -1075,7 +1208,7 @@ pas:statement := { | name, over, past, top, target, ends |
         ; variable here and a recursive call in an expression, which is the
         ; standard's rule and falls out of asking the two questions in this
         ; order.
-        self:vars:includes(name):ifElse({
+        self:vars:includes(name):and({ self:atSelector:not }):ifElse({
             target := self:vars:at(name).
             self:expectPunct(":=").
             self:assignInto(target, name) },
@@ -1083,15 +1216,43 @@ pas:statement := { | name, over, past, top, target, ends |
         { self:lookupRoutine(name):notNil:ifElse({
             self:callRoutine(name, false). self:emitPop },
 
-          { target := self:lookupVar(name).
-            target:isNil:ifTrue({
-                self:fail("'{}' is not declared":fill([name])) }).
-            self:expectPunct(":=").
-            self:assignInto(target, name) }) }) },
+          { self:assignTo(name) }) }) },
 
       ; The empty statement, which the standard has and which is what a `;`
       ; before an `end` produces.
-      { nil }) }) }) }) }) }) }) }) }) }).
+      { nil }) }) }) }) }) }) }) }) }) }) }).
+    nil }.
+
+; **The record is evaluated once and kept in a slot**, which is what makes
+; `with a[i] do` sound: the standard says the designator is evaluated once, so a
+; subscript with a side effect -- or one whose variable the body changes --
+; cannot be re-read.
+;
+; The slot is a scratch one, taken at a depth the body cannot reach, because a
+; `with` lives across a whole statement where every other scratch use lives
+; inside one expression.
+pas:withStatement := { | more, res, slot, added, name |
+    added := #0.
+    more := true.
+    { more }:whileTrue({
+        self:scratchDepth := self:scratchDepth:add(#2).
+        name := self:expectName.
+        res := self:designator(name, false).
+        res:at(#2):kind:equals('record):ifFalse({
+            self:fail("'with' wants a record and '{}' is a {}"
+                :fill([name, self:typeName(res:at(#2))])) }).
+        slot := self:scratchSlot(#1).
+        self:emitSetLocal(slot). self:emitPop.
+        self:withStack:add([slot, res:at(#2)]).
+        added := added:add(#1).
+        more := self:acceptPunct(",") }).
+
+    self:expect("do").
+    self:statement.
+
+    added:repeat({
+        self:withStack:removeLast.
+        self:scratchDepth := self:scratchDepth:sub(#2) }).
     nil }.
 
 ; **The selector is evaluated once**, which the standard requires and a chain of
@@ -1210,6 +1371,24 @@ pas:conditionFor := { what | | t |
 
 ; Pascal's assignment compatibility: an integer may go into a real, a subrange
 ; stands for its base, and nothing else converts.
+; A store through a designator: the container and the index are already on the
+; stack when the value arrives, so the whole thing is one `atPut`.
+pas:assignTo := { name | | res, mode, want, got |
+    res := self:designator(name, true).
+    mode := res:at(#1). want := res:at(#2).
+    self:expectPunct(":=").
+    got := self:expression.
+    want:run:equals('real):and({ got:run:equals('integer) }):ifTrue({
+        self:toReal(got). got := tReal }).
+    sameType:value(got, want):ifFalse({
+        self:fail("'{}' is a {} and this is a {}"
+            :fill([name, self:typeName(want), self:typeName(got)])) }).
+    isStructured:value(want):ifTrue({ self:emitCopyOf(want) }).
+    mode:equals('whole):ifElse(
+        { self:emitStoreVar(name, res:at(#3)) },
+        { self:emitSend("atPut", #2). self:emitPop }).
+    nil }.
+
 pas:assignInto := { target, name | | want, got |
     want := target:at(#2).
     got := self:expression.
@@ -1218,6 +1397,7 @@ pas:assignInto := { target, name | | want, got |
     sameType:value(got, want):ifFalse({
         self:fail("'{}' is a {} and this is a {}"
             :fill([name, self:typeName(want), self:typeName(got)])) }).
+    isStructured:value(want):ifTrue({ self:emitCopyOf(want) }).
     self:emitStoreVar(name, target).
     nil }.
 
@@ -1242,8 +1422,153 @@ pas:sectionWords := ["label", "const", "type", "var", "begin",
 pas:atSection := {
     self:kind:equals('name):and({ self:sectionWords:indexOf(self:text):notNil }) }.
 
-pas:typeDenoter := { | members, t, lo, hi, i |
-    self:acceptPunct("("):ifElse({
+; ---------------------------------------------------------------------------
+; Making one
+;
+; **A loop, not an unrolled run of instructions**, because an array's size is a
+; constant the compiler knows and a program is free to declare a thousand of
+; something. The emitted code grows with how deeply a type nests and not with
+; how big it is.
+
+pas:emitArrayOf := { count, body | | a, i, top, over |
+    self:scratchDepth := self:scratchDepth:add(#4).
+    a := self:scratchSlot(#1).
+    i := self:scratchSlot(#2).
+
+    self:emitGlobal("array"). self:emitSend("new", #0).
+    self:emitSetLocal(a). self:emitPop.
+    self:emitInt(#0). self:emitSetLocal(i). self:emitPop.
+
+    top := self:here.
+    self:emitLocal(i). self:emitInt(count). self:emitSend("lessThan", #1).
+    over := self:emitJumpFalse("array").
+
+    self:emitLocal(a).
+    body:value.
+    self:emitSend("add", #1). self:emitPop.
+
+    self:emitLocal(i). self:emitInt(#1). self:emitSend("add", #1).
+    self:emitSetLocal(i). self:emitPop.
+    self:emitLoop(top).
+    self:patch(over).
+
+    self:emitLocal(a).
+    self:scratchDepth := self:scratchDepth:sub(#4).
+    nil }.
+
+pas:emitZeroOf := { t |
+    t:kind:equals('array):ifElse({
+        self:emitArrayOf(t:count, { self:emitZeroOf(t:elem) }) },
+
+    { t:kind:equals('record):ifElse({
+        self:emitGlobal("array").
+        t:fields:do({ f | self:emitZeroOf(f:at(#2)) }).
+        self:emitSend("of", t:fields:size) },
+
+      { t:run:equals('integer):ifTrue({ self:emitInt(#0) }).
+        t:run:equals('real):ifTrue({ self:emitReal(0.0) }).
+        t:run:equals('char):ifTrue({ self:emitString(" ") }).
+        t:run:equals('boolean):ifTrue({ self:emitBool(false) }).
+        t:run:equals('text):ifTrue({ self:emitString("") }) }) }).
+    nil }.
+
+; **Assigning a whole array or record copies it**, which the standard says and
+; the machine does not: a Solum array is a reference, so assigning one without
+; this would make two names for one thing. The copy is as deep as the type is,
+; because a record of arrays is still one value in Pascal.
+;
+; Nothing is emitted for a simple type: an integer, a float, a string and a
+; boolean are values on this machine and cannot be shared into.
+pas:emitCopyOf := { t | | src, a, i, top, over |
+    isStructured:value(t):ifTrue({
+        self:scratchDepth := self:scratchDepth:add(#4).
+        src := self:scratchSlot(#3).
+        self:emitSetLocal(src). self:emitPop.
+
+        t:kind:equals('record):ifElse({
+            self:emitGlobal("array").
+            t:fields:do({ f |
+                self:emitLocal(src).
+                self:emitInt(f:at(#3)).
+                self:emitSend("at", #1).
+                self:emitCopyOf(f:at(#2)) }).
+            self:emitSend("of", t:fields:size) },
+
+          { a := self:scratchSlot(#1).
+            i := self:scratchSlot(#2).
+            self:emitGlobal("array"). self:emitSend("new", #0).
+            self:emitSetLocal(a). self:emitPop.
+            self:emitInt(#0). self:emitSetLocal(i). self:emitPop.
+            top := self:here.
+            self:emitLocal(i). self:emitInt(t:count). self:emitSend("lessThan", #1).
+            over := self:emitJumpFalse("array").
+            self:emitLocal(a).
+            self:emitLocal(src). self:emitLocal(i). self:emitInt(#1).
+            self:emitSend("add", #1). self:emitSend("at", #1).
+            self:emitCopyOf(t:elem).
+            self:emitSend("add", #1). self:emitPop.
+            self:emitLocal(i). self:emitInt(#1). self:emitSend("add", #1).
+            self:emitSetLocal(i). self:emitPop.
+            self:emitLoop(top).
+            self:patch(over).
+            self:emitLocal(a) }).
+        self:scratchDepth := self:scratchDepth:sub(#4) }).
+    nil }.
+
+pas:typeDenoter := { | members, t, lo, hi, i, elem, indices, fields, offset, names |
+    self:accept("array"):ifTrue({
+        self:expectPunct("[").
+        indices := array:new.
+        indices:add(self:typeDenoter).
+        { self:acceptPunct(",") }:whileTrue({ indices:add(self:typeDenoter) }).
+        self:expectPunct("]").
+        self:expect("of").
+        elem := self:typeDenoter.
+
+        ; `array [a, b] of T` is `array [a] of array [b] of T`, which the
+        ; standard says outright -- so the list is folded from the right.
+        i := indices:size.
+        { i:greaterOrEqual(#1) }:whileTrue({ | ix, made |
+            ix := indices:at(i).
+            isOrdinal:value(ix):and({ spanOf:value(ix):notNil }):ifFalse({
+                self:fail("an array is indexed by an ordinal with known bounds") }).
+            made := makeType:value('array, 'array, "").
+            made:elem := elem.
+            made:base := ix.
+            made:lo := originOf:value(ix).
+            made:count := spanOf:value(ix).
+            made:name := "array of {}":fill([self:typeName(elem)]).
+            elem := made.
+            i := i:sub(#1) }).
+        nil }).
+    self:kind:equals('name):and({ self:text:equals("array") }):ifTrue({ nil }).
+
+    ; The fold above leaves the finished type in `elem`; everything else is
+    ; decided below.
+    elem:notNil:ifElse({ elem },
+
+    { self:accept("record"):ifElse({
+        fields := array:new.
+        offset := #1.
+        { self:isName("end"):not }:whileTrue({
+            names := array:new.
+            names:add(self:expectName).
+            { self:acceptPunct(",") }:whileTrue({ names:add(self:expectName) }).
+            self:expectPunct(":").
+            t := self:typeDenoter.
+            names:do({ n |
+                fields:do({ f | f:at(#1):equals(n):ifTrue({
+                    self:fail("'{}' is a field twice":fill([n])) }) }).
+                fields:add([n, t, offset]).
+                offset := offset:add(#1) }).
+            self:acceptPunct(";"):ifFalse({ nil }) }).
+        self:expect("end").
+        t := makeType:value('record, 'record, "record").
+        t:fields := fields.
+        t:count := fields:size.
+        t },
+
+    { self:acceptPunct("("):ifElse({
         members := array:new.
         members:add(self:expectName).
         { self:acceptPunct(",") }:whileTrue({ members:add(self:expectName) }).
@@ -1273,7 +1598,7 @@ pas:typeDenoter := { | members, t, lo, hi, i |
             t:base := rootOf:value(lo:at(#1)).
             t:lo := lo:at(#2). t:hi := hi:at(#2).
             t:name := "{} .. {}":fill([lo:at(#2):asString, hi:at(#2):asString]).
-            t }) }) }.
+            t }) }) }) }) }.
 
 pas:constSection := { | name, pair |
     { self:kind:equals('name):and({ self:atSection:not }) }:whileTrue({
@@ -1316,10 +1641,7 @@ pas:declareVar := { name, type | | slot, entry |
     ; **Every variable starts at nought**, which the standard does not promise
     ; and this machine cannot avoid: a slot that was never written holds nil,
     ; and nil understands nothing. So the zero is emitted rather than assumed.
-    type:run:equals('integer):ifTrue({ self:emitInt(#0) }).
-    type:run:equals('real):ifTrue({ self:emitReal(0.0) }).
-    type:run:equals('char):ifTrue({ self:emitString(" ") }).
-    type:run:equals('boolean):ifTrue({ self:emitBool(false) }).
+    self:emitZeroOf(type).
 
     ; A boxed variable *is* the box, made once here, so that handing it to a
     ; `var` parameter hands over the storage rather than a copy of it.
@@ -1559,10 +1881,7 @@ pas:routineBody := { name, params, result, home | | method, index, slot |
             self:emitPop }) }).
 
     result:notNil:ifTrue({
-        result:run:equals('integer):ifTrue({ self:emitInt(#0) }).
-        result:run:equals('real):ifTrue({ self:emitReal(0.0) }).
-        result:run:equals('char):ifTrue({ self:emitString(" ") }).
-        result:run:equals('boolean):ifTrue({ self:emitBool(false) }).
+        self:emitZeroOf(result).
         self:emitSetLocal(self:result). self:emitPop }).
 
     self:compound.
@@ -1664,6 +1983,8 @@ pas:callRoutine := { name, asFunction | | sig, params, result, i, argName, entry
                     self:fail("a 'var' argument has to be a variable, and '{}' is not"
                         :fill([self:text])) }).
                 argName := self:expectName.
+                self:atSelector:ifTrue({
+                    self:fail("an element or a field cannot be a 'var' argument in this stage") }).
                 entry := self:lookupVar(argName).
                 entry:isNil:ifTrue({
                     self:fail("a 'var' argument has to be a variable, and '{}' is not"

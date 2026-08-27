@@ -129,7 +129,7 @@ and under this compiler.
 | **2** — **done** | `const`, `type`, enumerations, subranges, `case`, `repeat`, `for`, `goto` and labels, and `ord`, `chr`, `succ`, `pred`, `odd`, `abs`, `sqr`. Ten programs in `agree/`. |
 | **3** — **done** | `procedure` and `function`, value and `var` parameters, recursion, `forward`. Thirteen programs in `agree/`. |
 | **4** — **done** | Nested procedures and uplevel access. The `OP_OUTER` prediction held: nothing was added to the machine. Fourteen programs in `agree/`. |
-| **5** | `array`, multi-dimensional, `record`, `with`. |
+| **5** — **done** | `array` with any ordinal index and any lower bound, multi-dimensional, `record`, `with`, and whole-array and whole-record assignment. Sixteen programs in `agree/`. |
 | **6** | `set`, and the file half: `text`, `read`, `readln`, `write`, `writeln`, `eof`, `eoln`, then `file of T`. |
 | **7** | Pointers, `new`, `nil`, and linked structures. |
 | **8** | The standard's required procedures and functions in full, and whatever the oracle has been complaining about. |
@@ -170,6 +170,23 @@ division truncates toward nought and the machine's floors. Pascal's `and` and
 `or` are jumps rather than sends, the machine's own taking blocks. And a field
 width is a compile-time string, so a `write` needs no runtime formatter and no
 prelude — the other thing `sola.sol` needed and this does not.
+
+**Stage 5 landed the same day.** An array and a record are both a Solum array at
+run time and the whole difference is what the compiler knows: a field is an
+index worked out while compiling, and a subscript is the Pascal index less its
+lower bound, folded the same way. Neither carries its shape at run time.
+
+Two things it had to emit rather than assume. **Making one is a loop**, because
+a size is a constant the compiler knows and a program may declare a thousand of
+something — so the emitted code grows with how deeply a type nests, not with how
+big it is. And **assigning a whole array or record copies it**, which the
+standard says and the machine does not: a Solum array is a reference, so without
+the copy two names would mean one thing. The copy is as deep as the type,
+because a record of arrays is still one value in Pascal.
+
+| | |
+| --- | --- |
+| an element or a field as a `var` argument | stage 8. The box goes over, and an element has none. |
 
 **Stage 4 landed, and both predictions held.** A nested procedure is a block
 made **inside its parent's activation** and kept in a slot of that frame, so

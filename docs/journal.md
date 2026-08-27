@@ -63,6 +63,36 @@ and into the loop back. Spelled the way the sentence reads, the loop inverts:
 expected and everything else in a twenty-line test was right, which is exactly
 the kind of wrong that a transcript catches and reading does not.
 
+### Stage 5, where the machine's one collection had to be two languages' worth
+
+Arrays and records, and they are the same thing underneath — a Solum array, with
+the compiler holding the difference. A field is an index it worked out; a
+subscript is the Pascal index less a lower bound it also worked out. That part
+was easy and stayed easy, including an array indexed by an enumeration, by a
+character range, and by `boolean`.
+
+**The two things that needed emitting rather than assuming were both about a
+Solum array being a reference.** Making one has to be a loop, because a size is
+a compile-time constant and a program may ask for a thousand — so the code grows
+with nesting and not with size. And assigning a whole one has to *copy*, as deep
+as the type goes, or two Pascal names would be one thing. Neither is difficult;
+both are the sort of thing a compiler gets wrong by not thinking about them, and
+the test that catches the second is three lines.
+
+**The designator is the part I would have got wrong without writing it down
+first.** A read leaves the value and a store stops one step short, leaving the
+container and the index — and knowing which is wanted before the last step is
+emitted is the only lookahead any of it needs. A whole variable with no
+selectors is a third case, because a store into one has no container at all.
+
+**Two mistakes, both caught by the oracle rather than by me.** `hi - lo` on a
+subrange of `char` asked a string for `sub` — the ends are held as characters,
+because that is what the source wrote and what a `case` label has to compare
+against. And `array [boolean]` wanted a boolean's ordinal, which on this machine
+is a jump; the index step now asks `emitOrd`, which was already written for
+`ord` and already handled all three cases. **The second is the better one: the
+code to do it right existed and I had written a narrower thing beside it.**
+
 ### Stage 4, and two predictions that held
 
 Nested procedures. This is the stage the design rested on and the one both

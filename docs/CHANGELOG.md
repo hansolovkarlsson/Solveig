@@ -5,6 +5,47 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Pascal, stage 5: arrays, records and `with` — `pending`, 2026-08-27
+
+**Arrays with any ordinal index and any lower bound, more than one dimension,
+records, `with`, and whole-array and whole-record assignment.** **Sixteen
+programs now produce the same bytes as `fpc -Miso`**, up from fourteen.
+
+**An array and a record are the same thing at run time**, and the whole
+difference is what the compiler knows. Both are a Solum array; a record's field
+is an index worked out while compiling, so it costs an `at` and not a lookup,
+and an array's subscript is the Pascal index less its lower bound, folded the
+same way and costing nothing when the bound is one. Neither carries its shape.
+
+**Making one is a loop and not an unrolled run of instructions**, because a size
+is a constant the compiler knows and a program is free to declare a thousand of
+something. The emitted code grows with how deeply a type nests, not with how big
+it is.
+
+**Assigning a whole array or record copies it**, which the standard says and the
+machine does not: a Solum array is a reference, so without the copy two names
+would mean one thing. The copy is as deep as the type goes, because a record of
+arrays is still one value in Pascal — and nothing is emitted for a simple type,
+an integer or a string being a value on this machine already.
+
+**A designator stops one step short when it is being assigned to**, leaving the
+container and the index for an `atPut`, and goes all the way when it is being
+read. Which is wanted is known before the last step is emitted, so it needs no
+lookahead — and a whole variable with no selectors is a third case, because a
+store into one is a `SETLOCAL` and has no container at all.
+
+**`with` keeps its record in a scratch slot at a depth the body cannot reach.**
+The standard says the designator is evaluated once, so `with a[i] do` cannot
+re-read the subscript — and a `with` lives across a whole statement where every
+other scratch use lives inside one expression.
+
+**Two things the oracle caught.** `hi - lo` on a subrange of `char` asked a
+string for `sub`, the ends being held as characters because that is what the
+source wrote and what a `case` label compares against. And `array [boolean]`
+wanted the ordinal of a boolean, which on this machine is a jump and not a
+conversion — the index step now asks `emitOrd` for whatever the index type is,
+which was already written and already right.
+
 ### Pascal, stage 4: the machine needed nothing added — `31daea0`, 2026-08-27
 
 **Nested procedures and uplevel access, and the two predictions written into
