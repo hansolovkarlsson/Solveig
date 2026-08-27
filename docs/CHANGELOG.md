@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### Solum has a grammar written down — `pending`, 2026-08-26
+### Solum has a grammar written down — `f894c78`, 2026-08-26
 
 **[solum.bnf](../programs/check_syntax/solum.bnf)** is the whole of this
 language in the notation [check_syntax](../programs/check_syntax.sol) reads —
