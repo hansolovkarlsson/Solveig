@@ -1288,29 +1288,60 @@ detectable and is reported as a grammar warning rather than left to mis-parse
 quietly. The rest is stated in the file's header, because a limitation a program
 does not admit to is one its user discovers as a wrong answer.
 
-**And the depth is real.** A tree-walking matcher recurses once per node of the
-grammar against a machine with 254 frames, so the question was never whether it
-hits the limit but where. Against pascal.bnf: **19 levels of nested `begin … if`,
-and 28 nested parentheses in one expression** — past anything written by hand, and
-reachable by generated code.
+**The depth limit is gone, and the numbers are why it went.** The matcher was a
+tree walk — one Solum frame per node of the grammar, against a machine with 254 —
+and the limits were measured through real grammars rather than guessed:
+**19 levels of nested `begin … if` and 28 nested parentheses** against
+pascal.bnf, **13 nested blocks** against solum.bnf. A grammar rule is not one
+frame: one level of a language's own nesting costs about four rule references
+and a reference costs two frames, so the multiplier is the grammar.
 
-**Against solum.bnf it is 13 nested blocks, and a real file reaches it.**
-`experiment/lexer.sol` holds a 24-level nested `ifElse` staircase — the deepest
-expression in this repository, and exactly the shape
-[control.sol](../lib/control.sol) recommends for a recursive descent. `solas`
-compiles it; this checker runs out of frames. That is the first time a file
-somebody actually wrote has met this limit, and it is a sharper result than the
-Pascal measurement, which needed a generator to reach. It arrives as a diagnostic rather than a crash,
-because `call depth exceeded` is catchable, which
-[evaluator](../programs/evaluator.sol) established and this depends on.
+**What settled it was a file somebody had already written.**
+`experiment/lexer.sol` holds a 24-level nested `ifElse` staircase, the deepest
+expression in this repository; `solas` compiles it and the checker could not
+read it. Every earlier measurement on
+[ROADMAP 3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels) needed a
+generator to reach the limit. And the shape that did it is the shape
+[control.sol](../lib/control.sol) *recommends* — a staircase written instead of
+`ifElseIf`, precisely to save frames. Both are right: a staircase saves them in
+the program dispatching and costs them in anything walking the result as a tree.
 
-Inlining a rule's alternation into the reference that names it was expected to be
-worth a third of the frames, one of three per level. **It was worth a sixth** —
-16 levels became 19, 25 parentheses became 28 — because most of Wirth's Pascal
-rules have a sequence for a body rather than an alternation, and so never had the
-middle frame to save. A measurement of the matcher would have said a third; only
-a measurement through a grammar says a sixth. An explicit stack machine has no
-such limit and is the thing to build if this is ever pointed at generated input.
+**So the matcher is an explicit stack machine.** The grammar compiles once to a
+flat instruction list — `Call`, `Ret`, `Choice`, `Commit`, and terminals, which
+is [LPeg](https://www.inf.puc-rio.br/~roberto/docs/peg.pdf)'s instruction set —
+and the stack lives in Solum arrays rather than in the machine's frames.
+Backtracking is a stack entry instead of an unwind: popping to a choice point
+discards every call made since it, which is exactly what recursion was doing for
+free. **2,000 levels of nesting now check in both languages**, and what bounds
+depth is memory.
+
+| | |
+| --- | --- |
+| `a \| b` | `Choice L1 ; <a> ; Commit L2 ; L1: <b> ; L2:` |
+| `[ a ]` | `Choice L1 ; <a> ; Commit L1 ; L1:` |
+| `{ a }` | `L1: Choice L2 ; <a> ; LoopCommit L1 ; L2:` |
+| `! a` | `Choice L1 ; <a> ; FailTwice ; L1: Any` |
+
+**It cost 38% of the running time** — `programs/sola.sol` went from 3.79 seconds
+to 5.25 — and two attempts to get that back are worth 3.7% between them.
+Reordering the dispatch staircase by frequency bought 2.4%, and spelling out the
+hottest comparison rather than calling it bought 1.3%. Both were predicted to be
+worth much more. The loop's cost is the instruction fetch and the sends inside
+an arm, not the comparisons that choose the arm, and **an interpreter written in
+this language pays for its dispatch and cannot get it back by hand**.
+
+**What is left of the limit moved somewhere better.** Compiling a grammar still
+recurses over its tree, so a grammar nesting brackets a few hundred deep still
+runs out of frames — a property of the *grammar file*, reported identically
+every run and before any subject is read, rather than a property of the input
+discovered on the one file that happened to be deep.
+
+**The verification was the old matcher.** Both were run over every `.pas` and
+`.sol` file here and every error case, and the output compared byte for byte:
+63 runs, and the only two that differed were the two that used to exceed the
+depth limit. One of them is `check_syntax.sol` itself — the staircase
+dispatching the machine's instructions is deep enough that the matcher this
+replaced could not read the program that replaced it.
 
 ## Adding one
 

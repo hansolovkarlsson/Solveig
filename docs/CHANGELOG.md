@@ -5,6 +5,56 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The matcher is a stack machine, and the depth limit is gone — `pending`, 2026-08-26
+
+**[check_syntax.sol](../programs/check_syntax.sol) no longer walks the grammar
+tree.** The grammar compiles once to a flat instruction list and a loop runs it,
+with the stack in Solum arrays rather than in the machine's call frames.
+**2,000 levels of nesting check in both languages**, where the numbers were 19
+nested `begin … if` against Pascal and 13 nested blocks against Solum.
+
+**What settled it was a file that was already here.** `experiment/lexer.sol`
+holds a 24-level nested `ifElse` staircase, the deepest expression in this
+repository; `solas` compiles it and the checker could not read it. Every earlier
+measurement on [3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels)
+needed a generator to reach the limit. And the shape that did it is the shape
+[control.sol](../lib/control.sol) recommends — a staircase written instead of
+`ifElseIf`, precisely to save frames. Both are right: a staircase saves them in
+the program dispatching and costs them in anything walking the result as a tree.
+
+**The instruction set is [LPeg](https://www.inf.puc-rio.br/~roberto/docs/peg.pdf)'s**
+— `Call`, `Ret`, `Choice`, `Commit`, `LoopCommit`, `FailTwice` and the terminals
+— and every EBNF construct is two or three of them. Backtracking is a stack
+entry rather than an unwind: popping to a choice point discards every call made
+since it, which is exactly what recursion had been doing for free. One stack
+holds both return addresses and choice points, and that is not an economy, it is
+what makes the discarding correct.
+
+**Both halves run on it**, lexical and syntactic, which is why the tokeniser's
+own nesting limit — around 80, and never near anything real — went as well.
+
+**It cost 38% of the running time.** `programs/sola.sol` went from 3.79 seconds
+to 5.25. Two attempts to get it back are worth 3.7% between them: reordering the
+dispatch staircase by frequency, 2.4%, and spelling out the hottest comparison
+rather than calling it, 1.3%. Both were predicted to be worth several times
+that. The loop's cost is the instruction fetch and the sends inside an arm, not
+the comparisons that choose the arm — **an interpreter written in this language
+pays for its dispatch and cannot get it back by hand**, which
+[ideas.md](ideas.md) now carries to the two interpreters it proposes.
+
+**What is left of the limit moved somewhere better.** Compiling a grammar still
+recurses over its tree, so a grammar nesting brackets a few hundred deep still
+runs out of frames. That is a property of the *grammar file*, reported
+identically every run and before any subject is read — not a property of the
+input, discovered on the one file that happened to be deep.
+
+**The old matcher was the test.** Both were run over every `.pas` and `.sol`
+file here and every error case and the output compared byte for byte: 63 runs,
+and the only two that differed were the two that used to exceed the limit. One
+of them is `check_syntax.sol` itself — the staircase dispatching the machine's
+instructions is deep enough that the matcher this replaced could not read the
+program that replaced it.
+
 ### Solum has a grammar written down — `f894c78`, 2026-08-26
 
 **[solum.bnf](../programs/check_syntax/solum.bnf)** is the whole of this

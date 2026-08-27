@@ -1064,24 +1064,47 @@ static void test_check_syntax_reads_solum_itself(void)
     assert(strstr(out, "no errors") != NULL);
 
     /* ------------------------------------------------------------------
-     * The depth limit, pinned against a real file rather than a made-up one.
+     * There is no depth limit any more, and this is the file that used to
+     * prove there was one.
      *
      * experiment/lexer.sol holds a 24-level nested `ifElse` staircase -- the
      * deepest expression in this repository, and exactly the shape
-     * lib/control.sol recommends. `solas` compiles it; this checker runs out of
-     * frames on it, because walking a grammar as a tree costs about two frames
-     * per rule and Solum descends `block -> body -> expression -> primary ->
-     * block` for every level of nesting. See ROADMAP 3.5.
+     * lib/control.sol recommends. Against the recursive matcher it was `call
+     * depth exceeded`; the stack machine keeps its stack in an array, so what
+     * bounds depth now is memory.
      *
-     * **If this assertion ever fails because the file now checks clean, that is
-     * good news and the test is what needs changing**, not the program: raise
-     * it to an assertion that it passes, and correct the numbers in ROADMAP 3.5
-     * and docs/programs.md. */
+     * programs/check_syntax.sol is here for the same reason and is funnier
+     * about it: the staircase that dispatches the machine's own instructions
+     * is deep enough that the matcher this replaced could not read the program
+     * that replaced it. */
+    static const char *was_too_deep[] = { "experiment/lexer.sol",
+                                          "programs/check_syntax.sol" };
+    for (size_t i = 0; i < sizeof was_too_deep / sizeof was_too_deep[0]; i++) {
+        char command[512];
+        snprintf(command, sizeof command,
+                 "bin/solvm " DIR "/check_syntax.sob"
+                 " programs/check_syntax/solum.bnf %s 2>&1", was_too_deep[i]);
+        assert(run(command, out, sizeof out) == 0);
+        assert(strstr(out, "no errors") != NULL);
+    }
+
+    /* And nesting nobody would write, to say that the limit is gone rather
+       than merely larger. The recursive matcher managed 13 of these. */
+    {
+        FILE *f = fopen(DIR "/deep.sol", "wb");
+        assert(f != NULL);
+        fputs("x := ", f);
+        for (int i = 0; i < 2000; i++) fputs("nil:ifElse({ ", f);
+        fputs("#1", f);
+        for (int i = 0; i < 2000; i++) fputs(" }, { nil })", f);
+        fputs(".\n", f);
+        fclose(f);
+    }
     assert(run("bin/solvm " DIR "/check_syntax.sob"
-               " programs/check_syntax/solum.bnf experiment/lexer.sol 2>&1",
-               out, sizeof out) == 1);
-    assert(strstr(out, "call depth exceeded") != NULL);
-    assert(strstr(out, "nests too deeply") != NULL);
+               " programs/check_syntax/solum.bnf " DIR "/deep.sol 2>&1",
+               out, sizeof out) == 0);
+    assert(strstr(out, "no errors") != NULL);
+    assert(strstr(out, "call depth exceeded") == NULL);
 
     /* ------------------------------------------------------------------
      * Where it must agree with solas about a file being wrong.
@@ -1119,7 +1142,7 @@ static void test_check_syntax_reads_solum_itself(void)
     assert(strstr(out, "found ':='") != NULL);
 
     printf("  solum.bnf checks 38 examples and library files, agrees with solas\n"
-           "  on 4 mistakes, and runs out of frames where ROADMAP 3.5 says\n");
+           "  on 4 mistakes, and reads 2,000 levels of nesting without a stack\n");
 }
 
 /* ------------------------------------------------------------------------

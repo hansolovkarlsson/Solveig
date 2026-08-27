@@ -2096,10 +2096,13 @@ has to outlive the frame it was made in. The combinator shape is the one 3.1
 refuses, and it was never reached for.
 
 **What multiplied instead was the measurement, exactly as predicted.** A tree
-costs one frame per node and about two per rule reference, which against Wirth's
-Pascal is **19 levels of nested `begin … if` and 28 nested parentheses**. That is
-the number this entry was waiting for, and it says the limitation is livable: 19
-is past anything written by hand and short of what a generator emits.
+cost one frame per node and about two per rule reference, which against Wirth's
+Pascal was **19 levels of nested `begin … if` and 28 nested parentheses**. That
+was the number this entry had been waiting for, and it read at the time as
+saying the limitation was livable — 19 being past anything written by hand and
+short of what a generator emits.
+
+**It was not livable, and the file that said so was already here.** See below.
 
 **The finding worth carrying back here is a different one.** Inlining a rule's
 alternation into the reference that names it should be worth a third of the
@@ -2110,11 +2113,26 @@ the matcher predicts a third; only a measurement through a real grammar gives a
 sixth** — which is the same lesson `programs/` keeps producing, that a program
 written to suit a feature cannot report that the feature was awkward.
 
-The entry that is still open is the one above it: an explicit stack machine, with
-its own instruction list and backtrack stack, would have no depth limit at all
-and would meet 3.5 head on rather than living inside it. `check_syntax.sol` says
-in its own comments that this is the thing to build if it is ever pointed at
-generated input, and that the trade was recorded rather than settled.
+**And then it was settled, the same day.** This entry said an explicit stack
+machine — its own instruction list, its own backtrack stack — would have no
+depth limit at all and would meet 3.5 head on rather than living inside it, and
+that `check_syntax.sol` had recorded the trade rather than taken it. What took
+it was not an argument but a file: `experiment/lexer.sol`, already in this
+repository, nests `ifElse` 24 deep and the tree walker could not read it.
+
+The matcher is [LPeg](https://www.inf.puc-rio.br/~roberto/docs/peg.pdf)'s
+instruction set now — `Call`, `Ret`, `Choice`, `Commit` — and 2,000 levels of
+nesting check where 13 did. **The prediction this page made about a tree
+multiplying a measurement taken on a list was right, and the fix is the one it
+named.**
+
+**What the page could not have predicted is the price: 38% of the running time**,
+and 3.7% of that recovered by two hand optimisations that were expected to be
+worth far more. The dispatch loop's cost is the instruction fetch and the sends
+inside an arm, not the comparisons that choose the arm. **An interpreter written
+in this language pays for its dispatch and cannot get it back by hand** — which
+is worth carrying to the two entries above this one, since both of them are
+proposals for interpreters.
 
 **Fuzzy logic.** A library, and worth an honest note rather than a place in the
 queue: it is arithmetic on floats, and all of the arithmetic landed with

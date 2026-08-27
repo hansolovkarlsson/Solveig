@@ -200,13 +200,17 @@ lineTextIn := { src, pos | | start, stop |
 ; ---------------------------------------------------------------------------
 ; The tree a grammar becomes
 ;
-; One object with a kind, which is the shape the matcher wants: **one method
-; per node costs one frame, and a staircase of `ifElse` inside it costs none.**
-; That is not a style preference, it is the whole depth budget -- see
-; [control.sol](../lib/control.sol), which measures `ifElseIf` at three frames a
-; level and says in as many words not to put it inside a recursion. It is used
-; once in this file, in the grammar's own lexer, where the frames are transient
-; and the legibility is free.
+; One object with a kind. **Nothing walks this tree at match time any more** --
+; it is compiled to instructions once and the machine runs those -- so the shape
+; below is now the compiler's input rather than the matcher's, and it is kept
+; because it is the shape the *notation* has. Reading a grammar produces a tree
+; because a grammar is one.
+;
+; It is still walked by recursion at *compile* time, and by every check in the
+; section on grammars, all of which run once and none of which is hot. That is
+; where [control.sol](../lib/control.sol)'s rule still applies: `ifElseIf` costs
+; three frames a level and belongs outside a recursion, so it appears once in
+; this file, in the grammar's own lexer, and nowhere else.
 ;
 ;   'lit    text            a terminal: characters, or a token's spelling
 ;   'range  text upTo       one character between two, lexical only
@@ -828,69 +832,336 @@ checkGrammar := { | syntactic, r, roots |
 
 sSrc := "".
 sPath := "".
-cpos := #1.
 
-; The matcher over characters. Same shape as the one over tokens below, and
-; deliberately a separate block rather than one matcher with a mode flag: the
-; two disagree about what every kind of node *means*, and a flag would put that
-; disagreement inside eight `ifElse`s instead of between two blocks.
-charMatch := { n | | k, kids, save, i, ok, going, last, c, lo, from, to |
+; ---------------------------------------------------------------------------
+; The machine
+;
+; **The grammar is compiled to instructions and run by a loop, because a tree
+; walked by recursion costs a frame per node and Solum has 254 of them.**
+;
+; That limit was measured rather than feared: 19 levels of nested `begin ... if`
+; against Wirth's Pascal, 13 nested blocks against Solum -- and
+; `experiment/lexer.sol`, a file already in this repository, reached it. The
+; recursive matcher this replaces is the one those numbers were taken with, and
+; the whole of what it did wrong was to keep its stack somewhere it did not own.
+;
+; So the stack moves here, into arrays. Depth is bounded by memory now, which is
+; the same thing as saying it is not bounded by anything a grammar or a file
+; will reach.
+;
+; ---------------------------------------------------------------------------
+; The instruction set, which is LPeg's
+;
+; Roberto Ierusalimschy, *A Text Pattern-Matching Tool based on Parsing
+; Expression Grammars* (2009), which is the machine behind Lua's `lpeg`. It is
+; eleven instructions and the interesting three are about *choice*:
+;
+;   Call t / Ret        enter a rule, leave it
+;   Choice t            remember: if what follows fails, rewind and go to `t`
+;   Commit t            it did not fail -- throw that memory away, go to `t`
+;   LoopCommit t        Commit, unless nothing was consumed
+;   FailTwice           throw it away *and* fail, which is negative lookahead
+;   MatchChars/Range/Any        terminals over characters
+;   MatchText/MatchKind         terminals over tokens
+;
+; **Every EBNF construct is two or three of them**, and the compiler below is
+; the whole translation:
+;
+;     a b       ->  <a> <b>
+;     a | b     ->  Choice L1 ; <a> ; Commit L2 ; L1: <b> ; L2:
+;     [ a ]     ->  Choice L1 ; <a> ; Commit L1 ; L1:
+;     { a }     ->  L1: Choice L2 ; <a> ; LoopCommit L1 ; L2:
+;     ! a       ->  Choice L1 ; <a> ; FailTwice ; L1: Any
+;
+; **One stack holds both return addresses and choice points**, and that is not
+; an economy -- it is what makes backtracking correct. Popping to a choice point
+; discards every call made since it, which is exactly the unwinding the
+; recursive version got from the language and had to be given here.
+;
+; **`LoopCommit` is where the old empty-repetition guard went.** `{ a }` where
+; `a` can match nothing would spin forever; the recursive matcher compared
+; positions each turn, and here the position at the choice point is already on
+; the stack, so the comparison is free.
+;
+; ---------------------------------------------------------------------------
+; What this cost, stated plainly
+;
+; **Legibility.** The matcher it replaces read beside the notation it
+; implemented -- `alt` was a loop over alternatives, and you could hold the two
+; side by side. This reads as a bytecode interpreter, and the shape of a grammar
+; is visible only in the compiler that emitted the code. That is a real loss and
+; it is the reason the trade was recorded as unsettled rather than taken the
+; first time.
+;
+; **What is left of the limit is in a better place.** `compileNode` recurses over
+; the grammar tree, so a *grammar* that nests brackets a few hundred deep still
+; runs out of frames. That is a property of the grammar file, reported the same
+; way every time, before any subject is read -- not a property of the input,
+; discovered on the one file that happened to be deep.
+
+instruction := object:new.
+instruction:op := 'ret.
+instruction:text := "".
+instruction:upTo := "".
+instruction:target := #0.
+instruction:folded := "".      ; `text` lowercased, for %ignorecase
+
+vmCode := array:new.          ; every rule's code, end to end
+vmEntry := dictionary:new.    ; rule name -> where its code starts
+vmPos := #1.                  ; the subject position: a character, or a token
+
+; Answers where it put the instruction, so the caller can patch its target once
+; it knows where the jump goes. Forward references are the normal case here:
+; `Choice` is emitted before anything it might skip over exists.
+emitAt := { op | | i |
+    i := instruction:new. i:op := op. vmCode:add(i). vmCode:size }.
+
+patchTo := { at, target | vmCode:at(at):target := target. nil }.
+
+here := { vmCode:size:add(#1) }.
+
+compileNode := { n, lexical | | k, kids, i, c, ends, top, e |
     k := n:kind.
     kids := kidsOf:value(n).
 
-    k:equals('lit):ifElse({
-        n:text:size:equals(#0):ifElse({ true }, {
-            last := cpos:add(n:text:size):sub(#1).
-            last:greaterThan(sSrc:size):ifElse({ false }, {
-                sameText:value(sSrc:copyFrom(cpos, last), n:text)
-                    :ifElse({ cpos := last:add(#1). true }, { false }) }) }) }, {
+    k:equals('lit):ifTrue({
+        ; An empty literal matches and consumes nothing, so it is no
+        ; instruction at all rather than an instruction that does nothing.
+        n:text:size:greaterThan(#0):ifTrue({
+            e := emitAt:value(lexical:ifElse({ 'matchChars }, { 'matchText })).
+            vmCode:at(e):text := n:text.
+            vmCode:at(e):folded := n:text:asLowercase }) }).
 
-    k:equals('range):ifElse({
-        cpos:greaterThan(sSrc:size):ifElse({ false }, {
-            c := sSrc:at(cpos).
-            from := n:text. to := n:upTo.
-            gIgnoreCase:ifTrue({
-                c := c:asLowercase. from := from:asLowercase. to := to:asLowercase }).
-            c:greaterOrEqual(from):and({ c:lessOrEqual(to) })
-                :ifElse({ cpos := cpos:add(#1). true }, { false }) }) }, {
+    k:equals('range):ifTrue({
+        e := emitAt:value('matchRange).
+        vmCode:at(e):text := n:text.
+        vmCode:at(e):upTo := n:upTo }).
 
-    k:equals('not):ifElse({
-        save := cpos.
-        ok := charMatch:value(kids:at(#1)):not.
-        cpos := save.
-        ok:and({ cpos:lessOrEqual(sSrc:size) })
-            :ifElse({ cpos := cpos:add(#1). true }, { false }) }, {
+    k:equals('not):ifTrue({
+        c := emitAt:value('choice).
+        compileNode:value(kids:at(#1), lexical).
+        emitAt:value('failTwice).
+        patchTo:value(c, here:value).
+        emitAt:value('any) }).
 
-    k:equals('ref):ifElse({ charMatch:value(gRules:at(n:text):body) }, {
+    ; A reference to a *token* rule from a syntactic one is a terminal, not a
+    ; call: there is nothing to enter, only a token to look at.
+    k:equals('ref):ifTrue({
+        lexical:not:and({ gRules:at(n:text):lexical }):ifElse({
+            e := emitAt:value('matchKind) },
+          { e := emitAt:value('call) }).
+        vmCode:at(e):text := n:text }).
 
-    k:equals('opt):ifElse({
-        save := cpos.
-        charMatch:value(kids:at(#1)):ifFalse({ cpos := save }).
-        true }, {
+    k:equals('seq):ifTrue({
+        i := #1.
+        { i:lessOrEqual(kids:size) }:whileTrue({
+            compileNode:value(kids:at(i), lexical).
+            i := i:add(#1) }) }).
 
-    k:equals('rep):ifElse({
-        going := true.
-        { going }:whileTrue({
-            save := cpos.
-            charMatch:value(kids:at(#1)):and({ cpos:greaterThan(save) })
-                :ifFalse({ cpos := save. going := false }) }).
-        true }, {
-
-    k:equals('alt):ifElse({
-        save := cpos. ok := false. i := #1.
-        { ok:not:and({ i:lessOrEqual(kids:size) }) }:whileTrue({
-            cpos := save.
-            charMatch:value(kids:at(i)):ifTrue({ ok := true }).
+    k:equals('alt):ifTrue({
+        ends := array:new.
+        i := #1.
+        { i:lessThan(kids:size) }:whileTrue({
+            c := emitAt:value('choice).
+            compileNode:value(kids:at(i), lexical).
+            ends:add(emitAt:value('commit)).
+            patchTo:value(c, here:value).
             i := i:add(#1) }).
-        ok:ifFalse({ cpos := save }).
-        ok },
+        ; The last alternative needs no choice point: there is nothing left to
+        ; fall through to, so its failure is the whole alternation's.
+        compileNode:value(kids:at(kids:size), lexical).
+        ends:do({ at | patchTo:value(at, here:value) }) }).
 
-      { save := cpos. ok := true. i := #1.
-        { ok:and({ i:lessOrEqual(kids:size) }) }:whileTrue({
-            charMatch:value(kids:at(i)):ifFalse({ ok := false }).
-            i := i:add(#1) }).
-        ok:ifFalse({ cpos := save }).
-        ok }) }) }) }) }) }) }) }.
+    k:equals('opt):ifTrue({
+        c := emitAt:value('choice).
+        compileNode:value(kids:at(#1), lexical).
+        e := emitAt:value('commit).
+        patchTo:value(e, here:value).
+        patchTo:value(c, here:value) }).
+
+    k:equals('rep):ifTrue({
+        top := here:value.
+        c := emitAt:value('choice).
+        compileNode:value(kids:at(#1), lexical).
+        e := emitAt:value('loopCommit).
+        patchTo:value(e, top).
+        patchTo:value(c, here:value) }).
+    nil }.
+
+; Both halves into one program. They never call each other -- a lexical rule
+; naming a syntactic one is refused by `checkNodes` -- so the terminals a rule
+; uses are decided by which half it was written in, and a run is entirely one
+; mode or the other.
+compileGrammar := { | r |
+    vmCode := array:new.
+    vmEntry := dictionary:new.
+    gOrder:do({ name |
+        r := gRules:at(name).
+        vmEntry:atPut(name, here:value).
+        compileNode:value(r:body, r:lexical).
+        emitAt:value('ret) }).
+
+    ; The calls are resolved afterwards because a rule may name one defined
+    ; further down the file, which is the ordinary case and not an exception.
+    vmCode:do({ i |
+        i:op:equals('call):ifTrue({ i:target := vmEntry:at(i:text) }) }).
+    nil }.
+
+; ---------------------------------------------------------------------------
+; The stack
+;
+; Four parallel arrays and a height, rather than an array of entries: this is
+; pushed and popped once per rule and once per alternative over the whole of a
+; file, and an object apiece would be a few million of them for nothing. The
+; arrays are never shortened, only overwritten, so a run after the first
+; allocates nothing at all.
+
+stkKind := array:new.     ; 'ret or 'choice
+stkPc   := array:new.     ; where to go: a return address, or an alternative
+stkPos  := array:new.     ; the subject position to rewind to, or to report from
+stkName := array:new.     ; the rule a 'ret entry is returning out of
+stkTop  := #0.
+
+vmPush := { kind, pc, pos, name |
+    stkTop := stkTop:add(#1).
+    stkTop:greaterThan(stkKind:size):ifElse({
+        stkKind:add(kind). stkPc:add(pc). stkPos:add(pos). stkName:add(name) },
+      { stkKind:atPut(stkTop, kind). stkPc:atPut(stkTop, pc).
+        stkPos:atPut(stkTop, pos). stkName:atPut(stkTop, name) }).
+    nil }.
+
+; ---------------------------------------------------------------------------
+; The loop
+;
+; A staircase rather than `ifElseIf`, and this is the site
+; [control.sol](../lib/control.sol) describes as the one its own measurement
+; rules out: many arms, and hot. Nothing here recurses, so the three frames
+; would not accumulate -- they would simply be paid four million times.
+;
+; The arms are ordered by how often they run, which on a real file means the
+; terminals first: tokenising asks `matchChars` at every character of every
+; token rule, and that one arm is most of the work this program does.
+
+runMachine := { entry, lexical, ruleName |
+                | pc, ins, op, going, failing, answer, t, c, last, from, to,
+                  saved, target |
+    ; The goal rule goes on the stack like any other, with a return address of
+    ; zero standing for "and then you are done". It is also what lets a failure
+    ; at the very top -- the `.` after `end` in Pascal -- still name what was
+    ; being read. Pushed by hand rather than through `vmPush`, this being once
+    ; per token rule per character of the subject.
+    stkTop := #1.
+    stkKind:size:greaterThan(#0):ifElse({
+        stkKind:atPut(#1, 'ret). stkPc:atPut(#1, #0).
+        stkPos:atPut(#1, vmPos). stkName:atPut(#1, ruleName) },
+      { stkKind:add('ret). stkPc:add(#0).
+        stkPos:add(vmPos). stkName:add(ruleName) }).
+    pc := entry.
+    going := true. failing := false. answer := false.
+
+    { going }:whileTrue({
+        failing:ifElse({
+
+            ; Unwind to the most recent choice point, restoring the position it
+            ; was taken at. Every return address pushed since then goes with it,
+            ; which is the whole of what backtracking has to undo.
+            { failing:and({ stkTop:greaterThan(#0) }) }:whileTrue({
+                stkKind:at(stkTop):equals('choice):ifTrue({
+                    vmPos := stkPos:at(stkTop).
+                    pc := stkPc:at(stkTop).
+                    failing := false }).
+                stkTop := stkTop:sub(#1) }).
+            failing:ifTrue({ going := false. answer := false }) },
+
+        { ins := vmCode:at(pc).
+          op := ins:op.
+
+          ; `sameText` spelled out rather than called, and the literal folded
+          ; once at compile time rather than once per character -- 1.3%, and
+          ; see the note above for why that is the number.
+          ; **The arms are in frequency order, and it is worth less than it
+          ; looks.** `matchRange` was eighth at first -- eight symbol
+          ; comparisons for every letter of every identifier in the file, where
+          ; a range is what a lexical grammar is mostly made of -- and moving it
+          ; second bought **2.4%**. Spelling out `sameText` in the arm below and
+          ; folding the literal at compile time bought **1.3%**.
+          ;
+          ; Both were predicted to be worth much more, and the measurement says
+          ; what the loop actually costs: not the comparisons that choose an
+          ; arm, but the fetch and the sends inside it. There is no computed
+          ; jump in this language, so the order of a staircase *is* the dispatch
+          ; table -- and this is the whole of what that is worth.
+          op:equals('matchChars):ifElse({
+              last := vmPos:add(ins:text:size):sub(#1).
+              last:greaterThan(sSrc:size):ifElse({ failing := true }, {
+                  c := sSrc:copyFrom(vmPos, last).
+                  gIgnoreCase:ifTrue({ c := c:asLowercase }).
+                  c:equals(gIgnoreCase:ifElse({ ins:folded }, { ins:text })):ifElse(
+                      { vmPos := last:add(#1). pc := pc:add(#1) },
+                      { failing := true }) }) }, {
+
+          op:equals('matchRange):ifElse({
+              vmPos:greaterThan(sSrc:size):ifElse({ failing := true }, {
+                  c := sSrc:at(vmPos). from := ins:text. to := ins:upTo.
+                  gIgnoreCase:ifTrue({
+                      c := c:asLowercase.
+                      from := from:asLowercase. to := to:asLowercase }).
+                  c:greaterOrEqual(from):and({ c:lessOrEqual(to) }):ifElse(
+                      { vmPos := vmPos:add(#1). pc := pc:add(#1) },
+                      { failing := true }) }) }, {
+
+          op:equals('choice):ifElse({
+              vmPush:value('choice, ins:target, vmPos, "").
+              pc := pc:add(#1) }, {
+
+          op:equals('commit):ifElse({
+              stkTop := stkTop:sub(#1).
+              pc := ins:target }, {
+
+          op:equals('call):ifElse({
+              vmPush:value('ret, pc:add(#1), vmPos, ins:text).
+              pc := ins:target }, {
+
+          op:equals('ret):ifElse({
+              target := stkPc:at(stkTop).
+              stkTop := stkTop:sub(#1).
+              target:equals(#0):ifElse({ going := false. answer := true },
+                                       { pc := target }) }, {
+
+          ; The position at the choice point is already on the stack, so the
+          ; empty-repetition guard is a comparison rather than bookkeeping.
+          op:equals('loopCommit):ifElse({
+              saved := stkPos:at(stkTop).
+              target := stkPc:at(stkTop).
+              stkTop := stkTop:sub(#1).
+              vmPos:equals(saved):ifElse({ pc := target }, { pc := ins:target }) }, {
+
+          op:equals('any):ifElse({
+              vmPos:lessOrEqual(sSrc:size):ifElse(
+                  { vmPos := vmPos:add(#1). pc := pc:add(#1) },
+                  { failing := true }) }, {
+
+          ; The two token terminals are last because they run once per token of
+          ; the subject, where the eight above run once per character of it.
+          op:equals('matchText):ifElse({
+              t := tokAt:value(vmPos).
+              t:notNil:and({ sameText:value(t:text, ins:text) }):ifElse(
+                  { vmPos := vmPos:add(#1). pc := pc:add(#1) },
+                  { noteExpected:value("'":concat(ins:text):concat("'")).
+                    failing := true }) }, {
+
+          op:equals('matchKind):ifElse({
+              t := tokAt:value(vmPos).
+              t:notNil:and({ t:kind:equals(ins:text) })
+                  :and({ isReservedAs:value(ins:text, t:text):not }):ifElse(
+                  { vmPos := vmPos:add(#1). pc := pc:add(#1) },
+                  { noteExpected:value(ins:text). failing := true }) }, {
+
+          ; `! a` where `a` matched: throw away the choice point that would have
+          ; let the character through, and fail.
+          stkTop := stkTop:sub(#1). failing := true })
+          }) }) }) }) }) }) }) }) }) }) }).
+    answer }.
 
 ; A byte as it can be shown in a message. The first version put the character
 ; straight into the text, and a file with a stray newline in the wrong place
@@ -911,25 +1182,25 @@ lexErrors := array:new.
 
 ; Answers the tokens; the errors are left in `lexErrors` so that a caller who
 ; only wants to know whether a keyword is one token can ignore them.
-tokenise := { src | | out, best, bestLen, bestName, start, gathering |
+tokenise := { src | | out, bestLen, bestName, start |
     sSrc := src.
     out := array:new.
-    cpos := #1.
-    { cpos:lessOrEqual(src:size) }:whileTrue({
-        start := cpos.
+    vmPos := #1.
+    { vmPos:lessOrEqual(src:size) }:whileTrue({
+        start := vmPos.
         bestLen := #0. bestName := nil.
         gTokenOrder:do({ name |
-            cpos := start.
-            charMatch:value(gRules:at(name):body):ifTrue({
-                cpos:sub(start):greaterThan(bestLen):ifTrue({
-                    bestLen := cpos:sub(start). bestName := name }) }) }).
+            vmPos := start.
+            runMachine:value(vmEntry:at(name), true, name):ifTrue({
+                vmPos:sub(start):greaterThan(bestLen):ifTrue({
+                    bestLen := vmPos:sub(start). bestName := name }) }) }).
         bestName:isNil:ifElse({
             lexErrors:add([start, src:at(start)]).
-            cpos := start:add(#1) },
-        { cpos := start:add(bestLen).
+            vmPos := start:add(#1) },
+        { vmPos := start:add(bestLen).
           gSkip:indexOf(bestName):isNil:ifTrue({
               out:add(makeToken:value(bestName,
-                  src:copyFrom(start, cpos:sub(#1)), start)) }) }) }).
+                  src:copyFrom(start, vmPos:sub(#1)), start)) }) }) }).
     out }.
 
 ; ---------------------------------------------------------------------------
@@ -1040,12 +1311,9 @@ isReservedAs := { kind, text | | list |
 ; difference between a list of punctuation and a sentence.
 
 tks := array:new.
-tpos := #1.
 tfar := #1.
 tfarExpected := dictionary:new.
 tfarRule := nil.
-ruleStack := array:new.
-ruleStart := array:new.
 
 tokAt := { i | i:lessOrEqual(tks:size):ifElse({ tks:at(i) }, { nil }) }.
 
@@ -1057,99 +1325,36 @@ tokAt := { i | i:lessOrEqual(tks:size):ifElse({ tks:at(i) }, { nil }) }.
 ; trouble, so it is the construct the reader is in the middle of. That turns
 ; `reading <multiplying-operator>` into `reading <if-statement>`.
 noteExpected := { what | | i |
-    tpos:greaterThan(tfar):ifTrue({
-        tfar := tpos.
+    vmPos:greaterThan(tfar):ifTrue({
+        tfar := vmPos.
         tfarExpected := dictionary:new.
         tfarRule := nil.
-        i := ruleStack:size.
+
+        ; **The rule context is read off the machine's stack**, which is the
+        ; part of this the stack machine made simpler rather than harder. The
+        ; recursive matcher carried two arrays of its own beside the frames it
+        ; was already spending; here the `'ret` entries *are* the rules in play,
+        ; each with the position it was entered at, and backtracking has already
+        ; truncated them correctly.
+        i := stkTop.
         { tfarRule:isNil:and({ i:greaterOrEqual(#1) }) }:whileTrue({
-            ruleStart:at(i):lessThan(tfar):ifTrue({ tfarRule := ruleStack:at(i) }).
+            stkKind:at(i):equals('ret):and({ stkPos:at(i):lessThan(tfar) })
+                :ifTrue({ tfarRule := stkName:at(i) }).
             i := i:sub(#1) }).
-        tfarRule:isNil:and({ ruleStack:size:greaterThan(#0) })
-            :ifTrue({ tfarRule := ruleStack:at(ruleStack:size) }) }).
-    tpos:equals(tfar):ifTrue({ tfarExpected:atPut(what, true) }).
+
+        ; Nothing had consumed anything -- the file went wrong at its first
+        ; token -- so name the innermost rule rather than none.
+        tfarRule:isNil:ifTrue({
+            i := stkTop.
+            { tfarRule:isNil:and({ i:greaterOrEqual(#1) }) }:whileTrue({
+                stkKind:at(i):equals('ret):ifTrue({ tfarRule := stkName:at(i) }).
+                i := i:sub(#1) }) }) }).
+    vmPos:equals(tfar):ifTrue({ tfarExpected:atPut(what, true) }).
     nil }.
 
-; One frame a level, and the staircase costs none -- which is what the depth at
-; the bottom of this file is spent on. `do` over the children would double it.
-tokMatch := { n | | k, kids, save, i, ok, going, t, r, body |
-    k := n:kind.
-    kids := kidsOf:value(n).
-
-    k:equals('lit):ifElse({
-        t := tokAt:value(tpos).
-        t:notNil:and({ sameText:value(t:text, n:text) })
-            :ifElse({ tpos := tpos:add(#1). true },
-                    { noteExpected:value("'":concat(n:text):concat("'")). false }) }, {
-
-    k:equals('ref):ifElse({
-        r := gRules:at(n:text).
-        r:lexical:ifElse({
-            t := tokAt:value(tpos).
-            t:notNil:and({ t:kind:equals(n:text) })
-                :and({ isReservedAs:value(n:text, t:text):not })
-                :ifElse({ tpos := tpos:add(#1). true },
-                        { noteExpected:value(n:text). false }) },
-          { ruleStack:add(n:text). ruleStart:add(tpos).
-
-            ; **A rule whose body is an alternation runs it here rather than
-            ; recursing into it, which is a frame per level of grammar.**
-            ; Descending one rule costs a frame for the reference, one for the
-            ; body's `alt` and one for the chosen `seq`; this removes the
-            ; middle one wherever the body is an `alt` at all.
-            ;
-            ; Measured on Pascal rather than assumed, because the guess was
-            ; wrong: this is worth a *third* of the frames only if every rule
-            ; body is an alternation, and in Wirth's Pascal most are sequences.
-            ; The real numbers are 16 levels of nested `begin if` before this
-            ; and **19** after, and 25 nested parentheses before and **28**
-            ; after -- about a sixth, for eleven lines. Kept because a sixth of
-            ; the depth is worth eleven lines, and recorded because the
-            ; difference between a third and a sixth is the difference between
-            ; the shape of the matcher and the shape of the grammar.
-            body := r:body.
-            body:kind:equals('alt):ifElse({
-                save := tpos. ok := false. i := #1.
-                { ok:not:and({ i:lessOrEqual(body:kids:size) }) }:whileTrue({
-                    tpos := save.
-                    tokMatch:value(body:kids:at(i)):ifTrue({ ok := true }).
-                    i := i:add(#1) }).
-                ok:ifFalse({ tpos := save }) },
-              { ok := tokMatch:value(body) }).
-
-            ruleStack:removeLast. ruleStart:removeLast.
-            ok }) }, {
-
-    k:equals('opt):ifElse({
-        save := tpos.
-        tokMatch:value(kids:at(#1)):ifFalse({ tpos := save }).
-        true }, {
-
-    k:equals('rep):ifElse({
-        going := true.
-        { going }:whileTrue({
-            save := tpos.
-            tokMatch:value(kids:at(#1)):and({ tpos:greaterThan(save) })
-                :ifFalse({ tpos := save. going := false }) }).
-        true }, {
-
-    k:equals('alt):ifElse({
-        save := tpos. ok := false. i := #1.
-        { ok:not:and({ i:lessOrEqual(kids:size) }) }:whileTrue({
-            tpos := save.
-            tokMatch:value(kids:at(i)):ifTrue({ ok := true }).
-            i := i:add(#1) }).
-        ok:ifFalse({ tpos := save }).
-        ok }, {
-
-    k:equals('range):or({ k:equals('not) }):ifElse({ false },
-
-      { save := tpos. ok := true. i := #1.
-        { ok:and({ i:lessOrEqual(kids:size) }) }:whileTrue({
-            tokMatch:value(kids:at(i)):ifFalse({ ok := false }).
-            i := i:add(#1) }).
-        ok:ifFalse({ tpos := save }).
-        ok }) }) }) }) }) }) }.
+; The matcher over tokens used to be here, one method recursing over the
+; grammar tree. It is the machine above now -- see "The machine" and ROADMAP
+; 3.5 for what that was costing and what it bought.
 
 ; ---------------------------------------------------------------------------
 ; Saying it
@@ -1268,7 +1473,7 @@ loadGrammar := { path, text | | bad |
     ; These two work by tokenising, so they can only run once the rules are
     ; known to be sound -- and the token-use warning is worth the ordering,
     ; because it is the one that catches a missing %fragment.
-    bad:ifFalse({ computeReserved:value. checkTokenUse:value }).
+    bad:ifFalse({ compileGrammar:value. computeReserved:value. checkTokenUse:value }).
 
     gWarnings:do({ w | w:display }).
     gErrors:do({ e | e:display }).
@@ -1322,18 +1527,10 @@ dumpTokens := { path | | line, lineStart, at |
     nil }.
 
 matchSubject := { path, text | | ok, t, pos |
-    tpos := #1. tfar := #1. tfarExpected := dictionary:new.
-    tfarRule := nil. ruleStack := array:new. ruleStart := array:new.
+    vmPos := #1. tfar := #1. tfarExpected := dictionary:new. tfarRule := nil.
+    ok := runMachine:value(vmEntry:at(gStart), false, gStart).
 
-    ; The goal rule goes on the stack like any other, so that a failure at the
-    ; very top -- the `.` after `end` in Pascal -- can still say what was being
-    ; read. Calling its body directly left the stack empty and the message
-    ; without a context, which is the one place the context is most obviously
-    ; wanted.
-    ruleStack:add(gStart). ruleStart:add(#1).
-    ok := tokMatch:value(gRules:at(gStart):body).
-
-    ok:and({ tpos:greaterThan(tks:size) }):ifElse({ nil }, {
+    ok:and({ vmPos:greaterThan(tks:size) }):ifElse({ nil }, {
         ok:ifTrue({ noteExpected:value("the end of the file") }).
         t := tokAt:value(tfar).
         pos := t:isNil:ifElse({ text:size:add(#1) }, { t:pos }).
@@ -1354,11 +1551,14 @@ check := { grammarPath, grammarText, subjectPath, subjectText, mode | | status |
             tks := tokenise:value(subjectText).
             reportLexErrors:value(subjectPath, subjectText).
             mode:equals("tokens"):ifElse({ dumpTokens:value(subjectPath). #0 }, {
+                ; **This used to be about depth**, and said so: matching
+                ; recursed, `call depth exceeded` arrived here, and saying so
+                ; was the difference between a diagnostic and a crash. The
+                ; machine has no depth to run out of, so what is left is a
+                ; handler for anything else going wrong in a match -- which
+                ; should be nothing, and is reported rather than assumed.
                 { matchSubject:value(subjectPath, subjectText) }:onError({ e |
-                    ; `call depth exceeded` arrives here like any other failure,
-                    ; and saying so is the whole difference between a diagnostic
-                    ; and a crash. What it means is at the bottom of this file.
-                    "{}: {} -- the grammar nests too deeply for this file"
+                    "{}: the match failed: {}"
                         :fill([subjectPath, e:message]):display.
                     errorCount := errorCount:add(#1) }).
                 errorCount:equals(#0):ifElse({
@@ -1526,48 +1726,57 @@ args:size:greaterOrEqual(#2):ifTrue({ | mode |
     system:exit(checkFiles:value(args:at(#1), args:at(#2), mode)) }).
 
 ; ---------------------------------------------------------------------------
-; What it cost in frames, which is the number this program is here to report
+; What the depth cost, and what removing it cost
 ;
-; A tree-walking matcher recurses once per node of the grammar, and Solum's
-; frames run out at 254. So the question is not whether this hits the limit but
-; where, and the answer had to be measured against a real grammar rather than
-; guessed from the shape of the matcher.
+; **There is no depth limit now, and this section is the history of the one
+; there was**, because the numbers are the argument for the machine that
+; replaced it.
 ;
-; **Against pascal.bnf, on this machine: 19 levels of nested `begin ... if`, and
-; 28 nested parentheses in one expression.** Descending one level of Pascal
-; statement nesting costs about four rule references, and a rule reference costs
-; two frames -- one for the reference and one for the sequence it chooses.
+; The matcher was a tree walk: one Solum frame per node of the grammar, against
+; a machine with 254. Measured rather than guessed, and measured through real
+; grammars rather than through the matcher:
 ;
-; Three things about that are worth having written down.
+;   pascal.bnf   19 levels of nested `begin ... if`, 28 nested parentheses
+;   solum.bnf    13 nested blocks
 ;
-; **It is a diagnostic and not a crash.** `call depth exceeded` arrives at
-; `onError` like any other failure -- which `evaluator.sol` established and this
-; program depends on -- so a file too deep for the matcher is reported as being
-; too deep, by name, and the exit status is an error rather than a signal. The
-; alternative is a checker that dies on the input it was given and says nothing
-; about why.
+; Descending one rule cost about two frames -- one for the reference, one for
+; the sequence it chose -- and a language nests about four rules per level of
+; its own syntax, which is where those numbers come from.
 ;
-; **The frames are spent on the grammar, not on the file.** A ten-thousand-line
-; Pascal program with ordinary nesting uses the same depth as a ten-line one.
-; What costs depth is a construct inside a construct, and 19 of those is past
-; anything written by hand -- it is generated code that reaches it, which is
-; also the code nobody reads the error message of.
+; Three things were worth writing down about that, and two of them survive the
+; machine.
 ;
-; **Where the depth went is not where it looked.** Inlining a rule's alternation
-; into the reference that names it (see `tokMatch`) was expected to be worth a
-; third of the frames, one of three per level. It was worth a sixth: 16 levels
-; became 19, and 25 parentheses became 28. The difference is that most of
-; Wirth's Pascal rules have a *sequence* for a body rather than an alternation,
-; so most of them never had the middle frame to save. A measurement of the
-; matcher would have said a third. Only a measurement through a grammar says a
-; sixth.
+; **It was a diagnostic and not a crash.** `call depth exceeded` arrives at
+; `onError` like any other failure -- which `evaluator.sol` established -- so a
+; file too deep was reported as being too deep rather than killing the checker.
+; That property is why the limit was liveable for as long as it was.
 ;
-; An explicit stack machine -- a list of instructions and a backtrack stack --
-; has no such limit, and is the thing to build if this is ever pointed at
-; generated input. It was not built here because it costs the property this
-; version has of being readable against the notation it implements, and because
-; the limit it removes is one no hand-written file reaches. That is a trade
-; recorded rather than settled.
+; **The frames were spent on the grammar, not on the file.** A ten-thousand-line
+; program with ordinary nesting reached the same depth as a ten-line one. What
+; cost depth was a construct inside a construct.
+;
+; **And a real file reached it.** `experiment/lexer.sol` holds a 24-level nested
+; `ifElse` staircase -- the deepest expression in this repository, and exactly
+; the shape [control.sol](../lib/control.sol) recommends. Every earlier
+; measurement on [ROADMAP 3.5](../docs/ROADMAP.md#35-recursion-is-limited-to-about-254-levels)
+; needed a generator to reach the limit; that one was already sitting here. It
+; is what settled the trade this file had recorded as unsettled.
+;
+; **What removing it cost is 38% of the running time**, and that is the honest
+; headline. `programs/sola.sol` went from 3.79 seconds to 5.25. Two attempts to
+; get it back are described in `runMachine` and are worth 3.7% between them --
+; the loop's cost is the instruction fetch and the sends inside an arm, not the
+; comparisons that choose the arm.
+;
+; **And 2,000 levels of nesting now check in both languages**, where 19 and 13
+; were the numbers. What bounds depth is memory, which is the same thing as
+; saying nothing a grammar or a file will reach.
+;
+; **What is left of the limit is in a better place.** `compileNode` still
+; recurses over the grammar tree, so a *grammar* nesting brackets a few hundred
+; deep runs out of frames. That is a property of the grammar file, reported the
+; same way every time and before any subject is read -- not a property of the
+; input, discovered on the one file that happened to be deep.
 ;
 ; ---------------------------------------------------------------------------
 ; What the grammar had to say about itself

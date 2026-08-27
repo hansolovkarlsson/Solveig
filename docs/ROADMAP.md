@@ -460,53 +460,63 @@ depth exceeded` arrives at `onError` like any other, is reported like any other,
 and the program carries on afterwards -- running out of frames is exactly the
 sort of failure a machine might not be able to recover from, and this one can.
 
-#### A program whose depth is set by its input
+#### A program that met this entry and then left it
 
-**2026-08-26.** [check_syntax.sol](../programs/check_syntax.sol) is the first
-program here whose depth is a fact about what it was *handed* rather than about
-its own source. It walks a grammar as a tree, one frame per node, so how deep it
-goes depends on the grammar and on the file it was pointed at. Against
-[pascal.bnf](../programs/check_syntax/pascal.bnf) the limit lands at **19 levels
-of nested `begin … if`** and **28 nested parentheses in one expression**.
+**2026-08-26.** [check_syntax.sol](../programs/check_syntax.sol) walks a grammar,
+so its depth is a fact about what it was *handed* rather than about its own
+source — the first program here of which that is true. It was a tree walk, one
+frame per node, and the limits were measured through real grammars rather than
+guessed from the matcher:
 
-That is a much smaller number than the 83 brackets `evaluator.sol` reaches, and
-the reason is worth writing down: **a grammar rule is not one frame.** Descending
-one level of Pascal statement nesting costs about four rule references, and a
-reference costs two frames — one for the reference and one for the sequence it
-chooses. So the multiplier is the *grammar*, not the matcher, which is exactly
-what [ideas.md](ideas.md#programs-that-would-press-on-something) predicted when it said a tree is what
-multiplies a measurement taken on a list.
+| | |
+| --- | --- |
+| [pascal.bnf](../programs/check_syntax/pascal.bnf) | 19 levels of nested `begin … if`, 28 nested parentheses |
+| [solum.bnf](../programs/check_syntax/solum.bnf) | 13 nested blocks |
 
-**And a file somebody actually wrote reaches it.** Against
-[solum.bnf](../programs/check_syntax/solum.bnf), the same grammar of this
-language, the limit is **13 nested blocks** — and `experiment/lexer.sol` holds a
-24-level nested `ifElse` staircase, the deepest expression in this repository.
-`solas` compiles that file; the checker runs out of frames on it.
+Much smaller than the 83 brackets `evaluator.sol` reaches, and the reason is
+worth keeping: **a grammar rule is not one frame.** One level of a language's
+own nesting costs about four rule references and a reference costs two frames,
+so the multiplier is the *grammar* rather than the matcher — which is what
+[ideas.md](ideas.md#programs-that-would-press-on-something) predicted when it
+said a tree is what multiplies a measurement taken on a list.
 
-That is worth separating from the Pascal number. **Every earlier measurement on
-this entry needed a generator to reach the limit** — `evaluator.sol` counts
-brackets it produced itself, and the Pascal figures come from a script that
-emits nesting nobody would type. This one is a hand-written file that already
-existed, checked by a program that did not know about it, and the shape that
-does it is the one [control.sol](../lib/control.sol) *recommends*: a staircase of
-`ifElse` is what that file tells you to write instead of `ifElseIf` inside a
-recursion, precisely to save frames. The advice is still right — it saves frames
-in the program doing the dispatching — and it costs them in anything that walks
-the result as a tree.
+**A file somebody actually wrote reached it**, and that is what settled the
+question. `experiment/lexer.sol` holds a 24-level nested `ifElse` staircase, the
+deepest expression in this repository; `solas` compiles it and the checker ran
+out of frames on it. Every earlier measurement on this entry needed a generator
+— `evaluator.sol` counts brackets it produced itself, and the Pascal figures
+come from a script emitting nesting nobody would type. This one was already
+sitting here. **And the shape that did it is the shape
+[control.sol](../lib/control.sol) recommends**, a staircase of `ifElse` written
+instead of `ifElseIf` precisely to save frames. Both are right: it saves them in
+the program doing the dispatching and costs them in anything that walks the
+result as a tree.
 
-**Nineteen is past what anybody writes by hand and short of what a generator
-emits.** That is the whole of the case for having left the matcher recursive.
-The alternative is an explicit stack machine — proposed and rejected in the
-section below, but rejected there for a reason that does not apply here: for the
-compiler it would have bought nothing, because both halves ran out together.
-Here it would remove the limit outright, and what it costs is the property of
-being readable beside the notation it implements. The program records that trade
-in its own comments rather than settling it.
+**So the matcher is an explicit stack machine now, and the limit is gone.** The
+instruction set is LPeg's — `Call`, `Ret`, `Choice`, `Commit`, and terminals —
+and the stack is a Solum array rather than the machine's frames. **2,000 levels
+of nesting check in both languages**, against 19 and 13. What bounds depth is
+memory.
 
-**And the failure is catchable**, which the paragraph above claims in general and
-this program depends on in particular: a file too deep is reported as being too
-deep, by name, with a non-zero exit status, rather than taking the checker down
-with it.
+Three things about that are worth this entry's space.
+
+**It cost 38% of the running time.** `programs/sola.sol` went from 3.79 seconds
+to 5.25. Two attempts to get that back — reordering the dispatch by frequency,
+and spelling out the hottest comparison rather than calling it — are worth 3.7%
+between them. The loop's cost is the instruction fetch and the sends inside an
+arm, not the comparisons that choose the arm. **An interpreter written in this
+language pays for its dispatch and cannot get it back by hand**, which is the
+same finding `basic.sol` reported from the other direction.
+
+**What is left of the limit moved somewhere better.** Compiling a grammar still
+recurses over its tree, so a grammar nesting brackets a few hundred deep still
+runs out. That is a property of the *grammar file*, reported identically every
+run and before any subject is read — not a property of the input, discovered on
+the one file that happened to be deep.
+
+**And it is still catchable either way**, which is what made the limit liveable
+for as long as it was: `call depth exceeded` arrives at `onError` like any other
+failure, so a checker that ran out said so rather than dying.
 
 #### Both halves of the compiler run out together
 

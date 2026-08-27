@@ -189,6 +189,33 @@ the checker, on the run that exists to report the mistake. It surfaced here only
 because a stale `.sob` was lying around with the old list still in it, which is
 the sort of luck that is not a plan. Guarded, and the list runs to twentieth.
 
+### And then the trade that had been recorded got taken
+
+The depth limit had been written down three times as a known cost and once as a
+thing to build if it ever mattered. It mattered the moment the checker was
+pointed at this language: `experiment/lexer.sol` nests `ifElse` 24 deep and the
+tree walker could not read it.
+
+**So the matcher is LPeg's instruction set now** — `Call`, `Ret`, `Choice`,
+`Commit` — compiled once and run by a loop, with the stack in arrays. 2,000
+levels of nesting check where 13 did. The whole of what the old matcher did
+wrong was to keep its stack somewhere it did not own.
+
+**The verification was the old matcher.** Both were run over every file here and
+every error case with the output compared byte for byte — 63 runs, and the only
+two that differed were the two that had been too deep. That is the comparison
+worth having: not that the new one works, but that it does not quietly do
+something else. One of the two is `check_syntax.sol` itself, whose new dispatch
+staircase the old matcher could not read.
+
+**It cost 38% of the running time**, and the two attempts to get that back are
+the part worth recording. Reordering the dispatch staircase by frequency —
+`matchRange` was eighth, and a range is what a lexical grammar is mostly made of
+— bought 2.4%. Spelling out the hottest comparison rather than calling it, and
+folding its literal at compile time, bought 1.3%. I had written "worth a tenth"
+and "worth a fifth" into the comments *before* measuring, and both were wrong by
+a factor of four or more. They came out again.
+
 ---
 
 ### Postmortem
@@ -262,7 +289,24 @@ the sort of luck that is not a plan. Guarded, and the list runs to twentieth.
    above the call. **The note did not stop me because I had written it**, which
    is the failure mode of a comment addressed to somebody else.
 
-9. **Two documents were wrong before a line was added to them.** `expect.sol`
+9. **I wrote two performance numbers into comments before measuring them, and
+   both were wrong by a factor of four.** "Worth a tenth of the running time"
+   and "worth a fifth" — the real figures were 2.4% and 1.3%. Nothing forced me
+   to guess; the measurement took a minute and I did it afterwards, to confirm
+   what I had already written down. **A number in a comment reads exactly like a
+   measured one**, which is what makes writing an unmeasured one a different
+   kind of mistake from being wrong out loud. The whole repository is built on
+   comments being true, and these two would have shipped.
+
+10. **The limit did not move, it moved somewhere better.** Compiling a grammar
+   still recurses, so a deep enough *grammar* still runs out of frames. That is
+   worth as much as the removal: it is now a property of the file the author
+   wrote, reported the same way every run and before any input is read, instead
+   of a property of the input, discovered on the one file that happened to be
+   deep. **When a limit cannot be removed, moving it to the input somebody
+   controls is most of the value.**
+
+11. **Two documents were wrong before a line was added to them.** `expect.sol`
    refused the count markers the instant `programs/` held fourteen files and
    named three places still saying thirteen, in `design.md` and `COMPLETED.md`,
    that had nothing to do with this work. That is the entry doing exactly its
