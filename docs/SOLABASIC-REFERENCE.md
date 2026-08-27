@@ -1,7 +1,9 @@
 # SolaBasic — reference manual
 
 *Every statement the compiler accepts, what it does, and where it stops. For
-looking things up.*
+looking things up. [SOLABASIC-CHEATSHEET.md](SOLABASIC-CHEATSHEET.md) is the
+same ground on one page, for when you know what you want and not what it is
+called.*
 
 SolaBasic is BASIC in the shape QuickBASIC gave it — labels rather than line
 numbers, `SUB` and `FUNCTION`, block `IF` and `SELECT CASE` — compiled to a
@@ -175,11 +177,14 @@ In order:
 
 ```basic
 DEFINT I-N        ' every name starting I to N is an Integer
-DEFSTR S
-DEFDBL A-H, O-Z
+DEFLNG L          ' ... a Long
+DEFSTR S          ' ... a String
+DEFDBL A-H, O-Z   ' ... a Double
 ```
 
-A `DEF` applies to the whole listing wherever it is written.
+There are four — `DEFINT`, `DEFLNG`, `DEFDBL` and `DEFSTR` — one per type, and
+each takes a letter or a range of letters, comma-separated. A `DEF` applies to
+the whole listing wherever it is written.
 
 ---
 

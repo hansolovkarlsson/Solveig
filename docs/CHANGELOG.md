@@ -5,6 +5,34 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### A cheatsheet for SolaBasic, and the keyword the reference had lost — `pending`, 2026-08-27
+
+**[SOLABASIC-CHEATSHEET.md](SOLABASIC-CHEATSHEET.md)**: every statement and
+every supplied function of the dialect on one page, in the shape
+[CHEATSHEET.md](CHEATSHEET.md) has for Solum. The
+[reference manual](SOLABASIC-REFERENCE.md) was already the full account and the
+[definition](SOLABASIC.md) says where the boundary came from; what was missing
+was the page for when you know what you want and not what it is called.
+
+**It was asked for as a reference document, and one already existed.** The audit
+that established that found a real gap: `DEFLNG` is one of the four `DEF`
+statements the compiler accepts and the reference named only three. Added, and
+the definition had it right all along.
+
+**Every claim on the page was run before it was written down.** One listing
+exercises the lot — the print zones at 14 columns, the sign character and
+trailing space on a number, `7 \ 2` against `7 / 2`, `-7 MOD 2`, `-2 ^ 2`,
+`INSTR` being one-based, `LEFT$` clamping, `STR$` without the leading space that
+`PRINT` adds, `STRING$` taking only the first character, `PRINT USING` restarting
+its format per item and writing `%1234` for a number too wide, by-reference
+parameters against the bracketed copy, and a `FUNCTION` answering by assigning
+to its own name.
+
+**And a coverage check compares the page against the compiler**, which is what
+found `LET` and `AS LONG` missing from the first draft: every keyword
+`programs/sola.sol` recognises, other than the reserved `SOLA` runtime names, is
+now on the page.
+
 ### The matcher is a stack machine, and the depth limit is gone — `36a4c55`, 2026-08-26
 
 **[check_syntax.sol](../programs/check_syntax.sol) no longer walks the grammar

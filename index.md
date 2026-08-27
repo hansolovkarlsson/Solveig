@@ -53,6 +53,11 @@ while staying ordinary messages you can send any other way.
   productions and the words they are made of. There are no keywords and no
   control-flow syntax, so the page is short for a reason rather than by being a
   summary.
+
+- **[SolaBasic cheatsheet](docs/SOLABASIC-CHEATSHEET.md)** — every statement and
+  every supplied function of the BASIC dialect, on one page. The
+  [reference manual](docs/SOLABASIC-REFERENCE.md) is the full account and
+  [the definition](docs/SOLABASIC.md) says where the boundary came from.
 - **[Lineage](docs/lineage.md)** — what Solum borrowed from Smalltalk and Self,
   which living languages sit nearest it, and what will surprise you if you
   arrive knowing Ruby, JavaScript or C. Five minutes, and worth them first.

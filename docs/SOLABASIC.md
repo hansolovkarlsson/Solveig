@@ -11,7 +11,9 @@ It is a subset, and this document is the whole of it.
 
 **For writing SolaBasic rather than reading about it**, see the
 [reference manual](SOLABASIC-REFERENCE.md), which describes what the compiler
-accepts *today* — statement by statement, with what it says when it refuses.
+accepts *today* — statement by statement, with what it says when it refuses —
+or the [cheatsheet](SOLABASIC-CHEATSHEET.md), which is the same ground on one
+page for when you know what you want and not what it is called.
 This page is the definition and the reasoning; that one is the desk copy.
 
 ## The name

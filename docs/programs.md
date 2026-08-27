@@ -396,7 +396,7 @@ sixteen seconds, and it fails the build if one stops holding.
 **And it checks the documentation too.** The guide and the reference carry the
 same notation inside ``` fences, and nothing checked those either — they are the
 two documents a newcomer actually reads. 363<!--count docs-claims--> claims
-across twenty-one<!--count docs-documents--> documents,
+across twenty-two<!--count docs-documents--> documents,
 and two more on `README.md` and `index.md` — the front pages, which were the
 last two things nothing checked.
 

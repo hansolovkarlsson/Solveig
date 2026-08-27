@@ -11,6 +11,37 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-27 — a document that was already there
+
+Asked for a reference document for SolaBasic. There is one: 1,016 lines,
+statement by statement, with what the compiler says when it refuses.
+
+**So the first thing was to find out whether it was still true**, which is a
+cheaper question than it sounds — the compiler's keyword table is in its source,
+and comparing it against the document is a loop. It named every user-facing
+keyword but one. `DEFLNG` is the fourth `DEF` statement and the reference listed
+three; the definition had all four, so this was drift between two documents
+rather than a hole in either idea.
+
+**The audit is worth more than the finding.** One missing keyword out of eighty
+is a good result for a hand-written reference, and knowing *that* is what made
+the next decision easy: the gap was not in the reference at all. Solum has both
+a full reference and a one-page cheatsheet; SolaBasic had the reference and the
+definition and no one-pager. That is what got written.
+
+**The first draft of the cheatsheet failed its own coverage check**, on `LET`
+and on `AS LONG` — the same check that had just been run against the reference,
+turned around and pointed at the new page. Writing a document by reading another
+document loses whatever the second one was thin about, and the only defence is
+to check both against the thing they describe.
+
+**Every claim on the page was run before it was written down.** One listing
+exercises all of them, and it caught nothing — which is the outcome to hope for
+and not the reason to skip it. The claims about `PRINT`'s spacing are the ones
+that would have been wrong: a number is a sign character, then the digits, then
+a trailing space, and no amount of reading the reference tells you whether you
+have transcribed that correctly.
+
 ## 2026-08-26 (evening) — a checker that is told what to check
 
 Two commits, 16:47 to 17:44. 1,591 lines of program, 32% of it comment; 185
