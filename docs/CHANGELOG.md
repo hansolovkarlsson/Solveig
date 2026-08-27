@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### A syntax checker that is told the syntax — `pending`, 2026-08-26
+### A syntax checker that is told the syntax — `d9e1621`, 2026-08-26
 
 **The fourteenth program**: [check_syntax.sol](../programs/check_syntax.sol)
 reads a grammar written in Wirth's EBNF, then reads a second file and says where
