@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### A loaded file debugs like any other — `pending`, 2026-08-27
+### A loaded file debugs like any other — `21d3849`, 2026-08-27
 
 **No code changed, which is the finding.** Solid steps into a file brought in by
 `system:load`, steps over the load with `next`, comes back out with `finish`,
