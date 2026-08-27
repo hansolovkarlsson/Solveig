@@ -1295,10 +1295,24 @@ reportLexErrors := { path, text | | i |
                                       "further lexical error")]):display }).
     nil }.
 
-dumpTokens := { path | | lc |
+; **The one place `lineColumnIn` may not be used.** That block counts newlines
+; from the start of the file, which is free when a run wants four of them and
+; quadratic when it wants one per token: this mode on a 1,766-line file took
+; over two minutes, against 1.49 seconds to check the same file properly.
+;
+; Tokens arrive in order, so the line and the column can be *carried* -- one
+; pass over the source for the whole dump rather than one pass per token. The
+; design note above `lineColumnIn` is still right about errors and was wrong
+; about this, which is the sort of thing only a large input says out loud.
+dumpTokens := { path | | line, lineStart, at |
+    line := #1. lineStart := #1. at := #1.
     tks:do({ t |
-        lc := lineColumnIn:value(sSrc, t:pos).
-        "{}:{}:{}: {} {}":fill([path, lc:at(#1), lc:at(#2), t:kind:asString("<12"),
+        { at:lessThan(t:pos) }:whileTrue({
+            sSrc:at(at):equals("\n"):ifTrue({
+                line := line:add(#1). lineStart := at:add(#1) }).
+            at := at:add(#1) }).
+        "{}:{}:{}: {} {}":fill([path, line, t:pos:sub(lineStart):add(#1),
+            t:kind:asString("<12"),
             t:text:size:greaterThan(#30)
                 :ifElse({ t:text:copyFrom(#1, #30):concat("...") }, { t:text })]):display }).
     "{}: {}":fill([path, plural:value(tks:size, "token")]):display.

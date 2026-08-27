@@ -128,6 +128,59 @@ the shown line — **budgeted in rendered columns rather than in bytes**, becaus
 byte that escapes to `\x1b` is four columns wide and a 96-byte window is a
 384-column line with the caret nowhere near what it points at.
 
+### Then the checker was pointed at this language
+
+The obvious next grammar, and the one with an oracle: fifty-seven `.sol` files
+that have to keep checking clean. **Fifty-six do**, and the fifty-seventh is the
+frame limit rather than a disagreement.
+
+**The grammar came out of `solas/src/lexer.c` and `solas/src/compiler.c`**, not
+out of the documentation, and the reason is that there was nothing to copy. The
+only grammar written down anywhere is the sketch at the top of
+`solas/include/solas/parser.h`, and it says of itself that it goes as far as
+`design.md` pins it down — no blocks, no arrays, no symbols, no temporaries, no
+slot assignment. Half the language. So the whole of it is written down now,
+twice: [solum.bnf](../programs/check_syntax/solum.bnf) for the checker and
+[GRAMMAR.md](GRAMMAR.md) for a person.
+
+**Twenty-eight edge cases were settled by asking `solas` rather than by reading
+it.** Whether a group may be empty, whether `a := b := c` nests, whether `1e` is
+one token or two, whether a trailing comma is allowed in an array literal,
+whether a string may span lines. Reading the C gives an answer and running it
+gives *the* answer — and one of them disagreed. `optional_declarations` carries
+a long comment about the top-level restriction on temporaries being gone, which
+reads as though `| t |` may now open a script; it may not, because no rule calls
+that function there. What the comment is about is a *group* written at the top
+level, which does work. **A comment describing a repair is not a description of
+what is reachable.**
+
+**The finding is that a real file reaches the depth limit.**
+`experiment/lexer.sol` holds a 24-level nested `ifElse` staircase, the deepest
+expression here, and against this grammar the checker manages 13 nested blocks.
+Every earlier measurement on [3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels)
+needed a generator to reach the limit; this one was already sitting in the
+repository. And the shape that does it is the shape
+[control.sol](../lib/control.sol) *tells you to write* — a staircase instead of
+`ifElseIf`, precisely to save frames. Both are right: it saves frames in the
+program doing the dispatching and costs them in anything that walks the result
+as a tree.
+
+### Two defects found by pointing things at large input
+
+**The token dump was quadratic**, and the comment above the offending block
+predicted it without noticing. `lineColumnIn` counts newlines from the start of
+the file, and the note beside it argues for that on the grounds that a run wants
+four line numbers, one per message. `tokens` mode wants one per *token*: two
+minutes on a 1,766-line file, against 1.49 seconds to check the same file
+properly. Tokens are in order, so the dump carries the line and makes one pass.
+
+**And `expect.sol` would have crashed rather than reported.** Its list of ordinal
+words has to be extended by hand when a program is added; when it is not, the
+failure is `index #14 is out of bounds for an array of size 13` — a crash, in
+the checker, on the run that exists to report the mistake. It surfaced here only
+because a stale `.sob` was lying around with the old list still in it, which is
+the sort of luck that is not a plan. Guarded, and the list runs to twentieth.
+
 ---
 
 ### Postmortem
@@ -185,7 +238,23 @@ byte that escapes to `\x1b` is four columns wide and a 96-byte window is a
    **A measurement is worth writing where the next person will be standing when
    they need it**, which is not the changelog.
 
-7. **Two documents were wrong before a line was added to them.** `expect.sol`
+7. **A corpus you did not write is worth more than a test you did.** The Solum
+   grammar was checked against fifty-seven files, not one of which was written
+   with it in mind, and that is the only reason to believe it. The four
+   deliberate mistakes I *did* write test what I already thought; the
+   thirty-eight examples test what I had not thought of. **When a program takes
+   a description of something as input, the something already in the repository
+   is the test.**
+
+8. **A design note about how often something is wanted is a claim about every
+   future caller.** `lineColumnIn` counts from the start of the file, and the
+   comment beside it says why that is free: four line numbers a run, one per
+   message. That was true, and stayed true, and then `tokens` mode wanted one
+   per token and made it quadratic — with the justification sitting three lines
+   above the call. **The note did not stop me because I had written it**, which
+   is the failure mode of a comment addressed to somebody else.
+
+9. **Two documents were wrong before a line was added to them.** `expect.sol`
    refused the count markers the instant `programs/` held fourteen files and
    named three places still saying thirteen, in `design.md` and `COMPLETED.md`,
    that had nothing to do with this work. That is the entry doing exactly its

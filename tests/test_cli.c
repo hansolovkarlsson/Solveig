@@ -1007,6 +1007,122 @@ static void test_check_syntax_reads_a_grammar_and_a_file(void)
 }
 
 /* ------------------------------------------------------------------------
+ * check_syntax: Solum, against itself
+ *
+ * programs/check_syntax/solum.bnf is the whole of the language, taken from
+ * solas/src/lexer.c and solas/src/compiler.c rather than from the
+ * documentation -- the only grammar written down anywhere is the sketch atop
+ * solas/include/solas/parser.h, which says of itself that it is partial and
+ * has no blocks, arrays, symbols, temporaries or slot assignment.
+ *
+ * **The corpus is the test.** Every file in examples/ and lib/ has to check
+ * clean, which is what stops the grammar from quietly narrowing: a rule that
+ * is wrong about a corner of the language will be wrong about one of these
+ * thirty-eight files, and none of them was written with this grammar in mind.
+ * programs/ is left out of the loop only because it is slow -- 15 seconds
+ * against 4 -- and one of its files stands in for it below.
+ *
+ * The grammar is held to agreeing with `solas` rather than merely to parsing:
+ * where the two disagree about a file, one of them is wrong about Solum. */
+static void test_check_syntax_reads_solum_itself(void)
+{
+    char out[16384];
+
+    assert(run("bin/solas programs/check_syntax.sol -o " DIR "/check_syntax.sob"
+               " 2>&1", out, sizeof out) == 0);
+
+    /* The grammar itself: clean, and with nothing reserved. **Solum has no
+       keywords at all**, and this is where that shows up as a fact rather than
+       a claim -- check_syntax reserves every word-shaped literal a syntactic
+       rule mentions, and this grammar mentions none. `nil`, `true`, `object`
+       and `self` are ordinary identifiers that happen to be bound. */
+    assert(run("bin/solvm " DIR "/check_syntax.sob"
+               " programs/check_syntax/solum.bnf 2>&1", out, sizeof out) == 0);
+    assert(strstr(out, "start <program>") != NULL);
+    assert(strstr(out, "skipping: space, comment") != NULL);
+    assert(strstr(out, "reserved against") == NULL);
+    assert(strstr(out, "grammar warning") == NULL);
+    assert(strstr(out, "grammar error") == NULL);
+
+    /* Every example and every library file. */
+    assert(run("for f in examples/*.sol lib/*.sol; do "
+               "  bin/solvm " DIR "/check_syntax.sob"
+               "    programs/check_syntax/solum.bnf \"$f\" 2>&1"
+               "  | grep -q 'no errors' || echo \"BAD $f\"; "
+               "done; echo SWEPT", out, sizeof out) == 0);
+    if (strstr(out, "BAD") != NULL) {
+        printf("\nsolum.bnf rejects a file solas accepts:\n%s\n", out);
+        assert(false);
+    }
+    assert(strstr(out, "SWEPT") != NULL);
+
+    /* One from programs/, for a file an order of magnitude longer than any
+       example -- and the one whose own subject is parsing. */
+    assert(run("bin/solvm " DIR "/check_syntax.sob"
+               " programs/check_syntax/solum.bnf programs/evaluator.sol 2>&1",
+               out, sizeof out) == 0);
+    assert(strstr(out, "no errors") != NULL);
+
+    /* ------------------------------------------------------------------
+     * The depth limit, pinned against a real file rather than a made-up one.
+     *
+     * experiment/lexer.sol holds a 24-level nested `ifElse` staircase -- the
+     * deepest expression in this repository, and exactly the shape
+     * lib/control.sol recommends. `solas` compiles it; this checker runs out of
+     * frames on it, because walking a grammar as a tree costs about two frames
+     * per rule and Solum descends `block -> body -> expression -> primary ->
+     * block` for every level of nesting. See ROADMAP 3.5.
+     *
+     * **If this assertion ever fails because the file now checks clean, that is
+     * good news and the test is what needs changing**, not the program: raise
+     * it to an assertion that it passes, and correct the numbers in ROADMAP 3.5
+     * and docs/programs.md. */
+    assert(run("bin/solvm " DIR "/check_syntax.sob"
+               " programs/check_syntax/solum.bnf experiment/lexer.sol 2>&1",
+               out, sizeof out) == 1);
+    assert(strstr(out, "call depth exceeded") != NULL);
+    assert(strstr(out, "nests too deeply") != NULL);
+
+    /* ------------------------------------------------------------------
+     * Where it must agree with solas about a file being wrong.
+     *
+     * The third is the one worth having a test for: `:=` may follow a send that
+     * took no arguments and not one that took some, which is how a slot is
+     * bound and is not a way of storing into a collection. The grammar says so
+     * structurally, by putting both possibilities inside `send` rather than
+     * after the chain. */
+    system("printf 'a := #1\\nb := #2\\n' > " DIR "/s1.sol");
+    system("printf 'f := { x | x:print.\\n' > " DIR "/s2.sol");
+    system("printf 'o:at(#1) := #2.\\n' > " DIR "/s3.sol");
+    system("printf 'a := #1 & #2.\\n' > " DIR "/s4.sol");
+
+    static const char *wrong[] = { "s1", "s2", "s3", "s4" };
+    for (size_t i = 0; i < sizeof wrong / sizeof wrong[0]; i++) {
+        char command[512];
+
+        snprintf(command, sizeof command,
+                 "bin/solas " DIR "/%s.sol -o " DIR "/%s.sob 2>&1",
+                 wrong[i], wrong[i]);
+        assert(run(command, out, sizeof out) != 0);      /* solas refuses it */
+
+        snprintf(command, sizeof command,
+                 "bin/solvm " DIR "/check_syntax.sob"
+                 " programs/check_syntax/solum.bnf " DIR "/%s.sol 2>&1", wrong[i]);
+        assert(run(command, out, sizeof out) == 1);      /* and so does this */
+    }
+
+    /* And the positions agree closely enough to be useful, which is the part a
+       count of errors would not catch. */
+    assert(run("bin/solvm " DIR "/check_syntax.sob programs/check_syntax/solum.bnf "
+               DIR "/s3.sol 2>&1", out, sizeof out) == 1);
+    assert(strstr(out, ":1:10: syntax error") != NULL);
+    assert(strstr(out, "found ':='") != NULL);
+
+    printf("  solum.bnf checks 38 examples and library files, agrees with solas\n"
+           "  on 4 mistakes, and runs out of frames where ROADMAP 3.5 says\n");
+}
+
+/* ------------------------------------------------------------------------
  * sola: a compiler rather than an interpreter
  *
  * programs/sola.sol turns SolaBasic into a .sob, and what is checked here is
@@ -1311,6 +1427,7 @@ int main(void)
     test_basic_has_a_prompt();
     test_sola_compiles_a_program_that_runs();
     test_check_syntax_reads_a_grammar_and_a_file();
+    test_check_syntax_reads_solum_itself();
     test_the_editor_draws_what_it_recorded();
     test_the_editor_does_what_the_keys_say();
     printf("test_cli: ok\n");

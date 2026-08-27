@@ -48,6 +48,11 @@ while staying ordinary messages you can send any other way.
 - **[Cheatsheet](docs/CHEATSHEET.md)** — the whole language on one page: the
   syntax, every type and every message it answers, one line each. For when you
   know what you want and not what it is called.
+
+- **[Grammar](docs/GRAMMAR.md)** — the syntax alone, as a grammar: thirteen
+  productions and the words they are made of. There are no keywords and no
+  control-flow syntax, so the page is short for a reason rather than by being a
+  summary.
 - **[Lineage](docs/lineage.md)** — what Solum borrowed from Smalltalk and Self,
   which living languages sit nearest it, and what will surprise you if you
   arrive knowing Ruby, JavaScript or C. Five minutes, and worth them first.

@@ -1,0 +1,121 @@
+(* solum.bnf -- Solum, in the notation of Wirth's report.
+ *
+ *   ./bin/solvm programs/check_syntax.sob programs/check_syntax/solum.bnf prog.sol
+ *
+ * Taken from solas/src/lexer.c and solas/src/compiler.c rather than from the
+ * documentation, because the documentation gives the syntax in pieces and the
+ * one grammar written down -- the sketch at the top of solas/include/solas/parser.h
+ * -- says of itself that it is "as far as docs/design.md pins it down", and it
+ * has no blocks, no arrays, no symbols, no temporaries and no slot assignment.
+ *
+ * The whole language is here. That is not a boast about this file, it is the
+ * point of the language: there are no operators, no control-flow syntax and no
+ * keywords, so `if`, `while`, `and` and `return` are absent because they are
+ * messages rather than because this grammar is a subset.
+ *
+ * **There are no reserved words at all**, which check_syntax reports by having
+ * none to report: it reserves every word-shaped literal a syntactic rule
+ * mentions, and this half of the file mentions none. `nil`, `true`, `object`
+ * and `self` are ordinary identifiers that happen to be bound.
+ *)
+
+(* ------------------------------------------------------------------ *)
+(* The lexical half. solas/src/lexer.c.                                *)
+
+(* No %ignorecase: Solum is case-sensitive, so the letter ranges are
+ * written out both ways rather than folded. *)
+%fragment letter digit hex bin exponent escape
+
+letter = "a" .. "z" | "A" .. "Z" | "_" .
+digit  = "0" .. "9" .
+hex    = digit | "a" .. "f" | "A" .. "F" .
+bin    = "0" | "1" .
+
+name = letter { letter | digit } .
+
+(* The tag says which reading is meant, `45` and `#45` being the same
+ * characters twice. `$` and `%` carry no tag and take no sign: they are for
+ * looking at bits, and there is no hexadecimal float to be told apart from. *)
+integer = "#" [ "-" ] digit { digit }
+        | "$" hex { hex }
+        | "%" bin { bin } .
+
+(* The unmarked number. A leading `-` belongs to the literal -- there is no
+ * negation operator to mistake it for -- and `-` with no digit after it is a
+ * lexical error rather than a token. *)
+float = [ "-" ] digit { digit } [ "." digit { digit } ] [ exponent ] .
+
+(* Optional, and it backtracks: `1e` is the float 1 followed by the name `e`,
+ * not a malformed number. *)
+exponent = ( "e" | "E" ) [ "+" | "-" ] digit { digit } .
+
+(* A backslash claims the character after it, so the escape has to be tried
+ * before "any character that is not a quote" -- otherwise \" ends the string.
+ * A string may span lines; nothing here says it may not. *)
+string = '"' { escape | ! '"' } '"' .
+escape = "\\" ( '"' | "\\" | "n" | "t" | "r" ) .
+
+(* A quote prefix and no closing quote, the way Lisp reads one. *)
+symbol = "'" letter { letter | digit } .
+
+(* The `@` belongs to the token, so a directive is one lexeme and never an
+ * identifier that happens to follow a symbol. *)
+directive = "@" letter { letter | digit } .
+
+comment = ";" { ! "\n" } .
+space   = ( " " | "\t" | "\r" | "\n" ) { " " | "\t" | "\r" | "\n" } .
+
+(* `:=` before `:`, or the binding would never be one token. *)
+punctuation = ":=" | ":" | "(" | ")" | "{" | "}" | "[" | "]" | "|" | "," | "." .
+
+%skip space comment
+
+(* ------------------------------------------------------------------ *)
+(* The syntactic half. solas/src/compiler.c.                           *)
+
+%syntax
+%start program
+
+(* `.` separates statements rather than terminating them: required between two
+ * and optional after the last. An empty file is a program. *)
+program = [ statement { "." statement } [ "." ] ] .
+
+statement = include | expression .
+
+(* The only directive the language has, and the only statement that is not an
+ * expression -- what it does happens while compiling, and there is nowhere
+ * inside an expression to compile a file into. *)
+include = "@include" string .
+
+(* Binding a bare name has to be tried before a send, since both begin with an
+ * identifier and only the first goes on to want `:=`. Ordered choice does the
+ * rest: `a:print` fails the first alternative at the `:` and falls through. *)
+expression = name ":=" expression
+           | primary { send } .
+
+(* A send with no arguments may be assigned to -- that is how a slot is bound,
+ * and it is the same `:=` as above. A send *with* arguments may not, which is
+ * why the two possibilities are inside the send rather than after the chain. *)
+send      = ":" name [ arguments | ":=" expression ] .
+arguments = "(" [ expression { "," expression } ] ")" .
+
+primary = block | array | group | name | integer | float | string | symbol .
+
+(* Parameters, then temporaries, then the body. The leading `|` of a temporary
+ * list is what tells `{ a | ... }` from `{ | a | ... }`, and it is why
+ * parameters could not have reused the parenthesised form: `{ (a) }` would be
+ * both a one-parameter block and a block answering `a`. *)
+block       = "{" [ parameters ] [ temporaries ] body "}" .
+parameters  = name { "," name } "|" .
+temporaries = "|" name { "," name } "|" .
+
+(* An empty block answers nil, so the body may be nothing at all. *)
+body = [ expression { "." expression } [ "." ] ] .
+
+array = "[" [ expression { "," expression } ] "]" .
+
+(* A group is not an empty pair of parentheses: it must hold at least one
+ * expression, since its value is the last one's. It may open with `| a, b |`,
+ * declaring temporaries of the frame it sits in -- which is the only way to
+ * declare one at the top level of a script. *)
+group = "(" [ temporaries ] expression { "." expression } [ "." ] ")" .

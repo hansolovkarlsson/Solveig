@@ -396,7 +396,7 @@ sixteen seconds, and it fails the build if one stops holding.
 **And it checks the documentation too.** The guide and the reference carry the
 same notation inside ``` fences, and nothing checked those either — they are the
 two documents a newcomer actually reads. 363<!--count docs-claims--> claims
-across twenty<!--count docs-documents--> documents,
+across twenty-one<!--count docs-documents--> documents,
 and two more on `README.md` and `index.md` — the front pages, which were the
 last two things nothing checked.
 
@@ -1158,7 +1158,7 @@ start: random-access files, `ON ERROR`, `TYPE`, `REDIM`, `OPTION EXPLICIT`, and
 Reads a grammar written in Wirth's EBNF, then reads a second file and says where
 it stops agreeing with it. **The grammar is the program**: hand it
 [pascal.bnf](../programs/check_syntax/pascal.bnf) and it checks Pascal, hand it
-something else and it checks that.
+[solum.bnf](../programs/check_syntax/solum.bnf) and it checks Solum.
 
 ```sh
 ./bin/solvm programs/check_syntax.sob                              # the demonstration
@@ -1209,6 +1209,40 @@ identifier, so `x := begin` would otherwise parse. Every word-shaped literal in
 the syntactic half is reserved against the token kind it would tokenise as, which
 recovers Pascal's 35 keywords from pascal.bnf without a list anywhere.
 
+### Solum, against itself
+
+[solum.bnf](../programs/check_syntax/solum.bnf) is the whole of this language —
+thirteen syntactic rules and nine token rules — and
+[GRAMMAR.md](GRAMMAR.md) is the same grammar written for a person to read.
+
+It was taken from `solas/src/lexer.c` and `solas/src/compiler.c` rather than
+from the documentation. **The only grammar written down anywhere was a sketch**,
+at the top of `solas/include/solas/parser.h`, which says of itself that it goes
+only "as far as docs/design.md pins it down" — it has no blocks, no arrays, no
+symbols, no temporaries and no slot assignment.
+
+**Fifty-six of the fifty-seven `.sol` files in this repository check clean**,
+and the fifty-seventh is a depth limit rather than a disagreement — see below.
+Every example and every library file is swept on each test run, which is what
+stops the grammar from quietly narrowing: none of those thirty-eight files was
+written with it in mind.
+
+Three things the grammar makes visible that prose does not.
+
+**There are no reserved words**, and the tool reports this by having none to
+report. It reserves every word-shaped literal a syntactic rule mentions, and
+this grammar mentions none: `nil`, `true`, `object` and `self` are ordinary
+identifiers that happen to be bound. A test asserts the absence.
+
+**`.` separates rather than terminates**, uniformly — required between two
+statements, optional after the last, in a file, a block and a group alike.
+
+**`:=` may follow a send that took no arguments and not one that took some.**
+That is how a slot is bound, and `o:at(#1) := #2` is not a way of storing into a
+collection. The grammar says so structurally, by putting both possibilities
+inside `send` rather than after the chain, and `solas` and this checker refuse
+the same file at the same column.
+
 ### What it found
 
 **Every diagnostic it has about grammars came from a grammar being wrong in a way
@@ -1233,6 +1267,17 @@ The third would otherwise arrive as `call depth exceeded` **against the subject
 file**: a sentence about Pascal when the mistake is in the BNF. It is found by
 reading the grammar, before anything is matched.
 
+**The one measurement that had to be taken twice.** Line and column are computed
+from a byte offset by counting newlines from the start of the file, on the
+argument that a run wants four of them — one per message — and that carrying a
+line through every token and every node is a field on everything for a saving
+nobody would notice. That argument is right about errors and was **wrong about
+the token dump**, which wants one per token: `tokens` mode on a 1,766-line file
+took over two minutes, against 1.49 seconds to check the same file properly.
+Tokens arrive in order, so the dump carries the line instead and makes one pass
+over the source. **A design note that says how often something is wanted is a
+claim about every caller, including the one written afterwards.**
+
 **What it will not do is revisit a choice.** This is a PEG: `a | b` tries `b`
 only if `a` failed, and a choice that succeeded is not reconsidered when the rule
 containing it fails later. That costs nothing on an LL(1) grammar, which Wirth's
@@ -1246,7 +1291,15 @@ does not admit to is one its user discovers as a wrong answer.
 grammar against a machine with 254 frames, so the question was never whether it
 hits the limit but where. Against pascal.bnf: **19 levels of nested `begin … if`,
 and 28 nested parentheses in one expression** — past anything written by hand, and
-reachable by generated code. It arrives as a diagnostic rather than a crash,
+reachable by generated code.
+
+**Against solum.bnf it is 13 nested blocks, and a real file reaches it.**
+`experiment/lexer.sol` holds a 24-level nested `ifElse` staircase — the deepest
+expression in this repository, and exactly the shape
+[control.sol](../lib/control.sol) recommends for a recursive descent. `solas`
+compiles it; this checker runs out of frames. That is the first time a file
+somebody actually wrote has met this limit, and it is a sharper result than the
+Pascal measurement, which needed a generator to reach. It arrives as a diagnostic rather than a crash,
 because `call depth exceeded` is catchable, which
 [evaluator](../programs/evaluator.sol) established and this depends on.
 

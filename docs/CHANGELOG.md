@@ -5,6 +5,63 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Solum has a grammar written down — `pending`, 2026-08-26
+
+**[solum.bnf](../programs/check_syntax/solum.bnf)** is the whole of this
+language in the notation [check_syntax](../programs/check_syntax.sol) reads —
+thirteen syntactic rules and nine token rules — and **[GRAMMAR.md](GRAMMAR.md)**
+is the same grammar written for a person, in Wirth's notation and on one page.
+
+```sh
+./bin/solvm programs/check_syntax.sob programs/check_syntax/solum.bnf prog.sol
+```
+
+**Taken from the compiler rather than from the documentation.** The only grammar
+written down anywhere was the sketch at the top of
+`solas/include/solas/parser.h`, which says of itself that it goes only "as far
+as docs/design.md pins it down": no blocks, no arrays, no symbols, no
+temporaries, no slot assignment. This is `solas/src/lexer.c` and
+`solas/src/compiler.c` read out.
+
+**Fifty-six of the fifty-seven `.sol` files here check clean**, and the
+fifty-seventh is a depth limit rather than a disagreement. Every example and
+every library file is swept on each test run — thirty-eight files, none of them
+written with this grammar in mind, which is what stops it from quietly
+narrowing. It is held to agreeing with `solas` on four deliberate mistakes too,
+because a grammar that merely parses is not the same as one that is right.
+
+**Three things it makes visible.** That there are **no reserved words at all** —
+the checker reserves every word-shaped literal a syntactic rule mentions, this
+grammar mentions none, and a test asserts the absence. That `.` **separates
+rather than terminates**, uniformly, in a file, a block and a group alike. And
+that `:=` may follow a send that took **no arguments** and not one that took
+some, which is how a slot is bound and is why `o:at(#1) := #2` is a syntax
+error.
+
+**A real file reaches the frame limit for the first time.** Against this grammar
+the checker manages 13 nested blocks, and `experiment/lexer.sol` holds a
+24-level nested `ifElse` staircase — the deepest expression in the repository.
+`solas` compiles it; the checker does not. Every earlier measurement on
+[3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels) needed a generator
+to reach the limit; this is a hand-written file that already existed. The shape
+that does it is the one [control.sol](../lib/control.sol) recommends, and the
+advice is still right — a staircase saves frames in the program dispatching and
+costs them in anything walking the result as a tree.
+
+**And the token dump was quadratic.** Line and column are computed by counting
+newlines from the start of the file, on the argument that a run wants four of
+them. That is right about errors and was wrong about `tokens` mode, which wants
+one per token: a 1,766-line file took over two minutes, against 1.49 seconds to
+check the same file properly. Tokens arrive in order, so the dump carries the
+line and makes one pass. A design note saying how often something is wanted is a
+claim about every caller, including the one written afterwards.
+
+**`expect.sol` would have crashed rather than reported**, which was found on the
+way. Its list of ordinal words is extended by hand when a program is added, and
+the failure when somebody forgets was `index #14 is out of bounds for an array
+of size 13` — in the checker, on the run meant to report the mistake. The
+lookup is guarded now and the list runs to twentieth.
+
 ### A syntax checker that is told the syntax — `d9e1621`, 2026-08-26
 
 **The fourteenth program**: [check_syntax.sol](../programs/check_syntax.sol)

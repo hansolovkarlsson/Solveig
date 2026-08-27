@@ -983,7 +983,19 @@ stated:do({ c | | name, want, got |
 
 ordinals := ["first", "second", "third", "fourth", "fifth", "sixth", "seventh",
              "eighth", "ninth", "tenth", "eleventh", "twelfth", "thirteenth",
-             "fourteenth"].
+             "fourteenth", "fifteenth", "sixteenth", "seventeenth",
+             "eighteenth", "nineteenth", "twentieth"].
+
+; **Longer than the list of programs, and guarded anyway.** This has to be
+; extended by hand when a program is added, and the failure when somebody
+; forgets used to be `index #14 is out of bounds for an array of size 13` --
+; a crash, in the checker, on the run that was supposed to report the mistake.
+; The guard below is what makes forgetting a *report* instead, and the spare
+; words are so that it usually need not be remembered at all.
+ordinalWord := { n |
+    n:isNil:ifElse({ "nowhere" }, {
+        n:greaterThan(ordinals:size)
+            :ifElse({ "at position {}":fill([n]) }, { ordinals:at(n) }) }) }.
 
 placed := #0.
 system:fileExists("docs/programs.md"):ifTrue({ | order |
@@ -1020,10 +1032,7 @@ system:fileExists("docs/programs.md"):ifTrue({ | order |
                     { placed := placed:add(#1) },
                     { failures:add([path, #0,
                           "calls itself the {} program, and programs.md puts it {}"
-                              :fill([word,
-                                     was:isNil:ifElse(
-                                         { "nowhere" },
-                                         { ordinals:at(was) })]), ""]) }) }) }) }) }).
+                              :fill([word, ordinalWord:value(was)]), ""]) }) }) }) }) }).
 
 ; ---------------------------------------------------------------------------
 ; The report

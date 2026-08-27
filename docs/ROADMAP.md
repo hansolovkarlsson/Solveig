@@ -477,6 +477,23 @@ chooses. So the multiplier is the *grammar*, not the matcher, which is exactly
 what [ideas.md](ideas.md#programs-that-would-press-on-something) predicted when it said a tree is what
 multiplies a measurement taken on a list.
 
+**And a file somebody actually wrote reaches it.** Against
+[solum.bnf](../programs/check_syntax/solum.bnf), the same grammar of this
+language, the limit is **13 nested blocks** — and `experiment/lexer.sol` holds a
+24-level nested `ifElse` staircase, the deepest expression in this repository.
+`solas` compiles that file; the checker runs out of frames on it.
+
+That is worth separating from the Pascal number. **Every earlier measurement on
+this entry needed a generator to reach the limit** — `evaluator.sol` counts
+brackets it produced itself, and the Pascal figures come from a script that
+emits nesting nobody would type. This one is a hand-written file that already
+existed, checked by a program that did not know about it, and the shape that
+does it is the one [control.sol](../lib/control.sol) *recommends*: a staircase of
+`ifElse` is what that file tells you to write instead of `ifElseIf` inside a
+recursion, precisely to save frames. The advice is still right — it saves frames
+in the program doing the dispatching — and it costs them in anything that walks
+the result as a tree.
+
 **Nineteen is past what anybody writes by hand and short of what a generator
 emits.** That is the whole of the case for having left the matcher recursive.
 The alternative is an explicit stack machine — proposed and rejected in the
