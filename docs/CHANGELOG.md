@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### Pascal, stage 5: arrays, records and `with` — `pending`, 2026-08-27
+### Pascal, stage 5: arrays, records and `with` — `30db427`, 2026-08-27
 
 **Arrays with any ordinal index and any lower bound, more than one dimension,
 records, `with`, and whole-array and whole-record assignment.** **Sixteen
