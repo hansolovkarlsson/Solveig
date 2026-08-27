@@ -2085,6 +2085,37 @@ question.** A grammar is a tree where a pattern is a list, and a tree is exactly
 what multiplies that measurement — so the entry stands, with its second outcome
 now the likelier of the two.
 
+**Built on 2026-08-26 — and the second outcome is the one that happened.**
+[check_syntax.sol](../programs/check_syntax.sol) reads a grammar in Wirth's EBNF
+and checks a file against it, with [pascal.bnf](../programs/check_syntax/pascal.bnf)
+as its first customer. **[3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame)
+never came up.** Not because it was worked around, but because the design that
+avoids it is also the design that is right: the grammar is a tree of objects and
+the matcher is one method that recurses over it, so nothing is ever a block that
+has to outlive the frame it was made in. The combinator shape is the one 3.1
+refuses, and it was never reached for.
+
+**What multiplied instead was the measurement, exactly as predicted.** A tree
+costs one frame per node and about two per rule reference, which against Wirth's
+Pascal is **19 levels of nested `begin … if` and 28 nested parentheses**. That is
+the number this entry was waiting for, and it says the limitation is livable: 19
+is past anything written by hand and short of what a generator emits.
+
+**The finding worth carrying back here is a different one.** Inlining a rule's
+alternation into the reference that names it should be worth a third of the
+frames — one of the three per level — and it was worth **a sixth**, 16 levels
+becoming 19. Most of Wirth's Pascal rules have a sequence for a body rather than
+an alternation, so most never had the middle frame to save. **A measurement of
+the matcher predicts a third; only a measurement through a real grammar gives a
+sixth** — which is the same lesson `programs/` keeps producing, that a program
+written to suit a feature cannot report that the feature was awkward.
+
+The entry that is still open is the one above it: an explicit stack machine, with
+its own instruction list and backtrack stack, would have no depth limit at all
+and would meet 3.5 head on rather than living inside it. `check_syntax.sol` says
+in its own comments that this is the thing to build if it is ever pointed at
+generated input, and that the trade was recorded rather than settled.
+
 **Fuzzy logic.** A library, and worth an honest note rather than a place in the
 queue: it is arithmetic on floats, and all of the arithmetic landed with
 [3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done). It would teach

@@ -5,6 +5,72 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### A syntax checker that is told the syntax — `pending`, 2026-08-26
+
+**The fourteenth program**: [check_syntax.sol](../programs/check_syntax.sol)
+reads a grammar written in Wirth's EBNF, then reads a second file and says where
+it stops agreeing with it. The grammar is the program — hand it
+[pascal.bnf](../programs/check_syntax/pascal.bnf) and it checks Pascal.
+
+```sh
+./bin/solvm programs/check_syntax.sob programs/check_syntax/pascal.bnf myprog.pas
+```
+
+**Two dialects.** Wirth's notation, which the Pascal report uses and which
+describes itself, and the older `<expr> ::= <term> | <expr> "+" <term>` with
+angle brackets and no terminator. One reader takes both: a production ends where
+the next one starts, so the `.` is optional rather than required.
+
+**One file, two halves, and a declared seam.** A grammar for Pascal is written
+over tokens and says nothing about how characters become them, so `%syntax`
+names the line between the lexical rules and the syntactic ones. It is declared
+rather than guessed because `identifier` and `expression` look alike, and a
+checker that guesses wrong reports a correct file as broken.
+
+**Three extensions and no more**, all lexical, because Wirth's notation cannot
+describe a lexer: `"a" .. "z"` for a range, `! factor` for one character that is
+not that, and the string escapes so a tab can be written down. All three are
+refused in a syntactic rule.
+
+**The reserved words are derived, not declared.** Every word-shaped literal in
+the syntactic half is reserved against the token kind it would tokenise as,
+which recovers Pascal's 35 keywords out of `pascal.bnf` without a list anywhere —
+so `x := begin` is refused and nothing had to say that `begin` is special.
+
+**The error is reported at the furthest token any terminal ever failed at**,
+recorded as the match goes and never rolled back. A backtracking matcher
+otherwise fails at position one with everything rolled back, and
+`myprog.pas:1: does not parse` is a sentence about the program that printed it.
+The innermost rule that had already *consumed* something is named too, which is
+the difference between `reading <multiplying-operator>` and `reading
+<if-statement>`.
+
+**Every diagnostic it has about grammars came from a grammar being wrong in a
+way that blamed the wrong file**, which is why the checking half is as large as
+the matching half. Left recursion would otherwise exhaust the frames and report
+`call depth exceeded` against the *subject*. An alternative that is a prefix of a
+later one — `symbol = "." | ".."` — never produces the longer token, and the
+complaint surfaces two tokens later with nothing pointing at the cause. And
+`%fragment`, which is the one that cost the afternoon: `letter` and `identifier`
+both match `T`, longest-match ties go to the rule declared first, and the first
+Pascal file this read came back as 130 syntax errors in a file with nothing
+wrong with it.
+
+**The depth, measured through a grammar rather than guessed from the matcher:**
+19 levels of nested `begin … if`, 28 nested parentheses. It arrives as a
+diagnostic rather than a crash, `call depth exceeded` being catchable. Inlining a
+rule's alternation into the reference that names it was expected to be worth a
+third of the frames and was worth a sixth — 16 levels became 19 — because most of
+Wirth's Pascal rules have a sequence for a body and so never had the middle
+frame to save.
+
+**What it did not need was
+[3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame).**
+[ideas.md](ideas.md) had this program down as either giving that entry its first
+customer or showing that a non-combinator design is fine, and it is the second:
+the grammar is a tree of objects walked by one method, so nothing is ever a block
+that outlives its frame. That entry is updated with the outcome.
+
 ### A word count, which found nothing — `0c22c00`, 2026-08-26
 
 **A third real program**: read a text, split it on anything that is not a

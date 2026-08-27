@@ -837,6 +837,176 @@ static void test_basic_has_a_prompt(void)
  * The file it edits is copied into build/ first, because a test that edits a
  * tracked file passes once. */
 /* ------------------------------------------------------------------------
+ * check_syntax: a grammar, and a file held against it
+ *
+ * The subject here is programs/check_syntax/pascal.bnf as much as the program
+ * that reads it. Two Pascal files that are correct have to stay correct, which
+ * is what stops a change to the grammar from quietly narrowing the language it
+ * accepts -- features.pas exists for no other reason, and uses labels, a
+ * pointer type, a packed array, a forward declaration and a set with a subrange
+ * in it because those are the corners a rearranged alternative breaks first.
+ *
+ * The broken files are checked for the *message*, not just for the failure. A
+ * syntax checker that reports the wrong line is worse than one that reports
+ * nothing, since the line it names is the one the reader will go and look at,
+ * and every one of these four was chosen because an earlier version of the
+ * program got its position or its expected-set wrong. */
+static void test_check_syntax_reads_a_grammar_and_a_file(void)
+{
+    char out[16384];
+
+    assert(run("bin/solas programs/check_syntax.sol -o " DIR "/check_syntax.sob"
+               " 2>&1", out, sizeof out) == 0);
+
+    /* The grammar alone. The reserved words are derived from the syntactic
+       half rather than declared, so this is Pascal's keyword list arriving out
+       of pascal.bnf without pascal.bnf holding a list. */
+    assert(run("bin/solvm " DIR "/check_syntax.sob"
+               " programs/check_syntax/pascal.bnf 2>&1", out, sizeof out) == 0);
+    assert(strstr(out, "start <program>, case-insensitive") != NULL);
+    assert(strstr(out, "skipping: space, comment") != NULL);
+    assert(strstr(out, "reserved against <identifier>:") != NULL);
+    assert(strstr(out, " begin ") != NULL);
+    assert(strstr(out, " downto ") != NULL);
+    /* No warnings: a grammar that warns about itself is one this test would
+       otherwise stop noticing. */
+    assert(strstr(out, "grammar warning") == NULL);
+    assert(strstr(out, "grammar error") == NULL);
+
+    static const char *clean[] = { "gcd", "features" };
+    for (size_t i = 0; i < sizeof clean / sizeof clean[0]; i++) {
+        char command[512];
+        snprintf(command, sizeof command,
+                 "bin/solvm " DIR "/check_syntax.sob"
+                 " programs/check_syntax/pascal.bnf"
+                 " programs/check_syntax/%s.pas 2>&1", clean[i]);
+        assert(run(command, out, sizeof out) == 0);
+        assert(strstr(out, "no errors") != NULL);
+    }
+
+    /* A missing semicolon after `then`. The position is the statement that
+       follows, and the expected set names the three things that would have let
+       the file continue. */
+    assert(run("bin/solvm " DIR "/check_syntax.sob"
+               " programs/check_syntax/pascal.bnf"
+               " programs/check_syntax/missing-semicolon.pas 2>&1",
+               out, sizeof out) == 1);
+    assert(strstr(out, "missing-semicolon.pas:13:3: syntax error") != NULL);
+    assert(strstr(out, "expected ';', 'else' or 'end'") != NULL);
+    assert(strstr(out, "reading <if-statement>") != NULL);
+
+    /* A `begin` never closed is reported at the end of the file, because that
+       is where it stopped being a program -- there is nothing wrong with any
+       line before it. */
+    assert(run("bin/solvm " DIR "/check_syntax.sob"
+               " programs/check_syntax/pascal.bnf"
+               " programs/check_syntax/unclosed.pas 2>&1",
+               out, sizeof out) == 1);
+    assert(strstr(out, "unclosed.pas:15:4: syntax error") != NULL);
+    assert(strstr(out, "expected ';' or 'end'") != NULL);
+
+    /* Two bad characters on two lines: both are reported, because a scan that
+       stops at the first tells you least about the file you know least about. */
+    assert(run("bin/solvm " DIR "/check_syntax.sob"
+               " programs/check_syntax/pascal.bnf"
+               " programs/check_syntax/lexical.pas 2>&1",
+               out, sizeof out) == 1);
+    assert(strstr(out, "lexical.pas:11:10: lexical error") != NULL);
+    assert(strstr(out, "lexical.pas:12:10: lexical error") != NULL);
+    assert(strstr(out, "no token rule matches '#'") != NULL);
+    assert(strstr(out, "no token rule matches '$'") != NULL);
+    assert(strstr(out, "3 errors") != NULL);
+
+    /* `end` as a variable. Nothing in the program knows Pascal's keywords. */
+    assert(run("bin/solvm " DIR "/check_syntax.sob"
+               " programs/check_syntax/pascal.bnf"
+               " programs/check_syntax/keyword.pas 2>&1",
+               out, sizeof out) == 1);
+    assert(strstr(out, "keyword.pas:12:7: syntax error") != NULL);
+
+    /* The token stream, which is the other thing a grammar can be wrong
+       about: `:=` is one token and not two symbols, and `end` is an identifier
+       here even though nothing may match it as one.
+
+       On a short file on purpose. This ran on gcd.pas at first and the dump
+       was larger than the buffer above, so the read stopped early, the program
+       took a SIGPIPE and the test saw a failure that had nothing to do with
+       what it was testing. */
+    assert(run("bin/solvm " DIR "/check_syntax.sob"
+               " programs/check_syntax/pascal.bnf"
+               " programs/check_syntax/keyword.pas tokens 2>&1",
+               out, sizeof out) == 0);
+    assert(strstr(out, "symbol       :=") != NULL);
+    assert(strstr(out, "integer-number 1") != NULL);
+    assert(strstr(out, "keyword.pas: 22 tokens") != NULL);
+
+    /* ------------------------------------------------------------------
+     * A grammar that is wrong, which has to be reported against the grammar.
+     *
+     * Left recursion is how the older dialect writes iteration and is the one
+     * thing this matcher cannot do at all. Unchecked it exhausts the frames,
+     * and the message is `call depth exceeded` against the *subject* file -- a
+     * sentence about the wrong file entirely. Exit 2 rather than 1, because
+     * nothing was learnt about the subject. */
+    system("printf '%s\\n' "
+           "'%fragment digit' "
+           "'digit  = \"0\" .. \"9\" .' "
+           "'number = digit { digit } .' "
+           "'symbol = \"+\" .' "
+           "'%syntax' "
+           "'<expr> ::= <expr> \"+\" <term> | <term>' "
+           "'<term> ::= number' > " DIR "/left.bnf");
+    system("printf '1 + 2' > " DIR "/left.txt");
+    assert(run("bin/solvm " DIR "/check_syntax.sob " DIR "/left.bnf "
+               DIR "/left.txt 2>&1", out, sizeof out) == 2);
+    assert(strstr(out, "<expr> is left-recursive") != NULL);
+    assert(strstr(out, "call depth exceeded") == NULL);
+
+    /* Two alternatives the wrong way round in a *lexical* rule, which is the
+       silent one: `<=` never becomes a token and the complaint would arrive at
+       the `=` as though the file had a stray one in it. A warning rather than
+       an error -- the grammar still runs. */
+    system("printf '%s\\n' "
+           "'%fragment letter' "
+           "'letter = \"a\" .. \"z\" .' "
+           "'name   = letter { letter } .' "
+           "'symbol = \"<\" | \"<=\" .' "
+           "'space  = \" \" { \" \" } .' "
+           "'%skip space' "
+           "'%syntax' "
+           "'compare = name \"<=\" name .' > " DIR "/order.bnf");
+    assert(run("bin/solvm " DIR "/check_syntax.sob " DIR "/order.bnf 2>&1",
+               out, sizeof out) == 0);
+    assert(strstr(out, "'<' is written before '<='") != NULL);
+
+    /* A lexical rule that was meant to be a fragment. This is the one that
+       cost a whole afternoon: `letter` and `identifier` both match `T`,
+       longest-match ties go to the rule declared first, and a correct Pascal
+       file came back as a stream of `letter` and `digit`. */
+    system("printf '%s\\n' "
+           "'letter = \"a\" .. \"z\" .' "
+           "'name   = letter { letter } .' "
+           "'space  = \" \" { \" \" } .' "
+           "'%skip space' "
+           "'%syntax' "
+           "'greeting = name name .' > " DIR "/fragment.bnf");
+    assert(run("bin/solvm " DIR "/check_syntax.sob " DIR "/fragment.bnf 2>&1",
+               out, sizeof out) == 0);
+    assert(strstr(out, "<letter> produces a kind of token that no syntactic "
+                       "rule can match") != NULL);
+
+    /* And with no arguments at all it says something, which is this
+       directory's rule for every program in it. */
+    assert(run("bin/solvm " DIR "/check_syntax.sob 2>&1", out, sizeof out) == 0);
+    assert(strstr(out, "a file that agrees with it") != NULL);
+    assert(strstr(out, "ok.txt: 15 tokens, no errors") != NULL);
+    assert(strstr(out, "is left-recursive") != NULL);
+
+    printf("  2 Pascal files check clean against pascal.bnf and 4 do not,\n"
+           "  and 3 broken grammars are refused before any file is read\n");
+}
+
+/* ------------------------------------------------------------------------
  * sola: a compiler rather than an interpreter
  *
  * programs/sola.sol turns SolaBasic into a .sob, and what is checked here is
@@ -1140,6 +1310,7 @@ int main(void)
     test_basic_runs_a_listing_from_a_file();
     test_basic_has_a_prompt();
     test_sola_compiles_a_program_that_runs();
+    test_check_syntax_reads_a_grammar_and_a_file();
     test_the_editor_draws_what_it_recorded();
     test_the_editor_does_what_the_keys_say();
     printf("test_cli: ok\n");

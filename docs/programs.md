@@ -1,6 +1,6 @@
 # The programs
 
-*The thirteen<!--count programs--> files in [programs/](../programs/): what each one does, how to run
+*The fourteen<!--count programs--> files in [programs/](../programs/): what each one does, how to run
 it, and what it found. [examples/](../examples/) is the other directory — one
 file per concept the [guide](GUIDE.md) names, each written to show a feature.
 These were written to do a job.*
@@ -16,9 +16,9 @@ That distinction is the reason for the split, and it is not cosmetic. **A
 program written to show a feature is written after the feature and to suit it,
 so it can never report that the feature was awkward.** These can, and did:
 nearly every entry the [roadmap](ROADMAP.md) gained after the first dozen came
-from one of these twelve wanting something the language did not have.
+from one of these fourteen wanting something the language did not have.
 
-**What this page is not is a description of what Solum is for.** These twelve lean
+**What this page is not is a description of what Solum is for.** These fourteen lean
 towards text and processes because they are the tools this project needed while
 building itself, and the language is meant to be general —
 [design.md](design.md#what-the-language-is-for) says so, and says what happened
@@ -44,6 +44,7 @@ is the map; the file is the argument.
 | [basic](../programs/basic.sol) | runs a BASIC listing | `solvm basic.sob` |
 | [edit](../programs/edit.sol) | edits a file on the screen, in the manner of vi | `solvm edit.sob [file]` |
 | [sola](../programs/sola.sol) | compiles SolaBasic to a `.sob` | `solvm sola.sob [prog.bas] [out.sob]` |
+| [check_syntax](../programs/check_syntax.sol) | reads a grammar, then checks a file against it | `solvm check_syntax.sob [grammar.bnf] [source]` |
 
 Every one runs with no arguments at all, on input it supplies itself. That is
 deliberate — a program you have to feed before it will say anything is a program
@@ -1152,9 +1153,114 @@ arrangement should produce — so the mechanism is not taken on trust either.
 start: random-access files, `ON ERROR`, `TYPE`, `REDIM`, `OPTION EXPLICIT`, and
 `:` between statements on one line.
 
+## check_syntax — a grammar, and a file held against it
+
+Reads a grammar written in Wirth's EBNF, then reads a second file and says where
+it stops agreeing with it. **The grammar is the program**: hand it
+[pascal.bnf](../programs/check_syntax/pascal.bnf) and it checks Pascal, hand it
+something else and it checks that.
+
+```sh
+./bin/solvm programs/check_syntax.sob                              # the demonstration
+./bin/solvm programs/check_syntax.sob grammar.bnf source.pas       # a file
+./bin/solvm programs/check_syntax.sob grammar.bnf source.pas tokens  # the token stream
+./bin/solvm programs/check_syntax.sob grammar.bnf                  # the grammar alone
+```
+
+```text
+programs/check_syntax/missing-semicolon.pas:13:3: syntax error: expected ';', 'else' or 'end', found 'n', reading <if-statement>
+    13 |   n := n + 1;
+       |   ^
+programs/check_syntax/missing-semicolon.pas: 1 error
+```
+
+**Two dialects, because "a file written in BNF" means the older one at least as
+often.** Wirth's notation — `expression = term { "|" term } .` — is the one the
+Pascal report uses and the one that describes itself. The older shape —
+`<expression> ::= <term> | <expression> "+" <term>` — has angle brackets, `::=`,
+no terminator and one production per line. Both are read by the same reader: a
+production ends where the next one starts, which is a name followed by a
+definition symbol, so the `.` is optional rather than required.
+
+**A grammar has two halves and has to say where the seam is.** Pascal's syntax is
+written over tokens and says nothing about how characters become them; Wirth's
+report gives the lexical rules in the same notation, so both live in one file
+with `%syntax` naming the line between. That seam is declared rather than
+guessed, because `identifier` and `expression` look alike and a checker that
+guesses wrong reports a correct file as broken — which is the worst thing this
+program could do.
+
+**Three extensions, and no more.** Wirth's notation cannot describe a lexer: it
+has no range, no negation, and no way to write a tab. So `"a" .. "z"` is a range,
+`! factor` is one character provided that does not match, and `"\n"` is what it
+looks like. All three are refused in a syntactic rule, where they would be asking
+a question about characters in a place that has only tokens.
+
+**Where the error is reported from is the whole difficulty.** A backtracking
+matcher fails at the top, at position one, with everything it tried rolled back —
+`myprog.pas:1: does not parse` is a sentence about the program that printed it.
+So the position is the **furthest token any terminal ever failed at**, recorded as
+the match goes and never rolled back, and the message lists what was wanted there.
+The innermost rule that had already *consumed* something is named too, which is
+what turns `reading <multiplying-operator>` into `reading <if-statement>`.
+
+**The reserved words are derived, not declared.** `begin` tokenises as an
+identifier, so `x := begin` would otherwise parse. Every word-shaped literal in
+the syntactic half is reserved against the token kind it would tokenise as, which
+recovers Pascal's 35 keywords from pascal.bnf without a list anywhere.
+
+### What it found
+
+**Every diagnostic it has about grammars came from a grammar being wrong in a way
+that blamed the wrong file.** That is why the checking half is as large as the
+matching half.
+
+| | |
+| --- | --- |
+| `letter` and `digit` are not tokens | the first Pascal file read as a stream of them |
+| `symbol = "." \| ".."` never produces `..` | ordered choice inside a rule is not longest match across rules |
+| `<expr> ::= <expr> "+" <term>` | left recursion, which a PEG cannot do at all |
+
+The first is the sharpest. `letter` and `digit` are lexical rules and they are
+not tokens — they are what the token rules are made of — and nothing about their
+shape says so. Both they and `identifier` match `T`; longest-match ties go to the
+rule declared first; `letter` is declared first. The report was 130 syntax errors
+in a file with nothing wrong with it. There is a `%fragment` directive to say
+what was meant, and a warning — *a token kind no syntactic rule can match* — for
+when somebody forgets it.
+
+The third would otherwise arrive as `call depth exceeded` **against the subject
+file**: a sentence about Pascal when the mistake is in the BNF. It is found by
+reading the grammar, before anything is matched.
+
+**What it will not do is revisit a choice.** This is a PEG: `a | b` tries `b`
+only if `a` failed, and a choice that succeeded is not reconsidered when the rule
+containing it fails later. That costs nothing on an LL(1) grammar, which Wirth's
+Pascal is and most published grammars are. Where it costs something — an
+alternative that is a proper prefix of a later one — the case is exactly
+detectable and is reported as a grammar warning rather than left to mis-parse
+quietly. The rest is stated in the file's header, because a limitation a program
+does not admit to is one its user discovers as a wrong answer.
+
+**And the depth is real.** A tree-walking matcher recurses once per node of the
+grammar against a machine with 254 frames, so the question was never whether it
+hits the limit but where. Against pascal.bnf: **19 levels of nested `begin … if`,
+and 28 nested parentheses in one expression** — past anything written by hand, and
+reachable by generated code. It arrives as a diagnostic rather than a crash,
+because `call depth exceeded` is catchable, which
+[evaluator](../programs/evaluator.sol) established and this depends on.
+
+Inlining a rule's alternation into the reference that names it was expected to be
+worth a third of the frames, one of three per level. **It was worth a sixth** —
+16 levels became 19, 25 parentheses became 28 — because most of Wirth's Pascal
+rules have a sequence for a body rather than an alternation, and so never had the
+middle frame to save. A measurement of the matcher would have said a third; only
+a measurement through a grammar says a sixth. An explicit stack machine has no
+such limit and is the thing to build if this is ever pointed at generated input.
+
 ## Adding one
 
-There is no template and there should not be. What the thirteen have in common is
+There is no template and there should not be. What the fourteen have in common is
 only this:
 
 1. **It does a job somebody would want done**, rather than exercising a feature.

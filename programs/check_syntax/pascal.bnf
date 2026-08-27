@@ -1,0 +1,185 @@
+(* pascal.bnf -- Pascal, in the notation of Wirth's report.
+ *
+ *   ./bin/solvm programs/check_syntax.sob programs/check_syntax/pascal.bnf myprog.pas
+ *
+ * The source is *Pascal User Manual and Report*, Jensen and Wirth, where the
+ * syntax is given in this notation and the lexical rules are given in it too.
+ * What is here is that grammar, rearranged in three ways and no more:
+ *
+ *   1. Alternatives are ordered so that ordered choice picks the right one --
+ *      the longer of two overlapping alternatives goes first. Every place that
+ *      mattered is marked below with an "order" note.
+ *   2. The punctuation is gathered into one `symbol` token rule, because a
+ *      grammar that is matched over tokens needs something to have made them.
+ *   3. Names are hyphenated. Wirth writes `unsigned integer`, with a space,
+ *      which cannot be told from two names in a row.
+ *
+ * Simplified on purpose, and each of these is a place a real compiler differs:
+ * a formal parameter section takes only `var`, not procedural parameters; a
+ * conformant array is not here; and `forward` is treated as a reserved word
+ * rather than as the directive it technically is.
+ *)
+
+(* ------------------------------------------------------------------ *)
+(* The lexical half: characters to tokens.                            *)
+
+(* Helpers, not tokens. Without this line `T` comes out as a `letter`: both
+ * rules match it, longest match ties are broken by declaration order, and
+ * `letter` is declared first. *)
+%fragment letter digit
+
+letter = "a" .. "z" .
+digit  = "0" .. "9" .
+
+identifier = letter { letter | digit } .
+
+(* Longest match across rules settles `3` against `3.14` without either rule
+ * knowing about the other. It does not settle `3..5`: this rule requires a
+ * digit after the point, so it fails on `3..` and `integer-number` takes the
+ * `3`, leaving `..` to `symbol`. *)
+real-number = digit { digit }
+              ( "." digit { digit } [ "e" [ "+" | "-" ] digit { digit } ]
+              | "e" [ "+" | "-" ] digit { digit } ) .
+
+integer-number = digit { digit } .
+
+(* A doubled quote is an escaped quote, so it has to be tried first. *)
+string = "'" { "''" | ! "'" } "'" .                          (* order *)
+
+comment = "{" { ! "}" } "}"
+        | "(*" { ! "*)" } "*)" .
+
+space = ( " " | "\t" | "\n" | "\r" ) { " " | "\t" | "\n" | "\r" } .
+
+(* Ordered choice inside one rule, so every two-character symbol must come
+ * before the character it starts with. `.` before `..` would mean the tool
+ * never saw a subrange. *)
+symbol = ":=" | "<=" | ">=" | "<>" | ".."                    (* order *)
+       | "+" | "-" | "*" | "/" | "=" | "<" | ">"
+       | "(" | ")" | "[" | "]" | "," | ";" | ":" | "." | "^" | "@" .
+
+%skip space comment
+
+(* ------------------------------------------------------------------ *)
+(* The syntactic half: tokens to a program.                           *)
+(*                                                                     *)
+(* Every word-shaped literal below is a reserved word, worked out from *)
+(* this half of the file rather than declared -- so `begin` cannot be  *)
+(* used as a variable, and nothing here had to say so.                 *)
+
+%syntax
+%ignorecase
+%start program
+
+program = "program" identifier [ "(" identifier { "," identifier } ")" ] ";"
+          block "." .
+
+block = [ label-part ] [ constant-part ] [ type-part ] [ variable-part ]
+        { procedure-or-function } compound-statement .
+
+label-part    = "label" integer-number { "," integer-number } ";" .
+constant-part = "const" constant-definition ";" { constant-definition ";" } .
+type-part     = "type" type-definition ";" { type-definition ";" } .
+variable-part = "var" variable-declaration ";" { variable-declaration ";" } .
+
+constant-definition  = identifier "=" constant .
+type-definition      = identifier "=" type .
+variable-declaration = identifier { "," identifier } ":" type .
+
+constant = [ "+" | "-" ] ( real-number | integer-number | identifier )  (* order *)
+         | string .
+
+(* ---- types ---- *)
+
+type = structured-type | pointer-type | simple-type .
+pointer-type = "^" identifier .
+structured-type = [ "packed" ] ( array-type | record-type | set-type | file-type ) .
+array-type  = "array" "[" simple-type { "," simple-type } "]" "of" type .
+record-type = "record" field-list "end" .
+set-type    = "set" "of" simple-type .
+file-type   = "file" "of" type .
+
+field-list     = [ record-section { ";" record-section } [ ";" ] ] .
+record-section = identifier { "," identifier } ":" type .
+
+(* A subrange begins with a constant and so does a plain type name; the one
+ * that goes on to want `..` has to be asked first. *)
+simple-type = enumerated-type | subrange-type | identifier .          (* order *)
+enumerated-type = "(" identifier { "," identifier } ")" .
+subrange-type   = constant ".." constant .
+
+(* ---- statements ---- *)
+
+compound-statement = "begin" statement { ";" statement } "end" .
+
+statement = [ integer-number ":" ] ( structured-statement | simple-statement ) .
+
+simple-statement = assignment | goto-statement | procedure-statement | empty .
+empty = .
+
+assignment = variable ":=" expression .
+goto-statement = "goto" integer-number .
+procedure-statement = identifier [ "(" actual-parameter { "," actual-parameter } ")" ] .
+
+structured-statement = compound-statement | if-statement | case-statement
+                     | while-statement | repeat-statement | for-statement
+                     | with-statement .
+
+if-statement     = "if" expression "then" statement [ "else" statement ] .
+case-statement   = "case" expression "of" case-element { ";" case-element }
+                   [ ";" ] "end" .
+case-element     = [ constant { "," constant } ":" statement ] .
+while-statement  = "while" expression "do" statement .
+repeat-statement = "repeat" statement { ";" statement } "until" expression .
+for-statement    = "for" identifier ":=" expression ( "to" | "downto" )
+                   expression "do" statement .
+with-statement   = "with" variable { "," variable } "do" statement .
+
+(* ---- expressions ---- *)
+
+expression = simple-expression [ relational-operator simple-expression ] .
+
+(* Two characters before one, again -- `<` first would leave the `=` of `<=`
+ * behind, and the error would appear at the token after it. *)
+relational-operator = "<=" | ">=" | "<>" | "=" | "<" | ">" | "in" .   (* order *)
+
+simple-expression = [ "+" | "-" ] term { adding-operator term } .
+adding-operator = "+" | "-" | "or" .
+
+term = factor { multiplying-operator factor } .
+multiplying-operator = "*" | "/" | "div" | "mod" | "and" .
+
+(* A function call and a variable both begin with an identifier, and the call
+ * is the longer of the two. *)
+factor = unsigned-constant | function-designator | variable                (* order *)
+       | "(" expression ")" | "not" factor | set-constructor .
+
+unsigned-constant = real-number | integer-number | string | "nil" .    (* order *)
+function-designator = identifier "(" actual-parameter { "," actual-parameter } ")" .
+set-constructor = "[" [ element { "," element } ] "]" .
+element = expression [ ".." expression ] .
+
+variable = identifier { "[" expression { "," expression } "]"
+                      | "." identifier
+                      | "^" } .
+
+(* `write(x:8:2)` -- the field widths are part of the call syntax. *)
+actual-parameter = expression [ ":" expression [ ":" expression ] ] .
+
+(* ---- procedures and functions ---- *)
+
+procedure-or-function = ( procedure-declaration | function-declaration ) ";" .
+
+(* The result type is optional because a function declared `forward` gives its
+ * heading once and repeats only the name: `function Area;` is the real
+ * definition of a function whose result type was stated earlier. Accepting the
+ * result type where it is not needed is the deliberate direction to be wrong
+ * in -- a checker that rejects a correct file is worse than one that accepts a
+ * slightly wider language. *)
+procedure-declaration = "procedure" identifier [ formal-parameters ] ";"
+                        ( "forward" | block ) .
+function-declaration  = "function" identifier [ formal-parameters ]
+                        [ ":" identifier ] ";" ( "forward" | block ) .
+
+formal-parameters = "(" formal-section { ";" formal-section } ")" .
+formal-section    = [ "var" ] identifier { "," identifier } ":" identifier .

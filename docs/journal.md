@@ -11,6 +11,73 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-26 (evening) — a checker that is told what to check
+
+Asked for a program that reads a BNF file and a source file and reports lex and
+syntax errors: `check_syntax.sob pascal.bnf myprog.pas`. It became the
+fourteenth program, and it is the first here whose *input* is a language
+definition rather than a language.
+
+**The first hour went on the frame limit, before any of it was written.** A
+tree-walking matcher recurses once per node of the grammar against a machine
+with 254 frames, so the question was whether a recursive design was viable at
+all or whether it had to be an explicit stack machine from the start. Two probe
+programs answered it: a node method that iterates its children with `do` reaches
+126 levels, and the same method iterating with an inlined `whileTrue` and an
+index reaches 252. The block call was the whole difference.
+[lib/control.sol](../lib/control.sol) had already written the rule down — three
+frames a level for `ifElseIf`, use the staircase inside a recursion and the
+dispatch outside it — and this program follows it exactly: `ifElseIf` appears
+once, in the grammar's own lexer, and nowhere in either matcher.
+
+That is an hour that produced no code and settled the design.
+
+### The afternoon went to `letter`
+
+The first Pascal file read as a stream of `letter` and `digit` — 130 syntax
+errors in a file with nothing wrong with it. `letter` and `identifier` both
+match `T`, longest-match ties go to the rule declared first, and `letter` is
+declared first. It is obvious written down and it was not obvious at all with a
+correct grammar, a correct file and a screen of nonsense between them.
+
+The fix is a `%fragment` directive saying which lexical rules are helpers rather
+than tokens. The part worth having is the *warning* that goes with it — a token
+kind that no syntactic rule can match and that is not skipped can do nothing but
+produce a syntax error, so it is reported. Three of the program's five grammar
+checks exist for the same reason: **every one of them catches a grammar that is
+wrong in a way that blames the wrong file.** Left recursion arriving as `call
+depth exceeded` against the Pascal file is the sharpest of them.
+
+### What was measured, and what the measurement corrected
+
+Inlining a rule's alternation into the reference that names it should save one
+frame of three per level of grammar — a third of the depth. It saved a sixth: 16
+levels of nested `begin … if` became 19, and 25 nested parentheses became 28.
+Most of Wirth's Pascal rules have a *sequence* for a body rather than an
+alternation, so most never had the middle frame to save.
+
+A measurement of the matcher predicts a third. Only a measurement through a real
+grammar gives a sixth, and that is the whole argument for `programs/` existing
+separately from `examples/`, arriving again from a new direction.
+
+### Two documents were wrong before anything was added to them
+
+`expect.sol` refused the count markers the moment `programs/` had fourteen files
+in it, and named three places still saying thirteen — two in `design.md`, one in
+`COMPLETED.md` — that had nothing to do with this program and would not have been
+found by reading. `programs.md` itself said *these twelve* on a page describing
+thirteen, which is the drift that entry was built for and which no marker was
+attached to. Both are fixed.
+
+The other document to change was [ideas.md](ideas.md), which had a parser toolkit
+down as the most interesting thing on its list because the answer would be
+informative either way: it would give
+[3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame) its first
+customer, or show that a non-combinator design is fine. **It is the second, and
+3.1 never came up** — not because it was worked around, but because the design
+that avoids it is the design that is right. The combinator shape is the one 3.1
+refuses and it was never reached for.
+
 ## 2026-08-26 (SolaBasic) — a language in an afternoon, and the thing that held it honest
 
 Forty commits between 10:28 and 16:31, twenty of them the changelog follow-ups
