@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### `system:load` is once-only, as `@include` is — `pending`, 2026-08-27
+### `system:load` is once-only, as `@include` is — `32c969a`, 2026-08-27
 
 **A file now runs the first time it is asked for and not again**, which is the
 one thing the entry below listed as missing and defended as a choice. The
