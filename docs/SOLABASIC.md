@@ -747,8 +747,9 @@ out of the first fourteen programs, and the five written to close the biggest
 gap in the coverage came out clean — so the areas the design rests on are
 answering the way they should, and are now held to it by somebody else.
 
-**One thing was settled on the way.** [Labels](#labels) says a number at the
-start of a line is a label and not a line number, taken from CB80, and that it
+**One thing was settled on the way.** [Program
+structure](#program-structure) says a number at the start of a line is a label
+and not a line number, taken from CB80, and that it
 lets old listings through unaltered. QuickBASIC does the same: it compiles a
 listing whose numeric labels descend. The rule is not a divergence and the list
 needs no entry for it.

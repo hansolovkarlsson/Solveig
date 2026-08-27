@@ -1735,11 +1735,23 @@ and the test that pins it makes its own pseudo-terminal, writes `[B` with no
 newline, and asks. Without the dance that test fails and every other test in the
 suite passes.
 
-#### What it does not know about
+#### What it did not know about, for one hour
 
-`readLine`'s buffer, which is [6.36](ROADMAP.md#636-readline-and-readkey-do-not-share-an-input-buffer)
-and open. It reads the file descriptor, like `readKey`, and neither can see
-bytes the C library has already read ahead.
+`readLine`'s buffer. This read the file descriptor, like `readKey`, and neither
+could see bytes the C library had already read ahead — so `keyWaiting` would
+answer *nothing is coming* while a byte sat in stdio.
+
+**That is [6.36](#636-readline-and-readkey-did-not-share-an-input-buffer--done),
+opened an hour after this landed by reading the code beside it, and closed the
+same day.** There is one window over standard input now, and `keyWaiting` was
+taught about it rather than left underneath it: it answers true for a held byte
+without asking the system anything, which is the first line of
+`sol_stdin_waiting`.
+
+Left recorded rather than deleted, because it is the reason the two entries had
+to land together. **One buffer would have been worse than two** had this half
+been forgotten — a poll that cannot see what the reader is already holding does
+not fail, it answers *nothing is coming*, confidently and wrongly.
 
 ### 6.34 A program cannot ask how big the terminal is — **done**
 

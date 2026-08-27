@@ -4040,7 +4040,7 @@ static SolValue prim_system_exit(SolVM *vm, SolValue self, SolValue *args, int a
  * the `fgets` this used to be stopped at the first NUL and dropped the rest of
  * the line with it.
  *
- * **It takes from the same window `readKey` does** -- solum/src/input.c, and
+ * **It takes from the same window `readKey` does** -- solum/src/stdin.c, and
  * ROADMAP 6.36 for what it was before. Solis' reader takes from it too when it
  * is not editing a line at a terminal, which is what makes *the program and the
  * prompt are reading the same input* true rather than nearly true.
@@ -4059,7 +4059,7 @@ static SolValue prim_system_exit(SolVM *vm, SolValue self, SolValue *args, int a
  * **No echo.** Raw mode does not, and a program that wants the key shown can
  * print it. Showing it would be a second thing happening.
  *
- * The terminal handling is in solum/src/input.c, along with the window this
+ * The terminal handling is in solum/src/stdin.c, along with the window this
  * takes its byte from -- the same one `readLine` takes its line from, which is
  * ROADMAP 6.36 and is why this is four lines now. Raw mode only when standard
  * input is a terminal, and only around a read that has to happen: a byte
@@ -4098,7 +4098,7 @@ static SolValue prim_system_read_key(SolVM *vm, SolValue self, SolValue *args, i
  * **True at the end of input**, where the `readKey` after it answers nil: there
  * is something to read, and what is there is the end. True as well when the
  * shared window already holds a byte, which costs nothing to know. The waiting
- * itself, and the terminal mode it needs, are in solum/src/input.c.
+ * itself, and the terminal mode it needs, are in solum/src/stdin.c.
  *
  * Seconds as a float, like every other duration in this language, and `0.0` is
  * a question about right now.

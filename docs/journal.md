@@ -816,7 +816,7 @@ the descriptor, so this loses "XY" and says nothing:
 printf 'one\nXY\n' | solvm program.sob     # readLine → "one";  readKey → nil
 ```
 
-It is [6.36](ROADMAP.md#636-readline-and-readkey-do-not-share-an-input-buffer)
+It is [6.36](COMPLETED.md#636-readline-and-readkey-did-not-share-an-input-buffer--done)
 now, the only open entry on the roadmap, with a test pinning the loss so that
 fixing it is a decision rather than an accident. The fix — one buffer both
 readers take from — is sixty lines and its own argument, and it landed on the

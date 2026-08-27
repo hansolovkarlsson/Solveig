@@ -929,7 +929,7 @@ dance `readKey` does, around a call that reads nothing, and the test that pins
 it makes its own pseudo-terminal, writes `[B` with no newline, and asks.
 
 **And a defect found by reading the code beside it, now
-[6.36](ROADMAP.md#636-readline-and-readkey-do-not-share-an-input-buffer).** The
+[6.36](COMPLETED.md#636-readline-and-readkey-did-not-share-an-input-buffer--done).** The
 comment above `readKey` claimed buffered input from `readLine` was *"flushed
 before going underneath it"*. There is no such flush and there cannot portably
 be one — `fflush` on an input stream is undefined in C — so a program that calls
