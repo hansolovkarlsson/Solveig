@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### Pascal, stage 7: pointers, and a reference one case too narrow — `pending`, 2026-08-27
+### Pascal, stage 7: pointers, and a reference one case too narrow — `60515ef`, 2026-08-27
 
 **Pointers, `new`, `nil`, `dispose`, and linked structures.** **Nineteen
 programs now produce the same bytes as `fpc -Miso`**, and one of them builds a
