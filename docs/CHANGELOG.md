@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### The matcher is a stack machine, and the depth limit is gone — `pending`, 2026-08-26
+### The matcher is a stack machine, and the depth limit is gone — `36a4c55`, 2026-08-26
 
 **[check_syntax.sol](../programs/check_syntax.sol) no longer walks the grammar
 tree.** The grammar compiles once to a flat instruction list and a loop runs it,
