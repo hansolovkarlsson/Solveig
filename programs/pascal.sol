@@ -587,8 +587,28 @@ pas:emitStep := { t, delta |
           { self:fail("'succ' and 'pred' want an ordinal") }) }).
     nil }.
 
-pas:builtinCall := { name | | t, s |
-    self:expectPunct("(").
+pas:builtinCall := { name | | t, s, l1, l2 |
+    name:equals("eof"):or({ name:equals("eoln") }):ifElse({
+        self:usesInput := true.
+        self:acceptPunct("("):ifTrue({
+            self:isName("input"):ifTrue({ self:next }).
+            self:expectPunct(")") }).
+
+        name:equals("eof"):ifElse({
+            self:emitNotAtEnd. self:emitSend("not", #0) },
+
+          { ; `eoln` is *the cursor is on a line marker*, which at the end of
+            ; the file is simply false here.
+            self:emitNotAtEnd.
+            l1 := self:emitJumpFalse("eoln").
+            self:emitCurrent. self:emitString("\n"). self:emitSend("equals", #1).
+            l2 := self:emitJump.
+            self:patch(l1).
+            self:emitBool(false).
+            self:patch(l2) }).
+        tBoolean },
+
+    { self:expectPunct("(").
 
     name:equals("ord"):ifElse({
         t := self:expression. self:expectPunct(")").
@@ -629,9 +649,10 @@ pas:builtinCall := { name | | t, s |
         self:emitSend("mul", #1).
         t },
 
-      { self:fail("'{}' is not a function this stage has":fill([name])) }) }) }) }) }) }) }.
+      { self:fail("'{}' is not a function this stage has":fill([name])) }) }) }) }) }) }) }) }.
 
-pas:builtins := ["ord", "chr", "succ", "pred", "odd", "abs", "sqr"].
+pas:builtins := ["ord", "chr", "succ", "pred", "odd", "abs", "sqr",
+                 "eof", "eoln"].
 
 ; ---------------------------------------------------------------------------
 ; Expressions
@@ -1317,6 +1338,7 @@ pas:writeItem := { | t, width, places |
 
 pas:writeCall := { newline | | more |
     self:acceptPunct("("):ifElse({
+        self:isName("output"):ifTrue({ self:next. self:acceptPunct(",") }).
         more := true.
         { more }:whileTrue({
             self:emitGlobal("system").
@@ -1332,6 +1354,179 @@ pas:writeCall := { newline | | more |
         self:emitString("\n").
         self:emitSend("write", #1).
         self:emitPop }).
+    nil }.
+
+; ---------------------------------------------------------------------------
+; Reading
+;
+; **Standard input, read whole and then walked.** The machine has `readLine` and
+; nothing that reads a character, so the file is drawn in once at the start of a
+; program that reads at all -- which is the same arrangement PASCAL.md records
+; for files generally: *a file is held, not streamed*.
+;
+; The two passes pay for themselves again here: the first one finds out whether
+; the program reads anything, so the second emits the slurp only when it will be
+; used. A program that reads nothing is byte for byte what it was before this
+; existed.
+;
+; **External files are not here**, and the reason is that they cannot be
+; checked: ISO leaves the binding between a program-heading name and a file on
+; disk to the implementation, so a program that opens one has no answer the
+; oracle could compare against. `file of T` is out for the same kind of reason --
+; its representation on disk is the implementation's. Both are in PASCAL.md
+; under what is not here yet.
+
+pas:usesInput := false.
+
+pas:inContent := { self:emitGlobal("pas.in$") }.
+pas:inPos     := { self:emitGlobal("pas.in$pos") }.
+pas:setInPos  := { self:byte(SETGLOB). self:u16(self:nameFor("pas.in$pos")).
+                   self:emitPop }.
+
+; buf := ""; line := readLine; while line notNil: buf := buf + line + "\n"
+pas:emitSlurp := { | line, top, over |
+    self:scratchDepth := self:scratchDepth:add(#2).
+    line := self:scratchSlot(#1).
+
+    self:emitString("").
+    self:byte(SETGLOB). self:u16(self:nameFor("pas.in$")). self:emitPop.
+    self:emitInt(#1).
+    self:byte(SETGLOB). self:u16(self:nameFor("pas.in$pos")). self:emitPop.
+
+    self:emitGlobal("system"). self:emitSend("readLine", #0).
+    self:emitSetLocal(line). self:emitPop.
+
+    top := self:here.
+    self:emitLocal(line). self:emitSend("notNil", #0).
+    over := self:emitJumpFalse("read").
+
+    self:inContent. self:emitLocal(line). self:emitSend("concat", #1).
+    self:emitString("\n"). self:emitSend("concat", #1).
+    self:byte(SETGLOB). self:u16(self:nameFor("pas.in$")). self:emitPop.
+
+    self:emitGlobal("system"). self:emitSend("readLine", #0).
+    self:emitSetLocal(line). self:emitPop.
+    self:emitLoop(top).
+    self:patch(over).
+    self:scratchDepth := self:scratchDepth:sub(#2).
+    nil }.
+
+; `pos <= size`, which every one of these asks first.
+pas:emitNotAtEnd := {
+    self:inPos. self:inContent. self:emitSend("size", #0).
+    self:emitSend("lessOrEqual", #1).
+    nil }.
+
+; The character under the cursor.
+pas:emitCurrent := {
+    self:inContent. self:inPos. self:emitSend("at", #1).
+    nil }.
+
+pas:emitStepPos := {
+    self:inPos. self:emitInt(#1). self:emitSend("add", #1).
+    self:setInPos.
+    nil }.
+
+; **`" \t\n\r":indexOf(c):notNil` is the whole whitespace test**, which is two
+; sends where a chain of comparisons would be eight -- and the receiver has to
+; be the set of spaces, not the character. Written the other way round it asks
+; whether `"a"` contains all four, which is never, so nothing is whitespace and
+; the first token is the whole file.
+pas:emitCurrentIsSpace := {
+    self:emitString(" \t\n\r").
+    self:emitCurrent.
+    self:emitSend("indexOf", #1).
+    self:emitSend("notNil", #0).
+    nil }.
+
+pas:emitSkipSpace := { | top, out1, out2 |
+    top := self:here.
+    self:emitNotAtEnd.
+    out1 := self:emitJumpFalse("read").
+    self:emitCurrentIsSpace.
+    out2 := self:emitJumpFalse("read").
+    self:emitStepPos.
+    self:emitLoop(top).
+    self:patch(out1). self:patch(out2).
+    nil }.
+
+; Leaves the token's text on the stack, having moved the cursor past it.
+pas:emitToken := { | start, top, out1, out2 |
+    self:scratchDepth := self:scratchDepth:add(#2).
+    start := self:scratchSlot(#1).
+    self:emitSkipSpace.
+    self:inPos. self:emitSetLocal(start). self:emitPop.
+
+    top := self:here.
+    self:emitNotAtEnd.
+    out1 := self:emitJumpFalse("read").
+    self:emitCurrentIsSpace. self:emitSend("not", #0).
+    out2 := self:emitJumpFalse("read").
+    self:emitStepPos.
+    self:emitLoop(top).
+    self:patch(out1). self:patch(out2).
+
+    self:inContent. self:emitLocal(start).
+    self:inPos. self:emitInt(#1). self:emitSend("sub", #1).
+    self:emitSend("copyFrom", #2).
+    self:scratchDepth := self:scratchDepth:sub(#2).
+    nil }.
+
+; `readln` alone, or after the values it was given: past the next line marker.
+; **`JUMP_IF_FALSE` is the only conditional jump**, so *leave when this is true*
+; has to be written as *leave when its negation is false*. Spelled without the
+; `not`, the loop stops at the first character that is **not** a line marker --
+; which is the one it is standing on -- and then steps again, so `readln` lands
+; one character into the next line and everything after it is shifted by one.
+pas:emitReadln := { | top, out1, found |
+    top := self:here.
+    self:emitNotAtEnd.
+    out1 := self:emitJumpFalse("readln").
+    self:emitCurrent. self:emitString("\n").
+    self:emitSend("equals", #1). self:emitSend("not", #0).
+    found := self:emitJumpFalse("readln").
+    self:emitStepPos.
+    self:emitLoop(top).
+
+    ; The marker itself.
+    self:patch(found).
+    self:emitStepPos.
+    self:patch(out1).
+    nil }.
+
+pas:readTarget := { | name, res, mode, want |
+    name := self:expectName.
+    res := self:designator(name, true).
+    mode := res:at(#1). want := res:at(#2).
+
+    want:run:equals('char):ifElse({
+        ; A char is the next character, whatever it is -- no skipping.
+        self:emitCurrent.
+        self:emitStepPos },
+
+      { want:run:equals('integer):or({ want:run:equals('real) }):ifElse({
+            self:emitToken.
+            self:emitSend(want:run:equals('real):ifElse({ "asFloat" },
+                                                        { "asInteger" }), #0) },
+          { self:fail("'read' fills an integer, a real or a char") }) }).
+
+    mode:equals('whole):ifElse(
+        { self:emitStoreVar(name, res:at(#3)) },
+        { self:emitSend("atPut", #2). self:emitPop }).
+    nil }.
+
+pas:readCall := { newline | | more |
+    self:usesInput := true.
+    self:acceptPunct("("):ifTrue({
+        ; `read(input, ...)` names the file the standard already gives it.
+        self:isName("input"):ifTrue({ self:next. self:acceptPunct(",") }).
+        self:isPunct(")"):ifElse({ self:next },
+          { more := true.
+            { more }:whileTrue({
+                self:readTarget.
+                more := self:acceptPunct(",") }).
+            self:expectPunct(")") }) }).
+    newline:ifTrue({ self:emitReadln }).
     nil }.
 
 ; ---------------------------------------------------------------------------
@@ -1435,6 +1630,8 @@ pas:statement := { | name, over, past, top, target, ends |
 
     { self:accept("writeln"):ifElse({ self:writeCall(true) },
     { self:accept("write"):ifElse({ self:writeCall(false) },
+    { self:accept("readln"):ifElse({ self:readCall(true) },
+    { self:accept("read"):ifElse({ self:readCall(false) },
 
     { self:kind:equals('name):ifElse({
         name := self:expectName.
@@ -1459,7 +1656,7 @@ pas:statement := { | name, over, past, top, target, ends |
 
       ; The empty statement, which the standard has and which is what a `;`
       ; before an `end` produces.
-      { nil }) }) }) }) }) }) }) }) }) }) }).
+      { nil }) }) }) }) }) }) }) }) }) }) }) }) }).
     nil }.
 
 ; **The record is evaluated once and kept in a slot**, which is what makes
@@ -1972,6 +2169,10 @@ pas:program := { | pending |
     ; a convenience to the compiler and not only to the reader.
     self:slotBase := self:slotNames:size.
 
+    ; Standard input is drawn in once, and only by a program that reads. The
+    ; first pass is what knows.
+    self:usesInput:ifTrue({ self:emitSlurp }).
+
     self:compound.
     self:expectPunct(".").
 
@@ -2330,6 +2531,7 @@ pas:parseOnce := { source | | i |
 pas:compile := { source, path |
     self:path := path.
     self:boxed := dictionary:new.
+    self:usesInput := false.
 
     self:pass := #1.
     self:parseOnce(source).

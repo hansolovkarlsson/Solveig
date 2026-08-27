@@ -1204,7 +1204,7 @@ static void test_pascal_compiles_a_program_that_runs(void)
                                       "ordinals", "loops", "cases",
                                       "consts", "jumps",
                                       "procs", "byref", "forward", "nested",
-                                      "arrays", "records", "sets" };
+                                      "arrays", "records", "sets", "reading" };
     for (size_t i = 0; i < sizeof programs / sizeof programs[0]; i++) {
         char command[512], expected_path[512];
 
@@ -1213,8 +1213,13 @@ static void test_pascal_compiles_a_program_that_runs(void)
                  DIR "/%s.sob >/dev/null 2>&1", programs[i], programs[i]);
         assert(run(command, out, sizeof out) == 0);
 
+        /* A program that reads is fed the .in file beside it, and one that
+           does not gets an empty standard input rather than the terminal. */
         snprintf(command, sizeof command,
-                 "bin/solvm " DIR "/%s.sob 2>&1", programs[i]);
+                 "bin/solvm " DIR "/%s.sob "
+                 "< programs/pas/oracle/agree/%s.in 2>/dev/null "
+                 "|| bin/solvm " DIR "/%s.sob < /dev/null 2>&1",
+                 programs[i], programs[i], programs[i]);
         assert(run(command, out, sizeof out) == 0);
 
         snprintf(expected_path, sizeof expected_path,
@@ -1283,7 +1288,7 @@ static void test_pascal_compiles_a_program_that_runs(void)
     assert(strstr(out, "one more than a multiple of three") != NULL);
     assert(strstr(out, "over three hundred") != NULL);
 
-    printf("  17 Pascal programs compile, run, and match what fpc -Miso printed,\n"
+    printf("  18 Pascal programs compile, run, and match what fpc -Miso printed,\n"
            "  and the nested ones are the first blocks here that capture a home\n");
 }
 

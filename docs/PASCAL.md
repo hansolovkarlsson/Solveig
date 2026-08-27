@@ -68,8 +68,9 @@ the part the work actually is.
 | `record` | an array, with field offsets fixed while compiling | a field is an index and not a name, so it costs an `at`, not a lookup |
 | `set` | an array of **booleans**, one per member | membership is one index; union, intersection and difference are loops. Not bit-words — see below |
 | pointer | a one-element array | `new` makes one, `nil` is `nil`, and see the divergence about `dispose` |
-| `text` | a channel holding the whole file | what SolaBasic already does; there is no streaming underneath |
-| `file of T` | the same, as an array of values | stage 6 |
+| `input` | the whole of standard input, read once and walked | the machine has `readLine` and nothing that reads a character |
+| a named external file | **not here** — see below | |
+| `file of T` | **not here** — see below | |
 | procedure, function | a block | called with `OP_SEND` |
 | nested procedure | a block inside a block | `OP_OUTER depth slot` **is** a static link, and this is its first customer |
 | `var` parameter | a box, and the variable is the box | sola.sol's answer, and Pascal is the easier case: `var` is *declared*, where QBasic made the compiler infer it |
@@ -111,6 +112,8 @@ agreeing means the divergence has gone and this list is wrong.
 
 | | |
 | --- | --- |
+| a named external file | ISO leaves the binding between a name in the program heading and a file on disk to the implementation. So a program that opens one has **no answer the oracle could compare against**, and a divergence nobody can check is a divergence nobody should write. Standard `input` and `output` are fully specified and are here. |
+| `file of T` | Its representation on disk is the implementation's too, for the same reason and with the same consequence. |
 | `goto` out of a procedure | The standard allows a jump to a label in an enclosing block. That is a non-local return, which is [3.2](ROADMAP.md#32-no-non-local-return), and the machine has no way to unwind to a named frame. A `goto` within one procedure is ordinary and is here. |
 | variant records | The standard's own free union, and the one construct with no honest mapping onto a machine where a value knows what it is. |
 | `packed` as a promise | Read and ignored. `packed` asks for a representation SolVM does not let a program choose. |
@@ -130,7 +133,7 @@ and under this compiler.
 | **3** — **done** | `procedure` and `function`, value and `var` parameters, recursion, `forward`. Thirteen programs in `agree/`. |
 | **4** — **done** | Nested procedures and uplevel access. The `OP_OUTER` prediction held: nothing was added to the machine. Fourteen programs in `agree/`. |
 | **5** — **done** | `array` with any ordinal index and any lower bound, multi-dimensional, `record`, `with`, and whole-array and whole-record assignment. Sixteen programs in `agree/`. |
-| **6** — sets **done**, files next | `set` with its constructor, `in`, union, intersection, difference and the four comparisons. Seventeen programs in `agree/`. Then `text`, `read`, `readln`, `eof`, `eoln`, and `file of T`. |
+| **6** — **done** | `set` with its constructor, `in`, union, intersection, difference and the four comparisons; and `read`, `readln`, `eof` and `eoln` on standard input. Eighteen programs in `agree/`. |
 | **7** | Pointers, `new`, `nil`, and linked structures. |
 | **8** | The standard's required procedures and functions in full, and whatever the oracle has been complaining about. |
 
@@ -170,6 +173,18 @@ division truncates toward nought and the machine's floors. Pascal's `and` and
 `or` are jumps rather than sends, the machine's own taking blocks. And a field
 width is a compile-time string, so a `write` needs no runtime formatter and no
 prelude — the other thing `sola.sol` needed and this does not.
+
+**Reading landed with them, and only on standard input.** That is not a
+shortcut: ISO leaves the binding between a program-heading name and a file on
+disk to the implementation, so a program that opens an external file has no
+answer `fpc` and this compiler could be *expected* to share. Standard input is
+fully specified, and a program that filters text is what a Pascal program mostly
+is.
+
+**It is read whole and then walked**, because the machine has `readLine` and
+nothing that reads a character — which is the arrangement this page already
+recorded for files generally. The slurp is emitted **only into a program that
+reads**, which the first pass is what knows.
 
 **Sets landed, and the plan above was wrong about them.** This page said *an
 array of integers, one bit per member*, and that meets

@@ -5,6 +5,39 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Pascal, stage 6 finished: reading, and a divergence nobody could check — `pending`, 2026-08-27
+
+**`read`, `readln`, `eof` and `eoln` on standard input**, which finishes stage 6.
+**Eighteen programs now produce the same bytes as `fpc -Miso`**, and the oracle
+feeds both sides the same `.in` file.
+
+**Only standard input, and that is a decision rather than a gap.** ISO leaves
+the binding between a name in a program heading and a file on disk to the
+implementation, so a program that opens an external file has **no answer the
+oracle could compare against** — and a divergence nobody can check is a
+divergence nobody should write. `file of T` is out for the same reason: its
+representation on disk is the implementation's too. Both are named in
+[PASCAL.md](PASCAL.md) with that reason rather than left to be discovered.
+
+**Input is read whole and then walked**, because the machine has `readLine` and
+nothing that reads a character — the arrangement PASCAL.md already recorded for
+files generally. The slurp is emitted **only into a program that reads**, which
+is the first pass's answer put to a second use.
+
+**Two of the three bugs were the same bug in different clothes, and both are
+about what the machine has.** `JUMP_IF_FALSE` is the only conditional jump, so
+*leave when this is true* has to be spelled *leave when its negation is false* —
+and `readln` written without the `not` stops at the first character that is
+**not** a line marker, which is the one it is standing on. It then steps again,
+so every read after it is shifted by one character and the program looks nearly
+right.
+
+The third was `c:indexOf(" \t\n\r")` where `" \t\n\r":indexOf(c)` was meant.
+Asking a one-character string whether it contains all four spaces is always no,
+so nothing was whitespace and the first token read was the whole file. **A send
+takes its receiver from the stack and reads like an argument list on the page**,
+which is the one place this language's uniformity does not help.
+
 ### Pascal, stage 6: sets, and a plan the machine corrected — `79417ca`, 2026-08-27
 
 **`set of T`, the constructor with ranges, `in`, union, intersection,

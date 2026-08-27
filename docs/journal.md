@@ -63,6 +63,39 @@ and into the loop back. Spelled the way the sentence reads, the loop inverts:
 expected and everything else in a twenty-line test was right, which is exactly
 the kind of wrong that a transcript catches and reading does not.
 
+### Reading, and the difference between a gap and a decision
+
+The other half of stage 6. `read`, `readln`, `eof`, `eoln` — on standard input
+and nowhere else.
+
+**That last part took longer to decide than to build.** PASCAL.md had files down
+as a stage, and the obvious reading is that anything less is unfinished. But ISO
+leaves the binding between a name in a program heading and a file on disk to the
+implementation, and `file of T`'s representation on disk likewise — so a program
+that opens either has no answer `fpc` and this compiler could be *expected* to
+share. **A divergence nobody can check is a divergence nobody should write**,
+and the honest move was to name both in the document with that reason rather
+than build something the oracle would have to be told to ignore.
+
+Standard input is fully specified, and a program that filters text is what a
+Pascal program mostly is.
+
+**Three bugs, and two were the same one.** The machine's only conditional jump
+is `JUMP_IF_FALSE`, so *leave when this is true* has to be written as *leave when
+its negation is false*. Spelled the way the sentence reads, `readln` stops at the
+first character that is **not** a line marker — which is the one it is standing
+on — and then steps again, so everything after it is shifted by one character and
+the output looks nearly right. I have now made that mistake twice: `repeat` in
+stage 2 was the same shape.
+
+The third was better. `c:indexOf(" \t\n\r")` where `" \t\n\r":indexOf(c)` was
+meant — asking a one-character string whether it contains all four spaces, which
+is always no, so nothing was whitespace and the first token read was the whole
+file. **A send takes its receiver from the stack and reads like an argument list
+on the page.** That is the one place this language's *everything is a message*
+stops helping, and it will not be the last time I write the arguments in the
+order the sentence has them.
+
 ### Sets, and the machine correcting a plan written before it
 
 Half of stage 6. `set of T`, the constructor, `in`, the three combining

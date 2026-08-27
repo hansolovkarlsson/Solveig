@@ -73,7 +73,13 @@ check () {                       # check <file> <agree|differ>
         echo "  $name: fpc would not compile it"
         failed=$((failed + 1)); return
     fi
-    ( cd "$work" && ./"$name" > "$name.theirs" 2>&1 )
+    # A program that reads is fed the .in file beside it, and both sides get
+    # the same bytes. Without one, standard input is empty rather than the
+    # terminal -- a program that reads would otherwise wait for a person.
+    stdin=/dev/null
+    [ -f "${src%.pas}.in" ] && stdin="$root/${src%.pas}.in"
+
+    ( cd "$work" && ./"$name" < "$stdin" > "$name.theirs" 2>&1 )
 
     # Ours.
     if ! ./bin/solvm "$work/pascal.sob" "$src" "$work/$name.sob" >/dev/null 2>&1
@@ -82,7 +88,7 @@ check () {                       # check <file> <agree|differ>
         ./bin/solvm "$work/pascal.sob" "$src" "$work/$name.sob" 2>&1 | sed 's/^/      /'
         failed=$((failed + 1)); return
     fi
-    ( cd "$work" && "$root"/bin/solvm "$name.sob" > "$name.ours" 2>&1 )
+    ( cd "$work" && "$root"/bin/solvm "$name.sob" < "$stdin" > "$name.ours" 2>&1 )
 
     if cmp -s "$work/$name.theirs" "$work/$name.ours"; then
         if [ "$want" = agree ]; then same=$((same + 1))

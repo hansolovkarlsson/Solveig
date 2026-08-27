@@ -1412,15 +1412,14 @@ by [oracle.sh](../programs/pas/oracle.sh).
     -3     3
 ```
 
-**Stages 1 to 5 and half of 6**, and [PASCAL.md](PASCAL.md) says what is
-left.
+**Stages 1 to 6**, and [PASCAL.md](PASCAL.md) says what the other two are.
 The `program` heading, `var`, `const`, `type`, assignment, expressions, `write`
 and `writeln` with field widths, `begin`/`end`, `if`, `while`, `repeat`, `for`
 in both directions, `case`, `goto` with labels, enumerations, subranges, and
 `ord`, `chr`, `succ`, `pred`, `odd`, `abs` and `sqr`; and `procedure`,
 `function`, value and `var` parameters, recursion, `forward`, nested procedures
-with uplevel access, arrays, records, `with`, and sets. **Seventeen programs
-produce the same bytes as `fpc -Miso`.**
+with uplevel access, arrays, records, `with`, sets, and reading standard input.
+**Eighteen programs produce the same bytes as `fpc -Miso`.**
 
 **A type has two kinds, and that is most of stage 2.** `run` is what the machine
 is holding — an integer, a float, a one-character string, a boolean — and `kind`
@@ -1471,6 +1470,21 @@ wrong**: Pascal's sign belongs to the whole term, so `-3 mod 2` is `-(3 mod 2)`,
 and asked with a variable holding `-3` both answer `1`. A compiler for a
 language whose grammar it has just read is exactly the place to misread
 precedence.
+
+**Reading is on standard input only, and that is a decision rather than a
+gap.** ISO leaves the binding between a name in a program heading and a file on
+disk to the implementation, so a program that opens an external file has *no
+answer the oracle could compare against* — and a divergence nobody can check is
+a divergence nobody should write. `file of T` is out for the same reason: its
+representation on disk is the implementation's too.
+
+**And two of the three bugs in it were the same bug.** `JUMP_IF_FALSE` is the
+only conditional jump the machine has, so *leave when this is true* has to be
+spelled *leave when its negation is false* — and `readln` written without the
+`not` stops at the first character that is **not** a line marker, which is the
+one it is standing on. The other was `c:indexOf(" \t\n\r")` where
+`" \t\n\r":indexOf(c)` was meant, so nothing was ever whitespace and the first
+token was the whole file.
 
 **A set is an array of booleans, and the plan said bit-words.** That plan met
 [3.12](ROADMAP.md#312-no-shift-can-produce-a-negative-integer): `1 shiftLeft 63`
