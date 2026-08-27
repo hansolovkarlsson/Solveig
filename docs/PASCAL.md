@@ -6,8 +6,13 @@ the record — [CHANGELOG.md](CHANGELOG.md) says what landed when.*
 
 **All eight stages are done.** Twenty-one programs produce the same bytes as
 `fpc -Miso`, and three more must **not**, each exercising a divergence this page
-records. What is not here is below, and every item names why rather than
-when.
+records. What is not here is below, and every item names why rather than when.
+
+**A recursive Pascal function manages 254 levels**, which is
+[3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels)'s plain recursion
+limit to the level — so a Pascal call costs one frame and nothing else. That is
+the one number to take from this page about what compiling onto this machine
+costs, and the number is nothing.
 
 **This is not a language definition, and that is the whole difference from
 [SOLABASIC.md](SOLABASIC.md).** That document exists because there is no
@@ -142,18 +147,21 @@ and under this compiler.
 | **7** — **done** | Pointers, `new`, `nil`, `dispose`, and linked structures. Nineteen programs in `agree/`. |
 | **8** — **done** | `sqrt`, `sin`, `cos`, `arctan`, `exp`, `ln`, `trunc`, `round`, `page`, and field widths worked out while running. Twenty-one programs in `agree/`. |
 
-**Stage 3 landed the same day, and cost the compiler its single pass.** A `var`
-parameter is a box and the variable *is* the box, which is `sola.sol`'s answer —
-but knowing *which* of the caller's variables need boxing cannot be done in one
-pass, because a variable read in one procedure may be handed to a `var`
-parameter by another declared after it. So the source is parsed twice: the first
-pass fills the set and its output is thrown away.
+**Stage 4 went early on purpose**, the way SolaBasic put `GOTO` in week one: it
+was the claim the whole design rested on. Had `OP_OUTER` not given Pascal's
+scoping, the shape of everything after it would have changed, and that is worth
+finding out before there is anything to change. It gave it, and nothing after it
+moved.
 
-Two other things moved with it. A program's variables became **globals**, since
-a procedure has to see them and a block cannot reach the script's slots without
-`OP_OUTER` — which is stage 4's business. And they carry a `pas.` in front, so
-that a Pascal program declaring `var system : integer` cannot reach in and
-replace the machine's own.
+**What follows is each stage as it landed, in the order they were built.**
+
+**Stage 1 landed on 2026-08-27**, and three things about it are worth carrying
+forward. `mod` is one instruction and `div` is nine, which is the reverse of
+SolaBasic: ISO's remainder is floored and the machine's already is, while ISO's
+division truncates toward nought and the machine's floors. Pascal's `and` and
+`or` are jumps rather than sends, the machine's own taking blocks. And a field
+width is a compile-time string, so a `write` needs no runtime formatter and no
+prelude — the other thing `sola.sol` needed and this does not.
 
 **Stage 2 landed the same day.** A type became an object with two kinds: `run`
 is what the machine holds — an integer, a float, a one-character string, a
@@ -171,47 +179,48 @@ Three things it added to the divergence list by finding them:
 | a subrange is not range-checked | `fpc` does not check without `-Cr`, and a checking compiler here would diverge from the oracle on every program that relies on it. Stage 8, with `-Cr` on the other side. |
 | an enumeration cannot be written | Which is the standard's rule and not a gap: `write` takes an integer, a real, a char, a boolean or a string, and a `Colour` is none of them however it is held. `ord` does the showing. |
 
-**Stage 1 landed on 2026-08-27**, and three things about it are worth carrying
-forward. `mod` is one instruction and `div` is nine, which is the reverse of
-SolaBasic: ISO's remainder is floored and the machine's already is, while ISO's
-division truncates toward nought and the machine's floors. Pascal's `and` and
-`or` are jumps rather than sends, the machine's own taking blocks. And a field
-width is a compile-time string, so a `write` needs no runtime formatter and no
-prelude — the other thing `sola.sol` needed and this does not.
+**Stage 3 landed the same day, and cost the compiler its single pass.** A `var`
+parameter is a box and the variable *is* the box, which is `sola.sol`'s answer —
+but knowing *which* of the caller's variables need boxing cannot be done in one
+pass, because a variable read in one procedure may be handed to a `var`
+parameter by another declared after it. So the source is parsed twice: the first
+pass fills the set and its output is thrown away.
 
-**Stage 8 landed, and with it the language.** The eight required functions the
-machine already had under other names — `ln` is `log`, `arctan` is `atan` — and
-`round`, which is half away from nought in both and was checked rather than
-assumed, that being the one of them where two reasonable implementations differ.
-And a field width worked out while running, which the standard allows and this
-refused for seven stages: the constant case still folds into the spec string and
-costs nothing, and a computed one builds the spec with three sends.
+Two other things moved with it. A program's variables became **globals**, since
+a procedure has to see them and a block cannot reach the script's slots without
+`OP_OUTER` — which is stage 4's business. And they carry a `pas.` in front, so
+that a Pascal program declaring `var system : integer` cannot reach in and
+replace the machine's own.
 
-**Pointers landed, and they made the `var` parameter grow up.** A reference
-began as a one-element cell — `sola.sol`'s answer, and enough for BASIC, where
-the only thing that can be passed by reference is a whole variable. Pascal's
-`Insert(t^.left, k)` is the idiom a tree is built with, and the storage it names
-is *element two of the record `t` points at*. No cell can alias that. So a
-reference is a **container and an index**, which names either exactly — and a
-whole variable now carries its pair from the moment it is declared, so passing
-one costs nothing at the call.
+**Stage 4 landed, and both predictions held.** A nested procedure is a block
+made **inside its parent's activation** and kept in a slot of that frame, so
+`OP_BLOCK` captures the right frame and `OP_OUTER depth slot` reaches the right
+variables — through two levels of nesting, through recursion of the enclosing
+procedure, and through a nested procedure writing an enclosing `var` parameter,
+which travels out a frame and then through a box. The blocks it emits are the
+first in this repository to set the capture flag;
+[sola.sol](../programs/sola.sol) has never emitted one.
 
-**A pointer type may name a type declared after it**, and has to: `Tree = ^Node`
-before `Node = record ... end` is the only way round. An unknown name makes a
-pointer with nothing in it and joins a list the type section empties before it
-finishes.
+And [3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame) is Pascal's
+own scoping rule rather than a limitation on it: the block is unreachable the
+moment its parent returns, because the only thing holding it was a slot of that
+frame.
 
-**Reading landed with them, and only on standard input.** That is not a
-shortcut: ISO leaves the binding between a program-heading name and a file on
-disk to the implementation, so a program that opens an external file has no
-answer `fpc` and this compiler could be *expected* to share. Standard input is
-fully specified, and a program that filters text is what a Pascal program mostly
-is.
+**Stage 5 landed the same day.** An array and a record are both a Solum array at
+run time and the whole difference is what the compiler knows: a field is an
+index worked out while compiling, and a subscript is the Pascal index less its
+lower bound, folded the same way. Neither carries its shape at run time.
 
-**It is read whole and then walked**, because the machine has `readLine` and
-nothing that reads a character — which is the arrangement this page already
-recorded for files generally. The slurp is emitted **only into a program that
-reads**, which the first pass is what knows.
+Two things it had to emit rather than assume. **Making one is a loop**, because
+a size is a constant the compiler knows and a program may declare a thousand of
+something — so the emitted code grows with how deeply a type nests, not with how
+big it is. And **assigning a whole array or record copies it**, which the
+standard says and the machine does not: a Solum array is a reference, so without
+the copy two names would mean one thing. The copy is as deep as the type,
+because a record of arrays is still one value in Pascal.
+
+| | |
+| --- | --- |
 
 **Sets landed, and the plan above was wrong about them.** This page said *an
 array of integers, one bit per member*, and that meets
@@ -232,40 +241,40 @@ tested against, or the parameter it is passed to. Failing all of those it takes
 the type of its first member, and an integer member has no span, so it gets
 `0 .. 255` — which is `fpc`'s choice and is recorded as one.
 
-**Stage 5 landed the same day.** An array and a record are both a Solum array at
-run time and the whole difference is what the compiler knows: a field is an
-index worked out while compiling, and a subscript is the Pascal index less its
-lower bound, folded the same way. Neither carries its shape at run time.
+**Reading landed with them, and only on standard input.** That is not a
+shortcut: ISO leaves the binding between a program-heading name and a file on
+disk to the implementation, so a program that opens an external file has no
+answer `fpc` and this compiler could be *expected* to share. Standard input is
+fully specified, and a program that filters text is what a Pascal program mostly
+is.
 
-Two things it had to emit rather than assume. **Making one is a loop**, because
-a size is a constant the compiler knows and a program may declare a thousand of
-something — so the emitted code grows with how deeply a type nests, not with how
-big it is. And **assigning a whole array or record copies it**, which the
-standard says and the machine does not: a Solum array is a reference, so without
-the copy two names would mean one thing. The copy is as deep as the type,
-because a record of arrays is still one value in Pascal.
+**It is read whole and then walked**, because the machine has `readLine` and
+nothing that reads a character — which is the arrangement this page already
+recorded for files generally. The slurp is emitted **only into a program that
+reads**, which the first pass is what knows.
 
-| | |
-| --- | --- |
+**Pointers landed, and they made the `var` parameter grow up.** A reference
+began as a one-element cell — `sola.sol`'s answer, and enough for BASIC, where
+the only thing that can be passed by reference is a whole variable. Pascal's
+`Insert(t^.left, k)` is the idiom a tree is built with, and the storage it names
+is *element two of the record `t` points at*. No cell can alias that. So a
+reference is a **container and an index**, which names either exactly — and a
+whole variable now carries its pair from the moment it is declared, so passing
+one costs nothing at the call.
 
-**Stage 4 landed, and both predictions held.** A nested procedure is a block
-made **inside its parent's activation** and kept in a slot of that frame, so
-`OP_BLOCK` captures the right frame and `OP_OUTER depth slot` reaches the right
-variables — through two levels of nesting, through recursion of the enclosing
-procedure, and through a nested procedure writing an enclosing `var` parameter,
-which travels out a frame and then through a box. The blocks it emits are the
-first in this repository to set the capture flag;
-[sola.sol](../programs/sola.sol) has never emitted one.
+**A pointer type may name a type declared after it**, and has to: `Tree = ^Node`
+before `Node = record ... end` is the only way round. An unknown name makes a
+pointer with nothing in it and joins a list the type section empties before it
+finishes.
 
-And [3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame) is Pascal's
-own scoping rule rather than a limitation on it: the block is unreachable the
-moment its parent returns, because the only thing holding it was a slot of that
-frame.
+**Stage 8 landed, and with it the language.** The eight required functions the
+machine already had under other names — `ln` is `log`, `arctan` is `atan` — and
+`round`, which is half away from nought in both and was checked rather than
+assumed, that being the one of them where two reasonable implementations differ.
+And a field width worked out while running, which the standard allows and this
+refused for seven stages: the constant case still folds into the spec string and
+costs nothing, and a computed one builds the spec with three sends.
 
-**Stage 4 goes early on purpose**, the way SolaBasic put `GOTO` in week one: it
-is the claim the whole design rests on. If `OP_OUTER` does not give Pascal's
-scoping, the shape of everything after it changes, and that is worth finding out
-before there is anything to change.
 
 ---
 

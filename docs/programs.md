@@ -1448,6 +1448,13 @@ two need all of it.
 
 ### What it found
 
+**And the verifier says *internally inconsistent* and not which slot.** Two
+mistakes produced that and nothing else: a jump offset measured from the wrong
+place — `OP_JUMP_IF_FALSE` is five bytes where `OP_JUMP` is three, because it
+carries the selector it was inlined from — and a scratch slot handed out one
+past the end of the frame. Both were found by bisecting a working program down
+to the construct that broke, which is the only tool that message leaves you.
+
 **`mod` is free and `div` is not, which is the reverse of SolaBasic.** ISO says
 `i mod j` is non-negative for positive `j` — a *floored* remainder, and SolVM's
 is floored, so `mod` is one instruction. ISO's `div` truncates toward nought
@@ -1475,68 +1482,12 @@ and asked with a variable holding `-3` both answer `1`. A compiler for a
 language whose grammar it has just read is exactly the place to misread
 precedence.
 
-**Pointers made the `var` parameter grow up, and that is the finding of stage
-7.** A reference began as a one-element cell — `sola.sol`'s answer, and enough
-for BASIC, where the only thing that can be passed by reference is a whole
-variable. Pascal's `Insert(t^.left, k)` is the idiom a tree is built with, and
-the storage it names is *element two of the record `t` points at*. **No cell can
-alias that.** So a reference is a container and an index, which names either
-exactly — and a whole variable carries its pair from the moment it is declared,
-so passing one costs nothing at the call. The restriction stage 5 had written
-down as *stage 8* turned out to be a representation that was one case too
-narrow.
-
-**Reading is on standard input only, and that is a decision rather than a
-gap.** ISO leaves the binding between a name in a program heading and a file on
-disk to the implementation, so a program that opens an external file has *no
-answer the oracle could compare against* — and a divergence nobody can check is
-a divergence nobody should write. `file of T` is out for the same reason: its
-representation on disk is the implementation's too.
-
-**And two of the three bugs in it were the same bug.** `JUMP_IF_FALSE` is the
-only conditional jump the machine has, so *leave when this is true* has to be
-spelled *leave when its negation is false* — and `readln` written without the
-`not` stops at the first character that is **not** a line marker, which is the
-one it is standing on. The other was `c:indexOf(" \t\n\r")` where
-`" \t\n\r":indexOf(c)` was meant, so nothing was ever whitespace and the first
-token was the whole file.
-
-**A set is an array of booleans, and the plan said bit-words.** That plan met
-[3.12](ROADMAP.md#312-no-shift-can-produce-a-negative-integer): `1 shiftLeft 63`
-overflows, because SolVM's integers are signed and there is no unsigned type to
-borrow, so a 64-bit word would have to be a 63-bit word or have its top bit
-special-cased everywhere. A boolean each makes **membership one index** — the
-operation a program writes most — and costs a `set of char` 256 booleans rather
-than four integers. Everything else is a loop over the span either way, so the
-bits would have bought only memory.
-
-**An array and a record are the same thing at run time**, and the whole
-difference is what the compiler knows. Both are a Solum array; a record's field
-is an index worked out while compiling, and an array's subscript is the Pascal
-index less its lower bound, folded the same way. Neither is a dictionary and
-neither carries its shape. **Making one is a loop**, so the emitted code grows
-with how deeply a type nests rather than with how big it is — a program may
-declare a thousand of something and the compiler knows the number.
-
-**And assigning a whole array or record copies it**, which the standard says and
-the machine does not: a Solum array is a reference, so without the copy two
-names would mean one thing. The copy is as deep as the type goes, because a
-record of arrays is still one value in Pascal.
-
-**Stage 4 settled two predictions written before it was started**, and both
-held. A nested procedure is a block made **inside its parent's activation** and
-kept in a slot of that frame, so `OP_BLOCK` captures the right frame and
-`OP_OUTER depth slot` reaches the right variables. **The machine needed nothing
-added** — that instruction takes a depth and a slot, which is a static link by
-another name. And
-[3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame) turns out to be
-Pascal's own scoping rule rather than a limitation on it: a nested procedure may
-not be called after its parent returns, and a capturing block may not outlive
-its home, and those are the same sentence.
-
-The blocks it emits are **the first in this repository to set the capture
-flag**. `sola.sol` has never emitted one, SolaBasic having no nested
-procedures — and its header says so, which is how the prediction was made.
+**`repeat` needs both jumps, and written the way it reads it runs once.**
+`OP_JUMP_IF_FALSE` only goes forward and `OP_LOOP` is unconditional, so looping
+while a condition is *false* cannot be one instruction: the false case jumps
+over an exit and into the loop back. The obvious spelling — jump over the loop
+when false — inverts the loop, and a `repeat ... until i >= 3` runs its body
+exactly once and looks almost right.
 
 **A `var` parameter cost the compiler its single pass.** The box is
 `sola.sol`'s answer and Pascal is the easier half of it — `var` is *declared*
@@ -1553,19 +1504,68 @@ disassembler showing every instruction at line 0, which is the only visible sign
 of what is wrong. That is the third distinct mistake to produce that one
 message.
 
-**`repeat` needs both jumps, and written the way it reads it runs once.**
-`OP_JUMP_IF_FALSE` only goes forward and `OP_LOOP` is unconditional, so looping
-while a condition is *false* cannot be one instruction: the false case jumps
-over an exit and into the loop back. The obvious spelling — jump over the loop
-when false — inverts the loop, and a `repeat ... until i >= 3` runs its body
-exactly once and looks almost right.
+**Stage 4 settled two predictions written before it was started**, and both
+held. A nested procedure is a block made **inside its parent's activation** and
+kept in a slot of that frame, so `OP_BLOCK` captures the right frame and
+`OP_OUTER depth slot` reaches the right variables. **The machine needed nothing
+added** — that instruction takes a depth and a slot, which is a static link by
+another name. And
+[3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame) turns out to be
+Pascal's own scoping rule rather than a limitation on it: a nested procedure may
+not be called after its parent returns, and a capturing block may not outlive
+its home, and those are the same sentence.
 
-**And the verifier says *internally inconsistent* and not which slot.** Two
-mistakes produced that and nothing else: a jump offset measured from the wrong
-place — `OP_JUMP_IF_FALSE` is five bytes where `OP_JUMP` is three, because it
-carries the selector it was inlined from — and a scratch slot handed out one
-past the end of the frame. Both were found by bisecting a working program down
-to the construct that broke, which is the only tool that message leaves you.
+The blocks it emits are **the first in this repository to set the capture
+flag**. `sola.sol` has never emitted one, SolaBasic having no nested
+procedures — and its header says so, which is how the prediction was made.
+
+**An array and a record are the same thing at run time**, and the whole
+difference is what the compiler knows. Both are a Solum array; a record's field
+is an index worked out while compiling, and an array's subscript is the Pascal
+index less its lower bound, folded the same way. Neither is a dictionary and
+neither carries its shape. **Making one is a loop**, so the emitted code grows
+with how deeply a type nests rather than with how big it is — a program may
+declare a thousand of something and the compiler knows the number.
+
+**And assigning a whole array or record copies it**, which the standard says and
+the machine does not: a Solum array is a reference, so without the copy two
+names would mean one thing. The copy is as deep as the type goes, because a
+record of arrays is still one value in Pascal.
+
+**A set is an array of booleans, and the plan said bit-words.** That plan met
+[3.12](ROADMAP.md#312-no-shift-can-produce-a-negative-integer): `1 shiftLeft 63`
+overflows, because SolVM's integers are signed and there is no unsigned type to
+borrow, so a 64-bit word would have to be a 63-bit word or have its top bit
+special-cased everywhere. A boolean each makes **membership one index** — the
+operation a program writes most — and costs a `set of char` 256 booleans rather
+than four integers. Everything else is a loop over the span either way, so the
+bits would have bought only memory.
+
+**Reading is on standard input only, and that is a decision rather than a
+gap.** ISO leaves the binding between a name in a program heading and a file on
+disk to the implementation, so a program that opens an external file has *no
+answer the oracle could compare against* — and a divergence nobody can check is
+a divergence nobody should write. `file of T` is out for the same reason: its
+representation on disk is the implementation's too.
+
+**And two of the three bugs in it were the same bug.** `JUMP_IF_FALSE` is the
+only conditional jump the machine has, so *leave when this is true* has to be
+spelled *leave when its negation is false* — and `readln` written without the
+`not` stops at the first character that is **not** a line marker, which is the
+one it is standing on. The other was `c:indexOf(" \t\n\r")` where
+`" \t\n\r":indexOf(c)` was meant, so nothing was ever whitespace and the first
+token was the whole file.
+
+**Pointers made the `var` parameter grow up, and that is the finding of stage
+7.** A reference began as a one-element cell — `sola.sol`'s answer, and enough
+for BASIC, where the only thing that can be passed by reference is a whole
+variable. Pascal's `Insert(t^.left, k)` is the idiom a tree is built with, and
+the storage it names is *element two of the record `t` points at*. **No cell can
+alias that.** So a reference is a container and an index, which names either
+exactly — and a whole variable carries its pair from the moment it is declared,
+so passing one costs nothing at the call. The restriction stage 5 had written
+down as *stage 8* turned out to be a representation that was one case too
+narrow.
 
 ## Adding one
 

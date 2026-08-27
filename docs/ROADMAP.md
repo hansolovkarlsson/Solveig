@@ -513,6 +513,15 @@ so the multiplier is the *grammar* rather than the matcher — which is what
 [ideas.md](ideas.md#programs-that-would-press-on-something) predicted when it
 said a tree is what multiplies a measurement taken on a list.
 
+**A compiled Pascal reaches this exactly, which is the best result available.**
+[pascal.sol](../programs/pascal.sol) compiles ISO 7185 to `.sob`, and a
+recursive Pascal function manages **254 levels** — this entry's plain recursion
+limit, to the level. A Pascal call costs one frame and nothing else: no wrapper,
+no trampoline, no bookkeeping frame between it and an `OP_SEND`. Where
+`evaluator.sol` spends three frames per bracket and `check_syntax.sol` spent two
+per grammar rule, a compiler for a language that has procedures of its own can
+spend one — and this entry's number is then that language's number too.
+
 **A file somebody actually wrote reached it**, and that is what settled the
 question. `experiment/lexer.sol` holds a 24-level nested `ifElse` staircase, the
 deepest expression in this repository; `solas` compiles it and the checker ran

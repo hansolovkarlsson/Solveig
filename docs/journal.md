@@ -11,10 +11,14 @@ that a document was still true. That is what this is for.
 
 ---
 
-## 2026-08-27 (evening) — Pascal, and a claim that was wrong before it was checked
+## 2026-08-27 (Pascal) — eight stages, and a compiler that agrees with a real one
 
-Stage 1 of the Pascal compiler: it compiles, it runs, and five programs produce
-the same bytes as `fpc -Miso`.
+**A Pascal compiler, in eight stages, between 07:49 and 12:19.** What follows is
+the day in the order it happened; the postmortem for the whole of it is at the
+bottom.
+
+Stage 1 first: it compiles, it runs, and five programs produce the same bytes as
+`fpc -Miso`.
 
 **The oracle was installed before the compiler was started**, which is the
 reverse of SolaBasic, where it arrived at stage 7. It paid immediately — before
@@ -36,6 +40,46 @@ reverse of SolaBasic. ISO wants a non-negative remainder for a positive divisor,
 which is floored, and the machine floors. ISO wants division truncated toward
 nought, and the machine floors. Two languages wanting opposite things from one
 machine, and each getting one of them for nothing.
+
+### The verifier says one thing and means several
+
+Two mistakes both produced `bytecode is internally inconsistent` and nothing
+else. A jump offset measured from the wrong place — `OP_JUMP_IF_FALSE` is five
+bytes where `OP_JUMP` is three, because it carries the selector it was inlined
+from, and the C compiler's own `patch_jump` has a comment saying exactly that. A
+scratch slot handed out one past the end of the frame, because slots count from
+nought and I wrote the size.
+
+Both were found the same way: bisect a working program down to the construct
+that breaks. That is the only tool that message leaves, and it is enough — but
+it is worth noticing that the verifier knows which slot was out of range and
+does not say.
+
+**Stage 3 produced a third one**, and this time bisecting found nothing, because
+*every* procedure failed. The disassembler did: it reads a `.sob` without
+verifying it, and it showed the block's instructions correctly and every one of
+them at **line 0**. A method's line runs have to cover every byte of it, and I
+closed the top-level chunk's and not each method's. Three different mistakes,
+one message — and the useful lesson is that `disasm.sol` is the tool for this
+and not bisection, because it reads the file the verifier refused.
+
+### A claim written down before it was checked, and wrong
+
+The compiler's header said `fpc -Miso` diverges from the standard, answering
+`-1` for `-3 mod 2` where ISO requires a non-negative remainder. It came from
+reading the oracle's output on the first day and it was **wrong**. Pascal's sign
+belongs to the whole *term*, so `-3 mod 2` is `-(3 mod 2)`, and `-1` is correct
+in both. Asked with a variable holding `-3`, both answer `1`.
+
+**A compiler for a language whose grammar it has just read is exactly the place
+to misread precedence**, and being the author of the grammar file is no
+protection at all — it may be the opposite. The note stays in the header rather
+than being deleted, because the mistake is more instructive than the correction.
+
+That is the second time in two days a number or a claim went into a comment
+before it was measured. The first was two performance figures wrong by a factor
+of four. Nothing forces the guess; the check takes a minute; and a claim in a
+comment reads exactly like a checked one.
 
 ### Stage 2, and a type that is two things at once
 
@@ -62,6 +106,181 @@ and into the loop back. Spelled the way the sentence reads, the loop inverts:
 `repeat i := i + 1 until i >= 3` leaves `i` at 1. It printed `1` where `3` was
 expected and everything else in a twenty-line test was right, which is exactly
 the kind of wrong that a transcript catches and reading does not.
+
+### Stage 3, and the pass I did not want to add
+
+Procedures, functions, `var` parameters, recursion, `forward`. Thirteen programs
+agree with `fpc -Miso` where ten did.
+
+**The `var` parameter is where the single pass died.** The box is settled
+prior art — `sola.sol` says *by reference is a box, and the variable is the
+box* — and Pascal makes the callee's half trivial, because `var` is declared
+rather than inferred. The caller's half is not trivial at all: whether `g` needs
+boxing depends on whether *any* procedure anywhere passes it by reference, and
+the procedure that does may be declared after the one that reads it. By then the
+read is emitted.
+
+I looked at three answers. Box every variable: correct, simple, and an
+allocation plus two sends on every access in every program to buy a case most
+programs never use. Copy in and copy out: a different language the moment two
+parameters name one variable. Parse twice: the first pass fills the set, its
+output is thrown away, and the second emits with the answer in hand. The third
+is what `sola.sol` does in four passes and I had been quietly proud of not
+needing.
+
+**It cost about fifteen lines.** `compile` calls `parseOnce` twice. Everything
+else already reset itself between units, so there was nothing to unpick — which
+is a fact about stage 1 having been small, not about foresight.
+
+### Stage 4, and two predictions that held
+
+Nested procedures. This is the stage the design rested on and the one both
+predictions were written for, and there is not much of a story: it worked.
+
+A nested procedure is a block made inside its parent's activation, kept in a
+slot of that frame. `OP_BLOCK` captures the frame it was made in; `OP_OUTER
+depth slot` reads out along the lexical chain. That is a static link, and
+Pascal's scoping is static links. **Nothing was added to the machine**, which
+was prediction two.
+
+The part that felt like it should have been hard and was not: recursion of the
+*enclosing* procedure. Each activation of `Nest` makes its own `Show`, bound to
+its own frame, because the block is created by the parent's own code and not
+once at load time. `3 2 1 1 2 3` came out right the first time it ran.
+
+**And these are the first blocks this repository has ever produced that capture
+their home.** `sola.sol` says in its own comments that flag 2 would mean
+reaching out of its own frame *and nothing here ever does* — which is how the
+prediction was made. The disassembler now prints `captures` on four nested
+procedures and not on the two enclosing them, and a test asserts both halves.
+
+The one real mistake was mine and not the machine's: a leftover
+`entry:at(#3):equals('global)` from stage 3, where that field had become a
+*level* and `'global` a symbol it could never equal. It made a global passed by
+reference emit `LOCAL 0` — the reserved slot — so the callee dereferenced nil.
+Changing a representation and leaving one reader behind is the oldest mistake
+there is, and the thing that caught it was the oracle: thirteen programs had
+agreed the run before.
+
+### Stage 5, where the machine's one collection had to be two languages' worth
+
+Arrays and records, and they are the same thing underneath — a Solum array, with
+the compiler holding the difference. A field is an index it worked out; a
+subscript is the Pascal index less a lower bound it also worked out. That part
+was easy and stayed easy, including an array indexed by an enumeration, by a
+character range, and by `boolean`.
+
+**The two things that needed emitting rather than assuming were both about a
+Solum array being a reference.** Making one has to be a loop, because a size is
+a compile-time constant and a program may ask for a thousand — so the code grows
+with nesting and not with size. And assigning a whole one has to *copy*, as deep
+as the type goes, or two Pascal names would be one thing. Neither is difficult;
+both are the sort of thing a compiler gets wrong by not thinking about them, and
+the test that catches the second is three lines.
+
+**The designator is the part I would have got wrong without writing it down
+first.** A read leaves the value and a store stops one step short, leaving the
+container and the index — and knowing which is wanted before the last step is
+emitted is the only lookahead any of it needs. A whole variable with no
+selectors is a third case, because a store into one has no container at all.
+
+**Two mistakes, both caught by the oracle rather than by me.** `hi - lo` on a
+subrange of `char` asked a string for `sub` — the ends are held as characters,
+because that is what the source wrote and what a `case` label has to compare
+against. And `array [boolean]` wanted a boolean's ordinal, which on this machine
+is a jump; the index step now asks `emitOrd`, which was already written for
+`ord` and already handled all three cases. **The second is the better one: the
+code to do it right existed and I had written a narrower thing beside it.**
+
+### Sets, and the machine correcting a plan written before it
+
+Half of stage 6. `set of T`, the constructor, `in`, the three combining
+operations and the four comparisons; files are the other half and are next.
+
+**The plan was wrong and the machine said so in one line.** PASCAL.md, written
+before any compiler, said a set would be an array of integers with one bit per
+member — the obvious representation, and the one every Pascal uses. It meets
+ROADMAP 3.12: `1 shiftLeft 63` overflows, because SolVM's integers are signed
+and there is no unsigned type to borrow. A 64-bit word would have to be a
+63-bit word, or the top bit handled apart from the other 63 everywhere it is
+touched.
+
+Checking that took one four-line program and it was the first thing I did.
+**The plan was three days old and had never been executed**; a representation is
+exactly the kind of decision that reads as settled and is not.
+
+So: an array of booleans. Membership becomes one index, which is what a program
+writes most, and a `set of char` costs 256 booleans instead of four integers.
+Everything else was a loop either way, so the bits would have bought memory and
+nothing else — which is the part that made the trade easy once the shift had
+been tried.
+
+**The one real bug was `>=`.** `a >= b` is `b <= a`, so the operands are
+exchanged — and I exchanged the *names* before the stores, which meant the
+stores put them back. Three of the four comparisons were right and that one
+answered `<=`. The fix is a line moved rather than changed, which is the shape
+of mistake that survives reading.
+
+### Reading, and the difference between a gap and a decision
+
+The other half of stage 6. `read`, `readln`, `eof`, `eoln` — on standard input
+and nowhere else.
+
+**That last part took longer to decide than to build.** PASCAL.md had files down
+as a stage, and the obvious reading is that anything less is unfinished. But ISO
+leaves the binding between a name in a program heading and a file on disk to the
+implementation, and `file of T`'s representation on disk likewise — so a program
+that opens either has no answer `fpc` and this compiler could be *expected* to
+share. **A divergence nobody can check is a divergence nobody should write**,
+and the honest move was to name both in the document with that reason rather
+than build something the oracle would have to be told to ignore.
+
+Standard input is fully specified, and a program that filters text is what a
+Pascal program mostly is.
+
+**Three bugs, and two were the same one.** The machine's only conditional jump
+is `JUMP_IF_FALSE`, so *leave when this is true* has to be written as *leave when
+its negation is false*. Spelled the way the sentence reads, `readln` stops at the
+first character that is **not** a line marker — which is the one it is standing
+on — and then steps again, so everything after it is shifted by one character and
+the output looks nearly right. I have now made that mistake twice: `repeat` in
+stage 2 was the same shape.
+
+The third was better. `c:indexOf(" \t\n\r")` where `" \t\n\r":indexOf(c)` was
+meant — asking a one-character string whether it contains all four spaces, which
+is always no, so nothing was whitespace and the first token read was the whole
+file. **A send takes its receiver from the stack and reads like an argument list
+on the page.** That is the one place this language's *everything is a message*
+stops helping, and it will not be the last time I write the arguments in the
+order the sentence has them.
+
+### Pointers, and a representation one case too narrow
+
+Stage 7. Cells, `new`, `nil`, `dispose`, and a binary tree that inserts, walks
+in order and measures its own depth.
+
+**The whole stage is one finding, and it is about stage 3.** A `var` parameter
+has been a one-element cell since procedures arrived — `sola.sol`'s answer, and
+I took it because it was settled prior art. It is enough for BASIC, where the
+only thing that can be passed by reference is a whole variable.
+
+`Insert(t^.left, k)` is the first line of the first program anybody writes with
+pointers, and the storage it names is *element two of the record `t` points at*.
+**No cell can alias that.** Stage 5 had met the same wall from the array side
+and written it down as *stage 8: the box goes over, and an element has none* —
+which reads like a missing feature and was a representation one case too narrow.
+
+A reference is a container and an index now. It names a whole variable's cell,
+an array's element and a record's field with one shape, and a whole variable
+carries its pair from declaration, so passing one costs *nothing* at the call
+that it did not cost before.
+
+**What I nearly shipped instead was a hack.** The call site needs `array` pushed
+before the container and index, and I first emitted it, then removed three bytes
+again when the argument turned out to be a whole variable. It worked, and it
+depended on `emitGlobal` being exactly three bytes long. One line of lookahead —
+*is there a selector after this name* — replaced it. **Un-emitting is a sign the
+decision was taken in the wrong order**, not a technique.
 
 ### Stage 8, and a Pascal compiler that agrees with a real one
 
@@ -133,220 +352,14 @@ document written before any of it.
    **Both of those were written down as predictions before the stage that
    settled them**, which is the only reason either counts for anything.
 
-### Pointers, and a representation one case too narrow
-
-Stage 7. Cells, `new`, `nil`, `dispose`, and a binary tree that inserts, walks
-in order and measures its own depth.
-
-**The whole stage is one finding, and it is about stage 3.** A `var` parameter
-has been a one-element cell since procedures arrived — `sola.sol`'s answer, and
-I took it because it was settled prior art. It is enough for BASIC, where the
-only thing that can be passed by reference is a whole variable.
-
-`Insert(t^.left, k)` is the first line of the first program anybody writes with
-pointers, and the storage it names is *element two of the record `t` points at*.
-**No cell can alias that.** Stage 5 had met the same wall from the array side
-and written it down as *stage 8: the box goes over, and an element has none* —
-which reads like a missing feature and was a representation one case too narrow.
-
-A reference is a container and an index now. It names a whole variable's cell,
-an array's element and a record's field with one shape, and a whole variable
-carries its pair from declaration, so passing one costs *nothing* at the call
-that it did not cost before.
-
-**What I nearly shipped instead was a hack.** The call site needs `array` pushed
-before the container and index, and I first emitted it, then removed three bytes
-again when the argument turned out to be a whole variable. It worked, and it
-depended on `emitGlobal` being exactly three bytes long. One line of lookahead —
-*is there a selector after this name* — replaced it. **Un-emitting is a sign the
-decision was taken in the wrong order**, not a technique.
-
-### Reading, and the difference between a gap and a decision
-
-The other half of stage 6. `read`, `readln`, `eof`, `eoln` — on standard input
-and nowhere else.
-
-**That last part took longer to decide than to build.** PASCAL.md had files down
-as a stage, and the obvious reading is that anything less is unfinished. But ISO
-leaves the binding between a name in a program heading and a file on disk to the
-implementation, and `file of T`'s representation on disk likewise — so a program
-that opens either has no answer `fpc` and this compiler could be *expected* to
-share. **A divergence nobody can check is a divergence nobody should write**,
-and the honest move was to name both in the document with that reason rather
-than build something the oracle would have to be told to ignore.
-
-Standard input is fully specified, and a program that filters text is what a
-Pascal program mostly is.
-
-**Three bugs, and two were the same one.** The machine's only conditional jump
-is `JUMP_IF_FALSE`, so *leave when this is true* has to be written as *leave when
-its negation is false*. Spelled the way the sentence reads, `readln` stops at the
-first character that is **not** a line marker — which is the one it is standing
-on — and then steps again, so everything after it is shifted by one character and
-the output looks nearly right. I have now made that mistake twice: `repeat` in
-stage 2 was the same shape.
-
-The third was better. `c:indexOf(" \t\n\r")` where `" \t\n\r":indexOf(c)` was
-meant — asking a one-character string whether it contains all four spaces, which
-is always no, so nothing was whitespace and the first token read was the whole
-file. **A send takes its receiver from the stack and reads like an argument list
-on the page.** That is the one place this language's *everything is a message*
-stops helping, and it will not be the last time I write the arguments in the
-order the sentence has them.
-
-### Sets, and the machine correcting a plan written before it
-
-Half of stage 6. `set of T`, the constructor, `in`, the three combining
-operations and the four comparisons; files are the other half and are next.
-
-**The plan was wrong and the machine said so in one line.** PASCAL.md, written
-before any compiler, said a set would be an array of integers with one bit per
-member — the obvious representation, and the one every Pascal uses. It meets
-ROADMAP 3.12: `1 shiftLeft 63` overflows, because SolVM's integers are signed
-and there is no unsigned type to borrow. A 64-bit word would have to be a
-63-bit word, or the top bit handled apart from the other 63 everywhere it is
-touched.
-
-Checking that took one four-line program and it was the first thing I did.
-**The plan was three days old and had never been executed**; a representation is
-exactly the kind of decision that reads as settled and is not.
-
-So: an array of booleans. Membership becomes one index, which is what a program
-writes most, and a `set of char` costs 256 booleans instead of four integers.
-Everything else was a loop either way, so the bits would have bought memory and
-nothing else — which is the part that made the trade easy once the shift had
-been tried.
-
-**The one real bug was `>=`.** `a >= b` is `b <= a`, so the operands are
-exchanged — and I exchanged the *names* before the stores, which meant the
-stores put them back. Three of the four comparisons were right and that one
-answered `<=`. The fix is a line moved rather than changed, which is the shape
-of mistake that survives reading.
-
-### Stage 5, where the machine's one collection had to be two languages' worth
-
-Arrays and records, and they are the same thing underneath — a Solum array, with
-the compiler holding the difference. A field is an index it worked out; a
-subscript is the Pascal index less a lower bound it also worked out. That part
-was easy and stayed easy, including an array indexed by an enumeration, by a
-character range, and by `boolean`.
-
-**The two things that needed emitting rather than assuming were both about a
-Solum array being a reference.** Making one has to be a loop, because a size is
-a compile-time constant and a program may ask for a thousand — so the code grows
-with nesting and not with size. And assigning a whole one has to *copy*, as deep
-as the type goes, or two Pascal names would be one thing. Neither is difficult;
-both are the sort of thing a compiler gets wrong by not thinking about them, and
-the test that catches the second is three lines.
-
-**The designator is the part I would have got wrong without writing it down
-first.** A read leaves the value and a store stops one step short, leaving the
-container and the index — and knowing which is wanted before the last step is
-emitted is the only lookahead any of it needs. A whole variable with no
-selectors is a third case, because a store into one has no container at all.
-
-**Two mistakes, both caught by the oracle rather than by me.** `hi - lo` on a
-subrange of `char` asked a string for `sub` — the ends are held as characters,
-because that is what the source wrote and what a `case` label has to compare
-against. And `array [boolean]` wanted a boolean's ordinal, which on this machine
-is a jump; the index step now asks `emitOrd`, which was already written for
-`ord` and already handled all three cases. **The second is the better one: the
-code to do it right existed and I had written a narrower thing beside it.**
-
-### Stage 4, and two predictions that held
-
-Nested procedures. This is the stage the design rested on and the one both
-predictions were written for, and there is not much of a story: it worked.
-
-A nested procedure is a block made inside its parent's activation, kept in a
-slot of that frame. `OP_BLOCK` captures the frame it was made in; `OP_OUTER
-depth slot` reads out along the lexical chain. That is a static link, and
-Pascal's scoping is static links. **Nothing was added to the machine**, which
-was prediction two.
-
-The part that felt like it should have been hard and was not: recursion of the
-*enclosing* procedure. Each activation of `Nest` makes its own `Show`, bound to
-its own frame, because the block is created by the parent's own code and not
-once at load time. `3 2 1 1 2 3` came out right the first time it ran.
-
-**And these are the first blocks this repository has ever produced that capture
-their home.** `sola.sol` says in its own comments that flag 2 would mean
-reaching out of its own frame *and nothing here ever does* — which is how the
-prediction was made. The disassembler now prints `captures` on four nested
-procedures and not on the two enclosing them, and a test asserts both halves.
-
-The one real mistake was mine and not the machine's: a leftover
-`entry:at(#3):equals('global)` from stage 3, where that field had become a
-*level* and `'global` a symbol it could never equal. It made a global passed by
-reference emit `LOCAL 0` — the reserved slot — so the callee dereferenced nil.
-Changing a representation and leaving one reader behind is the oldest mistake
-there is, and the thing that caught it was the oracle: thirteen programs had
-agreed the run before.
-
-### Stage 3, and the pass I did not want to add
-
-Procedures, functions, `var` parameters, recursion, `forward`. Thirteen programs
-agree with `fpc -Miso` where ten did.
-
-**The `var` parameter is where the single pass died.** The box is settled
-prior art — `sola.sol` says *by reference is a box, and the variable is the
-box* — and Pascal makes the callee's half trivial, because `var` is declared
-rather than inferred. The caller's half is not trivial at all: whether `g` needs
-boxing depends on whether *any* procedure anywhere passes it by reference, and
-the procedure that does may be declared after the one that reads it. By then the
-read is emitted.
-
-I looked at three answers. Box every variable: correct, simple, and an
-allocation plus two sends on every access in every program to buy a case most
-programs never use. Copy in and copy out: a different language the moment two
-parameters name one variable. Parse twice: the first pass fills the set, its
-output is thrown away, and the second emits with the answer in hand. The third
-is what `sola.sol` does in four passes and I had been quietly proud of not
-needing.
-
-**It cost about fifteen lines.** `compile` calls `parseOnce` twice. Everything
-else already reset itself between units, so there was nothing to unpick — which
-is a fact about stage 1 having been small, not about foresight.
-
-### The verifier says one thing and means several
-
-Two mistakes both produced `bytecode is internally inconsistent` and nothing
-else. A jump offset measured from the wrong place — `OP_JUMP_IF_FALSE` is five
-bytes where `OP_JUMP` is three, because it carries the selector it was inlined
-from, and the C compiler's own `patch_jump` has a comment saying exactly that. A
-scratch slot handed out one past the end of the frame, because slots count from
-nought and I wrote the size.
-
-Both were found the same way: bisect a working program down to the construct
-that breaks. That is the only tool that message leaves, and it is enough — but
-it is worth noticing that the verifier knows which slot was out of range and
-does not say.
-
-**Stage 3 produced a third one**, and this time bisecting found nothing, because
-*every* procedure failed. The disassembler did: it reads a `.sob` without
-verifying it, and it showed the block's instructions correctly and every one of
-them at **line 0**. A method's line runs have to cover every byte of it, and I
-closed the top-level chunk's and not each method's. Three different mistakes,
-one message — and the useful lesson is that `disasm.sol` is the tool for this
-and not bisection, because it reads the file the verifier refused.
-
-### A claim written down before it was checked, and wrong
-
-The compiler's header said `fpc -Miso` diverges from the standard, answering
-`-1` for `-3 mod 2` where ISO requires a non-negative remainder. It came from
-reading the oracle's output on the first day and it was **wrong**. Pascal's sign
-belongs to the whole *term*, so `-3 mod 2` is `-(3 mod 2)`, and `-1` is correct
-in both. Asked with a variable holding `-3`, both answer `1`.
-
-**A compiler for a language whose grammar it has just read is exactly the place
-to misread precedence**, and being the author of the grammar file is no
-protection at all — it may be the opposite. The note stays in the header rather
-than being deleted, because the mistake is more instructive than the correction.
-
-That is the second time in two days a number or a claim went into a comment
-before it was measured. The first was two performance figures wrong by a factor
-of four. Nothing forces the guess; the check takes a minute; and a claim in a
-comment reads exactly like a checked one.
+8. **And the number that says it: 254.** A recursive Pascal function reaches
+   exactly the depth a plain Solum recursion does — so a Pascal call costs one
+   frame and nothing else, with no wrapper and no bookkeeping frame between it
+   and an `OP_SEND`. I had *predicted* "something like 250" and never measured
+   it, and it sat in `ideas.md` for a day looking like a fact. It was close by
+   luck. **The exact number says something the guess could not**: that the
+   compiler adds nothing at all, which is the strongest claim on any of these
+   pages and took one program and four minutes to earn.
 
 ## 2026-08-27 — a document that was already there
 

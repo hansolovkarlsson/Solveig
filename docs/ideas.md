@@ -2056,9 +2056,9 @@ tree-walker for a lexically nested language spends frames in proportion to the
 [3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels) would be met head
 on rather than dodged. That is the whole of its value, and it is a real one.
 
-#### It is being built, and as a compiler — so this prediction is wrong before it starts
+#### It was built, and as a compiler — so this prediction was wrong before it started
 
-**2026-08-27, written before the first line.** The decision is to compile Pascal
+**2026-08-27, written before the first line.** The decision was to compile Pascal
 to `.sob` rather than to interpret it, the way
 [sola.sol](../programs/sola.sol) does SolaBasic, and that **takes away the value
 this entry predicted**. A tree-walker spends three to six host frames per
@@ -2066,6 +2066,13 @@ interpreted call; a compiled call is one `OP_SEND` and one frame. So Pascal
 recursion would reach something like 250 levels rather than 40, and 3.5 is met
 *less* squarely than an interpreter would have met it. The entry's own reasoning
 still holds — it is the shape that changed, not the argument.
+
+**Measured when the compiler was finished: 254.** Which is the machine's plain
+recursion limit exactly, so a compiled Pascal call costs **one frame and not a
+byte more** — there is no wrapper, no trampoline and no bookkeeping frame
+between a Pascal call and an `OP_SEND`. The guess of "something like 250" was
+close by luck rather than by reasoning, and the exact number is the more useful
+fact: it says the compiler adds nothing, which is not what a guess can say.
 
 Recorded rather than quietly dropped, because a prediction that is falsified by
 a decision is still a prediction that paid: it is the reason anybody looked at
