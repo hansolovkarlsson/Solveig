@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### Pascal, stage 3: procedures, and the pass that had to be added — `pending`, 2026-08-27
+### Pascal, stage 3: procedures, and the pass that had to be added — `f6a76ec`, 2026-08-27
 
 **`procedure` and `function`, value and `var` parameters, recursion and
 `forward`.** **Thirteen programs now produce the same bytes as `fpc -Miso`**, up
