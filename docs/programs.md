@@ -1412,14 +1412,15 @@ by [oracle.sh](../programs/pas/oracle.sh).
     -3     3
 ```
 
-**Stages 1 to 5**, and [PASCAL.md](PASCAL.md) says what the other three are.
+**Stages 1 to 5 and half of 6**, and [PASCAL.md](PASCAL.md) says what is
+left.
 The `program` heading, `var`, `const`, `type`, assignment, expressions, `write`
 and `writeln` with field widths, `begin`/`end`, `if`, `while`, `repeat`, `for`
 in both directions, `case`, `goto` with labels, enumerations, subranges, and
 `ord`, `chr`, `succ`, `pred`, `odd`, `abs` and `sqr`; and `procedure`,
 `function`, value and `var` parameters, recursion, `forward`, nested procedures
-with uplevel access, and arrays, records and `with`. **Sixteen programs produce
-the same bytes as `fpc -Miso`.**
+with uplevel access, arrays, records, `with`, and sets. **Seventeen programs
+produce the same bytes as `fpc -Miso`.**
 
 **A type has two kinds, and that is most of stage 2.** `run` is what the machine
 is holding — an integer, a float, a one-character string, a boolean — and `kind`
@@ -1470,6 +1471,15 @@ wrong**: Pascal's sign belongs to the whole term, so `-3 mod 2` is `-(3 mod 2)`,
 and asked with a variable holding `-3` both answer `1`. A compiler for a
 language whose grammar it has just read is exactly the place to misread
 precedence.
+
+**A set is an array of booleans, and the plan said bit-words.** That plan met
+[3.12](ROADMAP.md#312-no-shift-can-produce-a-negative-integer): `1 shiftLeft 63`
+overflows, because SolVM's integers are signed and there is no unsigned type to
+borrow, so a 64-bit word would have to be a 63-bit word or have its top bit
+special-cased everywhere. A boolean each makes **membership one index** — the
+operation a program writes most — and costs a `set of char` 256 booleans rather
+than four integers. Everything else is a loop over the span either way, so the
+bits would have bought only memory.
 
 **An array and a record are the same thing at run time**, and the whole
 difference is what the compiler knows. Both are a Solum array; a record's field

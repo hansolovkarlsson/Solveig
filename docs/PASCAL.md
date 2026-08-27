@@ -66,7 +66,7 @@ the part the work actually is.
 | `array` | an array | Pascal indexes from any ordinal; the offset is folded in while compiling, so `a[lo]` costs no more than `a[1]` |
 | multi-dimensional | nested arrays | a row is a value, which is what `array [1..8] of vector` already means |
 | `record` | an array, with field offsets fixed while compiling | a field is an index and not a name, so it costs an `at`, not a lookup |
-| `set` | an array of integers, one bit per member | `set of char` is 256 bits; union, intersection and difference are `bitOr`, `bitAnd`, `bitXor` |
+| `set` | an array of **booleans**, one per member | membership is one index; union, intersection and difference are loops. Not bit-words — see below |
 | pointer | a one-element array | `new` makes one, `nil` is `nil`, and see the divergence about `dispose` |
 | `text` | a channel holding the whole file | what SolaBasic already does; there is no streaming underneath |
 | `file of T` | the same, as an array of values | stage 6 |
@@ -130,7 +130,7 @@ and under this compiler.
 | **3** — **done** | `procedure` and `function`, value and `var` parameters, recursion, `forward`. Thirteen programs in `agree/`. |
 | **4** — **done** | Nested procedures and uplevel access. The `OP_OUTER` prediction held: nothing was added to the machine. Fourteen programs in `agree/`. |
 | **5** — **done** | `array` with any ordinal index and any lower bound, multi-dimensional, `record`, `with`, and whole-array and whole-record assignment. Sixteen programs in `agree/`. |
-| **6** | `set`, and the file half: `text`, `read`, `readln`, `write`, `writeln`, `eof`, `eoln`, then `file of T`. |
+| **6** — sets **done**, files next | `set` with its constructor, `in`, union, intersection, difference and the four comparisons. Seventeen programs in `agree/`. Then `text`, `read`, `readln`, `eof`, `eoln`, and `file of T`. |
 | **7** | Pointers, `new`, `nil`, and linked structures. |
 | **8** | The standard's required procedures and functions in full, and whatever the oracle has been complaining about. |
 
@@ -170,6 +170,25 @@ division truncates toward nought and the machine's floors. Pascal's `and` and
 `or` are jumps rather than sends, the machine's own taking blocks. And a field
 width is a compile-time string, so a `write` needs no runtime formatter and no
 prelude — the other thing `sola.sol` needed and this does not.
+
+**Sets landed, and the plan above was wrong about them.** This page said *an
+array of integers, one bit per member*, and that meets
+[3.12](ROADMAP.md#312-no-shift-can-produce-a-negative-integer): `1 shiftLeft 63`
+overflows, SolVM's integers being signed with no unsigned type to borrow. A
+64-bit word would have to be a 63-bit word, or the top bit special-cased
+everywhere it is read or written.
+
+So a set is an array of **booleans**, one per member of its base type. That
+makes **membership one index**, which is the operation a program writes most,
+and costs a `set of char` 256 booleans rather than four integers. Everything
+else — union, intersection, difference, equality, subset — is a loop over the
+span either way.
+
+**A set literal has no type of its own**, so it takes one from where it stands:
+the variable it is assigned to, the set it is combined with, the value it is
+tested against, or the parameter it is passed to. Failing all of those it takes
+the type of its first member, and an integer member has no span, so it gets
+`0 .. 255` — which is `fpc`'s choice and is recorded as one.
 
 **Stage 5 landed the same day.** An array and a record are both a Solum array at
 run time and the whole difference is what the compiler knows: a field is an

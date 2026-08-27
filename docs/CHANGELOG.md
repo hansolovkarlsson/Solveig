@@ -5,6 +5,42 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Pascal, stage 6: sets, and a plan the machine corrected — `pending`, 2026-08-27
+
+**`set of T`, the constructor with ranges, `in`, union, intersection,
+difference, and the four comparisons.** **Seventeen programs now produce the
+same bytes as `fpc -Miso`.** Files are the other half of the stage.
+
+**[PASCAL.md](PASCAL.md) said a set would be an array of integers, one bit per
+member, and it was wrong.** That meets
+[3.12](ROADMAP.md#312-no-shift-can-produce-a-negative-integer): `1 shiftLeft 63`
+overflows, SolVM's integers being signed with no unsigned type to borrow. A
+64-bit word would have to be a 63-bit word, or the top bit special-cased
+everywhere it is read or written.
+
+**So a set is an array of booleans**, one per member of its base type. That makes
+**membership one index**, which is the operation a program writes most, and costs
+a `set of char` 256 booleans rather than four integers. Union, intersection,
+difference, equality and subset are loops over the span either way — the bits
+would have bought memory and nothing else. The page now says so, and says why.
+
+**Every combining operation is a jump inside a loop**, because the machine's own
+`and` and `or` take blocks: union is *this or that*, intersection *this and
+that*, difference *this and not that*, and each is the same four instructions
+with two swapped. Comparison accumulates `res := res and ...`, which
+short-circuits, so a set that differs early stops being examined.
+
+**A set literal has no type of its own** and takes one from where it stands: the
+variable it is assigned to, the set it is combined with, the value it is tested
+against, or the parameter it is passed to. Failing all of those, from its first
+member — and an integer member has no span, so it gets `0 .. 255`, which is
+`fpc`'s choice and is recorded as one.
+
+**One bug worth the name.** `a >= b` is `b <= a`, and the two operands were
+exchanged *before* they were stored rather than after — so the stores put them
+back and `>=` answered `<=`. It was the only one of the four comparisons that
+was wrong, and the only one where the fix is a line moved rather than changed.
+
 ### Pascal, stage 5: arrays, records and `with` — `30db427`, 2026-08-27
 
 **Arrays with any ordinal index and any lower bound, more than one dimension,

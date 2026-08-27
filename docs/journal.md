@@ -63,6 +63,35 @@ and into the loop back. Spelled the way the sentence reads, the loop inverts:
 expected and everything else in a twenty-line test was right, which is exactly
 the kind of wrong that a transcript catches and reading does not.
 
+### Sets, and the machine correcting a plan written before it
+
+Half of stage 6. `set of T`, the constructor, `in`, the three combining
+operations and the four comparisons; files are the other half and are next.
+
+**The plan was wrong and the machine said so in one line.** PASCAL.md, written
+before any compiler, said a set would be an array of integers with one bit per
+member — the obvious representation, and the one every Pascal uses. It meets
+ROADMAP 3.12: `1 shiftLeft 63` overflows, because SolVM's integers are signed
+and there is no unsigned type to borrow. A 64-bit word would have to be a
+63-bit word, or the top bit handled apart from the other 63 everywhere it is
+touched.
+
+Checking that took one four-line program and it was the first thing I did.
+**The plan was three days old and had never been executed**; a representation is
+exactly the kind of decision that reads as settled and is not.
+
+So: an array of booleans. Membership becomes one index, which is what a program
+writes most, and a `set of char` costs 256 booleans instead of four integers.
+Everything else was a loop either way, so the bits would have bought memory and
+nothing else — which is the part that made the trade easy once the shift had
+been tried.
+
+**The one real bug was `>=`.** `a >= b` is `b <= a`, so the operands are
+exchanged — and I exchanged the *names* before the stores, which meant the
+stores put them back. Three of the four comparisons were right and that one
+answered `<=`. The fix is a line moved rather than changed, which is the shape
+of mistake that survives reading.
+
 ### Stage 5, where the machine's one collection had to be two languages' worth
 
 Arrays and records, and they are the same thing underneath — a Solum array, with

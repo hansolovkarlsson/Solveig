@@ -401,7 +401,8 @@ tText    := makeType:value('text,    'text,    "string").
 ; index worked out while compiling, so it costs an `at` and not a lookup; an
 ; array's subscript is the Pascal index less its lower bound, folded in the same
 ; way. Neither is a dictionary and neither carries its shape at run time.
-isStructured := { t | t:kind:equals('array):or({ t:kind:equals('record) }) }.
+isStructured := { t | t:kind:equals('array):or({ t:kind:equals('record) })
+    :or({ t:kind:equals('set) }) }.
 
 ; The ordinal a bound stands for. A char subrange holds its ends as characters,
 ; because that is what the source wrote and what a `case` label compares
@@ -735,6 +736,193 @@ pas:emitStoreVar := { name, entry | | tmp |
     nil }.
 
 ; ---------------------------------------------------------------------------
+; Sets
+;
+; Every one of these is a loop over the base type's whole span, because that is
+; what a set of booleans is. **Membership is the exception and the reason for
+; the representation**: `x in s` is one `at`, and it is the operation a program
+; writes most.
+
+pas:setHint := nil.
+
+pas:setAt := { slot, i |
+    self:emitLocal(slot). self:emitLocal(i).
+    self:emitInt(#1). self:emitSend("add", #1).
+    self:emitSend("at", #1).
+    nil }.
+
+; `a`, `b` and a fresh array, filled one element at a time. The three operations
+; differ only in the two instructions that combine one pair -- and each of those
+; is a jump, the machine's own `and` and `or` taking blocks.
+pas:emitSetOp := { t, which | | a, b, res, i, top, over, l1, l2 |
+    self:scratchDepth := self:scratchDepth:add(#6).
+    b := self:scratchSlot(#1). a := self:scratchSlot(#2).
+    res := self:scratchSlot(#3). i := self:scratchSlot(#4).
+
+    self:emitSetLocal(b). self:emitPop.
+    self:emitSetLocal(a). self:emitPop.
+    self:emitGlobal("array"). self:emitSend("new", #0).
+    self:emitSetLocal(res). self:emitPop.
+    self:emitInt(#0). self:emitSetLocal(i). self:emitPop.
+
+    top := self:here.
+    self:emitLocal(i). self:emitInt(t:count). self:emitSend("lessThan", #1).
+    over := self:emitJumpFalse("set").
+
+    self:emitLocal(res).
+    self:setAt(a, i).
+    l1 := self:emitJumpFalse("set").
+    which:equals('union):ifElse({ self:emitBool(true) },
+        { self:setAt(b, i).
+          which:equals('difference):ifTrue({ self:emitSend("not", #0) }) }).
+    l2 := self:emitJump.
+    self:patch(l1).
+    which:equals('union):ifElse({ self:setAt(b, i) }, { self:emitBool(false) }).
+    self:patch(l2).
+    self:emitSend("add", #1). self:emitPop.
+
+    self:emitLocal(i). self:emitInt(#1). self:emitSend("add", #1).
+    self:emitSetLocal(i). self:emitPop.
+    self:emitLoop(top).
+    self:patch(over).
+
+    self:emitLocal(res).
+    self:scratchDepth := self:scratchDepth:sub(#6).
+    nil }.
+
+; `res := res and <this pair agrees>`, which short-circuits: once it is false
+; nothing further is computed, and the accumulator is what the loop answers.
+pas:emitSetCompare := { t, which | | a, b, res, i, top, over, skip, l1, l2 |
+    self:scratchDepth := self:scratchDepth:add(#6).
+    b := self:scratchSlot(#1). a := self:scratchSlot(#2).
+    res := self:scratchSlot(#3). i := self:scratchSlot(#4).
+
+    ; The right operand is on top, so it is stored first.
+    self:emitSetLocal(b). self:emitPop.
+    self:emitSetLocal(a). self:emitPop.
+
+    ; **After the stores, not before.** `a >= b` is `b <= a`, so the two are
+    ; exchanged -- and exchanging the names first only makes the stores put them
+    ; back, which is what it did.
+    which:equals('superset):ifTrue({ | swap | swap := a. a := b. b := swap }).
+    self:emitBool(true). self:emitSetLocal(res). self:emitPop.
+    self:emitInt(#0). self:emitSetLocal(i). self:emitPop.
+
+    top := self:here.
+    self:emitLocal(i). self:emitInt(t:count). self:emitSend("lessThan", #1).
+    over := self:emitJumpFalse("set").
+
+    self:emitLocal(res).
+    skip := self:emitJumpFalse("set").
+
+    which:equals('equal):ifElse({
+        self:setAt(a, i). self:setAt(b, i). self:emitSend("equals", #1) },
+
+      ; `a <= b` is *for every member of a, b has it too*, which is
+      ; `(not a[i]) or b[i]` -- and the `or` is a jump like every other.
+      { self:setAt(a, i).
+        l1 := self:emitJumpFalse("set").
+        self:setAt(b, i).
+        l2 := self:emitJump.
+        self:patch(l1).
+        self:emitBool(true).
+        self:patch(l2) }).
+    self:emitSetLocal(res). self:emitPop.
+    self:patch(skip).
+
+    self:emitLocal(i). self:emitInt(#1). self:emitSend("add", #1).
+    self:emitSetLocal(i). self:emitPop.
+    self:emitLoop(top).
+    self:patch(over).
+
+    self:emitLocal(res).
+    self:scratchDepth := self:scratchDepth:sub(#6).
+    nil }.
+
+; **A set literal has no type of its own**, so it takes one from where it
+; stands: the variable it is assigned to, the set it is combined with, or the
+; value it is tested against. Failing all of those, from its first member --
+; and an integer member has no span, so it gets `0 .. 255`, which is `fpc`'s
+; choice and recorded as one.
+pas:setTypeFor := { base | | t |
+    t := makeType:value('set, 'set, "set of {}":fill([self:typeName(base)])).
+    t:base := base.
+    t:lo := originOf:value(base).
+    t:count := spanOf:value(base).
+    t:count:isNil:ifTrue({ t:lo := #0. t:count := #256 }).
+    t }.
+
+pas:emitSetIndex := { t | | it |
+    it := self:expression.
+    sameType:value(it, t:base):ifFalse({
+        self:fail("this set holds {} and that is a {}"
+            :fill([self:typeName(t:base), self:typeName(it)])) }).
+    self:emitOrd(it).
+    t:lo:equals(#0):ifFalse({ self:emitInt(t:lo). self:emitSend("sub", #1) }).
+    nil }.
+
+pas:setConstructor := { | t, slot, more, lo2, hi2, i, top, over |
+    t := self:setHint.
+    self:setHint := nil.
+
+    self:scratchDepth := self:scratchDepth:add(#6).
+    slot := self:scratchSlot(#5).
+
+    self:isPunct("]"):ifElse({
+        self:next.
+        t:isNil:ifTrue({
+            self:fail("the type of an empty set cannot be told from here") }).
+        self:emitZeroOf(t).
+        self:emitSetLocal(slot). self:emitPop },
+
+      { ; The first member settles the type when nothing else has.
+        t:isNil:ifTrue({ | probe |
+            probe := self:pass. nil }).
+        t:isNil:ifTrue({
+            self:fail("the type of this set cannot be told from here -- assign it to a set variable") }).
+        self:emitZeroOf(t).
+        self:emitSetLocal(slot). self:emitPop.
+
+        more := true.
+        { more }:whileTrue({
+            self:emitSetIndex(t).
+            self:acceptPunct(".."):ifElse({
+                ; A range: both ends into slots, then a loop between them.
+                lo2 := self:scratchSlot(#1).
+                hi2 := self:scratchSlot(#2).
+                i := self:scratchSlot(#3).
+                self:emitSetLocal(lo2). self:emitPop.
+                self:emitSetIndex(t).
+                self:emitSetLocal(hi2). self:emitPop.
+                self:emitLocal(lo2). self:emitSetLocal(i). self:emitPop.
+                top := self:here.
+                self:emitLocal(i). self:emitLocal(hi2).
+                self:emitSend("lessOrEqual", #1).
+                over := self:emitJumpFalse("set").
+                self:emitLocal(slot). self:emitLocal(i).
+                self:emitInt(#1). self:emitSend("add", #1).
+                self:emitBool(true). self:emitSend("atPut", #2). self:emitPop.
+                self:emitLocal(i). self:emitInt(#1). self:emitSend("add", #1).
+                self:emitSetLocal(i). self:emitPop.
+                self:emitLoop(top).
+                self:patch(over) },
+
+              { ; One member: the index is on the stack already.
+                self:scratchDepth := self:scratchDepth:add(#2).
+                lo2 := self:scratchSlot(#1).
+                self:emitSetLocal(lo2). self:emitPop.
+                self:emitLocal(slot).
+                self:emitLocal(lo2). self:emitInt(#1). self:emitSend("add", #1).
+                self:emitBool(true). self:emitSend("atPut", #2). self:emitPop.
+                self:scratchDepth := self:scratchDepth:sub(#2) }).
+            more := self:acceptPunct(",") }).
+        self:expectPunct("]") }).
+
+    self:emitLocal(slot).
+    self:scratchDepth := self:scratchDepth:sub(#6).
+    t }.
+
+; ---------------------------------------------------------------------------
 ; Designators
 ;
 ; `a[i]`, `r.f`, and any run of the two. **A read leaves the value; a store
@@ -850,6 +1038,8 @@ pas:factor := { | t, name, v, over, pair, found |
         v := self:text. self:next.
         self:emitString(v).
         v:size:equals(#1):ifElse({ tChar }, { tText }) },
+    { self:acceptPunct("["):ifElse({ self:setConstructor },
+
     { self:acceptPunct("("):ifElse({
         t := self:expression.
         self:expectPunct(")").
@@ -883,7 +1073,7 @@ pas:factor := { | t, name, v, over, pair, found |
             self:emitValue(pair:at(#1), pair:at(#2)).
             pair:at(#1) }) }) }) },
 
-      { self:fail("expected a value and found '{}'":fill([self:text])) }) }) }) }) }) }) }.
+      { self:fail("expected a value and found '{}'":fill([self:text])) }) }) }) }) }) }) }) }.
 
 ; `div` truncates toward nought where the machine floors, so it is compiled
 ; through `abs` and a sign rather than emitted as one send. See the header.
@@ -926,7 +1116,8 @@ pas:term := { | left, op, right, over, past |
             self:patch(past).
             left := tBoolean },
 
-        { right := self:factor.
+        { left:kind:equals('set):ifTrue({ self:setHint := left }).
+          right := self:factor.
           op:equals("/"):ifElse({
               isNumeric:value(left):and({ isNumeric:value(right) }):ifFalse({
                   self:fail("'/' wants numbers") }).
@@ -943,14 +1134,18 @@ pas:term := { | left, op, right, over, past |
                   { self:emitSend("mod", #1) }).
               left := tInteger },
 
-            { isNumeric:value(left):and({ isNumeric:value(right) }):ifFalse({
+            { left:kind:equals('set):ifTrue({
+                  self:wantSame(left, right, "*").
+                  self:emitSetOp(left, 'intersection) }).
+              left:kind:equals('set):ifFalse({
+              isNumeric:value(left):and({ isNumeric:value(right) }):ifFalse({
                   self:fail("'*' wants numbers") }).
               left:run:equals('real):or({ right:run:equals('real) }):ifElse({
                   self:toReal(right).
                   left:run:equals('integer):ifTrue({ self:widenUnder }).
                   self:emitSend("mul", #1).
                   left := tReal },
-                { self:emitSend("mul", #1). left := tInteger }) }) }) }) }).
+                { self:emitSend("mul", #1). left := tInteger }) }) }) }) }) }).
     self:scratchDepth := self:scratchDepth:sub(#2).
     left }.
 
@@ -982,23 +1177,67 @@ pas:simpleExpression := { | left, op, right, negate, past, skip |
             self:patch(skip).
             left := tBoolean },
 
-        { right := self:term.
-          isNumeric:value(left):and({ isNumeric:value(right) }):ifFalse({
-              self:fail("'{}' wants numbers":fill([op])) }).
-          left:run:equals('real):or({ right:run:equals('real) }):ifElse({
-              self:toReal(right).
-              left:run:equals('integer):ifTrue({ self:widenUnder }).
-              left := tReal },
-            { left := tInteger }).
-          self:emitSend(op:equals("+"):ifElse({ "add" }, { "sub" }), #1) }) }).
+        { left:kind:equals('set):ifTrue({ self:setHint := left }).
+          right := self:term.
+
+          left:kind:equals('set):ifElse({
+              self:wantSame(left, right, op).
+              self:emitSetOp(left, op:equals("+"):ifElse({ 'union },
+                                                        { 'difference })) },
+
+            { isNumeric:value(left):and({ isNumeric:value(right) }):ifFalse({
+                  self:fail("'{}' wants numbers":fill([op])) }).
+              left:run:equals('real):or({ right:run:equals('real) }):ifElse({
+                  self:toReal(right).
+                  left:run:equals('integer):ifTrue({ self:widenUnder }).
+                  left := tReal },
+                { left := tInteger }).
+              self:emitSend(op:equals("+"):ifElse({ "add" }, { "sub" }), #1) }) }) }).
     left }.
 
-pas:expression := { | left, op, right |
+pas:expression := { | left, op, right, xs |
     left := self:simpleExpression.
+
+    ; `x in s` is one `at`, which is the whole case for a set being an array of
+    ; booleans. The member is put aside first because the set has to be the
+    ; receiver and it arrives second.
+    self:isName("in"):ifTrue({
+        self:next.
+        self:scratchDepth := self:scratchDepth:add(#2).
+        xs := self:scratchSlot(#1).
+        self:emitSetLocal(xs). self:emitPop.
+        self:setHint := self:setTypeFor(rootOf:value(left)).
+        right := self:simpleExpression.
+        right:kind:equals('set):ifFalse({
+            self:fail("'in' wants a set on the right") }).
+        sameType:value(left, right:base):ifFalse({
+            self:fail("this set holds {} and that is a {}"
+                :fill([self:typeName(right:base), self:typeName(left)])) }).
+        self:emitLocal(xs).
+        self:emitOrd(left).
+        right:lo:equals(#0):ifFalse({
+            self:emitInt(right:lo). self:emitSend("sub", #1) }).
+        self:emitInt(#1). self:emitSend("add", #1).
+        self:emitSend("at", #1).
+        self:scratchDepth := self:scratchDepth:sub(#2).
+        left := tBoolean }).
+
     self:kind:equals('punct):and({ self:relOps:includes(self:text) }):ifTrue({
         op := self:text. self:next.
+        left:kind:equals('set):ifTrue({ self:setHint := left }).
         right := self:simpleExpression.
 
+        left:kind:equals('set):ifTrue({
+            self:wantSame(left, right, op).
+            op:equals("="):or({ op:equals("<>") }):ifTrue({
+                self:emitSetCompare(left, 'equal).
+                op:equals("<>"):ifTrue({ self:emitSend("not", #0) }) }).
+            op:equals("<="):ifTrue({ self:emitSetCompare(left, 'subset) }).
+            op:equals(">="):ifTrue({ self:emitSetCompare(left, 'superset) }).
+            op:equals("<"):or({ op:equals(">") }):ifTrue({
+                self:fail("sets compare with =, <>, <= and >=") }) }).
+
+        left:kind:equals('set):ifFalse({
         isNumeric:value(left):and({ isNumeric:value(right) }):ifElse({
             left:run:equals('real):or({ right:run:equals('real) }):ifTrue({
                 self:toReal(right).
@@ -1008,7 +1247,7 @@ pas:expression := { | left, op, right |
                 :not }):ifTrue({
                 self:fail("booleans compare with '=' and '<>' in this stage") }) }).
 
-        self:emitSend(self:relOps:at(op), #1).
+        self:emitSend(self:relOps:at(op), #1) }).
         left := tBoolean }).
     left }.
 
@@ -1377,6 +1616,7 @@ pas:assignTo := { name | | res, mode, want, got |
     res := self:designator(name, true).
     mode := res:at(#1). want := res:at(#2).
     self:expectPunct(":=").
+    want:kind:equals('set):ifTrue({ self:setHint := want }).
     got := self:expression.
     want:run:equals('real):and({ got:run:equals('integer) }):ifTrue({
         self:toReal(got). got := tReal }).
@@ -1391,6 +1631,7 @@ pas:assignTo := { name | | res, mode, want, got |
 
 pas:assignInto := { target, name | | want, got |
     want := target:at(#2).
+    want:kind:equals('set):ifTrue({ self:setHint := want }).
     got := self:expression.
     want:run:equals('real):and({ got:run:equals('integer) }):ifTrue({
         self:toReal(got). got := tReal }).
@@ -1457,7 +1698,10 @@ pas:emitArrayOf := { count, body | | a, i, top, over |
     nil }.
 
 pas:emitZeroOf := { t |
-    t:kind:equals('array):ifElse({
+    t:kind:equals('set):ifElse({
+        self:emitArrayOf(t:count, { self:emitBool(false) }) },
+
+    { t:kind:equals('array):ifElse({
         self:emitArrayOf(t:count, { self:emitZeroOf(t:elem) }) },
 
     { t:kind:equals('record):ifElse({
@@ -1469,7 +1713,7 @@ pas:emitZeroOf := { t |
         t:run:equals('real):ifTrue({ self:emitReal(0.0) }).
         t:run:equals('char):ifTrue({ self:emitString(" ") }).
         t:run:equals('boolean):ifTrue({ self:emitBool(false) }).
-        t:run:equals('text):ifTrue({ self:emitString("") }) }) }).
+        t:run:equals('text):ifTrue({ self:emitString("") }) }) }) }).
     nil }.
 
 ; **Assigning a whole array or record copies it**, which the standard says and
@@ -1494,7 +1738,11 @@ pas:emitCopyOf := { t | | src, a, i, top, over |
                 self:emitCopyOf(f:at(#2)) }).
             self:emitSend("of", t:fields:size) },
 
-          { a := self:scratchSlot(#1).
+          { ; A set's members are booleans, so its copy is shallow by nature --
+            ; the loop below reaches for `elem`, which a set has not got, so it
+            ; is told to copy nothing.
+            t:kind:equals('set):ifTrue({ t := t }).
+            a := self:scratchSlot(#1).
             i := self:scratchSlot(#2).
             self:emitGlobal("array"). self:emitSend("new", #0).
             self:emitSetLocal(a). self:emitPop.
@@ -1505,7 +1753,7 @@ pas:emitCopyOf := { t | | src, a, i, top, over |
             self:emitLocal(a).
             self:emitLocal(src). self:emitLocal(i). self:emitInt(#1).
             self:emitSend("add", #1). self:emitSend("at", #1).
-            self:emitCopyOf(t:elem).
+            t:elem:notNil:ifTrue({ self:emitCopyOf(t:elem) }).
             self:emitSend("add", #1). self:emitPop.
             self:emitLocal(i). self:emitInt(#1). self:emitSend("add", #1).
             self:emitSetLocal(i). self:emitPop.
@@ -1516,6 +1764,27 @@ pas:emitCopyOf := { t | | src, a, i, top, over |
     nil }.
 
 pas:typeDenoter := { | members, t, lo, hi, i, elem, indices, fields, offset, names |
+    ; **A set is an array of booleans, one per member of its base type**, and
+    ; not the array of bit-words this was planned as. The plan met
+    ; [3.12](../docs/ROADMAP.md#312-no-shift-can-produce-a-negative-integer):
+    ; `1 shiftLeft 63` overflows, because SolVM's integers are signed and there
+    ; is no unsigned type to borrow -- so a 64-bit word would have to be a
+    ; 63-bit word, or the top bit special-cased everywhere.
+    ;
+    ; A boolean each makes **membership one `at`**, which is the operation a
+    ; program does most, and costs a `set of char` 256 booleans rather than four
+    ; integers. That is the trade, taken deliberately.
+    self:accept("set"):ifTrue({
+        self:expect("of").
+        t := self:typeDenoter.
+        isOrdinal:value(t):and({ spanOf:value(t):notNil }):ifFalse({
+            self:fail("a set is of an ordinal with known bounds") }).
+        elem := makeType:value('set, 'set, "set of {}":fill([self:typeName(t)])).
+        elem:base := t.
+        elem:lo := originOf:value(t).
+        elem:count := spanOf:value(t).
+        nil }).
+
     self:accept("array"):ifTrue({
         self:expectPunct("[").
         indices := array:new.
@@ -1999,7 +2268,8 @@ pas:callRoutine := { name, asFunction | | sig, params, result, i, argName, entry
                 ; dereference that `emitReadVar` adds.
                 self:emitAccess(argName, entry, false) },
 
-              { got := self:expression.
+              { p:at(#2):kind:equals('set):ifTrue({ self:setHint := p:at(#2) }).
+                got := self:expression.
                 p:at(#2):run:equals('real):and({ got:run:equals('integer) }):ifTrue({
                     self:toReal(got). got := tReal }).
                 sameType:value(got, p:at(#2)):ifFalse({
