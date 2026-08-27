@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### A cheatsheet for SolaBasic, and the keyword the reference had lost — `pending`, 2026-08-27
+### A cheatsheet for SolaBasic, and the keyword the reference had lost — `bc784e2`, 2026-08-27
 
 **[SOLABASIC-CHEATSHEET.md](SOLABASIC-CHEATSHEET.md)**: every statement and
 every supplied function of the dialect on one page, in the shape
