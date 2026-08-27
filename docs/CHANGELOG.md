@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### GRAMMAR.md is held against the grammar it says it is — `pending`, 2026-08-27
+### GRAMMAR.md is held against the grammar it says it is — `70ca3a9`, 2026-08-27
 
 **[GRAMMAR.md](GRAMMAR.md) opens by saying it is the same grammar as
 [solum.bnf](../programs/check_syntax/solum.bnf) "in a form a machine reads", and
