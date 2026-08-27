@@ -1174,6 +1174,82 @@ static void test_check_syntax_reads_solum_itself(void)
 }
 
 /* ------------------------------------------------------------------------
+ * pascal: ISO 7185, compiled to bytecode
+ *
+ * programs/pascal.sol is the second compiler here, and the first with a real
+ * one to disagree with. What is checked here is the file it writes -- each
+ * program is compiled, then run by solvm with nothing of the compiler present,
+ * and its output compared against a recorded transcript byte for byte.
+ *
+ * **Those transcripts are what `fpc -Miso` produced.** They are recorded so
+ * that `make test` needs no Pascal installed, and programs/pas/oracle.sh
+ * re-establishes them against a real compiler on demand -- the same division
+ * sola.sol keeps, and for the same reason: a transcript checks what its author
+ * thought to check, and the oracle is the only thing that can find what nobody
+ * did.
+ *
+ * The programs are chosen for what the machine does not have. ISO's `div`
+ * truncates toward nought where SolVM's floors; its `mod` is non-negative for
+ * a positive divisor, which SolVM's already is; and `and` and `or` are jumps
+ * here because the machine's own take blocks. */
+static void test_pascal_compiles_a_program_that_runs(void)
+{
+    char out[8192];
+
+    assert(run("bin/solas programs/pascal.sol -o " DIR "/pascal.sob 2>&1",
+               out, sizeof out) == 0);
+
+    static const char *programs[] = { "arith", "control", "logic",
+                                      "reals", "writes" };
+    for (size_t i = 0; i < sizeof programs / sizeof programs[0]; i++) {
+        char command[512], expected_path[512];
+
+        snprintf(command, sizeof command,
+                 "bin/solvm " DIR "/pascal.sob programs/pas/oracle/agree/%s.pas "
+                 DIR "/%s.sob >/dev/null 2>&1", programs[i], programs[i]);
+        assert(run(command, out, sizeof out) == 0);
+
+        snprintf(command, sizeof command,
+                 "bin/solvm " DIR "/%s.sob 2>&1", programs[i]);
+        assert(run(command, out, sizeof out) == 0);
+
+        snprintf(expected_path, sizeof expected_path,
+                 "programs/pas/oracle/agree/%s.out", programs[i]);
+        char *expected = slurp_file(expected_path);
+        if (strcmp(out, expected) != 0) {
+            printf("\n%s.pas printed\n%s\nand %s.out records\n%s\n",
+                   programs[i], out, programs[i], expected);
+            assert(false);
+        }
+        free(expected);
+    }
+
+    /* A type error is refused by name and before anything runs. Solum has no
+       implicit conversion, so a compiler for a language that has one cannot
+       avoid knowing every expression's type -- which is the difference between
+       this and sola.sol, where everything is a Double. */
+    system("printf 'program T(output);\\nvar i : integer;\\nbegin i := 1.5 end.\\n'"
+           " > " DIR "/bad.pas");
+    assert(run("bin/solvm " DIR "/pascal.sob " DIR "/bad.pas " DIR "/bad.sob 2>&1",
+               out, sizeof out) != 0);
+    assert(strstr(out, "'i' is a integer and this is a real") != NULL);
+
+    system("printf 'program T(output);\\nbegin writeln(1 div 1.5) end.\\n'"
+           " > " DIR "/bad2.pas");
+    assert(run("bin/solvm " DIR "/pascal.sob " DIR "/bad2.pas " DIR "/bad2.sob 2>&1",
+               out, sizeof out) != 0);
+    assert(strstr(out, "'div' wants integers") != NULL);
+
+    /* And with no arguments it compiles a Pascal program it carries and runs
+       it, which is this directory's rule for every program in it. */
+    assert(run("bin/solvm " DIR "/pascal.sob 2>&1", out, sizeof out) == 0);
+    assert(strstr(out, "sum of the first ten squares:   385") != NULL);
+    assert(strstr(out, "over three hundred") != NULL);
+
+    printf("  5 Pascal programs compile, run, and match what fpc -Miso printed\n");
+}
+
+/* ------------------------------------------------------------------------
  * sola: a compiler rather than an interpreter
  *
  * programs/sola.sol turns SolaBasic into a .sob, and what is checked here is
@@ -1479,6 +1555,7 @@ int main(void)
     test_sola_compiles_a_program_that_runs();
     test_check_syntax_reads_a_grammar_and_a_file();
     test_check_syntax_reads_solum_itself();
+    test_pascal_compiles_a_program_that_runs();
     test_the_editor_draws_what_it_recorded();
     test_the_editor_does_what_the_keys_say();
     printf("test_cli: ok\n");

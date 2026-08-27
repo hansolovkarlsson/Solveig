@@ -1,6 +1,6 @@
 # The programs
 
-*The fourteen<!--count programs--> files in [programs/](../programs/): what each one does, how to run
+*The fifteen<!--count programs--> files in [programs/](../programs/): what each one does, how to run
 it, and what it found. [examples/](../examples/) is the other directory — one
 file per concept the [guide](GUIDE.md) names, each written to show a feature.
 These were written to do a job.*
@@ -16,9 +16,9 @@ That distinction is the reason for the split, and it is not cosmetic. **A
 program written to show a feature is written after the feature and to suit it,
 so it can never report that the feature was awkward.** These can, and did:
 nearly every entry the [roadmap](ROADMAP.md) gained after the first dozen came
-from one of these fourteen wanting something the language did not have.
+from one of these fifteen wanting something the language did not have.
 
-**What this page is not is a description of what Solum is for.** These fourteen lean
+**What this page is not is a description of what Solum is for.** These fifteen lean
 towards text and processes because they are the tools this project needed while
 building itself, and the language is meant to be general —
 [design.md](design.md#what-the-language-is-for) says so, and says what happened
@@ -45,6 +45,7 @@ is the map; the file is the argument.
 | [edit](../programs/edit.sol) | edits a file on the screen, in the manner of vi | `solvm edit.sob [file]` |
 | [sola](../programs/sola.sol) | compiles SolaBasic to a `.sob` | `solvm sola.sob [prog.bas] [out.sob]` |
 | [check_syntax](../programs/check_syntax.sol) | reads a grammar, then checks a file against it | `solvm check_syntax.sob [grammar.bnf] [source]` |
+| [pascal](../programs/pascal.sol) | compiles ISO 7185 Pascal to a `.sob` | `solvm pascal.sob [prog.pas] [out.sob]` |
 
 Every one runs with no arguments at all, on input it supplies itself. That is
 deliberate — a program you have to feed before it will say anything is a program
@@ -1393,9 +1394,81 @@ depth limit. One of them is `check_syntax.sol` itself — the staircase
 dispatching the machine's instructions is deep enough that the matcher this
 replaced could not read the program that replaced it.
 
+## pascal — a compiler for a language with a standard
+
+Reads ISO 7185 Standard Pascal and writes a `.sob`. The second compiler here,
+and the first with a **real one to disagree with**: `fpc -Miso`, run beside it
+by [oracle.sh](../programs/pas/oracle.sh).
+
+```sh
+./bin/solvm programs/pascal.sob                        # the demonstration
+./bin/solvm programs/pascal.sob prog.pas [out.sob]     # a file
+./programs/pas/oracle.sh                               # against a real Pascal
+```
+
+```text
+    22    12    85
+     3     2
+    -3     3
+```
+
+**Stage 1**, and [PASCAL.md](PASCAL.md) says what the other seven are: the
+`program` heading, `var` of the four simple types, assignment, expressions,
+`write` and `writeln` with field widths, `begin`/`end`, `if` and `while`.
+
+**Where SOLABASIC.md is a language definition, [PASCAL.md](PASCAL.md) is a
+conformance statement**, and that is the whole difference. `sola.sol` had to
+draw its own boundary because no standard for a QBasic exists. Pascal has one,
+so what the page draws instead is the mapping onto SolVM's value model, the
+divergences, and the stages.
+
+**A type checker is not optional here.** Solum refuses `#1:add(1.0)` — there is
+no implicit conversion anywhere in the machine — so a compiler for a language
+that *has* one cannot avoid knowing the type of every expression it emits. `i /
+2` needs an `asFloat` on `i` and `i div 2` needs none, and that has to be
+settled before a byte is written. `sola.sol`'s header says *everything a
+SolaBasic program computes is a Double*: one numeric type needs no analysis, and
+two need all of it.
+
+### What it found
+
+**`mod` is free and `div` is not, which is the reverse of SolaBasic.** ISO says
+`i mod j` is non-negative for positive `j` — a *floored* remainder, and SolVM's
+is floored, so `mod` is one instruction. ISO's `div` truncates toward nought
+where SolVM floors, so it compiles through `abs` and a sign. SolaBasic wanted
+exactly the opposite of both, and got them from the same machine.
+
+**Booleans are jumps, not sends.** The machine's `and` and `or` take *blocks*,
+being short-circuit; Pascal's are ordinary operators. `OP_JUMP_IF_FALSE` and a
+boolean constant do it in four instructions with no block allocated — and the
+standard permits the short-circuit that falls out, because evaluation order for
+these is the implementation's.
+
+**A field width is a compile-time string.** `writeln(i:6)` emits the constant
+`">6"` and one `asString`, so a write is a `GLOBAL system`, the value, one send
+and a `SEND write`. No runtime formatter and no prelude — which is the other
+thing `sola.sol` needed and this does not.
+
+**The oracle earned its place twice on the first day.** A program in `differ/`
+was called `MaxInt`, and a program's own name is an identifier in scope — so
+`maxint` meant the program and `fpc` asked for a `.` where the `)` was. And a
+claim written into this compiler's header before it was checked — that `fpc`
+answers `-1` for `-3 mod 2` where ISO wants a non-negative result — **was
+wrong**: Pascal's sign belongs to the whole term, so `-3 mod 2` is `-(3 mod 2)`,
+and asked with a variable holding `-3` both answer `1`. A compiler for a
+language whose grammar it has just read is exactly the place to misread
+precedence.
+
+**And the verifier says *internally inconsistent* and not which slot.** Two
+mistakes produced that and nothing else: a jump offset measured from the wrong
+place — `OP_JUMP_IF_FALSE` is five bytes where `OP_JUMP` is three, because it
+carries the selector it was inlined from — and a scratch slot handed out one
+past the end of the frame. Both were found by bisecting a working program down
+to the construct that broke, which is the only tool that message leaves you.
+
 ## Adding one
 
-There is no template and there should not be. What the fourteen have in common is
+There is no template and there should not be. What the fifteen have in common is
 only this:
 
 1. **It does a job somebody would want done**, rather than exercising a feature.

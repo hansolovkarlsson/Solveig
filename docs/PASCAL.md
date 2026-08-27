@@ -125,7 +125,7 @@ and under this compiler.
 
 | | |
 | --- | --- |
-| **1** | `program`, `var` of the four simple types, assignment, expressions, `writeln`, `begin`/`end`, `if`, `while`. A program that compiles and runs. |
+| **1** — **done** | `program`, `var` of the four simple types, assignment, expressions, `write` and `writeln` with field widths, `begin`/`end`, `if`, `while`. Five programs in `agree/` produce the same bytes as `fpc -Miso`. |
 | **2** | `const`, `type`, enumerations, subranges, `case`, `repeat`, `for`, `goto` within a procedure. |
 | **3** | `procedure` and `function`, value and `var` parameters, recursion, `forward`. |
 | **4** | Nested procedures and uplevel access — the `OP_OUTER` prediction, settled either way. |
@@ -133,6 +133,14 @@ and under this compiler.
 | **6** | `set`, and the file half: `text`, `read`, `readln`, `write`, `writeln`, `eof`, `eoln`, then `file of T`. |
 | **7** | Pointers, `new`, `nil`, and linked structures. |
 | **8** | The standard's required procedures and functions in full, and whatever the oracle has been complaining about. |
+
+**Stage 1 landed on 2026-08-27**, and three things about it are worth carrying
+forward. `mod` is one instruction and `div` is nine, which is the reverse of
+SolaBasic: ISO's remainder is floored and the machine's already is, while ISO's
+division truncates toward nought and the machine's floors. Pascal's `and` and
+`or` are jumps rather than sends, the machine's own taking blocks. And a field
+width is a compile-time string, so a `write` needs no runtime formatter and no
+prelude — the other thing `sola.sol` needed and this does not.
 
 **Stage 4 goes early on purpose**, the way SolaBasic put `GOTO` in week one: it
 is the claim the whole design rests on. If `OP_OUTER` does not give Pascal's

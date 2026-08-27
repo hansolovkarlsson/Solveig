@@ -5,6 +5,46 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Pascal, stage 1: it compiles and it agrees with fpc — `pending`, 2026-08-27
+
+**[pascal.sol](../programs/pascal.sol) is the fifteenth program and the second
+compiler here.** Stage 1 of [PASCAL.md](PASCAL.md): the `program` heading, `var`
+of the four simple types, assignment, expressions, `write` and `writeln` with
+field widths, `begin`/`end`, `if` and `while` — emitting a `.sob` that `solvm`
+runs with nothing of the compiler present.
+
+**Five programs produce the same bytes as `fpc -Miso`**, which is the first time
+anything here has been held to a real implementation of a real standard on the
+day it was written. [oracle.sh](../programs/pas/oracle.sh) runs them, and two
+more in `differ/` must *not* agree — `maxint`, this integer being 64-bit against
+fpc's 32, and the default field width for a real, which ISO leaves to the
+implementation. `make test` checks the recorded transcripts and needs no Pascal
+installed; the oracle re-establishes them on demand.
+
+**A type checker is not optional.** Solum refuses `#1:add(1.0)`, so a compiler
+for a language with an implicit conversion cannot avoid knowing every
+expression's type: `i / 2` needs an `asFloat` and `i div 2` needs none, and that
+is settled before a byte is written. `sola.sol`'s header says *everything a
+SolaBasic program computes is a Double* — one numeric type needs no analysis and
+two need all of it.
+
+**`mod` is free and `div` is not, which is the reverse of SolaBasic.** ISO's
+remainder is non-negative for a positive divisor, which is a floored remainder,
+and the machine's is floored. ISO's division truncates toward nought and the
+machine's floors, so `div` compiles through `abs` and a sign. Both languages
+wanted the opposite of the other from the same machine.
+
+**Booleans are jumps.** The machine's `and` and `or` take blocks, being
+short-circuit; Pascal's are operators. `OP_JUMP_IF_FALSE` and a boolean constant
+do it in four instructions with nothing allocated.
+
+**The oracle earned its place twice on the first day.** A `differ/` program named
+`MaxInt` would not compile, a program's own name being an identifier in scope —
+so `maxint` meant the program. And a claim written into this compiler's header
+*before it was checked* — that `fpc` diverges from ISO on `-3 mod 2` — **was
+wrong**: Pascal's sign belongs to the whole term, so that is `-(3 mod 2)`, and
+asked with a variable both answer `1`. It is left in the header as a note.
+
 ### Pascal on SolVM, planned before it is written — `30ef4bc`, 2026-08-27
 
 **[PASCAL.md](PASCAL.md)**: ISO 7185 Standard Pascal, compiled to a `.sob` and

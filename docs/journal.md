@@ -11,6 +11,64 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-27 (evening) — Pascal, and a claim that was wrong before it was checked
+
+Stage 1 of the Pascal compiler: it compiles, it runs, and five programs produce
+the same bytes as `fpc -Miso`.
+
+**The oracle was installed before the compiler was started**, which is the
+reverse of SolaBasic, where it arrived at stage 7. It paid immediately — before
+a line of the compiler existed it established that `fpc -Miso` accepts both
+Pascal files this repository already ships, which is the first evidence
+`pascal.bnf` describes Pascal rather than this project's idea of it. And it
+supplied every default field width, so the write routine was written against
+measurements rather than guesses.
+
+**The type checker is the difference from `sola.sol`.** That compiler's header
+says everything a SolaBasic program computes is a Double, and one numeric type
+needs no analysis. Two need all of it, because Solum refuses `#1:add(1.0)` and
+there is no implicit conversion anywhere in the machine to lean on. So every
+expression rule answers a *type*, and that answer is the whole of the checking —
+there is no tree to walk afterwards.
+
+**`mod` came free and `div` cost nine instructions**, which is exactly the
+reverse of SolaBasic. ISO wants a non-negative remainder for a positive divisor,
+which is floored, and the machine floors. ISO wants division truncated toward
+nought, and the machine floors. Two languages wanting opposite things from one
+machine, and each getting one of them for nothing.
+
+### The verifier says one thing and means several
+
+Two mistakes both produced `bytecode is internally inconsistent` and nothing
+else. A jump offset measured from the wrong place — `OP_JUMP_IF_FALSE` is five
+bytes where `OP_JUMP` is three, because it carries the selector it was inlined
+from, and the C compiler's own `patch_jump` has a comment saying exactly that. A
+scratch slot handed out one past the end of the frame, because slots count from
+nought and I wrote the size.
+
+Both were found the same way: bisect a working program down to the construct
+that breaks. That is the only tool that message leaves, and it is enough — but
+it is worth noticing that the verifier knows which slot was out of range and
+does not say.
+
+### A claim written down before it was checked, and wrong
+
+The compiler's header said `fpc -Miso` diverges from the standard, answering
+`-1` for `-3 mod 2` where ISO requires a non-negative remainder. It came from
+reading the oracle's output on the first day and it was **wrong**. Pascal's sign
+belongs to the whole *term*, so `-3 mod 2` is `-(3 mod 2)`, and `-1` is correct
+in both. Asked with a variable holding `-3`, both answer `1`.
+
+**A compiler for a language whose grammar it has just read is exactly the place
+to misread precedence**, and being the author of the grammar file is no
+protection at all — it may be the opposite. The note stays in the header rather
+than being deleted, because the mistake is more instructive than the correction.
+
+That is the second time in two days a number or a claim went into a comment
+before it was measured. The first was two performance figures wrong by a factor
+of four. Nothing forces the guess; the check takes a minute; and a claim in a
+comment reads exactly like a checked one.
+
 ## 2026-08-27 — a document that was already there
 
 Asked for a reference document for SolaBasic. There is one: 1,016 lines,
