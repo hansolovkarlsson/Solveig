@@ -1412,13 +1412,14 @@ by [oracle.sh](../programs/pas/oracle.sh).
     -3     3
 ```
 
-**Stages 1 to 3**, and [PASCAL.md](PASCAL.md) says what the other five are.
+**Stages 1 to 4**, and [PASCAL.md](PASCAL.md) says what the other four are.
 The `program` heading, `var`, `const`, `type`, assignment, expressions, `write`
 and `writeln` with field widths, `begin`/`end`, `if`, `while`, `repeat`, `for`
 in both directions, `case`, `goto` with labels, enumerations, subranges, and
 `ord`, `chr`, `succ`, `pred`, `odd`, `abs` and `sqr`; and `procedure`,
-`function`, value and `var` parameters, recursion and `forward`. **Thirteen
-programs produce the same bytes as `fpc -Miso`.**
+`function`, value and `var` parameters, recursion, `forward`, and nested
+procedures with uplevel access. **Fourteen programs produce the same bytes as
+`fpc -Miso`.**
 
 **A type has two kinds, and that is most of stage 2.** `run` is what the machine
 is holding — an integer, a float, a one-character string, a boolean — and `kind`
@@ -1469,6 +1470,21 @@ wrong**: Pascal's sign belongs to the whole term, so `-3 mod 2` is `-(3 mod 2)`,
 and asked with a variable holding `-3` both answer `1`. A compiler for a
 language whose grammar it has just read is exactly the place to misread
 precedence.
+
+**Stage 4 settled two predictions written before it was started**, and both
+held. A nested procedure is a block made **inside its parent's activation** and
+kept in a slot of that frame, so `OP_BLOCK` captures the right frame and
+`OP_OUTER depth slot` reaches the right variables. **The machine needed nothing
+added** — that instruction takes a depth and a slot, which is a static link by
+another name. And
+[3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame) turns out to be
+Pascal's own scoping rule rather than a limitation on it: a nested procedure may
+not be called after its parent returns, and a capturing block may not outlive
+its home, and those are the same sentence.
+
+The blocks it emits are **the first in this repository to set the capture
+flag**. `sola.sol` has never emitted one, SolaBasic having no nested
+procedures — and its header says so, which is how the prediction was made.
 
 **A `var` parameter cost the compiler its single pass.** The box is
 `sola.sol`'s answer and Pascal is the easier half of it — `var` is *declared*

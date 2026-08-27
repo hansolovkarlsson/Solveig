@@ -5,6 +5,40 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Pascal, stage 4: the machine needed nothing added — `pending`, 2026-08-27
+
+**Nested procedures and uplevel access, and the two predictions written into
+[ideas.md](ideas.md) before the stage was started both held.** **Fourteen
+programs now produce the same bytes as `fpc -Miso`.**
+
+**A nested procedure is a block made inside its parent's activation** and kept
+in a slot of that frame. So `OP_BLOCK` captures the right frame, `OP_OUTER depth
+slot` reaches the right variables, and a fresh block is made every time the
+parent runs — which is what makes recursion of the *enclosing* procedure work
+without anything being said about activations. It holds through two levels of
+nesting, through that recursion, and through a nested procedure writing an
+enclosing `var` parameter, which travels out a frame and then through a box.
+
+**Nothing was added to the machine.** `OP_OUTER` takes a depth and a slot, which
+is a static link by another name, and that is the whole of Pascal's scoping.
+That was the second prediction.
+
+**And these are the first blocks this repository has produced that capture their
+home.** `sola.sol` has never set flag 2 — SolaBasic has no nested procedures,
+and its header says so, which is how the prediction was made in the first place.
+`disasm.sol` reads the flag back, and a test asserts both halves: that `add` and
+`deep` capture, and that the procedures enclosing them do not.
+
+**[3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame) is Pascal's
+own scoping rule rather than a limitation on it.** A capturing block may not
+outlive the frame it was written in; a nested procedure may not be called after
+its enclosing procedure has returned. Those are the same sentence, and the
+falsifiable half — *nothing a conforming Pascal program can write reaches the
+restriction* — stayed unfalsified. The entry does not close: Solum is not
+Pascal, and a Solum program can still write a block that outlives its home. What
+it gains is a statement of what the restriction *is*, which is the rule a
+language with lexical nesting and no first-class functions already has.
+
 ### Pascal, stage 3: procedures, and the pass that had to be added — `f6a76ec`, 2026-08-27
 
 **`procedure` and `function`, value and `var` parameters, recursion and

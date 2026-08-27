@@ -63,6 +63,36 @@ and into the loop back. Spelled the way the sentence reads, the loop inverts:
 expected and everything else in a twenty-line test was right, which is exactly
 the kind of wrong that a transcript catches and reading does not.
 
+### Stage 4, and two predictions that held
+
+Nested procedures. This is the stage the design rested on and the one both
+predictions were written for, and there is not much of a story: it worked.
+
+A nested procedure is a block made inside its parent's activation, kept in a
+slot of that frame. `OP_BLOCK` captures the frame it was made in; `OP_OUTER
+depth slot` reads out along the lexical chain. That is a static link, and
+Pascal's scoping is static links. **Nothing was added to the machine**, which
+was prediction two.
+
+The part that felt like it should have been hard and was not: recursion of the
+*enclosing* procedure. Each activation of `Nest` makes its own `Show`, bound to
+its own frame, because the block is created by the parent's own code and not
+once at load time. `3 2 1 1 2 3` came out right the first time it ran.
+
+**And these are the first blocks this repository has ever produced that capture
+their home.** `sola.sol` says in its own comments that flag 2 would mean
+reaching out of its own frame *and nothing here ever does* — which is how the
+prediction was made. The disassembler now prints `captures` on four nested
+procedures and not on the two enclosing them, and a test asserts both halves.
+
+The one real mistake was mine and not the machine's: a leftover
+`entry:at(#3):equals('global)` from stage 3, where that field had become a
+*level* and `'global` a symbol it could never equal. It made a global passed by
+reference emit `LOCAL 0` — the reserved slot — so the callee dereferenced nil.
+Changing a representation and leaving one reader behind is the oldest mistake
+there is, and the thing that caught it was the oracle: thirteen programs had
+agreed the run before.
+
 ### Stage 3, and the pass I did not want to add
 
 Procedures, functions, `var` parameters, recursion, `forward`. Thirteen programs

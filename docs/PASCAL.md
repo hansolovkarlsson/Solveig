@@ -128,7 +128,7 @@ and under this compiler.
 | **1** — **done** | `program`, `var` of the four simple types, assignment, expressions, `write` and `writeln` with field widths, `begin`/`end`, `if`, `while`. Five programs in `agree/` produce the same bytes as `fpc -Miso`. |
 | **2** — **done** | `const`, `type`, enumerations, subranges, `case`, `repeat`, `for`, `goto` and labels, and `ord`, `chr`, `succ`, `pred`, `odd`, `abs`, `sqr`. Ten programs in `agree/`. |
 | **3** — **done** | `procedure` and `function`, value and `var` parameters, recursion, `forward`. Thirteen programs in `agree/`. |
-| **4** | Nested procedures and uplevel access — the `OP_OUTER` prediction, settled either way. |
+| **4** — **done** | Nested procedures and uplevel access. The `OP_OUTER` prediction held: nothing was added to the machine. Fourteen programs in `agree/`. |
 | **5** | `array`, multi-dimensional, `record`, `with`. |
 | **6** | `set`, and the file half: `text`, `read`, `readln`, `write`, `writeln`, `eof`, `eoln`, then `file of T`. |
 | **7** | Pointers, `new`, `nil`, and linked structures. |
@@ -170,6 +170,20 @@ division truncates toward nought and the machine's floors. Pascal's `and` and
 `or` are jumps rather than sends, the machine's own taking blocks. And a field
 width is a compile-time string, so a `write` needs no runtime formatter and no
 prelude — the other thing `sola.sol` needed and this does not.
+
+**Stage 4 landed, and both predictions held.** A nested procedure is a block
+made **inside its parent's activation** and kept in a slot of that frame, so
+`OP_BLOCK` captures the right frame and `OP_OUTER depth slot` reaches the right
+variables — through two levels of nesting, through recursion of the enclosing
+procedure, and through a nested procedure writing an enclosing `var` parameter,
+which travels out a frame and then through a box. The blocks it emits are the
+first in this repository to set the capture flag;
+[sola.sol](../programs/sola.sol) has never emitted one.
+
+And [3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame) is Pascal's
+own scoping rule rather than a limitation on it: the block is unreachable the
+moment its parent returns, because the only thing holding it was a slot of that
+frame.
 
 **Stage 4 goes early on purpose**, the way SolaBasic put `GOTO` in week one: it
 is the claim the whole design rests on. If `OP_OUTER` does not give Pascal's

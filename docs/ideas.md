@@ -2073,6 +2073,14 @@ the frame cost before choosing the shape.
 
 **Two better predictions take its place, and both are falsifiable.**
 
+**Both were settled on 2026-08-27, and both held.** Stage 4 of the compiler is
+nested procedures, and it needed nothing added to the machine: a nested
+procedure is a block made inside its parent's activation, `OP_OUTER depth slot`
+is the static link, and the blocks it produces are the first in this repository
+to set the capture flag. Nothing a conforming Pascal program can write reaches
+3.1, which was the falsifiable half. The predictions are left below as they were
+written.
+
 **One: [3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame) is not a
 limitation for this language, it is the language's own rule.** A capturing block
 may not outlive the frame it was written in. A Pascal nested procedure may not

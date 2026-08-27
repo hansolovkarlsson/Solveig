@@ -285,6 +285,39 @@ Real closures need the captured slots promoted to the heap when a frame dies.
 That is the upgrade path; the frame-id check is what makes today's restriction
 safe rather than silently wrong.
 
+#### Settled by Pascal, which is the language this entry describes
+
+**2026-08-27.** [pascal.sol](../programs/pascal.sol) reached nested procedures,
+and the prediction written into
+[ideas.md](ideas.md#programs-that-would-press-on-something) before the stage was
+started held exactly:
+
+> A capturing block may not outlive the frame it was written in. A Pascal nested
+> procedure may not be called after its enclosing procedure has returned. Those
+> are the same sentence.
+
+They are. A nested procedure is compiled to a block made **inside its parent's
+activation**, so `OP_BLOCK` captures the right frame and `OP_OUTER depth slot`
+reaches the right variables — and the block is unreachable the moment the parent
+returns, because the only thing holding it was a slot of that frame. **Nothing a
+conforming Pascal program can write reaches the restriction**, which was the
+falsifiable half, and it stayed unfalsified through nesting two levels deep,
+through recursion of the enclosing procedure, and through a nested procedure
+writing an enclosing `var` parameter.
+
+**So this entry is not a limitation for that language, it is its scoping rule.**
+That does not close the entry — Solum is not Pascal, and a Solum program can
+still write a block that outlives its home and be told so. What it does is say
+what the restriction *is*: not an accident of the implementation, but the rule
+a language with lexical nesting and no first-class functions already has.
+
+**And the second prediction held too**, which is
+[3.5](#35-recursion-is-limited-to-about-254-levels)'s business rather than this
+entry's: `OP_OUTER` needed nothing added. Fourteen Pascal programs agree with
+`fpc -Miso` byte for byte, and the nested ones are **the first blocks this
+repository has produced that set the capture flag at all** — `sola.sol` has
+never emitted one, SolaBasic having no nested procedures.
+
 **A program predicted to hit this did not, and that is worth as much as one that
 did.** [ideas.md](ideas.md#programs-that-would-press-on-something) had a parser toolkit down as the
 most interesting thing on its list *because* either answer would be informative:

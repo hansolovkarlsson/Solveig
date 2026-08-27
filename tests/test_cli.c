@@ -1203,7 +1203,7 @@ static void test_pascal_compiles_a_program_that_runs(void)
                                       "reals", "writes",
                                       "ordinals", "loops", "cases",
                                       "consts", "jumps",
-                                      "procs", "byref", "forward" };
+                                      "procs", "byref", "forward", "nested" };
     for (size_t i = 0; i < sizeof programs / sizeof programs[0]; i++) {
         char command[512], expected_path[512];
 
@@ -1251,6 +1251,19 @@ static void test_pascal_compiles_a_program_that_runs(void)
                out, sizeof out) != 0);
     assert(strstr(out, "has to be a variable") != NULL);
 
+    /* **The first blocks in this repository that capture their home.** A
+       nested procedure reads its parent's variables with OP_OUTER, so its
+       chunk carries flag 2 -- and sola.sol has never emitted one, SolaBasic
+       having no nested procedures. disasm.sol reads the flag back. */
+    assert(run("bin/solvm " DIR "/pascal.sob programs/pas/oracle/agree/nested.pas "
+               DIR "/nested.sob >/dev/null 2>&1 && bin/solas programs/disasm.sol -o "
+               DIR "/disasm.sob 2>&1 && bin/solvm " DIR "/disasm.sob "
+               DIR "/nested.sob 2>&1", out, sizeof out) == 0);
+    assert(strstr(out, "block 'add' (1 args, 2 slots, captures)") != NULL);
+    assert(strstr(out, "block 'deep'") != NULL);
+    /* And the enclosing ones do not capture: they reach nothing outside. */
+    assert(strstr(out, "block 'outer' (1 args, 6 slots)") != NULL);
+
     /* And with no arguments it compiles a Pascal program it carries and runs
        it, which is this directory's rule for every program in it. */
     assert(run("bin/solvm " DIR "/pascal.sob 2>&1", out, sizeof out) == 0);
@@ -1258,7 +1271,8 @@ static void test_pascal_compiles_a_program_that_runs(void)
     assert(strstr(out, "one more than a multiple of three") != NULL);
     assert(strstr(out, "over three hundred") != NULL);
 
-    printf("  13 Pascal programs compile, run, and match what fpc -Miso printed\n");
+    printf("  14 Pascal programs compile, run, and match what fpc -Miso printed,\n"
+           "  and the nested ones are the first blocks here that capture a home\n");
 }
 
 /* ------------------------------------------------------------------------
