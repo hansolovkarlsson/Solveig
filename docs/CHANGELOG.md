@@ -5,6 +5,42 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Pascal, stage 7: pointers, and a reference one case too narrow — `pending`, 2026-08-27
+
+**Pointers, `new`, `nil`, `dispose`, and linked structures.** **Nineteen
+programs now produce the same bytes as `fpc -Miso`**, and one of them builds a
+binary tree, walks it in order and measures its depth.
+
+**A `var` parameter is a container and an index now, and was a one-element
+cell.** That cell is [sola.sol](../programs/sola.sol)'s answer and it is enough
+for BASIC, where the only thing that can be passed by reference is a whole
+variable. Pascal's `Insert(t^.left, k)` is the idiom a tree is built with, and
+the storage it names is *element two of the record `t` points at* — **no cell
+can alias that**. A pair names either exactly, and a whole variable carries its
+pair from the moment it is declared, so passing one costs nothing at the call.
+
+Stage 5 had written that case down as *stage 8, because the box goes over and an
+element has none*. It was not a missing feature; it was a representation one
+case too narrow, and the case that shows it is the first Pascal program anybody
+writes with pointers.
+
+**A pointer type may name a type declared after it**, and has to: `Tree = ^Node`
+before `Node = record ... end` is the only way round. An unknown name makes a
+pointer with nothing in it and joins a list the type section empties before it
+finishes — so a pointer to a type that never arrives is refused with the line
+the pointer was written on.
+
+**A dereference is a field at offset one**, a cell being a one-element array, so
+`p^ := v` needed no case of its own: it is a container and an index like every
+other store.
+
+**`nil` has a type of its own**, assignment-compatible with every pointer and
+identical to none — the one type a program cannot name.
+
+**And `dispose` frees nothing**, SolVM being collected, which is now exercised
+rather than asserted: `differ/dispose.pas` uses a disposed pointer and must
+*not* agree with `fpc`.
+
 ### Pascal, stage 6 finished: reading, and a divergence nobody could check — `007a520`, 2026-08-27
 
 **`read`, `readln`, `eof` and `eoln` on standard input**, which finishes stage 6.

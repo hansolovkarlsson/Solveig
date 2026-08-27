@@ -73,7 +73,7 @@ the part the work actually is.
 | `file of T` | **not here** — see below | |
 | procedure, function | a block | called with `OP_SEND` |
 | nested procedure | a block inside a block | `OP_OUTER depth slot` **is** a static link, and this is its first customer |
-| `var` parameter | a box, and the variable is the box | sola.sol's answer, and Pascal is the easier case: `var` is *declared*, where QBasic made the compiler infer it |
+| `var` parameter | a **container and an index** | one cell is not enough: `Insert(t^.left, k)` names element two of a record, and a pair names it exactly |
 
 **Two of those rows are the interesting ones.**
 
@@ -134,7 +134,7 @@ and under this compiler.
 | **4** — **done** | Nested procedures and uplevel access. The `OP_OUTER` prediction held: nothing was added to the machine. Fourteen programs in `agree/`. |
 | **5** — **done** | `array` with any ordinal index and any lower bound, multi-dimensional, `record`, `with`, and whole-array and whole-record assignment. Sixteen programs in `agree/`. |
 | **6** — **done** | `set` with its constructor, `in`, union, intersection, difference and the four comparisons; and `read`, `readln`, `eof` and `eoln` on standard input. Eighteen programs in `agree/`. |
-| **7** | Pointers, `new`, `nil`, and linked structures. |
+| **7** — **done** | Pointers, `new`, `nil`, `dispose`, and linked structures. Nineteen programs in `agree/`. |
 | **8** | The standard's required procedures and functions in full, and whatever the oracle has been complaining about. |
 
 **Stage 3 landed the same day, and cost the compiler its single pass.** A `var`
@@ -173,6 +173,20 @@ division truncates toward nought and the machine's floors. Pascal's `and` and
 `or` are jumps rather than sends, the machine's own taking blocks. And a field
 width is a compile-time string, so a `write` needs no runtime formatter and no
 prelude — the other thing `sola.sol` needed and this does not.
+
+**Pointers landed, and they made the `var` parameter grow up.** A reference
+began as a one-element cell — `sola.sol`'s answer, and enough for BASIC, where
+the only thing that can be passed by reference is a whole variable. Pascal's
+`Insert(t^.left, k)` is the idiom a tree is built with, and the storage it names
+is *element two of the record `t` points at*. No cell can alias that. So a
+reference is a **container and an index**, which names either exactly — and a
+whole variable now carries its pair from the moment it is declared, so passing
+one costs nothing at the call.
+
+**A pointer type may name a type declared after it**, and has to: `Tree = ^Node`
+before `Node = record ... end` is the only way round. An unknown name makes a
+pointer with nothing in it and joins a list the type section empties before it
+finishes.
 
 **Reading landed with them, and only on standard input.** That is not a
 shortcut: ISO leaves the binding between a program-heading name and a file on
@@ -220,7 +234,6 @@ because a record of arrays is still one value in Pascal.
 
 | | |
 | --- | --- |
-| an element or a field as a `var` argument | stage 8. The box goes over, and an element has none. |
 
 **Stage 4 landed, and both predictions held.** A nested procedure is a block
 made **inside its parent's activation** and kept in a slot of that frame, so

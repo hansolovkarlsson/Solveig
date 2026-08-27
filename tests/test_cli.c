@@ -1204,7 +1204,8 @@ static void test_pascal_compiles_a_program_that_runs(void)
                                       "ordinals", "loops", "cases",
                                       "consts", "jumps",
                                       "procs", "byref", "forward", "nested",
-                                      "arrays", "records", "sets", "reading" };
+                                      "arrays", "records", "sets", "reading",
+                                      "pointers" };
     for (size_t i = 0; i < sizeof programs / sizeof programs[0]; i++) {
         char command[512], expected_path[512];
 
@@ -1288,7 +1289,7 @@ static void test_pascal_compiles_a_program_that_runs(void)
     assert(strstr(out, "one more than a multiple of three") != NULL);
     assert(strstr(out, "over three hundred") != NULL);
 
-    printf("  18 Pascal programs compile, run, and match what fpc -Miso printed,\n"
+    printf("  19 Pascal programs compile, run, and match what fpc -Miso printed,\n"
            "  and the nested ones are the first blocks here that capture a home\n");
 }
 

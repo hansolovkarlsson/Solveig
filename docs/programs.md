@@ -1412,14 +1412,14 @@ by [oracle.sh](../programs/pas/oracle.sh).
     -3     3
 ```
 
-**Stages 1 to 6**, and [PASCAL.md](PASCAL.md) says what the other two are.
+**Stages 1 to 7**, and [PASCAL.md](PASCAL.md) says what the last one is.
 The `program` heading, `var`, `const`, `type`, assignment, expressions, `write`
 and `writeln` with field widths, `begin`/`end`, `if`, `while`, `repeat`, `for`
 in both directions, `case`, `goto` with labels, enumerations, subranges, and
 `ord`, `chr`, `succ`, `pred`, `odd`, `abs` and `sqr`; and `procedure`,
 `function`, value and `var` parameters, recursion, `forward`, nested procedures
-with uplevel access, arrays, records, `with`, sets, and reading standard input.
-**Eighteen programs produce the same bytes as `fpc -Miso`.**
+with uplevel access, arrays, records, `with`, sets, reading standard input, and
+pointers. **Nineteen programs produce the same bytes as `fpc -Miso`.**
 
 **A type has two kinds, and that is most of stage 2.** `run` is what the machine
 is holding — an integer, a float, a one-character string, a boolean — and `kind`
@@ -1470,6 +1470,17 @@ wrong**: Pascal's sign belongs to the whole term, so `-3 mod 2` is `-(3 mod 2)`,
 and asked with a variable holding `-3` both answer `1`. A compiler for a
 language whose grammar it has just read is exactly the place to misread
 precedence.
+
+**Pointers made the `var` parameter grow up, and that is the finding of stage
+7.** A reference began as a one-element cell — `sola.sol`'s answer, and enough
+for BASIC, where the only thing that can be passed by reference is a whole
+variable. Pascal's `Insert(t^.left, k)` is the idiom a tree is built with, and
+the storage it names is *element two of the record `t` points at*. **No cell can
+alias that.** So a reference is a container and an index, which names either
+exactly — and a whole variable carries its pair from the moment it is declared,
+so passing one costs nothing at the call. The restriction stage 5 had written
+down as *stage 8* turned out to be a representation that was one case too
+narrow.
 
 **Reading is on standard input only, and that is a decision rather than a
 gap.** ISO leaves the binding between a name in a program heading and a file on

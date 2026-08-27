@@ -63,6 +63,34 @@ and into the loop back. Spelled the way the sentence reads, the loop inverts:
 expected and everything else in a twenty-line test was right, which is exactly
 the kind of wrong that a transcript catches and reading does not.
 
+### Pointers, and a representation one case too narrow
+
+Stage 7. Cells, `new`, `nil`, `dispose`, and a binary tree that inserts, walks
+in order and measures its own depth.
+
+**The whole stage is one finding, and it is about stage 3.** A `var` parameter
+has been a one-element cell since procedures arrived — `sola.sol`'s answer, and
+I took it because it was settled prior art. It is enough for BASIC, where the
+only thing that can be passed by reference is a whole variable.
+
+`Insert(t^.left, k)` is the first line of the first program anybody writes with
+pointers, and the storage it names is *element two of the record `t` points at*.
+**No cell can alias that.** Stage 5 had met the same wall from the array side
+and written it down as *stage 8: the box goes over, and an element has none* —
+which reads like a missing feature and was a representation one case too narrow.
+
+A reference is a container and an index now. It names a whole variable's cell,
+an array's element and a record's field with one shape, and a whole variable
+carries its pair from declaration, so passing one costs *nothing* at the call
+that it did not cost before.
+
+**What I nearly shipped instead was a hack.** The call site needs `array` pushed
+before the container and index, and I first emitted it, then removed three bytes
+again when the argument turned out to be a whole variable. It worked, and it
+depended on `emitGlobal` being exactly three bytes long. One line of lookahead —
+*is there a selector after this name* — replaced it. **Un-emitting is a sign the
+decision was taken in the wrong order**, not a technique.
+
 ### Reading, and the difference between a gap and a decision
 
 The other half of stage 6. `read`, `readln`, `eof`, `eoln` — on standard input

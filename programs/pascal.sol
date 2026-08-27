@@ -396,6 +396,11 @@ tChar    := makeType:value('char,    'char,    "char").
 tBoolean := makeType:value('boolean, 'boolean, "boolean").
 tText    := makeType:value('text,    'text,    "string").
 
+; **`nil` has a type of its own**, because it is assignment-compatible with
+; every pointer and identical to none of them. It is the one type below that a
+; program cannot name.
+tNil     := makeType:value('pointer, 'pointer, "nil").
+
 ; **An array and a record are both a Solum array at run time**, and the
 ; difference is entirely in what the compiler knows. A record's field is an
 ; index worked out while compiling, so it costs an `at` and not a lookup; an
@@ -428,7 +433,13 @@ originOf := { t |
 ; `integer` and compared with one.
 rootOf := { t | t:kind:equals('subrange):ifElse({ rootOf:value(t:base) }, { t }) }.
 
-sameType := { a, b | rootOf:value(a):equals(rootOf:value(b)) }.
+; `nil` fits any pointer, and two pointers fit each other only when they point
+; at the same type -- which object identity answers, every named type being made
+; once.
+sameType := { a, b |
+    a:equals(tNil):and({ b:kind:equals('pointer) })
+        :or({ b:equals(tNil):and({ a:kind:equals('pointer) }) })
+        :or({ rootOf:value(a):equals(rootOf:value(b)) }) }.
 
 isNumeric := { t | t:run:equals('integer):or({ t:run:equals('real) }) }.
 
@@ -686,7 +697,11 @@ pas:constValue := { | name, sign, v, found |
         v := self:text. self:next.
         [v:size:equals(#1):ifElse({ tChar }, { tText }), v] },
       { name := self:expectName.
-        name:equals("true"):or({ name:equals("false") }):ifElse({
+        name:equals("nil"):ifElse({
+            sign:equals(#-1):ifTrue({ self:fail("'nil' has no sign") }).
+            [tNil, nil] },
+
+        { name:equals("true"):or({ name:equals("false") }):ifElse({
             [tBoolean, name:equals("true")] },
         { name:equals("maxint"):ifElse({ [tInteger, #9223372036854775807] },
           { self:consts:includes(name):ifElse({
@@ -699,7 +714,7 @@ pas:constValue := { | name, sign, v, found |
             { self:enumOf:includes(name):ifElse({
                   found := self:enumOf:at(name).
                   [found:at(#1), found:at(#2)] },
-                { self:fail("'{}' is not a constant":fill([name])) }) }) }) }) }) }) }) }.
+                { self:fail("'{}' is not a constant":fill([name])) }) }) }) }) }) }) }) }) }.
 
 ; ---------------------------------------------------------------------------
 ; Reading and writing a variable
@@ -731,10 +746,28 @@ pas:emitAccess := { name, entry, store | | at |
         self:byte(entry:at(#1)) }) }).
     nil }.
 
+; **A reference is a container and an index, not a cell.** It began as a
+; one-element array -- which is what `sola.sol` uses, and enough for BASIC,
+; where the only thing that can be passed by reference is a whole variable.
+; Pascal's `Insert(t^.left, k)` is the idiom a tree is built with, and the
+; storage it names is *element two of the record `t` points at*. No cell can
+; alias that; a pair can name it exactly.
+;
+; So a `var` parameter holds `[container, index]`, and a variable that is passed
+; by reference anywhere holds one too, pointing at a cell of its own. Passing a
+; whole variable then costs nothing at the call: the pair is already made.
+pas:emitDeref := { entry |
+    self:emitSend("at", #1).
+    nil }.
+
 pas:emitReadVar := { name, entry |
-    self:emitAccess(name, entry, false).
-    self:isBoxed(entry):ifTrue({
-        self:emitInt(#1). self:emitSend("at", #1) }).
+    self:isBoxed(entry):ifElse({
+        self:emitAccess(name, entry, false).
+        self:emitInt(#1). self:emitSend("at", #1).          ; the container
+        self:emitAccess(name, entry, false).
+        self:emitInt(#2). self:emitSend("at", #1).          ; the index
+        self:emitSend("at", #1) },
+      { self:emitAccess(name, entry, false) }).
     nil }.
 
 ; The value is already on the stack. A boxed store needs the array underneath
@@ -746,7 +779,9 @@ pas:emitStoreVar := { name, entry | | tmp |
         tmp := self:scratchSlot(#1).
         self:emitSetLocal(tmp). self:emitPop.
         self:emitAccess(name, entry, false).
-        self:emitInt(#1).
+        self:emitInt(#1). self:emitSend("at", #1).
+        self:emitAccess(name, entry, false).
+        self:emitInt(#2). self:emitSend("at", #1).
         self:emitLocal(tmp).
         self:emitSend("atPut", #2).
         self:emitPop.
@@ -967,7 +1002,8 @@ pas:lookupWith := { name | | found, i, w |
         i := i:sub(#1) }).
     found }.
 
-pas:atSelector := { self:isPunct("["):or({ self:isPunct(".") }) }.
+pas:atSelector := { self:isPunct("["):or({ self:isPunct(".") })
+    :or({ self:isPunct("^") }) }.
 
 pas:emitIndexStep := { t | | it |
     t:kind:equals('array):ifFalse({
@@ -1001,7 +1037,21 @@ pas:selectors := { t, forStore | | going, more, mode, f |
     mode := 'value.
     going := true.
     { going }:whileTrue({
-        self:acceptPunct("["):ifElse({
+        ; **A dereference is a field at offset one**, a cell being a
+        ; one-element array -- so `p^ := v` needs no case of its own: it is a
+        ; container and an index like every other store.
+        self:acceptPunct("^"):ifElse({
+            t:kind:equals('pointer):ifFalse({
+                self:fail("a {} cannot be dereferenced":fill([self:typeName(t)])) }).
+            t:elem:isNil:ifTrue({
+                self:fail("this pointer's target type is not known") }).
+            self:emitInt(#1).
+            t := t:elem.
+            going := self:atSelector.
+            going:not:and({ forStore }):ifElse({ mode := 'element },
+                { self:emitSend("at", #1) }) },
+
+        { self:acceptPunct("["):ifElse({
             more := true.
             { more }:whileTrue({
                 t := self:emitIndexStep(t).
@@ -1017,7 +1067,7 @@ pas:selectors := { t, forStore | | going, more, mode, f |
             t := self:emitFieldStep(t, f).
             going := self:atSelector.
             going:not:and({ forStore }):ifElse({ mode := 'element },
-                { self:emitSend("at", #1) }) }) }).
+                { self:emitSend("at", #1) }) }) }) }).
     [mode, t, nil] }.
 
 pas:designator := { name, forStore | | entry, t, w |
@@ -1044,6 +1094,7 @@ pas:designator := { name, forStore | | entry, t, w |
             { self:emitReadVar(name, entry). ['value, t, nil] }) }) }) }.
 
 pas:emitValue := { t, v |
+    t:kind:equals('pointer):ifTrue({ self:byte(NIL) }).
     t:run:equals('integer):ifTrue({ self:emitInt(v) }).
     t:run:equals('real):ifTrue({ self:emitReal(v) }).
     t:run:equals('boolean):ifTrue({ self:emitBool(v) }).
@@ -1266,7 +1317,10 @@ pas:expression := { | left, op, right, xs |
           { self:wantSame(left, right, op).
             left:run:equals('boolean):and({ op:equals("="):or({ op:equals("<>") })
                 :not }):ifTrue({
-                self:fail("booleans compare with '=' and '<>' in this stage") }) }).
+                self:fail("booleans compare with '=' and '<>' in this stage") }).
+            left:kind:equals('pointer):or({ right:kind:equals('pointer) })
+                :and({ op:equals("="):or({ op:equals("<>") }):not }):ifTrue({
+                self:fail("pointers compare with '=' and '<>'") }) }).
 
         self:emitSend(self:relOps:at(op), #1) }).
         left := tBoolean }).
@@ -1310,6 +1364,8 @@ pas:writeItem := { | t, width, places |
     isStructured:value(t):ifTrue({
         self:fail("a {} cannot be written; write its parts"
             :fill([self:typeName(t)])) }).
+    t:kind:equals('pointer):ifTrue({
+        self:fail("a pointer cannot be written") }).
 
     places:notNil:ifTrue({
         t:run:equals('real):ifFalse({
@@ -1630,6 +1686,8 @@ pas:statement := { | name, over, past, top, target, ends |
 
     { self:accept("writeln"):ifElse({ self:writeCall(true) },
     { self:accept("write"):ifElse({ self:writeCall(false) },
+    { self:accept("new"):ifElse({ self:newCall },
+    { self:accept("dispose"):ifElse({ self:disposeCall },
     { self:accept("readln"):ifElse({ self:readCall(true) },
     { self:accept("read"):ifElse({ self:readCall(false) },
 
@@ -1656,7 +1714,7 @@ pas:statement := { | name, over, past, top, target, ends |
 
       ; The empty statement, which the standard has and which is what a `;`
       ; before an `end` produces.
-      { nil }) }) }) }) }) }) }) }) }) }) }) }) }).
+      { nil }) }) }) }) }) }) }) }) }) }) }) }) }) }) }).
     nil }.
 
 ; **The record is evaluated once and kept in a slot**, which is what makes
@@ -1798,6 +1856,40 @@ pas:forStatement := { | name, target, t, slot, top, over, done, cont, up, got |
     self:scratchDepth := self:scratchDepth:sub(#2).
     nil }.
 
+; `new(p)` makes a cell holding a zero of whatever `p` points at, and binds it.
+; **`dispose` frees nothing**, SolVM being collected -- the argument is still
+; checked and evaluated, so a program that disposes something that is not a
+; pointer is still refused.
+pas:newCall := { | name, res, mode, t |
+    self:expectPunct("(").
+    name := self:expectName.
+    res := self:designator(name, true).
+    mode := res:at(#1). t := res:at(#2).
+    t:kind:equals('pointer):ifFalse({
+        self:fail("'new' wants a pointer and '{}' is a {}"
+            :fill([name, self:typeName(t)])) }).
+    t:elem:isNil:ifTrue({ self:fail("this pointer's target type is not known") }).
+    self:expectPunct(")").
+
+    self:emitGlobal("array").
+    self:emitZeroOf(t:elem).
+    self:emitSend("of", #1).
+
+    mode:equals('whole):ifElse(
+        { self:emitStoreVar(name, res:at(#3)) },
+        { self:emitSend("atPut", #2). self:emitPop }).
+    nil }.
+
+pas:disposeCall := { | t |
+    self:expectPunct("(").
+    t := self:expression.
+    t:kind:equals('pointer):ifFalse({
+        self:fail("'dispose' wants a pointer and that is a {}"
+            :fill([self:typeName(t)])) }).
+    self:expectPunct(")").
+    self:emitPop.
+    nil }.
+
 pas:conditionFor := { what | | t |
     t := self:expression.
     t:run:equals('boolean):ifFalse({
@@ -1895,7 +1987,9 @@ pas:emitArrayOf := { count, body | | a, i, top, over |
     nil }.
 
 pas:emitZeroOf := { t |
-    t:kind:equals('set):ifElse({
+    t:kind:equals('pointer):ifElse({ self:byte(NIL) },
+
+    { t:kind:equals('set):ifElse({
         self:emitArrayOf(t:count, { self:emitBool(false) }) },
 
     { t:kind:equals('array):ifElse({
@@ -1910,7 +2004,7 @@ pas:emitZeroOf := { t |
         t:run:equals('real):ifTrue({ self:emitReal(0.0) }).
         t:run:equals('char):ifTrue({ self:emitString(" ") }).
         t:run:equals('boolean):ifTrue({ self:emitBool(false) }).
-        t:run:equals('text):ifTrue({ self:emitString("") }) }) }) }).
+        t:run:equals('text):ifTrue({ self:emitString("") }) }) }) }) }).
     nil }.
 
 ; **Assigning a whole array or record copies it**, which the standard says and
@@ -1961,6 +2055,18 @@ pas:emitCopyOf := { t | | src, a, i, top, over |
     nil }.
 
 pas:typeDenoter := { | members, t, lo, hi, i, elem, indices, fields, offset, names |
+    ; **A pointer may name a type that is not declared yet**, and has to: a
+    ; linked structure is `Tree = ^Node` followed by `Node = record ... end`,
+    ; and there is no way to write it the other way round. So an unknown name
+    ; makes a pointer with nothing in it and joins a list the type section
+    ; empties before it finishes.
+    self:acceptPunct("^"):ifTrue({
+        t := self:expectName.
+        elem := makeType:value('pointer, 'pointer, "^{}":fill([t])).
+        self:types:includes(t):ifElse({ elem:elem := self:types:at(t) },
+            { self:pendingPointers:add([elem, t, self:tline]) }).
+        nil }).
+
     ; **A set is an array of booleans, one per member of its base type**, and
     ; not the array of bit-words this was planned as. The plan met
     ; [3.12](../docs/ROADMAP.md#312-no-shift-can-produce-a-negative-integer):
@@ -2077,6 +2183,8 @@ pas:constSection := { | name, pair |
         self:consts:atPut(name, pair) }).
     nil }.
 
+pas:pendingPointers := array:new.
+
 pas:typeSection := { | name, t |
     { self:kind:equals('name):and({ self:atSection:not }) }:whileTrue({
         name := self:expectName.
@@ -2090,6 +2198,15 @@ pas:typeSection := { | name, t |
         ; says `Colour` rather than what it is underneath.
         t:name:size:equals(#0):ifTrue({ t:name := name }).
         self:types:atPut(name, t) }).
+
+    ; Every `^Name` written before `Name` was, now that the section is over.
+    self:pendingPointers:do({ p |
+        self:types:includes(p:at(#2)):ifElse(
+            { p:at(#1):elem := self:types:at(p:at(#2)) },
+            { self:tline := p:at(#3).
+              self:fail("'{}' is pointed at and never declared"
+                  :fill([p:at(#2)])) }) }).
+    self:pendingPointers := array:new.
     nil }.
 
 pas:declareVar := { name, type | | slot, entry |
@@ -2115,8 +2232,9 @@ pas:declareVar := { name, type | | slot, entry |
         zero := self:scratchSlot(#1).
         self:emitSetLocal(zero). self:emitPop.
         self:emitGlobal("array").
-        self:emitLocal(zero).
-        self:emitSend("of", #1) }).
+        self:emitGlobal("array"). self:emitLocal(zero). self:emitSend("of", #1).
+        self:emitInt(#1).
+        self:emitSend("of", #2) }).
 
     self:emitAccess(name, entry, true).
     self:emitPop.
@@ -2345,8 +2463,10 @@ pas:routineBody := { name, params, result, home | | method, index, slot |
         entry := self:vars:at(p:at(#1)).
         p:at(#3):not:and({ self:isBoxed(entry) }):ifTrue({
             self:emitGlobal("array").
-            self:emitLocal(entry:at(#1)).
-            self:emitSend("of", #1).
+            self:emitGlobal("array").
+            self:emitLocal(entry:at(#1)). self:emitSend("of", #1).
+            self:emitInt(#1).
+            self:emitSend("of", #2).
             self:emitSetLocal(entry:at(#1)).
             self:emitPop }) }).
 
@@ -2418,7 +2538,7 @@ pas:routineDecl := { isFunction | | name, params, result, sig, home |
                          self:routines:at(name):at(#5)) }).
     nil }.
 
-pas:callRoutine := { name, asFunction | | sig, params, result, i, argName, entry, got, p |
+pas:callRoutine := { name, asFunction | | sig, params, result, i, argName, entry, got, p, res |
     sig := self:lookupRoutine(name).
     params := sig:at(#1). result := sig:at(#2).
 
@@ -2453,21 +2573,29 @@ pas:callRoutine := { name, asFunction | | sig, params, result, i, argName, entry
                     self:fail("a 'var' argument has to be a variable, and '{}' is not"
                         :fill([self:text])) }).
                 argName := self:expectName.
-                self:atSelector:ifTrue({
-                    self:fail("an element or a field cannot be a 'var' argument in this stage") }).
-                entry := self:lookupVar(argName).
-                entry:isNil:ifTrue({
-                    self:fail("a 'var' argument has to be a variable, and '{}' is not"
-                        :fill([argName])) }).
-                sameType:value(entry:at(#2), p:at(#2)):ifFalse({
+
+                ; **Which of the two it is, before a byte is emitted.** A whole
+                ; variable carries its pair already and is handed over as it
+                ; stands; anything with a selector on it has to have a pair made
+                ; round the container and index the designator leaves -- and
+                ; `array` must be pushed first, there being no reaching past the
+                ; top of the stack.
+                self:atSelector:or({ self:lookupWith(argName):notNil }):ifElse({
+                    self:emitGlobal("array").
+                    res := self:designator(argName, true).
+                    res:at(#1):equals('whole):ifTrue({
+                        self:fail("'{}' cannot be passed by reference"
+                            :fill([argName])) }).
+                    self:emitSend("of", #2) },
+
+                  { res := self:designator(argName, true).
+                    self:markBoxed(res:at(#3)).
+                    self:emitAccess(argName, res:at(#3), false) }).
+
+                sameType:value(res:at(#2), p:at(#2)):ifFalse({
                     self:fail("'{}' takes a {} here and '{}' is a {}"
                         :fill([name, self:typeName(p:at(#2)), argName,
-                               self:typeName(entry:at(#2))])) }).
-                self:markBoxed(entry).
-
-                ; The box, not what is in it -- `emitAccess` stops short of the
-                ; dereference that `emitReadVar` adds.
-                self:emitAccess(argName, entry, false) },
+                               self:typeName(res:at(#2))])) }) },
 
               { p:at(#2):kind:equals('set):ifTrue({ self:setHint := p:at(#2) }).
                 got := self:expression.
