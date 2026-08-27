@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### Pascal, stage 6: sets, and a plan the machine corrected — `pending`, 2026-08-27
+### Pascal, stage 6: sets, and a plan the machine corrected — `79417ca`, 2026-08-27
 
 **`set of T`, the constructor with ranges, `in`, union, intersection,
 difference, and the four comparisons.** **Seventeen programs now produce the
