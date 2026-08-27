@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### Pascal, stage 6 finished: reading, and a divergence nobody could check — `pending`, 2026-08-27
+### Pascal, stage 6 finished: reading, and a divergence nobody could check — `007a520`, 2026-08-27
 
 **`read`, `readln`, `eof` and `eoln` on standard input**, which finishes stage 6.
 **Eighteen programs now produce the same bytes as `fpc -Miso`**, and the oracle
