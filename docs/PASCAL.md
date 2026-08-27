@@ -126,13 +126,29 @@ and under this compiler.
 | | |
 | --- | --- |
 | **1** — **done** | `program`, `var` of the four simple types, assignment, expressions, `write` and `writeln` with field widths, `begin`/`end`, `if`, `while`. Five programs in `agree/` produce the same bytes as `fpc -Miso`. |
-| **2** | `const`, `type`, enumerations, subranges, `case`, `repeat`, `for`, `goto` within a procedure. |
+| **2** — **done** | `const`, `type`, enumerations, subranges, `case`, `repeat`, `for`, `goto` and labels, and `ord`, `chr`, `succ`, `pred`, `odd`, `abs`, `sqr`. Ten programs in `agree/`. |
 | **3** | `procedure` and `function`, value and `var` parameters, recursion, `forward`. |
 | **4** | Nested procedures and uplevel access — the `OP_OUTER` prediction, settled either way. |
 | **5** | `array`, multi-dimensional, `record`, `with`. |
 | **6** | `set`, and the file half: `text`, `read`, `readln`, `write`, `writeln`, `eof`, `eoln`, then `file of T`. |
 | **7** | Pointers, `new`, `nil`, and linked structures. |
 | **8** | The standard's required procedures and functions in full, and whatever the oracle has been complaining about. |
+
+**Stage 2 landed the same day.** A type became an object with two kinds: `run`
+is what the machine holds — an integer, a float, a one-character string, a
+boolean — and `kind` is what Pascal thinks it is. An enumeration is an integer
+at run time and a `Colour` at compile time; a subrange of `char` is a character
+at run time and a `1 .. 20` at compile time. Every check is on `kind` and every
+instruction is chosen by `run`, and keeping those two words apart is most of
+what the stage was.
+
+Three things it added to the divergence list by finding them:
+
+| | |
+| --- | --- |
+| an unmatched `case` falls through | ISO calls it an error. `fpc` lets it fall through and so does this, so that the two do not disagree by accident. |
+| a subrange is not range-checked | `fpc` does not check without `-Cr`, and a checking compiler here would diverge from the oracle on every program that relies on it. Stage 8, with `-Cr` on the other side. |
+| an enumeration cannot be written | Which is the standard's rule and not a gap: `write` takes an integer, a real, a char, a boolean or a string, and a `Colour` is none of them however it is held. `ord` does the showing. |
 
 **Stage 1 landed on 2026-08-27**, and three things about it are worth carrying
 forward. `mod` is one instruction and `div` is nine, which is the reverse of

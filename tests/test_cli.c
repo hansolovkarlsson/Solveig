@@ -1200,7 +1200,9 @@ static void test_pascal_compiles_a_program_that_runs(void)
                out, sizeof out) == 0);
 
     static const char *programs[] = { "arith", "control", "logic",
-                                      "reals", "writes" };
+                                      "reals", "writes",
+                                      "ordinals", "loops", "cases",
+                                      "consts", "jumps" };
     for (size_t i = 0; i < sizeof programs / sizeof programs[0]; i++) {
         char command[512], expected_path[512];
 
@@ -1244,9 +1246,10 @@ static void test_pascal_compiles_a_program_that_runs(void)
        it, which is this directory's rule for every program in it. */
     assert(run("bin/solvm " DIR "/pascal.sob 2>&1", out, sizeof out) == 0);
     assert(strstr(out, "sum of the first ten squares:   385") != NULL);
+    assert(strstr(out, "one more than a multiple of three") != NULL);
     assert(strstr(out, "over three hundred") != NULL);
 
-    printf("  5 Pascal programs compile, run, and match what fpc -Miso printed\n");
+    printf("  10 Pascal programs compile, run, and match what fpc -Miso printed\n");
 }
 
 /* ------------------------------------------------------------------------

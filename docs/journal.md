@@ -37,6 +37,32 @@ which is floored, and the machine floors. ISO wants division truncated toward
 nought, and the machine floors. Two languages wanting opposite things from one
 machine, and each getting one of them for nothing.
 
+### Stage 2, and a type that is two things at once
+
+`const`, `type`, enumerations, subranges, `case`, `repeat`, `for`, `goto`, and
+seven of the required functions. Ten programs agree with `fpc -Miso` where five
+did.
+
+**The whole stage turned on splitting one word into two.** Stage 1 had a type as
+a symbol — `'integer`, `'real` — and stage 2 cannot: an enumeration is an
+integer to the machine and a `Colour` to the language, and a subrange of `char`
+is a character to the machine and a `1 .. 20` to the language. So a type is an
+object with a `run` and a `kind`, every check reads `kind`, every emitted
+instruction reads `run`, and `ord` of an integer emits nothing at all.
+
+That is a small idea and it removed every difficulty the stage had. It is also
+the idea I would have got to eventually by patching `'enum` into the symbol
+comparisons one site at a time, and the reason it went in cleanly is that stage
+1 was small enough to rewrite rather than extend.
+
+**`repeat` was the one real defect**, and it is a good one. `OP_JUMP_IF_FALSE`
+only jumps forward and `OP_LOOP` is unconditional, so *loop while this is false*
+cannot be written as one instruction — the false case has to jump over an exit
+and into the loop back. Spelled the way the sentence reads, the loop inverts:
+`repeat i := i + 1 until i >= 3` leaves `i` at 1. It printed `1` where `3` was
+expected and everything else in a twenty-line test was right, which is exactly
+the kind of wrong that a transcript catches and reading does not.
+
 ### The verifier says one thing and means several
 
 Two mistakes both produced `bytecode is internally inconsistent` and nothing

@@ -5,6 +5,41 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Pascal, stage 2: types that are two things at once — `pending`, 2026-08-27
+
+**`const`, `type`, enumerations, subranges, `case`, `repeat`, `for` in both
+directions, `goto` with labels, and `ord`, `chr`, `succ`, `pred`, `odd`, `abs`
+and `sqr`.** **Ten programs now produce the same bytes as `fpc -Miso`**, up from
+five, and every stage 2 construct is in them.
+
+**A type became an object with two kinds, and that is most of the stage.** `run`
+is what the machine is holding — an integer, a float, a one-character string, a
+boolean — and `kind` is what Pascal thinks it is. An enumeration is an integer at
+run time and a `Colour` at compile time; a subrange of `char` is a character at
+run time and a `1 .. 20` at compile time. Every check is on `kind` and every
+instruction emitted is chosen by `run`. `ord` of an integer emits **nothing at
+all**, which is the clearest case of the two being different questions.
+
+**`repeat` needs both jumps, and written the way it reads it runs once.**
+`OP_JUMP_IF_FALSE` only goes forward and `OP_LOOP` is unconditional, so looping
+while a condition is *false* cannot be one instruction: the false case has to
+jump over an exit and into the loop back. Spelled the obvious way it inverts the
+loop, and `repeat i := i + 1 until i >= 3` leaves `i` at 1 and looks almost
+right.
+
+**Three things went on the divergence list because building the stage found
+them.** An unmatched `case` falls through, which ISO calls an error and `fpc`
+permits — matched deliberately so the two do not disagree by accident. A
+subrange is not range-checked, because `fpc` does not check without `-Cr` and a
+checking compiler would then differ from the oracle on every program that
+relies on it. And an enumeration cannot be written, which is the standard's own
+rule: `write` takes an integer, a real, a char, a boolean or a string, and a
+`Colour` is none of them however it is held.
+
+**A `goto` to a label nobody marked is refused before the file is written**,
+because otherwise it is a jump with a blank offset — and the verifier's word for
+that is *internally inconsistent*, which says nothing about labels.
+
 ### Pascal, stage 1: it compiles and it agrees with fpc — `a36af6d`, 2026-08-27
 
 **[pascal.sol](../programs/pascal.sol) is the fifteenth program and the second

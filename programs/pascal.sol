@@ -359,31 +359,161 @@ pas:scratchSlot := { n |
     self:slotBase:add(self:scratchDepth):add(n):sub(#1) }.
 
 pas:slotBase := #1.
-
 ; ---------------------------------------------------------------------------
 ; Types
 ;
-; Five, and only four of them are Pascal's: `'text` is what a quoted literal of
-; more than one character is, which the standard calls a string and this stage
-; can only write out. A one-character literal is a `char`, which is the
-; standard's rule and the reason the two are told apart at all.
+; **A type is an object, and the interesting thing about it is that it has two
+; kinds.** `run` is what the machine will be holding -- an integer, a float, a
+; one-character string, a boolean -- and `kind` is what Pascal thinks it is. An
+; enumeration is an integer at run time and a `Colour` at compile time, and a
+; subrange of `char` is a character at run time and a `1 .. 20` at compile time.
+;
+; Every check below is on `kind` and every instruction emitted is chosen by
+; `run`, and keeping those two words apart is most of what stage 2 added.
 
-pas:isNumeric := { t | t:equals('integer):or({ t:equals('real) }) }.
+ptype := object:new.
+ptype:kind    := 'integer.   ; integer real char boolean text enum subrange
+ptype:run     := 'integer.   ; integer real char boolean text
+ptype:name    := "".
+ptype:members := nil.        ; an enumeration's names, in order
+ptype:base    := nil.        ; a subrange's base type
+ptype:lo      := #0.
+ptype:hi      := #0.
 
-; An integer where a real is wanted, and never the other way -- Pascal's one
-; implicit conversion, and the reason this compiler has a type checker at all.
+makeType := { kind, run, name | | t |
+    t := ptype:new. t:kind := kind. t:run := run. t:name := name. t }.
+
+tInteger := makeType:value('integer, 'integer, "integer").
+tReal    := makeType:value('real,    'real,    "real").
+tChar    := makeType:value('char,    'char,    "char").
+tBoolean := makeType:value('boolean, 'boolean, "boolean").
+tText    := makeType:value('text,    'text,    "string").
+
+; A subrange stands for its base wherever compatibility is asked about, which
+; is the standard's rule and the reason `1 .. 20` may be assigned to an
+; `integer` and compared with one.
+rootOf := { t | t:kind:equals('subrange):ifElse({ rootOf:value(t:base) }, { t }) }.
+
+sameType := { a, b | rootOf:value(a):equals(rootOf:value(b)) }.
+
+isNumeric := { t | t:run:equals('integer):or({ t:run:equals('real) }) }.
+
+; What `case`, `for`, `ord`, `succ` and `pred` all want: something with a
+; predecessor and a successor. A `real` has neither and a string is not one.
+isOrdinal := { t | t:run:equals('integer):or({ t:run:equals('char) })
+    :or({ t:run:equals('boolean) }) }.
+
+pas:typeName := { t | t:name:size:equals(#0):ifElse({ t:kind:asString }, { t:name }) }.
+
+; ---------------------------------------------------------------------------
+; What the compiler is carrying
+
+pas:types     := dictionary:new.   ; name -> type
+pas:consts    := dictionary:new.   ; name -> [type, value]
+pas:enumOf    := dictionary:new.   ; an enumeration's member name -> [type, ordinal]
+pas:labels    := dictionary:new.   ; label -> ["at" or "pending"]
+
+; Pascal's one implicit conversion: an integer where a real is wanted, and never
+; the other way.
 pas:toReal := { t |
-    t:equals('integer):ifTrue({ self:emitSend("asFloat", #0) }).
-    'real }.
-
-pas:typeName := { t |
-    t:equals('text):ifElse({ "string" }, { t:asString }) }.
+    t:run:equals('integer):ifTrue({ self:emitSend("asFloat", #0) }).
+    tReal }.
 
 pas:wantSame := { a, b, what |
-    a:equals(b):ifFalse({
+    sameType:value(a, b):ifFalse({
         self:fail("'{}' will not take a {} and a {}"
             :fill([what, self:typeName(a), self:typeName(b)])) }).
     nil }.
+
+; ---------------------------------------------------------------------------
+; The value **under** the top of the stack has to become a real, and there is
+; no instruction that reaches past the top. Both go into scratch slots and come
+; back in the other order, which is three instructions and no cleverness.
+
+pas:widenUnder := { | sb |
+    sb := self:scratchSlot(#2).
+    self:emitSetLocal(sb). self:emitPop.
+    self:emitSend("asFloat", #0).
+    self:emitLocal(sb).
+    nil }.
+
+; ---------------------------------------------------------------------------
+; The required functions this stage has
+;
+; `ord` of an integer is the integer, so it emits nothing at all -- which is the
+; clearest case of `run` and `kind` being different questions. `ord` of a
+; boolean has to become 0 or 1 and the machine has no instruction for it, so it
+; is a jump, the way `and` is.
+
+pas:emitOrd := { t |
+    t:run:equals('char):ifTrue({ self:emitSend("asByte", #0) }).
+    t:run:equals('boolean):ifTrue({ | over, past |
+        over := self:emitJumpFalse("ord").
+        self:emitInt(#1).
+        past := self:emitJump.
+        self:patch(over).
+        self:emitInt(#0).
+        self:patch(past) }).
+    nil }.
+
+; One step along an ordinal type, in whatever the machine is actually holding.
+pas:emitStep := { t, delta |
+    t:run:equals('char):ifElse({
+        self:emitSend("asByte", #0).
+        self:emitInt(delta:abs).
+        self:emitSend(delta:lessThan(#0):ifElse({ "sub" }, { "add" }), #1).
+        self:emitSend("asCharacter", #0) },
+      { t:run:equals('integer):ifElse({
+            self:emitInt(delta:abs).
+            self:emitSend(delta:lessThan(#0):ifElse({ "sub" }, { "add" }), #1) },
+          { self:fail("'succ' and 'pred' want an ordinal") }) }).
+    nil }.
+
+pas:builtinCall := { name | | t, s |
+    self:expectPunct("(").
+
+    name:equals("ord"):ifElse({
+        t := self:expression. self:expectPunct(")").
+        isOrdinal:value(t):ifFalse({ self:fail("'ord' wants an ordinal") }).
+        self:emitOrd(t). tInteger },
+
+    { name:equals("chr"):ifElse({
+        t := self:expression. self:expectPunct(")").
+        t:run:equals('integer):ifFalse({ self:fail("'chr' wants an integer") }).
+        self:emitSend("asCharacter", #0). tChar },
+
+    { name:equals("succ"):or({ name:equals("pred") }):ifElse({
+        t := self:expression. self:expectPunct(")").
+        isOrdinal:value(t):ifFalse({
+            self:fail("'{}' wants an ordinal":fill([name])) }).
+        self:emitStep(t, name:equals("succ"):ifElse({ #1 }, { #-1 })).
+        t },
+
+    { name:equals("odd"):ifElse({
+        t := self:expression. self:expectPunct(")").
+        t:run:equals('integer):ifFalse({ self:fail("'odd' wants an integer") }).
+        self:emitInt(#2). self:emitSend("mod", #1).
+        self:emitInt(#0). self:emitSend("notEquals", #1). tBoolean },
+
+    { name:equals("abs"):ifElse({
+        t := self:expression. self:expectPunct(")").
+        isNumeric:value(t):ifFalse({ self:fail("'abs' wants a number") }).
+        self:emitSend("abs", #0). t },
+
+    { name:equals("sqr"):ifElse({
+        t := self:expression. self:expectPunct(")").
+        isNumeric:value(t):ifFalse({ self:fail("'sqr' wants a number") }).
+        ; The value is wanted twice and the machine cannot duplicate a stack
+        ; top, so it goes into a slot -- the same arrangement `div` needs.
+        s := self:scratchSlot(#1).
+        self:emitSetLocal(s). self:emitPop.
+        self:emitLocal(s). self:emitLocal(s).
+        self:emitSend("mul", #1).
+        t },
+
+      { self:fail("'{}' is not a function this stage has":fill([name])) }) }) }) }) }) }) }.
+
+pas:builtins := ["ord", "chr", "succ", "pred", "odd", "abs", "sqr"].
 
 ; ---------------------------------------------------------------------------
 ; Expressions
@@ -400,40 +530,84 @@ pas:relOps:atPut("<=", "lessOrEqual").
 pas:relOps:atPut(">", "greaterThan").
 pas:relOps:atPut(">=", "greaterOrEqual").
 
-pas:factor := { | t, name, v, over |
+; A constant, wherever one may stand: a literal, a `const` name, or an
+; enumeration member. Answers [type, value] and emits nothing, because a
+; constant expression is worked out here and never at run time.
+pas:constValue := { | name, sign, v, found |
+    sign := #1.
+    self:isPunct("+"):ifTrue({ self:next }).
+    self:isPunct("-"):ifTrue({ self:next. sign := #-1 }).
+
     self:kind:equals('int):ifElse({
-        self:emitInt(self:text:asInteger). self:next. 'integer },
+        v := self:text:asInteger:mul(sign). self:next. [tInteger, v] },
     { self:kind:equals('real):ifElse({
-        self:emitReal(self:text:asFloat). self:next. 'real },
+        v := self:text:asFloat:mul(sign:asFloat). self:next. [tReal, v] },
+    { self:kind:equals('text):ifElse({
+        sign:equals(#-1):ifTrue({ self:fail("a string has no sign") }).
+        v := self:text. self:next.
+        [v:size:equals(#1):ifElse({ tChar }, { tText }), v] },
+      { name := self:expectName.
+        name:equals("true"):or({ name:equals("false") }):ifElse({
+            [tBoolean, name:equals("true")] },
+        { name:equals("maxint"):ifElse({ [tInteger, #9223372036854775807] },
+          { self:consts:includes(name):ifElse({
+                found := self:consts:at(name).
+                sign:equals(#-1):ifTrue({
+                    isNumeric:value(found:at(#1)):ifFalse({
+                        self:fail("'{}' has no sign":fill([name])) }).
+                    found := [found:at(#1), #0:sub(found:at(#2))] }).
+                found },
+            { self:enumOf:includes(name):ifElse({
+                  found := self:enumOf:at(name).
+                  [found:at(#1), found:at(#2)] },
+                { self:fail("'{}' is not a constant":fill([name])) }) }) }) }) }) }) }) }.
+
+pas:emitValue := { t, v |
+    t:run:equals('integer):ifTrue({ self:emitInt(v) }).
+    t:run:equals('real):ifTrue({ self:emitReal(v) }).
+    t:run:equals('boolean):ifTrue({ self:emitBool(v) }).
+    t:run:equals('char):or({ t:run:equals('text) }):ifTrue({ self:emitString(v) }).
+    nil }.
+
+pas:factor := { | t, name, v, over, pair, found |
+    self:kind:equals('int):ifElse({
+        self:emitInt(self:text:asInteger). self:next. tInteger },
+    { self:kind:equals('real):ifElse({
+        self:emitReal(self:text:asFloat). self:next. tReal },
     { self:kind:equals('text):ifElse({
         v := self:text. self:next.
         self:emitString(v).
-        v:size:equals(#1):ifElse({ 'char }, { 'text }) },
+        v:size:equals(#1):ifElse({ tChar }, { tText }) },
     { self:acceptPunct("("):ifElse({
         t := self:expression.
         self:expectPunct(")").
         t },
     { self:accept("not"):ifElse({
         t := self:factor.
-        t:equals('boolean):ifFalse({
+        t:run:equals('boolean):ifFalse({
             self:fail("'not' wants a boolean and found a {}"
                 :fill([self:typeName(t)])) }).
         self:emitSend("not", #0).
-        'boolean },
+        tBoolean },
     { self:kind:equals('name):ifElse({
         name := self:text.
 
-        ; The three the standard has as constants rather than as syntax.
-        name:equals("true"):or({ name:equals("false") }):ifElse({
-            self:next. self:emitBool(name:equals("true")). 'boolean },
-        { name:equals("maxint"):ifElse({
-            self:next. self:emitInt(#9223372036854775807). 'integer },
-          { self:next.
-            self:vars:includes(name):ifFalse({
-                self:fail("'{}' is not declared":fill([name])) }).
-            over := self:vars:at(name).
-            self:emitLocal(over:at(#1)).
-            over:at(#2) }) }) },
+        self:builtins:indexOf(name):notNil:ifElse({
+            self:next. self:builtinCall(name) },
+
+        { self:vars:includes(name):ifElse({
+            self:next.
+            found := self:vars:at(name).
+            self:emitLocal(found:at(#1)).
+            found:at(#2) },
+
+          ; Everything left is a constant of some kind -- a `const`, an
+          ; enumeration member, `true`, `false` or `maxint` -- and all of them
+          ; are worked out here rather than emitted as a lookup.
+          { pair := self:constValue.
+            self:emitValue(pair:at(#1), pair:at(#2)).
+            pair:at(#1) }) }) },
+
       { self:fail("expected a value and found '{}'":fill([self:text])) }) }) }) }) }) }) }.
 
 ; `div` truncates toward nought where the machine floors, so it is compiled
@@ -466,56 +640,44 @@ pas:term := { | left, op, right, over, past |
         op := self:text. self:next.
 
         op:equals("and"):ifElse({
-            left:equals('boolean):ifFalse({
+            left:run:equals('boolean):ifFalse({
                 self:fail("'and' wants booleans") }).
             over := self:emitJumpFalse("and").
             right := self:factor.
-            right:equals('boolean):ifFalse({ self:fail("'and' wants booleans") }).
+            right:run:equals('boolean):ifFalse({ self:fail("'and' wants booleans") }).
             past := self:emitJump.
             self:patch(over).
             self:emitBool(false).
             self:patch(past).
-            left := 'boolean },
+            left := tBoolean },
 
         { right := self:factor.
           op:equals("/"):ifElse({
-              self:isNumeric(left):and({ self:isNumeric(right) }):ifFalse({
+              isNumeric:value(left):and({ isNumeric:value(right) }):ifFalse({
                   self:fail("'/' wants numbers") }).
-              ; The divisor is on top, so it is converted first and the
-              ; dividend needs the machine's help to be reached at all.
               self:toReal(right).
-              left:equals('integer):ifTrue({ self:widenUnder }).
+              left:run:equals('integer):ifTrue({ self:widenUnder }).
               self:emitSend("div", #1).
-              left := 'real },
+              left := tReal },
 
           { op:equals("div"):or({ op:equals("mod") }):ifElse({
-              left:equals('integer):and({ right:equals('integer) }):ifFalse({
-                  self:fail("'{}' wants integers":fill([op])) }).
+              left:run:equals('integer):and({ right:run:equals('integer) })
+                  :ifFalse({ self:fail("'{}' wants integers":fill([op])) }).
               op:equals("div"):ifElse(
                   { self:emitTruncatingDiv },
                   { self:emitSend("mod", #1) }).
-              left := 'integer },
+              left := tInteger },
 
-            { self:isNumeric(left):and({ self:isNumeric(right) }):ifFalse({
+            { isNumeric:value(left):and({ isNumeric:value(right) }):ifFalse({
                   self:fail("'*' wants numbers") }).
-              left:equals('real):or({ right:equals('real) }):ifElse({
+              left:run:equals('real):or({ right:run:equals('real) }):ifElse({
                   self:toReal(right).
-                  left:equals('integer):ifTrue({ self:widenUnder }).
+                  left:run:equals('integer):ifTrue({ self:widenUnder }).
                   self:emitSend("mul", #1).
-                  left := 'real },
-                { self:emitSend("mul", #1). left := 'integer }) }) }) }) }).
+                  left := tReal },
+                { self:emitSend("mul", #1). left := tInteger }) }) }) }) }).
     self:scratchDepth := self:scratchDepth:sub(#2).
     left }.
-
-; The value **under** the top of the stack has to become a real, and there is
-; no instruction that reaches past the top. Both go into scratch slots and come
-; back in the other order, which is three instructions and no cleverness.
-pas:widenUnder := { | sb |
-    sb := self:scratchSlot(#2).
-    self:emitSetLocal(sb). self:emitPop.
-    self:emitSend("asFloat", #0).
-    self:emitLocal(sb).
-    nil }.
 
 pas:simpleExpression := { | left, op, right, negate, past, skip |
     negate := false.
@@ -524,7 +686,7 @@ pas:simpleExpression := { | left, op, right, negate, past, skip |
 
     left := self:term.
     negate:ifTrue({
-        self:isNumeric(left):ifFalse({ self:fail("'-' wants a number") }).
+        isNumeric:value(left):ifFalse({ self:fail("'-' wants a number") }).
         self:emitSend("negated", #0) }).
 
     { self:isPunct("+"):or({ self:isPunct("-") }):or({ self:isName("or") }) }
@@ -535,24 +697,24 @@ pas:simpleExpression := { | left, op, right, negate, past, skip |
         ; block. It short-circuits, which the standard permits and does not
         ; require -- evaluation order for these is the implementation's.
         op:equals("or"):ifElse({
-            left:equals('boolean):ifFalse({ self:fail("'or' wants booleans") }).
+            left:run:equals('boolean):ifFalse({ self:fail("'or' wants booleans") }).
             past := self:emitJumpFalse("or").
             self:emitBool(true).
             skip := self:emitJump.
             self:patch(past).
             right := self:term.
-            right:equals('boolean):ifFalse({ self:fail("'or' wants booleans") }).
+            right:run:equals('boolean):ifFalse({ self:fail("'or' wants booleans") }).
             self:patch(skip).
-            left := 'boolean },
+            left := tBoolean },
 
         { right := self:term.
-          self:isNumeric(left):and({ self:isNumeric(right) }):ifFalse({
+          isNumeric:value(left):and({ isNumeric:value(right) }):ifFalse({
               self:fail("'{}' wants numbers":fill([op])) }).
-          left:equals('real):or({ right:equals('real) }):ifElse({
+          left:run:equals('real):or({ right:run:equals('real) }):ifElse({
               self:toReal(right).
-              left:equals('integer):ifTrue({ self:widenUnder }).
-              left := 'real },
-            { left := 'integer }).
+              left:run:equals('integer):ifTrue({ self:widenUnder }).
+              left := tReal },
+            { left := tInteger }).
           self:emitSend(op:equals("+"):ifElse({ "add" }, { "sub" }), #1) }) }).
     left }.
 
@@ -562,17 +724,17 @@ pas:expression := { | left, op, right |
         op := self:text. self:next.
         right := self:simpleExpression.
 
-        self:isNumeric(left):and({ self:isNumeric(right) }):ifElse({
-            left:equals('real):or({ right:equals('real) }):ifTrue({
+        isNumeric:value(left):and({ isNumeric:value(right) }):ifElse({
+            left:run:equals('real):or({ right:run:equals('real) }):ifTrue({
                 self:toReal(right).
-                left:equals('integer):ifTrue({ self:widenUnder }) }) },
+                left:run:equals('integer):ifTrue({ self:widenUnder }) }) },
           { self:wantSame(left, right, op).
-            left:equals('boolean):and({ op:equals("="):or({ op:equals("<>") })
+            left:run:equals('boolean):and({ op:equals("="):or({ op:equals("<>") })
                 :not }):ifTrue({
                 self:fail("booleans compare with '=' and '<>' in this stage") }) }).
 
         self:emitSend(self:relOps:at(op), #1).
-        left := 'boolean }).
+        left := tBoolean }).
     left }.
 
 ; ---------------------------------------------------------------------------
@@ -595,8 +757,8 @@ pas:widthOf := { | sign, v |
 ; fpc's defaults, adopted so that agreement is checkable: the standard leaves
 ; every one of these to the implementation.
 pas:defaultWidth := dictionary:new.
-pas:defaultWidth:atPut("integer", #11).
-pas:defaultWidth:atPut("boolean", #5).
+pas:defaultWidth:atPut('integer, #11).
+pas:defaultWidth:atPut('boolean, #5).
 
 pas:writeItem := { | t, width, places |
     t := self:expression.
@@ -605,13 +767,19 @@ pas:writeItem := { | t, width, places |
         width := self:widthOf.
         self:acceptPunct(":"):ifTrue({ places := self:widthOf }) }).
 
+    ; **An enumeration cannot be written**, which is the standard's rule and not
+    ; a gap here: `write` takes an integer, a real, a char, a boolean or a
+    ; string, and a `Colour` is none of them however it is held.
+    t:kind:equals('enum):ifTrue({
+        self:fail("an enumeration cannot be written -- ord() can") }).
+
     places:notNil:ifTrue({
-        t:equals('real):ifFalse({
+        t:run:equals('real):ifFalse({
             self:fail("only a real takes a second field width") }) }).
 
-    t:equals('boolean):ifTrue({ self:emitSend("asString", #0) }).
+    t:run:equals('boolean):ifTrue({ self:emitSend("asString", #0) }).
 
-    t:equals('real):ifElse({
+    t:run:equals('real):ifElse({
         places:notNil:ifElse({
             self:emitString(">{}.{}":fill([width, places])).
             self:emitSend("asString", #1) },
@@ -622,11 +790,10 @@ pas:writeItem := { | t, width, places |
                   self:emitSend("asString", #1) }) }) },
 
       { width:isNil:ifElse({
-            t:equals('integer):or({ t:equals('boolean) }):ifTrue({
-                self:emitString(">{}":fill([
-                    self:defaultWidth:at(self:typeName(t))])).
+            self:defaultWidth:includes(t:run):ifTrue({
+                self:emitString(">{}":fill([self:defaultWidth:at(t:run)])).
                 self:emitSend("asString", #1) }) },
-          { t:equals('integer):ifTrue({ self:emitSend("asString", #0) }).
+          { t:run:equals('integer):ifTrue({ self:emitSend("asString", #0) }).
             self:emitString(">{}":fill([width])).
             self:emitSend("asString", #1) }) }).
     nil }.
@@ -651,10 +818,55 @@ pas:writeCall := { newline | | more |
     nil }.
 
 ; ---------------------------------------------------------------------------
+; Labels and goto
+;
+; A label is an unsigned integer the standard makes you declare, and a `goto`
+; may be written before or after the label it names. Backwards is `OP_LOOP` and
+; forwards is `OP_JUMP` with the offset filled in when the label arrives --
+; which is `sola.sol`'s arrangement, and it works for the same reason: **every
+; statement here leaves the stack as it found it**, so every label is a depth-0
+; merge point by construction and the verifier needs no analysis at all.
+
+pas:labelDecl := { | more |
+    more := true.
+    { more }:whileTrue({
+        self:kind:equals('int):ifFalse({ self:fail("a label is a number") }).
+        self:labels:includes(self:text):ifTrue({
+            self:fail("label {} is declared twice":fill([self:text])) }).
+        self:labels:atPut(self:text, [nil, array:new]).
+        self:next.
+        more := self:acceptPunct(",") }).
+    self:expectPunct(";").
+    nil }.
+
+pas:placeLabel := { name | | entry |
+    entry := self:labels:at(name).
+    entry:at(#1):notNil:ifTrue({
+        self:fail("label {} marks two places":fill([name])) }).
+    entry:atPut(#1, self:here).
+    entry:at(#2):do({ at | self:patch(at) }).
+    entry:atPut(#2, array:new).
+    nil }.
+
+pas:gotoLabel := { name | | entry |
+    self:labels:includes(name):ifFalse({
+        self:fail("label {} is not declared":fill([name])) }).
+    entry := self:labels:at(name).
+    entry:at(#1):isNil:ifElse(
+        { entry:at(#2):add(self:emitJump) },
+        { self:emitLoop(entry:at(#1)) }).
+    nil }.
+
+; ---------------------------------------------------------------------------
 ; Statements
 
-pas:statement := { | name, over, past, top, target |
+pas:statement := { | name, over, past, top, target, ends |
     self:lineMark(self:tline).
+
+    ; A number here is a label on this statement, not a value.
+    self:kind:equals('int):ifTrue({
+        name := self:text. self:next. self:expectPunct(":").
+        self:placeLabel(name) }).
 
     self:isName("begin"):ifElse({ self:compound },
 
@@ -679,6 +891,29 @@ pas:statement := { | name, over, past, top, target |
         self:emitLoop(top).
         self:patch(over) },
 
+    ; **`repeat` needs both jumps**, because `JUMP_IF_FALSE` only goes forward
+    ; and `OP_LOOP` is unconditional. A false condition jumps over the exit and
+    ; into the loop back; a true one falls into the exit. Written the other way
+    ; round -- the way it reads -- the loop runs exactly once.
+    { self:accept("repeat"):ifElse({
+        top := self:here.
+        self:statement.
+        { self:acceptPunct(";") }:whileTrue({ self:statement }).
+        self:expect("until").
+        self:conditionFor("until").
+        over := self:emitJumpFalse("doUntil").
+        past := self:emitJump.
+        self:patch(over).
+        self:emitLoop(top).
+        self:patch(past) },
+
+    { self:accept("for"):ifElse({ self:forStatement },
+    { self:accept("case"):ifElse({ self:caseStatement },
+    { self:accept("goto"):ifElse({
+        self:kind:equals('int):ifFalse({ self:fail("'goto' wants a label") }).
+        name := self:text. self:next.
+        self:gotoLabel(name) },
+
     { self:accept("writeln"):ifElse({ self:writeCall(true) },
     { self:accept("write"):ifElse({ self:writeCall(false) },
 
@@ -692,24 +927,131 @@ pas:statement := { | name, over, past, top, target |
 
       ; The empty statement, which the standard has and which is what a `;`
       ; before an `end` produces.
-      { nil }) }) }) }) }) }).
+      { nil }) }) }) }) }) }) }) }) }) }).
+    nil }.
+
+; **The selector is evaluated once**, which the standard requires and a chain of
+; comparisons would otherwise get wrong. It goes into a slot and every arm reads
+; it from there.
+;
+; ISO 7185 has no `else` here and says an unmatched value is an error. `fpc`
+; lets it fall through, and so does this -- recorded in PASCAL.md rather than
+; being the one place the two disagree by accident.
+pas:caseStatement := { | t, slot, ends, matches, skip, c, over, more, moreConsts |
+    self:scratchDepth := self:scratchDepth:add(#2).
+    t := self:expression.
+    isOrdinal:value(t):ifFalse({ self:fail("'case' wants an ordinal") }).
+    slot := self:scratchSlot(#1).
+    self:emitSetLocal(slot). self:emitPop.
+    self:expect("of").
+
+    ends := array:new.
+    more := true.
+    { more }:whileTrue({
+        matches := array:new.
+        moreConsts := true.
+        { moreConsts }:whileTrue({
+            c := self:constValue.
+            self:wantSame(t, c:at(#1), "case").
+            self:emitLocal(slot).
+            self:emitValue(c:at(#1), c:at(#2)).
+            self:emitSend("equals", #1).
+            over := self:emitJumpFalse("case").
+            matches:add(self:emitJump).
+            self:patch(over).
+            moreConsts := self:acceptPunct(",") }).
+        self:expectPunct(":").
+
+        ; Nothing in the list matched: past this arm and on to the next.
+        skip := self:emitJump.
+        matches:do({ m | self:patch(m) }).
+        self:statement.
+        ends:add(self:emitJump).
+        self:patch(skip).
+
+        more := self:acceptPunct(";").
+        more:ifTrue({ self:isName("end"):ifTrue({ more := false }) }) }).
+
+    self:expect("end").
+    ends:do({ e | self:patch(e) }).
+    self:scratchDepth := self:scratchDepth:sub(#2).
+    nil }.
+
+; **The limit is evaluated once**, which the standard requires, and the control
+; variable is compared against it before the body -- so a range that is already
+; empty runs no times.
+;
+; The step is guarded rather than tested afterwards: at the limit the loop
+; leaves instead of incrementing, because incrementing past the end of a
+; subrange or an enumeration is a value the type does not have.
+pas:forStatement := { | name, target, t, slot, top, over, done, cont, up, got |
+    name := self:expectName.
+    self:vars:includes(name):ifFalse({
+        self:fail("'{}' is not declared":fill([name])) }).
+    target := self:vars:at(name).
+    t := target:at(#2).
+    isOrdinal:value(t):ifFalse({
+        self:fail("'for' wants an ordinal control variable") }).
+    t:run:equals('boolean):ifTrue({
+        self:fail("a boolean control variable is not in this stage") }).
+
+    self:expectPunct(":=").
+    got := self:expression.
+    sameType:value(got, t):ifFalse({
+        self:fail("'{}' is a {} and this is a {}"
+            :fill([name, self:typeName(t), self:typeName(got)])) }).
+    self:emitSetLocal(target:at(#1)). self:emitPop.
+
+    up := self:accept("to"):ifElse({ true }, { self:expect("downto"). false }).
+
+    self:scratchDepth := self:scratchDepth:add(#2).
+    slot := self:scratchSlot(#1).
+    got := self:expression.
+    sameType:value(got, t):ifFalse({
+        self:fail("the limit of this 'for' is a {}":fill([self:typeName(got)])) }).
+    self:emitSetLocal(slot). self:emitPop.
+    self:expect("do").
+
+    top := self:here.
+    self:emitLocal(target:at(#1)).
+    self:emitLocal(slot).
+    self:emitSend(up:ifElse({ "lessOrEqual" }, { "greaterOrEqual" }), #1).
+    over := self:emitJumpFalse("for").
+
+    self:statement.
+
+    self:emitLocal(target:at(#1)).
+    self:emitLocal(slot).
+    self:emitSend("equals", #1).
+    cont := self:emitJumpFalse("for").
+    done := self:emitJump.
+    self:patch(cont).
+
+    self:emitLocal(target:at(#1)).
+    self:emitStep(t, up:ifElse({ #1 }, { #-1 })).
+    self:emitSetLocal(target:at(#1)). self:emitPop.
+    self:emitLoop(top).
+
+    self:patch(over).
+    self:patch(done).
+    self:scratchDepth := self:scratchDepth:sub(#2).
     nil }.
 
 pas:conditionFor := { what | | t |
     t := self:expression.
-    t:equals('boolean):ifFalse({
+    t:run:equals('boolean):ifFalse({
         self:fail("'{}' wants a boolean and found a {}"
             :fill([what, self:typeName(t)])) }).
     nil }.
 
-; Pascal's assignment compatibility: an integer may go into a real and nothing
-; else converts.
+; Pascal's assignment compatibility: an integer may go into a real, a subrange
+; stands for its base, and nothing else converts.
 pas:assignInto := { target, name | | want, got |
     want := target:at(#2).
     got := self:expression.
-    want:equals('real):and({ got:equals('integer) }):ifTrue({
-        self:toReal(got). got := 'real }).
-    got:equals(want):ifFalse({
+    want:run:equals('real):and({ got:run:equals('integer) }):ifTrue({
+        self:toReal(got). got := tReal }).
+    sameType:value(got, want):ifFalse({
         self:fail("'{}' is a {} and this is a {}"
             :fill([name, self:typeName(want), self:typeName(got)])) }).
     self:emitSetLocal(target:at(#1)).
@@ -725,14 +1067,76 @@ pas:compound := {
 
 ; ---------------------------------------------------------------------------
 ; Declarations
+;
+; The standard's order, and it is not a preference: `label`, `const`, `type`,
+; `var`. Each section runs until a word that opens the next one, which is the
+; only lookahead any of this needs because Pascal declares everything before it
+; is used.
 
-pas:typeNamed := { | t |
-    t := self:expectName.
-    t:equals("integer"):ifElse({ 'integer },
-    { t:equals("real"):ifElse({ 'real },
-    { t:equals("char"):ifElse({ 'char },
-    { t:equals("boolean"):ifElse({ 'boolean },
-      { self:fail("'{}' is not a type this stage has":fill([t])) }) }) }) }) }.
+pas:sectionWords := ["label", "const", "type", "var", "begin",
+                     "procedure", "function"].
+
+pas:atSection := {
+    self:kind:equals('name):and({ self:sectionWords:indexOf(self:text):notNil }) }.
+
+pas:typeDenoter := { | members, t, lo, hi, i |
+    self:acceptPunct("("):ifElse({
+        members := array:new.
+        members:add(self:expectName).
+        { self:acceptPunct(",") }:whileTrue({ members:add(self:expectName) }).
+        self:expectPunct(")").
+        t := makeType:value('enum, 'integer, "").
+        t:members := members.
+        i := #0.
+        members:do({ m |
+            self:enumOf:includes(m):ifTrue({
+                self:fail("'{}' is in two enumerations":fill([m])) }).
+            self:enumOf:atPut(m, [t, i]).
+            i := i:add(#1) }).
+        t },
+
+      { self:kind:equals('name):and({ self:types:includes(self:text) }):ifElse({
+            self:types:at(self:expectName) },
+
+          ; Anything else opens a subrange, and both ends are constants -- which
+          ; is why `constValue` exists apart from `factor`.
+          { lo := self:constValue.
+            self:expectPunct("..").
+            hi := self:constValue.
+            self:wantSame(lo:at(#1), hi:at(#1), "..").
+            isOrdinal:value(lo:at(#1)):ifFalse({
+                self:fail("a subrange runs between ordinals") }).
+            t := makeType:value('subrange, lo:at(#1):run, "").
+            t:base := rootOf:value(lo:at(#1)).
+            t:lo := lo:at(#2). t:hi := hi:at(#2).
+            t:name := "{} .. {}":fill([lo:at(#2):asString, hi:at(#2):asString]).
+            t }) }) }.
+
+pas:constSection := { | name, pair |
+    { self:kind:equals('name):and({ self:atSection:not }) }:whileTrue({
+        name := self:expectName.
+        self:expectPunct("=").
+        pair := self:constValue.
+        self:expectPunct(";").
+        self:consts:includes(name):ifTrue({
+            self:fail("'{}' is declared twice":fill([name])) }).
+        self:consts:atPut(name, pair) }).
+    nil }.
+
+pas:typeSection := { | name, t |
+    { self:kind:equals('name):and({ self:atSection:not }) }:whileTrue({
+        name := self:expectName.
+        self:expectPunct("=").
+        t := self:typeDenoter.
+        self:expectPunct(";").
+        self:types:includes(name):ifTrue({
+            self:fail("'{}' is declared twice":fill([name])) }).
+
+        ; A type made here takes the name it was given, so a message about it
+        ; says `Colour` rather than what it is underneath.
+        t:name:size:equals(#0):ifTrue({ t:name := name }).
+        self:types:atPut(name, t) }).
+    nil }.
 
 pas:declareVar := { name, type | | slot |
     self:vars:includes(name):ifTrue({
@@ -745,21 +1149,21 @@ pas:declareVar := { name, type | | slot |
     ; **Every variable starts at nought**, which the standard does not promise
     ; and this machine cannot avoid: a slot that was never written holds nil,
     ; and nil understands nothing. So the zero is emitted rather than assumed.
-    type:equals('integer):ifTrue({ self:emitInt(#0) }).
-    type:equals('real):ifTrue({ self:emitReal(0.0) }).
-    type:equals('char):ifTrue({ self:emitString(" ") }).
-    type:equals('boolean):ifTrue({ self:emitBool(false) }).
+    type:run:equals('integer):ifTrue({ self:emitInt(#0) }).
+    type:run:equals('real):ifTrue({ self:emitReal(0.0) }).
+    type:run:equals('char):ifTrue({ self:emitString(" ") }).
+    type:run:equals('boolean):ifTrue({ self:emitBool(false) }).
     self:emitSetLocal(slot).
     self:emitPop.
     nil }.
 
 pas:varSection := { | names, type |
-    { self:kind:equals('name):and({ self:isName("begin"):not }) }:whileTrue({
+    { self:kind:equals('name):and({ self:atSection:not }) }:whileTrue({
         names := array:new.
         names:add(self:expectName).
         { self:acceptPunct(",") }:whileTrue({ names:add(self:expectName) }).
         self:expectPunct(":").
-        type := self:typeNamed.
+        type := self:typeDenoter.
         self:expectPunct(";").
         names:do({ n | self:declareVar(n, type) }) }).
     nil }.
@@ -777,7 +1181,7 @@ pas:lineMark := { n | | grown |
     self:runLine := n.
     nil }.
 
-pas:program := {
+pas:program := { | pending |
     self:expect("program").
     self:expectName.
     self:acceptPunct("("):ifTrue({
@@ -786,6 +1190,9 @@ pas:program := {
         self:expectPunct(")") }).
     self:expectPunct(";").
 
+    self:accept("label"):ifTrue({ self:labelDecl }).
+    self:accept("const"):ifTrue({ self:constSection }).
+    self:accept("type"):ifTrue({ self:typeSection }).
     self:accept("var"):ifTrue({ self:varSection }).
 
     ; Scratch slots live above the variables, so their numbers are known only
@@ -795,6 +1202,12 @@ pas:program := {
 
     self:compound.
     self:expectPunct(".").
+
+    ; A `goto` to a label nobody ever marked would otherwise be a jump with a
+    ; blank offset, which is a file the verifier refuses without saying why.
+    self:labels:keysAndValuesDo({ name, entry |
+        entry:at(#2):size:greaterThan(#0):ifTrue({
+            self:fail("label {} is jumped to and never marked":fill([name])) }) }).
     nil }.
 
 pas:compile := { source, path | | chunk, i |
@@ -806,7 +1219,16 @@ pas:compile := { source, path | | chunk, i |
     self:lineRuns := array:new. self:runLine := #1. self:lineAt := #0.
     self:slotNames := array:new. self:slotNames:add("").
     self:vars := dictionary:new.
+    self:types := dictionary:new.
+    self:consts := dictionary:new.
+    self:enumOf := dictionary:new.
+    self:labels := dictionary:new.
     self:scratchDepth := #0. self:scratchMax := #0.
+
+    self:types:atPut("integer", tInteger).
+    self:types:atPut("real",    tReal).
+    self:types:atPut("char",    tChar).
+    self:types:atPut("boolean", tBoolean).
 
     self:next.
     self:program.
@@ -830,7 +1252,6 @@ pas:compile := { source, path | | chunk, i |
     chunk:atPut("slotNames", self:slotNames).
     chunk:atPut("methods", array:new).
     chunk }.
-
 ; ---------------------------------------------------------------------------
 ; Running it
 
@@ -874,6 +1295,15 @@ begin
   writeln('a letter:', mark:3);
 
   writeln(-7 div 2:6, -7 mod 2:6, 7 div 2:6);
+
+  for i := 1 to 5 do write(sqr(i):5);
+  writeln;
+
+  case total mod 3 of
+    0 : writeln('a multiple of three');
+    1 : writeln('one more than a multiple of three');
+    2 : writeln('two more than a multiple of three')
+  end;
 
   if total > 300 then
     writeln('over three hundred')

@@ -1412,9 +1412,19 @@ by [oracle.sh](../programs/pas/oracle.sh).
     -3     3
 ```
 
-**Stage 1**, and [PASCAL.md](PASCAL.md) says what the other seven are: the
-`program` heading, `var` of the four simple types, assignment, expressions,
-`write` and `writeln` with field widths, `begin`/`end`, `if` and `while`.
+**Stages 1 and 2**, and [PASCAL.md](PASCAL.md) says what the other six are.
+The `program` heading, `var`, `const`, `type`, assignment, expressions, `write`
+and `writeln` with field widths, `begin`/`end`, `if`, `while`, `repeat`, `for`
+in both directions, `case`, `goto` with labels, enumerations, subranges, and
+`ord`, `chr`, `succ`, `pred`, `odd`, `abs` and `sqr`. **Ten programs produce the
+same bytes as `fpc -Miso`.**
+
+**A type has two kinds, and that is most of stage 2.** `run` is what the machine
+is holding — an integer, a float, a one-character string, a boolean — and `kind`
+is what Pascal thinks it is. An enumeration is an integer at run time and a
+`Colour` at compile time; a subrange of `char` is a character at run time and a
+`1 .. 20` at compile time. Every check is on `kind` and every instruction
+emitted is chosen by `run`.
 
 **Where SOLABASIC.md is a language definition, [PASCAL.md](PASCAL.md) is a
 conformance statement**, and that is the whole difference. `sola.sol` had to
@@ -1458,6 +1468,13 @@ wrong**: Pascal's sign belongs to the whole term, so `-3 mod 2` is `-(3 mod 2)`,
 and asked with a variable holding `-3` both answer `1`. A compiler for a
 language whose grammar it has just read is exactly the place to misread
 precedence.
+
+**`repeat` needs both jumps, and written the way it reads it runs once.**
+`OP_JUMP_IF_FALSE` only goes forward and `OP_LOOP` is unconditional, so looping
+while a condition is *false* cannot be one instruction: the false case jumps
+over an exit and into the loop back. The obvious spelling — jump over the loop
+when false — inverts the loop, and a `repeat ... until i >= 3` runs its body
+exactly once and looks almost right.
 
 **And the verifier says *internally inconsistent* and not which slot.** Two
 mistakes produced that and nothing else: a jump offset measured from the wrong
