@@ -5,6 +5,49 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Pascal on SolVM, planned before it is written — `pending`, 2026-08-27
+
+**[PASCAL.md](PASCAL.md)**: ISO 7185 Standard Pascal, compiled to a `.sob` and
+run by `bin/solvm`. Written before the compiler, the way
+[SOLABASIC.md](SOLABASIC.md) was — and **not a language definition**, which is
+the whole difference between them. That document exists because there is no
+standard for its dialect; Pascal has one, so the boundary is not this page's to
+draw. What it draws instead is the mapping, the divergences, and the stages.
+
+**The mapping is the work**, since Pascal is statically typed and SolVM is not.
+A record is an array with offsets fixed while compiling, so a field costs an
+`at` and not a lookup. A set is an array of integers, one bit per member, and
+union is `bitOr`. A pointer is a one-element array. A `var` parameter is a box —
+sola.sol's answer, and Pascal is the easier case, because `var` is *declared*
+where QBasic made the compiler infer it.
+
+**Free Pascal 3.2.2 is installed as the oracle**, and the first thing it was
+asked has already paid: `fpc -Miso` **accepts both Pascal files this repository
+already ships**, which is the first evidence that
+[pascal.bnf](../programs/check_syntax/pascal.bnf) describes Pascal rather than
+this project's idea of it.
+
+**[ideas.md](ideas.md) had this down as an interpreter, and the entry now says
+why that was wrong.** Its predicted value was meeting
+[3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels) head on: a
+tree-walker spends host frames in proportion to the interpreted program's call
+depth. A compiled call is one frame, so Pascal recursion reaches about 250
+levels rather than 40 and the entry's finding gets *weaker*. Recorded rather
+than quietly dropped: a prediction falsified by a decision is the reason anybody
+looked at the frame cost before choosing the shape.
+
+**Two better predictions take its place, both falsifiable, both written down
+before the first line.** That
+[3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame) is not a
+limitation for this language but its own rule — *a capturing block may not
+outlive its frame* and *a nested procedure may not be called after its parent
+returns* being the same sentence. And that `OP_OUTER depth slot` is a static
+link, so Pascal's scoping needs no mechanism the machine does not already have.
+No compiler here has emitted one: SolaBasic has no nested procedures.
+
+Stage 4 is nested procedures and goes early on purpose, the way SolaBasic put
+`GOTO` in week one — it is the claim the design rests on.
+
 ### GRAMMAR.md is held against the grammar it says it is — `70ca3a9`, 2026-08-27
 
 **[GRAMMAR.md](GRAMMAR.md) opens by saying it is the same grammar as

@@ -54,6 +54,11 @@ while staying ordinary messages you can send any other way.
   control-flow syntax, so the page is short for a reason rather than by being a
   summary.
 
+- **[Pascal on SolVM](docs/PASCAL.md)** — ISO 7185 Standard Pascal, compiled to
+  a `.sob`. Written before the compiler: how Pascal's types land on a machine
+  that has none of them, where SolVM forces a divergence, and what is built
+  when.
+
 - **[SolaBasic cheatsheet](docs/SOLABASIC-CHEATSHEET.md)** — every statement and
   every supplied function of the BASIC dialect, on one page. The
   [reference manual](docs/SOLABASIC-REFERENCE.md) is the full account and

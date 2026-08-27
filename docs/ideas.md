@@ -2056,6 +2056,45 @@ tree-walker for a lexically nested language spends frames in proportion to the
 [3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels) would be met head
 on rather than dodged. That is the whole of its value, and it is a real one.
 
+#### It is being built, and as a compiler — so this prediction is wrong before it starts
+
+**2026-08-27, written before the first line.** The decision is to compile Pascal
+to `.sob` rather than to interpret it, the way
+[sola.sol](../programs/sola.sol) does SolaBasic, and that **takes away the value
+this entry predicted**. A tree-walker spends three to six host frames per
+interpreted call; a compiled call is one `OP_SEND` and one frame. So Pascal
+recursion would reach something like 250 levels rather than 40, and 3.5 is met
+*less* squarely than an interpreter would have met it. The entry's own reasoning
+still holds — it is the shape that changed, not the argument.
+
+Recorded rather than quietly dropped, because a prediction that is falsified by
+a decision is still a prediction that paid: it is the reason anybody looked at
+the frame cost before choosing the shape.
+
+**Two better predictions take its place, and both are falsifiable.**
+
+**One: [3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame) is not a
+limitation for this language, it is the language's own rule.** A capturing block
+may not outlive the frame it was written in. A Pascal nested procedure may not
+be called after its enclosing procedure has returned. Those are the same
+sentence, and if they really are, then the entry that has been open since the
+start is — for Pascal exactly — the specification. **The prediction is that
+nothing in a conforming Pascal program can reach the restriction**, and the way
+to falsify it is one program that does.
+
+**Two: `OP_OUTER` gets its first customer from a compiler.** The instruction
+takes a depth and a slot, which is a static link by another name, and Pascal's
+uplevel variable access is what static links were invented for. `sola.sol`
+emits neither `OP_OUTER` nor `OP_SET_OUTER` — SolaBasic has no nested
+procedures — so no compiler here has ever produced one. **The prediction is that
+Pascal's scoping needs no mechanism the machine does not already have.**
+
+What neither prediction covers is the type system, which is where the work
+actually is: Pascal has records, sets, subranges, enumerations, pointers and
+files, and SolVM has objects, arrays, strings and two kinds of number. That is a
+mapping to be argued rather than a limit to be found, and
+[PASCAL.md](PASCAL.md) is where it is argued.
+
 **Predicate logic** — unification, resolution and backtracking. Wanted:
 coroutines, continuations, and a non-local return, all three of which are
 recorded as **No** further down this page with reasons. It would need an
