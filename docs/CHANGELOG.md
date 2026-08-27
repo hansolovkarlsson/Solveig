@@ -5,6 +5,38 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Pascal, stage 8: the language, finished — `pending`, 2026-08-27
+
+**`sqrt`, `sin`, `cos`, `arctan`, `exp`, `ln`, `trunc`, `round`, `page`, and
+field widths worked out while running.** **Twenty-one programs now produce the
+same bytes as `fpc -Miso`**, and three more must *not*, each exercising a
+divergence [PASCAL.md](PASCAL.md) records. **All eight stages are done.**
+
+**The eight functions the machine already had, under other names.** `ln` is
+`log`, which is natural in both; `arctan` is `atan`. `round` is half away from
+nought here and there — which was *checked* rather than assumed, that being the
+one of them where two reasonable implementations differ, and `trunc` likewise
+cuts toward nought in both.
+
+**A field width may now be worked out while running**, which the standard allows
+and this refused for seven stages. The constant case still folds into the spec
+string and costs nothing, so an ordinary `writeln(i:6)` is unchanged; a computed
+one builds the spec with three sends. **The bug in it is worth the entry**: a
+width and a place count are two values alive at once, and both asked for the
+same scratch slot — so `x:w:d` wrote a spec of `>3.3` where `>8.3` was meant and
+padded to three. Which slot is wanted is a question the caller now has to
+answer.
+
+**And the last of it is a `\f` the machine has no escape for.** `page` writes a
+form feed, and Solum's string escapes are `\" \\ \n \t \r` — so the compiler
+makes the one-character string itself rather than asking for one it cannot
+write.
+
+**Two closing programs.** `maths.pas` for the functions and the computed widths,
+and `sieve.pas` — Eratosthenes with a set, which is the program sets were put in
+the language for, and the one that shows what an array of booleans costs and
+buys: the membership test in the inner loop is one index.
+
 ### Pascal, stage 7: pointers, and a reference one case too narrow — `60515ef`, 2026-08-27
 
 **Pointers, `new`, `nil`, `dispose`, and linked structures.** **Nineteen

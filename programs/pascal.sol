@@ -649,6 +649,22 @@ pas:builtinCall := { name | | t, s, l1, l2 |
         isNumeric:value(t):ifFalse({ self:fail("'abs' wants a number") }).
         self:emitSend("abs", #0). t },
 
+    { name:equals("trunc"):or({ name:equals("round") }):ifElse({
+        t := self:expression. self:expectPunct(")").
+        isNumeric:value(t):ifFalse({
+            self:fail("'{}' wants a number":fill([name])) }).
+        self:toReal(t).
+        self:emitSend(name:equals("trunc"):ifElse({ "truncated" }, { "rounded" }), #0).
+        tInteger },
+
+    { self:realFns:includes(name):ifElse({
+        t := self:expression. self:expectPunct(")").
+        isNumeric:value(t):ifFalse({
+            self:fail("'{}' wants a number":fill([name])) }).
+        self:toReal(t).
+        self:emitSend(self:realFns:at(name), #0).
+        tReal },
+
     { name:equals("sqr"):ifElse({
         t := self:expression. self:expectPunct(")").
         isNumeric:value(t):ifFalse({ self:fail("'sqr' wants a number") }).
@@ -660,10 +676,24 @@ pas:builtinCall := { name | | t, s, l1, l2 |
         self:emitSend("mul", #1).
         t },
 
-      { self:fail("'{}' is not a function this stage has":fill([name])) }) }) }) }) }) }) }) }.
+      { self:fail("'{}' is not a function this stage has":fill([name])) }) }) }) }) }) }) }) }) }) }.
+
+; **The eight the standard requires and the machine already has**, under its
+; own names: `ln` is `log`, which is natural here as it is there, and `arctan`
+; is `atan`. `round` is half away from nought in both, which was checked rather
+; than assumed -- it is the one of these where two reasonable implementations
+; differ.
+pas:realFns := dictionary:new.
+pas:realFns:atPut("sqrt",   "sqrt").
+pas:realFns:atPut("sin",    "sin").
+pas:realFns:atPut("cos",    "cos").
+pas:realFns:atPut("arctan", "atan").
+pas:realFns:atPut("exp",    "exp").
+pas:realFns:atPut("ln",     "log").
 
 pas:builtins := ["ord", "chr", "succ", "pred", "odd", "abs", "sqr",
-                 "eof", "eoln"].
+                 "eof", "eoln", "trunc", "round",
+                 "sqrt", "sin", "cos", "arctan", "exp", "ln"].
 
 ; ---------------------------------------------------------------------------
 ; Expressions
@@ -1334,14 +1364,35 @@ pas:expression := { | left, op, right, xs |
 ; legal Pascal and is stage 8; it is refused by name rather than accepted and
 ; got wrong.
 
-pas:widthOf := { | sign, v |
-    sign := #1.
-    self:isPunct("-"):ifTrue({ self:next. sign := #-1 }).
-    self:kind:equals('int):ifFalse({
-        self:fail("a field width has to be a literal in this stage") }).
-    v := self:text:asInteger:mul(sign).
-    self:next.
-    v }.
+; **A width is a constant when it can be, and an expression when it cannot.**
+; The constant case folds into the spec string and costs nothing at run time,
+; which is what makes an ordinary `writeln(i:6)` four instructions. A computed
+; one builds the spec while running, which is three sends more and is what the
+; standard actually allows -- `write(x:w)` with `w` a variable is legal Pascal
+; and was refused here until stage 8.
+pas:widthIsConstant := { | t |
+    self:kind:equals('int):ifElse({ true },
+      { self:isPunct("-"):ifElse({ true },
+          { self:kind:equals('name):and({ self:consts:includes(self:text) })
+                :and({ self:consts:at(self:text):at(#1):run:equals('integer) }) }) }) }.
+
+pas:widthOf := { | pair |
+    pair := self:constValue.
+    pair:at(#1):run:equals('integer):ifFalse({
+        self:fail("a field width is an integer") }).
+    pair:at(#2) }.
+
+; Answers the slot the computed width was put in. **Which slot has to be said**:
+; a width and a place count are two values alive at once, and asking for the
+; same one twice leaves the second overwriting the first -- which is a spec of
+; `>3.3` where `>8.3` was written, and pads to three.
+pas:widthInto := { which | | t, slot |
+    t := self:expression.
+    t:run:equals('integer):ifFalse({
+        self:fail("a field width is an integer") }).
+    slot := self:scratchSlot(which).
+    self:emitSetLocal(slot). self:emitPop.
+    slot }.
 
 ; fpc's defaults, adopted so that agreement is checkable: the standard leaves
 ; every one of these to the implementation.
@@ -1349,16 +1400,18 @@ pas:defaultWidth := dictionary:new.
 pas:defaultWidth:atPut('integer, #11).
 pas:defaultWidth:atPut('boolean, #5).
 
-pas:writeItem := { | t, width, places |
+pas:writeItem := { | t, width, places, wSlot, pSlot |
+    self:scratchDepth := self:scratchDepth:add(#4).
     t := self:expression.
-    width := nil. places := nil.
-    self:acceptPunct(":"):ifTrue({
-        width := self:widthOf.
-        self:acceptPunct(":"):ifTrue({ places := self:widthOf }) }).
+    width := nil. places := nil. wSlot := nil. pSlot := nil.
 
-    ; **An enumeration cannot be written**, which is the standard's rule and not
-    ; a gap here: `write` takes an integer, a real, a char, a boolean or a
-    ; string, and a `Colour` is none of them however it is held.
+    self:acceptPunct(":"):ifTrue({
+        self:widthIsConstant:ifElse({ width := self:widthOf },
+                                    { wSlot := self:widthInto(#3) }).
+        self:acceptPunct(":"):ifTrue({
+            self:widthIsConstant:ifElse({ places := self:widthOf },
+                                        { pSlot := self:widthInto(#4) }) }) }).
+
     t:kind:equals('enum):ifTrue({
         self:fail("an enumeration cannot be written -- ord() can") }).
     isStructured:value(t):ifTrue({
@@ -1366,30 +1419,49 @@ pas:writeItem := { | t, width, places |
             :fill([self:typeName(t)])) }).
     t:kind:equals('pointer):ifTrue({
         self:fail("a pointer cannot be written") }).
-
-    places:notNil:ifTrue({
+    places:notNil:or({ pSlot:notNil }):ifTrue({
         t:run:equals('real):ifFalse({
             self:fail("only a real takes a second field width") }) }).
 
+    ; A boolean is its own word first; the padding is a string's business.
     t:run:equals('boolean):ifTrue({ self:emitSend("asString", #0) }).
 
-    t:run:equals('real):ifElse({
-        places:notNil:ifElse({
-            self:emitString(">{}.{}":fill([width, places])).
-            self:emitSend("asString", #1) },
-          { width:isNil:ifElse(
-                { self:emitSend("asString", #0) },
-                { self:emitSend("asString", #0).
-                  self:emitString(">{}":fill([width])).
-                  self:emitSend("asString", #1) }) }) },
+    ; A real with no width at all is the one case with nothing to pad to.
+    t:run:equals('real):and({ width:isNil }):and({ wSlot:isNil }):ifElse({
+        self:emitSend("asString", #0) },
 
-      { width:isNil:ifElse({
-            self:defaultWidth:includes(t:run):ifTrue({
-                self:emitString(">{}":fill([self:defaultWidth:at(t:run)])).
+      { ; An integer or a real being padded is turned into text by the spec
+        ; itself; a boolean and a string are text already.
+        t:run:equals('integer):and({ width:notNil:or({ wSlot:notNil }) })
+            :ifTrue({ self:emitSend("asString", #0) }).
+        t:run:equals('real):and({ places:isNil:and({ pSlot:isNil }) })
+            :ifTrue({ self:emitSend("asString", #0) }).
+
+        wSlot:isNil:and({ pSlot:isNil }):ifElse({
+            ; Every part known: one constant string.
+            width:isNil:ifTrue({
+                width := self:defaultWidth:includes(t:run):ifElse(
+                    { self:defaultWidth:at(t:run) }, { nil }) }).
+            width:notNil:ifTrue({
+                self:emitString(places:isNil:ifElse(
+                    { ">{}":fill([width]) },
+                    { ">{}.{}":fill([width, places]) })).
                 self:emitSend("asString", #1) }) },
-          { t:run:equals('integer):ifTrue({ self:emitSend("asString", #0) }).
-            self:emitString(">{}":fill([width])).
+
+          { ; Built while running: ">" then the width, then the places.
+            self:emitString(">").
+            wSlot:isNil:ifElse({ self:emitString(width:asString) },
+                               { self:emitLocal(wSlot). self:emitSend("asString", #0) }).
+            self:emitSend("concat", #1).
+            places:isNil:and({ pSlot:isNil }):ifFalse({
+                self:emitString(".").
+                self:emitSend("concat", #1).
+                pSlot:isNil:ifElse({ self:emitString(places:asString) },
+                                   { self:emitLocal(pSlot). self:emitSend("asString", #0) }).
+                self:emitSend("concat", #1) }).
             self:emitSend("asString", #1) }) }).
+
+    self:scratchDepth := self:scratchDepth:sub(#4).
     nil }.
 
 pas:writeCall := { newline | | more |
@@ -1686,6 +1758,19 @@ pas:statement := { | name, over, past, top, target, ends |
 
     { self:accept("writeln"):ifElse({ self:writeCall(true) },
     { self:accept("write"):ifElse({ self:writeCall(false) },
+    ; `page` is a required procedure and writes a form feed, which is all the
+    ; standard says it does on a file that is not a printer.
+    { self:accept("page"):ifElse({
+        self:acceptPunct("("):ifTrue({
+            self:isName("output"):ifTrue({ self:next }).
+            self:expectPunct(")") }).
+        self:emitGlobal("system").
+        ; A form feed, which the machine's string escapes do not have -- so
+        ; the compiler makes the one-character string itself.
+        self:emitString(#12:asCharacter).
+        self:emitSend("write", #1).
+        self:emitPop },
+
     { self:accept("new"):ifElse({ self:newCall },
     { self:accept("dispose"):ifElse({ self:disposeCall },
     { self:accept("readln"):ifElse({ self:readCall(true) },
@@ -1714,7 +1799,7 @@ pas:statement := { | name, over, past, top, target, ends |
 
       ; The empty statement, which the standard has and which is what a `;`
       ; before an `end` produces.
-      { nil }) }) }) }) }) }) }) }) }) }) }) }) }) }) }).
+      { nil }) }) }) }) }) }) }) }) }) }) }) }) }) }) }) }).
     nil }.
 
 ; **The record is evaluated once and kept in a slot**, which is what makes

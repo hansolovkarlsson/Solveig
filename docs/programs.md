@@ -1412,14 +1412,18 @@ by [oracle.sh](../programs/pas/oracle.sh).
     -3     3
 ```
 
-**Stages 1 to 7**, and [PASCAL.md](PASCAL.md) says what the last one is.
+**All eight stages**, and [PASCAL.md](PASCAL.md) says what is deliberately not
+here and why.
 The `program` heading, `var`, `const`, `type`, assignment, expressions, `write`
 and `writeln` with field widths, `begin`/`end`, `if`, `while`, `repeat`, `for`
 in both directions, `case`, `goto` with labels, enumerations, subranges, and
 `ord`, `chr`, `succ`, `pred`, `odd`, `abs` and `sqr`; and `procedure`,
 `function`, value and `var` parameters, recursion, `forward`, nested procedures
-with uplevel access, arrays, records, `with`, sets, reading standard input, and
-pointers. **Nineteen programs produce the same bytes as `fpc -Miso`.**
+with uplevel access, arrays, records, `with`, sets, reading standard input,
+pointers, and the standard's required functions. **Twenty-one programs produce
+the same bytes as `fpc -Miso`, and three more must not** — each of those
+exercises a divergence the document records, so the divergence list is
+something that can fail.
 
 **A type has two kinds, and that is most of stage 2.** `run` is what the machine
 is holding — an integer, a float, a one-character string, a boolean — and `kind`

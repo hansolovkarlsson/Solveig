@@ -63,6 +63,76 @@ and into the loop back. Spelled the way the sentence reads, the loop inverts:
 expected and everything else in a twenty-line test was right, which is exactly
 the kind of wrong that a transcript catches and reading does not.
 
+### Stage 8, and a Pascal compiler that agrees with a real one
+
+The last stage: the eight required functions, `page`, and a field width worked
+out while running. **Twenty-one programs produce the same bytes as `fpc -Miso`,
+and three more must not.**
+
+2,841 lines, 19% comment, eight stages between 07:49 and 12:19, and a 291-line
+document written before any of it.
+
+---
+
+### Postmortem
+
+1. **Installing the oracle first changed what the work was.** SolaBasic got its
+   oracle at stage 7 and took five defects from it against none from twelve
+   transcripts. This one had `fpc` before it had a lexer, and the first thing it
+   said was that `pascal.bnf` — written days earlier for a different program —
+   accepts what real Pascal accepts. Every default field width, `round`'s
+   direction, `div`'s truncation and `mod`'s sign came out of *asking* rather
+   than out of reading the standard and hoping. **A second implementation is
+   worth more at the start than at the end**, because at the start it decides
+   things and at the end it only checks them.
+
+2. **The plan was wrong twice, and both times about a representation.** A set
+   was to be bit-words; `1 shiftLeft 63` overflows, so it is booleans. A `var`
+   parameter was a one-element cell; `Insert(t^.left, k)` names element two of a
+   record, so it is a container and an index. Neither was a missing feature —
+   both were a shape that fitted every case I had thought of and one I had not.
+   **A representation reads as settled long before it is.**
+
+3. **The same mistake three times, in three stages.** `JUMP_IF_FALSE` is the
+   machine's only conditional jump, so *leave when this is true* has to be
+   written *leave when its negation is false*. `repeat` in stage 2 ran once;
+   `readln` in stage 6 landed one character late; and each time the program was
+   correct enough to look right. I know the rule and I have written it down, and
+   I will write the loop the way the sentence reads again.
+
+4. **`internally inconsistent` means at least four things.** A jump offset from
+   the wrong place, a slot past the end of a frame, a method's line runs not
+   covering its code, and — nearly — a stack that did not balance. Bisecting a
+   working program down to the breaking construct found the first two. It found
+   nothing for the third, because *every* procedure failed; `disasm.sol` found
+   that one, by reading the file the verifier had refused. **The tool for a
+   refused file is the one that does not verify it.**
+
+5. **The type checker was not optional and I nearly treated it as a chore.**
+   Solum refuses `#1:add(1.0)`, so a compiler for a language with an implicit
+   conversion has to know every expression's type before it writes a byte. That
+   is the whole difference from `sola.sol`, whose header says *everything a
+   SolaBasic program computes is a Double*. One numeric type needs no analysis;
+   two need all of it — and once the analysis exists, enumerations, subranges,
+   sets and pointers cost almost nothing, because they are all *kinds* over the
+   same handful of runtime shapes.
+
+6. **Deciding what not to build took longer than building.** External files and
+   `file of T` are out, and the reason is not effort: ISO leaves their binding
+   and representation to the implementation, so a program that uses one has no
+   answer `fpc` and this could be *expected* to share. **A divergence nobody can
+   check is a divergence nobody should write.** That sentence is the most useful
+   thing the oracle taught, and it is about scope rather than about defects.
+
+7. **The machine needed nothing added.** Not one instruction, not one message,
+   not one roadmap entry. Eight stages of a statically typed language with
+   nested procedures, sets, pointers and files onto a dynamically typed
+   message-sending machine, and the only thing that had to change was
+   `expect.sol` learning to feed standard input. `OP_OUTER` turned out to be a
+   static link; a capturing block turned out to be Pascal's own scoping rule.
+   **Both of those were written down as predictions before the stage that
+   settled them**, which is the only reason either counts for anything.
+
 ### Pointers, and a representation one case too narrow
 
 Stage 7. Cells, `new`, `nil`, `dispose`, and a binary tree that inserts, walks

@@ -1,8 +1,13 @@
 # Pascal on SolVM
 
 *ISO 7185 Standard Pascal, compiled to a `.sob` file and run by `bin/solvm`.
-Written before the compiler, and this page is the plan and the boundary rather
-than the record — [CHANGELOG.md](CHANGELOG.md) says what has landed.*
+Written before the compiler, and kept as the plan and the boundary rather than
+the record — [CHANGELOG.md](CHANGELOG.md) says what landed when.*
+
+**All eight stages are done.** Twenty-one programs produce the same bytes as
+`fpc -Miso`, and three more must **not**, each exercising a divergence this page
+records. What is not here is below, and every item names why rather than
+when.
 
 **This is not a language definition, and that is the whole difference from
 [SOLABASIC.md](SOLABASIC.md).** That document exists because there is no
@@ -135,7 +140,7 @@ and under this compiler.
 | **5** — **done** | `array` with any ordinal index and any lower bound, multi-dimensional, `record`, `with`, and whole-array and whole-record assignment. Sixteen programs in `agree/`. |
 | **6** — **done** | `set` with its constructor, `in`, union, intersection, difference and the four comparisons; and `read`, `readln`, `eof` and `eoln` on standard input. Eighteen programs in `agree/`. |
 | **7** — **done** | Pointers, `new`, `nil`, `dispose`, and linked structures. Nineteen programs in `agree/`. |
-| **8** | The standard's required procedures and functions in full, and whatever the oracle has been complaining about. |
+| **8** — **done** | `sqrt`, `sin`, `cos`, `arctan`, `exp`, `ln`, `trunc`, `round`, `page`, and field widths worked out while running. Twenty-one programs in `agree/`. |
 
 **Stage 3 landed the same day, and cost the compiler its single pass.** A `var`
 parameter is a box and the variable *is* the box, which is `sola.sol`'s answer —
@@ -173,6 +178,14 @@ division truncates toward nought and the machine's floors. Pascal's `and` and
 `or` are jumps rather than sends, the machine's own taking blocks. And a field
 width is a compile-time string, so a `write` needs no runtime formatter and no
 prelude — the other thing `sola.sol` needed and this does not.
+
+**Stage 8 landed, and with it the language.** The eight required functions the
+machine already had under other names — `ln` is `log`, `arctan` is `atan` — and
+`round`, which is half away from nought in both and was checked rather than
+assumed, that being the one of them where two reasonable implementations differ.
+And a field width worked out while running, which the standard allows and this
+refused for seven stages: the constant case still folds into the spec string and
+costs nothing, and a computed one builds the spec with three sends.
 
 **Pointers landed, and they made the `var` parameter grow up.** A reference
 began as a one-element cell — `sola.sol`'s answer, and enough for BASIC, where
