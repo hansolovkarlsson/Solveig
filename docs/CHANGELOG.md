@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### Pascal on SolVM, planned before it is written — `pending`, 2026-08-27
+### Pascal on SolVM, planned before it is written — `30ef4bc`, 2026-08-27
 
 **[PASCAL.md](PASCAL.md)**: ISO 7185 Standard Pascal, compiled to a `.sob` and
 run by `bin/solvm`. Written before the compiler, the way
