@@ -51,9 +51,10 @@ costs them in anything walking the result as a tree.
 **And the token dump was quadratic.** Line and column are computed by counting
 newlines from the start of the file, on the argument that a run wants four of
 them. That is right about errors and was wrong about `tokens` mode, which wants
-one per token: a 1,766-line file took over two minutes, against 1.49 seconds to
-check the same file properly. Tokens arrive in order, so the dump carries the
-line and makes one pass. A design note saying how often something is wanted is a
+one per token: on `programs/sola.sol` it took **seventeen and a half minutes to
+list the tokens of a file it checks in under four seconds**. Tokens arrive in
+order, so the dump carries the line and makes one pass — 1,052 seconds to 3.6,
+which is 270 times. A design note saying how often something is wanted is a
 claim about every caller, including the one written afterwards.
 
 **`expect.sol` would have crashed rather than reported**, which was found on the

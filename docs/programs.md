@@ -1272,10 +1272,11 @@ from a byte offset by counting newlines from the start of the file, on the
 argument that a run wants four of them — one per message — and that carrying a
 line through every token and every node is a field on everything for a saving
 nobody would notice. That argument is right about errors and was **wrong about
-the token dump**, which wants one per token: `tokens` mode on a 1,766-line file
-took over two minutes, against 1.49 seconds to check the same file properly.
+the token dump**, which wants one per token. On the largest file here —
+`programs/sola.sol`, 4,778 lines and 31,887 tokens — it took **seventeen and a
+half minutes to list the tokens of a file it checks in under four seconds**.
 Tokens arrive in order, so the dump carries the line instead and makes one pass
-over the source. **A design note that says how often something is wanted is a
+over the source: 1,052 seconds became 3.6, which is 270 times. **A design note that says how often something is wanted is a
 claim about every caller, including the one written afterwards.**
 
 **What it will not do is revisit a choice.** This is a PEG: `a | b` tries `b`

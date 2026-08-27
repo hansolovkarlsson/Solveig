@@ -170,9 +170,17 @@ as a tree.
 **The token dump was quadratic**, and the comment above the offending block
 predicted it without noticing. `lineColumnIn` counts newlines from the start of
 the file, and the note beside it argues for that on the grounds that a run wants
-four line numbers, one per message. `tokens` mode wants one per *token*: two
-minutes on a 1,766-line file, against 1.49 seconds to check the same file
-properly. Tokens are in order, so the dump carries the line and makes one pass.
+four line numbers, one per message. `tokens` mode wants one per *token*, and on
+the largest file here that is **seventeen and a half minutes to list the tokens
+of a file it checks in under four seconds** — 1,052 seconds against 3.85.
+Tokens are in order, so the dump carries the line and makes one pass, and the
+1,052 becomes 3.6.
+
+**The number is the reason this is in the journal rather than only in the
+changelog.** The first measurement of it used a 1,766-line file and said "over
+two minutes", which is bad enough to fix and not bad enough to be interesting. A
+quadratic is only itself at size, and the file that shows it is the biggest one
+to hand.
 
 **And `expect.sol` would have crashed rather than reported.** Its list of ordinal
 words has to be extended by hand when a program is added; when it is not, the

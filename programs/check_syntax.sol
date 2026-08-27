@@ -1297,8 +1297,11 @@ reportLexErrors := { path, text | | i |
 
 ; **The one place `lineColumnIn` may not be used.** That block counts newlines
 ; from the start of the file, which is free when a run wants four of them and
-; quadratic when it wants one per token: this mode on a 1,766-line file took
-; over two minutes, against 1.49 seconds to check the same file properly.
+; quadratic when it wants one per token. Measured on the largest file here,
+; `programs/sola.sol` at 4,778 lines and 31,887 tokens: **seventeen and a half
+; minutes to list the tokens of a file it checks in under four seconds.**
+; 1,052s to 3.6s, which is 270 times, and the whole of it was arithmetic
+; nobody asked for.
 ;
 ; Tokens arrive in order, so the line and the column can be *carried* -- one
 ; pass over the source for the whole dump rather than one pass per token. The
