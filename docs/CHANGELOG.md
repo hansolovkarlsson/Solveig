@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### `system:load`: `@include`'s run-time twin — `pending`, 2026-08-27
+### `system:load`: `@include`'s run-time twin — `948fdf6`, 2026-08-27
 
 **One `.sob` can now load another, from inside Solum.** `system:load("lib.sob")`
 runs an already-compiled chunk in the machine that is already running, and the
