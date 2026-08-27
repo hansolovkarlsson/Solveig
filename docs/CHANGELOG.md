@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### The SolaBasic documents check their own examples — `pending`, 2026-08-27
+### The SolaBasic documents check their own examples — `9981f58`, 2026-08-27
 
 **[expect.sol](../programs/expect.sol) reads a second language now.** The three
 SolaBasic documents carry **seventy ```basic blocks and nothing ran one** — a
