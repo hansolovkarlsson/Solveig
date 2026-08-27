@@ -28,12 +28,19 @@ temperature:describe(35.0):display.     ; hot
 ; before -- something a directive cannot do, since a directive has already
 ; happened by the time there is a program to run.
 loadAgain := { system:load("examples/library.sob") }.
-"nothing has been loaded a second time yet":display.
-loadAgain:value.
+"nothing has been asked for a second time yet":display.
 
-; And it really does run the file again. `@include` compiles a file once however
-; many ways you reach it; this has no such memory, so loading twice runs the
-; top level twice and binds everything a second time. For a file that only binds
-; methods that is invisible, as it is here. For one that counts something it is
-; not, and that is the caller's business to know.
+; And what comes back says which happened. A file is loaded once and not again,
+; keyed by where it lands on disk rather than by how it was spelled -- so asking
+; a second time is not an error and not a second run. It answers false and does
+; nothing, the way `makeDirectory` answers false for a directory already there.
+loadAgain:value:print.                  ; false
+
+; Which is what lets two files each load what they need without arranging
+; between themselves who loads what -- the same bargain `@include` makes, and
+; the reason a cycle ends rather than running forever: a file is written down
+; before it runs, so one that reaches itself finds itself already there.
+system:load("examples/library.sob"):print.       ; false
+
+; The methods are still here, and were only ever installed once.
 temperature:cToF(0.0):print.            ; 32

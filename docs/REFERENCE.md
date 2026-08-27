@@ -520,7 +520,7 @@ run time that a name was never bound.
 | when | while compiling | while running |
 | takes | source | bytecode |
 | found | beside the including file, then the search path | relative to the working directory |
-| repeats | compiled once however many ways you reach it | runs the file again, every time |
+| repeats | compiled once however many ways you reach it | run once however many ways you reach it |
 | name | must be a literal string | any expression answering a string |
 | where | alone, as a statement | anywhere a message can be sent |
 
@@ -532,11 +532,34 @@ Because it runs when it is reached, it can be sent conditionally, inside a
 block, or from a file that was itself loaded. A file that loads itself is a
 runaway and ends as any other does, with `call depth exceeded`.
 
-**It runs the file again each time.** `@include` compiles a file once however
-many ways you reach it, so two files may each include what they need without
-arranging between themselves who includes what. This has no such memory. For a
-file that only binds methods the difference does not show; for one that counts
-something, it does, and it is the caller's business to know which it has.
+**It runs the file once.** `@include` compiles a file once however many ways you
+reach it, so two files may each include what they need without arranging between
+themselves who includes what; this makes the same bargain. The memory is the
+machine's and is keyed by identity rather than by spelling — the realpath, so
+`lib.sob`, `./lib.sob` and the absolute name are one file.
+
+Asking a second time is therefore not an error and not a second run. **The
+answer says which happened**: true for a file that ran, false for one already
+there, on the model of `makeDirectory`, which answers the same question about
+the same kind of idempotence.
+
+```text
+system:load("lib.sob"):print.        ; true
+system:load("lib.sob"):print.        ; false
+```
+
+It is also why a cycle ends. A file is written down before it runs, so one that
+reaches itself — directly, or round through others — finds itself already listed
+and does nothing. A file that could not be loaded at all is not written down,
+so a machine that refused one is still willing to take it later.
+
+The memory holds what `system:load` ran, and the program the machine was
+*started* with did not arrive that way. So a program that loads itself runs its
+top level twice: once because it was started, once because the load inside it is
+the first time that file is asked for. The second one stops.
+
+Nothing unloads a file, in the same way and for the same reason that nothing
+unbinds a global.
 
 A `.sob` is untrusted input and is verified before it runs, so a missing,
 truncated or corrupt file is an ordinary failure the program can catch:
@@ -3225,7 +3248,7 @@ it delegates to `object` like everything else. See
 | `terminalSize` | a dictionary of `"rows"` and `"columns"`, or **nil** when the output is not a terminal |
 | `keyWaiting(seconds)` | whether a byte is there to read, waiting up to that long for one |
 | `readFile(path)` | the whole file as a string; an error if it is not there |
-| `load(path)` | nil, having run a compiled `.sob` in this machine |
+| `load(path)` | **true** having run a compiled `.sob` here, **false** if it was already loaded |
 | `writeFile(path, text)` | nil, having replaced the file's contents |
 | `fileExists(path)` | true if a file — not a directory — is at that path |
 | `isDirectory(path)` | true if a directory is at that path |

@@ -4380,6 +4380,14 @@ static bool path_argument(SolVM *vm, const char *name, SolValue value)
  * files -- names, resolved at run time, which is why the caller compiles alone
  * and only fails when a name it wanted was never bound.
  *
+ * And it is once-only, as `@include` is, keyed the same way: the realpath, so
+ * two names for one file are one file. Loading again is not an error and not a
+ * second run -- it answers **false** and does nothing, the way `makeDirectory`
+ * answers false for a directory already there. That is what lets two files each
+ * load what they need without arranging between themselves who loads what, and
+ * it is why a cycle ends: the file is written down before it runs, so a file
+ * that reaches itself finds itself already there.
+ *
  * It shares `@include`'s hazard too, undiluted: nothing is namespaced, so a
  * name bound twice is silently the second one. See ROADMAP 3.10.
  *
@@ -4407,10 +4415,31 @@ static SolValue prim_system_load(SolVM *vm, SolValue self, SolValue *args, int a
 
     const char *path = SOL_AS_STRING(args[0])->chars;
 
+    /* The identity, before anything is opened: the realpath, so that `lib.sob`,
+       `./lib.sob` and the absolute name are one file rather than three. When
+       there is no realpath to be had the name stands in for one -- that is a
+       file which is about to fail to load, and the load says so better than
+       this could. */
+    char *identity = realpath(path, NULL);
+    if (identity == NULL) {
+        identity = malloc(strlen(path) + 1);
+        if (identity == NULL) {
+            sol_vm_runtime_error(vm, "out of memory loading '%s'", path);
+            return SOL_NIL_VAL;
+        }
+        strcpy(identity, path);
+    }
+
+    if (sol_vm_already_loaded(vm, identity)) {
+        free(identity);
+        return SOL_BOOL_VAL(false);
+    }
+
     SolCode *code = sol_code_new(vm);
 
     SolSerResult loaded = sol_chunk_load(&code->chunk, path);
     if (loaded != SOL_SER_OK) {
+        free(identity);
         sol_vm_runtime_error(vm, "cannot load '%s': %s", path,
                              sol_ser_message(loaded));
         return SOL_NIL_VAL;
@@ -4421,6 +4450,7 @@ static SolValue prim_system_load(SolVM *vm, SolValue self, SolValue *args, int a
        Verifying is what stands between a malformed file and the machine. */
     SolSerResult sound = sol_chunk_verify(&code->chunk);
     if (sound != SOL_SER_OK) {
+        free(identity);
         sol_vm_runtime_error(vm, "'%s' is not usable: %s", path,
                              sol_ser_message(sound));
         return SOL_NIL_VAL;
@@ -4441,6 +4471,13 @@ static SolValue prim_system_load(SolVM *vm, SolValue self, SolValue *args, int a
        this call instead: the temporary roots are eight deep and overflowing
        them is a hard exit rather than a failure a program can see, so the ninth
        nested load killed the process outright. */
+    /* Written down before it runs, not after, and that is what ends a cycle: a
+       file reaching itself -- directly, or round through others -- finds itself
+       already listed and does nothing. Recorded only now that it is known to
+       load and to verify, so a file that was never usable is not remembered as
+       though it had been. */
+    sol_vm_remember_loaded(vm, identity);      /* takes ownership */
+
     SolResult result = sol_vm_call_chunk(vm, &code->chunk);
 
     /* A failure inside the loaded file has already set the error and its trace,
@@ -4448,7 +4485,7 @@ static SolValue prim_system_load(SolVM *vm, SolValue self, SolValue *args, int a
        what lets it keep unwinding through the caller. `system:exit` arrives
        here the same way and must also be left alone. */
     (void)result;
-    return SOL_NIL_VAL;
+    return SOL_BOOL_VAL(true);
 }
 
 static SolValue prim_system_read_file(SolVM *vm, SolValue self, SolValue *args, int argc)

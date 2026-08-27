@@ -791,18 +791,20 @@ today is one and a half:
 | an export boundary | **absent** |
 | declared dependencies | **absent** |
 
-**`system:load` changes one row of that table**, and it is the row that was
-comfortable. Once-only initialization is done *for `@include`*, keyed by where a
-file lands on disk; a file loaded at run time gets no such key and no such
-memory, so loading it twice runs it twice. That is defensible on its own terms —
-it is a message, and a message that silently declined to do its work the second
-time would be the stranger thing — but it means the one job this table could
-call finished is now finished only on the compile-time half.
+**`system:load` keeps that first row true**, which took a second pass to get
+right. It shipped without a once-only memory — a message that silently declined
+to do its work looked like the stranger thing — and that was wrong for the
+reason the row already gives: once-only is not a nicety, it is what lets two
+files each load what they need without arranging between themselves who loads
+what. The memory is now the machine's, keyed by realpath exactly as `@include`
+keys its own, and the second load answers false rather than doing nothing
+silently.
 
-It sharpens the trigger above rather than moving it. A library arriving from
-outside was already the moment a flat space stops working; a library arriving
-already compiled, from someone who never saw your names, is that moment with
-less warning.
+So the score is unchanged, and the trigger above is sharpened rather than moved.
+A library arriving from outside was already the moment a flat space stops
+working; a library arriving already compiled, from someone who never saw your
+names, is that moment with less warning. The two absent rows are still absent,
+and they are the ones a namespace would answer.
 
 And the [three tiers](COMPLETED.md#621-two-libraries-binding-one-name-collide-silently--done)
 that came out of 6.21 do most of the rest. Two of the four shipped libraries

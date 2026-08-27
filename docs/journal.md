@@ -85,13 +85,51 @@ could not read: it knew `numberWords` to twenty and `tensWords` for hyphenated
 pairs, so it read *twenty-nine* and *thirty-one* but not the round number
 between them. Six lines fixed that.
 
-**What it deliberately does not do.** There is no once-only memory: `@include`
-is keyed by where a file lands on disk, a message has no such key, and loading
-twice runs twice. There is no namespacing either, so the last binding of a name
-wins in silence — which is 3.10 arriving from a third direction, and now between
-files that were compiled separately and never saw each other. That makes the
-collision likelier rather than different, and it does not change the answer,
-which is still the deferred one.
+**What it deliberately did not do — for about an hour.** I shipped it without a
+once-only memory and wrote the reasoning down: `@include` is keyed by where a
+file lands on disk, a message has no such key, and a message that silently
+declined to do its work the second time seemed the stranger thing. Hans read
+that and asked for the memory. He was right, and the argument against it was
+thin in a way that is worth recording: once-only is not a convenience laid on
+top of loading, it is *what makes loading composable*. Without it, two files
+that each need the same library have to agree between themselves about who asks
+for it — which is precisely the arrangement `@include` exists to spare people.
+
+The fix is small and mostly borrowed. The identity is the realpath, as
+`@include`'s is, so three spellings of one file are one file; the list belongs
+to the machine rather than to a compilation, which is the only real difference
+between them. The file is written down *before* it runs, and that one ordering
+choice is what makes a cycle end rather than recurse — the same thing `@include`
+means when it says a cycle ends on purpose. It is written down only after it is
+known to load and verify, so a file that was never usable is not remembered as
+one that was.
+
+**The answer became a boolean**, which the codebase argued for rather than me:
+`makeDirectory` already answers true for one it made and false for one that was
+there, and that is the same question about the same kind of idempotence. It
+keeps a second load from being a silence.
+
+**Removing a runaway removed a test.** The frame-limit case was a file loading
+itself, and once-only means it cannot nest at all any more. Rather than lose the
+coverage — that path had a real bug in it a few hours earlier, the eight-deep
+temporary roots and their `exit(1)` — the test now generates a chain of three
+hundred distinct files. It still ends in `call depth exceeded`.
+
+**And one fence could not be checked**, which was worth learning rather than
+working around. `expect.sol` runs a block from a document in a scratch directory,
+deliberately: documentation shows how to delete things, and one `writeFile`
+snippet had once put a file back into the repository that a commit had removed.
+So a fence cannot load a `.sob` by relative path. The demonstration moved to
+`examples/load.sol`, which is run from the root and is checked; the fence in the
+reference is tagged `text`, which is what that program asks for when a block is
+a sketch rather than a program.
+
+**What it still does not do.** There is no namespacing, so the last binding of a
+name wins in silence — 3.10 arriving from a third direction, now between files
+compiled separately that never saw each other. Loading twice is no longer one of
+the ways that happens; two different files claiming one name is untouched. And
+the memory itself is a second list nothing shortens, beside the globals, which
+is the same leak this entry is a face of.
 
 ---
 

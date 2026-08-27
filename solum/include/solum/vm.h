@@ -127,6 +127,18 @@ struct SolVM {
     int         name_capacity;
     int         name_count;
 
+    /* Files `system:load` has already run, by identity -- the realpath, so that
+       two names for one file are one file. `@include` keeps the same list for
+       the same reason, and keys it the same way; the difference is only that
+       its list belongs to one compilation and this one belongs to the machine.
+
+       Never shortened. Nothing unloads a file, in the same way and for the same
+       reason that nothing unbinds a global -- see ROADMAP 3.10, which this is
+       one more face of. */
+    char **loaded;
+    int    loaded_count;
+    int    loaded_capacity;
+
     bool had_error;
 
     /* What went wrong, formatted -- the message and the stack beneath it --
@@ -240,6 +252,12 @@ void sol_vm_free(SolVM *vm);
 
 /* Executes `chunk` to completion. */
 SolResult sol_vm_run(SolVM *vm, const SolChunk *chunk);
+
+/* Whether this machine has already run the file with this identity, and the
+   note that it has. `sol_vm_remember_loaded` takes ownership of `identity`.
+   Together they are `system:load`'s once-only memory; nothing else uses them. */
+bool sol_vm_already_loaded(const SolVM *vm, const char *identity);
+void sol_vm_remember_loaded(SolVM *vm, char *identity);
 
 /* Executes `chunk` *inside* the run already in progress, sharing the globals
    with it, and answers how it went.

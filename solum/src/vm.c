@@ -98,6 +98,9 @@ void sol_vm_init(SolVM *vm)
     sol_text_init(&vm->error_message);
     sol_text_init(&vm->error_trace);
     vm->gc_stress = getenv("SOLUM_GC_STRESS") != NULL;
+    vm->loaded = NULL;
+    vm->loaded_count = 0;
+    vm->loaded_capacity = 0;
 
     /* The root Object is the globals namespace -- built-in class objects
        (`integer`, ...) live in its slots, and OP_GLOBAL resolves names against
@@ -157,6 +160,12 @@ void sol_vm_free(SolVM *vm)
 
     sol_text_free(&vm->error_message);
     sol_text_free(&vm->error_trace);
+
+    for (int i = 0; i < vm->loaded_count; i++) free(vm->loaded[i]);
+    free(vm->loaded);
+    vm->loaded = NULL;
+    vm->loaded_count = 0;
+    vm->loaded_capacity = 0;
 
     /* Last: the heap is gone, so nothing is left holding an interned name. */
     sol_vm_free_names(vm);
@@ -627,6 +636,31 @@ SolValue sol_vm_call_block(SolVM *vm, SolValue block, SolValue *args, int argc)
         return SOL_NIL_VAL;
     }
     return sol_vm_pop(vm);
+}
+
+/* A linear scan, because the list is the number of files a program loads and
+   that is a handful. `@include`'s is the same shape for the same reason. */
+bool sol_vm_already_loaded(const SolVM *vm, const char *identity)
+{
+    for (int i = 0; i < vm->loaded_count; i++) {
+        if (strcmp(vm->loaded[i], identity) == 0) return true;
+    }
+    return false;
+}
+
+void sol_vm_remember_loaded(SolVM *vm, char *identity)
+{
+    if (vm->loaded_capacity < vm->loaded_count + 1) {
+        int capacity = vm->loaded_capacity < 8 ? 8 : vm->loaded_capacity * 2;
+        char **grown = realloc(vm->loaded, sizeof(char *) * (size_t)capacity);
+        if (grown == NULL) {
+            fprintf(stderr, "solvm: out of memory\n");
+            exit(1);
+        }
+        vm->loaded = grown;
+        vm->loaded_capacity = capacity;
+    }
+    vm->loaded[vm->loaded_count++] = identity;
 }
 
 SolResult sol_vm_call_chunk(SolVM *vm, const SolChunk *chunk)

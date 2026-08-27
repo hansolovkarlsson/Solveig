@@ -120,21 +120,66 @@ static void test_a_block_survives_the_collection_after_the_load(void)
     sol_vm_free(&vm);
 }
 
-/* `@include` compiles a file once however many ways you reach it. This has no
-   such memory: it is a message, it runs when reached, and it runs the whole
-   file each time. For a file that only binds methods the difference does not
-   show; for one that counts, it does. */
-static void test_loading_twice_runs_the_file_twice(void)
+/* Once-only, as `@include` is: a file runs the first time it is asked for and
+   not again, so two files may each load what they need without arranging
+   between themselves who loads what.
+ *
+   The answer is what says which happened -- true for a file that ran, false for
+   one already there -- on the model of `makeDirectory`, which answers the same
+   question about the same kind of idempotence. */
+static void test_loading_twice_runs_the_file_once(void)
 {
     compile_to_sob("times := times:add(#1).\n", DIR "/count.sob");
 
     SolVM vm;
     quiet_vm(&vm);
     assert(run_source(&vm, "times := #0.\n"
-                           "system:load(\"" DIR "/count.sob\").\n"
-                           "system:load(\"" DIR "/count.sob\").\n"
-                           "system:load(\"" DIR "/count.sob\").\n") == SOL_OK);
-    assert(SOL_AS_INT(global(&vm, "times")) == 3);
+                           "first  := system:load(\"" DIR "/count.sob\").\n"
+                           "second := system:load(\"" DIR "/count.sob\").\n"
+                           "third  := system:load(\"" DIR "/count.sob\").\n") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "times")) == 1);
+    assert(SOL_AS_BOOL(global(&vm, "first")) == true);
+    assert(SOL_AS_BOOL(global(&vm, "second")) == false);
+    assert(SOL_AS_BOOL(global(&vm, "third")) == false);
+    sol_vm_free(&vm);
+}
+
+/* The memory is keyed by identity and not by spelling -- the realpath, which is
+   how `@include` keys its own list. Three names for one file are one file. */
+static void test_two_names_for_one_file_are_one_file(void)
+{
+    compile_to_sob("seen := seen:add(#1).\n", DIR "/same.sob");
+
+    SolVM vm;
+    quiet_vm(&vm);
+    assert(run_source(&vm, "seen := #0.\n"
+                           "system:load(\"" DIR "/same.sob\").\n"
+                           "system:load(\"./" DIR "/same.sob\").\n"
+                           "system:load(\"" DIR "/../load/same.sob\").\n") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "seen")) == 1);
+    sol_vm_free(&vm);
+}
+
+/* A file that could not be used is not remembered as though it had been, so the
+   memory holds files that ran rather than files that were mentioned. */
+static void test_a_file_that_failed_to_load_is_not_remembered(void)
+{
+    /* The build directory outlives a run, and the second half of this test
+       creates the file -- so without this, a rerun starts with it already
+       there and tests nothing. */
+    remove(DIR "/appears-later.sob");
+
+    SolVM vm;
+    quiet_vm(&vm);
+    assert(run_source(&vm, "system:load(\"" DIR "/appears-later.sob\").\n") != SOL_OK);
+    sol_vm_free(&vm);
+
+    /* Now it exists. A machine that had refused it must still be willing. */
+    compile_to_sob("arrived := #1.\n", DIR "/appears-later.sob");
+
+    quiet_vm(&vm);
+    assert(run_source(&vm, "system:load(\"" DIR "/appears-later.sob\").\n") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "arrived")) == 1);
     sol_vm_free(&vm);
 }
 
@@ -168,23 +213,51 @@ static void test_a_loaded_file_may_load_another(void)
     sol_vm_free(&vm);
 }
 
-/* A file loading itself is a runaway, and it has to end the way every other
-   runaway does: `call depth exceeded`, catchable, with the machine still
-   standing.
+/* A file loading itself ends, and ends quietly, because the file is written
+   down before it runs -- so the inner load finds it already there and does
+   nothing. `@include` calls this "a cycle that ends on purpose"; this is the
+   same cycle ending for the same reason.
  *
- * It did not, at first. The chunk was kept alive across the nested run by a
- * temporary root, and the temporary roots are eight deep with a hard `exit(1)`
- * on top -- so the ninth nested load killed the process outright, with no
- * message a program could see. The root is unnecessary once the frame exists,
- * because a chunk a frame is executing is rooted by that frame; dropping it
- * before the guest runs is what moved the limit from 8 to the machine's own. */
-static void test_a_file_loading_itself_reaches_the_frame_limit(void)
+ * It ran twice here rather than once, and that is not the memory failing. The
+ * program the machine was *started* with did not arrive through `system:load`
+ * and so was never written down; the load inside it is the first time this file
+ * is asked for. The second is the one that stops. */
+static void test_a_file_loading_itself_ends(void)
 {
-    compile_to_sob("system:load(\"" DIR "/self.sob\").\n", DIR "/self.sob");
+    compile_to_sob("ran := ran:add(#1).\n"
+                   "system:load(\"" DIR "/self.sob\").\n", DIR "/self.sob");
 
     SolVM vm;
     quiet_vm(&vm);
-    assert(run_source(&vm, "system:load(\"" DIR "/self.sob\").\n") != SOL_OK);
+    assert(run_source(&vm, "ran := #0.\n"
+                           "system:load(\"" DIR "/self.sob\").\n") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "ran")) == 1);
+    sol_vm_free(&vm);
+}
+
+/* Deep nesting still has a floor, and it is the machine's own.
+ *
+ * Once-only makes the runaway hard to write by hand -- a file cannot reach
+ * itself any more -- so this builds a chain of distinct files long enough to
+ * pass SOL_FRAMES_MAX. It ends in `call depth exceeded`, catchable, with the
+ * machine still standing. The version of this that mattered was the one before
+ * it: the chunk used to be held across the nested run by a temporary root, the
+ * roots are eight deep with a hard exit(1) on top, and the ninth nested load
+ * killed the process outright. */
+static void test_a_long_chain_reaches_the_frame_limit(void)
+{
+    enum { LINKS = 300 };
+    for (int i = 0; i < LINKS; i++) {
+        char path[256], source[512];
+        snprintf(path, sizeof path, DIR "/chain%d.sob", i);
+        snprintf(source, sizeof source,
+                 "system:load(\"" DIR "/chain%d.sob\").\n", i + 1);
+        compile_to_sob(source, path);
+    }
+
+    SolVM vm;
+    quiet_vm(&vm);
+    assert(run_source(&vm, "system:load(\"" DIR "/chain0.sob\").\n") != SOL_OK);
     assert(strstr(vm.error_message.chars, "call depth exceeded") != NULL);
     sol_vm_free(&vm);
 }
@@ -275,10 +348,13 @@ int main(void)
 
     test_what_the_loaded_file_bound_is_simply_there();
     test_a_block_survives_the_collection_after_the_load();
-    test_loading_twice_runs_the_file_twice();
+    test_loading_twice_runs_the_file_once();
+    test_two_names_for_one_file_are_one_file();
+    test_a_file_that_failed_to_load_is_not_remembered();
     test_a_name_bound_twice_is_the_second_one();
     test_a_loaded_file_may_load_another();
-    test_a_file_loading_itself_reaches_the_frame_limit();
+    test_a_file_loading_itself_ends();
+    test_a_long_chain_reaches_the_frame_limit();
     test_a_failure_inside_unwinds_through_the_load();
     test_a_file_that_cannot_be_used_is_refused();
     test_the_load_leaves_the_stack_as_it_found_it();

@@ -382,7 +382,7 @@ The process, rather than any value. One object with slots, not a class.
 | `readLine` `readKey` | one line, or one byte, of standard input; nil at the end |
 | `terminalSize` | a dictionary of `"rows"` and `"columns"`, or **nil** off a terminal |
 | `keyWaiting(seconds)` | whether a byte is there to read, waiting up to that long |
-| `load(path)` | nil, having run a compiled `.sob` here — `@include`'s run-time twin |
+| `load(path)` | **true** having run a compiled `.sob` here, **false** if already loaded |
 | `readFile(path)` | the whole file as a string |
 | `writeFile(path, text)` `appendFile(path, text)` | nil, having written |
 | `fileExists(path)` `isDirectory(path)` | a boolean |

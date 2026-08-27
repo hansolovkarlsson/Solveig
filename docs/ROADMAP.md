@@ -716,7 +716,13 @@ run time binds into the same one namespace, for the same reason and with the
 same consequence: whichever file binds a name last owns it, silently. What is
 new is only that the collision can now happen between two files that were
 compiled separately and never saw each other, which makes it likelier rather
-than different. The deferred answer above is still the answer.
+than different. Loading a file twice is no longer one of the ways it happens —
+that memory exists — but two different files claiming one name is untouched by
+it. The deferred answer above is still the answer.
+
+It adds a second list that nothing shortens, beside the globals: the files this
+machine has loaded. That is the same shape of leak this entry is about, and a
+reset would have to clear it too.
 
 **The narrower fix, if the wider one stays deferred**: something that resets a
 VM to the state `sol_vm_init` left it in, cheaper than freeing and rebuilding.

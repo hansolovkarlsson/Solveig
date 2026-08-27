@@ -5,6 +5,44 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### `system:load` is once-only, as `@include` is — `pending`, 2026-08-27
+
+**A file now runs the first time it is asked for and not again**, which is the
+one thing the entry below listed as missing and defended as a choice. The
+defence was thin. Once-only is not a nicety: it is what lets two files each load
+what they need without arranging between themselves who loads what, and a
+message that runs a file's top level a second time re-binds everything in it.
+
+**Keyed by identity, not by spelling** — the realpath, exactly as `@include`
+keys its own list, so `lib.sob`, `./lib.sob` and the absolute name are one file.
+The list belongs to the machine rather than to a compilation, which is the only
+difference between the two.
+
+**The answer says which happened**: true for a file that ran, false for one
+already there. That is `makeDirectory`'s bargain, which answers the same
+question about the same kind of idempotence, and it is why a second load can be
+a no-op without being a silence.
+
+**A cycle now ends on purpose.** The file is written down *before* it runs, so
+one that reaches itself — directly or round through others — finds itself
+already listed and does nothing. `@include` uses the same word for the same
+behaviour. It is written down only once it is known to load and to verify, so a
+file that was never usable is not remembered as though it had been, and a
+machine that refused one is still willing to take it later.
+
+**Two consequences worth stating.** A program that loads *itself* runs its top
+level twice: the program the machine started with did not arrive through
+`system:load` and so was never written down, so the load inside it is the first
+time that file is asked for, and the second is the one that stops. And the
+memory is a second list that nothing shortens, beside the globals —
+[3.10](ROADMAP.md#310-a-vm-cannot-be-reused-across-runs) again, and a reset
+would have to clear both.
+
+**The frame-limit test had to be rebuilt**, which is the honest cost of this. A
+file loading itself was how deep nesting was reached, and it no longer nests at
+all; the test now generates a chain of three hundred distinct files, and still
+ends in `call depth exceeded` with the machine standing.
+
 ### `system:load`: `@include`'s run-time twin — `948fdf6`, 2026-08-27
 
 **One `.sob` can now load another, from inside Solum.** `system:load("lib.sob")`
