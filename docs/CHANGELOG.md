@@ -5,6 +5,44 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Pascal, stage 3: procedures, and the pass that had to be added — `pending`, 2026-08-27
+
+**`procedure` and `function`, value and `var` parameters, recursion and
+`forward`.** **Thirteen programs now produce the same bytes as `fpc -Miso`**, up
+from ten — including mutual recursion through `forward` and a `var` parameter
+handed on through two procedures to write a program-level variable.
+
+**A routine is a block held in a global**, made with `OP_BLOCK` and stored under
+its own name; a call is that global, the arguments, and `value`. Recursion needs
+nothing special because the body names the global and the global is bound before
+anything runs it — and `forward` needs nothing special for the same reason.
+
+**The `var` parameter cost the compiler its single pass.** A box is
+[sola.sol](../programs/sola.sol)'s answer and Pascal is the easier half of it,
+`var` being *declared* where that compiler infers it by a fixed point. What is
+not easier is knowing which of the *caller's* variables need boxing: a variable
+read in one procedure may be handed to a `var` parameter by another declared
+after it, and by then the read is emitted. So the source is parsed twice and the
+first pass's output is thrown away. Boxing every variable instead would cost an
+allocation and two sends on every access in every program, to buy the one case.
+
+**A program's variables became globals**, since a procedure has to see them and
+a block cannot reach the script's slots without `OP_OUTER` — stage 4's business.
+They carry a `pas.` in front so a Pascal program declaring `var system :
+integer` cannot reach in and replace the machine's own.
+
+**A method's line runs have to cover every byte of it.** Forgetting to close the
+last one is a file the verifier calls *internally inconsistent*, and the
+disassembler shows every instruction at line 0 — the only visible sign of what
+is wrong. That is now the third distinct mistake to produce that one message,
+after a jump offset measured from the wrong place and a slot one past the end of
+a frame.
+
+**And a function's own name is two things**, which falls out of asking the
+questions in the right order: this unit's own names before the routine table, so
+`Fact` is the result variable on the left of `:=` and a recursive call in an
+expression. That is the standard's rule and it needed no special case.
+
 ### Pascal, stage 2: types that are two things at once — `bcdff66`, 2026-08-27
 
 **`const`, `type`, enumerations, subranges, `case`, `repeat`, `for` in both

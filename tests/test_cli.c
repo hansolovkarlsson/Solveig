@@ -1202,7 +1202,8 @@ static void test_pascal_compiles_a_program_that_runs(void)
     static const char *programs[] = { "arith", "control", "logic",
                                       "reals", "writes",
                                       "ordinals", "loops", "cases",
-                                      "consts", "jumps" };
+                                      "consts", "jumps",
+                                      "procs", "byref", "forward" };
     for (size_t i = 0; i < sizeof programs / sizeof programs[0]; i++) {
         char command[512], expected_path[512];
 
@@ -1242,6 +1243,14 @@ static void test_pascal_compiles_a_program_that_runs(void)
                out, sizeof out) != 0);
     assert(strstr(out, "'div' wants integers") != NULL);
 
+    /* A var argument has to be a variable, because what goes over is the box
+       and an expression has none. */
+    system("printf 'program T(output);\\nprocedure P(var v : integer);"
+           "\\nbegin v := 1 end;\\nbegin P(1 + 1) end.\\n' > " DIR "/bad3.pas");
+    assert(run("bin/solvm " DIR "/pascal.sob " DIR "/bad3.pas " DIR "/bad3.sob 2>&1",
+               out, sizeof out) != 0);
+    assert(strstr(out, "has to be a variable") != NULL);
+
     /* And with no arguments it compiles a Pascal program it carries and runs
        it, which is this directory's rule for every program in it. */
     assert(run("bin/solvm " DIR "/pascal.sob 2>&1", out, sizeof out) == 0);
@@ -1249,7 +1258,7 @@ static void test_pascal_compiles_a_program_that_runs(void)
     assert(strstr(out, "one more than a multiple of three") != NULL);
     assert(strstr(out, "over three hundred") != NULL);
 
-    printf("  10 Pascal programs compile, run, and match what fpc -Miso printed\n");
+    printf("  13 Pascal programs compile, run, and match what fpc -Miso printed\n");
 }
 
 /* ------------------------------------------------------------------------

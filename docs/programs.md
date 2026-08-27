@@ -1412,12 +1412,13 @@ by [oracle.sh](../programs/pas/oracle.sh).
     -3     3
 ```
 
-**Stages 1 and 2**, and [PASCAL.md](PASCAL.md) says what the other six are.
+**Stages 1 to 3**, and [PASCAL.md](PASCAL.md) says what the other five are.
 The `program` heading, `var`, `const`, `type`, assignment, expressions, `write`
 and `writeln` with field widths, `begin`/`end`, `if`, `while`, `repeat`, `for`
 in both directions, `case`, `goto` with labels, enumerations, subranges, and
-`ord`, `chr`, `succ`, `pred`, `odd`, `abs` and `sqr`. **Ten programs produce the
-same bytes as `fpc -Miso`.**
+`ord`, `chr`, `succ`, `pred`, `odd`, `abs` and `sqr`; and `procedure`,
+`function`, value and `var` parameters, recursion and `forward`. **Thirteen
+programs produce the same bytes as `fpc -Miso`.**
 
 **A type has two kinds, and that is most of stage 2.** `run` is what the machine
 is holding — an integer, a float, a one-character string, a boolean — and `kind`
@@ -1468,6 +1469,21 @@ wrong**: Pascal's sign belongs to the whole term, so `-3 mod 2` is `-(3 mod 2)`,
 and asked with a variable holding `-3` both answer `1`. A compiler for a
 language whose grammar it has just read is exactly the place to misread
 precedence.
+
+**A `var` parameter cost the compiler its single pass.** The box is
+`sola.sol`'s answer and Pascal is the easier half of it — `var` is *declared*
+where QBasic made that compiler infer it. What is not easier is knowing which of
+the *caller's* variables need boxing, because a variable read in one procedure
+may be handed to a `var` parameter by another declared after it, and by then the
+read is emitted. So the source is parsed twice and the first answer is thrown
+away. Boxing every variable instead would cost an allocation and two sends on
+every access in every program, to buy the case where one is passed by reference.
+
+**A method's line runs have to cover every byte of it**, and forgetting to close
+the last one is a file the verifier calls *internally inconsistent* — with the
+disassembler showing every instruction at line 0, which is the only visible sign
+of what is wrong. That is the third distinct mistake to produce that one
+message.
 
 **`repeat` needs both jumps, and written the way it reads it runs once.**
 `OP_JUMP_IF_FALSE` only goes forward and `OP_LOOP` is unconditional, so looping

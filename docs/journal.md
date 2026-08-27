@@ -63,6 +63,31 @@ and into the loop back. Spelled the way the sentence reads, the loop inverts:
 expected and everything else in a twenty-line test was right, which is exactly
 the kind of wrong that a transcript catches and reading does not.
 
+### Stage 3, and the pass I did not want to add
+
+Procedures, functions, `var` parameters, recursion, `forward`. Thirteen programs
+agree with `fpc -Miso` where ten did.
+
+**The `var` parameter is where the single pass died.** The box is settled
+prior art — `sola.sol` says *by reference is a box, and the variable is the
+box* — and Pascal makes the callee's half trivial, because `var` is declared
+rather than inferred. The caller's half is not trivial at all: whether `g` needs
+boxing depends on whether *any* procedure anywhere passes it by reference, and
+the procedure that does may be declared after the one that reads it. By then the
+read is emitted.
+
+I looked at three answers. Box every variable: correct, simple, and an
+allocation plus two sends on every access in every program to buy a case most
+programs never use. Copy in and copy out: a different language the moment two
+parameters name one variable. Parse twice: the first pass fills the set, its
+output is thrown away, and the second emits with the answer in hand. The third
+is what `sola.sol` does in four passes and I had been quietly proud of not
+needing.
+
+**It cost about fifteen lines.** `compile` calls `parseOnce` twice. Everything
+else already reset itself between units, so there was nothing to unpick — which
+is a fact about stage 1 having been small, not about foresight.
+
 ### The verifier says one thing and means several
 
 Two mistakes both produced `bytecode is internally inconsistent` and nothing
@@ -76,6 +101,14 @@ Both were found the same way: bisect a working program down to the construct
 that breaks. That is the only tool that message leaves, and it is enough — but
 it is worth noticing that the verifier knows which slot was out of range and
 does not say.
+
+**Stage 3 produced a third one**, and this time bisecting found nothing, because
+*every* procedure failed. The disassembler did: it reads a `.sob` without
+verifying it, and it showed the block's instructions correctly and every one of
+them at **line 0**. A method's line runs have to cover every byte of it, and I
+closed the top-level chunk's and not each method's. Three different mistakes,
+one message — and the useful lesson is that `disasm.sol` is the tool for this
+and not bisection, because it reads the file the verifier refused.
 
 ### A claim written down before it was checked, and wrong
 

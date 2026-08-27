@@ -83,7 +83,9 @@ SETGLOB  := #3.
 LOCAL    := #4.
 SETLOCAL := #5.
 STRING   := #9.
+BLOCK    := #8.
 SEND     := #11.
+RETURN   := #19.
 JUMP     := #13.
 JMPF     := #14.
 LOOP     := #17.
@@ -411,7 +413,60 @@ pas:typeName := { t | t:name:size:equals(#0):ifElse({ t:kind:asString }, { t:nam
 pas:types     := dictionary:new.   ; name -> type
 pas:consts    := dictionary:new.   ; name -> [type, value]
 pas:enumOf    := dictionary:new.   ; an enumeration's member name -> [type, ordinal]
-pas:labels    := dictionary:new.   ; label -> ["at" or "pending"]
+pas:labels    := dictionary:new.   ; label -> [where, jumps waiting for it]
+pas:routines  := dictionary:new.   ; name -> [params, resultType, seen]
+pas:methods   := array:new.        ; the nested chunks, one per procedure
+pas:scope     := "".               ; "" at program level, else the routine's name
+pas:result    := nil.              ; the slot a function answers from
+
+; ---------------------------------------------------------------------------
+; Which variables live in a box
+;
+; **A `var` parameter is a box, and the variable *is* the box** -- `sola.sol`'s
+; answer, and Pascal is the easier case because `var` is *declared* where QBasic
+; made that compiler infer it by a fixed point.
+;
+; What is not easier is knowing which of the caller's variables need boxing,
+; because a variable read in one procedure may be handed to a `var` parameter by
+; another one declared later:
+;
+;     var g : integer;
+;     procedure A;                 begin writeln(g) end;   { g read here }
+;     procedure B(var x: integer); begin x := 1 end;
+;     procedure C;                 begin B(g) end;         { and boxed here }
+;
+; A's body is already emitted by the time C says so. **So the source is parsed
+; twice**: the first pass fills `boxed` and its output is thrown away, and the
+; second emits with the answer in hand. Both passes agree about everything else,
+; so a program that compiles on the second compiled on the first.
+;
+; The alternative -- boxing every variable -- costs an allocation and two sends
+; on every access in every program, to buy the case where one is passed by
+; reference. The alternative to *that* is copy-in and copy-out, which is a
+; different language when two parameters name one variable.
+
+pas:boxed := dictionary:new.
+pas:pass  := #1.
+
+; A variable is keyed by where it lives, not by where it is used: a program's
+; variable is the same variable seen from inside any procedure.
+pas:boxKeyFor := { name, entry |
+    entry:at(#3):equals('global):ifElse({ ":" }, { self:scope:concat(":") })
+        :concat(name) }.
+
+pas:isBoxed := { name, entry | self:boxed:includes(self:boxKeyFor(name, entry)) }.
+
+pas:markBoxed := { name, entry |
+    self:boxed:atPut(self:boxKeyFor(name, entry), true). nil }.
+
+; A procedure sees its own names first and the program's underneath, which is
+; the whole of the scoping stage 3 has -- stage 4 is where it becomes a chain.
+pas:globalVars := dictionary:new.
+
+pas:lookupVar := { name |
+    self:vars:includes(name):ifElse({ self:vars:at(name) },
+        { self:globalVars:includes(name):ifElse({ self:globalVars:at(name) },
+            { nil }) }) }.
 
 ; Pascal's one implicit conversion: an integer where a real is wanted, and never
 ; the other way.
@@ -562,6 +617,50 @@ pas:constValue := { | name, sign, v, found |
                   [found:at(#1), found:at(#2)] },
                 { self:fail("'{}' is not a constant":fill([name])) }) }) }) }) }) }) }) }.
 
+; ---------------------------------------------------------------------------
+; Reading and writing a variable
+;
+; **Two questions, and they are independent.** Where it lives -- a frame slot
+; inside a procedure, a global at program level -- and whether it is in a box.
+;
+; A program's variables are globals because a procedure has to see them, and a
+; block cannot reach the script's slots without `OP_OUTER`, which is stage 4's
+; business. They carry a `pas.` in front so that a Pascal program declaring
+; `var system : integer` cannot reach in and replace the machine's own.
+
+pas:globalName := { name | "pas.":concat(name) }.
+
+pas:emitReadVar := { name, entry |
+    entry:at(#3):equals('global):ifElse(
+        { self:emitGlobal(self:globalName(name)) },
+        { self:emitLocal(entry:at(#1)) }).
+    self:isBoxed(name, entry):ifTrue({
+        self:emitInt(#1). self:emitSend("at", #1) }).
+    nil }.
+
+; The value is already on the stack. A boxed store needs the array underneath
+; it and there is no reaching past the top, so the value goes into a scratch
+; slot and comes back -- the same three instructions `widenUnder` needs.
+pas:emitStoreVar := { name, entry | | tmp |
+    self:isBoxed(name, entry):ifElse({
+        self:scratchDepth := self:scratchDepth:add(#2).
+        tmp := self:scratchSlot(#1).
+        self:emitSetLocal(tmp). self:emitPop.
+        entry:at(#3):equals('global):ifElse(
+            { self:emitGlobal(self:globalName(name)) },
+            { self:emitLocal(entry:at(#1)) }).
+        self:emitInt(#1).
+        self:emitLocal(tmp).
+        self:emitSend("atPut", #2).
+        self:emitPop.
+        self:scratchDepth := self:scratchDepth:sub(#2) },
+
+      { entry:at(#3):equals('global):ifElse(
+            { self:byte(SETGLOB). self:u16(self:nameFor(self:globalName(name))) },
+            { self:emitSetLocal(entry:at(#1)) }).
+        self:emitPop }).
+    nil }.
+
 pas:emitValue := { t, v |
     t:run:equals('integer):ifTrue({ self:emitInt(v) }).
     t:run:equals('real):ifTrue({ self:emitReal(v) }).
@@ -595,10 +694,14 @@ pas:factor := { | t, name, v, over, pair, found |
         self:builtins:indexOf(name):notNil:ifElse({
             self:next. self:builtinCall(name) },
 
-        { self:vars:includes(name):ifElse({
+        { self:routines:includes(name):ifElse({
             self:next.
-            found := self:vars:at(name).
-            self:emitLocal(found:at(#1)).
+            self:callRoutine(name, true) },
+
+        { self:lookupVar(name):notNil:ifElse({
+            self:next.
+            found := self:lookupVar(name).
+            self:emitReadVar(name, found).
             found:at(#2) },
 
           ; Everything left is a constant of some kind -- a `const`, an
@@ -606,7 +709,7 @@ pas:factor := { | t, name, v, over, pair, found |
           ; are worked out here rather than emitted as a lookup.
           { pair := self:constValue.
             self:emitValue(pair:at(#1), pair:at(#2)).
-            pair:at(#1) }) }) },
+            pair:at(#1) }) }) }) },
 
       { self:fail("expected a value and found '{}'":fill([self:text])) }) }) }) }) }) }) }.
 
@@ -919,11 +1022,28 @@ pas:statement := { | name, over, past, top, target, ends |
 
     { self:kind:equals('name):ifElse({
         name := self:expectName.
-        self:vars:includes(name):ifFalse({
-            self:fail("'{}' is not declared":fill([name])) }).
-        target := self:vars:at(name).
-        self:expectPunct(":=").
-        self:assignInto(target, name) },
+
+        ; A name at the start of a statement is a procedure call or the target
+        ; of an assignment, and the name itself says which -- no lookahead.
+        ;
+        ; **This unit's own names come first, and that is what makes a function
+        ; able to answer.** Inside `Fact`, the name `Fact` is the result
+        ; variable here and a recursive call in an expression, which is the
+        ; standard's rule and falls out of asking the two questions in this
+        ; order.
+        self:vars:includes(name):ifElse({
+            target := self:vars:at(name).
+            self:expectPunct(":=").
+            self:assignInto(target, name) },
+
+        { self:routines:includes(name):ifElse({
+            self:callRoutine(name, false). self:emitPop },
+
+          { target := self:lookupVar(name).
+            target:isNil:ifTrue({
+                self:fail("'{}' is not declared":fill([name])) }).
+            self:expectPunct(":=").
+            self:assignInto(target, name) }) }) },
 
       ; The empty statement, which the standard has and which is what a `;`
       ; before an `end` produces.
@@ -986,9 +1106,9 @@ pas:caseStatement := { | t, slot, ends, matches, skip, c, over, more, moreConsts
 ; subrange or an enumeration is a value the type does not have.
 pas:forStatement := { | name, target, t, slot, top, over, done, cont, up, got |
     name := self:expectName.
-    self:vars:includes(name):ifFalse({
+    target := self:lookupVar(name).
+    target:isNil:ifTrue({
         self:fail("'{}' is not declared":fill([name])) }).
-    target := self:vars:at(name).
     t := target:at(#2).
     isOrdinal:value(t):ifFalse({
         self:fail("'for' wants an ordinal control variable") }).
@@ -1000,7 +1120,7 @@ pas:forStatement := { | name, target, t, slot, top, over, done, cont, up, got |
     sameType:value(got, t):ifFalse({
         self:fail("'{}' is a {} and this is a {}"
             :fill([name, self:typeName(t), self:typeName(got)])) }).
-    self:emitSetLocal(target:at(#1)). self:emitPop.
+    self:emitStoreVar(name, target).
 
     up := self:accept("to"):ifElse({ true }, { self:expect("downto"). false }).
 
@@ -1013,23 +1133,23 @@ pas:forStatement := { | name, target, t, slot, top, over, done, cont, up, got |
     self:expect("do").
 
     top := self:here.
-    self:emitLocal(target:at(#1)).
+    self:emitReadVar(name, target).
     self:emitLocal(slot).
     self:emitSend(up:ifElse({ "lessOrEqual" }, { "greaterOrEqual" }), #1).
     over := self:emitJumpFalse("for").
 
     self:statement.
 
-    self:emitLocal(target:at(#1)).
+    self:emitReadVar(name, target).
     self:emitLocal(slot).
     self:emitSend("equals", #1).
     cont := self:emitJumpFalse("for").
     done := self:emitJump.
     self:patch(cont).
 
-    self:emitLocal(target:at(#1)).
+    self:emitReadVar(name, target).
     self:emitStep(t, up:ifElse({ #1 }, { #-1 })).
-    self:emitSetLocal(target:at(#1)). self:emitPop.
+    self:emitStoreVar(name, target).
     self:emitLoop(top).
 
     self:patch(over).
@@ -1054,8 +1174,7 @@ pas:assignInto := { target, name | | want, got |
     sameType:value(got, want):ifFalse({
         self:fail("'{}' is a {} and this is a {}"
             :fill([name, self:typeName(want), self:typeName(got)])) }).
-    self:emitSetLocal(target:at(#1)).
-    self:emitPop.
+    self:emitStoreVar(name, target).
     nil }.
 
 pas:compound := {
@@ -1138,13 +1257,18 @@ pas:typeSection := { | name, t |
         self:types:atPut(name, t) }).
     nil }.
 
-pas:declareVar := { name, type | | slot |
+pas:declareVar := { name, type | | slot, where, entry |
     self:vars:includes(name):ifTrue({
         self:fail("'{}' is declared twice":fill([name])) }).
+    where := self:scope:size:equals(#0):ifElse({ 'global }, { 'local }).
     slot := self:slotNames:size.
-    slot:greaterThan(#254):ifTrue({ self:fail("too many variables in one program") }).
-    self:slotNames:add(name).
-    self:vars:atPut(name, [slot, type]).
+    where:equals('local):ifElse({
+        slot:greaterThan(#254):ifTrue({
+            self:fail("too many variables in one procedure") }).
+        self:slotNames:add(name) },
+      { slot := #0 }).
+    entry := [slot, type, where].
+    self:vars:atPut(name, entry).
 
     ; **Every variable starts at nought**, which the standard does not promise
     ; and this machine cannot avoid: a slot that was never written holds nil,
@@ -1153,7 +1277,19 @@ pas:declareVar := { name, type | | slot |
     type:run:equals('real):ifTrue({ self:emitReal(0.0) }).
     type:run:equals('char):ifTrue({ self:emitString(" ") }).
     type:run:equals('boolean):ifTrue({ self:emitBool(false) }).
-    self:emitSetLocal(slot).
+
+    ; A boxed variable *is* the box, made once here, so that handing it to a
+    ; `var` parameter hands over the storage rather than a copy of it.
+    self:isBoxed(name, entry):ifTrue({ | zero |
+        zero := self:scratchSlot(#1).
+        self:emitSetLocal(zero). self:emitPop.
+        self:emitGlobal("array").
+        self:emitLocal(zero).
+        self:emitSend("of", #1) }).
+
+    where:equals('global):ifElse(
+        { self:byte(SETGLOB). self:u16(self:nameFor(self:globalName(name))) },
+        { self:emitSetLocal(slot) }).
     self:emitPop.
     nil }.
 
@@ -1195,6 +1331,13 @@ pas:program := { | pending |
     self:accept("type"):ifTrue({ self:typeSection }).
     self:accept("var"):ifTrue({ self:varSection }).
 
+    ; What every procedure sees underneath its own names.
+    self:globalVars := self:vars.
+
+    { self:isName("procedure"):or({ self:isName("function") }) }:whileTrue({
+        self:accept("procedure"):ifElse({ self:routineDecl(false) },
+            { self:expect("function"). self:routineDecl(true) }) }).
+
     ; Scratch slots live above the variables, so their numbers are known only
     ; once the declarations are read -- which is why Pascal declaring first is
     ; a convenience to the compiler and not only to the reader.
@@ -1210,8 +1353,270 @@ pas:program := { | pending |
             self:fail("label {} is jumped to and never marked":fill([name])) }) }).
     nil }.
 
-pas:compile := { source, path | | chunk, i |
-    self:src := source. self:path := path.
+; ---------------------------------------------------------------------------
+; Units
+;
+; A procedure is compiled into a chunk of its own -- its own code, names,
+; constants, slots and line runs -- which is nested inside the program's. So
+; the emitter's whole state is put aside and a fresh one started, and `sola.sol`
+; calls the same thing a unit for the same reason.
+
+pas:unitStack := array:new.
+
+pas:unitFields := ["code", "names", "nameIndex", "constants", "constIndex",
+                   "lineRuns", "lineAt", "runLine", "slotNames", "vars",
+                   "slotBase", "scratchDepth", "scratchMax", "methods",
+                   "labels", "scope", "result"].
+
+pas:pushUnit := { | saved |
+    saved := dictionary:new.
+    saved:atPut("code", self:code).             saved:atPut("names", self:names).
+    saved:atPut("nameIndex", self:nameIndex).   saved:atPut("constants", self:constants).
+    saved:atPut("constIndex", self:constIndex). saved:atPut("lineRuns", self:lineRuns).
+    saved:atPut("lineAt", self:lineAt).         saved:atPut("runLine", self:runLine).
+    saved:atPut("slotNames", self:slotNames).   saved:atPut("vars", self:vars).
+    saved:atPut("slotBase", self:slotBase).
+    saved:atPut("scratchDepth", self:scratchDepth).
+    saved:atPut("scratchMax", self:scratchMax). saved:atPut("methods", self:methods).
+    saved:atPut("labels", self:labels).         saved:atPut("scope", self:scope).
+    saved:atPut("result", self:result).
+    self:unitStack:add(saved).
+
+    self:code := array:new.
+    self:names := array:new.     self:nameIndex := dictionary:new.
+    self:constants := array:new. self:constIndex := dictionary:new.
+    self:lineRuns := array:new.  self:lineAt := #0. self:runLine := #1.
+    self:slotNames := array:new. self:slotNames:add("").
+    self:vars := dictionary:new.
+    self:slotBase := #1.
+    self:scratchDepth := #0. self:scratchMax := #0.
+    self:methods := array:new.
+    self:labels := dictionary:new.
+    self:result := nil.
+    nil }.
+
+pas:popUnit := { | saved |
+    saved := self:unitStack:removeLast.
+    self:code := saved:at("code").             self:names := saved:at("names").
+    self:nameIndex := saved:at("nameIndex").   self:constants := saved:at("constants").
+    self:constIndex := saved:at("constIndex"). self:lineRuns := saved:at("lineRuns").
+    self:lineAt := saved:at("lineAt").         self:runLine := saved:at("runLine").
+    self:slotNames := saved:at("slotNames").   self:vars := saved:at("vars").
+    self:slotBase := saved:at("slotBase").
+    self:scratchDepth := saved:at("scratchDepth").
+    self:scratchMax := saved:at("scratchMax"). self:methods := saved:at("methods").
+    self:labels := saved:at("labels").         self:scope := saved:at("scope").
+    self:result := saved:at("result").
+    nil }.
+
+; **The line runs have to cover every byte of the chunk**, and a method's are
+; closed here rather than by whoever finishes its body -- forgetting to is a
+; file the verifier calls *internally inconsistent*, and the disassembler shows
+; every instruction at line 0, which is the only visible sign of it.
+pas:closeLines := {
+    self:lineMark(self:runLine).
+    self:lineAt:lessThan(self:here):ifTrue({
+        self:lineRuns:add([self:here:sub(self:lineAt), self:runLine]) }).
+    nil }.
+
+; The scratch slots are appended last, their number being known only once the
+; body is compiled.
+pas:chunkOfUnit := { | chunk, i |
+    self:closeLines.
+    i := #0.
+    { i:lessThan(self:scratchMax) }:whileTrue({
+        self:slotNames:add("scratch"). i := i:add(#1) }).
+
+    chunk := dictionary:new.
+    chunk:atPut("slots", self:slotNames:size).
+    chunk:atPut("names", self:names).
+    chunk:atPut("constants", self:constants).
+    chunk:atPut("code", self:code).
+    chunk:atPut("lines", self:lineRuns).
+    chunk:atPut("files", [self:path]).
+    chunk:atPut("fileRuns", [[self:code:size, #0]]).
+    chunk:atPut("slotNames", self:slotNames).
+    chunk:atPut("methods", self:methods).
+    chunk }.
+
+; ---------------------------------------------------------------------------
+; Procedures and functions
+;
+; A routine is a **block held in a global**, made with `OP_BLOCK` and stored
+; under its own name. A call is that global, the arguments, and `value` -- so
+; recursion needs nothing special: the body names the global, and the global is
+; bound before anything runs it.
+;
+; `forward` needs nothing special either, for the same reason. The heading is
+; registered before the body is compiled, so a call may be emitted long before
+; there is anything to call.
+
+pas:formalParams := { | out, isVar, names, t, more |
+    out := array:new.
+    more := true.
+    { more }:whileTrue({
+        isVar := self:accept("var").
+        names := array:new.
+        names:add(self:expectName).
+        { self:acceptPunct(",") }:whileTrue({ names:add(self:expectName) }).
+        self:expectPunct(":").
+        t := self:typeDenoter.
+        names:do({ n | out:add([n, t, isVar]) }).
+        more := self:acceptPunct(";") }).
+    self:expectPunct(")").
+    out }.
+
+pas:routineBody := { name, params, result | | method, index, slot |
+    self:pushUnit.
+    self:scope := name.
+
+    ; Slot 0 of a block frame holds whatever the send put there, so parameters
+    ; land in 1..arity exactly as a `value` lays them out.
+    params:do({ p | | s, entry |
+        s := self:slotNames:size.
+        self:slotNames:add(p:at(#1)).
+        entry := [s, p:at(#2), 'local].
+        self:vars:atPut(p:at(#1), entry).
+        p:at(#3):ifTrue({ self:markBoxed(p:at(#1), entry) }) }).
+
+    ; A function answers by assigning to its own name, so the name is a local
+    ; and the body's last act is to push it.
+    result:notNil:ifTrue({
+        slot := self:slotNames:size.
+        self:slotNames:add(name).
+        self:vars:atPut(name, [slot, result, 'local]).
+        self:result := slot }).
+
+    self:accept("label"):ifTrue({ self:labelDecl }).
+    self:accept("const"):ifTrue({ self:constSection }).
+    self:accept("type"):ifTrue({ self:typeSection }).
+    self:accept("var"):ifTrue({ self:varSection }).
+    self:slotBase := self:slotNames:size.
+
+    ; A **value** parameter that is itself handed on by reference has to become
+    ; a box on entry; a `var` parameter arrives as one already.
+    params:do({ p | | entry |
+        entry := self:vars:at(p:at(#1)).
+        p:at(#3):not:and({ self:isBoxed(p:at(#1), entry) }):ifTrue({
+            self:emitGlobal("array").
+            self:emitLocal(entry:at(#1)).
+            self:emitSend("of", #1).
+            self:emitSetLocal(entry:at(#1)).
+            self:emitPop }) }).
+
+    result:notNil:ifTrue({
+        result:run:equals('integer):ifTrue({ self:emitInt(#0) }).
+        result:run:equals('real):ifTrue({ self:emitReal(0.0) }).
+        result:run:equals('char):ifTrue({ self:emitString(" ") }).
+        result:run:equals('boolean):ifTrue({ self:emitBool(false) }).
+        self:emitSetLocal(self:result). self:emitPop }).
+
+    self:compound.
+    self:expectPunct(";").
+
+    result:isNil:ifElse({ self:byte(NIL) }, { self:emitLocal(self:result) }).
+    self:byte(RETURN).
+
+    self:labels:keysAndValuesDo({ label, entry |
+        entry:at(#2):size:greaterThan(#0):ifTrue({
+            self:fail("label {} is jumped to and never marked":fill([label])) }) }).
+
+    method := self:chunkOfUnit.
+    method:atPut("name", name).
+    method:atPut("arity", params:size).
+    ; Flag 1 says block. Flag 2 would say it reaches out of its own frame, and
+    ; nothing at this stage does -- a procedure's names are its own slots or
+    ; globals. Stage 4 is where that stops being true.
+    method:atPut("flags", #1).
+    self:popUnit.
+
+    index := self:methods:size.
+    self:methods:add(method).
+    self:byte(BLOCK). self:u16(index).
+    self:byte(SETGLOB). self:u16(self:nameFor(self:globalName(name))).
+    self:emitPop.
+    nil }.
+
+pas:routineDecl := { isFunction | | name, params, result, sig |
+    name := self:expectName.
+    sig := self:routines:includes(name):ifElse({ self:routines:at(name) }, { nil }).
+
+    params := array:new.
+    result := nil.
+    self:acceptPunct("("):ifElse({ params := self:formalParams },
+        { sig:notNil:ifTrue({ params := sig:at(#1) }) }).
+    isFunction:ifTrue({
+        self:acceptPunct(":"):ifElse({ result := self:typeDenoter },
+            { sig:notNil:ifTrue({ result := sig:at(#2) }) }).
+        result:isNil:ifTrue({ self:fail("a function needs a result type") }) }).
+    self:expectPunct(";").
+
+    ; Registered **before** the body, which is the whole of what recursion needs
+    ; and the whole of what `forward` needs.
+    sig:isNil:ifTrue({ self:routines:atPut(name, [params, result, false]) }).
+
+    self:accept("forward"):ifElse({ self:expectPunct(";") },
+      { self:routines:at(name):atPut(#3, true).
+        self:routineBody(name, params, result) }).
+    nil }.
+
+pas:callRoutine := { name, asFunction | | sig, params, result, i, argName, entry, got, p |
+    sig := self:routines:at(name).
+    params := sig:at(#1). result := sig:at(#2).
+
+    asFunction:and({ result:isNil }):ifTrue({
+        self:fail("'{}' is a procedure and has no value":fill([name])) }).
+    asFunction:not:and({ result:notNil }):ifTrue({
+        self:fail("'{}' is a function, so its value has to be used":fill([name])) }).
+
+    self:emitGlobal(self:globalName(name)).
+
+    params:size:greaterThan(#0):ifElse({
+        self:expectPunct("(").
+        i := #1.
+        { i:lessOrEqual(params:size) }:whileTrue({
+            i:greaterThan(#1):ifTrue({ self:expectPunct(",") }).
+            p := params:at(i).
+
+            p:at(#3):ifElse({
+                ; **The box itself goes over**, so the callee's `atPut` writes
+                ; the caller's storage and there is nothing to copy back -- and
+                ; an expression has no box, which is why the standard says a
+                ; `var` argument is a variable and not a value.
+                self:kind:equals('name):ifFalse({
+                    self:fail("a 'var' argument has to be a variable, and '{}' is not"
+                        :fill([self:text])) }).
+                argName := self:expectName.
+                entry := self:lookupVar(argName).
+                entry:isNil:ifTrue({
+                    self:fail("a 'var' argument has to be a variable, and '{}' is not"
+                        :fill([argName])) }).
+                sameType:value(entry:at(#2), p:at(#2)):ifFalse({
+                    self:fail("'{}' takes a {} here and '{}' is a {}"
+                        :fill([name, self:typeName(p:at(#2)), argName,
+                               self:typeName(entry:at(#2))])) }).
+                self:markBoxed(argName, entry).
+                entry:at(#3):equals('global):ifElse(
+                    { self:emitGlobal(self:globalName(argName)) },
+                    { self:emitLocal(entry:at(#1)) }) },
+
+              { got := self:expression.
+                p:at(#2):run:equals('real):and({ got:run:equals('integer) }):ifTrue({
+                    self:toReal(got). got := tReal }).
+                sameType:value(got, p:at(#2)):ifFalse({
+                    self:fail("'{}' takes a {} here and this is a {}"
+                        :fill([name, self:typeName(p:at(#2)),
+                               self:typeName(got)])) }) }).
+            i := i:add(#1) }).
+        self:expectPunct(")") },
+
+      { self:acceptPunct("("):ifTrue({ self:expectPunct(")") }) }).
+
+    self:emitSend("value", params:size).
+    result:isNil:ifElse({ tInteger }, { result }) }.
+
+pas:parseOnce := { source | | i |
+    self:src := source.
     self:pos := #1. self:line := #1.
     self:code := array:new.
     self:names := array:new. self:nameIndex := dictionary:new.
@@ -1219,10 +1624,17 @@ pas:compile := { source, path | | chunk, i |
     self:lineRuns := array:new. self:runLine := #1. self:lineAt := #0.
     self:slotNames := array:new. self:slotNames:add("").
     self:vars := dictionary:new.
+    self:globalVars := dictionary:new.
     self:types := dictionary:new.
     self:consts := dictionary:new.
     self:enumOf := dictionary:new.
     self:labels := dictionary:new.
+    self:routines := dictionary:new.
+    self:methods := array:new.
+    self:unitStack := array:new.
+    self:scope := "".
+    self:result := nil.
+    self:slotBase := #1.
     self:scratchDepth := #0. self:scratchMax := #0.
 
     self:types:atPut("integer", tInteger).
@@ -1234,24 +1646,28 @@ pas:compile := { source, path | | chunk, i |
     self:program.
     self:lineMark(self:runLine).
     self:byte(HALT).
-    self:lineAt:lessThan(self:here):ifTrue({
-        self:lineRuns:add([self:here:sub(self:lineAt), self:runLine]) }).
+    nil }.
 
-    i := #0.
-    { i:lessThan(self:scratchMax) }:whileTrue({
-        self:slotNames:add("scratch"). i := i:add(#1) }).
+; **Twice, and the first answer is thrown away.** The reason is in the note
+; above `boxed`: a variable read in one procedure may be handed to a `var`
+; parameter by another one declared after it, and by then the read is already
+; emitted. The first pass fills `boxed` and the second emits with it in hand.
+;
+; Both passes agree about everything else, so a program that compiles on the
+; second compiled on the first -- and a program that fails, fails on the first
+; with the same message.
+pas:compile := { source, path |
+    self:path := path.
+    self:boxed := dictionary:new.
 
-    chunk := dictionary:new.
-    chunk:atPut("slots", self:slotNames:size).
-    chunk:atPut("names", self:names).
-    chunk:atPut("constants", self:constants).
-    chunk:atPut("code", self:code).
-    chunk:atPut("lines", self:lineRuns).
-    chunk:atPut("files", [path]).
-    chunk:atPut("fileRuns", [[self:code:size, #0]]).
-    chunk:atPut("slotNames", self:slotNames).
-    chunk:atPut("methods", array:new).
-    chunk }.
+    self:pass := #1.
+    self:parseOnce(source).
+
+    self:pass := #2.
+    self:parseOnce(source).
+
+    self:chunkOfUnit }.
+
 ; ---------------------------------------------------------------------------
 ; Running it
 

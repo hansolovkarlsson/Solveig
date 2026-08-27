@@ -127,12 +127,25 @@ and under this compiler.
 | --- | --- |
 | **1** — **done** | `program`, `var` of the four simple types, assignment, expressions, `write` and `writeln` with field widths, `begin`/`end`, `if`, `while`. Five programs in `agree/` produce the same bytes as `fpc -Miso`. |
 | **2** — **done** | `const`, `type`, enumerations, subranges, `case`, `repeat`, `for`, `goto` and labels, and `ord`, `chr`, `succ`, `pred`, `odd`, `abs`, `sqr`. Ten programs in `agree/`. |
-| **3** | `procedure` and `function`, value and `var` parameters, recursion, `forward`. |
+| **3** — **done** | `procedure` and `function`, value and `var` parameters, recursion, `forward`. Thirteen programs in `agree/`. |
 | **4** | Nested procedures and uplevel access — the `OP_OUTER` prediction, settled either way. |
 | **5** | `array`, multi-dimensional, `record`, `with`. |
 | **6** | `set`, and the file half: `text`, `read`, `readln`, `write`, `writeln`, `eof`, `eoln`, then `file of T`. |
 | **7** | Pointers, `new`, `nil`, and linked structures. |
 | **8** | The standard's required procedures and functions in full, and whatever the oracle has been complaining about. |
+
+**Stage 3 landed the same day, and cost the compiler its single pass.** A `var`
+parameter is a box and the variable *is* the box, which is `sola.sol`'s answer —
+but knowing *which* of the caller's variables need boxing cannot be done in one
+pass, because a variable read in one procedure may be handed to a `var`
+parameter by another declared after it. So the source is parsed twice: the first
+pass fills the set and its output is thrown away.
+
+Two other things moved with it. A program's variables became **globals**, since
+a procedure has to see them and a block cannot reach the script's slots without
+`OP_OUTER` — which is stage 4's business. And they carry a `pas.` in front, so
+that a Pascal program declaring `var system : integer` cannot reach in and
+replace the machine's own.
 
 **Stage 2 landed the same day.** A type became an object with two kinds: `run`
 is what the machine holds — an integer, a float, a one-character string, a
