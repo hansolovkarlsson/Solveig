@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### Pascal, stage 4: the machine needed nothing added — `pending`, 2026-08-27
+### Pascal, stage 4: the machine needed nothing added — `31daea0`, 2026-08-27
 
 **Nested procedures and uplevel access, and the two predictions written into
 [ideas.md](ideas.md) before the stage was started both held.** **Fourteen
