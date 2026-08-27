@@ -28,6 +28,7 @@
 #include <unistd.h>
 #endif
 
+#include "solum/serialize.h"
 #include "solum/stdin.h"
 #include "solum/vm.h"
 
@@ -4370,6 +4371,86 @@ static bool path_argument(SolVM *vm, const char *name, SolValue value)
     return false;
 }
 
+/* system:load("lib.sob") -- runs an already-compiled chunk in this machine,
+ * sharing the globals with whatever is running now.
+ *
+ * The run-time twin of `@include`, and it shares its namespace rule: there is
+ * one flat globals namespace, the loaded file binds into it, and the caller
+ * sees everything it bound. That is the whole of the connection between the two
+ * files -- names, resolved at run time, which is why the caller compiles alone
+ * and only fails when a name it wanted was never bound.
+ *
+ * It shares `@include`'s hazard too, undiluted: nothing is namespaced, so a
+ * name bound twice is silently the second one. See ROADMAP 3.10.
+ *
+ * Loading into a code cell is what makes this safe to return from. The chunk
+ * belongs to the collector, and the collector keeps it for exactly as long as a
+ * frame is executing it or a block defined in it is still reachable -- so a
+ * block this file bound into a global outlives the load, and a file that bound
+ * nothing is reclaimed. Freeing the chunk here instead would be ROADMAP 3.6:
+ * the globals would hold blocks whose code had gone.
+ *
+ * There is deliberately no temporary root over the window before that frame
+ * exists, and it took removing one to be sure: with the root taken out, the
+ * tests pass under ASan and `gc_stress` alike. Nothing in that window can
+ * collect. A collection happens where something allocates, `serialize.c` is
+ * handed no VM at all and so can allocate nothing the collector knows about --
+ * a string constant is chunk-owned bytes until OP_STRING makes a string of it
+ * at run time -- and `sol_code_new` collects before it allocates rather than
+ * after. Solis roots its submission because *compiling* allocates; loading does
+ * not, and a root whose window is empty is a comment that claims a danger. */
+static SolValue prim_system_load(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "load", argc, 1)) return SOL_NIL_VAL;
+    if (!path_argument(vm, "load", args[0])) return SOL_NIL_VAL;
+
+    const char *path = SOL_AS_STRING(args[0])->chars;
+
+    SolCode *code = sol_code_new(vm);
+
+    SolSerResult loaded = sol_chunk_load(&code->chunk, path);
+    if (loaded != SOL_SER_OK) {
+        sol_vm_runtime_error(vm, "cannot load '%s': %s", path,
+                             sol_ser_message(loaded));
+        return SOL_NIL_VAL;
+    }
+
+    /* A .sob is untrusted input, as serialize.h says: it may have been written
+       by something other than solas, and the dispatch loop trusts its operands.
+       Verifying is what stands between a malformed file and the machine. */
+    SolSerResult sound = sol_chunk_verify(&code->chunk);
+    if (sound != SOL_SER_OK) {
+        sol_vm_runtime_error(vm, "'%s' is not usable: %s", path,
+                             sol_ser_message(sound));
+        return SOL_NIL_VAL;
+    }
+
+    /* The loader initialises the chunk it is handed -- serialize.h says so, and
+       `solvm` relies on it by passing a raw one -- and initialising clears the
+       owner `sol_code_new` had just set. So ownership is established here,
+       after the load rather than before it, or every block this file defines
+       would carry no owner and the collector would sweep the code out from
+       under it. That failure is invisible until a collection happens to land
+       between the load and the call: SOLUM_GC_STRESS makes it happen every
+       time, which is how it was found. */
+    sol_chunk_set_owner(&code->chunk, code);
+
+    /* From here the chunk is rooted by the frame executing it, which is what
+       the collector looks at. An earlier draft held a temporary root across
+       this call instead: the temporary roots are eight deep and overflowing
+       them is a hard exit rather than a failure a program can see, so the ninth
+       nested load killed the process outright. */
+    SolResult result = sol_vm_call_chunk(vm, &code->chunk);
+
+    /* A failure inside the loaded file has already set the error and its trace,
+       and `had_error` is the flag every loop tests -- so saying nothing more is
+       what lets it keep unwinding through the caller. `system:exit` arrives
+       here the same way and must also be left alone. */
+    (void)result;
+    return SOL_NIL_VAL;
+}
+
 static SolValue prim_system_read_file(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     (void)self;
@@ -5739,6 +5820,7 @@ void sol_builtins_install(SolVM *vm)
     any_receiver(vm, system, "readKey", prim_system_read_key);
     any_receiver(vm, system, "terminalSize", prim_system_terminal_size);
     any_receiver(vm, system, "keyWaiting", prim_system_key_waiting);
+    any_receiver(vm, system, "load", prim_system_load);
     any_receiver(vm, system, "readFile", prim_system_read_file);
     any_receiver(vm, system, "writeFile", prim_system_write_file);
     any_receiver(vm, system, "fileExists", prim_system_file_exists);

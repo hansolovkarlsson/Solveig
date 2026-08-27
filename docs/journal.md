@@ -11,6 +11,90 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-27 (later) — a question about memory, answered by not needing any
+
+**The day started as a question, not a request.** *Is it feasible to import a
+precompiled `.sob` into a program — would that require different memory blocks
+or something?* The honest way to answer was to try it before saying anything, so
+the first hour produced no feature at all: a `lib.sol` binding a block, a value
+and a method on `integer`; a `main.sol` using all three without including
+anything; and a thirty-line C host calling `sol_chunk_load` and `sol_vm_run`
+twice on one machine.
+
+It printed all three. **The premise of the question was the thing to answer**:
+no separate memory is needed, because the separation already exists. Every chunk
+carries its own names, constants, code and slot count, and `SolFrame` has
+recorded which chunk it belongs to since blocks were written — that is why a
+block defined in one file was always callable from another. The only shared
+thing is the globals, and that sharing is not an accident to be worked around
+but the mechanism: `OP_GLOBAL` resolves by name at run time, which is why
+`main.sob` compiles perfectly well alone and fails only when run.
+
+**The one real constraint showed up when I freed the chunk**, which segfaulted
+under ASan in `sol_vm_call_block` — ROADMAP 3.6, exactly as written, reached by
+experiment rather than by reading. Loading into a `sol_code_new` cell instead
+ran clean. `bytecode.h` had said so all along: a code cell is "ready to compile
+or **load into**".
+
+So the answer was *yes, and most of it exists*; the missing piece was a way to
+reach it from inside Solum. Hans asked for that next, sharing globals the way
+`@include` does.
+
+**The implementation is two functions and neither is clever.** `sol_vm_call_chunk`
+is `sol_vm_run`'s nested twin, and it is defined by what it does *not* reset —
+the error state, the step budget, the frames and the stack all belong to the run
+underway. `prim_system_load` loads, verifies, and calls it. `run_frames` already
+took a base frame index, because `sol_vm_call_block` needed re-entrancy years
+before this did.
+
+**Both bugs were lifetime, and both were found by tests rather than by reading.**
+
+The first is the one worth keeping. `sol_chunk_load` initialises the chunk it is
+given — it must, since `solvm` hands it a bare one — and initialising clears the
+owner `sol_code_new` had just set. Every method loaded afterwards inherited that
+nothing, so every block the file defined pointed at a chunk the collector would
+not root. Without `SOLUM_GC_STRESS` it passed. With it, `greet:value("world")`
+came back as `'(null)' takes 0 arguments, got 1` — an arity read out of freed
+memory. It is the kind of bug that would have shipped, because the happy path is
+genuinely happy until a collection lands in a two-instruction window.
+
+The second I put there myself. I held the chunk across the nested run with a
+temporary root, forgetting that the temporary roots are eight deep with an
+`exit(1)` on top — so a file loading itself killed the process at depth nine,
+with no message. Dropping the root before the guest runs fixed it, because a
+frame executing a chunk roots it; the limit became the machine's own 256 and the
+ending became `call depth exceeded`, which is a failure a program can see.
+
+**And then the root turned out to be unnecessary at all.** The house rule here
+is to prove a new GC root is load-bearing by removing it and showing the ASan
+report. I removed it expecting a crash and got a clean run — under ASan, under
+`gc_stress`, the whole suite. The reason is good: `serialize.c` is handed no VM,
+so it cannot allocate anything the collector knows about, and a string constant
+stays chunk-owned bytes until `OP_STRING` makes a string of it. Solis roots its
+submission because compiling allocates. Loading does not. The root came out and
+the comment now says why there is nothing to guard. **The check earned its
+place by contradicting me**, which is the first time it has.
+
+**The repository asked for four things I had not thought to write.** The build
+refused the feature until `system:load` was sent by an example, listed in the
+reference's index, listed in the cheatsheet, and counted correctly in six
+documents — and it named each one in turn, by file and line. Adding
+`examples/load.sol` moved counts in `COMPLETED.md`, `programs.md`, `TUTORIAL.md`
+and `index.md`, and one of them wanted the word *thirty*, which `expect.sol`
+could not read: it knew `numberWords` to twenty and `tensWords` for hyphenated
+pairs, so it read *twenty-nine* and *thirty-one* but not the round number
+between them. Six lines fixed that.
+
+**What it deliberately does not do.** There is no once-only memory: `@include`
+is keyed by where a file lands on disk, a message has no such key, and loading
+twice runs twice. There is no namespacing either, so the last binding of a name
+wins in silence — which is 3.10 arriving from a third direction, and now between
+files that were compiled separately and never saw each other. That makes the
+collision likelier rather than different, and it does not change the answer,
+which is still the deferred one.
+
+---
+
 ## 2026-08-27 (Pascal) — eight stages, and a compiler that agrees with a real one
 
 **A Pascal compiler, in eight stages, between 07:49 and 12:19.** What follows is

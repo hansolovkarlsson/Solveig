@@ -241,6 +241,22 @@ void sol_vm_free(SolVM *vm);
 /* Executes `chunk` to completion. */
 SolResult sol_vm_run(SolVM *vm, const SolChunk *chunk);
 
+/* Executes `chunk` *inside* the run already in progress, sharing the globals
+   with it, and answers how it went.
+ *
+ * This is `sol_vm_run`'s nested twin, and the difference is everything it does
+ * not do. It does not reset the error state, the step budget, the frames or the
+ * stack: those belong to the run underway, and a chunk loaded part-way through
+ * is a guest in it rather than a fresh start. What it does do is what
+ * `sol_vm_call_block` does -- remember the frame count and the stack top, run
+ * until the guest is done, and put both back, because a top-level chunk ends in
+ * OP_HALT and HALT unwinds nothing.
+ *
+ * The chunk must stay alive for as long as anything it defined can still be
+ * reached. Load into a `sol_code_new` cell and the collector settles that; a
+ * caller-owned chunk makes it the caller's problem -- see ROADMAP 3.6. */
+SolResult sol_vm_call_chunk(SolVM *vm, const SolChunk *chunk);
+
 /* What the program may spend, set by whoever is embedding the machine and not
  * reachable from inside it. There is no message that sets, clears or reads
  * either of these, which is the whole of what makes them limits rather than

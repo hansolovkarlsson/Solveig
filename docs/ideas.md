@@ -791,6 +791,19 @@ today is one and a half:
 | an export boundary | **absent** |
 | declared dependencies | **absent** |
 
+**`system:load` changes one row of that table**, and it is the row that was
+comfortable. Once-only initialization is done *for `@include`*, keyed by where a
+file lands on disk; a file loaded at run time gets no such key and no such
+memory, so loading it twice runs it twice. That is defensible on its own terms —
+it is a message, and a message that silently declined to do its work the second
+time would be the stranger thing — but it means the one job this table could
+call finished is now finished only on the compile-time half.
+
+It sharpens the trigger above rather than moving it. A library arriving from
+outside was already the moment a flat space stops working; a library arriving
+already compiled, from someone who never saw your names, is that moment with
+less warning.
+
 And the [three tiers](COMPLETED.md#621-two-libraries-binding-one-name-collide-silently--done)
 that came out of 6.21 do most of the rest. Two of the four shipped libraries
 claim **no global at all** — `integer:asUtf8` and `integer:timesCollect` are

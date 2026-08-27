@@ -762,6 +762,14 @@ asCount := { text | | t, at, digits, i, c, ok |
     at:isNil:ifTrue({ | pair |
         pair := hyphenated:value(t).
         pair:notNil:ifTrue({ at := pair:add(#1) }) }).
+
+    ; A tens word standing on its own -- *thirty examples*. It is in `tensWords`
+    ; and nowhere else: `numberWords` stops at twenty, and `hyphenated` wants a
+    ; hyphen to find. Between them they read *twenty-nine* and *thirty-one* and
+    ; not the round number in the middle, which is the one prose reaches for.
+    at:isNil:ifTrue({ | tens |
+        tens := tensWords:indexOf(t).
+        tens:notNil:ifTrue({ at := tens:add(#1):mul(#10):add(#1) }) }).
     at:isNil:ifElse(
         { digits := "". ok := true. i := #1.
           { i:lessOrEqual(t:size) }:whileTrue({

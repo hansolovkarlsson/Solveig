@@ -629,6 +629,55 @@ SolValue sol_vm_call_block(SolVM *vm, SolValue block, SolValue *args, int argc)
     return sol_vm_pop(vm);
 }
 
+SolResult sol_vm_call_chunk(SolVM *vm, const SolChunk *chunk)
+{
+    if (vm->frame_count == SOL_FRAMES_MAX) {
+        sol_vm_runtime_error(vm, "call depth exceeded");
+        return SOL_RUNTIME_ERROR;
+    }
+    if (vm->stack_top + chunk->slot_count > vm->stack + SOL_STACK_MAX) {
+        sol_vm_runtime_error(vm, "stack overflow");
+        return SOL_RUNTIME_ERROR;
+    }
+
+    int base = vm->frame_count;
+    SolValue *mark = vm->stack_top;
+
+    /* A top-level chunk has no method, no arguments and nothing enclosing it,
+       exactly as in `sol_vm_run` -- the one difference is where its slots sit.
+       There they start at the bottom of the stack because nothing is under
+       them; here the host's own frames are, so they start at the top. */
+    SolFrame *frame = &vm->frames[vm->frame_count++];
+    frame->method = NULL;
+    frame->chunk = chunk;
+    frame->ip = chunk->code;
+    frame->slots = vm->stack_top;
+    for (int i = 0; i < chunk->slot_count; i++) *vm->stack_top++ = SOL_NIL_VAL;
+    frame->id = vm->next_frame_id++;
+    frame->home_frame = -1;
+    frame->home_id = 0;
+
+    /* After the frame and not before it, for two reasons. The plain one is that
+       nothing runs until below. The load-bearing one is that the collector
+       finds a chunk through the frames executing it, so from the line above,
+       `chunk` is rooted -- and interning allocates. A caller that has just
+       loaded this chunk may hold the only reference to it, and this is where
+       that reference becomes the machine's own. */
+    sol_vm_intern_chunk(vm, (SolChunk *)chunk);
+
+    SolResult result = run_frames(vm, base);
+
+    /* Unconditionally, on the way out of both endings. OP_RETURN stops at the
+       base with the frames already unwound, but OP_HALT -- which is how a
+       top-level chunk finishes -- returns from wherever it stands, leaving its
+       frame and its slots behind. Putting both back here is what makes the two
+       endings look the same to the caller. Whatever the guest left on the stack
+       goes with them: an included file yields no value, and neither does this. */
+    vm->frame_count = base;
+    vm->stack_top = mark;
+    return result;
+}
+
 static SolResult run_frames(SolVM *vm, int base)
 {
     SolFrame *frame = &vm->frames[vm->frame_count - 1];

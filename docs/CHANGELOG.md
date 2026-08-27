@@ -5,6 +5,54 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### `system:load`: `@include`'s run-time twin — `pending`, 2026-08-27
+
+**One `.sob` can now load another, from inside Solum.** `system:load("lib.sob")`
+runs an already-compiled chunk in the machine that is already running, and the
+globals it binds are the caller's. It shares `@include`'s namespace rule exactly
+— one flat space, nothing marking where a name came from — which is what makes
+the two files connect at all: names, resolved at run time, so the caller
+compiles alone and only finds out on running that something was never bound.
+
+**No new memory model, which was the question asked.** Every chunk already
+carries its own names, constants, code and slot count, and a frame already
+records which chunk it belongs to — that is how a block defined in one file has
+always been callable from another. The only thing two chunks share is the
+globals, and that sharing was already the design.
+
+**The two bugs were both about lifetime, and neither was where the design was.**
+
+`sol_chunk_load` initialises the chunk it is handed — it must, because `solvm`
+gives it a bare one — and initialising clears the owner that `sol_code_new` had
+just set. So every method read afterwards inherited no owner, and a chunk with
+no owner is one the collector does not root even while a frame is executing it.
+The load worked and the call afterwards ran into freed memory, but only if a
+collection happened to fall in between. `SOLUM_GC_STRESS` made it fall there
+every time; ASan named the line, `object.c:116`, which is a block reading the
+owner out of a chunk that had been swept.
+
+The second was a hard exit rather than a failure. The chunk was held across the
+nested run by a temporary root, and the temporary roots are eight deep with an
+`exit(1)` on top — so the ninth nested load killed the process with nothing a
+program could catch. The root was not needed at all: a frame executing a chunk
+roots it, so dropping it before the guest runs moved the limit from 8 to the
+machine's own 256 and turned a dead process into `call depth exceeded`.
+
+**And then the root turned out to be unnecessary everywhere**, which taking it
+out and running ASan is what showed. Loading allocates nothing the collector
+knows about — `serialize.c` is handed no VM and so cannot — and a string
+constant is chunk-owned bytes until `OP_STRING` makes a string of it. Solis
+roots its submission because *compiling* allocates. Loading does not, and a root
+whose window is empty is a comment claiming a danger that is not there.
+
+**What it does not do**, both recorded rather than hidden: there is no
+once-only memory, so loading a file twice runs it twice — `@include` is keyed by
+where a file lands on disk and a message has no such key — and there is no
+namespacing, so the last binding of a name wins, silently. Both are
+[3.10](ROADMAP.md#310-a-vm-cannot-be-reused-across-runs) reached from a new
+direction, and [namespaces for included files](ideas.md#namespaces-for-included-files)
+is still the answer to both.
+
 ### Pascal, stage 8: the language, finished — `f784f81`, 2026-08-27
 
 **`sqrt`, `sin`, `cos`, `arctan`, `exp`, `ln`, `trunc`, `round`, `page`, and

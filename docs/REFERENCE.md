@@ -499,6 +499,60 @@ An absolute name searches nothing. A file found nowhere says so:
 [prog.sol:1:10] solas: cannot read the included file 'prog/missing.sol', and it is not on the search path either
 ```
 
+### Loading a compiled file
+
+```
+system:load("library.sob").
+```
+
+runs a `.sob` that was compiled separately, in the machine that is already
+running, and the names it binds are there afterwards. It is `@include`'s
+run-time twin, and it shares the namespace rule exactly: globals are one flat
+namespace, the loaded file binds into it, and nothing marks a name as having
+come from somewhere else. That sharing is the whole of the connection between
+the two files, which is why the loader compiles on its own and only finds out at
+run time that a name was never bound.
+
+**A message, not a directive**, and every difference follows from that.
+
+| | `@include "f.sol"` | `system:load("f.sob")` |
+| --- | --- | --- |
+| when | while compiling | while running |
+| takes | source | bytecode |
+| found | beside the including file, then the search path | relative to the working directory |
+| repeats | compiled once however many ways you reach it | runs the file again, every time |
+| name | must be a literal string | any expression answering a string |
+| where | alone, as a statement | anywhere a message can be sent |
+
+The path rule is the one that catches people. An `@include` is resolved while a
+file is being read, so there is a file to be beside; a message has only the
+process, and a process has a working directory.
+
+Because it runs when it is reached, it can be sent conditionally, inside a
+block, or from a file that was itself loaded. A file that loads itself is a
+runaway and ends as any other does, with `call depth exceeded`.
+
+**It runs the file again each time.** `@include` compiles a file once however
+many ways you reach it, so two files may each include what they need without
+arranging between themselves who includes what. This has no such memory. For a
+file that only binds methods the difference does not show; for one that counts
+something, it does, and it is the caller's business to know which it has.
+
+A `.sob` is untrusted input and is verified before it runs, so a missing,
+truncated or corrupt file is an ordinary failure the program can catch:
+
+```
+solvm: cannot load 'library.sob': not a Solum bytecode file
+```
+
+A failure inside the loaded file is an ordinary failure too. It unwinds through
+the load, and the trace names both files — the line that failed and the line
+that loaded it.
+
+See [examples/load.sol](../examples/load.sol), and
+[3.10](ROADMAP.md#310-a-vm-cannot-be-reused-across-runs) for the
+namespace this shares and the cost of its being flat.
+
 ### The library
 
 `lib/control.sol` ships with the language and is on the search path, so a
@@ -3171,6 +3225,7 @@ it delegates to `object` like everything else. See
 | `terminalSize` | a dictionary of `"rows"` and `"columns"`, or **nil** when the output is not a terminal |
 | `keyWaiting(seconds)` | whether a byte is there to read, waiting up to that long for one |
 | `readFile(path)` | the whole file as a string; an error if it is not there |
+| `load(path)` | nil, having run a compiled `.sob` in this machine |
 | `writeFile(path, text)` | nil, having replaced the file's contents |
 | `fileExists(path)` | true if a file — not a directory — is at that path |
 | `isDirectory(path)` | true if a directory is at that path |
@@ -3343,7 +3398,7 @@ has been given, and cannot give itself more.
 Every built-in message and the types that answer it. The question a reference
 gets asked is usually *what has `copyFrom`?* rather than *what does a string
 do?*, and the sections above answer only the second — so this answers the first.
-138 messages across 234 registrations.
+139 messages across 235 registrations.
 
 **A test keeps it honest**: a message registered in `builtins.c` and missing
 from here fails the build, which is the same bargain that makes every message
@@ -3424,6 +3479,7 @@ appear in an example.
 | `last` | [array](#array) |
 | `lessOrEqual` | [float](#float), [integer](#integer), [string](#string), [symbol](#symbol), [time](#time) |
 | `lessThan` | [float](#float), [integer](#integer), [string](#string), [symbol](#symbol), [time](#time) |
+| `load` | [system](#system) |
 | `log` | [float](#float) |
 | `loop` | [array](#array) |
 | `makeDirectory` | [system](#system) |

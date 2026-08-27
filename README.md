@@ -2,7 +2,7 @@
 
 The Solum language and its toolchain — bytecode compiler (Solas), virtual
 machine (SolVM), REPL (Solis) and debugger (Solid). Prototype-based,
-everything is a message send, 138<!--count messages--> messages, no operators or control-flow
+everything is a message send, 139<!--count messages--> messages, no operators or control-flow
 syntax. 15k lines of C11, no dependencies.
 
 **Documentation: <https://hansolovkarlsson.github.io/Solveig/>** — a
@@ -495,7 +495,8 @@ Built in: `integer`, `float`, `string`, `symbol`, `boolean`, `nil`, `block`,
 everything is an object in the type graph as well as in the slogan. Strings
 split and join, arrays fold and slice, and a dictionary keeps values under keys.
 A program reads and writes files, reads its input, times itself, stops with a
-status, and is split across files with `@include`.
+status, and is split across files with `@include` — or, once they are compiled,
+with `system:load`, which is the same thing done while running.
 
 Compiling to a file and running it separately works too:
 

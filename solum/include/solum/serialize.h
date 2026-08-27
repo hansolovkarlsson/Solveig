@@ -78,7 +78,15 @@ const char *sol_ser_message(SolSerResult result);
 SolSerResult sol_chunk_save(const SolChunk *chunk, const char *path);
 
 /* Initialises `chunk` and fills it from `path`. The chunk is verified before
-   this returns OK; on any failure it is left freed and safe to discard. */
+   this returns OK; on any failure it is left freed and safe to discard.
+
+   Initialising is why a chunk arrives here uninitialised and why `solvm` may
+   hand over a bare one -- and it is also why loading into a collector-owned
+   cell takes one more step. Initialising clears the owner, and the methods read
+   afterwards inherit that, so a caller filling a `sol_code_new` cell must call
+   `sol_chunk_set_owner` once the load succeeds. Skipping it leaves every block
+   the file defines with no owner, which the collector reads as code nothing
+   refers to. */
 SolSerResult sol_chunk_load(SolChunk *chunk, const char *path);
 
 /* Checks that the code is safe to execute: every instruction fits, every

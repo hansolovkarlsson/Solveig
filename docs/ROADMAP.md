@@ -711,6 +711,13 @@ model — see
 [namespaces for included files](ideas.md#namespaces-for-included-files), which is
 deferred for that reason and would answer this too.
 
+**And `system:load` now reaches it from a third direction.** A file loaded at
+run time binds into the same one namespace, for the same reason and with the
+same consequence: whichever file binds a name last owns it, silently. What is
+new is only that the collision can now happen between two files that were
+compiled separately and never saw each other, which makes it likelier rather
+than different. The deferred answer above is still the answer.
+
 **The narrower fix, if the wider one stays deferred**: something that resets a
 VM to the state `sol_vm_init` left it in, cheaper than freeing and rebuilding.
 The obstacle is that "the state it started in" is not currently a thing the VM
