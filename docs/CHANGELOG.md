@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### Pascal, stage 1: it compiles and it agrees with fpc — `pending`, 2026-08-27
+### Pascal, stage 1: it compiles and it agrees with fpc — `a36af6d`, 2026-08-27
 
 **[pascal.sol](../programs/pascal.sol) is the fifteenth program and the second
 compiler here.** Stage 1 of [PASCAL.md](PASCAL.md): the `program` heading, `var`
