@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### Pascal, stage 2: types that are two things at once — `pending`, 2026-08-27
+### Pascal, stage 2: types that are two things at once — `bcdff66`, 2026-08-27
 
 **`const`, `type`, enumerations, subranges, `case`, `repeat`, `for` in both
 directions, `goto` with labels, and `ord`, `chr`, `succ`, `pred`, `odd`, `abs`
