@@ -1,6 +1,6 @@
 (* solum.bnf -- Solum, in the notation of Wirth's report.
  *
- *   ./bin/solvm programs/check_syntax.sob programs/check_syntax/solum.bnf prog.sol
+ *   ./bindigit/solvm programs/check_syntax.sob programs/check_syntax/solum.bnf prog.sol
  *
  * Taken from solas/src/lexer.c and solas/src/compiler.c rather than from the
  * documentation, because the documentation gives the syntax in pieces and the
@@ -24,28 +24,28 @@
 
 (* No %ignorecase: Solum is case-sensitive, so the letter ranges are
  * written out both ways rather than folded. *)
-%fragment letter digit hex bin exponent escape
+%fragment letter digit hexdigit bindigit exponent escape
 
 letter = "a" .. "z" | "A" .. "Z" | "_" .
 digit  = "0" .. "9" .
-hex    = digit | "a" .. "f" | "A" .. "F" .
-bin    = "0" | "1" .
+hexdigit    = digit | "a" .. "f" | "A" .. "F" .
+bindigit    = "0" | "1" .
 
-name = letter { letter | digit } .
+identifier = letter { letter | digit } .
 
 (* The tag says which reading is meant, `45` and `#45` being the same
  * characters twice. `$` and `%` carry no tag and take no sign: they are for
  * looking at bits, and there is no hexadecimal float to be told apart from. *)
 integer = "#" [ "-" ] digit { digit }
-        | "$" hex { hex }
-        | "%" bin { bin } .
+        | "$" hexdigit { hexdigit }
+        | "%" bindigit { bindigit } .
 
 (* The unmarked number. A leading `-` belongs to the literal -- there is no
  * negation operator to mistake it for -- and `-` with no digit after it is a
  * lexical error rather than a token. *)
 float = [ "-" ] digit { digit } [ "." digit { digit } ] [ exponent ] .
 
-(* Optional, and it backtracks: `1e` is the float 1 followed by the name `e`,
+(* Optional, and it backtracks: `1e` is the float 1 followed by the identifier `e`,
  * not a malformed number. *)
 exponent = ( "e" | "E" ) [ "+" | "-" ] digit { digit } .
 
@@ -87,27 +87,27 @@ statement = include | expression .
  * inside an expression to compile a file into. *)
 include = "@include" string .
 
-(* Binding a bare name has to be tried before a send, since both begin with an
+(* Binding a bare identifier has to be tried before a send, since both begin with an
  * identifier and only the first goes on to want `:=`. Ordered choice does the
  * rest: `a:print` fails the first alternative at the `:` and falls through. *)
-expression = name ":=" expression
+expression = identifier ":=" expression
            | primary { send } .
 
 (* A send with no arguments may be assigned to -- that is how a slot is bound,
  * and it is the same `:=` as above. A send *with* arguments may not, which is
  * why the two possibilities are inside the send rather than after the chain. *)
-send      = ":" name [ arguments | ":=" expression ] .
+send      = ":" identifier [ arguments | ":=" expression ] .
 arguments = "(" [ expression { "," expression } ] ")" .
 
-primary = block | array | group | name | integer | float | string | symbol .
+primary = identifier | integer | float | string | symbol | block | array | group .
 
 (* Parameters, then temporaries, then the body. The leading `|` of a temporary
  * list is what tells `{ a | ... }` from `{ | a | ... }`, and it is why
  * parameters could not have reused the parenthesised form: `{ (a) }` would be
  * both a one-parameter block and a block answering `a`. *)
 block       = "{" [ parameters ] [ temporaries ] body "}" .
-parameters  = name { "," name } "|" .
-temporaries = "|" name { "," name } "|" .
+parameters  = identifier { "," identifier } "|" .
+temporaries = "|" identifier { "," identifier } "|" .
 
 (* An empty block answers nil, so the body may be nothing at all. *)
 body = [ expression { "." expression } [ "." ] ] .

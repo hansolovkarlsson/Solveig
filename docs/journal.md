@@ -78,6 +78,43 @@ written up once, as *a transcript recording what a program does rather than what
 it should*. The defence is that reading the prose is the check, and the five
 above are what reading it produced.
 
+### And the grammar page, which had no examples to check at all
+
+Asked for the same treatment for GRAMMAR.md. It has no runnable Solum in it —
+four blocks of grammar productions and one of block-forms written with an
+ellipsis — so there was nothing to run, and the interesting thing was what the
+page *claims* instead.
+
+**It opens by saying it is the same grammar as `solum.bnf`.** That is the
+largest claim on it: everything else there is one production, and that sentence
+is all of them at once. Nothing held it. Comparing them found eleven productions
+already identical, and the rest differing for two quite different reasons —
+vocabulary, which is drift, and prose, which is the point of the page.
+
+**So the two were given one vocabulary, and the document's won.** `name`, `hex`
+and `bin` in the grammar became `identifier`, `hexdigit` and `bindigit`; the page
+gave up its typographic ellipsis for the `..` the notation actually uses, and its
+notation table gained a row for that and for the backslash, so it now describes
+the notation completely rather than nearly.
+
+**And it found `primary` with its alternatives in a different order in each
+file.** No token can match two of them, so nothing was wrong and nothing would
+have gone wrong — which is precisely why it had survived. The grammar took the
+document's order.
+
+Twenty-three productions are compared now and two are named as prose. The two
+are `string` and `comment`, which say *any character but a quote* where the
+notation says `! '"'`, and naming them in the report is the difference between
+excusing something and hiding it.
+
+**A global search-and-replace corrupted a block on the way through.** Changing
+`…` to `..` across the page also changed it inside the block-forms, turning
+`{ a | … }` into `{ a | .. }` — which is not the language and is not what the
+line was ever about. An assertion in the next edit caught it. **A replacement
+narrow enough to describe in one sentence is not necessarily narrow enough to
+run**, and the only reason this did not ship is that the following step happened
+to touch the same text.
+
 ## 2026-08-26 (evening) — a checker that is told what to check
 
 Two commits, 16:47 to 17:44. 1,591 lines of program, 32% of it comment; 185

@@ -1,10 +1,13 @@
 # The grammar of Solum
 
-*The whole language on one page. [solum.bnf](../programs/check_syntax/solum.bnf)
-is the same grammar in a form a machine reads — it is checked against every
-`.sol` file in this repository by
-[check_syntax](../programs/check_syntax.sol), which is what keeps this page
-from drifting.*
+*The whole language on one page.
+[solum.bnf](../programs/check_syntax/solum.bnf) is the same grammar in a form a
+machine reads, and **that sentence is checked**: every production below is
+compared against it character for character on each test run, and the two that
+are prose rather than notation are named in the report rather than skipped
+quietly. `solum.bnf` in turn is run against every `.sol` file in this repository
+by [check_syntax](../programs/check_syntax.sol). So this page is held to the
+grammar, and the grammar is held to the language.*
 
 The notation is Wirth's, from *What can we do about the unnecessary diversity of
 notation for syntactic definitions* (1977), and it is the notation the Pascal
@@ -18,6 +21,8 @@ report is written in:
 | `{ a }` | `a`, any number of times, including none |
 | `( a )` | grouping |
 | `"a"` | those characters, exactly |
+| `"a" .. "z"` | one character between the two |
+| `"\\"` | a backslash, inside a literal |
 | `.` | ends a production |
 
 ---
@@ -27,19 +32,20 @@ report is written in:
 ```ebnf
 identifier = letter { letter | digit } .
 
-letter     = "a" … "z" | "A" … "Z" | "_" .
-digit      = "0" … "9" .
-hexdigit   = digit | "a" … "f" | "A" … "F" .
+letter     = "a" .. "z" | "A" .. "Z" | "_" .
+digit      = "0" .. "9" .
+hexdigit   = digit | "a" .. "f" | "A" .. "F" .
+bindigit   = "0" | "1" .
 
 integer    = "#" [ "-" ] digit { digit }
            | "$" hexdigit { hexdigit }
-           | "%" ( "0" | "1" ) { "0" | "1" } .
+           | "%" bindigit { bindigit } .
 
 float      = [ "-" ] digit { digit } [ "." digit { digit } ] [ exponent ] .
 exponent   = ( "e" | "E" ) [ "+" | "-" ] digit { digit } .
 
 string     = '"' { escape | any character but '"' } '"' .
-escape     = "\" ( '"' | "\" | "n" | "t" | "r" ) .
+escape     = "\\" ( '"' | "\\" | "n" | "t" | "r" ) .
 
 symbol     = "'" letter { letter | digit } .
 
@@ -121,11 +127,11 @@ body        = [ expression { "." expression } [ "." ] ] .
 
 **The leading `|` of a temporary list is what tells the two apart:**
 
-```text
-{ a | … }          one parameter
-{ | a | … }        no parameters, one temporary
-{ a | | t | … }    one parameter and one temporary
-{ a:print }        neither — a body that happens to start with a name
+```
+{ a | a }.              ; -- one parameter
+{ | a | a }.            ; -- no parameters, one temporary
+{ a | | t | t }.        ; -- one parameter and one temporary
+{ a:print }.            ; -- neither: a body that happens to start with a name
 ```
 
 It is also why parameters could not have reused the parenthesised form: `{ (a) }`

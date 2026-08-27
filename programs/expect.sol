@@ -1218,6 +1218,106 @@ system:fileExists("docs/programs.md"):ifTrue({ | order |
                               :fill([word, ordinalWord:value(was)]), ""]) }) }) }) }) }).
 
 ; ---------------------------------------------------------------------------
+; The grammar, written twice
+;
+; **[GRAMMAR.md](../docs/GRAMMAR.md) opens by saying it is the same grammar as
+; [solum.bnf](../programs/check_syntax/solum.bnf) "in a form a machine reads".**
+; Nothing held that true, and it is the largest claim on the page: everything
+; else there is one production, and that sentence is all of them at once.
+;
+; It is checkable because both are written in the same notation. A production is
+; compared **character for character** once runs of whitespace are collapsed, so
+; a rule that gains an alternative in one file and not the other is a failure
+; rather than a difference nobody sees.
+;
+; **Two are prose and are named rather than skipped quietly.** `string` and
+; `comment` are written *any character but a quote* where the notation says
+; `! '"'`, because the page is for a person and `!` is an extension a reader
+; meeting the language for the first time does not need. They are counted, and
+; the count is reported, so the excusing is visible.
+;
+; Aligning the two found `primary` listing its alternatives in a different order
+; in each file. Harmless, there being no token two of them could both match --
+; and exactly the drift this exists to catch, since the next reordering might
+; not be.
+
+string:squashed := { | out, i, c, wasSpace |
+    out := "". wasSpace := true. i := #1.
+    { i:lessOrEqual(self:size) }:whileTrue({
+        c := self:at(i).
+        c:equals(" "):or({ c:equals("\t") }):ifElse(
+            { wasSpace:ifFalse({ out := out:concat(" ") }). wasSpace := true },
+            { out := out:concat(c). wasSpace := false }).
+        i := i:add(#1) }).
+    out:trim }.
+
+; A production runs until a line ending in `.` -- and `..` is a range and not an
+; end, which is the one place that rule needs care.
+productionsFrom := { lines | | out, cur |
+    out := array:new. cur := "".
+    lines:do({ line | | t |
+        t := line:trim.
+        t:size:greaterThan(#0):and({ t:at(#1):equals("%"):not }):ifTrue({
+            cur := cur:concat(" "):concat(t).
+            t:at(t:size):equals("."):and({
+                t:size:lessThan(#2):or({
+                    t:copyFrom(t:size:sub(#1), t:size):equals(".."):not }) })
+                :ifTrue({
+                    cur:indexOf("="):notNil:ifTrue({ out:add(cur:squashed) }).
+                    cur := "" }) }) }).
+    out }.
+
+; `(* ... *)`, which may span lines and which solum.bnf uses heavily.
+withoutBnfComments := { text | | out, inComment, at |
+    out := array:new.
+    inComment := false.
+    text:split("\n"):do({ line | | t |
+        t := line.
+        inComment:ifTrue({
+            at := t:indexOf("*)").
+            at:isNil:ifElse({ t := "" },
+                { inComment := false. t := t:copyFrom(at:add(#2), t:size) }) }).
+        inComment:ifFalse({
+            at := t:indexOf("(*").
+            { at:notNil }:whileTrue({ | close |
+                close := t:indexOf("*)", at).
+                close:isNil:ifElse(
+                    { inComment := true.
+                      t := t:copyFrom(#1, at:sub(#1)). at := nil },
+                    { t := t:copyFrom(#1, at:sub(#1))
+                          :concat(t:copyFrom(close:add(#2), t:size)).
+                      at := t:indexOf("(*") }) }) }).
+        out:add(t) }).
+    out }.
+
+grammarSame := #0.
+grammarProse := #0.
+
+checkGrammarPage := { | page, bnf, theirs, mine, ok |
+    system:fileExists("docs/GRAMMAR.md")
+        :and({ system:fileExists("programs/check_syntax/solum.bnf") }):ifTrue({
+        page := system:readFile("docs/GRAMMAR.md").
+        bnf := system:readFile("programs/check_syntax/solum.bnf").
+
+        theirs := array:new.
+        blocksIn:value(page):do({ block |
+            block:at(#3):equals("ebnf"):ifTrue({
+                productionsFrom:value(block:at(#2)):do({ p | theirs:add(p) }) }) }).
+
+        mine := productionsFrom:value(withoutBnfComments:value(bnf)).
+
+        theirs:do({ p |
+            p:indexOf("any character"):notNil:ifElse(
+                { grammarProse := grammarProse:add(#1) },
+                { mine:indexOf(p):isNil:ifElse(
+                    { failures:add(["docs/GRAMMAR.md", #0,
+                        "this production is not in solum.bnf: {}":fill([p]), ""]) },
+                    { grammarSame := grammarSame:add(#1) }) }) }) }).
+    nil }.
+
+checkGrammarPage:value.
+
+; ---------------------------------------------------------------------------
 ; The report
 
 "":display.
@@ -1243,6 +1343,11 @@ notReached:greaterThan(#0):ifTrue({
 unchecked:greaterThan(#0):ifTrue({
     "{} line{} print without saying what, and are not checked"
         :fill([unchecked, unchecked:equals(#1):ifElse({""},{"s"})]):display }).
+grammarSame:add(grammarProse):greaterThan(#0):ifTrue({
+    "GRAMMAR.md and solum.bnf agree on {} production{}, and {} are prose"
+        :fill([grammarSame, grammarSame:equals(#1):ifElse({""},{"s"}),
+               grammarProse]):display }).
+
 basicBlocks:greaterThan(#0):ifTrue({
     "{} SolaBasic block{}, {} checked against the output shown under {}"
         :fill([basicBlocks, basicBlocks:equals(#1):ifElse({""},{"s"}),

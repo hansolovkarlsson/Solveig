@@ -5,6 +5,38 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### GRAMMAR.md is held against the grammar it says it is — `pending`, 2026-08-27
+
+**[GRAMMAR.md](GRAMMAR.md) opens by saying it is the same grammar as
+[solum.bnf](../programs/check_syntax/solum.bnf) "in a form a machine reads", and
+nothing held that true.** It is the largest claim on the page: everything else
+there is one production, and that sentence is all of them at once.
+[expect.sol](../programs/expect.sol) now compares every production character for
+character once runs of whitespace are collapsed. **Twenty-three agree; two are
+prose** — `string` and `comment` are written *any character but a quote* where
+the notation says `! '"'`, because the page is for a person and `!` is an
+extension a first reader does not need. Both are counted and reported, so the
+excusing is visible rather than silent.
+
+**Making the comparison possible meant giving the two files one vocabulary**, and
+the document's is the better one: `solum.bnf` had `name`, `hex` and `bin` where
+the page had `identifier`, `hexdigit` and `bindigit`, and the grammar now uses
+the longer words. The page in turn gave up `…` for `..` and spells a backslash
+`"\\"`, which are what the notation actually is — and its table gained a row for
+each, so it now describes the notation completely.
+
+**It found `primary` listing its alternatives in a different order in each
+file.** Harmless: no token could match two of them, so the order is immaterial
+here. It is exactly the drift this check exists for, because the next
+reordering might not be. The grammar took the document's order, and all
+fifty-seven `.sol` files still check clean.
+
+**And the block-forms became Solum.** The four shapes showing where a `|` goes
+were written with an ellipsis for the body, so they were notation rather than
+code; they are real blocks now, in a plain fence, which means `expect.sol`
+compiles them on every run. A form that stopped being legal used to be a
+sentence nobody could check.
+
 ### The SolaBasic documents check their own examples — `9981f58`, 2026-08-27
 
 **[expect.sol](../programs/expect.sol) reads a second language now.** The three

@@ -393,6 +393,22 @@ three sections out of date. They are also the first thing a newcomer reads.
 run the binaries as a shell would — **940<!--count claims--> claims on every build**, in about
 sixteen seconds, and it fails the build if one stops holding.
 
+**And it holds one document against a file rather than against a run.**
+[GRAMMAR.md](GRAMMAR.md) opens by saying it is the same grammar as
+[solum.bnf](../programs/check_syntax/solum.bnf) in a form a person reads, and
+that is the largest claim on the page — everything else there is one production,
+and that sentence is all of them at once. Every production is now compared
+character for character, once runs of whitespace are collapsed, so a rule that
+gains an alternative in one file and not the other fails rather than drifting.
+**Twenty-three agree and two are prose**, `string` and `comment` being written
+*any character but a quote* where the notation says `! '"'`; those two are
+counted and reported rather than skipped quietly, so the excusing is visible.
+
+Aligning the two to make the comparison possible found `primary` listing its
+alternatives in a different order in each file. Harmless — there is no token two
+of them could both match — and exactly the drift the check exists for, since the
+next reordering might not be.
+
 **And it checks the SolaBasic documents, which are in another language
 entirely.** [SOLABASIC.md](SOLABASIC.md), its
 [reference](SOLABASIC-REFERENCE.md) and its

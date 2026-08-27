@@ -551,9 +551,20 @@ static void test_everything_written_down_is_true(void)
     assert(basic >= 60);
     assert(basicChecked >= 20);
 
+    /* docs/GRAMMAR.md opens by saying it is the same grammar as solum.bnf, and
+       that is the largest claim on the page: everything else there is one
+       production and that sentence is all of them at once. Compared character
+       for character, so a floor here catches a run that quietly stops
+       comparing any. */
+    int agree = 0;
+    at = strstr(out, "GRAMMAR.md and solum.bnf agree on");
+    assert(at != NULL);
+    assert(sscanf(at, "GRAMMAR.md and solum.bnf agree on %d production", &agree) == 1);
+    assert(agree >= 20);
+
     printf("  everything written down is true (%d claims, %d counts, %d "
-           "positions, %d of %d SolaBasic blocks)\n",
-           claims, counts, placed, basicChecked, basic);
+           "positions, %d of %d SolaBasic blocks, %d productions)\n",
+           claims, counts, placed, basicChecked, basic, agree);
 }
 
 /* The BASIC interpreter, held to the standard it says it implements.
