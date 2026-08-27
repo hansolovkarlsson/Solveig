@@ -124,6 +124,38 @@ So a fence cannot load a `.sob` by relative path. The demonstration moved to
 reference is tagged `text`, which is what that program asks for when a block is
 a sketch rather than a program.
 
+**And then the debugger, which turned out to be an afternoon of writing tests
+for things that already worked.** Hans asked for "the same for solid" after the
+same question about solis, where the answer had been that it works for free.
+Solid was the more interesting bet: a loaded chunk brings its own file and its
+own line table, so the debugger has to follow a stack that spans two files that
+were compiled separately.
+
+It follows it. `step` goes in, `next` goes over, `finish` comes back out,
+`where` names each frame's own file, `list` finds the loaded source, and a
+breakpoint set in a file that has not been loaded yet fires when it is. The best
+of them is the failure case: an error inside a loaded file stops in that file
+with the loading frame underneath and both files' globals readable. None of it
+needed a change, because `sol_vm_call_chunk` pushes an ordinary frame and Solid
+was written against frames rather than against the program.
+
+**Which left the question of what the deliverable is when nothing is broken.**
+Five tests, because behaviour that works by construction is behaviour nothing is
+holding in place. One of them covers the case loading makes ordinary rather than
+exotic — a library shipped as bytecode with no source beside it, where `list`
+says `cannot read` and everything else keeps working.
+
+Two blemishes looked at and left alone. A loaded chunk's last step lands on a
+line one past the end of its file, and so does an ordinary script's: that is how
+`HALT` is attributed, not something loading introduced. And both frames say *in
+script*, which is true of both — the file names already tell them apart, and
+changing the label would be a cosmetic edit to shared code for a distinction the
+line above it already makes.
+
+The one real omission the afternoon found was in the morning's work: the
+reference's contents never listed *Loading a compiled file*. Fixed, and every
+in-document anchor checked rather than that one.
+
 **What it still does not do.** There is no namespacing, so the last binding of a
 name wins in silence — 3.10 arriving from a third direction, now between files
 compiled separately that never saw each other. Loading twice is no longer one of

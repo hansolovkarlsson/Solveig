@@ -47,6 +47,15 @@ static void session(const char *program, const char *commands,
     pclose(pipe);
 }
 
+/* Compiles a library beside the program, for the `system:load` tests below.
+   They need a `.sob`, since loading takes bytecode and never source. */
+static void library(const char *source)
+{
+    system("mkdir -p " DIR);
+    write_file(DIR "/lib.sol", source);
+    assert(system("bin/solas " DIR "/lib.sol -o " DIR "/lib.sob") == 0);
+}
+
 /* It stops before the first line, so there is somewhere to work from. */
 static void test_it_stops_at_the_start(void)
 {
@@ -234,6 +243,113 @@ static void test_quitting_is_not_a_failure(void)
     printf("  quitting leaves with 0\n");
 }
 
+/* ------------------------------------------------------------------
+ * `system:load`, from the debugger's side.
+ *
+ * A loaded file is a frame like any other -- that is the whole claim, and it is
+ * what `sol_vm_call_chunk` pushing an ordinary frame buys. None of this needed
+ * a line of Solid to be written; these tests exist so that it keeps being true.
+ */
+
+/* Stepping goes into the loaded file, and the stack shows both. */
+static void test_stepping_into_a_loaded_file(void)
+{
+    char out[16384];
+    library("greet := { who |\n    \"hello, \":concat(who) }.\nlibMark := #7.\n");
+
+    session("before := #1.\n"
+            "system:load(\"" DIR "/lib.sob\").\n"
+            "greet:value(\"world\"):display.\n",
+            "step\\nstep\\nwhere\\nlist\\ncontinue\\n", out, sizeof out);
+
+    assert(strstr(out, DIR "/lib.sol:") != NULL);       /* it went in */
+    assert(strstr(out, "#1  " DIR "/program.sol:2") != NULL);  /* and can see out */
+    assert(strstr(out, "libMark := #7.") != NULL);      /* `list` found the source */
+    assert(strstr(out, "hello, world") != NULL);
+    printf("  stepping goes into a loaded file, and `where` shows both\n");
+}
+
+/* A breakpoint may be set in a file that has not been loaded yet -- which is
+   the only order that is any use, since after it has loaded it has run. */
+static void test_a_breakpoint_in_a_file_not_yet_loaded(void)
+{
+    char out[16384];
+    library("libMark := #7.\nlibAgain := #8.\n");
+
+    session("before := #1.\n"
+            "system:load(\"" DIR "/lib.sob\").\n"
+            "after := #2.\n",
+            "break " DIR "/lib.sol:2\\ncontinue\\nwhere\\ncontinue\\n",
+            out, sizeof out);
+
+    assert(strstr(out, "break at " DIR "/lib.sol:2") != NULL);
+    assert(strstr(out, DIR "/lib.sol:2") != NULL);
+    assert(strstr(out, "#1  " DIR "/program.sol:2") != NULL);
+    printf("  a breakpoint fires in a file that had not been loaded yet\n");
+}
+
+/* `next` treats a load as one step, and `finish` leaves one from inside --
+   even though a top-level chunk ends in HALT rather than RETURN. */
+static void test_next_over_a_load_and_finish_out_of_one(void)
+{
+    char out[16384];
+    library("libMark := #7.\nlibAgain := #8.\n");
+
+    const char *program = "before := #1.\n"
+                          "system:load(\"" DIR "/lib.sob\").\n"
+                          "after := #2.\n";
+
+    session(program, "next\\nnext\\nwhere\\ncontinue\\n", out, sizeof out);
+    assert(strstr(out, DIR "/program.sol:3") != NULL);   /* stepped over it */
+    assert(strstr(out, DIR "/lib.sol") == NULL);         /* and never showed it */
+
+    session(program, "break " DIR "/lib.sol:2\\ncontinue\\nfinish\\nwhere\\ncontinue\\n",
+            out, sizeof out);
+    assert(strstr(out, "#0  " DIR "/program.sol:2") != NULL);
+    printf("  `next` goes over a load and `finish` comes back out of one\n");
+}
+
+/* The case loading makes ordinary: a compiled library shipped without its
+   source. Everything but `list` still works, and `list` says why. */
+static void test_a_loaded_file_without_its_source(void)
+{
+    char out[16384];
+    library("libMark := #7.\nlibAgain := #8.\n");
+    remove(DIR "/lib.sol");
+
+    session("system:load(\"" DIR "/lib.sob\").\n"
+            "after := #2.\n",
+            "step\\nlist\\nwhere\\nstep\\nstep\\nprint libMark\\ncontinue\\n",
+            out, sizeof out);
+
+    assert(strstr(out, "cannot read " DIR "/lib.sol") != NULL);
+    assert(strstr(out, "#1  " DIR "/program.sol:1") != NULL);
+    assert(strstr(out, "libMark = #7") != NULL);
+    printf("  a loaded file with no source still steps, and `list` says why\n");
+}
+
+/* And the one a debugger is actually for: a failure inside a loaded file stops
+   where it failed, in that file, with the frame that loaded it still under it
+   and both files' globals readable. */
+static void test_a_failure_inside_a_loaded_file_stops_there(void)
+{
+    char out[16384];
+    library("libMark := #7.\nnil:noSuchMessage.\n");
+
+    session("before := #1.\n"
+            "system:load(\"" DIR "/lib.sob\").\n"
+            "after := #2.\n",
+            "continue\\nwhere\\nlist\\nprint libMark\\nprint before\\nquit\\n",
+            out, sizeof out);
+
+    assert(strstr(out, "nil does not understand 'noSuchMessage'") != NULL);
+    assert(strstr(out, DIR "/lib.sol:2") != NULL);       /* stopped in there */
+    assert(strstr(out, "#1  " DIR "/program.sol:2") != NULL);
+    assert(strstr(out, "libMark = #7") != NULL);         /* the loaded file's */
+    assert(strstr(out, "before = #1") != NULL);          /* and the caller's */
+    printf("  a failure inside a loaded file stops there, over the loading frame\n");
+}
+
 int main(void)
 {
     test_it_stops_at_the_start();
@@ -244,6 +360,11 @@ int main(void)
     test_a_breakpoint_fires_once_per_visit();
     test_it_stops_where_it_broke();
     test_quitting_is_not_a_failure();
+    test_stepping_into_a_loaded_file();
+    test_a_breakpoint_in_a_file_not_yet_loaded();
+    test_next_over_a_load_and_finish_out_of_one();
+    test_a_loaded_file_without_its_source();
+    test_a_failure_inside_a_loaded_file_stops_there();
     printf("test_solid: ok\n");
     return 0;
 }

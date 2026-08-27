@@ -5,6 +5,34 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### A loaded file debugs like any other — `pending`, 2026-08-27
+
+**No code changed, which is the finding.** Solid steps into a file brought in by
+`system:load`, steps over the load with `next`, comes back out with `finish`,
+and shows the loaded frame above the loading one in `where` with each naming its
+own file. A breakpoint can be set in a file that has not been loaded yet — the
+only order that is any use, since by the time it has loaded it has run. None of
+that needed a line of Solid, because `sol_vm_call_chunk` pushes an ordinary
+frame and the debugger was already written against frames.
+
+**The case worth having is the failure.** An error inside a loaded file stops
+there, in that file, with the loading frame still standing underneath and both
+files' globals readable by name — which is what a debugger is for and the thing
+`solis --interactive` cannot do, since it starts after the unwind.
+
+**`list` is the one thing that can fail**, and it fails politely. A library
+shipped as bytecode without its source has nothing to show, so it says
+`cannot read` and every other command carries on. That case was a curiosity
+before loading existed and is ordinary now.
+
+**Five tests in [test_solid.c](../tests/test_solid.c)**, and a section in the
+reference. Behaviour that works by construction is behaviour nothing is holding
+in place; these are what stop it from quietly ceasing to.
+
+Also: the reference's contents had not listed *Loading a compiled file* since
+the section was added this morning. Every in-document anchor was checked, and
+the rest resolve.
+
 ### `system:load` is once-only, as `@include` is — `32c969a`, 2026-08-27
 
 **A file now runs the first time it is asked for and not again**, which is the

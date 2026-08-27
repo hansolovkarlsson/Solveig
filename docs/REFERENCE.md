@@ -27,6 +27,7 @@ a:print.
   - [Staying after a program](#staying-after-a-program)
   - [Running a script directly](#running-a-script-directly)
 - **[Splitting a program across files](#splitting-a-program-across-files)**
+  - [Loading a compiled file](#loading-a-compiled-file)
   - [The library](#the-library)
 - **[The program and its process](#the-program-and-its-process)**
   - [Stopping](#stopping)
@@ -331,6 +332,19 @@ finds `lib/json.sol` without anybody having to type the include path it was
 found on. It fires on **arriving** at its line: a call written on line 10
 returns to line 10, and stopping twice would make one breakpoint look like two.
 
+**A file brought in by [`system:load`](#loading-a-compiled-file) is debugged
+like any other.** It runs in an ordinary frame, so `step` goes into it, `next`
+goes over the load, `finish` comes back out, and `where` shows it above the
+frame that loaded it — with each frame naming its own file. A breakpoint may be
+set in a file that has not been loaded yet, which is the only order that is any
+use, since by the time it has loaded it has run. A failure inside one stops
+there, in that file, with the loading frame still underneath and both files'
+globals readable.
+
+`list` is the one thing that can fail, and it fails politely: a library shipped
+as bytecode without its source has nothing to show, so it says `cannot read` and
+everything else keeps working.
+
 **It stops where a program breaks**, with the frames still standing — which is
 the thing [`solis --interactive`](#staying-after-a-program) cannot do, since
 that starts after the unwind and sees only globals:
@@ -560,6 +574,9 @@ the first time that file is asked for. The second one stops.
 
 Nothing unloads a file, in the same way and for the same reason that nothing
 unbinds a global.
+
+A loaded file is debuggable like any other — see
+[Solid](#stopping-a-program-solid).
 
 A `.sob` is untrusted input and is verified before it runs, so a missing,
 truncated or corrupt file is an ordinary failure the program can catch:
