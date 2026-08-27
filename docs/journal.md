@@ -13,10 +13,16 @@ that a document was still true. That is what this is for.
 
 ## 2026-08-26 (evening) — a checker that is told what to check
 
+Two commits, 16:47 to 17:44. 1,591 lines of program, 32% of it comment; 185
+lines of Pascal grammar; six `.pas` files that exist to be checked, two of them
+correct; 171 lines of test.
+
 Asked for a program that reads a BNF file and a source file and reports lex and
 syntax errors: `check_syntax.sob pascal.bnf myprog.pas`. It became the
 fourteenth program, and it is the first here whose *input* is a language
-definition rather than a language.
+definition rather than a language — hand it
+[pascal.bnf](../programs/check_syntax/pascal.bnf) and it checks Pascal, hand it
+something else and it checks that.
 
 **The first hour went on the frame limit, before any of it was written.** A
 tree-walking matcher recurses once per node of the grammar against a machine
@@ -77,6 +83,116 @@ customer, or show that a non-combinator design is fine. **It is the second, and
 3.1 never came up** — not because it was worked around, but because the design
 that avoids it is the design that is right. The combinator shape is the one 3.1
 refuses and it was never reached for.
+
+### What it asked the language for
+
+**Nothing.** No roadmap entry, no `COMPLETED.md` entry, no message added. That
+is unusual enough here to be worth stating, since
+[programs.md](programs.md) says in as many words that nearly every roadmap entry
+after the first dozen came from one of these programs wanting something.
+
+It is not evidence that the language is finished. It is evidence that this
+program was the *fourteenth* rather than the fourth: every awkwardness it would
+have reported had already been reported and answered by something earlier.
+[scan.sol](../lib/scan.sol) was there for the grammar's own lexer.
+[control.sol](../lib/control.sol) had already measured `ifElseIf` at three frames
+a level and written down where not to use it. `onError` catching `call depth
+exceeded` — the property this program's whole depth story rests on — was
+established by [evaluator.sol](../programs/evaluator.sol), the second program
+here, and has been true ever since. **A program that asks for nothing is standing on what the ones
+before it asked for**, and the only honest way to read the silence is that the
+bill was already paid.
+
+### The defects were in the halves nobody was looking at
+
+Six worth recording, and only one of them is in the matcher.
+
+| | |
+| --- | --- |
+| `letter` beats `identifier` | longest-match ties go to declaration order, and helpers are declared first |
+| `symbol = "." \| ".."` | ordered choice inside a rule is not longest match across rules |
+| `function Area;` | after `forward`, the real definition repeats neither parameters nor result type |
+| a binary file | 1,673 error lines, and one of them 4,000 bytes wide |
+| the token dump | larger than the test's buffer, so the program took a `SIGPIPE` |
+| `system()` is not `printf` | `%%` in a C string reached the shell as `%%`, and three grammars were nonsense |
+
+**The last two are the test and not the program**, which is the ratio
+[the editor's postmortem](#2026-08-26-the-editor-finished--a-postmortem) put at three in four and which held
+again here.
+
+**The binary file is the one worth having.** Nothing was meant to hand this a
+Mach-O executable, and doing it found two real defects: a report is not a report
+at 1,673 lines, and the line shown under an error is not always a line. The fix
+caps the lexical errors at twenty, escapes every unprintable byte, and windows
+the shown line — **budgeted in rendered columns rather than in bytes**, because a
+byte that escapes to `\x1b` is four columns wide and a 96-byte window is a
+384-column line with the caret nowhere near what it points at.
+
+---
+
+### Postmortem
+
+1. **The interesting outcome was the one where nothing happened.**
+   [ideas.md](ideas.md) had this program down as the most interesting thing on
+   its list because it would either give
+   [3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame) its first
+   customer or show the restriction was livable — and it is the second, having
+   never come near it. A design that never *reaches* a limitation says more
+   about that limitation than one that works around it, and it is much harder to
+   notice, because there is no moment where anything goes wrong. **Predictions
+   are worth writing down mostly for the times they are answered by silence.**
+
+2. **Every grammar check exists because a wrong grammar blamed the wrong file.**
+   That is the whole architecture of the checking half, and it was not planned —
+   each of the five arrived as a bug report against Pascal for a mistake in the
+   BNF. Left recursion surfaces as `call depth exceeded` against the `.pas`.
+   A missing `%fragment` surfaces as 130 syntax errors in a correct file. **When
+   a tool takes two inputs, the hard part is not finding the fault, it is
+   attributing it** — and every message that names the wrong input is worse than
+   no message, because the reader goes and stares at the innocent file.
+
+3. **The measurement corrected the reasoning rather than the number.** Inlining
+   a rule's alternation should save one frame of three per level of grammar; it
+   saved one of six. The mechanism was exactly as predicted and the *population*
+   was not — most of Wirth's Pascal rules have a sequence for a body, so most
+   never had the middle frame to save. A measurement of the mechanism tells you
+   what the mechanism costs; only a measurement through real input tells you
+   what it costs here. **That is the same argument `programs/` exists on**, and
+   it arrived this time from inside an optimisation rather than from a missing
+   feature.
+
+4. **The afternoon went to a tie-break I already knew the rule for.** Longest
+   match, ties to the rule declared first — stated in the program's own comments
+   before the bug, and it still took an afternoon, because the rule was right
+   and the *classification* was missing: nothing had said which lexical rules
+   were tokens and which were spare parts. **A silent default in a lookup is the
+   thing to make explicit**, and `%fragment` plus a warning is a small price for
+   never seeing that screen again.
+
+5. **The program was pointed at input it was never meant to read, and that paid
+   twice.** A binary file is not a use case; it is what happens when somebody
+   types the wrong filename, which is a thing that happens far more often than
+   any use case. Both defects it found — the unbounded report and the unbounded
+   line — are about *volume* rather than about parsing, and neither could have
+   turned up on a `.pas` file of any size. **Test the wrong input, not just the
+   large one.**
+
+6. **`control.sol`'s comment was worth more than `control.sol`.** The design
+   decision that set the depth budget — staircase inside the recursion,
+   `ifElseIf` outside it — was made in the first hour by reading a measurement
+   somebody had already taken and written down beside the thing it was about. It
+   cost nothing to reuse and would have cost an afternoon to rediscover.
+   **A measurement is worth writing where the next person will be standing when
+   they need it**, which is not the changelog.
+
+7. **Two documents were wrong before a line was added to them.** `expect.sol`
+   refused the count markers the instant `programs/` held fourteen files and
+   named three places still saying thirteen, in `design.md` and `COMPLETED.md`,
+   that had nothing to do with this work. That is the entry doing exactly its
+   job — and the one drift it could not catch was `programs.md` saying *these
+   twelve* on a page describing thirteen, because no marker was attached to it.
+   **A checker finds what it was told to look at**, and the gap in its coverage
+   is invisible from inside it.
 
 ## 2026-08-26 (SolaBasic) — a language in an afternoon, and the thing that held it honest
 

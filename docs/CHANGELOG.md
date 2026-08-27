@@ -64,6 +64,13 @@ third of the frames and was worth a sixth — 16 levels became 19 — because mo
 Wirth's Pascal rules have a sequence for a body and so never had the middle
 frame to save.
 
+**The report is bounded, which a file this was never meant to read made
+necessary.** Handed a Mach-O executable it produced 1,673 error lines, one of
+them four thousand bytes wide. Lexical errors are capped at twenty and the rest
+counted, every unprintable byte is escaped rather than sent to the terminal, and
+the line shown under an error is windowed — **in rendered columns and not in
+bytes**, a byte that escapes to `\x1b` being four columns wide.
+
 **What it did not need was
 [3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame).**
 [ideas.md](ideas.md) had this program down as either giving that entry its first

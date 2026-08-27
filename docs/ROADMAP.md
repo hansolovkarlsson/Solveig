@@ -285,6 +285,27 @@ Real closures need the captured slots promoted to the heap when a frame dies.
 That is the upgrade path; the frame-id check is what makes today's restriction
 safe rather than silently wrong.
 
+**A program predicted to hit this did not, and that is worth as much as one that
+did.** [ideas.md](ideas.md#programs-that-would-press-on-something) had a parser toolkit down as the
+most interesting thing on its list *because* either answer would be informative:
+it would give this entry its first customer, or it would show that a
+non-combinator design is fine and the restriction is livable.
+[check_syntax.sol](../programs/check_syntax.sol) was built on 2026-08-26 and
+never came near it.
+
+**Not because it was worked around.** The design that avoids this entry is the
+design the job wanted anyway: a grammar is a tree of objects and the matcher is
+one method that recurses over it, so nothing is ever a block that has to outlive
+the frame it was made in. The combinator shape — a matcher that *answers*
+another matcher — is the one this entry refuses, and it was never reached for.
+[lib/scan.sol](../lib/scan.sol) arrived at the same place from the other end and
+says so in its own comments: a cursor is an object because the combinator form
+is not available, and the spelling the language allows is the one that was
+wanted.
+
+So the second outcome, and the entry stays as it is. Real closures remain the
+upgrade path, and nothing shipped here has yet needed them.
+
 ### 3.2 No non-local return
 
 A block answers its last expression. Smalltalk's `^` returns from the enclosing
@@ -438,6 +459,37 @@ What makes it bearable, and was not obvious: **the failure is catchable.** `call
 depth exceeded` arrives at `onError` like any other, is reported like any other,
 and the program carries on afterwards -- running out of frames is exactly the
 sort of failure a machine might not be able to recover from, and this one can.
+
+#### A program whose depth is set by its input
+
+**2026-08-26.** [check_syntax.sol](../programs/check_syntax.sol) is the first
+program here whose depth is a fact about what it was *handed* rather than about
+its own source. It walks a grammar as a tree, one frame per node, so how deep it
+goes depends on the grammar and on the file it was pointed at. Against
+[pascal.bnf](../programs/check_syntax/pascal.bnf) the limit lands at **19 levels
+of nested `begin … if`** and **28 nested parentheses in one expression**.
+
+That is a much smaller number than the 83 brackets `evaluator.sol` reaches, and
+the reason is worth writing down: **a grammar rule is not one frame.** Descending
+one level of Pascal statement nesting costs about four rule references, and a
+reference costs two frames — one for the reference and one for the sequence it
+chooses. So the multiplier is the *grammar*, not the matcher, which is exactly
+what [ideas.md](ideas.md#programs-that-would-press-on-something) predicted when it said a tree is what
+multiplies a measurement taken on a list.
+
+**Nineteen is past what anybody writes by hand and short of what a generator
+emits.** That is the whole of the case for having left the matcher recursive.
+The alternative is an explicit stack machine — proposed and rejected in the
+section below, but rejected there for a reason that does not apply here: for the
+compiler it would have bought nothing, because both halves ran out together.
+Here it would remove the limit outright, and what it costs is the property of
+being readable beside the notation it implements. The program records that trade
+in its own comments rather than settling it.
+
+**And the failure is catchable**, which the paragraph above claims in general and
+this program depends on in particular: a file too deep is reported as being too
+deep, by name, with a non-zero exit status, rather than taking the checker down
+with it.
 
 #### Both halves of the compiler run out together
 
