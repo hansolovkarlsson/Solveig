@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### `@math`: infix arithmetic, and the bytes are the chain's — `pending`, 2026-08-28
+### `@math`: infix arithmetic, and the bytes are the chain's — `8834514`, 2026-08-28
 
 **The language has one notation for arithmetic now, and it adds nothing to the
 language.** `@math( a^2 + 3 * ((a/2):sin + b:sqrt) )` compiles to the bytes
