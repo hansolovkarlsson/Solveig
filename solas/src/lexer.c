@@ -63,6 +63,14 @@ const char *sol_token_type_name(SolTokenType type)
     case TOK_STAR:   return "'*'";
     case TOK_SLASH:  return "'/'";
     case TOK_CARET:  return "'^'";
+    case TOK_EQ:     return "'='";
+    case TOK_NE:     return "'<>'";
+    case TOK_LT:     return "'<'";
+    case TOK_GT:     return "'>'";
+    case TOK_LE:     return "'<='";
+    case TOK_GE:     return "'>='";
+    case TOK_AMP:    return "'&'";
+    case TOK_TILDE:  return "'~'";
     case TOK_LBRACE: return "'{'";
     case TOK_RBRACE: return "'}'";
     case TOK_LBRACKET: return "'['";
@@ -311,14 +319,23 @@ SolToken sol_lexer_next(SolLexer *lexer)
        must be identifiers -- if '=' were one, `a:=(b)` would be ambiguous. */
     case ':':  return make_token(lexer, match(lexer, '=') ? TOK_ASSIGN : TOK_COLON);
 
-    /* Four of the five arithmetic operators were *unexpected character* before
-       `@math` existed, so scanning them unconditionally cannot change what any
-       existing file means -- the compiler is where they are refused outside a
-       region. */
+    /* All but two of the operators were *unexpected character* before `@expr`
+       existed, so scanning them unconditionally cannot change what any existing
+       file means -- the compiler is where they are refused outside a region.
+       `<` carries three tokens and `>` two, settled the way `:=` is. */
     case '+':  return make_token(lexer, TOK_PLUS);
     case '*':  return make_token(lexer, TOK_STAR);
     case '/':  return make_token(lexer, TOK_SLASH);
     case '^':  return make_token(lexer, TOK_CARET);
+    case '=':  return make_token(lexer, TOK_EQ);
+    case '&':  return make_token(lexer, TOK_AMP);
+    case '~':  return make_token(lexer, TOK_TILDE);
+    case '<':
+        if (match(lexer, '=')) return make_token(lexer, TOK_LE);
+        if (match(lexer, '>')) return make_token(lexer, TOK_NE);
+        return make_token(lexer, TOK_LT);
+    case '>':
+        return make_token(lexer, match(lexer, '=') ? TOK_GE : TOK_GT);
 
     /* The fifth is not free, and is the whole of what `infix` is for. Outside a
        region a leading '-' belongs to the number, which is why there is no

@@ -187,7 +187,7 @@ static void test_exponents(void)
     expect_tokens("1ex", split, 3);
 
     /* `1e+` splits the same way, and the third token is the `+` itself. It used
-       to be TOK_ERROR, `+` being a character the language did not use; `@math`
+       to be TOK_ERROR, `+` being a character the language did not use; `@expr`
        gave it one. The program is rejected either way and by the same message
        -- *expected '.' between statements* at the `e`, which is what `1e` alone
        already says -- so what moved is where the complaint comes from, not
@@ -205,7 +205,7 @@ static void test_exponents(void)
 /* The five arithmetic operators, and the one that needed a mode.
  *
  * `+ * / ^` are tokens everywhere. They cost nothing to scan unconditionally,
- * because none of them was a character the language used -- `@math` is where
+ * because none of them was a character the language used -- `@expr` is where
  * the compiler accepts them, and outside one it says so by name.
  *
  * `-` is the exception and the whole reason `infix` exists. Outside a region a

@@ -44,7 +44,7 @@ marked as a sketch.
 | Go-style concurrency | **No, for now** — it changes the whole VM |
 | Subclass `integer`, a `byte` subclass | **Not possible** — see below |
 | More `@` directives: `@define`, `@ifdef`, `@once` | **No** — each one's job is already done by something that is not a directive |
-| Infix arithmetic, `@math(a^2 + b/2)` | **Built**, on 2026-08-28 — [scoped in the morning and in by the afternoon](#infix-arithmetic-as-a-compile-time-notation); the four findings held, the grammar found a fifth, and `sin(x)` followed once *limiting* it turned out to be the expensive half |
+| Infix operators, `@expr(a^2 + b/2)` | **Built**, on 2026-08-28 — [scoped in the morning and in by the evening](#infix-arithmetic-as-a-compile-time-notation): arithmetic, then `sin(x)` once *limiting* it turned out to be the expensive half, then comparison and logic, and the name with them |
 | Phoenix — a second language whose output Solum uses | **Defer** — the machinery is proven three times over; [the unexplored half](#programs-that-would-press-on-something) is whether a hosted language can publish a *library* rather than a program |
 | Programs that would press on something — Pascal, predicate logic, a parser toolkit | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would |
 | Networking, and sending code to a running machine | **Defer** — [no socket exists](#networking-and-sending-code-to-a-machine-that-is-already-running); the second needs 3.4 and 6.32 as well |
@@ -2060,7 +2060,7 @@ entitled to want.
 
 ### Infix arithmetic, as a compile-time notation
 
-`@math(a^2 + 3 * ((a/2):sin + b:sqrt))`, lowering to exactly the sends it reads
+`@expr(a^2 + 3 * ((a/2):sin + b:sqrt))`, lowering to exactly the sends it reads
 as. **Raised on 2026-08-28 from use rather than from reasoning**: equations are
 hard to write in this language and harder to check by eye.
 
@@ -2121,16 +2121,16 @@ and has to say so.
 
 #### Four findings from the compiler
 
-**One: it has to be named, and `@math(` is free.** The lexer requires a letter
+**One: it has to be named, and `@expr(` is free.** The lexer requires a letter
 after `@` and makes the whole directive a single lexeme, so `@include` is one
-token and never an identifier following a symbol. `@math` lexes today with no
+token and never an identifier following a symbol. `@expr` lexes today with no
 change at all; `@(` does not lex and would need one.
 
 **Two: it would be the first directive that is an expression.** `primary()`
 refuses one now — *a directive must stand alone as a statement* — and the
 grammar says the same in prose: `@include` is the only statement that is not an
 expression, because there is nowhere inside an expression to compile a file
-into. `result := @math(...)` changes what `@` means from *a compile-time
+into. `result := @expr(...)` changes what `@` means from *a compile-time
 statement* to *a compile-time thing that can also be a value*. The code change
 is small and the conceptual one is not, and it is the part to argue about.
 
@@ -2171,7 +2171,7 @@ Leave a *term* as an ordinary Solum expression and the difficulty disappears
 along with the rule:
 
 ```text
-result := @math( a^2 + 3 * ((a/2):sin + b:sqrt) ).
+result := @expr( a^2 + 3 * ((a/2):sin + b:sqrt) ).
 ```
 
 Nothing new to learn, no second naming convention, and the stated problem is
@@ -2194,7 +2194,7 @@ system through each level, which this must not.
 each other production by production; [check_syntax.sol](../programs/check_syntax.sol)
 reserves every word-shaped literal a rule mentions; the reference, the guide and
 the cheatsheet each gain a section; an example is owed. And `solum.bnf`'s
-opening boast becomes *there are no operators outside `@math`*, which is a
+opening boast becomes *there are no operators outside `@expr`*, which is a
 sentence somebody has to be willing to write.
 
 **Trigger.** Partly fired already, from use rather than from a program — which
@@ -2204,12 +2204,12 @@ or `lib/` that transcribes formulas from a reference and is checked against it.
 
 #### Built the same day, and the four findings held
 
-`@math(...)` is in `solas`. The estimate was 150 to 200 lines and the ladder
+`@expr(...)` is in `solas`. The estimate was 150 to 200 lines and the ladder
 itself is about ninety; each of the four findings above came out as written, and
-the byte-identity claim is a test rather than a hope — eighteen pairs, `@math(
+the byte-identity claim is a test rather than a hope — eighteen pairs, `@expr(
 a + b )` against `a:add(b)`, compared as bytes and not as answers.
 
-**The fold works, which was the sharpest of the four.** `@math( -3 )` and `-3`
+**The fold works, which was the sharpest of the four.** `@expr( -3 )` and `-3`
 compile to identical files, so the region's `-` is value-preserving to the byte
 and not merely to the value. It needed one token of lookahead, because `^` binds
 tighter than the minus and in `-2^2` the literal is not what is being negated —
@@ -2239,7 +2239,7 @@ read as the operator applied to `3` is the same value either way.
 **The trigger written above was a page of transcribed formulas. What fired was a
 report from use** — the notation worked, and the question came back: should the
 functions have the prefix form too? That is the same weight of evidence that
-produced `@math` itself, and it is recorded as weaker than this document usually
+produced `@expr` itself, and it is recorded as weaker than this document usually
 acts on rather than dressed up as something else.
 
 **The proposal was to limit it to `float`, and the limit turned out to be the
@@ -2265,15 +2265,59 @@ any name, one argument, inside a region. The line this entry opened with is now
 the line it can be written as:
 
 ```text
-result := @math( a^2 + 3 * (sin(a/2) + sqrt(b)) ).
+result := @expr( a^2 + 3 * (sin(a/2) + sqrt(b)) ).
 ```
 
 **What it costs is one thing a reader has to be told**, and it is the reason to
 hesitate: prefix looks like calling a function and is not calling a *block*. A
 global holding one is called with `value`, so `f(3)` is `3:f`, and somebody will
-write `f := { x | x:mul(x) }. @math( f(3) )` and get *float does not understand
+write `f := { x | x:mul(x) }. @expr( f(3) )` and get *float does not understand
 'f'*. It fails loudly rather than doing the other thing quietly, which is the
 trade taken and not a defect that went unnoticed.
+
+#### Comparison and logic, and the rename that came with them
+
+**The region covers `= <> < > <= >=`, `~`, `&` and `|` as well**, decided the
+same evening — and once it did, `@math` was describing the first half of its
+job. It is `@expr` now. The rename cost nothing because the feature was hours
+old and nothing outside this repository used it; in six months it would have
+cost a deprecation, which is the whole argument for doing it at the moment the
+scope changed rather than later.
+
+**Three calls were needed and all three are visible in the grammar.**
+
+`~` is **looser than a comparison**, so `~a = b` is `~(a = b)` — what the words
+say, and what BASIC and Pascal read. C binds `!` tightest and would have read
+the other; that is the one place here where a C habit misleads.
+
+**Comparison does not chain.** `a < b < c` would compare a boolean to `c` and
+fail while running, so it is refused while compiling instead. In the grammar
+that is not a check at all, it is the shape of the rule: an optional tail rather
+than a repeated one.
+
+**`|` was the one operator the language already used**, for a block's parameters
+and a group's temporaries. Those are matched before a body is, so a `|` reaching
+the operators is one standing where an operator may stand — `{ a | b }` is still
+a block taking `a`, inside a region exactly as outside. That is a rule with a
+position in it, which this language mostly refuses, and it was taken because the
+position was already load-bearing and the alternative was an asymmetric `&` with
+no `|` beside it. There is no third character: `||` stops at the same parameter
+scanner, and `!` and `?` mean other things to every reader.
+
+**`&` and `|` are the only operators whose right-hand side is not compiled where
+it stands.** `and` and `or` take a block so that they can stop early, so the
+right side goes where the block's body would have gone, behind the jump — and
+the bytes are still the block form's bytes, short-circuiting included, which a
+test compares.
+
+**The grammar checker paid for itself twice in one evening.** It refused the
+first draft of the operator list — *'<' is written before '<=' and would always
+win, the longer one has to come first* — which is an ordering bug the
+hand-written lexer never had, because it peeks. And the suite found that
+`a := #1 & #2.` had been a fixture for *both* the compiler and the grammar
+refusing a file; `&` is an operator now, so the grammar admits it and only the
+compiler refuses, which is the third row of that table and now has an assertion
+of its own.
 
 ### Programs that would press on something
 

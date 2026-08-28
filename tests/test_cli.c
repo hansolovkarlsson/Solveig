@@ -1163,7 +1163,7 @@ static void test_check_syntax_reads_solum_itself(void)
     system("printf 'a := #1\\nb := #2\\n' > " DIR "/s1.sol");
     system("printf 'f := { x | x:print.\\n' > " DIR "/s2.sol");
     system("printf 'o:at(#1) := #2.\\n' > " DIR "/s3.sol");
-    system("printf 'a := #1 & #2.\\n' > " DIR "/s4.sol");
+    system("printf 'a := #1 #2.\\n' > " DIR "/s4.sol");
 
     static const char *wrong[] = { "s1", "s2", "s3", "s4" };
     for (size_t i = 0; i < sizeof wrong / sizeof wrong[0]; i++) {
@@ -1179,6 +1179,22 @@ static void test_check_syntax_reads_solum_itself(void)
                  " programs/check_syntax/solum.bnf " DIR "/%s.sol 2>&1", wrong[i]);
         assert(run(command, out, sizeof out) == 1);      /* and so does this */
     }
+
+    /* `a := #1 & #2.` used to be the fourth of those and is not any more, which
+       is worth a case of its own rather than a quiet substitution. `&` became
+       an operator when `@expr` did, and the ladder is written once at the top
+       of `expression` -- so the grammar admits it anywhere and the compiler is
+       what knows a region is required. That is the third row of GRAMMAR.md's
+       list of things refused by the compiler rather than by the page, and this
+       is the assertion that the split is where the page says it is. */
+    system("printf 'a := #1 & #2.\n' > " DIR "/s5.sol");
+    assert(run("bin/solas " DIR "/s5.sol -o " DIR "/s5.sob 2>&1",
+               out, sizeof out) != 0);
+    assert(strstr(out, "'@expr(...)' is where the operators are") != NULL);
+    assert(run("bin/solvm " DIR "/check_syntax.sob"
+               " programs/check_syntax/solum.bnf " DIR "/s5.sol 2>&1",
+               out, sizeof out) == 0);
+    assert(strstr(out, "no errors") != NULL);
 
     /* And the positions agree closely enough to be useful, which is the part a
        count of errors would not catch. */

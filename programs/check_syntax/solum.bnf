@@ -42,7 +42,7 @@ integer = "#" [ "-" ] digit { digit }
 
 (* The unmarked number, and it does not claim a sign.
  *
- * The scanner does, outside a `@math` region: there a leading `-` belongs to
+ * The scanner does, outside a `@expr` region: there a leading `-` belongs to
  * the literal, and `-` with no digit after it is a lexical error rather than a
  * token. Inside a region it is always the operator. A lexical grammar has no
  * regions to be inside of, so this file reads `-3` as the operator applied to
@@ -76,7 +76,7 @@ space   = ( " " | "\t" | "\r" | "\n" ) { " " | "\t" | "\r" | "\n" } .
 (* `:=` before `:`, or the binding would never be one token. *)
 punctuation = ":=" | ":" | "(" | ")" | "{" | "}" | "[" | "]" | "|" | "," | "." .
 
-(* The five that only mean anything inside `@math`. Four of them were not
+(* The five that only mean anything inside `@expr`. Four of them were not
  * characters the language used at all; `-` was, and is the one place this file
  * cannot say what the scanner does. `float` above claims a leading `-`, and it
  * is tried first, so `a-3` tokenises here as an identifier and the float -3
@@ -87,7 +87,8 @@ punctuation = ":=" | ":" | "(" | ")" | "{" | "}" | "[" | "]" | "|" | "," | "." .
  * A lexical grammar has no regions to be inside of, so this is a divergence to
  * name rather than one to fix. Everything in examples/ and lib/ is spaced, and
  * the sweep in test_cli is what holds that true. *)
-operator = "+" | "-" | "*" | "/" | "^" .
+operator = "+" | "-" | "*" | "/" | "^"
+         | "<=" | "<>" | ">=" | "<" | ">" | "=" | "&" | "~" .
 
 %skip space comment
 
@@ -104,7 +105,7 @@ program = [ statement { "." statement } [ "." ] ] .
 statement = include | expression .
 
 (* `@include` happens while compiling and there is nowhere inside an expression
- * to compile a file into, so it is the one statement that is not one. `@math`
+ * to compile a file into, so it is the one statement that is not one. `@expr`
  * is the other directive and is the opposite case: it answers a value, so it is
  * a primary and not a statement of its own. *)
 include = "@include" string .
@@ -113,11 +114,11 @@ include = "@include" string .
  * identifier and only the first goes on to want `:=`. Ordered choice does the
  * rest: `a:print` fails the first alternative at the `:` and falls through. *)
 expression = identifier ":=" expression
-           | sum .
+           | disjunction .
 
 (* The arithmetic ladder, written once and reached by every expression, which is
  * what makes an argument, an array element, a group and a block body all read
- * the same way inside a `@math` region -- the compiler's rule is that the
+ * the same way inside a `@expr` region -- the compiler's rule is that the
  * region is lexical and covers everything within it, and a ladder at the top of
  * `expression` is that rule with no duplication.
  *
@@ -128,10 +129,14 @@ expression = identifier ":=" expression
  * Outside a region the operators are not there to be used: the scanner makes no
  * `-` and the compiler refuses the rest by name. That is the looseness this
  * ladder costs, and it is listed with the other two. *)
-sum     = product { ( "+" | "-" ) product } .
-product = unary { ( "*" | "/" ) unary } .
-unary   = "-" unary | power .
-power   = ( call | primary ) { send } [ "^" unary ] .
+disjunction = conjunction { "|" conjunction } .
+conjunction = negation { "&" negation } .
+negation    = "~" negation | comparison .
+comparison  = sum [ ( "<=" | "<>" | ">=" | "<" | ">" | "=" ) sum ] .
+sum         = product { ( "+" | "-" ) product } .
+product     = unary { ( "*" | "/" ) unary } .
+unary       = "-" unary | power .
+power       = ( call | primary ) { send } [ "^" unary ] .
 
 (* `sin(x)` is `x:sin` -- prefix application is a send to its argument, and the
  * name is an ordinary identifier rather than a word this file names. **That is
@@ -155,9 +160,9 @@ call    = identifier "(" expression ")" .
 send      = ":" identifier [ arguments | ":=" expression ] .
 arguments = "(" [ expression { "," expression } ] ")" .
 
-primary = identifier | integer | float | string | symbol | block | array | group | math .
+primary = identifier | integer | float | string | symbol | block | array | group | region .
 
-(* `@math(...)` -- the region the operators mean something in. Every one lowers
+(* `@expr(...)` -- the region the operators mean something in. Every one lowers
  * to the send it reads as, so this is a second spelling and never a second
  * semantics: `+` is `add`, `^` is `pow`, and the bytes are the bytes the chain
  * would have produced.
@@ -166,7 +171,7 @@ primary = identifier | integer | float | string | symbol | block | array | group
  * -- `(a/2):sin` needs no rule that `sin(x)` would have needed, and the rule
  * `sin(x)` wants breaks on `atan2`, which is class-side, and on `pow`, which
  * takes an argument. *)
-math = "@math" "(" expression ")" .
+region = "@expr" "(" expression ")" .
 
 (* Parameters, then temporaries, then the body. The leading `|` of a temporary
  * list is what tells `{ a | ... }` from `{ | a | ... }`, and it is why

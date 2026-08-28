@@ -72,9 +72,14 @@ typedef struct {
 
 static void expression(Compiler *c);
 static void send_expression(Compiler *c);
+static void math_expression(Compiler *c);
 static void math_sum(Compiler *c);
 static void math_unary(Compiler *c);
+static void math_negation(Compiler *c);
+static void math_conjunction(Compiler *c);
 static void send_chain(Compiler *c);
+static int  emit_jump(Compiler *c, uint8_t op);
+static void patch_jump(Compiler *c, int slot);
 static void math_directive(Compiler *c);
 static void statement(Compiler *c);
 static void note_global_binding(Compiler *c, const SolToken *name);
@@ -198,7 +203,7 @@ static void emit_indexed(Compiler *c, uint8_t op, int index)
 
 /* ---- literals -------------------------------------------------------- */
 
-/* `negate` is set only by `@math`'s unary minus, which folds `-3` back to the
+/* `negate` is set only by `@expr`'s unary minus, which folds `-3` back to the
    one constant `3` would have been rather than emitting a `negated` send after
    it. That is what makes the region's `-` value-preserving to the byte. */
 static void integer_literal(Compiler *c, bool negate)
@@ -496,27 +501,29 @@ static void primary(Compiler *c)
         return;
     }
 
-    /* `@math` is the one directive that answers a value, so it is the one that
+    /* `@expr` is the one directive that answers a value, so it is the one that
        may stand here. Every other is a statement: `statement` has already taken
        the ones standing where they may, so reaching here means this one is
        buried in an expression, where a file compiled in would have nowhere to
        go. */
     if (p->current.type == TOK_DIRECTIVE) {
-        if (token_is(&p->current, "@math")) { math_directive(c); return; }
+        if (token_is(&p->current, "@expr")) { math_directive(c); return; }
         sol_parser_error(p, &p->current,
                          "a directive must stand alone as a statement");
         return;
     }
 
     /* An operator outside a region. Worth its own sentence: three of these five
-       characters were *unexpected character* before `@math` existed, and
+       characters were *unexpected character* before `@expr` existed, and
        "expected an expression" would send the reader looking for a missing
        operand rather than a missing region. */
     switch (p->current.type) {
     case TOK_PLUS: case TOK_MINUS: case TOK_STAR: case TOK_SLASH: case TOK_CARET:
+    case TOK_EQ: case TOK_NE: case TOK_LT: case TOK_GT: case TOK_LE: case TOK_GE:
+    case TOK_AMP:
         sol_parser_error(p, &p->current,
                          "an operator needs something to its left; inside "
-                         "'@math(...)' only '-' may open an expression");
+                         "'@expr(...)' only '-' and '~' may open one");
         return;
     default:
         break;
@@ -556,7 +563,7 @@ static uint8_t arguments(Compiler *c)
  * precisely -- no extra lookahead, and still no AST.
  */
 /* The sends after a receiver, which is already on the stack. Split out because
-   `@math`'s prefix form -- `sin(x)`, which is `x:sin` -- puts its receiver there
+   `@expr`'s prefix form -- `sin(x)`, which is `x:sin` -- puts its receiver there
    by a different route and then chains like anything else. */
 static void send_chain(Compiler *c)
 {
@@ -597,13 +604,16 @@ static void send_chain(Compiler *c)
        `+` would otherwise be described by whatever came next -- *expected '.'
        between statements* at the top level, *expected ')' after arguments*
        inside a call. Those send the reader looking for a missing separator
-       rather than a missing `@math`. */
+       rather than a missing `@expr`. */
     if (!p->lexer.infix) {
         switch (p->current.type) {
         case TOK_PLUS: case TOK_STAR: case TOK_SLASH: case TOK_CARET:
+        case TOK_EQ: case TOK_NE: case TOK_LT:
+        case TOK_GT: case TOK_LE: case TOK_GE:
+        case TOK_AMP: case TOK_TILDE:
             sol_parser_error(p, &p->current,
-                             "arithmetic is written as sends here; '@math(...)' "
-                             "is where the operators are");
+                             "this is written as a send here; '@expr(...)' is "
+                             "where the operators are");
             break;
         default:
             break;
@@ -620,9 +630,9 @@ static void send_expression(Compiler *c)
     send_chain(c);
 }
 
-/* ---- @math: infix arithmetic ----------------------------------------- *
+/* ---- @expr: infix operators ----------------------------------------- *
  *
- * `@math(a^2 + 3 * ((a/2):sin + b:sqrt))`.
+ * `@expr(a^2 + 3 * (sin(a/2) + sqrt(b)))`.
  *
  * **Notation, never a second semantics.** Every operator lowers to the send it
  * reads as -- `+` to `add`, `^` to `pow` -- so the region emits exactly the
@@ -639,7 +649,7 @@ static void send_expression(Compiler *c)
  *
  * **The whole region is in the mode, nested constructs included.** `expression`
  * dispatches on it, so an argument list, an array literal, a group and a block
- * body inside `@math` all read as infix too. That is what makes `f:value(-3)`
+ * body inside `@expr` all read as infix too. That is what makes `f:value(-3)`
  * and `[1.0, -3.0]` mean what they look like rather than being the one corner
  * where the rules change back.
  *
@@ -783,6 +793,126 @@ static void math_sum(Compiler *c)
     }
 }
 
+/* Comparison, and it does **not** chain. `a < b < c` would compare a boolean to
+ * `c` and fail at run time saying so; refusing it here says it at compile time
+ * instead, and the optional rather than repeated tail is the whole mechanism.
+ *
+ * Six operators, six ordinary one-argument sends, and no surprises: `=` is
+ * `equals`, so `nan = nan` is false for the reason the reference already gives.
+ */
+static void math_comparison(Compiler *c)
+{
+    SolParser *p = &c->parser;
+    math_sum(c);
+
+    const char *name = NULL;
+    int length = 0;
+    switch (p->current.type) {
+    case TOK_EQ: name = "equals";         length = 6; break;
+    case TOK_NE: name = "notEquals";      length = 9; break;
+    case TOK_LT: name = "lessThan";       length = 8; break;
+    case TOK_GT: name = "greaterThan";    length = 11; break;
+    case TOK_LE: name = "lessOrEqual";    length = 11; break;
+    case TOK_GE: name = "greaterOrEqual"; length = 14; break;
+    default: return;
+    }
+    sol_parser_advance(p);
+    math_sum(c);
+    math_send(c, name, length, 1);
+
+    switch (p->current.type) {
+    case TOK_EQ: case TOK_NE: case TOK_LT:
+    case TOK_GT: case TOK_LE: case TOK_GE:
+        sol_parser_error(p, &p->current,
+                         "comparisons do not chain; the left of this one is a "
+                         "boolean");
+        break;
+    default:
+        break;
+    }
+}
+
+/* `~` is `not`, and it is looser than a comparison, so `~a = b` is `~(a = b)`.
+   That is the reading the words have -- *not a equals b* -- and it is the call
+   BASIC and Pascal make. C binds `!` tightest and would have read the other. */
+static void math_negation(Compiler *c)
+{
+    if (sol_parser_match(&c->parser, TOK_TILDE)) {
+        math_negation(c);
+        math_send(c, "not", 3, 0);
+        return;
+    }
+    math_comparison(c);
+}
+
+/* `&` and `|` are `and` and `or`, which take a *block* so that they can stop
+ * early -- `a:and({ b })`. So these two are the only operators whose right-hand
+ * side is not compiled where it stands: it goes where the block's body would
+ * have gone, which is inline, behind the jump.
+ *
+ * The bytes are still the bytes the send would have produced. `inline_logical`
+ * emits exactly this sequence when it sees the block form written out, and the
+ * only difference here is that the branch is an expression rather than a block
+ * body -- the same one value on the stack either way. So `a & b` and
+ * `a:and({ b })` compile identically, short-circuiting included, and a test
+ * compares them.
+ */
+static void math_logical(Compiler *c, bool is_and)
+{
+    int name = name_literal(c, is_and ? "and" : "or", is_and ? 3 : 2);
+
+    int to_shortcut = emit_jump(c, OP_JUMP_IF_FALSE);
+    emit_index(c, name);
+
+    if (is_and) {
+        math_negation(c);
+        emit_indexed(c, OP_CHECK_BOOL, name);
+        int to_end = emit_jump(c, OP_JUMP);
+        patch_jump(c, to_shortcut);
+        emit_indexed(c, OP_CONST, constant_operand(c, SOL_BOOL_VAL(false)));
+        patch_jump(c, to_end);
+    } else {
+        emit_indexed(c, OP_CONST, constant_operand(c, SOL_BOOL_VAL(true)));
+        int to_end = emit_jump(c, OP_JUMP);
+        patch_jump(c, to_shortcut);
+        math_conjunction(c);
+        emit_indexed(c, OP_CHECK_BOOL, name);
+        patch_jump(c, to_end);
+    }
+}
+
+static void math_conjunction(Compiler *c)
+{
+    SolParser *p = &c->parser;
+    math_negation(c);
+    while (sol_parser_match(p, TOK_AMP)) math_logical(c, true);
+}
+
+/* `|` is the one operator the language already had a use for: it opens a
+ * block's parameters and a group's temporaries. Those are consumed before a
+ * body is parsed, so a `|` reaching here is one standing where an operator may
+ * stand and nowhere else -- `{ a | b }` is still a block taking `a`, exactly as
+ * it is outside a region, and `( a | b )` is a disjunction because a group's
+ * temporaries have to come first and did not.
+ *
+ * That is a rule with a position in it, which this language mostly refuses. It
+ * is taken here because the position is one the language already made
+ * load-bearing, and because the alternative was an asymmetric `&` with no `|`
+ * beside it. There is no third character: `||` stops at the same parameter
+ * scanner, and `!` and `?` mean other things to every reader.
+ */
+static void math_disjunction(Compiler *c)
+{
+    SolParser *p = &c->parser;
+    math_conjunction(c);
+    while (sol_parser_match(p, TOK_PIPE)) math_logical(c, false);
+}
+
+static void math_expression(Compiler *c)
+{
+    math_disjunction(c);
+}
+
 /* The one directive that is an expression, and the reason is the same one that
  * keeps `@include` a statement: an include has nowhere to compile a file into
  * inside an expression, and this has nowhere else to be. It answers a value.
@@ -790,29 +920,29 @@ static void math_sum(Compiler *c)
  * The lexer's mode is set before the '(' is consumed and cleared before the ')'
  * is, so the tokens on either side of the region are scanned by the rules of
  * where they actually are. Saved and restored rather than assigned, so a
- * `@math` inside a `@math` leaves the outer one as it found it.
+ * `@expr` inside a `@expr` leaves the outer one as it found it.
  */
 static void math_directive(Compiler *c)
 {
     SolParser *p = &c->parser;
-    sol_parser_advance(p);                       /* the '@math' itself */
+    sol_parser_advance(p);                       /* the '@expr' itself */
 
     bool was_infix = p->lexer.infix;
     p->lexer.infix = true;
-    sol_parser_consume(p, TOK_LPAREN, "expected '(' after '@math'");
+    sol_parser_consume(p, TOK_LPAREN, "expected '(' after '@expr'");
 
-    math_sum(c);
+    math_expression(c);
 
     p->lexer.infix = was_infix;
-    sol_parser_consume(p, TOK_RPAREN, "expected ')' closing '@math'");
+    sol_parser_consume(p, TOK_RPAREN, "expected ')' closing '@expr'");
 }
 
-/* Inside a `@math` region every expression is an infix one, nested constructs
+/* Inside a `@expr` region every expression is an infix one, nested constructs
    included. Outside, the language has no operators and this is the send chain
    it always was. */
 static void expression(Compiler *c)
 {
-    if (c->parser.lexer.infix) { math_sum(c); return; }
+    if (c->parser.lexer.infix) { math_expression(c); return; }
     send_expression(c);
 }
 
@@ -1882,9 +2012,9 @@ static void statement(Compiler *c)
     SolParser *p = &c->parser;
 
     /* A directive stands alone, and this is the only place one may stand --
-       except `@math`, which answers a value, so a statement opening with one is
+       except `@expr`, which answers a value, so a statement opening with one is
        an expression statement like any other. */
-    if (p->current.type == TOK_DIRECTIVE && !token_is(&p->current, "@math")) {
+    if (p->current.type == TOK_DIRECTIVE && !token_is(&p->current, "@expr")) {
         directive_statement(c);
         if (p->panicked) synchronise(c);
         return;

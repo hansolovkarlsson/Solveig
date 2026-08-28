@@ -57,7 +57,7 @@ characters with two readings. `$FF08` and `%10101100` are integers too, in the
 base you are thinking in, and they take no tag and no sign: they are for looking
 at bits, and there is no hexadecimal float to be told apart from.
 
-**A leading `-` belongs to the number — outside a `@math` region.** There the
+**A leading `-` belongs to the number — outside a `@expr` region.** There the
 scanner gives the sign to the literal, and a `-` with no digit after it is not a
 token at all. Inside a region it is always the operator, and `-3` is the
 operator applied to `3`, which the compiler folds back to the one constant.
@@ -97,12 +97,16 @@ an expression to compile a file into.
 
 ```ebnf
 expression = identifier ":=" expression
-           | sum .
+           | disjunction .
 
-sum        = product { ( "+" | "-" ) product } .
-product    = unary { ( "*" | "/" ) unary } .
-unary      = "-" unary | power .
-power      = ( call | primary ) { send } [ "^" unary ] .
+disjunction = conjunction { "|" conjunction } .
+conjunction = negation { "&" negation } .
+negation    = "~" negation | comparison .
+comparison  = sum [ ( "<=" | "<>" | ">=" | "<" | ">" | "=" ) sum ] .
+sum         = product { ( "+" | "-" ) product } .
+product     = unary { ( "*" | "/" ) unary } .
+unary       = "-" unary | power .
+power       = ( call | primary ) { send } [ "^" unary ] .
 
 call       = identifier "(" expression ")" .
 
@@ -111,14 +115,25 @@ send       = ":" identifier [ arguments | ":=" expression ] .
 arguments  = "(" [ expression { "," expression } ] ")" .
 
 primary    = identifier | integer | float | string | symbol
-           | block | array | group | math .
+           | block | array | group | region .
 
-math       = "@math" "(" expression ")" .
+region     = "@expr" "(" expression ")" .
 ```
 
 **Sends chain left to right.** `a:add(#1):print` sends `print` to the sum, and
-outside a `@math` region there is no precedence to know, because there are no
+outside a `@expr` region there is no precedence to know, because there are no
 operators to have any.
+
+**The ladder runs from `|` at the loosest to `^` at the tightest**, with `~`
+between the logic and the comparisons — so `~a = b` is `~(a = b)`, which is what
+the words say and what BASIC and Pascal read. **Comparison does not chain**, and
+the optional-rather-than-repeated tail of `comparison` is the whole of how that
+is said: `a < b < c` would compare a boolean to `c`.
+
+**`|` is the one operator the language already used.** A block's parameters and
+a group's temporaries are matched before a body is, and ordered choice is what
+keeps that true — so `{ a | b }` is still a block taking `a`, and `( a | b )` is
+a disjunction because a group's temporaries have to come first and did not.
 
 **The ladder is written once, at the top of `expression`.** That is not tidiness
 — it is the rule. A region is *lexical*: it covers everything inside it, so an
@@ -199,7 +214,7 @@ word. A grammar-driven checker discovers this by having nothing to reserve.
 that is what they are. That is an optimisation and not a rule of the language:
 the grammar above admits nothing about them, because there is nothing to admit.
 
-**There are no operators outside `@math`.** That sentence used to have no
+**There are no operators outside `@expr`.** That sentence used to have no
 qualifier, and losing it was the price of the one notation the language has for
 arithmetic. What was bought is that a transcribed formula can be read against
 the page it was copied from: a send chain runs left to right and precedence does
@@ -211,7 +226,7 @@ reads as — `+` to `add`, `^` to `pow` — and the region emits the bytes the c
 would have emitted, which a test compares rather than takes on trust. That is
 the rule an array literal already lives under: `[a, b]` is `array:of(a, b)`, and
 two spellings of the same thing mean the same thing. `a:add(b)` is a send like
-every other, and so is `@math( a + b )`.
+every other, and so is `@expr( a + b )`.
 
 **Two things are refused by the compiler rather than by the grammar**, so a file
 may match this page and still not compile:
@@ -220,4 +235,4 @@ may match this page and still not compile:
 | --- | --- |
 | `self` outside a block | there is no receiver at the top level of a script |
 | an escape that is not one of the five | `"\q"` scans as a string and is then refused |
-| an operator, or `f(x)`, outside `@math` | the ladder and `call` above are written once and reached everywhere, because a region is lexical; the compiler is what knows where one begins |
+| an operator, or `f(x)`, outside `@expr` | the ladder and `call` above are written once and reached everywhere, because a region is lexical; the compiler is what knows where one begins |

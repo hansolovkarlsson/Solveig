@@ -73,8 +73,8 @@ exactly one has no two-argument form for them to break — so the rule became on
 sentence with no exceptions rather than a rule with two carve-outs.
 
 ```
-@math( 1 + 2 * 3 ):print.               ; 7
-@math( sqrt(9.0) + 1 ):print.           ; 4
+@expr( 1 + 2 * 3 ):print.               ; 7
+@expr( sqrt(9.0) + 1 ):print.           ; 4
 ```
 
 Changing a position I had written down the same morning is worth doing plainly

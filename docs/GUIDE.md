@@ -73,10 +73,10 @@ things without adding syntax.
 The one exception is written down where you can see it. A formula being copied
 out of a reference is the case a chain reads worst — precedence does not run
 left to right, so the outermost operation ends up in the middle of the line —
-and `@math(...)` is a region where the operators mean something:
+and `@expr(...)` is a region where the operators mean something:
 
 ```
-@math( #10 + #5 * #2 ):print.    ; #20
+@expr( #10 + #5 * #2 ):print.    ; #20
 #10:add(#5:mul(#2)):print.       ; #20
 ```
 

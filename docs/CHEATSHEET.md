@@ -48,8 +48,9 @@ point:show:print.               ; #3
 | `{ x \| body }` | a block; `{ x, y \| \| t \| body }` takes two and has a temp |
 | `; to end of line` | a comment |
 | `@include "file.sol".` | splices another file in, once, before compiling |
-| `@math( a^2 + b/2 )` | infix arithmetic — sugar for the sends it reads as |
-| `@math( sqrt(x) )` | inside a region, `f(x)` is `x:f` — one argument, any name |
+| `@expr( a^2 + b/2 )` | infix operators — sugar for the sends they read as |
+| `@expr( sqrt(x) )` | inside a region, `f(x)` is `x:f` — one argument, any name |
+| `@expr( a < b & ~c )` | `= <> < > <= >=`, then `~`, then `&` and `\|` |
 | `nil` `true` `false` `infinity` `nan` | the value globals |
 | `object` `integer` `float` `string` `symbol` `array` `dictionary` `boolean` `block` `time` `error` `system` | the class globals |
 

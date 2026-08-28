@@ -11,7 +11,7 @@
  *     { a:print }      ; braces make a block: code as a value, not an action
  *     [#1, #2]         ; brackets make an array -- sugar for array:of(#1, #2)
  *     ( | t | ... )    ; '|' declares this frame's temporaries
- *     @math(a^2 + b/2) ; infix arithmetic, lowering to the sends it reads as
+ *     @expr(a^2 + b/2) ; infix operators, lowering to the sends they read as
  *     @include "lib.sol"  ; '@' marks a directive: compile time, not run
  *                      ;     time, and not a message to anything
  *                      ; ';' begins a comment, running to end of line
@@ -45,16 +45,27 @@ typedef enum {
     TOK_COMMA,      /* argument separator           */
     TOK_DOT,        /* .   statement terminator     */
 
-    /* Arithmetic, and only inside `@math(...)`. The language has no operators
-       and the grammar says so; these are notation for the sends they lower to,
-       in a region that says where it begins and ends. Four of the five were
-       *unexpected character* until now, so no program that compiled before can
-       contain one -- `-` is the exception and is the reason for `infix` below. */
+    /* The operators, and only inside `@expr(...)`. The language has none of its
+       own and the grammar says so; these are notation for the sends they lower
+       to, in a region that says where it begins and ends. Every one of them but
+       two was *unexpected character* until now, so no program that compiled
+       before can contain one. The two are `-`, which is the reason for `infix`
+       below, and `|`, which the language already used for a block's parameters
+       and is `or` only where an operator may stand. */
     TOK_PLUS,       /* +   add                      */
     TOK_MINUS,      /* -   sub, or unary negation   */
     TOK_STAR,       /* *   mul                      */
     TOK_SLASH,      /* /   div                      */
     TOK_CARET,      /* ^   pow                      */
+    TOK_EQ,         /* =   equals                   */
+    TOK_NE,         /* <>  notEquals                */
+    TOK_LT,         /* <   lessThan                 */
+    TOK_GT,         /* >   greaterThan              */
+    TOK_LE,         /* <=  lessOrEqual              */
+    TOK_GE,         /* >=  greaterOrEqual           */
+    TOK_AMP,        /* &   and, short-circuiting    */
+    TOK_TILDE,      /* ~   not                      */
+    /* `or` is TOK_PIPE, which the language already had. */
 
     TOK_ERROR,
     TOK_EOF
@@ -83,7 +94,7 @@ typedef struct {
     int         token_line;
     const char *token_line_start;
 
-    /* Inside `@math(...)`, where `-` is the subtraction operator rather than
+    /* Inside `@expr(...)`, where `-` is the subtraction operator rather than
      * part of the number after it.
      *
      * It is the *only* character that has to be told which region it is in.
@@ -94,7 +105,7 @@ typedef struct {
      * nothing that is currently legal. Inside, `-3` reads as unary minus
      * applied to `3`, which the compiler folds back to the same constant.
      *
-     * The compiler owns this: it is set before the '(' of a `@math` region is
+     * The compiler owns this: it is set before the '(' of a `@expr` region is
      * consumed and cleared before the ')' is, so that the tokens either side of
      * the region are scanned by the rules of where they actually are. */
     bool        infix;

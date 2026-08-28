@@ -456,10 +456,10 @@ compile error:
         ^^^^^^^^
 ```
 
-**`@math` is the exception, and it is the only one.** It answers a value, so it
+**`@expr` is the exception, and it is the only one.** It answers a value, so it
 is an expression and may stand wherever one may — as a receiver, an argument, an
 array element, a statement of its own. `@include` cannot be any of those because
-a file compiled in has nowhere to go inside an expression; `@math` has nowhere
+a file compiled in has nowhere to go inside an expression; `@expr` has nowhere
 *else* to be. See [infix arithmetic](#infix-arithmetic) below.
 
 There are two directives, and an unknown one is refused rather than passed
@@ -1897,7 +1897,7 @@ Sends chain left to right:
 ```
 
 There are no operators and no precedence to remember; `a:add(b:mul(c))` is
-written out. The one exception is a `@math(...)` region, which is
+written out. The one exception is a `@expr(...)` region, which is
 [infix arithmetic](#infix-arithmetic) and lowers to these same sends.
 
 A bare identifier resolves to a local, then to an enclosing frame's local, then
@@ -1946,12 +1946,12 @@ would have run before `ifTrue` could decide anything. See
 
 ### Infix arithmetic
 
-`@math( ... )` writes arithmetic the way an equation is written. It is notation
-and nothing else: every operator lowers to the send it reads as, and the region
+`@expr( ... )` writes an expression the way it is written on paper. It is
+notation and nothing else: every operator lowers to the send it reads as, and the region
 compiles to the bytes the chain would have compiled to.
 
 ```
-@math( #1 + #2 * #3 ):print.        ; #7
+@expr( #1 + #2 * #3 ):print.        ; #7
 #1:add(#2:mul(#3)):print.           ; #7 -- the same bytecode, not just the same answer
 ```
 
@@ -1963,6 +1963,12 @@ compiles to the bytes the chain would have compiled to.
 | `a / b` | `a:div(b)` | groups to the left, tighter than `+` and `-` |
 | `a ^ b` | `a:pow(b)` | groups to the **right**, tighter than everything |
 | `-a` | `a:negated` | looser than `^`, so `-2^2` is `-(2^2)` |
+| `a = b` `a <> b` | `equals` `notEquals` | looser than `+` and `-` |
+| `a < b` `a > b` | `lessThan` `greaterThan` | and does **not** chain |
+| `a <= b` `a >= b` | `lessOrEqual` `greaterOrEqual` | |
+| `~a` | `a:not` | looser than a comparison, so `~a = b` is `~(a = b)` |
+| `a & b` | `a:and({ b })` | stops early; looser than `~` |
+| `a \| b` | `a:or({ b })` | stops early; the loosest of all |
 
 **What it is for** is a formula you are transcribing. A send chain reads strictly
 left to right and arithmetic precedence does not, so the outermost operation of
@@ -1972,7 +1978,7 @@ it against the page it came from:
 ```
 5.0:pow(2.0):add(3:mul(5.0:div(2.0):sin:add(9.0:sqrt))):print.
 ;                                                     ; 35.79541643231187
-@math( 5.0^2 + 3 * (sin(5.0/2) + sqrt(9.0)) ):print.  ; 35.79541643231187
+@expr( 5.0^2 + 3 * (sin(5.0/2) + sqrt(9.0)) ):print.  ; 35.79541643231187
 ```
 
 **`sin(x)` is `x:sin`.** Prefix application is a send to its argument, and that
@@ -1989,8 +1995,8 @@ appear in the grammar as word literals, and the language's *no reserved words at
 all* is a claim the test suite checks.
 
 ```
-@math( sqrt(9.0 + 7) ):print.   ; 4    -- the argument is a whole expression
-@math( sqrt(9.0):abs ):print.   ; 3    -- and a call chains like any receiver
+@expr( sqrt(9.0 + 7) ):print.   ; 4    -- the argument is a whole expression
+@expr( sqrt(9.0):abs ):print.   ; 3    -- and a call chains like any receiver
 ```
 
 **It is a send, not a block call.** A global holding a block is called with
@@ -1999,7 +2005,34 @@ about the form, and getting it wrong says so:
 
 ```
 f := { x | x:mul(x) }.
-@math( f(3) ).          ; solvm: float does not understand 'f'
+@expr( f(3) ).          ; solvm: float does not understand 'f'
+```
+
+**Comparison does not chain.** `a < b < c` would compare a boolean to `c`, so it
+is refused while compiling rather than left to fail while running:
+
+```
+[prog.sol:1:19] solas: comparisons do not chain; the left of this one is a boolean at '<'
+  x := @expr( 1 < 2 < 3 ).
+                    ^
+```
+
+**`&` and `|` stop early**, because `and` and `or` take a block so that they
+can — `a:and({ b })`. They are the only two operators whose right-hand side is
+not compiled where it stands: it goes where the block's body would have gone,
+behind the jump. The bytes are still the block form's bytes.
+
+**`~` is looser than a comparison**, so `~a = b` is `~(a = b)` — the reading the
+words have, and the one BASIC and Pascal make. C binds `!` tightest and would
+have read the other, which is the one place here a C habit misleads.
+
+**`|` is the one operator the language already used**, for a block's parameters
+and a group's temporaries. Those are taken before a body is, so a `|` reaching
+the operators is one standing where an operator may stand — a block inside a
+region still reads exactly as it does outside one:
+
+```
+@expr( [1.0, 2.0]:inject(0.0, { t, e | t + e }) ):print.    ; 3
 ```
 
 **A term is an ordinary expression** either way. Anything that is an expression
@@ -2011,7 +2044,7 @@ are still written as they always were — and compile to the same bytes as
 array element, a group and a block body all read as infix within one.
 
 ```
-@math( [1.0, -3.0, 2.5]:inject(0.0, { t, e | t + e }) ):print.   ; 0.5
+@expr( [1.0, -3.0, 2.5]:inject(0.0, { t, e | t + e }) ):print.   ; 0.5
 ```
 
 **`-` is the one character that means two things**, and which it means is
@@ -2033,7 +2066,7 @@ trigonometry are float-only.
 by name rather than leaving you to guess:
 
 ```
-[prog.sol:2:8] solas: arithmetic is written as sends here; '@math(...)' is where the operators are
+[prog.sol:2:8] solas: arithmetic is written as sends here; '@expr(...)' is where the operators are
   b := a + 2.
          ^
 ```

@@ -5,6 +5,67 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Comparison, logic, and the region is `@expr` now — `pending`, 2026-08-28
+
+**`@math` is `@expr`.** The region covers `= <> < > <= >=`, `~`, `&` and `|` as
+well, and once it did the old name was describing the first half of its job. The
+rename cost nothing because the feature was hours old and nothing outside this
+repository used it; in six months it would have cost a deprecation. The two
+entries below keep the old name, which is what those commits did.
+
+Every operator still lowers to the send it reads as, and the bytes are still
+compared rather than the answers:
+
+| | | |
+| --- | --- | --- |
+| `a = b` `a <> b` | `equals` `notEquals` | |
+| `a < b` `a > b` `a <= b` `a >= b` | `lessThan` `greaterThan` `lessOrEqual` `greaterOrEqual` | and they do **not** chain |
+| `~a` | `a:not` | looser than a comparison |
+| `a & b` | `a:and({ b })` | stops early |
+| `a \| b` | `a:or({ b })` | stops early |
+
+**Three calls, and all three are visible in the grammar rather than only in the
+compiler.**
+
+`~` is **looser than a comparison**, so `~a = b` is `~(a = b)` — the reading the
+words have, and BASIC's and Pascal's. C binds `!` tightest and would have read
+the other, which is the one place here a C habit misleads.
+
+**Comparison does not chain**, and in the grammar that is not a check but the
+shape of the rule: `comparison = sum [ op sum ]`, an optional tail rather than a
+repeated one. `a < b < c` would compare a boolean to `c`, so it is refused while
+compiling — *comparisons do not chain; the left of this one is a boolean*.
+
+**`|` was the one operator the language already used**, for a block's parameters
+and a group's temporaries. Those are matched before a body is, so a `|` reaching
+the operators is one standing where an operator may stand: `{ a | b }` is still
+a block taking `a`, inside a region exactly as outside, and `( a | b )` is a
+disjunction because a group's temporaries have to come first and did not. A rule
+with a position in it, taken because the position was already load-bearing and
+the alternative was an asymmetric `&` with no `|` beside it.
+
+**`&` and `|` are the only operators whose right-hand side is not compiled where
+it stands.** `and` and `or` take a block so that they can stop early, so the
+right side goes where the block's body would have gone — behind the jump, the
+way `inline_logical` already puts it. `a < b & b < a` and
+`a:lessThan(b):and({ b:lessThan(a) })` compile identically, short-circuiting
+included, and a test asserts the right-hand side does not run.
+
+**The grammar checker paid for itself twice.** It refused the first draft of the
+operator list — *in `<operator>`, `'<'` is written before `'<='` and would always
+win; the longer one has to come first* — an ordering bug the hand-written lexer
+never had, because it peeks. And `a := #1 & #2.` had been a fixture for *both*
+the compiler and the grammar refusing a file; `&` is an operator now, so the
+grammar admits it and only the compiler refuses. That is the third row of
+GRAMMAR.md's list of things refused by the compiler rather than by the page, and
+it has an assertion of its own rather than a quiet substitution.
+
+`examples/infix.sol` is `examples/operators.sol`, and `tests/test_math.c` is
+`tests/test_expr.c`. GRAMMAR.md and `solum.bnf` agree on 33 productions where
+they agreed on 29, the reserved-word count is still nought, and nothing in the
+VM changed: `.sob` is format version 14 and every one of these emits sends or
+jumps that already existed.
+
 ### `sin(x)` is `x:sin`, and limiting it was the expensive half — `a87b398`, 2026-08-28
 
 **The prefix form went into `@math` on the afternoon of the day the region
