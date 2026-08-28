@@ -11,6 +11,87 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-28 (later) — a hash nothing checked, and the number I nearly wrote down
+
+**The entry was a day old and the guard took an afternoon**, which is the ratio
+this repository keeps arguing for: 3.21 was written down yesterday morning
+rather than fixed on the spot, and everything the writing settled was still
+settled today.
+
+The origin is worth keeping straight. Every changelog entry names the commit it
+landed in, and a commit cannot carry its own hash — so the entry goes in saying
+`pending` and a follow-up commit substitutes the real one. That substitution
+failed once: the PRINT USING entry of 2026-08-26 carried a literal `%s` where
+its hash belonged, survived two days and every `make test` in between, and was
+found while cutting 0.35.0 **by a person reading the page**. Nothing was looking
+for it, because nothing had ever been asked to look.
+
+**The rule had to be fitted to the page, not the page to the rule.** My first
+version read the first backticked token after the em dash, which is what 242 of
+the 244 headings look like. The other two are not shaped like the rest: one
+names two commits joined by `and`, and one names a commit and no date. Both are
+right as they are. A rule that read only the first token would have been a rule
+those two entries had to be rewritten to satisfy, and rewriting the subject so
+the checker is happy is the checker measuring itself. So it reads *everything*
+backticked after the **last** em dash — last, because a title may contain an em
+dash of its own, and several do.
+
+That is the same lesson `expect.sol` already carries in a comment about the
+three comment conventions the examples turned out to use, learned again in a
+different corner. It seems to be the standing hazard of writing a checker: the
+first draft always encodes what you assumed the subject looked like.
+
+**The blind spot is stated rather than hidden.** A heading that loses its em
+dash and everything after it is indistinguishable from a section heading
+*inside* an entry — and five headings are genuinely that. There is no rule that
+separates them, so both counts are reported and the second one moving is visible
+to whoever reads a run. Reporting a gap is not as good as closing it, but it is
+much better than a silence.
+
+**The stronger version was declined, exactly as written down.** Asking git
+whether the hash names a real commit catches a well-formed hash that is simply
+wrong, which the substitution can produce. It would couple `expect.sol` to a
+repository — it reads files and runs programs today, and a tarball with no
+`.git` in it checks clean. The interesting part is that building the weaker one
+produced no new argument in either direction. The entry had done the thinking a
+day early and the implementation had nothing to add to it, which is the case for
+writing these down rather than deciding them at the keyboard.
+
+**And then the sin, committed while documenting the cure.** The run says how
+many entries name a commit, and I wrote that number — 244 — into the changelog
+entry, into COMPLETED.md, and into a comment in `expect.sol`. Three documents,
+by hand, stating a count that changes with the *next* changelog entry. That is
+precisely the failure 3.16 was about and precisely what this guard was being
+built to stop, and I did it in the same hour, in the prose describing it.
+
+Taking them out clarified something about the marker notation that had not come
+up before — and the clarification cost a failing run of its own, because writing
+the marker into a sentence *is* writing a marker, and the checker duly reported
+that nothing counts the empty name I had put in it. So: the count comment is for
+a number that moves *rarely* — how many programs there are, how many slots
+`integer` has — because a marked number that has moved is a failing build until
+somebody edits the sentence. A number that
+moves on every commit cannot be marked; it can only be reported by the run, or
+not stated. So the rule is not *mark every number in prose*. It is: a number
+that changes faster than the page does does not belong on the page.
+
+A journal entry is the exception, and this sentence is why: 244 today is a
+record of a day rather than a claim about now, which is the whole difference
+between this file and the other two.
+
+**Verified by breaking it four ways** — a literal `%s`, an eight-character hash,
+a heading with the hash cut out and the date left behind, and a `pending`. Three
+failures and one accepted-and-counted, then the page restored. `test_cli` got a
+floor beside the ones for claims, counts, positions, SolaBasic blocks and
+grammar productions, because a guard that quietly stops finding anything to
+check is a guard that has stopped.
+
+The first thing it watched was its own entry: the changelog said `pending` from
+the feature commit until the follow-up landed, and the run said so out loud each
+time in between. Which is the state a release cut had been finding by eye.
+
+---
+
 ## 2026-08-28 — five libraries, four boundaries, and one that should not have one
 
 **3.20 was meant to be an afternoon of applying a finished feature to five
