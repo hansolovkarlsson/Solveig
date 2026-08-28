@@ -11,6 +11,7 @@
 #include "solis/line.h"
 #include "solum/common.h"
 #include "solum/serialize.h"
+#include "solum/extend.h"
 #include "solum/vm.h"
 
 /* Each submission is its own chunk, handed to the collector rather than freed
@@ -205,8 +206,16 @@ static void usage(FILE *out)
         "               it left behind -- including after it fails\n"
         "  --trace      write the call tree to stderr as it runs\n"
         "  --trace=N    the same, following calls only N deep\n"
+        "  --extension=PATH\n"
+        "               load a C extension before anything runs, giving the\n"
+        "               prompt a capability the machine does not have. May be\n"
+        "               given more than once, and loaded in the order written\n"
         "  --version    show the version and the .sob format, and stop\n"
         "  --help, -h   show this and stop\n"
+        "\n"
+        "An extension is named here rather than from inside the program: it runs\n"
+        "as native code, past every limit, so granting that is the decision of\n"
+        "whoever starts the program. See docs/extensions.md.\n"
         "\n"
         "Everything after the file belongs to the program, so a script may take a\n"
         "-I or a --help of its own. Which is why these options have to come first.\n"
@@ -223,6 +232,11 @@ int main(int argc, char *argv[])
     bool interactive = false;
     bool trace = false;
     int  trace_depth = 0;
+
+    /* Named before the machine exists, loaded once it does. Sized by argc,
+       since every one of them came from an argument. */
+    const char **extensions = NULL;
+    int extension_count = 0;
 
     int at = 1;
     while (at < argc) {
@@ -241,6 +255,7 @@ int main(int argc, char *argv[])
             long depth = strtol(argv[at] + 8, &end, 10);
             if (*end != '\0' || depth < 1 || depth > 64) {
                 fprintf(stderr, "solis: --trace=N wants a depth from 1 to 64\n");
+                free(extensions);
                 sol_search_path_free(&search);
                 return 64;
             }
@@ -251,16 +266,40 @@ int main(int argc, char *argv[])
         }
         if (strcmp(argv[at], "--help") == 0 || strcmp(argv[at], "-h") == 0) {
             usage(stdout);
+            free(extensions);
             sol_search_path_free(&search);
             return 0;
         }
         if (strcmp(argv[at], "--version") == 0) {
             version();
+            free(extensions);
             sol_search_path_free(&search);
             return 0;
         }
+        if (strncmp(argv[at], "--extension=", 12) == 0) {
+            if (argv[at][12] == '\0') {
+                fprintf(stderr, "solis: --extension= wants a path\n");
+                free(extensions);
+                sol_search_path_free(&search);
+                return 64;
+            }
+            if (extensions == NULL) {
+                extensions = malloc(sizeof *extensions * (size_t)argc);
+                if (extensions == NULL) {
+                    fprintf(stderr, "solis: out of memory\n");
+                    sol_search_path_free(&search);
+                    return 70;
+                }
+            }
+            extensions[extension_count++] = argv[at] + 12;
+            at++;
+            continue;
+        }
         if (strcmp(argv[at], "-I") != 0) break;
-        if (at + 1 >= argc) { usage(stderr); sol_search_path_free(&search); return 64; }
+        if (at + 1 >= argc) {
+            usage(stderr); free(extensions);
+            sol_search_path_free(&search); return 64;
+        }
         sol_search_path_add(&search, argv[at + 1]);
         at += 2;
     }
@@ -273,6 +312,22 @@ int main(int argc, char *argv[])
     sol_vm_init(&vm);
     vm.trace = trace;
     vm.trace_depth = trace_depth;
+
+    /* After the built-ins and before anything runs, so that the prompt has the
+       extension's global from its first line as much as a file does. */
+    for (int i = 0; i < extension_count; i++) {
+        char *why = NULL;
+        if (!sol_extension_load(&vm, extensions[i], &why)) {
+            fprintf(stderr, "solis: cannot load extension %s\n",
+                    why != NULL ? why : extensions[i]);
+            free(why);
+            free(extensions);
+            sol_vm_free(&vm);
+            sol_search_path_free(&search);
+            return 65;
+        }
+    }
+    free(extensions);
 
     /* Outlives the prompt, for the reason in run_file's comment. */
     SolChunk chunk;

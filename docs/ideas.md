@@ -48,12 +48,12 @@ marked as a sketch.
 | Phoenix — a second language whose output Solum uses | **Defer** — the machinery is proven three times over; [the unexplored half](#programs-that-would-press-on-something) is whether a hosted language can publish a *library* rather than a program |
 | Programs that would press on something — Pascal, predicate logic, a parser toolkit | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would |
 | Networking, and sending code to a running machine | **Defer** — [no socket exists](#networking-and-sending-code-to-a-machine-that-is-already-running); the second needs 3.4 and 6.32 as well |
-| SQLite, SDL2 | **One project, not two** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); SDL2 fires that trigger and SQLite does not |
+| SQLite, SDL2, GTK | **One project, not three** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); GTK and SDL2 fire that trigger and SQLite does not, and wanting *both* toolkits is what settles the mechanism |
 | Fuzzy logic | **A library that would teach nothing** — arithmetic on floats, and the arithmetic all landed |
 | Namespaces for included files | **Defer** — the trigger is somebody else writing a library |
 | Splitting the reference into pages | **Defer** — the trigger is the message reference outgrowing the rest |
 | Restricting what a script may reach (6.32) | **Defer** — the trigger is a script somebody else wrote, or input from a stranger |
-| Extensions: a capability from a C binary | **Defer** — doable, and half of it works today; the trigger is wanting something Solum cannot express |
+| Extensions: a capability from a C binary | **Triggered by GTK on 2026-08-28, [probed rather than argued](#gtk-and-the-afternoon-that-was-supposed-to-be-a-page), and the first half built the same day** — `--extension=`, [extend.h](../solum/include/solum/extend.h), the ABI handshake and [the contract](extensions.md). `dlopen` beats embedding on a combinatorial argument; the callback into a main loop is free; the build blocker this page named was wrong and the real one was quieter. **Still open: the foreign cell, and the callback registry** — a block held by foreign code is swept and the failure is silent |
 | Regular expressions | **No** to a literal; **defer** the engine to an [extension](#regular-expressions); the cursor that repeats instead is [built](COMPLETED.md#55-five-programs-each-wrote-the-same-cursor--done) |
 | An early exit from a loop | **Defer** — the flag idiom recurs across six files; the trigger is a body that must skip its remainder ([3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing)) |
 | Intercepting a message not understood | **Defer** — Smalltalk's `doesNotUnderstand`; small to build, and nothing has wanted a proxy |
@@ -1160,6 +1160,11 @@ four binaries each link a private copy, with no `-fPIC` and nothing exported.
 all.** The fix is to build `libsol` shared and link everything against it, which
 is a real change to how the project ships.
 
+> **That paragraph was written from reading and is wrong in both halves.** It
+> was measured on 2026-08-28 and the truth is narrower, worse, and fixed by one
+> linker flag rather than by changing how the project ships —
+> [below](#gtk-and-the-afternoon-that-was-supposed-to-be-a-page).
+
 *Somewhere for a foreign resource to live, and something to close it.* This is
 the only real design decision, and it is the interesting one.
 
@@ -1230,6 +1235,284 @@ above, because a matcher can be written in Solum and this entry is for things
 that cannot — but it is close to the ideal *throwaway*, because a compiled
 pattern is the smallest thing that has to be given back and so the smallest test
 of the foreign cell. The reasoning is [below](#regular-expressions).
+
+#### GTK, and the afternoon that was supposed to be a page
+
+**Asked on 2026-08-28, and it fires the trigger.** A window cannot be written in
+Solum, which is the test this entry sets. But the question came with a
+constraint the entry above had not considered, and the constraint is the more
+interesting half:
+
+> *I don't want it permanent in the core of solvm but something that can be
+> linked in as an API — because I'd also like SDL2, or other graphics libraries,
+> and they can't all co-exist in the core. Embedding creates another problem: if
+> I later want a large-number-math library together with GTK, I have to create a
+> host for every combination.*
+
+**That argument is correct and it is the one that settles the mechanism.** The
+entry above treated embedding and loading as two routes to the same place. They
+are not, and the difference is arithmetic. A host is a *binary*, so *n*
+capabilities is 2<sup>n</sup> binaries and every new library re-multiplies the
+ones already there. A bundle is a *file*, so *n* capabilities is *n* files and
+the combination is chosen when the program runs rather than when it is compiled.
+Nothing else here needed a combinatorial argument, which is why it had not come
+up: this is the first want that is a *set* of wants.
+
+So: **`dlopen`, not embedding.** That much is decided by the question.
+
+**Then the entry's own instruction was followed** — *write one throwaway
+extension, build it, load it, and find out what the path actually wants; an
+afternoon of that would settle more than another page of this.* It was an
+afternoon, and it settled five things, three of which this page had guessed
+wrong. Measured on macOS/arm64 against 0.35.0, with GTK4 from Homebrew.
+
+**One. The loader is smaller than the paragraph describing it.** Seventy lines
+of host — `dlopen`, `dlsym("sol_extension_init")`, call it with the VM and an
+ABI number before `sol_vm_run` — and forty lines of bundle, which is a working
+`hash:fnv1a("hello")`. No VM change of any kind.
+
+**Two. The build blocker above is wrong, and the real one is quieter.** It is
+not true that nothing is exported: `dyld_info -exports bin/solvm` lists **100**
+`sol_*` symbols today. A Mach-O executable exports its global symbols without
+being asked, and adding `-Wl,-export_dynamic` to the probe host changed the
+count not at all — 118 either way.
+
+What actually fails is that **a symbol is exported only if the executable
+already referenced it**, because a linker takes objects out of an archive on
+demand and leaves the rest. `bin/solvm` exports `sol_object_new`,
+`sol_object_define_primitive`, `sol_vm_runtime_error` and `sol_vm_call_block`,
+because `builtins.c` uses all four. It does **not** export `sol_vm_set_global`
+or `sol_vm_global_text`, because those live in `embed.c` and no front end calls
+them. The first load of the probe died on exactly that:
+
+```
+dlopen: symbol not found in flat namespace '_sol_vm_set_global'
+```
+
+**Which is worse than a blocker, because a blocker is visible.** The surface an
+extension may link against is not a decision anybody took. It is a side effect
+of which objects the front end happened to pull out of the archive, it differs
+between `solvm` and `solis` and `solid`, and it would change silently on the day
+a front end stops calling something. An `extend.h` promising a surface that is
+determined this way is promising nothing.
+
+The fix is one flag rather than a change to how the project ships:
+`-Wl,-force_load,build/libsol.a` on macOS, `-Wl,--whole-archive` on Linux — and
+on Linux `-rdynamic` as well, because ELF executables really do export nothing
+by default and Mach-O's generosity is the outlier here. Exports went 118 to 139,
+and the probe ran. *The Linux half is reasoned, not measured: the probe ran on
+macOS only.*
+
+**Three. A foreign main loop calling back into the VM needs nothing built.**
+`gtk:every(#5, { ... })` handed a Solum block to `g_timeout_add`, and `gtk:run`
+called `g_main_loop_run`. Five ticks, the loop quit when the block answered
+`false`, `gtk:run` returned, and the statement after it ran. `sol_vm_call_block`
+re-enters from a GLib callback exactly as it does from `array:do`. An error
+raised inside a callback set `had_error` and formatted a trace that named the
+frame beneath it — `[tick.sol:9] in script`, which is the `gtk:run` line. This
+was the half expected to be hard. It is free.
+
+**Four. And that is what makes the collector the problem, in the worst form it
+could take.** A block held as GTK's `gpointer user_data` lives in a C struct.
+`mark_roots` walks the value stack, the frames, the eight temporaries and the
+class objects, and that struct is none of them. The same program with
+`gc_stress` on:
+
+```
+#1
+probe: callback failed: 'block' takes 1 argument, got 0
+```
+
+Tick one ran. The collection between ticks swept the block. Tick two called
+whatever now occupied that cell — the inner `{ x | x:asString }` from the same
+script — and **the failure is an arity complaint about a block the program never
+registered anywhere.** Not a crash, not a null, not anything that points at the
+collector. Four lines putting the block into an array hung on the extension's
+own global — somewhere `mark_roots` already walks — and the same binary under
+the same stress runs all five ticks and prints `"done"`.
+
+**This is the finding the afternoon was for.** The foreign cell designed above
+is for what an extension hands *out*, and the whole discussion of it is about
+release. It says nothing about what an extension holds *onto*, which is a
+separate requirement with a separate mechanism, and which a database connection
+would never have revealed — SQLite does not call you back. **A callback registry
+is not an optimisation of the foreign cell; it is the other half**, and its
+failure mode is silent misdispatch, which is the kind of bug that costs a week.
+
+**Five. Two bundles into one machine, which was the question underneath the
+question.** `./host hash.so gtk.so both.sol`: GTK's main loop calling a Solum
+block that calls the other bundle's primitive. Independent `dlopen`s, any
+number, any order, no arrangement between them. The combinatorial problem is not
+mitigated by this design — it does not arise in it.
+
+GTK4 also comes up from inside a loaded bundle: `gtk_init_check` succeeds and
+widgets build. The toolkit half was never in doubt and is now not in question.
+
+##### And a third platform, which changes one decision
+
+**Added on 2026-08-28, and parked the same day.** Solveig is to be ported to an
+operating system being written from scratch. That OS will have neither GTK nor
+SDL, and will probably have a Plan 9 `draw`-style interface instead.
+
+> **Parked, deliberately, within the hour.** The port waits until that system is
+> ready, and it will have `dlopen` by then — so designing for its absence now
+> would be paying for a problem that has been promised not to arrive. The
+> trigger for taking this back up is the port actually starting; the reason it
+> is written down anyway is that **two of its conclusions were kept, on grounds
+> that have nothing to do with the port**, and a later reader should be able to
+> tell which. They are marked below. Everything else here is future work with a
+> named trigger rather than a decision anybody is acting on.
+
+Three things follow, and the first one is not about graphics at all.
+
+**The risk is not the toolkit. It is that a from-scratch OS has no dynamic
+linker.** `dlopen` is not a small thing to be owed — it is image loading,
+relocation, and symbol resolution — and a young system runs static binaries for
+a long time before it has one. A mechanism that *is* `dlopen` cannot be ported;
+it can only be replaced.
+
+**So the contract and the loader must be two things, and `extend.h` must not
+mention `dlopen`.** One registration contract, two ways to reach it:
+
+```c
+/* extend.h -- no operating system anywhere in it */
+#define SOL_EXTENSION_ABI 1
+typedef int (*SolExtensionInit)(SolVM *vm, int abi);
+
+/* An extension linked into this binary. Needs nothing from the platform. */
+bool sol_extension_register(SolVM *vm, SolExtensionInit init,
+                            const char *name, char **error);
+```
+
+with `sol_extension_load(vm, path, &error)` — the `dlopen` half — alone in
+`solum/src/extend_dl.c`, **a file a port does not compile**. `--extension=NAME`
+resolves against the statically registered table first and the filesystem
+second, so a build with no dynamic linker answers the same flag, and the `.sol`
+file is unchanged either way.
+
+**Kept — and not for the port.** This is what makes the thing testable now: The plan's test for step 0 was going to have to build a shared
+object *during* the test run, which is fragile on any CI and impossible on some.
+A statically registered extension compiled into `tests/test_extension.c` needs no
+compiler at test time and runs everywhere. The port requirement and the test
+requirement want the same design, which is usually the sign of a right one.
+
+**Second: `draw` inverts control back, and the easier way.** GTK and SDL own the
+loop and call into the VM, which is what makes
+[the rooting problem](#gtk-and-the-afternoon-that-was-supposed-to-be-a-page)
+unavoidable there. Plan 9 does not: `/dev/mouse` and `/dev/kbd` are read, so the
+*program* owns its loop and an event is an ordinary blocking primitive —
+
+```
+{ running } whileTrue({
+    ev := draw:nextEvent.
+    ... }).
+```
+
+— with no block held by foreign code and nothing for the collector to lose. So
+**the callback registry must be a service an extension may use, not the shape an
+extension has to take.** Designed the other way, the `draw` backend would spend
+its life pretending to be GTK.
+
+**Kept, and also not for the port — SDL2 is already the second back end, on the
+same machine. The one that is expensive to reverse: do not let GTK's vocabulary
+become the language's.** If the first bundle publishes `window`, `widget` and
+`signal`, that wording reaches the examples and the tutorial, and every later
+backend has to emulate a toolkit it has nothing to do with. Each backend should
+publish **its own global in its own idiom** — `sdl`, `draw` — and any portable
+layer over them should be written **in Solum, on top**, where it costs a `.sol`
+file and can be rewritten per platform. A common C abstraction underneath would
+be the same mistake as one host per combination, made in a place that is harder
+to get back out of.
+
+**And the reframing the measurement produced.** The core is already ISO C:
+`vm.c`, `gc.c`, `object.c`, `bytecode.c`, `serialize.c`, `value.c`, `embed.c`
+and the whole of Solas include nothing but `<string.h>`, `<stdio.h>`,
+`<stdlib.h>` and their kin. **The entire platform surface is two files** —
+`builtins.c` (`fork`, `execvp`, `waitpid`, `pipe`, `dup2`, `dirent`, `stat`,
+`termios`) and `stdin.c` (`poll`, `termios`).
+
+Which means extensions are not only how a window gets *in*. They are how the
+POSIX half gets *out*. `system:run` has no `fork` to call on a system that has
+no `fork`, and today that is a compile error in the core rather than a capability
+somebody declined to load. **Nothing here proposes moving it** — but the contract
+must be good enough that it *could* move, which means an extension's primitive
+has to be indistinguishable from a built-in in registration, in speed, and in
+what it may rely on. It already is. The point is to keep it that way rather than
+to let extensions become a second class with a smaller surface.
+
+**What this does not change.** The verdict, the ordering, the foreign cell, and
+the argument against a message or an `@link` directive all stand. `draw` gives
+file descriptors and image ids exactly as SDL gives textures and the socket demo
+gives a bare `int`, so it is a third customer for `SolForeign` rather than a
+reason to reconsider it. What changes is one decision: **`dlopen` is a back end
+of the loader, not the loader**, and the static path is a first-class front door
+rather than a fallback.
+
+##### What is left, and which parts are decisions
+
+| | |
+| --- | --- |
+| **The link change** | `-force_load` / `--whole-archive` + `-rdynamic`. Not a decision — the alternative is a surface nobody chose. Costs nothing to anyone who never loads a bundle, and **applies only to a build that compiles the `dlopen` back end**: a static port needs none of it, because nothing is being resolved at run time. |
+| **Two doors, one contract** | `sol_extension_register` for an extension linked in, `sol_extension_load` for one `dlopen`ed, and `extend.h` mentioning only the first. The dynamic half lives alone in a file a port omits. Not a decision either, once the port is a goal — and it is what makes the whole thing testable without building a shared object mid-test. |
+| **`extend.h`** | The three the entry above already names, plus a fourth found here: **an extension must check `had_error` after every `sol_vm_call_block`.** A limit-stop sets it, and a main loop that does not look will keep calling into a machine that has been stopped. |
+| **The ABI handshake** | Still nothing to compare. Copy `.sob`'s policy exactly — equality, refuse, do not guess. |
+| **`SolForeign`** | As designed above, and GTK sharpens one detail: a GTK object is refcounted, so `release` is `g_object_unref` rather than `free`. The entry's best argument survives intact — teardown frees the heap regardless of reachability, so a release hook fires even for a program that was stopped, which an explicit `close` never would. |
+| **A callback registry** | New, from finding four. Nothing above anticipated it — and it is a **service an extension may use**, not the shape an extension takes, because a `draw` back end owns its own loop and needs none of it. |
+| **Where loading is invoked from** | **A decision, and the one to take deliberately.** |
+
+**On that last one, the recommendation is a flag on the binary** —
+`solvm --extension=gtk.so program.sol` — and not a message, and emphatically not
+a directive.
+
+A message (`system:extension("gtk")`) puts the decision to load native code
+inside the script, which is [6.32](#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
+run backwards: *a mechanism a script can invoke is not a mechanism a host can
+withhold*, and this is the largest possible thing to be unable to withhold. An
+`@link` directive is worse again, because it would put `dlopen` in **Solas** —
+the compiler would load native code to compile a file, and a `.sob` would carry
+the requirement into every machine that ever ran it. The flag keeps the choice
+where 6.32 established that this kind of choice belongs: with whoever starts the
+program, settable from C before the run, with argv as one front end over it
+rather than the thing itself.
+
+**And the front-page sentence survives, if extensions stay out of the default
+build.** *No dependencies beyond a C11 compiler and `make`* stops being true the
+moment CI needs GTK to build the tree. It does not stop being true if a bundle
+lives in its own directory, outside `make all`, outside the default matrix, and
+built by whoever wants it. The four binaries still build wherever `cc` does.
+That is the shape to insist on — and it means **GTK does not go in this
+repository**, which is a smaller sacrifice than it sounds, because the whole
+point of the mechanism is that it does not need to.
+
+**One thing to know before starting rather than after.** GTK must own the main
+thread on macOS. That costs nothing today, since a VM is one thread's and
+[3.11](ROADMAP.md#311-a-chunk-cannot-be-shared-between-threads) already says so
+— but it forecloses ever running a UI on a second thread, and it is easier to
+accept that now than to discover it.
+
+> **The first two steps were built on 2026-08-28**, within hours of this being
+> written: the link change, `extend.h`, `sol_extension_load` and
+> `sol_extension_register`, the ABI handshake, `--extension=` on `solvm` and
+> `solis`, [docs/extensions.md](extensions.md),
+> [tests/test_extension.c](../tests/test_extension.c) and a real bundle in
+> [tests/ext_probe.c](../tests/ext_probe.c). One thing written below turned out
+> to be wrong in the building and is corrected there: the test that checks the
+> link cannot live in the test binary, because a binary that calls
+> `sol_vm_set_global` itself finds it exported however the link was done. **The
+> two steps that remain are the ones with the real surface area.**
+
+**Recommended order, each step falsifiable before the next:** the link change
+with `extend.h` and the handshake and the flag, tested by the *hash* bundle and
+nothing graphical; then `SolForeign` with its finalizer; then the callback
+registry; then GTK, out of tree, as the first bundle that was worth it. SDL2
+after that changes nothing about any of the four, which is the whole claim.
+
+**The port is parked and the order is unchanged.** Two small things survive it
+on their own merits: step one keeps the `register`/`load` split, because its test
+wants a statically registered extension rather than a shared object built
+mid-test, and no back end gets to name itself the general case, because SDL2 is
+already the second one. Neither costs anything. Everything else about the third
+platform waits for the port to start.
 
 ### Regular expressions
 

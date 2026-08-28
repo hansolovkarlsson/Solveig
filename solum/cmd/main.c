@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include "solum/common.h"
+#include "solum/extend.h"
 #include "solum/serialize.h"
 #include "solum/vm.h"
 
@@ -36,8 +37,17 @@ static void usage(FILE *out)
         "  --steps=N    stop the program after N instructions\n"
         "  --memory=N   stop it if it holds more than N bytes; K, M and G\n"
         "               may be used, so --memory=64M\n"
+        "  --extension=PATH\n"
+        "               load a C extension before the program runs, giving it\n"
+        "               a capability the machine does not have. May be given\n"
+        "               more than once; they are loaded in the order written\n"
         "  --version    show the version and the .sob format, and stop\n"
         "  --help, -h   show this and stop\n"
+        "\n"
+        "An extension is named here rather than from inside the program, and\n"
+        "deliberately: it runs as native code, past --steps and --memory and\n"
+        "everything else, so whether to grant that is a decision belonging to\n"
+        "whoever starts the program. See docs/extensions.md.\n"
         "\n"
         "Everything after the .sob belongs to the program and is what\n"
         "system:arguments answers, so a program may take a --dump or a --help of\n"
@@ -82,6 +92,13 @@ int main(int argc, char *argv[])
     unsigned long long steps = 0;
     size_t memory = 0;
 
+    /* Extensions are named before the machine exists and loaded after it does,
+       so the paths are held here in between. Sized by argc rather than capped:
+       every one of them came from an argument, so argc bounds them, and a fixed
+       ceiling here would be a number invented for no reason. */
+    const char **extensions = NULL;
+    int extension_count = 0;
+
     /* Everything after the `.sob` belongs to the program, `system:arguments`
        answers it, and solvm does not look at any of it -- so a program may take
        a `--dump` of its own without this one intercepting it. Which is why the
@@ -90,10 +107,12 @@ int main(int argc, char *argv[])
     while (at < argc) {
         if (strcmp(argv[at], "--help") == 0 || strcmp(argv[at], "-h") == 0) {
             usage(stdout);
+            free(extensions);
             return 0;
         }
         if (strcmp(argv[at], "--version") == 0) {
             version();
+            free(extensions);
             return 0;
         }
         if (strcmp(argv[at], "--trace") == 0) {
@@ -106,6 +125,7 @@ int main(int argc, char *argv[])
             long depth = strtol(argv[at] + 8, &end, 10);
             if (*end != '\0' || depth < 1 || depth > 64) {
                 fprintf(stderr, "solvm: --trace=N wants a depth from 1 to 64\n");
+                free(extensions);
                 return 64;
             }
             trace = true;
@@ -118,6 +138,7 @@ int main(int argc, char *argv[])
             steps = strtoull(argv[at] + 8, &end, 10);
             if (*end != '\0' || end == argv[at] + 8 || steps == 0) {
                 fprintf(stderr, "solvm: --steps=N wants a count of 1 or more\n");
+                free(extensions);
                 return 64;
             }
             at++;
@@ -126,8 +147,26 @@ int main(int argc, char *argv[])
         if (strncmp(argv[at], "--memory=", 9) == 0) {
             if (!parse_size(argv[at] + 9, &memory)) {
                 fprintf(stderr, "solvm: --memory=N wants a size, such as 64M\n");
+                free(extensions);
                 return 64;
             }
+            at++;
+            continue;
+        }
+        if (strncmp(argv[at], "--extension=", 12) == 0) {
+            if (argv[at][12] == '\0') {
+                fprintf(stderr, "solvm: --extension= wants a path\n");
+                free(extensions);
+                return 64;
+            }
+            if (extensions == NULL) {
+                extensions = malloc(sizeof *extensions * (size_t)argc);
+                if (extensions == NULL) {
+                    fprintf(stderr, "solvm: out of memory\n");
+                    return 70;
+                }
+            }
+            extensions[extension_count++] = argv[at] + 12;
             at++;
             continue;
         }
@@ -137,6 +176,7 @@ int main(int argc, char *argv[])
     }
     if (at >= argc) {
         usage(stderr);
+        free(extensions);
         return 64;
     }
     const char *path = argv[at++];
@@ -145,6 +185,7 @@ int main(int argc, char *argv[])
     SolSerResult loaded = sol_chunk_load(&chunk, path);
     if (loaded != SOL_SER_OK) {
         fprintf(stderr, "solvm: cannot load '%s': %s\n", path, sol_ser_message(loaded));
+        free(extensions);
         return 65;
     }
 
@@ -157,6 +198,24 @@ int main(int argc, char *argv[])
     sol_vm_set_step_limit(&vm, steps);
     sol_vm_set_memory_limit(&vm, memory);
     sol_vm_set_arguments(&vm, argc - at, argv + at);
+
+    /* After the built-ins and before the run, which is the only window: an
+       extension hangs its global off the same root they used, and the program
+       has to find it already there. In the order written, so that one which
+       reads a name another bound can be ordered after it. */
+    for (int i = 0; i < extension_count; i++) {
+        char *why = NULL;
+        if (!sol_extension_load(&vm, extensions[i], &why)) {
+            fprintf(stderr, "solvm: cannot load extension %s\n",
+                    why != NULL ? why : extensions[i]);
+            free(why);
+            free(extensions);
+            sol_vm_free(&vm);
+            sol_chunk_free(&chunk);
+            return 65;
+        }
+    }
+    free(extensions);
 
     SolResult result = sol_vm_run(&vm, &chunk);
     int status = vm.exit_code;              /* read before the VM goes away */

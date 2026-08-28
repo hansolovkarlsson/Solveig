@@ -5,6 +5,12 @@ in the language it compiles, and the answer is yes — including the part where 
 compiles its own source and the result compiles its own source to the same
 bytes.*
 
+*A second, unrelated experiment has since been parked beside this one:
+[extension-probe/](extension-probe/), which is forty lines of C answering
+whether a capability can be loaded into the VM at run time. It shares this
+directory for the one property they have in common — proved, kept, and built by
+nothing.*
+
 **Nothing here is on the search path, and nothing here is in `make test`.** That
 is deliberate and is the reason it lives in this directory rather than in
 `lib/` and `programs/`. Keeping a second compiler in step with `solas` is a tax

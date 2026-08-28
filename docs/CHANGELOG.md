@@ -5,6 +5,90 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Extensions: a capability from a C binary, loaded at run time — `pending`, 2026-08-28
+
+**`solvm --extension=probe.so program.sob`.** A C file compiled on its own hangs
+a global off the machine's root, and its primitives are primitives — same slot,
+same dispatch, same speed, found by `respondsTo` and listed by `slots`. The
+contract is [solum/extend.h](../solum/include/solum/extend.h), the prose is
+[docs/extensions.md](extensions.md), and
+[tests/test_extension.c](../tests/test_extension.c) holds it. **No language
+change**; `.sob` files are format version 14, unchanged.
+
+**The build blocker everyone expected was not the one that existed.** The
+argument for this feature had said `libsol.a` is static, nothing is exported, and
+a loaded bundle *could not resolve `sol_*` back into `solvm` at all*. Measured,
+that is wrong twice over: `bin/solvm` already exported 100 `sol_*` symbols,
+because a Mach-O executable exports its globals without being asked, and
+`-Wl,-export_dynamic` changed the count not at all.
+
+What actually failed is quieter. **A linker takes objects out of an archive on
+demand**, so a symbol reaches the export table only if the executable already
+referenced one in its object. `sol_object_define_primitive` was there, because
+`builtins.c` uses it. `sol_vm_set_global` was not, because it lives in `embed.c`
+and no front end calls it — and every other function in that file was missing
+with it. The four binaries exported four different accidental sets: **100, 118,
+133 and 118**. Whole-archive linking makes all four 139, and 139 is a surface
+somebody chose rather than one the linker arrived at.
+
+| | |
+| --- | --- |
+| macOS | `-Wl,-force_load` |
+| ELF | `-Wl,--whole-archive`, and `-rdynamic` as well, because an executable there really does export nothing |
+
+**The test for that is not where it looks like it should be, and the reason is
+the interesting part.** `tests/test_extension.c` registers its extensions as
+ordinary functions and cannot check the link at all: it calls
+`sol_vm_set_global` on its own account, so it would find that symbol exported
+however the link had been done. The first draft asserted otherwise and passed
+against a deliberately broken build. The decisive case is in
+[test_cli.c](../tests/test_cli.c), which hands a real bundle
+([tests/ext_probe.c](../tests/ext_probe.c), built by the Makefile) to the real
+binary — and against the old link fails with
+`symbol not found in flat namespace '_sol_vm_set_global'`.
+
+**Loading is a decision taken by whoever starts the program.** There is no
+message that loads an extension and no `@link` directive. Native code runs past
+`--steps` and `--memory` — those bound the machine, and an extension is not the
+machine — so a capability a script could invoke is one a host could not withhold,
+which is [6.32](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
+at its worst. A directive would have been worse still: it would put `dlopen`
+inside Solas, and the `.sob` would carry the requirement into every machine that
+ever ran it.
+
+**The ABI is compared for equality and refused, never guessed** — `.sob`'s policy
+exactly, and for the same reason, since `SolValue` is passed by value and
+`SolObject`'s layout is exposed. A refusal binds nothing and leaves the machine
+as it was. `SOL_EXTENSION_ABI` is deliberately not `SOLUM_VERSION`: a release
+that changes no struct should not invalidate every bundle.
+
+**Two doors into one contract.** `sol_extension_load` is `dlopen` and
+`sol_extension_register` is for an extension linked in; `extend.h` mentions the
+dynamic linker nowhere. The split is what lets the suite test the contract
+without building a shared object mid-run, which is fragile under three CI
+configurations and impossible under a sanitiser.
+
+**Four rules an extension must keep**, three of them known and one found by
+building a throwaway GTK bundle first. Arity is not checked for you; failure is
+out of band; nothing may hold a heap pointer across an allocation unless it is
+reachable from a root — **and check `vm->had_error` after every call back into
+the language**, because a limit-stop sets it and a callback loop that does not
+look will keep calling into a machine that has been stopped.
+
+That third rule has a case with teeth, and it is why a throwaway came before the
+design. A block held as a toolkit's `user_data` is reachable from nothing the
+tracer walks, so a collection between one callback and the next sweeps it and
+the next call runs whatever now occupies the cell. The observed failure was
+`'block' takes 1 argument, got 0` — an arity complaint about a block the program
+never registered. **Not a crash, and nothing pointing at the collector.**
+
+**What is deliberately still missing**: there is no value type that can carry a
+file descriptor or a window handle, and no finalizer of any kind, so an
+extension hands such a thing back as an integer today. Nothing closes it when a
+program is stopped, it is not counted against `--memory`, and a program can
+invent one. That is the next piece of work, argued in
+[ideas.md](ideas.md#extensions-a-capability-from-a-binary-rather-than-from-the-vm).
+
 ### Comparison, logic, and the region is `@expr` now — `8ae150e`, 2026-08-28
 
 **`@math` is `@expr`.** The region covers `= <> < > <= >=`, `~`, `&` and `|` as

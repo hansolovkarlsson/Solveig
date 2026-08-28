@@ -38,6 +38,41 @@ endif
 # macOS, which is why it is not conditional.
 LDLIBS = -lm
 
+# What lets a loaded extension resolve `sol_*` back into the program that loaded
+# it -- see solum/include/solum/extend.h and docs/extensions.md.
+#
+# The obvious statement of the problem is wrong and was believed for a while: it
+# is not that nothing is exported. A Mach-O executable exports its global
+# symbols without being asked, and `-Wl,-export_dynamic` on macOS was measured
+# to change the count not at all, which is why it is absent below.
+#
+# What actually fails is that a linker takes objects out of an archive *on
+# demand*. A symbol reaches the executable's export table only if the executable
+# already referenced it -- so `sol_object_define_primitive` was there, because
+# builtins.c uses it, and `sol_vm_set_global` was not, because it lives in
+# embed.c and no front end here calls it. The four binaries exported four
+# different accidental sets: 100, 118, 133 and 118 `sol_*` symbols. Whole-archive
+# linking makes all four 139, which is a surface somebody chose.
+#
+# ELF is the other way round and needs both: `--whole-archive` to keep the
+# objects, and `-rdynamic` to put them in the dynamic symbol table, which an
+# executable otherwise does not get.
+#
+# `-ldl` for `dlopen`. Folded into libc in glibc 2.34 and a harmless empty stub
+# since, so it is right for both old and new.
+ifeq ($(shell uname -s),Darwin)
+WHOLE_LIB = -Wl,-force_load,$(LIB)
+EXPORT    =
+# A bundle leaves `sol_*` unresolved for the loading program to satisfy. ELF
+# does that by default; Mach-O has to be told, and refuses to link otherwise.
+BUNDLE_LD = -Wl,-undefined,dynamic_lookup
+else
+WHOLE_LIB = -Wl,--whole-archive $(LIB) -Wl,--no-whole-archive
+EXPORT    = -rdynamic
+LDLIBS   += -ldl
+BUNDLE_LD =
+endif
+
 # Empty by default; the sanitizers go here rather than into CFLAGS.
 #
 #   make clean && make test SANITIZE="-fsanitize=address,undefined"
@@ -81,7 +116,11 @@ LIB_SRCS  = $(wildcard solum/src/*.c) $(wildcard solas/src/*.c) \
 LIB_OBJS  = $(LIB_SRCS:%.c=$(BUILD)/%.o)
 LIB       = $(BUILD)/libsol.a
 
-TEST_SRCS = $(wildcard tests/*.c)
+# ext_probe.c is a shared object rather than a test binary -- it has no `main`
+# and is built by the rule further down. Filtered out here so that the wildcard
+# stays a wildcard: a new tests/*.c is still picked up without editing a list,
+# which is the property this line has always been for.
+TEST_SRCS = $(filter-out tests/ext_probe.c,$(wildcard tests/*.c))
 TEST_BINS = $(TEST_SRCS:tests/%.c=$(BUILD)/tests/%)
 
 BINARIES = $(BIN)/solas $(BIN)/solvm $(BIN)/solis $(BIN)/solid
@@ -108,23 +147,28 @@ embed: $(BIN)/solhost
 
 $(BIN)/solhost: embed/host.c $(LIB) | $(CONFIG)
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) $^ -o $@ $(LDLIBS)
+	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) $(EXPORT) \
+	    $< $(WHOLE_LIB) -o $@ $(LDLIBS)
 
 $(BIN)/solas: solas/cmd/main.c $(LIB) | $(CONFIG)
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) $^ -o $@ $(LDLIBS)
+	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) $(EXPORT) \
+	    $< $(WHOLE_LIB) -o $@ $(LDLIBS)
 
 $(BIN)/solvm: solum/cmd/main.c $(LIB) | $(CONFIG)
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) $^ -o $@ $(LDLIBS)
+	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) $(EXPORT) \
+	    $< $(WHOLE_LIB) -o $@ $(LDLIBS)
 
 $(BIN)/solis: solis/cmd/main.c $(LIB) | $(CONFIG)
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) $^ -o $@ $(LDLIBS)
+	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) $(EXPORT) \
+	    $< $(WHOLE_LIB) -o $@ $(LDLIBS)
 
 $(BIN)/solid: solid/cmd/main.c $(LIB) | $(CONFIG)
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) $^ -o $@ $(LDLIBS)
+	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) $(EXPORT) \
+	    $< $(WHOLE_LIB) -o $@ $(LDLIBS)
 
 $(LIB): $(LIB_OBJS)
 	@mkdir -p $(@D)
@@ -136,11 +180,27 @@ $(BUILD)/%.o: %.c $(CONFIG)
 
 $(BUILD)/tests/%: tests/%.c $(LIB) | $(CONFIG)
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) $^ -o $@ $(LDLIBS)
+	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) $(EXPORT) \
+	    $< $(WHOLE_LIB) -o $@ $(LDLIBS)
 
 # The one test that needs threads. Nothing else links anything, and the point of
 # keeping it to one target is that a build without pthreads still gets the rest.
 $(BUILD)/tests/test_threads: CFLAGS += -pthread
+
+# A real extension, built as a real shared object, because one question cannot
+# be answered without one: whether a loaded bundle can resolve `sol_*` back into
+# the binary that loaded it. See tests/ext_probe.c for why a test binary cannot
+# stand in for `bin/solvm` here.
+#
+# Built here rather than by the test at run time. A test that shells out to a
+# compiler is a test that fails differently on every machine, and this way a
+# platform that cannot build a bundle at all says so during the build.
+EXT_PROBE = $(BUILD)/tests/ext_probe.so
+
+$(EXT_PROBE): tests/ext_probe.c $(CONFIG)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) -fPIC -shared \
+	    $< -o $@ $(BUNDLE_LD)
 
 # An example that loads a compiled file needs one to be there. `system:load`
 # takes bytecode and never source, so `examples/load.sol` wants
@@ -158,7 +218,7 @@ examples/%.sob: examples/%.sol $(BIN)/solas
 
 # The binaries too: test_cli runs them as a shell would, a `main` not being
 # something the library holds.
-test: $(BINARIES) $(TEST_BINS) $(EXAMPLE_SOBS)
+test: $(BINARIES) $(TEST_BINS) $(EXAMPLE_SOBS) $(EXT_PROBE)
 	@for t in $(TEST_BINS); do echo "-- $$t"; $$t || exit 1; done
 	@echo "all tests passed"
 

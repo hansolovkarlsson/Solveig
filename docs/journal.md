@@ -11,6 +11,142 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-28 (last) — GTK: the page replaced by an afternoon, and then built
+
+**No code shipped, and the day's most useful hour was spent proving a document
+wrong.** The question was how to get GTK into the language without putting it in
+the VM — with SDL2 named as the reason it must not go in, since two window
+toolkits cannot both be in a core that has one of anything.
+
+### The argument that decided the mechanism, before any of the probing
+
+[ideas.md](ideas.md#extensions-a-capability-from-a-binary-rather-than-from-the-vm)
+had treated embedding and `dlopen` as two routes to the same place. The question
+came with the constraint that separates them, and it is arithmetic: a host is a
+**binary**, so *n* capabilities is 2<sup>n</sup> binaries and every new library
+re-multiplies the ones already there; a bundle is a **file**, so *n*
+capabilities is *n* files and the combination is picked when the program runs.
+GTK with big-number arithmetic, or without it, is one host or two — and the
+third library makes it eight.
+
+**Nothing here had needed a combinatorial argument before**, which is why the
+entry had not made it. This is the first want that is a *set* of wants, and it
+settles the mechanism on its own.
+
+### Then the entry's own closing instruction, which it had never been made to follow
+
+It ends by saying the first move is not any of the design above it: *write one
+throwaway extension, build it, load it, and find out what the path actually
+wants — an afternoon of that would settle more than another page of this.* So
+that is what happened, and it settled five things, three of which the page had
+guessed wrong. It is parked in
+[experiment/extension-probe/](../experiment/extension-probe/).
+
+**The build blocker the page named does not exist.** It said `libsol.a` is
+static, nothing is exported, and *a loaded bundle could not resolve `sol_*` back
+into `solvm` at all*. `bin/solvm` exports 100 `sol_*` symbols today, because
+Mach-O executables export their globals without being asked, and adding
+`-Wl,-export_dynamic` changed the count not at all.
+
+**The real one is quieter and is worse for being quiet.** A symbol is exported
+only if the executable already *referenced* it, because a linker takes objects
+out of an archive on demand. So `sol_object_define_primitive` is there and
+`sol_vm_set_global` is not — the second lives in `embed.c` and no front end
+calls it. The probe's first load died on exactly that. **The surface an
+extension could link against was not a decision anybody took**; it was a side
+effect of which objects a front end happened to pull out of the archive, it
+differs between the four binaries, and it would change on the day one of them
+stopped calling something. An `extend.h` promising a surface determined that way
+promises nothing. One flag fixes it — `-force_load`, or `--whole-archive` and
+`-rdynamic` on Linux — rather than the change to how the project ships that the
+page had proposed.
+
+**The half everyone would expect to be hard is free.** A GLib main loop calling
+back into the VM needed nothing built: `sol_vm_call_block` re-enters from a
+`g_timeout_add` callback exactly as it does from `array:do`, an error inside a
+callback formats a trace that names the `gtk:run` line beneath it, and when the
+loop quit the statement after `gtk:run` ran.
+
+### The finding that was worth the whole afternoon
+
+A block handed to GTK as `gpointer user_data` lives in a C struct. `mark_roots`
+walks the value stack, the frames, the eight temporaries and the class objects,
+and that struct is none of them. Under `gc_stress`:
+
+```
+#1
+probe: callback failed: 'block' takes 1 argument, got 0
+```
+
+The first tick ran, the collection between ticks swept the block, and the second
+tick called whatever now occupied the cell — the inner `{ x | x:asString }` from
+the same script. **The failure is an arity complaint about a block the program
+never registered anywhere.** Not a crash. Nothing pointing at the collector.
+Four lines putting the block somewhere `mark_roots` already walks, and the same
+binary under the same stress runs clean.
+
+**Which means the foreign cell that entry designs is half a mechanism.** All of
+its reasoning is about what an extension hands *out* and how that gets released.
+It says nothing about what an extension holds *onto* — and a database would
+never have shown this, because SQLite does not call you back. The two named
+customers were SQLite and SDL2, and the whole design had been done against the
+one that could not reveal the problem.
+
+### The lesson, which is the same one as the hour that produced no feature
+
+That earlier hour found that an entry goes stale not when it is wrong but when
+the world moves underneath it and it stays *technically* true. This is the other
+way an entry rots: **written from reading, never run, and confidently specific.**
+*Nothing exported* and *the fix is to build `libsol` shared* are both the kind of
+sentence that sounds measured. Neither was. The tell, in hindsight, is that the
+entry itself said what to do about it — write the throwaway first — and then the
+page kept being extended instead.
+
+**Nothing was built** at the point that was written. The recommendation is in the
+entry, in an order where each step can be falsified before the next: the link
+change with `extend.h` and an ABI handshake and a loader *flag* — not a message,
+and emphatically not an `@link` directive, which would put `dlopen` inside Solas
+— then the foreign cell, then the callback registry, then GTK, out of tree, as
+the first bundle worth having.
+
+### And then the first two steps were built, the same day
+
+`solvm --extension=probe.so program.sob` works. `extend.h`, `extend.c`, the ABI
+handshake, the flag on `solvm` and `solis`, [extensions.md](extensions.md), a
+contract test and a real bundle. The whole of it is a header, ninety lines of C
+and two argv cases; the language did not change and neither did `.sob`.
+
+**Three things are worth keeping from the building rather than from the design.**
+
+**The Makefile comment is longer than the Makefile change**, and rightly. The
+change is one flag. The reason is a paragraph nobody would reconstruct: not that
+nothing was exported — a Mach-O executable exports its globals unasked and
+`-export_dynamic` changes nothing — but that a linker takes objects out of an
+archive on demand, so the surface was whatever each front end happened to
+reference. 100, 118, 133 and 118 symbols across four binaries that link the same
+library.
+
+**The first version of the test was wrong in the same way the entry had been.**
+It asked, from inside the test binary, whether the promised symbols were
+reachable — and passed against a deliberately broken build, because the test
+binary calls `sol_vm_set_global` on its own account and so pulls in the very
+object whose absence was the bug. The check has to be made from *outside* the
+program that exports them, which means a real bundle handed to `bin/solvm`. That
+now lives in `test_cli.c`, and against the old link it fails with `symbol not
+found in flat namespace '_sol_vm_set_global'`.
+
+The lesson is narrower than *test the real thing*. It is that **a test written
+by the same reasoning that produced the bug inherits the bug**, and the tell is
+that it passed the first time it was run. The dlsym check was kept anyway, with
+its comment rewritten to say what it actually holds — a list of names, not a
+link — because a weak test that says so is worth more than no test and much more
+than one that overstates itself.
+
+**Two conventions were found by the suite rather than by reading.** `make test`
+refused a twenty-fourth document while `programs.md` still said twenty-three,
+and refused `PENDING` where the changelog wanted lowercase `pending`. Both took
+a minute, and both are the kind of thing a person would have shipped wrong.
+
 ## 2026-08-28 (night) — nine operators, three decisions, and a checker that was right twice
 
 **The region grew to `= <> < > <= >= ~ & |` and stopped being called `@math`.**

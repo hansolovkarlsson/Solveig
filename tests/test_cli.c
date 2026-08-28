@@ -1609,6 +1609,72 @@ static void test_the_editor_does_what_the_keys_say(void)
     printf("  the editor does what %d scripted sessions say it does\n", sessions);
 }
 
+
+/* ---- extensions --------------------------------------------------------- *
+ *
+ * The one thing test_extension.c cannot check. It registers its extensions as
+ * ordinary functions, which tests the contract and not the linker -- and a test
+ * binary that calls `sol_vm_set_global` itself would find it exported however
+ * the link had been done. `bin/solvm` does not call it, so this is the only
+ * place the question can be asked honestly: build a real bundle, hand it to the
+ * real binary, and see whether the dynamic linker can join them up.
+ *
+ * Before the Makefile's whole-archive link this failed with
+ *
+ *     symbol not found in flat namespace '_sol_vm_set_global'
+ *
+ * which is a regression that would otherwise be found by somebody else's
+ * extension a year later. See tests/ext_probe.c and WHOLE_LIB in the Makefile.
+ */
+static void test_an_extension_reaches_the_program(void)
+{
+    system("mkdir -p " DIR);
+    FILE *f = fopen(DIR "/ext.sol", "w");
+    assert(f != NULL);
+    fputs("probe:loaded:print.\n"
+          "probe:shout(\"quiet\"):print.\n"
+          "probe:three:size:print.\n", f);
+    fclose(f);
+    assert(system("bin/solas " DIR "/ext.sol -o " DIR "/ext.sob") == 0);
+
+    char out[4096];
+    assert(run("bin/solvm --extension=build/tests/ext_probe.so " DIR "/ext.sob"
+               " 2>/dev/null", out, sizeof out) == 0);
+    assert(strstr(out, "true") != NULL);      /* a value the extension bound   */
+    assert(strstr(out, "\"QUIET\"") != NULL);  /* sol_vm_send reached back in   */
+    assert(strstr(out, "#3") != NULL);        /* the array calls and the root  */
+
+    /* And without it the program is the one that fails, at the line that first
+       names the global rather than before anything ran. */
+    assert(run("bin/solvm " DIR "/ext.sob 2>&1 >/dev/null", out, sizeof out) == 70);
+    assert(strstr(out, "undefined name 'probe'") != NULL);
+    printf("  a loaded extension reaches the program, and is absent without it\n");
+}
+
+/* A bundle that will not load stops the run before it starts, with 65 -- the
+   same status as a `.sob` that cannot be read, because it is the same kind of
+   thing: something named on the command line was not usable. */
+static void test_a_bundle_that_will_not_load_is_refused(void)
+{
+    char out[4096];
+
+    assert(run("bin/solvm --extension=./no-such-bundle.so " DIR "/ext.sob"
+               " 2>&1 >/dev/null", out, sizeof out) == 65);
+    assert(strstr(out, "cannot load extension") != NULL);
+    assert(strstr(out, "no-such-bundle") != NULL);
+
+    /* A file that exists and is not a shared object at all. */
+    assert(run("bin/solvm --extension=" DIR "/ext.sob " DIR "/ext.sob"
+               " 2>&1 >/dev/null", out, sizeof out) == 65);
+    assert(strstr(out, "cannot load extension") != NULL);
+
+    /* And the flag wants something. */
+    assert(run("bin/solvm --extension= " DIR "/ext.sob 2>&1 >/dev/null",
+               out, sizeof out) == 64);
+    assert(strstr(out, "wants a path") != NULL);
+    printf("  a bundle that will not load is refused before the program runs\n");
+}
+
 int main(void)
 {
     test_help_is_not_an_error();
@@ -1636,6 +1702,8 @@ int main(void)
     test_pascal_compiles_a_program_that_runs();
     test_the_editor_draws_what_it_recorded();
     test_the_editor_does_what_the_keys_say();
+    test_an_extension_reaches_the_program();
+    test_a_bundle_that_will_not_load_is_refused();
     printf("test_cli: ok\n");
     return 0;
 }
