@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### `sin(x)` is `x:sin`, and limiting it was the expensive half — `pending`, 2026-08-28
+### `sin(x)` is `x:sin`, and limiting it was the expensive half — `a87b398`, 2026-08-28
 
 **The prefix form went into `@math` on the afternoon of the day the region
 landed**, and the argument that decided it is not the one anyone expected.
