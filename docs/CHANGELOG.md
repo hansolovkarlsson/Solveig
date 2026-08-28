@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### `exports`: an object decides what it shows — `pending`, 2026-08-27
+### `exports`: an object decides what it shows — `b32d990`, 2026-08-27
 
 **Three of the four jobs a module system does are now done.** An object with
 slots was already a namespace; what it had no way to say was which of those
