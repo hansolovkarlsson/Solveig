@@ -7,8 +7,9 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ### Extensions: a capability from a C binary, loaded at run time — `c0c4b30`, 2026-08-28
 
-**`solvm --extension=probe.so program.sob`.** A C file compiled on its own hangs
-a global off the machine's root, and its primitives are primitives — same slot,
+**`solvm --extension=probe.so program.sob`**, and the same flag on `solis` and
+`solid` — every front end that runs a program, and pointedly not Solas. A C file
+compiled on its own hangs a global off the machine's root, and its primitives are primitives — same slot,
 same dispatch, same speed, found by `respondsTo` and listed by `slots`. The
 contract is [solum/extend.h](../solum/include/solum/extend.h), the prose is
 [docs/extensions.md](extensions.md), and

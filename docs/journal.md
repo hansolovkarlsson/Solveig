@@ -112,7 +112,7 @@ the first bundle worth having.
 ### And then the first two steps were built, the same day
 
 `solvm --extension=probe.so program.sob` works. `extend.h`, `extend.c`, the ABI
-handshake, the flag on `solvm` and `solis`, [extensions.md](extensions.md), a
+handshake, the flag on `solvm`, `solis` and `solid`, [extensions.md](extensions.md), a
 contract test and a real bundle. The whole of it is a header, ninety lines of C
 and two argv cases; the language did not change and neither did `.sob`.
 

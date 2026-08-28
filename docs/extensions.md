@@ -61,6 +61,17 @@ probe:shout("quiet"):print.        ; -- "QUIET"
 the machine was started with the bundle, and a program run without it fails at
 the first line that names it — `undefined name 'probe'` — rather than at load.
 
+**`solvm`, `solis` and `solid` all take the flag**, repeatably, loading in the
+order written. Every front end that *runs* a program takes it, including the
+debugger — a program that needs an extension is exactly the kind worth stepping
+through, and stepping stops inside Solum and never inside an extension, which is
+C and has no lines to stop on.
+
+**`solas` does not, and never will.** A compiler that loaded native code in
+order to compile a file would put that requirement into the `.sob`, where every
+machine that ever ran it would inherit it — including one that only wanted to
+disassemble it.
+
 ## Who decides
 
 **Whoever starts the program**, and there is deliberately no message that loads

@@ -1492,8 +1492,9 @@ accept that now than to discover it.
 
 > **The first two steps were built on 2026-08-28**, within hours of this being
 > written: the link change, `extend.h`, `sol_extension_load` and
-> `sol_extension_register`, the ABI handshake, `--extension=` on `solvm` and
-> `solis`, [docs/extensions.md](extensions.md),
+> `sol_extension_register`, the ABI handshake, `--extension=` on `solvm`,
+> `solis` and `solid` — every front end that *runs* a program, and pointedly not
+> Solas — [docs/extensions.md](extensions.md),
 > [tests/test_extension.c](../tests/test_extension.c) and a real bundle in
 > [tests/ext_probe.c](../tests/ext_probe.c). One thing written below turned out
 > to be wrong in the building and is corrected there: the test that checks the

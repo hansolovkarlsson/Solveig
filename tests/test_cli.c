@@ -1675,6 +1675,43 @@ static void test_a_bundle_that_will_not_load_is_refused(void)
     printf("  a bundle that will not load is refused before the program runs\n");
 }
 
+/* The three front ends that run a program all take the flag, and answer the
+   same statuses for the same mistakes. `solas` deliberately does not: a
+   compiler that loaded native code in order to compile a file would put the
+   requirement into the `.sob`, where every machine that ever ran it would
+   inherit it. */
+static void test_every_front_end_that_runs_takes_the_flag(void)
+{
+    char out[4096];
+
+    /* solis, given the source rather than the bytecode, since it takes either. */
+    assert(run("bin/solis --extension=build/tests/ext_probe.so " DIR "/ext.sol"
+               " 2>/dev/null", out, sizeof out) == 0);
+    assert(strstr(out, "\"QUIET\"") != NULL);
+
+    /* solid stops at the first line, so it is told to leave again at once.
+       What is being checked is that it got that far: without the extension it
+       would fail on an undefined name instead. */
+    assert(run("printf 'quit\\n' | bin/solid"
+               " --extension=build/tests/ext_probe.so " DIR "/ext.sob"
+               " 2>/dev/null", out, sizeof out) == 0);
+    assert(strstr(out, "undefined name") == NULL);
+    assert(strstr(out, "probe:loaded") != NULL);   /* stopped on the first line */
+
+    /* And both refuse a missing one the way solvm does. */
+    assert(run("bin/solis --extension=./no-such-bundle.so " DIR "/ext.sol"
+               " 2>&1 >/dev/null", out, sizeof out) == 65);
+    assert(strstr(out, "cannot load extension") != NULL);
+    assert(run("bin/solid --extension=./no-such-bundle.so " DIR "/ext.sob"
+               " 2>&1 >/dev/null", out, sizeof out) == 65);
+    assert(strstr(out, "cannot load extension") != NULL);
+
+    /* solas has no such flag, and takes it for a file name. */
+    assert(run("bin/solas --extension=whatever 2>&1 >/dev/null",
+               out, sizeof out) != 0);
+    printf("  solvm, solis and solid all take --extension; solas does not\n");
+}
+
 int main(void)
 {
     test_help_is_not_an_error();
@@ -1704,6 +1741,7 @@ int main(void)
     test_the_editor_does_what_the_keys_say();
     test_an_extension_reaches_the_program();
     test_a_bundle_that_will_not_load_is_refused();
+    test_every_front_end_that_runs_takes_the_flag();
     printf("test_cli: ok\n");
     return 0;
 }
