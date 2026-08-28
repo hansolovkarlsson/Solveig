@@ -5,11 +5,27 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The debugger takes an extension too — `7b3e27b`, 2026-08-28
+
+**`solid --extension=` was missing from the entry below**, which left the one
+program most worth stepping through — a graphical one, going wrong — as the one
+that could not be. It failed on an undefined name at the first line instead.
+
+So the rule is not *the front ends*: it is **every front end that runs a
+program**. `solas` is excluded deliberately, and that is now written where
+somebody will read it rather than only reasoned about — a compiler that loaded
+native code in order to compile a file would put the requirement into the
+`.sob`, and every machine that ever ran it would inherit it, including one that
+only wanted to disassemble it.
+
+Stepping stops inside Solum and never inside an extension, which is C and has no
+lines to stop on. The usage text says so, because it is the first thing anybody
+will expect to work.
+
 ### Extensions: a capability from a C binary, loaded at run time — `c0c4b30`, 2026-08-28
 
-**`solvm --extension=probe.so program.sob`**, and the same flag on `solis` and
-`solid` — every front end that runs a program, and pointedly not Solas. A C file
-compiled on its own hangs a global off the machine's root, and its primitives are primitives — same slot,
+**`solvm --extension=probe.so program.sob`**, and the same flag on `solis`. A C
+file compiled on its own hangs a global off the machine's root, and its primitives are primitives — same slot,
 same dispatch, same speed, found by `respondsTo` and listed by `slots`. The
 contract is [solum/extend.h](../solum/include/solum/extend.h), the prose is
 [docs/extensions.md](extensions.md), and
