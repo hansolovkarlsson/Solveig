@@ -116,11 +116,19 @@ lexer:isNameByte := { c | self:isAlpha(c):or({ self:isDigit(c) }) }.
 ; now is -- quotes and backslashes included, undecoded. Which escapes are legal
 ; is the compiler's business, decided in one place when it decodes them, and the
 ; C scanner draws the line in exactly the same spot.
+;
+; `since` is what says that, and this file used to say it by hand --
+; `self:cur:src:copyFrom(self:start, self:cur:pos:dec)`, reaching past `scan`'s
+; API into the text a cursor is a position in. That is the same bypass
+; [3.20](../docs/COMPLETED.md#320-five-shipped-libraries-published-everything-they-had--done)
+; found in `lib/html.sol`, in the same message, and the export boundary drawn
+; on 2026-08-27 refused it here too. Nothing noticed, because this directory is
+; deliberately outside `make test`.
 
 lexer:token := { type | | t |
     t := dictionary:new.
     t:atPut("type", type).
-    t:atPut("text", self:cur:src:copyFrom(self:start, self:cur:pos:dec)).
+    t:atPut("text", self:cur:since(self:start)).
     t:atPut("line", self:tokenLine).
     t:atPut("column", self:start:sub(self:tokenLineStart):inc).
     t:atPut("message", nil).

@@ -36,16 +36,43 @@ bin/solas experiment/compile.sol -I lib -o "$work/gen1.sob"
 echo
 echo "1. every .sol file, both compilers, byte for byte"
 
+# The files this compiler cannot read, and the construct in each that it
+# predates. **A refusal is only expected when it is on this list**, which is the
+# difference between falling behind and being broken -- and it is the whole
+# reason the list is a list rather than a count. When `solas` grows a construct,
+# add the file and the construct here; when a file *not* named here is refused,
+# something has broken and this script says so.
+#
+# What that guard was worth: `lib/scan.sol` drew an export boundary on
+# 2026-08-27 and `lexer.sol` had been reaching past it, so every file here was
+# refused for a day and nothing said anything -- the count could not tell 61
+# working files from none.
+expected_refusal() {
+    case "$1" in
+    examples/numbers.sol)   echo '$FF hexadecimal literals' ;;
+    examples/files.sol)     echo '%1010 binary literals' ;;
+    examples/operators.sol) echo '@expr regions' ;;
+    *)                      echo '' ;;
+    esac
+}
+
 same=0
 differ=0
 failed=0
+behind=0
 
 for file in examples/*.sol lib/*.sol programs/*.sol experiment/*.sol; do
     name=$(basename "$file" .sol)
     if ! bin/solvm "$work/gen1.sob" "$file" -o "$work/mine.sob" -I lib >/dev/null 2>&1
     then
-        failed=$((failed + 1))
-        echo "   refused  $file"
+        why=$(expected_refusal "$file")
+        if [ -n "$why" ]; then
+            behind=$((behind + 1))
+            echo "   behind   $file -- $why"
+        else
+            failed=$((failed + 1))
+            echo "   REFUSED  $file"
+        fi
         continue
     fi
     bin/solas -I lib "$file" -o "$work/theirs.sob" >/dev/null 2>&1
@@ -57,7 +84,8 @@ for file in examples/*.sol lib/*.sol programs/*.sol experiment/*.sol; do
     fi
 done
 
-echo "   $same identical, $differ differing, $failed refused"
+echo "   $same identical, $differ differing, $behind behind the language,\
+ $failed refused unexpectedly"
 
 echo
 echo "2. the fixpoint"
@@ -91,8 +119,18 @@ fi
 
 echo
 if [ "$differ" -eq 0 ] && [ "$failed" -eq 0 ]; then
-    echo "the proof holds"
+    if [ "$behind" -eq 0 ]; then
+        echo "the proof holds"
+    else
+        # The claim is about the files this compiler can read: of those, the
+        # bytes are identical and the compiler is a fixpoint. Naming the ones it
+        # cannot is what keeps that an honest claim rather than a smaller one
+        # pretending to be the same size.
+        echo "the proof holds over what this compiler can read;\
+ $behind file(s) use constructs it predates"
+    fi
 else
-    echo "the proof does not hold here: $differ differing, $failed refused"
+    echo "the proof does not hold here: $differ differing,\
+ $failed refused unexpectedly"
     exit 1
 fi

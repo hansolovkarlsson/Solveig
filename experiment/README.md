@@ -16,6 +16,36 @@ what was true.
 these will not know about it, and the first sign will be a file here failing to
 compile. That is the trade being made on purpose, not a defect to report.
 
+### It has fallen behind three times, and been broken once
+
+**The three are the prediction working**, and `prove.sh` names them rather than
+counting them: `examples/numbers.sol` uses `$FF` hexadecimal literals,
+`examples/files.sol` uses `%1010` binary ones, and `examples/operators.sol` uses
+`@expr` regions. All three arrived in `solas` after this was parked, and none of
+them is a defect here.
+
+**The one is not.** On 2026-08-27 `lib/scan.sol` drew an export boundary, and
+[lexer.sol](lexer.sol) had been reaching past it — `self:cur:src:copyFrom(...)`,
+where `scan:since(start)` says the same thing. That is the same bypass
+[3.20](../docs/COMPLETED.md#320-five-shipped-libraries-published-everything-they-had--done)
+found in `lib/html.sol`, in the same message, and the boundary refused it here
+too. **Every file in the repository was refused for a day and nothing said
+anything**, because this directory is outside `make test` on purpose and because
+`prove.sh` reported a *count* of refusals — which cannot tell sixty-one working
+files from none.
+
+So the prediction above was right that this would fall behind and wrong about
+what would do it first. It was not a construct the language grew; it was a
+library deciding what it publishes. **A parked thing is exposed to its
+dependencies becoming stricter, which is a different risk from the one that was
+written down**, and the fix was one line.
+
+`prove.sh` now tells the two apart. A refused file that is on its list is
+*behind the language* and named with the construct; a refused file that is not
+is a failure. The proof holds over what this compiler can read, and the list is
+what keeps that an honest claim rather than a smaller one pretending to be the
+same size.
+
 ## What it is
 
 | | |
