@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### Extensions: a capability from a C binary, loaded at run time — `pending`, 2026-08-28
+### Extensions: a capability from a C binary, loaded at run time — `c0c4b30`, 2026-08-28
 
 **`solvm --extension=probe.so program.sob`.** A C file compiled on its own hangs
 a global off the machine's root, and its primitives are primitives — same slot,
