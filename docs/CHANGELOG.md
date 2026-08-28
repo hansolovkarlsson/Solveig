@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### The changelog's own hashes are checked now — `pending`, 2026-08-28
+### The changelog's own hashes are checked now — `d572543`, 2026-08-28
 
 [ROADMAP 3.21](COMPLETED.md#321-a-changelog-hash-is-written-by-hand-and-nothing-checks-it),
 closed the day after it was raised. Every entry above names the commit it landed
