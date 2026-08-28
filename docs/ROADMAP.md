@@ -830,6 +830,41 @@ wrap. All three are larger than the arithmetic above, and only a program
 assembling machine words from bytes wants any of them — which is one program,
 which has a workaround, and which now carries the comment explaining it.
 
+### 3.20 Five shipped libraries publish everything they have
+
+`exports` draws a boundary and **one library has drawn one**. `lib/json.sol`
+publishes `read`, `write`, `quote` and `keyText`, and its two dozen working
+parts — the cursor, the escape tables, the parser taken apart — are its own
+business now. The other five that bind an object have not: `html`, `pattern`,
+`scan`, `shell` and `sob` are each as reachable in every part as in the two or
+three anybody is meant to send.
+
+**Not a bug, and not urgent.** It is the state every object was in before
+yesterday, and it is what an object that declines to draw a line gets — see the
+opt-in rule in
+[the reference](REFERENCE.md#the-export-boundary). Nothing is broken by it and
+nothing outside this repository sends to any of them.
+
+**Why it is worth doing anyway.** Drawing the line on `json` took ten minutes
+and immediately found something no document said: `quote` and `keyText` had to
+be exported alongside `read` and `write`, because `string:asJson` is a method on
+*string* that calls back into `json`, so its sends arrive from outside. They
+were public in fact long before they were public on purpose. Five more libraries
+is five more chances at the same finding — and the exercise writes down what
+each library's API actually is, which no document currently states.
+
+**And it gets harder later rather than easier.** Narrowing a surface nobody
+depends on is free; narrowing one somebody has reached into is a breaking
+change. That is [ideas.md](ideas.md#namespaces-for-included-files)'s own
+argument for why the trigger is somebody else writing a library, read from the
+other end: the cheapest moment to say what is private is before anyone has
+relied on it being public.
+
+Three libraries are not on this list and cannot be — `control`, `math` and
+`text` bind no global object at all. They add methods to built-in classes, so
+there is nothing to draw a boundary around, and `integer:timesCollect` belongs
+to `integer` rather than to whoever included the file.
+
 ### 3.13 A loop is left by its condition, or by failing
 
 A `whileTrue` body cannot end its own loop. Setting a flag ends it at the *next*
@@ -956,9 +991,12 @@ keeping it did. The number stays 6.32 and is not reused.
 
 ## How this list emptied, and how it filled and emptied again
 
-**Nothing is on it.** Sections 2, 3 and 6 held the
-whole of what was left to decide or build, and 2 and 6 are done — what remains in 3 are
-restrictions kept on purpose, each documented where a program would meet it. Two
+**One thing is on it**, and it is work rather than a decision:
+[3.20](#320-five-shipped-libraries-publish-everything-they-have), five libraries
+that have not yet said what they publish. Everything else in sections 2, 3 and 6
+held the whole of what was left to decide or build, and 2 and 6 are done — what
+remains in 3 are restrictions kept on purpose, each documented where a program
+would meet it. Two
 of them were only kept *until a program wanted otherwise*, and on 2026-08-25 one
 program wanted both:
 [3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done) and

@@ -2586,8 +2586,20 @@ child's own method reaches what it inherited while an unrelated object does not.
 and `respondsTo` answers false for one — that last because `respondsTo` must
 agree with what sending would actually do.
 
-**An object that never calls `exports` is unchanged in every respect.** That is
-the compatibility promise, and it is what lets
+**It is opt-in, and an object that never calls `exports` is unchanged in every
+respect.** Every slot stays readable, writable, addable and listed by `slots`,
+and `exports` answers **nil**. Not drawing a line is not a weaker line; it is
+the absence of one, exactly as before this message existed.
+
+So a boundary is something a library *chooses*, not a default it opts out of.
+Of the nine shipped libraries, one has chosen it: `json`. Five more bind an
+object and have not — `html`, `pattern`, `scan`, `shell` and `sob` publish
+everything they have, which is
+[3.20](ROADMAP.md#320-five-shipped-libraries-publish-everything-they-have). The
+remaining three bind no object at all: `control`, `math` and `text` add methods
+to built-in classes, so there is nothing for a boundary to go around.
+
+That is also the compatibility promise, and it is what lets
 [examples/include.sol](../examples/include.sol) go on extending an included
 object from outside on purpose.
 
