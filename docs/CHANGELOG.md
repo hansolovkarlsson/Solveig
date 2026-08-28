@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### A loaded name may be worked out while running — `pending`, 2026-08-27
+### A loaded name may be worked out while running — `08d5d1a`, 2026-08-27
 
 **[examples/plugins.sol](../examples/plugins.sol) runs code it never names.** It
 looks in a directory, finds the compiled modules there, loads each and uses it —
