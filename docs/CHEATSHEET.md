@@ -49,6 +49,7 @@ point:show:print.               ; #3
 | `; to end of line` | a comment |
 | `@include "file.sol".` | splices another file in, once, before compiling |
 | `@math( a^2 + b/2 )` | infix arithmetic — sugar for the sends it reads as |
+| `@math( sqrt(x) )` | inside a region, `f(x)` is `x:f` — one argument, any name |
 | `nil` `true` `false` `infinity` `nan` | the value globals |
 | `object` `integer` `float` `string` `symbol` `array` `dictionary` `boolean` `block` `time` `error` `system` | the class globals |
 

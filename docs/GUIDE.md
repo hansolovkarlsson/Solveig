@@ -84,6 +84,10 @@ Those compile to the same bytes. It is a second spelling and never a second
 meaning, and the [reference](REFERENCE.md#infix-arithmetic) has the table of
 which operator is which send.
 
+Inside a region `sqrt(x)` works too, and it is `x:sqrt` — prefix application is a
+send to its argument, one argument exactly. Being a *send* is the one thing to
+know about it: a global holding a block is still called with `value`.
+
 > **Run:** [examples/hello.sol](../examples/hello.sol)
 
 ## 2. Names and binding

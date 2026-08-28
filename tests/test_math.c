@@ -28,6 +28,8 @@ static SolResult run(SolVM *vm, SolChunk *chunk, const char *source)
     return sol_vm_run(vm, chunk);
 }
 
+static void expect_compile_error(const char *source);
+
 static SolValue global(SolVM *vm, const char *name)
 {
     SolSlot *slot = sol_object_lookup(vm->root, name);
@@ -98,6 +100,16 @@ static void test_the_bytes_are_the_chain_s_bytes(void)
         { "@math( -a^b )",         "a:pow(b):negated"               },
         { "@math( a + 3 * ((a/2):sin + b:sqrt) )",
           "a:add(3:mul(a:div(2):sin:add(b:sqrt)))"                  },
+
+        /* Prefix application is a send to its argument, so it is the same
+           bytes by construction and not merely by arithmetic. */
+        { "@math( sqrt(b) )",      "b:sqrt"                         },
+        { "@math( sin(a/2) )",     "a:div(2):sin"                   },
+        { "@math( sqrt(b):abs )",  "b:sqrt:abs"                     },
+        { "@math( -sqrt(b) )",     "b:sqrt:negated"                 },
+        { "@math( sqrt(b)^2 )",    "b:sqrt:pow(2)"                  },
+        { "@math( a^2 + 3 * (sin(a/2) + sqrt(b)) )",
+          "a:pow(2):add(3:mul(a:div(2):sin:add(b:sqrt)))"           },
 
         /* The fold. `-3` inside a region is the constant `-3`, not `3` with a
            `negated` after it, so the region's minus is value-preserving to the
@@ -174,6 +186,52 @@ static void test_the_region_reaches_into_nested_constructs(void)
     expect_float("@math( [1.0, -3.0, 2.5]:inject(0.0, { t, e | t + e }) )", 0.5);
     expect_float("@math( [1.0, -3.0]:at(#2) * -2 )", 6.0);
     expect_float("@math( { p, q | p * q }:value(-3, 4) + 1 )", -11.0);
+}
+
+/* `sin(x)` is `x:sin`, and one argument exactly.
+ *
+ * The rule has no exceptions because it has no two-argument form to have them
+ * in: `float:atan2` is class-side, so `atan2(y, x)` could never have meant
+ * `y:atan2(x)`, and `pow` already has `^`. Both are still written out, as terms
+ * like any other.
+ *
+ * And the name is an ordinary identifier rather than a blessed list, which is
+ * what keeps `sin` and `cos` usable as names. The grammar's reserved-word count
+ * stays at nought, which `test_cli` asserts by reading check_syntax's report. */
+static void test_prefix_application(void)
+{
+    expect_float("@math( sqrt(b) )", 3.0);
+    expect_float("@math( sqrt(b) + 1 )", 4.0);
+    expect_float("@math( sqrt(b):abs )", 3.0);
+    expect_float("@math( sqrt(b)^2 )", 9.0);
+    expect_float("@math( -sqrt(b) )", -3.0);
+    expect_int("@math( floor(a/2) )", 2);
+
+    /* The argument is a whole expression, so it needs no parentheses of its
+       own -- which is the difference between `sin(a/2)` and `(a/2):sin` and the
+       reason for the form. */
+    expect_float("@math( sqrt(b + 7) )", 4.0);
+
+    /* It reaches any unary message, not a list of blessed ones. */
+    expect_int("@math( asInteger(\"12\") + #1 )", 13);
+
+    /* Two arguments is refused rather than guessed at, and `float:atan2` is
+       written out as the class-side send it is. */
+    expect_compile_error("x := @math( atan2(1.0, 2.0) ).");
+    expect_compile_error("x := @math( sqrt() ).");
+    expect_float("@math( float:atan2(0.0, 1.0) + 1 )", 1.0);
+
+    /* The one thing to know: it is a send and not a block call, and it says so
+       rather than quietly doing the other thing. */
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    assert(run(&vm, &chunk, "f := { x | x:mul(x) }. y := @math( f(3) ).")
+           == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+
+    /* And outside a region there is no prefix form either. */
+    expect_compile_error("b := 9.0. x := sqrt(b).");
 }
 
 /* Two numeric types and no coercion between them, which the notation neither
@@ -289,6 +347,7 @@ int main(void)
     test_precedence();
     test_a_term_is_an_ordinary_expression();
     test_the_region_reaches_into_nested_constructs();
+    test_prefix_application();
     test_the_strictness_shows_through();
     test_the_mode_ends_with_the_region();
     test_refusals();

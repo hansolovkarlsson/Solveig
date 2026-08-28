@@ -44,7 +44,7 @@ marked as a sketch.
 | Go-style concurrency | **No, for now** — it changes the whole VM |
 | Subclass `integer`, a `byte` subclass | **Not possible** — see below |
 | More `@` directives: `@define`, `@ifdef`, `@once` | **No** — each one's job is already done by something that is not a directive |
-| Infix arithmetic, `@math(a^2 + b/2)` | **Built**, on 2026-08-28 — [scoped in the morning and in by the afternoon](#infix-arithmetic-as-a-compile-time-notation); the four findings held and the grammar found a fifth |
+| Infix arithmetic, `@math(a^2 + b/2)` | **Built**, on 2026-08-28 — [scoped in the morning and in by the afternoon](#infix-arithmetic-as-a-compile-time-notation); the four findings held, the grammar found a fifth, and `sin(x)` followed once *limiting* it turned out to be the expensive half |
 | Phoenix — a second language whose output Solum uses | **Defer** — the machinery is proven three times over; [the unexplored half](#programs-that-would-press-on-something) is whether a hosted language can publish a *library* rather than a program |
 | Programs that would press on something — Pascal, predicate logic, a parser toolkit | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would |
 | Networking, and sending code to a running machine | **Defer** — [no socket exists](#networking-and-sending-code-to-a-machine-that-is-already-running); the second needs 3.4 and 6.32 as well |
@@ -2234,9 +2234,46 @@ by the compiler rather than by the grammar*. And `float` lost the leading `-` it
 used to claim, since a lexical grammar has no regions to be inside of and `-3`
 read as the operator applied to `3` is the same value either way.
 
-**Prefix calls stayed out**, as recommended, and nothing since has wanted them.
-The trigger for that half is unchanged: a page of transcribed formulas that
-still reads badly with `(a/2):sin` in it.
+#### And the prefix form went in the same day, on a weaker trigger than the one written down
+
+**The trigger written above was a page of transcribed formulas. What fired was a
+report from use** — the notation worked, and the question came back: should the
+functions have the prefix form too? That is the same weight of evidence that
+produced `@math` itself, and it is recorded as weaker than this document usually
+acts on rather than dressed up as something else.
+
+**The proposal was to limit it to `float`, and the limit turned out to be the
+expensive half.** A blessed list of names has to appear in
+[solum.bnf](../programs/check_syntax/solum.bnf) as word literals, and
+`check_syntax` reserves every word-shaped literal a syntactic rule mentions —
+so it answers `reserved against <identifier>: cos sin`, and the language's
+*there are no reserved words at all* stops being true. That claim is checked:
+`test_cli` asserts the report has no such line. Scoping to the mathematical
+functions would have cost a checked property of the language; the general rule
+costs nothing, because `identifier` is not a word.
+
+**And the general rule has no exceptions once it is unary.** The objection
+recorded above was that `f(x)` to `x:f` breaks on `float:atan2`, which is
+class-side, and on `pow`, which takes an argument. Both are *two-argument*. A
+prefix form that takes exactly one has no two-argument form for them to break,
+so `float:atan2(y, x)` is written out as the class-side send it is and `^`
+covers `pow`. The objection dissolved rather than being worked around, which is
+worth separating from the ones that were simply overruled.
+
+So `sin(x)` is `x:sin` — **prefix application is a send to its argument** — for
+any name, one argument, inside a region. The line this entry opened with is now
+the line it can be written as:
+
+```text
+result := @math( a^2 + 3 * (sin(a/2) + sqrt(b)) ).
+```
+
+**What it costs is one thing a reader has to be told**, and it is the reason to
+hesitate: prefix looks like calling a function and is not calling a *block*. A
+global holding one is called with `value`, so `f(3)` is `3:f`, and somebody will
+write `f := { x | x:mul(x) }. @math( f(3) )` and get *float does not understand
+'f'*. It fails loudly rather than doing the other thing quietly, which is the
+trade taken and not a defect that went unnoticed.
 
 ### Programs that would press on something
 

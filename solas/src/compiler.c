@@ -74,6 +74,7 @@ static void expression(Compiler *c);
 static void send_expression(Compiler *c);
 static void math_sum(Compiler *c);
 static void math_unary(Compiler *c);
+static void send_chain(Compiler *c);
 static void math_directive(Compiler *c);
 static void statement(Compiler *c);
 static void note_global_binding(Compiler *c, const SolToken *name);
@@ -554,14 +555,12 @@ static uint8_t arguments(Compiler *c)
  * stack beneath it, so rewinding the chunk to where that send started undoes it
  * precisely -- no extra lookahead, and still no AST.
  */
-static void send_expression(Compiler *c)
+/* The sends after a receiver, which is already on the stack. Split out because
+   `@math`'s prefix form -- `sin(x)`, which is `x:sin` -- puts its receiver there
+   by a different route and then chains like anything else. */
+static void send_chain(Compiler *c)
 {
     SolParser *p = &c->parser;
-
-    /* `whileTrue` and `doUntil` have to be recognised before their receiver is
-       compiled, since for both the receiver is a block whose code is spliced in
-       rather than made. Everything else starts here. */
-    if (!inline_while(c) && !inline_do_until(c)) primary(c);
 
     int     target_at = -1;      /* where the last zero-argument send started */
     int target_name = 0;
@@ -610,6 +609,15 @@ static void send_expression(Compiler *c)
             break;
         }
     }
+}
+
+static void send_expression(Compiler *c)
+{
+    /* `whileTrue` and `doUntil` have to be recognised before their receiver is
+       compiled, since for both the receiver is a block whose code is spliced in
+       rather than made. Everything else starts here. */
+    if (!inline_while(c) && !inline_do_until(c)) primary(c);
+    send_chain(c);
 }
 
 /* ---- @math: infix arithmetic ----------------------------------------- *
@@ -673,12 +681,69 @@ static bool negated_literal(Compiler *c)
     return true;
 }
 
+/* `sin(x)` is `x:sin`. **Prefix application is a send to its argument**, and
+ * that is the whole rule -- one sentence, no exceptions, and nothing reserved:
+ * the name is an ordinary identifier, so `sin` and `cos` stay names any object
+ * may use for a slot and the grammar has no word literal to reserve.
+ *
+ * **Exactly one argument**, which is what keeps the rule free of exceptions.
+ * The two-argument cases are the ones that would have broken it: `float:atan2`
+ * is class-side, so `atan2(y, x)` could never have meant `y:atan2(x)`, and
+ * `pow` takes an argument and already has `^`. Neither can enter a rule that
+ * has no two-argument form to enter.
+ *
+ * **It is a send and not a block call**, which is the one thing to know: a
+ * global holding a block is called with `value`, so `f(3)` is `3:f` and not
+ * `f:value(3)`. That fails loudly -- *float does not understand 'f'* -- rather
+ * than quietly doing the other thing.
+ */
+static void math_call(Compiler *c)
+{
+    SolParser *p = &c->parser;
+
+    sol_parser_advance(p);                      /* the name */
+    SolToken selector = p->previous;
+    sol_parser_advance(p);                      /* the '(' */
+
+    /* The argument is the receiver, so it goes on the stack first and the send
+       that follows takes none. Which is why this needs no new instruction: it
+       is the byte sequence `x:sin` already produces. */
+    expression(c);
+
+    if (p->current.type == TOK_COMMA) {
+        sol_parser_error(p, &p->current,
+                         "the prefix form takes one argument; write 'a:name(b)' "
+                         "for a send that takes more");
+        return;
+    }
+    sol_parser_consume(p, TOK_RPAREN, "expected ')' after the argument");
+
+    emit_indexed(c, OP_SEND, name_operand(c, &selector));
+    emit(c, 0);
+
+    send_chain(c);                              /* `sin(x):abs` chains as usual */
+}
+
+/* A term: the prefix form when a name is followed directly by '(', and an
+   ordinary expression otherwise. The two cannot be confused, because an
+   argument list only ever follows a `:selector`. */
+static void math_term(Compiler *c)
+{
+    SolParser *p = &c->parser;
+
+    if (p->current.type == TOK_IDENT) {
+        SolLexer ahead = p->lexer;
+        if (sol_lexer_next(&ahead).type == TOK_LPAREN) { math_call(c); return; }
+    }
+    send_expression(c);
+}
+
 /* Right-associative, and tighter than the unary minus above it, so `-2^2` is
    `-(2^2)` and `2^3^2` is `2^(3^2)`. SolaBasic's ladder made both of those
    calls first and agreeing with it costs nothing. */
 static void math_power(Compiler *c)
 {
-    send_expression(c);
+    math_term(c);
     if (sol_parser_match(&c->parser, TOK_CARET)) {
         math_unary(c);                       /* so `2^-3` reads as it looks */
         math_send(c, "pow", 3, 1);

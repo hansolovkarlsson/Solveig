@@ -102,7 +102,9 @@ expression = identifier ":=" expression
 sum        = product { ( "+" | "-" ) product } .
 product    = unary { ( "*" | "/" ) unary } .
 unary      = "-" unary | power .
-power      = primary { send } [ "^" unary ] .
+power      = ( call | primary ) { send } [ "^" unary ] .
+
+call       = identifier "(" expression ")" .
 
 send       = ":" identifier [ arguments | ":=" expression ] .
 
@@ -126,6 +128,20 @@ one. A ladder every expression reaches is that rule with nothing duplicated.
 **`^` groups to the right and binds tighter than the minus in front of it**, so
 `-2^2` is `-(2^2)` and `2^3^2` is `2^(3^2)`. The other three group to the left,
 the way they read.
+
+**`sin(x)` is `x:sin`** — prefix application is a send to its argument, which is
+the whole rule. The name is an `identifier` and not a word this page names, and
+that is deliberate: a list of the mathematical functions would have had to be
+written here as literals, and a checker that reserves every word-shaped literal
+a rule mentions would then have taken `sin` and `cos` out of circulation as
+ordinary names. **The reserved-word count stays at nought because the rule is
+general.**
+
+**Exactly one argument**, which is what leaves the rule with no exceptions. The
+two-argument cases are the ones that would have needed them — `float:atan2` is
+class-side, so `atan2(y, x)` could never have meant `y:atan2(x)`, and `pow`
+already has `^` — and neither can enter a rule that has no two-argument form to
+enter. `float:atan2(y, x)` is written out, as a term like any other.
 
 **`:=` binds, and it appears in exactly two places.** After a bare identifier it
 binds a name; after a send that took *no arguments* it binds a slot, which is
@@ -204,4 +220,4 @@ may match this page and still not compile:
 | --- | --- |
 | `self` outside a block | there is no receiver at the top level of a script |
 | an escape that is not one of the five | `"\q"` scans as a string and is then refused |
-| an operator outside `@math` | the ladder above is written once and reached everywhere, because a region is lexical; the compiler is what knows where one begins |
+| an operator, or `f(x)`, outside `@math` | the ladder and `call` above are written once and reached everywhere, because a region is lexical; the compiler is what knows where one begins |

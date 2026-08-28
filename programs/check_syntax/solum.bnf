@@ -131,7 +131,23 @@ expression = identifier ":=" expression
 sum     = product { ( "+" | "-" ) product } .
 product = unary { ( "*" | "/" ) unary } .
 unary   = "-" unary | power .
-power   = primary { send } [ "^" unary ] .
+power   = ( call | primary ) { send } [ "^" unary ] .
+
+(* `sin(x)` is `x:sin` -- prefix application is a send to its argument, and the
+ * name is an ordinary identifier rather than a word this file names. **That is
+ * what keeps the reserved-word count at nought**: a list of the mathematical
+ * functions would have had to appear here as literals, and check_syntax
+ * reserves every word-shaped literal a syntactic rule mentions, so `sin` and
+ * `cos` would have stopped being names any object may use.
+ *
+ * Exactly one argument, which is what keeps the rule free of exceptions. The
+ * two-argument cases are the ones that would have broken it -- `float:atan2` is
+ * class-side, and `pow` already has `^` -- and neither can enter a rule with no
+ * two-argument form to enter.
+ *
+ * Tried before `primary`, both beginning with an identifier, and ordered choice
+ * does the rest: `a:add(b)` fails this at the `:` and falls through. *)
+call    = identifier "(" expression ")" .
 
 (* A send with no arguments may be assigned to -- that is how a slot is bound,
  * and it is the same `:=` as above. A send *with* arguments may not, which is

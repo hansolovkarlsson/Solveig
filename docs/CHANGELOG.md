@@ -5,6 +5,49 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### `sin(x)` is `x:sin`, and limiting it was the expensive half — `pending`, 2026-08-28
+
+**The prefix form went into `@math` on the afternoon of the day the region
+landed**, and the argument that decided it is not the one anyone expected.
+
+The morning's entry had held it back for a reason: `f(x)` to `x:f` breaks on
+`float:atan2`, which is class-side, and on `pow`, which takes an argument. The
+proposal that came back was to scope it to `float` and keep it safe. **Scoping
+it is what would have cost something.** A blessed list of names has to appear in
+[solum.bnf](../programs/check_syntax/solum.bnf) as word literals, and
+`check_syntax` reserves every word-shaped literal a syntactic rule mentions — so
+it answers `reserved against <identifier>: cos sin`, and *there are no reserved
+words at all* stops being true. That is a claim the suite checks, `test_cli`
+asserting the report carries no such line. The general rule costs nothing there,
+`identifier` not being a word.
+
+**And once the form is unary the objection dissolves rather than being worked
+around.** Both broken cases are *two-argument*. A prefix form that takes exactly
+one has no two-argument form for them to break: `float:atan2(y, x)` is written
+out as the class-side send it is, `^` covers `pow`, and a second argument is
+refused with *the prefix form takes one argument; write 'a:name(b)' for a send
+that takes more* rather than guessed at.
+
+So the rule is one sentence with no exceptions — **prefix application is a send
+to its argument** — for any name, one argument, inside a region. Which makes the
+line that started all of this writable as it was first written:
+
+```text
+@math( a^2 + 3 * (sin(a/2) + sqrt(b)) )
+```
+
+**The one thing a reader has to be told** is that it is a send and not a block
+call. A global holding a block is called with `value`, so `f(3)` is `3:f`, and
+`f := { x | x:mul(x) }. @math( f(3) )` answers *float does not understand 'f'*.
+It fails loudly rather than quietly doing the other thing, and that is the trade
+taken rather than a corner nobody looked at.
+
+One production in each grammar file, `call = identifier "(" expression ")"`,
+tried before `primary` since both open with an identifier. GRAMMAR.md and
+`solum.bnf` agree on 29 productions, and the reserved-word count is still
+nought. Nothing in the VM changed, again: `sin(x)` emits the bytes `x:sin`
+already emitted, and `tests/test_math.c` compares them as bytes.
+
 ### `@math`: infix arithmetic, and the bytes are the chain's — `8834514`, 2026-08-28
 
 **The language has one notation for arithmetic now, and it adds nothing to the

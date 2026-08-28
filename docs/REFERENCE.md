@@ -1972,14 +1972,40 @@ it against the page it came from:
 ```
 5.0:pow(2.0):add(3:mul(5.0:div(2.0):sin:add(9.0:sqrt))):print.
 ;                                                     ; 35.79541643231187
-@math( 5.0^2 + 3 * ((5.0/2):sin + 9.0:sqrt) ):print.  ; 35.79541643231187
+@math( 5.0^2 + 3 * (sin(5.0/2) + sqrt(9.0)) ):print.  ; 35.79541643231187
 ```
 
-**A term is an ordinary expression.** There is no `sin(x)` form and none is
-needed — anything that is an expression outside a region is one inside it, sends
-and all, so `(a/2):sin` and `b:sqrt` are written as they always were. A prefix
-form would have needed a rule mapping `f(x)` to `x:f`, and that rule breaks on
-`float:atan2`, which is class-side, and on `pow`, which takes an argument.
+**`sin(x)` is `x:sin`.** Prefix application is a send to its argument, and that
+is the whole rule. It takes **exactly one** argument, which is what leaves the
+rule with no exceptions: the two-argument cases would have needed them —
+`float:atan2` is class-side, so `atan2(y, x)` could never have meant
+`y:atan2(x)`, and `pow` already has `^` — and neither can enter a rule that has
+no two-argument form to enter. Both are written out, as terms like any other.
+
+The name is an ordinary identifier and not a blessed list, so `sin` and `cos`
+stay names any object may use for a slot. That is the reason the rule is general
+rather than restricted to the mathematical functions: a list would have had to
+appear in the grammar as word literals, and the language's *no reserved words at
+all* is a claim the test suite checks.
+
+```
+@math( sqrt(9.0 + 7) ):print.   ; 4    -- the argument is a whole expression
+@math( sqrt(9.0):abs ):print.   ; 3    -- and a call chains like any receiver
+```
+
+**It is a send, not a block call.** A global holding a block is called with
+`value`, so `f(3)` is `3:f` and not `f:value(3)`. That is the one thing to know
+about the form, and getting it wrong says so:
+
+```
+f := { x | x:mul(x) }.
+@math( f(3) ).          ; solvm: float does not understand 'f'
+```
+
+**A term is an ordinary expression** either way. Anything that is an expression
+outside a region is one inside it, sends and all, so `(a/2):sin` and `b:sqrt`
+are still written as they always were — and compile to the same bytes as
+`sin(a/2)` and `sqrt(b)`.
 
 **A region is lexical**, so it covers what is nested inside it: an argument, an
 array element, a group and a block body all read as infix within one.
