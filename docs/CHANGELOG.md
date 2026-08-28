@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### Four more libraries say what they publish — `pending`, 2026-08-27
+### Four more libraries say what they publish — `89c2c9a`, 2026-08-27
 
 **[3.20](COMPLETED.md#320-five-shipped-libraries-published-everything-they-had--done)
 closed the day it opened**, and the answer for one of the five was *don't*.
