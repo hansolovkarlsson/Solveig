@@ -94,10 +94,19 @@ Not laid down in advance -- these are what the decisions so far have in common,
 written down because they keep settling the next question.
 
 **Two spellings of the same thing mean the same thing.** `[#1, #2]` and
-`array:of(#1, #2)` produce identical bytecode. Where a shorthand exists it is
-notation, never a second semantics. The syntax is already a lot to take on, so a
-reader should never have to ask which of two forms they are looking at in order
-to know what it does.
+`array:of(#1, #2)` produce identical bytecode, and so do `@math( a + b )` and
+`a:add(b)`. Where a shorthand exists it is notation, never a second semantics.
+The syntax is already a lot to take on, so a reader should never have to ask
+which of two forms they are looking at in order to know what it does.
+
+**There are two of those shorthands and they are the only two**, which is worth
+saying because the second one has operators in it. `@math(...)` exists for a
+formula being transcribed: a send chain reads left to right and precedence does
+not, so `a^2 + 3*(sin(a/2) + sqrt(b))` written as sends puts its outermost
+operation in the middle of the line and cannot be checked against the page it
+came from. What it does not do is add anything to the language — every operator
+is a send, a term inside a region is an ordinary expression, and the bytes are
+the same bytes.
 
 **One operator, one meaning.** `:=` binds a name to an evaluated value, whether
 the name is a global, a temporary, or a slot on a class. An earlier design had it
@@ -239,6 +248,7 @@ p := point:new(#3, #4)
 a:print.         ; ':' sends a message; '.' terminates a statement
                  ; ';' starts a comment, running to end of line
 @include "lib.sol".   ; '@' marks a directive: compile time, never a message
+@math(a + b / 2)      ; the other one, and the only directive that is a value
 ```
 
 `:` is the send operator throughout: `object:message`. Parentheses group a

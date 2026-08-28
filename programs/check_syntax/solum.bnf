@@ -40,10 +40,18 @@ integer = "#" [ "-" ] digit { digit }
         | "$" hexdigit { hexdigit }
         | "%" bindigit { bindigit } .
 
-(* The unmarked number. A leading `-` belongs to the literal -- there is no
- * negation operator to mistake it for -- and `-` with no digit after it is a
- * lexical error rather than a token. *)
-float = [ "-" ] digit { digit } [ "." digit { digit } ] [ exponent ] .
+(* The unmarked number, and it does not claim a sign.
+ *
+ * The scanner does, outside a `@math` region: there a leading `-` belongs to
+ * the literal, and `-` with no digit after it is a lexical error rather than a
+ * token. Inside a region it is always the operator. A lexical grammar has no
+ * regions to be inside of, so this file reads `-3` as the operator applied to
+ * `3` everywhere -- which is the same value by either reading, and is what lets
+ * one grammar describe both. What it costs is that this file also admits
+ * `a - 3` outside a region, where the compiler refuses it. That is the third
+ * entry in GRAMMAR.md's short list of things refused by the compiler rather
+ * than here. *)
+float = digit { digit } [ "." digit { digit } ] [ exponent ] .
 
 (* Optional, and it backtracks: `1e` is the float 1 followed by the identifier `e`,
  * not a malformed number. *)
@@ -68,6 +76,19 @@ space   = ( " " | "\t" | "\r" | "\n" ) { " " | "\t" | "\r" | "\n" } .
 (* `:=` before `:`, or the binding would never be one token. *)
 punctuation = ":=" | ":" | "(" | ")" | "{" | "}" | "[" | "]" | "|" | "," | "." .
 
+(* The five that only mean anything inside `@math`. Four of them were not
+ * characters the language used at all; `-` was, and is the one place this file
+ * cannot say what the scanner does. `float` above claims a leading `-`, and it
+ * is tried first, so `a-3` tokenises here as an identifier and the float -3
+ * where the compiler inside a region reads a subtraction. Written with spaces
+ * -- `a - 3` -- the two agree, because `-` followed by a space is not the start
+ * of a float in either of them.
+ *
+ * A lexical grammar has no regions to be inside of, so this is a divergence to
+ * name rather than one to fix. Everything in examples/ and lib/ is spaced, and
+ * the sweep in test_cli is what holds that true. *)
+operator = "+" | "-" | "*" | "/" | "^" .
+
 %skip space comment
 
 (* ------------------------------------------------------------------ *)
@@ -82,16 +103,35 @@ program = [ statement { "." statement } [ "." ] ] .
 
 statement = include | expression .
 
-(* The only directive the language has, and the only statement that is not an
- * expression -- what it does happens while compiling, and there is nowhere
- * inside an expression to compile a file into. *)
+(* `@include` happens while compiling and there is nowhere inside an expression
+ * to compile a file into, so it is the one statement that is not one. `@math`
+ * is the other directive and is the opposite case: it answers a value, so it is
+ * a primary and not a statement of its own. *)
 include = "@include" string .
 
 (* Binding a bare identifier has to be tried before a send, since both begin with an
  * identifier and only the first goes on to want `:=`. Ordered choice does the
  * rest: `a:print` fails the first alternative at the `:` and falls through. *)
 expression = identifier ":=" expression
-           | primary { send } .
+           | sum .
+
+(* The arithmetic ladder, written once and reached by every expression, which is
+ * what makes an argument, an array element, a group and a block body all read
+ * the same way inside a `@math` region -- the compiler's rule is that the
+ * region is lexical and covers everything within it, and a ladder at the top of
+ * `expression` is that rule with no duplication.
+ *
+ * `^` groups to the right and binds tighter than the minus in front of it, so
+ * `-2^2` is `-(2^2)` and `2^3^2` is `2^(3^2)`. The other three group to the
+ * left, the way they read.
+ *
+ * Outside a region the operators are not there to be used: the scanner makes no
+ * `-` and the compiler refuses the rest by name. That is the looseness this
+ * ladder costs, and it is listed with the other two. *)
+sum     = product { ( "+" | "-" ) product } .
+product = unary { ( "*" | "/" ) unary } .
+unary   = "-" unary | power .
+power   = primary { send } [ "^" unary ] .
 
 (* A send with no arguments may be assigned to -- that is how a slot is bound,
  * and it is the same `:=` as above. A send *with* arguments may not, which is
@@ -99,7 +139,18 @@ expression = identifier ":=" expression
 send      = ":" identifier [ arguments | ":=" expression ] .
 arguments = "(" [ expression { "," expression } ] ")" .
 
-primary = identifier | integer | float | string | symbol | block | array | group .
+primary = identifier | integer | float | string | symbol | block | array | group | math .
+
+(* `@math(...)` -- the region the operators mean something in. Every one lowers
+ * to the send it reads as, so this is a second spelling and never a second
+ * semantics: `+` is `add`, `^` is `pow`, and the bytes are the bytes the chain
+ * would have produced.
+ *
+ * A term is an ordinary expression, which is why there is no prefix-call form
+ * -- `(a/2):sin` needs no rule that `sin(x)` would have needed, and the rule
+ * `sin(x)` wants breaks on `atan2`, which is class-side, and on `pow`, which
+ * takes an argument. *)
+math = "@math" "(" expression ")" .
 
 (* Parameters, then temporaries, then the body. The leading `|` of a temporary
  * list is what tells `{ a | ... }` from `{ | a | ... }`, and it is why

@@ -11,6 +11,7 @@
  *     { a:print }      ; braces make a block: code as a value, not an action
  *     [#1, #2]         ; brackets make an array -- sugar for array:of(#1, #2)
  *     ( | t | ... )    ; '|' declares this frame's temporaries
+ *     @math(a^2 + b/2) ; infix arithmetic, lowering to the sends it reads as
  *     @include "lib.sol"  ; '@' marks a directive: compile time, not run
  *                      ;     time, and not a message to anything
  *                      ; ';' begins a comment, running to end of line
@@ -43,6 +44,18 @@ typedef enum {
     TOK_PIPE,       /* |   declares temporaries     */
     TOK_COMMA,      /* argument separator           */
     TOK_DOT,        /* .   statement terminator     */
+
+    /* Arithmetic, and only inside `@math(...)`. The language has no operators
+       and the grammar says so; these are notation for the sends they lower to,
+       in a region that says where it begins and ends. Four of the five were
+       *unexpected character* until now, so no program that compiled before can
+       contain one -- `-` is the exception and is the reason for `infix` below. */
+    TOK_PLUS,       /* +   add                      */
+    TOK_MINUS,      /* -   sub, or unary negation   */
+    TOK_STAR,       /* *   mul                      */
+    TOK_SLASH,      /* /   div                      */
+    TOK_CARET,      /* ^   pow                      */
+
     TOK_ERROR,
     TOK_EOF
 } SolTokenType;
@@ -69,6 +82,22 @@ typedef struct {
        line it *ends* on is not the line it is reported at. */
     int         token_line;
     const char *token_line_start;
+
+    /* Inside `@math(...)`, where `-` is the subtraction operator rather than
+     * part of the number after it.
+     *
+     * It is the *only* character that has to be told which region it is in.
+     * Outside, a leading `-` belongs to the literal -- there is no negation
+     * operator to mistake it for -- and `a - 3` is the lexical error
+     * *'-' must be followed by digits*. So no program that compiles today
+     * contains a `-` in operator position, and the mode changes the meaning of
+     * nothing that is currently legal. Inside, `-3` reads as unary minus
+     * applied to `3`, which the compiler folds back to the same constant.
+     *
+     * The compiler owns this: it is set before the '(' of a `@math` region is
+     * consumed and cleared before the ')' is, so that the tokens either side of
+     * the region are scanned by the rules of where they actually are. */
+    bool        infix;
 } SolLexer;
 
 void     sol_lexer_init(SolLexer *lexer, const char *source);

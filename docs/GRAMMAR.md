@@ -41,7 +41,7 @@ integer    = "#" [ "-" ] digit { digit }
            | "$" hexdigit { hexdigit }
            | "%" bindigit { bindigit } .
 
-float      = [ "-" ] digit { digit } [ "." digit { digit } ] [ exponent ] .
+float      = digit { digit } [ "." digit { digit } ] [ exponent ] .
 exponent   = ( "e" | "E" ) [ "+" | "-" ] digit { digit } .
 
 string     = '"' { escape | any character but '"' } '"' .
@@ -57,8 +57,16 @@ characters with two readings. `$FF08` and `%10101100` are integers too, in the
 base you are thinking in, and they take no tag and no sign: they are for looking
 at bits, and there is no hexadecimal float to be told apart from.
 
-**A leading `-` belongs to the number.** There is no negation operator for it to
-be mistaken for, and a `-` with no digit after it is not a token at all.
+**A leading `-` belongs to the number — outside a `@math` region.** There the
+scanner gives the sign to the literal, and a `-` with no digit after it is not a
+token at all. Inside a region it is always the operator, and `-3` is the
+operator applied to `3`, which the compiler folds back to the one constant.
+
+**So this page reads `-3` as the operator everywhere**, which is why `float`
+above has no sign in it. A lexical grammar has no regions to be inside of, and
+the two readings agree on every value, so one grammar describes both. What it
+costs is listed at the bottom with the other things the compiler refuses and
+this page does not.
 
 **`.` continues a number only when a digit follows it**, so `45.` is the float 45
 and then a statement separator.
@@ -89,18 +97,35 @@ an expression to compile a file into.
 
 ```ebnf
 expression = identifier ":=" expression
-           | primary { send } .
+           | sum .
+
+sum        = product { ( "+" | "-" ) product } .
+product    = unary { ( "*" | "/" ) unary } .
+unary      = "-" unary | power .
+power      = primary { send } [ "^" unary ] .
 
 send       = ":" identifier [ arguments | ":=" expression ] .
 
 arguments  = "(" [ expression { "," expression } ] ")" .
 
 primary    = identifier | integer | float | string | symbol
-           | block | array | group .
+           | block | array | group | math .
+
+math       = "@math" "(" expression ")" .
 ```
 
 **Sends chain left to right.** `a:add(#1):print` sends `print` to the sum, and
-there is no precedence to know because there are no operators to have any.
+outside a `@math` region there is no precedence to know, because there are no
+operators to have any.
+
+**The ladder is written once, at the top of `expression`.** That is not tidiness
+— it is the rule. A region is *lexical*: it covers everything inside it, so an
+argument, an array element, a group and a block body all read as infix within
+one. A ladder every expression reaches is that rule with nothing duplicated.
+
+**`^` groups to the right and binds tighter than the minus in front of it**, so
+`-2^2` is `-(2^2)` and `2^3^2` is `2^(3^2)`. The other three group to the left,
+the way they read.
 
 **`:=` binds, and it appears in exactly two places.** After a bare identifier it
 binds a name; after a send that took *no arguments* it binds a slot, which is
@@ -158,8 +183,19 @@ word. A grammar-driven checker discovers this by having nothing to reserve.
 that is what they are. That is an optimisation and not a rule of the language:
 the grammar above admits nothing about them, because there is nothing to admit.
 
-**There are no operators**, so no precedence table, no associativity, and no
-unary-minus ambiguity. `a:add(b)` is a send like every other.
+**There are no operators outside `@math`.** That sentence used to have no
+qualifier, and losing it was the price of the one notation the language has for
+arithmetic. What was bought is that a transcribed formula can be read against
+the page it was copied from: a send chain runs left to right and precedence does
+not, so `a^2 + 3*(sin(a/2) + sqrt(b))` written as sends puts its outermost
+operation in the middle of the line.
+
+**What did not change is the semantics.** Every operator lowers to the send it
+reads as — `+` to `add`, `^` to `pow` — and the region emits the bytes the chain
+would have emitted, which a test compares rather than takes on trust. That is
+the rule an array literal already lives under: `[a, b]` is `array:of(a, b)`, and
+two spellings of the same thing mean the same thing. `a:add(b)` is a send like
+every other, and so is `@math( a + b )`.
 
 **Two things are refused by the compiler rather than by the grammar**, so a file
 may match this page and still not compile:
@@ -168,3 +204,4 @@ may match this page and still not compile:
 | --- | --- |
 | `self` outside a block | there is no receiver at the top level of a script |
 | an escape that is not one of the five | `"\q"` scans as a string and is then refused |
+| an operator outside `@math` | the ladder above is written once and reached everywhere, because a region is lexical; the compiler is what knows where one begins |

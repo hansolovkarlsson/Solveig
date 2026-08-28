@@ -26,6 +26,7 @@ void sol_lexer_init(SolLexer *lexer, const char *source)
     lexer->line_start = source;
     lexer->token_line = 1;
     lexer->token_line_start = source;
+    lexer->infix = false;
 }
 
 /* Consumes a newline the cursor is sitting on, moving to the next line. Every
@@ -57,6 +58,11 @@ const char *sol_token_type_name(SolTokenType type)
     case TOK_ASSIGN: return "':='";
     case TOK_LPAREN: return "'('";
     case TOK_RPAREN: return "')'";
+    case TOK_PLUS:   return "'+'";
+    case TOK_MINUS:  return "'-'";
+    case TOK_STAR:   return "'*'";
+    case TOK_SLASH:  return "'/'";
+    case TOK_CARET:  return "'^'";
     case TOK_LBRACE: return "'{'";
     case TOK_RBRACE: return "'}'";
     case TOK_LBRACKET: return "'['";
@@ -304,7 +310,22 @@ SolToken sol_lexer_next(SolLexer *lexer)
     /* ':' followed by '=' is one token, never a send. This is why selectors
        must be identifiers -- if '=' were one, `a:=(b)` would be ambiguous. */
     case ':':  return make_token(lexer, match(lexer, '=') ? TOK_ASSIGN : TOK_COLON);
+
+    /* Four of the five arithmetic operators were *unexpected character* before
+       `@math` existed, so scanning them unconditionally cannot change what any
+       existing file means -- the compiler is where they are refused outside a
+       region. */
+    case '+':  return make_token(lexer, TOK_PLUS);
+    case '*':  return make_token(lexer, TOK_STAR);
+    case '/':  return make_token(lexer, TOK_SLASH);
+    case '^':  return make_token(lexer, TOK_CARET);
+
+    /* The fifth is not free, and is the whole of what `infix` is for. Outside a
+       region a leading '-' belongs to the number, which is why there is no
+       negation operator to mistake it for; inside one it is always the
+       operator, and `-3` is unary minus applied to `3`. */
     case '-':
+        if (lexer->infix) return make_token(lexer, TOK_MINUS);
         if (is_digit(peek(lexer))) return number(lexer);
         return error_token(lexer, "'-' must be followed by digits");
     }

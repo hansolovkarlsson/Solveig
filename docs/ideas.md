@@ -44,7 +44,7 @@ marked as a sketch.
 | Go-style concurrency | **No, for now** — it changes the whole VM |
 | Subclass `integer`, a `byte` subclass | **Not possible** — see below |
 | More `@` directives: `@define`, `@ifdef`, `@once` | **No** — each one's job is already done by something that is not a directive |
-| Infix arithmetic, `@math(a^2 + b/2)` | **Scoped, and the call is yours** — [200 lines and one real conflict](#infix-arithmetic-as-a-compile-time-notation); the case is transcription fidelity, not arithmetic |
+| Infix arithmetic, `@math(a^2 + b/2)` | **Built**, on 2026-08-28 — [scoped in the morning and in by the afternoon](#infix-arithmetic-as-a-compile-time-notation); the four findings held and the grammar found a fifth |
 | Phoenix — a second language whose output Solum uses | **Defer** — the machinery is proven three times over; [the unexplored half](#programs-that-would-press-on-something) is whether a hosted language can publish a *library* rather than a program |
 | Programs that would press on something — Pascal, predicate logic, a parser toolkit | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would |
 | Networking, and sending code to a running machine | **Defer** — [no socket exists](#networking-and-sending-code-to-a-machine-that-is-already-running); the second needs 3.4 and 6.32 as well |
@@ -2198,10 +2198,45 @@ opening boast becomes *there are no operators outside `@math`*, which is a
 sentence somebody has to be willing to write.
 
 **Trigger.** Partly fired already, from use rather than from a program — which
-is a weaker report than this document usually acts on, and is why it is here
-rather than in the roadmap. What would settle it is a file in `programs/` or
-`lib/` that transcribes formulas from a reference and is checked against it. If
-one is written and the existing style copes, that is the answer.
+is a weaker report than this document usually acts on, and is why it was here
+rather than in the roadmap. What would have settled it is a file in `programs/`
+or `lib/` that transcribes formulas from a reference and is checked against it.
+
+#### Built the same day, and the four findings held
+
+`@math(...)` is in `solas`. The estimate was 150 to 200 lines and the ladder
+itself is about ninety; each of the four findings above came out as written, and
+the byte-identity claim is a test rather than a hope — eighteen pairs, `@math(
+a + b )` against `a:add(b)`, compared as bytes and not as answers.
+
+**The fold works, which was the sharpest of the four.** `@math( -3 )` and `-3`
+compile to identical files, so the region's `-` is value-preserving to the byte
+and not merely to the value. It needed one token of lookahead, because `^` binds
+tighter than the minus and in `-2^2` the literal is not what is being negated —
+and scanning a copy of the lexer to settle a question before a byte is written
+is what `inlinable_arguments` already does.
+
+**The grammar found a fifth finding, and it is the one worth keeping.** The
+first draft put the ladder inside a `math` production of its own, which is the
+obvious shape and is wrong: a region is *lexical*, so an argument, an array
+element, a group and a block body all read as infix within one, and a ladder
+that only the region reaches cannot say that without duplicating the whole
+expression grammar — eight productions, on a page whose virtue is being short.
+Writing the ladder once at the top of `expression` says it in five, and
+[GRAMMAR.md](GRAMMAR.md) and
+[solum.bnf](../programs/check_syntax/solum.bnf) agree on 28 productions where
+they agreed on 23.
+
+**What that costs is one line in a table that already existed.** The grammar now
+admits `a + 2` outside a region, which the compiler refuses — so it joins `self`
+at the top level and a bad string escape in GRAMMAR.md's short list of *refused
+by the compiler rather than by the grammar*. And `float` lost the leading `-` it
+used to claim, since a lexical grammar has no regions to be inside of and `-3`
+read as the operator applied to `3` is the same value either way.
+
+**Prefix calls stayed out**, as recommended, and nothing since has wanted them.
+The trigger for that half is unchanged: a page of transcribed formulas that
+still reads badly with `(a/2):sin` in it.
 
 ### Programs that would press on something
 

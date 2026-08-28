@@ -186,9 +186,13 @@ static void test_exponents(void)
     expect_tokens("1e", split, 3);
     expect_tokens("1ex", split, 3);
 
-    /* `1e+` splits the same way, but a bare `+` is not a character the language
-       uses, so the third token is an error rather than the end. */
-    const SolTokenType dangling[] = { TOK_FLOAT, TOK_IDENT, TOK_ERROR };
+    /* `1e+` splits the same way, and the third token is the `+` itself. It used
+       to be TOK_ERROR, `+` being a character the language did not use; `@math`
+       gave it one. The program is rejected either way and by the same message
+       -- *expected '.' between statements* at the `e`, which is what `1e` alone
+       already says -- so what moved is where the complaint comes from, not
+       whether there is one. */
+    const SolTokenType dangling[] = { TOK_FLOAT, TOK_IDENT, TOK_PLUS };
     expect_tokens("1e+", dangling, 3);
 
     /* `#` is exact, so an integer takes no exponent. */
@@ -198,6 +202,60 @@ static void test_exponents(void)
 
 /* A token carries where it is, not just which line it is on (5.4). The column
    is 1-based and counted in bytes. */
+/* The five arithmetic operators, and the one that needed a mode.
+ *
+ * `+ * / ^` are tokens everywhere. They cost nothing to scan unconditionally,
+ * because none of them was a character the language used -- `@math` is where
+ * the compiler accepts them, and outside one it says so by name.
+ *
+ * `-` is the exception and the whole reason `infix` exists. Outside a region a
+ * leading `-` belongs to the number after it, which is what leaves the language
+ * with no negation operator to mistake it for; inside one it is always the
+ * operator, and `-3` is unary minus applied to `3`. */
+static void test_arithmetic_operators(void)
+{
+    const SolTokenType ops[] = {
+        TOK_PLUS, TOK_STAR, TOK_SLASH, TOK_CARET, TOK_EOF
+    };
+    expect_tokens("+ * / ^", ops, 5);
+
+    /* Outside a region: the number claims the sign, and a `-` with no digit
+       after it is a lexical error rather than a token. */
+    const SolTokenType outside[] = { TOK_IDENT, TOK_FLOAT, TOK_EOF };
+    expect_tokens("a -3", outside, 3);
+
+    const SolTokenType lone[] = { TOK_IDENT, TOK_ERROR };
+    expect_tokens("a - 3", lone, 2);
+
+    /* Inside one: the same two sources scan as subtraction, which is what makes
+       the reading of `a-3` and `a - 3` the same. */
+    SolLexer lexer;
+    const SolTokenType inside[] = { TOK_IDENT, TOK_MINUS, TOK_FLOAT, TOK_EOF };
+    const char *sources[] = { "a -3", "a - 3", "a-3" };
+    for (int s = 0; s < 3; s++) {
+        sol_lexer_init(&lexer, sources[s]);
+        lexer.infix = true;
+        for (int i = 0; i < 4; i++) {
+            SolToken token = sol_lexer_next(&lexer);
+            if (token.type != inside[i]) {
+                fprintf(stderr, "in a region, %s: token %d was %s, expected %s\n",
+                        sources[s], i, sol_token_type_name(token.type),
+                        sol_token_type_name(inside[i]));
+                assert(false);
+            }
+        }
+    }
+
+    /* The tagged integer keeps its own sign in either mode: the '#' scanner
+       takes the '-' before the operator rule can see it. And an exponent's sign
+       is inside the number for the same reason. */
+    sol_lexer_init(&lexer, "#-3 1.5e-3");
+    lexer.infix = true;
+    assert(sol_lexer_next(&lexer).type == TOK_INT);
+    assert(sol_lexer_next(&lexer).type == TOK_FLOAT);
+    assert(sol_lexer_next(&lexer).type == TOK_EOF);
+}
+
 static void test_tokens_carry_a_column(void)
 {
     SolLexer lexer;
@@ -279,6 +337,7 @@ int main(void)
     test_directives_scan();
     test_a_shebang_is_skipped();
     test_lines_are_counted();
+    test_arithmetic_operators();
     test_tokens_carry_a_column();
     test_a_multiline_token_is_placed_where_it_opens();
     test_an_error_token_points_at_the_source();

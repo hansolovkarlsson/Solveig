@@ -48,6 +48,7 @@ a:print.
 - **[Names and binding](#names-and-binding)**
 - **[Messages](#messages)**
   - [Grouping](#grouping)
+  - [Infix arithmetic](#infix-arithmetic)
 - **[Blocks](#blocks)**
   - [Capture](#capture)
 - **[Control flow](#control-flow)**
@@ -455,8 +456,14 @@ compile error:
         ^^^^^^^^
 ```
 
-`@include` is the only directive there is. An unknown one is refused rather than
-passed through, since `@` is the compiler's own space and a name in it that the
+**`@math` is the exception, and it is the only one.** It answers a value, so it
+is an expression and may stand wherever one may — as a receiver, an argument, an
+array element, a statement of its own. `@include` cannot be any of those because
+a file compiled in has nowhere to go inside an expression; `@math` has nowhere
+*else* to be. See [infix arithmetic](#infix-arithmetic) below.
+
+There are two directives, and an unknown one is refused rather than passed
+through, since `@` is the compiler's own space and a name in it that the
 compiler does not know is a mistake:
 
 ```
@@ -1890,7 +1897,8 @@ Sends chain left to right:
 ```
 
 There are no operators and no precedence to remember; `a:add(b:mul(c))` is
-written out.
+written out. The one exception is a `@math(...)` region, which is
+[infix arithmetic](#infix-arithmetic) and lowers to these same sends.
 
 A bare identifier resolves to a local, then to an enclosing frame's local, then
 to a global. It is a lookup, not a send.
@@ -1935,6 +1943,74 @@ would have run before `ifTrue` could decide anything. See
 [Control flow](#control-flow).
 
 ---
+
+### Infix arithmetic
+
+`@math( ... )` writes arithmetic the way an equation is written. It is notation
+and nothing else: every operator lowers to the send it reads as, and the region
+compiles to the bytes the chain would have compiled to.
+
+```
+@math( #1 + #2 * #3 ):print.        ; #7
+#1:add(#2:mul(#3)):print.           ; #7 -- the same bytecode, not just the same answer
+```
+
+| | | |
+| --- | --- | --- |
+| `a + b` | `a:add(b)` | groups to the left |
+| `a - b` | `a:sub(b)` | groups to the left |
+| `a * b` | `a:mul(b)` | groups to the left, tighter than `+` and `-` |
+| `a / b` | `a:div(b)` | groups to the left, tighter than `+` and `-` |
+| `a ^ b` | `a:pow(b)` | groups to the **right**, tighter than everything |
+| `-a` | `a:negated` | looser than `^`, so `-2^2` is `-(2^2)` |
+
+**What it is for** is a formula you are transcribing. A send chain reads strictly
+left to right and arithmetic precedence does not, so the outermost operation of
+a nested formula ends up in the middle of the line and the reader cannot check
+it against the page it came from:
+
+```
+5.0:pow(2.0):add(3:mul(5.0:div(2.0):sin:add(9.0:sqrt))):print.
+;                                                     ; 35.79541643231187
+@math( 5.0^2 + 3 * ((5.0/2):sin + 9.0:sqrt) ):print.  ; 35.79541643231187
+```
+
+**A term is an ordinary expression.** There is no `sin(x)` form and none is
+needed — anything that is an expression outside a region is one inside it, sends
+and all, so `(a/2):sin` and `b:sqrt` are written as they always were. A prefix
+form would have needed a rule mapping `f(x)` to `x:f`, and that rule breaks on
+`float:atan2`, which is class-side, and on `pow`, which takes an argument.
+
+**A region is lexical**, so it covers what is nested inside it: an argument, an
+array element, a group and a block body all read as infix within one.
+
+```
+@math( [1.0, -3.0, 2.5]:inject(0.0, { t, e | t + e }) ):print.   ; 0.5
+```
+
+**`-` is the one character that means two things**, and which it means is
+decided by the region rather than by what follows it. Outside, a leading `-`
+belongs to the number and `a - 3` is the error *'-' must be followed by digits*;
+inside, `-` is always the operator and `-3` is the operator applied to `3`. The
+compiler folds that back to the one constant, so the two readings are the same
+value and the same byte.
+
+**It hides nothing about the two numeric types.** The notation is the send, so
+it is the same refusal: there is no coercion, and `pow`, `sqrt` and the
+trigonometry are float-only.
+
+```
+[prog.sol:1:1] solvm: 'add' expects integer, got float (no implicit coercion)
+```
+
+**And outside a region there are no operators at all**, which the compiler says
+by name rather than leaving you to guess:
+
+```
+[prog.sol:2:8] solas: arithmetic is written as sends here; '@math(...)' is where the operators are
+  b := a + 2.
+         ^
+```
 
 ## Blocks
 

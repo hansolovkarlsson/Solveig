@@ -70,6 +70,20 @@ ordinary names. That is not a stylistic choice you can look past — it is why t
 language needs no precedence rules, and why the sections below can keep adding
 things without adding syntax.
 
+The one exception is written down where you can see it. A formula being copied
+out of a reference is the case a chain reads worst — precedence does not run
+left to right, so the outermost operation ends up in the middle of the line —
+and `@math(...)` is a region where the operators mean something:
+
+```
+@math( #10 + #5 * #2 ):print.    ; #20
+#10:add(#5:mul(#2)):print.       ; #20
+```
+
+Those compile to the same bytes. It is a second spelling and never a second
+meaning, and the [reference](REFERENCE.md#infix-arithmetic) has the table of
+which operator is which send.
+
 > **Run:** [examples/hello.sol](../examples/hello.sol)
 
 ## 2. Names and binding

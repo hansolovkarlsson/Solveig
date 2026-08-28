@@ -2,8 +2,9 @@
 
 The Solum language and its toolchain — bytecode compiler (Solas), virtual
 machine (SolVM), REPL (Solis) and debugger (Solid). Prototype-based,
-everything is a message send, 140<!--count messages--> messages, no operators or control-flow
-syntax. 15k lines of C11, no dependencies.
+everything is a message send, 140<!--count messages--> messages, no control-flow
+syntax and no operators outside `@math(a^2 + b/2)`, which is notation for the
+same sends. 15k lines of C11, no dependencies.
 
 **Documentation: <https://hansolovkarlsson.github.io/Solveig/>** — a
 [tutorial](https://hansolovkarlsson.github.io/Solveig/docs/TUTORIAL.html) that

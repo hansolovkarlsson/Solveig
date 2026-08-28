@@ -5,6 +5,65 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### `@math`: infix arithmetic, and the bytes are the chain's — `pending`, 2026-08-28
+
+**The language has one notation for arithmetic now, and it adds nothing to the
+language.** `@math( a^2 + 3 * ((a/2):sin + b:sqrt) )` compiles to the bytes
+`a:pow(2.0):add(3:mul(a:div(2.0):sin:add(b:sqrt)))` compiles to — not the same
+answer, the same bytecode, which a test compares over eighteen pairs. It is the
+rule `[#1, #2]` already lived under: two spellings of the same thing mean the
+same thing.
+
+**What it is for is a formula being transcribed.** A send chain reads strictly
+left to right and precedence does not, so the outermost operation of a nested
+formula ends up in the middle of the line and cannot be checked against the page
+it was copied from. Everyday arithmetic was never the problem — `stddev` in
+[bench.sol](../programs/bench.sol) reads perfectly by naming its parts, and the
+[entry](ideas.md#infix-arithmetic-as-a-compile-time-notation) written this
+morning says so before it says anything else.
+
+`+ - * /` lower to `add sub mul div`, `^` to `pow`. `^` groups to the right and
+binds tighter than the minus in front of it, so `-2^2` is `-(2^2)` and `2^3^2`
+is `2^(3^2)` — the two calls SolaBasic's own ladder made first.
+
+**A term is an ordinary expression**, which is why there is no `sin(x)` form:
+`(a/2):sin` needs no rule, and the rule `sin(x)` would need breaks on
+`float:atan2`, which is class-side, and on `pow`, which takes an argument. That
+was recommended out in the scoping and stayed out.
+
+**`@math` is the first directive that is an expression.** `@include` is a
+statement because a file compiled in has nowhere to go inside one; this has
+nowhere else to be. It may stand as a receiver, an argument, an array element or
+a statement of its own.
+
+**`-` is the only character that had to be told where it is.** Outside a region
+a leading `-` belongs to the number — which is what left the language with no
+negation operator to mistake it for — and `a - 3` is the lexical error *'-' must
+be followed by digits*. So the mode changes the meaning of nothing that was
+legal. Inside, `-` is always the operator, and `-3` is the operator applied to
+`3`, folded back to the one constant: `@math( -3 )` and `-3` compile to
+identical files. The fold needs one token of lookahead, because in `-2^2` the
+literal is not what is being negated, and scanning a copy of the lexer to settle
+that before a byte is written is what `inlinable_arguments` already does. The
+other four operators were *unexpected character* before today.
+
+**The grammar found the finding the scoping missed.** A region is *lexical* — it
+covers an argument, an array element, a group and a block body alike — and a
+ladder reached only from inside a `math` production cannot say that without
+duplicating the whole expression grammar, eight productions on a page whose
+virtue is being short. Written once at the top of `expression` it takes five,
+and [GRAMMAR.md](GRAMMAR.md) and `solum.bnf` now agree on 28 productions where
+they agreed on 23. `float` lost the leading `-` it used to claim, a lexical
+grammar having no regions to be inside of, and the grammar now admits `a + 2`
+outside a region where the compiler refuses it — the third row in GRAMMAR.md's
+list of things refused by the compiler rather than by the page.
+
+**Nothing in the VM changed.** No opcode, no message, no new root for the
+collector to know about: `.sob` files are format version 14 and bytecode from
+0.35.0 still runs, because the region emits sends that already existed. The
+whole of it is in the front end, and `tests/test_math.c` is 8 cases over the
+claim that this is notation only.
+
 ### The changelog's own hashes are checked now — `d572543`, 2026-08-28
 
 [ROADMAP 3.21](COMPLETED.md#321-a-changelog-hash-is-written-by-hand-and-nothing-checks-it),

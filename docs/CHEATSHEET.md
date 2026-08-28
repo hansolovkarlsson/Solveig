@@ -48,6 +48,7 @@ point:show:print.               ; #3
 | `{ x \| body }` | a block; `{ x, y \| \| t \| body }` takes two and has a temp |
 | `; to end of line` | a comment |
 | `@include "file.sol".` | splices another file in, once, before compiling |
+| `@math( a^2 + b/2 )` | infix arithmetic — sugar for the sends it reads as |
 | `nil` `true` `false` `infinity` `nan` | the value globals |
 | `object` `integer` `float` `string` `symbol` `array` `dictionary` `boolean` `block` `time` `error` `system` | the class globals |
 

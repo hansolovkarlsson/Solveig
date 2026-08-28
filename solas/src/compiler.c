@@ -71,6 +71,10 @@ typedef struct {
 } Compiler;
 
 static void expression(Compiler *c);
+static void send_expression(Compiler *c);
+static void math_sum(Compiler *c);
+static void math_unary(Compiler *c);
+static void math_directive(Compiler *c);
 static void statement(Compiler *c);
 static void note_global_binding(Compiler *c, const SolToken *name);
 static void block_literal(Compiler *c);
@@ -193,7 +197,10 @@ static void emit_indexed(Compiler *c, uint8_t op, int index)
 
 /* ---- literals -------------------------------------------------------- */
 
-static void integer_literal(Compiler *c)
+/* `negate` is set only by `@math`'s unary minus, which folds `-3` back to the
+   one constant `3` would have been rather than emitting a `negated` send after
+   it. That is what makes the region's `-` value-preserving to the byte. */
+static void integer_literal(Compiler *c, bool negate)
 {
     const SolToken *token = &c->parser.previous;
 
@@ -209,17 +216,19 @@ static void integer_literal(Compiler *c)
     errno = 0;
     char *end;
     long long value = strtoll(token->start + 1, &end, base);
-    if (errno == ERANGE) {
+    if (errno == ERANGE || (negate && value == INT64_MIN)) {
         sol_parser_error(&c->parser, token, "integer literal out of range");
         return;
     }
+    if (negate) value = -value;
     emit_indexed(c, OP_CONST, constant_operand(c, SOL_INT_VAL((int64_t)value)));
 }
 
-static void float_literal(Compiler *c)
+static void float_literal(Compiler *c, bool negate)
 {
     const SolToken *token = &c->parser.previous;
     double value = strtod(token->start, NULL);
+    if (negate) value = -value;
     emit_indexed(c, OP_CONST, constant_operand(c, SOL_FLOAT_VAL(value)));
 }
 
@@ -455,8 +464,8 @@ static void primary(Compiler *c)
     if (sol_parser_match(p, TOK_LBRACE))     { block_literal(c); return; }
     if (sol_parser_match(p, TOK_LBRACKET))   { array_literal(c); return; }
     if (sol_parser_match(p, TOK_IDENT))      { identifier(c); return; }
-    if (sol_parser_match(p, TOK_INT))        { integer_literal(c); return; }
-    if (sol_parser_match(p, TOK_FLOAT))      { float_literal(c); return; }
+    if (sol_parser_match(p, TOK_INT))        { integer_literal(c, false); return; }
+    if (sol_parser_match(p, TOK_FLOAT))      { float_literal(c, false); return; }
     if (sol_parser_match(p, TOK_LPAREN)) {
         /* Parentheses group. With more than one statement inside, the earlier
            results are discarded and the last one is the value -- which is what
@@ -486,13 +495,30 @@ static void primary(Compiler *c)
         return;
     }
 
-    /* `statement` has already taken every directive that stands where one may
-       stand, so reaching here means this one is buried in an expression --
-       where a file compiled in would have nowhere to go. */
+    /* `@math` is the one directive that answers a value, so it is the one that
+       may stand here. Every other is a statement: `statement` has already taken
+       the ones standing where they may, so reaching here means this one is
+       buried in an expression, where a file compiled in would have nowhere to
+       go. */
     if (p->current.type == TOK_DIRECTIVE) {
+        if (token_is(&p->current, "@math")) { math_directive(c); return; }
         sol_parser_error(p, &p->current,
                          "a directive must stand alone as a statement");
         return;
+    }
+
+    /* An operator outside a region. Worth its own sentence: three of these five
+       characters were *unexpected character* before `@math` existed, and
+       "expected an expression" would send the reader looking for a missing
+       operand rather than a missing region. */
+    switch (p->current.type) {
+    case TOK_PLUS: case TOK_MINUS: case TOK_STAR: case TOK_SLASH: case TOK_CARET:
+        sol_parser_error(p, &p->current,
+                         "an operator needs something to its left; inside "
+                         "'@math(...)' only '-' may open an expression");
+        return;
+    default:
+        break;
     }
 
     sol_parser_error(p, &p->current, "expected an expression");
@@ -528,7 +554,7 @@ static uint8_t arguments(Compiler *c)
  * stack beneath it, so rewinding the chunk to where that send started undoes it
  * precisely -- no extra lookahead, and still no AST.
  */
-static void expression(Compiler *c)
+static void send_expression(Compiler *c)
 {
     SolParser *p = &c->parser;
 
@@ -566,6 +592,163 @@ static void expression(Compiler *c)
         expression(c);
         emit_indexed(c, OP_SET_SLOT, target_name);
     }
+
+    /* An operator left over outside a region, reported here because here is
+       where every expression ends: `b := a + 2` finishes at `a` and the stray
+       `+` would otherwise be described by whatever came next -- *expected '.'
+       between statements* at the top level, *expected ')' after arguments*
+       inside a call. Those send the reader looking for a missing separator
+       rather than a missing `@math`. */
+    if (!p->lexer.infix) {
+        switch (p->current.type) {
+        case TOK_PLUS: case TOK_STAR: case TOK_SLASH: case TOK_CARET:
+            sol_parser_error(p, &p->current,
+                             "arithmetic is written as sends here; '@math(...)' "
+                             "is where the operators are");
+            break;
+        default:
+            break;
+        }
+    }
+}
+
+/* ---- @math: infix arithmetic ----------------------------------------- *
+ *
+ * `@math(a^2 + 3 * ((a/2):sin + b:sqrt))`.
+ *
+ * **Notation, never a second semantics.** Every operator lowers to the send it
+ * reads as -- `+` to `add`, `^` to `pow` -- so the region emits exactly the
+ * bytes the chain would have. That is the rule `[#1, #2]` already lives under,
+ * and `array_literal` desugars the same way, from names the compiler supplies
+ * rather than reads.
+ *
+ * **A term is an ordinary Solum expression**, which is why there is no
+ * `sin(x)` here: a prefix-call rule would have to map `f(x)` to `x:f` and would
+ * then break on `atan2`, which is class-side, and on `pow`, which takes an
+ * argument. `(a/2):sin` needs no rule at all. Whether the prefix form earns a
+ * place is a second decision, and the thing that should settle it is a page of
+ * transcribed formulas rather than the example that prompted this.
+ *
+ * **The whole region is in the mode, nested constructs included.** `expression`
+ * dispatches on it, so an argument list, an array literal, a group and a block
+ * body inside `@math` all read as infix too. That is what makes `f:value(-3)`
+ * and `[1.0, -3.0]` mean what they look like rather than being the one corner
+ * where the rules change back.
+ *
+ *     sum     = product { ("+" | "-") product } .
+ *     product = unary { ("*" | "/") unary } .
+ *     unary   = "-" unary | power .
+ *     power   = term [ "^" unary ] .
+ *     term    = expression .
+ */
+
+/* An operator's send: one argument, and a name the compiler supplies. */
+static void math_send(Compiler *c, const char *name, int length, uint8_t argc)
+{
+    emit_indexed(c, OP_SEND, name_literal(c, name, length));
+    emit(c, argc);
+}
+
+/* `-3` is the constant `-3`, not `3` with a `negated` after it -- but only when
+ * the literal really is what the minus applies to. `^` binds tighter, so in
+ * `-2^2` the minus takes the power and not the 2.
+ *
+ * Answering that needs the token *after* the one the parser is holding, and
+ * scanning a copy of the lexer is how this file already asks such a question --
+ * see `inlinable_arguments`, which settles the same kind of thing before a byte
+ * is written.
+ */
+static bool negated_literal(Compiler *c)
+{
+    SolParser *p = &c->parser;
+
+    if (p->current.type != TOK_INT && p->current.type != TOK_FLOAT) return false;
+
+    SolLexer ahead = p->lexer;
+    if (sol_lexer_next(&ahead).type == TOK_CARET) return false;
+
+    sol_parser_advance(p);
+    if (p->previous.type == TOK_INT) integer_literal(c, true);
+    else                             float_literal(c, true);
+    return true;
+}
+
+/* Right-associative, and tighter than the unary minus above it, so `-2^2` is
+   `-(2^2)` and `2^3^2` is `2^(3^2)`. SolaBasic's ladder made both of those
+   calls first and agreeing with it costs nothing. */
+static void math_power(Compiler *c)
+{
+    send_expression(c);
+    if (sol_parser_match(&c->parser, TOK_CARET)) {
+        math_unary(c);                       /* so `2^-3` reads as it looks */
+        math_send(c, "pow", 3, 1);
+    }
+}
+
+static void math_unary(Compiler *c)
+{
+    if (sol_parser_match(&c->parser, TOK_MINUS)) {
+        if (negated_literal(c)) return;
+        math_unary(c);
+        math_send(c, "negated", 7, 0);
+        return;
+    }
+    math_power(c);
+}
+
+static void math_product(Compiler *c)
+{
+    SolParser *p = &c->parser;
+    math_unary(c);
+    for (;;) {
+        if (sol_parser_match(p, TOK_STAR))       { math_unary(c); math_send(c, "mul", 3, 1); }
+        else if (sol_parser_match(p, TOK_SLASH)) { math_unary(c); math_send(c, "div", 3, 1); }
+        else return;
+    }
+}
+
+static void math_sum(Compiler *c)
+{
+    SolParser *p = &c->parser;
+    math_product(c);
+    for (;;) {
+        if (sol_parser_match(p, TOK_PLUS))       { math_product(c); math_send(c, "add", 3, 1); }
+        else if (sol_parser_match(p, TOK_MINUS)) { math_product(c); math_send(c, "sub", 3, 1); }
+        else return;
+    }
+}
+
+/* The one directive that is an expression, and the reason is the same one that
+ * keeps `@include` a statement: an include has nowhere to compile a file into
+ * inside an expression, and this has nowhere else to be. It answers a value.
+ *
+ * The lexer's mode is set before the '(' is consumed and cleared before the ')'
+ * is, so the tokens on either side of the region are scanned by the rules of
+ * where they actually are. Saved and restored rather than assigned, so a
+ * `@math` inside a `@math` leaves the outer one as it found it.
+ */
+static void math_directive(Compiler *c)
+{
+    SolParser *p = &c->parser;
+    sol_parser_advance(p);                       /* the '@math' itself */
+
+    bool was_infix = p->lexer.infix;
+    p->lexer.infix = true;
+    sol_parser_consume(p, TOK_LPAREN, "expected '(' after '@math'");
+
+    math_sum(c);
+
+    p->lexer.infix = was_infix;
+    sol_parser_consume(p, TOK_RPAREN, "expected ')' closing '@math'");
+}
+
+/* Inside a `@math` region every expression is an infix one, nested constructs
+   included. Outside, the language has no operators and this is the send chain
+   it always was. */
+static void expression(Compiler *c)
+{
+    if (c->parser.lexer.infix) { math_sum(c); return; }
+    send_expression(c);
 }
 
 /* Does `chunk` reach out of its own frame? One that does not is independent of
@@ -1633,8 +1816,10 @@ static void statement(Compiler *c)
 {
     SolParser *p = &c->parser;
 
-    /* A directive stands alone, and this is the only place one may stand. */
-    if (p->current.type == TOK_DIRECTIVE) {
+    /* A directive stands alone, and this is the only place one may stand --
+       except `@math`, which answers a value, so a statement opening with one is
+       an expression statement like any other. */
+    if (p->current.type == TOK_DIRECTIVE && !token_is(&p->current, "@math")) {
         directive_statement(c);
         if (p->panicked) synchronise(c);
         return;
