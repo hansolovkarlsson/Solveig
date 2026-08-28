@@ -11,6 +11,98 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-28 (evening) — the grammar as a design tool, and a limit that cost more than no limit
+
+**A report from use, not a program: equations are hard to write here.** Which is
+a weaker trigger than this repository usually acts on, and both entries written
+today say so rather than dressing it up. Two options were on the table — a
+compile-time notation, or a second language whose output Solum could use — and
+the scoping took the morning while the notation took the afternoon.
+
+**Refusing the second one was most of the value.** Phoenix is buildable: three
+compilers here already target `.sob`, `pascal.sol` did eight stages in a day,
+`lib/sob.sol` writes the format so the back end costs nothing. So the question
+was never *can we*, and answering the one that was actually asked meant noticing
+that a language whose distinguishing feature is infix arithmetic is a few
+thousand lines answering a question a notation answers in two hundred. What the
+entry keeps instead is the half with no precedent at all: every hosted language
+here produces a *closed program* — no `exports`, a `HALT` at the end of the
+chunk, Pascal's globals prefixed so they cannot collide — and whether `.sob` is
+a language-neutral object format has never been asked.
+
+### The grammar turned out to be a design tool
+
+**The first draft of the notation was wrong, and the grammar is what said so.**
+I put the arithmetic ladder inside a `math` production of its own, which is the
+obvious shape: a region has its own rules, so give the region its own
+productions. Then `(a/2):sin` needed a math-flavoured group, and an argument
+needed a math-flavoured argument list, and a block body needed a math-flavoured
+body — the whole expression grammar again, eight productions, on a page whose
+virtue is being short.
+
+**The rule I had implemented was better than the grammar I was writing for it.**
+A region is *lexical*: it covers everything inside it. Written once at the top
+of `expression`, the ladder says exactly that in five productions and the nested
+cases come free. GRAMMAR.md and `solum.bnf` went from agreeing on 23 productions
+to agreeing on 29.
+
+That is the thing worth carrying: **the grammar is checked, so it is not
+documentation, it is a second opinion.** Nothing else in the day would have
+asked whether the region's rule could be stated once instead of eight times.
+
+### The limit was more expensive than no limit
+
+**The proposal was to add `sin(x)` for the float type only, to keep the scope
+small. Scoping it is what would have cost something.** A blessed list of names
+has to appear in `solum.bnf` as word literals, and `check_syntax` reserves every
+word-shaped literal a syntactic rule mentions — so it answers
+`reserved against <identifier>: cos sin`, and *there are no reserved words at
+all* stops being true. `test_cli` asserts that report carries no such line. The
+general rule costs nothing there, `identifier` not being a word.
+
+I checked that by running it rather than by reasoning about it, which took two
+minutes and reversed the answer. **The safe-looking version was the costly one**,
+and there was no way to see that from the shape of the proposal.
+
+### An objection can dissolve instead of being overruled
+
+I had held the prefix form back that morning, in writing, for a stated reason:
+`f(x)` to `x:f` breaks on `float:atan2`, which is class-side, and on `pow`,
+which takes an argument. Both are **two-argument**. A prefix form that takes
+exactly one has no two-argument form for them to break — so the rule became one
+sentence with no exceptions rather than a rule with two carve-outs.
+
+```
+@math( 1 + 2 * 3 ):print.               ; 7
+@math( sqrt(9.0) + 1 ):print.           ; 4
+```
+
+Changing a position I had written down the same morning is worth doing plainly
+and worth separating from being overruled: the premise stopped applying, and the
+entry says which of the two happened.
+
+### Two smaller things
+
+**A guard caught a regression I would not have looked for.** Making `+` a token
+changed `1e+` from scanning as float, identifier, error to float, identifier,
+`'+'`. `test_lexer` failed on it immediately. That fixture exists because the
+self-hosting work found that 33,000 tokens of working Solum contain no `1e`
+followed by a non-digit — working code does not contain the corners — and
+somebody wrote the corners down anyway. The program is rejected either way and
+by the same message, so what moved is where the complaint comes from.
+
+**And the marked counts moved five times today**, each one a failing build until
+I edited the sentence. This morning's entry argued that a number changing faster
+than its page does not belong on the page, and a claim count that moves on
+nearly every documentation edit looks like a counterexample. It is not, and the
+distinction is sharper than what I wrote then: *a claim count moves when the
+documents change, which is exactly when somebody is editing them anyway.* A
+changelog hash count moves when a **commit** happens, which is never when
+somebody is looking at `programs.md`. The rule is not about how fast a number
+moves. It is about whether it moves at a moment when somebody is already there.
+
+---
+
 ## 2026-08-28 (later) — a hash nothing checked, and the number I nearly wrote down
 
 **The entry was a day old and the guard took an afternoon**, which is the ratio
