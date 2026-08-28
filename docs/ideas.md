@@ -44,6 +44,8 @@ marked as a sketch.
 | Go-style concurrency | **No, for now** — it changes the whole VM |
 | Subclass `integer`, a `byte` subclass | **Not possible** — see below |
 | More `@` directives: `@define`, `@ifdef`, `@once` | **No** — each one's job is already done by something that is not a directive |
+| Infix arithmetic, `@math(a^2 + b/2)` | **Scoped, and the call is yours** — [200 lines and one real conflict](#infix-arithmetic-as-a-compile-time-notation); the case is transcription fidelity, not arithmetic |
+| Phoenix — a second language whose output Solum uses | **Defer** — the machinery is proven three times over; [the unexplored half](#programs-that-would-press-on-something) is whether a hosted language can publish a *library* rather than a program |
 | Programs that would press on something — Pascal, predicate logic, a parser toolkit | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would |
 | Networking, and sending code to a running machine | **Defer** — [no socket exists](#networking-and-sending-code-to-a-machine-that-is-already-running); the second needs 3.4 and 6.32 as well |
 | SQLite, SDL2 | **One project, not two** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); SDL2 fires that trigger and SQLite does not |
@@ -2056,6 +2058,151 @@ being that `infinity` and `nan` are globals because they are values the
 arithmetic *reaches*, while `pi` is a constant and `pi` is a name a program is
 entitled to want.
 
+### Infix arithmetic, as a compile-time notation
+
+`@math(a^2 + 3 * ((a/2):sin + b:sqrt))`, lowering to exactly the sends it reads
+as. **Raised on 2026-08-28 from use rather than from reasoning**: equations are
+hard to write in this language and harder to check by eye.
+
+**The difficulty is narrower than *arithmetic is unreadable*, and naming it
+narrowly is what makes the answer small.** A send chain reads strictly
+left-to-right and arithmetic precedence does not. A linear formula is already
+fine — `x:add(y):mul(z)` *is* `(x + y) * z`, in that order. What breaks is
+nesting: the outermost operation ends up in the middle of the line and an
+argument runs to the end of it. With `a` = 5 and `b` = 9:
+
+```
+5.0:pow(2.0):add(3:mul(5.0:div(2.0):sin:add(9.0:sqrt))):print.  ; 35.79541643231187
+```
+
+That is `a^2 + 3*(sin(a/2) + sqrt(b))`, and the two are hard to check against
+each other, which is the whole complaint.
+
+**The counter-argument first, because it is a real one.** The existing style
+already answers the general case by naming the parts: `stddev` in
+[bench.sol](../programs/bench.sol) is a mean, a squared deviation and a division,
+each with a name, and it reads perfectly. A notation for dense one-liners makes
+it *possible* to write the density that naming avoids. So the case for this is
+not everyday arithmetic — it is **transcription fidelity**: when a program
+implements a standard, the dense form is the checkable form, because it is the
+form printed in the standard being copied from. That is the same argument
+[sola.sol](../programs/sola.sol) and [pascal.sol](../programs/pascal.sol) already
+run on, and it is the argument this entry rests on. If it turns out that nothing
+here transcribes a formula, the answer is *don't*.
+
+#### Two things already on the record pull opposite ways
+
+**For it**, [design.md](design.md) states the rule this would live under: *two
+spellings of the same thing mean the same thing; where a shorthand exists it is
+notation, never a second semantics*. `[#1, #2]` and `array:of(#1, #2)` produce
+identical bytecode, and the compiler gets there by supplying the selector name
+itself — `array_literal()` emits a global load and an `of` send, both from names
+it makes up. An infix form that lowers to `add`, `sub`, `mul`, `div` and `pow`
+is the second member of that family rather than a new mechanism.
+
+**Against it**, [solum.bnf](../programs/check_syntax/solum.bnf) opens by saying
+*there are no operators, no control-flow syntax and no keywords*, and offers
+that as the point of the language rather than a fact about the file. And
+[`ifTrue{...}`](#iftrue--a-block-argument-without-parentheses) was refused for
+making a message send look like syntax exactly where the language works hardest
+to prove it is not one.
+
+**What does not apply is the refusal of
+[the rest of the preprocessor](#more--directives-define-ifdef-once).** `@ifdef`
+was turned down because *the text on the screen stops being the program* — a
+reader has to know which switches were set before they can say what a file
+means. This has no switches: it is a total, local, deterministic
+transliteration, and the same characters mean the same thing on every build.
+That entry ends by setting the test this one has to pass — *if a real one
+appears, `@` is ready, and the case for it will be that nothing in the language
+already does the job* — and the honest reading is that the language does do the
+job, badly. This is a legibility argument, which is a weaker kind of argument
+and has to say so.
+
+#### Four findings from the compiler
+
+**One: it has to be named, and `@math(` is free.** The lexer requires a letter
+after `@` and makes the whole directive a single lexeme, so `@include` is one
+token and never an identifier following a symbol. `@math` lexes today with no
+change at all; `@(` does not lex and would need one.
+
+**Two: it would be the first directive that is an expression.** `primary()`
+refuses one now — *a directive must stand alone as a statement* — and the
+grammar says the same in prose: `@include` is the only statement that is not an
+expression, because there is nowhere inside an expression to compile a file
+into. `result := @math(...)` changes what `@` means from *a compile-time
+statement* to *a compile-time thing that can also be a value*. The code change
+is small and the conceptual one is not, and it is the part to argue about.
+
+**Three: `-` is the one genuine conflict, and it is provably harmless.** A
+leading `-` belongs to the *literal* today — there is no negation operator to
+mistake it for, and `b := a - 3.` fails with *'-' must be followed by digits*.
+So the region needs a lexical mode in which `-` is an operator, which is the
+kind of thing this language avoids. What makes it acceptable is that
+**it changes the meaning of no program that is currently legal**: `a - 3` and
+`a-3` in expression position are both syntax errors as things stand. Inside the
+region a bare `-3` reads as unary minus applied to `3`, which is the same value;
+fold it at compile time and it is the same *bytes*. One character conflicts, and
+the conflict is value-preserving — which is a claim a test can hold.
+
+**Four: bare numbers are already floats, so no coercion rule has to be
+invented.** `3` is a float and `#3` an integer, which means
+`a^2 + 3 * (...)` reads correctly exactly as written. This was the collision
+expected to sink the idea — sugar that looks like ordinary mathematics, in a
+language that refuses to coerce — and it does not happen. The strictness shows
+through in one place instead: `pow`, `sqrt` and the trigonometry are float-only,
+so `#4^#2` is a run-time *integer does not understand 'pow'*. That is the
+existing language being visible, not a new rule, and it is the right behaviour.
+
+#### What it should be, and what it should not
+
+**In:** `+ - * /` onto `add sub mul div`; `^` onto `pow`, right-associative and
+binding tighter than unary minus so that `-2^2` is `-(2^2)`. That last call has
+already been made once here — `sola:parsePower` is the only right-associative
+level in SolaBasic's ladder and sits exactly there — and agreeing with it costs
+nothing.
+
+**Out, at least to begin with: prefix function calls.** `sin(a/2)` needs a rule
+mapping `f(x)` to `x:f`, and the rule breaks on the second and third cases it
+meets: `atan2` is class-side `float:atan2(y, x)`, and `pow` takes an argument.
+A rule with exceptions is precisely what
+[`ifTrue{...}`](#iftrue--a-block-argument-without-parentheses) was refused for.
+Leave a *term* as an ordinary Solum expression and the difficulty disappears
+along with the rule:
+
+```text
+result := @math( a^2 + 3 * ((a/2):sin + b:sqrt) ).
+```
+
+Nothing new to learn, no second naming convention, and the stated problem is
+solved. Whether `sin(x)` earns a place is a **second** decision, and the thing
+that should settle it is a page of real transcribed formulas rather than the one
+example that prompted this.
+
+#### Cost, including the part that is not code
+
+A precedence climber lands exactly on the emission the compiler already does —
+compile the left operand, compile the right, emit a one-argument `OP_SEND` — and
+that is byte-for-byte what `a:add(b)` produces today. Call it 150 to 200 lines
+in `solas`, of which the ladder is the small half; the ladders in
+[sola.sol](../programs/sola.sol) and [basic.sol](../programs/basic.sol) are 71
+and 36 lines respectively, and Pascal's is 224 only because it carries a type
+system through each level, which this must not.
+
+**The tail is longer than the head.** [GRAMMAR.md](GRAMMAR.md) and
+[solum.bnf](../programs/check_syntax/solum.bnf) both change and are held against
+each other production by production; [check_syntax.sol](../programs/check_syntax.sol)
+reserves every word-shaped literal a rule mentions; the reference, the guide and
+the cheatsheet each gain a section; an example is owed. And `solum.bnf`'s
+opening boast becomes *there are no operators outside `@math`*, which is a
+sentence somebody has to be willing to write.
+
+**Trigger.** Partly fired already, from use rather than from a program — which
+is a weaker report than this document usually acts on, and is why it is here
+rather than in the roadmap. What would settle it is a file in `programs/` or
+`lib/` that transcribes formulas from a reference and is checked against it. If
+one is written and the existing style copes, that is the answer.
+
 ### Programs that would press on something
 
 These are programs rather than language features, and they are here because what
@@ -2257,6 +2404,76 @@ inside an arm, not the comparisons that choose the arm. **An interpreter written
 in this language pays for its dispatch and cannot get it back by hand** — which
 is worth carrying to the two entries above this one, since both of them are
 proposals for interpreters.
+
+**Phoenix — a second language whose output Solum *uses*.** Proposed on
+2026-08-28, alongside
+[the infix notation above](#infix-arithmetic-as-a-compile-time-notation), and
+the two arrived together for the same reason: equations are awkward to write
+here. **The equation motivation is the wrong reason for this one**, and saying
+so is most of what this entry is for. A language whose distinguishing feature is
+infix arithmetic is a few thousand lines answering a question that a notation
+answers in two hundred — and then there are two languages to keep true, two
+grammars and two references, with the warning the self-hosting entry already
+recorded: *two compilers rot; every language change becomes two changes and the
+second is easy to forget.*
+
+**The machinery, though, is not in doubt, and that is worth stating precisely
+because it is the part that usually kills an idea like this.** Three compilers
+here already target `.sob`: [sola.sol](../programs/sola.sol) at 4,778 lines,
+[pascal.sol](../programs/pascal.sol) at 2,840 — **eight stages in a single
+day** — and [experiment/](../experiment/), a Solum compiler in Solum at 1,619
+lines that compiles itself to a fixpoint. [lib/sob.sol](../lib/sob.sol) writes a
+whole `.sob` from a plain dictionary, so the file-format half costs **nothing**;
+`experiment/compile.sol` is a 70-line command-line shell to copy; and a
+precedence ladder is forty to seventy lines. A small typed imperative language
+is on the order of 2,800 lines and a few focused days. *(For the record, since
+it is easy to get backwards:
+[basic.sol](../programs/basic.sol) is an interpreter. The BASIC that emits
+bytecode is [sola.sol](../programs/sola.sol).)*
+
+**So the question is not whether another language can be written. It is the
+half of the proposal that has no precedent here at all: could its output be a
+*library* rather than a program?** Every hosted language in this repository
+produces a closed program. Neither `sola.sol` nor `pascal.sol` emits an
+`exports` call; both end their chunk with `HALT`, so a `system:load` of one
+would run it and halt the loader; Pascal's globals are deliberately prefixed
+`pas.` so that they *cannot* collide with the machine's, which is the opposite
+of an interface. The mechanisms are all present — nested method chunks,
+capturing blocks, `system:load` keyed by realpath, `exports` inherited by
+whatever an object makes — and **not one of them has ever been pointed at a
+chunk a different front end produced.**
+
+**The prediction, written before anything is built, so that *it found nothing*
+stays available.** `.sob` is a language-neutral object format, and a second
+language can publish an object Solum sends messages to with nothing added to the
+machine — the same shape Pascal's stage 4 prediction had, and it held. **The way
+to falsify it is one thing a hosted compiler cannot emit that a Solum library
+can.** The two candidates worth watching are the `HALT` at the end of a
+top-level chunk, which is a real difference between *a program* and *a file you
+load*, and whatever it turns out an `exports` list has to be built out of at the
+point where a foreign compiler wants to write one.
+
+**And it would put a second customer on two entries that have only ever had
+one.** [3.4](ROADMAP.md#34-no-compatibility-across-sob-versions) — no
+compatibility across `.sob` versions — currently costs one compiler a version
+bump; it would cost two, and the second is the one that finds out whether the
+number is checked anywhere it matters.
+[3.8](ROADMAP.md#38-a-host-and-a-script-agree-a-name-and-nothing-checks-that-they-do)
+is a host and a script agreeing a name with nothing checking, and a cross-language
+`exports` boundary is that entry with the stakes raised: the two sides are now
+written in different languages, so the shared name is not even the same kind of
+identifier at each end.
+
+**What it should not be.** A dialect of Solum with infix and classes. Solum is
+already object-oriented, `system:load` and `exports` are already three of a
+module system's four jobs, and the fourth is
+[refused in writing](#namespaces-for-included-files). A second language earns
+its place by being a *different* language — a different type discipline, a
+different notion of what a program is — or by answering the interop question
+above. Being a nicer skin on this one is the case that has to be refused.
+
+**Trigger:** wanting a library that Solum consumes and that is not written in
+Solum. Nothing has wanted one. The name, should it happen, is Phoenix.
 
 **Fuzzy logic.** A library, and worth an honest note rather than a place in the
 queue: it is arithmetic on floats, and all of the arithmetic landed with
@@ -2501,6 +2718,16 @@ any more turn up*, and the honest position after looking is that none have —
 each candidate is answered by a binding, a block, or a message. If a real one
 appears, `@` is ready, and the case for it will be that nothing in the language
 already does the job.
+
+**One has since been proposed, and it is judged against that sentence rather
+than around it.**
+[An infix notation for arithmetic](#infix-arithmetic-as-a-compile-time-notation)
+would be the second thing in the namespace and the first directive that is an
+expression. It does not pass the test as written — the language *does* do the
+job, since `a:add(b)` computes the sum — so it has to argue on legibility
+instead, which is a weaker kind of argument. What it does not share with the
+three above is the reason they were refused: it has no switches, so the text on
+the screen never stops being the program.
 
 ### Cascades: `A:with{ :m1(#1). :m2(#45). }`
 
