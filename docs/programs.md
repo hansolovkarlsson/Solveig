@@ -502,8 +502,20 @@ an argument on it, the reference's index saying 121 messages across 215
 registrations where it is 122 across 216, and the sample output above, which had
 been showing 398 claims for a while.
 
-`CHANGELOG.md` is the one document skipped — it records what was true at each
-release, so its snippets describe past states on purpose.
+`CHANGELOG.md` is the one document whose *blocks* are skipped — it records what
+was true at each release, so its snippets describe past states on purpose.
+
+**Its headings are read, though, for the commit hash each one names.** An entry
+cannot carry its own hash, so it goes in saying `pending` and a follow-up commit
+substitutes the real one — and until [ROADMAP
+3.21](COMPLETED.md#321-a-changelog-hash-is-written-by-hand-and-nothing-checks-it)
+nothing asked whether that had worked. Once it had not: an entry carried a
+literal `%s` where its hash belonged for two days, through every `make test`,
+and was found by a person reading the page. Everything backticked after a
+heading's last em dash must now be seven hexadecimal characters or the literal
+`pending`. It does not ask git whether the commit exists, which would couple
+this program to a repository — it reads files and runs programs today, and a
+tarball with no `.git` in it checks clean.
 
 **What it found**, once every block was actually being run: the guide asking
 `point:slots` for slots that page never defined, and `p:perform('show)` for a

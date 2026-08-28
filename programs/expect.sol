@@ -1035,11 +1035,13 @@ check := { path |
 subjects:do({ subject |
     system:isDirectory(subject):ifElse(
         { system:filesIn(subject):sorted:do({ name |
-              ; The changelog is skipped, and it is the only exception. It is a
-              ; record of what was true at each release, so its snippets
-              ; describe past states on purpose -- an entry from 0.4.0 showing
-              ; what an error said then is right to keep saying it. Every other
-              ; document describes the language as it is now, and is checked.
+              ; The changelog's *blocks* are skipped, and it is the only
+              ; exception. It is a record of what was true at each release, so
+              ; its snippets describe past states on purpose -- an entry from
+              ; 0.4.0 showing what an error said then is right to keep saying
+              ; it. Every other document describes the language as it is now,
+              ; and is checked. Its headings are read further down, for the
+              ; commit hash each one names, which is a claim about now.
               name:equals("CHANGELOG.md"):not:and({
                   name:endsWith(".sol"):or({ name:endsWith(".md") })
               }):ifTrue({
@@ -1326,6 +1328,122 @@ checkGrammarPage := { | page, bnf, theirs, mine, ok |
 checkGrammarPage:value.
 
 ; ---------------------------------------------------------------------------
+; The hashes in the changelog
+;
+; **A commit cannot carry its own hash**, so every entry in
+; [CHANGELOG.md](../docs/CHANGELOG.md) goes in saying `pending` and a follow-up
+; commit substitutes the real one. Until this existed nothing checked that the
+; substitution had worked, and once it had not: the PRINT USING entry of
+; 2026-08-26 carried a literal `%s` where its hash belonged, through every
+; `make test` for two days, and was found by a person reading the page while
+; cutting 0.35.0. ROADMAP 3.21.
+;
+; This is the second check here about the repository rather than about the
+; language, after the one that recounts numbers written in prose -- and it is
+; the same shape as that one: a fact stated by hand, in a place nothing reads,
+; that a substitution can quietly get wrong.
+;
+; **The rule is what an entry's heading looks like.** A heading is
+;
+;     ### PRINT USING, measured before it was written — `078bd92`, 2026-08-26
+;
+; and everything backticked after the last em dash is a commit: seven
+; hexadecimal characters, or the literal `pending` while the follow-up is not
+; in yet. `%s` is neither, and so is anything else a substitution can leave
+; behind. Two entries are why *everything* backticked rather than *the first
+; thing*: one names two commits joined by `and`, and one names a commit and no
+; date.
+;
+; **What it does not ask is whether the commit exists**, which would catch a
+; well-formed hash that is simply wrong -- a real possibility, since the
+; substitution takes whatever `git rev-parse` said. That wants a repository to
+; ask, and this program does not have one: it reads files and runs programs,
+; and a tarball with no `.git` in it checks clean today. The weaker guard
+; catches the failure that actually happened, and keeps that true.
+;
+; **The one it cannot see** is a heading that loses the em dash and everything
+; after it, since that is exactly what a section *inside* an entry looks like.
+; Those are counted and reported rather than passed over in silence, so the
+; number moving is visible to whoever reads the run.
+
+; The separator the headings use, which is an em dash and not a hyphen. Text is
+; bytes here (ROADMAP 2.13), so this is a three-byte substring search and needs
+; to be nothing cleverer.
+entryMark := " — ".
+
+; `indexOf` walks forward, and the *last* separator is the one that matters: a
+; title may contain an em dash of its own, and several do.
+lastIndexOf := { text, what | | at, from, found |
+    found := nil. from := #1.
+    { at := text:indexOf(what, from). at:notNil }:whileTrue({
+        found := at. from := at:add(#1) }).
+    found }.
+
+; Everything between a pair of backticks, in order. An unclosed one ends the
+; walk rather than raising: a heading is prose, and prose is allowed to be odd.
+backticked := { text | | out, from, open, close |
+    out := array:new. from := #1.
+    { open := text:indexOf("`", from). open:notNil }:whileTrue({
+        close := text:indexOf("`", open:add(#1)).
+        close:isNil:ifElse(
+            { from := text:size:add(#1) },
+            { out:add(text:copyFrom(open:add(#1), close:sub(#1))).
+              from := close:add(#1) }) }).
+    out }.
+
+; Seven hexadecimal characters, lower case, which is what `git rev-parse
+; --short` gives in this repository and what every hash in the page is written
+; as.
+looksLikeAHash := { t | | ok, i |
+    ok := t:size:equals(#7).
+    i := #1.
+    { ok:and({ i:lessOrEqual(t:size) }) }:whileTrue({
+        "0123456789abcdef":indexOf(t:at(i)):isNil:ifTrue({ ok := false }).
+        i := i:add(#1) }).
+    ok }.
+
+changelogHashes := #0.
+changelogPending := #0.
+changelogPlain := #0.
+
+checkChangelogHashes := { | path, n |
+    path := "docs/CHANGELOG.md".
+    system:fileExists(path):ifTrue({
+        n := #0.
+        system:readFile(path):split("\n"):do({ line | | heading, at, tokens |
+            n := n:add(#1).
+            line:size:greaterThan(#4)
+                :and({ line:copyFrom(#1, #4):equals("### ") }):ifTrue({
+                heading := line:copyFrom(#5, line:size):trim.
+                at := lastIndexOf:value(heading, entryMark).
+                at:isNil:ifElse(
+
+                    ; No separator, so no commit is claimed. A section inside an
+                    ; entry, and five of them are.
+                    { changelogPlain := changelogPlain:add(#1) },
+
+                    { tokens := backticked:value(heading:copyFrom(
+                          at:add(entryMark:size), heading:size)).
+                      tokens:size:equals(#0):ifElse(
+                          { failures:add(["{}:{}":fill([path, n]), #0,
+                                "this heading claims a commit and names none",
+                                ""]) },
+                          { tokens:do({ t |
+                                t:equals("pending"):ifElse(
+                                    { changelogPending :=
+                                          changelogPending:add(#1) },
+                                    { looksLikeAHash:value(t):ifElse(
+                                        { changelogHashes :=
+                                              changelogHashes:add(#1) },
+                                        { failures:add([
+                                              "{}:{}":fill([path, n]), #0,
+                                              "'{}' is where a commit hash goes"
+                                                  :fill([t]), ""]) }) }) }) }) }) }) }) }).
+    nil }.
+
+checkChangelogHashes:value.
+
+; ---------------------------------------------------------------------------
 ; The report
 
 "":display.
@@ -1355,6 +1473,19 @@ grammarSame:add(grammarProse):greaterThan(#0):ifTrue({
     "GRAMMAR.md and solum.bnf agree on {} production{}, and {} are prose"
         :fill([grammarSame, grammarSame:equals(#1):ifElse({""},{"s"}),
                grammarProse]):display }).
+
+changelogHashes:greaterThan(#0):ifTrue({
+    "{} changelog entr{} name a commit, {} name{} none{}"
+        :fill([changelogHashes,
+               changelogHashes:equals(#1):ifElse({"y"},{"ies"}),
+               changelogPlain,
+               changelogPlain:equals(#1):ifElse({"s"},{""}),
+               changelogPending:greaterThan(#0):ifElse(
+                   { ", and {} wait{} for the commit that fills it in"
+                         :fill([changelogPending,
+                                changelogPending:equals(#1)
+                                    :ifElse({"s"},{""})]) },
+                   { "" })]):display }).
 
 basicBlocks:greaterThan(#0):ifTrue({
     "{} SolaBasic block{}, {} checked against the output shown under {}"

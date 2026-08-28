@@ -5,6 +5,45 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The changelog's own hashes are checked now — `pending`, 2026-08-28
+
+[ROADMAP 3.21](COMPLETED.md#321-a-changelog-hash-is-written-by-hand-and-nothing-checks-it),
+closed the day after it was raised. Every entry above names the commit it landed
+in, and a commit cannot carry its own hash — so an entry goes in saying
+`pending` and a follow-up commit substitutes the real one. **Nothing asked
+whether the substitution had worked, and once it had not**: the PRINT USING
+entry of 2026-08-26 carried a literal `%s` where its hash belonged, through
+every `make test` for two days, and was found by a person reading the page while
+cutting 0.35.0.
+
+**[expect.sol](../programs/expect.sol) reads the headings now.** Everything
+backticked after a heading's **last** em dash is a commit, and must be seven
+hexadecimal characters or the literal `pending`. The last em dash because a
+title may contain one of its own; everything backticked rather than the first
+token because two entries are not shaped like the rest — one names two commits
+joined by `and`, one names a commit and no date — and a narrower rule would have
+been a rule those two had to be rewritten to satisfy. The run says how many
+entries name a commit and how many headings name none, and reports a `pending`
+still outstanding, which is the state a release cut had been looking for by
+eye.
+
+**The stronger version was declined, as the entry said it would be.** Asking git
+whether the hash names a real commit catches a well-formed hash that is simply
+wrong, and would couple this checker to a repository: it reads files and runs
+programs today, and a tarball with no `.git` in it checks clean. The failure
+that actually happened is caught without giving that up.
+
+**Five headings name no commit and are sections inside an entry**, which is
+indistinguishable from an entry that lost its em dash and everything after it.
+That is the guard's blind spot, so the number is reported rather than passed
+over — and `test_cli` carries a floor beside the ones for claims, counts,
+positions, SolaBasic blocks and grammar productions, so a guard that quietly
+stops finding hashes fails too.
+
+The changelog's fenced blocks are still skipped, and for the same reason as
+ever: they record what was true at each release. Its headings are a claim about
+now.
+
 ## 0.35.0 — 2026-08-28
 
 **Two languages and a module system, and the machine needed one new message for

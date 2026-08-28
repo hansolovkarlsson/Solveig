@@ -487,8 +487,9 @@ static void test_the_limits_are_off_and_are_checked(void)
  * class-and-instance.md's `#45:new(#1):print. ; #1`, which the language stopped
  * doing at some point without the document noticing.
  *
- * CHANGELOG.md is the one document skipped: it records what was true at each
- * release, so its snippets describe past states on purpose. */
+ * CHANGELOG.md is the one document whose *blocks* are skipped: it records what
+ * was true at each release, so its snippets describe past states on purpose.
+ * Its headings are read all the same, for the commit hash each one names. */
 static void test_everything_written_down_is_true(void)
 {
     char out[64 * 1024];
@@ -562,9 +563,26 @@ static void test_everything_written_down_is_true(void)
     assert(sscanf(at, "GRAMMAR.md and solum.bnf agree on %d production", &agree) == 1);
     assert(agree >= 20);
 
+    /* Every changelog entry names the commit it landed in, and that hash is put
+       there by a *second* commit -- a commit cannot carry its own hash, so the
+       entry goes in saying `pending` and a follow-up substitutes the real one.
+       Nothing asked whether the substitution had worked, and once it had not:
+       the PRINT USING entry of 2026-08-26 carried a literal `%s` through every
+       run of this test for two days, and was found by a person reading the page
+       while cutting 0.35.0. ROADMAP 3.21. A floor here for the same reason as
+       the others: a guard that stops finding hashes to check is a guard that
+       has stopped. */
+    int hashes = 0;
+    at = strstr(out, "changelog entr");
+    assert(at != NULL);
+    while (at > out && at[-1] != '\n') at--;
+    assert(sscanf(at, "%d changelog entr", &hashes) == 1);
+    assert(hashes >= 240);
+
     printf("  everything written down is true (%d claims, %d counts, %d "
-           "positions, %d of %d SolaBasic blocks, %d productions)\n",
-           claims, counts, placed, basicChecked, basic, agree);
+           "positions, %d of %d SolaBasic blocks, %d productions, %d commit "
+           "hashes)\n",
+           claims, counts, placed, basicChecked, basic, agree, hashes);
 }
 
 /* The BASIC interpreter, held to the standard it says it implements.

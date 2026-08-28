@@ -340,6 +340,57 @@ The limitations themselves are still live and are in
 [ROADMAP.md](ROADMAP.md#3-known-limitations). These were limitations until they
 stopped being ones.
 
+### 3.21 A changelog hash is written by hand and nothing checks it — **done**
+
+The second entry here about this repository's own verification rather than about
+the language, after [3.16](#316-what-the-checker-does-not-check--done), and the
+same shape as the third gap that one closed: a fact stated by hand, in a place
+nothing reads, that goes wrong quietly.
+
+Every entry in [CHANGELOG.md](CHANGELOG.md) names the commit it landed in, and a
+commit cannot carry its own hash — so the entry goes in saying `pending` and a
+follow-up commit substitutes the real one. **The substitution failed once and
+the failure survived two days**: the PRINT USING entry of 2026-08-26 carried a
+literal `%s` where its hash belonged, through every `make test` in between,
+because nothing asked whether a hash looked like one. It was found by a person
+reading the page while cutting 0.35.0.
+
+**The rule is what an entry's heading looks like.** A heading is
+
+```text
+### PRINT USING, measured before it was written — `078bd92`, 2026-08-26
+```
+
+and everything backticked after the **last** em dash is a commit: seven
+hexadecimal characters, or the literal `pending` while the follow-up is not in
+yet. `%s` is neither, and neither is anything else a substitution can leave
+behind. The last em dash rather than the first, because a title may contain one
+of its own; *everything* backticked rather than the first thing, because two
+entries are not shaped like the rest — one names two commits joined by `and`,
+and one names a commit and no date. Both are right as they are, and a
+rule that read only the first token would have been a rule those two had to be
+rewritten to satisfy.
+
+**The weaker guard, deliberately.** The entry named a stronger version: ask git
+whether the hash names a commit that exists, which catches a well-formed hash
+that is simply wrong. That wants a repository to ask, and
+[expect.sol](../programs/expect.sol) does not have one — it reads files and runs
+programs, and a tarball with no `.git` in it checks clean. The weaker guard
+catches the failure that actually happened and keeps that property, which is the
+trade the entry had already argued for and which building it did not change.
+
+**What it cannot see, said out loud.** A heading that loses the em dash and
+everything after it is indistinguishable from a section *inside* an entry, and
+five headings are genuinely that. So both numbers are reported — *how many
+entries name a commit, and how many headings name none* — rather than passed
+over in silence, and the second one moving is visible to whoever reads a run. A
+floor in `test_cli` catches the other direction, a guard that quietly stops
+finding hashes to check, exactly as the floors beside it do for claims, counts,
+positions, SolaBasic blocks and grammar productions.
+
+It also reports a `pending` still waiting, which is the state the release cut is
+looking for and previously had to look for by eye.
+
 ### 3.20 Five shipped libraries published everything they had — **done**
 
 `exports` shipped with one library using it. This closed the other five, and

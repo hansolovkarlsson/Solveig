@@ -224,10 +224,13 @@ own.
 
 Safe, and documented. Each is a real restriction rather than a bug.
 
-**3.20 is gone from here too**, opened and closed on the same day — the only
-entry that has managed that twice over in this section, and the only one whose
-answer was partly *don't*: `shell` publishes four names, all four are the API,
-and a boundary listing them would have hidden nothing.
+**3.20 and 3.21 are gone from here too.** 3.20 opened and closed on the same
+day — the only entry whose answer was partly *don't*: `shell` publishes four
+names, all four are the API, and a boundary listing them would have hidden
+nothing. 3.21 was the second entry here about this repository's own verification
+rather than about the language, after 3.16, and it closed the way it said it
+would: the weaker guard, which reads a heading rather than asking git, so a
+tarball with no `.git` in it goes on checking clean.
 
 **3.9, 3.15, 3.16 and 3.17 are gone from here** and are in
 [COMPLETED.md](COMPLETED.md#3-known-limitations). 3.15 closed by giving `run`
@@ -928,44 +931,6 @@ today every site either sets it at the tail of a branch or wants the rest to
 run, and the moment one does not, the flag has to be threaded through the body
 as `done:not:ifTrue({ ... })` and the workaround starts nesting.
 
-### 3.21 A changelog hash is written by hand and nothing checks it
-
-Every entry in [CHANGELOG.md](CHANGELOG.md) names the commit it landed in, and
-that hash is put there by a second commit — a commit cannot carry its own hash,
-so the entry goes in saying `pending` and a follow-up substitutes the real one.
-Nothing checks that the substitution worked.
-
-**It did not work once, and the failure survived two days.** The PRINT USING
-entry of 2026-08-26 carried a literal `%s` where its hash should have been,
-through every `make test` since, because nothing asks whether a hash looks like
-one. It was found while cutting 0.35.0, by reading, and it is fixed —
-[078bd92](CHANGELOG.md).
-
-**The guard is small.** `expect.sol` already reads these documents; an entry's
-heading ends in a backticked token, and that token is either seven hexadecimal
-characters or the literal `pending`, which is the documented in-between state
-while a feature is committed and its follow-up is not. `%s` is neither, and so
-is anything else a substitution can leave behind.
-
-**The stronger version, and why it is not obviously better.** The guard could
-ask git whether the hash names a commit that exists, which catches a
-well-formed hash that is simply wrong — a real possibility, since the
-substitution takes whatever `git rev-parse` said and a mistake there produces
-something shaped exactly right. It would couple `expect.sol` to a repository,
-which it is not today: it reads files and runs programs, and a tarball with no
-`.git` in it currently checks clean. That is worth keeping unless the weaker
-guard turns out to miss something.
-
-**Why it is here rather than being done.** It is the same class as the
-clean-checkout problem the Makefile fixed on 2026-08-27 — a check that passes
-for the wrong reason — and both were found by a person looking rather than by
-anything looking for them. Neither is urgent and both are cheap; this one is
-written down so that the next hash that goes missing is caught by the build
-instead of by somebody cutting a release.
-
-This is about the repository's own verification rather than about the language,
-which makes it the second of its kind here after 3.16.
-
 ### 1.1d Collection is stop-the-world and non-incremental
 
 Fine at this size and not worth touching yet. Noted so it is a choice rather than
@@ -999,11 +964,12 @@ keeping it did. The number stays 6.32 and is not reused.
 
 ## How this list emptied, and how it filled and emptied again
 
-**One thing is on it**, and it is a guard rather than a feature:
-[3.21](#321-a-changelog-hash-is-written-by-hand-and-nothing-checks-it), which a
-literal `%s` sitting in the changelog for two days asked for.
+**Nothing is on it.** The last thing was a guard rather than a feature:
+[3.21](COMPLETED.md#321-a-changelog-hash-is-written-by-hand-and-nothing-checks-it),
+which a literal `%s` sitting in the changelog for two days asked for, opened on
+2026-08-27 and closed on 2026-08-28.
 
-Before that it was empty again, having gained one on 2026-08-27 and lost it the
+Before that it was empty too, having gained one on 2026-08-27 and lost it the
 same day:
 [3.20](COMPLETED.md#320-five-shipped-libraries-published-everything-they-had--done),
 five libraries that had not said what they publish, four of which now do and the
