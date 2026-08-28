@@ -427,3 +427,13 @@ pattern:countIn := { text | | n, at, start, stop, done |
               stop := self:endOfMatchAt(text, start).
               at := stop:equals(start):ifElse({ start:add(#1) }, { stop }) }) }).
     n }.
+
+; The export boundary: the ten messages the reference documents, and nothing
+; else. What is left out is one matcher taken apart -- `item`, `least`,
+; `leader`, `anchored`, `accepts` and the rest are the pieces a match is made
+; of, and `source` is the compiled pattern itself.
+;
+; Inherited, so a compiled pattern -- which is what `on` answers and what every
+; program actually holds -- is these ten messages and no more.
+pattern:exports(['on, 'find, 'findFrom, 'findLast, 'matches, 'endOfMatchAt,
+                 'replaceIn, 'replaceAllIn, 'countIn, 'substitutionIn]).

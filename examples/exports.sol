@@ -52,16 +52,26 @@ counter:respondsTo('n):print.           ; false
 counter:exports:print.                  ; ['bump, 'total]
 object:new:exports:print.               ; nil
 
-; **Privacy is inherited.** The check compares the *receiver* against the
-; sender's self, not the object the slot was found on -- so a child's own
-; method reaches what it inherited, while anything else still cannot.
+; **The boundary is inherited**, so a thing made from this one is under it too.
+; That is what makes a boundary worth drawing on a prototype: every counter a
+; program actually holds is an object made from this one, and its own copy of
+; `n` is where the number really lives. A line that stopped at the prototype
+; would have protected only the default.
 tally := counter:new.
-tally:twice := { self:bump. self:bump. self:n }.
 
-; #4 rather than #2: `tally` reads `n` through its proto, where the count had
-; already reached two, and binds its own from there. That is prototypes doing
-; what prototypes do -- what matters here is that `self:n` was reachable at all.
-tally:twice:print.                      ; #4
+; An inherited method still reaches what it inherited -- `bump` runs with
+; `tally` as its self, so `self:n` is reachable, and `tally` gets a copy of `n`
+; of its own. It starts from #2 because that is what its proto had reached.
+tally:bump.
+tally:total:print.                      ; #3
+
+; But from outside, `tally` is the same two names its proto published --
+; including for *adding* one. A prototype that says what it offers says it on
+; behalf of everything made from it.
+{ tally:n }:onError({ e | e:message:display }).
+                                        ; 'n' is not exported by object
+{ tally:twice := { self:bump } }:onError({ e | e:message:display }).
+                                        ; 'twice' is not exported by object
 
 ; A boundary cannot be redrawn from outside, which is what makes it one rather
 ; than a note about intent.

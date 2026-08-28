@@ -116,28 +116,75 @@ static void test_reflection_keeps_the_line(void)
     printf("  slots, respondsTo and exports all report the line\n");
 }
 
-/* Privacy is inherited, because the check compares the receiver against the
-   sender's self rather than against whichever object holds the slot. A child's
-   own method reaches what it inherited; an unrelated object does not. */
-static void test_privacy_is_inherited_but_does_not_leak_sideways(void)
+/* The boundary is inherited, which is what makes it worth drawing on a
+ * prototype at all.
+ *
+ * Every piece of state a program holds lives on an object made *from* the
+ * prototype rather than on the prototype itself -- a cursor's `src`, a
+ * counter's count -- so a line that stopped at the object that drew it would
+ * have hidden the default and left every real one public. This was the first
+ * version's behaviour and it was found by trying to draw a line on `lib/scan.sol`,
+ * where it would have protected nothing anybody holds. */
+static void test_the_boundary_is_inherited(void)
 {
     SolVM vm;
     quiet_vm(&vm);
     assert(run_source(&vm, COUNTER
                       "child := counter:new.\n"
-                      "child:peek := { self:n }.\n"
-                      "seen := child:peek.\n") == SOL_OK);
-    assert(SOL_AS_INT(global(&vm, "seen")) == 0);
+                      "child:bump.\n"
+                      "seen := child:total.\n") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "seen")) == 1);
+    sol_vm_free(&vm);
+    printf("  an inherited method reaches what it inherited\n");
+
+    /* From outside, an object made from a prototype is the same list the
+       prototype published -- for reading and for binding both. */
+    refused("child := counter:new.\nchild:n:print.",
+            "'n' is not exported");
+    refused("child := counter:new.\nchild:peek := { self:n }.",
+            "'peek' is not exported");
+    printf("  and from outside an instance is its prototype's list\n");
+}
+
+/* A prototype's own method may reach into an object made from it, which is
+ * what a constructor is: it runs with the prototype as its self and has to fill
+ * in something that is not itself yet. Without this every library would be
+ * forbidden from initialising the objects it hands out. */
+static void test_a_constructor_may_fill_in_what_it_makes(void)
+{
+    SolVM vm;
+    quiet_vm(&vm);
+    assert(run_source(&vm,
+        "cursor := object:new.\n"
+        "cursor:src := \"\".\n"
+        "cursor:on := { text | | c | c := self:new. c:src := text. c }.\n"
+        "cursor:rest := { self:src }.\n"
+        "cursor:exports(['on, 'rest]).\n"
+        "seen := cursor:on(\"abc\"):rest.\n") == SOL_OK);
+    assert(strcmp(SOL_AS_STRING(global(&vm, "seen"))->chars, "abc") == 0);
     sol_vm_free(&vm);
 
-    quiet_vm(&vm);
-    assert(run_source(&vm, COUNTER
-                      "other := object:new.\n"
-                      "other:pry := { counter:n }.\n"
-                      "other:pry.\n") != SOL_OK);
-    assert(strstr(vm.error_message.chars, "'n' is not exported") != NULL);
-    sol_vm_free(&vm);
-    printf("  a child reaches what it inherited; a stranger does not\n");
+    /* And what it filled in is still not anybody else's business. */
+    refused("cursor := object:new.\n"
+            "cursor:src := \"\".\n"
+            "cursor:on := { text | | c | c := self:new. c:src := text. c }.\n"
+            "cursor:exports(['on]).\n"
+            "cursor:on(\"abc\"):src:print.",
+            "'src' is not exported");
+    printf("  a constructor fills in its instance, and nobody else can read it\n");
+}
+
+/* Only downward. A method on a child reaches its inherited privates through
+   `self`, which is the ordinary case; naming the prototype and reaching up into
+   it is a different thing and stays refused. */
+static void test_reaching_up_into_a_prototype_is_still_refused(void)
+{
+    refused("other := counter:new.\n"
+            "counter:total.\n"                 /* something exported, to be sure */
+            "peek := { counter:n }.\n"
+            "peek:value.",
+            "'n' is not exported");
+    printf("  reaching up into a prototype by name is refused\n");
 }
 
 /* An object that never draws a line is untouched, which is the whole of the
@@ -235,7 +282,9 @@ int main(void)
     test_the_exports_work_and_the_inside_is_unchanged();
     test_every_way_out_is_shut();
     test_reflection_keeps_the_line();
-    test_privacy_is_inherited_but_does_not_leak_sideways();
+    test_the_boundary_is_inherited();
+    test_a_constructor_may_fill_in_what_it_makes();
+    test_reaching_up_into_a_prototype_is_still_refused();
     test_an_object_without_a_boundary_is_unchanged();
     test_the_export_list_survives_collection();
     test_the_list_must_be_symbols();

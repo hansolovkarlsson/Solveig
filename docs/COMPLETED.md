@@ -340,6 +340,62 @@ The limitations themselves are still live and are in
 [ROADMAP.md](ROADMAP.md#3-known-limitations). These were limitations until they
 stopped being ones.
 
+### 3.20 Five shipped libraries published everything they had — **done**
+
+`exports` shipped with one library using it. This closed the other five, and
+four of them now say what they publish:
+
+| library | publishes | keeps |
+| --- | --- | --- |
+| `scan` | the fifteen the reference documents | `src`, the text a cursor is a position in |
+| `pattern` | the ten the reference documents | thirteen — one matcher taken apart |
+| `sob` | `file`, `version` | eight — a byte writer and the buffer it fills |
+| `html` | `read`, `complaints` | four dozen — one HTML parser taken apart |
+| `html:element` | eleven | `add` and `at` were meant to be among the kept; see below |
+
+**`shell` drew none, and that is the answer rather than an omission.** It has
+four slots and all four are the API. A line listing everything hides nothing,
+and a boundary that hides nothing is the decoration this document rejects
+elsewhere.
+
+**Two objects, not one, in `html`.** It binds a parser and the node prototype a
+read answers, and they need separate lines — with the inner one drawn first,
+since `html`'s own boundary would otherwise put `element` outside it and refuse
+the very next statement.
+
+**What drawing the lines found.**
+
+`html:element` publishes eleven names rather than nine, for the reason
+`json:quote` was published there: the parser builds the tree from *outside* an
+element. `html:newElement` is a method on `html`, and a new node delegates to
+`html:element` rather than to `html`, so both the position it stamps (`at`) and
+the way it hangs a child on a parent (`add`) arrive from outside. They were
+public in fact long before anything said so.
+
+**And one library was reaching into another's internals.** `html` sliced a
+cursor's own text — `self:cur:src:copyFrom(start, self:cur:pos:sub(#1))` —
+where `scan:since(start)` says the same thing and had existed the whole time.
+The two are the same slice; `since` guards `pos == start`, which the test above
+it had already ruled out. Nothing had stopped it, so nothing had noticed. That
+is the boundary paying for itself: not by preventing a bug, but by finding a
+place where an API had been bypassed and reimplemented.
+
+**The semantics changed to make any of it worth doing.** As shipped, a boundary
+was per-object, and `scan` and `pattern` are prototypes — so hiding `scan:src`
+would have hidden the prototype's default and left every actual cursor's `src`
+public, which is the half that matters. Boundaries are inherited now: an object
+under one *is* its export list, whether it drew the line or got it from its
+prototype. That needed a second rule to stay usable — a method on a prototype
+may reach into an object made from it, which is what a constructor is, and
+without it every library would be forbidden from filling in what it hands out.
+Only downward: reaching up into a prototype by name is still refused.
+
+**Cost.** The assignment path settles `self:x := ...` with two comparisons
+before consulting anything, that being nearly every assignment a method makes.
+Against the previous build, a send-only loop differs by about 2% in one ordering
+and is indistinguishable in the other, and a real program is indistinguishable —
+which is to say it is at the noise floor rather than clearly below it.
+
 ### 3.19 A program cannot write to standard error — **done**
 
 **`system:writeError(text)` is the answer**, landed the day after the entry was

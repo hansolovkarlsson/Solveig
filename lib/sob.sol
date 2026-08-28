@@ -189,3 +189,9 @@ sob:file := { chunk |
     self:u16(chunk:at("slots")).
     self:chunk(chunk).
     self:out:join("") }.
+
+; The export boundary. `file` is what this is for and `version` is what it
+; writes; everything else is one byte-writer taken apart -- `out` is the buffer
+; being filled, and `u8` through `f64` are the encodings, which are meaningless
+; without it and dangerous with it.
+sob:exports(['file, 'version]).

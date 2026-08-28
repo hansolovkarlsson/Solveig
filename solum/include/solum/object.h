@@ -98,9 +98,20 @@ struct SolObject {
     SolValue       exports;
 };
 
-/* Whether `name` -- interned -- is on `obj`'s export list. False for every name
-   when the object has drawn no boundary, which callers check for first. */
+/* The boundary `obj` is under: its own if it drew one, otherwise the nearest
+   prototype's, or nil where nothing in the chain drew one. Inherited because an
+   object made by a prototype's constructor *is* one of them, and every piece of
+   state a program holds lives on such an object rather than on the prototype. */
+SolValue sol_object_boundary(const SolObject *obj);
+
+/* Whether `name` -- interned -- is exported by the boundary `obj` is under.
+   False for every name when nothing in the chain drew one, which callers check
+   for first. */
 bool sol_object_exports_name(const SolObject *obj, const char *name);
+
+/* The same question asked of this object's own declaration only, ignoring what
+   it inherits. */
+bool sol_object_declares_name(const SolObject *obj, const char *name);
 
 /* Draws the boundary: records `exports` and re-stamps every slot the object
    already has. */

@@ -11,6 +11,58 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-28 — five libraries, four boundaries, and one that should not have one
+
+**3.20 was meant to be an afternoon of applying a finished feature to five
+files.** It was not, and the first library made that clear: `scan` is a
+*prototype*. `scan:on` answers a new cursor, and every cursor a program holds is
+one of those. Drawing a line on `scan` would have hidden the prototype's default
+`src` and left every real cursor's text public — protecting nothing anybody
+holds.
+
+So the feature shipped yesterday was half a feature and the only way to find
+that out was to use it. Boundaries are inherited now: an object under one is its
+export list whether it drew the line or got it from its prototype. Which
+immediately broke every constructor, because `scan:on` runs with `scan` as its
+self and fills in a cursor that is not `scan` — so a second rule went in, that a
+method on a prototype may reach into an object made from it. Only downward.
+Reaching up into a prototype by name stays refused.
+
+Both rules are one sentence each and neither was in the design I wrote out
+yesterday evening. I had reasoned about inheritance and got it exactly backwards:
+I checked that a *child's* method could reach what it inherited, which works,
+and never asked what a *parent's* method could reach, which is where every
+library actually lives.
+
+**Then the libraries, and three findings.**
+
+`html` binds two objects, not one — a parser and the node prototype a read
+answers — and they need separate lines with the inner drawn first, since `html`'s
+own boundary otherwise puts `element` outside it and refuses the very next
+statement. That is the ordering rule from last night arriving in practice about
+twelve hours after being written down.
+
+`html:element` publishes `add` and `at`, which were meant to be private. The
+parser builds the tree from outside an element: the factory is a method on
+`html`, and a node delegates to `html:element` rather than to `html`. Same shape
+as `json:quote` — public in fact, and nothing had said so.
+
+And the one worth the whole exercise: **`html` was reaching into `scan`'s
+internals.** It sliced a cursor's own text with
+`self:cur:src:copyFrom(start, self:cur:pos:sub(#1))`, where `scan:since(start)`
+says the same thing and had existed since `scan` was written. Nothing had
+stopped it, so nothing had noticed — and `since` is not an obscure corner of
+`scan`, it is one of the fifteen messages the reference documents. The boundary
+did not prevent a bug there. It found a place where an API had been bypassed and
+quietly reimplemented, which is the thing an export boundary is actually for.
+
+**`shell` got no boundary and that is the finding for it.** Four slots, all four
+the API. A line listing everything hides nothing, and a boundary that hides
+nothing is exactly the decoration this project rejects when a reflection walks
+around one. Five libraries, four boundaries, and one honest *no*.
+
+---
+
 ## 2026-08-27 (night) — an example that found a bug in the morning's work
 
 **Asked for an example of `system:load`, and the first thing to settle was

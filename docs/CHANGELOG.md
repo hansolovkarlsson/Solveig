@@ -5,6 +5,44 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Four more libraries say what they publish — `pending`, 2026-08-27
+
+**[3.20](COMPLETED.md#320-five-shipped-libraries-published-everything-they-had--done)
+closed the day it opened**, and the answer for one of the five was *don't*.
+`scan`, `pattern`, `sob` and `html` now draw export boundaries — `html` twice,
+since it binds both a parser and the node prototype a read answers. `shell` does
+not: it has four slots, all four are the API, and a line listing everything
+hides nothing.
+
+**The semantics had to change first, and finding that out was the point.** As
+shipped, a boundary was per-object — and `scan` and `pattern` are prototypes, so
+hiding `scan:src` would have hidden the prototype's default and left every
+actual cursor's `src` public. That is the half that matters: every piece of
+state a program holds lives on an object made *from* a prototype. Boundaries are
+inherited now, so an object under one *is* its export list however it got there.
+
+That needed a second rule to stay usable: **a method on a prototype may reach
+into an object made from it**, which is what a constructor is — `scan:on` runs
+with `scan` as its self and has to fill in a cursor that is not itself yet.
+Only downward; reaching up into a prototype by name is still refused.
+
+**One library was reaching into another's internals.** `html` sliced a cursor's
+own text with `self:cur:src:copyFrom(start, self:cur:pos:sub(#1))`, where
+`scan:since(start)` says the same thing and had existed the whole time. Nothing
+had stopped it, so nothing had noticed. The boundary paid for itself there — not
+by preventing a bug, but by finding an API that had been bypassed and
+reimplemented.
+
+**And two more names were public in fact.** `html:element` publishes `add` and
+`at` for the reason `json:quote` is published: the parser builds the tree from
+outside an element, because the factory is a method on `html` while a node
+delegates to `html:element`.
+
+**Cost.** The assignment path settles `self:x := ...` with two comparisons
+before consulting anything, that being nearly every assignment a method makes.
+A send-only loop differs from the previous build by about 2% in one ordering and
+is indistinguishable in the other; a real program is indistinguishable.
+
 ### Where the export boundary begins — `8bfd1a4`, 2026-08-27
 
 **A question worth a section: does `exports` apply to `@include` too?** It does,

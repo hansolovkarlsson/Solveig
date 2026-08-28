@@ -632,6 +632,8 @@ SolSlot *sol_object_lookup_interned(SolVM *vm, SolObject *obj, const char *name)
    here, and interning is a hash of the string -- paid on a name that is already
    a pointer into the table, on the hot path, to learn nothing. The callers that
    hold a C literal go through `ensure_local` below and pay it once. */
+static bool listed(SolValue list, const char *name);
+
 static SolSlot *ensure_local_interned(SolVM *vm, SolObject *obj, const char *name)
 {
     (void)vm;
@@ -656,8 +658,10 @@ static SolSlot *ensure_local_interned(SolVM *vm, SolObject *obj, const char *nam
     /* Reachable unless the object has drawn a boundary this name is outside of.
        An object that never draws one leaves every slot true, which is what
        makes the check in the dispatch loop a bit test and nothing more. */
-    slot->exported = SOL_IS_NIL(obj->exports) ||
-                     sol_object_exports_name(obj, name);
+    /* Against the boundary the object is *under*, not only the one it drew --
+       so a slot made on a fresh instance is judged by its prototype's list. */
+    { SolValue boundary = sol_object_boundary(obj);
+      slot->exported = SOL_IS_NIL(boundary) || listed(boundary, name); }
     slot->next = obj->slots;
     obj->slots = slot;
     obj->slot_count++;
@@ -680,24 +684,54 @@ static SolSlot *ensure_local_interned(SolVM *vm, SolObject *obj, const char *nam
    interned name is the VM's own and outlives every slot).
 
    Linear, because an export list is the size of an API. */
+/* The boundary an object is under, which is its own if it drew one and
+   otherwise its prototype's.
+ *
+ * Inherited, because a cursor made by `scan:on` *is* a scan and a reader thinks
+ * of it as one -- and because without this the boundary protects only the
+ * prototype's defaults. Every piece of state a program actually holds lives on
+ * an instance, so a per-object boundary would have hidden `scan:src` and left
+ * every real cursor's `src` public, which is the half that matters. */
+SolValue sol_object_boundary(const SolObject *obj)
+{
+    for (const SolObject *o = obj; o != NULL; o = o->proto) {
+        if (!SOL_IS_NIL(o->exports)) return o->exports;
+    }
+    return SOL_NIL_VAL;
+}
+
+/* Whether `name` is on `list` -- the list being an array of symbols. */
+static bool listed(SolValue list, const char *name)
+{
+    if (!SOL_IS_ARRAY(list)) return false;
+    SolArray *items = SOL_AS_ARRAY(list);
+    for (int i = 0; i < items->count; i++) {
+        if (!SOL_IS_SYMBOL(items->items[i])) continue;
+        if (strcmp(SOL_AS_SYMBOL(items->items[i])->chars, name) == 0) return true;
+    }
+    return false;
+}
+
 bool sol_object_exports_name(const SolObject *obj, const char *name)
+{
+    return listed(sol_object_boundary(obj), name);
+}
+
+/* The object's own list, without looking up the chain -- what `exports` with no
+   argument answers, so that asking an object what *it* declared is a different
+   question from asking what it is under. */
+bool sol_object_declares_name(const SolObject *obj, const char *name)
 {
     if (!SOL_IS_ARRAY(obj->exports)) return false;
 
-    SolArray *list = SOL_AS_ARRAY(obj->exports);
-    for (int i = 0; i < list->count; i++) {
-        if (!SOL_IS_SYMBOL(list->items[i])) continue;
-        if (strcmp(SOL_AS_SYMBOL(list->items[i])->chars, name) == 0) return true;
-    }
-    return false;
+    return listed(obj->exports, name);
 }
 
 void sol_object_set_exports(SolObject *obj, SolValue exports)
 {
     obj->exports = exports;
     for (SolSlot *slot = obj->slots; slot != NULL; slot = slot->next) {
-        slot->exported = SOL_IS_NIL(exports) ||
-                         sol_object_exports_name(obj, slot->name);
+        slot->exported = SOL_IS_NIL(exports) || listed(exports, slot->name);
     }
 }
 

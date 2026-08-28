@@ -398,7 +398,12 @@ html:readRawText := { name | | start, closing, done |
                 { done := true },
                 { self:cur:step }) }) }).
     self:cur:pos:greaterThan(start):ifTrue({
-        self:current:add(self:cur:src:copyFrom(start, self:cur:pos:sub(#1))) }).
+        ; `since` rather than reaching into the cursor's own text, which is what
+        ; this did until scan drew a boundary and refused it. The two are the
+        ; same slice -- `since` guards `pos == start`, which the test above has
+        ; already ruled out -- and this was a message that existed the whole
+        ; time, reimplemented here because nothing stopped it.
+        self:current:add(self:cur:since(start)) }).
     self:cur:peek:isNil:ifFalse({
         self:cur:pos := self:cur:pos:add(closing:size).
         self:skipToTagEnd.
@@ -459,3 +464,31 @@ html:read := { source | | document |
 html:isNameStart := { c |
     c:notNil:and({ c:asLowercase:greaterOrEqual("a") })
         :and({ c:asLowercase:lessOrEqual("z") }) }.
+
+; The export boundaries -- two of them, because this file binds two objects.
+;
+;
+; `element` first, and that ordering is load-bearing: drawing `html`'s line
+; before this one puts `element` outside it, and the next statement -- which
+; sends `element` to `html` -- is then refused. An object's own boundary comes
+; after everything that reaches through it.
+;
+; `element` is what a read answers, and the boundary is inherited, so every node
+; in the tree is these ten messages.
+;
+; **Eleven rather than nine**, and the two extra are the same finding
+; `json:quote` was: a name public in fact long before anything said so. The
+; parser builds the tree from *outside* an element -- `html:newElement` is a
+; method on `html`, and a new node delegates to `html:element` rather than to
+; `html` -- so both the position it stamps (`at`) and the way it hangs a child
+; on its parent (`add`) are sends from outside. Moving the factory onto
+; `element` would hide them and publish a constructor instead, which is the
+; same surface wearing different clothes.
+html:element:exports(['name, 'text, 'attribute, 'attributes, 'children,
+                      'parent, 'find, 'findAll, 'selectNodes, 'at, 'add]).
+
+; `html` is the parser: you read a document and ask what it complained about.
+; The four dozen slots left out are one HTML parser taken apart, and the parser
+; state among them -- `cur`, `stack`, `open`, `depth` -- belongs to a read that
+; is in progress.
+html:exports(['read, 'complaints]).

@@ -679,11 +679,31 @@ void sol_vm_remember_loaded(SolVM *vm, char *identity)
  *
  * The top level of a program has no self, so it is outside everything -- which
  * is the point. */
+static bool inside(SolValue sender_self, SolValue receiver)
+{
+    if (!SOL_IS_OBJ(sender_self) || !SOL_IS_OBJ(receiver)) return false;
+
+    /* The receiver itself, or something that delegates to it -- so a method on
+       a prototype may reach into an object made from it. That is what a
+       constructor is: `scan:on` runs with `scan` as its self and has to put the
+       source into a cursor it has just made, and the cursor is not itself yet.
+       Without this the boundary would forbid every library from filling in the
+       objects it hands out.
+
+       Only downward. A method on a child reaches its *inherited* privates
+       through `self`, which the first step covers; naming the prototype and
+       reaching up into it is a different thing and stays refused. */
+    SolObject *self = SOL_AS_OBJ(sender_self);
+    for (SolObject *o = SOL_AS_OBJ(receiver); o != NULL; o = o->proto) {
+        if (o == self) return true;
+    }
+    return false;
+}
+
 static bool may_reach(const SolSlot *slot, SolValue sender_self, SolValue receiver)
 {
     if (slot->exported) return true;
-    return SOL_IS_OBJ(sender_self) && SOL_IS_OBJ(receiver) &&
-           SOL_AS_OBJ(sender_self) == SOL_AS_OBJ(receiver);
+    return inside(sender_self, receiver);
 }
 
 /* The same rule as the dispatch loop's, for the reflection primitives -- which
@@ -935,12 +955,36 @@ static SolResult run_frames(SolVM *vm, int base)
                read, which is the whole failure this exists to stop. It also
                refuses to *add* an unlisted name, since the alternative is a
                slot whose maker cannot then use it. */
+            /* A name already here answers for itself: its bit was decided when
+               it was made, so the common assignment costs a lookup it was going
+               to do anyway and a bit test. Only a name that does not exist yet
+               needs the boundary looked up, and walking the prototype chain on
+               every assignment -- which the first version did -- is a walk for
+               a question the slot had already answered. */
             SolObject *obj = SOL_AS_OBJ(target);
-            if (!SOL_IS_NIL(obj->exports)) {
-                SolValue self = frame->method != NULL ? frame->slots[0]
-                                                      : SOL_NIL_VAL;
-                if (!(SOL_IS_OBJ(self) && SOL_AS_OBJ(self) == obj) &&
-                    !sol_object_exports_name(obj, name)) {
+
+            /* `self:x := ...` first, because that is nearly every assignment a
+               method makes: an object writing to itself is inside by
+               definition, and this settles it with two comparisons and no
+               `SolValue` built. Everything below -- the lookup, and the walk up
+               the prototypes -- is for an assignment to somebody else, which is
+               the rare one and the only one a boundary has an opinion about. */
+            bool writing_to_self = frame->method != NULL &&
+                                   SOL_IS_OBJ(frame->slots[0]) &&
+                                   SOL_AS_OBJ(frame->slots[0]) == obj;
+            if (!writing_to_self) {
+                /* A name already here answers for itself: its bit was decided
+                   when it was made. Only a name that does not exist yet needs
+                   the boundary looked up. */
+                SolSlot *here = sol_object_lookup_interned(vm, obj, name);
+                bool allowed = here != NULL
+                    ? here->exported
+                    : SOL_IS_NIL(sol_object_boundary(obj)) ||
+                      sol_object_exports_name(obj, name);
+
+                if (!allowed &&
+                    !inside(frame->method != NULL ? frame->slots[0]
+                                                  : SOL_NIL_VAL, target)) {
                     sol_vm_runtime_error(vm, "'%s' is not exported by %s", name,
                                          sol_type_name(target));
                     break;

@@ -2577,6 +2577,19 @@ loading. [lib/json.sol](../lib/json.sol) builds its escape tables with
 work because the boundary is not drawn until the final line of the file. Drawn
 first, a library would lock itself out of its own construction.
 
+**The boundary is inherited**, and this is what makes it worth drawing on a
+prototype at all. Every piece of state a program holds lives on an object made
+*from* a prototype rather than on the prototype itself — a cursor's text, a
+counter's count — so a line that stopped at the object which drew it would hide
+the default and leave every real one public. An object under a boundary is that
+boundary's export list, whether it drew the line or inherited it.
+
+**A method on a prototype may reach into an object made from it**, which is what
+a constructor is: `scan:on` runs with `scan` as its self and has to put the text
+into a cursor that is not itself yet. Only downward — a method on a child
+reaches its inherited privates through `self`, which the ordinary rule covers,
+while naming the prototype and reaching up into it stays refused.
+
 **Privacy is inherited.** The check compares the *receiver* against the sender's
 self rather than against whichever object in the chain holds the slot, so a
 child's own method reaches what it inherited while an unrelated object does not.
@@ -2592,12 +2605,14 @@ and `exports` answers **nil**. Not drawing a line is not a weaker line; it is
 the absence of one, exactly as before this message existed.
 
 So a boundary is something a library *chooses*, not a default it opts out of.
-Of the nine shipped libraries, one has chosen it: `json`. Five more bind an
-object and have not — `html`, `pattern`, `scan`, `shell` and `sob` publish
-everything they have, which is
-[3.20](ROADMAP.md#320-five-shipped-libraries-publish-everything-they-have). The
-remaining three bind no object at all: `control`, `math` and `text` add methods
-to built-in classes, so there is nothing for a boundary to go around.
+Of the nine shipped libraries, **five have drawn one** — `json`, `scan`,
+`pattern`, `sob` and `html`, the last twice, since it binds both a parser and
+the node prototype a read answers.
+
+`shell` has not, and deliberately: it has four slots and all four are the API,
+so a line there would list everything and hide nothing. The remaining three bind
+no object at all — `control`, `math` and `text` add methods to built-in classes,
+so there is nothing for a boundary to go around.
 
 That is also the compatibility promise, and it is what lets
 [examples/include.sol](../examples/include.sol) go on extending an included

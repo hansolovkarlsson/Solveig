@@ -150,3 +150,17 @@ scan:take := { n | | start, limit |
 scan:since := { start |
     self:pos:equals(start)
         :ifElse({ "" }, { self:src:copyFrom(start, self:pos:sub(#1)) }) }.
+
+; The export boundary. Everything a cursor is for is here; `src` is the text
+; itself, which is the cursor's business and nobody else's -- reaching in to
+; replace it would leave `pos` pointing into a string that is gone.
+;
+; `pos` is exported because the reference says it is written as well as read:
+; scanners backtrack, and a remembered `pos` put back is how. A boundary says
+; what is public, and `pos` is public on purpose.
+;
+; It is inherited, which is the point of drawing it here: `on` answers a new
+; object, and every cursor a program actually holds is one of those.
+scan:exports(['on, 'pos, 'atEnd, 'peek, 'peekAt, 'looksLike, 'step, 'next,
+              'match, 'skipWhile, 'takeWhile, 'takeUntil, 'take, 'since,
+              'rest]).
