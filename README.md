@@ -498,6 +498,13 @@ A program reads and writes files, reads its input, times itself, stops with a
 status, and is split across files with `@include` — or, once they are compiled,
 with `system:load`, which is the same thing done while running.
 
+An object can say which of its slots are anybody else's business.
+`json:exports(['read, 'write, 'quote, 'keyText])` draws a line, and from outside
+that object *is* those four names — a name off the list can be neither sent nor
+bound, while inside nothing changes. It is opt-in, inherited by whatever an
+object makes, and an object that never draws one behaves exactly as it always
+did.
+
 Compiling to a file and running it separately works too:
 
 ```

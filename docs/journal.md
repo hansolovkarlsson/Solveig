@@ -61,6 +61,95 @@ the API. A line listing everything hides nothing, and a boundary that hides
 nothing is exactly the decoration this project rejects when a reflection walks
 around one. Five libraries, four boundaries, and one honest *no*.
 
+### Postmortem
+
+Two days, one arc: a question about whether one `.sob` could load another, and
+everything that turned out to be behind it — `system:load`, its once-only
+memory, the debugger's view of it, `exports`, and the five libraries.
+
+1. **The question was worth more than a request would have been.** It arrived as
+   *is this feasible, would it need different memory blocks?* — and the honest
+   way to answer was to build the smallest thing that would settle it before
+   saying anything. That produced a thirty-line C host, which produced the
+   answer (the separation already existed; only the globals were ever shared),
+   which produced the feature. Had it arrived as *build system:load* I would
+   have started from the design instead of from the premise, and the premise was
+   the part that was wrong.
+
+2. **ROADMAP 3.6 was reached by experiment rather than by reading.** Freeing the
+   loaded chunk segfaulted in `sol_vm_call_block`, exactly as the entry says it
+   would. I had read that entry — I quoted it in the same session — and still
+   did not predict the crash until ASan printed it. **A limitation you can
+   recite is not the same as one you have felt**, and the second is what makes
+   you design around it.
+
+3. **The house GC check ended in deletion, for the first time.** The rule here
+   is to prove a new temporary root is load-bearing by removing it and showing
+   the ASan report. I removed it expecting a crash and got a clean suite:
+   `serialize.c` is handed no VM, so loading cannot allocate anything the
+   collector knows about. The check earned its place by contradicting the person
+   running it, which is the only way a check ever earns anything. The root came
+   out and the comment now says why there is nothing to guard.
+
+4. **Two performance bugs, one shape, and only measurement found either.** The
+   first version of the boundary built the sender's `self` on every send for a
+   test that discards it whenever the slot is exported — 8.7% of a send-only
+   loop. The assignment path did the same with a walk up the prototypes. Both
+   read as obviously cheap and both were the most expensive line in the change.
+   **Cheap-looking work on the hot path is where the cost is**, because nobody
+   measures what they already believe.
+
+5. **I got the inheritance rule exactly backwards in design.** I reasoned about
+   privacy and inheritance for several paragraphs, and what I checked was that a
+   *child's* method could reach what it inherited. It can. What I never asked was
+   what a *parent's* method could reach — and that is where every library lives,
+   because a constructor runs on the prototype and fills in an object that is
+   not itself yet. The rule that was missing is one sentence long. **A design
+   pass that only tests the case you thought of is a design pass that agrees
+   with you.**
+
+6. **The same feature shipped half-finished twice, and use found both.** No
+   once-only memory, defended in the changelog as a choice; and a per-object
+   boundary that would have protected `scan`'s prototype and left every real
+   cursor public. Neither survived contact with a second user of the feature,
+   and neither would have been caught by rereading the design. **The first real
+   use is the design review**, and shipping before it is how you find out what
+   you decided without noticing.
+
+7. **The boundary's best find was not a bug.** `html` sliced a cursor's own text
+   where `scan:since` says the same thing and had existed since `scan` was
+   written. Nothing was broken; the two are the same slice. What the boundary
+   found was an API that had been bypassed and quietly reimplemented, in a file
+   whose author had read the other file's documentation. **A boundary is a
+   question — "did you mean to reach in here?" — and it gets asked in places
+   nobody would think to look.**
+
+8. **A green suite can be green for the worst possible reason.** `examples/load.sol`
+   loaded `examples/library.sob`, bytecode is gitignored, nothing built it, and
+   it existed only because I had compiled it by hand while testing. It passed
+   all day and would have failed on any fresh clone. It was found by writing a
+   *second* example of the same shape, not by anything looking for it. The fix
+   is four lines of Makefile; the check that mattered was `rm -f examples/*.sob`
+   and running the suite twice.
+
+9. **Two refusals, and they were work too.** Declared dependencies is the fourth
+   job a module system does, and the reasoning against it — `@include` already
+   *is* a declaration; ordering and cycles are already settled; it would be a
+   fourth mechanism where three reach — took longer to write than a small
+   feature would have taken to build. `shell` got no boundary for the same kind
+   of reason: four slots, all four the API, and a line listing everything hides
+   nothing. **Recording why something should not exist is cheaper now than
+   deciding it again later from a blank page**, which is the argument this
+   repository has been making about `ideas.md` since it started.
+
+10. **The repository asked for four things I had not thought to write**, and
+    named each by file and line: an example that sends the new message, an entry
+    in the reference's index, a line in the cheatsheet, and six counts that had
+    moved. Then `expect.sol` could not read the word *thirty*. Every one of those
+    is a guard somebody wrote after being burned, and together they are the
+    reason a day of language changes ends with the documents true rather than
+    with a note to fix them later.
+
 ---
 
 ## 2026-08-27 (night) — an example that found a bug in the morning's work
