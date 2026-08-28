@@ -5,6 +5,53 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## 0.35.0 — 2026-08-28
+
+**Two languages and a module system, and the machine needed one new message for
+all of it.** `.sob` files are format version 14, unchanged, and bytecode from
+0.34.0 still runs — checked both ways round, old compiler to new machine and
+new compiler to old.
+
+**[programs/pascal.sol](../programs/pascal.sol) compiles ISO 7185 Pascal to
+`.sob`**, in eight stages, against `fpc -Miso` as an oracle installed before the
+lexer existed. Nested procedures, sets, records, pointers, `file of T`'s
+absence argued rather than assumed — and **the machine needed nothing added**:
+not one instruction, not one message, not one roadmap entry. `OP_OUTER` turned
+out to be a static link and a capturing block turned out to be Pascal's own
+scoping rule, both written down as predictions before the stage that settled
+them. A recursive Pascal function reaches exactly 254 levels, which is the
+machine's own limit and proves a Pascal call costs one frame and nothing more.
+
+**[programs/check_syntax.sol](../programs/check_syntax.sol) is told the syntax
+rather than knowing it** — a grammar in Wirth EBNF and a file, and it says where
+the file stops matching. It is a stack machine, so there is no depth limit;
+against the recursive matcher it reached 19 levels and now reaches thousands.
+Solum's own grammar is written down in `solum.bnf`, and
+[GRAMMAR.md](GRAMMAR.md) is held against it production by production.
+
+**One `.sob` can load another.** `system:load` is `@include`'s run-time twin:
+the same flat namespace, but a message rather than a directive, so the file can
+be chosen while running. It is once-only, keyed by realpath as `@include` is.
+Nothing in the VM needed a new memory model — every chunk already carried its
+own names, constants and slots, and a frame already recorded which chunk it
+belonged to. Only the globals were ever shared, and that sharing *is* the
+mechanism.
+
+**And an object can now say what it publishes.** `exports` draws a line:
+from outside, an object that has drawn one *is* its export list, and a name off
+the list can be neither sent nor bound. Inside, nothing changes. It is opt-in,
+inherited by whatever an object makes, and five shipped libraries now use it —
+`shell` deliberately does not, having four slots of which all four are the API.
+Drawing the lines found two names public in fact rather than on purpose, and one
+library reaching into another's internals to reimplement a message that already
+existed.
+
+**Three of a module system's four jobs are done**, and the fourth — declared
+dependencies — is
+[refused in writing](ideas.md#namespaces-for-included-files) rather than left
+undone: `@include "json.sol".` already *is* a declaration, and ordering and
+cycles are settled by once-only loading without one.
+
 ### Four more libraries say what they publish — `89c2c9a`, 2026-08-27
 
 **[3.20](COMPLETED.md#320-five-shipped-libraries-published-everything-they-had--done)
@@ -1015,7 +1062,7 @@ a comma inside quotes stops separating and text with one in it survives.
 writes CR LF. A carriage return is taken off what is read, so a file written by
 either is readable here.
 
-### PRINT USING, measured before it was written — `%s`, 2026-08-26
+### PRINT USING, measured before it was written — `078bd92`, 2026-08-26
 
 **The first feature here built the other way round.** Twenty-one formats went
 through QuickBASIC 4.5 *first* — digit positions, decimals, thousands

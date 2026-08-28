@@ -137,6 +137,22 @@ version the binaries inside it report.
 
 ## Status
 
+**0.35.0** — two languages and a module system, and the machine needed one new
+message for all of it. `.sob` files are format version 14, unchanged, and
+bytecode from 0.34.0 still runs — checked both ways round.
+**[programs/pascal.sol](programs/pascal.sol)** compiles ISO 7185 Pascal to
+bytecode in eight stages against `fpc -Miso`, and **the machine needed nothing
+added**: no instruction, no message, no roadmap entry, with a recursive Pascal
+function reaching exactly the 254 levels the machine itself allows.
+**[programs/check_syntax.sol](programs/check_syntax.sol)** is told a grammar in
+Wirth EBNF and checks a file against it, as a stack machine with no depth limit;
+Solum's own grammar is now written down and held against the reference.
+**`system:load`** lets one `.sob` load another — `@include`'s run-time twin,
+once-only, needing no new memory model because the separation was already there.
+And **`exports`** lets an object say what it publishes: from outside it *is*
+that list, opt-in and inherited, with five libraries using it and one
+deliberately not.
+
 **0.34.0** — two integer literals and an interpreter checked against a suite it
 did not write. `.sob` files are format version 14, unchanged, and bytecode from
 0.33.0 still runs. **`$FF08` and `%10101100`** write the same integer in
