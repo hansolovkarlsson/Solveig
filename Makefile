@@ -142,9 +142,23 @@ $(BUILD)/tests/%: tests/%.c $(LIB) | $(CONFIG)
 # keeping it to one target is that a build without pthreads still gets the rest.
 $(BUILD)/tests/test_threads: CFLAGS += -pthread
 
+# An example that loads a compiled file needs one to be there. `system:load`
+# takes bytecode and never source, so `examples/load.sol` wants
+# `examples/library.sob` on disk -- and bytecode is a build artefact that is not
+# committed, so on a fresh clone it is not. The example passed only on the
+# machine where somebody had happened to compile the library by hand.
+#
+# Wildcarded rather than listing the two or three that are wanted, for the
+# reason the install rule gives below: a hand-kept list here goes stale.
+EXAMPLE_SRCS = $(wildcard examples/*.sol)
+EXAMPLE_SOBS = $(EXAMPLE_SRCS:.sol=.sob)
+
+examples/%.sob: examples/%.sol $(BIN)/solas
+	@$(BIN)/solas $< -o $@
+
 # The binaries too: test_cli runs them as a shell would, a `main` not being
 # something the library holds.
-test: $(BINARIES) $(TEST_BINS)
+test: $(BINARIES) $(TEST_BINS) $(EXAMPLE_SOBS)
 	@for t in $(TEST_BINS); do echo "-- $$t"; $$t || exit 1; done
 	@echo "all tests passed"
 

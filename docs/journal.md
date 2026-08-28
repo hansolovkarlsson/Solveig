@@ -11,6 +11,47 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-27 (night) — an example that found a bug in the morning's work
+
+**Asked for an example of `system:load`, and the first thing to settle was
+whether one was wanted at all**, since `examples/load.sol` had gone in with the
+feature. It teaches the mechanics: what it never shows is the difference that
+outlives all the others. `@include` needs a literal string, because the file is
+found while the includer is being compiled and a name holding one has no value
+yet. `system:load` is a message, so the name is an expression — and a program
+can run a file it worked out while running.
+
+So `plugins.sol` names none of the files it runs. It looks in a directory,
+finds the compiled modules, loads each and uses it. The two modules draw export
+boundaries, which ties this morning to this evening: reaching into a module
+whose name nobody wrote down is exactly the case where you would rather not be
+able to.
+
+**And writing it found that this morning's example was broken for everybody but
+me.** `examples/load.sol` loads `examples/library.sob`. Bytecode is gitignored,
+nothing in the Makefile built it, and it existed on this machine only because I
+had compiled it by hand while testing. On a fresh clone the example fails and
+`make test` fails with it. It had been green all day for the worst possible
+reason.
+
+The fix is four lines of Makefile — every example compiled to bytecode,
+wildcarded rather than listed, for the reason the install rule beside it already
+gives about hand-kept lists going stale. What matters more than the fix is how
+it was checked: `rm -f examples/*.sob` and then `make test`, twice, rather than
+trusting that a rule which looked right was right. Thirty-four files rebuilt and
+the suite passed.
+
+**The header of `load.sol` had been wrong in the same way** and nobody would
+have noticed until they typed it. It said to compile `load.sol` and run it,
+which was never enough: compiling the file that loads does not compile the file
+it loads. It says `make` now, and says why — which turns a papered-over
+assumption into the first thing loading asks of you that including does not.
+
+A day that shipped four features ended by finding that the first one's example
+had never worked anywhere but here.
+
+---
+
 ## 2026-08-27 (evening) — the half that needed a new concept
 
 **`ideas.md` had said for years why this could not be built**, and quoting it

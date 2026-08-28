@@ -589,6 +589,18 @@ A failure inside the loaded file is an ordinary failure too. It unwinds through
 the load, and the trace names both files — the line that failed and the line
 that loaded it.
 
+**The name is an expression**, which is the difference that outlives all the
+others. `@include` needs a literal string: the file is found while the includer
+is being compiled, so a name holding the file's name has no value yet. A message
+takes whatever you hand it, so a program can load a file it worked out while
+running — read from a configuration, taken from `system:arguments`, or found by
+looking in a directory. [examples/plugins.sol](../examples/plugins.sol) does the
+last of those, and names none of the files it runs.
+
+Bytecode has to exist for this to find, which is the other thing including does
+not ask of you: compiling the file that loads is not enough, and the file it
+loads must be compiled too.
+
 See [examples/load.sol](../examples/load.sol), and
 [3.10](ROADMAP.md#310-a-vm-cannot-be-reused-across-runs) for the
 namespace this shares and the cost of its being flat.

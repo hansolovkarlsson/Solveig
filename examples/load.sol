@@ -1,7 +1,13 @@
 ; load.sol -- bringing in a file that is already compiled.
-; Run with:  ./bin/solas examples/load.sol && ./bin/solvm examples/load.sob
+; Run with:  make          (which compiles every example to bytecode)
+;            ./bin/solvm examples/load.sob
 ;
-; Run it from the top of the repository, and the next paragraph says why.
+; `make` rather than one call to `solas`, because this file loads *bytecode*:
+; `examples/library.sob` has to exist before this runs, and compiling this file
+; alone does not produce it. That is the first thing loading asks of you that
+; including does not.
+;
+; Run it from the top of the repository, and the paragraph below says why.
 
 ; `system:load` is `@include`'s run-time twin. `@include` is a directive: it
 ; happens while compiling, it needs the source, and by the time the program runs

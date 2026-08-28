@@ -5,6 +5,33 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### A loaded name may be worked out while running — `pending`, 2026-08-27
+
+**[examples/plugins.sol](../examples/plugins.sol) runs code it never names.** It
+looks in a directory, finds the compiled modules there, loads each and uses it —
+which is the difference between the two mechanisms that outlives all the others.
+`@include` needs a literal string, because the file is found while the includer
+is being compiled and a name holding one has no value yet. `system:load` is a
+message and takes an expression, so the file can be chosen from a configuration,
+from `system:arguments`, or by looking.
+
+The two modules it loads draw export boundaries, which is the case for having
+one: reaching into a module whose name nobody wrote down is exactly what you
+would rather not be able to do.
+
+**And it fixes a bug this morning shipped.** `examples/load.sol` loads
+`examples/library.sob`, bytecode is a build artefact and is not committed, and
+nothing built it — so the example worked only on a machine where somebody had
+compiled the library by hand, which is to say only on mine. On a fresh clone it
+failed. The Makefile now compiles every example to bytecode, wildcarded rather
+than listed for the reason the install rule already gives, and `make test`
+passes with `examples/*.sob` deleted first — which is how this was confirmed
+rather than assumed.
+
+`load.sol`'s own header said `solas examples/load.sol && solvm examples/load.sob`,
+which was never enough on its own. It says `make` now, and says why: compiling
+the file that loads does not compile the file it loads.
+
 ### `exports`: an object decides what it shows — `b32d990`, 2026-08-27
 
 **Three of the four jobs a module system does are now done.** An object with
