@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### A resource an extension owns, and the promise that it comes back — `pending`, 2026-08-28
+### A resource an extension owns, and the promise that it comes back — `2308bde`, 2026-08-28
 
 **`SolForeign`**: a socket, a window, a connection, a compiled pattern — a value
 the machine holds for a program and gives back when the program is done with it.
