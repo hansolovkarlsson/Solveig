@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### Comparison, logic, and the region is `@expr` now — `pending`, 2026-08-28
+### Comparison, logic, and the region is `@expr` now — `8ae150e`, 2026-08-28
 
 **`@math` is `@expr`.** The region covers `= <> < > <= >=`, `~`, `&` and `|` as
 well, and once it did the old name was describing the first half of its job. The
