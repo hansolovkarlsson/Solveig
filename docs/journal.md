@@ -11,6 +11,82 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-28 (night) — nine operators, three decisions, and a checker that was right twice
+
+**The region grew to `= <> < > <= >= ~ & |` and stopped being called `@math`.**
+Which is the part worth writing down first: the name went wrong the moment the
+scope changed, and it was hours old, so changing it cost a `sed` and a test
+rename. In six months it would have cost a deprecation. **The cheap moment to
+rename a thing is the moment you notice it is misnamed**, and that moment is
+usually the one where it feels too trivial to bother.
+
+**Eight of the nine characters were free.** `= < > & ~` all answered *unexpected
+character*, which is the same finding the arithmetic operators produced in the
+afternoon and the reason this kept being cheap: a language with no operators has
+an entire punctuation table sitting unused.
+
+### The one that was not free
+
+`|` already opened a block's parameters and a group's temporaries. I could have
+declined it and shipped `&` alone, which would have been worse — an asymmetric
+`and` with no `or` beside it is a gap a reader trips over rather than a
+restriction they respect.
+
+What made it work is a rule that was already there: **parameters and temporaries
+are matched before a body is.** So a `|` reaching the operators is one standing
+where an operator may stand, and `{ a | b }` is still a block taking `a`, inside
+a region exactly as outside. The compiler and the grammar do the same thing for
+the same reason — ordered choice on one side, parse order on the other.
+
+It is still a rule with a *position* in it, which this language mostly refuses,
+and the entry says so rather than presenting it as free. The honest summary is
+that the position was already load-bearing and this made it carry a second load.
+
+### The checker was right twice, and I was wrong first both times
+
+**Once on the operator list.** I wrote `"=" | "<>" | "<" | ">" | "<=" | ">="`
+and check_syntax refused it: *in `<operator>`, `'<'` is written before `'<='` and
+would always win — the longer one has to come first.* An ordering bug in an
+ordered-choice grammar, which the hand-written lexer never had because it peeks
+for the second character. **The two implementations fail differently, so holding
+them against each other catches what neither would catch alone.**
+
+**Once on a fixture.** `a := #1 & #2.` had been a test that *both* the compiler
+and the grammar refuse a file. `&` is an operator now, so the grammar admits it
+and only the compiler refuses — which is exactly the row GRAMMAR.md already
+carries about things refused by the compiler rather than by the page. The
+tempting fix was to swap the fixture for another mistake and move on. What went
+in instead is the swap **plus** an assertion that `a := #1 & #2.` is refused by
+`solas` and accepted by the grammar, because that is now a documented property
+and a property nothing asserts is a property that will drift.
+
+### And the two calls that were judgement rather than mechanics
+
+**`~` is looser than a comparison**, so `~a = b` is `~(a = b)`. That is what the
+words say — *not a equals b* — and what BASIC and Pascal read. C binds `!`
+tightest and would have read `(~a) = b`, so this is the one place in the region
+where a C habit misleads, and it is called out in the reference and the example
+rather than left to be discovered.
+
+**Comparison does not chain**, and the nice part is that this is not a check.
+`comparison = sum [ op sum ]` — an optional tail rather than a repeated one —
+and the grammar says it structurally, the way `send` says that `o:at(#1) := #2`
+is not a way of storing into a collection. `a < b < c` would compare a boolean
+to `c`, and refusing it while compiling beats failing while running.
+
+### The shape of the day
+
+A guard nobody asked for, two entries written before any code, a notation, its
+prefix form, and then nine more operators and a rename. **The entries were
+written first and that is why the implementations had almost nothing to decide**
+— every argument that mattered had already been had on paper, and the three
+things that came up during the work were the three the paper could not have
+predicted: that a lexical region is describable in five productions rather than
+eight, that restricting a rule can cost more than generalising it, and that an
+ordered-choice grammar has an ordering the lexer does not.
+
+---
+
 ## 2026-08-28 (evening) — the grammar as a design tool, and a limit that cost more than no limit
 
 **A report from use, not a program: equations are hard to write here.** Which is

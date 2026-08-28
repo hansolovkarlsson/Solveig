@@ -81,12 +81,22 @@ and `@expr(...)` is a region where the operators mean something:
 ```
 
 Those compile to the same bytes. It is a second spelling and never a second
-meaning, and the [reference](REFERENCE.md#infix-arithmetic) has the table of
+meaning, and the [reference](REFERENCE.md#infix-operators) has the table of
 which operator is which send.
 
 Inside a region `sqrt(x)` works too, and it is `x:sqrt` — prefix application is a
 send to its argument, one argument exactly. Being a *send* is the one thing to
 know about it: a global holding a block is still called with `value`.
+
+Comparison and logic are there as well — `= <> < > <= >=`, then `~`, then `&`
+and `|` — so a guard reads the way it is written:
+
+```
+@expr( #1 < #2 & ~(#2 = #3) ):print.    ; true
+```
+
+`&` and `|` stop early, because the `and` and `or` they lower to take a block in
+order to. And `~` is looser than a comparison, so `~a = b` is `~(a = b)`.
 
 > **Run:** [examples/hello.sol](../examples/hello.sol)
 

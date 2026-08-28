@@ -100,13 +100,17 @@ The syntax is already a lot to take on, so a reader should never have to ask
 which of two forms they are looking at in order to know what it does.
 
 **There are two of those shorthands and they are the only two**, which is worth
-saying because the second one has operators in it. `@expr(...)` exists for a
-formula being transcribed: a send chain reads left to right and precedence does
-not, so `a^2 + 3*(sin(a/2) + sqrt(b))` written as sends puts its outermost
-operation in the middle of the line and cannot be checked against the page it
-came from. What it does not do is add anything to the language — every operator
-is a send, a term inside a region is an ordinary expression, and the bytes are
-the same bytes.
+saying because the second one has operators in it. `@expr(...)` began as a
+notation for a formula being transcribed — a send chain reads left to right and
+precedence does not, so `a^2 + 3*(sin(a/2) + sqrt(b))` written as sends puts its
+outermost operation in the middle of the line and cannot be checked against the
+page it came from — and it covers comparison and logic too, which is why it is
+named for an expression rather than for arithmetic.
+
+What it does not do is add anything to the language. Every operator is a send,
+a term inside a region is an ordinary expression, and the bytes are the same
+bytes: `a & b` compiles to what `a:and({ b })` compiles to, short-circuiting
+included, because that is where the block's body would have gone.
 
 **One operator, one meaning.** `:=` binds a name to an evaluated value, whether
 the name is a global, a temporary, or a slot on a class. An earlier design had it

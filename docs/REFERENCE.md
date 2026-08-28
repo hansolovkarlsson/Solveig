@@ -48,7 +48,7 @@ a:print.
 - **[Names and binding](#names-and-binding)**
 - **[Messages](#messages)**
   - [Grouping](#grouping)
-  - [Infix arithmetic](#infix-arithmetic)
+  - [Infix operators](#infix-operators)
 - **[Blocks](#blocks)**
   - [Capture](#capture)
 - **[Control flow](#control-flow)**
@@ -1898,7 +1898,7 @@ Sends chain left to right:
 
 There are no operators and no precedence to remember; `a:add(b:mul(c))` is
 written out. The one exception is a `@expr(...)` region, which is
-[infix arithmetic](#infix-arithmetic) and lowers to these same sends.
+[infix operators](#infix-operators) and lowers to these same sends.
 
 A bare identifier resolves to a local, then to an enclosing frame's local, then
 to a global. It is a lookup, not a send.
@@ -1944,7 +1944,7 @@ would have run before `ifTrue` could decide anything. See
 
 ---
 
-### Infix arithmetic
+### Infix operators
 
 `@expr( ... )` writes an expression the way it is written on paper. It is
 notation and nothing else: every operator lowers to the send it reads as, and the region
