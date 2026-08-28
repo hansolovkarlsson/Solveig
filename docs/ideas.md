@@ -789,7 +789,7 @@ today is one and a half:
 | once-only initialization | **done** — a file is compiled once, keyed by where it lands on disk |
 | a namespace | **approximated** — `json:read(...)` is namespaced access already; only the name `json` is in the flat space, and a collision on it is a compile-time warning ([6.21](COMPLETED.md#621-two-libraries-binding-one-name-collide-silently--done)) |
 | an export boundary | **done** — `exports` draws one; from outside an object is its export list |
-| declared dependencies | **absent** |
+| declared dependencies | **absent, and not wanted** — see below |
 
 **`system:load` keeps that first row true**, which took a second pass to get
 right. It shipped without a once-only memory — a message that silently declined
@@ -865,6 +865,48 @@ on purpose, and nothing had ever said so.
 - Somebody other than the author writes a Solum library.
 - One program needs two libraries that clash on a name. Today the answer is
   "rename one", which works right up until you do not own one of them.
+
+#### Declared dependencies: the row that should stay empty
+
+The other three rows each closed on a failure somebody could hit — a file run
+twice, two libraries claiming one name, a private slot overwritten from outside.
+This one has no such failure behind it, and the case against it is worth writing
+down rather than leaving as an omission.
+
+**`@include "json.sol".` is a declared dependency.** It stands alone as a
+statement, it comes at the top, it names exactly what the file needs, and the
+compiler acts on it. What a module system adds is not the declaration but the
+*separation* of declaring from fetching — which earns its place when the thing
+has to be found among alternatives, resolved against a version, or fetched from
+somewhere. None of those exists here. A file is beside you or on the search
+path, and there is one of it.
+
+**The mechanical jobs are already done by the two rows above it.** Ordering and
+cycles are what dependency graphs are usually computed for, and both mechanisms
+settle them without anyone declaring anything: `@include` is once-only keyed by
+realpath and says a cycle "ends on purpose", and `system:load` now does the same
+at run time. Two files may each ask for what they need without arranging between
+themselves who asks — which is the outcome a dependency declaration is meant to
+buy, arrived at without one.
+
+**It would be a fourth mechanism where three already reach.** That is the
+objection this document used against
+[`@ifdef`](#more--directives-define-ifdef-once), and it applied to the namespace
+row too, where an object holding slots turned out to be a namespace already.
+
+**The one real gap, recorded so the trigger is legible.** A `.sob` does not say
+what it needs. `@include` is gone by the time a program runs — it leaves no
+trace in the bytecode, deliberately — and `system:load` is a message, so a
+compiled file's requirements are not visible without running it. Today that
+costs nothing, because a `.sob` either finds what it wants in the globals or
+fails on the send that wanted it. It would start costing something if anybody
+wanted to ship compiled Solum and know before running it what else must be
+loaded first, and in what order.
+
+**So the trigger is packaging**, and it is a different trigger from the two
+above. Those turned on somebody else writing a library. This one turns on
+somebody else *distributing* one as bytecode — and until that happens, a
+declaration would be a form to fill in with information nothing reads.
 
 ### 6.32 A script cannot be run with less than the whole machine
 

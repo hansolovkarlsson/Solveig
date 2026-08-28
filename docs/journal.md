@@ -74,6 +74,29 @@ than against a remembered number, and ran it in both directions, because the
 first run's variance was high enough to be suspicious. It was real, and then it
 was not.
 
+**And the last row was closed by deciding not to build it.** Declared
+dependencies is the fourth job a module system does, and with three done it was
+the obvious next thing. It should not be built, and the reasoning is now in
+`ideas.md` rather than left as an empty cell.
+
+The short of it: `@include "json.sol".` *is* a declared dependency — it stands
+alone, it comes first, it names what the file needs, and the compiler acts on
+it. What a module system adds is separating the declaration from the fetching,
+which pays when a thing must be found among alternatives or resolved against a
+version. Neither exists here. And the mechanical job dependency graphs are
+usually computed for — ordering, and cycles — is already settled by once-only
+loading in both mechanisms, without anyone declaring anything.
+
+The one real gap is recorded so the trigger is legible: a `.sob` does not say
+what it needs, because `@include` leaves no trace in bytecode and `system:load`
+is a message. That costs nothing today and would start costing something the
+moment anybody ships compiled Solum and wants to know what to load first. So
+the trigger is packaging, which is a different trigger from the two that opened
+the other rows — those turned on somebody else *writing* a library, this one on
+somebody else *distributing* one.
+
+Three features and a refusal, which is a better day's work than four features.
+
 ---
 
 ## 2026-08-27 (later) — a question about memory, answered by not needing any
