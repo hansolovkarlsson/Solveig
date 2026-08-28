@@ -5,6 +5,53 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### `exports`: an object decides what it shows — `pending`, 2026-08-27
+
+**Three of the four jobs a module system does are now done.** An object with
+slots was already a namespace; what it had no way to say was which of those
+slots are anybody else's business. `lib/json.sol` binds one global and hangs two
+dozen slots on it, and `json:digits := "abc"` from outside broke the parser —
+the failure [ideas.md](ideas.md#namespaces-for-included-files) had named for
+years as the half worth having.
+
+```
+counter:exports(['bump, 'total]).
+```
+
+**One rule: from outside, an object that has drawn a boundary *is* its export
+list.** A name off the list can be neither sent nor bound. From inside — a frame
+running with that object as its self — nothing changes at all, which is the only
+reason a boundary is usable.
+
+**Refusing to *add* an unlisted name is the same rule, not extra strictness.**
+Were binding allowed, a name colliding with something private would quietly
+overwrite a slot the binder is not permitted to read: the original accident in a
+hat.
+
+**Privacy is inherited**, because the check compares the receiver against the
+sender's self rather than against whichever object holds the slot. A child's own
+method reaches what it inherited; an unrelated object does not.
+
+**Reflection keeps the line rather than walking around it.** `slots`, `slotAt`,
+`respondsTo` and `perform` were each a way out and are each shut — `respondsTo`
+because its own argument for the receiver check applies here too: it must not
+promise a send that would fail.
+
+**Drawing the line on `json` found something.** `quote` and `keyText` had to be
+exported alongside `read` and `write`, because `string:asJson` is a method on
+*string* that calls back into `json` — so its sends arrive from outside. They
+were public in fact before they were public on purpose, and nothing had said so.
+
+**The cost was 8.7% until it was measured.** The check builds the sender's self
+to compare against, and building it on every send and letting the check discard
+it cost that much of a loop doing nothing else. Testing the slot's bit first, so
+the value is not built unless the bit is clear, brings it to where thirty runs
+cannot tell the two builds apart — on that loop or on a real program.
+
+**An object that never calls `exports` is unchanged in every respect**, which
+the whole existing corpus checks and which `examples/include.sol` depends on,
+since it extends an included object from outside on purpose.
+
 ### A loaded file debugs like any other — `21d3849`, 2026-08-27
 
 **No code changed, which is the finding.** Solid steps into a file brought in by

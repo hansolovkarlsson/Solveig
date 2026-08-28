@@ -40,6 +40,13 @@ typedef struct SolSlot {
        array. This is what stops it. Unused when `primitive` is NULL: a slot
        holding a block is a method, and a block checks its own arity. */
     int             receiver_type;
+
+    /* Whether a sender other than the object itself may reach this slot.
+       True unless `exports` has drawn a boundary and left this name out of it,
+       so an object that never declares one behaves exactly as it always did and
+       the dispatch loop pays a bit test. */
+    bool            exported;
+
     struct SolSlot *next;
 } SolSlot;
 
@@ -80,7 +87,24 @@ struct SolObject {
     SolIndexEntry *index;
     int            index_mask;   /* capacity - 1; capacity is a power of two */
     int            slot_count;
+
+    /* The object's external surface, or nil for an object that has not drawn
+       one -- which is nearly all of them, and which behaves as it always did.
+     *
+     * An array of symbols, kept rather than only stamped onto the slots that
+     * existed when it arrived, so that a name bound afterwards can be asked
+     * about too. Without it `exports` would have to be the last statement of a
+     * file, and putting it first would quietly make the whole API private. */
+    SolValue       exports;
 };
+
+/* Whether `name` -- interned -- is on `obj`'s export list. False for every name
+   when the object has drawn no boundary, which callers check for first. */
+bool sol_object_exports_name(const SolObject *obj, const char *name);
+
+/* Draws the boundary: records `exports` and re-stamps every slot the object
+   already has. */
+void sol_object_set_exports(SolObject *obj, SolValue exports);
 
 /* A block: unevaluated code plus the frame it was written in.
  *

@@ -367,8 +367,8 @@ line prints.
 ./bin/solvm programs/expect.sob programs             # another directory
 ```
 
-Over `examples/` alone that is 27<!--count examples-files--> files and
-517<!--count examples-claims--> claims:
+Over `examples/` alone that is 28<!--count examples-files--> files and
+524<!--count examples-claims--> claims:
 
 ```text
 21 files with expectations, 402 claims checked
@@ -391,7 +391,7 @@ table had when [disasm](#disasm--a-sob-file-read-and-disassembled) found it
 three sections out of date. They are also the first thing a newcomer reads.
 
 **It is in `make test` now**, in `tests/test_cli.c` with the other tests that
-run the binaries as a shell would — **945<!--count claims--> claims on every build**, in about
+run the binaries as a shell would — **952<!--count claims--> claims on every build**, in about
 sixteen seconds, and it fails the build if one stops holding.
 
 **And it holds one document against a file rather than against a run.**
@@ -461,7 +461,7 @@ That half found two things. The guide showed a stack trace reading
 [6.27](COMPLETED.md#627-a-stack-trace-does-not-say-which-file--done) adding the
 filename — the illustration was never updated when the format changed. And
 [class-and-instance.md](class-and-instance.md) said `integer` has 24 slots,
-three times, where it has **36<!--count integer-slots-->**: messages were added
+three times, where it has **37<!--count integer-slots-->**: messages were added
 and the count was not.
 That number is safe to state now precisely *because* it is checked.
 
@@ -488,7 +488,7 @@ no notation saying what it counts — so it is given one, which renders as nothi
 and leaves the sentence as it was:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 945<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 952<!--count claims--> claims
 ```
 
 Each name is recounted from the repository as it stands. A name the table does

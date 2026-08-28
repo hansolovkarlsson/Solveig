@@ -119,6 +119,7 @@ seen:display.                                       ; 147
 | `perform('name, ...)` | sends the message that symbol names |
 | `slots` | an array of symbols naming the receiver's **own** slots |
 | `slotAt('name)` | the value in that slot, searching the chain like a send |
+| `exports` `exports([names])` | the object's external surface, or nil; or draws one |
 | `new` | on a class: a new instance; on a value type: refused, there is nothing to make |
 
 ```

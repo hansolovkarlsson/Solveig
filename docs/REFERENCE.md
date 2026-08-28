@@ -2471,12 +2471,14 @@ block is refused every time rather than only when something fails.
 
 ## Reflection
 
-Five messages let a program ask about itself. Names are given as symbols,
+Six messages let a program ask about itself. Names are given as symbols,
 because a symbol is what a name is and comparing one is a pointer comparison.
 
 | Message | Answers |
 | --- | --- |
 | `slots` | an array of symbols naming the receiver's **own** slots |
+| `exports` | the object's export list, or **nil** where it has drawn none |
+| `exports(names)` | draws one — see [The export boundary](#the-export-boundary) |
 | `slotAt(name)` | the value in that slot, searching the chain like a send |
 | `respondsTo(name)` | whether a send of that name would find anything |
 | `isKindOf(class)` | whether the receiver delegates to `class`, at any depth |
@@ -2495,6 +2497,70 @@ p:perform('sum):print.           ; #7
 `slots` answers own slots in the order they were defined; inherited names are
 not yours, and `parent:slots` is how you ask about those. `respondsTo` and
 `slotAt` search the whole chain, as a send does.
+
+### The export boundary
+
+An object with slots is already a namespace: one name in the flat global space,
+with everything else reached through it. What that does not give you is a way to
+say which of those slots are anybody else's business. `lib/json.sol` binds one
+global and hangs two dozen slots on it, of which four are the library and the
+rest are one parser taken apart — and until this existed, `json:digits := "abc"`
+from outside broke the parser.
+
+```
+counter := object:new.
+counter:n := #0.
+counter:bump  := { self:n := self:n:add(#1) }.
+counter:total := { self:n }.
+counter:exports(['bump, 'total]).
+```
+
+**From outside, an object that has drawn a boundary *is* its export list.** A
+name off the list can be neither sent nor bound:
+
+| from outside | |
+| --- | --- |
+| `counter:total` | works |
+| `counter:n` | `'n' is not exported by object` |
+| `counter:n := #99` | refused — the failure this exists to stop |
+| `counter:fresh := #1` | refused; an unlisted name cannot be added either |
+
+That last row is not extra strictness but the same rule. Were binding an
+unlisted name allowed, a name that happened to collide with something private
+would quietly overwrite a slot the binder is not permitted to read.
+
+**From inside, nothing changes**, which is the only reason a boundary is usable
+— `bump` goes on reaching `self:n`. Inside means the frame doing the sending is
+running with that very object as its `self`. A program's top level has no self,
+so it stands outside every object, which is the intent.
+
+**Privacy is inherited.** The check compares the *receiver* against the sender's
+self rather than against whichever object in the chain holds the slot, so a
+child's own method reaches what it inherited while an unrelated object does not.
+
+**Reflection keeps the line rather than walking around it.** From outside,
+`slots` answers the exports and nothing else, `slotAt` refuses an unlisted name,
+and `respondsTo` answers false for one — that last because `respondsTo` must
+agree with what sending would actually do.
+
+**An object that never calls `exports` is unchanged in every respect.** That is
+the compatibility promise, and it is what lets
+[examples/include.sol](../examples/include.sol) go on extending an included
+object from outside on purpose.
+
+Nothing takes a boundary back down. `exports` may be called once from anywhere,
+and after that only from inside; a boundary any caller could widen would be a
+note about intent rather than a boundary.
+
+**What it costs is not measurable.** A slot carries a bit saying whether it is
+exported, set true unless a boundary leaves it out, and the dispatch loop tests
+that bit before anything else — so the sender's `self` is not even built unless
+the bit is clear. Written the other way round, building that value on every send
+and letting the check discard it, it cost 8.7% of a loop that does nothing but
+send. Tested bit-first, thirty runs cannot tell the two builds apart, on that
+loop or on a real program.
+
+See [examples/exports.sol](../examples/exports.sol).
 
 A value answers for the class it dispatches to, so `#45:isKindOf(integer)` is
 true and `#45:respondsTo('add)` is true. `slots` and `slotAt` want an object to
@@ -3438,7 +3504,7 @@ has been given, and cannot give itself more.
 Every built-in message and the types that answer it. The question a reference
 gets asked is usually *what has `copyFrom`?* rather than *what does a string
 do?*, and the sections above answer only the second — so this answers the first.
-139 messages across 235 registrations.
+140 messages across 236 registrations.
 
 **A test keeps it honest**: a message registered in `builtins.c` and missing
 from here fails the build, which is the same bargain that makes every message
@@ -3490,6 +3556,7 @@ appear in an example.
 | `environment` | [system](#system) |
 | `equals` | [every type](#every-type) |
 | `exit` | [system](#system) |
+| `exports` | [every type](#every-type) |
 | `exp` | [float](#float) |
 | `fileExists` | [system](#system) |
 | `filesIn` | [system](#system) |

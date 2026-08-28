@@ -3635,7 +3635,8 @@ static SolValue prim_responds_to(SolVM *vm, SolValue self, SolValue *args, int a
        false, because `array:add(#1)` is an error. */
     SolSlot *slot = sol_object_lookup_interned(
         vm, target, sol_vm_intern_name(vm, selector->chars, selector->length));
-    return SOL_BOOL_VAL(slot != NULL && sol_slot_accepts(slot, self));
+    return SOL_BOOL_VAL(slot != NULL && sol_slot_accepts(slot, self) &&
+                        sol_vm_may_reach(vm, slot, self));
 }
 
 /* Whether the receiver delegates to `other`, directly or further up. A value
@@ -3697,8 +3698,78 @@ static bool reflected_object(SolVM *vm, const char *name, SolValue self,
     return true;
 }
 
+/* `obj:exports` -- the object's external surface, or nil where it has drawn no
+ * boundary. `obj:exports([\'read, \'write])` draws one.
+ *
+ * The export boundary is the half of a module system that namespacing does not
+ * give you. `json` is already a namespace -- one name in the flat space, with
+ * `json:read(...)` reaching through it -- but every one of its two dozen working
+ * parts is as reachable as its two published ones, and `json:digits := "abc"`
+ * from outside breaks the parser.
+ *
+ * So: from outside, an object that has drawn a boundary *is* its export list.
+ * A name off the list can be neither sent nor bound. From inside -- from a frame
+ * running with this object as its self -- nothing changes at all, which is what
+ * lets `read` go on calling `self:parseValue`.
+ *
+ * Declared as a list rather than name by name because that is the direction the
+ * ratio runs: two published names against two dozen private ones. And the list
+ * is kept, not merely stamped onto the slots that exist when it arrives, so
+ * that `exports` may be written at the top of a file where a reader will look
+ * for it rather than being forced to the bottom.
+ *
+ * Nothing takes a boundary back down. `exports(nil)` would be a way to do it
+ * and is deliberately not offered: a boundary that any caller could lift is a
+ * comment about intent rather than a boundary. */
+static SolValue prim_exports(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    SolObject *obj;
+    if (!reflected_object(vm, "exports", self, &obj)) return SOL_NIL_VAL;
+
+    if (argc == 0) return obj->exports;
+
+    if (argc != 1) {
+        sol_vm_runtime_error(vm, "'exports' takes 0 or 1 arguments, got %d", argc);
+        return SOL_NIL_VAL;
+    }
+    if (!SOL_IS_ARRAY(args[0])) {
+        sol_vm_runtime_error(vm, "'exports' expects an array of symbols, got %s",
+                             sol_type_name(args[0]));
+        return SOL_NIL_VAL;
+    }
+
+    SolArray *list = SOL_AS_ARRAY(args[0]);
+    for (int i = 0; i < list->count; i++) {
+        if (!SOL_IS_SYMBOL(list->items[i])) {
+            sol_vm_runtime_error(vm,
+                "'exports' expects an array of symbols, and element #%d is %s",
+                i + 1, sol_type_name(list->items[i]));
+            return SOL_NIL_VAL;
+        }
+    }
+
+    /* Drawn from inside only. Otherwise anybody could redraw somebody else's
+       boundary, and the first thing they would draw is a wider one. */
+    if (!SOL_IS_NIL(obj->exports)) {
+        SolValue here = sol_vm_self(vm);
+        if (!(SOL_IS_OBJ(here) && SOL_AS_OBJ(here) == obj)) {
+            sol_vm_runtime_error(vm,
+                "'exports' has already been declared and cannot be redrawn "
+                "from outside");
+            return SOL_NIL_VAL;
+        }
+    }
+
+    sol_object_set_exports(obj, args[0]);
+    return args[0];
+}
+
 /* The names of the object's own slots, in the order they were defined. The list
-   is kept newest first, so it is filled backwards. */
+   is kept newest first, so it is filled backwards.
+
+   From outside an object that has drawn a boundary this answers what it
+   exports, and nothing else -- a boundary a reflection walks straight through
+   is decorative. */
 static SolValue prim_slots(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     (void)args;
@@ -3706,8 +3777,13 @@ static SolValue prim_slots(SolVM *vm, SolValue self, SolValue *args, int argc)
     SolObject *obj;
     if (!reflected_object(vm, "slots", self, &obj)) return SOL_NIL_VAL;
 
+    SolValue here = sol_vm_self(vm);
+    bool inside = SOL_IS_OBJ(here) && SOL_AS_OBJ(here) == obj;
+
     int count = 0;
-    for (SolSlot *slot = obj->slots; slot != NULL; slot = slot->next) count++;
+    for (SolSlot *slot = obj->slots; slot != NULL; slot = slot->next) {
+        if (inside || slot->exported) count++;
+    }
 
     SolArray *out = sol_array_new(vm, count);
     /* Interning a name allocates, and the array is reachable from nothing but
@@ -3718,6 +3794,7 @@ static SolValue prim_slots(SolVM *vm, SolValue self, SolValue *args, int argc)
 
     int i = count - 1;
     for (SolSlot *slot = obj->slots; slot != NULL; slot = slot->next) {
+        if (!inside && !slot->exported) continue;
         out->items[i--] = SOL_SYMBOL_VAL(
             sol_symbol_intern(vm, slot->name, (int)strlen(slot->name)));
     }
@@ -3740,6 +3817,12 @@ static SolValue prim_slot_at(SolVM *vm, SolValue self, SolValue *args, int argc)
         vm, obj, sol_vm_intern_name(vm, selector->chars, selector->length));
     if (slot == NULL) {
         sol_vm_runtime_error(vm, "no slot named '%s'", selector->chars);
+        return SOL_NIL_VAL;
+    }
+    /* Reading a slot without sending to it is still reaching it. */
+    if (!sol_vm_may_reach(vm, slot, self)) {
+        sol_vm_runtime_error(vm, "'%s' is not exported by %s", selector->chars,
+                             sol_type_name(self));
         return SOL_NIL_VAL;
     }
     if (slot->primitive != NULL) {
@@ -5778,6 +5861,7 @@ void sol_builtins_install(SolVM *vm)
            a slot that accepts this receiver, so a slot that accepts everybody
            and then refuses would make it disagree with sending. */
         instance(vm, classes[i], SOL_OBJ, "slots",  prim_slots);
+        instance(vm, classes[i], SOL_OBJ, "exports", prim_exports);
         instance(vm, classes[i], SOL_OBJ, "slotAt", prim_slot_at);
     }
 

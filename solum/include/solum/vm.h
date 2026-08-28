@@ -253,6 +253,15 @@ void sol_vm_free(SolVM *vm);
 /* Executes `chunk` to completion. */
 SolResult sol_vm_run(SolVM *vm, const SolChunk *chunk);
 
+/* Whether a send from where the machine now stands may reach `slot` on
+   `receiver` -- true unless the receiver has drawn an export boundary that
+   leaves the slot outside it. See `exports`. */
+bool sol_vm_may_reach(const SolVM *vm, const SolSlot *slot, SolValue receiver);
+
+/* The self of the frame now running -- nil at a program's top level, which is
+   what puts it outside every object's export boundary. */
+SolValue sol_vm_self(const SolVM *vm);
+
 /* Whether this machine has already run the file with this identity, and the
    note that it has. `sol_vm_remember_loaded` takes ownership of `identity`.
    Together they are `system:load`'s once-only memory; nothing else uses them. */

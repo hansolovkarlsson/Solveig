@@ -11,6 +11,71 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-27 (evening) — the half that needed a new concept
+
+**`ideas.md` had said for years why this could not be built**, and quoting it
+back was the right place to start: privacy "needs something the language has not
+got: slots cannot be removed and `slots` lists everything, so it would be a new
+concept rather than a use of existing ones."
+
+Half of that was true. It *is* a new concept — a slot now carries a bit saying
+whether anything outside may reach it. What was wrong was the unstated
+conclusion that a new concept is therefore too expensive. It came to one
+message and one rule.
+
+**The design took longer than the code.** Three questions decided it.
+
+*Where does the check go?* The cheap answer is compile time — solas already
+keeps `BoundName {name, file}`, so it could refuse `json:digits` in a file that
+did not bind `json`, at no runtime cost. It does not hold: it cannot see through
+`perform` or through `x := json`, and as of this morning a library can arrive
+already compiled through `system:load`, from someone who never saw your names —
+which is the exact trigger `ideas.md` names for wanting this at all. A boundary
+that only exists while compiling is not one for the case that motivated it. So:
+run time, at dispatch, beside `receiver_suits`, which already refuses a resolved
+slot to a receiver that does not qualify.
+
+*What does inside mean?* The frame doing the sending is running with the
+receiver as its own self. That one sentence gives inheritance for free — the
+comparison is against the *receiver*, not against whichever object in the chain
+holds the slot, so a child's method reaches what it inherited and a sibling does
+not. It also puts a program's top level outside everything, which is the intent
+rather than an accident.
+
+*May an outsider add a slot?* I nearly allowed it, on the reasoning that a name
+that does not exist cannot be private. It is the wrong reasoning: binding a name
+that happens to collide with something private would quietly overwrite a slot
+the binder is not allowed to read, which is the original accident wearing a hat.
+Making the export list the whole external surface removes the case instead of
+handling it.
+
+**Then the ways around it.** `slots` I had gated from the start. `slotAt` I had
+not, and it answered a private slot's value straight out. `respondsTo` I had not
+either, and its own comment in `builtins.c` makes the argument against me:
+answering true for something a send would refuse "would make `respondsTo`
+disagree with sending". `perform` came free, since it goes through
+`sol_vm_send`. A boundary any one of those walks around is decorative.
+
+**Drawing the line on the real library found something.** `json` publishes
+`read` and `write`, so I exported two names, and the library broke — because
+`string:asJson := { json:quote(self) }` is a method on *string*, where self is a
+string, so its call back into `json` arrives from outside. `quote` and `keyText`
+had to be exported too. They were public in fact before they were public on
+purpose, and nothing had ever said so. That is the feature paying for itself on
+its first real use: what it makes visible is the API you actually have.
+
+**And the cost was 8.7% until it was measured.** The first version built the
+sender's self on every send and handed it to a check that discards it whenever
+the slot is exported — which is nearly always. Testing the bit first, so the
+value is not built unless the bit is clear, brought it to where thirty runs
+cannot separate the two builds, on a send-only loop or on a real program. I
+took the measurement against a worktree built at the previous commit rather
+than against a remembered number, and ran it in both directions, because the
+first run's variance was high enough to be suspicious. It was real, and then it
+was not.
+
+---
+
 ## 2026-08-27 (later) — a question about memory, answered by not needing any
 
 **The day started as a question, not a request.** *Is it feasible to import a

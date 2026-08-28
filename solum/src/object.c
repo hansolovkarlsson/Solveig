@@ -97,6 +97,7 @@ SolObject *sol_object_new(SolVM *vm, SolObject *proto)
     obj->index = NULL;
     obj->index_mask = 0;
     obj->slot_count = 0;
+    obj->exports = SOL_NIL_VAL;      /* no boundary: everything reachable */
 
     sol_gc_register(vm, &obj->gc, SOL_GC_OBJECT, sizeof(SolObject));
     return obj;
@@ -652,6 +653,11 @@ static SolSlot *ensure_local_interned(SolVM *vm, SolObject *obj, const char *nam
     slot->value = SOL_NIL_VAL;
     slot->primitive = NULL;
     slot->receiver_type = SOL_ANY_RECEIVER;
+    /* Reachable unless the object has drawn a boundary this name is outside of.
+       An object that never draws one leaves every slot true, which is what
+       makes the check in the dispatch loop a bit test and nothing more. */
+    slot->exported = SOL_IS_NIL(obj->exports) ||
+                     sol_object_exports_name(obj, name);
     slot->next = obj->slots;
     obj->slots = slot;
     obj->slot_count++;
@@ -666,6 +672,33 @@ static SolSlot *ensure_local_interned(SolVM *vm, SolObject *obj, const char *nam
         index_put(obj, slot);
     }
     return slot;
+}
+
+/* The list holds symbols and the name is the VM's interned copy, so this is a
+   comparison of characters rather than of pointers -- the two tables are
+   separate on purpose (a symbol is a value a program can hold and may die; an
+   interned name is the VM's own and outlives every slot).
+
+   Linear, because an export list is the size of an API. */
+bool sol_object_exports_name(const SolObject *obj, const char *name)
+{
+    if (!SOL_IS_ARRAY(obj->exports)) return false;
+
+    SolArray *list = SOL_AS_ARRAY(obj->exports);
+    for (int i = 0; i < list->count; i++) {
+        if (!SOL_IS_SYMBOL(list->items[i])) continue;
+        if (strcmp(SOL_AS_SYMBOL(list->items[i])->chars, name) == 0) return true;
+    }
+    return false;
+}
+
+void sol_object_set_exports(SolObject *obj, SolValue exports)
+{
+    obj->exports = exports;
+    for (SolSlot *slot = obj->slots; slot != NULL; slot = slot->next) {
+        slot->exported = SOL_IS_NIL(exports) ||
+                         sol_object_exports_name(obj, slot->name);
+    }
 }
 
 static SolSlot *ensure_local(SolVM *vm, SolObject *obj, const char *name)

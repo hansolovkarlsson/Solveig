@@ -352,3 +352,17 @@ dictionary:asPrettyJson := { indent | | inner |
             :concat("\n"):concat(indent):concat("}") }) }.
 
 json:write := { v | v:asPrettyJson("") }.
+
+; The export boundary. Everything above this line that is not named here is
+; json's own business: `cur` is a cursor into the text being read, `escapes`
+; and `digits` are tables, and the two dozen `parse...` blocks are one parser
+; taken apart. None of them is useful from outside and `json:digits := "abc"`
+; from outside used to break the parser.
+;
+; **Four names rather than two**, which drawing the line is what revealed.
+; `read` and `write` are the API as documented. `quote` and `keyText` are here
+; because `string:asJson` and the dictionary writer are methods on *other*
+; objects that call back into this one -- inside those, self is a string or a
+; dictionary, so the send arrives from outside and has to be allowed. They were
+; public in fact before they were public on purpose.
+json:exports(['read, 'write, 'quote, 'keyText]).

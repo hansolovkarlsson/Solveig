@@ -238,6 +238,8 @@ static void blacken(SolVM *vm, SolGCHeader *header)
     for (SolSlot *slot = obj->slots; slot != NULL; slot = slot->next) {
         mark_value(vm, slot->value);
     }
+    /* The export list, which the object holds and nothing else may. */
+    mark_value(vm, obj->exports);
 }
 
 static void mark_roots(SolVM *vm)

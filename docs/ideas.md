@@ -788,7 +788,7 @@ today is one and a half:
 | --- | --- |
 | once-only initialization | **done** — a file is compiled once, keyed by where it lands on disk |
 | a namespace | **approximated** — `json:read(...)` is namespaced access already; only the name `json` is in the flat space, and a collision on it is a compile-time warning ([6.21](COMPLETED.md#621-two-libraries-binding-one-name-collide-silently--done)) |
-| an export boundary | **absent** |
+| an export boundary | **done** — `exports` draws one; from outside an object is its export list |
 | declared dependencies | **absent** |
 
 **`system:load` keeps that first row true**, which took a second pass to get
@@ -840,12 +840,25 @@ The obstacle is syntactic rather than deep. `@include` is deliberately a
 statement — `x := (@include "lib.sol")` is refused by name — so the binding form
 would have to be designed rather than falling out.
 
-**What it still would not give you** is the export boundary, which is the half
-worth having once libraries come from elsewhere. `json:digits := "abc"` breaks
-the parser from outside it, and namespacing the name `json` does not change
-that. Privacy needs something the language has not got: slots cannot be removed
-and `slots` lists everything, so it would be a new concept rather than a use of
-existing ones.
+**The export boundary is built**, and this paragraph used to say why it could
+not be. It said privacy needed something the language has not got, since slots
+cannot be removed and `slots` lists everything, so it would be a new concept
+rather than a use of existing ones.
+
+Half of that was right. It *is* a new concept — a slot now carries a bit saying
+whether anything outside the object may reach it, which is a thing the object
+model did not have. What was wrong was the implied conclusion that a new concept
+is too expensive. It is one message, `exports`, and one rule: from outside, an
+object that has drawn a boundary is its export list, and a name off the list can
+be neither sent nor bound. Nothing was removed and `slots` still lists
+everything — to the object itself. From outside it lists what is exported, which
+is the same answer to a different question.
+
+`json:digits := "abc"` from outside is now refused, and drawing the line on
+`json` immediately found something: `quote` and `keyText` had to be exported too,
+because `string:asJson` is a method on *string* that calls back into `json`, so
+its sends arrive from outside. They were public in fact before they were public
+on purpose, and nothing had ever said so.
 
 **Two triggers, either of which is enough:**
 
