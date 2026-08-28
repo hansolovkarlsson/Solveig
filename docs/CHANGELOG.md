@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### Where the export boundary begins — `pending`, 2026-08-27
+### Where the export boundary begins — `8bfd1a4`, 2026-08-27
 
 **A question worth a section: does `exports` apply to `@include` too?** It does,
 and the reference now says why rather than leaving it to be inferred. The
