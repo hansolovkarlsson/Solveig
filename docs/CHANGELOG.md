@@ -5,6 +5,26 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Where the export boundary begins — `pending`, 2026-08-27
+
+**A question worth a section: does `exports` apply to `@include` too?** It does,
+and the reference now says why rather than leaving it to be inferred. The
+boundary belongs to the object, not to how the object arrived — `@include` and
+`system:load` are two ways of getting a library into your globals, and once it
+is there the line is the same one, because what decides the question is `self`
+and neither mechanism touches that.
+
+**The consequence is the part that was never written down.** The file that draws
+the line is outside it too, from the next statement on: a method written above
+`exports` goes on reaching what it kept, because it runs with the object as its
+self whenever it is called, while the top level below has no self and never did.
+
+**So `exports` goes last in a library.** `lib/json.sol` builds its escape tables
+with `json:escapes:atPut(...)` at its top level, and those are outside sends —
+they work only because the boundary is not drawn until the file's last line.
+Drawn first, a library would lock itself out of its own construction. That was
+true when `exports` shipped this evening and nothing said it.
+
 ### A loaded name may be worked out while running — `08d5d1a`, 2026-08-27
 
 **[examples/plugins.sol](../examples/plugins.sol) runs code it never names.** It

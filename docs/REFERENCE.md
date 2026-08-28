@@ -2546,6 +2546,37 @@ would quietly overwrite a slot the binder is not permitted to read.
 running with that very object as its `self`. A program's top level has no self,
 so it stands outside every object, which is the intent.
 
+**The boundary belongs to the object, not to how the object arrived.**
+`@include` and [`system:load`](#loading-a-compiled-file) are two ways of getting
+a library into your globals; once it is there the line is the same one, because
+what decides the question is `self` and neither mechanism touches that. An
+included file's text is compiled into yours, so its top level and yours are one
+chunk with one `self` of nil — there is no sense in which an includer is further
+inside than a loader.
+
+Which has a sharper consequence: **the file that draws the line is outside it
+too**, from the next statement on.
+
+```
+o := object:new.
+o:n := #1.
+o:get := { self:n }.
+o:exports(['get]).
+
+o:get:print.                                   ; #1
+{ o:n }:onError({ e | e:message:display }).    ; 'n' is not exported by object
+```
+
+`get` still reaches `n`, because it runs with `o` as its self whenever it is
+called. The line below `exports` does not, because the top level has no self and
+never did.
+
+**So `exports` goes last in a library**, after whatever it sets up while
+loading. [lib/json.sol](../lib/json.sol) builds its escape tables with
+`json:escapes:atPut(...)` at its top level, and those are outside sends: they
+work because the boundary is not drawn until the final line of the file. Drawn
+first, a library would lock itself out of its own construction.
+
 **Privacy is inherited.** The check compares the *receiver* against the sender's
 self rather than against whichever object in the chain holds the slot, so a
 child's own method reaches what it inherited while an unrelated object does not.
