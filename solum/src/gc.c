@@ -75,6 +75,15 @@ static size_t cell_size(const SolGCHeader *header)
         return sizeof(SolCode) + chunk_size(&((const SolCode *)header)->chunk);
     }
 
+    /* The declared footprint as well as the cell, so `--memory` measures the
+       texture rather than the pointer to it. Same silent fall-through as
+       `blacken` above: omitted, this would read a `release` pointer as a slot
+       list. */
+    if (header->type == SOL_GC_FOREIGN) {
+        const SolForeign *foreign = (const SolForeign *)header;
+        return sizeof(SolForeign) + foreign->footprint;
+    }
+
     const SolObject *obj = (const SolObject *)header;
     size_t size = sizeof(SolObject);
     for (const SolSlot *slot = obj->slots; slot != NULL; slot = slot->next) {
@@ -153,6 +162,7 @@ static void mark_value(SolVM *vm, SolValue value)
     case SOL_STRING:   mark_cell(vm, (SolGCHeader *)SOL_AS_STRING(value)); break;
     case SOL_DELEGATE: mark_cell(vm, (SolGCHeader *)SOL_AS_DELEGATE(value)); break;
     case SOL_SYMBOL:   mark_cell(vm, (SolGCHeader *)SOL_AS_SYMBOL(value)); break;
+    case SOL_FOREIGN:  mark_cell(vm, (SolGCHeader *)SOL_AS_FOREIGN(value)); break;
     /* Unboxed: nothing on the heap to reach. */
     case SOL_NIL: case SOL_BOOL: case SOL_INT: case SOL_FLOAT:
     case SOL_TIME: break;
@@ -198,6 +208,14 @@ static void blacken(SolVM *vm, SolGCHeader *header)
        with contents. Marking one is done as soon as it is reached. */
     if (header->type == SOL_GC_STRING) return;
     if (header->type == SOL_GC_SYMBOL) return;   /* characters, like a string */
+
+    /* A foreign cell holds a pointer the machine does not understand, so it has
+       no outgoing edges either -- like a string, and returning here for the same
+       reason. This chain has no `default` to fall off: everything it does not
+       name is treated as an object below, and a foreign cell taken for one
+       would walk a slot list that is really a `release` pointer and a `kind`.
+       Nothing warns about that, which is why it is spelled out. */
+    if (header->type == SOL_GC_FOREIGN) return;
 
     if (header->type == SOL_GC_DELEGATE) {
         const SolDelegate *delegate = (const SolDelegate *)header;
@@ -267,6 +285,7 @@ static void mark_roots(SolVM *vm)
     mark_cell(vm, (SolGCHeader *)vm->string_class);
     mark_cell(vm, (SolGCHeader *)vm->object_class);
     mark_cell(vm, (SolGCHeader *)vm->symbol_class);
+    mark_cell(vm, (SolGCHeader *)vm->foreign_class);
 }
 
 /* ---- sweeping --------------------------------------------------------- */
@@ -299,6 +318,21 @@ static void free_cell(SolGCHeader *header)
 
     if (header->type == SOL_GC_SYMBOL) {
         free(((SolSymbol *)header)->chars);
+        free(header);
+        return;
+    }
+
+    /* **The one place a foreign resource is given back**, and deliberately the
+       only one. Both paths that end a cell's life come through here -- the
+       sweep, when it became unreachable, and `sol_gc_free_all`, which frees
+       everything at shutdown whatever its reachability. So one line closes a
+       socket that the program dropped and one that the program still held when
+       a limit took it away.
+     *
+       `sol_foreign_release` clears the handle before calling, so a cell cannot
+       be released twice however it got here. */
+    if (header->type == SOL_GC_FOREIGN) {
+        sol_foreign_release(SOL_FOREIGN_VAL((SolForeign *)header));
         free(header);
         return;
     }
@@ -360,6 +394,8 @@ void sol_gc_prune_symbols(SolVM *vm)
 
 void sol_gc_collect(SolVM *vm)
 {
+    vm->foreign_since_gc = 0;
+
     mark_roots(vm);
 
     while (vm->gray_count > 0) {

@@ -133,6 +133,68 @@ slot, same dispatch, same speed. `respondsTo` finds it and `slots` lists it.
 That is a promise rather than an accident: it is what would let a capability
 leave the core one day without becoming second class.
 
+## Handing a resource back
+
+A socket, a window, a connection, a compiled pattern — anything the program may
+hold and the machine cannot make sense of:
+
+```c
+static void close_socket(void *handle) { close((int)(intptr_t)handle); }
+
+/* net:udp(#port) */
+return SOL_FOREIGN_VAL(sol_foreign_new(vm, (void *)(intptr_t)fd,
+                                       close_socket, "socket", 0));
+```
+
+and the primitive that receives one back asks for it **by kind**, never by
+casting:
+
+```c
+void *handle = sol_foreign_handle(args[0], "socket");
+if (handle == NULL) {
+    sol_vm_runtime_error(vm, "send expects an open socket");
+    return SOL_NIL_VAL;
+}
+```
+
+The program sees an ordinary value. It renders as `<socket>`, compares by
+identity, answers `isKindOf(foreign)`, and cannot be made with `new` — a
+resource comes from an extension or it does not exist.
+
+**`release` runs exactly once, and from two directions.** The collector calls it
+when the program lets go of the value; `sol_vm_free` calls it for everything
+still alive at shutdown, whatever its reachability. So a socket is closed when
+the program drops it *and* when a limit takes the program away mid-flight —
+which is the case an explicit `close` could never cover, since a limit-stop is
+uncatchable and does not run `ensure`
+([6.33](COMPLETED.md#633-a-running-program-cannot-be-stopped-from-outside--done)).
+That is the argument for there being no `close` message at all.
+
+`kind` must outlive the VM — a string literal does — and is compared with
+`strcmp`, so one extension's `"socket"` cannot be handed to another's primitive
+that wanted its own.
+
+### The currency the collector counts in
+
+**`footprint` is what the resource costs where the machine cannot see it** — a
+texture, a decoded image, a connection's buffers. It is added to the live-byte
+figure `--memory` is measured against, so a limit measures the texture rather
+than the pointer to it. Zero when there is nothing honest to say, which is
+usual.
+
+> **And bytes are the wrong currency for a scarce resource, which was found by
+> opening real sockets.** A foreign cell is forty bytes however scarce the thing
+> it holds, so a program opening descriptors in a loop exhausted the process
+> while the heap was still nearly empty — measured at a 256-descriptor ceiling,
+> where it died with no collection having happened at all.
+>
+> So foreign cells carry a pressure count of their own:
+> `SOL_GC_FOREIGN_PRESSURE` of them forces a collection whatever the byte figure
+> says. **An extension does not have to do anything about this**, and in
+> particular should not inflate `footprint` to buy scheduling — a wrong number
+> there makes `--memory` lie. The same program now opens 5,000 sockets under a
+> ceiling of 256.
+
 ## The four rules
 
 Each is something a newcomer gets wrong, and each was found by getting it wrong.
@@ -162,6 +224,10 @@ a struct C owns, is none of those.
 > the tracer already looks — a slot on the extension's own global will do. A
 > supported registry for this is [planned and not
 > built](ideas.md#gtk-and-the-afternoon-that-was-supposed-to-be-a-page).
+>
+> Note that a **foreign** cell is not this problem: it is a value the collector
+> knows about, and holding one in a slot roots it like anything else. The
+> problem is a Solum *block* held by C.
 
 **4. Check `vm->had_error` after every call back into the language.** After
 `sol_vm_call_block` or `sol_vm_send`, before doing anything else. A limit-stop
@@ -203,13 +269,10 @@ machine, and unmapping the code underneath them would leave slots pointing into
 a dead page. Nothing unbinds a global either — this is
 [3.10](ROADMAP.md#310-a-vm-cannot-be-reused-across-runs) seen from another side.
 
-**A place for a foreign resource to live.** There is no value type that can
-carry a file descriptor, a socket, or a window handle, and **no finalizer of any
-kind**: sweeping frees a cell's own parts and nothing user-supplied runs. So an
-extension today hands such a thing back as an integer, which means nothing
-closes it when the program is stopped, it is not counted against `--memory`, and
-a program can invent one. That is the next piece of work and the case for it is
-[written down](ideas.md#extensions-a-capability-from-a-binary-rather-than-from-the-vm).
+**Deterministic close from inside a program.** There is no `close` message; see
+"handing a resource back" above for why. `sol_foreign_release` is there for an
+extension that must close in a known order — a child before its parent — and is
+not reachable from Solum.
 
 **Anything about two extensions agreeing.** They meet at the root object and
 nowhere else. Two that bind the same global will overwrite each other in the

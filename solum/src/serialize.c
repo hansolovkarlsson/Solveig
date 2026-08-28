@@ -58,9 +58,15 @@ static SolSerResult check_constants(const SolChunk *chunk)
         SolValueType type = chunk->constants.values[i].type;
         /* Arrays are mutable and built at run time, so a literal is a
            construction rather than a pooled constant. */
+        /* An if-chain rather than a switch, so **nothing warns when a value
+           type is added**. SOL_FOREIGN is named here for that reason and not
+           because a compiler could produce one: a foreign cell is made by a
+           primitive at run time and the compiler never sees one. A `.sob` that
+           somehow carried one would be carrying a pointer from another
+           process. */
         if (type == SOL_OBJ || type == SOL_BLOCK || type == SOL_ARRAY ||
             type == SOL_STRING || type == SOL_DELEGATE || type == SOL_SYMBOL ||
-            type == SOL_DICT || type == SOL_TIME) {
+            type == SOL_DICT || type == SOL_TIME || type == SOL_FOREIGN) {
             return SOL_SER_UNSUPPORTED;
         }
     }
@@ -156,6 +162,7 @@ static void write_chunk_body(FILE *f, const SolChunk *chunk)
         case SOL_OBJ:
         case SOL_DICT:
         case SOL_TIME:
+        case SOL_FOREIGN:
             break;      /* rejected by check_constants before we get here */
         }
     }

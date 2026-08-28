@@ -149,6 +149,60 @@ SolArray *sol_array_new(SolVM *vm, int capacity)
     return array;
 }
 
+SolForeign *sol_foreign_new(SolVM *vm, void *handle, void (*release)(void *),
+                            const char *kind, size_t footprint)
+{
+    /* Before the allocation, as every other allocator does, so a cell nothing
+       points at yet cannot be swept. The second test is what makes a promise
+       about sockets true: bytes are the wrong currency for a descriptor, and
+       without it a program opening them in a loop runs out while the heap is
+       still nearly empty. */
+    if (vm->foreign_since_gc >= SOL_GC_FOREIGN_PRESSURE) sol_gc_collect(vm);
+    else sol_gc_maybe_collect(vm);
+    vm->foreign_since_gc++;
+
+    SolForeign *foreign = malloc(sizeof(SolForeign));
+    if (foreign == NULL) {
+        fprintf(stderr, "solvm: out of memory\n");
+        exit(1);
+    }
+    foreign->handle = handle;
+    foreign->release = release;
+    foreign->kind = kind != NULL ? kind : "foreign";
+    foreign->footprint = footprint;
+
+    /* The footprint is registered along with the cell, so the threshold that
+       decides when to collect moves with what is really held rather than with
+       the forty bytes the machine can see. */
+    sol_gc_register(vm, &foreign->gc, SOL_GC_FOREIGN,
+                    sizeof(SolForeign) + footprint);
+    return foreign;
+}
+
+void *sol_foreign_handle(SolValue value, const char *kind)
+{
+    if (!SOL_IS_FOREIGN(value)) return NULL;
+    const SolForeign *foreign = SOL_AS_FOREIGN(value);
+    if (foreign->handle == NULL) return NULL;          /* already released */
+    if (kind != NULL && strcmp(foreign->kind, kind) != 0) return NULL;
+    return foreign->handle;
+}
+
+bool sol_foreign_release(SolValue value)
+{
+    if (!SOL_IS_FOREIGN(value)) return false;
+    SolForeign *foreign = SOL_AS_FOREIGN(value);
+    if (foreign->handle == NULL) return false;
+
+    /* Cleared before the call, not after: a release function that somehow
+       reaches this value again finds it already gone rather than releasing it
+       twice. */
+    void *handle = foreign->handle;
+    foreign->handle = NULL;
+    if (foreign->release != NULL) foreign->release(handle);
+    return true;
+}
+
 SolString *sol_string_new(SolVM *vm, const char *chars, int length)
 {
     sol_gc_maybe_collect(vm);
@@ -203,6 +257,7 @@ bool sol_value_equals(SolValue a, SolValue b)
     case SOL_SYMBOL:   return SOL_AS_SYMBOL(a) == SOL_AS_SYMBOL(b);
     case SOL_OBJ:      return SOL_AS_OBJ(a) == SOL_AS_OBJ(b);
     case SOL_DICT:     return SOL_AS_DICT(a) == SOL_AS_DICT(b);
+    case SOL_FOREIGN:  return SOL_AS_FOREIGN(a) == SOL_AS_FOREIGN(b);
     /* A point in time is a value: two of the same instant are the same date,
        and the nanoseconds are exact, so this is an integer comparison. */
     case SOL_TIME:     return SOL_AS_TIME(a) == SOL_AS_TIME(b);
@@ -225,6 +280,10 @@ bool sol_dict_key_ok(SolValue key)
         return true;
     case SOL_BLOCK: case SOL_ARRAY: case SOL_OBJ:
     case SOL_DELEGATE: case SOL_DICT:
+    /* A reference, compared by identity, so two that look alike are two keys.
+       Refused for the same reason the four above are, and a program that wants
+       to key on one keys on an id it chose instead. */
+    case SOL_FOREIGN:
         return false;
     }
     return false;

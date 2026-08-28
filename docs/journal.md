@@ -11,7 +11,7 @@ that a document was still true. That is what this is for.
 
 ---
 
-## 2026-08-28 (last) — GTK: the page replaced by an afternoon, and then built
+## 2026-08-28 (last) — GTK: the page replaced by an afternoon, then built, then a currency error
 
 **No code shipped, and the day's most useful hour was spent proving a document
 wrong.** The question was how to get GTK into the language without putting it in
@@ -146,6 +146,52 @@ than one that overstates itself.
 refused a twenty-fourth document while `programs.md` still said twenty-three,
 and refused `PENDING` where the changelog wanted lowercase `pending`. Both took
 a minute, and both are the kind of thing a person would have shipped wrong.
+
+### And then the foreign cell, which was designed right and scheduled wrong
+
+`SolForeign` went in the same day: a socket or a window as a value the machine
+holds and gives back, with `release` called from `free_cell` — the one function
+both the sweep and `sol_gc_free_all` go through, so one line closes a socket the
+program dropped *and* one it was still holding when a limit took it away. That
+was the design as argued weeks ago and it survived contact.
+
+**What did not survive was an assumption nobody had written down**, and only a
+real resource could have shown it. The test suite was green. The demonstration
+program worked. Then a loop opening five thousand sockets died at 256:
+
+```
+solvm: udp: no socket
+```
+
+**The release path was fine. The collector had simply never run.** A foreign
+cell is forty bytes however scarce the thing it holds, so two hundred and fifty
+sockets is ten kilobytes against a sixty-four kilobyte threshold — the heap had
+no reason to collect, and the process ran out of the resource that was actually
+scarce while holding almost no memory at all.
+
+So bytes are the wrong currency for a descriptor, and foreign cells got a
+pressure count of their own. The same program now opens five thousand under a
+ceiling of two hundred and fifty-six.
+
+**The tempting wrong fix is worth naming**, because it was available and looked
+reasonable: tell extension authors to declare a large `footprint` for a scarce
+resource. That would have worked, and it would have made every `--memory` figure
+a lie — a number that means *bytes* being set to something else in order to buy
+scheduling. The honest fix costs five lines and leaves both numbers meaning what
+they say.
+
+**Two things about how it was found.** It was not found by the test suite, which
+was green throughout, and it was not found by the demonstration, which opened
+three sockets. It was found by asking *what would a program that abuses this do*
+and then writing that program — five lines, and the only reason it existed is
+that the entry this all came from says to build the throwaway before trusting
+the design. That instruction has now paid twice in one day: once on the block
+the collector swept, and once here.
+
+And the corrected sentence went into `design.md` rather than being left to age.
+*"Nothing has to be released"* is still true, but for a sharper reason than it
+used to be: a resource has a release now, and it was never the program's to run
+— which is exactly why an uncatchable stop still costs nothing.
 
 ## 2026-08-28 (night) — nine operators, three decisions, and a checker that was right twice
 

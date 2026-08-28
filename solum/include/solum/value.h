@@ -20,6 +20,7 @@ typedef struct SolString SolString;
 typedef struct SolDelegate SolDelegate;
 typedef struct SolSymbol  SolSymbol;
 typedef struct SolDict    SolDict;
+typedef struct SolForeign SolForeign;
 
 typedef enum {
     SOL_NIL,
@@ -33,7 +34,12 @@ typedef enum {
     SOL_DELEGATE, /* self:via(proto) */
     SOL_OBJ,
     SOL_DICT,     /* dictionary:new  */
-    SOL_TIME      /* system:time     */
+    SOL_TIME,     /* system:time     */
+    /* A resource an extension owns and the VM does not understand: a socket, a
+       window, a compiled pattern. Added last on purpose -- a value type's
+       numbering is not written to a `.sob` (the format has its own TAG_ enum),
+       but nothing is gained by disturbing the others. See solum/extend.h. */
+    SOL_FOREIGN
 } SolValueType;
 
 typedef struct {
@@ -49,6 +55,7 @@ typedef struct {
         SolDelegate *delegate;
         SolObject *obj;
         SolDict   *dict;
+        SolForeign *foreign;
         /* Nanoseconds since 1970-01-01T00:00:00Z. An integer rather than a
            float of seconds: a point in time is exact, two of the same instant
            must be the same value, and `nan` has no business in a timestamp.
@@ -70,6 +77,7 @@ typedef struct {
 #define SOL_OBJ_VAL(o)    ((SolValue){ SOL_OBJ,   { .obj = (o) } })
 #define SOL_DICT_VAL(d)   ((SolValue){ SOL_DICT,  { .dict = (d) } })
 #define SOL_TIME_VAL(n)   ((SolValue){ SOL_TIME,  { .nanos = (n) } })
+#define SOL_FOREIGN_VAL(f) ((SolValue){ SOL_FOREIGN, { .foreign = (f) } })
 
 #define SOL_IS_NIL(v)     ((v).type == SOL_NIL)
 #define SOL_IS_BOOL(v)    ((v).type == SOL_BOOL)
@@ -83,6 +91,7 @@ typedef struct {
 #define SOL_IS_OBJ(v)     ((v).type == SOL_OBJ)
 #define SOL_IS_DICT(v)    ((v).type == SOL_DICT)
 #define SOL_IS_TIME(v)    ((v).type == SOL_TIME)
+#define SOL_IS_FOREIGN(v) ((v).type == SOL_FOREIGN)
 
 #define SOL_AS_BOOL(v)    ((v).as.boolean)
 #define SOL_AS_BLOCK(v)   ((v).as.block)
@@ -95,6 +104,7 @@ typedef struct {
 #define SOL_AS_OBJ(v)     ((v).as.obj)
 #define SOL_AS_DICT(v)    ((v).as.dict)
 #define SOL_AS_TIME(v)    ((v).as.nanos)
+#define SOL_AS_FOREIGN(v) ((v).as.foreign)
 
 /* A growable text buffer, so a value can be rendered into a string as readily as
    onto stdout and the two cannot drift apart. */

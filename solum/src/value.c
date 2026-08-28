@@ -108,6 +108,18 @@ static void render(SolVM *vm, SolValue value, SolText *out, int depth)
     case SOL_FLOAT: append_float(out, SOL_AS_FLOAT(value)); break;
     case SOL_BLOCK: sol_text_append(out, "<block>", 7); break;
     case SOL_DELEGATE: sol_text_append(out, "<delegate>", 10); break;
+    case SOL_FOREIGN: {
+        /* `<socket>`, `<gtk window>` -- the extension's own word for it, since
+           the machine has nothing else to say about a pointer it does not
+           understand. A released one says so, because a program holding a
+           closed socket wants to see that rather than a name. */
+        const SolForeign *foreign = SOL_AS_FOREIGN(value);
+        sol_text_append(out, "<", 1);
+        sol_text_append(out, foreign->kind, (int)strlen(foreign->kind));
+        if (foreign->handle == NULL) sol_text_append(out, ", released", 10);
+        sol_text_append(out, ">", 1);
+        break;
+    }
     case SOL_SYMBOL: {
         const SolSymbol *symbol = SOL_AS_SYMBOL(value);
         sol_text_append(out, "'", 1);

@@ -78,6 +78,8 @@ void sol_vm_init(SolVM *vm)
     vm->string_class = NULL;
     vm->object_class = NULL;
     vm->symbol_class = NULL;
+    vm->foreign_class = NULL;
+    vm->foreign_since_gc = 0;
     vm->random_class = NULL;
     vm->builtin_globals = 0;
     vm->symbols = NULL;
@@ -155,6 +157,8 @@ void sol_vm_free(SolVM *vm)
     vm->string_class = NULL;
     vm->object_class = NULL;
     vm->symbol_class = NULL;
+    vm->foreign_class = NULL;
+    vm->foreign_since_gc = 0;
     vm->random_class = NULL;
     vm->builtin_globals = 0;
 
@@ -204,6 +208,7 @@ SolObject *sol_vm_class_of(SolVM *vm, SolValue value)
     case SOL_DELEGATE: return NULL;   /* handled before dispatch reaches here */
     case SOL_DICT:  return vm->dict_class;
     case SOL_TIME:  return vm->time_class;
+    case SOL_FOREIGN: return vm->foreign_class;
     case SOL_OBJ:   return SOL_AS_OBJ(value);   /* the object answers for itself */
     }
     return NULL;
@@ -223,6 +228,7 @@ const char *sol_type_name(SolValue value)
     case SOL_DELEGATE: return "delegate";
     case SOL_DICT:  return "dictionary";
     case SOL_TIME:  return "time";
+    case SOL_FOREIGN: return "foreign";
     case SOL_OBJ:   return "object";
     }
     return "?";
@@ -376,6 +382,7 @@ static const char *receiver_name(int type)
     case SOL_SYMBOL:   return "a symbol";
     case SOL_DELEGATE: return "a delegate";
     case SOL_OBJ:      return "an object";
+    case SOL_FOREIGN:  return "a foreign handle";
     default:           return "something else";
     }
 }

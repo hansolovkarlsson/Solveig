@@ -112,6 +112,43 @@ typedef int (*SolExtensionInit)(SolVM *vm, int abi);
  * that does not look will keep calling into a machine that has already been
  * stopped, which is the one way an extension can defeat `--steps`. */
 
+/* ---- handing a resource back to a program -------------------------------- *
+ *
+ * A socket, a window, a connection, a compiled pattern -- anything the program
+ * may hold and the machine cannot make sense of. `sol_foreign_new` wraps it in
+ * a cell the collector understands:
+ *
+ *     static void close_socket(void *handle) { close((int)(intptr_t)handle); }
+ *
+ *     SolForeign *cell = sol_foreign_new(vm, (void *)(intptr_t)fd,
+ *                                        close_socket, "socket", 0);
+ *     return SOL_FOREIGN_VAL(cell);
+ *
+ * and the primitive that receives one back asks for it by kind:
+ *
+ *     int fd = (int)(intptr_t)sol_foreign_handle(args[0], "socket");
+ *     if (fd == 0 && sol_foreign_handle(args[0], "socket") == NULL) {
+ *         sol_vm_runtime_error(vm, "send expects an open socket");
+ *         return SOL_NIL_VAL;
+ *     }
+ *
+ * **`release` runs exactly once, and from two directions.** The collector calls
+ * it when the program lets go of the value, which is the path that matters for
+ * a program holding many in turn -- and `sol_vm_free` calls it for everything
+ * still alive, whatever its reachability, which is the path that matters when a
+ * limit took the program away mid-flight. There is deliberately no `close`
+ * message: a program cannot be relied on to send one, and a stopped program
+ * could not be given the chance.
+ *
+ * **`kind` must outlive the VM.** A string literal in the extension does. It is
+ * compared with `strcmp`, so one extension's `"socket"` cannot be handed to
+ * another extension's primitive that wanted its own.
+ *
+ * **`footprint` is what the resource costs where the machine cannot see it** --
+ * a texture, a decoded image, a connection's buffers -- and is added to the
+ * live-byte figure `--memory` is measured against. Zero when there is nothing
+ * sensible to say, which is usual; a wrong guess is worse than none. */
+
 /* ---- what an extension may rely on --------------------------------------- *
  *
  * Declared in the headers above and named here so that the surface is one list
@@ -129,6 +166,14 @@ typedef int (*SolExtensionInit)(SolVM *vm, int abi);
  *   sol_string_new(vm, chars, length)            copies; answers a SolString *
  *   sol_array_new(vm, capacity)
  *   sol_array_add(vm, array, value)
+ *
+ *   sol_foreign_new(vm, handle, release, kind, footprint)
+ *                                                a resource the machine holds
+ *                                                for you and gives back
+ *   sol_foreign_handle(value, kind)              the handle, or NULL if it is
+ *                                                the wrong kind or released
+ *   sol_foreign_release(value)                   give it back now, in an order
+ *                                                you choose
  *
  *   sol_vm_call_block(vm, block, args, argc)     run a block -- then rule 4
  *   sol_vm_send(vm, receiver, name, args, argc)  send a message -- then rule 4

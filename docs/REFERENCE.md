@@ -1765,11 +1765,16 @@ cannot be one: `a:=(b)` would otherwise be both an assignment and a send.
 
 None are keywords, but these are bound as globals at startup and shadowing them
 will surprise you: `integer`, `float`, `string`, `array`, `dictionary`, `time`,
-`symbol`, `block`, `boolean`, `object`, `error`, `system`, `nil`, `true`,
-`false`, `infinity`, `nan`.
+`symbol`, `block`, `boolean`, `object`, `error`, `foreign`, `system`, `nil`,
+`true`, `false`, `infinity`, `nan`.
 
-The first eleven are the class objects, `system` is
+The first twelve are the class objects, `system` is
 [the process](#the-program-and-its-process), and the rest are values.
+
+`foreign` is the odd one. Nothing in the language makes one — a foreign handle
+is a resource an extension owns, a socket or a window, and only a primitive can
+hand one over. It is named so that a program given one can ask
+`held:isKindOf(foreign)`. See [extensions.md](extensions.md).
 
 `self` is not a global; it is recognised by the compiler inside a block.
 
@@ -2364,8 +2369,9 @@ string:new.
 solvm: a string is written as a literal, not made with 'new' -- "" is the empty one
 ```
 
-`symbol`, `block` and `boolean` refuse in the same way, each naming what to
-write instead.
+`symbol`, `block`, `boolean` and `foreign` refuse in the same way, each naming
+what to write instead — or, for `foreign`, that there is nothing to write,
+because a resource comes from an extension.
 
 Binding a block over one of these replaces the requirement along with the
 primitive, so a class can be given messages of its own:
@@ -3709,7 +3715,7 @@ has been given, and cannot give itself more.
 Every built-in message and the types that answer it. The question a reference
 gets asked is usually *what has `copyFrom`?* rather than *what does a string
 do?*, and the sections above answer only the second — so this answers the first.
-140 messages across 236 registrations.
+140 messages across 242 registrations.
 
 **A test keeps it honest**: a message registered in `builtins.c` and missing
 from here fails the build, which is the same bargain that makes every message

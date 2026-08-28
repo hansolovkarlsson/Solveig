@@ -75,6 +75,21 @@ struct SolVM {
     SolGCHeader **gray;
     int           gray_count;
     int           gray_capacity;
+    /* Foreign cells made since the last collection.
+     *
+     * The heap threshold is measured in bytes, and a foreign cell is forty of
+     * them however scarce the thing it holds. A file descriptor is one of a few
+     * hundred; a window is one of a few dozen. So a program opening sockets in
+     * a loop would exhaust the process long before it allocated its way to a
+     * collection -- measured, and it ran out at 256 with the heap barely
+     * touched.
+     *
+     * So foreign cells get a count of their own, and enough of them forces a
+     * collection whatever the byte figure says. This is not a second heap: it
+     * is the collector being told that these are expensive in a currency it
+     * cannot see. See SOL_GC_FOREIGN_PRESSURE. */
+    int           foreign_since_gc;
+
     SolGCHeader  *temps[SOL_GC_MAX_TEMPS];
     int           temp_count;
     bool          gc_stress;
@@ -94,6 +109,9 @@ struct SolVM {
     SolObject *string_class;
     SolObject *object_class;
     SolObject *symbol_class;
+    /* What a resource an extension owns answers to. There is no way to make
+       one from Solum -- only a primitive can -- so this class has no `new`. */
+    SolObject *foreign_class;
 
     /* How many globals the built-ins bound, counted the moment they were
        installed. A new name goes on the front of the root's slot list, so

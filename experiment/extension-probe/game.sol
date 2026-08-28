@@ -30,6 +30,6 @@ sdl:each({
     frame:lessThan(#4) }).
 
 sdl:close.
-net:close(me).
-net:close(them).
+; -- no net:close: the sockets are closed when this program lets go of
+; -- them, and by the machine going down if it does not.
 "clean exit":print.

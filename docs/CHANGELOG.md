@@ -5,6 +5,58 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### A resource an extension owns, and the promise that it comes back — `pending`, 2026-08-28
+
+**`SolForeign`**: a socket, a window, a connection, a compiled pattern — a value
+the machine holds for a program and gives back when the program is done with it.
+Before this an extension had to hand such a thing over as an integer, and all
+three things wrong with that are gone: nothing closed it when the program was
+stopped, it was not counted against `--memory`, and a program could invent one.
+**No new message**; the language still answers 140 across 242 registrations, and
+a value type is not a message.
+
+**`release` runs from `free_cell` and nowhere else**, which is what gets both
+guarantees out of one line. The sweep calls it when the cell becomes
+unreachable; `sol_gc_free_all` calls it for everything at shutdown whatever its
+reachability. So a socket is closed when the program drops it **and** when a
+limit takes the program away mid-flight — the case an explicit `close` could
+never cover, since a limit-stop is uncatchable and does not run `ensure`. That
+is why there is no `close` message, and it turns
+[design.md](design.md)'s *"nothing has to be released"* into something still
+true rather than something falsified: a resource has a release, and it was never
+the program's to run.
+
+**Four sites in the collector had to be named and none of them warns.**
+`blacken` and `cell_size` are if-chains that fall through to the `SolObject`
+branch, so a foreign cell taken for an object would have had its `release`
+pointer walked as a slot list; `free_cell` would have leaked; `check_constants`
+in the serializer would have let one into a `.sob`. Eight further switches do
+warn, because none of them has a `default` — which is the arrangement
+[a swept dictionary](COMPLETED.md) earned some releases ago.
+
+**And bytes turned out to be the wrong currency, which real sockets found.**
+A foreign cell is forty bytes however scarce the thing it holds, so a program
+opening descriptors in a loop exhausted the process while the heap was still
+nearly empty: measured at a 256-descriptor ceiling, it died there with no
+collection having happened. Foreign cells now carry a pressure count of their
+own — `SOL_GC_FOREIGN_PRESSURE` of them forces a collection whatever the byte
+figure says. The same program opens 5,000 sockets under a ceiling of 256.
+
+An extension does not have to do anything about that, and in particular must not
+inflate `footprint` to buy scheduling: `footprint` is what the resource costs
+where the machine cannot see it — a texture, a connection's buffers — and is
+added to what `--memory` measures, so a wrong number there makes a limit lie.
+
+**`kind` is how a handle is asked for**, with `strcmp`, so one extension's
+socket cannot reach another's primitive expecting its own; a released one
+answers nothing rather than a dead pointer. `foreign` is bound as a global
+alongside the other class objects so that a program handed one can ask
+`isKindOf(foreign)`, and `foreign:new` refuses the way `string:new` does.
+
+[experiment/extension-probe/ext_net.c](../experiment/extension-probe/ext_net.c)
+was rewritten onto it and is the before-and-after: its `net:close` is gone, and
+the sockets are closed by the machine instead.
+
 ### The debugger takes an extension too — `7b3e27b`, 2026-08-28
 
 **`solid --extension=` was missing from the entry below**, which left the one

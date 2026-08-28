@@ -24,6 +24,16 @@ typedef struct SolVM SolVM;
    never allowed to fall below afterwards. */
 #define SOL_GC_INITIAL_THRESHOLD (64 * 1024)
 
+/* Foreign cells that may be made before one is collected regardless of bytes.
+ *
+ * Deliberately far below the smallest descriptor ceiling a system is likely to
+ * impose -- macOS starts processes at 256 -- because the resource that runs out
+ * is not the one the threshold above measures. Collections are cheap at these
+ * heap sizes, and nothing reachable is freed by one, so the cost of being eager
+ * here is a few microseconds and the cost of not being is a program that dies
+ * holding memory it never used. */
+#define SOL_GC_FOREIGN_PRESSURE 64
+
 /* Depth of the temporary-root stack. Small on purpose: needing many at once
    means a value should be reachable from somewhere the tracer already looks. */
 #define SOL_GC_MAX_TEMPS 8
@@ -36,7 +46,8 @@ typedef enum {
     SOL_GC_STRING,
     SOL_GC_SYMBOL,
     SOL_GC_DELEGATE,
-    SOL_GC_CODE     /* a compiled chunk tree; see SolCode in bytecode.h */
+    SOL_GC_CODE,    /* a compiled chunk tree; see SolCode in bytecode.h */
+    SOL_GC_FOREIGN  /* a resource an extension owns; see SolForeign in object.h */
 } SolGCType;
 
 typedef struct SolGCHeader {

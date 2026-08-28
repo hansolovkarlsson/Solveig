@@ -241,6 +241,63 @@ struct SolString {
 /* Copies `length` bytes. The caller keeps ownership of what it passed in. */
 SolString *sol_string_new(SolVM *vm, const char *chars, int length);
 
+/* A resource an extension owns and the machine does not understand: a socket, a
+ * window, a database connection, a compiled pattern.
+ *
+ * **The collector is the whole reason this is a cell rather than an integer.**
+ * Before it, an extension handed such a thing back as a number -- so nothing
+ * closed it when the program was stopped, it was not counted against
+ * `--memory`, and a program could invent one and pass it back. All three go
+ * away by making it a value the machine can see.
+ *
+ * `release` runs from `free_cell` and nowhere else, which is what gets both
+ * guarantees from one line: the sweep calls `free_cell` when the cell becomes
+ * unreachable, and `sol_gc_free_all` calls it for everything at shutdown
+ * whatever its reachability. So a socket is closed when the program lets go of
+ * it *and* when the program is taken away -- and the second is what an explicit
+ * `close` could never promise, since a limit-stop does not run `ensure`
+ * (COMPLETED 6.33). Sweeping is the path that matters for a program that holds
+ * many in turn; teardown is the backstop.
+ *
+ * `handle` becomes NULL when released, so a double release is impossible and a
+ * use afterwards is a refusal rather than a crash.
+ *
+ * `kind` is the extension's own word for what this is, used in messages and to
+ * stop one extension's handle reaching another's primitive. Compared with
+ * `strcmp` rather than by pointer, because two extensions are two binaries and
+ * their string literals are not shared.
+ *
+ * `footprint` is what the resource costs where the machine cannot see it -- a
+ * texture, a decoded image, a connection's buffers. Added to `cell_size`, so
+ * `--memory` measures what is really held rather than the forty bytes of the
+ * cell. Zero when there is nothing sensible to say, which is most of the time.
+ * Without it, ROADMAP 3.7 -- a limit bounds dispatch and not work -- would
+ * simply reappear here. */
+struct SolForeign {
+    SolGCHeader gc;        /* must be first: the collector casts between them */
+    void       *handle;
+    void      (*release)(void *handle);
+    const char *kind;
+    size_t      footprint;
+};
+
+/* Takes ownership of `handle`: from here it is the collector's to release.
+   `kind` must outlive the VM, which a string literal in the extension does.
+   `release` may be NULL for a resource with nothing to give back. */
+SolForeign *sol_foreign_new(SolVM *vm, void *handle, void (*release)(void *),
+                            const char *kind, size_t footprint);
+
+/* The handle, if this really is a `kind` and has not been released; NULL if it
+   is neither. A primitive checks with this rather than casting, which is what
+   stops one extension's socket being handed to another's `close`. */
+void *sol_foreign_handle(SolValue value, const char *kind);
+
+/* Releases now rather than waiting for the collector, and answers whether there
+   was anything to release. Not reachable from Solum -- there is no `close`
+   message -- and here because an extension that must close in a known order
+   (a child before its parent) has no other way to say so. */
+bool sol_foreign_release(SolValue value);
+
 /* A delegating view, answered by `self:via(ancestor)`.
  *
  * Sending to one looks the message up starting at `start` rather than at the

@@ -115,9 +115,15 @@ without one of them fails at the line that first uses it — `undefined name
 none of them can tell whether the others were loaded, and they meet only at the
 root object, the way `system` and `array` do.
 
-**And `ext_net.c` shows the gap on purpose.** It hands a socket back as a plain
-integer, because there is no value type that could carry a file descriptor. So
-nothing closes it if the program is stopped, it is not counted against
-`--memory`, and a program can invent one and pass it to `net:close`. That is the
-whole argument for `SolForeign`, made by a file that needs it rather than by a
-paragraph.
+**`ext_net.c` was the argument for `SolForeign`, and has since been rewritten
+onto it.** It used to hand a socket back as a plain integer, because no value
+type could carry a file descriptor — so nothing closed it if the program was
+stopped, it was not counted against `--memory`, and a program could invent one
+and pass it to `net:close`. All three of those became the case for the foreign
+cell, made by a file that needed it rather than by a paragraph.
+
+It now answers a `<socket>`, asks for the handle by kind, and **has no `close`
+at all**: the collector closes one the program has let go of, and VM teardown
+closes one it was still holding. Opening real sockets through it is also what
+found that bytes are the wrong currency for a scarce resource — see the
+changelog entry for the pressure count that came out of it.

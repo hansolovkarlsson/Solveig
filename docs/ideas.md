@@ -1456,7 +1456,7 @@ rather than a fallback.
 | **Two doors, one contract** | `sol_extension_register` for an extension linked in, `sol_extension_load` for one `dlopen`ed, and `extend.h` mentioning only the first. The dynamic half lives alone in a file a port omits. Not a decision either, once the port is a goal — and it is what makes the whole thing testable without building a shared object mid-test. |
 | **`extend.h`** | The three the entry above already names, plus a fourth found here: **an extension must check `had_error` after every `sol_vm_call_block`.** A limit-stop sets it, and a main loop that does not look will keep calling into a machine that has been stopped. |
 | **The ABI handshake** | Still nothing to compare. Copy `.sob`'s policy exactly — equality, refuse, do not guess. |
-| **`SolForeign`** | As designed above, and GTK sharpens one detail: a GTK object is refcounted, so `release` is `g_object_unref` rather than `free`. The entry's best argument survives intact — teardown frees the heap regardless of reachability, so a release hook fires even for a program that was stopped, which an explicit `close` never would. |
+| **`SolForeign`** | **Built on 2026-08-28.** As designed above, and the entry's best argument held: release runs from `free_cell`, which both the sweep and `sol_gc_free_all` go through, so a stopped program's sockets are closed too. Two things the design did not have — a `kind` checked with `strcmp`, so one extension's handle cannot reach another's primitive, and a `footprint`, without which `--memory` would measure the pointer rather than the texture. And one thing only real sockets could have found: **bytes are the wrong currency for a scarce resource**, so foreign cells carry a collection pressure of their own. |
 | **A callback registry** | New, from finding four. Nothing above anticipated it — and it is a **service an extension may use**, not the shape an extension takes, because a `draw` back end owns its own loop and needs none of it. |
 | **Where loading is invoked from** | **A decision, and the one to take deliberately.** |
 
@@ -1490,7 +1490,7 @@ thread on macOS. That costs nothing today, since a VM is one thread's and
 — but it forecloses ever running a UI on a second thread, and it is easier to
 accept that now than to discover it.
 
-> **The first two steps were built on 2026-08-28**, within hours of this being
+> **The first three steps were built on 2026-08-28**, within hours of this being
 > written: the link change, `extend.h`, `sol_extension_load` and
 > `sol_extension_register`, the ABI handshake, `--extension=` on `solvm`,
 > `solis` and `solid` — every front end that *runs* a program, and pointedly not
@@ -1501,6 +1501,20 @@ accept that now than to discover it.
 > link cannot live in the test binary, because a binary that calls
 > `sol_vm_set_global` itself finds it exported however the link was done. **The
 > two steps that remain are the ones with the real surface area.**
+>
+> **And then the foreign cell**, the same day: `SolForeign` with its release
+> hook, `foreign` bound as a class object, `tests/test_foreign.c`, and
+> `design.md`'s *"nothing has to be released"* rewritten rather than left
+> standing. The design above survived contact except in one place, and that
+> place was found by opening real sockets rather than by reasoning: **the byte
+> threshold is the wrong currency for a scarce resource.** A foreign cell is
+> forty bytes however scarce the thing it holds, so a program opening
+> descriptors in a loop died at a 256-descriptor ceiling with no collection
+> having happened. Foreign cells now have a pressure count of their own. Nothing
+> on this page anticipated that, and nothing would have: it is not visible until
+> the resource is real.
+>
+> **What remains is the callback registry, and then GTK.**
 
 **Recommended order, each step falsifiable before the next:** the link change
 with `extend.h` and the handshake and the flag, tested by the *hash* bundle and

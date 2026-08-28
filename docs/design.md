@@ -986,6 +986,17 @@ What that costs is small in this language, because nothing has to be released: a
 file is read or written whole, and no message hands back anything a program is
 obliged to close. It would cost more in a language where there were.
 
+**An extension is where there are, and the design answers it rather than
+falsifying it.** A socket or a window handed back by
+[an extension](extensions.md) is a resource with a release, which is the first
+thing here that has one. But it is still not something a *program* is obliged to
+close: there is no `close` message, and the collector gives it back when the
+program lets go — or `sol_vm_free` does, for whatever is still held when the
+machine goes down. So a stopped program's sockets are closed **because** the
+cleanup was never the program's to run, which is the same reason the paragraph
+above gives for the cost being small. Had an explicit `close` been the mechanism,
+an uncatchable stop would have leaked one every time.
+
 The allowance is reset by `sol_vm_run`, so it is per run and not per VM: a
 server handing one machine a request and then another means each of them to have
 the whole of it.

@@ -2909,6 +2909,32 @@ static SolValue prim_string_no_new(SolVM *vm, SolValue self, SolValue *args, int
                           "-- \"\" is the empty one");
 }
 
+/* A foreign handle is made by a primitive and by nothing else: the machine has
+   no way to invent a socket, and neither has a program. */
+static SolValue prim_foreign_no_new(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self; (void)args; (void)argc;
+    return refuse_new(vm, "a foreign handle comes from an extension and cannot "
+                          "be made with 'new' -- see docs/extensions.md");
+}
+
+/* `<socket>`, the same text `print` shows, because there is nothing else
+   truthful to say about a pointer the machine does not understand. Deliberately
+   the rendered form rather than bare characters: a foreign handle has no
+   contents to hand over the way a string does. */
+static SolValue prim_foreign_as_string(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)args;
+    if (!check_argc(vm, "asString", argc, 0)) return SOL_NIL_VAL;
+
+    SolText text;
+    sol_text_init(&text);
+    sol_value_render(vm, self, &text);
+    SolValue answer = SOL_STRING_VAL(sol_string_new(vm, text.chars, text.length));
+    sol_text_free(&text);
+    return answer;
+}
+
 static SolValue prim_symbol_no_new(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     (void)self; (void)args; (void)argc;
@@ -5826,6 +5852,20 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->string_class, SOL_STRING, "lessOrEqual", prim_less_or_equal);
     instance(vm, vm->string_class, SOL_STRING, "greaterOrEqual", prim_greater_or_equal);
 
+    /* A resource an extension owns. Five messages and every one of them already
+       existed, so the language answers exactly what it did before: a value type
+       is not a message. There is no `close` -- the collector releases it when
+       the program lets go, and `sol_gc_free_all` releases it at shutdown even
+       for a program a limit took away, which is a guarantee an explicit close
+       could not make. See docs/extensions.md. */
+    vm->foreign_class = sol_object_new(vm, NULL);
+    instance(vm, vm->foreign_class, SOL_OBJ, "new", prim_foreign_no_new);
+    instance(vm, vm->foreign_class, SOL_FOREIGN, "print", prim_print);
+    instance(vm, vm->foreign_class, SOL_FOREIGN, "display", prim_display);
+    instance(vm, vm->foreign_class, SOL_FOREIGN, "asString", prim_foreign_as_string);
+    instance(vm, vm->foreign_class, SOL_FOREIGN, "equals", prim_equals);
+    instance(vm, vm->foreign_class, SOL_FOREIGN, "notEquals", prim_not_equals);
+
     vm->symbol_class = sol_object_new(vm, NULL);
     instance(vm, vm->symbol_class, SOL_OBJ, "new", prim_symbol_no_new);
     instance(vm, vm->symbol_class, SOL_SYMBOL, "print", prim_print);
@@ -5889,6 +5929,7 @@ void sol_builtins_install(SolVM *vm)
     vm->time_class->proto    = vm->object_class;
     vm->string_class->proto  = vm->object_class;
     vm->symbol_class->proto  = vm->object_class;
+    vm->foreign_class->proto = vm->object_class;
 
     /* Bind the class objects into the globals namespace so `integer` resolves. */
     sol_object_define(vm, vm->root, "integer", SOL_OBJ_VAL(vm->integer_class));
@@ -5903,6 +5944,11 @@ void sol_builtins_install(SolVM *vm)
        asked about. */
     sol_object_define(vm, vm->root, "symbol",  SOL_OBJ_VAL(vm->symbol_class));
     sol_object_define(vm, vm->root, "block",   SOL_OBJ_VAL(vm->block_class));
+    /* Named for the same reason: a program handed one by an extension has to
+       be able to ask `isKindOf(foreign)`. Nothing else here is useful --
+       `foreign:new` exists only to refuse, since a resource comes from an
+       extension and cannot be invented. */
+    sol_object_define(vm, vm->root, "foreign", SOL_OBJ_VAL(vm->foreign_class));
     sol_object_define(vm, vm->root, "boolean", SOL_OBJ_VAL(vm->bool_class));
     sol_object_define(vm, vm->root, "nil",     SOL_NIL_VAL);
     sol_object_define(vm, vm->root, "true",    SOL_BOOL_VAL(true));
