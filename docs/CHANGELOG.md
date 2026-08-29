@@ -5,6 +5,45 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## 0.37.0 — 2026-08-28
+
+**One message, asked for by a program.** The language answers
+**141<!--count messages--> messages**, up from 140, and `.sob` files are format
+version 14, unchanged.
+
+```
+"a-b-c":replace("-", "+").        ; "a+b+c"
+"a,b,c":replace(",", "").         ; "abc" -- an empty replacement deletes
+"aaa":replace("aa", "b").         ; "ba"  -- forward, and non-overlapping
+```
+
+**It replaces every occurrence**, because the idiom it replaces is `split` then
+`join` and that pair replaces all of them. A `replace` that did only the first
+would not be shorter than what programs were already writing — it would mean
+something different, and tidying an old program up would quietly change what it
+did.
+
+**Compatibility, stated exactly**, because this release is the first in a while
+where the two halves differ. Bytecode from 0.36.0 runs here and this release's
+runs on 0.36.0 — checked by building the old release from its tag, where the two
+compilers emit byte-identical files. But **a program that uses the new message
+needs a machine that has it**, and says so rather than misbehaving:
+
+```text
+solvm: string does not understand 'replace'
+```
+
+That is the format being compatible and the *language* having grown, which are
+different things and are worth not conflating.
+
+**Where it came from is the point.** Porting Solveig's 1,766-line editor to
+[solveig-gtk](https://github.com/hansolovkarlsson/solveig-gtk) wanted it three
+times in one line, to escape `&`, `<` and `>` for markup — and it is the only
+thing that port asked the language for. The workaround was exact, so the port
+shipped without it and the absence was written down instead. That is the rule
+every other entry here was decided by, running for once from a program to the
+language rather than from this page to the compiler.
+
 ### `string:replace`, which a program asked for — `06c775a`, 2026-08-28
 
 **141<!--count messages--> messages, up from 140**, and the first one added

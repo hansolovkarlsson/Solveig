@@ -157,6 +157,17 @@ version the binaries inside it report.
 
 ## Status
 
+**0.37.0** — one message, asked for by a program. **141<!--count messages-->
+messages**, up from 140, and `.sob` files are format version 14. `replace`
+answers a new string with **every** occurrence replaced, because the idiom it
+replaces — `split` then `join` — replaces all of them, and a first-only version
+would have meant something different from what programs were already writing.
+Bytecode is compatible with 0.36.0 both ways round; a program that *uses* the
+new message of course needs a machine that has it, and says so. It came from
+porting the editor to [solveig-gtk](https://github.com/hansolovkarlsson/solveig-gtk),
+which wanted it three times in one line and is the only thing that port asked
+the language for.
+
 **0.36.0** — a notation that adds no messages, and an interface that adds no
 dependencies. **140 messages, unchanged**, and `.sob` files
 are format version 14 — bytecode from 0.35.0 still runs and 0.35.0 still runs
