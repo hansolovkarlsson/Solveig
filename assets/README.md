@@ -42,7 +42,7 @@ system.
 
 ## Also here, and not used
 
-`solveig_logo.png` — an emblem of Sól herself: the goddess holding a sun, drawn
+`sol-emblem.png` — an emblem of Sól herself: the goddess holding a sun, drawn
 into a circuit board. An experiment, kept because it is a good one, and **not
 the mark**: nothing links it, nothing renders it, and `logo.svg` above is what
 the project uses.
