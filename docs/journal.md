@@ -11,6 +11,95 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-29 — an entry that outlived its reason
+
+**The morning's question was what is on the list, and the answer was still
+nothing.** [ROADMAP.md](ROADMAP.md) has no open work — section 2 has no design
+question, section 6 is built, and section 3 holds the restrictions the language
+lives under rather than a queue. What is left is [ideas.md](ideas.md)'s deferred
+entries, each waiting on a trigger nobody has pulled.
+
+So the hour went to reading those against the tree, which found two stale
+things. **The difference between the two is the whole of this entry.**
+
+### One was a sentence
+
+The at-a-glance row for extensions said the foreign cell and the callback
+registry were *still open*, and that a block held by foreign code is swept with
+the failure silent. Both were built on 2026-08-28, the registry's token is the
+fix for exactly that failure, and the entry's own table says so fourteen hundred
+lines further down. A summary contradicting the thing it summarises, and it took
+one rewritten row.
+
+Nothing catches that. `expect.sol` recounts a number carrying a marker and runs
+a fenced block; a table of verdicts disagreeing with the entries under it is
+prose about prose, and reading is the only instrument there is.
+
+### The other was a conclusion
+
+The networking entry opened on a fact — *there is no socket anywhere in this
+repository* — and deduced from it that a client and server pair means new
+primitives in the VM. The fact stopped being true yesterday.
+[ext_net.c](../experiment/extension-probe/ext_net.c) is a UDP extension: a
+`<socket>` foreign cell, no `close` at all, and the collector doing the closing.
+
+**And it was not a demo, which is why it is evidence rather than an exception.**
+It was the argument for `SolForeign` — the first version handed a descriptor
+back as a plain integer, so nothing closed it when a program was stopped, it
+went uncounted against `--memory`, and a program could invent one and pass it to
+`close`. Opening real sockets through it is also what found that bytes are the
+wrong currency for a scarce resource. The file that falsified the entry is the
+same file that shaped the mechanism which falsified it.
+
+**The verdict survived and its argument did not**, which is the finding. Defer
+is still right, but not for the reason written down: sockets no longer cost new
+primitives, so the case had to be made again from what exists. And the
+extensions precedent does not reach them. `dlopen` won for GTK on a
+combinatorial argument — two toolkits, most programs wanting neither, every pair
+of them a build — plus a dependency that would have cost *no dependencies beyond
+a C11 compiler and `make`*. There is one sockets library, everyone who wants
+networking wants the same one, and POSIX costs nothing. **The recommendation
+came out the same and the reasoning is entirely different**: a socket in the VM
+grants every script networking whether the host meant to or not, which pre-empts
+[6.32](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine)
+rather than answering it. Inward later is easy; back out is not.
+
+That is the case for re-reading rather than patching, made concretely. Swapping
+*new primitives in the VM* for *an extension* would have produced a true
+sentence resting on nothing.
+
+### What the probe had been hiding
+
+The new half of the entry is the part neither document had. `net:poll` is
+non-blocking and ran from a frame loop SDL owned — **the graphics library did
+the waiting**, and while the socket lived inside a game nobody had to notice
+that. A server owns its own loop. Waiting is what this machine has no answer
+for: a blocking read stops the only thread there is, there is no second one
+([3.11](ROADMAP.md#311-a-chunk-cannot-be-shared-between-threads)), and
+concurrency is recommended against on the grounds that it changes the whole VM.
+
+`connect`, `bind`, `listen` and `accept` are an afternoon. **How a program waits
+on one of two things is the entry**, and no amount of extension mechanism
+supplies it.
+
+### The lesson, one turn further than it was
+
+The 21st's closing line was that an entry goes stale not when it is wrong but
+when the world moves underneath it and it stays technically true. This refines
+it: **the sentence was merely old, and the conclusion drawn from it was false.**
+A reader acts on the conclusion. A premise that has quietly stopped holding
+leaves every deduction above it standing, looking exactly as it did when it was
+sound, and no checker in this repository can see the difference.
+
+There is a filing lesson under it too. The evidence was written on the 28th and
+filed under extensions; the entry it falsified sits in a different section of
+the same document, and a day passed with nothing connecting them. Reading both
+in one sitting is what joined them, which is an argument for the re-read being a
+habit rather than an occasion.
+
+Nothing shipped and nothing closed. One entry says something different now, and
+the difference is what it would take to be wrong about it.
+
 ## 2026-08-28 (the close) — a name, a mark, three releases, and the language grew by one
 
 The day that began with *how do we get GTK in without putting it in* ended with
