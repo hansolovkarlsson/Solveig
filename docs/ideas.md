@@ -47,13 +47,13 @@ marked as a sketch.
 | Infix operators, `@expr(a^2 + b/2)` | **Built**, on 2026-08-28 — [scoped in the morning and in by the evening](#infix-arithmetic-as-a-compile-time-notation): arithmetic, then `sin(x)` once *limiting* it turned out to be the expensive half, then comparison and logic, and the name with them |
 | Phoenix — a second language whose output Solum uses | **Defer** — the machinery is proven three times over; [the unexplored half](#programs-that-would-press-on-something) is whether a hosted language can publish a *library* rather than a program |
 | Programs that would press on something — Pascal, predicate logic, a parser toolkit | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would |
-| Networking, and sending code to a running machine | **Defer** — [no socket exists](#networking-and-sending-code-to-a-machine-that-is-already-running); the second needs 3.4 and 6.32 as well |
+| Networking, and sending code to a running machine | **Defer** — a socket exists now, [as an extension in the probe](#networking-and-sending-code-to-a-machine-that-is-already-running), so the question is where one belongs rather than what it would cost; waiting is the unanswered half, and the second still needs 3.4 and 6.32 |
 | SQLite, SDL2, GTK | **One project, not three** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); GTK and SDL2 fire that trigger and SQLite does not, and wanting *both* toolkits is what settles the mechanism |
 | Fuzzy logic | **A library that would teach nothing** — arithmetic on floats, and the arithmetic all landed |
 | Namespaces for included files | **Defer** — the trigger is somebody else writing a library |
 | Splitting the reference into pages | **Defer** — the trigger is the message reference outgrowing the rest |
 | Restricting what a script may reach (6.32) | **Defer** — the trigger is a script somebody else wrote, or input from a stranger |
-| Extensions: a capability from a C binary | **Triggered by GTK on 2026-08-28, [probed rather than argued](#gtk-and-the-afternoon-that-was-supposed-to-be-a-page), and the first half built the same day** — `--extension=`, [extend.h](../solum/include/solum/extend.h), the ABI handshake and [the contract](extensions.md). `dlopen` beats embedding on a combinatorial argument; the callback into a main loop is free; the build blocker this page named was wrong and the real one was quieter. **Still open: the foreign cell, and the callback registry** — a block held by foreign code is swept and the failure is silent |
+| Extensions: a capability from a C binary | **Triggered by GTK on 2026-08-28, [probed rather than argued](#gtk-and-the-afternoon-that-was-supposed-to-be-a-page), and built the same day** — `--extension=`, [extend.h](../solum/include/solum/extend.h), the ABI handshake and [the contract](extensions.md). `dlopen` beats embedding on a combinatorial argument; the callback into a main loop is free; the build blocker this page named was wrong and the real one was quieter. **The second half is `SolForeign` and a callback registry**, both built — real sockets found that bytes are the wrong currency for a scarce resource, so a foreign cell carries a collection pressure of its own; the registry nothing above anticipated, and it hands back a token so a released block *says so* rather than answering a plausible wrong one |
 | Regular expressions | **No** to a literal; **defer** the engine to an [extension](#regular-expressions); the cursor that repeats instead is [built](COMPLETED.md#55-five-programs-each-wrote-the-same-cursor--done) |
 | An early exit from a loop | **Defer** — the flag idiom recurs across six files; the trigger is a body that must skip its remainder ([3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing)) |
 | Intercepting a message not understood | **Defer** — Smalltalk's `doesNotUnderstand`; small to build, and nothing has wanted a proxy |
@@ -2916,10 +2916,59 @@ something.
 
 ### Networking, and sending code to a machine that is already running
 
-[serve.sol](../programs/serve.sol) answers an HTTP request through environment
-variables — *there is no socket anywhere in this repository*. So a client and
-server pair that talk to each other means new primitives in the VM: connect,
-bind, listen, accept, and a read and a write that are not files.
+**A socket exists now, and it is not in the VM.**
+[ext_net.c](../experiment/extension-probe/ext_net.c) is 156 lines of UDP loaded
+with `--extension=`: `net:udp` answers a `<socket>` foreign cell, `port` asks
+the kernel which one it got, `send` writes a datagram to loopback and `poll`
+takes one if it is waiting. There is no `close` — the
+collector closes a socket the program has let go of, and teardown closes one it
+was still holding, which is the case an explicit close could never cover. It
+lives in [experiment/extension-probe](../experiment/extension-probe/README.md),
+off the search path, because it was written to press on the extension mechanism
+at full size rather than to give this language networking.
+
+**It was not a demo, which is why it counts as evidence.** It was the argument
+for `SolForeign`: the first version handed a descriptor back as a plain integer,
+so nothing closed it when a program was stopped, it went uncounted against
+`--memory`, and a program could invent one and pass it to `close`. All three
+became the case for the foreign cell, made by a file that needed it rather than
+by a paragraph. Opening real sockets through it is also what found that **bytes
+are the wrong currency for a scarce resource** — forty-byte cells holding
+descriptors exhausted the process at a 256-descriptor ceiling with the heap
+still nearly empty — which is where the collector's foreign pressure count came
+from.
+
+So the sentence this entry used to open with — *there is no socket anywhere in
+this repository* — is false, and the conclusion it carried goes with it. **A
+client and server pair no longer means new primitives in the VM.** That was true
+while the VM was the only place a capability could come from; since
+[extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm) it
+is a choice, and the choice is the entry now.
+
+**The extension argument does not settle it, because sockets are the other
+shape.** `dlopen` won for GTK on a combinatorial one: two toolkits, neither
+wanted by most programs, every pair of them a build, and a dependency that would
+have cost *no dependencies beyond a C11 compiler and `make`*. There is one
+sockets library, everyone who wants networking wants the same one, and it costs
+no dependency beyond POSIX — so the reasoning that put GTK outside does not
+reach it. **Recommendation: an extension all the same, when it happens.** A
+socket in the VM is a capability every script gets whether or not the host meant
+to grant it, which answers
+[6.32](#632-a-script-cannot-be-run-with-less-than-the-whole-machine) by
+pre-empting it; a bundle a host names on the command line is that entry's
+coarsest form already built. Moving it inward later is easy, and moving it back
+out is not.
+
+**What the probe dodged is the part worth naming.** Its `poll` is non-blocking
+and runs from a frame loop SDL owned, so the socket never had to wait for
+anything — the graphics library did the waiting. A server owns its own loop, and
+*waiting* is what this machine has no answer for: a blocking read stops the only
+thread there is, there is no second one
+([3.11](ROADMAP.md#311-a-chunk-cannot-be-shared-between-threads)), and
+concurrency is [recommended against](#go-style-concurrency) on the grounds that
+it changes the whole VM. `connect`, `bind`, `listen` and `accept` are an
+afternoon. **How a program waits on one of two things is the entry**, and no
+amount of extension mechanism supplies it.
 
 **Sending code fragments to a running `solvm` is a step further, and depends on
 three things rather than one.** The sockets above; then
@@ -2928,7 +2977,10 @@ not compatible across versions, so a service and its clients are lockstep or the
 wire carries source; and then
 [6.32](#632-a-script-cannot-be-run-with-less-than-the-whole-machine), because
 this is that entry's threat model stated exactly — *input from a stranger* — and
-it is deferred precisely because nobody had one.
+it is deferred precisely because nobody had one. Extensions shade that third
+dependency without removing it: a host that does not name the bundle has no
+networking at all, decided from C before the program runs, which is the shape
+6.32 asked for and not the granularity it asked for.
 
 It has a fourth dependency that is a feature rather than a decision. **A remote
 object is the canonical customer for
@@ -2936,9 +2988,10 @@ object is the canonical customer for
 which is deferred below because nothing has wanted a proxy. Networking would
 want one, and the two should be considered together if either is.
 
-**The trigger: two machines that need to talk.** Nothing here has needed one,
-and `serve.sol` was written to answer a request without a socket precisely so
-that it would not need to.
+**The trigger is unchanged: two machines that need to talk.**
+[serve.sol](../programs/serve.sol) still answers an HTTP request through
+environment variables, written that way precisely so that it would not need a
+socket, and the probe talks to itself on loopback. Neither is two machines.
 
 ## Recommended against
 
