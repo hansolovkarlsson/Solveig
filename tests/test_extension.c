@@ -229,7 +229,7 @@ static void test_the_promised_surface_is_exported(void)
         "sol_object_new", "sol_object_define",
         "sol_object_define_primitive", "sol_object_define_primitive_for",
         "sol_vm_set_global", "sol_vm_global",
-        "sol_string_new", "sol_array_new", "sol_array_add",
+        "sol_string_new", "sol_symbol_intern", "sol_array_new", "sol_array_add",
         "sol_vm_call_block", "sol_vm_send", "sol_vm_runtime_error",
         "sol_gc_push_temp", "sol_gc_pop_temp",
     };

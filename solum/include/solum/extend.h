@@ -149,6 +149,36 @@ typedef int (*SolExtensionInit)(SolVM *vm, int abi);
  * live-byte figure `--memory` is measured against. Zero when there is nothing
  * sensible to say, which is usual; a wrong guess is worse than none. */
 
+/* ---- answering with something a program can take apart -------------------- *
+ *
+ * An extension that reports *what happened* -- a key, a click, a row -- wants
+ * more than one value in its answer. Two shapes are reachable and one of them
+ * is better here than it looks.
+ *
+ * **An object with slots**, built from calls already listed above:
+ *
+ *     SolObject *event = sol_object_new(vm, vm->object_class);
+ *     sol_object_define(vm, event, "kind", SOL_SYMBOL_VAL(
+ *         sol_symbol_intern(vm, "keyDown", 7)));
+ *     sol_object_define(vm, event, "x", SOL_INT_VAL(x));
+ *
+ * so the program writes `event:kind` and `event:x` -- sends, like everything
+ * else in the language, rather than lookups wearing a send's clothes. A slot
+ * name is interned in the VM's permanent table, so a *fixed* set of names costs
+ * nothing however many objects carry them; names built from data would leak one
+ * entry each and are what a dictionary is for.
+ *
+ * **`sol_symbol_intern` is listed above for this**, and was added to the
+ * promised surface when the second extension wanted it. A symbol compares by
+ * identity, which is what makes `event:kind:equals('quit)` cheap enough for a
+ * frame loop -- and the language's own advice is that a set of names is a set
+ * of symbols.
+ *
+ * **A dictionary is deliberately not offered yet.** `sol_dict_new` exists and
+ * is not promised: nothing has needed keys built at run time, and promising an
+ * interface before something has used it is how the last accidental surface
+ * happened. Ask for it and it can be added. */
+
 /* ---- keeping a value alive between calls ---------------------------------- *
  *
  * **Rule 3 covers a window inside one primitive. This is the other half.**
@@ -236,6 +266,7 @@ bool sol_extension_release(SolVM *vm, SolRetained token);
  *   sol_vm_global(vm, name, &out)                read one back
  *
  *   sol_string_new(vm, chars, length)            copies; answers a SolString *
+ *   sol_symbol_intern(vm, chars, length)         a symbol, made only if new
  *   sol_array_new(vm, capacity)
  *   sol_array_add(vm, array, value)
  *

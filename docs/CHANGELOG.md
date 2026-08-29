@@ -5,6 +5,46 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### A second back end, and the one name it found missing — `pending`, 2026-08-29
+
+**[solveig-sdl](https://github.com/hansolovkarlsson/solveig-sdl)**, written to
+find out what [solveig-gtk](https://github.com/hansolovkarlsson/solveig-gtk) had
+got away with. It needed **no change to the mechanism** — same `extend.h`, same
+ABI, same loader, same foreign cell — and one addition to the promised surface:
+`sol_symbol_intern`, which an extension answering *what happened* wants
+immediately, and which was reachable and unpromised.
+
+**The interesting result is that the two bundles look nothing alike.** GTK owns
+the loop and calls into the program, so it has `gtk:run` and
+`gtk:onClick(button, block)`. SDL hands a program a frame and gets out of the
+way, so `sdl` has no `run`, no callback, and nothing registered anywhere: the
+loop is an ordinary `whileTrue` and `sdl:poll` answers the next event or `nil`.
+
+That difference is evidence for two decisions taken on argument when there was
+only one back end to argue from:
+
+| decision | what the second one showed |
+| --- | --- |
+| The retain registry is a **service**, not the shape of an extension | solveig-sdl uses none of it. Had callbacks been the shape, every file there would be working around the interface. |
+| No back end names itself the general case | `gtk:` and `sdl:` share no vocabulary, and neither had to pretend to be the other. A Plan 9 `draw` binding would be shaped like the SDL one. |
+
+**And `footprint` earned itself.** A screen carries the window's pixels — a
+1024×768 window is about 3MB — so `--memory=2M` stops a program that opens one:
+
+```text
+solvm: stopped: the memory limit of 2097152 bytes was reached, with 3179480 live
+```
+
+An extension declaring nothing would have let it open a thousand. That field was
+added on reasoning during the foreign-cell work and this is the first time it
+has mattered to anything real.
+
+`sol_symbol_intern` joins the list in `extend.h`, `docs/extensions.md` and
+`test_extension.c`. A dictionary is still deliberately unpromised: `sol_dict_new`
+exists, nothing has needed keys built at run time, and promising an interface
+before something has used it is how the accidental surface happened the first
+time.
+
 ### Keeping a value alive while foreign code holds it — `36f199b`, 2026-08-28
 
 **`sol_extension_retain`, `sol_extension_retained`, `sol_extension_release`.**

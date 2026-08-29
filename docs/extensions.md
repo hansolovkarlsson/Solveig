@@ -116,6 +116,7 @@ sol_vm_set_global(vm, name, value)        hang the extension's global
 sol_vm_global(vm, name, &out)             read one back
 
 sol_string_new(vm, chars, length)         copies
+sol_symbol_intern(vm, chars, length)      a symbol, made only if new
 sol_array_new(vm, capacity)
 sol_array_add(vm, array, value)
 
@@ -302,12 +303,12 @@ A refusal is not a half-load. The extension has bound nothing and the machine is
 exactly as it was, so `solvm` reports it and exits 65 — the status a `.sob` that
 cannot be read gets, because it is the same kind of thing.
 
-## A real one
+## Two real ones
 
-[solveig-gtk](https://github.com/hansolovkarlsson/solveig-gtk) is the first
-bundle written against this page rather than alongside it — a GTK4 window, in
-its own repository, built by nothing here. Fourteen messages, a widget as a
-foreign handle, and every callback held through the retain registry.
+[solveig-gtk](https://github.com/hansolovkarlsson/solveig-gtk) and
+[solveig-sdl](https://github.com/hansolovkarlsson/solveig-sdl) are written
+against this page rather than alongside it, each in its own repository and
+built by nothing here.
 
 It is worth knowing what it settled, because two things about a real toolkit
 were genuinely uncertain and neither was answerable from a checksum:
@@ -320,6 +321,23 @@ were genuinely uncertain and neither was answerable from a checksum:
 
 And it is the reason this repository still builds with no dependencies beyond a
 C11 compiler and `make`.
+
+**The second one is the check on the first.** SDL2 needed no change to the
+mechanism — same header, same ABI, same loader, same foreign cell — and it is
+deliberately *not* shaped like the GTK one, because SDL hands a program a frame
+and gets out of the way where GTK owns the loop. So `sdl` has no `run` and no
+callback at all, and the program writes an ordinary `whileTrue`.
+
+That difference is the evidence for two decisions that were taken on argument:
+
+| decision | what the second back end showed |
+| --- | --- |
+| The retain registry is a **service**, not the shape of an extension | solveig-sdl uses none of it. Had callbacks been the shape, it would be fighting the interface. |
+| No back end names itself the general case | `gtk:` and `sdl:` share no vocabulary, and neither had to pretend to be the other. |
+
+It also found the one thing missing from the list above — `sol_symbol_intern`,
+which an extension answering *what happened* wants immediately — and that is
+what a second customer is for.
 
 ## What is deliberately not promised
 

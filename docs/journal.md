@@ -11,6 +11,78 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-29 — the second back end, which was the experiment
+
+**SDL2, and the point of writing it was not SDL2.** The extension entry closed
+yesterday with a claim that had never been tested: *SDL2 after that changes
+nothing about any of the four steps, which is the whole claim.* One back end
+cannot show that. Two can, and only if the second is allowed to be unlike the
+first.
+
+**It needed no change to the mechanism**, and one name added to a list.
+
+### The two bundles look nothing alike, and that is the result
+
+GTK owns the loop and calls into the program: `gtk:run`, `gtk:onClick`, and
+every block it holds kept alive across collections. SDL hands the program a
+frame and gets out of the way: no `sdl:run`, no callback, nothing registered
+anywhere, and the loop is an ordinary `whileTrue`.
+
+**The temptation was to give SDL a `run(block)` so the two would match**, and
+this page's own advice is what argued against it — a back end that borrows
+another's vocabulary makes every later back end emulate a toolkit it has nothing
+to do with. That advice was written when there was one back end and nothing to
+check it against.
+
+So two decisions taken on argument now have evidence:
+
+- **The retain registry is a service, not a shape.** solveig-sdl uses none of
+  it. Had callbacks been the shape of an extension, every file there would be
+  working around the interface rather than using it.
+- **No back end names itself the general case.** `gtk:` and `sdl:` share no
+  vocabulary and neither had to pretend to be the other.
+
+### What it found
+
+One gap, which is one more than nothing and far fewer than a redesign:
+`sol_symbol_intern` was reachable and unpromised. An extension answering *what
+happened* — a key, a click — wants a symbol for the kind immediately, because
+`event:kind:equals('quit)` compares by identity and is cheap enough to run every
+frame. It is promised now.
+
+**A dictionary is still deliberately not promised**, and refusing to add it is
+the same discipline: `sol_dict_new` exists, nothing has needed keys built at run
+time, and promising an interface before something has used it is exactly how the
+accidental surface happened in the first place.
+
+### The field that earned itself
+
+`footprint` went into the foreign cell on reasoning: without it `--memory` would
+measure the pointer rather than the texture. Nothing had tested that, because a
+socket has no honest footprint and a GTK widget's is the driver's business.
+
+An SDL window does. A 1024×768 screen is about 3MB of pixels, and it declares
+so:
+
+```
+solvm: stopped: the memory limit of 2097152 bytes was reached, with 3179480 live
+```
+
+**A limit measures the window rather than the handle to it**, and an extension
+declaring nothing would have let that program open a thousand.
+
+### And the close path, tested this time
+
+Yesterday's GTK bug was in the one path a test could not take — clicking the
+close button — and the reasoning that let it ship was that the click path was
+*the same as the handler path*, which it was not.
+
+SDL closed that differently: it turns `SIGTERM` into an `SDL_QUIT` event, so a
+`kill` on the process runs the program's own quit path and it prints its frame
+count on the way out. 218 frames at 55fps, and the quit handled by the same code
+a window close would use. Not a substitute for a person clicking, and much
+better than an argument that it would probably work.
+
 ## 2026-08-28 (last) — GTK: the page replaced by an afternoon, then built, then a currency error
 
 **No code shipped, and the day's most useful hour was spent proving a document
