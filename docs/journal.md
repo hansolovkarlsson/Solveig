@@ -11,6 +11,131 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-29 (later) — the question a program could not ask
+
+The ask was a small one: *a standalone tool that prints the exposed messages in
+a `.sob` or a `.so`, unless there is an easy option already.* The honest answer
+to the second half was **no, but three things get you part of the way, and each
+is missing a different half** — `solvm --dump` gives the instructions and leaves
+you to read `SETGLOB` off them by eye; `solid`'s `globals` gives the names and
+not the messages; and `slots`, `exports` and `respondsTo` give the whole surface
+exactly, if you already know the name to ask.
+
+That third row is where the day's one real constraint sat, and it was already
+written down: **`globals` is the one question a program cannot ask itself.** The
+globals are slots on an object with no name in the language, so neither `slots`
+nor `perform` reaches them. Which settles the shape before any of it is
+designed — this could not have been `programs/exports.sol` beside `disasm.sol`,
+where by every other measure it belonged. It has to hold the root object, and
+two things in this tree do: a host, and the debugger.
+
+### The throwaway that changed the design
+
+A hundred lines in `scratch/`, written to answer one question: parse the file,
+or run it?
+
+Parsing is the safer answer and was the one to beat. Collect every
+`OP_SET_GLOBAL` in the top-level chunk and you have the names, with no side
+effects and no risk. It is also **wrong**, and the file that proves it is
+`lib/text.sob`: it binds no global at all. It hangs `utf8Tail` and `asUtf8` on
+`integer`, so a reader of `SETGLOB` prints an empty report for a library with
+two messages in it and gives no sign that it has failed. And a `.so` has no
+bytecode to read in the first place — an extension's surface exists only after
+`sol_extension_init` has run, so the static answer does not merely miss that
+case, it has nothing to open.
+
+So: load it and look. Snapshot what the machine held, load the bundle or run the
+chunk, and diff — the globals for what was bound, and every built-in class's
+slot count for what was extended. Both file kinds land in the same place, which
+is why one mechanism reads both.
+
+The cost is stated rather than hidden: **it runs the file.** Pointing it at
+`programs/tools.sob` shells out to `du` and `git` before it prints a word, and
+`extensions/net/client.sob` spent six seconds trying to reach a server that was
+not there. For a library — which binds its names and stops, because that is all
+a library does — this is nothing. For a program it is the whole program. The
+help text says so in two lines.
+
+### The bug in the report I had already written
+
+The throwaway found that `lib/json.sob` shipped a `scan` with no `exports`
+boundary while `lib/json.sol` said it should have one, and I wrote that up as a
+finding before checking one thing: `.gitignore` has `*.sob`, and `make install`
+copies `lib/*.sol`. **Nothing in `lib/` is tracked, built by `make`, or
+installed.** Sixteen of them differ from a fresh compile on this machine and not
+one of them ships. It was a stale artefact from someone running `solas` by hand
+in May, and the correct size of the finding is *delete them*.
+
+Worth keeping as the lesson rather than the fact: a diff against the working
+tree is not a diff against what is published, and I had the second one available
+the whole time in the form of `git ls-files`.
+
+### Where it went, and the hazard that was closed rather than survived
+
+`solid --exports`, a mode of the debugger — not a fifth binary, which would have
+needed a name and a paragraph in the README's name story for a capability solid
+already has. The case is
+[6.38](COMPLETED.md#638-nothing-says-what-a-compiled-file-exports--done). Not `solas`, which would need `dlopen` to read a `.so` and is
+[promised never to have it](extensions.md#who-decides).
+
+One thing in it was nearly right by luck. The report holds an `SolObject *`
+across the run, and a file may rebind the name an extension bound — at which
+point the object measured before has no root left and the collector may take it,
+leaving a pointer into freed memory. It passed under ASan and GC stress on the
+first try, which proves the collector did not get to it that time and nothing
+more. The name is looked up again now and the two pointers compared before
+either is read: a comparison, never a dereference. Equal means the slot still
+holds it, and holding it is what keeps it alive.
+
+**Passing the sanitiser is not the same as being safe from what the sanitiser
+looks for.** The test that would have caught it did not exist until after the
+reasoning did, which is the right order and not the usual one.
+
+### Postmortem
+
+Four things, and the first two are the same mistake looked at from opposite
+ends.
+
+**The design was decided by a throwaway and not by reasoning**, which was the
+right order and is not the order I would have taken unprompted. Reading the
+bytecode is the better idea on every axis you can name from an armchair — no
+side effects, nothing to bound, works on a file that would fail if run — and it
+is wrong for a reason no amount of thinking about it surfaces: `lib/text.sob`
+binds nothing at all. A hundred lines found that in about a minute. The rule
+this repository already had is *the throwaway comes before the design*, and it
+paid here in the only way that counts, by killing the design I would otherwise
+have written up as a recommendation.
+
+**And then I skipped that step for a claim about the repository.** The same
+throwaway reported sixteen stale `.sob` files and a `lib/json.sob` shipping a
+`scan` with no export boundary, and I wrote it into a report as a real defect
+before running `git ls-files`. `.gitignore` has `*.sob`; nothing in `lib/` is
+tracked, built by `make`, or installed. The finding was correct about the bytes
+and wrong about everything that made it matter. **A diff against the working
+tree is not a diff against what is published**, and the check that would have
+told me so took four seconds and was not run because the finding was interesting.
+
+**The sanitiser passed on code that was wrong.** Holding an `SolObject *` across
+the run is a dangling pointer the moment a file rebinds the name an extension
+bound, and ASan with `SOLUM_GC_STRESS=1` said nothing — the collector did not
+reach that object on that run. Had I stopped at green, it would have shipped and
+would have failed on somebody else's file. What found it was writing the header
+comment: saying *the report holds an object across the run* out loud is what made
+the next sentence obviously false. **Passing the check is not the same as being
+safe from what the check looks for**, and the test that guards it now was written
+after the reasoning rather than before, which is the right order and the rarer
+one.
+
+**The trigger was a sentence, and that is new.** Every entry in section 6 of the
+roadmap arrived because somebody wrote a program and found out what it wanted;
+this one arrived because somebody asked a question, and the question named the
+thing exactly. The rule *a program asks for the work, not a document* is still
+the better source and is not the only one — the roadmap says so now. Worth
+noticing that the question was **also** partly an answer: *unless there is an
+easy option to do that already* is the half that turned into the three-row table
+of what nearly worked, and the three-row table is what determined that the tool
+had to live in the debugger.
+
 ## 2026-08-29 (after the release) — the consumer that was not in the tree
 
 Moving `make dist` into `dist/` was the smallest change of the day: a variable,

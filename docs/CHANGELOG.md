@@ -23,6 +23,53 @@ it. Both the local suite and the document checker passed on the change that
 broke it: **a change to where a build artefact goes is a change to every
 consumer of it, and the consumers are not all in the tree.**
 
+### `solid --exports`: what a file puts into the machine — `ca66078`, 2026-08-29
+
+A `.sob` or a `.so`, and what may be sent to what it bound:
+
+```text
+$ solid --exports lib/json.sob
+lib/json.sob
+  json
+    read                 takes 1 argument
+    write                takes 1 argument
+    quote                takes 1 argument
+    keyText              takes 1 argument
+    -- and 19 behind an `exports` boundary; `--exports=all` for those too
+```
+
+[6.38](COMPLETED.md#638-nothing-says-what-a-compiled-file-exports--done) carries
+the case, including why the static reading was tried and dropped.
+
+Nothing here is new capability — `slots`, `exports` and `respondsTo` have
+answered this since the [export boundary](REFERENCE.md#the-export-boundary)
+landed. What was missing is that you had to **already know the name** to ask,
+and the one question a program cannot ask itself is what the names *are*: the
+globals are slots on an object with no name in the language (ROADMAP 2.10). So
+this could not have been a program in `programs/` beside `disasm.sol`, however
+much it belongs there. Solid holds the root object, which is the whole reason
+the mode lives in the debugger and not in a fifth binary.
+
+**It reads a `.so` the same way, and that case has no other answer at all.** An
+extension's surface is not written down anywhere; it exists only once
+`sol_extension_init` has run. With one named there need be no file to give, and
+naming both a bundle and a file gives two reports rather than one heap.
+
+**It runs the file rather than reading its bytecode**, and a throwaway is what
+settled that. The static reading — collect every `OP_SET_GLOBAL` — prints
+*nothing* for `lib/text.sob`, which binds no name at all and hangs `asUtf8` on
+`integer`. Every built-in class is measured before the run and again after, so a
+library that only extends one is not invisible. The cost is that the file runs,
+with whatever else it does on the way; `--exports` says so, and a file that
+fails part-way reports what it had bound by then and leaves with status 70.
+
+**The hazard that was closed rather than survived.** The report holds an object
+across the run, and a file may rebind the name an extension bound — leaving what
+was recorded pointing at memory the collector has taken. The name is looked up
+again and the two pointers compared before either is read, which is a comparison
+and never a dereference. There is a test for it, and it is one of the nine in
+`test_solid.c` that run under the sanitisers.
+
 ## 0.38.0 — 2026-08-29
 
 **Two things that add no messages.** The language answers
@@ -739,7 +786,7 @@ claim that this is notation only.
 
 ### The changelog's own hashes are checked now — `d572543`, 2026-08-28
 
-[ROADMAP 3.21](COMPLETED.md#321-a-changelog-hash-is-written-by-hand-and-nothing-checks-it),
+[ROADMAP 3.21](COMPLETED.md#321-a-changelog-hash-is-written-by-hand-and-nothing-checks-it--done),
 closed the day after it was raised. Every entry above names the commit it landed
 in, and a commit cannot carry its own hash — so an entry goes in saying
 `pending` and a follow-up commit substitutes the real one. **Nothing asked
