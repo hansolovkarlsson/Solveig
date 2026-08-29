@@ -38,21 +38,12 @@ need POSIX, which every `dlopen` and `fork` here already assumes.
 
 ## The five messages
 
-| | |
-| --- | --- |
-| `net:udp(#port)` | a bound UDP socket; `#0` asks the system for a free port |
-| `net:port(socket)` | the port it actually got |
-| `net:send(socket, "127.0.0.1", #port, text)` | bytes written |
-| `net:receive(socket)` | the packet waiting, or **nil**; never waits |
-| `net:waitFor(socket, #ms)` | **true** if one arrived inside the timeout |
+`udp`, `port`, `send`, `receive` and `waitFor`, each with its arguments, its
+answer and what it refuses: **[docs/NET.md](../../docs/NET.md)**, which also
+walks through the two programs here and the protocol they speak.
 
-There is no `close`. The collector closes a socket the program lets go of, and
-teardown closes one it was still holding — including when a limit took the
-program away mid-flight, which is exactly when an explicit close would not have
-run.
-
-**A packet is an object with `host`, `port` and `text`**, so a reply is
-`net:send(sock, packet:host, packet:port, "...")` and reads as one.
+What is below is why they are shaped that way, which is the half that belongs
+beside the code.
 
 ## What writing the programs decided
 
@@ -95,9 +86,7 @@ permanent table, so nothing between the string and its slot can collect.
 
 ## What is not here
 
-TCP, so no streams and no `accept`. IPv6. And any name resolution — `send` takes
-an address `inet_pton` accepts and not a hostname, because resolving one means
-`getaddrinfo`, which blocks, which is the thing `waitFor` exists to avoid.
-
-Each is absent because no program has asked yet, which is the rule the rest of
-this language was built by.
+TCP, IPv6, name resolution, and any socket option at all —
+[the reference](../../docs/NET.md#what-is-not-here) says what each absence
+costs. Each is absent because no program has asked yet, which is the rule the
+rest of this language was built by.

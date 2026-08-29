@@ -45,6 +45,12 @@ teardown. Two bundles live out of tree —
 [SDL2](https://github.com/hansolovkarlsson/solveig-sdl) — which is what keeps
 *no dependencies beyond a C11 compiler and `make`* true.
 
+**One ships here**, and for the same sentence read the other way:
+[net](NET.md) is UDP sockets, and sockets need POSIX rather than anything a
+reader would have to install. `make` builds it, `make install` puts it beside
+the library, and no program has networking until a host names `--extension=`.
+The language answers the same messages it did before it existed.
+
 The language is Turing-complete, does not leak, and has strings, arrays,
 dictionaries, symbols, user-defined objects, reflection, sorting, formatted
 output, and the conversions between every pair of types that has an unambiguous
@@ -632,6 +638,15 @@ hole that was already the honest description of a primitive — which is why
 makes. What bounds a program with a window is the extension's discipline, and
 that is written where an extension author reads it.
 
+**And the first bundle shipped here was designed around this entry**, which is
+the most useful thing it has done. [net](NET.md) could have offered a blocking
+read — every sockets library does — and a program waiting for a datagram that
+never comes would then be a program no limit could reach, for as long as the
+peer stayed silent. So it does not: `net:waitFor(socket, #ms)` bounds the wait
+and answers whether anything arrived, and going round again is the program's
+decision rather than the kernel's. The hole this entry describes is still there,
+and its width is now something a bundle chooses.
+
 The memory ceiling is the same fact from the other side. It is checked in
 `sol_gc_maybe_collect`, so an allocation is measured **after** it has been made:
 under `--memory=1M` the 256MB read completes, and the program is stopped at the
@@ -704,6 +719,13 @@ without its bundle fails as *undefined name 'gtk'* at the first line that names
 one. The difference from a host is only that the failure is easier to read,
 since the missing thing was named on the command line a moment earlier — the
 joint is identical, and so is the reason it is not simply a defect.
+
+**[net](NET.md) is the third**, and the first inside this repository, so the
+failure is now something the tree can demonstrate rather than describe: run
+either program in `extensions/net/` without `--extension=` and it stops at the
+line that first says `net`. That is the arrangement working — a capability
+nobody granted is a capability the program does not have — and it is the same
+unchecked agreement all the same.
 
 ### 3.10 A VM cannot be reused across runs
 

@@ -11,6 +11,98 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-29 (the extension) — sockets, and a postmortem on the entry that predicted them
+
+Two Solveig programs talk to each other now. [net](NET.md) is UDP over IPv4 in
+five messages, built by `make` into `build/extensions/net.so` and loaded by
+nobody unless a host names `--extension=`; `extensions/net/server.sol` holds a
+counter and `client.sol` moves it. The VM is the size it was, which is the point
+rather than a side effect.
+
+**The decision that shaped it was not mine.** The recommendation on the table
+was an extension on a narrow ground — a socket in the VM pre-empts
+[6.32](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine) by
+granting every script networking whether the host meant to or not. The answer
+that came back was a wider one: *keeping the core VM small is in itself an
+important goal, and rarely used features can be extensions.* Same conclusion,
+different reason, and the wider reason is the one that will decide the next
+three of these.
+
+### The postmortem: what the entry predicted
+
+[The networking entry](ideas.md#networking-and-sending-code-to-a-machine-that-is-already-running)
+was re-read and rewritten yesterday morning, hours before any of this. Holding
+the work against it is the cheapest audit there is, because the predictions were
+written down before anyone knew they would be tested this week.
+
+| predicted | what happened |
+| --- | --- |
+| *The question is no longer what a socket costs but where one belongs* | Held. The whole discussion was placement, and the code took an afternoon |
+| *How a program waits on one of two things is the entry* | **Held, and it was the design's centre.** `waitFor` is the message the other four are shaped around |
+| *`connect`, `bind`, `listen` and `accept` are an afternoon* | Untested. UDP needed none of them, which is why UDP came first |
+| Trigger: *two machines that need to talk* | Fired sideways — *can we pull the probe's socket out and have two programs talk?* is the same want, one step short of the wording |
+
+**And the one it did not have.** Nothing in that entry, or in the probe's
+README, or in any of the arguments about placement, said that **a packet must
+say who sent it**. The probe read with `recv`; the first client and server
+written against it could not answer each other; and the working code I wrote to
+demonstrate the problem had the client encode its own port *inside the message*
+so the server could parse it out. That is a protocol invented to route around a
+missing field, which is what a missing field looks like from inside a program.
+Five minutes of writing found what a day of writing about it had not.
+
+**The half it got right, it got right for a smaller reason than the true one.**
+The entry said waiting was unanswered because there is one thread and
+concurrency is refused. True, and not the sharp end. A blocking read stops the
+*dispatch loop* — which is where `--steps` counts and where `--memory` is
+checked — so a program waiting on a peer that never speaks is a program no limit
+can reach, for as long as the silence lasts. That is
+[3.7](ROADMAP.md#37-a-limit-bounds-dispatch-not-work) at full stretch, and I only
+joined it up while writing the primitive. The entry now says so, and 3.7 gained
+the instance: **the width of that hole is something a bundle chooses**, and this
+one chose a timeout.
+
+### The GC proof, and the half that failed usefully
+
+`packet_new` allocates three cells and roots the object, because `sol_string_new`
+collects and a cell held in a C local is not a root. Removing the push and
+running the suite under `SOLUM_GC_STRESS=1` answers *object does not understand
+'notNil'* — an object swept between being made and being filled. Load-bearing,
+demonstrated, restored.
+
+**The two string roots I had also written were not needed, and finding that out
+was the better half of the exercise.** Rule 3 says nothing may hold a heap
+pointer across an allocation, and `sol_object_define` looks like one — so the
+roots went in by reading the rule. They pass with the roots and pass without
+them, and the reason is checkable rather than lucky: `define` takes its slot
+from `malloc` and interns its name in the VM's permanent table, neither of which
+the collector touches. So the string is stored before anything can collect.
+
+Two lines that assert something untrue are worse than no lines, and the only way
+to tell them apart was to take them out and then go and read why the run still
+passed. **A passing stress run is an answer, not a failed proof.**
+
+### Three findings that were not the feature
+
+| | |
+| --- | --- |
+| **The extension surface has no dictionary** | The language's convention for an answer with fields is one — `system:terminalSize` gives `"rows"` and `"columns"` — and the promised surface carries `sol_object_new` and `sol_array_new` and nothing that builds a dictionary. A packet is an object. Either the list grows one or extensions answer objects, and what should not happen is each bundle deciding quietly, so it is in [extensions.md](extensions.md) rather than only in that directory |
+| **`sol_foreign_handle` has a NULL trap** | It answers NULL for a released cell, which cannot be told from a handle that *is* NULL — and descriptor 0 is a real descriptor. `net` stores `fd + 1`. Standard input is never a socket today, which is exactly the kind of reasoning that stops being true on the machine where the program was started with its input closed |
+| **There is no `startsWith`** | `server.sol` wanted it and wrote `text:indexOf("add "):equals(#1)`. Deferred in [ideas.md](ideas.md#startswith-and-endswith) with the verdict a truncating divide has and for the same reason: one customer, and a workaround that is exact rather than approximate |
+
+### The method, running at speed
+
+The probe was written on the 28th to press on the extension mechanism, and its
+socket existed only because *a graphics toolkit, a hand-written maths library and
+a socket* was the shape of the claim being tested. It falsified an entry it had
+nothing to do with, then seeded the bundle that answers it, then failed at the
+first real use in a way that named the missing field. Three jobs, none of them
+the one it was written for.
+
+Nothing on the roadmap opened or closed. Two of its entries gained an instance,
+one document became true again, and the language answers exactly the messages it
+did yesterday.
+
 ## 2026-08-29 (the rest of it) — three questions with one shape, and the one that built something
 
 The morning found a document resting on a fact that had stopped being true. The

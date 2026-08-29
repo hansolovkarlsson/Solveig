@@ -62,6 +62,14 @@ convention for an answer with fields, so a packet is an object with `host`,
 which cannot be told from a handle that is itself NULL — so a descriptor is
 stored as `fd + 1`, because descriptor 0 is a real descriptor.
 
+**The reference is [NET.md](NET.md)** — every message with its arguments, its
+answer and what it refuses, the packet's three slots, the shape a program using
+it takes, and the example's protocol. Its blocks are transcripts rather than
+checked claims, because the checker runs Solum and these need a bundle loaded;
+what stands behind them is `test_the_net_extension_carries_a_datagram`, which
+runs a real round trip through the real binary under `SOLUM_GC_STRESS=1`, and
+every refusal quoted there having been produced by running it.
+
 No TCP, no IPv6, and no name resolution, each because no program has asked.
 
 ### `@expr{...}`, a region that is a block — `f6f7026`, 2026-08-29

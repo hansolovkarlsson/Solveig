@@ -106,14 +106,14 @@ lights, and **Solveig** carries the same star into Norse: *sól* joined to
 | `solum/`  | **SolVM** -- the virtual machine, built as `bin/solvm`               |
 | `solis/`  | **Solis** -- the REPL: reads until the input could compile        |
 | `solid/`  | **Solid** -- the debugger: breakpoints, stepping, and locals      |
-| `docs/`   | [GUIDE.md](docs/GUIDE.md), [TUTORIAL.md](docs/TUTORIAL.md), [REFERENCE.md](docs/REFERENCE.md), [CHEATSHEET.md](docs/CHEATSHEET.md), [GRAMMAR.md](docs/GRAMMAR.md), [SOLABASIC-CHEATSHEET.md](docs/SOLABASIC-CHEATSHEET.md), [PASCAL.md](docs/PASCAL.md), [design.md](docs/design.md), [BYTECODE.md](docs/BYTECODE.md), [ROADMAP.md](docs/ROADMAP.md), [COMPLETED.md](docs/COMPLETED.md), [CHANGELOG.md](docs/CHANGELOG.md), [journal.md](docs/journal.md), [programs.md](docs/programs.md), [embedding.md](docs/embedding.md), [extensions.md](docs/extensions.md), [lineage.md](docs/lineage.md) |
+| `docs/`   | [GUIDE.md](docs/GUIDE.md), [TUTORIAL.md](docs/TUTORIAL.md), [REFERENCE.md](docs/REFERENCE.md), [CHEATSHEET.md](docs/CHEATSHEET.md), [GRAMMAR.md](docs/GRAMMAR.md), [SOLABASIC-CHEATSHEET.md](docs/SOLABASIC-CHEATSHEET.md), [PASCAL.md](docs/PASCAL.md), [design.md](docs/design.md), [BYTECODE.md](docs/BYTECODE.md), [ROADMAP.md](docs/ROADMAP.md), [COMPLETED.md](docs/COMPLETED.md), [CHANGELOG.md](docs/CHANGELOG.md), [journal.md](docs/journal.md), [programs.md](docs/programs.md), [embedding.md](docs/embedding.md), [extensions.md](docs/extensions.md), [NET.md](docs/NET.md), [lineage.md](docs/lineage.md) |
 | `tests/`  | Test suite                                                        |
 | `examples/` | One `.sol` demonstration per concept the guide names            |
 | `programs/` | Whole `.sol` programs, each written to do a job -- [what each does](docs/programs.md) |
 | `experiment/` | Solum's compiler written in Solum: proved, then parked -- [what it was](experiment/README.md) |
 | `embed/`  | A C program that holds a `SolVM` -- see [embedding.md](docs/embedding.md) |
 | `lib/`    | The library that ships with the language, found on the search path |
-| `extensions/` | Bundles built by `make` and loaded only when a host names one -- [net](extensions/net/README.md), UDP sockets |
+| `extensions/` | Bundles built by `make` and loaded only when a host names one -- [net](extensions/net/README.md), UDP sockets, documented in [NET.md](docs/NET.md) |
 
 Two more live outside this repository, and outside it on purpose — the front
 page says *no dependencies beyond a C11 compiler and `make`*, and it stays true

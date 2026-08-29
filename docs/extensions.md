@@ -307,7 +307,8 @@ cannot be read gets, because it is the same kind of thing.
 
 [extensions/net](../extensions/net/README.md) is the third real one and the
 first inside this repository — UDP sockets, five messages, built by `make` and
-loaded by nobody unless a host names `--extension=`. It may live here where the
+loaded by nobody unless a host names `--extension=`. What it publishes is
+documented like any other surface, in [NET.md](NET.md). It may live here where the
 two below may not, and the difference is the front page's sentence rather than a
 rule about extensions: a bundle needing a toolkit installed would make *no
 dependencies beyond a C11 compiler and `make`* false, and sockets need POSIX,
