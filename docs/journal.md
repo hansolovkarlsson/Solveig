@@ -11,6 +11,92 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-29 (the release) — 0.38.0, and three statements that were true somewhere else
+
+**Two things that add no messages.** 141 messages, unchanged; `.sob` format 14,
+unchanged; a notation and a bundle, and neither of them the machine. Tagged,
+tarballed, and a release page that is Latest.
+
+Nothing was built to cut it, and the hour still produced findings — all three of
+the same kind, and the same kind the day opened on. A statement that is true in
+the place it was written and false where it ends up.
+
+### The compatibility check, and the false positive it starts with
+
+0.37.0 was built from its tag and both compilers pointed at this tree's
+examples. Thirty of thirty-four came out byte-identical. **Four did not, and
+none of the four is a difference between the compilers**: each includes a
+library, and a `.sob` carries the file table that
+[6.27](COMPLETED.md#627-a-stack-trace-does-not-say-which-file--done) put there,
+so each recorded the absolute path where *that* build found `control.sol`.
+`/tmp/sol037/lib/...` against `/Users/...`, fifty-one bytes, and the instruction
+streams identical when disassembled.
+
+**So the check has to compare instructions and not bytes the moment an include
+is involved**, and the reason is a feature working exactly as intended: a trace
+names the file, so the file's name is in the artefact. Worth writing down before
+the next release repeats the alarm.
+
+### The clean half, which is the better story
+
+The interesting run was the other one. A program using `@expr{...}` was compiled
+here and its bytecode handed to **0.37.0's machine**, which ran it and printed
+`#3` — a machine that has never heard of the notation, running a program written
+in it. Then 0.37.0's compiler was handed the same source and refused it:
+*expected '(' after '@expr'*.
+
+That is the whole claim of a notation, demonstrated by two binaries rather than
+asserted by a test: the language grew and the machine did not have to. 0.37.0
+was the other side of the same coin — `replace` kept the format compatible while
+a program using it still needed a machine that had it — and having the pair one
+release apart is worth more than either statement alone.
+
+### The release page is not a document in this tree
+
+Two things were true in the changelog and would have been false on the page.
+
+**A `count` marker is a live number**, and a release page is a historical
+statement. That is the mistake the 0.37.0 work found in the changelog and fixed
+for two entries; publishing is where it would have come back, because nothing
+recounts a page on GitHub and nothing there would have said so. Stripped.
+
+*Writing that sentence with the marker spelled out in it broke the build*, which
+is the joke the notation is entitled to: a comment that says *recount the number
+before me* means that wherever it appears, and prose about it is not an
+exception. There is no escape for one and there does not need to be — the
+notation is described in [programs.md](programs.md) and does not have to be
+quoted to be explained.
+
+**And relative links do not resolve from a release page.** `[NET.md](NET.md)`
+is correct inside `docs/` and a 404 from `/releases/tag/v0.38.0`. Both were
+rewritten to absolute URLs *pinned at the tag* rather than at `main`, so the
+page goes on describing what this release shipped after the documents move
+underneath it.
+
+Neither is a large thing. Both are the day's shape again: a sentence that stops
+being true by being moved rather than by being wrong.
+
+### And the tarballs
+
+Four had accumulated in the repository root, one per release since 0.35.0,
+because that is where the rule had always written them and nobody minds the
+first one. They are in `dist/` now, ignored as a directory rather than only by a
+`*.tar.gz` pattern.
+
+`make clean` does not take `dist/`, and the Makefile says why where the rule is:
+a tarball is a release artefact and not an intermediate one, and cleaning before
+a rebuild should not delete the thing you were about to publish. An omission
+nobody explained would read as an oversight in six months.
+
+### The shape of the day
+
+Nine commits. Two documents corrected against the code, one notation, one
+extension with two programs and a reference page, three journal entries before
+this one, and a release. Nothing opened or closed on the roadmap, which after a
+day that added infix blocks and a networking bundle is the part worth noticing:
+**the list stays empty because the work keeps arriving from programs rather than
+from the list.**
+
 ## 2026-08-29 (the extension) — sockets, and a postmortem on the entry that predicted them
 
 Two Solveig programs talk to each other now. [net](NET.md) is UDP over IPv4 in
