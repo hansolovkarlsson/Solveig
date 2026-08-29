@@ -172,8 +172,18 @@ version the binaries inside it report.
 
 ## Status
 
-**0.37.0** — one message, asked for by a program. **141<!--count messages-->
-messages**, up from 140, and `.sob` files are format version 14. `replace`
+**0.38.0** — two things that add no messages: a notation and a bundle.
+**141<!--count messages--> messages, unchanged**, and `.sob` files are format
+version 14. `@expr{...}` is the infix region over a *block* rather than a group,
+emitting exactly what `{ @expr(...) }` emits, jumps included — so a program
+using it compiles here and its bytecode runs on 0.37.0 unchanged, which is the
+difference between a notation and a message. And
+[extensions/net](docs/NET.md) is UDP sockets as a loadable bundle, the first to
+ship inside this repository: five messages, a client and a server, and no
+networking at all until a host says `--extension=`.
+
+**0.37.0** — one message, asked for by a program. **141 messages**, up from 140,
+and `.sob` files are format version 14. `replace`
 answers a new string with **every** occurrence replaced, because the idiom it
 replaces — `split` then `join` — replaces all of them, and a first-only version
 would have meant something different from what programs were already writing.

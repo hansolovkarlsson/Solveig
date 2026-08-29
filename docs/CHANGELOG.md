@@ -5,6 +5,43 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## 0.38.0 — 2026-08-29
+
+**Two things that add no messages.** The language answers
+**141<!--count messages--> messages**, unchanged, and `.sob` files are format
+version 14, unchanged. What grew is a notation and a bundle, and neither is the
+machine.
+
+`@expr{...}` is the infix region over a block rather than a group — `(a group)`
+runs now and `{a block}` is code held as a value, so `@expr{ i < #5 }` answers a
+block whose body reads infix and goes where a block goes. It emits exactly what
+`{ @expr(...) }` emits, jumps included.
+
+[extensions/net](NET.md) is UDP sockets as a loadable bundle: five messages, the
+first extension to ship inside this repository, and a client and server that
+hold a counter between them. `solvm` has no networking until a host says
+`--extension=`, which is the whole arrangement — the capability exists and
+granting it is a decision somebody takes on a command line.
+
+**Compatibility, and this time it is the clean case.** Bytecode from 0.37.0 runs
+here and this release's runs on 0.37.0 — and *a program using the new notation*
+compiles here and its bytecode runs there unchanged, because the notation is not
+semantics: `@expr{...}` produces the bytes the block form always produced. The
+old compiler refuses the new source, which is the language having grown; nothing
+about the machine changed to receive it. That is the difference between a
+notation and a message, and 0.37.0's `replace` was the other side of it.
+
+A program that uses `net` of course needs the bundle, and says *undefined name
+'net'* at the first line that names it if it was not given one.
+
+**Two documents were corrected against the code rather than reread.** The
+networking entry in [ideas.md](ideas.md) rested on *there is no socket anywhere
+in this repository*, which extensions had made false and which took its
+conclusion with it. And `~` binding looser than a comparison was on the record
+as *the call BASIC and Pascal make*: BASIC yes, Pascal no —
+`programs/check_syntax/pascal.bnf` has `"not" factor`, the tightest level there
+is, and had been in the tree since the day that grammar landed.
+
 ### `extensions/net`, and two programs that talk — `b524f83`, 2026-08-29
 
 **UDP sockets, as an extension and not as a machine.** Five messages, built by
