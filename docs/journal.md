@@ -221,6 +221,38 @@ sweeping problem in the morning — was rewritten onto the registry, and its
 argument, got 0` prints five ticks and `"done"`, under the same stress, with
 nothing conditional left in it.
 
+### The fourth step, which is a different repository
+
+`solveig-gtk` exists, alongside this one and built by nothing in it. That
+placement *is* the feature: the front page says *no dependencies beyond a C11
+compiler and `make`*, CI checks it on three platforms, and it is still true
+because the toolkit is somewhere else.
+
+Fourteen messages, and the two things nobody could settle by argument both hold.
+A GTK signal handler re-enters `sol_vm_call_block` exactly as `array:do` does.
+And `g_object_ref_sink` turns GTK's floating reference into one the extension
+owns and the foreign cell releases, while a parent taking a child adds its own —
+so widget lifetimes and the collector agree instead of competing, which was the
+half I would have bet against.
+
+**The result worth keeping is that `--steps=400` stops a program with a window
+open, mid-loop, and exits 124** with the trace naming the block and the
+`gtk:run` line beneath it. That is not free and it is not obvious: it works
+because every handler checks `had_error` after calling back into the language,
+which is rule 4, which existed only because the probe found it that morning. A
+loop that did not look would keep calling into a machine already stopped, and
+`--steps` would be a suggestion for any program that opened a window.
+
+**One path a test here cannot take**: a human clicking the button. It is the
+same handler path the timer takes, and the timer is verified — worth saying
+rather than leaving the gap unmarked.
+
+So the entry that started the day is closed. What it asked for on 2026-08-25 —
+*somebody wants a capability that cannot be written in Solum and is not worth
+putting in the VM* — was asked on the 28th and answered the same day, in the
+order that page set, with the throwaway first and the design second. Which is
+the method the page recommended and had never itself been made to follow.
+
 And the corrected sentence went into `design.md` rather than being left to age.
 *"Nothing has to be released"* is still true, but for a sharper reason than it
 used to be: a resource has a release now, and it was never the program's to run

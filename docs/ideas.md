@@ -1521,7 +1521,19 @@ accept that now than to discover it.
 > fail. The probe that started all of this has been rewritten onto it and its
 > `#ifdef PROBE_ROOTED` is gone.
 >
-> **What remains is GTK itself, out of tree.**
+> **And GTK itself**, in its own repository, which is where this entry's whole
+> cost argument lands: *no dependencies beyond a C11 compiler and `make`* is
+> still true, and still checked on three platforms, because the toolkit is not
+> here. Fourteen messages, a widget as a foreign handle, every callback held
+> through the registry — and the two things nobody could settle by reasoning
+> both hold. A GTK signal handler re-enters `sol_vm_call_block` exactly as
+> `array:do` does, and `g_object_ref_sink` makes widget lifetimes and the
+> collector agree rather than compete.
+>
+> **The four steps are done and the entry is closed.** What it asked for on
+> 2026-08-25 — *somebody wants a capability that cannot be written in Solum and
+> is not worth putting in the VM* — was asked on 2026-08-28 and answered the
+> same day, in the order this page set, with the throwaway first.
 
 **Recommended order, each step falsifiable before the next:** the link change
 with `extend.h` and the handshake and the flag, tested by the *hash* bundle and

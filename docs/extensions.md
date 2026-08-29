@@ -302,6 +302,25 @@ A refusal is not a half-load. The extension has bound nothing and the machine is
 exactly as it was, so `solvm` reports it and exits 65 — the status a `.sob` that
 cannot be read gets, because it is the same kind of thing.
 
+## A real one
+
+[solveig-gtk](https://github.com/hansolovkarlsson/solveig-gtk) is the first
+bundle written against this page rather than alongside it — a GTK4 window, in
+its own repository, built by nothing here. Fourteen messages, a widget as a
+foreign handle, and every callback held through the retain registry.
+
+It is worth knowing what it settled, because two things about a real toolkit
+were genuinely uncertain and neither was answerable from a checksum:
+
+| | |
+| --- | --- |
+| **A foreign main loop calling back in** | Free. `sol_vm_call_block` re-enters from a GTK signal handler exactly as it does from `array:do`, and an error inside one formats a trace naming the `gtk:run` line beneath it. |
+| **Widget lifetimes against a collector** | `g_object_ref_sink` turns GTK's floating reference into one the extension owns and the foreign cell releases; a parent taking a child adds its own. The two lifetimes do not fight. |
+| **Whether a limit still bounds a program with a window** | It does, and only because rule 4 is kept: `--steps=400` stops the counter mid-loop and exits 124. |
+
+And it is the reason this repository still builds with no dependencies beyond a
+C11 compiler and `make`.
+
 ## What is deliberately not promised
 
 **A sandbox.** Nothing on this page is one. See "who decides" above.
