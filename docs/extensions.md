@@ -339,6 +339,42 @@ It also found the one thing missing from the list above — `sol_symbol_intern`,
 which an extension answering *what happened* wants immediately — and that is
 what a second customer is for.
 
+### Both are small on purpose, and the numbers are worth writing down
+
+| | library exports | the bundle calls | messages published |
+| --- | --- | --- | --- |
+| GTK4 | 4,299 `gtk_*` | 21 | 15 |
+| SDL2 | 837 `SDL_*` | 15 | 10 |
+
+Half a percent of one and under two percent of the other. Neither is a binding
+anybody should write an application against: the GTK one has no entry and no
+text view, so it cannot make a form, and the SDL one has no textures, so it
+cannot draw a sprite.
+
+**They are the size they are because the expensive work is per *toolkit*, not
+per function**, and a demonstration only has to pay it once:
+
+| paid once | never paid again |
+| --- | --- |
+| lifetimes against the collector | every further widget |
+| a foreign main loop re-entering the VM | every further callback |
+| a callback surviving collection | every further signal |
+| limits still applying | every further message |
+
+After that a message is a primitive, an arity check, a `sol_foreign_handle`
+call, and a line in `sol_extension_init` — about fifteen lines, and no decisions.
+The first fifteen took a day; the next fifty would take an afternoon.
+
+**Past a few dozen, an interface this size is generated rather than typed.** GTK
+ships GObject Introspection data describing 3,348 methods in XML, with types,
+ownership and nullability, which is what every other language's binding is built
+from. SDL2 has no such data and does not need it, being small and regular.
+
+**Nothing is waiting on either.** The trigger for more is a program that wants
+something a bundle does not have — the same rule that decided every question
+above it, and the reason the answer here is fifteen messages rather than four
+hundred.
+
 ## What is deliberately not promised
 
 **A sandbox.** Nothing on this page is one. See "who decides" above.
