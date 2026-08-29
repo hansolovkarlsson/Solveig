@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### Keeping a value alive while foreign code holds it — `pending`, 2026-08-28
+### Keeping a value alive while foreign code holds it — `36f199b`, 2026-08-28
 
 **`sol_extension_retain`, `sol_extension_retained`, `sol_extension_release`.**
 The other half of the collector's rule: `sol_gc_push_temp` covers a window
