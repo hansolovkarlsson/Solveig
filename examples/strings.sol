@@ -32,6 +32,25 @@ s:print.                     ; "hello"
 ",a":split(","):print.       ; ["", "a"]      -- and nothing before the first
 "abc":split(","):print.      ; ["abc"]        -- no occurrence, so one piece
 
+; replace does what split and join together used to do, which is why it replaces
+; *every* occurrence rather than the first: a message that did one would not be
+; shorter than the idiom, it would mean something different from it.
+"a-b-c":replace("-", "+"):print.       ; "a+b+c"
+"one two one":replace("one", "1"):print. ; "1 two 1"
+
+; Non-overlapping, scanning forward, so each match resumes after the one before.
+"aaa":replace("aa", "b"):print.        ; "ba" -- not "bb", and nothing cleverer
+
+; An empty replacement is how a program deletes. An empty *needle* is refused,
+; the way split and indexOf refuse one.
+"a,b,c":replace(",", ""):print.        ; "abc"
+
+; A string is immutable, so this answers a new one and the receiver is untouched
+; -- and a receiver with nothing to replace is itself.
+name := "keep me".
+name:replace("keep", "drop"):print.    ; "drop me"
+name:print.                            ; "keep me"
+
 ; Which means the pieces always go back together into what you started with,
 ; whatever the string was. `join` is split backwards.
 "a,,b":split(","):join(","):print.   ; "a,,b"

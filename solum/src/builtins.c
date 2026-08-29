@@ -2495,6 +2495,89 @@ static bool needle_from(SolVM *vm, const char *name, SolValue value,
  * string, whatever the string was. Dropping empties would read more kindly on
  * `" a  b "` and would lose the difference between `"a,,b"` and `"a,b"`, which
  * a program parsing a file is usually the one thing it needs to keep. */
+/* "a-b-c":replace("-", "+") -- every occurrence, left to right.
+ *
+ * **Every rather than the first**, and the reason is that this message replaces
+ * an idiom rather than inventing a capability: `split` then `join` was how it
+ * was written before, and that pair replaces all of them. A `replace` that did
+ * one would not be shorter than the thing it replaced, it would be different
+ * from it -- and a program that had been using the idiom would change meaning
+ * on being tidied up.
+ *
+ * So there is one message and it does the obvious thing. A first-only replace is
+ * `indexOf` and two `copyFrom`s, which is what wanting it looks like and is rare
+ * enough not to name.
+ *
+ * Non-overlapping, scanning forward: each match resumes after the one before,
+ * so `"aaa":replace("aa", "b")` is `"ba"` and not `"bb"` or anything cleverer.
+ *
+ * An empty needle is refused by `needle_from`, the way `split` and `indexOf`
+ * refuse it -- replacing nothing everywhere has no answer worth guessing at. An
+ * empty *replacement* is allowed and is how a program deletes.
+ */
+static SolValue prim_string_replace(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    if (!check_argc(vm, "replace", argc, 2)) return SOL_NIL_VAL;
+
+    const SolString *from;
+    if (!needle_from(vm, "replace", args[0], &from)) return SOL_NIL_VAL;
+
+    if (!SOL_IS_STRING(args[1])) {
+        sol_vm_runtime_error(vm, "'replace' expects a string to put in its place, got %s",
+                             sol_type_name(args[1]));
+        return SOL_NIL_VAL;
+    }
+    const SolString *to = SOL_AS_STRING(args[1]);
+    const SolString *text = SOL_AS_STRING(self);
+
+    /* Counted before anything is allocated, so the buffer is made once at the
+       size it will end up -- the same shape `split` uses, for the same reason. */
+    int found = 0;
+    for (int at = find_substring(text, from, 0); at >= 0;
+         at = find_substring(text, from, at + from->length)) {
+        found++;
+    }
+
+    /* A string is immutable, so a receiver with nothing to replace *is* the
+       answer. No allocation, and `equals` compares contents in any case. */
+    if (found == 0) return self;
+
+    /* In a width that cannot wrap: a long replacement over many matches can
+       exceed what a length can hold, and a program that asked for that should
+       be told rather than handed a truncated string. */
+    long long size = (long long)text->length
+                   + (long long)found * ((long long)to->length - from->length);
+    if (size > INT_MAX) {
+        sol_vm_runtime_error(vm, "'replace' would make a string longer than a string can be");
+        return SOL_NIL_VAL;
+    }
+
+    char *out = malloc((size_t)size + 1);
+    if (out == NULL) {
+        fprintf(stderr, "solvm: out of memory\n");
+        exit(1);
+    }
+
+    int written = 0;
+    int start = 0;
+    for (int i = 0; i < found; i++) {
+        int at = find_substring(text, from, start);
+        memcpy(out + written, text->chars + start, (size_t)(at - start));
+        written += at - start;
+        memcpy(out + written, to->chars, (size_t)to->length);
+        written += to->length;
+        start = at + from->length;
+    }
+    memcpy(out + written, text->chars + start, (size_t)(text->length - start));
+    written += text->length - start;
+    out[written] = '\0';
+
+    /* Copies, so the buffer is this function's to free. */
+    SolValue answer = SOL_STRING_VAL(sol_string_new(vm, out, written));
+    free(out);
+    return answer;
+}
+
 static SolValue prim_string_split(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     if (!check_argc(vm, "split", argc, 1)) return SOL_NIL_VAL;
@@ -5845,6 +5928,7 @@ void sol_builtins_install(SolVM *vm)
     instance(vm, vm->string_class, SOL_STRING, "asSymbol", prim_string_as_symbol);
     instance(vm, vm->string_class, SOL_STRING, "asByte", prim_string_as_byte);
     instance(vm, vm->string_class, SOL_STRING, "trim", prim_string_trim);
+    instance(vm, vm->string_class, SOL_STRING, "replace", prim_string_replace);
     instance(vm, vm->string_class, SOL_STRING, "asTime", prim_string_as_time);
     instance(vm, vm->string_class, SOL_STRING, "notEquals", prim_not_equals);
     instance(vm, vm->string_class, SOL_STRING, "lessThan", prim_string_less);

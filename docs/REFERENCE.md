@@ -3039,6 +3039,7 @@ bit.
 | `at(#i)` | a one-character string; **one-based** |
 | `concat(s)` | a new string; strict about its argument |
 | `split(s)` | an array of the pieces between occurrences of `s` |
+| `replace(s, t)` | a new string with **every** `s` replaced by `t` |
 | `indexOf(s)` | where `s` first appears, **one-based**, or nil |
 | `indexOf(s, #from)` | the same, looking from `#from` — for the second occurrence and the ones after it |
 | `copyFrom(#a, #b)` | the characters `#a` to `#b`, both ends included |
@@ -3069,6 +3070,29 @@ missing piece would be:
 "abc":split(",").        ; ["abc"]   -- no occurrence, so one piece
 "":split(",").           ; [""]
 ```
+
+`replace` is the pair of them in one message, and replaces **every**
+occurrence for that reason: `split` then `join` is how it was written before,
+and that pair replaces all of them. A `replace` that did only the first would
+not be shorter than the idiom it replaces — it would mean something different,
+and tidying an old program up would change what it did.
+
+```
+"a-b-c":replace("-", "+").        ; "a+b+c"
+"one two one":replace("one", "1"). ; "1 two 1"
+"aaa":replace("aa", "b").         ; "ba"  -- forward, and non-overlapping
+"a,b,c":replace(",", "").         ; "abc" -- an empty replacement deletes
+"hello":replace("z", "!").        ; "hello" -- nothing found, so itself
+```
+
+An empty *needle* is refused, the way `split` and `indexOf` refuse one:
+replacing nothing everywhere has no answer worth guessing at. A first-only
+replace is `indexOf` and two `copyFrom`s, which is what wanting it looks like
+and is rare enough not to have a name here.
+
+Strings are immutable, so this answers a new one and the receiver is untouched
+— and a receiver with nothing to replace *is* the answer, with nothing
+allocated.
 
 That is what makes the answer predictable: the pieces put back together with the
 separator between them are the string you started with, whatever it was.
@@ -3715,7 +3739,7 @@ has been given, and cannot give itself more.
 Every built-in message and the types that answer it. The question a reference
 gets asked is usually *what has `copyFrom`?* rather than *what does a string
 do?*, and the sections above answer only the second — so this answers the first.
-140 messages across 242 registrations.
+141 messages across 243 registrations.
 
 **A test keeps it honest**: a message registered in `builtins.c` and missing
 from here fails the build, which is the same bargain that makes every message
@@ -3829,6 +3853,7 @@ appear in an example.
 | `removeLast` | [array](#array) |
 | `rename` | [system](#system) |
 | `repeat` | [block](#block), [integer](#integer) |
+| `replace` | [string](#string) |
 | `respondsTo` | [every type](#every-type) |
 | `rounded` | [float](#float) |
 | `run` | [system](#system) |

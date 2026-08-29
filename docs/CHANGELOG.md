@@ -5,10 +5,40 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### `string:replace`, which a program asked for — `pending`, 2026-08-28
+
+**141<!--count messages--> messages, up from 140**, and the first one added
+since the extension work. `.sob` files are format version 14, unchanged.
+
+```
+"a-b-c":replace("-", "+").         ; "a+b+c"
+"a,b,c":replace(",", "").          ; "abc" -- an empty replacement deletes
+```
+
+**It replaces every occurrence, and that is not a taste.** The idiom it replaces
+is `split` then `join`, which replaces all of them — so a `replace` that did
+only the first would not be *shorter* than the thing programs were already
+writing, it would mean something *different*, and tidying an old program up
+would quietly change what it did. A first-only replace is `indexOf` and two
+`copyFrom`s, which is what wanting it looks like and is rare enough not to name.
+
+Forward and non-overlapping, so `"aaa":replace("aa", "b")` is `"ba"`. An empty
+needle is refused the way `split` and `indexOf` refuse one. A receiver with
+nothing to replace **is** the answer, allocating nothing, which a string can do
+because it is immutable.
+
+**Asked for by a program rather than by this page**, which is the rule every
+other entry here was decided by. Porting Solveig's editor to
+[solveig-gtk](https://github.com/hansolovkarlsson/solveig-gtk) wanted it three
+times in one line, to escape `&`, `<` and `>` for markup. The workaround was
+exact — `split` then `join` is what a replace *does* — so the port shipped
+without it and this was written down instead of worked around silently. It is
+the only thing that port asked the language for.
+
 ## 0.36.0 — 2026-08-28
 
 **A notation that adds no messages, and an interface that adds no dependencies.**
-The language answers **140<!--count messages--> messages, unchanged** across the
+The language answers **140 messages, unchanged** across the
 whole release, and `.sob` files are format version 14. Bytecode from 0.35.0 runs
 here and this release's runs on 0.35.0 — checked by building the old release
 from its tag and running each compiler's output on the other machine, where the

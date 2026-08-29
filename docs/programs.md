@@ -368,7 +368,7 @@ line prints.
 ```
 
 Over `examples/` alone that is 30<!--count examples-files--> files and
-549<!--count examples-claims--> claims:
+555<!--count examples-claims--> claims:
 
 ```text
 21 files with expectations, 402 claims checked
@@ -391,7 +391,7 @@ table had when [disasm](#disasm--a-sob-file-read-and-disassembled) found it
 three sections out of date. They are also the first thing a newcomer reads.
 
 **It is in `make test` now**, in `tests/test_cli.c` with the other tests that
-run the binaries as a shell would — **993<!--count claims--> claims on every build**, in about
+run the binaries as a shell would — **999<!--count claims--> claims on every build**, in about
 sixteen seconds, and it fails the build if one stops holding.
 
 **And it holds one document against a file rather than against a run.**
@@ -488,7 +488,7 @@ no notation saying what it counts — so it is given one, which renders as nothi
 and leaves the sentence as it was:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 993<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 999<!--count claims--> claims
 ```
 
 Each name is recounted from the repository as it stands. A name the table does

@@ -4,7 +4,7 @@
 
 A small object-oriented language and its toolkit — bytecode compiler (Solas),
 virtual machine (SolVM), REPL (Solis) and debugger (Solid). Prototype-based,
-everything is a message send, 140<!--count messages--> messages, no control-flow
+everything is a message send, 141<!--count messages--> messages, no control-flow
 syntax and no operators outside `@expr(a^2 + b/2)`, which is notation for the
 same sends. 18k lines of C11, no dependencies.
 
@@ -158,7 +158,7 @@ version the binaries inside it report.
 ## Status
 
 **0.36.0** — a notation that adds no messages, and an interface that adds no
-dependencies. **140<!--count messages--> messages, unchanged**, and `.sob` files
+dependencies. **140 messages, unchanged**, and `.sob` files
 are format version 14 — bytecode from 0.35.0 still runs and 0.35.0 still runs
 this release's, checked both ways round by building the old release from its tag
 rather than asserted.

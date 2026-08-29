@@ -605,6 +605,81 @@ static void test_pieces_outlive_the_string_they_came_from(void)
 
 /* `trim`, wanted by the first program that read another program's output: `wc`
    pads its number with spaces and `asInteger` refuses anything but a number. */
+/* `replace` takes **every** occurrence, and the reason is not taste: the idiom
+   it replaces is `split` then `join`, which replaces all of them. A message that
+   did the first would not be shorter than the idiom -- it would mean something
+   different, and tidying an old program up would change what it did. */
+static void test_replace(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk, "a := \"a-b-c\":replace(\"-\", \"+\").") == SOL_OK);
+    assert(is_text(global(&vm, "a"), "a+b+c"));
+    sol_chunk_free(&chunk);
+
+    assert(run(&vm, &chunk, "a := \"one two one\":replace(\"one\", \"1\").") == SOL_OK);
+    assert(is_text(global(&vm, "a"), "1 two 1"));
+    sol_chunk_free(&chunk);
+
+    /* Forward and non-overlapping, the way `split` scans: each match resumes
+       after the one before rather than being reconsidered. */
+    assert(run(&vm, &chunk, "a := \"aaa\":replace(\"aa\", \"b\").") == SOL_OK);
+    assert(is_text(global(&vm, "a"), "ba"));
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "a := \"aaaa\":replace(\"aa\", \"b\").") == SOL_OK);
+    assert(is_text(global(&vm, "a"), "bb"));
+    sol_chunk_free(&chunk);
+
+    /* An empty replacement is how a program deletes; a longer one grows the
+       string, which is the case the length arithmetic has to get right. */
+    assert(run(&vm, &chunk, "a := \"a,b,c\":replace(\",\", \"\").") == SOL_OK);
+    assert(is_text(global(&vm, "a"), "abc"));
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "a := \"x\":replace(\"x\", \"much longer\").") == SOL_OK);
+    assert(is_text(global(&vm, "a"), "much longer"));
+    sol_chunk_free(&chunk);
+
+    /* A needle of more than one character, and one at either end. */
+    assert(run(&vm, &chunk, "a := \"--a--\":replace(\"--\", \"+\").") == SOL_OK);
+    assert(is_text(global(&vm, "a"), "+a+"));
+    sol_chunk_free(&chunk);
+
+    /* Nothing found answers the receiver itself -- immutable, so that is the
+       same string rather than a copy of it, and nothing is allocated. */
+    assert(run(&vm, &chunk, "a := \"hello\":replace(\"z\", \"!\").") == SOL_OK);
+    assert(is_text(global(&vm, "a"), "hello"));
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "a := \"\":replace(\"x\", \"y\").") == SOL_OK);
+    assert(is_text(global(&vm, "a"), ""));
+    sol_chunk_free(&chunk);
+
+    /* And the receiver is not touched, which is what makes it a value. */
+    assert(run(&vm, &chunk,
+        "s := \"keep me\". t := s:replace(\"keep\", \"drop\").") == SOL_OK);
+    assert(is_text(global(&vm, "s"), "keep me"));
+    assert(is_text(global(&vm, "t"), "drop me"));
+    sol_chunk_free(&chunk);
+
+    /* Bytes, like every other string message here: 2.13 showing through rather
+       than a decision this one took. */
+    assert(run(&vm, &chunk, "a := \"caf\xc3\xa9\":replace(\"caf\", \"CAF\").") == SOL_OK);
+    assert(is_text(global(&vm, "a"), "CAF\xc3\xa9"));
+    sol_chunk_free(&chunk);
+
+    /* Nothing can be looked for, the way `split` and `indexOf` refuse it. */
+    assert(run(&vm, &chunk, "\"a\":replace(\"\", \"b\").") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "\"a\":replace(#1, \"b\").") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "\"a\":replace(\"a\", #1).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "\"a\":replace(\"a\").") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
 static void test_trim(void)
 {
     SolVM vm; sol_vm_init(&vm);
@@ -646,6 +721,7 @@ int main(void)
     test_literal_text_is_shared_safely();
     test_round_trip();
     test_split();
+    test_replace();
     test_index_of();
     test_index_of_from_a_position();
     test_copy_from();
