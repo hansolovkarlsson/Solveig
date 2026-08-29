@@ -1,6 +1,6 @@
-# Solum — language reference
+# Solveig — language reference
 
-Solum is the language; **Solas** compiles it, **SolVM** runs the bytecode, and
+Solveig is the language; **Solas** compiles it, **SolVM** runs the **Solum** bytecode it produces, and
 **Solis** is the REPL. This document describes the language as it is, message by
 message, for looking things up.
 

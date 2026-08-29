@@ -1,4 +1,4 @@
-# Solum cheatsheet
+# Solveig cheatsheet
 
 *Everything the language answers, on one page, for when you know what you want
 and not what it is called. [REFERENCE.md](REFERENCE.md) is the full account of

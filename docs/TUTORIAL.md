@@ -342,7 +342,7 @@ Nearly the whole language, without meeting it as a list:
 - [GUIDE.md](GUIDE.md) — the same ground surveyed in order, plus symbols,
   reflection, values against references, and the restrictions worth knowing.
 - [fetched-methods.md](fetched-methods.md) — holding a method as a value.
-- [lineage.md](lineage.md) — what Solum borrowed and from whom, and what to
+- [lineage.md](lineage.md) — what Solveig borrowed and from whom, and what to
   expect if you already write Smalltalk, Ruby, JavaScript or C. Short, and the
   quickest way to stop being surprised.
 - [absence.md](absence.md) — nil, empty, and unset, and what a name holds before

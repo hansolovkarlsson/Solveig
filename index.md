@@ -1,6 +1,6 @@
 ---
 title: Solveig
-description: A small object-oriented language, its bytecode virtual machine, and a REPL.
+description: Solveig — a small object-oriented language, its bytecode virtual machine, and the toolkit around it.
 ---
 
 # Solveig

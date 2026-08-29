@@ -1,4 +1,4 @@
-# A tour of Solum
+# A tour of Solveig
 
 *Every concept in the language, in an order that builds. Each section explains
 one idea, shows it working, and points at a runnable example that goes deeper.*
@@ -50,7 +50,7 @@ listed in [the reference](REFERENCE.md#the-keys).
 
 ## 1. Everything is an object
 
-There is one thing that happens in Solum: you send a message to an object. `:`
+There is one thing that happens in Solveig: you send a message to an object. `:`
 is the send operator, and `.` ends the statement.
 
 ```
@@ -881,7 +881,7 @@ without saying where that lives:
 ```
 
 `lib/control.sol` gives you `timesCollect`, and it used to give you four more. **None of it is language.** They are methods bound on `integer`
-and `block` by an ordinary Solum file — which is possible at all because control
+and `block` by an ordinary Solveig file — which is possible at all because control
 flow here is message sending, so a loop is something a library can add. That is
 why §8 could say the language has no loop syntax and mean it.
 
