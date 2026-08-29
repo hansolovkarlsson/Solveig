@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 72" width="300" height="72" role="img" aria-label="Solveig">
+  <title>Solveig</title>
+  <g transform="translate(4,4)">
+    <path d="M8 31 A24 24 0 0 1 56 31 Z" fill="#E8A33D"/>
+    <path d="M8 33 A24 24 0 0 0 56 33 Z" fill="#3E4A5B"/>
+  </g>
+  <text x="76" y="47" font-family="Palatino, 'Palatino Linotype', Georgia, serif"
+        font-size="38" fill="#3E4A5B" letter-spacing="0.5">Solveig</text>
+</svg>

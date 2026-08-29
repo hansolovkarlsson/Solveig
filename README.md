@@ -1,3 +1,5 @@
+<img src="assets/logo.svg" alt="" width="72" align="left" hspace="12" vspace="4">
+
 # Solveig
 
 A small object-oriented language and its toolkit — bytecode compiler (Solas),
@@ -82,6 +84,11 @@ sound**, usually taken back to a root meaning "whole" -- the one behind *salvus*
 A debugger is the tool for finding out whether a program is sound, standing on
 the ground called *solum*. It is also *sol-interactive-debugger*, which is the
 sort of coincidence a name should be chosen for.
+
+**The mark is those two words in one shape**: a disc parted, *sól* above the
+line and *solum* below it. It is also only one shape, which is the other sense
+of *solum* and the argument the language makes -- see
+[assets/README.md](assets/README.md).
 
 The sun is what ties them together. It is the single body everything else in the
 system turns around, and the one thing this planet's life has always depended on

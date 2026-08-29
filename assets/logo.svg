@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Solveig">
+  <title>Solveig</title>
+  <!--
+    One disc, parted. Above the line is sol, the sun the project is named for;
+    below it is solum, the ground it stands on and the machine that runs it.
+
+    The gap is geometry rather than a white stroke, so the mark works on any
+    background and in either theme.
+  -->
+  <path d="M8 31 A24 24 0 0 1 56 31 Z" fill="#E8A33D"/>
+  <path d="M8 33 A24 24 0 0 0 56 33 Z" fill="#3E4A5B"/>
+</svg>

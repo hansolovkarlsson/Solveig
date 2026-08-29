@@ -59,6 +59,18 @@ header.site .brand {
   color: var(--fg);
   text-decoration: none;
   margin-right: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+}
+
+/* The ground half is `currentColor`, so the mark follows the theme the way the
+   wordmark beside it does -- slate on a light page, pale on a dark one. The sun
+   half never changes, being the one fixed thing in the system. */
+header.site .brand-mark {
+  width: 1.15em;
+  height: 1.15em;
+  flex: none;
 }
 
 header.site nav {
