@@ -498,7 +498,7 @@ static void test_everything_written_down_is_true(void)
                out, sizeof out) == 0);
 
     int status = run("bin/solvm " DIR "/expect.sob"
-                     " examples docs README.md index.md 2>/dev/null",
+                     " examples docs README.md index.md extensions 2>/dev/null",
                      out, sizeof out);
     if (status != 0 || strstr(out, "every claim holds") == NULL) {
         printf("\n%s\n", out);
@@ -1651,6 +1651,54 @@ static void test_an_extension_reaches_the_program(void)
     printf("  a loaded extension reaches the program, and is absent without it\n");
 }
 
+/* The bundle this repository ships, held to what its programs rely on.
+ *
+ * A datagram to itself is the whole round trip in one process: bind, send,
+ * wait, receive. What is asserted is the part the probe's socket could not do
+ * -- the packet says who sent it, so a server can answer -- and the port it
+ * names is the sender's rather than its own, which is the mistake a `recvfrom`
+ * written from memory makes.
+ *
+ * **Under `SOLUM_GC_STRESS`**, because building that packet is an extension
+ * allocating three cells and the object is a root the collector cannot see for
+ * itself. Without the `sol_gc_push_temp` in `packet_new` this run answers
+ * *object does not understand 'notNil'*, which is the failure rule 3 exists to
+ * describe and is silent in an ordinary run.
+ */
+static void test_the_net_extension_carries_a_datagram(void)
+{
+    system("mkdir -p " DIR);
+    FILE *f = fopen(DIR "/net.sol", "w");
+    assert(f != NULL);
+    fputs("sock := net:udp(#0).\n"
+          "mine := net:port(sock).\n"
+          "net:send(sock, \"127.0.0.1\", mine, \"ping\"):print.\n"
+          "net:waitFor(sock, #2000):print.\n"
+          "packet := net:receive(sock).\n"
+          "packet:text:print.\n"
+          "packet:host:print.\n"
+          "packet:port:equals(mine):print.\n"
+          "net:waitFor(sock, #0):print.\n", f);
+    fclose(f);
+    assert(system("bin/solas " DIR "/net.sol -o " DIR "/net.sob") == 0);
+
+    char out[4096];
+    assert(run("SOLUM_GC_STRESS=1 bin/solvm --extension=build/extensions/net.so "
+               DIR "/net.sob 2>/dev/null", out, sizeof out) == 0);
+    assert(strstr(out, "#4") != NULL);            /* four bytes went out       */
+    assert(strstr(out, "\"ping\"") != NULL);      /* and came back            */
+    assert(strstr(out, "\"127.0.0.1\"") != NULL); /* saying where from        */
+    assert(strstr(out, "false") != NULL);         /* and nothing is left       */
+
+    /* `packet:port` is the sender's port, which here is the same socket -- so
+       the comparison against `mine` is the assertion that it is not the
+       *receiver's* port read back out of the wrong field. */
+    int trues = 0;
+    for (const char *at = out; (at = strstr(at, "true")) != NULL; at += 4) trues++;
+    assert(trues == 2);                           /* waitFor, and the port     */
+    printf("  the net extension carries a datagram, and it says who sent it\n");
+}
+
 /* A bundle that will not load stops the run before it starts, with 65 -- the
    same status as a `.sob` that cannot be read, because it is the same kind of
    thing: something named on the command line was not usable. */
@@ -1740,6 +1788,7 @@ int main(void)
     test_the_editor_draws_what_it_recorded();
     test_the_editor_does_what_the_keys_say();
     test_an_extension_reaches_the_program();
+    test_the_net_extension_carries_a_datagram();
     test_a_bundle_that_will_not_load_is_refused();
     test_every_front_end_that_runs_takes_the_flag();
     printf("test_cli: ok\n");

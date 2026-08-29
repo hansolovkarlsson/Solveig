@@ -113,10 +113,13 @@ lights, and **Solveig** carries the same star into Norse: *sól* joined to
 | `experiment/` | Solum's compiler written in Solum: proved, then parked -- [what it was](experiment/README.md) |
 | `embed/`  | A C program that holds a `SolVM` -- see [embedding.md](docs/embedding.md) |
 | `lib/`    | The library that ships with the language, found on the search path |
+| `extensions/` | Bundles built by `make` and loaded only when a host names one -- [net](extensions/net/README.md), UDP sockets |
 
 Two more live outside this repository, and outside it on purpose — the front
 page says *no dependencies beyond a C11 compiler and `make`*, and it stays true
-because they are not here:
+because they are not here. `extensions/net` may be here for the same reason read
+the other way: sockets need POSIX, which every `dlopen` and `fork` in this tree
+already assumes, so nothing has to be installed for `make` to build it.
 
 | Repository | What |
 | --- | --- |

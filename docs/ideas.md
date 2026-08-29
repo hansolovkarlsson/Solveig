@@ -21,6 +21,7 @@ marked as a sketch.
 | --- | --- |
 | `do` is `forEach`? | **Yes** — and `collect` is map, `select` is filter |
 | Bytecode / assembly reference | **Built** — [BYTECODE.md](BYTECODE.md), checked against the header by the test suite |
+| `startsWith` / `endsWith` | **Defer** — [one customer](#startswith-and-endswith), and `indexOf(x):equals(#1)` is exact rather than approximate |
 | `$character` literals, Unicode | **Defer** — gated on deciding what a string is |
 | A truncating divide on integer | **Defer** — one customer, and its workaround is exact rather than approximate |
 | Integer sizes: byte, word, long | **No** — reintroduces the coercion the language refuses |
@@ -48,7 +49,7 @@ marked as a sketch.
 | `@expr{...}`, a region that is a block | **Built on 2026-08-29**, the day after it was scoped — [the sentence was tried first and lost](#expr-a-region-that-is-a-block-rather-than-a-group); the entry predicted one hard part and the second was the one that mattered, a notation that silently stopped inlining |
 | Phoenix — a second language whose output Solum uses | **Defer** — the machinery is proven three times over; [the unexplored half](#programs-that-would-press-on-something) is whether a hosted language can publish a *library* rather than a program |
 | Programs that would press on something — Pascal, predicate logic, a parser toolkit | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would |
-| Networking, and sending code to a running machine | **Defer** — a socket exists now, [as an extension in the probe](#networking-and-sending-code-to-a-machine-that-is-already-running), so the question is where one belongs rather than what it would cost; waiting is the unanswered half, and the second still needs 3.4 and 6.32 |
+| Networking, and sending code to a running machine | **The first half is built**, on 2026-08-29 — [extensions/net](../extensions/net/README.md), five messages, and the waiting question answered with a timeout rather than a block; [the second half](#networking-and-sending-code-to-a-machine-that-is-already-running) is untouched and still needs 3.4, 6.32 and a proxy |
 | SQLite, SDL2, GTK | **One project, not three** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); GTK and SDL2 fire that trigger and SQLite does not, and wanting *both* toolkits is what settles the mechanism |
 | Fuzzy logic | **A library that would teach nothing** — arithmetic on floats, and the arithmetic all landed |
 | Namespaces for included files | **Defer** — the trigger is somebody else writing a library |
@@ -750,6 +751,29 @@ or `MOD` is the cost. One program wanting a message is what
 and it was built; this is at the same stage.
 
 ---
+
+### `startsWith` and `endsWith`
+
+**Found by writing [server.sol](../extensions/net/server.sol)** on 2026-08-29,
+which reads a one-line protocol and wanted to ask whether a request began with
+`"add "`. There is no `startsWith`, and the message it wrote instead is
+`text:indexOf("add "):equals(#1)`.
+
+**Defer — one customer, and the workaround is exact rather than approximate**,
+which is the same verdict and the same reason as
+[a truncating divide](#a-truncating-divide-on-integer). `indexOf` answering `#1`
+*is* what starting with something means, so nothing is being approximated and
+nothing is slower: `indexOf` stops at the first match either way. What a
+`startsWith` would buy is that the sentence reads as the question, and that a
+reader does not have to know that `#1` is the answer meaning *at the front*.
+
+`endsWith` would come with it, and is the half with an actual argument: it is
+`copyFrom` and a `size` subtraction today, which is three sends and an
+off-by-one waiting to happen.
+
+**The trigger is a second program**, as it was for `replace` — which waited for
+the editor's port to want it three times in one line, and was built the day it
+did.
 
 ### `$character` literals and Unicode
 
@@ -3132,10 +3156,50 @@ object is the canonical customer for
 which is deferred below because nothing has wanted a proxy. Networking would
 want one, and the two should be considered together if either is.
 
-**The trigger is unchanged: two machines that need to talk.**
-[serve.sol](../programs/serve.sol) still answers an HTTP request through
-environment variables, written that way precisely so that it would not need a
-socket, and the probe talks to itself on loopback. Neither is two machines.
+**The trigger fired on 2026-08-29**, and from the direction this entry did not
+name: not two machines, but the question *can we pull the probe's socket out and
+have two programs talk?* — which is the same want one step short of the wording.
+[serve.sol](../programs/serve.sol) still answers HTTP through environment
+variables; what is new is beside it.
+
+#### Built: the sockets, as [extensions/net](../extensions/net/README.md)
+
+Five messages — `udp`, `port`, `send`, `receive`, `waitFor` — and a
+[client](../extensions/net/client.sol) and [server](../extensions/net/server.sol)
+that hold a counter between them. **An extension and not a machine**, which is
+the recommendation this entry made when it was re-read: a socket in the VM is a
+capability every script gets whether or not the host meant to grant it.
+
+**Two things the programs decided that no argument here had.**
+
+A packet has to say *who sent it*. The probe read with `recv`, so the first pair
+written against it could not answer each other — the client wrote its own port
+inside the message for the server to parse out. That is a protocol invented to
+work around a missing field, which is what a missing field looks like from
+inside a program.
+
+And **waiting is bounded rather than blocking**, which this entry had guessed
+was the hard part and was right about for the wrong reason. It is not only that
+a blocking read stops the only thread there is: it stops the *dispatch loop*,
+which is where `--steps` counts and `--memory` is checked. A program parked in a
+syscall inside a primitive is a program no limit can reach, so a blocking read
+would quietly suspend
+[6.33](COMPLETED.md#633-a-running-program-cannot-be-stopped-from-outside--done).
+A timeout keeps that window a window.
+
+What is still absent is absent for the usual reason: no TCP, no IPv6, and no
+name resolution — `getaddrinfo` blocks, which is the thing above.
+
+#### Still deferred: sending code to a machine that is already running
+
+Untouched by any of that. It still wants
+[3.4](ROADMAP.md#34-no-compatibility-across-sob-versions),
+[6.32](#632-a-script-cannot-be-run-with-less-than-the-whole-machine) and a
+proxy, and now that a socket exists the second of those is the one that matters:
+*input from a stranger* stopped being hypothetical the moment a program could
+receive a datagram. Nothing here does anything with what it receives except
+compare it against three words, which is the shape to keep until 6.32 is
+decided.
 
 ## Recommended against
 

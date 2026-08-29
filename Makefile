@@ -125,8 +125,14 @@ TEST_BINS = $(TEST_SRCS:tests/%.c=$(BUILD)/tests/%)
 
 BINARIES = $(BIN)/solas $(BIN)/solvm $(BIN)/solis $(BIN)/solid
 
+# The bundles this repository ships. Built by `all` and loaded by nobody unless
+# a host asks with `--extension=`, which is the whole arrangement: the
+# capability is here, and granting it is still a decision taken on a command
+# line. The rule is beside the test probe's, further down.
+EXTENSIONS = $(BUILD)/extensions/net.so
+
 .PHONY: all test embed install uninstall dist clean FORCE
-all: $(BINARIES)
+all: $(BINARIES) $(EXTENSIONS)
 
 # Below `all`, because make's default goal is whichever target it reads first
 # and this one is not it. Rebuilt every run and replaced only when its contents
@@ -202,6 +208,21 @@ $(EXT_PROBE): tests/ext_probe.c $(CONFIG)
 	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) -fPIC -shared \
 	    $< -o $@ $(BUNDLE_LD)
 
+# The bundles this repository ships, built by `all` and loaded by nobody unless
+# a host asks for one with `--extension=`. That is the whole arrangement: the
+# capability is here, and granting it is still a decision somebody takes on a
+# command line.
+#
+# These may live here, where GTK and SDL2 may not, and the difference is the
+# front page's sentence rather than a policy about extensions. A bundle that
+# needs a toolkit installed would make *no dependencies beyond a C11 compiler
+# and `make`* false; sockets need POSIX, which is already assumed by every
+# `dlopen` and `fork` in this tree.
+$(BUILD)/extensions/net.so: extensions/net/net.c $(CONFIG)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) -fPIC -shared \
+	    $< -o $@ $(BUNDLE_LD)
+
 # An example that loads a compiled file needs one to be there. `system:load`
 # takes bytecode and never source, so `examples/load.sol` wants
 # `examples/library.sob` on disk -- and bytecode is a build artefact that is not
@@ -218,17 +239,22 @@ examples/%.sob: examples/%.sol $(BIN)/solas
 
 # The binaries too: test_cli runs them as a shell would, a `main` not being
 # something the library holds.
-test: $(BINARIES) $(TEST_BINS) $(EXAMPLE_SOBS) $(EXT_PROBE)
+test: $(BINARIES) $(TEST_BINS) $(EXAMPLE_SOBS) $(EXT_PROBE) $(EXTENSIONS)
 	@for t in $(TEST_BINS); do echo "-- $$t"; $$t || exit 1; done
 	@echo "all tests passed"
 
 # The library is copied, not installed one file at a time, because which files
 # make it up is the library's business and a list here would go stale the way
 # every other hand-kept list in this repository has.
+# The bundles go beside the library rather than on any search path: nothing
+# looks for an extension, because `--extension=` takes a path and a host that
+# did not name one is a host that gets none. Installing them is only so that a
+# path exists to name after `make install`.
 install: all
 	@mkdir -p $(BINDIR) $(LIBDIR)
 	cp $(BINARIES) $(BINDIR)
 	cp lib/*.sol $(LIBDIR)
+	cp $(EXTENSIONS) $(LIBDIR)
 	@echo "installed to $(DESTDIR)$(PREFIX)"
 
 uninstall:

@@ -5,6 +5,65 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### `extensions/net`, and two programs that talk — `pending`, 2026-08-29
+
+**UDP sockets, as an extension and not as a machine.** Five messages, built by
+`make` into `build/extensions/net.so` and loaded by nobody unless a host asks:
+
+```text
+solvm --extension=build/extensions/net.so server.sob 7777
+```
+
+| | |
+| --- | --- |
+| `net:udp(#port)` | a bound socket; `#0` asks the system for a free port |
+| `net:port(socket)` | the port it actually got |
+| `net:send(socket, "127.0.0.1", #port, text)` | bytes written |
+| `net:receive(socket)` | the packet waiting, or **nil**; never waits |
+| `net:waitFor(socket, #ms)` | **true** if one arrived inside the timeout |
+
+No message was added to the language, `.sob` files are format version 14, and
+the VM is the size it was — which is the point. A socket built in is a
+capability every script gets whether or not the host meant to grant it; a bundle
+is one a host names on a command line and can decline to name.
+
+**It ships inside this repository where GTK and SDL2 may not**, and the
+difference is the front page's sentence rather than a policy about extensions: a
+bundle needing a toolkit installed would make *no dependencies beyond a C11
+compiler and `make`* false, and sockets need POSIX, which every `dlopen` and
+`fork` here already assumes.
+
+**The programs decided two things no argument had.** A packet has to say who
+sent it — the socket in the extension probe read with `recv`, so the first
+client and server written against it could not answer each other and the client
+wrote its own port *inside the message* for the server to parse out. That is a
+protocol invented to work around a missing field, which is what a missing field
+looks like from inside a program.
+
+And waiting is bounded rather than blocking, for a reason larger than the
+obvious one. A blocking read stops the only thread there is — and it stops the
+*dispatch loop*, which is where `--steps` counts and `--memory` is checked. A
+program parked in a syscall inside a primitive is a program no limit can reach,
+so a blocking read would have quietly suspended
+[6.33](COMPLETED.md#633-a-running-program-cannot-be-stopped-from-outside--done).
+
+**One root, and it is proved rather than assumed.** `packet_new` allocates three
+cells and roots the object, because `sol_string_new` collects. Take the root out
+and the suite fails under `SOLUM_GC_STRESS=1` with *object does not understand
+'notNil'* — an object swept between being made and being filled. The strings need
+no root, checked the same way: `sol_object_define` takes its slot from `malloc`
+and interns its name in a permanent table, so nothing between a string and its
+slot can collect.
+
+**Two smaller findings are on the record rather than worked around.** The
+extension surface has no way to build a dictionary, which is the language's own
+convention for an answer with fields, so a packet is an object with `host`,
+`port` and `text`. And `sol_foreign_handle` answers NULL for a released cell,
+which cannot be told from a handle that is itself NULL — so a descriptor is
+stored as `fd + 1`, because descriptor 0 is a real descriptor.
+
+No TCP, no IPv6, and no name resolution, each because no program has asked.
+
 ### `@expr{...}`, a region that is a block — `f6f7026`, 2026-08-29
 
 **A region opens with either delimiter now.** `@expr(...)` answers what its

@@ -303,6 +303,32 @@ A refusal is not a half-load. The extension has bound nothing and the machine is
 exactly as it was, so `solvm` reports it and exits 65 — the status a `.sob` that
 cannot be read gets, because it is the same kind of thing.
 
+## The one that ships here
+
+[extensions/net](../extensions/net/README.md) is the third real one and the
+first inside this repository — UDP sockets, five messages, built by `make` and
+loaded by nobody unless a host names `--extension=`. It may live here where the
+two below may not, and the difference is the front page's sentence rather than a
+rule about extensions: a bundle needing a toolkit installed would make *no
+dependencies beyond a C11 compiler and `make`* false, and sockets need POSIX,
+which every `dlopen` and `fork` here already assumes.
+
+**It is the first customer for something this page does not promise.** The
+language's convention for an answer with fields is a dictionary —
+`system:terminalSize` gives `"rows"` and `"columns"` — and the surface above
+carries `sol_object_new` and `sol_array_new` and nothing that builds one. So a
+received datagram is an *object* with `host`, `port` and `text`, which reads
+well and was not the first choice. Either the list grows a dictionary or
+extensions answer objects; what should not happen is each bundle deciding
+quietly, which is why it is written down here rather than only in that
+directory.
+
+**And it found a trap in `sol_foreign_handle` worth repeating.** It answers NULL
+for a cell of the wrong kind or one already released, so a handle that is itself
+NULL is indistinguishable from a released one — and file descriptor 0 is a real
+descriptor. `net` stores `fd + 1` for that reason. Anything wrapping a
+zero-based handle should do the same.
+
 ## Two real ones
 
 [solveig-gtk](https://github.com/hansolovkarlsson/solveig-gtk) and
