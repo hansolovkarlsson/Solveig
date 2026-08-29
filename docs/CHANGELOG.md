@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### `@expr{...}`, a region that is a block — `pending`, 2026-08-29
+### `@expr{...}`, a region that is a block — `f6f7026`, 2026-08-29
 
 **A region opens with either delimiter now.** `@expr(...)` answers what its
 expression comes to, and `@expr{...}` answers a block whose body reads infix —
