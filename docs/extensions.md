@@ -119,6 +119,10 @@ sol_string_new(vm, chars, length)         copies
 sol_array_new(vm, capacity)
 sol_array_add(vm, array, value)
 
+sol_extension_retain(vm, value)            keep it between calls
+sol_extension_retained(vm, token, &out)    get it back, or learn you cannot
+sol_extension_release(vm, token)           stop keeping it
+
 sol_vm_call_block(vm, block, args, argc)   then rule 4
 sol_vm_send(vm, receiver, name, args, argc) then rule 4
 sol_vm_runtime_error(vm, format, ...)      rule 2
@@ -219,11 +223,9 @@ a struct C owns, is none of those.
 > argument, got 0`, an arity complaint about a block the program never
 > registered. Not a crash, and nothing pointing at the collector.
 >
-> `sol_gc_push_temp` covers a short window and is eight deep; overflowing it
-> calls `exit(1)` with no diagnostic. Anything held for longer belongs somewhere
-> the tracer already looks — a slot on the extension's own global will do. A
-> supported registry for this is [planned and not
-> built](ideas.md#gtk-and-the-afternoon-that-was-supposed-to-be-a-page).
+> `sol_gc_push_temp` covers a short window inside one primitive and is eight
+> deep; overflowing it calls `exit(1)` with no diagnostic. Anything held
+> **between** calls goes in the registry below.
 >
 > Note that a **foreign** cell is not this problem: it is a value the collector
 > knows about, and holding one in a slot roots it like anything else. The
@@ -234,6 +236,47 @@ a struct C owns, is none of those.
 sets it and is deliberately not catchable, so a loop that does not look will
 keep calling into a machine that has already been stopped — the one way an
 extension can defeat `--steps`.
+
+## Keeping a value alive between calls
+
+Rule 3 covers a window inside one primitive. A toolkit holding your callback
+holds it *between* calls, where nothing the tracer walks can see it — so retain
+it, keep the **token** in `user_data`, and look it up when the callback fires:
+
+```c
+typedef struct { SolVM *vm; SolRetained on_click; } Button;
+
+button->on_click = sol_extension_retain(vm, args[0]);
+
+static void clicked(GtkWidget *w, gpointer data)
+{
+    Button *button = data;
+    SolValue block;
+    if (!sol_extension_retained(button->vm, button->on_click, &block)) {
+        return;                            /* released, or never valid */
+    }
+    sol_vm_call_block(button->vm, block, NULL, 0);
+    if (button->vm->had_error) { ... }     /* rule 4 */
+}
+
+sol_extension_release(button->vm, button->on_click);   /* widget gone */
+```
+
+**Keeping the token rather than the `SolValue` is the point.** The collector
+does not move cells, so a retained value would stay valid — but a token that has
+been released answers *false*, where a stale value answers a plausible wrong
+block. The registry can tell you that you are wrong; a cached value cannot, and
+being unable to is the entire defect this exists to end.
+
+A token carries the slot's generation as well as its index, so a token outliving
+its slot is detected rather than resolving to whatever was retained into that
+slot next — which would be the same silent misdispatch moved one layer up.
+
+**Not reference counted.** Two retains of one value give two tokens, each
+released on its own. Retaining twice and releasing once leaves it rooted, which
+is the safe direction to be wrong in. Everything still retained is released when
+the VM goes down, so an extension that never releases leaks nothing beyond the
+machine's life.
 
 ## The handshake
 

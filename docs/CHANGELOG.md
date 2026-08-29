@@ -5,6 +5,50 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Keeping a value alive while foreign code holds it — `pending`, 2026-08-28
+
+**`sol_extension_retain`, `sol_extension_retained`, `sol_extension_release`.**
+The other half of the collector's rule: `sol_gc_push_temp` covers a window
+inside one primitive, and a toolkit holding a callback holds it *between* calls,
+where nothing the tracer walks can see it. Three calls and one line in
+`mark_roots`. **No language change**, and nothing a program can see.
+
+**The API hands back a token, not the value, and that is the whole design.** The
+collector does not move cells, so a retained `SolValue` would stay valid — but a
+token that has been released answers *false*, where a stale value answers a
+plausible wrong block. A token carries its slot's generation as well as its
+index, so one outliving its slot is **detected** rather than resolving to
+whatever was retained into that slot next. Without that, this registry would
+have reproduced the exact failure it exists to end, one layer up.
+
+That failure is worth restating, because it is what the shape is chosen against.
+Measured before any of this, with a GTK timer and collection on every
+allocation:
+
+```text
+#1
+probe: callback failed: 'block' takes 1 argument, got 0
+```
+
+An arity complaint about a block the program never registered anywhere. Not a
+crash, and nothing in it pointing at the collector.
+
+**One bug of its own, in the least likely place.** A slot's `next_free` meant
+both *in use* and *end of the free list* — both `-1` — so releasing into an
+empty free list marked the slot live again and a second release answered true,
+putting it on the list twice. Two states in one field, found by
+`test_releasing_twice_is_not_an_error`, which is exactly the sort of case that
+looks too obvious to write.
+
+**Not reference counted**: two retains give two tokens, each released on its
+own, and retaining twice while releasing once leaves the value rooted — the safe
+direction. Everything still retained is released with the VM.
+
+Both probe extensions are rewritten onto it. `probe_ext_gtk.c` loses the
+`#ifdef PROBE_ROOTED` it was built around, and `ext_sdl.c` loses the array it
+hung on its own global; between them those were the four lines every extension
+with a callback was going to have to write, and they are one call now.
+
 ### A resource an extension owns, and the promise that it comes back — `2308bde`, 2026-08-28
 
 **`SolForeign`**: a socket, a window, a connection, a compiled pattern — a value

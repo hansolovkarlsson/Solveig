@@ -188,6 +188,39 @@ that the entry this all came from says to build the throwaway before trusting
 the design. That instruction has now paid twice in one day: once on the block
 the collector swept, and once here.
 
+### The registry, and a bug in the place that looked safest
+
+The callback registry was the smallest of the four steps and the only one where
+the *shape* of the API was the whole decision. It hands back a token rather than
+a value, and the reason is narrow: the collector does not move cells, so keeping
+a `SolValue` would work — right up to the moment somebody releases it, at which
+point a cached value answers a plausible wrong block and a token answers
+*false*. **The registry can tell you that you are wrong.** A design that could
+not would have reproduced the morning's silent misdispatch one layer up, with
+the collector no longer to blame for it.
+
+Which is also why a token carries a generation and not just an index. Release
+slot five, retain into slot five, and an old token would otherwise resolve
+confidently to the new value.
+
+**And the bug was in the field that carried it.** `next_free` meant both *in
+use* and *end of the free list*, both spelled `-1`, so releasing into an empty
+free list wrote `-1` and marked the slot live again — after which a second
+release answered true and put the slot on the list twice. Two states in one
+field.
+
+It was caught by `test_releasing_twice_is_not_an_error`, which is the case that
+looked least likely to fail when it was written: releasing twice is obviously
+harmless, and writing a test for obviously-harmless is exactly the habit that
+pays. The fix is a `bool in_use` beside the index, which cannot be conflated
+with anything.
+
+**The probe closed the loop.** `probe_ext_gtk.c` — the file that found the
+sweeping problem in the morning — was rewritten onto the registry, and its
+`#ifdef PROBE_ROOTED` is gone. The program that produced `'block' takes 1
+argument, got 0` prints five ticks and `"done"`, under the same stress, with
+nothing conditional left in it.
+
 And the corrected sentence went into `design.md` rather than being left to age.
 *"Nothing has to be released"* is still true, but for a sharper reason than it
 used to be: a resource has a release now, and it was never the program's to run

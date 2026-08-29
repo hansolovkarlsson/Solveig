@@ -89,3 +89,97 @@ bool sol_extension_load(SolVM *vm, const char *path, char **error)
     /* The handle is deliberately not closed, here or ever. See extend.h. */
     return sol_extension_register(vm, entry.function, path, error);
 }
+
+/* ---- keeping a value alive between calls --------------------------------- *
+ *
+ * A slot map. The token carries the index and the generation of the slot it was
+ * handed out for, so a token outliving its slot is detected rather than
+ * resolving to whatever was retained next -- which would be the collector's
+ * silent misdispatch reproduced one layer up, and this registry exists to end
+ * that class of failure rather than to move it.
+ *
+ * Indices are stable for the life of the VM: nothing shifts, nothing shrinks,
+ * and a released slot goes on a free list to be handed out again with a higher
+ * generation. */
+
+#define RETAINED_INDEX(token)  ((int)((token) & 0xffffffffu))
+#define RETAINED_GEN(token)    ((uint32_t)((token) >> 32))
+
+/* Generations start at 1, so index 0's first token is not zero and
+   SOL_RETAINED_NONE cannot collide with a real one. */
+static SolRetained retained_token(int index, uint32_t generation)
+{
+    return ((SolRetained)generation << 32) | (uint32_t)index;
+}
+
+/* The slot a token names, or NULL if it names none. Checks the generation, which
+   is the whole point: an index alone would answer confidently and wrongly. */
+static SolRetainedSlot *retained_slot(SolVM *vm, SolRetained token)
+{
+    if (token == SOL_RETAINED_NONE) return NULL;
+
+    int index = RETAINED_INDEX(token);
+    if (index < 0 || index >= vm->retained_count) return NULL;
+
+    SolRetainedSlot *slot = &vm->retained[index];
+    if (!slot->in_use) return NULL;                          /* released */
+    if (slot->generation != RETAINED_GEN(token)) return NULL; /* since reused */
+    return slot;
+}
+
+SolRetained sol_extension_retain(SolVM *vm, SolValue value)
+{
+    int index;
+
+    if (vm->retained_free != -1) {
+        index = vm->retained_free;
+        vm->retained_free = vm->retained[index].next_free;
+    } else {
+        if (vm->retained_count + 1 > vm->retained_capacity) {
+            int capacity = vm->retained_capacity < 8 ? 8 : vm->retained_capacity * 2;
+            SolRetainedSlot *grown = realloc(vm->retained,
+                                             sizeof(SolRetainedSlot) * (size_t)capacity);
+            if (grown == NULL) {
+                /* The same answer `mark_cell` gives when the worklist will not
+                   grow: losing track of a value the collector was told to keep
+                   is not something there is a safe way to continue from. */
+                fprintf(stderr, "solvm: out of memory retaining a value\n");
+                exit(1);
+            }
+            vm->retained = grown;
+            vm->retained_capacity = capacity;
+        }
+        index = vm->retained_count++;
+        vm->retained[index].generation = 0;      /* bumped to 1 just below */
+    }
+
+    SolRetainedSlot *slot = &vm->retained[index];
+    slot->value = value;
+    slot->in_use = true;
+    slot->generation++;
+    return retained_token(index, slot->generation);
+}
+
+bool sol_extension_retained(SolVM *vm, SolRetained token, SolValue *out)
+{
+    const SolRetainedSlot *slot = retained_slot(vm, token);
+    if (slot == NULL) return false;
+    if (out != NULL) *out = slot->value;
+    return true;
+}
+
+bool sol_extension_release(SolVM *vm, SolRetained token)
+{
+    SolRetainedSlot *slot = retained_slot(vm, token);
+    if (slot == NULL) return false;
+
+    /* Cleared as well as unlinked. The slot is not traced once `next_free` is
+       set, but leaving a value here would keep a cell reachable from the
+       allocator's point of view for as long as the slot went unreused, which is
+       a leak that would only show up under memory pressure. */
+    slot->value = SOL_NIL_VAL;
+    slot->in_use = false;
+    slot->next_free = vm->retained_free;
+    vm->retained_free = RETAINED_INDEX(token);
+    return true;
+}

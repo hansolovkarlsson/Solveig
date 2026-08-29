@@ -7,19 +7,10 @@
  */
 #include <SDL.h>
 
-#include "solum/embed.h"
-#include "solum/object.h"
-#include "solum/value.h"
-#include "solum/vm.h"
+#include "solum/extend.h"
 
 static SDL_Window   *window;
 static SDL_Renderer *renderer;
-
-/* The block a frame runs. Kept in an array hung on the extension's own global,
-   because a block reachable only from C is swept -- which the probe found the
-   hard way, and which is the same four lines in every extension that has a
-   callback. That repetition is the argument for putting it in the VM. */
-static SolArray *rooted;
 
 static SolValue prim_open(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
@@ -54,25 +45,37 @@ static SolValue prim_each(SolVM *vm, SolValue self, SolValue *args, int argc)
         sol_vm_runtime_error(vm, "each expects a block");
         return SOL_NIL_VAL;
     }
-    sol_array_add(vm, rooted, args[0]);
+    /* The registry, rather than the array on a global this file used to hang
+       one from: a block reachable only from C is swept, and the four lines
+       every extension was writing to work around that are now one call. */
+    SolRetained handler = sol_extension_retain(vm, args[0]);
 
     for (;;) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) return SOL_NIL_VAL;
+            if (event.type == SDL_QUIT) {
+                sol_extension_release(vm, handler);
+                return SOL_NIL_VAL;
+            }
         }
 
         SDL_SetRenderDrawColor(renderer, 20, 20, 30, 255);
         SDL_RenderClear(renderer);
         SDL_RenderPresent(renderer);
 
-        SolValue answer = sol_vm_call_block(vm, args[0], NULL, 0);
+        SolValue block;
+        if (!sol_extension_retained(vm, handler, &block)) return SOL_NIL_VAL;
+
+        SolValue answer = sol_vm_call_block(vm, block, NULL, 0);
 
         /* The rule the probe found, and the one extend.h has to state: a
            limit-stop sets this, and a loop that does not look keeps calling
            into a machine that has already been stopped. */
-        if (vm->had_error) return SOL_NIL_VAL;
-        if (!(answer.type == SOL_BOOL && answer.as.boolean)) return SOL_NIL_VAL;
+        if (vm->had_error) { sol_extension_release(vm, handler); return SOL_NIL_VAL; }
+        if (!(answer.type == SOL_BOOL && answer.as.boolean)) {
+            sol_extension_release(vm, handler);
+            return SOL_NIL_VAL;
+        }
 
         SDL_Delay(16);
     }
@@ -95,8 +98,6 @@ int sol_extension_init(SolVM *vm, int abi)
     sol_object_define_primitive(vm, sdl, "open",  prim_open);
     sol_object_define_primitive(vm, sdl, "each",  prim_each);
     sol_object_define_primitive(vm, sdl, "close", prim_close);
-    rooted = sol_array_new(vm, 4);
-    sol_object_define(vm, sdl, "handlers", SOL_ARRAY_VAL(rooted));
     sol_vm_set_global(vm, "sdl", SOL_OBJ_VAL(sdl));
     return 0;
 }

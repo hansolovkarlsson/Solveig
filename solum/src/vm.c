@@ -80,6 +80,10 @@ void sol_vm_init(SolVM *vm)
     vm->symbol_class = NULL;
     vm->foreign_class = NULL;
     vm->foreign_since_gc = 0;
+    vm->retained = NULL;
+    vm->retained_count = 0;
+    vm->retained_capacity = 0;
+    vm->retained_free = -1;
     vm->random_class = NULL;
     vm->builtin_globals = 0;
     vm->symbols = NULL;
@@ -159,6 +163,10 @@ void sol_vm_free(SolVM *vm)
     vm->symbol_class = NULL;
     vm->foreign_class = NULL;
     vm->foreign_since_gc = 0;
+    vm->retained = NULL;
+    vm->retained_count = 0;
+    vm->retained_capacity = 0;
+    vm->retained_free = -1;
     vm->random_class = NULL;
     vm->builtin_globals = 0;
 

@@ -13,29 +13,32 @@
 #include <glib.h>
 #include <gtk/gtk.h>
 
-#include "solum/embed.h"
-#include "solum/object.h"
-#include "solum/value.h"
-#include "solum/vm.h"
+#include "solum/extend.h"
 
 static GMainLoop *loop;
 
-/* The answer to question 2, once the probe had asked it: somewhere the tracer
-   already looks. An array on a slot of the extension's own global, which is a
-   slot of the root, which mark_roots walks. Nothing clever -- the point is that
-   there is no way for an extension to do this without one, and no supported
-   call that offers one. */
-static SolArray *rooted;
-
+/* The token, not the block.
+ *
+ * The first version of this file held a SolValue here, which is what the probe
+ * was written to find out about: the collector cannot see a struct C owns, so
+ * the block was swept between one tick and the next and the tick after called
+ * whatever landed in the cell. A token cannot go stale silently -- it either
+ * resolves or says it does not. */
 typedef struct {
-    SolVM   *vm;
-    SolValue block;
+    SolVM      *vm;
+    SolRetained block;
 } Callback;
 
 static gboolean on_tick(gpointer data)
 {
     Callback *cb = data;
-    SolValue answer = sol_vm_call_block(cb->vm, cb->block, NULL, 0);
+
+    SolValue block;
+    if (!sol_extension_retained(cb->vm, cb->block, &block)) {
+        return G_SOURCE_REMOVE;                 /* released; nothing to call */
+    }
+
+    SolValue answer = sol_vm_call_block(cb->vm, block, NULL, 0);
     if (cb->vm->had_error) {
         g_printerr("probe: callback failed: %s\n", sol_vm_error_message(cb->vm));
         g_main_loop_quit(loop);
@@ -56,10 +59,7 @@ static SolValue prim_every(SolVM *vm, SolValue self, SolValue *args, int argc)
     }
     Callback *cb = g_new(Callback, 1);
     cb->vm = vm;
-    cb->block = args[1];          /* the collector cannot see this */
-#ifdef PROBE_ROOTED
-    sol_array_add(vm, rooted, args[1]);
-#endif
+    cb->block = sol_extension_retain(vm, args[1]);
     g_timeout_add((guint)args[0].as.integer, on_tick, cb);
     return SOL_NIL_VAL;
 }
@@ -128,8 +128,6 @@ int sol_extension_init(SolVM *vm, int abi)
     sol_object_define_primitive(vm, gtk, "stress", prim_stress);
     sol_object_define_primitive(vm, gtk, "window", prim_window);
     sol_object_define_primitive(vm, gtk, "probeDisplay", prim_probe_display);
-    rooted = sol_array_new(vm, 4);
-    sol_object_define(vm, gtk, "handlers", SOL_ARRAY_VAL(rooted));
     sol_vm_set_global(vm, "gtk", SOL_OBJ_VAL(gtk));
     return 0;
 }

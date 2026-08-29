@@ -25,7 +25,7 @@ sentence survives only if a bundle lives outside the default build.
 | --- | --- |
 | `probe_host.c` | the loader: `dlopen`, `dlsym("sol_extension_init")`, call it before the run. Takes any number of bundles and a script |
 | `probe_ext_hash.c` | the throwaway the entry asks for. One message, nothing to release |
-| `probe_ext_gtk.c` | the half a checksum cannot test: a GLib main loop calling back into the VM, and a block the collector cannot see |
+| `probe_ext_gtk.c` | the half a checksum cannot test: a GLib main loop calling back into the VM, and a block the collector cannot see. **Since rewritten onto `sol_extension_retain`**, so the `#ifdef PROBE_ROOTED` it was built around is gone |
 | `probe.sol` | sends `hash:fnv1a` |
 | `tick.sol` | drives `gtk:every` under `gc_stress`. **This is the one that matters** |
 | `both.sol` | two bundles in one machine, which is the combinatorial claim |
@@ -62,22 +62,29 @@ substitute. **That paragraph is reasoned and not measured** — the probe ran on
 macOS/arm64 only, and saying so is the difference between this file and the one
 it corrects.
 
-## The finding, in one run
+## The finding, and what became of it
 
-Build `probe_ext_gtk.c` twice, once with `-DPROBE_ROOTED` and once without, and
-run `tick.sol` against each. Without it:
+As first written, `probe_ext_gtk.c` kept the block in a C struct and `tick.sol`
+under `gc_stress` printed:
 
 ```
 #1
 probe: callback failed: 'block' takes 1 argument, got 0
 ```
 
-The block registered with `g_timeout_add` is reachable from nothing the tracer
-walks, so the collection between the first tick and the second sweeps it, and
-the second tick calls whatever landed in that cell — the inner
-`{ x | x:asString }` from the same script. With `-DPROBE_ROOTED`, which puts the
-block in an array hung on the extension's own global, the same binary under the
-same stress prints five ticks and `"done"`.
+The block registered with `g_timeout_add` was reachable from nothing the tracer
+walks, so the collection between the first tick and the second swept it, and the
+second tick called whatever landed in that cell — the inner
+`{ x | x:asString }` from the same script. An arity complaint about a block the
+program never registered: **not a crash, and nothing in it pointing at the
+collector.**
+
+The workaround was four lines putting the block in an array hung on the
+extension's own global, behind `-DPROBE_ROOTED`. Those four lines were the
+argument for `sol_extension_retain`, and this file now uses it instead — one
+call, and a token that says so when it goes stale rather than resolving to
+something plausible. The same program under the same stress prints five ticks
+and `"done"`, with nothing conditional left in it.
 
 ## Three at once, which was the question the design is for
 

@@ -271,6 +271,14 @@ static void mark_roots(SolVM *vm)
     /* Cells held only in a C local across an allocation. */
     for (int i = 0; i < vm->temp_count; i++) mark_cell(vm, vm->temps[i]);
 
+    /* And what an extension asked to be kept between calls -- a block a
+       toolkit is holding as its callback, which is reachable from nothing else
+       here. A released slot holds nil in any case, but asking `in_use` says
+       plainly that the free list is not traced. */
+    for (int i = 0; i < vm->retained_count; i++) {
+        if (vm->retained[i].in_use) mark_value(vm, vm->retained[i].value);
+    }
+
     mark_cell(vm, (SolGCHeader *)vm->root);
     mark_cell(vm, (SolGCHeader *)vm->integer_class);
     mark_cell(vm, (SolGCHeader *)vm->float_class);
@@ -471,4 +479,15 @@ void sol_gc_free_all(SolVM *vm)
     vm->gray = NULL;
     vm->gray_count = 0;
     vm->gray_capacity = 0;
+
+    /* What an extension asked to be kept. The values themselves were freed by
+       the sweep above, whatever their reachability -- this is the table that
+       pointed at them. Nothing is released here in the SolForeign sense: a
+       retained foreign cell was on the heap and has already had its `release`
+       called by `free_cell`. */
+    free(vm->retained);
+    vm->retained = NULL;
+    vm->retained_count = 0;
+    vm->retained_capacity = 0;
+    vm->retained_free = -1;
 }

@@ -1457,7 +1457,7 @@ rather than a fallback.
 | **`extend.h`** | The three the entry above already names, plus a fourth found here: **an extension must check `had_error` after every `sol_vm_call_block`.** A limit-stop sets it, and a main loop that does not look will keep calling into a machine that has been stopped. |
 | **The ABI handshake** | Still nothing to compare. Copy `.sob`'s policy exactly — equality, refuse, do not guess. |
 | **`SolForeign`** | **Built on 2026-08-28.** As designed above, and the entry's best argument held: release runs from `free_cell`, which both the sweep and `sol_gc_free_all` go through, so a stopped program's sockets are closed too. Two things the design did not have — a `kind` checked with `strcmp`, so one extension's handle cannot reach another's primitive, and a `footprint`, without which `--memory` would measure the pointer rather than the texture. And one thing only real sockets could have found: **bytes are the wrong currency for a scarce resource**, so foreign cells carry a collection pressure of their own. |
-| **A callback registry** | New, from finding four. Nothing above anticipated it — and it is a **service an extension may use**, not the shape an extension takes, because a `draw` back end owns its own loop and needs none of it. |
+| **A callback registry** | **Built on 2026-08-28.** New, from finding four; nothing above anticipated it. A token rather than a value, because the point is that a released one *says so* where a stale value answers a plausible wrong block — the same silent misdispatch, one layer up. Still a **service an extension may use** and not the shape an extension takes: a `draw` back end owns its own loop and needs none of it. |
 | **Where loading is invoked from** | **A decision, and the one to take deliberately.** |
 
 **On that last one, the recommendation is a flag on the binary** —
@@ -1514,7 +1514,14 @@ accept that now than to discover it.
 > on this page anticipated that, and nothing would have: it is not visible until
 > the resource is real.
 >
-> **What remains is the callback registry, and then GTK.**
+> **And the callback registry**, which was the smallest of the four and turned
+> up one bug of its own on the way: a slot's `next_free` meant both *in use* and
+> *end of the free list*, so releasing into an empty list marked the slot live
+> again. Two states in one field, caught by the test that looked least likely to
+> fail. The probe that started all of this has been rewritten onto it and its
+> `#ifdef PROBE_ROOTED` is gone.
+>
+> **What remains is GTK itself, out of tree.**
 
 **Recommended order, each step falsifiable before the next:** the link change
 with `extend.h` and the handshake and the flag, tested by the *hash* bundle and

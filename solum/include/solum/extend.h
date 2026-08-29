@@ -101,10 +101,10 @@ typedef int (*SolExtensionInit)(SolVM *vm, int abi);
  * in a struct C owns, is *none of those* -- and a block registered as a
  * callback's user data is the case that bites, because the sweep happens
  * between one call and the next and the failure is a wrong block rather than a
- * crash. `sol_gc_push_temp` covers a short window; anything held for longer
- * belongs somewhere the tracer already looks, such as a slot on the
- * extension's own global. The temp stack is eight deep and overflowing it calls
- * `exit(1)` with no diagnostic.
+ * crash. `sol_gc_push_temp` covers a short window inside one primitive, and the
+ * temp stack is eight deep -- overflowing it calls `exit(1)` with no
+ * diagnostic. Anything held *between* calls goes in the registry below instead,
+ * which is unbounded and can tell you when a token has gone stale.
  *
  * **4. Check `vm->had_error` after every call back into the language.** After
  * `sol_vm_call_block` or `sol_vm_send`, and before doing anything else. A
@@ -149,6 +149,78 @@ typedef int (*SolExtensionInit)(SolVM *vm, int abi);
  * live-byte figure `--memory` is measured against. Zero when there is nothing
  * sensible to say, which is usual; a wrong guess is worse than none. */
 
+/* ---- keeping a value alive between calls ---------------------------------- *
+ *
+ * **Rule 3 covers a window inside one primitive. This is the other half.**
+ *
+ * A toolkit takes a callback and a pointer to hand back with it -- GTK's
+ * `gpointer user_data`, SDL's userdata, a signal handler's closure. The obvious
+ * thing is to put a Solum block in that pointer, and it is wrong: the tracer
+ * walks the value stack, the frames, the temporary roots and the class objects,
+ * and a block in a C struct is none of them. So a collection between one
+ * callback and the next sweeps it, and the next call runs **whatever now
+ * occupies that cell**.
+ *
+ * That failure was measured before this existed, and it is not a crash:
+ *
+ *     #1
+ *     probe: callback failed: 'block' takes 1 argument, got 0
+ *
+ * -- an arity complaint about a block the program never registered anywhere,
+ * with nothing in it pointing at the collector.
+ *
+ * So: retain the value, keep the *token* in `user_data`, and look it up when
+ * the callback fires.
+ *
+ *     typedef struct { SolVM *vm; SolRetained on_click; } Button;
+ *
+ *     button->on_click = sol_extension_retain(vm, args[0]);
+ *
+ *     static void clicked(GtkWidget *w, gpointer data)
+ *     {
+ *         Button *button = data;
+ *         SolValue block;
+ *         if (!sol_extension_retained(button->vm, button->on_click, &block)) {
+ *             return;                     // released, or never valid
+ *         }
+ *         sol_vm_call_block(button->vm, block, NULL, 0);
+ *         if (button->vm->had_error) { ... }         // rule 4
+ *     }
+ *
+ *     // when the widget goes away
+ *     sol_extension_release(button->vm, button->on_click);
+ *
+ * **Keeping the token rather than the SolValue is the point.** The collector
+ * does not move cells, so a retained `SolValue` would stay valid -- but a token
+ * that has been released answers *false*, where a stale `SolValue` answers a
+ * plausible wrong block. The registry can tell you that you are wrong; a cached
+ * value cannot, and being unable to is the whole defect.
+ *
+ * **Not reference counted.** Two retains of one value give two tokens, each
+ * released on its own. Retaining twice and releasing once leaves it rooted,
+ * which is the safe direction to be wrong in.
+ *
+ * Everything still retained is released when the VM goes down. */
+
+/* A token standing for one retained value. Zero is never valid, so a zeroed
+   struct means "nothing retained here" without anybody arranging it. */
+typedef uint64_t SolRetained;
+#define SOL_RETAINED_NONE ((SolRetained)0)
+
+/* Roots `value` until released, and answers a token for it. Never answers
+   SOL_RETAINED_NONE. */
+SolRetained sol_extension_retain(SolVM *vm, SolValue value);
+
+/* The value `token` stands for, or false if it was released, was never valid,
+   or names a slot since reused. `*out` is untouched when this answers false, so
+   a caller that reads it anyway reads its own initialiser rather than somebody
+   else's value. */
+bool sol_extension_retained(SolVM *vm, SolRetained token, SolValue *out);
+
+/* Stops rooting it, and answers whether there was anything to stop. Releasing
+   twice is not an error and answers false the second time. */
+bool sol_extension_release(SolVM *vm, SolRetained token);
+
 /* ---- what an extension may rely on --------------------------------------- *
  *
  * Declared in the headers above and named here so that the surface is one list
@@ -174,6 +246,11 @@ typedef int (*SolExtensionInit)(SolVM *vm, int abi);
  *                                                the wrong kind or released
  *   sol_foreign_release(value)                   give it back now, in an order
  *                                                you choose
+ *
+ *   sol_extension_retain(vm, value)              keep it between calls
+ *   sol_extension_retained(vm, token, &out)      get it back, or learn you
+ *                                                cannot
+ *   sol_extension_release(vm, token)             stop keeping it
  *
  *   sol_vm_call_block(vm, block, args, argc)     run a block -- then rule 4
  *   sol_vm_send(vm, receiver, name, args, argc)  send a message -- then rule 4

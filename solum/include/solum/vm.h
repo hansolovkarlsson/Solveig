@@ -49,6 +49,31 @@ typedef enum {
     SOL_STOPPED           /* a limit stopped it: it neither finished nor asked to */
 } SolResult;
 
+/* One value an extension has asked the collector to keep.
+ *
+ * A slot rather than a bare SolValue because of `generation`, which is what
+ * makes a stale token *detectable*. Without it, releasing slot 5 and later
+ * retaining into slot 5 would leave an old token resolving to a different
+ * value -- which is the exact failure this registry exists to prevent, moved
+ * from the collector into the registry. Bumped on every release, so a token
+ * from before it answers nothing.
+ *
+ * `in_use` and `next_free` are two fields because they were one and that was a
+ * bug: -1 meant both "in use" and "end of the free list", so releasing into an
+ * empty free list wrote -1 and marked the slot live again. A second release
+ * then answered true and the slot was on the free list twice. Caught by
+ * test_retain.c's `test_releasing_twice_is_not_an_error`, which is exactly the
+ * kind of case worth writing even when it looks like it cannot fail.
+ *
+ * Releasing and retaining are both constant time, and the array never shrinks
+ * or shifts. Nothing may shift: a token is an index. */
+typedef struct {
+    SolValue value;
+    uint32_t generation;
+    bool     in_use;
+    int      next_free;      /* meaningful only when `in_use` is false */
+} SolRetainedSlot;
+
 struct SolVM {
     SolFrame frames[SOL_FRAMES_MAX];
     int      frame_count;
@@ -89,6 +114,20 @@ struct SolVM {
      * is the collector being told that these are expensive in a currency it
      * cannot see. See SOL_GC_FOREIGN_PRESSURE. */
     int           foreign_since_gc;
+
+    /* What an extension has asked the collector to keep, and the other half of
+       what `temps` does.
+     *
+     * `temps` covers a window inside one primitive and is eight deep. This
+     * covers a value foreign code will hold *between* calls -- a block handed
+     * to a toolkit as a callback -- which is unbounded in both count and time,
+     * and which nothing else here can see: the tracer walks the stack, the
+     * frames, the temps and the class objects, and a block in a C struct is
+     * none of them. See sol_extension_retain in extend.h. */
+    SolRetainedSlot *retained;
+    int              retained_count;
+    int              retained_capacity;
+    int              retained_free;      /* head of the free list, or -1 */
 
     SolGCHeader  *temps[SOL_GC_MAX_TEMPS];
     int           temp_count;
