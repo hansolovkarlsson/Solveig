@@ -1,6 +1,6 @@
-# Lineage — what Solum is like, and what it is not
+# Lineage — what Solveig is like, and what it is not
 
-*For anyone arriving with another language in their hands. What Solum borrowed,
+*For anyone arriving with another language in their hands. What Solveig borrowed,
 from whom, and where it leaves the family. If you want to learn the language
 rather than place it, start with the [tutorial](TUTORIAL.md) instead.*
 
@@ -36,22 +36,24 @@ So: structurally it is nearer Self, and it sounds like Smalltalk.
 and which is worth knowing about if you do not. Same design point almost
 exactly: prototype-based, everything is a message send, delegation through a
 parent, blocks as values, a small C virtual machine, a deliberately tiny
-surface. Where Solum writes `point:x`, Io writes `point x`.
+surface. Where Solveig writes `point:x`, Io writes `point x`.
 
-If you have written Io, you will find Solum immediately familiar and slightly
+If you have written Io, you will find Solveig immediately familiar and slightly
 more restrictive.
 
-## The closest in size and shape
+## The closest in size and shape — to the machine
 
 **Lua** — not in semantics but in engineering ambition. A small C VM, bytecode,
 a mark-sweep collector, one obvious collection type, and a serious intent to be
 [embedded](embedding.md) in a larger program. Lua's object story is metatables
-rather than prototypes and its syntax is Pascal-flavoured, so the resemblance is
-to the implementation rather than to the language.
+rather than prototypes and its syntax is Pascal-flavoured, **so the resemblance
+is to Solum and not to Solveig** — to the machine underneath rather than to the
+language above it. That sentence used to have to be said the long way round;
+naming the two layers separately is what made it a short one.
 
 ## Syntax, borrowed piece by piece
 
-| | Solum | nearest relative |
+| | Solveig | nearest relative |
 | --- | --- | --- |
 | send a message | `x:print` | Io's `x print`, Smalltalk's `x print` |
 | bind a name | `a := #45` | Smalltalk, Pascal, Go |
@@ -65,7 +67,7 @@ to the implementation rather than to the language.
 | an integer | **`#45`** | — |
 | a float | **`45`** | — |
 
-The last two rows are Solum's own. Nearly every language makes the integer the
+The last two rows are Solveig's own. Nearly every language makes the integer the
 unmarked case; this one reverses it, on the grounds that a tagged integer is
 worth the mark where a value's type is never inferred. `#` is Smalltalk's
 literal marker, repurposed.
@@ -86,7 +88,7 @@ image and no live environment: you edit files and run a compiler.
 restricted — see below — and that reflection can read but never write.
 
 **Ruby.** Blocks look almost identical and behave similarly in the common case,
-because Ruby blocks are usually downward-only in practice and Solum's must be.
+because Ruby blocks are usually downward-only in practice and Solveig's must be.
 `:` where you expect `.`, `:=` where you expect `=`, and no `end`.
 
 **JavaScript.** You have prototypes already, so delegation will read naturally.
@@ -97,9 +99,12 @@ because "are these the same value" is a question worth answering across types
 where "which is larger" is not. And `nil` is one thing rather than two —
 [absence.md](absence.md) is the page on that.
 
-**C.** The VM, the bytecode and the [embedding interface](embedding.md) will all
-be legible. The language itself will not feel like C at all: no statements that
-are not expressions, no control-flow keywords, and no types written down.
+**C.** **Solum** will be legible — the VM, the bytecode, the
+[embedding interface](embedding.md) and the
+[extension interface](extensions.md) are all C and read as C. **Solveig** will
+not feel like C at all: no statements that are not expressions, no control-flow
+keywords, and no types written down. The two names are the two halves, and this
+is the paragraph where the difference is easiest to feel.
 
 ## Where it leaves the family
 
@@ -108,7 +113,7 @@ documented where a program would meet it.
 
 - **A block that reads its enclosing frame cannot outlive it**
   ([3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame)). Smalltalk,
-  Self and Io all have full closures. Solum's are downward-only, and calling one
+  Self and Io all have full closures. Solveig's are downward-only, and calling one
   after its frame returned is reported rather than reading somebody else's
   slots. This is the biggest single difference from the family.
 - **No non-local return** — no `^`
@@ -132,7 +137,7 @@ documented where a program would meet it.
 
 Placing the language invited the next question, and
 [ideas.md](ideas.md) now carries the survey: what Smalltalk, Self, Io, Lua and
-Ruby have that Solum might want, each with a verdict.
+Ruby have that Solveig might want, each with a verdict.
 
 The short version. **Deferred with a trigger**: an early exit from a loop,
 intercepting a message that was not understood, a set type, and mathematics with
@@ -161,7 +166,7 @@ that choose prototypes usually end up at JavaScript's shape rather than Self's.
 
 ---
 
-*A caveat this page owes the reader.* Everything above about **Solum** is
+*A caveat this page owes the reader.* Everything above about **Solveig** is
 checked — the syntax against the [reference](REFERENCE.md), the restrictions
 against the [roadmap](ROADMAP.md), and the strictness by running it, which
 corrected one claim: `equals` across types answers `false` where `lessThan`
