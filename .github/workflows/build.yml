@@ -144,8 +144,8 @@ jobs:
       - name: Build from the tarball
         timeout-minutes: 10
         run: |
-          make dist
-          tar xzf solveig-*.tar.gz -C "$RUNNER_TEMP"
+          tarball="$(make dist | tail -1)"
+          tar xzf "$tarball" -C "$RUNNER_TEMP"
           cd "$RUNNER_TEMP"/solveig-*/
           make
           ./bin/solvm --version
