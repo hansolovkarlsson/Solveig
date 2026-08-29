@@ -40,7 +40,19 @@ system.
 | sun | `#E8A33D` |
 | ground | `#3E4A5B` on light, `currentColor` where a theme is in play |
 
-## What it deliberately is not
+## Also here, and not used
+
+`solveig_logo.png` — an emblem of Sól herself: the goddess holding a sun, drawn
+into a circuit board. An experiment, kept because it is a good one, and **not
+the mark**: nothing links it, nothing renders it, and `logo.svg` above is what
+the project uses.
+
+Worth knowing if it is ever wanted for something: it is 1024×1024 with **no
+alpha channel**, so the green disc and the black corners are painted rather than
+transparent, and it would need cutting out before it could sit on anything but
+its own background.
+
+## What the mark deliberately is not
 
 **Not a sun-wheel.** Radiating spokes in a circle is the obvious way to draw a
 Nordic sun and it is one to stay away from: eight- and twelve-fold spoked wheels
