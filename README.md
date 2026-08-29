@@ -6,7 +6,7 @@ A small object-oriented language and its toolkit — bytecode compiler (Solas),
 virtual machine (SolVM), REPL (Solis) and debugger (Solid). Prototype-based,
 everything is a message send, 140<!--count messages--> messages, no control-flow
 syntax and no operators outside `@expr(a^2 + b/2)`, which is notation for the
-same sends. 15k lines of C11, no dependencies.
+same sends. 18k lines of C11, no dependencies.
 
 **Documentation: <https://hansolovkarlsson.github.io/Solveig/>** — a
 [tutorial](https://hansolovkarlsson.github.io/Solveig/docs/TUTORIAL.html) that
@@ -156,6 +156,28 @@ makes testing a change mean anything.
 version the binaries inside it report.
 
 ## Status
+
+**0.36.0** — a notation that adds no messages, and an interface that adds no
+dependencies. **140<!--count messages--> messages, unchanged**, and `.sob` files
+are format version 14 — bytecode from 0.35.0 still runs and 0.35.0 still runs
+this release's, checked both ways round by building the old release from its tag
+rather than asserted.
+**`@expr(a^2 + b/2)`** is infix arithmetic, comparison and logic inside a marked
+region, and every operator lowers to the send it already read as — the bytes are
+the chain's, so the notation costs nothing and adds nothing to the language.
+**Extensions** give the machine a capability it could not grow: a C file
+compiled on its own, named with `--extension=` when a program is started and
+never from inside one, since native code runs past every limit.
+[extend.h](solum/include/solum/extend.h) is the contract,
+[docs/extensions.md](docs/extensions.md) the prose, and a resource an extension
+owns is a value the collector gives back — on the sweep and at teardown, so a
+program stopped by a limit still has its sockets closed. Two bundles live out of
+tree and prove the mechanism carries a real toolkit:
+[solveig-gtk](https://github.com/hansolovkarlsson/solveig-gtk) and
+[solveig-sdl](https://github.com/hansolovkarlsson/solveig-sdl).
+**And the language is called Solveig now** — *Solum* moved down a layer to name
+the machine, its bytecode, and the ground a program is finally laid on, which is
+what `solvm` had been saying all along.
 
 **0.35.0** — two languages and a module system, and the machine needed one new
 message for all of it. `.sob` files are format version 14, unchanged, and

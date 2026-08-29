@@ -11,7 +11,7 @@ that a document was still true. That is what this is for.
 
 ---
 
-## 2026-08-29 — the second back end, which was the experiment
+## 2026-08-28 (after all that) — the second back end, which was the experiment
 
 **SDL2, and the point of writing it was not SDL2.** The extension entry closed
 yesterday with a claim that had never been tested: *SDL2 after that changes

@@ -5,7 +5,103 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### A second back end, and the one name it found missing — `3214691`, 2026-08-29
+## 0.36.0 — 2026-08-28
+
+**A notation that adds no messages, and an interface that adds no dependencies.**
+The language answers **140<!--count messages--> messages, unchanged** across the
+whole release, and `.sob` files are format version 14. Bytecode from 0.35.0 runs
+here and this release's runs on 0.35.0 — checked by building the old release
+from its tag and running each compiler's output on the other machine, where the
+two compilers turned out to emit byte-identical files.
+
+### `@expr`: infix arithmetic, and not a second mechanism
+
+`@expr(a^2 + b/2)` is arithmetic, comparison and logic written the way the
+notation is read, inside a region that has to be asked for. **Every operator
+lowers to the send it already read as**, so the bytes are the chain's and the
+language gained nothing: `a + b` *is* `a:add(b)`, and a program that overrides
+`add` is honoured by both spellings.
+
+`~` binds looser than a comparison, which is the reading the words have and the
+one BASIC and Pascal take; comparisons do not chain, which is the shape of the
+grammar rule rather than a check; and `&` and `|` are the only operators whose
+right-hand side is not compiled where it stands, because `and` and `or` take a
+block in order to stop early.
+
+The region was called `@math` for a few hours. The name went wrong the moment
+the scope grew past arithmetic, and it was changed the same day — **the cheap
+moment to rename a thing is the moment you notice it is misnamed**.
+
+### Extensions: a capability from a C binary
+
+    solvm --extension=gtk.so program.sob
+
+A C file compiled on its own hangs a global off the machine's root, and its
+primitives are primitives: same slot, same dispatch, same speed, found by
+`respondsTo` and listed by `slots`.
+[extend.h](../solum/include/solum/extend.h) is the contract,
+[docs/extensions.md](extensions.md) is the prose, and
+[tests/test_extension.c](../tests/test_extension.c) holds it.
+
+**Loading is a decision belonging to whoever starts the program.** There is no
+message that loads an extension and no `@link` directive: native code runs past
+`--steps` and `--memory`, so a capability a script could invoke is one a host
+could not withhold. `solvm`, `solis` and `solid` all take the flag — every front
+end that *runs* a program — and Solas pointedly does not, since a compiler that
+loaded native code would put the requirement into the `.sob`.
+
+**A resource an extension owns is a value the collector gives back.** A socket,
+a window, a connection: `release` runs from the sweep when the program lets go,
+and at teardown for whatever is still held — so a program a limit took away
+mid-flight still has its sockets closed, which an explicit `close` could never
+promise. There is no `close` message for that reason. This is the first thing in
+the language that has a release, and
+[design.md](design.md)'s *"nothing has to be released"* is sharpened rather than
+falsified: a resource has one, and it was never the program's to run.
+
+**And a value foreign code holds is kept alive on request.**
+`sol_extension_retain` answers a token rather than the value, because a released
+token says so where a stale value answers a plausible wrong block.
+
+`foreign` joins the reserved names as a class object, so a program handed a
+handle can ask `isKindOf(foreign)`. It publishes no new selector — 140 messages,
+across 242 registrations rather than 236 — a number the suite holds against
+`builtins.c` and [REFERENCE.md](REFERENCE.md), so it cannot go stale here.
+
+### Two bundles, out of tree
+
+[solveig-gtk](https://github.com/hansolovkarlsson/solveig-gtk) and
+[solveig-sdl](https://github.com/hansolovkarlsson/solveig-sdl), each in its own
+repository and built by nothing here — which is why *no dependencies beyond a
+C11 compiler and `make`* is still true and still checked on three platforms.
+
+The second one is the check on the first. It needed **no change to the
+mechanism**, and it is deliberately unlike it: GTK owns the loop and calls into
+the program, SDL hands the program a frame and gets out of the way. So `sdl` has
+no callbacks and uses none of the retain registry — which is the evidence for a
+decision taken when there was only one back end to argue from, that the registry
+is a service an extension may use rather than the shape an extension takes.
+
+### The language is called Solveig
+
+*Solum* moved down a layer rather than away: it names the machine, its bytecode,
+and the ground a program is finally laid on — which is what `solvm` had been
+saying all along, SOLVM being how *solum* was written before the alphabet split
+V into two letters. Nothing in the source tree is renamed, and `solum/`,
+`SOLUM_VERSION`, `.sob` and every `sol_*` call are more accurate for it.
+
+Documents that record history keep the old name, because they record what was
+true when they were written.
+
+### Also
+
+A mark: one disc parted, *sól* above the line and *solum* below, replacing a
+placeholder emoji favicon. `float` gained the trigonometry and `sqrt` reached
+`@expr` as `sin(x)`. The changelog's own hashes are checked now
+([3.21](ROADMAP.md)), which is what caught a literal `%s` that had been sitting
+where a hash belonged since 2026-08-26. 18k lines of C11.
+
+### A second back end, and the one name it found missing — `3214691`, 2026-08-28
 
 **[solveig-sdl](https://github.com/hansolovkarlsson/solveig-sdl)**, written to
 find out what [solveig-gtk](https://github.com/hansolovkarlsson/solveig-gtk) had
