@@ -5,6 +5,24 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### `make dist` writes into `dist/` — `f85a751`, 2026-08-29
+
+Four tarballs had accumulated at the repository root, one per release since
+0.35.0, because that is where the rule had always written them. They are in
+`dist/` now, ignored as a directory as well as by the `*.tar.gz` pattern that
+still catches anything dropped beside the tree.
+
+`make clean` does not take `dist/`, and the Makefile says why where the rule is:
+a tarball is a release artefact rather than an intermediate one, and cleaning
+before a rebuild should not delete the thing you were about to publish.
+
+**It broke CI, which is the part worth recording** — `.github/workflows/build.yml`
+built the tarball and then looked for it at the root. Fixed in `6c11a10` by
+taking the path from the rule that writes it, since `make dist` already echoes
+it. Both the local suite and the document checker passed on the change that
+broke it: **a change to where a build artefact goes is a change to every
+consumer of it, and the consumers are not all in the tree.**
+
 ## 0.38.0 — 2026-08-29
 
 **Two things that add no messages.** The language answers

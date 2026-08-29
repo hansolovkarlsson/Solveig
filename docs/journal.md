@@ -11,6 +11,62 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-29 (after the release) — the consumer that was not in the tree
+
+Moving `make dist` into `dist/` was the smallest change of the day: a variable,
+a `mkdir`, an ignore rule, and four tarballs relocated. `make test` passed, the
+document checker passed, and it was committed and pushed.
+
+**It broke CI**, and it broke the one job that neither of those checks can see.
+The `install + dist` workflow builds the tarball and then extracts it —
+`tar xzf solveig-*.tar.gz` at the repository root, where there is now nothing.
+A step that cannot find its input fails for the wrong reason, and it would have
+failed on the next push whether or not anything was wrong with the release.
+
+It was found by asking *is anything left over today?* rather than by the machine,
+which is the part worth keeping. **A change to where a build artefact goes is a
+change to every consumer of it, and the consumers are not all in the tree.** The
+Makefile, the ignore file and the README were all updated together, because all
+three are here; the workflow was not, because looking at it did not occur to
+anyone who had just finished looking at everything else.
+
+### And then the fix found something CI could not have
+
+The obvious repair is to move the glob: `dist/solveig-*.tar.gz`. Rehearsing it
+here is what showed why not. CI starts from a clean checkout with exactly one
+tarball; this tree keeps four, one per release since 0.35.0 — and a glob that
+matches four hands `tar` the first as the archive and the other three as member
+names to extract *from* it. Three lines of *not found in archive*, and a green
+run in CI regardless, for as long as CI never keeps two.
+
+So the step takes the path from the rule that writes it — `make dist` already
+echoes it — and stops caring where that is. **The local rehearsal caught what CI
+could not, on the same afternoon CI caught what local could not.** They fail in
+opposite directions: a fresh checkout hides what an old one shows, and one
+machine hides what three show.
+
+### What CI was actually for, this time
+
+Green on all five jobs, and two of them were carrying a real question rather
+than a habit.
+
+| | |
+| --- | --- |
+| `ubuntu-latest / gcc`, `ubuntu-latest / clang`, `asan + ubsan` | **the first Linux build of `net.so`**, which had existed only on macOS until this run. `make all` builds the bundle now, and `make test` depends on it, so the datagram round trip, the foreign cell and the collector root were exercised on three configurations rather than one |
+| `install + dist` | the corrected path, end to end: build the tarball, extract it, build from it |
+
+The bundle needed no change to compile under either Linux compiler or under the
+sanitisers, which is what the extension mechanism promised and had so far only
+demonstrated for bundles built somewhere else.
+
+### The lesson, which is a narrow one
+
+The day's other findings were all *a statement true where it was written and
+false where it ended up*. This one is the same sentence about code: a rule that
+writes a file is a contract with whoever reads it, and grepping the tree for
+`tar.gz` would have found the workflow in one second. The check is cheap and the
+habit is not automatic, which is exactly the kind of thing this journal is for.
+
 ## 2026-08-29 (the release) — 0.38.0, and three statements that were true somewhere else
 
 **Two things that add no messages.** 141 messages, unchanged; `.sob` format 14,
