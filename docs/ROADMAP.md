@@ -36,6 +36,15 @@ with call frames, blocks with lexical capture and parameters, message-based
 control flow, a mark-sweep collector over objects, blocks and compiled code, the
 `.sob` format with its verifier, and every built-in type the language has.
 
+**A capability the machine does not have can be loaded into it** rather than
+grown: [extensions](extensions.md) are C compiled on its own, named with
+`--extension=` when a program starts and never from inside one. A resource an
+extension owns is a value the collector gives back, on the sweep and at
+teardown. Two bundles live out of tree —
+[GTK4](https://github.com/hansolovkarlsson/solveig-gtk) and
+[SDL2](https://github.com/hansolovkarlsson/solveig-sdl) — which is what keeps
+*no dependencies beyond a C11 compiler and `make`* true.
+
 The language is Turing-complete, does not leak, and has strings, arrays,
 dictionaries, symbols, user-defined objects, reflection, sorting, formatted
 output, and the conversions between every pair of types that has an unambiguous
@@ -613,6 +622,16 @@ name a file. Measured with the smallest program that shows it:
 The step count does not move with the size, because the size is not what it is
 counting. Four of those eight are the four the empty program spends.
 
+**An extension is this entry at full size**, and the reason it is not a new one.
+A primitive that scans 256MB spends eight steps; a primitive that *is* somebody
+else's C spends eight steps doing anything at all, and `gtk:run` spends eight
+steps waiting for a person. Extensions did not create the hole, they widened a
+hole that was already the honest description of a primitive — which is why
+[docs/extensions.md](extensions.md) states it as a rule an extension keeps
+(check `had_error` after calling back in) rather than as a promise the machine
+makes. What bounds a program with a window is the extension's discipline, and
+that is written where an extension author reads it.
+
 The memory ceiling is the same fact from the other side. It is checked in
 `sol_gc_maybe_collect`, so an allocation is measured **after** it has been made:
 under `--memory=1M` the 256MB read completes, and the program is stopped at the
@@ -677,6 +696,14 @@ than after.
 whether a name is bound before running, and answer its own error rather than the
 language's. `sol_vm_global` already answers false for an unbound name, so this
 is a check a host may make and no help the interface gives it.
+
+**An extension is a second instance of the same joint**, added in 0.36.0 and
+recorded here rather than given an entry of its own. A bundle binds `gtk` and a
+program says `gtk`; nothing checks that they agree, and a program started
+without its bundle fails as *undefined name 'gtk'* at the first line that names
+one. The difference from a host is only that the failure is easier to read,
+since the missing thing was named on the command line a moment earlier — the
+joint is identical, and so is the reason it is not simply a defect.
 
 ### 3.10 A VM cannot be reused across runs
 

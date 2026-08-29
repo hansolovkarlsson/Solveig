@@ -114,6 +114,18 @@ lights, and **Solveig** carries the same star into Norse: *sól* joined to
 | `embed/`  | A C program that holds a `SolVM` -- see [embedding.md](docs/embedding.md) |
 | `lib/`    | The library that ships with the language, found on the search path |
 
+Two more live outside this repository, and outside it on purpose — the front
+page says *no dependencies beyond a C11 compiler and `make`*, and it stays true
+because they are not here:
+
+| Repository | What |
+| --- | --- |
+| [solveig-gtk](https://github.com/hansolovkarlsson/solveig-gtk) | A GTK4 window, loaded at run time. 17 messages, and the editor above ported to it |
+| [solveig-sdl](https://github.com/hansolovkarlsson/solveig-sdl) | An SDL2 surface, shaped nothing like the GTK one because SDL is not |
+
+Both are built against [extend.h](solum/include/solum/extend.h) and loaded with
+`--extension=`; see [docs/extensions.md](docs/extensions.md).
+
 Each component keeps its public headers in `<component>/include/<component>/`
 and its implementation in `<component>/src/`. `solum/include/solum/bytecode.h`
 is the contract between the compiler and the VM -- it is the one file both

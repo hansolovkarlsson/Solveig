@@ -11,6 +11,134 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-28 (the close) — a name, a mark, three releases, and the language grew by one
+
+The day that began with *how do we get GTK in without putting it in* ended with
+two toolkits in two repositories, the language renamed, and one message added
+because a program asked for it. What follows is the closing account; the four
+entries below this one are the work as it happened.
+
+### The name
+
+**Solveig is the language now. Solum moved down a layer** to name the machine,
+its bytecode, and the ground a program is finally laid on — which is what
+`solvm` had been saying all along, SOLVM being how *solum* was written before
+the alphabet split V into two letters.
+
+Nothing in the source tree was renamed. `solum/`, `SOLUM_VERSION`, `.sob` and
+every `sol_*` call describe the layer they always sat in, and each is *more*
+accurate for the word having moved to meet it.
+
+Three paragraphs of the etymology needed real work rather than substitution, and
+the one that mattered was `sōlum` meaning **only** — the design principle. It
+looked orphaned by the move, and it was not: the dispatch loop is where "one
+kind of thing, one thing that happens to it" is *enforced* rather than intended.
+A language with a second mechanism could not be run by that machine without
+being given one. The principle was always kept in the ground.
+
+### The mark
+
+One disc, parted: *sól* above the line, *solum* below. It is the naming decision
+rather than a decoration of it, and it is *only* one shape, which is the other
+sense of the word.
+
+Two things it is built to survive, and both were mistakes in the first drafts.
+**The gap is geometry rather than paint** — a white line across a disc works
+only on white. And in the site header the ground half is `currentColor`, so it
+follows the theme while the sun half never changes.
+
+It was drawn, rendered and *looked at*, three rounds. The first produced a
+weather icon, a bullseye, and a bar in front of a circle. A spoked sun-wheel was
+never drawn: it is the obvious way to draw a Nordic sun and it is close to a
+symbol other people have ruined.
+
+### Three releases
+
+0.36.0 and 0.37.0 cut, and **0.35.0 backfilled** — it had a tag and no release
+page, so the run went 0.36.0 → 0.34.0. Its tarball turned out byte-identical to
+the one made on release day, same SHA-256, so what is published is the original
+rather than a reconstruction of it.
+
+Each release's compatibility claim was **earned rather than asserted**, by
+building the previous one from its tag and running each compiler's output on the
+other machine. 0.37.0 needed the claim in two halves, which is the part worth
+keeping: bytecode is compatible both ways *and* a program using the new message
+needs a machine that has it. The format being compatible and the language having
+grown are different facts and conflating them would have been the easy sentence.
+
+### The port, and the message it asked for
+
+Solveig's 1,766-line editor now runs in a window. Of those lines the diff removes
+33 and adds 114, most of them comments: the buffer, the motions, the undo stack
+and the whole of `:s///` are the file as it was.
+
+**The loop inverts, and that is the only part that is not mechanical.** The
+terminal version owned its loop — draw, block on a key, act. GTK owns the loop
+and calls in, so the body turns inside out and `gtk:run` is where the program
+waits. Nothing above the driver knows.
+
+And **the port is shorter where the terminal was hardest.** `escape` cannot be
+told from the first byte of an arrow by a byte reader, which is why
+`system:keyWaiting` exists and why `edit:escapeWait` is fifty milliseconds. GTK
+delivers a decoded key, so `decode`, `decodeEscape` and `escapeWait` are gone —
+along with `system:terminalSize`, a message this language added *for* that
+program, which a window has nothing to ask.
+
+It wanted one thing the language did not have: `string:replace`, three times in
+one line, to escape markup. The workaround was exact, so the port shipped
+without it and the absence was written down. Then 0.37.0 added it, and the port
+uses it. **141 messages.**
+
+### Postmortem
+
+1. **The entry told me the method and had never been made to follow it.**
+   ideas.md's extensions entry closed by saying *write one throwaway extension,
+   fifty lines, build it, load it, find out what the path actually wants — an
+   afternoon of that would settle more than another page of this.* It had been
+   extended twice instead. The afternoon happened today and it falsified two of
+   the entry's own claims, found a bug the design could not have predicted, and
+   settled the mechanism. **A page that recommends a method and does not use it
+   is a page arguing with itself**, and the tell was that it kept getting
+   longer.
+
+2. **Three bugs, and every one was found by a program rather than by reading.**
+   The block a collection swept between callbacks. The collector that never ran
+   because a socket weighs forty bytes. The free-list field that meant two
+   things. None was visible in review; each took a program that abused the
+   thing. The registry bug is the sharpest: it was caught by
+   `test_releasing_twice_is_not_an_error`, the case that looked least worth
+   writing.
+
+3. **A check that cannot fail teaches nothing, and looks identical to one that
+   works.** The version gate in the extension Makefiles compared a shell's
+   process id against zero for an hour, because `$$$$1` in a Makefile becomes
+   `$$1` and the shell eats it. Against a current checkout a broken gate and a
+   working one are the same. It was caught only by running it against a real
+   0.35.0 built from its tag — the same old build already sitting there for the
+   release compatibility check, which is the argument for keeping such things
+   around.
+
+4. **Writing the second one is what tests the first.** solveig-sdl needed no
+   change to the mechanism, and the useful part is that it is *unlike* GTK: SDL
+   hands a program a frame and gets out of the way, so it uses no callbacks and
+   none of the retain registry. That is evidence for two decisions taken on
+   argument when there was only one back end to argue from — that the registry
+   is a service rather than a shape, and that no back end names itself the
+   general case. **The temptation was to give SDL a `run(block)` so the two would
+   match**, which would have destroyed exactly the evidence that made writing it
+   worthwhile.
+
+5. **A live count inside a historical sentence is a small trap.** The recount
+   rewrote *"0.36.0 — 140 messages, unchanged"* into 141, which was true of
+   neither the release nor the sentence. Markers belong on statements about now.
+   History gets plain numbers.
+
+6. **The suite drove the whole doc tail and was better at it than I was.** It
+   demanded the reference entry, the index row alphabetised, an example that
+   actually sends the new message, and five separate counts — including two
+   wrapped in bold that the obvious pattern missed. Every one of them was a
+   thing I would have shipped wrong.
+
 ## 2026-08-28 (after all that) — the second back end, which was the experiment
 
 **SDL2, and the point of writing it was not SDL2.** The extension entry closed
