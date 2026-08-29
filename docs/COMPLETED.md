@@ -1705,7 +1705,7 @@ The safe design is to read the file: walk the top-level chunk, collect every
 `OP_SET_GLOBAL`, and never run a line. No side effects, nothing to bound, and it
 works on a file that would fail if executed.
 
-**It is also wrong, and a hundred lines in `scratch/` is what showed it.**
+**It is also wrong, and a hundred-line throwaway is what showed it.**
 
 - **`lib/text.sob` binds nothing.** It hangs `utf8Tail` and `asUtf8` on
   `integer`, so a reader of `SETGLOB` prints an empty report for a library with

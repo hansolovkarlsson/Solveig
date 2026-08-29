@@ -31,8 +31,8 @@ two things in this tree do: a host, and the debugger.
 
 ### The throwaway that changed the design
 
-A hundred lines in `scratch/`, written to answer one question: parse the file,
-or run it?
+A hundred-line throwaway, written to answer one question: parse the file, or run
+it?
 
 Parsing is the safer answer and was the one to beat. Collect every
 `OP_SET_GLOBAL` in the top-level chunk and you have the names, with no side
