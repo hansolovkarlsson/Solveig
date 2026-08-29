@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### `extensions/net`, and two programs that talk — `pending`, 2026-08-29
+### `extensions/net`, and two programs that talk — `b524f83`, 2026-08-29
 
 **UDP sockets, as an extension and not as a machine.** Five messages, built by
 `make` into `build/extensions/net.so` and loaded by nobody unless a host asks:
