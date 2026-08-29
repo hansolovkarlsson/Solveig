@@ -356,6 +356,29 @@ going to the C only where those ran out. They ran out five times.
 targets to `solvm --dump` over eight files and 7,673 instructions, including
 `lib/json.sol` and `lib/html.sol`.
 
+### The neighbour that could not be a program
+
+The obvious next thing to write here is the other question about a `.sob` — not
+*what instructions are in it* but *what does it export*, which is what anybody
+asks of a library they did not write. It is not in this directory and cannot be,
+and the reason is worth recording on the page about what belongs here.
+
+**The globals are slots on an object with no name in the language**, so neither
+`slots` nor `perform` reaches them: a program cannot list what it has bound, let
+alone what a file it loaded bound. Whatever answers that question has to hold the
+root object, which is C. It shipped as
+[`solid --exports`](REFERENCE.md#what-a-file-exports) — a mode of the debugger,
+because the debugger is the other thing here that holds the root, and its
+`globals` command is the same question asked from a prompt.
+
+**disasm could have faked it and would have been wrong**, which is the more
+useful half. Collecting every `SETGLOB` out of the top-level chunk is a dozen
+lines from where this program already stands — and `lib/text.sob` binds no global
+at all, hanging `asUtf8` on `integer` instead, so that report would be confidently
+empty for a library with two messages in it. The surface has to be read by
+loading the file, not by reading it. See
+[6.38](COMPLETED.md#638-nothing-says-what-a-compiled-file-exports--done).
+
 ## expect — the examples and the documents, checked against what they claim
 
 Runs every file in `examples/` and checks the inline comments that say what each
@@ -508,7 +531,7 @@ was true at each release, so its snippets describe past states on purpose.
 **Its headings are read, though, for the commit hash each one names.** An entry
 cannot carry its own hash, so it goes in saying `pending` and a follow-up commit
 substitutes the real one — and until [ROADMAP
-3.21](COMPLETED.md#321-a-changelog-hash-is-written-by-hand-and-nothing-checks-it)
+3.21](COMPLETED.md#321-a-changelog-hash-is-written-by-hand-and-nothing-checks-it--done)
 nothing asked whether that had worked. Once it had not: an entry carried a
 literal `%s` where its hash belonged for two days, through every `make test`,
 and was found by a person reading the page. Everything backticked after a

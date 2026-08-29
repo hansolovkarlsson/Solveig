@@ -1665,6 +1665,116 @@ written and could not be seen until something crossed it.
 The rest of this section is live, and is in
 [ROADMAP.md](ROADMAP.md#6-beyond-the-language--gone-from-this-document).
 
+### 6.38 Nothing says what a compiled file exports — **done**
+
+**`solid --exports`**, a mode of the debugger that runs a `.sob` or loads a
+`.so` and then says what is in the machine that was not there before.
+
+#### The problem, and the three things that nearly solved it
+
+Somebody has a compiled file and wants to know what may be sent to it. That is
+the first question anyone asks of a library they did not write, and the answer
+was *read the source*, which is not available for a `.sob` shipped without one
+and does not exist for a `.so` at all.
+
+Three things already reached part of the way, and it is worth writing down which
+half each of them was missing, because that is what decided the shape:
+
+| | reaches | misses |
+| --- | --- | --- |
+| `solvm --dump`, [disasm.sol](../programs/disasm.sol) | the instructions | it is a disassembly. `SETGLOB` and `SETSLOT` are in there and nothing collects them |
+| `solid`'s `globals` | the names, and a `.so`'s too, since it takes `--extension=` | names only, no messages, and it is a prompt rather than a command |
+| `slots`, `exports`, `respondsTo` | the whole surface, exactly | you have to know the name before you can ask |
+
+**The third row is the constraint, and it was already documented.**
+[`globals` is the one question a program cannot ask itself](REFERENCE.md#stopping-a-program-solid):
+the globals are slots on an object with no name in the language, so neither
+`slots` nor `perform` reaches them —
+2.10 in [ROADMAP.md](ROADMAP.md#2-language-decisions) and
+[design.md](design.md#why-binding-is-syntax-and-not-a-message). Once a name is
+in hand the language answers everything else; what it cannot answer is what the
+names *are*.
+
+So this could not have been `programs/exports.sol`, sitting beside `disasm.sol`
+where by every other measure it belonged. Whatever answers it must hold the root
+object directly, and two things in this tree do: a host, and Solid.
+
+#### Static or dynamic, and the throwaway that settled it
+
+The safe design is to read the file: walk the top-level chunk, collect every
+`OP_SET_GLOBAL`, and never run a line. No side effects, nothing to bound, and it
+works on a file that would fail if executed.
+
+**It is also wrong, and a hundred lines in `scratch/` is what showed it.**
+
+- **`lib/text.sob` binds nothing.** It hangs `utf8Tail` and `asUtf8` on
+  `integer`, so a reader of `SETGLOB` prints an empty report for a library with
+  two messages in it — and prints it *confidently*, with no sign that it has
+  failed. A library that only extends a built-in class is a normal shape here;
+  `math.sol` and `control.sol` are the same.
+- **A `.so` has no bytecode to read.** An extension's surface is not written
+  down anywhere and cannot be: there is no manifest, only an
+  `sol_extension_init` that binds whatever it binds. The static answer does not
+  merely miss this case, it has nothing to open.
+
+So the file is put into a machine and the machine is measured before and after —
+the root's slots for what was bound, and every built-in class's slot count for
+what was extended. Both file kinds end in the same place, which is why one
+mechanism reads both and why naming a bundle and a file on one command line
+gives two reports rather than one heap.
+
+**The cost is that the file runs**, and it is stated rather than hidden, in the
+help text and in [the reference](REFERENCE.md#what-a-file-exports). A library
+binds its names and stops, because that is the whole of what a library does. A
+program does whatever it was written to do first — `programs/tools.sob` shells
+out to `du` and `git` before the report appears, and `extensions/net/client.sob`
+spends six seconds failing to reach a server. A file that does not finish
+reports what it had bound by then, says that is what it is, and leaves with 70.
+
+#### Why a mode of the debugger and not a fifth binary
+
+The four names mean something, and a fifth would need one — plus a paragraph in
+the README explaining it — for a capability Solid already has. Solid is the tool
+that takes a thing apart; it holds the root object, which is the whole
+requirement; and it already takes `--extension=`, so the `.so` half needed no
+new machinery at all. `globals` at the prompt becomes the one-line cousin of
+this rather than a rival to it.
+
+**Not `solas`**, and that one is a rule rather than a preference: a compiler
+that loaded native code in order to read a file would put `dlopen` into the
+compiler, which [extensions.md](extensions.md#who-decides) refuses by name.
+**Not `solvm`**, which is the thing that runs a program.
+
+#### The boundary is the answer, so it is honoured
+
+An [`exports` boundary](REFERENCE.md#the-export-boundary) is the file's own
+statement of what may be sent to it, which is exactly the question. Names it
+keeps private are counted rather than listed, and `--exports=all` lists them,
+marked. An object that never drew one has every name listed, which is the truth
+about that object — not drawing a line is not a weaker line.
+
+#### What it found, including the finding that was wrong
+
+**One hazard in its own implementation, closed rather than survived.** The
+report holds an `SolObject *` across the run, and a file may rebind the name an
+extension bound — `probe := #1.` — at which point the object measured before has
+no root left and the collector may take it. It passed under ASan with
+`SOLUM_GC_STRESS=1` on the first attempt, which proves only that the collector
+did not get to it that time. The name is looked up again now and the two
+pointers compared before either is read: a comparison, never a dereference.
+Equal means the slot still holds it, and holding it is what keeps it alive.
+There is a test, and it runs under the sanitisers.
+
+**And one finding that shrank to nothing on the second look.** The throwaway
+reported that `lib/json.sob` carried a `scan` with no `exports` boundary where
+`lib/json.sol` says it should have one, and sixteen `.sob` files in the tree
+differ from a fresh compile. That was written up as a defect before checking one
+thing: `.gitignore` has `*.sob`, and `make install` copies `lib/*.sol`. **Nothing
+in `lib/` is tracked, built by `make`, or installed.** They are hand-compiled
+leftovers on one machine and the correct response is `rm`. Kept here because the
+lesson transfers: *a diff against the working tree is not a diff against what is
+published*, and `git ls-files` was available the whole time.
+
 ### 6.37 `indexOf` cannot say where to start — **done**
 
 **`indexOf(s, #from)`**, a second arity on the message that was already there.

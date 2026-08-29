@@ -350,6 +350,198 @@ static void test_a_failure_inside_a_loaded_file_stops_there(void)
     printf("  a failure inside a loaded file stops there, over the loading frame\n");
 }
 
+
+/* ---- --exports: the surface rather than the stepping --------------------- *
+ *
+ * A different mode with no prompt: it runs the file and reports, so what is
+ * driven here is a command line rather than a session. */
+
+/* Runs solid over `program` in --exports mode and answers what it said, with
+   the status put where an assertion can reach it. `flags` is what goes before
+   the file -- `--exports`, `--exports=all`, or an --extension= beside one. */
+static int reported(const char *program, const char *flags, char *out, size_t size)
+{
+    system("mkdir -p " DIR);
+    if (program != NULL) write_file(DIR "/program.sol", program);
+
+    char line[4096];
+    snprintf(line, sizeof line, "bin/solid %s %s 2>&1",
+             flags, program != NULL ? DIR "/program.sol" : "");
+
+    FILE *pipe = popen(line, "r");
+    assert(pipe != NULL);
+
+    size_t filled = 0, got;
+    out[0] = '\0';
+    while (filled + 1 < size &&
+           (got = fread(out + filled, 1, size - filled - 1, pipe)) > 0) {
+        filled += got;
+    }
+    out[filled] = '\0';
+    int status = pclose(pipe);
+    return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+}
+
+/* The ordinary case: a library binds a name, and what may be sent to it is
+   listed with the arity each one takes. */
+static void test_exports_lists_what_a_file_bound(void)
+{
+    char out[16384];
+    int status = reported("greet := object:new.\n"
+                          "greet:hello := { name | name }.\n"
+                          "greet:count := #3.\n",
+                          "--exports", out, sizeof out);
+
+    assert(status == 0);
+    assert(strstr(out, "greet") != NULL);
+    assert(strstr(out, "hello") != NULL);
+    assert(strstr(out, "takes 1 argument") != NULL);
+    assert(strstr(out, "count") != NULL);
+    assert(strstr(out, "#3") != NULL);          /* a data slot shows its value */
+    printf("  --exports lists what a file bound, with each arity\n");
+}
+
+/* The case a reader of OP_SET_GLOBAL would get wrong. `lib/text.sol` is this
+   shape: it binds no name at all and hangs a method on `integer`, so a report
+   built from what the file *bound* would be empty and would be wrong. */
+static void test_exports_sees_a_class_that_was_extended(void)
+{
+    char out[16384];
+    int status = reported("integer:double := { self:mul(#2) }.\n",
+                          "--exports", out, sizeof out);
+
+    assert(status == 0);
+    assert(strstr(out, "integer") != NULL);
+    assert(strstr(out, "(extended)") != NULL);
+    assert(strstr(out, "double") != NULL);
+    printf("  --exports sees a class extended by a file that binds nothing\n");
+}
+
+/* A boundary is the answer to the question, so it is honoured: what it keeps
+   private is counted and not listed, and `--exports=all` lists it. */
+static void test_exports_honours_a_boundary(void)
+{
+    char out[16384];
+    const char *program =
+        "counter := object:new.\n"
+        "counter:total := #0.\n"
+        "counter:secret := { #42 }.\n"
+        "counter:bump := { self:total := self:total:add(#1) }.\n"
+        "counter:exports(['bump, 'total]).\n";
+
+    int status = reported(program, "--exports", out, sizeof out);
+    assert(status == 0);
+    assert(strstr(out, "bump") != NULL);
+    assert(strstr(out, "total") != NULL);
+    assert(strstr(out, "secret") == NULL);              /* behind the boundary */
+    assert(strstr(out, "1 behind an `exports` boundary") != NULL);
+
+    status = reported(program, "--exports=all", out, sizeof out);
+    assert(status == 0);
+    assert(strstr(out, "secret") != NULL);
+    assert(strstr(out, "(not exported)") != NULL);
+    printf("  --exports honours an `exports` boundary, and =all steps over it\n");
+}
+
+/* A `.sob` is the file somebody actually has when they are asking this, since a
+   library may be shipped without its source. It reads the same. */
+static void test_exports_reads_bytecode(void)
+{
+    char out[16384];
+    library("shipped := object:new.\nshipped:go := { #1 }.\n");
+    remove(DIR "/lib.sol");
+
+    int status = reported(NULL, "--exports " DIR "/lib.sob", out, sizeof out);
+    assert(status == 0);
+    assert(strstr(out, "shipped") != NULL);
+    assert(strstr(out, "go") != NULL);
+    printf("  --exports reads a .sob with no source beside it\n");
+}
+
+/* A `.so` has no bytecode to read at all: its surface exists only once
+   `sol_extension_init` has run. Same report, and with nothing else named there
+   is no file to give. */
+static void test_exports_reads_an_extension(void)
+{
+    char out[16384];
+    int status = reported(NULL, "--exports --extension=build/tests/ext_probe.so",
+                          out, sizeof out);
+
+    assert(status == 0);
+    assert(strstr(out, "probe") != NULL);
+    assert(strstr(out, "shout") != NULL);
+    assert(strstr(out, "a primitive") != NULL);
+    printf("  --exports reads a .so, with no file to give it\n");
+}
+
+/* Two subjects on one command line are two reports, so which of them bound a
+   name is never a guess. */
+static void test_exports_keeps_the_two_subjects_apart(void)
+{
+    char out[16384];
+    int status = reported("mine := object:new.\nmine:own := { #1 }.\n",
+                          "--exports --extension=build/tests/ext_probe.so",
+                          out, sizeof out);
+    assert(status == 0);
+
+    const char *probe = strstr(out, "probe");
+    const char *mine  = strstr(out, "mine");
+    assert(probe != NULL && mine != NULL);
+    assert(strstr(out, "ext_probe.so") < probe);   /* each under its own name */
+    assert(probe < strstr(out, "program.sol"));
+    assert(strstr(out, "program.sol") < mine);
+    printf("  --exports reports an extension and a file separately\n");
+}
+
+/* It runs the file, so a file that fails is a thing that happens. What it had
+   bound by then is still the useful answer, said as what it is. */
+static void test_exports_reports_a_file_that_did_not_finish(void)
+{
+    char out[16384];
+    int status = reported("half := object:new.\n"
+                          "half:there := { #1 }.\n"
+                          "nil:noSuchMessage.\n",
+                          "--exports", out, sizeof out);
+
+    assert(status == 70);
+    assert(strstr(out, "did not finish") != NULL);
+    assert(strstr(out, "noSuchMessage") != NULL);
+    assert(strstr(out, "half") != NULL);           /* still says what it got to */
+    assert(strstr(out, "there") != NULL);
+    printf("  --exports says what a file that failed had bound by then\n");
+}
+
+/* The surface is measured before the file runs and read after, which means
+   holding an object across a run that may have freed it: rebind the name an
+   extension bound and the object that was there has no root left. What is
+   recorded is checked against the name it came from before it is read again, so
+   this is a report that skips it rather than a read of freed memory -- which is
+   what the sanitised build is here to prove. */
+static void test_exports_survives_a_global_being_replaced(void)
+{
+    char out[16384];
+    int status = reported("probe := #1.\nafter := #2.\n",
+                          "--exports --extension=build/tests/ext_probe.so",
+                          out, sizeof out);
+
+    assert(status == 0);
+    assert(strstr(out, "shout") != NULL);          /* the bundle, before */
+    assert(strstr(out, "after") != NULL);          /* the file, after */
+    printf("  --exports survives a file replacing what an extension bound\n");
+}
+
+/* And the empty answer is an answer, rather than an empty report that reads
+   like something went wrong. */
+static void test_exports_says_when_there_is_nothing(void)
+{
+    char out[16384];
+    int status = reported("#1:add(#2).\n", "--exports", out, sizeof out);
+
+    assert(status == 0);
+    assert(strstr(out, "binds nothing and extends nothing") != NULL);
+    printf("  --exports says so when a file binds nothing\n");
+}
+
 int main(void)
 {
     test_it_stops_at_the_start();
@@ -365,6 +557,15 @@ int main(void)
     test_next_over_a_load_and_finish_out_of_one();
     test_a_loaded_file_without_its_source();
     test_a_failure_inside_a_loaded_file_stops_there();
+    test_exports_lists_what_a_file_bound();
+    test_exports_sees_a_class_that_was_extended();
+    test_exports_honours_a_boundary();
+    test_exports_reads_bytecode();
+    test_exports_reads_an_extension();
+    test_exports_keeps_the_two_subjects_apart();
+    test_exports_reports_a_file_that_did_not_finish();
+    test_exports_survives_a_global_being_replaced();
+    test_exports_says_when_there_is_nothing();
     printf("test_solid: ok\n");
     return 0;
 }

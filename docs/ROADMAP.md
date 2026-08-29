@@ -995,7 +995,11 @@ a language you can write a *program* in: split across files, reading input,
 writing files, stopping with a status, running another program, a prompt, a
 debugger, and — since an editor asked for them — the size of the screen it draws
 on and a read that gives up. **All of that is built**, and the entries are in
-[COMPLETED.md](COMPLETED.md).
+[COMPLETED.md](COMPLETED.md) — including
+[6.38](COMPLETED.md#638-nothing-says-what-a-compiled-file-exports--done), added
+on 2026-08-29 and closed the same afternoon, which is the section still doing
+what it was for: saying what a program written against this needs and has not
+got.
 
 The one thing that was left was never work — it was a decision, and it has been
 **deferred rather than taken**:
@@ -1013,8 +1017,17 @@ keeping it did. The number stays 6.32 and is not reused.
 
 ## How this list emptied, and how it filled and emptied again
 
-**Nothing is on it.** The last thing was a guard rather than a feature:
-[3.21](COMPLETED.md#321-a-changelog-hash-is-written-by-hand-and-nothing-checks-it),
+**Nothing is on it.** The last thing arrived and left inside one afternoon, on
+2026-08-29:
+[6.38](COMPLETED.md#638-nothing-says-what-a-compiled-file-exports--done),
+a tool that says what a `.sob` or a `.so` exports. It is the one entry here that
+no program asked for and no document implied — **somebody asked for it in a
+sentence**, which is a trigger this list had not previously recorded and is
+worth naming as one. Everything below arrived from a program that wanted
+something, and that is still the better source; it is not the only one.
+
+Before that it was a guard rather than a feature:
+[3.21](COMPLETED.md#321-a-changelog-hash-is-written-by-hand-and-nothing-checks-it--done),
 which a literal `%s` sitting in the changelog for two days asked for, opened on
 2026-08-27 and closed on 2026-08-28.
 

@@ -487,6 +487,9 @@ solvm --trace prog.sob      # write the call tree
 solvm --steps N --memory N  # bound it
 solis                       # the REPL
 solid prog.sob              # the debugger: step, next, break, print
+solid --exports lib.sob     # what it binds, and what may be sent to it
+solid --exports --extension=x.so
+                            # the same for a C extension
 ```
 
 ---

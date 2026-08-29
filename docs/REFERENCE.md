@@ -23,6 +23,7 @@ a:print.
 - **[Running a program](#running-a-program)**
   - [The prompt](#the-prompt)
   - [Stopping a program: Solid](#stopping-a-program-solid)
+  - [What a file exports](#what-a-file-exports)
   - [Watching a program run](#watching-a-program-run)
   - [Staying after a program](#staying-after-a-program)
   - [Running a script directly](#running-a-script-directly)
@@ -367,6 +368,75 @@ values that caused it are still in the frame.
 and what each slot was called. Both were built before the debugger was, for it.
 A chunk compiled at the prompt has no file, and says so rather than guessing.
 
+#### What a file exports
+
+`solid --exports` does not stop. It runs the file, then says what is in the
+machine that was not there before -- the names it bound, and what may be sent to
+each of them.
+
+```
+$ solid --exports lib/json.sob
+lib/json.sob
+  json
+    read                 takes 1 argument
+    write                takes 1 argument
+    quote                takes 1 argument
+    keyText              takes 1 argument
+    -- and 19 behind an `exports` boundary; `--exports=all` for those too
+```
+
+**It reads a `.so` the same way**, which is the case with no other answer at
+all: an extension's surface is not written down anywhere, and exists only once
+`sol_extension_init` has run. With one named there need be no file to give.
+
+```
+$ solid --exports --extension=build/extensions/net.so
+build/extensions/net.so
+  net
+    udp                  a primitive
+    port                 a primitive
+    send                 a primitive
+    receive              a primitive
+    waitFor              a primitive
+```
+
+A primitive has no arity to report, because it checks `argc` itself and nothing
+records what it will accept. Name both a bundle and a file and you get **two
+reports**, one under each name, so which of them bound what is never a guess.
+
+**A file that binds nothing may still have added something.** `lib/text.sol`
+binds no name at all -- it hangs `asUtf8` on `integer` -- so every built-in class
+is measured before the run and again after:
+
+```
+$ solid --exports lib/text.sob
+lib/text.sob
+  integer   (extended)
+    utf8Tail             takes 1 argument
+    asUtf8               takes 0 arguments
+```
+
+That is also why this reads the file by **running** it rather than by reading
+its bytecode. A reader of `OP_SET_GLOBAL` would print nothing for `text.sob` and
+be wrong, and would have nothing at all to read in a `.so`. The cost is that the
+file runs, with whatever else it does on the way: a library binds its names and
+stops, which is all it does, but a program does whatever it was written to do
+first. A file that fails part-way reports what it had bound by then and says
+that is what it is, leaving with status 70.
+
+**The [`exports` boundary](#the-export-boundary) is honoured**, because it is the
+answer to the question being asked. Names it keeps private are counted rather
+than listed; `--exports=all` lists them, marked. An object that never drew one
+has every name listed, which is the truth about it.
+
+**This is a mode of the debugger and could not have been a program.** The
+globals are slots on an object with no name in the language, so `slots` cannot
+reach them and neither can `perform` -- `globals` above says the same thing about
+itself. Solid holds the root object, so both questions are answerable from here
+and from nowhere else. Once you *have* a name, the language answers the rest:
+`json:slots`, `json:exports` and `json:respondsTo` are ordinary sends, and are
+under [Reflection](#reflection).
+
 #### Watching a program run
 
 `solvm --trace` writes the **call tree** to stderr as the program runs: a line
@@ -460,7 +530,7 @@ compile error:
 is an expression and may stand wherever one may — as a receiver, an argument, an
 array element, a statement of its own. `@include` cannot be any of those because
 a file compiled in has nowhere to go inside an expression; `@expr` has nowhere
-*else* to be. See [infix arithmetic](#infix-arithmetic) below.
+*else* to be. See [infix operators](#infix-operators) below.
 
 There are two directives, and an unknown one is refused rather than passed
 through, since `@` is the compiler's own space and a name in it that the

@@ -303,6 +303,33 @@ A refusal is not a half-load. The extension has bound nothing and the machine is
 exactly as it was, so `solvm` reports it and exits 65 — the status a `.sob` that
 cannot be read gets, because it is the same kind of thing.
 
+## Finding out what one gives you
+
+A bundle's surface is not written down anywhere and cannot be: there is no
+manifest, only an `sol_extension_init` that binds whatever it binds. So the way
+to read it is to load it and look, which is what `solid --exports` does.
+
+```text
+$ solid --exports --extension=build/extensions/net.so
+build/extensions/net.so
+  net
+    udp                  a primitive
+    port                 a primitive
+    send                 a primitive
+    receive              a primitive
+    waitFor              a primitive
+```
+
+No file need be named beside it, since a `.so` is the whole subject. A primitive
+has no arity to report -- it checks `argc` itself, and nothing records what it
+will accept -- so the names and the global they hang on are what there is. See
+[the reference](REFERENCE.md#what-a-file-exports), which covers a `.sob` the
+same way.
+
+**It runs `sol_extension_init` to find out**, with everything that implies: this
+is loading the bundle, not inspecting it from outside, and an `init` that opens
+a socket has opened one. That is the same decision `--extension=` always is.
+
 ## The one that ships here
 
 [extensions/net](../extensions/net/README.md) is the third real one and the
