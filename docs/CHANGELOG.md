@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### A second back end, and the one name it found missing — `pending`, 2026-08-29
+### A second back end, and the one name it found missing — `3214691`, 2026-08-29
 
 **[solveig-sdl](https://github.com/hansolovkarlsson/solveig-sdl)**, written to
 find out what [solveig-gtk](https://github.com/hansolovkarlsson/solveig-gtk) had
