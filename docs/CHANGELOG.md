@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### `string:replace`, which a program asked for — `pending`, 2026-08-28
+### `string:replace`, which a program asked for — `06c775a`, 2026-08-28
 
 **141<!--count messages--> messages, up from 140**, and the first one added
 since the extension work. `.sob` files are format version 14, unchanged.
