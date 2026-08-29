@@ -5,6 +5,51 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### `@expr{...}`, a region that is a block — `pending`, 2026-08-29
+
+**A region opens with either delimiter now.** `@expr(...)` answers what its
+expression comes to, and `@expr{...}` answers a block whose body reads infix —
+which is the language's own `(group)` and `{block}` pair applied to the region
+rather than a rule of the region's own. No message was added and `.sob` files
+are format version 14, unchanged.
+
+```
+i := #0. total := #0.
+@expr{ i < #5 }:whileTrue(@expr{ i := i + #1. total := total + i }).
+total:print.                                   ; #15
+```
+
+**Three programs asked for it without meaning to.** Every use of `@expr` in this
+repository outside `examples/operators.sol` was inside a block with the marker
+pushed in — `tick.sol`, `game.sol` and `both.sol`, all written the day the
+notation shipped, for reasons that had nothing to do with it. Wrapping the whole
+send was available to all three and taken by none.
+
+**And wrapping is not merely longer, it is wider.** A region is lexical, so
+`@expr( gtk:every(#5, {...}) )` reads the same — while putting the receiver and
+every other argument inside a mode that changes what `-` means. The block form
+makes the region exactly the block. That was the argument a rewrite of those
+three call sites settled: the wrap makes a reader hold an open region across a
+send and its argument list, and closes on `) )`.
+
+**The hard part was not the one the idea named.** Handing the mode back at the
+closing brace is one value threaded through `block_body` — *the mode that should
+hold once the block is closed*, which is the mode already in force for every
+block but this one. What was missed is that `{ ... }:whileTrue({ ... })` written
+literally **compiles to jumps**, and the probes deciding that compared against
+`TOK_LBRACE`: so the first working version parsed, ran, answered correctly, and
+quietly emitted a real send with two blocks in it. Twenty-nine bytes against
+fifty, and a frame per pass.
+
+It was caught by the one test that compares *bytes* rather than answers, which
+exists because the notation's claim is that the bytes are the chain's bytes.
+**A notation that stops inlining is a second semantics**, whatever it answers.
+The fix reads a block in either spelling — and sets the probe's mode while doing
+it, because scanning `@expr{ x - 1 }` under the file's mode gives *'-' must be
+followed by digits*, an error token, which reads as *not inlinable*. The region
+would have cost the jumps exactly where its body used the operator that makes a
+region worth having.
+
 ## 0.37.0 — 2026-08-28
 
 **One message, asked for by a program.** The language answers

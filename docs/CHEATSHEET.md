@@ -51,6 +51,7 @@ point:show:print.               ; #3
 | `@expr( a^2 + b/2 )` | infix operators — sugar for the sends they read as |
 | `@expr( sqrt(x) )` | inside a region, `f(x)` is `x:f` — one argument, any name |
 | `@expr( a < b & ~c )` | `= <> < > <= >=`, then `~`, then `&` and `\|` |
+| `@expr{ a < b }` | the same region over a block — a loop's condition or body |
 | `nil` `true` `false` `infinity` `nan` | the value globals |
 | `object` `integer` `float` `string` `symbol` `array` `dictionary` `boolean` `block` `time` `error` `system` | the class globals |
 

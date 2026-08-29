@@ -2053,6 +2053,24 @@ array element, a group and a block body all read as infix within one.
 @expr( [1.0, -3.0, 2.5]:inject(0.0, { t, e | t + e }) ):print.   ; 0.5
 ```
 
+**A region may be a block rather than a group.** `@expr{...}` is the same
+region over `{...}`: it answers a block whose body reads infix, where
+`@expr(...)` answers what its expression comes to. That is the language's own
+pair — a group runs now, a block is code held as a value — and the block form
+compiles to exactly what `{ @expr(...) }` compiles to, inlining included where a
+literal block inlines.
+
+```
+i := #0. total := #0.
+@expr{ i < #5 }:whileTrue(@expr{ i := i + #1. total := total + i }).
+total:print.                                   ; #15
+```
+
+A region is lexical, so wrapping the whole send works too — `@expr( { i < #5
+}:whileTrue({ ... }) )` reads the same way. What the block form buys is the
+*width*: the region is the block and nothing else, where wrapping puts the
+receiver and every other argument inside a mode that changes what `-` means.
+
 **`-` is the one character that means two things**, and which it means is
 decided by the region rather than by what follows it. Outside, a leading `-`
 belongs to the number and `a - 3` is the error *'-' must be followed by digits*;

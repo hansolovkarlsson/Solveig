@@ -45,7 +45,7 @@ marked as a sketch.
 | Subclass `integer`, a `byte` subclass | **Not possible** — see below |
 | More `@` directives: `@define`, `@ifdef`, `@once` | **No** — each one's job is already done by something that is not a directive |
 | Infix operators, `@expr(a^2 + b/2)` | **Built**, on 2026-08-28 — [scoped in the morning and in by the evening](#infix-arithmetic-as-a-compile-time-notation): arithmetic, then `sin(x)` once *limiting* it turned out to be the expensive half, then comparison and logic, and the name with them |
-| `@expr{...}`, a region that is a block | **Recommended, and try the sentence first** — [the three programs that have used `@expr` all pushed the marker inside a block](#expr-a-region-that-is-a-block-rather-than-a-group), and the outer wrap none of them used is a region wider than the thing it marks |
+| `@expr{...}`, a region that is a block | **Built on 2026-08-29**, the day after it was scoped — [the sentence was tried first and lost](#expr-a-region-that-is-a-block-rather-than-a-group); the entry predicted one hard part and the second was the one that mattered, a notation that silently stopped inlining |
 | Phoenix — a second language whose output Solum uses | **Defer** — the machinery is proven three times over; [the unexplored half](#programs-that-would-press-on-something) is whether a hosted language can publish a *library* rather than a program |
 | Programs that would press on something — Pascal, predicate logic, a parser toolkit | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would |
 | Networking, and sending code to a running machine | **Defer** — a socket exists now, [as an extension in the probe](#networking-and-sending-code-to-a-machine-that-is-already-running), so the question is where one belongs rather than what it would cost; waiting is the unanswered half, and the second still needs 3.4 and 6.32 |
@@ -2745,6 +2745,40 @@ narrowest form of what a program wants to say will still be unsayable. If the
 rewrite makes the outer wrap read well, this becomes documentation and the
 entry closes; if it does not, the case is already made three times over in
 `experiment/`.
+
+#### Built on 2026-08-29, and the sentence lost
+
+The rewrite was done first, as the recommendation said, and `tick.sol`'s loop
+settled it: the outer wrap makes a reader hold an open region across the send
+and its argument list, closes on `) )`, and puts `gtk:every` and `#5` inside a
+mode neither needs. So the notation, and it is `@expr{...}` — the block form
+answering the block, the group form answering what its expression comes to.
+
+**The entry named the hard part and it was not the hard part.** Handing the mode
+back at the closing brace took what this predicted — one value threaded through
+`block_body`, which is now *the mode that should hold once the block is closed*
+and is the mode already in force for every block but this one. That was fifteen
+minutes.
+
+**What it missed was the inlining**, which is the whole reason the notation is
+free. `{ ... }:whileTrue({ ... })` written literally compiles to jumps, and the
+probes that decide so compared against `TOK_LBRACE` — so the first working
+version of `@expr{...}` parsed, ran, and quietly emitted a real send with two
+blocks in it. Twenty-nine bytes against fifty, a frame per pass, and every test
+of what it *answered* passing.
+
+It was caught by the one test that compares bytes rather than answers, which is
+in the suite because the notation's claim is *the bytes are the chain's bytes*
+and a claim about bytes has to be checked in bytes. **A notation that stops
+inlining is a second semantics**, whatever it answers.
+
+The fix is two probe helpers that read a block in either spelling, and the part
+worth keeping is why they set the probe's mode: scanning `@expr{ x - 1 }` under
+the file's mode gives *'-' must be followed by digits*, an error token, which
+reads as *not inlinable* — so the region would have cost the jumps exactly where
+its body used the operator that makes a region necessary. The mode is put back
+after each block, so a plain block beside one in an argument list is read by its
+own rules.
 
 ### Programs that would press on something
 

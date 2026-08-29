@@ -170,8 +170,13 @@ primary = identifier | integer | float | string | symbol | block | array | group
  * A term is an ordinary expression, which is why there is no prefix-call form
  * -- `(a/2):sin` needs no rule that `sin(x)` would have needed, and the rule
  * `sin(x)` wants breaks on `atan2`, which is class-side, and on `pow`, which
- * takes an argument. *)
-region = "@expr" "(" expression ")" .
+ * takes an argument.
+ *
+ * Either delimiter opens one. `@expr(...)` answers what the expression comes to
+ * and `@expr{...}` answers a block whose body is infix, which is the language's
+ * own `(group)` and `{block}` pair rather than a rule of the region's -- so
+ * this reaches `block` instead of repeating it. *)
+region = "@expr" ( "(" expression ")" | block ) .
 
 (* Parameters, then temporaries, then the body. The leading `|` of a temporary
  * list is what tells `{ a | ... }` from `{ | a | ... }`, and it is why

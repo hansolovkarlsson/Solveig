@@ -83,7 +83,7 @@ static void patch_jump(Compiler *c, int slot);
 static void math_directive(Compiler *c);
 static void statement(Compiler *c);
 static void note_global_binding(Compiler *c, const SolToken *name);
-static void block_literal(Compiler *c);
+static void block_literal(Compiler *c, bool infix_after);
 static bool inline_conditional(Compiler *c, const SolToken *selector);
 static bool inline_logical(Compiler *c, const SolToken *selector);
 static bool inline_while(Compiler *c);
@@ -467,7 +467,7 @@ static void primary(Compiler *c)
 {
     SolParser *p = &c->parser;
 
-    if (sol_parser_match(p, TOK_LBRACE))     { block_literal(c); return; }
+    if (sol_parser_match(p, TOK_LBRACE))     { block_literal(c, p->lexer.infix); return; }
     if (sol_parser_match(p, TOK_LBRACKET))   { array_literal(c); return; }
     if (sol_parser_match(p, TOK_IDENT))      { identifier(c); return; }
     if (sol_parser_match(p, TOK_INT))        { integer_literal(c, false); return; }
@@ -924,20 +924,44 @@ static void math_expression(Compiler *c)
  * keeps `@include` a statement: an include has nowhere to compile a file into
  * inside an expression, and this has nowhere else to be. It answers a value.
  *
- * The lexer's mode is set before the '(' is consumed and cleared before the ')'
- * is, so the tokens on either side of the region are scanned by the rules of
- * where they actually are. Saved and restored rather than assigned, so a
- * `@expr` inside a `@expr` leaves the outer one as it found it.
+ * The lexer's mode is set before the opening delimiter is consumed and cleared
+ * before the closing one is, so the tokens on either side of the region are
+ * scanned by the rules of where they actually are. Saved and restored rather
+ * than assigned, so a `@expr` inside a `@expr` leaves the outer one as it found
+ * it.
+ *
+ * **Two delimiters, because the language already teaches the difference.** A
+ * `(group)` runs now and a `{block}` is code held as a value, so `@expr(...)`
+ * answers what the expression comes to and `@expr{...}` answers a block whose
+ * body reads infix -- which is what a reader who knows that pair predicts. The
+ * block form emits exactly what `{ @expr(...) }` emits and needs no rule of its
+ * own: `block_literal` is the one that already compiles a block, and the mode
+ * it hands back at the closing brace is the only thing this passes it.
+ *
+ * It is worth more than the two characters it saves. The region is not inert --
+ * `-` is the one token whose meaning the mode changes -- so a region should be
+ * no wider than the thing it marks, and reaching a block by wrapping the send
+ * that takes it widens over the receiver and the other arguments to get there.
  */
 static void math_directive(Compiler *c)
 {
     SolParser *p = &c->parser;
     sol_parser_advance(p);                       /* the '@expr' itself */
 
+    if (p->current.type != TOK_LPAREN && p->current.type != TOK_LBRACE) {
+        sol_parser_error(p, &p->current, "expected '(' or '{' after '@expr'");
+        return;
+    }
+
     bool was_infix = p->lexer.infix;
     p->lexer.infix = true;
-    sol_parser_consume(p, TOK_LPAREN, "expected '(' after '@expr'");
 
+    if (sol_parser_match(p, TOK_LBRACE)) {
+        block_literal(c, was_infix);             /* it closes the region itself */
+        return;
+    }
+
+    sol_parser_advance(p);                       /* the '(' */
     math_expression(c);
 
     p->lexer.infix = was_infix;
@@ -1053,8 +1077,16 @@ static void block_parameters(Compiler *c, SolMethod *code)
 
 /* The statements between `{` and `}`, leaving the last one's value on the
  * stack, and consuming the closing brace. Shared with the inlined conditionals,
- * which compile the very same body into the enclosing chunk instead. */
-static void block_body(Compiler *c)
+ * which compile the very same body into the enclosing chunk instead.
+ *
+ * `infix_after` is the lexer mode that should hold once the block is closed,
+ * and it is the mode already in force for every block but one: `@expr{...}`,
+ * whose region ends at the '}' and hands back the mode from outside it. It is
+ * put back *before* the brace is consumed rather than after, which is the
+ * discipline `math_directive` keeps around its parentheses -- the token on
+ * either side of a delimiter is scanned by the rules of where it actually is.
+ */
+static void block_body(Compiler *c, bool infix_after)
 {
     SolParser *p = &c->parser;
 
@@ -1073,10 +1105,11 @@ static void block_body(Compiler *c)
             expression(c);
         }
     }
+    p->lexer.infix = infix_after;
     sol_parser_consume(p, TOK_RBRACE, "expected '}' to close the block");
 }
 
-static void block_literal(Compiler *c)
+static void block_literal(Compiler *c, bool infix_after)
 {
     SolParser *p = &c->parser;
 
@@ -1099,7 +1132,7 @@ static void block_literal(Compiler *c)
     c->scope = &scope;
     block_parameters(c, code);
     optional_declarations(c);
-    block_body(c);
+    block_body(c, infix_after);
     emit(c, OP_RETURN);
     c->scope = scope.enclosing;
 
@@ -1165,6 +1198,58 @@ static bool skip_block(SolLexer *probe)
     return true;
 }
 
+/* Reads one block from `probe` -- in either spelling, `{...}` or `@expr{...}`
+ * -- and leaves it just past the closing `}`. Answers false when what stands
+ * there is not a block that may be inlined.
+ *
+ * **A region has to be probed in its own mode**, which is why this is a
+ * function rather than a comparison against `TOK_LBRACE`. `-` is the one token
+ * whose meaning the mode changes, so scanning `@expr{ x - 1 }` under the file's
+ * mode produces *'-' must be followed by digits* -- an error token, which reads
+ * as *not inlinable* and would quietly cost the notation the jumps that make it
+ * free. The mode is put back afterwards, so a block beside one in an argument
+ * list is read by its own rules.
+ */
+static bool probe_block(SolLexer *probe)
+{
+    SolToken token = sol_lexer_next(probe);
+    bool region = false;
+
+    if (token.type == TOK_DIRECTIVE && token_is(&token, "@expr")) {
+        if (sol_lexer_next(probe).type != TOK_LBRACE) return false;
+        region = true;
+    } else if (token.type != TOK_LBRACE) {
+        return false;
+    }
+
+    bool was_infix = probe->infix;
+    if (region) probe->infix = true;
+    bool ok = block_is_plain(*probe) && skip_block(probe);
+    probe->infix = was_infix;
+    return ok;
+}
+
+/* The same question about the token the parser is already holding, which is
+   where a loop's receiver stands. `probe` is left just past the block. */
+static bool probe_receiver_block(SolParser *p, SolLexer *probe)
+{
+    *probe = p->lexer;
+    bool region = false;
+
+    if (p->current.type == TOK_DIRECTIVE && token_is(&p->current, "@expr")) {
+        if (sol_lexer_next(probe).type != TOK_LBRACE) return false;
+        region = true;
+    } else if (p->current.type != TOK_LBRACE) {
+        return false;
+    }
+
+    bool was_infix = probe->infix;
+    if (region) probe->infix = true;
+    bool ok = block_is_plain(*probe) && skip_block(probe);
+    probe->infix = was_infix;
+    return ok;
+}
+
 /* Does the argument list ahead consist of exactly `wanted` inlinable blocks?
    The parser is single-pass and emits as it goes, so this has to be settled
    before a single byte is written. */
@@ -1174,9 +1259,7 @@ static bool inlinable_arguments(Compiler *c, int wanted)
 
     for (int i = 0; i < wanted; i++) {
         if (i > 0 && sol_lexer_next(&probe).type != TOK_COMMA) return false;
-        if (sol_lexer_next(&probe).type != TOK_LBRACE) return false;
-        if (!block_is_plain(probe)) return false;
-        if (!skip_block(&probe)) return false;
+        if (!probe_block(&probe)) return false;
     }
     return sol_lexer_next(&probe).type == TOK_RPAREN;
 }
@@ -1231,8 +1314,21 @@ static void patch_jump(Compiler *c, int slot)
    without anything having to adjust them. */
 static void inline_branch(Compiler *c)
 {
-    sol_parser_consume(&c->parser, TOK_LBRACE, "expected a block");
-    block_body(c);
+    SolParser *p = &c->parser;
+    bool infix_after = p->lexer.infix;
+
+    /* `@expr{...}` here is the same block with its body in the region's mode,
+       and it inlines exactly as the plain one does -- which is what keeps the
+       notation notation. The mode goes on after the directive is consumed, so
+       the first token of the body is scanned inside the region, and
+       `block_body` puts it back before the closing brace. */
+    if (p->current.type == TOK_DIRECTIVE && token_is(&p->current, "@expr")) {
+        sol_parser_advance(p);
+        p->lexer.infix = true;
+    }
+
+    sol_parser_consume(p, TOK_LBRACE, "expected a block");
+    block_body(c, infix_after);
 }
 
 /* Answers whether it handled the send. The receiver is already compiled and on
@@ -1396,22 +1492,17 @@ static bool inline_do_until(Compiler *c)
 {
     SolParser *p = &c->parser;
 
-    if (p->current.type != TOK_LBRACE) return false;
-
     /* Read the whole thing on a copy of the lexer before committing to any of
        it, as `inline_while` does. */
-    SolLexer probe = p->lexer;                 /* positioned just after the `{` */
-    if (!block_is_plain(probe)) return false;
-    if (!skip_block(&probe)) return false;
+    SolLexer probe;
+    if (!probe_receiver_block(p, &probe)) return false;
     if (sol_lexer_next(&probe).type != TOK_COLON) return false;
 
     SolToken selector = sol_lexer_next(&probe);
     if (selector.type != TOK_IDENT || !token_is(&selector, "doUntil")) return false;
 
     if (sol_lexer_next(&probe).type != TOK_LPAREN) return false;
-    if (sol_lexer_next(&probe).type != TOK_LBRACE) return false;
-    if (!block_is_plain(probe)) return false;
-    if (!skip_block(&probe)) return false;
+    if (!probe_block(&probe)) return false;
     if (sol_lexer_next(&probe).type != TOK_RPAREN) return false;
 
     int top = c->scope->chunk->count;
@@ -1442,22 +1533,17 @@ static bool inline_while(Compiler *c)
 {
     SolParser *p = &c->parser;
 
-    if (p->current.type != TOK_LBRACE) return false;
-
     /* Read the whole `{ ... }:whileTrue({ ... })` on a copy of the lexer before
        committing to any of it. */
-    SolLexer probe = p->lexer;                 /* positioned just after the `{` */
-    if (!block_is_plain(probe)) return false;
-    if (!skip_block(&probe)) return false;
+    SolLexer probe;
+    if (!probe_receiver_block(p, &probe)) return false;
     if (sol_lexer_next(&probe).type != TOK_COLON) return false;
 
     SolToken selector = sol_lexer_next(&probe);
     if (selector.type != TOK_IDENT || !token_is(&selector, "whileTrue")) return false;
 
     if (sol_lexer_next(&probe).type != TOK_LPAREN) return false;
-    if (sol_lexer_next(&probe).type != TOK_LBRACE) return false;
-    if (!block_is_plain(probe)) return false;
-    if (!skip_block(&probe)) return false;
+    if (!probe_block(&probe)) return false;
     if (sol_lexer_next(&probe).type != TOK_RPAREN) return false;
 
     int top = c->scope->chunk->count;

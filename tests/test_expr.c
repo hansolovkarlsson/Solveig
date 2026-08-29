@@ -134,6 +134,17 @@ static void test_the_bytes_are_the_chain_s_bytes(void)
         { "@expr( ~(a < b) & a = b )",
           "a:lessThan(b):not:and({ a:equals(b) })"                  },
 
+        /* `@expr{...}` is the same region over a block, so the bytes are the
+           ones `{ @expr(...) }` produces -- which is the same claim as every
+           row above, one delimiter along. */
+        { "@expr{ a + b }",        "{ a:add(b) }"                   },
+        { "@expr{ a < b }",        "{ a:lessThan(b) }"              },
+        { "@expr{ x | x * 2 }",    "{ x | x:mul(2) }"               },
+        { "@expr{ a + b. a - b }", "{ a:add(b). a:sub(b) }"         },
+        { "@expr{ }",              "{ }"                            },
+        { "@expr{ a < b }:whileTrue(@expr{ a := a + 1 })",
+          "{ a:lessThan(b) }:whileTrue({ a := a:add(1) })"          },
+
         /* The fold. `-3` inside a region is the constant `-3`, not `3` with a
            `negated` after it, so the region's minus is value-preserving to the
            byte rather than merely to the value. */
@@ -369,6 +380,67 @@ static void test_the_mode_ends_with_the_region(void)
     /* Saved and restored rather than assigned, so the inner one leaves the
        outer as it found it. */
     expect_float("@expr( @expr( 2 + 3 ) * 2 )", 10.0);
+
+    /* And a block ends its region at the brace, so the `-4` that follows is a
+       literal again. Without the hand-back every line after this one would be
+       inside a region to the end of the file. */
+    sol_vm_init(&vm);
+    assert(run(&vm, &chunk, "f := @expr{ 2 + 3 }. y := -4. z := f:value:add(y).")
+           == SOL_OK);
+    assert(SOL_AS_FLOAT(global(&vm, "y")) == -4.0);
+    assert(SOL_AS_FLOAT(global(&vm, "z")) == 1.0);
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+
+    /* An inner block region inside an outer paren region hands back *infix*,
+       not the mode of the file: the `-` after it is still the operator. */
+    expect_float("@expr( 10 - @expr{ 4 }:value )", 6.0);
+}
+
+/* ---- the region as a block -------------------------------------------- *
+ *
+ * `(a group)` runs now and `{a block}` is code held as a value, which the
+ * language teaches on its own page. `@expr{...}` is that pair applied to the
+ * region: a block whose body reads infix, answering the block rather than what
+ * the block comes to.
+ *
+ * It says nothing `{ @expr(...) }` cannot say -- the bytes above are identical
+ * -- and what it buys is the *width* of the region. Reaching a block by
+ * wrapping the send that takes it puts the receiver and every other argument
+ * inside a mode that changes what `-` means.
+ */
+static void test_a_region_may_be_a_block(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    /* The loop the notation was asked for: condition and body, one marker
+       each, and no wrapping of the send that joins them. */
+    assert(run(&vm, &chunk,
+               "i := #0. total := #0."
+               "@expr{ i < #5 }:whileTrue(@expr{ i := i + #1. total := total + i })."
+              ) == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "total")) == 15);
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+
+    /* A block that is stored and called later, which is the case where the
+       marker belongs to the block rather than to the statement around it. */
+    expect_float("@expr{ x | x^2 + 1 }:value(3)", 10.0);
+
+    /* Parameters and temporaries are matched before a body is, so a region
+       changes neither -- the same rule that keeps `{ a | b }` a block taking
+       `a` inside a region. */
+    expect_float("@expr{ p, q | p * q }:value(-3, 4)", -12.0);
+    expect_int("@expr{ | t | t := #2. t * #3 }:value", 6);
+
+    /* An empty block answers nil in a region as anywhere else. */
+    SolVM vm2; sol_vm_init(&vm2);
+    SolChunk chunk2;
+    assert(run(&vm2, &chunk2, "x := @expr{ }:value.") == SOL_OK);
+    assert(SOL_IS_NIL(global(&vm2, "x")));
+    sol_chunk_free(&chunk2);
+    sol_vm_free(&vm2);
 }
 
 /* ---- what it refuses -------------------------------------------------- */
@@ -386,6 +458,12 @@ static void expect_compile_error(const char *source)
 
 static void test_refusals(void)
 {
+    /* `@expr` opens with one of two delimiters and nothing else. The message
+       names both, because a reader who wrote neither is choosing between them
+       rather than having forgotten the one. */
+    expect_compile_error("x := @expr 1 + 2.");
+    expect_compile_error("x := @expr[ 1, 2 ].");
+
     /* An operator outside a region. Three of these five characters were
        *unexpected character* before this existed. */
     expect_compile_error("a := 1. b := a + 2.");
@@ -446,6 +524,7 @@ int main(void)
     test_the_pipe_still_opens_a_parameter_list();
     test_the_strictness_shows_through();
     test_the_mode_ends_with_the_region();
+    test_a_region_may_be_a_block();
     test_refusals();
     test_it_is_an_expression_everywhere_one_may_be();
 

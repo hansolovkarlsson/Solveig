@@ -99,6 +99,30 @@ a:pow(2.0):add(3:mul(a:div(2.0):sin:add(b:sqrt))):print.
 @expr( [1.0, 2.0]:inject(0.0, { t, e | t + e }) ):print.    ; 3
 
 ; ---------------------------------------------------------------------------
+; And a region may be a block rather than a group
+
+; `(a group)` runs now and `{a block}` is code held as a value, which is a pair
+; this language draws everywhere. `@expr{...}` is that pair applied to the
+; region: it answers the block, where `@expr(...)` answers what the expression
+; comes to. The bytes are the ones `{ @expr(...) }` produces, jumps included.
+i := #0. total := #0.
+@expr{ i < #5 }:whileTrue(@expr{ i := i + #1. total := total + i }).
+total:print.                     ; #15
+
+; So it goes where a block goes -- kept in a name and called later, or handed to
+; a message that takes one.
+square := @expr{ x | x^2 + 1 }.
+square:value(3.0):print.         ; 10
+[1.0, 2.0, 3.0]:collect(@expr{ x | x * 2 }):print.    ; [2, 4, 6]
+
+; Wrapping the whole send works too, because a region is lexical -- but it puts
+; the receiver and every other argument inside a mode that changes what `-`
+; means, and a region is worth keeping no wider than the thing it marks.
+j := #0.
+@expr( { j < #3 }:whileTrue({ j := j + #1 }) ).
+j:print.                         ; #3
+
+; ---------------------------------------------------------------------------
 ; And outside a region there are no operators at all, which is the language's
 ; own rule rather than an omission:
 ;   b := a + 2.                  ; solas: this is written as a send here

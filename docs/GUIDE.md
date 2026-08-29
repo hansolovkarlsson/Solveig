@@ -98,6 +98,18 @@ and `|` — so a guard reads the way it is written:
 `&` and `|` stop early, because the `and` and `or` they lower to take a block in
 order to. And `~` is looser than a comparison, so `~a = b` is `~(a = b)`.
 
+A region can be a block instead of a group, which is the same pair the language
+draws everywhere else — `(...)` runs now, `{...}` is code held as a value:
+
+```
+i := #0.
+@expr{ i < #3 }:whileTrue(@expr{ i := i + #1 }).
+i:print.                                ; #3
+```
+
+`@expr{...}` answers the block, so it goes where a block goes: the condition of
+a loop, the body of one, or a block kept in a name for later.
+
 > **Run:** [examples/hello.sol](../examples/hello.sol)
 
 ## 2. Names and binding

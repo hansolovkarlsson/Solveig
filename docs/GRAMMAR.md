@@ -117,17 +117,23 @@ arguments  = "(" [ expression { "," expression } ] ")" .
 primary    = identifier | integer | float | string | symbol
            | block | array | group | region .
 
-region     = "@expr" "(" expression ")" .
+region     = "@expr" ( "(" expression ")" | block ) .
 ```
 
 **Sends chain left to right.** `a:add(#1):print` sends `print` to the sum, and
 outside a `@expr` region there is no precedence to know, because there are no
 operators to have any.
 
+**A region opens with either delimiter**, and which one it is decides what it
+answers rather than what it reads: `@expr(...)` answers the expression's value
+and `@expr{...}` answers a block whose body is infix. That is the language's own
+`(group)`/`{block}` pair, so `region` reaches `block` rather than repeating it.
+
 **The ladder runs from `|` at the loosest to `^` at the tightest**, with `~`
 between the logic and the comparisons — so `~a = b` is `~(a = b)`, which is what
-the words say and what BASIC and Pascal read. **Comparison does not chain**, and
-the optional-rather-than-repeated tail of `comparison` is the whole of how that
+the words say and what BASIC reads. C and Pascal both bind it tightest and would
+have read `(~a) = b`. **Comparison does not chain**, and the
+optional-rather-than-repeated tail of `comparison` is the whole of how that
 is said: `a < b < c` would compare a boolean to `c`.
 
 **`|` is the one operator the language already used.** A block's parameters and
