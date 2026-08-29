@@ -11,6 +11,122 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-29 (the rest of it) — three questions with one shape, and the one that built something
+
+The morning found a document resting on a fact that had stopped being true. The
+afternoon was three questions doing the same thing from the other side: each one
+inferred a restriction the language does not have, and each inference came from
+the same place — **a character doing two jobs looks like it must have cost
+something**.
+
+| | |
+| --- | --- |
+| *`~a \| b` must read as `~(a \| b)`* | It does not. `~` binds tighter than `&` and `\|` already |
+| *`@expr` needs a block form to reach a loop's condition* | It does not. A region is lexical, so the whole loop already fits in one |
+| *`\|` being an operator must block parameters inside a region* | It does not. Parameters and temporaries are matched before a body is |
+
+Three wrong premises, and two of them produced something anyway. That is the
+part worth writing down, because the instinct on being told *your premise is
+wrong* is to drop the question, and twice that would have been the wrong move.
+
+### The one that corrected a document
+
+`~` is looser than a comparison, so `~a = b` is `~(a = b)`, and the reason on the
+record was that this is *the call BASIC and Pascal make*. BASIC yes —
+`SOLABASIC-REFERENCE` puts `NOT` below the comparisons and above `AND`, which is
+this ladder exactly. **Pascal no.**
+[pascal.bnf](../programs/check_syntax/pascal.bnf), in this repository, has
+`factor = ... | "not" factor` — the tightest level there is. Pascal sides with C
+and would read `(~a) = b`, which is the reading the question arrived at
+independently.
+
+So the citation was half wrong, its counter-example had been in the tree since
+the Pascal grammar went in, and nothing found it because **nothing checks a claim
+about another language**. `expect.sol` runs the blocks and recounts the numbers;
+a sentence about what Pascal does is neither.
+
+The verdict did not move — the words say *not a equals b* and BASIC agrees — so
+what changed is the support, from two languages to one language and the words.
+Narrower and true. Four live sites, and I missed one of them on the first pass
+and caught it a commit later, which is its own small lesson about grepping for a
+phrase rather than for the claim.
+
+### The one that built something anyway
+
+The block form of `@expr` was asked for because a loop's condition is a block and
+the marker had to go inside it. The premise was that this was the only way; the
+region is lexical, so `@expr( { j < #5 }:whileTrue({ ... }) )` had always worked
+and converts the body too.
+
+**And the question survived its premise**, on evidence nobody had assembled:
+every use of `@expr` in this repository outside the example was inside a block
+with the marker pushed in — `tick.sol`, `game.sol`, `both.sol`, three programs
+written the day the notation shipped for reasons that had nothing to do with it.
+The wrap was available to all three and taken by none. Then the argument that is
+not taste: `-` is the one token whose meaning the mode changes, so a region has
+semantic width, and reaching a block by wrapping the send that takes it widens
+over the receiver and every other argument.
+
+The entry was written first with a recommendation to **try the sentence before
+the notation** — perhaps the wrap was undocumented rather than rejected. The
+sentence was tried and lost in ten minutes: rewritten both ways, the wrap makes
+a reader hold an open region across a send and its argument list and closes on
+`) )`.
+
+### What the entry did not predict, which is the whole finding
+
+It named one hard part: handing the lexer's mode back at the closing brace,
+where `@expr(...)` controls both of its delimiters and a block's `}` is consumed
+somewhere else. That was one value threaded through `block_body` — *the mode
+that should hold once the block is closed* — and it took fifteen minutes.
+
+**The hard part was the inlining.** `{ ... }:whileTrue({ ... })` written
+literally compiles to jumps, and the probes that decide so compared against
+`TOK_LBRACE`. So the first working version of `@expr{...}` parsed, ran, answered
+every question correctly, and quietly emitted a real send with two blocks in it.
+Twenty-nine bytes against fifty, and a frame per pass.
+
+Nothing that tested what it *answered* could have caught that. It was caught by
+the one test that compares bytes, which exists because the notation's claim is
+that the bytes are the chain's bytes — and the claim turns out to mean more than
+it says. **A notation that stops inlining is a second semantics**, whatever
+number it hands back.
+
+The fix has a detail worth keeping. The probes read a block in either spelling,
+and they set the *probe's* mode while doing it: scanning `@expr{ x - 1 }` under
+the file's mode gives *'-' must be followed by digits*, an error token, which
+reads as **not inlinable** — so the region would have lost the jumps exactly
+where its body used the operator that makes a region worth having. The failure
+would have been silent, correct, and slow.
+
+`check_syntax` — the other implementation of this grammar — accepts the extended
+example, so both admit the form. That is the second time this week the two
+implementations were worth having against each other.
+
+### The one that produced nothing, correctly
+
+The third question proposed `\` for parameters and temporaries inside a region,
+to free `|` for `or`. Parameters already work, so the proposal bought exactly one
+shape: a block whose body *begins* `ident |`. `@expr{ more | failed }:whileTrue`
+is a block taking `more`, and it fails at run time with *'block' takes 1
+argument, got 0* — a real cost, and a message that does not name its cause.
+
+Not worth a character. A region-only spelling would recreate the corner the
+region was built to avoid — a block written differently inside than outside,
+so moving one in or out means editing it — and two spellings everywhere is what
+this language has refused three times with the same sentence. Ten minutes, one
+verified answer, nothing written down. **An idea that dies from being checked
+against the code cost less than the entry explaining why it was deferred would
+have.**
+
+### The shape of the day
+
+Two commits of documentation, one feature, one idea closed by measurement. The
+through-line is that **a wrong premise is not a wasted question**: what makes one
+productive is whether checking it turns up something the asker did not have, and
+twice it did — a citation nobody would have verified, and a notation whose case
+was better than the reason given for it.
+
 ## 2026-08-29 — an entry that outlived its reason
 
 **The morning's question was what is on the list, and the answer was still
