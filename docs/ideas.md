@@ -45,6 +45,7 @@ marked as a sketch.
 | Subclass `integer`, a `byte` subclass | **Not possible** — see below |
 | More `@` directives: `@define`, `@ifdef`, `@once` | **No** — each one's job is already done by something that is not a directive |
 | Infix operators, `@expr(a^2 + b/2)` | **Built**, on 2026-08-28 — [scoped in the morning and in by the evening](#infix-arithmetic-as-a-compile-time-notation): arithmetic, then `sin(x)` once *limiting* it turned out to be the expensive half, then comparison and logic, and the name with them |
+| `@expr{...}`, a region that is a block | **Recommended, and try the sentence first** — [the three programs that have used `@expr` all pushed the marker inside a block](#expr-a-region-that-is-a-block-rather-than-a-group), and the outer wrap none of them used is a region wider than the thing it marks |
 | Phoenix — a second language whose output Solum uses | **Defer** — the machinery is proven three times over; [the unexplored half](#programs-that-would-press-on-something) is whether a hosted language can publish a *library* rather than a program |
 | Programs that would press on something — Pascal, predicate logic, a parser toolkit | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would |
 | Networking, and sending code to a running machine | **Defer** — a socket exists now, [as an extension in the probe](#networking-and-sending-code-to-a-machine-that-is-already-running), so the question is where one belongs rather than what it would cost; waiting is the unanswered half, and the second still needs 3.4 and 6.32 |
@@ -2645,6 +2646,105 @@ hand-written lexer never had, because it peeks. And the suite found that
 refusing a file; `&` is an operator now, so the grammar admits it and only the
 compiler refuses, which is the third row of that table and now has an assertion
 of its own.
+
+### `@expr{...}`, a region that is a block rather than a group
+
+**Asked on 2026-08-29, the day after the notation shipped.** `@expr(...)` takes
+a `(`, and this language already teaches that `(a group)` runs now while
+`{a block}` is code held as a value — [the guide has a page on
+it](GUIDE.md#group-and-block). So a reader who knows that pair will predict
+`@expr{...}`, a block whose body reads infix, and will not find it: `@expr{ a +
+#1 }` answers *expected '(' after '@expr'* pointing at the brace. The question
+is whether the prediction should come true.
+
+#### It is already sayable, twice, and one of the two is not widely known
+
+The region covers nested constructs, which was decided when the notation was
+built and is what makes `f:value(-3)` mean what it looks like. That has a
+consequence nobody wrote down: **a whole loop fits in one region, condition
+block and body block together.**
+
+```
+j := #0. total := #0.
+@expr( { j < #5 }:whileTrue({ j := j + #1. total := total + j }) ).
+total:print.                                  ; #15
+
+k := #0.
+{ @expr( k < #3 ) }:whileTrue({ k := @expr( k + #1 ) }).
+k:print.                                      ; #3
+```
+
+The first wraps the statement and converts the body as well as the condition.
+The second pushes the marker inside each block and converts one expression per
+marker. Both work today, and `@expr{...}` would be a third spelling of the same
+bytes.
+
+#### Three programs reached for the same one, and it was not the outer wrap
+
+Every use of `@expr` in this repository outside
+[examples/operators.sol](../examples/operators.sol) is inside a block with the
+marker pushed inward:
+
+| | |
+| --- | --- |
+| [tick.sol](../experiment/extension-probe/tick.sol) | `n := @expr(n + #1).` in a timer callback |
+| [game.sol](../experiment/extension-probe/game.sol) | `frame := @expr(frame + #1).` in a frame loop |
+| [both.sol](../experiment/extension-probe/both.sol) | `gtk:every(#5, { n := @expr(n + #1). ... })` |
+
+Three programs, written the day the notation landed, for reasons that had
+nothing to do with it. The outer wrap was available to all three and taken by
+none. **That is the trigger rule satisfied without anyone setting out to satisfy
+it** — not a document arguing for a feature, but the only three programs that
+have used the notation landing on the same shape.
+
+#### The argument that is not taste: a region is not inert
+
+`-` is the one character whose meaning the mode changes. Outside a region a
+leading `-` belongs to the literal; inside one it is always the operator, which
+is the whole reason `infix` exists in the lexer. So **the width of a region has
+semantic reach**, and the outer wrap buys its convenience by widening: `@expr(
+gtk:every(#5, {...}) )` swallows the receiver and the other argument in order to
+reach the block.
+
+`@expr{...}` makes the region exactly the block, which is the narrowest true
+scope for what is being asked. A notation whose extent can be stated precisely
+is worth more than one that has to be widened to reach, and this is the same
+argument the region itself was built on — a lexical mode that says where it
+begins and ends.
+
+#### What it would cost
+
+Small, with one wrinkle that is worth naming because it is where the subtle bugs
+in a lexical mode live.
+
+| | |
+| --- | --- |
+| **The mode's edges** | `math_directive` sets the mode before consuming `(` and clears it before `)`, so the tokens either side are scanned by the rules of where they are. A block's `}` is consumed inside `block_body`, so that discipline needs a flag threaded through it — two call sites. This is the only part that is not mechanical. |
+| **The directive** | A `{` branch beside the `(` one. `@expr{` is a clean error today, so nothing that compiles now can contain one. |
+| **The bytes** | None. `@expr{...}` emits exactly what `{ @expr(...) }` emits, so *notation, never a second semantics* holds without a new rule. |
+| **Parameters** | Free. `@expr( xs:collect({ x | x * 2 }) )` already answers `[2, 4, 6]`, so a block in a region already keeps its parameters and `@expr{ x | x * 2 }` inherits that. |
+| **The tail** | One alternative in [GRAMMAR.md](GRAMMAR.md) and [solum.bnf](../programs/check_syntax/solum.bnf), the reference table, the guide, the cheatsheet, the example, and `tests/test_expr.c`. |
+
+#### The alternative that costs a sentence
+
+It is possible the outer wrap is **undocumented rather than rejected**. Nothing
+in the reference or the guide says a region covers a nested block body, and the
+three programs above may have pushed the marker inward because nobody knew the
+other form existed rather than because it reads worse.
+
+If that is the whole of it, the fix is a line in the guide and a converted
+example, not a notation. **The way to tell them apart is to rewrite those three
+call sites both ways and read them**, which costs ten minutes and is the same
+method the extension entry used: build the throwaway before trusting the
+argument.
+
+**Recommendation: build it, and try the sentence first.** The sentence is
+cheaper and might be enough, but it cannot fix the scope argument — the outer
+wrap will still be a region wider than the thing it is marking, and the
+narrowest form of what a program wants to say will still be unsayable. If the
+rewrite makes the outer wrap read well, this becomes documentation and the
+entry closes; if it does not, the case is already made three times over in
+`experiment/`.
 
 ### Programs that would press on something
 
