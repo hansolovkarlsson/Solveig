@@ -834,7 +834,14 @@ static void math_comparison(Compiler *c)
 
 /* `~` is `not`, and it is looser than a comparison, so `~a = b` is `~(a = b)`.
    That is the reading the words have -- *not a equals b* -- and it is the call
-   BASIC and Pascal make. C binds `!` tightest and would have read the other. */
+   BASIC makes, its `NOT` sitting below the comparisons and above `AND`. C and
+   Pascal both bind it tightest and would have read `(~a) = b`, so a habit from
+   either misleads here.
+
+   This used to say Pascal agreed, and check_syntax/pascal.bnf is the
+   counter-example: `factor = ... | "not" factor` puts it at the tightest level
+   there is. The disproof of the citation had been in this repository since the
+   Pascal grammar went in. One language and the words, not two languages. */
 static void math_negation(Compiler *c)
 {
     if (sol_parser_match(&c->parser, TOK_TILDE)) {

@@ -2604,8 +2604,18 @@ scope changed rather than later.
 **Three calls were needed and all three are visible in the grammar.**
 
 `~` is **looser than a comparison**, so `~a = b` is `~(a = b)` — what the words
-say, and what BASIC and Pascal read. C binds `!` tightest and would have read
-the other; that is the one place here where a C habit misleads.
+say, and what BASIC reads, its `NOT` sitting below the comparisons and above
+`AND`. C binds `!` tightest and would have read the other; that is the one place
+here where a C habit misleads.
+
+**This entry used to say Pascal read it that way too, and Pascal is a
+counter-example.** [pascal.bnf](../programs/check_syntax/pascal.bnf) has
+`factor = ... | "not" factor`, which is the tightest level there is — so Pascal
+sides with C, and the disproof of the citation had been in this repository since
+the day that grammar went in. Corrected on 2026-08-29, when the question came
+back from the other side: *why is `~` not tight, the way a prefix minus is?* The
+verdict is unchanged and its support is one language and the words rather than
+two languages, which is narrower and true.
 
 **Comparison does not chain.** `a < b < c` would compare a boolean to `c` and
 fail while running, so it is refused while compiling instead. In the grammar

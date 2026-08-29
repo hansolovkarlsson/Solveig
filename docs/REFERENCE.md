@@ -2028,8 +2028,9 @@ not compiled where it stands: it goes where the block's body would have gone,
 behind the jump. The bytes are still the block form's bytes.
 
 **`~` is looser than a comparison**, so `~a = b` is `~(a = b)` — the reading the
-words have, and the one BASIC and Pascal make. C binds `!` tightest and would
-have read the other, which is the one place here a C habit misleads.
+words have, and the one BASIC makes, its `NOT` sitting below the comparisons and
+above `AND`. C and Pascal both bind it tightest and would have read `(~a) = b`,
+so this is the one place here where a habit from either misleads.
 
 **`|` is the one operator the language already used**, for a block's parameters
 and a group's temporaries. Those are taken before a body is, so a `|` reaching
