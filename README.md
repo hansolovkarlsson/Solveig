@@ -167,7 +167,7 @@ colon-separated `SOLUM_PATH`, then the library beside the binary
 checkout keeps winning over anything installed on the machine, which is what
 makes testing a change mean anything.
 
-`make dist` writes `solveig-<version>.tar.gz` from `HEAD`, named for the
+`make dist` writes `dist/solveig-<version>.tar.gz` from `HEAD`, named for the
 version the binaries inside it report.
 
 ## Status

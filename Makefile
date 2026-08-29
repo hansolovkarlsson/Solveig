@@ -89,6 +89,7 @@ SANITIZE =
 
 BUILD = build
 BIN   = bin
+DIST  = dist
 
 # Where `make install` puts things. DESTDIR stages an install somewhere else
 # for packaging and is not part of the path a binary looks in at run time,
@@ -269,10 +270,16 @@ VERSION = $(shell grep SOLUM_VERSION solum/include/solum/common.h | tr -d '"' | 
 
 # From HEAD rather than from the working tree: a tarball of uncommitted work is
 # a tarball nobody can get back to.
+#
+# Into `dist/` rather than the root, which is where they used to land and where
+# four of them accumulated before anyone minded. `clean` does not take it: a
+# tarball is a release artefact and not an intermediate one, and `make clean`
+# before a rebuild should not delete the thing you were about to publish.
 dist:
+	@mkdir -p $(DIST)
 	git archive --format=tar.gz --prefix=solveig-$(VERSION)/ \
-	    -o solveig-$(VERSION).tar.gz HEAD
-	@echo "solveig-$(VERSION).tar.gz"
+	    -o $(DIST)/solveig-$(VERSION).tar.gz HEAD
+	@echo "$(DIST)/solveig-$(VERSION).tar.gz"
 
 clean:
 	rm -rf $(BUILD) $(BIN)

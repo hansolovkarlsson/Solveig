@@ -10,6 +10,7 @@ bin/
 *.sob
 
 # What `make dist` writes
+dist/
 *.tar.gz
 
 # Editor / OS
