@@ -63,6 +63,10 @@ while staying ordinary messages you can send any other way.
   every supplied function of the BASIC dialect, on one page. The
   [reference manual](docs/SOLABASIC-REFERENCE.md) is the full account and
   [the definition](docs/SOLABASIC.md) says where the boundary came from.
+- **[Speed](docs/performance.md)** — measured against CPython 3.14 on nine
+  matched programs: where it wins, where it loses, and the three defects the
+  comparison found that nothing measured from the inside had noticed. Also the
+  two textbook optimisations that were built and turned out to be slower.
 - **[Lineage](docs/lineage.md)** — what Solum borrowed from Smalltalk and Self,
   which living languages sit nearest it, and what will surprise you if you
   arrive knowing Ruby, JavaScript or C. Five minutes, and worth them first.

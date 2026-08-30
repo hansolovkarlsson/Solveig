@@ -14,6 +14,9 @@ builds one program from nothing, a
 [guide](https://hansolovkarlsson.github.io/Solveig/docs/GUIDE.html) to every
 concept, and the
 [reference](https://hansolovkarlsson.github.io/Solveig/docs/REFERENCE.html).
+Measured against CPython 3.14 on nine matched programs, it comes out
+[a little ahead](https://hansolovkarlsson.github.io/Solveig/docs/performance.html) —
+and the comparison is what found the three defects that got it there.
 
 Everything is an object, including classes, and work happens by sending
 messages to them:
