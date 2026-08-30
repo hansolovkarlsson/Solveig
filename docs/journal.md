@@ -100,8 +100,6 @@ about GTK rather than a thing about this program.
 
 The README's counts were re-derived rather than adjusted: 30 distinct `gtk_*`
 functions called against 26, plus three cairo ones, and 23 messages against 17.
-Re-deriving caught that the old 26 excluded a `gtk_init` that appears only in a
-comment, which a grep counts and a claim should not.
 
 ---
 
