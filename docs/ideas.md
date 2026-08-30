@@ -30,7 +30,7 @@ marked as a sketch.
 | `System:exit(code)` | **Built** — as `system:exit`, and the `system` object grew well past it |
 | Keyboard input | **Both built** — `readLine`, and `readKey` once it earned its own entry |
 | File handling | **Built** — whole-file, and the filesystem around it |
-| JIT to native code | **No** — possible, and it would dwarf the project |
+| JIT to native code | **No** — possible, and it would dwarf the project; the cheap alternative it named was measured in the end and is [slower than the `switch`](#computed-goto-dispatch--measured-and-refused) |
 | More examples covering everything | **Audited** — the guide was clean; four messages had no demonstration and now have one |
 | `doUntil` | **Built in** — and inlined, so a definition in Solum would now be bypassed |
 | switch / case | **Already writable**, and now written — [`array:ifElseIf`](REFERENCE.md#the-library) in control.sol, once an interface turned up worth committing to |
@@ -70,8 +70,9 @@ marked as a sketch.
 | Default values for block parameters | **Defer** — the trigger is a program threading a nil it did not want to pass; the case for it is that built-ins already do this and user code cannot |
 | Constants | **Defer, and probably no** — the speed argument pointed at [3.17](COMPLETED.md#317-a-global-is-found-by-walking-a-list--done), which is now built and took the argument with it; the memory argument runs backwards |
 | Solas written in Solum — self-hosting | **Proved, then parked** — it compiles itself to a fixpoint; the code is in [experiment/](../experiment/), off the search path, [below](#solas-written-in-solum--self-hosting) |
+| Computed-goto dispatch | **No, and it was built to find out** — [1% to 13% *slower* than the `switch`](#computed-goto-dispatch--measured-and-refused) on all nine benchmarks and on a real program, because clang tail-merges the 21 dispatch sites back into one and the extra code size stays. The tail-call form is the technique that would work, and is much larger |
 | An inline cache at the send site | **Defer, and the entry was about the wrong ten percent** — [profiled rather than argued](#an-inline-cache-at-the-send-site): lookup is 9.7% of the benchmark that asked for it, and the two things above it are a missing `inline` and `-flto`, which is 5–29% across the suite and silently takes the extension ABI with it |
-| Making the interpreter faster — four candidates | **Two built on 2026-08-30**, [each measured first](#where-the-interpreters-time-actually-goes--two-built-two-left): the receiver check inlined, and a global remembered where it was found rather than hashed every time. 1.04–1.28× across the suite, 1.065× on a real program, and the CPython geometric mean 1.02 → 0.885. Computed-goto dispatch and the LTO symbol surface are the two left |
+| Making the interpreter faster — four candidates | **Two built on 2026-08-30**, [each measured first](#where-the-interpreters-time-actually-goes--two-built-two-left): the receiver check inlined, and a global remembered where it was found rather than hashed every time. 1.04–1.28× across the suite, 1.065× on a real program, and the CPython geometric mean 1.02 → 0.885. Computed-goto dispatch was then measured and [refused](#computed-goto-dispatch--measured-and-refused); the LTO symbol surface is the one left |
 
 ---
 
@@ -3340,11 +3341,12 @@ a slot is malloc'd on its own and linked, and **nothing removes one**, so the
 address is good for the life of the machine. ROADMAP 3.10 records that fact as a
 problem; here it is a guarantee.
 
-**3. Computed-goto dispatch — still open, and now the biggest thing left.** The
-loop itself is 55% of a real program. [The JIT entry](#a-jit-to-native-code)
-already names this as its cheap alternative and puts it at 10–20% typically; it
-is 21 opcodes, so it is contained. **Not measured here**, which is the honest
-gap in this list — everything else on it was.
+**3. Computed-goto dispatch — built, measured, and it is *slower*. No.** It was
+the biggest thing left, at 55% of a real program, and it was the one item here
+with an estimate rather than a measurement behind it. The estimate was wrong:
+threading the loop with labels-as-values is **1% to 13% slower than the
+`switch`**, on all nine benchmarks and on the real program. See
+[below](#computed-goto-dispatch--measured-and-refused).
 
 **4. Keeping the 147 exported symbols under LTO — still open, and it is the
 free one.** `-O2 -flto` is 5–29% faster across the suite with no source change
@@ -3371,6 +3373,71 @@ it.** Two of the four things worth doing to the dispatch loop were a missing
 finding.
 
 ## Recommended against
+
+### Computed-goto dispatch — measured, and refused
+
+**The textbook optimisation for a bytecode interpreter, and here it is slower.**
+Replace the `switch` with a table of label addresses and end every opcode with
+its own `goto *table[next]`, so that each one gets its own indirect branch and
+the predictor learns which opcode tends to follow which. It is what every
+account of interpreter performance recommends, and
+[the JIT entry](#a-jit-to-native-code) named it as this project's cheap
+alternative at "10–20%".
+
+**Built, run, and refused on the numbers.**
+
+| | |
+| --- | --- |
+| `fib` 0.89 · `float` 0.91 · `array` 0.94 · `higher` 0.94 · `strloop` 0.95 | |
+| `loop` 0.97 · `object` 0.98 · `strlib` 0.98 · `dict` 0.99 | |
+| **`basic.sol` interpreting BASIC** | **0.92** |
+
+Every one below 1, which here means the `switch` is faster — by 1% to 13%, and
+by 8% on the real program. The transformation is behaviour-preserving and was
+checked as such: all nine benchmarks print the same answers and the whole suite
+passes against it.
+
+**The reason is that the compiler undid it**, and the disassembly says so
+plainly:
+
+```text
+                        indirect branches   instructions   bytes
+   switch                        2               954        3816
+   computed goto                 1              1086        4344
+```
+
+**One.** Twenty-one hand-written `goto *table[...]` sites were tail-merged back
+into a single dispatch point — which is the shape a `switch` already compiles
+to, except now with 132 more instructions and 528 more bytes wrapped around it.
+Clang merges identical tails; identical tails are exactly what this technique
+consists of. So the benefit is optimised away and the cost is not, on a loop
+[4.5](COMPLETED.md#45-a-global-is-a-hash-lookup-and-a-receiver-check-is-a-call--done)
+had already shown to be instruction-cache sensitive to within 8.5%.
+
+Two things were checked before concluding, because a negative result from a bad
+prototype is worth nothing. Padding the jump table to 256 entries to remove the
+per-dispatch bounds test changed nothing (`fib` 0.87, `basic.sol` 0.92). And the
+`switch` version already carries two indirect branches rather than one, so clang
+had done a little of this duplication by itself, unasked.
+
+**It also would have cost the C11 promise.** Labels-as-values is a GNU
+extension, so this needs `&&label` behind a `__GNUC__` guard, a second copy of
+the dispatch structure for compilers without it, and `-Wpedantic` silenced where
+the table is declared. Paying that for a slowdown is an easy decision; it is
+worth writing down that even a *speedup* would have had to be worth those three
+things.
+
+**If this is ever revisited, the technique to revisit is a different one.** The
+modern answer on clang is the **tail-call interpreter** — each opcode a function
+ending in a `musttail` call to the next — which gets the per-opcode indirect
+branch in a form the optimiser cannot merge away, and which is what CPython 3.14
+itself adopted. That is 21 functions rather than 21 labels and a much larger
+change, and no program here is waiting on it. Recorded so the next person starts
+from the measurement rather than from the folklore.
+
+**Trigger:** somebody willing to write the tail-call form, with a profile
+showing the dispatch loop still on top. The 55% is real; this particular way of
+attacking it is not.
 
 ### Integer sizes — byte, word, long
 
@@ -3422,9 +3489,16 @@ dispatch loop to start from.
   and 4.3 got the language 40% faster with changes that fit in a paragraph.
 
 **The cheap alternative, if speed is ever wanted:** computed-goto dispatch
-(`&&label` threading) in place of the `switch`. It is a contained change to one
-function, typically worth 10–20% on interpreter-bound work, and it does not
-change anything else about the system.
+(`&&label` threading) in place of the `switch` — a contained change to one
+function, and the folklore puts it at 10–20% on interpreter-bound work.
+
+**That was written before anybody tried it, and it is wrong here.** Threading
+this loop is *slower* than the `switch` on all nine benchmarks and on a real
+program, because clang tail-merges the twenty-one dispatch sites back into one
+and leaves the extra code size behind — see
+[computed-goto dispatch](#computed-goto-dispatch--measured-and-refused). The
+sentence above is kept as it was written, because being wrong in public is what
+this page is for.
 
 ### `ifTrue{...}` — a block argument without parentheses
 
