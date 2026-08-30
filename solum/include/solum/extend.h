@@ -11,11 +11,20 @@
  * argv, the chunk, or the run. So the two headers overlap in what they promise
  * and not in what they are for.
  *
- * **This is the whole supported surface**, together with the three headers it
- * includes. Everything else under `solum/include` is the machine's own business
- * and may change without notice -- which was not true before this file existed,
- * and the difference is the point: what an extension could reach used to be
- * whatever the linker happened to keep, which is a surface nobody chose.
+ * **The supported surface is the list further down**, under *what an extension
+ * may rely on*, and nothing else. Everything under `solum/include` that is not
+ * on it -- including most of what the five headers below declare -- is the
+ * machine's own business and may change without notice.
+ *
+ * This sentence used to say the surface was this file *and the headers it
+ * includes*, which contradicted the list and got the count of them wrong. It
+ * cost nothing while the answer was inferred from the linker: what an extension
+ * could reach was whatever whole-archive linking happened to keep, 146 functions
+ * including the parser and the REPL's line editor, and no reading of the prose
+ * changed that. The surface is declared now
+ * ([4.6](../../../docs/COMPLETED.md#46-the-extension-abi-is-whatever-is-not-static--done)),
+ * the two readings give different answers, and the list is the one the build
+ * enforces.
  *
  *     #include "solum/extend.h"
  *
