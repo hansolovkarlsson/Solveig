@@ -11,6 +11,100 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-30 (night) — a canvas for GTK, and two bindings answering one question opposite ways
+
+Asked for a circle example in solveig-gtk after the SDL one. **It was not an
+example request, it was a capability request wearing one**: that binding had no
+drawing at all. Seventeen messages, every one a widget — window, label, button,
+box, `onClick`, `onKey`, `every` — and its README listed *no drawing area* among
+what is missing. So there was nothing to write the example against.
+
+Saying that first is most of the value of the half hour. The gap was named in
+the repository, which is the whole reason a README lists what it does not do.
+
+### The throwaway went first again, and again it was the design that needed it
+
+Ninety lines of C, built, loaded, thrown away. The engineering was never in
+doubt; **the design question was what a block draws with**, and it has a sharp
+edge. A `cairo_t` is alive only for the length of one draw callback, so handing
+one to the program hands out something that dangles the moment the block
+returns — and a program that *stored* it would corrupt memory rather than get an
+error, which is the worst kind of interface.
+
+So the context is not published. It is held in the binding for exactly as long
+as it is valid, and `colour` and `circle` ask for it; outside a draw block they
+answer *'circle' outside a draw block — there is nothing to draw on*. That is a
+different trade from every other message here, which takes its receiver openly,
+and the file says so: the alternative cannot be made safe, not that an implicit
+receiver is nicer.
+
+The throwaway is what settled that it *is* safe rather than plausible. Calling
+`gtk:circle` from outside a draw block was the first thing tried.
+
+### The claim that was waiting to be tested
+
+solveig-gtk's README has said since the day it was written that **the expensive
+work was per-toolkit rather than per-function, and it is done** — widget
+lifetimes, the main loop re-entering the VM, callbacks surviving collection,
+limits still applying. *A new message is a primitive, an arity check and a line
+in `sol_extension_init`.*
+
+**The canvas is the first thing to arrive since that was written, and it is a
+harder case than the ones the claim was made about** — not another widget but a
+new *kind* of callback, one GTK drives on its own schedule. It needed nothing.
+The draw callback re-enters through the retain registry and `fire()` exactly as
+`onClick` and `every` do. The only new plumbing was a `GDestroyNotify`, because
+`set_draw_func` does not take the GClosure notify the signal handlers use.
+
+A prediction written down in advance, and the first case that could have
+falsified it did not. That is worth more than the feature.
+
+### The same request, and the two bindings disagree correctly
+
+**A circle is one message in GTK and six lines of Solveig in SDL.** Cairo has
+`cairo_arc`. SDL's renderer has rectangles and lines, so `circles.sol` there
+works a disc out a row at a time — half the width of each row being the square
+root of `r² - dy²`.
+
+Neither is a defect in the other, and **the extension surface was deliberately
+not grown in SDL** when a program finally asked for a circle: one customer
+satisfied in six lines of the language is not a trigger, and a circle is a shape
+every later back end would have had to match with nothing to match it by. Cairo
+already has one, so GTK publishes it. Each binding says what its toolkit has.
+
+That is [no back end naming itself the general
+case](ideas.md#extensions-a-capability-from-a-binary-rather-than-from-the-vm)
+turning up in something much smaller than a main loop, which is where a
+principle is easier to violate without noticing.
+
+**And the two examples are the same program and look nothing alike.** In SDL the
+loop belongs to the program: move, draw, present. In GTK there is no loop —
+`every` moves the balls and says the picture is stale, `onDraw` answers with a
+picture whenever GTK wants one, and `gtk:run` is where the program waits.
+Nothing in the GTK one presents, clears, or thinks about a buffer, because the
+frame is the toolkit's business. Two files, one behaviour, no shared vocabulary.
+
+### Looked at, and what looking found
+
+Following [the evening's
+lesson](#2026-08-30-the-evening--a-demo-that-showed-the-measurement-was-of-the-wrong-thing):
+the window was captured mid-run, twice, a second apart. Four antialiased discs,
+in different places in the two shots.
+
+It found one flaw that reading would not have. **The physics used the size the
+canvas was asked for, while `onDraw` is handed the size that actually
+arrived** — so dragging the window bigger would have left the balls bouncing off
+an edge that was no longer there. The draw block records the real size now, and
+the example says why, because that gap between requested and actual is a thing
+about GTK rather than a thing about this program.
+
+The README's counts were re-derived rather than adjusted: 30 distinct `gtk_*`
+functions called against 26, plus three cairo ones, and 23 messages against 17.
+Re-deriving caught that the old 26 excluded a `gtk_init` that appears only in a
+comment, which a grep counts and a claim should not.
+
+---
+
 ## 2026-08-30 (the evening) — a demo that showed the measurement was of the wrong thing
 
 Asked for a Mandelbrot example for solveig-sdl — a demo rather than a probe,
