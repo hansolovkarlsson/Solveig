@@ -415,6 +415,55 @@ static const char *receiver_name(int type)
  *
  * Reports and answers false when the receiver does not suit.
  */
+/* The first time an instruction names a global, and every time one is missing.
+ *
+ * Out of line, and deliberately: these run once per site and the dispatch loop
+ * runs forever, so what they cost there is instruction cache rather than
+ * instructions. Written inline first, and measured -- the two of them in the
+ * switch left every benchmark faster except deep recursion, which touches no
+ * global at all and lost 8.5% to the layout alone. Neither half did that on its
+ * own. So the loop holds the remembered path and nothing else.
+ *
+ * The cast is the one `sol_vm_run` already makes: a frame holds its chunk const
+ * because running must not rewrite the code, and this table is an accelerator
+ * hung off the chunk rather than part of what it says. */
+static SolSlot *find_global(SolVM *vm, const SolChunk *chunk, int at)
+{
+    const char *name = chunk->interned[at];
+    SolSlot *slot = sol_object_lookup_interned(vm, vm->root, name);
+    if (slot == NULL) {
+        /* Not remembered: a name unbound now may be bound before this runs
+           again, and remembering the absence would make that read wrong. */
+        sol_vm_runtime_error(vm, "undefined name '%s'", name);
+        return NULL;
+    }
+    ((SolChunk *)chunk)->global_slots[at] = slot;
+    return slot;
+}
+
+/* The same for an assignment, which may be the one that creates the global. */
+static SolSlot *bind_global(SolVM *vm, const SolChunk *chunk, int at,
+                            bool inside_a_method, SolValue value)
+{
+    const char *name = chunk->interned[at];
+
+    /* Only the script's top level creates globals. Inside a method or block an
+       undeclared name must already exist, so a typo cannot quietly bring a new
+       global into being where it would look like a local. */
+    if (inside_a_method && sol_object_lookup_interned(vm, vm->root, name) == NULL) {
+        sol_vm_runtime_error(vm, "undefined name '%s' -- declare it with "
+                                 "'| %s |' or assign it at the top level",
+                             name, name);
+        return NULL;
+    }
+
+    /* The define answers the slot it wrote, so the name is hashed on the first
+       assignment to it and on no later one. */
+    SolSlot *slot = sol_object_define_interned(vm, vm->root, name, value);
+    ((SolChunk *)chunk)->global_slots[at] = slot;
+    return slot;
+}
+
 static bool receiver_suits(SolVM *vm, const SolSlot *slot, SolValue receiver)
 {
     if (sol_slot_accepts(slot, receiver)) return true;
@@ -808,6 +857,11 @@ static SolResult run_frames(SolVM *vm, int base)
 /* The same name, as this VM's interned copy: what a lookup wants. Every chunk
    the VM runs went through sol_vm_intern_chunk, so the table is there. */
 #define READ_INTERNED() (frame->chunk->interned[READ_INDEX()])
+/* Where a global was last found. Both tables are built together and emptied
+   together, so an entry here is good exactly when the interned name beside it
+   is -- see `global_slots` in bytecode.h. NULL means nobody has looked yet, and
+   `find_global` / `bind_global` above are what look. */
+#define CACHED_GLOBAL(at)  (frame->chunk->global_slots[(at)])
 
     for (;;) {
         /* The budget. One instruction is one step, counted here because this is
@@ -867,34 +921,21 @@ static SolResult run_frames(SolVM *vm, int base)
             break;
 
         case OP_GLOBAL: {
-            const char *name = READ_INTERNED();
-            SolSlot *slot = sol_object_lookup_interned(vm, vm->root, name);
-            if (slot == NULL) {
-                sol_vm_runtime_error(vm, "undefined name '%s'", name);
-                break;
-            }
+            int at = READ_INDEX();
+            SolSlot *slot = CACHED_GLOBAL(at);
+            if (slot == NULL && (slot = find_global(vm, frame->chunk, at)) == NULL) break;
             sol_vm_push(vm, slot->value);
             break;
         }
 
         case OP_SET_GLOBAL: {
-            const char *name = READ_INTERNED();
-
-            /* Only the script's top level creates globals. Inside a method or
-               block an undeclared name must already exist, so a typo cannot
-               quietly bring a new global into being where it would look like a
-               local. */
-            if (frame->method != NULL &&
-                sol_object_lookup_interned(vm, vm->root, name) == NULL) {
-                sol_vm_runtime_error(vm, "undefined name '%s' -- declare it with "
-                                         "'| %s |' or assign it at the top level",
-                                     name, name);
-                break;
-            }
-
             /* Assignment is an expression: the value stays on the stack so
                `c := b := #45` works and the statement's POP discards it. */
-            sol_object_define_interned(vm, vm->root, name, vm->stack_top[-1]);
+            int at = READ_INDEX();
+            SolSlot *slot = CACHED_GLOBAL(at);
+            if (slot != NULL) sol_slot_assign(slot, vm->stack_top[-1]);
+            else bind_global(vm, frame->chunk, at, frame->method != NULL,
+                             vm->stack_top[-1]);
             break;
         }
 
@@ -1290,13 +1331,21 @@ SolValue sol_vm_send(SolVM *vm, SolValue receiver, const char *name,
  * a pointer comparison. */
 void sol_vm_intern_chunk(SolVM *vm, SolChunk *chunk)
 {
+    /* Both tables, dropped together: a cached slot points into one VM's root
+       exactly as an interned name points into one VM's name table, so the
+       serial that invalidates the first invalidates the second. */
     if (chunk->interned_for != vm->id) {
         free(chunk->interned);
         chunk->interned = NULL;
+        free(chunk->global_slots);
+        chunk->global_slots = NULL;
     }
     if (chunk->interned == NULL && chunk->names.count > 0) {
         chunk->interned = malloc((size_t)chunk->names.count * sizeof *chunk->interned);
-        if (chunk->interned == NULL) {
+        /* calloc, because NULL is what "nobody has looked yet" is spelled as. */
+        chunk->global_slots = calloc((size_t)chunk->names.count,
+                                     sizeof *chunk->global_slots);
+        if (chunk->interned == NULL || chunk->global_slots == NULL) {
             fprintf(stderr, "solvm: out of memory\n");
             exit(1);
         }

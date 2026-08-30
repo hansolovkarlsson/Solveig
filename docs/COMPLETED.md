@@ -1511,6 +1511,92 @@ is not a negative index; neither is reachable from source, so
 [tests/test_string.c](../tests/test_string.c) makes both from C, walks all 256,
 collects twice, and asks again.
 
+### 4.5 A global is a hash lookup, and a receiver check is a call — **done**
+
+Two changes to the dispatch loop, both found by profiling rather than by
+reading, and neither of them a design question. 1.04× to 1.28× across the
+benchmark suite and **1.065× on a real program**; against CPython 3.14 the
+suite's geometric mean went 1.02 to **0.885**, ahead on five of nine.
+
+**What asked was [4.4](#44-a-one-byte-string-is-allocated-per-character-read--done)'s
+question repeated: where does the rest of it go?** The profile that mattered was
+of [basic.sol](../programs/basic.sol) interpreting 39,000 BASIC statements — a
+real program with objects, methods and dictionaries — rather than of a loop
+written to be timed. Of ~1550 samples: the dispatch loop 55%, name lookup 13%,
+**the per-send receiver check 12.6%**, `push_frame` 4%.
+
+**The receiver check was a call across a translation unit.** `sol_slot_accepts`
+is three predictable branches — is there a primitive, does it take any receiver,
+does the type match — and it lived in `object.c` while the dispatch loop lived
+in `vm.c`, so every send paid a call for them and nothing could inline it. It is
+a `static inline` in `object.h` now. That is the whole change, and it is 1.4% to
+6.5% depending on how send-heavy the program is.
+
+**The global was a hash lookup, and that is bigger.** `OP_GLOBAL` looked the
+name up on the root object every time and `OP_SET_GLOBAL` did it again to write.
+The measurement is the same loop written two ways, differing in nothing but
+where the counter lives:
+
+| | |
+| --- | --- |
+| `i` and `sum` as globals | 579 ms |
+| the same loop with them as block temporaries | 461 ms |
+| | **1.255×**, and an array index is what the second one does instead |
+
+The profile agrees from the other side: `sol_object_lookup_interned` falls from
+218 samples to 25 between those two programs, so nearly all of it was variable
+access rather than send dispatch. **Every top-level script pays this, and so
+does every line typed at the REPL.**
+
+**A chunk now remembers where each global was found.** One `SolSlot *` per name,
+beside the interned name and emptied by the same rule — `interned_for`, the VM
+serial — because a slot pointer belongs to one machine's root exactly as an
+interned name belongs to its name table. Two caches, one invalidation, and no
+new thing to keep in step.
+
+**Why remembering the address is sound is a fact about this language rather than
+a general one.** A slot is `malloc`'d on its own and linked, so growing an
+object's index moves pointers *to* slots and never the slots; and **nothing
+removes a slot** — no `slotAtPut`, no unbinding, which
+[3.10](ROADMAP.md#310-a-vm-cannot-be-reused-across-runs) records as a problem
+and this reads as a guarantee. A miss is not remembered, so a name that is not
+bound yet is looked up again rather than recorded as absent, which is what lets
+a method written before its global exists work once it does.
+
+**And the two changes together were slower than either alone**, which is the
+part worth keeping. Written with both slow paths inline in the switch, every
+benchmark improved except deep recursion — which touches no global at all and
+lost **8.5%**. Neither half did that on its own: inlined the check alone, `fib`
+was 1.011; the cache alone, 0.996; both, 0.922, with an interval nowhere near 1.
+Nothing had been added to that program's path, so the cost was instruction
+cache — a bigger switch body, and the hot cases falling differently across it.
+
+Moving `find_global` and `bind_global` out of line, leaving only the remembered
+path in the loop, fixed it and improved everything else at the same time:
+
+| | both inline | slow paths out of line |
+|---|---|---|
+| `fib` | 0.922 | **1.003** |
+| `loop` | 1.251 | **1.284** |
+| `float` | 1.212 | **1.276** |
+| `array` | 1.184 | **1.237** |
+| `strloop` | 1.152 | **1.228** |
+
+**A dispatch loop is a cache-resident thing, and code that runs once per site
+does not belong in it.** That is the lesson, and it was invisible to reasoning
+about instruction counts — every version does the same work.
+
+**The invalidation is tested, and the test was vacuous at first.** Deleting the
+`free` of the table made no difference, because the `calloc` beside it ran
+anyway and handed back a fresh one; the test passed against code that had lost
+the property it names. It only bites against a cache that genuinely survives a
+change of machine, and that is what
+[tests/test_vm.c](../tests/test_vm.c) now breaks against — twenty machines in
+turn, each binding a different value, the second very likely landing on the
+first's freed address, which is [4.3](#43-dispatch-does-a-string-compare-per-send--done)'s
+serial doing the job it was made for. **A test that passes against the broken
+version tests nothing**, and the only way to know is to break it on purpose.
+
 ---
 
 ## 5. Tooling and ergonomics

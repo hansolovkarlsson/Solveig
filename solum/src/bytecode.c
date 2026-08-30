@@ -26,6 +26,7 @@ void sol_chunk_init(SolChunk *chunk)
     chunk->methods.capacity = 0;
     chunk->methods.methods = NULL;
     chunk->interned = NULL;
+    chunk->global_slots = NULL;
     chunk->interned_for = 0;
     chunk->name_index.slots = NULL;
     chunk->name_index.capacity = 0;
@@ -475,6 +476,7 @@ void sol_chunk_free(SolChunk *chunk)
     index_free(&chunk->name_index);
     index_free(&chunk->constant_index);
     free(chunk->interned);        /* the names themselves belong to the VM */
+    free(chunk->global_slots);    /* and the slots belong to the root object */
     /* Recursive: a method owns its chunk, which may own further methods. */
     for (int i = 0; i < chunk->methods.count; i++) sol_method_free(chunk->methods.methods[i]);
     free(chunk->methods.methods);

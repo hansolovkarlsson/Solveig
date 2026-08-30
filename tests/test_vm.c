@@ -425,6 +425,86 @@ static void test_an_exit_records_no_error(void)
     sol_vm_free(&vm);
 }
 
+/* Where a global lives is remembered per site -- see `global_slots` in
+ * bytecode.h. These pin the three things that makes true rather than fast.
+ *
+ * The first is ordinary behaviour, which is the point: a remembered slot must
+ * be indistinguishable from a looked-up one. */
+static void test_a_remembered_global_still_reads_and_writes(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+
+    /* Read and written many times through the same two instructions, with the
+       value changing under them and the slot never moving. */
+    assert(run(&vm,
+        "n := #0. seen := \"\"."
+        "{ n:lessThan(#5) }:whileTrue({"
+        "  n := n:add(#1). seen := seen:concat(n:asString) }).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "n")) == 5);
+    assert(SOL_IS_STRING(global(&vm, "seen")));
+    assert(strcmp(SOL_AS_STRING(global(&vm, "seen"))->chars, "12345") == 0);
+
+    /* And rebinding to another type goes on working. */
+    assert(run(&vm, "n := \"five\".") == SOL_OK);
+    assert(SOL_IS_STRING(global(&vm, "n")));
+    sol_vm_free(&vm);
+}
+
+/* The second: a name that was not bound when the instruction first ran is
+ * looked up again rather than remembered as absent. Nothing caches a miss. */
+static void test_an_absent_global_is_not_remembered_as_absent(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+
+    /* `later` does not exist when `get` first runs, and does the second time.
+       One method, one OP_GLOBAL, both answers. */
+    assert(run(&vm,
+        "holder := object:new."
+        "holder:get := { later }."
+        "first := { holder:get }:onError({ e | \"absent\" })."
+        "later := #42."
+        "second := holder:get.") == SOL_OK);
+    assert(SOL_IS_STRING(global(&vm, "first")));
+    assert(strcmp(SOL_AS_STRING(global(&vm, "first"))->chars, "absent") == 0);
+    assert(SOL_AS_INT(global(&vm, "second")) == 42);
+
+    sol_vm_free(&vm);
+}
+
+/* The third, and the one that would be a real bug: a chunk carries the cache,
+ * so a chunk run on a second machine must not read the first machine's root.
+ * The slots there have been freed with it.
+ *
+ * This is the failure `interned_for` was made for -- see the note on it in
+ * bytecode.h -- and the reason the two tables are emptied together. A VM is a
+ * local here, so the second is very likely to land on the first's address,
+ * which is exactly the case a pointer-keyed check got wrong. */
+static void test_a_chunk_does_not_carry_globals_between_machines(void)
+{
+    SolChunk chunk;
+    sol_chunk_init(&chunk);
+    assert(sol_compile("out := seed:add(#1).", &chunk));
+
+    for (int i = 1; i <= 20; i++) {
+        SolVM vm; sol_vm_init(&vm);
+
+        /* A different slot on a different root each time round. */
+        SolChunk setup;
+        sol_chunk_init(&setup);
+        char source[64];
+        snprintf(source, sizeof source, "seed := #%d.", i * 100);
+        assert(sol_compile(source, &setup));
+        assert(sol_vm_run(&vm, &setup) == SOL_OK);
+        sol_chunk_free(&setup);
+
+        assert(sol_vm_run(&vm, &chunk) == SOL_OK);
+        assert(SOL_AS_INT(global(&vm, "out")) == i * 100 + 1);
+
+        sol_vm_free(&vm);
+    }
+    sol_chunk_free(&chunk);
+}
+
 int main(void)
 {
     test_error_recovery_makes_progress();
@@ -443,6 +523,9 @@ int main(void)
     test_each_run_starts_with_no_error();
     test_the_first_error_wins();
     test_an_exit_records_no_error();
+    test_a_remembered_global_still_reads_and_writes();
+    test_an_absent_global_is_not_remembered_as_absent();
+    test_a_chunk_does_not_carry_globals_between_machines();
     test_assignment_is_an_expression();
     test_arithmetic_is_strict();
     test_integer_overflow_traps();

@@ -71,6 +71,7 @@ marked as a sketch.
 | Constants | **Defer, and probably no** — the speed argument pointed at [3.17](COMPLETED.md#317-a-global-is-found-by-walking-a-list--done), which is now built and took the argument with it; the memory argument runs backwards |
 | Solas written in Solum — self-hosting | **Proved, then parked** — it compiles itself to a fixpoint; the code is in [experiment/](../experiment/), off the search path, [below](#solas-written-in-solum--self-hosting) |
 | An inline cache at the send site | **Defer, and the entry was about the wrong ten percent** — [profiled rather than argued](#an-inline-cache-at-the-send-site): lookup is 9.7% of the benchmark that asked for it, and the two things above it are a missing `inline` and `-flto`, which is 5–29% across the suite and silently takes the extension ABI with it |
+| Making the interpreter faster — four candidates | **Two built on 2026-08-30**, [each measured first](#where-the-interpreters-time-actually-goes--two-built-two-left): the receiver check inlined, and a global remembered where it was found rather than hashed every time. 1.04–1.28× across the suite, 1.065× on a real program, and the CPython geometric mean 1.02 → 0.885. Computed-goto dispatch and the LTO symbol surface are the two left |
 
 ---
 
@@ -3296,6 +3297,78 @@ than argued, and the measurement says the entry was about the wrong ten percent.
 `sol_object_lookup_interned` at the top of it. Nothing here is and nothing here
 does — and the two things above it in that profile are a missing `inline` and a
 linker flag, neither of which is a language change.
+
+### Where the interpreter's time actually goes — two built, two left
+
+The entry above ended by pointing at two things above the inline cache in the
+profile. Asked what else could be done, the answer was got the same way: profile
+six benchmarks and a **real program** — [basic.sol](../programs/basic.sol)
+interpreting 39,000 BASIC statements, which is 2,774 lines of Solveig with
+objects, methods and dictionaries in it, rather than a loop somebody wrote to be
+timed.
+
+```text
+$ sample <solvm running basic.sob>        ~1550 samples
+
+   run_frames                        851   55%   the dispatch loop itself
+   sol_object_lookup_interned        205   13%   name → slot
+   receiver_suits + sol_slot_accepts  195   12.6% the per-send receiver check
+   push_frame                         61    4%
+   find_entry, memcmp, malloc        ...          the program's own work
+```
+
+Four candidates came out of it, ranked by what they were measured to be worth
+against what they cost. **Two are built and are
+[4.5](COMPLETED.md#45-a-global-is-a-hash-lookup-and-a-receiver-check-is-a-call--done);
+two are still here.**
+
+**1. The per-send receiver check, inlined — built.** `sol_slot_accepts` is three
+predictable branches, and it lived in `object.c` while its only caller lived in
+`vm.c`, so every send paid a call across a translation unit for them. Moving it
+to a `static inline` in the header is 1.4% to 6.5% depending on how send-heavy
+the program is. It takes one symbol off the export table, 147 to 146, and that
+one appears in neither [extend.h](../solum/include/solum/extend.h)'s surface nor
+[extensions.md](extensions.md), so nothing documented lost anything.
+
+**2. A global is a hash lookup — built.** The measurement that found it: the
+same loop written with globals and with block temporaries, which differ in
+nothing else, are **1.255×** apart, and the profile agrees independently —
+`sol_object_lookup_interned` falls from 218 samples to 25. Every top-level
+script and every REPL line pays it. The fix is to remember the slot at the site,
+and it is safe for a reason that is *this* language's rather than a general one:
+a slot is malloc'd on its own and linked, and **nothing removes one**, so the
+address is good for the life of the machine. ROADMAP 3.10 records that fact as a
+problem; here it is a guarantee.
+
+**3. Computed-goto dispatch — still open, and now the biggest thing left.** The
+loop itself is 55% of a real program. [The JIT entry](#a-jit-to-native-code)
+already names this as its cheap alternative and puts it at 10–20% typically; it
+is 21 opcodes, so it is contained. **Not measured here**, which is the honest
+gap in this list — everything else on it was.
+
+**4. Keeping the 147 exported symbols under LTO — still open, and it is the
+free one.** `-O2 -flto` is 5–29% faster across the suite with no source change
+and takes the whole extension ABI with it, [as the entry above
+records](#an-inline-cache-at-the-send-site). An exported-symbols list or
+visibility attributes would keep both.
+
+**What the two built ones came to**, measured against the same source without
+them, all at `-O2`:
+
+| | |
+| --- | --- |
+| `basic.sol` interpreting BASIC | **1.065×** |
+| `loop` 1.284 · `float` 1.276 · `array` 1.237 · `strloop` 1.228 | |
+| `higher` 1.126 · `object` 1.120 · `dict` 1.054 · `strlib` 1.037 | |
+| `fib`, which touches no global at all | 1.003 — unmoved, and see 4.5 |
+
+Against CPython 3.14 the suite's geometric mean went **1.02 to 0.885**, and
+Solveig is now ahead on five of the nine rather than four.
+
+**The verdict this changes is the inline cache's, and only by agreeing with
+it.** Two of the four things worth doing to the dispatch loop were a missing
+`inline` and a table lookup, and neither is a design question. That remains the
+finding.
 
 ## Recommended against
 

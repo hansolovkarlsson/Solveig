@@ -372,9 +372,13 @@ SolSlot *sol_object_lookup(SolObject *obj, const char *name);
 SolSlot *sol_object_lookup_interned(SolVM *vm, SolObject *obj, const char *name);
 
 /* Binds a name the caller has already interned, which every name the VM reads
-   out of a chunk is. */
-void sol_object_define_interned(SolVM *vm, SolObject *obj, const char *name,
-                                SolValue value);
+   out of a chunk is.
+ *
+ * Answers the slot it wrote, which is what lets the dispatch loop remember
+ * where a global lives -- see `global_slots` in bytecode.h. The slot outlives
+ * every assignment to it, so the answer stays good. */
+SolSlot *sol_object_define_interned(SolVM *vm, SolObject *obj, const char *name,
+                                    SolValue value);
 
 void     sol_object_define(SolVM *vm, SolObject *obj, const char *name, SolValue value);
 void     sol_object_define_primitive(SolVM *vm, SolObject *obj, const char *name,
@@ -385,8 +389,34 @@ void     sol_object_define_primitive(SolVM *vm, SolObject *obj, const char *name
 void     sol_object_define_primitive_for(SolVM *vm, SolObject *obj, const char *name,
                                          SolPrimitive fn, int receiver_type);
 
+/* What binding a name to a value does to the slot holding it.
+ *
+ * One place, because there are now two callers -- `sol_object_define_interned`,
+ * and the dispatch loop writing straight through a slot it already knows the
+ * address of. A global rebound from a primitive to an ordinary value has to
+ * stop being a primitive, and a second copy of that rule is a second place for
+ * it to be forgotten. */
+static inline void sol_slot_assign(SolSlot *slot, SolValue value)
+{
+    slot->value = value;
+    slot->primitive = NULL;
+    slot->receiver_type = SOL_ANY_RECEIVER;
+}
+
 /* May `receiver` be handed to this slot's primitive? True for a slot that is
-   not a primitive at all, and for one that takes any receiver. */
-bool     sol_slot_accepts(const SolSlot *slot, SolValue receiver);
+   not a primitive at all, and for one that takes any receiver.
+ *
+ * Inline, and in the header rather than in object.c, because it is three
+ * predictable branches on the hot path of every send -- and measured from
+ * across a translation unit it cost more than the name lookup beside it did.
+ * Sampling `basic.sol` interpreting BASIC put this and its caller at 12.6% of
+ * the run against the lookup's 13%; inlining it is 1.4% to 6.5% depending on
+ * how send-heavy the program is, and 6.5% on that one. Nothing else changed. */
+static inline bool sol_slot_accepts(const SolSlot *slot, SolValue receiver)
+{
+    if (slot->primitive == NULL) return true;
+    if (slot->receiver_type == SOL_ANY_RECEIVER) return true;
+    return (int)receiver.type == slot->receiver_type;
+}
 
 #endif /* SOLUM_OBJECT_H */

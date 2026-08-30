@@ -147,6 +147,30 @@ typedef struct {
        NULL in Solas, which has no VM to intern against. */
     const char  **interned;
 
+    /* Where each of those names lives on the root object, once something has
+     * looked. One entry per name, NULL until the first OP_GLOBAL or
+     * OP_SET_GLOBAL mentioning it runs, after which reading or writing that
+     * global is a pointer dereference rather than a hash and a probe.
+     *
+     * **A global's slot never moves and is never taken away**, which is what
+     * makes caching the pointer sound rather than merely fast. Slots are
+     * malloc'd one at a time and linked, so growing the object's index moves
+     * pointers *to* them and not the slots themselves; and nothing in the
+     * language removes a slot -- the same fact ROADMAP 3.10 records as a
+     * problem, read here as a guarantee. A miss is not cached, so a name that
+     * is not bound yet is looked up again rather than remembered as absent.
+     *
+     * It rides beside `interned` and is emptied by exactly the same rule --
+     * `interned_for` below -- because a slot pointer belongs to one VM's root
+     * as surely as an interned name belongs to its name table. Two caches with
+     * one invalidation is the whole reason this is here and not somewhere of
+     * its own.
+     *
+     * Worth 1.25x on a script whose loop counter is a global, measured against
+     * the same loop written with block temporaries, where the access is already
+     * an array index. */
+    struct SolSlot **global_slots;
+
     /* Which VM those pointers belong to, by **serial number rather than
        address**. A VM used to be identified here by its own pointer, and that
        is wrong in the one case it most needed to be right: free a VM and make

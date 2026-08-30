@@ -821,21 +821,17 @@ static SolSlot *ensure_local(SolVM *vm, SolObject *obj, const char *name)
 /* The same as sol_object_define, for a caller that already holds the interned
    name -- which the VM always does, since it reads names out of a chunk's table
    and those were interned when the chunk was loaded. */
-void sol_object_define_interned(SolVM *vm, SolObject *obj, const char *name,
-                                SolValue value)
+SolSlot *sol_object_define_interned(SolVM *vm, SolObject *obj, const char *name,
+                                    SolValue value)
 {
     SolSlot *slot = ensure_local_interned(vm, obj, name);
-    slot->value = value;
-    slot->primitive = NULL;
-    slot->receiver_type = SOL_ANY_RECEIVER;
+    sol_slot_assign(slot, value);
+    return slot;
 }
 
 void sol_object_define(SolVM *vm, SolObject *obj, const char *name, SolValue value)
 {
-    SolSlot *slot = ensure_local(vm, obj, name);
-    slot->value = value;
-    slot->primitive = NULL;
-    slot->receiver_type = SOL_ANY_RECEIVER;
+    sol_slot_assign(ensure_local(vm, obj, name), value);
 }
 
 void sol_object_define_primitive(SolVM *vm, SolObject *obj, const char *name,
@@ -853,9 +849,4 @@ void sol_object_define_primitive_for(SolVM *vm, SolObject *obj, const char *name
     slot->receiver_type = receiver_type;
 }
 
-bool sol_slot_accepts(const SolSlot *slot, SolValue receiver)
-{
-    if (slot->primitive == NULL) return true;
-    if (slot->receiver_type == SOL_ANY_RECEIVER) return true;
-    return (int)receiver.type == slot->receiver_type;
-}
+/* sol_slot_accepts is a static inline in object.h -- see the note there. */
