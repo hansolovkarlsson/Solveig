@@ -90,6 +90,10 @@ void sol_vm_init(SolVM *vm)
     vm->symbol_capacity = 0;
     vm->symbol_count = 0;
 
+    /* A root like the classes above, and empty here for the same reason: the
+       first allocation may collect, and the tracer reads all 256 of these. */
+    memset(vm->bytes, 0, sizeof vm->bytes);
+
     vm->names = NULL;
     vm->name_capacity = 0;
     vm->name_count = 0;
@@ -169,6 +173,10 @@ void sol_vm_free(SolVM *vm)
     vm->retained_free = -1;
     vm->random_class = NULL;
     vm->builtin_globals = 0;
+
+    /* Freed with the rest of the heap by the sweep above, so this drops
+       pointers rather than memory -- and leaves the machine safe to re-init. */
+    memset(vm->bytes, 0, sizeof vm->bytes);
 
     sol_text_free(&vm->error_message);
     sol_text_free(&vm->error_trace);

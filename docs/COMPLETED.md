@@ -141,10 +141,14 @@ What is left, small and separable:
   text table is NUL-terminated in memory and one would truncate the string --
   the wire format already carries lengths, so lifting that means giving the
   in-memory table lengths too.
-- **Not interned.** `OP_STRING` allocates on every evaluation, so a literal in a
-  loop makes a string per pass. Immutability means that is only a cost, never a
-  semantic difference. Interning would fix it and give 4.3 its mechanism, but
-  needs a weak table so interned strings can still die.
+- **Not interned, except the one-byte case.** `OP_STRING` allocates on every
+  evaluation, so a literal in a loop makes a string per pass. Immutability means
+  that is only a cost, never a semantic difference. Interning would fix it and
+  give 4.3 its mechanism, but needs a weak table so interned strings can still
+  die. **A one-byte literal is shared as of
+  [4.4](#44-a-one-byte-string-is-allocated-per-character-read--done)**, which
+  needed no weak table because there are only 256 of them and a bounded table
+  can be strong. Every longer literal still allocates, and that is what is left.
 Ordering and conversions have since been added (2.8).
 
 ### 1.4 User-defined objects — **done**
@@ -1436,6 +1440,76 @@ byte-identical -- the same entry lands at the same position, only faster to find
 Below sixteen entries there is no index at all and the scan stands, which is
 where it was always cheaper anyway and is why a method body, a block, or a REPL
 line costs nothing extra: measured, 60,000 REPL lines still peak at 1.9 MB.
+
+### 4.4 A one-byte string is allocated per character read — **done**
+
+The machine keeps one string for each of the 256 byte values and answers it
+rather than allocating. It is a table on the VM, filled on first use, and the
+whole change is four lines of behaviour spread over four files.
+
+**The case came from measuring against another language**, which nothing here
+had done. Nine matched programs against CPython 3.14 put Solveig within nine
+percent overall -- ahead on arithmetic and allocation, behind on dispatch -- and
+the worst of the nine was a character scan at 2.13 times CPython's time. Taking
+the read out of the loop and running the rest is what named the cause:
+
+| | with `s:at(i)` | without it | so the reads cost |
+| --- | --- | --- | --- |
+| Solveig | 1.32 s | 0.87 s | **0.45 s** |
+| CPython | 0.62 s | 0.52 s | 0.10 s |
+
+Half a second of allocation and collection over nine million characters, for
+bytes the machine already had. CPython keeps its 256 single-byte strings as
+singletons, so `s[i]` returns a pointer; `string:at` ended in `sol_string_new`
+and returned a fresh cell.
+
+**And the loop's *other* half was the same fault seen from the side.** `"o"` in
+the condition is a literal, and OP_STRING builds a literal fresh on every
+evaluation -- so a scan that compares each character against a constant made
+*two* strings a pass, and only one of them was the one being looked for. That is
+[1.3](#13-strings--done)'s last open bullet, which said interning would fix it
+and would need a weak table so interned strings can still die.
+
+**It needs no weak table, and the reason is the count.** Symbols are weak
+because a program can intern a million names, so a table that kept them would be
+a leak with a table around it. There are 256 byte values and there will never be
+more: the whole table is about six kilobytes held for the life of the machine,
+and holding it is exactly what makes the second read free. The general case is
+still open for the reason 1.3 gave -- a long literal has to be able to die --
+and is now the only part of it that is.
+
+**The test is in `sol_string_new` rather than at `string:at`**, so that one byte
+is the machine's copy as a property of the machine and not as something two
+primitives remember. Every way a one-byte string can be made goes through that
+function: `at`, `asCharacter`, `copyFrom(#i, #i)`, a `split` that yields a single
+character, an extension calling the same entry point, and OP_STRING. A string is
+immutable and compared by value, so which copy a program holds is not a question
+it can ask -- which is what makes this a cost removed rather than a decision
+about semantics.
+
+**Filled on first use rather than at startup**, and [3.10](ROADMAP.md#310-a-vm-cannot-be-reused-across-runs)
+is why: a third of a request goes on building a machine, so 512 allocations
+added to `sol_vm_init` would be paid by every request to buy bytes most programs
+never read. Measured on hello-world, VM build is unmoved -- `1.004 times, 95%
+interval 0.973 to 1.026`, which is the tool saying it cannot tell them apart.
+
+| | before | after |
+|---|---|---|
+| 9.0M characters scanned and compared | 1.371 s | **0.758 s** |
+| the same loop with the read taken out (the literal alone) | | **1.49× faster** |
+| against CPython 3.14, startup removed | 2.13× | **1.22×** |
+| join/split, dictionary, object allocation, VM build | | unmoved, four ways |
+
+The nine-benchmark geometric mean against CPython went from 1.09 to **1.02**.
+
+**The table is a GC root and the collector marks all 256**, which is the one
+place this is unlike the weak symbol table beside it. `sol_vm_init` zeroes it
+before the first allocation for the same reason the class pointers are zeroed
+there -- that allocation may collect, and under `SOLUM_GC_STRESS` it does.
+Indexed by the byte itself, so `\0` has an entry like the other 255 and byte 200
+is not a negative index; neither is reachable from source, so
+[tests/test_string.c](../tests/test_string.c) makes both from C, walks all 256,
+collects twice, and asks again.
 
 ---
 

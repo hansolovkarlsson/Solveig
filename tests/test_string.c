@@ -123,6 +123,115 @@ static void test_at(void)
     sol_vm_free(&vm);
 }
 
+/* One byte is the machine's one string for that byte -- see `bytes` in vm.h.
+ *
+ * Nothing a program can write tells the two apart, strings being immutable and
+ * compared by value, so the sharing is asserted from here where the pointers
+ * are visible. The behaviour tests around it are the ones that matter to a
+ * program; this is the one that says why it is fast. */
+static void test_one_byte_strings_are_shared(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    /* Read from two different strings, and take the literal a third way. */
+    assert(run(&vm, &chunk,
+        "a := \"abc\":at(#1). b := \"cba\":at(#3). c := \"a\"."
+        "d := \"xax\":copyFrom(#2, #2). e := #97:asCharacter.") == SOL_OK);
+
+    const SolString *a = SOL_AS_STRING(global(&vm, "a"));
+    assert(a == SOL_AS_STRING(global(&vm, "b")));
+    assert(a == SOL_AS_STRING(global(&vm, "c")));
+    assert(a == SOL_AS_STRING(global(&vm, "d")));
+    assert(a == SOL_AS_STRING(global(&vm, "e")));
+    assert(is_text(global(&vm, "a"), "a"));
+    sol_chunk_free(&chunk);
+
+    /* A different byte is a different string, and two bytes are not cached. */
+    assert(run(&vm, &chunk, "x := \"a\". y := \"b\". p := \"ab\". q := \"ab\".") == SOL_OK);
+    assert(SOL_AS_STRING(global(&vm, "x")) != SOL_AS_STRING(global(&vm, "y")));
+    assert(SOL_AS_STRING(global(&vm, "p")) != SOL_AS_STRING(global(&vm, "q")));
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
+/* Every byte value, including the one no literal can spell.
+ *
+ * A string is bytes and may hold a NUL, so `\0` has an entry like the other
+ * 255 -- and the table is indexed by the byte itself, which is what makes the
+ * high half work without sign extension turning byte 200 into a negative
+ * index. Neither of those is reachable from source, so both are made here. */
+static void test_every_byte_has_its_own_string(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+
+    SolString *first[256];
+    for (int i = 0; i < 256; i++) {
+        char byte = (char)i;
+        first[i] = sol_string_new(&vm, &byte, 1);
+        assert(first[i]->length == 1);
+        assert((unsigned char)first[i]->chars[0] == (unsigned char)i);
+    }
+
+    /* 256 distinct cells, and asking again answers the same one each time. */
+    for (int i = 0; i < 256; i++) {
+        char byte = (char)i;
+        assert(sol_string_new(&vm, &byte, 1) == first[i]);
+        for (int j = 0; j < i; j++) assert(first[i] != first[j]);
+    }
+
+    /* And a collection does not take them: the table is a root, unlike the
+       symbol table, because there are only ever these 256. */
+    sol_gc_collect(&vm);
+    sol_gc_collect(&vm);
+    for (int i = 0; i < 256; i++) {
+        char byte = (char)i;
+        assert(sol_string_new(&vm, &byte, 1) == first[i]);
+        assert((unsigned char)first[i]->chars[0] == (unsigned char)i);
+    }
+
+    sol_vm_free(&vm);
+}
+
+/* The point of the entry: a loop reading characters allocates nothing.
+ *
+ * Before this, `s:at(i)` made a cell per character and so did the `"o"` it was
+ * compared against -- two per pass, none of them reachable by the end. The
+ * count now stands still, which is the difference the benchmark measures. */
+static void test_scanning_a_string_allocates_nothing(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    /* Warm every byte the loop will touch, so the baseline is taken after the
+       table is filled rather than while it is filling. */
+    assert(run(&vm, &chunk,
+        "s := \"the quick brown fox\"."
+        "i := #1. { i:lessOrEqual(s:size) }:whileTrue({ s:at(i). i := i:inc }).") == SOL_OK);
+    sol_chunk_free(&chunk);
+    sol_gc_collect(&vm);
+    int baseline = sol_gc_live_count(&vm);
+
+    assert(run(&vm, &chunk,
+        "n := #0. i := #1."
+        "{ i:lessOrEqual(s:size) }:whileTrue({"
+        "  s:at(i):equals(\"o\"):ifTrue({ n := n:inc }). i := i:inc })."
+        "reps := #0."
+        "{ reps:lessThan(#500) }:whileTrue({"
+        "  i := #1."
+        "  { i:lessOrEqual(s:size) }:whileTrue({ s:at(i). i := i:inc })."
+        "  reps := reps:inc }).") == SOL_OK);
+    assert(SOL_AS_INT(global(&vm, "n")) == 2);        /* brown, fox */
+
+    /* Nine and a half thousand reads, and the heap is where it started. */
+    sol_gc_collect(&vm);
+    assert(sol_gc_live_count(&vm) <= baseline + 8);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+}
+
 /* Strings go in arrays and through the iteration protocol like anything else. */
 static void test_strings_in_collections(void)
 {
@@ -716,6 +825,9 @@ int main(void)
     test_equality_is_by_value();
     test_concat();
     test_at();
+    test_one_byte_strings_are_shared();
+    test_every_byte_has_its_own_string();
+    test_scanning_a_string_allocates_nothing();
     test_strings_in_collections();
     test_collection();
     test_literal_text_is_shared_safely();

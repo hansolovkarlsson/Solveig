@@ -184,6 +184,37 @@ struct SolVM {
     int         name_capacity;
     int         name_count;
 
+    /* This machine's one string for each of the 256 byte values.
+     *
+     * `string:at` answers a one-character string, there being no character
+     * type, so walking a string a byte at a time used to allocate a cell per
+     * character -- and so did `"o"` in the loop's condition, because OP_STRING
+     * builds a literal fresh on every evaluation. Nine million characters
+     * scanned meant eighteen million strings made and collected to look at
+     * bytes the machine already had.
+     *
+     * A string is immutable and compared by value, so which copy a program
+     * holds is not something it can ask. Sharing one is therefore invisible,
+     * which is what makes this a cost removed rather than a decision.
+     *
+     * **Strong, where the symbol table is weak, and the reason is the count.**
+     * Symbols are unbounded -- a program can intern a million names -- so a
+     * table that kept them would be a leak with a table around it. There are
+     * 256 byte values and there will never be more, so the whole of this one is
+     * about six kilobytes held for the life of the machine, and holding it is
+     * what makes the second read free. That is also why the general case in
+     * 1.3 is still open: interning *every* literal needs a weak table so the
+     * long ones can die, and this needs no table machinery at all.
+     *
+     * **Filled on first use, not at startup.** ROADMAP 3.10 measures a third of
+     * a request going on building a machine, so 512 allocations added to
+     * `sol_vm_init` would be paid by every request to buy bytes most programs
+     * never read. An entry costs nothing until something asks for that byte.
+     *
+     * Indexed by the byte itself, all 256 of them: a string is bytes and may
+     * hold a NUL, so `\0` is an entry like any other. */
+    SolString *bytes[256];
+
     /* Files `system:load` has already run, by identity -- the realpath, so that
        two names for one file are one file. `@include` keeps the same list for
        the same reason, and keys it the same way; the difference is only that

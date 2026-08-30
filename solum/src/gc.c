@@ -279,6 +279,12 @@ static void mark_roots(SolVM *vm)
         if (vm->retained[i].in_use) mark_value(vm, vm->retained[i].value);
     }
 
+    /* The one string per byte value. Strong, unlike the symbol table below it,
+       because 256 is the whole of it -- see `bytes` in vm.h. */
+    for (int i = 0; i < 256; i++) {
+        if (vm->bytes[i] != NULL) mark_cell(vm, (SolGCHeader *)vm->bytes[i]);
+    }
+
     mark_cell(vm, (SolGCHeader *)vm->root);
     mark_cell(vm, (SolGCHeader *)vm->integer_class);
     mark_cell(vm, (SolGCHeader *)vm->float_class);

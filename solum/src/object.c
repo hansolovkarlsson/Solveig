@@ -205,6 +205,18 @@ bool sol_foreign_release(SolValue value)
 
 SolString *sol_string_new(SolVM *vm, const char *chars, int length)
 {
+    /* One byte is the machine's, not the caller's -- see `bytes` in vm.h.
+     *
+     * The test is here rather than at `string:at` so that it is a property of
+     * the machine rather than something two primitives remember: every way a
+     * one-byte string can be made goes through this function, and a literal
+     * `"o"` pushed by OP_STRING is one of them. Returning before
+     * `sol_gc_maybe_collect` is the point of the whole entry -- nothing is
+     * allocated, so there is nothing to charge and no reason to collect. */
+    if (length == 1 && vm->bytes[(unsigned char)chars[0]] != NULL) {
+        return vm->bytes[(unsigned char)chars[0]];
+    }
+
     sol_gc_maybe_collect(vm);
 
     SolString *string = malloc(sizeof(SolString));
@@ -221,6 +233,12 @@ SolString *sol_string_new(SolVM *vm, const char *chars, int length)
 
     sol_gc_register(vm, &string->gc, SOL_GC_STRING,
                     sizeof(SolString) + (size_t)length + 1);
+
+    /* Parked after registration, so the cell is on the heap list before
+       anything else can see it. The collect above may have run, and the table
+       is a root, so the entry it writes is the one the next read finds. */
+    if (length == 1) vm->bytes[(unsigned char)chars[0]] = string;
+
     return string;
 }
 

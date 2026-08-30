@@ -238,7 +238,12 @@ struct SolString {
     char       *chars;
 };
 
-/* Copies `length` bytes. The caller keeps ownership of what it passed in. */
+/* Copies `length` bytes. The caller keeps ownership of what it passed in.
+ *
+ * `new` names what it does and not what it always makes: a one-byte string is
+ * the machine's one copy of that byte, answered rather than allocated -- see
+ * `bytes` in vm.h. A string is immutable and compared by value, so a caller
+ * cannot tell which it was given, and no caller here needs to. */
 SolString *sol_string_new(SolVM *vm, const char *chars, int length);
 
 /* A resource an extension owns and the machine does not understand: a socket, a
