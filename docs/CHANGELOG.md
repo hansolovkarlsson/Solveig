@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### A global is remembered, and the receiver check is inlined — `pending`, 2026-08-30
+### A global is remembered, and the receiver check is inlined — `50242c1`, 2026-08-30
 
 Two changes to the dispatch loop, both found by profiling a real program —
 [basic.sol](../programs/basic.sol) interpreting 39,000 BASIC statements — rather
