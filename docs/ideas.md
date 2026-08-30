@@ -70,6 +70,7 @@ marked as a sketch.
 | Default values for block parameters | **Defer** — the trigger is a program threading a nil it did not want to pass; the case for it is that built-ins already do this and user code cannot |
 | Constants | **Defer, and probably no** — the speed argument pointed at [3.17](COMPLETED.md#317-a-global-is-found-by-walking-a-list--done), which is now built and took the argument with it; the memory argument runs backwards |
 | Solas written in Solum — self-hosting | **Proved, then parked** — it compiles itself to a fixpoint; the code is in [experiment/](../experiment/), off the search path, [below](#solas-written-in-solum--self-hosting) |
+| An inline cache at the send site | **Defer, and the entry was about the wrong ten percent** — [profiled rather than argued](#an-inline-cache-at-the-send-site): lookup is 9.7% of the benchmark that asked for it, and the two things above it are a missing `inline` and `-flto`, which is 5–29% across the suite and silently takes the extension ABI with it |
 
 ---
 
@@ -3201,6 +3202,101 @@ receive a datagram. Nothing here does anything with what it receives except
 compare it against three words, which is the shape to keep until 6.32 is
 decided.
 
+### An inline cache at the send site
+
+**Where this came from.** Solveig was measured against CPython 3.14 on
+2026-08-29 — nine matched programs, interleaved through
+[bench.sol](../programs/bench.sol), the first time anything here had been
+compared with another implementation. Level overall, and two of the nine stood
+out as losses: a character scan at 2.13×, which turned out to be a defect and
+is [4.4](COMPLETED.md#44-a-one-byte-string-is-allocated-per-character-read--done),
+and recursion at 2.03× — eighteen million sends of one method — which is this
+entry.
+
+**The proposal.** Cache the resolved slot at each send site, so a monomorphic
+call site stops walking the proto chain after the first time. It is the standard
+answer, CPython has done a version of it since 3.11, and
+[the JIT entry](#a-jit-to-native-code) already names it as the thing that would
+have to exist first for a JIT to be worth anything.
+
+**And the claim made for it was wrong.** It was written down as *most of the
+recursion gap*, on no evidence. Measuring says lookup is **9.7%** of that
+benchmark:
+
+```text
+$ sample <solvm running fib(34)>          807 samples
+
+   run_frames                    525   65%   the dispatch loop itself
+   sol_object_lookup_interned     78   9.7%  the proto-chain walk
+   receiver_suits                                                    ⎫
+   + sol_slot_accepts            106   13%   the per-send receiver check
+   push_frame                     44   5.5%
+   prim_less / sub / add          42   5.2%  the arithmetic being asked for
+   sol_chunk_name                 12   1.5%
+```
+
+The second measurement agrees. Two programs identical but for how far the method
+sits from the receiver — one where it is the receiver's own first slot, one five
+objects up a chain with four slots to skip at each level — differ by **18%**
+(391 ms against 462 ms). So the *entire* walk in a deliberately deep case is
+about a sixth of the run, and `fib` is not that case: `self:of` finds its slot
+immediately, every time. A cache would remove something that is already nearly
+free.
+
+**What the profile points at instead is more interesting than the proposal.**
+`sol_slot_accepts` is three predictable branches — is there a primitive, does it
+take any receiver, does the type match — and it costs more than the lookup does,
+because it lives in `object.c` and is called from `vm.c` on every send with no
+inlining across the two. That is not a design question at all.
+
+**Which is where the build flag beat the design change.** Compiled `-O2 -flto`,
+with no source change, the machine is faster on **all nine** benchmarks:
+
+| | |
+| --- | --- |
+| `strloop` 1.29× · `float` 1.27× · `loop` 1.27× · `array` 1.25× | |
+| `higher` 1.21× · `fib` 1.18× · `object` 1.17× · `strlib` 1.07× · `dict` 1.05× | |
+| so `fib` against CPython | 2.03× → **1.61×** |
+
+**And it silently breaks extensions, which is why this is a decision and not a
+flag.** The Makefile takes some care to publish the `sol_*` surface a loaded
+bundle resolves against — whole-archive linking, and the comment beside it
+explains that four binaries used to export four different accidental sets.
+Link-time optimisation undoes exactly that:
+
+```text
+sol_* symbols exported by bin/solvm      -O2  147      -O2 -flto  0
+```
+
+`make test` catches it — `test_an_extension_reaches_the_program` fails, having
+loaded a bundle that can no longer find a single one of the functions
+[extend.h](../solum/include/solum/extend.h) promises it. So LTO here is not free
+speed, it is speed traded for the extension ABI, and taking it would mean
+keeping those 147 deliberately — an exported-symbols list, or visibility
+attributes — which is a real piece of work and a new thing to keep in step.
+Worth doing before anything on this page, and worth its own entry when somebody
+wants it.
+
+**If all of that were done, an inline cache would still be worth about a
+tenth**, and the shape it would take here is awkward in a way worth writing down
+now. There are no hidden classes to key on. An object is a slot list and a proto
+pointer, slots are added at any time — `p:x := #1` defines one — and nothing is
+ever removed, so a cache needs an invalidation story that a global modification
+counter would answer badly: the `object` benchmark defines two slots per pass
+and would invalidate every cache in the program four million times. Keying on
+the receiver's own address works well for the case that prompted this, `self:of`
+sending to the same object eighteen million times, and not much beyond it. The
+cheap version and the general version are different features, and the cheap one
+is the one whose customer exists.
+
+**Verdict: defer**, and not for the usual reason. This one was measured rather
+than argued, and the measurement says the entry was about the wrong ten percent.
+
+**Trigger:** a program that is actually too slow, with a profile putting
+`sol_object_lookup_interned` at the top of it. Nothing here is and nothing here
+does — and the two things above it in that profile are a missing `inline` and a
+linker flag, neither of which is a language change.
+
 ## Recommended against
 
 ### Integer sizes — byte, word, long
@@ -3245,7 +3341,10 @@ dispatch loop to start from.
 - **There is nothing to specialise on.** A JIT wins by turning dynamic dispatch
   into direct calls, and that needs type feedback and inline caches first —
   which is a bigger machine again. Without them a JIT emits the same lookups the
-  interpreter does, in more code.
+  interpreter does, in more code. [The inline cache was later
+  profiled](#an-inline-cache-at-the-send-site) and is worth a tenth of the one
+  benchmark that wanted it, so the first step of that bigger machine is smaller
+  than it looks and buys less.
 - **It fights the stated goal.** The VM is written for clarity first, and 4.1
   and 4.3 got the language 40% faster with changes that fit in a paragraph.
 
