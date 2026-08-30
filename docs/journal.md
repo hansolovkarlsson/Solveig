@@ -11,6 +11,139 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-30 (late) — a question about Python, and the defect that answering it found
+
+No task today, a question: *Python has unicode strings and Solveig is ascii-8?*
+Roughly right, and the honest answer needed the second half spelled out — a
+string here is bytes, 0 to 255, with no encoding attached, which is `bytes` and
+not `str`. Nothing in the VM interprets a byte except the two ASCII case ranges
+and the digit parsing.
+
+**Then: "so this area is a bit undeveloped at the moment?"** Also roughly right,
+and the interesting part is that the two halves are in completely different
+states. The byte layer is not undeveloped at all — twenty-five messages, regular
+expressions, a scanner, JSON, HTML. The Unicode layer is one direction of one
+conversion: `integer:asUtf8` encodes, and **nothing in the tree decodes**.
+
+### Three documents pointing at a decision none of them owned
+
+`$character` literals defer to *what a string is*. Roadmap 2.13 files it as a
+restriction rather than a question. performance.md says the strings row does not
+compare like with like and leaves it. Three pointers, no entry — so the ask was
+to write one, which is where the day stopped being about documentation.
+
+### The write-up went looking for a customer and found a live defect
+
+An entry recommending that strings stay bytes needs a program that has actually
+been hurt by that, or it is an argument with itself. The editor was the obvious
+place to look, because its own notes say **a tab is one byte and eight columns,
+and everything that positions a cursor holds both numbers at once**.
+
+An `é` is two bytes and one column. Same sentence, numbers reversed. Driven with
+scripted keys, `$x` on `café` wrote `caf` and a lone `0xC3` to disk — half a
+code point, silently — and the escape it drew for `$` on `café x` was `ESC[1;7H`
+when the `x` is in column six.
+
+**Four days of building that editor never asked the question its own design note
+had already framed.** Not a subtle bug: it corrupts a file, in the program whose
+whole job is not corrupting files. It survived 165 scripted sessions because
+every one of them is ASCII.
+
+**This week has run the other direction twice** — a throwaway program correcting
+a document, on the SDL present policy and again on the graphics entry. This is
+the same trade in reverse, and the reverse is the cheaper one: the throwaway had
+to be written, while the document only had to insist on a real example instead of
+a plausible one. Going and getting that example is a test nobody wrote, and it
+cost the time it takes to type `$x`.
+
+### The proposal, and the program that answered it
+
+Asked next: a `text` type beside `string`, with `$"unicode text"` making one.
+
+It is better than it sounds, and the entry says so at length before objecting.
+Its polarity is Python 2's rather than Python 3's — bytes stay the default —
+and Python 2's version failed on *implicit coercion*, which this language
+already refuses on principle. And it is the only design where `copyFrom` cannot
+split a code point, which is genuinely stronger than what I had recommended;
+that went into the entry as a correction, not a footnote.
+
+**What killed it came from the same program.** The coherent version decodes at
+the boundary, and decoding needs an answer for a byte that is not valid UTF-8:
+raise, and an editor cannot open a Latin-1 file; substitute U+FFFD, and it
+silently corrupts on write — worse than the bug being fixed. vi opens anything.
+So the editor would decline to hold the new type, and a type the real programs
+decline to hold is a type that rots.
+
+The proposal and its refutation both came out of the same afternoon's evidence,
+which is the most useful thing that happened today.
+
+### Two guesses at a sigil, two collisions
+
+`$` is the hexadecimal prefix. `&` was the next guess and is logical *and*
+inside `@expr`. Both were forgotten in the asking, and it is worth knowing why:
+between the bases and the infix work, the lexer's switch takes twenty-six
+characters, and with `;` for a comment and `\` inside a string that is
+twenty-eight of the thirty-two ASCII punctuation marks. Four are left — `!`,
+`?`, `_` and a backtick — and `_` belongs to identifiers while a backtick fights
+the prose it would be written in.
+
+**The page spells it `!` now**, so that a future reading of the argument is not
+also a puzzle about which `$` is meant. A spelling is the cheapest thing in that
+entry to change, which is exactly what happened to it.
+
+### The fix, and an estimate wrong by a factor of five
+
+The entry had said the editor needed *nine lines in `expand`*. It needed
+seventeen definitions and four new helpers.
+
+`expand` was barely one of them — it draws the bytes, so the column count had to
+move out into a `widthOf` beside it, and `visible`, which sliced the drawn text
+with a `copyFrom` because a column was a byte, became a walk. What the estimate
+got right is the part the decision rests on: `isTail` really is
+`bitAnd(#192):equals(#128)`, and nothing in the language moved.
+
+Two places carried the weight, and both already existed. One loop in `clamp`
+makes *a cursor is never inside a character* true for every command at once. One
+`add` in `operateChars` turns an inclusive motion's last character into a range,
+which is `d$`, `de`, `dfx` and `x` in a single line.
+
+**And insert mode had to be exempt.** `readKey` delivers an `é` as two separate
+keys, so the column must be allowed to stand between them while it is typed.
+That exemption is the sharpest evidence in the entry for keeping the invariant in
+the program rather than in a value — a `text` type could not have had it.
+
+### The regression the test suite could not have caught
+
+`a` and `p` were correct before this work and broken by it. On the old editor
+`$` landed on the last *byte*, so appending after it happened to be the end of
+the line — right by accident. Fixing `$` to land on the lead byte turned that
+accident into `caf` + `0xC3` + `Z` + `0xA9`.
+
+All 165 existing sessions passed at every stage of the change, because they are
+ASCII and could not see it. What caught it was running a probe by hand after
+each step instead of trusting the green suite — and the reason to distrust it
+was knowing *why* those tests are green, which is not the same as knowing that
+they are.
+
+Sixteen sessions were added; eleven fail on the editor as it stood. That number
+is the one worth recording: five of the sixteen would have passed before the fix
+and are regression guards rather than reproductions, and saying which is which
+is the difference between a test suite and a pile of assertions.
+
+### And what did not change
+
+A string is still bytes. `size` still counts them, `"café":size` is still 5, and
+text.sol still has no decoder — the fix never wanted one. The screen transcript
+is byte-identical, sideways-scrolling tab line included.
+
+The recommendation arrived as evidence rather than as an argument: the program
+that finally asked for Unicode asked for it locally, in the two places facing a
+screen, and answered itself with three sends the language already had. The
+trigger for a language change is now a *second* program copying those three
+sends — not the inconvenience of having to.
+
+---
+
 ## 2026-08-30 (night) — a canvas for GTK, and two bindings answering one question opposite ways
 
 Asked for a circle example in solveig-gtk after the SDL one. **It was not an

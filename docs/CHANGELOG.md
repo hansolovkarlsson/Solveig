@@ -5,6 +5,70 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### A cursor that is never inside a character — `HASH`, 2026-08-30
+
+**[edit.sol](../programs/edit.sol) was writing half a code point to disk.** `$`
+went to the last *byte* of a line, so `$x` on a line holding `café` left `caf`
+and the lead byte of the `é` in the file. The cursor was drawn a column to the
+right of the character it sat on, and `dw` stopped in the middle of `café`
+because a byte above 127 was punctuation to its word test.
+
+The editor's own notes had the shape of the answer from its first day — *a tab
+is one byte and eight columns, and everything that positions a cursor holds both
+numbers at once*. An `é` is two bytes and one column: the same sentence with the
+numbers the other way round, and four days of building never asked it.
+
+**Found by writing a decision down rather than by using the editor.**
+[ideas.md](ideas.md#what-a-string-is--bytes-code-points-or-bytes-with-a-contract)
+now carries what a string is — bytes, code points, or bytes with a contract —
+which three documents had pointed at and none had owned. The entry needed a
+program that had actually been hurt by the byte model, went looking for one, and
+the first place it looked was already broken.
+
+**The fix is not a Unicode library.** `isTail` asks whether a byte is
+`10xxxxxx`; `charSize`, `charAt` and `widthOf` are four lines each on top of it.
+The rest was replacing every `add(#1)` that meant *the next character* with one
+that means it — seventeen definitions. Two carried most of the weight, and both
+are places the program already had:
+
+| where | what one line did |
+| --- | --- |
+| `clamp` | *a cursor is never inside a character*, true for every command at once — `$` included, which is where the corruption was |
+| `operateChars` | the single `add` turning an inclusive motion's last character into a range: `d$`, `de`, `dfx` and `x` answered together |
+
+**Insert mode is exempt from that rule, and has to be.** A character outside
+ASCII arrives from `readKey` one byte at a time, so the column must be free to
+stand between them while it is being typed. The invariant is about normal mode
+and not about the buffer — which is the shape a second string type could not
+have had.
+
+**A file that is not UTF-8 still opens**, which decided the shape rather than
+falling out of it. `isTail` asks what a byte *is* instead of trusting a lead
+byte's declared length, so a byte that cannot start a character is one character
+by itself: `x` takes exactly it, and every byte the editor was not asked to
+change is written back untouched. An editor that refused such a file, or quietly
+rewrote the byte, would be the worse answer.
+
+**Sixteen sessions were added to
+[checks.sol](../programs/edit/checks.sol), eleven of which fail on the editor as
+it stood.** All 181 pass now, and [session.out](../programs/edit/session.out) —
+every byte the editor draws, sideways-scrolling tab line included — is
+byte-identical, which is what says the ASCII path did not move.
+
+**Nothing in the language changed.** A string is still bytes, `size` still
+counts them, `"café":size` is still 5, and there is still no decoder in
+[text.sol](../lib/text.sol) — the fix never wanted one. That is the entry's
+recommendation arriving as evidence rather than as an argument: the program that
+finally asked for Unicode asked for it locally, and answered itself with three
+sends the language already had.
+
+**The estimate in that entry was wrong by a factor of five**, which is recorded
+[beside it](ideas.md#and-the-editor-was-fixed-which-cost-more-than-this-entry-said).
+*Nine lines in `expand`* became seventeen definitions: `expand` draws the bytes,
+so the column count had to move out into a `widthOf` beside it, and `visible` —
+which sliced the drawn text with a `copyFrom` because a column was a byte —
+became a walk. What the estimate got right is the part the decision rests on.
+
 ## 0.39.0 — 2026-08-30
 
 **Measured against another implementation, for the first time.** The language
