@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### The extension ABI is declared rather than inferred — `pending`, 2026-08-30
+### The extension ABI is declared rather than inferred — `a711b1d`, 2026-08-30
 
 `bin/solvm` exported 146 `sol_*` functions where
 [extend.h](../solum/include/solum/extend.h) named 23 and the bundles here used
