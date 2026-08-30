@@ -11,6 +11,97 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-30 (evening) — a surface nobody chose
+
+The performance work had left one candidate unbuilt: `-flto`, 5–29% across the
+suite for no source change, refused because it deletes the extension ABI. Asked
+whether fixing that would *fix* a problem or *cause* one, the honest answer
+turned out to be that it fixes one which exists already and has nothing to do
+with LTO.
+
+**`bin/solvm` exported 146 `sol_*` functions. `extend.h` names 23. The two
+bundles in this repository use 13 between them.** The gap is not slack, it is
+the parser, the lexer, the REPL's line editor and the bytecode reader — every
+function in `libsol.a` that happened not to be `static`, because that is what
+whole-archive linking gives you.
+
+The Makefile's comment records the previous step of the same problem: four
+binaries exporting 100, 118, 133 and 118 different accidental sets, fixed into
+one set of 139 and described as "a surface somebody chose". It made them agree.
+It did not make them chosen.
+
+**And this repository came within one hand-check of the failure.** This morning's
+work made `sol_slot_accepts` a `static inline`, which took it off the export
+table — 147 to 146. I checked it against `extend.h` by hand and nothing was
+owed. Nothing in the build checked, and nothing would have said a word if the
+answer had gone the other way. A third party's extension would have stopped
+loading on upgrade with `symbol not found in flat namespace` and no clue as to
+why it ever worked.
+
+### Declared at the function, not in a list
+
+`SOL_API` on each export, `-fvisibility=hidden` on everything else. The
+alternative was an export list beside the linker, and the Makefile objects to
+hand-kept lists in three separate places — rightly, because they go stale. A
+marker on the declaration cannot: it is deleted by whoever deletes the function.
+
+Two details worth keeping. `used` as well as the visibility, because the two
+answer different questions — whether a symbol may be *seen* from outside, and
+whether it may be *discarded* for having no caller inside. Every one of these
+has no caller inside; that is precisely what makes it an ABI. And the flag is
+deliberately not on the bundle rules: `sol_extension_init` is the bundle's own
+symbol, and hiding it would mean every extension source anywhere needed a new
+annotation to keep working.
+
+### The review, and the gap that had been waiting for it
+
+Seventy functions were hidden that the header did not name and that were not
+obviously the compiler or the line editor. Most sorted themselves — the whole
+host API goes, because a host links the library statically and visibility costs
+a static caller nothing.
+
+**Six were promoted, and the first three had been asked for in writing.**
+[extensions.md](extensions.md) had recorded that the surface carried no way to
+build a dictionary — the language's own convention for an answer with fields —
+so `net` answers an object with `host`, `port` and `text` instead. That entry
+ended *either the list grows a dictionary or extensions answer objects; what
+should not happen is each bundle deciding quietly.* Declaring the surface is
+what finally made somebody decide. `sol_dict_new`, `sol_dict_put` and
+`sol_dict_get` are promised now, with `sol_type_name` beside them — rule 1 asks
+a primitive to say what it was given, and the function for saying it was
+withheld.
+
+`net` is not rewritten. An object with three named slots is a good answer, and
+changing a shipped surface to use a newer call is churn. The next bundle has the
+choice this one did not.
+
+### Both directions, both broken on purpose
+
+`test_the_promised_surface_is_exported` already existed and carried a comment
+saying it was weaker than it looked and had never caught anything — true, since
+the lookup succeeded whether or not the link was right. Hidden visibility makes
+it load-bearing: a hidden symbol is absent from the dynamic table however many
+callers it has in the test file. The other direction had never been testable at
+all, and is new.
+
+Both were verified the way this morning taught: break it and watch. Take
+`-fvisibility=hidden` out and the new test names `sol_chunk_init`,
+`sol_compile`, `sol_parser_init` and `sol_lexer_init` as reachable. Drop
+`SOL_API` from `sol_dict_new` and the old one says so. **The first attempt at
+the first of those passed against the broken build** — editing the Makefile does
+not rebuild the objects, so the flag was still in the binary I was testing. A
+negative result from a stale binary is worth exactly as much as a test that
+passes against broken code.
+
+And a real bundle proved the whole path end to end: a separate `.so`, compiled
+with nothing but `-Wl,-undefined,dynamic_lookup`, loaded by the shipped `solvm`,
+building a dictionary and naming a type through the new surface.
+
+**What it does not do is turn LTO on.** That is now a decision about LTO's own
+costs — slower links, inlined frames in a profile, a wider gap between the `-g`
+build developed against and the one shipped — rather than something that
+silently breaks every extension. Which was the point of separating the two.
+
 ## 2026-08-30 — the hot loop, and a test that tested nothing
 
 *What could be done to make it faster?* — asked the morning after the CPython

@@ -5,6 +5,45 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The extension ABI is declared rather than inferred — `pending`, 2026-08-30
+
+`bin/solvm` exported 146 `sol_*` functions where
+[extend.h](../solum/include/solum/extend.h) named 23 and the bundles here used
+13. It exports **29** now — the 23, plus six promoted on review — and an
+extension can no longer bind to the parser, the lexer, the REPL's line editor or
+the bytecode reader.
+
+**The surface was inferred, not chosen.** Whole-archive linking had made the
+four binaries agree on one set; the rule producing it was still "everything in
+`libsol.a` with external linkage". So marking an internal function `static`
+could break a third-party extension with no error naming the cause — which
+[4.5](COMPLETED.md#45-a-global-is-a-hash-lookup-and-a-receiver-check-is-a-call--done)
+came within one hand-check of doing.
+
+`SOL_API` marks each export at its declaration and everything else is compiled
+`-fvisibility=hidden`. At the declaration rather than in a list beside the
+linker, because a list there goes stale and the Makefile says so in three other
+places. Not on the bundle rules: `sol_extension_init` is the bundle's symbol,
+and hiding it would break every extension source in the world.
+
+**Six were promoted**, and one group closes a gap
+[extensions.md](extensions.md) had already recorded: `sol_dict_new`,
+`sol_dict_put` and `sol_dict_get`, the language's own shape for an answer with
+fields, which `net` had to work around by answering an object. With them
+`sol_type_name` — rule 1 asks a primitive to say what it was given and the
+function for saying it was withheld — and `sol_value_equals` and
+`sol_vm_class_of`.
+
+Both directions are tested and both were broken on purpose to check.
+`test_the_promised_surface_is_exported` carried a comment admitting it had never
+caught anything and is load-bearing now; `test_the_surface_stops_where_it_says`
+is new and had never been possible.
+
+This is the first half of
+[the exported symbol surface](ideas.md#the-exported-symbol-surface-and-the-lto-it-is-blocking).
+It unblocks `-flto`, worth 5–29%, which stays deferred on its own costs. The
+case is [4.6](COMPLETED.md#46-the-extension-abi-is-whatever-is-not-static--done).
+
 ### A global is remembered, and the receiver check is inlined — `50242c1`, 2026-08-30
 
 Two changes to the dispatch loop, both found by profiling a real program —
