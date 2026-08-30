@@ -11,6 +11,110 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-29 (evening) — measured against somebody else's language
+
+The day ended with a question rather than a task: *how does this compare to
+Python for speed?* Nothing here had ever been measured against another
+implementation. Every number in this repository is Solveig against an earlier
+Solveig, which tells you whether a change helped and nothing at all about where
+the whole thing stands.
+
+Nine matched programs — a tight integer loop, recursion, array growth, a
+dictionary, join/split, a character scan, float arithmetic, object allocation,
+and `collect`/`select`/`inject` — each pair verified to print the same answer
+before either was timed, then run through `programs/bench.sob` at twenty-one
+interleaved rounds apiece.
+
+**Solveig came out level with CPython 3.14**: geometric mean 1.09, median
+benchmark 1.03. Ahead on float (0.60), array (0.69), the integer loop (0.72) and
+the higher-order pass (0.75); behind on the dictionary (1.29), join/split
+(1.64), recursion (2.03) and the character scan (2.13). Startup is 3.1 ms
+against 21.8 ms and Solas compiles about four times as fast as CPython's
+compiler.
+
+That is a stranger result than it sounds, and the shape of it is the whole
+finding. **Where it wins it wins on representation** — an integer is sixty-four
+bits in a register where CPython's is a heap object allocated and freed every
+pass — and **where it loses it loses on tuning**, thirty-five years of it. Only
+one of those is a thing to do something about.
+
+### The benchmark that was a bug report
+
+The worst of the nine was the character scan, and it was the one worth chasing
+because a microbenchmark that loses to a *tuned* implementation says nothing,
+while one that loses to a *cheaper* one says where the cost is. Taking the read
+out of the loop and running the rest separated them:
+
+| | with `s:at(i)` | without it | so the reads cost |
+| --- | --- | --- | --- |
+| Solveig | 1.32 s | 0.87 s | **0.45 s** |
+| CPython | 0.62 s | 0.52 s | 0.10 s |
+
+Half a second of allocation and collection over nine million characters, to look
+at bytes the machine already had. `string:at` ended in `sol_string_new`, and
+there is no character type, so every read made a cell.
+
+**And then the other column turned out to be the same fault.** 0.87 s against
+0.52 s for a loop that was supposed to be doing nothing — because `"o"` in the
+condition is a literal, and OP_STRING builds a literal fresh on every
+evaluation. A scan comparing each character to a constant was making *two*
+strings a pass. That is the last open bullet of
+[1.3](COMPLETED.md#13-strings--done), written a month ago, which said interning
+would fix it and would need a weak table so long literals can still die.
+
+### The bounded case does not need the unbounded mechanism
+
+The entry was right about the general case and it is why 1.3 has sat open. It is
+also why the fix here is four lines: **there are 256 byte values and there will
+never be more.** A table that size can be strong. It is six kilobytes held for
+the life of the machine, and holding it is exactly the thing that makes the
+second read free — where the symbol table beside it has to be weak, because a
+program can intern a million names and a table that kept them would be a leak
+with a table around it.
+
+Two decisions inside that are the ones worth remembering:
+
+- **The test went into `sol_string_new`, not into `string:at`.** One byte is
+  then the machine's copy as a property of the machine, rather than something
+  two primitives remember to do — and it catches `asCharacter`, `copyFrom(#i,
+  #i)`, a `split` that yields one character, an extension calling the same
+  entry point, and the literal, which was half the win and was not on the list
+  the benchmark suggested.
+- **Filled on first use, not at startup**, because
+  [3.10](ROADMAP.md#310-a-vm-cannot-be-reused-across-runs) already measured a
+  third of a request going on building a machine. Five hundred and twelve
+  allocations in `sol_vm_init` would be paid by every request to buy bytes most
+  programs never read. Hello-world says the build is unmoved: `1.004 times,
+  interval 0.973 to 1.026`, which is the tool refusing to call it a difference.
+
+The scan went 1.371 s to 0.758 s, and 2.13× CPython to 1.22×. The suite's
+geometric mean went 1.09 to 1.02. Join/split, dictionaries, object allocation
+and VM construction are all unmoved — the tool says it cannot tell them apart,
+four times, which is the answer a change like this has to be able to give about
+everything it did not aim at.
+
+### What the measurement did not find
+
+The recursion gap is real and is not a bug: eighteen million sends, each a name
+looked up through a proto chain, against an interpreter that inlines a
+Python-to-Python call and rewrites a monomorphic call site after a few passes.
+An inline cache at the send site would close most of it, and that is a change to
+what *one way to call something* means in the machine — a design question, not
+an optimisation, and it goes in `ideas.md` before it goes anywhere.
+
+The dictionary and join/split gaps are somebody having spent years on
+`str.split`. There is nothing structurally wrong there to fix, which is a
+different and much less interesting kind of gap, and confirms from the outside
+what the editor's substitute pass found from the inside: **a library's speed
+lives at the boundary with the primitives.** That boundary is in the same place
+in both languages. What differs is how much has been tuned on the far side.
+
+**And the flag was worth more than any of it.** All of the above is an `-O2`
+build. `make` builds `-g` with no optimiser, and that binary is 2.1× to 4.6×
+slower — it loses all nine. Nothing is wrong with a debug default, but the
+binaries in `bin/` are not the ones any of these numbers describe, and a timing
+quoted without its build is a timing that means nothing.
+
 ## 2026-08-29 (later) — the question a program could not ask
 
 The ask was a small one: *a standalone tool that prints the exposed messages in

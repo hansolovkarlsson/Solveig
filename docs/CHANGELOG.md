@@ -5,6 +5,40 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### One string per byte value — `pending`, 2026-08-29
+
+`string:at` answers a one-character string, there being no character type, so
+walking a string used to allocate a cell per character. The machine now keeps
+one string for each of the 256 byte values and answers it.
+
+| | before | after |
+|---|---|---|
+| 9.0M characters scanned and compared | 1.371 s | **0.758 s** |
+| the same against CPython 3.14, startup removed | 2.13× | **1.22×** |
+
+**The literal was half the cost**, which is the part that was not expected.
+`"o"` in the loop's condition is built fresh by OP_STRING on every evaluation,
+so a scan comparing each character to a constant made two strings a pass. The
+test sits in `sol_string_new` rather than at `string:at`, so every way of making
+a one-byte string gets it — `at`, `asCharacter`, `copyFrom(#i, #i)`, a `split`
+that yields one character, an extension, and the literal.
+
+**Strong where the symbol table is weak, and the count is the reason.** Symbols
+are unbounded, so a table holding them would be a leak; there are 256 byte
+values and never more, so the whole of this one is about six kilobytes and
+holding it is what makes the second read free. That is why this needed none of
+the weak-table machinery [1.3](COMPLETED.md#13-strings--done) said interning
+would need — and why interning *every* literal is still open.
+
+Filled on first use rather than at startup, because
+[3.10](ROADMAP.md#310-a-vm-cannot-be-reused-across-runs) makes VM construction a
+third of a request: measured on hello-world, building a machine is unmoved.
+Join/split, dictionaries and object allocation are unmoved too, four ways.
+
+The case is [4.4](COMPLETED.md#44-a-one-byte-string-is-allocated-per-character-read--done),
+and it came from measuring against another language, which nothing here had done
+before.
+
 ### `make dist` writes into `dist/` — `f85a751`, 2026-08-29
 
 Four tarballs had accumulated at the repository root, one per release since
