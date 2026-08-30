@@ -70,6 +70,7 @@ marked as a sketch.
 | Default values for block parameters | **Defer** — the trigger is a program threading a nil it did not want to pass; the case for it is that built-ins already do this and user code cannot |
 | Constants | **Defer, and probably no** — the speed argument pointed at [3.17](COMPLETED.md#317-a-global-is-found-by-walking-a-list--done), which is now built and took the argument with it; the memory argument runs backwards |
 | Solas written in Solum — self-hosting | **Proved, then parked** — it compiles itself to a fixpoint; the code is in [experiment/](../experiment/), off the search path, [below](#solas-written-in-solum--self-hosting) |
+| The exported symbol surface | **Do the first half** — [146 symbols are exported where 22 are declared and 13 are used](#the-exported-symbol-surface-and-the-lto-it-is-blocking), so an ordinary refactor can break an extension silently. Declaring it is worth doing alone and is testable; the `-flto` it unblocks is 5–29% and a separate call |
 | Computed-goto dispatch | **No, and it was built to find out** — [1% to 13% *slower* than the `switch`](#computed-goto-dispatch--measured-and-refused) on all nine benchmarks and on a real program, because clang tail-merges the 21 dispatch sites back into one and the extra code size stays. The tail-call form is the technique that would work, and is much larger |
 | An inline cache at the send site | **Defer, and the entry was about the wrong ten percent** — [profiled rather than argued](#an-inline-cache-at-the-send-site): lookup is 9.7% of the benchmark that asked for it, and the two things above it are a missing `inline` and `-flto`, which is 5–29% across the suite and silently takes the extension ABI with it |
 | Making the interpreter faster — four candidates | **Two built on 2026-08-30**, [each measured first](#where-the-interpreters-time-actually-goes--two-built-two-left): the receiver check inlined, and a global remembered where it was found rather than hashed every time. 1.04–1.28× across the suite, 1.065× on a real program, and the CPython geometric mean 1.02 → 0.885. Computed-goto dispatch was then measured and [refused](#computed-goto-dispatch--measured-and-refused); the LTO symbol surface is the one left |
@@ -3348,11 +3349,12 @@ threading the loop with labels-as-values is **1% to 13% slower than the
 `switch`**, on all nine benchmarks and on the real program. See
 [below](#computed-goto-dispatch--measured-and-refused).
 
-**4. Keeping the 147 exported symbols under LTO — still open, and it is the
-free one.** `-O2 -flto` is 5–29% faster across the suite with no source change
-and takes the whole extension ABI with it, [as the entry above
-records](#an-inline-cache-at-the-send-site). An exported-symbols list or
-visibility attributes would keep both.
+**4. Keeping the exported symbols under LTO — still open, and the only one
+left.** `-O2 -flto` is 5–29% faster across the suite with no source change and
+takes the whole extension ABI with it. It has an entry of its own now:
+[the exported symbol surface](#the-exported-symbol-surface-and-the-lto-it-is-blocking),
+where the finding is that the surface is worth declaring whether or not LTO ever
+follows — 146 symbols are exported, 22 are declared, and 13 are used.
 
 **What the two built ones came to**, measured against the same source without
 them, all at `-O2`:
@@ -3371,6 +3373,100 @@ Solveig is now ahead on five of the nine rather than four.
 it.** Two of the four things worth doing to the dispatch loop were a missing
 `inline` and a table lookup, and neither is a design question. That remains the
 finding.
+
+### The exported symbol surface, and the LTO it is blocking
+
+**Two things, and the second is the reason the first got looked at.** They are
+worth separating, because one of them is worth doing on its own and the other is
+a trade.
+
+#### What is actually exported
+
+An extension is a separate `.so` whose calls back into the machine are left
+unresolved on purpose — `-Wl,-undefined,dynamic_lookup` — and bound at `dlopen`
+against the symbols `bin/solvm` exports. So **the executable's symbol table is
+the ABI**, and the Makefile works to make one exist: a linker takes objects out
+of an archive on demand, so `-Wl,-force_load` (and `--whole-archive` on ELF) is
+what stops the four binaries exporting four different accidental sets, which is
+what [they used to do](../Makefile).
+
+That fixed the inconsistency and left the size:
+
+| | |
+| --- | --- |
+| `sol_*` functions [extensions/net](../extensions/net/) actually calls | **10** |
+| union of what every bundle in this repository needs | **13** |
+| `sol_*` functions [extend.h](../solum/include/solum/extend.h) declares | **22** |
+| `sol_*` functions `bin/solvm` exports | **146** |
+
+**The surface is not chosen, it is whatever is not `static`.** An extension can
+bind to any internal function that happens to have external linkage, and there
+is no declared line between *the contract* and *the insides*. So an ordinary
+refactor — marking something `static`, renaming it, changing a signature —
+breaks a third-party extension silently, and nothing in the tree notices.
+
+**That is not hypothetical, and it nearly happened here.**
+[4.5](COMPLETED.md#45-a-global-is-a-hash-lookup-and-a-receiver-check-is-a-call--done)
+made `sol_slot_accepts` a `static inline`, which took it off the export table:
+147 symbols to 146. It was checked by hand against `extend.h` and it was not
+there, so nothing was owed. **Nothing in the build checked**, and nothing would
+have said so if the answer had been the other way.
+
+#### What LTO does to it
+
+`-O2 -flto` is **5% to 29% faster across the benchmark suite** with no source
+change at all — the largest unclaimed number this project has. It also deletes
+the entire ABI, because internalising symbols nothing in the program references
+is exactly what whole-program optimisation is for, and no extension is part of
+the link:
+
+```text
+exported sol_* symbols      -O2  146      -O2 -flto  0
+```
+
+```text
+$ solvm --extension=build/extensions/net.so probe.sob
+solvm: cannot load extension build/extensions/net.so:
+       dlopen(...): symbol not found in flat namespace '_sol_foreign_handle'
+```
+
+**It compiles, links, and passes everything that does not load an extension.**
+`test_an_extension_reaches_the_program` is the whole of what stands between that
+and a release.
+
+#### The two halves
+
+**Declaring the surface is worth doing whether or not LTO ever follows.** It
+turns 146 accidental symbols into a decision, and it is testable: compare `nm`
+against the declaration and fail the build when they disagree, which is a check
+this repository has no equivalent of today. It is also the only way to find out
+what the 146 minus 22 are — some of them are certainly wanted and undocumented.
+
+**Turning LTO on is a separate call with its own costs**, and they are not
+small: links get much slower, inlined frames make a profile and a debugger
+harder to read, and `make` builds `-g` — so the thing developed against and the
+thing shipped would diverge further than they already do. A bug that appears
+only under `-O2 -flto` is a bad one to go looking for. Worth remembering too
+that hand-inlining *one* function was 6.5% on a real program: selective
+inlining takes part of the win with none of the cost.
+
+**The mechanism, and the objection it has to answer.** macOS wants
+`-exported_symbols_list`, ELF wants `--dynamic-list` or `-fvisibility=hidden`
+with explicit `default` on the exports. Either way that is a list — and this
+Makefile argues in three places that a hand-kept list goes stale. So the list
+must be *generated*: a `SOL_API` marker on each intended export, and the build
+writing the linker's file from those, the way `$(BUILD)/config.h` is already
+written and replaced only when it changes. Then the surface is declared at the
+function it belongs to and there is no second place to forget.
+
+**Recommendation: do the first half, defer the second.** The export list fixes a
+present, silent failure mode and is checkable. LTO can then be decided on its
+own merits by somebody who wants the 5–29% and has weighed the debugging cost.
+
+**Trigger for the first half: none needed — it is a latent defect** rather than
+a feature, and the cost of finding out the hard way is somebody's extension
+breaking on an upgrade for a reason no error message explains. **Trigger for the
+second: a program that is too slow at `-O2`.** Nothing here is.
 
 ## Recommended against
 
