@@ -91,7 +91,7 @@
 
 /* The value bound to a global, or false when nothing of that name is bound.
    Valid until the next run or `sol_vm_free`, whichever comes first. */
-bool sol_vm_global(SolVM *vm, const char *name, SolValue *out);
+SOL_API bool sol_vm_global(SolVM *vm, const char *name, SolValue *out);
 
 /* The same, rendered -- `#45`, `"hi"`, `[#1, #2]`, the form `print` shows. On
    the heap and **the caller frees it**, so it outlives the machine. NULL when
@@ -104,7 +104,7 @@ char *sol_vm_global_text(SolVM *vm, const char *name);
 
 /* Binds a global, which is how a host hands a script its input before the run.
    Rebinds if the name is already bound. */
-void sol_vm_set_global(SolVM *vm, const char *name, SolValue value);
+SOL_API void sol_vm_set_global(SolVM *vm, const char *name, SolValue value);
 
 /* The same for text, which is what a host usually has. Copies `chars`, so the
    caller's string need not outlive the call, and the script sees an ordinary

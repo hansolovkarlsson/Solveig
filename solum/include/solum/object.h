@@ -158,12 +158,12 @@ struct SolArray {
     SolValue   *items;
 };
 
-SolObject *sol_object_new(SolVM *vm, SolObject *proto);
+SOL_API SolObject *sol_object_new(SolVM *vm, SolObject *proto);
 SolBlock  *sol_block_new(SolVM *vm, const SolMethod *code, SolValue self,
                          int home_frame, uint64_t home_id);
 
 /* An empty array with room for `capacity` values, which may be zero. */
-SolArray *sol_array_new(SolVM *vm, int capacity);
+SOL_API SolArray *sol_array_new(SolVM *vm, int capacity);
 
 /* A dictionary: values kept under keys, found by hashing rather than by
  * looking at every one.
@@ -205,23 +205,23 @@ struct SolDict {
     int           used;       /* live plus tombstones */
 };
 
-SolDict *sol_dict_new(SolVM *vm);
+SOL_API SolDict *sol_dict_new(SolVM *vm);
 
 /* Whether `key` may be a key at all: true for the value types. */
 bool sol_dict_key_ok(SolValue key);
 
 /* Answers whether the key was there, and writes its value to `out` if so. */
-bool sol_dict_get(const SolDict *dict, SolValue key, SolValue *out);
+SOL_API bool sol_dict_get(const SolDict *dict, SolValue key, SolValue *out);
 
 /* Binds `key` to `value`, replacing any previous binding. */
-void sol_dict_put(SolVM *vm, SolDict *dict, SolValue key, SolValue value);
+SOL_API void sol_dict_put(SolVM *vm, SolDict *dict, SolValue key, SolValue value);
 
 /* Removes `key`, writing what it held to `out`. False if it was not there. */
 bool sol_dict_remove(SolDict *dict, SolValue key, SolValue *out);
 
 /* The comparison `equals` makes, so that a dictionary and `equals` can never
    come to disagree about what one key being another means. */
-bool sol_value_equals(SolValue a, SolValue b);
+SOL_API bool sol_value_equals(SolValue a, SolValue b);
 
 /* An immutable string.
  *
@@ -244,7 +244,7 @@ struct SolString {
  * the machine's one copy of that byte, answered rather than allocated -- see
  * `bytes` in vm.h. A string is immutable and compared by value, so a caller
  * cannot tell which it was given, and no caller here needs to. */
-SolString *sol_string_new(SolVM *vm, const char *chars, int length);
+SOL_API SolString *sol_string_new(SolVM *vm, const char *chars, int length);
 
 /* A resource an extension owns and the machine does not understand: a socket, a
  * window, a database connection, a compiled pattern.
@@ -289,19 +289,19 @@ struct SolForeign {
 /* Takes ownership of `handle`: from here it is the collector's to release.
    `kind` must outlive the VM, which a string literal in the extension does.
    `release` may be NULL for a resource with nothing to give back. */
-SolForeign *sol_foreign_new(SolVM *vm, void *handle, void (*release)(void *),
+SOL_API SolForeign *sol_foreign_new(SolVM *vm, void *handle, void (*release)(void *),
                             const char *kind, size_t footprint);
 
 /* The handle, if this really is a `kind` and has not been released; NULL if it
    is neither. A primitive checks with this rather than casting, which is what
    stops one extension's socket being handed to another's `close`. */
-void *sol_foreign_handle(SolValue value, const char *kind);
+SOL_API void *sol_foreign_handle(SolValue value, const char *kind);
 
 /* Releases now rather than waiting for the collector, and answers whether there
    was anything to release. Not reachable from Solum -- there is no `close`
    message -- and here because an extension that must close in a known order
    (a child before its parent) has no other way to say so. */
-bool sol_foreign_release(SolValue value);
+SOL_API bool sol_foreign_release(SolValue value);
 
 /* A delegating view, answered by `self:via(ancestor)`.
  *
@@ -341,12 +341,12 @@ struct SolSymbol {
 };
 
 /* Answers the symbol for these characters, making it only if it is new. */
-SolSymbol *sol_symbol_intern(SolVM *vm, const char *chars, int length);
+SOL_API SolSymbol *sol_symbol_intern(SolVM *vm, const char *chars, int length);
 
 /* Appends, growing by doubling. Takes the VM so the growth is charged to the
    collection threshold: a backing store that grew without the collector knowing
    would never itself trigger a collection. */
-void sol_array_add(SolVM *vm, SolArray *array, SolValue value);
+SOL_API void sol_array_add(SolVM *vm, SolArray *array, SolValue value);
 
 /* Answers this VM's one copy of these characters, making it if it is new.
  *
@@ -380,13 +380,13 @@ SolSlot *sol_object_lookup_interned(SolVM *vm, SolObject *obj, const char *name)
 SolSlot *sol_object_define_interned(SolVM *vm, SolObject *obj, const char *name,
                                     SolValue value);
 
-void     sol_object_define(SolVM *vm, SolObject *obj, const char *name, SolValue value);
-void     sol_object_define_primitive(SolVM *vm, SolObject *obj, const char *name,
+SOL_API void     sol_object_define(SolVM *vm, SolObject *obj, const char *name, SolValue value);
+SOL_API void     sol_object_define_primitive(SolVM *vm, SolObject *obj, const char *name,
                                      SolPrimitive fn);
 
 /* The same, for a primitive that only an instance of `receiver_type` may
    receive. Pass a SolValueType, or SOL_ANY_RECEIVER for the plain form. */
-void     sol_object_define_primitive_for(SolVM *vm, SolObject *obj, const char *name,
+SOL_API void     sol_object_define_primitive_for(SolVM *vm, SolObject *obj, const char *name,
                                          SolPrimitive fn, int receiver_type);
 
 /* What binding a name to a value does to the slot holding it.

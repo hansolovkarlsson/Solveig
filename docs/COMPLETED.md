@@ -1597,6 +1597,79 @@ first's freed address, which is [4.3](#43-dispatch-does-a-string-compare-per-sen
 serial doing the job it was made for. **A test that passes against the broken
 version tests nothing**, and the only way to know is to break it on purpose.
 
+### 4.6 The extension ABI is whatever is not `static` — **done**
+
+`bin/solvm` exported **146** `sol_*` functions where
+[extend.h](../solum/include/solum/extend.h) named 23 and the two bundles here
+used 13 between them. It exports **29** now, and they are the ones the header
+says.
+
+**The surface was inferred rather than chosen**, and the Makefile's own comment
+records the previous step of the same problem: four binaries exporting four
+different accidental sets, 100, 118, 133 and 118, fixed by whole-archive linking
+into one set of 139. That made them agree. It did not make them *chosen* — the
+rule was still "everything in `libsol.a` with external linkage", which is the
+parser, the lexer, the REPL's line editor and the bytecode reader as well as the
+machine.
+
+**So an extension could bind to any of them, and an ordinary refactor would
+break it silently.** No error names the cause; `dlopen` says a symbol is not
+found and nothing says why it used to be. That is not hypothetical:
+[4.5](#45-a-global-is-a-hash-lookup-and-a-receiver-check-is-a-call--done) made
+`sol_slot_accepts` a `static inline`, which took it off the table, 147 to 146. It
+was checked by hand against `extend.h` and nothing was owed. **Nothing in the
+build checked**, and nothing would have said so had the answer gone the other
+way.
+
+**`SOL_API` marks the surface at each declaration**, everything is compiled
+`-fvisibility=hidden`, and the exceptions are the list. Declared where the
+function is rather than in a file beside the linker, because the Makefile
+objects to hand-kept lists in three places and would be right to — a list there
+goes stale, and a marker on the declaration cannot. `used` as well as the
+visibility, since the two answer different questions: whether a symbol may be
+*seen* from outside, and whether it may be discarded for having no caller
+inside. Every one of these has no caller inside; that is what makes it an ABI.
+
+**Not on the bundle rules**, deliberately. `sol_extension_init` is the *bundle's*
+symbol rather than the machine's, and hiding it would mean every extension
+source anywhere needed a new annotation to keep working.
+
+**Six were promoted on review**, out of 70 that the header did not name and that
+were not obviously the compiler or the line editor:
+
+| | |
+| --- | --- |
+| `sol_dict_new`, `sol_dict_put`, `sol_dict_get` | the gap [extensions.md](extensions.md) had already recorded — the language's shape for an answer with fields, which `net` had to work around by answering an object |
+| `sol_type_name` | rule 1 asks a primitive to say what it was given, and withheld the function for saying it |
+| `sol_value_equals`, `sol_vm_class_of` | comparing and classifying a value without reimplementing either |
+
+The rest stay hidden, including the whole of the host API: a host links the
+library statically, and visibility costs a static caller nothing.
+
+**Both directions are tested, and both were broken on purpose to check.**
+`test_the_promised_surface_is_exported` carried a comment saying it was weaker
+than it looked and had never caught anything — true then, because the lookup
+succeeded whether or not the link was right. It is load-bearing now: a hidden
+symbol is absent from the dynamic table however many callers it has in the test
+file, so dropping `SOL_API` from one fails it. The other direction had never
+been testable at all and is `test_the_surface_stops_where_it_says` — take
+`-fvisibility=hidden` out of the Makefile and it names `sol_chunk_init`,
+`sol_compile`, `sol_parser_init` and `sol_lexer_init` as reachable.
+
+**And a bundle proved it end to end.** A separate `.so`, compiled with nothing
+but `-Wl,-undefined,dynamic_lookup`, loaded by the shipped `solvm`, building a
+dictionary and naming a type through the new surface:
+
+```text
+<dictionary "kind": "integer", "same": true>
+```
+
+**What this unblocks and does not take:** `-flto` is 5–29% across the benchmark
+suite and used to delete the whole ABI, because internalising what nothing in
+the program references is exactly what it is for. That is now a decision about
+LTO's own costs rather than a thing that silently breaks extensions — and it is
+still deferred, in [ideas.md](ideas.md#the-exported-symbol-surface-and-the-lto-it-is-blocking).
+
 ---
 
 ## 5. Tooling and ergonomics

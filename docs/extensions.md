@@ -341,15 +341,22 @@ rule about extensions: a bundle needing a toolkit installed would make *no
 dependencies beyond a C11 compiler and `make`* false, and sockets need POSIX,
 which every `dlopen` and `fork` here already assumes.
 
-**It is the first customer for something this page does not promise.** The
-language's convention for an answer with fields is a dictionary —
-`system:terminalSize` gives `"rows"` and `"columns"` — and the surface above
-carries `sol_object_new` and `sol_array_new` and nothing that builds one. So a
-received datagram is an *object* with `host`, `port` and `text`, which reads
-well and was not the first choice. Either the list grows a dictionary or
+**It was the first customer for something this page did not promise, and the
+list grew.** The language's convention for an answer with fields is a dictionary
+— `system:terminalSize` gives `"rows"` and `"columns"` — and the surface carried
+`sol_object_new` and `sol_array_new` and nothing that built one. So a received
+datagram is an *object* with `host`, `port` and `text`, which reads well and was
+not the first choice. The entry ended *either the list grows a dictionary or
 extensions answer objects; what should not happen is each bundle deciding
-quietly, which is why it is written down here rather than only in that
-directory.
+quietly* — and when the surface was declared rather than inferred, that open
+question was the first thing the review had to settle.
+
+`sol_dict_new`, `sol_dict_put` and `sol_dict_get` are promised now, with
+`sol_type_name`, `sol_value_equals` and `sol_vm_class_of` beside them: rule 1
+asks a primitive to check its own arguments and say what it got, which needs the
+name of a type. **`net` is not rewritten**, because an object with three named
+slots is a perfectly good answer and changing a shipped surface to use a newer
+call is churn. The next bundle has the choice this one did not.
 
 **And it found a trap in `sol_foreign_handle` worth repeating.** It answers NULL
 for a cell of the wrong kind or one already released, so a handle that is itself

@@ -239,17 +239,17 @@ typedef uint64_t SolRetained;
 
 /* Roots `value` until released, and answers a token for it. Never answers
    SOL_RETAINED_NONE. */
-SolRetained sol_extension_retain(SolVM *vm, SolValue value);
+SOL_API SolRetained sol_extension_retain(SolVM *vm, SolValue value);
 
 /* The value `token` stands for, or false if it was released, was never valid,
    or names a slot since reused. `*out` is untouched when this answers false, so
    a caller that reads it anyway reads its own initialiser rather than somebody
    else's value. */
-bool sol_extension_retained(SolVM *vm, SolRetained token, SolValue *out);
+SOL_API bool sol_extension_retained(SolVM *vm, SolRetained token, SolValue *out);
 
 /* Stops rooting it, and answers whether there was anything to stop. Releasing
    twice is not an error and answers false the second time. */
-bool sol_extension_release(SolVM *vm, SolRetained token);
+SOL_API bool sol_extension_release(SolVM *vm, SolRetained token);
 
 /* ---- what an extension may rely on --------------------------------------- *
  *
@@ -269,6 +269,15 @@ bool sol_extension_release(SolVM *vm, SolRetained token);
  *   sol_symbol_intern(vm, chars, length)         a symbol, made only if new
  *   sol_array_new(vm, capacity)
  *   sol_array_add(vm, array, value)
+ *   sol_dict_new(vm)                             the language's own shape for
+ *   sol_dict_put(vm, dict, key, value)           an answer with fields; keys are
+ *   sol_dict_get(dict, key, &out)                values only -- sol_dict_key_ok
+ *
+ *   sol_type_name(value)                         "integer", "array", ... which
+ *                                                rule 1 asks you to say
+ *   sol_value_equals(a, b)                       the comparison `equals` makes
+ *   sol_vm_class_of(vm, value)                   what a send to it resolves
+ *                                                against
  *
  *   sol_foreign_new(vm, handle, release, kind, footprint)
  *                                                a resource the machine holds
@@ -315,7 +324,7 @@ bool sol_extension_release(SolVM *vm, SolRetained token);
  * under a sanitiser. It is a supported way to ship an extension, not only a
  * way to test one: a program that knows its extensions at build time may link
  * them and never touch the loader below. */
-bool sol_extension_register(SolVM *vm, SolExtensionInit init, const char *name,
+SOL_API bool sol_extension_register(SolVM *vm, SolExtensionInit init, const char *name,
                             char **error);
 
 /* Loads a shared object, finds `sol_extension_init` in it, and registers it.
@@ -335,6 +344,6 @@ bool sol_extension_register(SolVM *vm, SolExtensionInit init, const char *name,
  * *machine* does, and native code is not the machine. That is why loading is a
  * decision taken by whoever starts the program and why there is no message that
  * does it -- see docs/extensions.md, and ideas.md 6.32. */
-bool sol_extension_load(SolVM *vm, const char *path, char **error);
+SOL_API bool sol_extension_load(SolVM *vm, const char *path, char **error);
 
 #endif /* SOLUM_EXTEND_H */

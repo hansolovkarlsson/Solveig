@@ -70,7 +70,7 @@ marked as a sketch.
 | Default values for block parameters | **Defer** — the trigger is a program threading a nil it did not want to pass; the case for it is that built-ins already do this and user code cannot |
 | Constants | **Defer, and probably no** — the speed argument pointed at [3.17](COMPLETED.md#317-a-global-is-found-by-walking-a-list--done), which is now built and took the argument with it; the memory argument runs backwards |
 | Solas written in Solum — self-hosting | **Proved, then parked** — it compiles itself to a fixpoint; the code is in [experiment/](../experiment/), off the search path, [below](#solas-written-in-solum--self-hosting) |
-| The exported symbol surface | **Do the first half** — [146 symbols are exported where 22 are declared and 13 are used](#the-exported-symbol-surface-and-the-lto-it-is-blocking), so an ordinary refactor can break an extension silently. Declaring it is worth doing alone and is testable; the `-flto` it unblocks is 5–29% and a separate call |
+| The exported symbol surface | **First half built on 2026-08-30** — [146 exported where 23 were declared](#the-exported-symbol-surface-and-the-lto-it-is-blocking), so an ordinary refactor could break an extension silently. `SOL_API` and `-fvisibility=hidden` take it to 29, both directions tested; the `-flto` it unblocks is 5–29% and stays a separate call |
 | Computed-goto dispatch | **No, and it was built to find out** — [1% to 13% *slower* than the `switch`](#computed-goto-dispatch--measured-and-refused) on all nine benchmarks and on a real program, because clang tail-merges the 21 dispatch sites back into one and the extra code size stays. The tail-call form is the technique that would work, and is much larger |
 | An inline cache at the send site | **Defer, and the entry was about the wrong ten percent** — [profiled rather than argued](#an-inline-cache-at-the-send-site): lookup is 9.7% of the benchmark that asked for it, and the two things above it are a missing `inline` and `-flto`, which is 5–29% across the suite and silently takes the extension ABI with it |
 | Making the interpreter faster — four candidates | **Two built on 2026-08-30**, [each measured first](#where-the-interpreters-time-actually-goes--two-built-two-left): the receiver check inlined, and a global remembered where it was found rather than hashed every time. 1.04–1.28× across the suite, 1.065× on a real program, and the CPython geometric mean 1.02 → 0.885. Computed-goto dispatch was then measured and [refused](#computed-goto-dispatch--measured-and-refused); the LTO symbol surface is the one left |
@@ -3459,14 +3459,19 @@ writing the linker's file from those, the way `$(BUILD)/config.h` is already
 written and replaced only when it changes. Then the surface is declared at the
 function it belongs to and there is no second place to forget.
 
-**Recommendation: do the first half, defer the second.** The export list fixes a
-present, silent failure mode and is checkable. LTO can then be decided on its
-own merits by somebody who wants the 5–29% and has weighed the debugging cost.
+**The first half is built and is
+[4.6](COMPLETED.md#46-the-extension-abi-is-whatever-is-not-static--done)**:
+`SOL_API` on each export, `-fvisibility=hidden` on everything else, 146 exported
+symbols down to 29, and both directions tested. Six were promoted on review,
+three of them closing the dictionary gap [extensions.md](extensions.md) had
+already written down as waiting for somebody to decide.
 
-**Trigger for the first half: none needed — it is a latent defect** rather than
-a feature, and the cost of finding out the hard way is somebody's extension
-breaking on an upgrade for a reason no error message explains. **Trigger for the
-second: a program that is too slow at `-O2`.** Nothing here is.
+**The second half stays deferred**, and now on its own merits rather than
+because it breaks extensions. `-flto` is 5–29% and costs slower links, inlined
+frames in a profile and a debugger, and a wider gap between the `-g` build
+developed against and the one shipped. **Trigger: a program that is too slow at
+`-O2`.** Nothing here is, and hand-inlining one function was already 6.5% on a
+real program.
 
 ## Recommended against
 

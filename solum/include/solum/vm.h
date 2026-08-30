@@ -408,7 +408,7 @@ void     sol_vm_push(SolVM *vm, SolValue value);
 SolValue sol_vm_pop(SolVM *vm);
 
 /* The object a message sent to `value` is resolved against. */
-SolObject *sol_vm_class_of(SolVM *vm, SolValue value);
+SOL_API SolObject *sol_vm_class_of(SolVM *vm, SolValue value);
 
 /* Sends `name` to `receiver` and answers the reply.
  *
@@ -417,16 +417,16 @@ SolObject *sol_vm_class_of(SolVM *vm, SolValue value);
  * bypassed. Receiver and arguments are pushed onto the value stack for the
  * duration, so everything stays rooted even if the send allocates. Sets the
  * VM's error flag on failure. */
-SolValue sol_vm_send(SolVM *vm, SolValue receiver, const char *name,
+SOL_API SolValue sol_vm_send(SolVM *vm, SolValue receiver, const char *name,
                      SolValue *args, int argc);
 
 /* Runs `block` to completion and returns its value. Primitives use this to
    invoke a block, which is how `ifTrue` and `whileTrue` work without the
    compiler knowing anything about them. Sets the VM's error flag on failure. */
-SolValue sol_vm_call_block(SolVM *vm, SolValue block, SolValue *args, int argc);
+SOL_API SolValue sol_vm_call_block(SolVM *vm, SolValue block, SolValue *args, int argc);
 
 /* Reports a runtime error against the current instruction and unwinds. */
-void sol_vm_runtime_error(SolVM *vm, const char *format, ...);
+SOL_API void sol_vm_runtime_error(SolVM *vm, const char *format, ...);
 
 /* The complaint `whileTrue` makes when its condition answers something other
    than a boolean. Both forms of the loop -- the primitive and the inlined
@@ -443,6 +443,6 @@ void sol_vm_block_answer_error(SolVM *vm, const char *name, SolValue answer);
 void sol_builtins_install(SolVM *vm);
 
 /* Name of a value's type, for error messages: "integer", "float", ... */
-const char *sol_type_name(SolValue value);
+SOL_API const char *sol_type_name(SolValue value);
 
 #endif /* SOLUM_VM_H */

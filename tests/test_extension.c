@@ -213,15 +213,16 @@ static void test_a_missing_bundle_is_reported_not_fatal(void)
 
 /* Every name extend.h promises, named once so that removing one breaks a build.
  *
- * **This is weaker than it looks and the weakness is the point of the comment.**
- * `dlopen(NULL)` is this program, and this program calls most of these itself,
- * so their objects are linked in whatever the flags said and the lookup
- * succeeds either way. It caught nothing when the link was wrong; test_cli.c's
- * `test_an_extension_reaches_the_program` did.
+ * **This used to be weaker than it looked, and is not any more.** The comment
+ * here said so: `dlopen(NULL)` is this program, this program calls most of
+ * these itself, and their objects were linked in whatever the flags said -- so
+ * the lookup succeeded either way and it caught nothing when the link was
+ * wrong. `test_an_extension_reaches_the_program` in test_cli.c did.
  *
- * What it is good for is the other direction: a name that goes out of extend.h
- * without going out of here fails to compile, and a name that stops existing
- * fails here. That is a list kept honest, not a link kept honest. */
+ * Everything is compiled `-fvisibility=hidden` now and `SOL_API` marks the
+ * exceptions, so a hidden symbol is genuinely absent from the dynamic symbol
+ * table however many callers it has in this file. Dropping `SOL_API` from one
+ * of these fails here, which is what the old comment wished it did. */
 static void test_the_promised_surface_is_exported(void)
 {
     static const char *promised[] = {
@@ -232,6 +233,10 @@ static void test_the_promised_surface_is_exported(void)
         "sol_string_new", "sol_symbol_intern", "sol_array_new", "sol_array_add",
         "sol_vm_call_block", "sol_vm_send", "sol_vm_runtime_error",
         "sol_gc_push_temp", "sol_gc_pop_temp",
+        "sol_foreign_new", "sol_foreign_handle", "sol_foreign_release",
+        "sol_extension_retain", "sol_extension_retained", "sol_extension_release",
+        "sol_dict_new", "sol_dict_put", "sol_dict_get",
+        "sol_type_name", "sol_value_equals", "sol_vm_class_of",
     };
 
     void *self = dlopen(NULL, RTLD_LAZY);
@@ -249,13 +254,69 @@ static void test_the_promised_surface_is_exported(void)
     if (missing > 0) {
         fprintf(stderr,
                 "  %d of %zu promised symbols could not be found. Either a name\n"
-                "  left extend.h without leaving this list, or the Makefile's\n"
-                "  whole-archive link regressed -- see WHOLE_LIB there.\n",
+                "  left extend.h without leaving this list, or it lost its\n"
+                "  SOL_API, or the Makefile's whole-archive link regressed --\n"
+                "  see WHOLE_LIB and VISIBILITY there.\n",
                 missing, sizeof promised / sizeof promised[0]);
     }
     assert(missing == 0);
     dlclose(self);
     printf("  every name extend.h promises still exists and is spelled the same\n");
+}
+
+/* And the surface stops where it says it does.
+ *
+ * The half that had never been tested, because until `SOL_API` there was no
+ * answer to give: what an extension could reach was every function in
+ * `libsol.a` with external linkage -- 146 of them, including the parser, the
+ * REPL's line editor and the bytecode reader. None of that is promised to
+ * anybody, and marking one of them `static` would have broken a bundle that had
+ * bound to it, silently and with no error naming the cause.
+ *
+ * One from each family rather than all 123, because the failure this guards
+ * against is `-fvisibility=hidden` going missing from the Makefile or a
+ * stray `SOL_API` on something internal -- and either shows up in any of them.
+ *
+ * These are called from inside this program quite happily; being hidden is
+ * about the dynamic symbol table and not about linking. That is exactly the
+ * distinction the test is here to hold. */
+static void test_the_surface_stops_where_it_says(void)
+{
+    static const char *internal[] = {
+        "sol_chunk_init",          /* the bytecode reader */
+        "sol_compile",             /* the compiler */
+        "sol_parser_init",         /* its parser */
+        "sol_lexer_init",          /* its lexer */
+        "sol_line_read",           /* the REPL's line editor */
+        "sol_gc_collect",          /* the collector's own controls */
+        "sol_vm_init",             /* making a machine is a host's job, not an
+                                      extension's -- see embed.h */
+        "sol_object_lookup_interned",
+        "sol_hash_bytes",
+    };
+
+    void *self = dlopen(NULL, RTLD_LAZY);
+    assert(self != NULL);
+
+    int leaked = 0;
+    for (size_t i = 0; i < sizeof internal / sizeof internal[0]; i++) {
+        dlerror();
+        if (dlsym(self, internal[i]) != NULL) {
+            fprintf(stderr, "  REACHABLE and should not be: %s\n", internal[i]);
+            leaked++;
+        }
+    }
+    if (leaked > 0) {
+        fprintf(stderr,
+                "  %d internal symbols are in the dynamic symbol table, so an\n"
+                "  extension can bind to them and a refactor can break it with\n"
+                "  no error naming the cause. Either VISIBILITY left the\n"
+                "  Makefile or one of these gained a SOL_API it should not have.\n",
+                leaked);
+    }
+    assert(leaked == 0);
+    dlclose(self);
+    printf("  the machine's insides are not reachable from a loaded bundle\n");
 }
 
 /* ---- ordering ------------------------------------------------------------- */
@@ -329,6 +390,7 @@ int main(void)
     test_the_error_is_optional();
     test_a_missing_bundle_is_reported_not_fatal();
     test_the_promised_surface_is_exported();
+    test_the_surface_stops_where_it_says();
     test_extensions_load_in_the_order_written();
     test_a_limit_still_stops_a_program_using_an_extension();
     printf("ok\n");

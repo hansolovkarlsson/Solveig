@@ -81,8 +81,8 @@ void sol_gc_free_all(SolVM *vm);
  * A cell held only in a C local is invisible to the collector, so anything that
  * must survive an allocation goes here first. Push before the window opens, pop
  * when the cell is reachable from somewhere the tracer looks. */
-void sol_gc_push_temp(SolVM *vm, SolGCHeader *header);
-void sol_gc_pop_temp(SolVM *vm);
+SOL_API void sol_gc_push_temp(SolVM *vm, SolGCHeader *header);
+SOL_API void sol_gc_pop_temp(SolVM *vm);
 
 /* Live bytes, counting the cells themselves and the slots objects own. */
 size_t sol_gc_live_bytes(const SolVM *vm);

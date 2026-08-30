@@ -87,6 +87,18 @@ endif
 # one.
 SANITIZE =
 
+# Everything compiled into the machine is hidden unless `SOL_API` says
+# otherwise -- see the note on it in solum/include/solum/common.h. This is what
+# turns the extension ABI from "whatever in libsol.a is not static", which was
+# 146 functions including the parser and the line editor, into the 23 that
+# extend.h names.
+#
+# Deliberately not on the bundle rules further down. `sol_extension_init` is the
+# *bundle's* symbol rather than the machine's, and hiding it would mean every
+# extension source anywhere needed a new annotation to keep working. What a
+# bundle exports is its own business; this is about what the machine promises.
+VISIBILITY = -fvisibility=hidden
+
 BUILD = build
 BIN   = bin
 DIST  = dist
@@ -154,27 +166,27 @@ embed: $(BIN)/solhost
 
 $(BIN)/solhost: embed/host.c $(LIB) | $(CONFIG)
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) $(EXPORT) \
+	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(VISIBILITY) $(INCLUDES) $(EXPORT) \
 	    $< $(WHOLE_LIB) -o $@ $(LDLIBS)
 
 $(BIN)/solas: solas/cmd/main.c $(LIB) | $(CONFIG)
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) $(EXPORT) \
+	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(VISIBILITY) $(INCLUDES) $(EXPORT) \
 	    $< $(WHOLE_LIB) -o $@ $(LDLIBS)
 
 $(BIN)/solvm: solum/cmd/main.c $(LIB) | $(CONFIG)
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) $(EXPORT) \
+	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(VISIBILITY) $(INCLUDES) $(EXPORT) \
 	    $< $(WHOLE_LIB) -o $@ $(LDLIBS)
 
 $(BIN)/solis: solis/cmd/main.c $(LIB) | $(CONFIG)
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) $(EXPORT) \
+	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(VISIBILITY) $(INCLUDES) $(EXPORT) \
 	    $< $(WHOLE_LIB) -o $@ $(LDLIBS)
 
 $(BIN)/solid: solid/cmd/main.c $(LIB) | $(CONFIG)
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) $(EXPORT) \
+	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(VISIBILITY) $(INCLUDES) $(EXPORT) \
 	    $< $(WHOLE_LIB) -o $@ $(LDLIBS)
 
 $(LIB): $(LIB_OBJS)
@@ -183,11 +195,11 @@ $(LIB): $(LIB_OBJS)
 
 $(BUILD)/%.o: %.c $(CONFIG)
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) -MMD -MP -c $< -o $@
+	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(VISIBILITY) $(INCLUDES) -MMD -MP -c $< -o $@
 
 $(BUILD)/tests/%: tests/%.c $(LIB) | $(CONFIG)
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) $(EXPORT) \
+	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(VISIBILITY) $(INCLUDES) $(EXPORT) \
 	    $< $(WHOLE_LIB) -o $@ $(LDLIBS)
 
 # The one test that needs threads. Nothing else links anything, and the point of
