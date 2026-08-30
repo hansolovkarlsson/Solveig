@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### One string per byte value — `pending`, 2026-08-29
+### One string per byte value — `ffd348e`, 2026-08-29
 
 `string:at` answers a one-character string, there being no character type, so
 walking a string used to allocate a cell per character. The machine now keeps
