@@ -180,9 +180,23 @@ those symbols deliberately, and that is
 
 ---
 
-## How it was measured
+## How it was measured, and how to re-run it
 
-With [bench.sol](../programs/bench.sol), which is what it was written for. It
+The programs are in [comparisons/python/](../comparisons/python/) — nine matched
+pairs and the four probes — with a runner:
+
+```sh
+make CFLAGS="-std=c11 -Wall -Wextra -Wpedantic -O2"   # the build being measured
+comparisons/python/run.sh
+```
+
+`make test` compiles them and runs none of them: each is sized to take about a
+second, so the nine belong to somebody who meant to run them rather than to a
+suite that takes eight seconds. Compiling them is enough to catch the rot that
+happens to code nothing builds.
+
+The measuring is done by [bench.sol](../programs/bench.sol), which is what it was
+written for. It
 interleaves the two commands and flips a coin for which goes first each round,
 so a machine drifting over a minute cannot be mistaken for a difference, and it
 reports a bootstrap interval on the ratio rather than a test that assumes a

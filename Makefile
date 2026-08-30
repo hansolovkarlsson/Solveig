@@ -238,9 +238,23 @@ EXAMPLE_SOBS = $(EXAMPLE_SRCS:.sol=.sob)
 examples/%.sob: examples/%.sol $(BIN)/solas
 	@$(BIN)/solas $< -o $@
 
+# The benchmark programs under comparisons/ are compiled by `make test` and not
+# run by it. Compiled, because a program that stops compiling is exactly the rot
+# that happens to code nothing builds -- and these are cited by
+# docs/performance.md, which makes them documentation.
+#
+# Not run, because each is sized to take about a second by design, so running
+# the nine would put ninety seconds into a suite that takes eight. They are run
+# by comparisons/python/run.sh, deliberately, by somebody who meant to.
+COMPARISON_SRCS = $(wildcard comparisons/*/*.sol) $(wildcard comparisons/*/probes/*.sol)
+COMPARISON_SOBS = $(COMPARISON_SRCS:.sol=.sob)
+
+comparisons/%.sob: comparisons/%.sol $(BIN)/solas
+	@$(BIN)/solas $< -o $@
+
 # The binaries too: test_cli runs them as a shell would, a `main` not being
 # something the library holds.
-test: $(BINARIES) $(TEST_BINS) $(EXAMPLE_SOBS) $(EXT_PROBE) $(EXTENSIONS)
+test: $(BINARIES) $(TEST_BINS) $(EXAMPLE_SOBS) $(COMPARISON_SOBS) $(EXT_PROBE) $(EXTENSIONS)
 	@for t in $(TEST_BINS); do echo "-- $$t"; $$t || exit 1; done
 	@echo "all tests passed"
 
