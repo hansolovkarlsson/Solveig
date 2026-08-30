@@ -74,6 +74,41 @@ Verified by making the program record what it draws and wiping the record on
 every present, exactly as the real buffer is wiped: **five frames, zero undrawn
 pixels in any of them.** Then by looking at two of them.
 
+### And a third example, which is the trigger rule pointed at a surface
+
+Asked for a bounce-style circle example after the Mandelbrot. `bounce.sol` moves
+a square because a square is what `sdl:fill` draws; **there is no `sdl:circle`**,
+so the interesting half of the request was what to do about that.
+
+The program draws it. For each row of a disc, half the width is the square root
+of `r² - dy²`, and that row is one `sdl:line` — six lines of Solveig, about sixty
+calls for a ball of thirty. The extension was deliberately not grown to hold a
+`circle`, and the reason is the one this project uses everywhere else: **a
+program had finally asked, and one customer satisfied in six lines of the
+language is still not a trigger.** A `circle` message would also have been a
+shape every later back end had to match, and a Plan 9 `draw`-style binding has
+no circle to match it with. `ideas.md` had left this open as *Bresenham in
+SolaBasic, on the trigger rule, since no program has asked yet*. One asked, and
+the answer did not change — which is the entry doing its job rather than the
+entry being tested.
+
+**The verification was done the way the noise taught.** The discs were recorded
+as they were drawn and looked at as images: round, correctly coloured, five
+sizes. The bounce invariant — every ball entirely on screen, `r ≤ x ≤ width - r`
+in both axes — was asserted across nine balls for 1,200 frames, at zero
+violations. A single ball covers 20..620 by 21..459 in a 640×480 window, which
+is exactly `[r, size - r]`.
+
+**And it caught a second defect that looking alone had nearly missed.** The first
+version gave every ball the same sign of velocity, so they set off together and
+spent the opening seconds piled in one corner. Two sampled frames, 150 and 450,
+both showed the balls clustered — and *nearly explained it away*, because those
+two are about one bounce period apart for the commonest speed, so a periodic
+system sampled at its own period looks stationary. **Sampling an animation is a
+check with a blind spot exactly where the motion is.** What settled it was
+measuring the range each ball covers over a long run, which is a question about
+the whole trajectory rather than about two moments of it.
+
 ### The part worth carrying
 
 **Three verifications ran that afternoon and none of them could have caught
@@ -82,6 +117,13 @@ was checked by running it and timing it — it ran. The colours were checked by
 recording what was passed to `sdl:fill` — correct. Every one of them tested the
 program's *inputs to the drawing calls*, and the defect lived entirely on the
 other side of those calls.
+
+**And the circle example added the second half of the same lesson**: looking is
+necessary and is not sufficient. Two frames of a bouncing animation are a
+picture, and they still nearly hid a defect, because the sample interval
+happened to match the motion's period. The check has to match the *shape of the
+claim* — a still frame answers "is this drawn correctly", and only a measurement
+over the whole run answers "does it move correctly".
 
 A graphics program's output is a picture, and the check has to be the picture.
 `screencapture` is refused this machine's screen, so the way through was to have

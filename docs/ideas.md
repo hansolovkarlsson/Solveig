@@ -1702,9 +1702,15 @@ the disease the rule was written against, with a longer incubation.
 
 **The eleven messages do not reach.** `start window clear colour fill line
 present poll wait ticks` is what solveig-sdl has. `PSET` is a 1×1 `fill` and
-`LINE`'s `B`/`BF` forms are `line` and `fill`, so those are free. But `CIRCLE`
-has no message and would be Bresenham written in SolaBasic; **`PAINT` needs to
-read a pixel back and there is no message that can**; and `LOCATE`/`PRINT` on a
+`LINE`'s `B`/`BF` forms are `line` and `fill`, so those are free. `CIRCLE` has
+no message either, and **that one has since been answered by a program rather
+than left hypothetical**: solveig-sdl's `examples/circles.sol` draws a filled
+disc in six lines, one `sdl:line` per row with half the width the square root of
+`r² - dy²`, and the extension was deliberately *not* grown to hold it. One
+customer satisfied in six lines of the language is not a trigger, and every
+later back end would have had to match a circle it has no equivalent for. So
+`CIRCLE` is a runtime SUB and not a message. **`PAINT` needs to read a pixel
+back and there is no message that can**; and `LOCATE`/`PRINT` on a
 graphics screen needs a font, which is a larger piece of SDL than everything
 else here combined. So this is not *the graphics statements*. It is a subset,
 and two repositories change rather than one.
