@@ -19,8 +19,8 @@ drawing at all. Seventeen messages, every one a widget — window, label, button
 box, `onClick`, `onKey`, `every` — and its README listed *no drawing area* among
 what is missing. So there was nothing to write the example against.
 
-Saying that first is most of the value of the half hour. The gap was named in
-the repository, which is the whole reason a README lists what it does not do.
+The gap was named in the repository, which is the whole reason a README lists
+what it does not do.
 
 ### The throwaway went first again, and again it was the design that needed it
 
