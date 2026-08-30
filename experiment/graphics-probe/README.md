@@ -25,8 +25,8 @@ put SDL into a build that promises no dependencies.
 | file | what it is |
 | --- | --- |
 | `mandelbrot.sol` | the control — the arithmetic alone, no extension loaded |
-| `mandelbrot-sdl.sol` | the same picture, presenting once per row |
-| `mandelbrot-sdl-throttled.sol` | the same picture, presenting at most every 16ms. **The one that matters** |
+| `mandelbrot-sdl.sol` | drawn, presenting once per row. **Does not draw a correct picture — see below** |
+| `mandelbrot-sdl-throttled.sol` | drawn, presenting every 16ms. **Nor does this one** |
 | `send-cost.sol` | 200,000 extension sends against 200,000 ordinary ones |
 | `present-cost.sol` | 200 presents, drawing nothing |
 
@@ -37,7 +37,7 @@ put SDL into a build that promises no dependencies.
 | an extension send | **205ns**, against an ordinary send's 55ns |
 | `sdl:present` | **8.3ms**, because it is vsync-locked |
 | 0.38.0 to 0.39.0, arithmetic alone | 1.59s to **1.07s**, a 1.49x |
-| presenting per row, then on a 16ms clock | 1.90s to **1.29s** |
+| presenting per row, then on a 16ms clock | 1.90s to **1.29s** — a call pattern, not a picture |
 
 **The second row is the one nothing predicted.** QBasic graphics is
 immediate-mode — `PSET` draws and you see it — and SDL is double-buffered, so a
@@ -46,10 +46,25 @@ per second, and a program drawing a circle would take a minute. Reading the SDL
 headers does not produce that sentence. Running two hundred presents in a loop
 produces it in ten seconds.
 
-**And the last row is worth as much as the interpreter work above it.** The
-throttle is four lines and bought a larger factor on this program than a week of
-optimisation did. It is the reminder that a policy decision can outweigh the
-machine underneath it.
+**The last row measures a call pattern and not a picture, and the correction is
+the useful part.** `sdl:present` does not preserve what was drawn: the buffer it
+hands back for the next frame holds undefined memory rather than the picture
+just shown, checked in C against SDL's Metal renderer. So **neither drawn
+program here renders the Mandelbrot** — presenting per row shows one row of
+fractal and stale video memory everywhere else, and presenting every 16ms shows
+one strip of it. Both timings are honest about what those call patterns cost;
+neither is a measurement of two ways of drawing the same thing.
+
+**They are kept as they were run**, because parked evidence that gets quietly
+edited stops being evidence. What they measured, they measured. What they do not
+do is draw.
+
+**The correct pattern is in the example rather than here**:
+[solveig-sdl's `examples/mandelbrot.sol`](https://github.com/hansolovkarlsson/solveig-sdl/blob/main/examples/mandelbrot.sol)
+draws each pass over every pixel and presents only when the pass is complete —
+five presents rather than a hundred and eighty. **The policy is not present less
+often; it is present only a finished frame**, and getting it wrong costs the
+picture rather than the frame rate.
 
 ## Running them again
 

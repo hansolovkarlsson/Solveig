@@ -51,7 +51,7 @@ marked as a sketch.
 | Programs that would press on something — Pascal, predicate logic, a parser toolkit | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would |
 | Networking, and sending code to a running machine | **The first half is built**, on 2026-08-29 — [extensions/net](../extensions/net/README.md), five messages, and the waiting question answered with a timeout rather than a block; [the second half](#networking-and-sending-code-to-a-machine-that-is-already-running) is untouched and still needs 3.4, 6.32 and a proxy |
 | SQLite, SDL2, GTK | **One project, not three** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); GTK and SDL2 fire that trigger and SQLite does not, and wanting *both* toolkits is what settles the mechanism |
-| Graphics in SolaBasic, over SDL2 | **No — asked and closed on 2026-08-30, and the premise was wrong** to begin with: [graphics were never parked](#graphics-in-solabasic-through-the-sdl2-extension) for want of extensions, they were refused as *the PC*. No program wanted a screen, so the trigger never fired. The throwaway exercised the foundation without a language change and holds the useful part — an extension send at 205ns, **`sdl:present` vsync-locked at 8.3ms**, and **1.49x from 0.39.0** on a globals-heavy loop. **And there is no oracle for a pixel**, which is what would decide it if it were ever asked again |
+| Graphics in SolaBasic, over SDL2 | **No — asked and closed on 2026-08-30, and the premise was wrong** to begin with: [graphics were never parked](#graphics-in-solabasic-through-the-sdl2-extension) for want of extensions, they were refused as *the PC*. No program wanted a screen, so the trigger never fired. The throwaway exercised the foundation without a language change — an extension send at 205ns, **`sdl:present` vsync-locked at 8.3ms**, and **1.49x from 0.39.0** on a globals-heavy loop. **A demo written that evening then corrected the entry**: a present keeps nothing, so immediate-mode `PSET` is not slow on this surface but absent. **And there is no oracle for a pixel**, which is what would decide it if it were ever asked again |
 | Fuzzy logic | **A library that would teach nothing** — arithmetic on floats, and the arithmetic all landed |
 | Namespaces for included files | **Defer** — the trigger is somebody else writing a library |
 | Splitting the reference into pages | **Defer** — the trigger is the message reference outgrowing the rest |
@@ -1621,8 +1621,16 @@ The last one deserves its own line, because it is a *language* problem wearing
 an implementation problem's clothes. **QBasic graphics is immediate-mode**:
 `PSET` draws, and you see it. **SDL is double-buffered**, and the buffer is
 shown by a call that waits for the display. A faithful `PSET` would present
-after every statement, at 8.3ms each — **120 pixels per second**. A QBasic
-program that draws a circle would take a minute to do it.
+after every statement, at 8.3ms each — **120 pixels per second**, so a QBasic
+program drawing a circle would take a minute.
+
+**And that is the optimistic reading.** A present does not keep the canvas, so
+`PSET` after `PSET` would not accumulate a picture at all: each one would show
+its own dot on a field of undefined memory. QBasic's model assumes a screen that
+*stays drawn*, and a renderer of this shape has none — which means immediate
+mode is not slow here, it is absent, and any `SCREEN` built on this surface
+would have to buffer a whole frame and decide for itself when the frame is
+finished. That is a language-visible decision, not an implementation detail.
 
 Measured three ways, same Mandelbrot, 320×200, 400 iterations:
 
@@ -1632,9 +1640,21 @@ Measured three ways, same Mandelbrot, 320×200, 400 iterations:
 | drawn, presenting once per row | 2.20s | 1.90s |
 | drawn, presenting at most every 16ms | — | **1.29s** |
 
-**So the present policy is worth more than a year of interpreter work on this
-program**, and it costs four lines. Throttling on the clock puts graphics at 22%
-over the pure computation, where presenting per row put it at 78%.
+**The two drawn rows measure a call pattern and not a picture**, and that
+correction arrived on 2026-08-30 when a real example was written and looked at.
+Neither of them drew the Mandelbrot. `sdl:present` does not preserve what was
+drawn — the buffer handed back for the next frame holds undefined memory rather
+than the picture just shown, checked in C against SDL's Metal renderer — so
+presenting once per row shows one row of fractal and stale video memory
+everywhere else, and presenting every 16ms shows one strip of it. Both numbers
+are honest measurements of what those call patterns *cost*. Neither is a
+measurement of two ways of drawing the same thing, because the thing was never
+drawn.
+
+**Which sharpens the finding rather than weakening it.** The policy is not
+*present less often*, it is **present only a frame that is complete** — five
+presents on this program rather than a hundred and eighty. And the price of
+getting it wrong is not a slow picture. It is not a picture at all.
 
 **And the optimisations answer for themselves in the left column.** 1.59s to
 1.07s is **1.49x** on a program written after they landed and chosen to be
@@ -1662,7 +1682,8 @@ builtins:atPut("SOLAGFILL", [['integer, 'integer, 'integer, 'integer], 'integer,
 ```
 
 Above that, the runtime SUBs are written in SolaBasic like every other one —
-`SOLAPSET`, `SOLACIRCLE`, the 16-colour palette table, the present throttle —
+`SOLAPSET`, `SOLACIRCLE`, the 16-colour palette table, and whatever decides a
+frame is finished —
 and the statement parsers and emitters are the most mechanical work in the file.
 **`solas` still loads nothing**, which is the property
 [extensions.md](extensions.md#who-decides) protects: the compiler only ever
@@ -1735,10 +1756,11 @@ extension send at 205ns, and one genuine surprise in `sdl:present`.
 
 **Kept for whenever the trigger does fire.** Everything above the verdict is the
 design, and it is worth more now than it would be later: the mechanism is
-identified (a builtin, exactly as `SOLAREADFILE$` reaches `system`), the present
-policy is decided by measurement rather than argument, and the two things out of
-reach — `PAINT`, which needs a pixel read back, and text on a graphics screen,
-which needs a font — are named. **The recommended shape, if it is ever built, is
+identified (a builtin, exactly as `SOLAREADFILE$` reaches `system`), the frame
+question is settled by measurement rather than argument — a `SCREEN` here has to
+buffer and decide when a frame is done, because the surface keeps nothing — and
+the two things out of reach, `PAINT` needing a pixel read back and text on a
+graphics screen needing a font, are named. **The recommended shape, if it is ever built, is
 an opt-in `'$GRAPHICS` metacommand in QBasic's own idiom** rather than the
 language growing a screen, so that the CB80 cut line survives unamended and the
 `.sob`'s extension requirement is visible in the listing that produced it. That

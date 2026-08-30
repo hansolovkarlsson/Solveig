@@ -11,6 +11,90 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-30 (the evening) — a demo that showed the measurement was of the wrong thing
+
+Asked for a Mandelbrot example for solveig-sdl — a demo rather than a probe,
+written in Solveig, to show the extension off. It found that the afternoon's
+headline finding had been written down one step too early, and the step that was
+missing is the oldest one there is: **look at the output**.
+
+### What was wrong
+
+The example rendered coarse to fine and presented every 16ms, exactly as
+[the afternoon's probe](#2026-08-30-evening--the-foundation-exercised-and-a-question-that-answered-itself)
+recommended. On screen it was bands of RGB noise with recognisable fragments of
+fractal floating in it.
+
+**`sdl:present` does not preserve what was drawn.** The buffer it hands back for
+the next frame holds undefined memory, not the picture just shown. So a frame
+that is not drawn in full cannot be shown at all: presenting every 16ms puts up
+the strip drawn since the last present and stale video memory everywhere else,
+which is precisely what the noise was. The bands in the screenshot were the
+16ms windows.
+
+Confirmed rather than assumed, in thirty lines of C against SDL's Metal
+renderer: clear to red, present, then read back a pixel nothing has drawn into.
+It is not red. That took two minutes and settles a question no amount of staring
+at the Solveig would have.
+
+### The measurement was real and the conclusion was not
+
+The afternoon's table has three rows. The first — the arithmetic with no
+graphics at all, 1.59s against 1.07s — is untouched, and the 1.49x it reports
+still stands. **The other two were both drawing a corrupt picture.** Presenting
+per row and presenting every 16ms are two ways of getting it wrong, and timing
+them against each other measures what the call pattern costs rather than two
+ways of drawing the same thing.
+
+So *the present policy is worth more than a year of interpreter work* has been
+struck out of both documents. What replaces it is sharper:
+
+**The policy is not present less often. It is present only a frame that is
+complete** — five presents on this program rather than a hundred and eighty. The
+cost of getting it wrong is not a slow picture; there is no picture.
+
+**And it makes the SolaBasic verdict firmer.** The afternoon said a faithful
+`PSET` would run at 120 pixels a second on this surface. That was the optimistic
+reading. A present keeps nothing, so `PSET` after `PSET` accumulates no picture
+at all — each would show its own dot on a field of undefined memory. QBasic
+assumes a screen that *stays drawn*. A renderer of this shape has none, so
+immediate mode is not slow here, it is absent, and any `SCREEN` built on this
+would have to buffer a frame and decide for itself when the frame is done. The
+entry that recorded a "no" now records a better reason for it.
+
+### What the example does instead
+
+Five passes, 16×16 blocks down to 1×1, each one covering every pixel, each one
+presented only when it is complete. The first frame is up in about ten
+milliseconds and each replaces it, so it still feels progressive without ever
+showing a partial frame — and the passes still drain the event queue between
+rows, so a click abandons immediately. An abandoned pass is simply not shown.
+
+Verified by making the program record what it draws and wiping the record on
+every present, exactly as the real buffer is wiped: **five frames, zero undrawn
+pixels in any of them.** Then by looking at two of them.
+
+### The part worth carrying
+
+**Three verifications ran that afternoon and none of them could have caught
+this.** The arithmetic was checked by rendering it as ASCII — correct. The demo
+was checked by running it and timing it — it ran. The colours were checked by
+recording what was passed to `sdl:fill` — correct. Every one of them tested the
+program's *inputs to the drawing calls*, and the defect lived entirely on the
+other side of those calls.
+
+A graphics program's output is a picture, and the check has to be the picture.
+`screencapture` is refused this machine's screen, so the way through was to have
+the program write a PPM and convert it — which cost about as much as one more
+round of theorising and, unlike the theorising, ended the question. **The
+repository already knew this**: `oracle.sh` exists because eighty-three claims
+in `basic.sol` caught none of the seven defects the NBS suite found, since they
+check what the author thought to check. This was the same lesson in a medium
+that makes it obvious, and it arrived one commit after an entry arguing that
+graphics cannot be checked by comparing printed bytes.
+
+---
+
 ## 2026-08-30 (evening) — the foundation exercised, and a question that answered itself
 
 Asked whether it was a good time to implement SolaBasic's graphics statements
@@ -77,11 +161,15 @@ Same Mandelbrot, 320×200, 400 iterations, both VMs built `-O2`:
 exact case, met by a program written after it landed and not written to flatter
 it. It is a larger gain than any of the nine CPython pairs recorded last week.
 
-And the right-hand column carries its own lesson: **the present policy is worth
-more than a year of interpreter work on this program, and it costs four lines.**
-Throttling on the clock puts graphics at 22% over the pure computation where
-presenting per row put it at 78%. The interpreter got 1.49x; deciding *when to
-show the buffer* got 1.47x on top of it, for nothing.
+**The two drawn rows have since been corrected, and the correction is the more
+interesting half.** Writing a real example the same evening and *looking at it*
+showed neither of them ever drew the Mandelbrot: `sdl:present` does not preserve
+what was drawn, so presenting per row shows one row of fractal and stale video
+memory everywhere else, and presenting every 16ms shows one strip. Both numbers
+are honest measurements of what those call patterns cost, and neither is a
+measurement of two ways of drawing the same picture. The day's lesson was
+written down one step too early — see [the evening's
+entry](#2026-08-30-the-evening--a-demo-that-showed-the-measurement-was-of-the-wrong-thing).
 
 ### The question answered itself when it was put back
 
