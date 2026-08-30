@@ -5,6 +5,41 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### A global is remembered, and the receiver check is inlined — `pending`, 2026-08-30
+
+Two changes to the dispatch loop, both found by profiling a real program —
+[basic.sol](../programs/basic.sol) interpreting 39,000 BASIC statements — rather
+than a loop written to be timed.
+
+| | |
+| --- | --- |
+| `basic.sol` interpreting BASIC | **1.065×** |
+| `loop` 1.284 · `float` 1.276 · `array` 1.237 · `strloop` 1.228 | |
+| `higher` 1.126 · `object` 1.120 · `dict` 1.054 · `strlib` 1.037 | |
+| against CPython 3.14, geometric mean | 1.02 → **0.885** |
+
+**`sol_slot_accepts` was a call across a translation unit** for three
+predictable branches, on the hot path of every send. It is a `static inline` in
+`object.h` now, worth 1.4% to 6.5%. One symbol leaves the export table, 147 to
+146, and it is in neither `extend.h`'s surface nor `extensions.md`.
+
+**A global was a hash lookup on every read and every write.** The same loop with
+its counter as a block temporary instead is 1.255× faster, and a chunk now
+remembers the slot each of its names resolved to — beside the interned name, and
+emptied by the same `interned_for` rule, because a slot pointer belongs to one
+machine's root as surely as an interned name belongs to its name table. Sound
+because **nothing removes a slot**, which
+[3.10](ROADMAP.md#310-a-vm-cannot-be-reused-across-runs) records as a problem.
+
+**Together they were slower than either alone**, on the one benchmark that uses
+no globals: deep recursion lost 8.5% to instruction cache, having gained nothing
+to pay for it. Moving the two slow paths out of the switch fixed that and
+improved everything else — `fib` 0.922 to 1.003, `loop` 1.251 to 1.284.
+
+The case is [4.5](COMPLETED.md#45-a-global-is-a-hash-lookup-and-a-receiver-check-is-a-call--done);
+the two candidates still open are in
+[ideas.md](ideas.md#where-the-interpreters-time-actually-goes--two-built-two-left).
+
 ### One string per byte value — `ffd348e`, 2026-08-29
 
 `string:at` answers a one-character string, there being no character type, so

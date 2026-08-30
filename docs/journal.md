@@ -11,6 +11,93 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-30 — the hot loop, and a test that tested nothing
+
+*What could be done to make it faster?* — asked the morning after the CPython
+comparison, and answered by profiling rather than by reading the C, because the
+day before had just finished recording what happens when you do the other thing.
+
+**The profile that mattered was of a real program.** Six benchmarks, and then
+[basic.sol](../programs/basic.sol) interpreting 39,000 BASIC statements —
+2,774 lines of Solveig with objects, methods and dictionaries, doing a job
+rather than being timed. The dispatch loop 55%, name lookup 13%, and **the
+per-send receiver check 12.6%**, which is as much as the lookup and had never
+been suspected of anything.
+
+Four candidates came out of it. Two got built.
+
+### The one that was a missing keyword
+
+`sol_slot_accepts` asks three predictable questions — is there a primitive, does
+it take any receiver, does the type match — and it lived in `object.c` while its
+only caller lived in `vm.c`. So every send in every program paid a function call
+across a translation unit for three branches. `static inline` in the header, and
+it is 1.4% to 6.5%.
+
+### The one the benchmarks had been hiding
+
+The bigger one came from a suspicion about the benchmarks themselves. In the
+integer loop's profile `sol_object_lookup_interned` was 218 samples against
+`run_frames`'s 304, which is far too much lookup for a program that sends
+`add` and `inc` and nothing else — and the reason is that `i` and `sum` are
+**globals**, because the loop is written at a script's top level. Every read is
+a hash of the root object and every write is another.
+
+The same loop with the counter as a block temporary instead — an array index,
+differing in nothing else — is **1.255×** faster, and the lookup falls from 218
+samples to 25. That is not a benchmark artifact to correct for; it is every
+top-level script and every line typed at the REPL.
+
+**A chunk remembers where each of its globals lives now**, and what makes that
+safe is a fact about this language rather than a general one: a slot is malloc'd
+on its own and linked, and *nothing removes one*. ROADMAP 3.10 writes that down
+as a problem — a machine cannot be reused because nothing unbinds — and read
+from here it is the guarantee that makes the address good forever. The table
+rides beside the interned names and is emptied by the same serial, so there are
+two caches and one invalidation.
+
+### And then they were slower together than apart
+
+Both in, and every benchmark improved except deep recursion, which lost **8.5%**
+— a program that touches no global at all, paying for a change it does not use.
+Neither half did that alone: the inlined check gave `fib` 1.011, the cache gave
+0.996, and the two together gave 0.922 with the interval nowhere near 1.
+
+Nothing had been added to that program's path, so it was not work. It was
+**instruction cache**: a bigger switch body, and the hot cases falling
+differently across it. Moving the two slow paths — the first look at a name, and
+the failure — out of the loop and into functions of their own fixed the
+regression and made everything else faster at the same time. `fib` 0.922 to
+1.003, and `loop` 1.251 to 1.284.
+
+**A dispatch loop is a cache-resident thing, and code that runs once per site
+does not belong in it.** No amount of reasoning about instruction counts finds
+that, because every version does the same work.
+
+### The test that tested nothing
+
+The invalidation needed a test, and the first one passed against code that had
+lost the property. Deleting the `free` of the cache changed no answer, because
+the `calloc` beside it ran anyway and handed back a fresh table — so the test
+was asserting something the broken version still did.
+
+The break that bites is a cache that genuinely *survives* a change of machine,
+and against that the test fails on the second machine of twenty. Each one binds
+a different value; a VM is a local, so the second very likely lands on the
+first's freed address, which is exactly the case 4.3's serial was introduced
+for.
+
+**A test that passes against the broken version tests nothing, and the only way
+to find out is to break it on purpose.** That is the day's transferable part.
+The suite has other tests of this shape — the extension root that was proved by
+removing it — and this is one more.
+
+The suite's geometric mean against CPython 3.14 went **1.02 to 0.885**, ahead on
+five of nine. Two candidates are left and both are written down: computed-goto
+dispatch, which is the 55%, and keeping the exported symbol surface under LTO,
+which is 5–29% currently traded away for the extension ABI. Neither is a
+language change, which was yesterday's finding and is still the shape of this.
+
 ## 2026-08-29 (evening) — measured against somebody else's language
 
 The day ended with a question rather than a task: *how does this compare to
