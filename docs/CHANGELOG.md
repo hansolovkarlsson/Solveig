@@ -5,6 +5,66 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## 0.39.0 — 2026-08-30
+
+**Measured against another implementation, for the first time.** The language
+answers **141<!--count messages--> messages**, unchanged, and `.sob` files are
+format version 14, unchanged. Nothing here is a language change; what grew is
+the speed and what shrank is the export table.
+
+Every number this project had ever quoted was Solveig against an earlier
+Solveig, which says whether a change helped and nothing about where the whole
+thing stands. Nine matched programs against CPython 3.14 — each pair checked to
+print the same answer before either was timed — put it level, geometric mean
+1.09. It is **0.885** now, ahead on five of the nine, and none of the difference
+is a rewrite.
+
+**Three defects, and every one had been invisible from the inside.** A heap
+object allocated for every character read, and again for the literal it was
+compared against
+([4.4](COMPLETED.md#44-a-one-byte-string-is-allocated-per-character-read--done)).
+A hash lookup for every read and every write of a global, which is every
+top-level script and every line typed at the prompt
+([4.5](COMPLETED.md#45-a-global-is-a-hash-lookup-and-a-receiver-check-is-a-call--done)).
+And a three-branch function that no compiler could inline because it sat in a
+different translation unit from its only caller.
+
+**Two textbook optimisations were built and refused**, which is worth as much as
+the three that landed. An inline cache at the send site, proposed as most of the
+recursion gap, profiles at 9.7% of it. Computed-goto dispatch — the standard
+answer, and this repository's own roadmap put it at 10–20% — is *slower* than
+the `switch` on every benchmark, because clang tail-merges the twenty-one
+dispatch sites back into one and the extra code size stays.
+[ideas.md](ideas.md#computed-goto-dispatch--measured-and-refused) carries the
+disassembly.
+
+**The extension ABI is declared rather than inferred, and it is the one thing to
+read before upgrading.** `bin/solvm` exported 146 `sol_*` functions where
+[extend.h](../solum/include/solum/extend.h) named 23; the surplus was the
+parser, the lexer, the REPL's line editor and the bytecode reader. It exports
+**29**: the 23, plus six promoted on review, three of them closing a gap
+[extensions.md](extensions.md) had recorded and left for somebody to decide.
+`SOL_API` marks each export at its declaration and everything else is compiled
+`-fvisibility=hidden`
+([4.6](COMPLETED.md#46-the-extension-abi-is-whatever-is-not-static--done)).
+
+`SOL_EXTENSION_ABI` stays **1**. Nothing named in the header changed shape or
+meaning and six calls were added, so a bundle built against 0.38.0 loads and
+runs unchanged — checked by loading 0.38.0's `net.so` on this build rather than
+asserted. A bundle that reached past the documented surface will fail at
+`dlopen`, which is the change doing its job; bumping the number would not
+improve that message, since the ABI check runs after the load it never reaches.
+
+**Compatibility is the clean case.** All **35** examples compile
+byte-identically under 0.38.0's compiler and this one, and every one gives the
+same answer on both machines in both directions — the single exception being
+`examples/system.sol`, which prints how long things took.
+
+Also in it: [comparisons/](../comparisons/) holds the programs that took the
+measurements, so the figures can be re-run rather than believed;
+[docs/performance.md](performance.md) is the account of what measuring found;
+and `extend.h` stopped saying two different things about its own surface.
+
 ### The extension ABI is declared rather than inferred — `a711b1d`, 2026-08-30
 
 `bin/solvm` exported 146 `sol_*` functions where

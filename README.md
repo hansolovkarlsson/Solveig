@@ -175,6 +175,27 @@ version the binaries inside it report.
 
 ## Status
 
+**0.39.0** — measured against another implementation for the first time, and
+three things that found. **141<!--count messages--> messages, unchanged**, and
+`.sob` files are format version 14. Nine matched programs against CPython 3.14
+put Solveig level at first — geometric mean 1.09 — and every defect the
+comparison turned up had been invisible from the inside: a heap object allocated
+for every character read, a hash lookup for every global variable, and a
+three-branch function that could not be inlined for sitting in the wrong file.
+It is **0.885** now, ahead on five of the nine, with none of it a rewrite.
+[docs/performance.md](docs/performance.md) is the account and
+[comparisons/python](comparisons/python/) holds the programs.
+
+**The extension ABI is declared rather than inferred**, which is the one thing
+here to read before upgrading. `bin/solvm` exported 146 `sol_*` functions where
+[extend.h](solum/include/solum/extend.h) named 23 — the surplus being the
+parser, the lexer, the REPL's line editor and the bytecode reader, none of them
+promised to anybody. It exports **29** now: the 23, plus six promoted on review,
+three of which close a gap `extensions.md` had recorded and left open. A bundle
+that used the documented surface is unaffected, checked by loading 0.38.0's
+`net.so` on this build; one that reached past it will not load, and that is the
+point.
+
 **0.38.0** — two things that add no messages: a notation and a bundle.
 **141<!--count messages--> messages, unchanged**, and `.sob` files are format
 version 14. `@expr{...}` is the infix region over a *block* rather than a group,

@@ -134,7 +134,7 @@ a different language.
 
 ## Status
 
-**0.38.0** — the language answers 141<!--count messages--> messages and `.sob`
+**0.39.0** — the language answers 141<!--count messages--> messages and `.sob`
 files are format version 14.
 
 Working: the scanner, the single-pass compiler, the re-entrant dispatch loop
