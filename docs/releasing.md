@@ -1,0 +1,86 @@
+# Making a release
+
+Four files in one commit, a tag, and a page on GitHub that the tree cannot
+record. Written down because it is a ritual with verification steps in it, and
+because two of those steps were learned by getting them wrong.
+
+## The four files, in one commit titled `Release X.Y.Z`
+
+| | |
+| --- | --- |
+| `solum/include/solum/common.h` | `SOLUM_VERSION`. All four binaries report it, and `make dist` names the tarball from it |
+| `README.md` | a new Status paragraph *above* the previous one; the old ones stay |
+| `docs/CHANGELOG.md` | a `## X.Y.Z — DATE` heading above the loose entries that accumulated since the last one |
+| `index.md` | its Status block, since 0.39.0 — it had said **0.3.0** for thirty-five releases because nothing pointed at it |
+
+The loose entries below the heading keep their own commit hashes and dates. The
+release heading is a summary of them, not a replacement.
+
+## Verify compatibility rather than asserting it
+
+Every release since 0.36.0 has, and it is the part of the notes a reader cannot
+check for themselves — which makes it the part most worth checking.
+
+```sh
+git archive vX.Y.Z | tar -x -C /tmp/prev     # the release before this one
+( cd /tmp/prev && make )
+```
+
+Then compile every example with both compilers and compare the bytes, and run
+each `.sob` on both machines both ways round.
+
+**Run both machines from the same working directory.** Four examples read the
+filesystem and will differ for that reason alone, which looks exactly like an
+incompatibility and is not.
+
+**`examples/system.sol` always differs**, because it prints how long things
+took. That one is read, not compared.
+
+**When extensions were touched, load the previous release's bundle on the new
+build.** That is the ABI question and it is not the bytecode question — the two
+can disagree, and 0.39.0 is the release where they did.
+
+## Then the tag
+
+Annotated, named `vX.Y.Z`, with a one-line message in the form
+`Solveig X.Y.Z -- the headline`.
+
+```sh
+git tag -a v0.39.0 -m "Solveig 0.39.0 -- measured against another language, and the three things it found"
+git push origin main && git push origin v0.39.0
+```
+
+## Then the page, and the two fixups it needs
+
+The release body is the changelog entry, with two changes that
+[the journal](journal.md) recorded the first time they were needed. Both are
+cases of a sentence that stops being true by being moved rather than by being
+wrong.
+
+**Strip the `count` markers.** A number written with one of them — the comment
+notation [programs.md](programs.md) describes, which tells the checker to
+recount the figure in front of it — is a *live* number. A release page is a
+historical statement that nothing recounts and nothing on GitHub would correct.
+
+The markers are not quoted here on purpose. A comment that says *recount the
+number before me* means that wherever it appears, and prose explaining the
+notation is not an exception; writing one into a sentence about it is how the
+build was broken the first time this was written down.
+
+**Absolutise the links, pinned at the tag.** `[NET.md](NET.md)` is right inside
+`docs/` and a 404 from `/releases/tag/vX.Y.Z`. Rewrite to
+`https://github.com/hansolovkarlsson/Solveig/blob/vX.Y.Z/docs/NET.md` — at the
+tag rather than at `main`, so the page goes on describing what *this* release
+shipped after the documents move underneath it.
+
+Attach `dist/solveig-X.Y.Z.tar.gz` from `make dist`, which archives `HEAD` —
+check that `HEAD` is the release commit the tag points at.
+
+## What the document checker does not cover
+
+It recounts prose in `docs/` and reads `README.md` and `index.md` for claims. It
+does not know that a version number in prose is a claim, and `_config.yml` is
+not a document to it at all — which is how the site's description sat at *123
+messages* and called Solveig *the Solum language*, inverting the 0.36.0 rename,
+until somebody read it. A release is a good moment to read the front page as a
+stranger would.

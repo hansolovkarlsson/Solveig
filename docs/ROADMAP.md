@@ -821,6 +821,14 @@ names to whichever machine is about to run them and caches the result on the
 chunk, freeing what the last one left. Two threads running one chunk free and
 rebuild that table under each other.
 
+**There are two such tables now**, not one:
+[4.5](COMPLETED.md#45-a-global-is-a-hash-lookup-and-a-receiver-check-is-a-call--done)
+added `global_slots` beside `interned`, holding where each of the chunk's
+globals was found on *that* machine's root. It is emptied by the same
+`interned_for` serial and for the same reason, so it adds no new hazard — it is
+the same hazard with a second thing in it, and an entry that named one table
+would have gone quietly out of date rather than wrong.
+
 | eight threads, one chunk, 2,400 runs | |
 | --- | --- |
 | runs concurrent | **segmentation fault** |

@@ -11,6 +11,90 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-30 (the release) — 0.39.0, and what a week of measuring cost
+
+The release itself was the short part: four files, a tag, a page. What is worth
+recording is the shape of the two days behind it, because it is not the shape
+this project usually has.
+
+**Every other release here came from a program asking for something.** That is
+the trigger rule, and it has been right for thirty-eight of them: somebody wrote
+`manifest.sol` and the language grew a JSON reader, somebody wrote the editor
+and it grew `replace`. This one came from a *question* — how fast is this
+compared to Python — asked out of curiosity with no program behind it.
+
+It found three defects in a week. A heap object allocated for every character
+read, and again for the literal it was compared against. A hash lookup for every
+read and every write of a global, which is every top-level script and every line
+typed at the prompt. And three predictable branches sitting in a different
+translation unit from their only caller, costing a function call on every send
+in every program ever run here.
+
+**None of them was hard. All of them had been invisible from the inside**, and
+the reason is the same reason the trigger rule works: a project measured against
+itself gets steadily better at what it already believed mattered. Nothing here
+had ever believed `string:at` mattered.
+
+### The two that were refused are worth more than the three that landed
+
+An inline cache at the send site was written into `ideas.md` as *most of the
+recursion gap*, confidently, on no evidence. It profiles at **9.7%** of that
+benchmark. Computed-goto dispatch — the textbook answer, which this repository's
+own JIT entry had put at 10–20% on the strength of the folklore — is **slower**
+than the `switch` on every benchmark, because clang tail-merges the twenty-one
+dispatch sites back into one and leaves the code size behind.
+
+Both were rejected on measurements taken *after building them*. The entries keep
+the disassembly and the profile rather than the verdict, so the next person
+starts from the numbers.
+
+### Postmortem
+
+**Four things went wrong this week and three of them were the same thing.**
+
+**A test that passed against the broken version, twice.** The global-slot cache
+needed a test that the cache is dropped when a chunk moves to a second machine.
+The first one passed against code with the invalidation deleted, because the
+`calloc` beside it handed back a fresh table anyway. Later, the visibility
+check: removing `-fvisibility=hidden` from the Makefile and re-running `make`
+proved nothing, because editing a Makefile does not rebuild the objects — the
+flag was still in the binary under test. Both were only found by breaking the
+code on purpose and being surprised that nothing complained. **A test that has
+never been seen to fail is a hypothesis.**
+
+**A number asserted without measuring, in a document whose whole purpose is to
+stop that.** `ideas.md` exists so that a rejected idea does not have to be
+re-argued — and it carried *an inline cache would close most of the recursion
+gap* for a day, written by the same hand that had just finished insisting on
+measurement. The correction is in the entry rather than replacing it.
+
+**Two changes that were each harmless alone and cost 8.5% together**, on the one
+benchmark that used neither. Instruction cache, not work — no reasoning about
+instruction counts would have found it, and it was only visible because every
+benchmark was re-run after every change rather than the ones expected to move.
+
+**And the front page said 0.3.0.** For thirty-five releases. The document
+checker recounts prose in `docs/` and reads `README.md` and `index.md` for
+claims — but a version number in prose is not a claim it knows, and
+`_config.yml` is not a document to it at all, so the site description told every
+search engine that Solveig was *the Solum language*, backwards since 0.36.0.
+**A guard's coverage is a thing to know rather than assume**, and this one had
+been assumed for a month.
+
+### What the week leaves
+
+The machine is about 13% ahead of CPython 3.14 on nine matched programs where it
+started level, the export surface is 29 declared symbols where it was 146
+accidental ones, and `comparisons/` holds the programs so the figures can be
+re-run rather than believed. One candidate is left unbuilt and written up:
+`-flto`, worth 5–29%, now a decision about its own costs rather than something
+that silently breaks extensions.
+
+And the trigger rule survives with a footnote. A program still asks for most of
+the work. But *a question asked from outside* found three things in a week that
+thirty-eight releases of asking from inside had not, and that is worth knowing
+the next time there is nothing obvious to build.
+
 ## 2026-08-30 (evening) — a surface nobody chose
 
 The performance work had left one candidate unbuilt: `-flto`, 5–29% across the

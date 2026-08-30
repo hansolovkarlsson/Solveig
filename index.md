@@ -83,7 +83,8 @@ unset;
 for the last design question and how it was closed; **[SolaBasic](docs/SOLABASIC.md)** for
 the compiled BASIC that targets this bytecode, and where its subset stops, with
 a **[reference manual](docs/SOLABASIC-REFERENCE.md)** for writing it;
-**[Ideas considered](docs/ideas.md)**
+**[Making a release](docs/releasing.md)** for the four files, the compatibility
+check and the two fixups a release page needs; **[Ideas considered](docs/ideas.md)**
 for what was weighed and what was turned down; **[Roadmap](docs/ROADMAP.md)**
 for what is left; **[Completed](docs/COMPLETED.md)** for the case behind each
 piece of work that is done; and **[Changelog](docs/CHANGELOG.md)** for what has
