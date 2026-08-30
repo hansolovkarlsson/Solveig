@@ -95,6 +95,31 @@
 ; cursor holds both numbers at once. Every editor ever written has this; it is
 ; where most of the arithmetic in this file went.
 ;
+; **And an `é` is two bytes and one column**, which is the same sentence with
+; the numbers the other way round -- and this file did not know it for four
+; days. `$` went to the last *byte* of a line, so `$x` on `café` wrote half a
+; code point to disk, and the cursor was drawn a column to the right of the
+; character it was sitting on.
+;
+; **The fix is not a Unicode library.** `isTail` asks whether a byte is
+; `10xxxxxx`; `charSize`, `charAt` and `widthOf` are built on it and are four
+; lines each. The rest of the work was replacing every `add(#1)` that meant *the
+; next character* with one that means it -- seventeen definitions, which is more
+; than it sounds and less than a second string type. Two of them are worth
+; knowing about: the clamp, where one loop makes *the cursor is never inside a
+; character* true for every command at once, and the single `add` in
+; `operateChars` that turns an inclusive motion's last character into a range,
+; which is `d$`, `de`, `dfx` and `x` all answered in one place.
+;
+; **Insert mode is exempt from the clamp, and has to be.** A character outside
+; ASCII arrives from `readKey` one byte at a time, and the column stands between
+; those bytes while it does. That is the whole reason the rule is *normal mode*
+; and not an invariant on the buffer.
+;
+; The tab note above is why any of this was findable: the two numbers were
+; already being held apart everywhere, and only the second was being counted
+; wrong.
+;
 ; ---------------------------------------------------------------------------
 ; Searching, which came a day later
 ;
@@ -356,8 +381,19 @@ edit:expand := { text | | out, c |
             { out := out:concat(c) }) }).
     out }.
 
+; How many columns some already-expanded text occupies. A continuation byte is
+; part of the character before it and takes none, which is the whole difference
+; between this and `size` -- and the reason `$` on `café x` used to put the
+; cursor one place to the right of the `x` it was sitting on.
+edit:widthOf := { wide | | n |
+    n := #0.
+    [#1, wide:size]:loop({ i |
+        self:isTail(wide, i):ifFalse({ n := n:add(#1) }) }).
+    n }.
+
 edit:screenColumn := {
-    self:expand(self:line:copyFrom(#1, self:column:sub(#1))):size:add(#1) }.
+    self:widthOf(self:expand(self:line:copyFrom(#1, self:column:sub(#1))))
+        :add(#1) }.
 
 ; The slice of one line that is on the screen. `left` is the same for every
 ; line, because a screen that scrolled each line to its own cursor would not be
@@ -367,12 +403,23 @@ edit:screenColumn := {
 ; `copyFrom` refuses a start past the end of a string, and a screen scrolled
 ; right past a short line is the ordinary case rather than a mistake. Found by
 ; pressing `$` on a long line with a short one under it.
-edit:visible := { text, left | | wide, last |
+; This was a `copyFrom` while a column was a byte. It is a walk now, because
+; the slice is in columns and the string is in bytes: a continuation byte goes
+; out exactly when the byte that started its character did, so a scroll can land
+; between two characters but never inside one.
+edit:visible := { text, left | | wide, out, column, last, keeping |
     wide := self:expand(text).
-    left:greaterThan(wide:size):ifElse({ "" }, {
-        last := left:add(screen:columns):sub(#2).
-        last:greaterThan(wide:size):ifTrue({ last := wide:size }).
-        wide:copyFrom(left, last) }) }.
+    out := "".
+    column := #1.
+    keeping := false.
+    last := left:add(screen:columns):sub(#2).
+    [#1, wide:size]:loop({ i |
+        self:isTail(wide, i):ifFalse({
+            keeping := column:greaterOrEqual(left)
+                :and({ column:lessOrEqual(last) }).
+            column := column:add(#1) }).
+        keeping:ifTrue({ out := out:concat(wide:at(i)) }) }).
+    out }.
 
 edit:scroll := {
     self:row:lessThan(self:top):ifTrue({ self:top := self:row }).
@@ -492,10 +539,23 @@ edit:clamp := { | limit |
         { self:line:size }).
     limit:lessThan(#1):ifTrue({ limit := #1 }).
     self:column:greaterThan(limit):ifTrue({ self:column := limit }).
-    self:column:lessThan(#1):ifTrue({ self:column := #1 }) }.
+    self:column:lessThan(#1):ifTrue({ self:column := #1 }).
+    ; **A cursor sits on the byte a character starts with, never inside one.**
+    ; One line, and it is what `$` on `café` was getting wrong: `$` asks for the
+    ; last byte and this is what turns that into the last character. Insert mode
+    ; is exempt and has to be -- a character outside ASCII arrives one byte at a
+    ; time from `readKey`, and the column stands between them while it does.
+    self:mode:equals('insert):ifFalse({
+        { self:isTail(self:line, self:column) }:whileTrue({
+            self:column := self:column:sub(#1) }) }) }.
 
 edit:left := { self:column := self:column:sub(#1). self:clamp }.
-edit:right := { self:column := self:column:add(#1). self:clamp }.
+; `left` needs nothing: the clamp snaps back off a continuation byte, and back
+; is the direction it was going. `right` has to step the whole character or the
+; clamp would undo it.
+edit:right := {
+    self:column := self:column:add(self:charSize(self:line, self:column)).
+    self:clamp }.
 
 edit:up := {
     self:row:greaterThan(#1):ifTrue({ self:row := self:row:sub(#1) }).
@@ -521,30 +581,75 @@ edit:pageUp := {
 edit:firstLine := { self:row := #1. self:column := #1 }.
 edit:lastLine := { self:row := self:lines:size. self:column := #1 }.
 
+; ---------------------------------------------------------------------------
+; Characters, where a character is not a byte
+;
+; A tab is one byte and eight columns. An `é` is two bytes and one column. They
+; are the same question asked twice, and the answer to both is the rule at the
+; top of this file: everything that positions a cursor holds bytes and columns
+; at once.
+;
+; UTF-8 is what makes the second one answerable without knowing any Unicode. A
+; character starts with a byte that is not `10xxxxxx` and every later byte of
+; that character is, so `bitAnd(#192):equals(#128)` decides it and the editor
+; needs no table, no locale and no decoder. Three sends, and they are the whole
+; of this program's opinion about text above ASCII.
+;
+; **A file that is not UTF-8 still opens**, which is the property that decides
+; the shape here. `isTail` asks what a byte *is* rather than trusting a lead
+; byte's declared length, so a truncated or invalid sequence answers what is
+; actually on disk; a run of bytes that cannot start a character is treated as
+; one character, and the editor shows it, moves over it, and writes back
+; untouched every byte it was not asked to change.
+
+edit:isTail := { text, i |
+    i:greaterThan(#1):and({ i:lessOrEqual(text:size) }):and({
+        text:at(i):asByte:bitAnd(#192):equals(#128) }) }.
+
+; How many bytes the character starting at `i` takes.
+edit:charSize := { text, i | | n |
+    n := #1.
+    { self:isTail(text, i:add(n)) }:whileTrue({ n := n:add(#1) }).
+    n }.
+
+; And the character itself, which is a one-byte string in ASCII and the reason
+; nothing above needs a character type: `at` already answers a string.
+edit:charAt := { text, i |
+    text:copyFrom(i, i:add(self:charSize(text, i)):sub(#1)) }.
+
 ; The end of a line is a character here, spelled `\n`, and it is not in the
 ; buffer -- `charHere` invents it. That is what makes a motion across lines the
 ; same loop as a motion along one.
 edit:charHere := {
     self:column:greaterThan(self:line:size):ifElse(
         { "\n" },
-        { self:line:at(self:column) }) }.
+        { self:charAt(self:line, self:column) }) }.
 
 wordCharacters := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_".
 
+; **A character outside ASCII is a word character**, which is the editor's one
+; judgement call about text it cannot read. A byte above 127 is part of a letter
+; far more often than part of anything else, and the alternative is `dw` in the
+; middle of `café` -- wrong in every language that has such a word.
 edit:classOf := { c |
+    c:size:greaterThan(#1):or({ c:asByte:greaterThan(#127) }):ifElse({ 'word }, {
     " \t\n":indexOf(c):notNil:ifElse({ 'space }, {
-    wordCharacters:indexOf(c):notNil:ifElse({ 'word }, { 'punctuation }) }) }.
+    wordCharacters:indexOf(c):notNil:ifElse({ 'word }, { 'punctuation }) }) }) }.
 
 edit:stepForward := {
     self:column:lessOrEqual(self:line:size):ifElse(
-        { self:column := self:column:add(#1). true },
+        { self:column := self:column:add(
+            self:charSize(self:line, self:column)). true },
         { self:row:lessThan(self:lines:size):ifElse(
             { self:row := self:row:add(#1). self:column := #1. true },
             { false }) }) }.
 
 edit:stepBack := {
     self:column:greaterThan(#1):ifElse(
-        { self:column := self:column:sub(#1). true },
+        { self:column := self:column:sub(#1).
+          { self:isTail(self:line, self:column) }:whileTrue({
+              self:column := self:column:sub(#1) }).
+          true },
         { self:row:greaterThan(#1):ifElse(
             { self:row := self:row:sub(#1).
               self:column := self:line:size:add(#1).
@@ -579,15 +684,16 @@ edit:wordBack := { | class, moved |
 ; `e` is the end of the word rather than the start of the next, which is a
 ; different question and the one `cw` really asks -- see the note on the change
 ; operator. It lands *on* the last character, so as a motion it is inclusive.
-edit:wordEnd := { | class, moved |
+edit:wordEnd := { | class, moved, next |
     moved := self:stepForward.
     { moved:and({ self:classOf(self:charHere):equals('space) }) }
         :whileTrue({ moved := self:stepForward }).
     class := self:classOf(self:charHere).
     class:equals('space):ifFalse({
-        { self:column:lessThan(self:line:size)
-            :and({ self:classOf(self:line:at(self:column:add(#1))):equals(class) }) }
-            :whileTrue({ self:column := self:column:add(#1) }) }).
+        { next := self:column:add(self:charSize(self:line, self:column)).
+          next:lessOrEqual(self:line:size)
+            :and({ self:classOf(self:charAt(self:line, next)):equals(class) }) }
+            :whileTrue({ self:column := next }) }).
     self:clamp }.
 
 ; ---------------------------------------------------------------------------
@@ -651,12 +757,16 @@ edit:insertText := { text | | line |
         :concat(line:copyFrom(self:column, line:size))).
     self:column := self:column:add(text:size) }.
 
-edit:backspace := { | line, previous |
+edit:backspace := { | line, previous, start |
     self:column:greaterThan(#1):ifElse(
         { line := self:line.
-          self:setLine(line:copyFrom(#1, self:column:sub(#2))
+          ; Back to where the character before the cursor starts, which is one
+          ; byte in ASCII and is why this used to be a `sub(#2)`.
+          start := self:column:sub(#1).
+          { self:isTail(line, start) }:whileTrue({ start := start:sub(#1) }).
+          self:setLine(line:copyFrom(#1, start:sub(#1))
               :concat(line:copyFrom(self:column, line:size))).
-          self:column := self:column:sub(#1) },
+          self:column := start },
         { self:row:greaterThan(#1):ifTrue({
             previous := self:lines:at(self:row:sub(#1)).
             self:setLineAt(self:row:sub(#1), previous:concat(self:line)).
@@ -677,7 +787,10 @@ edit:splitLine := { | line |
 edit:deleteChars := { n | | line, last |
     line := self:line.
     line:size:greaterThan(#0):ifTrue({
-        last := self:column:add(n):sub(#1).
+        last := self:column.
+        n:repeat({ last:lessOrEqual(line:size):ifTrue({
+            last := last:add(self:charSize(line, last)) }) }).
+        last := last:sub(#1).
         last:greaterThan(line:size):ifTrue({ last := line:size }).
         self:register := line:copyFrom(self:column, last).
         self:registerIsLines := false.
@@ -702,33 +815,49 @@ edit:joinLine := { | next |
 ; It refuses rather than doing part of the job when there are fewer characters
 ; left than that, which is vi's rule and the right one: a partial replacement is
 ; a mistake nobody can see.
-edit:replaceChars := { target, n | | line, out |
+edit:replaceChars := { target, n | | line, out, after, found |
     line := self:line.
-    self:column:add(n):sub(#1):greaterThan(line:size):ifElse(
+    ; Walking to find the end is what counting characters costs where counting
+    ; bytes was an `add`. The refusal below still has to be decided before
+    ; anything is written, so the walk answers how many were actually there.
+    after := self:column.
+    found := #0.
+    { found:lessThan(n):and({ after:lessOrEqual(line:size) }) }:whileTrue({
+        after := after:add(self:charSize(line, after)).
+        found := found:add(#1) }).
+    found:lessThan(n):ifElse(
         { self:message := "fewer than {} characters left":fill([n]) },
         { out := "".
           n:repeat({ out := out:concat(target) }).
           self:setLine(line:copyFrom(#1, self:column:sub(#1)):concat(out)
-              :concat(line:copyFrom(self:column:add(n), line:size))).
-          self:column := self:column:add(n):sub(#1).
+              :concat(line:copyFrom(after, line:size))).
+          self:column := self:column:add(out:size):sub(#1).
           self:clamp }) }.
 
 ; `~` swaps the case of the character under the cursor and moves past it, which
 ; is vi's odd little command that is a change and a motion at once. A character
 ; that has no case is passed over unchanged rather than refused.
-edit:swapCase := { n | | line, out, c |
+edit:swapCase := { n | | line, out, c, at, done |
     line := self:line.
     line:size:greaterThan(#0):ifTrue({
         out := "".
-        [self:column, self:column:add(n):sub(#1)]:loop({ i |
-            i:lessOrEqual(line:size):ifTrue({
-                c := line:at(i).
-                out := out:concat(c:equals(c:asLowercase):ifElse(
+        at := self:column.
+        done := #0.
+        { done:lessThan(n):and({ at:lessOrEqual(line:size) }) }:whileTrue({
+            c := line:copyFrom(at, at:add(self:charSize(line, at)):sub(#1)).
+            ; A character with no case is passed over unchanged, and one outside
+            ; ASCII has none as far as this editor is concerned -- `asUppercase`
+            ; would agree, since it changes `a`-`z` by range, but asking it two
+            ; bytes at a time is what keeps them together.
+            out := out:concat(c:size:greaterThan(#1):ifElse({ c }, {
+                c:equals(c:asLowercase):ifElse(
                     { c:asUppercase },
-                    { c:asLowercase })) }) }).
+                    { c:asLowercase }) })).
+            at := at:add(c:size).
+            done := done:add(#1) }).
         self:setLine(line:copyFrom(#1, self:column:sub(#1)):concat(out)
-            :concat(line:copyFrom(self:column:add(out:size), line:size))).
-        self:column := self:column:add(out:size).
+            :concat(line:copyFrom(at, line:size))).
+        self:column := at.
         self:clamp }) }.
 
 edit:enterInsert := { self:mode := 'insert. self:clamp }.
@@ -878,7 +1007,11 @@ motions:atPut("G", { n |
 normalKeys := dictionary:new.
 
 normalKeys:atPut("i", { n | edit:enterInsert }).
-normalKeys:atPut("a", { n | edit:column := edit:column:add(#1). edit:enterInsert }).
+; **After the character, not after the byte** -- `$aZ` on `café` put the `Z`
+; between the two bytes of the `é` while this was an `add(#1)`.
+normalKeys:atPut("a", { n |
+    edit:column := edit:column:add(edit:charSize(edit:line, edit:column)).
+    edit:enterInsert }).
 normalKeys:atPut("A", { n | edit:column := edit:line:size:add(#1). edit:enterInsert }).
 normalKeys:atPut("I", { n | edit:column := edit:firstNonBlank(edit:row). edit:enterInsert }).
 normalKeys:atPut("o", { n | edit:openBelow }).
@@ -1181,7 +1314,10 @@ edit:operateChars := { op, place | | fromRow, fromColumn, toRow, toColumn |
           toRow := place:row.      toColumn := place:column.
           ; The character a motion lands on belongs to the range only if the
           ; motion says so, and then the range ends one past it.
-          place:inclusive:ifTrue({ toColumn := toColumn:add(#1) }) },
+          ; One past it, and a character is what it is past -- this single
+          ; `add` is every inclusive operator's answer to `é`, `d$` included.
+          place:inclusive:ifTrue({ toColumn := toColumn:add(
+              self:charSize(self:lines:at(toRow), toColumn)) }) },
         { fromRow := place:row.    fromColumn := place:column.
           toRow := self:row.       toColumn := self:column }).
 
@@ -1258,7 +1394,9 @@ edit:putText := { after, n | | text, at, line, tail, pieces, last |
     n:repeat({ text := text:concat(self:register) }).
 
     line := self:line.
-    at := after:ifElse({ self:column:add(#1) }, { self:column }).
+    at := after:ifElse(
+        { self:column:add(self:charSize(line, self:column)) },
+        { self:column }).
     at:greaterThan(line:size:add(#1)):ifTrue({ at := line:size:add(#1) }).
 
     pieces := text:split("\n").
@@ -1580,7 +1718,8 @@ edit:matchAfter := { | found, i, row, from, wrapped |
         row := self:row:add(i).
         wrapped := row:greaterThan(self:lines:size).
         wrapped:ifTrue({ row := row:sub(self:lines:size) }).
-        from := i:equals(#0):ifElse({ self:column:add(#1) }, { #1 }).
+        from := i:equals(#0):ifElse(
+            { self:column:add(self:charSize(self:line, self:column)) }, { #1 }).
         at := self:pattern:findFrom(self:lines:at(row), from).
         at:notNil:ifTrue({ found := [row, at, wrapped] }).
         i := i:add(#1) }).

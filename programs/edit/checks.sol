@@ -2,7 +2,7 @@
 ;
 ; Run with:  ./bin/solas programs/edit/checks.sol && ./bin/solvm programs/edit/checks.sob
 ;
-; **A hundred and sixty-five sessions.** Each one writes a file, feeds
+; **A hundred and eighty-one sessions.** Each one writes a file, feeds
 ; [edit.sol](../edit.sol) a string of keys through a pipe, and compares the file
 ; it wrote against what those keys should have done to it. `readKey` reading a
 ; pipe exactly as it reads a terminal is what makes that possible at all, and is
@@ -11,7 +11,7 @@
 ; **It checks the text and not the screen**, which is the difference between
 ; this and [session.out](session.out). That transcript is every byte the editor
 ; drew and catches a redraw that moved; these catch a command that did the wrong
-; thing to the buffer, and there are a hundred and sixty-five of them because
+; thing to the buffer, and there are a hundred and eighty-one of them because
 ; the answer is short enough to write down for every case worth having.
 ;
 ; **Where the failures came from.** Four days of building the editor produced
@@ -753,6 +753,88 @@ check:value("more", "yank then change",
     "yyjccX\\e:w\r:q\r",
     "alpha\nbeta\ngamma\n",
     "alpha\nX\ngamma\n").
+
+; ---------------------------------------------------------------------------
+; Characters that are more than one byte
+;
+; The editor held both numbers for a tab -- one byte, eight columns -- and not
+; for an `é`, which is two bytes and one column. Every check here failed before
+; that was fixed, and the first two failed by writing half a code point to disk:
+; `$` went to the last *byte* and `x` deleted it.
+;
+; `é` is written literally below, so this file is UTF-8 and these are the bytes
+; the editor gets. The one case that cannot be written that way is the last, a
+; file that is not valid UTF-8 at all -- which an editor still has to open.
+
+check:value("utf8", "$x takes the whole character",
+    "$x:w\r:q\r",
+    "café\n",
+    "caf\n").
+check:value("utf8", "x on a two-byte character",
+    "lllx:w\r:q\r",
+    "café!\n",
+    "caf!\n").
+check:value("utf8", "x counts characters, not bytes",
+    "4x:w\r:q\r",
+    "café!\n",
+    "!\n").
+check:value("utf8", "an accent is a letter to dw",
+    "dw:w\r:q\r",
+    "café x\n",
+    "x\n").
+check:value("utf8", "e lands on the last character",
+    "dey:w\r:q\r",
+    "café x\n",
+    " x\n").
+check:value("utf8", "d$ from a two-byte character",
+    "llld$:w\r:q\r",
+    "café!\n",
+    "caf\n").
+check:value("utf8", "a appends after the character",
+    "$aZ\\e:w\r:q\r",
+    "café\n",
+    "caféZ\n").
+check:value("utf8", "p puts after the character",
+    "$ylp:w\r:q\r",
+    "café\n",
+    "caféé\n").
+check:value("utf8", "backspace removes a character",
+    "AqQ\\d\\d\\d\\e:w\r:q\r",
+    "café\n",
+    "caf\n").
+check:value("utf8", "r replaces the whole character",
+    "lllrZ:w\r:q\r",
+    "café\n",
+    "cafZ\n").
+check:value("utf8", "r counts characters",
+    "4rZ:w\r:q\r",
+    "café\n",
+    "ZZZZ\n").
+check:value("utf8", "r refuses on a character count",
+    "5rZ:w\r:q\r",
+    "café\n",
+    "café\n").
+check:value("utf8", "tilde counts characters and skips one",
+    "l3~:w\r:q\r",
+    "café\n",
+    "cAFé\n").
+check:value("utf8", "cw over a word with an accent",
+    "cwZ\\e:w\r:q\r",
+    "café x\n",
+    "Z x\n").
+check:value("utf8", "typed one byte at a time",
+    "i":concat(#195:asCharacter):concat(#169:asCharacter):concat("\\e:w\r:q\r"),
+    "x\n",
+    "éx\n").
+
+; A file that is not UTF-8. The lone `#195` cannot start a character that is
+; there, so it is one character by itself: `x` takes exactly it and leaves the
+; bytes on either side alone. An editor that refused this file, or that quietly
+; rewrote the byte, would be the worse answer -- see the note beside `isTail`.
+check:value("utf8", "a stray byte is still one character",
+    "lx:w\r:q\r",
+    "a":concat(#195:asCharacter):concat("z\n"),
+    "az\n").
 
 ; ---------------------------------------------------------------------------
 ; What they said

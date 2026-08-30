@@ -1579,7 +1579,7 @@ static void test_the_editor_draws_what_it_recorded(void)
  *
  * programs/edit/checks.sol writes a file, feeds the editor a string of keys
  * through a pipe, and compares what was written against what those keys should
- * have done -- a hundred and sixty-five times. It is a Solum program because
+ * have done -- a hundred and eighty-one times. It is a Solum program because
  * that is what this repository writes its tools in, and because `readKey`
  * reading a pipe exactly as it reads a terminal is what makes an editor
  * testable at all.

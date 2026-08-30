@@ -22,7 +22,8 @@ marked as a sketch.
 | `do` is `forEach`? | **Yes** — and `collect` is map, `select` is filter |
 | Bytecode / assembly reference | **Built** — [BYTECODE.md](BYTECODE.md), checked against the header by the test suite |
 | `startsWith` / `endsWith` | **Defer** — [one customer](#startswith-and-endswith), and `indexOf(x):equals(#1)` is exact rather than approximate |
-| `$character` literals, Unicode | **Defer** — gated on deciding what a string is |
+| What a string is — bytes or code points | **Defer, and toward bytes with a contract** — [the editor asked first](#what-a-string-is--bytes-code-points-or-bytes-with-a-contract), and was corrupting a file on `$x`. **Fixed on 2026-08-30 in the editor**, which is the argument against making `size` count characters — though [the estimate here was wrong](#and-the-editor-was-fixed-which-cost-more-than-this-entry-said): nine lines became seventeen definitions. A [`text` type with a `!"..."` literal](#a-text-type-beside-string-with-a-prefixed-literal-to-make-one) was asked and answered in the same entry — right instincts, wrong end of the pipe |
+| `!character` literals, Unicode | **Defer** — gated on deciding what a string is, and [that entry recommends settling it against](#what-a-string-is--bytes-code-points-or-bytes-with-a-contract): the character type Unicode would want here is the one-character string the language already has |
 | A truncating divide on integer | **Defer** — one customer, and its workaround is exact rather than approximate |
 | Integer sizes: byte, word, long | **No** — reintroduces the coercion the language refuses |
 | Separate float and double | **No** — same reason, less benefit |
@@ -780,26 +781,389 @@ off-by-one waiting to happen.
 the editor's port to want it three times in one line, and was built the day it
 did.
 
-### `$character` literals and Unicode
+### What a string is — bytes, code points, or bytes with a contract
 
-`$x` for a character, and `$😊` for one outside ASCII.
+Three documents point at this one and none of them owns it.
+[`!character`](#character-literals-and-unicode) defers to it by name.
+[2.13](ROADMAP.md#213-text-is-bytes-and-case-is-ascii-only) files it as a
+restriction the language lives under rather than a question waiting on an
+answer. [performance.md](performance.md#what-is-not-fair-here-said-plainly) says
+the strings row does not compare like with like and leaves it there.
+
+Written up on 2026-08-30 because it was asked for, and the asking turned up
+something none of the three had: **a program that has already got this wrong**,
+which is further along than a deferred idea is supposed to be.
+
+#### What is true today
+
+```
+"café":size:print.               ; #5   -- four characters, five bytes
+"café":at(#4):asByte:print.      ; #195 -- 0xC3, the first byte of é
+"café":indexOf("é"):print.       ; #4   -- a byte offset
+"CAFÉ":asLowercase:display.      ; cafÉ -- case is a-z and A-Z, by range
+```
+
+A `SolString` is a length and a pointer
+([object.h](../solum/include/solum/object.h)), immutable, compared by value,
+with a one-byte string answered from the machine's cache rather than allocated.
+Nothing in the VM interprets a byte except the two ASCII case ranges and the
+digit parsing in `asInteger`. There is no encoding anywhere in it: a string is
+as happy holding a JPEG as a sentence, and `#0:asCharacter` puts a NUL in one.
+
+The sharp edge is the one 2.13 names, and it is silent — a cut on a byte
+boundary answers a string whose last byte is the front half of a character, and
+nothing anywhere says so:
+
+```
+"café":copyFrom(#1, #4):size:print.            ; #4    -- three letters and a piece
+"café":copyFrom(#1, #4):at(#4):asByte:print.   ; #195  -- é's lead byte, orphaned
+```
+
+#### What is missing from today's model, rather than from a different one
+
+`integer:asUtf8` in [text.sol](../lib/text.sol) turns a code point into bytes,
+and has two customers: [json.sol](../lib/json.sol) for `\uXXXX` and
+[html.sol](../lib/html.sol) for `&#233;`. **Nothing goes the other way.** No
+message anywhere in the tree reads UTF-8 bytes back to a code point.
+
+That gap looks like an oversight and is not one. Both customers are *producing*
+text from a number some format handed them, and a decoder is wanted by something
+*reading* text and asking what character is sitting there — which nothing here
+did. The asymmetry in the library is an honest report of the asymmetry in the
+programs, and it is the reason this decision has never been forced.
+
+#### The three models
+
+| | `size` answers | `at` answers | can hold a JPEG | the migration |
+| --- | --- | --- | --- | --- |
+| **A. Bytes** — today, and C | bytes | a one-byte string | yes | none; it is what is here |
+| **B. Code points** — Python 3 | characters | a character | **no** — needs a second type | every message, every boundary |
+| **C. Bytes with a contract** — Go, Rust | bytes | a one-byte string | yes | additive; nothing changes meaning |
+
+#### The editor has already asked, and it is worth reading how
+
+[edit.sol](../programs/edit.sol) says, in its own notes:
+
+> **A tab is one byte and eight columns**, and everything that positions a
+> cursor holds both numbers at once. Every editor ever written has this; it is
+> where most of the arithmetic in this file went.
+
+An `é` is **two bytes and one column** — the same mechanism with the numbers the
+other way round, and the editor does not know about it. Driven with scripted
+keys through [checks.sol](../programs/edit/checks.sol)'s harness, against a file
+holding `café`:
+
+```
+file     "café\n"
+keys     $x
+written  "caf" and a lone 0xC3 -- half of é, on disk, with nothing said
+```
+
+`$` lands on the last *byte*, which is the second byte of `é`, and `x` deletes
+it. The screen has the matching error: on `café x`, the cursor-positioning
+escape the editor writes for `$` is `ESC[1;7H` — column seven, one to the right
+of the `x` it is meant to be sitting on. `dw` on the same line deletes `caf` and
+stops, because a byte above 127 is not a letter to its word test.
+
+**But look at what fixing that needs.** `edit:expand` is nine lines and is
+already the single place where bytes become columns; teaching it that a
+continuation byte is worth no columns is
+`c:asByte:bitAnd(#192):equals(#128)` — three sends, using nothing that is not
+in the language today. The word test needs the same three. Neither wants `size`
+to change its mind, and neither wants a character type.
+
+*(That paragraph was written before the fix and got the size wrong by a factor
+of five. What it got right is the part that matters — the three sends, and that
+nothing in the language had to move. See
+[below](#and-the-editor-was-fixed-which-cost-more-than-this-entry-said).)*
+
+**That is evidence, and it points at C.** The program that finally asked for
+Unicode asked for it *locally*, in the two places that face a screen, and what
+it wants underneath is exactly the byte string it has: the cursor is a byte
+index because `copyFrom` takes byte indices, and every edit is a `copyFrom`. A
+language where `size` counted code points would have solved the editor's
+problem by taking away the index it does its work with, and the editor would
+have had to build it back.
+
+#### Why B is the expensive one, and the encoder is not the expensive part
+
+A string that promises code points cannot hold `readFile` of a JPEG, so a second
+type appears beside it. Then every message has to be decided onto one type or
+both; every boundary — `readFile`, `readLine`, `readKey`, `system:arguments`,
+the `char *` in [extend.h](../solum/include/solum/extend.h), a socket in
+[extensions/net](../extensions/net/README.md) — needs a declared encoding and an
+answer for input that is not valid in it; and `equals` between the two types has
+to be false in a way that surprises everybody exactly once. That split was the
+costly half of Python's own 2-to-3 migration, and it is the whole of this work
+rather than an aside to it.
+
+The part that *looks* hard is already done and was cheap: the UTF-8 arithmetic
+is under twenty lines of Solum in text.sol, first written before the language
+even had `shiftRight` — with `div(#64)` for a shift and `mod(#64)` for a mask.
+Carrying it is what made the case for the bit messages.
+
+There is a second cost peculiar to here. A one-byte string is answered from the
+machine's cache of 256 rather than allocated (`bytes` in
+[vm.h](../solum/include/solum/vm.h)), which is the optimisation
+[performance.md](performance.md) credits with making that benchmark row a fair
+comparison at last. A code-point string does not have 256 of anything, and that
+cache would go.
+
+#### Why C is cheap here, and the reason is a shape the language already has
+
+Go needs a `rune` and Rust needs a `char` because indexing a string in either
+one hands you an integer. **`at` here answers a one-character string**, and
+[vm.h](../solum/include/solum/vm.h) already says why in passing — *"`string:at`
+answers a one-character string, there being no character type"*. So a
+code-point-aware `at` answers a two-byte string, and no new type appears
+anywhere:
+
+```
+"café":at(#4)              ; today: one byte, 0xC3 -- half a character
+"café":characterAt(#4)     ; a sketch; not valid today -- "é"
+```
+
+`"é"` is already the literal for the value that would answer. Which settles
+[`!character`](#character-literals-and-unicode) as a side effect, and settles it
+*against*: the character type Unicode would want here is the one-character
+string the language already has, so `!` never becomes the right spelling for
+anything. That entry can stop waiting on this one.
+
+The shape, and it is a sketch rather than a proposal: a small set of messages
+that say *and I mean characters* — a character count, a character-indexed `at`,
+a walk over characters, and the byte count of the character at a byte index,
+which is the one the editor actually needs. Beside them, `size`, `at`,
+`copyFrom` and `indexOf` keep meaning bytes, so no program written today changes
+behaviour and no boundary grows an encoding.
+
+**The cost of C, said plainly:** two answers to *how long is this*, and a reader
+has to know which one a line wanted. That is what Go lives with and people do
+trip over it. The defence is only that today there is one answer and it is the
+wrong one for anything facing a screen, which is worse than ambiguous.
+
+#### A `text` type beside `string`, with a prefixed literal to make one
+
+**Asked on 2026-08-30**, in the same conversation this entry came from: a second
+type specialised for Unicode, with a prefixed literal to build one, so that
+`x := !"unicode text"` makes an instance of `text` and `"unicode text"` goes on
+meaning bytes.
+
+It deserves a hearing rather than a paragraph, because two of its instincts are
+right and one of them is right about something this entry got wrong.
+
+**The polarity is correct, and it is the opposite of Python 3's.** Python 3 made
+Unicode the default and bytes the opt-in, which is why every `open` became an
+encoding decision and why the migration cost what it did. This keeps bytes as
+the default and makes Unicode the thing a program asks for. That is Python *2*'s
+polarity — `str` and `u"..."` — and Python 2's version failed for one specific
+reason that **does not apply here**: implicit coercion. `"a" + u"b"` decoded as
+ASCII on the quiet and raised in production six months later. This language
+refuses coercion as a matter of principle, and gives
+[the same reason for refusing byte and word integers](#integer-sizes--byte-word-long);
+`"abc":concat(!"déf")` would be a strict error, and the whole Python 2 failure
+mode goes with it.
+
+**And it is the only design where `copyFrom` cannot split a code point** — which
+is a real advantage over C, and one this entry undersold above. Under C the
+silent half-character is still reachable and the defence is that a programmer
+remembers to reach for the other message. A `text` whose indices are character
+indices makes the corruption unrepresentable. Invariant carried by the value
+rather than by somebody's memory is the stronger design, and saying otherwise
+would be dodging.
+
+**Both spellings were already taken, which is the small objection — and is why
+this page now writes `!` for a sigil nobody has proposed in earnest.** It was
+asked as `$"..."`, and `$` is the hexadecimal prefix: `$FF08` is `#65288`, `%`
+is binary, and the reference argues in as many words that `$FF` needs no `#`
+because it has one reading. `&` was the second guess and is not free either —
+it is logical *and* inside a [`@expr`](#infix-arithmetic-as-a-compile-time-notation)
+region, `TOK_AMP` in the lexer. Between them the infix work and the bases have
+spoken for twenty-six characters; what the lexer's switch never reaches is `!`,
+`?`, `_` and a backtick, and of those `_` belongs to identifiers and a backtick
+fights the prose it would be written in. That leaves two, and this entry spells
+it `!` so that a future reading of the argument is not also a puzzle about which
+`$` is meant.
+
+And `text` is the name [text.sol](../lib/text.sol) deliberately declined to bind,
+with the incident on record in its own header: the first draft bound a global
+called `text`, the first program to use it had a variable called `text`, and the
+library broke from a distance. A class is a global.
+
+Neither of these decides anything — a spelling is the cheapest thing here to
+change, which is what just happened to it. They are worth knowing before the
+spelling is argued, and they are the reason the argument below is about the
+*shape* rather than the character.
+
+**The literal marks the wrong end of the pipe, which is the real objection.**
+`!"unicode text"` and `"unicode text"` are *the same bytes in the source file*.
+The prefix is not marking that the text contains Unicode; it is marking
+*validate these as UTF-8 and tag the result* — so the type does all the work and
+the literal is a constructor, which `"...":asText` already spells without
+touching the grammar. And text worth worrying about never arrives in a literal.
+It arrives through `readFile`, `readLine`, `readKey`, `system:arguments`, a
+socket. A literal somebody typed is the one case that was never broken.
+
+**So the coherent version is at the boundary — and that is where the editor
+kills it.** Say `system:readFile(path, 'text)` decodes. Decoding needs an answer
+for a byte that is not valid UTF-8, and both answers are wrong for the one
+program that asked:
+
+| answer | what the editor becomes |
+| --- | --- |
+| raise | an editor that cannot open a Latin-1 file, or a binary one, at all |
+| replace with U+FFFD | an editor that silently corrupts on *write* — worse than today's defect, which damages only what was edited |
+
+vi opens anything, and so does this editor. It would stay on bytes and keep
+doing the code-point arithmetic locally, which is what its tab-and-column split
+already is. That is not a coincidence: Vim's buffers are bytes and its cursor is
+encoding-aware, for this reason. **A type the real programs decline to hold is a
+type that rots**, and the honest test of a second type is which side `edit.sol`
+comes down on.
+
+**What it would cost.** Twenty-five registrations on `string_class` today, of
+which about twenty want reimplementing for `text` — every message that counts,
+indexes, cuts or compares. Then a fourteenth `SolValueType`, GC marking, a
+`.sob` serializer tag, `print`, `display`, `asString` and `equals`, the
+dictionary-key rule, and a decision at both foreign boundaries: `embed.h` and
+the `char *` in [extend.h](../solum/include/solum/extend.h) — bought for a
+guarantee the only customer cannot use.
+
+**And it does not have to be paid to find out.** The trigger the
+[extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm)
+entry set for putting a capability in C is *wanting something Solum cannot
+express*, and this is not that. A `text` **object** over a byte string is
+writable in a library today: it would hold the bytes, validate them once on the
+way in, and answer a character count, a character-indexed `at` and a
+character-safe cut, over `asByte` and the bit messages. What it could not have
+is a literal, a `print` form, or `equals` against a string — and none of those is
+needed to learn the only thing worth learning, which is whether any program
+wants to hold one. That is the throwaway that comes before the design, and it
+costs an afternoon rather than a fourteenth value type.
+
+**What survives it, and it is the useful half.** The instinct — *an invariant
+should be carried by a value, not remembered* — is right, and there is a cheap
+form: a **validity predicate on a string** rather than a type. One primitive,
+`isValidUtf8` or whatever it ends up called, invents no type, claims no global,
+leaves the byte index where `copyFrom` needs it, and is the part of the `text`
+type the editor would actually have called. It is the boundary check without the
+boundary conversion.
+
+And a separate type becomes right the day this language wants normalisation,
+collation, locale-aware case, or grapheme clusters — those genuinely need an
+invariant that a set of messages cannot enforce. None of them has a customer,
+and none is near having one.
+
+**Verdict on the variant: no — but it is model B with a better front door, and
+the front door is on the wrong end.** Recorded at this length because it is the
+kind of proposal that is re-made in six months by somebody who has not seen the
+editor's answer to it.
+
+#### And the editor was fixed, which cost more than this entry said
+
+**On 2026-08-30, the same day.** Sixteen sessions were added to
+[checks.sol](../programs/edit/checks.sol), eleven of which failed on the editor
+as it stood; all 181 pass now, and the screen transcript
+[session.out](../programs/edit/session.out) is byte-identical, sideways-scrolling
+tab line included, which is what says the ASCII path did not move.
+
+**The estimate above was wrong by a factor of five, and wrong in an interesting
+direction.** *Nine lines in `expand`* turned out to be seventeen definitions and
+four new helpers. `expand` was barely one of them: it draws the bytes, so the
+column count had to move out into a `widthOf` beside it, and `visible` — which
+sliced the drawn text with a `copyFrom` because a column was a byte — became a
+walk.
+
+**What the estimate got right is the part the decision rests on.** The three
+sends really are the whole of it: `isTail` is `bitAnd(#192):equals(#128)`, and
+`charSize`, `charAt` and `widthOf` are four lines each on top of it. Nothing in
+the language moved. No message changed its mind about bytes, no boundary grew an
+encoding, and the editor still opens a file that is not UTF-8 — a stray byte is
+one character, `x` takes exactly it, and every byte the editor was not asked to
+change is written back untouched.
+
+**Two of the seventeen carried most of the weight**, and both are places the
+program already had:
+
+| where | what one line did |
+| --- | --- |
+| `clamp` | *a cursor is never inside a character*, made true for every command at once — `$` included, which is where the corruption was |
+| `operateChars` | the single `add` that turns an inclusive motion's last character into a range: `d$`, `de`, `dfx` and `x`, answered together |
+
+**And one exemption is load-bearing: insert mode.** A character outside ASCII
+arrives from `readKey` one byte at a time, so the column *must* be allowed to
+stand between the bytes of a character while it is being typed. The rule is
+therefore about normal mode and not an invariant on the buffer — which is
+exactly the shape a `text` type could not have had, and is the sharpest evidence
+in this entry for keeping the invariant in the program rather than in the value.
+
+**What this did not do**: `f` and `r` read one key, so they still take a byte;
+they are safe because no ASCII byte appears inside a multi-byte UTF-8 character,
+which is the property the encoding was designed around. There is still no
+decoder in [text.sol](../lib/text.sol) — the fix never needed one, which is the
+second prediction on this page that held.
+
+#### Verdict
+
+**Defer — and the model to defer toward is C, not B, including when B arrives
+wearing
+[a second type and a prefixed literal](#a-text-type-beside-string-with-a-prefixed-literal-to-make-one).**
+The trigger has half fired: a program asked, and the same program can answer for
+itself with what is already in the language. That is the outcome this page keeps
+predicting, and it is worth noticing when it happens — the pressure that would have justified a
+language change turned out to be pressure on one function in one program.
+
+**Trigger for the language change: a second program wanting character
+arithmetic.** The editor has now written the three sends once; a second program
+writing them again is when they belong in the language, which is the rule
+`replace` and the cursor were both built under. `isTail`, `charSize`, `charAt`
+and `widthOf` in [edit.sol](../programs/edit.sol) are what that second program
+would be copying, and copying them is the signal — not the inconvenience of
+having to.
+
+**Trigger for a decoder in text.sol: the editor's fix, if it is written.** It is
+a dozen lines beside `asUtf8` and it is the inverse of code that is already
+tested; what it has never had is a caller.
+
+**And one thing is cheap enough to want a customer rather than a decision: a
+validity check on a string.** One primitive, no type and no global, and it is
+what a boundary actually needs — see
+[the variant above](#a-text-type-beside-string-with-a-prefixed-literal-to-make-one),
+which is where the case for it came from.
+
+**What would not count.** Parsers, protocols, compilers, `solas`, `json`,
+`html`, `pattern`, the Pascal front end, the assembler, the server — all
+byte-shaped by nature, and all of them are most of what has been written here.
+A program is not asking for Unicode because its input contains some; it is
+asking when it has to *count* or *cut* characters and cannot say what it means
+in bytes. Only a screen has wanted that so far.
+
+### `!character` literals and Unicode
+
+`!x` for a character, and `!😊` for one outside ASCII.
 
 The character type on its own is small. The problem is that it cannot be decided
 separately from what a string is, and today [a string is
 bytes](ROADMAP.md#213-text-is-bytes-and-case-is-ascii-only): `size` counts
 bytes, `at` answers a one-byte string, and `"café":size` is 5.
 
-So `$x` forces the question. If a character is a **code point**, then `at` should
+So `!x` forces the question. If a character is a **code point**, then `at` should
 answer one, and `size` should count them, and every string operation changes —
 that is the Unicode work, and it is a different piece of work rather than a
-larger version of this one. If a character is a **byte**, then `$😊` cannot exist
+larger version of this one. If a character is a **byte**, then `!😊` cannot exist
 and the type buys almost nothing over a one-character string.
 
-Adding an ASCII-only `$x` now would make the Unicode decision harder later,
+Adding an ASCII-only `!x` now would make the Unicode decision harder later,
 because there would be a character type with the wrong semantics to migrate.
 
 **Trigger:** decide what a string is first. If strings become code-point aware,
-a character type follows naturally and `$` is the right spelling for it.
+a character type follows naturally and `!` is the right spelling for it.
+
+**And that decision now has an entry of its own**, written on 2026-08-30 —
+[what a string is](#what-a-string-is--bytes-code-points-or-bytes-with-a-contract).
+It recommends against the branch this paragraph was waiting for, which removes the trigger rather than firing it: if
+strings stay bytes and gain code-point *messages*, the value a character-aware
+`at` answers is a two-byte string, `"é"` is already its literal, and there is
+no type left for `!` to spell.
 
 ---
 
