@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### A cursor that is never inside a character — `HASH`, 2026-08-30
+### A cursor that is never inside a character — `6184995`, 2026-08-30
 
 **[edit.sol](../programs/edit.sol) was writing half a code point to disk.** `$`
 went to the last *byte* of a line, so `$x` on a line holding `café` left `caf`
