@@ -11,6 +11,104 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-30 (evening) — the foundation exercised, and a question that answered itself
+
+Asked whether it was a good time to implement SolaBasic's graphics statements
+over the SDL2 extension, *and* to give the new optimisations a workout. The
+second half is what the day turned out to be about, and the first half never
+happened — which is the trigger rule working rather than the day going wrong.
+
+**The premise was wrong, and checking it was the first useful thing.** The
+question was framed as *we stopped SolaBasic at graphics because we did not have
+the foundation for it with extensions*. Nothing in this repository ever said
+that. [SOLABASIC.md](SOLABASIC.md#never--the-pc) puts `SCREEN`, `PSET`, `LINE`
+and `CIRCLE` under **Never — the PC**, beside `PEEK` and `CALL INTERRUPT`, and
+the *not yet* table that does hold deferred work has never mentioned them.
+Stage 7 was the last stage and it is done. **SolaBasic did not stop at graphics;
+it finished without them, on purpose**, and the boundary is CB80's rather than
+this compiler's.
+
+That is worth a paragraph because the correction is what made the rest of the
+day cheap. A parked stage gets resumed. A boundary gets *reversed*, and the
+reversing needs a better reason than an afternoon's enthusiasm — which the
+document predicted, having said in its own opening that the trouble with a
+vendor dialect is that the subset boundary is drawn by whoever is writing the
+compiler, on the day they are writing it.
+
+### The throwaway went first, and found the thing no reading would have
+
+Half an afternoon, nothing tracked changed. solveig-sdl builds clean against
+0.39.0 — `SOL_EXTENSION_ABI` is still 1 and the restricted export surface took
+nothing it uses, so a bundle written for 0.36.0 still draws. That was the check
+the whole question rested on and it passed in ten minutes.
+
+Then two measurements, and the second one is the day's finding:
+
+- **An extension send costs 205ns against an ordinary send's 55ns.** 200,000
+  `sdl:fill` calls in 41ms; 200,000 ordinary four-argument sends in 11ms. So
+  a per-pixel graphics API across `dlopen` is affordable, which was the thing
+  most likely to have killed the idea outright.
+- **`sdl:present` costs 8.3ms, because it is vsync-locked.** Two hundred of them
+  is 1.66 seconds.
+
+**The second is a language problem wearing an implementation problem's
+clothes.** QBasic graphics is immediate-mode: `PSET` draws and you see it. SDL
+is double-buffered, and the buffer is shown by a call that waits for the
+display. A faithful `PSET` would present after every statement — **120 pixels
+per second**, so a program drawing a circle would take a minute to do it. No
+amount of reading the SDL headers produces that sentence; running two hundred
+presents in a loop produces it immediately.
+
+### What the optimisations did, on a program chosen to be unkind to them
+
+Same Mandelbrot, 320×200, 400 iterations, both VMs built `-O2`:
+
+| | 0.38.0 | 0.39.0 |
+| --- | --- | --- |
+| the arithmetic alone, no graphics | 1.59s | **1.07s** |
+| drawn, presenting once per row | 2.20s | 1.90s |
+| drawn, presenting at most every 16ms | — | **1.29s** |
+
+**1.49x**, on a loop whose every operand is a global — which is
+[4.5](COMPLETED.md#45-a-global-is-a-hash-lookup-and-a-receiver-check-is-a-call--done)'s
+exact case, met by a program written after it landed and not written to flatter
+it. It is a larger gain than any of the nine CPython pairs recorded last week.
+
+And the right-hand column carries its own lesson: **the present policy is worth
+more than a year of interpreter work on this program, and it costs four lines.**
+Throttling on the clock puts graphics at 22% over the pure computation where
+presenting per row put it at 78%. The interpreter got 1.49x; deciding *when to
+show the buffer* got 1.47x on top of it, for nothing.
+
+### The question answered itself when it was put back
+
+The scoping went into [ideas.md](ideas.md#graphics-in-solabasic-through-the-sdl2-extension)
+with a recommendation — an opt-in `'$GRAPHICS` metacommand, so the cut line
+survives unamended — and three decisions that were not mine to take. The first
+was whether to have the module at all or move the boundary honestly.
+
+Explaining that choice turned up the argument that should have been first.
+**There is no oracle for a pixel.** Every SolaBasic feature is held against a
+real QuickBASIC 4.5 under DOSBox, and the harness compares printed bytes;
+graphics print nothing. Graphics would be the first part of the language checked
+only against transcripts its own author recorded — which is the precise failure
+`oracle.sh` exists to prevent, and which its own header describes.
+
+And putting the choice back as *is there a SolaBasic program you want to write
+that needs a screen?* got the honest answer: it had really only ever been about
+exercising the foundation. **So the trigger never fired and nothing was built.**
+`SCREEN` stays under *Never — the PC*, three documents keep a promise they were
+making, and the entry records a verdict of no with the measurements attached.
+
+**The part worth carrying**: both halves of the day were already paid for before
+the language question was settled. The foundation was exercised by Solum
+programs talking to `sdl:` directly, which needed no compiler change, no
+metacommand and no amended boundary — and which is also, it turns out, the
+cheapest way to get a picture on a screen out of this project. The language
+change would have bought a syntax for something that already worked.
+
+---
+
 ## 2026-08-30 (the release) — 0.39.0, and what a week of measuring cost
 
 The release itself was the short part: four files, a tag, a page. What is worth

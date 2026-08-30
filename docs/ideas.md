@@ -51,6 +51,7 @@ marked as a sketch.
 | Programs that would press on something — Pascal, predicate logic, a parser toolkit | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would |
 | Networking, and sending code to a running machine | **The first half is built**, on 2026-08-29 — [extensions/net](../extensions/net/README.md), five messages, and the waiting question answered with a timeout rather than a block; [the second half](#networking-and-sending-code-to-a-machine-that-is-already-running) is untouched and still needs 3.4, 6.32 and a proxy |
 | SQLite, SDL2, GTK | **One project, not three** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); GTK and SDL2 fire that trigger and SQLite does not, and wanting *both* toolkits is what settles the mechanism |
+| Graphics in SolaBasic, over SDL2 | **No — asked and closed on 2026-08-30, and the premise was wrong** to begin with: [graphics were never parked](#graphics-in-solabasic-through-the-sdl2-extension) for want of extensions, they were refused as *the PC*. No program wanted a screen, so the trigger never fired. The throwaway exercised the foundation without a language change and holds the useful part — an extension send at 205ns, **`sdl:present` vsync-locked at 8.3ms**, and **1.49x from 0.39.0** on a globals-heavy loop. **And there is no oracle for a pixel**, which is what would decide it if it were ever asked again |
 | Fuzzy logic | **A library that would teach nothing** — arithmetic on floats, and the arithmetic all landed |
 | Namespaces for included files | **Defer** — the trigger is somebody else writing a library |
 | Splitting the reference into pages | **Defer** — the trigger is the message reference outgrowing the rest |
@@ -1576,6 +1577,176 @@ wants a statically registered extension rather than a shared object built
 mid-test, and no back end gets to name itself the general case, because SDL2 is
 already the second one. Neither costs anything. Everything else about the third
 platform waits for the port to start.
+
+### Graphics in SolaBasic, through the SDL2 extension
+
+**Asked on 2026-08-30, and the premise needs correcting before the answer is
+any use.** The question was put as *we stopped SolaBasic at the point of not
+supporting graphics because we didn't have the foundation for it* — but nothing
+in this repository ever said that. [SOLABASIC.md](SOLABASIC.md#never--the-pc)
+puts `SCREEN`, `PSET`, `LINE`, `CIRCLE`, `PAINT`, `PALETTE` and `GET`/`PUT`
+under **Never — the PC**, alongside `PEEK`, `POKE` and `CALL INTERRUPT`, and the
+[*Not yet*](SOLABASIC.md#not-yet) table beside it — the one that does hold
+deferred work, each with a trigger — has never mentioned graphics. Stage 7 was
+the last stage and it is done. **SolaBasic did not stop at graphics; it finished
+without them, on purpose.**
+
+That matters because it changes what is being asked. This is not resuming a
+parked stage. It is reversing the single claim the document is built on:
+
+> Everything QBasic has that CB80 also had is language. Everything QBasic adds
+> beyond it is either the PC or convenience, and neither is here.
+
+Graphics is the flagship example of *the PC*. There is no reading of that
+sentence under which `SCREEN 13` is language.
+
+**The throwaway went first, and it answered the engineering question so
+completely that only the design question is left.** Half an afternoon, no
+changes to anything tracked:
+
+- [solveig-sdl](https://github.com/hansolovkarlsson/solveig-sdl) builds clean
+  against 0.39.0 and draws. `SOL_EXTENSION_ABI` is still 1 and the restricted
+  export surface took nothing it uses. **The foundation is not in question.**
+- **An extension send costs 205ns against an ordinary send's 55ns** — 200,000
+  `sdl:fill` calls in 41ms, 200,000 ordinary four-argument sends in 11ms. Cheap.
+  A per-pixel graphics API through `dlopen` is affordable, which was the thing
+  most likely to have killed this.
+- **`sdl:present` costs 8.3ms**, because it is vsync-locked. 200 of them is
+  1.66 seconds. **This, and not drawing, is the whole design problem**, and it
+  is the finding no amount of reading would have produced.
+
+The last one deserves its own line, because it is a *language* problem wearing
+an implementation problem's clothes. **QBasic graphics is immediate-mode**:
+`PSET` draws, and you see it. **SDL is double-buffered**, and the buffer is
+shown by a call that waits for the display. A faithful `PSET` would present
+after every statement, at 8.3ms each — **120 pixels per second**. A QBasic
+program that draws a circle would take a minute to do it.
+
+Measured three ways, same Mandelbrot, 320×200, 400 iterations:
+
+| | 0.38.0 | 0.39.0 |
+| --- | --- | --- |
+| the arithmetic alone, no graphics | 1.59s | **1.07s** |
+| drawn, presenting once per row | 2.20s | 1.90s |
+| drawn, presenting at most every 16ms | — | **1.29s** |
+
+**So the present policy is worth more than a year of interpreter work on this
+program**, and it costs four lines. Throttling on the clock puts graphics at 22%
+over the pure computation, where presenting per row put it at 78%.
+
+**And the optimisations answer for themselves in the left column.** 1.59s to
+1.07s is **1.49x** on a program written after they landed and chosen to be
+unkind to them — a loop whose every operand is a global, which is
+[4.5](COMPLETED.md#45-a-global-is-a-hash-lookup-and-a-receiver-check-is-a-call--done)'s
+exact case. It is a larger gain than any of the nine CPython pairs recorded,
+and it is a fair number rather than a flattering one: nothing here was tuned,
+and the program was written to draw a picture rather than to win.
+
+#### How it would be built, and why the mechanism is already there
+
+Nothing new is needed in the compiler's shape. `sola.sol` already has the
+escape hatch this wants, and file handling already uses it: a **builtin** emits
+an arbitrary send sequence, and `SOLAREADFILE$` is `emitGlobal("system")` plus
+`emitSend("readFile", #1)`. Graphics is the same move against a different
+global:
+
+```text
+builtins:atPut("SOLAGFILL", [['integer, 'integer, 'integer, 'integer], 'integer, 'block,
+    { m, args |
+        m:emitGlobal("sdl").
+        m:emitGlobal("SOLAGSCREEN").
+        m:builtinArg(args, #1, 'integer). ...
+        m:emitSend("fill", #5) }]).
+```
+
+Above that, the runtime SUBs are written in SolaBasic like every other one —
+`SOLAPSET`, `SOLACIRCLE`, the 16-colour palette table, the present throttle —
+and the statement parsers and emitters are the most mechanical work in the file.
+**`solas` still loads nothing**, which is the property
+[extensions.md](extensions.md#who-decides) protects: the compiler only ever
+emits the *name* `sdl`, and a name costs nothing to write down.
+
+#### The counter-argument, which is not weak
+
+**The `.sob` inherits a requirement it cannot state.** `solas` refuses to load
+extensions precisely so that compiling cannot put a native dependency into the
+bytecode, "where every machine that ever ran it would inherit it — including one
+that only wanted to disassemble it". Emitting `sdl:` sends puts that dependency
+in anyway. It arrives later and with a better error — `undefined name 'sdl'` at
+the first graphics statement rather than a failure at load — but a SolaBasic
+program with `SCREEN` in it is no longer a program that any Solum runs. That is
+the disease the rule was written against, with a longer incubation.
+
+**The eleven messages do not reach.** `start window clear colour fill line
+present poll wait ticks` is what solveig-sdl has. `PSET` is a 1×1 `fill` and
+`LINE`'s `B`/`BF` forms are `line` and `fill`, so those are free. But `CIRCLE`
+has no message and would be Bresenham written in SolaBasic; **`PAINT` needs to
+read a pixel back and there is no message that can**; and `LOCATE`/`PRINT` on a
+graphics screen needs a font, which is a larger piece of SDL than everything
+else here combined. So this is not *the graphics statements*. It is a subset,
+and two repositories change rather than one.
+
+**And the divergence list grows by a semantic rather than a detail.** The eight
+entries in [Where this is not QBasic](SOLABASIC.md#where-this-is-not-qbasic) are
+things like *no `SINGLE`* and *a file is written with line feeds* — narrow,
+checkable, and none of them changes when a statement takes effect. *Drawing
+appears when the runtime decides to present it* is a different kind of entry.
+
+#### And there is no oracle for any of it
+
+**This is the argument that decides the entry, and it did not turn up until the
+rest had been written.** Every SolaBasic feature is held against a real
+QuickBASIC 4.5 under DOSBox, and [oracle.sh](../programs/sola/oracle.sh) works
+by comparing *printed bytes*: `agree/` must match to the byte, `differ/` must
+not. **Graphics print nothing.** There is no way for that harness to check a
+single pixel.
+
+So graphics would be the first part of this language checked only against
+transcripts its own author recorded — which is the exact failure the oracle
+exists to prevent, and which its own header names: eighty-three claims in
+`basic.sol` caught none of the seven real defects the NBS suite found, *because
+those check what the author thought to check*.
+
+The hole is the same size whether graphics go in the language or in a module.
+What differs is what it costs: inside the language, *SolaBasic is verified
+against a real implementation* quietly stops being true of a whole area.
+
+#### Verdict — not built, and the reason is the trigger rule
+
+**Asked on 2026-08-30 and closed the same day. No program wanted a screen.**
+
+The question came with two halves — implement the graphics statements, and
+exercise the extension foundation and the new optimisations. When the design
+question was put back as *is there a SolaBasic program you want to write that
+needs a screen?*, the answer was that it had really only ever been the second
+half. **So the trigger never fired**, and the language change is not made:
+`SCREEN` and the rest stay under [Never — the
+PC](SOLABASIC.md#never--the-pc), that section is not amended, and the three
+documents that promise *the whole of the PC is not coming* stay true.
+
+**The exercising happened anyway, and cost no language change at all.** Every
+measurement above was taken with Solum programs talking to `sdl:` directly —
+which is the honest shape of the finding, since it is also the cheapest way to
+get a picture on a screen out of this project. The foundation was exercised, and
+the answer is that it holds: a clean build against a release it predates, an
+extension send at 205ns, and one genuine surprise in `sdl:present`.
+
+**Kept for whenever the trigger does fire.** Everything above the verdict is the
+design, and it is worth more now than it would be later: the mechanism is
+identified (a builtin, exactly as `SOLAREADFILE$` reaches `system`), the present
+policy is decided by measurement rather than argument, and the two things out of
+reach — `PAINT`, which needs a pixel read back, and text on a graphics screen,
+which needs a font — are named. **The recommended shape, if it is ever built, is
+an opt-in `'$GRAPHICS` metacommand in QBasic's own idiom** rather than the
+language growing a screen, so that the CB80 cut line survives unamended and the
+`.sob`'s extension requirement is visible in the listing that produced it. That
+is a recommendation held in reserve, not a plan.
+
+**The premise correction is the part to remember**, and it is why this entry is
+long for something that was not built. *We stopped at graphics because the
+foundation was missing* was a memory of a decision that never happened. The
+foundation was never the reason and was never asked. Writing it down here is
+cheaper than having the same wrong recollection start the same afternoon again.
 
 ### Regular expressions
 
