@@ -101,6 +101,58 @@ about GTK rather than a thing about this program.
 The README's counts were re-derived rather than adjusted: 30 distinct `gtk_*`
 functions called against 26, plus three cairo ones, and 23 messages against 17.
 
+### Postmortem — the whole day
+
+**Four things went wrong and three of them were the same thing: a check that
+looked like it covered the output and did not.**
+
+**A defect shipped, and Hans found it by running the program.** The Mandelbrot
+example drew bands of noise. Three checks had passed before it was committed —
+the arithmetic rendered as ASCII, the program run and timed, the colours
+recorded as they were passed to `sdl:fill` — and **every one of them tested the
+inputs to the drawing calls** while the defect lived entirely on the other side.
+`sdl:present` does not preserve the buffer, and nothing that stopped short of
+the pixels could have said so. A graphics program's output is a picture; the
+check has to be the picture.
+
+**A finding was written into two documents one step too early.** *The present
+policy is worth more than a year of interpreter work on this program* came from
+timing two renders against each other. Neither of them drew the Mandelbrot, so
+the comparison measured what two call patterns cost and not two ways of drawing
+the same thing. It was struck the same evening. **The measurement was real and
+the conclusion was not**, which is the failure mode `ideas.md` was built to
+catch and did not, because the number was true.
+
+**Then the same lesson again, in the shape that gets past looking.** The circle
+example's first version sent every ball off in the same direction. Two sampled
+frames showed them clustered — and nearly explained it away, because the two
+happened to be about one bounce period apart, and a periodic system sampled at
+its own period looks stationary. **Looking is necessary and is not sufficient**:
+a still frame answers whether a thing is drawn correctly, and only a measurement
+over the whole run answers whether it moves correctly. What settled it was the
+range each ball covers, which is a question about the trajectory rather than
+about two moments of it.
+
+**And `make` reported success without having rebuilt anything.** `CFLAGS` is not
+a prerequisite, so setting it on an up-to-date tree relinks the previous build
+and says nothing. Caught by looking at the binary's timestamp rather than by
+anything that would have failed — the same shape as the week's Makefile
+visibility check, which is the second time this has been the thing.
+
+**What went right is worth the same paragraph.** The throwaway went first twice
+and earned it both times. Against SDL it found in ten minutes that `present`
+costs 8.3ms, which no amount of reading the header produces. Against cairo it
+answered the only question that mattered — whether a drawing context could be
+published safely — by trying the failure case first, before a line of it was
+written into the real file. **Both times the engineering was never in doubt and
+the design was**, which is the pattern this project keeps rediscovering: build
+the smallest thing that settles the question, and let it correct the design.
+
+**And the day's one refusal held.** A language change was proposed, scoped in
+full, recommended — and not built, because no program wanted a screen. The
+entry it produced is longer than the feature would have been and is the more
+useful artefact.
+
 ---
 
 ## 2026-08-30 (the evening) — a demo that showed the measurement was of the wrong thing

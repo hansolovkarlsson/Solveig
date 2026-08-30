@@ -45,6 +45,15 @@ teardown. Two bundles live out of tree —
 [SDL2](https://github.com/hansolovkarlsson/solveig-sdl) — which is what keeps
 *no dependencies beyond a C11 compiler and `make`* true.
 
+**Both draw now, and the GTK one is the mechanism's first real re-test.** A
+canvas arrived there on 2026-08-30: a widget whose content is a callback GTK
+drives on its own schedule, which is a different *kind* of callback from the
+click and the timer the retain registry was built for. It needed nothing new —
+the same registry, the same re-entry, the same limit checks. That bundle's
+README had predicted exactly this, in the form *the expensive work was
+per-toolkit rather than per-function, and it is done*, and the canvas is the
+first case that could have falsified it.
+
 **One ships here**, and for the same sentence read the other way:
 [net](NET.md) is UDP sockets, and sockets need POSIX rather than anything a
 reader would have to install. `make` builds it, `make install` puts it beside
