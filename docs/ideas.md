@@ -1602,7 +1602,9 @@ sentence under which `SCREEN 13` is language.
 
 **The throwaway went first, and it answered the engineering question so
 completely that only the design question is left.** Half an afternoon, no
-changes to anything tracked:
+changes to anything tracked — the five programs are parked in
+[experiment/graphics-probe/](../experiment/graphics-probe/), so every number
+below can be re-run rather than believed:
 
 - [solveig-sdl](https://github.com/hansolovkarlsson/solveig-sdl) builds clean
   against 0.39.0 and draws. `SOL_EXTENSION_ABI` is still 1 and the restricted

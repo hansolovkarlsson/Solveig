@@ -42,7 +42,10 @@ Half an afternoon, nothing tracked changed. solveig-sdl builds clean against
 nothing it uses, so a bundle written for 0.36.0 still draws. That was the check
 the whole question rested on and it passed in ten minutes.
 
-Then two measurements, and the second one is the day's finding:
+Then two measurements, and the second one is the day's finding. Both are parked
+in [experiment/graphics-probe/](../experiment/graphics-probe/) beside the
+extension probe from the week before, for the reason that directory exists —
+proved, kept, and built by nothing:
 
 - **An extension send costs 205ns against an ordinary send's 55ns.** 200,000
   `sdl:fill` calls in 41ms; 200,000 ordinary four-argument sends in 11ms. So
