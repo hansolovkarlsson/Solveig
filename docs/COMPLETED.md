@@ -344,6 +344,109 @@ The limitations themselves are still live and are in
 [ROADMAP.md](ROADMAP.md#3-known-limitations). These were limitations until they
 stopped being ones.
 
+### 3.22 A file is read whole, or not at all — **done**
+
+`system:readFile(path, from, count)` answers `count` bytes from the one-based
+position `from`, and the entry above it is no longer true.
+
+**What it was.** `readFile` answered the whole file and there was no other way to
+read one: no handle, no line at a time, no seek. Two gigabytes was the hard stop,
+a string's length being a signed 32-bit count, refused by name rather than
+truncated. Below that the peak cost was twice the file, the bytes being read into
+a buffer and then copied into the string. `fileSize`, answering without reading,
+was the single concession.
+
+**The entry said it was right for everything here, and that was true when it was
+written.** The editor loads a file to edit it, `solas` loads a source to compile
+it, `expect.sol` loads a document to check it — all three want the whole thing,
+and a handle would have been ceremony around one call.
+
+#### The trigger, and the four seconds in which it fired
+
+The entry named its own trigger: **a program with a file that does not fit**.
+Nothing here had one, and the largest input measured was a 50,000-line scan held
+entire without complaint.
+
+**Two measurements changed that, a day apart.**
+
+[sed.sol](../programs/sed.sol) on 2026-08-30 was the first program here able to
+price the entry, because it does identical work by two routes — `readLine`
+streams standard input, and a named file is read whole and split. Same script,
+same bytes, peak resident:
+
+| input | lines | named file | standard input |
+| --- | --- | --- | --- |
+| 618 KB | 20,000 | 5.3 MB | 2.5 MB |
+| 6.4 MB | 200,000 | 32.3 MB | 2.5 MB |
+
+**About 4.7 times the file, where the entry said twice.** Twice was right for
+`readFile` alone; a program working line by line then holds a string object per
+line, and the entry did not cover that shape. sed closed by saying the trigger
+had still not fired, which was true and was the sentence worth going back to.
+
+**On 2026-08-31 it took four seconds to fire.** A sparse file is 3 GB of holes
+and 8 KB of disk:
+
+```text
+/usr/bin/tail -n 3   0.003 s, and the right three lines
+system:fileSize      #3221225623, immediately
+system:readFile      '...' is too large to read into a string
+```
+
+**The language could measure that file and not read a byte of it**, and the file
+cost nothing to make. *Nothing here has a file that does not fit* had been a fact
+about this repository's inputs rather than about the world, and it stopped being
+either.
+
+#### What it is, and the one thing it does differently
+
+**A range and not a handle**, which the entry had already argued for and which
+holds up: there is no lifetime, nothing to close, nothing to leak and no answer
+needed for a handle used after closing — all of which
+[extensions/net](../extensions/net/README.md) had to pay for, because a socket
+has no alternative. A file does.
+
+**A short range is the answer rather than a failure**, and that is the only place
+the two forms part. Asking for the last four kilobytes of a file that turns out
+to be one kilobyte is a reasonable question; the string that comes back says its
+own size, so nothing is hidden by giving back what was there. A *whole-file* read
+that comes up short is still a failure, because its length came from `ftello` a
+moment earlier and anything less means a fault.
+
+**That distinction was decided by a comment already in the code**, which is worth
+recording because it turned a matter of taste into one of fact. The old function
+carried:
+
+> *A short read is a failure rather than a shorter string: `fopen` on a directory
+> succeeds on some systems, and reading one does not.*
+
+Right for a whole file and wrong for a range — so *clamp or refuse* was never a
+preference to be argued, and `ferror` remains the check that catches the
+directory either way.
+
+**`#0` is not a position** and is refused, as on a string; past the end is a
+position and answers `""`. The size is asked for even in the ranged form, one
+`fseeko` before the read, so the buffer is the size of what is there rather than
+of what was requested — and `got` rather than `want` decides the string's length,
+because a file may grow or shrink between the seek and the read.
+
+**What is still true**: a string holds at most two gigabytes, so `count` is
+bounded even though the *file* no longer is.
+
+#### The order this was built in, which the scoping got wrong first
+
+The plan was to write `tail` first and let it ask,
+because that is the rule — a program asks and a page does not. The question
+*what was tail for?* is what exposed it: **the evidence arrived before the
+program did**, in the four seconds above, and a `tail` written on the whole-file
+read cannot call the thing it is meant to be asking about. It would have
+re-proved a measured wall and said nothing about the shape.
+
+So the shape question — *is this call usable?* — is the one a caller answers, and
+a caller has to come after the call exists. [ideas.md](ideas.md#tail-and-the-file-this-language-cannot-read--scoped-2026-08-31)
+keeps both recommendations rather than replacing the first, which is what that
+section already does for predictions.
+
 ### 3.21 A changelog hash is written by hand and nothing checks it — **done**
 
 The second entry here about this repository's own verification rather than about
@@ -1145,7 +1248,7 @@ is a failure, confirmed by breaking one both ways.
 one. The comment renders as nothing and the reader sees the sentence:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 1034<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 1042<!--count claims--> claims
 ```
 
 [expect.sol](../programs/expect.sol) recounts each of them from the repository
@@ -1165,8 +1268,8 @@ that order under its headings. The two are now held together.
 | --- | --- | --- |
 | ROADMAP 3.14, on whether `float` should gain trigonometry | `float` answers **21** messages | **35**<!--count float-answers--> — the count that entry's whole size argument rests on, five releases out of date |
 | [REFERENCE.md](REFERENCE.md)'s message index | **121** messages across **215** registrations | **122** across **216** |
-| [programs.md](programs.md)'s sample output | 21 files, **398** claims | 22 files, **570**<!--count examples-claims--> claims |
-| `README.md`, `programs.md` and the entry itself | **589** claims | **1034**<!--count claims--> |
+| [programs.md](programs.md)'s sample output | 21 files, **398** claims | 22 files, **574**<!--count examples-claims--> claims |
+| `README.md`, `programs.md` and the entry itself | **589** claims | **1042**<!--count claims--> |
 
 #### What is left, which is not a gap
 

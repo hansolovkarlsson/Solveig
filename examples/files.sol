@@ -27,6 +27,32 @@ system:fileExists(path):print.                  ; true
 text := system:readFile(path).
 "{} bytes":fill([text:size]):display.
 
+; ---------------------------------------------------------------------------
+; Reading part of one
+;
+; `readFile(path, from, count)` answers `count` bytes from `from`, which is a
+; one-based byte position like every other index here. It is a range and not a
+; handle: nothing to open, nothing to close, and two parts of a program can read
+; two parts of a file without agreeing about anything.
+
+system:readFile(path, #1, #6):print.        ; "apples"
+
+; **A short range is the answer, not a failure.** Asking for more than is left
+; gives back what was there, and asking from past the end gives back nothing --
+; because "the last four kilobytes" of a file that turns out to be shorter is a
+; reasonable question, and the string that comes back says its own size.
+system:readFile(path, #10, #999):size:print.    ; #19, being all that was left
+system:readFile(path, #999, #10):print.         ; ""
+
+; `#0` is not a position, in a file or in a string.
+{ system:readFile(path, #0, #4) }:onError({ e | e:message:display }).
+
+; With `fileSize`, this is how to read the end of a file too large to hold: the
+; whole-file form refuses anything past two gigabytes, and a range does not care
+; how big the file is.
+size := system:fileSize(path).
+system:readFile(path, size:sub(#9), #10):print. ; "quinces 1\n"
+
 ; `split` takes the file apart. There are always occurrences + 1 pieces, so a
 ; file ending in a newline leaves an empty last piece -- which is why the count
 ; is one less than the number of pieces here.

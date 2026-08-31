@@ -446,6 +446,176 @@ static void test_a_large_file_round_trips(void)
     printf("  a large file round trips\n");
 }
 
+/* ---------------------------------------------------------------------------
+   A range of a file
+ */
+
+/* `readFile(path, from, count)`: `from` is one-based, like every index here. */
+static void test_a_range_reads_part_of_a_file(void)
+{
+    remove_the_test_file();
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "system:writeFile(\"" FILE_PATH "\", \"abcdefghij\")."
+        "head := system:readFile(\"" FILE_PATH "\", #1, #3)."
+        "mid  := system:readFile(\"" FILE_PATH "\", #4, #3)."
+        "one  := system:readFile(\"" FILE_PATH "\", #10, #1)."
+        "none := system:readFile(\"" FILE_PATH "\", #1, #0)."
+        "all  := system:readFile(\"" FILE_PATH "\").") == SOL_OK);
+
+    assert(strcmp(SOL_AS_STRING(global(&vm, "head"))->chars, "abc") == 0);
+    assert(strcmp(SOL_AS_STRING(global(&vm, "mid"))->chars, "def") == 0);
+    assert(strcmp(SOL_AS_STRING(global(&vm, "one"))->chars, "j") == 0);
+    assert(SOL_AS_STRING(global(&vm, "none"))->length == 0);
+    assert(strcmp(SOL_AS_STRING(global(&vm, "all"))->chars, "abcdefghij") == 0);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    remove_the_test_file();
+    printf("  a range reads the bytes it names, one-based\n");
+}
+
+/* The one place the two forms differ, and the reason is that asking for the
+   last four kilobytes of a file that turns out to be one kilobyte is a
+   reasonable question. The answer says its own size, so nothing is hidden. */
+static void test_a_range_past_the_end_is_short_rather_than_refused(void)
+{
+    remove_the_test_file();
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "system:writeFile(\"" FILE_PATH "\", \"abcdefghij\")."
+        "over  := system:readFile(\"" FILE_PATH "\", #8, #99)."
+        "edge  := system:readFile(\"" FILE_PATH "\", #11, #5)."
+        "past  := system:readFile(\"" FILE_PATH "\", #9999, #5).") == SOL_OK);
+
+    assert(strcmp(SOL_AS_STRING(global(&vm, "over"))->chars, "hij") == 0);
+    assert(SOL_AS_STRING(global(&vm, "edge"))->length == 0);
+    assert(SOL_AS_STRING(global(&vm, "past"))->length == 0);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    remove_the_test_file();
+    printf("  a range past the end is what was there, not an error\n");
+}
+
+/* Past the end is a position and #0 is not one, which is `copyFrom`'s rule. */
+static void test_a_range_refuses_what_is_not_a_position(void)
+{
+    static const char *refused[] = {
+        "system:readFile(\"" FILE_PATH "\", #0, #3).",
+        "system:readFile(\"" FILE_PATH "\", #-1, #3).",
+        "system:readFile(\"" FILE_PATH "\", #1, #-3).",
+        "system:readFile(\"" FILE_PATH "\", 1.5, #3).",
+        "system:readFile(\"" FILE_PATH "\", #1, 3.5).",
+        "system:readFile(\"" FILE_PATH "\", #1).",
+        "system:readFile(\"" FILE_PATH "\", #1, #2, #3).",
+        "system:readFile(\"build/tests\", #1, #3).",
+    };
+
+    FILE *f = fopen(FILE_PATH, "wb");
+    assert(f != NULL);
+    assert(fwrite("abcdefghij", 1, 10, f) == 10);
+    fclose(f);
+
+    for (size_t i = 0; i < sizeof(refused) / sizeof(refused[0]); i++) {
+        SolVM vm; sol_vm_init(&vm);
+        SolChunk chunk;
+        assert(run(&vm, &chunk, refused[i]) == SOL_RUNTIME_ERROR);
+        sol_chunk_free(&chunk);
+        sol_vm_free(&vm);
+    }
+
+    remove_the_test_file();
+    printf("  a range refuses #0, a negative count and the wrong arity\n");
+}
+
+/* A file of `size` bytes that occupies almost none of them. Answers false if
+   the filesystem materialised the holes, because then this is not a test worth
+   running -- it just wrote three gigabytes to somebody's disk. */
+static bool sparse_file_of(const char *path, off_t size)
+{
+    FILE *f = fopen(path, "wb");
+    if (f == NULL) return false;
+    if (fseeko(f, size - 1, SEEK_SET) != 0) { fclose(f); remove(path); return false; }
+    if (fputc('!', f) == EOF) { fclose(f); remove(path); return false; }
+    fclose(f);
+
+    struct stat st;
+    if (stat(path, &st) != 0) { remove(path); return false; }
+    if ((off_t)st.st_size != size) { remove(path); return false; }
+    if ((off_t)st.st_blocks * 512 > 4 * 1024 * 1024) { remove(path); return false; }
+    return true;
+}
+
+/* The whole point, and ROADMAP 3.22 closing.
+ *
+ * Three gigabytes is past what a string can hold, so the whole-file form
+ * refuses it by name -- and did so before this existed. What is new is that the
+ * refusal is no longer the end of the conversation: `fileSize` says how big it
+ * is and a range reads the end of it without holding any of the rest. */
+static void test_a_range_reads_a_file_too_large_to_hold(void)
+{
+    static const char *path = "build/tests/test_system.sparse";
+    const off_t size = (off_t)3 * 1024 * 1024 * 1024;
+
+    remove(path);
+    if (!sparse_file_of(path, size)) {
+        printf("  a range of a file too large to hold: no sparse files here, skipped\n");
+        return;
+    }
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "path := \"build/tests/test_system.sparse\"."
+        "size := system:fileSize(path)."
+        "last := system:readFile(path, size, #1)."
+        "held := { system:readFile(path):size }:onError({ e | #-1 }).") == SOL_OK);
+
+    assert(SOL_AS_INT(global(&vm, "size")) == (int64_t)size);
+    assert(strcmp(SOL_AS_STRING(global(&vm, "last"))->chars, "!") == 0);
+    assert(SOL_AS_INT(global(&vm, "held")) == -1);   /* still refused, by name */
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    remove(path);
+    printf("  a range reads the end of a file too large to read whole\n");
+}
+
+/* Every range is one allocation and nothing is live across it, so there is no
+   root to prove load-bearing here and none was added -- `sol_string_new` is the
+   last thing the primitive does and the C buffer it copies from is `malloc`'s,
+   not the collector's. This runs it under stress anyway, because that is the
+   claim being made rather than an assumption. */
+static void test_a_range_survives_a_collection(void)
+{
+    remove_the_test_file();
+
+    SolVM vm; sol_vm_init(&vm);
+    vm.gc_stress = true;
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "system:writeFile(\"" FILE_PATH "\", \"abcdefghij\")."
+        "seen := \"\"."
+        "[#1, #10]:loop({ i | seen := seen:concat("
+        "    system:readFile(\"" FILE_PATH "\", i, #1)) }).") == SOL_OK);
+
+    assert(strcmp(SOL_AS_STRING(global(&vm, "seen"))->chars, "abcdefghij") == 0);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    remove_the_test_file();
+    printf("  ten ranges under GC stress, and every byte arrived\n");
+}
+
 /* A file that is not there is an error, not nil. `readLine` answering nil at
    the end is not the precedent: running out of input is how a loop finishes,
    where a missing file is a program expecting something that is not so. */
@@ -1779,6 +1949,11 @@ int main(void)
     test_changing_what_is_there_refuses();
     test_the_look_before_you_leap_idiom();
     test_a_large_file_round_trips();
+    test_a_range_reads_part_of_a_file();
+    test_a_range_past_the_end_is_short_rather_than_refused();
+    test_a_range_refuses_what_is_not_a_position();
+    test_a_range_reads_a_file_too_large_to_hold();
+    test_a_range_survives_a_collection();
     test_a_file_that_is_not_there_is_an_error();
     test_file_exists_means_a_file();
 

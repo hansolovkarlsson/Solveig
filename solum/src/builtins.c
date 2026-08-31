@@ -4721,11 +4721,84 @@ static SolValue prim_system_load(SolVM *vm, SolValue self, SolValue *args, int a
     return SOL_BOOL_VAL(true);
 }
 
+/* The whole file, or a range of it.
+ *
+ *     system:readFile(path)                 the lot
+ *     system:readFile(path, from, count)    `count` bytes from `from`
+ *
+ * `from` is a **one-based byte position**, like every other index in this
+ * language, so `readFile(path, #1, #16)` is the first sixteen bytes.
+ *
+ * A range has no lifetime -- nothing to close, nothing to leak, and nothing
+ * that can be used after closing -- which is why it is this rather than a
+ * handle. It composes with `fileSize`, which answers without reading, and
+ * together they are how a program works on a file it could never hold: see
+ * ROADMAP 3.22, which this closes.
+ *
+ * **A short range is the answer, not a failure**, and that is the one place the
+ * two forms differ. Reading fewer bytes than were asked for is what happens at
+ * the end of every file, and a caller that wants "the last four kilobytes" of a
+ * file that turns out to be one kilobyte has asked a reasonable question. The
+ * answer is a string and `size` says how much arrived, so nothing is hidden by
+ * giving back what was there.
+ *
+ * That is not a relaxation of the check below it. `ferror` is still a failure
+ * both ways -- it is what catches the directory that `fopen` opened and cannot
+ * read -- and the whole-file form still refuses a short read, because there the
+ * length came from `ftello` a moment earlier and anything less means a fault.
+ *
+ * **The size is asked for even in the ranged form**, one `fseeko` before the
+ * read, so the buffer is the size of what is there rather than of what was
+ * requested: `readFile(path, #1, #1000000000)` on a small file allocates the
+ * small file. The file may still grow or shrink between that seek and the read,
+ * which is why `got` rather than `want` decides the string's length.
+ */
 static SolValue prim_system_read_file(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     (void)self;
-    if (!check_argc(vm, "readFile", argc, 1)) return SOL_NIL_VAL;
+    if (argc != 1 && argc != 3) {
+        sol_vm_runtime_error(vm,
+            "'readFile' takes a path, or a path with a position and a count, got %d",
+            argc);
+        return SOL_NIL_VAL;
+    }
     if (!path_argument(vm, "readFile", args[0])) return SOL_NIL_VAL;
+
+    bool ranged = argc == 3;
+    int64_t from = 1;
+    int64_t count = 0;
+
+    if (ranged) {
+        if (!SOL_IS_INT(args[1]) || !SOL_IS_INT(args[2])) {
+            sol_vm_runtime_error(vm,
+                "'readFile' expects an integer position and count, got %s and %s",
+                sol_type_name(args[1]), sol_type_name(args[2]));
+            return SOL_NIL_VAL;
+        }
+        from  = SOL_AS_INT(args[1]);
+        count = SOL_AS_INT(args[2]);
+
+        /* #0 is not a position, in a file or anywhere else here. Past the end
+           is a position: it answers "", the way a start past the end of a
+           string does. */
+        if (from < 1) {
+            sol_vm_runtime_error(vm,
+                "'readFile' starts at #%lld, which is not a position in a file",
+                (long long)from);
+            return SOL_NIL_VAL;
+        }
+        if (count < 0) {
+            sol_vm_runtime_error(vm, "'readFile' cannot read #%lld bytes",
+                                 (long long)count);
+            return SOL_NIL_VAL;
+        }
+        if (count > INT_MAX) {
+            sol_vm_runtime_error(vm,
+                "'readFile' cannot read #%lld bytes into a string, which holds %d",
+                (long long)count, INT_MAX);
+            return SOL_NIL_VAL;
+        }
+    }
 
     const char *path = SOL_AS_STRING(args[0])->chars;
 
@@ -4735,30 +4808,59 @@ static SolValue prim_system_read_file(SolVM *vm, SolValue self, SolValue *args, 
         return SOL_NIL_VAL;
     }
 
-    long size = 0;
-    if (fseek(file, 0L, SEEK_END) == 0) size = ftell(file);
-    rewind(file);
+    /* `fseeko` and `ftello` rather than `fseek` and `ftell`: a position in a
+       file is an `off_t`, and the whole point of the ranged form is files past
+       what a `long` is on every platform that has a small one. */
+    off_t size = 0;
+    if (fseeko(file, 0, SEEK_END) == 0) size = ftello(file);
 
-    if (size < 0 || size > INT_MAX) {
+    if (size < 0) {
         fclose(file);
-        sol_vm_runtime_error(vm, "'%s' is too large to read into a string", path);
+        sol_vm_runtime_error(vm, "cannot read '%s': %s", path, strerror(errno));
         return SOL_NIL_VAL;
     }
 
-    char *buffer = malloc((size_t)size + 1);
+    off_t start = ranged ? (off_t)(from - 1) : 0;
+    off_t want;
+
+    if (ranged) {
+        off_t available = start < size ? size - start : 0;
+        want = (off_t)count < available ? (off_t)count : available;
+    } else {
+        if (size > INT_MAX) {
+            fclose(file);
+            sol_vm_runtime_error(vm, "'%s' is too large to read into a string", path);
+            return SOL_NIL_VAL;
+        }
+        want = size;
+    }
+
+    if (want == 0) {
+        fclose(file);
+        return SOL_STRING_VAL(sol_string_new(vm, "", 0));
+    }
+
+    if (fseeko(file, start, SEEK_SET) != 0) {
+        fclose(file);
+        sol_vm_runtime_error(vm, "cannot read '%s': %s", path, strerror(errno));
+        return SOL_NIL_VAL;
+    }
+
+    char *buffer = malloc((size_t)want + 1);
     if (buffer == NULL) {
         fclose(file);
         sol_vm_runtime_error(vm, "out of memory reading '%s'", path);
         return SOL_NIL_VAL;
     }
 
-    /* A short read is a failure rather than a shorter string: `fopen` on a
-       directory succeeds on some systems, and reading one does not. */
-    size_t got = fread(buffer, 1, (size_t)size, file);
+    size_t got = fread(buffer, 1, (size_t)want, file);
     int failed = ferror(file);
     fclose(file);
 
-    if (failed || got != (size_t)size) {
+    /* A short read is a failure for the whole file and an answer for a range.
+       `fopen` on a directory succeeds on some systems and reading one does not,
+       which is what `failed` catches either way. */
+    if (failed || (!ranged && got != (size_t)want)) {
         free(buffer);
         sol_vm_runtime_error(vm, "cannot read '%s': %s", path,
                              failed ? strerror(errno) : "it is not a file");

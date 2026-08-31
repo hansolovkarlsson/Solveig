@@ -392,7 +392,7 @@ line prints.
 ```
 
 Over `examples/` alone that is 30<!--count examples-files--> files and
-570<!--count examples-claims--> claims:
+574<!--count examples-claims--> claims:
 
 ```text
 21 files with expectations, 402 claims checked
@@ -415,7 +415,7 @@ table had when [disasm](#disasm--a-sob-file-read-and-disassembled) found it
 three sections out of date. They are also the first thing a newcomer reads.
 
 **It is in `make test` now**, in `tests/test_cli.c` with the other tests that
-run the binaries as a shell would — **1034<!--count claims--> claims on every build**, in about
+run the binaries as a shell would — **1042<!--count claims--> claims on every build**, in about
 sixteen seconds, and it fails the build if one stops holding.
 
 **And it holds one document against a file rather than against a run.**
@@ -470,7 +470,7 @@ is demonstrating the wrong branch.**
 
 **And it checks the documentation too.** The guide and the reference carry the
 same notation inside ``` fences, and nothing checked those either — they are the
-two documents a newcomer actually reads. 462<!--count docs-claims--> claims
+two documents a newcomer actually reads. 466<!--count docs-claims--> claims
 across twenty-eight<!--count docs-documents--> documents,
 and two more on `README.md` and `index.md` — the front pages, which were the
 last two things nothing checked.
@@ -512,7 +512,7 @@ no notation saying what it counts — so it is given one, which renders as nothi
 and leaves the sentence as it was:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 1034<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 1042<!--count claims--> claims
 ```
 
 Each name is recounted from the repository as it stands. A name the table does
@@ -1663,7 +1663,7 @@ for no money at all: this oracle was already installed.
   over the same bytes: 2.5 MB peak by pipe whatever the size, against 5.3 MB for
   a 618 KB file and 32.3 MB for a 6.4 MB one. That is about 4.7 times the file
   rather than the twice
-  [3.22](ROADMAP.md#322-a-file-is-read-whole-or-not-at-all) states, because a
+  [3.22](COMPLETED.md#322-a-file-is-read-whole-or-not-at-all--done) states, because a
   program working line by line holds a string per line as well. The entry's
   trigger — *a file that does not fit* — still has not fired.
 - **`system:readLine` cannot say whether the last line had a newline**, which is

@@ -850,7 +850,7 @@ demonstrate := {
 ; ---------------------------------------------------------------------------
 ; A file cannot be read a line at a time, and this is what it costs
 ;
-; [3.22](../docs/ROADMAP.md#322-a-file-is-read-whole-or-not-at-all) says a file
+; [3.22](../docs/COMPLETED.md#322-a-file-is-read-whole-or-not-at-all--done) says a file
 ; is read whole or not at all, that the peak cost is twice the file, and that
 ; the trigger for changing it is *a program with a file that does not fit*.
 ;

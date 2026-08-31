@@ -4317,7 +4317,7 @@ something.
 stops being a cost and becomes a wall.** [sed](../programs/sed.sol) priced the
 whole-file route on 2026-08-30 — about 4.7 times the file for a line-oriented
 program, against a flat 2.5 MB for the same work through a pipe — and closed by
-saying [3.22](ROADMAP.md#322-a-file-is-read-whole-or-not-at-all)'s trigger had
+saying [3.22](COMPLETED.md#322-a-file-is-read-whole-or-not-at-all--done)'s trigger had
 still not fired, because nothing here has a file that does not fit.
 
 **That is no longer true, and it took four seconds to stop being true.** A

@@ -35,7 +35,7 @@ whole and split, so the two routes into the program are different code paths. A
 stream editor answering two ways about the same bytes would be wrong where a
 single-route check cannot look.
 
-**What it priced.** [3.22](ROADMAP.md#322-a-file-is-read-whole-or-not-at-all)
+**What it priced.** [3.22](COMPLETED.md#322-a-file-is-read-whole-or-not-at-all--done)
 says a file is read whole and that the peak is twice the file. Same script, same
 bytes, `-n '$p'`, peak resident:
 

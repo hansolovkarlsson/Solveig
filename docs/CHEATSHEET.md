@@ -393,6 +393,7 @@ The process, rather than any value. One object with slots, not a class.
 | `keyWaiting(seconds)` | whether a byte is there to read, waiting up to that long |
 | `load(path)` | **true** having run a compiled `.sob` here, **false** if already loaded |
 | `readFile(path)` | the whole file as a string |
+| `readFile(path, #from, #count)` | `count` bytes from the one-based position `from`; short at the end, `""` past it |
 | `writeFile(path, text)` `appendFile(path, text)` | nil, having written |
 | `fileExists(path)` `isDirectory(path)` | a boolean |
 | `fileSize(path)` | an integer, without reading the file |

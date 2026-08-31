@@ -1468,12 +1468,54 @@ system:readFile("notes.txt"):size:print.         ; #18
 there, creates the file if it is not, and answers nil — there is nothing useful
 to chain from a write.
 
-**A file is read whole, or not at all.** There is no handle, no line at a time
-and no seek, so the two costs of that are worth knowing before a program meets
-them rather than after.
+#### A range of a file
 
-**Two gigabytes is the hard limit**, a string's length being a signed 32-bit
-count, and it is refused rather than truncated:
+`readFile(path, from, count)` answers `count` bytes starting at `from`, which is
+a **one-based byte position** like every other index in this language:
+
+```
+system:writeFile("notes.txt", "apples 3\npears 12\n").
+system:readFile("notes.txt", #1, #6):print.      ; "apples"
+system:readFile("notes.txt", #10, #5):print.     ; "pears"
+```
+
+**It is a range and not a handle**, and that is the whole design: there is
+nothing to open, nothing to close, nothing to leak and no question about what a
+handle used after closing should do. A position is an argument, so two parts of
+a program can read two parts of a file without agreeing about anything.
+
+**A short range is the answer, not a failure.** Asking for more bytes than are
+left answers what was there, and asking from past the end answers `""` — because
+*the last four kilobytes* of a file that turns out to be one kilobyte is a
+reasonable question, and the string that comes back says its own size:
+
+```
+system:readFile("notes.txt", #10, #999):size:print.   ; #9
+system:readFile("notes.txt", #99, #10):print.         ; ""
+```
+
+That is the one place the two forms part. A whole-file read that comes up short
+is a **failure**, since its length came from the file a moment earlier and
+anything less means a fault. A range coming up short is the end of the file.
+
+**`#0` is not a position** and is refused, as it is on a string, and so is a
+negative count. Past the end is a position; before the start is not.
+
+**With [`fileSize`](#changing-what-is-there), this is how a program works on a file
+it could never hold:**
+
+```
+size := system:fileSize("huge.log").
+system:readFile("huge.log", size:sub(#4095), #4096).   ; the last 4 KB
+```
+
+A 3 GB file answers that in 7 ms with under 2 MB resident — reading it whole is
+refused, and does not have to be attempted.
+
+#### Reading it whole, and what that costs
+
+**Two gigabytes is the hard limit** for the whole-file form, a string's length
+being a signed 32-bit count, and it is refused rather than truncated:
 
 ```text
 system:readFile("huge.dat").
@@ -1481,13 +1523,21 @@ solvm: 'huge.dat' is too large to read into a string
 ```
 
 The size is checked before anything is allocated, so that answer is immediate
-whatever the file's size.
+whatever the file's size. **A range has no such limit on the file** — only on
+the `count`, which is one string's worth.
 
 **And the peak cost is twice the file**, because the bytes are read into a
 buffer and then copied into the string, which is what makes the string
 immutable. A 256 MB file peaks at 514 MB resident and takes 0.17 s here. A
 *copy* costs the same and not more — `writeFile` streams from the string it was
 handed — so `readFile` is the whole of the expense either way.
+
+**A program that works line by line pays more than twice**, because it splits
+what it read and then holds a string per line. Measured with
+[sed.sol](../programs/sed.sol), which does the same work by both routes: about
+4.7 times the file by name, against a flat 2.5 MB through a pipe. Whole-file is
+right when the program wants the whole file — the editor loads a file to edit
+it, `solas` loads a source to compile it — and a range is what the others want.
 
 `system:fileSize` answers without reading, which is how to ask before committing
 to either.
@@ -1627,7 +1677,8 @@ solvm: cannot remove 'build': Directory not empty
 ```
 
 `fileSize` answers what `readFile(path):size` would, without reading the file —
-which is the only way to ask about a large one. It is size and not the
+which is the only way to ask about a large one, and the half that
+[a range](#a-range-of-a-file) composes with. It is size and not the
 modification time, the other thing the system knows: a timestamp wants to be a
 **date** rather than a number of seconds, and there is no date type here yet.
 

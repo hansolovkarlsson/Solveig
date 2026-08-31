@@ -114,7 +114,7 @@ through the same code and has had the same defect for as long as it has existed.
 ### Two prices, measured rather than guessed
 
 **A file cannot be read a line at a time**
-([3.22](ROADMAP.md#322-a-file-is-read-whole-or-not-at-all)), and this is the
+([3.22](COMPLETED.md#322-a-file-is-read-whole-or-not-at-all--done)), and this is the
 first program here that can put a number on it, because it does identical work
 by both routes:
 
@@ -219,7 +219,7 @@ nowhere. Each is recorded with the occasion that taught it, because that is the
 only reason to trust any of them.
 
 [releasing.md](releasing.md) gained two steps from being followed once.
-[ROADMAP.md](ROADMAP.md) gained [3.22](ROADMAP.md#322-a-file-is-read-whole-or-not-at-all),
+[ROADMAP.md](ROADMAP.md) gained [3.22](COMPLETED.md#322-a-file-is-read-whole-or-not-at-all--done),
 a limitation that had been true and unstated for the life of the project, and
 [2.13](ROADMAP.md#213-text-is-bytes-and-case-is-ascii-only) now has a floor under
 it rather than an open question.

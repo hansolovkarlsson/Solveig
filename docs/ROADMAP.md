@@ -248,6 +248,17 @@ own.
 
 Safe, and documented. Each is a real restriction rather than a bug.
 
+**3.22 is gone from here**, and it is the one whose trigger fired rather than
+being argued away. It said a file is read whole or not at all, and named its own
+trigger as *a program with a file that does not fit* — which nothing here had,
+until somebody made one. A sparse file is 3 GB and 8 KB of disk, and on one of
+those `fileSize` answered and `readFile` refused: the language could measure a
+file and not read a byte of it. `readFile(path, from, count)` is a **range
+rather than a handle**, which is the shape the entry had already argued for and
+which held up.
+[COMPLETED.md](COMPLETED.md#322-a-file-is-read-whole-or-not-at-all--done) has
+the account, including the order it was nearly built in and why that was wrong.
+
 **3.20 and 3.21 are gone from here too.** 3.20 opened and closed on the same
 day — the only entry whose answer was partly *don't*: `shell` publishes four
 names, all four are the API, and a boundary listing them would have hidden
@@ -917,49 +928,6 @@ before being tried.
 wrap. All three are larger than the arithmetic above, and only a program
 assembling machine words from bytes wants any of them — which is one program,
 which has a workaround, and which now carries the comment explaining it.
-
-### 3.22 A file is read whole, or not at all
-
-`system:readFile` answers the whole file as one string and there is no other way
-to read one: no handle, no line at a time, no seek. `system:fileSize` answering
-without reading is the single concession.
-
-**Two gigabytes is the hard stop**, a string's length being a signed 32-bit
-count, and it is refused by name rather than truncated — checked before anything
-is allocated, so the answer is immediate on a file of any size. **Below that the
-peak cost is twice the file**, because the bytes are read into a buffer and then
-copied into the string, which is what makes the string immutable. A 256 MB file
-peaks at 514 MB resident in 0.17 s. A *copy* costs the same and not more:
-`writeFile` streams from the string it was handed.
-
-**This is right for everything here and the limit was still unstated**, which is
-the worse half. The editor loads a file to edit it, `solas` loads a source to
-compile it, `expect.sol` loads a document to check it — all three want the whole
-thing, and a handle would be ceremony around one call. But a program cannot read
-a file it cannot hold, and the reference argued about missing files and copying
-modes while mentioning no limit at all. It says so now, in the prose and in the
-limits table. **An absence a reader cannot see is worse than one they can.**
-
-Measured on 2026-08-30 after [mirror.sol](../programs/mirror.sol) had said for
-weeks that a whole-file copy is fine at this size and not at every size, and that
-it was worth knowing where the edge is rather than discovering it. Nobody had
-looked. The measurement then corrected that program's own note: the doubling is
-`readFile`'s buffer-then-copy, not the copy, so the rule is twice the largest
-*file* and not twice the largest pair.
-
-**If it is ever lifted, not with a handle.** A handle brings a lifetime — a value
-type or a foreign cell, a release discipline, a GC interaction, and an answer for
-one used after closing, all of which [extensions/net](../extensions/net/README.md)
-paid for because a socket has no alternative. A file does: a ranged
-`readFile(path, from, count)` has no lifetime, nothing to close and nothing to
-leak, composes with the `fileSize` that already answers without reading, and
-makes both costs above properties of reading all at once rather than of files.
-Its real price is that a record spanning two chunks becomes the caller's problem,
-which is writable in Solum and is the shape [scan.sol](../lib/scan.sol) already
-has.
-
-**The trigger is a program with a file that does not fit.** Nothing here has one:
-the largest input measured is a 50,000-line scan, held entire without complaint.
 
 ### 3.13 A loop is left by its condition, or by failing
 
