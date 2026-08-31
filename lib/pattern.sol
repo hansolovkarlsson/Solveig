@@ -351,6 +351,19 @@ pattern:endOfMatchAt := { text, at | self:matchFrom(text, at, #1) }.
 ; would replace forever -- so a zero-width match carries the character it stood
 ; on across and moves one further. `s/x*/-/g` over `abc` is `-a-b-c-`, which is
 ; what sed gives and is the only answer that terminates.
+;
+; **And an empty match where the last one ended is not a match at all**, which
+; is the neighbouring rule and was missing until 2026-08-31. Without it `o*`
+; over `aoc` answers `-a--c-`: the star matches the `o`, and then matches
+; nothing at the position the `o` ended on, which is the same place seen twice.
+; Every sed answers `-a-c-`.
+;
+; **The example above is the one case that cannot show the difference.** In
+; `abc` the star never matches a character, so no match has an end for a later
+; empty one to land on, and the rule that is present and the rule that was
+; missing agree on every position. It took a pattern that matches something --
+; [programs/sed.sol](../programs/sed.sol) held against the sed on the machine --
+; to tell them apart, which is the argument for an oracle in one line.
 
 pattern:replacementFor := { replacement, matched | | out, s, c |
     out := "".
@@ -372,27 +385,41 @@ pattern:replacementFor := { replacement, matched | | out, s, c |
 ; matches and then replace them, and over fifty thousand lines that second walk
 ; is seconds. `replaceIn` and `replaceAllIn` are this with the count dropped,
 ; for the caller that does not want it.
-pattern:substitutionIn := { text, replacement, all | | out, at, start, stop, done, count, answer |
+pattern:substitutionIn := { text, replacement, all | | out, at, start, stop, done, count, answer, ended |
     out := "".
     at := #1.
     done := false.
     count := #0.
+    ; Where the last match ended. `#0` is no position, so the first match is
+    ; never refused by the rule below.
+    ended := #0.
 
     { done:not }:whileTrue({
         start := self:findFrom(text, at).
         start:isNil:ifElse(
             { done := true },
-            { count := count:add(#1).
-              stop := self:endOfMatchAt(text, start).
-              out := out:concat(text:copyFrom(at, start:sub(#1)))
-                        :concat(self:replacementFor(
-                            replacement, text:copyFrom(start, stop:sub(#1)))).
-              stop:equals(start):ifTrue({
-                  start:lessOrEqual(text:size):ifTrue({
-                      out := out:concat(text:at(start)) }).
-                  stop := start:add(#1) }).
-              at := stop.
-              all:ifFalse({ done := true }) }) }).
+            { stop := self:endOfMatchAt(text, start).
+              stop:equals(start):and({ start:equals(ended) }):ifElse(
+
+                  ; Nothing, where something already ended. Carry the character
+                  ; and look again past it, without counting a match.
+                  { out := out:concat(text:copyFrom(at, start:sub(#1))).
+                    start:lessOrEqual(text:size):ifElse(
+                        { out := out:concat(text:at(start)) },
+                        { done := true }).
+                    at := start:add(#1) },
+
+                  { count := count:add(#1).
+                    out := out:concat(text:copyFrom(at, start:sub(#1)))
+                              :concat(self:replacementFor(
+                                  replacement, text:copyFrom(start, stop:sub(#1)))).
+                    ended := stop.
+                    stop:equals(start):ifTrue({
+                        start:lessOrEqual(text:size):ifTrue({
+                            out := out:concat(text:at(start)) }).
+                        stop := start:add(#1) }).
+                    at := stop.
+                    all:ifFalse({ done := true }) }) }) }).
 
     ; What is left, if the last match did not run to the end. One past the end
     ; is a position `copyFrom` will take; two past it is not, and a zero-width
@@ -415,17 +442,25 @@ pattern:replaceAllIn := { text, replacement |
 ; How many non-overlapping matches there are, which is what a substitution has
 ; to report and cannot get from comparing the text with itself -- replacing `a`
 ; with `a` changes nothing and is still a substitution.
-pattern:countIn := { text | | n, at, start, stop, done |
+pattern:countIn := { text | | n, at, start, stop, done, ended |
     n := #0.
     at := #1.
     done := false.
+    ended := #0.
     { done:not }:whileTrue({
         start := self:findFrom(text, at).
         start:isNil:ifElse(
             { done := true },
-            { n := n:add(#1).
-              stop := self:endOfMatchAt(text, start).
-              at := stop:equals(start):ifElse({ start:add(#1) }, { stop }) }) }).
+            { stop := self:endOfMatchAt(text, start).
+              ; The same rule as `substitutionIn`, written twice because this
+              ; walks the text without building anything and that is the whole
+              ; reason it exists. A change to one is a change to both.
+              stop:equals(start):and({ start:equals(ended) }):ifElse(
+                  { at := start:add(#1) },
+                  { n := n:add(#1).
+                    ended := stop.
+                    at := stop:equals(start):ifElse({ start:add(#1) },
+                                                    { stop }) }) }) }).
     n }.
 
 ; The export boundary: the ten messages the reference documents, and nothing

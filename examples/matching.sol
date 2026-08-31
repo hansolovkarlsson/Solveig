@@ -88,6 +88,18 @@ pattern:on("an"):replaceIn("banana", "\\&"):display.     ; b&ana
 ; would replace for ever. This is what sed answers too.
 pattern:on("x*"):replaceAllIn("abc", "-"):display.       ; -a-b-c-
 
+; And the rule beside it: an empty match *where the last one ended* is the same
+; position seen twice, and is not a match. Without this `o*` over "aoc" answers
+; "-a--c-" -- one dash for the `o`, and another for the nothing after it.
+;
+; The line above cannot show the difference, which is why these are here: in
+; "abc" the star never matches a character, so no match has an end for a later
+; empty one to land on. It takes a pattern that matches something.
+pattern:on("o*"):replaceAllIn("aoc", "-"):display.       ; -a-c-
+pattern:on("o*"):replaceAllIn("oo", "-"):display.        ; -
+pattern:on("b*"):replaceAllIn("abc", "-"):display.       ; -a-c-
+pattern:on("o*"):countIn("aoc"):print.                   ; #3
+
 ; And how many there are, which is what a substitution reports. Counted rather
 ; than compared: replacing `a` with `a` changes nothing and is still a
 ; substitution.
