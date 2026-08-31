@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### `startsWith` and `endsWith`, and a checker that caught itself — `HASH`, 2026-08-30
+### `startsWith` and `endsWith`, and a checker that caught itself — `a99f802`, 2026-08-30
 
 **Two methods on `string`, in [text.sol](../lib/text.sol), in Solum.** Deferred
 on 2026-08-29 with one customer and the reasoning that `indexOf(x):equals(#1)`
