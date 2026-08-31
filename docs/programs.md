@@ -47,7 +47,7 @@ is the map; the file is the argument.
 | [check_syntax](../programs/check_syntax.sol) | reads a grammar, then checks a file against it | `solvm check_syntax.sob [grammar.bnf] [source]` |
 | [pascal](../programs/pascal.sol) | compiles ISO 7185 Pascal to a `.sob` | `solvm pascal.sob [prog.pas] [out.sob]` |
 | [sed](../programs/sed.sol) | runs a sed script over the lines of its input | `solvm sed.sob [-n] script [file...]` |
-| [tail](../programs/tail.sol) | the end of a file, without reading the rest of it | `solvm tail.sob [-n N] [file...]` |
+| [tail](../programs/tail.sol) | the end of a file, without reading the rest of it; `-f` follows | `solvm tail.sob [-n N] [-f] [file...]` |
 
 Every one runs with no arguments at all, on input it supplies itself. That is
 deliberate — a program you have to feed before it will say anything is a program
@@ -393,7 +393,7 @@ line prints.
 ```
 
 Over `examples/` alone that is 30<!--count examples-files--> files and
-574<!--count examples-claims--> claims:
+576<!--count examples-claims--> claims:
 
 ```text
 21 files with expectations, 402 claims checked
@@ -416,7 +416,7 @@ table had when [disasm](#disasm--a-sob-file-read-and-disassembled) found it
 three sections out of date. They are also the first thing a newcomer reads.
 
 **It is in `make test` now**, in `tests/test_cli.c` with the other tests that
-run the binaries as a shell would — **1042<!--count claims--> claims on every build**, in about
+run the binaries as a shell would — **1044<!--count claims--> claims on every build**, in about
 sixteen seconds, and it fails the build if one stops holding.
 
 **And it holds one document against a file rather than against a run.**
@@ -513,7 +513,7 @@ no notation saying what it counts — so it is given one, which renders as nothi
 and leaves the sentence as it was:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 1042<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 1044<!--count claims--> claims
 ```
 
 Each name is recounted from the repository as it stands. A name the table does
@@ -1731,13 +1731,34 @@ one byte-identical.
   to asking whether standard input is a terminal — it works *because* of the
   answering-true-at-end-of-input property that is a nuisance everywhere else.
 
-**`-f` is not here**, and is the one part with a finding still waiting: there is
-no `system:sleep`, and the only thing that waits is `keyWaiting`, which waits on
-standard input and answers true at the end of it — so a follow loop spins at a
-hundred percent exactly when `tail -f` is normally run.
-[ideas.md](ideas.md#tail-and-the-file-this-language-cannot-read--scoped-2026-08-31)
-has the prediction. It is left out rather than half-built because an oracle
-cannot check a program that does not stop.
+**`-f` is here, and it is where the prediction was half wrong.** `keyWaiting`
+could not stand in for a wait, exactly as predicted — twenty asks of
+`keyWaiting(0.5)` take 10.02 s against an idle terminal and **56 microseconds**
+against a finished pipe, so a follow loop built on it spins in every script and
+pipeline. But the prediction that the *price* of forking `/bin/sleep` would be
+the finding was wrong: a fork measured 2.23 ms, which at a one-second poll is
+0.22%, and nothing like the `stty`-per-keystroke case it was reasoned from. So
+[`system:sleep`](REFERENCE.md#spending-time-rather-than-measuring-it) had to be
+argued for on something else, and was: waiting is one call to the kernel, and a
+program should not start a process to do it.
+
+Everything else `-f` needed was already there — `fileSize` notices growth
+without reading, and the ranged read collects exactly the new bytes. Following
+an idle file for five seconds costs 0.00 s of CPU, which is what
+`/usr/bin/tail` costs.
+
+**And it is checked**, which the scoping said it could not be.
+[tail/follow.sh](../programs/tail/follow.sh) is the answer to *an oracle cannot
+check a program that does not stop*: give it a deadline. Six scenarios — start
+both tails, feed the files on a schedule, stop them, compare. It earned itself
+on the fourth: BSD `tail` puts a blank line before the **first** heading when
+following and not when it is not, which nothing but a check that runs the real
+thing would have found.
+
+**`-F`, following across a rotation, still cannot be written.** It has to notice
+that the file at a path is a *different* file, and nothing in this language
+answers a file identity — `fileSize` and `modifiedAt` are all that can be asked
+of a path, and both can coincide across a rotation.
 
 ## Adding one
 

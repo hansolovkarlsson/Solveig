@@ -4,7 +4,7 @@
 
 A small object-oriented language and its toolkit — bytecode compiler (Solas),
 virtual machine (SolVM), REPL (Solis) and debugger (Solid). Prototype-based,
-everything is a message send, 141<!--count messages--> messages, no control-flow
+everything is a message send, 142<!--count messages--> messages, no control-flow
 syntax and no operators outside `@expr(a^2 + b/2)`, which is notation for the
 same sends. 19k lines of C11, no dependencies.
 
@@ -179,7 +179,7 @@ version the binaries inside it report.
 code is held to. `#["key" = value]` is new syntax and real desugaring: it
 compiles to a global load of `dictionary` and a send of `of`, held byte-for-byte
 against the written-out form by a test, the way `[...]` is held against
-`array:of`. **141<!--count messages--> messages, unchanged** — `dictionary:of`
+`array:of`. **141 messages, unchanged** — `dictionary:of`
 was added and `of` was already a name — and `.sob` files are format version 14.
 `string:startsWith` and `string:endsWith` arrived once three programs had
 written them, two of them independently. The editor stopped corrupting files
@@ -188,7 +188,7 @@ And five claims standing in the documentation were tested, of which four were
 wrong — none found by a program failing.
 
 **0.39.0** — measured against another implementation for the first time, and
-three things that found. **141<!--count messages--> messages, unchanged**, and
+three things that found. **141 messages, unchanged**, and
 `.sob` files are format version 14. Nine matched programs against CPython 3.14
 put Solveig level at first — geometric mean 1.09 — and every defect the
 comparison turned up had been invisible from the inside: a heap object allocated
@@ -209,7 +209,7 @@ that used the documented surface is unaffected, checked by loading 0.38.0's
 point.
 
 **0.38.0** — two things that add no messages: a notation and a bundle.
-**141<!--count messages--> messages, unchanged**, and `.sob` files are format
+**141 messages, unchanged**, and `.sob` files are format
 version 14. `@expr{...}` is the infix region over a *block* rather than a group,
 emitting exactly what `{ @expr(...) }` emits, jumps included — so a program
 using it compiles here and its bytecode runs on 0.37.0 unchanged, which is the

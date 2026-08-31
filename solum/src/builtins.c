@@ -4363,6 +4363,71 @@ static SolValue prim_system_key_waiting(SolVM *vm, SolValue self, SolValue *args
     return SOL_BOOL_VAL(sol_stdin_waiting((int)(milliseconds + 0.5)));
 }
 
+/* `system:sleep(seconds)` -- spend time, rather than measure it.
+ *
+ * The twenty-ninth message on `system` and the one obvious hole among the other
+ * twenty-eight: `clock` and `time` can say how much time has passed and nothing
+ * could pass any.
+ *
+ * **programs/tail.sol asked for it**, following a growing file. Everything else
+ * `-f` needs was already here -- `fileSize` to notice the growth and a ranged
+ * `readFile` to collect exactly the new bytes -- and the waiting was the whole
+ * of what was missing.
+ *
+ * **`keyWaiting(seconds)` is not this**, and the difference was measured before
+ * this was written. It waits on *standard input*, and it is documented as
+ * answering true at the end of input -- so twenty asks of `keyWaiting(0.5)` take
+ * 10.02 s against an idle terminal and 56 microseconds against a closed pipe.
+ * A program that waits by asking about a stream it does not care about burns a
+ * core in every script, pipeline and service manager.
+ *
+ * **The case for it is not speed.** Forking `/bin/sleep` was measured at 2.23 ms,
+ * which at a one-second poll is 0.22% and would have been perfectly livable --
+ * the guess that this would go the way of `stty` at 7 ms a keystroke was wrong,
+ * and is recorded in ideas.md as wrong. The case is that waiting is one call to
+ * the kernel, and a program should not have to start a process to do it or
+ * depend on where a system keeps its `sleep`.
+ *
+ * Seconds as a float, like every other duration here. A negative wait and `nan`
+ * are refused for the reason `keyWaiting` refuses them: there is no length of
+ * time either could mean. `0.0` returns at once.
+ *
+ * Interrupted by a signal it sleeps out the remainder rather than returning
+ * early, because a caller that asked for a second wants a second and has no way
+ * to find out it was cut short.
+ */
+static SolValue prim_system_sleep(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "sleep", argc, 1)) return SOL_NIL_VAL;
+    if (!SOL_IS_FLOAT(args[0])) {
+        sol_vm_runtime_error(vm, "'sleep' expects a float, got %s",
+                             sol_type_name(args[0]));
+        return SOL_NIL_VAL;
+    }
+
+    double seconds = SOL_AS_FLOAT(args[0]);
+    if (seconds != seconds || seconds < 0.0) {
+        sol_vm_runtime_error(vm, "'sleep' cannot wait for %s seconds",
+                             seconds != seconds ? "nan" : "a negative number of");
+        return SOL_NIL_VAL;
+    }
+
+    /* A century, which is past any wait a program means and inside what a
+       time_t holds on every platform this builds on. */
+    if (seconds > 3.15e9) seconds = 3.15e9;
+
+    struct timespec wanted;
+    wanted.tv_sec  = (time_t)seconds;
+    wanted.tv_nsec = (long)((seconds - (double)wanted.tv_sec) * 1e9);
+    if (wanted.tv_nsec > 999999999L) wanted.tv_nsec = 999999999L;
+
+    struct timespec left;
+    while (nanosleep(&wanted, &left) != 0 && errno == EINTR) wanted = left;
+
+    return SOL_NIL_VAL;
+}
+
 /* `system:terminalSize` -- how many rows and columns the screen has, or nil
  * when there is not one.
  *
@@ -6213,6 +6278,7 @@ void sol_builtins_install(SolVM *vm)
     any_receiver(vm, system, "writeError", prim_system_write_error);
     any_receiver(vm, system, "readLine", prim_system_read_line);
     any_receiver(vm, system, "readKey", prim_system_read_key);
+    any_receiver(vm, system, "sleep", prim_system_sleep);
     any_receiver(vm, system, "terminalSize", prim_system_terminal_size);
     any_receiver(vm, system, "keyWaiting", prim_system_key_waiting);
     any_receiver(vm, system, "load", prim_system_load);

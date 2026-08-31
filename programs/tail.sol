@@ -6,6 +6,7 @@
 ;     solvm tail.sob -n 50 big.log            the last fifty
 ;     solvm tail.sob -n +200 big.log          from line 200 to the end
 ;     solvm tail.sob -c 4096 big.log          the last four kilobytes
+;     solvm tail.sob -f big.log               and keep watching it
 ;     ... | solvm tail.sob -n 3               from a pipe, which cannot seek
 ;
 ; With no arguments it demonstrates itself on a file it writes, which is the
@@ -41,11 +42,14 @@
 ;   -c N     the last N bytes
 ;   -c +N    from byte N to the end
 ;   -q -v    never or always print the `==> name <==` heading
+;   -f       keep watching the files and write what is appended to them
+;   -s N     how long to wait between looks; one second by default
 ;
 ; Several files are taken, and standard input when none is named. Left out:
-; `-f`, `-F` and `-r`. The first of those has a finding of its own and no way to
-; be checked by an oracle that expects a program to stop, and it is named at the
-; bottom rather than half-built here.
+; `-F`, which follows a file across a rotation and **cannot be written here** --
+; noticing that the file at a path is a different file needs an inode, and
+; nothing in this language answers one. And `-r`, which is BSD's rather than the
+; tool's.
 
 ; ---------------------------------------------------------------------------
 ; Reading backwards
@@ -228,6 +232,8 @@ options:unit := 'lines.             ; 'lines or 'bytes
 options:fromStart := false.         ; the `+N` form
 options:quiet := false.
 options:verbose := false.
+options:follow := false.            ; -f
+options:every := 1.0.               ; -s, the poll interval in seconds
 options:files := nil.
 
 options:number := { text | | body |
@@ -258,6 +264,20 @@ options:read := { args | | i, a, j, c, done, value |
                       c := a:at(j).
                       c:equals("q"):ifTrue({ self:quiet := true. j := j:add(#1) }).
                       c:equals("v"):ifTrue({ self:verbose := true. j := j:add(#1) }).
+                      c:equals("f"):ifTrue({ self:follow := true. j := j:add(#1) }).
+                      c:equals("s"):ifTrue({
+                          j:lessThan(a:size):ifElse(
+                              { value := a:copyFrom(j:add(#1), a:size) },
+                              { i := i:add(#1).
+                                i:greaterThan(args:size):ifTrue({
+                                    error:raise("-s wants a number of seconds") }).
+                                value := args:at(i) }).
+                          self:every := { value:asFloat }:onError({ e |
+                              error:raise("`{}` is not a number of seconds"
+                                              :fill([value])) }).
+                          self:every:lessThan(0.0):ifTrue({
+                              error:raise("-s cannot wait for a negative time") }).
+                          done := true }).
                       c:equals("n"):or({ c:equals("c") }):ifTrue({
                           j:lessThan(a:size):ifElse(
                               { value := a:copyFrom(j:add(#1), a:size) },
@@ -269,13 +289,15 @@ options:read := { args | | i, a, j, c, done, value |
                           self:unit := c:equals("n"):ifElse({ 'lines }, { 'bytes }).
                           self:count := self:number(value).
                           done := true }).
-                      ["q", "v", "n", "c"]:indexOf(c):isNil:ifTrue({
+                      ["q", "v", "f", "s", "n", "c"]:indexOf(c):isNil:ifTrue({
                           error:raise("unknown option `-{}`":fill([c])) }) }).
                   i := i:add(#1) },
 
                 { self:files:add(a). i := i:add(#1) }) }) }).
 
     self:count:lessThan(#0):ifTrue({ error:raise("a count cannot be negative") }).
+    self:follow:and({ self:files:size:equals(#0) }):ifTrue({
+        error:raise("-f wants a file; a pipe ends when the writer is done") }).
     self:fromStart:and({ self:count:equals(#0) }):ifTrue({ self:count := #1 }).
     self:files:do({ f |
         system:fileExists(f):ifFalse({
@@ -302,6 +324,60 @@ tail:ofStdin := {
             { system:write(self:stdinLines(options:count)) },
             { system:write(self:stdinBytes(options:count)) }) }) }.
 
+; ---------------------------------------------------------------------------
+; Following
+;
+; **Everything this needed except one thing was already here.** `fileSize` says
+; whether the file has grown without reading it, and a ranged `readFile` collects
+; exactly the bytes that are new -- which is what makes a poll cheap rather than
+; a re-read of the whole file each time round.
+;
+; The one missing thing was **waiting**, and `system:sleep` is the message that
+; was added for this. The note in `builtins.c` says why it is not `keyWaiting`:
+; that waits on standard input, which a program following a file does not care
+; about, and it answers immediately at the end of it -- so a follow loop built on
+; it burns a core in every script and pipeline. Measured at 56 microseconds for
+; twenty asks against a closed pipe, against 10.02 seconds against a terminal.
+;
+; **A file that shrank was replaced or emptied**, and the answer is to start
+; again from its beginning rather than to carry a position into a file that no
+; longer has one. That is what `tail` prints *file truncated* for.
+;
+; **This does not follow a rotation** -- `tail -F` -- and cannot: noticing that
+; the file at a path is a *different* file needs an inode, and nothing in this
+; language answers one. `fileSize` and `modifiedAt` are the whole of what can be
+; asked, and both can coincide across a rotation.
+
+tail:follow := { paths | | sizes, i, now, which |
+    ; Where each file had got to when it was last looked at.
+    sizes := array:new.
+    paths:do({ path | sizes:add(system:fileSize(path)) }).
+
+    ; Which file's heading was printed last, so that a heading is written when
+    ; the writing moves to another file and not on every poll.
+    which := paths:size.
+
+    { true }:whileTrue({
+        system:sleep(options:every).
+        i := #1.
+        paths:do({ path |
+            now := system:fileSize(path).
+
+            now:lessThan(sizes:at(i)):ifTrue({
+                system:writeError("tail: {}: file truncated\n":fill([path])).
+                sizes:atPut(i, #0) }).
+
+            now:greaterThan(sizes:at(i)):ifTrue({
+                (paths:size:greaterThan(#1):and({ which:notEquals(i) })
+                    :and({ options:quiet:not })):ifTrue({
+                    "":display.
+                    "==> {} <==":fill([path]):display }).
+                which := i.
+                self:writeFrom(path, sizes:at(i):add(#1)).
+                sizes:atPut(i, now) }).
+
+            i := i:add(#1) }) }) }.
+
 ; A heading when there is more than one file, which is what every tail does and
 ; is the only thing here that depends on how many files there are.
 tail:run := {
@@ -314,10 +390,17 @@ tail:run := {
           options:files:do({ path |
               (options:verbose:or({ options:files:size:greaterThan(#1) })
                   :and({ options:quiet:not })):ifTrue({
-                  first:ifFalse({ "":display }).
+                  ; A blank line between headings, and **also before the first
+                  ; one when following**, which is what the tail on the machine
+                  ; does and is not arbitrary: with `-f` the headings go on
+                  ; arriving, so the first is one of a series rather than the
+                  ; top of a page. Found by the check in tail/follow.sh, which
+                  ; is the only thing that could have found it.
+                  (first:not:or({ options:follow })):ifTrue({ "":display }).
                   "==> {} <==":fill([path]):display }).
               first := false.
-              self:ofFile(path) }) }) }.
+              self:ofFile(path) }).
+          options:follow:ifTrue({ self:follow(options:files) }) }) }.
 
 ; ---------------------------------------------------------------------------
 ; What it does with no arguments
@@ -498,16 +581,84 @@ demonstrate := { | path, size |
 ; different things that the entry currently treats as one.
 ;
 ; ---------------------------------------------------------------------------
-; What is not here, and what it would find
+; `-f`, and a prediction that was half wrong
 ;
-; **`-f`.** It is the one part of `tail` with a finding of its own waiting, and
-; it is named in [ideas.md](../docs/ideas.md#tail-and-the-file-this-language-cannot-read--scoped-2026-08-31):
-; there is no `system:sleep`, and the only thing in this language that waits is
-; `keyWaiting`, which waits on standard input and answers true at the end of it
-; -- so a follow loop built on it spins at a hundred percent exactly when
-; `tail -f` is normally run. The predicted resolution is `shell:run("sleep 1")`,
-; a fork per poll, and the finding being the *price* rather than the absence.
+; **The prediction**, written in [ideas.md](../docs/ideas.md#tail-and-the-file-this-language-cannot-read--scoped-2026-08-31)
+; before any of this: there is no `system:sleep`, `keyWaiting` cannot stand in
+; for one, `-f` gets written with `shell:run("sleep 1")`, and **the finding is
+; the price** -- a fork per poll, the way the terminal's size turned out to be
+; reachable through `stty` at 7 ms an ask and the price was what made
+; [6.34](../docs/COMPLETED.md#634-a-program-cannot-ask-how-big-the-terminal-is--done)
+; an entry.
 ;
-; It is left out rather than half-built because an oracle cannot check a program
-; that does not stop, and a part of this file that nothing checks would be the
-; only such part.
+; **The first half held and the second did not.**
+;
+; `keyWaiting` cannot do it, and the numbers say why. Twenty asks of
+; `keyWaiting(0.5)`:
+;
+; | standard input is | twenty asks take |
+; | --- | --- |
+; | an idle terminal | 10.02 s -- it genuinely waits |
+; | a pipe at its end | 56 microseconds -- it spins |
+; | a pipe with something in it | 32 microseconds -- it spins |
+;
+; So a follow loop built on it works at a prompt, wakes on every keystroke, and
+; burns a core in every script, pipeline and service manager. That was predicted
+; and is confirmed.
+;
+; **The price was not the finding.** A fork of `/bin/sleep` measured **2.23 ms**,
+; which at a one-second poll is 0.22% -- perfectly livable, and nothing like
+; `stty` at 7 ms *per keystroke*. The analogy that produced the prediction was
+; between a fork per second and a fork per keypress, and those are not the same
+; thing at all.
+;
+; **So the case for `system:sleep` had to be made on something else**, and it
+; was: waiting is one call to the kernel, and a program should not have to start
+; a process to do it or depend on where a system keeps its `sleep`. There were
+; twenty-eight messages on `system` and this was the only obvious hole among
+; them -- `clock` and `time` could say how much time had passed and nothing
+; could spend any.
+;
+; That is a weaker argument than the one predicted and it is the true one, which
+; is worth more than being right for the reason expected.
+;
+; ---------------------------------------------------------------------------
+; What `-f` cost once there was something to wait on
+;
+; **Nothing else was missing.** `fileSize` says whether a file has grown without
+; reading it, and the ranged `readFile` collects exactly the bytes that are new
+; -- so a poll is two syscalls and a short read rather than a re-read of the
+; whole file. Following an idle file for five seconds:
+;
+; | | cpu used |
+; | --- | --- |
+; | this, one-second poll | 0.00 s, 0.0% |
+; | this, twenty polls a second | 0.01 s, 0.1% |
+; | `/usr/bin/tail -f` | 0.00 s, 0.0% |
+;
+; **And it is checked**, which the scoping said it could not be.
+; [follow.sh](follow.sh) is the answer to *an oracle cannot check a program that
+; does not stop*: give it a deadline. Start both tails, feed the files on a
+; schedule, stop them, compare what each managed to write. Six scenarios --
+; appending, truncating, an empty file, two files with the headings moving
+; between them, nothing happening at all, and `-v`.
+;
+; **It earned itself on the fourth.** BSD `tail` puts a blank line before the
+; *first* heading when it is following and does not when it is not, which is
+; not arbitrary -- with `-f` the headings go on arriving, so the first is one of
+; a series rather than the top of a page. Nothing but a check that runs the real
+; thing would have found that, and the corpus harness could not have run it.
+;
+; ---------------------------------------------------------------------------
+; What still cannot be written
+;
+; **`-F`, following a file across a rotation.** It has to notice that the file at
+; a path is a *different* file, which needs an inode or any other identity, and
+; nothing in this language answers one: `fileSize` and `modifiedAt` are the whole
+; of what can be asked about a path, and both can coincide across a rotation.
+;
+; That is a real gap rather than a decision, and it is left as a gap: `-F` is
+; BSD's and GNU's rather than the tool's, one program wants it, and a file
+; identity is a new kind of value rather than a new message. The trigger would be
+; a second program wanting to know whether two paths are the same file -- a
+; backup that must not copy a file onto itself, or a watcher of any kind.

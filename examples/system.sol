@@ -34,6 +34,26 @@ elapsed := system:clock:sub(start).
 "counted to {} in {} seconds":fill([i, elapsed:asString("0.4")]):display.
 
 ; ---------------------------------------------------------------------------
+; Spending time rather than measuring it
+;
+; `sleep` waits, and answers nil. Seconds are a float, like every duration here;
+; a negative wait and `nan` are refused, because there is no length of time
+; either could mean, and `0.0` returns at once.
+;
+; **It is not `keyWaiting`**, which is the other message here that takes a number
+; of seconds. That one waits on *standard input* and answers true at the end of
+; it, so a program that paced itself with it would stop waiting the moment its
+; input was a closed pipe -- which is how most programs are run.
+; [programs/tail.sol](../programs/tail.sol) wanted this for `-f`, and it is the
+; only thing `-f` needed that was not already here.
+
+system:sleep(0.05).
+{ system:sleep(0.05) }:timeToRun:greaterOrEqual(0.05):print.     ; true
+system:sleep(0.0):print.                                         ; nil
+{ system:sleep(-1.0) }:onError({ e | e:message:display }).
+    ; 'sleep' cannot wait for a negative number of seconds
+
+; ---------------------------------------------------------------------------
 ; Timing a block
 ;
 ; `timeToRun` does the same thing without the bookkeeping: it answers the

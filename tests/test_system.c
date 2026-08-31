@@ -447,6 +447,57 @@ static void test_a_large_file_round_trips(void)
 }
 
 /* ---------------------------------------------------------------------------
+   Spending time
+ */
+
+/* The lower bound is the contract -- `nanosleep` promises *at least* -- so that
+   is what is asserted. The upper bound is loose on purpose: a test that fails
+   because the machine was busy is a test that teaches the next person to ignore
+   it. */
+static void test_sleep_spends_the_time(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "took := { system:sleep(0.05) }:timeToRun."
+        "answer := system:sleep(0.0).") == SOL_OK);
+
+    double took = SOL_AS_FLOAT(global(&vm, "took"));
+    assert(took >= 0.05);
+    assert(took < 5.0);
+    assert(SOL_IS_NIL(global(&vm, "answer")));
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    printf("  sleep spends at least the time it was given, and answers nil\n");
+}
+
+/* The same refusals `keyWaiting` makes, and for the same reason: there is no
+   length of time a negative number or nan could mean. */
+static void test_sleep_refuses_what_is_not_a_wait(void)
+{
+    static const char *refused[] = {
+        "system:sleep(-1.0).",
+        "system:sleep(nan).",
+        "system:sleep(#1).",            /* seconds are a float here, always */
+        "system:sleep(\"a while\").",
+        "system:sleep.",
+        "system:sleep(0.1, 0.1).",
+    };
+
+    for (size_t i = 0; i < sizeof(refused) / sizeof(refused[0]); i++) {
+        SolVM vm; sol_vm_init(&vm);
+        SolChunk chunk;
+        assert(run(&vm, &chunk, refused[i]) == SOL_RUNTIME_ERROR);
+        sol_chunk_free(&chunk);
+        sol_vm_free(&vm);
+    }
+
+    printf("  sleep refuses a negative wait, nan, an integer and the wrong arity\n");
+}
+
+/* ---------------------------------------------------------------------------
    A range of a file
  */
 
@@ -1949,6 +2000,8 @@ int main(void)
     test_changing_what_is_there_refuses();
     test_the_look_before_you_leap_idiom();
     test_a_large_file_round_trips();
+    test_sleep_spends_the_time();
+    test_sleep_refuses_what_is_not_a_wait();
     test_a_range_reads_part_of_a_file();
     test_a_range_past_the_end_is_short_rather_than_refused();
     test_a_range_refuses_what_is_not_a_position();

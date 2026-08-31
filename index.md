@@ -135,7 +135,7 @@ a different language.
 
 ## Status
 
-**0.40.0** — the language answers 141<!--count messages--> messages and `.sob`
+**0.40.0** — the language answers 141 messages and `.sob`
 files are format version 14. `#["key" = value]` is a dictionary literal, new in
 this release and desugaring to `dictionary:of` the way `[...]` desugars to
 `array:of`.

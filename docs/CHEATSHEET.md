@@ -391,6 +391,7 @@ The process, rather than any value. One object with slots, not a class.
 | `readLine` `readKey` | one line, or one byte, of standard input; nil at the end |
 | `terminalSize` | a dictionary of `"rows"` and `"columns"`, or **nil** off a terminal |
 | `keyWaiting(seconds)` | whether a byte is there to read, waiting up to that long |
+| `sleep(seconds)` | waits that long and answers nil; a float, like every duration here |
 | `load(path)` | **true** having run a compiled `.sob` here, **false** if already loaded |
 | `readFile(path)` | the whole file as a string |
 | `readFile(path, #from, #count)` | `count` bytes from the one-based position `from`; short at the end, `""` past it |

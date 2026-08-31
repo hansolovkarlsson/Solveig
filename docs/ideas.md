@@ -4416,6 +4416,39 @@ number was always reachable through `stty` at 7 ms an ask, and
 [6.34](COMPLETED.md#634-a-program-cannot-ask-how-big-the-terminal-is--done) was
 raised on the price rather than on the absence.
 
+##### Both halves were tested on 2026-08-31, and the second was wrong
+
+**Kept above the outcome rather than rewritten**, which is what this section
+does with predictions.
+
+**The first half held.** `keyWaiting` cannot stand in for a wait, and the numbers
+say why — twenty asks of `keyWaiting(0.5)`:
+
+| standard input is | twenty asks take |
+| --- | --- |
+| an idle terminal | 10.02 s — it genuinely waits |
+| a pipe at its end | 56 microseconds — it spins |
+| a pipe with something in it | 32 microseconds — it spins |
+
+**The second half was wrong, and it was wrong in its analogy.** The prediction
+was that `shell:run("sleep 1")` would work and *the price would be the finding*,
+the way the terminal's size was reachable through `stty` at 7 ms an ask and the
+price was what made [6.34](COMPLETED.md#634-a-program-cannot-ask-how-big-the-terminal-is--done)
+an entry. A fork of `/bin/sleep` measured **2.23 ms**, which at a one-second poll
+is **0.22%** — perfectly livable. The `stty` case was a fork *per keystroke* and
+this is a fork *per second*, and the entry reasoned from one to the other without
+noticing they differ by four orders of magnitude in how often they happen.
+
+**So the case for `system:sleep` had to be made on something else**, and it was:
+waiting is one call to the kernel, a program should not start a process to do it
+or depend on where a system keeps its `sleep`, and of the twenty-eight messages
+on `system` this was the only obvious hole — `clock` and `time` could say how
+much time had passed and nothing could spend any. It was built, and `-f` with it.
+
+**That is a weaker argument than the one predicted, and it is the true one.**
+Worth more than being right for the reason expected, and the reason this
+paragraph exists rather than a quiet correction.
+
 **Predicted finding, third and weakest: following a growing file is quadratic.**
 Each poll re-reads the whole file, so a minute of following a log that gains a
 line a second reads it sixty times. This is a second and independent argument
@@ -4461,9 +4494,13 @@ by pipe.
    What is left for you is not really the order any more but the **appetite**:
    this makes the next piece of work a change to the machine rather than a
    program, which is a different kind of afternoon and wants saying out loud.
-2. **`-f`, or not.** It presses hardest on the missing wait, and it is the one
+2. **`-f`, or not.** ~~It presses hardest on the missing wait, and it is the one
    part an oracle cannot check the ordinary way: it does not terminate, so it
-   needs a timeout harness that the other twenty cases do not.
+   needs a timeout harness that the other twenty cases do not.~~ **Built on
+   2026-08-31**, and the timeout harness turned out to be fifteen lines of shell
+   in [tail/follow.sh](../programs/tail/follow.sh) rather than a reason to leave
+   it out — *give it a deadline* is the whole idea. It found a real difference
+   on its fourth scenario, which is more than the case for skipping it expected.
 3. **If the ranged read follows**, four things 3.22 does not settle:
    - **`from` one-based**, like every other index in the language? Recommended
      yes; anything else makes it the only zero-based index here.

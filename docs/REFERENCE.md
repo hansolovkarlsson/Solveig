@@ -1381,6 +1381,31 @@ the length of the question, and puts it back.
 **It knows nothing about `readLine`'s buffer**, which is the limitation
 `readKey` has and for the same reason — see below.
 
+#### Spending time rather than measuring it
+
+`system:sleep(seconds)` waits, and answers nil.
+
+```
+system:sleep(0.25).
+```
+
+Seconds are a **float**, like every other duration here; a negative wait and
+`nan` are refused, because there is no length of time either could mean, and
+`0.0` returns at once. Interrupted by a signal it sleeps out the remainder,
+since a caller that asked for a second wants a second and has no way to learn it
+was cut short.
+
+**It is not `keyWaiting`**, and the difference is the stream. `keyWaiting` waits
+on *standard input* and answers **true at the end of it** — so a program that
+used it to pace itself would spin the moment standard input was a closed pipe,
+which is how most programs are run. Twenty asks of `keyWaiting(0.5)` take 10.02 s
+against an idle terminal and 56 microseconds against a finished one; twenty
+`sleep(0.5)`s take ten seconds wherever they are run.
+
+[tail.sol](../programs/tail.sol) asked for it, following a growing file:
+`fileSize` notices the growth and a [ranged read](#a-range-of-a-file) collects
+what is new, and waiting was the whole of what was missing.
+
 #### One window over standard input
 
 `readLine`, `readKey` and `keyWaiting` **all take from one window**, so a program
@@ -3794,6 +3819,7 @@ it delegates to `object` like everything else. See
 | `readKey` | one byte as a one-character string, or nil at the end; no wait for return |
 | `terminalSize` | a dictionary of `"rows"` and `"columns"`, or **nil** when the output is not a terminal |
 | `keyWaiting(seconds)` | whether a byte is there to read, waiting up to that long for one |
+| `sleep(seconds)` | nil, having waited that long; a float, and a negative one or `nan` is refused |
 | `readFile(path)` | the whole file as a string; an error if it is not there |
 | `load(path)` | **true** having run a compiled `.sob` here, **false** if it was already loaded |
 | `writeFile(path, text)` | nil, having replaced the file's contents |
@@ -3968,7 +3994,7 @@ has been given, and cannot give itself more.
 Every built-in message and the types that answer it. The question a reference
 gets asked is usually *what has `copyFrom`?* rather than *what does a string
 do?*, and the sections above answer only the second — so this answers the first.
-141 messages across 244 registrations.
+142 messages across 245 registrations.
 
 **A test keeps it honest**: a message registered in `builtins.c` and missing
 from here fails the build, which is the same bargain that makes every message
@@ -4043,6 +4069,7 @@ appear in an example.
 | `isDirectory` | [system](#system) |
 | `isKindOf` | [every type](#every-type) |
 | `keyWaiting` | [system](#system) |
+| `sleep` | [system](#system) |
 | `isNil` | [every type](#every-type) |
 | `join` | [array](#array) |
 | `keys` | [dictionary](#dictionary) |
