@@ -53,7 +53,7 @@ marked as a sketch.
 | Networking, and sending code to a running machine | **The first half is built**, on 2026-08-29 — [extensions/net](../extensions/net/README.md), five messages, and the waiting question answered with a timeout rather than a block; [the second half](#networking-and-sending-code-to-a-machine-that-is-already-running) is untouched and still needs 3.4, 6.32 and a proxy |
 | SQLite, SDL2, GTK | **One project, not three** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); GTK and SDL2 fire that trigger and SQLite does not, and wanting *both* toolkits is what settles the mechanism |
 | Graphics in SolaBasic, over SDL2 | **No — asked and closed on 2026-08-30, and the premise was wrong** to begin with: [graphics were never parked](#graphics-in-solabasic-through-the-sdl2-extension) for want of extensions, they were refused as *the PC*. No program wanted a screen, so the trigger never fired. The throwaway exercised the foundation without a language change — an extension send at 205ns, **`sdl:present` vsync-locked at 8.3ms**, and **1.49x from 0.39.0** on a globals-heavy loop. **A demo written that evening then corrected the entry**: a present keeps nothing, so immediate-mode `PSET` is not slow on this surface but absent. **And there is no oracle for a pixel**, which is what would decide it if it were ever asked again |
-| What Python has that this does not | **Surveyed on 2026-08-30** — [most of it is already here under another name](#what-python-has-and-which-of-it-this-language-wants); five had no line on this page, and **named arguments were then investigated and refused** — `name:` is already a valid send, `=` lowers cheaply but [would not generalise](#and-the-lowering-is-cheap-which-is-not-the-same-as-being-right), and the options array turns out to catch every mistake it was accused of passing. Decorators turn out to be writable today; a file being readable only whole is an absence the reference now states, with [the edge measured](#and-the-edge-was-measured-which-is-what-the-limit-was-missing) — 2 GB hard, twice the file while reading |
+| What Python has that this does not | **Surveyed on 2026-08-30** — [most of it is already here under another name](#what-python-has-and-which-of-it-this-language-wants); five had no line on this page, and **named arguments were then investigated and refused** — `name:` is already a valid send, `=` lowers cheaply but [would not generalise](#and-the-lowering-is-cheap-which-is-not-the-same-as-being-right), and the options array turns out to catch every mistake it was accused of passing. Decorators turn out to be writable today; a backtrace is [already captured and then discarded](#read-on-2026-08-30-it-is-not-merely-available-it-is-thrown-away), though no handler in the tree could use one; a file being readable only whole is an absence the reference now states, with [the edge measured](#and-the-edge-was-measured-which-is-what-the-limit-was-missing) — 2 GB hard, twice the file while reading |
 | Fuzzy logic | **A library that would teach nothing** — arithmetic on floats, and the arithmetic all landed |
 | Namespaces for included files | **Defer** — the trigger is somebody else writing a library |
 | Splitting the reference into pages | **Defer** — the trigger is the message reference outgrowing the rest |
@@ -1448,18 +1448,87 @@ solvm: nil does not understand 'count'
   [x.sol:4] in script
 ```
 
-So this is plumbing rather than a new capability — the frames are walked to
-print that, and a handler is handed none of it. There is also a loss already on
-the record: `error:raise(e:message)` is how re-raising is spelled, and the
-reference notes that the re-raised error's stack then points at the re-raise. A
-stack carried *on the value* would make that a non-question instead of an honest
-caveat.
+So this is plumbing rather than a new capability.
 
-**Verdict: defer, and the slot is already the shape it needs** — which is why
-this entry exists at all, since the design decision was made in advance and only
-the filling in was left. **Trigger: a program that catches an error and cannot
-say where it came from.** Nothing here catches errors it did not raise itself,
-which is why nothing has wanted it.
+#### Read on 2026-08-30: it is not merely available, it is thrown away
+
+`sol_vm_runtime_error` calls `append_stack_trace` **before** it sets the flag, so
+the trace is captured while the frames are still standing and lands in
+`vm->error_trace`. `error:raise` goes through the same function — *the message is
+what was given, and the stack is where it was given*. Then `onError` catches:
+
+```text
+SolValue caught = error_from(vm, vm->error_message.chars, ...);
+vm->had_error = false;
+vm->error_message.length = 0;
+vm->error_trace.length = 0;          <- two lines later
+```
+
+`error_from` builds the object out of the message alone, and the line after it
+discards the trace. **The information is complete, correct, already paid for, and
+dropped on the floor.** Putting it on the object is one `sol_string_new` and one
+`sol_object_define`, at catch time only.
+
+**And the capture is already free of the thing that would have made it costly.**
+The walk is bounded — eight frames from the top, three from the bottom, and
+*"... N more frames ..."* in between — so it does not grow with the stack.
+Measured over 20,000 raise-and-catch pairs, the cost of raising and catching over
+the cost of the same call not raising:
+
+| stack depth | raise + catch |
+| --- | --- |
+| 0 | ~0.8 µs |
+| 30 | ~1.0 µs |
+| 200 | ~0.9 µs |
+
+Flat, which is the elision doing its job. Nothing is saved today by discarding
+the trace; the saving would have to come from not building it, and it is built
+whether or not anyone catches.
+
+#### But no handler in this tree wants it, and the reason is not laziness
+
+Fifty-nine `onError` sites; forty-nine bind the error, thirty-eight read
+`e:message`. Every handler that wants to say **where** already tracks that
+itself, and could not use a stack trace if it had one:
+
+| handler | what it says instead |
+| --- | --- |
+| [json.sol](../lib/json.sol) | its own cursor into the text — *'{}' is not four hex digits* |
+| [html.sol](../lib/html.sol) | rewinds its cursor and complains at the mark |
+| [manifest.sol](../programs/manifest.sol) | the path it was reading, with `e:message` after it |
+| [serve.sol](../programs/serve.sol) | rewinds and takes the byte literally |
+
+**A stack trace answers *where in the code*, and every one of these is asking
+either *what now* or *where in the input*.** A trace handed to json.sol's handler
+would say `[json.sol:87] in fail` — the library's own insides, and not the line
+of the caller's JSON, which is the only location its user cares about. The
+absence is not a gap these programs are working around. It is a different
+question that none of them asks.
+
+#### And it would not fix the re-raise caveat, which this page claimed it would
+
+The paragraph above used to say a stack carried on the value would make the
+lossy re-raise *"a non-question instead of an honest caveat"*. That is wrong.
+`error:raise` takes a **string**, and builtins.c refuses a second spelling in as
+many words — *two spellings of raising would have been a `new`-shaped mistake* —
+so a re-raise constructs a fresh error and captures a fresh trace no matter what
+the old value was carrying. A trace slot improves the **first** catch and does
+nothing for the chain. Fixing the chain needs `raise` to accept an error, which
+is the design that was deliberately not taken.
+
+**Verdict: defer — and the trigger is narrower than this entry first said.** Not
+*a program that catches an error and cannot say where it came from*, because
+that is all of them and none of them mind. It is **a program that runs code it
+did not write and has to report a failure to somebody else** — which is the
+unbuilt half of
+[sending code to a machine that is already running](#networking-and-sending-code-to-a-machine-that-is-already-running),
+and is on this page already. Until something is executing a stranger's block,
+the trace has no reader.
+
+If it is ever built: a **string** first, since `vm->error_trace` already holds
+exactly the formatted text, and an array of frames only when something needs to
+*read* the trace rather than print it. That is the same order the reference gives
+for not inventing a taxonomy of failures to go with a catch mechanism.
 
 #### Negative indices — no, and `string:last` is a different question
 
