@@ -508,10 +508,6 @@ static void directive_syntax(Reader *reader)
             PhxToken word = reader->current;
 
             if (is_hole) {
-                if (part_count > 0 && parts[part_count - 1].is_hole) {
-                    error_here(reader, "a pattern needs a word between two holes");
-                    goto give_up;
-                }
                 advance(reader);
                 if (!check(reader, PHX_TOK_NAME)) {
                     error_here(reader, "a hole is '<' and then the name the "
@@ -530,7 +526,10 @@ static void directive_syntax(Reader *reader)
                 if (check(reader, PHX_TOK_OPERATOR) &&
                     reader->current.length > 1 &&
                     reader->current.start[0] == '>') {
-                    error_here(reader, "a pattern needs a word between two holes");
+                    error_here(reader, "'%.*s' is one operator here -- write "
+                                       "'> <' with a space to end this hole "
+                                       "and open the next",
+                               reader->current.length, reader->current.start);
                     goto give_up;
                 }
                 if (!check(reader, PHX_TOK_OPERATOR) ||
@@ -539,6 +538,34 @@ static void directive_syntax(Reader *reader)
                     goto give_up;
                 }
                 advance(reader);
+
+                /* Two holes in a row, when the second one is delimited.
+                 *
+                 * The ban was justified as *no boundary between them*, and that
+                 * was wrong: a block is a primary, consumed only where an
+                 * operand may start, so an expression always stops at the `{`
+                 * and the boundary is exactly findable. What the ban is really
+                 * about is **greed** -- given `<a> <b>` and `f x + y`, the first
+                 * hole takes the sum and the second finds nothing, and the split
+                 * is not where anybody would put it.
+                 *
+                 * A delimited hole has no such problem: the split is at the
+                 * brace, which is where a reader would put it too. So `if <c>
+                 * <t: block>` is allowed and `if <c> <t>` is not, and what
+                 * decides it is the kind -- which is why this could not have
+                 * been relaxed before 0.6.0 gave holes kinds. */
+                if (part_count > 0 && parts[part_count - 1].is_hole &&
+                    kind != PHX_HOLE_BLOCK) {
+                    error_at(reader, word.span,
+                             "a pattern needs a word between two holes, unless "
+                             "the second is a block");
+                    phx_note(reader->diag, word.span,
+                             "'<%.*s: block>' would be read from its '{'; an "
+                             "expression hole has no such edge and would take "
+                             "everything the one before it left",
+                             word.length, word.start);
+                    goto give_up;
+                }
 
                 params = phx_realloc(params,
                                      (size_t)(param_count + 1) * sizeof *params);

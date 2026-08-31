@@ -287,10 +287,29 @@ Same holes, same template, same expansion — a pattern changes how a form is
 written and nothing about what one is. A hole is `<name>` and everything else is
 a literal word.
 
-**A pattern begins with a word, and never has two holes in a row.** Both are
-forced rather than chosen. A reader finds a form by seeing a name it knows, so a
-pattern starting with a hole would put it back to guessing; and two holes in a
-row have no boundary between them for anything to find.
+**A pattern begins with a word.** That one is forced: a reader finds a form by
+seeing a name it knows, so a pattern starting with a hole would put it back to
+guessing.
+
+**Two holes may sit in a row when the second is a block.**
+
+```
+@syntax if <c> <t: block>    => c:ifTrue(t).
+@syntax while <c> <b: block> => { c }:whileTrue(b).
+
+while (n < #20) { n = n + #1 }.
+```
+
+Until 0.8.0 that was refused, and the reason given was *no boundary between
+them*, which was wrong — a block is a primary, consumed only where an operand
+may start, so an expression always stops at the `{`. What the rule is really
+about is **greed**: given `<a> <b>` and `f x + y`, the first hole takes the sum
+and the second finds nothing, and the split is not where anybody would put it. A
+delimited hole has no such problem, and a hole could not have said it was one
+before 0.6.0 gave holes kinds.
+
+`lib/clike.phx` is what this makes possible, and
+[`examples/clike.phx`](examples/clike.phx) is a program that looks like C.
 
 **A word in a pattern is not reserved anywhere else.** A module that never used
 `control.phx` may call a variable `then`, and so may one that did.
@@ -530,7 +549,7 @@ text can be wrong in a way no unit test sees: Solveig-looking source that
 Solveig rejects, or accepts and reads differently. The only witness to that is
 the real compiler, so `make test` runs both examples all the way down to SolVM.
 
-## The four examples
+## The five examples
 
 | | |
 | --- | --- |
@@ -538,6 +557,7 @@ the real compiler, so `make test` runs both examples all the way down to SolVM.
 | [`examples/utf8.phx`](examples/utf8.phx) | `integer:asUtf8` out of Solveig's own `lib/text.sol`, written in operators |
 | [`examples/forms.phx`](examples/forms.phx) | `unless`, `while` and `swap` declared by the module, and hygiene demonstrated by running rather than by assertion |
 | [`examples/dialect.phx`](examples/dialect.phx) | a two-line header, and everything the body reads coming out of `lib/` — with a diamond, read once |
+| [`examples/clike.phx`](examples/clike.phx) | `while (n < #20) { … }`, `if (…) { … } else { … }`, `do { … } while (…)` — C's shape out of `lib/clike.phx`, and a note on the three things it cannot have |
 
 The second one is the argument, and it is Solveig's argument rather than this
 project's. The note at the top of `lib/text.sol` says the encoder was first
@@ -558,7 +578,7 @@ integer:utf8Tail := { at |
     (#128:bitOr(self:shiftRight(at):bitAnd(#63))):asCharacter }.
 ```
 
-## What 0.7.0 is not
+## What 0.8.0 is not
 
 **A pattern has no optional or repeated parts.** `if <c> then <a> else <b>` is a
 second declaration rather than an optional tail, which is honest and costs a

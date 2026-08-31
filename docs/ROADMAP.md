@@ -156,6 +156,27 @@ expression that does not use it already meant.
 **A build that takes nothing from Solveig.** No header, no archive, no symbol.
 The coupling is a file format and a command line.
 
+## Done — 0.8.0, two holes in a row when the second is a block
+
+**`@syntax while <c> <b: block> => { c }:whileTrue(b).`** So `while (n < #20)
+{ n = n + #1 }` is a form, and `lib/clike.phx` is a dialect that looks like C.
+
+**The ban was justified for the wrong reason and this corrects it.** *No
+boundary between them* was wrong -- a block is a primary, consumed only where an
+operand may start, so an expression always stops at the `{`. The rule is really
+about **greed**: given `<a> <b>` and `f x + y`, the first hole takes the sum and
+the second finds nothing. A delimited hole has no such problem, and could not
+have said so before 0.6.0 gave holes kinds.
+
+**A hole's kind is one choice, and there is no alternation.** `lib/clike.phx`
+found it: C's `else` is either a block or another `if`, and no hole can say *a
+block or another use of me*. The first draft left it untyped and wrapped it,
+which gives `{ { ... } }` when the branch is already a block -- the outer block
+answers the inner one rather than running it, so the else branch silently did
+nothing and the example printed #54 where #40 was right. It compiles, it runs,
+and it is wrong. The branch is typed now and `else { if ... }` is how a chain
+is written.
+
 ## Done — 0.7.0, an operator that stands for a template
 
 **`@infix /\ 30 => left:and({ right }).`** The only way to declare an operator

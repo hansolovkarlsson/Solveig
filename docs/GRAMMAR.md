@@ -118,10 +118,14 @@ two dialects collide*.
 
 ## Patterns
 
-**A pattern begins with a word and never has two holes in a row.** Both are
-forced. A reader finds a form by seeing a name it knows, so a pattern beginning
-with a hole would put it back to guessing; and two holes in a row have no
-boundary between them for anything to find.
+**A pattern begins with a word.** Forced: a reader finds a form by seeing a name
+it knows, so a pattern beginning with a hole would put it back to guessing.
+
+**Two holes may sit in a row when the second one is a `block`.** A block is a
+primary, consumed only where an operand may start, so an expression always stops
+at the `{` and the split is exactly where a reader would put it. Any other pair
+is refused -- not for ambiguity but for **greed**: given `<a> <b>` and `f x + y`
+the first hole takes the sum and the second finds nothing.
 
 **Several forms may share a leading word**, and are matched together:
 

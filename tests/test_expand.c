@@ -413,6 +413,29 @@ int main(void)
     expect_rejected("an operator with neither a message nor a template", LANG
                     "@infix + 60.\na := #1.\n");
 
+    /* Two holes in a row, when the second is delimited. A block is a primary,
+       consumed only where an operand may start, so an expression stops at the
+       `{` and the split is exactly where a reader would put it. */
+    expect("a hole then a block hole", LANG
+           "@syntax if <c> <t: block> => c:ifTrue(t).\n"
+           "if (x) { y:print }.\n",
+           "(x):ifTrue({ y:print }).\n");
+    expect("and the condition may be any expression", LANG
+           "@infix < 40 lessThan.\n"
+           "@syntax while <c> <b: block> => { c }:whileTrue(b).\n"
+           "while (n < #5) { n:print }.\n",
+           "{ (n:lessThan(#5)) }:whileTrue({ n:print }).\n");
+
+    /* Undelimited stays refused, and the reason is greed rather than ambiguity:
+       given `f x + y`, the first hole takes the sum and the second finds
+       nothing. A `name` hole is mechanically findable too and is still refused,
+       because "findable by knowing where the expression parser stops" is not
+       the same as "where a reader would put it". */
+    expect_rejected("two expression holes in a row", LANG
+                    "@syntax f <a> <b> => a.\nz := #1.\n");
+    expect_rejected("a name hole after a hole", LANG
+                    "@syntax f <a> <b: name> => a.\nz := #1.\n");
+
     printf("%d checks, %d failed\n", checks, failures);
     return failures == 0 ? 0 : 1;
 }
