@@ -1,0 +1,54 @@
+; peg.phx -- a grammar written down, and then run.
+;
+; A dialect, so directives and nothing else. It expects two globals from
+; whoever uses it: `rules`, a dictionary of rule name to block, and `src`, a
+; cursor from lib/scan.sol.
+;
+; ---------------------------------------------------------------------------
+; Why the rules live in a table
+;
+; The obvious shape is combinators -- a rule is a block, and `seq` and `either`
+; are blocks that take blocks and answer blocks. Solveig refuses it:
+;
+;     makeAdder := { n | { x | x:add(n) } }.
+;     makeAdder:value(#5)
+;     -> block outlived the frame it was written in
+;
+; That is 3.1, and lib/scan.sol was pushed the same way for the same reason and
+; says so. A block written at the top level and *stored* is fine, because the
+; script's frame outlives everything; a block **made inside a call** and
+; returned is not. So a rule is a top-level block in a table, and `apply` is a
+; lookup rather than a composition.
+;
+; This was predicted in README.md and confirmed before a line of the toolkit was
+; written, which is the only reason it cost nothing.
+
+@use "../../lib/control.phx".
+
+; A rule is a name and a block, and the name is a **symbol literal** rather
+; than a bare word. A template cannot build a selector out of a hole -- there
+; is no way to turn `<n>` into `rules:<n>` -- so the table takes the name as a
+; value. Predicted, and it is the same answer for the same reason.
+@syntax rule <n> is <b: block>           => rules:atPut(n, b).
+@syntax apply <n>                        => rules:at(n):value.
+
+; What a cursor is asked at a position.
+@syntax at <s>                           => src:looksLike(s).
+@syntax eat <s>                          => src:match(s).
+@syntax next                             => src:next.
+@syntax done                             => src:atEnd.
+@syntax skip <cls>                       => src:skipWhile({ c | cls:indexOf(c):notNil }).
+@syntax take <cls>                       => src:takeWhile({ c | cls:indexOf(c):notNil }).
+
+; ---------------------------------------------------------------------------
+; Only `<b: block>` is typed, and the first draft typed five more
+;
+; `skip <cls: literal>` was written that way because every use in the author's
+; head was `skip " \t\n"`. The first real grammar wrote `skip blank`, naming a
+; string it had bound, and was refused by its own toolkit.
+;
+; **A kind is a promise extracted from the caller, not a description of the
+; author's examples.** `rule` needs a block because the table stores one and
+; anything else would store a value; nothing else here needs anything. Typing a
+; hole because the uses you have imagined all look alike is how a dialect gets
+; narrower than the thing it is for.

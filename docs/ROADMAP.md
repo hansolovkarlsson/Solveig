@@ -199,11 +199,21 @@ implementation of each.
 
 ## Next — optional and repeated parts
 
-**No customer has asked for either, and one has now had the chance.**
-`programs/ember` is a lexer, a parser and a code generator, and it wanted no
-variadic notation and no optional tail: `if`/`else` as two declarations was
-fine. That is evidence rather than silence, and it moves this below whatever the
-next program finds.
+**Declined twice, and the second time with a reason.**
+
+`programs/ember` wanted neither: no variadic notation, and `if`/`else` as two
+declarations was fine.
+
+`programs/grammar` was written partly to settle it, being the program most
+likely to want repetition -- EBNF writes `sum = term { op term }` and means it.
+It wants repetition and **a repeated pattern part would not have helped**: a
+grammar cannot be written as forms at all, because a template cannot declare a
+form, so the rules live in a table as data and the repetition wanted is in the
+object language rather than in Phoenix. Both grammars have a `whileTrue` where
+EBNF has a brace, and no Phoenix feature would have removed it.
+
+That is a reason rather than a shrug, and it moves this below whatever the next
+program finds.
 
 **`if <c> then <a> else <b>` is a second declaration rather than an optional
 tail**, which is honest and costs a line. Repetition — a form taking a list —

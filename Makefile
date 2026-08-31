@@ -72,6 +72,13 @@ EMBER_SRCS = $(wildcard $(EMBER)/examples/*.em)
 EMBER_ASM  = $(EMBER_SRCS:.em=.s)
 EMBER_BINS = $(EMBER_SRCS:.em=.out)
 
+# programs/grammar -- a second customer, and a different domain: notation for
+# something recursive, where ember's was notation for something flat.
+GRAMMAR       = programs/grammar
+GRAMMAR_SRCS  = $(wildcard $(GRAMMAR)/examples/*.phx)
+GRAMMAR_SOLS  = $(GRAMMAR_SRCS:.phx=.sol)
+GRAMMAR_SOBS  = $(GRAMMAR_SRCS:.phx=.sob)
+
 # The Solveig a `.sol` is about to be handed to, read from the same header its
 # binaries report their version out of. Checked rather than assumed because the
 # failure it prevents is unhelpful: `solas` not being there gives a shell error
@@ -81,12 +88,13 @@ SOLVEIG_VERSION = $(shell grep SOLUM_VERSION \
                     $(SOLVEIG)/solum/include/solum/common.h 2>/dev/null \
                     | tr -d '"' | awk '{print $$3}')
 
-.PHONY: all test run examples ember check install uninstall dist clean
+.PHONY: all test run examples ember grammar check install uninstall dist clean
 
 # Without this, make treats a generated .sol as an intermediate and deletes it
 # after the .sob is built -- taking the map with it. Both are the artefacts
 # somebody reaches for when the generated code is what they need to read.
-.SECONDARY: $(EXAMPLE_SOLS) $(EMBER)/emberc.sol $(EMBER)/emberc.sob $(EMBER_ASM)
+.SECONDARY: $(EXAMPLE_SOLS) $(EMBER)/emberc.sol $(EMBER)/emberc.sob $(EMBER_ASM) \
+            $(GRAMMAR_SOLS)
 
 all: $(BIN)/phoenix
 
@@ -149,6 +157,15 @@ $(EMBER)/examples/%.out: $(EMBER)/examples/%.s
 ember: $(EMBER_BINS)
 	@for b in $(EMBER_BINS); do echo "-- $$b"; $$b; done
 
+$(GRAMMAR)/examples/%.sol: $(GRAMMAR)/examples/%.phx $(GRAMMAR)/peg.phx $(DIALECTS) $(BIN)/phoenix
+	@$(BIN)/phoenix --map $< -o $@
+
+$(GRAMMAR)/examples/%.sob: $(GRAMMAR)/examples/%.sol | check
+	@$(SOLVEIG)/bin/solas $< -o $@
+
+grammar: $(GRAMMAR_SOBS)
+	@for g in $(GRAMMAR_SOBS); do echo "-- $$g"; $(SOLVEIG)/bin/solvm $$g; done
+
 run: examples/vectors.sob
 	@$(SOLVEIG)/bin/solvm examples/vectors.sob
 
@@ -156,12 +173,14 @@ run: examples/vectors.sob
 # that SolVM executes. A front end that emits text can be wrong in a way no unit
 # test sees -- valid-looking Solveig that Solveig rejects, or accepts and reads
 # differently -- and the only witness to that is the real compiler.
-test: $(BIN)/phoenix $(TEST_BINS) $(EXAMPLE_SOBS) $(EMBER_BINS)
+test: $(BIN)/phoenix $(TEST_BINS) $(EXAMPLE_SOBS) $(EMBER_BINS) $(GRAMMAR_SOBS)
 	@for t in $(TEST_BINS); do echo "-- $$t"; $$t || exit 1; done
 	@for e in $(EXAMPLE_SOBS); do echo "-- $$e"; \
 	    $(SOLVEIG)/bin/solvm $$e > /dev/null || exit 1; done
 	@for b in $(EMBER_BINS); do echo "-- $$b"; \
 	    $$b | diff -u $${b%.out}.expected - || exit 1; done
+	@for g in $(GRAMMAR_SOBS); do echo "-- $$g"; \
+	    $(SOLVEIG)/bin/solvm $$g | diff -u $${g%.sob}.expected - || exit 1; done
 	@echo "all tests passed"
 
 # The dialects go in beside the binary, and nothing looks for them there.
@@ -198,5 +217,6 @@ clean:
 	rm -f $(EMBER)/emberc.sol $(EMBER)/emberc.sol.map $(EMBER)/emberc.sob
 	rm -f $(EMBER_ASM) $(EMBER_BINS)
 	rm -rf $(EMBER)/examples/*.dSYM
+	rm -f $(GRAMMAR_SOLS) $(GRAMMAR_SOLS:.sol=.sol.map) $(GRAMMAR_SOBS)
 
 -include $(LIB_OBJS:.o=.d)
