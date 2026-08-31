@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### The dictionary literal — `HASH`, 2026-08-30
+### The dictionary literal — `cf58923`, 2026-08-30
 
 ```
 ports := #["http" = #80, "https" = #443].
