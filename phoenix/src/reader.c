@@ -464,6 +464,12 @@ static void directive_syntax(Reader *reader)
     PhxPatternPart *parts = NULL;
     int part_count = 0;
 
+    /* Anything that is not the call shape was an attempt at a pattern, whether
+       or not a single part was read. `@syntax vec { <x> }` reads no parts at
+       all -- `{` is neither a hole nor a word -- and the complaint it deserves
+       is the one about patterns, not the one about a missing `=>`. */
+    bool is_call = check(reader, PHX_TOK_LPAREN);
+
     if (match(reader, PHX_TOK_LPAREN)) {
         if (!check(reader, PHX_TOK_RPAREN)) {
             do {
@@ -570,7 +576,7 @@ static void directive_syntax(Reader *reader)
            one. `@syntax mov <d> , <s>` is what somebody writing an assembler
            notation tries first -- programs/ember found it within a minute --
            and *needs '=>'* said nothing about why the comma was the problem. */
-        if (parts != NULL)
+        if (!is_call && !check(reader, PHX_TOK_EOF))
             error_here(reader,
                        "a pattern is made of names and <holes>, and %s is "
                        "neither", phx_token_type_name(reader->current.type));
@@ -578,7 +584,7 @@ static void directive_syntax(Reader *reader)
             error_here(reader,
                        "'@syntax %.*s' needs '=>' and then what it stands for",
                        name.length, name.start);
-        if (parts != NULL)
+        if (!is_call && !check(reader, PHX_TOK_EOF))
             phx_note(reader->diag, reader->current.span,
                      "a form wanting punctuation between its holes wants the "
                      "call shape: @syntax %.*s(...) => ... .",
