@@ -33,6 +33,13 @@ each `.sob` on both machines both ways round.
 filesystem and will differ for that reason alone, which looks exactly like an
 incompatibility and is not.
 
+**And run both *compilers* from the same directory too**, which is a second
+reason and was learnt in 0.40.0. An `@include` records the library's path in the
+chunk, so the previous release unpacked elsewhere resolves `lib/` relative to
+itself and writes a different name for identical code. That reported five
+examples differing when none did. Copy the old `solas` beside the new one rather
+than running it where it was unpacked.
+
 **`examples/system.sol` always differs**, because it prints how long things
 took. That one is read, not compared.
 
@@ -66,6 +73,16 @@ The markers are not quoted here on purpose. A comment that says *recount the
 number before me* means that wherever it appears, and prose explaining the
 notation is not an exception; writing one into a sentence about it is how the
 build was broken the first time this was written down.
+
+**Unwrap the paragraphs.** GitHub renders release notes with *hard* line
+breaks, so the 79-column wrapping every document here is written to comes out as
+a literal break after every line — a narrow ragged column inside a wide box,
+breaking mid-sentence. 0.40.0's page had 41 of them across 8 paragraphs and was
+published that way before anybody looked at it. Join the lines within each
+paragraph and leave the blank lines between them.
+
+This is the one fixup that cannot be found by reading the markdown, because the
+markdown is correct. **Open the page.**
 
 **Absolutise the links, pinned at the tag.** `[NET.md](NET.md)` is right inside
 `docs/` and a 404 from `/releases/tag/vX.Y.Z`. Rewrite to
