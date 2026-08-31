@@ -15,12 +15,13 @@
 ; looking. That is the thing the two mechanisms do not share.
 
 ; Find the modules beside this file. Nothing here knows their names.
-endsWith := { text, tail |
-    text:size:greaterOrEqual(tail:size):and({
-        text:copyFrom(text:size:sub(tail:size):add(#1), text:size):equals(tail) }) }.
+;
+; `startsWith` and `endsWith` are [text.sol](../lib/text.sol)'s, and this file
+; is one of the three that wrote `endsWith` for itself before it was there.
+@include "text.sol".
 
 found := system:filesIn("examples"):select({ f |
-    f:indexOf("render-"):equals(#1):and({ endsWith:value(f, ".sob") }) }):sorted.
+    f:startsWith("render-"):and({ f:endsWith(".sob") }) }):sorted.
 
 found:size:print.                       ; #2
 

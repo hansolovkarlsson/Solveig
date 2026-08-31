@@ -456,6 +456,7 @@ without being told where they live.
 | [control.sol](../lib/control.sol) | `integer:timesCollect(block)`, `array:ifElseIf` | `n` results gathered; a chain of alternatives written flat |
 | [math.sol](../lib/math.sol) | `min` `max` `between` on numbers; `min` `max` on arrays | the comparisons written out by hand too often |
 | [text.sol](../lib/text.sol) | `integer:asUtf8` | a code point as the bytes UTF-8 spells it |
+| | `string:startsWith` `string:endsWith` | a boolean; **not** `indexOf(x):equals(#1)`, which searches the whole string to fail |
 | [shell.sol](../lib/shell.sol) | `shell:run` `capture` `read` `line` | when the shell's pipes and globs are the point |
 | [json.sol](../lib/json.sol) | `json:read` `json:write` `value:asJson` | JSON in and out |
 | [html.sol](../lib/html.sol) | `html:read`, a tree with `find`, `text`, `attribute` | HTML that recovers from bad markup |

@@ -755,18 +755,42 @@ Written in Solum, they cost a block call per iteration — about 1.30× a litera
 
 #### text.sol
 
-One method, wanted by more than one library:
+What more than one program wanted for handling text:
 
 ```
 @include "text.sol".
-#233:asUtf8:display.        ; é
+
+#233:asUtf8:display.                  ; é
+"notes.md":endsWith(".md"):print.     ; true
+"render-loud":startsWith("render-"):print.   ; true
 ```
 
-`integer:asUtf8` answers the bytes UTF-8 spells a code point with, built on
-[`asCharacter`](#a-byte-and-its-number). It binds **no global** — a method on a
-built-in class needs no name of its own, and the first draft, which bound an
-object called `text`, was shadowed by the first program that had a variable of
-that name.
+| Message | Answers |
+| --- | --- |
+| `integer:asUtf8` | the bytes UTF-8 spells that code point with |
+| `string:startsWith(prefix)` | a boolean |
+| `string:endsWith(suffix)` | a boolean |
+
+`asUtf8` is built on [`asCharacter`](#a-byte-and-its-number).
+
+**`startsWith` is not `indexOf(x):equals(#1)`**, which is what three programs
+wrote before this existed. `indexOf` *searches*, so a test that fails has read
+the whole string, and failing is the case a prefix test is written for — on 128
+KB of text without the needle in it that is the difference between 308 µs and
+150 ns. `endsWith` is the same question at the other end, and asking it with
+`indexOf` is a defect rather than a slowdown: `.md` is in `draft.md.orig`.
+
+**An empty affix answers true**, both ways, and a prefix longer than the text
+answers false rather than raising.
+
+The file binds **no global** — a method on a built-in class needs no name of its
+own, and the first draft, which bound an object called `text`, was shadowed by
+the first program that had a variable of that name.
+
+**A program that counts a class's slots must count before including this**, or
+any library that adds to a built-in: `asUtf8` and `utf8Tail` land on `integer`,
+and [expect.sol](../programs/expect.sol) reports that count as the language's.
+It caught its own contamination the first time this file was included there.
 
 #### math.sol
 

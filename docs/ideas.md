@@ -21,7 +21,7 @@ marked as a sketch.
 | --- | --- |
 | `do` is `forEach`? | **Yes** — and `collect` is map, `select` is filter |
 | Bytecode / assembly reference | **Built** — [BYTECODE.md](BYTECODE.md), checked against the header by the test suite |
-| `startsWith` / `endsWith` | **Trigger fired on 2026-08-30** — [three programs, nine call sites, two independent `endsWith`s](#the-trigger-fired-and-the-paragraph-above-is-wrong-about-the-cost), a defect already caused, and the entry's *nothing is slower* was wrong by 2000× on a non-match. Build them in `lib/text.sol` |
+| `startsWith` / `endsWith` | **Built on 2026-08-30** in `lib/text.sol` — [the trigger had fired three times over](#the-trigger-fired-and-the-paragraph-above-is-wrong-about-the-cost): three programs, nine call sites, two independent `endsWith`s, a defect already caused, and the entry's *nothing is slower* wrong by 2000× on a non-match. Including it then caught `expect.sol` measuring a class it had just extended |
 | What a string is — bytes or code points | **Defer, and toward bytes with a contract** — [the editor asked first](#what-a-string-is--bytes-code-points-or-bytes-with-a-contract), and was corrupting a file on `$x`. **Fixed on 2026-08-30 in the editor**, which is the argument against making `size` count characters — though [the estimate here was wrong](#and-the-editor-was-fixed-which-cost-more-than-this-entry-said): nine lines became seventeen definitions. A [`text` type with a `!"..."` literal](#a-text-type-beside-string-with-a-prefixed-literal-to-make-one) was asked and answered in the same entry — right instincts, wrong end of the pipe |
 | `!character` literals, Unicode | **Defer** — gated on deciding what a string is, and [that entry recommends settling it against](#what-a-string-is--bytes-code-points-or-bytes-with-a-contract): the character type Unicode would want here is the one-character string the language already has |
 | A truncating divide on integer | **Defer** — one customer, and its workaround is exact rather than approximate |
@@ -834,9 +834,21 @@ throw away but is **already the right complexity** — the win over `indexOf` is
 the asymptote, not the allocation. Whether it then earns a primitive is the
 measurement that comes after the library, not before it.
 
-**Verdict: build them, in `lib/text.sol`, in Solum.** `startsWith` retires nine
-call sites and one performance cliff; `endsWith` retires two copies of itself and
-the bug that wrote one of them.
+**Built the same day, in `lib/text.sol`, in Solum.** `startsWith` retired nine
+call sites and one performance cliff; `endsWith` retired two copies of itself and
+the bug that wrote one of them. Seventeen cases checked, the empty affix included
+— it answers true both ways, and a prefix longer than the text answers false
+rather than raising, which the `size` guard is there for rather than for speed.
+
+**And including the library into `expect.sol` broke `expect.sol`, which is the
+part worth keeping.** That program reports `integer:slots:size` as *the number of
+messages an integer answers*, and `class-and-instance.md` states it. `text.sol`
+puts `asUtf8` and `utf8Tail` on `integer`, so the figure moved 37 → 39 the moment
+the include landed, and the checker caught its own contamination on the first
+run. The rule it leaves is general and was not written down anywhere: **a program
+that measures a class cannot measure it after loading a library that extends
+it.** `scan.sol` had never shown this because it binds an object and adds nothing
+to a built-in. Reading the number before the includes is the whole of the fix.
 
 **`string:first` and `string:last` do not come with them.** The dominant idiom in
 the tree is a different function: `copyFrom(#1, size:sub(n))` — *all but the last

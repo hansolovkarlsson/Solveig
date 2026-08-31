@@ -2,6 +2,7 @@
 ;
 ;     @include "text.sol".
 ;     #233:asUtf8:display.        ; é
+;     "notes.md":endsWith(".md"):print.   ; true
 ;
 ; Found on the search path, so no program has to say where this lives. See
 ; docs/REFERENCE.md#the-library.
@@ -58,3 +59,43 @@ integer:asUtf8 := {
                       :concat(self:utf8Tail(#12))
                       :concat(self:utf8Tail(#6))
                       :concat(self:utf8Tail(#0)) }) }) }) }.
+
+
+; ---------------------------------------------------------------------------
+; Does this text begin, or end, with that text
+;
+; Both were written three times before they were written here: in
+; [server.sol](../extensions/net/server.sol), which found the gap and left a
+; comment saying so; in [expect.sol](../programs/expect.sol), which wrote
+; `string:endsWith` in this exact shape; and in
+; [plugins.sol](../examples/plugins.sol), which wrote it again as a local block.
+; Two independent copies of one function is the trigger this repository built
+; `replace` on.
+;
+; **The absence had already cost a defect.** Asking whether a name contains
+; `.md` rather than ends with it called `draft.md.orig` a document, and would
+; have handed `a.md.sol` to the markdown checker. Nothing in the tree was named
+; that way, which is how it went unnoticed until the code was read.
+;
+; **And `indexOf(x):equals(#1)` is not the same question as `startsWith(x)`,
+; which was the reason for deferring these and was wrong.** A search that fails
+; has read the whole string, and failing is exactly what a prefix test is for.
+; On 128 KB of text not containing the needle, 2000 calls each, that measured
+; 308 microseconds against 150 nanoseconds -- a prefix test is O(prefix), the
+; search is O(text). One of the call sites it replaces reads a UDP payload,
+; where the text's length is a stranger's choice.
+;
+; **The size test is not an optimisation, it is what makes these total.**
+; `copyFrom` answers `""` for an empty range and for a start past the end, but
+; refuses an end past it -- so without the guard `"ab":startsWith("abc")` would
+; raise rather than answer false, and `"ab":endsWith("abc")` would ask for index
+; `#0`. With it, an empty affix answers true and every string has one.
+
+string:startsWith := { prefix |
+    self:size:greaterOrEqual(prefix:size):and({
+        self:copyFrom(#1, prefix:size):equals(prefix) }) }.
+
+string:endsWith := { suffix |
+    self:size:greaterOrEqual(suffix:size):and({
+        self:copyFrom(self:size:sub(suffix:size):add(#1), self:size)
+            :equals(suffix) }) }.

@@ -61,7 +61,22 @@
 ; Which is the same fault the program was written to catch, sitting in the
 ; program, in the one place it does not look: prose.
 
+; **Counted before anything is included, and that is not fussiness.** This
+; program reports `integer:slots:size` as the number of messages an integer
+; answers, and [class-and-instance.md](../docs/class-and-instance.md) states it
+; -- so the number has to be the *language's*, not this machine's after a
+; library has added to it. `text.sol` puts `asUtf8` and `utf8Tail` on `integer`,
+; which moved the figure from 37 to 39 the moment it was included below, and the
+; checker caught its own contamination on the first run. `scan.sol` had never
+; shown this because it binds an object and adds nothing to a built-in class.
+;
+; The rule this leaves: **a program that measures a class cannot measure it
+; after loading a library that extends it.** Reading the number first is the
+; whole of the fix, and the only place it can be read is here.
+integerSlots := integer:slots:size.
+
 @include "scan.sol".
+@include "text.sol".
 
 ; Several subjects at once, because there are three: the examples, the
 ; documents, and the two pages at the root that belong to neither.
@@ -1017,13 +1032,11 @@ checkMarkdown := { path | | source, name, n, expected, parts, output, label,
 ; and `indexOf` answers a different one: it found `.sol` in `hello.sol.bak` and
 ; `.md` in `draft.md.orig`, called both of them files to check, and would have
 ; handed `a.md.sol` to the markdown checker. Nothing in the tree is named that
-; way today, which is exactly how it went unnoticed. Named for the question it
-; answers, so the next reader does not have to spot the difference.
-string:endsWith := { suffix |
-    self:size:greaterOrEqual(suffix:size):and({
-        self:copyFrom(self:size:sub(suffix:size):add(#1), self:size)
-            :equals(suffix) }) }.
-
+; way today, which is exactly how it went unnoticed.
+;
+; `endsWith` was defined here when this file was the only one that had noticed.
+; It is [text.sol](../lib/text.sol)'s now -- two other files had written it too,
+; which is what moved it.
 check := { path |
     path:endsWith(".md"):ifElse(
         { checkMarkdown:value(path) },
@@ -1089,7 +1102,7 @@ count := dictionary:new.
 count:atPut("programs",      solFilesIn:value("programs")).
 count:atPut("examples",      solFilesIn:value("examples")).
 count:atPut("library",       solFilesIn:value("lib")).
-count:atPut("integer-slots", integer:slots:size).
+count:atPut("integer-slots", integerSlots).   ; read at the top; see there
 count:atPut("float-slots",   float:slots:size).
 count:atPut("string-slots",  string:slots:size).
 count:atPut("array-slots",   array:slots:size).

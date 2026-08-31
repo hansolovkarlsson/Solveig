@@ -17,6 +17,8 @@
 ; port inside the message. A packet that says where it came from is what turned
 ; two programs shouting into two programs talking.
 
+@include "text.sol".
+
 port := system:arguments:size:greaterThan(#0):ifElse(
     { system:arguments:at(#1):asInteger(#10) },
     { #7777 }).
@@ -36,13 +38,17 @@ running := true.
         packet:notNil:ifTrue({
             text := packet:text:trim.
 
-            ; No `startsWith` in this language -- found by writing this
-            ; program, and `indexOf` answering #1 is what it means anyway.
+            ; `startsWith` is [text.sol](../../lib/text.sol)'s. This program
+            ; is where its absence was found, and it used to say so and reach
+            ; for `indexOf(...):equals(#1)` instead -- which is a *search*, so
+            ; a request that does not match had read all of it. The text here
+            ; is a datagram, up to the 65536 bytes net.c receives into, and
+            ; chosen by whoever sent it.
             reply := text:equals("get"):ifElse(
                 { total:asString },
                 { text:equals("stop"):ifElse(
                     { running := false. total:asString },
-                    { text:indexOf("add "):equals(#1):ifElse(
+                    { text:startsWith("add "):ifElse(
                         { total := total:add(text:copyFrom(#5, text:size):asInteger(#10)).
                           total:asString },
                         { "?" }) }) }).
