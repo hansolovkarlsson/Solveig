@@ -139,6 +139,15 @@ html:element:findAll := { name |
 
 ; Void elements have no content and no end tag. An end tag for one is a mistake
 ; rather than a close.
+;
+; **These two stay a split string and not a `#[...]` literal, deliberately.**
+; They are *sets*: nothing ever reads the value, and `true` is standing in for a
+; membership this language has no type for. Written as a literal they would be
+; fourteen `= true`s, which is noise proportional to the thing it says nothing
+; about, where a space-separated list of names reads as what it is. The tables
+; below with real values did convert. See
+; [ideas.md](../docs/ideas.md#a-set-and-the-collections-that-are-not-there) --
+; a dictionary literal makes the missing set *more* visible, not less.
 html:void := dictionary:new.
 "area base br col embed hr img input link meta param source track wbr"
     :split(" "):do({ name | html:void:atPut(name, true) }).
@@ -151,14 +160,13 @@ html:raw := dictionary:new.
 ; Opening one of these implies the end of the ones listed. This is why
 ; `<li>one<li>two` is two siblings rather than one nested in the other, and it
 ; is the part of HTML that surprises people who expect a bracket language.
-html:implied := dictionary:new.
-html:implied:atPut("li", ["li"]).
-html:implied:atPut("dt", ["dt", "dd"]).
-html:implied:atPut("dd", ["dt", "dd"]).
-html:implied:atPut("tr", ["tr", "td", "th"]).
-html:implied:atPut("td", ["td", "th"]).
-html:implied:atPut("th", ["td", "th"]).
-html:implied:atPut("option", ["option"]).
+html:implied := #["li"     = ["li"],
+                  "dt"     = ["dt", "dd"],
+                  "dd"     = ["dt", "dd"],
+                  "tr"     = ["tr", "td", "th"],
+                  "td"     = ["td", "th"],
+                  "th"     = ["td", "th"],
+                  "option" = ["option"]].
 
 ; And every block-level element closes an open paragraph, which is the rule
 ; behind `<p>one<p>two` and behind `<p>text<div>` -- a paragraph cannot contain
@@ -215,15 +223,14 @@ html:looksLike := { what | | start, text |
 ; `&`, which is what every browser does and what a document full of query
 ; strings needs.
 
-html:entities := dictionary:new.
-html:entities:atPut("amp", "&").
-html:entities:atPut("lt", "<").
-html:entities:atPut("gt", ">").
-html:entities:atPut("quot", "\"").
-html:entities:atPut("apos", "'").
-html:entities:atPut("nbsp", #160:asUtf8).
-html:entities:atPut("copy", #169:asUtf8).
-html:entities:atPut("mdash", #8212:asUtf8).
+html:entities := #["amp"   = "&",
+                   "lt"    = "<",
+                   "gt"    = ">",
+                   "quot"  = "\"",
+                   "apos"  = "'",
+                   "nbsp"  = #160:asUtf8,
+                   "copy"  = #169:asUtf8,
+                   "mdash" = #8212:asUtf8].
 
 html:hexDigits := "0123456789abcdef".
 
