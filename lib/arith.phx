@@ -34,9 +34,11 @@
 ; every one of them was a run-time failure first, `and` being a message a symbol
 ; does not understand.
 ;
-; **`\/` and not `||`**, because `|` is not an operator character and cannot
-; become one: it separates a block's parameters from its body. Allowing `||`
-; while forbidding `|` was considered and refused -- one rule that holds is
-; worth more than a special case that reads better.
-@infix  &&  30 => left:and({ right }).
+; **`/\` and `\/` rather than `&&` and `||`**, which is a spelling and not a
+; limitation -- `&&` lexes perfectly well and a module that prefers it may
+; declare it. These are the pair because they are a pair: `||` cannot be
+; declared at all, `|` being the token that separates a block's parameters from
+; its body, and `&&` beside `\/` reads as two unrelated decisions. Two symbols
+; out of one tradition beat one familiar symbol and one apology.
+@infix  /\  30 => left:and({ right }).
 @infix  \/  25 => left:or({ right }).

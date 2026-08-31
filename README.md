@@ -219,9 +219,9 @@ nothing else will say so.
 ## An operator that stands for a template
 
 ```
-@infix && 30 => left:and({ right }).
+@infix /\ 30 => left:and({ right }).
 
-x > #1 && y > #0
+x > #1 /\ y > #0
 ```
 
 becomes
@@ -246,10 +246,11 @@ substitution, hygiene, provenance, the expansion trail. The operands are called
 `left` and `right` because an operator has exactly as many operands as it has,
 so there is nothing to name.
 
-**`\/` and not `||`.** `|` is not an operator character and cannot become one —
-it separates a block's parameters from its body. Allowing `||` while forbidding
-`|` was considered and refused: one rule that holds is worth more than a special
-case that reads better.
+**`/\` and `\/`, not `&&` and `||`.** A spelling, not a limitation: `&&` lexes
+perfectly well and a module that prefers it may declare it. These are the pair
+in `lib/arith.phx` because they *are* a pair — **`||` cannot be declared at
+all**, `|` being the token that separates a block's parameters from its body, so
+`&&` would have stood beside `\/` as two unrelated decisions.
 
 ## Forms
 

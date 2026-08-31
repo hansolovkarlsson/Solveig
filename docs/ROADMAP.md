@@ -170,7 +170,7 @@ them, and nothing in six versions had noticed because nothing had tried.
 **`programs/ember` is what tried.** Six expressions in that compiler were
 written `(a == b):and({ ... })` by hand, every one of them a run-time failure
 first -- `and` being a message a symbol does not understand. `lib/arith.phx` now
-declares `&&` and `\/`, and emberc is written in them.
+declares `/\` and `\/`, and emberc is written in them.
 
 **An operator with a template is a form**, registered as one, so hygiene,
 provenance and the trail come from the expander rather than a second
