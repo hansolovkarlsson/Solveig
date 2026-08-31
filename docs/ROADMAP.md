@@ -158,7 +158,7 @@ The coupling is a file format and a command line.
 
 ## Done — 0.7.0, an operator that stands for a template
 
-**`@infix && 30 => left:and({ right }).`** The only way to declare an operator
+**`@infix /\ 30 => left:and({ right }).`** The only way to declare an operator
 whose right-hand side must not always be evaluated: Solveig's `and` takes a
 block, and a message receives its argument already evaluated.
 

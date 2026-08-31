@@ -26,7 +26,7 @@
 
 ; `and` and `or` take a *block* in Solveig, so that the right-hand side is not
 ; evaluated unless it is needed. An operator naming a message cannot say that --
-; `@infix && 30 and` compiles to `a:and(b)` and is refused at run time -- so
+; `@infix /\ 30 and` compiles to `a:and(b)` and is refused at run time -- so
 ; these name a template instead, and the template puts the block on.
 ;
 ; This is here because programs/ember wanted it and could not have it: six

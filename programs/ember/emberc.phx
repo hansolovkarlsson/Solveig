@@ -1,6 +1,6 @@
 ; emberc.phx -- the Ember compiler: source in, ARM64 assembly out.
 ;
-;     solvm emberc.sob examples/fizzbuzz.em > fizzbuzz.s /\ cc fizzbuzz.s
+;     solvm emberc.sob examples/fizzbuzz.em > fizzbuzz.s && cc fizzbuzz.s
 ;
 ; Written in Phoenix, which is the point. What the dialects buy and what they
 ; cost is in README.md under "What it found".

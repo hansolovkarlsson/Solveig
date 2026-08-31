@@ -232,7 +232,7 @@ x:greaterThan(#1):and({ y:greaterThan(#0) })
 
 **This exists because a message cannot express a short circuit.** Solveig's
 `and` takes a *block*, so that its right-hand side is not evaluated unless it is
-needed — and `@infix && 30 and` compiles to `a:and(b)`, which is refused at run
+needed — and `@infix /\ 30 and` compiles to `a:and(b)`, which is refused at run
 time. `@syntax` could not fill the gap either: **a pattern must begin with a
 word**, and an infix operator begins with its left operand.
 
