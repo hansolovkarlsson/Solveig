@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### The literal's first callers, and the tables that declined it — `HASH`, 2026-08-30
+### The literal's first callers, and the tables that declined it — `a671967` and `839560b`, 2026-08-30
 
 **Four constant tables converted across two libraries, and two more looked at
 and left alone**, which is the more useful half of the result.
