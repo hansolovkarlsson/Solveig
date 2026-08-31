@@ -97,11 +97,15 @@ PhxSpan phx_node_extent(const PhxNode *node)
 
     for (int i = 0; i < node->count; i++) {
         PhxSpan child = phx_node_extent(node->children[i]);
-        if (child.length == 0 && child.offset == 0) continue;
+        /* Only what came from the same file. A node whose child came from a
+           used file -- an argument reaching a template, or the other way -- has
+           no extent covering both, and picking one end from each would draw a
+           caret across whichever file was asked. */
+        if (child.source != node->span.source) continue;
         if (child.offset < start) start = child.offset;
         if (child.offset + child.length > end) end = child.offset + child.length;
     }
-    return (PhxSpan){ start, end - start };
+    return (PhxSpan){ node->span.source, start, end - start };
 }
 
 const char *phx_node_kind_name(PhxNodeKind kind)

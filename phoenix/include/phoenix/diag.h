@@ -16,19 +16,24 @@
 #include "phoenix/tree.h"
 
 typedef struct {
-    const PhxSource *source;
     FILE *out;
     int errors;
+    int warnings;
     PhxSpan last;           /* what the previous report underlined */
 } PhxDiagnostics;
 
-void phx_diag_init(PhxDiagnostics *diag, const PhxSource *source, FILE *out);
+void phx_diag_init(PhxDiagnostics *diag, FILE *out);
 
 /* Prints the message, the line it happened on, and a caret under `span`. */
 void phx_error(PhxDiagnostics *diag, PhxSpan span, const char *format, ...);
 
-/* A second span attached to the error just printed -- "declared here". Does not
-   count towards `errors`. */
+/* Solveig's own answer to two files claiming one name: the later wins, and the
+   compiler says so rather than letting it pass. Phoenix follows it for syntax,
+   and the reasoning is in the README under *When two dialects collide*. */
+void phx_warning(PhxDiagnostics *diag, PhxSpan span, const char *format, ...);
+
+/* A second span attached to the report just printed -- "declared here". Counts
+   towards neither total. */
 void phx_note(PhxDiagnostics *diag, PhxSpan span, const char *format, ...);
 
 /* The chain of forms a node was expanded out of, innermost first.
@@ -38,5 +43,14 @@ void phx_note(PhxDiagnostics *diag, PhxSpan span, const char *format, ...);
  * an error in ordinary code should not gain a blank line explaining that it
  * came from nowhere. */
 void phx_note_expansion(PhxDiagnostics *diag, const PhxNode *node);
+
+/* One line of the chain of files that led here, without a caret:
+ *
+ *     ... used from prog.phx, line 3
+ *
+ * Solveig prints `... included from` the same way for the same reason, and a
+ * span with a caret would be wrong here -- the interesting thing is the path,
+ * not the eight characters of the directive. */
+void phx_note_from(PhxDiagnostics *diag, PhxSpan at, const char *what);
 
 #endif /* PHOENIX_DIAG_H */

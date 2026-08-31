@@ -75,8 +75,10 @@ const PhxInfix *phx_dialect_add_infix(PhxDialect *dialect,
                                       int precedence, PhxAssoc assoc,
                                       PhxSpan declared_at)
 {
+    /* Always added, never refused. Lookup walks backwards, so the last
+       declaration is the one a use finds -- and what to say about the one it
+       displaced is a policy the reader applies, not a rule the table has. */
     const PhxInfix *existing = phx_dialect_infix(dialect, spelling, length);
-    if (existing != NULL) return existing;
 
     if (dialect->infix_count == dialect->infix_capacity) {
         dialect->infix_capacity = dialect->infix_capacity < 8
@@ -91,7 +93,7 @@ const PhxInfix *phx_dialect_add_infix(PhxDialect *dialect,
     entry->precedence = precedence;
     entry->assoc = assoc;
     entry->declared_at = declared_at;
-    return NULL;
+    return existing;
 }
 
 const PhxPrefix *phx_dialect_add_prefix(PhxDialect *dialect,
@@ -100,7 +102,6 @@ const PhxPrefix *phx_dialect_add_prefix(PhxDialect *dialect,
                                         PhxSpan declared_at)
 {
     const PhxPrefix *existing = phx_dialect_prefix(dialect, spelling, length);
-    if (existing != NULL) return existing;
 
     if (dialect->prefix_count == dialect->prefix_capacity) {
         dialect->prefix_capacity = dialect->prefix_capacity < 8
@@ -113,7 +114,7 @@ const PhxPrefix *phx_dialect_add_prefix(PhxDialect *dialect,
     entry->spelling = phx_strndup(spelling, (size_t)length);
     entry->selector = phx_strndup(selector, (size_t)selector_length);
     entry->declared_at = declared_at;
-    return NULL;
+    return existing;
 }
 
 const PhxMacro *phx_dialect_macro(const PhxDialect *dialect,
@@ -131,15 +132,6 @@ const PhxMacro *phx_dialect_add_macro(PhxDialect *dialect,
                                       PhxNode *template, PhxSpan declared_at)
 {
     const PhxMacro *existing = phx_dialect_macro(dialect, name, length);
-    if (existing != NULL) {
-        /* The caller built a template it no longer owns a use for. Freed here
-           rather than there, so that every path out of the parser leaves the
-           same thing standing. */
-        for (int i = 0; i < param_count; i++) free(params[i]);
-        free(params);
-        phx_node_free(template);
-        return existing;
-    }
 
     if (dialect->macro_count == dialect->macro_capacity) {
         dialect->macro_capacity = dialect->macro_capacity < 8
@@ -154,5 +146,5 @@ const PhxMacro *phx_dialect_add_macro(PhxDialect *dialect,
     entry->param_count = param_count;
     entry->template = template;
     entry->declared_at = declared_at;
-    return NULL;
+    return existing;
 }

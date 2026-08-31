@@ -3,6 +3,30 @@
 What 0.1.0 established, in the order the rest depends on it. Each entry says
 what would have to be true before the next one is worth starting.
 
+## Done — 0.4.0, a dialect that is a file
+
+**`@use "arith.phx".`** A dialect file holds directives and nothing else, and is
+read into the header of whoever used it. Looked for beside the file using it,
+then `-I`, then `PHOENIX_PATH`. Read once, so a diamond is free; a cycle is an
+error with the chain that got there.
+
+**The collision rule, which everything was queuing behind.** Solveig had already
+answered it for two files claiming one global -- the later wins and the compiler
+says so -- and the four cases differ in who could have known. Both in one module
+is an error; the module over a `@use` is silent; either direction between files
+warns. The README argues it under *When two dialects collide*.
+
+**A span carries its file.** The refactor the rest needed: a module is several
+files now, and a diagnostic three files away shows the line without being told
+which file it is about. The map grew a fourth column, printed only for the
+lines that came from somewhere else.
+
+**Hygiene did not need to change, and the reason is Solveig's.** 0.3.0 predicted
+one `scope` number would stop being enough once a template could be declared
+outside the module using it. It does not: globals are one flat namespace, so a
+template's free `total` and a caller's global `total` are the same variable by
+construction. A `scope` becomes a set the day the substrate has a module system.
+
 ## Done — 0.3.0, the other half of hygiene
 
 **A template's free references are protected.** `@syntax bump(n) => total :=

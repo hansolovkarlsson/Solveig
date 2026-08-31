@@ -37,10 +37,10 @@ static void name_set_add(NameSet *set, const char *name, size_t length)
     set->names[set->count++] = phx_strndup(name, length);
 }
 
-static void name_set_collect(NameSet *set, const char *text)
+static void name_set_collect(NameSet *set, const PhxSource *source)
 {
     PhxLexer lexer;
-    phx_lexer_init(&lexer, text);
+    phx_lexer_init(&lexer, source);
     for (;;) {
         PhxToken token = phx_lexer_next(&lexer);
         if (token.type == PHX_TOK_EOF) break;
@@ -70,7 +70,7 @@ typedef struct Capture {
 } Capture;
 
 typedef struct {
-    const PhxSource *source;
+    const PhxUnit *unit;
     const PhxDialect *dialect;
     PhxDiagnostics *diag;
     PhxProvenance *provenance;
@@ -199,6 +199,7 @@ static PhxNode *instantiate(const Instance *instance, const PhxNode *template)
 }
 
 static PhxNode *expand_node(Expander *expander, PhxNode *node, int depth);
+static void note_trail(Expander *expander, const PhxNode *node);
 
 /* How deep expansion may go before something is wrong with this file rather
    than with the program in it.
@@ -256,7 +257,7 @@ static PhxNode *expand_node(Expander *expander, PhxNode *node, int depth)
         phx_error(expander->diag, node->span,
                   "expansion went %d deep, which should not be possible",
                   depth);
-        phx_note_expansion(expander->diag, node);
+        note_trail(expander, node);
         expander->failed = true;
         return node;
     }
@@ -417,6 +418,23 @@ static void protect_free_references(Expander *expander, PhxNode *module)
 
 /* ---------------------------------------------------------- after the fact */
 
+/* The trail, plus where each form came from when that is not the file the use
+   is in. With dialects in a library, "where is this declared" is the question
+   the trail leaves open, and the answer is a lookup away. */
+static void note_trail(Expander *expander, const PhxNode *node)
+{
+    for (const PhxNode *use = node->introduced_by; use != NULL;
+         use = use->introduced_by) {
+        phx_note(expander->diag, use->span,
+                 "in the expansion of '%s', written here", use->text);
+
+        const PhxMacro *macro = phx_dialect_macro(expander->dialect, use->text,
+                                                  (int)strlen(use->text));
+        if (macro != NULL && macro->declared_at.source != use->span.source)
+            phx_note_from(expander->diag, macro->declared_at, "declared in");
+    }
+}
+
 static bool assignable(const PhxNode *node)
 {
     return node->kind == PHX_NODE_NAME ||
@@ -440,19 +458,19 @@ static void validate(Expander *expander, const PhxNode *node)
            the *template* that put it in a place a place has to be. */
         phx_error(expander->diag, phx_node_extent(node->children[0]),
                   "this cannot be assigned to");
-        phx_note_expansion(expander->diag, node);
+        note_trail(expander, node);
         expander->failed = true;
     }
     for (int i = 0; i < node->count; i++)
         validate(expander, node->children[i]);
 }
 
-bool phx_expand(PhxNode *module, const PhxSource *source,
+bool phx_expand(PhxNode *module, const PhxUnit *unit,
                 const PhxDialect *dialect, PhxDiagnostics *diag,
                 PhxProvenance *provenance)
 {
     Expander expander;
-    expander.source = source;
+    expander.unit = unit;
     expander.dialect = dialect;
     expander.diag = diag;
     expander.provenance = provenance;
@@ -463,7 +481,11 @@ bool phx_expand(PhxNode *module, const PhxSource *source,
     expander.capture_count = expander.capture_capacity = 0;
     expander.failed = false;
 
-    name_set_collect(&expander.used, source->text);
+    /* Every file, not only the one being compiled: a template out of a used
+       dialect brings its own identifiers, and a name that is fresh in one file
+       and taken in another is not fresh. */
+    for (int i = 0; i < unit->count; i++)
+        name_set_collect(&expander.used, unit->sources[i]);
 
     for (int i = 0; i < module->count; i++)
         module->children[i] = expand_node(&expander, module->children[i], 0);

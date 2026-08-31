@@ -46,6 +46,7 @@ DIST  = dist
 
 PREFIX ?= /usr/local
 BINDIR  = $(DESTDIR)$(PREFIX)/bin
+LIBDIR  = $(DESTDIR)$(PREFIX)/lib/phoenix
 
 LIB_SRCS = $(wildcard phoenix/src/*.c)
 LIB_OBJS = $(LIB_SRCS:%.c=$(BUILD)/%.o)
@@ -53,6 +54,11 @@ LIB      = $(BUILD)/libphoenix.a
 
 TEST_SRCS = $(wildcard tests/*.c)
 TEST_BINS = $(TEST_SRCS:tests/%.c=$(BUILD)/tests/%)
+
+# The dialect files the examples reach with @use. Listed so that changing one
+# rebuilds every example, which a per-example dependency could not do without
+# reading the headers to find out which uses what.
+DIALECTS = $(wildcard lib/*.phx)
 
 EXAMPLE_SRCS = $(wildcard examples/*.phx)
 EXAMPLE_SOLS = $(EXAMPLE_SRCS:.phx=.sol)
@@ -110,7 +116,7 @@ check:
 
 # The map is written every time rather than on request. It costs a file and it
 # is the thing that is never there when it is wanted.
-examples/%.sol: examples/%.phx $(BIN)/phoenix
+examples/%.sol: examples/%.phx $(DIALECTS) $(BIN)/phoenix
 	@$(BIN)/phoenix --map $< -o $@
 
 examples/%.sob: examples/%.sol | check
@@ -131,13 +137,22 @@ test: $(BIN)/phoenix $(TEST_BINS) $(EXAMPLE_SOBS)
 	    $(SOLVEIG)/bin/solvm $$e > /dev/null || exit 1; done
 	@echo "all tests passed"
 
+# The dialects go in beside the binary, and nothing looks for them there.
+#
+# Solveig's binaries are told their library path at build time and search it, so
+# `@include "text.sol"` works from anywhere. Phoenix does not do that yet, and
+# saying so is better than half of it: PHOENIX_PATH is how a @use finds an
+# installed dialect, and it is one line in a profile.
 install: all
-	@mkdir -p $(BINDIR)
+	@mkdir -p $(BINDIR) $(LIBDIR)
 	cp $(BIN)/phoenix $(BINDIR)
+	cp $(DIALECTS) $(LIBDIR)
 	@echo "installed to $(DESTDIR)$(PREFIX)"
+	@echo "  export PHOENIX_PATH=$(PREFIX)/lib/phoenix    # so @use can find these"
 
 uninstall:
 	rm -f $(BINDIR)/phoenix
+	rm -rf $(LIBDIR)
 
 # From HEAD rather than the working tree: a tarball of uncommitted work is a
 # tarball nobody can get back to.

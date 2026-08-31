@@ -3,11 +3,11 @@
 
 #include "phoenix/diag.h"
 
-void phx_diag_init(PhxDiagnostics *diag, const PhxSource *source, FILE *out)
+void phx_diag_init(PhxDiagnostics *diag, FILE *out)
 {
-    diag->source = source;
     diag->out = out;
     diag->errors = 0;
+    diag->warnings = 0;
     diag->last = PHX_SPAN_NONE;
 }
 
@@ -23,7 +23,17 @@ void phx_diag_init(PhxDiagnostics *diag, const PhxSource *source, FILE *out)
 static void report(PhxDiagnostics *diag, const char *severity, PhxSpan span,
                    const char *format, va_list args)
 {
-    const PhxSource *source = diag->source;
+    const PhxSource *source = span.source;
+    if (source == NULL) {
+        /* A report against a span nothing produced. Nothing should get here,
+           and the alternative to saying so is a caret on the first character
+           of a file chosen at random. */
+        fprintf(diag->out, "phoenix: %s: ", severity);
+        vfprintf(diag->out, format, args);
+        fputc('\n', diag->out);
+        return;
+    }
+
     int line, column;
     phx_source_position(source, span.offset, &line, &column);
 
@@ -34,7 +44,8 @@ static void report(PhxDiagnostics *diag, const char *severity, PhxSpan span,
     /* A note about the very thing the error just underlined does not need the
        line and the caret again -- it is the same line and the same caret, and
        printing it twice makes a two-line remark look like two problems. */
-    bool repeat = span.offset == diag->last.offset &&
+    bool repeat = span.source == diag->last.source &&
+                  span.offset == diag->last.offset &&
                   span.length == diag->last.length;
     diag->last = span;
     if (repeat) return;
@@ -72,6 +83,15 @@ void phx_error(PhxDiagnostics *diag, PhxSpan span, const char *format, ...)
     diag->errors++;
 }
 
+void phx_warning(PhxDiagnostics *diag, PhxSpan span, const char *format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    report(diag, "warning", span, format, args);
+    va_end(args);
+    diag->warnings++;
+}
+
 void phx_note(PhxDiagnostics *diag, PhxSpan span, const char *format, ...)
 {
     va_list args;
@@ -86,4 +106,13 @@ void phx_note_expansion(PhxDiagnostics *diag, const PhxNode *node)
          use = use->introduced_by)
         phx_note(diag, use->span, "in the expansion of '%s', written here",
                  use->text != NULL ? use->text : "a form");
+}
+
+void phx_note_from(PhxDiagnostics *diag, PhxSpan at, const char *what)
+{
+    if (at.source == NULL) return;
+    int line, column;
+    phx_span_position(at, &line, &column);
+    (void)column;
+    fprintf(diag->out, "  ... %s %s, line %d\n", what, at.source->path, line);
 }

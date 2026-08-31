@@ -13,11 +13,26 @@
 #include "phoenix/lex.h"
 #include "phoenix/reader.h"
 
+/* One file being read, and the `@use` that led to it.
+ *
+ * The chain is what prints under a diagnostic in a dialect file, so somebody
+ * looking at an error three files away can see how they got there -- and it is
+ * what a cycle is detected against, a file already on the chain being one that
+ * is not finished being read. */
+typedef struct Use {
+    const struct Use *outer;
+    const PhxSource *source;
+    PhxSpan at;             /* the directive; NONE for the file on the command line */
+} Use;
+
 typedef struct {
     PhxLexer lexer;
     PhxToken current;
     PhxToken previous;
     const PhxSource *source;
+    const PhxSource *primary;   /* the file on the command line */
+    PhxUnit *unit;
+    const Use *use;
     PhxDialect *dialect;
     PhxDiagnostics *diag;
     bool panicked;          /* suppresses the cascade after one error */
@@ -94,6 +109,64 @@ static void error_here(Reader *reader, const char *format, ...)
     vsnprintf(message, sizeof message, format, args);
     va_end(args);
     error_at(reader, reader->current.span, "%s", message);
+}
+
+/* The chain of `@use` that led to the file being read. Printed after a report,
+   and nothing at all for the file on the command line. */
+static void note_trail(Reader *reader)
+{
+    for (const Use *use = reader->use; use != NULL; use = use->outer)
+        phx_note_from(reader->diag, use->at, "used from");
+}
+
+/* Solveig's answer to two files claiming one name, applied to syntax: the later
+ * one wins, and the compiler says so rather than letting it pass.
+ *
+ * The four cases differ in who could have known, which is the same distinction
+ * Solveig draws when it warns on a claim and not on an update:
+ *
+ *   both in this module      an error. A module contradicting itself in eight
+ *                            lines of header is a mistake, not a choice.
+ *
+ *   this module over a use   silent. Deliberate, local, and both lines are in
+ *                            the file being edited -- overriding an imported
+ *                            operator is a thing a module is allowed to want.
+ *
+ *   a use over this module   a warning. Almost certainly the `@use` wanting to
+ *                            be above the declaration rather than below it.
+ *
+ *   two uses                 a warning. Neither author knew about the other,
+ *                            which is the case the rule exists for.
+ */
+static void collision(Reader *reader, const char *what, const char *spelling,
+                      PhxSpan now, PhxSpan before)
+{
+    bool now_is_ours = now.source == reader->primary;
+    bool before_was_ours = before.source == reader->primary;
+
+    if (now_is_ours && before_was_ours) {
+        error_at(reader, now, "%s '%s' has already been declared in this module",
+                 what, spelling);
+        phx_note(reader->diag, before, "declared here");
+        return;
+    }
+    if (now_is_ours) return;
+
+    if (before_was_ours) {
+        phx_warning(reader->diag, now,
+                    "%s '%s' here overrides the one this module declared",
+                    what, spelling);
+        note_trail(reader);
+        phx_note(reader->diag, before,
+                 "declared here, and put back by moving the @use above it");
+        return;
+    }
+
+    phx_warning(reader->diag, now,
+                "%s '%s' was already declared by %s -- this one wins, and "
+                "nothing else will say so", what, spelling, before.source->path);
+    note_trail(reader);
+    phx_note(reader->diag, before, "declared here");
 }
 
 /* After an error, skip to just past the next statement end at the outermost
@@ -173,7 +246,7 @@ static void directive_operator(Reader *reader, bool infix, PhxAssoc assoc)
     PhxToken selector = reader->current;
     advance(reader);
 
-    PhxSpan where = { directive.span.offset,
+    PhxSpan where = { directive.span.source, directive.span.offset,
                       (selector.span.offset + selector.span.length)
                           - directive.span.offset };
 
@@ -181,24 +254,16 @@ static void directive_operator(Reader *reader, bool infix, PhxAssoc assoc)
         const PhxInfix *clash = phx_dialect_add_infix(
             reader->dialect, spelling.start, spelling.length,
             selector.start, selector.length, precedence, assoc, where);
-        if (clash != NULL) {
-            error_at(reader, spelling.span,
-                     "'%s' has already been declared in this module",
-                     clash->spelling);
-            phx_note(reader->diag, clash->declared_at, "as '%s', here",
-                     clash->selector);
-        }
+        if (clash != NULL)
+            collision(reader, "operator", clash->spelling,
+                      spelling.span, clash->declared_at);
     } else {
         const PhxPrefix *clash = phx_dialect_add_prefix(
             reader->dialect, spelling.start, spelling.length,
             selector.start, selector.length, where);
-        if (clash != NULL) {
-            error_at(reader, spelling.span,
-                     "prefix '%s' has already been declared in this module",
-                     clash->spelling);
-            phx_note(reader->diag, clash->declared_at, "as '%s', here",
-                     clash->selector);
-        }
+        if (clash != NULL)
+            collision(reader, "prefix operator", clash->spelling,
+                      spelling.span, clash->declared_at);
     }
 }
 
@@ -285,7 +350,7 @@ static void directive_syntax(Reader *reader)
         goto give_up;
     }
 
-    PhxSpan where = { directive.span.offset,
+    PhxSpan where = { directive.span.source, directive.span.offset,
                       (name.span.offset + name.span.length)
                           - directive.span.offset };
 
@@ -293,16 +358,103 @@ static void directive_syntax(Reader *reader)
                                                   name.start, name.length,
                                                   params, param_count,
                                                   template, where);
-    if (clash != NULL) {
-        error_at(reader, name.span,
-                 "'%s' has already been declared in this module", clash->name);
-        phx_note(reader->diag, clash->declared_at, "here");
-    }
+    if (clash != NULL)
+        collision(reader, "form", clash->name, name.span, clash->declared_at);
     return;
 
 give_up:
     for (int i = 0; i < param_count; i++) free(params[i]);
     free(params);
+}
+
+static void read_file(PhxUnit *unit, const PhxSource *source,
+                      const PhxSource *primary, PhxDialect *dialect,
+                      PhxDiagnostics *diag, const Use *use, PhxNode *module);
+
+/* How deep `@use` may nest. Solveig allows an `@include` 64 deep and says so;
+   a header that has gone further than that has gone wrong in a way a deeper
+   limit would only postpone. */
+#define PHX_USE_LIMIT 64
+
+/* `@use "arith.phx".`
+ *
+ * Reads that file's header into this module's dialect. The file is looked for
+ * beside the one using it first, then in each `-I` directory, then in
+ * PHOENIX_PATH -- the order Solveig's `@include` uses, because a program with
+ * its dialect in the same folder should not need a command line to say so. */
+static void directive_use(Reader *reader)
+{
+    PhxToken directive = reader->previous;
+
+    if (!check(reader, PHX_TOK_STRING)) {
+        error_here(reader, "'@use' takes the dialect file, in quotes");
+        return;
+    }
+    PhxToken quoted = reader->current;
+    char *name = phx_strndup(quoted.start + 1, (size_t)quoted.length - 2);
+    advance(reader);
+
+    PhxSpan at = { directive.span.source, directive.span.offset,
+                   (quoted.span.offset + quoted.span.length)
+                       - directive.span.offset };
+
+    int depth = 0;
+    for (const Use *use = reader->use; use != NULL; use = use->outer) depth++;
+    if (depth >= PHX_USE_LIMIT) {
+        error_at(reader, at, "@use is nested more than %d deep", PHX_USE_LIMIT);
+        note_trail(reader);
+        free(name);
+        return;
+    }
+
+    char *path = phx_unit_resolve(reader->unit, reader->source, name);
+    if (path == NULL) {
+        error_at(reader, at, "cannot find '%s'", name);
+        phx_note(reader->diag, at,
+                 "looked beside %s, then in each -I directory, then in "
+                 "PHOENIX_PATH", reader->source->path);
+        note_trail(reader);
+        free(name);
+        return;
+    }
+
+    /* A file still being read is a file using itself, however many hops away.
+       Caught here rather than left to the load-once rule below, which would
+       terminate and then report the operators as undeclared -- true, and no
+       help at all in finding out why. */
+    for (const Use *use = reader->use; use != NULL; use = use->outer)
+        if (strcmp(use->source->path, path) == 0) {
+            error_at(reader, at, "'%s' is already being read -- @use is a cycle",
+                     path);
+            note_trail(reader);
+            free(path);
+            free(name);
+            return;
+        }
+
+    /* Read once. Two dialects that both use a third meet it once, so its
+       declarations are not added twice and do not collide with themselves. */
+    if (phx_unit_loaded(reader->unit, path) != NULL) {
+        free(path);
+        free(name);
+        return;
+    }
+
+    const PhxSource *source = phx_unit_read(reader->unit, path);
+    if (source == NULL) {
+        error_at(reader, at, "cannot read '%s'", path);
+        note_trail(reader);
+        free(path);
+        free(name);
+        return;
+    }
+
+    Use use = { reader->use, source, at };
+    read_file(reader->unit, source, reader->primary, reader->dialect,
+              reader->diag, &use, NULL);
+
+    free(path);
+    free(name);
 }
 
 /* Answers false at the first token that is not a header directive. */
@@ -339,13 +491,15 @@ static bool header_directive(Reader *reader)
         directive_operator(reader, false, PHX_ASSOC_LEFT);
     } else if (token_is(&directive, "@syntax")) {
         directive_syntax(reader);
+    } else if (token_is(&directive, "@use")) {
+        directive_use(reader);
     } else {
         error_at(reader, directive.span,
                  "'%.*s' is not a directive Phoenix knows",
                  directive.length, directive.start);
         phx_note(reader->diag, directive.span,
-                 "the header takes @language, @infix, @infixr, @prefix "
-                 "and @syntax");
+                 "the header takes @language, @use, @infix, @infixr, "
+                 "@prefix and @syntax");
     }
 
     if (!reader->panicked) consume(reader, PHX_TOK_DOT, "'.' after a directive");
@@ -772,12 +926,23 @@ static PhxNode *statement(Reader *reader)
     return node;
 }
 
-PhxNode *phx_read(const PhxSource *source, PhxDialect *dialect,
-                  PhxDiagnostics *diag)
+/* One file, header first and then whatever the caller allows after it.
+ *
+ * `module` is where statements go, and NULL means there is nowhere for them --
+ * a dialect file, which holds directives and nothing else. That split is what
+ * keeps the two kinds of file from becoming one kind with a rule about which
+ * half is read: a dialect provides syntax, and Solveig's own `@include`
+ * provides code, so there is no third thing for a `.phx` to be. */
+static void read_file(PhxUnit *unit, const PhxSource *source,
+                      const PhxSource *primary, PhxDialect *dialect,
+                      PhxDiagnostics *diag, const Use *use, PhxNode *module)
 {
     Reader reader;
-    phx_lexer_init(&reader.lexer, source->text);
+    phx_lexer_init(&reader.lexer, source);
     reader.source = source;
+    reader.primary = primary;
+    reader.unit = unit;
+    reader.use = use;
     reader.dialect = dialect;
     reader.diag = diag;
     reader.panicked = false;
@@ -791,7 +956,17 @@ PhxNode *phx_read(const PhxSource *source, PhxDialect *dialect,
 
     while (header_directive(&reader)) { }
 
-    PhxNode *module = phx_node_new(PHX_NODE_SEQUENCE, PHX_SPAN_NONE);
+    if (module == NULL) {
+        if (!check(&reader, PHX_TOK_EOF)) {
+            error_at(&reader, reader.current.span,
+                     "a dialect file holds directives, and this is a statement");
+            phx_note(diag, reader.current.span,
+                     "code goes in a .sol beside it, reached with "
+                     "@include -- see the README, 'A dialect is a file'");
+            note_trail(&reader);
+        }
+        return;
+    }
 
     while (!check(&reader, PHX_TOK_EOF)) {
         /* A header directive down here is the one mistake worth naming
@@ -814,6 +989,15 @@ PhxNode *phx_read(const PhxSource *source, PhxDialect *dialect,
         }
         phx_node_add(module, node);
     }
+}
+
+PhxNode *phx_read(const PhxSource *source, PhxUnit *unit,
+                  PhxDialect *dialect, PhxDiagnostics *diag)
+{
+    PhxNode *module = phx_node_new(PHX_NODE_SEQUENCE, PHX_SPAN_NONE);
+    Use use = { NULL, source, PHX_SPAN_NONE };
+
+    read_file(unit, source, source, dialect, diag, &use, module);
 
     if (diag->errors > 0) {
         phx_node_free(module);

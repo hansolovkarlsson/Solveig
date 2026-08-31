@@ -45,11 +45,12 @@ typedef struct {
 } PhxToken;
 
 typedef struct {
-    const char *source;     /* the whole text, for computing offsets */
+    const PhxSource *source;
+    const char *start;      /* source->text, for computing offsets */
     const char *current;
 } PhxLexer;
 
-void phx_lexer_init(PhxLexer *lexer, const char *source);
+void phx_lexer_init(PhxLexer *lexer, const PhxSource *source);
 PhxToken phx_lexer_next(PhxLexer *lexer);
 
 const char *phx_token_type_name(PhxTokenType type);

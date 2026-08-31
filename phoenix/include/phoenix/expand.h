@@ -29,6 +29,7 @@
 #include "phoenix/diag.h"
 #include "phoenix/dialect.h"
 #include "phoenix/tree.h"
+#include "phoenix/unit.h"
 
 /* The macro uses, kept alive after they are replaced.
  *
@@ -44,8 +45,13 @@ typedef struct {
 void phx_provenance_init(PhxProvenance *provenance);
 void phx_provenance_free(PhxProvenance *provenance);
 
-/* Rewrites `module` in place. Answers false if anything was reported. */
-bool phx_expand(PhxNode *module, const PhxSource *source,
+/* Rewrites `module` in place. Answers false if anything was reported.
+ *
+ * Takes the unit rather than one source because a generated name has to be
+ * fresh against every file the module is made of. A template read from a
+ * `@use`d dialect can bind a `t`, and a name checked only against the file on
+ * the command line would be fresh there and taken here. */
+bool phx_expand(PhxNode *module, const PhxUnit *unit,
                 const PhxDialect *dialect, PhxDiagnostics *diag,
                 PhxProvenance *provenance);
 

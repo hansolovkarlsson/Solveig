@@ -74,8 +74,9 @@ const PhxInfix *phx_dialect_infix(const PhxDialect *dialect,
 const PhxPrefix *phx_dialect_prefix(const PhxDialect *dialect,
                                     const char *spelling, int length);
 
-/* Answer the earlier declaration when there is one, so the caller can report
-   the collision with both spans; NULL when the addition was clean. */
+/* Always added; lookup finds the last, so a later declaration wins. Answers the
+   one it displaced, or NULL -- what to say about that is the reader's policy
+   and not the table's. See *When two dialects collide* in the README. */
 const PhxInfix *phx_dialect_add_infix(PhxDialect *dialect,
                                       const char *spelling, int length,
                                       const char *selector, int selector_length,
@@ -89,8 +90,7 @@ const PhxPrefix *phx_dialect_add_prefix(PhxDialect *dialect,
 const PhxMacro *phx_dialect_macro(const PhxDialect *dialect,
                                   const char *name, int length);
 
-/* Takes the template. Answers the earlier declaration on a collision, in which
-   case the template is freed and nothing is added. */
+/* Takes the template. Answers the declaration it displaced, or NULL. */
 const PhxMacro *phx_dialect_add_macro(PhxDialect *dialect,
                                       const char *name, int length,
                                       char **params, int param_count,

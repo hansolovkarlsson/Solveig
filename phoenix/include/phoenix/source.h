@@ -14,22 +14,39 @@
 #include "phoenix/common.h"
 
 typedef struct {
-    const char *path;
+    char *path;             /* owned */
     char *text;             /* NUL-terminated; owned */
     size_t length;
 } PhxSource;
 
-/* A region of the source text. Length may be 0, which points between two
-   characters and is what an "expected X here" diagnostic wants. */
+/* A region of a source text, and which text.
+ *
+ * The source is on the span rather than held once beside the compiler, because
+ * `@use` means a module is made of several files and a tree holds nodes from
+ * more than one of them. A span that only knew an offset would need a registry
+ * and an id to go with it; carrying the file costs a pointer and means a
+ * diagnostic never has to be told which file it is about.
+ *
+ * Length may be 0, which points between two characters and is what an
+ * "expected X here" diagnostic wants. */
 typedef struct {
+    const PhxSource *source;
     uint32_t offset;
     uint32_t length;
 } PhxSpan;
 
-#define PHX_SPAN_NONE ((PhxSpan){ 0, 0 })
+#define PHX_SPAN_NONE ((PhxSpan){ NULL, 0, 0 })
 
 bool phx_source_read(PhxSource *source, const char *path);
+
+/* For a source built in memory rather than read: the tests, and nothing else
+   so far. Both strings are copied. */
+void phx_source_adopt(PhxSource *source, const char *path, const char *text);
 void phx_source_free(PhxSource *source);
+
+/* A span's place, for a diagnostic. Answers 0:0 for PHX_SPAN_NONE, which no
+   diagnostic should be reporting against and which is worth seeing if one is. */
+void phx_span_position(PhxSpan span, int *line, int *column);
 
 /* One-based, because these are for people rather than for arithmetic. */
 void phx_source_position(const PhxSource *source, uint32_t offset,

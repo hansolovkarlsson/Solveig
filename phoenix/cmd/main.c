@@ -13,6 +13,7 @@
 #include "phoenix/emit.h"
 #include "phoenix/expand.h"
 #include "phoenix/reader.h"
+#include "phoenix/unit.h"
 
 #define NAME "phoenix"
 
@@ -31,10 +32,15 @@ static void usage(FILE *out)
         "\n"
         "  -o <file>    where to write it; the default is the source name with\n"
         "               .sol in place of .phx\n"
+        "  -I <dir>     where a @use falls back to when the dialect file is not\n"
+        "               beside the one using it; repeatable, first wins\n"
         "  --map        write the source map beside the output, as <output>.map\n"
         "  --tree       print the expanded tree and stop, writing nothing\n"
         "  --version    show the version and stop\n"
         "  --help, -h   show this and stop\n"
+        "\n"
+        "A @use is looked for beside the file using it first, then in each -I\n"
+        "directory in order, then in PHOENIX_PATH (colon-separated).\n"
         "\n"
         "The generated file is an artefact. Compile it with solas and keep the\n"
         "map: it is what turns a position in the .sol back into the .phx line\n"
@@ -70,6 +76,9 @@ int main(int argc, char *argv[])
     bool want_map = false;
     bool want_tree = false;
 
+    PhxUnit unit;
+    phx_unit_init(&unit);
+
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             usage(stdout);
@@ -78,6 +87,14 @@ int main(int argc, char *argv[])
         if (strcmp(argv[i], "--version") == 0) { version(); return 0; }
         if (strcmp(argv[i], "--map") == 0)  { want_map = true;  continue; }
         if (strcmp(argv[i], "--tree") == 0) { want_tree = true; continue; }
+        if (strcmp(argv[i], "-I") == 0) {
+            if (++i >= argc) {
+                fprintf(stderr, NAME ": -I needs a directory\n");
+                return 64;
+            }
+            phx_unit_add_directory(&unit, argv[i]);
+            continue;
+        }
         if (strcmp(argv[i], "-o") == 0) {
             if (++i >= argc) {
                 fprintf(stderr, NAME ": -o needs a file name\n");
@@ -100,14 +117,18 @@ int main(int argc, char *argv[])
 
     if (path == NULL) { usage(stderr); return 64; }
 
-    PhxSource source;
-    if (!phx_source_read(&source, path)) {
+    /* After the flags, so that -I beats the environment. */
+    phx_unit_add_environment(&unit);
+
+    const PhxSource *source = phx_unit_read(&unit, path);
+    if (source == NULL) {
         fprintf(stderr, NAME ": cannot read %s\n", path);
+        phx_unit_free(&unit);
         return 66;
     }
 
     PhxDiagnostics diag;
-    phx_diag_init(&diag, &source, stderr);
+    phx_diag_init(&diag, stderr);
 
     PhxDialect dialect;
     phx_dialect_init(&dialect);
@@ -115,9 +136,9 @@ int main(int argc, char *argv[])
     PhxProvenance provenance;
     phx_provenance_init(&provenance);
 
-    PhxNode *module = phx_read(&source, &dialect, &diag);
+    PhxNode *module = phx_read(source, &unit, &dialect, &diag);
     if (module != NULL &&
-        !phx_expand(module, &source, &dialect, &diag, &provenance)) {
+        !phx_expand(module, &unit, &dialect, &diag, &provenance)) {
         phx_node_free(module);
         module = NULL;
     }
@@ -128,7 +149,7 @@ int main(int argc, char *argv[])
         /* After the last diagnostic, because a diagnostic walks it. */
         phx_provenance_free(&provenance);
         phx_dialect_free(&dialect);
-        phx_source_free(&source);
+        phx_unit_free(&unit);
         return 65;
     }
 
@@ -137,7 +158,7 @@ int main(int argc, char *argv[])
         phx_node_free(module);
         phx_provenance_free(&provenance);
         phx_dialect_free(&dialect);
-        phx_source_free(&source);
+        phx_unit_free(&unit);
         return 0;
     }
 
@@ -154,7 +175,7 @@ int main(int argc, char *argv[])
         status = 74;
     } else if (want_map) {
         char *map = map_path_for(destination);
-        if (!phx_emit_map_write(&emitter, map, &source, destination)) {
+        if (!phx_emit_map_write(&emitter, map, source, destination)) {
             fprintf(stderr, NAME ": cannot write %s\n", map);
             status = 74;
         }
@@ -166,6 +187,6 @@ int main(int argc, char *argv[])
     phx_node_free(module);
     phx_provenance_free(&provenance);
     phx_dialect_free(&dialect);
-    phx_source_free(&source);
+    phx_unit_free(&unit);
     return status;
 }

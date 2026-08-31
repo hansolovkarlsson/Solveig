@@ -63,10 +63,10 @@ static void newline(PhxEmitter *emitter)
 static void record(PhxEmitter *emitter, const PhxNode *node)
 {
     /* Nodes with no span are the ones the compiler made up -- a module's own
-       sequence, and in time whatever an expansion introduces without a form to
-       blame. Mapping those to offset 0 would put a caret on the first character
-       of the file and call it an answer. */
-    if (node->span.length == 0) return;
+       sequence, and whatever an expansion introduces without a form to blame.
+       Mapping those to offset 0 would put a caret on the first character of a
+       file chosen at random and call it an answer. */
+    if (node->span.source == NULL || node->span.length == 0) return;
 
     if (emitter->mapping_count == emitter->mapping_capacity) {
         emitter->mapping_capacity = emitter->mapping_capacity < 64
@@ -89,7 +89,7 @@ static void record(PhxEmitter *emitter, const PhxNode *node)
     }
     mapping->line = emitter->line;
     mapping->column = emitter->column;
-    mapping->offset = node->span.offset;
+    mapping->span = node->span;
 }
 
 static void emit_node(PhxEmitter *emitter, const PhxNode *node);
@@ -310,14 +310,21 @@ bool phx_emit_map_write(const PhxEmitter *emitter, const char *map_path,
     fprintf(file, "# from %s\n", source->path);
     fprintf(file, "# to   %s\n", output_path);
     fprintf(file, "#\n");
-    fprintf(file, "# generated  source   offset\n");
+    fprintf(file, "# generated  source   offset  [file, when not the one above]\n");
 
     for (int i = 0; i < emitter->mapping_count; i++) {
         const PhxMapping *mapping = &emitter->mappings[i];
         int line, column;
-        phx_source_position(source, mapping->offset, &line, &column);
-        fprintf(file, "%d:%d  %d:%d  %u\n",
-                mapping->line, mapping->column, line, column, mapping->offset);
+        phx_span_position(mapping->span, &line, &column);
+
+        /* The path only when it is not the file being compiled. A module made
+           of one file -- which is most of them -- gets a map with no fourth
+           column at all, and a `@use` shows up as the lines that have one. */
+        fprintf(file, "%d:%d  %d:%d  %u", mapping->line, mapping->column,
+                line, column, mapping->span.offset);
+        if (mapping->span.source != source)
+            fprintf(file, "  %s", mapping->span.source->path);
+        fputc('\n', file);
     }
 
     return fclose(file) == 0;

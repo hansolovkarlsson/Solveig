@@ -110,6 +110,7 @@ stack trace actually is.
 | | |
 | --- | --- |
 | `@language <name>.` | What dialect this module is written in. Recorded and not yet acted on: there is one reader. |
+| `@use "<file>".` | Read that dialect file's header into this module. |
 | `@infix <op> <precedence> <message>.` | An infix operator, grouping to the left. Higher precedence binds tighter. |
 | `@infixr <op> <precedence> <message>.` | The same, grouping to the right. |
 | `@prefix <op> <message>.` | A prefix operator. Binds tighter than any infix and looser than a send. |
@@ -140,6 +141,77 @@ every dialect secretly the same dialect.
 **The header comes before the code, and the compiler says so when it does not.**
 A directive further down is the mistake worth naming precisely, because the file
 looks right and the operator simply did not exist for the statements above it.
+
+## A dialect is a file
+
+```
+; lib/arith.phx
+@infix  *   70 mul.
+@infix  +   60 add.
+@infix  <   40 lessThan.
+@prefix ~      not.
+```
+
+```
+@language solveig.
+@use "../lib/control.phx".
+
+unless(n > #10, "seven is not more than ten":print).
+while(i < n, (total := total + i. i := i + #1)).
+```
+
+Two lines of header, and everything the body uses comes out of `lib/` —
+`control.phx` in turn using `arith.phx`, so the chain is two deep.
+
+**A dialect file holds directives and nothing else.** A statement in one is an
+error. That is not a restriction so much as a division: **a dialect provides
+syntax, and Solveig's own `@include` provides code**, so a dialect that wants
+both ships a `.sol` beside itself and says so. There is no third thing for a
+`.phx` to be.
+
+**It is looked for beside the file using it, then in each `-I` directory, then
+in `PHOENIX_PATH`** — the order Solveig's `@include` uses, because a program
+with its dialect in the same folder should not need a command line to say so.
+
+**A diamond is read once.** Two dialects that both use a third meet it once, so
+its declarations are not added twice and cannot collide with themselves. A file
+still being read is a cycle, and says so with the chain that got there:
+
+```
+y.phx:1:1: error: 'x.phx' is already being read -- @use is a cycle
+ 1 | @use "x.phx".
+   | ^^^^^^^^^^^^
+  ... used from x.phx, line 1
+  ... used from cyc.phx, line 2
+```
+
+## When two dialects collide
+
+**Solveig has already answered this question**, for two files claiming one
+global: the later one wins, and the compiler says so rather than letting it
+pass. Phoenix follows it, and the four cases differ in *who could have known* —
+which is the same distinction Solveig draws when it warns on a claim and not on
+an update.
+
+| | |
+| --- | --- |
+| Both in this module | **An error.** A module contradicting itself in eight lines of header is a mistake, not a choice. |
+| This module over a `@use` | **Silent.** Deliberate, local, and both lines are in the file being edited. Overriding an imported operator is a thing a module is allowed to want. |
+| A `@use` over this module | **A warning.** Almost certainly the `@use` wanting to be above the declaration rather than below it. |
+| Two `@use`s | **A warning.** Neither author knew about the other, which is the case the rule exists for. |
+
+```
+b.phx:1:8: warning: operator '+' was already declared by a.phx -- this one wins, and nothing else will say so
+ 1 | @infix + 55 concat.
+   |        ^
+  ... used from p.phx, line 3
+a.phx:1:1: note: declared here
+```
+
+**This is the decision the roadmap had been queuing everything behind**, and the
+answer turned out to be *do what Solveig does*. A warning rather than an error
+because rebinding is legal and sometimes meant; loud rather than silent because
+nothing else will say so.
 
 ## Forms
 
@@ -197,11 +269,12 @@ started — `t := a` writes over the caller's `t` before `a := b` can read it. S
 asserting anything: the wrong compiler produces a running program with the wrong
 answer, which is exactly the failure hygiene exists to prevent.
 
-**A generated name avoids every identifier in the module**, collected by lexing
-the source rather than by walking the tree. A caller who already has a `t__1`
-gets `t__2`, and two expansions of one form never agree by accident. After
-expansion no identifier exists that was not either in that set or generated
-against it, which is what makes *fresh* mean fresh rather than probably fresh.
+**A generated name avoids every identifier in every file the module is made
+of**, collected by lexing them rather than by walking the tree. A caller who
+already has a `t__1` gets `t__2`; a template out of a `@use`d dialect brings
+identifiers the module never mentions and they count too. After expansion no
+identifier exists that was not either in that set or generated against it, which
+is what makes *fresh* mean fresh rather than probably fresh.
 
 **And a name a template reaches *out* for cannot be caught by its caller.**
 
@@ -322,13 +395,14 @@ text can be wrong in a way no unit test sees: Solveig-looking source that
 Solveig rejects, or accepts and reads differently. The only witness to that is
 the real compiler, so `make test` runs both examples all the way down to SolVM.
 
-## The three examples
+## The four examples
 
 | | |
 | --- | --- |
 | [`examples/vectors.phx`](examples/vectors.phx) | precedence, associativity, a prefix operator, and where a send binds against all of them |
 | [`examples/utf8.phx`](examples/utf8.phx) | `integer:asUtf8` out of Solveig's own `lib/text.sol`, written in operators |
 | [`examples/forms.phx`](examples/forms.phx) | `unless`, `while` and `swap` declared by the module, and hygiene demonstrated by running rather than by assertion |
+| [`examples/dialect.phx`](examples/dialect.phx) | a two-line header, and everything the body reads coming out of `lib/` — with a diamond, read once |
 
 The second one is the argument, and it is Solveig's argument rather than this
 project's. The note at the top of `lib/text.sol` says the encoder was first
@@ -349,18 +423,20 @@ integer:utf8Tail := { at |
     (#128:bitOr(self:shiftRight(at):bitAnd(#63))):asCharacter }.
 ```
 
-## What 0.3.0 is not
+## What 0.4.0 is not
 
 **A form is call-shaped.** `unless(test, body)` and not `unless test then body`.
-The surface a form presents is the next thing to grow, and it waits behind the
-collision question below.
+That needs a pattern language, and it is the next thing — now that the question
+it was waiting behind has an answer.
 
-**Hygiene is one scope per expansion**, not a set. Both directions of capture are
-closed, and they are closed because a template can only be declared in the module
-that uses it — so its definition context is that module and nothing else. The day
-a dialect can be imported, a template has a definition site that is not the use
-site's module, one number stops being enough, and `scope` becomes the set it was
-named for.
+**Hygiene is still one scope per expansion**, and a template declared in a
+`@use`d file did not change that. 0.3.0 said one number would stop being enough
+once a template could be declared outside the module using it; it turns out not
+to, and the reason is Solveig's rather than Phoenix's. **Globals are one flat
+namespace**, so a template's free `total` and a caller's global `total` are the
+same variable by construction — there is no second one for a definition context
+to have meant. A `scope` becomes a set the day the *substrate* has a module
+system, not the day Phoenix does.
 
 Known gaps, each for a reason rather than for lack of time:
 
@@ -369,22 +445,28 @@ Known gaps, each for a reason rather than for lack of time:
 | Dictionary literals | `#[a = b]` separates a pair with `=`, and `=` is a character a dialect may declare. That needs a decision, not a default. `dictionary:new` works. |
 | Temporaries in a group | `( \| t \| ... )` is Solveig's; Phoenix reads `( expr. expr )` and no temporaries. |
 | `@expr` | Deliberately absent. It is the fixed form of what `@infix` generalises, and having both would be having two. |
-| A form that reads as a statement | `unless(a, b)` and not `unless a then b`. Needs a pattern language, and needs the collision question answered before it is worth having one. |
+| A form that reads as a statement | `unless(a, b)` and not `unless a then b`. Next. |
+| An installed dialect is not found on its own | `make install` puts `lib/*.phx` beside the binary and nothing looks there. `PHOENIX_PATH` is one line in a profile; Solveig's binaries are told their library path at build time and could be copied. |
+| A `@use` path is not normalised | `examples/../lib/control.phx` is what a diagnostic shows, and two spellings of one file are two files. Collapsing `x/../` textually is wrong across a symlink, so it wants `realpath` and a second path to display. |
 | Long send chains | A block that will not fit is broken across lines; a chain of sends that will not fit is not, yet. |
 
-## The open question
+## The question that was open
 
 **What stops two dialects' declarations from colliding when their code meets?**
+Answered in 0.4.0, above. Racket answers it with modules and scoped bindings and
+it was worth reading how — but the answer Phoenix took is Solveig's, because
+Solveig had already made the choice for globals and a language should not hold
+two philosophies about one question.
 
-Today nothing has to: a dialect is a file's header, files do not share headers,
-and there is no way to import one. That is a real answer for 0.1.0 and it stops
-being one the moment `@language` names something a library can publish — which
-is the next thing worth building and the reason it is not built yet.
+Every part of this repository that looked over-careful is why that answer was
+cheap to give: the spans were already on the tree, so making them carry a file
+was a field and not a rewrite; the map already existed, so it grew a column; the
+expansion trail already walked a chain, so it learned to name a file.
 
-Racket answers it with modules and scoped bindings, and it is worth reading how
-before answering it differently. Every part of this repository that looks
-over-careful — the spans, the two unused fields, the map — is there because that
-answer will be easier to give to a compiler that already has them.
+**What is open now is smaller and more concrete.** A form is call-shaped and
+should not have to be; that wants a pattern language, and a pattern language is
+the first thing here that adds a *production* rather than a meaning. It is next
+because the collision rule now says what happens when two files add one.
 
 ## Licence
 

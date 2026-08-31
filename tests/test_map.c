@@ -13,11 +13,12 @@
 
 #include "phoenix/emit.h"
 #include "phoenix/reader.h"
+#include "phoenix/unit.h"
 
 static int failures = 0;
 static int checks = 0;
 
-static PhxSource source;
+static PhxUnit unit;
 static PhxEmitter emitter;
 
 /* That the generated position `line:column` came from the source text `want` --
@@ -33,11 +34,10 @@ static void expect_from(const char *label, int line, int column,
         failures++;
         return;
     }
-    const char *at = source.text + mapping->offset;
+    const char *at = mapping->span.source->text + mapping->span.offset;
     if (strncmp(at, want, strlen(want)) != 0) {
         int source_line, source_column;
-        phx_source_position(&source, mapping->offset,
-                            &source_line, &source_column);
+        phx_span_position(mapping->span, &source_line, &source_column);
         printf("  FAIL %s: generated %d:%d maps to %d:%d, which is \"%.12s\", "
                "wanted \"%s\"\n",
                label, line, column, source_line, source_column, at, want);
@@ -65,18 +65,17 @@ int main(void)
      * source column 16, and nothing about either number is derivable from the
      * other: the operators moved. */
 
-    source.path = "<test>";
-    source.text = phx_strndup(text, strlen(text));
-    source.length = strlen(text);
+    phx_unit_init(&unit);
+    const PhxSource *source = phx_unit_adopt(&unit, "<test>", text);
 
     FILE *sink = tmpfile();
     PhxDiagnostics diag;
-    phx_diag_init(&diag, &source, sink);
+    phx_diag_init(&diag, sink);
 
     PhxDialect dialect;
     phx_dialect_init(&dialect);
 
-    PhxNode *module = phx_read(&source, &dialect, &diag);
+    PhxNode *module = phx_read(source, &unit, &dialect, &diag);
     if (module == NULL) {
         printf("  FAIL: the fixture did not compile\n");
         return 1;
@@ -101,7 +100,7 @@ int main(void)
     phx_emitter_free(&emitter);
     phx_node_free(module);
     phx_dialect_free(&dialect);
-    phx_source_free(&source);
+    phx_unit_free(&unit);
     fclose(sink);
     return failures == 0 ? 0 : 1;
 }

@@ -1,0 +1,25 @@
+; arith.phx -- Solveig's arithmetic, spelled the way arithmetic is spelled.
+;
+; A dialect file: directives and nothing else. Reached with
+;
+;     @use "arith.phx".
+;
+; and looked for beside the file using it, then in each -I directory, then in
+; PHOENIX_PATH. Code does not live here -- a dialect provides syntax, and
+; Solveig's own @include provides messages, so a dialect that wants both ships
+; a .sol beside itself and says so.
+;
+; The precedences are the ones every language with these operators has agreed
+; on, which is the only reason to prefer them: a file that declares 70 for `*`
+; and 60 for `+` is not clever, it is unsurprising, and unsurprising is the
+; whole job of a shared dialect.
+
+@infix  *   70 mul.
+@infix  /   70 div.
+@infix  %   70 mod.
+@infix  +   60 add.
+@infix  -   60 sub.
+@infix  <   40 lessThan.
+@infix  >   40 greaterThan.
+@infix  ==  40 equals.
+@prefix ~      not.

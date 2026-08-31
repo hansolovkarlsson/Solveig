@@ -7,6 +7,7 @@ this**; it can only fill in the one hole marked below.
 module      = { directive } { statement } .
 
 directive   = "@language" identifier "."
+            | "@use" string "."
             | "@infix"  operator number identifier "."
             | "@infixr" operator number identifier "."
             | "@prefix" operator identifier "."
@@ -81,11 +82,35 @@ dialect that wants `\/` for an `or` it cannot spell `|`.
 `<=` and not `<` then `=`, which is what lets a dialect declare `<=` without `<`
 having to stop existing. `:=` is taken before any of this and is always itself.
 
+## What a dialect file is
+
+A `.phx` holding directives and nothing else, reached with `@use "name.phx".`
+and read into the header of whoever used it. A statement in one is an error.
+
+**A dialect provides syntax; Solveig's own `@include` provides code.** So there
+is no third thing for a `.phx` to be, and a dialect that wants both ships a
+`.sol` beside itself.
+
+**Looked for beside the file using it, then in each `-I` directory, then in
+`PHOENIX_PATH`** — the order `@include` uses over in Solveig.
+
+**Read once.** Two dialects that both use a third meet it once, so a diamond
+costs nothing and its declarations do not collide with themselves. A file still
+being read is a cycle, and is an error rather than a silent stop: the silent
+stop terminates and then reports the operators as undeclared, which is true and
+no help at all.
+
+**Nesting is limited to 64**, the depth Solveig allows an `@include`.
+
+What happens when two of them declare one spelling is in the README, under *When
+two dialects collide*.
+
 ## What a form may reach
 
 **A form's template is read under the header as it stood at its own line.** It
 may use the operators declared above it and the forms declared above it, and it
-cannot see what comes after — inside the header as much as after it.
+cannot see what comes after — inside the header as much as after it, and across
+a `@use` as much as within one file.
 
 That is not a restriction for tidiness. **It is why expansion terminates.**
 Expanding form N yields uses of forms below N, so the highest index strictly

@@ -16,7 +16,7 @@
    the direction a debugger looks things up in. */
 typedef struct {
     int line, column;       /* in the generated .sol, one-based */
-    uint32_t offset;        /* into the .phx */
+    PhxSpan span;           /* what it came from, and which file that is */
 } PhxMapping;
 
 typedef struct {

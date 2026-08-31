@@ -13,19 +13,21 @@
 #include "phoenix/emit.h"
 #include "phoenix/expand.h"
 #include "phoenix/reader.h"
+#include "phoenix/unit.h"
 
 static int failures = 0;
 static int checks = 0;
 
 static char *compile(const char *text, int *errors)
 {
-    PhxSource source = { "<test>", NULL, 0 };
-    source.text = phx_strndup(text, strlen(text));
-    source.length = strlen(text);
+    PhxUnit unit;
+    phx_unit_init(&unit);
+
+    const PhxSource *source = phx_unit_adopt(&unit, "<test>", text);
 
     FILE *sink = tmpfile();
     PhxDiagnostics diag;
-    phx_diag_init(&diag, &source, sink);
+    phx_diag_init(&diag, sink);
 
     PhxDialect dialect;
     phx_dialect_init(&dialect);
@@ -33,9 +35,9 @@ static char *compile(const char *text, int *errors)
     PhxProvenance provenance;
     phx_provenance_init(&provenance);
 
-    PhxNode *module = phx_read(&source, &dialect, &diag);
+    PhxNode *module = phx_read(source, &unit, &dialect, &diag);
     if (module != NULL &&
-        !phx_expand(module, &source, &dialect, &diag, &provenance)) {
+        !phx_expand(module, &unit, &dialect, &diag, &provenance)) {
         phx_node_free(module);
         module = NULL;
     }
@@ -54,7 +56,7 @@ static char *compile(const char *text, int *errors)
 
     phx_provenance_free(&provenance);
     phx_dialect_free(&dialect);
-    phx_source_free(&source);
+    phx_unit_free(&unit);
     fclose(sink);
     return out;
 }

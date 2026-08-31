@@ -9,10 +9,11 @@
 
 #include "phoenix/lex.h"
 
-void phx_lexer_init(PhxLexer *lexer, const char *source)
+void phx_lexer_init(PhxLexer *lexer, const PhxSource *source)
 {
     lexer->source = source;
-    lexer->current = source;
+    lexer->start = source->text;
+    lexer->current = source->text;
 }
 
 static bool is_alpha(char c)
@@ -46,7 +47,8 @@ static PhxToken make(PhxLexer *lexer, PhxTokenType type, const char *start)
     token.type = type;
     token.start = start;
     token.length = (int)(lexer->current - start);
-    token.span.offset = (uint32_t)(start - lexer->source);
+    token.span.source = lexer->source;
+    token.span.offset = (uint32_t)(start - lexer->start);
     token.span.length = (uint32_t)token.length;
     token.message = NULL;
     return token;

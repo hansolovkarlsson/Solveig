@@ -1,0 +1,12 @@
+; control.phx -- the shapes a program keeps writing out.
+;
+; Uses arith.phx, because `unless` wants a `~` to be spelled with. A dialect
+; using another is ordinary, and a diamond is harmless: two dialects that both
+; use arith meet it once.
+
+@use "arith.phx".
+
+@syntax unless(test, body)  => test:not:ifTrue({ body }).
+@syntax when(test, body)    => test:ifTrue({ body }).
+@syntax while(test, body)   => { test }:whileTrue({ body }).
+@syntax swap(a, b)          => { | t | t := a. a := b. b := t }:value.
