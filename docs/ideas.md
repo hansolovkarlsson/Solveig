@@ -53,7 +53,7 @@ marked as a sketch.
 | Networking, and sending code to a running machine | **The first half is built**, on 2026-08-29 — [extensions/net](../extensions/net/README.md), five messages, and the waiting question answered with a timeout rather than a block; [the second half](#networking-and-sending-code-to-a-machine-that-is-already-running) is untouched and still needs 3.4, 6.32 and a proxy |
 | SQLite, SDL2, GTK | **One project, not three** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); GTK and SDL2 fire that trigger and SQLite does not, and wanting *both* toolkits is what settles the mechanism |
 | Graphics in SolaBasic, over SDL2 | **No — asked and closed on 2026-08-30, and the premise was wrong** to begin with: [graphics were never parked](#graphics-in-solabasic-through-the-sdl2-extension) for want of extensions, they were refused as *the PC*. No program wanted a screen, so the trigger never fired. The throwaway exercised the foundation without a language change — an extension send at 205ns, **`sdl:present` vsync-locked at 8.3ms**, and **1.49x from 0.39.0** on a globals-heavy loop. **A demo written that evening then corrected the entry**: a present keeps nothing, so immediate-mode `PSET` is not slow on this surface but absent. **And there is no oracle for a pixel**, which is what would decide it if it were ever asked again |
-| What Python has that this does not | **Surveyed on 2026-08-30** — [most of it is already here under another name](#what-python-has-and-which-of-it-this-language-wants); five had no line on this page, and the one with a customer is **named arguments**, which the reference already calls a workaround. Decorators turn out to be writable today; a file being readable only whole is an absence the reference does not mention |
+| What Python has that this does not | **Surveyed on 2026-08-30** — [most of it is already here under another name](#what-python-has-and-which-of-it-this-language-wants); five had no line on this page, and the one with a customer is **named arguments**, which the reference already calls a workaround. Decorators turn out to be writable today; a file being readable only whole is an absence the reference now states, with [the edge measured](#and-the-edge-was-measured-which-is-what-the-limit-was-missing) — 2 GB hard, twice the file while reading |
 | Fuzzy logic | **A library that would teach nothing** — arithmetic on floats, and the arithmetic all landed |
 | Namespaces for included files | **Defer** — the trigger is somebody else writing a library |
 | Splitting the reference into pages | **Defer** — the trigger is the message reference outgrowing the rest |
@@ -1299,9 +1299,55 @@ generators go with [coroutines](#coroutines) and the refusal there is about the
 C stack, not about laziness. Nor is a `readLines` answering an array the answer,
 since that holds the file too.
 
-**Verdict: defer, and the trigger is a program with a file that does not fit.**
-Nothing here has one. **Document the limit now** — that is not a language change
-and does not wait on a trigger.
+#### And the edge was measured, which is what the limit was missing
+
+**On 2026-08-30, the same day.** [mirror.sol](../programs/mirror.sol) had
+already reached this conclusion for itself — *a whole-file copy is fine at this
+size and not at every size* — and ended by saying it is worth knowing where the
+edge is rather than discovering it. Nobody had gone and looked. It is now in
+[the reference](REFERENCE.md#files), in the prose and in the limits table:
+
+| | |
+| --- | --- |
+| hard stop | **2 GB**, a string's length being a signed 32-bit count, refused by name and checked *before* anything is allocated — instant on a sparse file of any size |
+| peak cost | **twice the file**: read into a buffer, then copied into the string, which is what makes the string immutable |
+| a copy | **twice, not three times** — `writeFile` streams from the string it was handed and adds nothing |
+| speed | 256 MB in 0.17 s, peaking at 514 MB resident |
+
+**The measurement corrected the program that asked for it**, which is the part
+worth keeping. mirror.sol's note said a mirror of something large *holds it in
+memory twice*, and read as though the copy were what doubled it. The copy is
+free; `readFile` is the whole of the expense, and a mirror's rule is therefore
+twice the largest **file**, not twice the largest pair. That note now says so.
+
+#### If it is ever built, the cheap answer is not a handle
+
+Worth writing down before the trigger fires, because the obvious design is the
+expensive one and it is not the one this language wants.
+
+**A handle** — `system:open`, `read(n)`, `close` — brings a lifetime with it,
+and a lifetime is the thing this VM has been careful about: it needs a value
+type or a foreign cell, a release discipline, a GC interaction, and an answer
+for a handle used after closing. [extensions/net](../extensions/net/README.md)
+paid all of that for sockets and the retain registry exists because of it. A
+socket has no alternative; a file does.
+
+**A ranged read** — `system:readFile(path, from, count)` — has none of it. No
+new type, no lifetime, nothing to close, nothing to leak, and `ensure` is not
+needed because there is nothing to unwind. `fileSize` already answers without
+reading, so the pair composes: ask how big, then take it in pieces. It is one
+primitive beside the one that exists, and it makes both costs above go away —
+the 2 GB stop and the doubling are properties of *reading it all at once*, not
+of files.
+
+Its real cost is that a record spanning two chunks is the caller's problem, and
+for line-oriented text that is the whole job rather than a detail. That is
+writable in Solum and is the sort of thing [scan.sol](../lib/scan.sol) is
+already shaped for.
+
+**Verdict: defer, and toward the ranged read rather than a handle.** The trigger
+is unchanged — a program with a file that does not fit — and the documentation
+half is done, which was the part that never needed one.
 
 #### A backtrace, and an error object that was built to carry one
 

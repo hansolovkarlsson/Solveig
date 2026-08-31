@@ -197,5 +197,17 @@ made:size:add(copied:size):add(remoded:size):equals(#0):ifTrue({
 ;
 ; And one thing that is not a gap: **a whole-file copy is fine at this size and
 ; not at every size.** `readFile` answers the file as one string, so a mirror of
-; something large holds it in memory twice. Nothing here needs streaming, and it
-; is worth knowing where the edge is rather than discovering it.
+; something large holds it in memory. Nothing here needs streaming, and it is
+; worth knowing where the edge is rather than discovering it.
+;
+; **The edge was measured on 2026-08-30, and it is not where this note assumed.**
+; The doubling is not the copy: `writeFile` streams from the string it was
+; handed, so a copy peaks exactly where a bare `readFile` does. It is `readFile`
+; itself, which reads into a buffer and then copies that into an immutable
+; string -- a 256 MB file peaks at 514 MB resident, and so does copying one. The
+; hard stop is 2 GB, refused by name before anything is allocated.
+;
+; So the rule for this program is the simple one: **twice the largest file, not
+; twice the largest pair**, and no amount of care at this end changes it. The
+; numbers are in [the reference](../docs/REFERENCE.md#files)
+; now, which is where a reader would look for them.

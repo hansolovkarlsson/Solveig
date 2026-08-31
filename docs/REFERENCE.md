@@ -1444,6 +1444,30 @@ system:readFile("notes.txt"):size:print.         ; #18
 there, creates the file if it is not, and answers nil — there is nothing useful
 to chain from a write.
 
+**A file is read whole, or not at all.** There is no handle, no line at a time
+and no seek, so the two costs of that are worth knowing before a program meets
+them rather than after.
+
+**Two gigabytes is the hard limit**, a string's length being a signed 32-bit
+count, and it is refused rather than truncated:
+
+```text
+system:readFile("huge.dat").
+solvm: 'huge.dat' is too large to read into a string
+```
+
+The size is checked before anything is allocated, so that answer is immediate
+whatever the file's size.
+
+**And the peak cost is twice the file**, because the bytes are read into a
+buffer and then copied into the string, which is what makes the string
+immutable. A 256 MB file peaks at 514 MB resident and takes 0.17 s here. A
+*copy* costs the same and not more — `writeFile` streams from the string it was
+handed — so `readFile` is the whole of the expense either way.
+
+`system:fileSize` answers without reading, which is how to ask before committing
+to either.
+
 **A missing file is an error, not nil**, which is the same answer an
 out-of-range index gets and for the same reason: a program asking for a file it
 has not got is wrong about something. `readLine` answering nil at the end of
@@ -3985,6 +4009,7 @@ appear in an example.
 | Constants, names, blocks per chunk | **65536** — a two-byte index, and both tables intern, so repeats cost nothing |
 | Arguments, parameters, array literal elements | 255 — an argument count is one byte |
 | Locals per frame | 255 |
+| Reading a file | whole-file only — no handle, no line at a time, no seek. **2 GiB** hard, a string's length being a signed 32-bit count, and a peak of **twice the file's size** while it is read |
 | Solis input | no limit — the buffer grows, and reading continues while a bracket or a string is open |
 | Strings | bytes, not characters: `size` counts bytes, `at` answers a byte, and `"café":size` is 5 |
 | Case | ASCII only, and by explicit range rather than the C locale |
