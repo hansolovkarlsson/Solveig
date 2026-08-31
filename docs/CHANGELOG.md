@@ -21,7 +21,7 @@ already here; what sed adds is the cycle and the addressing, and 500 lines of
 that was enough to find out what the library underneath is short of.
 
 **It is held against `/usr/bin/sed`.**
-[programs/sed/oracle.sh](../programs/sed/oracle.sh) runs 60 cases that must
+[programs/oracle.sh](../programs/oracle.sh) runs 60 cases that must
 produce the same bytes under both, and three that must **not**, each carrying at
 the top of its own file what each sed does and why this one is allowed to
 differ. So the list of divergences is something that fails rather than prose.

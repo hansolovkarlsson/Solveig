@@ -41,7 +41,7 @@
 ; implementation of its own job -- after [sola](sola.sol), which wants
 ; QuickBASIC, and [pascal](pascal.sol), which wants `fpc`. It is the first whose
 ; oracle needed nothing installed: `sed` is on the machine already, and
-; [sed/oracle.sh](sed/oracle.sh) is what that buys.
+; [oracle.sh](oracle.sh) is what that buys.
 ;
 ; Because the interesting half was already here and this is the way to find out
 ; what it is missing. `pattern.sol` has the matcher and the substituter, and

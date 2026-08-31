@@ -1,0 +1,14 @@
+# -v prints the heading even for one file.
+#
+# tworoutes: the heading names the input, and the two routes have different
+# names for it -- a path when the file is named, and `standard input` when it
+# arrives on a pipe, which is what tail calls it. There is no comparison to
+# make between the two, rather than a bounded difference to check, so this is
+# the wider escape.
+args: -v -n 2
+tworoutes:
+input:
+line 1
+line 2
+line 3
+line 4

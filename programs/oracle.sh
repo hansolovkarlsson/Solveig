@@ -1,6 +1,17 @@
 #!/bin/sh
 #
-# oracle.sh -- this sed against the one on the machine.
+# oracle.sh -- a program here against the one already on the machine.
+#
+#     sh programs/oracle.sh sed
+#     sh programs/oracle.sh tail
+#
+# Takes the name of a program in programs/: runs programs/<name>.sob and
+# /usr/bin/<name> over the corpus in programs/<name>/ and compares the bytes.
+#
+# **It was written for sed and generalised by the second caller**, which is the
+# usual way round here -- the alternative was a hundred and fifty lines of shell
+# in two files, and ROADMAP 5.5 is what that costs. Nothing about the harness
+# was sed's; what is sed's is the corpus.
 #
 # Every other check a program here gets is a transcript its own author recorded,
 # which can only catch what the author thought to check. The system `sed` was
@@ -28,6 +39,7 @@
 #   args: -n /warn/p
 #   nonewline:                 (optional -- the input's last line has no newline)
 #   pipediffers:               (optional -- see below)
+#   tworoutes:                 (optional -- see below)
 #   input:
 #   ...everything after this line is the input...
 #
@@ -40,24 +52,35 @@
 # ---------------------------------------------------------------------------
 # Both ways in
 #
-# Each case is run twice against this sed: with the input named as a file and
-# with it arriving on standard input. **Those are different code paths** --
-# `system:readLine` reads a line at a time and a file is read whole and split --
-# and a stream editor that answered two ways about the same bytes would be
-# wrong in a way no single-route check could see.
+# Each case is run twice: with the input named as a file and with it arriving on
+# standard input. **Those are different code paths** -- a named file can be
+# measured and seeked and a pipe can be neither -- and a program that answered
+# two ways about the same bytes would be wrong in a way no single-route check
+# could see. For `tail` the two routes are not even the same algorithm.
 #
-#   SED_ORACLE    the sed to compare against; /usr/bin/sed by default.
+#   ORACLE        the command to compare against; /usr/bin/<name> by default.
 
 set -u
 
-root=$(cd "$(dirname "$0")/../.." && pwd)
-here="$root/programs/sed"
-oracle=${SED_ORACLE:-/usr/bin/sed}
+if [ $# -lt 1 ]; then
+    echo "usage: sh programs/oracle.sh <name>     (sed, tail, ...)"
+    exit 2
+fi
+
+tool=$1
+root=$(cd "$(dirname "$0")/.." && pwd)
+here="$root/programs/$tool"
+oracle=${ORACLE:-/usr/bin/$tool}
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-if [ ! -f "$root/bin/solvm" ] || [ ! -f "$root/programs/sed.sob" ]; then
-    echo "build first:  make && ./bin/solas programs/sed.sol"
+if [ ! -d "$here" ]; then
+    echo "no corpus at programs/$tool/"
+    exit 2
+fi
+
+if [ ! -f "$root/bin/solvm" ] || [ ! -f "$root/programs/$tool.sob" ]; then
+    echo "build first:  make && ./bin/solas programs/$tool.sol"
     exit 1
 fi
 
@@ -86,13 +109,11 @@ run_case() {
     fi
 
     eval "\"\$oracle\" $args \"\$work/in.txt\"" > "$work/oracle.out" 2>&1
-    oracle_status=$?
 
-    eval "\"\$root/bin/solvm\" \"\$root/programs/sed.sob\" $args \"\$work/in.txt\"" \
+    eval "\"\$root/bin/solvm\" \"\$root/programs/$tool.sob\" $args \"\$work/in.txt\"" \
         > "$work/file.out" 2>&1
-    ours_status=$?
 
-    eval "\"\$root/bin/solvm\" \"\$root/programs/sed.sob\" $args" \
+    eval "\"\$root/bin/solvm\" \"\$root/programs/$tool.sob\" $args" \
         < "$work/in.txt" > "$work/pipe.out" 2>&1
 }
 
@@ -103,7 +124,7 @@ report_diff() {
 # ---------------------------------------------------------------------------
 
 echo
-echo "oracle: $oracle"
+echo "$tool against $oracle"
 echo
 
 same=0
@@ -119,7 +140,13 @@ for f in "$here"/agree/*.case; do
     # ended with a newline, so a pipe answers with one where a file does not.
     # That is checked rather than waved through -- the pipe's output must be the
     # file's plus exactly one newline, and anything else is news.
-    if has pipediffers "$f"; then
+    # `tworoutes:` is the wider escape and is meant to stay rare: the two routes
+    # are not comparable at all for this case, and the case file says why. It
+    # buys silence rather than a weaker check, so a case wanting it has to earn
+    # it in prose.
+    if has tworoutes "$f"; then
+        :
+    elif has pipediffers "$f"; then
         { cat "$work/file.out"; printf '\n'; } > "$work/expected.out"
         if ! cmp -s "$work/expected.out" "$work/pipe.out"; then
             printf '  TWO WAYS  %s -- the pipe differs by more than its last newline\n' "$name"

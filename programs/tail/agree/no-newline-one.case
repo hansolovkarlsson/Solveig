@@ -1,0 +1,7 @@
+# the last line only, when it has no terminator
+args: -n 1
+nonewline:
+pipediffers:
+input:
+line one
+line two

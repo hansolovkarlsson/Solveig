@@ -1,6 +1,6 @@
 # The programs
 
-*The sixteen<!--count programs--> files in [programs/](../programs/): what each one does, how to run
+*The seventeen<!--count programs--> files in [programs/](../programs/): what each one does, how to run
 it, and what it found. [examples/](../examples/) is the other directory — one
 file per concept the [guide](GUIDE.md) names, each written to show a feature.
 These were written to do a job.*
@@ -47,6 +47,7 @@ is the map; the file is the argument.
 | [check_syntax](../programs/check_syntax.sol) | reads a grammar, then checks a file against it | `solvm check_syntax.sob [grammar.bnf] [source]` |
 | [pascal](../programs/pascal.sol) | compiles ISO 7185 Pascal to a `.sob` | `solvm pascal.sob [prog.pas] [out.sob]` |
 | [sed](../programs/sed.sol) | runs a sed script over the lines of its input | `solvm sed.sob [-n] script [file...]` |
+| [tail](../programs/tail.sol) | the end of a file, without reading the rest of it | `solvm tail.sob [-n N] [file...]` |
 
 Every one runs with no arguments at all, on input it supplies itself. That is
 deliberate — a program you have to feed before it will say anything is a program
@@ -1633,7 +1634,7 @@ are [lib/pattern.sol](../lib/pattern.sol)'s, which is the subset vi searches
 with: no groups, no backreferences, no `+` or `?`.
 
 **It is held against the sed on the machine.**
-[programs/sed/oracle.sh](../programs/sed/oracle.sh) runs 57 cases under both and
+[programs/oracle.sh](../programs/oracle.sh) runs 57 cases under both and
 requires the same bytes — 56 do, and the one that does not is the `pattern.sol`
 defect below, left failing rather than moved out of the way. Three further cases
 must *differ*, each carrying the reason at the top of its own file. Every case runs twice — with the input named
@@ -1671,9 +1672,76 @@ for no money at all: this oracle was already installed.
   cannot, so three oracle cases declare the difference and bound it: the pipe's
   answer must be the file's plus exactly one newline.
 
+## tail — the end of a file, without reading the rest of it
+
+The last ten lines, or the last N, or the last N bytes, or everything from line
+N onward — of the files named or of standard input.
+
+```sh
+./bin/solvm programs/tail.sob                       # it demonstrates itself
+./bin/solvm programs/tail.sob -n 50 big.log
+./bin/solvm programs/tail.sob -c 4096 big.log
+... | ./bin/solvm programs/tail.sob -n 3
+```
+
+```
+$ tail -n 3 huge.log        # a 3 GB file, in 5 ms, holding 2 MB
+
+line 18
+line 19
+line 20
+```
+
+**The first program here written to check a call rather than to ask for one**,
+and it is the wrong way round on purpose.
+[3.22](COMPLETED.md#322-a-file-is-read-whole-or-not-at-all--done) was closed
+before this was written, because the evidence for closing it arrived without a
+program: a sparse file is 3 GB and 8 KB of disk, and on one of those `fileSize`
+answered and `readFile` refused. A `tail` on the whole-file read would have
+re-proved that and said nothing about the shape of the fix, since it could not
+have called it. So the range was built and this is its first caller.
+
+**What it found is nothing, and that is the result.** The range wanted no extra
+argument, no convenience and no different rule at the edges. Held against
+`/usr/bin/tail`: 29 corpus cases run both by file and by pipe, seven more by
+hand for the several-file headings, and the same commands on a 3 GB file — every
+one byte-identical.
+
+| file | `tail -n 3` | `sed -n '$p'`, which reads it whole |
+| --- | --- | --- |
+| 618 KB | 2.1 MB | 5.4 MB |
+| 6.4 MB | 2.1 MB | 32.4 MB |
+| 3 GB | 2.0 MB, in 5 ms | *refused* |
+
+**Three things it did report**, and the file's own tail has each:
+
+- **The predicted price of a range was real and `split` paid it.** 3.22 said a
+  record spanning two chunks becomes the caller's problem. It does — and
+  `split` counts a chunk's newlines while `join` puts back exactly what it
+  removed, so the offset of the last few lines inside a chunk is arithmetic
+  rather than a second search. Twelve lines, and one integer carried across a
+  boundary.
+- **Clamping earned itself**, in two of the four places this reads — both of the
+  two that stream. A refusal would have made every chunk ask `fileSize` and take
+  a minimum first, re-deriving a number the call already had, with a race in the
+  gap.
+- **No arguments means two things here**, which no other program has had: the
+  house rule says demonstrate, and `... | tail` says read standard input.
+  `keyWaiting(0.0)` separates them, and is the nearest thing this language has
+  to asking whether standard input is a terminal — it works *because* of the
+  answering-true-at-end-of-input property that is a nuisance everywhere else.
+
+**`-f` is not here**, and is the one part with a finding still waiting: there is
+no `system:sleep`, and the only thing that waits is `keyWaiting`, which waits on
+standard input and answers true at the end of it — so a follow loop spins at a
+hundred percent exactly when `tail -f` is normally run.
+[ideas.md](ideas.md#tail-and-the-file-this-language-cannot-read--scoped-2026-08-31)
+has the prediction. It is left out rather than half-built because an oracle
+cannot check a program that does not stop.
+
 ## Adding one
 
-There is no template and there should not be. What the sixteen have in common is
+There is no template and there should not be. What the seventeen have in common is
 only this:
 
 1. **It does a job somebody would want done**, rather than exercising a feature.

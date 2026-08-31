@@ -1,0 +1,8 @@
+# a last line with no newline of its own does not gain one
+args: -n 2
+nonewline:
+pipediffers:
+input:
+line one
+line two
+line three

@@ -1,0 +1,3 @@
+# an empty file produces nothing
+args: -n 5
+input:

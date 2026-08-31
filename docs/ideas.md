@@ -4437,7 +4437,7 @@ available answer for most of the file:
   nothing new: sed already found that `readLine` cannot report it, and the same
   three-case treatment should carry over unchanged.
 
-**The oracle corpus**, in the shape [sed's](../programs/sed/oracle.sh) already
+**The oracle corpus**, in the shape [sed's](../programs/oracle.sh) already
 has, since it generalises for the cost of a different `args:` line: default ten;
 fewer, more and exactly N lines; `-n 0`; `-n +N`; `-c N`; `-c +N`; an empty
 file; no trailing newline; one line; several files and their headings; `-q`;

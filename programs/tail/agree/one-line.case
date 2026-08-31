@@ -1,0 +1,4 @@
+# a file of one line
+args: -n 3
+input:
+only
