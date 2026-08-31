@@ -5,6 +5,67 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## 0.40.0 — 2026-08-30
+
+**A literal for the dictionary, and five sentences that turned out not to be
+true.** The language answers **141<!--count messages--> messages**, unchanged —
+`dictionary:of` was added and `of` was already a name — across **244**
+registrations rather than 243. `.sob` files are format version 14, unchanged.
+There is new *syntax*, which is the first time in some releases.
+
+`#["key" = value]` is a dictionary literal, and real desugaring: it compiles to
+a global load of `dictionary` and a send of `of`, held byte-for-byte against the
+written-out form by a test, exactly as `[...]` is held against `array:of`. It
+arrived as a proposal with two halves — the literal, and moving `@expr`'s
+equality to `==` so that `=` was free for it. **The second half was never
+needed.** `=` is scanned unconditionally and given meaning by whoever is
+parsing, so a region, a stray operator and a literal's own pairing never meet.
+
+**A bracket rather than a brace** is where this parts company with the languages
+a reader arrives from: here `{ }` is a block and `[ ]` is a collection written
+out, so the familiar spelling was the wrong one to borrow.
+
+**The editor was corrupting files.** `$x` on a line holding `café` wrote `caf`
+and a lone lead byte to disk, the cursor was drawn a column right of the
+character it sat on, and `dw` stopped inside a word. The fix is not a Unicode
+library — `isTail` is three sends — and it survived 165 scripted sessions
+because every one of them was ASCII. Sixteen more were added, eleven of which
+fail on the editor as it stood.
+
+**`string:startsWith` and `string:endsWith`**, in `lib/text.sol`, in Solum.
+Deferred a day earlier on the reasoning that `indexOf(x):equals(#1)` means the
+same and costs the same. Three programs had written them by then, two of them
+`endsWith` independently, one absence had already produced a defect, and the
+cost claim was wrong by three orders of magnitude — a search that fails has read
+the whole string, and failing is the case a prefix test exists for.
+
+**What the release is really about.** Five claims standing in the documentation
+were tested and four were wrong, and not one was found by a program failing:
+`ensure` already existed where a gap was assumed; decorators are writable but
+not the obvious way; a file's memory edge is twice the file and the doubling is
+not the copy; named arguments were recommended and then refused when the options
+array turned out to catch every mistake it stood accused of passing; and the
+backtrace is not missing but discarded, one line after the error object is
+built. [ideas.md](ideas.md) carries each with its measurement.
+
+**Compatibility, checked rather than asserted.** All 34 examples compile
+byte-identically under 0.39.0's compiler and this one — with both compilers run
+from the same directory, since the include path is recorded in the chunk and a
+library found at a different path is a different name for the same code. Every
+`.sob` gives the same answer on both machines in both directions.
+
+**Two exceptions, both being the new syntax doing its job.**
+`examples/dictionaries.sol` is refused by 0.39.0's compiler with *expected
+digits after '#'*, and its 0.40.0 bytecode is refused by 0.39.0's machine with
+*object does not understand 'of'*. New syntax cannot be read by an older
+compiler and a new message cannot be answered by an older machine; both say so
+by name rather than misbehaving. `examples/system.sol` is read rather than
+compared, as always, because it prints how long things took.
+
+**`SOL_EXTENSION_ABI` stays 1**, and nothing in `extend.h` changed. 0.39.0's
+`net.so` was loaded by this build and driven end to end over UDP rather than
+assumed.
+
 ### The literal's first callers, and the tables that declined it — `a671967` and `839560b`, 2026-08-30
 
 **Four constant tables converted across two libraries, and two more looked at

@@ -6,7 +6,7 @@ A small object-oriented language and its toolkit — bytecode compiler (Solas),
 virtual machine (SolVM), REPL (Solis) and debugger (Solid). Prototype-based,
 everything is a message send, 141<!--count messages--> messages, no control-flow
 syntax and no operators outside `@expr(a^2 + b/2)`, which is notation for the
-same sends. 18k lines of C11, no dependencies.
+same sends. 19k lines of C11, no dependencies.
 
 **Documentation: <https://hansolovkarlsson.github.io/Solveig/>** — a
 [tutorial](https://hansolovkarlsson.github.io/Solveig/docs/TUTORIAL.html) that
@@ -174,6 +174,18 @@ makes testing a change mean anything.
 version the binaries inside it report.
 
 ## Status
+
+**0.40.0** — a dictionary literal, and the documents held to the standard the
+code is held to. `#["key" = value]` is new syntax and real desugaring: it
+compiles to a global load of `dictionary` and a send of `of`, held byte-for-byte
+against the written-out form by a test, the way `[...]` is held against
+`array:of`. **141<!--count messages--> messages, unchanged** — `dictionary:of`
+was added and `of` was already a name — and `.sob` files are format version 14.
+`string:startsWith` and `string:endsWith` arrived once three programs had
+written them, two of them independently. The editor stopped corrupting files
+that are not ASCII: `$x` on `café` had been writing half a character to disk.
+And five claims standing in the documentation were tested, of which four were
+wrong — none found by a program failing.
 
 **0.39.0** — measured against another implementation for the first time, and
 three things that found. **141<!--count messages--> messages, unchanged**, and

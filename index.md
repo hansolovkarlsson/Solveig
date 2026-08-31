@@ -135,8 +135,10 @@ a different language.
 
 ## Status
 
-**0.39.0** — the language answers 141<!--count messages--> messages and `.sob`
-files are format version 14.
+**0.40.0** — the language answers 141<!--count messages--> messages and `.sob`
+files are format version 14. `#["key" = value]` is a dictionary literal, new in
+this release and desugaring to `dictionary:of` the way `[...]` desugars to
+`array:of`.
 
 Working: the scanner, the single-pass compiler, the re-entrant dispatch loop
 with call frames, blocks with lexical capture, message-based control flow, a
