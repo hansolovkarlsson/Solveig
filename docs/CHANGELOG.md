@@ -5,6 +5,44 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The literal's first callers, and the tables that declined it — `HASH`, 2026-08-30
+
+**Four constant tables converted across two libraries, and two more looked at
+and left alone**, which is the more useful half of the result.
+
+[json.sol](../lib/json.sol) had two, and they are the same table in opposite
+directions — eight escapes for reading, five for writing. Converting one and
+leaving the other would have left a matched pair written two ways in one file,
+so both went. The read table's comment already records that it was deleted on
+2026-08-21 with its two references left behind, so `json:read` answered *object
+does not understand 'escapes'* for four days and four releases. It is one
+statement now where it was nine, so it cannot be **partly** removed — a smaller
+failure than that one and the same family — and eight pairs written out can be
+counted against the eight escapes JSON names, which is how `\b` and `\f` were
+noticed missing in the first place.
+
+[html.sol](../lib/html.sol) had four and two of them converted: `entities`,
+eight pairs, and `implied`, seven. The block-element half of `implied` still
+adds to the dictionary the literal built, which is what a literal being an
+ordinary value rather than a compiler form allows.
+
+**`void` and `raw` did not convert, and the file now says why.** They are
+*sets*: nothing reads the value and `true` stands in for a membership this
+language has no type for. Written out they would be fourteen `= true`s and two
+more — noise proportional to a thing it says nothing about, where a
+space-separated list of names reads as what it is. **A dictionary literal makes
+the missing set more visible rather than less**, and the note points at
+[the entry](ideas.md#a-set-and-the-collections-that-are-not-there) that has been
+waiting for a customer. That comment exists so the next reader does not finish
+the job and make it worse.
+
+**Checked by recompiling against each version rather than by reading**, and the
+first attempt at that was vacuous: `@include` resolves while compiling, so
+running the same `.sob` twice says nothing about the library underneath it.
+Done properly the output is identical and the bytecode is **203 bytes smaller** —
+fifteen `atPut` statements were fifteen global loads and fifteen sends, where
+each literal is one of each.
+
 ### The dictionary literal — `cf58923`, 2026-08-30
 
 ```

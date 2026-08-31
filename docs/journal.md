@@ -11,11 +11,68 @@ that a document was still true. That is what this is for.
 
 ---
 
-## 2026-08-31 — a literal built, and a question asked twice on purpose
+## 2026-08-30 (using it) — four tables converted, two that refused, and a check that could not fail
 
-Yesterday ended by refusing to convert `run` and `capture` to dictionaries, and
-the refusal came with a promissory note: *if the literal is ever built, this
-conversion is worth asking again.* It was built today, so it was.
+The literal existed for an hour and had no callers, which the entry that shipped
+it said out loud. Putting it to work was the honest test, and the interesting
+results were both negative.
+
+### The tables that declined
+
+`html.sol` has four constant tables and only two of them wanted a literal.
+`entities` and `implied` converted cleanly. `void` and `raw` are **sets** —
+nothing reads the value, and `true` stands in for a membership the language has
+no type for:
+
+```
+"area base br col embed hr img input link meta param source track wbr"
+    :split(" "):do({ name | html:void:atPut(name, true) }).
+```
+
+As a literal that is fourteen `= true`s. The split string is *better*, and it is
+better for a reason worth naming: it is a list of names and it looks like one,
+where a dictionary literal would spend half its width saying the same nothing
+fourteen times.
+
+So the note went into the file, because the obvious next thing a reader does is
+finish the job. And the observation that came with it is the one I did not
+expect: **a dictionary literal makes the missing set more visible, not less.**
+Before today those tables looked like dictionaries built the only way there was.
+Now they are the ones that had to be explained.
+
+That is the first new argument the set entry has had in a while, and it arrived
+from building something else.
+
+### A check that could not fail
+
+I compared html.sol before and after by recompiling a probe against each and
+diffing the output. It said *identical*, which was true and meaningless:
+`@include` resolves while compiling, so the probe's `.sob` had the old library
+baked into it and I ran the same bytecode twice.
+
+Recompiled properly the output really is identical, and the bytecode is 203
+bytes smaller — fifteen `atPut` statements were fifteen global loads and fifteen
+sends, where each literal is one of each.
+
+**This is the second vacuous check today.** The first compared an editor
+transcript against a path that no longer existed, and passed for the same
+reason: nothing in it could have gone wrong. Both had the same shape, and it is
+worth writing the shape down rather than the two instances — **a comparison
+whose two sides came from the same source is not a comparison.** The editor one
+was two runs of one binary; this one was two runs of one `.sob`.
+
+The habit that has been catching wrong sentences in documents all day catches
+this too, and it is the same question in both cases: *what would have to be
+broken for this to fail?* If the answer is nothing, the check is decoration.
+
+---
+
+## 2026-08-30 (the literal) — a literal built, and a question asked twice on purpose
+
+The entry before this one ended by refusing to convert `run` and `capture` to
+dictionaries, and the refusal came with a promissory note: *if the literal is
+ever built, this conversion is worth asking again.* It was built an hour later,
+so it was.
 
 ### The half of the proposal that was never needed
 
