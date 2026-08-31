@@ -1,26 +1,31 @@
-; dialect.phx -- a module that declares almost nothing and reads like a
-; language anyway.
+; dialect.phx -- a module that declares nothing and reads like a language.
 ;
-; The header is two lines. Everything the body uses -- the operators, the
-; precedences, `unless`, `while` -- comes out of lib/, and lib/control.phx in
-; turn uses lib/arith.phx. Two files deep, and the diamond costs nothing: arith
-; is read once.
+; The header is two lines. Every operator, every precedence, and every one of
+; the four statement forms below comes out of lib/, and lib/control.phx in turn
+; uses lib/arith.phx -- two deep, and the diamond costs nothing because arith is
+; read once.
+;
+; Nothing in the body is Phoenix's. `if`, `then`, `else`, `while`, `do` are
+; words this program's dialect happens to use, and they are words anywhere else:
+; a file that does not use control.phx may call a variable `then`, and so may
+; this one.
 
 @language solveig.
 @use "../lib/control.phx".
 
 n := #7.
 
-unless(n > #10, "seven is not more than ten":print).
-when(n % #2 == #1, "and it is odd":print).
+if n > #10 then "over ten":print else "not over ten":print.
+
+unless n % #2 == #0 then "and it is odd":print.
 
 i := #1.
 total := #0.
-while(i < n, (total := total + i. i := i + #1)).
+while i < n do (total := total + i. i := i + #1).
 total:print.                     ; #21, being 1+2+3+4+5+6
 
 a := "left".
 b := "right".
-swap(a, b).
+swap a and b.
 a:print.                         ; "right"
 b:print.                         ; "left"

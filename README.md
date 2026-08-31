@@ -114,7 +114,8 @@ stack trace actually is.
 | `@infix <op> <precedence> <message>.` | An infix operator, grouping to the left. Higher precedence binds tighter. |
 | `@infixr <op> <precedence> <message>.` | The same, grouping to the right. |
 | `@prefix <op> <message>.` | A prefix operator. Binds tighter than any infix and looser than a send. |
-| `@syntax <name>(<params>) => <template>.` | A form. Its arguments arrive unevaluated, so the template may put them somewhere the caller never wrote. |
+| `@syntax <name>(<params>) => <template>.` | A form that reads like a call. Its arguments arrive unevaluated, so the template may put them somewhere the caller never wrote. |
+| `@syntax <name> <\<hole\>> <word> … => <template>.` | The same, reading like a statement. |
 
 An operator is written out of `+ - * / < > = ! & ^ % ~ ? \` , run together as far
 as they go — so a dialect can declare `<=` without `<` having to stop existing.
@@ -145,19 +146,20 @@ looks right and the operator simply did not exist for the statements above it.
 ## A dialect is a file
 
 ```
-; lib/arith.phx
-@infix  *   70 mul.
-@infix  +   60 add.
-@infix  <   40 lessThan.
-@prefix ~      not.
+; lib/control.phx
+@use "arith.phx".
+
+@syntax if <c> then <a>          => c:ifTrue({ a }).
+@syntax if <c> then <a> else <b> => c:ifElse({ a }, { b }).
+@syntax while <t> do <b>         => { t }:whileTrue({ b }).
 ```
 
 ```
 @language solveig.
 @use "../lib/control.phx".
 
-unless(n > #10, "seven is not more than ten":print).
-while(i < n, (total := total + i. i := i + #1)).
+if n > #10 then "over ten":print else "not over ten":print.
+while i < n do (total := total + i. i := i + #1).
 ```
 
 Two lines of header, and everything the body uses comes out of `lib/` —
@@ -235,6 +237,60 @@ The block around `"small":print` is the template's doing. Written as a method,
 forget one. That is the whole of what a form buys, and it is not a small thing:
 `while`, in `examples/forms.phx`, is four words of declaration and turns two
 sets of braces per loop into none.
+
+**A form may read as a statement instead of as a call.**
+
+```
+@syntax unless <test> then <body> => test:not:ifTrue({ body }).
+
+unless x > #5 then "small":print.
+```
+
+Same holes, same template, same expansion — a pattern changes how a form is
+written and nothing about what one is. A hole is `<name>` and everything else is
+a literal word.
+
+**A pattern begins with a word, and never has two holes in a row.** Both are
+forced rather than chosen. A reader finds a form by seeing a name it knows, so a
+pattern starting with a hole would put it back to guessing; and two holes in a
+row have no boundary between them for anything to find.
+
+**A word in a pattern is not reserved anywhere else.** A module that never used
+`control.phx` may call a variable `then`, and so may one that did.
+
+## Two forms under one word
+
+```
+@syntax if <c> then <a>          => c:ifTrue({ a }).
+@syntax if <c> then <a> else <b> => c:ifElse({ a }, { b }).
+```
+
+Both are matched at once, and **no backtracking is needed or done.** A hole is
+parsed once and shared by every candidate still standing, so two forms can only
+part company at a *word* — and after the second hole above, one has ended and
+the other wants `else`, so the next token settles it.
+
+That works because the declaration refuses any pair that would have parted
+company anywhere else:
+
+```
+on.phx:3:9: error: this cannot be told apart from the other 'on'
+ 3 | @syntax on error do <b> => b:run.
+   |         ^^
+on.phx:2:1: note: which has a hole where this has a word
+```
+
+`on error do x` is both of those. Preferring the literal word would be a rule,
+and it would be a rule nobody could see from either declaration — so it is
+refused at the second one, where somebody is looking at the first.
+
+**A use that goes wrong says what it wanted**, with the declaration pointed at:
+
+```
+if.phx:5:6: error: expected 'then' here, in the form 'if'
+ 5 | if x "y":print.
+   |      ^^^
+```
 
 **A template is read under the header as it stood at its own line.** It may use
 the operators and the forms declared above it and nothing after. That is not
@@ -344,10 +400,10 @@ Adding a production can, silently, and two libraries that each add one can
 collide in a way neither author can see — which is the open question at the
 bottom of this page.
 
-A form sidesteps that for now by being call-shaped: `name(args)` is a shape the
-core grammar already had, so declaring one adds a meaning without adding a
-production. Richer surface patterns — a form that reads as `unless x then y` —
-are the thing that needs the collision question answered first.
+A form in 0.2.0 sidestepped that by being call-shaped: `name(args)` is a shape
+the core grammar already had, so declaring one added a meaning without adding a
+production. A pattern does add one — and it could wait until the collision rule
+existed to say what happens when two files add the same one.
 
 Solveig already has the fixed version of this. `@expr(a^2 + b/2)` opens a region
 where a hard-coded ladder runs from `|` to `^`, and everything in it is the same
@@ -423,11 +479,16 @@ integer:utf8Tail := { at |
     (#128:bitOr(self:shiftRight(at):bitAnd(#63))):asCharacter }.
 ```
 
-## What 0.4.0 is not
+## What 0.5.0 is not
 
-**A form is call-shaped.** `unless(test, body)` and not `unless test then body`.
-That needs a pattern language, and it is the next thing — now that the question
-it was waiting behind has an answer.
+**A hole does not say what it accepts.** Every hole takes an expression. A hole
+that could ask for a block, or a name, or a literal would turn a bad use into a
+diagnostic at the use instead of a strange expansion further down, and that is
+the next size up.
+
+**A pattern has no optional or repeated parts.** `if <c> then <a> else <b>` is a
+second declaration rather than an optional tail, which is honest and costs a
+line. Repetition — a form taking a list — has no spelling at all.
 
 **Hygiene is still one scope per expansion**, and a template declared in a
 `@use`d file did not change that. 0.3.0 said one number would stop being enough
@@ -445,7 +506,6 @@ Known gaps, each for a reason rather than for lack of time:
 | Dictionary literals | `#[a = b]` separates a pair with `=`, and `=` is a character a dialect may declare. That needs a decision, not a default. `dictionary:new` works. |
 | Temporaries in a group | `( \| t \| ... )` is Solveig's; Phoenix reads `( expr. expr )` and no temporaries. |
 | `@expr` | Deliberately absent. It is the fixed form of what `@infix` generalises, and having both would be having two. |
-| A form that reads as a statement | `unless(a, b)` and not `unless a then b`. Next. |
 | An installed dialect is not found on its own | `make install` puts `lib/*.phx` beside the binary and nothing looks there. `PHOENIX_PATH` is one line in a profile; Solveig's binaries are told their library path at build time and could be copied. |
 | A `@use` path is not normalised | `examples/../lib/control.phx` is what a diagnostic shows, and two spellings of one file are two files. Collapsing `x/../` textually is wrong across a symlink, so it wants `realpath` and a second path to display. |
 | Long send chains | A block that will not fit is broken across lines; a chain of sends that will not fit is not, yet. |
@@ -463,10 +523,11 @@ cheap to give: the spans were already on the tree, so making them carry a file
 was a field and not a rewrite; the map already existed, so it grew a column; the
 expansion trail already walked a chain, so it learned to name a file.
 
-**What is open now is smaller and more concrete.** A form is call-shaped and
-should not have to be; that wants a pattern language, and a pattern language is
-the first thing here that adds a *production* rather than a meaning. It is next
-because the collision rule now says what happens when two files add one.
+**What is open now is smaller and more concrete.** A hole takes an expression
+and cannot ask for anything else; a pattern has no optional or repeated parts.
+Both are about what a form can *say* it wants, and both turn a strange expansion
+into a diagnostic at the use — which is the same argument the spans and the
+trail were built on, one level up.
 
 ## Licence
 

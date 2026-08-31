@@ -11,9 +11,11 @@ directive   = "@language" identifier "."
             | "@infix"  operator number identifier "."
             | "@infixr" operator number identifier "."
             | "@prefix" operator identifier "."
-            | "@syntax" identifier [ parameters ] "=>" expression "." .
+            | "@syntax" identifier [ parameters | pattern ] "=>" expression "." .
 
 parameters  = "(" [ identifier { "," identifier } ] ")" .
+pattern     = { hole | identifier } .
+hole        = "<" identifier ">" .
 
 statement   = include | expression [ "." ] .
 include     = "@include" string "." .
@@ -31,7 +33,8 @@ primary     = integer | float | string | symbol
             | identifier [ "(" expression ")" ]
             | group | array | block .
 
-form        = identifier [ "(" [ expression { "," expression } ] ")" ] .
+form        = identifier [ "(" [ expression { "," expression } ] ")" ]     (* a call    *)
+            | identifier { expression | identifier } .                    (* a pattern *)
 
 group       = "(" [ expression { "." expression } ] ")" .
 array       = "[" [ expression { "," expression } ] "]" .
@@ -50,6 +53,12 @@ Phoenix file there will ever be.
 **`form` is tried before prefix application**, and only for a name the header
 has already declared. A name that is not a form is whatever Solveig says it is,
 so `f(x)` is `x:f` until some line above it says otherwise.
+
+**A pattern's shape comes from its declaration**, which is why `form` above
+cannot say more than *expressions and identifiers in some order*: which
+positions are holes and which are literal words is what `@syntax` settled. The
+words in a pattern are not reserved -- `then` is a form's word in a file that
+declared one and an ordinary name in every other, this one included.
 
 **A statement separator is a `.` between two, optional after the last** — in a
 file, in a block and in a group alike. That is Solveig's rule and Phoenix does
@@ -104,6 +113,32 @@ no help at all.
 
 What happens when two of them declare one spelling is in the README, under *When
 two dialects collide*.
+
+## Patterns
+
+**A pattern begins with a word and never has two holes in a row.** Both are
+forced. A reader finds a form by seeing a name it knows, so a pattern beginning
+with a hole would put it back to guessing; and two holes in a row have no
+boundary between them for anything to find.
+
+**Several forms may share a leading word**, and are matched together:
+
+```
+@syntax if <c> then <a>          => c:ifTrue({ a }).
+@syntax if <c> then <a> else <b> => c:ifElse({ a }, { b }).
+```
+
+**No backtracking, and none needed.** A hole is parsed once and shared by every
+candidate still standing, so two forms can only part company at a word -- here,
+after the second hole, where one has ended and the other wants `else`. Each step
+either reads an expression or looks at one token.
+
+**Which holds because the declaration refuses any pair that would part company
+anywhere else.** Two forms under one word whose first difference is a hole
+against a word cannot be told apart at all, and are an error at the second
+declaration rather than a rule at every use.
+
+**A name is either a call or patterns, never both.**
 
 ## What a form may reach
 

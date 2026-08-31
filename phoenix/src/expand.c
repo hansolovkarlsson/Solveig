@@ -176,6 +176,10 @@ static PhxNode *instantiate(const Instance *instance, const PhxNode *template)
     PhxNode *copy = phx_node_new(template->kind, template->span);
     copy->scope = instance->scope;
     copy->introduced_by = instance->use;
+    /* Which form a use inside a template matched was settled when the template
+       was read, and survives being instantiated. Everything else here is built
+       fresh from the template; this is the one thing that is carried. */
+    copy->form = template->form;
 
     if (template->text != NULL) {
         const char *text = template->kind == PHX_NODE_NAME
@@ -213,8 +217,11 @@ static void note_trail(Expander *expander, const PhxNode *node);
 
 static PhxNode *expand_macro(Expander *expander, PhxNode *use, int depth)
 {
-    const PhxMacro *macro = phx_dialect_macro(expander->dialect,
-                                              use->text, (int)strlen(use->text));
+    /* By index, because a word may name more than one form -- `if <c> then <a>`
+       beside `if <c> then <a> else <b>` -- and the reader is what decided which
+       of them this use is. Looking it up by name again would answer the last
+       one declared, which is right only when there is one. */
+    const PhxMacro *macro = phx_dialect_form_at(expander->dialect, use->form);
     if (macro == NULL) {
         /* The reader only builds one of these for a name it found, so this is
            the two of them disagreeing rather than anything a program did. */
@@ -428,8 +435,8 @@ static void note_trail(Expander *expander, const PhxNode *node)
         phx_note(expander->diag, use->span,
                  "in the expansion of '%s', written here", use->text);
 
-        const PhxMacro *macro = phx_dialect_macro(expander->dialect, use->text,
-                                                  (int)strlen(use->text));
+        const PhxMacro *macro = phx_dialect_form_at(expander->dialect,
+                                                    use->form);
         if (macro != NULL && macro->declared_at.source != use->span.source)
             phx_note_from(expander->diag, macro->declared_at, "declared in");
     }

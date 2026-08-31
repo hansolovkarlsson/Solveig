@@ -12,6 +12,7 @@ PhxNode *phx_node_new(PhxNodeKind kind, PhxSpan span)
     node->introduced_by = NULL;
     node->scope = 0;
     node->text = NULL;
+    node->form = -1;
     node->children = NULL;
     node->count = node->capacity = 0;
     node->params = NULL;
@@ -34,6 +35,7 @@ PhxNode *phx_node_copy(const PhxNode *node)
     PhxNode *copy = phx_node_new(node->kind, node->span);
     copy->introduced_by = node->introduced_by;
     copy->scope = node->scope;
+    copy->form = node->form;
     if (node->text != NULL)
         copy->text = phx_strndup(node->text, strlen(node->text));
 

@@ -34,16 +34,40 @@ typedef struct {
     PhxSpan declared_at;
 } PhxPrefix;
 
-/* A form the module declared:  @syntax unless(test, body) => ... .
+/* One element of a pattern: a literal word, or a hole with the name the
+   template knows it by. */
+typedef struct {
+    bool is_hole;
+    char *text;
+} PhxPatternPart;
+
+/* A form the module declared, in one of two shapes.
+ *
+ *     @syntax unless(test, body) => ... .        a call
+ *     @syntax unless <test> then <body> => ... . a pattern
+ *
+ * The call shape is for a form that reads like an application and the pattern
+ * for one that reads like a statement, and `params` means the same thing in
+ * both: the holes, in the order the arguments arrive. The expander never
+ * learned which shape it came from, and does not need to.
+ *
+ * A pattern begins with a word and never has two holes in a row. Both are
+ * forced rather than chosen: a reader finds a form by seeing a name it knows,
+ * so a pattern starting with a hole would put it back to guessing -- and two
+ * holes in a row have no boundary between them for anything to find.
+ *
+ * @syntax unless(test, body) => ... .
  *
  * The template is a tree, parsed under the header as it stood where the
  * declaration appeared -- so a form may use the operators above it and the
  * forms above it, and may not use what comes after. A header that reads
  * top to bottom is a header a person can read the same way. */
 typedef struct {
-    char *name;
-    char **params;
+    char *name;             /* the leading word, in both shapes */
+    char **params;          /* the holes, in order */
     int param_count;
+    PhxPatternPart *parts;  /* NULL for a call-shaped form */
+    int part_count;
     PhxNode *template;      /* owned */
     PhxSpan declared_at;
 } PhxMacro;
@@ -87,13 +111,31 @@ const PhxPrefix *phx_dialect_add_prefix(PhxDialect *dialect,
                                         const char *selector, int selector_length,
                                         PhxSpan declared_at);
 
+/* The last form declared under this name, which for a call-shaped form is the
+   only one there may be. */
 const PhxMacro *phx_dialect_macro(const PhxDialect *dialect,
                                   const char *name, int length);
 
-/* Takes the template. Answers the declaration it displaced, or NULL. */
+/* The form a PHX_NODE_MACRO's `form` index names. */
+const PhxMacro *phx_dialect_form_at(const PhxDialect *dialect, int index);
+
+/* Every form under this name, earliest first. More than one only where they are
+   patterns that differ -- `if <c> then <a>` beside `if <c> then <a> else <b>`,
+   which is the case the whole matcher exists for. Answers how many were
+   written, which may exceed `max`. */
+int phx_dialect_forms(const PhxDialect *dialect, const char *name, int length,
+                      const PhxMacro **out, int max);
+
+/* The index of a form, for a use to record. */
+int phx_dialect_index_of(const PhxDialect *dialect, const PhxMacro *macro);
+
+/* Takes the template and the parts. Answers the declaration it displaced, or
+   NULL -- which for a pattern means one spelled exactly the same way, two that
+   differ being allowed to stand together. */
 const PhxMacro *phx_dialect_add_macro(PhxDialect *dialect,
                                       const char *name, int length,
                                       char **params, int param_count,
+                                      PhxPatternPart *parts, int part_count,
                                       PhxNode *template, PhxSpan declared_at);
 
 #endif /* PHOENIX_DIALECT_H */

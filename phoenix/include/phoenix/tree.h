@@ -64,6 +64,15 @@ struct PhxNode {
 
     char *text;                 /* owned; NULL where the kind has no text   */
 
+    /* PHX_NODE_MACRO only: which declaration this use matched, as an index
+       into the dialect. -1 everywhere else.
+     *
+     * An index and not a pointer, because the dialect grows while the header is
+     * still being read and a template parsed early holds uses of forms declared
+     * before it -- `realloc` moves the array and would leave those pointing at
+     * freed memory. Appending never invalidates an index. */
+    int form;
+
     PhxNode **children;
     int count;
     int capacity;

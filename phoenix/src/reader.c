@@ -293,7 +293,69 @@ static const char *shadowed_parameter(const PhxNode *node,
     return NULL;
 }
 
+/* `<name>` in a pattern. Answers false having reported, or at a token that is
+   not the start of a hole. */
+static bool at_hole(Reader *reader)
+{
+    return check(reader, PHX_TOK_OPERATOR) && token_is(&reader->current, "<");
+}
+
+/* Two forms under one word have to part company on a word, not on whether
+ * there is a hole there.
+ *
+ *     @syntax on <what> do <body> => ... .
+ *     @syntax on error do <body>  => ... .
+ *
+ * At position 1 one wants an expression and the other wants the word `error`,
+ * and `on error do ...` is both of them. Preferring the literal would be a rule,
+ * and it would be a rule nobody could see from either declaration. Refused at
+ * the second one, where somebody is looking at the first. */
+static void check_distinguishable(Reader *reader, PhxToken name,
+                                  const PhxPatternPart *parts, int part_count)
+{
+    const PhxMacro *others[32];
+    int count = phx_dialect_forms(reader->dialect, name.start, name.length,
+                                  others, 32);
+    if (count > 32) count = 32;
+
+    for (int i = 0; i < count; i++) {
+        const PhxMacro *other = others[i];
+        if ((other->parts == NULL) != (parts == NULL)) {
+            error_at(reader, name.span,
+                     "'%s' is already a form of the other shape", other->name);
+            phx_note(reader->diag, other->declared_at,
+                     "declared here -- a name is either a call or patterns, "
+                     "never both");
+            return;
+        }
+        if (parts == NULL) continue;
+
+        int limit = other->part_count < part_count ? other->part_count
+                                                   : part_count;
+        for (int at = 0; at < limit; at++) {
+            if (other->parts[at].is_hole == parts[at].is_hole) {
+                if (parts[at].is_hole) continue;
+                if (strcmp(other->parts[at].text, parts[at].text) == 0) continue;
+                break;                          /* two words, and they differ */
+            }
+            error_at(reader, name.span,
+                     "this cannot be told apart from the other '%.*s'",
+                     name.length, name.start);
+            phx_note(reader->diag, other->declared_at,
+                     "which has %s where this has %s",
+                     other->parts[at].is_hole ? "a hole" : "a word",
+                     parts[at].is_hole ? "a hole" : "a word");
+            return;
+        }
+    }
+}
+
 /* `@syntax unless(test, body) => test:not:ifTrue({ body }).`
+ * `@syntax unless <test> then <body> => test:not:ifTrue({ body }).`
+ *
+ * Two shapes, one meaning. The call is for a form that reads like an
+ * application and the pattern for one that reads like a statement, and both
+ * come out as the same thing: a list of holes and a template.
  *
  * The template is read here, under the header as it stands at this line, so a
  * form may use the operators and the forms declared above it and none of what
@@ -311,6 +373,8 @@ static void directive_syntax(Reader *reader)
 
     char **params = NULL;
     int param_count = 0;
+    PhxPatternPart *parts = NULL;
+    int part_count = 0;
 
     if (match(reader, PHX_TOK_LPAREN)) {
         if (!check(reader, PHX_TOK_RPAREN)) {
@@ -328,6 +392,73 @@ static void directive_syntax(Reader *reader)
         }
         if (!consume(reader, PHX_TOK_RPAREN, "')' after the parameters"))
             goto give_up;
+
+    } else if (at_hole(reader) || check(reader, PHX_TOK_NAME)) {
+        /* A pattern. The leading word is part 0, so that matching a use is one
+           walk over one array with nothing special about its first step. */
+        parts = phx_alloc(sizeof *parts);
+        parts[0].is_hole = false;
+        parts[0].text = phx_strndup(name.start, (size_t)name.length);
+        part_count = 1;
+
+        while (at_hole(reader) || check(reader, PHX_TOK_NAME)) {
+            bool is_hole = at_hole(reader);
+            PhxToken word = reader->current;
+
+            if (is_hole) {
+                if (part_count > 0 && parts[part_count - 1].is_hole) {
+                    error_here(reader, "a pattern needs a word between two holes");
+                    goto give_up;
+                }
+                advance(reader);
+                if (!check(reader, PHX_TOK_NAME)) {
+                    error_here(reader, "a hole is '<' and then the name the "
+                                       "template knows it by");
+                    goto give_up;
+                }
+                word = reader->current;
+                advance(reader);
+
+                /* `>` and nothing else. `><` is one token, and it is what two
+                   holes in a row look like to the lexer -- so the mistake is
+                   named rather than left as a missing '>'. */
+                if (check(reader, PHX_TOK_OPERATOR) &&
+                    reader->current.length > 1 &&
+                    reader->current.start[0] == '>') {
+                    error_here(reader, "a pattern needs a word between two holes");
+                    goto give_up;
+                }
+                if (!check(reader, PHX_TOK_OPERATOR) ||
+                    !token_is(&reader->current, ">")) {
+                    error_here(reader, "expected '>' to close this hole");
+                    goto give_up;
+                }
+                advance(reader);
+
+                params = phx_realloc(params,
+                                     (size_t)(param_count + 1) * sizeof *params);
+                params[param_count++] = phx_strndup(word.start,
+                                                    (size_t)word.length);
+            } else {
+                advance(reader);
+            }
+
+            parts = phx_realloc(parts,
+                                (size_t)(part_count + 1) * sizeof *parts);
+            parts[part_count].is_hole = is_hole;
+            parts[part_count].text = phx_strndup(word.start,
+                                                 (size_t)word.length);
+            part_count++;
+        }
+
+        if (part_count == 1) {
+            /* Only the leading word, which is the call shape's nullary form
+               said a longer way. One spelling for one thing. */
+            free(parts[0].text);
+            free(parts);
+            parts = NULL;
+            part_count = 0;
+        }
     }
 
     if (!check(reader, PHX_TOK_OPERATOR) ||
@@ -350,6 +481,12 @@ static void directive_syntax(Reader *reader)
         goto give_up;
     }
 
+    check_distinguishable(reader, name, parts, part_count);
+    if (reader->panicked) {
+        phx_node_free(template);
+        goto give_up;
+    }
+
     PhxSpan where = { directive.span.source, directive.span.offset,
                       (name.span.offset + name.span.length)
                           - directive.span.offset };
@@ -357,6 +494,7 @@ static void directive_syntax(Reader *reader)
     const PhxMacro *clash = phx_dialect_add_macro(reader->dialect,
                                                   name.start, name.length,
                                                   params, param_count,
+                                                  parts, part_count,
                                                   template, where);
     if (clash != NULL)
         collision(reader, "form", clash->name, name.span, clash->declared_at);
@@ -365,6 +503,8 @@ static void directive_syntax(Reader *reader)
 give_up:
     for (int i = 0; i < param_count; i++) free(params[i]);
     free(params);
+    for (int i = 0; i < part_count; i++) free(parts[i].text);
+    free(parts);
 }
 
 static void read_file(PhxUnit *unit, const PhxSource *source,
@@ -542,13 +682,122 @@ static bool looks_like_names_then_bar(Reader *reader)
     return matched;
 }
 
+/* A use of a pattern form, matched against every form under that word at once.
+ *
+ * No backtracking, and none needed. A hole is parsed once and shared by every
+ * candidate still standing, so two forms can only part company at a word -- and
+ * the declaration refused any pair that would have parted company anywhere
+ * else. So each step either reads an expression or looks at one token, and the
+ * candidates that do not agree with it are dropped.
+ *
+ * Which is how `if <c> then <a>` and `if <c> then <a> else <b>` live under one
+ * word: after the second hole the short one has ended and the long one wants
+ * `else`, and the next token settles it. */
+static PhxNode *pattern_use(Reader *reader, PhxToken name)
+{
+    const PhxMacro *alive[32];
+    int count = phx_dialect_forms(reader->dialect, name.start, name.length,
+                                  alive, 32);
+    if (count > 32) count = 32;
+
+    PhxNode *node = phx_node_leaf(PHX_NODE_MACRO, name.span,
+                                  name.start, name.length);
+    int position = 1;
+
+    for (;;) {
+        bool wants_hole = false;
+        int pending = 0;
+        for (int i = 0; i < count; i++)
+            if (alive[i]->part_count > position) {
+                pending++;
+                if (alive[i]->parts[position].is_hole) wants_hole = true;
+            }
+
+        if (pending == 0) break;                /* every survivor has ended */
+
+        if (wants_hole) {
+            /* Every pending candidate wants one here, the declaration having
+               refused any that disagreed. A candidate that ended earlier cannot
+               still be standing, since a hole never follows a hole. */
+            int kept = 0;
+            for (int i = 0; i < count; i++)
+                if (alive[i]->part_count > position) alive[kept++] = alive[i];
+            count = kept;
+
+            PhxNode *argument = expression(reader);
+            if (argument == NULL) { phx_node_free(node); return NULL; }
+            phx_node_add(node, argument);
+            position++;
+            continue;
+        }
+
+        /* They want words. The token decides which, and a candidate that has
+           ended here is what a token matching none of them falls back to. */
+        int kept = 0;
+        if (check(reader, PHX_TOK_NAME))
+            for (int i = 0; i < count; i++)
+                if (alive[i]->part_count > position &&
+                    (int)strlen(alive[i]->parts[position].text)
+                        == reader->current.length &&
+                    memcmp(alive[i]->parts[position].text,
+                           reader->current.start,
+                           (size_t)reader->current.length) == 0)
+                    alive[kept++] = alive[i];
+
+        if (kept > 0) {
+            count = kept;
+            advance(reader);
+            position++;
+            continue;
+        }
+
+        for (int i = 0; i < count; i++)
+            if (alive[i]->part_count == position) alive[kept++] = alive[i];
+
+        if (kept == 0) {
+            /* Deduplicated: two forms wanting the same word here is the
+               ordinary case -- it is where they have not parted company yet --
+               and "expected 'then' or 'then'" is not a sentence. */
+            char expected[256];
+            int written = 0;
+            int listed = 0;
+            for (int i = 0; i < count && written < (int)sizeof expected - 8; i++) {
+                const char *word = alive[i]->parts[position].text;
+                bool seen = false;
+                for (int j = 0; j < i; j++)
+                    if (strcmp(alive[j]->parts[position].text, word) == 0)
+                        seen = true;
+                if (seen) continue;
+                written += snprintf(expected + written,
+                                    sizeof expected - (size_t)written,
+                                    "%s'%s'", listed++ > 0 ? " or " : "", word);
+            }
+            error_here(reader, "expected %s here, in the form '%.*s'",
+                       expected, name.length, name.start);
+            phx_note(reader->diag, alive[0]->declared_at, "declared here");
+            phx_node_free(node);
+            return NULL;
+        }
+        count = kept;
+        break;
+    }
+
+    /* Exactly one, because two forms spelled the same way are one form and the
+       collision rule already said so. */
+    node->form = phx_dialect_index_of(reader->dialect, alive[0]);
+    return node;
+}
+
 /* A use of a declared form. The arity is known here, so it is checked here --
    at the call, with the declaration pointed at, rather than during expansion
    where neither is in front of the reader. */
 static PhxNode *macro_use(Reader *reader, PhxToken name, const PhxMacro *macro)
 {
+    if (macro->parts != NULL) return pattern_use(reader, name);
+
     PhxNode *node = phx_node_leaf(PHX_NODE_MACRO, name.span,
                                   name.start, name.length);
+    node->form = phx_dialect_index_of(reader->dialect, macro);
 
     if (macro->param_count == 0) {
         if (check(reader, PHX_TOK_LPAREN)) {

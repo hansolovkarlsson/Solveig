@@ -3,6 +3,33 @@
 What 0.1.0 established, in the order the rest depends on it. Each entry says
 what would have to be true before the next one is worth starting.
 
+## Done — 0.5.0, a form that reads as a statement
+
+**`@syntax unless <test> then <body> => ... .`** A hole is `<name>` and
+everything else is a literal word. Same holes, same template, same expansion as
+the call shape: a pattern changes how a form is written and nothing about what
+one is.
+
+**Two forms may share a leading word**, which is what `if <c> then <a>` beside
+`if <c> then <a> else <b>` needs and the reason the matcher exists. Matched
+together, with no backtracking: a hole is parsed once and shared by every
+candidate, so two forms can only part company at a word.
+
+**Which holds because the declaration refuses the pairs that could not.** Two
+patterns whose first difference is a hole against a word are an error where they
+are written, not a preference rule at every use. `on <w> do <b>` and
+`on error do <b>` are both `on error do x`, and no rule about which wins is one
+anybody could see from either line.
+
+**A pattern begins with a word and has no two holes in a row**, and a pattern
+word is reserved nowhere -- `then` is a form's word in a file that declared one
+and an ordinary name everywhere else.
+
+**The prediction that did not hold.** 0.4.0 wondered whether a pattern language
+would dissolve the group in `while(t, (a. b))`. It does not: `.` ends the
+statement whatever the form around it looks like, so `while t do (a. b)` still
+wants its parentheses. Recorded rather than quietly dropped.
+
 ## Done — 0.4.0, a dialect that is a file
 
 **`@use "arith.phx".`** A dialect file holds directives and nothing else, and is

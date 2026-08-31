@@ -243,6 +243,59 @@ int main(void)
            "        total__1 := #2.\n"
            "        total__1 }:value }.\n");
 
+    /* Patterns. A form that reads as a statement rather than as a call, which
+       is what the parameter list could not say however it was spelled. */
+    expect("a pattern", LANG
+           "@syntax unless <t> then <a> => t:not:ifTrue({ a }).\n"
+           "unless x then y:print.\n",
+           "x:not:ifTrue({ y:print }).\n");
+
+    /* Two forms under one word, told apart by the token after the shorter one
+       ends. This is the case the matcher exists for. */
+#define IFS \
+    "@syntax if <c> then <a> => c:ifTrue({ a }).\n" \
+    "@syntax if <c> then <a> else <b> => c:ifElse({ a }, { b }).\n"
+
+    expect("the shorter of two patterns", LANG IFS "if x then y:print.\n",
+           "x:ifTrue({ y:print }).\n");
+    expect("the longer of two patterns", LANG IFS
+           "if x then y:print else z:print.\n",
+           "x:ifElse({ y:print }, { z:print }).\n");
+
+    /* A word in a pattern is not a word anywhere else. Reserving `then` because
+       some module used it in a form would make a dialect a tax on every file
+       that never asked for it. */
+    expect("a pattern word is not reserved", LANG IFS
+           "then := #1.\nelse := then.\n",
+           "then := #1.\nelse := then.\n");
+
+    /* Holes take the caller's code and the template puts the braces on, exactly
+       as in the call shape -- a pattern changes how a form is written and
+       nothing about what one is. */
+    expect("a pattern is hygienic too", LANG
+           "@syntax hold <v> in <b> => { | t | t := v. b }:value.\n"
+           "t := #1.\n"
+           "a := hold t in t.\n",
+           "t := #1.\n"
+           "a := { | t__1 |\n"
+           "    t__1 := t.\n"
+           "    t }:value.\n");
+
+    expect_rejected("a missing word", LANG IFS "if x y:print.\n");
+    expect_rejected("two holes in a row", LANG
+                    "@syntax f <a> <b> => a:g(b).\nx := #1.\n");
+    expect_rejected("a hole that is never closed", LANG
+                    "@syntax f <a then <b> => a.\nx := #1.\n");
+    expect_rejected("two patterns that cannot be told apart", LANG
+                    "@syntax on <w> do <b> => w:run(b).\n"
+                    "@syntax on error do <b> => b:run.\nx := #1.\n");
+    expect_rejected("a name that is both shapes", LANG
+                    "@syntax f(a) => a.\n"
+                    "@syntax f <a> then <b> => a.\nx := #1.\n");
+    expect_rejected("two patterns spelled the same way", LANG
+                    "@syntax f <a> to <b> => a.\n"
+                    "@syntax f <c> to <d> => c.\nx := #1.\n");
+
     printf("%d checks, %d failed\n", checks, failures);
     return failures == 0 ? 0 : 1;
 }

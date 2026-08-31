@@ -1,12 +1,21 @@
-; control.phx -- the shapes a program keeps writing out.
+; control.phx -- the shapes a program keeps writing out, as forms that read
+; like statements rather than like calls.
 ;
-; Uses arith.phx, because `unless` wants a `~` to be spelled with. A dialect
-; using another is ordinary, and a diamond is harmless: two dialects that both
-; use arith meet it once.
+; Uses arith.phx, because `unless` wants a `~` and the conditions want their
+; comparisons. A dialect using another is ordinary, and a diamond is harmless:
+; two dialects that both use arith meet it once.
 
 @use "arith.phx".
 
-@syntax unless(test, body)  => test:not:ifTrue({ body }).
-@syntax when(test, body)    => test:ifTrue({ body }).
-@syntax while(test, body)   => { test }:whileTrue({ body }).
-@syntax swap(a, b)          => { | t | t := a. a := b. b := t }:value.
+; `if <c> then <a>` and `if <c> then <a> else <b>` are two forms under one word.
+; Nothing has to say which is meant: after the second hole the short one has
+; ended and the long one wants `else`, so the next token settles it.
+@syntax if <c> then <a>             => c:ifTrue({ a }).
+@syntax if <c> then <a> else <b>    => c:ifElse({ a }, { b }).
+
+@syntax unless <c> then <a>         => c:not:ifTrue({ a }).
+@syntax while <t> do <b>            => { t }:whileTrue({ b }).
+
+; A form needing somewhere to put a value. The `t` below is renamed at every
+; expansion, so `swap t and u` swaps them rather than losing them.
+@syntax swap <a> and <b>            => { | t | t := a. a := b. b := t }:value.
