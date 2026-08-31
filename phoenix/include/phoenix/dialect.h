@@ -20,9 +20,27 @@
 
 typedef enum { PHX_ASSOC_LEFT, PHX_ASSOC_RIGHT } PhxAssoc;
 
+/* An operator becomes either a message or a template.
+ *
+ *     @infix && 30 and.                      ->  a:and(b)
+ *     @infix && 30 => left:and({ right }).   ->  a:and({ b })
+ *
+ * The second exists because the first cannot express a short-circuit. Solveig's
+ * `and` takes a *block*, so naming it as the message produces `a:and(b)` and a
+ * run-time refusal -- and `@syntax` could not fill the gap either, a pattern
+ * having to begin with a word. programs/ember fell into it and wrote `:and`
+ * by hand six times.
+ *
+ * `form` indexes the dialect's macro table, or is -1 for a plain message. An
+ * operator with a template *is* a form, and reusing the expander for it means
+ * hygiene, provenance and the expansion trail all arrive without a second
+ * implementation. The two operands are called `left` and `right`, and a prefix
+ * operand is called `operand`: an operator has exactly as many operands as it
+ * has, so there is nothing to name. */
 typedef struct {
     char *spelling;         /* "+"                                       */
-    char *selector;         /* "add" -- the message it becomes           */
+    char *selector;         /* "add" -- the message it becomes; or NULL  */
+    int form;               /* the template, as a macro index; or -1     */
     int precedence;
     PhxAssoc assoc;
     PhxSpan declared_at;    /* for "previously declared here"            */
@@ -31,6 +49,7 @@ typedef struct {
 typedef struct {
     char *spelling;
     char *selector;
+    int form;
     PhxSpan declared_at;
 } PhxPrefix;
 
@@ -125,12 +144,20 @@ const PhxPrefix *phx_dialect_prefix(const PhxDialect *dialect,
 const PhxInfix *phx_dialect_add_infix(PhxDialect *dialect,
                                       const char *spelling, int length,
                                       const char *selector, int selector_length,
-                                      int precedence, PhxAssoc assoc,
+                                      int form, int precedence, PhxAssoc assoc,
                                       PhxSpan declared_at);
 const PhxPrefix *phx_dialect_add_prefix(PhxDialect *dialect,
                                         const char *spelling, int length,
                                         const char *selector, int selector_length,
-                                        PhxSpan declared_at);
+                                        int form, PhxSpan declared_at);
+
+/* Appends without the collision check the other adders run. For an operator's
+   template, whose collision is reported against the *operator* -- saying it
+   twice, once about `&&` and once about a form nobody named `&&`, would be
+   saying it twice. */
+int phx_dialect_add_template(PhxDialect *dialect, const char *name, int length,
+                             char **params, PhxHoleKind *kinds, int param_count,
+                             PhxNode *template, PhxSpan declared_at);
 
 /* The last form declared under this name, which for a call-shaped form is the
    only one there may be. */

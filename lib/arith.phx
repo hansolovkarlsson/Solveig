@@ -23,3 +23,20 @@
 @infix  >   40 greaterThan.
 @infix  ==  40 equals.
 @prefix ~      not.
+
+; `and` and `or` take a *block* in Solveig, so that the right-hand side is not
+; evaluated unless it is needed. An operator naming a message cannot say that --
+; `@infix && 30 and` compiles to `a:and(b)` and is refused at run time -- so
+; these name a template instead, and the template puts the block on.
+;
+; This is here because programs/ember wanted it and could not have it: six
+; expressions in that compiler are written `(a == b):and({ ... })` by hand, and
+; every one of them was a run-time failure first, `and` being a message a symbol
+; does not understand.
+;
+; **`\/` and not `||`**, because `|` is not an operator character and cannot
+; become one: it separates a block's parameters from its body. Allowing `||`
+; while forbidding `|` was considered and refused -- one rule that holds is
+; worth more than a special case that reads better.
+@infix  &&  30 => left:and({ right }).
+@infix  \/  25 => left:or({ right }).

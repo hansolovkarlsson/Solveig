@@ -96,7 +96,7 @@ const PhxPrefix *phx_dialect_prefix(const PhxDialect *dialect,
 const PhxInfix *phx_dialect_add_infix(PhxDialect *dialect,
                                       const char *spelling, int length,
                                       const char *selector, int selector_length,
-                                      int precedence, PhxAssoc assoc,
+                                      int form, int precedence, PhxAssoc assoc,
                                       PhxSpan declared_at)
 {
     /* Always added, never refused. Lookup walks backwards, so the last
@@ -113,7 +113,9 @@ const PhxInfix *phx_dialect_add_infix(PhxDialect *dialect,
 
     PhxInfix *entry = &dialect->infix[dialect->infix_count++];
     entry->spelling = phx_strndup(spelling, (size_t)length);
-    entry->selector = phx_strndup(selector, (size_t)selector_length);
+    entry->selector = selector != NULL
+                    ? phx_strndup(selector, (size_t)selector_length) : NULL;
+    entry->form = form;
     entry->precedence = precedence;
     entry->assoc = assoc;
     entry->declared_at = declared_at;
@@ -123,7 +125,7 @@ const PhxInfix *phx_dialect_add_infix(PhxDialect *dialect,
 const PhxPrefix *phx_dialect_add_prefix(PhxDialect *dialect,
                                         const char *spelling, int length,
                                         const char *selector, int selector_length,
-                                        PhxSpan declared_at)
+                                        int form, PhxSpan declared_at)
 {
     const PhxPrefix *existing = phx_dialect_prefix(dialect, spelling, length);
 
@@ -136,7 +138,9 @@ const PhxPrefix *phx_dialect_add_prefix(PhxDialect *dialect,
 
     PhxPrefix *entry = &dialect->prefix[dialect->prefix_count++];
     entry->spelling = phx_strndup(spelling, (size_t)length);
-    entry->selector = phx_strndup(selector, (size_t)selector_length);
+    entry->selector = selector != NULL
+                    ? phx_strndup(selector, (size_t)selector_length) : NULL;
+    entry->form = form;
     entry->declared_at = declared_at;
     return existing;
 }
@@ -221,4 +225,27 @@ const PhxMacro *phx_dialect_add_macro(PhxDialect *dialect,
     entry->template = template;
     entry->declared_at = declared_at;
     return existing;
+}
+
+int phx_dialect_add_template(PhxDialect *dialect, const char *name, int length,
+                             char **params, PhxHoleKind *kinds, int param_count,
+                             PhxNode *template, PhxSpan declared_at)
+{
+    if (dialect->macro_count == dialect->macro_capacity) {
+        dialect->macro_capacity = dialect->macro_capacity < 8
+                                ? 8 : dialect->macro_capacity * 2;
+        dialect->macro = phx_realloc(dialect->macro,
+                                     (size_t)dialect->macro_capacity * sizeof *dialect->macro);
+    }
+
+    PhxMacro *entry = &dialect->macro[dialect->macro_count];
+    entry->name = phx_strndup(name, (size_t)length);
+    entry->params = params;
+    entry->kinds = kinds;
+    entry->param_count = param_count;
+    entry->parts = NULL;
+    entry->part_count = 0;
+    entry->template = template;
+    entry->declared_at = declared_at;
+    return dialect->macro_count++;
 }

@@ -156,7 +156,33 @@ expression that does not use it already meant.
 **A build that takes nothing from Solveig.** No header, no archive, no symbol.
 The coupling is a file format and a command line.
 
+## Done — 0.7.0, an operator that stands for a template
+
+**`@infix && 30 => left:and({ right }).`** The only way to declare an operator
+whose right-hand side must not always be evaluated: Solveig's `and` takes a
+block, and a message receives its argument already evaluated.
+
+**The two extension points did not compose, and this is the seam.** `@infix`
+named a message and could not template; `@syntax` templated but must begin with
+a word, which an infix operator does not. Short-circuiting fell exactly between
+them, and nothing in six versions had noticed because nothing had tried.
+
+**`programs/ember` is what tried.** Six expressions in that compiler were
+written `(a == b):and({ ... })` by hand, every one of them a run-time failure
+first -- `and` being a message a symbol does not understand. `lib/arith.phx` now
+declares `&&` and `\/`, and emberc is written in them.
+
+**An operator with a template is a form**, registered as one, so hygiene,
+provenance and the trail come from the expander rather than a second
+implementation of each.
+
 ## Next — optional and repeated parts
+
+**No customer has asked for either, and one has now had the chance.**
+`programs/ember` is a lexer, a parser and a code generator, and it wanted no
+variadic notation and no optional tail: `if`/`else` as two declarations was
+fine. That is evidence rather than silence, and it moves this below whatever the
+next program finds.
 
 **`if <c> then <a> else <b>` is a second declaration rather than an optional
 tail**, which is honest and costs a line. Repetition — a form taking a list —

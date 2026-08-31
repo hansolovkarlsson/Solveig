@@ -112,6 +112,7 @@ stack trace actually is.
 | `@language <name>.` | What dialect this module is written in. Recorded and not yet acted on: there is one reader. |
 | `@use "<file>".` | Read that dialect file's header into this module. |
 | `@infix <op> <precedence> <message>.` | An infix operator, grouping to the left. Higher precedence binds tighter. |
+| `@infix <op> <precedence> => <template>.` | The same, standing for a template rather than a message. The operands are `left` and `right`; a prefix operand is `operand`. |
 | `@infixr <op> <precedence> <message>.` | The same, grouping to the right. |
 | `@prefix <op> <message>.` | A prefix operator. Binds tighter than any infix and looser than a send. |
 | `@syntax <name>(<params>) => <template>.` | A form that reads like a call. Its arguments arrive unevaluated, so the template may put them somewhere the caller never wrote. |
@@ -214,6 +215,41 @@ a.phx:1:1: note: declared here
 answer turned out to be *do what Solveig does*. A warning rather than an error
 because rebinding is legal and sometimes meant; loud rather than silent because
 nothing else will say so.
+
+## An operator that stands for a template
+
+```
+@infix && 30 => left:and({ right }).
+
+x > #1 && y > #0
+```
+
+becomes
+
+```
+x:greaterThan(#1):and({ y:greaterThan(#0) })
+```
+
+**This exists because a message cannot express a short circuit.** Solveig's
+`and` takes a *block*, so that its right-hand side is not evaluated unless it is
+needed — and `@infix && 30 and` compiles to `a:and(b)`, which is refused at run
+time. `@syntax` could not fill the gap either: **a pattern must begin with a
+word**, and an infix operator begins with its left operand.
+
+So the two extension points did not compose, and short-circuiting fell exactly
+between them. `programs/ember` found it the hard way — six expressions in that
+compiler were written `(a == b):and({ ... })` by hand, every one of them a
+run-time failure first.
+
+**An operator with a template *is* a form**, and gets everything a form gets:
+substitution, hygiene, provenance, the expansion trail. The operands are called
+`left` and `right` because an operator has exactly as many operands as it has,
+so there is nothing to name.
+
+**`\/` and not `||`.** `|` is not an operator character and cannot become one —
+it separates a block's parameters from its body. Allowing `||` while forbidding
+`|` was considered and refused: one rule that holds is worth more than a special
+case that reads better.
 
 ## Forms
 
@@ -521,7 +557,7 @@ integer:utf8Tail := { at |
     (#128:bitOr(self:shiftRight(at):bitAnd(#63))):asCharacter }.
 ```
 
-## What 0.6.0 is not
+## What 0.7.0 is not
 
 **A pattern has no optional or repeated parts.** `if <c> then <a> else <b>` is a
 second declaration rather than an optional tail, which is honest and costs a

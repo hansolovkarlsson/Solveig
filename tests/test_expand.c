@@ -365,6 +365,54 @@ int main(void)
     expect_rejected("a colon with nothing after it", LANG
                     "@syntax f <a: > => a.\nx := #1.\n");
 
+    /* An operator may name a template rather than a message, which is the only
+       way to declare one whose right-hand side must not be evaluated. Solveig's
+       `and` takes a block; `@infix && 30 and` would compile to `a:and(b)` and
+       be refused at run time. */
+    expect("an infix template", LANG
+           "@infix && 30 => left:and({ right }).\n"
+           "a := x && y.\n",
+           "a := x:and({ y }).\n");
+    expect("a prefix template", LANG
+           "@prefix ! => operand:not:not.\n"
+           "a := !x.\n",
+           "a := x:not:not.\n");
+
+    /* Precedence and associativity are the operator's and are untouched by it
+       having a template rather than a message. */
+    expect("a template obeys precedence", LANG
+           "@infix + 60 add.\n"
+           "@infix && 30 => left:and({ right }).\n"
+           "a := x + y && z.\n",
+           "a := x:add(y):and({ z }).\n");
+    expect("a template groups to the left", LANG
+           "@infix && 30 => left:and({ right }).\n"
+           "a := x && y && z.\n",
+           "a := x:and({ y }):and({ z }).\n");
+
+    /* And it is a form, so everything a form gets it gets: hygiene, and the
+       refusal to bind what it was given. */
+    expect("an operator template is hygienic", LANG
+           "@infix && 30 => { | t | t := left. t:and({ right }) }:value.\n"
+           "t := true.\n"
+           "a := t && t.\n",
+           "t := true.\n"
+           "a := { | t__1 |\n"
+           "    t__1 := t.\n"
+           "    t__1:and({ t }) }:value.\n");
+    expect_rejected("a template binding an operand's name", LANG
+                    "@infix && 30 => { | left | left }:value.\n"
+                    "a := x && y.\n");
+
+    /* Naming a message still works, and is still the right answer when the
+       message is one. */
+    expect("an operator naming a message is unchanged", LANG
+           "@infix + 60 add.\n@prefix ~ not.\n"
+           "a := ~x + y.\n",
+           "a := x:not:add(y).\n");
+    expect_rejected("an operator with neither a message nor a template", LANG
+                    "@infix + 60.\na := #1.\n");
+
     printf("%d checks, %d failed\n", checks, failures);
     return failures == 0 ? 0 : 1;
 }

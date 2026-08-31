@@ -8,9 +8,9 @@ module      = { directive } { statement } .
 
 directive   = "@language" identifier "."
             | "@use" string "."
-            | "@infix"  operator number identifier "."
-            | "@infixr" operator number identifier "."
-            | "@prefix" operator identifier "."
+            | "@infix"  operator number ( identifier | "=>" expression ) "."
+            | "@infixr" operator number ( identifier | "=>" expression ) "."
+            | "@prefix" operator ( identifier | "=>" expression ) "."
             | "@syntax" identifier [ parameters | pattern ] "=>" expression "." .
 
 parameters  = "(" [ parameter { "," parameter } ] ")" .
@@ -165,6 +165,20 @@ straight to Solveig's `repeat` without wrapping, so that one has to ask.
 
 **Checked after the argument is expanded**, so a hole filled by another form is
 checked against what that form became rather than against a use of it.
+
+## An operator's template
+
+An operator names either the message it becomes or, after `=>`, a template it
+stands for. **The template is the only way to declare an operator whose
+right-hand side must not always be evaluated**, a message receiving its argument
+already evaluated.
+
+The operands are `left` and `right`, and a prefix operand is `operand`. A
+template binding one of those names is refused where it is written.
+
+**An operator with a template is a form**, registered as one, so hygiene, the
+expansion trail and everything else arrive from the expander rather than from a
+second implementation.
 
 ## What a form may reach
 

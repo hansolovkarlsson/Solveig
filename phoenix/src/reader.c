@@ -40,6 +40,8 @@ typedef struct {
 
 static PhxNode *expression(Reader *reader);
 static PhxNode *statement(Reader *reader);
+static const char *shadowed_parameter(const PhxNode *node,
+                                      char **params, int param_count);
 
 /* ------------------------------------------------------------------ tokens */
 
@@ -237,30 +239,87 @@ static void directive_operator(Reader *reader, bool infix, PhxAssoc assoc)
         advance(reader);
     }
 
-    if (!check(reader, PHX_TOK_NAME)) {
-        error_here(reader, "'%.*s %.*s' needs the message it becomes",
+    /* Either the message it becomes, or `=>` and what it stands for.
+     *
+     * The template exists because a message cannot express a short-circuit:
+     * Solveig's `and` takes a block, so `@infix && 30 and` compiles to
+     * `a:and(b)` and is refused at run time. programs/ember wrote `:and` by
+     * hand six times rather than declare an operator it could not declare. */
+    PhxToken selector = reader->current;
+    PhxNode *template = NULL;
+    int form = -1;
+
+    bool has_template = check(reader, PHX_TOK_OPERATOR) &&
+                        token_is(&reader->current, "=>");
+
+    if (has_template) {
+        advance(reader);
+        template = expression(reader);
+        if (template == NULL) return;
+    } else if (!check(reader, PHX_TOK_NAME)) {
+        error_here(reader, "'%.*s %.*s' needs the message it becomes, or '=>' "
+                           "and what it stands for",
                    directive.length, directive.start,
                    spelling.length, spelling.start);
         return;
+    } else {
+        advance(reader);
     }
-    PhxToken selector = reader->current;
-    advance(reader);
 
     PhxSpan where = { directive.span.source, directive.span.offset,
-                      (selector.span.offset + selector.span.length)
-                          - directive.span.offset };
+                      has_template
+                          ? phx_node_extent(template).offset
+                                + phx_node_extent(template).length
+                                - directive.span.offset
+                          : (selector.span.offset + selector.span.length)
+                                - directive.span.offset };
+
+    /* An operator with a template *is* a form, and is registered as one, so
+       that substitution, hygiene, provenance and the trail all come from the
+       expander rather than from a second implementation of each. */
+    if (has_template) {
+        static const char *const infix_names[] = { "left", "right" };
+        static const char *const prefix_names[] = { "operand" };
+        int count = infix ? 2 : 1;
+        const char *const *names = infix ? infix_names : prefix_names;
+
+        char **params = phx_alloc((size_t)count * sizeof *params);
+        PhxHoleKind *kinds = phx_alloc((size_t)count * sizeof *kinds);
+        for (int i = 0; i < count; i++) {
+            params[i] = phx_strndup(names[i], strlen(names[i]));
+            kinds[i] = PHX_HOLE_EXPRESSION;
+        }
+
+        const char *shadowed = shadowed_parameter(template, params, count);
+        if (shadowed != NULL) {
+            error_at(reader, phx_node_extent(template),
+                     "this template binds '%s', which is what an operator "
+                     "calls its operand", shadowed);
+            for (int i = 0; i < count; i++) free(params[i]);
+            free(params);
+            free(kinds);
+            phx_node_free(template);
+            return;
+        }
+
+        form = phx_dialect_add_template(reader->dialect,
+                                        spelling.start, spelling.length,
+                                        params, kinds, count, template, where);
+    }
 
     if (infix) {
         const PhxInfix *clash = phx_dialect_add_infix(
             reader->dialect, spelling.start, spelling.length,
-            selector.start, selector.length, precedence, assoc, where);
+            has_template ? NULL : selector.start, selector.length,
+            form, precedence, assoc, where);
         if (clash != NULL)
             collision(reader, "operator", clash->spelling,
                       spelling.span, clash->declared_at);
     } else {
         const PhxPrefix *clash = phx_dialect_add_prefix(
             reader->dialect, spelling.start, spelling.length,
-            selector.start, selector.length, where);
+            has_template ? NULL : selector.start, selector.length,
+            form, where);
         if (clash != NULL)
             collision(reader, "prefix operator", clash->spelling,
                       spelling.span, clash->declared_at);
@@ -1106,6 +1165,15 @@ static PhxNode *unary(Reader *reader)
         PhxNode *operand = unary(reader);
         if (operand == NULL) return NULL;
 
+        if (prefix->form >= 0) {
+            PhxNode *use = phx_node_leaf(PHX_NODE_MACRO, op.span,
+                                         prefix->spelling,
+                                         (int)strlen(prefix->spelling));
+            use->form = prefix->form;
+            phx_node_add(use, operand);
+            return use;
+        }
+
         PhxNode *send = phx_node_leaf(PHX_NODE_SEND, op.span,
                                       prefix->selector,
                                       (int)strlen(prefix->selector));
@@ -1150,12 +1218,18 @@ static PhxNode *infix(Reader *reader, int minimum)
 
         /* The span is the operator's. What the node covers is worked out by
            phx_node_extent when something needs to underline the whole of it. */
-        PhxNode *send = phx_node_leaf(PHX_NODE_SEND, op.span,
-                                      entry->selector,
-                                      (int)strlen(entry->selector));
-        phx_node_add(send, left);
-        phx_node_add(send, right);
-        left = send;
+        PhxNode *made;
+        if (entry->form >= 0) {
+            made = phx_node_leaf(PHX_NODE_MACRO, op.span, entry->spelling,
+                                 (int)strlen(entry->spelling));
+            made->form = entry->form;
+        } else {
+            made = phx_node_leaf(PHX_NODE_SEND, op.span, entry->selector,
+                                 (int)strlen(entry->selector));
+        }
+        phx_node_add(made, left);
+        phx_node_add(made, right);
+        left = made;
     }
     return left;
 }
