@@ -68,6 +68,11 @@ typedef struct {
        warning about -- see `note_global_binding`. */
     const SolToken *assigning;
     bool            assigned_name_was_read;
+
+    /* While compiling a dictionary literal's key, where the `=` that ends it is
+       the literal's own and not a stray operator. Saved and restored around the
+       key rather than set once, so `#[#["a" = #1] = "x"]` nests. */
+    bool            in_dictionary_key;
 } Compiler;
 
 static void expression(Compiler *c);
@@ -97,6 +102,7 @@ static bool token_is(const SolToken *token, const char *word)
            memcmp(token->start, word, length) == 0;
 }
 static void array_literal(Compiler *c);
+static void dictionary_literal(Compiler *c);
 static void string_literal(Compiler *c);
 static int  resolve_local(Scope *scope, const SolToken *name);
 static int  declare_local(Scope *scope, const char *name, int length);
@@ -469,6 +475,7 @@ static void primary(Compiler *c)
 
     if (sol_parser_match(p, TOK_LBRACE))     { block_literal(c, p->lexer.infix); return; }
     if (sol_parser_match(p, TOK_LBRACKET))   { array_literal(c); return; }
+    if (sol_parser_match(p, TOK_HASHBRACKET)) { dictionary_literal(c); return; }
     if (sol_parser_match(p, TOK_IDENT))      { identifier(c); return; }
     if (sol_parser_match(p, TOK_INT))        { integer_literal(c, false); return; }
     if (sol_parser_match(p, TOK_FLOAT))      { float_literal(c, false); return; }
@@ -607,8 +614,18 @@ static void send_chain(Compiler *c)
        rather than a missing `@expr`. */
     if (!p->lexer.infix) {
         switch (p->current.type) {
+        /* `=` is the one operator that also ends something: a dictionary
+           literal's key. There it is expected rather than stray, and the
+           literal consumes it itself. */
+        case TOK_EQ:
+            if (!c->in_dictionary_key) {
+                sol_parser_error(p, &p->current,
+                                 "this is written as a send here; '@expr(...)' is "
+                                 "where the operators are");
+            }
+            break;
         case TOK_PLUS: case TOK_STAR: case TOK_SLASH: case TOK_CARET:
-        case TOK_EQ: case TOK_NE: case TOK_LT:
+        case TOK_NE: case TOK_LT:
         case TOK_GT: case TOK_LE: case TOK_GE:
         case TOK_AMP: case TOK_TILDE:
             sol_parser_error(p, &p->current,
@@ -1025,6 +1042,55 @@ static void array_literal(Compiler *c)
             count++;
         } while (sol_parser_match(p, TOK_COMMA));
         sol_parser_consume(p, TOK_RBRACKET, "expected ']' after the elements");
+    }
+
+    emit_indexed(c, OP_SEND, name_literal(c, "of", 2));
+    emit(c, (uint8_t)count);
+}
+
+/* `#["a" = #1, "b" = #2]` -- a dictionary literal, and nothing more than a way
+ * of writing `dictionary:of("a", #1, "b", #2)`. The same desugaring as the array
+ * literal and for the same reason: the `dictionary` it sends to is the ordinary
+ * global, so the two spellings cannot drift apart.
+ *
+ * **`=` between a key and its value, which costs nothing elsewhere.** The token
+ * is scanned always and given meaning by whoever is parsing; here that is this
+ * function, and inside an `@expr` region it is still equality. The two never
+ * meet, because each carries its own delimiters.
+ *
+ * The pairing is the whole reason this is not simply a shorter `dictionary:of`.
+ * An options bag written as alternating elements pairs up positionally and a
+ * reader has to count; written with `=` it does not.
+ *
+ * `#[]` sends `of` with no arguments and answers an empty dictionary. The cap is
+ * the argument cap: 255 arguments is 127 pairs, and the complaint says pairs
+ * because that is what was written.
+ */
+static void dictionary_literal(Compiler *c)
+{
+    SolParser *p = &c->parser;
+
+    emit_indexed(c, OP_GLOBAL, name_literal(c, "dictionary", 10));
+
+    int count = 0;
+    if (!sol_parser_match(p, TOK_RBRACKET)) {
+        do {
+            if (count == UINT8_MAX - 1) {
+                sol_parser_error(p, &p->current,
+                                 "too many pairs in one dictionary literal");
+                return;
+            }
+            bool saved = c->in_dictionary_key;
+            c->in_dictionary_key = true;
+            expression(c);                       /* the key */
+            c->in_dictionary_key = saved;
+
+            sol_parser_consume(p, TOK_EQ,
+                               "expected '=' between a key and its value");
+            expression(c);                       /* and its value */
+            count += 2;
+        } while (sol_parser_match(p, TOK_COMMA));
+        sol_parser_consume(p, TOK_RBRACKET, "expected ']' after the pairs");
     }
 
     emit_indexed(c, OP_SEND, name_literal(c, "of", 2));

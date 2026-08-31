@@ -454,6 +454,63 @@ static void test_of_survives_collection(void)
     sol_vm_free(&vm);
 }
 
+/* `#[a = b]` is not merely equivalent to `dictionary:of(a, b)` -- it compiles to
+   the same instructions, which is what keeps the two spellings from drifting and
+   is why rebinding `dictionary` moves both. The array literal is held to the
+   same bargain in test_array.c. */
+static void test_the_literal_is_the_same_bytecode(void)
+{
+    SolChunk sugar, plain;
+    sol_chunk_init(&sugar);
+    sol_chunk_init(&plain);
+
+    assert(sol_compile("a := #[\"x\" = #1, \"y\" = #2].", &sugar));
+    assert(sol_compile("a := dictionary:of(\"x\", #1, \"y\", #2).", &plain));
+
+    assert(sugar.count == plain.count);
+    assert(memcmp(sugar.code, plain.code, (size_t)sugar.count) == 0);
+    assert(sugar.names.count == plain.names.count);
+    for (int i = 0; i < sugar.names.count; i++) {
+        assert(strcmp(sol_chunk_name(&sugar, i), sol_chunk_name(&plain, i)) == 0);
+    }
+
+    sol_chunk_free(&plain);
+    sol_chunk_free(&sugar);
+}
+
+/* What the literal adds over the message is that the pairing is written down,
+ * so the ways to get it wrong are refused at compile time rather than run time.
+ * And `=` keeps every other meaning it had: still equality inside a region,
+ * still a stray operator outside one. */
+static void test_what_the_literal_refuses(void)
+{
+    SolChunk chunk;
+    sol_chunk_init(&chunk);
+
+    assert(!sol_compile("a := #[\"x\", #1].", &chunk));      /* no '=' */
+    sol_chunk_free(&chunk);
+
+    sol_chunk_init(&chunk);
+    assert(!sol_compile("a := #[\"x\" = #1.", &chunk));      /* no ']' */
+    sol_chunk_free(&chunk);
+
+    sol_chunk_init(&chunk);
+    assert(!sol_compile("a := # [\"x\" = #1].", &chunk));    /* '#[' is one token */
+    sol_chunk_free(&chunk);
+
+    sol_chunk_init(&chunk);
+    assert(!sol_compile("a := #1. b := a = #2.", &chunk));   /* still a stray operator */
+    sol_chunk_free(&chunk);
+
+    /* And still equality where equality lives. */
+    SolVM vm; sol_vm_init(&vm);
+    sol_chunk_init(&chunk);
+    assert(run(&vm, &chunk, "a := #1.\nsame := @expr(a = #1).\n") == SOL_OK);
+    assert(SOL_IS_BOOL(global(&vm, "same")) && global(&vm, "same").as.boolean);
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+}
+
 int main(void)
 {
     test_binding_and_reading();
@@ -470,6 +527,8 @@ int main(void)
     test_building_in_one_call();
     test_what_of_refuses();
     test_of_survives_collection();
+    test_the_literal_is_the_same_bytecode();
+    test_what_the_literal_refuses();
     printf("test_dict: ok\n");
     return 0;
 }

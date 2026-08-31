@@ -45,6 +45,7 @@ point:show:print.               ; #3
 | `"text"` | a string, bytes, with `\n \t \" \\` escapes |
 | `'name` | a symbol, interned, compared by pointer |
 | `[a, b]` | an array — sugar for `array:of(a, b)` |
+| `#[k = v]` | a dictionary — sugar for `dictionary:of(k, v)`; `#[` is one token |
 | `{ x \| body }` | a block; `{ x, y \| \| t \| body }` takes two and has a temp |
 | `; to end of line` | a comment |
 | `@include "file.sol".` | splices another file in, once, before compiling |

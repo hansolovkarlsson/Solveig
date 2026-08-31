@@ -73,8 +73,10 @@ directive = "@" letter { letter | digit } .
 comment = ";" { ! "\n" } .
 space   = ( " " | "\t" | "\r" | "\n" ) { " " | "\t" | "\r" | "\n" } .
 
-(* `:=` before `:`, or the binding would never be one token. *)
-punctuation = ":=" | ":" | "(" | ")" | "{" | "}" | "[" | "]" | "|" | "," | "." .
+(* `:=` before `:`, or the binding would never be one token, and `#[` before
+ * anything that could take the `#` -- which is nothing, since `integer` wants a
+ * digit or a sign after it, but the ordering says the intent. *)
+punctuation = "#[" | ":=" | ":" | "(" | ")" | "{" | "}" | "[" | "]" | "|" | "," | "." .
 
 (* The five that only mean anything inside `@expr`. Four of them were not
  * characters the language used at all; `-` was, and is the one place this file
@@ -160,7 +162,7 @@ call    = identifier "(" expression ")" .
 send      = ":" identifier [ arguments | ":=" expression ] .
 arguments = "(" [ expression { "," expression } ] ")" .
 
-primary = identifier | integer | float | string | symbol | block | array | group | region .
+primary = identifier | integer | float | string | symbol | block | array | dictionary | group | region .
 
 (* `@expr(...)` -- the region the operators mean something in. Every one lowers
  * to the send it reads as, so this is a second spelling and never a second
@@ -190,6 +192,17 @@ temporaries = "|" identifier { "," identifier } "|" .
 body = [ expression { "." expression } [ "." ] ] .
 
 array = "[" [ expression { "," expression } ] "]" .
+
+(* `#[` is one token: the '[' must follow the '#' immediately, as a digit must.
+ * That is what makes it unambiguous -- a digit was the only thing that could
+ * ever follow a '#', so `#[` was an error in every file written before it. *)
+dictionary = "#[" [ pair { "," pair } ] "]" .
+
+(* The key is a `sum` and not an `expression`, or it would swallow the `=` that
+ * ends it -- `comparison` is where `=` lives in this grammar. Nothing is lost:
+ * a comparison is only legal inside an `@expr` region, and a region is a
+ * `primary`, so `sum` still reaches every key that could actually be written. *)
+pair = sum "=" expression .
 
 (* A group is not an empty pair of parentheses: it must hold at least one
  * expression, since its value is the last one's. It may open with `| a, b |`,

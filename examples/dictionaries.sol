@@ -7,14 +7,25 @@
 ages := dictionary:new.
 ages:size:print.                 ; #0
 
-; `of` builds one in a single expression, keys and values alternating. That is
-; all a literal would be: [#1, #2] is itself a spelling over `array:of` rather
-; than a form the compiler knows, so the two are the same distance from the
-; machine.
-sizes := dictionary:of("small", #1, "large", #9).
+; `#[key = value]` is the literal, and `of` is what it compiles to -- the same
+; bargain [#1, #2] strikes with `array:of`, so rebinding the class name changes
+; both spellings together and they cannot drift apart.
+sizes := #["small" = #1, "large" = #9].
 sizes:size:print.                ; #2
 sizes:at("large"):print.         ; #9
-dictionary:of:size:print.        ; #0   -- no arguments, an empty one
+#[]:size:print.                  ; #0   -- the empty one
+
+; `=` pairs a key with its value here and is still equality inside @expr: the
+; token is scanned always, and what it means is decided by whoever is parsing.
+@expr(sizes:at("small") = #1):print.     ; true
+
+; The literal nests, and keys and values are expressions like any other.
+n := #2.
+cfg := #["ports" = #["http" = #80], "double" = n:mul(#2)].
+cfg:at("ports"):at("http"):print.        ; #80
+cfg:at("double"):print.                  ; #4
+
+dictionary:of("small", #1):at("small"):print.    ; #1   -- what it lowers to
 
 ; **Which is what lets a dictionary be written where it is used.** A dictionary
 ; could always be *passed*; what it could not be was built as an argument,

@@ -74,6 +74,7 @@ const char *sol_token_type_name(SolTokenType type)
     case TOK_LBRACE: return "'{'";
     case TOK_RBRACE: return "'}'";
     case TOK_LBRACKET: return "'['";
+    case TOK_HASHBRACKET: return "'#['";
     case TOK_RBRACKET: return "']'";
     case TOK_PIPE:   return "'|'";
     case TOK_COMMA:  return "','";
@@ -157,12 +158,24 @@ static SolToken identifier(SolLexer *lexer)
     return make_token(lexer, TOK_IDENT);
 }
 
-/* `#45` -- the '#' is a type tag, so the digits must follow immediately. */
+/* `#45` -- the '#' is a type tag, so the digits must follow immediately.
+ *
+ * Except before `[`, which is the dictionary literal. That is unambiguous
+ * because a digit is the only thing that could ever have followed the '#', so
+ * `#[` was an error in every file ever written and cannot now mean something
+ * it used to. It is a bracket rather than a brace because in this language
+ * `[ ]` already says *a collection written out* and `{ }` says *code*. */
 static SolToken integer(SolLexer *lexer)
 {
+    if (peek(lexer) == '[') {
+        advance(lexer);
+        return make_token(lexer, TOK_HASHBRACKET);
+    }
+
     match(lexer, '-');
     if (!is_digit(peek(lexer))) {
-        return error_token(lexer, "expected digits after '#'");
+        return error_token(lexer,
+                           "expected digits after '#' -- or '[' for a dictionary");
     }
     while (is_digit(peek(lexer))) advance(lexer);
 

@@ -115,7 +115,7 @@ send       = ":" identifier [ arguments | ":=" expression ] .
 arguments  = "(" [ expression { "," expression } ] ")" .
 
 primary    = identifier | integer | float | string | symbol
-           | block | array | group | region .
+           | block | array | dictionary | group | region .
 
 region     = "@expr" ( "(" expression ")" | block ) .
 ```
@@ -179,6 +179,9 @@ inside `send` rather than after the chain.
 block       = "{" [ parameters ] [ temporaries ] body "}" .
 
 array       = "[" [ expression { "," expression } ] "]" .
+
+dictionary  = "#[" [ pair { "," pair } ] "]" .
+pair        = sum "=" expression .
 
 group       = "(" [ temporaries ] expression { "." expression } [ "." ] ")" .
 

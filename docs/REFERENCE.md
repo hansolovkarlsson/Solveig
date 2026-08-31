@@ -1822,6 +1822,7 @@ is one statement, not two.
 | `1e3`, `1.5e-3`, `1E+3` | float | exponent optional, sign optional |
 | `"hello"` | string | see escapes below |
 | `[#1, #2]` | array | sugar for `array:of(#1, #2)` |
+| `#["a" = #1]` | dictionary | sugar for `dictionary:of("a", #1)`; the `[` follows the `#` immediately |
 | `{ #1 }` | block | code as a value |
 | `'foo` | symbol | an interned name; no closing quote |
 
@@ -3531,15 +3532,28 @@ makes an empty one.
 
 #### Building one in a single expression
 
-`of` is to `dictionary` what it is to `array`, and there is no literal over it
-the way `[...]` is one — which matters less than it looks, because `[...]` is
-itself a spelling over `array:of` rather than a form the compiler knows.
+`of` is to `dictionary` what it is to `array`, and `#[...]` is its literal the
+way `[...]` is the array's — both being real desugaring rather than a form the
+compiler knows, so rebinding `dictionary` changes the two together.
 
 ```
-sizes := dictionary:of("small", #1, "large", #9).
+sizes := #["small" = #1, "large" = #9].
 sizes:at("large"):print.        ; #9
-dictionary:of:size:print.       ; #0   -- no arguments, an empty one
+#[]:size:print.                 ; #0   -- the empty one
+
+dictionary:of("small", #1):at("small"):print.    ; #1   -- what it lowers to
 ```
+
+**`=` pairs a key with its value**, and it costs nothing elsewhere: the token is
+scanned always and given meaning by whoever is parsing, so it is still equality
+inside [`@expr`](#infix-operators) and still refused as a
+stray operator outside one. The pairing is the reason to have the literal at
+all — alternating elements pair up positionally and a reader has to count.
+
+**`#[` is one token**: the `[` follows the `#` immediately, as a digit must, and
+that is what makes it unambiguous. A digit was the only thing that could ever
+follow a `#`, so `#[` was an error in every file written before it existed and
+cannot now mean something it used to.
 
 **Which is what lets a dictionary be written where it is used.** One could
 always be *passed*; what it could not be was built as an argument, and three
@@ -4059,6 +4073,7 @@ appear in an example.
 | Recursion | about **254 levels** — the frame cap is 256 and a level costs one frame, now that an `ifElse` branch, a `whileTrue` body, and an `and`/`or` block are inlined rather than called |
 | Constants, names, blocks per chunk | **65536** — a two-byte index, and both tables intern, so repeats cost nothing |
 | Arguments, parameters, array literal elements | 255 — an argument count is one byte |
+| Dictionary literal pairs | **127** — the same byte, two arguments to a pair |
 | Locals per frame | 255 |
 | Reading a file | whole-file only — no handle, no line at a time, no seek. **2 GiB** hard, a string's length being a signed 32-bit count, and a peak of **twice the file's size** while it is read |
 | Solis input | no limit — the buffer grows, and reading continues while a bracket or a string is open |

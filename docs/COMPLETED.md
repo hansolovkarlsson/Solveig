@@ -1145,7 +1145,7 @@ is a failure, confirmed by breaking one both ways.
 one. The comment renders as nothing and the reader sees the sentence:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 1025<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 1030<!--count claims--> claims
 ```
 
 [expect.sol](../programs/expect.sol) recounts each of them from the repository
@@ -1165,8 +1165,8 @@ that order under its headings. The two are now held together.
 | --- | --- | --- |
 | ROADMAP 3.14, on whether `float` should gain trigonometry | `float` answers **21** messages | **35**<!--count float-answers--> — the count that entry's whole size argument rests on, five releases out of date |
 | [REFERENCE.md](REFERENCE.md)'s message index | **121** messages across **215** registrations | **122** across **216** |
-| [programs.md](programs.md)'s sample output | 21 files, **398** claims | 22 files, **562**<!--count examples-claims--> claims |
-| `README.md`, `programs.md` and the entry itself | **589** claims | **1025**<!--count claims--> |
+| [programs.md](programs.md)'s sample output | 21 files, **398** claims | 22 files, **566**<!--count examples-claims--> claims |
+| `README.md`, `programs.md` and the entry itself | **589** claims | **1030**<!--count claims--> |
 
 #### What is left, which is not a gap
 

@@ -40,6 +40,7 @@ typedef enum {
     TOK_LBRACE,     /* {   block literal            */
     TOK_RBRACE,
     TOK_LBRACKET,   /* [   array literal            */
+    TOK_HASHBRACKET,/* #[  dictionary literal       */
     TOK_RBRACKET,
     TOK_PIPE,       /* |   declares temporaries     */
     TOK_COMMA,      /* argument separator           */
