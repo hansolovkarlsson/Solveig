@@ -11,6 +11,89 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-30 (postmortem) — the day the documents were audited by being used
+
+Nine entries above this one, and the day had no plan. It began with a question
+about Python's strings and ended with 0.40.0 on GitHub. What connects the two is
+worth more than either.
+
+### What shipped
+
+`#["key" = value]`, a dictionary literal, over a `dictionary:of` built the hour
+before it. `string:startsWith` and `string:endsWith`. An editor that had been
+writing half a character to disk since the day it was written. Four constant
+tables converted to the new literal and two deliberately left alone. 0.40.0,
+released, verified and published.
+
+### What the day actually was
+
+**Five sentences standing in the documentation were tested. Four were wrong.**
+
+`ensure` already existed where a gap was assumed. Decorators are writable, but
+not the obvious way — a block pulled out of a slot has no receiver. A file's
+memory edge is twice the file, and the doubling is `readFile`'s own
+buffer-then-copy rather than the copy that `mirror.sol` blamed. *Nothing is
+slower* was wrong by three orders of magnitude, because a search that fails has
+read the whole string and failing is the case a prefix test exists for. And the
+backtrace is not missing but discarded, one line after the error object is built.
+
+**Not one was found by a program failing.** They were found by going to check a
+sentence before repeating it.
+
+Then the same thing happened to my own work. A guard I had just written against
+a collector hazard was guarding against nothing, and `object.c` said so beside
+the code. A comparison I ran twice could not have failed either time. A release
+page passed every check on its markdown and rendered wrong anyway.
+
+### The count, since counting is the point
+
+| what was checked | wrong |
+| --- | --- |
+| documented claims tested | 4 of 5 |
+| checks that could not have failed | 2 |
+| findings that were artefacts of the check, not faults | 3 |
+| entries in ideas.md corrected by measuring them | 4 |
+
+The middle two rows are the ones I would not have predicted at the start of the
+day, and they are the same failure wearing two faces: **a check that cannot fail
+and a check that fails for the wrong reason mislead exactly as far as each
+other.** One says everything is fine when nothing was examined; the other says
+something is broken when nothing is.
+
+### What was written down as a result
+
+[method.md](method.md) exists now, which it did not this morning. The practices
+this project runs on — a program asks rather than a document, the throwaway
+before the design, scope before building, check the thing and not a picture of
+it, check against what ships — were real, were followed, and were written
+nowhere. Each is recorded with the occasion that taught it, because that is the
+only reason to trust any of them.
+
+[releasing.md](releasing.md) gained two steps from being followed once.
+[ROADMAP.md](ROADMAP.md) gained [3.22](ROADMAP.md#322-a-file-is-read-whole-or-not-at-all),
+a limitation that had been true and unstated for the life of the project, and
+[2.13](ROADMAP.md#213-text-is-bytes-and-case-is-ascii-only) now has a floor under
+it rather than an open question.
+
+### The thing worth keeping
+
+Every document here is prose about work, and prose about work goes stale exactly
+like any other prose. `expect.sol` executes a thousand claims on every build and
+that is why the numbers can be trusted — but it can only check a claim it can
+*run*, and *nothing is slower* is not one of those. Neither is *the guard is
+needed*, or *the page renders*, or *this comparison compares two things*.
+
+**The gap between what a checker can execute and what a document asserts is
+where every one of today's errors lived.** Nothing closes that gap except
+somebody going and looking, and the cheap version of that is refusing to write
+*because X* until X has been run once.
+
+The day cost nine journal entries and produced one release. It also produced a
+document explaining how the work is done, which is the part that will still
+matter when the release is four versions old.
+
+---
+
 ## 2026-08-30 (0.40.0) — a release, and a procedure that learnt two things from being followed
 
 [releasing.md](releasing.md) exists because two of its steps were learnt by

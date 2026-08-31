@@ -1,5 +1,8 @@
 # Making a release
 
+*How a feature ships, and the checks a claim has to pass before it is believed,
+are in [method.md](method.md). This is the release itself.*
+
 Four files in one commit, a tag, and a page on GitHub that the tree cannot
 record. Written down because it is a ritual with verification steps in it, and
 because two of those steps were learned by getting them wrong.

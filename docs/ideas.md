@@ -4,6 +4,10 @@
 recommended against are here so the reasons survive, and so the same idea does
 not have to be re-argued from scratch in six months.*
 
+*The **trigger** each deferred entry names is the rule this page runs on, and
+[method.md](method.md) states it along with the rest of how work here is decided
+and checked.*
+
 *Everything this document said to build has been built, and the entries are in
 [COMPLETED.md](COMPLETED.md). So the verdicts below are read backwards now — not
 as a queue, but as a record of what was guessed and how the guess turned out.*

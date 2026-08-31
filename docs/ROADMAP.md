@@ -306,6 +306,20 @@ Kept here rather than in section 2 because it is a restriction the language
 lives under, not a question waiting on an answer. The number is the one the
 changelog cites.
 
+**And the decision this entry said it would want was made on 2026-08-30**, in
+[ideas.md](ideas.md#what-a-string-is--bytes-code-points-or-bytes-with-a-contract):
+bytes, with code-point *messages* where a program needs them, rather than a
+string that counts characters or a second text type beside this one. The case
+was settled by the editor — the one program that asked for Unicode asked for it
+locally, in the two places facing a screen, and answered itself with three sends
+the language already had. Its cursor is a byte index because `copyFrom` takes
+byte indices, and every edit is a `copyFrom`; a `size` that counted code points
+would have taken that away.
+
+So this entry stays exactly as it is, and is now a restriction with a reasoned
+floor under it rather than an open question. What would still change it is a
+second program wanting character arithmetic.
+
 ### 3.1 Capturing blocks cannot escape their frame
 
 A block that reads or writes its home frame is tied to it. Calling one after that
@@ -903,6 +917,49 @@ before being tried.
 wrap. All three are larger than the arithmetic above, and only a program
 assembling machine words from bytes wants any of them — which is one program,
 which has a workaround, and which now carries the comment explaining it.
+
+### 3.22 A file is read whole, or not at all
+
+`system:readFile` answers the whole file as one string and there is no other way
+to read one: no handle, no line at a time, no seek. `system:fileSize` answering
+without reading is the single concession.
+
+**Two gigabytes is the hard stop**, a string's length being a signed 32-bit
+count, and it is refused by name rather than truncated — checked before anything
+is allocated, so the answer is immediate on a file of any size. **Below that the
+peak cost is twice the file**, because the bytes are read into a buffer and then
+copied into the string, which is what makes the string immutable. A 256 MB file
+peaks at 514 MB resident in 0.17 s. A *copy* costs the same and not more:
+`writeFile` streams from the string it was handed.
+
+**This is right for everything here and the limit was still unstated**, which is
+the worse half. The editor loads a file to edit it, `solas` loads a source to
+compile it, `expect.sol` loads a document to check it — all three want the whole
+thing, and a handle would be ceremony around one call. But a program cannot read
+a file it cannot hold, and the reference argued about missing files and copying
+modes while mentioning no limit at all. It says so now, in the prose and in the
+limits table. **An absence a reader cannot see is worse than one they can.**
+
+Measured on 2026-08-30 after [mirror.sol](../programs/mirror.sol) had said for
+weeks that a whole-file copy is fine at this size and not at every size, and that
+it was worth knowing where the edge is rather than discovering it. Nobody had
+looked. The measurement then corrected that program's own note: the doubling is
+`readFile`'s buffer-then-copy, not the copy, so the rule is twice the largest
+*file* and not twice the largest pair.
+
+**If it is ever lifted, not with a handle.** A handle brings a lifetime — a value
+type or a foreign cell, a release discipline, a GC interaction, and an answer for
+one used after closing, all of which [extensions/net](../extensions/net/README.md)
+paid for because a socket has no alternative. A file does: a ranged
+`readFile(path, from, count)` has no lifetime, nothing to close and nothing to
+leak, composes with the `fileSize` that already answers without reading, and
+makes both costs above properties of reading all at once rather than of files.
+Its real price is that a record spanning two chunks becomes the caller's problem,
+which is writable in Solum and is the shape [scan.sol](../lib/scan.sol) already
+has.
+
+**The trigger is a program with a file that does not fit.** Nothing here has one:
+the largest input measured is a 50,000-line scan, held entire without complaint.
 
 ### 3.13 A loop is left by its condition, or by failing
 
