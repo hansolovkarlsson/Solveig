@@ -1,0 +1,21 @@
+# Build artefacts
+build/
+bin/
+*.o
+*.d
+*.a
+*.dSYM/
+
+# What the compiler writes: Solveig source, its map, and the bytecode after it
+*.sol
+*.sol.map
+*.sob
+
+# What `make dist` writes
+dist/
+*.tar.gz
+
+# Editor / OS
+.DS_Store
+*.swp
+compile_commands.json

@@ -1,0 +1,157 @@
+# Phoenix -- a compiler whose syntax arrives with the file it is compiling.
+#
+#   make            build bin/phoenix
+#   make test       build and run the test suite, through the real pipeline
+#   make run        compile and run examples/vectors.phx
+#   make examples   every examples/*.phx, to .sol and then to .sob
+#   make install    install to $(PREFIX), default /usr/local
+#   make uninstall  take it back out again
+#   make clean      remove build artefacts
+#
+# **The build needs no Solveig.** Phoenix emits Solveig *source*, and source is
+# text, so nothing here links against libsol.a or includes a solum header. That
+# is not an accident of where the code ended up; it is the arrangement being
+# tested. A front end with privileged access to the compiler it targets proves
+# only that its author can write one, and the whole claim Phoenix is making is
+# that a dialect is something anybody can write on top of a substrate they do
+# not get to change.
+#
+# So Solveig is checked for by `run`, `examples` and `test`, which hand it a
+# file, and by nothing else.
+
+SOLVEIG ?= ../Solveig
+
+CC      ?= cc
+CFLAGS  ?= -std=c11 -Wall -Wextra -Wpedantic -g
+INCLUDES = -Iphoenix/include
+
+# `-std=c11` asks for ISO C and nothing besides, and glibc takes that at its
+# word. Solveig's Makefile carries the same two lines for the same reason and
+# explains them at length; this is a C file like any other.
+ifeq ($(shell uname -s),Darwin)
+STANDARD = -D_DARWIN_C_SOURCE
+else
+STANDARD = -D_XOPEN_SOURCE=700
+endif
+
+# Empty by default; the sanitizers go here rather than into CFLAGS, which is
+# `?=` and would lose the warning flags if it were set on the command line.
+#
+#   make clean && make test SANITIZE="-fsanitize=address,undefined"
+SANITIZE =
+
+BUILD = build
+BIN   = bin
+DIST  = dist
+
+PREFIX ?= /usr/local
+BINDIR  = $(DESTDIR)$(PREFIX)/bin
+
+LIB_SRCS = $(wildcard phoenix/src/*.c)
+LIB_OBJS = $(LIB_SRCS:%.c=$(BUILD)/%.o)
+LIB      = $(BUILD)/libphoenix.a
+
+TEST_SRCS = $(wildcard tests/*.c)
+TEST_BINS = $(TEST_SRCS:tests/%.c=$(BUILD)/tests/%)
+
+EXAMPLE_SRCS = $(wildcard examples/*.phx)
+EXAMPLE_SOLS = $(EXAMPLE_SRCS:.phx=.sol)
+EXAMPLE_SOBS = $(EXAMPLE_SRCS:.phx=.sob)
+
+# The Solveig a `.sol` is about to be handed to, read from the same header its
+# binaries report their version out of. Checked rather than assumed because the
+# failure it prevents is unhelpful: `solas` not being there gives a shell error
+# about a missing file and says nothing about which file or why.
+SOLVEIG_MINIMUM = 0.40.0
+SOLVEIG_VERSION = $(shell grep SOLUM_VERSION \
+                    $(SOLVEIG)/solum/include/solum/common.h 2>/dev/null \
+                    | tr -d '"' | awk '{print $$3}')
+
+.PHONY: all test run examples check install uninstall dist clean
+
+# Without this, make treats a generated .sol as an intermediate and deletes it
+# after the .sob is built -- taking the map with it. Both are the artefacts
+# somebody reaches for when the generated code is what they need to read.
+.SECONDARY: $(EXAMPLE_SOLS)
+
+all: $(BIN)/phoenix
+
+$(BIN)/phoenix: phoenix/cmd/main.c $(LIB)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) $< $(LIB) -o $@
+
+$(LIB): $(LIB_OBJS)
+	@mkdir -p $(@D)
+	ar rcs $@ $^
+
+$(BUILD)/%.o: %.c
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) -MMD -MP -c $< -o $@
+
+$(BUILD)/tests/%: tests/%.c $(LIB)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) $< $(LIB) -o $@
+
+# Said once, here, because a missing Solveig produces three different unhelpful
+# errors depending on which target reached it first.
+check:
+	@test -n "$(SOLVEIG_VERSION)" || \
+	    { echo "phoenix: $(SOLVEIG) is not a Solveig checkout."; \
+	      echo "      make SOLVEIG=/path/to/Solveig"; exit 1; }
+	@test -x "$(SOLVEIG)/bin/solas" || \
+	    { echo "phoenix: $(SOLVEIG) has not been built -- no bin/solas."; \
+	      echo "      make -C $(SOLVEIG)"; exit 1; }
+	@echo "$(SOLVEIG_VERSION) $(SOLVEIG_MINIMUM)" \
+	    | awk '{ split($$1, a, "."); split($$2, b, "."); \
+	             exit !(a[1] > b[1] || (a[1] == b[1] && a[2] >= b[2])) }' || \
+	    { echo "phoenix: found Solveig $(SOLVEIG_VERSION) under $(SOLVEIG),"; \
+	      echo "  and this needs $(SOLVEIG_MINIMUM) or later."; \
+	      echo "  Update that checkout, or point SOLVEIG at a newer one."; exit 1; }
+
+# The map is written every time rather than on request. It costs a file and it
+# is the thing that is never there when it is wanted.
+examples/%.sol: examples/%.phx $(BIN)/phoenix
+	@$(BIN)/phoenix --map $< -o $@
+
+examples/%.sob: examples/%.sol | check
+	@$(SOLVEIG)/bin/solas $< -o $@
+
+examples: $(EXAMPLE_SOLS) $(EXAMPLE_SOBS)
+
+run: examples/vectors.sob
+	@$(SOLVEIG)/bin/solvm examples/vectors.sob
+
+# The examples are compiled *and run* by the suite, all the way down to a `.sob`
+# that SolVM executes. A front end that emits text can be wrong in a way no unit
+# test sees -- valid-looking Solveig that Solveig rejects, or accepts and reads
+# differently -- and the only witness to that is the real compiler.
+test: $(BIN)/phoenix $(TEST_BINS) $(EXAMPLE_SOBS)
+	@for t in $(TEST_BINS); do echo "-- $$t"; $$t || exit 1; done
+	@for e in $(EXAMPLE_SOBS); do echo "-- $$e"; \
+	    $(SOLVEIG)/bin/solvm $$e > /dev/null || exit 1; done
+	@echo "all tests passed"
+
+install: all
+	@mkdir -p $(BINDIR)
+	cp $(BIN)/phoenix $(BINDIR)
+	@echo "installed to $(DESTDIR)$(PREFIX)"
+
+uninstall:
+	rm -f $(BINDIR)/phoenix
+
+# From HEAD rather than the working tree: a tarball of uncommitted work is a
+# tarball nobody can get back to.
+VERSION = $(shell grep PHOENIX_VERSION phoenix/include/phoenix/common.h \
+            | head -1 | tr -d '"' | awk '{print $$3}')
+
+dist:
+	@mkdir -p $(DIST)
+	git archive --format=tar.gz --prefix=phoenix-$(VERSION)/ \
+	    -o $(DIST)/phoenix-$(VERSION).tar.gz HEAD
+	@echo "$(DIST)/phoenix-$(VERSION).tar.gz"
+
+clean:
+	rm -rf $(BUILD) $(BIN)
+	rm -f $(EXAMPLE_SOLS) $(EXAMPLE_SOLS:.sol=.sol.map) $(EXAMPLE_SOBS)
+
+-include $(LIB_OBJS:.o=.d)
