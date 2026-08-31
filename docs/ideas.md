@@ -53,7 +53,7 @@ marked as a sketch.
 | Infix operators, `@expr(a^2 + b/2)` | **Built**, on 2026-08-28 — [scoped in the morning and in by the evening](#infix-arithmetic-as-a-compile-time-notation): arithmetic, then `sin(x)` once *limiting* it turned out to be the expensive half, then comparison and logic, and the name with them |
 | `@expr{...}`, a region that is a block | **Built on 2026-08-29**, the day after it was scoped — [the sentence was tried first and lost](#expr-a-region-that-is-a-block-rather-than-a-group); the entry predicted one hard part and the second was the one that mattered, a notation that silently stopped inlining |
 | Phoenix — a second language whose output Solum uses | **Defer** — the machinery is proven three times over; [the unexplored half](#programs-that-would-press-on-something) is whether a hosted language can publish a *library* rather than a program |
-| Programs that would press on something — Pascal, predicate logic, a parser toolkit | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would |
+| Programs that would press on something — Pascal, predicate logic, a parser toolkit, `tail` | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would |
 | Networking, and sending code to a running machine | **The first half is built**, on 2026-08-29 — [extensions/net](../extensions/net/README.md), five messages, and the waiting question answered with a timeout rather than a block; [the second half](#networking-and-sending-code-to-a-machine-that-is-already-running) is untouched and still needs 3.4, 6.32 and a proxy |
 | SQLite, SDL2, GTK | **One project, not three** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); GTK and SDL2 fire that trigger and SQLite does not, and wanting *both* toolkits is what settles the mechanism |
 | Graphics in SolaBasic, over SDL2 | **No — asked and closed on 2026-08-30, and the premise was wrong** to begin with: [graphics were never parked](#graphics-in-solabasic-through-the-sdl2-extension) for want of extensions, they were refused as *the PC*. No program wanted a screen, so the trigger never fired. The throwaway exercised the foundation without a language change — an extension send at 205ns, **`sdl:present` vsync-locked at 8.3ms**, and **1.49x from 0.39.0** on a globals-heavy loop. **A demo written that evening then corrected the entry**: a present keeps nothing, so immediate-mode `PSET` is not slow on this surface but absent. **And there is no oracle for a pixel**, which is what would decide it if it were ever asked again |
@@ -4310,6 +4310,122 @@ queue: it is arithmetic on floats, and all of the arithmetic landed with
 [3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done). It would teach
 nothing about the language. Build it if the thing itself is wanted; not to find
 something.
+
+#### `tail`, and the file this language cannot read — scoped 2026-08-31
+
+**Chosen out of the Unix tools because it is the one where reading a file whole
+stops being a cost and becomes a wall.** [sed](../programs/sed.sol) priced the
+whole-file route on 2026-08-30 — about 4.7 times the file for a line-oriented
+program, against a flat 2.5 MB for the same work through a pipe — and closed by
+saying [3.22](ROADMAP.md#322-a-file-is-read-whole-or-not-at-all)'s trigger had
+still not fired, because nothing here has a file that does not fit.
+
+**That is no longer true, and it took four seconds to stop being true.** A
+sparse file is 3 GB of holes and 8 KB of disk, and this is what the two sides
+say about one:
+
+```text
+/usr/bin/tail -n 3   0.003 s, and the right three lines
+system:fileSize      #3221225623, immediately
+system:readFile      '...' is too large to read into a string
+```
+
+**The language can measure that file and cannot read a byte of it.** Not slowly:
+`readFile` checks the size before allocating and refuses by name, which is the
+entry's own documented behaviour working exactly as written. This is measured
+rather than predicted — it is a fact about `readFile` and needs no `tail` to
+establish it. What `tail` adds is a program with an obvious reason to care, and
+a shape to ask for.
+
+**The subset.** `-n N` and `-n +N`, `-c N` and `-c +N`, several files with their
+`==> name <==` headings, `-q` and `-v`, standard input when no file is named,
+and a default of ten lines. Left out: `-r`, `-F`, and `--pid`, which are BSD or
+GNU rather than the tool. Expected size 150 to 200 lines, or 200 to 250 with
+`-f` — about a third of sed, because there is no script to parse.
+
+**Predicted finding, the one it is for.** `tail` is the first program here that
+**cannot be written correctly at all**, rather than written awkwardly or
+expensively. Above 2 GB it must refuse a file that `/usr/bin/tail` answers in
+three milliseconds, and no amount of care in the program changes that. If
+3.22's ranged `readFile(path, from, count)` is ever built, this is its first
+customer and the first thing able to say what shape it actually wants — which
+is what the entry has been missing, since a proposal argued on a page cannot
+report that its own arguments are in the wrong order.
+
+**Predicted finding, second: `-f` has nothing to wait on.** There is no
+`system:sleep`. The only thing in this language that waits is
+`system:keyWaiting(seconds)`, which waits on *standard input* and is documented
+as answering **true at the end of input** — so a follow loop built on it spins
+at a hundred percent the moment standard input is closed, which is how `tail -f`
+is ordinarily run. **The predicted resolution is not the absence but the
+price**: `-f` gets written with `shell:run("sleep 1")`, a fork per poll, and the
+finding is what that costs. That is exactly how the terminal's size went — the
+number was always reachable through `stty` at 7 ms an ask, and
+[6.34](COMPLETED.md#634-a-program-cannot-ask-how-big-the-terminal-is--done) was
+raised on the price rather than on the absence.
+
+**Predicted finding, third and weakest: following a growing file is quadratic.**
+Each poll re-reads the whole file, so a minute of following a log that gains a
+line a second reads it sixty times. This is a second and independent argument
+for the same change, and it is the one that says the change wants *both* `from`
+and `count` rather than a *read the last N bytes* convenience.
+
+**What it is predicted *not* to find**, so that *it found nothing* stays an
+available answer for most of the file:
+
+- **`-c` is bytes, and so is a Solum string** — NUL included, which the reference
+  states of `readLine` and `readFile` both. Byte-exact output is expected to work
+  without comment. If it does not, that is news about strings rather than about
+  `tail`.
+- **No lookahead problem.** sed needed a line of it for `$`; `tail` knows where
+  the end is by construction, and the reader it wants is simpler.
+- **3.1 and 3.2 are not expected to appear.** There is no early exit worth the
+  name and no closure to outlive anything.
+- **The missing final newline will come up again** and is expected to teach
+  nothing new: sed already found that `readLine` cannot report it, and the same
+  three-case treatment should carry over unchanged.
+
+**The oracle corpus**, in the shape [sed's](../programs/sed/oracle.sh) already
+has, since it generalises for the cost of a different `args:` line: default ten;
+fewer, more and exactly N lines; `-n 0`; `-n +N`; `-c N`; `-c +N`; an empty
+file; no trailing newline; one line; several files and their headings; `-q`;
+`-v`; standard input; NUL bytes. Around twenty cases, each run both by name and
+by pipe.
+
+#### The calls only you can make
+
+1. **Order.** Write `tail` on the whole-file read first, or hold it until a
+   ranged read exists? **Recommended: write it first**, because that is how the
+   evidence is produced and it is what sed did — but it means shipping a program
+   that is wrong in principle and refuses files the system tool handles, with
+   its own header saying so.
+2. **`-f`, or not.** It presses hardest on the missing wait, and it is the one
+   part an oracle cannot check the ordinary way: it does not terminate, so it
+   needs a timeout harness that the other twenty cases do not.
+3. **If the ranged read follows**, four things 3.22 does not settle:
+   - **`from` one-based**, like every other index in the language? Recommended
+     yes; anything else makes it the only zero-based index here.
+   - **Past the end: clamp or refuse?** The language has both conventions —
+     `first(#n)` and `last(#n)` clamp, `copyFrom` refuses. **Recommended clamp**,
+     and the argument is a race rather than a taste: a file's size can change
+     between the `fileSize` and the read, so refusing turns an ordinary race into
+     an error a caller cannot prevent.
+   - **A negative `from`, meaning from the end?** Tempting for exactly this
+     program. **Recommended no** — no other index here is negative, and
+     `fileSize` already composes.
+   - **Does a short read say so**, or must the caller compare what it got against
+     what it asked for? Falls out of the clamp answer and should be decided with
+     it rather than after.
+4. **Does the corpus carry the 3 GB case?** It needs a sparse file and a way to
+   say *this is expected to fail until the language changes*, which is the state
+   argued against on 2026-08-31 for the `pattern.sol` defect: a red case in
+   `agree/` that is meant to be red teaches the next reader to ignore red.
+   **Recommended: a separate opt-in script**, run when somebody wants to know,
+   the way `oracle.sh` and `experiment/prove.sh` are.
+
+**Trigger:** none needed — a program needs no permission. What needs a decision
+is the language change it is predicted to ask for, and that is what the four
+calls above are.
 
 ### Networking, and sending code to a machine that is already running
 
