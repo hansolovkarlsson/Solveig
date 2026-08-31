@@ -4153,7 +4153,7 @@ appear in an example.
 | Arguments, parameters, array literal elements | 255 — an argument count is one byte |
 | Dictionary literal pairs | **127** — the same byte, two arguments to a pair |
 | Locals per frame | 255 |
-| Reading a file | whole-file only — no handle, no line at a time, no seek. **2 GiB** hard, a string's length being a signed 32-bit count, and a peak of **twice the file's size** while it is read |
+| Reading a file | whole, or a **range** — `readFile(path, from, count)`; still no handle and no line at a time. A whole read is capped at **2 GiB**, a string's length being a signed 32-bit count, with a peak of **twice the file's size**; a range is capped only on its `count`, so the file itself may be any size |
 | Solis input | no limit — the buffer grows, and reading continues while a bracket or a string is open |
 | Strings | bytes, not characters: `size` counts bytes, `at` answers a byte, and `"café":size` is 5 |
 | Case | ASCII only, and by explicit range rather than the C locale |

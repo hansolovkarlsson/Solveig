@@ -111,6 +111,142 @@ They were hand-compiled leftovers.
 finding looked interesting. **Presenting a non-defect as a defect costs more than
 saying nothing.**
 
+## Hold it against something somebody else wrote
+
+**The strongest check available is an implementation whose author had no idea
+what this language can do.** Every other check here is a transcript recorded by
+the person who wrote the code, and can only catch what that person thought to
+check.
+
+It cost ninety seconds to prove on 2026-08-31. `programs/sed.sol` was held
+against `/usr/bin/sed` and the first run reported a defect in `lib/pattern.sol`
+that had been shipping for days: an empty match at the position where the
+previous match ended was being counted as a match, so `s/o*/-/g` over `aoc`
+answered `-a--c-` where every sed answers `-a-c-`. `edit.sol`'s `:s` had had it
+for as long as it existed.
+
+**The part that transfers is why nothing had caught it.** The library's header
+explains the neighbouring rule at length and demonstrates it with `s/x*/-/g` over
+`abc` — and *that example is the one case that cannot show the difference*, since
+the star never matches a character there, so no match has an end for a later
+empty one to land on. **The documentation was careful, correct, and blind by
+construction.** An example written by the author of the code shows the rule the
+author was thinking about; only a stranger's program picks a case they were not.
+
+**It is not a text-tool trick and does not run out.** `sha256sum` has published
+vectors, `diff` has `diff`, a matrix multiply has numpy, a Prolog has swipl. What
+the frontier loses is exactly the oracle, which is the argument for spending the
+cheap ones early — [ideas.md](ideas.md#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31)
+surveys them.
+
+**Two corpora, and the second is the point.** `agree/` must match byte for byte.
+`differ/` must **not**, and each case says at the top what each side does and why
+this one is allowed to be different — so the list of divergences stops being
+prose and becomes something that fails. A case in `differ/` that starts agreeing
+is news too.
+
+**Run every case both ways in.** A named file and a pipe are different code paths
+here, and a program that answered two ways about the same bytes would be wrong
+where a single-route check cannot look. Where the two genuinely cannot agree, the
+case declares it *and bounds it*: `pipediffers:` means the pipe's answer must be
+the file's plus exactly one newline, which would fail if the difference grew.
+
+`programs/oracle.sh <name>` is the harness; it was written for sed and
+generalised by its second caller rather than copied.
+
+## A program that does not stop can still be checked — give it a deadline
+
+**`tail -f` was nearly left out on the grounds that an oracle cannot check a
+program that never finishes.** That was true and was not a reason. Start both,
+feed the input on a schedule, stop them, compare what each managed to write:
+fifteen lines of shell, in `programs/tail/follow.sh`.
+
+It earned itself on its fourth scenario, finding that BSD `tail` puts a blank
+line before the **first** heading when following and not when it is not — which
+nothing but a check running the real thing would have found.
+
+**The general form**: when a check looks impossible, ask whether it is the
+*shape* of the check that is wrong rather than the thing being unchecked. A
+deadline, a scripted key sequence ([edit.sol](../programs/edit.sol)'s 181
+sessions), a pseudo-terminal — each turned something interactive or unbounded
+into something with an answer.
+
+## A sentence that was true when written is not checked by anything
+
+**Four instances in one day, 2026-08-31, and the shape is worth more than any of
+them.** Each was a statement that was true when it was written, stayed
+technically true, and became misleading because the world moved underneath it.
+
+- **`pattern.sol`'s worked example** could not show the defect it stood next to,
+  and only a case its author would not have picked did.
+- **[3.22](COMPLETED.md#322-a-file-is-read-whole-or-not-at-all--done)'s trigger**
+  said *nothing here has a file that does not fit*. That was a fact about this
+  repository's inputs rather than about the world: a sparse file is 3 GB and 8 KB
+  of disk, and making one took four seconds. The entry had stood for weeks.
+- **Four count markers sat on statements about past releases** in `README.md` and
+  `index.md`, so a moving message count would have quietly rewritten what 0.38.0
+  answered. [releasing.md](releasing.md) states that exact rule — a marked number
+  is a *live* number — and it had been written for the release page and never
+  applied to the README. It went unnoticed for four releases because the number
+  happened not to move.
+- **[ROADMAP.md](ROADMAP.md)'s own summary** said *nothing is on it* while an
+  entry was being added to it.
+
+**The habit that catches them is not a tool.** It is going to check a sentence
+before repeating it, and preferring the check that could *fail*: making the file,
+running the case, moving the number. The 2026-08-30 postmortem said the same
+thing about five documented claims of which four were wrong, and this is the
+second day running.
+
+## An analogy to a measured case carries the mechanism, not the rate
+
+**A prediction on 2026-08-31 was right about an absence and wrong about its
+price**, and the way it went wrong is the useful part.
+
+`tail -f` needs to wait. The prediction was that `shell:run("sleep 1")` would do
+it and *the finding would be the cost* — reasoning from
+[6.34](COMPLETED.md#634-a-program-cannot-ask-how-big-the-terminal-is--done),
+where the terminal's size was reachable through `stty` at 7 ms an ask and the
+price was what made it an entry.
+
+A fork of `/bin/sleep` measured **2.23 ms**, which at a one-second poll is
+**0.22%**. Perfectly livable. **`stty` was a fork per keystroke and this is a fork
+per second**, and the entry reasoned from one to the other because both are *a
+fork where a syscall would do* — without noticing they differ by four orders of
+magnitude in how often they happen.
+
+**A cost is a property of an operation and a rate**, and the prediction carried
+only the first half. When an entry argues by analogy to a measured case, the
+thing to check is whether the *rate* carried over, not whether the mechanism did.
+
+`system:sleep` was built anyway, on a weaker and truer argument: waiting is one
+call to the kernel and a program should not start a process to do it. **Being
+right for the reason expected would have been worth less than finding out the
+reason was wrong**, and the entry keeps both halves.
+
+## A scoping can be wrong about the order, not only the answer
+
+[Scope before building](#scope-before-building-and-the-decision-is-separate) says
+a scoping may end in *no*. On 2026-08-31 one ended in *not yet, and not in that
+order*.
+
+`tail` was scoped to be written first, on the whole-file read, so that it could
+ask for a ranged one — because a program asks and a page does not, which is the
+rule. **The evidence had already arrived without it**: `fileSize` answered and
+`readFile` refused on a file made in four seconds.
+
+What was wrong is sharper than being unnecessary. **A `tail` on the whole-file
+read cannot call the thing it is meant to be asking about**, so it would have
+re-proved a measured wall and said nothing about the shape of the fix. The
+program meant to inform the design was the one program guaranteed not to.
+
+**The question splits**: *whether* is often settled by a measurement, and *what
+shape* wants a caller — and a caller has to come after the call exists. When the
+evidence is already in hand, build the thing and write the program against it,
+which is the throwaway rule with the order put right. Both recommendations are
+kept in the entry rather than the first being overwritten, which is what that
+page does with predictions.
+
 ## How a feature ships
 
 One unit, in this order:

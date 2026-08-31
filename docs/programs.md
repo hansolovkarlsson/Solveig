@@ -1774,6 +1774,21 @@ only this:
    roadmap entry, and several became one.
 4. **It is registered in `tests/test_compile.c`**, which verifies every shipped
    `.sol` and fails if one is added without being listed.
+5. **If something on the machine already does the job, it is held against that.**
+   Three are: [sola](#sola--a-compiler-for-another-language) against QuickBASIC,
+   [pascal](#pascal--a-compiler-for-a-language-with-a-standard) against `fpc`,
+   and [sed](#sed--a-stream-editor) and [tail](#tail--the-end-of-a-file-without-reading-the-rest-of-it)
+   against the tools of those names.
+   [programs/oracle.sh](../programs/oracle.sh) is the harness: a corpus of cases
+   that must produce the same bytes and a second corpus that must **not**, each
+   of the second saying why. It is the only check here that can find what nobody
+   thought to look for — `sed`'s first run found a defect in `lib/pattern.sol`
+   that its own documented example could not have shown. See
+   [method.md](method.md#hold-it-against-something-somebody-else-wrote).
+
+   **A program that never stops can still be checked**: give it a deadline.
+   [programs/tail/follow.sh](../programs/tail/follow.sh) starts both tails, feeds
+   the files on a schedule, stops them and compares.
 
 What it does *not* have to do is demonstrate a message. That is `examples/`'s
 job, and a test holds it to it: every built-in message must be sent by something

@@ -11,6 +11,121 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-31 (postmortem) — the day an oracle was pointed at this language, and four sentences fell over
+
+Three entries above this one. The day began with *there are a bunch of Unix
+tools we could try to make and see if they add anything* and ended with two
+roadmap entries closed, one opened, a defect fixed in a shipped library, and a
+new message on `system`. What connects them is one decision taken in the first
+half hour.
+
+### What shipped
+
+`programs/sed.sol` and `programs/tail.sol`, the sixteenth and seventeenth
+programs. `system:readFile(path, from, count)` and
+[3.22](COMPLETED.md#322-a-file-is-read-whole-or-not-at-all--done) closed with it.
+`system:sleep`, the 142nd message. A defect fixed in `lib/pattern.sol`.
+`programs/oracle.sh`, and `programs/tail/follow.sh`.
+[6.39](ROADMAP.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file)
+opened. A survey of which tool to write next, in
+[ideas.md](ideas.md#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31).
+
+### The decision that made the day
+
+**Hold the program against the one already on the machine**, rather than against
+a transcript.
+
+That is not a new idea here — [sola](../programs/sola.sol) does it with
+QuickBASIC and [pascal](../programs/pascal.sol) with `fpc` — but both of those
+oracles have to be installed, and `sed` and `tail` have been on every Unix since
+before this project's author was born. The cost was three lines of shell, and it
+paid in ninety seconds.
+
+**Everything else in the day is downstream of it.** The `pattern.sol` defect, the
+BSD blank-line-before-a-heading, the confidence to say `tail` asked for nothing —
+none of those is available to a program checked against what its author expected.
+
+### Four sentences that were true when written
+
+This is the part worth carrying, and it is the second day running that the
+postmortem has come out this way.
+
+**`pattern.sol`'s worked example** stood beside the defect and could not show it.
+`s/x*/-/g` over `abc` is correct under both the rule that was there and the rule
+that was missing, because the star never matches a character in `abc` and so no
+match has an end for a later empty one to land on. Careful, correct, and blind by
+construction.
+
+**3.22's trigger** said *a program with a file that does not fit*, and *nothing
+here has one*. That was a fact about this repository's inputs rather than about
+the world, and it had been sitting in the entry for weeks. A sparse file is 3 GB
+and 8 KB of disk. Four seconds.
+
+**Four count markers** sat on statements about past releases, so a moving message
+count would have quietly rewritten what 0.38.0 answered. `releasing.md` states
+that exact rule and had never been applied to the README's own history. Unnoticed
+for four releases because the number happened not to move.
+
+**And the roadmap's own summary** said *nothing is on it* while an entry was
+being written into it — found while writing this.
+
+Four instances of one shape in one day: **a statement that stays technically true
+while the world moves underneath it**. Yesterday's postmortem said the same about
+five documented claims of which four were wrong. It is now in
+[method.md](method.md#a-sentence-that-was-true-when-written-is-not-checked-by-anything)
+rather than being rediscovered a third time.
+
+### What was got wrong, and in what order
+
+**A scoping recommended the wrong order**, and the correction came from a
+question rather than a test — *the idea of writing tail was to figure out how to
+handle large files?* Yes, and the evidence had already arrived without any tail.
+A `tail` on the whole-file read cannot call the thing it is meant to be asking
+about, so the program meant to inform the design was the one guaranteed not to.
+
+**A prediction was right about an absence and wrong about its price**, by
+reasoning from `stty` at 7 ms an ask to a fork at 2.23 ms without noticing that
+one happens per keystroke and the other per second. A cost is an operation *and a
+rate*.
+
+**Two checks were written wrong before they were written right**, both mine and
+both in the shell: one passed `$args` unquoted in zsh, which does not word-split,
+so a multi-file comparison reported a difference that was the harness; one used
+`\(...\)` in a pattern language whose own header says it has no groups. Neither
+reached a document, and both are the hazard `method.md` already names — a check
+that fails for the wrong reason misleads as far as one that cannot fail.
+
+### The honest accounting on what the programs found
+
+**sed found a great deal**: a library defect, a price for reading files whole, a
+bit `readLine` cannot report, and two limitations that cost nothing.
+
+**tail found almost nothing, and that is the result rather than a
+disappointment.** It was written to check a call rather than to ask for one, and
+the call wanted no change of any kind. The scoping had deliberately kept *it
+found nothing* on the table as an available answer, which is the only reason that
+sentence is worth anything now.
+
+**One thing tail did find had nothing to do with files**: no arguments means two
+things in that program and in no other here, and the nearest thing this language
+has to `isatty` turned out to be `keyWaiting(0.0)` — which works *because* of the
+answering-true-at-end-of-input property that is a nuisance everywhere else.
+
+### What is set up for tomorrow
+
+Nothing is half-built. The survey in `ideas.md` names `sha256sum`, `diff` and
+`gzip -d` with a prediction apiece, and says why the three of them are the axes
+nothing here has touched: pure arithmetic, an algorithm over two inputs, and
+array-heavy work. It also names the ones worth skipping and why, which is the
+half of a survey that usually goes unwritten.
+
+**The counter-argument is in it too**, because it belongs there: every text tool
+added makes *there is no geometry anywhere near this language* truer and more
+misleading at once, and two of the three recommendations are numeric experiments
+wearing a Unix tool's clothes.
+
+---
+
 ## 2026-08-31 (evening) — a prediction that was right about the absence and wrong about the price
 
 `tail` shipped in the afternoon without `-f`, and the entry said why: no

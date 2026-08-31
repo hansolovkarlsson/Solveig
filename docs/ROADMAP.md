@@ -1104,8 +1104,23 @@ keeping it did. The number stays 6.32 and is not reused.
 
 ## How this list emptied, and how it filled and emptied again
 
-**Nothing is on it.** The last thing arrived and left inside one afternoon, on
-2026-08-29:
+**One thing is on it**, and it arrived on 2026-08-31:
+[6.39](#639-a-program-cannot-tell-whether-two-paths-are-the-same-file), a
+program cannot tell whether two paths are the same file. `tail` wanted it for
+`-F`, could not have it, and says so in its own header rather than approximating
+it. One customer and one flag, and the entry says so.
+
+**This paragraph said *nothing is on it* for two days and was true when written**,
+which is the failure it is worth recording here rather than quietly editing: a
+list's summary goes stale the moment the list moves, and nothing recounts a
+sentence. The same day found three other statements in the same condition —
+`pattern.sol`'s worked example, 3.22's *nothing here has a file that does not
+fit*, and four count markers on historical releases — so this is the fourth
+instance of one shape and the shape is now in
+[method.md](method.md#a-sentence-that-was-true-when-written-is-not-checked-by-anything).
+
+Before that the list was empty, and the last thing arrived and left inside one
+afternoon, on 2026-08-29:
 [6.38](COMPLETED.md#638-nothing-says-what-a-compiled-file-exports--done),
 a tool that says what a `.sob` or a `.so` exports. It is the one entry here that
 no program asked for and no document implied — **somebody asked for it in a

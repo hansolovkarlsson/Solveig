@@ -250,7 +250,9 @@ is.
 
 **It is read whole and then walked**, because the machine has `readLine` and
 nothing that reads a character — which is the arrangement this page already
-recorded for files generally. The slurp is emitted **only into a program that
+recorded for files generally. A [range](REFERENCE.md#a-range-of-a-file) arrived
+on 2026-08-31 and does not change this: it reads *bytes* at a position, and what
+a Pascal `read` wants is the next character of a stream it is already walking. The slurp is emitted **only into a program that
 reads**, which the first pass is what knows.
 
 **Pointers landed, and they made the `var` parameter grow up.** A reference
