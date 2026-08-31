@@ -11,6 +11,100 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-31 (evening) — a prediction that was right about the absence and wrong about the price
+
+`tail` shipped in the afternoon without `-f`, and the entry said why: no
+`system:sleep`, `keyWaiting` cannot stand in for one, and **the finding would be
+the price** of forking `/bin/sleep` — the way the terminal's size turned out to
+be reachable through `stty` at 7 ms an ask, where the absence was never the
+finding and the cost was.
+
+The question that started the evening was *what's required to build `tail -f`?*
+The honest way to answer it was to measure rather than to repeat the entry, and
+measuring changed the answer.
+
+### The half that held
+
+`keyWaiting` cannot do it. Twenty asks of `keyWaiting(0.5)`:
+
+| standard input is | twenty asks take |
+| --- | --- |
+| an idle terminal | 10.02 s — it genuinely waits |
+| a pipe at its end | 56 microseconds — it spins |
+| a pipe with something in it | 32 microseconds — it spins |
+
+So a follow loop built on it works at a prompt, wakes on every keystroke, and
+burns a core in every script, pipeline and service manager. Predicted, confirmed,
+and now with numbers rather than reasoning.
+
+### The half that did not, and how it went wrong
+
+A fork of `/bin/sleep` measured **2.23 ms**. At a one-second poll that is
+**0.22%** — perfectly livable. `tail -f` would have shipped on `shell:run` with
+nothing to report.
+
+**The prediction was not wrong about the numbers; it never had any.** It was
+wrong about the *analogy*. `stty` was a fork **per keystroke**; this is a fork
+**per second**. The entry reasoned from one to the other because both are *a
+fork where a syscall would do*, and did not notice that the two differ by four
+orders of magnitude in how often they happen. A cost is not a property of an
+operation; it is a property of an operation and a rate, and the entry carried
+only the first half.
+
+That is the transferable part, and it is worth more than the feature: **when an
+entry argues by analogy to a measured case, the thing to check is whether the
+rate carried over, not whether the mechanism did.**
+
+### So the case had to be remade
+
+`system:sleep` was built anyway, on a weaker and truer argument: waiting is one
+call to the kernel, a program should not have to start a process to do it or
+depend on where a system keeps its `sleep`, and of the twenty-eight messages on
+`system` it was the only obvious hole — `clock` and `time` could say how much
+time had passed and nothing could spend any.
+
+**Being right for the reason expected would have been worth less than finding out
+the reason was wrong**, and the entry keeps both halves rather than being tidied.
+
+### `-f` cost nothing else
+
+Everything it needed was already there. `fileSize` notices growth without
+reading; the ranged read from the morning collects exactly the new bytes, so a
+poll is two syscalls and a short read rather than a re-read of the file. Five
+seconds following an idle file costs 0.00 s of CPU, which is what `/usr/bin/tail`
+costs.
+
+### And the check the scoping said was impossible
+
+The scoping left `-f` out partly because *an oracle cannot check a program that
+does not stop*. That was true and was not a reason. **Give it a deadline**:
+start both tails, feed the files on a schedule, stop them, compare what each
+managed to write. Fifteen lines of shell.
+
+**It earned itself on the fourth of six scenarios.** BSD `tail` puts a blank line
+before the **first** heading when it is following, and does not when it is not.
+That is not arbitrary — with `-f` the headings go on arriving, so the first is
+one of a series rather than the top of a page — and nothing but a check that runs
+the real thing would have found it. A day that had already been about oracles
+finding what authors do not think to look for, finding it a third time.
+
+### The smallest thing, and not the least
+
+The message count moved for the first time in four releases, and that exposed
+three Status paragraphs in `README.md` and one in `index.md` carrying the
+**live-count marker on statements about past releases**. A count that moved would
+have quietly rewritten what 0.38.0 and 0.39.0 answered.
+
+[releasing.md](releasing.md) already states the rule, in as many words: a number
+with a count marker is a *live* number, and a historical statement must not carry
+one. It was written for the GitHub release page and never applied to the README's
+own history. **It went unnoticed for four releases because the number happened not
+to move** — which is the shape this project has now met three times in two days: a
+thing that is technically true, and stays true, until the world moves underneath
+it.
+
+---
+
 ## 2026-08-31 (afternoon) — a wall measured in four seconds, and a program written to check rather than to ask
 
 The morning's sed closed by saying [3.22](COMPLETED.md#322-a-file-is-read-whole-or-not-at-all--done)'s

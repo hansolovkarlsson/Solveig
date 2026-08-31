@@ -5,6 +5,79 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### `system:sleep`, and `tail -f` — `f30bc5d`, 2026-08-31
+
+**The language answers 142<!--count messages--> messages**, up from 141, across
+245 registrations. `.sob` files are format version 14, unchanged.
+
+`system:sleep(seconds)` waits and answers nil. Seconds as a float like every
+duration here; a negative wait and `nan` are refused, because there is no length
+of time either could mean; `0.0` returns at once. Interrupted by a signal it
+sleeps out the remainder, since a caller that asked for a second has no way to
+learn it was cut short.
+
+**It is the one obvious hole among the other twenty-eight `system` messages**:
+`clock` and `time` could say how much time had passed and nothing could spend
+any.
+
+**The prediction that asked for it was half wrong, and
+[ideas.md](ideas.md#tail-and-the-file-this-language-cannot-read--scoped-2026-08-31)
+now says which half.**
+
+*The half that held*: `keyWaiting` cannot stand in for a wait, because it waits
+on standard input and answers **true at the end of it**. Twenty asks of
+`keyWaiting(0.5)`:
+
+| standard input is | twenty asks take |
+| --- | --- |
+| an idle terminal | 10.02 s — it genuinely waits |
+| a pipe at its end | 56 microseconds — it spins |
+| a pipe with something in it | 32 microseconds — it spins |
+
+*The half that did not*: the **price** was predicted to be the finding, by
+analogy with the terminal's size being reachable through `stty` at 7 ms an ask.
+A fork of `/bin/sleep` measured **2.23 ms**, which at a one-second poll is
+**0.22%** and perfectly livable. The `stty` case was a fork *per keystroke*; this
+is a fork *per second*. The entry reasoned from one to the other without noticing
+they differ by four orders of magnitude in how often they happen.
+
+**So the case had to be made on something weaker and truer**: waiting is one call
+to the kernel, and a program should not have to start a process to do it or
+depend on where a system keeps its `sleep`. Being right for the reason expected
+would have been worth less than finding out the reason was wrong.
+
+**`tail -f`**, with `-s` for the interval. Everything else it needed was already
+there — `fileSize` notices growth without reading and a
+[ranged read](REFERENCE.md#a-range-of-a-file) collects exactly the new bytes, so
+a poll is two syscalls and a short read rather than a re-read. Following an idle
+file for five seconds costs **0.00 s of CPU**, which is what `/usr/bin/tail`
+costs. A file that shrank is treated as replaced and started over, with the note
+on standard error — BSD `tail` prints nothing there and GNU prints a line, so
+stdout agrees with the oracle either way.
+
+**And it is checked, which the scoping said it could not be.**
+[programs/tail/follow.sh](../programs/tail/follow.sh) gives a program that never
+stops a **deadline**: start both tails, feed the files on a schedule, stop them,
+compare. Six scenarios, and it earned itself on the fourth — **BSD `tail` puts a
+blank line before the *first* heading when following and not when it is not**,
+which is not arbitrary, since with `-f` the headings go on arriving and the
+first is one of a series rather than the top of a page. Nothing but a check that
+runs the real thing would have found it.
+
+**`-F` still cannot be written.** Following across a rotation has to notice that
+the file at a path is a *different* file, and nothing here answers a file
+identity: `fileSize` and `modifiedAt` are the whole of what can be asked of a
+path, and both can coincide across a rotation. Left as a gap with its trigger
+named — a second program wanting to know whether two paths are the same file.
+
+**And a notation on the wrong sentences**, found because the message count moved
+for the first time in four releases. Three Status paragraphs in `README.md` and
+one in `index.md` carried the live-count marker on statements about *past*
+releases, so a count that moved would have quietly rewritten what 0.38.0 and
+0.39.0 answered. [releasing.md](releasing.md) already states the rule — a marked
+number is a live number, and a historical statement must not carry one — and it
+had been written for the release page without being applied to the README.
+
 ### tail, and a call that was asked for nothing — `0213b0d`, 2026-08-31
 
 **[programs/tail.sol](../programs/tail.sol) is the seventeenth program**: the
