@@ -11,6 +11,87 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-30 (later) — a survey that kept correcting the page it was written on
+
+Started as a question with no task in it: *are there features in Smalltalk,
+Ruby or Python we might want?* The useful answer was that
+[lineage.md](lineage.md) already says ideas.md carries that survey, and names
+the languages it covered — Smalltalk, Self, Io, Lua, Ruby. **Python is not among
+them**, because when that was written Python was not in the project. It is now,
+as nine benchmark pairs. It arrived as a stopwatch and was never asked what it
+has.
+
+Writing that survey, and then chasing four of its five open items, produced the
+day's actual shape: **five claims in the documentation were tested and four of
+them were wrong.** Not one of them was found by a program failing. They were
+found by going to check a sentence before repeating it.
+
+### The four
+
+**`ensure` already existed.** Went looking for a `finally` gap in the survey and
+found the feature shipped. Half an hour saved by grepping before writing.
+
+**Decorators are writable, but not the way anyone would first write them.**
+`counter:slotAt('bump):value` answers *nil does not understand 'count'*, because
+`value` runs a block with **no receiver** and a method's `self` is bound by the
+*send*. The working idiom reinstalls the original under a second name and sends
+it. The error is the part worth documenting, not the recipe.
+
+**A file's edge is not where its own program assumed.** mirror.sol had said for
+weeks that a large copy *holds it in memory twice* and that it is worth knowing
+where the edge is rather than discovering it. Nobody had looked. It is 2 GB
+hard, and twice the file transiently — but the doubling is `readFile`'s own
+buffer-then-copy, not the copy: `writeFile` streams from the string it was
+handed, so a copy peaks exactly where a bare read does. The rule is twice the
+largest *file*, not twice the largest pair.
+
+**Named arguments were refused after being recommended.** The survey called this
+the one item with a customer and said the options array's pairing is *positional
+and silent*. Every way of getting it wrong is caught, each by name, with the
+alternatives listed. One case is silent and is a deliberate trade the reference
+had already reasoned about — a string is always a path, which is what keeps a
+file called `discard` a file. Then the spellings settled it: `name:` is not a
+free slot but an existing valid parse, `:` being the send operator, so
+Smalltalk's own spelling is the one this language cannot have.
+
+**And the backtrace is not missing, it is discarded.** `append_stack_trace` runs
+at raise time; `onError` builds the error from the message and clears the trace
+on the next line. The capture is already bounded and already paid for — a
+microsecond, flat at stack depths 0, 30 and 200. What is missing is a reader:
+fifty-nine `onError` sites, and every handler that wants to say *where* tracks
+its own position, because a stack trace answers *where in the code* and they are
+all asking *where in the input*.
+
+### The one that was built, and what it broke
+
+`startsWith` and `endsWith`, deferred the day before with one customer. Counting
+found three programs, nine call sites, and **two independent copies of
+`endsWith`** — and expect.sol's copy carries a note saying its absence had
+already produced a defect. The deferral's reasoning, that `indexOf` is the same
+question and no slower, is wrong by 2000× on the case a prefix test exists for:
+a search that fails has read everything.
+
+**Including the new library into expect.sol broke expect.sol**, and that is the
+best thing that happened today. It reports `integer:slots:size` as the number of
+messages an integer answers; text.sol puts two methods on `integer`; the figure
+moved 37 to 39 and the checker caught its own contamination on the first run.
+The rule was written nowhere: **a program that measures a class cannot measure it
+after loading a library that extends it.** scan.sol had never shown it, binding
+an object and adding nothing to a built-in.
+
+### What this says about the practice
+
+Four of five wrong, and every one wrong in the same direction: a plausible
+sentence written next to the code it describes, never run. The repository has
+`expect.sol` precisely because prose goes stale — and `expect.sol` only checks
+prose that *makes a claim it can execute*. "Nothing is slower" is a claim; it
+is not one the checker can see.
+
+The cheap habit that caught all five is not a tool. It is refusing to write
+*because X* in a document until X has been run once.
+
+---
+
 ## 2026-08-30 (late) — a question about Python, and the defect that answering it found
 
 No task today, a question: *Python has unicode strings and Solveig is ascii-8?*

@@ -5,6 +5,49 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### `startsWith` and `endsWith`, and a checker that caught itself — `HASH`, 2026-08-30
+
+**Two methods on `string`, in [text.sol](../lib/text.sol), in Solum.** Deferred
+on 2026-08-29 with one customer and the reasoning that `indexOf(x):equals(#1)`
+*is* what starting with something means, so nothing was approximated and nothing
+was slower. Counting the tree a day later found both halves of that had stopped
+being true.
+
+**Three programs, nine call sites, and two independent copies of `endsWith`** —
+[server.sol](../extensions/net/server.sol), which found the gap and left a
+comment saying there was none; [expect.sol](../programs/expect.sol), with six
+prefix tests and its own `string:endsWith`; and
+[plugins.sol](../examples/plugins.sol), which wrote `endsWith` again as a local
+block. Two copies of one function is the trigger `replace` was built on.
+
+**The absence had already cost a defect**, which is more than a trigger.
+expect.sol's own note records it: asking whether a name *contains* `.md` rather
+than *ends with* it called `draft.md.orig` a document and would have handed
+`a.md.sol` to the markdown checker.
+
+**And *nothing is slower* was wrong by three orders of magnitude.** `indexOf`
+stops at the first match, but a search that finds nothing has read the whole
+string — and finding nothing is the case a prefix test exists for. On 128 KB
+without the needle, 2000 calls each: **308 µs against 150 ns**. A prefix test is
+O(prefix); the search is O(text). One replaced call site reads a UDP payload, up
+to the 65536 bytes `net.c` receives into, at a length the sender chooses.
+
+Seventeen cases checked. An empty affix answers true both ways and an affix
+longer than the text answers false rather than raising — `copyFrom` is forgiving
+about an empty range and a start past the end but refuses an end past it, so the
+`size` guard is what makes these total rather than what makes them quick.
+
+**Including the library into `expect.sol` then broke `expect.sol`, and that is
+the part worth keeping.** It reports `integer:slots:size` as the number of
+messages an integer answers and
+[class-and-instance.md](class-and-instance.md) states that number; `text.sol`
+puts `asUtf8` and `utf8Tail` on `integer`, so it moved 37 to 39 the moment the
+include landed, and the checker caught its own contamination on the first run.
+The rule was not written down anywhere: **a program that measures a class cannot
+measure it after loading a library that extends it.** `scan.sol` had never shown
+it, binding an object and adding nothing to a built-in. Reading the number before
+the includes is the whole of the fix, and the reference now says so.
+
 ### A cursor that is never inside a character — `6184995`, 2026-08-30
 
 **[edit.sol](../programs/edit.sol) was writing half a code point to disk.** `$`
