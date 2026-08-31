@@ -53,7 +53,7 @@ marked as a sketch.
 | Networking, and sending code to a running machine | **The first half is built**, on 2026-08-29 — [extensions/net](../extensions/net/README.md), five messages, and the waiting question answered with a timeout rather than a block; [the second half](#networking-and-sending-code-to-a-machine-that-is-already-running) is untouched and still needs 3.4, 6.32 and a proxy |
 | SQLite, SDL2, GTK | **One project, not three** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); GTK and SDL2 fire that trigger and SQLite does not, and wanting *both* toolkits is what settles the mechanism |
 | Graphics in SolaBasic, over SDL2 | **No — asked and closed on 2026-08-30, and the premise was wrong** to begin with: [graphics were never parked](#graphics-in-solabasic-through-the-sdl2-extension) for want of extensions, they were refused as *the PC*. No program wanted a screen, so the trigger never fired. The throwaway exercised the foundation without a language change — an extension send at 205ns, **`sdl:present` vsync-locked at 8.3ms**, and **1.49x from 0.39.0** on a globals-heavy loop. **A demo written that evening then corrected the entry**: a present keeps nothing, so immediate-mode `PSET` is not slow on this surface but absent. **And there is no oracle for a pixel**, which is what would decide it if it were ever asked again |
-| What Python has that this does not | **Surveyed on 2026-08-30** — [most of it is already here under another name](#what-python-has-and-which-of-it-this-language-wants); five had no line on this page, and the one with a customer is **named arguments**, which the reference already calls a workaround. Decorators turn out to be writable today; a file being readable only whole is an absence the reference now states, with [the edge measured](#and-the-edge-was-measured-which-is-what-the-limit-was-missing) — 2 GB hard, twice the file while reading |
+| What Python has that this does not | **Surveyed on 2026-08-30** — [most of it is already here under another name](#what-python-has-and-which-of-it-this-language-wants); five had no line on this page, and **named arguments were then investigated and refused** — `name:` is already a valid send, `=` lowers cheaply but [would not generalise](#and-the-lowering-is-cheap-which-is-not-the-same-as-being-right), and the options array turns out to catch every mistake it was accused of passing. Decorators turn out to be writable today; a file being readable only whole is an absence the reference now states, with [the edge measured](#and-the-edge-was-measured-which-is-what-the-limit-was-missing) — 2 GB hard, twice the file while reading |
 | Fuzzy logic | **A library that would teach nothing** — arithmetic on floats, and the arithmetic all landed |
 | Namespaces for included files | **Defer** — the trigger is somebody else writing a library |
 | Splitting the reference into pages | **Defer** — the trigger is the message reference outgrowing the rest |
@@ -1262,18 +1262,101 @@ system:run(cmd, ["stdin", typed, "stdout", 'discard, "stderr", 'discard]).
 ```
 
 Four call sites in the tree use that shape and every one of them is
-`system:run` or `system:capture`. It costs a reader nothing at two options and
-something real at four, where the pairing is positional and silent: a dropped
-element shifts every name onto the wrong value and nothing says so.
+`system:run` or `system:capture`.
 
-**Verdict: defer — and it is the closest thing on this page to a trigger that
-has already fired.** The rule wants a second program, and what is here is four
-call sites behind *one* API. **The trigger is a second API reaching for the same
-shape**, which would make it the language's idiom rather than one function's
-convention. If it is ever built, the question to settle first is whether it is
-sugar over the array that exists — a compile-time rewrite, the way
-[`@expr`](#infix-arithmetic-as-a-compile-time-notation) is — or a real parameter
-kind, and the first of those is much the cheaper and needs no new value type.
+**Looked at properly on 2026-08-30, and the case is much weaker than the
+paragraph that used to sit here.** That paragraph said the pairing is positional
+and silent — *a dropped element shifts every name onto the wrong value and
+nothing says so*. That was written without trying it, and it is wrong.
+
+#### What the options array actually does when it is wrong
+
+Every way of getting it wrong is caught, and each by name:
+
+```text
+system:capture(cmd, ["stderr"]).
+'capture' wants a value for every stream named, and got 1 of them
+
+system:capture(cmd, ["stdrr", 'discard]).
+'capture' does not know the stream "stdrr" -- there is "stdin", "stdout" and "stderr"
+
+system:capture(cmd, ['discard, "stderr"]).
+'capture' wants a stream's name as a string, and #1 is symbol
+
+system:capture(cmd, ["stderr", 'discrd]).
+'capture' does not know 'discrd' for "stderr" -- a stream takes 'share, 'discard, 'merge, or a path as a string
+```
+
+An odd count is caught, a misspelled name is caught *and the alternatives
+listed*, a swapped pair is caught by type, and an unknown manner is caught with
+its alternatives too. That is better than most languages' keyword arguments
+manage.
+
+**One case is silent, and it turns out to be a deliberate trade rather than a
+gap.** The residue has to be even *and* a name has to land in a value slot:
+
+```
+system:run(cmd, ["stderr", "stdout"]).      ; the two manners dropped
+```
+
+That runs, answers `#0`, and writes the child's stderr into a file called
+`stdout`. But the reference has already reasoned about exactly this: a value is
+*"a manner, as a symbol, or a path, as a string — and the type is what tells them
+apart, which is what keeps a file called `discard` a file."* A string is always a
+path, on purpose. The silence is the price of that decision, taken knowingly, and
+it lives in the option *values* rather than in the option *shape* — named
+arguments would not touch it.
+
+#### The spellings, and why the obvious one is not available
+
+`name:` is not a free slot. It is an existing valid parse:
+
+```
+name := object:new.
+name:v := #99.
+show := { a, b | [a, b]:print }.
+show:value(#1, name: v).        ; [#1, #99] -- a send, not a named argument
+```
+
+`:` is the send operator, so Smalltalk's own spelling is the one spelling this
+language cannot have. `=` *is* free — outside a region it is refused today, with
+an error that points at where operators live:
+
+```text
+show:value(#1, mode = #2).
+solas: this is written as a send here; '@expr(...)' is where the operators are at '='
+```
+
+That refusal is what makes it available, and it is Python's spelling. It is not
+free *inside* an [`@expr`](#infix-arithmetic-as-a-compile-time-notation) region,
+where `=` is equality and a send's arguments are parsed as expressions, so
+`obj:f(a = b)` already means *call `f` with the boolean*.
+
+#### And the lowering is cheap, which is not the same as being right
+
+`f(a, mode = v)` rewriting to `f(a, ["mode", v])` needs **no change to any
+existing primitive**, because the array it lowers to is the one `run` and
+`capture` already take. A parser rule, no new bytecode, no new value type, no VM
+change.
+
+**The objection is that it would not generalise, which is the objection that
+already refused [`ifTrue{...}`](#iftrue--a-block-argument-without-parentheses).**
+A pure rewrite lowers the same way whatever the receiver is, so
+`f(a, mode = v)` is spelled like a language feature and works only where the
+callee happens to take an options array as its last argument — a convention
+encoded in syntax, which is worse than a convention in a library, because the
+syntax promises something it cannot check. Making it *general* means a real
+parameter kind: a calling convention, arity checking, bytecode. Cheap does not
+generalise; general is not cheap.
+
+**Verdict: no to the sugar, and the entry that used to say *defer* was
+overstating a case it had not tested.** What is left standing is the smallest
+part of the original observation — that an options bag is spelled as an array
+because there is no dictionary literal — and that is a note about the literal
+syntax rather than about arguments. If anything here ever moves it should be
+[a dictionary literal](#a-set-and-the-collections-that-are-not-there), which
+would serve every options bag and needs no new rule about where a name may
+appear.
 
 #### A file is read whole, or not at all
 
