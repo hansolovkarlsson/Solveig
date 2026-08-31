@@ -53,7 +53,7 @@ marked as a sketch.
 | Infix operators, `@expr(a^2 + b/2)` | **Built**, on 2026-08-28 — [scoped in the morning and in by the evening](#infix-arithmetic-as-a-compile-time-notation): arithmetic, then `sin(x)` once *limiting* it turned out to be the expensive half, then comparison and logic, and the name with them |
 | `@expr{...}`, a region that is a block | **Built on 2026-08-29**, the day after it was scoped — [the sentence was tried first and lost](#expr-a-region-that-is-a-block-rather-than-a-group); the entry predicted one hard part and the second was the one that mattered, a notation that silently stopped inlining |
 | Phoenix — a second language whose output Solum uses | **Defer** — the machinery is proven three times over; [the unexplored half](#programs-that-would-press-on-something) is whether a hosted language can publish a *library* rather than a program |
-| Programs that would press on something — Pascal, predicate logic, a parser toolkit, `tail` | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would |
+| Programs that would press on something — Pascal, predicate logic, a parser toolkit, `tail`, and [which Unix tool next](#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31) | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would |
 | Networking, and sending code to a running machine | **The first half is built**, on 2026-08-29 — [extensions/net](../extensions/net/README.md), five messages, and the waiting question answered with a timeout rather than a block; [the second half](#networking-and-sending-code-to-a-machine-that-is-already-running) is untouched and still needs 3.4, 6.32 and a proxy |
 | SQLite, SDL2, GTK | **One project, not three** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); GTK and SDL2 fire that trigger and SQLite does not, and wanting *both* toolkits is what settles the mechanism |
 | Graphics in SolaBasic, over SDL2 | **No — asked and closed on 2026-08-30, and the premise was wrong** to begin with: [graphics were never parked](#graphics-in-solabasic-through-the-sdl2-extension) for want of extensions, they were refused as *the PC*. No program wanted a screen, so the trigger never fired. The throwaway exercised the foundation without a language change — an extension send at 205ns, **`sdl:present` vsync-locked at 8.3ms**, and **1.49x from 0.39.0** on a globals-heavy loop. **A demo written that evening then corrected the entry**: a present keeps nothing, so immediate-mode `PSET` is not slow on this surface but absent. **And there is no oracle for a pixel**, which is what would decide it if it were ever asked again |
@@ -4310,6 +4310,167 @@ queue: it is arithmetic on floats, and all of the arithmetic landed with
 [3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done). It would teach
 nothing about the language. Build it if the thing itself is wanted; not to find
 something.
+
+#### Two absences noticed on 2026-08-31 that nothing has asked for
+
+Both were seen while building the range and `tail`, and neither is a roadmap
+entry, because nothing wanted either and could not have it. They are here so the
+observation survives and so the trigger is written down rather than re-derived.
+
+**A positioned write.** `system:readFile(path, from, count)` was built this
+morning and there is no `writeFile(path, from, text)` beside it: a write either
+replaces the file or goes on the end. The asymmetry is not obviously wrong —
+reading part of a file is how you work on one too large to hold, and *writing*
+part of one is a different and rarer thing — but it is an asymmetry that arrived
+today rather than one that was decided.
+
+**Trigger: `sort`,** or anything else that writes runs to temporary files and
+merges them. An external merge sort is the shape that wants it, and it is on the
+survey below as the finding `sort` is predicted to produce. A second would be a
+program updating a record in place in a file it cannot hold.
+
+**Whether standard input is a terminal.** [tail.sol](../programs/tail.sol) wanted
+to know, because its no-argument case means two things — the house rule says
+*demonstrate on input you carry* and `... | tail` says *read standard input* —
+and no other program has had that collide.
+
+**It found an exact answer rather than a workaround**, which is why this is a
+note and not an entry: `system:keyWaiting(0.0)` answers *is there a byte right
+now*, and it is documented as **true at the end of input**, so a pipe says true
+whether it is full or finished and an idle terminal says false. That property is
+a nuisance in every other program and is precisely the question here. Verified
+through a pseudo-terminal both ways.
+
+So the case for an `isatty` is not that the question cannot be answered — it is
+that the answer arrives through a message about *reading*, and a reader coming
+to that line has to be told why it works. **Trigger: a second program wanting
+it**, or a first one wanting it about standard *output*, which `keyWaiting`
+cannot answer at all and which is the more common thing to want — whether to
+colour output, or to draw a progress line.
+
+#### Which Unix tool next, and what each would press on — surveyed 2026-08-31
+
+**Written after sed and tail**, and the survey is here rather than in the roadmap
+because [ROADMAP.md](ROADMAP.md)'s admission rule is that an entry means *a
+program wanted something and could not have it*. None of these has been written,
+so none of them has wanted anything. What follows is a prediction apiece.
+
+**The tools written so far are all parsers or filters over text**, and three axes
+have never been touched: pure arithmetic, an algorithm over two inputs at once,
+and array-heavy work. That is the shape of the list rather than any tool's
+popularity.
+
+**And the oracle is why these are worth more than a library would be.** It is not
+a text-tool trick that runs out on leaving text: `sha256sum` has published
+vectors, `diff` has `diff`, `gzip` has `gzip`, a matrix multiply has numpy, a
+Prolog has swipl. **What the frontier directions lose is exactly the oracle** — a
+neural net has no byte-for-byte answer to be held to — which is the argument for
+spending the cheap oracles on the questions those directions depend on, while
+they are still cheap.
+
+##### `sha256sum` — the first program here with no I/O in its inner loop
+
+Sixty-four rounds of shifts, masks and additions per sixty-four bytes, and
+nothing else. Every other program here spends its time in `split`, `indexOf` or a
+syscall.
+
+**It presses on a refusal rather than a gap.** The [At a glance](#at-a-glance)
+table says **No** to integer sizes — byte, word, long — on the grounds that they
+reintroduce the coercion this language refuses. SHA-256 is defined on mod-2³²
+arithmetic, so it is the first thing to want them. It is *writable* without them:
+a 64-bit integer holds the sum of two 32-bit values without the overflow trap
+firing, and a `bitAnd` puts it back in range. So the prediction is **not**
+impossibility.
+
+**Predicted finding: the number.** Megabytes a second, hashing a file. That is
+the cheapest possible answer to the question standing behind every numeric
+ambition on this page — *what does this interpreter cost per arithmetic operation
+when there is nothing else going on* — and it is a measurement no amount of
+reading the dispatch loop will produce. Second, an ergonomic report on whether a
+mask after every add reads as arithmetic or as bookkeeping.
+
+Oracle: `/usr/bin/shasum` and the published test vectors, which are two
+independent checks rather than one. Perhaps two hundred lines.
+
+##### `diff` — the first program here that computes rather than recognises
+
+Everything written so far reads one input and reports on its structure. `diff`
+holds two and computes a relationship between them.
+
+**Predicted findings**, in the order they are expected to bite:
+[3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels), because the
+divide-and-conquer form of Myers recurses on the halves of the edit graph and a
+large file has many; a two-dimensional array, which nothing here has needed and
+which is an array of arrays with a send per index; and memory at scale, where the
+classic table is quadratic and the linear-space refinement is the interesting
+half of the algorithm rather than an optimisation.
+
+**It is also the first tool whose *output format* is hard.** Unified diff hunk
+headers, context, and the rules for coalescing nearby changes are fiddly in a way
+`tail`'s were not, so the corpus would earn its keep before the algorithm did.
+
+Oracle: `/usr/bin/diff`. Around four hundred lines.
+
+##### `gzip -d` — the one that answers the question behind the neural net
+
+Inflate only; compression is a second program and a harder one. A 32 KB sliding
+window, a bit-level reader over a byte-level input, and two Huffman tables
+rebuilt per block.
+
+**This is the array-heavy workload with a definitive oracle**, which is what
+makes it worth more than a tensor experiment. A `SolValue` is a tag and a union,
+so a 32 KB window is 32,768 tagged values rather than 32,768 bytes, and every
+access is a send. **Predicted finding: the cost of that, in a number**, on a
+problem where the right answer is known to the byte. If packed numeric arrays are
+ever going to be needed — and
+[extensions](COMPLETED.md#extensions-a-capability-from-a-binary-rather-than-from-the-vm)
+is the likely shape rather than a new core type — this is the cheapest place to
+find out, and the only one on this page that cannot be argued with afterwards.
+
+Oracle: `gzip`, on files `gzip` produced. The largest of the three.
+
+##### Three that would press on less, and one that cannot be written at all
+
+**`sort`.** `array:sorted(block)` at scale, and its stability, which nothing has
+had to care about. **Its real finding is predicted to be a gap we already know
+about and nothing has wanted**: an external merge sort writes runs to temporary
+files and merges them, and there is no positioned write — `writeFile` replaces
+and `appendFile` appends. That is the mirror of the ranged read built this
+morning, and `sort` would be its first customer. Oracle: `sort` under `LC_ALL=C`,
+since collation is otherwise a divergence about locales rather than about the
+program.
+
+**`unzip -l`.** A foreign binary format, which nothing has read — `sob.sol`
+reads one this repository wrote. The central directory is at the **end** of the
+file and is found by scanning backwards from it, which is the ranged read's
+textbook case, and every field is a little-endian integer that has to be
+assembled from bytes by hand. Small, and it would say whether byte-level
+unpacking wants a message of its own.
+
+**`xargs -P`.** **Unwritable today, and that is the whole finding.**
+`system:run` blocks and there is no spawn, so nothing can have two children at
+once — and [3.11](ROADMAP.md#311-a-chunk-cannot-be-shared-between-threads) is
+about threads rather than about processes, so the gap is not even the one the
+roadmap records. Worth writing down here precisely because attempting it would
+produce a page rather than a program.
+
+**And the ones worth skipping**: `grep`, `cut`, `tr`, `uniq`, `wc`, `head`. Each
+is the ground [sed.sol](../programs/sed.sol) already covered, through the same
+code paths, and the rule this page runs on is that a program that cannot report
+anything is not worth writing. `grep` is the least bad of them, and only if the
+point is to force a decision about `pattern.sol`'s missing half — groups,
+alternation and case folding, which its own header says want a different engine.
+
+##### The counter-argument, which is on the page already
+
+[design.md](design.md#what-the-language-is-for) records that *there is no
+geometry anywhere near this language* was "a true sentence about seventeen
+programs and an empty one about a language", and nearly lost the language its
+trigonometry. **Every text tool added makes that sentence truer and more
+misleading at once.** `sha256sum` and `gzip -d` are on this list partly because
+they are not text tools wearing the same clothes: they are numeric experiments
+that happen to have a Unix name and an oracle.
+
 
 #### `tail`, and the file this language cannot read — scoped 2026-08-31
 

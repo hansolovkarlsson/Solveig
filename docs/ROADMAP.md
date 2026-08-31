@@ -1036,12 +1036,57 @@ Sections 1 to 5 were about making Solum a language. This one was about making it
 a language you can write a *program* in: split across files, reading input,
 writing files, stopping with a status, running another program, a prompt, a
 debugger, and — since an editor asked for them — the size of the screen it draws
-on and a read that gives up. **All of that is built**, and the entries are in
+on and a read that gives up. Nearly all of that is built, and the entries are in
 [COMPLETED.md](COMPLETED.md) — including
 [6.38](COMPLETED.md#638-nothing-says-what-a-compiled-file-exports--done), added
 on 2026-08-29 and closed the same afternoon, which is the section still doing
 what it was for: saying what a program written against this needs and has not
 got.
+
+**One is open again**, added on 2026-08-31 and below: 6.39, a program cannot
+tell whether two paths are the same file.
+
+### 6.39 A program cannot tell whether two paths are the same file
+
+Nothing answers a file's identity. `system:fileSize` and `system:modifiedAt` are
+the whole of what can be asked about a path, and two different files can agree on
+both — which is exactly the case that matters, since a log and the log that
+replaced it are usually the same size for a moment and can share a second.
+
+**[tail.sol](../programs/tail.sol) wanted it on 2026-08-31 and could not have
+it.** `tail -F` follows a file across a rotation: the path stays, the file behind
+it is replaced, and the program has to notice and start again on the new one.
+There is no way to notice. `-F` is named in that file as the one thing it cannot
+write, rather than approximated with a heuristic on size and time that would be
+wrong exactly when a rotation happens.
+
+**One customer, one flag, and the entry says so.** This is not a gap anything
+else has hit. [mirror.sol](../programs/mirror.sol) copies a tree into a directory
+inside itself without trouble — it lists the source before it writes anything, so
+it never walks into its own output — which is the other program that would
+plausibly have wanted this and does not.
+
+**Two shapes, and they are not the same size.**
+
+`system:sameFile(a, b)` answers a boolean and invents nothing: two `stat` calls
+and a comparison of device and inode, entirely inside the primitive. It answers
+the question `-F` asks — *is the file at this path still the one I was
+watching?* — only if the program can re-ask it against a path, which is not what
+`-F` needs: the old file may be gone by the time the question is asked, and a
+boolean about two paths cannot be held.
+
+`system:fileId(path)` answers something a program can **keep** — a string, most
+likely, since device and inode together do not fit an integer on every platform
+and a string is the type this language reaches for when the value is opaque. A
+follower holds the id it started with and compares each time round. That is what
+`-F` actually needs, and it is a value whose only operation is `equals`, which is
+a small thing to add and a real one to have to explain.
+
+**The trigger is a second customer**, and a plausible one exists without being
+here yet: any program that must not write a file onto itself, a watcher of any
+kind, or a lock that has to survive a rename. Until one of those arrives this has
+a single caller and a workaround of *do not offer `-F`*, which is what the
+program does.
 
 The one thing that was left was never work — it was a decision, and it has been
 **deferred rather than taken**:
