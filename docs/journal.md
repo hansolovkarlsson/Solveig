@@ -11,6 +11,99 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-30 (0.40.0) — a release, and a procedure that learnt two things from being followed
+
+[releasing.md](releasing.md) exists because two of its steps were learnt by
+getting them wrong. Following it end to end got two more things wrong, in places
+it had not covered, and both were found the same way as everything else today:
+by doing the thing and looking at the result rather than reading the description
+of it.
+
+### The five examples that differed, and did not
+
+The compatibility check compiles every example with the previous release's
+compiler and this one and compares the bytes. It reported **five differing**,
+which would have gone into the release notes as an incompatibility.
+
+They do not differ. The 0.39.0 binary was unpacked in a temporary directory, so
+it resolved `lib/` relative to *itself* — and an `@include` records the
+library's path in the chunk, so the same library code carried a different name.
+Copy the old `solas` beside the new one and it is 34 of 34 byte-identical.
+
+The procedure already said *run both machines from the same working directory*,
+for a different reason: four examples read the filesystem. It says it about the
+compilers now too, for this one.
+
+### Eighteen thousand lines, since before the last release
+
+The procedure says a release is a good moment to read the front page as a
+stranger would, because the checker recounts prose it can execute and a figure
+inside a sentence is not one. Read it, and both `README.md` and `_config.yml`
+have been claiming **18k lines of C11** while the count was 19,004 when 0.39.0
+shipped and 19,126 now.
+
+Not caused by this release — already wrong when the last one went out, and the
+same failure as the site description that sat at *123 messages* through a rename.
+
+### The page that rendered wrong, and could not have been read wrong
+
+The one worth the entry.
+
+The procedure has two fixups for the release body, and both were applied and
+verified: the count markers stripped, since a release page is a historical
+statement nothing recounts; and the links absolutised at the tag rather than at
+`main`, checked by confirming `docs/ideas.md` exists at `v0.40.0` rather than by
+trusting the string.
+
+Then the page was opened.
+
+**GitHub renders release notes with hard line breaks.** Every document here is
+wrapped at 79 columns and each of those became a literal break — 41 across 8
+paragraphs, a narrow ragged column inside a wide box, snapping mid-sentence at
+*not to be / true*. It was published that way.
+
+**The markdown was correct.** Every check on it passed and every check was
+honest: 31 code spans intact, three italics right, one link absolute, no markers
+left. There was nothing to find by reading, because there was nothing wrong with
+what was read. The defect lived entirely in what the renderer did with correct
+input.
+
+That is the difference between checking a thing and checking a *picture* of it —
+a lesson this repository already learnt about pixels, where it is written down as
+[there is no oracle for a pixel](#2026-08-30-the-evening--a-demo-that-showed-the-measurement-was-of-the-wrong-thing).
+It turns out to apply to a page of prose, where nobody expected to need it: the
+markup can be provably right and the thing a reader sees still wrong. The
+procedure now says: **open the page.**
+
+### Two false alarms on the way, and one of them was the thread
+
+*The tarball is missing from the page* — it is not. GitHub loads the assets
+lazily and they are not in the initial HTML; the API says `uploaded`, 3,214,782
+bytes, and the download URL answers 200.
+
+*The third italic is missing* — it is not. It renders as
+`<em>expected<br> digits after '#'</em>`, and the whitespace-normalising search
+did not strip the `<br>`.
+
+The second false alarm is how the real defect was found: the `<br>` I kept
+tripping over **was** the symptom. But reporting either as a fault would have
+been worse than not checking at all. **A test that fails for the wrong reason
+misleads exactly as far as one that cannot fail**, and today has now produced
+both kinds — two vacuous checks this morning, two false alarms this evening.
+
+### The release notes describe the release, and then describe cutting it
+
+The changelog says five claims standing in the documentation were tested and
+four were wrong, and not one was found by a program failing. Cutting the release
+found two more of exactly that kind — in the document that describes how to cut
+it.
+
+A procedure is prose about work, and prose about work goes stale like any other
+prose. The only thing that keeps it true is somebody following it and noticing
+where it stops matching what happens.
+
+---
+
 ## 2026-08-30 (using it) — four tables converted, two that refused, and a check that could not fail
 
 The literal existed for an hour and had no callers, which the entry that shipped
