@@ -5,6 +5,141 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### tail, and a call that was asked for nothing — `0213b0d`, 2026-08-31
+
+**[programs/tail.sol](../programs/tail.sol) is the seventeenth program**: the
+last N lines, the last N bytes, or everything from line N onward, of the files
+named or of standard input. `-n`, `-c`, their `+N` forms, `-q`, `-v`, and the
+`==> name <==` headings.
+
+**It was written to check a call rather than to ask for one**, which is the
+wrong way round here and was decided rather than drifted into. The rule is that
+a program asks and a page does not — but 3.22 closed before this existed,
+because its evidence arrived without a program, and **a `tail` on the whole-file
+read could not have called the thing it was meant to be asking about.** So the
+range was built and this is its first caller.
+
+**The answer is that the range wanted no change of any kind.** No extra
+argument, no convenience, no different rule at the edges.
+[ideas.md](ideas.md#tail-and-the-file-this-language-cannot-read--scoped-2026-08-31)
+put *it found nothing* on the table as an available answer, and for the file API
+it is the true one.
+
+**Measured against `/usr/bin/tail`**: 29 corpus cases, each run twice — input
+named as a file, input on a pipe — plus seven by hand for the several-file
+headings the harness cannot express, and the same commands on a 3 GB file. Every
+one byte-identical.
+
+| file | `tail -n 3` | `sed -n '$p'`, which reads it whole |
+| --- | --- | --- |
+| 618 KB | 2.1 MB | 5.4 MB |
+| 6.4 MB | 2.1 MB | 32.4 MB |
+| 3 GB | 2.0 MB, in 5 ms | *refused* |
+
+**Three things it did report.**
+
+**The predicted price was real, and `split` paid it.** 3.22 said a range's cost
+is that a record spanning two chunks becomes the caller's problem, and it is:
+`lastLines` walks backwards a chunk at a time and a line may be cut in half by a
+boundary. `split` counts a chunk's newlines and `join` puts back exactly what
+`split` removed, so the offset of the last few lines *inside* a chunk is
+arithmetic on their joined length rather than a second search. Twelve lines, and
+one integer carried across the boundary. The entry guessed
+[scan.sol](../lib/scan.sol) was the shape this would take; it is a cursor over
+one string and never came into it.
+
+**Clamping earned itself**, in two of the four places this reads — both of the
+two that stream, since the last chunk of every file is short. Refusing would
+have made every chunk ask `fileSize` and take a minimum first: the caller
+re-deriving a number the call already had, with a race in the gap.
+
+**And one that is not about files.** No arguments means two things in this
+program and in no other here: the house rule says *demonstrate on input you
+carry*, and `... | tail` says *read standard input*. `system:keyWaiting(0.0)`
+separates them, and is the nearest thing this language has to asking whether
+standard input is a terminal — it works **because** of the answering-true-at-the-
+end-of-input property that is a nuisance in every other program. Verified
+through a pseudo-terminal both ways.
+
+**[3.2](ROADMAP.md#32-no-non-local-return) cost more here than it did in sed,
+and in a different shape.** sed met it as an early exit from a loop and reported
+it cost nothing. This meets it as a *guard* — three routines opening with a test
+for an empty file, a zero count, a line number of one — and each is one line
+with a `return` and here wraps the entire body in an `ifElse`. Third customer for
+that entry, and the first to want the guard shape, which the entry currently
+treats as the same thing as the other.
+
+**The oracle harness moved to [programs/oracle.sh](../programs/oracle.sh)** and
+takes the tool's name, because the second caller was about to make it a hundred
+and fifty lines of shell in two files — [5.5](COMPLETED.md#55-five-programs-each-wrote-the-same-cursor--done)
+is what that costs. Nothing in it was sed's; what is sed's is the corpus. It
+gained one wider escape, `tworoutes:`, used exactly once, for `-v`: the heading
+names the input and a pipe has no name.
+
+**`-f` is not here**, and is the one part with a finding still waiting — there is
+no `system:sleep`, and a follow loop built on the only thing that waits would
+spin at a hundred percent exactly when `tail -f` is normally run. Left out rather
+than half-built, because an oracle cannot check a program that does not stop.
+
+### A range of a file, and 3.22 closed — `1603ab6`, 2026-08-31
+
+**`system:readFile(path, from, count)`** answers `count` bytes from the
+one-based position `from`, and *a file is read whole, or not at all* stopped
+being true.
+
+```
+size := system:fileSize("huge.log").
+system:readFile("huge.log", size:sub(#4095), #4096).   ; the last 4 KB
+```
+
+**A range and not a handle**, which is what
+[3.22](COMPLETED.md#322-a-file-is-read-whole-or-not-at-all--done) had already
+argued for and which held up: no lifetime, nothing to close, nothing to leak, no
+answer needed for a handle used after closing. [extensions/net](NET.md) had to
+pay for all of that because a socket has no alternative. A file does.
+
+**Why now.** The entry named its own trigger — *a program with a file that does
+not fit* — and nothing here had one, which had been true for as long as the
+entry existed. **A sparse file is 3 GB and 8 KB of disk**, and on one of those:
+
+```text
+/usr/bin/tail -n 3   0.003 s, and the right three lines
+system:fileSize      #3221225623, immediately
+system:readFile      '...' is too large to read into a string
+```
+
+The language could measure that file and not read a byte of it, and the file
+cost four seconds to make. *Nothing here has a file that does not fit* had been
+a fact about this repository's inputs rather than about the world.
+
+**A short range is the answer rather than a failure**, and that is the only place
+the two forms part. Asking for the last four kilobytes of a file that turns out
+to be one kilobyte is a reasonable question, and the string that comes back says
+its own size. A *whole-file* read that comes up short is still a failure, since
+its length came from `ftello` a moment earlier and anything less means a fault.
+
+**That was settled by a comment already in the function** rather than by taste,
+which is the part worth keeping. It read: *a short read is a failure rather than
+a shorter string: `fopen` on a directory succeeds on some systems, and reading
+one does not*. Right for a whole file and wrong for a range — so *clamp or
+refuse* was never a preference to argue about, and `ferror` is what catches the
+directory either way.
+
+`#0` is refused as it is on a string; past the end is a position and answers
+`""`. The size is asked for even in the ranged form, one `fseeko` before the
+read, so the buffer is the size of what is there rather than of what was
+requested — and `got` rather than `want` decides the string's length, because a
+file may change between the seek and the read. `fseeko` and `ftello` rather than
+`fseek` and `ftell`, since the whole point is files past what a `long` is where
+a `long` is small.
+
+**Five tests**, including a 3 GB sparse file that skips itself if the filesystem
+materialised the holes rather than writing three gigabytes to somebody's disk.
+**No new GC root**: the primitive allocates once, at the end, with nothing live
+across it — the buffer is `malloc`'s and not the collector's. Run under
+`gc_stress` anyway, because that is the claim being made rather than an
+assumption.
+
 ### sed, and the sed that was already on the machine — `09dd8ce`, 2026-08-31
 
 **[programs/sed.sol](../programs/sed.sol) is the sixteenth program**, and the

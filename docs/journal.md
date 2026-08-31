@@ -11,6 +11,153 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-31 (afternoon) — a wall measured in four seconds, and a program written to check rather than to ask
+
+The morning's sed closed by saying [3.22](COMPLETED.md#322-a-file-is-read-whole-or-not-at-all--done)'s
+trigger had still not fired: *a program with a file that does not fit*, and
+nothing here had one. The afternoon began by asking which Unix tool to write
+next, and ended with that entry closed and its first caller written.
+
+### The four seconds
+
+The plan was `tail`, on the grounds that it is the tool where reading a file
+whole stops being a cost and becomes a wall. Before writing the scoping I made
+the wall, to state it exactly rather than assert it. A **sparse file** is three
+gigabytes of holes and eight kilobytes of disk:
+
+```text
+/usr/bin/tail -n 3   0.003 s, and the right three lines
+system:fileSize      #3221225623, immediately
+system:readFile      '...' is too large to read into a string
+```
+
+**The language could measure that file and not read a byte of it.** That is not
+a cost, an inconvenience or a design tension; it is a wall, and it cost four
+seconds and no disk to produce.
+
+*Nothing here has a file that does not fit* had been in the entry for as long as
+the entry had existed, and it was a fact about this repository's inputs rather
+than about the world. Anybody could have made one at any time. Nobody had,
+because nobody had needed to.
+
+### The scoping was written, and then the scoping was wrong
+
+`tail` was scoped into ideas.md's *Programs that would press on something*, with
+a subset, three predictions and four calls — and it recommended writing the
+program first and deciding the language change afterwards, because a program
+asks and a page does not.
+
+**The correction came from a question rather than from a test**: *the idea of
+writing tail was to figure out how to handle large files?* Yes. And the evidence
+for that had already arrived, above, without any tail.
+
+What was wrong with the order is sharper than it being unnecessary. **A `tail`
+written on the whole-file read cannot call the thing it is meant to be asking
+about.** It would re-prove a measured wall and say nothing about whether
+`readFile(path, from, count)` is the right shape, because it could not use it.
+The program meant to inform the design was the one program guaranteed not to.
+
+So the question splits: *whether* was settled and *what shape* wants a caller,
+and a caller has to come after the call exists. Both recommendations are kept in
+the entry rather than the first being overwritten, which is what that section
+already does for predictions.
+
+### The call, and the comment that decided it
+
+The primitive is small — the old function already sought to the end and told the
+position to size the file, so the ranged form is that function at one arity or
+three. What was not small was the one real decision: **should a range that runs
+past the end clamp or refuse?**
+
+The language has both conventions. `first(#n)` and `last(#n)` clamp; `copyFrom`
+refuses. So it looked like a matter of taste.
+
+**It was settled by a comment already sitting in the function**, which is the
+part worth carrying:
+
+> *A short read is a failure rather than a shorter string: `fopen` on a
+> directory succeeds on some systems, and reading one does not.*
+
+Right for a whole-file read and **wrong for a ranged one** — a range that comes
+up short is describing the end of the file, and the string that comes back says
+its own size, so nothing is hidden. The policy that was there could not carry
+over, which turns *clamp or refuse* from a preference into a fact about what the
+two calls mean. `ferror` still catches the directory either way.
+
+The other argument for clamping was a race — a file's size can change between
+the `fileSize` and the read — and it survived contact: see below.
+
+### Then the program, and it asked for nothing
+
+`tail` is 223 lines and every one of them was written against a call that already
+existed. Twenty-nine corpus cases byte-for-byte against `/usr/bin/tail`, each run
+both by name and by pipe, seven more by hand for the several-file headings, and
+the same commands on the 3 GB file. All identical. `tail -n 3` holds about two
+megabytes whatever the file is.
+
+**And it asked for nothing.** No extra argument, no convenience, no different
+rule at the edges. The scoping had deliberately kept *it found nothing* on the
+table as an available answer, and for the file API that is what it is — which is
+worth a paragraph precisely because a page of findings is easy to write and a
+clean bill is not.
+
+### The three things it did report
+
+**The predicted price was real and something already here paid it.** The entry
+said a range's cost is that a record spanning two chunks becomes the caller's
+problem. It is — and `split` counts a chunk's newlines while `join` puts back
+exactly what `split` removed, so the offset of the last few lines inside a chunk
+is arithmetic rather than a second search. Twelve lines. The entry had guessed
+`scan.sol` would be the shape; `scan.sol` is a cursor over one string and never
+came into it.
+
+**The race argument for clamping was used, not just cited.** Two of the four
+places this program reads ask for a whole chunk and take what comes, and both
+are the ones that stream. Had a short range been refused, every chunk would have
+had to ask `fileSize` and take a minimum first — the caller re-deriving a number
+the call already had, with the race in the gap.
+
+**And the finding that has nothing to do with files.** No arguments means two
+different things in `tail` and in no other program here: the house rule says
+*demonstrate on input you carry*, and `... | tail` says *read standard input*.
+The same empty command line, two meanings.
+
+`system:keyWaiting(0.0)` separates them, and it is **the nearest thing this
+language has to asking whether standard input is a terminal**. It answers *is
+there a byte right now*, and it is documented as true at the end of input — so a
+pipe says true whether it is full or finished, and an idle terminal says false.
+**That property is a nuisance in every other program and is exactly what was
+wanted here.** Checked through a pseudo-terminal in both directions, because a
+branch that cannot be reached from this harness is a branch nobody has run.
+
+### Two smaller things worth keeping
+
+**3.2 cost more this time, and in a different shape.** sed met *no non-local
+return* as an early exit from a loop and reported honestly that it cost nothing.
+`tail` meets it as a **guard** — three routines opening with a test for an empty
+file, a zero count, a line number of one — and a guard with no `return` wraps the
+whole body in an `ifElse` and closes with a brace at the far end. Still small.
+Worth recording because the entry treats the two shapes as one thing and they
+are not.
+
+**The harness generalised on its second caller**, which is the ordinary way round
+here: `programs/sed/oracle.sh` became `programs/oracle.sh` and takes the tool's
+name. Nothing in it was ever sed's. It needed exactly one new escape, for `-v`,
+where the heading names the input and a pipe has no name — and that escape buys
+silence rather than a weaker check, so the case file has to earn it in prose.
+
+### What the day was
+
+Two entries closed and one program written to check rather than to ask, which is
+not this project's usual direction and was right once. The thread running through
+both halves of the day is the same: **the morning found that a documented example
+was in its own blind spot by construction, and the afternoon found that a
+documented trigger was a fact about our inputs rather than about the world.**
+Both had stood for weeks. Both took seconds to falsify once somebody went and
+looked instead of reading.
+
+---
+
 ## 2026-08-31 — a Unix tool written to see what it would ask for, and the answer arrived in ninety seconds
 
 The day began with a general proposal — *there are a lot of Unix tools we could
