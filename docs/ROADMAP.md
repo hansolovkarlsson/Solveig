@@ -1,201 +1,37 @@
 # Roadmap
 
-What 0.1.0 established, in the order the rest depends on it. Each entry says
-what would have to be true before the next one is worth starting.
+What is still outstanding, and what has been refused. Each entry says what would
+have to be true before it is worth starting.
 
-## Done — 0.6.0, a hole that says what it wants
+The work that is finished is in two places: [CHANGELOG.md](CHANGELOG.md) names
+what landed and the commit that carried it, and [COMPLETED.md](COMPLETED.md)
+keeps the case for each piece as it was argued *before* the work — the problem,
+the options, and why the shape chosen was the one taken. What went wrong on the
+way is in [POSTMORTEM.md](POSTMORTEM.md); what a day consisted of is in
+[journal.md](journal.md).
 
-**`<a: place>`, `<n: name>`, `<l: literal>`, `<b: block>`, and `expression`
-which is the default.** All five are decided by looking at what was parsed, so
-none needs an evaluator and none answers the tower question. Spelled the same
-way in the call shape: `@syntax setTo(p: place, v)`.
+**Two items on this page have been declined by a customer rather than by
+argument**, which is worth more than either. See *Settled by a customer* at the
+foot of COMPLETED.md.
 
-**The win is `place`.** `swap #1 and b` used to be `this cannot be assigned to`
-after expansion, with a trail leading into somebody else's template. It is now
+## Open, and undecided
 
-```
-error: 'swap' wants a place here, and this is an integer
-note: 'a' is declared to want a place
-```
+**`@language` records a name and acts on nothing.** Eight versions in, it is the
+only inert directive, and every `.phx` writes `@language solveig.` as a ritual —
+in the directive the README uses to argue that a tool can tell what language a
+file is in. It should select the *reader*, or the *emitter* as
+[targets.md](targets.md) argues, or stop existing. **A decision rather than a
+build**, and not one to take unasked.
 
-at the line somebody wrote, naming the form and the dialect file the hole came
-from.
+**No postfix operators.** Phoenix has prefix and infix; `x++`, `a[i]` and
+`p->f`-in-postfix-position have no spelling at all. `lib/clike.phx` names it as
+one of the four things C has that it cannot. Not a rule that could be relaxed —
+the extension point does not exist. No customer has been blocked by it.
 
-**Checked after the argument is expanded**, so a hole filled by another form is
-checked against what that form *became*. `swap alias x and y` is a place if
-`alias` makes one. The caret still lands on the argument, which keeps its own
-spans through substitution.
-
-**Saying nothing still works**, and had to: every dialect written before this
-would otherwise have broken at once.
-
-**The example this page used for four versions was wrong.** *`while` wants a
-block here* was the motivating case written down in 0.5.0, and `while` wants no
-such thing -- its template puts the braces on itself, so `<b: block>` there
-would refuse `while i < n do (total := total + i)`, which is the correct way to
-write it. The rule that survived is narrower and is now in `lib/control.phx`
-beside both forms: **a hole asks for what the template does not supply.**
-`repeat <n> times <b: block>` hands its hole straight through, and asks.
-
-**A hang, found by a test that was itself wrong.** The new test for an untyped
-hole was missing the `@infix` its body needed, so it hit the undeclared-operator
-path -- and `make test` stopped rather than failing. `synchronize` halts *at* a
-closing bracket without consuming it, which is right when something above is
-waiting for it and wrong in the statement loop, where nothing is: the `)` left
-over by any error inside an argument list was read, failed, synchronised to, and
-read again. Present since 0.1.0. The loop now proves it consumed something.
-
-## Done — 0.5.0, a form that reads as a statement
-
-**`@syntax unless <test> then <body> => ... .`** A hole is `<name>` and
-everything else is a literal word. Same holes, same template, same expansion as
-the call shape: a pattern changes how a form is written and nothing about what
-one is.
-
-**Two forms may share a leading word**, which is what `if <c> then <a>` beside
-`if <c> then <a> else <b>` needs and the reason the matcher exists. Matched
-together, with no backtracking: a hole is parsed once and shared by every
-candidate, so two forms can only part company at a word.
-
-**Which holds because the declaration refuses the pairs that could not.** Two
-patterns whose first difference is a hole against a word are an error where they
-are written, not a preference rule at every use. `on <w> do <b>` and
-`on error do <b>` are both `on error do x`, and no rule about which wins is one
-anybody could see from either line.
-
-**A pattern begins with a word and has no two holes in a row**, and a pattern
-word is reserved nowhere -- `then` is a form's word in a file that declared one
-and an ordinary name everywhere else.
-
-**The prediction that did not hold.** 0.4.0 wondered whether a pattern language
-would dissolve the group in `while(t, (a. b))`. It does not: `.` ends the
-statement whatever the form around it looks like, so `while t do (a. b)` still
-wants its parentheses. Recorded rather than quietly dropped.
-
-## Done — 0.4.0, a dialect that is a file
-
-**`@use "arith.phx".`** A dialect file holds directives and nothing else, and is
-read into the header of whoever used it. Looked for beside the file using it,
-then `-I`, then `PHOENIX_PATH`. Read once, so a diamond is free; a cycle is an
-error with the chain that got there.
-
-**The collision rule, which everything was queuing behind.** Solveig had already
-answered it for two files claiming one global -- the later wins and the compiler
-says so -- and the four cases differ in who could have known. Both in one module
-is an error; the module over a `@use` is silent; either direction between files
-warns. The README argues it under *When two dialects collide*.
-
-**A span carries its file.** The refactor the rest needed: a module is several
-files now, and a diagnostic three files away shows the line without being told
-which file it is about. The map grew a fourth column, printed only for the
-lines that came from somewhere else.
-
-**Hygiene did not need to change, and the reason is Solveig's.** 0.3.0 predicted
-one `scope` number would stop being enough once a template could be declared
-outside the module using it. It does not: globals are one flat namespace, so a
-template's free `total` and a caller's global `total` are the same variable by
-construction. A `scope` becomes a set the day the substrate has a module system.
-
-## Done — 0.3.0, the other half of hygiene
-
-**A template's free references are protected.** `@syntax bump(n) => total :=
-total:add(n).` means the global `total`, and goes on meaning it inside a caller
-whose temporary is also called `total`. The caller's local is renamed throughout
-its own frame, because the template cannot be -- reaching the global is what it
-meant -- and a local is a thing no other frame can see.
-
-**One pass, not a resolver, and Solveig's rule is why.** Only parameters and
-`| ... |` temporaries are locals and everything else is a flat global
-(REFERENCE.md, *Names and binding*), so the frames are the blocks and a name
-that is not a parameter or a temporary needs no protecting at all.
-
-**Demonstrated by running.** The unprotected expansion of the example prints
-`#105` and `#0` -- the caller's temporary updated and the global untouched.
-Both numbers wrong, neither an error, which is the failure this exists to stop.
-
-## Done — 0.2.0, the expander
-
-**Forms a module declares for itself.** `@syntax name(params) => template.`
-Call-shaped, because `name(args)` is a shape the core grammar already had, so
-declaring one adds a meaning without adding a production.
-
-**Hygiene, in the same commit rather than after it.** Every name a template
-binds is renamed at every expansion, to one nothing in the module uses -- the
-set is collected by lexing the source, so *fresh* means fresh rather than
-probably fresh. Demonstrated in `examples/forms.phx` by a program that prints
-the wrong answer if the renaming is removed, which is what the failure actually
-looks like.
-
-**Expansion trails.** `introduced_by` on every node an expansion produced, and
-`phx_note_expansion` walking the chain. The case worth having it for is the one
-only the template and the use together can be wrong about -- a parameter
-substituted into a place that has to be a place.
-
-**Expansion terminates without a limit.** A template is read under the header as
-it stood at its own line, so form N can mention only forms below N and the
-highest index strictly falls. A property of the header reading top to bottom
-rather than a counter.
-
-What is *not* here: a form that reads as a statement rather than a call, and
-referential transparency for a template's free names. Both are below.
-
-## Done — 0.1.0
-
-**A tree of Phoenix's own.** Solas has none: `sol_compile` runs the parser into
-the emitter in one pass. Expansion and hygiene both want a tree, so Phoenix owns
-one, and that is what makes Phoenix a compiler rather than a preprocessor.
-
-**Spans on every node, and the map.** Not a feature — the thing that decides
-whether anybody but the author can use the language. Tested in
-`tests/test_map.c` against positions inside tokens, not only at their starts.
-
-**A grammar declared per module.** `@infix`, `@infixr`, `@prefix`. Operators
-first because a precedence table composes: adding one cannot change what an
-expression that does not use it already meant.
-
-**A build that takes nothing from Solveig.** No header, no archive, no symbol.
-The coupling is a file format and a command line.
-
-## Done — 0.8.0, two holes in a row when the second is a block
-
-**`@syntax while <c> <b: block> => { c }:whileTrue(b).`** So `while (n < #20)
-{ n = n + #1 }` is a form, and `lib/clike.phx` is a dialect that looks like C.
-
-**The ban was justified for the wrong reason and this corrects it.** *No
-boundary between them* was wrong -- a block is a primary, consumed only where an
-operand may start, so an expression always stops at the `{`. The rule is really
-about **greed**: given `<a> <b>` and `f x + y`, the first hole takes the sum and
-the second finds nothing. A delimited hole has no such problem, and could not
-have said so before 0.6.0 gave holes kinds.
-
-**A hole's kind is one choice, and there is no alternation.** `lib/clike.phx`
-found it: C's `else` is either a block or another `if`, and no hole can say *a
-block or another use of me*. The first draft left it untyped and wrapped it,
-which gives `{ { ... } }` when the branch is already a block -- the outer block
-answers the inner one rather than running it, so the else branch silently did
-nothing and the example printed #54 where #40 was right. It compiles, it runs,
-and it is wrong. The branch is typed now and `else { if ... }` is how a chain
-is written.
-
-## Done — 0.7.0, an operator that stands for a template
-
-**`@infix /\ 30 => left:and({ right }).`** The only way to declare an operator
-whose right-hand side must not always be evaluated: Solveig's `and` takes a
-block, and a message receives its argument already evaluated.
-
-**The two extension points did not compose, and this is the seam.** `@infix`
-named a message and could not template; `@syntax` templated but must begin with
-a word, which an infix operator does not. Short-circuiting fell exactly between
-them, and nothing in six versions had noticed because nothing had tried.
-
-**`programs/ember` is what tried.** Six expressions in that compiler were
-written `(a == b):and({ ... })` by hand, every one of them a run-time failure
-first -- `and` being a message a symbol does not understand. `lib/arith.phx` now
-declares `/\` and `\/`, and emberc is written in them.
-
-**An operator with a template is a form**, registered as one, so hygiene,
-provenance and the trail come from the expander rather than a second
-implementation of each.
+**A hole's kind is one choice, with no alternation.** `lib/clike.phx` wanted *a
+block, or another use of me* for C's `else` and could not say it, so a chain
+wants its braces. Worked around; recorded because it is the same shape as
+optional parts and would want deciding with them.
 
 ## Next — optional and repeated parts
 
@@ -242,26 +78,6 @@ running it.
 mostly have been used for, and they cover it without an evaluator.
 [rules-and-logic.md](rules-and-logic.md) argues the whole of it.
 
-
-## Answered — two dialects meeting
-
-Done in 0.4.0. The three questions this section used to ask, and what they came
-out as:
-
-| | |
-| --- | --- |
-| Can two imported dialects declare the same operator? | Yes. The later wins and the compiler warns, which is Solveig's answer for two files claiming one global. A warning rather than an error, because rebinding is legal and sometimes meant. |
-| Is a dialect a value or a name? | A path, like `@include`. Unversioned, and found on a search path. |
-| What does a tool see? | `@use` at the top of the file, naming a file. Still nothing to run. |
-
-Racket answers it with modules and scoped bindings and it was worth reading how,
-but the answer taken is Solveig's — because Solveig had already made the choice
-for globals, and a language should not hold two philosophies about one question.
-
-**`@language` still records a name and acts on nothing.** It is now the only
-directive that does, and what it should select is the *reader* — the same shape
-as selecting an emitter, in [targets.md](targets.md). Neither is worth doing
-until there is a second of either.
 
 ## Retracted
 

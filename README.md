@@ -635,6 +635,34 @@ most of EBNF missing and one thing refused, and refusing a rule that begins with
 a nonterminal is what keeps the matcher from guessing. The same page prices
 predicate logic, which turns out to be three questions wearing one name.
 
+## The documents
+
+| | |
+| --- | --- |
+| [GRAMMAR.md](docs/GRAMMAR.md) | the core grammar, the tokens, and which shape a form should have |
+| [ROADMAP.md](docs/ROADMAP.md) | what is outstanding, what is refused, and what a customer declined |
+| [COMPLETED.md](docs/COMPLETED.md) | the case for each piece of work as it was argued *before* the work |
+| [CHANGELOG.md](docs/CHANGELOG.md) | what landed, per version, with the commit |
+| [POSTMORTEM.md](docs/POSTMORTEM.md) | every defect this project found in itself, and **what found it** |
+| [journal.md](docs/journal.md) | what a day of work actually consisted of |
+| [conventions.md](docs/conventions.md) | the standing agreements and the method |
+| [targets.md](docs/targets.md) | what Phoenix targets, and what a program written in Phoenix targets |
+| [rules-and-logic.md](docs/rules-and-logic.md) | how far the rules could go, where they stop, and predicate logic |
+| [solveig-notes.md](docs/solveig-notes.md) | what Phoenix has found in Solveig, as a running log |
+
+## The programs
+
+**Two, and they are why several of the versions above exist.**
+
+| | |
+| --- | --- |
+| [`programs/ember`](programs/ember) | a small language compiled to ARM64 assembly, all the way to a running binary. Found the gap that became 0.7.0. |
+| [`programs/grammar`](programs/grammar) | a grammar toolkit. Declined the roadmap's repetition item with a reason. |
+
+Each carries a table of predictions recorded **before** it was written and a
+*What it found* section written after. Predictions that were wrong stay in,
+marked wrong.
+
 ## Licence
 
 MIT, the same as Solveig.
