@@ -1,0 +1,99 @@
+# What Phoenix targets
+
+Asked on 2026-08-31, while 0.1.0 was the whole of the project:
+
+> Will this language also work to create native machine code? As an example, if
+> I wanted to make a BASIC compiler that compiled not to Solveig but to Mac
+> Silicon binary? I'm not sure which sequence it would be, would it be a
+> compiler I run in Phoenix (`phoenix cbasic.phx myprogram.bas -> a.out`) or
+> would I create a compiler (`solvm cbasic.sob myprogram.bas -> a.out`)?
+
+**Two questions are tangled in that, and separating them is most of the answer.**
+
+## Phoenix does not run programs
+
+`bin/phoenix` is a translator. A `.phx` goes in and Solveig source comes out,
+and that is all it does — so `phoenix cbasic.phx myprogram.bas` is not a
+sequence that could exist. **`cbasic.phx` is not a compiler Phoenix runs. It is
+source that becomes a compiler.**
+
+The second sequence is the right one, with one step in front of it:
+
+```sh
+phoenix cbasic.phx -o cbasic.sol      # Phoenix  -> Solveig source
+solas   cbasic.sol -o cbasic.sob      # Solveig  -> bytecode
+solvm   cbasic.sob myprogram.bas      # run the BASIC compiler
+```
+
+**What `cbasic` writes is `cbasic`'s business.** Text, a `.sob`, ARM64, a `.d64`
+image. Solveig has `system:arguments`, `system:readFile`, `system:writeFile` and
+`shell:run`, which is everything a compiler needs from its host, so this works
+today with nothing added to anything.
+
+**And it needs nothing from Phoenix at all.** Phoenix is only the language the
+compiler was written in.
+
+## So there are two senses of "target", and only one is a Phoenix question
+
+| | |
+| --- | --- |
+| **What Phoenix's own back end emits** | Solveig source. A Phoenix question, answered in the README under *What Phoenix is allowed to know about Solveig*. |
+| **What a program written in Phoenix emits** | Whatever that program writes. Not a Phoenix question, any more than what a C program writes is a question about C. |
+
+The BASIC compiler is the second. It is a program, and Phoenix's involvement
+ends when the program is compiled.
+
+## Could Phoenix itself emit machine code?
+
+Architecturally yes, and cleanly. **The front end knows nothing about Solveig.**
+The lexer, the dialect table, the tree, the spans and the map are all substrate
+-agnostic; `phoenix/src/emit.c` is the only file that has ever heard of Solveig.
+Replacing it is a seam rather than a rewrite.
+
+**It is still not planned, and for the reason ROADMAP.md gives against the
+smaller version of it.** Emitting `.sob` and bypassing Solas would mean owning
+the instruction set and the file format and reimplementing what Solas does well.
+Emitting machine code means owning register allocation, the AAPCS64 calling
+convention, stack frames, relocations and Mach-O — none of which says anything
+about whether a grammar declared per module is a good idea, which is the only
+thing this project exists to find out.
+
+**On Apple Silicon the surprise is not the instruction encoding.** It is that a
+hand-written Mach-O arm64 executable is killed by the kernel until it is at
+least ad-hoc signed — `codesign -s -`. `ld` does that quietly on every link,
+which is why nobody meets the rule until they stop using `ld`.
+
+Which points at the cheap path, and the one to take:
+
+> **Emit ARM64 assembly text and let `cc` assemble and link it.**
+
+Mach-O, relocations and signing all become somebody else's problem, and the
+output is something a person can read.
+
+```sh
+phoenix cbasic.phx -o cbasic.sol && solas cbasic.sol -o cbasic.sob
+solvm cbasic.sob myprogram.bas > myprogram.s
+cc myprogram.s -o a.out
+```
+
+Every step of that works now.
+
+## Where this grows, if it grows
+
+**`@language` records a name and acts on nothing.** The natural growth is for it
+to choose the reader *and* the emitter, so that a back end becomes a declared
+thing the way the grammar already is — and "Phoenix targets ARM64" is a line in
+a file rather than a fork of the project.
+
+That waits behind the expander, because until something expands, `@language` has
+nothing to select between.
+
+## Why a code generator is the right first real program
+
+A BASIC compiler written in Phoenix is a better test of the whole idea than
+another arithmetic example, and it is the one worth doing next.
+
+**A code generator is exactly the kind of program that wants a declared
+notation** — instruction patterns, addressing modes, a peephole table. If
+declaring a grammar per module does not help there, that is worth knowing early,
+and it is not a thing a small example can tell you.

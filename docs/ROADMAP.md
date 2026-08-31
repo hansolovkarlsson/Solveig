@@ -70,9 +70,12 @@ declarations, and every editor, formatter and `grep` downstream depends on that.
 Forth and TeX moved the line and became languages no tool can read without
 executing them. If it moves, it moves at the module boundary and nowhere else.
 
-**Emitting bytecode.** Phoenix would then own the `.sob` format and Solum's
-instruction set, and reimplement what Solas already does. The one thing it would
-buy — errors from Solas landing on Phoenix source — the map buys instead.
+**Emitting bytecode, or machine code.** Phoenix would then own the `.sob` format
+and Solum's instruction set, and reimplement what Solas already does. The one
+thing it would buy — errors from Solas landing on Phoenix source — the map buys
+instead. [targets.md](targets.md) works the question through, including what a
+native back end would actually cost and why a program *written in* Phoenix can
+already emit anything it likes.
 
 **`@expr`.** Solveig's fixed infix region is the special case of what `@infix`
 generalises. Supporting both would be supporting two.

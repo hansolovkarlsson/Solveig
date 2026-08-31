@@ -70,6 +70,11 @@ It is source text instead:
 The cost of the first is that the file `solas` reports an error in is not the
 file anybody wrote. That is paid for once, by the map.
 
+**What a program written in Phoenix emits is a different question**, and not one
+Phoenix has an opinion about — a compiler written here can write machine code,
+or a disk image, or nothing at all. [docs/targets.md](docs/targets.md) separates
+the two.
+
 ## The map
 
 `--map` writes `<output>.sol.map` beside the generated source: every position in
