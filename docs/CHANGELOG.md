@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### `dictionary:of`, and a guard against a hazard that was not there — `HASH`, 2026-08-30
+### `dictionary:of`, and a guard against a hazard that was not there — `7eca48c`, 2026-08-30
 
 **One message, and the language still answers 141<!--count messages--> of
 them** — `of` was already a counted name from `array`, and the counter adds a
