@@ -54,7 +54,7 @@ marked as a sketch.
 | SQLite, SDL2, GTK | **One project, not three** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); GTK and SDL2 fire that trigger and SQLite does not, and wanting *both* toolkits is what settles the mechanism |
 | Graphics in SolaBasic, over SDL2 | **No — asked and closed on 2026-08-30, and the premise was wrong** to begin with: [graphics were never parked](#graphics-in-solabasic-through-the-sdl2-extension) for want of extensions, they were refused as *the PC*. No program wanted a screen, so the trigger never fired. The throwaway exercised the foundation without a language change — an extension send at 205ns, **`sdl:present` vsync-locked at 8.3ms**, and **1.49x from 0.39.0** on a globals-heavy loop. **A demo written that evening then corrected the entry**: a present keeps nothing, so immediate-mode `PSET` is not slow on this surface but absent. **And there is no oracle for a pixel**, which is what would decide it if it were ever asked again |
 | What Python has that this does not | **Surveyed on 2026-08-30** — [most of it is already here under another name](#what-python-has-and-which-of-it-this-language-wants); five had no line on this page, and **named arguments were then investigated and refused** — `name:` is already a valid send, `=` lowers cheaply but [would not generalise](#and-the-lowering-is-cheap-which-is-not-the-same-as-being-right), and the options array turns out to catch every mistake it was accused of passing. Decorators turn out to be writable today; a backtrace is [already captured and then discarded](#read-on-2026-08-30-it-is-not-merely-available-it-is-thrown-away), though no handler in the tree could use one; a file being readable only whole is an absence the reference now states, with [the edge measured](#and-the-edge-was-measured-which-is-what-the-limit-was-missing) — 2 GB hard, twice the file while reading |
-| `@dict[k=v]`, and `=` moved to `==` | **Half yes, half unnecessary** — [`=` never needed freeing](#a-dictionary-literal-and-the-message-that-has-to-come-first): the lexer's mode flag exists for `-` alone, and `:=` with `==` is half of C and half of Pascal. But `[...]` is *measurably* sugar over `array:of`, and there is no `dictionary:of` — **built `dictionary:of` on 2026-08-30, literal deferred** — it shipped with no caller, and [converting `run`/`capture` was then scoped and refused](#converting-run-and-capture-to-take-one--scoped-and-refused): every options bag would grow 13 characters and lose the repeated-name error. Which is the best measured argument yet **for** the literal |
+| `@dict[k=v]`, and `=` moved to `==` | **Half yes, half unnecessary** — [`=` never needed freeing](#a-dictionary-literal-and-the-message-that-has-to-come-first): the lexer's mode flag exists for `-` alone, and `:=` with `==` is half of C and half of Pascal. But `[...]` is *measurably* sugar over `array:of`, and there is no `dictionary:of` — **both built on 2026-08-30** — `dictionary:of`, then `#["key" = value]` over it — it shipped with no caller, and [converting `run`/`capture` was then scoped and refused](#converting-run-and-capture-to-take-one--scoped-and-refused): every options bag would grow 13 characters and lose the repeated-name error. Which is the best measured argument yet **for** the literal |
 | Fuzzy logic | **A library that would teach nothing** — arithmetic on floats, and the arithmetic all landed |
 | Namespaces for included files | **Defer** — the trigger is somebody else writing a library |
 | Splitting the reference into pages | **Defer** — the trigger is the message reference outgrowing the rest |
@@ -1720,11 +1720,20 @@ customer is the **small inline bag** — two to eight arguments, at a call site,
 where the alternative is a temporary — and the eight escapes in
 [json.sol](../lib/json.sol).
 
-**Built the same day; the literal is deferred.** With the message in hand the
-literal becomes a decision somebody can make from use rather than from taste,
-which is the only way to learn whether sugar earns itself — and `[...]` sitting
-over `array:of` is the precedent for adding it later at no cost to anything
-already written.
+**Both built on 2026-08-30**, the message first and the literal after it, which
+is the order the measurement asked for. `#["key" = value]` compiles to a global
+load of `dictionary` and a send of `of`, held byte-for-byte against the
+written-out form by a test — the same bargain `[...]` strikes with `array:of`.
+
+**Bracket, not brace, and `=` did not have to be freed.** `[ ]` in this language
+already says *a collection written out* and `{ }` says *code*, so the brace that
+most languages use for a table is the one bracket here that means something
+else. And `#[` is one token, the `[` following the `#` as a digit must, which is
+what makes it unambiguous: a digit was the only thing that could ever follow a
+`#`, so `#[` was a lexical error in every file written before it. The `=` cost
+one flag on the compiler, saved and restored around the key so that
+`#[#["a" = #1] = "x"]` nests; inside a region it is still equality and outside
+one it is still a stray operator.
 
 **It shipped with no caller, which is worth saying rather than hiding.** Every
 `dictionary:new` in the tree is an accumulator filled a key at a time or a named
@@ -1780,9 +1789,24 @@ up in. Each is shaped for its half.
 **Verdict: no.** The array stays. What this scoping produced is the best
 argument yet for the deferred literal, and it is a measured one: every options
 bag in the language pays thirteen characters to become a dictionary, and a
-literal is exactly what would give them back. If the literal is ever built, this
-conversion is worth asking again — and it would still have to answer for the
-repeated-name error.
+literal is exactly what would give them back.
+
+**Asked again once the literal existed, the same day**, because this paragraph
+said it should be. The literal closes almost all of the gap:
+
+| today | as a literal | |
+| --- | --- | --- |
+| `["stderr", 'discard]` | `#["stderr" = 'discard]` | +2 |
+| `["stdout", 'discard, "stderr", 'discard]` | `#["stdout" = 'discard, "stderr" = 'discard]` | +3 |
+| `["stdin", typed, "stdout", 'discard, "stderr", 'discard]` | `#["stdin" = typed, …]` | +4 |
+
+Thirteen characters became two to four, and the pairing that a reader had to
+count is now written down. **So the brevity objection is gone and the answer is
+still no**, on the one ground that never depended on spelling: a dictionary
+dedupes on the way in, so `'capture' is given "stderr" twice` — a mistake caught
+today — would arrive as a single setting and be obeyed. **An argument bag is not
+a degenerate dictionary.** That objection is now the whole of the case rather
+than half of it, which is a better place for it to sit.
 
 **And it sharpens what `dictionary:of` is for**, which needed sharpening after it
 shipped with no caller: not argument bags, which want checking and ordering, but

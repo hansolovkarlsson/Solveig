@@ -5,6 +5,63 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The dictionary literal — `HASH`, 2026-08-30
+
+```
+ports := #["http" = #80, "https" = #443].
+describe:value(#["count" = #7]).
+```
+
+**Sugar for `dictionary:of`, and real sugar rather than a lookalike.** It
+compiles to a global load of `dictionary` and a send of `of`, held byte-for-byte
+against the written-out form by a test — the same bargain `[...]` strikes with
+`array:of`, so rebinding the class name moves both spellings and they cannot
+drift apart.
+
+**A bracket rather than a brace**, which is the one place this differs from the
+languages a reader arrives from. `[ ]` here already says *a collection written
+out* and `{ }` says *code*, so the brace that Python, Ruby and JavaScript use
+for a table is the single bracket in Solveig that means something else.
+
+**`#[` is one token** — the `[` follows the `#` immediately, as a digit must,
+and that is what makes it unambiguous. A digit was the only thing that could
+ever follow a `#`, so `#[` was a lexical error in every file written before this
+and cannot now mean something it used to. `# [` with a space is still refused,
+and the old complaint offers the alternative:
+
+```text
+x := #z.
+solas: expected digits after '#' -- or '[' for a dictionary
+```
+
+**`=` pairs a key with its value, and moving `@expr`'s equality to `==` to free
+it was not needed** — which was half of the proposal this came from. The token
+is scanned unconditionally and given meaning by whoever is parsing: inside a
+region it is still equality, outside one it is still a stray operator, and here
+it is the literal's own. That cost one flag on the compiler, saved and restored
+around the key so `#[#["a" = #1] = "x"]` nests.
+
+The pairing is the whole reason this is not simply a shorter `dictionary:of`:
+alternating elements pair positionally and a reader has to count. The cap is the
+argument cap seen through pairs — 255 arguments is **127 pairs**, and the
+complaint says pairs because that is what was written.
+
+**Both grammars carry the production, and the BNF one needed a lesson the
+compiler did not.** Its key is a `sum` rather than an `expression`, or it
+swallows the `=` that ends it, `comparison` being where `=` lives there — and
+nothing is lost, since a comparison is only legal inside a region and a region
+is a `primary`. `check_syntax` rejected `examples/dictionaries.sol` until that
+and the `#[` token rule were both added, which is the grammar files being held
+to the implementation rather than only to each other.
+
+**And converting `run` and `capture` was asked again, as
+[the scoping said it should be](ideas.md#converting-run-and-capture-to-take-one--scoped-and-refused),
+and is still refused.** The literal takes the conversion's cost from thirteen
+characters a call site to two, so the brevity objection is gone; the one that
+never depended on spelling is not. A dictionary dedupes on the way in, so
+`'capture' is given "stderr" twice` — caught today — would arrive as a single
+setting and be obeyed. An argument bag is not a degenerate dictionary.
+
 ### `dictionary:of`, and a guard against a hazard that was not there — `7eca48c`, 2026-08-30
 
 **One message, and the language still answers 141<!--count messages--> of

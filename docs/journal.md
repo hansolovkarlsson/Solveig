@@ -11,6 +11,75 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-31 — a literal built, and a question asked twice on purpose
+
+Yesterday ended by refusing to convert `run` and `capture` to dictionaries, and
+the refusal came with a promissory note: *if the literal is ever built, this
+conversion is worth asking again.* It was built today, so it was.
+
+### The half of the proposal that was never needed
+
+The idea arrived as `@dict[key = value]` **plus** moving `@expr`'s equality to
+`==` so that `=` was free. The second half was the interesting one to take
+apart, because it looked like a prerequisite and was not.
+
+`=` is scanned unconditionally; what it means is decided by whoever is parsing.
+The lexer's mode flag exists for one operator and `lexer.h` names it — `-`.
+So inside a region `=` is equality, outside one it is a stray operator, and
+inside a dictionary literal it is the literal's own, and none of the three ever
+meets another because each carries its own delimiters. The whole cost was one
+flag on the compiler, saved and restored around the key so that nesting works.
+
+Spending `==` would also have cost coherence: `:=` assigns and `=` compares here,
+which is one convention, and keeping `:=` while taking `==` is half of C and half
+of Pascal.
+
+### A bracket, not a brace
+
+The one place this parts company with the languages a reader arrives from.
+Python, Ruby, JavaScript and Perl all write a table in braces. Here `{ }` is a
+**block** — code — and `[ ]` already means a collection written out. So `#[` it
+is, and the familiar spelling was the wrong one to borrow.
+
+`#[` being a single token is what makes it free: a digit was the only thing that
+could ever follow a `#`, so `#[` was a lexical error in every file ever written
+here and can be given a meaning without taking one away. `# [` with a space is
+still refused, and the old complaint now points at the new thing.
+
+### The grammar files were agreeing with each other and not with the compiler
+
+`make test` says *GRAMMAR.md and solum.bnf agree on N productions*, and they did
+— both silently missing the literal I had just implemented. The check is
+agreement between two documents, not agreement with the code.
+
+What caught it was the other check: `check_syntax` runs `solum.bnf` against real
+files, and it rejected `examples/dictionaries.sol`. That needed two fixes, and
+the second was a lesson the compiler had not needed. In the BNF the key must be
+a `sum` rather than an `expression`, or it swallows the `=` that ends it —
+`comparison` is where `=` lives in that grammar. Nothing is lost, since a
+comparison is only legal inside a region and a region is a `primary`.
+
+**Two documents agreeing is not the same as either being true.** The BNF is only
+honest because something runs it against files that must parse.
+
+### Asking the same question twice, and getting a better answer
+
+Yesterday's refusal of the `run`/`capture` conversion rested on two grounds:
+thirteen characters a call site, and a lost error. The literal was built for
+independent reasons, and it demolished the first ground — thirteen became two.
+
+So the question was re-asked with the ground gone, and the answer is still no,
+on the half that never depended on spelling: a dictionary deduplicates on the
+way in, so `'capture' is given "stderr" twice` would arrive as one setting and
+be obeyed. **An argument bag is not a degenerate dictionary.**
+
+That is a better refusal than yesterday's. Yesterday's had two reasons and one
+of them was about typing; today's has one reason and it is about meaning. A
+verdict that survives losing half its argument is worth more than the one that
+had two.
+
+---
+
 ## 2026-08-30 (last) — a literal proposed, a message built, and a guard taken back out
 
 Proposed: `@dict[key = value, ...]`, with `@expr`'s equality moved to `==` so
