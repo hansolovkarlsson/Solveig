@@ -54,6 +54,7 @@ marked as a sketch.
 | SQLite, SDL2, GTK | **One project, not three** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); GTK and SDL2 fire that trigger and SQLite does not, and wanting *both* toolkits is what settles the mechanism |
 | Graphics in SolaBasic, over SDL2 | **No — asked and closed on 2026-08-30, and the premise was wrong** to begin with: [graphics were never parked](#graphics-in-solabasic-through-the-sdl2-extension) for want of extensions, they were refused as *the PC*. No program wanted a screen, so the trigger never fired. The throwaway exercised the foundation without a language change — an extension send at 205ns, **`sdl:present` vsync-locked at 8.3ms**, and **1.49x from 0.39.0** on a globals-heavy loop. **A demo written that evening then corrected the entry**: a present keeps nothing, so immediate-mode `PSET` is not slow on this surface but absent. **And there is no oracle for a pixel**, which is what would decide it if it were ever asked again |
 | What Python has that this does not | **Surveyed on 2026-08-30** — [most of it is already here under another name](#what-python-has-and-which-of-it-this-language-wants); five had no line on this page, and **named arguments were then investigated and refused** — `name:` is already a valid send, `=` lowers cheaply but [would not generalise](#and-the-lowering-is-cheap-which-is-not-the-same-as-being-right), and the options array turns out to catch every mistake it was accused of passing. Decorators turn out to be writable today; a backtrace is [already captured and then discarded](#read-on-2026-08-30-it-is-not-merely-available-it-is-thrown-away), though no handler in the tree could use one; a file being readable only whole is an absence the reference now states, with [the edge measured](#and-the-edge-was-measured-which-is-what-the-limit-was-missing) — 2 GB hard, twice the file while reading |
+| `@dict[k=v]`, and `=` moved to `==` | **Half yes, half unnecessary** — [`=` never needed freeing](#a-dictionary-literal-and-the-message-that-has-to-come-first): the lexer's mode flag exists for `-` alone, and `:=` with `==` is half of C and half of Pascal. But `[...]` is *measurably* sugar over `array:of`, and there is no `dictionary:of` — **build the message, defer the literal** |
 | Fuzzy logic | **A library that would teach nothing** — arithmetic on floats, and the arithmetic all landed |
 | Namespaces for included files | **Defer** — the trigger is somebody else writing a library |
 | Splitting the reference into pages | **Defer** — the trigger is the message reference outgrowing the rest |
@@ -1430,9 +1431,9 @@ overstating a case it had not tested.** What is left standing is the smallest
 part of the original observation — that an options bag is spelled as an array
 because there is no dictionary literal — and that is a note about the literal
 syntax rather than about arguments. If anything here ever moves it should be
-[a dictionary literal](#a-set-and-the-collections-that-are-not-there), which
-would serve every options bag and needs no new rule about where a name may
-appear.
+[a dictionary literal](#a-dictionary-literal-and-the-message-that-has-to-come-first) — or rather the
+`dictionary:of` underneath one, which serves every options bag and needs no new
+rule about where a name may appear.
 
 #### A file is read whole, or not at all
 
@@ -1626,6 +1627,104 @@ n* rather than *the last n*, and that what actually wants building is
 whose trigger had already fired three times over. `last(#n)` is what an
 `endsWith` uses inside itself, so it follows that library rather than leading
 it.
+
+### A dictionary literal, and the message that has to come first
+
+**Asked on 2026-08-30**, as `@dict[key = value, key = value]`, together with
+moving `@expr`'s equality to `==` so that `=` was free for it.
+
+#### The freeing is not needed, and that is the whole of the second half
+
+`=` is scanned unconditionally and given meaning by the parser's context.
+[lexer.h](../solas/include/solas/lexer.h) says the mode flag exists for one
+operator and names it: *the two are `-`, which is the reason for `infix`*.
+Everything else — `+ * / ^ = & ~ < >` — is a token always, and refused where it
+does not belong by the compiler rather than the lexer, which is why the
+complaint is a compiler's:
+
+```text
+show:value(#1, mode = #2).
+solas: this is written as a send here; '@expr(...)' is where the operators are at '='
+```
+
+Regions carry their own delimiters, so `@expr(...)` and a `@dict[...]` could
+never overlap; `=` would mean equality in one and pairing in the other the way
+`,` already means different things in an array literal and an argument list.
+
+**And spending it would cost coherence.** This language assigns with `:=` and
+compares with `=`, which is one convention — Pascal's, and BASIC's, which is the
+family [the infix entry](#comparison-and-logic-and-the-rename-that-came-with-them)
+took its precedence from. C's is `=` to assign and `==` to compare. Keeping `:=`
+while taking `==` is half of each and lands on a pairing neither language uses,
+and it strands `<>`, which would then want `!=` and drag a second change behind
+the first. That entry already names this exact pull, in this exact operator set:
+*C binds `!` tightest and would have read the other; that is the one place here
+where a C habit misleads.*
+
+#### And `@` is the wrong mechanism for a literal in any case
+
+[The directives entry](#more--directives-define-ifdef-once) reserves `@` for what
+happens while compiling and refuses a new one when the job is already done by
+something that is not a directive. `@expr` earns its `@` by changing how a whole
+region **parses**. A literal changes no parsing mode — it is grammar, and `[...]`
+needs no directive to be one. If a spelling is ever wanted, `#{` is a lexer error
+today (*expected digits after '#'*) and so is free, with no directive and no
+operator moved.
+
+#### What a literal would buy, measured: the spelling and nothing else
+
+`[#1, #2, #3]` has no opcode of its own. It compiles to a global load and a send:
+
+```text
+GLOBAL 'array'      … then `of`
+```
+
+and it times the same as writing the send out by hand — 0.0138 s against
+0.0131 s over 200,000 iterations. **The array literal is sugar over a message**,
+and there is no `dictionary:of`, so a dictionary literal would be sugar over a
+message that does not exist yet.
+
+#### The message, and the case for it is the one the asker gave
+
+A dictionary is **already** allowed as an argument:
+
+```
+show := { d | d:at("mode"):display }.
+d := dictionary:new.
+d:atPut("mode", "already works as an argument today").
+show:value(d).                  ; already works as an argument today
+```
+
+What it cannot be is *built* as one. Three statements and a name, for a value
+used once, is why every options bag in this tree is an array of alternating
+names instead — which the reference calls, in as many words, *the options bag
+this language can spell, since there is an array literal and no dictionary
+literal*.
+
+`dictionary:of("mode", 'quiet)` is one primitive, symmetric with `array:of`, and
+needs no grammar at all. What it has to settle is small and none of it is new:
+an odd argument count is an error; a key must satisfy `sol_dict_key_ok`, so a
+value and never an object, because two objects that look alike would be two
+keys; a repeated key takes the last value, as a repeated `atPut` does; and
+`dictionary:of` with no arguments is an empty dictionary, as `array:of` is an
+empty array.
+
+**The 255-argument ceiling — 127 pairs — does not bind, and marks who this is
+for.** The largest tables here are 53, 33, 26, 20 and 19 entries, and every one
+of them maps a name to a **block**: the parsers and emitters in
+[sola.sol](../programs/sola.sol), the builtins, the key tables in
+[edit.sol](../programs/edit.sol). None wants `of`. Fifty-three arguments spread
+over fifty-three lines reads worse than fifty-three `atPut` statements, each of
+which is self-contained, greppable, and already where a reader would look. The
+customer is the **small inline bag** — two to eight arguments, at a call site,
+where the alternative is a temporary — and the eight escapes in
+[json.sol](../lib/json.sol).
+
+**Recommendation: build `dictionary:of`, and defer the literal.** With the
+message in hand the literal becomes a decision somebody can make from use rather
+than from taste, which is the only way to learn whether sugar earns itself — and
+`[...]` sitting over `array:of` is the precedent for adding it later at no cost
+to anything already written.
 
 ### Namespaces for included files
 
