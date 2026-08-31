@@ -115,15 +115,19 @@ json:unicodeEscape := { | code, low |
 ; `\n`, and the test suite did not notice because the one escape it exercises
 ; is `\uXXXX`, which takes the other branch. `\b` and `\f` were missing from
 ; the table even before it went, so they are here for the first time.
-json:escapes := dictionary:new.
-json:escapes:atPut("\"", "\"").
-json:escapes:atPut("\\", "\\").
-json:escapes:atPut("/",  "/").
-json:escapes:atPut("b",  #8:asCharacter).
-json:escapes:atPut("f",  #12:asCharacter).
-json:escapes:atPut("n",  "\n").
-json:escapes:atPut("r",  "\r").
-json:escapes:atPut("t",  "\t").
+;
+; **One statement now, where it was nine.** It cannot be *partly* removed, which
+; is a smaller failure than the one above and the same family; and eight pairs
+; written out can be counted against the eight escapes JSON names, which is how
+; `\b` and `\f` were noticed missing in the first place.
+json:escapes := #["\"" = "\"",
+                  "\\" = "\\",
+                  "/"  = "/",
+                  "b"  = #8:asCharacter,
+                  "f"  = #12:asCharacter,
+                  "n"  = "\n",
+                  "r"  = "\r",
+                  "t"  = "\t"].
 
 json:escape := { | c |
     c := self:cur:peek.
@@ -268,12 +272,14 @@ json:read := { text | | out |
 ; class has no global. It is the one type the language cannot extend, and the
 ; single root is what makes that not matter here. See ../docs/one-hierarchy.md.
 
-json:outEscapes := dictionary:new.
-json:outEscapes:atPut("\"", "\\\"").
-json:outEscapes:atPut("\\", "\\\\").
-json:outEscapes:atPut("\n", "\\n").
-json:outEscapes:atPut("\t", "\\t").
-json:outEscapes:atPut("\r", "\\r").
+; The other direction, and five rather than eight: `\b` and `\f` are written as
+; `\u0008` and `\u000c` by the control-byte branch below, and `/` needs no
+; escaping on the way out.
+json:outEscapes := #["\"" = "\\\"",
+                     "\\" = "\\\\",
+                     "\n" = "\\n",
+                     "\t" = "\\t",
+                     "\r" = "\\r"].
 
 json:quote := { text | | out, start, i, c |
     out := "". start := #1. i := #1.
