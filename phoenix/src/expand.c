@@ -61,6 +61,14 @@ static void name_set_free(NameSet *set)
 
 /* ------------------------------------------------------------- the expander */
 
+/* A user local that a template identifier would be caught by, and the frame it
+   belongs to. Collected first and renamed afterwards, because renaming while
+   walking would move the ground under the walk. */
+typedef struct Capture {
+    PhxNode *block;
+    const char *name;           /* borrowed from the block */
+} Capture;
+
 typedef struct {
     const PhxSource *source;
     const PhxDialect *dialect;
@@ -68,6 +76,8 @@ typedef struct {
     PhxProvenance *provenance;
     NameSet used;
     uint32_t scope;         /* one per expansion; 0 is what a person wrote */
+    Capture *captures;
+    int capture_count, capture_capacity;
     bool failed;
 } Expander;
 
@@ -262,6 +272,149 @@ static PhxNode *expand_node(Expander *expander, PhxNode *node, int depth)
     return node;
 }
 
+/* --------------------------------------------------- the other half of it */
+
+/* Renaming a template's binders stops it capturing a name its caller passed.
+ * It does nothing about the other direction: a template's *free* reference,
+ * landing inside a frame that happens to bind that name.
+ *
+ *     @syntax bump(n) => total := total:add(n).
+ *
+ *     total := #0.
+ *     run := { | total | total := #100. bump(#5). total }.
+ *
+ * The template means the global `total`. Written out literally it lands inside
+ * a block whose temporary is also called `total`, and Solveig resolves a bare
+ * name to a local before a global -- so the form updates the caller's variable
+ * and the global stays #0. The program runs and answers wrongly.
+ *
+ * Solveig's rule is what makes this fixable in one pass rather than needing a
+ * resolver: **only parameters and `| ... |` temporaries are locals, and
+ * everything else is a global in one flat namespace** (REFERENCE.md, "Names and
+ * binding"). So the frames are exactly the blocks, a frame's locals are exactly
+ * its parameters and temporaries, and a name that is not one of those needs no
+ * protecting -- there is no second global called `total` for a template to have
+ * meant instead.
+ *
+ * Which leaves one case, and it is the caller's local that gives way: the
+ * template cannot be renamed, because reaching the global is the whole of what
+ * it meant. Renaming a local throughout its own frame is invisible to everybody
+ * else, a local being a thing no other frame can see. */
+
+typedef struct Frame {
+    struct Frame *parent;
+    PhxNode *block;             /* NULL at the module's own level */
+} Frame;
+
+static bool binds(const PhxNode *block, const char *name)
+{
+    for (int i = 0; i < block->param_count; i++)
+        if (strcmp(block->params[i], name) == 0) return true;
+    for (int i = 0; i < block->temp_count; i++)
+        if (strcmp(block->temps[i], name) == 0) return true;
+    return false;
+}
+
+/* Deduplicated: one frame's one local is renamed once, however many template
+   identifiers would have been caught by it. */
+static void add_capture(Expander *expander, PhxNode *block, const char *name)
+{
+    for (int i = 0; i < expander->capture_count; i++)
+        if (expander->captures[i].block == block &&
+            strcmp(expander->captures[i].name, name) == 0) return;
+
+    if (expander->capture_count == expander->capture_capacity) {
+        expander->capture_capacity = expander->capture_capacity < 8
+                                   ? 8 : expander->capture_capacity * 2;
+        expander->captures = phx_realloc(expander->captures,
+                                         (size_t)expander->capture_capacity
+                                             * sizeof *expander->captures);
+    }
+    expander->captures[expander->capture_count].block = block;
+    expander->captures[expander->capture_count].name = name;
+    expander->capture_count++;
+}
+
+/* Every user local that a template identifier would be caught by.
+ *
+ * Walked outward and not stopped at the first, because renaming the innermost
+ * only hands the capture to the next one out. Stopped at a frame of the
+ * template's own, which is a local the template meant and got. */
+static void find_captures(Expander *expander, PhxNode *node, Frame *frame)
+{
+    if (node->kind == PHX_NODE_NAME && node->scope != 0) {
+        for (Frame *f = frame; f != NULL && f->block != NULL; f = f->parent) {
+            if (!binds(f->block, node->text)) continue;
+            if (f->block->scope == node->scope) break;
+            if (f->block->scope == 0) add_capture(expander, f->block, node->text);
+        }
+    }
+
+    /* A group borrows the frame it sits in rather than making one, so only a
+       block is a frame here. Group temporaries would belong to the enclosing
+       frame if Phoenix read them, and it does not yet. */
+    Frame inner = { frame, node };
+    Frame *next = node->kind == PHX_NODE_BLOCK ? &inner : frame;
+    for (int i = 0; i < node->count; i++)
+        find_captures(expander, node->children[i], next);
+}
+
+/* Every reference the renamed binding owns, and no others.
+ *
+ * `scope` is the binding's own origin: a reference belongs to a binding only if
+ * it came from the same place, which is what keeps the template's identifier --
+ * the one being protected -- untouched while it sits in the middle of the
+ * renamed frame. */
+static void rename_in(PhxNode *node, const char *from, const char *to,
+                      uint32_t scope)
+{
+    if (node->kind == PHX_NODE_BLOCK && node->scope == scope &&
+        binds(node, from))
+        return;                                     /* shadowed from here down */
+
+    if (node->kind == PHX_NODE_NAME && node->scope == scope &&
+        strcmp(node->text, from) == 0) {
+        free(node->text);
+        node->text = phx_strndup(to, strlen(to));
+    }
+
+    for (int i = 0; i < node->count; i++)
+        rename_in(node->children[i], from, to, scope);
+}
+
+static void rename_binder(PhxNode *block, const char *from, const char *to)
+{
+    for (int i = 0; i < block->param_count; i++)
+        if (strcmp(block->params[i], from) == 0) {
+            free(block->params[i]);
+            block->params[i] = phx_strndup(to, strlen(to));
+        }
+    for (int i = 0; i < block->temp_count; i++)
+        if (strcmp(block->temps[i], from) == 0) {
+            free(block->temps[i]);
+            block->temps[i] = phx_strndup(to, strlen(to));
+        }
+}
+
+static void protect_free_references(Expander *expander, PhxNode *module)
+{
+    find_captures(expander, module, NULL);
+
+    for (int i = 0; i < expander->capture_count; i++) {
+        Capture *capture = &expander->captures[i];
+        char *fresh = fresh_name(expander, capture->name);
+        char *from = phx_strndup(capture->name, strlen(capture->name));
+
+        rename_binder(capture->block, from, fresh);
+        for (int j = 0; j < capture->block->count; j++)
+            rename_in(capture->block->children[j], from, fresh,
+                      capture->block->scope);
+
+        free(from);
+        free(fresh);
+    }
+}
+
 /* ---------------------------------------------------------- after the fact */
 
 static bool assignable(const PhxNode *node)
@@ -306,6 +459,8 @@ bool phx_expand(PhxNode *module, const PhxSource *source,
     expander.used.names = NULL;
     expander.used.count = expander.used.capacity = 0;
     expander.scope = 0;
+    expander.captures = NULL;
+    expander.capture_count = expander.capture_capacity = 0;
     expander.failed = false;
 
     name_set_collect(&expander.used, source->text);
@@ -313,8 +468,10 @@ bool phx_expand(PhxNode *module, const PhxSource *source,
     for (int i = 0; i < module->count; i++)
         module->children[i] = expand_node(&expander, module->children[i], 0);
 
+    if (!expander.failed) protect_free_references(&expander, module);
     if (!expander.failed) validate(&expander, module);
 
+    free(expander.captures);
     name_set_free(&expander.used);
     return !expander.failed;
 }

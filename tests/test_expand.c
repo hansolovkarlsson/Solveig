@@ -187,6 +187,60 @@ int main(void)
            "@syntax setTo(p, v) => p := v.\n" "setTo(x, #2).\n",
            "x := #2.\n");
 
+    /* Referential transparency: the other half of hygiene.
+     *
+     * A template's *free* reference means the global, and it may land inside a
+     * frame that happens to bind that name. Solveig resolves a bare name to a
+     * local before a global, so the form would quietly update the caller's
+     * variable -- and the caller's local is what gives way, because reaching
+     * the global is the whole of what the template meant. */
+    expect("a caller's local cannot catch a template's free name", LANG
+           "@syntax bump(n) => total := total:add(n).\n"
+           "run := { | total | total := #100. bump(#5). total }.\n",
+           "run := { | total__1 |\n"
+           "    total__1 := #100.\n"
+           "    total := total:add(#5).\n"
+           "    total__1 }.\n");
+
+    /* The argument is the caller's code and follows the caller's local, which
+       is what the same-origin rule is for: two identifiers spelled `total`, one
+       renamed and one not, in one expression. */
+    expect("an argument follows the local it named", LANG
+           "@syntax bump(n) => total := total:add(n).\n"
+           "run := { | total | total := #1. bump(total). total }.\n",
+           "run := { | total__1 |\n"
+           "    total__1 := #1.\n"
+           "    total := total:add(total__1).\n"
+           "    total__1 }.\n");
+
+    /* Every enclosing frame that binds the name, not only the innermost --
+       renaming one would otherwise hand the capture to the next one out. The
+       inner frame is renamed first because the search runs outward from the
+       reference, which is why it holds the lower number. */
+    expect("two frames deep", LANG
+           "@syntax bump(n) => total := total:add(n).\n"
+           "run := { | total | { | total | bump(#1) }:value }.\n",
+           "run := { | total__2 | { | total__1 | total := total:add(#1) }:value }.\n");
+
+    /* A frame that binds the name and is not in the way is left alone: the
+       reference is inside neither of them. */
+    expect("a frame the form is not inside is untouched", LANG
+           "@syntax bump(n) => total := total:add(n).\n"
+           "other := { | total | total := #1 }.\n"
+           "bump(#2).\n",
+           "other := { | total | total := #1 }.\n"
+           "total := total:add(#2).\n");
+
+    /* And a local the template meant to have is its own, not a capture. */
+    expect("a template's own local is not renamed", LANG
+           "@syntax hold(v) => { | total | total := v. total }:value.\n"
+           "run := { | total | total := #1. hold(#2) }.\n",
+           "run := { | total |\n"
+           "    total := #1.\n"
+           "    { | total__1 |\n"
+           "        total__1 := #2.\n"
+           "        total__1 }:value }.\n");
+
     printf("%d checks, %d failed\n", checks, failures);
     return failures == 0 ? 0 : 1;
 }

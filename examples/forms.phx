@@ -26,6 +26,10 @@
 ; mattering rather than being a word.
 @syntax swap(a, b) => { | t | t := a. a := b. b := t }:value.
 
+; And this one reaches *out* -- `total` is not a parameter, so it means the
+; global of that name, whatever the caller happens to have called things.
+@syntax bump(n) => total := total:add(n).
+
 ; ---------------------------------------------------------------------------
 
 x := #3.
@@ -52,3 +56,22 @@ u := #2.
 swap(t, u).
 t:print.                          ; #2
 u:print.                          ; #1
+
+; ---------------------------------------------------------------------------
+; The form reaches out for `total`. The caller has a local called `total`.
+; Nothing happens, in the other direction.
+;
+; This one proves itself too, and it is the more alarming of the two: an
+; unprotected expansion prints #105 and #0 -- the form updated the caller's
+; temporary and the global it meant was never touched. Both numbers are wrong
+; and neither is an error.
+
+total := #0.
+
+run := { | total |
+    total := #100.
+    bump(#5).
+    total }.
+
+run:value:print.                  ; #100 -- the caller's local, untouched
+total:print.                      ; #5   -- the global, which is what bump meant

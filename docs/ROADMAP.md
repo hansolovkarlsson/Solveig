@@ -3,6 +3,23 @@
 What 0.1.0 established, in the order the rest depends on it. Each entry says
 what would have to be true before the next one is worth starting.
 
+## Done — 0.3.0, the other half of hygiene
+
+**A template's free references are protected.** `@syntax bump(n) => total :=
+total:add(n).` means the global `total`, and goes on meaning it inside a caller
+whose temporary is also called `total`. The caller's local is renamed throughout
+its own frame, because the template cannot be -- reaching the global is what it
+meant -- and a local is a thing no other frame can see.
+
+**One pass, not a resolver, and Solveig's rule is why.** Only parameters and
+`| ... |` temporaries are locals and everything else is a flat global
+(REFERENCE.md, *Names and binding*), so the frames are the blocks and a name
+that is not a parameter or a temporary needs no protecting at all.
+
+**Demonstrated by running.** The unprotected expansion of the example prints
+`#105` and `#0` -- the caller's temporary updated and the global untouched.
+Both numbers wrong, neither an error, which is the failure this exists to stop.
+
 ## Done — 0.2.0, the expander
 
 **Forms a module declares for itself.** `@syntax name(params) => template.`

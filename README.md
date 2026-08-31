@@ -203,12 +203,42 @@ gets `t__2`, and two expansions of one form never agree by accident. After
 expansion no identifier exists that was not either in that set or generated
 against it, which is what makes *fresh* mean fresh rather than probably fresh.
 
-**What this does not yet buy.** A template's *free* references are not protected:
-if a template mentions `error` and the use site has a local called `error`, the
-template gets the local. That is referential transparency, it needs full scope
-sets and name resolution, and `scope` is on every node so that the day it
-arrives it is a change to the expander. Today `scope` holds one scope per
-expansion, which is what the renaming needs and no more.
+**And a name a template reaches *out* for cannot be caught by its caller.**
+
+```
+@syntax bump(n) => total := total:add(n).
+
+total := #0.
+run := { | total | total := #100. bump(#5). total }.
+```
+
+`total` is not a parameter, so the form means the global. Written out literally
+it lands inside a block whose temporary is also called `total`, and Solveig
+resolves a bare name to a local before a global — so the form would update the
+caller's variable and leave the global at `#0`. **Both numbers would be wrong
+and neither would be an error.** `examples/forms.phx` prints them, because that
+is what the failure looks like.
+
+**The caller's local is what gives way**, renamed throughout its own frame:
+
+```
+total := #0.
+run := { | total__1 |
+    total__1 := #100.
+    total := total:add(#5).
+    total__1 }.
+```
+
+The template cannot be renamed — reaching the global is the whole of what it
+meant — and renaming a local is invisible to everybody else, a local being a
+thing no other frame can see.
+
+**Solveig's own rule is what makes this one pass rather than a resolver.** Only
+parameters and `| ... |` temporaries are locals and everything else is a global
+in one flat namespace, so the frames are exactly the blocks, a frame's locals
+are exactly its parameters and temporaries, and a name that is neither needs no
+protecting: there is no second global called `total` a template could have meant
+instead.
 
 ## When a form goes wrong
 
@@ -261,7 +291,7 @@ without touching every constructor and every rewrite in the compiler.
 | --- | --- |
 | `span` | Where in the **surface text** this came from. Read by every diagnostic and by the map. |
 | `introduced_by` | For a node an expansion produced, the use that produced it. Walked by `phx_note_expansion` to print the trail above. |
-| `scope` | The hygiene anchor: one scope per expansion, stamped on everything a template produced, `0` for what a person wrote. [Binding as sets of scopes](https://users.cs.utah.edu/plt/scope-sets/) (Flatt, 2016) is where this goes — a set rather than a number — when free references need protecting too. |
+| `scope` | The hygiene anchor: one scope per expansion, stamped on everything a template produced, `0` for what a person wrote. Both directions of capture are decided by comparing two of these. [Binding as sets of scopes](https://users.cs.utah.edu/plt/scope-sets/) (Flatt, 2016) is where it goes — a set rather than a number — when a dialect can be imported and a template can be defined somewhere other than the module using it. |
 
 A tree without them is a tree that has to be rebuilt to get them, and the
 expander was written in one sitting rather than three because it did not have to
@@ -319,16 +349,18 @@ integer:utf8Tail := { at |
     (#128:bitOr(self:shiftRight(at):bitAnd(#63))):asCharacter }.
 ```
 
-## What 0.2.0 is not
+## What 0.3.0 is not
 
 **A form is call-shaped.** `unless(test, body)` and not `unless test then body`.
 The surface a form presents is the next thing to grow, and it waits behind the
 collision question below.
 
-**Hygiene is one scope per expansion**, not scope sets. It stops a template's
-binders capturing a caller's names, in both directions between two expansions of
-the same form. It does not give a template referential transparency over its free
-names — see *Hygiene* above.
+**Hygiene is one scope per expansion**, not a set. Both directions of capture are
+closed, and they are closed because a template can only be declared in the module
+that uses it — so its definition context is that module and nothing else. The day
+a dialect can be imported, a template has a definition site that is not the use
+site's module, one number stops being enough, and `scope` becomes the set it was
+named for.
 
 Known gaps, each for a reason rather than for lack of time:
 
