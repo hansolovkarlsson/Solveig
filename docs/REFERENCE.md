@@ -3518,6 +3518,7 @@ makes an empty one.
 | Message | Answers |
 | --- | --- |
 | `new` | an empty dictionary |
+| `of(...)` | a dictionary of the arguments, **key then value**; an odd count is an error |
 | `size` | an integer |
 | `at(key)` | the value; **an error** when the key is not there |
 | `at(key, default)` | the value, or `default` when the key is not there |
@@ -3527,6 +3528,32 @@ makes an empty one.
 | `keys` `values` | an array, in **no order worth relying on** |
 | `do(block)` | the dictionary, having run the block once per **value** |
 | `keysAndValuesDo(block)` | the same, the block taking a key and a value |
+
+#### Building one in a single expression
+
+`of` is to `dictionary` what it is to `array`, and there is no literal over it
+the way `[...]` is one — which matters less than it looks, because `[...]` is
+itself a spelling over `array:of` rather than a form the compiler knows.
+
+```
+sizes := dictionary:of("small", #1, "large", #9).
+sizes:at("large"):print.        ; #9
+dictionary:of:size:print.       ; #0   -- no arguments, an empty one
+```
+
+**Which is what lets a dictionary be written where it is used.** One could
+always be *passed*; what it could not be was built as an argument, and three
+statements and a name for a value wanted once is why an options bag is spelled
+as an array of alternating names elsewhere in this document.
+
+**A repeated key takes the last value**, as a repeated `atPut` does, and a key
+must be a value for the reason [`at`](#dictionary) gives. The pairing is the one
+thing `of` can get wrong and it is refused rather than rounded off:
+
+```
+dictionary:of("small").
+solvm: 'of' takes a key and a value for each entry, and got 1 argument -- the odd one has no value to go with it
+```
 
 **Keys are values.** Integers, floats, strings, symbols, booleans and nil are
 compared by content, so two keys that look alike are one key. Arrays, blocks,
@@ -3876,7 +3903,7 @@ has been given, and cannot give itself more.
 Every built-in message and the types that answer it. The question a reference
 gets asked is usually *what has `copyFrom`?* rather than *what does a string
 do?*, and the sections above answer only the second — so this answers the first.
-141 messages across 243 registrations.
+141 messages across 244 registrations.
 
 **A test keeps it honest**: a message registered in `builtins.c` and missing
 from here fails the build, which is the same bargain that makes every message
@@ -3973,7 +4000,7 @@ appear in an example.
 | `not` | [boolean](#boolean) |
 | `notEquals` | [every type](#every-type) |
 | `notNil` | [every type](#every-type) |
-| `of` | [array](#array) |
+| `of` | [array](#array), [dictionary](#dictionary) |
 | `onError` | [block](#block) |
 | `or` | [boolean](#boolean) |
 | `parent` | [object](#object) |

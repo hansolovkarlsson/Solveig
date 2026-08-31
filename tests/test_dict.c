@@ -367,6 +367,93 @@ static void test_it_holds_anything_including_itself(void)
     printf("  a dictionary holds anything, itself included\n");
 }
 
+/* `dictionary:of` -- the inline constructor, and what `[...]` is to `array:of`.
+ *
+ * The pairing is the whole of what it can get wrong, so the odd count is
+ * checked here rather than left to read correctly. The growth path matters too:
+ * `of` reaches `sol_dict_put` the same way `atPut` does, so a table built in
+ * one call has to rebuild exactly as one filled a key at a time. */
+static void test_building_in_one_call(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "d := dictionary:of(\"a\", #1, \"b\", #2).\n"
+        "empty := dictionary:of.\n"
+        "last := dictionary:of(\"k\", #1, \"k\", #2).\n"
+        "mixed := dictionary:of(#1, \"int\", 'sym, \"symbol\", 2.5, \"float\").\n") == SOL_OK);
+
+    SolValue d = global(&vm, "d");
+    assert(SOL_IS_DICT(d) && SOL_AS_DICT(d)->count == 2);
+
+    SolValue out;
+    assert(sol_dict_get(SOL_AS_DICT(d), SOL_STRING_VAL(sol_string_new(&vm, "b", 1)), &out));
+    assert(SOL_IS_INT(out) && out.as.integer == 2);
+
+    /* No arguments is an empty dictionary, as it is an empty array. */
+    assert(SOL_AS_DICT(global(&vm, "empty"))->count == 0);
+
+    /* A repeated key takes the last value, as a repeated `atPut` does. */
+    SolValue last = global(&vm, "last");
+    assert(SOL_AS_DICT(last)->count == 1);
+    assert(sol_dict_get(SOL_AS_DICT(last), SOL_STRING_VAL(sol_string_new(&vm, "k", 1)), &out));
+    assert(SOL_IS_INT(out) && out.as.integer == 2);
+
+    /* Every key type the table accepts, in one call. */
+    assert(SOL_AS_DICT(global(&vm, "mixed"))->count == 3);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+}
+
+/* The two ways to hand it something it cannot use. Both are refused before a
+ * partial dictionary can escape. */
+static void test_what_of_refuses(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk, "dictionary:of(\"a\").\n") == SOL_RUNTIME_ERROR);
+    assert(strstr(vm.error_message.chars, "the odd one has no value") != NULL);
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+
+    sol_vm_init(&vm);
+    assert(run(&vm, &chunk, "dictionary:of(object:new, #1).\n") == SOL_RUNTIME_ERROR);
+    assert(strstr(vm.error_message.chars, "wants a value for a key") != NULL);
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+}
+
+/* Built in one call and then collected around: `of` takes no temporary root,
+ * on the grounds that nothing between the first key and the answer can collect.
+ * This is where that reasoning is held to. */
+static void test_of_survives_collection(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "kept := array:new.\n"
+        "#60:repeat({ kept:add(dictionary:of(\"a\", #1, \"b\", \"two\", \"c\", 'three)) }).\n") == SOL_OK);
+
+    sol_gc_collect(&vm);
+
+    SolValue kept = global(&vm, "kept");
+    assert(SOL_IS_ARRAY(kept) && SOL_AS_ARRAY(kept)->count == 60);
+    for (int i = 0; i < 60; i++) {
+        SolValue d = SOL_AS_ARRAY(kept)->items[i];
+        assert(SOL_IS_DICT(d) && SOL_AS_DICT(d)->count == 3);
+        SolValue out;
+        assert(sol_dict_get(SOL_AS_DICT(d), SOL_STRING_VAL(sol_string_new(&vm, "b", 1)), &out));
+        assert(is_text(out, "two"));
+    }
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+}
+
 int main(void)
 {
     test_binding_and_reading();
@@ -380,6 +467,9 @@ int main(void)
     test_walking_while_changing();
     test_identity_and_kind();
     test_it_holds_anything_including_itself();
+    test_building_in_one_call();
+    test_what_of_refuses();
+    test_of_survives_collection();
     printf("test_dict: ok\n");
     return 0;
 }

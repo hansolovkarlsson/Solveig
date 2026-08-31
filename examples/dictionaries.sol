@@ -7,6 +7,26 @@
 ages := dictionary:new.
 ages:size:print.                 ; #0
 
+; `of` builds one in a single expression, keys and values alternating. That is
+; all a literal would be: [#1, #2] is itself a spelling over `array:of` rather
+; than a form the compiler knows, so the two are the same distance from the
+; machine.
+sizes := dictionary:of("small", #1, "large", #9).
+sizes:size:print.                ; #2
+sizes:at("large"):print.         ; #9
+dictionary:of:size:print.        ; #0   -- no arguments, an empty one
+
+; **Which is what lets a dictionary be written where it is used.** A dictionary
+; could always be *passed*; what it could not be was built as an argument,
+; which took three statements and a name for a value wanted once.
+describe := { bag | "{} of them":fill([bag:at("count")]):display }.
+describe:value(dictionary:of("count", #7)).      ; 7 of them
+
+; A key must be a value, for the reason `at` gives below, and an odd number of
+; arguments is a missing value rather than a shorter dictionary:
+{ dictionary:of("small") }:onError({ e | e:message:display }).
+                                 ; 'of' takes a key and a value for each entry, and got 1 argument -- the odd one has no value to go with it
+
 ; atPut binds and answers the value stored, so it chains like an assignment.
 ages:atPut("ada", #36).
 ages:atPut("grace", #45).

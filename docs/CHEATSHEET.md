@@ -294,6 +294,7 @@ xs:add(#9):size:print.                      ; #4   -- add answers the array
 | `keys` `values` | an array, in **no order worth relying on** |
 | `do(block)` | the dictionary, block once per **value** |
 | `keysAndValuesDo(block)` | the same, block taking a key and a value |
+| `dictionary:of(...)` | key then value, alternating; an odd count is an error |
 
 ```
 d := dictionary:new.
@@ -302,6 +303,8 @@ d:at("port"):print.             ; #8080
 d:at("host", "any"):display.    ; any
 d:includes("port"):print.       ; true
 d:size:print.                   ; #1
+
+dictionary:of("port", #8080, "host", "any"):size:print.   ; #2
 ```
 
 ## block

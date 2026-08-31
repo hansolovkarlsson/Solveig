@@ -2767,6 +2767,47 @@ static SolValue prim_dict_new(SolVM *vm, SolValue self, SolValue *args, int argc
     return SOL_DICT_VAL(sol_dict_new(vm));
 }
 
+/* `dictionary:of("a", #1, "b", #2)` -- the inline form, and the thing a
+ * dictionary literal would be sugar for if one is ever wanted. `array:of` is
+ * the same shape and `[...]` compiles to it.
+ *
+ * Variadic like `array:of`, but not arity-free the way that one is: arguments
+ * pair up, so an odd count is a missing value rather than a shorter answer.
+ * That is the one mistake this can make and it is caught rather than rounded
+ * off -- an entry with no value is a typo every time.
+ *
+ * Repeating a key takes the last value, which is what repeating `atPut` does.
+ * No arguments is an empty dictionary, as no arguments to `array:of` is an
+ * empty array. */
+static SolValue prim_dict_of(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+
+    if (argc % 2 != 0) {
+        sol_vm_runtime_error(vm,
+            "'of' takes a key and a value for each entry, and got %d argument%s "
+            "-- the odd one has no value to go with it",
+            argc, argc == 1 ? "" : "s");
+        return SOL_NIL_VAL;
+    }
+
+    /* No temporary root, and that is checked rather than assumed. The
+       arguments are still on the value stack, so they are rooted; the new
+       dictionary is not, but nothing between here and the return can collect.
+       `sol_dict_put` grows with calloc and free rather than a heap allocation
+       -- object.c says so where it does it, "nothing can be collected in the
+       middle of the rebuild" -- and `key_from` only formats a message. A root
+       here would be two instructions guarding against nothing. */
+    SolDict *dict = sol_dict_new(vm);
+
+    for (int i = 0; i < argc; i += 2) {
+        if (!key_from(vm, "of", args[i])) return SOL_NIL_VAL;
+        sol_dict_put(vm, dict, args[i], args[i + 1]);
+    }
+
+    return SOL_DICT_VAL(dict);
+}
+
 static SolValue prim_dict_size(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     (void)args;
@@ -5844,6 +5885,7 @@ void sol_builtins_install(SolVM *vm)
 
     vm->dict_class = sol_object_new(vm, NULL);
     instance(vm, vm->dict_class, SOL_OBJ, "new", prim_dict_new);
+    instance(vm, vm->dict_class, SOL_OBJ, "of", prim_dict_of);
     instance(vm, vm->dict_class, SOL_DICT, "size", prim_dict_size);
     instance(vm, vm->dict_class, SOL_DICT, "at", prim_dict_at);
     instance(vm, vm->dict_class, SOL_DICT, "atPut", prim_dict_at_put);
