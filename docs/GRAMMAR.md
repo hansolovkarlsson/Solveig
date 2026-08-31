@@ -9,7 +9,10 @@ module      = { directive } { statement } .
 directive   = "@language" identifier "."
             | "@infix"  operator number identifier "."
             | "@infixr" operator number identifier "."
-            | "@prefix" operator identifier "." .
+            | "@prefix" operator identifier "."
+            | "@syntax" identifier [ parameters ] "=>" expression "." .
+
+parameters  = "(" [ identifier { "," identifier } ] ")" .
 
 statement   = include | expression [ "." ] .
 include     = "@include" string "." .
@@ -23,8 +26,11 @@ postfix     = primary { ":" identifier [ arguments ] } .
 arguments   = "(" [ expression { "," expression } ] ")" .
 
 primary     = integer | float | string | symbol
+            | form
             | identifier [ "(" expression ")" ]
             | group | array | block .
+
+form        = identifier [ "(" [ expression { "," expression } ] ")" ] .
 
 group       = "(" [ expression { "." expression } ] ")" .
 array       = "[" [ expression { "," expression } ] "]" .
@@ -35,9 +41,14 @@ temporaries = "|" identifier { "," identifier } "|" .
 body        = [ expression { "." expression } [ "." ] ] .
 ```
 
-**The hole is `infix` and `unary`.** Which spellings are operators, what they
-group into and how tightly, comes from the module's own directives. Everything
-else in this page is the same for every Phoenix file there will ever be.
+**The holes are `infix`, `unary` and `form`.** Which spellings are operators,
+what they group into and how tightly, and which names are forms, comes from the
+module's own directives. Everything else on this page is the same for every
+Phoenix file there will ever be.
+
+**`form` is tried before prefix application**, and only for a name the header
+has already declared. A name that is not a form is whatever Solveig says it is,
+so `f(x)` is `x:f` until some line above it says otherwise.
 
 **A statement separator is a `.` between two, optional after the last** — in a
 file, in a block and in a group alike. That is Solveig's rule and Phoenix does
@@ -69,6 +80,31 @@ dialect that wants `\/` for an `or` it cannot spell `|`.
 **Operator characters run together as far as they go.** `a<=b` is one operator
 `<=` and not `<` then `=`, which is what lets a dialect declare `<=` without `<`
 having to stop existing. `:=` is taken before any of this and is always itself.
+
+## What a form may reach
+
+**A form's template is read under the header as it stood at its own line.** It
+may use the operators declared above it and the forms declared above it, and it
+cannot see what comes after — inside the header as much as after it.
+
+That is not a restriction for tidiness. **It is why expansion terminates.**
+Expanding form N yields uses of forms below N, so the highest index strictly
+falls and no form can reach itself, however the declarations are arranged. There
+is no recursion to limit and no counter deciding when to give up.
+
+**A template may not bind a name that is already one of its parameters.**
+
+```
+@syntax f(t) => { | t | t:add(#1) }.
+```
+
+The `t` inside is two things at once — the argument the caller passed, and the
+block's own temporary — and no rule about which wins is a rule anybody should
+have to know. Refused at the declaration, where the author is.
+
+**Everything else a template binds is renamed at every expansion**, to a name
+nothing in the module uses. See *Hygiene* in the README for what that does and
+does not buy.
 
 ## What settles a block
 

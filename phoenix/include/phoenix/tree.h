@@ -46,6 +46,8 @@ typedef enum {
     PHX_NODE_ASSIGN,     /* [0] is the target (NAME or a nullary SEND),
                             [1] is the value                                */
     PHX_NODE_ARRAY,      /* [a, b, c]                                       */
+    PHX_NODE_MACRO,      /* a use of a declared form, before expansion:
+                            text is the name, children are the arguments   */
     PHX_NODE_INCLUDE,    /* @include "text.sol" -- Solveig's own directive,
                             carried through unread                          */
     PHX_NODE_BLOCK,      /* params, temps, and children as the body         */
@@ -74,6 +76,9 @@ struct PhxNode {
 };
 
 PhxNode *phx_node_new(PhxNodeKind kind, PhxSpan span);
+/* A deep copy, provenance and scope included. What a template is instantiated
+   from, and what an argument substituted twice is substituted from. */
+PhxNode *phx_node_copy(const PhxNode *node);
 PhxNode *phx_node_leaf(PhxNodeKind kind, PhxSpan span,
                        const char *text, int length);
 void phx_node_add(PhxNode *parent, PhxNode *child);

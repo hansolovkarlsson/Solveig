@@ -6,7 +6,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define PHOENIX_VERSION "0.1.0"
+#define PHOENIX_VERSION "0.2.0"
 
 /* The Solveig this speaks to, checked by the Makefile's `run` and `test`
  * targets and by nothing at build time.

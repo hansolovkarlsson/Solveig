@@ -202,6 +202,109 @@ static void directive_operator(Reader *reader, bool infix, PhxAssoc assoc)
     }
 }
 
+/* A template must not bind a name the form already gave a meaning to.
+ *
+ *     @syntax f(t) => { | t | t:add(#1) }.
+ *
+ * The `t` inside is two things at once -- the argument the caller passed, and
+ * the block's own temporary -- and no rule about which wins is a rule anybody
+ * should have to know. Refused at the declaration, where the author is, rather
+ * than at the use, where they are not. */
+static const char *shadowed_parameter(const PhxNode *node,
+                                      char **params, int param_count)
+{
+    for (int i = 0; i < node->param_count; i++)
+        for (int j = 0; j < param_count; j++)
+            if (strcmp(node->params[i], params[j]) == 0) return params[j];
+    for (int i = 0; i < node->temp_count; i++)
+        for (int j = 0; j < param_count; j++)
+            if (strcmp(node->temps[i], params[j]) == 0) return params[j];
+
+    for (int i = 0; i < node->count; i++) {
+        const char *found = shadowed_parameter(node->children[i],
+                                               params, param_count);
+        if (found != NULL) return found;
+    }
+    return NULL;
+}
+
+/* `@syntax unless(test, body) => test:not:ifTrue({ body }).`
+ *
+ * The template is read here, under the header as it stands at this line, so a
+ * form may use the operators and the forms declared above it and none of what
+ * comes after. */
+static void directive_syntax(Reader *reader)
+{
+    PhxToken directive = reader->previous;
+
+    if (!check(reader, PHX_TOK_NAME)) {
+        error_here(reader, "'@syntax' names the form it declares");
+        return;
+    }
+    PhxToken name = reader->current;
+    advance(reader);
+
+    char **params = NULL;
+    int param_count = 0;
+
+    if (match(reader, PHX_TOK_LPAREN)) {
+        if (!check(reader, PHX_TOK_RPAREN)) {
+            do {
+                if (!check(reader, PHX_TOK_NAME)) {
+                    error_here(reader, "a parameter of a form is a name");
+                    goto give_up;
+                }
+                params = phx_realloc(params,
+                                     (size_t)(param_count + 1) * sizeof *params);
+                params[param_count++] = phx_strndup(reader->current.start,
+                                                    (size_t)reader->current.length);
+                advance(reader);
+            } while (match(reader, PHX_TOK_COMMA));
+        }
+        if (!consume(reader, PHX_TOK_RPAREN, "')' after the parameters"))
+            goto give_up;
+    }
+
+    if (!check(reader, PHX_TOK_OPERATOR) ||
+        !token_is(&reader->current, "=>")) {
+        error_here(reader, "'@syntax %.*s' needs '=>' and then what it stands for",
+                   name.length, name.start);
+        goto give_up;
+    }
+    advance(reader);
+
+    PhxNode *template = expression(reader);
+    if (template == NULL) goto give_up;
+
+    const char *shadowed = shadowed_parameter(template, params, param_count);
+    if (shadowed != NULL) {
+        error_at(reader, phx_node_extent(template),
+                 "this template binds '%s', which is already a parameter of "
+                 "'%.*s'", shadowed, name.length, name.start);
+        phx_node_free(template);
+        goto give_up;
+    }
+
+    PhxSpan where = { directive.span.offset,
+                      (name.span.offset + name.span.length)
+                          - directive.span.offset };
+
+    const PhxMacro *clash = phx_dialect_add_macro(reader->dialect,
+                                                  name.start, name.length,
+                                                  params, param_count,
+                                                  template, where);
+    if (clash != NULL) {
+        error_at(reader, name.span,
+                 "'%s' has already been declared in this module", clash->name);
+        phx_note(reader->diag, clash->declared_at, "here");
+    }
+    return;
+
+give_up:
+    for (int i = 0; i < param_count; i++) free(params[i]);
+    free(params);
+}
+
 /* Answers false at the first token that is not a header directive. */
 static bool header_directive(Reader *reader)
 {
@@ -234,12 +337,15 @@ static bool header_directive(Reader *reader)
         directive_operator(reader, true, PHX_ASSOC_RIGHT);
     } else if (token_is(&directive, "@prefix")) {
         directive_operator(reader, false, PHX_ASSOC_LEFT);
+    } else if (token_is(&directive, "@syntax")) {
+        directive_syntax(reader);
     } else {
         error_at(reader, directive.span,
                  "'%.*s' is not a directive Phoenix knows",
                  directive.length, directive.start);
         phx_note(reader->diag, directive.span,
-                 "the header takes @language, @infix, @infixr and @prefix");
+                 "the header takes @language, @infix, @infixr, @prefix "
+                 "and @syntax");
     }
 
     if (!reader->panicked) consume(reader, PHX_TOK_DOT, "'.' after a directive");
@@ -282,6 +388,56 @@ static bool looks_like_names_then_bar(Reader *reader)
     return matched;
 }
 
+/* A use of a declared form. The arity is known here, so it is checked here --
+   at the call, with the declaration pointed at, rather than during expansion
+   where neither is in front of the reader. */
+static PhxNode *macro_use(Reader *reader, PhxToken name, const PhxMacro *macro)
+{
+    PhxNode *node = phx_node_leaf(PHX_NODE_MACRO, name.span,
+                                  name.start, name.length);
+
+    if (macro->param_count == 0) {
+        if (check(reader, PHX_TOK_LPAREN)) {
+            error_here(reader, "'%s' takes no arguments", macro->name);
+            phx_note(reader->diag, macro->declared_at, "declared here");
+            phx_node_free(node);
+            return NULL;
+        }
+        return node;
+    }
+
+    if (!consume(reader, PHX_TOK_LPAREN, "'(' and the arguments")) {
+        phx_note(reader->diag, macro->declared_at, "'%s' is declared here",
+                 macro->name);
+        phx_node_free(node);
+        return NULL;
+    }
+
+    if (!check(reader, PHX_TOK_RPAREN)) {
+        do {
+            PhxNode *argument = expression(reader);
+            if (argument == NULL) { phx_node_free(node); return NULL; }
+            phx_node_add(node, argument);
+        } while (match(reader, PHX_TOK_COMMA));
+    }
+    if (!consume(reader, PHX_TOK_RPAREN, "')' after the arguments")) {
+        phx_node_free(node);
+        return NULL;
+    }
+
+    if (node->count != macro->param_count) {
+        error_at(reader, phx_node_extent(node),
+                 "'%s' takes %d argument%s, and %d %s given",
+                 macro->name, macro->param_count,
+                 macro->param_count == 1 ? "" : "s",
+                 node->count, node->count == 1 ? "was" : "were");
+        phx_note(reader->diag, macro->declared_at, "declared here");
+        phx_node_free(node);
+        return NULL;
+    }
+    return node;
+}
+
 static PhxNode *primary(Reader *reader)
 {
     PhxToken token = reader->current;
@@ -308,7 +464,13 @@ static PhxNode *primary(Reader *reader)
                                  token.start + 1, token.length - 1);
 
         case PHX_TOK_NAME: {
+            /* A declared form wins over everything else a name could be, which
+               is the module's own decision: it wrote the declaration. */
+            const PhxMacro *macro = phx_dialect_macro(reader->dialect,
+                                                      token.start, token.length);
             advance(reader);
+            if (macro != NULL) return macro_use(reader, token, macro);
+
             /* `f(x)` is `x:f` -- prefix application is a send to its argument,
                which is Solveig's rule and not a second one. */
             if (check(reader, PHX_TOK_LPAREN)) {

@@ -109,10 +109,11 @@ stack trace actually is.
 
 | | |
 | --- | --- |
-| `@language <name>.` | What dialect this module is written in. Recorded and not yet acted on: 0.1.0 has one reader. |
+| `@language <name>.` | What dialect this module is written in. Recorded and not yet acted on: there is one reader. |
 | `@infix <op> <precedence> <message>.` | An infix operator, grouping to the left. Higher precedence binds tighter. |
 | `@infixr <op> <precedence> <message>.` | The same, grouping to the right. |
 | `@prefix <op> <message>.` | A prefix operator. Binds tighter than any infix and looser than a send. |
+| `@syntax <name>(<params>) => <template>.` | A form. Its arguments arrive unevaluated, so the template may put them somewhere the caller never wrote. |
 
 An operator is written out of `+ - * / < > = ! & ^ % ~ ? \` , run together as far
 as they go — so a dialect can declare `<=` without `<` having to stop existing.
@@ -140,33 +141,134 @@ every dialect secretly the same dialect.
 A directive further down is the mistake worth naming precisely, because the file
 looks right and the operator simply did not exist for the statements above it.
 
-## Why operators, and only operators, in 0.1.0
+## Forms
+
+**A form is not a method, and the difference is why it exists: its arguments
+arrive unevaluated.**
+
+```
+@syntax unless(test, body) => test:not:ifTrue({ body }).
+
+unless(x > #5, "small":print).
+```
+
+becomes
+
+```
+x:greaterThan(#5):not:ifTrue({ "small":print }).
+```
+
+The block around `"small":print` is the template's doing. Written as a method,
+`unless` would need braces at every call and every call would be a chance to
+forget one. That is the whole of what a form buys, and it is not a small thing:
+`while`, in `examples/forms.phx`, is four words of declaration and turns two
+sets of braces per loop into none.
+
+**A template is read under the header as it stood at its own line.** It may use
+the operators and the forms declared above it and nothing after. That is not
+tidiness — **it is why expansion terminates.** Expanding form N yields uses of
+forms below N, the highest index strictly falls, and no form can reach itself
+however the declarations are arranged. There is no recursion to limit.
+
+## Hygiene
+
+**A name a template binds cannot capture a name its caller passed it.**
+
+```
+@syntax swap(a, b) => { | t | t := a. a := b. b := t }:value.
+
+t := #1.
+u := #2.
+swap(t, u).
+```
+
+becomes
+
+```
+{ | t__1 |
+    t__1 := t.
+    t := u.
+    u := t__1 }:value.
+```
+
+Without the rename this compiles, runs, and leaves both variables where they
+started — `t := a` writes over the caller's `t` before `a := b` can read it. So
+`examples/forms.phx` demonstrates it by printing the two values rather than by
+asserting anything: the wrong compiler produces a running program with the wrong
+answer, which is exactly the failure hygiene exists to prevent.
+
+**A generated name avoids every identifier in the module**, collected by lexing
+the source rather than by walking the tree. A caller who already has a `t__1`
+gets `t__2`, and two expansions of one form never agree by accident. After
+expansion no identifier exists that was not either in that set or generated
+against it, which is what makes *fresh* mean fresh rather than probably fresh.
+
+**What this does not yet buy.** A template's *free* references are not protected:
+if a template mentions `error` and the use site has a local called `error`, the
+template gets the local. That is referential transparency, it needs full scope
+sets and name resolution, and `scope` is on every node so that the day it
+arrives it is a change to the expander. Today `scope` holds one scope per
+expansion, which is what the renaming needs and no more.
+
+## When a form goes wrong
+
+The characteristic failure of a macro system is an error about code nobody
+wrote. Every node an expansion produces records the use that produced it, and a
+diagnostic walks the chain:
+
+```
+outer.phx:5:7: error: this cannot be assigned to
+ 5 | outer(#5).
+   |       ^^
+outer.phx:3:21: note: in the expansion of 'bad', written here
+ 3 | @syntax outer(x) => bad(x).
+   |                     ^^^
+outer.phx:5:1: note: in the expansion of 'outer', written here
+ 5 | outer(#5).
+   | ^^^^^
+```
+
+**The caret is on the argument, because that is what the reader is looking at.**
+The trail comes off the assignment, because the argument is the caller's own
+code and knows nothing about how it got there — it is the template that put it
+in a place a place has to be.
+
+## Why operators came first
 
 Because a precedence table composes and a grammar rule does not. **Adding an
 operator cannot change what an expression that does not use it already meant.**
 Adding a production can, silently, and two libraries that each add one can
-collide in a way neither author can see. That is the open question at the bottom
-of this page, and statement forms wait behind it.
+collide in a way neither author can see — which is the open question at the
+bottom of this page.
+
+A form sidesteps that for now by being call-shaped: `name(args)` is a shape the
+core grammar already had, so declaring one adds a meaning without adding a
+production. Richer surface patterns — a form that reads as `unless x then y` —
+are the thing that needs the collision question answered first.
 
 Solveig already has the fixed version of this. `@expr(a^2 + b/2)` opens a region
 where a hard-coded ladder runs from `|` to `^`, and everything in it is the same
 sends written another way. Phoenix is that ladder handed to the module.
 
-## Three fields that carry nothing yet
+## Three fields, and what each carries now
 
-Every node in `phoenix/include/phoenix/tree.h` has them, and two of them are read
-by nothing in 0.1.0. They are there because each is impossible to add later
+Every node in `phoenix/include/phoenix/tree.h` has them. Two were read by nothing
+in 0.1.0 and are read by the expander in 0.2.0, which is what they were put there
+for. They are there because each is impossible to add later
 without touching every constructor and every rewrite in the compiler.
 
 | | |
 | --- | --- |
 | `span` | Where in the **surface text** this came from. Read by every diagnostic and by the map. |
-| `introduced_by` | For a node an expansion produced, the form that produced it — so an error can say *in the expansion of `unless`, from here* rather than pointing at code nobody has read. Always `NULL` today, because nothing expands yet. |
-| `scope` | The hygiene anchor. [Binding as sets of scopes](https://users.cs.utah.edu/plt/scope-sets/) (Flatt, 2016) is the intended answer, and a set is what this becomes — an index into a scope table rather than the bare `0` it holds today. |
+| `introduced_by` | For a node an expansion produced, the use that produced it. Walked by `phx_note_expansion` to print the trail above. |
+| `scope` | The hygiene anchor: one scope per expansion, stamped on everything a template produced, `0` for what a person wrote. [Binding as sets of scopes](https://users.cs.utah.edu/plt/scope-sets/) (Flatt, 2016) is where this goes — a set rather than a number — when free references need protecting too. |
 
-A tree without them is a tree that has to be rebuilt to get them. **Hygiene in
-particular cannot be retrofitted**, which is the lesson every macro system that
-tried has to teach.
+A tree without them is a tree that has to be rebuilt to get them, and the
+expander was written in one sitting rather than three because it did not have to
+be. **Hygiene in particular cannot be retrofitted**, which is the lesson every
+macro system that tried has to teach — a system that expands without it grows
+programs that depend on the capture, and those programs are what make it
+impossible to add.
 
 ## Building
 
@@ -190,12 +292,13 @@ text can be wrong in a way no unit test sees: Solveig-looking source that
 Solveig rejects, or accepts and reads differently. The only witness to that is
 the real compiler, so `make test` runs both examples all the way down to SolVM.
 
-## The two examples
+## The three examples
 
 | | |
 | --- | --- |
 | [`examples/vectors.phx`](examples/vectors.phx) | precedence, associativity, a prefix operator, and where a send binds against all of them |
 | [`examples/utf8.phx`](examples/utf8.phx) | `integer:asUtf8` out of Solveig's own `lib/text.sol`, written in operators |
+| [`examples/forms.phx`](examples/forms.phx) | `unless`, `while` and `swap` declared by the module, and hygiene demonstrated by running rather than by assertion |
 
 The second one is the argument, and it is Solveig's argument rather than this
 project's. The note at the top of `lib/text.sol` says the encoder was first
@@ -216,13 +319,16 @@ integer:utf8Tail := { at |
     (#128:bitOr(self:shiftRight(at):bitAnd(#63))):asCharacter }.
 ```
 
-## What 0.1.0 is not
+## What 0.2.0 is not
 
-**It is a front end, not yet a meta-language.** There are no macros, no
-user-defined statement forms, and no expander — so nothing yet introduces a node,
-which is why `introduced_by` is always `NULL` and `scope` is always `0`. What
-exists is the substrate those need: a tree that can carry them, a map that can
-find them, and diagnostics that report where somebody was looking.
+**A form is call-shaped.** `unless(test, body)` and not `unless test then body`.
+The surface a form presents is the next thing to grow, and it waits behind the
+collision question below.
+
+**Hygiene is one scope per expansion**, not scope sets. It stops a template's
+binders capturing a caller's names, in both directions between two expansions of
+the same form. It does not give a template referential transparency over its free
+names — see *Hygiene* above.
 
 Known gaps, each for a reason rather than for lack of time:
 
@@ -231,6 +337,7 @@ Known gaps, each for a reason rather than for lack of time:
 | Dictionary literals | `#[a = b]` separates a pair with `=`, and `=` is a character a dialect may declare. That needs a decision, not a default. `dictionary:new` works. |
 | Temporaries in a group | `( \| t \| ... )` is Solveig's; Phoenix reads `( expr. expr )` and no temporaries. |
 | `@expr` | Deliberately absent. It is the fixed form of what `@infix` generalises, and having both would be having two. |
+| A form that reads as a statement | `unless(a, b)` and not `unless a then b`. Needs a pattern language, and needs the collision question answered before it is worth having one. |
 | Long send chains | A block that will not fit is broken across lines; a chain of sends that will not fit is not, yet. |
 
 ## The open question

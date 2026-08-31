@@ -17,6 +17,8 @@ void phx_dialect_init(PhxDialect *dialect)
     dialect->infix_count = dialect->infix_capacity = 0;
     dialect->prefix = NULL;
     dialect->prefix_count = dialect->prefix_capacity = 0;
+    dialect->macro = NULL;
+    dialect->macro_count = dialect->macro_capacity = 0;
 }
 
 void phx_dialect_free(PhxDialect *dialect)
@@ -29,6 +31,14 @@ void phx_dialect_free(PhxDialect *dialect)
         free(dialect->prefix[i].spelling);
         free(dialect->prefix[i].selector);
     }
+    for (int i = 0; i < dialect->macro_count; i++) {
+        for (int j = 0; j < dialect->macro[i].param_count; j++)
+            free(dialect->macro[i].params[j]);
+        free(dialect->macro[i].params);
+        free(dialect->macro[i].name);
+        phx_node_free(dialect->macro[i].template);
+    }
+    free(dialect->macro);
     free(dialect->infix);
     free(dialect->prefix);
     free(dialect->name);
@@ -102,6 +112,47 @@ const PhxPrefix *phx_dialect_add_prefix(PhxDialect *dialect,
     PhxPrefix *entry = &dialect->prefix[dialect->prefix_count++];
     entry->spelling = phx_strndup(spelling, (size_t)length);
     entry->selector = phx_strndup(selector, (size_t)selector_length);
+    entry->declared_at = declared_at;
+    return NULL;
+}
+
+const PhxMacro *phx_dialect_macro(const PhxDialect *dialect,
+                                  const char *name, int length)
+{
+    for (int i = dialect->macro_count - 1; i >= 0; i--)
+        if (same(dialect->macro[i].name, name, length))
+            return &dialect->macro[i];
+    return NULL;
+}
+
+const PhxMacro *phx_dialect_add_macro(PhxDialect *dialect,
+                                      const char *name, int length,
+                                      char **params, int param_count,
+                                      PhxNode *template, PhxSpan declared_at)
+{
+    const PhxMacro *existing = phx_dialect_macro(dialect, name, length);
+    if (existing != NULL) {
+        /* The caller built a template it no longer owns a use for. Freed here
+           rather than there, so that every path out of the parser leaves the
+           same thing standing. */
+        for (int i = 0; i < param_count; i++) free(params[i]);
+        free(params);
+        phx_node_free(template);
+        return existing;
+    }
+
+    if (dialect->macro_count == dialect->macro_capacity) {
+        dialect->macro_capacity = dialect->macro_capacity < 8
+                                ? 8 : dialect->macro_capacity * 2;
+        dialect->macro = phx_realloc(dialect->macro,
+                                     (size_t)dialect->macro_capacity * sizeof *dialect->macro);
+    }
+
+    PhxMacro *entry = &dialect->macro[dialect->macro_count++];
+    entry->name = phx_strndup(name, (size_t)length);
+    entry->params = params;
+    entry->param_count = param_count;
+    entry->template = template;
     entry->declared_at = declared_at;
     return NULL;
 }

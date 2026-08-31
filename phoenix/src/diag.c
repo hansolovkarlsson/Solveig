@@ -79,3 +79,11 @@ void phx_note(PhxDiagnostics *diag, PhxSpan span, const char *format, ...)
     report(diag, "note", span, format, args);
     va_end(args);
 }
+
+void phx_note_expansion(PhxDiagnostics *diag, const PhxNode *node)
+{
+    for (const PhxNode *use = node->introduced_by; use != NULL;
+         use = use->introduced_by)
+        phx_note(diag, use->span, "in the expansion of '%s', written here",
+                 use->text != NULL ? use->text : "a form");
+}

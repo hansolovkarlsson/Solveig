@@ -3,6 +3,32 @@
 What 0.1.0 established, in the order the rest depends on it. Each entry says
 what would have to be true before the next one is worth starting.
 
+## Done — 0.2.0, the expander
+
+**Forms a module declares for itself.** `@syntax name(params) => template.`
+Call-shaped, because `name(args)` is a shape the core grammar already had, so
+declaring one adds a meaning without adding a production.
+
+**Hygiene, in the same commit rather than after it.** Every name a template
+binds is renamed at every expansion, to one nothing in the module uses -- the
+set is collected by lexing the source, so *fresh* means fresh rather than
+probably fresh. Demonstrated in `examples/forms.phx` by a program that prints
+the wrong answer if the renaming is removed, which is what the failure actually
+looks like.
+
+**Expansion trails.** `introduced_by` on every node an expansion produced, and
+`phx_note_expansion` walking the chain. The case worth having it for is the one
+only the template and the use together can be wrong about -- a parameter
+substituted into a place that has to be a place.
+
+**Expansion terminates without a limit.** A template is read under the header as
+it stood at its own line, so form N can mention only forms below N and the
+highest index strictly falls. A property of the header reading top to bottom
+rather than a counter.
+
+What is *not* here: a form that reads as a statement rather than a call, and
+referential transparency for a template's free names. Both are below.
+
 ## Done — 0.1.0
 
 **A tree of Phoenix's own.** Solas has none: `sol_compile` runs the parser into
@@ -88,3 +114,4 @@ generalises. Supporting both would be supporting two.
 | Dictionary literals | `#[a = b]` separates a pair with `=`, which a dialect may declare. Needs a decision rather than a default. |
 | Temporaries in a group | `( \| t \| … )` is Solveig's; Phoenix reads `( expr. expr )`. |
 | The map is written only with `--map` | The Makefile always passes it. The default should probably change. |
+| A generated name is `t__1` | Legible, and it collides with nothing because the whole module's identifiers are checked. It is still a name a person could have wanted. |

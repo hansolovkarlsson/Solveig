@@ -29,6 +29,23 @@ PhxNode *phx_node_leaf(PhxNodeKind kind, PhxSpan span,
     return node;
 }
 
+PhxNode *phx_node_copy(const PhxNode *node)
+{
+    PhxNode *copy = phx_node_new(node->kind, node->span);
+    copy->introduced_by = node->introduced_by;
+    copy->scope = node->scope;
+    if (node->text != NULL)
+        copy->text = phx_strndup(node->text, strlen(node->text));
+
+    for (int i = 0; i < node->count; i++)
+        phx_node_add(copy, phx_node_copy(node->children[i]));
+    for (int i = 0; i < node->param_count; i++)
+        phx_node_add_param(copy, node->params[i], (int)strlen(node->params[i]));
+    for (int i = 0; i < node->temp_count; i++)
+        phx_node_add_temp(copy, node->temps[i], (int)strlen(node->temps[i]));
+    return copy;
+}
+
 void phx_node_add(PhxNode *parent, PhxNode *child)
 {
     if (parent->count == parent->capacity) {
@@ -98,6 +115,7 @@ const char *phx_node_kind_name(PhxNodeKind kind)
         case PHX_NODE_SEND:     return "send";
         case PHX_NODE_ASSIGN:   return "assign";
         case PHX_NODE_ARRAY:    return "array";
+        case PHX_NODE_MACRO:    return "macro";
         case PHX_NODE_INCLUDE:  return "include";
         case PHX_NODE_BLOCK:    return "block";
         case PHX_NODE_SEQUENCE: return "sequence";
@@ -116,7 +134,9 @@ void phx_node_dump(const PhxNode *node, FILE *out, int depth)
         fprintf(out, " temp:%s", node->temps[i]);
 
     fprintf(out, " @%u+%u", node->span.offset, node->span.length);
-    if (node->introduced_by != NULL) fprintf(out, " introduced");
+    if (node->scope != 0) fprintf(out, " scope:%u", node->scope);
+    if (node->introduced_by != NULL)
+        fprintf(out, " from:%s", node->introduced_by->text);
     fputc('\n', out);
 
     for (int i = 0; i < node->count; i++)

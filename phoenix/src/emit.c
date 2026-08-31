@@ -243,6 +243,16 @@ static void emit_node(PhxEmitter *emitter, const PhxNode *node)
             emit_block(emitter, node);
             break;
 
+        case PHX_NODE_MACRO:
+            /* Unreachable: the expander replaces every one of these, and a
+               module it could not is never emitted. Written out rather than
+               left to `default:`, so that a new node kind is a warning here
+               instead of silence. */
+            write(emitter, "<unexpanded ");
+            write(emitter, node->text);
+            write(emitter, ">");
+            break;
+
         case PHX_NODE_SEQUENCE:
             /* A group. The module's own sequence never reaches here -- phx_emit
                writes that one, because its statements each end in '.' and a

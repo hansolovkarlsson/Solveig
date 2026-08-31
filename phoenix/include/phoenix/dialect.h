@@ -7,15 +7,16 @@
  * anything, and two files in one program may be written in different dialects
  * without either of them knowing.
  *
- * 0.1.0 declares operators and nothing else. Operators are the extension point
- * to start with because a precedence table composes -- adding one cannot change
- * what an expression without it already meant -- while a general grammar rule
- * can, silently. Statement forms and macros come next, and they come with a
- * hygiene story or they do not come at all. */
+ * Operators came first because a precedence table composes: adding one cannot
+ * change what an expression without it already meant. Forms came second, with
+ * hygiene in the same commit rather than after it -- a system that expands
+ * without hygiene grows programs that depend on the capture, and those programs
+ * are what make hygiene impossible to add later. */
 #ifndef PHOENIX_DIALECT_H
 #define PHOENIX_DIALECT_H
 
 #include "phoenix/source.h"
+#include "phoenix/tree.h"
 
 typedef enum { PHX_ASSOC_LEFT, PHX_ASSOC_RIGHT } PhxAssoc;
 
@@ -33,6 +34,20 @@ typedef struct {
     PhxSpan declared_at;
 } PhxPrefix;
 
+/* A form the module declared:  @syntax unless(test, body) => ... .
+ *
+ * The template is a tree, parsed under the header as it stood where the
+ * declaration appeared -- so a form may use the operators above it and the
+ * forms above it, and may not use what comes after. A header that reads
+ * top to bottom is a header a person can read the same way. */
+typedef struct {
+    char *name;
+    char **params;
+    int param_count;
+    PhxNode *template;      /* owned */
+    PhxSpan declared_at;
+} PhxMacro;
+
 typedef struct {
     char *name;             /* what @language named; NULL if unstated    */
     PhxSpan declared_at;
@@ -42,6 +57,9 @@ typedef struct {
 
     PhxPrefix *prefix;
     int prefix_count, prefix_capacity;
+
+    PhxMacro *macro;
+    int macro_count, macro_capacity;
 } PhxDialect;
 
 void phx_dialect_init(PhxDialect *dialect);
@@ -67,5 +85,15 @@ const PhxPrefix *phx_dialect_add_prefix(PhxDialect *dialect,
                                         const char *spelling, int length,
                                         const char *selector, int selector_length,
                                         PhxSpan declared_at);
+
+const PhxMacro *phx_dialect_macro(const PhxDialect *dialect,
+                                  const char *name, int length);
+
+/* Takes the template. Answers the earlier declaration on a collision, in which
+   case the template is freed and nothing is added. */
+const PhxMacro *phx_dialect_add_macro(PhxDialect *dialect,
+                                      const char *name, int length,
+                                      char **params, int param_count,
+                                      PhxNode *template, PhxSpan declared_at);
 
 #endif /* PHOENIX_DIALECT_H */

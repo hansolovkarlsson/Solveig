@@ -11,6 +11,7 @@
 #include "phoenix/common.h"
 #include "phoenix/diag.h"
 #include "phoenix/emit.h"
+#include "phoenix/expand.h"
 #include "phoenix/reader.h"
 
 #define NAME "phoenix"
@@ -31,7 +32,7 @@ static void usage(FILE *out)
         "  -o <file>    where to write it; the default is the source name with\n"
         "               .sol in place of .phx\n"
         "  --map        write the source map beside the output, as <output>.map\n"
-        "  --tree       print the tree and stop, writing nothing\n"
+        "  --tree       print the expanded tree and stop, writing nothing\n"
         "  --version    show the version and stop\n"
         "  --help, -h   show this and stop\n"
         "\n"
@@ -111,10 +112,21 @@ int main(int argc, char *argv[])
     PhxDialect dialect;
     phx_dialect_init(&dialect);
 
+    PhxProvenance provenance;
+    phx_provenance_init(&provenance);
+
     PhxNode *module = phx_read(&source, &dialect, &diag);
+    if (module != NULL &&
+        !phx_expand(module, &source, &dialect, &diag, &provenance)) {
+        phx_node_free(module);
+        module = NULL;
+    }
+
     if (module == NULL) {
         fprintf(stderr, NAME ": %s -- %d error%s\n",
                 path, diag.errors, diag.errors == 1 ? "" : "s");
+        /* After the last diagnostic, because a diagnostic walks it. */
+        phx_provenance_free(&provenance);
         phx_dialect_free(&dialect);
         phx_source_free(&source);
         return 65;
@@ -123,6 +135,7 @@ int main(int argc, char *argv[])
     if (want_tree) {
         phx_node_dump(module, stdout, 0);
         phx_node_free(module);
+        phx_provenance_free(&provenance);
         phx_dialect_free(&dialect);
         phx_source_free(&source);
         return 0;
@@ -151,6 +164,7 @@ int main(int argc, char *argv[])
     phx_emitter_free(&emitter);
     free(chosen);
     phx_node_free(module);
+    phx_provenance_free(&provenance);
     phx_dialect_free(&dialect);
     phx_source_free(&source);
     return status;
