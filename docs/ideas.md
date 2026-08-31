@@ -21,7 +21,7 @@ marked as a sketch.
 | --- | --- |
 | `do` is `forEach`? | **Yes** — and `collect` is map, `select` is filter |
 | Bytecode / assembly reference | **Built** — [BYTECODE.md](BYTECODE.md), checked against the header by the test suite |
-| `startsWith` / `endsWith` | **Defer** — [one customer](#startswith-and-endswith), and `indexOf(x):equals(#1)` is exact rather than approximate |
+| `startsWith` / `endsWith` | **Trigger fired on 2026-08-30** — [three programs, nine call sites, two independent `endsWith`s](#the-trigger-fired-and-the-paragraph-above-is-wrong-about-the-cost), a defect already caused, and the entry's *nothing is slower* was wrong by 2000× on a non-match. Build them in `lib/text.sol` |
 | What a string is — bytes or code points | **Defer, and toward bytes with a contract** — [the editor asked first](#what-a-string-is--bytes-code-points-or-bytes-with-a-contract), and was corrupting a file on `$x`. **Fixed on 2026-08-30 in the editor**, which is the argument against making `size` count characters — though [the estimate here was wrong](#and-the-editor-was-fixed-which-cost-more-than-this-entry-said): nine lines became seventeen definitions. A [`text` type with a `!"..."` literal](#a-text-type-beside-string-with-a-prefixed-literal-to-make-one) was asked and answered in the same entry — right instincts, wrong end of the pipe |
 | `!character` literals, Unicode | **Defer** — gated on deciding what a string is, and [that entry recommends settling it against](#what-a-string-is--bytes-code-points-or-bytes-with-a-contract): the character type Unicode would want here is the one-character string the language already has |
 | A truncating divide on integer | **Defer** — one customer, and its workaround is exact rather than approximate |
@@ -766,13 +766,11 @@ which reads a one-line protocol and wanted to ask whether a request began with
 `"add "`. There is no `startsWith`, and the message it wrote instead is
 `text:indexOf("add "):equals(#1)`.
 
-**Defer — one customer, and the workaround is exact rather than approximate**,
-which is the same verdict and the same reason as
-[a truncating divide](#a-truncating-divide-on-integer). `indexOf` answering `#1`
-*is* what starting with something means, so nothing is being approximated and
-nothing is slower: `indexOf` stops at the first match either way. What a
-`startsWith` would buy is that the sentence reads as the question, and that a
-reader does not have to know that `#1` is the answer meaning *at the front*.
+**Deferred on 2026-08-29 — one customer, and the workaround is exact rather than
+approximate.** `indexOf` answering `#1` *is* what starting with something means,
+so nothing is being approximated and, it said, nothing is slower: *`indexOf`
+stops at the first match either way.* What a `startsWith` would buy is that the
+sentence reads as the question.
 
 `endsWith` would come with it, and is the half with an actual argument: it is
 `copyFrom` and a `size` subtraction today, which is three sends and an
@@ -781,6 +779,72 @@ off-by-one waiting to happen.
 **The trigger is a second program**, as it was for `replace` — which waited for
 the editor's port to want it three times in one line, and was built the day it
 did.
+
+#### The trigger fired, and the paragraph above is wrong about the cost
+
+**Counted on 2026-08-30.** Three programs, nine call sites, and **two
+independent implementations of `endsWith`**:
+
+| where | what it wrote |
+| --- | --- |
+| [server.sol](../extensions/net/server.sol) | `text:indexOf("add "):equals(#1)`, with a comment saying there is no `startsWith` — the original customer |
+| [expect.sol](../programs/expect.sol) | six `indexOf(...):equals(#1)` tests, **and its own `string:endsWith` method** |
+| [plugins.sol](../examples/plugins.sol) | one of each, with `endsWith` written again as a local block |
+
+**And the absence has already cost a defect**, which is more than a trigger.
+expect.sol's own note records it: matching `.md` anywhere rather than at the end
+*"called both of them files to check, and would have handed `a.md.sol` to the
+markdown checker. Nothing in the tree is named that way today, which is exactly
+how it went unnoticed."* That is the gap producing a bug, found by reading rather
+than by failing.
+
+**The claim that nothing is slower is false, and by three orders of magnitude.**
+`indexOf` does stop at the first match — but when there is *no* match it has
+scanned the whole string, and *no match* is exactly the case a prefix test is
+written to detect. On a 128 KB string that does not contain the needle, 2000
+repetitions each:
+
+| | per call |
+| --- | --- |
+| `big:indexOf("add "):equals(#1)` | **308 µs** |
+| `big:copyFrom(#1, #4):equals("add ")` | **150 ns** |
+
+A prefix test is O(needle); the workaround is O(haystack). The entry compared
+them on the matching case and generalised from it.
+
+**It is also on network input.** server.sol's test runs on a UDP payload, and
+[net.c](../extensions/net/net.c) receives into a 65536-byte buffer — so a
+maximum-size datagram from a stranger buys a full scan for a question that should
+read four bytes. Bounded, and a thousandfold.
+
+#### Where they go, and why the first step is already taken
+
+[text.sol](../lib/text.sol) is the precedent and says so itself: *a method on a
+built-in class needs no name of its own, which is what control.sol does with its
+loops, and it is the better answer whenever the thing being added is behaviour on
+a value.* `string:startsWith` and `string:endsWith` belong there, and expect.sol
+has **already written the second one in exactly that shape** — so the method
+[the collections entry](#a-set-and-the-collections-that-are-not-there)
+prescribes, *write it in Solum, use it, and measure before promoting it*, is a
+step further along than it looks. Two programs wrote it; a third would be copying
+rather than deciding.
+
+A Solum `startsWith` is `copyFrom` and `equals`, which allocates a substring to
+throw away but is **already the right complexity** — the win over `indexOf` is
+the asymptote, not the allocation. Whether it then earns a primitive is the
+measurement that comes after the library, not before it.
+
+**Verdict: build them, in `lib/text.sol`, in Solum.** `startsWith` retires nine
+call sites and one performance cliff; `endsWith` retires two copies of itself and
+the bug that wrote one of them.
+
+**`string:first` and `string:last` do not come with them.** The dominant idiom in
+the tree is a different function: `copyFrom(#1, size:sub(n))` — *all but the last
+n* — in shell.sol, basic.sol, edit.sol, serve.sol and expect.sol. `last(#n)` is
+what both `endsWith` implementations use inside themselves, so it would follow
+from the library rather than lead it, and *all but the last* has never been
+named at all. Left where it is until the library above exists and says which of
+the two it wanted.
 
 ### What a string is — bytes, code points, or bytes with a contract
 
@@ -1543,10 +1607,13 @@ principle that a value's reading should not depend on inference. An index that i
 sometimes from the front and sometimes from the back is that same trade taken the
 other way, and `at(#-1)` on an empty array would have to mean something.
 
-**`string:first` and `string:last` are the useful half and go with `endsWith`**,
-which already has one customer and wants a second. Three deferred entries now
-name the same missing pair; if a third program asks, they should be built
-together rather than one at a time.
+**`string:first` and `string:last` looked like the useful half and are not.**
+Counting the tree on the same day found the dominant idiom is *all but the last
+n* rather than *the last n*, and that what actually wants building is
+[`startsWith` and `endsWith`](#the-trigger-fired-and-the-paragraph-above-is-wrong-about-the-cost),
+whose trigger had already fired three times over. `last(#n)` is what an
+`endsWith` uses inside itself, so it follows that library rather than leading
+it.
 
 ### Namespaces for included files
 
