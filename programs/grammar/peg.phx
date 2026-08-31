@@ -29,16 +29,34 @@
 ; than a bare word. A template cannot build a selector out of a hole -- there
 ; is no way to turn `<n>` into `rules:<n>` -- so the table takes the name as a
 ; value. Predicted, and it is the same answer for the same reason.
-@syntax rule <n> is <b: block>           => rules:atPut(n, b).
-@syntax apply <n>                        => rules:at(n):value.
+; A declaration, which reads as a step, and whose trailing hole is a block --
+; delimited, so nothing after it can be absorbed. The pattern shape is right
+; here and it is the only place in this file where it is.
+@syntax rule <n> is <b: block>  => rules:atPut(n, b).
 
-; What a cursor is asked at a position.
-@syntax at <s>                           => src:looksLike(s).
-@syntax eat <s>                          => src:match(s).
-@syntax next                             => src:next.
-@syntax done                             => src:atEnd.
-@syntax skip <cls>                       => src:skipWhile({ c | cls:indexOf(c):notNil }).
-@syntax take <cls>                       => src:takeWhile({ c | cls:indexOf(c):notNil }).
+; Everything else answers a value that gets used, so everything else is a call.
+;
+; The first draft wrote these as patterns -- `at "+"`, `skip blank` -- and both
+; grammars filled up with parentheses to stop them eating what came next:
+; `at "*" \/ at "/"` is `at ("*" \/ (at "/"))`, because a pattern's trailing hole
+; takes an expression and an infix operator continues one. That was written down
+; as a finding about Phoenix and it was not one. **The call shape has no such
+; problem** -- its parentheses end it -- and programs/ember's own README already
+; said which shape to use:
+;
+;     a pattern for something that reads as a step, a call for something that
+;     reads as an application
+;
+; `at` answers a boolean somebody tests. It is an application. So are the rest.
+@syntax apply(n)                => rules:at(n):value.
+@syntax at(s)                   => src:looksLike(s).
+@syntax eat(s)                  => src:match(s).
+@syntax skip(cls)               => src:skipWhile({ c | cls:indexOf(c):notNil }).
+@syntax take(cls)               => src:takeWhile({ c | cls:indexOf(c):notNil }).
+
+; No holes at all, so no shape to get wrong.
+@syntax next                    => src:next.
+@syntax done                    => src:atEnd.
 
 ; ---------------------------------------------------------------------------
 ; Only `<b: block>` is typed, and the first draft typed five more

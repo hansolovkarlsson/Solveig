@@ -263,6 +263,26 @@ directive that does, and what it should select is the *reader* — the same shap
 as selecting an emitter, in [targets.md](targets.md). Neither is worth doing
 until there is a second of either.
 
+## Retracted
+
+**A form's trailing hole swallowing what follows was written up twice as a
+limitation and is not one.** `programs/ember` reported it for postfix sends and
+`programs/grammar` for infix operators, and both were the same mistake: a form
+declared as a pattern when it was an application. A call ends at its closing
+parenthesis and has no such behaviour.
+
+The sketch of a fix that went with it -- a trailing hole binding at `unary`
+precedence, declared per form -- described a feature nothing needs. It is not on
+this page any more.
+
+**What the two programs really found is that choosing the shape wrongly is
+silent.** A pattern where a call was meant parses, quietly takes what came
+after, and fails at run time in generated code if it fails at all. Nothing at
+the declaration can say otherwise, both readings being legal. The rule is now in
+[GRAMMAR.md](GRAMMAR.md) under *Which shape a form should have*, which is where
+somebody choosing one would look; it had been in a program's README, which is
+not.
+
 ## Not planned, and why
 
 **A dialect that changes the lexer.** The line between a fixed token stream and

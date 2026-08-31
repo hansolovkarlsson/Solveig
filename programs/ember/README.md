@@ -56,16 +56,27 @@ against `.expected`. Five programs and two languages to print a prime.
 
 ### Two things nobody predicted
 
-**A pattern form whose last part is a hole cannot be closed.**
+**A pattern form whose last part is a hole takes whatever follows it.**
 
 ```
 @syntax load <d> adr <s> => emit(A):add(emit(B)).
 ```
 
-The `:add` went *inside* the hole — a hole takes an expression and a postfix
-send continues one, so there is no way to write something after the form. That
-is right for a form which reads as a statement, and it is invisible until it
-bites. It bit on the first run of the first dialect written here.
+The `:add` went *inside* the hole, because `emit` was declared as a pattern and
+a pattern's trailing hole takes an expression, which a postfix send continues.
+
+**This was first written up as a limitation, and corrected after
+`programs/grammar` hit the same thing with infix operators.** It is not a
+limitation: `emit` answers something the caller used, so it is an application
+and belongs in the call shape, whose parentheses end it. Both programs had the
+same bug for the same reason, and the second was written by the author of the
+sentence four paragraphs down that says how to choose.
+
+**What is real is that choosing wrongly is silent.** A pattern where a call was
+meant parses, and quietly takes what came after. Here it took a `:add` and the
+failure was a string being asked to understand it — at run time, in generated
+code. Nothing at the declaration says anything, and there is nothing it could
+say: both readings are legal.
 
 **Sends bind tighter than operators, and it costs more than it looks.**
 

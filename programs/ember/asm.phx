@@ -14,10 +14,20 @@
 ; holes in a row, which is banned for the reason two in a row are. The two shapes
 ; turn out to divide by *what the form is*, not by taste: a pattern for something
 ; that reads as a step, a call for something that reads as an application.
+;
+; **And getting that wrong is silent until it runs.** A pattern where a call was
+; meant still parses; its trailing hole simply takes what came after it. `emit`
+; was declared wrongly here and `at`, `eat`, `skip` and `take` were declared
+; wrongly in programs/grammar -- twice, in two programs, by the author of the
+; sentence above. The instruction forms below are steps and are patterns, and
+; their trailing holes end at the `.` that ends the statement.
 
 @use "../../lib/arith.phx".
 
-@syntax emit <s>              => out:add(s).
+; A call and not a pattern, because its answer gets used -- `load <d> adr <s>`
+; below wanted to chain two of them. A pattern's trailing hole would have taken
+; the `:add` that followed; a call's parentheses end it. See the note there.
+@syntax emit(s)               => out:add(s).
 
 @syntax comment <s>           => emit("; {}":fill([s])).
 @syntax blank                 => emit("").
@@ -32,11 +42,12 @@
 ; Two lines, so the template is a group.
 ;
 ; The first draft chained -- `emit(A):add(emit(B))` -- and put the `:add` inside
-; the hole rather than after the form, because a hole takes an expression and a
-; postfix send continues one. **A pattern form whose last part is a hole cannot
-; be closed**, so nothing may be written after it; that is right for something
-; that reads as a statement and it is not obvious until it bites. It bit on the
-; first run.
+; the hole rather than after the form, because `emit` was declared as a pattern
+; and a pattern's trailing hole takes an expression, which a postfix send
+; continues. That was written up as a limitation of Phoenix and it is not one:
+; **`emit` is an application and should have been a call**, which is what it is
+; now, and a call's parentheses end it. A group is still clearer than a chain
+; for two instructions, so the group stays -- but it stays by choice.
 @syntax load <d> adr <s>      => (emit("    adrp {}, {}@PAGE":fill([d, s])).
                                   emit("    add {}, {}, {}@PAGEOFF":fill([d, d, s]))).
 

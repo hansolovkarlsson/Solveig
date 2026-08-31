@@ -146,6 +146,38 @@ declaration rather than a rule at every use.
 
 **A name is either a call or patterns, never both.**
 
+## Which shape a form should have
+
+**A pattern for something that reads as a step; a call for something that reads
+as an application.** Not a style preference — the shapes behave differently, and
+choosing wrongly is silent.
+
+**A pattern's trailing hole takes an expression, and an expression continues
+through sends and infix operators.** So nothing written after such a form can
+apply to the form's *result*:
+
+```
+@syntax at <s> => src:looksLike(s).
+at "*" \/ at "/"        is  at ("*" \/ (at "/"))
+```
+
+**A call ends at its closing parenthesis**, so anything after it applies to what
+it answered:
+
+```
+@syntax at(s) => src:looksLike(s).
+at("*") \/ at("/")      is  src:looksLike("*"):or({ src:looksLike("/") })
+```
+
+**The test is whether the answer is used.** `store <s> slot <n>` is a step whose
+result nobody looks at, and its trailing hole ends at the `.` that ends the
+statement. `at(s)` answers a boolean somebody tests. A form whose trailing part
+is a *word* or a delimited hole has no such question — `if <c> <t: block>` ends
+at the block.
+
+**Both programs in `programs/` got this wrong once**, which is why it is written
+here rather than only in their notes.
+
 ## What a hole will accept
 
 `<body: block>`, and the same after a comma in the call shape. Five kinds, all

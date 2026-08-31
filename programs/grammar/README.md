@@ -57,24 +57,41 @@ precedence, and `examples/sexpr.phx` parses `(a (b c) d)` into nested arrays.
 | **4. Rules keyed by symbol** | **Right.** `rule 'expr is { … }`, because a template cannot build a selector out of a hole. |
 | **5. The notation is worth less here** | **Right, and it is the useful one.** Ember has ~15 forms over ~200 lines of assembly emission; this has 8 over ~30 lines of grammar. **A dialect pays per line it removes**, so notation for a flat repetitive domain earns more than notation for a small structured one — and the second still reads better, it just saves less. |
 
-### The one that was not predicted
+### The one that was not predicted, and was not a finding
 
-**A form's trailing hole swallows infix operators, not only postfix sends.**
+The first draft of `peg.phx` declared its cursor forms as patterns, and both
+grammars filled up with parentheses:
 
 ```
-at "*" \/ at "/"        ; is  at ("*" \/ (at "/"))
+(at "*") \/ (at "/")        ; because `at "*" \/ at "/"` is `at ("*" \/ (at "/"))`
 ```
 
-Ember found that `emit(A):add(B)` puts the `:add` inside the hole. This is the
-same rule reaching further: a hole takes an *expression*, and an infix operator
-continues one, so **nothing written after a form can ever apply to the form's
-result.** Both grammars are full of parentheses that exist only for this.
+That was written up here as a limitation of Phoenix — *a form's trailing hole
+swallows infix operators, so nothing written after a form can apply to the
+form's result* — with a sketch of what a fix might look like.
 
-The shape of a fix, recorded rather than built: a prefix operator's operand is
-parsed by `unary` and not by `expression`, which is why `~a + b` is `(~a) + b`.
-A form's trailing hole could bind the same way — but `unless x then y + z`
-plainly wants the whole sum, so it cannot be one rule for every form. **It would
-have to be declared**, and that is a design question rather than a fix.
+**It is not a limitation. It is the wrong shape.**
+
+```
+@syntax at(s)  => src:looksLike(s).
+at("*") \/ at("/")          ; src:looksLike("*"):or({ src:looksLike("/") })
+```
+
+A call's parentheses end it, so anything after applies to its result.
+`programs/ember`'s README already said which shape to use — *a pattern for
+something that reads as a step, a call for something that reads as an
+application* — and `at` answers a boolean somebody tests. It is an application.
+So are `eat`, `skip`, `take` and `apply`; `rule <n> is <b: block>` is the one
+declaration here and stays a pattern, its trailing hole being a block and
+therefore delimited.
+
+**What the two programs really found is that choosing wrongly is silent.** A
+pattern where a call was meant parses fine and quietly takes what came after
+it — no error, and in `ember` no failure until a string was asked to understand
+`add`. Two programs got it wrong, the second written by the author of the
+sentence that says how to choose. The rule was in a program's README and not in
+`docs/GRAMMAR.md`, where somebody choosing a shape would look; it is in both
+now.
 
 ### And one about typed holes
 

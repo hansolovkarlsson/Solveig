@@ -15,23 +15,23 @@ rules := dictionary:new.
 src := nil.
 
 rule 'list is { | out |
-    skip blank.
-    eat "(".
+    skip(blank).
+    eat("(").
     out := array:new.
-    { skip blank. (done):not /\ (at ")"):not }:whileTrue({ out:add(apply 'item) }).
-    skip blank.
-    eat ")".
+    { skip(blank). ~done /\ ~at(")") }:whileTrue({ out:add(apply('item)) }).
+    skip(blank).
+    eat(")").
     out }.
 
 rule 'item is {
-    skip blank.
-    if (at "(") then apply 'list else apply 'atom }.
+    skip(blank).
+    if at("(") then apply('list) else apply('atom) }.
 
 rule 'atom is {
-    skip blank.
-    take letters }.
+    skip(blank).
+    take(letters) }.
 
-run := { text | src := scan:on(text). apply 'list }.
+run := { text | src := scan:on(text). apply('list) }.
 
 run:value("(a b c)"):print.
 run:value("(a (b c) d)"):print.
