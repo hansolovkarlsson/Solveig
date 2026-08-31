@@ -4337,6 +4337,58 @@ rather than predicted — it is a fact about `readFile` and needs no `tail` to
 establish it. What `tail` adds is a program with an obvious reason to care, and
 a shape to ask for.
 
+##### The order in this entry was wrong, and the measurement above is why
+
+**Corrected the same day it was written, on the question *what was tail for?***
+The entry below recommended writing `tail` on the whole-file read first, and
+deciding the language change afterwards, on the reasoning that a program asks
+and a page does not. That is the rule, and it is not what happened here: **the
+evidence arrived before the program did.** Four seconds, a sparse file, and no
+`tail` anywhere.
+
+The original recommendation is kept in the calls below rather than replaced,
+because a recommendation quietly rewritten teaches nobody why it was made.
+
+**What was wrong with it is sharper than being unnecessary.** A `tail` written
+on the whole-file read **cannot call the thing it is supposed to be asking
+about**. It would re-prove a wall already measured and say nothing whatever
+about whether `readFile(path, from, count)` is the right shape, because it could
+not use it. So the program that was meant to inform the design is the one
+program guaranteed not to.
+
+**The question splits in two, and only one half still wants a program.**
+
+- **Whether** — settled by the measurement above. A file the language can
+  measure and cannot read is as clear as evidence gets, and 3.22 already names
+  the shape: no handle, no lifetime, nothing to close.
+- **What shape** — not settled, and a caller is what settles it. Which means the
+  caller has to come *after* the call exists.
+
+**So: build the ranged read first, and write `tail` against it as the check.**
+Then `tail` does the job it is actually good for — first caller, and the report
+on whether the shape survives contact — instead of re-proving what is proved.
+This is [method.md](method.md)'s *throwaway before the design* with the order
+put right: fifty lines that use the new call are worth more than two hundred
+that cannot.
+
+**And building it is small.** `prim_system_read_file` already opens the file,
+`fseek`s to `SEEK_END` and `ftell`s to size it. The ranged form is that function
+taking one argument or three — primitives answer at two arities, as `at(key)`
+and `at(key, default)` do — with `fseek` to `from - 1` in place of the `rewind`
+and an `fread` of `count`.
+
+**One line already in that function decides call 3 below.** It reads:
+
+> *A short read is a failure rather than a shorter string: `fopen` on a
+> directory succeeds on some systems, and reading one does not.*
+
+Right for a whole-file read and **wrong for a ranged one**: asking for 4 KB
+from a hundred bytes before the end is an ordinary thing to do, and a hundred
+bytes is the correct answer rather than an error. So *clamp or refuse* is not a
+matter of taste — the policy that is there cannot carry over, and whichever
+replaces it needs writing down beside that comment saying why the two reads
+differ.
+
 **The subset.** `-n N` and `-n +N`, `-c N` and `-c +N`, several files with their
 `==> name <==` headings, `-q` and `-v`, standard input when no file is named,
 and a default of ten lines. Left out: `-r`, `-F`, and `--pid`, which are BSD or
@@ -4394,11 +4446,21 @@ by pipe.
 
 #### The calls only you can make
 
-1. **Order.** Write `tail` on the whole-file read first, or hold it until a
-   ranged read exists? **Recommended: write it first**, because that is how the
-   evidence is produced and it is what sed did — but it means shipping a program
-   that is wrong in principle and refuses files the system tool handles, with
-   its own header saying so.
+1. **Order. This entry recommended one thing and now recommends the opposite**,
+   and both are here on purpose.
+
+   *As first written:* write `tail` on the whole-file read first, then decide
+   the language change — because that is how the evidence is produced and it is
+   what sed did.
+
+   *Corrected:* **build the ranged `readFile` first and write `tail` against
+   it.** The evidence was already in hand before the program was proposed, and a
+   `tail` on the whole-file read cannot call the thing it is meant to be asking
+   about. The section above has the reasoning.
+
+   What is left for you is not really the order any more but the **appetite**:
+   this makes the next piece of work a change to the machine rather than a
+   program, which is a different kind of afternoon and wants saying out loud.
 2. **`-f`, or not.** It presses hardest on the missing wait, and it is the one
    part an oracle cannot check the ordinary way: it does not terminate, so it
    needs a timeout harness that the other twenty cases do not.
