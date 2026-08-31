@@ -164,6 +164,12 @@ declarations, and every editor, formatter and `grep` downstream depends on that.
 Forth and TeX moved the line and became languages no tool can read without
 executing them. If it moves, it moves at the module boundary and nowhere else.
 
+**A rule that begins with a nonterminal.** Left recursion, and therefore an
+expression grammar written in `@syntax`. The reader would have to guess,
+ambiguity would stop being checkable by looking, and composition would stop
+being safe -- and the case that motivates it is already read from the precedence
+table. [rules-and-logic.md](rules-and-logic.md) argues all three.
+
 **Emitting bytecode, or machine code.** Phoenix would then own the `.sob` format
 and Solum's instruction set, and reimplement what Solas already does. The one
 thing it would buy — errors from Solas landing on Phoenix source — the map buys

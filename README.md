@@ -529,6 +529,12 @@ Both are about what a form can *say* it wants, and both turn a strange expansion
 into a diagnostic at the use — which is the same argument the spans and the
 trail were built on, one level up.
 
+**How far the rules could go, and where they stop**, is worked through in
+[docs/rules-and-logic.md](docs/rules-and-logic.md): `@syntax` is already BNF with
+most of EBNF missing and one thing refused, and refusing a rule that begins with
+a nonterminal is what keeps the matcher from guessing. The same page prices
+predicate logic, which turns out to be three questions wearing one name.
+
 ## Licence
 
 MIT, the same as Solveig.
