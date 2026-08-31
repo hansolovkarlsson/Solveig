@@ -115,7 +115,7 @@ stack trace actually is.
 | `@infixr <op> <precedence> <message>.` | The same, grouping to the right. |
 | `@prefix <op> <message>.` | A prefix operator. Binds tighter than any infix and looser than a send. |
 | `@syntax <name>(<params>) => <template>.` | A form that reads like a call. Its arguments arrive unevaluated, so the template may put them somewhere the caller never wrote. |
-| `@syntax <name> <\<hole\>> <word> … => <template>.` | The same, reading like a statement. |
+| `@syntax <name> <\<hole\>> <word> … => <template>.` | The same, reading like a statement. A hole may say what it accepts: `<a: place>`. |
 
 An operator is written out of `+ - * / < > = ! & ^ % ~ ? \` , run together as far
 as they go — so a dialect can declare `<=` without `<` having to stop existing.
@@ -291,6 +291,48 @@ if.phx:5:6: error: expected 'then' here, in the form 'if'
  5 | if x "y":print.
    |      ^^^
 ```
+
+## A hole may say what it accepts
+
+```
+@syntax swap <a: place> and <b: place> => { | t | t := a. a := b. b := t }:value.
+```
+
+```
+p.phx:4:6: error: 'swap' wants a place here, and this is an integer
+ 4 | swap #1 and b.
+   |      ^^
+../lib/control.phx:33:1: note: 'a' is declared to want a place
+```
+
+Before this, `swap #1 and b` was `this cannot be assigned to` **after
+expansion**, with a trail leading into somebody else's template. Now it names
+the form, at the line somebody wrote, and points at the dialect file the hole
+came from.
+
+Five kinds, all decided by looking at what was parsed — so **none of them needs
+an evaluator**, which is the whole reason they come before guards:
+`expression` (the default), `name`, `literal`, `block`, `place`. Spelled the
+same way in the call shape: `@syntax setTo(p: place, v) => …`.
+
+**Saying nothing goes on meaning `expression`.** It had to: every dialect
+written before kinds existed would otherwise break at once.
+
+**Checked after the argument is expanded**, so a hole filled by another form is
+checked against what that form *became*. `swap alias x and y` is a place if
+`alias` makes one.
+
+**A hole asks for what the template does not supply.** That is the rule, and it
+is narrower than it first looked:
+
+```
+@syntax while <t> do <b>            => { t }:whileTrue({ b }).
+@syntax repeat <n> times <b: block> => n:repeat(b).
+```
+
+`while` puts the braces on itself, so `<b: block>` there would *refuse*
+`while i < n do (total := total + i)` — the correct spelling. `repeat` hands its
+hole straight through, so that one has to ask.
 
 **A template is read under the header as it stood at its own line.** It may use
 the operators and the forms declared above it and nothing after. That is not
@@ -479,16 +521,17 @@ integer:utf8Tail := { at |
     (#128:bitOr(self:shiftRight(at):bitAnd(#63))):asCharacter }.
 ```
 
-## What 0.5.0 is not
-
-**A hole does not say what it accepts.** Every hole takes an expression. A hole
-that could ask for a block, or a name, or a literal would turn a bad use into a
-diagnostic at the use instead of a strange expansion further down, and that is
-the next size up.
+## What 0.6.0 is not
 
 **A pattern has no optional or repeated parts.** `if <c> then <a> else <b>` is a
 second declaration rather than an optional tail, which is honest and costs a
 line. Repetition — a form taking a list — has no spelling at all.
+
+**A hole cannot ask for anything a look does not settle.** The five kinds are
+all decided by inspecting what was parsed. A real guard — an arbitrary condition
+— needs an evaluator, and Phoenix has none on purpose;
+[docs/rules-and-logic.md](docs/rules-and-logic.md) prices it and says what rule
+would have to be fixed first.
 
 **Hygiene is still one scope per expansion**, and a template declared in a
 `@use`d file did not change that. 0.3.0 said one number would stop being enough

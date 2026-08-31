@@ -9,6 +9,26 @@
 
 #include "phoenix/dialect.h"
 
+static const char *const hole_kind_names[] = {
+    "expression", "name", "literal", "block", "place"
+};
+
+const char *phx_hole_kind_name(PhxHoleKind kind)
+{
+    return hole_kind_names[kind];
+}
+
+bool phx_hole_kind_from(const char *text, int length, PhxHoleKind *out)
+{
+    for (size_t i = 0; i < sizeof hole_kind_names / sizeof *hole_kind_names; i++)
+        if ((int)strlen(hole_kind_names[i]) == length &&
+            memcmp(hole_kind_names[i], text, (size_t)length) == 0) {
+            *out = (PhxHoleKind)i;
+            return true;
+        }
+    return false;
+}
+
 void phx_dialect_init(PhxDialect *dialect)
 {
     dialect->name = NULL;
@@ -35,6 +55,7 @@ void phx_dialect_free(PhxDialect *dialect)
         for (int j = 0; j < dialect->macro[i].param_count; j++)
             free(dialect->macro[i].params[j]);
         free(dialect->macro[i].params);
+        free(dialect->macro[i].kinds);
         for (int j = 0; j < dialect->macro[i].part_count; j++)
             free(dialect->macro[i].parts[j].text);
         free(dialect->macro[i].parts);
@@ -170,7 +191,8 @@ static bool same_shape(const PhxMacro *macro,
 
 const PhxMacro *phx_dialect_add_macro(PhxDialect *dialect,
                                       const char *name, int length,
-                                      char **params, int param_count,
+                                      char **params, PhxHoleKind *kinds,
+                                      int param_count,
                                       PhxPatternPart *parts, int part_count,
                                       PhxNode *template, PhxSpan declared_at)
 {
@@ -192,6 +214,7 @@ const PhxMacro *phx_dialect_add_macro(PhxDialect *dialect,
     PhxMacro *entry = &dialect->macro[dialect->macro_count++];
     entry->name = phx_strndup(name, (size_t)length);
     entry->params = params;
+    entry->kinds = kinds;
     entry->param_count = param_count;
     entry->parts = parts;
     entry->part_count = part_count;

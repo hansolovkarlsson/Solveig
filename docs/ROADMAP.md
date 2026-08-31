@@ -3,6 +3,48 @@
 What 0.1.0 established, in the order the rest depends on it. Each entry says
 what would have to be true before the next one is worth starting.
 
+## Done — 0.6.0, a hole that says what it wants
+
+**`<a: place>`, `<n: name>`, `<l: literal>`, `<b: block>`, and `expression`
+which is the default.** All five are decided by looking at what was parsed, so
+none needs an evaluator and none answers the tower question. Spelled the same
+way in the call shape: `@syntax setTo(p: place, v)`.
+
+**The win is `place`.** `swap #1 and b` used to be `this cannot be assigned to`
+after expansion, with a trail leading into somebody else's template. It is now
+
+```
+error: 'swap' wants a place here, and this is an integer
+note: 'a' is declared to want a place
+```
+
+at the line somebody wrote, naming the form and the dialect file the hole came
+from.
+
+**Checked after the argument is expanded**, so a hole filled by another form is
+checked against what that form *became*. `swap alias x and y` is a place if
+`alias` makes one. The caret still lands on the argument, which keeps its own
+spans through substitution.
+
+**Saying nothing still works**, and had to: every dialect written before this
+would otherwise have broken at once.
+
+**The example this page used for four versions was wrong.** *`while` wants a
+block here* was the motivating case written down in 0.5.0, and `while` wants no
+such thing -- its template puts the braces on itself, so `<b: block>` there
+would refuse `while i < n do (total := total + i)`, which is the correct way to
+write it. The rule that survived is narrower and is now in `lib/control.phx`
+beside both forms: **a hole asks for what the template does not supply.**
+`repeat <n> times <b: block>` hands its hole straight through, and asks.
+
+**A hang, found by a test that was itself wrong.** The new test for an untyped
+hole was missing the `@infix` its body needed, so it hit the undeclared-operator
+path -- and `make test` stopped rather than failing. `synchronize` halts *at* a
+closing bracket without consuming it, which is right when something above is
+waiting for it and wrong in the statement loop, where nothing is: the `)` left
+over by any error inside an argument list was read, failed, synchronised to, and
+read again. Present since 0.1.0. The loop now proves it consumed something.
+
 ## Done — 0.5.0, a form that reads as a statement
 
 **`@syntax unless <test> then <body> => ... .`** A hole is `<name>` and
@@ -114,46 +156,35 @@ expression that does not use it already meant.
 **A build that takes nothing from Solveig.** No header, no archive, no symbol.
 The coupling is a file format and a command line.
 
-## Next — what a hole may ask for
+## Next — optional and repeated parts
 
-**Every hole takes an expression, and cannot say otherwise.**
+**`if <c> then <a> else <b>` is a second declaration rather than an optional
+tail**, which is honest and costs a line. Repetition — a form taking a list —
+has no spelling at all, and wants one before anybody writes `sum of <a> <b> <c>`
+three times.
 
-```
-@syntax while <test> do <body> => { test }:whileTrue({ body }).
-```
+Two more part kinds in an array the matcher already walks. **The property to
+keep is that an optional part begins with a word**, for the reason a pattern
+does: it is what lets one token decide whether the part is there, and it is what
+keeps the matcher free of backtracking.
 
-`test` wants something that answers a boolean and `body` wants something worth
-running, and neither can say so. A use that gets it wrong expands into Solveig
-that fails somewhere further down — which is the failure the spans and the trail
-were built to stop, one level up from where they stop it now.
-
-| | |
-| --- | --- |
-| What a hole may ask for | An expression, a block, a name, a literal. `<body: block>` is the obvious spelling. The useful part is not the check but the message: *`while` wants a block here* beats an error inside the expansion. |
-| Whether a hole may ask for a *place* | `swap <a> and <b>` assigns to both, and gets `this cannot be assigned to` after expansion with a trail. Asking at the use is better, and it is the same information the expander already computes afterwards. |
-| Whether asking is optional | It has to be. A form that says nothing about its holes must keep working, or every dialect written so far breaks. |
-
-**Then a handful of named predicates** — `place`, `literal`, `block`, `name` —
-decidable by looking at what was parsed, needing no evaluator, and between them
-probably covering most of what a guard would have been used for.
-
-**Optional and repeated parts.** `if <c> then <a> else <b>` is a second
-declaration rather than an optional tail, which is honest and costs a line.
-Repetition — a form taking a list — has no spelling at all, and wants one before
-anybody writes `sum of <a> <b> <c>` three times.
-
-**Beyond a hole's type is a guard, and the evaluator it needs is Solveig.**
-`solum/embed.h` was built for it — one of the three cases it names is *a tool
-scripted in Solum* — and `embed/host.c` already wrote the loop: compile one
-script once, run it many times, each under its own allowance. Compile the guard
-once, run it per use, and `serve_one` becomes `check_one`.
+**Then a guard, and the evaluator it needs is Solveig.** `solum/embed.h` was
+built for it — one of the three cases it names is *a tool scripted in Solum* —
+and `embed/host.c` already wrote the loop: compile one script once, run it many
+times, each under its own allowance. Compile the guard once, run it per use, and
+`serve_one` becomes `check_one`.
 
 It costs *the build needs no Solveig*, which is real. It does not cost *no
 privileged access*, which is the claim that matters: `embed.h` is a declared
 surface, and using it is the mirror of solveig-sdl using `extend.h`. **The rule
 to fix before any of it is written: a guard validates, it does not select** —
 otherwise parsing depends on evaluation and no tool can read a `.phx` without
-running it. [rules-and-logic.md](rules-and-logic.md) argues all of it.
+running it.
+
+0.6.0 is the reason this is not urgent. The five kinds cover what a guard would
+mostly have been used for, and they cover it without an evaluator.
+[rules-and-logic.md](rules-and-logic.md) argues the whole of it.
+
 
 ## Answered — two dialects meeting
 

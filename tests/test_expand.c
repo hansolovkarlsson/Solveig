@@ -296,6 +296,75 @@ int main(void)
                     "@syntax f <a> to <b> => a.\n"
                     "@syntax f <c> to <d> => c.\nx := #1.\n");
 
+    /* A hole may say what it will accept. All five kinds are decided by looking
+       at what was parsed, so none of them needs an evaluator -- what they buy is
+       the message, not the check. */
+    expect("a place hole takes a name", LANG
+           "@syntax setTo <p: place> to <v> => p := v.\n"
+           "setTo x to #1.\n",
+           "x := #1.\n");
+    expect("a place hole takes a slot", LANG
+           "@syntax setTo <p: place> to <v> => p := v.\n"
+           "setTo r:x to #1.\n",
+           "r:x := #1.\n");
+    expect("a name hole", LANG
+           "@syntax define <n: name> as <v> => n := v.\n"
+           "define x as #1.\n",
+           "x := #1.\n");
+    expect("a literal hole", LANG
+           "@syntax tag <l: literal> => l:asString.\n"
+           "a := tag 'red.\n",
+           "a := 'red:asString.\n");
+    expect("a block hole", LANG
+           "@syntax repeat <n> times <b: block> => n:repeat(b).\n"
+           "repeat #3 times { x:print }.\n",
+           "#3:repeat({ x:print }).\n");
+
+    /* Kinds are spelled the same way in the call shape, because a hole is a
+       hole however the form around it is written. */
+    expect("a kind in the call shape", LANG
+           "@syntax setTo(p: place, v) => p := v.\n"
+           "setTo(x, #1).\n",
+           "x := #1.\n");
+
+    /* Saying nothing has to go on working, or every dialect written before
+       kinds existed breaks at once. */
+    expect("an untyped hole still takes anything", LANG
+           "@infix + 60 add.\n"
+           "@syntax f(a) => a:print.\n"
+           "f(#1 + #2).\n",
+           "#1:add(#2):print.\n");
+
+    /* An error inside a form's argument list leaves the `)` unconsumed, and
+       until 0.6.0 the statement loop read it, failed, synchronised to it and
+       read it again -- forever. Written the way it was found: this file had the
+       `@infix` above missing, and `make test` stopped instead of failing. */
+    expect_rejected("an error inside an argument list terminates", LANG
+                    "@syntax f(a) => a:print.\n"
+                    "f(#1 % #2).\n");
+
+    /* Checked after the argument is expanded, so a hole filled by another form
+       is checked against what that form became rather than against a use of it. */
+    expect("a form as an argument is checked as what it becomes", LANG
+           "@syntax alias <n: name> => n.\n"
+           "@syntax setTo <p: place> to <v> => p := v.\n"
+           "setTo alias x to #1.\n",
+           "x := #1.\n");
+
+    expect_rejected("a literal where a place was wanted", LANG
+                    "@syntax setTo <p: place> to <v> => p := v.\n"
+                    "setTo #1 to #2.\n");
+    expect_rejected("an expression where a block was wanted", LANG
+                    "@syntax repeat <n> times <b: block> => n:repeat(b).\n"
+                    "repeat #3 times x:print.\n");
+    expect_rejected("a send where a name was wanted", LANG
+                    "@syntax define <n: name> as <v> => n := v.\n"
+                    "define r:x as #1.\n");
+    expect_rejected("a kind that is not one", LANG
+                    "@syntax f <a: banana> => a.\nx := #1.\n");
+    expect_rejected("a colon with nothing after it", LANG
+                    "@syntax f <a: > => a.\nx := #1.\n");
+
     printf("%d checks, %d failed\n", checks, failures);
     return failures == 0 ? 0 : 1;
 }

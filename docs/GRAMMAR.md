@@ -13,9 +13,11 @@ directive   = "@language" identifier "."
             | "@prefix" operator identifier "."
             | "@syntax" identifier [ parameters | pattern ] "=>" expression "." .
 
-parameters  = "(" [ identifier { "," identifier } ] ")" .
+parameters  = "(" [ parameter { "," parameter } ] ")" .
+parameter   = identifier [ ":" kind ] .
 pattern     = { hole | identifier } .
-hole        = "<" identifier ">" .
+hole        = "<" identifier [ ":" kind ] ">" .
+kind        = "expression" | "name" | "literal" | "block" | "place" .
 
 statement   = include | expression [ "." ] .
 include     = "@include" string "." .
@@ -139,6 +141,30 @@ against a word cannot be told apart at all, and are an error at the second
 declaration rather than a rule at every use.
 
 **A name is either a call or patterns, never both.**
+
+## What a hole will accept
+
+`<body: block>`, and the same after a comma in the call shape. Five kinds, all
+decided by looking at what was parsed:
+
+| | |
+| --- | --- |
+| `expression` | anything, and what a hole means when it says nothing |
+| `name` | a bare identifier |
+| `literal` | an integer, a float, a string or a symbol |
+| `block` | `{ ... }` |
+| `place` | something that may be assigned to: a name, or a slot |
+
+**Saying nothing goes on meaning `expression`**, and has to: a form written
+before kinds existed must keep working.
+
+**A hole asks for what the template does not supply.** `while <t> do <b>` puts
+the braces on itself, so `b` takes an expression and a `<b: block>` there would
+refuse the correct spelling. `repeat <n> times <b: block>` hands its hole
+straight to Solveig's `repeat` without wrapping, so that one has to ask.
+
+**Checked after the argument is expanded**, so a hole filled by another form is
+checked against what that form became rather than against a use of it.
 
 ## What a form may reach
 

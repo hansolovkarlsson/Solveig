@@ -265,11 +265,13 @@ That is what the name was about.
 
 ## In order, if any of it is built
 
-1. **Typed holes.** `<body: block>`. No evaluator, no tower, and it is where most
-   of the value of "predicates" actually is.
-2. **A handful of named predicates.** `place`, `literal`, `block`, `name`. All
-   decidable by looking at what was parsed, so still no evaluator, and between
-   them they cover most of what is left.
+1. ~~**Typed holes.**~~ Done in 0.6.0. `<a: place>`, `<n: name>`, `<l: literal>`,
+   `<b: block>`. No evaluator, no tower, and most of the value of "predicates"
+   was indeed here — `place` alone moved `swap #1 and b` from a post-expansion
+   error with a trail to a message at the line somebody wrote.
+2. ~~**A handful of named predicates.**~~ Also done in 0.6.0, and it turned out
+   to be the same step: `place`, `literal`, `block` and `name` are the kinds a
+   hole names, so there was no second mechanism to build.
 3. **`[ ]` and `{ }`.** Two part kinds in an array the matcher already walks.
    Keeps the LL(1)-by-construction property if an optional part begins with a
    word, which it must for the same reason a pattern does.

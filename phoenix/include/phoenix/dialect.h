@@ -34,6 +34,26 @@ typedef struct {
     PhxSpan declared_at;
 } PhxPrefix;
 
+/* What a hole will accept.
+ *
+ * All five are decided by looking at what was parsed, so none of them needs an
+ * evaluator and none of them answers the tower question -- see
+ * docs/rules-and-logic.md, which puts these below a real guard for exactly that
+ * reason. What they buy is not the check but the message: a form saying what it
+ * wants, at the use, instead of Solveig failing somewhere further down. */
+typedef enum {
+    PHX_HOLE_EXPRESSION,    /* anything at all, and the default          */
+    PHX_HOLE_NAME,
+    PHX_HOLE_LITERAL,
+    PHX_HOLE_BLOCK,
+    PHX_HOLE_PLACE          /* something that may be assigned to         */
+} PhxHoleKind;
+
+const char *phx_hole_kind_name(PhxHoleKind kind);
+
+/* Answers false if the word is not one of the five. */
+bool phx_hole_kind_from(const char *text, int length, PhxHoleKind *out);
+
 /* One element of a pattern: a literal word, or a hole with the name the
    template knows it by. */
 typedef struct {
@@ -65,6 +85,7 @@ typedef struct {
 typedef struct {
     char *name;             /* the leading word, in both shapes */
     char **params;          /* the holes, in order */
+    PhxHoleKind *kinds;     /* what each will accept; parallel to params */
     int param_count;
     PhxPatternPart *parts;  /* NULL for a call-shaped form */
     int part_count;
@@ -134,7 +155,8 @@ int phx_dialect_index_of(const PhxDialect *dialect, const PhxMacro *macro);
    differ being allowed to stand together. */
 const PhxMacro *phx_dialect_add_macro(PhxDialect *dialect,
                                       const char *name, int length,
-                                      char **params, int param_count,
+                                      char **params, PhxHoleKind *kinds,
+                                      int param_count,
                                       PhxPatternPart *parts, int part_count,
                                       PhxNode *template, PhxSpan declared_at);
 

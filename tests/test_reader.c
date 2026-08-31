@@ -163,6 +163,16 @@ int main(void)
     expect_rejected("'#' with no digits", HEADER "a := #.\n");
     expect_rejected("unclosed string",   HEADER "a := \"open.\n");
 
+    /* A closing bracket that belongs to nobody. `synchronize` stops *at* one
+       without consuming it, which is right when something above is waiting for
+       it and wrong at the top level, where nothing is -- so the statement loop
+       read it, failed, synchronised to it, and read it again. A regression here
+       hangs `make test` rather than failing it, which is loud in its own way. */
+    expect_rejected("an unmatched closing bracket terminates",
+                    HEADER "a := #1.\n)\nb := #2.\n");
+    expect_rejected("an unmatched closing brace terminates",
+                    HEADER "a := #1.\n}\n");
+
     printf("%d checks, %d failed\n", checks, failures);
     return failures == 0 ? 0 : 1;
 }

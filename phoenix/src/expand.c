@@ -204,6 +204,63 @@ static PhxNode *instantiate(const Instance *instance, const PhxNode *template)
 
 static PhxNode *expand_node(Expander *expander, PhxNode *node, int depth);
 static void note_trail(Expander *expander, const PhxNode *node);
+static bool assignable(const PhxNode *node);
+
+/* Whether an argument is the sort of thing the hole said it wanted.
+ *
+ * Checked here rather than at the parse, and the difference matters for one
+ * case: a hole filled by another form's use is checked against what that form
+ * *became*, because by now it has become it. `swap outer(x) and y` is a place
+ * if `outer` expands to one. Doing this at the parse would have had to answer
+ * that by guessing or by refusing.
+ *
+ * The caret still lands on the argument, since an argument keeps its own spans
+ * through substitution -- so it reads as an error at the use whatever pass it
+ * was found in. */
+static bool satisfies(const PhxNode *node, PhxHoleKind kind)
+{
+    switch (kind) {
+        case PHX_HOLE_EXPRESSION: return true;
+        case PHX_HOLE_NAME:       return node->kind == PHX_NODE_NAME;
+        case PHX_HOLE_BLOCK:      return node->kind == PHX_NODE_BLOCK;
+        case PHX_HOLE_PLACE:      return assignable(node);
+        case PHX_HOLE_LITERAL:
+            return node->kind == PHX_NODE_INTEGER ||
+                   node->kind == PHX_NODE_FLOAT ||
+                   node->kind == PHX_NODE_STRING ||
+                   node->kind == PHX_NODE_SYMBOL;
+    }
+    return true;
+}
+
+/* "an integer", "a block". Only ever read aloud in a diagnostic, and a
+   diagnostic that says "a integer" is a diagnostic somebody stops trusting. */
+static const char *article(const char *word)
+{
+    return strchr("aeiou", word[0]) != NULL ? "an" : "a";
+}
+
+static void check_arguments(Expander *expander, const PhxNode *use,
+                            const PhxMacro *macro)
+{
+    for (int i = 0; i < macro->param_count && i < use->count; i++) {
+        PhxHoleKind kind = macro->kinds[i];
+        const PhxNode *argument = use->children[i];
+        if (satisfies(argument, kind)) continue;
+
+        const char *wanted = phx_hole_kind_name(kind);
+        const char *got = phx_node_kind_name(argument->kind);
+
+        phx_error(expander->diag, phx_node_extent(argument),
+                  "'%s' wants %s %s here, and this is %s %s",
+                  macro->name, article(wanted), wanted, article(got), got);
+        phx_note(expander->diag, macro->declared_at,
+                 "'%s' is declared to want %s %s",
+                 macro->params[i], article(wanted), wanted);
+        note_trail(expander, use);
+        expander->failed = true;
+    }
+}
 
 /* How deep expansion may go before something is wrong with this file rather
    than with the program in it.
@@ -230,6 +287,10 @@ static PhxNode *expand_macro(Expander *expander, PhxNode *use, int depth)
         expander->failed = true;
         return use;
     }
+
+    /* The arguments are expanded by now, so a hole filled by another form is
+       checked against what that form became. */
+    check_arguments(expander, use, macro);
 
     NameSet binders = { NULL, 0, 0 };
     collect_binders(macro->template, &binders);

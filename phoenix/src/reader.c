@@ -293,6 +293,34 @@ static const char *shadowed_parameter(const PhxNode *node,
     return NULL;
 }
 
+/* `name` or `name: kind`, in a parameter list or inside a hole.
+ *
+ * The kind is optional and has to stay optional: a form that says nothing about
+ * its holes must go on working, or every dialect written before this existed
+ * breaks at once. */
+static bool hole_kind(Reader *reader, PhxToken name, PhxHoleKind *kind)
+{
+    *kind = PHX_HOLE_EXPRESSION;
+    if (!match(reader, PHX_TOK_COLON)) return true;
+
+    if (!check(reader, PHX_TOK_NAME)) {
+        error_here(reader, "'%.*s:' needs what the hole will accept",
+                   name.length, name.start);
+        return false;
+    }
+    if (!phx_hole_kind_from(reader->current.start, reader->current.length,
+                            kind)) {
+        error_here(reader, "'%.*s' is not something a hole can ask for",
+                   reader->current.length, reader->current.start);
+        phx_note(reader->diag, reader->current.span,
+                 "a hole accepts an expression, a name, a literal, a block "
+                 "or a place");
+        return false;
+    }
+    advance(reader);
+    return true;
+}
+
 /* `<name>` in a pattern. Answers false having reported, or at a token that is
    not the start of a hole. */
 static bool at_hole(Reader *reader)
@@ -372,6 +400,7 @@ static void directive_syntax(Reader *reader)
     advance(reader);
 
     char **params = NULL;
+    PhxHoleKind *kinds = NULL;
     int param_count = 0;
     PhxPatternPart *parts = NULL;
     int part_count = 0;
@@ -383,11 +412,19 @@ static void directive_syntax(Reader *reader)
                     error_here(reader, "a parameter of a form is a name");
                     goto give_up;
                 }
+                PhxToken parameter = reader->current;
+                advance(reader);
+
+                PhxHoleKind kind;
+                if (!hole_kind(reader, parameter, &kind)) goto give_up;
+
                 params = phx_realloc(params,
                                      (size_t)(param_count + 1) * sizeof *params);
-                params[param_count++] = phx_strndup(reader->current.start,
-                                                    (size_t)reader->current.length);
-                advance(reader);
+                kinds = phx_realloc(kinds,
+                                    (size_t)(param_count + 1) * sizeof *kinds);
+                kinds[param_count] = kind;
+                params[param_count++] = phx_strndup(parameter.start,
+                                                    (size_t)parameter.length);
             } while (match(reader, PHX_TOK_COMMA));
         }
         if (!consume(reader, PHX_TOK_RPAREN, "')' after the parameters"))
@@ -419,6 +456,9 @@ static void directive_syntax(Reader *reader)
                 word = reader->current;
                 advance(reader);
 
+                PhxHoleKind kind;
+                if (!hole_kind(reader, word, &kind)) goto give_up;
+
                 /* `>` and nothing else. `><` is one token, and it is what two
                    holes in a row look like to the lexer -- so the mistake is
                    named rather than left as a missing '>'. */
@@ -437,6 +477,9 @@ static void directive_syntax(Reader *reader)
 
                 params = phx_realloc(params,
                                      (size_t)(param_count + 1) * sizeof *params);
+                kinds = phx_realloc(kinds,
+                                    (size_t)(param_count + 1) * sizeof *kinds);
+                kinds[param_count] = kind;
                 params[param_count++] = phx_strndup(word.start,
                                                     (size_t)word.length);
             } else {
@@ -493,7 +536,7 @@ static void directive_syntax(Reader *reader)
 
     const PhxMacro *clash = phx_dialect_add_macro(reader->dialect,
                                                   name.start, name.length,
-                                                  params, param_count,
+                                                  params, kinds, param_count,
                                                   parts, part_count,
                                                   template, where);
     if (clash != NULL)
@@ -503,6 +546,7 @@ static void directive_syntax(Reader *reader)
 give_up:
     for (int i = 0; i < param_count; i++) free(params[i]);
     free(params);
+    free(kinds);
     for (int i = 0; i < part_count; i++) free(parts[i].text);
     free(parts);
 }
@@ -1231,9 +1275,28 @@ static void read_file(PhxUnit *unit, const PhxSource *source,
             continue;
         }
 
+        /* Where the statement began, so that the loop can prove it moved.
+         *
+         * `synchronize` stops *at* a closing bracket without consuming it,
+         * which is right when something above is waiting to consume it and
+         * wrong here, where nothing is: a `)` that belongs to nobody would be
+         * read as a statement, fail, be synchronised to, and be read again.
+         * That was an infinite loop for every version up to 0.5.0, reachable
+         * from any error that leaves an unmatched closer at this level --
+         * `f(#1 % #2)` with `%` undeclared is enough.
+         *
+         * Guarding the loop rather than teaching `synchronize` about its
+         * caller, because the property wanted is the loop's: a pass that
+         * reports an error must consume something, whatever the error was. */
+        PhxSpan began = reader.current.span;
+
         PhxNode *node = statement(&reader);
         if (node == NULL) {
             synchronize(&reader);
+            if (reader.current.span.offset == began.offset &&
+                reader.current.span.source == began.source &&
+                !check(&reader, PHX_TOK_EOF))
+                advance(&reader);
             continue;
         }
         phx_node_add(module, node);
