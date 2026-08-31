@@ -5,6 +5,53 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### `dictionary:of`, and a guard against a hazard that was not there — `HASH`, 2026-08-30
+
+**One message, and the language still answers 141<!--count messages--> of
+them** — `of` was already a counted name from `array`, and the counter adds a
+name only where `slotAt` raises, so it counts primitives and ignores
+Solum-defined library methods. Registrations go 243 to 244.
+
+Asked as `@dict[key = value, ...]`, with `@expr`'s equality moved to `==` to
+free the sign. Neither half of that was needed.
+[ideas.md](ideas.md#a-dictionary-literal-and-the-message-that-has-to-come-first)
+carries the argument: `=` is scanned unconditionally and given meaning by
+context — the lexer's mode flag exists for `-` alone and says so — and `:=` with
+`==` would be half of C and half of Pascal, stranding `<>`. And `[#1, #2, #3]`
+has no opcode of its own: it compiles to a global load and a send of `of`, and
+times the same as writing `array:of` by hand. **The array literal is sugar over
+a message**, so a dictionary literal would have been sugar over a message that
+did not exist. This is that message.
+
+```
+sizes := dictionary:of("small", #1, "large", #9).
+describe:value(dictionary:of("count", #7)).
+```
+
+**What it buys is the inline form.** A dictionary could always be *passed*; what
+it could not be was built as an argument, and three statements and a name for a
+value wanted once is why every options bag here is an array of alternating names
+instead. An odd count is refused rather than rounded off, a key must be a value
+for the reason `at` gives, a repeated key takes the last value as a repeated
+`atPut` does, and no arguments is an empty dictionary.
+
+**The temporary root came out again, and that is the part worth reading.** The
+first draft rooted the new dictionary, reasoning that `sol_dict_put` grows its
+entries and growth allocates. Growth does allocate and **cannot collect** —
+object.c says so where it does it, *calloc and free rather than a heap
+allocation, so nothing can be collected in the middle of the rebuild*. Removing
+the root and running 200 dictionaries and a 120-pair one under
+`SOLUM_GC_STRESS` found no difference, because there was none to find. A guard
+against a hazard that is not there is worse than no guard: it tells the next
+reader the hazard exists. The comment now says why there is no root.
+
+**It shipped with no caller, which the entry says rather than hides.** Every
+`dictionary:new` in the tree is an accumulator filled a key at a time or a named
+table of blocks, and neither is the inline shape. It was built because it is
+what a literal would compile to and because it was asked for, not because a
+program asked — which is the usual bar here and is not met. Whether it earns
+itself is whether the next options bag written reaches for it.
+
 ### `startsWith` and `endsWith`, and a checker that caught itself — `a99f802`, 2026-08-30
 
 **Two methods on `string`, in [text.sol](../lib/text.sol), in Solum.** Deferred

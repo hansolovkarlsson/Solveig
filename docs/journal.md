@@ -11,6 +11,59 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-30 (last) — a literal proposed, a message built, and a guard taken back out
+
+Proposed: `@dict[key = value, ...]`, with `@expr`'s equality moved to `==` so
+that `=` was free for it. Two halves, and taking them apart was most of the
+value.
+
+**The freeing was not needed.** `=` is scanned unconditionally and given meaning
+by the parser's context — the lexer's mode flag exists for one operator and
+lexer.h names it, `-`. Regions carry their own delimiters, so `@expr(...)` and a
+`@dict[...]` could never have overlapped. And spending it would have cost
+coherence: this language assigns with `:=` and compares with `=`, which is one
+convention; keeping `:=` while taking `==` is half of C and half of Pascal, and
+strands `<>` into wanting `!=`.
+
+**And the literal turned out to be sugar over a message that did not exist.**
+`[#1, #2, #3]` has no opcode — a global load and a send of `of` — and times the
+same as writing `array:of` by hand. So the array literal is *itself* a spelling,
+and the order was obvious once that was measured: build `dictionary:of`, and let
+use rather than taste decide the literal later.
+
+### The guard that was not guarding anything
+
+The first draft rooted the new dictionary against the collector, reasoning that
+`sol_dict_put` grows its entries and growth allocates.
+
+It does allocate. It cannot collect — and object.c already said so, in a comment
+sitting beside the code doing it: *calloc and free rather than a heap
+allocation, so nothing can be collected in the middle of the rebuild.*
+
+What is worth recording is how that was found. The root was removed, the build
+re-run, and 200 dictionaries and a 120-pair one driven under `SOLUM_GC_STRESS`
+— which found no difference, because there was none to find. **A guard against a
+hazard that is not there is worse than no guard**: it costs nothing at runtime
+and it tells the next reader the hazard exists, which is a false thing written
+in the most trusted place a false thing can be.
+
+That is the day's habit applied to my own code rather than to the documents. It
+had already caught four wrong sentences in the docs; this is the fifth, and I
+wrote it an hour earlier.
+
+### Built with no caller, and saying so
+
+Every `dictionary:new` in this tree is an accumulator filled a key at a time, or
+a named table of blocks. Neither is the inline shape, so nothing here calls the
+new message except the demonstration in the example that teaches dictionaries.
+
+The usual bar on the ideas page is *a program asked*. This was built because a
+literal would compile to it and because it was asked for — which is a different
+and weaker reason, and the entry says so rather than dressing it up. The honest
+test is whether the next options bag written reaches for it.
+
+---
+
 ## 2026-08-30 (later) — a survey that kept correcting the page it was written on
 
 Started as a question with no task in it: *are there features in Smalltalk,

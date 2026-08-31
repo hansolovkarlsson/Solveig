@@ -54,7 +54,7 @@ marked as a sketch.
 | SQLite, SDL2, GTK | **One project, not three** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); GTK and SDL2 fire that trigger and SQLite does not, and wanting *both* toolkits is what settles the mechanism |
 | Graphics in SolaBasic, over SDL2 | **No — asked and closed on 2026-08-30, and the premise was wrong** to begin with: [graphics were never parked](#graphics-in-solabasic-through-the-sdl2-extension) for want of extensions, they were refused as *the PC*. No program wanted a screen, so the trigger never fired. The throwaway exercised the foundation without a language change — an extension send at 205ns, **`sdl:present` vsync-locked at 8.3ms**, and **1.49x from 0.39.0** on a globals-heavy loop. **A demo written that evening then corrected the entry**: a present keeps nothing, so immediate-mode `PSET` is not slow on this surface but absent. **And there is no oracle for a pixel**, which is what would decide it if it were ever asked again |
 | What Python has that this does not | **Surveyed on 2026-08-30** — [most of it is already here under another name](#what-python-has-and-which-of-it-this-language-wants); five had no line on this page, and **named arguments were then investigated and refused** — `name:` is already a valid send, `=` lowers cheaply but [would not generalise](#and-the-lowering-is-cheap-which-is-not-the-same-as-being-right), and the options array turns out to catch every mistake it was accused of passing. Decorators turn out to be writable today; a backtrace is [already captured and then discarded](#read-on-2026-08-30-it-is-not-merely-available-it-is-thrown-away), though no handler in the tree could use one; a file being readable only whole is an absence the reference now states, with [the edge measured](#and-the-edge-was-measured-which-is-what-the-limit-was-missing) — 2 GB hard, twice the file while reading |
-| `@dict[k=v]`, and `=` moved to `==` | **Half yes, half unnecessary** — [`=` never needed freeing](#a-dictionary-literal-and-the-message-that-has-to-come-first): the lexer's mode flag exists for `-` alone, and `:=` with `==` is half of C and half of Pascal. But `[...]` is *measurably* sugar over `array:of`, and there is no `dictionary:of` — **build the message, defer the literal** |
+| `@dict[k=v]`, and `=` moved to `==` | **Half yes, half unnecessary** — [`=` never needed freeing](#a-dictionary-literal-and-the-message-that-has-to-come-first): the lexer's mode flag exists for `-` alone, and `:=` with `==` is half of C and half of Pascal. But `[...]` is *measurably* sugar over `array:of`, and there is no `dictionary:of` — **built `dictionary:of` on 2026-08-30, literal deferred** — and it shipped with no caller, which the entry says rather than hides |
 | Fuzzy logic | **A library that would teach nothing** — arithmetic on floats, and the arithmetic all landed |
 | Namespaces for included files | **Defer** — the trigger is somebody else writing a library |
 | Splitting the reference into pages | **Defer** — the trigger is the message reference outgrowing the rest |
@@ -1720,11 +1720,30 @@ customer is the **small inline bag** — two to eight arguments, at a call site,
 where the alternative is a temporary — and the eight escapes in
 [json.sol](../lib/json.sol).
 
-**Recommendation: build `dictionary:of`, and defer the literal.** With the
-message in hand the literal becomes a decision somebody can make from use rather
-than from taste, which is the only way to learn whether sugar earns itself — and
-`[...]` sitting over `array:of` is the precedent for adding it later at no cost
-to anything already written.
+**Built the same day; the literal is deferred.** With the message in hand the
+literal becomes a decision somebody can make from use rather than from taste,
+which is the only way to learn whether sugar earns itself — and `[...]` sitting
+over `array:of` is the precedent for adding it later at no cost to anything
+already written.
+
+**It shipped with no caller, which is worth saying rather than hiding.** Every
+`dictionary:new` in the tree is an accumulator filled a key at a time or a named
+table of blocks, and neither is the inline shape; the only use is the
+demonstration in [dictionaries.sol](../examples/dictionaries.sol). This was built
+because it is what a literal would compile to and because it was asked for — not
+because a program asked, which is the usual bar on this page and is not met here.
+The honest test of whether it earns itself is whether the next options bag
+written reaches for it.
+
+**And the temporary root came out again, which is the part that taught
+something.** The first draft rooted the new dictionary on the reasoning that
+`sol_dict_put` grows its entries and growth allocates. Growth does allocate and
+*cannot collect* — object.c says so where it does it, *calloc and free rather
+than a heap allocation, so nothing can be collected in the middle of the
+rebuild*. Removing the root and running 200 dictionaries and a 120-pair one
+under `SOLUM_GC_STRESS` found no difference because there was none to find. A
+guard against a hazard that is not there is worse than no guard: it tells the
+next reader the hazard exists.
 
 ### Namespaces for included files
 
