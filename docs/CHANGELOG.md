@@ -5,6 +5,105 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### sed, and the sed that was already on the machine — `09dd8ce`, 2026-08-31
+
+**[programs/sed.sol](../programs/sed.sol) is the sixteenth program**, and the
+everyday half of the stream editor: addresses (`17`, `$`, `/re/`, `\,re,`,
+ranges and `!`), the commands `s p d q = y a i c { }`, and `-n`, `-e` and `-f`.
+The other half — the hold space, branching, the multi-line commands, `r` and
+`w` — is deliberately absent and is a coherent half rather than a list of
+leftovers: it is what makes sed a stream *language*, and it wants a pattern
+space that is a two-line window and a program counter that can jump.
+
+**The regular expressions are [pattern.sol](../lib/pattern.sol)'s**, which is
+the whole reason to write this one. The matcher and the substituter were
+already here; what sed adds is the cycle and the addressing, and 500 lines of
+that was enough to find out what the library underneath is short of.
+
+**It is held against `/usr/bin/sed`.**
+[programs/sed/oracle.sh](../programs/sed/oracle.sh) runs 60 cases that must
+produce the same bytes under both, and three that must **not**, each carrying at
+the top of its own file what each sed does and why this one is allowed to
+differ. So the list of divergences is something that fails rather than prose.
+[sola](../programs/sola.sol) makes this argument for QuickBASIC and
+[pascal](../programs/pascal.sol) for `fpc`; this is the first whose oracle needed
+nothing installed.
+
+**Every case runs twice, by file and by pipe**, and that is not ceremony:
+`system:readLine` reads standard input a line at a time and a named file is read
+whole and split, so the two routes into the program are different code paths. A
+stream editor answering two ways about the same bytes would be wrong where a
+single-route check cannot look.
+
+**What it priced.** [3.22](ROADMAP.md#322-a-file-is-read-whole-or-not-at-all)
+says a file is read whole and that the peak is twice the file. Same script, same
+bytes, `-n '$p'`, peak resident:
+
+| input | lines | named file | standard input |
+| --- | --- | --- | --- |
+| 618 KB | 20,000 | 5.3 MB | 2.5 MB |
+| 6.4 MB | 200,000 | 32.3 MB | 2.5 MB |
+
+The stream is flat and the file is not, and the slope is about **4.7 times the
+file** — twice is right for `readFile` alone, and a program working line by line
+holds a string object per line as well. **The entry's trigger has still not
+fired**: nothing here has a file that does not fit. What moved is the price, not
+whether it has been paid.
+
+**And one bit that `readLine` cannot report.** A file whose last line carries no
+newline must not gain one. This gets it right for a named file and cannot for a
+pipe, because `readLine` answers the line without its terminator and there is no
+way to ask whether there was one. Three oracle cases declare that difference and
+bound it: the pipe's answer must be the file's plus exactly one newline, and
+anything else is news. `\r\n` is the same boundary from the other side —
+`readLine` strips the carriage return and `split` does not — and the program
+takes it off on the file route to agree with itself.
+
+**Two limitations were exactly as advertised and cost nothing.**
+[3.2](ROADMAP.md#32-no-non-local-return), no non-local return: `d` and `q` are
+early exits and the runner threads a verdict symbol through its loop instead,
+three lines longer than a `return`.
+[3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame) never came up at
+all, because a compiled script here is *data* — a command is slots, not a
+closure. A sed built as one block per command would have met 3.1 on its first
+line.
+
+**What it costs**: 20,000 lines, one substitution each, `-O2`, **0.26 s against
+the system sed's 0.01 s**. The Makefile's default `CFLAGS` has no optimiser and
+that build takes 0.83 s, which is
+[performance.md](performance.md#the-build-flag-is-worth-more-than-any-of-this)'s standing warning
+arriving again.
+
+### An empty match where the last one ended is not a match — `322c50e`, 2026-08-31
+
+**A defect in [pattern.sol](../lib/pattern.sol), found by the oracle above on
+its first run**, and in the substituter rather than the matcher:
+
+```
+pattern:on("o*"):replaceAllIn("aoc", "-")     ; was "-a--c-", every sed says "-a-c-"
+pattern:on("o*"):replaceAllIn("oo",  "-")     ; was "--",     every sed says "-"
+pattern:on("b*"):replaceAllIn("abc", "-")     ; was "-a--c-", every sed says "-a-c-"
+pattern:on("o*"):countIn("aoc")               ; was #4, and there are three
+```
+
+The star matches the `o`, and then matches *nothing* at the position the `o`
+ended on — which is the same position seen twice. The rule beside it was there
+and was right: a zero-width match must not stand still, or the loop never ends.
+
+**The library's own example is the single case that cannot show the
+difference.** `s/x*/-/g` over `abc` answers `-a-b-c-` under both readings,
+because the star never matches a character there and so no match has an end for
+a later empty one to land on. Telling the two rules apart needs a pattern that
+matches something — which an oracle supplies and an example written by the
+author of the code does not. That is the argument for an oracle in one sentence,
+and it was made by the oracle rather than about it.
+
+Fixed in `substitutionIn` and again in `countIn`, which walks the text
+separately and on purpose; the comment in each names the other. Four cases went
+into [examples/matching.sol](../examples/matching.sol) so `expect.sol` holds it,
+and the editor's 181 scripted sessions still pass — `edit.sol`'s `:s` goes
+through the same code and had the same defect.
+
 ## 0.40.0 — 2026-08-30
 
 **A literal for the dictionary, and five sentences that turned out not to be

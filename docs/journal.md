@@ -11,6 +11,155 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-31 — a Unix tool written to see what it would ask for, and the answer arrived in ninety seconds
+
+The day began with a general proposal — *there are a lot of Unix tools we could
+make and see whether they add anything* — and one of them picked, which is the
+right shape for this: a program is the only thing here allowed to say the
+library is short of something, and sed is a program with an unusually good
+witness sitting on the same machine.
+
+### Scoping it was worth the five minutes
+
+Three sizes were put up. **The everyday half** — addresses, `s p d q = y a i c
+{ }`, `-n -e -f` — was chosen over all of POSIX sed and over a bare `s///`
+filter. The reasoning for the two that were refused is worth keeping.
+
+*All of POSIX* adds the hold space and branching, and those are not more
+commands: they are what make sed a stream **language** rather than a filter, and
+they want a pattern space that is a two-line window and a program counter that
+can jump. That is a different program under the same name.
+
+*Bare `s///`* was refused for the opposite reason. `pattern.sol` already has the
+matcher and the substituter, so a read loop around `replaceAllIn` is eighty
+lines that exercise nothing — **it would have told the project nothing it did
+not know**, which is the only test a program here has to pass before it is worth
+writing.
+
+### The oracle was the decision that mattered
+
+Everything else about this day followed from one choice: hold it against
+`/usr/bin/sed` rather than against a transcript.
+
+[sola](../programs/sola.sol) makes that argument for QuickBASIC and
+[pascal](../programs/pascal.sol) for `fpc`, and both say the same thing — a
+check written by the author of the code can only catch what the author thought
+to check. What is new here is the price. Those two want DOSBox or a Free Pascal
+install; this oracle has been on every Unix since 1974 and is three lines of
+shell away.
+
+Sixty cases that must agree, three that must not, **and every one of them run
+twice** — once with the input named as a file, once with it arriving on a pipe.
+That second run is not thoroughness. `system:readLine` reads standard input a
+line at a time and a named file is read whole and split, so the two ways into
+this program are genuinely different code, and a stream editor that answered two
+ways about the same bytes would be wrong exactly where one route could not look.
+
+### Ninety seconds
+
+The first run of the oracle reported twelve differences. Eight were the harness
+or the cases — BSD sed refusing `-e 'a\' -e 'text'`, wanting `q;` before a `}`,
+my own test written with `\(...\)` in a program whose header says it has no
+groups. **Three were real divergences** and went into `differ/` with their
+reasons. And one was this:
+
+```
+s/o*/-/g   on "alice   42  ok"
+
+  sed:   -a-l-i-c-e- - - -4-2- - -k-
+  ours:  -a-l-i-c-e- - - -4-2- - --k-
+```
+
+An extra dash, once, next to the only `o` on the line. It is a defect in
+`pattern.sol` — reproduced immediately without sed in the picture, which is what
+established whose it was:
+
+```
+pattern:on("o*"):replaceAllIn("aoc", "-")   ; "-a--c-", and every sed says "-a-c-"
+pattern:on("o*"):countIn("aoc")             ; #4, and there are three
+```
+
+The star matches the `o`, and then matches **nothing** at the position the `o`
+ended on, which is the same position seen twice. One condition, missing.
+
+### What makes this one worth writing down
+
+The rule beside it was there and was correct: a zero-width match must not stand
+still, or the loop never terminates. The library's header explains that rule at
+length and demonstrates it:
+
+```
+pattern:on("x*"):replaceAllIn("abc", "-")   ; -a-b-c-
+```
+
+**That example is the single case that cannot show the difference.** In `abc`
+the star never matches a character, so no match ever has an *end* for a later
+empty one to land on, and the rule that was present and the rule that was
+missing agree at every position. Telling them apart needs a pattern that matches
+something — and the example was written by the person who wrote the code, to
+show the rule they were thinking about.
+
+So this is not *the documentation was thin*. The documentation was careful,
+correct, and had a worked example, and the worked example was in the blind spot
+by construction. **The oracle made the argument for oracles**, on its own first
+run, about itself. It took a stranger's program to pick a case the author would
+not have picked.
+
+The fix went into `substitutionIn` and again into `countIn`, which walks the
+text separately and on purpose; each comment now names the other. Four cases
+into [examples/matching.sol](../examples/matching.sol) so the checker holds it,
+and the editor's 181 scripted sessions still pass — `edit.sol`'s `:s` goes
+through the same code and has had the same defect for as long as it has existed.
+
+### Two prices, measured rather than guessed
+
+**A file cannot be read a line at a time**
+([3.22](ROADMAP.md#322-a-file-is-read-whole-or-not-at-all)), and this is the
+first program here that can put a number on it, because it does identical work
+by both routes:
+
+| input | lines | named file | standard input |
+| --- | --- | --- | --- |
+| 618 KB | 20,000 | 5.3 MB | 2.5 MB |
+| 6.4 MB | 200,000 | 32.3 MB | 2.5 MB |
+
+The stream is flat at 2.5 MB whatever the size. The file route is about **4.7
+times the file**, where the entry says twice — twice is right for `readFile`
+alone, and a line-oriented program holds a string object per line as well, which
+the entry does not cover.
+
+**And the trigger has still not fired.** 3.22 says it is *a program with a file
+that does not fit*, and nothing here has one: this read 6.4 MB without
+complaint. A stream editor that reads its input whole is embarrassing rather
+than broken. The entry's *price* was wrong for this shape of program; whether to
+pay it is unchanged, and saying so is the entry's own standard.
+
+**The second price is one bit.** `system:readLine` answers a line without its
+terminator and there is no way to ask whether there was one, so a file whose
+last line carries no newline keeps that through the file route and cannot
+through a pipe. Rather than hide it, three oracle cases carry a `pipediffers:`
+line and the harness checks the difference is *exactly one newline* — a
+divergence that is declared, bounded, and would fail if it grew.
+
+### Two limitations that cost nothing, which is also a finding
+
+[3.2](ROADMAP.md#32-no-non-local-return), no non-local return: `d` and `q` are
+early exits from a command list, and the runner threads a verdict symbol through
+its loop. Three lines longer than a `return` and no harder to read.
+
+[3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame), blocks that
+cannot outlive their frame, **never came up at all** — because a compiled script
+here is *data*, a command being slots rather than a closure. That is the shape
+`pattern:item` already had and the shape this file reached for without deciding
+to. A sed built as one block per command would have met 3.1 on its first line,
+and the reason it was not built that way is that the file it was copying from
+had already paid that lesson.
+
+Reporting a limitation that did not bite is worth as much as reporting one that
+did. A roadmap where every entry is a complaint is a roadmap nobody trusts.
+
+---
+
 ## 2026-08-30 (postmortem) — the day the documents were audited by being used
 
 Nine entries above this one, and the day had no plan. It began with a question
