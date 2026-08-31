@@ -64,6 +64,14 @@ EXAMPLE_SRCS = $(wildcard examples/*.phx)
 EXAMPLE_SOLS = $(EXAMPLE_SRCS:.phx=.sol)
 EXAMPLE_SOBS = $(EXAMPLE_SRCS:.phx=.sob)
 
+# programs/ember -- a compiler written in Phoenix, and the only customer any of
+# this has. Built and run by `make test`, because a language with no program
+# written in it has never been tested by anything but its own examples.
+EMBER      = programs/ember
+EMBER_SRCS = $(wildcard $(EMBER)/examples/*.em)
+EMBER_ASM  = $(EMBER_SRCS:.em=.s)
+EMBER_BINS = $(EMBER_SRCS:.em=.out)
+
 # The Solveig a `.sol` is about to be handed to, read from the same header its
 # binaries report their version out of. Checked rather than assumed because the
 # failure it prevents is unhelpful: `solas` not being there gives a shell error
@@ -73,12 +81,12 @@ SOLVEIG_VERSION = $(shell grep SOLUM_VERSION \
                     $(SOLVEIG)/solum/include/solum/common.h 2>/dev/null \
                     | tr -d '"' | awk '{print $$3}')
 
-.PHONY: all test run examples check install uninstall dist clean
+.PHONY: all test run examples ember check install uninstall dist clean
 
 # Without this, make treats a generated .sol as an intermediate and deletes it
 # after the .sob is built -- taking the map with it. Both are the artefacts
 # somebody reaches for when the generated code is what they need to read.
-.SECONDARY: $(EXAMPLE_SOLS)
+.SECONDARY: $(EXAMPLE_SOLS) $(EMBER)/emberc.sol $(EMBER)/emberc.sob $(EMBER_ASM)
 
 all: $(BIN)/phoenix
 
@@ -124,6 +132,23 @@ examples/%.sob: examples/%.sol | check
 
 examples: $(EXAMPLE_SOLS) $(EXAMPLE_SOBS)
 
+$(EMBER)/emberc.sol: $(EMBER)/emberc.phx $(EMBER)/asm.phx $(DIALECTS) $(BIN)/phoenix
+	@$(BIN)/phoenix --map $< -o $@
+
+$(EMBER)/emberc.sob: $(EMBER)/emberc.sol | check
+	@$(SOLVEIG)/bin/solas $< -o $@
+
+$(EMBER)/examples/%.s: $(EMBER)/examples/%.em $(EMBER)/emberc.sob | check
+	@$(SOLVEIG)/bin/solvm $(EMBER)/emberc.sob $< > $@
+
+$(EMBER)/examples/%.out: $(EMBER)/examples/%.s
+	@$(CC) $< -o $@
+
+# The whole stack, in one target: .phx to .sol to .sob, then a .em through that
+# to assembly, then cc. Five programs and two languages to print a prime.
+ember: $(EMBER_BINS)
+	@for b in $(EMBER_BINS); do echo "-- $$b"; $$b; done
+
 run: examples/vectors.sob
 	@$(SOLVEIG)/bin/solvm examples/vectors.sob
 
@@ -131,10 +156,12 @@ run: examples/vectors.sob
 # that SolVM executes. A front end that emits text can be wrong in a way no unit
 # test sees -- valid-looking Solveig that Solveig rejects, or accepts and reads
 # differently -- and the only witness to that is the real compiler.
-test: $(BIN)/phoenix $(TEST_BINS) $(EXAMPLE_SOBS)
+test: $(BIN)/phoenix $(TEST_BINS) $(EXAMPLE_SOBS) $(EMBER_BINS)
 	@for t in $(TEST_BINS); do echo "-- $$t"; $$t || exit 1; done
 	@for e in $(EXAMPLE_SOBS); do echo "-- $$e"; \
 	    $(SOLVEIG)/bin/solvm $$e > /dev/null || exit 1; done
+	@for b in $(EMBER_BINS); do echo "-- $$b"; \
+	    $$b | diff -u $${b%.out}.expected - || exit 1; done
 	@echo "all tests passed"
 
 # The dialects go in beside the binary, and nothing looks for them there.
@@ -168,5 +195,8 @@ dist:
 clean:
 	rm -rf $(BUILD) $(BIN)
 	rm -f $(EXAMPLE_SOLS) $(EXAMPLE_SOLS:.sol=.sol.map) $(EXAMPLE_SOBS)
+	rm -f $(EMBER)/emberc.sol $(EMBER)/emberc.sol.map $(EMBER)/emberc.sob
+	rm -f $(EMBER_ASM) $(EMBER_BINS)
+	rm -rf $(EMBER)/examples/*.dSYM
 
 -include $(LIB_OBJS:.o=.d)

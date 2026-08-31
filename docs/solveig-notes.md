@@ -96,6 +96,25 @@ set what goes into it.
 
 ---
 
+## A prediction about Solveig that was wrong
+
+`programs/ember` is a lexer, a recursive-descent parser and an ARM64 code
+generator, written in Phoenix and run on SolVM. Its README predicted that
+**Solveig would bite before Phoenix did** -- most likely
+[3.1](https://hansolovkarlsson.github.io/Solveig/docs/ROADMAP.html), a block
+outliving the frame it was written in, since `lib/scan.sol` had already hit it
+and said so.
+
+**It did not.** Recursive blocks held in globals and called from inside other
+blocks, an AST of `object:new` with slots assigned after the fact, arrays of
+arrays, `system:arguments`, `system:readFile`, and `fill` doing every line of
+the assembler -- none of it complained. `lib/scan.sol` did the cursor work and
+`lib/text.sol` was included and, as it turned out, not needed.
+
+Recorded because a prediction that was written down and then failed is worth
+more than one that was never made, and because it is a data point for 3.1: a
+program of this shape does not reach it.
+
 ## Not defects, recorded so they are not re-found
 
 **Solas is single-pass and has no tree.** `sol_compile(source, chunk)` runs the

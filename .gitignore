@@ -6,6 +6,10 @@ bin/
 *.a
 *.dSYM/
 
+# What programs/ember writes: assembly, and the binaries cc makes of it
+*.s
+*.out
+
 # What the compiler writes: Solveig source, its map, and the bytecode after it
 *.sol
 *.sol.map
@@ -14,6 +18,9 @@ bin/
 # What `make dist` writes
 dist/
 *.tar.gz
+
+# Yours, not the repository's -- comments, thoughts and experiments
+scratch/
 
 # Editor / OS
 .DS_Store

@@ -506,8 +506,24 @@ static void directive_syntax(Reader *reader)
 
     if (!check(reader, PHX_TOK_OPERATOR) ||
         !token_is(&reader->current, "=>")) {
-        error_here(reader, "'@syntax %.*s' needs '=>' and then what it stands for",
-                   name.length, name.start);
+        /* Two messages, because a pattern that stopped early and a form with no
+           `=>` at all are different mistakes and the first one is the common
+           one. `@syntax mov <d> , <s>` is what somebody writing an assembler
+           notation tries first -- programs/ember found it within a minute --
+           and *needs '=>'* said nothing about why the comma was the problem. */
+        if (parts != NULL)
+            error_here(reader,
+                       "a pattern is made of names and <holes>, and %s is "
+                       "neither", phx_token_type_name(reader->current.type));
+        else
+            error_here(reader,
+                       "'@syntax %.*s' needs '=>' and then what it stands for",
+                       name.length, name.start);
+        if (parts != NULL)
+            phx_note(reader->diag, reader->current.span,
+                     "a form wanting punctuation between its holes wants the "
+                     "call shape: @syntax %.*s(...) => ... .",
+                     name.length, name.start);
         goto give_up;
     }
     advance(reader);
