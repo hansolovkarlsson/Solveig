@@ -1,0 +1,8 @@
+# the p flag reports a line the star changed
+args: -n 's/o*/-/gp'
+input:
+alice   42  ok
+bob     17  warn
+carol   93  ok
+dave     5  error
+erin    68  warn

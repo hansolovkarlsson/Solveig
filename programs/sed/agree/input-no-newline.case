@@ -1,0 +1,7 @@
+# a last line with no newline of its own does not gain one
+args: 's/o/0/'
+nonewline:
+pipediffers:
+input:
+alice   42  ok
+bob     17  warn

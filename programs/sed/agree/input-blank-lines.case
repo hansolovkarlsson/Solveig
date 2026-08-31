@@ -1,0 +1,8 @@
+# empty lines are lines
+args: -n '/^$/='
+input:
+one
+
+three
+
+five

@@ -1,0 +1,18 @@
+# `p` on a last line that carries no newline.
+#
+# The input is one line, "only", with nothing after it. Both seds must not add a
+# newline to the end of their output, and they disagree about the middle:
+#
+#   BSD sed    onlyonly          -- the line has no terminator, so no copy of it
+#                                   gets one, and the two run together
+#   this, GNU  only\nonly        -- the missing terminator belongs to the end of
+#                                   the output rather than to the line
+#
+# GNU's reading is the one that keeps `p` meaning the same thing on every line
+# of a file, and is what out:flush in sed.sol implements: the terminator is
+# decided once, for the last thing written.
+args: 'p'
+nonewline:
+pipediffers:
+input:
+only

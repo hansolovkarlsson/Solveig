@@ -1,0 +1,8 @@
+# a star matching nothing must still move on, or it never ends
+args: 's/o*/-/g'
+input:
+alice   42  ok
+bob     17  warn
+carol   93  ok
+dave     5  error
+erin    68  warn

@@ -1,0 +1,8 @@
+# & in the replacement is what was matched
+args: 's/[0-9][0-9]/[&]/g'
+input:
+alice   42  ok
+bob     17  warn
+carol   93  ok
+dave     5  error
+erin    68  warn

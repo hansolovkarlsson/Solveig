@@ -1,0 +1,15 @@
+# `s/o/0/2g` -- a number and `g` together.
+#
+# BSD sed refuses the combination outright: "more than one number or 'g' in
+# substitute flags". GNU sed reads it as *the second match and every one after
+# it*, and so does this, because that is the only reading the two flags have
+# together and refusing it buys nothing.
+#
+# POSIX says the behaviour is unspecified, so neither sed is wrong. The reason
+# this one follows GNU is that a number alone already means "this occurrence and
+# no other", and `g` is the word for "and the rest".
+args: 's/o/0/2g'
+input:
+alice   42  ok
+bob     17  warn
+carol   93  ok

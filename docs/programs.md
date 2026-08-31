@@ -1,6 +1,6 @@
 # The programs
 
-*The fifteen<!--count programs--> files in [programs/](../programs/): what each one does, how to run
+*The sixteen<!--count programs--> files in [programs/](../programs/): what each one does, how to run
 it, and what it found. [examples/](../examples/) is the other directory — one
 file per concept the [guide](GUIDE.md) names, each written to show a feature.
 These were written to do a job.*
@@ -46,6 +46,7 @@ is the map; the file is the argument.
 | [sola](../programs/sola.sol) | compiles SolaBasic to a `.sob` | `solvm sola.sob [prog.bas] [out.sob]` |
 | [check_syntax](../programs/check_syntax.sol) | reads a grammar, then checks a file against it | `solvm check_syntax.sob [grammar.bnf] [source]` |
 | [pascal](../programs/pascal.sol) | compiles ISO 7185 Pascal to a `.sob` | `solvm pascal.sob [prog.pas] [out.sob]` |
+| [sed](../programs/sed.sol) | runs a sed script over the lines of its input | `solvm sed.sob [-n] script [file...]` |
 
 Every one runs with no arguments at all, on input it supplies itself. That is
 deliberate — a program you have to feed before it will say anything is a program
@@ -1602,9 +1603,77 @@ so passing one costs nothing at the call. The restriction stage 5 had written
 down as *stage 8* turned out to be a representation that was one case too
 narrow.
 
+## sed — a stream editor
+
+Runs a sed script over every line of its input: addresses pick the lines, and
+`s`, `p`, `d`, `q`, `=`, `y`, `a`, `i`, `c` and `{ }` say what to do with them.
+`-n`, `-e` and `-f` are there, and the input is the files named or standard
+input.
+
+```sh
+./bin/solvm programs/sed.sob                        # it demonstrates itself
+./bin/solvm programs/sed.sob -n '/^ERROR/p' log.txt
+./bin/solvm programs/sed.sob 's/  */ /g' < notes.txt
+```
+
+```
+$ sed -n '/warn/,/error/p'
+
+bob     17  warn
+carol   93  ok
+dave     5  error
+erin    68  warn
+```
+
+**Half of sed, and it is a coherent half.** The hold space, branching, the
+multi-line commands and `r`/`w` are not here — those are what make sed a stream
+*language* rather than a filter, and they want a pattern space that is a
+two-line window and a program counter that can jump. The regular expressions
+are [lib/pattern.sol](../lib/pattern.sol)'s, which is the subset vi searches
+with: no groups, no backreferences, no `+` or `?`.
+
+**It is held against the sed on the machine.**
+[programs/sed/oracle.sh](../programs/sed/oracle.sh) runs 57 cases under both and
+requires the same bytes — 56 do, and the one that does not is the `pattern.sol`
+defect below, left failing rather than moved out of the way. Three further cases
+must *differ*, each carrying the reason at the top of its own file. Every case runs twice — with the input named
+as a file and with it arriving on standard input — because those are different
+code paths underneath and a stream editor that answered two ways about the same
+bytes would be wrong where nothing else could see it. This is the argument
+[sola](#sola--a-compiler-for-another-language)'s oracle makes for QuickBASIC and
+[pascal](#pascal--a-compiler-for-a-language-with-a-standard)'s makes for `fpc`,
+for no money at all: this oracle was already installed.
+
+**What it found**, and the file's own tail has each with its measurement:
+
+- **A defect in `pattern.sol`**, on the oracle's first run, in the substituter
+  rather than the matcher. `pattern:on("o*"):replaceAllIn("aoc", "-")` answered
+  `-a--c-` where every sed answers `-a-c-`: an empty match at the position where
+  the previous match ended was being taken as a match, when it is the same
+  position seen twice. **The library's own example is the one case that cannot
+  show it** — in `s/x*/-/g` over `abc` the star never matches a character, so no
+  match has an end for a later empty one to land on, and the rule that was
+  missing and the rule that was present agree on every position. Fixed, in
+  `substitutionIn` and in `countIn`, with the cases added to
+  [examples/matching.sol](../examples/matching.sol).
+- **`substitutionIn` takes a boolean where sed has three answers** — the first
+  match, all of them, or the Nth. A boolean is the two ends of a range with a
+  middle.
+- **What reading a file whole costs a line-oriented program.** The same script
+  over the same bytes: 2.5 MB peak by pipe whatever the size, against 5.3 MB for
+  a 618 KB file and 32.3 MB for a 6.4 MB one. That is about 4.7 times the file
+  rather than the twice
+  [3.22](ROADMAP.md#322-a-file-is-read-whole-or-not-at-all) states, because a
+  program working line by line holds a string per line as well. The entry's
+  trigger — *a file that does not fit* — still has not fired.
+- **`system:readLine` cannot say whether the last line had a newline**, which is
+  the one bit a stream editor must not lose. A named file keeps it and a pipe
+  cannot, so three oracle cases declare the difference and bound it: the pipe's
+  answer must be the file's plus exactly one newline.
+
 ## Adding one
 
-There is no template and there should not be. What the fifteen have in common is
+There is no template and there should not be. What the sixteen have in common is
 only this:
 
 1. **It does a job somebody would want done**, rather than exercising a feature.

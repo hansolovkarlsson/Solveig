@@ -1,0 +1,4 @@
+# one line
+args: 's/a/A/'
+input:
+alone

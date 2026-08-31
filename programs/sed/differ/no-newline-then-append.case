@@ -1,0 +1,18 @@
+# `a` after a last line that carries no newline.
+#
+# The same disagreement as no-newline-printed-twice, in the place where it does
+# real damage:
+#
+#   BSD sed    bob     17  warnafter    -- the appended text runs into the line
+#   this, GNU  bob     17  warn\nafter  -- with no newline after "after"
+#
+# Both leave the output without a final newline, which is the part that matters
+# and the part both agree on. Where they differ is whether a line that lost its
+# terminator loses it for good: BSD says yes and joins two lines that were never
+# one, and this says the terminator belongs to the end of the output.
+args: '$a\%NEWLINE%after'
+nonewline:
+pipediffers:
+input:
+alice   42  ok
+bob     17  warn

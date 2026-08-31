@@ -1,0 +1,8 @@
+# q prints the line it is on and stops
+args: '3q'
+input:
+alice   42  ok
+bob     17  warn
+carol   93  ok
+dave     5  error
+erin    68  warn

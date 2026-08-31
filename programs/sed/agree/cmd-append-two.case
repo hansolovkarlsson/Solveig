@@ -1,0 +1,8 @@
+# text carried onto a second line by a trailing backslash
+args: '1a\%NEWLINE%first\%NEWLINE%second'
+input:
+alice   42  ok
+bob     17  warn
+carol   93  ok
+dave     5  error
+erin    68  warn

@@ -1,0 +1,8 @@
+# two -e pieces are one script, run in order
+args: -e 's/o/0/' -e 's/a/A/'
+input:
+alice   42  ok
+bob     17  warn
+carol   93  ok
+dave     5  error
+erin    68  warn
