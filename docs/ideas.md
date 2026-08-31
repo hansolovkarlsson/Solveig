@@ -54,7 +54,7 @@ marked as a sketch.
 | SQLite, SDL2, GTK | **One project, not three** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); GTK and SDL2 fire that trigger and SQLite does not, and wanting *both* toolkits is what settles the mechanism |
 | Graphics in SolaBasic, over SDL2 | **No — asked and closed on 2026-08-30, and the premise was wrong** to begin with: [graphics were never parked](#graphics-in-solabasic-through-the-sdl2-extension) for want of extensions, they were refused as *the PC*. No program wanted a screen, so the trigger never fired. The throwaway exercised the foundation without a language change — an extension send at 205ns, **`sdl:present` vsync-locked at 8.3ms**, and **1.49x from 0.39.0** on a globals-heavy loop. **A demo written that evening then corrected the entry**: a present keeps nothing, so immediate-mode `PSET` is not slow on this surface but absent. **And there is no oracle for a pixel**, which is what would decide it if it were ever asked again |
 | What Python has that this does not | **Surveyed on 2026-08-30** — [most of it is already here under another name](#what-python-has-and-which-of-it-this-language-wants); five had no line on this page, and **named arguments were then investigated and refused** — `name:` is already a valid send, `=` lowers cheaply but [would not generalise](#and-the-lowering-is-cheap-which-is-not-the-same-as-being-right), and the options array turns out to catch every mistake it was accused of passing. Decorators turn out to be writable today; a backtrace is [already captured and then discarded](#read-on-2026-08-30-it-is-not-merely-available-it-is-thrown-away), though no handler in the tree could use one; a file being readable only whole is an absence the reference now states, with [the edge measured](#and-the-edge-was-measured-which-is-what-the-limit-was-missing) — 2 GB hard, twice the file while reading |
-| `@dict[k=v]`, and `=` moved to `==` | **Half yes, half unnecessary** — [`=` never needed freeing](#a-dictionary-literal-and-the-message-that-has-to-come-first): the lexer's mode flag exists for `-` alone, and `:=` with `==` is half of C and half of Pascal. But `[...]` is *measurably* sugar over `array:of`, and there is no `dictionary:of` — **built `dictionary:of` on 2026-08-30, literal deferred** — and it shipped with no caller, which the entry says rather than hides |
+| `@dict[k=v]`, and `=` moved to `==` | **Half yes, half unnecessary** — [`=` never needed freeing](#a-dictionary-literal-and-the-message-that-has-to-come-first): the lexer's mode flag exists for `-` alone, and `:=` with `==` is half of C and half of Pascal. But `[...]` is *measurably* sugar over `array:of`, and there is no `dictionary:of` — **built `dictionary:of` on 2026-08-30, literal deferred** — it shipped with no caller, and [converting `run`/`capture` was then scoped and refused](#converting-run-and-capture-to-take-one--scoped-and-refused): every options bag would grow 13 characters and lose the repeated-name error. Which is the best measured argument yet **for** the literal |
 | Fuzzy logic | **A library that would teach nothing** — arithmetic on floats, and the arithmetic all landed |
 | Namespaces for included files | **Defer** — the trigger is somebody else writing a library |
 | Splitting the reference into pages | **Defer** — the trigger is the message reference outgrowing the rest |
@@ -1734,6 +1734,60 @@ because it is what a literal would compile to and because it was asked for — n
 because a program asked, which is the usual bar on this page and is not met here.
 The honest test of whether it earns itself is whether the next options bag
 written reaches for it.
+
+#### Converting `run` and `capture` to take one — scoped, and refused
+
+**The obvious first customer, measured on 2026-08-30 and it does not survive
+the measurement.** These are the only options bags in the tree, four of them:
+
+| today | as a dictionary | |
+| --- | --- | --- |
+| `["stderr", 'discard]` | `dictionary:of("stderr", 'discard)` | +13 |
+| `["stdout", 'discard, "stderr", 'discard]` | `dictionary:of(…)` | +13 |
+| `["stdin", typed, "stdout", 'discard, "stderr", 'discard]` | `dictionary:of(…)` | +13 |
+
+**Every call site gets thirteen characters longer and nothing else changes** —
+thirteen being exactly `dictionary:of` against `[` and `]`. The array is winning
+because it has a literal and the dictionary does not, which is precisely what
+[the reference](REFERENCE.md#where-the-childs-streams-go) said when it called the
+array *the options bag this language can spell*. `dictionary:of` did not answer
+that complaint. Only a literal would.
+
+**And the conversion would lose an error.** The array form is checked harder
+than a dictionary can be, because a dictionary has already thrown away what
+`capture` wants to complain about:
+
+```text
+system:capture(cmd, ["stderr", 'merge, "stderr", 'discard]).
+solvm: 'capture' is given "stderr" twice
+```
+
+A dictionary dedupes on the way in, so the same mistake would arrive as a single
+setting and be obeyed. Of the five ways to get an options bag wrong — an odd
+count, an unknown name, a name that is not a string, an unknown manner, and a
+repeated name — the last one is **only** catchable because the argument is a
+list. That is the general point and it is worth keeping: **an argument bag is not
+a degenerate dictionary.** Deduplication is a feature of a dictionary and a
+defect in an argument list, where saying the same thing twice means the writer
+believed something untrue.
+
+**The one argument for it is symmetry, and it is not enough.** `capture`
+*answers* a dictionary — `at("output")`, `at("status")` — and takes an array, so
+the two ends do not match. But they are not doing the same job: the input is a
+list of settings to be checked, and the answer is a bag of results to be looked
+up in. Each is shaped for its half.
+
+**Verdict: no.** The array stays. What this scoping produced is the best
+argument yet for the deferred literal, and it is a measured one: every options
+bag in the language pays thirteen characters to become a dictionary, and a
+literal is exactly what would give them back. If the literal is ever built, this
+conversion is worth asking again — and it would still have to answer for the
+repeated-name error.
+
+**And it sharpens what `dictionary:of` is for**, which needed sharpening after it
+shipped with no caller: not argument bags, which want checking and ordering, but
+values that want *looking up* — built where they are used rather than three
+statements earlier.
 
 **And the temporary root came out again, which is the part that taught
 something.** The first draft rooted the new dictionary on the reasoning that
