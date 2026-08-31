@@ -53,6 +53,7 @@ marked as a sketch.
 | Networking, and sending code to a running machine | **The first half is built**, on 2026-08-29 — [extensions/net](../extensions/net/README.md), five messages, and the waiting question answered with a timeout rather than a block; [the second half](#networking-and-sending-code-to-a-machine-that-is-already-running) is untouched and still needs 3.4, 6.32 and a proxy |
 | SQLite, SDL2, GTK | **One project, not three** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); GTK and SDL2 fire that trigger and SQLite does not, and wanting *both* toolkits is what settles the mechanism |
 | Graphics in SolaBasic, over SDL2 | **No — asked and closed on 2026-08-30, and the premise was wrong** to begin with: [graphics were never parked](#graphics-in-solabasic-through-the-sdl2-extension) for want of extensions, they were refused as *the PC*. No program wanted a screen, so the trigger never fired. The throwaway exercised the foundation without a language change — an extension send at 205ns, **`sdl:present` vsync-locked at 8.3ms**, and **1.49x from 0.39.0** on a globals-heavy loop. **A demo written that evening then corrected the entry**: a present keeps nothing, so immediate-mode `PSET` is not slow on this surface but absent. **And there is no oracle for a pixel**, which is what would decide it if it were ever asked again |
+| What Python has that this does not | **Surveyed on 2026-08-30** — [most of it is already here under another name](#what-python-has-and-which-of-it-this-language-wants); five had no line on this page, and the one with a customer is **named arguments**, which the reference already calls a workaround. Decorators turn out to be writable today; a file being readable only whole is an absence the reference does not mention |
 | Fuzzy logic | **A library that would teach nothing** — arithmetic on floats, and the arithmetic all landed |
 | Namespaces for included files | **Defer** — the trigger is somebody else writing a library |
 | Splitting the reference into pages | **Defer** — the trigger is the message reference outgrowing the rest |
@@ -1166,6 +1167,188 @@ strings stay bytes and gain code-point *messages*, the value a character-aware
 no type left for `!` to spell.
 
 ---
+
+### What Python has, and which of it this language wants
+
+**Asked on 2026-08-30.**
+[lineage.md](lineage.md#what-the-relatives-have-that-this-does-not) says this
+page carries the survey of what the relatives have that Solveig does not, and
+names them: Smalltalk, Self, Io, Lua and Ruby. **Python is not among them**,
+because when that sentence was written Python was not in the project. It is now
+— nine matched programs, a geometric mean of 0.885,
+[a fairness section](performance.md#what-is-not-fair-here-said-plainly) that
+concedes two rows. Python arrived here as a stopwatch and was never asked what it
+*has*, which is the gap this closes.
+
+It is also the relative least like the rest. Smalltalk and Self are where the
+object model came from and Lua is the size to aim at; Python shares ancestry with
+none of that. Which is the reason to ask rather than a reason not to: a feature
+that turns up in a language with different parents is likelier to be answering a
+real problem than passing on a habit.
+
+#### Already answered here, under another name
+
+Most of it, which is the honest headline:
+
+| Python | here |
+| --- | --- |
+| list and dict comprehensions | `collect`, `select` |
+| `with`, context managers | [`ensure`](REFERENCE.md#block) — same guarantee, no protocol to implement |
+| f-strings | `fill`, and `asString(spec)` for the padding half |
+| `repr` and `str` | `print` and `display`, and one `asString` serves both |
+| modules, `import` | `@include` and `exports`, with [namespaces deferred](#namespaces-for-included-files) |
+| duck typing | the object model, which has no other kind |
+| the REPL | `solis` |
+| `enumerate`, `zip`, `any`, `all`, `sum` | named already in [the collections entry](#a-set-and-the-collections-that-are-not-there), with a method rather than a verdict |
+| `str` as code points | [settled](#what-a-string-is--bytes-code-points-or-bytes-with-a-contract), toward bytes with a contract |
+| tuple unpacking | refused as [multiple return values](#multiple-return-values) |
+| arbitrary-precision integers | refused with [the integer sizes](#integer-sizes--byte-word-long); performance.md names the trade openly |
+| generators, `yield` | refused with [coroutines](#coroutines), and the reason is the C stack rather than the idea |
+| `assert` | [has its own entry](#an-assert-and-compiling-it-away) |
+
+Five are left that this page has never had a line on.
+
+#### Decorators — writable today, and the sharp edge is the interesting half
+
+A decorator wraps a method in another one. That needs a slot read, a slot write
+and a send, and all three exist:
+
+```
+counter := object:new.
+counter:count := #0.
+counter:bump := { self:count := self:count:inc }.
+
+counter:bumpInner := counter:slotAt('bump).   ; the original, under a second name
+counter:bump := { self:bumpInner:mul(#10) }.  ; and a wrapper that sends it
+
+counter:bump:print.                           ; #10
+counter:bump:print.                           ; #20
+```
+
+**The original has to be given a name, and that is not a wart.** The obvious
+shorter version does not work:
+
+```
+c := object:new.
+c:count := #0.
+c:bump := { self:count := self:count:inc }.
+c:slotAt('bump):value.
+solvm: nil does not understand 'count'
+```
+
+`value` runs a block with **no receiver**. A method's `self` is bound by the
+*send*, not by the block, which is exactly what makes one definition serve every
+receiver — so a block pulled out of a slot and run directly has no `self` to
+find `count` on. Putting it back under another name is how it gets sent again.
+
+**Verdict: already writable, and it belongs in the guide rather than the VM.**
+The thing worth writing down is not the recipe but the error above: it is the
+one place where *a method is a block in a slot* stops being the whole story, and
+a reader who has not met it will read that message as a bug in their program.
+
+#### Named arguments — the one on this page with a customer already
+
+Python has keyword arguments; Smalltalk had the same idea as *selectors*, and
+[lineage.md](lineage.md) records dropping those deliberately — `copyFrom(#2, #4)`
+and not `copyFrom:to:`. What the language does instead is in its own reference,
+described as a workaround in as many words:
+
+> an **array of alternating name and value** — the options bag this language can
+> spell, since there is an array literal and no dictionary literal.
+
+```
+system:capture(noisy, ["stderr", 'discard]).
+system:run(cmd, ["stdin", typed, "stdout", 'discard, "stderr", 'discard]).
+```
+
+Four call sites in the tree use that shape and every one of them is
+`system:run` or `system:capture`. It costs a reader nothing at two options and
+something real at four, where the pairing is positional and silent: a dropped
+element shifts every name onto the wrong value and nothing says so.
+
+**Verdict: defer — and it is the closest thing on this page to a trigger that
+has already fired.** The rule wants a second program, and what is here is four
+call sites behind *one* API. **The trigger is a second API reaching for the same
+shape**, which would make it the language's idiom rather than one function's
+convention. If it is ever built, the question to settle first is whether it is
+sugar over the array that exists — a compile-time rewrite, the way
+[`@expr`](#infix-arithmetic-as-a-compile-time-notation) is — or a real parameter
+kind, and the first of those is much the cheaper and needs no new value type.
+
+#### A file is read whole, or not at all
+
+`system:readFile` answers the whole file as one string, and there is no other way
+to read one: no handle, no line at a time, no seek. `fileSize` answering without
+reading is the single concession.
+
+For everything in this tree that is correct rather than merely tolerable. The
+editor loads a file to edit it, `solas` loads a source to compile it,
+`expect.sol` loads a document to check it — **all three want the whole thing**,
+and a handle would be ceremony around a single call. The largest input measured
+here is a 50,000-line scan in [pattern.sol](../lib/pattern.sol), held entire
+without complaint.
+
+But it means **a program cannot read a file it cannot hold**, and the reference
+never says so: its file section argues about missing files and copying modes and
+mentions no limit at all. That is the part worth fixing regardless of the
+verdict — an absence a reader cannot see is worse than one they can.
+
+This is the gap Python's iterator protocol actually names. `for line in open(f)`
+is the shape and generators are the machinery, and neither is proposed here:
+generators go with [coroutines](#coroutines) and the refusal there is about the
+C stack, not about laziness. Nor is a `readLines` answering an array the answer,
+since that holds the file too.
+
+**Verdict: defer, and the trigger is a program with a file that does not fit.**
+Nothing here has one. **Document the limit now** — that is not a language change
+and does not wait on a trigger.
+
+#### A backtrace, and an error object that was built to carry one
+
+The [reference](REFERENCE.md#the-error) says the error is an object rather than a
+string so that it can *"say more about a failure later without breaking every
+handler that already exists"*. Later has not arrived: `message` is still the only
+message on it. Python hands a handler a traceback, Ruby a backtrace, Smalltalk
+the live stack.
+
+**The VM already has the information.** An uncaught error prints it:
+
+```
+solvm: nil does not understand 'count'
+  [x.sol:3] in block
+  [x.sol:4] in script
+```
+
+So this is plumbing rather than a new capability — the frames are walked to
+print that, and a handler is handed none of it. There is also a loss already on
+the record: `error:raise(e:message)` is how re-raising is spelled, and the
+reference notes that the re-raised error's stack then points at the re-raise. A
+stack carried *on the value* would make that a non-question instead of an honest
+caveat.
+
+**Verdict: defer, and the slot is already the shape it needs** — which is why
+this entry exists at all, since the design decision was made in advance and only
+the filling in was left. **Trigger: a program that catches an error and cannot
+say where it came from.** Nothing here catches errors it did not raise itself,
+which is why nothing has wanted it.
+
+#### Negative indices — no, and `string:last` is a different question
+
+`a[-1]` in Python. Here an array has `first(#n)` and `last(#n)`, and a **string
+has neither** — the last three bytes are `copyFrom` and a `size` subtraction,
+which is the same three sends and the same off-by-one that
+[`endsWith`](#startswith-and-endswith) was deferred over.
+
+**No to the negative index.** It gives one slot two meanings decided by sign, and
+this language spent its literal convention — `#45` against `45` — on the
+principle that a value's reading should not depend on inference. An index that is
+sometimes from the front and sometimes from the back is that same trade taken the
+other way, and `at(#-1)` on an empty array would have to mean something.
+
+**`string:first` and `string:last` are the useful half and go with `endsWith`**,
+which already has one customer and wants a second. Three deferred entries now
+name the same missing pair; if a third program asks, they should be built
+together rather than one at a time.
 
 ### Namespaces for included files
 
