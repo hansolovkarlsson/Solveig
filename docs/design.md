@@ -88,6 +88,45 @@ have it. What changes is the reading of an entry's *absence*. There are further
 directions intended for the language, and each will be written down here as it
 is decided rather than inferred from what has been built so far.
 
+### The directions intended, stated 2026-08-31
+
+**These are intentions rather than decisions**, and the difference matters: none
+of them has been scoped, none is queued, and each will be argued on its own when
+it is reached. They are here because the paragraph above promised they would be,
+and because *no program here has wanted X* reads differently when the list of
+things somebody means to try is written down beside it.
+
+In the words they were given in: **mathematics libraries, graphics, stateful
+work, databases, networking, predicate logic, neural networks, and perhaps a
+language model.**
+
+**With one condition attached, and it is the load-bearing part**: that the
+foundations are covered and solid from the ground up before any of them is
+reached. That is a constraint on the order, not a doubt about the list.
+
+**What each currently runs into**, so far as is known on the day it was written.
+Some of this is measured and some is inference from how the machine is built, and
+which is which is said:
+
+| direction | what stands in front of it |
+| --- | --- |
+| **Mathematics** | Nothing known. The arithmetic landed with [3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done) and `lib/math.sol` is beside it. |
+| **Graphics** | Nothing structural: [GTK4 and SDL2](extensions.md) both draw, and a canvas re-tested the mechanism on 2026-08-30 without needing anything new. At scale it meets the value representation, below. |
+| **Stateful work** | Reflection cannot write — no `slotAtPut`, no `clone`, no re-parenting, and no reading a global by computed name ([2.14](ROADMAP.md#214-loose-ends-from-the-decided-items)). |
+| **Databases** | Was blocked outright until [3.22](COMPLETED.md#322-a-file-is-read-whole-or-not-at-all--done) closed on 2026-08-31; a ranged read exists now. Still absent: a **positioned write**, a file identity ([6.39](ROADMAP.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file)), and anything about locking or flushing. |
+| **Networking** | [net](NET.md) is IPv4 UDP only — no TCP, no IPv6, no name resolution — and there is no concurrency: [3.11](ROADMAP.md#311-a-chunk-cannot-be-shared-between-threads) is about threads, and `system:run` blocks with no spawn beside it. |
+| **Predicate logic** | Already argued in [ideas.md](ideas.md#programs-that-would-press-on-something): it wants coroutines, continuations and a non-local return, all three refused, so it needs an explicit trail and choice-point stack — and [3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels) bites on deep resolution. |
+| **Neural networks** | The value representation. A `SolValue` is a type tag and a union, so an array of floats is an array of tagged values rather than a `double[]`, and every element access is a send. **Inference, not measurement** — the number is what [`gzip -d`](ideas.md#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31) is on that survey to produce. The likely answer is an [extension](extensions.md) owning the buffer rather than a new core type, since a small core is a goal in itself. |
+| **A language model** | Everything under networking, plus TLS, plus everything under neural networks. The furthest out, and the one whose foundations are least examined. |
+
+**And the thing that gets harder rather than easier out there**: the
+[oracle](method.md#hold-it-against-something-somebody-else-wrote) that made sed
+and tail worth writing has no equivalent for a neural network — there is no
+byte-for-byte answer to be held to. That is the argument for spending the cheap
+oracles on the questions the far directions depend on while they are still
+cheap, and it is why two of the three tools recommended on 2026-08-31 are
+numeric experiments wearing a Unix tool's name.
+
 ## Design principles
 
 Not laid down in advance -- these are what the decisions so far have in common,
