@@ -162,6 +162,12 @@ decidable by looking at what was parsed. It buys the part worth having — *`whi
 wants a block here*, at the use, instead of a strange expansion further down —
 without answering the tower question at all.
 
+### Unification as the matching engine
+
+Non-linear patterns — `f <x> <x>` matching only when both are the same — and
+term rewriting in general. **The same answer as full BNF, for the same reason:**
+matching becomes search, search means backtracking, and the diagnostics go.
+
 ---
 
 ## If the evaluator is Solveig
@@ -254,12 +260,6 @@ compile-time written in the language, and cheap, because the only new part is
 the door.
 
 That is what the name was about.
-
-### Unification as the matching engine
-
-Non-linear patterns — `f <x> <x>` matching only when both are the same — and
-term rewriting in general. **The same answer as full BNF, for the same reason:**
-matching becomes search, search means backtracking, and the diagnostics go.
 
 ---
 

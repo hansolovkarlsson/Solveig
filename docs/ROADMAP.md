@@ -114,46 +114,66 @@ expression that does not use it already meant.
 **A build that takes nothing from Solveig.** No header, no archive, no symbol.
 The coupling is a file format and a command line.
 
-## Next — the expander
+## Next — what a hole may ask for
 
-The point of the project, and the first thing that makes `introduced_by` and
-`scope` carry anything.
+**Every hole takes an expression, and cannot say otherwise.**
 
-**1. A statement form a module can declare.** Something in the shape of
-`@syntax unless (test) (body) => test:not:ifTrue(body).` — a pattern over the
-core tree, and a template. The hard part is not the rewrite; it is that the
-template's names have to mean what they meant where the template was written.
+```
+@syntax while <test> do <body> => { test }:whileTrue({ body }).
+```
 
-**2. Hygiene, in the same commit.** Scope sets, per Flatt. Not after: a system
-that expands without hygiene grows programs that depend on the capture, and
-those programs are what make hygiene impossible to add. `scope` is on every node
-already so that this is a change to the expander and to nothing else.
-
-**3. Expansion trails in diagnostics.** `introduced_by` filled in, and an error
-inside an expansion reporting both the form and the use — *in the expansion of
-`unless`, from here*. Without this, step 1 makes the language worse.
-
-Nothing about a dialect being shareable belongs in this stage. One file, its own
-header, its own macros.
-
-## After that — the open question
-
-**Two dialects meeting.** Today nothing collides, because a dialect is a file's
-header and there is no way to import one. `@language` records a name and acts on
-nothing, which is honest for now and stops being honest the moment a library can
-publish a dialect.
-
-Before writing any of it: read how Racket does it. Modules and scoped bindings
-are a worked answer to exactly this, arrived at over twenty years, and a
-different answer should be different on purpose.
-
-The shape of the question, in the order it has to be answered:
+`test` wants something that answers a boolean and `body` wants something worth
+running, and neither can say so. A use that gets it wrong expands into Solveig
+that fails somewhere further down — which is the failure the spans and the trail
+were built to stop, one level up from where they stop it now.
 
 | | |
 | --- | --- |
-| Can two imported dialects declare the same operator? | If yes, which wins, and can the file say? If no, a program can be broken by a library it does not use directly. |
-| Is a dialect a value or a name? | A name is simpler and makes a dialect unversioned. |
-| What does a tool see? | The reason `@language` is at the top of the file: whatever the answer is, it has to be findable without running anything. |
+| What a hole may ask for | An expression, a block, a name, a literal. `<body: block>` is the obvious spelling. The useful part is not the check but the message: *`while` wants a block here* beats an error inside the expansion. |
+| Whether a hole may ask for a *place* | `swap <a> and <b>` assigns to both, and gets `this cannot be assigned to` after expansion with a trail. Asking at the use is better, and it is the same information the expander already computes afterwards. |
+| Whether asking is optional | It has to be. A form that says nothing about its holes must keep working, or every dialect written so far breaks. |
+
+**Then a handful of named predicates** — `place`, `literal`, `block`, `name` —
+decidable by looking at what was parsed, needing no evaluator, and between them
+probably covering most of what a guard would have been used for.
+
+**Optional and repeated parts.** `if <c> then <a> else <b>` is a second
+declaration rather than an optional tail, which is honest and costs a line.
+Repetition — a form taking a list — has no spelling at all, and wants one before
+anybody writes `sum of <a> <b> <c>` three times.
+
+**Beyond a hole's type is a guard, and the evaluator it needs is Solveig.**
+`solum/embed.h` was built for it — one of the three cases it names is *a tool
+scripted in Solum* — and `embed/host.c` already wrote the loop: compile one
+script once, run it many times, each under its own allowance. Compile the guard
+once, run it per use, and `serve_one` becomes `check_one`.
+
+It costs *the build needs no Solveig*, which is real. It does not cost *no
+privileged access*, which is the claim that matters: `embed.h` is a declared
+surface, and using it is the mirror of solveig-sdl using `extend.h`. **The rule
+to fix before any of it is written: a guard validates, it does not select** —
+otherwise parsing depends on evaluation and no tool can read a `.phx` without
+running it. [rules-and-logic.md](rules-and-logic.md) argues all of it.
+
+## Answered — two dialects meeting
+
+Done in 0.4.0. The three questions this section used to ask, and what they came
+out as:
+
+| | |
+| --- | --- |
+| Can two imported dialects declare the same operator? | Yes. The later wins and the compiler warns, which is Solveig's answer for two files claiming one global. A warning rather than an error, because rebinding is legal and sometimes meant. |
+| Is a dialect a value or a name? | A path, like `@include`. Unversioned, and found on a search path. |
+| What does a tool see? | `@use` at the top of the file, naming a file. Still nothing to run. |
+
+Racket answers it with modules and scoped bindings and it was worth reading how,
+but the answer taken is Solveig's — because Solveig had already made the choice
+for globals, and a language should not hold two philosophies about one question.
+
+**`@language` still records a name and acts on nothing.** It is now the only
+directive that does, and what it should select is the *reader* — the same shape
+as selecting an emitter, in [targets.md](targets.md). Neither is worth doing
+until there is a second of either.
 
 ## Not planned, and why
 
