@@ -148,7 +148,7 @@ So a guard means one of two things, and both are large:
 | | |
 | --- | --- |
 | Write an evaluator | Phoenix gains a second language, and the question of whether it is the same language as the object language — the tower — has to be answered rather than avoided. |
-| Shell out to `solvm` while compiling | The tower answers itself, which is the elegant version. It also makes Solveig a build-time dependency, and *the build needs no Solveig* is load-bearing for the argument in the README. |
+| Run Solveig while compiling | The tower answers itself. It also makes Solveig a build-time dependency, and *the build needs no Solveig* is load-bearing for the argument in the README. |
 
 **This is the tower question arriving from a third direction.** It came up first
 as *is the meta-language the same language*, then in
@@ -162,6 +162,99 @@ decidable by looking at what was parsed. It buys the part worth having — *`whi
 wants a block here*, at the use, instead of a strange expansion further down —
 without answering the tower question at all.
 
+---
+
+## If the evaluator is Solveig
+
+*Asked on 2026-08-31, after the page above: whether the evaluator has to run
+inside Phoenix, and whether the hosting Solveig already tried for HTTP is the
+way to do it. Both answers are yes, and the second is more nearly ready than it
+looks.*
+
+### `embed.h` is the door, and it was built for this
+
+`solum/embed.h` opens by naming its three cases:
+
+> a webserver rendering a page per request, an editor evaluating a snippet, **a
+> tool scripted in Solum**
+
+Phoenix is the third. And the surface is declared rather than inferred:
+
+> **This is the whole supported surface.** Everything a host needs is declared
+> here or in the two headers below it; anything else in `solum/include` is the
+> machine's own business and may change without notice.
+
+`sol_compile_source` turns text into a chunk; `sol_vm_run` runs one;
+`sol_vm_set_global_text` and `sol_vm_global_text` carry values in and out;
+`sol_vm_set_step_limit` and `sol_vm_set_memory_limit` say what a run may spend.
+
+### It has to be in-process, and not for tidiness
+
+Shelling out to `solvm` per guard is possible and is the wrong shape, for three
+reasons that are about the work rather than the aesthetics.
+
+| | |
+| --- | --- |
+| **How often it runs** | A guard runs while parsing, once per use of a form. A process per call is not a design. |
+| **What crosses the boundary** | A guard takes a *syntax object* — a subtree with spans and scopes — and answers yes or no. In process that is a value handed over. Across a process it is serialise-and-reparse, which means inventing a wire format for trees: a second language nobody asked for. |
+| **Limits and failures** | `sol_vm_set_step_limit` means **a guard that loops forever fails the compile instead of hanging it**, which is the difference between a feature and a footgun. `sol_vm_error_message` and `sol_vm_error_trace` hand the failure back so it can be attributed to the guard's own span. |
+
+### The webserver is the same loop
+
+`embed/host.c` already wrote it. That file is
+
+> the webserver from that entry with the sockets taken out: **compile one script
+> once, run it many times — once per request — each run under its own
+> allowance**, and see what comes back
+
+Compile the guard once. Run it once per use. Each under its own allowance.
+`serve_one` becomes `check_one` and very little else changes. **This is not an
+analogy — it is the same loop, already built once and already tested.**
+
+### What it costs, and what it does not
+
+**It costs the build.** `bin/phoenix` would link `libsol.a`, and *the build needs
+no Solveig* — in the README, in the Makefile's header, and in the first commit
+message — stops being true. That is a real loss and the reason not to do it
+casually.
+
+**It does not cost the principle.** The claim was never *no dependency*; it was
+**no privileged access**, because a front end reaching into Solas's internals
+proves only that Solveig's author can write one. `embed.h` is the opposite of
+internals: a declared, versioned, tested surface with an explicit statement of
+what is not in it.
+
+**And it completes a pair.** solveig-sdl is Solveig calling into C through
+`extend.h`; Phoenix with guards is C calling into Solveig through `embed.h`. Two
+halves of one arrangement, both through doors somebody wrote down.
+
+### The rule to write down before the code
+
+**A guard validates. It does not select.**
+
+If a guard decides *whether a form matches*, parsing depends on evaluation, and
+no tool can read a `.phx` without running it. That is the line this whole design
+has held — the line Forth and TeX crossed — and a guard is a quiet way to cross
+it.
+
+If a guard runs *after* a form has matched, and may only reject it with a
+message, then the matcher stays LL(1) by construction, the reader still never
+guesses, and only **diagnostics** become dynamic. `swap <a> and <b>` can still
+check that both holes are places; `while <t> do <b>` can still refuse a literal
+condition.
+
+**This is invisible once the evaluator is there and irreversible once dialects
+depend on it**, which is why it is written here rather than decided later.
+
+### Then the tower closes
+
+Once `embed.h` is in, a guard may be written in *Phoenix*: compiled to Solveig
+by the path that already exists, then embedded and run. The language's
+compile-time written in the language, and cheap, because the only new part is
+the door.
+
+That is what the name was about.
+
 ### Unification as the matching engine
 
 Non-linear patterns — `f <x> <x>` matching only when both are the same — and
@@ -174,9 +267,16 @@ matching becomes search, search means backtracking, and the diagnostics go.
 
 1. **Typed holes.** `<body: block>`. No evaluator, no tower, and it is where most
    of the value of "predicates" actually is.
-2. **`[ ]` and `{ }`.** Two part kinds in an array the matcher already walks.
+2. **A handful of named predicates.** `place`, `literal`, `block`, `name`. All
+   decidable by looking at what was parsed, so still no evaluator, and between
+   them they cover most of what is left.
+3. **`[ ]` and `{ }`.** Two part kinds in an array the matcher already walks.
    Keeps the LL(1)-by-construction property if an optional part begins with a
    word, which it must for the same reason a pattern does.
-3. **A parser toolkit written in Phoenix.** Not a feature. The best test of
+4. **Solveig guards through `embed.h`.** Only when a real program wants
+   something the first two cannot say — the rule `lib/text.sol` used on itself:
+   one customer, satisfied in six lines, is not a reason to grow a surface.
+   Validation and not selection, whenever it comes.
+5. **A parser toolkit written in Phoenix.** Not a feature. The best test of
    whether any of the above was worth having.
-4. Everything else on this page waits for a program that wants it.
+6. Everything else on this page waits for a program that wants it.
