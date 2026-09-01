@@ -596,8 +596,9 @@ show a feature — it reads an access log, tallies it, ranks it and reports — 
 and an HTML reader written in Solum, on the search path so a program says
 `@include "html.sol".` and nothing about where it lives.
 
-It is 0.1 rather than 1.0 because [the restrictions in the
-roadmap](docs/ROADMAP.md#3-known-limitations) are real and deliberate: no
+It is 0.1 rather than 1.0 because
+[the restrictions in the roadmap](docs/ROADMAP.md#3-known-limitations) are real
+and deliberate: no
 non-local return, a capturing block tied to the frame it was written in,
 recursion to about 254 levels, and text is bytes rather than characters. Each is
 documented where a program would meet it.

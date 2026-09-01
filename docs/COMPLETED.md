@@ -1369,6 +1369,163 @@ else.
 
 ---
 
+### 3.23 Nothing checks the pages that are actually published — **done**
+
+**The third entry here about this repository's verification rather than about
+the language**, after
+[3.16](COMPLETED.md#316-what-the-checker-does-not-check--done) and
+[3.21](COMPLETED.md#321-a-changelog-hash-is-written-by-hand-and-nothing-checks-it--done),
+and the first one whose evidence is a fault that shipped rather than one that
+was argued about.
+
+`expect.sol` reads the markdown. GitHub Pages renders it. **Nothing compares the
+two**, and on 2026-09-01 the difference was 263 headings.
+
+**What happened.** Two lines in `CHANGELOG.md` were markdown that renders as
+something other than what it says — a paragraph wrapped so that ``` began a
+line, which is a code fence, and an inline code span wrapped so that
+`<if-statement>` began one, which kramdown reads as a raw HTML block and which
+stops rendering to the end of the file. **64 of that page's 327 headings reached
+the site**, from 0.20.0 on 2026-08-22 until they were found — ten days and
+twenty releases. Every check in this repository passed on every one of those
+days, because every check reads the file.
+
+**The comparison that found it is two lines of arithmetic.** Fetch each
+published page, count the `<h1>`–`<h6>` it rendered, count the headings in the
+source outside fenced blocks, and compare. That is what it takes: the fault
+class *is* "a heading stopped being a heading", so counting headings is not a
+proxy for it, it is the thing itself.
+
+**And its stronger form costs one more pass over the same fetch.** Collect the
+`id=` attributes the renderer actually emitted and hold every internal `#link`
+on the site against them — 1,236 links across 30 pages. This is the same
+question `expect.sol` now answers locally, asked of the artefact a reader
+touches rather than the file it was built from, and the two can disagree exactly
+when this entry's fault class strikes.
+
+Measured on 2026-09-01, after the fixes: 30 pages, **0 headings missing, 0 dead
+anchors**, in 6 seconds and 3.5 seconds respectively — almost all of it latency,
+and one pass would serve both.
+
+---
+
+**It cannot go in `make test`.** The suite is offline and dependency-free and
+must stay so; a check that fails on a train is not a check. The shape it wants
+is the one the oracles already have — [oracle.sh](../programs/oracle.sh),
+[tail/follow.sh](../programs/tail/follow.sh),
+`sha256sum/vectors.sh` — a script run on demand, outside the build, that needs
+something the machine happens to have.
+
+**And it has an obvious moment: a release.**
+[releasing.md](releasing.md#then-the-page-and-the-two-fixups-it-needs) already
+says **Open the page** about the release body, for a fault that cannot be found
+by reading the markdown because the markdown is correct. This is the same
+instruction about the same class of fault, aimed at the site instead, and
+[what the document checker does not cover](releasing.md#what-the-document-checker-does-not-cover)
+is where it would be named.
+
+**The one real design problem: what it compares against.** The site renders
+`origin/main`, not the working tree. Comparing a published page against a local
+file reports every unpushed edit as a fault, which would make the check noise
+within a day. It has to read the source from `git show origin/main:docs/X.md`,
+and say so when the two are the same commit. The throwaway that found the fault
+did not do this, and was right only because it happened to run just after a
+push.
+
+**Two shapes, and the cost is not the fetching.**
+
+`site.sh`, beside the other oracles: `curl`, `grep -c`, `git show`. Perhaps
+sixty lines, no new dependency, and it can be written this afternoon.
+
+A Solum program is the answer this repository would normally prefer — *a program
+asks, not a document* — and it is the more expensive one, for a reason that has
+nothing to do with the network. `extensions/net` has **no TLS**, so the fetching
+would be `system:capture` over `curl` either way. The real cost is that the
+anchor rule — GitHub's lower-case-and-strip — lives inside `expect.sol`, and a
+second implementation of it would be **two copies of one function**, which is
+the trigger this repository built `replace` on. Doing it in Solum means moving
+that rule to `lib/` first. That is a good change and it is a different one.
+
+**What it does not cover, and this is the part to be careful about.** It checks
+that the markdown *renders* as what it says. It says nothing about whether the
+prose is *true*. Two live claims were found on the same day and neither is in
+its reach:
+
+- `_config.yml` said **141 messages** where the language answers 143 — the
+  site's own description, stale across two releases. Not a document to
+  `expect.sol`, which is
+  [already written down](releasing.md#what-the-document-checker-does-not-cover)
+  and is what that section was written about.
+- the **repository description on GitHub** still says *the Solum language* and
+  *136 messages* and *15k lines*, inverting the 0.36.0 rename. It is not in the
+  repository at all, so nothing here could reach it without the GitHub API.
+
+Both want the marked-count mechanism extended past `docs/`, which is a
+**separate and cheaper entry** than this one and is not being argued for here.
+Naming them together is how this entry avoids being sold on evidence it does not
+actually cover.
+
+---
+
+**The calls, and none of them is mine.**
+
+1. **Does it go in at all?** The case is a fault that shipped for ten days, not a
+   trigger that might fire. Recommendation: yes.
+2. **`site.sh` now, or Solum after the anchor rule moves to `lib/`?**
+   Recommendation: the script, and let a second customer for the anchor rule
+   decide the library.
+3. **Headings only, or headings and anchors?** Recommendation: both — one fetch,
+   and the anchor half is what a reader actually experiences.
+4. **Named in `releasing.md`, or left as a thing to run?** Recommendation: named,
+   under *what the document checker does not cover*.
+
+**Built the same day it was scoped**, on the four calls above answered as
+recommended: [site.sh](../programs/site.sh), beside the other oracles, headings
+and anchors over one fetch, named in
+[releasing.md](releasing.md#what-the-document-checker-does-not-cover).
+
+**Writing it found a third fault class, and it is the one that makes the case.**
+Not headings this time: **a markdown link whose text wraps across a line loses
+the site's baseurl** when Jekyll rewrites its `.md` target to `.html`. Eleven of
+them were writing `/docs/X.html` where the page lives at `/Solveig/docs/X.html`,
+and every one was a 404 — on pages whose markdown is correct, whose local link
+check passes, and which `expect.sol` will never see. Ten were live; the
+eleventh is in `README.md`, which the site does not publish.
+
+They were found by *reading the rendered hrefs* while writing the fetch loop,
+before the check itself ran, which is the same way the morning's fault turned
+up: the artefact says things the source cannot.
+
+**And the check the entry proposed would have missed them.** The throwaway that
+argued this entry only checked links whose target it had already fetched, so a
+link with a wrong base resolved to nothing and was silently skipped — it
+reported *0 dead* on a site with ten 404s in it. The shipped version reports a
+site-absolute link that does not start with the baseurl as a fault in its own
+right, which is the difference between checking that a link's *anchor* exists
+and checking that its *address* does.
+
+**What has actually fired, and what each branch really catches.** The first
+draft of this paragraph said the heading branch had been reproduced by pointing
+`SOURCE_REF` at an older commit. It had not — that was written before it was
+run, and running it produced *extra* rather than *lost*, because the site is
+healthy and a healthy site cannot make this branch fire in the direction that
+matters.
+
+- **baseurl** — fired on ten live links. This is the branch with a real catch to
+  its name.
+- **headings** — held against the broken page saved that morning, before it was
+  fixed: the source at `1cfa39f` has **316** headings by this rule and the page
+  GitHub actually served rendered **64**. So it catches the `<if-statement>`
+  fault, which stops rendering outright.
+- **and it would not have caught the stray fence on its own**, which is worth
+  knowing and is not a defect. A ``` at the start of a line moves *both* counts
+  together — 316 where the fixed file has 327 — because this rule reads fences
+  the way the renderer does. The fence's own signature is the eleven headings
+  that fell inside one, and that is
+  [what `expect.sol` reports locally](../programs/expect.sol), where the number
+  went 1 to 12. The two checks catch one fault each and neither is redundant.
+- **dead anchors** — a fixture, since nothing on the site has one today.
+
 ## 4. Performance
 
 Nothing here was urgent — the VM is written for clarity first — and all of it is

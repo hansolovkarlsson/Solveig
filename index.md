@@ -157,8 +157,9 @@ binary at run time, and a host API for embedding the machine. Measured against
 CPython 3.14 on nine matched programs it comes out
 [a little ahead](docs/performance.md).
 
-It is 0.1 rather than 1.0 because [the restrictions in the
-roadmap](docs/ROADMAP.md#3-known-limitations) are deliberate and documented: no
+It is 0.1 rather than 1.0 because
+[the restrictions in the roadmap](docs/ROADMAP.md#3-known-limitations) are
+deliberate and documented: no
 non-local return, a capturing block tied to its frame, recursion to about 254
 levels, and text is bytes.
 

@@ -1360,9 +1360,9 @@ in bytes. Only a screen has wanted that so far.
 `!x` for a character, and `!😊` for one outside ASCII.
 
 The character type on its own is small. The problem is that it cannot be decided
-separately from what a string is, and today [a string is
-bytes](ROADMAP.md#213-text-is-bytes-and-case-is-ascii-only): `size` counts
-bytes, `at` answers a one-byte string, and `"café":size` is 5.
+separately from what a string is, and today
+[a string is bytes](ROADMAP.md#213-text-is-bytes-and-case-is-ascii-only):
+`size` counts bytes, `at` answers a one-byte string, and `"café":size` is 5.
 
 So `!x` forces the question. If a character is a **code point**, then `at` should
 answer one, and `size` should count them, and every string operation changes —
@@ -2918,9 +2918,9 @@ exercise the extension foundation and the new optimisations. When the design
 question was put back as *is there a SolaBasic program you want to write that
 needs a screen?*, the answer was that it had really only ever been the second
 half. **So the trigger never fired**, and the language change is not made:
-`SCREEN` and the rest stay under [Never — the
-PC](SOLABASIC.md#never--the-pc), that section is not amended, and the three
-documents that promise *the whole of the PC is not coming* stay true.
+`SCREEN` and the rest stay under [Never — the PC](SOLABASIC.md#never--the-pc),
+that section is not amended, and the three documents that promise *the whole of
+the PC is not coming* stay true.
 
 **The exercising happened anyway, and cost no language change at all.** Every
 measurement above was taken with Solum programs talking to `sdl:` directly —
@@ -4049,8 +4049,9 @@ of its own.
 
 **Asked on 2026-08-29, the day after the notation shipped.** `@expr(...)` takes
 a `(`, and this language already teaches that `(a group)` runs now while
-`{a block}` is code held as a value — [the guide has a page on
-it](GUIDE.md#group-and-block). So a reader who knows that pair will predict
+`{a block}` is code held as a value —
+[the guide has a page on it](GUIDE.md#group-and-block). So a reader who knows
+that pair will predict
 `@expr{...}`, a block whose body reads infix, and will not find it: `@expr{ a +
 #1 }` answers *expected '(' after '@expr'* pointing at the brace. The question
 is whether the prediction should come true.

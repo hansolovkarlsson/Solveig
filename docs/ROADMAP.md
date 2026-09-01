@@ -280,13 +280,6 @@ closed by giving an object with more than a dozen slots a table beside its list,
 which turned out to be worth more to *sends* than to the globals it was written
 about.
 
-**3.23 is the newest and is the odd one out again**, added on 2026-09-01: the
-third entry here about this repository's own verification rather than about the
-language, and the first whose case is a fault that shipped for ten days rather
-than an argument. Nothing compares the pages GitHub publishes against the
-markdown they were built from, and on the day it was written the difference was
-263 headings.
-
 **3.1 through 3.6 were chosen** — a decision taken and written down. **3.7, 3.8,
 3.10, 3.11, 3.12 and 3.13 were not.** Each is a consequence of a decision taken elsewhere,
 noticed afterwards, and each is kept here rather than in section 6 because the
@@ -1029,119 +1022,6 @@ today every site either sets it at the tail of a branch or wants the rest to
 run, and the moment one does not, the flag has to be threaded through the body
 as `done:not:ifTrue({ ... })` and the workaround starts nesting.
 
-### 3.23 Nothing checks the pages that are actually published
-
-**The third entry here about this repository's verification rather than about
-the language**, after
-[3.16](COMPLETED.md#316-what-the-checker-does-not-check--done) and
-[3.21](COMPLETED.md#321-a-changelog-hash-is-written-by-hand-and-nothing-checks-it--done),
-and the first one whose evidence is a fault that shipped rather than one that
-was argued about.
-
-`expect.sol` reads the markdown. GitHub Pages renders it. **Nothing compares the
-two**, and on 2026-09-01 the difference was 263 headings.
-
-**What happened.** Two lines in `CHANGELOG.md` were markdown that renders as
-something other than what it says — a paragraph wrapped so that ``` began a
-line, which is a code fence, and an inline code span wrapped so that
-`<if-statement>` began one, which kramdown reads as a raw HTML block and which
-stops rendering to the end of the file. **64 of that page's 327 headings reached
-the site**, from 0.20.0 on 2026-08-22 until they were found — ten days and
-twenty releases. Every check in this repository passed on every one of those
-days, because every check reads the file.
-
-**The comparison that found it is two lines of arithmetic.** Fetch each
-published page, count the `<h1>`–`<h6>` it rendered, count the headings in the
-source outside fenced blocks, and compare. That is what it takes: the fault
-class *is* "a heading stopped being a heading", so counting headings is not a
-proxy for it, it is the thing itself.
-
-**And its stronger form costs one more pass over the same fetch.** Collect the
-`id=` attributes the renderer actually emitted and hold every internal `#link`
-on the site against them — 1,236 links across 30 pages. This is the same
-question `expect.sol` now answers locally, asked of the artefact a reader
-touches rather than the file it was built from, and the two can disagree exactly
-when this entry's fault class strikes.
-
-Measured on 2026-09-01, after the fixes: 30 pages, **0 headings missing, 0 dead
-anchors**, in 6 seconds and 3.5 seconds respectively — almost all of it latency,
-and one pass would serve both.
-
----
-
-**It cannot go in `make test`.** The suite is offline and dependency-free and
-must stay so; a check that fails on a train is not a check. The shape it wants
-is the one the oracles already have — [oracle.sh](../programs/oracle.sh),
-[tail/follow.sh](../programs/tail/follow.sh),
-`sha256sum/vectors.sh` — a script run on demand, outside the build, that needs
-something the machine happens to have.
-
-**And it has an obvious moment: a release.**
-[releasing.md](releasing.md#then-the-page-and-the-two-fixups-it-needs) already
-says **Open the page** about the release body, for a fault that cannot be found
-by reading the markdown because the markdown is correct. This is the same
-instruction about the same class of fault, aimed at the site instead, and
-[what the document checker does not
-cover](releasing.md#what-the-document-checker-does-not-cover) is where it would
-be named.
-
-**The one real design problem: what it compares against.** The site renders
-`origin/main`, not the working tree. Comparing a published page against a local
-file reports every unpushed edit as a fault, which would make the check noise
-within a day. It has to read the source from `git show origin/main:docs/X.md`,
-and say so when the two are the same commit. The throwaway that found the fault
-did not do this, and was right only because it happened to run just after a
-push.
-
-**Two shapes, and the cost is not the fetching.**
-
-`site.sh`, beside the other oracles: `curl`, `grep -c`, `git show`. Perhaps
-sixty lines, no new dependency, and it can be written this afternoon.
-
-A Solum program is the answer this repository would normally prefer — *a program
-asks, not a document* — and it is the more expensive one, for a reason that has
-nothing to do with the network. `extensions/net` has **no TLS**, so the fetching
-would be `system:capture` over `curl` either way. The real cost is that the
-anchor rule — GitHub's lower-case-and-strip — lives inside `expect.sol`, and a
-second implementation of it would be **two copies of one function**, which is
-the trigger this repository built `replace` on. Doing it in Solum means moving
-that rule to `lib/` first. That is a good change and it is a different one.
-
-**What it does not cover, and this is the part to be careful about.** It checks
-that the markdown *renders* as what it says. It says nothing about whether the
-prose is *true*. Two live claims were found on the same day and neither is in
-its reach:
-
-- `_config.yml` said **141 messages** where the language answers 143 — the
-  site's own description, stale across two releases. Not a document to
-  `expect.sol`, which is [already written
-  down](releasing.md#what-the-document-checker-does-not-cover) and is what that
-  section was written about.
-- the **repository description on GitHub** still says *the Solum language* and
-  *136 messages* and *15k lines*, inverting the 0.36.0 rename. It is not in the
-  repository at all, so nothing here could reach it without the GitHub API.
-
-Both want the marked-count mechanism extended past `docs/`, which is a
-**separate and cheaper entry** than this one and is not being argued for here.
-Naming them together is how this entry avoids being sold on evidence it does not
-actually cover.
-
----
-
-**The calls, and none of them is mine.**
-
-1. **Does it go in at all?** The case is a fault that shipped for ten days, not a
-   trigger that might fire. Recommendation: yes.
-2. **`site.sh` now, or Solum after the anchor rule moves to `lib/`?**
-   Recommendation: the script, and let a second customer for the anchor rule
-   decide the library.
-3. **Headings only, or headings and anchors?** Recommendation: both — one fetch,
-   and the anchor half is what a reader actually experiences.
-4. **Named in `releasing.md`, or left as a thing to run?** Recommendation: named,
-   under *what the document checker does not cover*.
-
-**Not built.** The scoping is this entry; building is a separate instruction.
-
 ### 1.1d Collection is stop-the-world and non-incremental
 
 Fine at this size and not worth touching yet. Noted so it is a choice rather than
@@ -1284,20 +1164,22 @@ keeping it did. The number stays 6.32 and is not reused.
 
 ## How this list emptied, and how it filled and emptied again
 
-**Two things are on it, and they want different things from you.**
-
+**One thing is on it.**
 [6.39](#639-a-program-cannot-tell-whether-two-paths-are-the-same-file) arrived
 on 2026-08-31: a program cannot tell whether two paths are the same file. `tail`
 wanted it for `-F`, could not have it, and says so in its own header rather than
 approximating it. One customer and one flag, and the entry says so. Its trigger
 has not fired, so it waits.
 
-[3.23](#323-nothing-checks-the-pages-that-are-actually-published) arrived on
-2026-09-01 and is the opposite case: nothing compares the pages GitHub publishes
-against the markdown they were built from, and the entry exists because that
-went wrong and shipped for ten days rather than because it might. It has no
-trigger to wait for; it has **four calls**, listed at the end of it, and it is
-scoped and not built.
+**3.23 arrived and left on 2026-09-01**, and it is the second entry to do that
+in one day. It was the opposite case to 6.39 — no trigger to wait for, because
+the fault had already shipped — and it is
+[done](COMPLETED.md#323-nothing-checks-the-pages-that-are-actually-published--done):
+[site.sh](../programs/site.sh) holds every published page against the source at
+`origin/main`. **Writing it found a second fault class the entry did not know
+about**, which is the argument for it stated better than the entry managed: a
+markdown link whose text wraps across a line loses the site's baseurl, and
+eleven of them were 404s on pages that read correctly as markdown.
 
 **6.41 arrived and left on 2026-09-01**, out of an hour spent driving `tail`
 through a real rotation before designing anything for 6.39 — and it was **the

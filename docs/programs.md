@@ -546,8 +546,8 @@ was true at each release, so its snippets describe past states on purpose.
 
 **Its headings are read, though, for the commit hash each one names.** An entry
 cannot carry its own hash, so it goes in saying `pending` and a follow-up commit
-substitutes the real one — and until [ROADMAP
-3.21](COMPLETED.md#321-a-changelog-hash-is-written-by-hand-and-nothing-checks-it--done)
+substitutes the real one — and until
+[ROADMAP 3.21](COMPLETED.md#321-a-changelog-hash-is-written-by-hand-and-nothing-checks-it--done)
 nothing asked whether that had worked. Once it had not: an entry carried a
 literal `%s` where its hash belonged for two days, through every `make test`,
 and was found by a person reading the page. Everything backticked after a
@@ -564,6 +564,22 @@ Every heading in `docs/`, the two pages at the root and every `.sol` header is
 turned into the anchor GitHub would give it, and every link carrying a `#` is
 either in that set or it is a finding. A link with no fragment is counted and
 not checked, because a missing file is a different question.
+
+**And [site.sh](../programs/site.sh) asks the same questions of the pages that
+are actually published**, which is a different thing and is not in `make test`:
+the suite is offline and dependency-free, and a check that fails on a train is
+not a check. It fetches every page GitHub Pages serves and compares three
+things against the source at `origin/main` — not against the working tree, since
+the site renders what was pushed and a local file would report every unpushed
+edit as a fault.
+
+It has found two fault classes that read correctly as markdown and publish
+wrong. A paragraph wrapped so that ``` began a line is a code fence, and cost
+263 of `CHANGELOG.md`'s headings for ten days. And **a link whose text wraps
+across a line loses the site's baseurl** when Jekyll rewrites its `.md` target
+to `.html` — eleven of those were writing `/docs/X.html` where the page lives at
+`/Solveig/docs/X.html`, and every one was a 404. Neither is visible to
+`expect.sol`, because in both cases the markdown is correct.
 
 **Fenced blocks are tracked while doing it, and that is the load-bearing part.**
 A heading inside a fence is not a heading on the page, so the number of those is

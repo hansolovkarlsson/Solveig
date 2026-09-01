@@ -98,9 +98,16 @@ check that `HEAD` is the release commit the tag points at.
 
 ## What the document checker does not cover
 
-It recounts prose in `docs/` and reads `README.md` and `index.md` for claims. It
-does not know that a version number in prose is a claim, and `_config.yml` is
-not a document to it at all — which is how the site's description sat at *123
+**Run [site.sh](../programs/site.sh) first**, after pushing and once Pages has
+rebuilt — a minute or so. It holds every published page against the source at
+`origin/main`: headings that stopped being headings, links that lost the
+site's baseurl, anchors that name nothing. Both fault classes it exists for are
+markdown that is *correct* and publishes wrong, so nothing that reads the file
+can see them, and one of them stood for ten days and twenty releases.
+
+The checker itself recounts prose in `docs/` and reads `README.md` and
+`index.md` for claims. It does not know that a version number in prose is a
+claim, and `_config.yml` is not a document to it at all — which is how the site's description sat at *123
 messages* and called Solveig *the Solum language*, inverting the 0.36.0 rename,
 until somebody read it. A release is a good moment to read the front page as a
 stranger would.

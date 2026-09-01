@@ -17,7 +17,7 @@ Four entries. The one below calls itself the day's closing account and was wrong
 about that, in the same way and for the same reason the 2026-08-31 one was: a day
 is not over because the work in front of you is.
 
-[3.23](ROADMAP.md#323-nothing-checks-the-pages-that-are-actually-published) is
+[3.23](COMPLETED.md#323-nothing-checks-the-pages-that-are-actually-published--done) is
 scoped and not built. It is the comparison that found this morning's fault —
 the published pages against the markdown they were built from — and it is the
 first entry in section 3 whose case is a fault that shipped rather than an
@@ -253,9 +253,10 @@ appeal to: POSIX specifies `-f` and stops.
 ### What was not done
 
 No C, no message, no `-F`. The scoping is the deliverable and building is a
-separate instruction, which is [what this repository
-says](method.md#scope-before-building-and-the-decision-is-separate) and is the
-rule that made the hour worth spending: an implementation of 6.39 started at the
+separate instruction, which is
+[what this repository says](method.md#scope-before-building-and-the-decision-is-separate)
+and is the rule that made the hour worth spending: an implementation of 6.39
+started at the
 top of it would have shipped a message whose only caller exits 1 before it can
 call it.
 
@@ -2065,8 +2066,8 @@ satisfied in six lines of the language is not a trigger, and a circle is a shape
 every later back end would have had to match with nothing to match it by. Cairo
 already has one, so GTK publishes it. Each binding says what its toolkit has.
 
-That is [no back end naming itself the general
-case](ideas.md#extensions-a-capability-from-a-binary-rather-than-from-the-vm)
+That is
+[no back end naming itself the general case](ideas.md#extensions-a-capability-from-a-binary-rather-than-from-the-vm)
 turning up in something much smaller than a main loop, which is where a
 principle is easier to violate without noticing.
 
