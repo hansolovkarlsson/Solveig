@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### The published pages, checked at last — `pending`, 2026-09-01
+### The published pages, checked at last — `7140e4d`, 2026-09-01
 
 **No change to the language.** `.sob` files are format version 14, the message
 count is unmoved. A new check and eleven fixed links.
