@@ -5,6 +5,60 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### `system:fileId`, and the line `tail -f` was losing — `pending`, 2026-09-01
+
+**The language answers 144<!--count messages--> messages**, up from 143, across
+247 registrations. `.sob` files are format version 14, unchanged.
+
+`system:fileId(path)` answers what the filesystem calls the file at that path —
+device and inode, as a string, `"16777234:231399178"` — and **only `equals` is
+promised of it**. It closes
+[6.39](COMPLETED.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file--done)
+and empties section 6 of the roadmap for the third time.
+
+**The gap it closes is a lost line, not a wrong offset.** A log and the log that
+replaced it can agree on size and on time, so a replacement of *exactly the same
+size* read as *unchanged* — and the next growth was printed from an offset into
+a file that no longer had one. Against the tool on the machine, a five-byte log
+replaced by a five-byte log: the oracle printed three lines and `tail.sol`
+printed two. No error, no notice, no status. That is a different argument from
+the one the entry had made for two days, and it was measurable on the day the
+entry was written.
+
+**A string because the pair does not fit an integer.** `dev_t` here is a signed
+four-byte integer — `/dev/null` has a negative device number — and `ino_t` an
+unsigned eight; on Linux both are unsigned eight. An answer whose type depends
+on the platform is the one thing a portable program cannot be given. It is
+readable rather than opaque because an id turns up in a trace and in Solid, and
+opacity in a string is a convention either way: the reference promises `equals`
+rather than pretending the type enforces it.
+
+**Nil for a path that is not there**, following
+[6.41](COMPLETED.md#641-a-path-that-stops-existing-is-an-error-rather-than-an-answer--done)
+— the use rather than a nicety, since a follower asks every poll and a rotation
+takes the path away for a moment. Built in the other order it would have been a
+message whose only caller died before it could call it.
+
+**A hard link answers the same id** — which is what says this is the
+filesystem's answer and not a hash of the path — a **rename** carries the id
+with it, and `stat` is followed through a symbolic link. An inode can be
+**reused** after a delete, so equality across a long gap is not quite proof; the
+question this answers is *has the file under this path been replaced since a
+moment ago*, which reuse does not reach.
+
+**No `-F` flag, and that is deliberate.** This tail polls a path and has no open
+file to keep, so it was already `-F`-shaped; BSD's `-f` follows the descriptor
+and goes on reading the renamed file, which this cannot do. A second flag would
+have been a second name for one behaviour, so `-f` stopped losing data.
+[follow.sh](../programs/tail/follow.sh) gained the scenario and goes on
+comparing against the oracle's `-F` — and now refuses to run on a `.sob` older
+than its source, after a stale build reported that very scenario as a
+difference and cost a wrong diagnosis.
+
+**And `<stdint.h>` is now included explicitly.** `intmax_t` was arriving through
+some other header on this machine, which is not compatible with a front page
+that says *no dependencies* and *portable C11*.
+
 ### The published pages, checked at last — `7140e4d`, 2026-09-01
 
 **No change to the language.** `.sob` files are format version 14, the message

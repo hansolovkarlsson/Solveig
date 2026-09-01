@@ -1073,12 +1073,22 @@ keeping it did. The number stays 6.32 and is not reused.
 
 ## How this list emptied, and how it filled and emptied again
 
-**One thing is on it.**
-[6.39](COMPLETED.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file--done) arrived
-on 2026-08-31: a program cannot tell whether two paths are the same file. `tail`
-wanted it for `-F`, could not have it, and says so in its own header rather than
-approximating it. One customer and one flag, and the entry says so. Its trigger
-has not fired, so it waits.
+**Nothing is on it**, for the third time, and the three that were there this
+morning all closed on 2026-09-01 — which has not happened before.
+
+[6.39](COMPLETED.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file--done)
+arrived on 2026-08-31: a program cannot tell whether two paths are the same
+file. **Its trigger never fired.** One customer and one flag, for two days, and
+it was built on instruction rather than because a second caller arrived — which
+the entry says, because a list that quietly becomes right about its own
+admission rule is worth less than one that records being overruled.
+
+**What moved was the case, not the trigger.** The entry said a rotation makes
+`tail` print from the wrong offset. Driving it said worse: a replacement of the
+same size reads as *unchanged*, and a line written to the log never appears —
+no error, no notice, no status. That was measurable on the day the entry was
+written and was not measured, which is the more useful lesson than anything
+about triggers.
 
 **3.23 arrived and left on 2026-09-01**, and it is the second entry to do that
 in one day. It was the opposite case to 6.39 — no trigger to wait for, because

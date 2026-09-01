@@ -11,6 +11,76 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-01 (sixth) — the list is empty, and the trigger never fired
+
+Three entries were open this morning. All three closed today, which has not
+happened before: 6.41, 3.23 and now
+[6.39](COMPLETED.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file--done).
+
+### The trigger did not fire, and the entry says so
+
+One customer and one flag, for two days, exactly as written. `system:fileId`
+was built on instruction rather than because a second caller arrived. A list
+that quietly becomes right about its own admission rule is worth less than one
+that records being overruled, so the entry records it.
+
+**What moved was the case, not the trigger** — and this is the part worth
+carrying. The entry said a rotation makes `tail` print from the wrong offset.
+Driving it first, as this day has now done four times, said something worse:
+
+| | |
+| --- | --- |
+| `/usr/bin/tail -F` | `AAAA` `BBBB` `CCCC` |
+| `tail.sol -f` | `AAAA` `CCCC` |
+
+A five-byte log replaced by a five-byte log. `BBBB` was written and never
+appeared — no error, no notice, no exit status. **A gap that loses data
+silently is a different argument from one that misprints**, and it was
+measurable on the day the entry was written, by the person who wrote the entry,
+in about ninety seconds.
+
+That is the fourth time today that driving the thing beat reasoning about it,
+and the second time the *argument* for a piece of work turned out to be
+understated rather than wrong.
+
+### What the build did not have to decide
+
+**6.41 had already settled the absent-path question**, which was the one design
+problem `fileId` would otherwise have had: a follower asks every poll, and a
+rotation takes the path away for a moment. Nil, on the precedent set this
+afternoon. Built in the other order, `fileId` would have been a message whose
+only caller exited 1 before it could call it — which is what the reordering was
+for, and it is pleasant to see it pay.
+
+**And the shape held.** `fileId` over `sameFile`, a value a program can keep
+rather than a boolean about two paths it cannot hold across the moment one of
+them stops existing — argued on 2026-08-31 and not revisited. Two days is long
+enough for a scoping to be wrong, and this one was not.
+
+### Two small things found on the way
+
+**A stale `.sob` reported a code fault.** The new `follow.sh` scenario came back
+DIFFERS on its first run, and the difference was a build: I had compiled
+`tail.sol` to a temporary path and the harness runs `programs/tail.sob`. It now
+refuses to run on a `.sob` older than its source. `*.sob` is not tracked, so
+nothing else would have caught it, and the failure reads exactly like a fault in
+the program.
+
+**`intmax_t` was arriving through some other header.** It compiled clean here
+and would not necessarily elsewhere. `<stdint.h>` is included explicitly now —
+a front page that says *no dependencies, portable C11* does not get to rely on
+what a platform happens to pull in.
+
+### Where the day ends
+
+Six entries, eleven commits, three roadmap entries opened or closed, and the
+open list empty. Every one of the three was closed by driving a program rather
+than by reading about it, and three separate throwaways were wrong along the
+way — two this morning and evening, and the man-page measurement this
+afternoon. None of the failures was in the thing being measured.
+
+---
+
 ## 2026-09-01 (fifth) — the check shipped, and found something else on the way in
 
 The day's fifth entry, and the third to follow one that called itself the last.
