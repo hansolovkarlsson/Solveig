@@ -7,7 +7,7 @@
 # dependency-free.
 
 title: Solveig
-description: "Solveig — a small object-oriented language and its toolkit: bytecode compiler (Solas), virtual machine (SolVM), REPL (Solis) and debugger (Solid). Prototype-based, everything is a message send, 143 messages, no control-flow syntax and no operators outside @expr. 20k lines of C11, no dependencies."
+description: "Solveig — a small object-oriented language and its toolkit: bytecode compiler (Solas), virtual machine (SolVM), REPL (Solis) and debugger (Solid). Prototype-based, everything is a message send, 144 messages, no control-flow syntax and no operators outside @expr. 20k lines of C11, no dependencies."
 url: https://hansolovkarlsson.github.io
 baseurl: /Solveig
 

@@ -1045,6 +1045,102 @@ static void test_making_moving_and_removing(void)
     printf("  making, moving and removing, and measuring without reading\n");
 }
 
+/* `system:fileId` -- what the filesystem calls a file, so that a follower can
+ * tell a rotation from a write. ROADMAP 6.39.
+ *
+ * Four properties, and each is a different question:
+ *
+ *   the same path twice     the same id -- it is a function of the file
+ *   a hard link             the same id -- two names, one file
+ *   a renamed file          the same id -- identity travels with the file
+ *   a replacement           a different id -- which is the whole point
+ *
+ * The replacement here is written to *the same size* as the file it replaces,
+ * because that is exactly the case `fileSize` and `modifiedAt` cannot tell
+ * apart and the one that was losing a line in `tail -f`.
+ *
+ * A path that is not there answers nil, following fileSize and modifiedAt
+ * (6.41) -- not a nicety but the use: a follower asks every poll and a rotation
+ * takes the path away for a moment. */
+static void test_a_file_has_an_identity(void)
+{
+    static const char *base = "build/tests/ident";
+    remove("build/tests/ident/rotated");
+    remove("build/tests/ident/link");
+    remove("build/tests/ident/log");
+    remove(base);
+    mkdir(base, 0777);
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "log := \"build/tests/ident/log\"."
+        "system:writeFile(log, \"AAAA\\n\")."
+        "id := system:fileId(log)."
+        "stable := id:equals(system:fileId(log))."
+        "isText := id:isKindOf(string)."
+
+        /* a rename carries the identity with it */
+        "system:rename(log, \"build/tests/ident/rotated\")."
+        "moved := id:equals(system:fileId(\"build/tests/ident/rotated\"))."
+
+        /* and the replacement is the same size, which is the case that matters */
+        "system:writeFile(log, \"BBBB\\n\")."
+        "replaced := id:notEquals(system:fileId(log))."
+        "sameSize := system:fileSize(log):equals("
+        "                system:fileSize(\"build/tests/ident/rotated\"))."
+
+        "absent := system:fileId(\"build/tests/ident/no-such-thing\").") == SOL_OK);
+
+    assert(SOL_AS_BOOL(global(&vm, "stable")));
+    assert(SOL_AS_BOOL(global(&vm, "isText")));
+    assert(SOL_AS_BOOL(global(&vm, "moved")));
+    assert(SOL_AS_BOOL(global(&vm, "replaced")));
+    assert(SOL_AS_BOOL(global(&vm, "sameSize")));
+    assert(SOL_IS_NIL(global(&vm, "absent")));
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+
+    /* A hard link is the same file under a second name, which is the property
+       that says this is the filesystem's answer and not a hash of the path. */
+    assert(link("build/tests/ident/rotated", "build/tests/ident/link") == 0);
+
+    SolVM v2; sol_vm_init(&v2);
+    SolChunk c2;
+    assert(run(&v2, &c2,
+        "hard := system:fileId(\"build/tests/ident/rotated\"):equals("
+        "            system:fileId(\"build/tests/ident/link\")).") == SOL_OK);
+    assert(SOL_AS_BOOL(global(&v2, "hard")));
+    sol_chunk_free(&c2); sol_vm_free(&v2);
+
+    /* Under stress, because the primitive allocates. There is no temporary root
+       in it and none is needed: the text is built on the C stack and the string
+       is the last thing it does, with nothing else live to lose. Removing a
+       root to prove it load-bearing is not available here because there is no
+       root; running the claim is what stands in for that. */
+    SolVM v3; sol_vm_init(&v3);
+    v3.gc_stress = true;
+    SolChunk c3;
+    assert(run(&v3, &c3,
+        "seen := array:new."
+        "[#1, #50]:loop({ i | seen:add(system:fileId("
+        "    \"build/tests/ident/rotated\")) })."
+        "first := seen:at(#1)."
+        "allSame := true."
+        "seen:do({ id | id:equals(first):ifFalse({ allSame := false }) })."
+        "n := seen:size.") == SOL_OK);
+    assert(SOL_AS_BOOL(global(&v3, "allSame")));
+    assert(SOL_AS_INT(global(&v3, "n")) == 50);
+    sol_chunk_free(&c3); sol_vm_free(&v3);
+
+    remove("build/tests/ident/rotated");
+    remove("build/tests/ident/link");
+    remove("build/tests/ident/log");
+    remove(base);
+    printf("  a file has an identity, and a same-size replacement is a different one\n");
+}
+
 /* A path that is not there answers nil, and a path that cannot be looked at
  * raises. ROADMAP 6.41.
  *
@@ -2179,6 +2275,7 @@ int main(void)
     test_appending();
     test_the_environment();
     test_making_moving_and_removing();
+    test_a_file_has_an_identity();
     test_a_missing_path_answers_nil();
     test_changing_what_is_there_refuses();
     test_the_look_before_you_leap_idiom();

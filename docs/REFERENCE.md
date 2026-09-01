@@ -1621,11 +1621,11 @@ file it has not got is wrong about something. `readLine` answering nil at the en
 of input is not the precedent, since running out of input is how a loop
 *finishes*.
 
-**Asking about a path is a different question from reading it**, and the four
+**Asking about a path is a different question from reading it**, and the five
 messages that ask now agree. `fileExists` and `isDirectory` answer false for a
-path that is not there; `fileSize` and `modifiedAt` answer **nil**. All four go
-on raising for a path that cannot be looked at — a permission that stops the
-question being asked is not an answer to it.
+path that is not there; `fileSize`, `modifiedAt` and `fileId` answer **nil**.
+All five go on raising for a path that cannot be looked at — a permission that
+stops the question being asked is not an answer to it.
 
 That last part is not a nicety. `fileSize` used to raise for both, and `tail -f`
 polls it once per file per interval, so a log rotation ended the program with
@@ -1636,6 +1636,34 @@ the replacement.
 `system:fileExists(path)` is how to ask whether a read would work, and it is
 about a **file**: a directory answers false, because that is what `readFile`
 would say about one too.
+
+#### Which file is at this path
+
+`system:fileId(path)` answers the device and inode as a string —
+`"16777234:231399178"` — and **only `equals` is promised of it**. It is what
+lets a program tell a *rotation* from a *write*, which nothing else here can:
+a log and the log that replaced it can agree on size and on time, and until
+this existed [tail.sol](../programs/tail.sol) lost a line to exactly that,
+silently. [6.39](COMPLETED.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file--done).
+
+```
+before := system:fileId("app.log").
+; ... a rotation happens ...
+before:equals(system:fileId("app.log")).   ; false -- a different file now
+```
+
+A string because the pair does not fit an integer: `dev_t` here is a signed
+four-byte integer and `ino_t` an unsigned eight, and on Linux both are unsigned
+eight. The format is readable rather than opaque so that an id means something
+in a trace, and the sign of the device number is the platform's — `/dev/null`
+has a negative one here. Two ids are only ever compared with each other.
+
+**A hard link is the same file** and answers the same id; a **rename** carries
+the id with it, since the identity is the file's and not the path's; `stat` is
+followed through a symbolic link, agreeing with `fileSize` and `modifiedAt`.
+And an inode can be **reused** after a delete, so two ids equal across a long
+gap is not quite proof — the question this answers is *has the file under this
+path been replaced since a moment ago*, and reuse does not reach that.
 
 `system:modifiedAt` carries the **sub-second** part of the time, which matters
 for the job it exists for: a script asking *is the source newer than the copy?*
@@ -3904,6 +3932,7 @@ it delegates to `object` like everything else. See
 | `run(argv)` `run(argv, streams)` | the exit status of another program; `argv` is an array |
 | `capture(argv)` `capture(argv, streams)` | a dictionary of `"output"` and `"status"` |
 | `fileSize(path)` | an integer, without reading the file; **nil** if nothing is there |
+| `fileId(path)` | what the filesystem calls this file, as a string; **nil** if nothing is there |
 | `remove(path)` | nil, having deleted a file or an **empty** directory |
 | `makeDirectory(path)` | **true** if it made one, **false** if a directory was there; the parent must exist |
 | `rename(from, to)` | nil, having moved it; **replaces** an existing `to` |
@@ -4067,7 +4096,7 @@ has been given, and cannot give itself more.
 Every built-in message and the types that answer it. The question a reference
 gets asked is usually *what has `copyFrom`?* rather than *what does a string
 do?*, and the sections above answer only the second — so this answers the first.
-143 messages across 246 registrations.
+144 messages across 247 registrations.
 
 **A test keeps it honest**: a message registered in `builtins.c` and missing
 from here fails the build, which is the same bargain that makes every message
@@ -4122,6 +4151,7 @@ appear in an example.
 | `exports` | [every type](#every-type) |
 | `exp` | [float](#float) |
 | `fileExists` | [system](#system) |
+| `fileId` | [system](#system) |
 | `filesIn` | [system](#system) |
 | `fileSize` | [system](#system) |
 | `fill` | [string](#string) |

@@ -126,6 +126,26 @@ system:writeFile(scratch:concat("/note.txt"), "a line
 system:fileSize(scratch:concat("/note.txt")):print.     ; #7, without reading it
 
 ; ---------------------------------------------------------------------------
+; Which file is at this path
+;
+; Size and time are not identity: a log and the log that replaced it can agree
+; on both. `fileId` answers what the filesystem calls the file -- device and
+; inode, as a string -- and the only thing promised of it is `equals`.
+;
+; It is what tells a **rotation** from a **write**, which is the difference
+; between following a log and losing a line out of it.
+note := scratch:concat("/note.txt").
+was := system:fileId(note).
+was:equals(system:fileId(note)):print.          ; true -- the same file, asked twice
+
+; A hard link is a second name for one file, so it answers the same id. A copy
+; is a different file and does not.
+system:writeFile(scratch:concat("/copy.txt"), system:readFile(note)).
+was:equals(system:fileId(scratch:concat("/copy.txt"))):print.
+                                                ; false -- same bytes, different file
+system:remove(scratch:concat("/copy.txt")).
+
+; ---------------------------------------------------------------------------
 ; What a file is besides its contents
 ;
 ; It has a mode and a time, and both can be read and written. A copy that keeps

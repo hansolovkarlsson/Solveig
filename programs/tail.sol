@@ -370,18 +370,33 @@ tail:ofStdin := {
 ; a removal it prints nothing more. This polls a path and has nothing open to
 ; keep, so it cannot have that behaviour and does not pretend to.
 ;
-; **The rotation this still gets wrong is the fast one**, and it is
-; [6.39](../docs/ROADMAP.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file)
-; exactly. A replacement that appears before the next poll never shows the path
-; absent, so the file is judged by its size alone: smaller reads as a truncation
-; and restarts, which is right by luck because a fresh log is empty, and equal
-; or larger reads as growth and prints from the wrong offset. Noticing that
-; needs an identity, and nothing here answers one.
-tail:follow := { paths | | sizes, i, now, which |
-    ; Where each file had got to when it was last looked at, or nil for a path
-    ; that was not there.
+; **And the fast rotation is caught by asking who the file is**, which used to
+; be unanswerable. A replacement that appears before the next poll never shows
+; the path absent, so size was the only discriminator -- and a replacement of
+; the *same* size read as *unchanged*, after which the next growth was printed
+; from an offset into a file that no longer had one. Measured on 2026-09-01
+; against a five-byte log replaced by a five-byte log: the tool on the machine
+; printed three lines and this printed two, losing the middle one silently.
+;
+; `system:fileId` answers device and inode as a string
+; ([6.39](../docs/COMPLETED.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file--done)),
+; so the identity is held beside the size and compared each time round. It is
+; the same question the flag has always been about -- *is the file at this path
+; still the one I was watching?* -- and the answer is now a value a program can
+; keep.
+;
+; **A replacement is read from its beginning and says nothing**, which is what
+; `/usr/bin/tail -F` does. The output of a follower should be the log's
+; contents rather than commentary on them; the *truncated* notice below is the
+; exception and goes to standard error, where a diagnostic belongs.
+tail:follow := { paths | | sizes, ids, i, now, id, which |
+    ; Where each file had got to when it was last looked at, and who it was.
+    ; Both are nil for a path that was not there.
     sizes := array:new.
-    paths:do({ path | sizes:add(system:fileSize(path)) }).
+    ids := array:new.
+    paths:do({ path |
+        sizes:add(system:fileSize(path)).
+        ids:add(system:fileId(path)) }).
 
     ; Which file's heading was printed last, so that a heading is written when
     ; the writing moves to another file and not on every poll.
@@ -392,11 +407,18 @@ tail:follow := { paths | | sizes, i, now, which |
         i := #1.
         paths:do({ path |
             now := system:fileSize(path).
+            id := system:fileId(path).
 
-            now:isNil:ifTrue({ sizes:atPut(i, nil) }).
+            now:isNil:ifTrue({ sizes:atPut(i, nil). ids:atPut(i, nil) }).
 
-            ; Back after being gone. Read it from the start, quietly.
-            now:notNil:and({ sizes:at(i):isNil }):ifTrue({ sizes:atPut(i, #0) }).
+            ; Back after being gone, or a different file under the same name.
+            ; Either way it is a file this has not read, so it starts at its
+            ; beginning -- quietly, and not as a truncation, because it is not
+            ; the same file cut short.
+            now:notNil:and({ sizes:at(i):isNil
+                :or({ ids:at(i):notEquals(id) }) }):ifTrue({
+                sizes:atPut(i, #0) }).
+            now:notNil:ifTrue({ ids:atPut(i, id) }).
 
             now:notNil:and({ now:lessThan(sizes:at(i)) }):ifTrue({
                 system:writeError("tail: {}: file truncated\n":fill([path])).
@@ -705,18 +727,20 @@ demonstrate := { | path, size |
 ; thing would have found that, and the corpus harness could not have run it.
 ;
 ; ---------------------------------------------------------------------------
-; What still cannot be written
+; What could not be written, and now can
 ;
-; **`-F`, following a file across a rotation.** It has to notice that the file at
-; a path is a *different* file, which needs an inode or any other identity, and
-; nothing in this language answers one: `fileSize` and `modifiedAt` are the whole
-; of what can be asked about a path, and both can coincide across a rotation.
+; **This section was the list of what this program wanted and the language did
+; not have. It is empty**, and both entries closed on 2026-09-01, in the order
+; the second one turned out to need.
 ;
-; That is a real gap rather than a decision, and it is left as a gap: `-F` is
-; BSD's and GNU's rather than the tool's, one program wants it, and a file
-; identity is a new kind of value rather than a new message. The trigger would be
-; a second program wanting to know whether two paths are the same file -- a
-; backup that must not copy a file onto itself, or a watcher of any kind.
+; **Following a file across a rotation** had to notice that the file at a path
+; is a *different* file, which needs an inode or any other identity, and nothing
+; here answered one: `fileSize` and `modifiedAt` were the whole of what could be
+; asked, and both coincide across a rotation. `system:fileId` answers it now
+; ([6.39](../docs/COMPLETED.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file--done)),
+; and the gap it closed was not a misprint but a **lost line**: a replacement of
+; the same size read as *unchanged*, and the next growth printed from an offset
+; into a file that no longer had one.
 ;
 ; **`-f` was the half that was broken rather than missing**, found on 2026-09-01
 ; by driving this against the tool on the machine through a real rotation

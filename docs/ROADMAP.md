@@ -1043,110 +1043,19 @@ on 2026-08-29 and closed the same afternoon, which is the section still doing
 what it was for: saying what a program written against this needs and has not
 got.
 
-**One is open**, and the other arrived and left on the same day it was written
-down. 6.39, added on 2026-08-31, is that a program cannot tell whether two paths
-are the same file. **6.41, added and closed on 2026-09-01**, was that a path
-which stops existing is an error rather than an answer — `tail -f` did not
-merely fail to follow a rotation, it died on one, and that was the half of `-F`
-which has nothing to do with identity. It went in front of 6.39 and is
-[done](COMPLETED.md#641-a-path-that-stops-existing-is-an-error-rather-than-an-answer--done).
+**Nothing is open here**, and the three that were are all closed.
+[6.39](COMPLETED.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file--done),
+added on 2026-08-31, was that a program cannot tell whether two paths are the
+same file; `system:fileId` answers it, and `tail -f` stopped losing a line to a
+same-size rotation.
+[6.41](COMPLETED.md#641-a-path-that-stops-existing-is-an-error-rather-than-an-answer--done),
+added and closed on 2026-09-01, was that a path which stops existing is an error
+rather than an answer — `tail -f` did not merely fail to follow a rotation, it
+died on one, and that was the half of the problem which has nothing to do with
+identity. It went in front of 6.39 and had to.
 6.40 was opened and closed on 2026-08-31 —
 [a program cannot ask whether a stream is a terminal](COMPLETED.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal--done),
 answered by `system:isTerminal`.
-
-### 6.39 A program cannot tell whether two paths are the same file
-
-Nothing answers a file's identity. `system:fileSize` and `system:modifiedAt` are
-the whole of what can be asked about a path, and two different files can agree on
-both — which is exactly the case that matters, since a log and the log that
-replaced it are usually the same size for a moment and can share a second.
-
-**[tail.sol](../programs/tail.sol) wanted it on 2026-08-31 and could not have
-it.** `tail -F` follows a file across a rotation: the path stays, the file behind
-it is replaced, and the program has to notice and start again on the new one.
-There is no way to notice. `-F` is named in that file as the one thing it cannot
-write, rather than approximated with a heuristic on size and time that would be
-wrong exactly when a rotation happens.
-
-**One customer, one flag, and the entry says so.** This is not a gap anything
-else has hit. [mirror.sol](../programs/mirror.sol) copies a tree into a directory
-inside itself without trouble — it lists the source before it writes anything, so
-it never walks into its own output — which is the other program that would
-plausibly have wanted this and does not.
-
-**Two shapes, and they are not the same size.**
-
-`system:sameFile(a, b)` answers a boolean and invents nothing: two `stat` calls
-and a comparison of device and inode, entirely inside the primitive. It answers
-the question `-F` asks — *is the file at this path still the one I was
-watching?* — only if the program can re-ask it against a path, which is not what
-`-F` needs: the old file may be gone by the time the question is asked, and a
-boolean about two paths cannot be held.
-
-`system:fileId(path)` answers something a program can **keep** — a string, most
-likely, since device and inode together do not fit an integer on every platform
-and a string is the type this language reaches for when the value is opaque. A
-follower holds the id it started with and compares each time round. That is what
-`-F` actually needs, and it is a value whose only operation is `equals`, which is
-a small thing to add and a real one to have to explain.
-
-**The trigger is a second customer**, and a plausible one exists without being
-here yet: any program that must not write a file onto itself, a watcher of any
-kind, or a lock that has to survive a rename. Until one of those arrives this has
-a single caller and a workaround of *do not offer `-F`*, which is what the
-program does.
-
-**Measured on 2026-09-01, and two of the entry's assumptions moved.**
-
-*The string is right, and now for a reason rather than a guess.* `dev_t` here is
-a **signed** four-byte integer and `ino_t` an unsigned eight; on Linux both are
-unsigned eight. So the pair does not fit an `int64` on Linux, and on this
-machine a device number can be **negative** — `/dev/null` has one. Whatever
-formats the id has to be sign-correct, which is a detail that would have been
-found by a crash rather than by reading.
-
-*What `-f` and `-F` actually do, and the correction that took three goes.*
-
-| | `-f` | `-F` |
-| --- | --- | --- |
-| renamed away, new file at the path | goes on reading the **renamed** file | follows the **new** file |
-| removed, then recreated later | prints nothing more, keeps running | follows the **new** file |
-
-`-f` follows the **descriptor** and `-F` follows the **name**, which is exactly
-what the man page says. **An earlier version of this entry said the opposite**,
-on a throwaway that ran both flags in one script and reproduced its own wrong
-answer four times. What caught it was
-[follow.sh](../programs/tail/follow.sh) — the harness runs the two sides under
-one set of conditions instead of two — and what settled it was `lsof` on the
-running process, which shows `tail -f` holding the *renamed* file open after a
-rotation. Direct evidence beat a reproducible experiment, and the experiment was
-reproducible because it was reproducibly wrong.
-
-The rule that would have saved the hour is the one this repository already has:
-a comparison whose two sides did not run under the same conditions is not a
-comparison. It was applied to the checks and not to the throwaway that measured
-the oracle.
-
-**Neither dies**, which is the finding the table was really for: across a rename
-and across a removal, both flags of the tool on the machine carry on, and
-`tail.sol` exited 1 on either until 6.41.
-
-**So this tail's `-f` is the oracle's `-F`**, and cannot be anything else: it
-polls a path and has no open file to keep, so following the name is the only
-behaviour available to it. That is written down in the program rather than left
-to be inferred.
-
-**And [6.41](COMPLETED.md#641-a-path-that-stops-existing-is-an-error-rather-than-an-answer--done)
-came first**, which the same hour found, and it is now done. Following a rotation has two halves —
-*surviving a path that is not there*, and *noticing the file behind it changed*
-— and only the second is this entry. The first is a defect in `fileSize` today,
-needs no new kind of value, and `tail -f` exits 1 without it. Building `fileId`
-first would put a message with one caller into a language where that caller
-dies before it can call it.
-
-**The trigger is unchanged and still has not fired**: one customer, and no
-second one has arrived. Working on this on 2026-09-01 produced the entry above
-and 6.41, and no code.
 
 The one thing that was left was never work — it was a decision, and it has been
 **deferred rather than taken**:
@@ -1165,7 +1074,7 @@ keeping it did. The number stays 6.32 and is not reused.
 ## How this list emptied, and how it filled and emptied again
 
 **One thing is on it.**
-[6.39](#639-a-program-cannot-tell-whether-two-paths-are-the-same-file) arrived
+[6.39](COMPLETED.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file--done) arrived
 on 2026-08-31: a program cannot tell whether two paths are the same file. `tail`
 wanted it for `-F`, could not have it, and says so in its own header rather than
 approximating it. One customer and one flag, and the entry says so. Its trigger

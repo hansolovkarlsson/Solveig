@@ -399,6 +399,7 @@ The process, rather than any value. One object with slots, not a class.
 | `writeFile(path, text)` `appendFile(path, text)` | nil, having written |
 | `fileExists(path)` `isDirectory(path)` | a boolean |
 | `fileSize(path)` | an integer, without reading the file; nil if nothing is there |
+| `fileId(path)` | which file is at that path, as a string; nil if nothing is there |
 | `filesIn(path)` | an array of the names in a directory |
 | `makeDirectory(path)` | **true** if it made one, false if it was there |
 | `remove(path)` | nil, having deleted a file or an **empty** directory |

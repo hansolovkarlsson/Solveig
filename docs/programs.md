@@ -394,15 +394,15 @@ line prints.
 ```
 
 Over `examples/` alone that is 30<!--count examples-files--> files and
-579<!--count examples-claims--> claims:
+580<!--count examples-claims--> claims:
 
 ```text
-30 files with expectations, 579 claims checked
-87 lines print without saying what, and are not checked
+30 files with expectations, 580 claims checked
+88 lines print without saying what, and are not checked
 GRAMMAR.md and solum.bnf agree on 35 productions, and 2 are prose
-278 changelog entries name a commit, 10 name none
-2695 links in 124 files, 1348 of them naming a heading, against 1519 headings
-1347 name a file and no heading, and are not checked
+279 changelog entries name a commit, 10 name none
+2704 links in 124 files, 1354 of them naming a heading, against 1520 headings
+1350 name a file and no heading, and are not checked
 1 heading sits inside a fenced block, and is not an anchor
 17 programs say where they come in the order, and are there
 3 runs ended with a non-zero status, which is what a documented error does
@@ -430,7 +430,7 @@ table had when [disasm](#disasm--a-sob-file-read-and-disassembled) found it
 three sections out of date. They are also the first thing a newcomer reads.
 
 **It is in `make test` now**, in `tests/test_cli.c` with the other tests that
-run the binaries as a shell would — **1050<!--count claims--> claims on every build**, in about
+run the binaries as a shell would — **1051<!--count claims--> claims on every build**, in about
 sixteen seconds, and it fails the build if one stops holding.
 
 **And it holds one document against a file rather than against a run.**
@@ -527,7 +527,7 @@ no notation saying what it counts — so it is given one, which renders as nothi
 and leaves the sentence as it was:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 1050<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 1051<!--count claims--> claims
 ```
 
 Each name is recounted from the repository as it stands. A name the table does
@@ -1808,10 +1808,23 @@ on the fourth: BSD `tail` puts a blank line before the **first** heading when
 following and not when it is not, which nothing but a check that runs the real
 thing would have found.
 
-**`-F`, following across a rotation, still cannot be written.** It has to notice
-that the file at a path is a *different* file, and nothing in this language
-answers a file identity — `fileSize` and `modifiedAt` are all that can be asked
-of a path, and both can coincide across a rotation.
+**Following across a rotation used to be the one thing it could not do**, and
+both halves of that closed on 2026-09-01. It has to survive the path going away,
+which it did not — `fileSize` raised and the program exited 1 on any `mv`
+([6.41](COMPLETED.md#641-a-path-that-stops-existing-is-an-error-rather-than-an-answer--done)).
+And it has to notice that the file at a path is a *different* file, which needs
+an identity: `fileSize` and `modifiedAt` were all that could be asked, and both
+coincide across a rotation.
+[`system:fileId`](COMPLETED.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file--done)
+answers it, and the gap it closed was a **lost line** rather than a misprint — a
+replacement of the same size read as *unchanged*.
+
+**There is no `-F` flag**, and that is deliberate rather than pending. This tail
+polls a path and has no open file to keep, so it is `-F`-shaped and cannot be
+otherwise; BSD's `-f` follows the *descriptor* and goes on reading the renamed
+file, which is a behaviour this cannot have. A second flag would be a second
+name for one thing, so `-f` simply stopped losing data, and
+[follow.sh](../programs/tail/follow.sh) compares it against the oracle's `-F`.
 
 ## sha256sum — a digest, and the first inner loop that is arithmetic
 

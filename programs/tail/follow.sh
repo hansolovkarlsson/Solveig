@@ -36,6 +36,17 @@ if [ ! -f "$root/programs/tail.sob" ]; then
     exit 1
 fi
 
+# **And that it is not the last build.** A `.sob` older than its source runs the
+# program as it was, and the difference arrives here as a scenario that DIFFERS
+# -- which reads as a fault in the code and is a fault in the build. That cost a
+# wrong diagnosis on 2026-09-01, on the first run of a scenario written the same
+# minute. `*.sob` is not tracked, so nothing else would catch it.
+if [ "$root/programs/tail.sol" -nt "$root/programs/tail.sob" ]; then
+    echo "programs/tail.sob is older than tail.sol -- rebuild:"
+    echo "  ./bin/solas programs/tail.sol"
+    exit 1
+fi
+
 settle=1.4          # longer than the oracle's one-second look
 same=0
 news=0
@@ -139,6 +150,17 @@ setup='printf "a\n" > one.txt'
 files='one.txt'
 scenario "a removal, and the same path created again later" "-f -n 1" \
     'rm one.txt; sleep 0.6; printf "BACK\n" > one.txt' "-F -n 1"
+
+# The one size cannot see. The replacement is written to the *same length* as
+# the file it replaces, so every question that could be asked before 6.39 --
+# fileSize, modifiedAt -- answers "unchanged", and the next growth was printed
+# from an offset into a file that no longer had one. That lost the middle line
+# silently: the oracle printed three and this printed two.
+setup='printf "AAAA\n" > one.txt'
+files='one.txt'
+scenario "a replacement of exactly the same size" "-f -n 1" \
+    'mv one.txt one.txt.1; printf "BBBB\n" > one.txt;
+     sleep 0.6; printf "CCCC\n" >> one.txt' "-F -n 1"
 
 echo
 if [ "$news" -eq 0 ]; then

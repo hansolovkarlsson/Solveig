@@ -210,7 +210,7 @@ under root rather than asserting it falsely.
 
 ### What is still not there
 
-[6.39](ROADMAP.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file)
+[6.39](COMPLETED.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file--done)
 is the same size it was this morning, and the list is back to one open entry.
 `tail` now survives a rotation and gets the *fast* one wrong: a replacement that
 appears before the next poll never shows the path absent, so the file is judged
@@ -228,7 +228,7 @@ releases. It needs the network, and `expect.sol` reads files and runs programs.
 ## 2026-09-01 (evening) — an hour on 6.39 that produced a different entry
 
 The instruction was to work on
-[6.39](ROADMAP.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file),
+[6.39](COMPLETED.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file--done),
 file identity. The hour produced no code, two roadmap entries and a correction
 to a shipped program's header, and 6.39 is not the one that came out of it.
 
@@ -287,7 +287,7 @@ The message and the program are one unit of work, not two.
 > [follow.sh](../programs/tail/follow.sh), which runs the two sides under one
 > set of conditions, and settled by `lsof` on the running process. The corrected
 > table is in
-> [6.39](ROADMAP.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file)
+> [6.39](COMPLETED.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file--done)
 > and the account is in the entry below this one. Rewriting it here would delete
 > the only interesting thing about it, which is that it reproduced four times.
 
@@ -451,7 +451,7 @@ entry about it, so it stays: a count in prose is a claim, and this one took one
 | `programs/sed.sol`, `programs/tail.sol`, `programs/sha256sum.sol` | the sixteenth, seventeenth and eighteenth programs |
 | `system:readFile(path, from, count)` | and [3.22](COMPLETED.md#322-a-file-is-read-whole-or-not-at-all--done) closed with it |
 | `system:sleep`, `system:isTerminal` | the 142nd and 143rd messages |
-| [6.39](ROADMAP.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file) | opened, and gated on a second customer |
+| [6.39](COMPLETED.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file--done) | opened, and gated on a second customer |
 | [6.40](COMPLETED.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal--done) | opened and closed |
 | `programs/oracle.sh` | written for `sed`, generalised by `tail`, then twice more by `sha256sum` |
 | `tail/follow.sh`, `sha256sum/vectors.sh`, `sha256sum/check.sh` | three checks of three different kinds |
@@ -582,7 +582,7 @@ program three orders of magnitude from the C tool.
 
 ### What is next
 
-[6.39](ROADMAP.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file)
+[6.39](COMPLETED.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file--done)
 is the only open entry and its trigger has not fired. The
 [Unix survey](ideas.md#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31)
 still has `diff` (two inputs at once), `gzip -d` (array-heavy work, and the
@@ -1011,7 +1011,7 @@ programs. `system:readFile(path, from, count)` and
 [3.22](COMPLETED.md#322-a-file-is-read-whole-or-not-at-all--done) closed with it.
 `system:sleep`, the 142nd message. A defect fixed in `lib/pattern.sol`.
 `programs/oracle.sh`, and `programs/tail/follow.sh`.
-[6.39](ROADMAP.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file)
+[6.39](COMPLETED.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file--done)
 opened. A survey of which tool to write next, in
 [ideas.md](ideas.md#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31).
 

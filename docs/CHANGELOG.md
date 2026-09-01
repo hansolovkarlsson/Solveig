@@ -79,7 +79,7 @@ than the same one cut short. Two scenarios went into
 [follow.sh](../programs/tail/follow.sh), a rename and a removal, both of which
 ended the run before this.
 
-**What it does not fix is [6.39](ROADMAP.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file),
+**What it does not fix is [6.39](COMPLETED.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file--done),
 exactly.** A replacement that appears before the next poll never shows the path
 absent, so the file is judged by its size: smaller reads as a truncation and
 restarts, which is right by luck because a fresh log is empty; equal or larger

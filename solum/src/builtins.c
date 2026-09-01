@@ -17,6 +17,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <math.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -5616,6 +5617,70 @@ static SolValue prim_system_file_size(SolVM *vm, SolValue self, SolValue *args, 
     return SOL_INT_VAL((int64_t)info.st_size);
 }
 
+/* `system:fileId(path)` -- what the filesystem calls this file, as a string.
+ *
+ * **A log and the log that replaced it can agree on size and time.** `fileSize`
+ * and `modifiedAt` were the whole of what could be asked about a path, and a
+ * follower judging a rotation by those two loses a line without noticing: a
+ * replacement of the same size reads as "unchanged", and the next growth is
+ * printed from an offset into a file that no longer has one. Measured, with
+ * `tail -f` against a five-byte log replaced by a five-byte log: the tool on
+ * the machine printed three lines and this printed two, silently. ROADMAP 6.39.
+ *
+ * **Device and inode, which is what identity means here**, and it is a string
+ * because the pair does not fit an integer. `dev_t` on this machine is a signed
+ * four-byte integer -- `/dev/null` has a negative device number -- and `ino_t`
+ * is an unsigned eight; on Linux both are unsigned eight, so the pair is 128
+ * bits. An integer that fits on one platform and not another is the one answer
+ * a portable program cannot be given.
+ *
+ * **Only `equals` is promised**, and the format is readable rather than opaque
+ * on purpose: an id turns up in a trace and in Solid, and this repository has
+ * chosen the legible form every other time it had the choice. The sign of the
+ * device number is the platform's; nothing here depends on it, because two ids
+ * are only ever compared with each other on the same machine.
+ *
+ * **Nil for a path that is not there**, following `fileSize` and `modifiedAt`
+ * (6.41) -- which is not a nicety here but the whole use: a follower asks every
+ * poll, and during a rotation the path is gone for a moment. A raise would put
+ * the caller back where 6.41 found it.
+ *
+ * **`stat` rather than `lstat`**, agreeing with the two above: a symbolic link
+ * is followed, and a follower watching a link should notice when what it points
+ * at is replaced.
+ *
+ * **An inode can be reused.** Delete a file and the next one may be given its
+ * number, so two ids equal across time is not quite two files being the same
+ * file. Nothing here can do better without a generation number, which is not
+ * portable, and the case this exists for -- has the file under this path been
+ * replaced *since a moment ago* -- is not the case where reuse bites.
+ *
+ * No temporary root: the text is built on the C stack and the one allocation is
+ * the answer, with nothing else live to lose. */
+static SolValue prim_system_file_id(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "fileId", argc, 1)) return SOL_NIL_VAL;
+    if (!path_argument(vm, "fileId", args[0])) return SOL_NIL_VAL;
+
+    const char *path = SOL_AS_STRING(args[0])->chars;
+    struct stat info;
+    if (stat(path, &info) != 0) {
+        if (errno == ENOENT || errno == ENOTDIR) return SOL_NIL_VAL;
+        sol_vm_runtime_error(vm, "cannot identify '%s'", path);
+        return SOL_NIL_VAL;
+    }
+
+    char id[64];
+    int n = snprintf(id, sizeof id, "%jd:%ju",
+                     (intmax_t)info.st_dev, (uintmax_t)info.st_ino);
+    if (n < 0 || (size_t)n >= sizeof id) {
+        sol_vm_runtime_error(vm, "cannot identify '%s'", path);
+        return SOL_NIL_VAL;
+    }
+    return SOL_STRING_VAL(sol_string_new(vm, id, n));
+}
+
 /* `system:modifiedAt(path)` -- the companion `fileSize` was waiting for. It
    could not be written until there was a time to answer with.
  *
@@ -6389,6 +6454,7 @@ void sol_builtins_install(SolVM *vm)
     any_receiver(vm, system, "makeDirectory", prim_system_make_directory);
     any_receiver(vm, system, "rename", prim_system_rename);
     any_receiver(vm, system, "time", prim_system_time);
+    any_receiver(vm, system, "fileId", prim_system_file_id);
     any_receiver(vm, system, "modifiedAt", prim_system_modified_at);
     any_receiver(vm, system, "setModifiedAt", prim_system_set_modified_at);
     any_receiver(vm, system, "modeOf", prim_system_mode_of);

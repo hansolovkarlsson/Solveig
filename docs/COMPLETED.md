@@ -1277,7 +1277,7 @@ is a failure, confirmed by breaking one both ways.
 one. The comment renders as nothing and the reader sees the sentence:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 1050<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 1051<!--count claims--> claims
 ```
 
 [expect.sol](../programs/expect.sol) recounts each of them from the repository
@@ -1297,8 +1297,8 @@ that order under its headings. The two are now held together.
 | --- | --- | --- |
 | ROADMAP 3.14, on whether `float` should gain trigonometry | `float` answers **21** messages | **35**<!--count float-answers--> — the count that entry's whole size argument rests on, five releases out of date |
 | [REFERENCE.md](REFERENCE.md)'s message index | **121** messages across **215** registrations | **122** across **216** |
-| [programs.md](programs.md)'s sample output | 21 files, **398** claims | 22 files, **579**<!--count examples-claims--> claims |
-| `README.md`, `programs.md` and the entry itself | **589** claims | **1050**<!--count claims--> |
+| [programs.md](programs.md)'s sample output | 21 files, **398** claims | 22 files, **580**<!--count examples-claims--> claims |
+| `README.md`, `programs.md` and the entry itself | **589** claims | **1051**<!--count claims--> |
 
 #### What is left, which is not a gap
 
@@ -2208,7 +2208,7 @@ second later, which is the whole of what a rotation is.
 **The tool on the machine waits, on both flags and in both cases.** Driven
 through the same rotation, and through a removal-then-recreate, `/usr/bin/tail`
 carried on every time — where it goes on reading is the table in
-[6.39](ROADMAP.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file), and it
+[6.39](COMPLETED.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file--done), and it
 is not the same for the two flags; what matters here is that neither of them
 stops. `tail.sol` exited 1 on all four. It is the comparison
 [oracle.sh](../programs/oracle.sh) exists for, and this is a case that harness
@@ -2272,7 +2272,7 @@ would have ended the run with `cannot measure` before this: a rename with a new
 file at the path, and a removal with the path created again later. Both compare
 against the oracle's `-F` rather than its `-f`, because this tail polls a path
 and has no open file to keep — see
-[6.39](ROADMAP.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file)
+[6.39](COMPLETED.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file--done)
 for what that difference is, and for the throwaway measurement of it that this
 harness caught being wrong.
 
@@ -2283,6 +2283,172 @@ to raise; nothing is allocated, so there is no root to prove load-bearing.
 next poll never shows the path absent, so the file is judged by its size: smaller
 reads as a truncation and restarts, which is right by luck because a fresh log is
 empty; equal or larger reads as growth and prints from the wrong offset.
+
+### 6.39 A program cannot tell whether two paths are the same file — **done**
+
+Nothing answers a file's identity. `system:fileSize` and `system:modifiedAt` are
+the whole of what can be asked about a path, and two different files can agree on
+both — which is exactly the case that matters, since a log and the log that
+replaced it are usually the same size for a moment and can share a second.
+
+**[tail.sol](../programs/tail.sol) wanted it on 2026-08-31 and could not have
+it.** `tail -F` follows a file across a rotation: the path stays, the file behind
+it is replaced, and the program has to notice and start again on the new one.
+There is no way to notice. `-F` is named in that file as the one thing it cannot
+write, rather than approximated with a heuristic on size and time that would be
+wrong exactly when a rotation happens.
+
+**One customer, one flag, and the entry says so.** This is not a gap anything
+else has hit. [mirror.sol](../programs/mirror.sol) copies a tree into a directory
+inside itself without trouble — it lists the source before it writes anything, so
+it never walks into its own output — which is the other program that would
+plausibly have wanted this and does not.
+
+**Two shapes, and they are not the same size.**
+
+`system:sameFile(a, b)` answers a boolean and invents nothing: two `stat` calls
+and a comparison of device and inode, entirely inside the primitive. It answers
+the question `-F` asks — *is the file at this path still the one I was
+watching?* — only if the program can re-ask it against a path, which is not what
+`-F` needs: the old file may be gone by the time the question is asked, and a
+boolean about two paths cannot be held.
+
+`system:fileId(path)` answers something a program can **keep** — a string, most
+likely, since device and inode together do not fit an integer on every platform
+and a string is the type this language reaches for when the value is opaque. A
+follower holds the id it started with and compares each time round. That is what
+`-F` actually needs, and it is a value whose only operation is `equals`, which is
+a small thing to add and a real one to have to explain.
+
+**The trigger is a second customer**, and a plausible one exists without being
+here yet: any program that must not write a file onto itself, a watcher of any
+kind, or a lock that has to survive a rename. Until one of those arrives this has
+a single caller and a workaround of *do not offer `-F`*, which is what the
+program does.
+
+**Measured on 2026-09-01, and two of the entry's assumptions moved.**
+
+*The string is right, and now for a reason rather than a guess.* `dev_t` here is
+a **signed** four-byte integer and `ino_t` an unsigned eight; on Linux both are
+unsigned eight. So the pair does not fit an `int64` on Linux, and on this
+machine a device number can be **negative** — `/dev/null` has one. Whatever
+formats the id has to be sign-correct, which is a detail that would have been
+found by a crash rather than by reading.
+
+*What `-f` and `-F` actually do, and the correction that took three goes.*
+
+| | `-f` | `-F` |
+| --- | --- | --- |
+| renamed away, new file at the path | goes on reading the **renamed** file | follows the **new** file |
+| removed, then recreated later | prints nothing more, keeps running | follows the **new** file |
+
+`-f` follows the **descriptor** and `-F` follows the **name**, which is exactly
+what the man page says. **An earlier version of this entry said the opposite**,
+on a throwaway that ran both flags in one script and reproduced its own wrong
+answer four times. What caught it was
+[follow.sh](../programs/tail/follow.sh) — the harness runs the two sides under
+one set of conditions instead of two — and what settled it was `lsof` on the
+running process, which shows `tail -f` holding the *renamed* file open after a
+rotation. Direct evidence beat a reproducible experiment, and the experiment was
+reproducible because it was reproducibly wrong.
+
+The rule that would have saved the hour is the one this repository already has:
+a comparison whose two sides did not run under the same conditions is not a
+comparison. It was applied to the checks and not to the throwaway that measured
+the oracle.
+
+**Neither dies**, which is the finding the table was really for: across a rename
+and across a removal, both flags of the tool on the machine carry on, and
+`tail.sol` exited 1 on either until 6.41.
+
+**So this tail's `-f` is the oracle's `-F`**, and cannot be anything else: it
+polls a path and has no open file to keep, so following the name is the only
+behaviour available to it. That is written down in the program rather than left
+to be inferred.
+
+**And [6.41](COMPLETED.md#641-a-path-that-stops-existing-is-an-error-rather-than-an-answer--done)
+came first**, which the same hour found, and it is now done. Following a rotation has two halves —
+*surviving a path that is not there*, and *noticing the file behind it changed*
+— and only the second is this entry. The first is a defect in `fileSize` today,
+needs no new kind of value, and `tail -f` exits 1 without it. Building `fileId`
+first would put a message with one caller into a language where that caller
+dies before it can call it.
+
+**And the gap it leaves is silent, which the entry did not say and should
+have.** Measured on 2026-09-01, after 6.41 made `tail -f` survive a rotation at
+all — a log replaced inside one poll interval by a file of *the same size*:
+
+| | |
+| --- | --- |
+| `/usr/bin/tail -F` | `AAAA` `BBBB` `CCCC` |
+| `tail.sol -f` | `AAAA` `CCCC` |
+
+`BBBB` was written to the log and never appears. The poll sees five bytes, then
+five bytes, then ten, and prints from offset six — so a whole line is skipped,
+with no error, no notice and no exit status. **This is not "the wrong offset",
+it is losing a line and saying nothing**, which is the failure a log follower
+exists to not have.
+
+Size is the only discriminator available, and it is wrong exactly when the
+replacement matches. A fresh log is usually empty, so shrink-detection catches
+the common case by luck; this is the case luck does not cover.
+
+**The trigger never fired, and it was built anyway** — on instruction, on
+2026-09-01, with one customer and one flag exactly as the entry had said for two
+days. Recording that is the use of having written a trigger down; the entry does
+not get to quietly become right about its own admission rule.
+
+**What changed was not the trigger but the case.** The entry said `-F` prints
+from the wrong offset. Driving it said something worse: a line written to the
+log never appears, and nothing reports it. A gap that loses data silently is a
+different argument from a gap that misprints, and it was available to be
+measured on the day the entry was written.
+
+**6.41 settled one of its open questions for free.** A follower asks for the id
+every poll, and during a rotation the path is not there — which used to raise.
+`fileSize` and `modifiedAt` now answer nil for an absent path, so `fileId` had a
+precedent to follow rather than a decision to make: nil for absent, raising for
+a path that cannot be looked at. Building the two in the wrong order would have
+put a message with one caller into a language where that caller died before it
+could call it.
+
+---
+
+**Built on 2026-09-01.** `system:fileId(path)` answers device and inode as a
+string — `"16777234:231399178"` — with only `equals` promised of it. The shape
+is the one this entry argued for two days earlier and did not have to revisit:
+a value a program can **keep**, since a boolean about two paths cannot be held
+across the moment one of them stops existing.
+
+**The format is readable rather than opaque**, which was the one call the entry
+left open. An id turns up in a trace and in Solid; this repository has taken the
+legible form every other time it had the choice, and opacity in a string is a
+convention either way — the reference says only `equals` is promised rather than
+pretending the type enforces it.
+
+**Four properties, each a different question**, and all four are asserted: the
+same path twice gives one id; a hard link gives the same id, which is what says
+this is the filesystem's answer and not a hash of the path; a rename carries the
+id with it, since identity is the file's and not the path's; and a replacement
+of *exactly the same size* gives a different one, which is the case nothing else
+here could see.
+
+**No `-F` flag was added.** This tail polls a path and has no open file to keep,
+so it was already `-F`-shaped; a second flag would have been a second name for
+one behaviour. `-f` simply stopped losing data.
+[follow.sh](../programs/tail/follow.sh) gained the scenario — a five-byte log
+replaced by a five-byte log — and it goes on comparing against the oracle's
+`-F`.
+
+**No temporary root, and the comment says why**: the text is built on the C
+stack and the one allocation is the answer, with nothing live to lose across it.
+Fifty ids under `gc_stress` come back equal, which is what stands in for
+removing a root that is not there.
+
+**And an implicit include was found by adding it.** `intmax_t` was arriving
+through some other header on this machine; `<stdint.h>` is now included
+explicitly, because a headline of *no dependencies, portable C11* is not
+compatible with relying on what a platform happens to pull in.
 
 ### 6.40 A program cannot ask whether a stream is a terminal — **done**
 
