@@ -347,6 +347,14 @@ tail:ofStdin := {
 ; the file at a path is a *different* file needs an inode, and nothing in this
 ; language answers one. `fileSize` and `modifiedAt` are the whole of what can be
 ; asked, and both can coincide across a rotation.
+;
+; **And it does worse than not follow one: it dies on one.** `fileSize` raises
+; when the path is gone, so the poll below exits 1 with *cannot measure* the
+; moment a log is rotated or removed -- where the tool on the machine waits and
+; picks up the replacement. That is
+; [6.41](../docs/ROADMAP.md#641-a-path-that-stops-existing-is-an-error-rather-than-an-answer),
+; it is a defect in a shipped message rather than a missing feature, and it is
+; the half of `-F` that has nothing to do with identity.
 
 tail:follow := { paths | | sizes, i, now, which |
     ; Where each file had got to when it was last looked at.
@@ -682,3 +690,14 @@ demonstrate := { | path, size |
 ; identity is a new kind of value rather than a new message. The trigger would be
 ; a second program wanting to know whether two paths are the same file -- a
 ; backup that must not copy a file onto itself, or a watcher of any kind.
+;
+; **`-f` is the half that is broken rather than missing**, and it was found on
+; 2026-09-01 by driving this against the tool on the machine through a real
+; rotation instead of reasoning about one. Renamed away or removed, this exits 1
+; with *cannot measure*; `/usr/bin/tail` waits on both flags in both cases, and
+; the measured difference between its `-f` and its `-F` is narrower than its own
+; man page says. Written up as
+; [6.41](../docs/ROADMAP.md#641-a-path-that-stops-existing-is-an-error-rather-than-an-answer),
+; which comes before
+; [6.39](../docs/ROADMAP.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file)
+; and needs no new kind of value.
