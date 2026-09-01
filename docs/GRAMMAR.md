@@ -43,7 +43,7 @@ array       = "[" [ expression { "," expression } ] "]" .
 block       = "{" [ parameters ] [ temporaries ] body "}" .
 
 parameters  = identifier { "," identifier } "|" .
-temporaries = "|" identifier { "," identifier } "|" .
+temporaries = "|" [ identifier { "," identifier } ] "|" .
 body        = [ expression { "." expression } [ "." ] ] .
 ```
 

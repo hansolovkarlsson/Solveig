@@ -596,6 +596,23 @@ all decided by inspecting what was parsed. A real guard — an arbitrary conditi
 [docs/rules-and-logic.md](docs/rules-and-logic.md) prices it and says what rule
 would have to be fixed first.
 
+**A form is not free at run time, and the number is known.** A template expands
+rather than calls, so it should cost what writing the code out costs. It does
+not, because nothing folds the constants the expansion introduces: measured on
+`programs/digest`, a rotation declared as an operator saves 2.03 instructions by
+not calling and spends 2.00 recomputing a `#32:sub(#17)`. **It gives back 98% of
+what it saves.** Folding would need the expander to decide which sends are safe
+to evaluate, which is the guard question one size smaller;
+[ROADMAP.md](docs/ROADMAP.md) carries the measurement and the reason it is an
+entry rather than a patch.
+
+**A wrong precedence is silent.** A module declares its own ladder, so there is
+nothing for `@infix * 60` to be wrong against — it is as legal as `70` and means
+something else. `programs/digest` declared `*` on `+`'s rung, compiled, ran, and
+failed as an array index four calls deep in generated code. It is the operator
+half's version of *choosing a form's shape wrongly is silent*, and it has the
+same cause: both readings are legal.
+
 **Hygiene is still one scope per expansion**, and a template declared in a
 `@use`d file did not change that. 0.3.0 said one number would stop being enough
 once a template could be declared outside the module using it; it turns out not

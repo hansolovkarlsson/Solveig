@@ -38,10 +38,20 @@ parts have now been declined twice by two programs, which is worth more than any
 argument either way.
 
 **Predictions are recorded before a program is written**, in the manner of
-Solveig's `ideas.md`, so that *it found nothing* stays an available answer. Both
-programs in `programs/` have a table of them and a *What it found* section
+Solveig's `ideas.md`, so that *it found nothing* stays an available answer. All
+three programs in `programs/` have a table of them and a *What it found* section
 written afterwards. Predictions that were wrong stay in, marked wrong:
-`programs/ember` predicted Solveig would bite first and it did not.
+`programs/ember` predicted Solveig would bite first and it did not, and
+`programs/digest` predicted a template costs nothing at run time and it does not.
+
+**A claim about cost is measured, not argued.** `programs/digest` was going to
+say that a form is a method that costs nothing, because a template expands
+rather than calls. It is not true — the template saves 2.03 instructions per use
+and spends 2.00 on a constant nothing folds — and no amount of reasoning about
+expansion would have produced that number. The method is a binary search on
+`solvm --steps=N`: the smallest N that lets a run finish is the run's exact
+instruction count. It is exact, it costs one run per bit, and it turned a
+roadmap claim into a roadmap entry with a figure attached.
 
 **A finding is retracted in place, not edited away.** `POSTMORTEM.md` entry 11
 exists because entries 7 and 9 were written down somewhere somebody could go
@@ -68,9 +78,10 @@ printed `#54` where `#40` was right, compiled clean and failed nothing.
 ## What the build guarantees
 
 `make` needs a C11 compiler and nothing else — no Solveig header, archive or
-symbol. `make test` needs Solveig, because it runs every example and both
-programs all the way through `solas` and `solvm`, and `programs/ember` all the
-way to a linked binary diffed against expected output.
+symbol. `make test` needs Solveig, because it runs every example and all three
+programs all the way through `solas` and `solvm`, `programs/ember` all the way to
+a linked binary diffed against expected output, and `programs/digest` against
+digests that an independent oracle produced first.
 
 **A front end that emits text can be wrong in a way no unit test sees** —
 Solveig-looking source that Solveig rejects, or accepts and reads differently —

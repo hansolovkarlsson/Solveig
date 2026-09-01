@@ -184,6 +184,27 @@ run, but the practical one: **today any tool can tokenise any `.phx` without
 knowing what a dialect is**, and a declarable token stream makes every future
 formatter, highlighter and `grep` implement the directive before it can lex.
 
+**And the same proposal in quotes, refused for the same reason.** The follow-up
+was `@infix "|" 25 or.` — quote the spelling in the *declaration* so that it
+cannot collide with the `|` in the code. It does not, and that is the point: the
+declaration was never ambiguous. `@infix \/ 25 or.` needs no quotes and compiles
+today; so does `@infix || 25`. **The two readings collide at the use, where
+nobody writes quotes.** After any spelling of that declaration the code below
+still says `{ a | b }`, bare, and that text is then both a block with parameter
+`a` and body `b` and a block whose body is `a | b` — two complete legal parses
+of one line, with the declaration nowhere on it. Quoting a declaration cannot
+reach a line the declaration is not on. If the quotes are instead meant to make
+*new* spellings lexable, they are `@token` wearing different clothes: the lexer
+would have to read the header before it could lex the body.
+
+The three things being run together are worth separating, because the confusion
+is natural and the names do not help: the **character** in the source, the
+**token** the lexer makes of it, and the **declaration** that gives a token's
+text a meaning. Quoting changes only how the third is written. The collision is
+between the first two, and the lexer resolves it without consulting any
+declaration at all — which is the property that lets a tool tokenise a file it
+knows nothing about.
+
 **The shape taken instead.** `||` in the *fixed* lexer, taken before the bar,
 belonging to every dialect and declared by none. The split the proposal wanted
 already existed — `PHX_TOK_OPERATOR` is spelling only and `@infix` is meaning —

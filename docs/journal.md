@@ -15,6 +15,21 @@ produced no code because they were decisions.
 
 The day did not end where the entry below says it did.
 
+### It started by reading the documents rather than remembering them
+
+The session opened with *check the documents and list tasks*, which is the same
+move that caught the four-versions-stale roadmap in `5bf83af` — and it caught a
+smaller version of the identical thing. `ROADMAP.md` still had a section headed
+**Next — optional and repeated parts** over a body explaining that the item
+*moves below whatever the next program finds*. The body had been updated when
+`programs/grammar` declined the item; the heading was four words of the old plan,
+left standing.
+
+A heading outliving its section is the cheap form of the failure that document
+set exists to prevent, and somebody skimming headings reads it as current. It is
+`edcf4a0`, and the section is called *Waiting on a customer* now, borrowing the
+vocabulary already at the foot of COMPLETED.md.
+
 ### A confusion that was worth having
 
 The question was why `|` could not be an operator, and the proposal was a
@@ -80,6 +95,22 @@ masking to 32 bits is right for SHA-256 and a trap for the loop counter beside
 it — and **0.4.0's collision rules got their first real customer**, four
 collisions against `lib/control.phx`, reported exactly as designed, and the
 answer was to not compose.
+
+### What was written down rather than built
+
+Three things went into the documents and not into the compiler. **Constant
+folding in the expander** is now a roadmap entry with a measurement instead of a
+patch, because folding a send means deciding which sends are safe to run.
+**A dialect ends at its domain and cannot say where** is recorded with no
+proposal at all, because one program is an anecdote. And the `@token` refusal is
+in ROADMAP under *a dialect that changes the lexer*, where the next version of
+that request will be read — with a note that the want was real and `||` is the
+shape an answer should take.
+
+`docs/solveig-notes.md` gained a third entry: **the machine counts instructions
+and will not say how many.** `--steps=N` stops a run, so the count exists; a run
+that finishes reports nothing, and the exact figure costs 28 executions of a
+binary search. Two of the three suggested fixes are one `fprintf`.
 
 ### The number, again
 

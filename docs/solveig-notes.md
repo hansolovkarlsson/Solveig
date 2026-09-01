@@ -96,6 +96,51 @@ set what goes into it.
 
 ---
 
+## 3. The machine counts instructions and will not say how many
+
+**Kind:** missing capability. Small, and the workaround works — it just costs
+one run per bit.
+
+**What happens.** `--steps=N` stops a program after N instructions, so the
+machine is counting. Nothing reports the count. A program that finishes says
+nothing and exits 0; one that is stopped says *the step limit of 100 was
+reached* and exits 124, naming the limit rather than the position.
+
+```sh
+$ solvm --steps=100 m.sob
+solvm: stopped: the step limit of 100 was reached
+  [m.sol:2] in block
+$ solvm --steps=200000 m.sob        # finishes, says nothing
+$ echo $?
+0
+```
+
+**The workaround, which Solveig's own documents describe.**
+`programs.md` measures `sha256sum` this way: *the smallest N that lets a run
+finish is that run's exact count, and a binary search finds it.* It is exact and
+it is correct. It is also **28 runs of the program** to learn one number the
+machine had after the first one, and each run is a full execution — measuring a
+one-second program costs half a minute.
+
+**Suggested fix**, smallest first:
+
+| | |
+| --- | --- |
+| `--steps` with no `=N` | Run to completion and write the count to stderr. One flag spelling, one `fprintf`, no new machinery. |
+| A count in the `--steps=N` stop message | *stopped at instruction N of a limit of N* is the same number this already knows. Helps a stopped run, not a finished one. |
+| `system:steps` | The count from inside the program. Larger, and it changes what a program can observe about itself, which is a decision rather than a flag. |
+
+**Why it matters here.** `programs/digest` in this repository exists partly to
+measure what a Phoenix template costs against a Solveig method, and the answer —
+2.03 instructions per rotation against 2.00 — is a difference of 5% found by
+running two programs 56 times. Two runs would have done. The number is the whole
+point of that program, and it is the one thing the machine will not hand over.
+
+**Not a blocker, and not urgent.** The binary search is in a nine-line shell
+script in this repository's history and can be lifted by anybody who wants it.
+
+---
+
 ## A prediction about Solveig that was wrong
 
 `programs/ember` is a lexer, a recursive-descent parser and an ARM64 code
@@ -122,6 +167,26 @@ parser straight into the emitter. This is why Phoenix owns a tree instead of
 borrowing one, and it is the right shape for Solveig — noted so that the next
 person to look does not read it as an omission. See the README here, *What
 Phoenix is allowed to know about Solveig*.
+
+**Integer arithmetic traps rather than wrapping, and that is right.** It is what
+made `programs/digest` interesting rather than what made it hard: SHA-256 is
+defined on mod-2^32 arithmetic, Solveig's own `programs/sha256sum` pays for the
+difference in twenty-three hand-written `bitAnd`s, and Phoenix's version pays for
+it once in a header. A language that wrapped silently would have been the
+convenient choice and the wrong one. Recorded so that *a hash program wanted
+wrapping* is not read as a request for it.
+
+**`shiftLeft` refusing to lose the number never fired.** The largest shift in a
+32-bit rotation moves a value under 2^32 left by thirty places, which is
+2^62-ish and fits. Solveig's own program says the same about
+[3.12](https://hansolovkarlsson.github.io/Solveig/docs/ROADMAP.html); a second
+program of the same shape confirms it rather than finding an edge.
+
+**`display` and `print` both end the line.** There is no *write this and stay on
+the line* among them — `system:write` is that, and the REFERENCE says so. A line
+with two things on it is built and then written once, which is what
+`programs/digest` does. Recorded because reaching for `display` twice and
+getting two lines looks like a bug for about a minute.
 
 **`:not` and `:not()` are the same send.** Phoenix emits the first. Confirmed
 against the grammar, which makes an argument list optional; recorded because it

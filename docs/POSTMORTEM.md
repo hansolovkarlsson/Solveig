@@ -227,7 +227,7 @@ precedence computes a different number and keeps going.
 Four came from the three programs written in the language, and three more came
 from reading something rather than running it.
 
-The unit tests are worth having — 103 of them, and they caught 1 immediately —
+The unit tests are worth having — 108 of them, and they caught 1 immediately —
 but they check what was thought of. **What found the rest was a customer, or a
 second look.** That is the argument for `programs/`, for recording predictions
 before writing a program, and for the rule that a finding gets retracted in
