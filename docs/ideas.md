@@ -3123,6 +3123,14 @@ first** — a POSIX-semantics matcher is a couple of hundred lines of Solum, bui
 the object way for the reason given above. A codec, a socket, a window cannot be
 written here. This can.
 
+**This is the one entry in this section whose deferral is not about demand, and
+it is worth saying so out loud**, because everything around it defers for want
+of a second customer and a reader is entitled to assume the same here. It does
+not. The survey above found the demand and called it *real and not small*; what
+this paragraph declines is the **extension**, on the grounds that the thing can
+be written in Solum. Read as *no customer*, it says the opposite of what it
+means.
+
 But the extensions entry closes by asking for something else: one throwaway,
 fifty lines, *something with nothing to release*, built to find out what the
 path actually wants. **Regex is close to the ideal thing to build it with, and
@@ -3193,11 +3201,28 @@ turned out to want this rather than the other way round. The entry above settles
 never asked is whether that matcher is fast enough to be the thing two programs
 run on every line, and the answer changes the recommendation.
 
-**It has a customer refusing input today.** [sed.sol](../programs/sed.sol) says
-in its own header that a script using `\(...\)` is **refused** rather than
-misread, because `\(` is a literal parenthesis to `pattern.sol`. That is a
-shipped program declining real sed scripts, now, and it is the admission rule
-met without anybody having to argue it.
+**It has two shipped customers today, and neither of them is awk.** This was
+first written as though `sed` were the only one, which invited a fair question —
+*if the second customer is awk, and awk waits for the library, what unblocks
+what?* Nothing, on that framing. It is not the framing the tree supports.
+
+[sed.sol](../programs/sed.sol) says in its own header that a script using
+`\(...\)` is **refused** rather than misread, because `\(` is a literal
+parenthesis to `pattern.sol`. [edit.sol](../programs/edit.sol) uses the same
+engine for `/`, `?`, `n` and `N`, over the same subset — and it is the **worse**
+case, because it does not refuse:
+
+```text
+/a\|b        no match          -- alternation, silently
+/ab\+        no match
+/colou?r     no match
+/\(ab\)c     matched at #20    -- the literal text "(ab)c", not the group
+```
+
+Two shipped programs whose users type patterns the engine cannot take, one of
+them answering the wrong thing without saying so. **awk would be the third**, and
+it is not needed to justify anything. The admission rule was met before awk was
+proposed.
 
 ##### The instruction set is already here. The compilation rules are not.
 
@@ -5185,7 +5210,10 @@ no notation, no literal.
 **So writing awk to justify `lib/re.sol` is the wrong order**, and it is the
 same shape of mistake this repository made twice on 2026-09-01 — a scoping that
 is right about the answer and wrong about what comes first. The library is the
-work; awk is a customer for it, and there is already a customer for it.
+work; awk is a customer for it, and it already has two — `sed`, which refuses
+`\(...\)`, and `edit`, whose `/` silently misreads it. **awk is the third and
+unblocks nothing**, which is the whole reason it is not next: not that it fails
+to count, but that the count was reached without it.
 
 **The two customers want different dialects, and that is worth knowing before
 the design rather than after.** POSIX BRE — `sed`'s — has back-references and
