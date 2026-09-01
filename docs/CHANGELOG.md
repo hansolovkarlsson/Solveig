@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### A group was two literal parentheses, and two programs said otherwise — `pending`, 2026-09-01
+### A group was two literal parentheses, and two programs said otherwise — `92c748e`, 2026-09-01
 
 **No change to the language.** A defect in [lib/pattern.sol](../lib/pattern.sol)
 and the two shipped programs that ran on it.
