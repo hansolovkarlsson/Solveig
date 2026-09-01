@@ -11,6 +11,107 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-01 — a checker built off its trigger, and the two faults it did not find
+
+One instruction: build the link checker. It is built, it is in `make test`, and
+it reports nothing — and almost none of the day's value is in it.
+
+### What shipped
+
+| | |
+| --- | --- |
+| a link check in [expect.sol](../programs/expect.sol) | 1,313 links against 1,496 headings, with a floor in `tests/test_cli.c` |
+| two fixes in `CHANGELOG.md` | a stray ``` fence and a `<if-statement>` at the start of a line |
+| [the ideas entry](ideas.md#nothing-checks-that-a-link-points-at-a-heading-that-exists) | moved to the built section, saying its trigger never fired |
+
+### The trigger did not fire, and that is the first thing to write down
+
+The entry asked for **a second heading move that took links with it** before
+this was worth building. There has not been one. It was built because it was
+asked for, which is a perfectly good reason and is not the reason the entry
+named — and the entry now says so, because a trigger nobody records failing is a
+trigger that decides nothing.
+
+### The throwaway found something, and it was not what it said
+
+A first version in Python, twenty lines, reported exactly one finding:
+`docs/CHANGELOG.md:7470`, a link to `#0170--2026-08-22` naming no heading. The
+heading is plainly there at line 7517.
+
+Chasing that turned up **two real faults in the file, both of them markdown that
+renders as something other than what it says**:
+
+- Line 7008 had wrapped so that ``` began a line. That is a code fence. It turns
+  380 lines of prose into a code block and eleven headings into nothing.
+- Four thousand lines above it, an inline code span had wrapped so that
+  `<if-statement>` began a line. kramdown reads that as a raw HTML block and
+  stops rendering markdown from there to the end of the file.
+
+Fetching the published page settled it rather than arguing from the spec:
+**64 of the changelog's 327 headings reached the site**, and had not since
+0.20.0 — ten days and twenty releases. Every other page checked clean, all
+thirty of them, which is what made the two lines findable at all.
+
+### And then the finding turned out to be an artefact
+
+The throwaway closed a fenced block on **any** line beginning with ``` . The
+renderer closes one only on a **bare** fence. Under the correct rule the parity
+after line 7008 comes out different, the 0.17.0 heading is not inside a block,
+and **that link is fine** — the shipped checker reports nothing on a tree with
+both faults still in it, which was tested by putting them back.
+
+So the sequence was: a wrong check produced a wrong finding, and chasing the
+wrong finding found two right ones. That is luck, and it is worth naming as
+luck. [method.md](method.md#a-check-that-cannot-fail-is-decoration) already says
+a test that fails for the wrong reason misleads as far as one that cannot fail;
+what this adds is that it can also mislead *usefully*, and the temptation is
+then to write it up as though the check worked. It did not. **What found the
+faults was a different comparison entirely** — the headings the published site
+renders, counted against the headings in the file — and that one needs the
+network and is not in `expect.sol`.
+
+### What the check is, and the one decision inside it
+
+Every heading in `docs/`, the two pages at the root and every `.sol` header
+becomes the anchor GitHub would give it; every link carrying a `#` is either in
+that set or it is a finding. Links with no fragment are counted and not checked.
+
+**The load-bearing decision is that fences are tracked, by the renderer's rule.**
+Ignoring them would give a superset of the real anchors — safe in the sense that
+it can only miss a finding and never invent one — and it would also make the
+program disagree with the page a reader lands on, which is the only thing a link
+is about. The number of headings that fall inside a fence is reported and has a
+ceiling in the test, because it is the one part of this with no other witness: it
+is 1 today, and it is 12 the moment that wrapped paragraph comes back.
+
+### Held against something somebody else wrote, for once literally
+
+Both implementations dumped their anchors and their resolved links, sorted:
+**1,487 anchors and 1,309 links, identical, character for character.** One uses
+an alphabet string and a hand-written walk and resolves `..` with an array as a
+stack; the other uses `isalnum`, a regular expression and `os.path.normpath`.
+
+Two of the four failure demonstrations are worth keeping. A reworded ROADMAP
+heading was caught in five places across four files at once — the scenario the
+entry was written about. Re-breaking the changelog was caught by *nothing*,
+which is how the artefact was found.
+
+### What is left, and it has no trigger yet
+
+The check that actually worked is not in the repository: **compare the headings
+the published site renders against the headings in the file**. It found a page
+that had been broken for ten days, and it would have found it on any day of
+those ten. It needs the network, which nothing here does, and `expect.sol`
+reads files and runs programs. Written down without a trigger on purpose,
+because the case for it is a fault that already happened rather than one that
+might.
+
+The smaller local version — a line at column 0 beginning with `<` outside a
+fence — has two candidates in the whole tree and one of them is `README.md`'s
+logo, which is the shape this repository defers.
+
+---
+
 ## 2026-08-31 (closing) — a day of working code, and eleven wrong sentences about it
 
 Seven entries for one day. This one is the account of the whole of it, and the

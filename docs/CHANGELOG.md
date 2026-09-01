@@ -5,6 +5,65 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### A link that names a heading, and the two faults found on the way — `1610eb4` and `pending`, 2026-09-01
+
+**No change to the language.** `.sob` files are format version 14, unchanged,
+and the message count is unmoved. This is a check and two documentation fixes.
+
+[expect.sol](../programs/expect.sol) now reads every markdown link that carries
+a `#` and asks whether the heading it names is there — **1,313 of them across
+124 files, against 1,496 headings** on the day this went in, in `make test` with
+a floor beside the ones for claims, counts, positions, SolaBasic blocks, grammar
+productions and commit hashes. It was the one cross-reference in these documents that nothing verified,
+in a repository whose filing system is *moving a heading from one file to
+another when an entry closes*.
+
+Every heading in `docs/`, the two pages at the root and every `.sol` header is
+turned into the anchor GitHub would give it — lower-cased, everything but word
+characters, spaces and hyphens dropped, spaces to hyphens, a repeat getting
+`-1` — and a link is either in that set or it is a finding. A link with no
+fragment is counted and not checked: a missing file is a different question and
+nothing here has got one wrong.
+
+**Held against a second implementation.** The anchors and the resolved links
+were dumped from this and from an independent version in Python and compared:
+1,487 anchors and 1,309 links, identical, character for character. One uses an
+alphabet string and a hand-written walk, the other `isalnum` and a regular
+expression; one resolves `..` with an array as a stack, the other with
+`os.path.normpath`.
+
+**The trigger did not fire, and the entry says so.**
+[ideas.md](ideas.md#nothing-checks-that-a-link-points-at-a-heading-that-exists)
+deferred this behind a second heading move that took links with it. There has
+not been one. It was built on instruction, and recording that is the whole use
+of having written a trigger down.
+
+**Two faults in `CHANGELOG.md`, both markdown that renders as something else,
+and neither found by the check.** A paragraph had wrapped so that ``` began a
+line — a code fence, which turns 380 lines of prose into a code block. Four
+thousand lines above it, an inline code span had wrapped so that
+`<if-statement>` began one, which kramdown reads as raw HTML and which stopped
+the published page rendering from there to the end of the file. **64 of that
+page's 327 headings reached the site**, and had not since 0.20.0. Both are one
+rewrapped line.
+
+**The finding that started it was an artefact**, and that is the part worth
+keeping. The throwaway reported a dead anchor; its fence rule closed a block on
+any line beginning with ``` rather than on a bare one, and under the rule the
+renderer actually keeps that link is fine. The shipped check reports nothing on
+a tree with both faults still in it. What found them was a different comparison
+that is not in `expect.sol` — the headings the published site renders against
+the headings in the file, which needs the network. **A finding that is right
+that something is wrong and wrong about what it is costs as much as a check that
+cannot fail**, and this one was one edit away from being written up as a broken
+link.
+
+**The fences are tracked all the same, by the renderer's rule**, because a
+heading inside one is not a heading on the page. The count of those is reported
+and has a ceiling in the test: it is 1 — `COMPLETED.md` quotes a changelog
+heading inside a block to show what the hash rule reads — and it goes to 12 the
+moment that wrapped paragraph comes back.
+
 ### `system:isTerminal`, and a workaround that was not exact — `c599e65`, 2026-08-31
 
 **The language answers 143<!--count messages--> messages**, up from 142, across
