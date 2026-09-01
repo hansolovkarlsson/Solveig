@@ -125,6 +125,10 @@
 ;
 ; `/pattern`, `?pattern`, `n` and `N`, over the regular expressions in
 ; [lib/pattern.sol](../lib/pattern.sol) -- `.`, `*`, `[abc]`, `[^a-z]`, `^`, `$`
+; -- and a construct outside that subset is **refused** rather than read as
+; literal text. Until 2026-09-01 it was not: a vi user's `/\(ab\)c` searched
+; for the characters `(ab)c` and found the wrong thing without saying so, which
+; is the muscle memory this editor most invites.
 ; and `\` to escape any of them. The library is the interesting half and says
 ; why it is shaped as it is; what the editor added to it was three things:
 ;

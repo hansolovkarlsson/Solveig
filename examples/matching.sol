@@ -125,6 +125,13 @@ unclosed:display.             ; a pattern has an unclosed '['
 dangling := { pattern:on("ab\\") }:onError({ e | e:message }).
 dangling:display.             ; a pattern cannot end with a backslash
 
+; **And a construct this does not have is refused rather than read as text.**
+; `\(` used to be a literal parenthesis, which is worse than not supporting
+; groups: a pattern that groups then matched the characters `(ab)c` and missed
+; `abc`, silently, in both `sed` and the editor's `/`.
+grouped := { pattern:on("\\(ab\\)c") }:onError({ e | e:message:copyFrom(#1, #6) }).
+grouped:display.              ; `\(` i
+
 ; ---------------------------------------------------------------------------
 ; What is not here
 ;

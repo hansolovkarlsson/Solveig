@@ -137,11 +137,28 @@ pattern:itemFrom := { s | | item, c |
     item := self:item:new.
     c := s:next.
 
-    c:equals("\\"):ifTrue({
+    c:equals("\\"):ifTrue({ | escaped |
         s:atEnd:ifTrue({
             error:raise("a pattern cannot end with a backslash") }).
+        escaped := s:next.
+
+        ; **A construct this does not implement is refused, not read as a
+        ; literal.** `\(` used to become a literal parenthesis, so a BRE that
+        ; groups matched the *text* `(ab)c` and missed `abc` -- the inverse of
+        ; what the caller asked for, on both counts, with no error. Two shipped
+        ; programs were doing that: [sed.sol](../programs/sed.sol), whose header
+        ; claimed it was refused, and [edit.sol](../programs/edit.sol)'s `/`.
+        ;
+        ; The guard is here rather than in either of them because the library is
+        ; what knows its own subset, and two copies of this test is what the
+        ; admission rule is about.
+        "(){}123456789+?|":indexOf(escaped):notNil:ifTrue({
+            error:raise("`\\{}` is a grouping or repetition this does not have -- "
+                :concat("`. * [ ] ^ $ \\` and literals are the whole of it")
+                :fill([escaped])) }).
+
         item:kind := 'literal.
-        item:value := s:next }).
+        item:value := escaped }).
 
     c:equals("."):ifTrue({ item:kind := 'any }).
 

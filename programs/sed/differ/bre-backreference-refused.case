@@ -1,0 +1,15 @@
+# `s/\(a\)\1/DOUBLE/` -- a back-reference, the construct furthest out of reach.
+#
+# A back-reference needs the engine to remember what a group matched, and there
+# are no groups here to remember. Real sed answers `DOUBLE b`; this used to
+# answer `aa b` -- no match, silently, because `\(`, `\)` and `\1` were three
+# literals that happened not to be in the text.
+#
+# Kept beside the group case because it is the one that cannot be fixed by a
+# smaller engine: a back-reference is what stops an implementation simulating
+# the automaton, and it is the reason lib/re.sol's two dialects have to be
+# designed together rather than one after the other.
+args: 's/\(a\)\1/DOUBLE/'
+input:
+aa b
+abab c

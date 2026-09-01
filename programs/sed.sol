@@ -30,9 +30,20 @@
 ;
 ; **The regular expressions are [pattern.sol](../lib/pattern.sol)'s**, which is
 ; the subset vi searches with: `. * [ ] ^ $ \` and nothing else. No groups, no
-; backreferences, no `+` or `?`. A sed script written for GNU sed and using
-; `\(...\)` will be refused rather than misread, because `\(` is a literal
-; parenthesis here and would silently match the wrong thing.
+; backreferences, no `+` or `?`. A sed script using `\(...\)` is refused rather
+; than misread.
+;
+; **That sentence was false for the life of this file until 2026-09-01**, and it
+; is worth leaving the correction visible rather than quietly fixing the code
+; under it. `\(` was a literal parenthesis, so `s/\(ab\)c/YES/` came out
+; *inverted* on both counts -- it substituted the line holding the text `(ab)c`
+; and left the line holding `abc` alone -- with no error and exit 0. The claim
+; described the behaviour somebody meant to write; nothing had run it.
+;
+; The refusal now lives in `pattern.sol` rather than here, because the library
+; is what knows its own subset and `edit.sol`'s `/` had the same hole. Two cases
+; in [differ/](sed/differ) hold it, and the corpus is where this should have
+; been caught: sixty cases in `agree/` and not one used `\(`.
 ;
 ; ---------------------------------------------------------------------------
 ; Why write this one

@@ -225,6 +225,33 @@ the file's plus exactly one newline, which would fail if the difference grew.
 `programs/oracle.sh <name>` is the harness; it was written for sed and
 generalised by its second caller rather than copied.
 
+## An author-written corpus tests what its author thought of
+
+**The oracle is the only check here that can find what nobody thought to look
+for** — and the corpus it runs is written by the same person who wrote the
+program, so it inherits their blind spots exactly.
+
+`programs/sed/agree/` holds sixty cases and **not one of them used `\(`**. So
+`sed.sol` read a group as a literal parenthesis for the life of the file, and on
+a valid script came out *inverted* — substituting the line that contained the
+text `(ab)c` and leaving the line that contained `abc` alone, with no error and
+exit 0. Its own header had said such a script "will be refused rather than
+misread". Nothing had run it.
+
+That is not an argument against the corpus, which has earned its place several
+times over. It is the reason the corpus is not the last word:
+
+- **Write cases for what the program says it will not do**, not only for what it
+  does. A refusal is a behaviour and belongs in `differ/` with its reason. The
+  two that were missing are there now.
+- **A claim in a header is a case waiting to be written.** Every *this is
+  refused*, *this is not supported*, *this would be wrong* in a program's
+  comments names an input nobody has tried.
+- **Where a standard exists, it is a second author.** `sha256sum` is held to FIPS
+  180-4 and `basic` to the NBS suite for exactly this reason — the NBS programs
+  found seven defects that eighty-three author-written claims had missed, and
+  the ratio here was two in sixty.
+
 ## A program that does not stop can still be checked — give it a deadline
 
 **`tail -f` was nearly left out on the grounds that an oracle cannot check a

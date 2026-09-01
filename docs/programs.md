@@ -394,15 +394,15 @@ line prints.
 ```
 
 Over `examples/` alone that is 30<!--count examples-files--> files and
-580<!--count examples-claims--> claims:
+581<!--count examples-claims--> claims:
 
 ```text
-30 files with expectations, 580 claims checked
+30 files with expectations, 581 claims checked
 88 lines print without saying what, and are not checked
 GRAMMAR.md and solum.bnf agree on 35 productions, and 2 are prose
 280 changelog entries name a commit, 10 name none
-2708 links in 124 files, 1357 of them naming a heading, against 1526 headings
-1351 name a file and no heading, and are not checked
+2728 links in 124 files, 1366 of them naming a heading, against 1542 headings
+1362 name a file and no heading, and are not checked
 1 heading sits inside a fenced block, and is not an anchor
 17 programs say where they come in the order, and are there
 3 runs ended with a non-zero status, which is what a documented error does
@@ -430,7 +430,7 @@ table had when [disasm](#disasm--a-sob-file-read-and-disassembled) found it
 three sections out of date. They are also the first thing a newcomer reads.
 
 **It is in `make test` now**, in `tests/test_cli.c` with the other tests that
-run the binaries as a shell would — **1051<!--count claims--> claims on every build**, in about
+run the binaries as a shell would — **1052<!--count claims--> claims on every build**, in about
 sixteen seconds, and it fails the build if one stops holding.
 
 **And it holds one document against a file rather than against a run.**
@@ -527,7 +527,7 @@ no notation saying what it counts — so it is given one, which renders as nothi
 and leaves the sentence as it was:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 1051<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 1052<!--count claims--> claims
 ```
 
 Each name is recounted from the repository as it stands. A name the table does

@@ -1005,8 +1005,15 @@ mechanism, and it is why there is no separate `mark`.
 
 #### pattern.sol
 
-Regular expressions, in the subset vi searches with. It needs `scan.sol`, which
-it includes itself.
+Regular expressions, in the subset vi searches with: `.`, `*`, `[abc]`,
+`[^a-z]`, `^`, `$` and `\` to escape one of those. It needs `scan.sol`, which it
+includes itself.
+
+**A construct outside that subset is refused**, not read as literal text —
+`\(`, `\)`, `\{`, `\}`, `\1`–`\9`, `\+`, `\?` and `\|` all raise. Reading them
+literally is worse than not having them: a pattern that groups then matches the
+*characters* `(ab)c` and misses `abc`, which is the wrong answer rather than a
+missing one, and it was what two shipped programs did until 2026-09-01.
 
 ```
 @include "pattern.sol".
