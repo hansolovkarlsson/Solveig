@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### A path that is not there answers nil, and 6.41 closed — `pending`, 2026-09-01
+### A path that is not there answers nil, and 6.41 closed — `6106115`, 2026-09-01
 
 **The language answers 143<!--count messages--> messages**, unchanged, and
 `.sob` files are format version 14. Two of them change what they answer.
