@@ -5,6 +5,54 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### A path that is not there answers nil, and 6.41 closed — `pending`, 2026-09-01
+
+**The language answers 143<!--count messages--> messages**, unchanged, and
+`.sob` files are format version 14. Two of them change what they answer.
+
+`system:fileSize` and `system:modifiedAt` answer **nil** for a path that is not
+there, where both used to raise. A real failure still raises: the split is
+ENOENT and ENOTDIR against everything else, and EACCES is deliberately on the
+raising side — a permission that stops the question being asked is not an answer
+to it, and a program told nil would conclude a file is gone when it is sitting
+there.
+
+**It closes [6.41](COMPLETED.md#641-a-path-that-stops-existing-is-an-error-rather-than-an-answer--done),
+which was opened the same afternoon and is a defect rather than a feature.**
+`tail -f` polls `fileSize` once per file per interval, so a log rotation — or a
+plain `rm` — ended the program with *cannot measure* and status 1, where the
+tool on the machine waits and picks up the replacement. It did not fail to
+follow a rotation; it died on one.
+
+**`fileExists` and `isDirectory` had answered rather than raised since they were
+written.** Four messages get asked about a path in the same breath and two of
+them called absence an error while two called it an answer. Absence is the
+commonest thing a path can be and it is not a fault.
+
+**`tail -f` survives a rotation now**, holding nil to mean *gone when last
+looked at* and reading from its beginning whatever comes back — without the
+*file truncated* notice, because a file that returns is a different file rather
+than the same one cut short. Two scenarios went into
+[follow.sh](../programs/tail/follow.sh), a rename and a removal, both of which
+ended the run before this.
+
+**What it does not fix is [6.39](ROADMAP.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file),
+exactly.** A replacement that appears before the next poll never shows the path
+absent, so the file is judged by its size: smaller reads as a truncation and
+restarts, which is right by luck because a fresh log is empty; equal or larger
+reads as growth and prints from the wrong offset. That still wants an identity.
+
+**And a measurement of the oracle was wrong, which is the part worth keeping.**
+The scoping said BSD's `-f` follows the *name* across a rename and that its man
+page was wrong about its own flag. It does not, and the page is right: `-f`
+follows the **descriptor** and goes on reading the renamed file, which `lsof` on
+the running process shows it holding open. The throwaway that measured it ran
+both flags in one script and reproduced its own wrong answer four times;
+`follow.sh` caught it on the first run, by putting the two sides under one set
+of conditions. **A comparison whose two sides did not run alike is not a
+comparison** — a rule already written down here, applied to the checks and not
+to the throwaway measuring the oracle.
+
 ### A link that names a heading, and the two faults found on the way — `1610eb4` and `5456f4e`, 2026-09-01
 
 **No change to the language.** `.sob` files are format version 14, unchanged,

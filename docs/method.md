@@ -116,6 +116,31 @@ report the check as having worked, because something real came out of the run.
 and put the answer in the entry. Here it was *nothing*, which is how the
 artefact was found at all.
 
+## And a comparison whose two sides did not run alike is not one either
+
+The other half of the rule above, and it cost an afternoon on 2026-09-01. A
+throwaway measured `/usr/bin/tail -f` and `-F` through a rotation, in one
+script, one after the other, and reported that both follow the name. That went
+into a roadmap entry in bold, including *the man page is wrong about its own
+flag*.
+
+It is not. `-f` follows the descriptor, and `lsof` on the running process shows
+it holding the renamed file open. **The measurement reproduced four times, at
+two timings**, which is exactly what made it convincing; reducing the script to
+one flag made the wrong answer disappear.
+
+What caught it was [follow.sh](../programs/tail/follow.sh) — a harness that runs
+the two sides under **one** set of conditions — on the first run after a
+scenario for this went in. The rule had been applied to every check here and not
+to the throwaway that measured the oracle those checks compare against.
+
+**So a throwaway that measures something the documents will state is not a
+throwaway.** It is a check, and it owes the same discipline: one harness, both
+sides, and direct evidence when a run disagrees with a published description.
+Distrusting the run rather than the page was the right instinct and was applied
+in the wrong direction — the run was re-run, agreed with itself, and was
+believed. Re-running a wrong experiment is not evidence.
+
 ## Check against what ships, not against the working tree
 
 On 2026-08-29 a throwaway reported sixteen `.sob` files in the tree differing

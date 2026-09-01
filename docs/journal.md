@@ -11,6 +11,93 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-01 (closing) — the scoping was right, its measurement of the oracle was not
+
+Three entries for the day. This one is the account of the whole of it, and the
+two above are left where they are — including the section in the evening entry
+that is wrong, which is annotated in place rather than rewritten, because what
+is interesting about it is that it reproduced four times.
+
+### What shipped, over the day
+
+| | |
+| --- | --- |
+| a link check in [expect.sol](../programs/expect.sol) | 1,329 links against 1,502 headings, in `make test` |
+| two rewrapped lines in `CHANGELOG.md` | 263 of its headings had not reached the published site since 0.20.0 |
+| [6.41](COMPLETED.md#641-a-path-that-stops-existing-is-an-error-rather-than-an-answer--done) | opened, scoped and closed |
+| `fileSize` and `modifiedAt` answer **nil** for a path that is not there | and go on raising for one that cannot be looked at |
+| `tail -f` survives a rotation | two scenarios in [follow.sh](../programs/tail/follow.sh) that ended the run before today |
+
+**Everything above came from running something rather than reading it**, and
+that is the whole of the day's shape. The link checker was written because a
+heading moved; it was the *site* comparison that found the fault. 6.41 exists
+because `tail` was driven through a rotation before anything was designed for
+6.39. And the day's own mistake was the one measurement taken by a throwaway
+that nothing checked.
+
+### The mistake, and what caught it
+
+The afternoon's scoping said BSD's `tail -f` follows the **name** across a
+rename, that `-F` therefore buys only retry-after-removal, and — in bold — that
+the man page is wrong about its own flag. All three were wrong. `-f` follows the
+**descriptor**: after a rename it goes on reading the renamed file, and `lsof`
+on the running process shows it holding the old one open.
+
+**The throwaway ran both flags in one script**, and it reproduced. Four times,
+at two timings, which is what made it convincing. Reducing it to a single flag
+made the wrong answer disappear, and the mechanism was never worth chasing
+further than that.
+
+What caught it was [follow.sh](../programs/tail/follow.sh), on the first run
+after two new scenarios went in — because the harness runs the two sides under
+**one** set of conditions and the throwaway ran them under two.
+[method.md](method.md#a-check-that-cannot-fail-is-decoration) already says a
+comparison whose two sides came from the same source is not a comparison. This
+is the other half of the same rule and it was not written down: **a comparison
+whose two sides did not run alike is not one either.** It had been applied to
+every check in this repository and not to the throwaway that measured the
+oracle those checks compare against.
+
+The sequence, twice in one day: a wrong throwaway produced a finding, the
+finding was chased, and something real came out of it — the fence fault this
+morning, the reordering this afternoon. Both times the throwaway's own claim was
+false. That is worth naming as a pattern rather than as two accidents.
+
+### 6.41 was scoped and built the same day, which is not the rhythm here
+
+The rule is that scoping stops and building is a separate instruction, and it
+held: the scoping was written, the calls were asked for, and building waited for
+the word. What made the gap short is that the scoping had nothing left to decide
+— the question was *which of two shipped messages is wrong*, not what to add.
+
+Two of the four path messages already answered rather than raised. `fileExists`
+and `isDirectory` have swallowed a failed `stat` since they were written, and
+`fileSize` and `modifiedAt` raised. Nothing had ever stated that as a rule
+because there was no rule; there were two habits.
+
+The one decision with an argument on both sides was **EACCES**, and it is on the
+raising side. Absence is an answer; a permission that stops the question being
+asked is not one, and a program told nil would conclude a file is gone when it
+is sitting there. The test asserts both halves and skips the permission one
+under root rather than asserting it falsely.
+
+### What is still not there
+
+[6.39](ROADMAP.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file)
+is the same size it was this morning, and the list is back to one open entry.
+`tail` now survives a rotation and gets the *fast* one wrong: a replacement that
+appears before the next poll never shows the path absent, so the file is judged
+by its size — smaller reads as a truncation and restarts, right by luck because
+a fresh log is empty; equal or larger prints from the wrong offset. That is
+identity, and it is 6.39 exactly. Its trigger has still not fired.
+
+The other thing with a case and no home is the check that found the morning's
+fault: **the headings the published site renders, counted against the headings
+in the file**. It caught a page that had been broken for ten days and twenty
+releases. It needs the network, and `expect.sol` reads files and runs programs.
+
+---
+
 ## 2026-09-01 (evening) — an hour on 6.39 that produced a different entry
 
 The instruction was to work on
@@ -36,7 +123,7 @@ tail: cannot measure 'x.log'      # exit 1
 is gone — so a log rotation, or a plain `rm`, ends the program with status 1.
 `/usr/bin/tail` waits and picks up the replacement.
 
-That is [6.41](ROADMAP.md#641-a-path-that-stops-existing-is-an-error-rather-than-an-answer),
+That is [6.41](COMPLETED.md#641-a-path-that-stops-existing-is-an-error-rather-than-an-answer--done),
 and it is **the entry 6.39 was standing in front of**. Following a rotation has
 two halves — surviving a path that is not there, and noticing the file behind it
 changed — and only the second one is 6.39. The first needs no new kind of value.
@@ -64,6 +151,18 @@ What nil buys is that the program can *say* what a vanished path means to it.
 The message and the program are one unit of work, not two.
 
 ### The measurement that corrected the entry, and the man page it corrected
+
+> **This section is wrong, and is left standing because it is the day's
+> subject.** The table below and the paragraphs under it were written from a
+> throwaway that ran both flags in one script, and they say `-f` follows the
+> name. It does not: it follows the descriptor, exactly as the man page says.
+> That was caught the same evening by
+> [follow.sh](../programs/tail/follow.sh), which runs the two sides under one
+> set of conditions, and settled by `lsof` on the running process. The corrected
+> table is in
+> [6.39](ROADMAP.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file)
+> and the account is in the entry below this one. Rewriting it here would delete
+> the only interesting thing about it, which is that it reproduced four times.
 
 `system:fileId` was going to answer a string, "most likely", because device and
 inode "do not fit an integer on every platform". Measured: `dev_t` here is a
