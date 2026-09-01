@@ -84,19 +84,25 @@ thirty-five moves record as renames. The history is not gone —
 `git log --follow --find-renames=30%` walks it back through 0.4.0 to the first
 commit — but the default is now wrong for one file in thirty-six.
 
-### Found and not fixed
+### A stale number, found and then fixed
 
-**ROADMAP.md says `@language` is inert "eight versions in".** The changelog has
-nine, 0.1.0 through 0.9.0; the sentence was written at 0.8.0 and 0.9.0 landed
-under it. It is the same failure as the heading in `edcf4a0` — a number that was
-true when written and is not re-read when the thing beside it changes — and it
-is left standing here only because today's job was a rename and this is a
-correction to an argument.
+**ROADMAP.md said `@language` was inert "eight versions in".** The changelog has
+nine, 0.1.0 through 0.9.0: the sentence was written at 0.8.0 and 0.9.0 landed
+under it without disturbing it. It is the same failure as the heading in
+`edcf4a0` — a number true when written and not re-read when the thing beside it
+moved — and it is the third time this document set has been caught holding one.
+
+It went in here as *found and not fixed*, on the reasoning that the day's job
+was a rename and this is a correction to an argument rather than to a spelling.
+Hans asked for it the same hour, so it reads **nine** now. The identical phrase
+in the 2026-08-31 entry below is deliberately untouched: eight was true on the
+day that entry describes.
 
 ### What is still open
 
-The local folder is `~/Projects/Phoenix_Proto` until Hans moves it; a directory
-cannot be moved out from under the session using it.
+The folder is `~/Projects/Proto` now, moved at the end of the day rather than
+during it: a directory cannot be moved out from under the session working inside
+it.
 
 Nothing on the roadmap moved. A rename is not progress on any of it, and the two
 decisions that are Hans's — what `@language` should select or whether it should

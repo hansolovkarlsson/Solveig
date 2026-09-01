@@ -16,7 +16,7 @@ foot of COMPLETED.md.
 
 ## Open, and undecided
 
-**`@language` records a name and acts on nothing.** Eight versions in, it is the
+**`@language` records a name and acts on nothing.** Nine versions in, it is the
 only inert directive, and every `.pro` writes `@language solveig.` as a ritual —
 in the directive the README uses to argue that a tool can tell what language a
 file is in. It should select the *reader*, or the *emitter* as
