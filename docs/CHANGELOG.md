@@ -130,7 +130,7 @@ shifts, xors and masks is the one file that cannot use the notation at all —
 adding them; written down because a notation introduced for "a formula you are
 transcribing" met a formula it could not.
 
-**[6.40](ROADMAP.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal) is
+**[6.40](COMPLETED.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal--done) is
 open**, and its trigger was written down first and then fired. `tail` found that
 `keyWaiting(0.0)` answers *is standard input a terminal* by accident and
 recorded it as a note with *a second program* as the trigger; `sha256sum` is the

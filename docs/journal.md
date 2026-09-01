@@ -114,6 +114,25 @@ had been read many times by somebody looking for exactly this — it is a claim
 about what reading can do. **A sentence about a measurement contains no
 evidence.** It reads as well when it is wrong.
 
+### And one thing nothing here checks
+
+Closing 6.40 moved its section from [ROADMAP.md](ROADMAP.md) to
+[COMPLETED.md](COMPLETED.md), and four links written that morning went on
+pointing at the old anchor. A sweep for the rest found two more, one of them
+naming a heading in a different file than the one it lived in. All six are
+fixed, and the sweep now reports zero.
+
+**[expect.sol](../programs/expect.sol) checks a great deal and not this** — it
+runs every block, recounts every marked number, holds `GRAMMAR.md` against
+`solum.bnf`, checks that each changelog entry names a commit. A link is the one
+cross-reference nothing verifies, in a repository whose filing system *is*
+moving headings between files when an entry closes.
+
+Not built: it is once, and a dead anchor lands a reader at the top of the right
+file rather than nowhere.
+[Deferred with a trigger](ideas.md#nothing-checks-that-a-link-points-at-a-heading-that-exists)
+— a second heading move that takes links with it, which is a release away.
+
 ### Two rules the day put in method.md
 
 **[An enumeration that looks complete is not a proof.](method.md#an-enumeration-that-looks-complete-is-not-a-proof)**
@@ -257,7 +276,7 @@ kernel.
 
 `programs/sha256sum.sol`, the eighteenth program, with three checks —
 `oracle.sh`'s corpus, a `-c` script, and one holding it against FIPS 180-4.
-[6.40](ROADMAP.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal)
+[6.40](COMPLETED.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal--done)
 opened. A new section in [performance.md](performance.md), a paragraph in
 [REFERENCE.md](REFERENCE.md), a rule in [method.md](method.md), and a scoping in
 [ideas.md](ideas.md) that was not built. **Nothing was built in the machine**,
@@ -407,7 +426,7 @@ trigger** rather than arguing it into a roadmap entry on the spot: one caller,
 an exact workaround. `sha256sum` hit the identical collision — the house rule
 says demonstrate on input you carry, `... | sha256sum` says read standard input,
 both are an empty command line — and the promotion to
-[6.40](ROADMAP.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal) cost
+[6.40](COMPLETED.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal--done) cost
 one sentence, because the reasoning was already on the page.
 
 **Writing that entry then found the machine had the other half too.**

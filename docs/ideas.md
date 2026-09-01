@@ -28,6 +28,7 @@ marked as a sketch.
 | `startsWith` / `endsWith` | **Built on 2026-08-30** in `lib/text.sol` — [the trigger had fired three times over](#the-trigger-fired-and-the-paragraph-above-is-wrong-about-the-cost): three programs, nine call sites, two independent `endsWith`s, a defect already caused, and the entry's *nothing is slower* wrong by 2000× on a non-match. Including it then caught `expect.sol` measuring a class it had just extended |
 | What a string is — bytes or code points | **Defer, and toward bytes with a contract** — [the editor asked first](#what-a-string-is--bytes-code-points-or-bytes-with-a-contract), and was corrupting a file on `$x`. **Fixed on 2026-08-30 in the editor**, which is the argument against making `size` count characters — though [the estimate here was wrong](#and-the-editor-was-fixed-which-cost-more-than-this-entry-said): nine lines became seventeen definitions. A [`text` type with a `!"..."` literal](#a-text-type-beside-string-with-a-prefixed-literal-to-make-one) was asked and answered in the same entry — right instincts, wrong end of the pipe |
 | `!character` literals, Unicode | **Defer** — gated on deciding what a string is, and [that entry recommends settling it against](#what-a-string-is--bytes-code-points-or-bytes-with-a-contract): the character type Unicode would want here is the one-character string the language already has |
+| Checking that a link points at a heading | **Defer** — [three were broken](#nothing-checks-that-a-link-points-at-a-heading-that-exists) when 6.40's section moved from ROADMAP to COMPLETED on 2026-08-31, and nothing noticed. `expect.sol` checks every block, count, hash and grammar rule; a link is the one cross-reference it does not. About ten lines, and the trigger is a second heading move taking links with it |
 | A truncating divide on integer | **Defer** — one customer, and its workaround is exact rather than approximate |
 | A path with a NUL in it | **Defer, and it is a silent wrong answer rather than a missing feature** — [found by `sha256sum` on 2026-08-31](#a-path-with-a-nul-in-it-is-silently-a-different-path): a Solum string may hold a NUL and a C path may not, so `fileExists` and `readFile` both answered about a *prefix* and agreed with each other. The reference now says so; the check that would refuse it is small and has one customer with an exact workaround |
 | Integer sizes: byte, word, long | **No — and it was tested on 2026-08-31** rather than argued again. SHA-256 is defined on mod-2^32 arithmetic and is [the first program here to want them](#it-was-written-on-2026-08-31-and-the-prediction-held-in-both-halves); it does not need them, because a 64-bit integer holds the sum of five 32-bit values with fifty-nine bits to spare. The cost of refusing is twenty-three masks in one program |
@@ -699,6 +700,40 @@ regular expression engine to be bigger than.
 
 ## Deferred, with a trigger
 
+### Nothing checks that a link points at a heading that exists
+
+**Found on 2026-08-31 by moving a heading.**
+[6.40](COMPLETED.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal--done)
+closed, so its section moved from [ROADMAP.md](ROADMAP.md) to
+[COMPLETED.md](COMPLETED.md), and four links written that morning went on
+pointing at an anchor that no longer existed. A sweep for the rest of them found
+two more — one written the same day, one older — of which one pointed at a
+heading in a *different file* from the one it named.
+
+**[expect.sol](../programs/expect.sol) checks a great deal and not this.** It
+runs every code block, recounts every marked number, holds `GRAMMAR.md` against
+`solum.bnf` and checks that each changelog entry names a commit. A link is the
+one cross-reference in these documents that nothing verifies — and this
+repository moves headings, because an entry moving from one file to another when
+it closes is the whole filing system.
+
+**It is small.** Collect every `## `/`### ` heading per file, lower-case it,
+strip everything but word characters, spaces and hyphens, and turn spaces into
+hyphens — that is GitHub's rule and about ten lines. Then every markdown link
+carrying a `#fragment`, in `docs/`, `README.md`, `index.md` and the `.sol`
+headers, is either in the set or it is a finding. The sweep that found these three was that, in
+Python, in a scratch directory.
+
+**Against building it now**: it is a checker for the *documents*, and this
+repository's checkers have all been asked for by something going wrong more than
+once. This is once. Nothing that shipped was broken — a dead anchor lands the
+reader at the top of the right file rather than nowhere.
+
+**Trigger: a second time a heading moves and takes links with it**, which is a
+release away — closing entries is the routine that does it. Or somebody
+following a link in the published documentation and landing in the wrong place,
+which is the version of this that costs a reader rather than a writer.
+
 ### A truncating divide on integer
 
 `quotient(n)` and `remainder(n)` beside `div` and `mod` — the same division
@@ -820,7 +855,7 @@ the fault.
 workaround is exact rather than approximate — a name is cut at the first NUL,
 which is what a filename *is*, and the tool on this machine does the same. This
 also cannot be reached by accident from a literal, since `\0` cannot be written
-in one ([`#0:asCharacter`](REFERENCE.md#escapes) is the only way): the name has
+in one ([`#0:asCharacter`](REFERENCE.md#string-escapes) is the only way): the name has
 to arrive from a file or a computation, which is exactly the `-z` case and
 nothing else so far.
 
@@ -4567,7 +4602,7 @@ FIPS 180-4 does not have.
 **It fired one trigger on this page**: the
 [isatty note](#two-absences-noticed-on-2026-08-31-that-nothing-has-asked-for)
 got its second program, and is now
-[6.40](ROADMAP.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal).
+[6.40](COMPLETED.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal--done).
 
 **It did not fire [the early exit](#an-early-exit-from-a-loop), and a draft of
 this paragraph said it did** — which is worth keeping, because the mistake is
@@ -4619,7 +4654,7 @@ so a 32 KB window is 32,768 tagged values rather than 32,768 bytes, and every
 access is a send. **Predicted finding: the cost of that, in a number**, on a
 problem where the right answer is known to the byte. If packed numeric arrays are
 ever going to be needed — and
-[extensions](COMPLETED.md#extensions-a-capability-from-a-binary-rather-than-from-the-vm)
+[extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm)
 is the likely shape rather than a new core type — this is the cheapest place to
 find out, and the only one on this page that cannot be argued with afterwards.
 
