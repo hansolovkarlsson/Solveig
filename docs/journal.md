@@ -11,6 +11,198 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-31 (night) — the first inner loop that is arithmetic, and the number it produced
+
+The morning's survey had said what to write next and why, so this was the
+shortest decision of the day: `sha256sum`, first off the list, chosen because
+it is **not a text tool wearing a Unix name**. Sixty-four rounds of shifts,
+masks and additions per sixty-four bytes and two syscalls a file, against
+seventeen programs that all spend their time in `split`, `indexOf` or the
+kernel.
+
+### What shipped
+
+`programs/sha256sum.sol`, the eighteenth program, with three checks —
+`oracle.sh`'s corpus, a `-c` script, and one holding it against FIPS 180-4.
+[6.40](ROADMAP.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal)
+opened. A new section in [performance.md](performance.md), a paragraph in
+[REFERENCE.md](REFERENCE.md), a rule in [method.md](method.md), and a scoping in
+[ideas.md](ideas.md) that was not built. **Nothing was built in the machine**,
+which is not the same as nothing being asked for: one entry opened and one
+question was scoped and left, and `tail` had asked for `system:sleep` in the
+afternoon and got it.
+
+### The number, and how it stopped being an estimate
+
+The question the survey said this program existed to ask was *what does this
+interpreter cost per arithmetic operation when there is nothing else going on*.
+The first answer available was 1.04 MB/s, which is a fact about SHA-256 rather
+than about the machine, and the second was a count of sends done by hand down
+the source, which is a fact about how carefully somebody counted.
+
+**The third came from a flag that was not put there for this.** `solvm
+--steps=N` stops a program after N instructions and exits 124 — built so that a
+runaway program can be bounded — so the *smallest N that lets a run finish* is
+that run's exact instruction count, and twenty-eight runs of a binary search
+find it.
+
+| bytes hashed | instructions | blocks | per block |
+| ---: | ---: | ---: | ---: |
+| 0 | 14,671 | 1 | |
+| 64 | 28,049 | 2 | 13,378 |
+| 640 | 147,767 | 11 | 13,302 |
+| 6,400 | 1,344,947 | 101 | 13,302 |
+
+13,302 per 64-byte block, and **flat from ten blocks to a hundred** — which is
+what says the figure is the loop and not the setup, and is why the table has
+four rows rather than one. 208 instructions per byte, 0.96 s a megabyte, **227
+million instructions a second, 4.4 nanoseconds each.**
+
+**The lesson is about the flag rather than the hash.** Every number in
+[performance.md](performance.md) is a ratio, against CPython or against an
+earlier Solveig, and the absolute cost of an instruction had never been asked
+for because nothing needed it. It was reachable the whole time, exactly, with a
+tool already in the box and used for something else.
+
+### Three predictions from the survey, and how each came out
+
+- ***Not impossibility*** — held. A 64-bit integer holds the sum of five 32-bit
+  values with fifty-nine bits to spare, so mod-2³² arithmetic is exact and the
+  mask is a narrowing.
+  [3.12](ROADMAP.md#312-no-shift-can-produce-a-negative-integer) never comes
+  near: the largest shift moves a value under 2³² left by thirty places. **That
+  is luck rather than design** — SHA-512 rotates a 64-bit word and could not be
+  written this way at all.
+- ***The number*** — held, and produced something better than expected, above.
+- ***An ergonomic report on the mask*** — held. It reads as bookkeeping, and the
+  reason is not that it is hard: it is that it is not in the standard, so every
+  line a reader wants to check against FIPS 180-4 carries a term FIPS 180-4 does
+  not have. Twenty-three of them.
+
+### And a fifth of the program was a method call
+
+`rotr(x, n)` is the one thing SHA-256 does that the language has no message for.
+Written as a method on the hash object it reads the way the standard writes it,
+and it is called ten times a round.
+
+| | 256 KB |
+| --- | ---: |
+| `rotr` as a method everywhere | 0.73 MB/s |
+| written out in the sixty-four rounds | 0.90 MB/s |
+| written out in the message schedule too | 1.06 MB/s |
+
+**The arithmetic is identical in all three.** What the method cost was a frame
+and a return. That is a bigger single number than anything in the profiling
+that led to the two interpreter changes on 2026-08-30 — and it is not lookup,
+which
+[the inline cache entry](ideas.md#an-inline-cache-at-the-send-site) measured at
+9.7% of the benchmark that asked for it. It is the call.
+
+The shipped program is the third row, with the first written out in a comment
+above it and the measurement beside it. **A helper named for what it does is
+right almost everywhere and wrong in the one loop that runs thirteen thousand
+instructions per sixty-four bytes**, and a program that had not been measured
+would have shipped the first row and been a third slower for a reason nobody
+would have looked for.
+
+### The check that does not depend on anyone else being right
+
+`sed` and `tail` were held against `/usr/bin/sed` and `/usr/bin/tail`, and that
+was the decision that made the morning. It has a limit that was not visible
+until a program had a second kind of authority available: **an oracle can be
+wrong in the same direction as anything derived from it.**
+
+SHA-256 has numbers printed in a standard. `programs/sha256sum/vectors.sh` runs
+five of them, including a million times `a`, and they were printed before this
+language existed. The oracle then earns its keep on a *different* class of
+fault: a NUL lost, a high byte sign-extended, a chunk boundary landing inside a
+block, a warning that says "1 line is" where the other says "2 lines are". **Two
+checks that fail for different reasons are worth more than two that fail for the
+same one**, and that is now in [method.md](method.md).
+
+It earned itself twice inside ten minutes.
+
+**Once against this program.** The `-c` code dropped every empty piece of the
+split, under a comment saying *a blank line is not a malformed line in either
+tool*. That sentence had not been tried. It is false: `/sbin/sha256sum -c -w`
+numbers a blank line and counts it. The comment was written by somebody thinking
+about the trailing newline and generalising from it — the fifth instance in two
+days of
+[a sentence that was true about the thing in front of the writer](method.md#a-sentence-that-was-true-when-written-is-not-checked-by-anything).
+
+**Once against itself.** In `-c` mode the oracle reports a missing file as
+`sha256sum:  nosuch.txt: ...`, two spaces, having kept the separator that stood
+in front of the name in the list. Matching an oracle byte for byte is a means
+and not the point, so `check.sh` records it as a divergence rather than copying
+it.
+
+**And a third difference that is not one**, worth knowing before the next of
+these is written: captured with `2>&1` the two tools interleave the `WARNING`
+line and the per-file lines differently, because the oracle's standard output is
+block-buffered when it is a file and its warning is not. Both streams are
+identical when kept apart. `programs/oracle.sh` merges them, which is one of two
+reasons a `-c` corpus could not have lived there.
+
+### Two triggers, and the honest one is the second
+
+**The `isatty` note fired**, and it is the rule working in the direction that is
+hardest to see. `tail` found in the afternoon that `keyWaiting(0.0)` answers *is
+standard input a terminal* by accident, and wrote it down as a **note with a
+trigger** rather than arguing it into a roadmap entry on the spot: one caller,
+an exact workaround. `sha256sum` hit the identical collision — the house rule
+says demonstrate on input you carry, `... | sha256sum` says read standard input,
+both are an empty command line — and the promotion to
+[6.40](ROADMAP.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal) cost
+one sentence, because the reasoning was already on the page.
+
+**Writing that entry then found the machine had the other half too.**
+`system:terminalSize` calls `ioctl` on standard *output* and answers nil when it
+fails, so `terminalSize:notNil` is `isatty(1)` today. The note had predicted
+`keyWaiting` "cannot answer at all" about output — right about `keyWaiting`,
+wrong about the machine. Checked through a pseudo-terminal both ways rather than
+read out of the source, which is what turned it from a guess into a sentence.
+
+**The second trigger was not a trigger and was scoped instead.** A `-z` checksum
+list has entries ending in a NUL, and reading one found that **a path with a NUL
+in it is silently a different path**: a Solum string is length-counted and may
+hold one, a path handed to the operating system may not, and every filesystem
+message answers about the prefix. The program printed
+`h.txt<NUL>e258...  w.txt: OK` — **with the right digest**, because `fileExists`
+and `readFile` had quietly agreed with each other about a file nobody asked
+about.
+
+A wrong answer that agrees with itself is the expensive kind, and this language
+usually refuses rather than guessing. But the workaround here is exact — cut the
+name at the first NUL, which is what a filename *is*, and the oracle does the
+same — so the entry went to [ideas.md](ideas.md#a-path-with-a-nul-in-it-is-silently-a-different-path)
+with a trigger and the check that would refuse it was not written. What *was*
+written is the sentence in [REFERENCE.md](REFERENCE.md), because the paragraph
+next to it says a NUL is a byte like any other and is about a file's contents,
+and nothing said the path is the one string in the system that stops.
+
+### Postmortem
+
+**What went right.** The survey did its job: an entry written before the program
+predicted three things and all three held, which is the first time that has
+happened here with nothing left over. The program compiled and produced all
+three FIPS vectors on its **first** run, which says the arithmetic was never the
+risk — every hour of the evening went on the plumbing, the options and the
+checks, and that is the correct ratio for a specified algorithm.
+
+**What went wrong, and it is the same shape as this morning.** A comment
+asserting what "either tool" does, written without running either tool. It cost
+nothing because the oracle caught it in the same session; it would have shipped
+otherwise, and it is the fifth instance in two days.
+
+**What was nearly missed.** The `-z` NUL case was found by a check written for
+completeness rather than by suspicion — a two-entry `-z` list, added to `-c`
+because it was cheap. The failure it exposed printed `OK`.
+
+**What is worth carrying.** *Measure the helper.* The rotate cost a fifth of the
+program and looked like the most obviously correct line in the file. Nothing
+about reading it would have raised the question; the only reason it was asked is
+that this program has one loop and a stopwatch pointed at it.
+
 ## 2026-08-31 (postmortem) — the day an oracle was pointed at this language, and four sentences fell over
 
 Three entries above this one. The day began with *there are a bunch of Unix

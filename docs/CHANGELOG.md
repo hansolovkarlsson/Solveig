@@ -5,6 +5,106 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### sha256sum, and what one bytecode instruction costs — `96f1bfe`, 2026-08-31
+
+**No language change**: the eighteenth program, and nothing on `system` moved.
+The language still answers 142<!--count messages--> messages and `.sob` files are
+format version 14.
+
+**[programs/sha256sum.sol](../programs/sha256sum.sol)** is the first program
+here with no I/O in its inner loop — sixty-four rounds of shifts, masks and
+additions per sixty-four bytes, and nothing else. `-b`, `-c`, `-t`, `-w` and
+`-z`, which is the whole usage line of the tool on this machine, plus a check
+mode with its singular and plural warnings.
+
+**208 bytecode instructions per byte hashed, at 4.4 nanoseconds each.** Measured
+rather than counted: `solvm --steps=N` stops a program after N instructions, so
+the smallest N that lets a run finish is that run's exact count, and a binary
+search finds it.
+
+| bytes hashed | instructions | blocks | per block |
+| ---: | ---: | ---: | ---: |
+| 0 | 14,671 | 1 | |
+| 64 | 28,049 | 2 | 13,378 |
+| 640 | 147,767 | 11 | 13,302 |
+| 6,400 | 1,344,947 | 101 | 13,302 |
+
+Flat from ten blocks to a hundred, and a megabyte takes 0.96 s at `-O2`, so the
+interpreter runs **227 million instructions a second**. That is the first
+absolute figure this project has — [performance.md](performance.md) was
+otherwise all ratios, against CPython or against an earlier Solveig — and it is
+now a section of that page.
+
+| | on a megabyte |
+| --- | ---: |
+| `/sbin/sha256sum` | 1667 MB/s |
+| `shasum -a 256` | 317 MB/s — an interpreter too, and not interpreting the hash |
+| this, `-O2` | 1.04 MB/s |
+| this, the `-g` build `make` gives you | 0.22 MB/s — **4.8x**, outside the 1.9x–4.1x the benchmarks show |
+
+**It did not need `byte`, `word` and `long`**, which the
+[At a glance](ideas.md#at-a-glance) table had refused on general grounds and
+which SHA-256's mod-2³² arithmetic is the first thing here to want. A 64-bit
+integer holds the sum of five 32-bit values with fifty-nine bits to spare, so
+every add is exact and the mask is a narrowing rather than a repair. The cost of
+refusing them is twenty-three `bitAnd`s in one program — and they read as
+bookkeeping, because they are not in the standard.
+
+**A fifth of the program was a method call.** `rotr` written as a method costs
+0.73 MB/s, written out in the sixty-four rounds 0.90, written out in the message
+schedule too 1.06 — with identical arithmetic in all three. What the method cost
+was a frame and a return, ten times a round. Worth holding against
+[the inline cache entry](ideas.md#an-inline-cache-at-the-send-site), which
+measured *lookup* at 9.7%.
+
+**`@expr` has no bit operators**, so the one file here that is nothing but
+shifts, xors and masks is the one file that cannot use the notation at all —
+`&` and `|` are already the short-circuiting logical pair. Not an argument for
+adding them; written down because a notation introduced for "a formula you are
+transcribing" met a formula it could not.
+
+**[6.40](ROADMAP.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal) is
+open**, and its trigger was written down first and then fired. `tail` found that
+`keyWaiting(0.0)` answers *is standard input a terminal* by accident and
+recorded it as a note with *a second program* as the trigger; `sha256sum` is the
+second program, for the identical collision between the house rule and the tool.
+Writing the entry then found the other half was already answerable too:
+`system:terminalSize` calls `ioctl` on standard **output**, so
+`terminalSize:notNil` is `isatty(1)` today — checked through a pseudo-terminal
+both ways.
+
+**A path with a NUL in it is silently a different path.** A `-z` checksum list
+found it: a Solum string is length-counted and may hold a NUL, a path handed to
+the operating system may not, so `fileExists` and `readFile` both answered about
+a *prefix* and agreed with each other. The program printed a mangled name and
+`OK`, with the right digest, and nothing raised.
+[REFERENCE.md](REFERENCE.md#files) now says so beside the paragraph that invited
+the opposite conclusion, and whether the machine should refuse is
+[scoped and not built](ideas.md#a-path-with-a-nul-in-it-is-silently-a-different-path).
+
+**Three checks, and one of them is a kind this repository did not have.**
+`sh programs/oracle.sh sha256sum` runs 21 corpus cases both as a named file and
+down a pipe; `programs/sha256sum/check.sh` runs 16 `-c` cases against the oracle
+on a directory of files; and **`programs/sha256sum/vectors.sh` holds the program
+against the digests printed in FIPS 180-4**, which is the first check here that
+does not depend on another implementation being right. An oracle can be wrong in
+the same direction as anything derived from it; a number printed before this
+language existed cannot.
+[method.md](method.md#hold-it-against-something-somebody-else-wrote) says so now.
+
+**The oracle earned itself twice in ten minutes.** Against this program: `-c`
+dropped every empty piece of the split, under a comment saying "a blank line is
+not a malformed line in either tool" — which had not been tried, and is false.
+Against itself: `-c` reports a missing file with two spaces, having kept the
+separator in front of the name, which `check.sh` records as a divergence rather
+than copying.
+
+**`programs/oracle.sh` grew two things**, the way it grew for its second caller.
+An oracle that is not in `/usr/bin` is now looked up on the PATH — `sha256sum`
+is in `/sbin` here — and `pipenames:` bounds the two routes of a program that
+*names* its input: the pipe's output must be the file's with the path replaced
+by a dash, which is a full check rather than a waiver.
+
 ### `system:sleep`, and `tail -f` — `f30bc5d`, 2026-08-31
 
 **The language answers 142<!--count messages--> messages**, up from 141, across
