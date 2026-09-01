@@ -67,7 +67,7 @@ marked as a sketch.
 | Splitting the reference into pages | **Defer** — the trigger is the message reference outgrowing the rest |
 | Restricting what a script may reach (6.32) | **Defer** — the trigger is a script somebody else wrote, or input from a stranger |
 | Extensions: a capability from a C binary | **Triggered by GTK on 2026-08-28, [probed rather than argued](#gtk-and-the-afternoon-that-was-supposed-to-be-a-page), and built the same day** — `--extension=`, [extend.h](../solum/include/solum/extend.h), the ABI handshake and [the contract](extensions.md). `dlopen` beats embedding on a combinatorial argument; the callback into a main loop is free; the build blocker this page named was wrong and the real one was quieter. **The second half is `SolForeign` and a callback registry**, both built — real sockets found that bytes are the wrong currency for a scarce resource, so a foreign cell carries a collection pressure of its own; the registry nothing above anticipated, and it hands back a token so a released block *says so* rather than answering a plausible wrong one |
-| Regular expressions | **No** to a literal; **defer** the engine to an [extension](#regular-expressions); the cursor that repeats instead is [built](COMPLETED.md#55-five-programs-each-wrote-the-same-cursor--done) |
+| Regular expressions | **No** to a literal, still. The engine is [scoped as `lib/re.sol` on 2026-09-01](#scoped-on-2026-09-01-and-the-number-nobody-had-taken) with a customer refusing input today — and with the measurement the entry lacked: `pattern.sol` is **2.53 s per megabyte** against 0.03 s for `grep -E`, so *can be written in Solum* was never the question a hot path asks. A throwaway first. The cursor that repeats instead is [built](COMPLETED.md#55-five-programs-each-wrote-the-same-cursor--done) |
 | An early exit from a loop | **Defer** — the flag idiom recurs across six files; the trigger is a body that must skip its remainder ([3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing)) |
 | Intercepting a message not understood | **Defer** — Smalltalk's `doesNotUnderstand`; small to build, and nothing has wanted a proxy |
 | A set, and the collections that are not there | **Defer** — write them in Solum and measure first, as the four loops did |
@@ -3184,6 +3184,118 @@ Whether that belongs on `string` for everyone is the same question
 built. For regex itself, the trigger is the extension
 mechanism existing, which has its own trigger and is not this one. The literal
 stays refused whatever happens to the other two.
+
+#### Scoped on 2026-09-01, and the number nobody had taken
+
+Asked for after [awk was scoped](#programs-that-would-press-on-something) and
+turned out to want this rather than the other way round. The entry above settles
+*what* to build and says a Solum matcher is a couple of hundred lines. What it
+never asked is whether that matcher is fast enough to be the thing two programs
+run on every line, and the answer changes the recommendation.
+
+**It has a customer refusing input today.** [sed.sol](../programs/sed.sol) says
+in its own header that a script using `\(...\)` is **refused** rather than
+misread, because `\(` is a literal parenthesis to `pattern.sol`. That is a
+shipped program declining real sed scripts, now, and it is the admission rule
+met without anybody having to argue it.
+
+##### The instruction set is already here. The compilation rules are not.
+
+[check_syntax.sol](../programs/check_syntax.sol) carries an LPeg machine —
+eleven instructions, `Choice` / `Commit` / `LoopCommit`, an explicit backtrack
+stack, no recursion, 2,000 levels of nesting where a tree walker managed 13.
+A regular expression is a PEG without rule recursion, so the temptation is to
+compile ERE onto it directly.
+
+**Two measurements against the tool on the machine say not to**, and both are
+one line:
+
+| | oracle | a PEG's answer |
+| --- | --- | --- |
+| `a\|ab` against `ab` | `<ab>` | `a` — ordered choice takes the first that succeeds |
+| `a*ab` against `aaab` | `<aaab>` | fails — `Commit` makes `*` possessive |
+
+POSIX is **leftmost-longest** and its `*` is **greedy with give-back**. LPeg's
+`Choice` is ordered and its `LoopCommit` throws the choice point away, which is
+the right semantics for a grammar and the wrong one for a regex. The eleven
+instructions carry over; `{ a }` compiling to a committed loop does not. Worth
+knowing before the design rather than after, and it cost two `printf`s to find
+out.
+
+##### Two dialects, and the back-reference decides the strategy
+
+`sed` needs POSIX **BRE**: `\(...\)`, `\1`…`\9`, `\{n,m\}`. `awk` needs POSIX
+**ERE**: `|`, `(...)`, `+`, `?`, and **no** back-references at all. A
+back-reference is precisely the construct that stops an implementation
+simulating the automaton, so it decides the strategy for both:
+
+- a **backtracker** does back-references, needs the *longest* match taken by
+  exhausting alternatives rather than stopping at the first, and has the
+  exponential cases;
+- an **automaton simulation** gives leftmost-longest and linear time for free,
+  and cannot do `\1` at all.
+
+Designing for `sed` alone lands on a backtracker by default. Designing for both
+means choosing it on purpose, or carrying two engines and dispatching on whether
+the pattern has a back-reference — which is what several real implementations do
+and is the honest third option.
+
+##### The measurement the entry above never took
+
+`pattern.sol` over a megabyte of this repository's own prose — 20,000 lines,
+`[a-z]*ing`, matched on 5,130 of them — on an `-O2` build:
+
+| | 1 MB, 20,000 lines |
+| --- | --- |
+| `pattern.sol` | **2.53 s** |
+| `grep -E` | 0.03 s |
+| `awk` | 0.03 s |
+| libc `regexec`, from the table above | 0.077 s |
+
+**That is the simple engine**, with no alternation, no groups and no instruction
+dispatch — an array of items walked by a loop. An instruction machine with a
+backtrack stack is slower than that, not faster, and the interpreter's own
+dispatch cost is
+[measured at 38%](#programs-that-would-press-on-something) for exactly this kind
+of inner loop.
+
+So the entry above is right that a POSIX matcher **can** be written in Solum,
+and that is not the question a hot path asks. Two hundred lines of Solum at
+roughly 0.4 MB/s is fine for a sed script over a config file and for awk over
+the oracle corpus; it is not fine for a log. **Nobody has said which of those
+this is for**, and that is the call this scoping exists to surface rather than
+to make.
+
+##### What to build first, and it is not the library
+
+[The throwaway comes before the design](method.md#the-throwaway-comes-before-the-design).
+Fifty lines: compile four patterns — `a|ab`, `a*ab`, `(ab)+c`, `[a-z]+@[a-z]+` —
+onto an instruction list with a proper greedy `*`, run them against
+`/usr/bin/sed -E` and `/usr/bin/awk` for semantics, and time the same megabyte.
+That answers the two things nothing on this page knows: what leftmost-longest
+costs when it is taken by exhaustion, and what the instruction machine adds to
+the 2.53 s above.
+
+If it lands near 3 s per megabyte, the library is the answer and `sed` stops
+refusing input. If it lands near 30, the extension route the entry above
+half-argued becomes live again — and this time on a measurement rather than on
+*it fails the trigger because it can be written here*.
+
+##### The calls
+
+1. **Throwaway first, or straight to the library?** Recommendation: the
+   throwaway. Two numbers decide the shape and neither exists.
+2. **What input is this for?** A config file and a corpus of test cases, or a
+   log of real size? Recommendation: say it out loud in the header, because
+   0.4 MB/s is an answer to one and not the other.
+3. **One engine or two?** Recommendation: decide after the throwaway — a
+   backtracker that has to exhaust alternatives for leftmost-longest may cost
+   enough to make the automaton worth carrying for ERE.
+4. **Does `pattern.sol` stay?** It has one customer (`sed`) and 474 lines, and
+   a library that supersedes it should replace it rather than sit beside it.
+   Recommendation: replace, and let the oracle corpus prove the swap.
+
+**Not built.** The scoping is this section; building is a separate instruction.
 
 ### An early exit from a loop
 
