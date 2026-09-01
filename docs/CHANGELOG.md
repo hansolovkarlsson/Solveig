@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### A link that names a heading, and the two faults found on the way — `1610eb4` and `pending`, 2026-09-01
+### A link that names a heading, and the two faults found on the way — `1610eb4` and `5456f4e`, 2026-09-01
 
 **No change to the language.** `.sob` files are format version 14, unchanged,
 and the message count is unmoved. This is a check and two documentation fixes.
