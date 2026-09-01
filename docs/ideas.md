@@ -67,7 +67,7 @@ marked as a sketch.
 | Splitting the reference into pages | **Defer** — the trigger is the message reference outgrowing the rest |
 | Restricting what a script may reach (6.32) | **Defer** — the trigger is a script somebody else wrote, or input from a stranger |
 | Extensions: a capability from a C binary | **Triggered by GTK on 2026-08-28, [probed rather than argued](#gtk-and-the-afternoon-that-was-supposed-to-be-a-page), and built the same day** — `--extension=`, [extend.h](../solum/include/solum/extend.h), the ABI handshake and [the contract](extensions.md). `dlopen` beats embedding on a combinatorial argument; the callback into a main loop is free; the build blocker this page named was wrong and the real one was quieter. **The second half is `SolForeign` and a callback registry**, both built — real sockets found that bytes are the wrong currency for a scarce resource, so a foreign cell carries a collection pressure of its own; the registry nothing above anticipated, and it hands back a token so a released block *says so* rather than answering a plausible wrong one |
-| Regular expressions | **No** to a literal, still. The engine is [scoped as `lib/re.sol` on 2026-09-01](#scoped-on-2026-09-01-and-the-number-nobody-had-taken) with a customer refusing input today — and with the measurement the entry lacked: `pattern.sol` is **2.53 s per megabyte** against 0.03 s for `grep -E`, so *can be written in Solum* was never the question a hot path asks. A throwaway first. The cursor that repeats instead is [built](COMPLETED.md#55-five-programs-each-wrote-the-same-cursor--done) |
+| Regular expressions | **No** to a literal, still. The engine is [scoped as `lib/re.sol` on 2026-09-01](#scoped-on-2026-09-01-and-the-number-nobody-had-taken), with a customer refusing input today and a throwaway built: semantics identical to `awk` on all six cases, leftmost-longest free, the exponential real but fixed by a visited set for 20–30%, and `--steps` bounding a blow-up that `regexec` could not be stopped in. **One question left, and it is speed**: 190× the tools, and nobody has named the input. The cursor that repeats instead is [built](COMPLETED.md#55-five-programs-each-wrote-the-same-cursor--done) |
 | An early exit from a loop | **Defer** — the flag idiom recurs across six files; the trigger is a body that must skip its remainder ([3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing)) |
 | Intercepting a message not understood | **Defer** — Smalltalk's `doesNotUnderstand`; small to build, and nothing has wanted a proxy |
 | A set, and the collections that are not there | **Defer** — write them in Solum and measure first, as the four loops did |
@@ -3266,36 +3266,100 @@ the oracle corpus; it is not fine for a log. **Nobody has said which of those
 this is for**, and that is the call this scoping exists to surface rather than
 to make.
 
-##### What to build first, and it is not the library
+##### The throwaway was built, and it answered more than it was asked
 
-[The throwaway comes before the design](method.md#the-throwaway-comes-before-the-design).
-Fifty lines: compile four patterns — `a|ab`, `a*ab`, `(ab)+c`, `[a-z]+@[a-z]+` —
-onto an instruction list with a proper greedy `*`, run them against
-`/usr/bin/sed -E` and `/usr/bin/awk` for semantics, and time the same megabyte.
-That answers the two things nothing on this page knows: what leftmost-longest
-costs when it is taken by exhaustion, and what the instruction machine adds to
-the 2.53 s above.
+Two hundred lines rather than fifty, thrown away afterwards: POSIX ERE parsed to
+a tree, compiled to Pike's instruction set, run by a loop with an explicit
+backtrack stack. `| ( ) * + ? . [ ] ^ $` and nothing else.
 
-If it lands near 3 s per megabyte, the library is the answer and `sed` stops
-refusing input. If it lands near 30, the extension route the entry above
-half-argued becomes live again — and this time on a measurement rather than on
-*it fails the trigger because it can be written here*.
+**The semantics come out exactly.** Six cases, against `/usr/bin/awk`, compared
+by `diff` rather than by eye — `a|ab`, `a*ab`, `(ab)+c`, `[a-z]+@[a-z]+`,
+`^ab*$`, `x?y` — **identical, all six**, including the two a PEG gets wrong. So
+the instruction machine is the right foundation and the compilation rules are
+the whole of what had to change.
 
-##### The calls
+**And leftmost-longest is free**, which is the thing this section worried about.
+Taking it by exhaustion rather than stopping at the first match, over the same
+megabyte, three runs each: the two are indistinguishable, with ±10% run-to-run
+variance swamping the difference. *A single run had shown 15% and that was
+noise* — a fourth reminder in one day that one measurement is not a measurement.
 
-1. **Throwaway first, or straight to the library?** Recommendation: the
-   throwaway. Two numbers decide the shape and neither exists.
-2. **What input is this for?** A config file and a corpus of test cases, or a
-   log of real size? Recommendation: say it out loud in the header, because
-   0.4 MB/s is an answer to one and not the other.
-3. **One engine or two?** Recommendation: decide after the throwaway — a
-   backtracker that has to exhaust alternatives for leftmost-longest may cost
-   enough to make the automaton worth carrying for ERE.
-4. **Does `pattern.sol` stay?** It has one customer (`sed`) and 474 lines, and
-   a library that supersedes it should replace it rather than sit beside it.
-   Recommendation: replace, and let the oracle corpus prove the swap.
+**The cost of the machine**, same corpus, same `-O2` build:
 
-**Not built.** The scoping is this section; building is a separate instruction.
+| | 1 MB, 20,000 lines |
+| --- | --- |
+| the throwaway | **5.7–6.1 s** |
+| `pattern.sol` | 2.8 s |
+| libc `regexec` | 0.077 s |
+| `grep -E`, `awk` | 0.03 s |
+
+So an instruction machine is **twice** `pattern.sol` and about **190 times** the
+tools. The scoping guessed two to four times and the low end held.
+
+##### The finding it was not sent to get
+
+**It is exponential, and this section's parent entry said it would not be.**
+That entry argued *catastrophic backtracking is a Perl property, not a regex
+property: POSIX requires leftmost-longest and ERE has no backreferences, which
+pushes an implementation towards simulating the automaton*. On `^(a+)+b$`
+against a run of `a`, the throwaway doubles per character:
+
+| n | 12 | 14 | 16 | 18 | 20 |
+| --- | --- | --- | --- | --- | --- |
+| | 0.011 s | 0.044 s | 0.174 s | 0.682 s | 2.7 s |
+
+The entry's own table has libc flat at 0.0 ms for n=24…40. **What POSIX pushes a
+C library towards is not what it pushes you towards**, and building for `sed` —
+which needs back-references — is what lands you on the backtracker in the first
+place.
+
+**The standard fix works and is cheap.** Pruning a `(pc, sp)` pair already seen
+turns the backtracker into an automaton simulation by another name: **0.000 s,
+flat to n=24**. What it costs on ordinary work is the only question, and the
+answer depends on the key — a built string cost 63%, an integer `pc × (n+2) + sp`
+costs **20–30%**. That is cheaper than the risk it removes.
+
+##### And [3.7](ROADMAP.md#37-a-limit-bounds-dispatch-not-work) turns out to be an argument *for* Solum
+
+The parent entry lists 3.7 — unbounded work inside one instruction — as the one
+objection an extension does **not** answer. Measured from the other side:
+
+```text
+$ solvm --steps=20000000 ere.sob        # ^(a+)+b$ against 26 a's, unmemoised
+solvm: stopped: the step limit of 20000000 was reached
+exit 124
+```
+
+An engine written here is bounded by construction, because every step it takes
+is an instruction the machine counts. The same blow-up inside `regexec` is a
+process that stops responding, and `--steps` cannot see into it. **The objection
+that was scored against a Solum engine belongs to the C one**, and this is the
+first measurement that puts it on the right side of the table.
+
+##### What is left is one question, and it is only about speed
+
+Everything else is settled by the numbers above: the shape works, the semantics
+are exact, correctness is free, the exponential has a cheap fix, and the risk is
+bounded here in a way it is not in C. What remains is 190× the tools, and
+whether that is fine depends on the input nobody has named yet.
+
+##### The calls, revised by the throwaway
+
+1. ~~**Throwaway first?**~~ Done, and it changed two of the four answers below.
+2. **What input is this for?** Unchanged and now the *only* open question. At
+   ~0.18 MB/s a sed script over a config file is instant and a 64 MB log is six
+   minutes. Recommendation: say it in the header and size the corpus to match.
+3. **One engine or two?** ~~Decide after the throwaway.~~ **One.** The visited
+   set makes the backtracker behave like the automaton on the cases that matter,
+   and back-references still work, which no automaton gives you.
+4. **Memoisation on by default?** New. Recommendation: **yes** — 20–30% is a
+   smaller price than an unbounded one, and a pattern that never needs it pays
+   only that.
+5. **Does `pattern.sol` stay?** Unchanged. Recommendation: replace, and let
+   `sed`'s oracle corpus prove the swap.
+
+**Still not built.** The throwaway is thrown away; these numbers are what it
+leaves behind.
 
 ### An early exit from a loop
 
