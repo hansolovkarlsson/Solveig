@@ -11,6 +11,98 @@ produced no code because they were decisions.
 
 ---
 
+## 2026-09-01 — the project changed its name, and nothing else
+
+A rename is a strange thing to give a journal entry. This one gets one because
+the reason was outside the repository, and because the checking was the whole of
+the work.
+
+### It was renamed twice, and the first one was wrong in an interesting way
+
+Hans had already moved folder and repository to **Phoenix Proto** before the
+session opened, to mark the tree as a prototype restart. The session's first job
+was small: the local `origin` still pointed at the old URL, redirected by GitHub
+and working, and would have broken the day somebody else claimed the name.
+
+Then the decision changed — drop the qualifier, and the name is **Proto**, plain.
+The prototype framing is the honest description of the thing rather than a
+modifier on a name that was leaving anyway.
+
+**The discarded step is what made the second one clear.** The first pass had
+deliberately left `phx_`, `Phx` and `.phx` alone, on the reasoning that "Proto"
+marked a restart of the *project* and not a rename of what was being built — the
+language was still Phoenix. That distinction was written down as a standing note
+and had to be deleted the same day. It was a real reading of a real instruction
+and it was wrong, which is the argument for asking rather than inferring when a
+name is doing two jobs.
+
+### The name had been promised to something else, in writing, three days earlier
+
+`hansolovkarlsson/Solveig`, `docs/ideas.md:4451`: *Trigger: wanting a library
+that Solum consumes and that is not written in Solum. Nothing has wanted one.
+The name, should it happen, is Phoenix.*
+
+Dated 2026-08-28 — three days before this project had an expander. The idea it
+names is genuinely a different language: it earns its place by publishing a
+**library** Solum consumes, and that entry refuses in advance *a nicer skin on
+this one*. Proto emits a program's source.
+
+So the collision was real and had been sitting in two repositories at once, with
+the unbuilt idea holding the name by reservation and the shipped compiler holding
+it by use. The rename ends that. **The reservation in `ideas.md` was left exactly
+as it stands**, which is the point of having gone and read it before rewriting
+anything — a search-and-replace across two repositories would have taken it.
+
+### What the rename was checked against
+
+`conventions.md` says **every text replacement asserts its match**, and three of
+twelve recorded defects are that rule being skipped. So the suite was run green
+first, to have a number rather than an impression to compare against. Afterwards
+it reported the same 58, 6, 34 and 10 checks over the same ten examples and
+programs, with no new warnings.
+
+Two checks were worth more than the suite, and neither is a test:
+
+**The diff is 1,435 insertions against 1,435 deletions.** A pure respelling
+cannot be any other shape. A replacement that swallowed a line would show up
+here and nowhere in the tests, because the tests only run what still compiles.
+
+**The ambiguous matches were looked for before the `sed` ran, not after.** Every
+`.phx` in the tree turned out to be a file extension; there was no bare `PHX`;
+and the only odd identifier among the hundred and thirty-six was `has_phx` in
+`default_output_path`, which compares `length - 4` against `".phx"`. `.pro` is
+also four characters, so that line survived **by luck rather than by design** —
+worth writing down, because `.proto` would have broken it silently and only the
+examples would have caught it.
+
+### One thing it cost
+
+`git log --follow` no longer walks `lex.h` past today on its own. That header is
+dense enough in identifiers that respelling them all dropped it under git's 50%
+similarity threshold, so it records as a delete and a create where the other
+thirty-five moves record as renames. The history is not gone —
+`git log --follow --find-renames=30%` walks it back through 0.4.0 to the first
+commit — but the default is now wrong for one file in thirty-six.
+
+### Found and not fixed
+
+**ROADMAP.md says `@language` is inert "eight versions in".** The changelog has
+nine, 0.1.0 through 0.9.0; the sentence was written at 0.8.0 and 0.9.0 landed
+under it. It is the same failure as the heading in `edcf4a0` — a number that was
+true when written and is not re-read when the thing beside it changes — and it
+is left standing here only because today's job was a rename and this is a
+correction to an argument.
+
+### What is still open
+
+The local folder is `~/Projects/Phoenix_Proto` until Hans moves it; a directory
+cannot be moved out from under the session using it.
+
+Nothing on the roadmap moved. A rename is not progress on any of it, and the two
+decisions that are Hans's — what `@language` should select or whether it should
+stop existing, and whether Solveig's README links here now that the hold is met —
+are open exactly as they were yesterday.
+
 ## 2026-08-31, later — a question about `|`, and the third program
 
 The day did not end where the entry below says it did.

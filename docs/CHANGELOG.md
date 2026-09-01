@@ -10,6 +10,50 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### Phoenix is Proto — 2026-09-01
+
+**No version, and nothing in the language changed.** The compiler, the library,
+the headers, the repository and the source extension are spelled differently and
+do the same things in the same order: the suite reports the same 58, 6, 34 and
+10 checks over the same ten examples and programs it reported the day before.
+
+**The name was already promised elsewhere.** Solveig's `docs/ideas.md` has held
+it since 2026-08-28 for a deferred idea — *a second language whose output Solum
+uses* — closing that entry with *the name, should it happen, is Phoenix*. That
+language is not this one: it would earn its place by publishing a **library**
+Solum consumes, and the entry explicitly refuses *a nicer skin on this one*.
+Proto emits a program's source and always has. Until today the word named both,
+and the one that had shipped was holding it.
+
+The scheme the code already had is kept, and only respelled:
+
+| | |
+| --- | --- |
+| `PhxToken` | `ProtoToken` |
+| `phx_lex_init` | `proto_lex_init` |
+| `PHX_TOK_BAR` | `PROTO_TOK_BAR` |
+| `phoenix/include/phoenix/` | `proto/include/proto/` |
+| `bin/phoenix`, `libphoenix.a` | `bin/proto`, `libproto.a` |
+| `PHOENIX_PATH` | `PROTO_PATH` |
+| `.phx` | `.pro` |
+
+**A module is `.pro` and not `.proto`**, which is the one choice here that is not
+mechanical. `.proto` belongs to Protocol Buffers, and Linguist and most editors
+would have highlighted every module in this tree as protobuf — against a README
+that opens by arguing a tool can tell what language a file is in. The extension
+is four characters either way, so the suffix arithmetic in `default_output_path`
+is untouched.
+
+**The replacement asserted its match**, as [conventions.md](conventions.md)
+requires and as three of twelve recorded defects come from skipping. The suite
+was run green *before* the rename, to compare against a number rather than an
+impression; the staged diff is **1,435 lines out and 1,435 back in**, which is
+the only shape a pure respelling can have; and a case-insensitive search for the
+old name returns nothing outside `scratch/`, which is Hans's.
+
+`7ccd6bc`. The repository is `hansolovkarlsson/Proto` now, and the four commits
+that had been sitting unpushed since 2026-08-31 went up with it.
+
 ### `programs/digest` — 2026-08-31
 
 **No version.** SHA-256, and the third program written in Proto. It agrees
