@@ -1443,6 +1443,37 @@ already a byte, so this reads the same way under `solvm program.sob < input`,
 which is also what makes it testable. `ctrl-c` still interrupts a program
 waiting for a key.
 
+#### Whether a stream is a terminal
+
+`system:isTerminal(which)` answers whether one of the three standard streams is
+a terminal. `which` is `'input`, `'output` or `'error`:
+
+```
+system:isTerminal('input):ifElse({ "a person is typing" },
+                                 { "something is piping" }):display.
+```
+
+**Three symbols rather than three messages**, because the stream is the thing
+that varies and the question is one question. `'input` rather than `'stdin`
+follows `readLine`, `write` and `writeError`, which spell them out; `run`'s
+options array is the one place the C names appear, and there they are keys a
+child process cares about. A symbol that is none of the three is an error rather
+than a false — there is no stream it could be answering about.
+
+**What it is for** is a program whose no-argument case means two things.
+[tail.sol](../programs/tail.sol) and
+[sha256sum.sol](../programs/sha256sum.sol) both demonstrate themselves when run
+with nothing, and both are also real invocations at the end of a pipe, which is
+the same empty command line meaning the opposite thing. `'output` is the other
+common ask: whether to colour, or draw a progress line, or write a `\r` at all.
+
+**It is not `keyWaiting(0.0):not`**, which is what both programs used before it
+existed and which is wrong in a way worth knowing about. `keyWaiting` answers
+*is there a byte right now*: an idle terminal says false, and so does **a pipe
+that is open, empty and not yet finished**. So `{ sleep 1; echo hi; } | prog`
+took the terminal branch. See
+[6.40](COMPLETED.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal--done).
+
 #### How big the screen is
 
 `system:terminalSize` answers a dictionary of `"rows"` and `"columns"`, or
@@ -3845,6 +3876,7 @@ it delegates to `object` like everything else. See
 | `writeError(text)` | the same, to standard **error** |
 | `readLine` | one line of standard input without its terminator, or nil at the end |
 | `readKey` | one byte as a one-character string, or nil at the end; no wait for return |
+| `isTerminal(which)` | whether `'input`, `'output` or `'error` is a terminal |
 | `terminalSize` | a dictionary of `"rows"` and `"columns"`, or **nil** when the output is not a terminal |
 | `keyWaiting(seconds)` | whether a byte is there to read, waiting up to that long for one |
 | `sleep(seconds)` | nil, having waited that long; a float, and a negative one or `nan` is refused |
@@ -4022,7 +4054,7 @@ has been given, and cannot give itself more.
 Every built-in message and the types that answer it. The question a reference
 gets asked is usually *what has `copyFrom`?* rather than *what does a string
 do?*, and the sections above answer only the second — so this answers the first.
-142 messages across 245 registrations.
+143 messages across 246 registrations.
 
 **A test keeps it honest**: a message registered in `builtins.c` and missing
 from here fails the build, which is the same bargain that makes every message
@@ -4157,6 +4189,7 @@ appear in an example.
 | `sqrt` | [float](#float) |
 | `sub` | [float](#float), [integer](#integer) |
 | `tan` | [float](#float) |
+| `isTerminal` | [system](#system) |
 | `terminalSize` | [system](#system) |
 | `time` | [system](#system) |
 | `timeToRun` | [block](#block) |

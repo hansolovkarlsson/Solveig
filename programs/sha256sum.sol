@@ -637,15 +637,19 @@ handed anything first.
 ; program here runs on input it carries, and `... | sha256sum` says read standard
 ; input, and both are typed as an empty command line.
 ;
-; `keyWaiting(0.0)` separates them -- it answers *is there a byte to read right
-; now* and is documented as true at the end of input, so a pipe says true
-; whether it is full or finished and an idle terminal says false.
+; **`system:isTerminal('input)` separates them**, and it exists because this
+; program was the second to ask.
 ;
-; **The workaround is exact and the question is still the wrong one**, and now
-; two programs have asked it. See the note at the bottom, and
-; [6.40](../docs/ROADMAP.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal).
+; **It used to be `keyWaiting(0.0):not` here too, and that was wrong** in a way
+; neither program noticed: a pipe that is open, empty and not yet finished
+; answers false just as an idle terminal does, so
+; `{ sleep 1; printf x; } | solvm sha256sum.sob` printed the demonstration and
+; hashed nothing. Building the message is what found it, which is not what the
+; entry expected to buy.
+; [6.40](../docs/COMPLETED.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal--done)
+; has the account.
 
-{ system:arguments:size:equals(#0):and({ system:keyWaiting(0.0):not }):ifElse(
+{ system:arguments:size:equals(#0):and({ system:isTerminal('input) }):ifElse(
     { demonstrate:value },
     { options:read(system:arguments).
       options:check:ifElse({ check:run }, { run:sums }).
@@ -801,18 +805,33 @@ handed anything first.
 ; has always been.
 ;
 ; ---------------------------------------------------------------------------
-; The second program to want an `isatty`, which is the trigger firing
+; The second program to want an `isatty`, which is the trigger firing -- and
+; then the workaround turning out to be wrong
 ;
 ; `tail` found that `keyWaiting(0.0)` answers *is standard input a terminal* by
 ; accident, and its entry said: one caller, and a workaround that is exact
-; rather than approximate. `sha256sum` is the second caller, for the same reason
-; -- an empty command line means *demonstrate yourself* to the house rule and
-; *read standard input* to the tool -- and
+; rather than approximate. This program is the second caller, for the same
+; reason -- an empty command line means *demonstrate yourself* to the house rule
+; and *read standard input* to the tool -- and
 ; [ideas.md](../docs/ideas.md#two-absences-noticed-on-2026-08-31-that-nothing-has-asked-for)
-; had named a second program as the trigger.
+; had named a second program as the trigger. It fired, and
+; `system:isTerminal('input)` was built.
 ;
-; It fired, and the entry is
-; [6.40](../docs/ROADMAP.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal).
+; **Building it found the workaround was not exact.** The case for the entry was
+; only that the answer arrived through the wrong message; there was no defect to
+; fix, or so both programs said. There was: `keyWaiting(0.0)` answers false for
+; an idle terminal *and* for a pipe that is open, empty and not yet finished, so
+; `{ sleep 1; printf x; } | solvm sha256sum.sob` printed the demonstration and
+; hashed nothing.
+;
+; **Nothing was going to catch it.** A pipeline typed at a prompt or written in
+; a test has its first byte ready before the program starts, so the case is
+; invisible everywhere it would normally be looked for; it needs a slow writer,
+; which is not a thing anybody constructs on purpose. It was found by asking
+; what the old spelling had actually been answering -- the question you only ask
+; when you are replacing something.
+; [6.40](../docs/COMPLETED.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal--done)
+; has the account.
 ;
 ; ---------------------------------------------------------------------------
 ; The second caller of the ranged read, going the other way

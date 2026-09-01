@@ -447,18 +447,26 @@ demonstrate := { | path, size |
 ; are typed -- so the house rule and the tool collide over the same empty
 ; command line, which no other program here has had happen.
 ;
-; **`keyWaiting(0.0)` is what separates them**, and it is the nearest thing this
-; language has to asking whether standard input is a terminal. It answers *is
-; there a byte to read, right now*, and it is documented as **true at the end of
-; input** -- so a pipe answers true whether it is full or finished, and an idle
-; terminal answers false. That property is a nuisance everywhere else and is
-; exactly what is wanted here.
+; **`system:isTerminal('input)` is what separates them.** A person typing at a
+; prompt gets the demonstration rather than a program waiting for them to type a
+; file, which is the house rule winning a case it should win.
 ;
-; A person typing at a prompt gets the demonstration rather than a program
-; waiting for them to type a file, which is the house rule winning a case it
-; should win.
+; **This used to be `keyWaiting(0.0):not`, and that was wrong.** The reasoning
+; was that `keyWaiting` answers *is there a byte right now* and is documented as
+; true at the end of input, so a pipe says true whether it is full or finished
+; and an idle terminal says false. Three cases, all correct, and the enumeration
+; was the mistake: **a pipe that is open, empty and not yet finished** answers
+; false as well, exactly as an idle terminal does. So
+;
+;     { sleep 1; printf 'a\nb\n'; } | solvm tail.sob
+;
+; printed this demonstration and threw the input away. Nobody saw it because a
+; pipeline in a test is fast and its first byte is already there.
+; [6.40](../docs/COMPLETED.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal--done)
+; has the account; the entry called the workaround *exact rather than
+; approximate* and it was neither.
 
-{ system:arguments:size:equals(#0):and({ system:keyWaiting(0.0):not }):ifElse(
+{ system:arguments:size:equals(#0):and({ system:isTerminal('input) }):ifElse(
     { demonstrate:boundTo(tail):value },
     { options:read(system:arguments).
       tail:run }) }
@@ -546,19 +554,31 @@ demonstrate := { | path, size |
 ; carries; `tail` with no arguments is also a real invocation, since `... | tail`
 ; is how half its uses are typed. The same empty command line, two meanings.
 ;
-; `system:keyWaiting(0.0)` is what separates them and it is **the nearest thing
-; this language has to asking whether standard input is a terminal**. It answers
-; *is there a byte to read right now*, and it is documented as true at the end of
-; input -- so a pipe says true whether it is full or finished, and an idle
-; terminal says false. That property is a nuisance in every other program and is
-; precisely what was wanted here, which is the second time
-; [6.35](../docs/COMPLETED.md#635-a-read-that-gives-up--done) has paid for
-; itself in a way its entry did not predict.
+; **This is what asked for `system:isTerminal`**, which did not exist when the
+; paragraph below was written and does now. What is kept here is what it cost to
+; be without it, because the account is worth more than the conclusion.
 ;
-; **There is no `isatty`**, and this is a program that wanted one and found a
-; message that answers the question by accident. Whether that is a gap is a
-; question rather than a finding: one caller, and a workaround that is exact
-; rather than approximate.
+; The original: `keyWaiting(0.0)` answers *is there a byte to read right now* and
+; is documented as true at the end of input -- so a pipe says true whether it is
+; full or finished, and an idle terminal says false. That property is a nuisance
+; in every other program and looked like precisely what was wanted here, which
+; was written down as the second time
+; [6.35](../docs/COMPLETED.md#635-a-read-that-gives-up--done) paid for itself in
+; a way its entry did not predict. It was called **a workaround that is exact
+; rather than approximate**, with one caller, and left as a note.
+;
+; **Both halves of that were wrong.** `sha256sum` became the second caller the
+; same afternoon, which is what
+; [6.40](../docs/COMPLETED.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal--done)
+; was promoted on -- and building the message found that the workaround was not
+; exact either. The three cases the paragraph enumerates are each correct and
+; there is a **fourth**: a pipe that is open, empty and not yet finished answers
+; false, exactly as an idle terminal does. `{ sleep 1; ... } | tail` printed the
+; demonstration and threw the input away, for as long as this program has
+; existed.
+;
+; **An enumeration of cases is a proof only if it is complete**, and *three
+; cases, all correct* reads exactly like *all the cases*.
 ;
 ; ---------------------------------------------------------------------------
 ; And a limitation that cost more here than it did last time

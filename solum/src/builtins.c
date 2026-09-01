@@ -4501,6 +4501,68 @@ static SolValue prim_system_terminal_size(SolVM *vm, SolValue self, SolValue *ar
 
 #endif
 
+/* `system:isTerminal(which)` -- whether one of the three standard streams is a
+ * terminal. `'input`, `'output` or `'error`.
+ *
+ * **Two programs asked, which is what made this an entry rather than a note.**
+ * ROADMAP 6.40. Every program in programs/ runs with no arguments on input it
+ * carries, and `... | tail` and `... | sha256sum` are real invocations with the
+ * same empty command line -- so both had to tell a person at a prompt from a
+ * pipe, and both did it with `keyWaiting(0.0)`.
+ *
+ * That works and is exact: `keyWaiting` answers *is there a byte right now* and
+ * answers **true at the end of input**, so a pipe says true whether it is full
+ * or finished and an idle terminal says false. The objection was never that it
+ * is wrong. It is that the answer arrives through a message about *reading*, so
+ * both programs carry a paragraph explaining why, and two paragraphs explaining
+ * one accident is ROADMAP 5.5 in prose.
+ *
+ * **Three symbols and not three messages.** `isTerminalInput`, `isTerminalOutput`
+ * and `isTerminalError` would be three names for one question, and the argument
+ * is the thing that varies. It is the shape `run` already uses for a stream --
+ * `"stdin"`, `"stdout"`, `"stderr"` -- except that those name a *key* in an
+ * options array and these name a *choice*, which is what a symbol is for here.
+ *
+ * **`'input` rather than `'stdin`.** The language spells them out everywhere
+ * else it can: `readLine`, `write`, `writeError`. `run`'s array is the one place
+ * the C names appear, because there they are keys a child process cares about.
+ *
+ * **Output was the half nothing could ask about, and it turns out it could.**
+ * `system:terminalSize` calls `ioctl` on STDOUT_FILENO and answers nil when that
+ * fails, so `terminalSize:notNil` has been `isatty(1)` since 6.34 -- by
+ * accident, at the price of building a dictionary and throwing it away. This
+ * says what it means and costs nothing.
+ *
+ * **`isatty` sets errno on failure and this does not report it.** ENOTTY is the
+ * answer rather than a fault, and EBADF -- a closed descriptor -- is not a
+ * terminal either, which is the true answer to the question asked. There is
+ * nothing a program would do differently knowing which.
+ */
+static SolValue prim_system_is_terminal(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "isTerminal", argc, 1)) return SOL_NIL_VAL;
+    if (!SOL_IS_SYMBOL(args[0])) {
+        sol_vm_runtime_error(vm, "'isTerminal' expects a symbol, got %s",
+                             sol_type_name(args[0]));
+        return SOL_NIL_VAL;
+    }
+
+    const char *which = SOL_AS_SYMBOL(args[0])->chars;
+    int fd;
+    if (strcmp(which, "input") == 0)       fd = STDIN_FILENO;
+    else if (strcmp(which, "output") == 0) fd = STDOUT_FILENO;
+    else if (strcmp(which, "error") == 0)  fd = STDERR_FILENO;
+    else {
+        sol_vm_runtime_error(vm,
+            "'isTerminal' does not know '%s -- it takes 'input, 'output"
+            " or 'error", which);
+        return SOL_NIL_VAL;
+    }
+
+    return SOL_BOOL_VAL(isatty(fd) != 0);
+}
+
 /* `system:write(text)` -- the half of the terminal `readLine` did not have.
  *
  * ROADMAP 3.18. `display` and `print` were the only ways a program had to put
@@ -6280,6 +6342,7 @@ void sol_builtins_install(SolVM *vm)
     any_receiver(vm, system, "readKey", prim_system_read_key);
     any_receiver(vm, system, "sleep", prim_system_sleep);
     any_receiver(vm, system, "terminalSize", prim_system_terminal_size);
+    any_receiver(vm, system, "isTerminal", prim_system_is_terminal);
     any_receiver(vm, system, "keyWaiting", prim_system_key_waiting);
     any_receiver(vm, system, "load", prim_system_load);
     any_receiver(vm, system, "readFile", prim_system_read_file);

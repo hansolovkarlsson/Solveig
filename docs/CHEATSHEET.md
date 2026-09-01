@@ -389,6 +389,7 @@ The process, rather than any value. One object with slots, not a class.
 | `write(text)` | writes a string to standard output, adding nothing — no newline |
 | `writeError(text)` | the same, to standard **error** — the only way to reach it |
 | `readLine` `readKey` | one line, or one byte, of standard input; nil at the end |
+| `isTerminal(which)` | whether `'input`, `'output` or `'error` is a terminal |
 | `terminalSize` | a dictionary of `"rows"` and `"columns"`, or **nil** off a terminal |
 | `keyWaiting(seconds)` | whether a byte is there to read, waiting up to that long |
 | `sleep(seconds)` | waits that long and answers nil; a float, like every duration here |

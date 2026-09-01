@@ -4417,6 +4417,18 @@ whether it is full or finished and an idle terminal says false. That property is
 a nuisance in every other program and is precisely the question here. Verified
 through a pseudo-terminal both ways.
 
+**That paragraph is wrong and is kept because of how.** It enumerates three
+cases, each correct, and reads as though they are all the cases. There is a
+fourth — **a pipe that is open, empty and not yet finished** — which answers
+false exactly as an idle terminal does, because *no byte right now* is true of
+both. Both programs printed their demonstration and threw away the input of any
+pipeline slow to produce its first byte, and it went unnoticed because a
+pipeline in a test has its first byte ready before the program starts. Found on
+2026-08-31 while *building* the replacement, by asking what the old spelling had
+been answering. **An enumeration is a proof only if it is complete**, and the
+way to check one is to ask what states the thing actually has: a pipe has four,
+and the fourth has neither data nor an end.
+
 So the case for an `isatty` is not that the question cannot be answered — it is
 that the answer arrives through a message about *reading*, and a reader coming
 to that line has to be told why it works. **Trigger: a second program wanting
@@ -4428,8 +4440,10 @@ colour output, or to draw a progress line.
 is here rather than the note being edited.
 [sha256sum.sol](../programs/sha256sum.sol) hit the identical collision — the
 house rule says demonstrate on input you carry, `... | sha256sum` says read
-standard input, and both are an empty command line — and it is now
-[6.40](ROADMAP.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal).
+standard input, and both are an empty command line — and it was built the same
+day as
+[6.40](COMPLETED.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal--done),
+`system:isTerminal('input)`.
 
 **And writing that entry found the output half was answerable too.**
 `system:terminalSize` calls `ioctl` on standard *output* and answers nil when

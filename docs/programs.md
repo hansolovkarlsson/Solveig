@@ -1726,11 +1726,14 @@ one byte-identical.
   two that stream. A refusal would have made every chunk ask `fileSize` and take
   a minimum first, re-deriving a number the call already had, with a race in the
   gap.
-- **No arguments means two things here**, which no other program has had: the
-  house rule says demonstrate, and `... | tail` says read standard input.
-  `keyWaiting(0.0)` separates them, and is the nearest thing this language has
-  to asking whether standard input is a terminal — it works *because* of the
-  answering-true-at-end-of-input property that is a nuisance everywhere else.
+- **No arguments means two things here**, which no other program had at the
+  time: the house rule says demonstrate, and `... | tail` says read standard
+  input. `keyWaiting(0.0)` was made to separate them, and **that was wrong** —
+  a pipe that is open, empty and not yet finished answers false just as an idle
+  terminal does, so a slow pipeline got the demonstration. `sha256sum` hit the
+  same collision, which promoted the note to
+  [6.40](COMPLETED.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal--done),
+  and building `system:isTerminal` is what found the defect.
 
 **`-f` is here, and it is where the prediction was half wrong.** `keyWaiting`
 could not stand in for a wait, exactly as predicted — twenty asks of
@@ -1838,13 +1841,14 @@ either: the largest shift here moves a value under 2³² left by thirty places.
   hashing. Every loop in the block function runs a fixed number of times, which
   is what a specified algorithm looks like; the flag-carried early exit is in
   the code deciding whether a line of a checksum list is a checksum line.
-- **The `isatty` trigger fired.** `tail` found `keyWaiting(0.0)` answers *is
-  standard input a terminal* by accident and recorded it as a note with *a
-  second program* as the trigger. This is the second program, for the identical
-  collision — the house rule says demonstrate on input you carry and
-  `... | sha256sum` says read standard input, and both are an empty command
-  line. It is now
-  [6.40](ROADMAP.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal).
+- **The `isatty` trigger fired**, and the message it asked for found a defect in
+  both programs that asked. `tail` recorded `keyWaiting(0.0)` as an *exact*
+  workaround with a note; this was the second program, for the identical
+  collision; and building
+  [6.40](COMPLETED.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal--done)
+  showed the workaround was not exact — a pipe that is open, empty and not yet
+  finished answers false just as an idle terminal does, so both programs threw
+  away a slow pipeline's input.
 
 **The subset is bounded by a corpus, not by a sentence.** `[-bctwz]` is the
 whole of the oracle's *usage line* and not the whole of the oracle, which also

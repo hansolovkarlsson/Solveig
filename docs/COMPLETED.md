@@ -2030,6 +2030,80 @@ written and could not be seen until something crossed it.
 The rest of this section is live, and is in
 [ROADMAP.md](ROADMAP.md#6-beyond-the-language--gone-from-this-document).
 
+### 6.40 A program cannot ask whether a stream is a terminal — **done**
+
+**`system:isTerminal(which)`**, where `which` is `'input`, `'output` or
+`'error`. One primitive over `isatty`, three symbols, no state.
+
+**Two programs asked, which is what promoted it from a note.** Every program in
+[programs/](../programs/) runs with no arguments on input it carries, and
+`... | tail` and `... | sha256sum` are real invocations with the same empty
+command line. [tail.sol](../programs/tail.sol) hit that collision on 2026-08-31
+and wrote it down as a note with *a second program* as the trigger rather than
+as an entry; [sha256sum.sol](../programs/sha256sum.sol) was the second the same
+afternoon.
+
+**Three symbols and not three messages.** `isTerminalInput`, `isTerminalOutput`
+and `isTerminalError` would be three names for one question, and the argument is
+the thing that varies. `'input` rather than `'stdin` because the language spells
+them out everywhere else it can — `readLine`, `write`, `writeError`; `run`'s
+options array is the one place the C names appear, and there they are keys a
+child process cares about.
+
+#### It was built to retire a paragraph and it fixed a defect instead
+
+**The workaround was described as exact, in this entry and in both programs, and
+it was wrong.** `keyWaiting(0.0)` answers *is there a byte right now* and is
+documented as **true at the end of input**, and the argument ran: a terminal
+nobody is typing at says false, a pipe with data says true, a pipe at its end
+says true. Three cases, each of them correct.
+
+**The enumeration was the mistake.** There is a fourth: **a pipe that is open,
+empty and not yet finished** — which answers false, exactly as an idle terminal
+does, because *no byte right now* is true of both. So with no arguments:
+
+```text
+{ sleep 1; printf 'a\nb\n'; } | solvm tail.sob
+```
+
+printed the demonstration and threw the input away. So did `sha256sum`. Both
+now ask `isTerminal('input)` and both read the pipe.
+
+**Nothing was going to catch that.** A pipeline written in a test or typed at a
+prompt has its first byte ready before the program starts, so the case is
+invisible everywhere it would normally be looked for; it needs a *slow* writer,
+which is a thing nobody constructs on purpose. It was found by building the
+message and then asking what the old spelling had actually been answering — the
+question you only ask when you are replacing something.
+
+**The lesson is about the shape of the claim rather than about terminals.** An
+enumeration of cases is a proof only if it is complete, and *three cases, all
+correct* reads exactly like *all the cases*. The way to check one is to ask what
+the states of the thing actually are — a pipe has four, not three, and the
+fourth has no data and no end.
+
+#### And the output half was already answerable by accident
+
+[6.34](#634-a-program-cannot-ask-how-big-the-terminal-is--done)'s
+`system:terminalSize` calls `ioctl` on **standard output** and answers nil when
+that fails, so `terminalSize:notNil` had been `isatty(1)` since it shipped — at
+the price of building a dictionary and throwing it away. Found while writing the
+entry rather than assumed, and checked through a pseudo-terminal both ways.
+`tests/test_system.c` keeps the two agreeing, so the accident is now a
+documented equivalence rather than a thing to be rediscovered.
+
+#### What is tested
+
+Three tests, and the first is the one that could be wrong quietly: a
+pseudo-terminal is put on exactly **one** of the three descriptors at a time,
+with files on the other two, and all three symbols are asked each time. Nine
+answers, three of them true, each a different one — so any swap of the mapping
+fails it. A test that only ever saw one stream answer would pass with two of
+them exchanged.
+
+The primitive allocates nothing and answers a boolean, so there is no GC root
+and none was added.
+
 ### 6.38 Nothing says what a compiled file exports — **done**
 
 **`solid --exports`**, a mode of the debugger that runs a `.sob` or loads a

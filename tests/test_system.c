@@ -1747,6 +1747,125 @@ static void test_terminal_size_answers_the_screen_it_draws_on(void)
 /* Nil, and not a default. A program that is not drawing on a terminal has to
    decide for itself what to do about it, and a number would take that decision
    away from it while looking like an answer. */
+/* `isTerminal` answers for one of three streams, and a test that only ever saw
+   one of them answer would pass with any two of the three swapped. So this puts
+   a pseudo-terminal on exactly one descriptor at a time, files on the other two,
+   and asks about all three -- nine answers, of which three are true and each of
+   those is a different one. Getting the mapping wrong in any direction fails
+   it. */
+static void test_is_terminal_answers_each_stream_for_itself(void)
+{
+    int slave = -1;
+    int master = pty_of_size(24, 80, &slave);
+    if (master < 0) {
+        printf("  isTerminal: no pseudo-terminal here, skipped\n");
+        return;
+    }
+
+    static const char *path = "build/tests/test_system.isterminal";
+    int file = open(path, O_RDWR | O_CREAT | O_TRUNC, 0644);
+    assert(file >= 0);
+
+    /* Not named `error`, which is a class here and would be shadowed. */
+    const char *source =
+        "onInput := system:isTerminal('input)."
+        "onOutput := system:isTerminal('output)."
+        "onError := system:isTerminal('error).";
+
+    for (int on = 0; on < 3; on++) {
+        int saved[3];
+        for (int i = 0; i < 3; i++) { saved[i] = dup(i); assert(saved[i] >= 0); }
+        fflush(stdout);
+        fflush(stderr);
+        for (int i = 0; i < 3; i++) assert(dup2(i == on ? slave : file, i) >= 0);
+
+        SolVM vm; sol_vm_init(&vm);
+        SolChunk chunk;
+        SolResult result = run(&vm, &chunk, source);
+
+        fflush(stdout);
+        fflush(stderr);
+        for (int i = 0; i < 3; i++) { dup2(saved[i], i); close(saved[i]); }
+        clearerr(stdout);
+        clearerr(stderr);
+
+        assert(result == SOL_OK);
+        assert(SOL_AS_BOOL(global(&vm, "onInput"))  == (on == 0));
+        assert(SOL_AS_BOOL(global(&vm, "onOutput")) == (on == 1));
+        assert(SOL_AS_BOOL(global(&vm, "onError"))  == (on == 2));
+
+        sol_chunk_free(&chunk);
+        sol_vm_free(&vm);
+    }
+
+    close(file);
+    close(slave);
+    close(master);
+    remove(path);
+    printf("  isTerminal answers each of the three streams for itself\n");
+}
+
+/* The argument names a choice, so a name it does not know is an error rather
+   than a false -- there is no stream it could be answering about. */
+static void test_is_terminal_refuses_what_is_not_a_stream(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk, "system:isTerminal('screen).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+
+    assert(run(&vm, &chunk, "system:isTerminal(\"input\").") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+
+    assert(run(&vm, &chunk, "system:isTerminal.") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+
+    assert(run(&vm, &chunk, "system:isTerminal('input, 'output).") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+    printf("  isTerminal refuses a symbol that is not one of the three\n");
+}
+
+/* The accident this replaces, kept as a test so that the entry's claim stays
+   true: `terminalSize` ioctls standard output, so it has been answering
+   `isatty(1)` since 6.34. The two must agree about the same descriptor. */
+static void test_is_terminal_agrees_with_the_size_it_replaces(void)
+{
+    int slave = -1;
+    int master = pty_of_size(24, 80, &slave);
+    if (master < 0) {
+        printf("  isTerminal: no pseudo-terminal here, skipped\n");
+        return;
+    }
+
+    int saved = dup(STDOUT_FILENO);
+    assert(saved >= 0);
+    fflush(stdout);
+    assert(dup2(slave, STDOUT_FILENO) >= 0);
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    SolResult result = run(&vm, &chunk,
+        "onScreen := system:isTerminal('output)."
+        "sized := system:terminalSize:notNil.");
+
+    fflush(stdout);
+    dup2(saved, STDOUT_FILENO);
+    close(saved);
+    close(slave);
+    close(master);
+
+    assert(result == SOL_OK);
+    assert(SOL_AS_BOOL(global(&vm, "onScreen")) == true);
+    assert(SOL_AS_BOOL(global(&vm, "sized")) == true);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    printf("  isTerminal and terminalSize agree about standard output\n");
+}
+
 static void test_terminal_size_is_nil_without_a_terminal(void)
 {
     static const char *path = "build/tests/test_system.stdout";
@@ -2022,6 +2141,9 @@ int main(void)
     test_key_waiting_sees_what_read_line_left();
     test_a_line_may_hold_a_nul();
     test_a_line_longer_than_the_window();
+    test_is_terminal_answers_each_stream_for_itself();
+    test_is_terminal_refuses_what_is_not_a_stream();
+    test_is_terminal_agrees_with_the_size_it_replaces();
     test_terminal_size_answers_the_screen_it_draws_on();
     test_terminal_size_is_nil_without_a_terminal();
     test_terminal_size_survives_a_collection();

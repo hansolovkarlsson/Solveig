@@ -76,6 +76,29 @@ total:greaterThan(0.0):print.                    ; true
 total:div(200000.0):asString(".9"):display.      ; -- seconds for a send and an add
 
 ; ---------------------------------------------------------------------------
+; Whether anybody is there
+;
+; `isTerminal` answers about one of the three standard streams -- `'input`,
+; `'output` or `'error`. Three symbols rather than three messages, because the
+; stream is what varies and the question is one question.
+;
+; All three answer **false** whenever the documentation checker runs this file,
+; because it drives the program through pipes. That is the point of asking: a
+; program whose no-argument case means two things -- *demonstrate yourself* to a
+; person, *read standard input* at the end of a pipe -- has no other way to tell
+; those apart. programs/tail.sol and programs/sha256sum.sol are both that
+; program, and they are why this message exists.
+;
+; `'output` is the other common ask, and it is the one to reach for before
+; colouring anything or drawing a progress line.
+
+["input", "output", "error"]:do({ which |
+    "{}: {}":fill([which, system:isTerminal(which:asSymbol)]):display }).
+                                    ; input: false
+                                    ; output: false
+                                    ; error: false
+
+; ---------------------------------------------------------------------------
 ; The screen
 ;
 ; `terminalSize` answers a dictionary of `"rows"` and `"columns"`, or **nil**
