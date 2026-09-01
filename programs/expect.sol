@@ -1457,6 +1457,229 @@ checkChangelogHashes := { | path, n |
 checkChangelogHashes:value.
 
 ; ---------------------------------------------------------------------------
+; A link that points at a heading that is not there
+;
+; **The third check here about this repository rather than about the language**,
+; after the recount of numbers stated in prose and the changelog's hashes, and
+; the same shape as both: a cross-reference written by hand that nothing read.
+;
+; This program runs every code block, recounts every marked number, holds
+; GRAMMAR.md against solum.bnf and checks that each changelog entry names a
+; commit. A link was the one cross-reference left over -- in a repository whose
+; filing system is *moving a heading from one file to another when an entry
+; closes*, which is exactly the edit that breaks one.
+;
+; **The trigger did not fire, and saying so is what a written trigger is for.**
+; [ideas.md](../docs/ideas.md) deferred this behind a second heading move that
+; took links with it. There has not been one. It was built on instruction.
+;
+; **What the throwaway found is not what this finds, and the difference is the
+; part worth keeping.** A first version in Python reported one dead anchor in
+; `CHANGELOG.md`. Chasing it turned up two real faults in that file, both of
+; them markdown that renders as something else:
+;
+;   - a paragraph wrapped so that ``` began a line, which is a code fence, and
+;     which turns 380 lines of prose into a code block and eleven headings into
+;     nothing;
+;   - an inline code span wrapped so that `<if-statement>` began a line, which
+;     kramdown reads as raw HTML and which stopped the published page rendering
+;     from there to the end of the file. **64 of the changelog's 327 headings
+;     reached the site**, and had not for ten days.
+;
+; **The dead anchor it reported was neither of them.** It was an artefact of the
+; throwaway's own fence rule, which closed a block on any line beginning with
+; ``` rather than on a bare one. Under the rule the renderer keeps, that link is
+; fine, and this program says so -- it reports nothing today, on a tree with
+; both faults still in it. What actually found them was a different check that
+; is not in here: the headings the published site renders, counted against the
+; headings in the file, which needs the network. **A finding that is right that
+; something is wrong and wrong about what it is costs as much as a check that
+; cannot fail**, and this one was one edit away from being written up as such.
+;
+; **The fences are tracked all the same, and by the renderer's rule.** Ignoring
+; them would give a superset of the real anchors, which can only miss a finding
+; and never invent one -- and it would also make this program disagree with the
+; page a reader lands on, which is the only thing a link is about.
+;
+; **What it does not check.** A link with no fragment at all: counted, not
+; checked, since a missing file is a different question and nothing here has got
+; one wrong. A link inside a fenced block is read like any other, which would
+; matter if a document ever exhibited a broken link on purpose. And it holds the
+; files against each other rather than against the site -- which is exactly what
+; let the worse of the two faults above stand for ten days.
+; The characters an anchor keeps once the heading is lower-cased: word
+; characters, which here is ASCII letters, digits and the underscore. Spaces
+; become hyphens and hyphens stay; everything else goes. No heading in this
+; repository has a letter outside ASCII -- the only non-ASCII bytes in any of
+; them are em dashes, and those are punctuation whichever way they are read.
+anchorChars := "abcdefghijklmnopqrstuvwxyz0123456789_".
+
+; `[text](target)` renders as `text`, so the target is no part of the anchor.
+; Two headings in ideas.md carry a link, and without this both would be indexed
+; under an anchor with a filename buried in it. Nothing points at either today,
+; which makes this a guard against the direction that costs: a checker that
+; invents a finding is worse than one that misses one.
+withoutLinkTargets := { text | | t, at, close |
+    t := text.
+    { at := t:indexOf("](") . at:notNil }:whileTrue({
+        close := t:indexOf(")", at:add(#2)).
+        close:isNil:ifElse(
+            { t := t:replace("](", "]") },
+            { t := t:copyFrom(#1, at)
+                    :concat(t:copyFrom(close:add(#1), t:size)) }) }).
+    t }.
+
+anchorFor := { heading | | t, out, i, c |
+    t := withoutLinkTargets:value(heading):trim:asLowercase.
+    out := "". i := #1.
+    { i:lessOrEqual(t:size) }:whileTrue({
+        c := t:at(i).
+        c:equals(" "):ifElse(
+            { out := out:concat("-") },
+            { c:equals("-"):or({ anchorChars:indexOf(c):notNil })
+                :ifTrue({ out := out:concat(c) }) }).
+        i := i:add(#1) }).
+    out }.
+
+; How many `#` a line opens with, or #0 when it is not a heading. A heading is
+; one to six of them at the start of the line and then a space -- `#######` is
+; seven and is not one, and neither is `#45`, which is how an integer is written
+; and appears at the start of a line in every document here.
+headingLevel := { line | | n, more |
+    n := #0. more := true.
+    { more:and({ n:lessThan(#6) }):and({ line:size:greaterThan(n) }) }:whileTrue({
+        line:at(n:add(#1)):equals("#"):ifElse({ n := n:add(#1) }, { more := false }) }).
+    n:greaterThan(#0):and({ line:size:greaterThan(n) })
+        :and({ line:at(n:add(#1)):equals(" ") }):ifElse({ n }, { #0 }) }.
+
+; Every anchor a file offers, read once and kept. A repeated heading gets `-1`,
+; `-2` and so on after the first, which is GitHub's rule for the duplicates and
+; is not hypothetical here: COMPLETED.md has several.
+anchorsFor := dictionary:new.
+headingsIndexed := #0.
+
+; A heading that falls inside a fenced block is not a heading, and the count of
+; them is reported because it is the one part of this that has no other witness.
+; One is legitimate -- COMPLETED.md quotes a changelog heading inside a block to
+; show what the hash rule reads -- and the number goes to twelve the moment a
+; paragraph wraps so that ``` starts a line, which is how this repository's
+; documentation was broken for ten days.
+headingsInFences := #0.
+
+anchorsOf := { path | | set, counts, inFence |
+    anchorsFor:includes(path):ifFalse({
+        set := dictionary:new. counts := dictionary:new. inFence := false.
+        system:readFile(path):split("\n"):do({ line | | t, level, a, n |
+            t := line:trim.
+            t:startsWith("```"):ifElse(
+                { inFence:ifElse(
+                    { t:equals("```"):ifTrue({ inFence := false }) },
+                    { inFence := true }) },
+                { inFence:ifTrue({
+                    headingLevel:value(line):greaterThan(#0):ifTrue({
+                        headingsInFences := headingsInFences:add(#1) }) }).
+                  inFence:ifFalse({
+                    level := headingLevel:value(line).
+                    level:greaterThan(#0):ifTrue({
+                        a := anchorFor:value(
+                            line:copyFrom(level:add(#2), line:size)).
+                        n := counts:at(a, #0).
+                        counts:atPut(a, n:add(#1)).
+                        set:atPut(n:equals(#0):ifElse(
+                            { a }, { "{}-{}":fill([a, n]) }), true).
+                        headingsIndexed := headingsIndexed:add(#1) }) }) }) }).
+        anchorsFor:atPut(path, set) }).
+    anchorsFor:at(path) }.
+
+; The directory a path sits in, with its slash, or "" for a file at the root.
+dirOf := { path | | at |
+    at := lastIndexOf:value(path, "/").
+    at:isNil:ifElse({ "" }, { path:copyFrom(#1, at) }) }.
+
+; A relative link resolved against the file that carries it. `..` pops, `.` and
+; an empty piece are dropped -- which also means a leading slash is dropped, and
+; no link here has one.
+resolve := { from, rel | | out |
+    out := array:new.
+    dirOf:value(from):concat(rel):split("/"):do({ p |
+        p:equals(".."):ifElse(
+            { out:size:greaterThan(#0):ifTrue({ out:removeLast }) },
+            { p:equals("."):or({ p:equals("") }):ifFalse({ out:add(p) }) }) }).
+    out:join("/") }.
+
+; Every `](target)` on a line. A target with a space in it is not one -- that is
+; markdown's optional title, which nothing here writes.
+targetsIn := { line | | out, from, at, close, target |
+    out := array:new. from := #1.
+    { at := line:indexOf("](", from). at:notNil }:whileTrue({
+        close := line:indexOf(")", at:add(#2)).
+        close:isNil:ifElse(
+            { from := line:size:add(#1) },
+            { target := line:copyFrom(at:add(#2), close:sub(#1)).
+              target:indexOf(" "):isNil:ifTrue({ out:add(target) }).
+              from := close:add(#1) }) }).
+    out }.
+
+; Where the links are: the documents, the two pages at the root, and every `.sol`
+; header. The changelog is here, unlike for blocks -- its *blocks* record what
+; was true at each release and are skipped for that reason, but a link in it is
+; a claim about where a reader lands now.
+linkSubjects := array:new.
+system:filesIn("docs"):sorted:do({ name |
+    name:endsWith(".md"):ifTrue({ linkSubjects:add("docs/":concat(name)) }) }).
+linkSubjects:add("README.md").
+linkSubjects:add("index.md").
+
+; With a stack rather than by recursion, following mirror.sol: the frame limit
+; is a property of how a tree is walked, not of the tree.
+pendingDirs := array:new.
+["examples", "lib", "programs", "experiment", "extensions",
+ "comparisons"]:do({ d | system:isDirectory(d):ifTrue({ pendingDirs:add(d) }) }).
+{ pendingDirs:size:greaterThan(#0) }:whileTrue({ | here |
+    here := pendingDirs:removeLast.
+    system:filesIn(here):sorted:do({ name | | path |
+        path := here:concat("/"):concat(name).
+        system:isDirectory(path):ifElse(
+            { pendingDirs:add(path) },
+            { name:endsWith(".sol"):ifTrue({ linkSubjects:add(path) }) }) }) }).
+
+; Read every one of them for headings first, so the number in the report means
+; every heading these files offer rather than the ones a link happened to ask
+; about -- a count whose meaning depends on the run is the kind of sentence this
+; program exists to stop.
+linkSubjects:do({ path | anchorsOf:value(path) }).
+
+linksSeen := #0.
+linksPlain := #0.
+linksFragment := #0.
+linksChecked := #0.
+
+linkSubjects:sorted:do({ path | | n |
+    n := #0.
+    system:readFile(path):split("\n"):do({ line |
+        n := n:add(#1).
+        targetsIn:value(line):do({ target | | at, where, fragment, file |
+            linksSeen := linksSeen:add(#1).
+            at := target:indexOf("#").
+            at:isNil:or({ target:startsWith("http://") })
+                :or({ target:startsWith("https://") })
+                :or({ target:startsWith("mailto:") }):ifElse(
+                { linksPlain := linksPlain:add(#1) },
+                { linksFragment := linksFragment:add(#1).
+                  file := target:copyFrom(#1, at:sub(#1)).
+                  fragment := target:copyFrom(at:add(#1), target:size).
+                  where := file:equals(""):ifElse(
+                      { path }, { resolve:value(path, file) }).
+                  system:fileExists(where):ifElse(
+                      { anchorsOf:value(where):includes(fragment):ifElse(
+                          { linksChecked := linksChecked:add(#1) },
+                          { failures:add(["{}:{}":fill([path, n]), #0,
+                                "'{}' names no heading in {}"
+                                    :fill([fragment, where]), ""]) }) },
+                      { failures:add(["{}:{}":fill([path, n]), #0,
+                            "'{}' is not a file":fill([where]), ""]) }) }) }) }) }).
+
+; ---------------------------------------------------------------------------
 ; The report
 
 "":display.
@@ -1499,6 +1722,22 @@ changelogHashes:greaterThan(#0):ifTrue({
                                 changelogPending:equals(#1)
                                     :ifElse({"s"},{""})]) },
                    { "" })]):display }).
+
+linksSeen:greaterThan(#0):ifTrue({
+    "{} link{} in {} files, {} of them naming a heading, against {} headings"
+        :fill([linksSeen, linksSeen:equals(#1):ifElse({""},{"s"}),
+               linkSubjects:size, linksFragment, headingsIndexed]):display.
+    linksPlain:greaterThan(#0):ifTrue({
+        "{} name a file and no heading, and are not checked"
+            :fill([linksPlain]):display }).
+    headingsInFences:greaterThan(#0):ifTrue({
+        "{} heading{} sit{} inside a fenced block, and {} not {} anchor"
+            :fill([headingsInFences,
+                   headingsInFences:equals(#1):ifElse({""},{"s"}),
+                   headingsInFences:equals(#1):ifElse({"s"},{""}),
+                   headingsInFences:equals(#1):ifElse({"is"},{"are"}),
+                   headingsInFences:equals(#1):ifElse({"an"},{"anchors"})])
+            :display }) }).
 
 basicBlocks:greaterThan(#0):ifTrue({
     "{} SolaBasic block{}, {} checked against the output shown under {}"

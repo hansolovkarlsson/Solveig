@@ -99,6 +99,23 @@ misleads exactly as far as one that cannot fail. Three findings against the
 0.40.0 release page were artefacts of the checks rather than faults in the page,
 and reporting any of them would have been worse than not checking.
 
+**The hardest version of that is the one that misleads *usefully*.** On
+2026-09-01 a throwaway link checker reported one dead anchor in `CHANGELOG.md`.
+Chasing it found two real faults in that file — a paragraph wrapped so that ```
+began a line, and an inline code span wrapped so that `<if-statement>` began
+one — which between them had left 64 of that page's 327 headings on the
+published site for ten days. Then the reported anchor turned out to be an
+artefact of the throwaway's own fence rule: under the rule the renderer keeps,
+that link was fine, and the checker that shipped reports nothing on a tree with
+both faults still in it.
+
+A wrong check produced a wrong finding, and chasing the wrong finding found two
+right ones. That is luck, and the write-up has to say so — the temptation is to
+report the check as having worked, because something real came out of the run.
+**Ask what the check would have said if the faults were the only thing wrong**,
+and put the answer in the entry. Here it was *nothing*, which is how the
+artefact was found at all.
+
 ## Check against what ships, not against the working tree
 
 On 2026-08-29 a throwaway reported sixteen `.sob` files in the tree differing

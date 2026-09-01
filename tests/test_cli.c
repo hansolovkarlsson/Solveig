@@ -579,10 +579,37 @@ static void test_everything_written_down_is_true(void)
     assert(sscanf(at, "%d changelog entr", &hashes) == 1);
     assert(hashes >= 240);
 
+    /* Every markdown link that names a heading, held against the headings that
+       are there -- the one cross-reference nothing read, in a repository whose
+       filing system is moving a heading between files when an entry closes. The
+       fences are tracked because a heading inside one is not an anchor on the
+       page, and the count of those is asserted too: it is 1 today, it was 12
+       while a paragraph in CHANGELOG.md was wrapped so that ``` began a line,
+       and a ceiling is what makes that visible here rather than only in the
+       report. A floor on the links for the same reason as every other one. */
+    int links = 0, named = 0, fenced = 0;
+    at = strstr(out, "links in");
+    assert(at != NULL);
+    while (at > out && at[-1] != '\n') at--;
+    assert(sscanf(at, "%d links in %*d files, %d of them naming a heading",
+                  &links, &named) == 2);
+    assert(links >= 2000);
+    assert(named >= 1000);
+
+    /* Absent when it is nought, which is the good direction and not a
+       failure -- the report leaves a count of nothing unsaid. */
+    at = strstr(out, "inside a fenced block");
+    if (at != NULL) {
+        while (at > out && at[-1] != '\n') at--;
+        assert(sscanf(at, "%d heading", &fenced) == 1);
+    }
+    assert(fenced <= 4);
+
     printf("  everything written down is true (%d claims, %d counts, %d "
            "positions, %d of %d SolaBasic blocks, %d productions, %d commit "
-           "hashes)\n",
-           claims, counts, placed, basicChecked, basic, agree, hashes);
+           "hashes, %d of %d links)\n",
+           claims, counts, placed, basicChecked, basic, agree, hashes,
+           named, links);
 }
 
 /* The BASIC interpreter, held to the standard it says it implements.

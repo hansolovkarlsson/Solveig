@@ -397,16 +397,29 @@ Over `examples/` alone that is 30<!--count examples-files--> files and
 576<!--count examples-claims--> claims:
 
 ```text
-21 files with expectations, 402 claims checked
-72 lines print without saying what, and are not checked
-2 runs ended with a non-zero status, which is what a documented error does
+30 files with expectations, 576 claims checked
+87 lines print without saying what, and are not checked
+GRAMMAR.md and solum.bnf agree on 35 productions, and 2 are prose
+274 changelog entries name a commit, 10 name none
+2635 links in 124 files, 1313 of them naming a heading, against 1496 headings
+1322 name a file and no heading, and are not checked
+1 heading sits inside a fenced block, and is not an anchor
+17 programs say where they come in the order, and are there
+3 runs ended with a non-zero status, which is what a documented error does
 
 every claim holds
 ```
 
+Six of those lines are about the repository rather than about `examples/`, and
+they are printed whatever this is pointed at: the grammar, the changelog's
+hashes, the links, and where each program says it comes in the order are facts
+about the tree, not about the run.
+
 The two numbers in the sentence above the block are recounted on every build;
 the block itself is a transcript, and a transcript is the one thing here nothing
-can check. That is the shape of the remaining gap, in miniature.
+can check. That is the shape of the remaining gap, in miniature — and it had
+gone stale again by the time the links went in, still showing 21 files and 402
+claims from three releases before.
 
 **The narrowest customer of the eleven — this repository — and a real job all the
 same.** `examples/` carries about four hundred comments of the form
@@ -542,6 +555,26 @@ heading's last em dash must now be seven hexadecimal characters or the literal
 `pending`. It does not ask git whether the commit exists, which would couple
 this program to a repository — it reads files and runs programs today, and a
 tarball with no `.git` in it checks clean.
+
+**And its links are read, along with every other document's.** A markdown link
+that names a heading — `[3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels)`
+— is the one cross-reference nothing verified, in a repository whose filing
+system is *moving a heading from one file to another when an entry closes*.
+Every heading in `docs/`, the two pages at the root and every `.sol` header is
+turned into the anchor GitHub would give it, and every link carrying a `#` is
+either in that set or it is a finding. A link with no fragment is counted and
+not checked, because a missing file is a different question.
+
+**Fenced blocks are tracked while doing it, and that is the load-bearing part.**
+A heading inside a fence is not a heading on the page, so the number of those is
+reported: it is 1, and it goes to 12 the moment a paragraph wraps so that ```
+begins a line — which is what `CHANGELOG.md` had done for ten days, along with
+an inline code span wrapped so that `<if-statement>` began one, which kramdown
+reads as raw HTML. Between them, 64 of that page's 327 headings reached the
+published site. Neither was found by this check, and the entry for it in
+[ideas.md](ideas.md) says so: what found them was counting the headings the site
+renders against the headings in the file, which needs the network and is not
+here.
 
 **What it found**, once every block was actually being run: the guide asking
 `point:slots` for slots that page never defined, and `p:perform('show)` for a
