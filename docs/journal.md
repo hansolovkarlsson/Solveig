@@ -11,6 +11,68 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-01 (really closing) — the check that found the day's worst fault, scoped
+
+Four entries. The one below calls itself the day's closing account and was wrong
+about that, in the same way and for the same reason the 2026-08-31 one was: a day
+is not over because the work in front of you is.
+
+[3.23](ROADMAP.md#323-nothing-checks-the-pages-that-are-actually-published) is
+scoped and not built. It is the comparison that found this morning's fault —
+the published pages against the markdown they were built from — and it is the
+first entry in section 3 whose case is a fault that shipped rather than an
+argument about one.
+
+### Why it is a roadmap entry and not an idea
+
+[ideas.md](ideas.md) is what was considered and turned down. This was not turned
+down; it is outstanding work with a clear shape, which is what
+[ROADMAP.md](ROADMAP.md) is the single list of. The precedent is exact:
+[3.16](COMPLETED.md#316-what-the-checker-does-not-check--done) and
+[3.21](COMPLETED.md#321-a-changelog-hash-is-written-by-hand-and-nothing-checks-it--done)
+were both entries about this repository's own verification and both got 3.x
+numbers.
+
+### The design problem is not the network
+
+It is **what the check compares against**. The site renders `origin/main`, not
+the working tree, so a published page held against a local file reports every
+unpushed edit as a fault and the check is noise inside a day. It has to read the
+source with `git show origin/main:docs/X.md`.
+
+The throwaway that found the morning's fault did not do that. It was right
+because it happened to run just after a push, which is the same kind of luck as
+the day's other mistake and is worth writing down beside it.
+
+The second cost is not the fetching either: `extensions/net` has no TLS, so
+either shape ends up at `curl` through `system:capture`. What makes the Solum
+version the more expensive one is that the anchor rule lives inside
+`expect.sol`, and writing it again would be two copies of one function — the
+trigger this repository built `replace` on. A Solum version means moving that
+rule to `lib/` first, which is a good change and a different one.
+
+### And two live wrong claims that this check would not have caught
+
+Both found while writing the entry, and both named in it so that it is not sold
+on evidence it does not cover — it checks that markdown *renders* as what it
+says, not that prose is *true*.
+
+- **`_config.yml` said 141 messages** where the language answers 143 — the
+  site's own description, stale across two releases, and published in the header
+  of every page. Fixed. It is not a document to `expect.sol`, which
+  [releasing.md](releasing.md#what-the-document-checker-does-not-cover) already
+  says in the section written about exactly this file.
+- **The repository description on GitHub** still says *the Solum language*, *136
+  messages* and *15k lines of C11* — the 0.36.0 rename, inverted, still standing.
+  `_config.yml` was corrected for that and GitHub was not. It is not in the
+  repository, so nothing here can reach it; it is 20,240 lines of C now, and
+  143 messages.
+
+Both want the marked-count mechanism extended past `docs/`, which is cheaper
+than 3.23 and is a different entry. Neither is argued for here.
+
+---
+
 ## 2026-09-01 (closing) — the scoping was right, its measurement of the oracle was not
 
 Three entries for the day. This one is the account of the whole of it, and the
