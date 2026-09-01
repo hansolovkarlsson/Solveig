@@ -1615,14 +1615,27 @@ it, `solas` loads a source to compile it — and a range is what the others want
 `system:fileSize` answers without reading, which is how to ask before committing
 to either.
 
-**A missing file is an error, not nil**, which is the same answer an
-out-of-range index gets and for the same reason: a program asking for a file it
-has not got is wrong about something. `readLine` answering nil at the end of
-input is not the precedent, since running out of input is how a loop *finishes*.
+**A missing file is an error to `readFile`, not nil**, which is the same answer
+an out-of-range index gets and for the same reason: a program asking to *read* a
+file it has not got is wrong about something. `readLine` answering nil at the end
+of input is not the precedent, since running out of input is how a loop
+*finishes*.
 
-`system:fileExists(path)` is how to ask first, and it is about a **file**: a
-directory answers false, because that is what `readFile` would say about one
-too.
+**Asking about a path is a different question from reading it**, and the four
+messages that ask now agree. `fileExists` and `isDirectory` answer false for a
+path that is not there; `fileSize` and `modifiedAt` answer **nil**. All four go
+on raising for a path that cannot be looked at — a permission that stops the
+question being asked is not an answer to it.
+
+That last part is not a nicety. `fileSize` used to raise for both, and `tail -f`
+polls it once per file per interval, so a log rotation ended the program with
+*cannot measure* and status 1 where the tool on the machine waits and picks up
+the replacement.
+[6.41](COMPLETED.md#641-a-path-that-stops-existing-is-an-error-rather-than-an-answer--done).
+
+`system:fileExists(path)` is how to ask whether a read would work, and it is
+about a **file**: a directory answers false, because that is what `readFile`
+would say about one too.
 
 `system:modifiedAt` carries the **sub-second** part of the time, which matters
 for the job it exists for: a script asking *is the source newer than the copy?*
@@ -3890,13 +3903,13 @@ it delegates to `object` like everything else. See
 | `environment(name)` | the variable, or **nil** when it is not set |
 | `run(argv)` `run(argv, streams)` | the exit status of another program; `argv` is an array |
 | `capture(argv)` `capture(argv, streams)` | a dictionary of `"output"` and `"status"` |
-| `fileSize(path)` | an integer, without reading the file |
+| `fileSize(path)` | an integer, without reading the file; **nil** if nothing is there |
 | `remove(path)` | nil, having deleted a file or an **empty** directory |
 | `makeDirectory(path)` | **true** if it made one, **false** if a directory was there; the parent must exist |
 | `rename(from, to)` | nil, having moved it; **replaces** an existing `to` |
 | `clock` | monotonic seconds as a float; only differences are meaningful |
 | `time` | the current instant, as a [time](#time) |
-| `modifiedAt(path)` | when a file was last written, as a [time](#time); sub-second |
+| `modifiedAt(path)` | when a file was last written, as a [time](#time); sub-second; **nil** if nothing is there |
 | `setModifiedAt(path, time)` | nil, having set it |
 | `modeOf(path)` | the permission bits, as an integer |
 | `setMode(path, #mode)` | nil, having set them; `#0` to `#4095` |

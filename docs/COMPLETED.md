@@ -1277,7 +1277,7 @@ is a failure, confirmed by breaking one both ways.
 one. The comment renders as nothing and the reader sees the sentence:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 1047<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 1050<!--count claims--> claims
 ```
 
 [expect.sol](../programs/expect.sol) recounts each of them from the repository
@@ -1297,8 +1297,8 @@ that order under its headings. The two are now held together.
 | --- | --- | --- |
 | ROADMAP 3.14, on whether `float` should gain trigonometry | `float` answers **21** messages | **35**<!--count float-answers--> — the count that entry's whole size argument rests on, five releases out of date |
 | [REFERENCE.md](REFERENCE.md)'s message index | **121** messages across **215** registrations | **122** across **216** |
-| [programs.md](programs.md)'s sample output | 21 files, **398** claims | 22 files, **576**<!--count examples-claims--> claims |
-| `README.md`, `programs.md` and the entry itself | **589** claims | **1047**<!--count claims--> |
+| [programs.md](programs.md)'s sample output | 21 files, **398** claims | 22 files, **579**<!--count examples-claims--> claims |
+| `README.md`, `programs.md` and the entry itself | **589** claims | **1050**<!--count claims--> |
 
 #### What is left, which is not a gap
 
@@ -2029,6 +2029,103 @@ written and could not be seen until something crossed it.
 
 The rest of this section is live, and is in
 [ROADMAP.md](ROADMAP.md#6-beyond-the-language--gone-from-this-document).
+
+### 6.41 A path that stops existing is an error rather than an answer — **done**
+
+**`tail -f` dies on a log rotation.** Not *fails to follow* — dies, with
+`tail: cannot measure 'x.log'` and exit status 1, the moment the path stops
+existing:
+
+```sh
+$ ./bin/solvm tail.sob -f x.log &
+$ mv x.log x.log.1
+one
+tail: cannot measure 'x.log'      # exit 1
+```
+
+[tail.sol](../programs/tail.sol) polls `system:fileSize` once per file per
+interval, and `fileSize` raises when the path is gone. The file it says it
+cannot measure is one that existed a second earlier and will exist again a
+second later, which is the whole of what a rotation is.
+
+**The tool on the machine waits, on both flags and in both cases.** Driven
+through the same rotation, and through a removal-then-recreate, `/usr/bin/tail`
+carried on every time — where it goes on reading is the table in
+[6.39](ROADMAP.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file), and it
+is not the same for the two flags; what matters here is that neither of them
+stops. `tail.sol` exited 1 on all four. It is the comparison
+[oracle.sh](../programs/oracle.sh) exists for, and this is a case that harness
+was never pointed at, because making a rotation needs a second process and
+every check it runs is one command against one input.
+
+**Two of the four path messages already answer rather than raise.**
+`system:fileExists` and `system:isDirectory` both swallow a failed `stat` and
+answer false — a path that is not there is not an error to them, it is the
+answer. `system:fileSize` and `system:modifiedAt` raise. The four are asked
+about the same thing in the same breath and disagree about what absence is.
+
+**The decision, taken and built on 2026-09-01: `fileSize` and `modifiedAt`
+answer nil for a path that is not there.** A real failure — a permission denied, an I/O error —
+goes on raising, so this narrows what raises rather than removing it. Nil is
+what `getenv` answers for a name that is not set and what `terminalSize`
+answers off a terminal, so the language already spells *there is none* this way.
+
+**Nil does not fix `tail` on its own, and that is the point of writing it down
+separately.** With `fileSize` answering nil the poll loop reaches
+`now:lessThan(sizes:at(i))` with a nil `now` and raises *'lessThan' expects
+integer, got nil* — further from the cause than the message it replaces. What
+nil buys is that the program can now *say* what a vanished path means to it,
+which is a decision `tail` has to make and the VM cannot make for it. Fixing
+the message and fixing the program are one unit of work, not two.
+
+**The workaround exists and is a race.** `system:fileExists(path):ifTrue({
+system:fileSize(path) })` is what [mirror.sol](../programs/mirror.sol) already
+writes, and there are thirty `fileExists` calls across the tree standing in
+front of a read or a stat. Two `stat` calls where one would do, and a window
+between them in which the file can go — narrow, and exactly as wide as the
+event being guarded against.
+
+**What it costs, counted rather than estimated.** Two assertions move:
+`system:fileSize("build/tests/no-such-thing")` in
+[test_system.c](../tests/test_system.c) and `system:modifiedAt("no-such-file")`
+in [test_time.c](../tests/test_time.c) sit in *refused* tables and would go to
+an answers-nil one. Of the call sites, **two raise on a nil and one improves**:
+`tail`'s `lessThan` and `greaterThan` raise, which is 6.41's own subject;
+`mirror`'s `fileSize(from):equals(fileSize(to))` answers false, since `equals`
+is total across types — so the `fileExists` guard in front of it becomes
+removable rather than broken. The rest hand the answer to `fill`, which prints
+`nil` where a number was: `manifest`, `pascal`, `page` and
+[examples/files.sol](../examples/files.sol), all of them measuring a file they
+have just written. The reference's `system` table gains a word on two rows.
+Nothing in `lib/` calls either message.
+
+**Built the same day it was scoped**, which is not the usual rhythm here and is
+worth saying why: the scoping had nothing left to decide once the two questions
+in it were answered, because the decision was *which of two shipped messages is
+wrong* rather than what to add.
+
+`system:fileSize` and `system:modifiedAt` answer nil for ENOENT and ENOTDIR and
+go on raising for everything else. `tail:follow` holds nil in its size array to
+mean *gone when last looked at*, and reads from the beginning what comes back —
+no notice, because a file that returns is a different file rather than the same
+one cut short.
+
+**Two scenarios went into [follow.sh](../programs/tail/follow.sh)**, and both
+would have ended the run with `cannot measure` before this: a rename with a new
+file at the path, and a removal with the path created again later. Both compare
+against the oracle's `-F` rather than its `-f`, because this tail polls a path
+and has no open file to keep — see
+[6.39](ROADMAP.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file)
+for what that difference is, and for the throwaway measurement of it that this
+harness caught being wrong.
+
+**No GC proof is owed.** Both changes answer `SOL_NIL_VAL` on a branch that used
+to raise; nothing is allocated, so there is no root to prove load-bearing.
+
+**What it does not fix is 6.39, exactly.** A replacement that appears before the
+next poll never shows the path absent, so the file is judged by its size: smaller
+reads as a truncation and restarts, which is right by luck because a fresh log is
+empty; equal or larger reads as growth and prints from the wrong offset.
 
 ### 6.40 A program cannot ask whether a stream is a terminal — **done**
 

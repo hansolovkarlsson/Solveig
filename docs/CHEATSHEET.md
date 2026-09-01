@@ -398,12 +398,12 @@ The process, rather than any value. One object with slots, not a class.
 | `readFile(path, #from, #count)` | `count` bytes from the one-based position `from`; short at the end, `""` past it |
 | `writeFile(path, text)` `appendFile(path, text)` | nil, having written |
 | `fileExists(path)` `isDirectory(path)` | a boolean |
-| `fileSize(path)` | an integer, without reading the file |
+| `fileSize(path)` | an integer, without reading the file; nil if nothing is there |
 | `filesIn(path)` | an array of the names in a directory |
 | `makeDirectory(path)` | **true** if it made one, false if it was there |
 | `remove(path)` | nil, having deleted a file or an **empty** directory |
 | `rename(from, to)` | nil, having moved it; **replaces** an existing `to` |
-| `modifiedAt(path)` `setModifiedAt(path, t)` | when a file was last written |
+| `modifiedAt(path)` `setModifiedAt(path, t)` | when a file was last written; nil if nothing is there |
 | `modeOf(path)` `setMode(path, #mode)` | the permission bits, `#0` to `#4095` |
 | `environment(name)` | the variable, or **nil** when unset |
 | `run(argv)` `run(argv, streams)` | the exit status; `argv` is an **array**, never a command line |

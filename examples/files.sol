@@ -87,6 +87,21 @@ system:fileExists(absent):ifElse(
 
 system:fileExists("build"):print.               ; false -- a directory is not a file
 
+; **Asking about a path is a different question from reading it**, and the four
+; messages that ask agree about a path that is not there: `fileExists` and
+; `isDirectory` answer false, `fileSize` and `modifiedAt` answer nil. Only
+; `readFile` stops the program, because reading a file you have not got is
+; wrong about something -- where *measuring* one is a fair question with a real
+; answer.
+system:fileSize(absent):print.                  ; nil
+system:modifiedAt(absent):print.                ; nil
+
+; Which is what lets a program watch a path across a rotation instead of dying
+; on one -- `tail -f` polls `fileSize` and used to exit on the first `mv`. All
+; four still raise for a path that cannot be *looked* at: a permission that
+; stops the question being asked is not an answer to it.
+system:fileSize(absent):isNil:print.            ; true -- and asking cost nothing
+
 ; ---------------------------------------------------------------------------
 ; Changing what is there
 ;

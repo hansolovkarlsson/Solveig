@@ -5577,7 +5577,29 @@ static SolValue prim_system_environment(SolVM *vm, SolValue self, SolValue *args
  * Size and not the modification time, which is the other thing `stat` knows and
  * the obvious companion. A timestamp wants to be a date rather than a number of
  * seconds, and there is no date here yet -- answering an integer now would be
- * an interface a date type would have to change. */
+ * an interface a date type would have to change.
+ *
+ * **A path that is not there answers nil**, and a real failure still raises.
+ * ROADMAP 6.41.
+ *
+ * This used to raise for both, and it cost a shipped program. `tail -f` polls
+ * this once per file per interval, so a log rotation -- or a plain `rm` --
+ * ended the program with `cannot measure` and status 1, where the tool on the
+ * machine waits and picks up the replacement. The file it could not measure was
+ * one that had existed a second earlier and would exist again a second later,
+ * which is the whole of what a rotation is.
+ *
+ * **`fileExists` and `isDirectory` already answered rather than raising**, by
+ * swallowing the same failed `stat`. Four messages get asked about a path in
+ * the same breath and two of them called absence an error while two called it
+ * an answer. This is the pair that moves, because absence is the commonest
+ * thing a path can be and it is not a fault.
+ *
+ * **ENOENT and ENOTDIR are absence; everything else is a fault.** ENOTDIR is a
+ * component of the path being a file, so the path cannot exist either. EACCES
+ * is deliberately *not* here: a permission that stops the question being asked
+ * is not an answer to it, and a program told nil would conclude the file is
+ * gone when it may be sitting there. */
 static SolValue prim_system_file_size(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     (void)self;
@@ -5587,6 +5609,7 @@ static SolValue prim_system_file_size(SolVM *vm, SolValue self, SolValue *args, 
     const char *path = SOL_AS_STRING(args[0])->chars;
     struct stat info;
     if (stat(path, &info) != 0) {
+        if (errno == ENOENT || errno == ENOTDIR) return SOL_NIL_VAL;
         sol_vm_runtime_error(vm, "cannot measure '%s'", path);
         return SOL_NIL_VAL;
     }
@@ -5594,7 +5617,13 @@ static SolValue prim_system_file_size(SolVM *vm, SolValue self, SolValue *args, 
 }
 
 /* `system:modifiedAt(path)` -- the companion `fileSize` was waiting for. It
-   could not be written until there was a time to answer with. */
+   could not be written until there was a time to answer with.
+ *
+ * **Nil for a path that is not there**, on the same rule and for the same
+ * reason as `fileSize` above -- the two are asked about a path together and an
+ * answer they disagree about would be worse than either. No program here wanted
+ * it; it moves because leaving one of a pair behind is how a language gets a
+ * rule nobody can state. */
 static SolValue prim_system_modified_at(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     (void)self;
@@ -5604,6 +5633,7 @@ static SolValue prim_system_modified_at(SolVM *vm, SolValue self, SolValue *args
     const char *path = SOL_AS_STRING(args[0])->chars;
     struct stat info;
     if (stat(path, &info) != 0) {
+        if (errno == ENOENT || errno == ENOTDIR) return SOL_NIL_VAL;
         sol_vm_runtime_error(vm, "cannot read the time of '%s'", path);
         return SOL_NIL_VAL;
     }

@@ -41,16 +41,25 @@ same=0
 news=0
 
 # Runs one scenario under both tails. $1 names it, $2 is the flags before the
-# files, $3 is a shell fragment that writes to them while both are watching.
+# files, $3 is a shell fragment that writes to them while both are watching, and
+# $4 -- optional -- is different flags for the oracle.
+#
+# **The fourth argument exists because this tail's `-f` is the oracle's `-F`.**
+# BSD's `-f` follows the **descriptor**: after a rename it goes on reading the
+# renamed file, which `lsof` shows it holding open. This one has only a path to
+# poll, so it follows the **name**, which is `-F`'s behaviour and cannot be
+# anything else without an open file to keep. Comparing our `-f` against the
+# oracle's `-F` for the two rotation scenarios says what is actually claimed;
+# comparing it against `-f` and calling the difference expected would not.
 scenario() {
-    what=$1; flags=$2; script=$3
+    what=$1; flags=$2; script=$3; theirs=${4:-$2}
 
     for side in oracle ours; do
         rm -rf "$work/run"; mkdir -p "$work/run"
         ( cd "$work/run" && eval "$setup" )
 
         if [ "$side" = oracle ]; then
-            ( cd "$work/run" && eval "$oracle $flags $files" ) \
+            ( cd "$work/run" && eval "$oracle $theirs $files" ) \
                 > "$work/$side.out" 2> "$work/$side.err" &
         else
             ( cd "$work/run" && eval "$ours -s 0.1 $flags $files" ) \
@@ -110,6 +119,26 @@ setup='printf "a\nb\n" > one.txt'
 files='one.txt'
 scenario "-v -f puts a blank line before the first heading too" "-v -f -n 1" \
     'printf "c\n" >> one.txt'
+
+# The two that were unwritable until a path could be absent without raising.
+# Both of these ended the run with `cannot measure` and status 1 before
+# ROADMAP 6.41, which is worse than not following a rotation: it is not
+# surviving one.
+
+# Both against the oracle's -F, for the reason given at scenario() above. The
+# first of these is also the scenario that caught a throwaway measurement of the
+# oracle claiming BSD's -f follows the name: run side by side under one harness
+# it does not, and `lsof` on the running process settled it.
+setup='printf "a\n" > one.txt'
+files='one.txt'
+scenario "a rotation: renamed away, and a new file at the path" "-f -n 1" \
+    'mv one.txt one.txt.1; sleep 0.4; printf "OLD\n" >> one.txt.1;
+     sleep 0.4; printf "NEW\n" > one.txt' "-F -n 1"
+
+setup='printf "a\n" > one.txt'
+files='one.txt'
+scenario "a removal, and the same path created again later" "-f -n 1" \
+    'rm one.txt; sleep 0.6; printf "BACK\n" > one.txt' "-F -n 1"
 
 echo
 if [ "$news" -eq 0 ]; then

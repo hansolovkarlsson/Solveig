@@ -1045,6 +1045,70 @@ static void test_making_moving_and_removing(void)
     printf("  making, moving and removing, and measuring without reading\n");
 }
 
+/* A path that is not there answers nil, and a path that cannot be looked at
+ * raises. ROADMAP 6.41.
+ *
+ * `fileSize` and `modifiedAt` used to raise for both, and `fileSize` on a
+ * missing file sat in the refused table just below this. It cost a shipped
+ * program: `tail -f` polls `fileSize` once per file per interval, so a log
+ * rotation ended the run with `cannot measure` and status 1 where the tool on
+ * the machine waits and picks up the replacement. `fileExists` and
+ * `isDirectory` had swallowed the same failed `stat` since they were written,
+ * so two of the four messages asked about a path called absence an error and
+ * two called it an answer.
+ *
+ * **Both halves are asserted, because only one of them is new.** Nil for
+ * absence is the change; still raising for a real fault is what keeps this from
+ * being "swallow every stat failure", which would tell a program that a file it
+ * is not allowed to see is a file that is not there. ENOTDIR -- a component of
+ * the path being a file -- is absence too, since nothing can exist below it.
+ *
+ * The permission half needs a directory nobody may enter, and root may enter
+ * anything, so it is skipped for a root run rather than asserted falsely. */
+static void test_a_missing_path_answers_nil(void)
+{
+    mkdir("build/tests/shut", 0777);
+    FILE *f = fopen("build/tests/shut/inside.txt", "wb");
+    assert(f != NULL); fputs("x", f); fclose(f);
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    assert(run(&vm, &chunk,
+        "gone := system:fileSize(\"build/tests/no-such-thing\")."
+        "when := system:modifiedAt(\"build/tests/no-such-thing\")."
+        /* a file where a directory would have to be: nothing exists below it */
+        "under := system:fileSize(\"build/tests/shut/inside.txt/deeper\")."
+        /* and the file itself still measures, so nil is not the only answer */
+        "real := system:fileSize(\"build/tests/shut/inside.txt\").") == SOL_OK);
+
+    assert(SOL_IS_NIL(global(&vm, "gone")));
+    assert(SOL_IS_NIL(global(&vm, "when")));
+    assert(SOL_IS_NIL(global(&vm, "under")));
+    assert(SOL_AS_INT(global(&vm, "real")) == 1);
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+
+    if (geteuid() != 0) {
+        assert(chmod("build/tests/shut", 0) == 0);
+
+        static const char *refused[] = {
+            "system:fileSize(\"build/tests/shut/inside.txt\").",
+            "system:modifiedAt(\"build/tests/shut/inside.txt\").",
+        };
+        for (size_t i = 0; i < sizeof(refused) / sizeof(refused[0]); i++) {
+            SolVM v2; sol_vm_init(&v2);
+            SolChunk c2;
+            assert(run(&v2, &c2, refused[i]) == SOL_RUNTIME_ERROR);
+            sol_chunk_free(&c2); sol_vm_free(&v2);
+        }
+
+        assert(chmod("build/tests/shut", 0777) == 0);
+    }
+
+    remove("build/tests/shut/inside.txt");
+    remove("build/tests/shut");
+    printf("  a missing path answers nil, and one that cannot be read raises\n");
+}
+
 /* Each refusal names the reason the system gave, because "cannot remove" alone
    leaves a script no way to tell a missing file from a full directory. */
 static void test_changing_what_is_there_refuses(void)
@@ -1058,7 +1122,6 @@ static void test_changing_what_is_there_refuses(void)
         "system:remove(\"build/tests/no-such-thing\").",
         "system:makeDirectory(\"build/tests/no/such/parent/x\").",
         "system:rename(\"build/tests/no-such-thing\", \"build/tests/x\").",
-        "system:fileSize(\"build/tests/no-such-thing\").",
         "system:remove(#1).",
         "system:rename(\"a\").",
         "system:makeDirectory.",
@@ -2116,6 +2179,7 @@ int main(void)
     test_appending();
     test_the_environment();
     test_making_moving_and_removing();
+    test_a_missing_path_answers_nil();
     test_changing_what_is_there_refuses();
     test_the_look_before_you_leap_idiom();
     test_a_large_file_round_trips();

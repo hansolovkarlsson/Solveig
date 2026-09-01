@@ -181,12 +181,17 @@ static void test_now_and_a_files_time(void)
         "ordered := later:greaterOrEqual(now)."
         /* a file has one too, which is what fileSize was waiting for */
         "stamp := system:modifiedAt(\"examples/time.sol\")."
-        "real := stamp:year:greaterThan(#2000).") == SOL_OK);
+        "real := stamp:year:greaterThan(#2000)."
+        /* and a path that is not there answers nil rather than raising, which
+           it did until ROADMAP 6.41 -- the pair with fileSize, which moved
+           because a log rotation was killing tail -f */
+        "absent := system:modifiedAt(\"no-such-file\").") == SOL_OK);
 
     assert(SOL_AS_BOOL(global(&vm, "sane")));
     assert(SOL_AS_BOOL(global(&vm, "isTime")));
     assert(SOL_AS_BOOL(global(&vm, "ordered")));
     assert(SOL_AS_BOOL(global(&vm, "real")));
+    assert(SOL_IS_NIL(global(&vm, "absent")));
 
     sol_chunk_free(&chunk); sol_vm_free(&vm);
     printf("  now, and when a file was last written\n");
@@ -204,7 +209,6 @@ static void test_what_a_time_refuses(void)
         "system:time:lessThan(#1).",
         "system:time:asString(#1).",
         "system:time(#1).",
-        "system:modifiedAt(\"no-such-file\").",
         "time:fromSeconds(1.0e300).",             /* beyond any calendar */
     };
 

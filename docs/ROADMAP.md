@@ -1043,86 +1043,16 @@ on 2026-08-29 and closed the same afternoon, which is the section still doing
 what it was for: saying what a program written against this needs and has not
 got.
 
-**Two are open**, and the second arrived by driving the first's customer rather
-than by reading it. 6.39, added on 2026-08-31, is that a program cannot tell
-whether two paths are the same file. **6.41, added on 2026-09-01, is that a path
-which stops existing is an error rather than an answer** — `tail -f` does not
-merely fail to follow a rotation, it dies on one, and that is the half of `-F`
-which has nothing to do with identity. 6.41 comes first. 6.40 was opened and
-closed on 2026-08-31 —
+**One is open**, and the other arrived and left on the same day it was written
+down. 6.39, added on 2026-08-31, is that a program cannot tell whether two paths
+are the same file. **6.41, added and closed on 2026-09-01**, was that a path
+which stops existing is an error rather than an answer — `tail -f` did not
+merely fail to follow a rotation, it died on one, and that was the half of `-F`
+which has nothing to do with identity. It went in front of 6.39 and is
+[done](COMPLETED.md#641-a-path-that-stops-existing-is-an-error-rather-than-an-answer--done).
+6.40 was opened and closed on 2026-08-31 —
 [a program cannot ask whether a stream is a terminal](COMPLETED.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal--done),
 answered by `system:isTerminal`.
-
-### 6.41 A path that stops existing is an error rather than an answer
-
-**`tail -f` dies on a log rotation.** Not *fails to follow* — dies, with
-`tail: cannot measure 'x.log'` and exit status 1, the moment the path stops
-existing:
-
-```sh
-$ ./bin/solvm tail.sob -f x.log &
-$ mv x.log x.log.1
-one
-tail: cannot measure 'x.log'      # exit 1
-```
-
-[tail.sol](../programs/tail.sol) polls `system:fileSize` once per file per
-interval, and `fileSize` raises when the path is gone. The file it says it
-cannot measure is one that existed a second earlier and will exist again a
-second later, which is the whole of what a rotation is.
-
-**The tool on the machine waits, on both flags and in both cases.** Driven
-through the same rotation, and through a removal-then-recreate, `/usr/bin/tail`
-carried on every time — see the table in
-[6.39](#639-a-program-cannot-tell-whether-two-paths-are-the-same-file), where
-the difference between `-f` and `-F` turns out to be narrower than its own man
-page claims. `tail.sol` exits 1 on all four. It is the comparison
-[oracle.sh](../programs/oracle.sh) exists for, and this is a case that harness
-was never pointed at, because making a rotation needs a second process and
-every check it runs is one command against one input.
-
-**Two of the four path messages already answer rather than raise.**
-`system:fileExists` and `system:isDirectory` both swallow a failed `stat` and
-answer false — a path that is not there is not an error to them, it is the
-answer. `system:fileSize` and `system:modifiedAt` raise. The four are asked
-about the same thing in the same breath and disagree about what absence is.
-
-**The decision, taken 2026-09-01: `fileSize` and `modifiedAt` answer nil for a
-path that is not there.** A real failure — a permission denied, an I/O error —
-goes on raising, so this narrows what raises rather than removing it. Nil is
-what `getenv` answers for a name that is not set and what `terminalSize`
-answers off a terminal, so the language already spells *there is none* this way.
-
-**Nil does not fix `tail` on its own, and that is the point of writing it down
-separately.** With `fileSize` answering nil the poll loop reaches
-`now:lessThan(sizes:at(i))` with a nil `now` and raises *'lessThan' expects
-integer, got nil* — further from the cause than the message it replaces. What
-nil buys is that the program can now *say* what a vanished path means to it,
-which is a decision `tail` has to make and the VM cannot make for it. Fixing
-the message and fixing the program are one unit of work, not two.
-
-**The workaround exists and is a race.** `system:fileExists(path):ifTrue({
-system:fileSize(path) })` is what [mirror.sol](../programs/mirror.sol) already
-writes, and there are thirty `fileExists` calls across the tree standing in
-front of a read or a stat. Two `stat` calls where one would do, and a window
-between them in which the file can go — narrow, and exactly as wide as the
-event being guarded against.
-
-**What it costs, counted rather than estimated.** Two assertions move:
-`system:fileSize("build/tests/no-such-thing")` in
-[test_system.c](../tests/test_system.c) and `system:modifiedAt("no-such-file")`
-in [test_time.c](../tests/test_time.c) sit in *refused* tables and would go to
-an answers-nil one. Of the call sites, **two raise on a nil and one improves**:
-`tail`'s `lessThan` and `greaterThan` raise, which is 6.41's own subject;
-`mirror`'s `fileSize(from):equals(fileSize(to))` answers false, since `equals`
-is total across types — so the `fileExists` guard in front of it becomes
-removable rather than broken. The rest hand the answer to `fill`, which prints
-`nil` where a number was: `manifest`, `pascal`, `page` and
-[examples/files.sol](../examples/files.sol), all of them measuring a file they
-have just written. The reference's `system` table gains a word on two rows.
-Nothing in `lib/` calls either message.
-
-**Not built.** The scoping is this entry; building is a separate instruction.
 
 ### 6.39 A program cannot tell whether two paths are the same file
 
@@ -1175,32 +1105,39 @@ machine a device number can be **negative** — `/dev/null` has one. Whatever
 formats the id has to be sign-correct, which is a detail that would have been
 found by a crash rather than by reading.
 
-*What `-F` buys is smaller here than the entry says, and the man page is not
-where to find that out.* Driven through both cases with two seconds between each
-step:
+*What `-f` and `-F` actually do, and the correction that took three goes.*
 
 | | `-f` | `-F` |
 | --- | --- | --- |
-| renamed away, new file at the path | follows the **new** file | follows the **new** file |
-| appended to the **old** inode after the rename | ignores it | ignores it |
+| renamed away, new file at the path | goes on reading the **renamed** file | follows the **new** file |
 | removed, then recreated later | prints nothing more, keeps running | follows the **new** file |
 
-So on this oracle `-f` already follows the *name* across a rename, and the only
-difference `-F` makes is **retry after a removal**. The man page says otherwise
-— *the file is closed and reopened when tail detects that the filename being
-read from has a new inode number*, under `-F`, which reads as something `-f`
-does not do. The first run of this contradicted the page, and the honest
-response was to distrust the run; it reproduced with generous timing, and the
-old inode really did receive the bytes `-f` ignored. **The page is wrong about
-its own `-f`, and `-F` is in no standard to appeal to** — POSIX specifies `-f`
-and stops, so `-F` is whatever the implementations do.
+`-f` follows the **descriptor** and `-F` follows the **name**, which is exactly
+what the man page says. **An earlier version of this entry said the opposite**,
+on a throwaway that ran both flags in one script and reproduced its own wrong
+answer four times. What caught it was
+[follow.sh](../programs/tail/follow.sh) — the harness runs the two sides under
+one set of conditions instead of two — and what settled it was `lsof` on the
+running process, which shows `tail -f` holding the *renamed* file open after a
+rotation. Direct evidence beat a reproducible experiment, and the experiment was
+reproducible because it was reproducibly wrong.
 
-**Neither dies.** That is the finding the table was really for: across a rename
+The rule that would have saved the hour is the one this repository already has:
+a comparison whose two sides did not run under the same conditions is not a
+comparison. It was applied to the checks and not to the throwaway that measured
+the oracle.
+
+**Neither dies**, which is the finding the table was really for: across a rename
 and across a removal, both flags of the tool on the machine carry on, and
-`tail.sol` exits 1 on either.
+`tail.sol` exited 1 on either until 6.41.
 
-**And [6.41](#641-a-path-that-stops-existing-is-an-error-rather-than-an-answer)
-comes first**, which the same hour found. Following a rotation has two halves —
+**So this tail's `-f` is the oracle's `-F`**, and cannot be anything else: it
+polls a path and has no open file to keep, so following the name is the only
+behaviour available to it. That is written down in the program rather than left
+to be inferred.
+
+**And [6.41](COMPLETED.md#641-a-path-that-stops-existing-is-an-error-rather-than-an-answer--done)
+came first**, which the same hour found, and it is now done. Following a rotation has two halves —
 *surviving a path that is not there*, and *noticing the file behind it changed*
 — and only the second is this entry. The first is a defect in `fileSize` today,
 needs no new kind of value, and `tail -f` exits 1 without it. Building `fileId`
@@ -1227,21 +1164,24 @@ keeping it did. The number stays 6.32 and is not reused.
 
 ## How this list emptied, and how it filled and emptied again
 
-**Two things are on it.**
+**One thing is on it**, and it is the one that was on it yesterday.
 [6.39](#639-a-program-cannot-tell-whether-two-paths-are-the-same-file) arrived
 on 2026-08-31: a program cannot tell whether two paths are the same file. `tail`
 wanted it for `-F`, could not have it, and says so in its own header rather than
 approximating it. One customer and one flag, and the entry says so.
 
-[6.41](#641-a-path-that-stops-existing-is-an-error-rather-than-an-answer)
-arrived on 2026-09-01, out of an hour spent driving `tail` through a real
-rotation before designing anything for 6.39 — and it is **the entry 6.39 was
-standing in front of**. `tail -f` does not fail to follow a rotation, it exits 1
-on one, because `fileSize` raises where `fileExists` and `isDirectory` answer.
-That is a defect in a shipped message, it needs no new kind of value, and it is
-most of what `-F` is. [method.md](method.md#a-scoping-can-be-wrong-about-the-order-not-only-the-answer)
+**6.41 arrived and left on 2026-09-01**, out of an hour spent driving `tail`
+through a real rotation before designing anything for 6.39 — and it was **the
+entry 6.39 was standing in front of**. `tail -f` did not fail to follow a
+rotation, it exited 1 on one, because `fileSize` raised where `fileExists` and
+`isDirectory` answered. A defect in a shipped message, no new kind of value, and
+most of what `-F` is; it is
+[done](COMPLETED.md#641-a-path-that-stops-existing-is-an-error-rather-than-an-answer--done)
+and 6.39 is the same size it was.
+[method.md](method.md#a-scoping-can-be-wrong-about-the-order-not-only-the-answer)
 already had the shape: a scoping can be wrong about the order rather than the
-answer.
+answer. This is the second time it has fired, and both times the way it was
+noticed was to run the thing rather than read about it.
 
 **6.40 arrived and left the same day**, and it arrived the way this list would
 like everything to: **its trigger was written down first and then fired.**

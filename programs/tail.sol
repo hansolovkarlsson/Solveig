@@ -352,12 +352,34 @@ tail:ofStdin := {
 ; when the path is gone, so the poll below exits 1 with *cannot measure* the
 ; moment a log is rotated or removed -- where the tool on the machine waits and
 ; picks up the replacement. That is
-; [6.41](../docs/ROADMAP.md#641-a-path-that-stops-existing-is-an-error-rather-than-an-answer),
+; [6.41](../docs/COMPLETED.md#641-a-path-that-stops-existing-is-an-error-rather-than-an-answer--done),
 ; it is a defect in a shipped message rather than a missing feature, and it is
 ; the half of `-F` that has nothing to do with identity.
 
+; **A path that is not there is a state, not the end.** `fileSize` answers nil
+; for one ([6.41](../docs/COMPLETED.md#641-a-path-that-stops-existing-is-an-error-rather-than-an-answer--done)),
+; and this holds nil in `sizes` to mean *gone when last looked at*. It used to
+; raise, and this loop used to end on it: a log rotation, or a plain `rm`, and
+; the program exited 1 with *cannot measure* while the tool on the machine
+; waited and picked up the replacement.
+;
+; **What comes back is read from its beginning**, without the *file truncated*
+; notice, because it is a different file rather than the same one cut short --
+; which is what `/usr/bin/tail -F` does. Its `-f` does neither: it follows the
+; *descriptor*, so after a rename it goes on reading the renamed file, and after
+; a removal it prints nothing more. This polls a path and has nothing open to
+; keep, so it cannot have that behaviour and does not pretend to.
+;
+; **The rotation this still gets wrong is the fast one**, and it is
+; [6.39](../docs/ROADMAP.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file)
+; exactly. A replacement that appears before the next poll never shows the path
+; absent, so the file is judged by its size alone: smaller reads as a truncation
+; and restarts, which is right by luck because a fresh log is empty, and equal
+; or larger reads as growth and prints from the wrong offset. Noticing that
+; needs an identity, and nothing here answers one.
 tail:follow := { paths | | sizes, i, now, which |
-    ; Where each file had got to when it was last looked at.
+    ; Where each file had got to when it was last looked at, or nil for a path
+    ; that was not there.
     sizes := array:new.
     paths:do({ path | sizes:add(system:fileSize(path)) }).
 
@@ -371,11 +393,16 @@ tail:follow := { paths | | sizes, i, now, which |
         paths:do({ path |
             now := system:fileSize(path).
 
-            now:lessThan(sizes:at(i)):ifTrue({
+            now:isNil:ifTrue({ sizes:atPut(i, nil) }).
+
+            ; Back after being gone. Read it from the start, quietly.
+            now:notNil:and({ sizes:at(i):isNil }):ifTrue({ sizes:atPut(i, #0) }).
+
+            now:notNil:and({ now:lessThan(sizes:at(i)) }):ifTrue({
                 system:writeError("tail: {}: file truncated\n":fill([path])).
                 sizes:atPut(i, #0) }).
 
-            now:greaterThan(sizes:at(i)):ifTrue({
+            now:notNil:and({ now:greaterThan(sizes:at(i)) }):ifTrue({
                 (paths:size:greaterThan(#1):and({ which:notEquals(i) })
                     :and({ options:quiet:not })):ifTrue({
                     "":display.
@@ -691,13 +718,18 @@ demonstrate := { | path, size |
 ; a second program wanting to know whether two paths are the same file -- a
 ; backup that must not copy a file onto itself, or a watcher of any kind.
 ;
-; **`-f` is the half that is broken rather than missing**, and it was found on
-; 2026-09-01 by driving this against the tool on the machine through a real
-; rotation instead of reasoning about one. Renamed away or removed, this exits 1
-; with *cannot measure*; `/usr/bin/tail` waits on both flags in both cases, and
-; the measured difference between its `-f` and its `-F` is narrower than its own
-; man page says. Written up as
-; [6.41](../docs/ROADMAP.md#641-a-path-that-stops-existing-is-an-error-rather-than-an-answer),
-; which comes before
-; [6.39](../docs/ROADMAP.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file)
-; and needs no new kind of value.
+; **`-f` was the half that was broken rather than missing**, found on 2026-09-01
+; by driving this against the tool on the machine through a real rotation
+; instead of reasoning about one. Renamed away or removed, this exited 1 with
+; *cannot measure*, where `/usr/bin/tail` waits on both flags in both cases.
+; That was
+; [6.41](../docs/COMPLETED.md#641-a-path-that-stops-existing-is-an-error-rather-than-an-answer--done),
+; it needed no new kind of value, and it is done.
+;
+; **And this program's `-f` is the oracle's `-F`.** BSD's `-f` follows the
+; *descriptor* and goes on reading the renamed file -- `lsof` on the running
+; process shows it holding the old one open -- while `-F` follows the *name*.
+; This polls a path and has nothing open to keep, so following the name is the
+; only behaviour available to it, and follow.sh compares the two rotation
+; scenarios against `-F` for that reason rather than calling a difference
+; expected.
