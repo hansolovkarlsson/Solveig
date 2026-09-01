@@ -762,9 +762,19 @@ handed anything first.
 ; do with hashing: `check:line` decides whether a line of a checksum list is a
 ; checksum line, four conditions have to hold, each is cheapest to test in
 ; order, and none of them can end the method. It is written as a flag carried
-; through four `ifTrue`s -- the flag idiom
-; [ideas.md](../docs/ideas.md#an-early-exit-from-a-loop) says recurs across six
-; files, and this is the seventh.
+; through four `ifTrue`s.
+;
+; **It is not the idiom
+; [ideas.md](../docs/ideas.md#an-early-exit-from-a-loop) is about**, and the
+; difference is worth keeping straight because a first draft of this paragraph
+; called it the seventh instance of one. That entry is about
+; [3.13](../docs/ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing):
+; a *loop* that must stop from inside, carrying a boolean whose only job is to
+; stop it. There is no loop here. This is a straight-line guard chain that wants
+; a *return*, which is 3.2, and the same spelling arrives at it from a different
+; limitation. The entry also says it has stopped counting files, having had that
+; number go stale twice -- so adding one to it would have been the wrong thing
+; twice over.
 ;
 ; **The hashing wanted nothing.** Every loop in `sha256:block` runs a fixed
 ; number of times and none of them wants out early, which is what a specified

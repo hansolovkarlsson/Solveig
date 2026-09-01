@@ -4550,12 +4550,29 @@ FIPS 180-4 does not have.
   benchmarks show, which is what a program that is nothing but arithmetic
   inside the dispatch loop should be expected to do.
 
-**It also fired two triggers on this page**: the
+**It fired one trigger on this page**: the
 [isatty note](#two-absences-noticed-on-2026-08-31-that-nothing-has-asked-for)
-got its second program, and
-[the flag idiom](#an-early-exit-from-a-loop) got its seventh file — in the
-checksum-list parser rather than anywhere near the hashing, which is where
-`tail` predicted 3.1 and 3.2 would not appear and was right about `tail`.
+got its second program, and is now
+[6.40](ROADMAP.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal).
+
+**It did not fire [the early exit](#an-early-exit-from-a-loop), and a draft of
+this paragraph said it did** — which is worth keeping, because the mistake is
+one an entry can invite. `sha256sum` carries a flag through four `ifTrue`s to
+decide whether a line is a checksum line, so it *looks* like the sixth file's
+idiom. It is not: that entry is about
+[3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing), a loop
+that must stop from inside, and there is no loop here — it is a straight-line
+guard chain wanting a *return*, which is
+[3.2](ROADMAP.md#32-no-non-local-return). One spelling, two limitations, and
+counting the second as an instance of the first would have made the case look
+stronger than it is. **The entry had already stopped counting files** for
+exactly that reason, having watched the number go stale twice.
+
+Where 3.2 did turn up is worth its own line: **in the parsing, not the
+hashing**. Every loop in the block function runs a fixed number of times and
+none wants out early, which is what a specified algorithm looks like — so
+`tail`'s prediction that 3.1 and 3.2 would not appear was right about the file
+work and the gap is where it has always been.
 
 ##### `diff` — the first program here that computes rather than recognises
 
