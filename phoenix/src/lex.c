@@ -27,15 +27,23 @@ static bool is_alnum(char c) { return is_alpha(c) || is_digit(c); }
 
 /* What may run together into one operator token.
  *
- * `|` is not here and cannot be: it separates a block's parameters from its
- * body, and a dialect that could spell an operator `|` would be a dialect in
- * which `{ a | b }` has two readings. `:` and `.` are out for the same kind of
- * reason. A dialect gets the characters that mean nothing until it says so.
+ * A single `|` is not here and cannot be: it separates a block's parameters
+ * from its body, and a dialect that could spell an operator `|` would be a
+ * dialect in which `{ a | b }` has two readings. `:` and `.` are out for the
+ * same kind of reason. A dialect gets the characters that mean nothing until it
+ * says so.
  *
- * `\` is here so that a dialect wanting the bitwise or logical *or* has
- * something to spell it with, `\/` and `/\` being a convention old enough to
- * borrow. Losing `|` costs a dialect the obvious spelling of one operator, and
- * the block form is worth more than the spelling is. */
+ * `||` *is* available, and is started by the case below rather than by this
+ * set, because it is two bars and not a bar. Nothing legal was given up for it:
+ * a block reads a lone bar in every position it looks for one, so `{ a | b }`
+ * and `{ x | | t | t }` are untouched, and `{ a || b }` was an error before
+ * this token existed. What it did cost is `{ || … }`, which used to parse as an
+ * empty list of temporaries and emit nothing; that is written `{ | | … }` now.
+ *
+ * `\` remains, and is still the spelling for a *bitwise* or -- `\/` and `/\`
+ * are a convention old enough to borrow, and single `|` is still not available
+ * to anybody. What `||` buys is the logical one, in the spelling every C-like
+ * dialect would otherwise have had to apologise for. */
 static bool is_operator(char c)
 {
     return strchr("+-*/<>=!&^%~?\\", c) != NULL;
@@ -155,6 +163,17 @@ PhxToken phx_lexer_next(PhxLexer *lexer)
             return make(lexer, PHX_TOK_ASSIGN, start);
         }
         return make(lexer, PHX_TOK_COLON, start);
+    }
+
+    /* `||` is the one operator token that does not begin with an operator
+       character, and it takes exactly two bars: `|` is not in the set above, so
+       a third bar is a bar again and `|||` is the operator `||` and then a lone
+       `|`. Anything else operator-shaped after the two runs on as usual, `||=`
+       being one token for the same reason `<=` is. */
+    if (c == '|' && lexer->current[1] == '|') {
+        lexer->current += 2;
+        while (is_operator(*lexer->current)) lexer->current++;
+        return make(lexer, PHX_TOK_OPERATOR, start);
     }
 
     if (is_operator(c)) {

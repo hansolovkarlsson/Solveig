@@ -108,6 +108,14 @@ declarations, and every editor, formatter and `grep` downstream depends on that.
 Forth and TeX moved the line and became languages no tool can read without
 executing them. If it moves, it moves at the module boundary and nowhere else.
 
+A `@token` directive binding a spelling to a named token was proposed against
+this and refused in 0.9.0: it would not have crossed the Forth line, the header
+still being read rather than run, but it crosses a nearer one — today any tool
+can tokenise any `.phx` without knowing what a dialect is. The want behind it
+was real and `||` answers it, by growing the fixed vocabulary rather than by
+making the vocabulary declarable. That is the shape any future version of this
+request should take. See COMPLETED.md 12.
+
 **A rule that begins with a nonterminal.** Left recursion, and therefore an
 expression grammar written in `@syntax`. The reader would have to guess,
 ambiguity would stop being checkable by looking, and composition would stop

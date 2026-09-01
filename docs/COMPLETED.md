@@ -167,6 +167,37 @@ problem.
 **Why it could not have been done sooner.** A hole could not say it was
 delimited before 9 gave holes kinds.
 
+## 12. `||` without a declarable lexer — done, 0.9.0
+
+**The problem.** `|` is the one spelling a dialect cannot have, so
+`lib/clike.phx` declared C's *or* as `\/` and wrote a paragraph apologising for
+it beside a `&&` that needed no apology.
+
+**The option that was proposed, and refused.** A `@token` directive naming a
+token and binding a spelling to it — `@token TOK_PIPE2 "||".` — so that `@infix`
+could name the token rather than the characters. Refused for two reasons. It
+does not reach the problem: what stops `|` is not that `@infix` cannot spell it
+but that `{ a | b }` would have two readings, and naming the ambiguity does not
+decide it. And it costs the property the whole design sits on from a new
+direction — not the Forth one, since a `@token` header is still read rather than
+run, but the practical one: **today any tool can tokenise any `.phx` without
+knowing what a dialect is**, and a declarable token stream makes every future
+formatter, highlighter and `grep` implement the directive before it can lex.
+
+**The shape taken instead.** `||` in the *fixed* lexer, taken before the bar,
+belonging to every dialect and declared by none. The split the proposal wanted
+already existed — `PHX_TOK_OPERATOR` is spelling only and `@infix` is meaning —
+so the question was never *how does a file name a token* but *which spellings
+are in the vocabulary*.
+
+**Why it was safe, checked rather than assumed.** A block looks for a **lone**
+bar in each of the three places it allows one, so `{ a | b }` and
+`{ x | | t | t }` never see the new token; `{ a || b }` was already an error, so
+nothing legal was taken. The one casualty, found by compiling it rather than by
+reasoning about it: `{ || … }` parsed as an empty list of temporaries and emitted
+nothing. It is `{ | | … }` now, it appeared nowhere, and it is the only thing
+this cost.
+
 ## Settled by a customer rather than by argument
 
 | | |

@@ -10,6 +10,30 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### `||`, in the fixed lexer — 0.9.0, 2026-08-31
+
+**`|` is still the block's own and always will be; `||` is two bars and not a
+bar.** The lexer takes it before the bar and hands it to every dialect, so
+`lib/clike.phx` now spells C's *or* the way C spells it and the paragraph
+apologising for `\/` is gone from that file.
+
+The proposal this answers was a `@token` directive letting a file bind a
+spelling to a named token. Refused: it does not decide the ambiguity that
+actually blocks `|`, and a declarable token stream would make every downstream
+tool implement the directive before it could lex at all. The vocabulary grew
+instead of becoming declarable, which is the same answer *a dialect that changes
+the lexer* has always had in [ROADMAP.md](ROADMAP.md).
+
+`\/` keeps its job: single `|` is still unavailable, so a bitwise *or* is still
+spelled that way, as `examples/utf8.phx` does. `lib/arith.phx` keeps `/\` and
+`\/` by choice now rather than by force, and says so.
+
+**What it cost**, checked by compiling it: `{ || … }` used to parse as an empty
+list of temporaries and emit nothing. It is `{ | | … }` now. It appeared nowhere
+in the repository, and `{ a || b }` was an error before this existed, so nothing
+else changed meaning. Five checks in `test_reader.c` hold the line, one of them
+on the thing that was taken away.
+
 ### The trailing-hole finding, retracted — `d90ea08`, 2026-08-31
 
 **No version.** Two programs had reported that a form's trailing hole swallows

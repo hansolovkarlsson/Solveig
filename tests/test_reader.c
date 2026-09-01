@@ -136,6 +136,29 @@ int main(void)
     expect("operators reach inside a block", HEADER "a := { x | x + #1 }.\n",
            "a := { x | x:add(#1) }.\n");
 
+    /* `||` is one operator token and a lone `|` is still the block's own bar,
+       which is the whole of what makes both declarable at once. The four cases
+       are the four positions a bar can stand in: as an operator, after a
+       parameter list, around temporaries, and after a parameter list *and*
+       around temporaries. */
+    expect("|| is an operator", HEADER "@infix || 25 or.\na := b || c.\n",
+           "a := b:or(c).\n");
+    expect("|| and a block's bar in one line",
+           HEADER "@infix || 25 or.\na := { x | x || y }.\n",
+           "a := { x | x:or(y) }.\n");
+    expect("|| does not disturb temporaries",
+           HEADER "@infix || 25 or.\na := { p | | t | t || p }.\n",
+           "a := { p | | t | t:or(p) }.\n");
+
+    /* What the token cost. `{ || … }` used to be an empty list of temporaries
+       and emit nothing; it is two bars now, and the way to say the same thing
+       is to space them. Written down as a test because it is the only thing
+       this feature took away. */
+    expect("an empty temporary list is spaced now",
+           HEADER "a := { | | b:print }.\n", "a := { b:print }.\n");
+    expect_rejected("'{ || … }' is no longer an empty temporary list",
+                    HEADER "a := { || b:print }.\n");
+
     /* Slot assignment, and Solveig's prefix application. */
     expect("slot assignment", HEADER "r:name := #1.\n", "r:name := #1.\n");
     expect("prefix application is a send", HEADER "a := sin(x).\n",

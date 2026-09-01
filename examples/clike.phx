@@ -34,3 +34,8 @@ do { i = i + #1 } while (i < #3).
 i:print.                          ; #3
 
 if (!(i == #0) && i <= #3) { "checked":print }.
+
+; `||` is spelled the way C spells it. `|` on its own still belongs to a
+; block, so the two live side by side in one line.
+check = { n | | seen | seen = n > #100 || n == #40. seen }.
+if (check:value(total)) { "or":print }.

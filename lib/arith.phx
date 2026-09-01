@@ -35,10 +35,13 @@
 ; does not understand.
 ;
 ; **`/\` and `\/` rather than `&&` and `||`**, which is a spelling and not a
-; limitation -- `&&` lexes perfectly well and a module that prefers it may
-; declare it. These are the pair because they are a pair: `||` cannot be
-; declared at all, `|` being the token that separates a block's parameters from
-; its body, and `&&` beside `\/` reads as two unrelated decisions. Two symbols
-; out of one tradition beat one familiar symbol and one apology.
+; limitation -- both of C's lex perfectly well and a module that prefers them
+; may declare them, as `lib/clike.phx` does. Half of the reason these were the
+; pair has since expired: `||` could not be declared at all until the lexer took
+; two bars as one token, so `&&` would have stood beside `\/` as two unrelated
+; decisions. That is fixed, and the choice stayed, because what is left of the
+; argument is the half that was never about the lexer -- this file is arithmetic
+; and logic rather than C, and `/\` with `\/` is the notation that goes with
+; saying so. C's pair lives in the file that is trying to look like C.
 @infix  /\  30 => left:and({ right }).
 @infix  \/  25 => left:or({ right }).

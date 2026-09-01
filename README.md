@@ -120,11 +120,15 @@ stack trace actually is.
 
 An operator is written out of `+ - * / < > = ! & ^ % ~ ? \` , run together as far
 as they go — so a dialect can declare `<=` without `<` having to stop existing.
+`||` joins them as a token in its own right, taken before the bar.
 
-**`|` is not among them and cannot be.** It separates a block's parameters from
-its body, and a dialect that could spell an operator `|` would be a dialect in
-which `{ a | b }` has two readings. `\/` is there to be spent on the operator
-that would have wanted it. Solveig settles the same question the same way, and
+**A lone `|` is not among them and cannot be.** It separates a block's
+parameters from its body, and a dialect that could spell an operator `|` would
+be a dialect in which `{ a | b }` has two readings. **`||` is two bars and not a
+bar**, and a block wants a lone one everywhere it looks, so the pair could be
+handed to dialects without the single one moving at all — `\/` stays what a
+bitwise `or` is spelled with, and `lib/clike.phx` spells the logical one the way
+C does. Solveig settles the same question the same way, and
 [says so](https://hansolovkarlsson.github.io/Solveig/docs/GRAMMAR.html):
 *ordered choice is what keeps that true*.
 
@@ -246,11 +250,13 @@ substitution, hygiene, provenance, the expansion trail. The operands are called
 `left` and `right` because an operator has exactly as many operands as it has,
 so there is nothing to name.
 
-**`/\` and `\/`, not `&&` and `||`.** A spelling, not a limitation: `&&` lexes
-perfectly well and a module that prefers it may declare it. These are the pair
-in `lib/arith.phx` because they *are* a pair — **`||` cannot be declared at
-all**, `|` being the token that separates a block's parameters from its body, so
-`&&` would have stood beside `\/` as two unrelated decisions.
+**`/\` and `\/`, not `&&` and `||`.** A spelling, not a limitation: both of C's
+lex perfectly well and `lib/clike.phx` declares them. Half of the reason
+`lib/arith.phx` took this pair has since expired — `||` could not be declared at
+all until the lexer took two bars as one token, so `&&` would have stood beside
+`\/` as two unrelated decisions. The half that was never about the lexer is why
+the choice stayed: that file is arithmetic and logic rather than C, and `/\`
+with `\/` is the notation that says so.
 
 ## Forms
 
@@ -578,7 +584,7 @@ integer:utf8Tail := { at |
     (#128:bitOr(self:shiftRight(at):bitAnd(#63))):asCharacter }.
 ```
 
-## What 0.8.0 is not
+## What 0.9.0 is not
 
 **A pattern has no optional or repeated parts.** `if <c> then <a> else <b>` is a
 second declaration rather than an optional tail, which is honest and costs a

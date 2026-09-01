@@ -28,11 +28,14 @@
 ; postfix ones, so none of these has a spelling. `->` alone would work as an
 ; ordinary infix if there were anything for it to mean.
 ;
-; **`||`.** `|` separates a block's parameters from its body and cannot be an
-; operator character. `\/` is the spelling that is available.
+; **`|` alone, for bitwise or.** `|` separates a block's parameters from its
+; body and cannot be an operator character. `||` is two bars rather than a bar
+; and is available, which is why `||` below is spelled the way C spells it;
+; single `|` is not, and a dialect wanting the bitwise one writes `\/` as
+; `examples/utf8.phx` does.
 
 @infix  =   10 => left := right.
-@infix  \/  25 => left:or({ right }).
+@infix  ||  25 => left:or({ right }).
 @infix  &&  30 => left:and({ right }).
 
 @infix  ==  40 equals.

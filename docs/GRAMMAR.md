@@ -76,7 +76,7 @@ not have a second one.
 | string | `"…"`, `\` escaping the next character |
 | symbol | `'` and then a name |
 | directive | `@` and then a name |
-| operator | one or more of `+ - * / < > = ! & ^ % ~ ? \` |
+| operator | one or more of `+ - * / < > = ! & ^ % ~ ? \`, or `||` |
 | comment | `;` to the end of the line |
 
 Everything but `operator` is Solveig's own spelling, so a file can be read by
@@ -87,7 +87,16 @@ the two are meant to differ, and nowhere else.**
 is what tells a block's parameters from its body, and the rest are the core
 syntax of a send, a statement and an argument list. A dialect gets the
 characters that mean nothing until it says so — `\` is in the list for the
-dialect that wants `\/` for an `or` it cannot spell `|`.
+dialect that wants `\/` for the bitwise `or` it cannot spell `|`.
+
+**`||` is a token even though `|` is not**, taken by the lexer before the bar
+and belonging to every dialect rather than to any declaration. It is two bars
+and not a bar: a block looks for a *lone* bar in each of the three places it
+allows one, so `{ a | b }` and `{ x | | t | t }` keep their single reading and
+`{ a || b }` was an error before the token existed. The one thing it cost is
+`{ || … }`, which used to be an empty list of temporaries; that is `{ | | … }`
+now. This is where the C-like dialect gets `||` without the lexer becoming
+something a file can change.
 
 **Operator characters run together as far as they go.** `a<=b` is one operator
 `<=` and not `<` then `=`, which is what lets a dialect declare `<=` without `<`
