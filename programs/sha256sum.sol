@@ -265,11 +265,30 @@ sha256:hex := { n | | s |
 ; ---------------------------------------------------------------------------
 ; Where the bytes come from
 ;
-; **65536 is a multiple of 64**, which is the only property the chunk size needs:
-; it keeps `pending` empty for every call but the last, so no chunk is ever
-; copied. Anything from 64 upwards works, and the size makes no measurable
-; difference -- at one megabyte a second the read is not what this program is
-; waiting for.
+; **65536 is a multiple of 64**, which keeps `pending` empty for every call but
+; the last so that no chunk is ever copied. That is the property the *code*
+; needs. The size is a separate question and it is **not** free, which a first
+; draft of this comment asserted without measuring.
+;
+; **A ranged read costs about 30 microseconds whatever it reads.** One byte,
+; sixty-four, four kilobytes, sixty-four kilobytes -- all the same, because the
+; cost is the `fopen` and not the bytes. Beside it, `fileSize`, `fileExists` and
+; `modifiedAt` cost **0.65 us**: they `stat` and never open. Forty-five times.
+;
+; So the chunk is what amortises an open, and a megabyte hashed at `-O2` says
+; so:
+;
+;     chunk       1 MB
+;     64          1.49 s    62% slower -- 16,384 opens
+;     256         1.19 s
+;     4096        0.96 s
+;     65536       0.93 s
+;     1 MB        0.92 s
+;
+; Flat from about four kilobytes, which is where 30 us stops being visible next
+; to the arithmetic. **This is a property of the machine rather than of the
+; primitive**: plain C doing `fopen`, `fread` of 64 bytes and `fclose` on the
+; same file measures 28 us here, so `readFile` adds one or two.
 
 chunk := #65536.
 
@@ -292,8 +311,8 @@ sha256:ofFile := { path | | s, at, part |
 ; It costs almost nothing. A megabyte through a pipe takes 1.02 s against 0.92 s
 ; for the same megabyte named as a file, so reading a byte at a time and
 ; assembling it is **a tenth** of a program doing this much arithmetic --
-; and `readKey` on its own runs at 18.6 MB/s, eighteen times faster than the
-; hash it is feeding. The byte-at-a-time reader that would be a disaster in a
+; and `readKey` on its own runs at about 18 MB/s (17.2 to 19.6 over five runs),
+; seventeen times faster than the hash it is feeding. The byte-at-a-time reader that would be a disaster in a
 ; text filter is invisible behind arithmetic this expensive. The one-byte
 ; strings go into an array and are joined rather than concatenated in turn, so
 ; that building a chunk stays linear.
@@ -806,11 +825,21 @@ handed anything first.
 ; have. **A shape that serves both a seek and a scan with no state between calls
 ; is the entry's argument holding up under a use it did not have in mind.**
 ;
-; The one thing worth adding to that entry: the chunk size is the caller's
-; business and it turns out not to matter. 65536 is here because it is a
-; multiple of 64, so no block is ever split across two reads and nothing is
-; copied. Any multiple of 64 measures the same, because at a megabyte a second
-; the read is not what the program is waiting for.
+; **And the second caller found the price the first could not.** A range with no
+; handle means no open is held, so every call opens the file again -- and an
+; open costs about 30 microseconds on this machine against 0.65 for the `stat`
+; behind `fileSize`, forty-five times. `tail` does one or two reads per
+; invocation and cannot see that. A program that streams does it 16,384 times a
+; megabyte, so the chunk size stops being an arbitrary constant and becomes the
+; thing that amortises the open: 64 bytes costs 62% more than 65536, and the
+; curve is flat from about four kilobytes.
+;
+; **That is a price and not a defect**, and it does not argue for a handle. The
+; open is `fopen`'s -- C measures 28 us for the same open, read and close -- so
+; a handle would move the cost rather than remove it, and it would buy back
+; exactly the lifetime the entry refused. What it argues for is a sentence in
+; the reference, since a caller choosing a chunk size is choosing how often to
+; pay 30 microseconds and nothing said so.
 ;
 ; ---------------------------------------------------------------------------
 ; And the oracle earned itself twice in ten minutes

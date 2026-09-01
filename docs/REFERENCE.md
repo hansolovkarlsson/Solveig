@@ -1537,6 +1537,23 @@ system:readFile("huge.log", size:sub(#4095), #4096).   ; the last 4 KB
 A 3 GB file answers that in 7 ms with under 2 MB resident — reading it whole is
 refused, and does not have to be attempted.
 
+**What a call costs, which matters when a program makes many of them.** Having
+no handle means no file is held open, so every call opens the file again: a read
+costs **about 30 microseconds whatever its size** — one byte and sixty-four
+kilobytes measure the same, because the cost is the open and not the bytes.
+`fileSize`, `fileExists` and `modifiedAt` cost **0.65 microseconds** beside it,
+having only to `stat`.
+
+So a program reading a file in pieces is choosing how often to pay that. Hashing
+a megabyte 64 bytes at a time is 62% slower than doing it 64 kilobytes at a
+time, and the difference is flat from about four kilobytes upward. A poll loop
+should ask `fileSize` and read only when the answer changed, which is what
+[tail.sol](../programs/tail.sol) does and why following an idle file costs no
+measurable CPU.
+
+It is the machine's price rather than this language's: plain C doing the same
+`fopen`, `fread` and `fclose` measures 28 microseconds on the same machine.
+
 #### Reading it whole, and what that costs
 
 **Two gigabytes is the hard limit** for the whole-file form, a string's length

@@ -15,7 +15,7 @@
 # in two files, and ROADMAP 5.5 is what that costs. Nothing about the harness
 # was sed's; what is sed's is the corpus. The third caller generalised it twice
 # more, in the same way: `sha256sum` is not in `/usr/bin` on this machine, and
-# its two routes in differ by the *name* they print rather than by the answer.
+# its two ways in differ by the *name* they print rather than by the answer.
 #
 # Every other check a program here gets is a transcript its own author recorded,
 # which can only catch what the author thought to check. The system `sed` was
@@ -68,6 +68,11 @@
 # so and bounds it -- the pipe's output must be the file's with the input path
 # replaced by a dash, and anything else is news. That is a full check rather
 # than a waiver, which is the difference between it and `tworoutes:`.
+#
+# It was proved to fail rather than assumed to: a sha256sum whose standard-input
+# path drops its last partial chunk -- a defect invisible to every other check
+# here, since the named-file route is untouched and the oracle is never asked
+# about the pipe -- is reported by this escape on most of the corpus at once.
 #
 #   ORACLE        the command to compare against. `/usr/bin/<name>` when there
 #                 is one, and otherwise whatever the name finds on the PATH --

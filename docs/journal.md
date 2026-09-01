@@ -246,9 +246,47 @@ header had quoted that usage line as though it bounded the tool. Three
 `differ/` cases now, so the subset is something that fails rather than a
 sentence nobody rechecks.
 
-**What the pass says about the day.** Every one of the four came from doing the
+**A comment that said *measured* and was not.** The chunk size carried "the size
+makes no measurable difference — at one megabyte a second the read is not what
+this program is waiting for", which reads like a measurement and was a
+plausible-sounding guess. It is wrong: 64 bytes a chunk is **62% slower** than
+64 kilobytes on a megabyte.
+
+The reason is the better half. **A ranged read costs about 30 microseconds
+whatever it reads** — one byte and sixty-four kilobytes measure the same,
+because the cost is the `fopen` — while `fileSize`, `fileExists` and
+`modifiedAt` cost **0.65**, having only to `stat`. Forty-five times, and having
+no handle means every call pays it again.
+
+**That is the price of the shape 3.22 chose, and the second caller is what found
+it.** `tail` was written to check the call and reported that it wanted nothing,
+which holds — it reads once or twice per invocation and an open per call is
+invisible at that rate. This one streams and pays it 16,384 times a megabyte.
+The chunk size stops being an arbitrary constant and becomes the thing that
+amortises the open.
+
+**And it does not reopen the decision**, which is the part worth being careful
+about. Plain C doing the same `fopen`, `fread` and `fclose` on the same file
+measures 28 microseconds, so the cost is the machine's and a handle would move
+it rather than remove it — while buying back exactly the lifetime the entry
+refused. What it argued for was a sentence, now in
+[REFERENCE.md](REFERENCE.md#a-range-of-a-file) and in
+[3.22](COMPLETED.md#322-a-file-is-read-whole-or-not-at-all--done).
+
+**And one check was shown to fail rather than assumed to.** `pipenames:` is the
+escape added to `programs/oracle.sh` for a program that names its input: the
+pipe's output must be the file's with the path replaced by a dash. That is only
+worth having if it can fail, so it was made to — a `sha256sum` whose
+standard-input path drops its last partial chunk is a defect *no other check
+here would see*, since the named-file route is untouched and the oracle is never
+asked about the pipe. It is reported on most of the corpus at once. **What would
+have to be broken for this to fail** is a question with an answer now, rather
+than a hope.
+
+**What the pass says about the day.** Every one of the five came from doing the
 thing rather than re-reading the note about it — re-measuring, going to look at
-`conformance.sh`, running `-c` on a directory, typing `--tag`. None would have
+`conformance.sh`, running `-c` on a directory, typing `--tag`, timing a chunk
+size instead of asserting one. None would have
 been caught by reading more carefully, which is the same conclusion this page
 reached twice already this week and is apparently a lesson that needs learning
 on each new kind of work.
@@ -270,7 +308,8 @@ otherwise, and it is the fifth instance in two days.
 **What was nearly missed.** The `-z` NUL case was found by a check written for
 completeness rather than by suspicion — a two-entry `-z` list, added to `-c`
 because it was cheap. The failure it exposed printed `OK`. The review pass then
-found four more, above, one of them a number in the headline.
+found five more, above, one of them a number in the headline and one of them a
+comment that said *measured* about something nobody had measured.
 
 **What is worth carrying.** *Measure the helper.* The rotate cost a third of the
 program and looked like the most obviously correct line in the file. Nothing

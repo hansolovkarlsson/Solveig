@@ -1853,6 +1853,18 @@ answers to ten long options it never mentions — `--tag`, `--quiet` and
 with an unknown option, so what is deliberately absent fails a check rather than
 sitting in prose.
 
+**And the second caller found the price the first could not.** A range with no
+handle means no open is held, so every call opens the file again: a ranged read
+costs **about 30 us whatever its size**, against **0.65 us** for the `stat`
+behind `fileSize` — forty-five times. `tail` reads once or twice per invocation
+and cannot see that; this streams, and pays it 16,384 times a megabyte, so the
+chunk size is what amortises an open. 64 bytes is 62% slower than 64 KB on a
+megabyte and the curve is flat from about 4 KB. It is a price and not a defect —
+plain C measures 28 us for the same open, read and close — so it argues for a
+sentence in the reference rather than for a handle, and
+[3.22](COMPLETED.md#322-a-file-is-read-whole-or-not-at-all--done) now carries
+both.
+
 **It is the second caller of the ranged read, going the other way.** `tail`
 seeks backwards to a place it computed; this walks forwards from byte one in
 64 KB pieces and never looks back, so nothing here ever holds a file — which
@@ -1868,7 +1880,7 @@ holding up under a use it did not have in mind.
 | --- | --- |
 | `sh programs/oracle.sh sha256sum` | 21 cases that must agree, each both as a named file and down a pipe, and 3 that must not |
 | `sh programs/sha256sum/vectors.sh` | the published FIPS 180-4 and NIST digests, and the bytes a `.case` file cannot carry |
-| `sh programs/sha256sum/check.sh` | `-c` against the oracle on a directory of files: 17 agreeing, 2 not |
+| `sh programs/sha256sum/check.sh` | `-c` against the oracle on a directory of files: 18 agreeing, 3 not |
 
 The vectors are the point: an oracle can be wrong in the same direction as
 anything derived from it, and SHA-256 has answers printed in a standard before

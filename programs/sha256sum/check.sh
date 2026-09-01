@@ -82,6 +82,15 @@ printf '\n\n\n' > only-blanks.sums
 $oracle -z one.txt              > z-one.sums
 $oracle -z one.txt two.txt      > z-many.sums
 
+# Two lists in one invocation. The warning counts across both, in both tools,
+# and nothing else here runs -c over more than one file.
+$oracle two.txt > second.sums
+awk '{ $0 = ($0 ~ /^f/ ? "0" : "f") substr($0, 2); print }' second.sums > second-wrong.sums
+
+# `-` named inside a list. This reads standard input and the oracle does not:
+# see the differ section.
+printf '%s  -\n' "$(printf 'hello\n' | $oracle | awk '{ print $1 }')" > dash.sums
+
 bad=0
 ok=0
 
@@ -128,6 +137,7 @@ compare "a list that is not there"             -c nosuch.sums
 compare "a -z list of one entry"               -c z-one.sums
 compare "a -z list of several, which is one line to both" -c z-many.sums
 compare "a directory named in a list"          -c directory.sums
+compare "two lists at once, both wrong"        -c one-wrong.sums second-wrong.sums
 
 echo
 echo "differ -- these must not, and here is why"
@@ -161,6 +171,23 @@ else
 WHY
 fi
 
+if compare "a list naming - as a file" -c dash.sums < one.txt; then
+    ok=$((ok - 1))
+    printf '  AGREES    the divergence has gone, and this file still claims it\n'
+    bad=$((bad + 1))
+else
+    bad=$((bad - 1))
+    cat <<'WHY'
+            `-` in a list means standard input here and a file literally named
+            `-` to the oracle, which then reports it missing. This is the one
+            place the program deliberately does more than the tool, and the
+            reason is consistency rather than an appeal to anyone else: `-` is
+            standard input on the command line, and a name is a name wherever
+            it is read. What GNU coreutils does with it is not checked here
+            because there is no GNU sha256sum on this machine to ask.
+WHY
+fi
+
 echo
 echo "and one difference that is not a difference:"
 $oracle -c all-wrong.sums > /dev/null 2>&1
@@ -182,7 +209,7 @@ fi
 
 echo
 if [ "$bad" -eq 0 ]; then
-    echo "$ok agree, and both divergences are still there: nothing new."
+    echo "$ok agree, and all three divergences are still there: nothing new."
     exit 0
 fi
 echo "$bad to look at."

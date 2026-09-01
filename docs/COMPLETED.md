@@ -433,6 +433,35 @@ because a file may grow or shrink between the seek and the read.
 **What is still true**: a string holds at most two gigabytes, so `count` is
 bounded even though the *file* no longer is.
 
+#### What the second caller found, which the first could not
+
+`tail` was written to check this call and reported that it wanted nothing. That
+holds; **what it could not see is the price of having no handle**, because it
+reads a file once or twice per invocation.
+
+[sha256sum.sol](../programs/sha256sum.sol), on 2026-08-31, streams a whole file
+through this call and pays it 16,384 times a megabyte. Measured at `-O2`:
+
+| | |
+| --- | --- |
+| a ranged read, any size from 1 byte to 64 KB | **~30 us** |
+| `fileSize`, `fileExists`, `modifiedAt` | **0.65 us** |
+
+**The cost is the open and not the bytes**, and having no handle means every
+call opens the file again. So a streaming caller's chunk size stops being an
+arbitrary constant: hashing a megabyte 64 bytes at a time is **62% slower** than
+64 kilobytes at a time, and the curve is flat from about four kilobytes.
+
+**It is a price rather than a defect and it does not reopen the decision.** The
+30 microseconds is `fopen`'s — plain C doing the same open, read and close
+measures 28 on the same machine — so a handle would move the cost rather than
+remove it, and would buy back exactly the lifetime this entry refused. What it
+argued for was a sentence, and
+[REFERENCE.md](REFERENCE.md#a-range-of-a-file) now carries it: a caller reading
+in pieces is choosing how often to pay for an open, and a poll loop should ask
+`fileSize` first, which is what `tail -f` already does and why following an idle
+file costs no measurable CPU.
+
 #### The order this was built in, which the scoping got wrong first
 
 The plan was to write `tail` first and let it ask,

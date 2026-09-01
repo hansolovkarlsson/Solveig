@@ -89,7 +89,7 @@ the opposite conclusion, and whether the machine should refuse is
 **Three checks, and one of them is a kind this repository did not have.**
 `sh programs/oracle.sh sha256sum` runs 21 corpus cases both as a named file and
 down a pipe, with three more that must **not** agree; `programs/sha256sum/check.sh`
-runs 17 `-c` cases against the oracle on a directory of files, with two that
+runs 18 `-c` cases against the oracle on a directory of files, with three that
 must not; and **`programs/sha256sum/vectors.sh` holds the program
 against the digests printed in FIPS 180-4**, which does not depend on another
 implementation being right at all. An oracle can be wrong in the same direction
@@ -106,6 +106,18 @@ not a malformed line in either tool" — which had not been tried, and is false.
 Against itself: `-c` reports a missing file with two spaces, having kept the
 separator in front of the name, which `check.sh` records as a divergence rather
 than copying.
+
+**A ranged read costs about 30 microseconds whatever it reads**, because the
+cost is the `fopen` and not the bytes, against 0.65 for the `stat` behind
+`fileSize`. Having no handle means every call opens the file again — which
+`tail`, reading once or twice per invocation, could not see, and which a
+streaming caller pays 16,384 times a megabyte. So a chunk size is not an
+arbitrary constant: 64 bytes is **62% slower** than 64 KB on a megabyte, flat
+from about 4 KB up. Plain C measures 28 us for the same open, read and close, so
+it is the machine's price rather than the primitive's, and it argues for a
+sentence rather than for a handle.
+[REFERENCE.md](REFERENCE.md#a-range-of-a-file) and
+[3.22](COMPLETED.md#322-a-file-is-read-whole-or-not-at-all--done) now carry it.
 
 **The subset is bounded by a corpus rather than by a sentence.** This program
 writes `[-bctwz]`, which is the whole of the oracle's *usage line* and not the
