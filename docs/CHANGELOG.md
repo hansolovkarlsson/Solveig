@@ -10,6 +10,41 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### `programs/digest` — 2026-08-31
+
+**No version.** SHA-256, and the third program written in Phoenix. It agrees
+with `shasum -a 256` on the three FIPS 180-4 vectors and five block-boundary
+cases, all eight checked against an independent oracle before the expected file
+was written, and its file mode is byte-identical to the system tool.
+
+**The first customer for the operator half.** `ember` and `grammar` both leaned
+on `@syntax` patterns; this is nothing but shifts, rotations, exclusive-ors and
+masked additions. It was chosen because Solveig's own `programs/sha256sum` wrote
+the gap down — *`@expr` has no bit operators, so the one file here that is
+nothing but shifts, xors and masks is the one file that cannot use the notation
+at all* — and Phoenix has claimed the answer to that in the abstract since
+0.1.0 with nothing to point at.
+
+**What it found**, in full in [its README](../programs/digest/README.md):
+
+- **A dialect can carry a rule rather than a spelling.** Solveig's version needs
+  twenty-three `bitAnd`s written by hand because integers trap rather than
+  wrapping. This one needs none: `+` *is* addition modulo 2³², declared once in
+  a header. That is new in kind — ember's and grammar's dialects only ever saved
+  typing.
+- **A template costs less than a method, and not much less.** Measured by binary
+  search on `--steps`: 1,362,533 instructions against 1,437,417. The template
+  saves 2.03 instructions per rotation by not calling, and spends 2.00
+  recomputing the `#32:sub(#17)` that nothing folds. **It gives back 98% of what
+  it saves**, which is now an open roadmap item with a number attached.
+- **A wrong precedence is silent.** `*` declared on `+`'s rung made `at + i * #4`
+  into `(at + i) * #4`; it compiled, ran, and failed as an array index four
+  calls deep. The operator half's version of *choosing the shape wrongly is
+  silent*.
+- **The 0.4.0 collision rules got their first real customer**, and the answer was
+  not to compose: `sha2.phx` beside `lib/control.phx` collides on four operators
+  and the losing order hashes wrongly.
+
 ### `||`, in the fixed lexer — 0.9.0, 2026-08-31
 
 **`|` is still the block's own and always will be; `||` is two bars and not a

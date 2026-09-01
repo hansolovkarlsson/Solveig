@@ -658,12 +658,13 @@ predicate logic, which turns out to be three questions wearing one name.
 
 ## The programs
 
-**Two, and they are why several of the versions above exist.**
+**Three, and they are why several of the versions above exist.**
 
 | | |
 | --- | --- |
 | [`programs/ember`](programs/ember) | a small language compiled to ARM64 assembly, all the way to a running binary. Found the gap that became 0.7.0. |
 | [`programs/grammar`](programs/grammar) | a grammar toolkit. Declined the roadmap's repetition item with a reason. |
+| [`programs/digest`](programs/digest) | SHA-256, agreeing with `shasum -a 256`. The first customer for the *operator* half, and the one that measured what a form costs at run time. |
 
 Each carries a table of predictions recorded **before** it was written and a
 *What it found* section written after. Predictions that were wrong stay in,

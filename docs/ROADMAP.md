@@ -33,6 +33,36 @@ block, or another use of me* for C's `else` and could not say it, so a chain
 wants its braces. Worked around; recorded because it is the same shape as
 optional parts and would want deciding with them.
 
+**A template's constants are never folded, and it costs what the template
+saves.** `@infix >>> 55 => (left:shiftRight(right)):bitOr((left:shiftLeft(#32:sub(right))):bitAnd(#4294967295)).`
+expands with `#32:sub(#17)` inside it, evaluated once per use at run time.
+`programs/digest` measured both halves on a 4 KB hash, by binary search on
+`--steps`:
+
+| | instructions |
+| --- | ---: |
+| `>>>` expanded as a template | 1,362,533 |
+| `>>>` as a method on `integer` | 1,437,417 |
+| saved by not calling | 74,884 — 2.03 per rotation |
+| spent on the unfolded constant | 73,728 — 2.00 per rotation |
+
+**A form gives back 98% of what it saves**, so *a form is a method that costs
+nothing at run time* is not true today. Folding would win 5.4% on that program.
+
+**It is not obviously safe, which is why this is an entry and not a patch.**
+Folding `#32:sub(#17)` means evaluating a send at expand time, and `integer:sub`
+is a slot a Solveig program may assign. An expander that folds has decided some
+sends are safe to run — the same question [rules-and-logic.md](rules-and-logic.md)
+asks about guards, one size smaller. **The rule to settle first: which sends, and
+who is allowed to have redefined them.**
+
+**A dialect ends at its domain and cannot say where.** `programs/digest` declares
+`+` as addition modulo 2³², which is right for every line of SHA-256 and a trap
+for the loop counters beside it — `shift - #8` at zero is `#4294967288` and the
+loop never ends, so those lines are written with sends and a comment. No
+proposal; recorded because a second program with a domain-shaped dialect would
+make it a pattern rather than an anecdote.
+
 ## Waiting on a customer — optional and repeated parts
 
 **Declined twice, and the second time with a reason.**

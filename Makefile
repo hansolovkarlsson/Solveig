@@ -79,6 +79,11 @@ GRAMMAR_SRCS  = $(wildcard $(GRAMMAR)/examples/*.phx)
 GRAMMAR_SOLS  = $(GRAMMAR_SRCS:.phx=.sol)
 GRAMMAR_SOBS  = $(GRAMMAR_SRCS:.phx=.sob)
 
+# programs/digest -- a third customer, and the first for the *operator* half of
+# Phoenix: sixty-four rounds of shifts, rotations and masked additions, in the
+# notation FIPS 180-4 writes them in.
+DIGEST = programs/digest
+
 # The Solveig a `.sol` is about to be handed to, read from the same header its
 # binaries report their version out of. Checked rather than assumed because the
 # failure it prevents is unhelpful: `solas` not being there gives a shell error
@@ -88,13 +93,13 @@ SOLVEIG_VERSION = $(shell grep SOLUM_VERSION \
                     $(SOLVEIG)/solum/include/solum/common.h 2>/dev/null \
                     | tr -d '"' | awk '{print $$3}')
 
-.PHONY: all test run examples ember grammar check install uninstall dist clean
+.PHONY: all test run examples ember grammar digest check install uninstall dist clean
 
 # Without this, make treats a generated .sol as an intermediate and deletes it
 # after the .sob is built -- taking the map with it. Both are the artefacts
 # somebody reaches for when the generated code is what they need to read.
 .SECONDARY: $(EXAMPLE_SOLS) $(EMBER)/emberc.sol $(EMBER)/emberc.sob $(EMBER_ASM) \
-            $(GRAMMAR_SOLS)
+            $(GRAMMAR_SOLS) $(DIGEST)/sha256.sol
 
 all: $(BIN)/phoenix
 
@@ -166,6 +171,18 @@ $(GRAMMAR)/examples/%.sob: $(GRAMMAR)/examples/%.sol | check
 grammar: $(GRAMMAR_SOBS)
 	@for g in $(GRAMMAR_SOBS); do echo "-- $$g"; $(SOLVEIG)/bin/solvm $$g; done
 
+$(DIGEST)/sha256.sol: $(DIGEST)/sha256.phx $(DIGEST)/sha2.phx $(BIN)/phoenix
+	@$(BIN)/phoenix --map $< -o $@
+
+$(DIGEST)/sha256.sob: $(DIGEST)/sha256.sol | check
+	@$(SOLVEIG)/bin/solas $< -o $@
+
+# With no arguments it hashes the vectors it carries, which is the check; with a
+# file it is the tool. The expected digests are the ones printed in FIPS 180-4
+# and the ones `shasum -a 256` gives, which agreed before this was committed.
+digest: $(DIGEST)/sha256.sob
+	@$(SOLVEIG)/bin/solvm $(DIGEST)/sha256.sob
+
 run: examples/vectors.sob
 	@$(SOLVEIG)/bin/solvm examples/vectors.sob
 
@@ -173,7 +190,8 @@ run: examples/vectors.sob
 # that SolVM executes. A front end that emits text can be wrong in a way no unit
 # test sees -- valid-looking Solveig that Solveig rejects, or accepts and reads
 # differently -- and the only witness to that is the real compiler.
-test: $(BIN)/phoenix $(TEST_BINS) $(EXAMPLE_SOBS) $(EMBER_BINS) $(GRAMMAR_SOBS)
+test: $(BIN)/phoenix $(TEST_BINS) $(EXAMPLE_SOBS) $(EMBER_BINS) $(GRAMMAR_SOBS) \
+      $(DIGEST)/sha256.sob
 	@for t in $(TEST_BINS); do echo "-- $$t"; $$t || exit 1; done
 	@for e in $(EXAMPLE_SOBS); do echo "-- $$e"; \
 	    $(SOLVEIG)/bin/solvm $$e > /dev/null || exit 1; done
@@ -181,6 +199,9 @@ test: $(BIN)/phoenix $(TEST_BINS) $(EXAMPLE_SOBS) $(EMBER_BINS) $(GRAMMAR_SOBS)
 	    $$b | diff -u $${b%.out}.expected - || exit 1; done
 	@for g in $(GRAMMAR_SOBS); do echo "-- $$g"; \
 	    $(SOLVEIG)/bin/solvm $$g | diff -u $${g%.sob}.expected - || exit 1; done
+	@echo "-- $(DIGEST)/sha256.sob"
+	@$(SOLVEIG)/bin/solvm $(DIGEST)/sha256.sob \
+	    | diff -u $(DIGEST)/sha256.expected - || exit 1
 	@echo "all tests passed"
 
 # The dialects go in beside the binary, and nothing looks for them there.

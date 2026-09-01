@@ -9,12 +9,12 @@ shipped. This is the failures.
 
 ## Scope
 
-Eleven, from one day, in four cohorts that failed for four different reasons:
+Twelve, from one day, in four cohorts that failed for four different reasons:
 
 - **In the compiler** — three, two of which were latent from 0.1.0 and 0.2.0.
 - **In the documents** — three, all of them an edit that reported success and
   changed nothing.
-- **In the programs** — three, found by the first real use of a thing.
+- **In the programs** — four, found by the first real use of a thing.
 - **In the reasoning** — two, where something true was written down as something
   else and had to be retracted.
 
@@ -185,6 +185,30 @@ not in `GRAMMAR.md`**, where somebody choosing a shape would look.
 **What is real**, and is now the entry: choosing the shape wrongly is *silent*.
 Both readings are legal, so nothing at the declaration can warn.
 
+### 12. A precedence declared on the wrong rung
+
+**What.** `programs/digest/sha2.phx` declared `*` and `%` at 60, the rung `+` is
+on. `at + i * #4` therefore parsed as `(at + i) * #4`, and the message schedule
+read the wrong bytes of every block.
+
+**It compiled, and it ran.** What stopped it was `index #65 is out of bounds for
+an array of size 64`, four calls deep in generated Solveig, pointing at a line
+of `.sol` that no one wrote.
+
+**Cause.** A module declares its own ladder, so there is no ladder to be wrong
+against — `@infix * 60` is as legal as `@infix * 70` and means something
+different. `lib/arith.phx` puts `*` at 70 and this file did not copy it, being
+standalone on purpose.
+
+**Found by** running it. No test could have: the file is its own authority on
+what its operators bind like.
+
+**What is real**, and it is 11's shape one level over: choosing a *precedence*
+wrongly is as silent as choosing a *form's shape* wrongly, and for the same
+reason — both readings are legal, so nothing at the declaration can warn. The
+difference is that a wrong shape usually fails at the use, and a wrong
+precedence computes a different number and keeps going.
+
 ---
 
 ## The tally
@@ -193,14 +217,14 @@ Both readings are legal, so nothing at the declaration can warn.
 | --- | --- |
 | A test written earlier, for something else | **1** |
 | A test that was itself wrong | **1** |
-| Writing a real program in the language | **3** |
+| Writing a real program in the language | **4** |
 | Checking output by hand rather than trusting a clean run | **2** |
 | Reading a document because somebody asked a question about it | **2** |
 | Re-checking a claim before acting on it | **1** |
 | `git status` before a commit | **1** |
 
-**Two of eleven were found by tests, and one of those two was a broken test.**
-Three came from the two programs written in the language, and three more came
+**Two of twelve were found by tests, and one of those two was a broken test.**
+Four came from the three programs written in the language, and three more came
 from reading something rather than running it.
 
 The unit tests are worth having — 103 of them, and they caught 1 immediately —

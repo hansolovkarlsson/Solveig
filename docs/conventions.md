@@ -51,7 +51,7 @@ teaches nothing.
 **Every text replacement asserts its match.** A replacement that matches nothing
 is not an error; it is a no-op that reports success, and three of them left the
 roadmap four versions stale while commit messages said otherwise. Three of
-eleven recorded defects are this one mistake.
+twelve recorded defects are this one mistake.
 
 **Read Solveig's own documents before designing anything that overlaps.** The
 collision rule, the binding rules that made 0.3.0 one pass instead of a

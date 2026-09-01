@@ -11,6 +11,83 @@ produced no code because they were decisions.
 
 ---
 
+## 2026-08-31, later — a question about `|`, and the third program
+
+The day did not end where the entry below says it did.
+
+### A confusion that was worth having
+
+The question was why `|` could not be an operator, and the proposal was a
+`@token` directive: name a token, bind a spelling to it, and let `@infix` name
+the token instead of the characters. It was refused, and working out *why* took
+longer than the feature that came out of it.
+
+The proposal does not reach the blocker. What stops `|` is not that `@infix`
+cannot spell it — `\/` needs no help and declares fine — it is that
+`{ a | b }` has two complete legal readings once `|` means something, and the
+declaration is not on that line to disambiguate them. **A collision between core
+syntax and declared syntax happens at the use, and no spelling of the
+declaration reaches it.** The split the proposal wanted already existed:
+`PHX_TOK_OPERATOR` is spelling only and `@infix` is meaning, so the real question
+was never *how does a file name a token* but *which spellings are in the
+vocabulary*.
+
+So the vocabulary grew. **`||` is two bars and not a bar** — the lexer takes it
+before the bar, hands it to every dialect and lets none of them declare it, and
+`{ a || b }` was already an error so nothing legal was taken. The one casualty
+was `{ || … }`, an empty temporary list that emitted nothing and appeared
+nowhere. That is 0.9.0, and `lib/clike.phx` stopped apologising for `\/`.
+
+**What made it cheap was checking rather than reasoning.** Both risky cases were
+compiled before the change was written. One of them turned out to be a real cost
+and the other turned out to be already-illegal, and neither was obvious from
+reading the parser.
+
+### The third program, and the first one that measured anything
+
+`programs/digest` — SHA-256 — was chosen because Solveig's own `sha256sum` wrote
+the gap down in its findings: *`@expr` has no bit operators, so the one file here
+that is nothing but shifts, xors and masks is the one file that cannot use the
+notation at all.* Phoenix's ROADMAP has claimed the answer to that since 0.1.0
+with nothing to point at. Same algorithm, same substrate, one file with a fixed
+infix region and one that declares its own.
+
+Five predictions, recorded first. Three right, one right and duller than hoped,
+**one wrong** — and the wrong one is the whole value of the program.
+
+The claim was *a form is a method that costs nothing at run time*, since a
+template expands rather than calls. It is not true. Measured by binary search on
+`--steps`, the way Solveig's own program measured its version: the template
+saves **2.03 instructions per rotation** by not calling, and spends **2.00**
+recomputing a `#32:sub(#17)` that nothing folds. **It gives back 98% of what it
+saves.** Two predictions that were written as separate lines turned out to be one
+finding with the numbers meeting in the middle.
+
+That is now a roadmap item with a measurement attached, and deliberately not a
+patch: folding a send at expand time means deciding which sends are safe to run,
+and `integer:sub` is a slot a Solveig program may assign. It is the guard
+question one size smaller, and it gets the same treatment.
+
+**What the program found that nobody predicted** was three things, and the best
+of them is that **a wrong precedence is silent**. `*` was declared on `+`'s rung,
+`at + i * #4` became `(at + i) * #4`, it compiled, it ran, and it failed as an
+array index four calls deep in generated code. A module declares its own ladder,
+so there is no ladder to be wrong against. It is defect 11's shape one level
+over: both readings legal, nothing at the declaration able to warn.
+
+The other two: **a dialect ends at its domain and cannot say where** — `+`
+masking to 32 bits is right for SHA-256 and a trap for the loop counter beside
+it — and **0.4.0's collision rules got their first real customer**, four
+collisions against `lib/control.phx`, reported exactly as designed, and the
+answer was to not compose.
+
+### The number, again
+
+Twelve defects now, and still **two found by tests**. Four have come from
+writing programs in the language. The third program cost an afternoon and moved
+one roadmap item from a claim to a measurement, which is what the first two did
+and is the reason there will be a fourth.
+
 ## 2026-08-31 — the whole of it: nineteen commits, eight versions, and two programs that disagreed with the roadmap
 
 The day began with a question rather than a task: *a meta-language, with
