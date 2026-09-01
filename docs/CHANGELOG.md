@@ -5,6 +5,43 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### A group was two literal parentheses, and two programs said otherwise — `pending`, 2026-09-01
+
+**No change to the language.** A defect in [lib/pattern.sol](../lib/pattern.sol)
+and the two shipped programs that ran on it.
+
+`\(` was read as a literal parenthesis, so a valid sed script came out
+**inverted on both counts**:
+
+```text
+input            /usr/bin/sed      sed.sol, before
+xx (ab)c xx  ->  xx (ab)c xx   ->  xx YES xx      substituted; should not have
+yy abc yy    ->  yy YES yy     ->  yy abc yy      did not; should have
+```
+
+No error, exit 0. A back-reference was the same: `s/\(a\)\1/DOUBLE/` answered
+`aa b` where sed answers `DOUBLE b`.
+
+**Both programs claimed otherwise, one of them in as many words.**
+[sed.sol](../programs/sed.sol)'s header had said for the life of the file that
+such a script *will be refused rather than misread* — a description of what
+somebody meant to write, never run. [edit.sol](../programs/edit.sol)'s `/` said
+nothing at all, which is worse in an editor whose users arrive with vi muscle
+memory: `/\(ab\)c` searched for the characters `(ab)c` and found the wrong
+thing.
+
+**The guard went into the library, not the callers.** `\(`, `\)`, `\{`, `\}`,
+`\1`–`\9`, `\+`, `\?` and `\|` now raise and name themselves; `\.`, `\\`, `\$`
+and the rest are untouched. `pattern.sol` is what knows its own subset, and two
+copies of that test is what the admission rule exists to prevent.
+
+**The corpus is where this should have been caught**, and the finding is worth
+more than the fix: sixty cases in `programs/sed/agree/` and **not one used
+`\(`**. An author-written corpus tests what its author thought of.
+[method.md](method.md#an-author-written-corpus-tests-what-its-author-thought-of)
+carries the rule now, with the two missing cases added to `differ/` — because a
+refusal is a behaviour and belongs in the corpus with its reason.
+
 ### `system:fileId`, and the line `tail -f` was losing — `ee4e905`, 2026-09-01
 
 **The language answers 144<!--count messages--> messages**, up from 143, across

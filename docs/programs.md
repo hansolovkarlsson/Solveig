@@ -400,9 +400,9 @@ Over `examples/` alone that is 30<!--count examples-files--> files and
 30 files with expectations, 581 claims checked
 88 lines print without saying what, and are not checked
 GRAMMAR.md and solum.bnf agree on 35 productions, and 2 are prose
-280 changelog entries name a commit, 10 name none
-2728 links in 124 files, 1366 of them naming a heading, against 1542 headings
-1362 name a file and no heading, and are not checked
+281 changelog entries name a commit, 10 name none
+2734 links in 124 files, 1369 of them naming a heading, against 1548 headings
+1365 name a file and no heading, and are not checked
 1 heading sits inside a fenced block, and is not an anchor
 17 programs say where they come in the order, and are there
 3 runs ended with a non-zero status, which is what a documented error does

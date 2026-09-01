@@ -11,6 +11,78 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-01 (seventh) — an evening of scopings, and the defect at the end of them
+
+Four pieces of work that were all one argument: awk, `lib/re.sol`, a throwaway,
+and a shipped defect that only turned up because the argument kept going.
+
+### Two scopings, and both were argued with
+
+**awk was proposed and written up as *not next*.** Its largest demand is full
+POSIX ERE, and the entry that would supply it already had a customer —
+`sed.sol` refuses `\(...\)` — so writing awk to justify the library was the
+wrong order. That much held.
+
+**What did not hold was the framing.** Leading with `sed` as *a* customer
+invited a fair question: if the second customer is awk, and awk waits for the
+library, what unblocks what? Nothing, on that framing — and it was the wrong
+framing. `edit.sol` uses the same engine for `/` and is the second customer, and
+the worse one, because it does not refuse. awk is the third and unblocks
+nothing.
+
+**And the August regex entry has never deferred for want of demand.** It surveys
+460 lines of hand-rolled scanning and calls the demand real. What it declines is
+the *extension*. But it lives in a section where deferral means *waiting for a
+second customer*, and nothing flagged it as the exception, so at a glance it
+said the reverse of what it meant. Flagged now.
+
+### The throwaway, and three of my own numbers
+
+Two hundred lines: ERE to Pike's instruction set, run by a loop with a backtrack
+stack. Semantics identical to `/usr/bin/awk` on all six cases, compared by
+`diff`. Leftmost-longest free. The exponential real and fixed by a visited set
+for 20–30%.
+
+Then three corrections, all mine:
+
+- **The headline number was the worst case.** `[a-z]*ing` opens with a starred
+  class so nothing can be skipped. Typical patterns are 25–30× the tools, not
+  190×, and `pattern.sol`'s leader searches a 4,269-line buffer in 0.008 s.
+- **"3.7 belongs to the C route" was overreach.** `grep` is flat on both
+  dialects; the exponential is a property of a hand-written backtracker, not of
+  regular expressions — which is what the parent entry said and I claimed to
+  have refuted.
+- **And the trigger question was better than my answer.** *Can be written in
+  Solum* is not *is usable by the thing that wants it*, and
+  [6.34](COMPLETED.md#634-a-program-cannot-ask-how-big-the-terminal-is--done)
+  settled that distinction in August: `stty size` was always reachable at 7 ms
+  an ask and became a primitive anyway, because *the absence was never the
+  finding, the price was*. Price fires triggers here. The open question is now
+  **who chooses the pattern**, which is sharper than *how fast*.
+
+### And then the defect
+
+Checking that `sed` really refused what its header said it refused — one command
+— it did not. `s/\(ab\)c/YES/` substituted the wrong line and skipped the right
+one, silently, and had done for the life of the file.
+
+**Sixty cases in the corpus and not one used `\(`.** The oracle is the check
+this repository trusts most precisely because it can find what nobody thought to
+look for, and it is written by the same person who wrote the program. That is
+the rule the day ends on, and it is in
+[method.md](method.md#an-author-written-corpus-tests-what-its-author-thought-of):
+write cases for what a program says it *will not* do, because every *this is
+refused* in a header names an input nobody has tried.
+
+### The count for the day
+
+Five throwaways wrong, each reproducibly, and none of the failures in the thing
+being measured. Three roadmap entries opened and closed. Two scopings written
+and both improved by being disagreed with. One shipped defect, found by pulling
+on the second of them rather than by any check.
+
+---
+
 ## 2026-09-01 (sixth) — the list is empty, and the trigger never fired
 
 Three entries were open this morning. All three closed today, which has not
