@@ -2711,8 +2711,8 @@ recorded as the match goes and never rolled back. A backtracking matcher
 otherwise fails at position one with everything rolled back, and
 `myprog.pas:1: does not parse` is a sentence about the program that printed it.
 The innermost rule that had already *consumed* something is named too, which is
-the difference between `reading <multiplying-operator>` and `reading
-<if-statement>`.
+the difference between `reading <multiplying-operator>` and
+`reading <if-statement>`.
 
 **Every diagnostic it has about grammars came from a grammar being wrong in a
 way that blamed the wrong file**, which is why the checking half is as large as
@@ -7005,8 +7005,8 @@ every build.** 589 claims across 40 files: 398 in `examples/`, 189 across
 seventeen documents, two on the front pages. Before this, `examples/` carried
 about four hundred comments saying what each line printed and the suite compiled
 every one of them without running any — those comments were true because somebody
-looked, once. The documents carried two hundred more in the same notation inside
-``` fences, and nothing checked those either.
+looked, once. The documents carried two hundred more in the same notation
+inside ``` fences, and nothing checked those either.
 
 **Three things were wrong, and the third is the one worth the release.** The
 guide showed a stack trace in a format that predates 6.27 adding the filename.
