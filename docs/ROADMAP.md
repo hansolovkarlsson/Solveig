@@ -1134,9 +1134,22 @@ which is the failure it is worth recording here rather than quietly editing: a
 list's summary goes stale the moment the list moves, and nothing recounts a
 sentence. The same day found three other statements in the same condition —
 `pattern.sol`'s worked example, 3.22's *nothing here has a file that does not
-fit*, and four count markers on historical releases — so this is the fourth
-instance of one shape and the shape is now in
+fit*, and four count markers on historical releases — so this was the fourth
+instance of one shape and the shape is in
 [method.md](method.md#a-sentence-that-was-true-when-written-is-not-checked-by-anything).
+
+**And the day did not stop at four**, which is the more useful number.
+2026-08-31 ended with **eleven**, and they are not all the same shape: some were
+true when written and went stale, and some were **never checked at all** — a
+comment saying a blank line is fine "in either tool" that had asked neither, a
+chunk size described as making "no measurable difference" that nobody had timed,
+a claim of being the first check of its kind that
+[the NBS suite](../programs/basic/conformance.sh) had already been for months,
+and `keyWaiting`'s *exact rather than approximate*, which enumerated three cases
+correctly out of four. **Every one was in prose about working code**: no program
+was wrong, no check failed, and each was caught by doing the thing again rather
+than by reading it again. The day's account is in
+[journal.md](journal.md#2026-08-31-closing--a-day-of-working-code-and-eleven-wrong-sentences-about-it).
 
 Before that the list was empty, and the last thing arrived and left inside one
 afternoon, on 2026-08-29:

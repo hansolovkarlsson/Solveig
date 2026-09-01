@@ -227,6 +227,52 @@ running the case, moving the number. The 2026-08-30 postmortem said the same
 thing about five documented claims of which four were wrong, and this is the
 second day running.
 
+## An enumeration that looks complete is not a proof
+
+**Three cases, all correct, reads exactly like all the cases**, and the second
+is a far stronger claim than the first. Nothing in the sentence marks where its
+edges are, so a reader — including the person who wrote it — cannot tell a
+survey from an argument.
+
+On 2026-08-31 `tail.sol` and `sha256sum.sol` both told a person at a prompt from
+a pipe with `keyWaiting(0.0)`, and the reasoning was written down in three
+places and called **exact rather than approximate**: an idle terminal answers
+false, a pipe with data answers true, a pipe at its end answers true. Each of
+those is true.
+
+**A pipe has four states.** The fourth is open, empty and not yet finished, and
+it answers false — exactly as the idle terminal does, because *is there a byte
+right now* is equally false of both. So `{ sleep 1; echo hi; } | prog` took the
+terminal branch, and both programs threw away the input of any pipeline slow to
+produce its first byte. For as long as either had existed.
+
+**Nothing here was going to catch it.** A pipeline typed at a prompt or written
+into a corpus has its first byte ready before the program starts, so the missing
+case does not occur anywhere it would be looked for. It needs a slow writer,
+which is not a thing anybody constructs by accident.
+
+**The check is not more care with the prose.** It is to go and ask what states
+the thing has *from its own side* — a pipe, not the list of pipes somebody
+thought of — and count them. Where that is not possible, say *these are the
+cases I found* rather than *these are the cases*, so the sentence carries its
+own uncertainty.
+
+### Replacing something that works is how you find out what it was doing
+
+The remedy that actually fired here is worth naming separately, because it is
+cheap and nobody plans it.
+
+The `keyWaiting` paragraph had been read many times and never audited — there
+was no reason to audit it, since the program worked. The audit happened only
+because [6.40](COMPLETED.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal--done)
+built a message answering the same question, and the two answers had to be
+compared. **The comparison is what asked, for the first time, what the old
+spelling had actually been answering.**
+
+So a replacement that is *only* about spelling is still worth doing, and the
+argument for it is not tidiness: an old expression nobody has a reason to doubt
+is exactly an expression nobody checks.
+
 ## An analogy to a measured case carries the mechanism, not the rate
 
 **A prediction on 2026-08-31 was right about an absence and wrong about its

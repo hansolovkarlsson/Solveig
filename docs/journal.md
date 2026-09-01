@@ -11,6 +11,144 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-31 (closing) — a day of working code, and eleven wrong sentences about it
+
+Seven entries for one day. This one is the account of the whole of it, and the
+mid-day postmortem three entries down is left where it is because it called
+itself the day's and was wrong about that too.
+
+**The first draft of this paragraph said *six entries, which has not happened
+before*, and both halves were wrong** — there are seven, and 2026-08-30 and
+2026-08-26 had thirteen each. Which is the day's subject arriving inside the
+entry about it, so it stays: a count in prose is a claim, and this one took one
+`grep` to check and had not been.
+
+### What shipped, over the day
+
+| | |
+| --- | --- |
+| `programs/sed.sol`, `programs/tail.sol`, `programs/sha256sum.sol` | the sixteenth, seventeenth and eighteenth programs |
+| `system:readFile(path, from, count)` | and [3.22](COMPLETED.md#322-a-file-is-read-whole-or-not-at-all--done) closed with it |
+| `system:sleep`, `system:isTerminal` | the 142nd and 143rd messages |
+| [6.39](ROADMAP.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file) | opened, and gated on a second customer |
+| [6.40](COMPLETED.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal--done) | opened and closed |
+| `programs/oracle.sh` | written for `sed`, generalised by `tail`, then twice more by `sha256sum` |
+| `tail/follow.sh`, `sha256sum/vectors.sh`, `sha256sum/check.sh` | three checks of three different kinds |
+| a defect fixed in `lib/pattern.sol` | and two in shipped programs |
+
+**Everything above is downstream of one decision taken in the first half hour**:
+hold a program against the tool already on the machine rather than against a
+transcript its own author recorded. The mid-day postmortem argues that and it
+still holds.
+
+### The thing worth taking from the day
+
+**No program was wrong. Ten sentences about them were.**
+
+Every check passed. `sed`, `tail` and `sha256sum` each did their job; the
+corpora agreed; the vectors agreed; `make test` was green all day. What kept
+failing was the *prose* — the comments, entries and notes describing what had
+been measured and what had been decided — and it failed ten times.
+
+They are not all one shape, and separating them is the useful part. Listed so
+that *eleven* is a number a reader can check rather than one to be trusted:
+
+**Stale — true when written, and the world moved underneath.**
+
+1. `pattern.sol`'s worked example, which could not show the defect standing
+   beside it.
+2. 3.22's trigger, *nothing here has a file that does not fit* — a fact about
+   this repository's inputs rather than about the world.
+3. Four count markers on past releases, which a moving total would have
+   silently rewritten.
+4. [ROADMAP.md](ROADMAP.md)'s own summary, *nothing is on it*, while an entry
+   was being added to it.
+5. The mid-day postmortem, which counted the entries above it and called itself
+   the day's.
+
+**Never checked at all** — worse, and the day's larger half.
+
+6. *A blank line is not a malformed line in either tool*, which had asked
+   neither. Both count it.
+7. *The size makes no measurable difference*, of a chunk size nobody had timed.
+   It is out by 62%.
+8. *A fifth of the program was a method call* — the figure from the line above
+   the right one. It is a third.
+9. *The first check here that does not depend on another implementation*, which
+   [the NBS suite](../programs/basic/conformance.sh) had been for months.
+10. *The seventh file of the flag idiom*, which was a different limitation and a
+    count the cited entry had explicitly stopped keeping.
+
+**Incomplete, and reading as complete.**
+
+11. `keyWaiting`'s *exact rather than approximate*: three pipe states enumerated
+    correctly, and a pipe has four. This one had shipped as a defect in two
+    programs, and is now
+    [its own rule](method.md#an-enumeration-that-looks-complete-is-not-a-proof).
+
+Two more were caught inside the writing rather than after it — a claim about
+what GNU coreutils does with `-` in a checksum list, on a machine with no GNU
+coreutils to ask, and the entry-count above. Neither shipped, and both are the
+same shape as the eleven.
+
+### What caught them, every time
+
+**Doing the thing again, never reading it again.** Eleven for eleven. The six
+from the evening, with what actually caught each — the day's earlier five went
+the same way, and the
+[mid-day postmortem](#2026-08-31-postmortem--the-day-an-oracle-was-pointed-at-this-language-and-four-sentences-fell-over)
+says so in its own words: *making the file, running the case, moving the
+number*.
+
+| the sentence | what caught it |
+| --- | --- |
+| a blank line is not malformed | running `-c -w` on a list with one |
+| no measurable difference | timing five chunk sizes |
+| the first check of its kind | opening `conformance.sh` |
+| the seventh file | opening the entry it cited |
+| a fifth of the program | re-measuring three variants of the shipped file |
+| exact rather than approximate | building the replacement and comparing answers |
+
+Not one was found by rereading. That is not a claim about carelessness — several
+had been read many times by somebody looking for exactly this — it is a claim
+about what reading can do. **A sentence about a measurement contains no
+evidence.** It reads as well when it is wrong.
+
+### Two rules the day put in method.md
+
+**[An enumeration that looks complete is not a proof.](method.md#an-enumeration-that-looks-complete-is-not-a-proof)**
+*Three cases, all correct* reads exactly like *all the cases*, and nothing marks
+the edges. Ask what states the thing has from its own side and count them.
+
+**[Replacing something that works is how you find out what it was doing.](method.md#replacing-something-that-works-is-how-you-find-out-what-it-was-doing)**
+The `keyWaiting` paragraph was never audited because there was no reason to
+audit it: the program worked. It got audited only because a new message had to
+answer the same question and the two answers had to be compared. **An expression
+nobody has a reason to doubt is an expression nobody checks.**
+
+### What went right, and it is the trigger rule twice
+
+**6.40 was a note before it was an entry.** `tail` could have argued it onto the
+roadmap in the afternoon — one program, a real gap, a willing page — and wrote a
+note with a named trigger instead. `sha256sum` fired it four hours later and the
+promotion cost one sentence. The rule's cost is visible every time it refuses;
+its payment is invisible, and this is what the payment looks like.
+
+**And it held three times against being fired.** 6.39 stayed shut: one customer,
+and `mirror` turned out not to want it. The NUL-in-a-path question was scoped and
+left, with an exact workaround. `-flto` stayed deferred even though `sha256sum`
+is genuinely slow at `-O2`, because 20% off 1.08 MB/s changes nothing about a
+program three orders of magnitude from the C tool.
+
+### What is next
+
+[6.39](ROADMAP.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file)
+is the only open entry and its trigger has not fired. The
+[Unix survey](ideas.md#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31)
+still has `diff` (two inputs at once), `gzip -d` (array-heavy work, and the
+sequel to the number `sha256sum` produced), `sort` (which would fire the
+positioned-write trigger) and `unzip -l`.
+
 ## 2026-08-31 (late) — a message built to retire a paragraph, which fixed a defect nobody knew about
 
 One entry, opened in the evening and closed the same night, and the useful part
@@ -413,11 +551,18 @@ that this program has one loop and a stopwatch pointed at it.
 
 ## 2026-08-31 (postmortem) — the day an oracle was pointed at this language, and four sentences fell over
 
-Three entries above this one. The day began with *there are a bunch of Unix
-tools we could try to make and see if they add anything* and ended with two
-roadmap entries closed, one opened, a defect fixed in a shipped library, and a
-new message on `system`. What connects them is one decision taken in the first
-half hour.
+**This was written as the day's postmortem and the day was not over**, which is
+left as it stands because the entry is about exactly that failure. It counted
+*three entries above this one* and there are now five; it said the day *ended*
+with two roadmap entries closed and one opened, and the day went on to write an
+eighteenth program, open and close a sixth entry, and find six more sentences of
+the kind this entry is about. The closing account is
+[at the top](#2026-08-31-closing--a-day-of-working-code-and-eleven-wrong-sentences-about-it).
+
+The day began with *there are a bunch of Unix tools we could try to make and see
+if they add anything*, and by this point had two roadmap entries closed, one
+opened, a defect fixed in a shipped library, and a new message on `system`. What
+connects them is one decision taken in the first half hour.
 
 ### What shipped
 
