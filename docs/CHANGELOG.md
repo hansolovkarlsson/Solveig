@@ -5,6 +5,69 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### `system:isTerminal`, and a workaround that was not exact — `c599e65`, 2026-08-31
+
+**The language answers 143<!--count messages--> messages**, up from 142, across
+246 registrations. `.sob` files are format version 14, unchanged.
+
+`system:isTerminal(which)` answers whether one of the three standard streams is
+a terminal. `which` is `'input`, `'output` or `'error`; one primitive over
+`isatty`, no state.
+
+**Three symbols and not three messages.** The stream is the thing that varies
+and the question is one question. `'input` rather than `'stdin` follows
+`readLine`, `write` and `writeError`, which spell them out; `run`'s options
+array is the one place the C names appear, and there they are keys a child
+process cares about. A symbol that is none of the three is an **error** rather
+than a false — there is no stream it could be answering about.
+
+**[6.40](ROADMAP.md#6-beyond-the-language--gone-from-this-document) opened and
+closed the same day, and it arrived the way that list would like everything to.**
+`tail` found on 2026-08-31 that `keyWaiting(0.0)` answers *is standard input a
+terminal* by accident, and wrote it down as a **note with a named trigger** — *a
+second program wanting it* — rather than arguing an entry into existence on the
+spot. `sha256sum` was the second the same afternoon. The promotion cost one
+sentence because the reasoning was already on the page.
+
+**And building it found the workaround had been wrong all along**, which is not
+what the entry expected to buy. Both programs used `keyWaiting(0.0):not`, and
+the entry and both programs called that *exact rather than approximate* on this
+reasoning: an idle terminal answers false, a pipe with data answers true, a pipe
+at its end answers true. Three cases, each correct.
+
+**The enumeration was the mistake.** There is a fourth — **a pipe that is open,
+empty and not yet finished** — which answers false exactly as an idle terminal
+does, because *no byte right now* is true of both. With no arguments:
+
+```text
+{ sleep 1; printf 'a\nb\n'; } | solvm tail.sob
+```
+
+printed the demonstration and threw the input away. So did `sha256sum`. For as
+long as either program has existed, and nothing was going to catch it: a
+pipeline typed at a prompt or written in a test has its first byte ready before
+the program starts, so the case is invisible everywhere it would be looked for.
+It was found by asking what the old spelling had actually been answering — the
+question you only ask when you are replacing something.
+
+**An enumeration of cases is a proof only if it is complete**, and *three cases,
+all correct* reads exactly like *all the cases*. The way to check one is to ask
+what states the thing actually has: a pipe has four, and the fourth has neither
+data nor an end.
+
+**And the output half had been answerable by accident too.**
+`system:terminalSize` `ioctl`s standard **output** and answers nil when that
+fails, so `terminalSize:notNil` has been `isatty(1)` since
+[6.34](COMPLETED.md#634-a-program-cannot-ask-how-big-the-terminal-is--done) — at
+the price of building a dictionary and throwing it away. A test now keeps the
+two agreeing.
+
+**The test that could have been wrong quietly** is the mapping: a
+pseudo-terminal is put on exactly one of the three descriptors at a time, files
+on the other two, and all three symbols are asked each time. Nine answers, three
+of them true, each a different one, so any swap fails it. A test that only ever
+saw one stream answer would pass with two of them exchanged.
+
 ### sha256sum, and what one bytecode instruction costs — `96f1bfe`, 2026-08-31
 
 **No language change**: the eighteenth program, and nothing on `system` moved.

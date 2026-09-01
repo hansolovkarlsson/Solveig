@@ -11,6 +11,101 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-08-31 (late) — a message built to retire a paragraph, which fixed a defect nobody knew about
+
+One entry, opened in the evening and closed the same night, and the useful part
+is not the message.
+
+### What shipped
+
+`system:isTerminal('input)`, `('output)`, `('error)` — the 143rd message,
+[6.40](COMPLETED.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal--done).
+Three tests, an example, and a defect fixed in
+[tail.sol](../programs/tail.sol) and [sha256sum.sol](../programs/sha256sum.sol).
+
+### The entry arrived the way the list would like everything to
+
+`tail` found in the afternoon that `keyWaiting(0.0)` answers *is standard input
+a terminal* by accident. It could have been argued into a roadmap entry on the
+spot — one program, a real gap, and a page willing to take it. It was written
+down as a **note with a named trigger** instead: *a second program wanting it*.
+
+`sha256sum` was the second program four hours later, for the identical
+collision. The promotion cost one sentence, because the reasoning was already
+written.
+
+**That is the trigger rule paying in the direction that is hardest to see.**
+Refusing to open an entry is invisible when it works; the only evidence it ever
+produces is a promotion that costs nothing, and this is one.
+
+### And then the thing it was built for turned out not to be the point
+
+The case for the entry was **entirely about spelling**. Both programs worked;
+both carried a paragraph explaining why a message about *reading* answers a
+question about *terminals*; two paragraphs explaining one accident is
+[5.5](COMPLETED.md#55-five-programs-each-wrote-the-same-cursor--done) in prose.
+There was no defect. The entry said so, and so did both programs, in the words
+*a workaround that is exact rather than approximate*.
+
+**It was not exact.** The reasoning behind that word ran: an idle terminal
+answers false, a pipe with data answers true, a pipe at its end answers true.
+Three cases, and every one of them is correct.
+
+**There is a fourth.** A pipe that is open, empty and **not yet finished**
+answers false — exactly as an idle terminal does, because *is there a byte right
+now* is equally false of both. So:
+
+```text
+{ sleep 1; printf 'a\nb\n'; } | solvm tail.sob
+```
+
+printed the demonstration and threw the input away, and `sha256sum` did the
+same, for as long as either program has existed.
+
+**Nothing here was ever going to catch that.** A pipeline typed at a prompt or
+written into a corpus has its first byte ready before the program starts, so the
+fourth case does not occur anywhere anybody would look. It needs a *slow writer*,
+which is not a thing one constructs except on purpose. It was found by asking
+what the old spelling had actually been answering — which is a question you only
+ask when you are replacing something, and is the argument for replacing things
+that already work.
+
+### The lesson, which is not about terminals
+
+**An enumeration of cases is a proof only if it is complete, and there is no
+notation for the difference.** *Three cases, all correct* reads exactly like
+*all the cases*, and the second is a much stronger claim than the first.
+
+The check that catches it is not more care with the prose. It is to go and ask
+what states the thing actually has, from the thing's own side rather than from
+the list: **a pipe has four states**, and the fourth — no data, no end — is the
+one nobody thinks of because it is the one that does not stay still. Every
+example in this repository has the pipe already finished or already full.
+
+That is the same shape as
+[a sentence that was true when written](method.md#a-sentence-that-was-true-when-written-is-not-checked-by-anything),
+one step earlier: not a claim that has gone stale, but a claim that was never
+quite what it appeared to be, and that reads as complete because nothing in the
+sentence marks where its edges are.
+
+### Postmortem
+
+**What went right.** The note-with-a-trigger cost one sentence to promote, and
+the promotion was decided by a program rather than by anyone changing their
+mind. And the three tests were written to be able to fail: a pseudo-terminal on
+one descriptor at a time, all three symbols asked each time, nine answers of
+which three are true and each a different one. A test that only ever saw one
+stream answer would have passed with two of them swapped.
+
+**What went wrong.** Nothing in this session — the defect was already shipped,
+in two programs, described in three documents as not being one.
+
+**What is worth carrying.** *Replacing something that works is how you find out
+what it was doing.* The paragraph being retired had been read many times and
+never audited, because there was no reason to audit it: the program worked. The
+audit only happened because the message replacing it had to answer the same
+question, and the two answers had to be compared.
+
 ## 2026-08-31 (night) — the first inner loop that is arithmetic, and the number it produced
 
 The morning's survey had said what to write next and why, so this was the
