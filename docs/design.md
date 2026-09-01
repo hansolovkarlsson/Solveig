@@ -55,7 +55,7 @@ names come from.
 not a shell language, not a teaching language -- those are shapes it can take,
 and one of them is the shape it happens to have taken first.
 
-That first shape was a *discovery* rather than a decision. The seventeen<!--count programs-->
+That first shape was a *discovery* rather than a decision. The eighteen<!--count programs-->
 programs in
 [programs/](../programs/) are a webserver, three parsers, a disassembler, a log
 analyser, a documentation checker, a benchmark harness, a mirror and a page
@@ -63,6 +63,14 @@ generator, and they lean towards text and processes for a reason that has
 nothing to do with the language: they are the tools this project needed while
 building the thing that runs them. Written against a different need they would
 have leaned somewhere else.
+
+**The eighteenth was written to lean somewhere else on purpose**, on 2026-08-31.
+[sha256sum](../programs/sha256sum.sol) does sixty-four rounds of shifts, masks
+and additions per sixty-four bytes and touches a syscall twice a file, which
+makes it the first program here whose inner loop is arithmetic — and it was
+chosen for that rather than for being a Unix tool. Each of the others made the
+sentence above truer and more misleading at once; this one is the beginning of
+the correction rather than another instance of it.
 
 The languages worth comparing against all did the same thing and none of them
 stopped there. Python, Java and the rest write shell tools, servers, games,
@@ -77,7 +85,7 @@ right -- and it is not a reason to rule a direction out.
 
 The distinction is easy to lose, and it was lost once already: trigonometry was
 very nearly argued away on the grounds that *there is no geometry anywhere near
-this language*, which is a true sentence about seventeen<!--count programs--> programs
+this language*, which is a true sentence about eighteen<!--count programs--> programs
 and an empty one
 about a language. The entry it belongs to,
 [3.14](COMPLETED.md#314-the-mathematics-that-is-not-here--done), now says so.

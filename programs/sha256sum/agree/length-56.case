@@ -1,0 +1,9 @@
+# Exactly 56 bytes. The padding needs nine free bytes at the end of a
+# block -- a one bit and eight of length -- so 55 fits, 56 does not and
+# spills into a second block, and 64 is where the message itself
+# changes block count. These are the boundaries every implementation
+# gets wrong first.
+nonewline:
+pipenames:
+input:
+abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrst

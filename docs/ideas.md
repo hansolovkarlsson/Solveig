@@ -29,7 +29,8 @@ marked as a sketch.
 | What a string is — bytes or code points | **Defer, and toward bytes with a contract** — [the editor asked first](#what-a-string-is--bytes-code-points-or-bytes-with-a-contract), and was corrupting a file on `$x`. **Fixed on 2026-08-30 in the editor**, which is the argument against making `size` count characters — though [the estimate here was wrong](#and-the-editor-was-fixed-which-cost-more-than-this-entry-said): nine lines became seventeen definitions. A [`text` type with a `!"..."` literal](#a-text-type-beside-string-with-a-prefixed-literal-to-make-one) was asked and answered in the same entry — right instincts, wrong end of the pipe |
 | `!character` literals, Unicode | **Defer** — gated on deciding what a string is, and [that entry recommends settling it against](#what-a-string-is--bytes-code-points-or-bytes-with-a-contract): the character type Unicode would want here is the one-character string the language already has |
 | A truncating divide on integer | **Defer** — one customer, and its workaround is exact rather than approximate |
-| Integer sizes: byte, word, long | **No** — reintroduces the coercion the language refuses |
+| A path with a NUL in it | **Defer, and it is a silent wrong answer rather than a missing feature** — [found by `sha256sum` on 2026-08-31](#a-path-with-a-nul-in-it-is-silently-a-different-path): a Solum string may hold a NUL and a C path may not, so `fileExists` and `readFile` both answered about a *prefix* and agreed with each other. The reference now says so; the check that would refuse it is small and has one customer with an exact workaround |
+| Integer sizes: byte, word, long | **No — and it was tested on 2026-08-31** rather than argued again. SHA-256 is defined on mod-2^32 arithmetic and is [the first program here to want them](#it-was-written-on-2026-08-31-and-the-prediction-held-in-both-halves); it does not need them, because a 64-bit integer holds the sum of five 32-bit values with fifty-nine bits to spare. The cost of refusing is twenty-three masks in one program |
 | Separate float and double | **No** — same reason, less benefit |
 | `include` another file | **Built** — was the most valuable thing on the list |
 | `System:exit(code)` | **Built** — as `system:exit`, and the `system` object grew well past it |
@@ -53,7 +54,7 @@ marked as a sketch.
 | Infix operators, `@expr(a^2 + b/2)` | **Built**, on 2026-08-28 — [scoped in the morning and in by the evening](#infix-arithmetic-as-a-compile-time-notation): arithmetic, then `sin(x)` once *limiting* it turned out to be the expensive half, then comparison and logic, and the name with them |
 | `@expr{...}`, a region that is a block | **Built on 2026-08-29**, the day after it was scoped — [the sentence was tried first and lost](#expr-a-region-that-is-a-block-rather-than-a-group); the entry predicted one hard part and the second was the one that mattered, a notation that silently stopped inlining |
 | Phoenix — a second language whose output Solum uses | **Defer** — the machinery is proven three times over; [the unexplored half](#programs-that-would-press-on-something) is whether a hosted language can publish a *library* rather than a program |
-| Programs that would press on something — Pascal, predicate logic, a parser toolkit, `tail`, and [which Unix tool next](#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31) | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would |
+| Programs that would press on something — Pascal, predicate logic, a parser toolkit, `tail`, and [which Unix tool next](#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31) | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would. **So was `sha256sum`, on 2026-08-31**, the first off the Unix survey and the first program here with no I/O in its inner loop: [the prediction held in both halves](#it-was-written-on-2026-08-31-and-the-prediction-held-in-both-halves) and produced the number it was written for — **208 bytecode instructions a byte, 4.4 ns each, 227M a second** |
 | Networking, and sending code to a running machine | **The first half is built**, on 2026-08-29 — [extensions/net](../extensions/net/README.md), five messages, and the waiting question answered with a timeout rather than a block; [the second half](#networking-and-sending-code-to-a-machine-that-is-already-running) is untouched and still needs 3.4, 6.32 and a proxy |
 | SQLite, SDL2, GTK | **One project, not three** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); GTK and SDL2 fire that trigger and SQLite does not, and wanting *both* toolkits is what settles the mechanism |
 | Graphics in SolaBasic, over SDL2 | **No — asked and closed on 2026-08-30, and the premise was wrong** to begin with: [graphics were never parked](#graphics-in-solabasic-through-the-sdl2-extension) for want of extensions, they were refused as *the PC*. No program wanted a screen, so the trigger never fired. The throwaway exercised the foundation without a language change — an extension send at 205ns, **`sdl:present` vsync-locked at 8.3ms**, and **1.49x from 0.39.0** on a globals-heavy loop. **A demo written that evening then corrected the entry**: a present keeps nothing, so immediate-mode `PSET` is not slow on this surface but absent. **And there is no oracle for a pixel**, which is what would decide it if it were ever asked again |
@@ -763,6 +764,72 @@ or `MOD` is the cost. One program wanting a message is what
 and it was built; this is at the same stage.
 
 ---
+
+### A path with a NUL in it is silently a different path
+
+**Found on 2026-08-31 by [sha256sum.sol](../programs/sha256sum.sol)**, reading a
+checksum list written with `-z`, where each entry ends in a NUL rather than a
+newline.
+
+A Solum string is length-counted and may hold a NUL anywhere; a path handed to
+the operating system is a C string and stops at the first one. So every
+filesystem message on `system` answers about a **prefix** of the name it was
+given, and says nothing:
+
+```
+system:writeFile("build/nul-path.txt", "hello\n").
+name := "build/nul-path.txt":concat(#0:asCharacter):concat("zzz").
+name:size:print.                  ; #22
+system:fileExists(name):print.    ; true
+system:fileSize(name):print.      ; #6    -- which is build/nul-path.txt
+system:remove("build/nul-path.txt").
+```
+
+**What made it worth an entry is how it failed, not that it failed.** The
+program printed
+
+```text
+h.txt<NUL>e258d248...  w.txt: OK
+```
+
+— and the digest in that line was *right*. `fileExists` and `readFile` both
+quietly saw `h.txt` and agreed with each other about a file the program had not
+asked about, so nothing anywhere raised, and the only visible symptom was a
+mangled name in a line that said OK. **A wrong answer that agrees with itself is
+the expensive kind**, and this language usually refuses rather than guessing:
+arithmetic traps instead of wrapping ([strictness.sol](../examples/strictness.sol)),
+a short read is an error rather than a shorter string, and `run` takes an array
+so that nothing in it can be read as syntax. A path quietly becoming a different
+path is out of character with all three.
+
+**The documentation invited it.** The reference's paragraph on files says a NUL
+is a byte like any other and that `split`, `indexOf` and `copyFrom` all go by
+the length rather than stopping at one — which is true, and is about a file's
+*contents*. Nothing said the *path* is the one string in the system that does
+stop. That sentence has been added, because it is the fix that costs nothing and
+is right whatever is decided below.
+
+**The shape, if it is ever built.** One check, in whatever turns a Solum string
+into a `const char *` path — if the length and `strlen` disagree, raise
+`a path cannot contain a NUL` rather than proceeding. It is a handful of lines
+in one place, it cannot break a program that was working (no reachable file has
+such a name), and it converts a silently different answer into an error naming
+the fault.
+
+**Against building it now**: one program has hit it, in one place, and its
+workaround is exact rather than approximate — a name is cut at the first NUL,
+which is what a filename *is*, and the tool on this machine does the same. This
+also cannot be reached by accident from a literal, since `\0` cannot be written
+in one ([`#0:asCharacter`](REFERENCE.md#escapes) is the only way): the name has
+to arrive from a file or a computation, which is exactly the `-z` case and
+nothing else so far.
+
+**Trigger: a second program building a path from input it did not write.**
+Anything reading names out of a file, an argument, or a socket — a `-z`-aware
+`xargs`, a manifest reader, a server mapping a request to a file. The third of
+those is where a silent prefix stops being a curiosity, and it is also the case
+[6.32](#632-a-script-cannot-be-run-with-less-than-the-whole-machine) is about,
+which is deferred rather than taken.
 
 ### `startsWith` and `endsWith`
 
@@ -4357,6 +4424,21 @@ it**, or a first one wanting it about standard *output*, which `keyWaiting`
 cannot answer at all and which is the more common thing to want — whether to
 colour output, or to draw a progress line.
 
+**The trigger fired the same day it was written**, which is why this paragraph
+is here rather than the note being edited.
+[sha256sum.sol](../programs/sha256sum.sol) hit the identical collision — the
+house rule says demonstrate on input you carry, `... | sha256sum` says read
+standard input, and both are an empty command line — and it is now
+[6.40](ROADMAP.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal).
+
+**And writing that entry found the output half was answerable too.**
+`system:terminalSize` calls `ioctl` on standard *output* and answers nil when
+that fails, so `terminalSize:notNil` is `isatty(1)` today. The note above
+predicted `keyWaiting` "cannot answer at all" about output and was right about
+`keyWaiting` and wrong about the machine: a second accident was already there,
+in a message written for something else. Checked through a pseudo-terminal both
+ways rather than read out of the source.
+
 #### Which Unix tool next, and what each would press on — surveyed 2026-08-31
 
 **Written after sed and tail**, and the survey is here rather than in the roadmap
@@ -4400,6 +4482,78 @@ mask after every add reads as arithmetic or as bookkeeping.
 
 Oracle: `/usr/bin/shasum` and the published test vectors, which are two
 independent checks rather than one. Perhaps two hundred lines.
+
+##### It was written on 2026-08-31, and the prediction held in both halves
+
+**Kept above the outcome rather than rewritten**, which is what this section
+does with predictions. [programs/sha256sum.sol](../programs/sha256sum.sol) has
+the full account; what belongs here is whether the entry above was right.
+
+**The prediction was *not impossibility*, and that held.** A 64-bit integer
+holds the sum of five 32-bit values with fifty-nine bits to spare, so every
+addition is exact and the mask is a narrowing rather than a repair. Nothing in
+SHA-256 comes near
+[3.12](ROADMAP.md#312-no-shift-can-produce-a-negative-integer): the largest
+shift in the program moves a value under 2^32 left by thirty places, which
+lands under 2^62. **That is luck rather than design** — SHA-512 rotates a
+64-bit word and could not be written this way at all — and it is the answer to
+whether `byte`, `word` and `long` are wanted. They are not. Twenty-three masks
+is what refusing them costs one program, against a coercion rule on every
+arithmetic operation in the language.
+
+**The prediction was *the number*, and here it is.** Measured rather than
+counted, with `--steps=N`, which stops a program after N instructions: the
+smallest N that lets a run finish is that run's exact instruction count, and a
+binary search finds it.
+
+| bytes hashed | instructions | blocks | per block |
+| ---: | ---: | ---: | ---: |
+| 0 | 14,671 | 1 | |
+| 64 | 28,049 | 2 | 13,378 |
+| 640 | 147,767 | 11 | 13,302 |
+| 6,400 | 1,344,947 | 101 | 13,302 |
+
+**13,302 instructions per 64-byte block — 208 per byte — and a megabyte takes
+0.96 s at `-O2`.** So the interpreter runs **227 million bytecode instructions
+a second and each one costs 4.4 nanoseconds**, which is the first absolute
+figure this project has for what an instruction costs. Everything in
+[performance.md](performance.md) is a ratio against CPython or against an
+earlier Solveig.
+
+In megabytes: **1.04 a second**, against `/sbin/sha256sum` at 1667 and Perl's
+`shasum -a 256` at 317 on the same file. The first is C plus the M2's SHA
+instructions and is not a fair comparison; the second is the interesting one,
+because it is an interpreter too and is 305 times faster for not interpreting
+the hash.
+
+**The ergonomic half, which the entry asked for in one sentence: it reads as
+bookkeeping.** Not because the mask is hard but because it is not in the
+standard — every line a reader wants to check against FIPS 180-4 carries a term
+FIPS 180-4 does not have.
+
+**And three things the entry did not predict.**
+
+- **A fifth of the program was a method call.** `rotr` written as a method costs
+  0.73 MB/s, written out in the rounds 0.90, written out in the schedule too
+  1.06. The arithmetic is identical in all three; what the method cost was a
+  frame and a return, ten times a round. Worth holding against
+  [the inline cache entry](#an-inline-cache-at-the-send-site), which measured
+  *lookup* at 9.7% of the benchmark that asked for it. This is the call itself.
+- **`@expr` has no bit operators**, so the one file here that is nothing but
+  shifts, xors and masks is the one file that cannot use the notation at all.
+  `&` and `|` are already taken, by the short-circuiting logical pair. Not an
+  argument for adding them — one program is one program — but a notation
+  introduced for "a formula you are transcribing" met a formula it could not.
+- **The `-g` default build costs 4.8x here**, against the 1.9x to 4.1x the nine
+  benchmarks show, which is what a program that is nothing but arithmetic
+  inside the dispatch loop should be expected to do.
+
+**It also fired two triggers on this page**: the
+[isatty note](#two-absences-noticed-on-2026-08-31-that-nothing-has-asked-for)
+got its second program, and
+[the flag idiom](#an-early-exit-from-a-loop) got its seventh file — in the
+checksum-list parser rather than anywhere near the hashing, which is where
+`tail` predicted 3.1 and 3.2 would not appear and was right about `tail`.
 
 ##### `diff` — the first program here that computes rather than recognises
 

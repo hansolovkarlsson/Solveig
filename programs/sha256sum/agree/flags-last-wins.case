@@ -1,0 +1,6 @@
+# -b then -t in one argument. The last of the two decides.
+args: -tb
+pipenames:
+input:
+alpha
+bravo

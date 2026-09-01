@@ -1,0 +1,9 @@
+# Bytes above 127, arriving as UTF-8. A string is bytes here, so this is
+# not a text question at all -- but a program that treated a byte as
+# signed anywhere would answer differently, and nothing else in the corpus
+# would catch it.
+pipenames:
+input:
+café — naïve — Ærø
+москва
+日本語

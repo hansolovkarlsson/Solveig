@@ -1,0 +1,7 @@
+# Ordinary lines with a trailing newline, which is what a file usually is.
+pipenames:
+input:
+alpha
+bravo
+charlie
+delta

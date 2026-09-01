@@ -1,0 +1,13 @@
+# -z ends the line with a NUL instead of a newline, for a name that might
+# contain one.
+#
+# The two routes are not compared for this case, and `-z` is the reason: the
+# output ends in a NUL rather than a newline, and every text tool the harness
+# could use to rewrite the name into a dash -- awk included -- carries a C
+# string and loses the NUL. The file route is still held against the oracle
+# byte for byte, which is where the `-z` behaviour actually lives.
+args: -z
+tworoutes:
+input:
+alpha
+bravo

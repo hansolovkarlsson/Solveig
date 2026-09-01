@@ -1,0 +1,5 @@
+# One byte, and no newline after it. The padding is 63 bytes long.
+nonewline:
+pipenames:
+input:
+a

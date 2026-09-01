@@ -1,0 +1,5 @@
+# The digest of nothing, which is the one value in this program that is
+# printed in the standard itself and can be checked by eye:
+# e3b0c442...b7852b855. An empty message is still one padded block.
+pipenames:
+input:

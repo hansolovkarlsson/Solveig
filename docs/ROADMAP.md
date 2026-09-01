@@ -1043,8 +1043,9 @@ on 2026-08-29 and closed the same afternoon, which is the section still doing
 what it was for: saying what a program written against this needs and has not
 got.
 
-**One is open again**, added on 2026-08-31 and below: 6.39, a program cannot
-tell whether two paths are the same file.
+**Two are open again**, both added on 2026-08-31 and below: 6.39, a program
+cannot tell whether two paths are the same file, and 6.40, a program cannot ask
+whether a stream is a terminal.
 
 ### 6.39 A program cannot tell whether two paths are the same file
 
@@ -1088,6 +1089,56 @@ kind, or a lock that has to survive a rename. Until one of those arrives this ha
 a single caller and a workaround of *do not offer `-F`*, which is what the
 program does.
 
+### 6.40 A program cannot ask whether a stream is a terminal
+
+There is no `isatty`. The nearest thing is `system:keyWaiting(0.0)`, which
+answers *is there a byte on standard input right now* and is documented as
+**true at the end of input** — so a pipe answers true whether it is full or
+finished, and an idle terminal answers false. That property is a nuisance in
+every other program and is exactly the question here, so the workaround is
+**exact rather than approximate**: it is right on a terminal, right on a pipe
+with data, and right on a pipe at its end.
+
+**Two programs now ask it, which is the trigger this entry was waiting for.**
+[tail.sol](../programs/tail.sol) found it on 2026-08-31 and its note said so in
+as many words: one caller, and a workaround that is exact, so a gap rather than
+a finding. [sha256sum.sol](../programs/sha256sum.sol) is the second, later the
+same day, for the identical reason — every program here runs with no arguments
+on input it carries, and `... | sha256sum` is a real invocation with the same
+empty command line. The house rule and the tool collide, and `keyWaiting(0.0)`
+is what tells them apart.
+
+**The case is not that the question cannot be answered.** It is that the answer
+arrives through a message about *reading*, so a reader coming to that line has
+to be told why it works, and both programs carry a paragraph doing exactly that.
+Two paragraphs explaining the same accident is
+[5.5](COMPLETED.md#55-five-programs-each-wrote-the-same-cursor--done)'s shape in
+prose rather than in code.
+
+**And the half that cannot be answered at all is standard *output*.**
+`keyWaiting` is about reading, so nothing here can ask whether output is going
+to a terminal — which is the more common thing to want: whether to colour, or
+to draw a progress line, or to write a `\r` at all.
+[edit.sol](../programs/edit.sol) draws a screen and does not have to ask,
+because a program that draws a screen is told to; a program that *might* colour
+is the one that needs to know, and nothing here is that program yet.
+
+**The shape**, and it is small: `system:isTerminal('input)` — or `('output)`,
+or `('error)` — over `isatty(0)`, `isatty(1)` and `isatty(2)`. One primitive,
+three symbols, no state. The alternative spelling of three separate messages
+buys nothing and adds two names.
+
+**And the output half is already answerable by accident too**, which was found
+while writing this entry rather than assumed.
+[6.34](COMPLETED.md#634-a-program-cannot-ask-how-big-the-terminal-is--done)'s
+`system:terminalSize` calls `ioctl` on **standard output** and answers nil when
+that fails, so `system:terminalSize:notNil` is `isatty(1)` today — verified
+through a pseudo-terminal both ways, with a window size set and with output
+redirected to a file. That makes the entry smaller and sharper than it looked:
+the mechanism exists on both descriptors, and what is missing is a message that
+says what it means instead of one that allocates a dictionary and has it thrown
+away.
+
 The one thing that was left was never work — it was a decision, and it has been
 **deferred rather than taken**:
 [6.32, a script cannot be run with less than the whole machine](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine),
@@ -1104,11 +1155,22 @@ keeping it did. The number stays 6.32 and is not reused.
 
 ## How this list emptied, and how it filled and emptied again
 
-**One thing is on it**, and it arrived on 2026-08-31:
+**Two things are on it**, and both arrived on 2026-08-31.
 [6.39](#639-a-program-cannot-tell-whether-two-paths-are-the-same-file), a
-program cannot tell whether two paths are the same file. `tail` wanted it for
+program cannot tell whether two paths are the same file: `tail` wanted it for
 `-F`, could not have it, and says so in its own header rather than approximating
 it. One customer and one flag, and the entry says so.
+
+[6.40](#640-a-program-cannot-ask-whether-a-stream-is-a-terminal) arrived the
+other way — **its trigger was written down first and then fired.** `tail` found
+that `keyWaiting(0.0)` answers *is standard input a terminal* by accident, and
+[ideas.md](ideas.md#two-absences-noticed-on-2026-08-31-that-nothing-has-asked-for)
+recorded it as a note rather than an entry with *a second program wanting it* as
+the trigger. `sha256sum` wanted it the same afternoon, for the same collision
+between the house rule and the tool. **That is the rule working in the direction
+it is hardest to see**: the note was written by somebody who could have argued
+the entry into existence on the spot and did not, and the promotion cost one
+sentence because the reasoning was already on the page.
 
 **This paragraph said *nothing is on it* for two days and was true when written**,
 which is the failure it is worth recording here rather than quietly editing: a

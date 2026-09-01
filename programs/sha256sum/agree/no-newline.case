@@ -1,0 +1,10 @@
+# The same without the final newline. This is the case a program that read
+# standard input by lines would get wrong, because `readLine` cannot say
+# whether the last one ended -- and the digest of a different string is a
+# different digest rather than a formatting difference.
+nonewline:
+pipenames:
+input:
+alpha
+bravo
+charlie

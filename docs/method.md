@@ -139,6 +139,25 @@ the frontier loses is exactly the oracle, which is the argument for spending the
 cheap ones early — [ideas.md](ideas.md#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31)
 surveys them.
 
+**And better than an implementation is a number somebody printed.** The
+sentence above was written on 2026-08-31 and tested the same day.
+`programs/sha256sum.sol` is held against `/sbin/sha256sum` *and* against the
+digests in FIPS 180-4, and the second is the stronger of the two for a reason
+the first cannot fix: **an oracle can be wrong in the same direction as anything
+derived from it.** Two implementations of a hash that share an ancestor share
+its mistakes; a number printed in a standard before this language existed cannot
+have been influenced by anything here. `programs/sha256sum/vectors.sh` is the
+first check in this repository that does not depend on another implementation
+being right, and where one is available it should be the first one written.
+
+**It also decides what the oracle is *for*.** Held against the vectors, the
+algorithm is either right or wrong. What the oracle then checks is the
+plumbing — a NUL lost, a high byte sign-extended, a chunk boundary landing
+inside a block, a warning that says "1 line is" where the other says "2 lines
+are" — and those are the failures a standard says nothing about. Two checks
+that fail for different reasons are worth more than two that fail for the same
+one.
+
 **Two corpora, and the second is the point.** `agree/` must match byte for byte.
 `differ/` must **not**, and each case says at the top what each side does and why
 this one is allowed to be different — so the list of divergences stops being

@@ -1,0 +1,8 @@
+# -b puts a `*` before the name instead of the second space. It says
+# nothing about how the file was read: there is no text mode here to
+# differ from, since a string is bytes and no line ending is translated.
+args: -b
+pipenames:
+input:
+alpha
+bravo

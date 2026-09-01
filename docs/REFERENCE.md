@@ -1635,6 +1635,17 @@ the length rather than stopping at the first NUL, and `asByte` gives the number
 of one so there is something to do arithmetic on. `readLine` keeps a NUL as
 well, so a line and a file agree about what a string may hold.
 
+**That is about a file's contents, and the opposite is true of its *path*.** A
+path goes to the operating system as a C string, so every message on this page
+stops at the first NUL in the name it is given: `system:fileExists`,
+`readFile`, `fileSize` and the rest all read `"notes.txt\0zzz"` as
+`"notes.txt"` and answer about that file, without complaining. A Unix filename
+cannot contain a NUL, so no name is lost — but a string built by a program can,
+and the message answers about a different path rather than refusing. Stated here
+because the paragraph above invites exactly the wrong conclusion; whether it
+should refuse instead is
+[in ideas.md](ideas.md#a-path-with-a-nul-in-it-is-silently-a-different-path).
+
 These are on `system` rather than on the string naming the file, though
 `"notes.txt":readFile` reads well. A string knows nothing about files, and
 `system` is already where what belongs to the world outside the program lives.

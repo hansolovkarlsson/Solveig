@@ -156,6 +156,57 @@ those symbols deliberately, and that is
 
 ---
 
+## What one instruction costs, which nothing above says
+
+Everything above is a **ratio** — against CPython, or against an earlier
+Solveig. That is what the comparison was for, and it leaves one question
+unanswered: what does the machine cost in absolute terms?
+
+**4.4 nanoseconds per bytecode instruction, or 227 million a second.**
+
+`programs/sha256sum.sol` is where that came from, on 2026-08-31. It is the first
+program here with no I/O in its inner loop — sixty-four rounds of shifts, masks
+and additions per sixty-four bytes and nothing else — so its running time is the
+dispatch loop and nothing is hiding in a syscall or a `split`.
+
+The instruction count is **measured rather than counted**, using a flag that was
+not put there for this. `solvm --steps=N` stops a program after N instructions
+and exits 124, so the smallest N that lets a run finish is that run's exact
+count, and a binary search finds it:
+
+| bytes hashed | instructions | blocks | per block |
+| ---: | ---: | ---: | ---: |
+| 0 | 14,671 | 1 | |
+| 64 | 28,049 | 2 | 13,378 |
+| 640 | 147,767 | 11 | 13,302 |
+| 6,400 | 1,344,947 | 101 | 13,302 |
+
+13,302 instructions per 64-byte block — flat from ten blocks to a hundred, which
+is what says the figure is the loop and not the setup — and **207.8 instructions
+per byte of message**. A megabyte takes 0.96 s at `-O2` on the M2 Pro, which is
+the 227M a second above.
+
+It is one program and one kind of work: integer arithmetic on block locals, no
+allocation in the loop, no globals, no string building. A program that allocates
+or sends into a deep proto chain will do worse per instruction, and the `fib`
+row above is what that looks like. **It is a floor rather than an average**, and
+this project had no such number before.
+
+| | on a megabyte |
+| --- | ---: |
+| `/sbin/sha256sum` | 1667 MB/s — C, and the M2's SHA instructions |
+| `shasum -a 256` | 317 MB/s — Perl, calling a C library |
+| `sha256sum.sol`, `-O2` | 1.04 MB/s |
+| `sha256sum.sol`, the `-g` build | 0.22 MB/s |
+
+The Perl row is the one worth reading twice: an interpreter, 305 times faster,
+because it is not interpreting the hash. **And the build flag costs 4.8x here**
+against the 1.9x to 4.1x the nine benchmarks show, which is the largest gap
+measured for it — a program that is nothing but arithmetic inside the dispatch
+loop is the shape it matters most to.
+
+---
+
 ## What is not fair here, said plainly
 
 - **Integers are not the same thing.** A Solveig integer is sixty-four bits and

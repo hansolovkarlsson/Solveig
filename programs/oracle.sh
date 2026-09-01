@@ -4,14 +4,18 @@
 #
 #     sh programs/oracle.sh sed
 #     sh programs/oracle.sh tail
+#     sh programs/oracle.sh sha256sum
 #
-# Takes the name of a program in programs/: runs programs/<name>.sob and
-# /usr/bin/<name> over the corpus in programs/<name>/ and compares the bytes.
+# Takes the name of a program in programs/: runs programs/<name>.sob and the
+# tool of the same name over the corpus in programs/<name>/, and compares the
+# bytes.
 #
 # **It was written for sed and generalised by the second caller**, which is the
 # usual way round here -- the alternative was a hundred and fifty lines of shell
 # in two files, and ROADMAP 5.5 is what that costs. Nothing about the harness
-# was sed's; what is sed's is the corpus.
+# was sed's; what is sed's is the corpus. The third caller generalised it twice
+# more, in the same way: `sha256sum` is not in `/usr/bin` on this machine, and
+# its two routes in differ by the *name* they print rather than by the answer.
 #
 # Every other check a program here gets is a transcript its own author recorded,
 # which can only catch what the author thought to check. The system `sed` was
@@ -40,6 +44,7 @@
 #   nonewline:                 (optional -- the input's last line has no newline)
 #   pipediffers:               (optional -- see below)
 #   tworoutes:                 (optional -- see below)
+#   pipenames:                 (optional -- see below)
 #   input:
 #   ...everything after this line is the input...
 #
@@ -58,7 +63,15 @@
 # two ways about the same bytes would be wrong in a way no single-route check
 # could see. For `tail` the two routes are not even the same algorithm.
 #
-#   ORACLE        the command to compare against; /usr/bin/<name> by default.
+# **A program that prints the name of its input** cannot have its two routes
+# compared directly: a file is named and a pipe is named `-`. `pipenames:` says
+# so and bounds it -- the pipe's output must be the file's with the input path
+# replaced by a dash, and anything else is news. That is a full check rather
+# than a waiver, which is the difference between it and `tworoutes:`.
+#
+#   ORACLE        the command to compare against. `/usr/bin/<name>` when there
+#                 is one, and otherwise whatever the name finds on the PATH --
+#                 `sha256sum` lives in /sbin here.
 
 set -u
 
@@ -70,7 +83,13 @@ fi
 tool=$1
 root=$(cd "$(dirname "$0")/.." && pwd)
 here="$root/programs/$tool"
-oracle=${ORACLE:-/usr/bin/$tool}
+if [ -n "${ORACLE:-}" ]; then
+    oracle=$ORACLE
+elif [ -x "/usr/bin/$tool" ]; then
+    oracle=/usr/bin/$tool
+else
+    oracle=$(command -v "$tool" 2>/dev/null || echo "/usr/bin/$tool")
+fi
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
@@ -85,7 +104,7 @@ if [ ! -f "$root/bin/solvm" ] || [ ! -f "$root/programs/$tool.sob" ]; then
 fi
 
 if ! command -v "$oracle" >/dev/null 2>&1 && [ ! -x "$oracle" ]; then
-    echo "no oracle: $oracle is not there. Set SED_ORACLE to one."
+    echo "no oracle: $oracle is not there. Set ORACLE to one."
     exit 2
 fi
 
@@ -146,6 +165,21 @@ for f in "$here"/agree/*.case; do
     # it in prose.
     if has tworoutes "$f"; then
         :
+    elif has pipenames "$f"; then
+        # The output names its input, and standard input is named `-`. awk
+        # rather than sed, and by index rather than by pattern, so that a path
+        # full of dots is replaced literally.
+        awk -v p="$work/in.txt" '{
+            while ((i = index($0, p)) > 0)
+                $0 = substr($0, 1, i - 1) "-" substr($0, i + length(p))
+            print }' "$work/file.out" > "$work/expected.out"
+        if ! cmp -s "$work/expected.out" "$work/pipe.out"; then
+            printf '  TWO WAYS  %s -- the pipe differs by more than the name\n' "$name"
+            diff -u "$work/expected.out" "$work/pipe.out" \
+                | sed -e '1,2d' -e 's/^/            /'
+            news=$((news + 1))
+            continue
+        fi
     elif has pipediffers "$f"; then
         { cat "$work/file.out"; printf '\n'; } > "$work/expected.out"
         if ! cmp -s "$work/expected.out" "$work/pipe.out"; then

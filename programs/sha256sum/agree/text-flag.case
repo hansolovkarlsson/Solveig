@@ -1,0 +1,7 @@
+# -t is the default and exists so that -bt and -tb mean what they mean
+# elsewhere: the last one wins.
+args: -t
+pipenames:
+input:
+alpha
+bravo

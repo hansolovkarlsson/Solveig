@@ -1,6 +1,6 @@
 # The programs
 
-*The seventeen<!--count programs--> files in [programs/](../programs/): what each one does, how to run
+*The eighteen<!--count programs--> files in [programs/](../programs/): what each one does, how to run
 it, and what it found. [examples/](../examples/) is the other directory — one
 file per concept the [guide](GUIDE.md) names, each written to show a feature.
 These were written to do a job.*
@@ -48,6 +48,7 @@ is the map; the file is the argument.
 | [pascal](../programs/pascal.sol) | compiles ISO 7185 Pascal to a `.sob` | `solvm pascal.sob [prog.pas] [out.sob]` |
 | [sed](../programs/sed.sol) | runs a sed script over the lines of its input | `solvm sed.sob [-n] script [file...]` |
 | [tail](../programs/tail.sol) | the end of a file, without reading the rest of it; `-f` follows | `solvm tail.sob [-n N] [-f] [file...]` |
+| [sha256sum](../programs/sha256sum.sol) | the SHA-256 of a file, and the check of a list of them | `solvm sha256sum.sob [-bctwz] [file...]` |
 
 Every one runs with no arguments at all, on input it supplies itself. That is
 deliberate — a program you have to feed before it will say anything is a program
@@ -416,7 +417,7 @@ table had when [disasm](#disasm--a-sob-file-read-and-disassembled) found it
 three sections out of date. They are also the first thing a newcomer reads.
 
 **It is in `make test` now**, in `tests/test_cli.c` with the other tests that
-run the binaries as a shell would — **1044<!--count claims--> claims on every build**, in about
+run the binaries as a shell would — **1047<!--count claims--> claims on every build**, in about
 sixteen seconds, and it fails the build if one stops holding.
 
 **And it holds one document against a file rather than against a run.**
@@ -471,7 +472,7 @@ is demonstrating the wrong branch.**
 
 **And it checks the documentation too.** The guide and the reference carry the
 same notation inside ``` fences, and nothing checked those either — they are the
-two documents a newcomer actually reads. 466<!--count docs-claims--> claims
+two documents a newcomer actually reads. 469<!--count docs-claims--> claims
 across twenty-eight<!--count docs-documents--> documents,
 and two more on `README.md` and `index.md` — the front pages, which were the
 last two things nothing checked.
@@ -513,7 +514,7 @@ no notation saying what it counts — so it is given one, which renders as nothi
 and leaves the sentence as it was:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 1044<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 1047<!--count claims--> claims
 ```
 
 Each name is recounted from the repository as it stands. A name the table does
@@ -1760,9 +1761,128 @@ that the file at a path is a *different* file, and nothing in this language
 answers a file identity — `fileSize` and `modifiedAt` are all that can be asked
 of a path, and both can coincide across a rotation.
 
+## sha256sum — a digest, and the first inner loop that is arithmetic
+
+The SHA-256 of each file named, or of standard input; and with `-c`, a list of
+digests checked against the files it names.
+
+```sh
+./bin/solvm programs/sha256sum.sob                    # it demonstrates itself
+./bin/solvm programs/sha256sum.sob file.tar
+./bin/solvm programs/sha256sum.sob -c SHA256SUMS
+... | ./bin/solvm programs/sha256sum.sob
+```
+
+```
+$ sha256sum h.txt
+5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03  h.txt
+```
+
+`-b` writes `*` before the name, `-t` is the default, `-z` ends the line with a
+NUL, `-w` complains about lines of a list that are not checksum lines. That is
+the whole of `sha256sum [-bctwz]`, which is the whole of the usage line of the
+tool on this machine.
+
+**It was written to produce one number.** Every other program here is a parser
+or a filter and spends its time in `split`, `indexOf` or a syscall;
+[the survey that chose it](ideas.md#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31)
+put this first because sixty-four rounds of shifts, masks and additions per
+sixty-four bytes is the cheapest way to ask *what does this interpreter cost per
+arithmetic operation when there is nothing else going on*.
+
+**208 bytecode instructions per byte, at 4.4 nanoseconds each.** Measured with
+`--steps=N`, which stops a program after N instructions — so the smallest N that
+lets a run finish is that run's exact count, and a binary search finds it. It is
+13,302 instructions per 64-byte block, flat from ten blocks to a hundred, and a
+megabyte takes 0.96 s at `-O2`: **227 million instructions a second**. That is
+the first absolute figure this project has for what an instruction costs;
+[performance.md](performance.md) is otherwise all ratios.
+
+| | on a megabyte |
+| --- | ---: |
+| `/sbin/sha256sum` | 1667 MB/s — C, and the M2's SHA instructions |
+| `shasum -a 256` | 317 MB/s — Perl, calling a C library |
+| this program, `-O2` | 1.04 MB/s |
+| this program, the `-g` build `make` gives you | 0.22 MB/s |
+
+The Perl one is the interesting row: an interpreter too, and 305 times faster
+for not interpreting the hash. The last row is 4.8x, against the 1.9x to 4.1x
+the nine benchmarks show for that flag — which is what a program that is nothing
+but arithmetic inside the dispatch loop should be expected to do.
+
+**And it did not need a new integer type**, which was the other half of the
+prediction. SHA-256 is defined on mod-2³² arithmetic and this language has one
+signed 64-bit integer that traps rather than wrapping, so it is the first thing
+here to want `byte`, `word` and `long` — and it does not, because a 64-bit
+integer holds the sum of five 32-bit values with fifty-nine bits to spare. The
+cost of refusing them is twenty-three `bitAnd`s in one program.
+[3.12](ROADMAP.md#312-no-shift-can-produce-a-negative-integer) never comes close
+either: the largest shift here moves a value under 2³² left by thirty places.
+
+**Four things it found that nobody predicted:**
+
+- **A fifth of the program was a method call.** `rotr` written the obvious way —
+  a method on the hash object — costs 0.73 MB/s; written out in the sixty-four
+  rounds, 0.90; written out in the message schedule too, 1.06. The arithmetic is
+  identical in all three, and what the method cost was a frame and a return, ten
+  times a round. Worth holding against
+  [the inline cache entry](ideas.md#an-inline-cache-at-the-send-site), which
+  measured *lookup* at 9.7%. This is the call itself.
+- **`@expr` has no bit operators**, so the one file here that is nothing but
+  shifts, xors and masks is the one file that cannot use the notation at all —
+  `&` and `|` are already the short-circuiting logical pair. One program is one
+  program, and it is written down because a notation introduced for "a formula
+  you are transcribing" met a formula it could not transcribe.
+- **[3.2](ROADMAP.md#32-no-non-local-return) turned up in the parsing**, not the
+  hashing. Every loop in the block function runs a fixed number of times, which
+  is what a specified algorithm looks like; the flag-carried early exit is in
+  the code deciding whether a line of a checksum list is a checksum line.
+- **The `isatty` trigger fired.** `tail` found `keyWaiting(0.0)` answers *is
+  standard input a terminal* by accident and recorded it as a note with *a
+  second program* as the trigger. This is the second program, for the identical
+  collision — the house rule says demonstrate on input you carry and
+  `... | sha256sum` says read standard input, and both are an empty command
+  line. It is now
+  [6.40](ROADMAP.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal).
+
+**It is the second caller of the ranged read, going the other way.** `tail`
+seeks backwards to a place it computed; this walks forwards from byte one in
+64 KB pieces and never looks back, so nothing here ever holds a file — which
+fell out of the pipe rather than being designed, since standard input arrives a
+byte at a time and the state had to survive between bytes. A shape that serves
+both a seek and a scan with no state between calls is
+[3.22](COMPLETED.md#322-a-file-is-read-whole-or-not-at-all--done)'s argument
+holding up under a use it did not have in mind.
+
+**Three checks, and one of them is the kind `sed` and `tail` could not have.**
+
+| | what it runs |
+| --- | --- |
+| `sh programs/oracle.sh sha256sum` | 21 corpus cases, each both as a named file and down a pipe |
+| `sh programs/sha256sum/vectors.sh` | the published FIPS 180-4 and NIST digests, and the bytes a `.case` file cannot carry |
+| `sh programs/sha256sum/check.sh` | `-c` against the oracle, on a directory of files |
+
+The vectors are the point: an oracle can be wrong in the same direction as
+anything derived from it, and SHA-256 has answers printed in a standard before
+this language existed. Everything agrees, including a million times `a`.
+
+**The oracle earned itself twice inside ten minutes.** Once against this
+program: `-c` dropped every empty piece of the split and carried a comment
+saying "a blank line is not a malformed line in either tool", which had not
+been tried — `/sbin/sha256sum -c -w` numbers a blank line and counts it. And
+once against itself: in `-c` mode it reports a missing file with two spaces,
+having kept the separator that stood in front of the name, which `check.sh`
+records as a divergence rather than copying.
+
+`programs/oracle.sh` grew two things for this program, in the way it grew for
+its second caller: an oracle that is not in `/usr/bin` is now looked up on the
+PATH, and `pipenames:` says that a program naming its input has two routes
+differing by the *name* — the pipe's output must be the file's with the path
+replaced by a dash, which is a full check rather than a waiver.
+
 ## Adding one
 
-There is no template and there should not be. What the seventeen have in common is
+There is no template and there should not be. What the eighteen<!--count programs--> have in common is
 only this:
 
 1. **It does a job somebody would want done**, rather than exercising a feature.
@@ -1775,10 +1895,15 @@ only this:
 4. **It is registered in `tests/test_compile.c`**, which verifies every shipped
    `.sol` and fails if one is added without being listed.
 5. **If something on the machine already does the job, it is held against that.**
-   Three are: [sola](#sola--a-compiler-for-another-language) against QuickBASIC,
+   Four are: [sola](#sola--a-compiler-for-another-language) against QuickBASIC,
    [pascal](#pascal--a-compiler-for-a-language-with-a-standard) against `fpc`,
-   and [sed](#sed--a-stream-editor) and [tail](#tail--the-end-of-a-file-without-reading-the-rest-of-it)
-   against the tools of those names.
+   and [sed](#sed--a-stream-editor), [tail](#tail--the-end-of-a-file-without-reading-the-rest-of-it)
+   and [sha256sum](#sha256sum--a-digest-and-the-first-inner-loop-that-is-arithmetic)
+   against the tools of those names. **And where a standard prints the answers,
+   hold it against those too**: an oracle can be wrong in the same direction as
+   anything derived from it, and
+   [programs/sha256sum/vectors.sh](../programs/sha256sum/vectors.sh) is the
+   first check here that does not depend on another implementation being right.
    [programs/oracle.sh](../programs/oracle.sh) is the harness: a corpus of cases
    that must produce the same bytes and a second corpus that must **not**, each
    of the second saying why. It is the only check here that can find what nobody
