@@ -5,6 +5,49 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The published pages, checked at last — `pending`, 2026-09-01
+
+**No change to the language.** `.sob` files are format version 14, the message
+count is unmoved. A new check and eleven fixed links.
+
+[site.sh](../programs/site.sh) fetches every page GitHub Pages serves and holds
+it against the source at `origin/main` — headings rendered against headings in
+the source outside fences, site-absolute links against the base the site is
+served from, and every internal `#link` against the `id`s the renderer emitted.
+It closes
+[3.23](COMPLETED.md#323-nothing-checks-the-pages-that-are-actually-published--done).
+
+**Against `origin/main` and not the working tree**, which is the one thing that
+keeps it from being noise: the site renders what was pushed, so a local file
+would report every unpushed edit as a fault. HEAD and the tree are both compared
+against the ref and the difference said out loud. **Not in `make test`** and it
+must stay out — the suite is offline and dependency-free.
+
+**Writing it found the fault class that makes its case.** A markdown link whose
+*text wraps across a line* loses the baseurl when Jekyll rewrites its `.md`
+target to `.html`: eleven of them were writing `/docs/X.html` where the page
+lives at `/Solveig/docs/X.html`, and **every one was a 404**. On pages whose
+markdown is correct, whose local link check passes, and which `expect.sol` will
+never see. Ten were live; all eleven are unwrapped.
+
+They turned up while reading the rendered hrefs to write the fetch loop, before
+the check itself ran — the same way the morning's fault turned up. The artefact
+says things the source cannot.
+
+**And the version this entry was scoped from would have missed them.** That
+throwaway only checked links whose target it had already fetched, so a link with
+a wrong base resolved to nothing and was skipped: it reported *0 dead* on a site
+with ten 404s in it. Checking that a link's **anchor** exists and checking that
+its **address** does are two questions.
+
+**What each branch catches, measured.** The baseurl branch has ten live catches.
+The heading branch, held against the broken page saved that morning: source 316
+headings, page rendered 64 — so it catches the `<if-statement>` fault, which
+stops rendering outright. It would **not** have caught the stray fence alone,
+because a ``` at the start of a line moves both counts together; that one's
+signature is the eleven headings falling inside a fence, which is what
+`expect.sol` reports locally. Two checks, one fault each, neither redundant.
+
 ### A path that is not there answers nil, and 6.41 closed — `6106115`, 2026-09-01
 
 **The language answers 143<!--count messages--> messages**, unchanged, and

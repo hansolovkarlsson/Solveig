@@ -11,6 +11,71 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-01 (fifth) — the check shipped, and found something else on the way in
+
+The day's fifth entry, and the third to follow one that called itself the last.
+
+[3.23](COMPLETED.md#323-nothing-checks-the-pages-that-are-actually-published--done)
+was scoped this evening and built the same evening, on the four calls answered
+as recommended: [site.sh](../programs/site.sh), beside the other oracles,
+headings and anchors over one fetch, named in
+[releasing.md](releasing.md#what-the-document-checker-does-not-cover).
+
+### It found its own best argument while being written
+
+Not by running — by *reading*. Writing the fetch loop meant looking at the
+rendered `href`s, and one of them was `/docs/releasing.html#...` where every
+other was `/Solveig/docs/...`. Nine distinct URLs, all 404.
+
+**A markdown link whose text wraps across a line loses the site's baseurl** when
+Jekyll rewrites its `.md` target to `.html`. Eleven such links; ten published.
+The markdown is correct, `expect.sol` passes on all of them, and the local link
+check built this morning says they are fine — because locally they *are* fine.
+
+The first hypothesis was wrong and the correction is the useful part. A quick
+regex said twenty-seven links had a newline in their text, and only nine were
+broken, so the rule looked more complicated than it was. The regex was the
+problem: `[^\]]*` across a document with brackets in tables matches far more
+than a link. Tightened to reject brackets inside the text, it found exactly
+eleven — and nine distinct URLs, which is what the site showed. **A detector
+that disagrees with the artefact is usually the detector.**
+
+### And the scoping's own throwaway had a hole
+
+It reported *0 dead* on a site with ten 404s in it, because it only checked
+links whose target it had already fetched — and a link with a wrong base
+resolves to a page that was never fetched, so it was skipped in silence.
+Checking that a link's **anchor** exists and checking that its **address** does
+are two questions, and the entry had only asked one.
+
+That is twice in a day that a throwaway measuring something real was itself
+wrong, in a way that reproduced. This morning's ran two experiments as one; this
+one skipped what it could not resolve. Neither failure was in the thing being
+measured.
+
+### What each branch actually catches
+
+The entry's first draft said the heading branch had been reproduced by pointing
+`SOURCE_REF` at an older commit. **That was written before it was run**, and
+running it produced *extra* rather than *lost* — a healthy site cannot make that
+branch fire in the direction that matters.
+
+Held against the broken page saved that morning instead: the source at `1cfa39f`
+has 316 headings by this rule, and the page GitHub actually served rendered 64.
+So the branch catches the `<if-statement>` fault, which stops rendering
+outright.
+
+**And it would not have caught the stray fence on its own.** A ``` at the start
+of a line moves both counts together — 316 where the fixed file has 327 —
+because the rule reads fences the way the renderer does. That fault's signature
+is the eleven headings that fall inside a fence, which is what `expect.sol`
+reports locally, and where the number went 1 to 12. Two checks, one fault each.
+
+Writing that down took three attempts and each was shorter than the last, which
+is the shape of a claim being narrowed to what was measured.
+
+---
+
 ## 2026-09-01 (really closing) — the check that found the day's worst fault, scoped
 
 Four entries. The one below calls itself the day's closing account and was wrong
