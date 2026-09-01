@@ -12,18 +12,18 @@ The numbers are the original ones and are never reused.
 
 ---
 
-## 1. A tree of Phoenix's own — done, 0.1.0
+## 1. A tree of Proto's own — done, 0.1.0
 
 **The problem.** Expansion and hygiene both want a tree, and Solas has none:
 `sol_compile(source, chunk)` runs the parser straight into the emitter, one
 pass, nothing in between.
 
 **The options.** Borrow Solas's AST — there is none. Add one to Solas — changes
-Solveig to suit Phoenix, and single-pass is the right shape for a compiler with
+Solveig to suit Proto, and single-pass is the right shape for a compiler with
 fixed syntax. Own one.
 
-**Why this shape.** Owning a tree is what makes Phoenix a compiler rather than a
-preprocessor, and it settles what Phoenix *is*: not a bolt-on to Solas, but a
+**Why this shape.** Owning a tree is what makes Proto a compiler rather than a
+preprocessor, and it settles what Proto *is*: not a bolt-on to Solas, but a
 second compiler that happens to target Solveig.
 
 ## 2. Spans, and the map — done, 0.1.0
@@ -134,7 +134,7 @@ bad use expanded into Solveig that failed somewhere further down.
 
 **Why these five and not a guard.** `expression`, `name`, `literal`, `block`,
 `place` are all decided by *looking* at what was parsed. None needs an
-evaluator, and Phoenix has none on purpose — see
+evaluator, and Proto has none on purpose — see
 [rules-and-logic.md](rules-and-logic.md).
 
 **Why checked after expansion.** A hole filled by another form is then checked
@@ -170,7 +170,7 @@ delimited before 9 gave holes kinds.
 ## 12. `||` without a declarable lexer — done, 0.9.0
 
 **The problem.** `|` is the one spelling a dialect cannot have, so
-`lib/clike.phx` declared C's *or* as `\/` and wrote a paragraph apologising for
+`lib/clike.pro` declared C's *or* as `\/` and wrote a paragraph apologising for
 it beside a `&&` that needed no apology.
 
 **The option that was proposed, and refused.** A `@token` directive naming a
@@ -180,7 +180,7 @@ does not reach the problem: what stops `|` is not that `@infix` cannot spell it
 but that `{ a | b }` would have two readings, and naming the ambiguity does not
 decide it. And it costs the property the whole design sits on from a new
 direction — not the Forth one, since a `@token` header is still read rather than
-run, but the practical one: **today any tool can tokenise any `.phx` without
+run, but the practical one: **today any tool can tokenise any `.pro` without
 knowing what a dialect is**, and a declarable token stream makes every future
 formatter, highlighter and `grep` implement the directive before it can lex.
 
@@ -207,7 +207,7 @@ knows nothing about.
 
 **The shape taken instead.** `||` in the *fixed* lexer, taken before the bar,
 belonging to every dialect and declared by none. The split the proposal wanted
-already existed — `PHX_TOK_OPERATOR` is spelling only and `@infix` is meaning —
+already existed — `PROTO_TOK_OPERATOR` is spelling only and `@infix` is meaning —
 so the question was never *how does a file name a token* but *which spellings
 are in the vocabulary*.
 

@@ -1,0 +1,55 @@
+; utf8.pro -- one function from Solveig's own library, written twice.
+;
+; This is `integer:asUtf8` out of Solveig's lib/text.sol, unchanged in what it
+; does. The note at the top of that file says why it is here:
+;
+;     This was written before the language had them, with `div(#64)` for a
+;     shift and `mod(#64)` for a mask and `add` for the tag bits -- exact,
+;     since the bits are disjoint by construction, and nothing like what it
+;     means. Reading it against the table in RFC 3629 meant translating every
+;     line.
+;
+; Solveig's answer was to grow three messages, `shiftRight`, `bitAnd` and
+; `bitOr`, so the code says shifts and masks instead of arithmetic. That was the
+; right fix and it went as far as a fixed syntax can go: the code now names the
+; operations, and still spells them the way a message send is spelled.
+;
+; Proto's answer is the next step and costs the language nothing, because the
+; three lines below hold for this file alone.
+
+@language solveig.
+
+@infix  >>  80 shiftRight.
+@infix  &   60 bitAnd.
+@infix  \/  50 bitOr.
+@infix  <   40 lessThan.
+
+; `\/` and not `|`, because `|` separates a block's parameters from its body and
+; a module does not get to take it. That is the one spelling a dialect cannot
+; have, and it is the price of `{ a | b }` having one reading.
+
+; The continuation bytes are all the same shape: the tag 10xxxxxx over six bits
+; of the code point, taken `at` bits from the bottom. Compare the parenthesis
+; count with the original -- the precedences declared above are what removed
+; them.
+integer:utf8Tail := { at | (#128 \/ self >> at & #63):asCharacter }.
+
+integer:asUtf8 := {
+    (self < #128):ifElse(
+        { self:asCharacter },
+        { (self < #2048):ifElse(
+            { (#192 \/ self >> #6):asCharacter
+                  :concat(self:utf8Tail(#0)) },
+            { (self < #65536):ifElse(
+                { (#224 \/ self >> #12):asCharacter
+                      :concat(self:utf8Tail(#6))
+                      :concat(self:utf8Tail(#0)) },
+                { (#240 \/ self >> #18):asCharacter
+                      :concat(self:utf8Tail(#12))
+                      :concat(self:utf8Tail(#6))
+                      :concat(self:utf8Tail(#0)) }) }) }) }.
+
+#65:asUtf8:print.        ; "A"        -- one byte
+#233:asUtf8:print.       ; "é"        -- two
+#8364:asUtf8:print.      ; "€"        -- three
+#128169:asUtf8:print.    ; "💩"       -- four

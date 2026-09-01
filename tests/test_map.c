@@ -1,5 +1,5 @@
 /* test_map.c -- that a position in the generated file names the position in the
- * .phx that caused it.
+ * .pro that caused it.
  *
  * This is the test the whole design leans on. A compiler whose syntax arrives
  * with the file has one characteristic failure -- the programmer writes one
@@ -11,15 +11,15 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "phoenix/emit.h"
-#include "phoenix/reader.h"
-#include "phoenix/unit.h"
+#include "proto/emit.h"
+#include "proto/reader.h"
+#include "proto/unit.h"
 
 static int failures = 0;
 static int checks = 0;
 
-static PhxUnit unit;
-static PhxEmitter emitter;
+static ProtoUnit unit;
+static ProtoEmitter emitter;
 
 /* That the generated position `line:column` came from the source text `want` --
    compared by looking at the source at the offset the map answers, which is the
@@ -28,7 +28,7 @@ static void expect_from(const char *label, int line, int column,
                         const char *want)
 {
     checks++;
-    const PhxMapping *mapping = phx_emit_lookup(&emitter, line, column);
+    const ProtoMapping *mapping = proto_emit_lookup(&emitter, line, column);
     if (mapping == NULL) {
         printf("  FAIL %s: %d:%d maps to nothing\n", label, line, column);
         failures++;
@@ -37,7 +37,7 @@ static void expect_from(const char *label, int line, int column,
     const char *at = mapping->span.source->text + mapping->span.offset;
     if (strncmp(at, want, strlen(want)) != 0) {
         int source_line, source_column;
-        phx_span_position(mapping->span, &source_line, &source_column);
+        proto_span_position(mapping->span, &source_line, &source_column);
         printf("  FAIL %s: generated %d:%d maps to %d:%d, which is \"%.12s\", "
                "wanted \"%s\"\n",
                label, line, column, source_line, source_column, at, want);
@@ -65,24 +65,24 @@ int main(void)
      * source column 16, and nothing about either number is derivable from the
      * other: the operators moved. */
 
-    phx_unit_init(&unit);
-    const PhxSource *source = phx_unit_adopt(&unit, "<test>", text);
+    proto_unit_init(&unit);
+    const ProtoSource *source = proto_unit_adopt(&unit, "<test>", text);
 
     FILE *sink = tmpfile();
-    PhxDiagnostics diag;
-    phx_diag_init(&diag, sink);
+    ProtoDiagnostics diag;
+    proto_diag_init(&diag, sink);
 
-    PhxDialect dialect;
-    phx_dialect_init(&dialect);
+    ProtoDialect dialect;
+    proto_dialect_init(&dialect);
 
-    PhxNode *module = phx_read(source, &unit, &dialect, &diag);
+    ProtoNode *module = proto_read(source, &unit, &dialect, &diag);
     if (module == NULL) {
         printf("  FAIL: the fixture did not compile\n");
         return 1;
     }
 
-    phx_emitter_init(&emitter);
-    phx_emit(&emitter, module);
+    proto_emitter_init(&emitter);
+    proto_emit(&emitter, module);
 
     expect_from("the statement",        3,  1, "total := #2");
     expect_from("the first operand",    3, 10, "#2");
@@ -97,10 +97,10 @@ int main(void)
 
     printf("%d checks, %d failed\n", checks, failures);
 
-    phx_emitter_free(&emitter);
-    phx_node_free(module);
-    phx_dialect_free(&dialect);
-    phx_unit_free(&unit);
+    proto_emitter_free(&emitter);
+    proto_node_free(module);
+    proto_dialect_free(&dialect);
+    proto_unit_free(&unit);
     fclose(sink);
     return failures == 0 ? 0 : 1;
 }

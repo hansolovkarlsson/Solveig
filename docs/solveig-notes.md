@@ -1,4 +1,4 @@
-# What Phoenix has found in Solveig
+# What Proto has found in Solveig
 
 A running log, kept here rather than raised there, so that each entry is written
 where it was found and can be taken into Solveig's own numbering when somebody
@@ -6,7 +6,7 @@ decides it is worth taking.
 
 **This is what a second customer is for.** solveig-sdl's README says the same
 thing about `sol_symbol_intern` — reachable and not promised, promised now
-because a second binding wanted it. Phoenix is a customer of a different part:
+because a second binding wanted it. Proto is a customer of a different part:
 not the extension ABI but the compiler and the machine as *programs*, driven
 from a command line by something that generated their input.
 
@@ -50,7 +50,7 @@ captures both.
 Probably also before the machine stops for `--steps` or `--memory`, which fail
 the same way.
 
-**Why it matters here.** `make test` in Phoenix runs every example through
+**Why it matters here.** `make test` in Proto runs every example through
 `solvm` and captures both streams. A failing example's last output is the first
 thing you want and the last thing shown, and the misordering reads as *the print
 never happened* rather than as a buffering artefact.
@@ -71,21 +71,21 @@ solvm: integer does not understand 'notAMessage'
   [rt.sol:3] in script
 ```
 
-Phoenix compiles `vectors.phx` to `vectors.sol` and writes `vectors.sol.map`
-beside it, so the information exists — but it exists on Phoenix's side, and
+Proto compiles `vectors.pro` to `vectors.sol` and writes `vectors.sol.map`
+beside it, so the information exists — but it exists on Proto's side, and
 `solas`, `solvm` and `solid` all name the generated file. Everybody who is not
-Phoenix has to look the position up by hand.
+Proto has to look the position up by hand.
 
 **What would close it**, roughly in order of how little it asks of Solveig:
 
 | | |
 | --- | --- |
 | `solas --source-name=<path>` | The path recorded in the chunk, rather than the one on the command line. One flag, one field. Fixes the *file*, not the *line*. |
-| A `#line`-style directive in source | `@line 25 "vectors.phx".` setting what the next statement records. Fixes both, costs a directive and a lexer case. Every generated-source language ends up with one. |
+| A `#line`-style directive in source | `@line 25 "vectors.pro".` setting what the next statement records. Fixes both, costs a directive and a lexer case. Every generated-source language ends up with one. |
 | The chunk carrying a map | Right, and much larger, and not worth it before something asks. |
 
-**Why it matters here.** It is the one thing that would make Phoenix's map
-consumed rather than merely written. Phoenix is deliberately built so that
+**Why it matters here.** It is the one thing that would make Proto's map
+consumed rather than merely written. Proto is deliberately built so that
 `solas` needs nothing from it, so this is a request rather than a dependency —
 and the first option alone would already turn *a line in a file you did not
 write* into *a line in a file you did not write, from one you did*.
@@ -131,7 +131,7 @@ one-second program costs half a minute.
 | `system:steps` | The count from inside the program. Larger, and it changes what a program can observe about itself, which is a decision rather than a flag. |
 
 **Why it matters here.** `programs/digest` in this repository exists partly to
-measure what a Phoenix template costs against a Solveig method, and the answer —
+measure what a Proto template costs against a Solveig method, and the answer —
 2.03 instructions per rotation against 2.00 — is a difference of 5% found by
 running two programs 56 times. Two runs would have done. The number is the whole
 point of that program, and it is the one thing the machine will not hand over.
@@ -144,8 +144,8 @@ script in this repository's history and can be lifted by anybody who wants it.
 ## A prediction about Solveig that was wrong
 
 `programs/ember` is a lexer, a recursive-descent parser and an ARM64 code
-generator, written in Phoenix and run on SolVM. Its README predicted that
-**Solveig would bite before Phoenix did** -- most likely
+generator, written in Proto and run on SolVM. Its README predicted that
+**Solveig would bite before Proto did** -- most likely
 [3.1](https://hansolovkarlsson.github.io/Solveig/docs/ROADMAP.html), a block
 outliving the frame it was written in, since `lib/scan.sol` had already hit it
 and said so.
@@ -163,15 +163,15 @@ program of this shape does not reach it.
 ## Not defects, recorded so they are not re-found
 
 **Solas is single-pass and has no tree.** `sol_compile(source, chunk)` runs the
-parser straight into the emitter. This is why Phoenix owns a tree instead of
+parser straight into the emitter. This is why Proto owns a tree instead of
 borrowing one, and it is the right shape for Solveig — noted so that the next
 person to look does not read it as an omission. See the README here, *What
-Phoenix is allowed to know about Solveig*.
+Proto is allowed to know about Solveig*.
 
 **Integer arithmetic traps rather than wrapping, and that is right.** It is what
 made `programs/digest` interesting rather than what made it hard: SHA-256 is
 defined on mod-2^32 arithmetic, Solveig's own `programs/sha256sum` pays for the
-difference in twenty-three hand-written `bitAnd`s, and Phoenix's version pays for
+difference in twenty-three hand-written `bitAnd`s, and Proto's version pays for
 it once in a header. A language that wrapped silently would have been the
 convenient choice and the wrong one. Recorded so that *a hash program wanted
 wrapping* is not read as a request for it.
@@ -188,6 +188,6 @@ with two things on it is built and then written once, which is what
 `programs/digest` does. Recorded because reaching for `display` twice and
 getting two lines looks like a bug for about a minute.
 
-**`:not` and `:not()` are the same send.** Phoenix emits the first. Confirmed
+**`:not` and `:not()` are the same send.** Proto emits the first. Confirmed
 against the grammar, which makes an argument list optional; recorded because it
 looks like a difference and is not.

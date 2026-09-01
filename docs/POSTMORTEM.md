@@ -30,7 +30,7 @@ by hand and did not copy the new field, so a form used *inside another form's
 template* lost it and expansion reported `internal: 'unless' was read as a form
 and is not one`.
 
-**Cause.** Two constructors for one node kind. `phx_node_copy` was updated;
+**Cause.** Two constructors for one node kind. `proto_node_copy` was updated;
 `instantiate` was not, and nothing makes them agree.
 
 **Found by** the 0.2.0 test *a form using a form*, on the first run after the
@@ -91,13 +91,13 @@ than remembering it.
 landed, so both were staged with the commit.
 
 **Cause.** The same class as 4 — anchored on Solveig's `.gitignore` wording
-rather than Phoenix's.
+rather than Proto's.
 
 **Found by** reading `git status --short` before committing.
 
 ### 6. A blind global replace mangled a comment
 
-**What.** Renaming `&&` to `/\` in `emberc.phx` was done with an unanchored
+**What.** Renaming `&&` to `/\` in `emberc.pro` was done with an unanchored
 substitution and caught a shell command inside a header comment:
 `> fizzbuzz.s && cc fizzbuzz.s` became `/\ cc`. The comment is how somebody runs
 the thing by hand.
@@ -133,7 +133,7 @@ uses you have imagined makes a dialect narrower than the thing it is for.
 ### 9. Six precedence bugs in one file
 
 **What.** `t:kind == 'op:and({ … })` sends `and` to the *symbol*, because sends
-bind tighter than operators. Six of them in `emberc.phx`.
+bind tighter than operators. Six of them in `emberc.pro`.
 
 **Cause.** The standing cost of putting operators on a language whose core is
 sends. Nobody's defect.
@@ -149,7 +149,7 @@ templates, which did not exist.
 
 ### 10. The `else` branch that silently did nothing
 
-**What.** `lib/clike.phx` first declared `if <c> <t: block> else <e>` untyped so
+**What.** `lib/clike.pro` first declared `if <c> <t: block> else <e>` untyped so
 that `else if (…)` would chain, with the template wrapping: `c:ifElse(t, { e })`.
 When the branch is *already* a block that gives `{ { … } }`, and the outer block
 answers the inner one rather than running it. The else branch did nothing.
@@ -167,7 +167,7 @@ program which ran had run correctly.
 
 **What.** `programs/ember` reported that a form's trailing hole swallows a
 postfix send; `programs/grammar` reported that it swallows an infix operator.
-Both were written up as limitations of Phoenix, with a sketch of a fix, in two
+Both were written up as limitations of Proto, with a sketch of a fix, in two
 READMEs and two commit messages.
 
 **Neither was a limitation.** A call ends at its closing parenthesis, so
@@ -187,7 +187,7 @@ Both readings are legal, so nothing at the declaration can warn.
 
 ### 12. A precedence declared on the wrong rung
 
-**What.** `programs/digest/sha2.phx` declared `*` and `%` at 60, the rung `+` is
+**What.** `programs/digest/sha2.pro` declared `*` and `%` at 60, the rung `+` is
 on. `at + i * #4` therefore parsed as `(at + i) * #4`, and the message schedule
 read the wrong bytes of every block.
 
@@ -197,7 +197,7 @@ of `.sol` that no one wrote.
 
 **Cause.** A module declares its own ladder, so there is no ladder to be wrong
 against — `@infix * 60` is as legal as `@infix * 70` and means something
-different. `lib/arith.phx` puts `*` at 70 and this file did not copy it, being
+different. `lib/arith.pro` puts `*` at 70 and this file did not copy it, being
 standalone on purpose.
 
 **Found by** running it. No test could have: the file is its own authority on

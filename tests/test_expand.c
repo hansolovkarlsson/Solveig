@@ -10,53 +10,53 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "phoenix/emit.h"
-#include "phoenix/expand.h"
-#include "phoenix/reader.h"
-#include "phoenix/unit.h"
+#include "proto/emit.h"
+#include "proto/expand.h"
+#include "proto/reader.h"
+#include "proto/unit.h"
 
 static int failures = 0;
 static int checks = 0;
 
 static char *compile(const char *text, int *errors)
 {
-    PhxUnit unit;
-    phx_unit_init(&unit);
+    ProtoUnit unit;
+    proto_unit_init(&unit);
 
-    const PhxSource *source = phx_unit_adopt(&unit, "<test>", text);
+    const ProtoSource *source = proto_unit_adopt(&unit, "<test>", text);
 
     FILE *sink = tmpfile();
-    PhxDiagnostics diag;
-    phx_diag_init(&diag, sink);
+    ProtoDiagnostics diag;
+    proto_diag_init(&diag, sink);
 
-    PhxDialect dialect;
-    phx_dialect_init(&dialect);
+    ProtoDialect dialect;
+    proto_dialect_init(&dialect);
 
-    PhxProvenance provenance;
-    phx_provenance_init(&provenance);
+    ProtoProvenance provenance;
+    proto_provenance_init(&provenance);
 
-    PhxNode *module = phx_read(source, &unit, &dialect, &diag);
+    ProtoNode *module = proto_read(source, &unit, &dialect, &diag);
     if (module != NULL &&
-        !phx_expand(module, &unit, &dialect, &diag, &provenance)) {
-        phx_node_free(module);
+        !proto_expand(module, &unit, &dialect, &diag, &provenance)) {
+        proto_node_free(module);
         module = NULL;
     }
     *errors = diag.errors;
 
     char *out = NULL;
     if (module != NULL) {
-        PhxEmitter emitter;
-        phx_emitter_init(&emitter);
-        phx_emit(&emitter, module);
+        ProtoEmitter emitter;
+        proto_emitter_init(&emitter);
+        proto_emit(&emitter, module);
         const char *body = strstr(emitter.text, "\n\n");
-        out = phx_strndup(body + 2, strlen(body + 2));
-        phx_emitter_free(&emitter);
-        phx_node_free(module);
+        out = proto_strndup(body + 2, strlen(body + 2));
+        proto_emitter_free(&emitter);
+        proto_node_free(module);
     }
 
-    phx_provenance_free(&provenance);
-    phx_dialect_free(&dialect);
-    phx_unit_free(&unit);
+    proto_provenance_free(&provenance);
+    proto_dialect_free(&dialect);
+    proto_unit_free(&unit);
     fclose(sink);
     return out;
 }
@@ -126,7 +126,7 @@ int main(void)
            "xs:isEmpty:not:not:ifTrue({ y:print }).\n");
 
     /* Hygiene. The template binds `t`; the caller passes `t`. Asserted on the
-       generated code, and the example is run for real in examples/forms.phx. */
+       generated code, and the example is run for real in examples/forms.pro. */
     expect("a template binder cannot capture an argument", LANG
            "@syntax hold(v) => { | t | t := v. t }:value.\n"
            "t := #1.\n"

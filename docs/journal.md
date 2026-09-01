@@ -1,6 +1,6 @@
 # Journal
 
-*What a day of work on Phoenix actually consisted of, newest first.*
+*What a day of work on Proto actually consisted of, newest first.*
 
 [CHANGELOG.md](CHANGELOG.md) records what landed, per feature, with the commit
 that carried it. [COMPLETED.md](COMPLETED.md) records the case for each piece of
@@ -43,7 +43,7 @@ cannot spell it — `\/` needs no help and declares fine — it is that
 declaration is not on that line to disambiguate them. **A collision between core
 syntax and declared syntax happens at the use, and no spelling of the
 declaration reaches it.** The split the proposal wanted already existed:
-`PHX_TOK_OPERATOR` is spelling only and `@infix` is meaning, so the real question
+`PROTO_TOK_OPERATOR` is spelling only and `@infix` is meaning, so the real question
 was never *how does a file name a token* but *which spellings are in the
 vocabulary*.
 
@@ -51,7 +51,7 @@ So the vocabulary grew. **`||` is two bars and not a bar** — the lexer takes i
 before the bar, hands it to every dialect and lets none of them declare it, and
 `{ a || b }` was already an error so nothing legal was taken. The one casualty
 was `{ || … }`, an empty temporary list that emitted nothing and appeared
-nowhere. That is 0.9.0, and `lib/clike.phx` stopped apologising for `\/`.
+nowhere. That is 0.9.0, and `lib/clike.pro` stopped apologising for `\/`.
 
 **What made it cheap was checking rather than reasoning.** Both risky cases were
 compiled before the change was written. One of them turned out to be a real cost
@@ -63,7 +63,7 @@ reading the parser.
 `programs/digest` — SHA-256 — was chosen because Solveig's own `sha256sum` wrote
 the gap down in its findings: *`@expr` has no bit operators, so the one file here
 that is nothing but shifts, xors and masks is the one file that cannot use the
-notation at all.* Phoenix's ROADMAP has claimed the answer to that since 0.1.0
+notation at all.* Proto's ROADMAP has claimed the answer to that since 0.1.0
 with nothing to point at. Same algorithm, same substrate, one file with a fixed
 infix region and one that declares its own.
 
@@ -93,7 +93,7 @@ over: both readings legal, nothing at the declaration able to warn.
 The other two: **a dialect ends at its domain and cannot say where** — `+`
 masking to 32 bits is right for SHA-256 and a trap for the loop counter beside
 it — and **0.4.0's collision rules got their first real customer**, four
-collisions against `lib/control.phx`, reported exactly as designed, and the
+collisions against `lib/control.pro`, reported exactly as designed, and the
 answer was to not compose.
 
 ### What was written down rather than built
@@ -127,8 +127,8 @@ with 0.8.0, two real programs, three shipped dialects, and a retraction.
 
 ### What shipped
 
-Phoenix 0.1.0 through 0.8.0. `lib/arith.phx`, `lib/control.phx`,
-`lib/clike.phx`. `programs/ember`, a compiler from a small language to ARM64
+Proto 0.1.0 through 0.8.0. `lib/arith.pro`, `lib/control.pro`,
+`lib/clike.pro`. `programs/ember`, a compiler from a small language to ARM64
 assembly. `programs/grammar`, a grammar toolkit. Five design notes:
 [targets.md](targets.md), [rules-and-logic.md](rules-and-logic.md),
 [solveig-notes.md](solveig-notes.md), and this document set. 5,187 lines of C11,
@@ -143,15 +143,15 @@ declared grammar, was chosen, and it is the reason every later decision was
 cheap. A file's syntax is settled by that file's own header, so a tool can parse
 it by reading it top to bottom and never has to run anything.
 
-The second decision was where Phoenix lives. Solveig existed already, and
+The second decision was where Proto lives. Solveig existed already, and
 solveig-sdl's Makefile had written the rule down about itself — *this is an
-extension, so it is not part of Solveig* — so Phoenix went beside it rather than
+extension, so it is not part of Solveig* — so Proto went beside it rather than
 inside it. That was argued from something stronger than tidiness: a front end
 with privileged access to the compiler it targets proves only that Solveig's
 author can write a front end for Solveig.
 
 `solas/include/solas/compiler.h` decided the rest. `sol_compile(source, chunk)`
-is single-pass with no tree, so Phoenix owns one, and that settles what Phoenix
+is single-pass with no tree, so Proto owns one, and that settles what Proto
 is: a second compiler that happens to target Solveig.
 
 ### Three things went into 0.1.0 that nothing used
@@ -232,7 +232,7 @@ decision, not a build.
 
 A guard on a rule was designed and not built: `solum/embed.h` is the door, and
 the rule to fix before writing any of it is that **a guard validates, it does not
-select** — otherwise parsing depends on evaluation and no tool can read a `.phx`
+select** — otherwise parsing depends on evaluation and no tool can read a `.pro`
 without running it. [rules-and-logic.md](rules-and-logic.md) carries the whole
 argument.
 

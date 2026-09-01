@@ -1,19 +1,19 @@
-# SHA-256, written in Phoenix
+# SHA-256, written in Proto
 
 The digest of the FIPS 180-4 vectors, and of any file named on the command
 line, computed by sixty-four rounds of shifts, rotations, exclusive-ors and
 additions.
 
-**Not a Phoenix feature.** A third program, written for the reason the first two
+**Not a Proto feature.** A third program, written for the reason the first two
 were — and this one has a customer that named itself.
 
 ## Why this one
 
 `programs/ember` pressed on notation for something flat, `programs/grammar` on
 notation for something recursive. Both leaned on `@syntax` patterns. **The
-operator half of Phoenix has never had a customer**: `lib/arith.phx` declares
+operator half of Proto has never had a customer**: `lib/arith.pro` declares
 operators for arithmetic that Solveig can already write as sends, and
-`examples/utf8.phx` is twenty lines.
+`examples/utf8.pro` is twenty lines.
 
 Solveig's own `programs/sha256sum` wrote the gap down, in its own findings:
 
@@ -23,18 +23,18 @@ Solveig's own `programs/sha256sum` wrote the gap down, in its own findings:
 > program, and it is written down because a notation introduced for "a formula
 > you are transcribing" met a formula it could not transcribe.
 
-Phoenix's ROADMAP has claimed the answer to that in the abstract since 0.1.0 —
+Proto's ROADMAP has claimed the answer to that in the abstract since 0.1.0 —
 *Solveig's fixed infix region is the special case of what `@infix`
 generalises* — with nothing to point at. This is the same algorithm on the same
 substrate, one file with a fixed infix region and one that declares its own.
 
-It also lands on a second thing Solveig measured and Phoenix has not:
+It also lands on a second thing Solveig measured and Proto has not:
 
 > **A fifth of the program was a method call.** `rotr` written the obvious way —
 > a method on the hash object — costs 0.73 MB/s; written out in the sixty-four
 > rounds, 0.90; written out in the message schedule too, 1.06.
 
-A Phoenix template is expanded, not called. So the readable spelling and the
+A Proto template is expanded, not called. So the readable spelling and the
 fast spelling should be the same text here, which is a claim about run time that
 no program has tested and no unit test can.
 
@@ -44,8 +44,8 @@ no program has tested and no unit test can.
 | --- | --- |
 | **1. The formulas will transcribe.** | `Ch(x,y,z) = (x & y) ^ (~x & z)` should be that, in a file that declared `&`, `^` and `~` in its header. Predicted right, predicted the least interesting thing here, and predicted to be the whole of what `@expr` could not do. |
 | **2. The dialect will carry a rule, not a spelling.** | Solveig's version needs **twenty-three `bitAnd`s written by hand**, because integers are 64-bit and trap rather than wrapping. Predicted: `+` is declared as *wrapping* addition and every one of them disappears into the operator — and the finding is that **a dialect can enforce a correctness discipline**, which is new in kind. Ember's and grammar's dialects only ever saved typing. |
-| **3. A template that names a hole twice will evaluate it twice.** | `rotr` is `(x >> n) \| (x << (32-n))` and `left` appears on both sides of the bar. Phoenix has hygiene but no way to say *bind this once*. Predicted to bite, predicted to have no clean fix today, and predicted to be the sharpest finding **against** Phoenix. Mitigation predicted: rotations apply to plain variables, so the duplication re-reads rather than re-computes. |
-| **4. Nothing folds the constants a template introduces.** | `x >>> #2` expands with `#32:sub(#2)` inside it, and that subtraction is a send at run time, once per rotation, ten times a round. Predicted: real, measurable, and correctly Phoenix's problem rather than Solveig's — an expander that does not evaluate is the whole reason `.phx` files can be read without running them. |
+| **3. A template that names a hole twice will evaluate it twice.** | `rotr` is `(x >> n) \| (x << (32-n))` and `left` appears on both sides of the bar. Proto has hygiene but no way to say *bind this once*. Predicted to bite, predicted to have no clean fix today, and predicted to be the sharpest finding **against** Proto. Mitigation predicted: rotations apply to plain variables, so the duplication re-reads rather than re-computes. |
+| **4. Nothing folds the constants a template introduces.** | `x >>> #2` expands with `#32:sub(#2)` inside it, and that subtraction is a send at run time, once per rotation, ten times a round. Predicted: real, measurable, and correctly Proto's problem rather than Solveig's — an expander that does not evaluate is the whole reason `.pro` files can be read without running them. |
 | **5. Notation pays like ember's, not like grammar's.** | Grammar's rule was that **a dialect pays per line it removes**, so a flat repetitive domain earns more than a small structured one. Sixty-four rounds of arithmetic is as flat as an assembler. Predicted: the biggest payoff of the three programs, per line. |
 
 Predicted **not** to find: anything wrong with hygiene, `@use`, or the map —
@@ -81,7 +81,7 @@ binary search on `--steps` — the method Solveig's own program used:
 | what the template saved | 74,884 — **2.03 per rotation** |
 | what the unfolded `#32:sub(#17)` cost | 73,728 — **2.00 per rotation** |
 
-**The template gives back 98% of what it saves.** Phoenix avoids the frame and
+**The template gives back 98% of what it saves.** Proto avoids the frame and
 the return that Solveig measured at a fifth of that program, and then spends it
 recomputing a constant subtraction 36,864 times. The net is 1,156 instructions
 in 1.36 million — 0.08%, which is nothing.
@@ -104,7 +104,7 @@ about guards, and it deserves the same treatment rather than a quick answer.
 *choosing the shape wrongly*.** This file's first draft declared `*` and `%` at
 60, the same rung as `+`, so `at + i * #4` parsed as `(at + i) * #4`. It
 compiled without a word and ran, and what stopped it was an array index out of
-bounds four calls deep in generated code. `lib/arith.phx` puts `*` at 70 for
+bounds four calls deep in generated code. `lib/arith.pro` puts `*` at 70 for
 this reason and this file did not copy it.
 
 **A dialect ends at its domain, and there is no way to say where that is.**
@@ -116,15 +116,15 @@ scaffolding around it, and the file has to switch notations halfway down a
 function with only a comment to say why.
 
 **The collision rules got their first real customer, and the answer was not to
-compose.** `@use "sha2.phx"` beside `lib/control.phx` collides on `+`, `-`, `~`
-and `\/`, because control.phx uses arith.phx. Phoenix reports all four, names
+compose.** `@use "sha2.pro"` beside `lib/control.pro` collides on `+`, `-`, `~`
+and `\/`, because control.pro uses arith.pro. Proto reports all four, names
 both declarations and the whole `@use` chain, and says *this one wins, and
 nothing else will say so* — which is exactly right and still leaves a program
-that hashes wrongly if the header is in the other order. `sha2.phx` is standalone
-for that reason, which is `lib/clike.phx`'s reason with correctness behind it
+that hashes wrongly if the header is in the other order. `sha2.pro` is standalone
+for that reason, which is `lib/clike.pro`'s reason with correctness behind it
 rather than taste.
 
-**A dialect file must not declare `@language`.** Putting one in `sha2.phx` gives
+**A dialect file must not declare `@language`.** Putting one in `sha2.pro` gives
 *this module has already declared its language*, pointing at the used file. The
 diagnostic is right and says nothing about the rule it is enforcing, which is
 that a `@use`d file is read into the header of the module using it. It was the

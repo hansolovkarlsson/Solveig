@@ -1,4 +1,4 @@
-# Phoenix
+# Proto
 
 A compiler whose syntax arrives with the file it is compiling. A module declares
 its own grammar in its header, and that grammar holds for that file and no
@@ -18,7 +18,7 @@ a:print.                          ; #14
 
 ```sh
 make
-bin/phoenix --map examples/vectors.phx      # -> examples/vectors.sol + .sol.map
+bin/proto --map examples/vectors.pro      # -> examples/vectors.sol + .sol.map
 ../Solveig/bin/solas examples/vectors.sol
 ../Solveig/bin/solvm examples/vectors.sob
 ```
@@ -37,17 +37,17 @@ about itself:
 > This is an *extension*, so it is not part of Solveig and does not build with
 > it. That separation is the point rather than an inconvenience.
 
-It applies here for one reason more than it applies there. **Phoenix's whole
+It applies here for one reason more than it applies there. **Proto's whole
 claim is that a language is something a programmer writes on top of a substrate
 they do not get to change.** A front end living two directories from the
 compiler it targets would reach into that compiler, because it could — and would
 then have proved only that Solveig's author can write a front end for Solveig.
 
 So the build takes nothing from Solveig at all. No header, no archive, no symbol.
-Phoenix emits text; `solas` reads text. **The coupling is a file format and a
+Proto emits text; `solas` reads text. **The coupling is a file format and a
 command line, and it is the same surface anybody else would have.**
 
-## What Phoenix is allowed to know about Solveig
+## What Proto is allowed to know about Solveig
 
 Nothing that is not published.
 
@@ -55,8 +55,8 @@ Nothing that is not published.
 running straight into the emitter, one pass, no tree in between. That is a good
 shape for a compiler with fixed syntax and the wrong one to hang a macro
 expander off, because expansion and hygiene both want a tree and there is none
-to borrow. **So Phoenix has its own**, which settles the question of what
-Phoenix is: not a bolt-on to Solas, but a second compiler that happens to target
+to borrow. **So Proto has its own**, which settles the question of what
+Proto is: not a bolt-on to Solas, but a second compiler that happens to target
 Solveig.
 
 Given that, the output could have been a `SolChunk`, bypassing Solas entirely.
@@ -70,19 +70,19 @@ It is source text instead:
 The cost of the first is that the file `solas` reports an error in is not the
 file anybody wrote. That is paid for once, by the map.
 
-**What a program written in Phoenix emits is a different question**, and not one
-Phoenix has an opinion about — a compiler written here can write machine code,
+**What a program written in Proto emits is a different question**, and not one
+Proto has an opinion about — a compiler written here can write machine code,
 or a disk image, or nothing at all. [docs/targets.md](docs/targets.md) separates
 the two.
 
 ## The map
 
 `--map` writes `<output>.sol.map` beside the generated source: every position in
-the generated file, against the position in the `.phx` that caused it.
+the generated file, against the position in the `.pro` that caused it.
 
 ```
-# phoenix source map 1
-# from examples/vectors.phx
+# proto source map 1
+# from examples/vectors.pro
 # to   examples/vectors.sol
 #
 # generated  source   offset
@@ -101,7 +101,7 @@ has one characteristic way of failing: somebody writes one thing, is shown an
 error about another, and cannot get from the second back to the first. Every
 macro system that became unusable became unusable that way. The map and the
 diagnostics are the two things standing in front of it, so `tests/test_map.c`
-checks that a column in the generated file names the token in the `.phx` that
+checks that a column in the generated file names the token in the `.pro` that
 put it there — including a column *inside* a token, which is what a number off a
 stack trace actually is.
 
@@ -127,7 +127,7 @@ parameters from its body, and a dialect that could spell an operator `|` would
 be a dialect in which `{ a | b }` has two readings. **`||` is two bars and not a
 bar**, and a block wants a lone one everywhere it looks, so the pair could be
 handed to dialects without the single one moving at all — `\/` stays what a
-bitwise `or` is spelled with, and `lib/clike.phx` spells the logical one the way
+bitwise `or` is spelled with, and `lib/clike.pro` spells the logical one the way
 C does. Solveig settles the same question the same way, and
 [says so](https://hansolovkarlsson.github.io/Solveig/docs/GRAMMAR.html):
 *ordered choice is what keeps that true*.
@@ -135,10 +135,10 @@ C does. Solveig settles the same question the same way, and
 **What a module did not declare has no meaning in it.**
 
 ```
-module.phx:5:14: error: '*' has no meaning in this module
+module.pro:5:14: error: '*' has no meaning in this module
  5 | a := #2 + #3 * #4.
    |              ^
-module.phx:5:14: note: a module declares its operators in its header: @infix * <precedence> <message>.
+module.pro:5:14: note: a module declares its operators in its header: @infix * <precedence> <message>.
 ```
 
 An undeclared `+` quietly meaning `add` is the one convenience that would make
@@ -151,8 +151,8 @@ looks right and the operator simply did not exist for the statements above it.
 ## A dialect is a file
 
 ```
-; lib/control.phx
-@use "arith.phx".
+; lib/control.pro
+@use "arith.pro".
 
 @syntax if <c> then <a>          => c:ifTrue({ a }).
 @syntax if <c> then <a> else <b> => c:ifElse({ a }, { b }).
@@ -161,23 +161,23 @@ looks right and the operator simply did not exist for the statements above it.
 
 ```
 @language solveig.
-@use "../lib/control.phx".
+@use "../lib/control.pro".
 
 if n > #10 then "over ten":print else "not over ten":print.
 while i < n do (total := total + i. i := i + #1).
 ```
 
 Two lines of header, and everything the body uses comes out of `lib/` —
-`control.phx` in turn using `arith.phx`, so the chain is two deep.
+`control.pro` in turn using `arith.pro`, so the chain is two deep.
 
 **A dialect file holds directives and nothing else.** A statement in one is an
 error. That is not a restriction so much as a division: **a dialect provides
 syntax, and Solveig's own `@include` provides code**, so a dialect that wants
 both ships a `.sol` beside itself and says so. There is no third thing for a
-`.phx` to be.
+`.pro` to be.
 
 **It is looked for beside the file using it, then in each `-I` directory, then
-in `PHOENIX_PATH`** — the order Solveig's `@include` uses, because a program
+in `PROTO_PATH`** — the order Solveig's `@include` uses, because a program
 with its dialect in the same folder should not need a command line to say so.
 
 **A diamond is read once.** Two dialects that both use a third meet it once, so
@@ -185,18 +185,18 @@ its declarations are not added twice and cannot collide with themselves. A file
 still being read is a cycle, and says so with the chain that got there:
 
 ```
-y.phx:1:1: error: 'x.phx' is already being read -- @use is a cycle
- 1 | @use "x.phx".
+y.pro:1:1: error: 'x.pro' is already being read -- @use is a cycle
+ 1 | @use "x.pro".
    | ^^^^^^^^^^^^
-  ... used from x.phx, line 1
-  ... used from cyc.phx, line 2
+  ... used from x.pro, line 1
+  ... used from cyc.pro, line 2
 ```
 
 ## When two dialects collide
 
 **Solveig has already answered this question**, for two files claiming one
 global: the later one wins, and the compiler says so rather than letting it
-pass. Phoenix follows it, and the four cases differ in *who could have known* —
+pass. Proto follows it, and the four cases differ in *who could have known* —
 which is the same distinction Solveig draws when it warns on a claim and not on
 an update.
 
@@ -208,11 +208,11 @@ an update.
 | Two `@use`s | **A warning.** Neither author knew about the other, which is the case the rule exists for. |
 
 ```
-b.phx:1:8: warning: operator '+' was already declared by a.phx -- this one wins, and nothing else will say so
+b.pro:1:8: warning: operator '+' was already declared by a.pro -- this one wins, and nothing else will say so
  1 | @infix + 55 concat.
    |        ^
-  ... used from p.phx, line 3
-a.phx:1:1: note: declared here
+  ... used from p.pro, line 3
+a.pro:1:1: note: declared here
 ```
 
 **This is the decision the roadmap had been queuing everything behind**, and the
@@ -251,8 +251,8 @@ substitution, hygiene, provenance, the expansion trail. The operands are called
 so there is nothing to name.
 
 **`/\` and `\/`, not `&&` and `||`.** A spelling, not a limitation: both of C's
-lex perfectly well and `lib/clike.phx` declares them. Half of the reason
-`lib/arith.phx` took this pair has since expired — `||` could not be declared at
+lex perfectly well and `lib/clike.pro` declares them. Half of the reason
+`lib/arith.pro` took this pair has since expired — `||` could not be declared at
 all until the lexer took two bars as one token, so `&&` would have stood beside
 `\/` as two unrelated decisions. The half that was never about the lexer is why
 the choice stayed: that file is arithmetic and logic rather than C, and `/\`
@@ -278,7 +278,7 @@ x:greaterThan(#5):not:ifTrue({ "small":print }).
 The block around `"small":print` is the template's doing. Written as a method,
 `unless` would need braces at every call and every call would be a chance to
 forget one. That is the whole of what a form buys, and it is not a small thing:
-`while`, in `examples/forms.phx`, is four words of declaration and turns two
+`while`, in `examples/forms.pro`, is four words of declaration and turns two
 sets of braces per loop into none.
 
 **A form may read as a statement instead of as a call.**
@@ -314,11 +314,11 @@ and the second finds nothing, and the split is not where anybody would put it. A
 delimited hole has no such problem, and a hole could not have said it was one
 before 0.6.0 gave holes kinds.
 
-`lib/clike.phx` is what this makes possible, and
-[`examples/clike.phx`](examples/clike.phx) is a program that looks like C.
+`lib/clike.pro` is what this makes possible, and
+[`examples/clike.pro`](examples/clike.pro) is a program that looks like C.
 
 **A word in a pattern is not reserved anywhere else.** A module that never used
-`control.phx` may call a variable `then`, and so may one that did.
+`control.pro` may call a variable `then`, and so may one that did.
 
 ## Two forms under one word
 
@@ -336,10 +336,10 @@ That works because the declaration refuses any pair that would have parted
 company anywhere else:
 
 ```
-on.phx:3:9: error: this cannot be told apart from the other 'on'
+on.pro:3:9: error: this cannot be told apart from the other 'on'
  3 | @syntax on error do <b> => b:run.
    |         ^^
-on.phx:2:1: note: which has a hole where this has a word
+on.pro:2:1: note: which has a hole where this has a word
 ```
 
 `on error do x` is both of those. Preferring the literal word would be a rule,
@@ -349,7 +349,7 @@ refused at the second one, where somebody is looking at the first.
 **A use that goes wrong says what it wanted**, with the declaration pointed at:
 
 ```
-if.phx:5:6: error: expected 'then' here, in the form 'if'
+if.pro:5:6: error: expected 'then' here, in the form 'if'
  5 | if x "y":print.
    |      ^^^
 ```
@@ -361,10 +361,10 @@ if.phx:5:6: error: expected 'then' here, in the form 'if'
 ```
 
 ```
-p.phx:4:6: error: 'swap' wants a place here, and this is an integer
+p.pro:4:6: error: 'swap' wants a place here, and this is an integer
  4 | swap #1 and b.
    |      ^^
-../lib/control.phx:33:1: note: 'a' is declared to want a place
+../lib/control.pro:33:1: note: 'a' is declared to want a place
 ```
 
 Before this, `swap #1 and b` was `this cannot be assigned to` **after
@@ -425,7 +425,7 @@ becomes
 
 Without the rename this compiles, runs, and leaves both variables where they
 started — `t := a` writes over the caller's `t` before `a := b` can read it. So
-`examples/forms.phx` demonstrates it by printing the two values rather than by
+`examples/forms.pro` demonstrates it by printing the two values rather than by
 asserting anything: the wrong compiler produces a running program with the wrong
 answer, which is exactly the failure hygiene exists to prevent.
 
@@ -449,7 +449,7 @@ run := { | total | total := #100. bump(#5). total }.
 it lands inside a block whose temporary is also called `total`, and Solveig
 resolves a bare name to a local before a global — so the form would update the
 caller's variable and leave the global at `#0`. **Both numbers would be wrong
-and neither would be an error.** `examples/forms.phx` prints them, because that
+and neither would be an error.** `examples/forms.pro` prints them, because that
 is what the failure looks like.
 
 **The caller's local is what gives way**, renamed throughout its own frame:
@@ -480,13 +480,13 @@ wrote. Every node an expansion produces records the use that produced it, and a
 diagnostic walks the chain:
 
 ```
-outer.phx:5:7: error: this cannot be assigned to
+outer.pro:5:7: error: this cannot be assigned to
  5 | outer(#5).
    |       ^^
-outer.phx:3:21: note: in the expansion of 'bad', written here
+outer.pro:3:21: note: in the expansion of 'bad', written here
  3 | @syntax outer(x) => bad(x).
    |                     ^^^
-outer.phx:5:1: note: in the expansion of 'outer', written here
+outer.pro:5:1: note: in the expansion of 'outer', written here
  5 | outer(#5).
    | ^^^^^
 ```
@@ -511,11 +511,11 @@ existed to say what happens when two files add the same one.
 
 Solveig already has the fixed version of this. `@expr(a^2 + b/2)` opens a region
 where a hard-coded ladder runs from `|` to `^`, and everything in it is the same
-sends written another way. Phoenix is that ladder handed to the module.
+sends written another way. Proto is that ladder handed to the module.
 
 ## Three fields, and what each carries now
 
-Every node in `phoenix/include/phoenix/tree.h` has them. Two were read by nothing
+Every node in `proto/include/proto/tree.h` has them. Two were read by nothing
 in 0.1.0 and are read by the expander in 0.2.0, which is what they were put there
 for. They are there because each is impossible to add later
 without touching every constructor and every rewrite in the compiler.
@@ -523,7 +523,7 @@ without touching every constructor and every rewrite in the compiler.
 | | |
 | --- | --- |
 | `span` | Where in the **surface text** this came from. Read by every diagnostic and by the map. |
-| `introduced_by` | For a node an expansion produced, the use that produced it. Walked by `phx_note_expansion` to print the trail above. |
+| `introduced_by` | For a node an expansion produced, the use that produced it. Walked by `proto_note_expansion` to print the trail above. |
 | `scope` | The hygiene anchor: one scope per expansion, stamped on everything a template produced, `0` for what a person wrote. Both directions of capture are decided by comparing two of these. [Binding as sets of scopes](https://users.cs.utah.edu/plt/scope-sets/) (Flatt, 2016) is where it goes — a set rather than a number — when a dialect can be imported and a template can be defined somewhere other than the module using it. |
 
 A tree without them is a tree that has to be rebuilt to get them, and the
@@ -536,9 +536,9 @@ impossible to add.
 ## Building
 
 ```sh
-make            # -> bin/phoenix. Needs a C11 compiler and make, and nothing else.
+make            # -> bin/proto. Needs a C11 compiler and make, and nothing else.
 make test       # the unit tests, and every example run through solas and solvm
-make run        # examples/vectors.phx, compiled and executed
+make run        # examples/vectors.pro, compiled and executed
 ```
 
 **The build needs no Solveig.** `make test`, `make run` and `make examples` do,
@@ -546,7 +546,7 @@ because they hand it a file — `SOLVEIG` defaults to `../Solveig` and the versi
 is checked rather than taken on trust:
 
 ```
-phoenix: ../Solveig has not been built -- no bin/solas.
+proto: ../Solveig has not been built -- no bin/solas.
       make -C ../Solveig
 ```
 
@@ -559,11 +559,11 @@ the real compiler, so `make test` runs both examples all the way down to SolVM.
 
 | | |
 | --- | --- |
-| [`examples/vectors.phx`](examples/vectors.phx) | precedence, associativity, a prefix operator, and where a send binds against all of them |
-| [`examples/utf8.phx`](examples/utf8.phx) | `integer:asUtf8` out of Solveig's own `lib/text.sol`, written in operators |
-| [`examples/forms.phx`](examples/forms.phx) | `unless`, `while` and `swap` declared by the module, and hygiene demonstrated by running rather than by assertion |
-| [`examples/dialect.phx`](examples/dialect.phx) | a two-line header, and everything the body reads coming out of `lib/` — with a diamond, read once |
-| [`examples/clike.phx`](examples/clike.phx) | `while (n < #20) { … }`, `if (…) { … } else { … }`, `do { … } while (…)` — C's shape out of `lib/clike.phx`, and a note on the three things it cannot have |
+| [`examples/vectors.pro`](examples/vectors.pro) | precedence, associativity, a prefix operator, and where a send binds against all of them |
+| [`examples/utf8.pro`](examples/utf8.pro) | `integer:asUtf8` out of Solveig's own `lib/text.sol`, written in operators |
+| [`examples/forms.pro`](examples/forms.pro) | `unless`, `while` and `swap` declared by the module, and hygiene demonstrated by running rather than by assertion |
+| [`examples/dialect.pro`](examples/dialect.pro) | a two-line header, and everything the body reads coming out of `lib/` — with a diamond, read once |
+| [`examples/clike.pro`](examples/clike.pro) | `while (n < #20) { … }`, `if (…) { … } else { … }`, `do { … } while (…)` — C's shape out of `lib/clike.pro`, and a note on the three things it cannot have |
 
 The second one is the argument, and it is Solveig's argument rather than this
 project's. The note at the top of `lib/text.sol` says the encoder was first
@@ -574,7 +574,7 @@ written with `div(#64)` for a shift and `mod(#64)` for a mask —
 
 Solveig's fix was to grow `shiftRight`, `bitAnd` and `bitOr`, which was right and
 which went as far as a fixed syntax can go: the code names the operations now,
-and still spells each one as a message send. Phoenix's version declares three
+and still spells each one as a message send. Proto's version declares three
 operators at the top of one file and costs the language nothing.
 
 What comes out the other end is the library's own line back again:
@@ -592,7 +592,7 @@ line. Repetition — a form taking a list — has no spelling at all.
 
 **A hole cannot ask for anything a look does not settle.** The five kinds are
 all decided by inspecting what was parsed. A real guard — an arbitrary condition
-— needs an evaluator, and Phoenix has none on purpose;
+— needs an evaluator, and Proto has none on purpose;
 [docs/rules-and-logic.md](docs/rules-and-logic.md) prices it and says what rule
 would have to be fixed first.
 
@@ -616,28 +616,28 @@ same cause: both readings are legal.
 **Hygiene is still one scope per expansion**, and a template declared in a
 `@use`d file did not change that. 0.3.0 said one number would stop being enough
 once a template could be declared outside the module using it; it turns out not
-to, and the reason is Solveig's rather than Phoenix's. **Globals are one flat
+to, and the reason is Solveig's rather than Proto's. **Globals are one flat
 namespace**, so a template's free `total` and a caller's global `total` are the
 same variable by construction — there is no second one for a definition context
 to have meant. A `scope` becomes a set the day the *substrate* has a module
-system, not the day Phoenix does.
+system, not the day Proto does.
 
 Known gaps, each for a reason rather than for lack of time:
 
 | | |
 | --- | --- |
 | Dictionary literals | `#[a = b]` separates a pair with `=`, and `=` is a character a dialect may declare. That needs a decision, not a default. `dictionary:new` works. |
-| Temporaries in a group | `( \| t \| ... )` is Solveig's; Phoenix reads `( expr. expr )` and no temporaries. |
+| Temporaries in a group | `( \| t \| ... )` is Solveig's; Proto reads `( expr. expr )` and no temporaries. |
 | `@expr` | Deliberately absent. It is the fixed form of what `@infix` generalises, and having both would be having two. |
-| An installed dialect is not found on its own | `make install` puts `lib/*.phx` beside the binary and nothing looks there. `PHOENIX_PATH` is one line in a profile; Solveig's binaries are told their library path at build time and could be copied. |
-| A `@use` path is not normalised | `examples/../lib/control.phx` is what a diagnostic shows, and two spellings of one file are two files. Collapsing `x/../` textually is wrong across a symlink, so it wants `realpath` and a second path to display. |
+| An installed dialect is not found on its own | `make install` puts `lib/*.pro` beside the binary and nothing looks there. `PROTO_PATH` is one line in a profile; Solveig's binaries are told their library path at build time and could be copied. |
+| A `@use` path is not normalised | `examples/../lib/control.pro` is what a diagnostic shows, and two spellings of one file are two files. Collapsing `x/../` textually is wrong across a symlink, so it wants `realpath` and a second path to display. |
 | Long send chains | A block that will not fit is broken across lines; a chain of sends that will not fit is not, yet. |
 
 ## The question that was open
 
 **What stops two dialects' declarations from colliding when their code meets?**
 Answered in 0.4.0, above. Racket answers it with modules and scoped bindings and
-it was worth reading how — but the answer Phoenix took is Solveig's, because
+it was worth reading how — but the answer Proto took is Solveig's, because
 Solveig had already made the choice for globals and a language should not hold
 two philosophies about one question.
 
@@ -669,9 +669,9 @@ predicate logic, which turns out to be three questions wearing one name.
 | [POSTMORTEM.md](docs/POSTMORTEM.md) | every defect this project found in itself, and **what found it** |
 | [journal.md](docs/journal.md) | what a day of work actually consisted of |
 | [conventions.md](docs/conventions.md) | the standing agreements and the method |
-| [targets.md](docs/targets.md) | what Phoenix targets, and what a program written in Phoenix targets |
+| [targets.md](docs/targets.md) | what Proto targets, and what a program written in Proto targets |
 | [rules-and-logic.md](docs/rules-and-logic.md) | how far the rules could go, where they stop, and predicate logic |
-| [solveig-notes.md](docs/solveig-notes.md) | what Phoenix has found in Solveig, as a running log |
+| [solveig-notes.md](docs/solveig-notes.md) | what Proto has found in Solveig, as a running log |
 
 ## The programs
 

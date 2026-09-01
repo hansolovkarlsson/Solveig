@@ -1,6 +1,6 @@
 # The core grammar
 
-What Phoenix reads before a dialect has said anything. **A dialect cannot change
+What Proto reads before a dialect has said anything. **A dialect cannot change
 this**; it can only fill in the one hole marked below.
 
 ```ebnf
@@ -50,7 +50,7 @@ body        = [ expression { "." expression } [ "." ] ] .
 **The holes are `infix`, `unary` and `form`.** Which spellings are operators,
 what they group into and how tightly, and which names are forms, comes from the
 module's own directives. Everything else on this page is the same for every
-Phoenix file there will ever be.
+Proto file there will ever be.
 
 **`form` is tried before prefix application**, and only for a name the header
 has already declared. A name that is not a form is whatever Solveig says it is,
@@ -63,7 +63,7 @@ words in a pattern are not reserved -- `then` is a form's word in a file that
 declared one and an ordinary name in every other, this one included.
 
 **A statement separator is a `.` between two, optional after the last** — in a
-file, in a block and in a group alike. That is Solveig's rule and Phoenix does
+file, in a block and in a group alike. That is Solveig's rule and Proto does
 not have a second one.
 
 ## Tokens
@@ -104,15 +104,15 @@ having to stop existing. `:=` is taken before any of this and is always itself.
 
 ## What a dialect file is
 
-A `.phx` holding directives and nothing else, reached with `@use "name.phx".`
+A `.pro` holding directives and nothing else, reached with `@use "name.pro".`
 and read into the header of whoever used it. A statement in one is an error.
 
 **A dialect provides syntax; Solveig's own `@include` provides code.** So there
-is no third thing for a `.phx` to be, and a dialect that wants both ships a
+is no third thing for a `.pro` to be, and a dialect that wants both ships a
 `.sol` beside itself.
 
 **Looked for beside the file using it, then in each `-I` directory, then in
-`PHOENIX_PATH`** — the order `@include` uses over in Solveig.
+`PROTO_PATH`** — the order `@include` uses over in Solveig.
 
 **Read once.** Two dialects that both use a third meet it once, so a diamond
 costs nothing and its declarations do not collide with themselves. A file still

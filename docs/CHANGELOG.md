@@ -1,6 +1,6 @@
 # Changelog
 
-Notable changes to Phoenix, newest first.
+Notable changes to Proto, newest first.
 
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md); the case for each
@@ -12,7 +12,7 @@ piece of work as it was argued *before* the work is in
 
 ### `programs/digest` — 2026-08-31
 
-**No version.** SHA-256, and the third program written in Phoenix. It agrees
+**No version.** SHA-256, and the third program written in Proto. It agrees
 with `shasum -a 256` on the three FIPS 180-4 vectors and five block-boundary
 cases, all eight checked against an independent oracle before the expected file
 was written, and its file mode is byte-identical to the system tool.
@@ -22,7 +22,7 @@ on `@syntax` patterns; this is nothing but shifts, rotations, exclusive-ors and
 masked additions. It was chosen because Solveig's own `programs/sha256sum` wrote
 the gap down — *`@expr` has no bit operators, so the one file here that is
 nothing but shifts, xors and masks is the one file that cannot use the notation
-at all* — and Phoenix has claimed the answer to that in the abstract since
+at all* — and Proto has claimed the answer to that in the abstract since
 0.1.0 with nothing to point at.
 
 **What it found**, in full in [its README](../programs/digest/README.md):
@@ -42,14 +42,14 @@ at all* — and Phoenix has claimed the answer to that in the abstract since
   calls deep. The operator half's version of *choosing the shape wrongly is
   silent*.
 - **The 0.4.0 collision rules got their first real customer**, and the answer was
-  not to compose: `sha2.phx` beside `lib/control.phx` collides on four operators
+  not to compose: `sha2.pro` beside `lib/control.pro` collides on four operators
   and the losing order hashes wrongly.
 
 ### `||`, in the fixed lexer — 0.9.0, 2026-08-31
 
 **`|` is still the block's own and always will be; `||` is two bars and not a
 bar.** The lexer takes it before the bar and hands it to every dialect, so
-`lib/clike.phx` now spells C's *or* the way C spells it and the paragraph
+`lib/clike.pro` now spells C's *or* the way C spells it and the paragraph
 apologising for `\/` is gone from that file.
 
 The proposal this answers was a `@token` directive letting a file bind a
@@ -60,7 +60,7 @@ instead of becoming declarable, which is the same answer *a dialect that changes
 the lexer* has always had in [ROADMAP.md](ROADMAP.md).
 
 `\/` keeps its job: single `|` is still unavailable, so a bitwise *or* is still
-spelled that way, as `examples/utf8.phx` does. `lib/arith.phx` keeps `/\` and
+spelled that way, as `examples/utf8.pro` does. `lib/arith.pro` keeps `/\` and
 `\/` by choice now rather than by force, and says so.
 
 **What it cost**, checked by compiling it: `{ || … }` used to parse as an empty
@@ -74,8 +74,8 @@ on the thing that was taken away.
 **No version.** Two programs had reported that a form's trailing hole swallows
 what follows it, and both were the same mistake: a form declared as a *pattern*
 when it was an *application*. A call ends at its closing parenthesis and has no
-such behaviour. Five forms in `programs/grammar/peg.phx` and one in
-`programs/ember/asm.phx` moved to the call shape; the parentheses that existed
+such behaviour. Five forms in `programs/grammar/peg.pro` and one in
+`programs/ember/asm.pro` moved to the call shape; the parentheses that existed
 only to work around it are gone from both grammars.
 
 The rule — *a pattern for something that reads as a step, a call for something
@@ -86,7 +86,7 @@ nothing at the declaration can warn.
 
 ### `programs/grammar` — `ec302d8`, 2026-08-31
 
-A grammar toolkit, and the second program written in Phoenix. `examples/calc`
+A grammar toolkit, and the second program written in Proto. `examples/calc`
 evaluates `100 / 5 - 3 * 4` with precedence; `examples/sexpr` parses
 `(a (b c) d)` into nested arrays. Five predictions recorded before it was
 written; three right, one right and sharper, one right about the want and wrong
@@ -104,7 +104,7 @@ is a form. The ban was justified as *no boundary between them*, which was wrong;
 the rule is really about **greed**, and a delimited hole has no such problem.
 Could not have been relaxed before 0.6.0 gave holes kinds.
 
-`lib/clike.phx` and `examples/clike.phx` land with it.
+`lib/clike.pro` and `examples/clike.pro` land with it.
 
 ### A diagnostic for a pattern that read no parts — `f489359`, 2026-08-31
 
@@ -113,8 +113,8 @@ because the better message only fired once a part had been read.
 
 ### `/\` and `\/`, and the fix for what that broke — `31d0ffc`, `f0af7c0`, 2026-08-31
 
-A spelling change in `lib/arith.phx`. The first commit replaced `&&` in
-`emberc.phx` with a blind global substitution and caught a shell command inside
+A spelling change in `lib/arith.pro`. The first commit replaced `&&` in
+`emberc.pro` with a blind global substitution and caught a shell command inside
 a comment; the second fixed that and four documents that still spelled the new
 operator the old way.
 
@@ -129,7 +129,7 @@ is what found it.
 
 ### `programs/ember` — `e3f1288`, 2026-08-31
 
-The first program written in Phoenix. A small language compiled to ARM64
+The first program written in Proto. A small language compiled to ARM64
 assembly, all the way to a running binary. Five predictions recorded first;
 three right, one did not bite, one wrong. Two things nobody predicted, one of
 which became 0.7.0.
@@ -163,7 +163,7 @@ backtracking, because a hole is parsed once and shared.
 
 ### 0.4.0 — a dialect that is a file — `c63e1d2`, 2026-08-31
 
-`@use "arith.phx".` **The collision rule, which everything was queuing behind**,
+`@use "arith.pro".` **The collision rule, which everything was queuing behind**,
 and the answer was Solveig's: the later wins and the compiler says so. A span
 carries its file, which is the refactor the rest needed.
 
@@ -175,7 +175,7 @@ parameters and `| … |` temporaries are locals in Solveig.
 
 ### `docs/solveig-notes.md` — `ef43f60`, 2026-08-31
 
-A running log of what Phoenix finds in Solveig. Two entries at the time; a third
+A running log of what Proto finds in Solveig. Two entries at the time; a third
 added later recording a prediction about Solveig that was wrong.
 
 ### 0.2.0 — forms, hygiene and expansion trails — `2af48cf`, 2026-08-31
@@ -186,10 +186,10 @@ the forms declared above it.
 
 ### `docs/targets.md` — `55dbd72`, 2026-08-31
 
-What Phoenix targets, and what a program written in Phoenix targets — two
-unrelated questions, and only the first is a Phoenix question.
+What Proto targets, and what a program written in Proto targets — two
+unrelated questions, and only the first is a Proto question.
 
 ### 0.1.0 — the first commit — `5d332a2`, 2026-08-31
 
-A tree of Phoenix's own, spans on every node, the map, a grammar declared per
+A tree of Proto's own, spans on every node, the map, a grammar declared per
 module, and a build that takes nothing from Solveig.

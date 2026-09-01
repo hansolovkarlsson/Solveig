@@ -17,18 +17,18 @@ foot of COMPLETED.md.
 ## Open, and undecided
 
 **`@language` records a name and acts on nothing.** Eight versions in, it is the
-only inert directive, and every `.phx` writes `@language solveig.` as a ritual —
+only inert directive, and every `.pro` writes `@language solveig.` as a ritual —
 in the directive the README uses to argue that a tool can tell what language a
 file is in. It should select the *reader*, or the *emitter* as
 [targets.md](targets.md) argues, or stop existing. **A decision rather than a
 build**, and not one to take unasked.
 
-**No postfix operators.** Phoenix has prefix and infix; `x++`, `a[i]` and
-`p->f`-in-postfix-position have no spelling at all. `lib/clike.phx` names it as
+**No postfix operators.** Proto has prefix and infix; `x++`, `a[i]` and
+`p->f`-in-postfix-position have no spelling at all. `lib/clike.pro` names it as
 one of the four things C has that it cannot. Not a rule that could be relaxed —
 the extension point does not exist. No customer has been blocked by it.
 
-**A hole's kind is one choice, with no alternation.** `lib/clike.phx` wanted *a
+**A hole's kind is one choice, with no alternation.** `lib/clike.pro` wanted *a
 block, or another use of me* for C's `else` and could not say it, so a chain
 wants its braces. Worked around; recorded because it is the same shape as
 optional parts and would want deciding with them.
@@ -75,8 +75,8 @@ likely to want repetition -- EBNF writes `sum = term { op term }` and means it.
 It wants repetition and **a repeated pattern part would not have helped**: a
 grammar cannot be written as forms at all, because a template cannot declare a
 form, so the rules live in a table as data and the repetition wanted is in the
-object language rather than in Phoenix. Both grammars have a `whileTrue` where
-EBNF has a brace, and no Phoenix feature would have removed it.
+object language rather than in Proto. Both grammars have a `whileTrue` where
+EBNF has a brace, and no Proto feature would have removed it.
 
 That is a reason rather than a shrug, and it moves this below whatever the next
 program finds.
@@ -101,7 +101,7 @@ It costs *the build needs no Solveig*, which is real. It does not cost *no
 privileged access*, which is the claim that matters: `embed.h` is a declared
 surface, and using it is the mirror of solveig-sdl using `extend.h`. **The rule
 to fix before any of it is written: a guard validates, it does not select** —
-otherwise parsing depends on evaluation and no tool can read a `.phx` without
+otherwise parsing depends on evaluation and no tool can read a `.pro` without
 running it.
 
 0.6.0 is the reason this is not urgent. The five kinds cover what a guard would
@@ -141,7 +141,7 @@ executing them. If it moves, it moves at the module boundary and nowhere else.
 A `@token` directive binding a spelling to a named token was proposed against
 this and refused in 0.9.0: it would not have crossed the Forth line, the header
 still being read rather than run, but it crosses a nearer one — today any tool
-can tokenise any `.phx` without knowing what a dialect is. The want behind it
+can tokenise any `.pro` without knowing what a dialect is. The want behind it
 was real and `||` answers it, by growing the fixed vocabulary rather than by
 making the vocabulary declarable. That is the shape any future version of this
 request should take. See COMPLETED.md 12.
@@ -152,11 +152,11 @@ ambiguity would stop being checkable by looking, and composition would stop
 being safe -- and the case that motivates it is already read from the precedence
 table. [rules-and-logic.md](rules-and-logic.md) argues all three.
 
-**Emitting bytecode, or machine code.** Phoenix would then own the `.sob` format
+**Emitting bytecode, or machine code.** Proto would then own the `.sob` format
 and Solum's instruction set, and reimplement what Solas already does. The one
-thing it would buy — errors from Solas landing on Phoenix source — the map buys
+thing it would buy — errors from Solas landing on Proto source — the map buys
 instead. [targets.md](targets.md) works the question through, including what a
-native back end would actually cost and why a program *written in* Phoenix can
+native back end would actually cost and why a program *written in* Proto can
 already emit anything it likes.
 
 **`@expr`.** Solveig's fixed infix region is the special case of what `@infix`
@@ -168,6 +168,6 @@ generalises. Supporting both would be supporting two.
 | --- | --- |
 | Long send chains are not wrapped | A block that will not fit is broken across lines; `a:b(c):d(e):f(g)` is not. |
 | Dictionary literals | `#[a = b]` separates a pair with `=`, which a dialect may declare. Needs a decision rather than a default. |
-| Temporaries in a group | `( \| t \| … )` is Solveig's; Phoenix reads `( expr. expr )`. |
+| Temporaries in a group | `( \| t \| … )` is Solveig's; Proto reads `( expr. expr )`. |
 | The map is written only with `--map` | The Makefile always passes it. The default should probably change. |
 | A generated name is `t__1` | Legible, and it collides with nothing because the whole module's identifiers are checked. It is still a name a person could have wanted. |

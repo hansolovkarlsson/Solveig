@@ -3,10 +3,10 @@
 Asked on 2026-08-31, with 0.5.0 in:
 
 > Will it be possible to write rules as BNF in the future? Is predicate logic
-> something that might be part of Phoenix in the future?
+> something that might be part of Proto in the future?
 
-Each splits into a question about Phoenix and a question about a program written
-in Phoenix, and the two halves have different answers. [targets.md](targets.md)
+Each splits into a question about Proto and a question about a program written
+in Proto, and the two halves have different answers. [targets.md](targets.md)
 draws the same line for machine code.
 
 ---
@@ -65,7 +65,7 @@ collision happens at a word, where there is something to point at; two general
 productions can collide with nothing in either of them to underline.
 
 **And the case that motivates left recursion is already handled.** `a + b * c`
-is left-recursive in every grammar that spells it out, and Phoenix reads it from
+is left-recursive in every grammar that spells it out, and Proto reads it from
 a precedence table instead. That is not luck: the operator table is the
 composable, decidable fragment of left recursion, and it is why operators were
 the first extension point rather than the easiest one.
@@ -76,14 +76,14 @@ the first extension point rather than the easiest one.
 
 Two other systems arrived at the same place from different directions. Rust's
 `macro_rules!` fragment specifiers — `$e:expr` — are typed holes, and its rules
-about what may follow an `expr` fragment exist for the reason Phoenix bans two
+about what may follow an `expr` fragment exist for the reason Proto bans two
 holes in a row: something has to say where the hole ended. Racket's
 `syntax-parse` syntax classes are the same idea with far more power, and still
 decide a pattern by looking at it rather than by trying it.
 
 ## The thing that makes a pattern safe, and what would break it
 
-**A word after a hole works because Phoenix's expression grammar cannot consume
+**A word after a hole works because Proto's expression grammar cannot consume
 a bare name.** `postfix` takes a name only after `:`, and `infix` takes only
 operators — so an expression always stops at a bare `then`, and the pattern
 picks it up.
@@ -91,8 +91,8 @@ picks it up.
 That is load-bearing and nothing currently says so. **If the core grammar ever
 gained a postfix keyword** — anything where a bare name may follow a complete
 expression — every pattern in every dialect would be at risk at once, silently.
-Rust's follow-set rules are stricter than Phoenix's for exactly this reason:
-they are future-proofing against their own grammar growing. Phoenix has taken
+Rust's follow-set rules are stricter than Proto's for exactly this reason:
+they are future-proofing against their own grammar growing. Proto has taken
 the more permissive rule and should treat *the core grammar never consumes a
 trailing bare name* as a promise rather than an accident.
 
@@ -103,23 +103,23 @@ Solveig's own `ideas.md` already wants one:
 > **A parser toolkit** in the manner of lex, yacc, sed and awk — grammars
 > written in something like BNF. **The most interesting of these**
 
-That is a program written in Phoenix, needing nothing from Phoenix, exactly as
+That is a program written in Proto, needing nothing from Proto, exactly as
 the BASIC compiler in [targets.md](targets.md) is. It may have a general grammar
 engine with backtracking and ambiguity and every other thing refused above,
 because **what a program does is not what its compiler's syntax does**.
 
-And it is the better customer for Phoenix than another arithmetic example: a
+And it is the better customer for Proto than another arithmetic example: a
 grammar notation is precisely what a pattern language should be good at, and a
-toolkit whose own notation is a Phoenix dialect is this project's premise
+toolkit whose own notation is a Proto dialect is this project's premise
 pointed at itself.
 
 ---
 
 ## Predicate logic: three questions wearing one name
 
-### A Prolog dialect written in Phoenix
+### A Prolog dialect written in Proto
 
-Yes, and **Phoenix helps with less of it than it looks.** `ideas.md` has already
+Yes, and **Proto helps with less of it than it looks.** `ideas.md` has already
 priced the hard part:
 
 > **Predicate logic** — unification, resolution and backtracking. Wanted:
@@ -128,7 +128,7 @@ priced the hard part:
 > explicit trail and choice-point stack instead. […] The sharpest single finding
 > on this list and the largest job.
 
-Phoenix changes none of that. What it changes is the notation, and the notation
+Proto changes none of that. What it changes is the notation, and the notation
 is genuinely painful without it: `foo(X, Y) :- bar(X), baz(Y).` written as
 message sends is unreadable, and it is exactly a pattern-language job. **Real
 help with the front end, none with the engine, and the engine is the job.**
@@ -136,10 +136,10 @@ help with the front end, none with the engine, and the engine is the job.**
 ### Predicates in the pattern language
 
 Side conditions on when a form applies — `syntax-parse`'s `#:when`, a guard on a
-rule. This is a question about Phoenix, and the answer is the interesting one.
+rule. This is a question about Proto, and the answer is the interesting one.
 
-**A predicate has to run while compiling, and Phoenix has no evaluator.** That
-is deliberate rather than missing: Phoenix emits Solveig source and lets Solveig
+**A predicate has to run while compiling, and Proto has no evaluator.** That
+is deliberate rather than missing: Proto emits Solveig source and lets Solveig
 run it, which is the whole of why the build needs no Solveig and why a front end
 here has no privileged access to anything.
 
@@ -147,7 +147,7 @@ So a guard means one of two things, and both are large:
 
 | | |
 | --- | --- |
-| Write an evaluator | Phoenix gains a second language, and the question of whether it is the same language as the object language — the tower — has to be answered rather than avoided. |
+| Write an evaluator | Proto gains a second language, and the question of whether it is the same language as the object language — the tower — has to be answered rather than avoided. |
 | Run Solveig while compiling | The tower answers itself. It also makes Solveig a build-time dependency, and *the build needs no Solveig* is load-bearing for the argument in the README. |
 
 **This is the tower question arriving from a third direction.** It came up first
@@ -173,7 +173,7 @@ matching becomes search, search means backtracking, and the diagnostics go.
 ## If the evaluator is Solveig
 
 *Asked on 2026-08-31, after the page above: whether the evaluator has to run
-inside Phoenix, and whether the hosting Solveig already tried for HTTP is the
+inside Proto, and whether the hosting Solveig already tried for HTTP is the
 way to do it. Both answers are yes, and the second is more nearly ready than it
 looks.*
 
@@ -184,7 +184,7 @@ looks.*
 > a webserver rendering a page per request, an editor evaluating a snippet, **a
 > tool scripted in Solum**
 
-Phoenix is the third. And the surface is declared rather than inferred:
+Proto is the third. And the surface is declared rather than inferred:
 
 > **This is the whole supported surface.** Everything a host needs is declared
 > here or in the two headers below it; anything else in `solum/include` is the
@@ -219,7 +219,7 @@ analogy — it is the same loop, already built once and already tested.**
 
 ### What it costs, and what it does not
 
-**It costs the build.** `bin/phoenix` would link `libsol.a`, and *the build needs
+**It costs the build.** `bin/proto` would link `libsol.a`, and *the build needs
 no Solveig* — in the README, in the Makefile's header, and in the first commit
 message — stops being true. That is a real loss and the reason not to do it
 casually.
@@ -231,7 +231,7 @@ internals: a declared, versioned, tested surface with an explicit statement of
 what is not in it.
 
 **And it completes a pair.** solveig-sdl is Solveig calling into C through
-`extend.h`; Phoenix with guards is C calling into Solveig through `embed.h`. Two
+`extend.h`; Proto with guards is C calling into Solveig through `embed.h`. Two
 halves of one arrangement, both through doors somebody wrote down.
 
 ### The rule to write down before the code
@@ -239,7 +239,7 @@ halves of one arrangement, both through doors somebody wrote down.
 **A guard validates. It does not select.**
 
 If a guard decides *whether a form matches*, parsing depends on evaluation, and
-no tool can read a `.phx` without running it. That is the line this whole design
+no tool can read a `.pro` without running it. That is the line this whole design
 has held — the line Forth and TeX crossed — and a guard is a quiet way to cross
 it.
 
@@ -254,7 +254,7 @@ depend on it**, which is why it is written here rather than decided later.
 
 ### Then the tower closes
 
-Once `embed.h` is in, a guard may be written in *Phoenix*: compiled to Solveig
+Once `embed.h` is in, a guard may be written in *Proto*: compiled to Solveig
 by the path that already exists, then embedded and run. The language's
 compile-time written in the language, and cheap, because the only new part is
 the door.
@@ -279,6 +279,6 @@ That is what the name was about.
    something the first two cannot say — the rule `lib/text.sol` used on itself:
    one customer, satisfied in six lines, is not a reason to grow a surface.
    Validation and not selection, whenever it comes.
-5. **A parser toolkit written in Phoenix.** Not a feature. The best test of
+5. **A parser toolkit written in Proto.** Not a feature. The best test of
    whether any of the above was worth having.
 6. Everything else on this page waits for a program that wants it.

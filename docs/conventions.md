@@ -14,7 +14,7 @@ comments, thoughts and experiments. It is not read, scanned, summarised or
 committed, and it is in `.gitignore` so that it cannot be. If something in there
 seems relevant, ask rather than read.
 
-**What Phoenix finds in Solveig goes in [solveig-notes.md](solveig-notes.md).**
+**What Proto finds in Solveig goes in [solveig-notes.md](solveig-notes.md).**
 Bugs, missing functionality and surprises are written up clearly enough to be
 lifted straight into Solveig as task items: what happens, a minimal repro,
 expected against observed, the cause **if confirmed**, a suggested fix, and why
@@ -22,8 +22,8 @@ it matters here. Things that *look* like defects and are not go in too, so they
 are not re-found. Nothing goes in unverified — reproduce it, and do not assert a
 mechanism you have not checked.
 
-**Solveig's README does not link Phoenix yet.** Decided on 2026-08-31, when
-Phoenix was a front end with no expander and pointing Solveig's front page at it
+**Solveig's README does not link Proto yet.** Decided on 2026-08-31, when
+Proto was a front end with no expander and pointing Solveig's front page at it
 would have advertised something that had not yet done the thing it claimed. The
 expander landed the same day, so the condition is met and the link is now a
 decision rather than a hold — Hans's, not one to make unasked.

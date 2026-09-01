@@ -8,10 +8,10 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "phoenix/emit.h"
-#include "phoenix/expand.h"
-#include "phoenix/reader.h"
-#include "phoenix/unit.h"
+#include "proto/emit.h"
+#include "proto/expand.h"
+#include "proto/reader.h"
+#include "proto/unit.h"
 
 static int failures = 0;
 static int checks = 0;
@@ -40,28 +40,28 @@ static char *compile(const char *name, int *errors, int *warnings)
     char path[512];
     snprintf(path, sizeof path, "%s/%s", directory, name);
 
-    PhxUnit unit;
-    phx_unit_init(&unit);
+    ProtoUnit unit;
+    proto_unit_init(&unit);
 
     FILE *sink = tmpfile();
-    PhxDiagnostics diag;
-    phx_diag_init(&diag, sink);
+    ProtoDiagnostics diag;
+    proto_diag_init(&diag, sink);
 
-    PhxDialect dialect;
-    phx_dialect_init(&dialect);
+    ProtoDialect dialect;
+    proto_dialect_init(&dialect);
 
-    PhxProvenance provenance;
-    phx_provenance_init(&provenance);
+    ProtoProvenance provenance;
+    proto_provenance_init(&provenance);
 
-    const PhxSource *source = phx_unit_read(&unit, path);
-    PhxNode *module = NULL;
+    const ProtoSource *source = proto_unit_read(&unit, path);
+    ProtoNode *module = NULL;
     if (source == NULL) {
         diag.errors++;
     } else {
-        module = phx_read(source, &unit, &dialect, &diag);
+        module = proto_read(source, &unit, &dialect, &diag);
         if (module != NULL &&
-            !phx_expand(module, &unit, &dialect, &diag, &provenance)) {
-            phx_node_free(module);
+            !proto_expand(module, &unit, &dialect, &diag, &provenance)) {
+            proto_node_free(module);
             module = NULL;
         }
     }
@@ -70,18 +70,18 @@ static char *compile(const char *name, int *errors, int *warnings)
 
     char *out = NULL;
     if (module != NULL) {
-        PhxEmitter emitter;
-        phx_emitter_init(&emitter);
-        phx_emit(&emitter, module);
+        ProtoEmitter emitter;
+        proto_emitter_init(&emitter);
+        proto_emit(&emitter, module);
         const char *body = strstr(emitter.text, "\n\n");
-        out = phx_strndup(body + 2, strlen(body + 2));
-        phx_emitter_free(&emitter);
-        phx_node_free(module);
+        out = proto_strndup(body + 2, strlen(body + 2));
+        proto_emitter_free(&emitter);
+        proto_node_free(module);
     }
 
-    phx_provenance_free(&provenance);
-    phx_dialect_free(&dialect);
-    phx_unit_free(&unit);
+    proto_provenance_free(&provenance);
+    proto_dialect_free(&dialect);
+    proto_unit_free(&unit);
     fclose(sink);
     return out;
 }
@@ -129,88 +129,88 @@ static void expect_rejected(const char *label, const char *name)
 
 int main(void)
 {
-    char template[] = "/tmp/phoenix-test-XXXXXX";
+    char template[] = "/tmp/proto-test-XXXXXX";
     if (mkdtemp(template) == NULL) { perror("mkdtemp"); return 1; }
     snprintf(directory, sizeof directory, "%s", template);
 
     /* A dialect file is directives and nothing else, and what it declares
        belongs to whoever uses it. */
-    write_file("arith.phx", "@infix + 60 add.\n@infix * 70 mul.\n");
-    write_file("p1.phx",
-               "@language solveig.\n@use \"arith.phx\".\na := #1 + #2 * #3.\n");
-    expect("a dialect in a file", "p1.phx",
+    write_file("arith.pro", "@infix + 60 add.\n@infix * 70 mul.\n");
+    write_file("p1.pro",
+               "@language solveig.\n@use \"arith.pro\".\na := #1 + #2 * #3.\n");
+    expect("a dialect in a file", "p1.pro",
            "a := #1:add(#2:mul(#3)).\n", 0);
 
     /* A dialect may use a dialect, and the whole chain is read before the
        first statement of the module is. */
-    write_file("control.phx",
-               "@use \"arith.phx\".\n"
+    write_file("control.pro",
+               "@use \"arith.pro\".\n"
                "@syntax unless(t, b) => t:not:ifTrue({ b }).\n");
-    write_file("p2.phx",
-               "@language solveig.\n@use \"control.phx\".\n"
+    write_file("p2.pro",
+               "@language solveig.\n@use \"control.pro\".\n"
                "unless(a > b, c:print).\n");
-    write_file("arith.phx",
+    write_file("arith.pro",
                "@infix + 60 add.\n@infix * 70 mul.\n@infix > 40 greaterThan.\n");
-    expect("a dialect using a dialect", "p2.phx",
+    expect("a dialect using a dialect", "p2.pro",
            "a:greaterThan(b):not:ifTrue({ c:print }).\n", 0);
 
     /* A diamond is harmless: both sides use arith, and arith is read once, so
        its declarations do not collide with themselves. */
-    write_file("more.phx", "@use \"arith.phx\".\n@infix - 60 sub.\n");
-    write_file("p3.phx",
-               "@language solveig.\n@use \"control.phx\".\n@use \"more.phx\".\n"
+    write_file("more.pro", "@use \"arith.pro\".\n@infix - 60 sub.\n");
+    write_file("p3.pro",
+               "@language solveig.\n@use \"control.pro\".\n@use \"more.pro\".\n"
                "a := #3 - #1 + #2.\n");
-    expect("a diamond is read once", "p3.phx",
+    expect("a diamond is read once", "p3.pro",
            "a := #3:sub(#1):add(#2).\n", 0);
 
     /* Two dialects claiming one spelling. Neither author knew about the other,
        so the later wins and the compiler says so -- Solveig's rule for two
        files claiming one global, applied to syntax. */
-    write_file("other.phx", "@infix + 55 concat.\n");
-    write_file("p4.phx",
-               "@language solveig.\n@use \"arith.phx\".\n@use \"other.phx\".\n"
+    write_file("other.pro", "@infix + 55 concat.\n");
+    write_file("p4.pro",
+               "@language solveig.\n@use \"arith.pro\".\n@use \"other.pro\".\n"
                "a := #1 + #2.\n");
-    expect("two dialects collide", "p4.phx", "a := #1:concat(#2).\n", 1);
+    expect("two dialects collide", "p4.pro", "a := #1:concat(#2).\n", 1);
 
     /* The module's own declaration over an imported one is deliberate, local,
        and both lines are in the file being edited. Nothing to warn about. */
-    write_file("p5.phx",
-               "@language solveig.\n@use \"arith.phx\".\n@infix + 60 concat.\n"
+    write_file("p5.pro",
+               "@language solveig.\n@use \"arith.pro\".\n@infix + 60 concat.\n"
                "a := #1 + #2.\n");
-    expect("this module overriding a dialect", "p5.phx",
+    expect("this module overriding a dialect", "p5.pro",
            "a := #1:concat(#2).\n", 0);
 
     /* The other order is almost certainly the @use wanting to be above the
        declaration, so it is worth saying. */
-    write_file("p6.phx",
-               "@language solveig.\n@infix + 60 concat.\n@use \"arith.phx\".\n"
+    write_file("p6.pro",
+               "@language solveig.\n@infix + 60 concat.\n@use \"arith.pro\".\n"
                "a := #1 + #2.\n");
-    expect("a dialect overriding this module", "p6.phx",
+    expect("a dialect overriding this module", "p6.pro",
            "a := #1:add(#2).\n", 1);
 
     /* A file still being read is a file using itself. */
-    write_file("x.phx", "@use \"y.phx\".\n");
-    write_file("y.phx", "@use \"x.phx\".\n");
-    write_file("p7.phx", "@language solveig.\n@use \"x.phx\".\na := #1.\n");
-    expect_rejected("a cycle", "p7.phx");
+    write_file("x.pro", "@use \"y.pro\".\n");
+    write_file("y.pro", "@use \"x.pro\".\n");
+    write_file("p7.pro", "@language solveig.\n@use \"x.pro\".\na := #1.\n");
+    expect_rejected("a cycle", "p7.pro");
 
-    write_file("p8.phx", "@language solveig.\n@use \"nope.phx\".\na := #1.\n");
-    expect_rejected("a dialect that is not there", "p8.phx");
+    write_file("p8.pro", "@language solveig.\n@use \"nope.pro\".\na := #1.\n");
+    expect_rejected("a dialect that is not there", "p8.pro");
 
     /* A dialect provides syntax; Solveig's own @include provides code. There is
-       no third thing for a .phx to be. */
-    write_file("code.phx", "@infix + 60 add.\nq := #1.\n");
-    write_file("p9.phx", "@language solveig.\n@use \"code.phx\".\na := #1.\n");
-    expect_rejected("a statement in a dialect file", "p9.phx");
+       no third thing for a .pro to be. */
+    write_file("code.pro", "@infix + 60 add.\nq := #1.\n");
+    write_file("p9.pro", "@language solveig.\n@use \"code.pro\".\na := #1.\n");
+    expect_rejected("a statement in a dialect file", "p9.pro");
 
     /* A form out of a dialect keeps its own binders out of the caller's way,
        and the generated name is fresh against every file -- including the one
        the template came from, which the module never mentions. */
-    write_file("hold.phx", "@syntax hold(v) => { | t | t := v. t }:value.\n");
-    write_file("p10.phx",
-               "@language solveig.\n@use \"hold.phx\".\n"
+    write_file("hold.pro", "@syntax hold(v) => { | t | t := v. t }:value.\n");
+    write_file("p10.pro",
+               "@language solveig.\n@use \"hold.pro\".\n"
                "t := #1.\na := hold(t).\n");
-    expect("hygiene across a file boundary", "p10.phx",
+    expect("hygiene across a file boundary", "p10.pro",
            "t := #1.\n"
            "a := { | t__1 |\n"
            "    t__1 := t.\n"
@@ -218,10 +218,10 @@ int main(void)
 
     printf("%d checks, %d failed\n", checks, failures);
 
-    const char *files[] = { "arith.phx", "control.phx", "more.phx", "other.phx",
-                            "code.phx", "hold.phx", "x.phx", "y.phx",
-                            "p1.phx", "p2.phx", "p3.phx", "p4.phx", "p5.phx",
-                            "p6.phx", "p7.phx", "p8.phx", "p9.phx", "p10.phx" };
+    const char *files[] = { "arith.pro", "control.pro", "more.pro", "other.pro",
+                            "code.pro", "hold.pro", "x.pro", "y.pro",
+                            "p1.pro", "p2.pro", "p3.pro", "p4.pro", "p5.pro",
+                            "p6.pro", "p7.pro", "p8.pro", "p9.pro", "p10.pro" };
     for (size_t i = 0; i < sizeof files / sizeof *files; i++)
         remove_file(files[i]);
     rmdir(directory);

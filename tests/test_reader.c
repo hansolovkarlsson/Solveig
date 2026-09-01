@@ -9,9 +9,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "phoenix/emit.h"
-#include "phoenix/reader.h"
-#include "phoenix/unit.h"
+#include "proto/emit.h"
+#include "proto/reader.h"
+#include "proto/unit.h"
 
 static int failures = 0;
 static int checks = 0;
@@ -20,35 +20,35 @@ static int checks = 0;
    compile. The caller frees. */
 static char *compile(const char *text, int *errors)
 {
-    PhxUnit unit;
-    phx_unit_init(&unit);
+    ProtoUnit unit;
+    proto_unit_init(&unit);
 
-    const PhxSource *source = phx_unit_adopt(&unit, "<test>", text);
+    const ProtoSource *source = proto_unit_adopt(&unit, "<test>", text);
 
     FILE *sink = tmpfile();
-    PhxDiagnostics diag;
-    phx_diag_init(&diag, sink);
+    ProtoDiagnostics diag;
+    proto_diag_init(&diag, sink);
 
-    PhxDialect dialect;
-    phx_dialect_init(&dialect);
+    ProtoDialect dialect;
+    proto_dialect_init(&dialect);
 
-    PhxNode *module = phx_read(source, &unit, &dialect, &diag);
+    ProtoNode *module = proto_read(source, &unit, &dialect, &diag);
     *errors = diag.errors;
 
     char *out = NULL;
     if (module != NULL) {
-        PhxEmitter emitter;
-        phx_emitter_init(&emitter);
-        phx_emit(&emitter, module);
+        ProtoEmitter emitter;
+        proto_emitter_init(&emitter);
+        proto_emit(&emitter, module);
         /* Past the generated banner, which is not what any of this is about. */
         const char *body = strstr(emitter.text, "\n\n");
-        out = phx_strndup(body + 2, strlen(body + 2));
-        phx_emitter_free(&emitter);
-        phx_node_free(module);
+        out = proto_strndup(body + 2, strlen(body + 2));
+        proto_emitter_free(&emitter);
+        proto_node_free(module);
     }
 
-    phx_dialect_free(&dialect);
-    phx_unit_free(&unit);
+    proto_dialect_free(&dialect);
+    proto_unit_free(&unit);
     fclose(sink);
     return out;
 }
@@ -126,7 +126,7 @@ int main(void)
            "a := [#1, 2.5, \"s\", 'sym].\n");
 
     /* Blocks: parameters, temporaries, and the leading bar that tells them
-       apart. Solveig's rule, and Phoenix reads it the same way. */
+       apart. Solveig's rule, and Proto reads it the same way. */
     expect("one parameter",  HEADER "a := { x | x }.\n", "a := { x | x }.\n");
     expect("one temporary",  HEADER "a := { | t | t }.\n", "a := { | t | t }.\n");
     expect("both",           HEADER "a := { x | | t | t }.\n",

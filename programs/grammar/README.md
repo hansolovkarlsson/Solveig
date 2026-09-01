@@ -1,12 +1,12 @@
-# A grammar toolkit, written in Phoenix
+# A grammar toolkit, written in Proto
 
 Grammars written down and then run, in the manner of yacc — a rule is a
 declaration, and parsing is what the declarations do.
 
-**Not a Phoenix feature.** A second program, written for the reason the first
+**Not a Proto feature.** A second program, written for the reason the first
 one was: `docs/rules-and-logic.md` lists it as the last step and says why.
 
-> **A parser toolkit written in Phoenix.** Not a feature. The best test of
+> **A parser toolkit written in Proto.** Not a feature. The best test of
 > whether any of the above was worth having.
 
 Solveig's own `docs/ideas.md` wants one too, and calls it *the most interesting
@@ -23,7 +23,7 @@ stops guessing about them:
 | | |
 | --- | --- |
 | **Repetition** | `sum = term { ("+" \| "-") term }` is EBNF's own shape. A pattern has no repeated part, and this is the program that would want one. |
-| **Alternation** | `expr = a \| b`, and a hole that accepts one of several kinds. `lib/clike.phx` wanted the second and worked around it. |
+| **Alternation** | `expr = a \| b`, and a hole that accepts one of several kinds. `lib/clike.pro` wanted the second and worked around it. |
 
 Both are on the roadmap with **no customer**. After this they will have one or
 they will have been declined twice.
@@ -43,8 +43,8 @@ Three programs' worth of use and no complaint from any of them.
 
 ## What it found
 
-Two grammars run: `examples/calc.phx` evaluates `100 / 5 - 3 * 4` with
-precedence, and `examples/sexpr.phx` parses `(a (b c) d)` into nested arrays.
+Two grammars run: `examples/calc.pro` evaluates `100 / 5 - 3 * 4` with
+precedence, and `examples/sexpr.pro` parses `(a (b c) d)` into nested arrays.
 `make test` diffs both.
 
 ### The predictions
@@ -52,21 +52,21 @@ precedence, and `examples/sexpr.phx` parses `(a (b c) d)` into nested arrays.
 | | |
 | --- | --- |
 | **1. A grammar is recursive and forms are not** | **Right, and sharper than predicted.** It is not that a rule cannot mention a later rule — it is that **a rule cannot be a form at all.** A template cannot declare a form, so `rule 'expr is { … }` can only put a block in a table, and `apply 'term` is a lookup. Ember's README said *notation is not recursive even when the program using it is*; a grammar is the counterexample, and the answer is that the recursive part stops being notation and becomes data. |
-| **2. Repetition wanted within an hour** | **Right about the want, wrong about the level.** Both grammars have `{ … }:whileTrue({ … })` where EBNF writes `{ }`. But a *repeated pattern part in Phoenix would not have helped*, because the grammar is data and not forms — the repetition wanted is in the object language. **The feature is declined a second time, and now with a reason rather than a shrug.** |
+| **2. Repetition wanted within an hour** | **Right about the want, wrong about the level.** Both grammars have `{ … }:whileTrue({ … })` where EBNF writes `{ }`. But a *repeated pattern part in Proto would not have helped*, because the grammar is data and not forms — the repetition wanted is in the object language. **The feature is declined a second time, and now with a reason rather than a shrug.** |
 | **3. Solveig's 3.1 will bite** | **Right, and it cost nothing because it was predicted.** `makeAdder := { n \| { x \| x:add(n) } }` is refused — *block outlived the frame it was written in* — so combinators are out and the rules live in a table, exactly as `lib/scan.sol` was pushed. Confirmed in four lines before the toolkit existed. |
 | **4. Rules keyed by symbol** | **Right.** `rule 'expr is { … }`, because a template cannot build a selector out of a hole. |
 | **5. The notation is worth less here** | **Right, and it is the useful one.** Ember has ~15 forms over ~200 lines of assembly emission; this has 8 over ~30 lines of grammar. **A dialect pays per line it removes**, so notation for a flat repetitive domain earns more than notation for a small structured one — and the second still reads better, it just saves less. |
 
 ### The one that was not predicted, and was not a finding
 
-The first draft of `peg.phx` declared its cursor forms as patterns, and both
+The first draft of `peg.pro` declared its cursor forms as patterns, and both
 grammars filled up with parentheses:
 
 ```
 (at "*") \/ (at "/")        ; because `at "*" \/ at "/"` is `at ("*" \/ (at "/"))`
 ```
 
-That was written up here as a limitation of Phoenix — *a form's trailing hole
+That was written up here as a limitation of Proto — *a form's trailing hole
 swallows infix operators, so nothing written after a form can apply to the
 form's result* — with a sketch of what a fix might look like.
 
@@ -100,6 +100,6 @@ was `skip " \t\n"`. The first real grammar wrote `skip blank`, naming a string
 it had bound, and was refused by its own toolkit.
 
 **A kind is a promise extracted from the caller, not a description of the
-author's examples.** Only `<b: block>` survived in `peg.phx`, because the table
+author's examples.** Only `<b: block>` survived in `peg.pro`, because the table
 stores a block and anything else would store a value. The other five were the
 author guessing.

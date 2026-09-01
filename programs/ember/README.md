@@ -1,15 +1,15 @@
 # Ember
 
-A small language, compiled to ARM64 assembly by a compiler written in Phoenix.
+A small language, compiled to ARM64 assembly by a compiler written in Proto.
 
 ```
-programs/ember/emberc.phx   --phoenix-->  emberc.sol
+programs/ember/emberc.pro   --proto-->  emberc.sol
                             --solas---->  emberc.sob
 examples/fizzbuzz.em        --solvm---->  fizzbuzz.s
                             --cc------->  a.out
 ```
 
-**This is not a Phoenix feature.** It is a program written in Phoenix, and it
+**This is not a Proto feature.** It is a program written in Proto, and it
 exists for the reason [docs/targets.md](../../docs/targets.md) gives:
 
 > A code generator is exactly the kind of program that wants a declared
@@ -17,7 +17,7 @@ exists for the reason [docs/targets.md](../../docs/targets.md) gives:
 > declaring a grammar per module does not help *there*, that is worth knowing
 > early, and it is not a thing a small example can tell you.
 
-Six versions of Phoenix were built with four toy examples and no customer.
+Six versions of Proto were built with four toy examples and no customer.
 `lib/text.sol` over in Solveig states the rule this is here to satisfy: **one
 customer, satisfied in six lines, is not a reason to grow a surface** — and its
 converse, that a surface with no customer at all has never been tested.
@@ -33,7 +33,7 @@ found nothing* stays an available answer.
 | **2. The group parens will grate.** | `while t do (a. b)` — 0.5.0 predicted a pattern language would dissolve this and it did not. Predicted to appear on nearly every loop in the compiler and to be the most-noticed wart. |
 | **3. A form cannot be recursive.** | A template may mention only forms declared above it. Predicted not to bite, because notation is not recursive even when the program using it is — but recorded because it is the rule most likely to surprise. |
 | **4. The dialect will mostly be `concat`.** | Emitting assembly is building strings. Predicted that the useful forms are the ones that hide string joining, and that this says something about what a dialect is *for*. |
-| **5. Solveig will bite before Phoenix does.** | Most likely [3.1](https://hansolovkarlsson.github.io/Solveig/docs/ROADMAP.html) — a block outliving the frame it was written in — if the codegen is built the combinator way. `lib/scan.sol` already hit it and says so. |
+| **5. Solveig will bite before Proto does.** | Most likely [3.1](https://hansolovkarlsson.github.io/Solveig/docs/ROADMAP.html) — a block outliving the frame it was written in — if the codegen is built the combinator way. `lib/scan.sol` already hit it and says so. |
 
 Predicted **not** to find: a problem with hygiene, with `@use`, or with the map.
 Those have tests and the tests are about the right things.
@@ -49,10 +49,10 @@ against `.expected`. Five programs and two languages to print a prime.
 | | |
 | --- | --- |
 | **1. A pattern's words can only be identifiers** | **Right, within a minute.** `@syntax mov <d> , <s>` is the first thing anybody writing an assembler notation tries. The workaround — `load <d> imm <n>`, `store <s> slot <n>` — reads better than the thing it replaces, which was not expected. **Acted on:** the message used to be *needs `=>`*, pointing at the comma and saying nothing about why; it now names the rule and suggests the call shape. |
-| **2. The group parens will grate** | **Right, and in a place not predicted.** They are on every multi-statement branch in the compiler, as expected — but they are also in `asm.phx`, because a *template* is one expression too. `load <d> adr <s>` emits two instructions and needs a group to do it. The wart is not the pattern language's; it is that a template is an expression. |
+| **2. The group parens will grate** | **Right, and in a place not predicted.** They are on every multi-statement branch in the compiler, as expected — but they are also in `asm.pro`, because a *template* is one expression too. `load <d> adr <s>` emits two instructions and needs a group to do it. The wart is not the pattern language's; it is that a template is an expression. |
 | **3. A form cannot be recursive** | **Did not bite.** Notation is not recursive even when the program using it is, which is what was predicted and is now checked rather than assumed. |
-| **4. The dialect will mostly be `concat`** | **Right, and it sharpened.** Every form in `asm.phx` is one `fill`. The ones that earned their keep hide *the operand order as well as the joining* — `store "x0" slot n` against `emit("    str {}, [x29, #-{}]":fill([r, n:mul(#8)]))`, where the slot arithmetic is the part you would get wrong. |
-| **5. Solveig will bite first** | **Wrong.** No 3.1, no block outliving its frame, nothing. A lexer, a recursive-descent parser and a code generator went in without Solveig complaining once, with `lib/scan.sol` doing the cursor work. The things that bit were Phoenix's and the author's. |
+| **4. The dialect will mostly be `concat`** | **Right, and it sharpened.** Every form in `asm.pro` is one `fill`. The ones that earned their keep hide *the operand order as well as the joining* — `store "x0" slot n` against `emit("    str {}, [x29, #-{}]":fill([r, n:mul(#8)]))`, where the slot arithmetic is the part you would get wrong. |
+| **5. Solveig will bite first** | **Wrong.** No 3.1, no block outliving its frame, nothing. A lexer, a recursive-descent parser and a code generator went in without Solveig complaining once, with `lib/scan.sol` doing the cursor work. The things that bit were Proto's and the author's. |
 
 ### Two things nobody predicted
 
@@ -91,11 +91,11 @@ understand `and`. **This is the standing cost of putting operators on a language
 whose core is sends**, it is not a defect in either, and it is the largest
 friction this program found.
 
-**Fixed in Phoenix 0.7.0, and this program is why.** The obvious answer -- also
+**Fixed in Proto 0.7.0, and this program is why.** The obvious answer -- also
 declare `and` and `or` -- did not work: Solveig's `and` takes a *block*, so
 `@infix /\ 30 and` compiles to `a:and(b)` and is refused at run time, and
 `@syntax` could not help because a pattern must begin with a word. An operator
-may now stand for a *template*, `lib/arith.phx` declares `/\` and `\/`, and
+may now stand for a *template*, `lib/arith.pro` declares `/\` and `\/`, and
 every one of the six expressions above is now written with them.
 
 ### And one design question answered by use
@@ -113,7 +113,7 @@ Integers, string literals, `let`, `print`, `if`/`else`/`end`, `while`/`do`/`end`
 input. Variables live in stack slots below the frame pointer and the expression
 stack is the machine stack.
 
-Ember has `end` on its blocks and Phoenix's own forms do not, which is the
+Ember has `end` on its blocks and Proto's own forms do not, which is the
 contrast worth keeping: **an expression nests without a terminator, and a
 hand-written recursive-descent parser wants one.** Two languages, two answers,
 one of them written in the other.

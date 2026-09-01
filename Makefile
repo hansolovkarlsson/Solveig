@@ -1,18 +1,18 @@
-# Phoenix -- a compiler whose syntax arrives with the file it is compiling.
+# Proto -- a compiler whose syntax arrives with the file it is compiling.
 #
-#   make            build bin/phoenix
+#   make            build bin/proto
 #   make test       build and run the test suite, through the real pipeline
-#   make run        compile and run examples/vectors.phx
-#   make examples   every examples/*.phx, to .sol and then to .sob
+#   make run        compile and run examples/vectors.pro
+#   make examples   every examples/*.pro, to .sol and then to .sob
 #   make install    install to $(PREFIX), default /usr/local
 #   make uninstall  take it back out again
 #   make clean      remove build artefacts
 #
-# **The build needs no Solveig.** Phoenix emits Solveig *source*, and source is
+# **The build needs no Solveig.** Proto emits Solveig *source*, and source is
 # text, so nothing here links against libsol.a or includes a solum header. That
 # is not an accident of where the code ended up; it is the arrangement being
 # tested. A front end with privileged access to the compiler it targets proves
-# only that its author can write one, and the whole claim Phoenix is making is
+# only that its author can write one, and the whole claim Proto is making is
 # that a dialect is something anybody can write on top of a substrate they do
 # not get to change.
 #
@@ -23,7 +23,7 @@ SOLVEIG ?= ../Solveig
 
 CC      ?= cc
 CFLAGS  ?= -std=c11 -Wall -Wextra -Wpedantic -g
-INCLUDES = -Iphoenix/include
+INCLUDES = -Iproto/include
 
 # `-std=c11` asks for ISO C and nothing besides, and glibc takes that at its
 # word. Solveig's Makefile carries the same two lines for the same reason and
@@ -46,11 +46,11 @@ DIST  = dist
 
 PREFIX ?= /usr/local
 BINDIR  = $(DESTDIR)$(PREFIX)/bin
-LIBDIR  = $(DESTDIR)$(PREFIX)/lib/phoenix
+LIBDIR  = $(DESTDIR)$(PREFIX)/lib/proto
 
-LIB_SRCS = $(wildcard phoenix/src/*.c)
+LIB_SRCS = $(wildcard proto/src/*.c)
 LIB_OBJS = $(LIB_SRCS:%.c=$(BUILD)/%.o)
-LIB      = $(BUILD)/libphoenix.a
+LIB      = $(BUILD)/libproto.a
 
 TEST_SRCS = $(wildcard tests/*.c)
 TEST_BINS = $(TEST_SRCS:tests/%.c=$(BUILD)/tests/%)
@@ -58,13 +58,13 @@ TEST_BINS = $(TEST_SRCS:tests/%.c=$(BUILD)/tests/%)
 # The dialect files the examples reach with @use. Listed so that changing one
 # rebuilds every example, which a per-example dependency could not do without
 # reading the headers to find out which uses what.
-DIALECTS = $(wildcard lib/*.phx)
+DIALECTS = $(wildcard lib/*.pro)
 
-EXAMPLE_SRCS = $(wildcard examples/*.phx)
-EXAMPLE_SOLS = $(EXAMPLE_SRCS:.phx=.sol)
-EXAMPLE_SOBS = $(EXAMPLE_SRCS:.phx=.sob)
+EXAMPLE_SRCS = $(wildcard examples/*.pro)
+EXAMPLE_SOLS = $(EXAMPLE_SRCS:.pro=.sol)
+EXAMPLE_SOBS = $(EXAMPLE_SRCS:.pro=.sob)
 
-# programs/ember -- a compiler written in Phoenix, and the only customer any of
+# programs/ember -- a compiler written in Proto, and the only customer any of
 # this has. Built and run by `make test`, because a language with no program
 # written in it has never been tested by anything but its own examples.
 EMBER      = programs/ember
@@ -75,12 +75,12 @@ EMBER_BINS = $(EMBER_SRCS:.em=.out)
 # programs/grammar -- a second customer, and a different domain: notation for
 # something recursive, where ember's was notation for something flat.
 GRAMMAR       = programs/grammar
-GRAMMAR_SRCS  = $(wildcard $(GRAMMAR)/examples/*.phx)
-GRAMMAR_SOLS  = $(GRAMMAR_SRCS:.phx=.sol)
-GRAMMAR_SOBS  = $(GRAMMAR_SRCS:.phx=.sob)
+GRAMMAR_SRCS  = $(wildcard $(GRAMMAR)/examples/*.pro)
+GRAMMAR_SOLS  = $(GRAMMAR_SRCS:.pro=.sol)
+GRAMMAR_SOBS  = $(GRAMMAR_SRCS:.pro=.sob)
 
 # programs/digest -- a third customer, and the first for the *operator* half of
-# Phoenix: sixty-four rounds of shifts, rotations and masked additions, in the
+# Proto: sixty-four rounds of shifts, rotations and masked additions, in the
 # notation FIPS 180-4 writes them in.
 DIGEST = programs/digest
 
@@ -101,9 +101,9 @@ SOLVEIG_VERSION = $(shell grep SOLUM_VERSION \
 .SECONDARY: $(EXAMPLE_SOLS) $(EMBER)/emberc.sol $(EMBER)/emberc.sob $(EMBER_ASM) \
             $(GRAMMAR_SOLS) $(DIGEST)/sha256.sol
 
-all: $(BIN)/phoenix
+all: $(BIN)/proto
 
-$(BIN)/phoenix: phoenix/cmd/main.c $(LIB)
+$(BIN)/proto: proto/cmd/main.c $(LIB)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) $< $(LIB) -o $@
 
@@ -123,30 +123,30 @@ $(BUILD)/tests/%: tests/%.c $(LIB)
 # errors depending on which target reached it first.
 check:
 	@test -n "$(SOLVEIG_VERSION)" || \
-	    { echo "phoenix: $(SOLVEIG) is not a Solveig checkout."; \
+	    { echo "proto: $(SOLVEIG) is not a Solveig checkout."; \
 	      echo "      make SOLVEIG=/path/to/Solveig"; exit 1; }
 	@test -x "$(SOLVEIG)/bin/solas" || \
-	    { echo "phoenix: $(SOLVEIG) has not been built -- no bin/solas."; \
+	    { echo "proto: $(SOLVEIG) has not been built -- no bin/solas."; \
 	      echo "      make -C $(SOLVEIG)"; exit 1; }
 	@echo "$(SOLVEIG_VERSION) $(SOLVEIG_MINIMUM)" \
 	    | awk '{ split($$1, a, "."); split($$2, b, "."); \
 	             exit !(a[1] > b[1] || (a[1] == b[1] && a[2] >= b[2])) }' || \
-	    { echo "phoenix: found Solveig $(SOLVEIG_VERSION) under $(SOLVEIG),"; \
+	    { echo "proto: found Solveig $(SOLVEIG_VERSION) under $(SOLVEIG),"; \
 	      echo "  and this needs $(SOLVEIG_MINIMUM) or later."; \
 	      echo "  Update that checkout, or point SOLVEIG at a newer one."; exit 1; }
 
 # The map is written every time rather than on request. It costs a file and it
 # is the thing that is never there when it is wanted.
-examples/%.sol: examples/%.phx $(DIALECTS) $(BIN)/phoenix
-	@$(BIN)/phoenix --map $< -o $@
+examples/%.sol: examples/%.pro $(DIALECTS) $(BIN)/proto
+	@$(BIN)/proto --map $< -o $@
 
 examples/%.sob: examples/%.sol | check
 	@$(SOLVEIG)/bin/solas $< -o $@
 
 examples: $(EXAMPLE_SOLS) $(EXAMPLE_SOBS)
 
-$(EMBER)/emberc.sol: $(EMBER)/emberc.phx $(EMBER)/asm.phx $(DIALECTS) $(BIN)/phoenix
-	@$(BIN)/phoenix --map $< -o $@
+$(EMBER)/emberc.sol: $(EMBER)/emberc.pro $(EMBER)/asm.pro $(DIALECTS) $(BIN)/proto
+	@$(BIN)/proto --map $< -o $@
 
 $(EMBER)/emberc.sob: $(EMBER)/emberc.sol | check
 	@$(SOLVEIG)/bin/solas $< -o $@
@@ -157,13 +157,13 @@ $(EMBER)/examples/%.s: $(EMBER)/examples/%.em $(EMBER)/emberc.sob | check
 $(EMBER)/examples/%.out: $(EMBER)/examples/%.s
 	@$(CC) $< -o $@
 
-# The whole stack, in one target: .phx to .sol to .sob, then a .em through that
+# The whole stack, in one target: .pro to .sol to .sob, then a .em through that
 # to assembly, then cc. Five programs and two languages to print a prime.
 ember: $(EMBER_BINS)
 	@for b in $(EMBER_BINS); do echo "-- $$b"; $$b; done
 
-$(GRAMMAR)/examples/%.sol: $(GRAMMAR)/examples/%.phx $(GRAMMAR)/peg.phx $(DIALECTS) $(BIN)/phoenix
-	@$(BIN)/phoenix --map $< -o $@
+$(GRAMMAR)/examples/%.sol: $(GRAMMAR)/examples/%.pro $(GRAMMAR)/peg.pro $(DIALECTS) $(BIN)/proto
+	@$(BIN)/proto --map $< -o $@
 
 $(GRAMMAR)/examples/%.sob: $(GRAMMAR)/examples/%.sol | check
 	@$(SOLVEIG)/bin/solas $< -o $@
@@ -171,8 +171,8 @@ $(GRAMMAR)/examples/%.sob: $(GRAMMAR)/examples/%.sol | check
 grammar: $(GRAMMAR_SOBS)
 	@for g in $(GRAMMAR_SOBS); do echo "-- $$g"; $(SOLVEIG)/bin/solvm $$g; done
 
-$(DIGEST)/sha256.sol: $(DIGEST)/sha256.phx $(DIGEST)/sha2.phx $(BIN)/phoenix
-	@$(BIN)/phoenix --map $< -o $@
+$(DIGEST)/sha256.sol: $(DIGEST)/sha256.pro $(DIGEST)/sha2.pro $(BIN)/proto
+	@$(BIN)/proto --map $< -o $@
 
 $(DIGEST)/sha256.sob: $(DIGEST)/sha256.sol | check
 	@$(SOLVEIG)/bin/solas $< -o $@
@@ -190,7 +190,7 @@ run: examples/vectors.sob
 # that SolVM executes. A front end that emits text can be wrong in a way no unit
 # test sees -- valid-looking Solveig that Solveig rejects, or accepts and reads
 # differently -- and the only witness to that is the real compiler.
-test: $(BIN)/phoenix $(TEST_BINS) $(EXAMPLE_SOBS) $(EMBER_BINS) $(GRAMMAR_SOBS) \
+test: $(BIN)/proto $(TEST_BINS) $(EXAMPLE_SOBS) $(EMBER_BINS) $(GRAMMAR_SOBS) \
       $(DIGEST)/sha256.sob
 	@for t in $(TEST_BINS); do echo "-- $$t"; $$t || exit 1; done
 	@for e in $(EXAMPLE_SOBS); do echo "-- $$e"; \
@@ -207,30 +207,30 @@ test: $(BIN)/phoenix $(TEST_BINS) $(EXAMPLE_SOBS) $(EMBER_BINS) $(GRAMMAR_SOBS) 
 # The dialects go in beside the binary, and nothing looks for them there.
 #
 # Solveig's binaries are told their library path at build time and search it, so
-# `@include "text.sol"` works from anywhere. Phoenix does not do that yet, and
-# saying so is better than half of it: PHOENIX_PATH is how a @use finds an
+# `@include "text.sol"` works from anywhere. Proto does not do that yet, and
+# saying so is better than half of it: PROTO_PATH is how a @use finds an
 # installed dialect, and it is one line in a profile.
 install: all
 	@mkdir -p $(BINDIR) $(LIBDIR)
-	cp $(BIN)/phoenix $(BINDIR)
+	cp $(BIN)/proto $(BINDIR)
 	cp $(DIALECTS) $(LIBDIR)
 	@echo "installed to $(DESTDIR)$(PREFIX)"
-	@echo "  export PHOENIX_PATH=$(PREFIX)/lib/phoenix    # so @use can find these"
+	@echo "  export PROTO_PATH=$(PREFIX)/lib/proto    # so @use can find these"
 
 uninstall:
-	rm -f $(BINDIR)/phoenix
+	rm -f $(BINDIR)/proto
 	rm -rf $(LIBDIR)
 
 # From HEAD rather than the working tree: a tarball of uncommitted work is a
 # tarball nobody can get back to.
-VERSION = $(shell grep PHOENIX_VERSION phoenix/include/phoenix/common.h \
+VERSION = $(shell grep PROTO_VERSION proto/include/proto/common.h \
             | head -1 | tr -d '"' | awk '{print $$3}')
 
 dist:
 	@mkdir -p $(DIST)
-	git archive --format=tar.gz --prefix=phoenix-$(VERSION)/ \
-	    -o $(DIST)/phoenix-$(VERSION).tar.gz HEAD
-	@echo "$(DIST)/phoenix-$(VERSION).tar.gz"
+	git archive --format=tar.gz --prefix=proto-$(VERSION)/ \
+	    -o $(DIST)/proto-$(VERSION).tar.gz HEAD
+	@echo "$(DIST)/proto-$(VERSION).tar.gz"
 
 clean:
 	rm -rf $(BUILD) $(BIN)
