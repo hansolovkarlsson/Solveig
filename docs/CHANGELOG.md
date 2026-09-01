@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### `system:fileId`, and the line `tail -f` was losing — `pending`, 2026-09-01
+### `system:fileId`, and the line `tail -f` was losing — `ee4e905`, 2026-09-01
 
 **The language answers 144<!--count messages--> messages**, up from 143, across
 247 registrations. `.sob` files are format version 14, unchanged.
