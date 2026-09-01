@@ -33,7 +33,7 @@ block, or another use of me* for C's `else` and could not say it, so a chain
 wants its braces. Worked around; recorded because it is the same shape as
 optional parts and would want deciding with them.
 
-## Next — optional and repeated parts
+## Waiting on a customer — optional and repeated parts
 
 **Declined twice, and the second time with a reason.**
 
