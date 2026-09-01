@@ -11,6 +11,99 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-01 (evening) — an hour on 6.39 that produced a different entry
+
+The instruction was to work on
+[6.39](ROADMAP.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file),
+file identity. The hour produced no code, two roadmap entries and a correction
+to a shipped program's header, and 6.39 is not the one that came out of it.
+
+### The first thing was to drive the customer, not to design for it
+
+6.39 exists because `tail -F` wants it. So before anything was designed, the
+thing that wants it was run: `tail -f` against a file, and a rotation performed
+underneath it from another shell.
+
+```sh
+$ ./bin/solvm tail.sob -f x.log &
+$ mv x.log x.log.1
+one
+tail: cannot measure 'x.log'      # exit 1
+```
+
+**It does not fail to follow the rotation. It dies on it.** `tail:follow` polls
+`system:fileSize` once per file per interval and `fileSize` raises when the path
+is gone — so a log rotation, or a plain `rm`, ends the program with status 1.
+`/usr/bin/tail` waits and picks up the replacement.
+
+That is [6.41](ROADMAP.md#641-a-path-that-stops-existing-is-an-error-rather-than-an-answer),
+and it is **the entry 6.39 was standing in front of**. Following a rotation has
+two halves — surviving a path that is not there, and noticing the file behind it
+changed — and only the second one is 6.39. The first needs no new kind of value.
+It is a defect in a shipped message.
+
+[method.md](method.md#a-scoping-can-be-wrong-about-the-order-not-only-the-answer)
+already had this shape written down. It is the second time it has fired, and
+both times the way it was noticed was the same: run the thing rather than read
+about it.
+
+### Two of the four path messages already disagree with the other two
+
+`fileExists` and `isDirectory` swallow a failed `stat` and answer false. A path
+that is not there is not an error to them, it is the answer. `fileSize` and
+`modifiedAt` raise. The four get asked about the same thing in the same breath.
+
+The decision taken: `fileSize` and `modifiedAt` answer **nil** for a path that
+is not there, and go on raising for a real failure. It is what `getenv` answers
+for an unset name and what `terminalSize` answers off a terminal.
+
+**And nil does not fix `tail` on its own**, which is the reason 6.41 says so out
+loud. With nil, the poll reaches `now:lessThan(sizes:at(i))` and raises
+*'lessThan' expects integer, got nil* — a worse message, further from the cause.
+What nil buys is that the program can *say* what a vanished path means to it.
+The message and the program are one unit of work, not two.
+
+### The measurement that corrected the entry, and the man page it corrected
+
+`system:fileId` was going to answer a string, "most likely", because device and
+inode "do not fit an integer on every platform". Measured: `dev_t` here is a
+**signed** four-byte integer and `ino_t` an unsigned eight; on Linux both are
+unsigned eight. `/dev/null` has a **negative** device number. So the string is
+right, and whatever formats it has to be sign-correct — a detail that would
+otherwise have been found by a crash.
+
+Then the `-F` behaviour itself, driven rather than read:
+
+| | `-f` | `-F` |
+| --- | --- | --- |
+| renamed away, new file at the path | follows the **new** file | follows the **new** file |
+| appended to the **old** inode after the rename | ignores it | ignores it |
+| removed, then recreated later | prints nothing more, keeps running | follows the **new** file |
+
+**The only difference `-F` makes on this machine is retry after a removal.**
+`-f` already follows the name across a rename — which its own man page implies
+it does not, describing the close-and-reopen-on-new-inode as `-F`'s.
+
+The first run of that contradicted the page and the right response was to
+distrust the run. It reproduced with two seconds between every step, and
+`x.log.1` really did receive the bytes `-f` ignored. `-F` is in no standard to
+appeal to: POSIX specifies `-f` and stops.
+
+### What was not done
+
+No C, no message, no `-F`. The scoping is the deliverable and building is a
+separate instruction, which is [what this repository
+says](method.md#scope-before-building-and-the-decision-is-separate) and is the
+rule that made the hour worth spending: an implementation of 6.39 started at the
+top of it would have shipped a message whose only caller exits 1 before it can
+call it.
+
+6.39's trigger is also unchanged and still has not fired — one customer, no
+second one — and the entry now says that working on it produced two entries and
+no code.
+
+---
+
 ## 2026-09-01 — a checker built off its trigger, and the two faults it did not find
 
 One instruction: build the link checker. It is built, it is in `make test`, and
