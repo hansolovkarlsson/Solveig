@@ -219,6 +219,54 @@ reasoning about it: `{ || … }` parsed as an empty list of temporaries and emit
 nothing. It is `{ | | … }` now, it appeared nowhere, and it is the only thing
 this cost.
 
+## 13. The name — done, no version, 2026-09-01
+
+*Not a roadmap item; it was never on that page. It is here because the case was
+argued with options before the work, which is what this file keeps.*
+
+**The problem.** "Phoenix" named two things. This project used it, and Solveig's
+`docs/ideas.md` had reserved it three days earlier — *a second language whose
+output Solum uses*, closing *the name, should it happen, is Phoenix* — for a
+language that would publish a **library** Solum consumes. That entry explicitly
+refuses *a nicer skin on this one*, so the two are not the same idea and cannot
+share a name. The shipped compiler held the word by use; the unbuilt idea held
+it by reservation, in writing, in another repository.
+
+**The intermediate step, and why it was wrong.** The first move was to
+*Phoenix Proto*, marking this tree as a prototype restart, with the language
+still called Phoenix. That distinction did not survive an hour — see
+[POSTMORTEM.md](POSTMORTEM.md) 14. The prototype framing is the honest
+description of the thing, not a modifier on a name that was leaving anyway.
+
+**The options, on the one choice that was not mechanical.** The identifier
+scheme is a strict three-case prefix — `Phx` types, `phx_` functions, `PHX_`
+macros — so respelling it is arithmetic. The extension is not:
+
+| | |
+| --- | --- |
+| `Proto`/`proto_`/`PROTO_`, files `.proto` | Consistent to a fault. `.proto` belongs to Protocol Buffers. |
+| `Pro`/`pro_`/`PRO_`, files `.pro` | Keeps the three-letter abbreviation `phx_` had. `Pro` reads as marketing. |
+| **`Proto`/`proto_`/`PROTO_`, files `.pro`** | **Taken.** Full word where a person reads it, short extension where a tool does. |
+
+**Why `.pro` and not `.proto`.** Linguist and most editors key on the extension,
+so every module in this tree would have been highlighted as protobuf — under a
+README whose opening argument is that *a tool can tell what language a file is
+in*. Losing that on the extension, of all things, would have been the wrong
+place to be consistent. `.pro` is also four characters, which is why
+`default_output_path` — it compares `length - 4` against the suffix — came
+through untouched. That was luck, and is recorded as luck.
+
+**What it cost**, which is one thing. `lex.h` is dense enough in identifiers
+that respelling them all dropped it under git's 50% rename threshold, so it
+records as a delete and a create where the other thirty-five moves record as
+renames. `git log --follow --find-renames=30%` still walks it back to the first
+commit; the default no longer does, for one file in thirty-six.
+
+**What it did not cost.** Nothing in the language changed. The suite reported
+the same 58, 6, 34 and 10 checks over the same ten examples and programs, and
+the diff was 1,435 lines out against 1,435 back in — the only shape a pure
+respelling can have.
+
 ## Settled by a customer rather than by argument
 
 | | |

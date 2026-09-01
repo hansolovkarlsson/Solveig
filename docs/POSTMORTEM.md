@@ -9,14 +9,14 @@ shipped. This is the failures.
 
 ## Scope
 
-Twelve, from one day, in four cohorts that failed for four different reasons:
+Fourteen, from two days, in four cohorts that failed for four different reasons:
 
 - **In the compiler** — three, two of which were latent from 0.1.0 and 0.2.0.
-- **In the documents** — three, all of them an edit that reported success and
-  changed nothing.
+- **In the documents** — four: three an edit that reported success and changed
+  nothing, and one where no edit was attempted at all.
 - **In the programs** — four, found by the first real use of a thing.
-- **In the reasoning** — two, where something true was written down as something
-  else and had to be retracted.
+- **In the reasoning** — three, where something true was written down as
+  something else and had to be retracted.
 
 ---
 
@@ -105,6 +105,31 @@ the thing by hand.
 **Cause.** A rename applied to a file rather than to a language.
 
 **Found by** grepping for the old spelling after the commit had already gone out.
+
+### 13. A number that was true when it was written — 2026-09-01
+
+**What.** `ROADMAP.md` said `@language` had been inert *eight versions in*. The
+changelog had nine, 0.1.0 through 0.9.0. The sentence was written at 0.8.0, and
+0.9.0 landed beside it without disturbing it.
+
+**Cause.** A new class in this cohort, and the reason the cohort is now four.
+Defects 4, 5 and 6 are edits that ran and did the wrong thing. **Here no edit
+was attempted at all** — the number was a fact about a second document, correct
+on the day it was written, with nothing in either file to notice when the other
+one moved. `edcf4a0` the day before was the same shape, a heading left over a
+body that had been rewritten under it, and it was fixed without being recorded
+here.
+
+**Found by** counting the versions in `CHANGELOG.md` while writing a changelog
+entry — that is, by having to state a number that the roadmap had already
+stated, and comparing them.
+
+**What is real.** A cross-document fact has no owner. `9` lives in
+`common.h`, the version list lives in `CHANGELOG.md`, and the sentence that
+counts them lives in `ROADMAP.md`; nothing links the three, so the count is
+correct only until the next release. The cheap defence is the one that caught
+it: any claim about *the state of another document* is re-derived when it is
+read, not trusted.
 
 ---
 
@@ -209,6 +234,30 @@ reason — both readings are legal, so nothing at the declaration can warn. The
 difference is that a wrong shape usually fails at the use, and a wrong
 precedence computes a different number and keeps going.
 
+### 14. A name doing two jobs, read as doing one — 2026-09-01
+
+**What.** Told the project was renamed Phoenix -> Proto to mark a prototype
+restart, the first pass renamed the repository and left the language alone:
+`phx_`, `Phx`, `PHX_` and `.phx` were held back on the reasoning that *Proto*
+described the project and *Phoenix* was still the name of the thing being built.
+That distinction was written down as a standing note. It survived about an hour,
+until Hans said the language was Proto too.
+
+**Cause.** "Phoenix" named two things — a repository and a language — and the
+instruction was about one of them without saying which. Renaming a repository
+and renaming a language are both ordinary readings of *rename the project*. The
+error was not picking the wrong one; it was **recording the pick as settled** in
+a durable note instead of asking a question that would have cost one line.
+
+**Found by** Hans stating the intent plainly in the next message.
+
+**What is real**, and it is why this is written down when it cost nothing: an
+inference and a fact are indistinguishable once they are in the same document.
+The note read like something Hans had said. Defect 11 is the same failure with
+the roles swapped — there, a claim was published where somebody could go back
+and disagree with it, and that is what saved it. **An inference is recorded with
+the question it answered, or it is asked instead.**
+
 ---
 
 ## The tally
@@ -222,8 +271,10 @@ precedence computes a different number and keeps going.
 | Reading a document because somebody asked a question about it | **2** |
 | Re-checking a claim before acting on it | **1** |
 | `git status` before a commit | **1** |
+| Having to restate a number another document already stated | **1** |
+| The user saying plainly what had been inferred | **1** |
 
-**Two of twelve were found by tests, and one of those two was a broken test.**
+**Two of fourteen were found by tests, and one of those two was a broken test.**
 Four came from the three programs written in the language, and three more came
 from reading something rather than running it.
 
@@ -233,3 +284,9 @@ second look.** That is the argument for `programs/`, for recording predictions
 before writing a program, and for the rule that a finding gets retracted in
 place rather than edited away: 11 exists because 7 and 9 were written down where
 somebody could go back and disagree with them.
+
+**The two from 2026-09-01 were both found by a person rather than by a check**,
+which is the first time that is true of a pair, and the day did not produce a
+line of compiler code. Neither is a defect in Proto. Both are defects in how a
+claim gets recorded: one document asserting a fact about another, and an
+inference written down in the voice of an instruction.

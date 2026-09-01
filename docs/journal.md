@@ -56,7 +56,7 @@ anything — a search-and-replace across two repositories would have taken it.
 ### What the rename was checked against
 
 `conventions.md` says **every text replacement asserts its match**, and three of
-twelve recorded defects are that rule being skipped. So the suite was run green
+the recorded defects are that rule being skipped. So the suite was run green
 first, to have a number rather than an impression to compare against. Afterwards
 it reported the same 58, 6, 34 and 10 checks over the same ten examples and
 programs, with no new warnings.
@@ -97,6 +97,58 @@ was a rename and this is a correction to an argument rather than to a spelling.
 Hans asked for it the same hour, so it reads **nine** now. The identical phrase
 in the 2026-08-31 entry below is deliberately untouched: eight was true on the
 day that entry describes.
+
+### The afternoon: putting what only the session knew into the documents
+
+`conventions.md` opens by saying its contents are written down *so that neither
+depends on anybody remembering them*. The rename made that concrete in a way
+that had already gone wrong once without being noticed.
+
+Standing notes had been accumulating in a per-directory store keyed by the
+project's path on disk. Renaming the folder moves the key. **The previous
+rename, the day before, had already orphaned three of them** — that Solveig's
+README does not link here and why, that Solveig findings get written up in a
+shape liftable into that project, and that `scratch/` is not to be read — and
+nothing announced it. They were live rules that had quietly stopped applying to
+anything, and they were only found because today's rename was about to do it
+again.
+
+All three were already in `conventions.md`, which is why nothing was actually
+lost, and which is the argument for that file existing. The one that was **not**
+written down anywhere is now the fourth standing agreement: *the name Phoenix
+belongs to a different project*, with the consequence that costs something if
+forgotten — **Solveig's `ideas.md` entry is that project's reservation and is not
+to be rewritten.** A search-and-replace across two repositories would have taken
+it, and would have looked like tidying.
+
+Two defects went into [POSTMORTEM.md](POSTMORTEM.md), 13 and 14, and neither is
+a defect in Proto. **13** is the stale version count: a number correct on the day
+it was written, in a document that had no way to notice when the document it
+described moved — a fourth kind in the *In the documents* cohort, where the
+other three are edits that ran and did nothing and this one is no edit at all.
+**14** is the Phoenix-Proto misreading, recorded although it cost nothing,
+because what it cost *could* have been large: an inference written into a
+standing note is indistinguishable from something Hans said. Both were found by
+a person rather than by a check, which is a first for a pair.
+
+[COMPLETED.md](COMPLETED.md) 13 keeps the case — the three extension schemes
+that were on the table, and why full-word identifiers with a short `.pro`
+extension beat being consistent.
+
+**Adding 13 and 14 immediately produced a fourth copy of 13.** Three live
+documents said *three of twelve recorded defects* are the unasserted-replacement
+mistake, and the total went wrong the moment the count did. Bumping them to
+fourteen would have bought a year, maybe. They say *three of the recorded
+defects* now: the fraction is the point, the denominator was never load-bearing,
+and `POSTMORTEM.md` is the one file allowed to know it. The identical sentence
+in the 2026-08-31 entry below keeps its *twelve*, being a record of a day.
+
+The first attempt at that removal deleted the word and left the preposition —
+*three of recorded defects* — in two files. Caught by reading the result rather
+than trusting the three assertions that had all correctly reported one match
+each. **A replacement asserting its match proves it fired, not that it was
+right**, which is defect 6 in miniature and the reason that rule has a second
+half.
 
 ### What is still open
 

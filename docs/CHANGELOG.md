@@ -45,7 +45,7 @@ is four characters either way, so the suffix arithmetic in `default_output_path`
 is untouched.
 
 **The replacement asserted its match**, as [conventions.md](conventions.md)
-requires and as three of twelve recorded defects come from skipping. The suite
+requires and as three recorded defects come from skipping. The suite
 was run green *before* the rename, to compare against a number rather than an
 impression; the staged diff is **1,435 lines out and 1,435 back in**, which is
 the only shape a pure respelling can have; and a case-insensitive search for the

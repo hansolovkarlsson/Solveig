@@ -28,6 +28,17 @@ would have advertised something that had not yet done the thing it claimed. The
 expander landed the same day, so the condition is met and the link is now a
 decision rather than a hold — Hans's, not one to make unasked.
 
+**The name Phoenix belongs to a different project and is not this one's to
+reuse.** This project was called Phoenix until 2026-09-01. The name was already
+reserved, three days earlier, in Solveig's `docs/ideas.md` — *a second language
+whose output Solum uses*, closing with *the name, should it happen, is Phoenix*
+— for a language that publishes a **library** Solum consumes, where Proto emits
+a program's source. Two consequences, and the second is the one that costs
+something if forgotten: any surviving `phx`, `Phx`, `PHX_` or `phoenix` in this
+tree is a defect rather than a distinction, and **the Phoenix entry in Solveig's
+`ideas.md` is that project's reservation and is not to be rewritten** — a
+search-and-replace across both repositories would have taken it.
+
 ## The method
 
 **A surface does not grow without a customer.** `lib/text.sol` states it over in
@@ -60,8 +71,8 @@ teaches nothing.
 
 **Every text replacement asserts its match.** A replacement that matches nothing
 is not an error; it is a no-op that reports success, and three of them left the
-roadmap four versions stale while commit messages said otherwise. Three of
-twelve recorded defects are this one mistake.
+roadmap four versions stale while commit messages said otherwise. Three of the
+recorded defects are this one mistake.
 
 **Read Solveig's own documents before designing anything that overlaps.** The
 collision rule, the binding rules that made 0.3.0 one pass instead of a
