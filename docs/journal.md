@@ -36,7 +36,7 @@ afternoon and got it.
 
 The question the survey said this program existed to ask was *what does this
 interpreter cost per arithmetic operation when there is nothing else going on*.
-The first answer available was 1.04 MB/s, which is a fact about SHA-256 rather
+The first answer available was 1.08 MB/s, which is a fact about SHA-256 rather
 than about the machine, and the second was a count of sends done by hand down
 the source, which is a fact about how carefully somebody counted.
 
@@ -55,8 +55,10 @@ find it.
 
 13,302 per 64-byte block, and **flat from ten blocks to a hundred** — which is
 what says the figure is the loop and not the setup, and is why the table has
-four rows rather than one. 208 instructions per byte, 0.96 s a megabyte, **227
-million instructions a second, 4.4 nanoseconds each.**
+four rows rather than one. 208 instructions per byte; the same search on a
+megabyte answers 217,955,855 against 217,954,715 predicted, which is the fit
+confirmed to five figures. Ten megabytes in 9.30 s: **234 million instructions a
+second, 4.3 nanoseconds each.**
 
 **The lesson is about the flag rather than the hash.** Every number in
 [performance.md](performance.md) is a ratio, against CPython or against an
@@ -79,31 +81,40 @@ tool already in the box and used for something else.
   line a reader wants to check against FIPS 180-4 carries a term FIPS 180-4 does
   not have. Twenty-three of them.
 
-### And a fifth of the program was a method call
+### And a third of the program was a method call
 
 `rotr(x, n)` is the one thing SHA-256 does that the language has no message for.
 Written as a method on the hash object it reads the way the standard writes it,
 and it is called ten times a round.
 
-| | 256 KB |
-| --- | ---: |
-| `rotr` as a method everywhere | 0.73 MB/s |
-| written out in the sixty-four rounds | 0.90 MB/s |
-| written out in the message schedule too | 1.06 MB/s |
+| | a megabyte | |
+| --- | ---: | ---: |
+| `rotr` as a method everywhere | 1.36 s | |
+| written out in the sixty-four rounds | 1.10 s | 1.24x |
+| written out in the message schedule too | 0.92 s | **1.48x** |
 
-**The arithmetic is identical in all three.** What the method cost was a frame
-and a return. That is a bigger single number than anything in the profiling
-that led to the two interpreter changes on 2026-08-30 — and it is not lookup,
-which
+**The arithmetic is identical in all three, and so is the digest out of all
+three.** What the method cost was a frame and a return — **32% of the readable
+version's running time**, nineteen points of it in the rounds and thirteen in
+the schedule. That is a bigger single number than anything in the profiling that
+led to the two interpreter changes on 2026-08-30 — and it is not lookup, which
 [the inline cache entry](ideas.md#an-inline-cache-at-the-send-site) measured at
 9.7% of the benchmark that asked for it. It is the call.
+
+**This paragraph first said *a fifth*, and the review pass caught it**, which is
+worth keeping because of *how* it was wrong rather than that it was: a fifth is
+the rounds-only step, 1.24x, and it was quoted as though it were the whole. Two
+numbers on one line, and the smaller one carried. Re-measuring on the shipped
+file rather than on the evening's throwaway is what made the error visible,
+which is the same rule as everywhere else on this page — check the thing that
+ships.
 
 The shipped program is the third row, with the first written out in a comment
 above it and the measurement beside it. **A helper named for what it does is
 right almost everywhere and wrong in the one loop that runs thirteen thousand
 instructions per sixty-four bytes**, and a program that had not been measured
-would have shipped the first row and been a third slower for a reason nobody
-would have looked for.
+would have shipped the first row and run at two thirds the speed for a reason
+nobody would have looked for.
 
 ### The check that does not depend on anyone else being right
 
@@ -114,7 +125,18 @@ wrong in the same direction as anything derived from it.**
 
 SHA-256 has numbers printed in a standard. `programs/sha256sum/vectors.sh` runs
 five of them, including a million times `a`, and they were printed before this
-language existed. The oracle then earns its keep on a *different* class of
+language existed.
+
+**This is the second time that has been done here and the first time it was
+noticed as a kind**, which is the correction this entry earns. `basic.sol` is
+held against the [NBS Minimal BASIC Test Programs](../programs/basic/conformance.sh),
+208 programs written at the National Bureau of Standards in 1980, and they found
+seven defects that eighty-three author-written claims had not. The draft of this
+paragraph called `vectors.sh` the first of its kind and was wrong — caught by
+going to look rather than by remembering, which is the only way this sort of
+claim ever gets caught. What is genuinely new is smaller: a digest is a string,
+so the comparison runs by machine, where the NBS programs print what a correct
+result looks like for a person to read. The oracle then earns its keep on a *different* class of
 fault: a NUL lost, a high byte sign-extended, a chunk boundary landing inside a
 block, a warning that says "1 line is" where the other says "2 lines are". **Two
 checks that fail for different reasons are worth more than two that fail for the
@@ -180,6 +202,57 @@ written is the sentence in [REFERENCE.md](REFERENCE.md), because the paragraph
 next to it says a NUL is a byte like any other and is about a file's contents,
 and nothing said the path is the one string in the system that stops.
 
+### The review pass, which found more than the writing did
+
+Reading the day's own work back before calling it finished, against the code
+that ships rather than against the notes.
+
+**A headline number was wrong by a factor.** *A fifth of the program was a
+method call* should have said *a third*: a fifth is the rounds-only step and it
+was quoted as if it were the whole. Both numbers were on the same line of the
+evening's notes and the smaller one carried. Re-measuring the three variants of
+the *shipped* file — rather than the throwaway they were first measured on —
+is what made it visible, and it also moved every rate a little: 1.08 MB/s
+rather than 1.04, and 234 million instructions a second rather than 227,
+because the first megabyte timing had startup in it and three samples.
+
+**A claim of being first was not checked and was false.** `vectors.sh` was
+called the first check here that does not depend on another implementation being
+right. It is the second: `basic.sol` is held against the
+[NBS Minimal BASIC Test Programs](../programs/basic/conformance.sh), 208 files
+written in 1980, which found seven defects that eighty-three author-written
+claims had not. The real difference is narrower and more useful — a digest is a
+string, so the comparison runs by machine, where the NBS programs are written
+for a person to read.
+
+**A defect, found by trying the case rather than by reading it.** A directory
+named inside a `-c` list was reported as *No such file or directory*, where the
+same directory named on the command line was reported as *Is a directory* — the
+oracle's answer in one place and not the other. `fileExists` deliberately
+answers false for a directory, so `isDirectory` has to be asked first; one of
+the two copies of that three-line decision had been corrected during the
+writing and the other had not. **That is
+[5.5](COMPLETED.md#55-five-programs-each-wrote-the-same-cursor--done) at a scale
+it was not written about**: not five programs over weeks, but two blocks in one
+file in one afternoon. There is one `path:complaint` now.
+
+**And `differ/` was empty, which was itself a claim.** The corpus said 21 cases
+agree and said nothing about anything that does not — while `-Q`, `--binary`
+and `--tag` all diverge, and nobody had written them down. The last two are the
+interesting ones: **the tool's usage line is a true sentence about a smaller
+thing than the tool.** `/sbin/sha256sum` says `[-bctwz]` and also answers to ten
+long options it never mentions, three of which have no short form. This file's
+header had quoted that usage line as though it bounded the tool. Three
+`differ/` cases now, so the subset is something that fails rather than a
+sentence nobody rechecks.
+
+**What the pass says about the day.** Every one of the four came from doing the
+thing rather than re-reading the note about it — re-measuring, going to look at
+`conformance.sh`, running `-c` on a directory, typing `--tag`. None would have
+been caught by reading more carefully, which is the same conclusion this page
+reached twice already this week and is apparently a lesson that needs learning
+on each new kind of work.
+
 ### Postmortem
 
 **What went right.** The survey did its job: an entry written before the program
@@ -196,9 +269,10 @@ otherwise, and it is the fifth instance in two days.
 
 **What was nearly missed.** The `-z` NUL case was found by a check written for
 completeness rather than by suspicion — a two-entry `-z` list, added to `-c`
-because it was cheap. The failure it exposed printed `OK`.
+because it was cheap. The failure it exposed printed `OK`. The review pass then
+found four more, above, one of them a number in the headline.
 
-**What is worth carrying.** *Measure the helper.* The rotate cost a fifth of the
+**What is worth carrying.** *Measure the helper.* The rotate cost a third of the
 program and looked like the most obviously correct line in the file. Nothing
 about reading it would have raised the question; the only reason it was asked is
 that this program has one loop and a stopwatch pointed at it.

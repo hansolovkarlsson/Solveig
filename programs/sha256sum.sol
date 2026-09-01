@@ -11,8 +11,14 @@
 ;     ... | solvm sha256sum.sob          from a pipe, which is named `-`
 ;
 ; `-t` is the default and is accepted so that `-bt` and `-tb` mean what they do
-; elsewhere. That is the whole of `sha256sum [-bctwz]`, which is the whole of
-; the usage line of the tool on this machine.
+; elsewhere. **That is the whole of `sha256sum [-bctwz]`, which is the whole of
+; the usage line of the tool on this machine -- and not the whole of the tool.**
+; `/sbin/sha256sum` also answers to ten long options its own usage line does not
+; mention: `--binary`, `--text`, `--check`, `--warn` and `--zero` alongside the
+; short forms, and `--tag`, `--quiet`, `--status`, `--help` and `--version`
+; which have no short form at all. None of those is written here, and the three
+; cases in `sha256sum/differ/` are what stop that being a sentence nobody
+; rechecks.
 ;
 ; With no arguments and nothing on standard input it demonstrates itself, which
 ; is the house rule for these programs -- see the note at the bottom about how
@@ -138,15 +144,16 @@ sha256:start := { | s |
 ;     s1 := self:rotr(e, #6):bitXor(self:rotr(e, #11)):bitXor(self:rotr(e, #25)).
 ;
 ; Six of those per round, sixty-four rounds, and four more per step of the
-; message schedule. Hashing 256 KB at `-O2`:
+; message schedule. Hashing a megabyte at `-O2`, all three answering the same
+; digest:
 ;
-;     rotr as a method everywhere                 0.73 MB/s
-;     written out in the sixty-four rounds        0.90 MB/s   1.23x
-;     written out in the message schedule too     1.06 MB/s   1.45x
+;     rotr as a method everywhere                 1.36 s   0.74 MB/s
+;     written out in the sixty-four rounds        1.10 s   0.91 MB/s   1.24x
+;     written out in the message schedule too     0.92 s   1.09 MB/s   1.48x
 ;
-; **A fifth of this program was the call, not the rotate.** The arithmetic is
+; **A third of this program was the call, not the rotate.** The arithmetic is
 ; the same either way; what the method cost was a frame and a return, ten times
-; per round.
+; per round, and it is 32% of the running time of the readable version.
 ;
 ; **The `bitOr` is an exclusive one**, which is what lets the chain below stay
 ; flat. `x >> n` occupies bits 0 to 31-n and `x << (32-n)` occupies 32-n
@@ -282,9 +289,9 @@ sha256:ofFile := { path | | s, at, part |
 ; formatting detail, it is a different answer. `readKey` answers one byte, NUL
 ; included, and nil at the end, which is the whole truth about the stream.
 ;
-; It costs almost nothing. A megabyte through a pipe takes 1.06 s against 0.96 s
+; It costs almost nothing. A megabyte through a pipe takes 1.02 s against 0.92 s
 ; for the same megabyte named as a file, so reading a byte at a time and
-; assembling it is **ten percent** of a program doing this much arithmetic --
+; assembling it is **a tenth** of a program doing this much arithmetic --
 ; and `readKey` on its own runs at 18.6 MB/s, eighteen times faster than the
 ; hash it is feeding. The byte-at-a-time reader that would be a disaster in a
 ; text filter is invisible behind arithmetic this expensive. The one-byte
@@ -329,7 +336,14 @@ options:read := { args | | i, a, j, c |
             ; one place the leading dash does not mean what it usually does.
             { a:size:greaterThan(#1):and({ a:copyFrom(#1, #1):equals("-") })
                 :ifElse(
-                { j := #2.
+                { ; A long option is refused by name rather than a character at
+                  ; a time, which would otherwise report the second `-` as the
+                  ; unknown one. The tool on this machine takes ten of these
+                  ; and its usage line mentions none -- see the note below the
+                  ; option table.
+                  a:copyFrom(#1, #2):equals("--"):ifTrue({
+                      error:raise("unknown option `{}`":fill([a])) }).
+                  j := #2.
                   { j:lessOrEqual(a:size) }:whileTrue({
                       c := a:at(j).
                       c:equals("b"):ifTrue({ self:binary := true }).
@@ -368,6 +382,32 @@ report:error := { name, why |
     self:failed := true }.
 
 ; ---------------------------------------------------------------------------
+; What is wrong with a name, in one place
+;
+; Two things can be, and the order matters: `fileExists` deliberately answers
+; **false** for a directory -- it answers what `readFile` would say about one --
+; so `isDirectory` has to be asked first or a directory is reported as missing.
+;
+; **This is one message because the two callers had already drifted apart.**
+; Hashing a named directory said *Is a directory* and a directory named inside a
+; `-c` list said *No such file or directory*, which is the oracle's answer in
+; the first case and not in the second. Two copies of a three-line decision, one
+; of them corrected and the other not: [5.5](../docs/COMPLETED.md#55-five-programs-each-wrote-the-same-cursor--done)
+; in miniature, inside a single file.
+
+path := object:new.
+
+; nil when the name is usable, and what to say about it when it is not.
+path:complaint := { name |
+    name:equals("-"):ifElse(
+        { nil },
+        { system:isDirectory(name):ifElse(
+            { "Is a directory" },
+            { system:fileExists(name):ifElse(
+                { nil },
+                { "No such file or directory" }) }) }) }.
+
+; ---------------------------------------------------------------------------
 ; Hashing what was named
 ;
 ; A file that cannot be read is reported and the rest are still done, which is
@@ -377,19 +417,14 @@ report:error := { name, why |
 
 run := object:new.
 
-run:one := { name |
-    name:equals("-"):ifElse(
-        { report:sum(sha256:ofStdin, "-") },
-        ; `isDirectory` is asked first because `fileExists` deliberately
-        ; answers false for a directory -- it answers what `readFile` would say
-        ; -- so the two together are the existence question, and the order is
-        ; what decides which of the two messages a directory gets.
-        { system:isDirectory(name):ifElse(
-            { report:error(name, "Is a directory") },
-            { system:fileExists(name):ifElse(
-                { { report:sum(sha256:ofFile(name), name) }:onError({ e |
-                      report:error(name, e:message) }) },
-                { report:error(name, "No such file or directory") }) }) }) }.
+run:one := { name | | why |
+    why := path:complaint(name).
+    why:notNil:ifElse(
+        { report:error(name, why) },
+        { name:equals("-"):ifElse(
+            { report:sum(sha256:ofStdin, "-") },
+            { { report:sum(sha256:ofFile(name), name) }:onError({ e |
+                  report:error(name, e:message) }) }) }) }.
 
 run:sums := {
     options:files:size:equals(#0):ifElse(
@@ -433,7 +468,7 @@ check:isHex := { s |
                 :ifFalse({ ok := false }) }).
         ok }) }.
 
-check:line := { text, source, number | | want, mark, name, ok |
+check:line := { text, source, number | | want, mark, name, ok, why |
     ; [3.2](../docs/ROADMAP.md#32-no-non-local-return) is why this is a flag
     ; being carried rather than five guards each leaving the block. Four
     ; conditions have to hold before the line is a checksum line, they are
@@ -449,12 +484,14 @@ check:line := { text, source, number | | want, mark, name, ok |
 
     ok:ifElse(
         { name := text:copyFrom(#67, text:size).
-          name:equals("-"):or({ system:fileExists(name) }):ifElse(
-              { self:verify(name, want) },
-              ; The tool on this machine writes a second space here, having
-              ; kept the separator in front of the name. This does not, and
-              ; check.sh says so among the differences it expects.
-              { report:error(name, "No such file or directory") }) },
+          why := path:complaint(name).
+          ; The tool on this machine writes a second space in front of the name
+          ; here, having kept the separator that stood before it in the list.
+          ; This does not, and check.sh says so among the differences it
+          ; expects.
+          why:notNil:ifElse(
+              { report:error(name, why) },
+              { self:verify(name, want) }) },
         { self:malformed(source, number) }) }.
 
 check:verify := { name, want |
@@ -607,7 +644,7 @@ handed anything first.
 ; ---------------------------------------------------------------------------
 ; The number, which is what it was for
 ;
-; **208 bytecode instructions per byte hashed, at 4.4 nanoseconds each.**
+; **208 bytecode instructions per byte hashed, at 4.3 nanoseconds each.**
 ;
 ; Measured rather than counted. `solvm --steps=N` stops a program after N
 ; instructions and exits 124, so the smallest N that lets a run finish is the
@@ -621,29 +658,35 @@ handed anything first.
 ;     6400        1,344,947        101       13,302
 ;
 ; **13,302 instructions per 64-byte block**, flat from ten blocks to a hundred,
-; which is 207.8 per byte of message. A megabyte takes 0.96 s in an `-O2` build
-; on an M2 Pro, so the interpreter is running **227 million instructions a
-; second, and each one costs 4.4 ns**. That is the answer to the question the
-; survey said this program existed to ask, and no amount of reading the dispatch
-; loop would have produced it.
+; which is 207.8 per byte of message. The same search on a megabyte answers
+; **217,955,855**, against 217,954,715 from the four rows above -- the fit
+; confirmed to five figures, the difference being the sixteen chunk reads a
+; megabyte needs and the small files do not.
 ;
-; **In megabytes: 1.04 a second.** Beside it, on the same file and the same
-; machine:
+; Ten megabytes take **9.30 s** in an `-O2` build on an M2 Pro, which is
+; 2.179 billion instructions, so the interpreter is running **234 million
+; instructions a second and each one costs 4.3 ns**. That is the answer to the
+; question the survey said this program existed to ask, and no amount of reading
+; the dispatch loop would have produced it.
 ;
-;     /sbin/sha256sum          1667 MB/s     C, and the M2's SHA instructions
-;     shasum -a 256             317 MB/s     Perl, calling a C library
-;     this program                1.04 MB/s
+; **In megabytes: 1.08 a second.** Beside it, the two hashes on this machine,
+; each on the same 200 MB:
+;
+;     /sbin/sha256sum          ~1800 MB/s     C, and the M2's SHA instructions
+;     shasum -a 256             ~320 MB/s     Perl, calling a C library
+;     this program                1.08 MB/s
 ;
 ; The first of those is not a fair comparison and is worth printing anyway: the
 ; distance between an interpreter and a CPU instruction that does a whole round
 ; is three orders of magnitude, and it is the honest scale of what a hosted
-; hash costs. Perl's is the interesting one -- it is 305 times faster while
-; being an interpreter too, because it is not interpreting the hash.
+; hash costs. Perl's is the interesting one -- it is about three hundred times
+; faster while being an interpreter too, because it is not interpreting the
+; hash.
 ;
 ; **And the default build costs more here than anywhere measured.** `make`
 ; builds `-g` with no optimiser ([performance.md](../docs/performance.md)),
-; where the same megabyte takes 4.58 s rather than 0.96 -- **0.22 MB/s, and
-; 4.8x**. The nine benchmarks put that flag at 1.9x to 4.1x, so this is outside
+; where the same ten megabytes take 46.0 s rather than 9.30 -- **0.22 MB/s, and
+; 4.9x**. The nine benchmarks put that flag at 1.9x to 4.1x, so this is outside
 ; the range they cover, which is what a program that is nothing but arithmetic
 ; inside the dispatch loop should be expected to do.
 ;
@@ -681,7 +724,7 @@ handed anything first.
 ; transcribe.
 ;
 ; ---------------------------------------------------------------------------
-; A fifth of the program was a method call
+; A third of the program was a method call
 ;
 ; `rotr(x, n)` is the one operation SHA-256 does that this language has no
 ; message for, and writing it as a method is the obvious thing:
@@ -690,14 +733,16 @@ handed anything first.
 ;         x:shiftRight(n):bitOr(x:shiftLeft(#32:sub(n))):bitAnd(mask) }.
 ;
 ; Ten calls per round and four per step of the message schedule. Written out
-; instead, on 256 KB:
+; instead, on a megabyte, and all three answer the same digest:
 ;
-;     rotr as a method everywhere                 0.73 MB/s
-;     written out in the sixty-four rounds        0.90 MB/s   1.23x
-;     written out in the message schedule too     1.06 MB/s   1.45x
+;     rotr as a method everywhere                 1.36 s   0.74 MB/s
+;     written out in the sixty-four rounds        1.10 s   0.91 MB/s   1.24x
+;     written out in the message schedule too     0.92 s   1.09 MB/s   1.48x
 ;
 ; **The arithmetic is identical in all three.** What the method cost was a frame
-; and a return, and it was a fifth of the whole program. That is a number to
+; and a return, and it was **a third** of the whole program -- 32% of the
+; readable version's running time, of which the message schedule is 13 points
+; and the rounds the other 19. That is a number to
 ; hold against
 ; [the inline cache entry](../docs/ideas.md#an-inline-cache-at-the-send-site),
 ; which found dispatch to be 9.7% of the benchmark that asked for it: this is
@@ -775,6 +820,33 @@ handed anything first.
 ; This writes one, and check.sh lists it as a divergence rather than copying it,
 ; on the grounds that matching an oracle byte for byte is a means and not the
 ; point.
+;
+; ---------------------------------------------------------------------------
+; And two things the review pass found, which the writing had not
+;
+; **The same decision, written twice, and the two copies disagreed.** Hashing a
+; named directory answered *Is a directory*; a directory named inside a `-c`
+; list answered *No such file or directory*. Both lines were three lines long,
+; one had been corrected during the writing and the other had not, and nothing
+; connected them. It is
+; [5.5](../docs/COMPLETED.md#55-five-programs-each-wrote-the-same-cursor--done)
+; -- the same object written five times, where a fix to one is a fix nobody
+; makes to the other four -- **at a scale small enough to happen inside a single
+; file in a single afternoon**, which is not the scale that entry was written
+; about. `path:complaint` is the one place now.
+;
+; **And the usage line is a true sentence about a smaller thing than the tool.**
+; This file's header said the subset here is the whole of `sha256sum [-bctwz]`,
+; "which is the whole of the usage line of the tool on this machine". Both
+; halves are true and together they read as *this is the whole tool*, which it
+; is not: `/sbin/sha256sum` also answers to `--binary`, `--text`, `--check`,
+; `--warn`, `--zero`, `--tag`, `--quiet`, `--status`, `--help` and `--version`,
+; and its usage line mentions none of the ten. Found by typing them, not by
+; reading. Three of them are now in `sha256sum/differ/`, so the subset is a
+; corpus that fails rather than a sentence nobody rechecks.
+;
+; ---------------------------------------------------------------------------
+; A difference that is not one
 ;
 ; There is a third difference which is not one, and it is worth knowing about
 ; before writing another of these: captured with `2>&1` the two tools order the

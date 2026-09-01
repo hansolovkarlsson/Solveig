@@ -17,7 +17,7 @@ additions per sixty-four bytes, and nothing else. `-b`, `-c`, `-t`, `-w` and
 `-z`, which is the whole usage line of the tool on this machine, plus a check
 mode with its singular and plural warnings.
 
-**208 bytecode instructions per byte hashed, at 4.4 nanoseconds each.** Measured
+**208 bytecode instructions per byte hashed, at 4.3 nanoseconds each.** Measured
 rather than counted: `solvm --steps=N` stops a program after N instructions, so
 the smallest N that lets a run finish is that run's exact count, and a binary
 search finds it.
@@ -29,18 +29,20 @@ search finds it.
 | 640 | 147,767 | 11 | 13,302 |
 | 6,400 | 1,344,947 | 101 | 13,302 |
 
-Flat from ten blocks to a hundred, and a megabyte takes 0.96 s at `-O2`, so the
-interpreter runs **227 million instructions a second**. That is the first
-absolute figure this project has — [performance.md](performance.md) was
-otherwise all ratios, against CPython or against an earlier Solveig — and it is
-now a section of that page.
+Flat from ten blocks to a hundred; the same search on a megabyte answers
+217,955,855, against 217,954,715 from the four rows, which is the fit confirmed
+to five figures. Ten megabytes take 9.30 s at `-O2`, so the interpreter runs
+**234 million instructions a second**. **The cost of one
+instruction had never been stated here** — [performance.md](performance.md) has
+whole-program times and the ratios between them, and nothing below that — and it
+is now a section of that page.
 
 | | on a megabyte |
 | --- | ---: |
-| `/sbin/sha256sum` | 1667 MB/s |
-| `shasum -a 256` | 317 MB/s — an interpreter too, and not interpreting the hash |
-| this, `-O2` | 1.04 MB/s |
-| this, the `-g` build `make` gives you | 0.22 MB/s — **4.8x**, outside the 1.9x–4.1x the benchmarks show |
+| `/sbin/sha256sum` | ~1800 MB/s |
+| `shasum -a 256` | ~320 MB/s — an interpreter too, and not interpreting the hash |
+| this, `-O2` | 1.08 MB/s |
+| this, the `-g` build `make` gives you | 0.22 MB/s — **4.9x**, outside the 1.9x–4.1x the benchmarks show |
 
 **It did not need `byte`, `word` and `long`**, which the
 [At a glance](ideas.md#at-a-glance) table had refused on general grounds and
@@ -50,10 +52,12 @@ every add is exact and the mask is a narrowing rather than a repair. The cost of
 refusing them is twenty-three `bitAnd`s in one program — and they read as
 bookkeeping, because they are not in the standard.
 
-**A fifth of the program was a method call.** `rotr` written as a method costs
-0.73 MB/s, written out in the sixty-four rounds 0.90, written out in the message
-schedule too 1.06 — with identical arithmetic in all three. What the method cost
-was a frame and a return, ten times a round. Worth holding against
+**A third of the program was a method call.** On a megabyte: `rotr` written as
+a method 1.36 s, written out in the sixty-four rounds 1.10, written out in the
+message schedule too 0.92 — **1.48x**, with identical arithmetic in all three
+and the same digest out of all three. What the method cost was a frame and a
+return, ten times a round, and it is 32% of the readable version's running
+time. Worth holding against
 [the inline cache entry](ideas.md#an-inline-cache-at-the-send-site), which
 measured *lookup* at 9.7%.
 
@@ -84,12 +88,16 @@ the opposite conclusion, and whether the machine should refuse is
 
 **Three checks, and one of them is a kind this repository did not have.**
 `sh programs/oracle.sh sha256sum` runs 21 corpus cases both as a named file and
-down a pipe; `programs/sha256sum/check.sh` runs 16 `-c` cases against the oracle
-on a directory of files; and **`programs/sha256sum/vectors.sh` holds the program
-against the digests printed in FIPS 180-4**, which is the first check here that
-does not depend on another implementation being right. An oracle can be wrong in
-the same direction as anything derived from it; a number printed before this
-language existed cannot.
+down a pipe, with three more that must **not** agree; `programs/sha256sum/check.sh`
+runs 17 `-c` cases against the oracle on a directory of files, with two that
+must not; and **`programs/sha256sum/vectors.sh` holds the program
+against the digests printed in FIPS 180-4**, which does not depend on another
+implementation being right at all. An oracle can be wrong in the same direction
+as anything derived from it; a number printed before this language existed
+cannot. It is the second check here of that kind — the
+[NBS suite](../programs/basic/conformance.sh) `basic.sol` is held against was
+the first — and the difference is that a digest can be compared by a machine
+where the NBS programs are written for a person to read.
 [method.md](method.md#hold-it-against-something-somebody-else-wrote) says so now.
 
 **The oracle earned itself twice in ten minutes.** Against this program: `-c`
@@ -98,6 +106,23 @@ not a malformed line in either tool" — which had not been tried, and is false.
 Against itself: `-c` reports a missing file with two spaces, having kept the
 separator in front of the name, which `check.sh` records as a divergence rather
 than copying.
+
+**The subset is bounded by a corpus rather than by a sentence.** This program
+writes `[-bctwz]`, which is the whole of the oracle's *usage line* and not the
+whole of the oracle: `/sbin/sha256sum` also answers to `--binary`, `--text`,
+`--check`, `--warn`, `--zero`, `--tag`, `--quiet`, `--status`, `--help` and
+`--version`, and mentions none of the ten. Three of those are in
+`sha256sum/differ/`, so a sentence that was true about a smaller thing than the
+tool is now a check that fails if it stops being true.
+
+**And one defect the review pass found**, worth recording for its shape rather
+than its size: a directory named inside a `-c` list was reported as *No such
+file or directory* while the same directory on the command line was reported as
+*Is a directory*. `fileExists` deliberately answers false for a directory, so
+`isDirectory` has to be asked first — and that three-line decision had been
+written twice, with one copy corrected during the writing and the other not.
+[5.5](COMPLETED.md#55-five-programs-each-wrote-the-same-cursor--done) at the
+scale of one file in one afternoon. `path:complaint` is the one place now.
 
 **`programs/oracle.sh` grew two things**, the way it grew for its second caller.
 An oracle that is not in `/usr/bin` is now looked up on the PATH — `sha256sum`

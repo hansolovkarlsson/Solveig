@@ -56,6 +56,14 @@ head -2 good.sums > mixed.sums
 printf 'this is not a checksum line\n' >> mixed.sums
 printf '%s  nosuch.txt\n' \
     0000000000000000000000000000000000000000000000000000000000000000 > missing.sums
+
+# A directory named in a list. It is here because the first draft got it wrong:
+# `fileExists` answers false for a directory, so asking it first reports one as
+# missing. The code hashing a named directory had the order right and the code
+# checking a list did not, which is what put the decision in one message.
+mkdir -p a-directory
+printf '%s  a-directory\n' \
+    0000000000000000000000000000000000000000000000000000000000000000 > directory.sums
 printf '' > blank.sums
 printf '\n\n\n' > only-blanks.sums
 
@@ -119,6 +127,7 @@ compare "the same, with -w and its line number" -c -w blank-inside.sums
 compare "a list that is not there"             -c nosuch.sums
 compare "a -z list of one entry"               -c z-one.sums
 compare "a -z list of several, which is one line to both" -c z-many.sums
+compare "a directory named in a list"          -c directory.sums
 
 echo
 echo "differ -- these must not, and here is why"
@@ -136,6 +145,19 @@ else
             having kept the separator that stood in front of the name in the
             list. This writes one. Copying that would be copying a defect to
             match bytes, so it is recorded here instead.
+WHY
+fi
+
+if compare "-c with no list named" -c; then
+    ok=$((ok - 1))
+    printf '  AGREES    the divergence has gone, and this file still claims it\n'
+    bad=$((bad + 1))
+else
+    bad=$((bad - 1))
+    cat <<'WHY'
+            The oracle prints its usage line; this raises `-c wants a file of
+            checksums`. Both refuse and both exit non-zero. Neither is more
+            right and there is no reason to copy a usage line for a subset.
 WHY
 fi
 
@@ -160,7 +182,7 @@ fi
 
 echo
 if [ "$bad" -eq 0 ]; then
-    echo "$ok agree, and the one divergence is still there: nothing new."
+    echo "$ok agree, and both divergences are still there: nothing new."
     exit 0
 fi
 echo "$bad to look at."

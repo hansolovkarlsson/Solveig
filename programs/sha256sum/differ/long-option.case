@@ -1,0 +1,15 @@
+# `--binary` is a long option, and the tool on this machine takes it even
+# though its usage line says only `[-bctwz]`. This does not: the subset written
+# is the documented one, and the header says so.
+#
+#   oracle:  hashes, and writes `*` before the name, as `-b` would
+#   ours:    sha256sum: unknown option `--binary`
+#
+# **The usage line was a true sentence about a smaller thing than the tool.**
+# `/sbin/sha256sum` answers to --binary, --text, --check, --warn, --zero,
+# --tag, --quiet, --status, --help and --version, and mentions none of them.
+# Discovered by trying them one at a time rather than by reading, which is the
+# only way that sentence was ever going to be caught.
+args: --binary
+input:
+hello

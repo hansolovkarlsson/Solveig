@@ -158,11 +158,12 @@ those symbols deliberately, and that is
 
 ## What one instruction costs, which nothing above says
 
-Everything above is a **ratio** — against CPython, or against an earlier
-Solveig. That is what the comparison was for, and it leaves one question
-unanswered: what does the machine cost in absolute terms?
+The numbers above are whole-program times and the ratios between them —
+against CPython, or against an earlier Solveig. That is what the comparison was
+for, and it leaves a different question unanswered: what does **one instruction**
+cost? Nothing in this repository had ever said, because nothing had needed to.
 
-**4.4 nanoseconds per bytecode instruction, or 227 million a second.**
+**4.3 nanoseconds per bytecode instruction, or 234 million a second.**
 
 `programs/sha256sum.sol` is where that came from, on 2026-08-31. It is the first
 program here with no I/O in its inner loop — sixty-four rounds of shifts, masks
@@ -183,8 +184,11 @@ count, and a binary search finds it:
 
 13,302 instructions per 64-byte block — flat from ten blocks to a hundred, which
 is what says the figure is the loop and not the setup — and **207.8 instructions
-per byte of message**. A megabyte takes 0.96 s at `-O2` on the M2 Pro, which is
-the 227M a second above.
+per byte of message**. The same search on a megabyte answers **217,955,855**
+against 217,954,715 from the four rows, which is the fit confirmed to five
+figures; the difference is the sixteen chunk reads a megabyte needs and the
+small files do not. Ten megabytes take **9.30 s** at `-O2` on the M2 Pro, which
+is the 234M a second above.
 
 It is one program and one kind of work: integer arithmetic on block locals, no
 allocation in the loop, no globals, no string building. A program that allocates
@@ -194,13 +198,13 @@ this project had no such number before.
 
 | | on a megabyte |
 | --- | ---: |
-| `/sbin/sha256sum` | 1667 MB/s — C, and the M2's SHA instructions |
-| `shasum -a 256` | 317 MB/s — Perl, calling a C library |
-| `sha256sum.sol`, `-O2` | 1.04 MB/s |
+| `/sbin/sha256sum` | ~1800 MB/s — C, and the M2's SHA instructions |
+| `shasum -a 256` | ~320 MB/s — Perl, calling a C library |
+| `sha256sum.sol`, `-O2` | 1.08 MB/s |
 | `sha256sum.sol`, the `-g` build | 0.22 MB/s |
 
-The Perl row is the one worth reading twice: an interpreter, 305 times faster,
-because it is not interpreting the hash. **And the build flag costs 4.8x here**
+The Perl row is the one worth reading twice: an interpreter, about three hundred times faster,
+because it is not interpreting the hash. **And the build flag costs 4.9x here**
 against the 1.9x to 4.1x the nine benchmarks show, which is the largest gap
 measured for it — a program that is nothing but arithmetic inside the dispatch
 loop is the shape it matters most to.

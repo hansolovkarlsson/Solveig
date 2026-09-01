@@ -1790,23 +1790,23 @@ put this first because sixty-four rounds of shifts, masks and additions per
 sixty-four bytes is the cheapest way to ask *what does this interpreter cost per
 arithmetic operation when there is nothing else going on*.
 
-**208 bytecode instructions per byte, at 4.4 nanoseconds each.** Measured with
+**208 bytecode instructions per byte, at 4.3 nanoseconds each.** Measured with
 `--steps=N`, which stops a program after N instructions — so the smallest N that
 lets a run finish is that run's exact count, and a binary search finds it. It is
 13,302 instructions per 64-byte block, flat from ten blocks to a hundred, and a
-megabyte takes 0.96 s at `-O2`: **227 million instructions a second**. That is
-the first absolute figure this project has for what an instruction costs;
-[performance.md](performance.md) is otherwise all ratios.
+ten megabytes take 9.30 s at `-O2`: **234 million instructions a second**. The cost
+of *one instruction* had never been stated here — [performance.md](performance.md)
+has whole-program times and the ratios between them, and nothing below that.
 
 | | on a megabyte |
 | --- | ---: |
-| `/sbin/sha256sum` | 1667 MB/s — C, and the M2's SHA instructions |
-| `shasum -a 256` | 317 MB/s — Perl, calling a C library |
-| this program, `-O2` | 1.04 MB/s |
+| `/sbin/sha256sum` | ~1800 MB/s — C, and the M2's SHA instructions |
+| `shasum -a 256` | ~320 MB/s — Perl, calling a C library |
+| this program, `-O2` | 1.08 MB/s |
 | this program, the `-g` build `make` gives you | 0.22 MB/s |
 
-The Perl one is the interesting row: an interpreter too, and 305 times faster
-for not interpreting the hash. The last row is 4.8x, against the 1.9x to 4.1x
+The Perl one is the interesting row: an interpreter too, and about three hundred times faster
+for not interpreting the hash. The last row is 4.9x, against the 1.9x to 4.1x
 the nine benchmarks show for that flag — which is what a program that is nothing
 but arithmetic inside the dispatch loop should be expected to do.
 
@@ -1821,11 +1821,12 @@ either: the largest shift here moves a value under 2³² left by thirty places.
 
 **Four things it found that nobody predicted:**
 
-- **A fifth of the program was a method call.** `rotr` written the obvious way —
-  a method on the hash object — costs 0.73 MB/s; written out in the sixty-four
-  rounds, 0.90; written out in the message schedule too, 1.06. The arithmetic is
-  identical in all three, and what the method cost was a frame and a return, ten
-  times a round. Worth holding against
+- **A third of the program was a method call.** `rotr` written the obvious way
+  — a method on the hash object — hashes a megabyte in 1.36 s; written out in
+  the sixty-four rounds, 1.10; written out in the message schedule too, 0.92.
+  **1.48x**, with identical arithmetic in all three and the same digest out of
+  all three, so what the method cost was a frame and a return, ten times a
+  round — 32% of the readable version's running time. Worth holding against
   [the inline cache entry](ideas.md#an-inline-cache-at-the-send-site), which
   measured *lookup* at 9.7%. This is the call itself.
 - **`@expr` has no bit operators**, so the one file here that is nothing but
@@ -1845,6 +1846,13 @@ either: the largest shift here moves a value under 2³² left by thirty places.
   line. It is now
   [6.40](ROADMAP.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal).
 
+**The subset is bounded by a corpus, not by a sentence.** `[-bctwz]` is the
+whole of the oracle's *usage line* and not the whole of the oracle, which also
+answers to ten long options it never mentions — `--tag`, `--quiet` and
+`--status` having no short form at all. Three of them are in `differ/`, along
+with an unknown option, so what is deliberately absent fails a check rather than
+sitting in prose.
+
 **It is the second caller of the ranged read, going the other way.** `tail`
 seeks backwards to a place it computed; this walks forwards from byte one in
 64 KB pieces and never looks back, so nothing here ever holds a file — which
@@ -1858,9 +1866,9 @@ holding up under a use it did not have in mind.
 
 | | what it runs |
 | --- | --- |
-| `sh programs/oracle.sh sha256sum` | 21 corpus cases, each both as a named file and down a pipe |
+| `sh programs/oracle.sh sha256sum` | 21 cases that must agree, each both as a named file and down a pipe, and 3 that must not |
 | `sh programs/sha256sum/vectors.sh` | the published FIPS 180-4 and NIST digests, and the bytes a `.case` file cannot carry |
-| `sh programs/sha256sum/check.sh` | `-c` against the oracle, on a directory of files |
+| `sh programs/sha256sum/check.sh` | `-c` against the oracle on a directory of files: 17 agreeing, 2 not |
 
 The vectors are the point: an oracle can be wrong in the same direction as
 anything derived from it, and SHA-256 has answers printed in a standard before
@@ -1895,20 +1903,25 @@ only this:
 4. **It is registered in `tests/test_compile.c`**, which verifies every shipped
    `.sol` and fails if one is added without being listed.
 5. **If something on the machine already does the job, it is held against that.**
-   Four are: [sola](#sola--a-compiler-for-another-language) against QuickBASIC,
+   Five are: [sola](#sola--a-compiler-for-another-language) against QuickBASIC,
    [pascal](#pascal--a-compiler-for-a-language-with-a-standard) against `fpc`,
    and [sed](#sed--a-stream-editor), [tail](#tail--the-end-of-a-file-without-reading-the-rest-of-it)
    and [sha256sum](#sha256sum--a-digest-and-the-first-inner-loop-that-is-arithmetic)
    against the tools of those names. **And where a standard prints the answers,
    hold it against those too**: an oracle can be wrong in the same direction as
-   anything derived from it, and
-   [programs/sha256sum/vectors.sh](../programs/sha256sum/vectors.sh) is the
-   first check here that does not depend on another implementation being right.
+   anything derived from it.
+   [programs/sha256sum/vectors.sh](../programs/sha256sum/vectors.sh) does that
+   with FIPS 180-4, and [basic](#basic--an-interpreter-for-another-language)'s
+   [conformance.sh](../programs/basic/conformance.sh) did it first with the NBS
+   suite — the difference being that a digest can be compared by a machine and
+   the NBS programs are written for a person to read.
    [programs/oracle.sh](../programs/oracle.sh) is the harness: a corpus of cases
    that must produce the same bytes and a second corpus that must **not**, each
-   of the second saying why. It is the only check here that can find what nobody
-   thought to look for — `sed`'s first run found a defect in `lib/pattern.sol`
-   that its own documented example could not have shown. See
+   of the second saying why. Checks of this kind — against an oracle or against a
+   standard — are the only ones here that can find what nobody thought to look
+   for: `sed`'s first run found a defect in `lib/pattern.sol` that its own
+   documented example could not have shown, and the NBS suite found seven in
+   `basic.sol` that eighty-three author-written claims had missed. See
    [method.md](method.md#hold-it-against-something-somebody-else-wrote).
 
    **A program that never stops can still be checked**: give it a deadline.

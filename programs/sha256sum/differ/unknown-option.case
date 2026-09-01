@@ -1,0 +1,12 @@
+# An option neither tool takes. Both refuse and both exit non-zero; the
+# wording is the difference and there is no reason to copy it.
+#
+#   oracle:  sha256sum: invalid option -- Q      and then its usage line
+#   ours:    sha256sum: unknown option `-Q`
+#
+# Here because an empty differ/ is a claim, and this one would have been an
+# undocumented divergence otherwise -- which is exactly what this corpus is
+# for.
+args: -Q
+input:
+hello

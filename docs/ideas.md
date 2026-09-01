@@ -54,7 +54,7 @@ marked as a sketch.
 | Infix operators, `@expr(a^2 + b/2)` | **Built**, on 2026-08-28 — [scoped in the morning and in by the evening](#infix-arithmetic-as-a-compile-time-notation): arithmetic, then `sin(x)` once *limiting* it turned out to be the expensive half, then comparison and logic, and the name with them |
 | `@expr{...}`, a region that is a block | **Built on 2026-08-29**, the day after it was scoped — [the sentence was tried first and lost](#expr-a-region-that-is-a-block-rather-than-a-group); the entry predicted one hard part and the second was the one that mattered, a notation that silently stopped inlining |
 | Phoenix — a second language whose output Solum uses | **Defer** — the machinery is proven three times over; [the unexplored half](#programs-that-would-press-on-something) is whether a hosted language can publish a *library* rather than a program |
-| Programs that would press on something — Pascal, predicate logic, a parser toolkit, `tail`, and [which Unix tool next](#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31) | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would. **So was `sha256sum`, on 2026-08-31**, the first off the Unix survey and the first program here with no I/O in its inner loop: [the prediction held in both halves](#it-was-written-on-2026-08-31-and-the-prediction-held-in-both-halves) and produced the number it was written for — **208 bytecode instructions a byte, 4.4 ns each, 227M a second** |
+| Programs that would press on something — Pascal, predicate logic, a parser toolkit, `tail`, and [which Unix tool next](#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31) | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would. **So was `sha256sum`, on 2026-08-31**, the first off the Unix survey and the first program here with no I/O in its inner loop: [the prediction held in both halves](#it-was-written-on-2026-08-31-and-the-prediction-held-in-both-halves) and produced the number it was written for — **208 bytecode instructions a byte, 4.3 ns each, 234M a second** |
 | Networking, and sending code to a running machine | **The first half is built**, on 2026-08-29 — [extensions/net](../extensions/net/README.md), five messages, and the waiting question answered with a timeout rather than a block; [the second half](#networking-and-sending-code-to-a-machine-that-is-already-running) is untouched and still needs 3.4, 6.32 and a proxy |
 | SQLite, SDL2, GTK | **One project, not three** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); GTK and SDL2 fire that trigger and SQLite does not, and wanting *both* toolkits is what settles the mechanism |
 | Graphics in SolaBasic, over SDL2 | **No — asked and closed on 2026-08-30, and the premise was wrong** to begin with: [graphics were never parked](#graphics-in-solabasic-through-the-sdl2-extension) for want of extensions, they were refused as *the PC*. No program wanted a screen, so the trigger never fired. The throwaway exercised the foundation without a language change — an extension send at 205ns, **`sdl:present` vsync-locked at 8.3ms**, and **1.49x from 0.39.0** on a globals-heavy loop. **A demo written that evening then corrected the entry**: a present keeps nothing, so immediate-mode `PSET` is not slow on this surface but absent. **And there is no oracle for a pixel**, which is what would decide it if it were ever asked again |
@@ -4514,16 +4514,17 @@ binary search finds it.
 | 6,400 | 1,344,947 | 101 | 13,302 |
 
 **13,302 instructions per 64-byte block — 208 per byte — and a megabyte takes
-0.96 s at `-O2`.** So the interpreter runs **227 million bytecode instructions
-a second and each one costs 4.4 nanoseconds**, which is the first absolute
+9.30 s at `-O2` for ten of them.** So the interpreter runs **234 million
+bytecode instructions a second and each one costs 4.3 nanoseconds**, which is
+the first absolute
 figure this project has for what an instruction costs. Everything in
 [performance.md](performance.md) is a ratio against CPython or against an
 earlier Solveig.
 
-In megabytes: **1.04 a second**, against `/sbin/sha256sum` at 1667 and Perl's
-`shasum -a 256` at 317 on the same file. The first is C plus the M2's SHA
+In megabytes: **1.08 a second**, against `/sbin/sha256sum` at about 1800 and
+Perl's `shasum -a 256` at about 320, each measured on 200 MB. The first is C plus the M2's SHA
 instructions and is not a fair comparison; the second is the interesting one,
-because it is an interpreter too and is 305 times faster for not interpreting
+because it is an interpreter too and is about three hundred times faster for not interpreting
 the hash.
 
 **The ergonomic half, which the entry asked for in one sentence: it reads as
@@ -4533,10 +4534,11 @@ FIPS 180-4 does not have.
 
 **And three things the entry did not predict.**
 
-- **A fifth of the program was a method call.** `rotr` written as a method costs
-  0.73 MB/s, written out in the rounds 0.90, written out in the schedule too
-  1.06. The arithmetic is identical in all three; what the method cost was a
-  frame and a return, ten times a round. Worth holding against
+- **A third of the program was a method call.** On a megabyte, `rotr` written
+  as a method takes 1.36 s, written out in the rounds 1.10, written out in the
+  schedule too 0.92 — **1.48x**. The arithmetic is identical in all three and so
+  is the digest; what the method cost was a frame and a return, ten times a
+  round. Worth holding against
   [the inline cache entry](#an-inline-cache-at-the-send-site), which measured
   *lookup* at 9.7% of the benchmark that asked for it. This is the call itself.
 - **`@expr` has no bit operators**, so the one file here that is nothing but
@@ -4544,7 +4546,7 @@ FIPS 180-4 does not have.
   `&` and `|` are already taken, by the short-circuiting logical pair. Not an
   argument for adding them — one program is one program — but a notation
   introduced for "a formula you are transcribing" met a formula it could not.
-- **The `-g` default build costs 4.8x here**, against the 1.9x to 4.1x the nine
+- **The `-g` default build costs 4.9x here**, against the 1.9x to 4.1x the nine
   benchmarks show, which is what a program that is nothing but arithmetic
   inside the dispatch loop should be expected to do.
 

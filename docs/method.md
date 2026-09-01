@@ -147,8 +147,18 @@ the first cannot fix: **an oracle can be wrong in the same direction as anything
 derived from it.** Two implementations of a hash that share an ancestor share
 its mistakes; a number printed in a standard before this language existed cannot
 have been influenced by anything here. `programs/sha256sum/vectors.sh` is the
-first check in this repository that does not depend on another implementation
-being right, and where one is available it should be the first one written.
+**second** check here that does not depend on another implementation being
+right, and where such a thing is available it should be the first one written.
+
+**The first was the [NBS Minimal BASIC Test Programs](../programs/basic/conformance.sh)**,
+208 programs written at the National Bureau of Standards in 1980 against ANSI
+X3.60-1978, which found seven defects in `basic.sol` that eighty-three claims
+written by its author had not. That is the same idea and it was here first; what
+`vectors.sh` adds is that a digest is a string, so the comparison is
+**mechanical**, where the NBS suite prints what a correct result looks like for
+a person to read and cannot be scored by a machine. A standard that prints
+*answers* is worth more than one that prints *descriptions*, and it is worth
+knowing which kind a direction offers before betting a check on it.
 
 **It also decides what the oracle is *for*.** Held against the vectors, the
 algorithm is either right or wrong. What the oracle then checks is the

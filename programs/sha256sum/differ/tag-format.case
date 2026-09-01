@@ -1,0 +1,12 @@
+# `--tag` writes the BSD format -- `SHA256 (name) = <digest>` -- and has no
+# short form at all, so it is the clearest case of the tool being larger than
+# its usage line. Not written here.
+#
+#   oracle:  SHA256 (in.txt) = 5891b5b5...
+#   ours:    sha256sum: unknown option `--tag`
+#
+# If it is ever wanted, it is a second shape for `report:sum` and nothing
+# else; the reason it is not here is that nothing asked.
+args: --tag
+input:
+hello
