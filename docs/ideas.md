@@ -3344,7 +3344,32 @@ flat to n=24**. What it costs on ordinary work is the only question, and the
 answer depends on the key — a built string cost 63%, an integer `pc × (n+2) + sp`
 costs **20–30%**. That is cheaper than the risk it removes.
 
-##### And [3.7](ROADMAP.md#37-a-limit-bounds-dispatch-not-work) turns out to be an argument *for* Solum
+##### Corrected on the same day: the headline number was the worst case
+
+**`[a-z]*ing` is close to the worst pattern this engine can be given**, and it
+was chosen for the benchmark without noticing that. It opens with a starred
+character class, so every position in the line is a candidate and nothing can be
+skipped. Measured over the same megabyte, same build, against patterns anybody
+would actually type:
+
+| pattern | the throwaway | `grep -E` |
+| --- | --- | --- |
+| `[a-z]*ing` | 5.59 s | 0.03 s |
+| `threshold` | **0.91 s** | 0.03 s |
+| `system:[a-z]*` | **0.89 s** | 0.03 s |
+| `[0-9]+\.[0-9]+` | **0.93 s** | 0.04 s |
+
+So the ratio is **25–30×**, not 190×, for everything except the case that was
+measured. And the throwaway has none of the optimisations `pattern.sol` already
+carries: its *leader* — scan for the first literal byte before trying to match —
+takes a whole-buffer search of `docs/REFERENCE.md`, 4,269 lines, to **0.008 s**.
+An engine with a leader and a typical pattern is not in the same conversation as
+one without a leader and a pathological one.
+
+**Reporting the worst case as the number is the fourth measurement mistake in
+one day**, and the same shape as the others: one sample, taken once, generalised.
+
+##### And [3.7](ROADMAP.md#37-a-limit-bounds-dispatch-not-work) is a weaker argument than this section first claimed
 
 The parent entry lists 3.7 — unbounded work inside one instruction — as the one
 objection an extension does **not** answer. Measured from the other side:
@@ -3356,24 +3381,76 @@ exit 124
 ```
 
 An engine written here is bounded by construction, because every step it takes
-is an instruction the machine counts. The same blow-up inside `regexec` is a
-process that stops responding, and `--steps` cannot see into it. **The objection
-that was scored against a Solum engine belongs to the C one**, and this is the
-first measurement that puts it on the right side of the table.
+is an instruction the machine counts.
 
-##### What is left is one question, and it is only about speed
+**But there is no blow-up inside `regexec` to be bounded**, and saying otherwise
+was overreach. Measured against the system's own matcher, both dialects, on the
+case that ruins the throwaway:
 
-Everything else is settled by the numbers above: the shape works, the semantics
-are exact, correctness is free, the exponential has a cheap fix, and the risk is
-bounded here in a way it is not in C. What remains is 190× the tools, and
-whether that is fine depends on the input nobody has named yet.
+| | n=16 | n=20 | n=24 | n=28 | n=40 |
+| --- | --- | --- | --- | --- | --- |
+| `grep -E '^(a+)+b$'` | — | 0.029 s | — | — | 0.026 s |
+| `grep '^\(a\+\)\+b$'` (BRE) | 0.027 s | 0.023 s | 0.022 s | 0.023 s | — |
+
+Flat, both dialects. **The exponential is a property of a hand-written
+backtracker, not of regular expressions**, which is what the parent entry said
+in the first place and this section briefly claimed to have refuted. What
+survives is the milder form: a `regexec` over 64 MB is 2.5 s of work inside one
+instruction, linear rather than unbounded, and `--steps` still cannot see into
+it. That is a real difference and a much smaller one than *the objection belongs
+to the C route*.
+
+##### So does the price fire the extension trigger after all?
+
+Asked on 2026-09-01, against this section's own claim that regex *fails* the
+trigger because it can be written in Solum. **The question is a good one and the
+precedent is already here**:
+[6.34](COMPLETED.md#634-a-program-cannot-ask-how-big-the-terminal-is--done) was
+a number that had always been reachable — `stty size` through a shell, at 7 ms
+an ask — and it became a primitive anyway, with the finding written down as *the
+absence was never the finding, the price was*. **Price fires triggers in this
+repository.** *Can be written in Solum* is not the same claim as *is usable by
+the thing that wants it*, and this section conflated them.
+
+What the price actually is, now that it has been measured properly:
+
+| | |
+| --- | --- |
+| typical patterns, in Solum | ~1 MB/s, **25–30×** the tools |
+| with a leader, as `pattern.sol` already does | a 4,269-line buffer searched in 0.008 s |
+| pathological patterns | 190×, and `pattern.sol` is no better |
+| libc, either dialect, everything | flat |
+
+**At 25–30× the two shipped customers are comfortable** — an editor search is
+already instant with a leader, and a sed script over a config file is not a
+measurement anybody would take. At 190× nothing is comfortable, and the
+pathological case is exactly what a pattern from a stranger looks like.
+
+So the trigger question resolves into a narrower one, and it is not about
+speed in general:
+
+- **for the customers that exist**, Solum is fast enough and the trigger does
+  not fire;
+- **for a pattern this repository does not choose** — a `serve.sol` route, a
+  user's `/` in the editor — the worst case is 190× *and* exponential without
+  the visited set, and that is a price the caller sets rather than the author;
+- **libc is flat on both**, which removes the pathological case entirely and
+  costs the `--steps` bound and a build restructure that is not done.
+
+**That is the call, and it is sharper than *what input is it for*.** Not *how
+fast* but *who chooses the pattern*.
 
 ##### The calls, revised by the throwaway
 
 1. ~~**Throwaway first?**~~ Done, and it changed two of the four answers below.
-2. **What input is this for?** Unchanged and now the *only* open question. At
-   ~0.18 MB/s a sed script over a config file is instant and a 64 MB log is six
-   minutes. Recommendation: say it in the header and size the corpus to match.
+2. ~~**What input is this for?**~~ Replaced by a better question: **who chooses
+   the pattern?** For patterns this repository writes, Solum at ~1 MB/s is
+   comfortable and the extension trigger does not fire. For patterns a user or a
+   request supplies, the worst case is 190× and exponential without the visited
+   set, and libc is flat on everything. Recommendation: **Solum for the two
+   customers that exist**, and treat a stranger-supplied pattern as the thing
+   that would fire the trigger — the same shape as `shell.sol`'s bargain,
+   *build the command out of things you wrote*.
 3. **One engine or two?** ~~Decide after the throwaway.~~ **One.** The visited
    set makes the backtracker behave like the automaton on the cases that matter,
    and back-references still work, which no automaton gives you.
