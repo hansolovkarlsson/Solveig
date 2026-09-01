@@ -29,6 +29,7 @@ marked as a sketch.
 | What a string is — bytes or code points | **Defer, and toward bytes with a contract** — [the editor asked first](#what-a-string-is--bytes-code-points-or-bytes-with-a-contract), and was corrupting a file on `$x`. **Fixed on 2026-08-30 in the editor**, which is the argument against making `size` count characters — though [the estimate here was wrong](#and-the-editor-was-fixed-which-cost-more-than-this-entry-said): nine lines became seventeen definitions. A [`text` type with a `!"..."` literal](#a-text-type-beside-string-with-a-prefixed-literal-to-make-one) was asked and answered in the same entry — right instincts, wrong end of the pipe |
 | `!character` literals, Unicode | **Defer** — gated on deciding what a string is, and [that entry recommends settling it against](#what-a-string-is--bytes-code-points-or-bytes-with-a-contract): the character type Unicode would want here is the one-character string the language already has |
 | Checking that a link points at a heading | **Built**, on instruction and not on its trigger — [the entry says so](#nothing-checks-that-a-link-points-at-a-heading-that-exists). 1,313 links against 1,496 headings in `make test` on the day it went in. Writing it found two faults in `CHANGELOG.md` that it does not itself catch, and the throwaway's one reported finding turned out to be an artefact of its own fence rule |
+| awk, as the nineteenth program | **Not next** — [its largest demand is a regex library that `sed` already wants](#programs-that-would-press-on-something), and `sed` refuses real input for want of it today. Write `lib/re.sol` first and awk is its second customer; the other two things awk asks for are a lenient numeric read and `%g`, both measured, both small |
 | A truncating divide on integer | **Defer** — one customer, and its workaround is exact rather than approximate |
 | A path with a NUL in it | **Defer, and it is a silent wrong answer rather than a missing feature** — [found by `sha256sum` on 2026-08-31](#a-path-with-a-nul-in-it-is-silently-a-different-path): a Solum string may hold a NUL and a C path may not, so `fileExists` and `readFile` both answered about a *prefix* and agreed with each other. The reference now says so; the check that would refuse it is small and has one customer with an exact workaround |
 | Integer sizes: byte, word, long | **No — and it was tested on 2026-08-31** rather than argued again. SHA-256 is defined on mod-2^32 arithmetic and is [the first program here to want them](#it-was-written-on-2026-08-31-and-the-prediction-held-in-both-halves); it does not need them, because a 64-bit integer holds the sum of five 32-bit values with fifty-nine bits to spare. The cost of refusing is twenty-three masks in one program |
@@ -4952,6 +4953,101 @@ by pipe.
 **Trigger:** none needed — a program needs no permission. What needs a decision
 is the language change it is predicted to ask for, and that is what the four
 calls above are.
+
+
+**awk — and the finding is that it should not be next.** Proposed on
+2026-09-01. Written up here rather than built, because the prediction was
+worked out first and it changed the answer: awk's largest demand already has a
+customer, and that customer is not awk.
+
+#### What it would press on, predicted before writing
+
+Three things were measured rather than guessed, and two of them are real:
+
+| | |
+| --- | --- |
+| **full ERE** | [pattern.sol](../lib/pattern.sol)'s own header says *no groups, no alternation, no `+` or `?`*, and POSIX awk requires all of them. **The largest demand by far.** |
+| **a lenient numeric read** | awk's `"3abc" + 0` is `3`, `"" + 0` is `0`, `" 7 " + 0` is `7`. All three raise here: `asInteger` and `asFloat` are strict on purpose and the reference says so. |
+| **`%e` and `%g`** | `asString(spec)` has width, fill, alignment, thousands and *fixed* decimals — `45.8:asString("6.2")` is `" 45.80"` — but not significant digits. awk's `CONVFMT` and `OFMT` default to `%.6g`. |
+
+The second is a genuine gap and a small one; the third is laborious rather than
+blocked, since `float` has the arithmetic to build `%g` out of. Both are the
+kind of thing a program's comment records and one of them might become an entry.
+
+#### What it would *not* find, which is most of it
+
+**[3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels) has been met
+head on three times already** — by [basic.sol](../programs/basic.sol), which
+argued a line-numbered language never nests; by
+[check_syntax.sol](../programs/check_syntax.sol), which measured 19 levels and
+then replaced the tree walker with LPeg's instruction set; and by
+[pascal.sol](../programs/pascal.sol), which compiles rather than walks. awk's
+user functions would land somewhere already mapped.
+
+**The dispatch cost is measured**: an interpreter written in this language pays
+38% for its own dispatch loop and cannot get it back by hand. A fourth
+interpreter re-measures a constant.
+
+**And the rest is already here.** Associative arrays are `dictionary`; record
+splitting is `split`; `getline` from a command is `system:capture`, whose stream
+options closed [3.15](COMPLETED.md#315-a-childs-streams-cannot-be-redirected--done);
+`delete` is `dictionary:remove`. awk's string-and-number duality is real work but
+it is *modelling* work — the interpreter carries its own value type, and the
+language's strictness is a decision rather than an obstacle.
+
+#### The finding: the regex library has a customer today, and it is `sed`
+
+[sed.sol](../programs/sed.sol) says it in its own header — *no groups, no
+backreferences, no `+` or `?`* — and it does not merely go without them: **a sed
+script using `\(...\)` is refused**, because `\(` is a literal parenthesis to
+`pattern.sol` and would silently match the wrong thing. That is a shipped
+program declining real input, today, for want of a library that
+[the regular expressions entry](#regular-expressions) already argued out and
+recommended: object-shaped, in Solum, a couple of hundred lines, no VM change,
+no notation, no literal.
+
+**So writing awk to justify `lib/re.sol` is the wrong order**, and it is the
+same shape of mistake this repository made twice on 2026-09-01 — a scoping that
+is right about the answer and wrong about what comes first. The library is the
+work; awk is a customer for it, and there is already a customer for it.
+
+**The two customers want different dialects, and that is worth knowing before
+the design rather than after.** POSIX BRE — `sed`'s — has back-references and
+escaped groups; POSIX ERE — awk's — has alternation and `+`/`?` and **no**
+back-references. One engine must carry both, and a back-reference is exactly the
+feature that stops an implementation simulating the automaton. Designing for
+`sed` alone risks a backtracker; designing for both is the honest brief, and is
+an argument for scoping the library with awk *named* rather than written.
+
+#### What awk would still be worth, afterwards
+
+Not nothing, and the case is narrow enough to state:
+
+- **A second dialect through one engine**, which is the check that the library
+  is a library rather than one program's matcher.
+- **An oracle that is on every machine.** `/usr/bin/awk` is BSD's here, `gawk`
+  and `mawk` exist elsewhere, and POSIX specifies the language — so it satisfies
+  both halves of the rule that
+  [held `sha256sum` to FIPS 180-4 as well as to the tool](programs.md#adding-one):
+  an implementation to compare against *and* a standard that can be wrong in a
+  different direction.
+- **The nineteenth program**, and the second in the tradition of a language whose
+  whole shape is text in, text out.
+
+#### The calls
+
+1. **`lib/re.sol` before awk, or awk first anyway?** Recommendation: the library.
+   It has a customer refusing input today; awk would be its second.
+2. **BRE and ERE in one engine, or ERE only?** Recommendation: both, designed
+   together, because a back-reference decides the implementation strategy and
+   retrofitting it is how a matcher becomes a backtracker by accident.
+3. **Is awk still worth writing once the library exists?** Recommendation: yes,
+   but as a customer rather than as a reason — and this entry should be re-read
+   then, because *it found nothing new* is a legitimate outcome and half of the
+   prediction above already says so.
+
+**Not built, and not recommended next.** The prediction is written down here so
+that the answer, whenever it is written, can be held against it.
 
 ### Networking, and sending code to a machine that is already running
 
