@@ -5,6 +5,71 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### diff, and the corpus that agreed with a wrong rule — `pending`, 2026-09-02
+
+**The language answers 144<!--count messages--> messages**, unchanged, and
+`.sob` files are format version 14. [diff](../programs/diff.sol) is the
+**twentieth** program here and the first that computes a relationship rather
+than recognising a structure: everything before it reads one input and reports
+on what is in it, and this one holds two and answers a question neither
+contains.
+
+Myers' greedy forward pass, the normal format and unified, `-q`, `-s`, `-i`,
+`-U N`, either operand from a pipe, and the tool's three exit statuses. Held
+against `/usr/bin/diff` over twenty-four cases that must agree and five that
+must not.
+
+**The prediction named four findings and one held**, which is the entry.
+[3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels) never came near
+it, there is no two-dimensional array, and the memory is quadratic in the
+*edits* rather than in the files. What held was *the output format is the hard
+part*, and it was the whole of the difficulty.
+
+**Three of that difficulty's four faults came from the corpus and the fourth
+did not.** Sixteen hand-written cases all agreed with a wrong rule for where an
+empty range is written, because every one of them put its empty range where the
+simple rule and the real one give the same answer -- the real one has an
+exception at the start of a file that has lines. A random sweep against the
+tool disagreed **44 times in 1,050 runs**; after the fix, 2,400 runs over six
+option forms and files up to forty lines disagree **none**. That is [an
+author-written corpus tests what its author thought
+of](method.md#an-author-written-corpus-tests-what-its-author-thought-of) with a
+generator as the second author, which is the cheapest second author available
+to a tool that has an oracle.
+
+**And the oracle disagrees with itself.** Under `-i`, on input holding no
+uppercase at all, `/usr/bin/diff` picks a different one of two equally minimal
+answers than it picks without the flag -- 41 runs in 400 under `-i`, none
+without it. Pinned as a divergence rather than chased, because matching it
+would mean reproducing a tie-break the tool does not apply consistently to
+itself.
+
+**Two roadmap entries, both about standard input and neither predicted.**
+[6.43](ROADMAP.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers-):
+a program cannot read a pipe whole, and `readFile("/dev/stdin")` -- which works
+from a redirect -- answers `""` on a pipe rather than the contents or an error,
+because the size comes from a seek a pipe refuses and a failed seek is
+indistinguishable from an empty file. The exact route is `readKey`, at 4.2 MB/s
+against `readLine`'s 84, and `diff` pays it because a diff that cannot tell
+`...c` from `...c\n` is wrong rather than slow.
+[6.44](ROADMAP.md#644-an-instant-cannot-be-written-in-local-time): an instant
+cannot be written in local time, which every unified header carries.
+
+**[oracle.sh](../programs/oracle.sh) generalised twice**, the way it was for
+`sed` and by its later callers rather than copied. A case may carry a `first:`
+section, since `diff` is the first program here to take two inputs; and the
+**exit status** is compared alongside the bytes for every program it runs,
+since `diff` is the first whose status is documented behaviour rather than a
+`0` or `1` nobody had checked. All four existing corpora still pass.
+
+[method.md](method.md#a-predicted-limitation-decides-which-implementation-gets-written)
+gains a rule from the miss: **a predicted limitation decides which
+implementation gets written.** Three entries have now predicted 3.5 for a
+program and three times the program was written in the shape that avoids it,
+because a limitation written down is known before the implementation is chosen.
+Such a prediction is nearly unfalsifiable, and it owes the shape of the program
+that would hit it.
+
 ## 0.41.0 — 2026-09-02
 
 **Every defect this release fixes was found by holding something here against

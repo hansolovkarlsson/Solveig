@@ -11,6 +11,107 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-02 (diff) — four predictions, one right, and a corpus that agreed with a wrong rule
+
+[diff.sol](../programs/diff.sol) is the twentieth program here and the first
+that computes a relationship rather than recognising a structure. Chosen off
+[the Unix
+survey](ideas.md#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31),
+where its prediction had been written down in August.
+
+### The prediction was mostly wrong, and that is the useful half
+
+Four findings named, one held. **3.5 never came near it**: the recursion
+belongs to the linear-space variant of Myers, and the greedy forward pass is
+two loops. There is **no two-dimensional array**: one array of diagonals and a
+ragged trace. The memory is quadratic in the **edits**, not in the files.
+
+**The 3.5 miss is the third of its kind** and that is what makes it worth a
+rule rather than a shrug. `basic.sol`, `check_syntax.sol` and `pascal.sol` were
+each predicted to hit the recursion limit and each was written in the shape
+that avoids it. The prediction is not wrong about the limitation -- it is wrong
+about the author. **A limitation that is written down is known before the
+implementation is chosen**, so the implementation that meets it is the one
+nobody writes, and the prediction is really about which of two algorithms gets
+used.
+[method.md](method.md#a-predicted-limitation-decides-which-implementation-gets-written)
+has it now, with what such a prediction owes: the shape of the program that
+would hit it, and whether anybody would write that shape for reasons other than
+the prediction.
+
+### The corpus agreed with a wrong rule, and a generator did not
+
+What held was *the output format is the hard part*, and it was the whole
+difficulty -- four faults, none findable by reading the algorithm, which was
+right on its first run.
+
+**Three came from the corpus. The fourth is the entry.** An empty range in a
+unified header is written at the line it follows -- except at the start of a
+file that has lines, where it is written at line 1 rather than 0. Sixteen
+hand-written cases all agreed with the simple rule, because **every one of them
+put its empty range where the simple rule and the real one give the same
+answer.** Not one case was wrong; the set was.
+
+A random sweep against the tool -- pairs built from nine possible lines, seven
+option forms -- disagreed **44 times in 1,050 runs**. Seven probes afterwards
+turned the disagreement into a rule. After the fix: **2,400 runs, six option
+forms, files to forty lines, zero disagreements.**
+
+This is [an author-written corpus tests what its author thought
+of](method.md#an-author-written-corpus-tests-what-its-author-thought-of) with a
+**generator** as the second author instead of a standard or a stranger. It is
+the cheapest second author there is for a tool that already has an oracle:
+nothing to find, nothing to read, and it lands on the cases nobody would write
+on purpose because it does not know there is a purpose.
+
+### The oracle turned out to be two things at once
+
+Under `-i`, on input holding **no uppercase at all**, `/usr/bin/diff` picks a
+different one of two equally minimal answers than it picks without the flag.
+One line `h` against three lines `c h h`: `0a1,2` with the flag, `0a1` and
+`1a3` without it, both two insertions. 41 runs in 400 under `-i` and none
+without.
+
+**An oracle can be wrong** was already on the page -- it is the argument for
+holding `sha256sum` to FIPS 180-4 as well as to the tool. What is new is one
+caught being *inconsistent with itself*, where a published standard would have
+settled it and there is no standard saying which minimal edit script to print.
+So it is pinned as a divergence rather than chased: matching it would mean
+reproducing a tie-break the tool does not apply to itself.
+
+### Two entries, both about standard input, neither predicted
+
+[6.43](ROADMAP.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers-)
+is a want and a defect in one. The want: nothing reads standard input whole.
+`readLine` drops the terminator and folds `\r\n`, so it cannot say whether the
+last line ended with a newline; `readKey` is exact and is 4.2 MB/s against 84.
+The defect: `readFile("/dev/stdin")` works from a redirect and answers `""`
+from a pipe -- **neither the contents nor an error**. The size comes from
+`fseeko(SEEK_END)`, a pipe refuses the seek, and the initial `0` is
+indistinguishable from an empty file. The function already refuses a directory
+and already checks a negative size; a failed seek is the case between them that
+nothing looks at.
+
+[6.44](ROADMAP.md#644-an-instant-cannot-be-written-in-local-time) is smaller
+and is the
+[stty](COMPLETED.md#634-a-program-cannot-ask-how-big-the-terminal-is--done)
+shape again: a unified header carries a local time, every route out of an
+instant here is UTC, and the workaround is a fork of `date +%z` that is **not
+even exact** -- the offset is the one in force now, so a file older than the
+last clock change prints an hour out.
+
+### And the harness grew two things it should have had
+
+[oracle.sh](../programs/oracle.sh) ran one input because every tool it had been
+asked about read one. `diff` takes two, so a case may carry a `first:` section.
+And `diff` is the first program here whose **exit status** is documented
+behaviour -- 0, 1, 2 -- so the status is compared alongside the bytes now,
+**for every program the harness runs**. All four existing corpora still pass
+under both changes, which is the only reason to believe the second one is not
+just noise waiting to happen.
+
+---
+
 ## 2026-09-02 (0.41.0) — a release, and the file no check here could see
 
 Eighty-one commits and two days of work — 2026-08-31 and 2026-09-01 — went out
