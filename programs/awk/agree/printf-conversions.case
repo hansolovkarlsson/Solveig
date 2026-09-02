@@ -1,0 +1,6 @@
+# Every conversion awk has, in one line. `fill` takes `{}` and no conversion at
+# all -- deliberately, so nothing in its spec starts looking like a format
+# language -- so all of this is written in awk.sol, which is where a format
+# belongs.
+args: 'BEGIN { printf "%d|%5.2f|%-6s|%05d|%x|%X|%o|%c|%e|%g|%%\n", 42, 3.14159, "ab", 7, 255, 255, 8, 65, 1234.5, 0.0000123 }'
+input:

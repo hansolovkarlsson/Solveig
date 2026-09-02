@@ -682,6 +682,10 @@ re:countIn := { text | | n, at, start, stop, done, ended |
 ; out is one matcher taken apart -- `code`, `leader`, `anchored`, `matchAt`,
 ; `lastEnd` and the rest are the pieces a match is made of. Inherited, so a
 ; compiled pattern is these messages and no more.
+; `lastEnd` is on the list because a caller that has just found a match usually
+; wants to know where it *ends* as well, and asking `endOfMatchAt` again would
+; run the match a second time. awk's `match` sets RSTART and RLENGTH from one
+; call, which is what found this missing.
 re:exports(['on, 'ere, 'find, 'findFrom, 'findLast, 'matches, 'endOfMatchAt,
             'replaceIn, 'replaceAllIn, 'countIn, 'substitutionIn,
-            'group, 'guarded, 'source]).
+            'group, 'guarded, 'source, 'lastEnd]).

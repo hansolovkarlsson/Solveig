@@ -1,0 +1,9 @@
+# Arrays with `in` and `delete`, a user function with locals, and an array
+# passed by reference -- which is decided by what the caller's name already is,
+# since awk has no declaration to say so.
+args: 'function count(a, k,   n) { for (k in a) n++; return n } { seen[$1]++ } END { print count(seen); delete seen["a"]; print count(seen), ("a" in seen), ("b" in seen) }'
+input:
+a
+b
+a
+c

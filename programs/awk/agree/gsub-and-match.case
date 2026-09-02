@@ -1,0 +1,4 @@
+# sub, gsub and match, all three of which are lib/re.sol messages with a little
+# arithmetic round them -- `&` in a replacement is the library's already.
+args: 'BEGIN { s = "one two three two"; n = gsub(/two/, "[&]", s); print n, s; if (match(s, /t[a-z]+/)) print RSTART, RLENGTH }'
+input:

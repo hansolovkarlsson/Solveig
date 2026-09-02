@@ -1,0 +1,4 @@
+# The string built-ins, including the one-based indexing awk shares with this
+# language and not with C.
+args: 'BEGIN { n = split("a:bb:ccc", p, ":"); for (i = 1; i <= n; i++) printf "%d=%s(%d) ", i, p[i], length(p[i]); printf "\n%d %s %s\n", index("hello", "ll"), substr("hello", 2, 3), toupper(substr("hello", 4)) }'
+input:

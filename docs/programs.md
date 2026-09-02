@@ -1,6 +1,6 @@
 # The programs
 
-*The eighteen<!--count programs--> files in [programs/](../programs/): what each one does, how to run
+*The nineteen<!--count programs--> files in [programs/](../programs/): what each one does, how to run
 it, and what it found. [examples/](../examples/) is the other directory — one
 file per concept the [guide](GUIDE.md) names, each written to show a feature.
 These were written to do a job.*
@@ -1970,9 +1970,81 @@ PATH, and `pipenames:` says that a program naming its input has two routes
 differing by the *name* — the pipe's output must be the file's with the path
 replaced by a dash, which is a full check rather than a waiver.
 
+## awk — a language for lines, and the first customer of the extended dialect
+
+The pattern-action language: a program is a list of *pattern `{ action }`*
+pairs, each action running for every input record the pattern accepts.
+
+```sh
+./bin/solvm programs/awk.sob                      # it demonstrates itself
+./bin/solvm programs/awk.sob '{ print $2 }' data.txt
+./bin/solvm programs/awk.sob -F: '{ print $1 }' /etc/passwd
+./bin/solvm programs/awk.sob -f prog.awk data.txt
+```
+
+```
+$ awk '$2 > 40 { print $1, $2 }' scores.txt
+alice 42
+carol 93
+```
+
+**The nineteenth program here, and the first to want `re:ere`.** `sed` and the
+editor both want POSIX *basic* regular expressions;
+[lib/re.sol](../lib/re.sol)'s extended half had no caller until this one. It
+wants it by **standard** rather than by taste, which is a stronger thing for a
+library to be held to: POSIX says what `/a|ab/` matches, so a divergence is a
+defect rather than a preference.
+
+**It was written after the library rather than before it**, which was the
+argument of the scoping on 2026-09-01: awk's largest demand already had two
+customers, so writing awk to justify the engine would have been the wrong
+order. [ideas.md](ideas.md#programs-that-would-press-on-something) carries the
+prediction that entry made, written before this file existed.
+
+### What it has
+
+`BEGIN` and `END`, expression and regular-expression patterns, ranges
+(`NR==2, NR==4`), `print` and `printf` with redirection to a file or a pipe,
+fields and `NF` and `$NF`, `FS` as a blank, a character or an ERE, `OFS` `ORS`
+`NR` `FNR` `FILENAME` `SUBSEP` `RSTART` `RLENGTH`, arrays with `in` and
+`delete`, `if` `while` `do` `for` `for (k in a)` `break` `continue` `next`
+`exit`, user functions with locals and arrays by reference, `getline` in its
+plain and `getline var` forms, and the built-ins: `length` `substr` `index`
+`split` `sub` `gsub` `match` `sprintf` `sin` `cos` `atan2` `exp` `log` `sqrt`
+`int` `rand` `srand` `tolower` `toupper` `system` `close`.
+
+### The three things the scoping predicted, and what each turned out to be
+
+| predicted | what it was |
+| --- | --- |
+| **full ERE** | `re:ere`, already built. The prediction was right and the work was done in advance |
+| **a lenient numeric read** | nine lines here. `asInteger` is strict on purpose and awk needs `"3abc" + 0` to be 3, so the numeric prefix is scanned. Wanted nothing new |
+| **`%e` and `%g`** | written here, where a format belongs. `fill` takes `{}` and no conversion at all, deliberately, so that nothing in its spec starts looking like a format language |
+
+**A fourth thing pressed harder than any of them, and the prediction missed it.**
+[3.2](ROADMAP.md#32-no-non-local-return), no non-local return, was wanted three
+separate times in this file: by the expression evaluator, by the statement
+executor, and by the parser's primary. An interpreter dispatching on a tag is
+exactly the shape that wants to answer and leave, and without it every later
+branch has to be guarded against having already finished. `next`, `exit`,
+`break`, `continue` and `return` are five flags where one mechanism would do.
+
+**And the frame limit shaped the parser**, as
+[ideas.md](ideas.md#solas-written-in-solum--self-hosting) said it would. awk has
+twelve levels of binary precedence and the textbook shape spends three frames a
+level, which would run out at six or seven parentheses; precedence climbing
+costs three frames for the whole chain.
+
+### Held against the awk on the machine
+
+[programs/oracle.sh](../programs/oracle.sh) runs the corpus in `programs/awk/`
+under both. What must **differ** is one thing and POSIX says so: the order
+`for (k in a)` visits an array is undefined, so the two disagree and neither is
+wrong.
+
 ## Adding one
 
-There is no template and there should not be. What the eighteen<!--count programs--> have in common is
+There is no template and there should not be. What the nineteen<!--count programs--> have in common is
 only this:
 
 1. **It does a job somebody would want done**, rather than exercising a feature.

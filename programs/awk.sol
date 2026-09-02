@@ -821,3 +821,981 @@ parser:rule := { | r |
           r:body:list:add(mk:value('print)).
           r:body:list:at(#1):list := array:new }).
     r }.
+
+; ---------------------------------------------------------------------------
+; The state a running program has
+;
+; **Globals are one dictionary and arrays are another**, because awk keeps them
+; apart: a name is a scalar or an array and never both, and `delete a` needs to
+; find the array by name rather than through a value.
+
+globals := dictionary:new.
+arrays := dictionary:new.
+locals := nil.              ; the frame of the function being run, or nil
+localArrays := nil.
+
+fields := array:new.        ; $1 upwards
+record := "".               ; $0
+nf := #0.
+
+exitCode := #0.
+exiting := false.
+returning := false.
+returnValue := nil.
+looping := 'none.           ; 'break or 'continue while one is unwinding
+
+; A name is local when the function being run declared it. Written once here
+; because every read and every write has to ask.
+isLocal := { name | locals:notNil:and({ locals:includes(name) }) }.
+
+getVar := { name |
+    isLocal:value(name):ifElse(
+        { locals:at(name) },
+        { globals:at(name, uninit:value) }) }.
+
+setVar := { name, v |
+    isLocal:value(name):ifElse(
+        { locals:atPut(name, v) },
+        { globals:atPut(name, v) }).
+    v }.
+
+arrayFor := { name |
+    (localArrays:notNil:and({ localArrays:includes(name) })):ifElse(
+        { localArrays:at(name) },
+        { arrays:includes(name):ifFalse({ arrays:atPut(name, dictionary:new) }).
+          arrays:at(name) }) }.
+
+; ---------------------------------------------------------------------------
+; The record, and the fields it is cut into
+;
+; **`FS` is three languages in one character.** A single space means *runs of
+; blanks, with the ends trimmed*, which is the default and is not the same as
+; splitting on one space. A single other character is that character. Anything
+; longer is an extended regular expression -- which is where `re:ere` gets its
+; first customer that is not this file's own tests.
+
+splitRecord := { text, fs | | out, sep |
+    out := array:new.
+    fs:equals(" "):ifElse(
+        { text:trim:split(" "):do({ piece |
+              piece:equals(""):ifFalse({ out:add(piece) }) }).
+          ; `split` gives an empty piece for every run, so the tabs have to go
+          ; too -- the default FS is blanks, not spaces.
+          out:size:equals(#0):ifTrue({ nil }) },
+        { fs:size:equals(#1):ifElse(
+            { text:split(fs):do({ piece | out:add(piece) }) },
+            { | p, at, start |
+              p := re:ere(fs). at := #1.
+              { | found |
+                found := p:findFrom(text, at).
+                found:notNil:and({ p:lastEnd:greaterThan(found) })
+              }:whileTrue({ | found |
+                  found := p:findFrom(text, at).
+                  out:add(text:copyFrom(at, found:sub(#1))).
+                  at := p:lastEnd }).
+              out:add(text:copyFrom(at, text:size)) }) }).
+    out }.
+
+; The default FS is a single space, which means blanks; a tab-separated file
+; wants FS="\t" and gets exactly one character.
+setRecord := { text |
+    record := text.
+    fields := splitRecord:value(text, toStr:value(getVar:value("FS"))).
+    nf := fields:size.
+    setVar:value("NF", num:value(nf:asFloat)).
+    nil }.
+
+; Putting $0 back together after a field was assigned, which is what OFS is for.
+rebuildRecord := { | parts |
+    parts := array:new.
+    fields:do({ f | parts:add(f) }).
+    record := parts:join(toStr:value(getVar:value("OFS"))).
+    nil }.
+
+getField := { i |
+    i:equals(#0):ifElse(
+        { field:value(record) },
+        { i:lessOrEqual(fields:size):ifElse(
+            { field:value(fields:at(i)) },
+            { uninit:value }) }) }.
+
+setField := { i, v |
+    i:equals(#0):ifElse(
+        { setRecord:value(toStr:value(v)) },
+        { { fields:size:lessThan(i) }:whileTrue({ fields:add("") }).
+          fields:atPut(i, toStr:value(v)).
+          nf := fields:size.
+          setVar:value("NF", num:value(nf:asFloat)).
+          rebuildRecord:value }).
+    v }.
+
+; ---------------------------------------------------------------------------
+; Evaluating an expression
+;
+; A dispatch on `kind`, written flat for the same reason the parser is: a chain
+; of twenty `ifElse` costs twenty frames and this costs one.
+
+patternCache := dictionary:new.
+
+ereFor := { source |
+    patternCache:includes(source):ifFalse({
+        patternCache:atPut(source, re:ere(source)) }).
+    patternCache:at(source) }.
+
+matchesEre := { text, source | ereFor:value(source):matches(text) }.
+
+subscript := { list | | parts |
+    parts := array:new.
+    list:do({ e | parts:add(toStr:value(eval:value(e))) }).
+    parts:join(toStr:value(getVar:value("SUBSEP"))) }.
+
+eval := { n | | k, v |
+    k := n:kind.
+
+    k:equals('num):ifTrue({ v := num:value(n:n) }).
+    k:equals('str):ifTrue({ v := str:value(n:text) }).
+    ; A bare regular expression is a test against $0, which is what makes
+    ; `/x/` a pattern and `x ~ /y/` a comparison of two different shapes.
+    k:equals('ere):ifTrue({
+        v := num:value(matchesEre:value(record, n:text):ifElse(
+            { 1.0 }, { 0.0 })) }).
+    k:equals('var):ifTrue({ v := getVar:value(n:text) }).
+    k:equals('field):ifTrue({
+        v := getField:value(toNum:value(eval:value(n:a)):truncated) }).
+    k:equals('index):ifTrue({ | a, key |
+        a := arrayFor:value(n:text). key := subscript:value(n:list).
+        a:includes(key):ifFalse({ a:atPut(key, uninit:value) }).
+        v := a:at(key) }).
+    k:equals('group):ifTrue({ v := eval:value(n:list:at(n:list:size)) }).
+
+    k:equals('not):ifTrue({
+        v := num:value(toBool:value(eval:value(n:a)):ifElse({ 0.0 },
+                                                            { 1.0 })) }).
+    k:equals('neg):ifTrue({ v := num:value(0.0:sub(toNum:value(eval:value(n:a)))) }).
+    k:equals('pos):ifTrue({ v := num:value(toNum:value(eval:value(n:a))) }).
+
+    k:equals('binary):ifTrue({ v := evalBinary:value(n) }).
+    k:equals('concat):ifTrue({
+        v := str:value(toStr:value(eval:value(n:a))
+                :concat(toStr:value(eval:value(n:b)))) }).
+    k:equals('ternary):ifTrue({
+        v := toBool:value(eval:value(n:a)):ifElse(
+            { eval:value(n:b) }, { eval:value(n:c) }) }).
+    k:equals('in):ifTrue({
+        v := num:value(arrayFor:value(n:text):includes(
+            toStr:value(eval:value(n:a))):ifElse({ 1.0 }, { 0.0 })) }).
+    k:equals('assign):ifTrue({ v := evalAssign:value(n) }).
+
+    k:equals('preinc):ifTrue({ v := step:value(n:a, 1.0, true) }).
+    k:equals('predec):ifTrue({ v := step:value(n:a, 0.0:sub(1.0), true) }).
+    k:equals('postinc):ifTrue({ v := step:value(n:a, 1.0, false) }).
+    k:equals('postdec):ifTrue({ v := step:value(n:a, 0.0:sub(1.0), false) }).
+
+    k:equals('call):ifTrue({ v := callFunction:value(n:text, n:list) }).
+    k:equals('builtin):ifTrue({ v := callBuiltin:value(n) }).
+    k:equals('getline):ifTrue({ v := doGetline:value(n) }).
+
+    v:isNil:ifTrue({ error:raise("awk: cannot evaluate a {}":fill([k])) }).
+    v }.
+
+; Assignment has to know *where*, not just what, and the three places a value
+; can live are the three branches here.
+assignTo := { target, v |
+    target:kind:equals('var):ifTrue({ setVar:value(target:text, v) }).
+    target:kind:equals('field):ifTrue({
+        setField:value(toNum:value(eval:value(target:a)):truncated, v) }).
+    target:kind:equals('index):ifTrue({
+        arrayFor:value(target:text):atPut(subscript:value(target:list), v) }).
+    (["var", "field", "index"]:indexOf(target:kind:asString):isNil):ifTrue({
+        error:raise("awk: cannot assign to a {}":fill([target:kind])) }).
+    v }.
+
+step := { target, by, before | | old, new |
+    old := toNum:value(eval:value(target)).
+    new := num:value(old:add(by)).
+    assignTo:value(target, new).
+    before:ifElse({ new }, { num:value(old) }) }.
+
+evalAssign := { n | | op, cur, rhs |
+    op := n:text.
+    op:equals("="):ifElse(
+        { assignTo:value(n:a, eval:value(n:b)) },
+        { cur := toNum:value(eval:value(n:a)).
+          rhs := toNum:value(eval:value(n:b)).
+          assignTo:value(n:a, num:value(
+              op:equals("+="):ifElse({ cur:add(rhs) },
+              { op:equals("-="):ifElse({ cur:sub(rhs) },
+              { op:equals("*="):ifElse({ cur:mul(rhs) },
+              { op:equals("/="):ifElse({ divide:value(cur, rhs) },
+              { op:equals("%="):ifElse({ modulo:value(cur, rhs) },
+              { cur:pow(rhs) }) }) }) }) }))) }) }.
+
+divide := { a, b |
+    b:equals(0.0):ifTrue({ error:raise("awk: division by zero") }).
+    a:div(b) }.
+
+modulo := { a, b |
+    b:equals(0.0):ifTrue({ error:raise("awk: division by zero in %") }).
+    a:sub(a:div(b):truncated:asFloat:mul(b)) }.
+
+; **Written flat with a `done` flag, and this is the third place in this file
+; that wanted [3.2](../docs/ROADMAP.md#32-no-non-local-return) and could not
+; have it.** An evaluator dispatching on a tag is exactly the shape that wants
+; to answer and leave: `~` is settled long before arithmetic is reached, and
+; without an early return every later branch has to be guarded against having
+; already finished. The editor's dispatcher was that entry's first customer;
+; this is the second, and it wanted it once per dispatch rather than once.
+evalBinary := { n | | op, a, b, c, v |
+    op := n:text. v := nil.
+
+    ; `~` and `!~` take a pattern on the right, which may be a literal or any
+    ; expression that answers one.
+    (op:equals("~"):or({ op:equals("!~") })):ifTrue({ | text, pat, hit |
+        text := toStr:value(eval:value(n:a)).
+        pat := n:b:kind:equals('ere):ifElse({ n:b:text },
+                                            { toStr:value(eval:value(n:b)) }).
+        hit := matchesEre:value(text, pat).
+        op:equals("!~"):ifTrue({ hit := hit:not }).
+        v := num:value(hit:ifElse({ 1.0 }, { 0.0 })) }).
+
+    ; **Both of these stop early**, which is awk's rule and matters: `x != 0 &&
+    ; 1/x > 2` must not divide when x is nought.
+    (v:isNil:and({ op:equals("&&") })):ifTrue({
+        v := num:value(toBool:value(eval:value(n:a))
+            :and({ toBool:value(eval:value(n:b)) }):ifElse({ 1.0 },
+                                                           { 0.0 })) }).
+    (v:isNil:and({ op:equals("||") })):ifTrue({
+        v := num:value(toBool:value(eval:value(n:a))
+            :or({ toBool:value(eval:value(n:b)) }):ifElse({ 1.0 },
+                                                          { 0.0 })) }).
+
+    v:isNil:ifTrue({
+        a := eval:value(n:a).
+        b := eval:value(n:b).
+
+        (["<", "<=", ">", ">=", "==", "!="]:indexOf(op):notNil):ifElse({
+            c := compare:value(a, b).
+            v := num:value((op:equals("<"):ifElse({ c:lessThan(#0) },
+                { op:equals("<="):ifElse({ c:lessOrEqual(#0) },
+                { op:equals(">"):ifElse({ c:greaterThan(#0) },
+                { op:equals(">="):ifElse({ c:greaterOrEqual(#0) },
+                { op:equals("=="):ifElse({ c:equals(#0) },
+                { c:notEquals(#0) }) }) }) }) })):ifElse({ 1.0 }, { 0.0 })) },
+
+        { v := num:value(
+            op:equals("+"):ifElse({ toNum:value(a):add(toNum:value(b)) },
+            { op:equals("-"):ifElse({ toNum:value(a):sub(toNum:value(b)) },
+            { op:equals("*"):ifElse({ toNum:value(a):mul(toNum:value(b)) },
+            { op:equals("/"):ifElse({
+                  divide:value(toNum:value(a), toNum:value(b)) },
+            { op:equals("%"):ifElse({
+                  modulo:value(toNum:value(a), toNum:value(b)) },
+            { toNum:value(a):pow(toNum:value(b)) }) }) }) }) })) }) }).
+    v }.
+
+; ---------------------------------------------------------------------------
+; Running a statement
+;
+; `next`, `exit`, `break`, `continue` and `return` all unwind, and none of them
+; can be a non-local return -- so each sets a flag and every loop below asks.
+; That is five flags where one mechanism would do, and it is the clearest case
+; [3.2](../docs/ROADMAP.md#32-no-non-local-return) has had here.
+
+nexting := false.
+
+stopped := { exiting:or({ returning }):or({ nexting })
+    :or({ looping:notEquals('none) }) }.
+
+exec := { n | | k |
+    k := n:kind.
+
+    k:equals('block):ifTrue({
+        n:list:do({ each | stopped:value:ifFalse({ exec:value(each) }) }) }).
+    k:equals('expression):ifTrue({ eval:value(n:a) }).
+    k:equals('print):ifTrue({ doPrint:value(n) }).
+    k:equals('printf):ifTrue({ doPrintf:value(n) }).
+
+    k:equals('if):ifTrue({
+        toBool:value(eval:value(n:a)):ifElse(
+            { exec:value(n:b) },
+            { n:c:notNil:ifTrue({ exec:value(n:c) }) }) }).
+
+    k:equals('while):ifTrue({
+        { stopped:value:not:and({ toBool:value(eval:value(n:a)) })
+        }:whileTrue({
+            exec:value(n:b).
+            looping:equals('continue):ifTrue({ looping := 'none }).
+            looping:equals('break):ifTrue({ looping := 'stop }) }).
+        looping:equals('stop):ifTrue({ looping := 'none }) }).
+
+    k:equals('dowhile):ifTrue({ | go |
+        go := true.
+        { go }:whileTrue({
+            exec:value(n:b).
+            looping:equals('continue):ifTrue({ looping := 'none }).
+            looping:equals('break):ifTrue({ looping := 'stop }).
+            go := stopped:value:not:and({ toBool:value(eval:value(n:a)) }) }).
+        looping:equals('stop):ifTrue({ looping := 'none }) }).
+
+    k:equals('for):ifTrue({
+        n:a:notNil:ifTrue({ exec:value(n:a) }).
+        { stopped:value:not:and({
+            n:c:isNil:or({ toBool:value(eval:value(n:c)) }) }) }:whileTrue({
+            exec:value(n:b).
+            looping:equals('continue):ifTrue({ looping := 'none }).
+            looping:equals('break):ifTrue({ looping := 'stop }).
+            looping:equals('stop):ifFalse({
+                n:list:notNil:ifTrue({ exec:value(n:list:at(#1)) }) }) }).
+        looping:equals('stop):ifTrue({ looping := 'none }) }).
+
+    ; **The keys are taken first**, because the body may add to the array or
+    ; delete from it and walking a dictionary that is changing underneath is
+    ; not a thing awk promises either way.
+    k:equals('forin):ifTrue({ | keys |
+        keys := arrayFor:value(n:c:text):keys.
+        keys:do({ key |
+            looping:equals('stop):ifFalse({ stopped:value:ifFalse({
+                setVar:value(n:text, field:value(key)).
+                exec:value(n:b).
+                looping:equals('continue):ifTrue({ looping := 'none }).
+                looping:equals('break):ifTrue({ looping := 'stop }) }) }) }).
+        looping:equals('stop):ifTrue({ looping := 'none }) }).
+
+    k:equals('break):ifTrue({ looping := 'break }).
+    k:equals('continue):ifTrue({ looping := 'continue }).
+    k:equals('next):ifTrue({ nexting := true }).
+    k:equals('exit):ifTrue({
+        n:a:notNil:ifTrue({
+            exitCode := toNum:value(eval:value(n:a)):truncated }).
+        exiting := true }).
+    k:equals('return):ifTrue({
+        returnValue := n:a:isNil:ifElse({ uninit:value },
+                                        { eval:value(n:a) }).
+        returning := true }).
+    k:equals('delete):ifTrue({
+        n:list:isNil:ifElse(
+            { arrayFor:value(n:text):keys:do({ key |
+                  arrayFor:value(n:text):remove(key) }) },
+            { | key | key := subscript:value(n:list).
+              arrayFor:value(n:text):includes(key):ifTrue({
+                  arrayFor:value(n:text):remove(key) }) }) }).
+    nil }.
+
+; ---------------------------------------------------------------------------
+; Output
+
+outputs := dictionary:new.      ; open files and pipes, by name
+
+writeTo := { where, how, text |
+    where:isNil:ifElse(
+        { system:write(text) },
+        { how:equals("|"):ifElse(
+            { | key | key := "|":concat(where).
+              outputs:includes(key):ifFalse({ outputs:atPut(key, array:new) }).
+              outputs:at(key):add(text) },
+            { how:equals(">>"):and({ outputs:includes(where) }):not
+                  :and({ how:equals(">") }):ifTrue({
+                  system:writeFile(where, "").
+                  outputs:atPut(where, true) }).
+              system:appendFile(where, text) }) }) }.
+
+destination := { n |
+    n:c:isNil:ifElse({ nil }, { toStr:value(eval:value(n:c)) }) }.
+
+doPrint := { n | | parts, text |
+    parts := array:new.
+    n:list:size:equals(#0):ifElse(
+        { parts:add(record) },
+        { n:list:do({ e | parts:add(toStr:value(eval:value(e))) }) }).
+    text := parts:join(toStr:value(getVar:value("OFS")))
+        :concat(toStr:value(getVar:value("ORS"))).
+    writeTo:value(destination:value(n), n:text, text).
+    nil }.
+
+doPrintf := { n | | args, text |
+    n:list:size:equals(#0):ifTrue({
+        error:raise("awk: printf wants a format") }).
+    args := array:new.
+    n:list:do({ e | args:add(eval:value(e)) }).
+    text := formatted:value(toStr:value(args:at(#1)), args, #2).
+    writeTo:value(destination:value(n), n:text, text).
+    nil }.
+
+; **printf, which is the third thing the scoping predicted awk would want.**
+; `fill` takes `{}` and no conversion at all -- deliberately, so that nothing in
+; its spec starts looking like a format language -- and `asString(spec)` gives
+; width, fill and fixed decimals. Neither is `%c`, `%o`, `%x`, `%e` or `%g`, and
+; a `*` width is in none of them. So it is written here, which is where a format
+; belongs: the language declined to grow one and this is a program that wants
+; one, which is the trade working rather than a gap.
+formatted := { fmt, args, from | | out, i, argAt, c |
+    out := "". i := #1. argAt := from.
+    { i:lessOrEqual(fmt:size) }:whileTrue({
+        c := fmt:at(i).
+        c:notEquals("%"):ifElse(
+            { out := out:concat(c). i := i:inc },
+            { i:inc:greaterThan(fmt:size):ifElse(
+                { out := out:concat("%"). i := i:inc },
+                { fmt:at(i:inc):equals("%"):ifElse(
+                    { out := out:concat("%"). i := i:add(#2) },
+                    { | spec |
+                      spec := oneConversion:value(fmt, i, args, argAt).
+                      out := out:concat(spec:at(#1)).
+                      i := spec:at(#2).
+                      argAt := spec:at(#3) }) }) }) }).
+    out }.
+
+; One `%...` conversion: flags, width, precision, letter. Answers the text, the
+; position after it, and the next argument to take.
+oneConversion := { fmt, start, args, argAt | | i, flags, width, prec, letter,
+                   take, v, text, at |
+    i := start:inc. flags := "". width := nil. prec := nil. at := argAt.
+
+    { oneOf:value("-+ 0#", fmt:at(i)) }:whileTrue({
+        flags := flags:concat(fmt:at(i)). i := i:inc }).
+
+    fmt:at(i):equals("*"):ifElse(
+        { width := toNum:value(args:at(at)):truncated. at := at:inc. i := i:inc },
+        { | d | d := "".
+          { oneOf:value("0123456789", fmt:at(i)) }:whileTrue({
+              d := d:concat(fmt:at(i)). i := i:inc }).
+          d:equals(""):ifFalse({ width := d:asInteger }) }).
+
+    fmt:at(i):equals("."):ifTrue({
+        i := i:inc.
+        fmt:at(i):equals("*"):ifElse(
+            { prec := toNum:value(args:at(at)):truncated. at := at:inc.
+              i := i:inc },
+            { | d | d := "".
+              { oneOf:value("0123456789", fmt:at(i)) }:whileTrue({
+                  d := d:concat(fmt:at(i)). i := i:inc }).
+              prec := d:equals(""):ifElse({ #0 }, { d:asInteger }) }) }).
+
+    letter := fmt:at(i). i := i:inc.
+    take := at:lessOrEqual(args:size):ifElse({ args:at(at) }, { uninit:value }).
+    at := at:inc.
+
+    text := conversion:value(letter, take, prec).
+    [padded:value(text, flags, width), i, at] }.
+
+conversion := { letter, v, prec | | x |
+    letter:equals("d"):or({ letter:equals("i") }):ifElse(
+        { toNum:value(v):truncated:asString },
+
+    { letter:equals("s"):ifElse(
+        { | t | t := toStr:value(v).
+          prec:isNil:ifElse({ t },
+              { t:copyFrom(#1, prec:lessThan(t:size):ifElse({ prec },
+                                                            { t:size })) }) },
+
+    { letter:equals("c"):ifElse(
+        { | t | t := toStr:value(v).
+          v:kind:equals('num):ifElse(
+              { toNum:value(v):truncated:asCharacter },
+              { t:equals(""):ifElse({ "" }, { t:at(#1) }) }) },
+
+    { letter:equals("f"):or({ letter:equals("F") }):ifElse(
+        { toNum:value(v):asString(".":concat(
+            prec:isNil:ifElse({ #6 }, { prec }):asString)) },
+
+    { letter:equals("e"):or({ letter:equals("E") }):ifElse(
+        { | t | t := scientific:value(toNum:value(v),
+              prec:isNil:ifElse({ #6 }, { prec })).
+          letter:equals("E"):ifElse({ t:asUppercase }, { t }) },
+
+    { letter:equals("g"):or({ letter:equals("G") }):ifElse(
+        { | t | t := sixG:value(toNum:value(v),
+              prec:isNil:ifElse({ #6 }, { prec:equals(#0):ifElse({ #1 },
+                                                                 { prec }) })).
+          letter:equals("G"):ifElse({ t:asUppercase }, { t }) },
+
+    { letter:equals("o"):ifElse(
+        { toNum:value(v):truncated:asBase(#8) },
+
+    { letter:equals("x"):or({ letter:equals("X") }):ifElse(
+        { | t | t := toNum:value(v):truncated:asBase(#16).
+          letter:equals("X"):ifElse({ t:asUppercase }, { t }) },
+
+    { letter:equals("u"):ifElse(
+        { toNum:value(v):truncated:asString },
+        { error:raise("awk: `%{}` is not a conversion":fill([letter])) })
+    }) }) }) }) }) }) }) }) }.
+
+; `%e`: one digit before the point, `prec` after it, and a two-digit exponent.
+scientific := { x, prec | | e, scaled, out |
+    x:equals(0.0):ifElse(
+        { out := 0.0:asString(".":concat(prec:asString)).
+          out:concat("e+00") },
+        { e := x:abs:log:div(10.0:log):floor.
+          (10.0:pow(e:asFloat):greaterThan(x:abs)):ifTrue({ e := e:sub(#1) }).
+          (10.0:pow(e:inc:asFloat):lessOrEqual(x:abs)):ifTrue({ e := e:inc }).
+          scaled := x:div(10.0:pow(e:asFloat)).
+          out := scaled:asString(".":concat(prec:asString)).
+          ; Rounding can carry: 9.99 to two places is 10.0, which is a digit too
+          ; many before the point and one too few in the exponent.
+          (out:indexOf("10."):equals(#1):or({
+              out:indexOf("-10."):equals(#1) })):ifTrue({
+              e := e:inc.
+              scaled := x:div(10.0:pow(e:asFloat)).
+              out := scaled:asString(".":concat(prec:asString)) }).
+          out:concat("e"):concat(e:lessThan(#0):ifElse({ "-" }, { "+" }))
+             :concat(e:abs:asString("02")) }) }.
+
+; Width and the flags that decide which side the padding goes.
+padded := { text, flags, width | | out, pad |
+    out := text.
+    (flags:indexOf("+"):notNil:and({ out:size:greaterThan(#0) })
+        :and({ "-0123456789":indexOf(out:at(#1)):notNil })
+        :and({ out:at(#1):notEquals("-") })):ifTrue({
+        out := "+":concat(out) }).
+    width:isNil:ifElse({ out }, {
+        out:size:greaterOrEqual(width):ifElse({ out }, {
+            pad := "".
+            [#1, width:sub(out:size)]:loop({ i |
+                pad := pad:concat(
+                    flags:indexOf("0"):notNil:and({
+                        flags:indexOf("-"):isNil }):ifElse({ "0" },
+                                                           { " " })) }).
+            flags:indexOf("-"):notNil:ifElse(
+                { out:concat(pad) },
+                { ; A zero pad goes after the sign, not before it.
+                  (flags:indexOf("0"):notNil:and({ out:size:greaterThan(#0) })
+                      :and({ "+-":indexOf(out:at(#1)):notNil })):ifElse(
+                      { out:at(#1):concat(pad)
+                            :concat(out:copyFrom(#2, out:size)) },
+                      { pad:concat(out) }) }) }) }) }.
+
+; ---------------------------------------------------------------------------
+; The built-in functions
+
+callBuiltin := { n | | name, a, v |
+    name := n:text. a := n:list. v := nil.
+
+    name:equals("length"):ifTrue({
+        v := num:value(a:size:equals(#0):ifElse(
+            { record:size:asFloat },
+            { | first |
+              first := a:at(#1).
+              (first:kind:equals('var):and({
+                  arrays:includes(first:text) })):ifElse(
+                  { arrays:at(first:text):size:asFloat },
+                  { toStr:value(eval:value(first)):size:asFloat }) })) }).
+
+    name:equals("substr"):ifTrue({ | t, from, len, stop |
+        t := toStr:value(eval:value(a:at(#1))).
+        from := toNum:value(eval:value(a:at(#2))):rounded.
+        stop := a:size:greaterOrEqual(#3):ifElse(
+            { from:add(toNum:value(eval:value(a:at(#3))):rounded):sub(#1) },
+            { t:size }).
+        from:lessThan(#1):ifTrue({ from := #1 }).
+        stop:greaterThan(t:size):ifTrue({ stop := t:size }).
+        v := str:value(stop:lessThan(from):ifElse({ "" },
+                                                  { t:copyFrom(from, stop) })) }).
+
+    name:equals("index"):ifTrue({ | t, w |
+        t := toStr:value(eval:value(a:at(#1))).
+        w := toStr:value(eval:value(a:at(#2))).
+        v := num:value(w:equals(""):ifElse({ 0.0 },
+            { | at | at := t:indexOf(w).
+              at:isNil:ifElse({ 0.0 }, { at:asFloat }) })) }).
+
+    name:equals("split"):ifTrue({ | t, arr, fs, parts |
+        t := toStr:value(eval:value(a:at(#1))).
+        arr := arrayFor:value(a:at(#2):text).
+        arr:keys:do({ key | arr:remove(key) }).
+        fs := a:size:greaterOrEqual(#3):ifElse(
+            { a:at(#3):kind:equals('ere):ifElse({ a:at(#3):text },
+                  { toStr:value(eval:value(a:at(#3))) }) },
+            { toStr:value(getVar:value("FS")) }).
+        parts := t:equals(""):ifElse({ array:new },
+                                     { splitRecord:value(t, fs) }).
+        [#1, parts:size]:loop({ i |
+            arr:atPut(i:asString, field:value(parts:at(i))) }).
+        v := num:value(parts:size:asFloat) }).
+
+    name:equals("sub"):ifTrue({ v := substitute:value(a, false) }).
+    name:equals("gsub"):ifTrue({ v := substitute:value(a, true) }).
+
+    name:equals("match"):ifTrue({ | t, p, at |
+        t := toStr:value(eval:value(a:at(#1))).
+        p := ereFor:value(a:at(#2):kind:equals('ere):ifElse({ a:at(#2):text },
+            { toStr:value(eval:value(a:at(#2))) })).
+        at := p:find(t).
+        at:isNil:ifElse(
+            { setVar:value("RSTART", num:value(0.0)).
+              setVar:value("RLENGTH", num:value(0.0:sub(1.0))).
+              v := num:value(0.0) },
+            { setVar:value("RSTART", num:value(at:asFloat)).
+              setVar:value("RLENGTH",
+                  num:value(p:lastEnd:sub(at):asFloat)).
+              v := num:value(at:asFloat) }) }).
+
+    name:equals("sprintf"):ifTrue({ | args |
+        args := array:new.
+        a:do({ e | args:add(eval:value(e)) }).
+        v := str:value(formatted:value(toStr:value(args:at(#1)), args, #2)) }).
+
+    name:equals("sin"):ifTrue({ v := num:value(toNum:value(eval:value(a:at(#1))):sin) }).
+    name:equals("cos"):ifTrue({ v := num:value(toNum:value(eval:value(a:at(#1))):cos) }).
+    name:equals("exp"):ifTrue({ v := num:value(toNum:value(eval:value(a:at(#1))):exp) }).
+    name:equals("log"):ifTrue({ v := num:value(toNum:value(eval:value(a:at(#1))):log) }).
+    name:equals("sqrt"):ifTrue({ v := num:value(toNum:value(eval:value(a:at(#1))):sqrt) }).
+    name:equals("int"):ifTrue({
+        v := num:value(toNum:value(eval:value(a:at(#1))):truncated:asFloat) }).
+    name:equals("atan2"):ifTrue({
+        v := num:value(float:atan2(toNum:value(eval:value(a:at(#1))),
+                                   toNum:value(eval:value(a:at(#2))))) }).
+
+    name:equals("rand"):ifTrue({ v := num:value(generator:fraction) }).
+    name:equals("srand"):ifTrue({ | old |
+        old := lastSeed.
+        lastSeed := a:size:equals(#0):ifElse(
+            { system:time:secondsSince(epoch):truncated },
+            { toNum:value(eval:value(a:at(#1))):truncated }).
+        generator := random:new(lastSeed).
+        v := num:value(old:asFloat) }).
+
+    name:equals("tolower"):ifTrue({
+        v := str:value(toStr:value(eval:value(a:at(#1))):asLowercase) }).
+    name:equals("toupper"):ifTrue({
+        v := str:value(toStr:value(eval:value(a:at(#1))):asUppercase) }).
+
+    name:equals("system"):ifTrue({ | cmd |
+        cmd := toStr:value(eval:value(a:at(#1))).
+        flush:value.
+        v := num:value(system:run(["/bin/sh", "-c", cmd]):asFloat) }).
+
+    name:equals("close"):ifTrue({ v := num:value(closeStream:value(
+        toStr:value(eval:value(a:at(#1))))) }).
+
+    v:isNil:ifTrue({ error:raise("awk: `{}` is not written yet":fill([name])) }).
+    v }.
+
+lastSeed := #0.
+generator := random:new(#0).
+epoch := "1970-01-01T00:00:00Z":asTime.
+
+; `sub` and `gsub` share everything but a boolean, and `&` in the replacement is
+; the matched text -- which lib/re.sol already does, so this is the one built-in
+; that is mostly a message send.
+substitute := { a, all | | pat, repl, target, before, result |
+    pat := ereFor:value(a:at(#1):kind:equals('ere):ifElse({ a:at(#1):text },
+        { toStr:value(eval:value(a:at(#1))) })).
+    repl := toStr:value(eval:value(a:at(#2))).
+    target := a:size:greaterOrEqual(#3):ifElse({ a:at(#3) },
+        { | f | f := mk:value('field). f:a := mk:value('num). f:a:n := 0.0. f }).
+    before := toStr:value(eval:value(target)).
+    result := pat:substitutionIn(before, repl, all).
+    result:at("count"):greaterThan(#0):ifTrue({
+        assignTo:value(target, str:value(result:at("text"))) }).
+    num:value(result:at("count"):asFloat) }.
+
+; ---------------------------------------------------------------------------
+; User functions
+;
+; **Parameters are the only locals awk has**, and the extra ones are how a
+; function declares a local variable -- `function f(a, b,   i, j)` takes two
+; arguments and has two locals, told apart by nothing but a wider gap. That is
+; not a shape worth defending and it is what the language is.
+;
+; An array passed as an argument is passed **by reference** and a scalar by
+; value, which is decided by what the caller's name already is.
+
+callFunction := { name, argNodes | | def, params, body, saveL, saveA, i, v |
+    functions:includes(name):ifFalse({
+        error:raise("awk: no function `{}`":fill([name])) }).
+    def := functions:at(name).
+    params := def:at(#1). body := def:at(#2).
+
+    saveL := locals. saveA := localArrays.
+    locals := dictionary:new. localArrays := dictionary:new.
+
+    i := #1.
+    { i:lessOrEqual(params:size) }:whileTrue({ | argNode |
+        argNode := i:lessOrEqual(argNodes:size):ifElse({ argNodes:at(i) },
+                                                       { nil }).
+        (argNode:notNil:and({ argNode:kind:equals('var) })
+            :and({ arrays:includes(argNode:text)
+                :or({ saveA:notNil:and({ saveA:includes(argNode:text) }) }) })
+        ):ifElse(
+            { ; an array, by reference
+              localArrays:atPut(params:at(i),
+                  (saveA:notNil:and({ saveA:includes(argNode:text) })):ifElse(
+                      { saveA:at(argNode:text) },
+                      { arrays:at(argNode:text) })) },
+            { | val |
+              val := argNode:isNil:ifElse({ uninit:value }, {
+                  ; The argument is evaluated in the *caller's* frame, so the
+                  ; new one is put in place only after all of them are read.
+                  locals:isNil:ifElse({ eval:value(argNode) }, {
+                      | l, la, got |
+                      l := locals. la := localArrays.
+                      locals := saveL. localArrays := saveA.
+                      got := eval:value(argNode).
+                      locals := l. localArrays := la.
+                      got }) }).
+              locals:atPut(params:at(i), val) }).
+        i := i:inc }).
+
+    returning := false. returnValue := uninit:value.
+    exec:value(body).
+    v := returnValue.
+    returning := false.
+
+    locals := saveL. localArrays := saveA.
+    v }.
+
+; ---------------------------------------------------------------------------
+; Reading the input
+;
+; **A record is a line and `RS` is not honoured beyond that**, which is stated
+; rather than hidden: POSIX allows RS to be any single character and an empty RS
+; to mean paragraph mode, and neither is here. The reason is that
+; `system:readFile` answers a whole file and there is no line-at-a-time read --
+; the same limitation `sed` records, and the same one that made `tail` read
+; ranges by hand.
+
+; **There is no read-the-whole-of-standard-input**, so it is `readLine` until
+; nil. That is the same shape `sed` records and the reason both read a file
+; whole: a stream has no size to ask for, and one line at a time through a
+; message is the only way in.
+standardInput := { | out, line |
+    out := "".
+    { line := system:readLine. line:notNil }:whileTrue({
+        out := out:concat(line):concat("\n") }).
+    out }.
+
+inputLines := array:new.
+inputAt := #1.
+inputFiles := nil.
+inputFileAt := #1.
+
+pendingText := nil.
+
+loadNextFile := { | got |
+    got := false.
+    { got:not:and({ inputFileAt:lessOrEqual(inputFiles:size) }) }:whileTrue({
+        | name |
+        name := inputFiles:at(inputFileAt).
+        inputFileAt := inputFileAt:inc.
+        setVar:value("FILENAME", str:value(name)).
+        inputLines := linesOf:value(name:equals("-"):ifElse(
+            { standardInput:value }, { system:readFile(name) })).
+        inputAt := #1.
+        got := inputLines:size:greaterThan(#0) }).
+    got }.
+
+; A trailing newline ends the last record rather than starting an empty one,
+; which is the difference between `wc -l` and what awk sees.
+linesOf := { text | | parts |
+    text:equals(""):ifElse({ array:new }, {
+        parts := text:split("\n").
+        (parts:size:greaterThan(#0)
+            :and({ parts:at(parts:size):equals("") })):ifTrue({
+            parts := parts:copyFrom(#1, parts:size:sub(#1)) }).
+        parts }) }.
+
+nextRecord := { | got |
+    got := nil.
+    { got:isNil:and({ inputAt:lessOrEqual(inputLines:size)
+        :or({ inputFileAt:lessOrEqual(inputFiles:size) }) }) }:whileTrue({
+        inputAt:greaterThan(inputLines:size):ifElse(
+            { loadNextFile:value },
+            { got := inputLines:at(inputAt). inputAt := inputAt:inc }) }).
+    got }.
+
+doGetline := { n | | line |
+    line := nextRecord:value.
+    line:isNil:ifElse(
+        { num:value(0.0) },
+        { setVar:value("NR", num:value(
+              toNum:value(getVar:value("NR")):add(1.0))).
+          n:a:isNil:ifElse(
+              { setRecord:value(line).
+                setVar:value("FNR", num:value(
+                    toNum:value(getVar:value("FNR")):add(1.0))) },
+              { assignTo:value(n:a, field:value(line)) }).
+          num:value(1.0) }) }.
+
+; ---------------------------------------------------------------------------
+; Running a program over the input
+
+flush := {
+    outputs:keysAndValuesDo({ key, v |
+        (key:size:greaterThan(#0):and({ key:at(#1):equals("|") })):ifTrue({
+            system:run(["/bin/sh", "-c", key:copyFrom(#2, key:size)],
+                       dictionary:of("input", v:join(""))).
+            outputs:atPut(key, array:new) }) }).
+    nil }.
+
+closeStream := { name | | key |
+    key := "|":concat(name).
+    outputs:includes(key):ifElse(
+        { system:run(["/bin/sh", "-c", name],
+                     dictionary:of("input", outputs:at(key):join(""))).
+          outputs:remove(key). #0 },
+        { outputs:includes(name):ifElse({ outputs:remove(name). #0 },
+                                        { #0:sub(#1) }) }) }.
+
+setDefaults := {
+    setVar:value("FS", str:value(" ")).
+    setVar:value("OFS", str:value(" ")).
+    setVar:value("ORS", str:value("\n")).
+    setVar:value("RS", str:value("\n")).
+    setVar:value("NR", num:value(0.0)).
+    setVar:value("FNR", num:value(0.0)).
+    setVar:value("NF", num:value(0.0)).
+    setVar:value("SUBSEP", str:value(#28:asCharacter)).
+    setVar:value("RSTART", num:value(0.0)).
+    setVar:value("RLENGTH", num:value(0.0:sub(1.0))).
+    setVar:value("CONVFMT", str:value("%.6g")).
+    setVar:value("OFMT", str:value("%.6g")).
+    setVar:value("FILENAME", str:value("")).
+    nil }.
+
+matchesRule := { r |
+    r:test:isNil:ifElse({ true }, {
+        r:test2:isNil:ifElse(
+            { toBool:value(eval:value(r:test)) },
+            { ; A range pattern: on at the first, off at the second, and both
+              ; can be the same line.
+              r:active:ifElse(
+                  { toBool:value(eval:value(r:test2)):ifTrue({
+                        r:active := false }).
+                    true },
+                  { toBool:value(eval:value(r:test)):ifElse(
+                        { r:active := toBool:value(
+                              eval:value(r:test2)):not.
+                          true },
+                        { false }) }) }) }) }.
+
+; **`setDefaults` is the caller's**, not this one's. It was here, and it ran
+; *after* `-F` had been read on the command line -- so `awk -F: '{print $2}'`
+; put the separator back to a blank before the first record was cut. Found by
+; the one flag in three that had input to act on.
+run := { rules | | began |
+    rules:do({ r | (r:kind:equals('begin):and({ exiting:not })):ifTrue({
+        exec:value(r:body) }) }).
+
+    ; The main loop is skipped when there is nothing but BEGIN, which is what
+    ; makes `awk 'BEGIN { print 1 }'` not wait on standard input.
+    began := false.
+    rules:do({ r | r:kind:equals('pattern):or({ r:kind:equals('end) }):ifTrue({
+        began := true }) }).
+
+    (began:and({ exiting:not })):ifTrue({ | line |
+        { exiting:not:and({ | got |
+            got := nextRecord:value.
+            pendingText := got.
+            got:notNil }) }:whileTrue({
+            setRecord:value(pendingText).
+            setVar:value("NR", num:value(
+                toNum:value(getVar:value("NR")):add(1.0))).
+            setVar:value("FNR", num:value(
+                toNum:value(getVar:value("FNR")):add(1.0))).
+            nexting := false.
+            rules:do({ r |
+                (r:kind:equals('pattern):and({ exiting:not })
+                    :and({ nexting:not })):ifTrue({
+                    matchesRule:value(r):ifTrue({ exec:value(r:body) }) }) }) }) }).
+
+    exiting := false.
+    rules:do({ r | (r:kind:equals('end):and({ exiting:not })):ifTrue({
+        exec:value(r:body) }) }).
+
+    flush:value.
+    exitCode }.
+
+; ---------------------------------------------------------------------------
+; The command line
+;
+;   awk [-F fs] [-v name=value]... 'program' [file...]
+;   awk [-F fs] [-v name=value]... -f progfile [file...]
+
+usage := "usage: awk [-F fs] [-v name=value] 'program' [file...]".
+
+main := { | args, i, source, files, fs, assignments, done, rules |
+    args := system:arguments.
+    args:size:equals(#0):ifTrue({ demonstrate:value. system:exit(#0) }).
+
+    i := #1. source := nil. files := array:new. fs := nil.
+    assignments := array:new. done := false.
+
+    { done:not:and({ i:lessOrEqual(args:size) }) }:whileTrue({ | a |
+        a := args:at(i).
+        ; **A flag and its value may be joined**, which POSIX allows and every
+        ; awk script in the world writes: `-F:` is far commoner than `-F :`.
+        a:equals("-F"):ifElse(
+            { fs := args:at(i:inc). i := i:add(#2) },
+        { (a:size:greaterThan(#2):and({ a:copyFrom(#1, #2):equals("-F") })):ifElse(
+            { fs := a:copyFrom(#3, a:size). i := i:inc },
+        { a:equals("-v"):ifElse(
+            { assignments:add(args:at(i:inc)). i := i:add(#2) },
+        { (a:size:greaterThan(#2):and({ a:copyFrom(#1, #2):equals("-v") })):ifElse(
+            { assignments:add(a:copyFrom(#3, a:size)). i := i:inc },
+        { a:equals("-f"):ifElse(
+            { source := system:readFile(args:at(i:inc)). i := i:add(#2) },
+        { (a:size:greaterThan(#2):and({ a:copyFrom(#1, #2):equals("-f") })):ifElse(
+            { source := system:readFile(a:copyFrom(#3, a:size)). i := i:inc },
+        { a:equals("--"):ifElse(
+            { i := i:inc. done := true },
+        { (a:size:greaterThan(#1):and({ a:at(#1):equals("-") })
+            :and({ a:notEquals("-") })):ifElse(
+            { system:writeError(usage:concat("\n")). system:exit(#2) },
+            { done := true }) }) }) }) }) }) }) }) }).
+
+    source:isNil:ifTrue({
+        i:greaterThan(args:size):ifTrue({
+            system:writeError(usage:concat("\n")). system:exit(#2) }).
+        source := args:at(i). i := i:inc }).
+
+    { i:lessOrEqual(args:size) }:whileTrue({ files:add(args:at(i)). i := i:inc }).
+
+    rules := parser:program(source).
+    setDefaults:value.
+    fs:notNil:ifTrue({ setVar:value("FS", str:value(fs)) }).
+    assignments:do({ each | | at |
+        at := each:indexOf("=").
+        at:notNil:ifTrue({
+            setVar:value(each:copyFrom(#1, at:sub(#1)),
+                field:value(each:copyFrom(at:inc, each:size))) }) }).
+
+    inputFiles := files:size:equals(#0):ifElse({ ["-"] }, { files }).
+    inputFileAt := #1. inputLines := array:new. inputAt := #1.
+
+    system:exit(run:value(rules)) }.
+
+; ---------------------------------------------------------------------------
+; What it does with no arguments
+
+demonstrate := { | data, path |
+    path := "build/awk-demo.txt".
+    system:makeDirectory("build").
+    data := "alice   42  ok\nbob     17  warn\ncarol   93  ok\ndave     5  error\n".
+    system:writeFile(path, data).
+
+    "":display.
+    "awk -- the pattern-action language.":display.
+    "":display.
+    "  {} holds:":fill([path]):display.
+    "":display.
+    system:write(data).
+
+    ["{ print $1 }",
+     "$2 > 40 { print $1, $2 }",
+     "/warn|error/ { n++ } END { print n, \"to look at\" }",
+     "{ total += $2 } END { printf \"%-8s %6.2f\\n\", \"mean\", total / NR }"
+    ]:do({ prog |
+        "":display.
+        "  awk '{}'":fill([prog]):display.
+        "":display.
+        inputFiles := [path]. inputFileAt := #1.
+        inputLines := array:new. inputAt := #1.
+        globals := dictionary:new. arrays := dictionary:new.
+        exiting := false. exitCode := #0.
+        setDefaults:value.
+        run:value(parser:program(prog)) }).
+    "":display.
+    nil }.
+
+main:value.

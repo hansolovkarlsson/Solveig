@@ -1,0 +1,9 @@
+# Alternation, grouping and `+` -- the extended dialect, which is what this
+# program was the first customer of. lib/re.sol's basic half had two callers
+# and its extended half had none until awk.
+args: '/^(warn|err)+/ { n++ } END { print n+0 }'
+input:
+warnwarn here
+error there
+ok
+warn

@@ -1,0 +1,6 @@
+# The shortest useful awk program, and the one everybody writes first.
+args: '{ print $1, $3 }'
+input:
+alice   42  ok
+bob     17  warn
+carol   93  ok

@@ -1,0 +1,9 @@
+# **The rule that makes awk awk.** A field that looks like a number compares as
+# one, so `$1 < $2` on `10 9` is false -- while `"10" < "9"` is true, because
+# two string literals are two strings. POSIX calls the first a *strnum*, and it
+# is the single semantic this language has that nothing else here does.
+args: '{ print ($1 < $2), ("10" < "9"), ($1 == 10) }'
+input:
+10 9
+2 10
+0 x

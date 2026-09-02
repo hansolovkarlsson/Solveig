@@ -1,0 +1,9 @@
+# `for (k in a)` visits the array in an order POSIX explicitly leaves
+# **undefined**, so the two disagree and neither is wrong. This one is here
+# rather than in agree/ for that reason and no other: the members are the same,
+# the order is not.
+#
+# It is worth a case of its own because a reader who sees the two outputs side
+# by side should not have to wonder which is correct.
+args: 'BEGIN { a["x"]=1; a["y"]=2; a["z"]=3; for (k in a) print k, a[k] }'
+input:

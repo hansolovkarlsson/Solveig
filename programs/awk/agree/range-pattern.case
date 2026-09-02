@@ -1,0 +1,12 @@
+# A range pattern, which is on at the first test and off at the second -- and
+# both can be the same record, which is the case that catches an implementation
+# keeping one flag too few.
+args: '/start/, /stop/ { print NR ":" $0 }'
+input:
+before
+start here
+middle
+stop here
+after
+start and stop
+tail
