@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### awk, the nineteenth program — `pending`, 2026-09-01
+### awk, the nineteenth program — `faea93b` and `e0137fa`, 2026-09-01
 
 **No change to the language.** [programs/awk.sol](../programs/awk.sol) is the
 POSIX pattern-action language in 1,800 lines: `BEGIN` and `END`, expression and
