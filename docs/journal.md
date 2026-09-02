@@ -11,6 +11,65 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-01 (ninth) — awk, and the same defect twice in one day
+
+The nineteenth program is written and ten of its cases agree with the awk on
+the machine. It was built in four stages and each one ended by holding the
+result against `/usr/bin/awk` rather than against what I expected.
+
+### The predictions were right and unimportant
+
+The scoping named three things awk would want. Full ERE was already built, so
+the prediction's whole value was that it got the *order* right. The lenient
+numeric read is nine lines and wanted nothing new. `%e` and `%g` are written in
+the program, which is where a format belongs.
+
+**The thing that actually pressed was not on the list.**
+[3.2](ROADMAP.md#32-no-non-local-return) was wanted three separate times in one
+file, and I wrote `^` three times before remembering it is not there. An
+interpreter dispatching on a tag is the shape that wants to answer and leave;
+without it, `evalBinary` guards every arithmetic branch against having already
+settled `~`, and five unwinding statements become five flags.
+
+That is the second real customer for an entry that has had one since August,
+and it arrived without being predicted by an entry that was predicting exactly
+this kind of thing.
+
+### The same defect, twice, ten hours apart
+
+This morning `sed` was found to read `\(` as a literal parenthesis: a valid
+script came out inverted, silently, and its header said it would be refused.
+
+This evening `getline line < "file"` was found to parse as `getline line` and
+then a comparison with the filename. It read standard input, threw the answer
+away, printed nothing and exited 0.
+
+**Both were found by running the form rather than by reading the code**, and
+both were in a place a note said was not implemented. The note is the tell: a
+sentence saying *this is not written* is a sentence nobody has run, and in a
+program that parses something, "not written" and "quietly means something else"
+are the same syntax.
+
+So the rule the day already produced —
+[a claim in a header is a case waiting to be written](method.md#an-author-written-corpus-tests-what-its-author-thought-of)
+— fired twice before it was a day old, and the second time in a file I had
+written after writing the rule.
+
+### What the oracle found that I would not have
+
+Six defects, five of them from comparison rather than from a test. `-F:` joined
+to its flag. `run` calling `setDefaults` after the command line had set `FS`,
+which only showed on the one flag in three that had input to act on. `re.sol`
+not exporting `lastEnd`, which no earlier caller had wanted. `truncated` asked
+before its own magnitude guard. And `ln(1e30)/ln(10)` landing at
+29.999999999999996, which put one number in thirteen on the wrong side of a
+switch.
+
+Not one of those would have been in a test I wrote from what I believed the
+program did.
+
+---
+
 ## 2026-09-01 (eighth) — the library, and a checker that could not see its own hole
 
 `lib/re.sol` is built and `lib/pattern.sol` is gone. The decision that unblocked

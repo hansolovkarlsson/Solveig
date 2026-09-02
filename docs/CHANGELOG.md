@@ -5,6 +5,60 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### awk, the nineteenth program — `pending`, 2026-09-01
+
+**No change to the language.** [programs/awk.sol](../programs/awk.sol) is the
+POSIX pattern-action language in 1,800 lines: `BEGIN` and `END`, expression and
+regular-expression patterns, ranges, fields and `FS`, `printf`, arrays, user
+functions, `getline` in all four of its forms, and twenty-one built-ins. **Ten
+cases agree with `/usr/bin/awk`** and the one divergence is the order
+`for (k in a)` visits an array, which POSIX explicitly leaves undefined.
+
+**It is the first customer of [lib/re.sol](../lib/re.sol)'s extended dialect**,
+and it wants it by *standard* rather than by taste — POSIX says what `/a|ab/`
+matches, so a divergence is a defect and not a preference. That is a stronger
+thing for a library to be held to than another program's opinion.
+
+**The three predictions the scoping made, and what each turned out to be.**
+
+| predicted | what it was |
+| --- | --- |
+| full ERE | already built. The prediction's value was that the library came first |
+| a lenient numeric read | nine lines, wanting nothing new. `asInteger` is strict on purpose and awk needs `"3abc" + 0` to be 3 |
+| `%e` and `%g` | written here, which is where a format belongs. `fill` takes `{}` and no conversion at all, deliberately |
+
+**A fourth thing pressed harder than any of them and the prediction missed it.**
+[3.2](ROADMAP.md#32-no-non-local-return), no non-local return, was wanted three
+separate times in one file — by the expression evaluator, the statement
+executor and the parser's primary. An interpreter dispatching on a tag is
+exactly the shape that wants to answer and leave, and without it every later
+branch is guarded against having already finished. `next`, `exit`, `break`,
+`continue` and `return` are five flags where one mechanism would do. The
+editor's dispatcher was that entry's first customer; this is its second, and it
+wanted it once per dispatch rather than once.
+
+**And [3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels) shaped the
+parser**, as [ideas.md](ideas.md#solas-written-in-solum--self-hosting) said it
+would: twelve levels of binary precedence at three frames a level would run out
+at six parentheses, so it is precedence climbing, which costs three frames for
+the whole chain.
+
+**Six defects, and the oracle found five of them.** `re.sol` did not export
+`lastEnd`, which `match` wants for `RLENGTH`. `-F:` joined to its flag was not
+read, and every awk script writes it that way. `run` called `setDefaults` a
+second time and put `FS` back to a blank *after* the command line had set it —
+found by the one flag in three that had input to act on. `random` answers
+`fraction`, not `next`. `numToStr` asked `truncated` before its magnitude
+guard, and `and` evaluates its receiver. And `ln(1e30)/ln(10)` is
+29.999999999999996, which put 1e30 on the wrong side of the `%g` switch.
+
+**The sixth is the one worth keeping.** `getline line < "file"` parsed as
+`getline line` and then a *comparison* with the filename — so it read standard
+input, threw the answer away, printed nothing and exited 0. That is the same
+shape as `sed` reading `\(` as a literal parenthesis, in a file written the
+same afternoon, and it was found the same way: by running the form rather than
+believing the note that said it was not written.
+
 ### `lib/re.sol`, and `pattern.sol` retired — `8e27372`, 2026-09-01
 
 **No change to the language.** A library replaced, and the two programs that ran
