@@ -11,6 +11,51 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-01 (twelfth) — the corpus, and three shapes that were wrong before they were built
+
+The last of [6.42](ROADMAP.md#642-a-second-producer-of-sob-has-no-contract-to-build-against)
+bar a decision. Seventeen cases pin thirteen diagnoses, and the interesting part
+is that this is the **third** recommendation in the entry that building
+corrected.
+
+### Three calls, three corrections
+
+**Document or split first?** The entry said document, and that was right — but
+writing the document is what found `SOL_MAX_LOCALS` at 256 against a `u8`
+`slot_count`, which no amount of describing it would have.
+
+**How far does the split go?** The entry said *split by who is at fault*, two
+buckets. The sites turned out to be one condition each, and bucketing them would
+have discarded the part a producer uses. Thirty-two sentences.
+
+**Where does the corpus live?** The entry said a directory of malformed `.sob`
+files, here rather than there. Building it showed the files cannot be written at
+all without patching bytes of a valid one, since `sol_chunk_save` refuses a
+chunk that will not verify — and that a producer does not want our broken files
+anyway. It wants its own diagnosed.
+
+Three recommendations, all made from reading the code carefully, and all three
+narrowed or reversed by writing the thing. That is not an argument against
+scoping: each was close enough that the work started in the right place, which
+is the whole job. It is an argument against treating a scoping's *recommendation*
+as settled, and the entry now records each correction beside the call it
+corrected.
+
+### What the corpus actually protects
+
+Not the verifier — that was already covered, by cases written to harden it
+against a crafted file. What is new is that each case says *which* fault it
+means, so the value is against a different failure: two diagnoses quietly
+merging, or one being reworded, six months from now when nobody remembers that
+a producer outside this repository is reading them.
+
+All nine conversions passed first time, which is worth noting because it is the
+only evidence that the sentences I wrote match the sentences the verifier
+emits. Had I written the document and the code without the assertions, nothing
+would have held them together.
+
+---
+
 ## 2026-09-01 (eleventh) — the verifier learns to say which
 
 One sentence became thirty-two. `bytecode is internally inconsistent` was the

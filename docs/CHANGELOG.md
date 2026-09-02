@@ -5,6 +5,39 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The corpus, and the shape it turned out not to be — `pending`, 2026-09-01
+
+**Seventeen cases, thirteen distinct diagnoses**, each constructing a chunk with
+one fault and asserting the *sentence* rather than the result code. A diagnosis
+changing, or two of them merging back into one, fails the build.
+
+It is the third piece of
+[6.42](ROADMAP.md#642-a-second-producer-of-sob-has-no-contract-to-build-against)
+and could not have been written before the second: a case cannot assert a
+specific diagnosis while every diagnosis is the same sentence.
+
+Nine existing malformed cases now name the fault they mean, and **all nine
+passed first time** — which is the check that the sentences match what the
+verifier says rather than what it was meant to say. Four are new and cover the
+faults a *generator* writes rather than the ones a corrupted byte reaches: a
+jump off the end, a jump into the middle of an instruction, a block index naming
+nothing, `OP_BLOCK` naming a method that is not a block.
+
+**And a directory of malformed `.sob` files was the wrong shape.** It is what
+this entry proposed and what building it argued out of: `sol_chunk_save` refuses
+to write a chunk that will not verify, so every such file has to be made by
+patching bytes of a valid one — brittle against a recompile, and answering a
+question nobody asked. A producer does not need this repository's broken files.
+It needs its own diagnosed, which is what the split gives it. The corpus is for
+keeping the sentences still, and that is done where the chunks can be built
+directly.
+
+**6.42 is now complete but for one call**, and that one is a decision rather
+than work: `.sob` is format 14 and *files from 0.17.0 and earlier are refused*,
+which is a promise made to `solvm`'s own past and not to a second producer. A
+program targeting 14 is entitled to know what 15 will do to it, and nothing
+says.
+
 ### The verifier says which of the thirty-two — `d6529b3`, 2026-09-01
 
 **No change to the language, and none to the result codes either.**
