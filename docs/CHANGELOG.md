@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### sort, and the gap that was not there — `pending`, 2026-09-02
+### sort, and the gap that was not there — `cf4b1c5`, 2026-09-02
 
 **The language answers 144<!--count messages--> messages**, unchanged, and
 `.sob` files are format version 14. [sort](../programs/sort.sol) is the
