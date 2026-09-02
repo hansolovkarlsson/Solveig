@@ -243,14 +243,14 @@ static void test_verifier_rejects_unsafe_code(void)
 
     /* Empty. */
     sol_chunk_init(&chunk);
-    assert(sol_chunk_verify(&chunk) == SOL_SER_MALFORMED);
+    refuses(&chunk, "a chunk has no code at all");
     sol_chunk_free(&chunk);
 
     /* Unknown opcode. */
     sol_chunk_init(&chunk);
     sol_chunk_write(&chunk, 200, 1);
     sol_chunk_write(&chunk, OP_HALT, 1);
-    assert(sol_chunk_verify(&chunk) == SOL_SER_MALFORMED);
+    refuses(&chunk, "the code holds a byte that is not an opcode");
     sol_chunk_free(&chunk);
 
     /* Operand index past the end of the constant pool. */
@@ -259,7 +259,7 @@ static void test_verifier_rejects_unsafe_code(void)
     sol_chunk_write(&chunk, OP_CONST, 1);
     write_index(&chunk, 7, 1);
     sol_chunk_write(&chunk, OP_HALT, 1);
-    assert(sol_chunk_verify(&chunk) == SOL_SER_MALFORMED);
+    refuses(&chunk, "a constant index names a constant the chunk has not got");
     sol_chunk_free(&chunk);
 
     /* The high byte of an index counts too: a table of one entry does not have
@@ -269,7 +269,7 @@ static void test_verifier_rejects_unsafe_code(void)
     sol_chunk_write(&chunk, OP_CONST, 1);
     write_index(&chunk, 256, 1);
     sol_chunk_write(&chunk, OP_HALT, 1);
-    assert(sol_chunk_verify(&chunk) == SOL_SER_MALFORMED);
+    refuses(&chunk, "a constant index names a constant the chunk has not got");
     sol_chunk_free(&chunk);
 
     /* Operand index past the end of the name table. */
@@ -279,7 +279,7 @@ static void test_verifier_rejects_unsafe_code(void)
     write_index(&chunk, 9, 1);
     sol_chunk_write(&chunk, 0, 1);
     sol_chunk_write(&chunk, OP_HALT, 1);
-    assert(sol_chunk_verify(&chunk) == SOL_SER_MALFORMED);
+    refuses(&chunk, "a name index names a name the chunk has not got");
     sol_chunk_free(&chunk);
 
     /* An instruction whose operands run off the end. */
@@ -295,7 +295,7 @@ static void test_verifier_rejects_unsafe_code(void)
     sol_chunk_init(&chunk);
     sol_chunk_write(&chunk, OP_NIL, 1);
     sol_chunk_write(&chunk, OP_POP, 1);
-    assert(sol_chunk_verify(&chunk) == SOL_SER_MALFORMED);
+    refuses(&chunk, "the code does not end in HALT or RETURN");
     sol_chunk_free(&chunk);
 
     /* And saving refuses what loading would reject. */
@@ -446,7 +446,7 @@ static void test_a_corrupt_argument_count_cannot_read_below_the_frame(void)
     /* Every operand indexes something that exists and the last instruction
        stops the machine, so the structural checks pass. The height at the send
        is what refuses it: one value is on the stack and it wants 228. */
-    assert(sol_chunk_verify(&chunk) != SOL_SER_OK);
+    refuses(&chunk, "an instruction takes more from the stack than is on it");
 
     /* And refused again by the send itself, for chunks that never went through
        the verifier at all. */
@@ -526,6 +526,72 @@ static void test_more_entries_than_a_byte_can_index(void)
  * height. These are the shapes a corrupted file takes when it does not.
  */
 
+/* The faults a code generator actually writes, each named.
+ *
+ * **This is the corpus half of ROADMAP 6.42.** The cases above grew out of
+ * hardening the verifier against a crafted file; these are the other audience,
+ * added on 2026-09-01 when a producer outside this repository began emitting
+ * `.sob` directly. A jump that lands off the end, a jump that lands mid
+ * instruction, a block index naming nothing, `OP_BLOCK` naming a method that is
+ * not a block: those are back-end bugs rather than corruption, and until the
+ * split they all read as `bytecode is internally inconsistent`.
+ *
+ * Each asserts the sentence rather than the code, which is what stops a
+ * diagnosis quietly changing or two of them merging. */
+static void test_the_faults_a_generator_writes(void)
+{
+    SolChunk chunk;
+
+    /* A jump past the end of the code. */
+    sol_chunk_init(&chunk);
+    sol_chunk_write(&chunk, OP_NIL, 1);
+    sol_chunk_write(&chunk, OP_JUMP, 1);
+    write_index(&chunk, 500, 1);                  /* nowhere near */
+    sol_chunk_write(&chunk, OP_HALT, 1);
+    refuses(&chunk, "a jump lands outside the code");
+    sol_chunk_free(&chunk);
+
+    /* A jump into the middle of an instruction: the target is inside OP_CONST's
+       operand rather than on the opcode, which would read the operand as one. */
+    sol_chunk_init(&chunk);
+    sol_chunk_append_constant(&chunk, SOL_INT_VAL(1));
+    sol_chunk_write(&chunk, OP_JUMP, 1);          /* 0 */
+    write_index(&chunk, 1, 1);                    /*    to 3 + 1 = 4 */
+    sol_chunk_write(&chunk, OP_CONST, 1);         /* 3 */
+    write_index(&chunk, 0, 1);                    /* 4, 5: the operand */
+    sol_chunk_write(&chunk, OP_POP, 1);           /* 6 */
+    sol_chunk_write(&chunk, OP_HALT, 1);          /* 7 */
+    refuses(&chunk, "a jump lands in the middle of an instruction");
+    sol_chunk_free(&chunk);
+
+    /* A block index naming a method the chunk has not got. */
+    sol_chunk_init(&chunk);
+    sol_chunk_write(&chunk, OP_BLOCK, 1);
+    write_index(&chunk, 0, 1);                    /* no methods at all */
+    sol_chunk_write(&chunk, OP_POP, 1);
+    sol_chunk_write(&chunk, OP_HALT, 1);
+    refuses(&chunk, "a block index names a method the chunk has not got");
+    sol_chunk_free(&chunk);
+
+    /* OP_BLOCK naming a method that is not a block. A method entered with a
+       frame it was not compiled for is the bug this catches. */
+    sol_chunk_init(&chunk);
+    SolMethod *plain = sol_method_new("plain", 5, 0);
+    plain->is_block = false;
+    plain->slot_count = 1;
+    sol_chunk_write(&plain->chunk, OP_NIL, 1);
+    sol_chunk_write(&plain->chunk, OP_RETURN, 1);
+    sol_chunk_add_method(&chunk, plain);
+    sol_chunk_write(&chunk, OP_BLOCK, 1);
+    write_index(&chunk, 0, 1);
+    sol_chunk_write(&chunk, OP_POP, 1);
+    sol_chunk_write(&chunk, OP_HALT, 1);
+    refuses(&chunk, "OP_BLOCK names a method that is not a block");
+    sol_chunk_free(&chunk);
+
+    printf("  the faults a generator writes, each named\n");
+}
+
 /* An instruction reached from two places with two different heights has no
    well-defined height. This is the rule the whole pass turns on. */
 static void test_branches_must_agree_about_the_height(void)
@@ -546,7 +612,7 @@ static void test_branches_must_agree_about_the_height(void)
 
     /* Offset 11 is reached by falling through at height 1 and by the branch at
        height 0. Everything else about the chunk is well formed. */
-    assert(sol_chunk_verify(&chunk) != SOL_SER_OK);
+    refuses(&chunk, "two paths reach one instruction with different stack depths");
 
     sol_chunk_free(&chunk);
     printf("  rejected: two paths arriving at one instruction at different heights\n");
@@ -587,7 +653,7 @@ static void test_a_loop_returns_to_the_height_it_left(void)
     sol_chunk_write(&chunk, OP_HALT, 1);       /* 6 */
 
     /* The back edge arrives at offset 0 one value higher than it started. */
-    assert(sol_chunk_verify(&chunk) != SOL_SER_OK);
+    refuses(&chunk, "two paths reach one instruction with different stack depths");
 
     sol_chunk_free(&chunk);
     printf("  rejected: a back edge arriving one value higher than it left\n");
@@ -689,6 +755,7 @@ int main(void)
 {
     test_more_entries_than_a_byte_can_index();
     test_a_corrupt_argument_count_cannot_read_below_the_frame();
+    test_the_faults_a_generator_writes();
     test_branches_must_agree_about_the_height();
     test_taking_from_an_empty_stack_is_refused();
     test_a_loop_returns_to_the_height_it_left();

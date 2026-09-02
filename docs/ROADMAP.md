@@ -1170,9 +1170,19 @@ corpus is the forcing function for the split and not a separate job.
    and earlier are refused* — a promise made to `solvm`'s own past, not to a
    third party. A second producer targeting 14 is entitled to know what 15 will
    do to it, and nothing says.
-4. **Does the corpus live here or there?** A suite of malformed `.sob` files is
-   as useful to Phoenix as to this repository. Recommendation: here, since the
-   verifier is here, and runnable by anybody.
+4. ~~**Does the corpus live here or there?**~~ **Here, and not as files.**
+   Built on 2026-09-01: seventeen cases in `test_serialize.c`, thirteen distinct
+   diagnoses, each constructing a chunk with one fault and asserting the
+   sentence rather than the code — so a diagnosis changing, or two merging back
+   into one, fails the build.
+
+   **A directory of malformed `.sob` files was the shape the entry imagined and
+   is the wrong one.** `sol_chunk_save` refuses to write a chunk that will not
+   verify, so every such file has to be made by patching bytes of a valid one —
+   brittle against a recompile, and answering a question nobody asked. A
+   producer does not need our broken files; it needs its own diagnosed, which is
+   what the split gives it. What the corpus is for is keeping the sentences
+   still, and that is done where the chunks can be built directly.
 
 **Not built.** The scoping is this entry; building is a separate instruction.
 

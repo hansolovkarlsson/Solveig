@@ -130,6 +130,21 @@ where it used to produce one. The ones a generator meets most:
 | `the code does not end in HALT or RETURN` | the dispatch loop would run off the buffer |
 | `the line runs do not cover the code exactly` | the debug side tables disagree with the code length |
 
+**Thirteen of these are pinned by tests** — seventeen cases in
+[test_serialize.c](../tests/test_serialize.c), each constructing a chunk with
+one fault and asserting the sentence rather than the code. So a diagnosis
+changing, or two of them merging back into one, fails the build. The ones a
+back end writes rather than a corrupted byte produces are grouped together
+under *the faults a generator writes*: a jump off the end, a jump into the
+middle of an instruction, a block index naming nothing, `OP_BLOCK` naming a
+method that is not a block.
+
+There is deliberately **no directory of malformed `.sob` files**. Producing one
+means patching bytes of a valid file, since `sol_chunk_save` refuses to write a
+chunk that will not verify — and a producer does not need our broken files, it
+needs its own diagnosed. What the corpus is for is keeping these sentences
+still, and it does that where the chunks can be built directly.
+
 The codes themselves are unchanged — `SOL_SER_MALFORMED` still means what it
 meant — so nothing that reads them had to move.
 [`sol_chunk_load_why`](../solum/include/solum/serialize.h) is the form that
