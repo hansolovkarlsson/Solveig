@@ -1,0 +1,6 @@
+# Every line the same. Nothing to order, and `-u` would leave one.
+args:
+input:
+same
+same
+same

@@ -1,0 +1,11 @@
+# `-f` folds case before comparing -- and then `Apple` and `apple` tie, so the
+# last-resort byte comparison is what puts the capital first. A first draft of
+# this program skipped the last resort when there was no `-k`, on the reasoning
+# that the key was the whole line already. `-f` is where that is false.
+args: -f
+input:
+banana
+Apple
+cherry
+apple
+Banana

@@ -1,0 +1,7 @@
+# A separator produces empty fields where two of them meet, and an empty field
+# is a key like any other rather than an error.
+args: -t: -k2,2
+input:
+a::b
+a:z:b
+a::a

@@ -1,0 +1,19 @@
+# **The external merge sort.** `-S 16` holds sixteen bytes before writing a run
+# and starting another, so this input becomes several runs on disk which are
+# then merged. The tool takes `-S` as a buffer size too and answers the same
+# thing, which is the point: the option changes *how* rather than *what*.
+#
+# Without a case like this the spilling path never runs, and a path that never
+# runs is not checked by anything.
+args: -S 16
+input:
+pear
+apple
+fig
+banana
+cherry
+damson
+elder
+apricot
+quince
+medlar

@@ -183,7 +183,7 @@ make test     # builds and runs the test suite
 
 Two directories, and the split is what each was written for.
 
-**`programs/`** — twenty<!--count programs--> whole programs, each written to do a job and using
+**`programs/`** — twenty-one<!--count programs--> whole programs, each written to do a job and using
 whatever the language turned out to have. They are where nearly every roadmap
 entry after the first dozen came from: somebody wrote one and found out what it
 wanted. [programs.md](docs/programs.md) says what each does, how to run it, and

@@ -1,0 +1,8 @@
+# Byte order, which is the whole of what sort does before any option touches it.
+args:
+input:
+banana
+Apple
+cherry
+apple
+Banana

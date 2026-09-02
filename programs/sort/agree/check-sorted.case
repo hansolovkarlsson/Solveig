@@ -1,0 +1,7 @@
+# `-c` on a file that is in order: nothing said, exit 0. The silence is the
+# answer, which is why it needs a case of its own.
+args: -c
+input:
+apple
+banana
+cherry

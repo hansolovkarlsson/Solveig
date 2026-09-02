@@ -1,0 +1,7 @@
+# A modifier on one key alone. `-k2,2r` reverses that key and leaves the last
+# resort forward, which is the difference between it and a global `-r`.
+args: -k2,2r
+input:
+a b
+a c
+b a

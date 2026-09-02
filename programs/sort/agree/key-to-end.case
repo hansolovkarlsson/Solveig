@@ -1,0 +1,7 @@
+# `-k2` with no end runs to the end of the line, which is a different key from
+# `-k2,2` the moment there is a third field.
+args: -k2
+input:
+x b c
+x b a
+x a z

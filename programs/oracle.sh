@@ -105,6 +105,17 @@
 
 set -u
 
+# **Byte order on both sides.** A string here is bytes
+# ([2.13](../docs/ROADMAP.md#213-text-is-bytes-and-case-is-ascii-only)) and
+# `lessThan` compares them, so a tool run under a collating locale is being
+# asked a different question. `sort` is what needed this -- under
+# `en_US.UTF-8` the tool answers `apple Apple banana` where every program here
+# answers `Apple banana apple` -- and it is set for every tool rather than for
+# that one, because the reasoning is about this language rather than about
+# sort. Checked against all five corpora that existed before it: none moved.
+LC_ALL=C
+export LC_ALL
+
 if [ $# -lt 1 ]; then
     echo "usage: sh programs/oracle.sh <name>     (sed, tail, ...)"
     exit 2

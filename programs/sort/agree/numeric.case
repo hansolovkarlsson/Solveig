@@ -1,0 +1,17 @@
+# `-n` reads the number a line begins with, and everything here is a case about
+# what "begins with" means: `1e3` is one and not a thousand, `0x10` is zero,
+# blanks are skipped, and a line with no digits at all is zero. All measured
+# against the tool rather than assumed.
+#
+# The five lines that read as zero then tie, and the last resort orders them.
+args: -n
+input:
+abc
+10
+  3
+-2
+x5
+0
+
+1e3
+0x10

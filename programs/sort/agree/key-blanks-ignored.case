@@ -1,0 +1,5 @@
+# `-b` skips them, and the answer inverts.
+args: -b -k2,2
+input:
+a   z
+a  y

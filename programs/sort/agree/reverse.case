@@ -1,0 +1,9 @@
+# `-r` turns the comparison round, and it turns the last-resort comparison
+# round with it -- which is why it belongs beside a case with ties in it.
+args: -r
+input:
+banana
+Apple
+cherry
+apple
+Banana

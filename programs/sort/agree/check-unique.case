@@ -1,0 +1,8 @@
+# `-c -u` refuses an equal pair as well as an out-of-order one, which is the
+# only place those two options meet.
+args: -cu
+pipenames:
+input:
+apple
+apple
+banana

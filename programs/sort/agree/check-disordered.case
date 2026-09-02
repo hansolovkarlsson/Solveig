@@ -1,0 +1,12 @@
+# `-c` on a file that is not: the first line out of place, named with the file
+# and the line number, and exit 1.
+#
+# `pipenames:` -- the message carries the input's name, and standard input is
+# named `-`. That is checked rather than waved through: the pipe's output must
+# be the file's with the path replaced by a dash.
+args: -c
+pipenames:
+input:
+banana
+apple
+cherry

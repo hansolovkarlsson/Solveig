@@ -1,0 +1,8 @@
+# `-n -r`, where the last resort is reversed too.
+args: -nr
+input:
+3
+20
+100
+3
+1

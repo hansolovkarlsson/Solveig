@@ -1,0 +1,9 @@
+# `-u` keeps one line per distinct key. With no `-k` the key is the line.
+args: -u
+input:
+pear
+apple
+pear
+fig
+apple
+apple

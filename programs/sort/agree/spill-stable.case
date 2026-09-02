@@ -1,0 +1,11 @@
+# Spilling and `-s` together. Ties must keep the order they arrived in even
+# when the two lines went into different runs, which is a promise about the
+# merge rather than about the sort: on a tie the earlier run has to win.
+args: -S 12 -s -k1,1
+input:
+b 1
+a 1
+b 2
+a 2
+b 3
+a 3

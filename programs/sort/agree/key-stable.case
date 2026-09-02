@@ -1,0 +1,9 @@
+# The same input with `-s`, which switches the last resort off -- so ties keep
+# the order they arrived in. That is a promise about `array:sorted` that this
+# program depends on and that nothing in the reference said until it did.
+args: -s -k1,1
+input:
+b 2
+a 9
+b 1
+a 1

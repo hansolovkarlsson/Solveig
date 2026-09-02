@@ -1,0 +1,9 @@
+# The last line has no newline of its own. It is a line, and the output ends
+# with a newline -- so the two files that differ by that one byte sort to the
+# same answer, which is the one place this program is allowed not to care.
+args:
+nonewline:
+input:
+banana
+apple
+cherry

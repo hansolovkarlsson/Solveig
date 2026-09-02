@@ -1,0 +1,11 @@
+# `-V`, version sort.
+#
+# The tool orders these as 1.9 before 1.10. This program refuses the option and
+# exits 2. Left out with `-h` and `-R` for one reason: each is a third
+# comparison function against key machinery that already works, and none of
+# them presses on the language.
+args: -V
+input:
+1.10
+1.9
+1.2

@@ -1194,9 +1194,17 @@ stated:do({ c | | name, want, got |
 ordinals := ["first", "second", "third", "fourth", "fifth", "sixth", "seventh",
              "eighth", "ninth", "tenth", "eleventh", "twelfth", "thirteenth",
              "fourteenth", "fifteenth", "sixteenth", "seventeenth",
-             "eighteenth", "nineteenth", "twentieth"].
+             "eighteenth", "nineteenth", "twentieth", "twenty-first",
+             "twenty-second", "twenty-third", "twenty-fourth", "twenty-fifth"].
 
-; **Longer than the list of programs, and guarded anyway.** This has to be
+; **Longer than the list of programs, and guarded anyway.** That sentence was
+; false when `sort` arrived on 2026-09-02: the list ended at *twentieth* and
+; there were twenty programs, so the next one fired the guard rather than the
+; slack the sentence promised. Five spare now, and the sentence is true again --
+; which is the shape [method.md](../docs/method.md#a-sentence-that-was-true-when-written-is-not-checked-by-anything)
+; keeps recording, a claim that stops being true by the world moving under it.
+;
+; This has to be
 ; extended by hand when a program is added, and the failure when somebody
 ; forgets used to be `index #14 is out of bounds for an array of size 13` --
 ; a crash, in the checker, on the run that was supposed to report the mistake.

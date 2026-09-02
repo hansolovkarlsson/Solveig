@@ -1,0 +1,7 @@
+# `-t` cuts the line at each separator and the separator belongs to neither
+# side, so there are no blanks in a field and `-b` has nothing to do.
+args: -t: -k3,3n
+input:
+x:b:1
+y:a:2
+z:a:10

@@ -1,0 +1,7 @@
+# `-k2,2`: one field, and the ties fall to the whole line.
+args: -k2,2
+input:
+b 2
+a 9
+b 1
+a 1

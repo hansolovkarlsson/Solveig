@@ -1,0 +1,11 @@
+# `-k1.2`, a character offset inside a field.
+#
+# The tool takes it and sorts from the second character of the first field.
+# This program refuses it by name and exits 2. The field machinery is the
+# interesting half and the offset is arithmetic on top of it; the header says
+# so, and a claim in a header is a case waiting to be written.
+args: -k1.2
+input:
+xb
+xa
+xc

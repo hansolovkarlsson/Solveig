@@ -1,0 +1,9 @@
+# `-k3,3` on lines with fewer than three fields. The key is the empty string
+# rather than an error, which is what makes a key usable on ragged input -- and
+# then every line ties and the last resort orders them.
+args: -k3,3
+input:
+one two three
+b
+a
+c c

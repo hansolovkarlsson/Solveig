@@ -1,0 +1,7 @@
+# Two keys, applied in the order they were given: the second decides only what
+# the first left tied.
+args: -t: -k2,2 -k1,1
+input:
+c:b
+a:b
+b:a

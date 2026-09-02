@@ -1,6 +1,6 @@
 # The programs
 
-*The twenty<!--count programs--> files in [programs/](../programs/): what each one does, how to run
+*The twenty-one<!--count programs--> files in [programs/](../programs/): what each one does, how to run
 it, and what it found. [examples/](../examples/) is the other directory — one
 file per concept the [guide](GUIDE.md) names, each written to show a feature.
 These were written to do a job.*
@@ -51,6 +51,7 @@ is the map; the file is the argument.
 | [sha256sum](../programs/sha256sum.sol) | the SHA-256 of a file, and the check of a list of them | `solvm sha256sum.sob [-bctwz] [file...]` |
 | [awk](../programs/awk.sol) | runs an awk program over the records of its input | `solvm awk.sob [-F sep] program [file...]` |
 | [diff](../programs/diff.sol) | the shortest set of changes that turns one file into another | `solvm diff.sob [-u] [-q] old new` |
+| [sort](../programs/sort.sol) | lines in order, spilling to disk when they do not fit | `solvm sort.sob [-rnufbs] [-k F,F] [file...]` |
 
 Every one runs with no arguments at all, on input it supplies itself. That is
 deliberate — a program you have to feed before it will say anything is a program
@@ -2154,9 +2155,101 @@ picks the same one either way.
   indistinguishable from an empty file. A silent wrong answer, and the one
   finding here that is a defect rather than a limitation.
 
+## sort — lines in order, and a file bigger than the memory to hold it
+
+Byte order, keys, and an external merge sort that writes runs to disk when the
+input will not fit in the budget.
+
+```sh
+./bin/solvm programs/sort.sob                     # it demonstrates itself
+./bin/solvm programs/sort.sob -n scores.txt
+./bin/solvm programs/sort.sob -t: -k2,2n /etc/passwd
+./bin/solvm programs/sort.sob -S 4096 huge.txt    # spill at four kilobytes
+```
+
+```
+$ sort -t: -k2,2n fruit.txt
+fig:1
+banana:2
+pear:3
+```
+
+**The twenty-first program here**, and the first that does not have to hold its
+input: past `-S` bytes it sorts what is in hand, writes it out as a run, and
+merges the runs at the end.
+
+**Byte order, always** — `LC_ALL=C` is what the tool has to be run under to
+agree, and that is the language rather than the program: a string here is bytes
+and `lessThan` compares them. `oracle.sh` sets it for every tool now.
+
+### The predicted gap was not there, and the reason is the finding
+
+[ideas.md](ideas.md#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31)
+predicted that `sort` would want a **positioned write**, since an external merge
+sort writes runs to temporary files and `writeFile` replaces where `appendFile`
+appends.
+
+**An external merge sort never writes into the middle of a file.** A run is
+produced whole and then only ever read; the output is produced in order, so it
+appends. The entry called this *the mirror of the ranged read* and a mirror is
+the wrong figure: the ranged read exists because a program wants part of a file
+it did not write, and **nothing wants to write part of a file it is producing,
+because a producer knows what comes next.**
+
+What the k-way merge did want was `k` independent positions in `k` files at
+once — the thing a language with file *handles* has to think about — and
+`readFile(path, from, count)` has none of that. A reader here is a path and an
+integer. The half of the program the entry worried about is the half that
+needed nothing.
+
+### The generator missed both real defects
+
+[programs/sort/sweep.sh](../programs/sort/sweep.sh) runs generated inputs and
+then this repository's own files, under twenty-three option forms. It was
+written before any claim was made about it, because
+[diff](#diff--two-files-and-the-first-program-here-that-computes) had learned
+the week's lesson the expensive way.
+
+Both defects it found came from the **real** half:
+
+- **`-n` must reject a leading `+`.** The tool reads `-1` as minus one and `+5`
+  as *zero*. Found in this repository's README, on a line beginning
+  `+0.2% to +3.4%`. The generated alphabet had a minus because somebody thought
+  of one, and no plus because nobody did.
+- **`-f` folds to upper case, not lower.** Visible only beside punctuation:
+  folding down puts `[` below `a`, folding up puts it above `Z`. Three README
+  files here begin lines with `**[`.
+
+Both are corpus cases now, so the next reader does not find them twice.
+
+### And a claim it nearly published
+
+`sorted` is a stable merge sort, and the program was going to report that
+**nothing said so** — an implementation detail and a promise being the same line
+of code. [REFERENCE.md](REFERENCE.md#array) has said it all along, in prose
+under the sorting examples rather than in the message table. The absence was
+asserted from a `grep` that found the table row and stopped.
+
+What is true is smaller: this is the **first program here that depends on that
+guarantee**, and until now the sentence in the reference had no customer.
+
+### Two more things
+
+**`-n` is the second customer for a lenient numeric read**, which
+[awk](#awk--a-language-for-lines-and-the-first-customer-of-the-extended-dialect)
+predicted and never had one for. It cost nine lines, which is why it is a
+paragraph rather than an entry.
+
+**And the second customer for
+[6.43](ROADMAP.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers-),
+with a reason the entry does not have.** `diff` wants a pipe read *whole*; a
+sort that spills wants the opposite — a pipe read in bounded pieces, so memory
+stays inside `-S` however large the input is. The entry is about the absence of
+a middle, and the second customer is what shows the middle is what is missing.
+
 ## Adding one
 
-There is no template and there should not be. What the twenty<!--count programs--> have in common is
+There is no template and there should not be. What the twenty-one<!--count programs--> have in common is
 only this:
 
 1. **It does a job somebody would want done**, rather than exercising a feature.

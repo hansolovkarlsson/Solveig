@@ -1,0 +1,15 @@
+# **A minus and not a plus.** The tool reads `-1` as minus one and `+5` as
+# *zero*, so `+5` sorts with the lines that hold no number at all and the last
+# resort puts it before `3` because `+` is less than `3` in bytes.
+#
+# Found by the real half of `sweep.sh` -- this repository's README has a line
+# beginning `+0.2% to +3.4%` -- and not by the generated half, whose alphabet
+# had a minus in it because somebody thought of one and no plus because nobody
+# did. The case is here so the next reader does not have to find it twice.
+args: -n
+input:
++5
+3
+-1
++0.2
+0.5

@@ -5108,6 +5108,87 @@ find out, and the only one on this page that cannot be argued with afterwards.
 
 Oracle: `gzip`, on files `gzip` produced. The largest of the three.
 
+##### It was written on 2026-09-02, and the predicted gap was not there
+
+**Kept above the outcome rather than rewritten.**
+[programs/sort.sol](../programs/sort.sol) has the full account; what belongs
+here is whether the entry was right. It named one finding and the finding is
+absent, for a reason worth more than the prediction was.
+
+**An external merge sort never writes into the middle of a file.** A run is
+produced whole -- read a budget's worth of lines, sort them, write them once --
+and then it is only ever read; the output is produced in order, so it appends.
+`writeFile` and `appendFile` are exactly the two writes it needs and there is
+no third.
+
+The entry called a positioned write *the mirror of the ranged read*, and the
+mirror is where it went wrong. The ranged read exists because a program wants
+part of a file **it did not write**. Nothing wants to write part of a file it
+is producing, because a producer knows what comes next. **A write is not the
+reverse of a read**, and the entry reasoned from the symmetry of the names.
+
+**What the merge did want was the ranged read, and it was already there.** A
+k-way merge needs `k` independent positions in `k` files at once -- the thing a
+language with file *handles* has to think about, and the reason
+[3.22](COMPLETED.md#322-a-file-is-read-whole-or-not-at-all--done) was built
+without one. A reader here is a path and an integer. The half of the program
+the entry worried about is the half that needed nothing.
+
+##### And the generator missed both real defects, again
+
+`programs/sort/sweep.sh` runs generated inputs and then this repository's own
+files, under twenty-three option forms. **It was written before any claim was
+made about it**, which is the only thing `diff` had wanted a week's worth of
+hindsight to do. Both defects it found came from the *real* half:
+
+| what | how it was found |
+| --- | --- |
+| **`-n` rejects a leading `+`** -- the tool reads `-1` as minus one and `+5` as *zero* | this repository's README, on a line beginning `+0.2% to +3.4%` |
+| **`-f` folds to upper case, not lower** -- visible only beside punctuation, where folding down puts `[` below `a` and folding up puts it above `Z` | three README files here begin lines with `**[` |
+
+The generated alphabet had a minus in it because somebody thought of one, and
+no plus because nobody did; it had letters and digits and no punctuation beside
+them. **That is the same shape twice in one day**, and it is the argument for
+the third rung rather than for a better generator: a generator produces what
+its author imagined, one level up.
+
+##### The claim it nearly published
+
+The entry's first sentence was *`array:sorted(block)` at scale, and its
+stability, which nothing has had to care about*, and the write-up was going to
+be **`sorted` is stable, deliberately, and nothing says so** -- the shape
+[6.42](COMPLETED.md#642-a-second-producer-of-sob-has-no-contract-to-build-against--done)
+closed for the bytecode format five days earlier.
+
+**It is not true.** [REFERENCE.md](REFERENCE.md#array) has said it all along,
+in prose under the sorting examples rather than in the message table, in almost
+the words the C comment uses. The paragraph was written because a `grep` for
+`sorted` found the table row and stopped. **An absence asserted from a search
+that did not cover the document** is the argument from absence
+[design.md](design.md#what-the-language-is-for) rules out for features, and it
+is the third time in three days it has turned up somewhere nobody had ruled it
+out.
+
+What is true is smaller and is worth keeping: **this is the first program here
+that depends on that guarantee.** `-s` is exactly *no last resort, and let the
+sort keep the order*, and the merge relies on the same promise across runs.
+Until now the sentence had no customer.
+
+##### What it was a customer for
+
+**[6.43](ROADMAP.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers-),
+with a reason the entry does not have.** `diff` wants a pipe read *whole*; a
+sort that spills wants the opposite, a pipe read in bounded pieces so that
+memory stays inside `-S` however large the input is. The entry is about the
+absence of a **middle**, and the second customer is what shows the middle is
+what is missing rather than the whole-file read.
+
+**And the second customer for a lenient numeric read**, which the `awk`
+entry below named first and never had one for. The honest report is that it cost **nine lines** written
+out, which is why it stays a paragraph here rather than becoming an entry: a
+message that saves nine lines in two programs is not one this language is short
+of.
+
 ##### Three that would press on less, and one that cannot be written at all
 
 **`sort`.** `array:sorted(block)` at scale, and its stability, which nothing has

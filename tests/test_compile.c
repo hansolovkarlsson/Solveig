@@ -237,7 +237,7 @@ static const char *shipped[] = {
     "programs/sola.sol",        "programs/check_syntax.sol",
     "programs/pascal.sol",       "programs/sed.sol",
     "programs/tail.sol",       "programs/awk.sol", "programs/sha256sum.sol",
-    "programs/diff.sol",
+    "programs/diff.sol",      "programs/sort.sol",
 };
 #define SHIPPED_COUNT (sizeof(shipped) / sizeof(shipped[0]))
 

@@ -1,0 +1,12 @@
+# **`-f` folds to upper case, not to lower**, and the difference shows only
+# beside punctuation: folding down puts `[` (91) below `a` (97), folding up puts
+# it above `Z` (90). The tool answers `ab`, `Zb`, `[a`.
+#
+# Found the same way as the case above and by the same half of the sweep: three
+# README files in this repository begin lines with `**[`, and the generated
+# alphabet was letters and digits.
+args: -f
+input:
+[a
+Zb
+ab

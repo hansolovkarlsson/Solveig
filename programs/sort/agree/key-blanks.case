@@ -1,0 +1,8 @@
+# **A field carries the blanks in front of it.** `-k2,2` over these two lines
+# compares "   z" against "  y", and a space is less than a letter, so the
+# wider gap sorts first. This case and the next are the only reason that
+# sentence is right.
+args: -k2,2
+input:
+a   z
+a  y

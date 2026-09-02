@@ -1,0 +1,11 @@
+# Spilling and `-u` together, which is the pair that says the merge drops
+# duplicates *across* runs rather than only inside one.
+args: -S 12 -u
+input:
+pear
+apple
+pear
+fig
+apple
+apple
+fig
