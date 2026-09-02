@@ -63,7 +63,7 @@ The first draft of `peg.pro` declared its cursor forms as patterns, and both
 grammars filled up with parentheses:
 
 ```
-(at "*") \/ (at "/")        ; because `at "*" \/ at "/"` is `at ("*" \/ (at "/"))`
+(at "*") || (at "/")        ; because `at "*" || at "/"` is `at ("*" || (at "/"))`
 ```
 
 That was written up here as a limitation of Proto — *a form's trailing hole
@@ -74,7 +74,7 @@ form's result* — with a sketch of what a fix might look like.
 
 ```
 @syntax at(s)  => src:looksLike(s).
-at("*") \/ at("/")          ; src:looksLike("*"):or({ src:looksLike("/") })
+at("*") || at("/")          ; src:looksLike("*"):or({ src:looksLike("/") })
 ```
 
 A call's parentheses end it, so anything after applies to its result.

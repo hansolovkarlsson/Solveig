@@ -22,8 +22,8 @@
 ; it is there.
 ;
 ; **Standalone, and not built on lib/arith.pro**, for a stronger reason than
-; lib/clike.pro has: that file wanted a different *spelling*, and this one wants
-; a different `+`. Composing them is a collision the compiler reports and then
+; lib/clike.pro has: that file wants a different *shape*, and this one wants a
+; different `+`. Composing them is a collision the compiler reports and then
 ; resolves by position -- `@use "arith.pro"` after this file silently buys
 ; addition that traps at bit 32 instead of wrapping at it. A dialect that
 ; redefines an operator cannot stand on one that defines it differently, and
@@ -52,7 +52,7 @@
 
 @infix  &   50 bitAnd.
 @infix  ^   45 bitXor.
-@infix  \/  40 bitOr.
+@infix  \   40 bitOr.
 
 ; `~x & z` is `(~x) & z`: a prefix operator takes the smallest thing it can, and
 ; then the infix ladder applies. Masked, because bitNot of a 32-bit value sets

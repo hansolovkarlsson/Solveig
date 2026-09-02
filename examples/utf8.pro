@@ -19,30 +19,31 @@
 
 @infix  >>  80 shiftRight.
 @infix  &   60 bitAnd.
-@infix  \/  50 bitOr.
+@infix  \   50 bitOr.
 @infix  <   40 lessThan.
 
-; `\/` and not `|`, because `|` separates a block's parameters from its body and
+; `\` and not `|`, because `|` separates a block's parameters from its body and
 ; a module does not get to take it. That is the one spelling a dialect cannot
-; have, and it is the price of `{ a | b }` having one reading.
+; have, and it is the price of `{ a | b }` having one reading. `\` is the bar
+; that leans: one character, like C's, and free.
 
 ; The continuation bytes are all the same shape: the tag 10xxxxxx over six bits
 ; of the code point, taken `at` bits from the bottom. Compare the parenthesis
 ; count with the original -- the precedences declared above are what removed
 ; them.
-integer:utf8Tail := { at | (#128 \/ self >> at & #63):asCharacter }.
+integer:utf8Tail := { at | (#128 \ self >> at & #63):asCharacter }.
 
 integer:asUtf8 := {
     (self < #128):ifElse(
         { self:asCharacter },
         { (self < #2048):ifElse(
-            { (#192 \/ self >> #6):asCharacter
+            { (#192 \ self >> #6):asCharacter
                   :concat(self:utf8Tail(#0)) },
             { (self < #65536):ifElse(
-                { (#224 \/ self >> #12):asCharacter
+                { (#224 \ self >> #12):asCharacter
                       :concat(self:utf8Tail(#6))
                       :concat(self:utf8Tail(#0)) },
-                { (#240 \/ self >> #18):asCharacter
+                { (#240 \ self >> #18):asCharacter
                       :concat(self:utf8Tail(#12))
                       :concat(self:utf8Tail(#6))
                       :concat(self:utf8Tail(#0)) }) }) }) }.

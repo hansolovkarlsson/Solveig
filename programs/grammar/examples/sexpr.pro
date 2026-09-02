@@ -17,7 +17,7 @@ rule 'list is { | out |
     skip(blank).
     eat("(").
     out := array:new.
-    { skip(blank). ~done /\ ~at(")") }:whileTrue({ out:add(apply('item)) }).
+    { skip(blank). !done && !at(")") }:whileTrue({ out:add(apply('item)) }).
     skip(blank).
     eat(")").
     out }.

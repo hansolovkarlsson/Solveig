@@ -74,9 +74,9 @@ block := { bytes, at | | i, va, vb, vc, vd, ve, vf, vg, vh, t1, t2, b |
     while i < #16 do (
         b := at + i * #4.
         w:atPut(i + #1, bytes:at(b) << #24
-                     \/ bytes:at(b + #1) << #16
-                     \/ bytes:at(b + #2) << #8
-                     \/ bytes:at(b + #3)).
+                     \ bytes:at(b + #1) << #16
+                     \ bytes:at(b + #2) << #8
+                     \ bytes:at(b + #3)).
         i := i + #1).
 
     ; The message schedule. This is the standard's line, and it is this line.

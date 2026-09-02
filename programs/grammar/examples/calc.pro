@@ -11,14 +11,14 @@ src := nil.
 
 rule 'expr is { | left |
     left := apply('term).
-    { skip(blank). at("+") \/ at("-") }:whileTrue({ | op |
+    { skip(blank). at("+") || at("-") }:whileTrue({ | op |
         op := next.
         left := if op == "+" then left + apply('term) else left - apply('term) }).
     left }.
 
 rule 'term is { | left |
     left := apply('atom).
-    { skip(blank). at("*") \/ at("/") }:whileTrue({ | op |
+    { skip(blank). at("*") || at("/") }:whileTrue({ | op |
         op := next.
         left := if op == "*" then left * apply('atom) else left / apply('atom) }).
     left }.

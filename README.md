@@ -123,9 +123,9 @@ as they go — so a dialect can declare `<=` without `<` having to stop existing
 parameters from its body, and a dialect that could spell an operator `|` would
 be a dialect in which `{ a | b }` has two readings. **`||` is two bars and not a
 bar**, and a block wants a lone one everywhere it looks, so the pair could be
-handed to dialects without the single one moving at all — `\/` stays what a
-bitwise `or` is spelled with, and `lib/clike.pro` spells the logical one the way
-C does. Solveig settles the same question the same way, and
+handed to dialects without the single one moving at all. The bitwise `or` is
+written `\` — the bar that leans: one character, like C's, and free — and every
+dialect here spells the logical one `||`, the way C does. Solveig settles the same question the same way, and
 [says so](https://hansolovkarlsson.github.io/Solveig/docs/GRAMMAR.html):
 *ordered choice is what keeps that true*.
 
@@ -225,9 +225,9 @@ nothing else will say so.
 ## An operator that stands for a template
 
 ```
-@infix /\ 30 => left:and({ right }).
+@infix && 30 => left:and({ right }).
 
-x > #1 /\ y > #0
+x > #1 && y > #0
 ```
 
 becomes
@@ -238,7 +238,7 @@ x:greaterThan(#1):and({ y:greaterThan(#0) })
 
 **This exists because a message cannot express a short circuit.** Solveig's
 `and` takes a *block*, so that its right-hand side is not evaluated unless it is
-needed — and `@infix /\ 30 and` compiles to `a:and(b)`, which is refused at run
+needed — and `@infix && 30 and` compiles to `a:and(b)`, which is refused at run
 time. `@syntax` could not fill the gap either: **a pattern must begin with a
 word**, and an infix operator begins with its left operand.
 
@@ -252,13 +252,22 @@ substitution, hygiene, provenance, the expansion trail. The operands are called
 `left` and `right` because an operator has exactly as many operands as it has,
 so there is nothing to name.
 
-**`/\` and `\/`, not `&&` and `||`.** A spelling, not a limitation: both of C's
-lex perfectly well and `lib/clike.pro` declares them. Half of the reason
-`lib/arith.pro` took this pair has since expired — `||` could not be declared at
-all until the lexer took two bars as one token, so `&&` would have stood beside
-`\/` as two unrelated decisions. The half that was never about the lexer is why
-the choice stayed: that file is arithmetic and logic rather than C, and `/\`
-with `\/` is the notation that says so.
+**`&&` and `||`, which is where `lib/arith.pro` arrived rather than where it
+started.** It declared `/\` and `\/` until 0.10.0, on the grounds that a file of
+arithmetic and logic should read as logic. What overturned that was not taste:
+`\/` was *also* how `examples/utf8.pro` and `programs/digest/sha2.pro` spelled a
+**bitwise** or, and `~` was logical not in one file and bitwise not in another.
+One spelling, two meanings, twice over.
+
+The repository now spells one operation one way — `&&`, `||` and `!` logical,
+`&`, `\`, `^` and `~` bitwise. That is C's table with a single substitution, and
+the substitution is the interesting part: `\` stands where C writes `|`, which
+is the one character a dialect can never have. **The irregularity is forced by
+the design rather than chosen**, which is the best kind to be left with — it
+points at the constraint instead of hiding it.
+
+Nothing about the language changed. `/\` and `\/` lex and declare exactly as
+they did, and a module that prefers them may still say so.
 
 ## Forms
 

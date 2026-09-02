@@ -53,6 +53,11 @@ three programs and no complaint from any of them. And `||`, one commit old, is
 predicted to be irrelevant here: this file wants `^` and `&`, and its `\/` is
 bitwise, which is the spelling that did not change.
 
+*Overtaken in 0.10.0: it did change, to `\`. Not by `||` reaching it, but
+because `\/` was doing double duty -- logical or in `lib/arith.pro`, bitwise or
+here -- and one spelling with two meanings was worth more to fix than the
+prediction was to keep.*
+
 ## What it found
 
 The three FIPS 180-4 vectors and five block-boundary cases, all eight agreeing
@@ -116,11 +121,21 @@ scaffolding around it, and the file has to switch notations halfway down a
 function with only a comment to say why.
 
 **The collision rules got their first real customer, and the answer was not to
-compose.** `@use "sha2.pro"` beside `lib/control.pro` collides on `+`, `-`, `~`
-and `\/`, because control.pro uses arith.pro. Proto reports all four, names
-both declarations and the whole `@use` chain, and says *this one wins, and
-nothing else will say so* — which is exactly right and still leaves a program
-that hashes wrongly if the header is in the other order. `sha2.pro` is standalone
+compose.** `@use "sha2.pro"` beside `lib/control.pro` collides, because
+control.pro uses arith.pro. Proto names both declarations and the whole `@use`
+chain, and says *this one wins, and nothing else will say so* — which is exactly
+right and still leaves a program that hashes wrongly if the header is in the
+other order.
+
+*Corrected, and the correction cost a crash.* This paragraph said the collision
+was on `+`, `-`, `~` and `\/`, and that Proto **reports all four**. Those four
+are the ones whose *meaning* differs; Proto reports every redeclaration, which
+was nine — the four, plus `*` and `%` declared identically in both, plus `<`, `>`
+and `==` declared with the same message on a different rung. Since 0.10.0 it is
+seven: `~` and `\/` are no longer collisions at all, arith spelling them `!` and
+`||`. Running the case to check the number is what found
+[POSTMORTEM.md](../../docs/POSTMORTEM.md) 15 — the compiler segfaulted partway
+through reporting them, and had done since 0.1.0. `sha2.pro` is standalone
 for that reason, which is `lib/clike.pro`'s reason with correctness behind it
 rather than taste.
 
@@ -138,5 +153,6 @@ belongs, in the README under* A dialect is a file.
 
 Hygiene, `@use` resolution, and the map: nothing, from a fourth program. The
 `||` of one commit earlier was predicted irrelevant here and was — this file's
-`\/` is the bitwise one, which is the spelling that did not change.
+`\/` is the bitwise one, and 0.9.0 did not change it. *0.10.0 did, to `\`, for a
+reason that had nothing to do with `||`: see the prediction above.*
 

@@ -9,9 +9,12 @@
 ;         n = n + #1
 ;     }.
 ;
-; Standalone rather than built on arith.pro, because it wants a different set:
-; `&&` and `!` where that file has `/\` and `~`. A dialect need not stand on
-; another, and this is the first one here that does not.
+; Standalone rather than built on arith.pro. It wanted a different set of
+; logical operators once and, since 0.10.0, does not -- both files spell them
+; `&&`, `||` and `!`. What is left is still a different set: `=` for assignment,
+; `!=`, `<=` and `>=`, and control flow written with C's parentheses and braces
+; rather than as words. A dialect need not stand on another, and this is the
+; first one here that does not.
 ;
 ; ---------------------------------------------------------------------------
 ; What C has that this cannot, and why
@@ -31,8 +34,8 @@
 ; **`|` alone, for bitwise or.** `|` separates a block's parameters from its
 ; body and cannot be an operator character. `||` is two bars rather than a bar
 ; and is available, which is why `||` below is spelled the way C spells it;
-; single `|` is not, and a dialect wanting the bitwise one writes `\/` as
-; `examples/utf8.pro` does.
+; single `|` is not, and a dialect wanting the bitwise one writes `\` -- the
+; bar that leans -- as `examples/utf8.pro` does.
 
 @infix  =   10 => left := right.
 @infix  ||  25 => left:or({ right }).

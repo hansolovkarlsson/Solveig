@@ -1,8 +1,9 @@
 ; control.pro -- the shapes a program keeps writing out, as forms that read
 ; like statements rather than like calls.
 ;
-; Uses arith.pro, because `unless` wants a `~` and the conditions want their
-; comparisons. A dialect using another is ordinary, and a diamond is harmless:
+; Uses arith.pro, because the conditions want their comparisons -- `unless`
+; itself needs nothing from it, its template sending `:not` rather than
+; spelling it. A dialect using another is ordinary, and a diamond is harmless:
 ; two dialects that both use arith meet it once.
 
 @use "arith.pro".

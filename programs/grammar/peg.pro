@@ -38,7 +38,7 @@
 ;
 ; The first draft wrote these as patterns -- `at "+"`, `skip blank` -- and both
 ; grammars filled up with parentheses to stop them eating what came next:
-; `at "*" \/ at "/"` is `at ("*" \/ (at "/"))`, because a pattern's trailing hole
+; `at "*" || at "/"` is `at ("*" || (at "/"))`, because a pattern's trailing hole
 ; takes an expression and an infix operator continues one. That was written down
 ; as a finding about Proto and it was not one. **The call shape has no such
 ; problem** -- its parentheses end it -- and programs/ember's own README already

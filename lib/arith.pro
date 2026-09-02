@@ -22,11 +22,11 @@
 @infix  <   40 lessThan.
 @infix  >   40 greaterThan.
 @infix  ==  40 equals.
-@prefix ~      not.
+@prefix !      not.
 
 ; `and` and `or` take a *block* in Solveig, so that the right-hand side is not
 ; evaluated unless it is needed. An operator naming a message cannot say that --
-; `@infix /\ 30 and` compiles to `a:and(b)` and is refused at run time -- so
+; `@infix && 30 and` compiles to `a:and(b)` and is refused at run time -- so
 ; these name a template instead, and the template puts the block on.
 ;
 ; This is here because programs/ember wanted it and could not have it: six
@@ -34,14 +34,23 @@
 ; every one of them was a run-time failure first, `and` being a message a symbol
 ; does not understand.
 ;
-; **`/\` and `\/` rather than `&&` and `||`**, which is a spelling and not a
-; limitation -- both of C's lex perfectly well and a module that prefers them
-; may declare them, as `lib/clike.pro` does. Half of the reason these were the
-; pair has since expired: `||` could not be declared at all until the lexer took
-; two bars as one token, so `&&` would have stood beside `\/` as two unrelated
-; decisions. That is fixed, and the choice stayed, because what is left of the
-; argument is the half that was never about the lexer -- this file is arithmetic
-; and logic rather than C, and `/\` with `\/` is the notation that goes with
-; saying so. C's pair lives in the file that is trying to look like C.
-@infix  /\  30 => left:and({ right }).
-@infix  \/  25 => left:or({ right }).
+; **`&&` and `||`, which is where this file arrived rather than where it
+; started.** It declared `/\` and `\/` until 0.10.0, and the argument for them
+; had two halves. One expired in 0.9.0: `||` could not be declared at all until
+; the lexer took two bars as one token, so `&&` would have stood beside `\/` as
+; two unrelated decisions. The other -- that this file is arithmetic and logic
+; rather than C, so `/\` and `\/` are the notation that goes with saying so --
+; was overturned by something worse than a matter of taste.
+;
+; `\/` was *also* how `examples/utf8.pro` and `programs/digest/sha2.pro` spelled
+; a **bitwise** or, and `~` was logical not here and bitwise not there. One
+; spelling, two meanings, twice over -- and a reader has to know which file they
+; are in before they can read a line. C's table settles it: `&&`, `||` and `!`
+; are the logical ones, `&`, `\`, `^` and `~` the bitwise, and nothing in the
+; repository spells one operation two ways any more.
+;
+; **The capability is untouched.** `/\` and `\/` lex and declare exactly as they
+; did; a module that prefers them may still say so. What changed is this
+; repository's usage, not the language.
+@infix  &&  30 => left:and({ right }).
+@infix  ||  25 => left:or({ right }).

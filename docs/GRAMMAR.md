@@ -85,8 +85,8 @@ the two are meant to differ, and nowhere else.**
 **`|`, `:`, `.` and `,` are not operator characters and cannot become any.** `|`
 is what tells a block's parameters from its body, and the rest are the core
 syntax of a send, a statement and an argument list. A dialect gets the
-characters that mean nothing until it says so — `\` is in the list for the
-dialect that wants `\/` for the bitwise `or` it cannot spell `|`.
+characters that mean nothing until it says so — `\` is in the list, and is what
+a dialect writes for the bitwise `or` it cannot spell `|`.
 
 **`||` is a token even though `|` is not**, taken by the lexer before the bar
 and belonging to every dialect rather than to any declaration. It is two bars
@@ -166,7 +166,7 @@ apply to the form's *result*:
 
 ```
 @syntax at <s> => src:looksLike(s).
-at "*" \/ at "/"        is  at ("*" \/ (at "/"))
+at "*" || at "/"        is  at ("*" || (at "/"))
 ```
 
 **A call ends at its closing parenthesis**, so anything after it applies to what
@@ -174,7 +174,7 @@ it answered:
 
 ```
 @syntax at(s) => src:looksLike(s).
-at("*") \/ at("/")      is  src:looksLike("*"):or({ src:looksLike("/") })
+at("*") || at("/")      is  src:looksLike("*"):or({ src:looksLike("/") })
 ```
 
 **The test is whether the answer is used.** `store <s> slot <n>` is a step whose

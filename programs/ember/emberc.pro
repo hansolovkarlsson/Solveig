@@ -16,9 +16,9 @@
 digits := "0123456789".
 letters := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_".
 
-isDigit := { c | c:notNil /\ digits:indexOf(c):notNil }.
-isLetter := { c | c:notNil /\ letters:indexOf(c):notNil }.
-isSpace := { c | c:notNil /\ " \t\n\r":indexOf(c):notNil }.
+isDigit := { c | c:notNil && digits:indexOf(c):notNil }.
+isLetter := { c | c:notNil && letters:indexOf(c):notNil }.
+isSpace := { c | c:notNil && " \t\n\r":indexOf(c):notNil }.
 
 token := { kind, text | | t |
     t := object:new. t:kind := kind. t:text := text. t }.
@@ -60,7 +60,7 @@ pos := #1.
 tkPeek := { tokens:at(pos) }.
 tkNext := { | t | t := tokens:at(pos). pos := pos + #1. t }.
 tkIs := { kind, text | | t | t := tkPeek:value.
-    t:kind == kind /\ t:text == text }.
+    t:kind == kind && t:text == text }.
 
 fail := { why | | t |
     t := tkPeek:value.
@@ -68,7 +68,7 @@ fail := { why | | t |
     system:exit(#65) }.
 
 expect := { kind, text |
-    if ~tkIs:value(kind, text) then fail:value("expected '":concat(text):concat("'")).
+    if !tkIs:value(kind, text) then fail:value("expected '":concat(text):concat("'")).
     tkNext:value }.
 
 node := { kind | | n | n := object:new. n:kind := kind. n }.
@@ -82,7 +82,7 @@ parseExpr := { parseCmp:value }.
 parseCmp := { | left, op |
     left := parseSum:value.
     { tkPeek:value:kind == 'op
-        /\ ["<", ">", "<=", ">=", "==", "!="]:indexOf(tkPeek:value:text):notNil
+        && ["<", ">", "<=", ">=", "==", "!="]:indexOf(tkPeek:value:text):notNil
     }:whileTrue({
         op := tkNext:value:text.
         left := binNode:value(op, left, parseSum:value) }).
@@ -91,7 +91,7 @@ parseCmp := { | left, op |
 parseSum := { | left, op |
     left := parseTerm:value.
     { tkPeek:value:kind == 'op
-        /\ ["+", "-"]:indexOf(tkPeek:value:text):notNil
+        && ["+", "-"]:indexOf(tkPeek:value:text):notNil
     }:whileTrue({
         op := tkNext:value:text.
         left := binNode:value(op, left, parseTerm:value) }).
@@ -100,7 +100,7 @@ parseSum := { | left, op |
 parseTerm := { | left, op |
     left := parseAtom:value.
     { tkPeek:value:kind == 'op
-        /\ ["*", "/", "%"]:indexOf(tkPeek:value:text):notNil
+        && ["*", "/", "%"]:indexOf(tkPeek:value:text):notNil
     }:whileTrue({
         op := tkNext:value:text.
         left := binNode:value(op, left, parseAtom:value) }).
@@ -111,7 +111,7 @@ parseAtom := { | t, n |
     if t:kind == 'num then (n := node:value('num). n:value := t:text:asInteger. n)
     else if t:kind == 'name then (n := node:value('var). n:name := t:text. n)
     else if t:kind == 'str then (n := node:value('str). n:text := t:text. n)
-    else if t:kind == 'op /\ t:text == "(" then (
+    else if t:kind == 'op && t:text == "(" then (
         n := parseExpr:value.
         expect:value('op, ")").
         n)
@@ -119,9 +119,9 @@ parseAtom := { | t, n |
 
 parseBlock := { | out |
     out := array:new.
-    { ~(tkPeek:value:kind == 'end)
-        /\ ~tkIs:value('name, "end")
-        /\ ~tkIs:value('name, "else")
+    { !(tkPeek:value:kind == 'end)
+        && !tkIs:value('name, "end")
+        && !tkIs:value('name, "else")
     }:whileTrue({ out:add(parseStmt:value) }).
     out }.
 

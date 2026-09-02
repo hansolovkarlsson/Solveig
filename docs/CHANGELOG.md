@@ -10,6 +10,45 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### One spelling per operation — 2026-09-02
+
+**Nothing in the compiler changed**, and no version with it. This is the shipped
+dialects agreeing with each other.
+
+`\/` had been doing two jobs: logical *or* in `lib/arith.pro` at precedence 25,
+and bitwise *or* in `examples/utf8.pro` at 50 and `programs/digest/sha2.pro` at
+40. `~` had been doing two as well — logical *not* in arith, bitwise *not* in
+sha2, which is C's meaning. A reader had to know which file they were in before
+they could read a line.
+
+| | logical | bitwise |
+| --- | --- | --- |
+| and | `&&` | `&` |
+| or | `\|\|` | `\` |
+| not | `!` | `~` |
+| xor | — | `^` |
+
+**C's table, with one substitution: `\` where C writes `|`.** That is the one
+character a dialect can never have, `|` being what separates a block's
+parameters from its body — so the single irregularity left is forced by the
+design rather than chosen, and points at the constraint instead of hiding it.
+`\` was already an operator character; it needed nothing added.
+
+**The language is untouched.** `/\` and `\/` lex and declare exactly as before,
+and a module that prefers them may still say so. What changed is this
+repository's usage. `lib/arith.pro` and `lib/clike.pro` now spell the logical
+operators identically, so clike's stated reason for standing alone is restated
+around what actually still distinguishes it: `=` for assignment, `!=`/`<=`/`>=`,
+and control flow with C's parentheses and braces.
+
+**Checked rather than assumed:** every generated `.sol` in the tree is
+byte-identical across the change — the messages are the same, only the source
+spelling moved — and the suite reports the same 58, 6, 34 and 11 checks. A
+side effect worth naming: `programs/digest/sha2.pro` beside `lib/control.pro`
+now collides on seven operators rather than nine, `~` and `\/` having stopped
+overlapping. Counting them is what turned up
+[POSTMORTEM.md](POSTMORTEM.md) 15.
+
 ### A use-after-free composing two dialects — 2026-09-02
 
 **`proto` segfaulted on `@use "sha2.pro"` beside `lib/control.pro`** — two real

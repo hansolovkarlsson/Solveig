@@ -93,10 +93,12 @@ friction this program found.
 
 **Fixed in Proto 0.7.0, and this program is why.** The obvious answer -- also
 declare `and` and `or` -- did not work: Solveig's `and` takes a *block*, so
-`@infix /\ 30 and` compiles to `a:and(b)` and is refused at run time, and
+`@infix && 30 and` compiles to `a:and(b)` and is refused at run time, and
 `@syntax` could not help because a pattern must begin with a word. An operator
-may now stand for a *template*, `lib/arith.pro` declares `/\` and `\/`, and
-every one of the six expressions above is now written with them.
+may now stand for a *template*, `lib/arith.pro` declares them, and every one of
+the six expressions above is now written with them.
+
+*Spelled `/\` and `\/` when this was written; `&&` and `||` since 0.10.0.*
 
 ### And one design question answered by use
 
