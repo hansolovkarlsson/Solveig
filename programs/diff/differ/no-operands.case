@@ -1,0 +1,9 @@
+# Neither operand named, since this case carries no `first:` and puts nothing
+# in `args` -- so the harness hands over one file and the tool sees one.
+#
+# The tool prints its usage, eleven lines of it. This program says what was
+# wrong in one line: two files are wanted, got 1. Both exit 2, and the
+# divergence is entirely in how much is said.
+args:
+input:
+a line

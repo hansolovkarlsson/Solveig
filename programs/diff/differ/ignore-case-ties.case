@@ -1,0 +1,24 @@
+# `-i` on input with no uppercase in it, where the tool disagrees with itself.
+#
+# One line against three, and there are two minimal answers -- both are two
+# insertions, differing only in whether the second `h` is taken as the match:
+#
+#   0a1,2   > c   > h          both inserted before the shared line
+#   0a1     > c   1a3   > h    one before it and one after
+#
+# **The tool prints the first under `-i` and the second without it**, on input
+# where case folding cannot change a single comparison. This program prints the
+# second either way, which is what `-i` means: fold the comparison, and change
+# nothing else.
+#
+# Kept as a divergence rather than chased. Matching it would mean reproducing a
+# tie-break that the oracle does not apply consistently to itself, and the case
+# to write down is that both answers are minimal -- 41 runs in 400 of a random
+# sweep differ this way under `-i`, and none without it.
+args: -i
+first:
+h
+input:
+c
+h
+h

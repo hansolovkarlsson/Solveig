@@ -371,6 +371,39 @@ So a replacement that is *only* about spelling is still worth doing, and the
 argument for it is not tidiness: an old expression nobody has a reason to doubt
 is exactly an expression nobody checks.
 
+## A predicted limitation decides which implementation gets written
+
+**Three times an entry here has predicted that
+[3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels), the recursion
+limit, would bite a program about to be written. Three times it did not**, and
+the fourth was written down before it could happen:
+
+| the program | what the entry expected | what was written |
+| --- | --- | --- |
+| [basic.sol](../programs/basic.sol) | deep nesting | an argument that a line-numbered language never nests |
+| [check_syntax.sol](../programs/check_syntax.sol) | a recursive tree walker | LPeg's instruction set, after the walker measured 19 levels |
+| [pascal.sol](../programs/pascal.sol) | a recursive descent that recurses | a compiler rather than a walker |
+| [diff.sol](../programs/diff.sol) | Myers' divide-and-conquer recursing on halves of the edit graph | the greedy forward pass, which is two loops |
+
+**The prediction is not wrong about the limitation. It is wrong about the
+author.** A limitation that is written down is known before the implementation
+is chosen, so the implementation that meets it is the one nobody writes. What
+the entry is really predicting is *which of two algorithms gets used*, and the
+answer is always the other one.
+
+That makes such a prediction nearly unfalsifiable, and unfalsifiable is the one
+thing a prediction here may not be -- the whole point of writing them down
+before the program is that **it found nothing** stays an available answer. So:
+**when an entry predicts a documented limitation, it owes the shape of the
+program that would hit it**, and whether anybody would write that shape for
+reasons other than the prediction. `diff`'s entry did name the variant -- *the
+divide-and-conquer form* -- and the naming is what made it possible to say
+afterwards that the variant was never the one to write.
+
+The useful predictions in the same entries were the other kind: *the output
+format is the hard part* named a difficulty rather than a limitation, and it
+was right, and it could have been wrong.
+
 ## An analogy to a measured case carries the mechanism, not the rate
 
 **A prediction on 2026-08-31 was right about an absence and wrong about its

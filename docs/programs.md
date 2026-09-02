@@ -1,6 +1,6 @@
 # The programs
 
-*The nineteen<!--count programs--> files in [programs/](../programs/): what each one does, how to run
+*The twenty<!--count programs--> files in [programs/](../programs/): what each one does, how to run
 it, and what it found. [examples/](../examples/) is the other directory — one
 file per concept the [guide](GUIDE.md) names, each written to show a feature.
 These were written to do a job.*
@@ -49,6 +49,8 @@ is the map; the file is the argument.
 | [sed](../programs/sed.sol) | runs a sed script over the lines of its input | `solvm sed.sob [-n] script [file...]` |
 | [tail](../programs/tail.sol) | the end of a file, without reading the rest of it; `-f` follows | `solvm tail.sob [-n N] [-f] [file...]` |
 | [sha256sum](../programs/sha256sum.sol) | the SHA-256 of a file, and the check of a list of them | `solvm sha256sum.sob [-bctwz] [file...]` |
+| [awk](../programs/awk.sol) | runs an awk program over the records of its input | `solvm awk.sob [-F sep] program [file...]` |
+| [diff](../programs/diff.sol) | the shortest set of changes that turns one file into another | `solvm diff.sob [-u] [-q] old new` |
 
 Every one runs with no arguments at all, on input it supplies itself. That is
 deliberate — a program you have to feed before it will say anything is a program
@@ -2053,9 +2055,86 @@ under both. What must **differ** is one thing and POSIX says so: the order
 `for (k in a)` visits an array is undefined, so the two disagree and neither is
 wrong.
 
+## diff — two files, and the first program here that computes
+
+The shortest set of changes that turns one file into the other, in the normal
+format or unified.
+
+```sh
+./bin/solvm programs/diff.sob                     # it demonstrates itself
+./bin/solvm programs/diff.sob old.txt new.txt
+./bin/solvm programs/diff.sob -u old.txt new.txt
+cat new.txt | ./bin/solvm programs/diff.sob old.txt -
+```
+
+```
+$ diff old.txt new.txt
+2c2
+< jumps over
+---
+> vaults over
+```
+
+**The twentieth program here, and the first that computes a relationship rather
+than recognising a structure.** Everything before it reads one input and reports
+on what is in it. This one holds two and answers a question neither contains:
+which lines to remove and which to add, in the fewest edits there are.
+
+The algorithm is Myers' greedy forward pass — for each edit distance in turn,
+how far along each diagonal a path of exactly that many edits can reach — and
+the answer is minimal because the distance was counted upwards rather than
+searched for.
+
+### What the prediction got right, and what it did not
+
+[ideas.md](ideas.md#diff--the-first-program-here-that-computes-rather-than-recognises)
+named four findings before the program existed. **One held.**
+
+| predicted | what happened |
+| --- | --- |
+| [3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels) on the recursion | **No.** The recursion belongs to the linear-space variant, and the iterative one is what gets written when the limit is known first |
+| a two-dimensional array | **No.** Myers keeps one array of diagonals and a ragged trace; what bites is that diagonals run from `-max` and Solum arrays are one-based |
+| quadratic memory | **Half.** Quadratic in the *edits*, not in the files — so two large files differing in one line cost one band |
+| the output format is the hard part | **Yes, and it was the whole of it** |
+
+**Four format faults, none of them findable by reading the algorithm**: a count
+of one is written `@@ -1 +1 @@`; hunks merge at a gap of exactly twice the
+context and split at one more; `\ No newline at end of file` follows a context
+line too; and an empty range is written at the line it follows *except* at the
+start of a file that has lines, where it is written at line 1 rather than 0.
+
+The last of those was found by a random sweep against the tool, which disagreed
+**44 times in 1,050 runs** before it and none after.
+
+### Held against the diff on the machine
+
+[programs/oracle.sh](../programs/oracle.sh) runs the corpus in `programs/diff/`
+under both — and `diff` is what generalised that harness twice: it is the first
+program here to take **two** inputs, and the first whose **exit status** is
+documented behaviour rather than a `0` or `1` nobody had checked. Both are in
+the harness now, for every program it runs.
+
+Beyond the corpus, a random sweep of 2,400 runs over six option forms and files
+of up to forty lines: **zero disagreements**. The one divergence that remains is
+`-i`, where the tool disagrees with *itself* — on input holding no uppercase at
+all it picks a different one of two equally minimal answers than it picks
+without the flag, and this program picks the same one either way.
+
+### Two findings about standard input that nothing predicted
+
+- **Reading a pipe byte-for-byte costs 20x.** `readLine` drops the terminator
+  and folds `\r\n`, so it cannot say whether the last line ended with a newline
+  and silently rewrites a file written on another system. `readKey` is exact and
+  is a byte at a time: 4.2 MB/s against 84, or 238 ns a byte. Paid, because a
+  diff that cannot tell those two files apart is wrong rather than slow.
+- **`readFile` on a pipe answers `""`.** Not the contents and not an error --
+  the size comes from a seek that a pipe refuses, and a failed seek is
+  indistinguishable from an empty file. A silent wrong answer, and the one
+  finding here that is a defect rather than a limitation.
+
 ## Adding one
 
-There is no template and there should not be. What the nineteen<!--count programs--> have in common is
+There is no template and there should not be. What the twenty<!--count programs--> have in common is
 only this:
 
 1. **It does a job somebody would want done**, rather than exercising a feature.

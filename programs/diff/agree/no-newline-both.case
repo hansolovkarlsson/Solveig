@@ -1,0 +1,13 @@
+# Neither file ends with a newline, and they differ in the last line. Both
+# sides of the change carry the marker.
+args:
+nonewline:
+firstnonewline:
+first:
+a
+b
+c
+input:
+a
+b
+d

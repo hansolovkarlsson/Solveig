@@ -1,0 +1,11 @@
+# An addition alone: `LaR`, and the first number is a line in the first file
+# that the addition follows. At the very end that number is the file's length.
+args:
+first:
+one
+two
+input:
+one
+two
+three
+four

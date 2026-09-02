@@ -1,0 +1,11 @@
+# A path that is not there. The message and the exit status are both the
+# tool's, which is worth pinning: `2` is *trouble*, and a caller that reads
+# `1` as "they differ" is told the files differed when neither was read.
+#
+# `tworoutes:` because the two routes are not the same invocation here: the
+# missing path is the first operand and comes from `args`, so the file route
+# has two operands and the pipe route has one.
+args: nosuchfile-for-the-corpus.txt
+tworoutes:
+input:
+anything at all

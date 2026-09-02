@@ -134,10 +134,14 @@ decode a `.sob`; and
 [3.13](#313-a-loop-is-left-by-its-condition-or-by-failing) by counting how many
 loops in this repository carry a boolean whose only job is to stop them.
 
-Section 2 has no open design question — the last one, 2.5, is closed. And
-section 6, a program's dealings with the world outside it, is built: reading
+Section 2 has no open design question — the last one, 2.5, is closed. Section
+6, a program's dealings with the world outside it, is nearly all built: reading
 input, writing files, stopping with a status, walking the filesystem, knowing
-the time, a prompt with history, a debugger, and running another program.
+the time, a prompt with history, a debugger, and running another program. **Two
+entries are open on it**, both raised on 2026-09-02 by
+[diff.sol](../programs/diff.sol) and both about standard input —
+[6.43](#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers-)
+and [6.44](#644-an-instant-cannot-be-written-in-local-time).
 
 **The last decision was deferred rather than taken**, on 2026-08-22.
 [6.32](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine) —
@@ -153,10 +157,11 @@ was the same webserver's other problem — a script that never finishes is a
 request that never finishes — and is now a step limit and a memory ceiling a
 host sets before the program runs.
 
-So this document no longer says what to build next. **The way to add to it is to
-write a program and find out what it wants**, which is how nearly every entry
-since the first dozen arrived — several of them from a library breaking rather
-than from anyone reasoning about the design.
+**The way to add to this document is to write a program and find out what it
+wants**, which is how nearly every entry since the first dozen arrived —
+several of them from a library breaking rather than from anyone reasoning about
+the design, and the two newest from a `diff` that had to reproduce another
+tool's bytes from a pipe.
 
 Sections 1, 4 and 5 are gone from this document. Everything they held is built:
 the collector and its roots, arrays, strings, user-defined objects, the three
@@ -1062,7 +1067,14 @@ on 2026-08-29 and closed the same afternoon, which is the section still doing
 what it was for: saying what a program written against this needs and has not
 got.
 
-**Nothing is open here.** The four entries this section held on 2026-09-01 all
+**Two entries are open here**, both raised on 2026-09-02 by
+[diff.sol](../programs/diff.sol) and both below:
+[6.43](#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers-),
+a program cannot read standard input whole and the call that looks as though it
+can answers `""`, and [6.44](#644-an-instant-cannot-be-written-in-local-time),
+an instant cannot be written in local time.
+
+Before them the four entries this section held on 2026-09-01 all
 closed the same day, including
 [6.42](COMPLETED.md#642-a-second-producer-of-sob-has-no-contract-to-build-against--done)
 — the first entry on this list opened by somebody who does not work on this
@@ -1095,9 +1107,83 @@ reasoning, the threat model and everything the last four days added to it are
 kept in full, because deciding it later from a blank page would cost more than
 keeping it did. The number stays 6.32 and is not reused.
 
+### 6.43 A program cannot read standard input whole, and the call that looks as though it can answers `""`
+
+**Raised on 2026-09-02 by [diff.sol](../programs/diff.sol)**, which is the
+first program here that has to reproduce another tool's bytes from a pipe. Two
+halves, and the second is a defect rather than an absence.
+
+**The want.** `readFile` reads a file whole and there is no equivalent for
+standard input. The two ways in are `readLine`, which answers a line *without
+its terminator* and folds `\r\n` into one -- so it cannot say whether the last
+line ended with a newline, and silently rewrites a file written on another
+system -- and `readKey`, which is exact and is a byte at a time. Measured over
+628,890 bytes: 0.0075 s by line and 0.1498 s by byte, **84 MB/s against 4.2**,
+or 238 nanoseconds a byte. `diff` pays it, because a diff that cannot tell
+`...c` from `...c\n` is wrong rather than slow.
+
+**The defect.** The obvious workaround is `readFile("/dev/stdin")`, and it
+works from a redirect. **From a pipe it answers the empty string** -- not the
+contents, and not an error:
+
+```text
+solvm prog.sob < big.txt           #628890
+cat big.txt | solvm prog.sob       #0
+```
+
+`prim_system_read_file` sizes the file with `fseeko(SEEK_END)` and `ftello`. On
+a pipe the seek fails and `size` keeps its initial `0`, which is
+indistinguishable from an empty file and takes the `want == 0` path that
+answers `""` before any read is attempted. The function already refuses a
+directory and already checks a negative size; **a failed seek is the case
+between them that nothing looks at.**
+
+This is the shape [a path with a NUL in
+it](ideas.md#a-path-with-a-nul-in-it-is-silently-a-different-path) has, found
+on 2026-08-31: a silent wrong answer rather than a missing feature, and found
+the same way -- by a program with a reason to try what nobody had tried. **The
+two halves are one entry** because the want is what makes the defect worth
+fixing: if `readFile` read a pipe, there would be nothing here to ask for.
+
+
+
+### 6.44 An instant cannot be written in local time
+
+**Raised on 2026-09-02 by [diff.sol](../programs/diff.sol)**, and it is the
+same shape as
+[6.34](COMPLETED.md#634-a-program-cannot-ask-how-big-the-terminal-is--done):
+reachable through a fork, and the price is the entry.
+
+A unified diff header carries each file's modification time **in local time**,
+which is what every diff prints. `time:asString` is ISO-8601 in UTC and
+`time:asString(format)` hands the format to `strftime` against **gmtime**, so
+every route out of an instant is UTC, and nothing answers the offset from it.
+`system:environment("TZ")` is unset on this machine and would not be the answer
+anywhere: the offset a zone is at depends on the instant.
+
+**The workaround is one fork of `date +%z` and it is not exact.** The offset
+that comes back is the one in force *now*, so a file stamped on the other side
+of a daylight-saving change prints an hour out. Asking `date` per file would
+fix that and would be a fork per operand rather than per run, which is the
+[stty](COMPLETED.md#634-a-program-cannot-ask-how-big-the-terminal-is--done)
+trade again at a lower rate.
+
+**Not built, and not urgent.** One customer, and the wrongness needs a file
+older than the last clock change to show. What it would want is small -- a
+message answering the offset for an instant, which is one call to `localtime`
+-- and it is written down here rather than guessed at later.
+
 ## How this list emptied, and how it filled and emptied again
 
-**Nothing is on it**, for the fourth time, and the four entries open at some
+**It emptied for the fourth time on 2026-09-01 and did not stay empty.** Two
+entries went on it the next day but one, both from
+[diff.sol](../programs/diff.sol) and both about standard input --
+[6.43](#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers-)
+and [6.44](#644-an-instant-cannot-be-written-in-local-time). That is the
+mechanism working rather than an exception to it: *empty* is a description of a
+moment, which this document has said since the last time it was true.
+
+The four entries open at some
 point on 2026-09-01 all closed the same day — which had not happened before that
 morning and then happened twice.
 

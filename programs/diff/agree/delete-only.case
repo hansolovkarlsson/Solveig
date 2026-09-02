@@ -1,0 +1,12 @@
+# A deletion alone, which is written `RdL` where L is the line in the second
+# file that the deleted text sat after. Getting L from the wrong side is the
+# obvious way to be wrong and produces plausible output.
+args:
+first:
+keep
+drop me
+drop me too
+keep
+input:
+keep
+keep

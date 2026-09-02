@@ -1,0 +1,13 @@
+# `a b a b` against `a b`: two minimal answers exist and diff picks one. The
+# tool deletes the *later* pair, which is what a greedy forward pass does --
+# it takes the longest snake it can reach first, so the deletion lands after
+# it. This case exists to pin the tie-breaking rather than the distance.
+args:
+first:
+a
+b
+a
+b
+input:
+a
+b

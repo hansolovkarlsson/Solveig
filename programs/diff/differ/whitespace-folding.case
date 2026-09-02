@@ -1,0 +1,12 @@
+# `-w`, which folds whitespace away before comparing.
+#
+# The tool answers that these two files are the same. This program refuses the
+# option and exits 2. Left out deliberately: it is one line of key-building,
+# and it would make the corpus about `split` rather than about the algorithm.
+args: -w
+first:
+alpha   bravo
+charlie
+input:
+alpha bravo
+charlie

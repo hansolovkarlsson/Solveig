@@ -1,0 +1,23 @@
+# Unified, with the default three lines of context.
+#
+# `tworoutes:` -- and the reason is the header rather than the diff. A unified
+# header carries each file's modification time, and standard input has none, so
+# both this program and the tool stamp a pipe with the moment they ran. The
+# file route is what is held against the oracle; the pipe route cannot be held
+# against the file route because the two are not describing the same thing.
+args: -u
+tworoutes:
+first:
+alpha
+bravo
+charlie
+delta
+echo
+foxtrot
+input:
+alpha
+bravo
+CHARLIE
+delta
+echo
+foxtrot

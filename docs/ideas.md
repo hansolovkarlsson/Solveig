@@ -56,7 +56,7 @@ marked as a sketch.
 | Infix operators, `@expr(a^2 + b/2)` | **Built**, on 2026-08-28 — [scoped in the morning and in by the evening](#infix-arithmetic-as-a-compile-time-notation): arithmetic, then `sin(x)` once *limiting* it turned out to be the expensive half, then comparison and logic, and the name with them |
 | `@expr{...}`, a region that is a block | **Built on 2026-08-29**, the day after it was scoped — [the sentence was tried first and lost](#expr-a-region-that-is-a-block-rather-than-a-group); the entry predicted one hard part and the second was the one that mattered, a notation that silently stopped inlining |
 | Phoenix — a second language whose output Solum uses | **Defer** — the machinery is proven three times over; [the unexplored half](#programs-that-would-press-on-something) is whether a hosted language can publish a *library* rather than a program |
-| Programs that would press on something — Pascal, predicate logic, a parser toolkit, `tail`, and [which Unix tool next](#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31) | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would. **So was `sha256sum`, on 2026-08-31**, the first off the Unix survey and the first program here with no I/O in its inner loop: [the prediction held in both halves](#it-was-written-on-2026-08-31-and-the-prediction-held-in-both-halves) and produced the number it was written for — **208 bytecode instructions a byte, 4.3 ns each, 234M a second** |
+| Programs that would press on something — Pascal, predicate logic, a parser toolkit, `tail`, and [which Unix tool next](#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31) | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would. **So was `sha256sum`, on 2026-08-31**, the first off the Unix survey and the first program here with no I/O in its inner loop: [the prediction held in both halves](#it-was-written-on-2026-08-31-and-the-prediction-held-in-both-halves) and produced the number it was written for — **208 bytecode instructions a byte, 4.3 ns each, 234M a second**. **And `diff` on 2026-09-02**, where [one prediction of four held](#it-was-written-on-2026-09-02-and-one-of-the-four-predictions-held) — the output format, which was the whole difficulty — and the three that did not are more useful than the one that did |
 | Networking, and sending code to a running machine | **The first half is built**, on 2026-08-29 — [extensions/net](../extensions/net/README.md), five messages, and the waiting question answered with a timeout rather than a block; [the second half](#networking-and-sending-code-to-a-machine-that-is-already-running) is untouched and still needs 3.4, 6.32 and a proxy |
 | SQLite, SDL2, GTK | **One project, not three** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); GTK and SDL2 fire that trigger and SQLite does not, and wanting *both* toolkits is what settles the mechanism |
 | Graphics in SolaBasic, over SDL2 | **No — asked and closed on 2026-08-30, and the premise was wrong** to begin with: [graphics were never parked](#graphics-in-solabasic-through-the-sdl2-extension) for want of extensions, they were refused as *the PC*. No program wanted a screen, so the trigger never fired. The throwaway exercised the foundation without a language change — an extension send at 205ns, **`sdl:present` vsync-locked at 8.3ms**, and **1.49x from 0.39.0** on a globals-heavy loop. **A demo written that evening then corrected the entry**: a present keeps nothing, so immediate-mode `PSET` is not slow on this surface but absent. **And there is no oracle for a pixel**, which is what would decide it if it were ever asked again |
@@ -4993,6 +4993,79 @@ headers, context, and the rules for coalescing nearby changes are fiddly in a wa
 `tail`'s were not, so the corpus would earn its keep before the algorithm did.
 
 Oracle: `/usr/bin/diff`. Around four hundred lines.
+
+##### It was written on 2026-09-02, and one of the four predictions held
+
+**Kept above the outcome rather than rewritten**, which is what this section
+does with predictions. [programs/diff.sol](../programs/diff.sol) has the full
+account; what belongs here is whether the entry above was right. It named four
+things and got one.
+
+| predicted | what happened |
+| --- | --- |
+| [3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels) | **No.** The recursion belongs to the *linear-space variant*, which this entry named -- and that variant buys memory at the cost of the trace the output is read back out of. The greedy forward pass is two `whileTrue`s |
+| a two-dimensional array | **No.** Myers keeps one array of diagonals and a ragged trace of the bands it passed through, which is not the table the entry meant |
+| memory at scale | **Half.** Quadratic in the *edits*, not in the files: two files of ten thousand lines differing in one line cost one band of one |
+| the output format is hard | **Yes, and it was the whole of the difficulty** |
+
+**The 3.5 prediction is the one worth carrying, because this is the third time
+it has been made about a program here and the third time it was wrong.**
+`basic.sol` argued a line-numbered language never nests; `check_syntax.sol`
+replaced its tree walker with an instruction set; `pascal.sol` compiles rather
+than walks. Each time the entry predicted the limitation and each time the
+program was written in the shape that avoids it -- **because the limitation was
+known before the implementation was chosen.** A prediction of 3.5 is really a
+prediction about which of two algorithms gets written, and this repository
+keeps choosing the other one. That is worth writing down as a rule rather than
+as a fourth instance waiting to happen.
+
+**What the one that held cost, in the currency this page cares about.** Four
+format faults, none discoverable by reading the algorithm: a count of one is
+written `@@ -1 +1 @@`; hunks merge at a gap of exactly twice the context and
+split at one more; `\ No newline at end of file` follows a *context* line too;
+and an empty range is written at the line it follows **except** at the start of
+a file that has lines, where it is written at line 1. The algorithm itself was
+right on its first run against the corpus.
+
+**Three of those four came from the corpus and the fourth did not**, and that
+is the sharper finding. Sixteen hand-written cases all agreed with a wrong
+empty-range rule, because every one of them put its empty range where the
+simple rule and the real one give the same answer. A random sweep -- file pairs
+built from nine possible lines, seven option forms -- disagreed **44 times in
+1,050 runs**. After the fix, 2,400 runs over six option forms and files up to
+forty lines: zero. This is [an author-written corpus tests what its author
+thought
+of](method.md#an-author-written-corpus-tests-what-its-author-thought-of) with a
+*generator* as the second author rather than a standard, and it is the cheapest
+second author available for a tool that has an oracle: no vectors to find, no
+specification to read.
+
+**And the oracle turned out to disagree with itself.** Under `-i`, on input
+holding no uppercase at all, `/usr/bin/diff` picks a different one of two
+equally minimal answers than it picks without the flag -- 41 runs in 400 under
+`-i` and none without it. `programs/diff/differ/ignore-case-ties.case` pins the
+minimal example. **An oracle can be wrong**, which [the FIPS 180-4
+argument](method.md#hold-it-against-something-somebody-else-wrote) already
+said; what is new is one caught being *two things at once*, where a published
+standard would have settled it and there is no standard for which minimal edit
+script to print.
+
+**It fired two entries on the roadmap**, both about standard input and neither
+predicted here:
+[6.43](ROADMAP.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers-),
+a program cannot read a pipe whole and `readFile("/dev/stdin")` answers `""` on
+one rather than the contents or an error; and
+[6.44](ROADMAP.md#644-an-instant-cannot-be-written-in-local-time), an instant
+cannot be written in local time, which a unified header needs and which costs a
+fork of `date` that is not even exact across a daylight-saving change.
+
+**And it generalised the harness twice.** [oracle.sh](../programs/oracle.sh)
+ran one input because every tool it had been asked about read one; `diff` holds
+two, so a case may carry a `first:` section. And it is the first program here
+whose **exit status** is documented behaviour -- `0` the same, `1` different,
+`2` trouble -- so the harness compares that too now, for every program it runs.
+Both changes are the shape this file already has: written for `sed`,
+generalised by its second caller and its third rather than copied.
 
 ##### `gzip -d` — the one that answers the question behind the neural net
 

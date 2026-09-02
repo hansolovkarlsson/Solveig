@@ -1,0 +1,30 @@
+# Four changes far apart. In the normal format each is its own entry with no
+# grouping at all, which is the difference between this format and unified and
+# is worth having a case for before the hunk arithmetic arrives.
+args:
+first:
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+input:
+1
+X
+3
+4
+5
+Y
+7
+8
+9
+Z
+11
+W

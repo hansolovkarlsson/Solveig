@@ -1,0 +1,8 @@
+# A line added to an empty file: `@@ -0,0 +1 @@`. An empty range is written at
+# the position it would follow, with a count of zero, and is the one place a
+# line number is allowed to be zero.
+args: -u
+tworoutes:
+first:
+input:
+first line

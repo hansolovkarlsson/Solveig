@@ -1,0 +1,23 @@
+# Both files end without a newline and share their last line, so the marker
+# follows a *context* line rather than a change -- and once, not twice, though
+# it is true of both files.
+#
+# `tworoutes:` rather than `pipenames:`, and the difference is a check that
+# would pass most of the time. The pipe route's output differs from the file
+# route's by the second operand's *name* -- which is exactly what `pipenames:`
+# bounds -- and also by its timestamp, which is the file's modification time on
+# one route and the moment the program ran on the other. Those two agree
+# whenever the run does not cross a second boundary, so `pipenames:` here would
+# be a check that fails once an hour for a reason that is not a defect.
+args: -u
+tworoutes:
+nonewline:
+firstnonewline:
+first:
+alpha
+bravo
+charlie
+input:
+ALPHA
+bravo
+charlie

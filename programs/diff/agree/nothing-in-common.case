@@ -1,0 +1,13 @@
+# Two files sharing no line at all, which is the worst case for the algorithm:
+# the edit distance is the sum of the lengths and the trace is the whole
+# triangle.
+args:
+first:
+one
+two
+three
+input:
+alpha
+bravo
+charlie
+delta

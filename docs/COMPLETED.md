@@ -919,7 +919,7 @@ the machine* is the rule, trigonometry meets it more clearly than `sqrt` did.
 **What it was waiting for was a program, and the program has arrived.** For most
 of this entry's life no file here had ever wanted an angle. The first draft of
 this paragraph gave a
-second reason — that the nineteen<!--count programs--> programs are text and process
+second reason — that the twenty<!--count programs--> programs are text and process
 work, so geometry is
 not what this language is for — and that reason is **wrong and is worth leaving
 recorded as wrong**. The programs are the tools this project needed while

@@ -1,0 +1,23 @@
+# Six apart: exactly twice the context, and the two context blocks meet, so
+# this is one hunk with no gap in it. The pair with the case above is the whole
+# of the coalescing rule, measured against the tool rather than reasoned about.
+args: -u
+tworoutes:
+first:
+X
+m1
+m2
+m3
+m4
+m5
+m6
+Z
+input:
+Y
+m1
+m2
+m3
+m4
+m5
+m6
+W

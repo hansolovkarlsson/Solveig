@@ -1,0 +1,11 @@
+# The mirror: the second file is the one missing its newline.
+args:
+nonewline:
+first:
+a
+b
+c
+input:
+a
+b
+c

@@ -1,0 +1,12 @@
+# Two files with the same bytes: no output at all, and exit 0. The silence is
+# the whole answer, which is why it needs a case -- a program that printed an
+# empty hunk header would pass every other one here.
+args:
+first:
+one
+two
+three
+input:
+one
+two
+three

@@ -1,0 +1,8 @@
+# Everything added to an empty file. `0a1,3` is the only place a line number
+# here is zero, and the empty first operand is the case that produces it.
+args:
+first:
+input:
+a
+b
+c

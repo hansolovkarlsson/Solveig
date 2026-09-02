@@ -1,0 +1,12 @@
+# `-L`, which replaces the name and timestamp in a unified header.
+#
+# The tool takes it. This program refuses it, and the header says why: `-L`
+# exists to paper over exactly the timestamp problem this program has to solve
+# properly instead, by asking the machine for its offset from UTC. Supporting
+# it would let the corpus's unified cases sidestep the one language gap this
+# program found.
+args: -u -L old -L new
+first:
+alpha
+input:
+bravo

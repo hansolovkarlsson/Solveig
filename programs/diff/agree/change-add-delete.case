@@ -1,0 +1,16 @@
+# The three shapes of the normal format in one case: a line changed, a line
+# added, a line deleted. If any of `c`, `a` and `d` were spelt wrong this is
+# the case that says so.
+args:
+first:
+alpha
+bravo
+charlie
+delta
+echo
+input:
+alpha
+BRAVO
+charlie
+echo
+foxtrot

@@ -1,0 +1,16 @@
+# `-U 1`, which is both the option taking its argument separately and a
+# context width that changes where the hunks fall.
+args: -U 1
+tworoutes:
+first:
+one
+two
+three
+four
+five
+input:
+one
+TWO
+three
+four
+FIVE

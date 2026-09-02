@@ -1,0 +1,8 @@
+# A hunk covering one line on each side is written `@@ -1 +1 @@`, with no
+# comma and no count. Writing `-1,1` is correct arithmetic and wrong output.
+args: -u
+tworoutes:
+first:
+only
+input:
+lonely

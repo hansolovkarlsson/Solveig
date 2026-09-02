@@ -1,0 +1,11 @@
+# `-s` turns the silence of two identical files into a sentence. Without it
+# there is no output at all, so this is the only case that can tell a program
+# that never noticed they were the same from one that did.
+args: -s
+pipenames:
+first:
+same
+lines
+input:
+same
+lines

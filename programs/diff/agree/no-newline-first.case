@@ -1,0 +1,13 @@
+# The first file's last line has no newline and the second's does. The lines
+# read the same and the files do not, and every diff reports that -- so a
+# program comparing only the text says the files are identical and is wrong.
+args:
+firstnonewline:
+first:
+a
+b
+c
+input:
+a
+b
+c

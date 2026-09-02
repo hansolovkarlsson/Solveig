@@ -1,0 +1,14 @@
+# A change immediately followed by an addition, with no unchanged line between
+# them. Whether that is one entry or two is decided by where the run of
+# operations is broken, and both readings produce believable output.
+args:
+first:
+head
+one
+tail
+input:
+head
+ONE
+TWO
+THREE
+tail

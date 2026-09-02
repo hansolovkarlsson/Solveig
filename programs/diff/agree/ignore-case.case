@@ -1,0 +1,13 @@
+# `-i` compares without regard to case, so these two files are the same file.
+# The printing is unaffected: what is compared is folded and what is written
+# is not, which is a distinction a program can lose in one line.
+args: -i -s
+pipenames:
+first:
+Alpha
+BRAVO
+charlie
+input:
+alpha
+bravo
+CHARLIE

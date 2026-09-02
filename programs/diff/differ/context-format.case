@@ -1,0 +1,18 @@
+# `-c`, the context format.
+#
+# The tool prints a context diff. This program refuses the option by name and
+# exits 2. The header says `-c`, `-e` and `-n` are left out because `-u` and
+# the normal format between them carry every hard part -- hunks, context,
+# coalescing -- and a third spelling of the same edit script teaches nothing.
+#
+# The case is here because a claim in a header is a case waiting to be written:
+# without it, *left out* is prose rather than behaviour.
+args: -c
+first:
+alpha
+bravo
+charlie
+input:
+alpha
+BRAVO
+charlie

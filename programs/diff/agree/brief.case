@@ -1,0 +1,10 @@
+# `-q` says whether they differ and nothing else. It names both files, and the
+# pipe route names the second `-`, which is what `pipenames:` is for.
+args: -q
+pipenames:
+first:
+a
+b
+input:
+a
+c

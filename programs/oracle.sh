@@ -45,6 +45,8 @@
 #   pipediffers:               (optional -- see below)
 #   tworoutes:                 (optional -- see below)
 #   pipenames:                 (optional -- see below)
+#   first:                     (optional -- a second input, see below)
+#   ...the first operand, up to the `input:` line...
 #   input:
 #   ...everything after this line is the input...
 #
@@ -53,6 +55,29 @@
 # only way to write the `a\`, `i\` and `c\` commands: their text begins on the
 # line after the backslash, and the BSD sed this is held against does not take
 # the `-e 'a\' -e 'text'` spelling that GNU does.
+#
+# ---------------------------------------------------------------------------
+# Two inputs
+#
+# **`diff` generalised this the way `sha256sum` generalised it before**: the
+# harness ran one input because every tool it had been asked about read one.
+# `diff` holds two and computes a relationship between them, so a case may
+# carry a `first:` section, and the tool is then run over both -- `first.txt`
+# and the input, in that order.
+#
+# The two routes stay what they were: the *second* operand is the one that
+# arrives on standard input, named `-`, which is what a pipe into a diff means.
+# `firstnonewline:` says the first operand's last line has no newline, the way
+# `nonewline:` already does for the input.
+#
+# ---------------------------------------------------------------------------
+# The exit status is part of the answer
+#
+# Compared alongside the bytes, and `diff` is why: its status is documented
+# behaviour -- `0` the same, `1` different, `2` trouble -- rather than the
+# `0` or `1` every tool here happened to agree on without anybody checking.
+# A program can print the right bytes and answer the wrong status, and until
+# this was added nothing here would have noticed.
 #
 # ---------------------------------------------------------------------------
 # Both ways in
@@ -120,6 +145,14 @@ fi
 field() { awk -v k="$1" '$0 ~ "^" k ":" { sub("^" k ": *", ""); print; exit }' "$2"; }
 has()   { awk -v k="$1" '$0 ~ "^" k ":" { found = 1 } END { exit !found }' "$2"; }
 body()  { awk 'seen { print } /^input:$/ { seen = 1 }' "$1"; }
+first() { awk '/^input:$/ { exit } seen { print } /^first:$/ { seen = 1 }' "$1"; }
+
+# awk's print puts a newline back on the last line. Where the case says there
+# was none, take it off again.
+strip_newline() {
+    printf '%s' "$(cat "$1")" > "$1.trimmed"
+    mv "$1.trimmed" "$1"
+}
 
 run_case() {
     file=$1
@@ -127,18 +160,33 @@ run_case() {
 
     body "$file" > "$work/in.txt"
     if has nonewline "$file"; then
-        # awk's print added one; take it back off.
-        printf '%s' "$(cat "$work/in.txt")" > "$work/in2.txt"
-        mv "$work/in2.txt" "$work/in.txt"
+        strip_newline "$work/in.txt"
     fi
 
-    eval "\"\$oracle\" $args \"\$work/in.txt\"" > "$work/oracle.out" 2>&1
+    # One operand or two. The second is the one a pipe stands in for, because
+    # that is what `cat new | diff old -` means.
+    if has first "$file"; then
+        first "$file" > "$work/first.txt"
+        if has firstnonewline "$file"; then
+            strip_newline "$work/first.txt"
+        fi
+        operands="\"\$work/first.txt\" \"\$work/in.txt\""
+        piped="\"\$work/first.txt\" -"
+    else
+        operands="\"\$work/in.txt\""
+        piped=""
+    fi
 
-    eval "\"\$root/bin/solvm\" \"\$root/programs/$tool.sob\" $args \"\$work/in.txt\"" \
+    eval "\"\$oracle\" $args $operands" > "$work/oracle.out" 2>&1
+    oracle_status=$?
+
+    eval "\"\$root/bin/solvm\" \"\$root/programs/$tool.sob\" $args $operands" \
         > "$work/file.out" 2>&1
+    file_status=$?
 
-    eval "\"\$root/bin/solvm\" \"\$root/programs/$tool.sob\" $args" \
+    eval "\"\$root/bin/solvm\" \"\$root/programs/$tool.sob\" $args $piped" \
         < "$work/in.txt" > "$work/pipe.out" 2>&1
+    pipe_status=$?
 }
 
 report_diff() {
@@ -200,14 +248,26 @@ for f in "$here"/agree/*.case; do
         continue
     fi
 
-    if cmp -s "$work/oracle.out" "$work/file.out"; then
-        printf '  same      %s\n' "$name"
-        same=$((same + 1))
-    else
+    if ! cmp -s "$work/oracle.out" "$work/file.out"; then
         printf '  DIFFERS   %s\n' "$name"
         printf '            args: %s\n' "$(field args "$f")"
         report_diff "$work/file.out"
         news=$((news + 1))
+    elif [ "$file_status" -ne "$oracle_status" ]; then
+        # The bytes agreed and the answer did not. Reported apart from a
+        # difference in the output because it is a different kind of wrong:
+        # a caller testing the status is told the opposite of the truth by a
+        # program whose output is correct.
+        printf '  STATUS    %s -- same bytes, exit %s against the oracle'\''s %s\n' \
+            "$name" "$file_status" "$oracle_status"
+        news=$((news + 1))
+    elif [ "$pipe_status" -ne "$file_status" ]; then
+        printf '  STATUS    %s -- named file exits %s and the pipe %s\n' \
+            "$name" "$file_status" "$pipe_status"
+        news=$((news + 1))
+    else
+        printf '  same      %s\n' "$name"
+        same=$((same + 1))
     fi
 done
 
