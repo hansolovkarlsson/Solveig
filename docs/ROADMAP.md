@@ -481,6 +481,25 @@ What is deliberately *not* promised is reading old versions. A loader that
 handled two formats would double what the verifier has to be right about, and
 the thing it would buy — not recompiling — is worth less than that.
 
+**And on 2026-09-01 this stopped being a policy this repository keeps and became
+one it states.** The difference is not academic: everything above was true of
+`solvm`'s own past, and a producer *outside* this repository could read the
+equality in the source without knowing whether it was a rule or an accident of
+the reader. A rule nobody has written down cannot be relied on, because it can
+change without anybody noticing they have broken it.
+
+So it is written down twice, for the two audiences:
+[BYTECODE.md](BYTECODE.md#the-format-version-and-what-it-promises) beside the
+format, and [PRODUCING.md](PRODUCING.md#the-version-and-what-it-promises-you)
+for whoever emits one. **Format 15 will refuse 14 and everything before it, and
+14 refuses 15** — the check is an equality rather than a floor, so a newer file
+is exactly as unreadable as an older one. It needed no code; the behaviour was
+already that, verified by handing `solvm` files claiming 13 and 15.
+
+This entry stays here rather than closing, because it is still a limitation: it
+is the *chosen* kind, and 6.42 asked what it promised rather than asking for it
+to change.
+
 ---
 
 ### 3.5 Recursion is limited to about 254 levels

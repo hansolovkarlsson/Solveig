@@ -11,6 +11,98 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-01 (closing) — fifty-four commits, and the day this repository got a reader
+
+Thirteen entries below this one, and they stay where they are: several call
+themselves the day's account and were wrong about that, which is the shape the
+2026-08-31 close already recorded and is now a habit worth naming rather than
+repeating. This is the account of the whole of it.
+
+### What shipped
+
+| | |
+| --- | --- |
+| [3.23](COMPLETED.md#323-nothing-checks-the-pages-that-are-actually-published--done) | the published pages, checked — [site.sh](../programs/site.sh) |
+| [6.41](COMPLETED.md#641-a-path-that-stops-existing-is-an-error-rather-than-an-answer--done) | a path that is not there answers nil, and `tail -f` survives a rotation |
+| [6.39](COMPLETED.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file--done) | `system:fileId`, and the line `tail -f` was losing |
+| [6.42](COMPLETED.md#642-a-second-producer-of-sob-has-no-contract-to-build-against--done) | opened from outside, and closed the same day |
+| [lib/re.sol](../lib/re.sol) | POSIX basic and extended, groups and back-references; `pattern.sol` retired |
+| [programs/awk.sol](../programs/awk.sol) | the nineteenth program, ten cases agreeing with the tool |
+| [docs/PRODUCING.md](PRODUCING.md) | what a producer must get right beyond the grammar |
+| a link check, a grammar check, a site check | three things nothing had held before |
+
+144 messages, up from 143. The roadmap's open list emptied four times.
+
+### The day had one lesson and learned it eight ways
+
+**Every real defect came from comparison against something this repository did
+not write. None came from a test written from what its author believed.**
+
+- `tail -f` died on a rotation — found by driving it against `/usr/bin/tail`.
+- `sed` read `\(` as two literal parentheses and its header said it would not —
+  found by running the form the header described.
+- `getline < "file"` parsed as a comparison and read standard input — the same
+  defect, ten hours later, in a file written after the rule about it.
+- Eleven links were 404s on the published site — found by reading rendered
+  `href`s, not by any check.
+- 263 changelog headings had not reached the site since 0.20.0 — found by
+  counting what the site rendered against what the file held.
+- `solas` emitted bytecode its own verifier refused — found by generating
+  programs until it refused, while writing limits down.
+- The dictionary literal's limit was half what its message implied — the same
+  way.
+- And an outside reader found four more in an afternoon.
+
+### Five throwaways were wrong, each reproducibly
+
+The morning's fence rule invented a finding. The afternoon's man-page
+measurement ran two experiments as one and had me write *the page is wrong about
+its own flag* in bold. The evening's link checker reported *0 dead* on a site
+with ten 404s. A single-run 15% was noise. A benchmark pattern was the worst
+case and I reported it as typical.
+
+**None of the failures was in the thing being measured.** [method.md](method.md)
+gained three rules from that, and the third is the one that generalises: *a
+throwaway that measures something the documents will state is not a throwaway.*
+
+### And four checks of mine had holes
+
+The link checker skipped links with no fragment, on my reasoning that *nothing
+here has got one wrong* — three had been broken all along. The same checker
+could not see the hole deleting a file made. `expect.sol` accepted any claim
+whose first token matched, so `; #5` satisfied `#5 anything at all`. And
+`site.sh` reported phantom faults three times, which I answered with a
+five-second retry — a guess, wrong within the hour, when the deploy status was
+sitting in an API.
+
+**Twice the stated reason was an argument from absence.**
+[design.md](design.md#what-the-language-is-for) rules that out for language
+features. Nothing had thought to rule it out for checkers, and that is the
+sentence to carry.
+
+### The outside reader is the thing that actually changed
+
+Three questions, one afternoon, no expertise required — and they moved a
+cheatsheet row, a notation, a checker's matching rule, a grammar nothing had
+verified, a compiler emitting invalid bytecode, a limit off by a factor of two,
+one sentence standing for thirty-two faults, and a format version that was a
+habit rather than a promise.
+
+Every check here was written by the person whose work it checks. That is the
+structural fact the day exposed, and no amount of care inside the repository
+substitutes for somebody who does not already know what the answer is supposed
+to be.
+
+### Where it leaves things
+
+The roadmap is empty. Two candidates are parked on a decision rather than on
+work: `solex` and `yax`, the lex and yacc pair emitting Solveig, whose
+discussion was deliberately deferred until awk existed — it does now; and
+predicate logic, which [ideas.md](ideas.md#programs-that-would-press-on-something)
+has recommended since August as the sharpest single finding still available.
+
+---
+
 ## 2026-09-01 (thirteenth) — a promise that already existed, and an entry that closed the day it opened
 
 The last call in
