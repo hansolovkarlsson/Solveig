@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### diff, and the corpus that agreed with a wrong rule — `pending`, 2026-09-02
+### diff, and the corpus that agreed with a wrong rule — `ab56576`, 2026-09-02
 
 **The language answers 144<!--count messages--> messages**, unchanged, and
 `.sob` files are format version 14. [diff](../programs/diff.sol) is the
