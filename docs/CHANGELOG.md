@@ -37,6 +37,24 @@ of](method.md#an-author-written-corpus-tests-what-its-author-thought-of) with a
 generator as the second author, which is the cheapest second author available
 to a tool that has an oracle.
 
+**And then the first pair of real files disagreed**, an hour after the sweep
+reported nothing — this repository's own `docs/method.md` at two revisions.
+Where a line inside an inserted block equals the line at the seam, the
+insertion can be placed as one run or split around that line for **the same
+number of edits**. The tool splits and this program does not, and neither is
+wrong.
+
+[programs/diff/apply.sh](../programs/diff/apply.sh) is what that produced, and
+it asks a different question from the oracle: it writes the unified diff, hands
+it to **`patch(1)`**, and compares the result with the second file. Over sixty
+pairs of real files at two revisions: **60 of 60 reproduced exactly, 48
+byte-identical to the tool, 12 not, and all 12 the same cost.** Neither the
+corpus nor the generator could have found the divergence -- the sweep mutates
+one line at a time and the shape needed is a block inserted whole -- and it
+does not reduce to a small case, because the tool's algorithm makes a global
+choice. **A tool with an oracle can still want a check that is not the
+oracle.**
+
 **And the oracle disagrees with itself.** Under `-i`, on input holding no
 uppercase at all, `/usr/bin/diff` picks a different one of two equally minimal
 answers than it picks without the flag -- 41 runs in 400 under `-i`, none

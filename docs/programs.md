@@ -2115,10 +2115,32 @@ documented behaviour rather than a `0` or `1` nobody had checked. Both are in
 the harness now, for every program it runs.
 
 Beyond the corpus, a random sweep of 2,400 runs over six option forms and files
-of up to forty lines: **zero disagreements**. The one divergence that remains is
-`-i`, where the tool disagrees with *itself* — on input holding no uppercase at
-all it picks a different one of two equally minimal answers than it picks
-without the flag, and this program picks the same one either way.
+of up to forty lines: **zero disagreements** — and that sentence was written an
+hour before the first pair of real files, which disagreed.
+
+**Two answers can both be right, and on real files they often are.** Where a
+line inside an inserted block equals the line at the seam, the insertion can be
+placed as one run or split around that line for the same number of edits. The
+tool splits and this program does not.
+[programs/diff/apply.sh](../programs/diff/apply.sh) counts it over sixty pairs
+of real files at two revisions of this repository: **48 byte-identical to the
+tool, 12 not, and in every one of the 12 the two answers cost the same.**
+
+So the check that matters is not byte equality. `apply.sh` writes our unified
+diff, hands it to **`patch(1)`**, and compares the result with the second file:
+**60 of 60 reproduced it exactly.** That is the property — *is this the diff
+from A to B* — where the oracle answers *is this the tool's diff*.
+
+Neither the corpus nor the sweep could have found this. The sweep mutates one
+line at a time and the shape needed is a block inserted whole; and it does not
+reduce — no window of thirty lines either side reproduces it, because the
+tool's algorithm makes a global choice. **It cannot be a corpus case**, which
+is what `apply.sh` is for.
+
+The one divergence a generator *did* find is `-i`, where the tool disagrees
+with **itself**: on input holding no uppercase at all it picks a different one
+of two equally minimal answers than it picks without the flag, and this program
+picks the same one either way.
 
 ### Two findings about standard input that nothing predicted
 

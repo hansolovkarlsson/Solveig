@@ -64,6 +64,47 @@ the cheapest second author there is for a tool that already has an oracle:
 nothing to find, nothing to read, and it lands on the cases nobody would write
 on purpose because it does not know there is a purpose.
 
+### And an hour later the first real file pair disagreed
+
+**The sentence *2,400 runs, zero disagreements* was written an hour before
+anything real was put through this.** The first pair — `docs/method.md` at two
+revisions, out of this repository's own history — disagreed with the tool.
+
+Both answers are 33 insertions. Where a line inside an inserted block equals
+the line at the seam, the insertion can be placed as one run or split around
+that line for the same cost; the tool splits and this program does not. On
+sixty pairs of real files: **48 byte-identical, 12 not, and all 12 the same
+cost.** One pair in five.
+
+**The corpus and the generator were blind in the same direction**, which is the
+finding. The sweep was written *because* an author-written corpus tests what
+its author thought of — and it mutates one line at a time, where the shape
+needed is a **block** inserted whole with a line inside it matching the seam.
+That is what editing prose does every time and what nobody constructs on
+purpose. It does not reduce either: no window of thirty lines either side
+reproduces it, because the tool's algorithm makes a global choice, so it cannot
+be a corpus case at all.
+
+[method.md](method.md#an-enumeration-that-looks-complete-is-not-a-proof) had
+the shape already, about the four states of a pipe. What is new is that it
+happened to the *remedy*: a generator is a second author and it has blind spots
+of its own, and the third author has to be data somebody produced for their own
+reasons.
+
+So [apply.sh](../programs/diff/apply.sh) asks a different question. It writes
+the unified diff, hands it to **`patch(1)`** and compares the result with the
+second file — *is this the diff from A to B*, where the oracle asks *is this
+the tool's diff*. **60 of 60.** The moment two right answers exist, byte
+equality with one of them stops being the check that matters.
+
+**And one reading was retracted on the way.** A shrinker that drifted produced
+a pair where the tool appeared to use 232 edits against our 228 -- which would
+have meant the tool was not minimal. It did not reproduce: 47,991 generated
+pairs later the tool was never above the minimum, and the input that produced
+the reading was gone. It is recorded here because the temptation was to keep
+the more interesting number, and *re-running a wrong experiment is not
+evidence* cuts both ways -- a result that cannot be re-run is not one either.
+
 ### The oracle turned out to be two things at once
 
 Under `-i`, on input holding **no uppercase at all**, `/usr/bin/diff` picks a

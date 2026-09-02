@@ -281,6 +281,40 @@ times over. It is the reason the corpus is not the last word:
   found seven defects that eighty-three author-written claims had missed, and
   the ratio here was two in sixty.
 
+## A generator is a second author, and it has blind spots too
+
+**The remedy for an author-written corpus is a generator, and on 2026-09-02 the
+generator was blind in the same direction as the corpus.**
+
+`diff.sol`'s corpus is sixteen hand-written cases and all sixteen agreed with a
+wrong rule for where an empty range is written in a unified header, because
+every one of them put its empty range where the simple rule and the real one
+give the same answer. A random sweep caught that -- 44 disagreements in 1,050
+runs -- and then reported **2,400 runs, zero** after the fix.
+
+**The first pair of real files disagreed anyway**, an hour later:
+`docs/method.md` at two revisions. Where a line inside an inserted block equals
+the line at the seam, an insertion can be placed as one run or split around
+that line for the same number of edits. One real pair in five does it. The
+sweep could not: it mutates *one line at a time*, and the shape needs a
+**block** inserted whole -- which is what editing prose does every time and
+what nobody constructs on purpose.
+
+**So the ladder has three rungs, not two.** An author's cases test what the
+author thought of. A generator tests what its *generator* can produce, which is
+a different blindness and not a smaller one. Data somebody made for their own
+reasons tests neither -- and this repository's own git history is sixty pairs
+of it, free.
+
+**And when two answers are both right, byte equality is the wrong check.**
+Neither answer above is a defect, so the oracle cannot settle it and the
+disagreement is not news. What settles it is the property:
+[apply.sh](../programs/diff/apply.sh) hands our unified diff to `patch(1)` and
+compares the result with the second file -- *is this the diff from A to B*,
+where the oracle asks *is this the tool's diff*. **A program with an oracle can
+still want a check that is not the oracle**, and the moment two right answers
+exist it needs one.
+
 ## A program that does not stop can still be checked — give it a deadline
 
 **`tail -f` was nearly left out on the grounds that an oracle cannot check a

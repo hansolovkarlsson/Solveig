@@ -5040,6 +5040,29 @@ of](method.md#an-author-written-corpus-tests-what-its-author-thought-of) with a
 second author available for a tool that has an oracle: no vectors to find, no
 specification to read.
 
+**And then the first pair of *real* files disagreed**, an hour after that
+sentence was written — this repository's own `docs/method.md` at two revisions.
+Where a line inside an inserted block equals the line at the seam, the
+insertion can be placed as one run or split around that line for **the same
+number of edits**, and the tool splits where this program does not. Over sixty
+pairs of real files at two revisions: 48 byte-identical, 12 not, and all 12 the
+same cost.
+
+**The generator could not have found it.** It mutates one line at a time, and
+the shape needed is a *block* inserted whole where a line inside it matches the
+seam — which is what editing prose does every time and what nobody constructs
+on purpose. Nor does it reduce: no window of thirty lines either side
+reproduces it, because the tool's algorithm makes a global choice. So the sweep
+and the corpus were blind in the same direction, and **the second author has to
+be real data rather than more generated data.**
+
+What answers it is a third judge. `programs/diff/apply.sh` writes the unified
+diff, hands it to **`patch(1)`** and compares the result with the second file:
+**60 of 60**. The property is *is this the diff from A to B*, where the oracle
+answers *is this the tool's diff* — and the moment two right answers exist, the
+second question stops being the interesting one. **A tool with an oracle can
+still want a check that is not the oracle.**
+
 **And the oracle turned out to disagree with itself.** Under `-i`, on input
 holding no uppercase at all, `/usr/bin/diff` picks a different one of two
 equally minimal answers than it picks without the flag -- 41 runs in 400 under

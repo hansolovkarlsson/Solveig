@@ -712,6 +712,42 @@ demonstrate := { | dir, one, two |
 ; weaker one than it looks: it says nothing about inputs this generator cannot
 ; produce, and `-i` is excluded from it, for the reason below.
 ;
+; ### And the sentence above was written an hour before the first real file
+;
+; **The first pair of real files disagreed** -- this repository's own
+; `docs/method.md` at two revisions -- and the sweep had said nothing, twice
+; over.
+;
+; Where a line inside an inserted block equals the line at the seam, the
+; insertion can be placed as one run or split around that line, and **both are
+; the same number of edits.** The tool splits and this program does not.
+; [programs/diff/apply.sh](diff/apply.sh) puts a number on it: over sixty pairs
+; of real files at two revisions, **48 are byte-identical to the tool and 12 are
+; not, and in every one of the 12 the two answers have the same edit count.**
+;
+; **The generator could not have found it and neither could the corpus.** The
+; sweep mutates one line at a time, and the shape needed is a *block* inserted
+; whole where a line inside it matches the seam -- which is what editing prose
+; does every time and what nobody constructs on purpose. And it does not reduce:
+; no window of thirty lines either side reproduces it, because the tool's
+; algorithm makes a global choice. **So it cannot be a corpus case**, which is
+; why `apply.sh` exists.
+;
+; This is [an enumeration that looks complete is not a
+; proof](../docs/method.md#an-enumeration-that-looks-complete-is-not-a-proof)
+; happening to the sweep that was written *because* the corpus had the same
+; problem. Two authors, both blind in the same direction, and the thing that
+; saw past them was a file somebody had actually edited.
+;
+; ### So the check that matters is not byte equality
+;
+; **`patch(1)` is a third judge and it does not care which minimal script it is
+; handed.** [apply.sh](diff/apply.sh) writes our unified diff, applies it, and
+; compares the result with the second file: **60 of 60 real pairs reproduced it
+; exactly.** That is the property -- *is this the diff from A to B* -- where the
+; oracle answers *is this the tool's diff*, and the second question stopped
+; being the interesting one the moment two right answers turned up.
+;
 ; ### And the tool disagrees with itself under `-i`
 ;
 ; **Held as a divergence rather than chased**, in
@@ -732,6 +768,9 @@ demonstrate := { | dir, one, two |
 ; it would mean reproducing a tie-break the oracle does not apply consistently
 ; to itself. **An oracle can be wrong, and this is the first time one here has
 ; been caught being two things at once.**
+;
+; It is also **not** the only divergence, which a first draft of this file said
+; it was -- see above. The `-i` one is the only one a *generator* found.
 ;
 ; ---------------------------------------------------------------------------
 ; And two things nothing predicted, both about standard input
