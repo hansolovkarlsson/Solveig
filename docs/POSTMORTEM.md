@@ -9,14 +9,14 @@ shipped. This is the failures.
 
 ## Scope
 
-Seventeen, from three days, in four cohorts that failed for four different
+Eighteen, from three days, in four cohorts that failed for four different
 reasons:
 
 - **In the compiler** — six, five of which were latent from 0.1.0 and 0.2.0.
 - **In the documents** — four: three an edit that reported success and changed
   nothing, and one where no edit was attempted at all.
 - **In the programs** — four, found by the first real use of a thing.
-- **In the reasoning** — three, where something true was written down as
+- **In the reasoning** — four, where something true was written down as
   something else and had to be retracted.
 
 ---
@@ -408,6 +408,43 @@ the roles swapped — there, a claim was published where somebody could go back
 and disagree with it, and that is what saved it. **An inference is recorded with
 the question it answered, or it is asked instead.**
 
+### 18. An impossibility asserted in three places that was not one — 2026-09-02
+
+**What.** `README.md`, `proto/src/lex.c` and [COMPLETED.md](COMPLETED.md) 12 all
+said, in nearly the same words, that a dialect cannot declare `|` because
+`{ a | b }` would then have two readings. Entry 12 put it as *"naming the
+ambiguity does not decide it"*. It can be declared. A second session built it —
+two hunks in `reader.c`, **no change to the lexer** — and the whole suite passed
+with every block form intact.
+
+**Cause.** Two questions run together and one answer given to both. *May `|`
+join the operator characters?* is about the character set, and the answer is no
+and always was: characters in that set run together, so a `|` there would make
+`|=` a spelling and `{ a | b }` a guess. *May `|` be declared?* is a different
+question — a bar is a token of its own, and a parser may look one up without it
+entering the set at all. Answering the first was taken to have answered the
+second, in three files, for nine versions.
+
+**And the ambiguity really does have a resolution**, which is the part that
+should have been visible: `{ a | b }` is a parameter and a body **by rule**, and
+a bar is an operator everywhere a block is not reading one of its own, escaped a
+bracket down as `{ (a) | b }`. **Proto adopted exactly that shape of rule for
+`#[k = v]` in 0.12.0, four hours before this was disproved** — a context
+outranking a declaration in one narrow place. The mechanism was in the language
+and in that morning's commit message, and the argument against `|` was not
+re-read in the light of it.
+
+**The cause was also misattributed in the other direction**, and that belongs
+beside it: the session that built it reported having removed *Solveig's*
+constraint. It removed nothing of Solveig's. `lex.c` was untouched, `|` is still
+`PROTO_TOK_BAR`, and Solveig has the identical `{ a | b }` and settles it the
+identical way. **What stands in the way of `|` is Proto's own block syntax**,
+and neither reading of the problem had said so.
+
+**Found by** somebody building the thing that could not be built. Entry 11's
+lesson, second instance and better: a claim was written down in three places
+where somebody could go back and disagree with it, and somebody did.
+
 ---
 
 ## The tally
@@ -425,8 +462,9 @@ the question it answered, or it is asked instead.**
 | The user saying plainly what had been inferred | **1** |
 | Checking a document's claim before repeating it elsewhere | **1** |
 | Being asked whether a survey had been complete | **2** |
+| Somebody building the thing that could not be built | **1** |
 
-**Two of seventeen were found by tests**, and one of those two was a broken
+**Two of eighteen were found by tests**, and one of those two was a broken
 test.
 Five came from the four programs written in the language, and three more came
 from reading something rather than running it.

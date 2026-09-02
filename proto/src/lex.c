@@ -33,10 +33,17 @@ static bool is_alnum(char c) { return is_alpha(c) || is_digit(c); }
 /* What may run together into one operator token.
  *
  * A single `|` is not here and cannot be: it separates a block's parameters
- * from its body, and a dialect that could spell an operator `|` would be a
- * dialect in which `{ a | b }` has two readings. `:` and `.` are out for the
- * same kind of reason. A dialect gets the characters that mean nothing until it
- * says so.
+ * from its body, and a character in this set runs together with its neighbours,
+ * so a `|` here would make `|=` a spelling and `{ a | b }` a guess. `:` and `.`
+ * are out for the same kind of reason. A dialect gets the characters that mean
+ * nothing until it says so.
+ *
+ * **That is about the character set and not about `|` being declarable**, which
+ * is a distinction this comment used to blur and docs/COMPLETED.md 12 used to
+ * get wrong. A bar is a token in its own right; a parser may look one up
+ * without it ever entering the set above, and the ambiguity a block has is
+ * settled by a rule rather than by a spelling. Shown to work and not kept --
+ * docs/ROADMAP.md says what it would cost.
  *
  * `||` *is* available, and is started by the case below rather than by this
  * set, because it is two bars and not a bar. Nothing legal was given up for it:

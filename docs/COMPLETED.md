@@ -197,6 +197,35 @@ reach a line the declaration is not on. If the quotes are instead meant to make
 *new* spellings lexable, they are `@token` wearing different clothes: the lexer
 would have to read the header before it could lex the body.
 
+**Retracted on 2026-09-02: one sentence above claims more than it can.**
+*"Naming the ambiguity does not decide it"* is true of naming and was written as
+though it were true of everything. **A rule decides it**, and Proto had the
+mechanism before anybody looked: `{ a | b }` is a parameter and a body **by
+rule**, in every module, and a declared `|` is an operator in every position a
+block is not reading a bar of its own. Escaped one bracket down, `{ (a) | b }`,
+exactly as `#[(b = c) = d]` escapes the dictionary rule of the same shape landed
+in 0.12.0 — *four hours before this was disproved, and by the same argument.*
+
+Demonstrated by a working change: two hunks in `reader.c`, no change to the
+lexer at all, the whole suite green and every block form intact. It was not kept
+— see [ROADMAP.md](ROADMAP.md), which records what it would cost — but the
+claim it disproves does not depend on keeping it.
+
+**What still stands, and it is most of the entry.** `@token` and the quoted
+spelling genuinely do not reach the problem, for the reason given: the
+declaration was never ambiguous, and a quote cannot reach a line the declaration
+is not on. And `|` is still not an *operator character* and cannot become one —
+what changed is that it need not be one to be declarable, being a token in its
+own right that the parser may look up. The property the entry defends —
+**any tool can tokenise any `.pro` without knowing what a dialect is** — is
+untouched, which is why the demonstration never went near `lex.c`.
+
+**And the cause was misattributed all along, in both directions.** This entry
+blamed the ambiguity and stopped; a later reading blamed Solveig and was worse.
+Neither is right. What stands in the way of `|` is **Proto's own block syntax**,
+which Solveig shares and settles the same way. Nothing about `|` was ever
+Solveig's constraint to remove.
+
 The three things being run together are worth separating, because the confusion
 is natural and the names do not help: the **character** in the source, the
 **token** the lexer makes of it, and the **declaration** that gives a token's

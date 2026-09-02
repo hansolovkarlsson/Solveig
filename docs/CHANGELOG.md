@@ -10,6 +10,40 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### `|` can be declared after all — a retraction — 2026-09-02
+
+**No version, and nothing in the compiler changed.** Three documents said
+something that is not true, and now say what is.
+
+`README.md`, `proto/src/lex.c` and [COMPLETED.md](COMPLETED.md) 12 all held, in
+nearly the same words, that a dialect cannot declare `|` because `{ a | b }`
+would then have two readings. Entry 12 put it as *"naming the ambiguity does not
+decide it"*. **A rule decides it**, and Proto had the mechanism: a block reads
+its parameters and temporaries first, so `{ a | b }` is a parameter and a body
+*by rule*, a declared `|` is an operator everywhere a block is not reading a bar
+of its own, and `{ (a) | b }` escapes — which is `#[(b = c) = d]` in a different
+bracket, landed in 0.12.0 **four hours earlier**.
+
+**Two questions had been run together and given one answer.** *May `|` join the
+operator characters?* — no, and that stands: characters in that set run
+together, so a `|` there would make `|=` a spelling and `{ a | b }` a guess.
+*May `|` be declared?* — a different question, since a bar is a token of its own
+and a parser may look one up without it entering the set at all.
+
+**Demonstrated rather than argued**, by a second session: two hunks in
+`reader.c`, no change to the lexer, the suite green and every block form intact.
+Reverted rather than kept — it arrived uncommitted in a shared checkout, and
+what it costs had not been looked at. [ROADMAP.md](ROADMAP.md) is that looking,
+including the reason not to hurry: 0.13.0 has just settled the repository on one
+spelling per operation with `\` for bitwise or *because* `|` was unavailable,
+and **a spelling should be changed once.**
+
+**And the cause was misattributed in both directions.** The entry blamed the
+ambiguity and stopped; the session that built it reported removing *Solveig's*
+constraint and had removed nothing of Solveig's — Solveig has the identical
+`{ a | b }` and settles it the identical way. What stands in the way of `|` is
+**Proto's own block syntax**. [POSTMORTEM.md](POSTMORTEM.md) 18.
+
 ### Seven templates that Solveig already had messages for — 2026-09-02
 
 **No version, and nothing in the compiler changed.** Two dialect files were

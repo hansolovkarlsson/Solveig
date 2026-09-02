@@ -124,9 +124,14 @@ An operator is written out of `+ - * / < > = ! & ^ % ~ ? \` , run together as fa
 as they go — so a dialect can declare `<=` without `<` having to stop existing.
 `||` joins them as a token in its own right, taken before the bar.
 
-**A lone `|` is not among them and cannot be.** It separates a block's
-parameters from its body, and a dialect that could spell an operator `|` would
-be a dialect in which `{ a | b }` has two readings. **`||` is two bars and not a
+**A lone `|` is not among them and cannot be** — it separates a block's
+parameters from its body, so a `|` that ran together with other operator
+characters would put `|=` and `{ a | b }` in the same sentence. *That much is
+about the character set. It was written here as though it also settled whether
+`|` can be **declared**, and it does not:* a bar is a token of its own, a parser
+may look one up, and `{ a | b }` has one reading the moment a rule says so.
+[COMPLETED.md](docs/COMPLETED.md) 12 carries the retraction and
+[ROADMAP.md](docs/ROADMAP.md) what it would cost. **`||` is two bars and not a
 bar**, and a block wants a lone one everywhere it looks, so the pair could be
 handed to dialects without the single one moving at all. The bitwise `or` is
 written `\` — the bar that leans: one character, like C's, and free — and every
