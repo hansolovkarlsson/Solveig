@@ -55,8 +55,9 @@ a different direction. Measured the same way, against a hand-folded copy:
 
 **A dialect's constants cost per *use*, and this dialect's uses are outside the
 loop.** SHA-256 rotates inside sixty-four rounds of every block, so
-`#32:sub(#17)` runs 36,864 times on a 4 KB input; a ledger writes `*` and `percent` once each
-and keeps writing them once whether it has five transactions or five thousand,
+`#32:sub(#17)` runs 36,864 times on a 4 KB input; a ledger writes `*` and
+`percent` once each and keeps writing them once whether it has five
+transactions or five thousand,
 the loop over them carrying no constant at all.
 
 So the number is 5.4% or 0.19% depending on where the dialect sits, and **one

@@ -157,9 +157,9 @@ ledger, and the second line of its data is a refund.
 SHA-256 round constants as `#1116352408, #1899447441, …`. FIPS 180-4 prints them
 as `428a2f98, 71374491, …`, and `$428a2f98` is what Solveig would have taken.
 Sixty-four constants converted by hand, in the program whose first prediction
-was *the formulas will transcribe* — and they did. **The constants did not, and the
-cost never reached that program's findings**, because converting them felt like
-the work rather than like a workaround.
+was *the formulas will transcribe* — and they did. **The constants did not,
+and the cost never reached that program's findings**, because converting them
+felt like the work rather than like a workaround.
 
 **Not yet fixed.** [ROADMAP.md](ROADMAP.md) carries it, split by which of the
 four kinds each form is.
