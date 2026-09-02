@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### The first outside user, and what answering him cost — `pending`, 2026-09-01
+### The first outside user, and what answering him cost — `72a3fcb`, `8cfbdbc` and `e1dec62`, 2026-09-01
 
 **Somebody who did not write this language started emitting `.sob` from
 outside it.** Phoenix is a compiler-generator; the experiment is a bytecode
