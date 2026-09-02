@@ -165,6 +165,10 @@ felt like the work rather than like a workaround.
 base survives rather than being normalised — `$FF08` does not come back as
 `#65288`, which is the whole point of writing it in hexadecimal.
 
+**The whole survey, sorted by kind and with what each decision conceded, is
+[COMPLETED.md](COMPLETED.md) 15.** What follows is only the part that belongs in
+a postmortem.
+
 **One of them was mis-sorted here**, and the correction is the part worth
 keeping. `#[a = b]` was called free on the strength of the lexer, and the lexer
 was never the obstacle: Solveig writes `pair = sum "=" expression` and settles

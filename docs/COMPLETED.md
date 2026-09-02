@@ -335,6 +335,78 @@ of the module using it — which `programs/digest` noted the old diagnostic
 enforced sideways without ever stating — is stated in the README under *A
 dialect is a file*, where somebody would look for it.
 
+## 15. Solveig's spellings, closed as far as they close — done, 0.11.0 to 0.13.0
+
+**The problem.** [GRAMMAR.md](GRAMMAR.md) said everything but `operator` was
+Solveig's own spelling, *so that a file can be read by somebody who knows
+Solveig without a second set of habits*, and [README.md](../README.md) went
+further: a module declaring nothing *reads exactly as Solveig does today*.
+Comparing every form in Solveig's grammar against Proto, one file each, gives
+**nine divergences out of eighteen**. Both sentences were false, and a person
+who knows Solveig met the first of them at `#-5`.
+
+**How it was found is half the entry.** `programs/ledger` found *one* of the
+nine — `#-1225`, at the second line of its data, a ledger being the first
+program here with an ordinary negative value. It was written up as a missing
+integer literal and would have stayed that size. The other eight came from being
+asked whether that survey had been complete. It had not been, and nothing except
+the question would have said so.
+
+**The options.** Close what closes and restate the claim, or restate the claim
+and close nothing. The second was never serious once the list existed: four of
+the nine cost nothing at all, and one of them was a defect rather than a gap.
+
+**Why this shape.** The nine sorted into five kinds, and sorting them was most
+of the work:
+
+| | |
+| --- | --- |
+| **Free** — `#-45`, `$FF08`, `1e10` | Nothing in Proto objected. Nothing else may begin with `#`, `$` was not a token at all, and a float simply stopped at its fraction. |
+| **A defect, not a gap** — `"\q"` | The only difference pointing the *other* way. Proto took any character after a backslash; Solveig has five escapes. So a `.pro` compiled clean and emitted a `.sol` `solas` refused — **Proto emitting invalid Solveig**, which is the single failure the map and the run-every-example discipline exist to prevent, and which neither caught because no example has a bad escape. |
+| **A parse rule** — `#[a = b]` | Called free on the strength of the lexer and was not. Solveig writes `pair = sum "=" expression` and settles the ambiguity by *level*; Proto cannot copy that, a dialect being free to declare `=` anywhere and `lib/clike.pro` putting it at 10. |
+| **A lexical split with a bill** — `%1011` | `%` is an operator character here and is not one in Solveig, which has no `%` at all. |
+| **Already decided, or impossible** — `( \| t \| … )`, `@expr`, `-3` | A rough edge, a refusal, and a thing that cannot be had. |
+
+**The two that were decisions, and what each conceded.**
+
+`#[a = b]` took the rule that **a top-level `=` inside a dictionary is the
+separator, whatever the header said** — the first place in this language where a
+context outranks a declaration. What keeps it a rule rather than `=` being taken
+away is that it stops at the first bracket: `#[(b = c) = d]` still uses the
+declared one. It is a *parser* rule, so nothing about tokenising a `.pro`
+without knowing its dialect changed.
+
+`%1011` took the rule that **a `%` immediately before `0` or `1` begins a
+number**, and everything else is the operator. No declaration is consulted, so
+again the tokenising line held. **But this is the first spelling here that took
+something from what a dialect may declare**: a module declaring `%` can no
+longer write `a %1` without a space. Entry 12 above held `||` up as the shape
+any future request should take — *grow the fixed vocabulary rather than making
+the vocabulary declarable* — and `||` cost only `{ || … }` out of the core. This
+is the second instance of that shape and the first to bill a dialect. Small,
+unused in this repository, and loud when it bites. **The next one might be none
+of those, and 12 should be read with this attached.**
+
+**And one that cannot be closed, which is the finding under all of it.** `-3` is
+a literal in Solveig, whose scanner gives the sign to the number outside a
+`@expr` region and treats it as the operator inside one. Proto can have neither
+half: no regions, and taking `-3` as a literal would stop `a -3` being a
+subtraction in every dialect that declares `-`. So the claim was **never
+achievable**, and 0.1.0 chose against it without recording that it had. That is
+the extensible-operator line arriving from a direction nothing had come from —
+not a dialect wanting to change the lexer, but *Solveig's own number syntax
+being uncopyable while operators stay declarable*.
+
+**What it cost.** `a %0…` and `a %1…` without a space, in any module declaring
+`%`. Nothing in the tree writes that — `%` as mod is `n % #2` throughout,
+because mod wants an integer and a bare digit is a float.
+
+**What it did not cost.** Any part of *a tool can tokenise a `.pro` without
+knowing what a dialect is*. Both new rules consult the source and no
+declaration, and the dictionary one lives in the parser. The suite went from 34
+reader checks to 60, and every example and program builds byte-identical output
+where the spelling did not change.
+
 ## Settled by a customer rather than by argument
 
 | | |

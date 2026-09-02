@@ -129,83 +129,6 @@ Still no proposal. A dialect that could say where it ends would have to say it
 per operator and per quantity, which is a type system and a larger thing than
 this project is.
 
-**Nine of Solveig's syntactic forms are not Proto's.** Found first as a missing
-integer literal, and then, on being asked whether that survey was complete, as
-nine. Solveig's grammar for numbers:
-
-```ebnf
-integer = "#" [ "-" ] digit { digit }
-        | "$" hexdigit { hexdigit }
-        | "%" bindigit { bindigit } .
-```
-
-`#-5` compiles in Solveig and is an error here. `$FF08` and `%1011` are integers
-there and nothing here. [GRAMMAR.md](GRAMMAR.md) says everything but `operator`
-is Solveig's own spelling *so that a file can be read by somebody who knows
-Solveig without a second set of habits*, and for integers that is false. Found
-by `programs/ledger`, the first program here with ordinary negative values, and
-it reaches back: `programs/digest` transcribed sixty-four SHA-256 round
-constants out of the hexadecimal FIPS 180-4 prints them in, because `$428a2f98`
-is not a thing Proto reads.
-
-**The nine sort into five kinds, and none is left undecided:**
-
-| closed in 0.11.0 | |
-| --- | --- |
-| `#-5` | Nothing else can begin with `#`, so the sign has no second reading to be confused with. |
-| `$FF08` | `$` was not a token, an operator character, or anything else. The literal now goes out as written, so a base survives rather than being normalised to decimal. |
-| `1e10`, `2.5E-3` | Float exponents, taken only when the digits are actually there — `2 e` is still two tokens. |
-| `"\q"` | The escape set, narrowed to Solveig's five. This was the one where Proto was the *permissive* one and therefore the only one that emitted Solveig `solas` rejects. |
-
-| closed in 0.12.0 | |
-| --- | --- |
-| `#[a = b]` | **Not free after all**, which is the correction this entry owes. The lexer was never the obstacle: Solveig writes `pair = sum "=" expression` and settles the ambiguity by *level*, which Proto cannot copy because a dialect may declare `=` anywhere and `lib/clike.pro` puts it at 10. The rule taken is that **a top-level `=` inside a dictionary is the separator, whatever the header said** — the one place in this language where a context outranks a declaration. It is confined to the top level of a key, so `#[(b = c) = d]` still uses the declared one, which is what makes it a rule rather than `=` being taken away. |
-
-| closed in 0.13.0 | |
-| --- | --- |
-| `%1011` | **`%` is an operator character here and is not one in Solveig**, which has no `%` at all and can give the whole character to the literal. Proto splits it: a `%` *immediately* before `0` or `1` begins a number, and a `%` before anything else — a space, a `#`, a `2`, another operator character — is the operator it always was. Still no declaration is consulted, so a tool can tokenise a `.pro` knowing nothing about its dialect. |
-
-| already decided | |
-| --- | --- |
-| `( \| t \| … )` | Temporaries in a group. In *Rough edges* below since 0.1.0; confirmed by running it rather than asserted. |
-| `@expr(…)`, `@expr{…}` | Refused, in *Not planned* below. Solveig's fixed infix region is the special case `@infix` generalises. |
-
-| forced, and never written down | |
-| --- | --- |
-| `-3` | Solveig's scanner gives the sign to the number outside a `@expr` region and treats it as the operator inside one. **Proto cannot have either half.** It has no regions, so it cannot be context-sensitive; and it cannot simply take `-3` as a literal, because then `a -3` stops being a subtraction in every dialect that declares `-`. A prefix declaration is the only reading left. |
-
-**The last one is the interesting one.** Everything above it was a token Proto
-could add, and 0.11.0 added four. `-3` is a token Proto **cannot** add without
-giving up declarable `-`, which means *everything but `operator` is Solveig's
-own spelling* was never achievable and the design chose against it in 0.1.0
-without recording that it had. That is the extensible-operator line arriving
-from a new direction — not a dialect wanting to change the lexer, but Solveig's
-own number syntax being uncopyable while operators stay declarable.
-
-Solveig has no conflict here because its operators are fixed. **Proto's are not,
-and this is the extensible-operator line arriving from a direction nothing had
-come from before** — not a dialect wanting to change the lexer, but Solveig's
-own lexer being something Proto cannot fully copy while its operators stay
-declarable.
-
-**`%1011` is the one that cost something, and it is the only spelling here that
-did.** A dialect declaring `%` can no longer write `a %0…` or `a %1…` without a
-space. Nothing in this repository does — `%` as mod is written `n % #2`, because
-mod wants an integer and a bare digit is a float — and the loss is loud rather
-than silent, `a %10` becoming a name and then a number, which is not an
-expression.
-
-**It is worth naming as a shape.** `||` in 0.9.0 grew the fixed vocabulary and
-cost only `{ || … }` out of the *core*; COMPLETED.md 12 held that up as the form
-any future request should take. This is the second instance and the first with a
-different bill: **growing the fixed vocabulary took something from what a
-dialect may declare.** Small, loud, and unused here — but the next one might not
-be, and *grow the vocabulary rather than making it declarable* should be read
-with that attached.
-
-**Two differences are left and neither is an oversight.** `@expr` is refused;
-`-3` cannot be had.
-
 ## Waiting on a customer — optional and repeated parts
 
 **Declined twice, and the second time with a reason.**
@@ -304,6 +227,22 @@ already emit anything it likes.
 
 **`@expr`.** Solveig's fixed infix region is the special case of what `@infix`
 generalises. Supporting both would be supporting two.
+
+**A signed bare number — `-3` rather than `#-3`.** Solveig's scanner gives the
+sign to the number outside a `@expr` region and treats it as the operator inside
+one. **Proto can have neither half.** It has no regions, so it cannot be
+context-sensitive; and it cannot simply take `-3` as a literal, because then
+`a -3` stops being a subtraction in every dialect that declares `-`. A prefix
+declaration is the only reading left, and `#-3` — where nothing else can begin
+with `#` — is why the *integer* keeps its sign.
+
+This is the extensible-operator line arriving from a direction nothing had come
+from: not a dialect wanting to change the lexer, but **Solveig's own number
+syntax being uncopyable while Proto's operators stay declarable.** It means
+*everything but `operator` is Solveig's own spelling* was never achievable, and
+0.1.0 chose against it without recording that it had.
+[COMPLETED.md](COMPLETED.md) 15 has the whole survey — nine differences, seven
+closed across 0.11.0 to 0.13.0, and this one and `@expr` left.
 
 ## Rough edges
 

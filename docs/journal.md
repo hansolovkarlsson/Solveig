@@ -11,11 +11,21 @@ produced no code because they were decisions.
 
 ---
 
-## 2026-09-02 — a directive removed, a spelling settled, and a segfault found by reading a sentence
+## 2026-09-02 — a directive removed, four versions, and a survey that turned out to be partial
 
-Five commits, one version, and not one of them came off the roadmap. The day
-opened with *what's next todo?* and closed having built none of the four things
-that question was answered with.
+Nineteen commits and four versions, 0.10.0 to 0.13.0.
+
+**This entry first said "five commits, one version", which was true when it was
+written and stopped being true four hours later.** It was written at the point
+the day looked finished, and the day was not; the count is corrected here rather
+than in a second entry, because there was one day. It is
+[POSTMORTEM.md](POSTMORTEM.md) 13 exactly — a number that was true when it was
+written — committed on the same afternoon that entry's lesson was being copied
+into the tally.
+
+The day opened with *what's next todo?* and built none of the four things that
+question was answered with. It closed having closed seven of nine differences
+nobody knew were there at breakfast.
 
 ### It began as a roadmap review and went somewhere else
 
@@ -130,35 +140,125 @@ four: the four whose meaning differs, plus two declared identically in both and
 three on a different rung. It is seven now, the spelling change having removed
 `~` and `\/` from the overlap.
 
-### What the tests did today
+### `make sanitize`, because the tool was already there
 
-Nothing, and that was the job. The suite reported 58, 6, 34 and 10 checks at
-the start of the day and the same after every commit but one — the segfault fix
-added the eleventh — and the point of the spelling change was precisely that the
-numbers should not move. **A control, not a detector.**
-
-The regression check added with the segfault is honest that it only guards under
-a sanitizer: whether a stale pointer lands on freed memory is the allocator's
-business, and in `test_use`'s process it does not. It fails under
+The regression check that came with the segfault only guards under a sanitizer:
+whether a stale pointer lands on freed memory is the allocator's business, and
+in `test_use`'s process it does not. It fails under
 `make test SANITIZE="-fsanitize=address"` and is clean with the fix.
 
-Which is the finding that should sting. **That invocation has been in the
+Which is the finding that should sting. **That invocation had been in the
 Makefile since the first commit and nothing had ever been run under it.** Not a
-missing test — a tool that was already there, never picked up. The suite is
-clean under `-fsanitize=address,undefined` as of tonight.
+missing test — a tool sitting in a comment, never picked up. It is a target now
+and a standing agreement in [conventions.md](conventions.md), and the suite is
+clean under `-fsanitize=address,undefined`.
+
+### The fourth program, which argued against both entries it was written for
+
+`programs/ledger` was picked to answer two roadmap items at once: the
+domain-boundary entry wanted a second program, and the folding entry wanted a
+second customer. Predictions went in first, in their own commit, so the ordering
+is in the history rather than in a claim.
+
+**Both answers went the other way.**
+
+The domain boundary is a pattern now — `digest` trapped on `+`, `ledger` on `/`
+— but the second instance narrowed what the entry may promise, twice. **Which
+operator turns traitor is not predictable from outside the domain**: this
+program predicted `*` and was bitten by `/`. And the boundary is not only at the
+domain's edge — `ratio interest to subtotal` answers `0.07` where the exact
+value is `0.074995…`, because a ledger has amounts wanting two places and rates
+wanting five, and a dialect has one scale to give.
+
+Folding got its second customer and the customer voted against: **4,258
+instructions against 4,250 hand-folded. Eight, or 0.19%**, where `digest` was
+5.4%. Identical shape, different bill, and the reason is not the dialect — *a
+dialect's constants cost per use, and this dialect's uses are outside the loop.*
+One measurement had made folding look larger than it is.
+
+### The survey was partial, which is the thing to remember about today
+
+`ledger` found that `#-1225` is an error in Proto and a valid integer in
+Solveig. That went into POSTMORTEM.md 16 as a missing integer literal, and it
+would have stayed that size if Hans had not asked whether the survey behind it
+had been complete.
+
+It had not. Comparing every form in Solveig's grammar against Proto, one file
+each, gives **nine divergences out of eighteen**. Four versions came out of that
+in an afternoon: the sign on `#-45`, `$FF08`, float exponents and the escape set
+in 0.11.0; `#[a = b]` in 0.12.0; `%1011` in 0.13.0.
+
+Three of those are worth keeping past the version numbers.
+
+**`"\q"` was the only one pointing the other way.** Every other difference was
+Proto refusing something Solveig takes — a smaller language and an honest error.
+That one was Proto *accepting* something Solveig refuses, and emitting it, so a
+`.pro` compiled clean and produced a `.sol` `solas` rejected. **Proto emitting
+invalid Solveig** is the single failure the map and the run-every-example
+discipline exist to prevent, and neither caught it, because no example has a bad
+escape.
+
+**`#[a = b]` was mis-sorted as free and was not.** The lexer was never the
+obstacle. Solveig settles what `=` means in a key by precedence *level*, which
+Proto cannot copy because a dialect may declare `=` anywhere — `lib/clike.pro`
+puts it at 10. It needed a rule saying **a context shadows a declaration**, the
+first in this language, confined to the top level of a key so that
+`#[(b = c) = d]` still uses the declared one.
+
+**`%1011` cost something, and it is the first spelling here that did.** `||` in
+0.9.0 grew the fixed vocabulary and took only `{ || … }` out of the *core*, and
+COMPLETED.md 12 held that up as the shape any future request should take. This
+is the second instance with a different bill: **growing the fixed vocabulary
+took something from what a dialect may declare.** A module declaring `%` can no
+longer write `a %1` without a space. Small, unused here, and loud — and the next
+one might be none of those.
+
+**And `-3` cannot be had at all.** Solveig's scanner gives the sign to the
+number outside a `@expr` region and treats it as the operator inside one. Proto
+has no regions and cannot take `-3` as a literal either, because then `a -3`
+stops being a subtraction in every dialect that declares `-`. So *everything but
+`operator` is Solveig's own spelling* was never achievable, and 0.1.0 chose
+against it without recording that it had.
+
+### And a last hour of putting things back the way they should have been
+
+Asked whether `lib/arith.pro` should be completed with the bitwise operators:
+**no**, and the tree makes the case rather than taste. Bitwise has one usable
+customer rather than two — `sha2.pro` cannot share a file, its `<<` being masked
+and the file standalone because it redefines `+` — and the two existing
+customers chose different rungs for `&` and `>>` against their own neighbours.
+`<=`, `>=` and `!=` have no customer at all: every one of arith's five users
+declares no operator of its own.
+
+The neighbourhood turned up something else, though. **Seven templates were
+standing in for messages Solveig already had** — `notEquals`, `lessOrEqual`,
+`greaterOrEqual`, and a `not` that `arith.pro` had been spelling plainly all
+along while `clike.pro` wrapped it. `digest` runs 920 instructions fewer, and
+what is left in `clike.pro` is three templates, each one a message cannot be.
+
+### What the tests did today
+
+Nothing, and mostly that was the job. The suite held at 58, 6, 34 and 10 while
+the spelling change went through, which is precisely what a spelling change
+should do to it — **a control, not a detector**. It ended at 58, 6, 60 and 11:
+the segfault added one, and the new spellings twenty-six.
 
 ### The number worth keeping
 
-**Nothing was found by a test, and nothing was built off the roadmap.** Four
-things were found today: two misreadings, by a person asking; one dead
-directive's real argument, by a person asking what it would mean; and one
-nine-version-old segfault, by declining to repeat a sentence without checking
-it.
+**Not one of the day's findings came from a test.** Two misreadings, by a person
+asking. One dead directive's real argument, by a person asking what it would
+mean. One nine-version-old segfault, by declining to repeat a sentence without
+checking it. And eight of the nine syntactic differences, **by a person asking
+whether the first survey had been complete** — which is the one to keep, because
+the survey was mine and I had already reported it as finished.
 
-The day also ended with the first document here that is neither an argument nor
-a grammar — [REFERENCE.md](REFERENCE.md), `dd76531`, the page you look a
-spelling up in, carrying the inventory of `lib/` that had existed only inside
-three header comments.
+The tally now counts *being asked whether a survey had been complete* as its own
+row, at two.
+
+The day also produced the first document here that is neither an argument nor a
+grammar — [REFERENCE.md](REFERENCE.md), the page you look a spelling up in,
+carrying the inventory of `lib/` that had existed only inside three header
+comments.
 
 ## 2026-09-01 — the project changed its name, and nothing else
 
