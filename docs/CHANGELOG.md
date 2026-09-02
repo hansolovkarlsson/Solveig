@@ -23,8 +23,9 @@ $FF08           is #65288
 
 **Solveig can give the whole `%` to the literal because it has no `%`
 operator.** Its `product` is `unary { ( "*" | "/" ) unary }` and nothing else,
-so `%2` there is simply an error. Proto made `%` an operator character in 0.1.0, so the two
-have to share, and the split is **immediately followed by a binary digit**:
+so `%2` there is simply an error. Proto made `%` an operator character in
+0.1.0, so the two have to share, and the split is **immediately followed by a
+binary digit**:
 
 | | |
 | --- | --- |
