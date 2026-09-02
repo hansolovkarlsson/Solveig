@@ -67,6 +67,29 @@ trap 'rm -rf "$work"' EXIT
 echo
 echo "$site against $ref"
 
+# **Whether the site has finished publishing, asked rather than guessed.**
+# Three times on 2026-09-01 this script reported headings or links missing from
+# a page that was mid-deploy, and the first mitigation was a five-second retry --
+# a number picked out of the air, and wrong on the third occasion.
+#
+# Pages here deploys through a workflow, so there is an actual signal: a `site`
+# run whose head is the commit being checked. If it has not finished, nothing
+# below can be trusted and saying so is better than reporting a fault that is
+# not there. Without `gh` the retry below is still the fallback.
+if command -v gh >/dev/null 2>&1; then
+    sha=$(git rev-parse "$ref" 2>/dev/null)
+    state=$(gh run list --limit 20 --workflow site --json headSha,status                 --jq "map(select(.headSha == \"$sha\")) | .[0].status" 2>/dev/null)
+    if [ -n "$state" ] && [ "$state" != "completed" ] && [ "$state" != "null" ]; then
+        echo "  the site workflow for $(echo "$sha" | cut -c1-12) is $state --"
+        echo "  nothing below can be trusted yet. Run again when it has finished."
+        exit 0
+    fi
+    if [ -z "$state" ] || [ "$state" = "null" ]; then
+        echo "  note: no site workflow run found for $(echo "$sha" | cut -c1-12);"
+        echo "  the published pages may not be this commit's."
+    fi
+fi
+
 # Said out loud rather than guessed at: a page cannot render a commit that has
 # not been pushed, so a difference here explains a difference below.
 if [ "$(git rev-parse HEAD)" != "$(git rev-parse "$ref")" ]; then
