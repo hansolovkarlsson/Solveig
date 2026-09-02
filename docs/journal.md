@@ -11,6 +11,155 @@ produced no code because they were decisions.
 
 ---
 
+## 2026-09-02 — a directive removed, a spelling settled, and a segfault found by reading a sentence
+
+Five commits, one version, and not one of them came off the roadmap. The day
+opened with *what's next todo?* and closed having built none of the four things
+that question was answered with.
+
+### It began as a roadmap review and went somewhere else
+
+The answer to *what's next* ranked the open items and recommended constant
+folding: the only entry with a measurement behind it, and the only one where the
+case was already made. That item is still untouched tonight.
+
+What happened instead is that Hans asked how the thing works, four times, and
+each answer turned into work. **The roadmap describes what is known to be
+missing. It has nothing to say about what is unclear**, and unclear is where the
+day's whole output came from.
+
+### Two of the questions were misreadings, and both were productive
+
+> Proto runs the rules on the code and replaces the parts that matches?
+
+No — matching happens *during* parsing, inside the reader, against a table the
+header built before a statement was read. There is no pass over finished code.
+
+> if the body was a different programming language, then the clash might not
+> happen with the `|`, say Pascal for instance?
+
+No — `|` is the *reader's* constraint, not the body's and not the emitter's. A
+Pascal compiler written in Proto still cannot declare `|`, and a Proto that
+emitted Pascal still could not either, because the ambiguity is in `{ a | b }`
+and that is Proto's own syntax.
+
+**Neither misreading is one a document written from the inside would think to
+correct.** GRAMMAR.md says what the syntax is; the README argues why. Nothing
+said *matching is not a scan*, because nobody on the inside would imagine it
+was. Both are now in [what-is-proto.md](what-is-proto.md), kept as the questions
+they were rather than rewritten into statements, and the pipeline is drawn four
+times in [pipeline.html](pipeline.html) — `3156d26`.
+
+### `@language` went, and a question is what unstuck it
+
+The roadmap had said for nine versions that it should select the reader, or the
+emitter, or stop existing. It had not moved because **two of those three depend
+on a build this project has already declined** — [targets.md](targets.md)
+refuses a second emitter, and a second reader is larger still. The entry was
+not waiting on a decision. It was waiting on something that was never coming.
+
+What settled it was Hans asking what `@language Pascal` would actually declare.
+The answer is *nothing anyone would expect*, and following that out gives the
+argument the roadmap never had:
+
+> `@language solveig.` at the top of `examples/forms.pro` says the body below is
+> Solveig. That file declares `+`, `<`, `>`, `unless`, `while` and `swap`. Its
+> body is not Solveig and Solveig cannot read it.
+
+The line was false in every file that declared anything, which is every file
+worth writing. Removed in 0.10.0 — `eb07046`, [COMPLETED.md](COMPLETED.md) 14.
+
+### The near-miss is the part worth keeping
+
+The first recommendation was **not** to remove it. It was to make it *assert*:
+one reader, one emitter, so any name but `solveig` is an error at line 1.
+Fifteen lines, touching no `.pro`, and the exact code a selector would need
+later. The argument for it was reversibility — asserting is cheap and deleting
+is not.
+
+That argument prices a change. It does not ask whether the thing is right, and
+the thing was not right. **A directive whose plainest reading is false is not
+fixed by checking its spelling.** The reversal came from taking Hans's question
+seriously rather than from any new fact.
+
+### One spelling per operation
+
+`\/` had been doing two jobs — logical *or* in `lib/arith.pro`, bitwise *or* in
+`examples/utf8.pro` and `programs/digest/sha2.pro` — and `~` two as well,
+logical *not* in arith and bitwise *not* in sha2, which is C's meaning. A reader
+had to know which file they were in before they could read a line.
+
+Hans proposed `&&`, `||`, `!` and asked whether `\` was free for the bitwise or.
+It is, and it is the right answer: one character, where C writes `|`, which is
+the one character a dialect can never have. **The single irregularity left is
+forced by the design rather than chosen**, which is the best kind to be left
+holding — it points at the constraint instead of hiding it. `b57aa31`.
+
+`!` for bitwise or was proposed and refused on the way, for the same reason
+`@language` had gone an hour earlier: `!` reads as *not* everywhere, and
+`lib/clike.pro` already declares it prefix-not.
+
+[POSTMORTEM.md](POSTMORTEM.md) 6 is a blind replace of these same operators that
+mangled a shell command in a comment — *a rename applied to a file rather than
+to a language*. This one ran only on the code portion of each line, never inside
+a string or after a `;`, printed all 27 changed lines to be read, and then
+proved itself the way that entry wishes it could have: **every generated `.sol`
+in the tree is byte-identical across the change.** Same messages; only the
+spelling moved.
+
+### A segfault from 0.1.0, found by checking a sentence
+
+`programs/digest/README.md` says composing `sha2.pro` with `lib/control.pro`
+collides on four operators. Before repeating that in another document, it was
+run. `proto` segfaulted.
+
+`proto_dialect_add_infix` answers the entry a redeclaration displaced, so the
+reader can say *previously declared here* — and it looked that entry up
+**before** growing the array, so a `realloc` that relocates leaves the caller
+reading freed memory. `add_prefix` and `add_macro` had it too. Latent since
+0.1.0. `f8b219a`, [POSTMORTEM.md](POSTMORTEM.md) 15.
+
+It hid because it needs three things in one call: a collision, a capacity
+crossing, and a realloc that moves rather than extends. Every example and
+program in this tree composes dialects that agree. `programs/digest` is the
+first thing here with a dialect that redefines `+` — and its README says
+composing it collides, having reasoned about it rather than run it.
+
+**And the claim was wrong anyway.** Proto reported nine redeclarations, not
+four: the four whose meaning differs, plus two declared identically in both and
+three on a different rung. It is seven now, the spelling change having removed
+`~` and `\/` from the overlap.
+
+### What the tests did today
+
+Nothing, and that was the job. The suite reported 58, 6, 34 and 10 checks at
+the start of the day and the same after every commit but one — the segfault fix
+added the eleventh — and the point of the spelling change was precisely that the
+numbers should not move. **A control, not a detector.**
+
+The regression check added with the segfault is honest that it only guards under
+a sanitizer: whether a stale pointer lands on freed memory is the allocator's
+business, and in `test_use`'s process it does not. It fails under
+`make test SANITIZE="-fsanitize=address"` and is clean with the fix.
+
+Which is the finding that should sting. **That invocation has been in the
+Makefile since the first commit and nothing had ever been run under it.** Not a
+missing test — a tool that was already there, never picked up. The suite is
+clean under `-fsanitize=address,undefined` as of tonight.
+
+### The number worth keeping
+
+**Nothing was found by a test, and nothing was built off the roadmap.** Four
+things were found today: two misreadings, by a person asking; one dead
+directive's real argument, by a person asking what it would mean; and one
+nine-version-old segfault, by declining to repeat a sentence without checking
+it.
+
+The day also ended with the first document here that is neither an argument nor
+a grammar — [REFERENCE.md](REFERENCE.md), `dd76531`, the page you look a
+spelling up in, carrying the inventory of `lib/` that had existed only inside
+three header comments.
+
 ## 2026-09-01 — the project changed its name, and nothing else
 
 A rename is a strange thing to give a journal entry. This one gets one because
