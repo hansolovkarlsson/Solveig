@@ -11,6 +11,62 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-01 (eighth) — the library, and a checker that could not see its own hole
+
+`lib/re.sol` is built and `lib/pattern.sol` is gone. The decision that unblocked
+it was one sentence — *the patterns here are ones we write, not a stranger's* —
+which is what chose Solum over an extension, and everything below follows from
+having a customer rather than an argument.
+
+### The corpus proved it, and nothing else could have
+
+Sixty cases agreed before the swap and **sixty-two after**, because the two
+added to `differ/` an hour earlier — the ones written to document a gap — now
+agree with the oracle. The harness said it in its own words: *AGREES, the
+divergence has gone, and the file still claims it.*
+
+That is the whole argument for holding a program against a tool somebody else
+wrote, arriving as a sentence the harness prints rather than as a principle.
+
+### What measuring caught, twice, before it was written down
+
+**A claim about depth.** Having made the matcher iterative I typed *a thousand
+stars in one pattern cost nothing*, then ran it: `call depth exceeded`, in the
+**emitter**, which walks a tree. A sequence built as `cat(cat(a,b),c)` is as
+deep as the pattern is long, so 220 characters was the limit where
+`pattern.sol` compiled two thousand. Making a sequence a list fixed it, and the
+honest number is 48 nested groups.
+
+**And a difference against the old file.** 4,485 comparisons produced 28
+disagreements, all one shape: `pattern.sol`'s `endOfMatchAt` ignored `^`. The
+oracle sided with the new engine, and no shipped caller could reach the
+difference — but it is the third thing that file got wrong today, after `\(` as
+a literal and the header that denied it.
+
+### The checker could not see the hole it made
+
+Deleting `pattern.sol` left nineteen links pointing at it. **This morning's link
+checker reported none of them**, because I had scoped it to links carrying a
+`#` and written the reason into the entry: *a missing file is a different
+question and nothing here has got one wrong.*
+
+That was false when it was written. The sweep found **three links broken all
+along** — two in `experiment/` naming `sob.sol` beside them when it lives in
+`lib/`, and `tail.sol` naming `follow.sh` beside it when it is in `tail/`.
+
+So the scope was not narrow, it was wrong, and wrong in the direction that hides
+things: a dead anchor lands a reader at the top of the right page, and a dead
+path lands them nowhere. It checks paths now, 2,162 of them, and I broke one to
+watch it fail before believing it.
+
+**Twice in one day a check I wrote had a stated limitation that turned out to be
+a hole**, and both times the stated reason was *nothing here has got that
+wrong*. That is an argument from absence, which
+[design.md](design.md#what-the-language-is-for) rules out for language features
+and which nothing had thought to rule out for checkers.
+
+---
+
 ## 2026-09-01 (seventh) — an evening of scopings, and the defect at the end of them
 
 Four pieces of work that were all one argument: awk, `lib/re.sol`, a throwaway,

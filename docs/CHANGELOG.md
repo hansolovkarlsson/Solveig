@@ -5,6 +5,54 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### `lib/re.sol`, and `pattern.sol` retired — `pending`, 2026-09-01
+
+**No change to the language.** A library replaced, and the two programs that ran
+on it now answer what `sed` and `vi` answer.
+
+[lib/re.sol](../lib/re.sol) is regular expressions in **both** dialects POSIX
+describes: `re:on` reads a basic one — sed's and vi's, operators backslashed —
+and `re:ere` an extended one, which is awk's. Groups, back-references,
+`\{n,m\}`, alternation, `\+` and `\?`, and **leftmost-longest**, which is POSIX
+and is not what a Perl-style engine gives: `a|ab` against `ab` answers `ab`.
+
+**It was built on a decision rather than a measurement**: the patterns here are
+ones this repository writes, not ones a stranger supplies. That is what chose
+Solum over libc-through-an-extension, and the bargain is in the header in
+[`shell.sol`](REFERENCE.md#shellsol)'s words — *build a pattern out of things
+you wrote, not out of things a file or a user gave you*. A backtracker is
+exponential on a starred group inside a starred group; `--steps` bounds a
+runaway and says so, because every step it takes is an instruction the machine
+counts, and `guarded` removes the exponential outright at 20–30% for a caller
+that turns out not to control its input.
+
+**The corpus was the proof, and it said so in its own words.**
+[oracle.sh](../programs/oracle.sh) went from 60 agreeing cases to **62**: the
+two added to `differ/` an hour earlier to document the gap now agree with the
+oracle, and the harness reported *AGREES — the divergence has gone, and the file
+still claims it*. A case moving from `differ/` to `agree/` is what closing a gap
+looks like from the corpus's side.
+
+**Held against the file it replaces**, over 23 patterns and 19 texts: 4,485
+comparisons, **28 disagreements, all one shape**. `pattern.sol`'s
+`endOfMatchAt` ignored `^`, so an anchored pattern claimed a match at a position
+other than the first. The oracle agrees with the new answer, and no shipped
+caller could reach the difference — every path to it went through `findFrom`,
+which handled the anchor separately.
+
+**The depth moved from the matcher to the compiler.** `pattern.sol` recursed
+once per `*` while matching and stopped at 250 of them; this matches a
+2,000-character pattern at no depth at all. What costs frames now is compiling:
+a sequence had to be a *list* rather than a spine of pairs, or the emitter ran
+out at about 220 characters. **48 nested groups compile and 49 do not**, which
+nothing writes.
+
+**And deleting a file found a hole in the link checker built the same morning.**
+It read only links carrying a `#`, on the reasoning that a missing file is a
+different question and nothing here had got one wrong. Nineteen links pointed at
+the deleted file and it reported none — and the sweep found **three broken all
+along**. It checks paths now: 2,162, and every one of them is there.
+
 ### A group was two literal parentheses, and two programs said otherwise — `92c748e`, 2026-09-01
 
 **No change to the language.** A defect in [lib/pattern.sol](../lib/re.sol)
