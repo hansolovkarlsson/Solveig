@@ -11,6 +11,61 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-01 (thirteenth) — a promise that already existed, and an entry that closed the day it opened
+
+The last call in
+[6.42](COMPLETED.md#642-a-second-producer-of-sob-has-no-contract-to-build-against--done):
+does `.sob` owe a second producer a stability promise? The answer was *format 15
+refuses 14*, and the interesting part is that no code changed.
+
+### The rule was there and had never been stated
+
+`if (version != SOL_SOB_VERSION)` is an equality, so a build reads exactly its
+own format and refuses everything else in both directions. Handing `solvm` a
+file claiming 13 and one claiming 15 refuses both, which is what the decision
+asks for and what the reader has always done.
+
+**So the work was to say it.** That distinction is worth keeping: an
+implementation detail and a promise can be the same line of C and are not the
+same thing to somebody building against it. Phoenix could read the source and
+see the equality; it could not know whether that was a rule or an accident, and
+a rule nobody has written down cannot be relied on because it can change without
+anybody noticing they have broken it.
+
+### Three of four recommendations corrected by building them
+
+The entry made four calls. Document before splitting: right, and the document
+found `SOL_MAX_LOCALS` at 256 against a `u8` `slot_count`. Split by who is at
+fault: wrong, the sites are one condition each. A directory of malformed `.sob`
+files: wrong, they cannot be written without patching a valid file. A stability
+promise: wrong that it was work.
+
+Three of four narrowed or reversed. **That is not an argument against scoping**
+— every one of them was close enough that the work started in the right place,
+which is the whole job of a scoping. It is an argument for writing the calls
+down *separately* from the analysis, because a recommendation that is wrong is
+only visible as wrong if it was written where the correction can sit beside it.
+
+### What the outside user was worth, counted at the end
+
+One person, reading the documents for an afternoon and asking three questions:
+
+| | |
+| --- | --- |
+| a cheatsheet row that omitted a newline | fixed |
+| a comment convention that reads as a claim | documented where readers look |
+| a checker accepting any claim whose first token matched | 22 comments converted, rule is equality |
+| a grammar nothing had ever held to the compiler | 15-construct corpus, in `make test` |
+| `solas` emitting bytecode its own verifier refused | `SOL_MAX_LOCALS` 256 → 255 |
+| a dictionary limit off by a factor of two | written down for the first time |
+| one sentence standing for thirty-two faults | thirty-two sentences, thirteen pinned |
+| a format version that was a habit | a promise |
+
+None of it needed him to be an expert. It needed him not to already know what
+the answer was supposed to be.
+
+---
+
 ## 2026-09-01 (twelfth) — the corpus, and three shapes that were wrong before they were built
 
 The last of [6.42](COMPLETED.md#642-a-second-producer-of-sob-has-no-contract-to-build-against--done)

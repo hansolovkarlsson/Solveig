@@ -5,6 +5,35 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The format version is a promise now — `pending`, 2026-09-01
+
+**Format 15 will refuse 14 and everything before it**, and 14 already refuses
+15. The check is an equality rather than a floor, so a newer file is exactly as
+unreadable as an older one, and the diagnosis is `unsupported bytecode version`
+with nothing else examined.
+
+**It needed no code, and that is the entry.** The behaviour was already
+exact-match in both directions — verified by handing `solvm` files claiming 13
+and 15, both refused. What was missing was that it had never been *said*. A
+promise nobody has written down is not a promise, and an outside producer had no
+way to tell a deliberate rule from an accident of the reader.
+
+[BYTECODE.md](BYTECODE.md#the-format-version-and-what-it-promises) and
+[PRODUCING.md](PRODUCING.md#the-version-and-what-it-promises-you) now carry the
+header layout, the rule, and what follows from it: no compatibility window, none
+planned, a rebuild rather than a migration, and **read `SOL_SOB_VERSION` from
+[serialize.h](../solum/include/solum/serialize.h)** rather than writing the
+number into your own source — the number is the only thing that has to move when
+the format does.
+
+**This closes
+[6.42](COMPLETED.md#642-a-second-producer-of-sob-has-no-contract-to-build-against--done)
+on the day it was opened**, and section 6 is empty for the fourth time. Three of
+the entry's four recommendations were narrowed or reversed by building them: the
+split went to a sentence a site rather than two buckets, the corpus is
+assertions rather than a directory of files, and this one turned out to need
+nothing at all.
+
 ### The corpus, and the shape it turned out not to be — `c8391c5`, 2026-09-01
 
 **Seventeen cases, thirteen distinct diagnoses**, each constructing a chunk with
