@@ -54,5 +54,105 @@ itself verifies nothing.
 
 ## What it found
 
-*Written after the program, not before. Nothing here yet — the file above this
-line is the whole of what was known when it was committed.*
+Written after. The predictions above were committed in `1ac24fb`, before a line
+of the program existed.
+
+### The predictions
+
+| | |
+| --- | --- |
+| **1. The dialect writes the data** | **Right, and the number is the finding.** `note.pro` is **26 lines of document and 36 lines of renderer.** The dialect reaches 26 of 64 lines and none of the rest — the renderer is ordinary Proto with no notation at all, exactly as intended. **Even in the most content-heavy program that could be written, the code is larger than the content.** |
+| **2. The trailing hole will not bite** | **Right, and the reason held.** Every form ends in a literal and answers nothing, so the pattern shape was right by [GRAMMAR.md](../../docs/GRAMMAR.md)'s own test and the choice was never in question. **This is the first program where the domain made the shape obvious** — `ember` and `grammar` both got it wrong, and both had forms whose answers were used. |
+| **3. Nesting is the wall** | **Wrong, and it is the best finding here.** A form cannot *contain* content, but it can take a **block**, and a block's statements are content forms. `indent { … }` nests to any depth — the document has a two-deep list to prove it — and the structure did not become data. **Solveig's braces carried it.** |
+| **4. It reads closer to a document, and still reads as a program** | **Right.** Every line ends in `.`, every string is quoted, `indent {` and `}.` are visible scaffolding. |
+| **5. It pays less than `digest`, having no rule to carry** | **Half right, and the wrong half is worth more.** |
+
+### 3, which was wrong, and what the ceiling actually is
+
+The prediction was `grammar`'s ceiling — *a rule cannot be a form*, so the
+recursive part stops being notation and becomes data. It does not happen here.
+
+```
+indent {
+    item "grammar, a parser: a rule cannot be a form".
+    indent {
+        item "so the recursive part stops being notation".
+        item "and becomes data".
+    }.
+}.
+```
+
+**A form takes a block, a block holds statements, and statements are forms.**
+So a document nests as deeply as it likes and the notation follows it down. What
+`grammar` hit was narrower than *nesting*: a template cannot **declare** a form,
+so a grammar's rules — which are definitions — could not be notation. A
+document's structure is not definitions, and it goes through.
+
+**The ceiling is one level lower than predicted, and it is real.** A form cannot
+contain *part of a line*. Emphasis inside a sentence, a link in the middle of a
+clause, a word in italics — a paragraph is one string, and there is no way to
+say `para "text with " emph "this" " in it"` because a pattern's parts are words
+and holes, not a sequence of alternating content. So:
+
+> **A form can contain content. A form cannot contain half a line.**
+
+Which is the honest answer to *could Proto do a markup language*: the block
+structure, yes; the inline structure, no, and not by any arrangement of forms.
+
+### 5, and the two kinds of rule
+
+The prediction said a document has no mistake to prevent, so this dialect would
+save typing and nothing else, as `ember`'s and `grammar`'s did.
+
+**It does prevent one.** `indent { … }` cannot be left unbalanced — the `in` and
+the `out` are the two halves of one template, and a block that is never closed
+is not a block. A markup that writes `<ul>` and `</ul>` by hand can drop the
+second; this cannot.
+
+**But it did not invent that rule. It borrowed one the host already enforces.**
+And that is the distinction the program adds:
+
+| | |
+| --- | --- |
+| **A rule the dialect invents** | `sha2.pro` declares `+` as addition modulo 2³². Nothing in Solveig enforces that; the dialect made it true, and after the header forgetting a mask is not a thing the program can do. |
+| **A rule the dialect borrows** | `prose.pro` declares `indent <b: block>`. Balance is Solveig's — a brace must close — and the dialect only has to spend the hole. |
+
+The borrowed one is free and the invented one is not, and **only the invented
+one is evidence that a declared grammar can do something a fixed one cannot.**
+So prediction 5 stands where it matters: this dialect pays like `ember`'s.
+
+### What nobody predicted
+
+**`lib/arith.pro` has no `<=`, and this program wanted one.** The renderer
+writes:
+
+```
+i := #1.
+while i < doc:size + #1 do (
+```
+
+because `while i <= doc:size` does not compile. On the morning this program was
+written, the question *should `lib/arith.pro` be completed?* was asked and
+answered **no**, on the evidence that `<=`, `>=` and `!=` had *no customer at
+all* — the two files declaring them were both standalone, and **every one of
+arith's five users declared no operator of its own.**
+
+That was true of the five. This is the sixth, and it is the customer.
+**The conclusion was right about the evidence and wrong about the future**,
+which is what *no customer yet* always means. It is one line in
+[ROADMAP.md](../../docs/ROADMAP.md) now rather than an argument settled.
+
+**And a document turned out to be a domain of steps.** It was picked as a domain
+that was *neither* arithmetic nor instructions, to test whether
+[does-it-pay.md](../../docs/does-it-pay.md)'s split — *steps want forms, values
+want operators* — had a third case outside it. It does not. `prose.pro` declares
+**no operators and seven forms**, which is `ember`'s and `grammar`'s shape
+exactly. Each content line is a step that appends; the taxonomy absorbed the new
+domain rather than being extended by it.
+
+### What did not come up
+
+Hygiene, the map, `@use` resolution, and the collision rules: nothing, from a
+fifth program. **Hygiene has now gone unmentioned by five in a row**, which
+remains the only evidence the 0.2.0 argument for shipping it early could ever
+have.

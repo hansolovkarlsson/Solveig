@@ -10,6 +10,50 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### `programs/prose` — 2026-09-02
+
+**The fifth program, and the one [does-it-pay.md](does-it-pay.md) asked for.**
+A document language, with the document itself written in the dialect and
+rendered to text — the first program here whose dialect writes the **data**
+rather than the processing.
+
+**26 lines of document, 36 lines of renderer.** The dialect reaches 26 of 64
+lines and none of the rest. Even in the most content-heavy program that could be
+written, the code is larger than the content.
+
+**It found no third category.** It was picked as a domain that was neither
+arithmetic nor instructions, to see whether *steps want forms, values want
+operators* had a case outside it. `prose.pro` declares **no operators and seven
+forms** — `ember`'s and `grammar`'s shape exactly. A document is a domain of
+steps.
+
+**It moved the ceiling down a level, and one prediction was wrong.** Nesting
+was predicted to be the wall, on `grammar`'s finding that a rule cannot be a
+form. It is not: a form takes a **block**, a block holds statements, and statements are
+content forms, so `indent { … }` nests to any depth and Solveig's braces carry
+the structure. `grammar`'s wall was narrower than *nesting* — a template cannot
+**declare** a form, and a grammar's rules are definitions. What a form still
+cannot do is contain part of a line:
+
+> **A form can contain content. A form cannot contain half a line.**
+
+Which is the answer to *could Proto do a markup language*: the block structure
+yes, the inline structure no, and not by any arrangement of words and holes.
+
+**And it split "carrying a rule" in two.** `indent { … }` cannot be left
+unbalanced — but the dialect did not invent that rule, it borrowed one Solveig
+already enforces. `sha2.pro` invented its own; nothing in Solveig makes `+` mask
+to 2³². **Only the invented kind is evidence that a declared grammar does
+something a fixed one cannot**, and it is still the one clear instance in five
+programs.
+
+**Unpredicted, and it reverses an answer given the same morning.**
+`lib/arith.pro` has no `<=`, and the renderer wanted one — it writes
+`while i < doc:size + #1` instead. Asked hours earlier whether arith should be
+completed, the answer was no, on the evidence that `<=`, `>=` and `!=` had *no
+customer at all*. This is the customer. One is still not enough, and
+[ROADMAP.md](ROADMAP.md) records it so the second settles it.
+
 ### `|` can be declared after all — a retraction — 2026-09-02
 
 **No version, and nothing in the compiler changed.** Three documents said

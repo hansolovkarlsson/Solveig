@@ -700,7 +700,7 @@ predicate logic, which turns out to be three questions wearing one name.
 
 ## The programs
 
-**Four, and they are why several of the versions above exist.**
+**Five, and they are why several of the versions above exist.**
 
 | | |
 | --- | --- |
@@ -708,6 +708,7 @@ predicate logic, which turns out to be three questions wearing one name.
 | [`programs/grammar`](programs/grammar) | a grammar toolkit. Declined the roadmap's repetition item with a reason. |
 | [`programs/digest`](programs/digest) | SHA-256, agreeing with `shasum -a 256`. The first customer for the *operator* half, and the one that measured what a form costs at run time. |
 | [`programs/ledger`](programs/ledger) | a statement in fixed-point decimal, against exact-decimal figures produced elsewhere. Found that Proto has one of Solveig's three integer literals, and that folding is worth 0.19% when the dialect is not in the loop. |
+| [`programs/prose`](programs/prose) | a document written in its own dialect and rendered to text. Found that a form can contain content but not half a line, and that a document is a domain of steps like the other two. |
 
 Each carries a table of predictions recorded **before** it was written and a
 *What it found* section written after. Predictions that were wrong stay in,

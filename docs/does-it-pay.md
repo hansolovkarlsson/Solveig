@@ -36,6 +36,7 @@ the design.
 | [`grammar`](../programs/grammar) — a PEG toolkit | 0 | 8 | 9 | 29 |
 | [`digest`](../programs/digest) — SHA-256 | 17 | 3 | 20 | 96 |
 | [`ledger`](../programs/ledger) — fixed-point decimal | 10 | 6 | 17 | 44 |
+| [`prose`](../programs/prose) — a document | 0 | 7 | 9 | 64 |
 
 *Lines are non-blank, non-comment. `program` is the module, `dialect` the file
 it uses.*
@@ -43,6 +44,9 @@ it uses.*
 **The split down the middle went unnoticed until the four were tabulated.**
 The two programs about *another language* declare no operators at all and
 nothing but forms. The two about a *value domain* declare mostly operators.
+`prose` was written afterwards to look for a third case and did not find one —
+it declares no operators and seven forms, and a document turns out to be a
+domain of steps like the other two.
 
 That is not a coincidence and it has a name already. `ember` found that the call
 shape and the pattern shape "divide by what the form *is*, not by taste" — a
@@ -139,16 +143,38 @@ case for folding rests on the claim being made true, not on the number.
 
 ---
 
-## What is still unknown
+## The fifth program, and what it settled
 
-**Every one of the four is arithmetic or instructions.** An assembler, a parser,
-a hash and a ledger: two domains of steps, two of values, and all four
-computational through and through.
+The four above were all arithmetic or instructions, and this page used to end by
+asking for a domain that was neither. [`prose`](../programs/prose) is that: a
+document language, with the document itself written in the dialect.
 
-Nothing here has tested a domain that is neither — a configuration format, a
-document structure, a markup, a schema. The measure would be the same one
-`grammar` established, and the question is whether *a dialect pays per line it
-removes* survives contact with a domain whose lines are not operations.
+**It found no third category.** No operators, seven forms, and every content
+line a step that appends — `ember`'s and `grammar`'s shape. The taxonomy
+absorbed the new domain instead of being extended by it.
 
-**That is what a fifth program would be for**, and it is the only thing on this
-page that four programs have not already answered.
+**It found the ceiling one level below where `grammar` left it.** A form takes a
+block and a block holds statements, so a document nests as deeply as it likes
+and the notation follows it down; Solveig's braces carry the structure.
+`grammar`'s wall was narrower than *nesting* — a template cannot **declare** a
+form, and a grammar's rules are definitions. A document's are not. What a form
+still cannot do is contain *part of a line*:
+
+> **A form can contain content. A form cannot contain half a line.**
+
+Emphasis inside a sentence, a link mid-clause: a paragraph is one string, and no
+arrangement of words and holes reaches inside it. That is the answer to *could
+Proto do a markup language* — the block structure yes, the inline structure no.
+
+**And it split "carrying a rule" in two.** `prose.pro`'s `indent <b: block>`
+cannot be left unbalanced, because a block cannot be left unclosed. But the
+dialect did not invent that rule; it borrowed one Solveig already enforces.
+`sha2.pro` invented its own — nothing in Solveig makes `+` mask to 2³². **Only
+the invented kind is evidence that a declared grammar does something a fixed one
+cannot**, and it remains the one clear instance in five programs.
+
+**What is still unknown** is smaller than it was. The measure has held across
+five domains and the ceiling is now described rather than guessed at. What no
+program has yet tried is a dialect used by *somebody who did not write it* —
+every dialect here was written by the author of the file that uses it, an hour
+before, and a notation's real cost is paid by the second reader.

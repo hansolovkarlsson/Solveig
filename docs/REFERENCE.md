@@ -274,7 +274,7 @@ map.
 proto/          the compiler          lex, reader, dialect, tree, expand, emit
 lib/            dialect files         arith.pro, control.pro, clike.pro
 examples/       five, run by `make test`
-programs/       four real programs, each with its own README
+programs/       five real programs, each with its own README
 tests/          test_reader, test_expand, test_map, test_use
 docs/           the documents below
 ```
@@ -293,6 +293,7 @@ docs/           the documents below
 | [`programs/grammar`](../programs/grammar) | a grammar toolkit, and two grammars written over it |
 | [`programs/digest`](../programs/digest) | SHA-256, agreeing with `shasum -a 256` |
 | [`programs/ledger`](../programs/ledger) | a statement in fixed-point decimal, against figures computed elsewhere |
+| [`programs/prose`](../programs/prose) | a document written in its own dialect, rendered to text |
 
 Each program carries predictions recorded **before** it was written and a *What
 it found* section written after. Predictions that were wrong stay in, marked

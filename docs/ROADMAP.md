@@ -16,6 +16,20 @@ foot of COMPLETED.md.
 
 ## Open, and undecided
 
+**`lib/arith.pro` has no `<=`, `>=` or `!=`, and now has a customer for them.**
+Asked on 2026-09-02 whether arith should be completed, the answer was **no**, on
+the evidence that those three had no customer at all: the two files declaring
+them were both standalone, and every one of arith's five users declared no
+operator of its own. `programs/prose` is the sixth user and writes
+`while i < doc:size + #1` because `while i <= doc:size` does not compile.
+
+**One customer, and one is not enough** — the same rule that kept the bitwise
+operators out of arith on the same day, and it should not be bent the first time
+it is inconvenient. Recorded so the second customer settles it rather than
+starting the argument again. All three are plain messages in Solveig —
+`lessOrEqual`, `greaterOrEqual`, `notEquals` — so it is three lines whenever it
+is taken.
+
 **No postfix operators.** Proto has prefix and infix; `x++`, `a[i]` and
 `p->f`-in-postfix-position have no spelling at all. `lib/clike.pro` names it as
 one of the four things C has that it cannot. Not a rule that could be relaxed —
