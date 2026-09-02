@@ -44,10 +44,45 @@ nothing at run time* is not true today. Folding would win 5.4% on that program.
 
 **It is not obviously safe, which is why this is an entry and not a patch.**
 Folding `#32:sub(#17)` means evaluating a send at expand time, and `integer:sub`
-is a slot a Solveig program may assign. An expander that folds has decided some
-sends are safe to run — the same question [rules-and-logic.md](rules-and-logic.md)
-asks about guards, one size smaller. **The rule to settle first: which sends, and
-who is allowed to have redefined them.**
+is a slot a Solveig program may assign — run rather than assumed:
+
+```
+integer:sub := { other | #999 }.
+(#32:sub(#17)):print.               ; #999, and not #15
+```
+
+So an expander that folds has decided some sends are safe to run, and has
+decided it on behalf of a program it cannot see. That is the same question
+[rules-and-logic.md](rules-and-logic.md) asks about guards, one size smaller.
+Guards ask *may parsing depend on evaluation*, and are answered no, because
+otherwise no tool could read a `.pro` without running it. This asks *may
+expansion depend on evaluation*. Both answers today are the same uniform
+**nothing runs at expand time**, and folding puts the first hole in it.
+
+### The rule to settle first
+
+**Which sends may be evaluated at expand time, and who is allowed to have
+redefined them.** Three shapes, cheapest first, and what each concedes:
+
+| | |
+| --- | --- |
+| **An allowlist, over literal receivers only** | Fold a send whose receiver and arguments are all literals and whose selector is on a fixed list — `add`, `sub`, `mul`, `shiftLeft`, `bitAnd`. Nothing with a name in it, so `#32:sub(#17)` qualifies and `x:sub(#17)` never does. Small, and it reaches the case that motivates the entry. **It concedes a guarantee Proto cannot check**: a program that reassigns `integer:sub` gets one answer from folded code and another from unfolded, and nothing will say so. |
+| **Fold only what the module provably does not reassign** | Sound, and it does not apply. The reassignment may live in a `.sol` reached by `@include`, which Proto passes through without reading — by design, since a dialect provides syntax and `@include` provides code. Undecidable at exactly the boundary this project put there on purpose. |
+| **Expand-time arithmetic that is not Solveig** | Keep *nothing runs at expand time* exactly as it stands, and give a template a separate notation for computing on its holes. Correct, and it costs a second language inside the first — the tower [rules-and-logic.md](rules-and-logic.md) spends its length refusing. |
+
+**The first is the only cheap one, and it is cheap because it moves a guarantee
+onto the programmer.** It would be the first time Proto says *this is correct
+unless you did something Proto cannot see*, and every rule on this page is the
+other way round: a `.pro` means what it says, by reading it. That is the
+decision, and it is not a decision about performance.
+
+**What would make it worth starting.** A second program wanting it — one
+customer is not a reason to grow a surface, which is
+[conventions.md](conventions.md)'s standing rule and Solveig's before that — or
+a decision that *a form is a method that costs nothing at run time* is worth
+making true for its own sake. **The number is small and the claim is not**: 5.4%
+on one program is not an argument, but a sentence in the README that is 98% true
+is a different kind of debt.
 
 **A dialect ends at its domain and cannot say where.** `programs/digest` declares
 `+` as addition modulo 2³², which is right for every line of SHA-256 and a trap
