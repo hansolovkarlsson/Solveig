@@ -182,9 +182,20 @@ int main(int argc, char *argv[])
     const char *path = argv[at++];
 
     SolChunk chunk;
-    SolSerResult loaded = sol_chunk_load(&chunk, path);
+    /* **Which way it was wrong, not only that it was.** `bytecode is internally
+       inconsistent` stands for thirty-two conditions, which is enough for a
+       compiler whose author has the source in front of them and nothing like
+       enough for a program generating `.sob` from outside. ROADMAP 6.42. */
+    const char *why = NULL;
+    SolSerResult loaded = sol_chunk_load_why(&chunk, path, &why);
     if (loaded != SOL_SER_OK) {
-        fprintf(stderr, "solvm: cannot load '%s': %s\n", path, sol_ser_message(loaded));
+        if (why != NULL) {
+            fprintf(stderr, "solvm: cannot load '%s': %s -- %s\n",
+                    path, sol_ser_message(loaded), why);
+        } else {
+            fprintf(stderr, "solvm: cannot load '%s': %s\n",
+                    path, sol_ser_message(loaded));
+        }
         free(extensions);
         return 65;
     }

@@ -34,6 +34,12 @@ const char *sol_ser_message(SolSerResult result)
     return "unknown error";
 }
 
+/* **Say which of the thirty-four it was.** `why` is the caller's out-parameter
+   and may be NULL; the sentence is static, so nothing is owned and nothing is
+   kept between calls. ROADMAP 6.42. */
+#define WHY(text) do { if (why != NULL) *why = (text); } while (0)
+#define BAD(text) do { WHY(text); return SOL_SER_MALFORMED; } while (0)
+
 /* ---- little-endian writing ------------------------------------------- */
 
 static void put_u16(FILE *f, uint16_t v)
@@ -327,9 +333,11 @@ static uint8_t *read_whole_file(const char *path, size_t *size)
 
 /* Reads one chunk body. Returns SOL_SER_OK or the reason it failed; on failure
    the caller frees `chunk`. */
-static SolSerResult read_chunk_body(Cursor *c, SolChunk *chunk, int depth)
+static SolSerResult read_chunk_body(Cursor *c, SolChunk *chunk, int depth,
+                                    const char **why)
 {
-    if (depth > SOL_MAX_NESTING) return SOL_SER_MALFORMED;
+    if (depth > SOL_MAX_NESTING)
+        BAD("blocks are nested deeper than the format allows");
 
     /* Names. Each entry costs at least 2 bytes on disk, so a count that could
        not possibly fit in what remains is rejected before allocating for it. */
@@ -378,7 +386,7 @@ static SolSerResult read_chunk_body(Cursor *c, SolChunk *chunk, int depth)
             break;
         }
         default:
-            return SOL_SER_MALFORMED;
+            BAD("a constant carries a tag this version does not define");
         }
         if (c->overran) return SOL_SER_TRUNCATED;
     }
@@ -399,14 +407,16 @@ static SolSerResult read_chunk_body(Cursor *c, SolChunk *chunk, int depth)
         uint32_t run = get_u32(c);
         uint32_t line = get_u32(c);
         if (c->overran) return SOL_SER_TRUNCATED;
-        if (run > code_length - written) return SOL_SER_MALFORMED;
+        if (run > code_length - written)
+            BAD("a line run covers more bytes than the code has");
 
         for (uint32_t j = 0; j < run; j++, written++) {
             sol_chunk_write(chunk, code[written], (int)line);
         }
     }
     /* Every code byte must be covered by exactly one run. */
-    if (written != code_length) return SOL_SER_MALFORMED;
+    if (written != code_length)
+        BAD("the line runs do not cover the code exactly");
 
     /* The file table, then which stretch of code came from which of them. Read
        after the code because that is the order it is written in, and expanded
@@ -422,7 +432,8 @@ static SolSerResult read_chunk_body(Cursor *c, SolChunk *chunk, int depth)
         if (c->overran || !take(c, path_length, &path)) return SOL_SER_TRUNCATED;
 
         char *copy = malloc((size_t)path_length + 1);
-        if (copy == NULL) return SOL_SER_MALFORMED;
+        if (copy == NULL)
+            BAD("out of memory reading a file name");
         memcpy(copy, path, path_length);
         copy[path_length] = '\0';
         sol_chunk_file(chunk, copy);
@@ -438,16 +449,19 @@ static SolSerResult read_chunk_body(Cursor *c, SolChunk *chunk, int depth)
         uint32_t run = get_u32(c);
         uint32_t id = get_u32(c);
         if (c->overran) return SOL_SER_TRUNCATED;
-        if (run > code_length - placed) return SOL_SER_MALFORMED;
+        if (run > code_length - placed)
+            BAD("a file run covers more bytes than the code has");
         /* An id naming no file would read off the end of the table later. */
-        if (id >= file_count) return SOL_SER_MALFORMED;
+        if (id >= file_count)
+            BAD("a file run names a file the chunk has not got");
 
         for (uint32_t j = 0; j < run; j++, placed++) chunk->file_ids[placed] = (int)id;
     }
     /* Either every byte is covered or none is: a chunk from a build that did
        not record files has no runs, and its bytes stay at file 0, which names
        nothing and prints as a bare line. */
-    if (placed != 0 && placed != code_length) return SOL_SER_MALFORMED;
+    if (placed != 0 && placed != code_length)
+        BAD("the file runs do not cover the code exactly");
 
     /* Slot names, in slot order. */
     uint16_t slot_name_count = get_u16(c);
@@ -475,12 +489,15 @@ static SolSerResult read_chunk_body(Cursor *c, SolChunk *chunk, int depth)
         uint16_t slot_count = get_u16(c);
         uint16_t flags = get_u16(c);
         if (c->overran) return SOL_SER_TRUNCATED;
-        if ((flags & ~(METHOD_IS_BLOCK | METHOD_CAPTURES)) != 0) return SOL_SER_MALFORMED;
+        if ((flags & ~(METHOD_IS_BLOCK | METHOD_CAPTURES)) != 0)
+            BAD("a method carries a flag bit this version does not define");
 
         /* A frame is addressed by one-byte slot operands, and must have room
            for self plus every argument. */
-        if (arity > UINT8_MAX || slot_count > UINT8_MAX) return SOL_SER_MALFORMED;
-        if (slot_count < arity + 1) return SOL_SER_MALFORMED;
+        if (arity > UINT8_MAX || slot_count > UINT8_MAX)
+            BAD("a method takes more than 255 arguments or slots");
+        if (slot_count < arity + 1)
+            BAD("a method has fewer slots than it has arguments and a receiver");
 
         SolMethod *method = sol_method_new((const char *)name, (int)name_length,
                                            (int)arity);
@@ -489,14 +506,15 @@ static SolSerResult read_chunk_body(Cursor *c, SolChunk *chunk, int depth)
         method->captures = (flags & METHOD_CAPTURES) != 0;
         sol_chunk_add_method(chunk, method);      /* owned by the chunk now */
 
-        SolSerResult result = read_chunk_body(c, &method->chunk, depth + 1);
+        SolSerResult result = read_chunk_body(c, &method->chunk, depth + 1, why);
         if (result != SOL_SER_OK) return result;
     }
 
     return SOL_SER_OK;
 }
 
-SolSerResult sol_chunk_load(SolChunk *chunk, const char *path)
+SolSerResult sol_chunk_load_why(SolChunk *chunk, const char *path,
+                                const char **why)
 {
     sol_chunk_init(chunk);
 
@@ -520,16 +538,19 @@ SolSerResult sol_chunk_load(SolChunk *chunk, const char *path)
        hand may legitimately need none -- the field says what this chunk's frame
        reserves, not what the compiler's conventions are. Any OP_LOCAL is
        bounds-checked against it either way. */
-    if (slot_count > UINT8_MAX) { status = SOL_SER_MALFORMED; goto fail; }
+    if (slot_count > UINT8_MAX) {
+        WHY("the frame reserves more than 255 slots, and the count is a byte");
+        status = SOL_SER_MALFORMED; goto fail;
+    }
     chunk->slot_count = (int)slot_count;
 
-    status = read_chunk_body(c, chunk, 0);
+    status = read_chunk_body(c, chunk, 0, why);
     if (status != SOL_SER_OK) goto fail;
 
     free(buffer);
 
     /* Structure is intact; now check that it is safe to execute. */
-    SolSerResult verified = sol_chunk_verify(chunk);
+    SolSerResult verified = sol_chunk_verify_why(chunk, why);
     if (verified != SOL_SER_OK) {
         sol_chunk_free(chunk);
         return verified;
@@ -642,7 +663,8 @@ static int successors(const SolChunk *chunk, int at, int length, int out[2])
     return count;
 }
 
-static SolSerResult verify_stack_heights(const SolChunk *chunk)
+static SolSerResult verify_stack_heights(const SolChunk *chunk,
+                                         const char **why)
 {
     int n = chunk->count;
 
@@ -650,7 +672,7 @@ static SolSerResult verify_stack_heights(const SolChunk *chunk)
     int *work   = malloc((size_t)n * sizeof *work);
     if (height == NULL || work == NULL) {
         free(height); free(work);
-        return SOL_SER_MALFORMED;
+        BAD("out of memory checking the stack heights");
     }
     for (int i = 0; i < n; i++) height[i] = -1;   /* -1: not reached */
 
@@ -670,14 +692,20 @@ static SolSerResult verify_stack_heights(const SolChunk *chunk)
 
         /* This is where a corrupted argc dies, at load rather than at the
            send: there are not that many values here to take. */
-        if (depth < needs) { status = SOL_SER_MALFORMED; break; }
+        if (depth < needs) {
+            WHY("an instruction takes more from the stack than is on it");
+            status = SOL_SER_MALFORMED; break;
+        }
 
         int after = depth + delta;
 
         /* Cannot happen from a consistent chunk -- each instruction adds at
            most one, so the depth is bounded by the code length -- but the
            arithmetic should not be trusted to say so. */
-        if (after < 0 || after > n) { status = SOL_SER_MALFORMED; break; }
+        if (after < 0 || after > n) {
+            WHY("the stack depth runs outside what the code could reach");
+            status = SOL_SER_MALFORMED; break;
+        }
 
         int next[2];
         int count = successors(chunk, at, length, next);
@@ -688,13 +716,19 @@ static SolSerResult verify_stack_heights(const SolChunk *chunk)
             /* Falling off the end is not reachable -- the last instruction must
                be HALT or RETURN, and neither falls through -- but a crafted
                file should not be the thing that discovers otherwise. */
-            if (to < 0 || to >= n) { status = SOL_SER_MALFORMED; break; }
+            if (to < 0 || to >= n) {
+                WHY("an instruction continues past the end of the code");
+                status = SOL_SER_MALFORMED; break;
+            }
 
             if (height[to] < 0) {
                 height[to] = after;
                 work[work_count++] = to;        /* each offset enqueued once */
             } else if (height[to] != after) {
-                status = SOL_SER_MALFORMED;     /* the paths disagree */
+                /* Two ways in, two different depths: the generator has
+                   emitted a branch whose arms do not balance. */
+                WHY("two paths reach one instruction with different stack depths");
+                status = SOL_SER_MALFORMED;
                 break;
             }
         }
@@ -708,10 +742,12 @@ static SolSerResult verify_stack_heights(const SolChunk *chunk)
 
 static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count,
                                  const int *ancestors, int ancestor_count,
-                                 int depth)
+                                 int depth, const char **why)
 {
-    if (depth > SOL_MAX_NESTING) return SOL_SER_MALFORMED;
-    if (chunk->count == 0) return SOL_SER_MALFORMED;
+    if (depth > SOL_MAX_NESTING)
+        BAD("blocks are nested deeper than the format allows");
+    if (chunk->count == 0)
+        BAD("a chunk has no code at all");
 
     /* Execution is no longer linear, so knowing each instruction is well formed
        is not enough: a jump target has to be the *start* of one. Recorded here
@@ -719,9 +755,11 @@ static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count,
        target lands one byte into a send would otherwise read its operands as an
        opcode. */
     bool *boundary = calloc((size_t)chunk->count, sizeof(bool));
-    if (boundary == NULL) return SOL_SER_MALFORMED;
+    if (boundary == NULL)
+        BAD("out of memory checking the jump targets");
 
 #define FAIL(code) do { free(boundary); return (code); } while (0)
+#define FAILBAD(text) do { WHY(text); FAIL(SOL_SER_MALFORMED); } while (0)
 
     int offset = 0;
     int last = 0;
@@ -734,7 +772,8 @@ static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count,
         /* An opcode with no length is not one of ours, and rejecting it here
            is what lets the rest of this walk trust the lengths it steps by. */
         int length = sol_op_length(op);
-        if (length == 0) FAIL(SOL_SER_MALFORMED);
+        if (length == 0)
+            FAILBAD("the code holds a byte that is not an opcode");
 
         if (offset + length > chunk->count) {
             FAIL(SOL_SER_TRUNCATED);       /* instruction runs off the end */
@@ -745,7 +784,7 @@ static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count,
         switch (op) {
         case OP_CONST:
             if (sol_read_u16(&chunk->code[offset + 1]) >= chunk->constants.count) {
-                FAIL(SOL_SER_MALFORMED);
+                FAILBAD("a constant index names a constant the chunk has not got");
             }
             break;
         case OP_GLOBAL:
@@ -756,34 +795,39 @@ static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count,
         case OP_SYMBOL:
         case OP_CHECK_BOOL:
             if (sol_read_u16(&chunk->code[offset + 1]) >= chunk->names.count) {
-                FAIL(SOL_SER_MALFORMED);
+                FAILBAD("a name index names a name the chunk has not got");
             }
             break;
         /* The selector follows the offset rather than leading, so it starts at
            the third operand byte. */
         case OP_JUMP_IF_FALSE:
             if (sol_read_u16(&chunk->code[offset + 3]) >= chunk->names.count) {
-                FAIL(SOL_SER_MALFORMED);
+                FAILBAD("a jump names a selector the chunk has not got");
             }
             break;
         case OP_LOCAL:
         case OP_SET_LOCAL:
-            if (chunk->code[offset + 1] >= slot_count) FAIL(SOL_SER_MALFORMED);
+            if (chunk->code[offset + 1] >= slot_count)
+                FAILBAD("a slot index names a slot the frame has not got");
             break;
         case OP_OUTER:
         case OP_SET_OUTER: {
             int d = chunk->code[offset + 1];
             int slot = chunk->code[offset + 2];
-            if (d < 1 || d > ancestor_count) FAIL(SOL_SER_MALFORMED);
-            if (slot >= ancestors[d - 1]) FAIL(SOL_SER_MALFORMED);
+            if (d < 1 || d > ancestor_count)
+                FAILBAD("an outer access names a frame further out than there are");
+            if (slot >= ancestors[d - 1])
+                FAILBAD("an outer access names a slot that frame has not got");
             break;
         }
         case OP_BLOCK: {
             uint16_t index = sol_read_u16(&chunk->code[offset + 1]);
-            if (index >= chunk->methods.count) FAIL(SOL_SER_MALFORMED);
+            if (index >= chunk->methods.count)
+                FAILBAD("a block index names a method the chunk has not got");
             /* OP_BLOCK must name a block: a non-block entry would be entered
                with a frame it was not compiled for. */
-            if (!chunk->methods.methods[index]->is_block) FAIL(SOL_SER_MALFORMED);
+            if (!chunk->methods.methods[index]->is_block)
+                FAILBAD("OP_BLOCK names a method that is not a block");
             break;
         }
         default:
@@ -813,8 +857,10 @@ static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count,
             uint16_t jump = sol_read_u16(&chunk->code[at + 1]);
             long target = (op == OP_LOOP) ? (long)at + length - jump
                                           : (long)at + length + jump;
-            if (target < 0 || target >= chunk->count) FAIL(SOL_SER_MALFORMED);
-            if (!boundary[target]) FAIL(SOL_SER_MALFORMED);
+            if (target < 0 || target >= chunk->count)
+                FAILBAD("a jump lands outside the code");
+            if (!boundary[target])
+                FAILBAD("a jump lands in the middle of an instruction");
         }
         at += length;
     }
@@ -828,11 +874,12 @@ static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count,
        off. A backward jump does not change that; it only means the fall may
        take a while to arrive. */
     uint8_t final = chunk->code[last];
-    if (final != OP_HALT && final != OP_RETURN) return SOL_SER_MALFORMED;
+    if (final != OP_HALT && final != OP_RETURN)
+        BAD("the code does not end in HALT or RETURN");
 
     /* Now that every jump target is known to be an instruction boundary, the
        height at each instruction can be computed by following control flow. */
-    SolSerResult heights = verify_stack_heights(chunk);
+    SolSerResult heights = verify_stack_heights(chunk, why);
     if (heights != SOL_SER_OK) return heights;
 
     /* Blocks defined here are entered with this chunk's frame as their nearest
@@ -845,18 +892,30 @@ static SolSerResult verify_chunk(const SolChunk *chunk, int slot_count,
 
     for (int i = 0; i < chunk->methods.count; i++) {
         const SolMethod *entry = chunk->methods.methods[i];
-        if (entry->slot_count < entry->arity + 1) return SOL_SER_MALFORMED;
-        if (entry->slot_count > UINT8_MAX) return SOL_SER_MALFORMED;
+        if (entry->slot_count < entry->arity + 1)
+            BAD("a method has fewer slots than it has arguments and a receiver");
+        if (entry->slot_count > UINT8_MAX)
+            BAD("a method reserves more than 255 slots");
 
         SolSerResult result = verify_chunk(&entry->chunk, entry->slot_count,
-                                           child, child_count, depth + 1);
+                                           child, child_count, depth + 1, why);
         if (result != SOL_SER_OK) return result;
     }
 
     return SOL_SER_OK;
 }
 
+SolSerResult sol_chunk_load(SolChunk *chunk, const char *path)
+{
+    return sol_chunk_load_why(chunk, path, NULL);
+}
+
+SolSerResult sol_chunk_verify_why(const SolChunk *chunk, const char **why)
+{
+    return verify_chunk(chunk, chunk->slot_count, NULL, 0, 0, why);
+}
+
 SolSerResult sol_chunk_verify(const SolChunk *chunk)
 {
-    return verify_chunk(chunk, chunk->slot_count, NULL, 0, 0);
+    return sol_chunk_verify_why(chunk, NULL);
 }

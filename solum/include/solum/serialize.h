@@ -94,4 +94,26 @@ SolSerResult sol_chunk_load(SolChunk *chunk, const char *path);
    machine so the dispatch loop cannot run off the end of the buffer. */
 SolSerResult sol_chunk_verify(const SolChunk *chunk);
 
+/* The same two, saying **which** way the chunk was wrong.
+ *
+ * `SOL_SER_MALFORMED` stands for thirty-four separate conditions -- a jump past
+ * the end of the code, a stack height that does not balance, a slot index
+ * naming a slot the frame has not got, a chunk that does not end in `HALT` or
+ * `RETURN`. One sentence for all of them is the right bar for `solas`, whose
+ * output is checked byte-for-byte against a second implementation and whose
+ * author has the source in front of them. It is the wrong bar for anybody else:
+ * a program generating `.sob` from outside is told that it is wrong and not
+ * what is wrong, and these are exactly a code generator's bugs.
+ *
+ * `*why` is set to a static sentence when the answer is `SOL_SER_MALFORMED`,
+ * and is untouched otherwise -- the other results already say what they mean.
+ * Passing NULL is the same as calling the plain form. Nothing is stored between
+ * calls, so two threads verifying two chunks do not tread on each other.
+ *
+ * ROADMAP 6.42. See [PRODUCING.md](../../../docs/PRODUCING.md) for the rules a
+ * producer has to keep to reach a chunk that verifies at all. */
+SolSerResult sol_chunk_verify_why(const SolChunk *chunk, const char **why);
+SolSerResult sol_chunk_load_why(SolChunk *chunk, const char *path,
+                                const char **why);
+
 #endif /* SOLUM_SERIALIZE_H */

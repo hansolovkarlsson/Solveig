@@ -1153,10 +1153,19 @@ corpus is the forcing function for the split and not a separate job.
    255 now. And the dictionary limit is **127 pairs**, not the 254 its message
    implies, because a literal lowers to `dictionary:of` and the ceiling is the
    argument list's.
-2. **How far does the split go?** Naming all thirty-five is not obviously right;
-   some genuinely are *this file is corrupt*. Recommendation: split by **who is
-   at fault** — a producer bug (jump target, stack height, slot count, index out
-   of range) against a damaged file (truncation, bad magic, bad version).
+2. ~~**How far does the split go?**~~ **Done on 2026-09-01, and further than
+   the recommendation.** Splitting by *who is at fault* was the plan; what the
+   code turned out to want was a sentence at every site, because the sites are
+   already one condition each and grouping them would have thrown away the part
+   a producer uses. Thirty-two sentences, and a single-byte fuzz over one small
+   `.sob` now yields twelve distinct diagnoses where it yielded one.
+
+   **The enum did not move**, which was the compatibility question and is now
+   answered by not needing an answer: `SOL_SER_MALFORMED` still means what it
+   meant, and the detail comes back through `sol_chunk_load_why` and
+   `sol_chunk_verify_why` as an out-parameter. The old two are wrappers passing
+   NULL, so no caller and no test had to change. Nothing is stored between
+   calls, so two threads verifying two chunks do not tread on each other.
 3. **Is a stability promise owed?** `.sob` is format 14 and *files from 0.17.0
    and earlier are refused* — a promise made to `solvm`'s own past, not to a
    third party. A second producer targeting 14 is entitled to know what 15 will

@@ -106,16 +106,38 @@ Every `.sob` is verified before anything in it runs, and a chunk that fails is
 against, and it is a good one: a bad jump target or an unbalanced stack arrives
 as a message and an exit status, not a crash.
 
-It is also, today, a **single sentence for thirty-five conditions** —
-`bytecode is internally inconsistent` — covering a jump past the end of the
-code, a stack height that does not balance, `slot_count < arity + 1`, a name or
-constant index out of range, a line run overrunning the code, and a chunk not
-ending in `HALT` or `RETURN`. Splitting that is the open half of
-[6.42](ROADMAP.md#642-a-second-producer-of-sob-has-no-contract-to-build-against).
+**It says which way**, since 2026-09-01. `bytecode is internally inconsistent`
+stood for thirty-two conditions and now carries a sentence apiece:
 
-Until it is split, [disasm.sol](../programs/disasm.sol) is the way to find out
-which one it was: it decodes the format independently of the machine that runs
-it, and it was written to check one implementation against another.
+```text
+solvm: cannot load 'x.sob': bytecode is internally inconsistent
+       -- a jump lands in the middle of an instruction
+```
+
+A single-byte fuzz over one small `.sob` produces twelve distinct diagnoses
+where it used to produce one. The ones a generator meets most:
+
+| | |
+| --- | --- |
+| `a jump lands outside the code` | the offset is past the end |
+| `a jump lands in the middle of an instruction` | the offset is not a boundary |
+| `an instruction takes more from the stack than is on it` | the depth does not reach |
+| `two paths reach one instruction with different stack depths` | a branch whose arms do not balance |
+| `a slot index names a slot the frame has not got` | `slot_count` is too small, or the index too large |
+| `a method has fewer slots than it has arguments and a receiver` | `slot_count < arity + 1` |
+| `a name index names a name the chunk has not got` | a send, global or `SET_SLOT` operand |
+| `a constant index names a constant the chunk has not got` | an `OP_CONST` operand |
+| `the code does not end in HALT or RETURN` | the dispatch loop would run off the buffer |
+| `the line runs do not cover the code exactly` | the debug side tables disagree with the code length |
+
+The codes themselves are unchanged — `SOL_SER_MALFORMED` still means what it
+meant — so nothing that reads them had to move.
+[`sol_chunk_load_why`](../solum/include/solum/serialize.h) is the form that
+answers with the sentence, and `sol_chunk_load` is a wrapper passing NULL.
+
+[disasm.sol](../programs/disasm.sol) is still the way to see the chunk itself:
+it decodes the format independently of the machine that runs it, and was written
+to check one implementation against another.
 
 ## Two things that are easy to get wrong
 

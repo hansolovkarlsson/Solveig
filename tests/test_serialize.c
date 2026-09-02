@@ -12,6 +12,25 @@
 
 /* A side-table index, exactly as the compiler emits it -- through the same pair,
    so a test cannot go on passing after the order changes under it. */
+
+/* **Verify, and say which of the thirty-two it was.** ROADMAP 6.42 split one
+   sentence into a sentence apiece, because a producer outside this repository
+   is told that its chunk is wrong and needs to know what is wrong. These
+   assertions are what stops the split silently collapsing back: a condition
+   whose sentence changes fails here, and a new condition that reuses another's
+   sentence fails the count at the bottom. */
+static void refuses(const SolChunk *chunk, const char *expected)
+{
+    const char *why = NULL;
+    SolSerResult result = sol_chunk_verify_why(chunk, &why);
+    if (result != SOL_SER_MALFORMED || why == NULL ||
+        strcmp(why, expected) != 0) {
+        printf("\n  wanted MALFORMED: %s\n  got: %s\n", expected,
+               why != NULL ? why : sol_ser_message(result));
+        assert(false);
+    }
+}
+
 static void write_index(SolChunk *chunk, int index, int line)
 {
     sol_chunk_write(chunk, sol_u16_first((uint16_t)index), line);
@@ -358,7 +377,8 @@ static void test_verifier_checks_frame_bounds(void)
     sol_chunk_write(&bad->chunk, OP_RETURN, 1);
     sol_chunk_add_method(&chunk, bad);
     sol_chunk_write(&chunk, OP_HALT, 1);
-    assert(sol_chunk_verify(&chunk) == SOL_SER_MALFORMED);
+    refuses(&chunk,
+            "a method has fewer slots than it has arguments and a receiver");
     sol_chunk_free(&chunk);
 
     /* A local slot past the end of the frame. */
@@ -371,7 +391,7 @@ static void test_verifier_checks_frame_bounds(void)
     sol_chunk_write(&over->chunk, OP_RETURN, 1);
     sol_chunk_add_method(&chunk, over);
     sol_chunk_write(&chunk, OP_HALT, 1);
-    assert(sol_chunk_verify(&chunk) == SOL_SER_MALFORMED);
+    refuses(&chunk, "a slot index names a slot the frame has not got");
     sol_chunk_free(&chunk);
 
     /* Reaching further out than there are enclosing frames. The top-level chunk
@@ -387,7 +407,7 @@ static void test_verifier_checks_frame_bounds(void)
     sol_chunk_write(&far->chunk, OP_RETURN, 1);
     sol_chunk_add_method(&chunk, far);
     sol_chunk_write(&chunk, OP_HALT, 1);
-    assert(sol_chunk_verify(&chunk) == SOL_SER_MALFORMED);
+    refuses(&chunk, "an outer access names a frame further out than there are");
     sol_chunk_free(&chunk);
 
     /* The top-level chunk has no frame slots at all. */
@@ -395,7 +415,7 @@ static void test_verifier_checks_frame_bounds(void)
     sol_chunk_write(&chunk, OP_LOCAL, 1);
     sol_chunk_write(&chunk, 0, 1);
     sol_chunk_write(&chunk, OP_HALT, 1);
-    assert(sol_chunk_verify(&chunk) == SOL_SER_MALFORMED);
+    refuses(&chunk, "a slot index names a slot the frame has not got");
     sol_chunk_free(&chunk);
 }
 

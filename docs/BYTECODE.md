@@ -240,6 +240,13 @@ instruction does. It checks that:
   the script;
 - the last instruction stops the machine.
 
+**And it says which of those failed.** `sol_chunk_verify_why` and
+`sol_chunk_load_why` answer with a sentence naming the condition —
+*a jump lands in the middle of an instruction*, *two paths reach one instruction
+with different stack depths* — where the result code alone says only that
+something is wrong. The plain forms are wrappers passing NULL, and the codes are
+unchanged. [PRODUCING.md](PRODUCING.md) lists the ones a generator meets most.
+
 Instruction boundaries are found by walking from offset 0 with `sol_op_length`,
 which is why that function is the one place lengths are written down: the
 verifier, the disassembler, the compiler's escape analysis and the tests all ask
