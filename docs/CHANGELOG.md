@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### `lib/re.sol`, and `pattern.sol` retired — `pending`, 2026-09-01
+### `lib/re.sol`, and `pattern.sol` retired — `8e27372`, 2026-09-01
 
 **No change to the language.** A library replaced, and the two programs that ran
 on it now answer what `sed` and `vi` answer.
