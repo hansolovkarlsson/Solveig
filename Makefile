@@ -82,6 +82,7 @@ GRAMMAR_SOBS  = $(GRAMMAR_SRCS:.pro=.sob)
 # Proto: sixty-four rounds of shifts, rotations and masked additions, in the
 # notation FIPS 180-4 writes them in.
 DIGEST = programs/digest
+LEDGER = programs/ledger
 
 # The Solveig a `.sol` is about to be handed to, read from the same header its
 # binaries report their version out of. Checked rather than assumed because the
@@ -92,14 +93,14 @@ SOLVEIG_VERSION = $(shell grep SOLUM_VERSION \
                     $(SOLVEIG)/solum/include/solum/common.h 2>/dev/null \
                     | tr -d '"' | awk '{print $$3}')
 
-.PHONY: all test sanitize run examples ember grammar digest check install \
-        uninstall dist clean
+.PHONY: all test sanitize run examples ember grammar digest ledger check \
+        install uninstall dist clean
 
 # Without this, make treats a generated .sol as an intermediate and deletes it
 # after the .sob is built -- taking the map with it. Both are the artefacts
 # somebody reaches for when the generated code is what they need to read.
 .SECONDARY: $(EXAMPLE_SOLS) $(EMBER)/emberc.sol $(EMBER)/emberc.sob $(EMBER_ASM) \
-            $(GRAMMAR_SOLS) $(DIGEST)/sha256.sol
+            $(GRAMMAR_SOLS) $(DIGEST)/sha256.sol $(LEDGER)/ledger.sol
 
 all: $(BIN)/proto
 
@@ -191,7 +192,7 @@ run: examples/vectors.sob
 # test sees -- valid-looking Solveig that Solveig rejects, or accepts and reads
 # differently -- and the only witness to that is the real compiler.
 test: $(BIN)/proto $(TEST_BINS) $(EXAMPLE_SOBS) $(EMBER_BINS) $(GRAMMAR_SOBS) \
-      $(DIGEST)/sha256.sob
+      $(DIGEST)/sha256.sob $(LEDGER)/ledger.sob
 	@for t in $(TEST_BINS); do echo "-- $$t"; $$t || exit 1; done
 	@for e in $(EXAMPLE_SOBS); do echo "-- $$e"; \
 	    $(SOLVEIG)/bin/solvm $$e > /dev/null || exit 1; done
@@ -202,6 +203,9 @@ test: $(BIN)/proto $(TEST_BINS) $(EXAMPLE_SOBS) $(EMBER_BINS) $(GRAMMAR_SOBS) \
 	@echo "-- $(DIGEST)/sha256.sob"
 	@$(SOLVEIG)/bin/solvm $(DIGEST)/sha256.sob \
 	    | diff -u $(DIGEST)/sha256.expected - || exit 1
+	@echo "-- $(LEDGER)/ledger.sob"
+	@$(SOLVEIG)/bin/solvm $(LEDGER)/ledger.sob \
+	    | diff -u $(LEDGER)/ledger.expected - || exit 1
 	@echo "all tests passed"
 
 # The suite under AddressSanitizer and UBSan, which is a separate build rather
@@ -218,6 +222,17 @@ sanitize:
 	@$(MAKE) --no-print-directory test SANITIZE="-fsanitize=address,undefined"
 	@echo "clean under -fsanitize=address,undefined"
 	@echo "  bin/proto is instrumented now -- 'make clean' restores a normal build"
+
+$(LEDGER)/ledger.sol: $(LEDGER)/ledger.pro $(LEDGER)/money.pro $(BIN)/proto
+	@$(BIN)/proto --map $< -o $@
+
+$(LEDGER)/ledger.sob: $(LEDGER)/ledger.sol | check
+	@$(SOLVEIG)/bin/solas $< -o $@
+
+# The figures it prints were produced independently, in exact decimal, and are
+# in ledger.expected. A program that verifies itself verifies nothing.
+ledger: $(LEDGER)/ledger.sob
+	@$(SOLVEIG)/bin/solvm $(LEDGER)/ledger.sob
 
 # The dialects go in beside the binary, and nothing looks for them there.
 #
@@ -254,5 +269,6 @@ clean:
 	rm -f $(EMBER_ASM) $(EMBER_BINS)
 	rm -rf $(EMBER)/examples/*.dSYM
 	rm -f $(GRAMMAR_SOLS) $(GRAMMAR_SOLS:.sol=.sol.map) $(GRAMMAR_SOBS)
+	rm -f $(LEDGER)/ledger.sol $(LEDGER)/ledger.sol.map $(LEDGER)/ledger.sob
 
 -include $(LIB_OBJS:.o=.d)

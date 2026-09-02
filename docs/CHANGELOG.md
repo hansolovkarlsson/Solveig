@@ -10,6 +10,51 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### `programs/ledger` — 2026-09-02
+
+**The fourth program, and the first that is a value type** — a statement in
+fixed-point decimal, checked against figures produced independently in exact
+decimal arithmetic. Written to answer two roadmap entries, and it answers both
+against the grain.
+
+**The domain-boundary entry has its second instance, so it is a pattern.**
+`digest` declares `+` as addition modulo 2³² and is trapped on its loop
+counters; `ledger` declares `/` as rounding to the nearest hundredth and is
+trapped taking `-1225` apart into `-12.25`, which wants floored division. Both
+write those lines as sends with a comment. Two narrowings came with it: **which
+operator turns traitor is not predictable from outside the domain** — this
+program predicted `*` and was bitten by `/` — and the boundary is not only at
+the domain's edge, since `ratio interest to subtotal` answers `0.07` where the
+exact value is `0.074995…`. A ledger has amounts wanting two places and rates
+wanting five, and a dialect has one scale.
+
+**The folding entry has its second customer, and the customer argues the other
+way.**
+
+| | instructions |
+| --- | ---: |
+| as written | 4,258 |
+| every constant folded by hand | 4,250 |
+| saved | 8 — **0.19%**, against digest's 5.4% |
+
+A dialect's constants cost per *use*, and this dialect's uses are outside the
+loop: `*` and `percent` are written once and stay written once whether the
+ledger has five transactions or five thousand. The case for folding rests on the
+claim rather than on the number.
+
+**And it found that Proto has one of Solveig's three integer literals.** `#-5`,
+`$FF08` and `%1011` are all integers in Solveig; only the last form of the first
+is one here. A ledger is the first program with an ordinary negative value.
+[POSTMORTEM.md](POSTMORTEM.md) 16, and [ROADMAP.md](ROADMAP.md) for the third of
+it that is a decision: `%` is an operator character, so `a %1011` would have
+two readings.
+
+Two smaller things: **one spelling may be both infix and prefix** — `@infix - 60
+sub.` beside `@prefix - negated.`, so `#10 - -#5` is `#10:sub(#5:negated)` —
+which nothing here had done. And **hygiene has now gone unmentioned by four
+programs in a row**, which is the only evidence the 0.2.0 argument for shipping
+it early could ever have.
+
 ### `make sanitize` — 2026-09-02
 
 **A tool nobody runs is not a tool.** `SANITIZE=` has been in the Makefile since

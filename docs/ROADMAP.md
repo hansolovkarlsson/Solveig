@@ -42,6 +42,28 @@ expands with `#32:sub(#17)` inside it, evaluated once per use at run time.
 **A form gives back 98% of what it saves**, so *a form is a method that costs
 nothing at run time* is not true today. Folding would win 5.4% on that program.
 
+**A second customer, and it argues the other way.** `programs/ledger` names its
+precision once — `@syntax scale => #100.` — and round-half-up then wants half a
+unit, so `scale:div(#2)` expands to `#100:div(#2)`: the same shape, reached from
+a different direction. Measured the same way, against a hand-folded copy:
+
+| | instructions |
+| --- | ---: |
+| as written | 4,258 |
+| every constant folded by hand | 4,250 |
+| saved | 8 — **0.19%** |
+
+**A dialect's constants cost per *use*, and this dialect's uses are outside the
+loop.** SHA-256 rotates inside sixty-four rounds of every block, so
+`#32:sub(#17)` runs 36,864 times on a 4 KB input; a ledger writes `*` and `percent` once each
+and keeps writing them once whether it has five transactions or five thousand,
+the loop over them carrying no constant at all.
+
+So the number is 5.4% or 0.19% depending on where the dialect sits, and **one
+measurement made this look larger than it is**. What survives is the claim, not
+the figure: *a form is a method that costs nothing at run time* is either true
+or it is not.
+
 **It is not obviously safe, which is why this is an entry and not a patch.**
 Folding `#32:sub(#17)` means evaluating a send at expand time, and `integer:sub`
 is a slot a Solveig program may assign — run rather than assumed:
@@ -84,12 +106,65 @@ making true for its own sake. **The number is small and the claim is not**: 5.4%
 on one program is not an argument, but a sentence in the README that is 98% true
 is a different kind of debt.
 
-**A dialect ends at its domain and cannot say where.** `programs/digest` declares
-`+` as addition modulo 2³², which is right for every line of SHA-256 and a trap
-for the loop counters beside it — `shift - #8` at zero is `#4294967288` and the
-loop never ends, so those lines are written with sends and a comment. No
-proposal; recorded because a second program with a domain-shaped dialect would
-make it a pattern rather than an anecdote.
+**A dialect ends at its domain and cannot say where. Two programs now.**
+`programs/digest` declares `+` as addition modulo 2³², right for every line of
+SHA-256 and a trap for the loop counters beside it — `shift - #8` at zero is
+`#4294967288` and the loop never ends. `programs/ledger` declares `/` as
+rounding to the nearest hundredth, right for splitting a bill four ways and
+wrong for taking `-1225` apart into `-12.25`, which wants the floored whole part
+and remainder. Both write those lines with sends and a comment.
+
+**A pattern rather than an anecdote, and the second instance narrowed it
+twice.** The trapping operator is not predictable from outside the domain —
+`ledger`
+predicted `*` and was bitten by `/` — so nothing here should promise that a
+dialect's danger is findable by inspection. And the boundary is not only at the
+domain's *edge*: `ratio interest to subtotal` answers `0.07` where the exact
+value is `0.074995…`, because a ledger has amounts wanting two places and rates
+wanting five, and a dialect has one scale to give. **The same dialect can be
+wrong for a second quantity inside its own domain.**
+
+Still no proposal. A dialect that could say where it ends would have to say it
+per operator and per quantity, which is a type system and a larger thing than
+this project is.
+
+**Proto has one of Solveig's three integer literals, and that one without its
+sign.** Solveig's grammar:
+
+```ebnf
+integer = "#" [ "-" ] digit { digit }
+        | "$" hexdigit { hexdigit }
+        | "%" bindigit { bindigit } .
+```
+
+`#-5` compiles in Solveig and is an error here. `$FF08` and `%1011` are integers
+there and nothing here. [GRAMMAR.md](GRAMMAR.md) says everything but `operator`
+is Solveig's own spelling *so that a file can be read by somebody who knows
+Solveig without a second set of habits*, and for integers that is false. Found
+by `programs/ledger`, the first program here with ordinary negative values, and
+it reaches back: `programs/digest` transcribed sixty-four SHA-256 round
+constants out of the hexadecimal FIPS 180-4 prints them in, because `$428a2f98`
+is not a thing Proto reads.
+
+**Two of the three are free and the third is not**, which is the only part that
+needs deciding:
+
+| | |
+| --- | --- |
+| `#-5` | Nothing else can begin with `#`. Purely additive, and it closes the gap that was actually hit. |
+| `$FF08` | `$` is not a token, an operator character, or anything else in Proto today. Purely additive. |
+| `%1011` | **`%` is an operator character**, and `lib/arith.pro` declares it as `mod`. `a %1011` is then two readings — `a mod 1011`, and `a` beside a binary literal — and the lexer would have to decide before any declaration has been read. |
+
+Solveig has no conflict here because its operators are fixed. **Proto's are not,
+and this is the extensible-operator line arriving from a direction nothing had
+come from before** — not a dialect wanting to change the lexer, but Solveig's
+own lexer being something Proto cannot fully copy while its operators stay
+declarable.
+
+The decision is whether `%1011` is worth a rule that says a `%` followed
+immediately by a binary digit is a literal, or whether Proto carries two of
+three and says so. **Nothing is blocked either way**: `-#5` is a prefix send and
+reads correctly, and hexadecimal is a transcription cost rather than a wall.
 
 ## Waiting on a customer — optional and repeated parts
 

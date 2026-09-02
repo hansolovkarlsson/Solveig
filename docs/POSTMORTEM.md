@@ -9,10 +9,10 @@ shipped. This is the failures.
 
 ## Scope
 
-Fifteen, from three days, in four cohorts that failed for four different
+Sixteen, from three days, in four cohorts that failed for four different
 reasons:
 
-- **In the compiler** — four, three of which were latent from 0.1.0 and 0.2.0.
+- **In the compiler** — five, four of which were latent from 0.1.0 and 0.2.0.
 - **In the documents** — four: three an edit that reported success and changed
   nothing, and one where no edit was attempted at all.
 - **In the programs** — four, found by the first real use of a thing.
@@ -106,6 +106,45 @@ fail is not a test; this one needed the tool the project already had.
 **Found by** checking a claim in `programs/digest/README.md` before repeating it
 in another document. The claim was that composing those two dialects collides on
 four operators. It collides on nine, and the compiler crashed while saying so.
+
+### 16. Two thirds of Solveig's integer literals were never implemented — latent since 0.1.0
+
+**What.** `#-1225` is an error in Proto and a valid integer in Solveig. So are
+`$FF08` and `%1011`. Solveig's grammar has three forms and Proto implements one,
+without its optional sign:
+
+```ebnf
+integer = "#" [ "-" ] digit { digit }
+        | "$" hexdigit { hexdigit }
+        | "%" bindigit { bindigit } .
+```
+
+**Why it is a defect and not a missing feature.** [GRAMMAR.md](GRAMMAR.md) says
+everything but `operator` is Solveig's own spelling, *so that a file can be read
+by somebody who knows Solveig without a second set of habits*. That sentence is
+the claim, and for integers it is false. A person who knows Solveig writes
+`#-5` and is told `'#' introduces an integer, and needs digits after it`.
+
+**Why nothing found it for ten versions.** No program here had an ordinary
+negative value. A hash has none, an assembler none, a parser none, and the five
+examples none. `programs/ledger` is a ledger, and the second line of its data is
+a refund.
+
+**And it had already cost something, unnoticed.** `programs/digest` writes the
+SHA-256 round constants as `#1116352408, #1899447441, …`. FIPS 180-4 prints them
+as `428a2f98, 71374491, …`, and `$428a2f98` is what Solveig would have taken.
+Sixty-four constants converted by hand, in the program whose first prediction
+was *the formulas will transcribe* — and they did. **The constants did not, and
+the transcription cost never appeared in that program's findings**, because
+converting them felt like the work rather than like a workaround.
+
+**Not yet fixed**, because one third of it is a real decision: `%` is an
+operator character here and `lib/arith.pro` declares it `mod`, so `a %1011` has
+two readings and the lexer would have to choose one before any declaration has
+been read. [ROADMAP.md](ROADMAP.md) carries it. The other two forms are purely
+additive.
+
+**Found by** writing the fourth program, at the second line of its data.
 
 ---
 
@@ -307,7 +346,7 @@ the question it answered, or it is asked instead.**
 | --- | --- |
 | A test written earlier, for something else | **1** |
 | A test that was itself wrong | **1** |
-| Writing a real program in the language | **4** |
+| Writing a real program in the language | **5** |
 | Checking output by hand rather than trusting a clean run | **2** |
 | Reading a document because somebody asked a question about it | **2** |
 | Re-checking a claim before acting on it | **1** |
@@ -316,8 +355,8 @@ the question it answered, or it is asked instead.**
 | The user saying plainly what had been inferred | **1** |
 | Checking a document's claim before repeating it elsewhere | **1** |
 
-**Two of fifteen were found by tests, and one of those two was a broken test.**
-Four came from the three programs written in the language, and three more came
+**Two of sixteen were found by tests, and one of those two was a broken test.**
+Five came from the four programs written in the language, and three more came
 from reading something rather than running it.
 
 The unit tests are worth having — 109 of them, and they caught 1 immediately —
