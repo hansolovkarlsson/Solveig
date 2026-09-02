@@ -1,6 +1,6 @@
 (* solum.bnf -- Solum, in the notation of Wirth's report.
  *
- *   ./bindigit/solvm programs/check_syntax.sob programs/check_syntax/solum.bnf prog.sol
+ *   ./bin/solvm programs/check_syntax.sob programs/check_syntax/solum.bnf prog.sol
  *
  * Taken from solas/src/lexer.c and solas/src/compiler.c rather than from the
  * documentation, because the documentation gives the syntax in pieces and the

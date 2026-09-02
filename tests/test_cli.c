@@ -6,6 +6,7 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include <assert.h>
+#include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -610,6 +611,69 @@ static void test_everything_written_down_is_true(void)
            "hashes, %d of %d links)\n",
            claims, counts, placed, basicChecked, basic, agree, hashes,
            named, links);
+}
+
+/* The grammar against the compiler, one construct at a time.
+ *
+ * **Nothing had ever held solum.bnf to solas.** expect.sol checks GRAMMAR.md
+ * against solum.bnf -- two documents written by hand from one understanding,
+ * which is the shape this repository calls "not a comparison" everywhere else.
+ * An outside user reading the grammar to build a front end asked whether it was
+ * current on 2026-09-01, and answering it took a sweep nobody had run.
+ *
+ * The failure that matters is a construct added to the language and not to the
+ * grammar. It has been close twice: `@expr{...}` landed on 2026-08-29 and
+ * `#["key" = value]` on 2026-08-30, and both went into the grammar in the same
+ * commit -- by discipline, with nothing checking.
+ *
+ * **Every file in programs/check_syntax/syntax/ must be accepted by both.** They
+ * are one construct each and a few lines long, so this costs about two seconds
+ * where the full sweep over everything that ships costs forty-four -- almost all
+ * of it one 196 KB file, since the grammar itself parses in 0.046 s. The sweep
+ * is programs/check_syntax/sweep.sh, run when somebody wants to know.
+ *
+ * **Valid programs only, and that is deliberate.** The two are allowed to
+ * disagree the other way: a grammar cannot carry a scope rule, so `self := #1`
+ * is an ordinary identifier being assigned as far as solum.bnf is concerned and
+ * an error to solas. Those belong in a document, not in a corpus that asserts
+ * agreement. */
+static void test_the_grammar_matches_the_compiler(void)
+{
+    char out[64 * 1024];
+
+    assert(run("bin/solas programs/check_syntax.sol -o " DIR "/cs.sob 2>&1",
+               out, sizeof out) == 0);
+
+    /* The sweep is a shell loop rather than `opendir`, because `DIR` is already
+       a macro for the build directory in this file -- and because running the
+       binaries as a shell would is what the rest of this suite does. */
+    int status = run(
+        "n=0; for f in programs/check_syntax/syntax/*.sol; do "
+        "  bin/solas \"$f\" -o " DIR "/one.sob >/dev/null 2>&1 || "
+        "    { echo \"solas refuses $f\"; exit 1; }; "
+        "  bin/solvm " DIR "/cs.sob programs/check_syntax/solum.bnf \"$f\" "
+        "    >/dev/null 2>&1 || "
+        "    { echo \"the grammar refuses $f\"; exit 1; }; "
+        "  n=$((n + 1)); "
+        "done; echo \"checked $n\"",
+        out, sizeof out);
+
+    if (status != 0) {
+        printf("\n%s\na construct is in the language and not in the grammar,\n"
+               "or a construct file stopped compiling\n", out);
+        assert(false);
+    }
+
+    int checked = 0;
+    const char *at = strstr(out, "checked ");
+    assert(at != NULL);
+    assert(sscanf(at, "checked %d", &checked) == 1);
+
+    /* A floor, for the same reason every other count here has one: a sweep that
+       quietly stops finding files to check is a sweep that has stopped. */
+    assert(checked >= 12);
+    printf("  the grammar accepts every construct the compiler does (%d)\n",
+           checked);
 }
 
 /* The BASIC interpreter, held to the standard it says it implements.
@@ -1805,6 +1869,7 @@ int main(void)
     test_a_memory_limit_measures_what_is_held();
     test_the_limits_are_off_and_are_checked();
     test_everything_written_down_is_true();
+    test_the_grammar_matches_the_compiler();
     test_basic_runs_the_way_the_standard_says();
     test_basic_runs_a_listing_from_a_file();
     test_basic_has_a_prompt();
