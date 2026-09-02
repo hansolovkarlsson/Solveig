@@ -87,8 +87,7 @@ cannot be made true as it was first written: Solveig's scanner is
 region-sensitive, and Proto could not read `-3` as a literal anyway without
 `a -3` ceasing to be a subtraction in any dialect that declared `-`.
 
-**The header is where
-the two are meant to differ, and nowhere else.**
+**The header is where the two are meant to differ, and nowhere else.**
 
 **`|`, `:`, `.` and `,` are not operator characters and cannot become any.** `|`
 is what tells a block's parameters from its body, and the rest are the core
