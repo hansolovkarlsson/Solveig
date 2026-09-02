@@ -5,6 +5,57 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The first outside user, and what answering him cost — `pending`, 2026-09-01
+
+**Somebody who did not write this language started emitting `.sob` from
+outside it.** Phoenix is a compiler-generator; the experiment is a bytecode
+compiler for Solveig, and the plan is bytecode for other source languages after
+that. Three questions came back over an afternoon, and answering them changed
+five things.
+
+**`display` writes a newline and the cheatsheet did not say so** — it says it
+for `print`, on the row above, which reads as a difference where there is none.
+And `#3:repeat({ "tick":display })` is written `; tick tick tick` and prints
+three lines, which is this repository's comment notation and not a claim about
+the language. Both were documented only inside `expect.sol`, where no reader
+looks. [CHEATSHEET.md](CHEATSHEET.md) now opens by saying how its own comments
+are to be read.
+
+**Checking the second one found the checker accepting a class of false claim.**
+`satisfies` took any claim whose *first token* matched the output, so `; tick`
+would satisfy `tick tick tick` and `; #5` would satisfy `#5 anything at all`.
+That looseness existed to support a third comment convention the checker had
+learned rather than declared wrong. Twenty-two comments were converted to the
+`--` form in one pass and the rule is equality now.
+
+**Then: is `solum.bnf` current?** It is, and nothing had ever asked. `expect.sol`
+holds `GRAMMAR.md` against `solum.bnf` — two documents written by hand from one
+understanding, which this repository calls *not a comparison* everywhere else.
+Held against `solas` instead: **94 of 94 shipped files, 15 constructs, and
+agreement on 9 of 10 malformed programs**. The tenth is a scope rule, which a
+grammar cannot carry.
+
+`programs/check_syntax/syntax/` is one small file per construct and `test_cli`
+requires both `solas` and the grammar to accept every one, which catches a
+construct added to the language and not to the grammar in about two seconds.
+The full sweep is [sweep.sh](../programs/check_syntax/sweep.sh) and stays out of
+`make test` at 44 seconds — almost all of it one 196 KB file, where the grammar
+itself parses in 0.046 s.
+
+**And [PRODUCING.md](PRODUCING.md), which is what he actually needed.** The
+rules `solas` enforces that neither the grammar nor `BYTECODE.md` carries:
+`self`'s scope, duplicate declarations, the three extra rules inside `@expr`,
+directives, every chunk limit with its number, and what the verifier checks.
+Every rule was triggered before it was written down.
+
+**Writing it found two defects.** `SOL_MAX_LOCALS` was 256 where the format
+writes `slot_count` as a `u8` — so a frame of 256 slots compiled cleanly and
+then failed to serialise: `solas` emitting bytecode its own verifier refuses,
+reported as *bytecode is internally inconsistent* rather than *too many
+parameters*. It is 255 now. And a dictionary literal takes **127 pairs**, not
+the 254 its message implies, because it lowers to `dictionary:of` and the
+ceiling is the argument list's.
+
 ### awk, the nineteenth program — `faea93b` and `e0137fa`, 2026-09-01
 
 **No change to the language.** [programs/awk.sol](../programs/awk.sol) is the

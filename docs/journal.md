@@ -11,6 +11,75 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-01 (tenth) — the first outside user, and five things his questions moved
+
+Somebody who did not write this language started emitting `.sob` from outside
+it. Three questions over an afternoon, none of them a bug report, and every one
+of them moved something.
+
+### The questions were about documents and the answers were about checks
+
+**`display` writes a newline** and the cheatsheet said so for `print` on the row
+above and not for `display`. **`; tick tick tick` on a line that prints three
+lines** is this repository's comment notation, which he correctly diagnosed and
+still lost time to, because it is documented inside `expect.sol` and nowhere a
+reader would look.
+
+Both are documentation. What made them worth the afternoon is what checking the
+second one found: `satisfies` accepted any claim whose *first token* matched the
+output line. `; #5` would have satisfied `#5 anything at all`. The checker had a
+standing hole underneath a convention nobody had questioned, and it took an
+outsider being confused by the convention to find it.
+
+**Twenty-two comments moved to the `--` form and the rule is equality.** That is
+the fourth checker hole this day, and the first one somebody else found.
+
+### And nothing had ever held the grammar to the compiler
+
+*Is `solum.bnf` current?* Answering it needed a sweep nobody had run, because
+the only check on the grammar held it against `GRAMMAR.md` — two documents
+written by hand from one understanding.
+
+It is current: 94 of 94 shipped files, 15 constructs including the two he
+thought were missing, and agreement with `solas` on 9 of 10 malformed programs.
+Both constructs he doubted went in on 29 and 30 August, which is the likelier
+story — a copy taken before then.
+
+There is a corpus now, one file per construct, in `make test`. It would have
+answered his question in two seconds instead of a conversation.
+
+### Writing the document is what found the defects
+
+[PRODUCING.md](PRODUCING.md) is the thing he actually needed and it is two
+pages. The rule I set myself was to trigger every rule before writing it down
+and to find every limit by generating programs until `solas` refused, rather
+than by reading a header.
+
+That is the whole reason it found anything. **`SOL_MAX_LOCALS` was 256 and the
+format writes `slot_count` as a `u8`**, so 254 parameters were accepted and 255
+produced a chunk `solas`'s own verifier refuses — reported with the one sentence
+that stands for thirty-five faults. A compiler emitting invalid bytecode, and
+the diagnosis hiding which fault it was, from the person best placed to fix it.
+That is 6.42's argument arriving as an instance of itself.
+
+And a dictionary literal takes 127 pairs where its message implies 254, because
+it lowers to `dictionary:of` and the ceiling is the argument list's. An array
+takes 255. The same limit counted two ways, and neither number written down.
+
+### What an outside user is worth
+
+Every check in this repository was written by the person whose work it checks.
+The corpus was, the claims were, the grammar's only comparison was against its
+own twin. Today one person reading the documents for an afternoon found a
+cheatsheet omission, a notation that misleads, a checker accepting false
+claims, a grammar nothing verified, a compiler emitting bad bytecode and a limit
+off by a factor of two.
+
+None of that needed him to be an expert. It needed him not to already know what
+the answer was supposed to be.
+
+---
+
 ## 2026-09-01 (ninth) — awk, and the same defect twice in one day
 
 The nineteenth program is written and ten of its cases agree with the awk on
