@@ -98,15 +98,21 @@ const ProtoInfix *proto_dialect_add_infix(ProtoDialect *dialect,
 {
     /* Always added, never refused. Lookup walks backwards, so the last
        declaration is the one a use finds -- and what to say about the one it
-       displaced is a policy the reader applies, not a rule the table has. */
-    const ProtoInfix *existing = proto_dialect_infix(dialect, spelling, length);
+       displaced is a policy the reader applies, not a rule the table has.
 
+       **The lookup comes after the growth, and must.** It answers a pointer
+       *into* this array, and the caller dereferences it to report the
+       collision; a realloc between the two moves the block and leaves that
+       pointer in freed memory. Growing first costs nothing -- realloc does not
+       change what the existing entries say, only where they are. */
     if (dialect->infix_count == dialect->infix_capacity) {
         dialect->infix_capacity = dialect->infix_capacity < 8
                                 ? 8 : dialect->infix_capacity * 2;
         dialect->infix = proto_realloc(dialect->infix,
                                      (size_t)dialect->infix_capacity * sizeof *dialect->infix);
     }
+
+    const ProtoInfix *existing = proto_dialect_infix(dialect, spelling, length);
 
     ProtoInfix *entry = &dialect->infix[dialect->infix_count++];
     entry->spelling = proto_strndup(spelling, (size_t)length);
@@ -124,14 +130,15 @@ const ProtoPrefix *proto_dialect_add_prefix(ProtoDialect *dialect,
                                         const char *selector, int selector_length,
                                         int form, ProtoSpan declared_at)
 {
-    const ProtoPrefix *existing = proto_dialect_prefix(dialect, spelling, length);
-
+    /* After the growth, for the reason proto_dialect_add_infix gives. */
     if (dialect->prefix_count == dialect->prefix_capacity) {
         dialect->prefix_capacity = dialect->prefix_capacity < 8
                                  ? 8 : dialect->prefix_capacity * 2;
         dialect->prefix = proto_realloc(dialect->prefix,
                                       (size_t)dialect->prefix_capacity * sizeof *dialect->prefix);
     }
+
+    const ProtoPrefix *existing = proto_dialect_prefix(dialect, spelling, length);
 
     ProtoPrefix *entry = &dialect->prefix[dialect->prefix_count++];
     entry->spelling = proto_strndup(spelling, (size_t)length);
@@ -197,6 +204,14 @@ const ProtoMacro *proto_dialect_add_macro(ProtoDialect *dialect,
                                       ProtoPatternPart *parts, int part_count,
                                       ProtoNode *template, ProtoSpan declared_at)
 {
+    /* After the growth, for the reason proto_dialect_add_infix gives. */
+    if (dialect->macro_count == dialect->macro_capacity) {
+        dialect->macro_capacity = dialect->macro_capacity < 8
+                                ? 8 : dialect->macro_capacity * 2;
+        dialect->macro = proto_realloc(dialect->macro,
+                                     (size_t)dialect->macro_capacity * sizeof *dialect->macro);
+    }
+
     const ProtoMacro *existing = NULL;
     for (int i = dialect->macro_count - 1; i >= 0; i--)
         if (same(dialect->macro[i].name, name, length) &&
@@ -204,13 +219,6 @@ const ProtoMacro *proto_dialect_add_macro(ProtoDialect *dialect,
             existing = &dialect->macro[i];
             break;
         }
-
-    if (dialect->macro_count == dialect->macro_capacity) {
-        dialect->macro_capacity = dialect->macro_capacity < 8
-                                ? 8 : dialect->macro_capacity * 2;
-        dialect->macro = proto_realloc(dialect->macro,
-                                     (size_t)dialect->macro_capacity * sizeof *dialect->macro);
-    }
 
     ProtoMacro *entry = &dialect->macro[dialect->macro_count++];
     entry->name = proto_strndup(name, (size_t)length);

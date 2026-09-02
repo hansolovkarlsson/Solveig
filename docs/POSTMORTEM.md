@@ -9,9 +9,10 @@ shipped. This is the failures.
 
 ## Scope
 
-Fourteen, from two days, in four cohorts that failed for four different reasons:
+Fifteen, from three days, in four cohorts that failed for four different
+reasons:
 
-- **In the compiler** — three, two of which were latent from 0.1.0 and 0.2.0.
+- **In the compiler** — four, three of which were latent from 0.1.0 and 0.2.0.
 - **In the documents** — four: three an edit that reported success and changed
   nothing, and one where no edit was attempted at all.
 - **In the programs** — four, found by the first real use of a thing.
@@ -65,6 +66,46 @@ pattern* — rather than whether the call shape had been taken.
 
 **Found by** a question about which punctuation a dialect can claim, which meant
 running the case rather than reasoning about it.
+
+### 15. A use-after-free in the operator table — latent since 0.1.0
+
+**What.** `proto` segfaulted on `@use "sha2.pro"` beside `lib/control.pro` — two
+real dialects in this repository, composed the way the collision rules exist to
+allow.
+
+**Cause.** `proto_dialect_add_infix` answers the entry a redeclaration displaced,
+so the reader can say *previously declared here*. It looked that entry up
+**before** growing the array:
+
+```c
+const ProtoInfix *existing = proto_dialect_infix(dialect, spelling, length);
+if (count == capacity) { ... dialect->infix = proto_realloc(...); }   /* moves */
+return existing;                                                      /* dangles */
+```
+
+The caller then reads `clash->spelling` and `clash->declared_at` out of freed
+memory. `proto_dialect_add_prefix` and `proto_dialect_add_macro` had it too;
+`proto_dialect_add_template` did not, answering no pointer. The fix is to look up
+after the growth — realloc changes where the entries are, never what they say.
+
+**Why it hid for nine versions.** It needs a collision *and* a growth in the same
+call *and* a realloc that relocates rather than extends. Every example and
+program in the tree composes dialects that agree, and the suite's own fixtures
+are small enough that the block grows in place. `programs/digest` was the first
+thing here with a dialect that redefines `+`, and its README says composing it is
+a collision — but says so having reasoned about it rather than run it.
+
+**What it says about the tests.** The regression check added with the fix
+reproduces the shape and **passes without the fix in a plain build**, because
+whether the stale pointer lands on freed memory is the allocator's business. It
+fails, deterministically, under
+`make test SANITIZE="-fsanitize=address"` — an invocation the Makefile has
+documented since 0.1.0 and which nothing had been run under. A test that cannot
+fail is not a test; this one needed the tool the project already had.
+
+**Found by** checking a claim in `programs/digest/README.md` before repeating it
+in another document. The claim was that composing those two dialects collides on
+four operators. It collides on nine, and the compiler crashed while saying so.
 
 ---
 
@@ -273,12 +314,13 @@ the question it answered, or it is asked instead.**
 | `git status` before a commit | **1** |
 | Having to restate a number another document already stated | **1** |
 | The user saying plainly what had been inferred | **1** |
+| Checking a document's claim before repeating it elsewhere | **1** |
 
-**Two of fourteen were found by tests, and one of those two was a broken test.**
+**Two of fifteen were found by tests, and one of those two was a broken test.**
 Four came from the three programs written in the language, and three more came
 from reading something rather than running it.
 
-The unit tests are worth having — 108 of them, and they caught 1 immediately —
+The unit tests are worth having — 109 of them, and they caught 1 immediately —
 but they check what was thought of. **What found the rest was a customer, or a
 second look.** That is the argument for `programs/`, for recording predictions
 before writing a program, and for the rule that a finding gets retracted in
@@ -290,3 +332,11 @@ which is the first time that is true of a pair, and the day did not produce a
 line of compiler code. Neither is a defect in Proto. Both are defects in how a
 claim gets recorded: one document asserting a fact about another, and an
 inference written down in the voice of an instruction.
+
+**15 is the one the tally argues with.** It is a real defect in the compiler,
+latent since 0.1.0, and no amount of writing programs found it — all three
+compose dialects that agree. What found it was checking whether a sentence in a
+README was true. And what would have found it years earlier was running the
+suite under the sanitizer the Makefile has documented from the first commit and
+which nothing had ever been run under. *The tool was already there* is a worse
+finding than a missing test, and it is the one to keep.

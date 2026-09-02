@@ -10,6 +10,28 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### A use-after-free composing two dialects — 2026-09-02
+
+**`proto` segfaulted on `@use "sha2.pro"` beside `lib/control.pro`** — two real
+dialects in this repository, composed the way the collision rules exist to
+allow. Latent since 0.1.0.
+
+`proto_dialect_add_infix` answers the entry a redeclaration displaced, so the
+reader can say *previously declared here*. It looked that entry up **before**
+growing the array, and `realloc` may move the block — so the caller read
+`clash->spelling` out of freed memory. `add_prefix` and `add_macro` had it too;
+`add_template` did not, answering no pointer. The lookup now happens after the
+growth: realloc changes where the entries are, never what they say.
+
+**It needed a collision, a growth, and a relocating realloc in the same call**,
+which is why nine versions and three programs missed it — all three compose
+dialects that agree. `tests/test_use.c` gains the shape, and is honest that it
+guards only under `make test SANITIZE="-fsanitize=address"`: whether a stale
+pointer lands on freed memory is the allocator's business, and in that process it
+does not. **The suite is now clean under `-fsanitize=address,undefined`**, an
+invocation the Makefile has documented since 0.1.0 and which nothing had been run
+under. [POSTMORTEM.md](POSTMORTEM.md) 15.
+
 ### `@language`, removed — 0.10.0, 2026-09-02
 
 **The only directive that did nothing, gone.** It parsed, recorded a name in

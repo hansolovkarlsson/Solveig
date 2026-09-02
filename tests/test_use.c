@@ -216,10 +216,42 @@ int main(void)
            "    t__1 := t.\n"
            "    t__1 }:value.\n", 0);
 
+    /* A redeclaration answers a pointer *into* the operator table, so that the
+       collision can name where the first one was written. Adding an operator
+       may grow that table, and a pointer taken before the growth is freed
+       memory by the time it is read -- which segfaulted rather than warned.
+
+       The shape is two dialects deep enough to cross the growth, with the
+       second redeclaring one of the first's -- which is what `programs/digest`
+       beside `lib/control.pro` does.
+
+       **This check guards the bug only under a sanitizer**, which is how it is
+       written rather than an apology for it: whether the stale pointer is
+       *read* as freed memory depends on whether realloc happened to move the
+       block, and in this process it does not. `make clean && make test
+       SANITIZE="-fsanitize=address"` reports the use-after-free here and is
+       clean with the fix in. A plain run passes either way. */
+    write_file("top.pro",
+               "@infix + 60 => (left:add(right)):bitAnd(#4294967295).\n"
+               "@infix - 60 => (left:sub(right)):bitAnd(#4294967295).\n"
+               "@infix >> 55 shiftRight.\n"
+               "@infix << 55 => (left:shiftLeft(right)):bitAnd(#4294967295).\n");
+    write_file("base.pro",
+               "@infix * 70 mul.\n@infix / 70 div.\n@infix % 70 mod.\n"
+               "@infix + 60 add.\n@infix - 60 sub.\n@infix < 40 lessThan.\n"
+               "@infix > 40 greaterThan.\n@infix == 40 equals.\n"
+               "@infix && 30 => left:and({ right }).\n"
+               "@infix || 25 => left:or({ right }).\n");
+    write_file("p11.pro",
+               "@use \"top.pro\".\n@use \"base.pro\".\na := #1 + #2.\n");
+    expect("a collision that grows the operator table", "p11.pro",
+           "a := #1:add(#2).\n", 2);
+
     printf("%d checks, %d failed\n", checks, failures);
 
     const char *files[] = { "arith.pro", "control.pro", "more.pro", "other.pro",
                             "code.pro", "hold.pro", "x.pro", "y.pro",
+                            "top.pro", "base.pro", "p11.pro",
                             "p1.pro", "p2.pro", "p3.pro", "p4.pro", "p5.pro",
                             "p6.pro", "p7.pro", "p8.pro", "p9.pro", "p10.pro" };
     for (size_t i = 0; i < sizeof files / sizeof *files; i++)
