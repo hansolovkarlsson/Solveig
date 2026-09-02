@@ -124,6 +124,21 @@ for page in $pages; do
     headings=$((headings + want))
 
     if [ "$got" -lt "$want" ]; then
+        # **Asked twice, because a build in progress answers the first one
+        # wrongly.** Pages serves the old page, then a partial one, then the new
+        # one; a fetch landing in the middle reports headings missing that are
+        # not. That happened on 2026-09-01 against this script's own author, who
+        # had polled for the new page and got a 200 before the rest of the site
+        # had caught up. A check that reports a fault which is not there
+        # misleads exactly as far as one that cannot fail.
+        sleep 5
+        curl -sfL "$site${path#$base}" -o "$out.again" 2>/dev/null
+        got=$(grep -o '<h[1-6][ >]' "$out.again" 2>/dev/null | wc -l | tr -d ' ')
+        [ -z "$got" ] && got=0
+        mv -f "$out.again" "$out" 2>/dev/null
+    fi
+
+    if [ "$got" -lt "$want" ]; then
         printf '  LOST      %-30s %s of %s headings rendered\n' "$page" "$got" "$want"
         faults=$((faults + 1))
     elif [ "$got" -ne "$want" ]; then

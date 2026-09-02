@@ -11,8 +11,8 @@ page is the third thing: the rules `solas` enforces that neither can carry, and
 the limits a chunk has.
 
 It exists because somebody outside this repository started emitting `.sob` and
-had nowhere to look. [ROADMAP
-6.42](ROADMAP.md#642-a-second-producer-of-sob-has-no-contract-to-build-against)
+had nowhere to look.
+[ROADMAP 6.42](ROADMAP.md#642-a-second-producer-of-sob-has-no-contract-to-build-against)
 is the entry.
 
 **Every rule below was triggered before it was written down**, and the message
