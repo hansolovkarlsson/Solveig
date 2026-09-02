@@ -122,9 +122,9 @@ tokens.** No `.pro` can change this table.
 | | |
 | --- | --- |
 | name | `[A-Za-z_][A-Za-z0-9_]*` |
-| integer | `#` and then digits |
-| float | digits, optionally a `.` and more digits |
-| string | `"…"`, `\` escaping the next character |
+| integer | `#` then an optional `-` then digits, or `$` and hexadecimal digits |
+| float | digits, optionally a `.` and more digits, optionally `e`/`E` with an optional sign and more digits |
+| string | `"…"`, with `\"` `\\` `\n` `\t` `\r` and no other escape |
 | symbol | `'` and then a name |
 | directive | `@` and then a name |
 | operator | one or more of `+ - * / < > = ! & ^ % ~ ? \`, or `\|\|` |

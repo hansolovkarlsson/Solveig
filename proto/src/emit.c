@@ -187,8 +187,7 @@ static void emit_node(ProtoEmitter *emitter, const ProtoNode *node)
 
     switch (node->kind) {
         case PROTO_NODE_INTEGER:
-            write(emitter, "#");
-            write(emitter, node->text);
+            write(emitter, node->text);     /* the tag is part of the text */
             break;
 
         case PROTO_NODE_FLOAT:

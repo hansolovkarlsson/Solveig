@@ -150,16 +150,18 @@ is not a thing Proto reads.
 
 **The nine sort into four kinds, and only one of them is a decision:**
 
-| free to add | |
+| closed in 0.11.0 | |
 | --- | --- |
-| `#-5` | Nothing else can begin with `#`. Purely additive, and it closes the gap that was actually hit. |
-| `$FF08` | `$` is not a token, an operator character, or anything else in Proto today. |
-| `1e10`, `2.5E-3` | Float exponents. Proto's float stops at a fraction. |
-| `#[a = b]` | A dictionary. The *Rough edges* table below worried about the `=` inside; the obstacle is earlier — `#[` fails at the `#`, which wants digits. |
+| `#-5` | Nothing else can begin with `#`, so the sign has no second reading to be confused with. |
+| `$FF08` | `$` was not a token, an operator character, or anything else. The literal now goes out as written, so a base survives rather than being normalised to decimal. |
+| `1e10`, `2.5E-3` | Float exponents, taken only when the digits are actually there — `2 e` is still two tokens. |
+| `"\q"` | The escape set, narrowed to Solveig's five. This was the one where Proto was the *permissive* one and therefore the only one that emitted Solveig `solas` rejects. |
 
 | a decision | |
 | --- | --- |
 | `%1011` | **`%` is an operator character**, and `lib/arith.pro` declares it `mod`. `a %1011` is then two readings — `a mod 1011`, and `a` beside a binary literal — and the lexer would have to choose before any declaration has been read. |
+
+| `#[a = b]` | **Not free after all**, which is the correction this entry owes. It lexes now — `#` no longer refuses what follows. What it needs is a *parse* rule: Solveig writes `pair = sum "=" expression` and resolves the ambiguity by level, which Proto cannot copy because a dialect may declare `=` at any precedence, and `lib/clike.pro` declares it at 10. The rule would have to be that **a top-level `=` inside a dictionary is the separator and never the declared operator** — the first time a context would shadow a declaration, which is why it is a decision and not a patch. |
 
 | already decided | |
 | --- | --- |
@@ -169,15 +171,14 @@ is not a thing Proto reads.
 | forced, and never written down | |
 | --- | --- |
 | `-3` | Solveig's scanner gives the sign to the number outside a `@expr` region and treats it as the operator inside one. **Proto cannot have either half.** It has no regions, so it cannot be context-sensitive; and it cannot simply take `-3` as a literal, because then `a -3` stops being a subtraction in every dialect that declares `-`. A prefix declaration is the only reading left. |
-| `"\q"` | The one where Proto is the *permissive* one, and therefore the only one that emits Solveig `solas` rejects. Proto escapes whatever follows a backslash; Solveig has five escapes and no more. A plain defect — [POSTMORTEM.md](POSTMORTEM.md) 17. |
 
-**The last two are the interesting ones.** Everything above them is a token
-Proto could add. `-3` is a token Proto **cannot** add without giving up
-declarable `-`, which means *everything but `operator` is Solveig's own
-spelling* was never achievable and the design chose against it in 0.1.0 without
-recording that it had. That is the extensible-operator line arriving from a new
-direction — not a dialect wanting to change the lexer, but Solveig's own number
-syntax being uncopyable while operators stay declarable.
+**The last one is the interesting one.** Everything above it was a token Proto
+could add, and 0.11.0 added four. `-3` is a token Proto **cannot** add without
+giving up declarable `-`, which means *everything but `operator` is Solveig's
+own spelling* was never achievable and the design chose against it in 0.1.0
+without recording that it had. That is the extensible-operator line arriving
+from a new direction — not a dialect wanting to change the lexer, but Solveig's
+own number syntax being uncopyable while operators stay declarable.
 
 Solveig has no conflict here because its operators are fixed. **Proto's are not,
 and this is the extensible-operator line arriving from a direction nothing had
@@ -185,11 +186,12 @@ come from before** — not a dialect wanting to change the lexer, but Solveig's
 own lexer being something Proto cannot fully copy while its operators stay
 declarable.
 
-The decision is whether `%1011` is worth a rule that says a `%` followed
-immediately by a binary digit is a literal, or whether Proto carries what it can
-and says so. **Nothing is blocked either way**: `-#5` is a prefix send and reads
-correctly, and hexadecimal is a transcription cost rather than a wall. The
-`"\q"` half is not a decision at all and should just be fixed.
+Two decisions are left. **`%1011`**: whether it is worth a rule saying a `%`
+followed immediately by a binary digit is a literal, or whether Proto carries
+what it can and says so. **`#[…]`**: whether a context may shadow a declared
+operator, which nothing here has ever allowed. Neither blocks anything —
+`$FF08` covers the base-conversion case that actually hurt, and
+`dictionary:new` works.
 
 ## Waiting on a customer — optional and repeated parts
 

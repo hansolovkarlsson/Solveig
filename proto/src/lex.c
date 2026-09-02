@@ -23,6 +23,11 @@ static bool is_alpha(char c)
 
 static bool is_digit(char c) { return c >= '0' && c <= '9'; }
 
+static bool is_hexdigit(char c)
+{
+    return is_digit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+}
+
 static bool is_alnum(char c) { return is_alpha(c) || is_digit(c); }
 
 /* What may run together into one operator token.
@@ -99,14 +104,33 @@ ProtoToken proto_lexer_next(ProtoLexer *lexer)
         return make(lexer, PROTO_TOK_NAME, start);
     }
 
-    /* `#42`. The digits are checked here rather than left to the emitter,
-       because `#` followed by nothing is a mistake with a place to point at
-       and a bare `#` reaching Solveig is a mistake without one. */
+    /* `#42` and `#-42`. The digits are checked here rather than left to the
+       emitter, because `#` followed by nothing is a mistake with a place to
+       point at and a bare `#` reaching Solveig is a mistake without one.
+
+       **The sign belongs to the number**, which is Solveig's rule -- its
+       grammar is `"#" [ "-" ] digit { digit }`. It is safe here in a way a sign
+       on a *bare* number is not: nothing but an integer can begin with `#`, so
+       there is no second reading for `-` to have. A leading `-` on a float
+       stays the declared prefix operator, and must; see docs/ROADMAP.md. */
     if (c == '#') {
         lexer->current++;
+        if (*lexer->current == '-') lexer->current++;
         if (!is_digit(*lexer->current))
             return error_at(lexer, start, "'#' introduces an integer, and needs digits after it");
         while (is_digit(*lexer->current)) lexer->current++;
+        return make(lexer, PROTO_TOK_INTEGER, start);
+    }
+
+    /* `$FF08`, hexadecimal, and Solveig's own spelling. Purely additive: `$` is
+       not an operator character and means nothing else here. It takes no sign,
+       because it is for looking at bits. */
+    if (c == '$') {
+        lexer->current++;
+        if (!is_hexdigit(*lexer->current))
+            return error_at(lexer, start,
+                            "'$' introduces a hexadecimal integer, and needs digits after it");
+        while (is_hexdigit(*lexer->current)) lexer->current++;
         return make(lexer, PROTO_TOK_INTEGER, start);
     }
 
@@ -118,6 +142,18 @@ ProtoToken proto_lexer_next(ProtoLexer *lexer)
             lexer->current++;
             while (is_digit(*lexer->current)) lexer->current++;
         }
+        /* An exponent, and only when the digits are actually there: `2e10` is
+           one number and `2 exp` is two tokens, so the whole tail is looked at
+           before any of it is consumed. `1e` is the float 1 and the name `e`,
+           which is what it looks like. */
+        if (*lexer->current == 'e' || *lexer->current == 'E') {
+            const char *after = lexer->current + 1;
+            if (*after == '+' || *after == '-') after++;
+            if (is_digit(*after)) {
+                lexer->current = after;
+                while (is_digit(*lexer->current)) lexer->current++;
+            }
+        }
         return make(lexer, PROTO_TOK_FLOAT, start);
     }
 
@@ -128,9 +164,22 @@ ProtoToken proto_lexer_next(ProtoLexer *lexer)
                 return error_at(lexer, start, "this string is never closed");
             /* Escapes are counted, not interpreted: the text goes to Solveig
                as written, and Solveig's own lexer is what decides what `\n`
-               means. Two interpretations of one escape is one too many. */
-            if (*lexer->current == '\\' && lexer->current[1] != '\0')
+               means. Two interpretations of one escape is one too many.
+
+               **The five are checked, though.** Solveig's grammar is
+               `escape = "\\" ( '"' | "\\" | "n" | "t" | "r" )` and its
+               compiler refuses anything else. Taking `\q` here and emitting it
+               produced a `.sol` that `solas` rejected, with the error landing
+               on generated code -- Proto emitting invalid Solveig, which is the
+               one failure the whole map exists to prevent. See
+               docs/POSTMORTEM.md 17. */
+            if (*lexer->current == '\\') {
+                if (strchr("\"\\ntr", lexer->current[1]) == NULL ||
+                    lexer->current[1] == '\0')
+                    return error_at(lexer, lexer->current,
+                                    "unknown escape; \\\" \\\\ \\n \\t \\r are the five");
                 lexer->current++;
+            }
             lexer->current++;
         }
         lexer->current++;

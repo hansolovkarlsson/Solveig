@@ -124,6 +124,35 @@ int main(void)
     expect("literals", HEADER "a := [#1, 2.5, \"s\", 'sym].\n",
            "a := [#1, 2.5, \"s\", 'sym].\n");
 
+    /* Solveig's number spellings, which Proto had one and a half of until
+       POSTMORTEM.md 16. The literal goes out **as written** -- the base a
+       formula was transcribed in is worth keeping, so `$FF08` does not come
+       back as `#65288`. */
+    expect("a signed integer", HEADER "a := #-45.\n", "a := #-45.\n");
+    expect("a hexadecimal integer", HEADER "a := $FF08.\n", "a := $FF08.\n");
+    expect("hexadecimal keeps its base", HEADER "a := $ff + $10.\n",
+           "a := $ff:add($10).\n");
+    expect("a float exponent", HEADER "a := 1e10.\n", "a := 1e10.\n");
+    expect("a signed float exponent", HEADER "a := 2.5E-3.\n",
+           "a := 2.5E-3.\n");
+
+    /* The exponent is taken only when the digits are there, so a name after a
+       number is still a name and `45.` is still a float and a separator. */
+    expect("a name after a number", HEADER "a := 2. b := e.\n",
+           "a := 2.\nb := e.\n");
+    expect("a float then a separator", HEADER "a := 45. b := #1.\n",
+           "a := 45.\nb := #1.\n");
+
+    expect_rejected("'#' with no digits after the sign", HEADER "a := #-.\n");
+    expect_rejected("'$' with no digits",  HEADER "a := $.\n");
+
+    /* Solveig has five escapes and refuses the rest. Taking more of them here
+       meant emitting a .sol that solas rejected -- POSTMORTEM.md 17. */
+    expect("the five escapes", HEADER "a := \"q\\\"w\\\\e\\nr\\tt\\ry\".\n",
+           "a := \"q\\\"w\\\\e\\nr\\tt\\ry\".\n");
+    expect_rejected("an escape that is not one of the five",
+                    HEADER "a := \"a\\qb\".\n");
+
     /* Blocks: parameters, temporaries, and the leading bar that tells them
        apart. Solveig's rule, and Proto reads it the same way. */
     expect("one parameter",  HEADER "a := { x | x }.\n", "a := { x | x }.\n");

@@ -10,6 +10,44 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### Four of Solveig's spellings, and one Proto had too many — 0.11.0, 2026-09-02
+
+**Five of the nine differences [POSTMORTEM.md](POSTMORTEM.md) 16 found, now
+closed.**
+
+| | |
+| --- | --- |
+| `#-45` | The sign belongs to the number, which is Solveig's rule. Safe here for a reason a signed *float* is not: nothing but an integer can begin with `#`, so `-` has no second reading to be confused with. |
+| `$FF08` | Hexadecimal. `$` was not an operator character or anything else. |
+| `1e10`, `2.5E-3` | Float exponents, taken only when the digits are there — `2 e` is still two tokens, and `45.` is still a float and a separator. |
+| `"\q"` | **Narrowed.** Solveig has five escapes; Proto took any character after a backslash. |
+
+**An integer now travels as written.** It used to be stored without its `#` and
+have one put back on the way out, which cannot survive `$FF08` or `#-45` — and
+normalising `$428a2f98` to `#1116352408` would throw away the base the formula
+was transcribed in, which is the only reason to write hexadecimal at all.
+
+**The escape one is the defect rather than the gap.** Every other difference was
+Proto refusing something Solveig takes, which is a smaller language and an
+honest error. That one went the other way: `x := "a\qb".` compiled here and
+produced a `.sol` that `solas` refused, with the error landing on generated
+code. **Proto emitting invalid Solveig** is the single failure the map and the
+run-every-example discipline exist to prevent, and neither caught it, because no
+example has a bad escape. [POSTMORTEM.md](POSTMORTEM.md) 17.
+
+**Four differences are left, and one of them was mis-sorted when the nine were
+first written up.** `#[a = b]` was called free on the strength of the lexer. The
+lexer was never the obstacle: Solveig writes `pair = sum "=" expression` and
+resolves it by precedence *level*, which Proto cannot copy because a dialect may
+declare `=` anywhere — `lib/clike.pro` puts it at 10. It needs a rule saying a
+context shadows a declaration, which nothing here has ever allowed, so it is a
+decision and joins `%1011` on [ROADMAP.md](ROADMAP.md). `@expr` stays refused,
+and `-3` stays impossible while `-` is declarable.
+
+Eleven checks in `tests/test_reader.c` hold the new spellings, including the two
+that must *not* change: a name after a number, and `45.` as a float and then a
+separator.
+
 ### `programs/ledger` — 2026-09-02
 
 **The fourth program, and the first that is a value type** — a statement in

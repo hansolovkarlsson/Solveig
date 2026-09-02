@@ -35,7 +35,7 @@
 #include "proto/source.h"
 
 typedef enum {
-    PROTO_NODE_INTEGER,    /* text is the digits, without the '#'             */
+    PROTO_NODE_INTEGER,    /* text is the literal as written, tag and all     */
     PROTO_NODE_FLOAT,
     PROTO_NODE_STRING,     /* text is the contents, escapes not yet undone    */
     PROTO_NODE_SYMBOL,     /* text is the name, without the quote             */

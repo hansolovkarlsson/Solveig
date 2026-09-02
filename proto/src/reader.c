@@ -984,10 +984,12 @@ static ProtoNode *primary(Reader *reader)
     switch (token.type) {
         case PROTO_TOK_INTEGER:
             advance(reader);
-            /* Without the '#', which the emitter puts back. The tag is
-               Solveig's spelling of the type, not part of the number. */
+            /* The whole lexeme, tag and all. It used to be stored without
+               the `#` and have one put back on the way out, which cannot
+               survive `$FF08` or `#-5` -- and the base a formula was
+               transcribed in is worth keeping rather than normalising away. */
             return proto_node_leaf(PROTO_NODE_INTEGER, token.span,
-                                 token.start + 1, token.length - 1);
+                                 token.start, token.length);
         case PROTO_TOK_FLOAT:
             advance(reader);
             return proto_node_leaf(PROTO_NODE_FLOAT, token.span,

@@ -70,22 +70,30 @@ not have a second one.
 | | |
 | --- | --- |
 | name | `[A-Za-z_][A-Za-z0-9_]*` |
-| integer | `#` and then digits |
-| float | digits, optionally a `.` and more digits |
-| string | `"…"`, `\` escaping the next character |
+| integer | `#` then an optional `-` then digits, or `$` and hexadecimal digits |
+| float | digits, optionally a `.` and more digits, optionally `e`/`E` with an optional sign and more digits |
+| string | `"…"`, with `\"` `\\` `\n` `\t` `\r` and no other escape |
 | symbol | `'` and then a name |
 | directive | `@` and then a name |
 | operator | one or more of `+ - * / < > = ! & ^ % ~ ? \`, or `||` |
 | comment | `;` to the end of the line |
 
-Everything but `operator` is Solveig's own spelling **in shape, and not in
-full**. Solveig has three integer forms to Proto's one, float exponents, `#[…]`
-dictionaries and `@expr` regions; Proto has none of those, and takes `-3` as a
-declared prefix operator where Solveig's scanner takes it as part of the number.
-[POSTMORTEM.md](POSTMORTEM.md) 16 lists all nine differences and why the claim
-cannot be made true as it was first written: Solveig's scanner is
-region-sensitive, and Proto could not read `-3` as a literal anyway without
-`a -3` ceasing to be a subtraction in any dialect that declared `-`.
+Everything but `operator` is Solveig's own spelling **in shape, and not quite
+in full**. [POSTMORTEM.md](POSTMORTEM.md) 16 found nine differences and 0.11.0
+closed five of them — the sign on an integer, hexadecimal, float exponents, and
+the escape set, which Proto had been *more* permissive about and was therefore
+emitting Solveig that `solas` rejected.
+
+**Four remain, and only one is an oversight.** `%1011` is a decision, `%` being
+an operator character. `#[a = b]` is a decision one level down from where the
+*Rough edges* table looked: it lexes now, and what it needs is a rule saying a
+top-level `=` inside a dictionary is the separator and not whatever a dialect
+declared it to be. `@expr` is refused on purpose. And `-3` **cannot** be had:
+Solveig's scanner gives the sign to the number outside a `@expr` region and
+treats it as the operator inside one, and Proto can have neither half — it has
+no regions, and taking `-3` as a literal would stop `a -3` being a subtraction
+in every dialect that declares `-`. A signed *integer* is safe for the reason
+the lexer gives: nothing but an integer can begin with `#`.
 
 **The header is where the two are meant to differ, and nowhere else.**
 

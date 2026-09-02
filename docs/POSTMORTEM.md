@@ -116,15 +116,15 @@ comparing every form in Solveig's grammar against Proto, one file each, gives
 
 | form | Solveig | Proto | |
 | --- | --- | --- | --- |
-| `#-45` | yes | no | missing, and nothing objects |
-| `$FF08` | yes | no | missing, and nothing objects |
-| `1e10`, `2.5E-3` | yes | no | float exponents; missing, and nothing objects |
-| `#[a = b]` | yes | no | dictionary; fails at `#`, before the `=` anyone worried about |
+| `#-45` | yes | **0.11.0** | was missing, nothing objected |
+| `$FF08` | yes | **0.11.0** | was missing, nothing objected |
+| `1e10`, `2.5E-3` | yes | **0.11.0** | float exponents; was missing, nothing objected |
+| `"\q"` | refused | **0.11.0** | Proto was the permissive one — see 17 |
+| `#[a = b]` | yes | no | dictionary; lexes now, and needs a rule about `=` — not free after all |
 | `%1011` | yes | no | **conflicts**: `%` is an operator character, declared `mod` by `lib/arith.pro` |
 | `( \| t \| … )` | yes | no | temporaries in a group; already a rough edge, now confirmed by running it |
 | `@expr(…)` `@expr{…}` | yes | no | refused on purpose; see ROADMAP.md |
-| `-3` | a literal | needs `@prefix -` | Proto requires a declaration where Solveig requires none |
-| `"\q"` | refused | **accepted** | Proto is the permissive one — see 17 |
+| `-3` | a literal | needs `@prefix -` | **cannot be had** while `-` is declarable |
 
 **Why it is a defect and not a list of missing features.**
 [GRAMMAR.md](GRAMMAR.md) says everything but `operator` is Solveig's own
@@ -161,8 +161,17 @@ was *the formulas will transcribe* — and they did. **The constants did not,
 and the cost never reached that program's findings**, because converting them
 felt like the work rather than like a workaround.
 
-**Not yet fixed.** [ROADMAP.md](ROADMAP.md) carries it, split by which of the
-four kinds each form is.
+**Five closed in 0.11.0**, and the integer literal now travels as written so a
+base survives rather than being normalised — `$FF08` does not come back as
+`#65288`, which is the whole point of writing it in hexadecimal.
+
+**One of the four left was mis-sorted here and is corrected in
+[ROADMAP.md](ROADMAP.md).** `#[a = b]` was called free on the strength of the
+lexer, and the lexer was never the obstacle: Solveig writes `pair = sum "="
+expression` and resolves the ambiguity by precedence *level*, which Proto cannot
+copy because a dialect may declare `=` anywhere and `lib/clike.pro` declares it
+at 10. It needs a rule saying a context shadows a declaration, and nothing here
+has ever allowed that.
 
 **Found by** two things, and the second is the one worth keeping. `#-1225` was
 found by writing the fourth program, at the second line of its data. **The other
@@ -196,6 +205,9 @@ set of five.
 **Found by** the same comparison as 16, which is the only place a divergence in
 this direction could have shown up: it is invisible from inside Proto, and
 invisible from inside Solveig.
+
+**Fixed in 0.11.0.** The lexer checks the five and reports anything else where
+it stands, so the error lands on the `.pro` rather than on generated code.
 
 ---
 
