@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### The verifier says which of the thirty-two — `pending`, 2026-09-01
+### The verifier says which of the thirty-two — `d6529b3`, 2026-09-01
 
 **No change to the language, and none to the result codes either.**
 `SOL_SER_MALFORMED` stood for thirty-two separate conditions and every one of
