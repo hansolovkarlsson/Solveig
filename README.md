@@ -673,6 +673,7 @@ predicate logic, which turns out to be three questions wearing one name.
 
 | | |
 | --- | --- |
+| [REFERENCE.md](docs/REFERENCE.md) | every directive, hole kind and shipped dialect, and where everything lives — the page to look things up in |
 | [what-is-proto.md](docs/what-is-proto.md) | how the parts fit together, kept as the five questions that were asked and answered |
 | [pipeline.html](docs/pipeline.html) | the same path drawn — the pipeline, lockstep matching, expansion, and the map |
 | [GRAMMAR.md](docs/GRAMMAR.md) | the core grammar, the tokens, and which shape a form should have |
