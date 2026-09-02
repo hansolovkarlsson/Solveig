@@ -5,6 +5,12 @@
 ; The split is the point of the program: everything above `; the renderer` is
 ; written in the dialect and is data; everything below it is ordinary Proto with
 ; no notation at all. What each half costs is in README.md.
+;
+; **The document runs past eighty columns and the rest of this repository does
+; not.** A paragraph is a string, and a string is one line unless it is broken
+; into `:concat` calls -- which puts code in the middle of a sentence, or a
+; literal newline, which changes the text. So the content is left long. It is
+; the narrowest place the program is visibly a program and not a document.
 
 @use "prose.pro".
 
@@ -62,7 +68,7 @@ emit := { line | line:display }.
 
 render := { | i, node, kind, text |
     ; `i < doc:size + #1` and not `i <= doc:size`, because lib/arith.pro does
-    ; not declare `<=`. See README.md: this program is the first customer for it.
+    ; not declare `<=`. README.md: this program is the first customer for it.
     i := #1.
     while i < doc:size + #1 do (
         node := doc:at(i).

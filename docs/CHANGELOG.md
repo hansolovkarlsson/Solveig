@@ -29,11 +29,11 @@ steps.
 
 **It moved the ceiling down a level, and one prediction was wrong.** Nesting
 was predicted to be the wall, on `grammar`'s finding that a rule cannot be a
-form. It is not: a form takes a **block**, a block holds statements, and statements are
-content forms, so `indent { … }` nests to any depth and Solveig's braces carry
-the structure. `grammar`'s wall was narrower than *nesting* — a template cannot
-**declare** a form, and a grammar's rules are definitions. What a form still
-cannot do is contain part of a line:
+form. It is not: a form takes a **block**, a block holds statements, and
+statements are content forms, so `indent { … }` nests to any depth and
+Solveig's braces carry the structure. `grammar`'s wall was narrower than
+*nesting* — a template cannot **declare** a form, and a grammar's rules are
+definitions. What a form still cannot do is contain part of a line:
 
 > **A form can contain content. A form cannot contain half a line.**
 
