@@ -29,6 +29,10 @@
 ; redefines an operator cannot stand on one that defines it differently, and
 ; being told so by a warning is not the same as being safe.
 
+; The mask is `#4294967295` and not `$FFFFFFFF` because Proto had no
+; hexadecimal integer until 0.11.0, ten versions after this file was written.
+; Solveig's own sha256sum.sol writes `mask := $FFFFFFFF.` and always could.
+; Worth changing the day somebody is in here anyway.
 @infix  +   60 => (left:add(right)):bitAnd(#4294967295).
 @infix  -   60 => (left:sub(right)):bitAnd(#4294967295).
 
