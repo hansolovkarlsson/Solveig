@@ -397,9 +397,10 @@ the segfault added one, and the new spellings twenty-six.
 
 ### The numbers, written last
 
-**Thirty-one commits, counting the two that write and correct this line — a
-number cannot count itself and has to be told to. Five versions, 0.10.0 to
-0.14.0. A fifth program. And not one finding from a test.**
+**Thirty-two commits, this one included** — a number cannot count itself and
+has to be told to, which is why this line has been rewritten as often as it has.
+**Five versions, 0.10.0 to 0.14.0. A fifth program. And not one finding from a
+test.**
 
 Two misreadings, by a person asking. One dead directive's real argument, by a
 person asking what it would mean. One nine-version-old segfault, by declining to
@@ -421,13 +422,20 @@ Those are the day's real output. The five versions were the easy part — four o
 them closed differences nobody knew were there at breakfast, and the fifth
 landed a thing three documents had called impossible.
 
-**And the day closed with a sweep**, which found four more stale things: a
+**And the day closed with a sweep**, which found five more stale things: a
 version heading four releases behind, a *Known gaps* row for something that
 landed in 0.12.0, a folding claim carrying one measurement when there are two,
-and this page's own count in two other documents. **None of them was the work.
-All of them were a document describing yesterday's version of itself**, which is
-the failure this journal spent the day committing and correcting, and the only
-reliable defence found for it is to read everything once at the end.
+this page's own count in two other documents, and — while the entry recording
+all of that was being written — the postmortem's claim of 109 unit tests when
+there are 144.
+
+**None of them was the work. All of them were a document describing yesterday's
+version of itself**, which is the failure this journal spent the day committing
+and correcting three times. [POSTMORTEM.md](POSTMORTEM.md) 19 collects the nine
+instances and says why 13's defence was not enough: it works when a stale claim
+is in front of you, and **nobody re-reads a document that is not being read.**
+The one that worked was reading everything once at the end, whether or not
+anything was suspected, and that is a standing agreement now.
 
 ## 2026-09-01 — the project changed its name, and nothing else
 

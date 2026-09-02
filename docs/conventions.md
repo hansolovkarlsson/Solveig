@@ -86,6 +86,26 @@ was rejected, and what it cost. The diff is in the diff.
 **Output is checked by hand, not trusted for having run.** `examples/clike`
 printed `#54` where `#40` was right, compiled clean and failed nothing.
 
+**Everything is read once at the end of a day, whether or not anything is
+suspected.** [POSTMORTEM.md](POSTMORTEM.md) 13 said a claim about another
+document is re-derived when it is read; 19 is eight instances in one day of why
+that is not enough — **nobody re-reads a document that is not being read.** A
+README's version heading is not consulted when adding a version, and a *Known
+gaps* table is not consulted when closing a gap. A sweep at the end found four
+of the eight in ten minutes, two of them in files nobody would have opened for
+months. A defence that depends on suspicion is not a defence.
+
+**Two sessions do not share a working copy.** On 2026-09-02 a second session
+made a branch and left uncommitted changes to `proto/src/reader.c` in this
+checkout while this one was committing every few minutes with `git add -A`. The
+edit landed at 11:59 and the last such commit was 11:30; nothing was swept in,
+by half an hour and no more. A second checkout is one command and makes it
+structural rather than lucky:
+
+```sh
+git worktree add ../Proto-<name> -b <name>
+```
+
 **`make sanitize` before a release, and after anything that touches the dialect
 tables.** The suite cannot find a use of freed memory on its own: whether a
 stale pointer is a crash is the allocator's decision, so a check can hold the

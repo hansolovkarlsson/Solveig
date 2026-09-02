@@ -9,12 +9,12 @@ shipped. This is the failures.
 
 ## Scope
 
-Eighteen, from three days, in four cohorts that failed for four different
+Nineteen, from three days, in four cohorts that failed for four different
 reasons:
 
 - **In the compiler** — six, five of which were latent from 0.1.0 and 0.2.0.
-- **In the documents** — four: three an edit that reported success and changed
-  nothing, and one where no edit was attempted at all.
+- **In the documents** — five: three an edit that reported success and changed
+  nothing, and two where no edit was attempted at all.
 - **In the programs** — four, found by the first real use of a thing.
 - **In the reasoning** — four, where something true was written down as
   something else and had to be retracted.
@@ -281,6 +281,48 @@ correct only until the next release. The cheap defence is the one that caught
 it: any claim about *the state of another document* is re-derived when it is
 read, not trusted.
 
+### 19. Nine of 13 in one day, and a defence that was not enough — 2026-09-02
+
+**What.** Entry 13 above names the class and prescribes a defence: *any claim
+about the state of another document is re-derived when it is read.* On a day of
+five versions, nine instances landed anyway — the last of them found while
+writing this entry.
+
+| | |
+| --- | --- |
+| `journal.md` | "five commits, one version" — corrected to nineteen, then to neither |
+| `journal.md` | the sentence *this opening carries only what stopped changing*, written to fix the above, and wrong about the version range in the same paragraph |
+| `README.md` | `## What 0.10.0 is not`, four releases behind |
+| `README.md` | *Known gaps* listing dictionary literals, which landed in 0.12.0 |
+| `README.md` | the folding claim carrying one measurement when `ledger` had produced a second that argues against it |
+| `README.md`, `REFERENCE.md` | `does-it-pay.md` described as *what four programs say* when it covers five |
+| `POSTMORTEM.md` | this file's own tally: "the four programs written in the language", when there are five |
+| `programs/digest/README.md` | "twenty-three `bitAnd`s" and "none", against 18 masks and one byte extract when counted |
+| this file | "109 unit tests", against 144 — found while writing this entry, which is the ninth |
+
+**Cause.** 13's defence works at *read* time, and **nobody re-reads a document
+that is not being read.** Every one of these sat in a file nobody had reason to
+open: the README's version heading is not consulted when adding a version, and
+the *Known gaps* table is not consulted when closing a gap. The defence covers
+the case where a stale claim is in front of you and not the case where it is
+somewhere else, which is every case that matters.
+
+**And it is worse than a static fact going stale**, which is 13's shape. Two of
+these were **wrong when written**: the journal's second correction was wrong in
+the sentence claiming to fix the first, and `digest`'s counts were wrong in both
+directions on the day they were counted. A defence at read time cannot catch a
+number that was never right.
+
+**What worked.** Reading everything once at the end, whether or not anything was
+suspected. That found four of the eight in about ten minutes, including two
+nobody would have opened for months. It is now
+[conventions.md](conventions.md)'s standing agreement, because a defence that
+depends on suspicion is not a defence — and the ninth instance above was found
+by the sweep finding a stale number in the paragraph describing the sweep.
+
+**Found by** closing out the day, which is the only reason any of it was looked
+at.
+
 ---
 
 ## In the programs
@@ -463,14 +505,14 @@ where somebody could go back and disagree with it, and somebody did.
 | Checking a document's claim before repeating it elsewhere | **1** |
 | Being asked whether a survey had been complete | **2** |
 | Somebody building the thing that could not be built | **1** |
+| Reading everything once at the end of a day | **1** |
 
-**Two of eighteen were found by tests**, and one of those two was a broken
-test.
-Five came from writing programs in the language — four of the five programs
-found one — and three more came
-from reading something rather than running it.
+**Two of nineteen were found by tests**, and one of those two was a broken
+test. Five came from writing programs in the language — four of the five
+programs found one — and three more came from reading something rather than
+running it.
 
-The unit tests are worth having — 109 of them, and they caught 1 immediately —
+The unit tests are worth having — 144 of them, and they caught 1 immediately —
 but they check what was thought of. **What found the rest was a customer, or a
 second look.** That is the argument for `programs/`, for recording predictions
 before writing a program, and for the rule that a finding gets retracted in

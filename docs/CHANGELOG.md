@@ -10,6 +10,34 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### Closing out — 2026-09-02
+
+**No version, and nothing in the compiler changed.** A last read of every
+document, which is what the day earned.
+
+**Nine stale claims, in one day of five versions.**
+[POSTMORTEM.md](POSTMORTEM.md) 19 lists them: three in the journal's own
+opening, three in the README — a version heading four releases behind, a *Known
+gaps* row for something that landed in 0.12.0, and a folding claim carrying one
+measurement when `ledger` had produced a second that argues against it — two
+naming `does-it-pay.md` as covering four programs when it covers five, and one
+in the postmortem's own tally. The ninth was found while writing the entry about
+the other eight: **109 unit tests, against 144.**
+
+**13 had already named the class and prescribed a defence** — *a claim about the
+state of another document is re-derived when it is read.* Nine instances in a
+day is the evidence that it is not enough, and the reason is one sentence:
+**nobody re-reads a document that is not being read.** A README's version
+heading is not consulted when adding a version.
+
+**What worked was reading everything once at the end**, whether or not anything
+was suspected, and it is a standing agreement in
+[conventions.md](conventions.md) now, beside a second one the day earned:
+**two sessions do not share a working copy.** A second session left uncommitted
+changes to `reader.c` in this checkout at 11:59 while this one was committing
+with `git add -A` every few minutes; the last such commit was 11:30, so nothing
+was swept in by half an hour and no more. `git worktree add` is one command.
+
 ### A declared `|`, and `\` retired — 0.14.0, 2026-09-02
 
 **A lone `|` may be declared.** Nine versions of documents said it could not, a
