@@ -10,7 +10,6 @@
 ; a file that does not use control.pro may call a variable `then`, and so may
 ; this one.
 
-@language solveig.
 @use "../lib/control.pro".
 
 n := #7.

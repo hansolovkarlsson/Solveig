@@ -31,8 +31,6 @@ bool proto_hole_kind_from(const char *text, int length, ProtoHoleKind *out)
 
 void proto_dialect_init(ProtoDialect *dialect)
 {
-    dialect->name = NULL;
-    dialect->declared_at = PROTO_SPAN_NONE;
     dialect->infix = NULL;
     dialect->infix_count = dialect->infix_capacity = 0;
     dialect->prefix = NULL;
@@ -65,7 +63,6 @@ void proto_dialect_free(ProtoDialect *dialect)
     free(dialect->macro);
     free(dialect->infix);
     free(dialect->prefix);
-    free(dialect->name);
     proto_dialect_init(dialect);
 }
 

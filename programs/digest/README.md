@@ -130,6 +130,10 @@ diagnostic is right and says nothing about the rule it is enforcing, which is
 that a `@use`d file is read into the header of the module using it. It was the
 first thing this program got wrong.
 
+*Overtaken in 0.10.0: `@language` was removed, so this particular diagnostic is
+gone. The rule it was enforcing sideways is unchanged and is now stated where it
+belongs, in the README under* A dialect is a file.
+
 ### What did not come up
 
 Hygiene, `@use` resolution, and the map: nothing, from a fourth program. The

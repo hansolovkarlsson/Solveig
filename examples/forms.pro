@@ -8,8 +8,6 @@
 ; Everything below holds for this file. A module that wants none of it declares
 ; none of it and reads exactly as Solveig does.
 
-@language solveig.
-
 @infix  +   60 add.
 @infix  <   40 lessThan.
 @infix  >   40 greaterThan.

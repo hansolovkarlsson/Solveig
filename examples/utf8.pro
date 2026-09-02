@@ -17,8 +17,6 @@
 ; Proto's answer is the next step and costs the language nothing, because the
 ; three lines below hold for this file alone.
 
-@language solveig.
-
 @infix  >>  80 shiftRight.
 @infix  &   60 bitAnd.
 @infix  \/  50 bitOr.

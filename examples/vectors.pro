@@ -10,8 +10,6 @@
 ; and no other. A second file in the same program may declare `+` to mean
 ; something else, or not declare it at all, and neither file has to know.
 
-@language solveig.
-
 @infix  +   60 add.
 @infix  -   60 sub.
 @infix  *   70 mul.

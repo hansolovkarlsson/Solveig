@@ -80,13 +80,29 @@ Every step of that works now.
 
 ## Where this grows, if it grows
 
-**`@language` records a name and acts on nothing.** The natural growth is for it
-to choose the reader *and* the emitter, so that a back end becomes a declared
-thing the way the grammar already is — and "Proto targets ARM64" is a line in
-a file rather than a fork of the project.
+**This page used to argue that `@language` was where it grows** — that the
+natural move was for it to choose the reader *and* the emitter, so that a back
+end became a declared thing the way the grammar already is, and "Proto targets
+ARM64" was a line in a file rather than a fork of the project.
 
-That waits behind the expander, because until something expands, `@language` has
-nothing to select between.
+**That sentence names the right feature and the wrong directive**, which is why
+`@language` was removed in 0.10.0 rather than grown into it. Read `@language
+<name>.` at the top of a file and it says *the body below is written in
+`<name>`* — and that is false in every file with a header, because a module that
+declares `+` and `while` is exactly not Solveig any more. The only reading under
+which it was true, *the substrate is Solveig*, is the same for every `.pro`
+there will ever be and is already carried by the extension.
+
+**The thing that could differ between two files is the output.** So the sentence
+above already spells its own directive: `@target arm64.`, naming the back end,
+which is a thing a file could sensibly disagree with another file about. If a
+second emitter is ever built, that is what gets added, and it will name what it
+selects from the first commit instead of inheriting a word that misleads.
+
+Selecting a *reader* is a separate and much larger question, and it keeps the
+seam it always had: something read before the first statement would have to name
+it. `proto/include/proto/lex.h` says so in a sentence now, instead of a
+directive standing empty in every file. See COMPLETED.md 14.
 
 ## Why a code generator is the right first real program
 

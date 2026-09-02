@@ -10,6 +10,40 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### `@language`, removed — 0.10.0, 2026-09-02
+
+**The only directive that did nothing, gone.** It parsed, recorded a name in
+`ProtoDialect`, and nothing ever read it back. It was optional, ignored and
+written by every `.pro` in the tree, which is a ritual rather than a feature.
+
+**It was removed rather than made to act on something.** The roadmap had wanted
+it to select a reader or an emitter for nine versions, and neither exists to be
+selected. The near-miss option was to make it *assert* — one reader, one
+emitter, any other name an error — and that was rejected because it prices the
+change without asking whether the directive is right:
+
+> `@language solveig.` at the top of `examples/forms.pro` says the body below is
+> Solveig. That file declares `+`, `<`, `>`, `unless`, `while` and `swap`. Its
+> body is not Solveig and Solveig cannot read it.
+
+The reading under which the line was true — *the substrate is Solveig* — is the
+same for every `.pro` and is already carried by the extension. The thing that
+could differ between two files is the output, and the word for that is
+`@target`, which is what gets added if a second emitter is ever built.
+COMPLETED.md 14 carries the whole argument; [targets.md](targets.md) is amended
+where it used to argue the other way.
+
+| | |
+| --- | --- |
+| the header now takes | `@use`, `@infix`, `@infixr`, `@prefix`, `@syntax` |
+| an old file gets | `'@language' is not a directive Proto knows`, and a note naming the five |
+| `ProtoDialect` loses | `name` and `declared_at` |
+
+**Nothing else in the language changed.** The suite reports the same 58, 6, 34
+and 10 checks over the same ten examples and programs. `tests/test_map.c` needed
+its line-number comments renumbered and nothing else: a directive emits nothing,
+so dropping a header line moves no generated line.
+
 ### Phoenix is Proto — 2026-09-01
 
 **No version, and nothing in the language changed.** The compiler, the library,

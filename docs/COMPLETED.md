@@ -267,6 +267,74 @@ the same 58, 6, 34 and 10 checks over the same ten examples and programs, and
 the diff was 1,435 lines out against 1,435 back in — the only shape a pure
 respelling can have.
 
+## 14. `@language`, removed — done, 0.10.0
+
+**The problem.** It was the only directive that did nothing. It parsed, recorded
+a name and a span in `ProtoDialect`, and nothing in the tree ever read either —
+not `emit.c`, not `unit.c`, not `main.c`. No test named it; `tests/test_use.c`
+used `@language solveig.` ten times purely as header filler. It enforced exactly
+one rule, that a module declares at most one, which by way of `@use` also made
+it an error in a dialect file — the first thing `programs/digest` got wrong.
+
+Three properties that should not coexist: it was **optional** (`module = {
+directive } { statement }` makes every directive optional, and the name is `NULL
+if unstated`), it was **ignored**, and it was **universally written**. That is
+the definition of a ritual.
+
+**The options.** The roadmap had said it should select the reader, or the
+emitter, or stop existing.
+
+*Select the emitter* is blocked by [targets.md](targets.md), which had already
+refused to build a second one. *Select the reader* is larger still. So the item
+had not sat for nine versions because it was hard to decide — it had sat because
+two of its three options depended on a build this project has declined, and the
+entry could not move.
+
+*A fourth option was proposed and rejected:* make it **assert** — one reader,
+one emitter, so any name but `solveig` is an error at line 1. Fifteen lines,
+touches no `.pro`, and it is the code a selector would need later. The argument
+for it was reversibility: asserting is cheap and deleting is not.
+
+**Why this shape.** Because the reversibility argument prices the change and
+does not ask whether the thing is right, and the thing is not right.
+
+Read `@language <name>.` at the top of a file and it plainly says *the body
+below is written in `<name>`*. **That reading is false in every file with a
+header.** `examples/forms.pro` said `@language solveig.` and then declared `+`,
+`<`, `>`, `unless`, `while` and `swap`; its body is not Solveig, and Solveig
+cannot read it. The reading under which the line was true — *the substrate is
+Solveig* — is the same for every `.pro` there will ever be and is already
+carried by the extension. A directive whose most natural reading is false is not
+fixed by checking its spelling.
+
+And the thing that could one day differ between two files is the **output**, for
+which `@language` is the wrong word. targets.md had already reached for the
+right one in its own sentence — *"Proto targets ARM64" is a line in a file* — so
+if a second emitter is ever built, what gets added is `@target`, naming what it
+selects.
+
+**What it cost.** Nine `.pro` files, ten fixtures in `tests/test_use.c`, the
+`HEADER` and `LANG` prefixes in two more, three spots in the README, one
+production in GRAMMAR.md, the parse branch in `reader.c`, and `name` and
+`declared_at` in `ProtoDialect`.
+
+**What it did not cost.** The suite reports the same 58, 6, 34 and 10 checks
+over the same ten examples and programs. The map test needed only its `/* line N
+*/` comments renumbered: a directive emits nothing, so removing a header line
+moves no generated line.
+
+**Two things were deliberately not done.** No tombstone branch in `reader.c`
+saying *`@language` was removed in 0.10.0* — the generic error already names
+exactly what the header takes, and carrying the name of a deleted directive for
+no customer is the same mistake in miniature. And the test that checked
+*language declared twice* was replaced rather than deleted, by one for the
+branch that now catches it: an unknown directive, which nothing had tested.
+
+**What replaced its one real rule.** That a `@use`d file is read into the header
+of the module using it — which `programs/digest` noted the old diagnostic
+enforced sideways without ever stating — is stated in the README under *A
+dialect is a file*, where somebody would look for it.
+
 ## Settled by a customer rather than by argument
 
 | | |

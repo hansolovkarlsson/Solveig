@@ -5,7 +5,6 @@
 ; where a `;` would be -- both of them the lexer's, and neither a dialect's to
 ; change. See the note at the top of lib/clike.pro.
 
-@language solveig.
 @use "../lib/clike.pro".
 
 n = #1.

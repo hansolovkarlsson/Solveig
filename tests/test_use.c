@@ -137,7 +137,7 @@ int main(void)
        belongs to whoever uses it. */
     write_file("arith.pro", "@infix + 60 add.\n@infix * 70 mul.\n");
     write_file("p1.pro",
-               "@language solveig.\n@use \"arith.pro\".\na := #1 + #2 * #3.\n");
+               "@use \"arith.pro\".\na := #1 + #2 * #3.\n");
     expect("a dialect in a file", "p1.pro",
            "a := #1:add(#2:mul(#3)).\n", 0);
 
@@ -147,7 +147,7 @@ int main(void)
                "@use \"arith.pro\".\n"
                "@syntax unless(t, b) => t:not:ifTrue({ b }).\n");
     write_file("p2.pro",
-               "@language solveig.\n@use \"control.pro\".\n"
+               "@use \"control.pro\".\n"
                "unless(a > b, c:print).\n");
     write_file("arith.pro",
                "@infix + 60 add.\n@infix * 70 mul.\n@infix > 40 greaterThan.\n");
@@ -158,7 +158,7 @@ int main(void)
        its declarations do not collide with themselves. */
     write_file("more.pro", "@use \"arith.pro\".\n@infix - 60 sub.\n");
     write_file("p3.pro",
-               "@language solveig.\n@use \"control.pro\".\n@use \"more.pro\".\n"
+               "@use \"control.pro\".\n@use \"more.pro\".\n"
                "a := #3 - #1 + #2.\n");
     expect("a diamond is read once", "p3.pro",
            "a := #3:sub(#1):add(#2).\n", 0);
@@ -168,14 +168,14 @@ int main(void)
        files claiming one global, applied to syntax. */
     write_file("other.pro", "@infix + 55 concat.\n");
     write_file("p4.pro",
-               "@language solveig.\n@use \"arith.pro\".\n@use \"other.pro\".\n"
+               "@use \"arith.pro\".\n@use \"other.pro\".\n"
                "a := #1 + #2.\n");
     expect("two dialects collide", "p4.pro", "a := #1:concat(#2).\n", 1);
 
     /* The module's own declaration over an imported one is deliberate, local,
        and both lines are in the file being edited. Nothing to warn about. */
     write_file("p5.pro",
-               "@language solveig.\n@use \"arith.pro\".\n@infix + 60 concat.\n"
+               "@use \"arith.pro\".\n@infix + 60 concat.\n"
                "a := #1 + #2.\n");
     expect("this module overriding a dialect", "p5.pro",
            "a := #1:concat(#2).\n", 0);
@@ -183,7 +183,7 @@ int main(void)
     /* The other order is almost certainly the @use wanting to be above the
        declaration, so it is worth saying. */
     write_file("p6.pro",
-               "@language solveig.\n@infix + 60 concat.\n@use \"arith.pro\".\n"
+               "@infix + 60 concat.\n@use \"arith.pro\".\n"
                "a := #1 + #2.\n");
     expect("a dialect overriding this module", "p6.pro",
            "a := #1:add(#2).\n", 1);
@@ -191,16 +191,16 @@ int main(void)
     /* A file still being read is a file using itself. */
     write_file("x.pro", "@use \"y.pro\".\n");
     write_file("y.pro", "@use \"x.pro\".\n");
-    write_file("p7.pro", "@language solveig.\n@use \"x.pro\".\na := #1.\n");
+    write_file("p7.pro", "@use \"x.pro\".\na := #1.\n");
     expect_rejected("a cycle", "p7.pro");
 
-    write_file("p8.pro", "@language solveig.\n@use \"nope.pro\".\na := #1.\n");
+    write_file("p8.pro", "@use \"nope.pro\".\na := #1.\n");
     expect_rejected("a dialect that is not there", "p8.pro");
 
     /* A dialect provides syntax; Solveig's own @include provides code. There is
        no third thing for a .pro to be. */
     write_file("code.pro", "@infix + 60 add.\nq := #1.\n");
-    write_file("p9.pro", "@language solveig.\n@use \"code.pro\".\na := #1.\n");
+    write_file("p9.pro", "@use \"code.pro\".\na := #1.\n");
     expect_rejected("a statement in a dialect file", "p9.pro");
 
     /* A form out of a dialect keeps its own binders out of the caller's way,
@@ -208,7 +208,7 @@ int main(void)
        the template came from, which the module never mentions. */
     write_file("hold.pro", "@syntax hold(v) => { | t | t := v. t }:value.\n");
     write_file("p10.pro",
-               "@language solveig.\n@use \"hold.pro\".\n"
+               "@use \"hold.pro\".\n"
                "t := #1.\na := hold(t).\n");
     expect("hygiene across a file boundary", "p10.pro",
            "t := #1.\n"

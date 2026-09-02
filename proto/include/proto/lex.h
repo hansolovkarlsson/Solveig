@@ -7,8 +7,11 @@
  * `grep` downstream depends on that being true. Moving the line is what turned
  * TeX and Forth into languages no tool can read without executing them.
  *
- * If it has to move later, it moves at the module boundary and nowhere else --
- * `@language` names a reader before a single statement is read. */
+ * If it has to move later, it moves at the module boundary and nowhere else:
+ * something read before the first statement would have to name the reader. No
+ * directive holds that place -- `@language` did, inertly, for nine versions
+ * and was removed in 0.10.0. The seam is a sentence until there is a second
+ * reader. */
 #ifndef PROTO_LEX_H
 #define PROTO_LEX_H
 

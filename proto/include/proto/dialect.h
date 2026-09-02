@@ -113,9 +113,6 @@ typedef struct {
 } ProtoMacro;
 
 typedef struct {
-    char *name;             /* what @language named; NULL if unstated    */
-    ProtoSpan declared_at;
-
     ProtoInfix *infix;
     int infix_count, infix_capacity;
 

@@ -3,7 +3,6 @@
 ; A different grammar on the same toolkit: recursion through the table, and a
 ; repetition that is a loop because a grammar written as data has nowhere to put
 ; an EBNF `{ }`.
-@language solveig.
 @use "../peg.pro".
 
 @include "scan.sol".

@@ -8,7 +8,6 @@
 ; that the standard states once is in the header rather than in twenty-three
 ; places in the code.
 
-@language solveig.
 @use "sha2.pro".
 
 ; The round constants and the initial hash, each the fractional part of a root

@@ -91,7 +91,6 @@ static void expect_rejected(const char *label, const char *text)
 }
 
 #define HEADER \
-    "@language solveig.\n" \
     "@infix + 60 add.\n" \
     "@infix - 60 sub.\n" \
     "@infix * 70 mul.\n" \
@@ -177,8 +176,8 @@ int main(void)
                     HEADER "@infix + 70 mul.\na := #1.\n");
     expect_rejected("directive after code",
                     HEADER "a := #1.\n@infix % 60 mod.\n");
-    expect_rejected("language declared twice",
-                    "@language a.\n@language b.\na := #1.\n");
+    expect_rejected("a directive the header does not know",
+                    "@dialect clike.\na := #1.\n");
     expect_rejected("assigning to something that is not a place",
                     HEADER "#1 + #2 := #3.\n");
     expect_rejected("unclosed block",    HEADER "a := { x | x.\n");

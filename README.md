@@ -6,8 +6,6 @@ other. What comes out is [Solveig](https://github.com/hansolovkarlsson/Solveig)
 source, which `solas` turns into bytecode like any other.
 
 ```
-@language solveig.
-
 @infix  +   60 add.
 @infix  *   70 mul.
 @prefix ~      not.
@@ -23,7 +21,7 @@ bin/proto --map examples/vectors.pro      # -> examples/vectors.sol + .sol.map
 ../Solveig/bin/solvm examples/vectors.sob
 ```
 
-The five lines of header are the whole of that module's grammar. `*` binds
+The three lines of header are the whole of that module's grammar. `*` binds
 tighter than `+` because this file said 70 against 60, and nothing anywhere else
 knows or cares. A second module in the same program may declare `+` to mean
 something else entirely, or declare no operators at all and read exactly as
@@ -109,7 +107,6 @@ stack trace actually is.
 
 | | |
 | --- | --- |
-| `@language <name>.` | What dialect this module is written in. Recorded and not yet acted on: there is one reader. |
 | `@use "<file>".` | Read that dialect file's header into this module. |
 | `@infix <op> <precedence> <message>.` | An infix operator, grouping to the left. Higher precedence binds tighter. |
 | `@infix <op> <precedence> => <template>.` | The same, standing for a template rather than a message. The operands are `left` and `right`; a prefix operand is `operand`. |
@@ -160,14 +157,13 @@ looks right and the operator simply did not exist for the statements above it.
 ```
 
 ```
-@language solveig.
 @use "../lib/control.pro".
 
 if n > #10 then "over ten":print else "not over ten":print.
 while i < n do (total := total + i. i := i + #1).
 ```
 
-Two lines of header, and everything the body uses comes out of `lib/` —
+One line of header, and everything the body uses comes out of `lib/` —
 `control.pro` in turn using `arith.pro`, so the chain is two deep.
 
 **A dialect file holds directives and nothing else.** A statement in one is an
@@ -175,6 +171,12 @@ error. That is not a restriction so much as a division: **a dialect provides
 syntax, and Solveig's own `@include` provides code**, so a dialect that wants
 both ships a `.sol` beside itself and says so. There is no third thing for a
 `.pro` to be.
+
+**A `@use`d file is read into the header of the module using it**, rather than
+compiled beside it. That is the rule the rest of this section follows from: it
+is why a dialect file may hold no statements, why a diamond has to be read once,
+and why two dialects declaring one operator collide in the file that used them
+both rather than in either of themselves.
 
 **It is looked for beside the file using it, then in each `-I` directory, then
 in `PROTO_PATH`** — the order Solveig's `@include` uses, because a program
@@ -584,7 +586,7 @@ integer:utf8Tail := { at |
     (#128:bitOr(self:shiftRight(at):bitAnd(#63))):asCharacter }.
 ```
 
-## What 0.9.0 is not
+## What 0.10.0 is not
 
 **A pattern has no optional or repeated parts.** `if <c> then <a> else <b>` is a
 second declaration rather than an optional tail, which is honest and costs a

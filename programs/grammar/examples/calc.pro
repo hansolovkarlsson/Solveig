@@ -1,5 +1,4 @@
 ; calc.pro -- arithmetic with precedence, as four rules.
-@language solveig.
 @use "../peg.pro".
 
 @include "scan.sol".

@@ -16,13 +16,6 @@ foot of COMPLETED.md.
 
 ## Open, and undecided
 
-**`@language` records a name and acts on nothing.** Nine versions in, it is the
-only inert directive, and every `.pro` writes `@language solveig.` as a ritual —
-in the directive the README uses to argue that a tool can tell what language a
-file is in. It should select the *reader*, or the *emitter* as
-[targets.md](targets.md) argues, or stop existing. **A decision rather than a
-build**, and not one to take unasked.
-
 **No postfix operators.** Proto has prefix and infix; `x++`, `a[i]` and
 `p->f`-in-postfix-position have no spelling at all. `lib/clike.pro` names it as
 one of the four things C has that it cannot. Not a rule that could be relaxed —

@@ -759,23 +759,7 @@ static bool header_directive(Reader *reader)
 
     advance(reader);
 
-    if (token_is(&directive, "@language")) {
-        if (!check(reader, PROTO_TOK_NAME)) {
-            error_here(reader, "'@language' names the dialect this module "
-                               "is written in");
-        } else if (reader->dialect->name != NULL) {
-            error_at(reader, directive.span,
-                     "this module has already declared its language");
-            proto_note(reader->diag, reader->dialect->declared_at, "as '%s', here",
-                     reader->dialect->name);
-            advance(reader);
-        } else {
-            reader->dialect->name = proto_strndup(reader->current.start,
-                                                (size_t)reader->current.length);
-            reader->dialect->declared_at = directive.span;
-            advance(reader);
-        }
-    } else if (token_is(&directive, "@infix")) {
+    if (token_is(&directive, "@infix")) {
         directive_operator(reader, true, PROTO_ASSOC_LEFT);
     } else if (token_is(&directive, "@infixr")) {
         directive_operator(reader, true, PROTO_ASSOC_RIGHT);
@@ -790,8 +774,8 @@ static bool header_directive(Reader *reader)
                  "'%.*s' is not a directive Proto knows",
                  directive.length, directive.start);
         proto_note(reader->diag, directive.span,
-                 "the header takes @language, @use, @infix, @infixr, "
-                 "@prefix and @syntax");
+                 "the header takes @use, @infix, @infixr, @prefix "
+                 "and @syntax");
     }
 
     if (!reader->panicked) consume(reader, PROTO_TOK_DOT, "'.' after a directive");

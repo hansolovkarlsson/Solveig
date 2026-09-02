@@ -49,12 +49,11 @@ int main(void)
 {
     /*        1234567890123456789012345 */
     const char *text =
-        "@language solveig.\n"          /* line 1 */
-        "@infix + 60 add.\n"            /* line 2 */
-        "@infix * 70 mul.\n"            /* line 3 */
+        "@infix + 60 add.\n"            /* line 1 */
+        "@infix * 70 mul.\n"            /* line 2 */
         "\n"
-        "total := #2 + #3 * #4.\n"      /* line 5 */
-        "total:print.\n";               /* line 6 */
+        "total := #2 + #3 * #4.\n"      /* line 4 */
+        "total:print.\n";               /* line 5 */
 
     /* Which generates, after the two-line banner:
      *

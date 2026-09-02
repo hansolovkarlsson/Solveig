@@ -6,8 +6,7 @@ this**; it can only fill in the one hole marked below.
 ```ebnf
 module      = { directive } { statement } .
 
-directive   = "@language" identifier "."
-            | "@use" string "."
+directive   = "@use" string "."
             | "@infix"  operator number ( identifier | "=>" expression ) "."
             | "@infixr" operator number ( identifier | "=>" expression ) "."
             | "@prefix" operator ( identifier | "=>" expression ) "."

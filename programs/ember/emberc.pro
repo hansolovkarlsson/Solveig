@@ -5,7 +5,6 @@
 ; Written in Proto, which is the point. What the dialects buy and what they
 ; cost is in README.md under "What it found".
 
-@language solveig.
 @use "asm.pro".
 @use "../../lib/control.pro".
 
