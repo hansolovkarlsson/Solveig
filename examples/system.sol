@@ -127,7 +127,7 @@ size:isNil:ifElse(
 ; list of arguments and nothing in it is read as syntax: a file called
 ; `; rm -rf ~` is a name, because it is one string.
 
-system:run(["echo", "this ran as another program"]):print.   ; #0, its status
+system:run(["echo", "this ran as another program"]):print.   ; #0 -- its status
 
 ; A command that fails answers its own status, and one that is not there answers
 ; #127 -- the shell's answer for the same thing. Neither is an error here: a

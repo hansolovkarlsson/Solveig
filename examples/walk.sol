@@ -75,4 +75,4 @@ note := "build/walk-log.txt".
 system:writeFile(note, "walked {}\n":fill([root])).
 system:appendFile(note, "{} files\n":fill([files])).
 system:appendFile(note, "{} directories\n":fill([directories])).
-system:readFile(note):split("\n"):size:sub(#1):print.        ; #3 lines
+system:readFile(note):split("\n"):size:sub(#1):print.        ; #3 -- lines

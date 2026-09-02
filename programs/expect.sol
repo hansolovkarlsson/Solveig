@@ -111,17 +111,24 @@ string:commentAt := { | s, inString, c, found |
               c:equals(";"):ifTrue({ found := s:pos:sub(#1) }) }) }).
     found }.
 
-; The value a comment claims, with any aside after ` -- ` taken off. That is one
-; of three conventions the examples turned out to use, and the checker had to
-; learn all three rather than declare the other two wrong:
+; The value a comment claims, with any aside after ` -- ` taken off. There were
+; **three** conventions in the examples and the checker learned all three rather
+; than declare two of them wrong:
 ;
 ;     ; #5                       the value alone
-;     ; #7 -- and why           an aside after a dash
-;     ; #8 distinct words       an aside with no dash at all
+;     ; #7 -- and why            an aside after a dash
+;     ; #8 distinct words        an aside with no dash at all
 ;
-; The third is why matching is by prefix below rather than by equality. Reading
-; them as errors would have been the checker insisting on a convention the
-; examples never agreed to.
+; **The third is gone, on 2026-09-01, and an outside reader is why.** Matching
+; it meant accepting any claim whose *first token* was the output, so
+; `; tick tick tick` was satisfied by a line reading `tick` -- and a person
+; reading the reference could not tell that convention from a claim about what
+; the language prints. It cost them time and they wrote in to say so.
+;
+; The twenty-two comments using it were converted to the dash, which took one
+; pass. So the rule below is **equality**, and the only looseness left is the
+; deliberate one further down: several output lines joined under one comment,
+; which a comment genuinely cannot spell any other way.
 ; And a comment that *opens* with `--` is an aside in full, claiming nothing.
 ; Three lines in examples/ print something no comment could pin down -- a
 ; timestamp, a duration at the clock's floor, and one describing what happened
@@ -140,10 +147,7 @@ string:claimIn := { | cut, text |
 satisfies := { line, claim |
     line:equals("") :ifElse(
         { false },
-        { claim:equals(line):or({
-              claim:size:greaterThan(line:size):and({
-                  claim:copyFrom(#1, line:size):equals(line) }):and({
-                  " ,.":indexOf(claim:at(line:size:add(#1))):notNil }) }) }) }.
+        { claim:equals(line) }) }.
 
 expectationsIn := { source | | out, cut, code, claim |
     out := array:new.

@@ -12,7 +12,7 @@ s:print.                     ; "hello"
 
 ; Equality compares characters, not identity -- the opposite of arrays.
 "hi":equals("hi"):print.     ; true
-[#1]:equals([#1]):print.     ; false, two arrays
+[#1]:equals([#1]):print.     ; false -- two arrays
 
 ; at is one-based, like an array, and answers a one-character string since
 ; there is no character type of its own.
@@ -127,7 +127,7 @@ string:shout := { self:concat("!!") }.
 q := "she said \"hi\"".
 q:print.                     ; "she said \"hi\"" -- escapes put back
 q:display.                   ; she said "hi"
-"one\ntwo":display.          ; two lines
+"one\ntwo":display.          ; two -- lines
 
 ; asString takes an optional format spec: [align] [0] [width] [.decimals].
 ; Numbers align right and text aligns left, so a leading space for a positive

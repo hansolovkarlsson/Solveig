@@ -11,6 +11,25 @@ and their answers checked, the same as everywhere else in this repository.
 
 ---
 
+## How the comments in this file are read
+
+A `;` comment after a line that prints says what it printed, and this repository
+runs every one of them. Two conventions are worth knowing before reading the
+rest, because both cost an outside reader time on 2026-09-01:
+
+- **Prose after the value goes behind ` -- `.** `; #50 -- sends chain left to
+  right` claims `#50` and explains itself. Everything before the dash is the
+  claim and is checked exactly.
+- **One comment may describe several lines.** `#3:repeat({ "tick":display })`
+  is written `; tick tick tick` and prints *three lines*, because a comment
+  cannot hold a line break. Where a comment shows values separated by spaces
+  and the code prints in a loop, read it as one line each.
+
+Both `print` and `display` end the line. Nothing here writes without a newline
+except `system:write`.
+
+---
+
 ## Syntax, all of it
 
 ```
@@ -115,7 +134,7 @@ seen:display.                                       ; 147
 | Message | Answers |
 | --- | --- |
 | `print` | the receiver, having written its literal form and a newline |
-| `display` | the receiver, having written it *without* quotes on a string |
+| `display` | the receiver, having written it **and a newline**, *without* quotes on a string |
 | `asString` | its text |
 | `equals(v)` `notEquals(v)` | a boolean; value for numbers and text, identity for containers |
 | `isNil` `notNil` | a boolean |

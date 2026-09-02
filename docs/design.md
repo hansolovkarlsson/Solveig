@@ -325,7 +325,7 @@ answered thereafter:
 
 ```
 integer:limit := #45:add(#32).
-#1:limit:print.        ; #77, computed when it was bound
+#1:limit:print.        ; #77 -- computed when it was bound
 ```
 
 Because `:=` evaluates, a method can be computed rather than written out:

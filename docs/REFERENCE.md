@@ -690,7 +690,7 @@ program asks for it by name:
 ```
 @include "control.sol".
 
-#3:repeat({ "tick":display }).               ; tick tick tick
+#3:repeat({ "tick":display }).               ; tick tick tick -- three lines
 lines := #0.
 { lines := lines:add(#1) }:doUntil({ lines:greaterOrEqual(#3) }).
 lines:print.                                 ; #3
@@ -2216,7 +2216,7 @@ receiver:selector(a, b).
 Sends chain left to right:
 
 ```
-#2:add(#3):mul(#4):print.     ; #20, being (2+3)*4
+#2:add(#3):mul(#4):print.     ; #20 -- being (2+3)*4
 ```
 
 There are no operators and no precedence to remember; `a:add(b:mul(c))` is
@@ -2231,8 +2231,8 @@ to a global. It is a lookup, not a send.
 `( ... )` groups an expression, which is how a chain is redirected:
 
 ```
-#1:add(#2):mul(#3):print.       ; #9, being (1+2)*3
-#1:add((#2:mul(#3))):print.     ; #7, being 1+(2*3)
+#1:add(#2):mul(#3):print.       ; #9 -- being (1+2)*3
+#1:add((#2:mul(#3))):print.     ; #7 -- being 1+(2*3)
 ```
 
 A group may hold several statements separated by `.`. The earlier ones are
@@ -2832,7 +2832,7 @@ asking is that you do not know what the receiver is, so a message only nil
 understood could not be sent to find out.
 
 ```
-system:readLine:isNil:print.     ; true at the end of input
+system:readLine:isNil:print.     ; true -- at the end of input
 "":isNil:print.                  ; false -- empty is not absent
 ```
 

@@ -214,7 +214,7 @@ count:print.                     ; #9
 ; logical shift would turn every negative number into a huge positive one. That
 ; makes it agree exactly with `div` by a power of two, which is floored:
 #0:sub(#7):shiftRight(#2):print. ; #-2
-#0:sub(#7):div(#4):print.        ; #-2, the same
+#0:sub(#7):div(#4):print.        ; #-2 -- the same
 
 ; A shift left refuses to lose the number, the way `mul` refuses to overflow.
 ;   #1:shiftLeft(#63)   ->  integer overflow in 'shiftLeft'

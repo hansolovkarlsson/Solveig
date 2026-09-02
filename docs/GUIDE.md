@@ -743,9 +743,9 @@ means what it always meant and the receiver is never one of the arguments.
 Three messages that look similar and are not:
 
 ```
-#45:print.                       ; #45     the LITERAL form -- reads back
-#45:display.                     ; 45      the TEXT
-#45:asString:print.              ; "45"    that text, as a string
+#45:print.                       ; #45 -- the literal form -- reads back
+#45:display.                     ; 45 -- the TEXT
+#45:asString:print.              ; "45" -- that text, as a string
 ```
 
 `asString` takes an optional format spec — `[align] [','] ['0'] [width] ['.'

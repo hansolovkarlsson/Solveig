@@ -24,9 +24,9 @@
 ; so there is nothing that could contradict it -- and no sign mode, because a
 ; leading space for a positive number falls out of the width.
 
-45.8:asString("6.2"):display.    ;  45.80          width 6, two decimals
-45.8:asString("08.2"):display.   ; 00045.80        zero fill
-#-45:asString("06"):display.     ; -00045          zeros go after the sign
+45.8:asString("6.2"):display.    ;  45.80 -- width 6, two decimals
+45.8:asString("08.2"):display.   ; 00045.80 -- zero fill
+#-45:asString("06"):display.     ; -00045 -- zeros go after the sign
 
 ; Numbers align right and text aligns left. '<' '>' '^' override that.
 "ab":asString(">6"):print.       ; "    ab"

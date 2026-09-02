@@ -41,7 +41,7 @@ system:readFile(path, #1, #6):print.        ; "apples"
 ; gives back what was there, and asking from past the end gives back nothing --
 ; because "the last four kilobytes" of a file that turns out to be shorter is a
 ; reasonable question, and the string that comes back says its own size.
-system:readFile(path, #10, #999):size:print.    ; #19, being all that was left
+system:readFile(path, #10, #999):size:print.    ; #19 -- being all that was left
 system:readFile(path, #999, #10):print.         ; ""
 
 ; `#0` is not a position, in a file or in a string.
@@ -123,7 +123,7 @@ system:makeDirectory(scratch).
 
 system:writeFile(scratch:concat("/note.txt"), "a line
 ").
-system:fileSize(scratch:concat("/note.txt")):print.     ; #7, without reading it
+system:fileSize(scratch:concat("/note.txt")):print.     ; #7 -- without reading it
 
 ; ---------------------------------------------------------------------------
 ; Which file is at this path
