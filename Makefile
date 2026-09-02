@@ -36,8 +36,7 @@ endif
 
 # Empty by default; the sanitizers go here rather than into CFLAGS, which is
 # `?=` and would lose the warning flags if it were set on the command line.
-#
-#   make clean && make test SANITIZE="-fsanitize=address,undefined"
+# `make sanitize` is the way to use it.
 SANITIZE =
 
 BUILD = build
@@ -93,7 +92,8 @@ SOLVEIG_VERSION = $(shell grep SOLUM_VERSION \
                     $(SOLVEIG)/solum/include/solum/common.h 2>/dev/null \
                     | tr -d '"' | awk '{print $$3}')
 
-.PHONY: all test run examples ember grammar digest check install uninstall dist clean
+.PHONY: all test sanitize run examples ember grammar digest check install \
+        uninstall dist clean
 
 # Without this, make treats a generated .sol as an intermediate and deletes it
 # after the .sob is built -- taking the map with it. Both are the artefacts
@@ -203,6 +203,21 @@ test: $(BIN)/proto $(TEST_BINS) $(EXAMPLE_SOBS) $(EMBER_BINS) $(GRAMMAR_SOBS) \
 	@$(SOLVEIG)/bin/solvm $(DIGEST)/sha256.sob \
 	    | diff -u $(DIGEST)/sha256.expected - || exit 1
 	@echo "all tests passed"
+
+# The suite under AddressSanitizer and UBSan, which is a separate build rather
+# than a flag on this one: every object has to be compiled with them and the
+# tree caches objects, so this cleans first.
+#
+# **It is a target and not a comment because of POSTMORTEM.md 15.** The
+# invocation had been documented here since the first commit, had never been
+# run, and is what catches the one class of defect this suite structurally
+# cannot: a read of freed memory is a crash only when the allocator happens to
+# make it one, so `test_use` can hold the exact shape of the bug and pass.
+sanitize:
+	@$(MAKE) --no-print-directory clean
+	@$(MAKE) --no-print-directory test SANITIZE="-fsanitize=address,undefined"
+	@echo "clean under -fsanitize=address,undefined"
+	@echo "  bin/proto is instrumented now -- 'make clean' restores a normal build"
 
 # The dialects go in beside the binary, and nothing looks for them there.
 #

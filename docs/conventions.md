@@ -86,6 +86,15 @@ was rejected, and what it cost. The diff is in the diff.
 **Output is checked by hand, not trusted for having run.** `examples/clike`
 printed `#54` where `#40` was right, compiled clean and failed nothing.
 
+**`make sanitize` before a release, and after anything that touches the dialect
+tables.** The suite cannot find a use of freed memory on its own: whether a
+stale pointer is a crash is the allocator's decision, so a check can hold the
+exact shape of the bug and pass. [POSTMORTEM.md](POSTMORTEM.md) 15 was latent
+from 0.1.0 to 0.10.0 with the invocation that catches it sitting documented and
+unused in the Makefile the whole time. **A tool nobody runs is not a tool**,
+which is why it is a target now and this is a standing agreement rather than a
+good intention.
+
 ## What the build guarantees
 
 `make` needs a C11 compiler and nothing else — no Solveig header, archive or

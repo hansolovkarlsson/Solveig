@@ -10,6 +10,32 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### `make sanitize` — 2026-09-02
+
+**A tool nobody runs is not a tool.** `SANITIZE=` has been in the Makefile since
+the first commit, with the invocation written in a comment beside it, and
+nothing had ever been run under it — which is how
+[POSTMORTEM.md](POSTMORTEM.md) 15 stayed latent from 0.1.0 to 0.10.0.
+
+```sh
+make sanitize      # clean, then the whole suite under address + undefined
+```
+
+It cleans first, because the sanitizers have to be in every object and the tree
+caches objects. It leaves an instrumented `bin/proto` behind and says so;
+`make clean` restores a normal build.
+
+**Checked by reintroducing the defect.** With `proto_dialect_add_infix` put back
+the way it was before `f8b219a`, `make sanitize` exits 2 and names it —
+*heap-use-after-free, reader.c:316 in directive\_operator* — and is clean with
+the fix in. That is the one class of defect this suite structurally cannot catch
+on its own: whether a read of freed memory is a crash is the allocator's
+decision, so `tests/test_use.c` can hold the exact shape of the bug and pass.
+
+[conventions.md](conventions.md) now carries it as a standing agreement rather
+than a good intention: **before a release, and after anything that touches the
+dialect tables.**
+
 ### One spelling per operation — 2026-09-02
 
 **Nothing in the compiler changed**, and no version with it. This is the shipped
