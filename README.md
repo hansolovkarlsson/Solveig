@@ -612,7 +612,7 @@ integer:utf8Tail := { at |
     (#128:bitOr(self:shiftRight(at):bitAnd(#63))):asCharacter }.
 ```
 
-## What 0.10.0 is not
+## What 0.14.0 is not
 
 **A pattern has no optional or repeated parts.** `if <c> then <a> else <b>` is a
 second declaration rather than an optional tail, which is honest and costs a
@@ -629,10 +629,16 @@ rather than calls, so it should cost what writing the code out costs. It does
 not, because nothing folds the constants the expansion introduces: measured on
 `programs/digest`, a rotation declared as an operator saves 2.03 instructions by
 not calling and spends 2.00 recomputing a `#32:sub(#17)`. **It gives back 98% of
-what it saves.** Folding would need the expander to decide which sends are safe
-to evaluate, which is the guard question one size smaller;
-[ROADMAP.md](docs/ROADMAP.md) carries the measurement and the reason it is an
-entry rather than a patch.
+what it saves.**
+
+`programs/ledger` then measured the same shape at **0.19%**, because a dialect's
+constants cost per *use* and that dialect's uses sit outside its loop. Two
+numbers, and the second argues the first was not as large as it looked — so the
+case for folding rests on the claim being made true rather than on the figure.
+It would also need the expander to decide which sends are safe to evaluate,
+which is the guard question one size smaller;
+[ROADMAP.md](docs/ROADMAP.md) carries both measurements and the rule to settle
+first.
 
 **A wrong precedence is silent.** A module declares its own ladder, so there is
 nothing for `@infix * 60` to be wrong against — it is as legal as `70` and means
@@ -654,7 +660,6 @@ Known gaps, each for a reason rather than for lack of time:
 
 | | |
 | --- | --- |
-| Dictionary literals | `#[a = b]` separates a pair with `=`, and `=` is a character a dialect may declare. That needs a decision, not a default. `dictionary:new` works. |
 | Temporaries in a group | `( \| t \| ... )` is Solveig's; Proto reads `( expr. expr )` and no temporaries. |
 | `@expr` | Deliberately absent. It is the fixed form of what `@infix` generalises, and having both would be having two. |
 | An installed dialect is not found on its own | `make install` puts `lib/*.pro` beside the binary and nothing looks there. `PROTO_PATH` is one line in a profile; Solveig's binaries are told their library path at build time and could be copied. |
@@ -690,7 +695,7 @@ predicate logic, which turns out to be three questions wearing one name.
 
 | | |
 | --- | --- |
-| [does-it-pay.md](docs/does-it-pay.md) | what four programs say about the question this project exists to answer |
+| [does-it-pay.md](docs/does-it-pay.md) | what five programs say about the question this project exists to answer |
 | [REFERENCE.md](docs/REFERENCE.md) | every directive, hole kind and shipped dialect, and where everything lives — the page to look things up in |
 | [what-is-proto.md](docs/what-is-proto.md) | how the parts fit together, kept as the five questions that were asked and answered |
 | [pipeline.html](docs/pipeline.html) | the same path drawn — the pipeline, lockstep matching, expansion, and the map |

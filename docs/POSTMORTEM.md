@@ -466,7 +466,8 @@ where somebody could go back and disagree with it, and somebody did.
 
 **Two of eighteen were found by tests**, and one of those two was a broken
 test.
-Five came from the four programs written in the language, and three more came
+Five came from writing programs in the language — four of the five programs
+found one — and three more came
 from reading something rather than running it.
 
 The unit tests are worth having — 109 of them, and they caught 1 immediately —
