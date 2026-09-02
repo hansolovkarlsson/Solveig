@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### The format version is a promise now — `pending`, 2026-09-01
+### The format version is a promise now — `5a5df7b`, 2026-09-01
 
 **Format 15 will refuse 14 and everything before it**, and 14 already refuses
 15. The check is an equality rather than a floor, so a newer file is exactly as
