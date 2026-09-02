@@ -315,6 +315,33 @@ where the oracle asks *is this the tool's diff*. **A program with an oracle can
 still want a check that is not the oracle**, and the moment two right answers
 exist it needs one.
 
+## A check too slow to finish is a defect report nobody reads as one
+
+**On 2026-09-02 a sweep ran for two hours and fourteen minutes without
+finishing its first half, and that was the finding.** It was reported as *still
+running* three times before anybody asked why, because a check that has not
+answered looks exactly like a check that is being thorough.
+
+What it had found was a defect in the program under test: `sort`'s k-way merge
+picked its winner by a linear scan over every run's head, so the cost was
+`lines x runs`, and the sweep's `-S 16` over a 14,707-line file made some
+forty-nine thousand runs. A heap took the same case from *did not finish* to
+**3.88 seconds** and the whole sweep to five and a half minutes.
+
+**The check was working. Nothing was reading its output**, because its output
+was silence and silence is what a slow check and a passing check both look
+like. [A program that does not stop can still be
+checked](#a-program-that-does-not-stop-can-still-be-checked--give-it-a-deadline)
+says to give an unbounded *program* a deadline; this is the same rule pointed
+at the check, and it is the harder half to remember because the check is the
+thing you trust.
+
+So: **know roughly what a check should cost before running it, and treat a
+large overrun as a result rather than as weather.** The estimate does not have
+to be good -- ten minutes was guessed here and two hours was the answer, and
+the factor of thirteen is what should have been read as news on the first check
+rather than the third.
+
 ## A program that does not stop can still be checked — give it a deadline
 
 **`tail -f` was nearly left out on the grounds that an oracle cannot check a

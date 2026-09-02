@@ -563,11 +563,46 @@ readEverything := {
 ; opened, nothing is closed, and nothing has to be seeked to a place it was
 ; already at.
 ;
-; The winner is picked by a linear scan of the heads rather than by a heap.
-; With `-S` at its default there is one run; with `-S` small there are as many
-; as the file has budgets, and a heap would matter at a few hundred. The scan
-; is four lines and says what it does, which is the trade this repository keeps
-; making until something measures otherwise.
+; **The winner comes off a heap, and the first draft used a linear scan.** That
+; draft carried a comment saying a heap *would matter at a few hundred runs* and
+; that the scan was the trade this repository keeps making until something
+; measures otherwise. Something measured otherwise within the day, and the
+; comment had named its own falsifying condition well enough to recognise it:
+;
+; | 400 lines, 23 KB | scan | heap |
+; | --- | --- | --- |
+; | `-S 100000` -- one run, no merge | 0.01 s | 0.01 s |
+; | `-S 1024` -- 23 runs | 0.02 s | 0.02 s |
+; | `-S 64` -- 366 runs | **0.24 s** | 0.09 s |
+;
+; Twenty-four times on four hundred lines, and the shape is `lines x runs`.
+; `sweep.sh` runs `-S 16` over this repository's own files, where
+; `docs/CHANGELOG.md` is **14,707 lines in 788,815 bytes** -- some forty-nine
+; thousand runs, and a comparison per run per line.
+;
+; **It did not fail. It ran for two hours and fourteen minutes without
+; finishing the generated half**, which is how this was found: a check too slow
+; to finish is a defect report that nobody reads as one. The same file, same
+; budget, on the heap:
+;
+; ```text
+; sort -S 16 docs/CHANGELOG.md      3.88 s, and agrees with the tool
+; ```
+;
+; And the sweep that would not finish now takes 5 minutes 28 seconds for all
+; 1,610 comparisons.
+;
+; **What the handle-free reader bought is worth naming here.** A merge over
+; 43,750 runs is not unusual for an external sort at a small budget, and a
+; program holding a file handle per run would have run out of descriptors long
+; before it ran out of patience. A reader here is a path and an integer, so the
+; only cost of a large `k` was the scan -- which is an algorithm to choose
+; rather than a wall to hit.
+;
+; Ties go to the **earlier run**, which the scan got for free by taking the
+; first strictly-smaller head and the heap has to be told: two runs holding
+; equal lines must come out in the order they were written, or `-s` stops being
+; stable the moment the input spills.
 
 emit := object:new.
 emit:parts := array:new.
@@ -599,31 +634,77 @@ emit:finish := {
     self:path:isNil:or({ self:started }):ifFalse({
         system:writeFile(self:path, "") }) }.
 
-; The heads of every reader, and the one that sorts first. `nil` in `heads`
-; means that run is spent.
-mergeReaders := { readers | | heads, i, best, last, haveLast |
+; A binary heap of run numbers, ordered by the line each run is holding. The
+; array is one-based, so a node at `i` has its parent at `i/2` and its children
+; at `2i` and `2i+1` with no offset anywhere -- which is the one place this
+; language's indexing is simpler than C's rather than noisier.
+heads := array:new.
+
+; Equal lines go to the earlier run, so that a spilled sort is as stable as one
+; that fitted.
+heapBefore := { a, b | | r |
+    r := compareLines:value(heads:at(a), heads:at(b)).
+    r:equals(#0):ifElse({ a:lessThan(b) }, { r:lessThan(#0) }) }.
+
+siftUp := { heap, at | | i, parent, t |
+    i := at.
+    { i:greaterThan(#1)
+        :and({ heapBefore:value(heap:at(i), heap:at(i:div(#2))) }) }:whileTrue({
+        parent := i:div(#2).
+        t := heap:at(i). heap:atPut(i, heap:at(parent)). heap:atPut(parent, t).
+        i := parent }) }.
+
+siftDown := { heap, size | | i, small, left, right, t, going |
+    i := #1.
+    going := true.
+    { going }:whileTrue({
+        small := i.
+        left := i:mul(#2).
+        right := left:add(#1).
+        left:lessOrEqual(size)
+            :and({ heapBefore:value(heap:at(left), heap:at(small)) }):ifTrue({
+            small := left }).
+        right:lessOrEqual(size)
+            :and({ heapBefore:value(heap:at(right), heap:at(small)) }):ifTrue({
+            small := right }).
+        small:equals(i):ifElse(
+            { going := false },
+            { t := heap:at(i). heap:atPut(i, heap:at(small)).
+              heap:atPut(small, t).
+              i := small }) }) }.
+
+mergeReaders := { readers | | heap, size, best, last, haveLast |
     heads := readers:collect({ r | reader:next(r) }).
+    heap := array:new.
+    size := #0.
+    [#1, heads:size]:loop({ n |
+        heads:at(n):notNil:ifTrue({
+            heap:add(n).
+            size := size:add(#1).
+            siftUp:value(heap, size) }) }).
+
     last := nil.
     haveLast := false.
 
-    { heads:select({ h | h:notNil }):size:greaterThan(#0) }:whileTrue({
-        best := nil.
-        i := #1.
-        [#1, heads:size]:loop({ n |
-            heads:at(n):notNil:ifTrue({
-                best:isNil:ifElse(
-                    { best := n. i := n },
-                    { compareLines:value(heads:at(n), heads:at(best))
-                          :lessThan(#0):ifTrue({ best := n }) }) }) }).
+    { size:greaterThan(#0) }:whileTrue({ | line |
+        best := heap:at(#1).
+        line := heads:at(best).
 
         ; `-u` drops a line whose key matches the one before it, which is the
         ; only place the merge looks backwards.
         options:unique:and({ haveLast })
-            :and({ sameKey:value(last, heads:at(best)) }):ifFalse({
-            emit:line(heads:at(best)) }).
-        last := heads:at(best).
+            :and({ sameKey:value(last, line) }):ifFalse({
+            emit:line(line) }).
+        last := line.
         haveLast := true.
-        heads:atPut(best, reader:next(readers:at(best))) }) }.
+
+        heads:atPut(best, reader:next(readers:at(best))).
+        heads:at(best):isNil:ifElse(
+            { heap:atPut(#1, heap:at(size)).
+              heap:removeLast.
+              size := size:sub(#1) },
+            { }).
+        size:greaterThan(#0):ifTrue({ siftDown:value(heap, size) }) }) }.
 
 ; ---------------------------------------------------------------------------
 ; Checking rather than sorting

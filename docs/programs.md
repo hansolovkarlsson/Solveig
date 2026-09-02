@@ -2222,6 +2222,37 @@ Both defects it found came from the **real** half:
 
 Both are corpus cases now, so the next reader does not find them twice.
 
+### The check that was too slow to finish
+
+**The sweep found one more thing by not finishing.** Its first run at full
+width went two hours and fourteen minutes without completing even the generated
+half, and the reason was in this program: the k-way merge picked its winner by
+a **linear scan** over every run's head, so the cost was `lines x runs`. At `-S
+16` over `docs/CHANGELOG.md` -- 14,707 lines in 788,815 bytes -- that is some
+forty-nine thousand runs and a comparison per run per line.
+
+The scan carried a comment saying a heap *would matter at a few hundred runs*
+and that the scan was the trade this repository keeps making until something
+measures otherwise. **Something measured otherwise the same day, and the
+comment had named its own falsifying condition well enough to recognise it when
+it arrived.**
+
+| | scan | heap |
+| --- | --- | --- |
+| 400 lines, `-S 64`, 366 runs | 0.24 s | 0.09 s |
+| `docs/CHANGELOG.md`, `-S 16` | did not finish | **3.88 s** |
+| the whole sweep, 1,610 comparisons | did not finish | 5 min 28 s |
+
+**What the handle-free reader bought is worth naming.** A merge over forty-nine
+thousand runs is ordinary for an external sort at a small budget, and a program
+holding a file handle per run would have run out of descriptors long before it
+ran out of patience. A reader here is a path and an integer, so a large `k`
+cost only the scan -- an algorithm to choose rather than a wall to hit.
+
+**A check too slow to finish is a defect report nobody reads as one.** It sat
+in the background reporting nothing while it was the only thing that had found
+anything.
+
 ### And a claim it nearly published
 
 `sorted` is a stable merge sort, and the program was going to report that

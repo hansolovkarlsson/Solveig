@@ -11,6 +11,50 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-02 (the slow check) — two hours of silence was the finding
+
+`sweep.sh` was left running at full width and reported as *still running* three
+times. On the third it had been going **two hours and fourteen minutes** and
+had not finished its generated half -- which was the answer rather than the
+wait.
+
+### The defect it was reporting by not finishing
+
+`sort`'s k-way merge picked its winner by scanning every run's head, so the
+cost was `lines x runs`. The sweep runs `-S 16` over this repository's own
+files, and `docs/CHANGELOG.md` is 14,707 lines in 788,815 bytes -- some
+forty-nine thousand runs, and a comparison per run per line.
+
+**The scan carried a comment naming the condition that would falsify it**: *a
+heap would matter at a few hundred runs*, and *the scan is the trade this
+repository keeps making until something measures otherwise*. Something measured
+otherwise the same day, and the comment was specific enough to recognise it. A
+heap took the file from *did not finish* to **3.88 seconds**, and the whole
+sweep from *did not finish* to five and a half minutes.
+
+### The lesson is about the check, not the merge
+
+A heap instead of a scan is an undergraduate correction and would be worth a
+line. **What is worth an entry is that the check was working and nobody was
+reading it**, because its output was silence, and silence is what a slow check
+and a passing check both look like.
+
+[A program that does not stop can still be checked](method.md#a-program-that-does-not-stop-can-still-be-checked--give-it-a-deadline)
+already says to give an unbounded program a deadline. This is the same rule
+pointed at the *check*, and it is the harder half to remember, because the
+check is the thing you trust. The estimate given for this sweep was ten
+minutes; the answer was two hours. **A factor of thirteen was news on the first
+look and was read as weather on all three.**
+
+And one thing worth keeping on the other side of the ledger: a merge over
+forty-nine thousand runs is ordinary at a small budget, and a program holding a
+handle per run would have run out of descriptors long before it ran out of
+patience. A reader here is a path and an integer, so a large `k` cost only the
+scan. **The design that removed the wall is what let the algorithm be the whole
+problem.**
+
+---
+
 ## 2026-09-02 (sort) — a gap that was not there, and a generator that missed twice
 
 [sort.sol](../programs/sort.sol) is the twenty-first program, chosen off the

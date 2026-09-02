@@ -5,6 +5,39 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### A merge that scanned, and the check that was too slow to finish — `pending`, 2026-09-02
+
+**[sort](../programs/sort.sol)'s k-way merge picks its winner off a heap now**,
+where it scanned every run's head. The cost was `lines x runs`, so at `-S 16`
+over `docs/CHANGELOG.md` -- 14,707 lines in 788,815 bytes, some forty-nine
+thousand runs -- it was a comparison per run per line.
+
+| | scan | heap |
+| --- | --- | --- |
+| 400 lines, `-S 64`, 366 runs | 0.24 s | 0.09 s |
+| `docs/CHANGELOG.md` at `-S 16` | did not finish | **3.88 s** |
+| `sweep.sh` at full width, 1,610 comparisons | did not finish | 5 min 28 s |
+
+**The scan carried a comment naming its own falsifying condition** -- *a heap
+would matter at a few hundred runs* -- and the condition was met the same day
+by the check written to find exactly this kind of thing.
+
+**And the finding is how it was found.** The sweep did not fail: it ran for
+**two hours and fourteen minutes without finishing its generated half**, and
+was reported as *still running* three times before anybody asked why. A check
+that has not answered looks exactly like a check being thorough.
+[method.md](method.md#a-check-too-slow-to-finish-is-a-defect-report-nobody-reads-as-one)
+has the rule now: know roughly what a check should cost, and read a large
+overrun as a result rather than as weather. Ten minutes was the estimate here
+and two hours was the answer, and the factor of thirteen was news on the first
+check rather than the third.
+
+**What the handle-free reader bought is worth naming.** A merge over forty-nine
+thousand runs is ordinary for an external sort at a small budget, and a program
+holding a file handle per run would have run out of descriptors long before it
+ran out of patience. A reader here is a path and an integer, so a large `k`
+cost only the scan -- an algorithm to choose rather than a wall to hit.
+
 ### sort, and the gap that was not there — `cf4b1c5`, 2026-09-02
 
 **The language answers 144<!--count messages--> messages**, unchanged, and
