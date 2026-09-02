@@ -1,0 +1,5 @@
+# `print | "cmd"` feeds a child process. run takes a path for "stdin" rather
+# than text -- the right interface for a message that must not hold a stream in
+# memory -- so the text is written down first.
+args: 'BEGIN { for (i = 3; i >= 1; i--) print i | "sort" }'
+input:

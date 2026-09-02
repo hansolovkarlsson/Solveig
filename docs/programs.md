@@ -2035,6 +2035,17 @@ twelve levels of binary precedence and the textbook shape spends three frames a
 level, which would run out at six or seven parentheses; precedence climbing
 costs three frames for the whole chain.
 
+### What it does not have, and says so
+
+`RS` is a newline and setting it is accepted and ignored — the only thing in the
+file that is not refused where it is not implemented, and it is named in the
+header for that reason: it is the shape that cost `sed` a defect the same day.
+Splitting on another character is two lines; paragraph mode also changes what
+`FS` does, and half of `RS` would be worse than none.
+
+Everything else that is not there refuses: a conversion `printf` does not know,
+a built-in that is not written, an argument list of the wrong length.
+
 ### Held against the awk on the machine
 
 [programs/oracle.sh](../programs/oracle.sh) runs the corpus in `programs/awk/`

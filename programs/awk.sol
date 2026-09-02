@@ -501,6 +501,10 @@ parser:primary := { | t, n, done |
     done:ifFalse({ self:isWord("getline"):ifTrue({
         self:next. n := mk:value('getline).
         (self:kind:equals('name)):ifTrue({ n:a := self:nameOrCall }).
+        ; `getline var < file` binds the `<` to the getline rather than reading
+        ; it as a comparison, which is awk's rule and is why `getline < "f"`
+        ; needs no brackets to mean what it says.
+        self:isOp("<"):ifTrue({ self:next. n:c := self:expr(#8) }).
         done := true }) }).
 
     done:ifFalse({
@@ -565,8 +569,17 @@ parser:expr := { min | | left, opText, prec, right, n |
       got := false.
       opText := self:isOp(""):ifElse({ "" }, { self:text }).
 
+      ; `cmd | getline` is a pipe read, and it is the only place `|` appears in
+      ; an expression. Told apart from `print ... | "cmd"` by what follows it.
+      (self:isOp("|"):and({ #5:greaterOrEqual(min) })
+          :and({ self:toks:at(self:at:inc):text:equals("getline") })):ifTrue({
+          self:next. self:next.
+          n := mk:value('cmdgetline). n:c := left.
+          (self:kind:equals('name)):ifTrue({ n:a := self:nameOrCall }).
+          left := n. got := true }).
+
       ; `in` is a keyword rather than an operator, and binds like one.
-      (self:isWord("in"):and({ #4:greaterOrEqual(min) })):ifTrue({
+      (got:not:and({ self:isWord("in") }):and({ #4:greaterOrEqual(min) })):ifTrue({
           self:next.
           n := mk:value('in). n:a := left. n:text := self:next:text.
           left := n. got := true }).
@@ -994,6 +1007,7 @@ eval := { n | | k, v |
     k:equals('call):ifTrue({ v := callFunction:value(n:text, n:list) }).
     k:equals('builtin):ifTrue({ v := callBuiltin:value(n) }).
     k:equals('getline):ifTrue({ v := doGetline:value(n) }).
+    k:equals('cmdgetline):ifTrue({ v := doCmdGetline:value(n) }).
 
     v:isNil:ifTrue({ error:raise("awk: cannot evaluate a {}":fill([k])) }).
     v }.
@@ -1550,10 +1564,14 @@ callFunction := { name, argNodes | | def, params, body, saveL, saveA, i, v |
 ;
 ; **A record is a line and `RS` is not honoured beyond that**, which is stated
 ; rather than hidden: POSIX allows RS to be any single character and an empty RS
-; to mean paragraph mode, and neither is here. The reason is that
-; `system:readFile` answers a whole file and there is no line-at-a-time read --
-; the same limitation `sed` records, and the same one that made `tail` read
-; ranges by hand.
+; to mean paragraph mode, and neither is here. Setting it is accepted and
+; ignored, which is the one thing in this file that is *not* refused where it is
+; not implemented -- and it is the shape that cost `sed` a defect today, so it
+; is named here rather than left to be discovered.
+;
+; The reason is not the language: splitting on a character instead of a newline
+; is two lines. It is that paragraph mode also changes what `FS` does, and doing
+; half of `RS` would be worse than doing none. A second customer decides it.
 
 ; **There is no read-the-whole-of-standard-input**, so it is `readLine` until
 ; nil. That is the same shape `sed` records and the reason both read a file
@@ -1604,7 +1622,61 @@ nextRecord := { | got |
             { got := inputLines:at(inputAt). inputAt := inputAt:inc }) }).
     got }.
 
-doGetline := { n | | line |
+; **A source that is not the main input keeps its own cursor**, because
+; `getline < "f"` reads the *next* line of that file each time it is asked --
+; twice in a loop must not answer the same line twice. A dictionary of name to
+; [lines, position] is the whole of it.
+sources := dictionary:new.
+
+lineFrom := { key, text | | st |
+    sources:includes(key):ifFalse({
+        sources:atPut(key, [linesOf:value(text), #1]) }).
+    st := sources:at(key).
+    st:at(#2):greaterThan(st:at(#1):size):ifElse(
+        { nil },
+        { | line | line := st:at(#1):at(st:at(#2)).
+          st:atPut(#2, st:at(#2):inc).
+          line }) }.
+
+; `getline [var] < file`. A file that is not there answers -1 rather than
+; raising, which is awk's rule and is what lets a program test for it.
+doFileGetline := { n | | path, line |
+    path := toStr:value(eval:value(n:c)).
+    (sources:includes("<":concat(path)):not
+        :and({ system:fileExists(path):not })):ifElse(
+        { num:value(0.0:sub(1.0)) },
+        { line := lineFrom:value("<":concat(path),
+              sources:includes("<":concat(path)):ifElse({ "" },
+                  { system:readFile(path) })).
+          line:isNil:ifElse(
+              { num:value(0.0) },
+              { n:a:isNil:ifElse(
+                    { setRecord:value(line).
+                      setVar:value("NR", num:value(
+                          toNum:value(getVar:value("NR")):add(1.0))) },
+                    { assignTo:value(n:a, field:value(line)) }).
+                num:value(1.0) }) }) }.
+
+; `"cmd" | getline [var]`. The command is run once and its output read a line at
+; a time, which is what awk does and what `capture` makes easy.
+doCmdGetline := { n | | cmd, key, line |
+    cmd := toStr:value(eval:value(n:c)).
+    key := "|":concat(cmd).
+    line := lineFrom:value(key,
+        sources:includes(key):ifElse({ "" },
+            { system:capture(["/bin/sh", "-c", cmd]):at("output") })).
+    line:isNil:ifElse(
+        { num:value(0.0) },
+        { n:a:isNil:ifElse(
+              { setRecord:value(line).
+                setVar:value("NR", num:value(
+                    toNum:value(getVar:value("NR")):add(1.0))) },
+              { assignTo:value(n:a, field:value(line)) }).
+          num:value(1.0) }) }.
+
+doGetline := { n | | line, v |
+    n:c:notNil:ifTrue({ v := doFileGetline:value(n) }).
+    v:notNil:ifElse({ v }, {
     line := nextRecord:value.
     line:isNil:ifElse(
         { num:value(0.0) },
@@ -1615,24 +1687,40 @@ doGetline := { n | | line |
                 setVar:value("FNR", num:value(
                     toNum:value(getVar:value("FNR")):add(1.0))) },
               { assignTo:value(n:a, field:value(line)) }).
-          num:value(1.0) }) }.
+          num:value(1.0) }) }) }.
 
 ; ---------------------------------------------------------------------------
 ; Running a program over the input
 
+; **A pipe's input goes through a file**, because `run` takes a *path* for
+; `"stdin"` rather than text -- which is the right interface for a message that
+; must not hold a whole stream in memory, and means a program feeding a child
+; writes it down first. The first attempt passed a dictionary and got
+; *'run' expects the streams as an array of names and values*, which is the
+; language declining to guess.
+pipeInput := "build/awk-pipe.txt".
+
 flush := {
     outputs:keysAndValuesDo({ key, v |
-        (key:size:greaterThan(#0):and({ key:at(#1):equals("|") })):ifTrue({
+        (key:size:greaterThan(#0):and({ key:at(#1):equals("|") })
+            :and({ v:size:greaterThan(#0) })):ifTrue({
+            system:makeDirectory("build").
+            system:writeFile(pipeInput, v:join("")).
             system:run(["/bin/sh", "-c", key:copyFrom(#2, key:size)],
-                       dictionary:of("input", v:join(""))).
+                       ["stdin", pipeInput]).
             outputs:atPut(key, array:new) }) }).
     nil }.
 
 closeStream := { name | | key |
     key := "|":concat(name).
+    sources:includes(key):ifTrue({ sources:remove(key) }).
+    sources:includes("<":concat(name)):ifTrue({
+        sources:remove("<":concat(name)) }).
     outputs:includes(key):ifElse(
-        { system:run(["/bin/sh", "-c", name],
-                     dictionary:of("input", outputs:at(key):join(""))).
+        { outputs:at(key):size:greaterThan(#0):ifTrue({
+              system:makeDirectory("build").
+              system:writeFile(pipeInput, outputs:at(key):join("")).
+              system:run(["/bin/sh", "-c", name], ["stdin", pipeInput]) }).
           outputs:remove(key). #0 },
         { outputs:includes(name):ifElse({ outputs:remove(name). #0 },
                                         { #0:sub(#1) }) }) }.

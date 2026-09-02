@@ -1,0 +1,10 @@
+# The four ways to read something that is not the main input, and the one that
+# was silently wrong before it was written.
+#
+# `getline line < "file"` parsed as `getline line` followed by a *comparison*
+# with the filename, so it read standard input and threw the answer away --
+# printing nothing, raising nothing, exiting 0. That is the same shape as sed
+# reading `\(` as a literal parenthesis, found the same way: by running the form
+# rather than by believing the header that said it was not written.
+args: 'BEGIN { while (("printf \"a\\nb\\n\"" | getline v) > 0) s = s "[" v "]"; print s; "echo one" | getline w; print w; print (getline z < "/no/such/file") }'
+input:
