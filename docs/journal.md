@@ -11,6 +11,99 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-02 (sort) — a gap that was not there, and a generator that missed twice
+
+[sort.sol](../programs/sort.sol) is the twenty-first program, chosen off the
+Unix survey where its prediction had been written down in August. The
+prediction named one finding and the finding is absent.
+
+### A write is not the reverse of a read
+
+The entry said `sort` would want a **positioned write**, because an external
+merge sort writes runs to temporary files and `writeFile` replaces where
+`appendFile` appends. It called that *the mirror of the ranged read*.
+
+**An external merge sort never writes into the middle of a file.** A run is
+produced whole -- read a budget's worth of lines, sort them, write them once --
+and then it is only ever read. The output is produced in order, so it appends.
+The two writes that exist are the two it needs.
+
+The mirror is where the reasoning went. **The ranged read exists because a
+program wants part of a file it did not write**; nothing wants to write part of
+a file it is producing, because a producer knows what comes next. The entry
+reasoned from the symmetry of the *names*, and the asymmetry is in what the two
+operations are for.
+
+And what the k-way merge did want was the ranged read, which was already there:
+`k` positions in `k` files at once, with nothing to open, close or use after
+closing. **The half the entry worried about is the half that needed nothing.**
+
+### The generator missed both real defects, the same day it missed one for diff
+
+`programs/sort/sweep.sh` runs generated inputs and then this repository's own
+files, under twenty-three option forms. It was written **before** any claim was
+made about it, which is the whole of what the morning cost `diff` to learn.
+
+Both defects came from the real half. **`-n` must reject a leading `+`** -- the
+tool reads `-1` as minus one and `+5` as *zero* -- found on a README line
+beginning `+0.2% to +3.4%`. **`-f` folds to upper case, not lower**, which
+shows only beside punctuation, found in three README files that begin lines
+with `**[`.
+
+**The generated alphabet had a minus in it because somebody thought of one, and
+no plus because nobody did.** It had letters and digits and no punctuation
+beside them. That is the same shape twice in one day, and it is the argument
+for the third rung rather than for a better generator: a generator produces
+what its author imagined, one level up. Both are corpus cases now, so the next
+reader does not find them twice.
+
+### And the sweep would have reported success either way
+
+Its first draft ran the option forms through `echo "$forms" | while read`,
+which puts the loop in a subshell -- so every disagreement it counted was
+thrown away when the subshell exited and the script would have printed *nothing
+disagreed* whatever happened.
+
+**Worse than that: the first draft had a comment underneath admitting the
+counters were lost, and did nothing about it.** The observation was made and
+not acted on, in a file whose whole purpose is to be the check the corpus is
+not. It is a redirect now, and it was proved by folding down again and watching
+it report four.
+
+### The claim that was retracted before it shipped
+
+`array:sorted` is a stable merge sort, and this was going to be the headline --
+**stable deliberately, and nothing says so**, an implementation detail and a
+promise being the same line of code, which is the shape 6.42 closed for the
+bytecode format five days ago.
+
+[REFERENCE.md](REFERENCE.md#array) has said it all along, in prose under the
+sorting examples, in almost the words the C comment uses. The paragraph was
+written because a `grep` for `sorted` found the table row and the `filesIn`
+note and stopped. **An absence asserted from a search that did not cover the
+document** -- the argument from absence, for the third time in three days, in a
+place nobody had ruled it out.
+
+What is true is smaller and worth keeping: **this is the first program here
+that depends on the guarantee.** `-s` is exactly *no last resort, let the sort
+keep the order*, and the merge relies on the same promise across runs. Until
+now the sentence had no customer.
+
+### Two small things the day also moved
+
+**`oracle.sh` sets `LC_ALL=C` for every tool.** A string here is bytes and
+`lessThan` compares them, so a tool run under a collating locale is being asked
+a different question -- `apple Apple banana` against `Apple banana apple`. Set
+for every tool rather than for `sort`, because the reasoning is about the
+language; all five earlier corpora are unmoved.
+
+**And `expect.sol`'s ordinal list ran out.** Its comment says it is *longer
+than the list of programs*; it ended at `twentieth` with twenty programs, so
+`sort` fired the guard instead of using slack that was not there. The guard
+worked, which is the point of it. Five spare now.
+
+---
+
 ## 2026-09-02 (diff) — four predictions, one right, and a corpus that agreed with a wrong rule
 
 [diff.sol](../programs/diff.sol) is the twentieth program here and the first

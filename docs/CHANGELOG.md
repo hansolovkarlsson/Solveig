@@ -5,6 +5,61 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### sort, and the gap that was not there — `pending`, 2026-09-02
+
+**The language answers 144<!--count messages--> messages**, unchanged, and
+`.sob` files are format version 14. [sort](../programs/sort.sol) is the
+**twenty-first** program and the first that does not have to hold its input:
+past `-S` bytes it sorts what is in hand, writes it out as a run, and merges
+the runs at the end.
+
+**The prediction named one finding and it is absent.** An external merge sort
+never writes into the middle of a file -- a run is produced whole and then only
+ever read, and the output is produced in order, so it appends. The entry called
+a positioned write *the mirror of the ranged read*, and the mirror is where it
+went wrong: the ranged read exists because a program wants part of a file **it
+did not write**, and nothing wants to write part of a file it is producing,
+because a producer knows what comes next. **A write is not the reverse of a
+read.**
+
+What the k-way merge did want was the ranged read, and it was already there:
+`k` independent positions in `k` files at once, with nothing to open, close, or
+use after closing. A reader here is a path and an integer.
+
+**And the generated half of the sweep missed both real defects.**
+[programs/sort/sweep.sh](../programs/sort/sweep.sh) runs generated inputs and
+then this repository's own files under twenty-three option forms, and it was
+written *before* any claim was made about it -- which is the only thing `diff`
+had needed hindsight to do the same day. Both defects came from the real half:
+**`-n` must reject a leading `+`** (the tool reads `+5` as zero), found in this
+README's `+0.2% to +3.4%`; and **`-f` folds to upper case, not lower**, visible
+only beside punctuation, found in three README files that begin lines with
+`**[`. The generated alphabet had a minus because somebody thought of one and
+no plus because nobody did.
+
+Its first draft kept the counters inside a pipeline's subshell, so it would
+have reported *nothing disagreed* whatever happened -- the check that cannot
+fail, in a script written to be the check the corpus is not. It is a redirect
+now, proved by folding down again and watching it report four.
+
+**A claim was retracted before it shipped.** `sorted`'s stability was going to
+be reported as undocumented, on the shape
+[6.42](COMPLETED.md#642-a-second-producer-of-sob-has-no-contract-to-build-against--done)
+closed for the bytecode format. [REFERENCE.md](REFERENCE.md#array) has said it
+all along, in prose under the sorting examples; the `grep` found the table row
+and stopped. What is true is smaller: **this is the first program that depends
+on the guarantee**, and until now the sentence had no customer.
+
+**[oracle.sh](../programs/oracle.sh) sets `LC_ALL=C` for every tool now**,
+because a string here is bytes and a tool under a collating locale is being
+asked a different question -- under `en_US.UTF-8` it answers `apple Apple
+banana` where every program here answers `Apple banana apple`. All five earlier
+corpora are unmoved by it.
+
+And `expect.sol`'s ordinal list ran out at *twentieth* with twenty programs, so
+`sort` fired the guard rather than the slack the comment above it promised.
+Five spare, and the sentence is true again.
+
 ### diff, and the corpus that agreed with a wrong rule — `ab56576`, 2026-09-02
 
 **The language answers 144<!--count messages--> messages**, unchanged, and
