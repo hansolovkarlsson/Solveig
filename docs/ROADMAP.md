@@ -148,7 +148,7 @@ it reaches back: `programs/digest` transcribed sixty-four SHA-256 round
 constants out of the hexadecimal FIPS 180-4 prints them in, because `$428a2f98`
 is not a thing Proto reads.
 
-**The nine sort into five kinds, and one of them is still a decision:**
+**The nine sort into five kinds, and none is left undecided:**
 
 | closed in 0.11.0 | |
 | --- | --- |
@@ -161,9 +161,9 @@ is not a thing Proto reads.
 | --- | --- |
 | `#[a = b]` | **Not free after all**, which is the correction this entry owes. The lexer was never the obstacle: Solveig writes `pair = sum "=" expression` and settles the ambiguity by *level*, which Proto cannot copy because a dialect may declare `=` anywhere and `lib/clike.pro` puts it at 10. The rule taken is that **a top-level `=` inside a dictionary is the separator, whatever the header said** — the one place in this language where a context outranks a declaration. It is confined to the top level of a key, so `#[(b = c) = d]` still uses the declared one, which is what makes it a rule rather than `=` being taken away. |
 
-| a decision | |
+| closed in 0.13.0 | |
 | --- | --- |
-| `%1011` | **`%` is an operator character**, and `lib/arith.pro` declares it `mod`. `a %1011` is then two readings — `a mod 1011`, and `a` beside a binary literal — and the lexer would have to choose before any declaration has been read. |
+| `%1011` | **`%` is an operator character here and is not one in Solveig**, which has no `%` at all and can give the whole character to the literal. Proto splits it: a `%` *immediately* before `0` or `1` begins a number, and a `%` before anything else — a space, a `#`, a `2`, another operator character — is the operator it always was. Still no declaration is consulted, so a tool can tokenise a `.pro` knowing nothing about its dialect. |
 
 | already decided | |
 | --- | --- |
@@ -188,10 +188,23 @@ come from before** — not a dialect wanting to change the lexer, but Solveig's
 own lexer being something Proto cannot fully copy while its operators stay
 declarable.
 
-**One decision is left.** `%1011`: whether it is worth a rule saying a `%`
-followed immediately by a binary digit is a literal, or whether Proto carries
-what it can and says so. It blocks nothing — `$FF08` covers the base-conversion
-case that actually hurt, and nothing here has ever asked for a binary literal.
+**`%1011` is the one that cost something, and it is the only spelling here that
+did.** A dialect declaring `%` can no longer write `a %0…` or `a %1…` without a
+space. Nothing in this repository does — `%` as mod is written `n % #2`, because
+mod wants an integer and a bare digit is a float — and the loss is loud rather
+than silent, `a %10` becoming a name and then a number, which is not an
+expression.
+
+**It is worth naming as a shape.** `||` in 0.9.0 grew the fixed vocabulary and
+cost only `{ || … }` out of the *core*; COMPLETED.md 12 held that up as the form
+any future request should take. This is the second instance and the first with a
+different bill: **growing the fixed vocabulary took something from what a
+dialect may declare.** Small, loud, and unused here — but the next one might not
+be, and *grow the vocabulary rather than making it declarable* should be read
+with that attached.
+
+**Two differences are left and neither is an oversight.** `@expr` is refused;
+`-3` cannot be had.
 
 ## Waiting on a customer — optional and repeated parts
 

@@ -10,6 +10,48 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### `%1011`, and the first spelling that cost a dialect something — 0.13.0, 2026-09-02
+
+**Binary integers**, the last of the nine differences
+[POSTMORTEM.md](POSTMORTEM.md) 16 found that could be closed at all.
+
+```
+%1011           is #11
+$FF08           is #65288
+#-45            is #-45
+```
+
+**Solveig can give the whole `%` to the literal because it has no `%` operator.**
+Its `product` is `unary { ( "*" | "/" ) unary }` and nothing else, so `%2` there
+is simply an error. Proto made `%` an operator character in 0.1.0, so the two
+have to share, and the split is **immediately followed by a binary digit**:
+
+| | |
+| --- | --- |
+| `%1011` | a number |
+| `a % #2`, `a %#2`, `a % 2`, `a %2` | the operator, unchanged |
+| `a %1`, `a %10` | **the number now**, and a loud error where it stands |
+| `a +%1011` | the run `+%` is one operator; only a leading `%` starts a literal |
+
+**No declaration is consulted**, so a tool can still tokenise any `.pro` knowing
+nothing about its dialect. That is the line that matters and it has not moved.
+
+**What it cost, which is worth naming as a shape.** `||` in 0.9.0 grew the fixed
+vocabulary and took only `{ || … }` out of the *core*, and
+[COMPLETED.md](COMPLETED.md) 12 held that up as the form any future request
+should take. This is the second instance and the first with a different bill:
+**growing the fixed vocabulary took something from what a dialect may declare.**
+A module declaring `%` can no longer write `a %1` without a space. Nothing here
+does — `%` as mod is written `n % #2`, because mod wants an integer and a bare
+digit is a float — and it fails loudly rather than quietly. Small, and the next
+one might not be.
+
+Six checks in `tests/test_reader.c`, one of which is the cost written down as a
+rejection so that it is a decision rather than a surprise.
+
+**Two differences left, and neither is an oversight**: `@expr` is refused, and
+`-3` cannot be had while `-` is declarable.
+
 ### `#[a = b]`, and the first rule where a context outranks a declaration — 0.12.0, 2026-09-02
 
 **Dictionary literals**, which is the eighth of the nine differences

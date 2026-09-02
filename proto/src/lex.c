@@ -141,6 +141,33 @@ ProtoToken proto_lexer_next(ProtoLexer *lexer)
         return make(lexer, PROTO_TOK_INTEGER, start);
     }
 
+    /* `%1011`, binary, and the third of Solveig's integer forms.
+     *
+     * **This one takes something away, and is the only spelling here that
+     * does.** `%` is an operator character in Proto and is not one in Solveig,
+     * which has no `%` at all and can therefore give the whole character to the
+     * literal. Here the two have to share, and the split is *immediately
+     * followed by a binary digit*: `%1011` is a number and `%` before anything
+     * else -- a space, a `#`, a `2`, another operator character -- is the
+     * operator it always was.
+     *
+     * So a dialect that declares `%` loses `a %0…` and `a %1…` without a space.
+     * Nothing in this repository writes that: `%` as mod is written `n % #2`,
+     * because mod wants an integer and a bare digit is a float. And the loss is
+     * loud rather than silent -- `a %10` becomes a name and then a number,
+     * which is not an expression and is refused where it stands.
+     *
+     * Still no declaration is consulted, so a tool can tokenise a `.pro`
+     * knowing nothing about its dialect, which is the line that matters.
+     * Compare `||` in 0.9.0, which grew the vocabulary and cost only `{ || … }`
+     * out of the *core*; this is the first time growing it has taken something
+     * from what a dialect may declare. docs/ROADMAP.md argues it. */
+    if (c == '%' && (lexer->current[1] == '0' || lexer->current[1] == '1')) {
+        lexer->current++;
+        while (*lexer->current == '0' || *lexer->current == '1') lexer->current++;
+        return make(lexer, PROTO_TOK_INTEGER, start);
+    }
+
     if (is_digit(c)) {
         while (is_digit(*lexer->current)) lexer->current++;
         /* Only a digit after the dot makes it part of the number; `#1.` and

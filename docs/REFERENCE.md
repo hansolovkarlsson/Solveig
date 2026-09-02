@@ -122,13 +122,13 @@ tokens.** No `.pro` can change this table.
 | | |
 | --- | --- |
 | name | `[A-Za-z_][A-Za-z0-9_]*` |
-| integer | `#` then an optional `-` then digits, or `$` and hexadecimal digits |
+| integer | `#` then an optional `-` then digits, `$` and hexadecimal digits, or `%` and binary digits |
 | float | digits, optionally a `.` and more digits, optionally `e`/`E` with an optional sign and more digits |
 | string | `"…"`, with `\"` `\\` `\n` `\t` `\r` and no other escape |
 | dictionary | `#[` opens one; `]` closes it, and `=` separates a pair |
 | symbol | `'` and then a name |
 | directive | `@` and then a name |
-| operator | one or more of `+ - * / < > = ! & ^ % ~ ? \`, or `\|\|` |
+| operator | one or more of `+ - * / < > = ! & ^ % ~ ? \`, or `\|\|` — except a `%` immediately before `0` or `1`, which begins a binary integer |
 | comment | `;` to the end of the line |
 
 **Operator characters run together as far as they go.** `a<=b` is one operator

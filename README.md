@@ -25,11 +25,12 @@ The three lines of header are the whole of that module's grammar. `*` binds
 tighter than `+` because this file said 70 against 60, and nothing anywhere else
 knows or cares. A second module in the same program may declare `+` to mean
 something else entirely, or declare no operators at all — and then it reads as
-Solveig does, in shape and nearly in full. Three differences are left of the
-nine [POSTMORTEM.md](docs/POSTMORTEM.md) 16 found: no `@expr`, no `%1011`, and
-`-3` needs a declared prefix where Solveig's scanner folds the sign into the
-number. **The last is forced rather than missing** — a lexer cannot both read
-`-3` as a literal and let a dialect declare `-`.
+Solveig does, in shape and nearly in full. Two differences are left of the nine
+[POSTMORTEM.md](docs/POSTMORTEM.md) 16 found, and neither is an oversight: no
+`@expr`, which is refused, and `-3`, which needs a declared prefix where
+Solveig's scanner folds the sign into the number. **The second is forced rather
+than missing** — a lexer cannot both read `-3` as a literal and let a dialect
+declare `-`.
 
 ## Why it is not a folder inside Solveig
 

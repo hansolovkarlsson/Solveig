@@ -88,12 +88,12 @@ not have a second one.
 | | |
 | --- | --- |
 | name | `[A-Za-z_][A-Za-z0-9_]*` |
-| integer | `#` then an optional `-` then digits, or `$` and hexadecimal digits |
+| integer | `#` then an optional `-` then digits, `$` and hexadecimal digits, or `%` and binary digits |
 | float | digits, optionally a `.` and more digits, optionally `e`/`E` with an optional sign and more digits |
 | string | `"…"`, with `\"` `\\` `\n` `\t` `\r` and no other escape |
 | symbol | `'` and then a name |
 | directive | `@` and then a name |
-| operator | one or more of `+ - * / < > = ! & ^ % ~ ? \`, or `||` |
+| operator | one or more of `+ - * / < > = ! & ^ % ~ ? \`, or `||` — except a `%` immediately before `0` or `1`, which begins a binary integer |
 | comment | `;` to the end of the line |
 
 Everything but `operator` is Solveig's own spelling **in shape, and not quite
@@ -102,8 +102,8 @@ closed five of them — the sign on an integer, hexadecimal, float exponents, an
 the escape set, which Proto had been *more* permissive about and was therefore
 emitting Solveig that `solas` rejected.
 
-**Three remain.** `%1011` is a decision, `%` being an operator character.
-`@expr` is refused on purpose. And `-3` **cannot** be had:
+**Two remain, and neither is an oversight.** `@expr` is refused on purpose. And
+`-3` **cannot** be had:
 Solveig's scanner gives the sign to the number outside a `@expr` region and
 treats it as the operator inside one, and Proto can have neither half — it has
 no regions, and taking `-3` as a literal would stop `a -3` being a subtraction

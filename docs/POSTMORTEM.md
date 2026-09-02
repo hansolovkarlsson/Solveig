@@ -121,7 +121,7 @@ comparing every form in Solveig's grammar against Proto, one file each, gives
 | `1e10`, `2.5E-3` | yes | **0.11.0** | float exponents; was missing, nothing objected |
 | `"\q"` | refused | **0.11.0** | Proto was the permissive one — see 17 |
 | `#[a = b]` | yes | **0.12.0** | dictionary; not free after all — it needed a rule about `=`, not a lexer case |
-| `%1011` | yes | no | **conflicts**: `%` is an operator character, declared `mod` by `lib/arith.pro` |
+| `%1011` | yes | **0.13.0** | `%` is an operator character here and is not one in Solveig; the two now share it, split on whether a binary digit follows |
 | `( \| t \| … )` | yes | no | temporaries in a group; already a rough edge, now confirmed by running it |
 | `@expr(…)` `@expr{…}` | yes | no | refused on purpose; see ROADMAP.md |
 | `-3` | a literal | needs `@prefix -` | **cannot be had** while `-` is declarable |
@@ -173,7 +173,8 @@ may declare `=` anywhere and `lib/clike.pro` declares it at 10. It needed a rule
 saying a context shadows a declaration — the first in this language — which
 landed in 0.12.0 rather than being waved through as a lexer case.
 
-**Three are left, and only `%1011` is undecided.**
+**Two are left, and neither is an oversight**: `@expr` is refused, and `-3`
+cannot be had.
 
 **Found by** two things, and the second is the one worth keeping. `#-1225` was
 found by writing the fourth program, at the second line of its data. **The other

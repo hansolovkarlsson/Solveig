@@ -133,6 +133,25 @@ int main(void)
     expect("hexadecimal keeps its base", HEADER "a := $ff + $10.\n",
            "a := $ff:add($10).\n");
     expect("a float exponent", HEADER "a := 1e10.\n", "a := 1e10.\n");
+
+    /* `%1011` is binary, and `%` is also an operator character -- the two share
+       the character, split on whether a binary digit follows immediately. This
+       is the one spelling that took something from what a dialect may declare,
+       and the tests below are both halves of the bargain. */
+    expect("a binary integer", HEADER "a := %1011.\n", "a := %1011.\n");
+    expect("'%' before an integer is still mod",
+           "@infix % 70 mod.\na := b % #2.\n", "a := b:mod(#2).\n");
+    expect("'%' before an integer, unspaced, is still mod",
+           "@infix % 70 mod.\na := b %#2.\n", "a := b:mod(#2).\n");
+    expect("'%' before a non-binary digit is still mod",
+           "@infix % 70 mod.\na := b %2.\n", "a := b:mod(2).\n");
+    expect("only a leading '%' starts a literal",
+           "@infix +% 70 mod.\na := b +%1011.\n", "a := b:mod(1011).\n");
+
+    /* What it cost, written down as a check so that it is a decision rather
+       than a surprise: with `%` declared, `b %1` is a name and then a number. */
+    expect_rejected("'%' before a binary digit is the literal",
+                    "@infix % 70 mod.\na := b %1.\n");
     expect("a signed float exponent", HEADER "a := 2.5E-3.\n",
            "a := 2.5E-3.\n");
 
