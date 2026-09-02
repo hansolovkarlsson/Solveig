@@ -175,6 +175,24 @@ version the binaries inside it report.
 
 ## Status
 
+**0.41.0** — held against implementations this repository did not write, and
+that is where every defect came from. **144 messages**, up from 141, and `.sob`
+files are format version 14. [lib/re.sol](lib/re.sol) carries both POSIX
+dialects in one engine — groups, alternation, back-references — and it exists
+because a shipped program was misreading valid input: `sed.sol` read `\(` as a
+literal parenthesis, so a script using a group came out *inverted*, with no
+error and exit 0, past sixty corpus cases of which not one had used one.
+[awk](programs/awk.sol) is the nineteenth program and the engine's second
+customer. `system:sleep`, `system:isTerminal` and `system:fileId` are new, and
+the idiom the second replaces had been throwing away the input of every
+pipeline slow to produce its first byte. **A file can be read in part**,
+closing 3.22 — a range rather than a handle, so there is nothing to open, close
+or leak. [sha256sum](programs/sha256sum.sol) produced the first absolute figure
+this project has for what a bytecode instruction costs: **234 million a second,
+4.3 nanoseconds each**. And the first outside user read the documents for an
+afternoon and moved eight things, one of them a compiler emitting bytecode its
+own verifier refused.
+
 **0.40.0** — a dictionary literal, and the documents held to the standard the
 code is held to. `#["key" = value]` is new syntax and real desugaring: it
 compiles to a global load of `dictionary` and a send of `of`, held byte-for-byte

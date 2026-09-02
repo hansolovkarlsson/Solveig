@@ -135,10 +135,10 @@ a different language.
 
 ## Status
 
-**0.40.0** — the language answers 141 messages and `.sob`
-files are format version 14. `#["key" = value]` is a dictionary literal, new in
-this release and desugaring to `dictionary:of` the way `[...]` desugars to
-`array:of`.
+**0.41.0** — the language answers 144 messages and `.sob` files are format
+version 14. [lib/re.sol](lib/re.sol) is a regular expression engine carrying
+both POSIX dialects, [awk](programs/awk.sol) is the nineteenth program and its
+second customer, and a file can now be read in part rather than only whole.
 
 Working: the scanner, the single-pass compiler, the re-entrant dispatch loop
 with call frames, blocks with lexical capture, message-based control flow, a

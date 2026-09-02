@@ -5,6 +5,115 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## 0.41.0 — 2026-09-02
+
+**Every defect this release fixes was found by holding something here against
+something this repository did not write.** The language answers
+**144<!--count messages--> messages**, up from 141, across 247 registrations
+rather than 244. `.sob` files are format version 14, unchanged. Six roadmap
+entries closed, and the open list emptied four times in a day.
+
+**A regular expression engine, and the matcher it replaced.**
+[lib/re.sol](../lib/re.sol) carries both POSIX dialects in one engine — basic
+and extended, groups, alternation, `+`, `?`, back-references — and
+`lib/pattern.sol` is gone. The two dialects were designed together rather than
+one after the other, because a back-reference is exactly the feature that stops
+an implementation simulating an automaton, and retrofitting it is how a matcher
+becomes a backtracker by accident.
+
+**It was written because a shipped program was misreading valid input.**
+`sed.sol`'s own header said a script using `\(...\)` would be *refused*. It was
+not refused, it was misread — `\(` was a literal parenthesis — so such a script
+came out **inverted**, substituting the line that contained the text `(ab)c`
+and leaving the line that contained `abc` alone, with no error and exit 0.
+Sixty cases sat in `programs/sed/agree/` and not one had used a group.
+
+**[awk](../programs/awk.sol) is the nineteenth program**, and the engine's
+second customer rather than its reason: ten cases agreeing with the tool on the
+machine, and a second dialect through one engine, which is the check that
+`lib/re.sol` is a library rather than one program's matcher.
+
+**Three new messages, each from a program that could not do its job without
+one.** `system:sleep`, because waiting is one call to the kernel and a program
+should not start a process to do it. `system:isTerminal`, and the idiom it
+replaces turned out to be wrong: a pipe has **four** states, and the fourth —
+open, empty, and not yet finished — answers exactly as an idle terminal does,
+so `keyWaiting(0.0)` had been throwing away the input of any pipeline slow to
+produce its first byte, in every program that used it, for as long as they had
+existed. `system:fileId`, device and inode with only `equals` promised of it,
+so `tail -f` can tell a rotation from a truncation when the two files agree on
+size and on time.
+
+**A file can be read in part**, closing 3.22. `readFile(path, from, count)` is
+a range and not a handle: nothing to open, nothing to close, nothing to leak,
+and no question about what a handle used after closing should do. A short range
+is the answer rather than a failure, since *the last four kilobytes* of a file
+that turns out to be one kilobyte is a reasonable question. **The wall was
+measured before the program that wanted it was written**, which corrected the
+order the scoping had recommended: a sparse file is 3 GB of holes and 8 KB of
+disk, and the language could size that file and could not read a byte of it.
+
+**And a path that is not there answers nil** rather than raising, closing
+6.41 — which is what a program watching a file that may be rotated out from
+under it actually needs.
+
+**What one bytecode instruction costs.** [sha256sum](../programs/sha256sum.sol)
+is the first program here with no I/O in its inner loop, and it was written to
+produce a number: **13,302 instructions per 64-byte block, 208 per byte, 234
+million bytecode instructions a second at 4.3 nanoseconds each.** Everything in
+[performance.md](performance.md) until now had been a ratio — against CPython,
+or against an earlier Solveig. It is held to the digests published in FIPS
+180-4 as well as to `/sbin/sha256sum`, because an oracle can be wrong in the
+same direction as anything derived from it and a number printed in a standard
+before this language existed cannot.
+
+**Three checks that nothing had held before.** A link that names a heading is
+checked against the headings that exist — 2,811 links across 142 files. The
+grammar is held to the compiler by a fifteen-construct corpus, where before
+this `GRAMMAR.md` and `solum.bnf` were held only to each other. And
+[site.sh](../programs/site.sh) holds the *published* pages against the source,
+which is how eleven 404s were found, and 263 changelog headings that had not
+reached the site since 0.20.0. **Both fault classes it exists for are markdown
+that is correct and publishes wrong**, so nothing that reads the file could
+have seen them.
+
+**The first outside user.** One person, reading the documents for an afternoon
+and asking three questions, moved a cheatsheet row, a comment convention, a
+checker's matching rule, a grammar nothing had ever verified, a compiler
+emitting bytecode its own verifier refused (`SOL_MAX_LOCALS` 256 → 255), a
+dictionary limit off by a factor of two, one sentence standing for thirty-two
+faults, and a format version that was a habit. None of it needed him to be an
+expert; it needed him not to already know what the answer was supposed to be.
+
+**So `.sob` has a contract now.** [PRODUCING.md](PRODUCING.md) is what a second
+producer must get right beyond the grammar, the verifier says **which** of
+thirty-two things is wrong rather than *bytecode is internally inconsistent*,
+and seventeen cases pin thirteen of those diagnoses by asserting the sentence
+rather than the result code.
+
+**The format version is a promise rather than an accident.** Format 15 will
+refuse 14 and everything before it, and 14 already refuses 15 — the check is an
+equality, so a newer file is exactly as unreadable as an older one. **No code
+changed.** What was missing is that it had never been said, and a rule nobody
+has written down cannot be relied on, because it can change without anybody
+noticing they have broken it.
+
+**Compatibility, checked rather than asserted.** All 35 examples compile
+**byte-identically** under 0.40.0's compiler and this one, with both compilers
+run from the same directory, since an `@include` records the library's path in
+the chunk. Every `.sob` gives the same answer on both machines in both
+directions, with two exceptions, and both of them are the new messages doing
+their job: 0.40.0's machine refuses `examples/files.sol` with *'readFile' takes
+1 argument, got 3* and `examples/system.sol` with *object does not understand
+'sleep'*. A new message cannot be answered by an older machine, and both say so
+by name rather than misbehaving. `examples/system.sol` is read rather than
+compared in any case, as always, because it prints how long things took.
+
+**`SOL_EXTENSION_ABI` stays 1**, nothing in `extend.h` changed, and both builds
+export 29 `sol_*` symbols. 0.40.0's `net.so` was loaded on this build and this
+build's `net.so` on 0.40.0's machine; both bound a socket and reported its
+port, rather than being assumed compatible.
+
 ### The format version is a promise now — `5a5df7b`, 2026-09-01
 
 **Format 15 will refuse 14 and everything before it**, and 14 already refuses
