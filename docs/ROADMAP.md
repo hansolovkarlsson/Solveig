@@ -30,6 +30,14 @@ starting the argument again. All three are plain messages in Solveig —
 `lessOrEqual`, `greaterOrEqual`, `notEquals` — so it is three lines whenever it
 is taken.
 
+**`!=` has a second argument that is not a customer.** For booleans, xor *is*
+not-equals, so a module using `lib/arith.pro` has no way to spell a logical xor
+at all and must write `a:notEquals(b)` as a send. `lib/clike.pro` declares `!=`
+and therefore already has one without anybody noticing. That is a reason rather
+than a want, and it does not move the count: nothing here has needed an xor.
+[REFERENCE.md](REFERENCE.md) records that the spelling would be `^^` if it were
+ever declared, so the question is settled before it is asked.
+
 **No postfix operators.** Proto has prefix and infix; `x++`, `a[i]` and
 `p->f`-in-postfix-position have no spelling at all. `lib/clike.pro` names it as
 one of the four things C has that it cannot. Not a rule that could be relaxed —

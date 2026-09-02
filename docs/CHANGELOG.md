@@ -52,7 +52,7 @@ twice in two versions, so the two went in together:
 | and | `&&` | `&` |
 | or | `\|\|` | `\|` |
 | not | `!` | `~` |
-| xor | — | `^` |
+| xor | **none** — and `!=` is xor for booleans | `^` |
 
 **C's table exactly, with nothing substituted.** Nine lines of code across
 `examples/utf8.pro`, `programs/digest/sha2.pro` and

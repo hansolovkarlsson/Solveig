@@ -491,7 +491,7 @@ C's exactly now:
 | and | `&&` | `&` |
 | or | `\|\|` | `\|` |
 | not | `!` | `~` |
-| xor | — | `^` |
+| xor | **none** — and `!=` is xor for booleans | `^` |
 
 **What it did not cost.** The lexer, which was never touched — `|` is still
 `PROTO_TOK_BAR` and still not an operator character, so **a tool can tokenise

@@ -212,7 +212,7 @@ Across every dialect in this repository:
 | and | `&&` | `&` |
 | or | `\|\|` | `\|` |
 | not | `!` | `~` |
-| xor | — | `^` |
+| xor | **none** — and `!=` is xor for booleans | `^` |
 
 **C's table exactly**, since 0.14.0. A lone `|` is not an operator *character*
 and cannot be, but it may be *declared* — a bar is a token of its own and the
@@ -224,6 +224,30 @@ against different neighbours.
 
 `\` is free and unused. It was the bitwise `or` from 0.1.0 to 0.13.0, when a
 bar could not be had.
+
+**There is no logical xor, and there is no symbol for one to have.** C has no
+`^^`; the languages that offer boolean xor reuse something — Java and Python
+take `^`, Pascal and Perl take an `xor` keyword. Solveig's boolean understands
+`not`, `and`, `or`, `ifTrue`, `ifFalse` and `ifElse`, and `^` is `bitXor`, which
+is integer-only: *boolean does not understand 'bitXor'*.
+
+**What there is, is `!=`.** For booleans, xor and not-equals are the same
+operation, which is why nobody invents a symbol for it. `lib/clike.pro` declares
+`!=` as `notEquals`, so `a != b` on two booleans is already an xor, and
+`lib/arith.pro` declares no `!=`, so a module using it has to write
+`a:notEquals(b)` as a send.
+
+**If it were ever spelled as its own operator it would be `^^`** — the doubled
+form, beside `&&` and `||`, for the same reason those are doubled: the single
+character is the bitwise one and the pair is the logical one. It is a
+declaration and nothing more:
+
+```
+@infix  ^^  35 notEquals.        ; between && at 30 and || at 25
+```
+
+**`lib/` does not declare it**, because nothing has wanted one. Recorded so the
+spelling is settled if something ever does.
 
 ---
 
