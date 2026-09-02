@@ -149,6 +149,15 @@ done
 # The links, in one pass: the map first, then every page. Ids and hrefs are
 # collected as they are seen and resolved at the end, because a link may point
 # at a page that has not been read yet.
+#
+# **Run twice when it finds something, for the reason the heading check is.**
+# A fetch landing mid-publish sees one page from the new build and another from
+# the old, and a link between them looks broken when neither is. That reported a
+# fault against this script's own author twice in ten minutes on 2026-09-01 --
+# once as a lost heading, once as a lost baseurl, and the second only after the
+# first had been guarded. Guarding one path and not the other is how a
+# false positive survives being noticed.
+links_pass() {
 if [ "$fetched" -gt 0 ]; then
     awk -v base="$base" -v mapfile="$work/map" '
         FILENAME == mapfile {
@@ -202,8 +211,23 @@ if [ "$fetched" -gt 0 ]; then
         }
     ' "$work/map" $(cut -f2 "$work/map") 2> "$work/links"
 fi
+}
 
+links_pass > "$work/links.out"
 read -r links bad < "$work/links" 2>/dev/null || { links=0; bad=0; }
+
+if [ "${bad:-0}" -gt 0 ]; then
+    # Fetch everything again and ask a second time. Only what survives both is
+    # reported, because the first answer may have straddled a build.
+    sleep 5
+    while IFS="$(printf '\t')" read -r path out page; do
+        curl -sfL "$site${path#$base}" -o "$out" 2>/dev/null
+    done < "$work/map"
+    links_pass > "$work/links.out"
+    read -r links bad < "$work/links" 2>/dev/null || { links=0; bad=0; }
+fi
+
+cat "$work/links.out"
 faults=$((faults + bad))
 
 echo
