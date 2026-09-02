@@ -5266,6 +5266,45 @@ by pipe.
    **Recommended: a separate opt-in script**, run when somebody wants to know,
    the way `oracle.sh` and `experiment/prove.sh` are.
 
+
+**`solex` and `yax` — lex and yacc that emit Solveig.** Proposed on 2026-09-01
+and **parked for discussion until awk is written**, which is deliberate: awk is
+the first customer of `lib/re.sol`'s extended dialect and of a scanner built on
+it, and what it turns out to want is most of the evidence these two would rest
+on. Recorded now so the proposal is not reconstructed from memory later.
+
+**The twist is the whole of it: the output is Solveig, not C.** Every generator
+of this kind emits the host language of its own implementation, and here that
+would mean a generator written in Solveig emitting Solveig — which makes the
+generated scanner and parser ordinary `.sol` files that `solas` compiles, that
+`solid` steps through, and that `--steps` bounds. A `lex` emitting C would be a
+program this repository could not run the output of.
+
+**What is already here and is not this.**
+[check_syntax.sol](../programs/check_syntax.sol) reads a grammar and *checks* a
+file against it with an LPeg machine at run time; it generates nothing.
+[sola.sol](../programs/sola.sol) and [pascal.sol](../programs/pascal.sol) are
+hand-written front ends for two languages, and
+[experiment/](../experiment/) is a Solum compiler in Solum. So there are three
+hand-written parsers here and one interpreter for grammars, and no generator.
+Whether that is a gap or a well-populated space is the first thing the
+discussion has to settle.
+
+**The open question named at the proposal**, and not answered here: whether
+POSIX `lex` and `yacc` are the right models, or whether GNU's `flex` and `bison`
+are — the latter having `%union`, GLR parsing, better error recovery, reentrancy
+and locations, and the former being a standard that can be held against a
+published document rather than an implementation. This repository has taken the
+standard side twice, with `sha256sum` against FIPS 180-4 and `basic` against the
+NBS suite, and both times the standard found what the implementation had not.
+That is an argument, not a decision.
+
+**Two things worth measuring before the discussion rather than during it**: what
+`awk` costs to hand-write, since that is the labour a generator would remove;
+and whether a generated LALR table is a shape this language can hold at all —
+`pascal.sol` is recursive descent and `check_syntax.sol` is a PEG machine, so
+nothing here has ever built a parse table.
+
 **Trigger:** none needed — a program needs no permission. What needs a decision
 is the language change it is predicted to ask for, and that is what the four
 calls above are.
