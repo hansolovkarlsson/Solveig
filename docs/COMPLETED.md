@@ -2187,6 +2187,163 @@ written and could not be seen until something crossed it.
 The rest of this section is live, and is in
 [ROADMAP.md](ROADMAP.md#6-beyond-the-language--gone-from-this-document).
 
+### 6.42 A second producer of `.sob` has no contract to build against — **done**
+
+**The first program written against this language by somebody who did not write
+the language.** Phoenix is a compiler-generator, outside this repository, and it
+emits `.sob` **directly** — not Solum source for `solas` to compile. The stated
+plan is that it will emit bytecode for other source languages too, which is what
+makes this an entry rather than a courtesy: the moment a second producer exists,
+the `.sob` format stops being a detail between `solas` and `solvm` and becomes an
+interface.
+
+It has already cost its author time twice, and both were documentation rather
+than defects: `display`'s newline, and a comment convention that looks like a
+claim about the language. Both are fixed. What is not fixed is that there is no
+one place that says what a producer must get right.
+
+#### What a producer needs and where it is
+
+`.sob` itself is well served and that is worth saying first.
+[BYTECODE.md](BYTECODE.md) gives every opcode with its byte, held to the header
+by three tests; [serialize.h](../solum/include/solum/serialize.h) gives every
+field; [disasm.sol](../programs/disasm.sol) reads the format independently and
+[experiment/emit.sol](../experiment/emit.sol) has already written one by hand,
+byte-identical to `solas`. A producer targeting the format alone is in good
+hands.
+
+**What it has not got is everything the compiler enforces that the grammar
+cannot.** Held against `solas`'s own diagnostics, in four groups:
+
+| | where it is written down |
+| --- | --- |
+| `self` is only meaningful inside a block, and cannot be assigned | **nowhere** |
+| a duplicate temporary, or one shadowing a parameter | **nowhere** |
+| chunk limits: constants, names, blocks, arguments, parameters, array elements, dictionary pairs, names in a frame | **nowhere** |
+| a conditional or loop body too large to jump over | **nowhere** |
+| comparisons do not chain; only `-` and `~` open a unary inside `@expr` | REFERENCE.md |
+| a directive must stand alone; a file that includes itself | REFERENCE.md |
+
+**The grammar cannot carry the first four**, which is not a defect in the
+grammar. `solum.bnf` says of itself that there are no reserved words, and that
+is true: `self` is an ordinary identifier that happens to be bound. A front end
+built from the grammar alone will accept `self := #1` and `{ | t, t | t }`, and
+both are errors. That was measured on 2026-09-01 — the grammar and `solas` agree
+on 94 of 94 shipped files and on 15 constructs, and disagree only where a scope
+rule is involved.
+
+#### And the verifier says one sentence for thirty-five faults
+
+`sol_chunk_verify` returns `SOL_SER_MALFORMED` from **35 distinct conditions**,
+and every one of them reports *bytecode is internally inconsistent*: a jump past
+the end, a stack height that does not balance, `slot_count < arity + 1`, a name
+index out of range, a line run overrunning the code, a chunk not ending in
+`HALT` or `RETURN`.
+
+For `solas` that is the right bar and the entry that built it said so: a
+corrupted opcode arrives as a message rather than a crash. For an outside
+producer it is the difference between a five-minute fix and an afternoon
+bisecting a binary — and these are exactly a code generator's bugs, not exotic
+ones. `emit.sol` is the only independent producer this repository has ever had,
+and its account records the verifier catching a fault as a *virtue*, without
+recording what it took to find out which fault.
+
+#### Two shapes, and they are not the same size
+
+**A document** — *writing a producer*, collecting the rules above with the
+chunk limits and their values. Perhaps two pages, no code, and it can be written
+from `solas`'s diagnostics in an afternoon because they are already exhaustive.
+It is the whole answer for a producer emitting *source*, and half the answer for
+one emitting bytecode.
+
+**Splitting `MALFORMED`** — a result code, or a message, that names which of the
+thirty-five it was. This is the half a bytecode producer actually needs, and it
+is a change to shipped C with a compatibility question attached: the codes are
+part of what `solvm` reports and something may be reading them.
+
+**A conformance corpus is the third thing and it depends on the second.** A
+suite of deliberately malformed `.sob` files, each asserting a *specific*
+diagnosis, cannot be written while every diagnosis is the same sentence. The
+corpus is the forcing function for the split and not a separate job.
+
+#### The calls
+
+1. ~~**Document first, or split first?**~~ **Documented on 2026-09-01**:
+   [PRODUCING.md](PRODUCING.md), linked from BYTECODE.md and GRAMMAR.md, with
+   every rule triggered before it was written down and every limit found by
+   generating programs until `solas` refused.
+
+   **Writing it found two defects**, which is the argument for having written it
+   rather than described it. `SOL_MAX_LOCALS` was 256 where the format writes
+   `slot_count` as a u8, so a frame of 256 slots compiled cleanly and then failed
+   to serialise — `solas` emitting bytecode its own verifier refuses, reported as
+   *bytecode is internally inconsistent* rather than *too many parameters*. It is
+   255 now. And the dictionary limit is **127 pairs**, not the 254 its message
+   implies, because a literal lowers to `dictionary:of` and the ceiling is the
+   argument list's.
+2. ~~**How far does the split go?**~~ **Done on 2026-09-01, and further than
+   the recommendation.** Splitting by *who is at fault* was the plan; what the
+   code turned out to want was a sentence at every site, because the sites are
+   already one condition each and grouping them would have thrown away the part
+   a producer uses. Thirty-two sentences, and a single-byte fuzz over one small
+   `.sob` now yields twelve distinct diagnoses where it yielded one.
+
+   **The enum did not move**, which was the compatibility question and is now
+   answered by not needing an answer: `SOL_SER_MALFORMED` still means what it
+   meant, and the detail comes back through `sol_chunk_load_why` and
+   `sol_chunk_verify_why` as an out-parameter. The old two are wrappers passing
+   NULL, so no caller and no test had to change. Nothing is stored between
+   calls, so two threads verifying two chunks do not tread on each other.
+3. ~~**Is a stability promise owed?**~~ **Answered on 2026-09-01: format 15
+   will refuse 14 and everything before it**, and 14 already refuses 15 — the
+   check is an equality rather than a floor, so a newer file is as unreadable as
+   an older one. No compatibility window, none planned, and a rebuild rather
+   than a migration is always the answer.
+
+   **It needed no code**, which is the point worth recording: the behaviour was
+   already exact-match in both directions and was verified by handing `solvm`
+   files claiming 13 and 15. What was missing was that it had never been *said*.
+   A promise nobody has written down is not a promise, and an outside producer
+   had no way to tell a deliberate rule from an accident of the reader. It is in
+   [BYTECODE.md](BYTECODE.md#the-format-version-and-what-it-promises) and
+   [PRODUCING.md](PRODUCING.md#the-version-and-what-it-promises-you) now.
+4. ~~**Does the corpus live here or there?**~~ **Here, and not as files.**
+   Built on 2026-09-01: seventeen cases in `test_serialize.c`, thirteen distinct
+   diagnoses, each constructing a chunk with one fault and asserting the
+   sentence rather than the code — so a diagnosis changing, or two merging back
+   into one, fails the build.
+
+   **A directory of malformed `.sob` files was the shape the entry imagined and
+   is the wrong one.** `sol_chunk_save` refuses to write a chunk that will not
+   verify, so every such file has to be made by patching bytes of a valid one —
+   brittle against a recompile, and answering a question nobody asked. A
+   producer does not need our broken files; it needs its own diagnosed, which is
+   what the split gives it. What the corpus is for is keeping the sentences
+   still, and that is done where the chunks can be built directly.
+
+**Not built.** The scoping is this entry; building is a separate instruction.
+
+---
+
+**Closed on 2026-09-01, the day it was opened**, and by four pieces of work in
+the order the entry recommended and mostly not the shape it recommended.
+[PRODUCING.md](PRODUCING.md) says what a grammar cannot carry and what the
+limits are; the verifier says which of thirty-two conditions it refused on;
+seventeen cases pin thirteen of those diagnoses; and the format version is a
+stated promise rather than an implementation detail.
+
+**Three of its four recommendations were narrowed or reversed by building
+them** — the split went to a sentence a site rather than two buckets, the corpus
+is assertions rather than files, and the version promise needed no code at all.
+Each correction is recorded beside the call it corrected, which is the use of
+writing the calls down separately in the first place.
+
+**And the entry paid for itself twice before it closed.** Writing the document
+found `SOL_MAX_LOCALS` at 256 against a `u8` `slot_count`, so `solas` was
+emitting bytecode its own verifier refused. Splitting the diagnosis is what
+would have named that fault instead of hiding it.
+
+
 ### 6.41 A path that stops existing is an error rather than an answer — **done**
 
 **`tail -f` dies on a log rotation.** Not *fails to follow* — dies, with

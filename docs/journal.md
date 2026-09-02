@@ -13,7 +13,7 @@ that a document was still true. That is what this is for.
 
 ## 2026-09-01 (twelfth) — the corpus, and three shapes that were wrong before they were built
 
-The last of [6.42](ROADMAP.md#642-a-second-producer-of-sob-has-no-contract-to-build-against)
+The last of [6.42](COMPLETED.md#642-a-second-producer-of-sob-has-no-contract-to-build-against--done)
 bar a decision. Seventeen cases pin thirteen diagnoses, and the interesting part
 is that this is the **third** recommendation in the entry that building
 corrected.
@@ -70,7 +70,7 @@ bugs are precisely jump targets, stack heights and slot counts.
 
 ### The design question answered itself by being asked properly
 
-[6.42](ROADMAP.md#642-a-second-producer-of-sob-has-no-contract-to-build-against)
+[6.42](COMPLETED.md#642-a-second-producer-of-sob-has-no-contract-to-build-against--done)
 had flagged a compatibility problem: the result codes are public, something may
 be reading them, and splitting an enum is a breaking change.
 

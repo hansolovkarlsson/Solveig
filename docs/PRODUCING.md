@@ -12,7 +12,7 @@ the limits a chunk has.
 
 It exists because somebody outside this repository started emitting `.sob` and
 had nowhere to look.
-[ROADMAP 6.42](ROADMAP.md#642-a-second-producer-of-sob-has-no-contract-to-build-against)
+[ROADMAP 6.42](COMPLETED.md#642-a-second-producer-of-sob-has-no-contract-to-build-against--done)
 is the entry.
 
 **Every rule below was triggered before it was written down**, and the message
@@ -153,6 +153,39 @@ answers with the sentence, and `sol_chunk_load` is a wrapper passing NULL.
 [disasm.sol](../programs/disasm.sol) is still the way to see the chunk itself:
 it decodes the format independently of the machine that runs it, and was written
 to check one implementation against another.
+
+## The version, and what it promises you
+
+`.sob` opens with `SOLB` and the version as a little-endian `u16`:
+
+```text
+53 4f 4c 42   0e 00   01 00   ...
+S  O  L  B    14      slot_count
+```
+
+**A build reads exactly its own version and refuses every other, in both
+directions.** Format 15 will refuse 14 and everything before it; 14 refuses 15.
+The check is an equality rather than a floor, so a newer file is as unreadable
+as an older one, and the diagnosis is `unsupported bytecode version` with
+nothing else examined.
+
+**So the contract is: pin nothing, read the header.** Take `SOL_SOB_VERSION`
+from [serialize.h](../solum/include/solum/serialize.h) when you build, rather
+than writing `14` into your own source — the number is the only thing that has
+to move when the format does, and reading it from the header is what makes a
+rebuild sufficient.
+
+There is no compatibility window and none is planned. A version rises when the
+format changes at all, every file made before it becomes unreadable, and
+everything is recompiled from source. It is a small price here because a `.sob`
+is a build artefact rather than a distribution format — nothing ships one — and
+it buys a verifier whose guarantees are about a single layout, with no reader
+carrying a branch for a shape that no longer exists.
+
+**What that means in practice**: a producer's `.sob` files stop working when
+this repository bumps the version, and the fix is always to rebuild rather than
+to migrate. [BYTECODE.md](BYTECODE.md) records every version's contents, and the
+changelog names the release that moved it.
 
 ## Two things that are easy to get wrong
 

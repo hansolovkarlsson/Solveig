@@ -252,5 +252,34 @@ which is why that function is the one place lengths are written down: the
 verifier, the disassembler, the compiler's escape analysis and the tests all ask
 it, so none of them can drift apart from the executor.
 
-A file that fails any of this is refused rather than executed. A `.sob` also
-carries a format version, and a build reads only its own.
+A file that fails any of this is refused rather than executed.
+
+## The format version, and what it promises
+
+A `.sob` opens with `SOLB` and then the version as a little-endian `u16`:
+
+```text
+53 4f 4c 42   0e 00   01 00   ...
+S  O  L  B    14      slot_count
+```
+
+**A build reads exactly its own version and refuses every other, in both
+directions.** Format 15 will refuse 14 and everything before it, and 14 refuses
+15 — the check is an equality, not a floor, so a newer file is as unreadable as
+an older one. That is a promise now rather than an implementation detail:
+[ROADMAP 6.42](COMPLETED.md#642-a-second-producer-of-sob-has-no-contract-to-build-against--done)
+asked the question on behalf of a producer outside this repository, and this is
+the answer.
+
+**There is no compatibility window and none is planned.** A version rises when
+the format changes at all, every file made before it becomes unreadable, and
+everything is recompiled from source. What that buys is that the verifier's
+guarantees are about *one* layout: nothing in it has to ask which era a field
+came from, and no reader carries a branch for a shape that no longer exists.
+
+What it costs falls on whoever emits `.sob`. A producer should read
+`SOL_SOB_VERSION` from
+[serialize.h](../solum/include/solum/serialize.h) at build time rather than
+writing a number into its own source, and expect `unsupported bytecode version`
+as the whole of the diagnosis when they disagree — the file is not inspected
+further, so nothing else about it is reported.

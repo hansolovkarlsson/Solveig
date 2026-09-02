@@ -12,7 +12,7 @@ one fault and asserting the *sentence* rather than the result code. A diagnosis
 changing, or two of them merging back into one, fails the build.
 
 It is the third piece of
-[6.42](ROADMAP.md#642-a-second-producer-of-sob-has-no-contract-to-build-against)
+[6.42](COMPLETED.md#642-a-second-producer-of-sob-has-no-contract-to-build-against--done)
 and could not have been written before the second: a case cannot assert a
 specific diagnosis while every diagnosis is the same sentence.
 
@@ -49,7 +49,7 @@ constant index out of range, a chunk not ending in `HALT` or `RETURN`.
 That is the right bar for `solas`, whose output is checked byte-for-byte against
 a second implementation and whose author has the source in front of them. It is
 the wrong bar for anybody else, and
-[6.42](ROADMAP.md#642-a-second-producer-of-sob-has-no-contract-to-build-against)
+[6.42](COMPLETED.md#642-a-second-producer-of-sob-has-no-contract-to-build-against--done)
 exists because there is now an anybody else: a program generating `.sob` from
 outside this repository is told that it is wrong and not what is wrong, and
 these are exactly a code generator's bugs.
