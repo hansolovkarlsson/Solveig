@@ -36,6 +36,7 @@ typedef enum {
     PROTO_TOK_BAR,         /* |                                               */
     PROTO_TOK_LPAREN, PROTO_TOK_RPAREN,
     PROTO_TOK_LBRACKET, PROTO_TOK_RBRACKET,
+    PROTO_TOK_HASH_LBRACKET,  /* #[  -- opens a dictionary                  */
     PROTO_TOK_LBRACE, PROTO_TOK_RBRACE
 } ProtoTokenType;
 

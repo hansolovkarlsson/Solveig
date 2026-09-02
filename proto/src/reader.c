@@ -39,6 +39,7 @@ typedef struct {
 } Reader;
 
 static ProtoNode *expression(Reader *reader);
+static ProtoNode *infix(Reader *reader, int minimum, bool pair_key);
 static ProtoNode *statement(Reader *reader);
 static const char *shadowed_parameter(const ProtoNode *node,
                                       char **params, int param_count);
@@ -1064,6 +1065,38 @@ static ProtoNode *primary(Reader *reader)
             return array;
         }
 
+        case PROTO_TOK_HASH_LBRACKET: {
+            advance(reader);
+            ProtoNode *dictionary = proto_node_new(PROTO_NODE_DICTIONARY,
+                                                token.span);
+            if (!check(reader, PROTO_TOK_RBRACKET)) {
+                do {
+                    ProtoNode *key = infix(reader, 0, true);
+                    if (key == NULL) { proto_node_free(dictionary); return NULL; }
+                    proto_node_add(dictionary, key);
+
+                    if (!check(reader, PROTO_TOK_OPERATOR) ||
+                        reader->current.length != 1 ||
+                        reader->current.start[0] != '=') {
+                        error_here(reader, "'=' between a dictionary's key and "
+                                           "its value");
+                        proto_node_free(dictionary);
+                        return NULL;
+                    }
+                    advance(reader);
+
+                    ProtoNode *value = expression(reader);
+                    if (value == NULL) { proto_node_free(dictionary); return NULL; }
+                    proto_node_add(dictionary, value);
+                } while (match(reader, PROTO_TOK_COMMA));
+            }
+            if (!consume(reader, PROTO_TOK_RBRACKET, "']'")) {
+                proto_node_free(dictionary);
+                return NULL;
+            }
+            return dictionary;
+        }
+
         case PROTO_TOK_LBRACE:
             advance(reader);
             return block(reader, token);
@@ -1208,13 +1241,29 @@ static ProtoNode *unary(Reader *reader)
  * composes: adding an operator cannot change what an expression that does not
  * use it already meant. A general grammar rule can, and silently, which is why
  * that one waits for a design rather than an implementation. */
-static ProtoNode *infix(Reader *reader, int minimum)
+/* `pair_key` stops the loop at a bare `=`, for a dictionary's key and nothing
+   else. It is a parameter rather than a field on the reader because of where it
+   has to reach and where it must not: it has to survive into a right operand,
+   so `#[a + b = c]` reads `a + b` as the key, and it must not survive into a
+   delimited sub-expression, so `#[(a = b) = c]` keeps the inner `=` as whatever
+   the dialect declared. A parameter does both -- `primary` reaches `expression`
+   for every bracketed thing there is, and `expression` passes false. */
+static ProtoNode *infix(Reader *reader, int minimum, bool pair_key)
 {
     ProtoNode *left = unary(reader);
     if (left == NULL) return NULL;
 
     while (check(reader, PROTO_TOK_OPERATOR)) {
         ProtoToken op = reader->current;
+
+        /* Before the lookup, so that a module which never declared `=` can
+           still write a dictionary. This is the one place in Proto where a
+           context outranks a declaration, and it is confined to the top level
+           of a key: Solveig settles the same ambiguity by parsing a key at
+           `sum`, which Proto cannot copy because a dialect may declare `=` at
+           any precedence at all. */
+        if (pair_key && op.length == 1 && op.start[0] == '=') break;
+
         const ProtoInfix *entry = proto_dialect_infix(reader->dialect,
                                                   op.start, op.length);
         if (entry == NULL) {
@@ -1232,7 +1281,7 @@ static ProtoNode *infix(Reader *reader, int minimum)
         advance(reader);
         int next = entry->assoc == PROTO_ASSOC_LEFT ? entry->precedence + 1
                                                   : entry->precedence;
-        ProtoNode *right = infix(reader, next);
+        ProtoNode *right = infix(reader, next, pair_key);
         if (right == NULL) { proto_node_free(left); return NULL; }
 
         /* The span is the operator's. What the node covers is worked out by
@@ -1263,7 +1312,7 @@ static bool assignable(const ProtoNode *node)
 
 static ProtoNode *expression(Reader *reader)
 {
-    ProtoNode *left = infix(reader, 0);
+    ProtoNode *left = infix(reader, 0, false);
     if (left == NULL) return NULL;
 
     if (check(reader, PROTO_TOK_ASSIGN)) {

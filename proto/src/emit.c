@@ -238,6 +238,21 @@ static void emit_node(ProtoEmitter *emitter, const ProtoNode *node)
             write(emitter, "]");
             break;
 
+        /* Children alternate key, value. The `=` written here is Solveig's
+           pair separator and not an operator -- whatever a dialect declared
+           `=` to mean, it did not mean this, and the reader stopped it from
+           reaching the key. See docs/GRAMMAR.md. */
+        case PROTO_NODE_DICTIONARY:
+            write(emitter, "#[");
+            for (int i = 0; i + 1 < node->count; i += 2) {
+                if (i > 0) write(emitter, ", ");
+                emit_node(emitter, node->children[i]);
+                write(emitter, " = ");
+                emit_node(emitter, node->children[i + 1]);
+            }
+            write(emitter, "]");
+            break;
+
         case PROTO_NODE_BLOCK:
             emit_block(emitter, node);
             break;

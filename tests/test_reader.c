@@ -153,6 +153,39 @@ int main(void)
     expect_rejected("an escape that is not one of the five",
                     HEADER "a := \"a\\qb\".\n");
 
+    /* A dictionary, and the one rule in Proto where a context outranks a
+       declaration: a top-level `=` inside `#[…]` is the pair separator,
+       whatever the header said `=` was. Solveig settles the same ambiguity by
+       parsing a key at `sum`, which cannot be copied here -- a dialect may
+       declare `=` at any precedence at all. */
+    expect("a dictionary", HEADER "a := #[#1 = \"one\", #2 = \"two\"].\n",
+           "a := #[#1 = \"one\", #2 = \"two\"].\n");
+    expect("an empty dictionary", HEADER "a := #[].\n", "a := #[].\n");
+    expect("a key that is an expression",
+           HEADER "a := #[#1 + #2 = \"three\"].\n",
+           "a := #[#1:add(#2) = \"three\"].\n");
+
+    /* `=` declared, and still the separator at the top level of a key. */
+    expect("a declared '=' does not take the key",
+           "@infix = 10 => left := right.\na := #[k = #1].\n",
+           "a := #[k = #1].\n");
+
+    /* …and still the operator one bracket down, which is the half that says
+       the rule is a rule rather than `=` being taken away. */
+    expect("a declared '=' still works inside the key",
+           "@infix = 40 equals.\na := #[(b = c) = d].\n",
+           "a := #[(b:equals(c)) = d].\n");
+
+    expect("a dictionary nests", HEADER "a := #[#1 = #[#2 = #3]].\n",
+           "a := #[#1 = #[#2 = #3]].\n");
+
+    expect_rejected("a dictionary pair with no '='",
+                    HEADER "a := #[#1, #2].\n");
+    expect_rejected("a dictionary with a trailing comma",
+                    HEADER "a := #[#1 = #2,].\n");
+    expect_rejected("'#' and a bracket with a space between",
+                    HEADER "a := # [#1].\n");
+
     /* Blocks: parameters, temporaries, and the leading bar that tells them
        apart. Solveig's rule, and Proto reads it the same way. */
     expect("one parameter",  HEADER "a := { x | x }.\n", "a := { x | x }.\n");

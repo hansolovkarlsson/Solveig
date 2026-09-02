@@ -115,6 +115,13 @@ ProtoToken proto_lexer_next(ProtoLexer *lexer)
        stays the declared prefix operator, and must; see docs/ROADMAP.md. */
     if (c == '#') {
         lexer->current++;
+        /* `#[` opens a dictionary, and is taken here because `#` is already
+           consumed and nothing else may follow it. It is one token rather than
+           two so that `# [` is the error it looks like. */
+        if (*lexer->current == '[') {
+            lexer->current++;
+            return make(lexer, PROTO_TOK_HASH_LBRACKET, start);
+        }
         if (*lexer->current == '-') lexer->current++;
         if (!is_digit(*lexer->current))
             return error_at(lexer, start, "'#' introduces an integer, and needs digits after it");
@@ -259,6 +266,7 @@ const char *proto_token_type_name(ProtoTokenType type)
         case PROTO_TOK_SYMBOL:    return "a symbol";
         case PROTO_TOK_DIRECTIVE: return "a directive";
         case PROTO_TOK_OPERATOR:  return "an operator";
+        case PROTO_TOK_HASH_LBRACKET: return "'#['";
         case PROTO_TOK_ASSIGN:    return "':='";
         case PROTO_TOK_COLON:     return "':'";
         case PROTO_TOK_DOT:       return "'.'";

@@ -148,7 +148,7 @@ it reaches back: `programs/digest` transcribed sixty-four SHA-256 round
 constants out of the hexadecimal FIPS 180-4 prints them in, because `$428a2f98`
 is not a thing Proto reads.
 
-**The nine sort into four kinds, and only one of them is a decision:**
+**The nine sort into five kinds, and one of them is still a decision:**
 
 | closed in 0.11.0 | |
 | --- | --- |
@@ -157,11 +157,13 @@ is not a thing Proto reads.
 | `1e10`, `2.5E-3` | Float exponents, taken only when the digits are actually there — `2 e` is still two tokens. |
 | `"\q"` | The escape set, narrowed to Solveig's five. This was the one where Proto was the *permissive* one and therefore the only one that emitted Solveig `solas` rejects. |
 
+| closed in 0.12.0 | |
+| --- | --- |
+| `#[a = b]` | **Not free after all**, which is the correction this entry owes. The lexer was never the obstacle: Solveig writes `pair = sum "=" expression` and settles the ambiguity by *level*, which Proto cannot copy because a dialect may declare `=` anywhere and `lib/clike.pro` puts it at 10. The rule taken is that **a top-level `=` inside a dictionary is the separator, whatever the header said** — the one place in this language where a context outranks a declaration. It is confined to the top level of a key, so `#[(b = c) = d]` still uses the declared one, which is what makes it a rule rather than `=` being taken away. |
+
 | a decision | |
 | --- | --- |
 | `%1011` | **`%` is an operator character**, and `lib/arith.pro` declares it `mod`. `a %1011` is then two readings — `a mod 1011`, and `a` beside a binary literal — and the lexer would have to choose before any declaration has been read. |
-
-| `#[a = b]` | **Not free after all**, which is the correction this entry owes. It lexes now — `#` no longer refuses what follows. What it needs is a *parse* rule: Solveig writes `pair = sum "=" expression` and resolves the ambiguity by level, which Proto cannot copy because a dialect may declare `=` at any precedence, and `lib/clike.pro` declares it at 10. The rule would have to be that **a top-level `=` inside a dictionary is the separator and never the declared operator** — the first time a context would shadow a declaration, which is why it is a decision and not a patch. |
 
 | already decided | |
 | --- | --- |
@@ -186,12 +188,10 @@ come from before** — not a dialect wanting to change the lexer, but Solveig's
 own lexer being something Proto cannot fully copy while its operators stay
 declarable.
 
-Two decisions are left. **`%1011`**: whether it is worth a rule saying a `%`
+**One decision is left.** `%1011`: whether it is worth a rule saying a `%`
 followed immediately by a binary digit is a literal, or whether Proto carries
-what it can and says so. **`#[…]`**: whether a context may shadow a declared
-operator, which nothing here has ever allowed. Neither blocks anything —
-`$FF08` covers the base-conversion case that actually hurt, and
-`dictionary:new` works.
+what it can and says so. It blocks nothing — `$FF08` covers the base-conversion
+case that actually hurt, and nothing here has ever asked for a binary literal.
 
 ## Waiting on a customer — optional and repeated parts
 
@@ -297,7 +297,6 @@ generalises. Supporting both would be supporting two.
 | | |
 | --- | --- |
 | Long send chains are not wrapped | A block that will not fit is broken across lines; `a:b(c):d(e):f(g)` is not. |
-| Dictionary literals | `#[a = b]` separates a pair with `=`, which a dialect may declare. Needs a decision rather than a default. |
 | Temporaries in a group | `( \| t \| … )` is Solveig's; Proto reads `( expr. expr )`. |
 | The map is written only with `--map` | The Makefile always passes it. The default should probably change. |
 | A generated name is `t__1` | Legible, and it collides with nothing because the whole module's identifiers are checked. It is still a name a person could have wanted. |

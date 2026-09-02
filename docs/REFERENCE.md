@@ -125,6 +125,7 @@ tokens.** No `.pro` can change this table.
 | integer | `#` then an optional `-` then digits, or `$` and hexadecimal digits |
 | float | digits, optionally a `.` and more digits, optionally `e`/`E` with an optional sign and more digits |
 | string | `"…"`, with `\"` `\\` `\n` `\t` `\r` and no other escape |
+| dictionary | `#[` opens one; `]` closes it, and `=` separates a pair |
 | symbol | `'` and then a name |
 | directive | `@` and then a name |
 | operator | one or more of `+ - * / < > = ! & ^ % ~ ? \`, or `\|\|` |

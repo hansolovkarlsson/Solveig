@@ -121,6 +121,7 @@ const char *proto_node_kind_name(ProtoNodeKind kind)
         case PROTO_NODE_SEND:     return "send";
         case PROTO_NODE_ASSIGN:   return "assign";
         case PROTO_NODE_ARRAY:    return "array";
+        case PROTO_NODE_DICTIONARY: return "dictionary";
         case PROTO_NODE_MACRO:    return "macro";
         case PROTO_NODE_INCLUDE:  return "include";
         case PROTO_NODE_BLOCK:    return "block";

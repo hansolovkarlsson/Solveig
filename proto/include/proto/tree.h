@@ -46,6 +46,7 @@ typedef enum {
     PROTO_NODE_ASSIGN,     /* [0] is the target (NAME or a nullary SEND),
                             [1] is the value                                */
     PROTO_NODE_ARRAY,      /* [a, b, c]                                       */
+    PROTO_NODE_DICTIONARY, /* #[k = v, …]; children alternate key, value      */
     PROTO_NODE_MACRO,      /* a use of a declared form, before expansion:
                             text is the name, children are the arguments   */
     PROTO_NODE_INCLUDE,    /* @include "text.sol" -- Solveig's own directive,

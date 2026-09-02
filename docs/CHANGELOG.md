@@ -10,6 +10,51 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### `#[a = b]`, and the first rule where a context outranks a declaration — 0.12.0, 2026-09-02
+
+**Dictionary literals**, which is the eighth of the nine differences
+[POSTMORTEM.md](POSTMORTEM.md) 16 found and the one that had been mis-sorted as
+free.
+
+```
+#[#1 = "one", #2 = "two"]
+```
+
+**The lexer was never the obstacle.** Solveig writes `pair = sum "=" expression`
+and settles what `=` means in a key by *level* — a key parses below where `=`
+lives, so it cannot swallow one. Proto has no fixed levels to parse below: a
+dialect may declare `=` at any precedence, and `lib/clike.pro` puts it at 10 for
+assignment.
+
+**So the rule is that a top-level `=` inside `#[…]` is the separator, whatever
+the header said.** That is the first place in this language where a context
+outranks a declaration, which is why it took a decision rather than a lexer
+case. What keeps it a rule rather than `=` being taken away is that it stops at
+the first bracket:
+
+```
+@infix = 10 => left := right.
+#[k = #1]              is a pair, not an assignment
+
+@infix = 40 equals.
+#[(b = c) = d]         is  #[(b:equals(c)) = d]
+```
+
+It is a *parser* rule and not a lexer one, so nothing about reading a `.pro`
+without running it has changed: `#[` is one token, taken where `#` is already
+consumed, and `# [` is still the error it looks like.
+
+**Emitted as Solveig writes it.** Proto turns every operator into a send, so a
+key always reaches `solas` as a send chain or a literal — well inside the `sum`
+its grammar asks for.
+
+Nine checks in `tests/test_reader.c`, including the two halves of the rule and
+the three ways to get it wrong: no `=`, a trailing comma, and a space between
+`#` and `[`. Solveig refuses the trailing comma too, which is why Proto does.
+
+**Three differences left, and one of them is the only decision:** `%1011`.
+`@expr` is refused on purpose, and `-3` cannot be had while `-` is declarable.
+
 ### Four of Solveig's spellings, and one Proto had too many — 0.11.0, 2026-09-02
 
 **Five of the nine differences [POSTMORTEM.md](POSTMORTEM.md) 16 found, now

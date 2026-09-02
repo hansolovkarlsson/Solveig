@@ -32,13 +32,16 @@ arguments   = "(" [ expression { "," expression } ] ")" .
 primary     = integer | float | string | symbol
             | form
             | identifier [ "(" expression ")" ]
-            | group | array | block .
+            | group | array | dictionary | block .
 
 form        = identifier [ "(" [ expression { "," expression } ] ")" ]     (* a call    *)
             | identifier { expression | identifier } .                    (* a pattern *)
 
 group       = "(" [ expression { "." expression } ] ")" .
 array       = "[" [ expression { "," expression } ] "]" .
+dictionary  = "#[" [ pair { "," pair } ] "]" .
+pair        = key "=" expression .
+key         = infix, stopping at a top-level "=" .
 block       = "{" [ parameters ] [ temporaries ] body "}" .
 
 parameters  = identifier { "," identifier } "|" .
@@ -60,6 +63,21 @@ cannot say more than *expressions and identifiers in some order*: which
 positions are holes and which are literal words is what `@syntax` settled. The
 words in a pattern are not reserved -- `then` is a form's word in a file that
 declared one and an ordinary name in every other, this one included.
+
+**A dictionary's `=` is the separator and not an operator, and this is the one
+place in Proto where a context outranks a declaration.** `#[k = v]` reads as a
+pair in a module that declared `=` and in one that did not. Solveig settles the
+same ambiguity by parsing a key at its `sum` level, which is below where `=`
+lives; Proto cannot copy that, because a dialect may declare `=` at any
+precedence and `lib/clike.pro` puts it at 10.
+
+The shadowing is confined to the **top level of a key**. One bracket down the
+declaration is back:
+
+```
+@infix = 40 equals.
+#[(b = c) = d]        is  #[(b:equals(c)) = d]
+```
 
 **A statement separator is a `.` between two, optional after the last** — in a
 file, in a block and in a group alike. That is Solveig's rule and Proto does
@@ -84,11 +102,8 @@ closed five of them — the sign on an integer, hexadecimal, float exponents, an
 the escape set, which Proto had been *more* permissive about and was therefore
 emitting Solveig that `solas` rejected.
 
-**Four remain, and only one is an oversight.** `%1011` is a decision, `%` being
-an operator character. `#[a = b]` is a decision one level down from where the
-*Rough edges* table looked: it lexes now, and what it needs is a rule saying a
-top-level `=` inside a dictionary is the separator and not whatever a dialect
-declared it to be. `@expr` is refused on purpose. And `-3` **cannot** be had:
+**Three remain.** `%1011` is a decision, `%` being an operator character.
+`@expr` is refused on purpose. And `-3` **cannot** be had:
 Solveig's scanner gives the sign to the number outside a `@expr` region and
 treats it as the operator inside one, and Proto can have neither half — it has
 no regions, and taking `-3` as a literal would stop `a -3` being a subtraction
