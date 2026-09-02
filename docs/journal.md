@@ -11,19 +11,22 @@ produced no code because they were decisions.
 
 ---
 
-## 2026-09-02 — a directive removed, four versions, a survey that was partial, and a fifth program
+## 2026-09-02 — a directive removed, a survey that was partial, a fifth program, and the bar
 
-Four versions, 0.10.0 to 0.13.0. **The commit count is at the foot of this
-entry and not here**, for a reason worth one paragraph.
+**Every number in this entry is at the foot**, and this is the third attempt at
+saying why.
 
-It has been wrong twice. The entry first said *five commits, one version*, was
-corrected to nineteen, and is neither. Both corrections have the same cause and
-it is not carelessness — **an entry written while the day is still running is a
-guess about when the day ends.** So the count lives where it can be the last
-thing written, and this opening carries only what stopped changing. It was
-[POSTMORTEM.md](POSTMORTEM.md) 13 twice over — a number that was true when it
-was written — on the same afternoon that entry's lesson was being copied into
-the tally.
+The opening first read *five commits, one version*. Corrected to nineteen.
+Corrected again with the commit count moved to the foot and the sentence *this
+opening carries only what stopped changing* — and then the version range
+changed, in the paragraph claiming to have fixed the problem.
+
+So the rule is harder than it looked: **nothing about a running day has stopped
+changing, and the only stable thing in a journal entry is its date.** Not the
+commits, not the versions, not the range, not the heading. Everything countable
+goes at the bottom where it can be written last, and the top carries only what
+happened. [POSTMORTEM.md](POSTMORTEM.md) 13 three times over, in the entry that
+kept quoting it.
 
 The day opened with *what's next todo?* and built none of the four things that
 question was answered with. It closed having closed seven of nine differences
@@ -339,6 +342,52 @@ declaring no operator of its own. This is the sixth user and the customer. **One
 is still not enough**, which is the rule that kept the bitwise operators out on
 the same day; the roadmap records it so the second customer settles it.
 
+### The bar, landed, and a spelling changed twice
+
+The retraction earlier in the day said `|` could be declared and did not do it.
+Asked for an example, the honest answer was that the current build refuses one —
+so a scratch copy was patched to demonstrate it, and the demonstration made the
+case for finishing it properly.
+
+**0.14.0 is the bar, and `\` retired in the same commit.** The rule is the one
+`#[k = v]` already had, and the reason the two went together is the whole
+argument for waiting a version:
+
+> 0.13.0 had settled the repository on *one spelling per operation*, with `\`
+> for a bitwise or **because `|` could not be had**. Landing the bar alone would
+> have changed one spelling twice in two versions.
+
+**A spelling should be changed once**, and this one was changed twice — the
+second time deliberately, in one commit, with the table ending as C's exactly
+and nothing substituted. The two gaps the demonstration had — `@prefix |`
+accepted and inert, and a stray bar with the wrong diagnostic — were closed
+before it landed rather than after.
+
+The lexer was never touched. `|` is still `PROTO_TOK_BAR` and still not an
+operator character, so a tool can tokenise any `.pro` knowing nothing about its
+dialect — the property [COMPLETED.md](COMPLETED.md) 12 was written to defend and
+does defend correctly, even though the conclusion drawn beside it was wrong.
+
+### A table cell that misled its first reader
+
+The one-spelling table had an em-dash in the logical-xor cell, meaning *there is
+not one*. Its first reader read it as a proposed operator and asked whether
+logical xor was a minus sign.
+
+**That is the table's fault and not the reader's**, and the answer turned out to
+be more interesting than the correction. There is no symbol to have — C has no
+`^^`, Java and Python reuse `^`, Pascal uses a keyword — and Solveig's boolean
+understands only `not`, `and`, `or`, `ifTrue`, `ifFalse` and `ifElse`. What
+there *is* is `!=`: for booleans, xor and not-equals are the same operation,
+which is why nobody invents a symbol for it.
+
+So **`lib/clike.pro` has had a logical xor since it declared `!=`**, and nobody
+noticed — including me, that afternoon, while replacing that very template with
+the direct message. And if it were ever spelled as its own operator it would be
+`^^`, for the reason Hans gave when the answer reached him: the single character
+is the bitwise one and the doubled one is the logical one, as `&` is to `&&`.
+Recorded, and **not declared**, because nothing has wanted one.
+
 ### What the tests did today
 
 Nothing, and mostly that was the job. The suite held at 58, 6, 34 and 10 while
@@ -346,27 +395,31 @@ the spelling change went through, which is precisely what a spelling change
 should do to it — **a control, not a detector**. It ended at 58, 6, 60 and 11:
 the segfault added one, and the new spellings twenty-six.
 
-### The number worth keeping
+### The numbers, written last
 
-Twenty-five commits, four versions, a fifth program, and **not one finding from
-a test.**
+**Twenty-nine commits, counting the one that writes this line — a number cannot
+count itself and has to be told to. Five versions, 0.10.0 to 0.14.0. A fifth
+program. And not one finding from a test.**
 
 Two misreadings, by a person asking. One dead directive's real argument, by a
 person asking what it would mean. One nine-version-old segfault, by declining to
 repeat a sentence without checking it. Eight of the nine syntactic differences,
-by a person asking whether the first survey had been complete. And one
-impossibility, **by somebody building the thing that could not be built.**
+by a person asking whether the first survey had been complete. One
+impossibility, by somebody building the thing that could not be built. And one
+misleading table, **by its first reader asking what a dash meant.**
 
-Every one of them by a person or a program. The tally now has two rows it did
-not have this morning — *being asked whether a survey had been complete*, at
-two, and *somebody building the thing that could not be built*, at one.
+Every one by a person or a program, and the tally has two rows it did not have
+this morning: *being asked whether a survey had been complete*, at two, and
+*somebody building the thing that could not be built*, at one.
 
-**Three documents also arrived that had no home before**:
+**Three documents arrived that had no home before**:
 [REFERENCE.md](REFERENCE.md), the page you look a spelling up in;
 [does-it-pay.md](does-it-pay.md), the answer to the only question the project
-exists to ask; and `programs/prose/README.md`, which is a document about a
-document. The first two are the day's real output. The four versions were the
-easy part.
+exists to ask; and `programs/prose/README.md`, a document about a document.
+
+Those are the day's real output. The five versions were the easy part — four of
+them closed differences nobody knew were there at breakfast, and the fifth
+landed a thing three documents had called impossible.
 
 ## 2026-09-01 — the project changed its name, and nothing else
 
