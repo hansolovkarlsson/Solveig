@@ -67,7 +67,7 @@ marked as a sketch.
 | Splitting the reference into pages | **Defer** — the trigger is the message reference outgrowing the rest |
 | Restricting what a script may reach (6.32) | **Defer** — the trigger is a script somebody else wrote, or input from a stranger |
 | Extensions: a capability from a C binary | **Triggered by GTK on 2026-08-28, [probed rather than argued](#gtk-and-the-afternoon-that-was-supposed-to-be-a-page), and built the same day** — `--extension=`, [extend.h](../solum/include/solum/extend.h), the ABI handshake and [the contract](extensions.md). `dlopen` beats embedding on a combinatorial argument; the callback into a main loop is free; the build blocker this page named was wrong and the real one was quieter. **The second half is `SolForeign` and a callback registry**, both built — real sockets found that bytes are the wrong currency for a scarce resource, so a foreign cell carries a collection pressure of its own; the registry nothing above anticipated, and it hands back a token so a released block *says so* rather than answering a plausible wrong one |
-| Regular expressions | **No** to a literal, still. The engine is [scoped as `lib/re.sol` on 2026-09-01](#scoped-on-2026-09-01-and-the-number-nobody-had-taken), with a customer refusing input today and a throwaway built: semantics identical to `awk` on all six cases, leftmost-longest free, the exponential real but fixed by a visited set for 20–30%, and `--steps` bounding a blow-up that `regexec` could not be stopped in. **One question left, and it is speed**: 190× the tools, and nobody has named the input. The cursor that repeats instead is [built](COMPLETED.md#55-five-programs-each-wrote-the-same-cursor--done) |
+| Regular expressions | **No** to a literal, still — but the engine is **built**: [`lib/re.sol`](../lib/re.sol), on the call that the patterns here are ours rather than a stranger's. Both POSIX dialects, groups, back-references; `sed`'s oracle went from 60 agreeing cases to 62 and `lib/pattern.sol` is gone. [The scoping](#scoped-on-2026-09-01-and-the-number-nobody-had-taken) has the measurements, including the two claims of mine it had to take back |
 | An early exit from a loop | **Defer** — the flag idiom recurs across six files; the trigger is a body that must skip its remainder ([3.13](ROADMAP.md#313-a-loop-is-left-by-its-condition-or-by-failing)) |
 | Intercepting a message not understood | **Defer** — Smalltalk's `doesNotUnderstand`; small to build, and nothing has wanted a proxy |
 | A set, and the collections that are not there | **Defer** — write them in Solum and measure first, as the four loops did |
@@ -1595,7 +1595,7 @@ For everything in this tree that is correct rather than merely tolerable. The
 editor loads a file to edit it, `solas` loads a source to compile it,
 `expect.sol` loads a document to check it — **all three want the whole thing**,
 and a handle would be ceremony around a single call. The largest input measured
-here is a 50,000-line scan in [pattern.sol](../lib/pattern.sol), held entire
+here is a 50,000-line scan in [pattern.sol](../lib/re.sol), held entire
 without complaint.
 
 But it means **a program cannot read a file it cannot hold**, and the reference
@@ -3460,8 +3460,46 @@ fast* but *who chooses the pattern*.
 5. **Does `pattern.sol` stay?** Unchanged. Recommendation: replace, and let
    `sed`'s oracle corpus prove the swap.
 
-**Still not built.** The throwaway is thrown away; these numbers are what it
-leaves behind.
+---
+
+##### Built on 2026-09-01, on the call that the patterns here are ours
+
+`lib/re.sol` replaces `lib/pattern.sol`: both POSIX dialects, groups,
+back-references, `{n,m}`, leftmost-longest, and the leader optimisation carried
+over because it is worth more than anything else in the file. The header carries
+the bargain in `shell.sol`'s words — *build a pattern out of things you wrote,
+not out of things a file or a user gave you* — and `guarded` is there for a
+caller who turns out not to control its input.
+
+**The proof was the corpus rather than a test.** `sed.sol` swapped onto it and
+`oracle.sh` went from 60 agreeing cases to **62** — the two that had been added
+to `differ/` an hour earlier, documenting the gap, now agree with the oracle.
+The harness said so itself: *AGREES — the divergence has gone, and the file
+still claims it*.
+
+And a differential against the file it replaces: 4,485 comparisons over 23
+patterns and 19 texts, **28 disagreements, all one shape** — `pattern.sol`'s
+`endOfMatchAt` ignored `^`, so an anchored pattern answered a match at a
+position other than the first. The oracle agrees with the new one. No shipped
+caller could reach it, because every path to `endOfMatchAt` goes through
+`findFrom`, which handled the anchor separately.
+
+**Two things it cost that the throwaway had not shown.** A sequence had to be a
+*list* rather than a spine of pairs: the emitter walks the tree, so `abcd…` was
+as deep as the pattern was long and ran out of frames at about 220 characters,
+where `pattern.sol` compiled two thousand. Caught by measuring a claim before
+writing it down. What remains is real nesting — **48 groups deep compile and 49
+do not** — which nothing writes.
+
+And deleting a file found a hole in
+[the link checker](#nothing-checks-that-a-link-points-at-a-heading-that-exists)
+built the same morning: it checked only links carrying a `#`, on the entry's
+reasoning that *a missing file is a different question and nothing here has got
+one wrong*. Nineteen links pointed at the deleted file and it reported none —
+and the sweep turned up **three that had been broken all along**, two naming
+`sob.sol` beside them when it lives in `lib/`, one naming `follow.sh` beside it
+when it is in `tail/`. The scope was not narrow, it was wrong, and in the
+direction that hides things. It checks paths now: 2,162 of them.
 
 ### An early exit from a loop
 
@@ -4601,7 +4639,7 @@ design is fine and the limitation is livable. Both outcomes are worth having,
 which is rare enough to be the reason to pick it.
 
 **A first data point arrived on 2026-08-26, from the side.**
-[lib/pattern.sol](../lib/pattern.sol) is a matcher rather than a toolkit and was
+[lib/pattern.sol](../lib/re.sol) is a matcher rather than a toolkit and was
 written because an editor wanted `/`, not to answer this — and it is
 non-combinator by construction: the pattern compiles to an **array of items**
 walked by a loop, and 3.1 never came up, because nothing there is a block that
@@ -5244,7 +5282,7 @@ Three things were measured rather than guessed, and two of them are real:
 
 | | |
 | --- | --- |
-| **full ERE** | [pattern.sol](../lib/pattern.sol)'s own header says *no groups, no alternation, no `+` or `?`*, and POSIX awk requires all of them. **The largest demand by far.** |
+| **full ERE** | [pattern.sol](../lib/re.sol)'s own header says *no groups, no alternation, no `+` or `?`*, and POSIX awk requires all of them. **The largest demand by far.** |
 | **a lenient numeric read** | awk's `"3abc" + 0` is `3`, `"" + 0` is `0`, `" 7 " + 0` is `7`. All three raise here: `asInteger` and `asFloat` are strict on purpose and the reference says so. |
 | **`%e` and `%g`** | `asString(spec)` has width, fill, alignment, thousands and *fixed* decimals — `45.8:asString("6.2")` is `" 45.80"` — but not significant digits. awk's `CONVFMT` and `OFMT` default to `%.6g`. |
 

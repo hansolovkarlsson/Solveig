@@ -822,7 +822,7 @@ markersIn := { path, source | | n |
     ; line down after every marker it found, and cut it again to look for the
     ; closing `-->`, because `indexOf` could only search from the beginning.
     ; `indexOf(what, #from)` -- [6.37](../docs/COMPLETED.md#637-indexof-cannot-say-where-to-start--done),
-    ; which lib/pattern.sol wanted first and this file wanted second -- makes it
+    ; which lib/re.sol wanted first and this file wanted second -- makes it
     ; a walk over one string, and the copies go away with the arithmetic that
     ; kept track of where the slices had come from.
     source:split("\n"):do({ line | | from, at, close, name |
@@ -1680,6 +1680,51 @@ linkSubjects:sorted:do({ path | | n |
                             "'{}' is not a file":fill([where]), ""]) }) }) }) }) }).
 
 ; ---------------------------------------------------------------------------
+; And the other half of a link: that the file is there at all
+;
+; **The entry that argued for the check above said a link with no fragment was
+; a different question and that "nothing here has got one wrong". That was
+; false when it was written.** Deleting `lib/pattern.sol` on 2026-09-01 left
+; nineteen links pointing at it and this program reported none of them -- and
+; the sweep that found those also turned up **three that had been broken all
+; along**: two in `experiment/` naming `sob.sol` beside them when it lives in
+; `lib/`, and `tail.sol` naming `follow.sh` beside it when it is in `tail/`.
+;
+; So the scope was not narrow, it was wrong, and it was wrong in the direction
+; that hides things. A link that names no file is worse than one that names no
+; heading: a dead anchor lands the reader at the top of the right page, and a
+; dead path lands them nowhere.
+;
+; **A target with neither a dot nor a slash is not a path** and is skipped. That
+; is not a nicety either: this file's own prose contains `](target)` inside
+; backticks, which the extraction reads as a link because it looks for `](`
+; rather than parsing markdown. One rule covers it and says why.
+linkPaths := #0.
+linkPathsBad := #0.
+
+linkSubjects:sorted:do({ path | | n |
+    n := #0.
+    system:readFile(path):split("\n"):do({ line |
+        n := n:add(#1).
+        targetsIn:value(line):do({ target | | file, at, where |
+            at := target:indexOf("#").
+            file := at:isNil:ifElse({ target },
+                { target:copyFrom(#1, at:sub(#1)) }).
+            (file:equals(""):not
+                :and({ target:startsWith("http://"):not })
+                :and({ target:startsWith("https://"):not })
+                :and({ target:startsWith("mailto:"):not })
+                :and({ file:indexOf("/"):notNil
+                    :or({ file:indexOf("."):notNil }) })):ifTrue({
+                where := resolve:value(path, file).
+                linkPaths := linkPaths:add(#1).
+                system:fileExists(where)
+                    :or({ system:isDirectory(where) }):ifFalse({
+                    linkPathsBad := linkPathsBad:add(#1).
+                    failures:add(["{}:{}":fill([path, n]), #0,
+                        "'{}' is not a file":fill([where]), ""]) }) }) }) }) }).
+
+; ---------------------------------------------------------------------------
 ; The report
 
 "":display.
@@ -1727,9 +1772,9 @@ linksSeen:greaterThan(#0):ifTrue({
     "{} link{} in {} files, {} of them naming a heading, against {} headings"
         :fill([linksSeen, linksSeen:equals(#1):ifElse({""},{"s"}),
                linkSubjects:size, linksFragment, headingsIndexed]):display.
-    linksPlain:greaterThan(#0):ifTrue({
-        "{} name a file and no heading, and are not checked"
-            :fill([linksPlain]):display }).
+    linkPaths:greaterThan(#0):ifTrue({
+        "{} name a path, and every one of those is there too"
+            :fill([linkPaths]):display }).
     headingsInFences:greaterThan(#0):ifTrue({
         "{} heading{} sit{} inside a fenced block, and {} not {} anchor"
             :fill([headingsInFences,

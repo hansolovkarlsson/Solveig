@@ -1,0 +1,15 @@
+# `s/\(a\)\1/DOUBLE/` -- a back-reference, which is BRE's and not ERE's.
+#
+# The construct that decides an engine's whole strategy: a back-reference is
+# what stops an implementation simulating the automaton, so lib/re.sol is a
+# backtracker and the two dialects had to be designed together rather than one
+# after the other.
+#
+# Until 2026-09-01 this answered `aa b` -- no match, silently, because `\(`,
+# `\)` and `\1` were three literal characters that happened not to be in the
+# text.
+args: 's/\(a\)\1/DOUBLE/'
+input:
+aa b
+abab c
+xyz

@@ -124,7 +124,8 @@
 ; Searching, which came a day later
 ;
 ; `/pattern`, `?pattern`, `n` and `N`, over the regular expressions in
-; [lib/pattern.sol](../lib/pattern.sol) -- `.`, `*`, `[abc]`, `[^a-z]`, `^`, `$`
+; [lib/re.sol](../lib/re.sol) -- `.`, `*`, `[abc]`, `[^a-z]`, `^`, `$`, and
+; `\(...\)` `\+` `\?` `\|` `\{n,m\}` and `\1`..`\9` since 2026-09-01
 ; -- and a construct outside that subset is **refused** rather than read as
 ; literal text. Until 2026-09-01 it was not: a vi user's `/\(ab\)c` searched
 ; for the characters `(ab)c` and found the wrong thing without saying so, which
@@ -222,7 +223,7 @@
 ; the bytes it wrote when somebody last looked at them. `readKey` reading a pipe
 ; the same way it reads a terminal is what makes that possible at all.
 
-@include "pattern.sol".
+@include "re.sol".
 
 esc := #27:asCharacter.
 csi := esc:concat("[").
@@ -1662,7 +1663,7 @@ edit:runWordCommand := { text | | words, name, rest, force |
 ; ---------------------------------------------------------------------------
 ; Searching
 ;
-; The pattern is [lib/pattern.sol](../lib/pattern.sol)'s, compiled once when it
+; The pattern is [lib/pattern.sol](../lib/re.sol)'s, compiled once when it
 ; is typed and asked about one line at a time. A file is not one string here --
 ; it is an array of lines, and the cursor is a row and a column -- so the search
 ; is a walk over lines rather than one call over the text. `^` and `$` therefore
@@ -1679,7 +1680,7 @@ edit:runSearch := { text, direction | | source |
     source := text:equals(""):ifElse({ self:patternSource }, { text }).
     source:equals(""):ifElse(
         { self:message := "no previous search" },
-        { { self:pattern := pattern:on(source).
+        { { self:pattern := re:on(source).
             self:patternSource := source.
             self:direction := direction.
             self:jumpToMatch(direction) }
@@ -1751,7 +1752,7 @@ edit:matchBefore := { | found, i, row, before, wrapped |
 ;
 ; `:s/find/replace/`, `:s/find/replace/g` for every match on the line, and
 ; `:%s/...` for every line in the file. The `&` in a replacement is what was
-; matched; [lib/pattern.sol](../lib/pattern.sol) does that part, and everything
+; matched; [lib/pattern.sol](../lib/re.sol) does that part, and everything
 ; here is about which lines to offer it.
 ;
 ; **The delimiter is whatever follows the `s`**, so `:s#/usr/bin#/usr/local/bin#`
@@ -1815,7 +1816,7 @@ edit:runSubstitute := { text | | everywhere, rest, delimiter, parts, source,
     source:equals(""):ifTrue({ source := self:patternSource }).
     source:equals(""):ifElse(
         { self:message := "no previous search" },
-        { p := pattern:on(source).
+        { p := re:on(source).
           ; A substitution sets the search too, so `n` walks what it changed --
           ; which is vi's rule and the reason to look before writing.
           self:pattern := p.

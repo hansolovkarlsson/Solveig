@@ -28,7 +28,7 @@
 ; two-line window and a program counter that can jump. This has neither, and
 ; adding them changes the runner rather than anything below it.
 ;
-; **The regular expressions are [pattern.sol](../lib/pattern.sol)'s**, which is
+; **The regular expressions are [pattern.sol](../lib/re.sol)'s**, which is
 ; the subset vi searches with: `. * [ ] ^ $ \` and nothing else. No groups, no
 ; backreferences, no `+` or `?`. A sed script using `\(...\)` is refused rather
 ; than misread.
@@ -64,7 +64,7 @@
 ; something. What this one asked for is at the bottom of the file, after the
 ; code, because a finding written before the code is a prediction.
 
-@include "pattern.sol".
+@include "re.sol".
 @include "text.sol".
 
 ; ---------------------------------------------------------------------------
@@ -143,7 +143,7 @@ parser:separators := { s | | going |
 ; The text between two delimiters, with the backslash escapes left exactly as
 ; they were written.
 ;
-; **They are left alone on purpose.** `pattern:on` reads `\x` as *the character
+; **They are left alone on purpose.** `re:on` reads `\x` as *the character
 ; x, literally*, and so does its replacement side, so `s|a\|b|X|` and
 ; `s/a\/b/X/` both arrive at the matcher spelling the delimiter as an ordinary
 ; character without this file having to know which delimiter was chosen. Undoing
@@ -192,7 +192,7 @@ parser:expression := { s, delim, what | | source |
     source:size:equals(#0):ifTrue({
         error:raise("an empty regular expression means the last one used, "
                         :concat("and this sed has no memory of it")) }).
-    pattern:on(source) }.
+    re:on(source) }.
 
 parser:address := { s | | a, delim |
     a := nil.

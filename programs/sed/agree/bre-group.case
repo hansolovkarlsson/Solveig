@@ -1,0 +1,18 @@
+# `s/\(ab\)c/YES/` -- a group, which POSIX BRE has and this now implements.
+#
+# **This case has been in three states in one day.** It began as a silent
+# defect: `\(` was a literal parenthesis, so this substituted the line holding
+# the text `(ab)c` and left the line holding `abc` alone -- the inverse of the
+# oracle on both counts, with no error and exit 0, while sed.sol's header
+# claimed such a script "will be refused rather than misread".
+#
+# It then went to differ/ as a refusal, which was honest and still not sed.
+#
+# It is here now because lib/re.sol implements groups, and the answer is the
+# oracle's. The three states are worth one comment: a case that moves from
+# differ/ to agree/ is what closing a gap looks like from the corpus's side.
+args: 's/\(ab\)c/YES/'
+input:
+xx (ab)c xx
+yy abc yy
+zz nothing zz

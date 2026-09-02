@@ -593,7 +593,7 @@ static void test_no_example_is_left_out(void)
    be leaving the largest thing on the search path unchecked. */
 static const char *library[] = {
     "lib/control.sol", "lib/text.sol", "lib/json.sol", "lib/shell.sol",
-    "lib/html.sol", "lib/math.sol", "lib/scan.sol", "lib/pattern.sol",
+    "lib/html.sol", "lib/math.sol", "lib/scan.sol", "lib/re.sol",
     "lib/sob.sol",
 };
 #define LIBRARY_COUNT (sizeof(library) / sizeof(library[0]))

@@ -714,7 +714,7 @@ demonstrate := { | path, size |
 ; | `/usr/bin/tail -f` | 0.00 s, 0.0% |
 ;
 ; **And it is checked**, which the scoping said it could not be.
-; [follow.sh](follow.sh) is the answer to *an oracle cannot check a program that
+; [follow.sh](tail/follow.sh) is the answer to *an oracle cannot check a program that
 ; does not stop*: give it a deadline. Start both tails, feed the files on a
 ; schedule, stop them, compare what each managed to write. Six scenarios --
 ; appending, truncating, an empty file, two files with the headings moving

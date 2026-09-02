@@ -7,7 +7,7 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 ### A group was two literal parentheses, and two programs said otherwise — `92c748e`, 2026-09-01
 
-**No change to the language.** A defect in [lib/pattern.sol](../lib/pattern.sol)
+**No change to the language.** A defect in [lib/pattern.sol](../lib/re.sol)
 and the two shipped programs that ran on it.
 
 `\(` was read as a literal parenthesis, so a valid sed script came out
@@ -664,7 +664,7 @@ The other half — the hold space, branching, the multi-line commands, `r` and
 leftovers: it is what makes sed a stream *language*, and it wants a pattern
 space that is a two-line window and a program counter that can jump.
 
-**The regular expressions are [pattern.sol](../lib/pattern.sol)'s**, which is
+**The regular expressions are [pattern.sol](../lib/re.sol)'s**, which is
 the whole reason to write this one. The matcher and the substituter were
 already here; what sed adds is the cycle and the addressing, and 500 lines of
 that was enough to find out what the library underneath is short of.
@@ -725,7 +725,7 @@ arriving again.
 
 ### An empty match where the last one ended is not a match — `322c50e`, 2026-08-31
 
-**A defect in [pattern.sol](../lib/pattern.sol), found by the oracle above on
+**A defect in [pattern.sol](../lib/re.sol), found by the oracle above on
 its first run**, and in the substituter rather than the matcher:
 
 ```
@@ -3636,7 +3636,7 @@ and [6.37](COMPLETED.md#637-indexof-cannot-say-where-to-start--done).
 **Two shipped files had written the workaround**, which is the number this
 repository takes to mean *build it*. A second search in the same string could
 only be had by copying what was left of it —
-[lib/pattern.sol](../lib/pattern.sol) jumping from one candidate to the next,
+[lib/pattern.sol](../lib/re.sol) jumping from one candidate to the next,
 and [programs/expect.sol](../programs/expect.sol) walking the markers in a line.
 
 ```
@@ -3677,7 +3677,7 @@ Two things were wrong and both were the program's rather than the language's.
 
 **The matcher tried a match at every position of every line.** A pattern
 beginning with a plain literal can only match where that character is, so
-[lib/pattern.sol](../lib/pattern.sol) works that character out when the pattern
+[lib/pattern.sol](../lib/re.sol) works that character out when the pattern
 is compiled and asks `indexOf` — a primitive, scanning in C — where the next
 candidate is. Measured over the same 50,000 lines:
 
@@ -3983,7 +3983,7 @@ search for a pattern with a slash in it, so a bare `/a/b/` would mean deciding
 that certain searches are silently substitutions instead. vi put substitution on
 the colon line for exactly that reason.
 
-**[lib/pattern.sol](../lib/pattern.sol) gained three messages**: `replaceIn`,
+**[lib/pattern.sol](../lib/re.sol) gained three messages**: `replaceIn`,
 `replaceAllIn` and `countIn`.
 
 ```
@@ -4024,7 +4024,7 @@ unchanged. Documented claims go 865 to 874<!--count claims-->.
 **[programs/edit.sol](../programs/edit.sol) searches**: `/pattern`, `?pattern`,
 `n` and `N`. Most of it is a new library.
 
-**[lib/pattern.sol](../lib/pattern.sol)** is regular expressions in the subset
+**[lib/pattern.sol](../lib/re.sol)** is regular expressions in the subset
 vi searches with — a character matching itself, `.`, `*`, `[abc]` `[a-z]`
 `[^abc]`, `^`, `$`, and `\` to escape any of them:
 

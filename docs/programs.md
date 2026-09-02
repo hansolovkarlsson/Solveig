@@ -394,15 +394,15 @@ line prints.
 ```
 
 Over `examples/` alone that is 30<!--count examples-files--> files and
-581<!--count examples-claims--> claims:
+588<!--count examples-claims--> claims:
 
 ```text
-30 files with expectations, 581 claims checked
+30 files with expectations, 588 claims checked
 88 lines print without saying what, and are not checked
 GRAMMAR.md and solum.bnf agree on 35 productions, and 2 are prose
 281 changelog entries name a commit, 10 name none
-2734 links in 124 files, 1369 of them naming a heading, against 1548 headings
-1365 name a file and no heading, and are not checked
+2734 links in 124 files, 1370 of them naming a heading, against 1549 headings
+2162 name a path, and every one of those is there too
 1 heading sits inside a fenced block, and is not an anchor
 17 programs say where they come in the order, and are there
 3 runs ended with a non-zero status, which is what a documented error does
@@ -430,7 +430,7 @@ table had when [disasm](#disasm--a-sob-file-read-and-disassembled) found it
 three sections out of date. They are also the first thing a newcomer reads.
 
 **It is in `make test` now**, in `tests/test_cli.c` with the other tests that
-run the binaries as a shell would — **1052<!--count claims--> claims on every build**, in about
+run the binaries as a shell would — **1060<!--count claims--> claims on every build**, in about
 sixteen seconds, and it fails the build if one stops holding.
 
 **And it holds one document against a file rather than against a run.**
@@ -485,7 +485,7 @@ is demonstrating the wrong branch.**
 
 **And it checks the documentation too.** The guide and the reference carry the
 same notation inside ``` fences, and nothing checked those either — they are the
-two documents a newcomer actually reads. 469<!--count docs-claims--> claims
+two documents a newcomer actually reads. 470<!--count docs-claims--> claims
 across twenty-eight<!--count docs-documents--> documents,
 and two more on `README.md` and `index.md` — the front pages, which were the
 last two things nothing checked.
@@ -527,7 +527,7 @@ no notation saying what it counts — so it is given one, which renders as nothi
 and leaves the sentence as it was:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 1052<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 1060<!--count claims--> claims
 ```
 
 Each name is recounted from the repository as it stands. A name the table does
@@ -926,9 +926,9 @@ one that was.**
   in this file went.
 
 **Searching came a day later, and most of it is a library.**
-[lib/pattern.sol](../lib/pattern.sol) is regular expressions in the subset vi
-searches with — `.`, `*`, `[abc]`, `[^a-z]`, `^`, `$` and `\` — and the editor
-is `/`, `?`, `n`, `N` on top of it. What the program added to the library was
+[lib/re.sol](../lib/re.sol) is regular expressions — POSIX basic, which is what
+vi means, with groups and back-references since 2026-09-01 — and the editor is
+`/`, `?`, `n`, `N` on top of it. What the program added to the library was
 the part a matcher cannot know: **a file here is not one string.** It is an
 array of lines and the cursor is a row and a column, so a search is a walk over
 lines, and `^` and `$` mean the ends of a *line* without anybody having decided
@@ -1680,14 +1680,18 @@ erin    68  warn
 multi-line commands and `r`/`w` are not here — those are what make sed a stream
 *language* rather than a filter, and they want a pattern space that is a
 two-line window and a program counter that can jump. The regular expressions
-are [lib/pattern.sol](../lib/pattern.sol)'s, which is the subset vi searches
-with: no groups, no backreferences, no `+` or `?`.
+are [lib/re.sol](../lib/re.sol)'s, which is POSIX basic: groups,
+back-references, `\+`, `\?`, `\|` and `\{n,m\}` included. Until 2026-09-01 it
+was the subset vi searches with and `\(` was a literal parenthesis, which made
+a valid script answer the inverse of sed's on both counts.
 
 **It is held against the sed on the machine.**
 [programs/oracle.sh](../programs/oracle.sh) runs 57 cases under both and
-requires the same bytes — 56 do, and the one that does not is the `pattern.sol`
-defect below, left failing rather than moved out of the way. Three further cases
-must *differ*, each carrying the reason at the top of its own file. Every case runs twice — with the input named
+requires the same bytes. Three cases must *differ*, each carrying the reason at
+the top of its own file — and two more were in that pile until `re.sol` gave
+`sed` groups, at which point the harness said so: *AGREES -- the divergence has
+gone, and the file still claims it*. A case that moves from `differ/` to
+`agree/` is what closing a gap looks like from the corpus's side. Every case runs twice — with the input named
 as a file and with it arriving on standard input — because those are different
 code paths underneath and a stream editor that answered two ways about the same
 bytes would be wrong where nothing else could see it. This is the argument

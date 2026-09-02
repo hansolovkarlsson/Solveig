@@ -6217,7 +6217,7 @@ library answers only where a match begins, which is the one place it was left
 deliberately short*.
 
 That was false when it was written. `endOfMatchAt` — *where a match beginning at
-`at` ends* — has been in [lib/pattern.sol](../lib/pattern.sol) since the hour it
+`at` ends* — has been in [lib/pattern.sol](../lib/re.sol) since the hour it
 was written, two screens above the sentence saying it was absent, with its own
 comment explaining why it was kept separate. Building substitution today needed
 **nothing added to the matcher**: `replaceIn` is `findFrom` and `endOfMatchAt`
@@ -6263,7 +6263,7 @@ about forty lines of editor on top of it.
 
 ### Where it went, and why not into the editor
 
-Into [lib/pattern.sol](../lib/pattern.sol), on the search path, and the argument
+Into [lib/pattern.sol](../lib/re.sol), on the search path, and the argument
 is [manifest.sol](../programs/manifest.sol)'s from months back: *a JSON reader is
 library code, and the program above it is the thing that finds out whether the
 library is any good.* A matcher is the same kind of thing. The editor is now a

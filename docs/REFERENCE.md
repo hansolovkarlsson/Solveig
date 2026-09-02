@@ -1003,30 +1003,32 @@ reads `&notanentity;` as far as the `;` before deciding it is not an entity
 after all, and puts the cursor back. Saving `pos` and restoring it is the whole
 mechanism, and it is why there is no separate `mark`.
 
-#### pattern.sol
+#### re.sol
 
-Regular expressions, in the subset vi searches with: `.`, `*`, `[abc]`,
-`[^a-z]`, `^`, `$` and `\` to escape one of those. It needs `scan.sol`, which it
-includes itself.
+Regular expressions, in both dialects POSIX describes. It needs `scan.sol`,
+which it includes itself.
 
-**A construct outside that subset is refused**, not read as literal text —
-`\(`, `\)`, `\{`, `\}`, `\1`–`\9`, `\+`, `\?` and `\|` all raise. Reading them
-literally is worse than not having them: a pattern that groups then matches the
-*characters* `(ab)c` and misses `abc`, which is the wrong answer rather than a
-missing one, and it was what two shipped programs did until 2026-09-01.
+`re:on` reads a **basic** regular expression — what `sed` and `vi` mean, where
+the operators are backslashed — and `re:ere` an **extended** one, which is what
+`awk` means. One message rather than a flag, so a reader of the call site can
+see which language the string is written in.
 
 ```
-@include "pattern.sol".
+@include "re.sol".
 
-p := pattern:on("^[a-z]*ing$").
+p := re:on("^[a-z]*ing$").
 p:find("everything"):print.           ; #1
 p:find("thingy"):print.               ; nil
-pattern:on("[0-9]"):find("port 80"):print.   ; #6
+re:on("[0-9]"):find("port 80"):print.   ; #6
+re:ere("(ab)+c"):find("ababc"):print.   ; #1
 ```
 
 | Message | Answers |
 | --- | --- |
-| `pattern:on(text)` | a compiled pattern; **raises** on one it cannot read |
+| `re:on(text)` | a compiled **basic** pattern; **raises** on one it cannot read |
+| `re:ere(text)` | the same, reading **extended** syntax |
+| `group(#n)` | `[first, last]` for what group `n` took in the last match, or nil |
+| `guarded` | set true to prune a position already tried — see the bargain below |
 | `find(text)` | where the first match begins, **one-based**, or nil |
 | `findFrom(text, #at)` | the same, starting at `#at` rather than at the beginning |
 | `findLast(text, #before)` | where the last match beginning before `#before` is, or nil |
@@ -1037,16 +1039,30 @@ pattern:on("[0-9]"):find("port 80"):print.   ; #6
 | `countIn(text)` | how many non-overlapping matches there are |
 | `substitutionIn(text, with, all)` | a dictionary of the new `"text"` and the `"count"` of changes, in one walk |
 
-The language is seven things: a character matching itself, `.` for any one, `*`
-for zero or more of the item before it, `[abc]` `[a-z]` `[^abc]` for a class,
-`^` and `$` for the ends, and `\` to escape any of them. `^` and `$` are
-ordinary characters anywhere but the ends of the pattern, and a `*` with nothing
-before it is ordinary too — which is vi's rule, and is what lets a price or a
-shell variable be searched for unescaped.
+Common to both: a character matching itself, `.` for any one, `*` for zero or
+more of the item before it, `[abc]` `[a-z]` `[^abc]` for a class, `^` and `$`
+for the ends, and `\` to escape any of them. In a **basic** pattern `^` and `$`
+are ordinary characters anywhere but the ends, and a `*` with nothing before it
+is ordinary too — vi's rule, and what lets a price or a shell variable be
+searched for unescaped. In an **extended** one they are always special.
 
-**What is not here**: groups, alternation, `+`, `?`, captures, counted
-repetition. Those want a backtracker over a tree rather than over a list, and
-nothing has wanted one.
+Spelled `\(...\)` `\+` `\?` `\|` `\{n,m\}` in basic and `(...)` `+` `?` `|`
+`{n,m}` in extended: a group, one-or-more, zero-or-one, either, and a counted
+repetition. `\1`–`\9` are what group *n* matched and are **basic only**, as
+POSIX has it — extended has no back-references, and that is the construct which
+decides an implementation's whole strategy rather than a detail of spelling.
+
+**Leftmost-longest**, which is POSIX and is not what a Perl-style engine gives:
+`a|ab` against `ab` answers `ab`, not `a`, and `a*ab` matches `aaab` whole
+because `a*` gives characters back until `ab` fits.
+
+**The bargain, which is [`shell.sol`](#shellsol)'s**: build a pattern out of
+things you wrote, not out of things a file or a user gave you. This is a
+backtracker, so a starred group inside a starred group takes exponential time on
+input that nearly matches. `--steps` bounds a runaway and says so — every step
+this takes is an instruction the machine counts, which an engine inside a C
+primitive could not offer — and `guarded` removes the exponential outright, at
+20–30%, for a caller that does not control its input after all.
 
 **`&` in a replacement is what was matched**, which is sed's rule and vi's;
 `\&` is an ampersand and `\\` is a backslash. A replacement ending in a
@@ -1054,10 +1070,10 @@ backslash is refused the way a pattern ending in one is — it is always a typin
 mistake.
 
 ```
-@include "pattern.sol".
+@include "re.sol".
 
-pattern:on("an"):replaceAllIn("banana", "[&]"):display.   ; b[an][an]a
-pattern:on("x*"):replaceAllIn("abc", "-"):display.        ; -a-b-c-
+re:on("an"):replaceAllIn("banana", "[&]"):display.   ; b[an][an]a
+re:on("x*"):replaceAllIn("abc", "-"):display.        ; -a-b-c-
 ```
 
 **A match that consumed nothing gets out of its own way.** `x*` matches the
@@ -3440,7 +3456,7 @@ at:print.                    ; #4
 
 Without it a second search meant copying what was left of the string — which is
 quadratic in a loop, and is what
-[lib/pattern.sol](../lib/pattern.sol) and [programs/expect.sol](../programs/expect.sol)
+[lib/pattern.sol](../lib/re.sol) and [programs/expect.sol](../programs/expect.sol)
 were both doing ([6.37](COMPLETED.md#637-indexof-cannot-say-where-to-start--done)).
 `#from` may be **one past the end**, where the answer is nil rather than an
 error — the rule `copyFrom` has, so a walk that runs off the end gets an answer
