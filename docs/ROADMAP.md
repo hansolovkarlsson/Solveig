@@ -1043,7 +1043,9 @@ on 2026-08-29 and closed the same afternoon, which is the section still doing
 what it was for: saying what a program written against this needs and has not
 got.
 
-**Nothing is open here**, and the three that were are all closed.
+**One is open**, and it is the first entry here opened by somebody outside this
+repository: 6.42, a second producer of `.sob` has no contract to build against.
+The three that were open on 2026-09-01 are all closed.
 [6.39](COMPLETED.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file--done),
 added on 2026-08-31, was that a program cannot tell whether two paths are the
 same file; `system:fileId` answers it, and `tail -f` stopped losing a line to a
@@ -1056,6 +1058,104 @@ identity. It went in front of 6.39 and had to.
 6.40 was opened and closed on 2026-08-31 —
 [a program cannot ask whether a stream is a terminal](COMPLETED.md#640-a-program-cannot-ask-whether-a-stream-is-a-terminal--done),
 answered by `system:isTerminal`.
+
+### 6.42 A second producer of `.sob` has no contract to build against
+
+**The first program written against this language by somebody who did not write
+the language.** Phoenix is a compiler-generator, outside this repository, and it
+emits `.sob` **directly** — not Solum source for `solas` to compile. The stated
+plan is that it will emit bytecode for other source languages too, which is what
+makes this an entry rather than a courtesy: the moment a second producer exists,
+the `.sob` format stops being a detail between `solas` and `solvm` and becomes an
+interface.
+
+It has already cost its author time twice, and both were documentation rather
+than defects: `display`'s newline, and a comment convention that looks like a
+claim about the language. Both are fixed. What is not fixed is that there is no
+one place that says what a producer must get right.
+
+#### What a producer needs and where it is
+
+`.sob` itself is well served and that is worth saying first.
+[BYTECODE.md](BYTECODE.md) gives every opcode with its byte, held to the header
+by three tests; [serialize.h](../solum/include/solum/serialize.h) gives every
+field; [disasm.sol](../programs/disasm.sol) reads the format independently and
+[experiment/emit.sol](../experiment/emit.sol) has already written one by hand,
+byte-identical to `solas`. A producer targeting the format alone is in good
+hands.
+
+**What it has not got is everything the compiler enforces that the grammar
+cannot.** Held against `solas`'s own diagnostics, in four groups:
+
+| | where it is written down |
+| --- | --- |
+| `self` is only meaningful inside a block, and cannot be assigned | **nowhere** |
+| a duplicate temporary, or one shadowing a parameter | **nowhere** |
+| chunk limits: constants, names, blocks, arguments, parameters, array elements, dictionary pairs, names in a frame | **nowhere** |
+| a conditional or loop body too large to jump over | **nowhere** |
+| comparisons do not chain; only `-` and `~` open a unary inside `@expr` | REFERENCE.md |
+| a directive must stand alone; a file that includes itself | REFERENCE.md |
+
+**The grammar cannot carry the first four**, which is not a defect in the
+grammar. `solum.bnf` says of itself that there are no reserved words, and that
+is true: `self` is an ordinary identifier that happens to be bound. A front end
+built from the grammar alone will accept `self := #1` and `{ | t, t | t }`, and
+both are errors. That was measured on 2026-09-01 — the grammar and `solas` agree
+on 94 of 94 shipped files and on 15 constructs, and disagree only where a scope
+rule is involved.
+
+#### And the verifier says one sentence for thirty-five faults
+
+`sol_chunk_verify` returns `SOL_SER_MALFORMED` from **35 distinct conditions**,
+and every one of them reports *bytecode is internally inconsistent*: a jump past
+the end, a stack height that does not balance, `slot_count < arity + 1`, a name
+index out of range, a line run overrunning the code, a chunk not ending in
+`HALT` or `RETURN`.
+
+For `solas` that is the right bar and the entry that built it said so: a
+corrupted opcode arrives as a message rather than a crash. For an outside
+producer it is the difference between a five-minute fix and an afternoon
+bisecting a binary — and these are exactly a code generator's bugs, not exotic
+ones. `emit.sol` is the only independent producer this repository has ever had,
+and its account records the verifier catching a fault as a *virtue*, without
+recording what it took to find out which fault.
+
+#### Two shapes, and they are not the same size
+
+**A document** — *writing a producer*, collecting the rules above with the
+chunk limits and their values. Perhaps two pages, no code, and it can be written
+from `solas`'s diagnostics in an afternoon because they are already exhaustive.
+It is the whole answer for a producer emitting *source*, and half the answer for
+one emitting bytecode.
+
+**Splitting `MALFORMED`** — a result code, or a message, that names which of the
+thirty-five it was. This is the half a bytecode producer actually needs, and it
+is a change to shipped C with a compatibility question attached: the codes are
+part of what `solvm` reports and something may be reading them.
+
+**A conformance corpus is the third thing and it depends on the second.** A
+suite of deliberately malformed `.sob` files, each asserting a *specific*
+diagnosis, cannot be written while every diagnosis is the same sentence. The
+corpus is the forcing function for the split and not a separate job.
+
+#### The calls
+
+1. **Document first, or split first?** Recommendation: **document**. It is
+   cheap, it is the whole answer for the source-emitting experiment Phoenix is
+   also planning, and it costs nothing if the split never happens.
+2. **How far does the split go?** Naming all thirty-five is not obviously right;
+   some genuinely are *this file is corrupt*. Recommendation: split by **who is
+   at fault** — a producer bug (jump target, stack height, slot count, index out
+   of range) against a damaged file (truncation, bad magic, bad version).
+3. **Is a stability promise owed?** `.sob` is format 14 and *files from 0.17.0
+   and earlier are refused* — a promise made to `solvm`'s own past, not to a
+   third party. A second producer targeting 14 is entitled to know what 15 will
+   do to it, and nothing says.
+4. **Does the corpus live here or there?** A suite of malformed `.sob` files is
+   as useful to Phoenix as to this repository. Recommendation: here, since the
+   verifier is here, and runnable by anybody.
+
+**Not built.** The scoping is this entry; building is a separate instruction.
 
 The one thing that was left was never work — it was a decision, and it has been
 **deferred rather than taken**:
@@ -1073,8 +1173,16 @@ keeping it did. The number stays 6.32 and is not reused.
 
 ## How this list emptied, and how it filled and emptied again
 
-**Nothing is on it**, for the third time, and the three that were there this
-morning all closed on 2026-09-01 — which has not happened before.
+**One thing is on it, and somebody else put it there.**
+[6.42](#642-a-second-producer-of-sob-has-no-contract-to-build-against) is the
+first entry on this list opened by a person who does not work on this
+repository: Phoenix emits `.sob` directly, from outside, and there is no one
+place saying what a producer must get right. Two of its author's questions have
+already been answered by fixing documents rather than code.
+
+The list had been empty for a few hours before that, for the third time — the
+three entries open on the morning of 2026-09-01 all closed the same day, which
+has not happened before.
 
 [6.39](COMPLETED.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file--done)
 arrived on 2026-08-31: a program cannot tell whether two paths are the same
