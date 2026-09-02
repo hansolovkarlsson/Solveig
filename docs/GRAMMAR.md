@@ -78,8 +78,16 @@ not have a second one.
 | operator | one or more of `+ - * / < > = ! & ^ % ~ ? \`, or `||` |
 | comment | `;` to the end of the line |
 
-Everything but `operator` is Solveig's own spelling, so a file can be read by
-somebody who knows Solveig without a second set of habits. **The header is where
+Everything but `operator` is Solveig's own spelling **in shape, and not in
+full**. Solveig has three integer forms to Proto's one, float exponents, `#[…]`
+dictionaries and `@expr` regions; Proto has none of those, and takes `-3` as a
+declared prefix operator where Solveig's scanner takes it as part of the number.
+[POSTMORTEM.md](POSTMORTEM.md) 16 lists all nine differences and why the claim
+cannot be made true as it was first written: Solveig's scanner is
+region-sensitive, and Proto could not read `-3` as a literal anyway without
+`a -3` ceasing to be a subtraction in any dialect that declared `-`.
+
+**The header is where
 the two are meant to differ, and nowhere else.**
 
 **`|`, `:`, `.` and `,` are not operator characters and cannot become any.** `|`

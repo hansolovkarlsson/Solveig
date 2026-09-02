@@ -128,8 +128,9 @@ Still no proposal. A dialect that could say where it ends would have to say it
 per operator and per quantity, which is a type system and a larger thing than
 this project is.
 
-**Proto has one of Solveig's three integer literals, and that one without its
-sign.** Solveig's grammar:
+**Nine of Solveig's syntactic forms are not Proto's.** Found first as a missing
+integer literal, and then, on being asked whether that survey was complete, as
+nine. Solveig's grammar for numbers:
 
 ```ebnf
 integer = "#" [ "-" ] digit { digit }
@@ -146,14 +147,36 @@ it reaches back: `programs/digest` transcribed sixty-four SHA-256 round
 constants out of the hexadecimal FIPS 180-4 prints them in, because `$428a2f98`
 is not a thing Proto reads.
 
-**Two of the three are free and the third is not**, which is the only part that
-needs deciding:
+**The nine sort into four kinds, and only one of them is a decision:**
 
-| | |
+| free to add | |
 | --- | --- |
 | `#-5` | Nothing else can begin with `#`. Purely additive, and it closes the gap that was actually hit. |
-| `$FF08` | `$` is not a token, an operator character, or anything else in Proto today. Purely additive. |
-| `%1011` | **`%` is an operator character**, and `lib/arith.pro` declares it as `mod`. `a %1011` is then two readings — `a mod 1011`, and `a` beside a binary literal — and the lexer would have to decide before any declaration has been read. |
+| `$FF08` | `$` is not a token, an operator character, or anything else in Proto today. |
+| `1e10`, `2.5E-3` | Float exponents. Proto's float stops at a fraction. |
+| `#[a = b]` | A dictionary. The *Rough edges* table below worried about the `=` inside; the obstacle is earlier — `#[` fails at the `#`, which wants digits. |
+
+| a decision | |
+| --- | --- |
+| `%1011` | **`%` is an operator character**, and `lib/arith.pro` declares it `mod`. `a %1011` is then two readings — `a mod 1011`, and `a` beside a binary literal — and the lexer would have to choose before any declaration has been read. |
+
+| already decided | |
+| --- | --- |
+| `( \| t \| … )` | Temporaries in a group. In *Rough edges* below since 0.1.0; confirmed by running it rather than asserted. |
+| `@expr(…)`, `@expr{…}` | Refused, in *Not planned* below. Solveig's fixed infix region is the special case `@infix` generalises. |
+
+| forced, and never written down | |
+| --- | --- |
+| `-3` | Solveig's scanner gives the sign to the number outside a `@expr` region and treats it as the operator inside one. **Proto cannot have either half.** It has no regions, so it cannot be context-sensitive; and it cannot simply take `-3` as a literal, because then `a -3` stops being a subtraction in every dialect that declares `-`. A prefix declaration is the only reading left. |
+| `"\q"` | The one where Proto is the *permissive* one, and therefore the only one that emits Solveig `solas` rejects. Proto escapes whatever follows a backslash; Solveig has five escapes and no more. A plain defect — [POSTMORTEM.md](POSTMORTEM.md) 17. |
+
+**The last two are the interesting ones.** Everything above them is a token
+Proto could add. `-3` is a token Proto **cannot** add without giving up
+declarable `-`, which means *everything but `operator` is Solveig's own
+spelling* was never achievable and the design chose against it in 0.1.0 without
+recording that it had. That is the extensible-operator line arriving from a new
+direction — not a dialect wanting to change the lexer, but Solveig's own number
+syntax being uncopyable while operators stay declarable.
 
 Solveig has no conflict here because its operators are fixed. **Proto's are not,
 and this is the extensible-operator line arriving from a direction nothing had
@@ -162,9 +185,10 @@ own lexer being something Proto cannot fully copy while its operators stay
 declarable.
 
 The decision is whether `%1011` is worth a rule that says a `%` followed
-immediately by a binary digit is a literal, or whether Proto carries two of
-three and says so. **Nothing is blocked either way**: `-#5` is a prefix send and
-reads correctly, and hexadecimal is a transcription cost rather than a wall.
+immediately by a binary digit is a literal, or whether Proto carries what it can
+and says so. **Nothing is blocked either way**: `-#5` is a prefix send and reads
+correctly, and hexadecimal is a transcription cost rather than a wall. The
+`"\q"` half is not a decision at all and should just be fixed.
 
 ## Waiting on a customer — optional and repeated parts
 

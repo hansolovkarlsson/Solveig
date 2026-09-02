@@ -9,10 +9,10 @@ shipped. This is the failures.
 
 ## Scope
 
-Sixteen, from three days, in four cohorts that failed for four different
+Seventeen, from three days, in four cohorts that failed for four different
 reasons:
 
-- **In the compiler** — five, four of which were latent from 0.1.0 and 0.2.0.
+- **In the compiler** — six, five of which were latent from 0.1.0 and 0.2.0.
 - **In the documents** — four: three an edit that reported success and changed
   nothing, and one where no edit was attempted at all.
 - **In the programs** — four, found by the first real use of a thing.
@@ -107,44 +107,95 @@ fail is not a test; this one needed the tool the project already had.
 in another document. The claim was that composing those two dialects collides on
 four operators. It collides on nine, and the compiler crashed while saying so.
 
-### 16. Two thirds of Solveig's integer literals were never implemented — latent since 0.1.0
+### 16. Nine of Solveig's syntactic forms are not Proto's — latent since 0.1.0
 
-**What.** `#-1225` is an error in Proto and a valid integer in Solveig. So are
-`$FF08` and `%1011`. Solveig's grammar has three forms and Proto implements one,
-without its optional sign:
+**What.** `#-1225` is an error in Proto and a valid integer in Solveig. So is
+much else. Asked whether the survey behind that had been partial, it had:
+comparing every form in Solveig's grammar against Proto, one file each, gives
+**nine divergences out of eighteen**.
 
-```ebnf
-integer = "#" [ "-" ] digit { digit }
-        | "$" hexdigit { hexdigit }
-        | "%" bindigit { bindigit } .
-```
+| form | Solveig | Proto | |
+| --- | --- | --- | --- |
+| `#-45` | yes | no | missing, and nothing objects |
+| `$FF08` | yes | no | missing, and nothing objects |
+| `1e10`, `2.5E-3` | yes | no | float exponents; missing, and nothing objects |
+| `#[a = b]` | yes | no | dictionary; fails at `#`, before the `=` anyone worried about |
+| `%1011` | yes | no | **conflicts**: `%` is an operator character, declared `mod` by `lib/arith.pro` |
+| `( \| t \| … )` | yes | no | temporaries in a group; already a rough edge, now confirmed by running it |
+| `@expr(…)` `@expr{…}` | yes | no | refused on purpose; see ROADMAP.md |
+| `-3` | a literal | needs `@prefix -` | Proto requires a declaration where Solveig requires none |
+| `"\q"` | refused | **accepted** | Proto is the permissive one — see 17 |
 
-**Why it is a defect and not a missing feature.** [GRAMMAR.md](GRAMMAR.md) says
-everything but `operator` is Solveig's own spelling, *so that a file can be read
-by somebody who knows Solveig without a second set of habits*. That sentence is
-the claim, and for integers it is false. A person who knows Solveig writes
-`#-5` and is told `'#' introduces an integer, and needs digits after it`.
+**Why it is a defect and not a list of missing features.**
+[GRAMMAR.md](GRAMMAR.md) says everything but `operator` is Solveig's own
+spelling, *so that a file can be read by somebody who knows Solveig without a
+second set of habits*. [README.md](../README.md) goes further in its first
+section: a module may *declare no operators at all and read exactly as Solveig
+does today*. **That is false in eight ways**, and a person who knows Solveig
+meets the first of them at `#-5`.
+
+**And the claim cannot be made true as written.** Solveig's scanner is
+region-sensitive: *a leading `-` belongs to the number outside a `@expr` region,
+and inside one it is always the operator.* Proto has no regions and cannot have
+that rule — and it could not simply take `-3` as a literal either, because a
+dialect declaring `@infix - 60 sub.` would then read `a -3` as two terms rather
+than a subtraction.
+
+**So this is the extensible-operator line again, from a direction nothing had
+come from.** Not a dialect wanting to change the lexer — *Solveig's own number
+syntax being something Proto cannot copy while its operators stay declarable*.
+Four of the nine are free, one conflicts, two are already-recorded decisions,
+and two are consequences of a choice this project made in 0.1.0 and never wrote
+down.
 
 **Why nothing found it for ten versions.** No program here had an ordinary
-negative value. A hash has none, an assembler none, a parser none, and the five
-examples none. `programs/ledger` is a ledger, and the second line of its data is
-a refund.
+negative value — a hash has none, an assembler none, a parser none, and the five
+examples none — and nobody had run the comparison. `programs/ledger` is a
+ledger, and the second line of its data is a refund.
 
 **And it had already cost something, unnoticed.** `programs/digest` writes the
 SHA-256 round constants as `#1116352408, #1899447441, …`. FIPS 180-4 prints them
 as `428a2f98, 71374491, …`, and `$428a2f98` is what Solveig would have taken.
 Sixty-four constants converted by hand, in the program whose first prediction
-was *the formulas will transcribe* — and they did. **The constants did not, and
-the transcription cost never appeared in that program's findings**, because
-converting them felt like the work rather than like a workaround.
+was *the formulas will transcribe* — and they did. **The constants did not, and the
+cost never reached that program's findings**, because converting them felt like
+the work rather than like a workaround.
 
-**Not yet fixed**, because one third of it is a real decision: `%` is an
-operator character here and `lib/arith.pro` declares it `mod`, so `a %1011` has
-two readings and the lexer would have to choose one before any declaration has
-been read. [ROADMAP.md](ROADMAP.md) carries it. The other two forms are purely
-additive.
+**Not yet fixed.** [ROADMAP.md](ROADMAP.md) carries it, split by which of the
+four kinds each form is.
 
-**Found by** writing the fourth program, at the second line of its data.
+**Found by** two things, and the second is the one worth keeping. `#-1225` was
+found by writing the fourth program, at the second line of its data. **The other
+eight were found by being asked whether the first survey had been complete** —
+it had not, and nothing but the question would have said so.
+
+### 17. Proto emits Solveig that Solveig rejects — latent since 0.1.0
+
+**What.** `x := "a\qb".` compiles without complaint and produces a `.sol` that
+`solas` refuses:
+
+```
+[q.sol:3:6] solas: unknown escape in a string; \" \\ \n \t \r are the escapes
+```
+
+Solveig's escapes are five and its grammar says so; Proto's lexer takes `\` as
+escaping whatever follows.
+
+**Why it matters more than the other eight.** Every other divergence is Proto
+refusing something Solveig accepts, which is a smaller language and an honest
+error message. This one is the other way: **Proto accepting something Solveig
+does not, and emitting it.** [README.md](../README.md) says the examples are
+compiled *and run* precisely because *a front end that emits text can be wrong
+in a way no unit test sees — Solveig-looking source that Solveig rejects*. This
+is that, and the discipline did not catch it because no example contains a bad
+escape.
+
+**Cause.** A lexer written to be permissive where the specification is a closed
+set of five.
+
+**Found by** the same comparison as 16, which is the only place a divergence in
+this direction could have shown up: it is invisible from inside Proto, and
+invisible from inside Solveig.
 
 ---
 
@@ -354,8 +405,10 @@ the question it answered, or it is asked instead.**
 | Having to restate a number another document already stated | **1** |
 | The user saying plainly what had been inferred | **1** |
 | Checking a document's claim before repeating it elsewhere | **1** |
+| Being asked whether a survey had been complete | **2** |
 
-**Two of sixteen were found by tests, and one of those two was a broken test.**
+**Two of seventeen were found by tests**, and one of those two was a broken
+test.
 Five came from the four programs written in the language, and three more came
 from reading something rather than running it.
 

@@ -24,8 +24,13 @@ bin/proto --map examples/vectors.pro      # -> examples/vectors.sol + .sol.map
 The three lines of header are the whole of that module's grammar. `*` binds
 tighter than `+` because this file said 70 against 60, and nothing anywhere else
 knows or cares. A second module in the same program may declare `+` to mean
-something else entirely, or declare no operators at all and read exactly as
-Solveig does today.
+something else entirely, or declare no operators at all — and then it reads as
+Solveig does, in shape. Not in full: Proto has one of Solveig's three integer
+literals and no float exponent, no `#[…]`, no `@expr`, and `-3` needs a declared
+prefix where Solveig's scanner folds the sign into the number.
+[POSTMORTEM.md](docs/POSTMORTEM.md) 16 lists the nine and argues that the last
+of them is forced — a lexer cannot both take `-3` as a literal and let a dialect
+declare `-`.
 
 ## Why it is not a folder inside Solveig
 
