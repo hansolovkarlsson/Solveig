@@ -93,7 +93,7 @@ not have a second one.
 | string | `"…"`, with `\"` `\\` `\n` `\t` `\r` and no other escape |
 | symbol | `'` and then a name |
 | directive | `@` and then a name |
-| operator | one or more of `+ - * / < > = ! & ^ % ~ ? \`, or `||` — except a `%` immediately before `0` or `1`, which begins a binary integer |
+| operator | one or more of `+ - * / < > = ! & ^ % ~ ? \`, or `||`, or a lone `|` — except a `%` immediately before `0` or `1`, which begins a binary integer |
 | comment | `;` to the end of the line |
 
 Everything but `operator` is Solveig's own spelling **in shape, and not quite
@@ -116,7 +116,8 @@ the lexer gives: nothing but an integer can begin with `#`.
 is what tells a block's parameters from its body, and the rest are the core
 syntax of a send, a statement and an argument list. A dialect gets the
 characters that mean nothing until it says so — `\` is in the list, and is what
-a dialect writes for the bitwise `or` it cannot spell `|`.
+a dialect may write for a bitwise `or`, though since 0.14.0 `|` itself is
+available and is what this repository uses.
 
 **`||` is a token even though `|` is not**, taken by the lexer before the bar
 and belonging to every dialect rather than to any declaration. It is two bars

@@ -124,18 +124,25 @@ An operator is written out of `+ - * / < > = ! & ^ % ~ ? \` , run together as fa
 as they go — so a dialect can declare `<=` without `<` having to stop existing.
 `||` joins them as a token in its own right, taken before the bar.
 
-**A lone `|` is not among them and cannot be** — it separates a block's
-parameters from its body, so a `|` that ran together with other operator
-characters would put `|=` and `{ a | b }` in the same sentence. *That much is
-about the character set. It was written here as though it also settled whether
-`|` can be **declared**, and it does not:* a bar is a token of its own, a parser
-may look one up, and `{ a | b }` has one reading the moment a rule says so.
-[COMPLETED.md](docs/COMPLETED.md) 12 carries the retraction and
-[ROADMAP.md](docs/ROADMAP.md) what it would cost. **`||` is two bars and not a
+**A lone `|` is not among the operator characters and cannot be** — one of
+those runs together with its neighbours, and a `|` there would make `|=` a
+spelling and `{ a | b }` a guess.
+
+**It may be declared, though, and that is a different question.** A bar is a
+token of its own, so `@infix | 40 bitOr.` asks the *parser* to look one up and
+the lexer never has to. A block settles its parameters and its temporaries by a
+bounded lookahead that consults no dialect, so `{ a | b }` is a parameter and a
+body in every module there will ever be — and `{ (a) | b }` is the escape, one
+bracket down, exactly as `#[(b = c) = d]` escapes the dictionary rule. Nine
+versions of documents said this was impossible;
+[POSTMORTEM.md](docs/POSTMORTEM.md) 18 says why they were wrong and
+[COMPLETED.md](docs/COMPLETED.md) 16 what it took. **`||` is two bars and not a
 bar**, and a block wants a lone one everywhere it looks, so the pair could be
-handed to dialects without the single one moving at all. The bitwise `or` is
-written `\` — the bar that leans: one character, like C's, and free — and every
-dialect here spells the logical one `||`, the way C does. Solveig settles the same question the same way, and
+handed to dialects without the single one moving at all. **And since 0.14.0 the
+single one may be declared too** — not as an operator character, but as the
+token it already was, looked up by the parser. So the bitwise `or` is spelled
+`|`, the way C spells it, and the logical one `||`, the way C spells that.
+Solveig settles the same question the same way, and
 [says so](https://hansolovkarlsson.github.io/Solveig/docs/GRAMMAR.html):
 *ordered choice is what keeps that true*.
 

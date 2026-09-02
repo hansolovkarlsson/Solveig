@@ -40,10 +40,13 @@ static bool is_alnum(char c) { return is_alpha(c) || is_digit(c); }
  *
  * **That is about the character set and not about `|` being declarable**, which
  * is a distinction this comment used to blur and docs/COMPLETED.md 12 used to
- * get wrong. A bar is a token in its own right; a parser may look one up
- * without it ever entering the set above, and the ambiguity a block has is
- * settled by a rule rather than by a spelling. Shown to work and not kept --
- * docs/ROADMAP.md says what it would cost.
+ * get wrong. A bar is a token in its own right, and since 0.14.0 a module may
+ * declare one with `@infix` -- the parser looks it up, the lexer never has to,
+ * and a block's parameters are settled before either. See docs/GRAMMAR.md.
+ *
+ * `\` is therefore free again. It was the bitwise `or` from 0.1.0 to 0.13.0
+ * because `|` could not be had; it is spelled `|` now, and nothing in this
+ * repository uses a backslash outside a string.
  *
  * `||` *is* available, and is started by the case below rather than by this
  * set, because it is two bars and not a bar. Nothing legal was given up for it:

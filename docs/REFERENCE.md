@@ -210,15 +210,20 @@ Across every dialect in this repository:
 | | logical | bitwise |
 | --- | --- | --- |
 | and | `&&` | `&` |
-| or | `\|\|` | `\` |
+| or | `\|\|` | `\|` |
 | not | `!` | `~` |
 | xor | — | `^` |
 
-C's table, with `\` where C writes `|` — the one character a dialect can never
-have. The bitwise column is declared per file rather than in `lib/`, because a
+**C's table exactly**, since 0.14.0. A lone `|` is not an operator *character*
+and cannot be, but it may be *declared* — a bar is a token of its own and the
+parser looks one up, so `{ a | b }` stays a parameter and a body in every
+module. The bitwise column is declared per file rather than in `lib/`, because a
 file doing bitwise work wants its own rungs: `examples/utf8.pro` and
-`programs/digest/sha2.pro` both declare `&` and `\`, at different precedences,
+`programs/digest/sha2.pro` both declare `&` and `|`, at different precedences,
 against different neighbours.
+
+`\` is free and unused. It was the bitwise `or` from 0.1.0 to 0.13.0, when a
+bar could not be had.
 
 ---
 

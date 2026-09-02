@@ -10,6 +10,62 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### A declared `|`, and `\` retired — 0.14.0, 2026-09-02
+
+**A lone `|` may be declared.** Nine versions of documents said it could not, a
+retraction two commits ago said they were wrong, and this is the thing itself.
+
+```
+@infix | 40 bitOr.
+
+a | b              is  a:bitOr(b)
+{ a | b }          is  a parameter and a body, in every module
+{ (a) | b }        is  the escape, one bracket down
+```
+
+**`|` never joins the operator characters and the lexer is untouched.** A bar is
+a token of its own; `@infix | …` asks the *parser* to look one up. A block
+settles its parameters and its temporaries with a bounded lookahead that
+consults no dialect, so the collision is one production wide and everything else
+is free. **A tool can still tokenise any `.pro` knowing nothing about its
+dialect** — the property [COMPLETED.md](COMPLETED.md) 12 was written to defend,
+and defends correctly.
+
+The second place a context outranks a declaration, and the first — `#[k = v]` in
+0.12.0 — is the same shape with the same escape.
+
+**Two things the demonstration had wrong, fixed before landing.**
+
+| | |
+| --- | --- |
+| `@prefix \|` | was accepted and inert; **refused** now. A block's temporaries open with a bar, so a prefix one would have nothing to tell them apart — and a declaration accepted and doing nothing is what `@language` was deleted for in 0.10.0. |
+| a stray `\|` | said *expected '.' after this statement*; says **'\|' has no meaning in this module** now, with the note every other undeclared operator gets. |
+
+**And `\` is retired**, which is why this waited a version rather than landing
+the morning it was demonstrated. 0.13.0 had just settled the repository on *one
+spelling per operation* with `\` for a bitwise or **because `|` could not be
+had**. Landing the bar without redoing that would have changed one spelling
+twice in two versions, so the two went in together:
+
+| | logical | bitwise |
+| --- | --- | --- |
+| and | `&&` | `&` |
+| or | `\|\|` | `\|` |
+| not | `!` | `~` |
+| xor | — | `^` |
+
+**C's table exactly, with nothing substituted.** Nine lines of code across
+`examples/utf8.pro`, `programs/digest/sha2.pro` and
+`programs/digest/sha256.pro`, converted on the code portion of each line only
+and every one printed and read — which is what
+[POSTMORTEM.md](POSTMORTEM.md) 6 is for. `digest` still agrees with
+`shasum -a 256`.
+
+`\` is free and unused. `\|=` stays undeclarable, nothing being able to run
+together with a bar; that is the price of not touching the lexer and it is the
+right price. Nine checks in `tests/test_reader.c`, holding both halves of the
+rule and both refusals. [COMPLETED.md](COMPLETED.md) 16.
+
 ### `programs/prose` — 2026-09-02
 
 **The fifth program, and the one [does-it-pay.md](does-it-pay.md) asked for.**

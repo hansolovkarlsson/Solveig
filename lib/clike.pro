@@ -34,8 +34,10 @@
 ; **`|` alone, for bitwise or.** `|` separates a block's parameters from its
 ; body and cannot be an operator character. `||` is two bars rather than a bar
 ; and is available, which is why `||` below is spelled the way C spells it;
-; single `|` is not, and a dialect wanting the bitwise one writes `\` -- the
-; bar that leans -- as `examples/utf8.pro` does.
+; single `|` is not -- and since 0.14.0 it does not need to be, because a bar
+; may be *declared* without ever joining that set. `examples/utf8.pro` spells a
+; bitwise or `|` for that reason. What a bar cannot be is a prefix: a block's
+; temporaries open with one.
 
 ; **Three templates, and each is something a message cannot be.** Assignment is
 ; not a send; `&&` and `||` need their right side inside a block or it is

@@ -121,46 +121,6 @@ making true for its own sake. **The number is small and the claim is not**: 5.4%
 on one program is not an argument, but a sentence in the README that is 98% true
 is a different kind of debt.
 
-**`|` can be declared after all, and is not.** Nine versions of documents said
-it could not — [POSTMORTEM.md](POSTMORTEM.md) 18 — and a working change on
-2026-09-02 showed otherwise: two hunks in `reader.c`, **no change to the
-lexer**, the whole suite green and every block form intact. It was reverted
-rather than kept, because it arrived uncommitted in a shared checkout, and
-because what it costs had not been looked at. This entry is the looking.
-
-**The rule it would take** is the one `#[k = v]` already has: a block reads its
-parameters and its temporaries first, so `{ a | b }` is a parameter and a body
-**by rule** in every module, and a declared `|` is an operator in every position
-a block is not reading a bar of its own. Escaped a bracket down —
-`{ (a) | b }` — exactly as `#[(b = c) = d]` escapes the dictionary rule. `|`
-never joins the operator *characters*: it stays a token the parser looks up,
-which is why the lexer is not involved and why a tool can still tokenise a
-`.pro` knowing nothing about its dialect.
-
-**What it would buy.** `programs/digest/sha2.pro` and `examples/utf8.pro` spell
-a bitwise `or` as `\` because `|` was unavailable. With `|` they would not have
-to.
-
-**And that is also the argument against doing it now.** 0.13.0 settled the
-repository on *one spelling per operation*, with `\` for bitwise or precisely
-because `|` could not be had — *the bar that leans*, and the mnemonic is written
-into `examples/utf8.pro`, `lib/clike.pro`, GRAMMAR.md and the README. Landing
-`|` unsettles that and asks for a second convergence a version later. **A
-spelling should be changed once.**
-
-**What is missing before it could land**, found by running it:
-
-| | |
-| --- | --- |
-| `@prefix \|` is accepted and inert | `directive_operator` takes a bar for prefix; `unary` never looks for one. A declaration accepted and doing nothing is what `@language` was deleted for in 0.10.0. |
-| a stray `\|` gets the wrong error | *expected '.' after this statement*, where `?` gets *'?' has no meaning in this module* and a note saying how to declare it. Not a regression — but once `\|` is declarable it is the wrong message. |
-| `\|=` stays undeclarable | A bar is not an operator character, so nothing may run together with it. That is the price of not touching the lexer, and it is the right price. |
-| no test | The suite passes because nothing in `tests/` declares a bar. |
-| no documents | GRAMMAR.md would need the rule; the README paragraph is retracted but not rewritten. |
-
-**A decision, not a build.** The patch is a morning's work and the convergence
-after it is not.
-
 **A dialect ends at its domain and cannot say where. Two programs now.**
 `programs/digest` declares `+` as addition modulo 2³², right for every line of
 SHA-256 and a trap for the loop counters beside it — `shift - #8` at zero is

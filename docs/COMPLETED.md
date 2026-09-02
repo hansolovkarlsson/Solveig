@@ -436,6 +436,73 @@ declaration, and the dictionary one lives in the parser. The suite went from 34
 reader checks to 60, and every example and program builds byte-identical output
 where the spelling did not change.
 
+## 16. A declared `|`, and the spelling convergence it forced — done, 0.14.0
+
+**The problem.** `README.md`, `proto/src/lex.c` and entry 12 above all said a
+dialect cannot declare `|`, because `{ a | b }` would then have two readings.
+Entry 12 put it as *naming the ambiguity does not decide it*. That was wrong,
+and [POSTMORTEM.md](POSTMORTEM.md) 18 is how it was found: a second session
+built the thing and it worked.
+
+**Two questions had been run together.** *May `|` join the operator characters?*
+— no, and that stands, because a character in that set runs together with its
+neighbours and a `|` there would make `|=` a spelling. *May `|` be declared?* —
+a different question entirely, since a bar is already a token of its own and a
+parser may look one up without it ever entering the set.
+
+**The options.** Leave it, on the strength of the entry above; or take the rule.
+There was no third, once the demonstration existed.
+
+**Why this shape.** A block settles its parameters and its temporaries with a
+bounded lookahead — `looks_like_names_then_bar` — that consults no dialect and
+never has. So the collision is exactly one production wide:
+
+```
+{ a | b }        a parameter and a body, in every module, declared bar or not
+a | b            an or, everywhere a bar is not a block's own punctuation
+{ (a) | b }      the escape: a body opening with a group is a body
+```
+
+That is the second place in Proto where a context outranks a declaration, and
+the first — `#[k = v]` in 0.12.0 — is the same shape and the same escape. **The
+mechanism was in the language four hours before the claim was disproved**, which
+is the part of this worth remembering.
+
+**Two things the demonstration had wrong, fixed before landing.**
+`@prefix |` was accepted and inert; it is refused now, because a block's
+temporaries open with a bar and a prefix one would have nothing to tell them
+apart — and a declaration accepted and doing nothing is what `@language` was
+deleted for in 0.10.0. And a stray undeclared bar gave *expected '.' after this
+statement*; it gives *'|' has no meaning in this module* now, with the note
+every other undeclared operator gets.
+
+**What it cost, and it is the reason this waited a version.** 0.13.0 had just
+settled the repository on *one spelling per operation*, with `\` for a bitwise
+or **because `|` could not be had** — the mnemonic written into four files. So
+landing the bar meant redoing that convergence, and the two went in together
+rather than a version apart. **A spelling should be changed once**, and this one
+was changed twice; the second time is this entry.
+
+Nine lines of code across three files, and the prose in five more. The table is
+C's exactly now:
+
+| | logical | bitwise |
+| --- | --- | --- |
+| and | `&&` | `&` |
+| or | `\|\|` | `\|` |
+| not | `!` | `~` |
+| xor | — | `^` |
+
+**What it did not cost.** The lexer, which was never touched — `|` is still
+`PROTO_TOK_BAR` and still not an operator character, so **a tool can tokenise
+any `.pro` knowing nothing about its dialect**, which is the property entry 12
+was written to defend and which it defends correctly. And `|=` stays
+undeclarable, nothing being able to run together with a bar. That is the price
+of not touching the lexer and it is the right price.
+
+`\` is free and unused now. Nine checks in `tests/test_reader.c` hold both
+halves of the rule and both refusals.
+
 ## Settled by a customer rather than by argument
 
 | | |

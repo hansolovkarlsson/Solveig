@@ -207,10 +207,31 @@ static void directive_operator(Reader *reader, bool infix, ProtoAssoc assoc)
 {
     ProtoToken directive = reader->previous;
 
-    if (!check(reader, PROTO_TOK_OPERATOR)) {
+    /* A lone `|` is declarable, and infix only.
+     *
+     * It is not an operator *character* -- it is a token of its own, and it
+     * stays one, because a character in that set runs together with its
+     * neighbours and a `|` there would make `|=` a spelling. What a bar can be
+     * is looked up: the parser asks the dialect, and the lexer never has to.
+     *
+     * Infix only, because a *prefix* bar has nowhere to live. A block's
+     * temporaries open with one -- `{ | t | … }` -- so `@prefix |` would put a
+     * declaration and a block's own punctuation in the same position with
+     * nothing to tell them apart. Refused here rather than accepted and left
+     * inert, which is what `@language` was deleted for in 0.10.0. */
+    bool bar = check(reader, PROTO_TOK_BAR);
+    if (bar && !infix) {
+        error_here(reader,
+                   "'|' may be declared with @infix and not with '%.*s' -- a "
+                   "block's temporaries open with a bar, and a prefix one "
+                   "would have nothing to tell them apart",
+                   directive.length, directive.start);
+        return;
+    }
+    if (!bar && !check(reader, PROTO_TOK_OPERATOR)) {
         error_here(reader,
                    "'%.*s' declares an operator, and an operator is written "
-                   "out of + - * / < > = ! & ^ %% ~ ?",
+                   "out of + - * / < > = ! & ^ %% ~ ? or is '|'",
                    directive.length, directive.start);
         return;
     }
@@ -1253,8 +1274,19 @@ static ProtoNode *infix(Reader *reader, int minimum, bool pair_key)
     ProtoNode *left = unary(reader);
     if (left == NULL) return NULL;
 
-    while (check(reader, PROTO_TOK_OPERATOR)) {
+    while (check(reader, PROTO_TOK_OPERATOR) || check(reader, PROTO_TOK_BAR)) {
         ProtoToken op = reader->current;
+
+        /* A bar reaches here only when a block has already had its parameters
+           and its temporaries, both of which are settled by a bounded lookahead
+           that never asks the dialect anything. So `{ a | b }` is a parameter
+           and a body in every module, declared bar or not, and what arrives
+           here is a bar in an expression -- which is an operator if the header
+           said so and an error if it did not, exactly like `?`.
+
+           That is the second place in Proto where a context outranks a
+           declaration, and like the first it is escaped one bracket down:
+           `{ (a) | b }` is a body whose first token is a group. */
 
         /* Before the lookup, so that a module which never declared `=` can
            still write a dictionary. This is the one place in Proto where a

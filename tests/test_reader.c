@@ -152,6 +152,38 @@ int main(void)
        than a surprise: with `%` declared, `b %1` is a name and then a number. */
     expect_rejected("'%' before a binary digit is the literal",
                     "@infix % 70 mod.\na := b %1.\n");
+
+    /* A lone `|` is declarable. It is not an operator *character* -- it stays a
+       token of its own, looked up by the parser -- so a block's parameters and
+       temporaries are settled before the dialect is asked anything, and
+       `{ a | b }` is a parameter and a body in every module. That is the second
+       place a context outranks a declaration, and the escape is a bracket down. */
+    expect("a declared bar", "@infix | 40 bitOr.\na := b | c.\n",
+           "a := b:bitOr(c).\n");
+    expect("a bar in a block's body",
+           "@infix | 40 bitOr.\na := { x | x | #1 }.\n",
+           "a := { x | x:bitOr(#1) }.\n");
+    expect("the head of a block is still parameters",
+           "@infix | 40 bitOr.\na := { b | b }.\n",
+           "a := { b | b }.\n");
+    expect("and the escape is a bracket down",
+           "@infix | 40 bitOr.\na := { (b) | #1 }.\n",
+           "a := { (b):bitOr(#1) }.\n");
+    expect("temporaries are untouched",
+           "@infix | 40 bitOr.\na := { | t | t := #1 | #2. t }.\n",
+           "a := { | t |\n    t := #1:bitOr(#2).\n    t }.\n");
+    expect("parameters and temporaries together",
+           "@infix | 40 bitOr.\na := { b | | t | t := b. t }.\n",
+           "a := { b | | t |\n    t := b.\n    t }.\n");
+    expect("'||' is untouched by a declared '|'",
+           "@infix | 40 bitOr.\n@infix || 25 or.\na := (b | c) || d.\n",
+           "a := (b:bitOr(c)):or(d).\n");
+
+    /* The two halves of the bargain, as rejections. */
+    expect_rejected("an undeclared bar in an expression",
+                    "a := b | c.\n");
+    expect_rejected("a bar may not be a prefix",
+                    "@prefix | negated.\na := #1.\n");
     expect("a signed float exponent", HEADER "a := 2.5E-3.\n",
            "a := 2.5E-3.\n");
 

@@ -56,7 +56,7 @@
 
 @infix  &   50 bitAnd.
 @infix  ^   45 bitXor.
-@infix  \   40 bitOr.
+@infix  |   40 bitOr.
 
 ; `~x & z` is `(~x) & z`: a prefix operator takes the smallest thing it can, and
 ; then the infix ladder applies. Masked, because bitNot of a 32-bit value sets
