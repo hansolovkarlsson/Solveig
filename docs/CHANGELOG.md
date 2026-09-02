@@ -10,6 +10,59 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### Seven templates that Solveig already had messages for — 2026-09-02
+
+**No version, and nothing in the compiler changed.** Two dialect files were
+writing out sends that Solveig provides directly.
+
+| was | is |
+| --- | --- |
+| `@infix != … => left:equals(right):not.` | `notEquals` |
+| `@infix <= … => left:greaterThan(right):not.` | `lessOrEqual` |
+| `@infix >= … => left:lessThan(right):not.` | `greaterOrEqual` |
+| `@prefix ! => operand:not.` | `not` |
+
+Six in `lib/clike.pro` and `programs/digest/sha2.pro`, plus the prefix, which
+`lib/arith.pro` had been spelling as a plain message all along.
+
+**Asked as a question about whether `lib/arith.pro` should be completed**, and
+the answer to that was no — see below — but the neighbourhood turned this up.
+
+**It reads better and costs less.** The generated Solveig says what it means:
+
+```
+n:equals(#9):not                ->  n:notEquals(#9)
+(shift:lessThan(#0)):not        ->  shift:greaterOrEqual(#0)
+{ (i:greaterThan(s:size)):not } ->  { i:lessOrEqual(s:size) }
+```
+
+`programs/digest` runs **272,398 instructions against 273,318** — 920 fewer,
+0.34%, two of the four sites being loop conditions. Small, and it is the
+readability that earns it: a template was standing in for a message, which is
+the one thing `lib/clike.pro`'s own header says templates are not for.
+
+**Checked for a correctness difference and there is none.** `<=` as
+`not (a > b)` and `a:lessOrEqual(b)` could disagree on a partial order, so NaN
+was the case to try: Solveig answers `true` to both. This is a simplification
+rather than a fix.
+
+**What is left in `lib/clike.pro` is three templates, and each is one a message
+cannot be**: `=`, because assignment is not a send, and `&&` and `||`, because
+their right side has to arrive in a block or it is evaluated whether or not it
+is wanted.
+
+**And the question that prompted it: no, `lib/arith.pro` should not be
+completed.** Bitwise has one usable customer, not two — `examples/utf8.pro`
+could share a file, and `programs/digest/sha2.pro` could not, its `<<` being
+masked and the file standalone because it redefines `+`. The two also chose
+different rungs for `&` (60 against 50) and `>>` (80 against 55), each against
+its own neighbours, which is the per-module argument showing up as evidence.
+`<=`, `>=` and `!=` have **no** customer: the two files declaring them are both
+standalone, and every one of arith's five users declares no operator of its own.
+*One customer, satisfied in three lines, is not a reason to grow a surface* —
+and completeness is the wrong test for a dialect, which is a notation rather
+than an API.
+
 ### `%1011`, and the first spelling that cost a dialect something — 0.13.0, 2026-09-02
 
 **Binary integers**, the last of the nine differences

@@ -37,16 +37,22 @@
 ; single `|` is not, and a dialect wanting the bitwise one writes `\` -- the
 ; bar that leans -- as `examples/utf8.pro` does.
 
+; **Three templates, and each is something a message cannot be.** Assignment is
+; not a send; `&&` and `||` need their right side inside a block or it is
+; evaluated whether or not it is wanted. Everything below this group is a plain
+; message, because Solveig had one -- `notEquals`, `lessOrEqual` and
+; `greaterOrEqual` included, which this file spent nine versions writing out by
+; hand as `left:greaterThan(right):not` and friends.
 @infix  =   10 => left := right.
 @infix  ||  25 => left:or({ right }).
 @infix  &&  30 => left:and({ right }).
 
 @infix  ==  40 equals.
-@infix  !=  40 => left:equals(right):not.
+@infix  !=  40 notEquals.
 @infix  <   40 lessThan.
 @infix  >   40 greaterThan.
-@infix  <=  40 => left:greaterThan(right):not.
-@infix  >=  40 => left:lessThan(right):not.
+@infix  <=  40 lessOrEqual.
+@infix  >=  40 greaterOrEqual.
 
 @infix  +   60 add.
 @infix  -   60 sub.
@@ -54,7 +60,7 @@
 @infix  /   70 div.
 @infix  %   70 mod.
 
-@prefix !      => operand:not.
+@prefix !      not.
 
 ; The condition is an ordinary expression and the parentheses around it are an
 ; ordinary group -- neither is part of the pattern, and neither has to be. What

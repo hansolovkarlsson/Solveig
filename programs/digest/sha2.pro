@@ -63,14 +63,19 @@
 ; The rest, so that this file needs nothing under it
 ;
 ; Comparisons and two control forms. They would have come from lib/arith.pro and
-; lib/control.pro if `+` above had not made that file's `+` a collision.
+; lib/control.pro if `+` above had not made that file's `+` a collision -- and
+; arith.pro does not declare `<=`, `>=` or `!=` anyway, nothing having asked.
+;
+; All six are plain messages. `>=` and `<=` were written as
+; `(left:lessThan(right)):not` here until it was noticed that Solveig has
+; `greaterOrEqual`, `lessOrEqual` and `notEquals` and always did.
 
 @infix  ==  35 equals.
 @infix  <   35 lessThan.
 @infix  >   35 greaterThan.
-@infix  >=  35 => (left:lessThan(right)):not.
-@infix  <=  35 => (left:greaterThan(right)):not.
-@infix  !=  35 => (left:equals(right)):not.
+@infix  >=  35 greaterOrEqual.
+@infix  <=  35 lessOrEqual.
+@infix  !=  35 notEquals.
 
 @syntax if <c> then <a>          => c:ifTrue({ a }).
 @syntax if <c> then <a> else <b> => c:ifElse({ a }, { b }).
