@@ -397,9 +397,9 @@ the segfault added one, and the new spellings twenty-six.
 
 ### The numbers, written last
 
-**Twenty-nine commits, counting the one that writes this line — a number cannot
-count itself and has to be told to. Five versions, 0.10.0 to 0.14.0. A fifth
-program. And not one finding from a test.**
+**Thirty-one commits, counting the two that write and correct this line — a
+number cannot count itself and has to be told to. Five versions, 0.10.0 to
+0.14.0. A fifth program. And not one finding from a test.**
 
 Two misreadings, by a person asking. One dead directive's real argument, by a
 person asking what it would mean. One nine-version-old segfault, by declining to
@@ -420,6 +420,14 @@ exists to ask; and `programs/prose/README.md`, a document about a document.
 Those are the day's real output. The five versions were the easy part — four of
 them closed differences nobody knew were there at breakfast, and the fifth
 landed a thing three documents had called impossible.
+
+**And the day closed with a sweep**, which found four more stale things: a
+version heading four releases behind, a *Known gaps* row for something that
+landed in 0.12.0, a folding claim carrying one measurement when there are two,
+and this page's own count in two other documents. **None of them was the work.
+All of them were a document describing yesterday's version of itself**, which is
+the failure this journal spent the day committing and correcting, and the only
+reliable defence found for it is to read everything once at the end.
 
 ## 2026-09-01 — the project changed its name, and nothing else
 
