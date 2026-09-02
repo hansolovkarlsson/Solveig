@@ -733,8 +733,8 @@ demonstrate := { | dir, one, two |
 ; algorithm makes a global choice. **So it cannot be a corpus case**, which is
 ; why `apply.sh` exists.
 ;
-; This is [an enumeration that looks complete is not a
-; proof](../docs/method.md#an-enumeration-that-looks-complete-is-not-a-proof)
+; This is
+; [an enumeration that looks complete is not a proof](../docs/method.md#an-enumeration-that-looks-complete-is-not-a-proof)
 ; happening to the sweep that was written *because* the corpus had the same
 ; problem. Two authors, both blind in the same direction, and the thing that
 ; saw past them was a file somebody had actually edited.

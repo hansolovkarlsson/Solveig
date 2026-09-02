@@ -1703,6 +1703,67 @@ linkSubjects:sorted:do({ path | | n |
 ; is not a nicety either: this file's own prose contains `](target)` inside
 ; backticks, which the extraction reads as a link because it looks for `](`
 ; rather than parsing markdown. One rule covers it and says why.
+; ---------------------------------------------------------------------------
+; A link whose *text* wraps across a line
+;
+; **The markdown is correct and the published page is a 404**, which is the
+; fault class [site.sh](site.sh) exists for -- and this is the half of it that
+; can be caught without a deploy. Jekyll rewrites a `.md` target to `.html` and
+; prepends the site's baseurl; it does the first when the link text carries a
+; newline and **not the second**, so the href comes out site-absolute and lands
+; nowhere.
+;
+; It was written on 2026-09-02, after six of them went in during one session --
+; the same session that wrote the rule about this fault class. `site.sh` found
+; them, after a push and a deploy; nothing here could, because every check that
+; reads the file reads correct markdown.
+;
+; **A fragment-only target is exempt.** Jekyll leaves `#anchor` alone, so
+; wrapping around one is harmless, and three in this repository have been
+; wrapped for weeks without `site.sh` having anything to say about them.
+;
+; The pairing is by counting rather than by parsing: an opener before the
+; `](` on the same line that has not already been closed by an earlier one.
+; That is exact for the links this repository writes and gives up quietly on
+; anything cleverer, which is the same bargain `targetsIn` above makes.
+occurrences := { text, what | | n, from, at |
+    n := #0. from := #1.
+    { at := text:indexOf(what, from). at:notNil }:whileTrue({
+        n := n:add(#1). from := at:add(#1) }).
+    n }.
+
+wrappedLinks := #0.
+
+linkSubjects:sorted:do({ path | | n |
+    n := #0.
+    system:readFile(path):split("\n"):do({ line | | from, at, close, target, before |
+        n := n:add(#1).
+        from := #1.
+        { at := line:indexOf("](", from). at:notNil }:whileTrue({
+            close := line:indexOf(")", at:add(#2)).
+            close:isNil:ifElse(
+                { from := line:size:add(#1) },
+                { target := line:copyFrom(at:add(#2), close:sub(#1)).
+                  before := line:copyFrom(#1, at:sub(#1)).
+                  ; **Only a `.md` target**, and that is the scope rather than
+                  ; a fudge: `jekyll-relative-links` rewrites those and nothing
+                  ; else, so those are the only ones that can lose the baseurl.
+                  ; It also disposes of the four false positives the first run
+                  ; produced -- `](` inside a string literal and inside this
+                  ; file's own prose about `](target)`, which is the hazard the
+                  ; note above `targetsIn` already records.
+                  (target:indexOf(".md"):notNil
+                      :and({ target:indexOf(" "):isNil })
+                      :and({ target:startsWith("http"):not })
+                      :and({ occurrences:value(before, "[")
+                                 :greaterThan(occurrences:value(before, "](")):not }))
+                      :ifTrue({
+                          wrappedLinks := wrappedLinks:add(#1).
+                          failures:add(["{}:{}":fill([path, n]), #0,
+                              "a link's text wraps across a line, so the published page loses the site's baseurl",
+                              ""]) }).
+                  from := close:add(#1) }) }) }) }).
+
 linkPaths := #0.
 linkPathsBad := #0.
 
@@ -1779,6 +1840,9 @@ linksSeen:greaterThan(#0):ifTrue({
     linkPaths:greaterThan(#0):ifTrue({
         "{} name a path, and every one of those is there too"
             :fill([linkPaths]):display }).
+    wrappedLinks:equals(#0):ifTrue({
+        "none has its text wrapped across a line, which publishes as a 404"
+            :display }).
     headingsInFences:greaterThan(#0):ifTrue({
         "{} heading{} sit{} inside a fenced block, and {} not {} anchor"
             :fill([headingsInFences,

@@ -1138,8 +1138,9 @@ answers `""` before any read is attempted. The function already refuses a
 directory and already checks a negative size; **a failed seek is the case
 between them that nothing looks at.**
 
-This is the shape [a path with a NUL in
-it](ideas.md#a-path-with-a-nul-in-it-is-silently-a-different-path) has, found
+This is the shape that
+[a path with a NUL in it](ideas.md#a-path-with-a-nul-in-it-is-silently-a-different-path)
+has, found
 on 2026-08-31: a silent wrong answer rather than a missing feature, and found
 the same way -- by a program with a reason to try what nobody had tried. **The
 two halves are one entry** because the want is what makes the defect worth

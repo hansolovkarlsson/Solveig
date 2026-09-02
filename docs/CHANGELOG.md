@@ -31,11 +31,10 @@ empty range is written, because every one of them put its empty range where the
 simple rule and the real one give the same answer -- the real one has an
 exception at the start of a file that has lines. A random sweep against the
 tool disagreed **44 times in 1,050 runs**; after the fix, 2,400 runs over six
-option forms and files up to forty lines disagree **none**. That is [an
-author-written corpus tests what its author thought
-of](method.md#an-author-written-corpus-tests-what-its-author-thought-of) with a
-generator as the second author, which is the cheapest second author available
-to a tool that has an oracle.
+option forms and files up to forty lines disagree **none**. That is
+[an author-written corpus tests what its author thought of](method.md#an-author-written-corpus-tests-what-its-author-thought-of)
+with a generator as the second author, which is the cheapest second author
+available to a tool that has an oracle.
 
 **And then the first pair of real files disagreed**, an hour after the sweep
 reported nothing — this repository's own `docs/method.md` at two revisions.

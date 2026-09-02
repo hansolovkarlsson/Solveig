@@ -5033,9 +5033,8 @@ empty-range rule, because every one of them put its empty range where the
 simple rule and the real one give the same answer. A random sweep -- file pairs
 built from nine possible lines, seven option forms -- disagreed **44 times in
 1,050 runs**. After the fix, 2,400 runs over six option forms and files up to
-forty lines: zero. This is [an author-written corpus tests what its author
-thought
-of](method.md#an-author-written-corpus-tests-what-its-author-thought-of) with a
+forty lines: zero. This is [an author-written corpus tests what its author thought of](method.md#an-author-written-corpus-tests-what-its-author-thought-of)
+with a
 *generator* as the second author rather than a standard, and it is the cheapest
 second author available for a tool that has an oracle: no vectors to find, no
 specification to read.
@@ -5067,8 +5066,9 @@ still want a check that is not the oracle.**
 holding no uppercase at all, `/usr/bin/diff` picks a different one of two
 equally minimal answers than it picks without the flag -- 41 runs in 400 under
 `-i` and none without it. `programs/diff/differ/ignore-case-ties.case` pins the
-minimal example. **An oracle can be wrong**, which [the FIPS 180-4
-argument](method.md#hold-it-against-something-somebody-else-wrote) already
+minimal example. **An oracle can be wrong**, which
+[the FIPS 180-4 argument](method.md#hold-it-against-something-somebody-else-wrote)
+already
 said; what is new is one caught being *two things at once*, where a published
 standard would have settled it and there is no standard for which minimal edit
 script to print.

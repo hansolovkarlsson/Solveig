@@ -15,8 +15,7 @@ that a document was still true. That is what this is for.
 
 [diff.sol](../programs/diff.sol) is the twentieth program here and the first
 that computes a relationship rather than recognising a structure. Chosen off
-[the Unix
-survey](ideas.md#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31),
+[the Unix survey](ideas.md#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31),
 where its prediction had been written down in August.
 
 ### The prediction was mostly wrong, and that is the useful half
@@ -57,8 +56,9 @@ option forms -- disagreed **44 times in 1,050 runs**. Seven probes afterwards
 turned the disagreement into a rule. After the fix: **2,400 runs, six option
 forms, files to forty lines, zero disagreements.**
 
-This is [an author-written corpus tests what its author thought
-of](method.md#an-author-written-corpus-tests-what-its-author-thought-of) with a
+This is
+[an author-written corpus tests what its author thought of](method.md#an-author-written-corpus-tests-what-its-author-thought-of)
+with a
 **generator** as the second author instead of a standard or a stranger. It is
 the cheapest second author there is for a tool that already has an oracle:
 nothing to find, nothing to read, and it lands on the cases nobody would write
@@ -104,6 +104,32 @@ pairs later the tool was never above the minimum, and the input that produced
 the reading was gone. It is recorded here because the temptation was to keep
 the more interesting number, and *re-running a wrong experiment is not
 evidence* cuts both ways -- a result that cannot be re-run is not one either.
+
+### And I published six 404s while writing about that exact fault
+
+`site.sh` came back from the deploy with **six `NO BASE`** links, all of them
+written in this session. A markdown link whose *text* wraps across a line
+publishes as a site-absolute href and 404s: Jekyll rewrites the `.md` target to
+`.html` and does not prepend the baseurl. The markdown is correct, and
+[method.md](method.md) gained a rule about this class of fault four hours
+earlier.
+
+**Nothing local could have caught them**, which is the reason `site.sh` exists
+and is also a gap: this half of the fault is visible in the file. `expect.sol`
+scans links a line at a time and never asked whether the `[` that opened one
+was on the same line as its `](`. It does now — one counter, scoped to `.md`
+targets because those are the only ones `jekyll-relative-links` rewrites, which
+also disposed of four false positives from `](` inside string literals and
+inside this repository's own prose about `](target)`.
+
+**And the first attempt to prove it can fail proved nothing.** The injected
+link went in against a heading `GUIDE.md` does not have, so the file was
+unchanged and the checker's *every claim holds* was about the tree as it stood
+— the vacuous check
+[this page already has a rule for](method.md#a-check-that-cannot-fail-is-decoration),
+made while demonstrating a check. The second attempt injected against a line that is
+there, the checker reported `docs/GUIDE.md:7`, and restoring the file made it
+quiet again.
 
 ### The oracle turned out to be two things at once
 
