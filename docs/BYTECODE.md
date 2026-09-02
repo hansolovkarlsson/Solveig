@@ -1,5 +1,10 @@
 # The instruction set
 
+**Writing something that emits this?** [PRODUCING.md](PRODUCING.md) has the
+rules a grammar cannot carry, the limits a chunk has, and what the verifier
+checks — the things `solas` enforces that are not on this page or in the
+grammar.
+
 Every opcode SolVM executes, what it takes, and what it does to the stack.
 
 The definitive copy is [`solum/include/solum/bytecode.h`](../solum/include/solum/bytecode.h),

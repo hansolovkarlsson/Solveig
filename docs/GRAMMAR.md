@@ -1,5 +1,9 @@
 # The grammar of Solum
 
+**This is syntax only.** `self` is an ordinary identifier here and a scope error
+to `solas`; a duplicate temporary parses and does not compile. The rules a
+grammar cannot carry are in [PRODUCING.md](PRODUCING.md).
+
 *The whole language on one page.
 [solum.bnf](../programs/check_syntax/solum.bnf) is the same grammar in a form a
 machine reads, and **that sentence is checked**: every production below is

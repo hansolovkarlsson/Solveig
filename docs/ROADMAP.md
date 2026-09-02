@@ -1140,9 +1140,19 @@ corpus is the forcing function for the split and not a separate job.
 
 #### The calls
 
-1. **Document first, or split first?** Recommendation: **document**. It is
-   cheap, it is the whole answer for the source-emitting experiment Phoenix is
-   also planning, and it costs nothing if the split never happens.
+1. ~~**Document first, or split first?**~~ **Documented on 2026-09-01**:
+   [PRODUCING.md](PRODUCING.md), linked from BYTECODE.md and GRAMMAR.md, with
+   every rule triggered before it was written down and every limit found by
+   generating programs until `solas` refused.
+
+   **Writing it found two defects**, which is the argument for having written it
+   rather than described it. `SOL_MAX_LOCALS` was 256 where the format writes
+   `slot_count` as a u8, so a frame of 256 slots compiled cleanly and then failed
+   to serialise — `solas` emitting bytecode its own verifier refuses, reported as
+   *bytecode is internally inconsistent* rather than *too many parameters*. It is
+   255 now. And the dictionary limit is **127 pairs**, not the 254 its message
+   implies, because a literal lowers to `dictionary:of` and the ceiling is the
+   argument list's.
 2. **How far does the split go?** Naming all thirty-five is not obviously right;
    some genuinely are *this file is corrupt*. Recommendation: split by **who is
    at fault** — a producer bug (jump target, stack height, slot count, index out

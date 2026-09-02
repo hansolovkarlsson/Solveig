@@ -12,7 +12,13 @@
 #include "solas/compiler.h"
 #include "solas/parser.h"
 
-#define SOL_MAX_LOCALS 256
+/* **255 and not 256, because that is what the format can write.** A frame's
+   `slot_count` goes out as a u8, so 256 slots compiles cleanly and then fails
+   to serialise -- `solas` emitting bytecode its own verifier refuses, with the
+   one message thirty-five faults share. Found on 2026-09-01 while writing down
+   the limits for an outside producer: 254 parameters were accepted and 255 gave
+   *bytecode is internally inconsistent* instead of *too many parameters*. */
+#define SOL_MAX_LOCALS 255
 
 /* One entry per named slot in the frame being compiled. Slot 0 is the receiver.
    Each block gets its own scope, and resolve_name walks the chain outward, so a

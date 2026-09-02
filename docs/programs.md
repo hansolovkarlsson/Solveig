@@ -486,7 +486,7 @@ is demonstrating the wrong branch.**
 **And it checks the documentation too.** The guide and the reference carry the
 same notation inside ``` fences, and nothing checked those either — they are the
 two documents a newcomer actually reads. 470<!--count docs-claims--> claims
-across twenty-eight<!--count docs-documents--> documents,
+across twenty-nine<!--count docs-documents--> documents,
 and two more on `README.md` and `index.md` — the front pages, which were the
 last two things nothing checked.
 
