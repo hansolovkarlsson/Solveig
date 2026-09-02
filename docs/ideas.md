@@ -5028,9 +5028,10 @@ a file that has lines, where it is written at line 1. The algorithm itself was
 right on its first run against the corpus.
 
 **Three of those four came from the corpus and the fourth did not**, and that
-is the sharper finding. Sixteen hand-written cases all agreed with a wrong
-empty-range rule, because every one of them put its empty range where the
-simple rule and the real one give the same answer. A random sweep -- file pairs
+is the sharper finding. Twenty-four hand-written cases passed a wrong empty-range rule, and only seven
+of them could have shown it at all -- the rule lives in the unified header and
+the rest never print one. All seven put their empty range where the simple rule
+and the real one agree. A random sweep -- file pairs
 built from nine possible lines, seven option forms -- disagreed **44 times in
 1,050 runs**. After the fix, 2,400 runs over six option forms and files up to
 forty lines: zero. This is [an author-written corpus tests what its author thought of](method.md#an-author-written-corpus-tests-what-its-author-thought-of)

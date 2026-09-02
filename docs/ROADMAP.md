@@ -1113,6 +1113,26 @@ keeping it did. The number stays 6.32 and is not reused.
 first program here that has to reproduce another tool's bytes from a pipe. Two
 halves, and the second is a defect rather than an absence.
 
+**A second customer arrived the same day, with a reason this entry did not
+have.** [sort.sol](../programs/sort.sol) does not care about the newline at the
+end -- its output always ends with one -- and wants the opposite of a whole
+read: a pipe taken in **bounded pieces**, so that memory stays inside `-S`
+however large the input is. `readKey` does that at 238 nanoseconds a byte;
+`readLine` does it at a twentieth of the price and changes the answer, because
+folding `\r\n` makes a file written on another system sort as different lines.
+**So what is missing is a middle** -- neither the whole-file read nor a byte at
+a time -- and one customer alone could not have shown that.
+
+**And a third would sharpen it again.** `gzip -d` is on
+[the survey](ideas.md#gzip--d--the-one-that-answers-the-question-behind-the-neural-net)
+and would be the first program here whose input has no lines *at all*: a
+73,572-byte gzip stream of `ideas.md` holds 264 `0x0a` bytes, 254 `0x0d` and
+273 NUL, every one of them data. `readLine` would not be lossy there, it would
+be meaningless -- so that program would have exactly one route in, and `... |
+gunzip` is the ordinary way it is used. Measured on 2026-09-02 while deciding
+what to write next, and written down here rather than in the argument for
+writing it.
+
 **The want.** `readFile` reads a file whole and there is no equivalent for
 standard input. The two ways in are `readLine`, which answers a line *without
 its terminator* and folds `\r\n` into one -- so it cannot say whether the last

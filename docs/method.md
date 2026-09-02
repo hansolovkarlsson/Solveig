@@ -286,10 +286,13 @@ times over. It is the reason the corpus is not the last word:
 **The remedy for an author-written corpus is a generator, and on 2026-09-02 the
 generator was blind in the same direction as the corpus.**
 
-`diff.sol`'s corpus is sixteen hand-written cases and all sixteen agreed with a
-wrong rule for where an empty range is written in a unified header, because
-every one of them put its empty range where the simple rule and the real one
-give the same answer. A random sweep caught that -- 44 disagreements in 1,050
+`diff.sol`'s corpus was twenty-four hand-written cases and all of them passed a
+wrong rule for where an empty range is written in a unified header. **Seven
+were the only ones that could have shown it** -- the rule lives in the unified
+format and the other seventeen never print a hunk header -- and all seven put
+their empty range where the simple rule and the real one give the same answer.
+The size of the corpus was never the point; the *shape* of what its author
+reached for was. A random sweep caught that -- 44 disagreements in 1,050
 runs -- and then reported **2,400 runs, zero** after the fix.
 
 **The first pair of real files disagreed anyway**, an hour later:

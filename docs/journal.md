@@ -11,6 +11,128 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-02 (closing) — fifteen commits, two programs, and four checks that had holes
+
+Four entries below this one, and this is the account of the whole day. It ran
+from a release cut before breakfast to a heap replacing a linear scan at the
+end, and the four entries stay where they are.
+
+### What shipped
+
+| | |
+| --- | --- |
+| [0.41.0](CHANGELOG.md#0410--2026-09-02) | eighty-one commits and two days of work, tagged and published |
+| [diff](../programs/diff.sol) | the twentieth program, and the first that computes rather than recognises |
+| [sort](../programs/sort.sol) | the twenty-first, and the first that does not have to hold its input |
+| [6.43](ROADMAP.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers-) | a pipe cannot be read whole, and the call that looks as though it can answers `""` |
+| [6.44](ROADMAP.md#644-an-instant-cannot-be-written-in-local-time) | an instant cannot be written in local time |
+| four rules | in [method.md](method.md), each from something that went wrong here |
+
+The roadmap's open list had been empty for a day and is not any more, which is
+the mechanism working rather than an exception to it. Both entries came from
+programs, both are about standard input, and neither was predicted by the page
+that predicted those programs.
+
+### The day had one lesson and learned it four ways
+
+**Every check here has a shape it cannot see, and the shape is a property of
+whoever wrote the check.**
+
+| the check | what it could not see |
+| --- | --- |
+| an author's corpus | 24 hand-written `diff` cases passed a wrong empty-range rule, and only 7 could have shown it |
+| a generator | `sort`'s alphabet had a minus because somebody thought of one and no plus because nobody did |
+| every check in the repository | all of them enumerate by extension, so `programs/:=` sat in the tree for two days |
+| the checker that reads the file | a link whose text wraps is correct markdown and a published 404 |
+
+**Three of the four were fixed by adding an author rather than by improving a
+check.** A generator answered the corpus; real files answered the generator;
+`git diff --name-status` against the last tag answered the extension rule. The
+fourth was the only one where the existing checker could be taught the fault,
+and it was, and it has caught two more since -- both in paragraphs describing
+itself.
+
+### And the checks that were slow, silent, or vacuous
+
+Four separate times a check reported nothing and the nothing was wrong.
+
+**A sweep ran for two hours and fourteen minutes** without finishing its first
+half and was reported as *still running* three times before anybody asked why.
+It was not slow; it was reporting a defect. `sort`'s merge scanned every run's
+head, so the cost was `lines x runs`, and forty-nine thousand runs over a
+14,707-line file is what that comes to. A heap took it to 3.88 seconds.
+
+**A sweep would have reported success whatever happened**, because its counters
+were inside a pipeline's subshell -- with a comment underneath admitting it and
+doing nothing about it, in the one file whose whole purpose is to be the check
+the corpus is not.
+
+**A fault injection injected nothing**, against a heading `GUIDE.md` does not
+have, and the *every claim holds* that came back was about the tree as it
+stood. That is the vacuous check, made while demonstrating a check.
+
+**And a finding could not be re-run.** A drifting shrinker produced a pair
+where `/usr/bin/diff` appeared to use 232 edits against our 228, which would
+have meant the tool was not minimal. 47,991 generated pairs later it was never
+above the minimum and the input was gone. *Re-running a wrong experiment is not
+evidence* cuts both ways: **a result that cannot be re-run is not one either.**
+
+### Three claims of mine were wrong, and the shape is the same one
+
+- **`sorted`'s stability was going to be reported as undocumented.**
+[REFERENCE.md](REFERENCE.md#array) has said it all along, in prose under the
+sorting examples. The `grep` found the table row and stopped. - **The `diff`
+sweep's *2,400 runs, zero disagreements* was published an hour before any real
+file went through it**, and the first pair disagreed. - **The release procedure
+said *two fixups* while listing three**, and had for as long as the third
+existed.
+
+All three are **an absence asserted from a look that did not cover what it
+claimed to**. [design.md](design.md#what-the-language-is-for) rules the
+argument from absence out for language features; 2026-09-01 found nothing had
+ruled it out for checkers; today found nothing had ruled it out for *documents
+about my own work*.
+
+**A fourth was found writing this entry.** Three documents and the program's
+own header said *sixteen hand-written cases all agreed with a wrong rule*, and
+the corpus had twenty-four -- of which only **seven** could have shown the
+fault at all, since it lives in the unified header and the rest never print
+one. The number was written from memory of when the cases were added rather
+than counted, and the corrected version is the stronger claim: the size of a
+corpus was never the point, and the shape of what its author reached for was.
+
+### What the two programs were actually for
+
+**`diff` was predicted to press on the recursion limit, a two-dimensional
+array, and quadratic memory. None fired.** What did was the output format,
+which the entry named in one sentence and which turned out to be the whole
+difficulty. The 3.5 miss is the third of its kind and is a rule now: a
+limitation that is written down is known before the implementation is chosen,
+so the implementation that meets it is the one nobody writes.
+
+**`sort` was predicted to want a positioned write. It is not there**, and the
+reason is worth more than the prediction: an external merge sort writes each
+run once and then only reads it, and the output appends. The entry called it
+*the mirror of the ranged read* and reasoned from the symmetry of the names. A
+write is not the reverse of a read.
+
+**Both predictions were mostly wrong and both programs were worth writing.**
+That is the argument for writing the prediction down rather than for making
+better ones -- three of the four things `diff` found and both things `sort`
+found are on neither list, and none of them would have been noticed by a
+program written to confirm a page.
+
+### Where it leaves things
+
+Two entries open on the roadmap, both about standard input, and a third
+customer for 6.43 measured but not written: `gzip -d`, whose input has no lines
+at all -- 264 newline bytes in a 73,572-byte stream, every one of them data.
+That is the next program if there is one, and its own prediction is about
+something else entirely: the cost of a 32 KB window as 32,768 tagged values,
+which is the number the graphics and neural-net directions rest on.
+
+---
+
 ## 2026-09-02 (the slow check) — two hours of silence was the finding
 
 `sweep.sh` was left running at full width and reported as *still running* three

@@ -698,9 +698,11 @@ demonstrate := { | dir, one, two |
 ; Not one of those is discoverable by reading the algorithm.
 ;
 ; **Three of the four were found by the corpus and the fourth was not**, which
-; is the part worth carrying. The empty-range rule was wrong in a way sixteen
-; hand-written cases all agreed with, because every one of them put its empty
-; range where the simple rule and the real one give the same answer. A random
+; is the part worth carrying. The empty-range rule was wrong in a way
+; twenty-four hand-written cases passed -- and only **seven** of them could have
+; shown it, since the rule lives in the unified header and the rest never print
+; one. All seven put their empty range where the simple rule and the real one
+; give the same answer. A random
 ; sweep against the tool -- pairs of files built from nine possible lines, run
 ; under seven option forms -- disagreed **44 times in 1,050 runs**, and seven
 ; probes afterwards were what turned the disagreement into a rule. Nothing an

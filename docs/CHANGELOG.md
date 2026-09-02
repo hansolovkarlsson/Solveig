@@ -5,6 +5,59 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### A link whose text wraps is a 404, and `make test` catches it now — `e27650e`, 2026-09-02
+
+**Six links published as 404s**, every one written the same day as a
+[method.md](method.md#check-the-thing-not-a-picture-of-it) rule about that
+class of fault. A markdown link whose *text* wraps across a line publishes
+site-absolute: `jekyll-relative-links` rewrites the `.md` target to `.html` and
+does not prepend the baseurl. The markdown is correct, which is why
+[site.sh](../programs/site.sh) exists.
+
+**But this half of the fault is visible in the file, and nothing local
+looked.** [expect.sol](../programs/expect.sol) scanned links a line at a time
+and never asked whether the `[` that opened one was on the same line as its
+`](`. It does now, scoped to `.md` targets because those are the only ones
+Jekyll rewrites -- which also disposed of four false positives from `](` inside
+a string literal and inside this repository's own prose about `](target)`. A
+fragment-only target is exempt, and three have been wrapped for weeks without
+`site.sh` minding.
+
+**The first attempt to prove it can fail proved nothing**: the injected link
+went in against a heading `GUIDE.md` does not have, so the file was unchanged
+and *every claim holds* was about the tree as it stood -- the vacuous check,
+made while demonstrating a check. The second injected against a line that is
+there, the checker named `docs/GUIDE.md:7`, and restoring the file made it
+quiet. It has since caught two more, both in paragraphs describing itself.
+
+
+
+### A stray file, and the class of thing no check here enumerates — `bd5dd34` and `428f98d`, 2026-09-02
+
+**`programs/:=` had been in the tree since 2026-08-31** -- 117 kilobytes,
+byte-identical to `pascal.sol`, committed by accident, and about to ship in the
+0.41.0 tarball, since `make dist` archives `HEAD`.
+
+**Not one check here looks at the set of files.** They look at files of a
+*kind*: `expect.sol` counts `solFilesIn:value("programs")` and reads `.md`, the
+link checker walks markdown, `site.sh` fetches published pages, and `make test`
+compiles what the `Makefile` names. A file with no extension is outside all of
+them at once -- so *nineteen programs* stayed true, recounted on every build,
+while the directory held twenty files.
+
+The remedy is one command and it is not `git ls-files`, which answers what is
+*tracked* and this file was. `git diff --name-status <last tag>..HEAD` is the
+only view here that asks what a stretch of work **added**, and it is the first
+step in [releasing.md](releasing.md#first-look-at-what-the-release-adds) now.
+[method.md](method.md#and-every-check-here-enumerates-by-extension) has the
+rule.
+
+**And the release procedure had the fault it warns about.** *Then the page, and
+the two fixups it needs* had been listing three ever since the links were
+absolutised -- written when there were two and never counted again. It surfaced
+only because renaming the heading made the link checker report the one link
+into it.
+
 ### A merge that scanned, and the check that was too slow to finish — `0e60ff4`, 2026-09-02
 
 **[sort](../programs/sort.sol)'s k-way merge picks its winner off a heap now**,
@@ -114,9 +167,10 @@ it, there is no two-dimensional array, and the memory is quadratic in the
 part*, and it was the whole of the difficulty.
 
 **Three of that difficulty's four faults came from the corpus and the fourth
-did not.** Sixteen hand-written cases all agreed with a wrong rule for where an
-empty range is written, because every one of them put its empty range where the
-simple rule and the real one give the same answer -- the real one has an
+did not.** Twenty-four hand-written cases passed a wrong rule for where an empty range is
+written -- and only seven of them could have shown it, since the rule lives in
+the unified header and the rest never print one. All seven put their empty
+range where the simple rule and the real one agree; the real one has an
 exception at the start of a file that has lines. A random sweep against the
 tool disagreed **44 times in 1,050 runs**; after the fix, 2,400 runs over six
 option forms and files up to forty lines disagree **none**. That is
