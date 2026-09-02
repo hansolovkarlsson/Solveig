@@ -5,7 +5,27 @@ are in [method.md](method.md). This is the release itself.*
 
 Four files in one commit, a tag, and a page on GitHub that the tree cannot
 record. Written down because it is a ritual with verification steps in it, and
-because two of those steps were learned by getting them wrong.
+because three of those steps were learned by getting them wrong.
+
+## First, look at what the release adds
+
+```sh
+git diff --name-status vX.Y.Z..HEAD    # the release before this one
+```
+
+**Read the list.** It is the only view here that asks what a stretch of work
+*added* to the tree, and every other check answers a different question:
+[expect.sol](../programs/expect.sol) counts files of a kind, the link checker
+walks markdown, [site.sh](../programs/site.sh) reads published pages, and `make
+test` compiles what the `Makefile` names.
+
+It is here because of `programs/:=` — 117 kilobytes, byte-identical to
+`pascal.sol`, committed by accident on 2026-08-31 and found on 2026-09-02 with
+one command, having survived two days and fifty-four commits inside a directory
+four checks inspect. **`make dist` archives `HEAD`**, so a stray in the tree is
+a stray in the tarball.
+[method.md](method.md#and-every-check-here-enumerates-by-extension) has the
+rule.
 
 ## The four files, in one commit titled `Release X.Y.Z`
 
@@ -60,12 +80,14 @@ git tag -a v0.39.0 -m "Solveig 0.39.0 -- measured against another language, and 
 git push origin main && git push origin v0.39.0
 ```
 
-## Then the page, and the two fixups it needs
+## Then the page, and the three fixups it needs
 
-The release body is the changelog entry, with two changes that
-[the journal](journal.md) recorded the first time they were needed. Both are
-cases of a sentence that stops being true by being moved rather than by being
-wrong.
+The release body is the changelog entry, with three changes that
+[the journal](journal.md) recorded the first time each was needed — it said
+*two* until 0.41.0, having been written when there were two and never counted
+again, which is [the stale sentence](method.md#a-sentence-that-was-true-when-written-is-not-checked-by-anything)
+this page warns about happening to this page. All three are cases of something
+that stops being right by being moved rather than by being wrong.
 
 **Strip the `count` markers.** A number written with one of them — the comment
 notation [programs.md](programs.md) describes, which tells the checker to
@@ -87,11 +109,23 @@ paragraph and leave the blank lines between them.
 This is the one fixup that cannot be found by reading the markdown, because the
 markdown is correct. **Open the page.**
 
+It has a mechanical form as well, and 0.41.0 used it: fetch the published page
+and count. `<br>` inside the body is the fault, and the paragraph count is what
+it should be instead — fourteen paragraphs and zero `<br>` there, against
+0.40.0's forty-one breaks across eight. **That reads the renderer's output,
+which is the artefact and is the point of it**, and it would say nothing about
+a fault that produced no `<br>`; it fails on the one that has actually
+happened, which is the standard the rest of these checks are held to.
+
 **Absolutise the links, pinned at the tag.** `[NET.md](NET.md)` is right inside
 `docs/` and a 404 from `/releases/tag/vX.Y.Z`. Rewrite to
 `https://github.com/hansolovkarlsson/Solveig/blob/vX.Y.Z/docs/NET.md` — at the
 tag rather than at `main`, so the page goes on describing what *this* release
 shipped after the documents move underneath it.
+
+**Then fetch each one and check it answers 200**, rather than trusting the
+string you built. The tag has to exist on the remote before they can, which is
+why this comes after the push; 0.41.0 had six and all six answered.
 
 Attach `dist/solveig-X.Y.Z.tar.gz` from `make dist`, which archives `HEAD` —
 check that `HEAD` is the release commit the tag points at.

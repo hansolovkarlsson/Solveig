@@ -1417,7 +1417,7 @@ is the one the oracles already have — [oracle.sh](../programs/oracle.sh),
 something the machine happens to have.
 
 **And it has an obvious moment: a release.**
-[releasing.md](releasing.md#then-the-page-and-the-two-fixups-it-needs) already
+[releasing.md](releasing.md#then-the-page-and-the-three-fixups-it-needs) already
 says **Open the page** about the release body, for a fault that cannot be found
 by reading the markdown because the markdown is correct. This is the same
 instruction about the same class of fault, aimed at the site instead, and

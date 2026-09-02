@@ -153,6 +153,35 @@ They were hand-compiled leftovers.
 finding looked interesting. **Presenting a non-defect as a defect costs more than
 saying nothing.**
 
+## And every check here enumerates by extension
+
+Its sibling, found on 2026-09-02 while cutting 0.41.0. **`programs/:=` had been
+in the tree since 2026-08-31** — 117 kilobytes, byte-identical to
+[pascal.sol](../programs/pascal.sol), committed by accident, and about to ship
+inside the tarball, since `make dist` archives `HEAD`.
+
+It survived two days, fifty-four commits and a day spent auditing the
+documentation, because **not one check here looks at the set of files.** They
+look at files of a *kind*: [expect.sol](../programs/expect.sol) counts
+`solFilesIn:value("programs")` and reads `.md`, the link checker walks
+markdown, [site.sh](../programs/site.sh) fetches published pages, and `make
+test` compiles what the `Makefile` names. A file with no extension is outside
+all of them at once — so *nineteen programs* stayed true, recounted on every
+build, while the directory held twenty files.
+
+**The remedy is one command and it is not `git ls-files`.** That answers what
+is tracked, which this file was. `git diff --name-status <last tag>..HEAD` is
+the only view here that asks what a stretch of work **added**, as against what
+the tree says about itself, and it found this in four seconds while the release
+notes were being written rather than while anybody was looking.
+[releasing.md](releasing.md) runs it before the four files now.
+
+This is [the enumeration rule](#an-enumeration-that-looks-complete-is-not-a-proof)
+one level up. There it was the four states of a pipe against the three anybody
+thought of; here it is the kinds of file a repository can contain, and the
+answer came the same way — by asking the thing itself rather than listing what
+came to mind.
+
 ## Hold it against something somebody else wrote
 
 **The strongest check available is an implementation whose author had no idea

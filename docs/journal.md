@@ -40,7 +40,9 @@ stayed true and correct while the directory held twenty files.
 **What found it was `git diff --name-status v0.40.0..HEAD`**, run to write the
 release notes rather than to look for anything. That is the only view here that
 asks what a release *adds* to the tree, as opposed to what the tree says about
-itself. It cost four seconds and it belongs in the procedure.
+itself. It cost four seconds, and it is the first step in
+[releasing.md](releasing.md#first-look-at-what-the-release-adds) now, with the
+rule in [method.md](method.md#and-every-check-here-enumerates-by-extension).
 
 It is the same shape as the four checks with holes recorded on 2026-09-01, and
 one step worse: those checks looked at the right things and stopped short. This
@@ -68,6 +70,12 @@ these checks are held to.
 
 `site.sh` was then run against `origin/main` once Pages had rebuilt: 31 pages,
 1,602 headings, 1,311 internal links, nothing to look at.
+
+**And the procedure said *two fixups* while listing three.** Written when there
+were two, never counted again, and found only because renaming the heading made
+the link checker report the one link into it — which is the stale sentence this
+repository has now recorded four days running, in the document that warns about
+it.
 
 ---
 
