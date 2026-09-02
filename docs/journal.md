@@ -11,6 +11,66 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-02 (0.41.0) — a release, and the file no check here could see
+
+Eighty-one commits and two days of work — 2026-08-31 and 2026-09-01 — went out
+as 0.41.0. Six roadmap entries, three new messages, a regular expression
+engine, the nineteenth program, three checks that nothing had held before, and
+a contract for a second producer of `.sob`. [releasing.md](releasing.md) was
+followed end to end, and unlike 0.40.0 it needed no correction on the way — the
+two steps that release added to it are what caught what they were written for.
+
+### The stray, and why nothing here could have found it
+
+**`programs/:=` had been in the tree since 2026-08-31.** 117 kilobytes,
+byte-identical to [pascal.sol](../programs/pascal.sol), committed by accident
+in `f30bc5d` — almost certainly a shell line where a token became a filename.
+It survived two days, fifty-four commits, a day of documentation auditing and
+every `make test`, and it would have shipped inside `solveig-0.41.0.tar.gz`,
+because `make dist` archives `HEAD`.
+
+**Nothing here was ever going to see it, and the reason generalises.** Every
+check in this repository enumerates by extension. `expect.sol` counts
+`solFilesIn:value("programs")` and reads `.md`; the link checker walks
+markdown; `site.sh` fetches published pages; the test suite compiles what the
+`Makefile` names. A file with no extension, in a directory every one of those
+checks inspects, is invisible to all of them at once — so *nineteen programs*
+stayed true and correct while the directory held twenty files.
+
+**What found it was `git diff --name-status v0.40.0..HEAD`**, run to write the
+release notes rather than to look for anything. That is the only view here that
+asks what a release *adds* to the tree, as opposed to what the tree says about
+itself. It cost four seconds and it belongs in the procedure.
+
+It is the same shape as the four checks with holes recorded on 2026-09-01, and
+one step worse: those checks looked at the right things and stopped short. This
+one is a class of object no check here has ever enumerated. **An enumeration
+that looks complete is not a proof** — [method.md](method.md#an-enumeration-that-looks-complete-is-not-a-proof)
+says that about the four states of a pipe, and it turns out to apply to the set
+of files as readily as to the set of cases.
+
+### The page, opened
+
+0.40.0's lesson was that the markdown can be provably right and the page a
+reader sees still wrong, because GitHub renders release notes with hard line
+breaks. Both fixups went in — markers stripped, paragraphs unwrapped, links
+absolutised at the tag and each of the six confirmed 200 rather than trusted —
+and then the rendered page was fetched and counted rather than read: **fourteen
+paragraphs and zero `<br>`**, against the forty-one breaks across eight
+paragraphs that 0.40.0 published.
+
+Worth saying plainly what that check is and is not. It reads the renderer's
+output, which is the artefact, and that is the point of it. It is still not a
+pair of eyes on the page, and if GitHub's markup were wrong in a way that
+produced no `<br>` this check would say nothing. **What it can fail on is the
+one fault that has actually happened here**, which is the standard the rest of
+these checks are held to.
+
+`site.sh` was then run against `origin/main` once Pages had rebuilt: 31 pages,
+1,602 headings, 1,311 internal links, nothing to look at.
+
+---
+
 ## 2026-09-01 (closing) — fifty-four commits, and the day this repository got a reader
 
 Thirteen entries below this one, numbered first to thirteenth, and they stay
