@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### A merge that scanned, and the check that was too slow to finish — `pending`, 2026-09-02
+### A merge that scanned, and the check that was too slow to finish — `0e60ff4`, 2026-09-02
 
 **[sort](../programs/sort.sol)'s k-way merge picks its winner off a heap now**,
 where it scanned every run's head. The cost was `lines x runs`, so at `-S 16`
