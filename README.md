@@ -662,6 +662,8 @@ predicate logic, which turns out to be three questions wearing one name.
 
 | | |
 | --- | --- |
+| [what-is-proto.md](docs/what-is-proto.md) | how the parts fit together, kept as the five questions that were asked and answered |
+| [pipeline.html](docs/pipeline.html) | the same path drawn — the pipeline, lockstep matching, expansion, and the map |
 | [GRAMMAR.md](docs/GRAMMAR.md) | the core grammar, the tokens, and which shape a form should have |
 | [ROADMAP.md](docs/ROADMAP.md) | what is outstanding, what is refused, and what a customer declined |
 | [COMPLETED.md](docs/COMPLETED.md) | the case for each piece of work as it was argued *before* the work |
