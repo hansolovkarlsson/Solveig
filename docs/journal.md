@@ -11,17 +11,19 @@ produced no code because they were decisions.
 
 ---
 
-## 2026-09-02 — a directive removed, four versions, and a survey that turned out to be partial
+## 2026-09-02 — a directive removed, four versions, a survey that was partial, and a fifth program
 
-Nineteen commits and four versions, 0.10.0 to 0.13.0.
+Four versions, 0.10.0 to 0.13.0. **The commit count is at the foot of this
+entry and not here**, for a reason worth one paragraph.
 
-**This entry first said "five commits, one version", which was true when it was
-written and stopped being true four hours later.** It was written at the point
-the day looked finished, and the day was not; the count is corrected here rather
-than in a second entry, because there was one day. It is
-[POSTMORTEM.md](POSTMORTEM.md) 13 exactly — a number that was true when it was
-written — committed on the same afternoon that entry's lesson was being copied
-into the tally.
+It has been wrong twice. The entry first said *five commits, one version*, was
+corrected to nineteen, and is neither. Both corrections have the same cause and
+it is not carelessness — **an entry written while the day is still running is a
+guess about when the day ends.** So the count lives where it can be the last
+thing written, and this opening carries only what stopped changing. It was
+[POSTMORTEM.md](POSTMORTEM.md) 13 twice over — a number that was true when it
+was written — on the same afternoon that entry's lesson was being copied into
+the tally.
 
 The day opened with *what's next todo?* and built none of the four things that
 question was answered with. It closed having closed seven of nine differences
@@ -236,6 +238,107 @@ standing in for messages Solveig already had** — `notEquals`, `lessOrEqual`,
 along while `clike.pro` wrapped it. `digest` runs 920 instructions fewer, and
 what is left in `clike.pro` is three templates, each one a message cannot be.
 
+### Somebody built the thing that could not be built
+
+A second session, running against this same working copy, made a branch and
+declared `|` as an infix operator. It worked: two hunks in `reader.c`, **no
+change to the lexer**, the whole suite green, every block form intact, and an
+example whose commented values all came out right.
+
+**Three documents said that was impossible**, in nearly the same words, and I
+had said it twice more during the day. `README.md`, `lex.c` and
+[COMPLETED.md](COMPLETED.md) 12: *`{ a | b }` would have two readings, and
+naming the ambiguity does not decide it.*
+
+**Two questions had been run together and given one answer.** *May `|` join the
+operator characters?* — no, and that stands, because characters in that set run
+together and a `|` there would make `|=` a spelling. *May `|` be declared?* — a
+different question, a bar being a token of its own that a parser may look up
+without it entering the set at all.
+
+And the resolution was already in the language. `{ a | b }` is a parameter and a
+body **by rule**, and `{ (a) | b }` escapes — which is `#[(b = c) = d]` in a
+different bracket, **landed four hours earlier the same day.** The mechanism was
+in that morning's commit message and the argument against `|` was not re-read in
+its light.
+
+**The cause was misattributed in both directions**, which is the part worth
+keeping. Entry 12 blamed the ambiguity and stopped. The session that built it
+reported removing *Solveig's* constraint and had removed nothing of Solveig's —
+`lex.c` untouched, and Solveig has the identical `{ a | b }` and settles it the
+identical way. What stands in the way of `|` is **Proto's own block syntax**.
+
+The work was reverted, not kept: it arrived uncommitted in a shared checkout and
+what it costs had not been looked at. [ROADMAP.md](ROADMAP.md) is that looking,
+and carries the reason not to hurry — 0.13.0 had just settled the repository on
+`\` for bitwise or *because* `|` was unavailable, and a spelling should be
+changed once. [POSTMORTEM.md](POSTMORTEM.md) 18.
+
+**It also came within half an hour of being swept into a commit of mine.** The
+edit landed at 11:59 and my last `git add -A` was 11:30. Two sessions in one
+working copy is a hazard that cost nothing today by timing alone.
+
+### The question this project exists to answer, finally written down
+
+[targets.md](targets.md) has said since 0.1.0 that the only thing this project
+exists to find out is **whether a grammar declared per module is a good idea**,
+and then left it to be answered elsewhere. Four programs had answered parts of
+it, each in its own README, each quoting the one before — and *a dialect pays
+per line it removes* appeared in four program folders and **nowhere in `docs/`
+or the README.**
+
+[does-it-pay.md](does-it-pay.md) is the four weighed together, with the numbers
+re-measured rather than carried across. Tabulating them showed something no
+single program could have:
+
+| | operators | forms |
+| --- | ---: | ---: |
+| ember, grammar — about another *language* | **0** | 16, 8 |
+| digest, ledger — about a *value domain* | 17, 10 | 3, 6 |
+
+**A domain of steps wants forms. A domain of values wants operators.** Nobody
+chose that; four programs arrived at it independently, and `ember` had already
+found the reason without knowing it was one — a pattern *reads as a step in a
+procedure*.
+
+Re-counting also corrected `digest`'s own README in both directions. It claimed
+Solveig writes twenty-three `bitAnd`s by hand and Proto writes none. Solveig's
+file has 24 in code, of which **18 are `bitAnd(mask)`**; Proto's has **0 masks
+and one** `bitAnd`, a byte extract. **Eighteen hand-written masks became five
+declarations** — the finding survives and the figures did not.
+
+### And a fifth program, for the one thing four had not tested
+
+`does-it-pay.md` ended by asking for a domain that was neither arithmetic nor
+instructions. [`programs/prose`](../programs/prose) is that: a document
+language, with the document itself written in the dialect. It is also the
+answerable half of a question asked the wrong way round earlier — *can Proto
+take prose?* Not as its body; but a dialect can be shaped so the document **is**
+the program.
+
+**It found no third category.** No operators, seven forms — `ember`'s shape
+exactly. A document is a domain of steps and the taxonomy absorbed it.
+
+**One prediction was wrong and it was the best finding.** Nesting was predicted
+to be the wall. It is not: a form takes a **block**, a block holds statements,
+and statements are content forms, so `indent { … }` nests to any depth and
+Solveig's braces carry the structure. The real ceiling is a level lower —
+**a form can contain content; a form cannot contain half a line.** Emphasis
+inside a sentence has nowhere to go, because a paragraph is one string.
+
+**And it split *carrying a rule* in two.** `indent { … }` cannot be unbalanced,
+but the dialect borrowed that from Solveig rather than inventing it. `sha2.pro`
+invented its own. **Only the invented kind is evidence that a declared grammar
+does something a fixed one cannot**, and it is still the single clear instance
+in five programs.
+
+It also reversed an answer given the same morning. `lib/arith.pro` has no `<=`,
+and the renderer wanted one. Asked at eleven whether arith should be completed,
+the answer was no — *no customer at all*, every one of arith's five users
+declaring no operator of its own. This is the sixth user and the customer. **One
+is still not enough**, which is the rule that kept the bitwise operators out on
+the same day; the roadmap records it so the second customer settles it.
+
 ### What the tests did today
 
 Nothing, and mostly that was the job. The suite held at 58, 6, 34 and 10 while
@@ -245,20 +348,25 @@ the segfault added one, and the new spellings twenty-six.
 
 ### The number worth keeping
 
-**Not one of the day's findings came from a test.** Two misreadings, by a person
-asking. One dead directive's real argument, by a person asking what it would
-mean. One nine-version-old segfault, by declining to repeat a sentence without
-checking it. And eight of the nine syntactic differences, **by a person asking
-whether the first survey had been complete** — which is the one to keep, because
-the survey was mine and I had already reported it as finished.
+Twenty-five commits, four versions, a fifth program, and **not one finding from
+a test.**
 
-The tally now counts *being asked whether a survey had been complete* as its own
-row, at two.
+Two misreadings, by a person asking. One dead directive's real argument, by a
+person asking what it would mean. One nine-version-old segfault, by declining to
+repeat a sentence without checking it. Eight of the nine syntactic differences,
+by a person asking whether the first survey had been complete. And one
+impossibility, **by somebody building the thing that could not be built.**
 
-The day also produced the first document here that is neither an argument nor a
-grammar — [REFERENCE.md](REFERENCE.md), the page you look a spelling up in,
-carrying the inventory of `lib/` that had existed only inside three header
-comments.
+Every one of them by a person or a program. The tally now has two rows it did
+not have this morning — *being asked whether a survey had been complete*, at
+two, and *somebody building the thing that could not be built*, at one.
+
+**Three documents also arrived that had no home before**:
+[REFERENCE.md](REFERENCE.md), the page you look a spelling up in;
+[does-it-pay.md](does-it-pay.md), the answer to the only question the project
+exists to ask; and `programs/prose/README.md`, which is a document about a
+document. The first two are the day's real output. The four versions were the
+easy part.
 
 ## 2026-09-01 — the project changed its name, and nothing else
 
