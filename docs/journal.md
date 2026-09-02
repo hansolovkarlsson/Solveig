@@ -13,10 +13,13 @@ that a document was still true. That is what this is for.
 
 ## 2026-09-01 (closing) — fifty-four commits, and the day this repository got a reader
 
-Thirteen entries below this one, and they stay where they are: several call
-themselves the day's account and were wrong about that, which is the shape the
-2026-08-31 close already recorded and is now a habit worth naming rather than
-repeating. This is the account of the whole of it.
+Thirteen entries below this one, numbered first to thirteenth, and they stay
+where they are. **Two of them called themselves the day's closing account and
+were not**, which is the shape the 2026-08-31 close already recorded and is now
+a habit rather than an accident: the third and the fourth carry a line saying so
+where the label used to. Their text is unchanged — being wrong about whether a
+day is over is worth a note rather than a silent edit. This is the account of
+the whole of it.
 
 ### What shipped
 
@@ -652,7 +655,9 @@ is the shape of a claim being narrowed to what was measured.
 
 ---
 
-## 2026-09-01 (really closing) — the check that found the day's worst fault, scoped
+## 2026-09-01 (fourth) — the check that found the day's worst fault, scoped
+
+> **Written as *really closing*, which it also was not.** Nine more followed.
 
 Four entries. The one below calls itself the day's closing account and was wrong
 about that, in the same way and for the same reason the 2026-08-31 one was: a day
@@ -714,7 +719,13 @@ than 3.23 and is a different entry. Neither is argued for here.
 
 ---
 
-## 2026-09-01 (closing) — the scoping was right, its measurement of the oracle was not
+## 2026-09-01 (third) — the scoping was right, its measurement of the oracle was not
+
+> **This entry was written as the day's closing account and was not it.** Ten
+> more followed. The label is corrected to its place in the order rather than
+> the text, which stands as written — being wrong about whether a day is over
+> is the same mistake the 2026-08-31 close recorded, and making it twice is
+> worth a line rather than a silent edit.
 
 Three entries for the day. This one is the account of the whole of it, and the
 two above are left where they are — including the section in the evening entry
@@ -801,7 +812,7 @@ releases. It needs the network, and `expect.sol` reads files and runs programs.
 
 ---
 
-## 2026-09-01 (evening) — an hour on 6.39 that produced a different entry
+## 2026-09-01 (second) — an hour on 6.39 that produced a different entry
 
 The instruction was to work on
 [6.39](COMPLETED.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file--done),
@@ -907,7 +918,7 @@ no code.
 
 ---
 
-## 2026-09-01 — a checker built off its trigger, and the two faults it did not find
+## 2026-09-01 (first) — a checker built off its trigger, and the two faults it did not find
 
 One instruction: build the link checker. It is built, it is in `make test`, and
 it reports nothing — and almost none of the day's value is in it.
