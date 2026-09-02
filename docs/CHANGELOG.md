@@ -5,6 +5,52 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The verifier says which of the thirty-two — `pending`, 2026-09-01
+
+**No change to the language, and none to the result codes either.**
+`SOL_SER_MALFORMED` stood for thirty-two separate conditions and every one of
+them reported *bytecode is internally inconsistent*: a jump past the end of the
+code, a stack height that does not balance, `slot_count < arity + 1`, a name or
+constant index out of range, a chunk not ending in `HALT` or `RETURN`.
+
+That is the right bar for `solas`, whose output is checked byte-for-byte against
+a second implementation and whose author has the source in front of them. It is
+the wrong bar for anybody else, and
+[6.42](ROADMAP.md#642-a-second-producer-of-sob-has-no-contract-to-build-against)
+exists because there is now an anybody else: a program generating `.sob` from
+outside this repository is told that it is wrong and not what is wrong, and
+these are exactly a code generator's bugs.
+
+Each site carries a sentence now:
+
+```text
+solvm: cannot load 'x.sob': bytecode is internally inconsistent
+       -- a jump lands in the middle of an instruction
+```
+
+**A single-byte fuzz over one small `.sob` produces twelve distinct diagnoses
+where it produced one**, which is how the split was checked rather than
+asserted: every byte of a working file, set to five values, and the messages
+counted.
+
+**The enum did not move, and that was the compatibility question.** The detail
+comes back through `sol_chunk_load_why` and `sol_chunk_verify_why` as an
+out-parameter; the old two are wrappers passing NULL. No caller and no test had
+to change — fifteen tests assert the generic code and still do. An
+out-parameter rather than a file-static string because `system:load` is
+reachable from a thread, and two threads verifying two chunks must not tread on
+each other.
+
+**Four of `test_serialize`'s malformed cases now name the fault they mean**
+rather than asserting the code, which is what stops the split collapsing back:
+change a sentence and that test fails.
+
+**And it went further than the entry recommended.** Splitting by *who is at
+fault* — a producer bug against a damaged file — was the plan. The sites turned
+out to be one condition each already, and grouping them would have thrown away
+the part a producer uses. The recommendation was too coarse and the entry says
+so.
+
 ### The first outside user, and what answering him cost — `72a3fcb`, `8cfbdbc` and `e1dec62`, 2026-09-01
 
 **Somebody who did not write this language started emitting `.sob` from

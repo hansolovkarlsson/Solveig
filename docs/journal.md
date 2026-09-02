@@ -11,6 +11,64 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-01 (eleventh) — the verifier learns to say which
+
+One sentence became thirty-two. `bytecode is internally inconsistent` was the
+whole of what a chunk could say about itself, and for a compiler in this
+repository that was right: its output is checked byte-for-byte against a second
+implementation, and whoever reads the message has the source open.
+
+An outside producer changed what the message is for. Phoenix emits `.sob`
+directly, so the verifier is the first thing that tells it whether its back end
+works — and *you are wrong* is not a useful answer to a code generator whose
+bugs are precisely jump targets, stack heights and slot counts.
+
+### The design question answered itself by being asked properly
+
+[6.42](ROADMAP.md#642-a-second-producer-of-sob-has-no-contract-to-build-against)
+had flagged a compatibility problem: the result codes are public, something may
+be reading them, and splitting an enum is a breaking change.
+
+Looking at who reads them settled it. Four `main.c` files and `builtins.c` all
+do `!= SOL_SER_OK` and then ask for a message; the only code that distinguishes
+values is the test suite, and fifteen of those assert `MALFORMED` exactly. So
+the codes did not need to move at all — what was missing was not a finer code
+but a sentence, and a sentence can be an out-parameter.
+
+`sol_chunk_load_why` beside `sol_chunk_load`, the old one a wrapper passing
+NULL. Nothing changed for any existing caller. **The compatibility question was
+answered by not needing an answer**, which is worth remembering the next time
+one comes up: the shape of the fix is decided by who consumes the thing, and
+that is a grep rather than a judgement.
+
+An out-parameter and not a file-static string, because `system:load` is
+reachable from a thread and two threads verifying two chunks would have shared
+it. That cost about forty lines of threading a parameter through five functions,
+and it is the difference between a fix and a fix with a race in it.
+
+### Checked by fuzzing rather than by claiming
+
+Every byte of a working `.sob`, set to five values, and the messages counted:
+**twelve distinct diagnoses where there had been one**, and the counts are
+lopsided in a way that is itself informative — 157 truncations, 30 line-run
+faults, 21 bad opcodes, and exactly one each for *does not end in HALT or
+RETURN* and *the file runs do not cover the code exactly*.
+
+That is the check the entry could not have had before the split, and it is most
+of the design for the conformance corpus that is left: it enumerates which
+faults a corrupted byte actually reaches, which is not the same set as the ones
+a generator writes.
+
+### The recommendation was too coarse and the entry says so
+
+*Split by who is at fault* was the call I wrote yesterday afternoon — a producer
+bug against a damaged file. Writing it found the sites are already one condition
+each, and grouping them into two buckets would have discarded exactly the part
+that helps. A recommendation made from reading the code and corrected by editing
+it.
+
+---
+
 ## 2026-09-01 (tenth) — the first outside user, and five things his questions moved
 
 Somebody who did not write this language started emitting `.sob` from outside
