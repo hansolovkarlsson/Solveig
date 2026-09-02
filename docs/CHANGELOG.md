@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### The corpus, and the shape it turned out not to be — `pending`, 2026-09-01
+### The corpus, and the shape it turned out not to be — `c8391c5`, 2026-09-01
 
 **Seventeen cases, thirteen distinct diagnoses**, each constructing a chunk with
 one fault and asserting the *sentence* rather than the result code. A diagnosis
