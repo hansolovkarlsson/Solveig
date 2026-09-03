@@ -9,13 +9,14 @@ shipped. This is the failures.
 
 ## Scope
 
-Twenty, from three days, in four cohorts that failed for four different
+Twenty-one, from four days, in four cohorts that failed for four different
 reasons:
 
 - **In the compiler** — six, five of which were latent from 0.1.0 and 0.2.0.
-- **In the documents** — six: three an edit that reported success and changed
-  nothing, two where no edit was attempted at all, and one where a sweep looked
-  in the files it remembered instead of for the claim.
+- **In the documents** — seven: three an edit that reported success and changed
+  nothing, two where no edit was attempted at all, one where a sweep looked in
+  the files it remembered instead of for the claim, and one where the fix
+  falsified the sentence describing it.
 - **In the programs** — four, found by the first real use of a thing.
 - **In the reasoning** — four, where something true was written down as
   something else and had to be retracted.
@@ -383,6 +384,43 @@ agreement now, beside the sweep it sharpens.
 **Found by** the next session's closeout, one sweep after the sweep that missed
 them.
 
+### 21. Correcting a claim falsified the sentence describing it — 2026-09-03
+
+**What.** 20's own write-up said, of the journal entry below it:
+
+> The entry below **reports** the suite as "58, 6, 60 and 11", which is 135 …
+
+and the same commit changed that entry to read 69. **The description was false
+the moment it was committed**, and by the edit it was describing.
+
+Two more of the same shape were in the `programs/prose` CHANGELOG entry, which
+still read *`lib/arith.pro` has no `<=`* and *one is still not enough* — both
+overtaken by `programs/basic` the same evening, in a commit that never opened
+that entry.
+
+**Cause, and it is not 19's or 20's.** Both of those are about a claim going
+stale while nobody looks. This one is the opposite: **the claim went stale
+because somebody did look, and fixed the thing it described.** A sentence
+written in the present tense about another document's *current* state has a
+lifetime of one edit, and the edit that ends it is usually in the same commit —
+because describing a defect and fixing it are the same piece of work.
+
+> **Write what a document *read*, not what it *reports*.** A record of a defect
+> is history the moment the defect is fixed, and past tense survives the fix.
+
+`journal.md`'s line now reads *the entry below **read**…*, and says the
+correction stands in place. The two CHANGELOG claims moved to past tense with a
+pointer to the entry that closed them.
+
+**And the ritual is not about the day's work.** This closeout ran on a day with
+no commits in it — the previous day had already been closed and pushed — and
+found three defects anyway. **A sweep audits the documents, not the day**, which
+is an argument for running it even when there is nothing to write up, and the
+reason [conventions.md](conventions.md) now says so.
+
+**Found by** a closeout run on an empty day, after being told there was nothing
+to close out.
+
 ---
 
 ## In the programs
@@ -567,8 +605,9 @@ where somebody could go back and disagree with it, and somebody did.
 | Somebody building the thing that could not be built | **1** |
 | Reading everything once at the end of a day | **1** |
 | Grepping for a claim rather than opening the documents | **1** |
+| A closeout run on a day with no work in it | **1** |
 
-**Two of twenty were found by tests**, and one of those two was a broken
+**Two of twenty-one were found by tests**, and one of those two was a broken
 test. Five came from writing programs in the language — four of the six
 programs found one, and the sixth found none — and three more came from reading
 something rather than running it.

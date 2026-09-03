@@ -11,6 +11,74 @@ produced no code because they were decisions.
 
 ---
 
+## 2026-09-03 — a day with no work in it, swept anyway, and three things fell out
+
+**The shortest entry here, and it is not empty**, which is the finding.
+
+The day opened with the previous one already closed and pushed. `git status`
+clean, no branches, no worktrees, no stashes, nothing touched outside git since
+19:40 the night before. Asked to close out the day, the honest answer was
+**there is nothing to close out** — writing a journal entry for a day with no
+commits in it would be inventing one.
+
+That answer was given, and then overruled, and **the sweep found three defects.**
+
+### What it found
+
+**One of them had been false since the commit that wrote it.** POSTMORTEM 20's
+write-up says, of the entry below it:
+
+> The entry below **reports** the suite as "58, 6, 60 and 11" …
+
+and the same commit changed that entry to read 69. The sentence describing the
+defect was falsified by the fix it was describing, in the same diff.
+
+**Two more were in the `programs/prose` CHANGELOG entry**, which still read
+*`lib/arith.pro` has no `<=`* and *one is still not enough*. Both were overtaken
+by `programs/basic` the same evening, by a commit that had no reason to open
+that entry and did not.
+
+### Which is a different failure from 19's and 20's
+
+Those two are about a claim going stale **while nobody looks**. This is the
+opposite: the claim went stale **because somebody looked**, and fixed the thing
+it described.
+
+> **Write what a document *read*, not what it *reports*.** A record of a defect
+> is history the moment the defect is fixed, and past tense survives the fix.
+
+A present-tense sentence about another document's current state has a lifetime
+of one edit, and the edit that ends it is usually in the same commit — because
+describing a defect and correcting it are one piece of work. Three of the day's
+three are that, one of them inside the entry about documents going stale.
+
+### And the ritual is not about the day's work
+
+**A sweep audits the documents, not the day.** Nothing was written on
+2026-09-03 and three things were wrong in `docs/` anyway, because they had been
+wrong since the night before and a clean `git status` says nothing about that.
+
+So *there is nothing to close out* was the wrong answer, and it was wrong for a
+reason worth writing down rather than a slip: it treated the closeout as a
+report on work done, when what it actually is is an audit of what the documents
+claim. **An empty day is not a reason to skip one**, and
+[conventions.md](conventions.md) says so now.
+
+The grep agreement earned last night was what found two of the three, on its
+first use in anger. The third came from re-reading the entry that agreement was
+written into.
+
+### The numbers, written last
+
+**One commit, this one, and no version.** Nothing in `proto/` or `programs/` was
+touched; the suite sat at **58, 6, 69 and 11** and was run four times as a
+control. Four commits from the night before went to `origin/main` in the
+morning — `c61680a..69a2878` — which is the only thing that happened today that
+was not a document being corrected.
+
+Three defects, from a day with nothing in it. The tally has a row it did not
+have this morning: **a closeout run on a day with no work in it**, at one.
+
 ## 2026-09-02, later — a sixth program, and the sweep that closed the day was wrong about the tests
 
 **The day had already been closed out.** `c61680a` wrote the entry below, landed
@@ -123,9 +191,10 @@ corrected fifteen**, and how they divide is the whole of
 - `targets.md` carried the *same sentence* 19 corrected in `README.md` and
   `REFERENCE.md` — *does-it-pay.md is what four programs have said* — in a third
   file the sweep did not open.
-- The entry below reports the suite as "58, 6, 60 and 11", which is 135, six
-  paragraphs above reporting the total as 144. Nothing had touched `tests/`. The
-  figure was 69 and had been all day.
+- The entry below **read** "58, 6, 60 and 11", which is 135, six paragraphs
+  above the same entry reporting the total as 144. Nothing had touched `tests/`;
+  the figure was 69 and had been all day. It carries the correction in place
+  now, per the rule that a finding is retracted where it stands.
 - `conventions.md` says "all three programs" twice, against six — **in the file
   that holds the sweep agreement.**
 - `does-it-pay.md`'s heading reads *What the four declared* over five rows.

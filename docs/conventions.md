@@ -111,6 +111,19 @@ once, and opening the two you remember returns two.
 keep: a document stating a rule is the least likely of all to be opened while
 the rule is being applied.
 
+**The sweep runs on a day with no work in it too.** On 2026-09-03 the answer to
+*close out the day* was *there is nothing to close out* — the previous day had
+been closed and pushed and nothing had moved since. Run anyway, the sweep found
+three, one of them a sentence that had been false since the commit that wrote
+it. **A sweep audits the documents, not the day**, so an empty day is not a
+reason to skip one. [POSTMORTEM.md](POSTMORTEM.md) 21.
+
+**And a record of a defect is written in the past tense.** *The entry below
+reports X* is false as soon as X is fixed, and the fix is usually in the same
+commit, because describing a defect and correcting it are one piece of work.
+*The entry below read X* survives it. Three of 21's instances are this, one of
+them inside 20's own write-up.
+
 **Two sessions do not share a working copy.** On 2026-09-02 a second session
 made a branch and left uncommitted changes to `proto/src/reader.c` in this
 checkout while this one was committing every few minutes with `git add -A`. The

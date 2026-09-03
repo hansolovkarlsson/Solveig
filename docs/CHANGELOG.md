@@ -10,6 +10,29 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### A sweep on an empty day — 2026-09-03
+
+**No version, no code, and no work to report** — which is the entry.
+
+The previous day was closed and pushed; nothing had moved. Asked to close out
+2026-09-03, the answer given was that there was nothing to close out. Run
+anyway, the sweep found **three** claims wrong, and
+[POSTMORTEM.md](POSTMORTEM.md) 21 is why they are a different failure from 19's
+and 20's:
+
+**They went stale because somebody looked.** 20's write-up said *the entry below
+reports the suite as 58, 6, 60 and 11* and the same commit changed that entry to
+69. Two more sat in the `programs/prose` entry above — *`lib/arith.pro` has no
+`<=`* and *one is still not enough* — both overtaken by `programs/basic` the
+same evening.
+
+> **Write what a document *read*, not what it *reports*.** A record of a defect
+> is history the moment the defect is fixed, and past tense survives the fix.
+
+And: **a sweep audits the documents, not the day.** An empty day is not a reason
+to skip one. Both are standing agreements in
+[conventions.md](conventions.md) now.
+
 ### Closing out, again — 2026-09-02
 
 **No version, and nothing in the compiler changed.** The day had already been
@@ -224,15 +247,19 @@ yes, the inline structure no, and not by any arrangement of words and holes.
 unbalanced — but the dialect did not invent that rule, it borrowed one Solveig
 already enforces. `sha2.pro` invented its own; nothing in Solveig makes `+` mask
 to 2³². **Only the invented kind is evidence that a declared grammar does
-something a fixed one cannot**, and it is still the one clear instance in five
-programs.
+something a fixed one cannot**, and it is still the one clear instance in the
+programs written so far — five when this was written, six since.
 
 **Unpredicted, and it reverses an answer given the same morning.**
-`lib/arith.pro` has no `<=`, and the renderer wanted one — it writes
+`lib/arith.pro` had no `<=`, and the renderer wanted one — it was written
 `while i < doc:size + #1` instead. Asked hours earlier whether arith should be
 completed, the answer was no, on the evidence that `<=`, `>=` and `!=` had *no
-customer at all*. This is the customer. One is still not enough, and
-[ROADMAP.md](ROADMAP.md) records it so the second settles it.
+customer at all*. This was the customer. One was not enough, and
+[ROADMAP.md](ROADMAP.md) recorded it so the second would settle it.
+
+**The second arrived the same evening** — `programs/basic` — and the family
+went in. See *Six comparisons in `lib/arith.pro`* above; the renderer reads
+`while i <= doc:size` now.
 
 ### `|` can be declared after all — a retraction — 2026-09-02
 
