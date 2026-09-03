@@ -154,7 +154,7 @@ this project is.
 
 ## Waiting on a customer — optional and repeated parts
 
-**Declined twice, and the second time with a reason.**
+**Declined three times, and the last two with the same reason.**
 
 `programs/ember` wanted neither: no variadic notation, and `if`/`else` as two
 declarations was fine.
@@ -167,8 +167,15 @@ form, so the rules live in a table as data and the repetition wanted is in the
 object language rather than in Proto. Both grammars have a `whileTrue` where
 EBNF has a brace, and no Proto feature would have removed it.
 
+`programs/basic` met both again and declined both from the far side. BASIC's
+`PRINT a, b, c` is a repetition and its `STEP` clause is an optional part, and
+they are `while opIs(",") do …` and `if wordIs("STEP")` in an ordinary parser —
+**in the interpreted language, one level below anything a header can reach.**
+Same reason as `grammar`'s, arrived at from a domain with no grammar in it.
+
 That is a reason rather than a shrug, and it moves this below whatever the next
-program finds.
+program finds. **Three programs have now been offered the feature and none has
+wanted it**, which is the strongest form of evidence this project collects.
 
 **`if <c> then <a> else <b>` is a second declaration rather than an optional
 tail**, which is honest and costs a line. Repetition — a form taking a list —

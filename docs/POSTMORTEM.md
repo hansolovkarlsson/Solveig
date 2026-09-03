@@ -9,12 +9,13 @@ shipped. This is the failures.
 
 ## Scope
 
-Nineteen, from three days, in four cohorts that failed for four different
+Twenty, from three days, in four cohorts that failed for four different
 reasons:
 
 - **In the compiler** — six, five of which were latent from 0.1.0 and 0.2.0.
-- **In the documents** — five: three an edit that reported success and changed
-  nothing, and two where no edit was attempted at all.
+- **In the documents** — six: three an edit that reported success and changed
+  nothing, two where no edit was attempted at all, and one where a sweep looked
+  in the files it remembered instead of for the claim.
 - **In the programs** — four, found by the first real use of a thing.
 - **In the reasoning** — four, where something true was written down as
   something else and had to be retracted.
@@ -323,6 +324,65 @@ by the sweep finding a stale number in the paragraph describing the sweep.
 **Found by** closing out the day, which is the only reason any of it was looked
 at.
 
+### 20. The sweep that found 19 was itself incomplete — 2026-09-02
+
+**What.** 19 landed the standing agreement that everything is read once at the
+end of a day. The next session's closeout, the same day, corrected **fifteen**
+claims. They divide, and the division is the finding.
+
+**Six were stale before 19's sweep ran, and it missed all six.**
+
+| | |
+| --- | --- |
+| `targets.md` | *does-it-pay.md is what four programs have said* — the **same sentence** 19 corrected in `README.md` and `REFERENCE.md`, in a third file it did not open |
+| `journal.md` | the suite "ended at 58, 6, 60 and 11", which is 135, six paragraphs above the same entry reporting 144. Nothing had touched `tests/`; the figure was 69 and had been all day |
+| `conventions.md` | "all **three** programs in `programs/`", against six |
+| `conventions.md` | "all **three** programs" again, in *What the build guarantees* |
+| `does-it-pay.md` | the heading **What the four declared**, over a table of five rows |
+| `REFERENCE.md` | `lib/clike.pro`'s `!=`, `<=`, `>=` as *templates over the three above* — plain messages since 0.6.0, **wrong for eight versions** |
+
+**Nine more went stale during this session's own work** — a sixth program, and
+three operators added to `lib/arith.pro` — and were caught the same day:
+`REFERENCE.md`'s `does-it-pay.md` cell (corrected *four*→*five* the night
+before, stale again at *six*), four counts inside `does-it-pay.md` itself,
+*optional and repeated parts declined twice* in `conventions.md`, `COMPLETED.md`
+twice and `ROADMAP.md` once, and `REFERENCE.md`'s sentence naming clike's
+comparison set as what still differs from arith.
+
+**Cause.** A sweep is only as good as its query, and 19's **searched the files
+it remembered rather than the claim.** Three files said *does-it-pay.md covers N
+programs*; it opened two. Nothing about reading everything catches that, because
+`targets.md` **was** read — it was read for what it says about targets, which is
+what it is for.
+
+> **A claim that appears in three documents is one claim, and it is found by
+> grepping for the claim, not by opening the documents.**
+
+**Three of the six were in `conventions.md` and `does-it-pay.md`** — the file
+that holds the sweep agreement, and the file that holds the project's own
+answer. A document stating a rule is the least likely of all to be opened while
+the rule is being applied.
+
+**And one was wrong when written, again.** 19 recorded that two of its nine were
+wrong on the day they were counted, and then carried a number that was wrong on
+the day it was counted — in the paragraph about the tests, in the entry about
+numbers being wrong. The suite prints its four figures on every run. The line
+was typed rather than read off one.
+
+**The clike row is the different one.** Not a count going stale but a
+**description of a mechanism that changed underneath it**: clike moved from
+templates to plain messages in 0.6.0 and the table describing it did not. It
+survived every sweep because nothing about it looks like a number, and it was
+found only because that table was being edited for another reason.
+
+**What worked.** Grepping for the claim. One search for *five programs* returned
+every instance at once, including three in `does-it-pay.md`; one for *declined
+twice* returned four files. It is [conventions.md](conventions.md)'s standing
+agreement now, beside the sweep it sharpens.
+
+**Found by** the next session's closeout, one sweep after the sweep that missed
+them.
+
 ---
 
 ## In the programs
@@ -506,11 +566,12 @@ where somebody could go back and disagree with it, and somebody did.
 | Being asked whether a survey had been complete | **2** |
 | Somebody building the thing that could not be built | **1** |
 | Reading everything once at the end of a day | **1** |
+| Grepping for a claim rather than opening the documents | **1** |
 
-**Two of nineteen were found by tests**, and one of those two was a broken
-test. Five came from writing programs in the language — four of the five
-programs found one — and three more came from reading something rather than
-running it.
+**Two of twenty were found by tests**, and one of those two was a broken
+test. Five came from writing programs in the language — four of the six
+programs found one, and the sixth found none — and three more came from reading
+something rather than running it.
 
 The unit tests are worth having — 144 of them, and they caught 1 immediately —
 but they check what was thought of. **What found the rest was a customer, or a

@@ -32,7 +32,7 @@ the design.
 
 ---
 
-## What the four declared
+## What the six declared
 
 | | operators | forms | dialect | program |
 | --- | ---: | ---: | ---: | ---: |
@@ -61,9 +61,11 @@ pattern "reads as a step in a procedure". So:
 
 > **A domain of steps wants forms. A domain of values wants operators.**
 
-Nobody chose that. Four programs arrived at it independently, and the two halves
-of Proto's extension mechanism turn out to serve two different kinds of domain
-rather than being two spellings of one thing.
+Nobody chose that. Four programs arrived at it independently and two more have
+arrived since, and the two halves of Proto's extension mechanism turn out to
+serve two different kinds of domain rather than being two spellings of one
+thing. **What the sixth adds is a limit on the claim**, not a sixth data point:
+it is a taxonomy of domains a *dialect can see*.
 
 ---
 
@@ -178,10 +180,10 @@ cannot be left unbalanced, because a block cannot be left unclosed. But the
 dialect did not invent that rule; it borrowed one Solveig already enforces.
 `sha2.pro` invented its own — nothing in Solveig makes `+` mask to 2³². **Only
 the invented kind is evidence that a declared grammar does something a fixed one
-cannot**, and it remains the one clear instance in five programs.
+cannot**, and it remains the one clear instance in six programs.
 
 **What is still unknown** is smaller than it was. The measure has held across
-five domains and the ceiling is now described rather than guessed at. What no
+six domains and the ceiling is now described rather than guessed at. What no
 program has yet tried is a dialect used by *somebody who did not write it* —
 every dialect here was written by the author of the file that uses it, an hour
 before, and a notation's real cost is paid by the second reader.

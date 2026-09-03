@@ -10,6 +10,33 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### Closing out, again — 2026-09-02
+
+**No version, and nothing in the compiler changed.** The day had already been
+closed out in `c61680a`; this reopened it for a sixth program and closed it
+again.
+
+**Fifteen claims corrected, and six of them were stale before last night's
+sweep ran.** [POSTMORTEM.md](POSTMORTEM.md) 20 has them: `targets.md` carrying
+the same sentence 19 fixed in two other files, the journal reporting the suite
+as 135 six paragraphs above reporting it as 144, `conventions.md` saying "three
+programs" twice against six, `does-it-pay.md` headed *What the four declared*
+over five rows, and `REFERENCE.md` describing `lib/clike.pro`'s comparisons as
+templates when they have been plain messages since 0.6.0 — **wrong for eight
+versions.** The other nine went stale during the day's own work and were caught
+the same day.
+
+**19's defence was better than 13's and still not enough.** *Read everything
+once at the end* works when the claim is somewhere you would open. `targets.md`
+was read; it was read for what it says about targets.
+
+> **A claim that appears in three documents is one claim, and it is found by
+> grepping for the claim, not by opening the documents.**
+
+That is [conventions.md](conventions.md)'s standing agreement now, beside the
+sweep it sharpens — and it was added to the file that was two of the six, which
+is the part worth remembering.
+
 ### Six comparisons in `lib/arith.pro` — 2026-09-02
 
 **No version; a shipped dialect gained three declarations.** `!=`, `<=` and

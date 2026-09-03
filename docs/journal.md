@@ -11,6 +11,176 @@ produced no code because they were decisions.
 
 ---
 
+## 2026-09-02, later — a sixth program, and the sweep that closed the day was wrong about the tests
+
+**The day had already been closed out.** `c61680a` wrote the entry below, landed
+POSTMORTEM 19 and two standing agreements, and reported the day's counts. This
+session reopened it, and one of the things it found is in that entry.
+
+The numbers are at the foot, for the reason the entry below spent three attempts
+learning.
+
+### It began as a question, again
+
+> Can proto be used to create an interpreted language like BASIC?
+
+**Two questions wearing one sentence**, which is what [targets.md](targets.md)
+had to untangle a day earlier for the *compiler* version of the same ask. So the
+first answer was to separate them and then check both by running them:
+
+- A BASIC **interpreter written in Proto** — yes, and `programs/ember` was
+  already 90% of the shape.
+- **BASIC as a Proto dialect** — partly, and compiled rather than interpreted.
+  A `@syntax`-declared `PRINT`/`LET`/`IF`/`FOR` compiles and runs. What it
+  cannot have is `LET x = 3`, because `=` is an operator and a pattern is words
+  and holes — the wall `ember` hit with `mov <d>, <s>` — and it cannot have line
+  numbers, because **a pattern begins with a word** and `10 PRINT "HI"` begins
+  with an integer.
+
+**Both halves were tested before either was claimed**, which took ten minutes
+and is the only reason the second half's two limits are stated as errors the
+compiler actually prints rather than as things that sounded true.
+
+### The sixth program
+
+Predictions first, in `92be288`, before a line existed. Then the interpreter:
+line numbers, `LET`, `PRINT`, `INPUT`, `IF`/`THEN`, `GOTO`, `GOSUB`/`RETURN`,
+`FOR`/`NEXT`/`STEP`, `END`, `REM`, and a prompt with `RUN`, `LIST` and `BYE`.
+
+**It was picked for the thing five programs had not been.** Every one of them
+walks its input end to end in the order it is written. An interpreter has a
+counter that can go backwards, an environment outliving every statement, and
+statements running a number of times the source does not say.
+
+Five of six predictions were right. **The two that matter were right for the
+wrong reason**, and the wrong reason is the finding.
+
+Prediction 2 said BASIC's `+` would go undeclared because the interpreter's own
+counting outnumbers BASIC's adding. It goes undeclared, and not for that:
+**there is nothing to declare it for.** The interpreter never writes `a + b` on
+two BASIC values anywhere. It writes `binop:value(op, a, b)` with `op` a string
+that came from the input, and every branch is a send that already knows its
+operation. Two `+` survive in the whole file and both are `pc + #1`.
+
+So prediction 1's reason covers prediction 2 as well, and `grammar`'s ceiling
+was never about recursion:
+
+> **Notation is fixed when a file is read. An interpreter's every decision is
+> made after that.**
+
+**That dissolves the question the program was picked to ask** rather than
+answering it. It was picked as the first program with two domains in one file —
+a domain of steps and a domain of values — to see whether *steps want forms,
+values want operators* could hold twice inside one dialect. The value domain
+never reached the dialect. It is one level down, where no header can see it. **A
+program can contain a domain without being one**, so the split five programs
+found is a taxonomy of domains a dialect can *see*.
+
+### Two things nothing had tested
+
+**A form's word and a message selector do not collide.** `@syntax step` sits in
+the same program as six sends of `s:step` to a `scan` cursor, and both compile
+correctly, because a selector is never in primary position and the matcher never
+looks there. The README's rule that *a word in a pattern is not reserved
+anywhere else* was written about variables. Something depends on it for
+selectors now.
+
+**And it is the first program that needed hygiene.** `take`'s template has a
+temporary `t`; `parseAtom` has a local `t` and calls `take` into it. The
+generated source renames the template's. Without hygiene the parser loses the
+token it just read, four lines before it uses it. **Nobody noticed while writing
+it** — which is exactly what the argument for putting hygiene in with forms in
+0.2.0 rather than after predicted, and, being a thing that does not happen, the
+only evidence that argument could ever have.
+
+### The bar was met, and Hans took it
+
+`lib/arith.pro` shipped `<`, `>` and `==` alone from the first commit. The entry
+keeping the other three out is the one *a surface does not grow without a
+customer* was written down against. `programs/prose` was the first customer a
+day earlier and wrote around the gap; this program wanted `<=` and `>=` five
+times and `!=` four.
+
+**The count did not settle it cleanly and that was reported rather than
+smoothed over**: two customers for `<=`, one each for `>=` and `!=`. Hans's
+answer was to take all three, and the argument now sits at the declarations:
+
+> **A customer count is per surface, and a comparison set is one surface.**
+
+An arith with `<=` and no `>=` is a worse trap than an arith with neither,
+because the missing one is missing for no reason a reader can see. **Both
+customers were rewritten the same day**, which is the check that they were real.
+
+### And then the sweep, which found the last session's sweep
+
+POSTMORTEM 19 was written last night about nine stale claims and landed the
+agreement that everything is read once at the end of a day. **Tonight's sweep
+corrected fifteen**, and how they divide is the whole of
+[POSTMORTEM.md](POSTMORTEM.md) 20.
+
+**Six were stale before last night's sweep ran, and it missed all six.**
+
+- `targets.md` carried the *same sentence* 19 corrected in `README.md` and
+  `REFERENCE.md` — *does-it-pay.md is what four programs have said* — in a third
+  file the sweep did not open.
+- The entry below reports the suite as "58, 6, 60 and 11", which is 135, six
+  paragraphs above reporting the total as 144. Nothing had touched `tests/`. The
+  figure was 69 and had been all day.
+- `conventions.md` says "all three programs" twice, against six — **in the file
+  that holds the sweep agreement.**
+- `does-it-pay.md`'s heading reads *What the four declared* over five rows.
+- And one that is not a count at all: `REFERENCE.md` described `lib/clike.pro`'s
+  `!=`, `<=` and `>=` as *templates over the three above*. They have been plain
+  messages since 0.6.0 — **wrong for eight versions**, invisible to every sweep
+  because nothing about it looks like a number, and found only because that
+  table was being edited for the arith change.
+
+**Nine more went stale during today's own work** — a sixth program and three
+operators in a shipped dialect ripple further than they look — and were caught
+the same day.
+
+**What found most of them is the thing worth keeping.** Not reading everything,
+which 19 already prescribed and which `targets.md` passed: it *was* read, for
+what it says about targets, which is what it is for. What found them was
+**grepping for the claim instead of opening the documents.** One search for
+*five programs* returned every instance at once, including three in
+`does-it-pay.md`; one for *declined twice* returned four files. A claim
+repeated in three documents is one claim.
+
+That is a standing agreement now, beside the sweep it sharpens. And the file it
+was added to was two of the six, which is the part to remember: **a document
+stating a rule is the least likely of all to be opened while the rule is being
+applied.**
+
+### What the tests did today
+
+Nothing, and correctly so — not one line of C changed. The suite sat at
+**58, 6, 69 and 11** all day, which is what it should do when the work is a
+program written *in* the language rather than a change *to* it.
+
+**The one number that moved was in a document**, and it moved backwards: the
+entry below had recorded 60 where the suite has printed 69 on every run since.
+
+### The numbers, written last
+
+**Four commits, this one included**, and **no version** — nothing in
+`proto/` was touched. One program, one shipped dialect completed, one roadmap
+entry closed by a customer, and one postmortem entry with nine instances in it.
+
+`programs/basic` is 251 lines over a 16-line dialect: **15 forms, 0 operators,
+93 uses.** It is the fourth of six programs to declare no operators, and the
+prediction had said seven or eight forms — wrong by half, and the only one of
+the six predictions that was wrong about a number rather than a reason.
+
+**Not one finding came from a test, for the second day running.** One came from
+a question asked in the first message. Two came from writing the program. Most
+of the fifteen corrections came from a `grep`, and the oldest of them — a
+description wrong for eight versions — came from editing a table for an
+unrelated reason.
+
+The tally has a row it did not have this morning: **grepping for a claim rather
+than opening the documents**, at one — and it is the row that found the most.
+
 ## 2026-09-02 — a directive removed, a survey that was partial, a fifth program, and the bar
 
 **Every number in this entry is at the foot**, and this is the third attempt at
@@ -392,8 +562,12 @@ Recorded, and **not declared**, because nothing has wanted one.
 
 Nothing, and mostly that was the job. The suite held at 58, 6, 34 and 10 while
 the spelling change went through, which is precisely what a spelling change
-should do to it — **a control, not a detector**. It ended at 58, 6, 60 and 11:
-the segfault added one, and the new spellings twenty-six.
+should do to it — **a control, not a detector**. It ended at 58, 6, 69 and 11:
+the segfault added one, and the new spellings thirty-five.
+
+*Corrected on the evening of the same day: this line read `58, 6, 60 and 11`,
+which is 135, in an entry that reports the total as 144 six paragraphs later.
+Nothing had touched `tests/` since. See the closeout section below.*
 
 ### The numbers, written last
 

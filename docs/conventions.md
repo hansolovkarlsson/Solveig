@@ -45,12 +45,15 @@ search-and-replace across both repositories would have taken it.
 Solveig — *one customer, satisfied in six lines, is not a reason to grow a
 surface* — and its converse is the trap this project fell into for six versions:
 a surface with no customer at all has never been tested. Optional and repeated
-parts have now been declined twice by two programs, which is worth more than any
-argument either way.
+parts have now been declined **three times by three programs**, which is worth
+more than any argument either way — and the third declined them from the far
+side, `programs/basic` finding that BASIC's `PRINT a, b, c` and its optional
+`STEP` are repetition and an optional part in the *interpreted* language, where
+no Proto feature reaches.
 
 **Predictions are recorded before a program is written**, in the manner of
 Solveig's `ideas.md`, so that *it found nothing* stays an available answer. All
-three programs in `programs/` have a table of them and a *What it found* section
+six programs in `programs/` have a table of them and a *What it found* section
 written afterwards. Predictions that were wrong stay in, marked wrong:
 `programs/ember` predicted Solveig would bite first and it did not, and
 `programs/digest` predicted a template costs nothing at run time and it does not.
@@ -95,6 +98,19 @@ gaps* table is not consulted when closing a gap. A sweep at the end found four
 of the eight in ten minutes, two of them in files nobody would have opened for
 months. A defence that depends on suspicion is not a defence.
 
+**And the sweep greps for the claim, not for the documents.**
+[POSTMORTEM.md](POSTMORTEM.md) 20 is the next session's closeout correcting
+fifteen claims, six of which 19's sweep had already had its chance at — one the
+*same sentence* it corrected in two files and missed in a third, and two in this
+file. Reading everything once does not catch that: `targets.md` **was** read,
+for what it says about targets, which is what it is for. A claim repeated in
+three documents is one claim — `grep -rn "five programs"` returns all three at
+once, and opening the two you remember returns two.
+
+**This file is not exempt and was the worst offender**, which is the part to
+keep: a document stating a rule is the least likely of all to be opened while
+the rule is being applied.
+
 **Two sessions do not share a working copy.** On 2026-09-02 a second session
 made a branch and left uncommitted changes to `proto/src/reader.c` in this
 checkout while this one was committing every few minutes with `git add -A`. The
@@ -118,7 +134,7 @@ good intention.
 ## What the build guarantees
 
 `make` needs a C11 compiler and nothing else — no Solveig header, archive or
-symbol. `make test` needs Solveig, because it runs every example and all three
+symbol. `make test` needs Solveig, because it runs every example and all six
 programs all the way through `solas` and `solvm`, `programs/ember` all the way to
 a linked binary diffed against expected output, and `programs/digest` against
 digests that an independent oracle produced first.
