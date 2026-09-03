@@ -11,6 +11,100 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-03 — a corpus written from the documentation, which held
+
+The question was what a library of `.sol` code for somebody writing their own
+compiler is called. It is a **conformance suite** — test262, ACATS, and the NBS
+Minimal BASIC programs `basic.sol` is already held against — and the answer was
+easy. Scoping it turned out not to be.
+
+### The customer that exists cannot read the corpus
+
+Three strangers could want one and they fail differently: a second front end
+compiles `.sol` and can get the scanning, the lowering and the scope rules
+wrong; a second machine runs `.sob` and can get dispatch and arithmetic wrong;
+and Phoenix is neither, emitting bytecode from a language of its own.
+
+**Phoenix cannot read a `.sol` file at all.** So a corpus of source is not input
+to it — only the *answers* are, reached by translating each case by hand, which
+is exactly how a person uses the NBS suite. That settles the unit as *(program,
+byte-exact output, exit status)*, makes the source the notation rather than the
+subject, and lets one case score all three, because only one of the two tools is
+ever swapped.
+
+**And the half with a live customer is not the half the question asked for.**
+Phoenix's chunks are checked today by the verifier accepting them, which is a
+claim that they are well formed and not that they compute the right answer.
+Nothing scores what a Phoenix program prints.
+
+### Written from the page, then run
+
+42 cases in eight directories, and **every expected output written from
+REFERENCE.md before it was run**. That is the whole discipline: a `.out` file
+recorded from what this implementation prints agrees with it by construction and
+can never fail, which is the decoration case with an extra step.
+
+**40 of the 42 held on the first run, and both misses were mine** — `@expr( #1 +
+#2 = #3 )` written down as false, and `"{{}}"` read as `{}` where the documented
+rule gives `{}}`.
+
+So the corpus found nothing. **That is the result, and it is worth writing down
+as one.** Every claim it asked the reference for was true, including the ones
+nobody had run: the floored division's four sign cases, the shift that agrees
+with it, `split` never dropping a piece, the format spec's flag order, and three
+literal limits each confirmed to accept N and refuse N+1 rather than being taken
+from the page.
+
+### What it found was beside it
+
+**REFERENCE.md was wrong about `onError` in both halves of one paragraph.** It
+said the handler is checked when it runs rather than when the message is sent,
+and that `false:ifTrue(#5)` says nothing. Both are refused, and *Control flow* in
+the same document argues at length why they must be — that argument being what
+the paragraph predates. Two sentences in one file disagreeing, with the
+implementation on the other one's side.
+
+It is the shape a conformance suite exists to catch and `expect.sol` cannot: not
+a claim in a fenced block that can be run, but a sentence in prose about a
+program that would fail.
+
+**Two more turned out to be unspecified rather than wrong**, and neither became
+a case. The order arguments evaluate in is nowhere in the documentation, so
+there is nothing to score — it wants a sentence in the reference before it wants
+a case. And the 256-frame ceiling is an implementation's frame accounting rather
+than a language fact: an inlined `ifElse` costs no frame and a send costs one, so
+the deepest working recursion measures the accounting. 252 levels for one shape,
+measured and deliberately not written down.
+
+### The harness, and proving it can fail
+
+`run.sh` takes both tools from `SOL_COMPILE` and `SOL_RUN`, each a template with
+`%s` where a path goes. The defaults name `./bin/solas` and `./bin/solvm` and are
+the only mention of this repository's binaries in the directory.
+
+Proving it fails took longer than writing it and was the part worth doing. A
+deliberately broken tree fires all seven of wrong output, a missing `.out`, a
+missing header, an unknown `varies`, a compile refusal, a wrong exit status and
+anything on standard error, and the run leaves with 1. Pointed at a machine that
+runs nothing, every case fails; pointed at the real binaries by absolute path,
+every case passes. **A harness that only ever passes has not been tested, it has
+been watched.**
+
+### What is not built
+
+The refused half — the programs that must be *rejected*. PRODUCING.md tabulates
+eleven refusals a grammar cannot carry, of which three are pinned by a test, and
+eleven chunk limits, of which none is. Three of those limits now have a
+confirmed N+1 apiece waiting for a corpus to hold them. It is mostly
+transcription and the trigger fired before the suite was proposed.
+
+And the suite is not in `make test`, which was left as a call rather than
+decided. It turns out to be a smaller question than it looked: that target runs
+the C binaries and not `expect.sol` either, so wiring this in is a decision
+about what `make test` is *for*. The run takes about a second.
+
+---
+
 ## 2026-09-02 (closing) — fifteen commits, two programs, and four checks that had holes
 
 Four entries below this one, and this is the account of the whole day. It ran

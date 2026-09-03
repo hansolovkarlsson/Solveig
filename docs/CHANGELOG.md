@@ -5,6 +5,54 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### A conformance suite a second implementation can score itself against — `e280a1e`, 2026-09-03
+
+**[conformance/](../conformance/README.md), 42 cases in eight directories, each
+a program and its exact output.** `run.sh` takes both tools from the
+environment — `SOL_COMPILE` and `SOL_RUN`, each a template with `%s` where a
+path goes — so a second front end swaps the compiler and keeps the machine, a
+second machine swaps the machine and keeps the compiler, and the defaults are
+the only mention of this repository's binaries in the directory.
+
+**The shape was settled by the customer that exists.** Phoenix emits `.sob` from
+a language of its own and cannot read a `.sol` file at all, so the corpus is not
+input to it — only the answers are, reached by translating each case, which is
+how the [NBS suite](../programs/basic/conformance.sh) is used here already. That
+makes the unit *(program, byte-exact output, exit status)* rather than a program
+carrying assertions, and one case then scores all three strangers because only
+one of the two tools is ever swapped. What nothing checked before this is that a
+Phoenix chunk computes the right answer; the verifier accepting it says only
+that it is well formed.
+
+**Every expected output was written from [REFERENCE.md](REFERENCE.md) before it
+was run.** A `.out` recorded from what this implementation prints agrees with it
+by construction and can never fail. 40 of the 42 held on the first run and both
+misses were the author's arithmetic, so the corpus found nothing — which is the
+result: the floored division's four sign cases, `split` never dropping a piece,
+the format spec's flag order and three literal limits at exactly N were all true
+as written, and the limits were confirmed to refuse N+1 rather than taken from
+the page.
+
+**What it found is beside it. REFERENCE.md was wrong about `onError` in both
+halves of one paragraph** — it said the handler is checked when it runs rather
+than when the message is sent, and that `false:ifTrue(#5)` says nothing. Both
+are refused, and *Control flow* in the same document argues at length why they
+must be, that argument being what the paragraph predates. Corrected. It is the
+shape [expect.sol](../programs/expect.sol) cannot catch: a sentence in prose
+about a program that would fail, rather than a claim in a fence that can be run.
+
+Two more are unspecified rather than wrong and neither became a case: **the
+order arguments evaluate in** is nowhere in the documentation, and **the
+256-frame ceiling** is frame accounting rather than a language fact — measured
+at 252 levels for one shape and deliberately not written down.
+
+**The harness was proved able to fail** in all seven of its modes, and scores a
+machine that runs nothing as 42 failures. It is not in `make test`; that stays
+an open call in [ideas.md](ideas.md#a-conformance-suite--a-corpus-a-second-implementation-can-score-itself-against),
+where the refused half — eleven documented refusals of which three are tested,
+and eleven chunk limits of which none is — is still transcription waiting to be
+done.
+
 ### Three measurements that lived only in a scratch directory — `75d1020`, 2026-09-02
 
 **Found by asking what the documents cite that would not survive the session.**
