@@ -200,6 +200,25 @@ version the binaries inside it report.
 
 ## Status
 
+**0.42.0** — a corpus another implementation can score itself against.
+[conformance/](conformance/README.md) is **90 cases in three kinds** — one that
+runs and prints, one that runs and then stops, one the compiler must reject —
+each scored on its exact bytes, with both tools taken from `SOL_COMPILE` and
+`SOL_RUN` so a stranger swaps one and keeps the other. Every answer in it was
+written from the documentation *before* it was run, which is the only
+arrangement under which it can find anything; 40 of the first 42 held, and both
+misses were arithmetic rather than the machine. **What it found was in the
+documents**: `REFERENCE.md` was wrong about `onError` in both halves of one
+paragraph, and `PRODUCING.md` filed a self-including file as a refusal when it
+is a warning. [diff](programs/diff.sol) and [sort](programs/sort.sol) are the
+twentieth and twenty-first programs, the first held against a tool byte for byte
+over a corpus with deliberate divergences in it, and between them they raised
+both of the roadmap's open entries. **`readFile` answered `""` for every pipe**
+and reads them whole now — the size came from a seek, a seek fails on a stream,
+and nought is indistinguishable from an empty file. **144 messages, unchanged,
+and `.sob` files are still format version 14**: this release adds a way of
+checking the language rather than anything to check.
+
 **0.41.0** — held against implementations this repository did not write, and
 that is where every defect came from. **144 messages**, up from 141, and `.sob`
 files are format version 14. [lib/re.sol](lib/re.sol) carries both POSIX

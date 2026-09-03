@@ -5,6 +5,51 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## 0.42.0 — 2026-09-03
+
+**A corpus another implementation can score itself against**, and two programs
+that found what a corpus written by its author cannot.
+
+[conformance/](../conformance/README.md) is 90 cases in three kinds — a program
+that runs and prints, a program that runs and then stops, and a program the
+compiler must reject — each scored on its exact bytes by a harness that takes
+both tools from `SOL_COMPILE` and `SOL_RUN`. A second front end swaps the
+compiler, a second machine swaps the machine, and a producer emitting bytecode
+from another language sets both and reads the answers, which is the case that
+settled the shape: Phoenix cannot read a `.sol` file at all. Every expected
+output was written from the documentation before it was run, 40 of the first 42
+held, and both misses were the author's arithmetic. It runs in `make test`.
+
+**What it found was in the documents, twice.** `REFERENCE.md` was wrong about
+`onError` in both halves of one paragraph, contradicted by another section of
+the same file; `PRODUCING.md` filed a self-including file as a refusal when it
+is a warning, which reverses what a front end has to do about it. Both are prose
+about a program that would fail — the shape a fenced block cannot carry, and so
+the shape `expect.sol` cannot execute.
+
+**[diff](../programs/diff.sol) and [sort](../programs/sort.sol)** are the
+twentieth and twenty-first programs and the first to be held against a tool
+byte for byte over a corpus that includes deliberate divergences. `diff` is the
+first here that computes rather than recognises; `sort` spills to disk past
+`-S`. Between them they raised both of the roadmap's open entries.
+
+**`readFile` answered `""` for every pipe**, silently — the size came from a
+seek, a seek fails on a stream, and nought is indistinguishable from an empty
+file. It reads them whole now, which closed both clauses of
+[6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done)
+in one change and left
+[6.45](ROADMAP.md#645-a-pipe-cannot-be-taken-in-bounded-pieces) behind it.
+
+**144 messages, unchanged, and `.sob` files are still format version 14** — this
+release adds a way of checking the language rather than anything to check.
+
+**The test suite was two thirds documentation checker**, filed under the command
+line: `expect.sol` was 54 seconds of `test_cli`'s 79.75, because both run the
+binaries as a shell would. `tests/test_documents.c` holds it now, and the cost
+is attached to the thing that has it. And the order things are evaluated in —
+receiver first, then arguments left to right — is written down and scored, after
+being measured rather than assumed.
+
 ### 6.43 closed, and the half it left behind is 6.45 — `f9b43e8`, 2026-09-03
 
 **[6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done)

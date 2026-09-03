@@ -135,10 +135,13 @@ a different language.
 
 ## Status
 
-**0.41.0** — the language answers 144 messages and `.sob` files are format
-version 14. [lib/re.sol](lib/re.sol) is a regular expression engine carrying
-both POSIX dialects, [awk](programs/awk.sol) is the nineteenth program and its
-second customer, and a file can now be read in part rather than only whole.
+**0.42.0** — the language answers 144 messages and `.sob` files are format
+version 14, both unchanged: this release adds a way of *checking* the language
+rather than anything to check. [conformance/](conformance/README.md) is a corpus
+another implementation can score itself against — 90 cases, each on its exact
+bytes, with both tools taken from the environment. [diff](programs/diff.sol) and
+[sort](programs/sort.sol) are the twentieth and twenty-first programs, and
+`readFile` reads a pipe, which it had silently declined to do.
 
 Working: the scanner, the single-pass compiler, the re-entrant dispatch loop
 with call frames, blocks with lexical capture, message-based control flow, a
