@@ -25,11 +25,17 @@
 #
 #   readKey    a byte at a time. Exact, and the price is what this measures.
 #
-# **And the third way does not work.** `readFile("/dev/stdin")` reads a
-# redirect and answers `""` on a **pipe**, silently: the size comes from a seek
-# that a pipe refuses, and a failed seek is indistinguishable from an empty
-# file. That is the defect half of 6.43 and this script demonstrates it rather
-# than describing it.
+# **And the third way did not work until 2026-09-03.** `readFile("/dev/stdin")`
+# read a redirect and answered `""` on a **pipe**, silently: the size came from
+# a seek that a pipe refuses, and a failed seek is indistinguishable from an
+# empty file. That was the defect half of 6.43, and this script demonstrated it
+# rather than describing it. It is fixed, so the demonstration is a **check**
+# now: the two routes are run over the same bytes and must agree, and this
+# script exits 1 if they ever stop agreeing.
+#
+# The measurement above it is unchanged and is still the point of the file. A
+# whole read is not what `sort` wants -- it wants bounded pieces -- so the
+# nanosecond figure still has a customer.
 #
 # One harness, both sides, the same bytes, in one run -- which is the rule the
 # `tail -f` measurement on 2026-09-01 was written to obey after breaking it.
@@ -112,8 +118,20 @@ PY
 echo
 echo "and readFile(\"/dev/stdin\"):"
 printf '  from a redirect:  '
-"$root/bin/solvm" "$work/whole.sob" < "$work/in.txt"
+redirect=$("$root/bin/solvm" "$work/whole.sob" < "$work/in.txt")
+echo "$redirect"
 printf '  from a pipe:      '
-cat "$work/in.txt" | "$root/bin/solvm" "$work/whole.sob"
+piped=$(cat "$work/in.txt" | "$root/bin/solvm" "$work/whole.sob")
+echo "$piped"
 echo
-echo "  A pipe answers \"\" -- neither the contents nor an error. That is 6.43."
+
+# This was the defect half of 6.43 and is a check now. Until 2026-09-03 the pipe
+# answered "" -- neither the contents nor an error -- because the size came from
+# a seek and a seek fails on a stream. The two routes must agree, and a run that
+# says they do not is that defect returning.
+if [ "$redirect" = "$piped" ]; then
+    echo "  The two routes agree, which is 6.43's defect half fixed."
+else
+    echo "  THE TWO ROUTES DISAGREE. That is 6.43's defect, back again."
+    exit 1
+fi

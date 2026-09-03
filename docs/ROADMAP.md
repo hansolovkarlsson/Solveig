@@ -1113,6 +1113,31 @@ keeping it did. The number stays 6.32 and is not reused.
 first program here that has to reproduce another tool's bytes from a pipe. Two
 halves, and the second is a defect rather than an absence.
 
+> **The defect is fixed, on 2026-09-03, and the whole read came with it.**
+> `readFile` asks whether the stream is seekable rather than assuming a size:
+> a pipe grows a buffer as the bytes arrive, so `readFile("/dev/stdin")` now
+> answers the same string from `< big.txt` and from `cat big.txt |`. Byte for
+> byte, NUL and CR included, and it says whether the last line ended with a
+> newline — which is the whole of what `diff` needed and could not get from
+> `readLine`. The two-gigabyte limit still applies, met while reading rather
+> than before it.
+>
+> **A range on a stream is refused** rather than served by reading forward and
+> discarding. A range means positions, and a caller asking twice for the same
+> range expects the same bytes; a stream would answer whatever had not been
+> consumed yet. A redirect is seekable, so the same range works there.
+>
+> **What is left is the middle**, which is `sort`'s want and not `diff`'s: a
+> pipe taken in **bounded pieces**, so memory stays inside `-S` however large
+> the input is. Nothing above helps with that — a whole read is the opposite of
+> it — and `gzip -d` would sharpen it a third time. The measurements below
+> stand, and `sh programs/stdin-cost.sh` still reproduces them.
+>
+> **Whether this entry now closes and the middle takes a number of its own is a
+> filing call rather than a technical one**, and it is left here rather than
+> made: the title's two clauses are both answered, and the thing still wanted
+> was recorded inside this entry rather than as an entry.
+
 **A second customer arrived the same day, with a reason this entry did not
 have.** [sort.sol](../programs/sort.sol) does not care about the newline at the
 end -- its output always ends with one -- and wants the opposite of a whole

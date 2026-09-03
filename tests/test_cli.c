@@ -474,6 +474,115 @@ static void test_the_limits_are_off_and_are_checked(void)
     printf("  the limits are off by default and refuse a nonsense value\n");
 }
 
+/* Standard input, read whole -- and the silent wrong answer that was there.
+ *
+ * `readFile` sizes a file with `fseeko(SEEK_END)` and `ftello`. On a pipe the
+ * seek fails, `size` kept its initial 0, and the `want == 0` path answered `""`
+ * before any read was attempted -- so `readFile("/dev/stdin")` gave the contents
+ * from a redirect and the empty string from a pipe, with no error either way.
+ * ROADMAP 6.43, raised by diff.sol, which is the first program here that has to
+ * reproduce another tool's bytes from a pipe.
+ *
+ * It is here rather than in test_system.c because the fault only exists when
+ * the process's standard input *is* a pipe, which nothing running in one
+ * process can arrange for itself. Both routes are run over the same bytes and
+ * must agree, which is the assertion the defect would fail.
+ *
+ * The size crosses several doublings of the growing buffer, so a fault in the
+ * `realloc` path shows here rather than only on an input nobody tests with. */
+static void test_a_pipe_is_read_whole(void)
+{
+    system("mkdir -p " DIR);
+    FILE *f = fopen(DIR "/slurp.sol", "w");
+    assert(f != NULL);
+    fputs("t := system:readFile(\"/dev/stdin\").\n"
+          "t:size:print.\n"
+          "t:copyFrom(#1, #3):print.\n", f);
+    fclose(f);
+    assert(system("bin/solas " DIR "/slurp.sol -o " DIR "/slurp.sob") == 0);
+
+    /* 300000 bytes: past 65536 and four doublings of it. */
+    assert(system("yes abcdefghij | head -30000 > " DIR "/big.txt") == 0);
+
+    char out[4096], expected[64];
+    long size = 0;
+    FILE *sized = fopen(DIR "/big.txt", "rb");
+    assert(sized != NULL && fseek(sized, 0, SEEK_END) == 0);
+    size = ftell(sized);
+    fclose(sized);
+    assert(size == 330000);
+    snprintf(expected, sizeof expected, "#%ld", size);
+
+    /* From a redirect, which was always right. */
+    assert(run("bin/solvm " DIR "/slurp.sob < " DIR "/big.txt 2>/dev/null",
+               out, sizeof out) == 0);
+    assert(strstr(out, expected) != NULL);
+    assert(strstr(out, "\"abc\"") != NULL);
+
+    /* And from a pipe, which answered "#0" until 2026-09-03. */
+    assert(run("cat " DIR "/big.txt | bin/solvm " DIR "/slurp.sob 2>/dev/null",
+               out, sizeof out) == 0);
+    assert(strstr(out, expected) != NULL);
+    assert(strstr(out, "\"abc\"") != NULL);
+
+    /* Byte for byte rather than by length, since a growing buffer is exactly
+       the thing that can lose or repeat a chunk without changing the total. */
+    f = fopen(DIR "/echo.sol", "w");
+    assert(f != NULL);
+    fputs("system:write(system:readFile(\"/dev/stdin\")).\n", f);
+    fclose(f);
+    assert(system("bin/solas " DIR "/echo.sol -o " DIR "/echo.sob") == 0);
+    assert(system("cat " DIR "/big.txt | bin/solvm " DIR "/echo.sob"
+                  " > " DIR "/back.txt 2>/dev/null") == 0);
+    assert(system("cmp -s " DIR "/big.txt " DIR "/back.txt") == 0);
+
+    /* A NUL and a CR are data, and neither route may fold or stop at one. That
+       is what `readLine` cannot promise and why this call is wanted at all. */
+    f = fopen(DIR "/bytes.sol", "w");
+    assert(f != NULL);
+    fputs("system:readFile(\"/dev/stdin\"):size:print.\n", f);
+    fclose(f);
+    assert(system("bin/solas " DIR "/bytes.sol -o " DIR "/bytes.sob") == 0);
+    assert(run("printf 'a\\000b\\rc\\n' | bin/solvm " DIR "/bytes.sob 2>/dev/null",
+               out, sizeof out) == 0);
+    assert(strstr(out, "#6") != NULL);
+
+    /* An empty pipe is the empty string and not a failure -- which is the
+       answer the defect used to give for every pipe, so it is the one case that
+       looked right all along and the one this must not break. */
+    assert(run("printf '' | bin/solvm " DIR "/bytes.sob 2>/dev/null",
+               out, sizeof out) == 0);
+    assert(strstr(out, "#0") != NULL);
+
+    /* The ranged form is refused on a stream rather than served by reading and
+       discarding: a range means positions, and a caller asking twice for the
+       same range would get whatever had not been consumed yet. */
+    f = fopen(DIR "/ranged.sol", "w");
+    assert(f != NULL);
+    fputs("system:readFile(\"/dev/stdin\", #1, #10):print.\n", f);
+    fclose(f);
+    assert(system("bin/solas " DIR "/ranged.sol -o " DIR "/ranged.sob") == 0);
+    assert(run("cat " DIR "/big.txt | bin/solvm " DIR "/ranged.sob 2>&1 >/dev/null",
+               out, sizeof out) != 0);
+    assert(strstr(out, "no positions to read between") != NULL);
+
+    /* And a redirect is seekable, so the same range still works there. */
+    assert(run("bin/solvm " DIR "/ranged.sob < " DIR "/big.txt 2>/dev/null",
+               out, sizeof out) == 0);
+    assert(strstr(out, "\"abcdefghij\"") != NULL);
+
+    /* Under GC stress, because the answer is a string built from a buffer the
+       collector cannot see. Nothing is held across an allocation in the read
+       loop -- malloc and realloc are the whole of it -- so no root is wanted,
+       and this is what says so rather than the comment beside the code. */
+    assert(run("cat " DIR "/big.txt | SOLUM_GC_STRESS=1 bin/solvm "
+               DIR "/slurp.sob 2>/dev/null", out, sizeof out) == 0);
+    assert(strstr(out, expected) != NULL);
+    assert(strstr(out, "\"abc\"") != NULL);
+
+    printf("  a pipe is read whole, and a range on one is refused\n");
+}
+
 /* The BASIC interpreter, held to the standard it says it implements.
  *
  * programs/basic.sol carries its listings inline with their output in comments,
@@ -1666,6 +1775,7 @@ int main(void)
     test_a_step_limit_stops_a_program();
     test_a_memory_limit_measures_what_is_held();
     test_the_limits_are_off_and_are_checked();
+    test_a_pipe_is_read_whole();
     test_basic_runs_the_way_the_standard_says();
     test_basic_runs_a_listing_from_a_file();
     test_basic_has_a_prompt();

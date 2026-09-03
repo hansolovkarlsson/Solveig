@@ -1638,6 +1638,43 @@ it, `solas` loads a source to compile it — and a range is what the others want
 `system:fileSize` answers without reading, which is how to ask before committing
 to either.
 
+#### A pipe, and the range that a pipe cannot answer
+
+**`readFile("/dev/stdin")` reads standard input whole**, from a redirect and
+from a pipe alike, which is how a program takes input it must have exactly:
+`readLine` drops the terminator and folds `\r\n`, so it cannot say whether the
+last line ended with a newline, and `readKey` is exact at twenty times the
+price.
+
+```text
+solvm prog.sob < big.txt        the whole file
+cat big.txt | solvm prog.sob    the same bytes
+```
+
+**It answered `""` from a pipe until 2026-09-03** — not the contents and not an
+error. The size came from a seek, a seek fails on a stream, and the length stayed
+at nought, which is indistinguishable from an empty file.
+[6.43](ROADMAP.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers-)
+has the account.
+
+A stream has no size to ask for, so the buffer grows as the bytes arrive rather
+than being allocated once. The two-gigabyte limit still applies and is reported
+the same way; what changes is that it is met while reading rather than before.
+
+**A range on a stream is refused**, and that is the one thing the two kinds of
+input do not share:
+
+```text
+system:readFile("/dev/stdin", #1, #10).
+solvm: cannot read a range of '/dev/stdin': it is a stream rather than a file, so it has no positions to read between
+```
+
+A range means positions, and a caller asking twice for the same range expects
+the same bytes. A stream cannot give them — what it would answer the second time
+is whatever had not been consumed yet — so reading forward and discarding would
+be a different message wearing this one's name. A redirect *is* seekable, so the
+same range works there.
+
 **A missing file is an error to `readFile`, not nil**, which is the same answer
 an out-of-range index gets and for the same reason: a program asking to *read* a
 file it has not got is wrong about something. `readLine` answering nil at the end

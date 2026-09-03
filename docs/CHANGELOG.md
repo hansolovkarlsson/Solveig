@@ -5,6 +5,59 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### `readFile` answered `""` for every pipe, and reads them whole now — `pending`, 2026-09-03
+
+**The defect half of
+[6.43](ROADMAP.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers-),
+and the want came with it.** `readFile` sized a file with `fseeko(SEEK_END)` and
+`ftello`. On a pipe the seek fails, the size kept its initial nought, and that
+is indistinguishable from an empty file — so the `want == 0` path answered `""`
+before any read was attempted. `readFile("/dev/stdin")` gave the contents from a
+redirect and the empty string from a pipe, with no error either way:
+
+```text
+solvm prog.sob < big.txt        #628890
+cat big.txt | solvm prog.sob    #0
+```
+
+**The function already refused a directory and already checked a negative size.
+A failed seek was the case between them that nothing looked at** — the same
+shape as [a path with a NUL in it](ideas.md#a-path-with-a-nul-in-it-is-silently-a-different-path):
+a silent wrong answer rather than a missing feature, found by a program with a
+reason to try what nobody had tried.
+
+**It asks whether the stream is seekable now**, and reads an unseekable one into
+a buffer that doubles from 64 KB. Both routes answer the same string, byte for
+byte, NUL and CR included, and it says whether the last line ended with a
+newline — which is the whole of what [diff](../programs/diff.sol) needed and
+could not get from `readLine`. The two-gigabyte limit still applies, met while
+reading rather than before it.
+
+**A range on a stream is refused** rather than served by reading forward and
+discarding. A range means positions, and a caller asking twice for the same
+range expects the same bytes; a stream would answer whatever had not been
+consumed yet. A redirect is seekable, so the same range still works there.
+
+**No GC root was wanted and the test says so rather than the comment.** Nothing
+is held across an allocation in the read loop — `malloc` and `realloc` are the
+whole of it, and the one string is built at the end, exactly as the sized path
+does. The case runs under `SOLUM_GC_STRESS` for that reason.
+
+**The test is in [test_cli.c](../tests/test_cli.c) because the fault only exists
+when the process's standard input *is* a pipe**, which nothing running in one
+process can arrange for itself. It was proved able to fail: with the fix removed
+it stops at the piped read. 330,000 bytes, past four doublings of the buffer,
+compared with `cmp` rather than by length — a growing buffer is exactly the
+thing that can lose or repeat a chunk without changing the total.
+
+**And [stdin-cost.sh](../programs/stdin-cost.sh) is a check now** where it was a
+demonstration. It printed *a pipe answers "" — that is 6.43*; it runs both
+routes over the same bytes and exits 1 if they ever stop agreeing.
+
+**What is left of 6.43 is `sort`'s want and not `diff`'s**: a pipe taken in
+bounded pieces, so memory stays inside `-S` however large the input is. A whole
+read is the opposite of that, so nothing here helps with it.
+
 ### The documentation checker was two thirds of `make test`, filed under the command line — `652deea`, 2026-09-03
 
 **`tests/test_documents.c`**, holding the two checks that hold this repository

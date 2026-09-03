@@ -4849,6 +4849,77 @@ static SolValue prim_system_load(SolVM *vm, SolValue self, SolValue *args, int a
     return SOL_BOOL_VAL(true);
 }
 
+/* What is left of a stream that cannot be seeked, read whole. Closes `file`.
+ *
+ * A pipe, a terminal or a character device has no size to ask for, so the
+ * length is not known until the end arrives and the buffer has to grow. It
+ * doubles from 64 KB and stops at what a string holds: the cost is proportional
+ * to the input rather than to the number of reads, and a stream too large to be
+ * a string is refused rather than truncated.
+ *
+ * Nothing here allocates through the VM until the last line, so there is no
+ * collection to survive and no root to hold -- `malloc` and `realloc` are the
+ * whole of it, exactly as the sized path below does with its one buffer.
+ */
+static SolValue read_stream_whole(SolVM *vm, FILE *file, const char *path)
+{
+    size_t capacity = 65536;
+    size_t filled   = 0;
+    char  *buffer   = malloc(capacity);
+
+    if (buffer == NULL) {
+        fclose(file);
+        sol_vm_runtime_error(vm, "out of memory reading '%s'", path);
+        return SOL_NIL_VAL;
+    }
+
+    for (;;) {
+        if (filled == capacity) {
+            if (capacity > (size_t)INT_MAX) {
+                free(buffer);
+                fclose(file);
+                sol_vm_runtime_error(vm,
+                    "'%s' is too large to read into a string", path);
+                return SOL_NIL_VAL;
+            }
+            size_t bigger = capacity * 2;
+            if (bigger > (size_t)INT_MAX + 1) bigger = (size_t)INT_MAX + 1;
+
+            char *grown = realloc(buffer, bigger);
+            if (grown == NULL) {
+                free(buffer);
+                fclose(file);
+                sol_vm_runtime_error(vm, "out of memory reading '%s'", path);
+                return SOL_NIL_VAL;
+            }
+            buffer   = grown;
+            capacity = bigger;
+        }
+
+        size_t got = fread(buffer + filled, 1, capacity - filled, file);
+        filled += got;
+        if (got == 0) break;
+    }
+
+    int failed = ferror(file);
+    fclose(file);
+
+    if (failed) {
+        free(buffer);
+        sol_vm_runtime_error(vm, "cannot read '%s': %s", path, strerror(errno));
+        return SOL_NIL_VAL;
+    }
+    if (filled > (size_t)INT_MAX) {
+        free(buffer);
+        sol_vm_runtime_error(vm, "'%s' is too large to read into a string", path);
+        return SOL_NIL_VAL;
+    }
+
+    SolString *text = sol_string_new(vm, buffer, (int)filled);
+    free(buffer);
+    return SOL_STRING_VAL(text);
+}
+
 /* The whole file, or a range of it.
  *
  *     system:readFile(path)                 the lot
@@ -4940,7 +5011,32 @@ static SolValue prim_system_read_file(SolVM *vm, SolValue self, SolValue *args, 
        file is an `off_t`, and the whole point of the ranged form is files past
        what a `long` is on every platform that has a small one. */
     off_t size = 0;
-    if (fseeko(file, 0, SEEK_END) == 0) size = ftello(file);
+    bool seekable = fseeko(file, 0, SEEK_END) == 0;
+    if (seekable) size = ftello(file);
+
+    /* A stream that cannot be seeked has no size, and the seek above failed
+       rather than answering one. This used to fall through with `size` still 0,
+       which is indistinguishable from an empty file, and took the `want == 0`
+       path below -- so `readFile("/dev/stdin")` answered the contents from a
+       redirect and the empty string from a pipe, with no error either way.
+       ROADMAP 6.43: the function already refuses a directory and already checks
+       a negative size, and a failed seek was the case between them that nothing
+       looked at.
+
+       The ranged form is refused rather than served by reading and discarding.
+       A range means positions, a caller asking for the same range twice expects
+       the same bytes, and a stream cannot give them: what it would answer the
+       second time is whatever had not been consumed yet. */
+    if (!seekable) {
+        if (ranged) {
+            fclose(file);
+            sol_vm_runtime_error(vm,
+                "cannot read a range of '%s': it is a stream rather than a "
+                "file, so it has no positions to read between", path);
+            return SOL_NIL_VAL;
+        }
+        return read_stream_whole(vm, file, path);
+    }
 
     if (size < 0) {
         fclose(file);

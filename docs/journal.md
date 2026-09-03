@@ -188,6 +188,51 @@ not the tests it runs is how a claim about a build system goes wrong.
 
 ---
 
+### The roadmap's oldest live defect, and what it was hiding behind
+
+`readFile("/dev/stdin")` worked from a redirect and answered `""` from a pipe.
+Not the contents, not an error. Four lines of code, and the whole of it is that
+the size came from `fseeko(SEEK_END)`, a seek fails on a stream, and nought is
+indistinguishable from an empty file.
+
+**The function already refused a directory and already checked a negative size.
+A failed seek was the case between the two that nothing looked at**, which is
+the shape worth remembering: not a case nobody thought of, but one sitting
+between two that somebody did.
+
+**Fixing it delivered the other half of the entry for free**, which was not
+obvious before starting. 6.43's title is two clauses — *a program cannot read
+standard input whole*, and *the call that looks as though it can answers `""`* —
+and they read as two jobs. They are one: the only reason a program could not
+read a pipe whole was that the call which should have done it returned early.
+Ask whether the stream is seekable, read an unseekable one into a growing
+buffer, and both clauses are answered.
+
+**A range on a stream is refused rather than served.** Reading forward and
+discarding would have worked and would have been wrong: a range means positions,
+and a caller asking twice for the same range expects the same bytes, where a
+stream would answer whatever had not been consumed yet. That is the same message
+meaning two things, which this project has got wrong once already with `new`.
+
+**What the test had to be, and where.** In `test_cli.c`, because the fault only
+exists when the process's standard input *is* a pipe and nothing running in one
+process can arrange that for itself. Both routes over the same bytes, which is
+the assertion the defect fails; 330,000 of them, past four doublings of the
+buffer; compared with `cmp` rather than by length, because a growing buffer is
+exactly the thing that can lose or repeat a chunk without changing the total.
+Proved able to fail by taking the fix back out.
+
+**And the demonstration became a check.** `stdin-cost.sh` ended with the line
+*A pipe answers "" — that is 6.43*. A script that demonstrates a defect is a
+script that lies the moment the defect is fixed, so it compares the two routes
+now and exits 1 if they disagree.
+
+**What is left is `sort`'s want and not `diff`'s** — a pipe in bounded pieces,
+so memory stays inside `-S`. A whole read is the opposite of it, so none of this
+helped, which the entry had already said and is worth having believed.
+
+---
+
 ## 2026-09-02 (closing) — fifteen commits, two programs, and four checks that had holes
 
 Four entries below this one, and this is the account of the whole day. It ran
