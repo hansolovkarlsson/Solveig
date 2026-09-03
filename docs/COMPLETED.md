@@ -2187,6 +2187,102 @@ written and could not be seen until something crossed it.
 The rest of this section is live, and is in
 [ROADMAP.md](ROADMAP.md#6-beyond-the-language--gone-from-this-document).
 
+### 6.43 A program cannot read standard input whole, and the call that looks as though it can answers `""` — **done**
+
+**Raised on 2026-09-02 by [diff.sol](../programs/diff.sol)**, which is the
+first program here that has to reproduce another tool's bytes from a pipe. Two
+halves, and the second was a defect rather than an absence. **Both closed on
+2026-09-03** in one change, which is the part worth keeping: they read as two
+jobs and were one.
+
+**`readFile` asks whether the stream is seekable rather than assuming a size.**
+A pipe grows a buffer as the bytes arrive, so `readFile("/dev/stdin")` answers
+the same string from `< big.txt` and from `cat big.txt |` — byte for byte, NUL
+and CR included, and it says whether the last line ended with a newline, which
+is the whole of what `diff` needed and could not get from `readLine`. The
+two-gigabyte limit still applies, met while reading rather than before it.
+
+**The only reason a program could not read a pipe whole was that the call which
+should have done it returned early**, which nothing had noticed because the
+early return was indistinguishable from a correct answer about an empty file.
+The title's first clause was a consequence of its second, and fixing the second
+was the whole of the work.
+
+**A range on a stream is refused** rather than served by reading forward and
+discarding. A range means positions, and a caller asking twice for the same
+range expects the same bytes; a stream would answer whatever had not been
+consumed yet. That would be one message meaning two things, which is a mistake
+this language has made once already with `new`. A redirect is seekable, so the
+same range works there.
+
+**What was left is [6.45](ROADMAP.md#645-a-pipe-cannot-be-taken-in-bounded-pieces)**,
+which took a number of its own rather than staying inside a closed entry: a pipe
+in bounded pieces, which is `sort`'s want and not `diff`'s. A whole read is the
+opposite of it, so none of the above helped — which this entry had already said,
+and is worth having believed.
+
+The case as it was argued follows.
+
+**A second customer arrived the same day, with a reason this entry did not
+have.** [sort.sol](../programs/sort.sol) does not care about the newline at the
+end -- its output always ends with one -- and wants the opposite of a whole
+read: a pipe taken in **bounded pieces**, so that memory stays inside `-S`
+however large the input is. `readKey` does that at 238 nanoseconds a byte;
+`readLine` does it at a twentieth of the price and changes the answer, because
+folding `\r\n` makes a file written on another system sort as different lines.
+**So what is missing is a middle** -- neither the whole-file read nor a byte at
+a time -- and one customer alone could not have shown that.
+
+**And a third would sharpen it again.** `gzip -d` is on
+[the survey](ideas.md#gzip--d--the-one-that-answers-the-question-behind-the-neural-net)
+and would be the first program here whose input has no lines *at all*: a
+73,572-byte gzip stream of `ideas.md` holds 264 `0x0a` bytes, 254 `0x0d` and
+273 NUL, every one of them data. `readLine` would not be lossy there, it would
+be meaningless -- so that program would have exactly one route in, and `... |
+gunzip` is the ordinary way it is used. Measured on 2026-09-02 while deciding
+what to write next, and written down here rather than in the argument for
+writing it.
+
+**The want.** `readFile` reads a file whole and there is no equivalent for
+standard input. The two ways in are `readLine`, which answers a line *without
+its terminator* and folds `\r\n` into one -- so it cannot say whether the last
+line ended with a newline, and silently rewrites a file written on another
+system -- and `readKey`, which is exact and is a byte at a time. Measured over
+628,890 bytes: 0.0075 s by line and 0.1498 s by byte, **84 MB/s against 4.2**,
+or 238 nanoseconds a byte. `diff` pays it, because a diff that cannot tell
+`...c` from `...c\n` is wrong rather than slow.
+
+**`sh programs/stdin-cost.sh` is the measurement**, kept rather than thrown
+away because this entry states its numbers. It reruns both routes over the same
+bytes in one pass and demonstrates the defect below at the end of it. A run
+varies a few per cent -- 20 to 22 times, 240 to 260 nanoseconds -- and the
+figures above are the first run's; what does not vary is the order of
+magnitude.
+
+**The defect, as it stood.** The obvious workaround is `readFile("/dev/stdin")`,
+and it worked from a redirect. **From a pipe it answered the empty string** --
+not the contents, and not an error:
+
+```text
+solvm prog.sob < big.txt           #628890
+cat big.txt | solvm prog.sob       #0
+```
+
+`prim_system_read_file` sizes the file with `fseeko(SEEK_END)` and `ftello`. On
+a pipe the seek fails and `size` keeps its initial `0`, which is
+indistinguishable from an empty file and takes the `want == 0` path that
+answers `""` before any read is attempted. The function already refuses a
+directory and already checks a negative size; **a failed seek is the case
+between them that nothing looks at.**
+
+This is the shape that
+[a path with a NUL in it](ideas.md#a-path-with-a-nul-in-it-is-silently-a-different-path)
+has, found
+on 2026-08-31: a silent wrong answer rather than a missing feature, and found
+the same way -- by a program with a reason to try what nobody had tried. **The
+two halves are one entry** because the want is what makes the defect worth
+fixing: if `readFile` read a pipe, there would be nothing here to ask for.
+
 ### 6.42 A second producer of `.sob` has no contract to build against — **done**
 
 **The first program written against this language by somebody who did not write

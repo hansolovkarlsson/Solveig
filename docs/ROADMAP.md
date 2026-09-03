@@ -138,10 +138,11 @@ Section 2 has no open design question — the last one, 2.5, is closed. Section
 6, a program's dealings with the world outside it, is nearly all built: reading
 input, writing files, stopping with a status, walking the filesystem, knowing
 the time, a prompt with history, a debugger, and running another program. **Two
-entries are open on it**, both raised on 2026-09-02 by
-[diff.sol](../programs/diff.sol) and both about standard input —
-[6.43](#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers-)
-and [6.44](#644-an-instant-cannot-be-written-in-local-time).
+entries are open on it** —
+[6.44](#644-an-instant-cannot-be-written-in-local-time), raised on 2026-09-02 by
+[diff.sol](../programs/diff.sol), and
+[6.45](#645-a-pipe-cannot-be-taken-in-bounded-pieces), which is what was left of
+[6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done) when that closed on 2026-09-03.
 
 **The last decision was deferred rather than taken**, on 2026-08-22.
 [6.32](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine) —
@@ -1067,12 +1068,14 @@ on 2026-08-29 and closed the same afternoon, which is the section still doing
 what it was for: saying what a program written against this needs and has not
 got.
 
-**Two entries are open here**, both raised on 2026-09-02 by
-[diff.sol](../programs/diff.sol) and both below:
-[6.43](#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers-),
-a program cannot read standard input whole and the call that looks as though it
-can answers `""`, and [6.44](#644-an-instant-cannot-be-written-in-local-time),
-an instant cannot be written in local time.
+**Two entries are open here**, both below:
+[6.44](#644-an-instant-cannot-be-written-in-local-time), an instant cannot be
+written in local time, raised on 2026-09-02 by
+[diff.sol](../programs/diff.sol); and
+[6.45](#645-a-pipe-cannot-be-taken-in-bounded-pieces), a pipe cannot be taken in
+bounded pieces, which is what [6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done) left behind when it closed on
+2026-09-03 — raised by `sort` rather than by `diff`, and the one thing the
+whole-pipe read did not help with.
 
 Before them the four entries this section held on 2026-09-01 all
 closed the same day, including
@@ -1107,99 +1110,6 @@ reasoning, the threat model and everything the last four days added to it are
 kept in full, because deciding it later from a blank page would cost more than
 keeping it did. The number stays 6.32 and is not reused.
 
-### 6.43 A program cannot read standard input whole, and the call that looks as though it can answers `""`
-
-**Raised on 2026-09-02 by [diff.sol](../programs/diff.sol)**, which is the
-first program here that has to reproduce another tool's bytes from a pipe. Two
-halves, and the second is a defect rather than an absence.
-
-> **The defect is fixed, on 2026-09-03, and the whole read came with it.**
-> `readFile` asks whether the stream is seekable rather than assuming a size:
-> a pipe grows a buffer as the bytes arrive, so `readFile("/dev/stdin")` now
-> answers the same string from `< big.txt` and from `cat big.txt |`. Byte for
-> byte, NUL and CR included, and it says whether the last line ended with a
-> newline — which is the whole of what `diff` needed and could not get from
-> `readLine`. The two-gigabyte limit still applies, met while reading rather
-> than before it.
->
-> **A range on a stream is refused** rather than served by reading forward and
-> discarding. A range means positions, and a caller asking twice for the same
-> range expects the same bytes; a stream would answer whatever had not been
-> consumed yet. A redirect is seekable, so the same range works there.
->
-> **What is left is the middle**, which is `sort`'s want and not `diff`'s: a
-> pipe taken in **bounded pieces**, so memory stays inside `-S` however large
-> the input is. Nothing above helps with that — a whole read is the opposite of
-> it — and `gzip -d` would sharpen it a third time. The measurements below
-> stand, and `sh programs/stdin-cost.sh` still reproduces them.
->
-> **Whether this entry now closes and the middle takes a number of its own is a
-> filing call rather than a technical one**, and it is left here rather than
-> made: the title's two clauses are both answered, and the thing still wanted
-> was recorded inside this entry rather than as an entry.
-
-**A second customer arrived the same day, with a reason this entry did not
-have.** [sort.sol](../programs/sort.sol) does not care about the newline at the
-end -- its output always ends with one -- and wants the opposite of a whole
-read: a pipe taken in **bounded pieces**, so that memory stays inside `-S`
-however large the input is. `readKey` does that at 238 nanoseconds a byte;
-`readLine` does it at a twentieth of the price and changes the answer, because
-folding `\r\n` makes a file written on another system sort as different lines.
-**So what is missing is a middle** -- neither the whole-file read nor a byte at
-a time -- and one customer alone could not have shown that.
-
-**And a third would sharpen it again.** `gzip -d` is on
-[the survey](ideas.md#gzip--d--the-one-that-answers-the-question-behind-the-neural-net)
-and would be the first program here whose input has no lines *at all*: a
-73,572-byte gzip stream of `ideas.md` holds 264 `0x0a` bytes, 254 `0x0d` and
-273 NUL, every one of them data. `readLine` would not be lossy there, it would
-be meaningless -- so that program would have exactly one route in, and `... |
-gunzip` is the ordinary way it is used. Measured on 2026-09-02 while deciding
-what to write next, and written down here rather than in the argument for
-writing it.
-
-**The want.** `readFile` reads a file whole and there is no equivalent for
-standard input. The two ways in are `readLine`, which answers a line *without
-its terminator* and folds `\r\n` into one -- so it cannot say whether the last
-line ended with a newline, and silently rewrites a file written on another
-system -- and `readKey`, which is exact and is a byte at a time. Measured over
-628,890 bytes: 0.0075 s by line and 0.1498 s by byte, **84 MB/s against 4.2**,
-or 238 nanoseconds a byte. `diff` pays it, because a diff that cannot tell
-`...c` from `...c\n` is wrong rather than slow.
-
-**`sh programs/stdin-cost.sh` is the measurement**, kept rather than thrown
-away because this entry states its numbers. It reruns both routes over the same
-bytes in one pass and demonstrates the defect below at the end of it. A run
-varies a few per cent -- 20 to 22 times, 240 to 260 nanoseconds -- and the
-figures above are the first run's; what does not vary is the order of
-magnitude.
-
-**The defect.** The obvious workaround is `readFile("/dev/stdin")`, and it
-works from a redirect. **From a pipe it answers the empty string** -- not the
-contents, and not an error:
-
-```text
-solvm prog.sob < big.txt           #628890
-cat big.txt | solvm prog.sob       #0
-```
-
-`prim_system_read_file` sizes the file with `fseeko(SEEK_END)` and `ftello`. On
-a pipe the seek fails and `size` keeps its initial `0`, which is
-indistinguishable from an empty file and takes the `want == 0` path that
-answers `""` before any read is attempted. The function already refuses a
-directory and already checks a negative size; **a failed seek is the case
-between them that nothing looks at.**
-
-This is the shape that
-[a path with a NUL in it](ideas.md#a-path-with-a-nul-in-it-is-silently-a-different-path)
-has, found
-on 2026-08-31: a silent wrong answer rather than a missing feature, and found
-the same way -- by a program with a reason to try what nobody had tried. **The
-two halves are one entry** because the want is what makes the defect worth
-fixing: if `readFile` read a pipe, there would be nothing here to ask for.
-
-
-
 ### 6.44 An instant cannot be written in local time
 
 **Raised on 2026-09-02 by [diff.sol](../programs/diff.sol)**, and it is the
@@ -1226,15 +1136,64 @@ older than the last clock change to show. What it would want is small -- a
 message answering the offset for an instant, which is one call to `localtime`
 -- and it is written down here rather than guessed at later.
 
+### 6.45 A pipe cannot be taken in bounded pieces
+
+**What [6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done)
+left behind when it closed on 2026-09-03**, and it is the half that whole-pipe
+reading is no use for. Raised by [sort.sol](../programs/sort.sol) rather than by
+`diff`, on 2026-09-02, and recorded inside 6.43 at the time because it arrived
+as a second customer for what looked like one want.
+
+**The two routes in are both wrong for it, in opposite directions.** `readLine`
+is fast and lossy: it drops the terminator and folds `\r\n`, so a file written
+on another system sorts as different lines. `readKey` is exact and is a byte at
+a time. Measured over 628,890 bytes: **0.0075 s by line against 0.1498 s by
+byte, 84 MB/s against 4.2**, or 238 nanoseconds a byte —
+[stdin-cost.sh](../programs/stdin-cost.sh) reruns both over the same bytes in
+one pass, and the figures vary a few per cent rather than an order of magnitude.
+
+**And the third route is the whole read, which is the opposite of what is
+wanted.** `sort` spills to disk past `-S` precisely so that memory stays
+bounded however large the input is; reading the pipe whole first defeats the
+thing the option exists for. So the answer is a **middle** — neither the whole
+of it nor a byte of it — and no customer alone could have shown that. `diff`
+wanted the whole and got it; `sort` wants the middle and has neither.
+
+**A third customer would sharpen it again.** `gzip -d` is on
+[the survey](ideas.md#gzip--d--the-one-that-answers-the-question-behind-the-neural-net)
+and would be the first program here whose input has no lines *at all*: a
+73,572-byte gzip stream of `ideas.md` holds 264 `0x0a` bytes, 254 `0x0d` and
+273 NUL, every one of them data. `readLine` would not be lossy there, it would
+be meaningless — so that program would have exactly one route in, and
+`... | gunzip` is the ordinary way it is used.
+
+**decision** — what shape it takes is not settled, and the reason to say so
+rather than to guess is that the obvious spelling is already taken. A range on a
+stream is *refused* by `readFile`, deliberately: a range means positions, and a
+caller asking twice for the same range expects the same bytes where a stream
+would answer whatever had not been consumed. So a bounded read of a pipe is a
+different question from a bounded read of a file, and giving them one name would
+be the mistake `new` made. What it wants is a message that says *take up to this
+many bytes, and tell me how many arrived*, which is a small primitive and a name
+this document should not pick on its own.
+
 ## How this list emptied, and how it filled and emptied again
 
 **It emptied for the fourth time on 2026-09-01 and did not stay empty.** Two
 entries went on it the next day but one, both from
 [diff.sol](../programs/diff.sol) and both about standard input --
-[6.43](#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers-)
+[6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done)
 and [6.44](#644-an-instant-cannot-be-written-in-local-time). That is the
 mechanism working rather than an exception to it: *empty* is a description of a
 moment, which this document has said since the last time it was true.
+
+**6.43 closed on 2026-09-03 and left one behind.** Its two clauses turned out to
+be one job -- the only reason a program could not read a pipe whole was that the
+call which should have done it returned early -- and what did not close was a
+want recorded *inside* it by a second customer. That is
+[6.45](#645-a-pipe-cannot-be-taken-in-bounded-pieces) now, with a number of its
+own, because a want kept inside a closed entry is a want nothing will find
+again.
 
 The four entries open at some
 point on 2026-09-01 all closed the same day — which had not happened before that

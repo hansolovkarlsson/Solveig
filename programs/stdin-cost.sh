@@ -5,7 +5,7 @@
 #     sh programs/stdin-cost.sh              # about 600 KB
 #     sh programs/stdin-cost.sh 40000        # a bigger sample
 #
-# **This backs [6.43](../docs/ROADMAP.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers-)**,
+# **This backs [6.43](../docs/COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done)**,
 # which states a ratio and a nanosecond figure, and it is here because that
 # entry is a document and
 # [method.md](../docs/method.md#and-a-comparison-whose-two-sides-did-not-run-alike-is-not-one-either)

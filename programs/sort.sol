@@ -409,11 +409,11 @@ sameKey := { a, b |
 ; merge below depends on.
 ;
 ; **From a pipe: a byte at a time**, for the reason
-; [6.43](../docs/ROADMAP.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers-)
+; [6.45](../docs/ROADMAP.md#645-a-pipe-cannot-be-taken-in-bounded-pieces)
 ; records and `diff` measured: `readLine` folds `\r\n` into one terminator, so a
 ; file written on another system sorts as different lines through a pipe than
-; through a name. This program is the second customer for that entry, and the
-; first with a *second* reason -- see the bottom of this file.
+; through a name. This program is why that entry exists -- see the bottom of
+; this file.
 
 readChunk := #65536.
 
@@ -899,13 +899,17 @@ demonstrate := { | dir, path |
 ; why this is a paragraph rather than a roadmap entry. A message that saves nine
 ; lines in two programs is not one this language is short of.
 ;
-; ### The second customer for 6.43, and a new reason
+; ### The second customer for 6.43, which is why 6.45 has a number
 ;
-; [6.43](../docs/ROADMAP.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers-)
-; says a program cannot read standard input whole, and `diff` raised it because
-; `readLine` cannot see the newline at the end. **`sort` does not care about
-; that one** -- the output always ends with a newline, so the distinction never
-; reaches the answer -- and it is the second customer anyway, for the other half:
+; [6.43](../docs/COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done)
+; said a program cannot read standard input whole, and `diff` raised it because
+; `readLine` cannot see the newline at the end. That closed on 2026-09-03 and
+; this half did not, so it is
+; [6.45](../docs/ROADMAP.md#645-a-pipe-cannot-be-taken-in-bounded-pieces) now.
+;
+; **`sort` does not care about the newline** -- the output always ends with one,
+; so the distinction never reaches the answer -- and it was the second customer
+; anyway, for the other half:
 ; `readLine` folds `\r\n` into one terminator, so a file written on another
 ; system sorts as *different lines* through a pipe than through a name.
 ;

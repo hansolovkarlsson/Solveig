@@ -5,10 +5,46 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### 6.43 closed, and the half it left behind is 6.45 — `pending`, 2026-09-03
+
+**[6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done)
+is in COMPLETED.md**, both clauses of its title answered by one change. It read
+as two jobs — *a program cannot read standard input whole*, and *the call that
+looks as though it can answers `""`* — and the first was a consequence of the
+second: the only reason a program could not read a pipe whole was that the call
+which should have done it returned early, and the early return was
+indistinguishable from a correct answer about an empty file.
+
+**What did not close was recorded inside it rather than as an entry**, which is
+the filing this corrects. `sort` arrived as a second customer on 2026-09-02
+wanting the opposite of a whole read — a pipe in **bounded pieces**, so memory
+stays inside `-S` however large the input is — and that want was written into
+6.43's body because it looked like a second reason for one thing. It is not: a
+whole read is the opposite of it, so closing 6.43 helped with none of it.
+
+**[6.45](ROADMAP.md#645-a-pipe-cannot-be-taken-in-bounded-pieces)**, with the
+measurements that were 6.43's and the customer that is its own: 84 MB/s by line
+against 4.2 by byte, `readLine` lossy and `readKey` exact at 238 nanoseconds a
+byte, and `gzip -d` waiting as a third customer whose input has no lines at all.
+
+**It is marked *decision*, because the obvious spelling is taken.** `readFile`
+*refuses* a range on a stream, deliberately — a range means positions, and a
+caller asking twice for the same range expects the same bytes. So a bounded read
+of a pipe is a different question from a bounded read of a file, and one name for
+both would be the mistake `new` made. What it wants is a message saying *take up
+to this many bytes and say how many arrived*; what it is called is not this
+document's to pick.
+
+**Seventeen links across eight files followed the move** — the changelog, the
+journal, the roadmap, the reference, ideas, programs.md, `sort.sol` and
+`stdin-cost.sh`. The link check in [expect.sol](../programs/expect.sol) found
+every one of them, including the two outside a document, and rejected the anchor
+this entry first guessed at.
+
 ### `readFile` answered `""` for every pipe, and reads them whole now — `0514076`, 2026-09-03
 
 **The defect half of
-[6.43](ROADMAP.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers-),
+[6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done),
 and the want came with it.** `readFile` sized a file with `fseeko(SEEK_END)` and
 `ftello`. On a pipe the seek fails, the size kept its initial nought, and that
 is indistinguishable from an empty file — so the `want == 0` path answered `""`
@@ -218,7 +254,7 @@ none is — is still transcription waiting to be done, and the case for it is in
 Three figures were quoted in the deliverable and measured by throwaways in a
 temporary directory: *44 disagreements in 1,050 runs* and *2,400 runs, zero* --
 in five documents and in `diff.sol` -- and *238 nanoseconds a byte*, twice in
-[6.43](ROADMAP.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers-)
+[6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done)
 and once in `sort.sol`.
 
 [method.md](method.md#and-a-comparison-whose-two-sides-did-not-run-alike-is-not-one-either)
@@ -442,7 +478,7 @@ would mean reproducing a tie-break the tool does not apply consistently to
 itself.
 
 **Two roadmap entries, both about standard input and neither predicted.**
-[6.43](ROADMAP.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers-):
+[6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done):
 a program cannot read a pipe whole, and `readFile("/dev/stdin")` -- which works
 from a redirect -- answers `""` on a pipe rather than the contents or an error,
 because the size comes from a seek a pipe refuses and a failed seek is

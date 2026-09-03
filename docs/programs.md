@@ -2279,7 +2279,7 @@ predicted and never had one for. It cost nine lines, which is why it is a
 paragraph rather than an entry.
 
 **And the second customer for
-[6.43](ROADMAP.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers-),
+[6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done),
 with a reason the entry does not have.** `diff` wants a pipe read *whole*; a
 sort that spills wants the opposite — a pipe read in bounded pieces, so memory
 stays inside `-S` however large the input is. The entry is about the absence of

@@ -1654,7 +1654,7 @@ cat big.txt | solvm prog.sob    the same bytes
 **It answered `""` from a pipe until 2026-09-03** — not the contents and not an
 error. The size came from a seek, a seek fails on a stream, and the length stayed
 at nought, which is indistinguishable from an empty file.
-[6.43](ROADMAP.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers-)
+[6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done)
 has the account.
 
 A stream has no size to ask for, so the buffer grows as the bytes arrive rather

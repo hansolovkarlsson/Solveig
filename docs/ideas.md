@@ -5077,7 +5077,7 @@ script to print.
 
 **It fired two entries on the roadmap**, both about standard input and neither
 predicted here:
-[6.43](ROADMAP.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers-),
+[6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done),
 a program cannot read a pipe whole and `readFile("/dev/stdin")` answers `""` on
 one rather than the contents or an error — **both halves fixed on 2026-09-03**,
 and what is left of the entry is `sort`'s want rather than `diff`'s, a pipe
@@ -5180,7 +5180,7 @@ Until now the sentence had no customer.
 
 ##### What it was a customer for
 
-**[6.43](ROADMAP.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers-),
+**[6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done),
 with a reason the entry does not have.** `diff` wants a pipe read *whole*; a
 sort that spills wants the opposite, a pipe read in bounded pieces so that
 memory stays inside `-S` however large the input is. The entry is about the

@@ -231,6 +231,34 @@ now and exits 1 if they disagree.
 so memory stays inside `-S`. A whole read is the opposite of it, so none of this
 helped, which the entry had already said and is worth having believed.
 
+### And then the filing, which is where the lesson was
+
+6.43 went to COMPLETED.md and the half it did not close became 6.45.
+
+**A want recorded inside an entry is a want nothing will find again.** `sort`
+arrived on 2026-09-02 as a *second customer* for 6.43, and its want went into
+that entry's body because it looked like a second reason for one thing. It was
+not the same thing at all — it is the opposite one — and if 6.43 had simply been
+ticked off, the only record of it would have been four paragraphs inside a
+closed entry, in a file whose whole purpose is that nothing there is still
+wanted.
+
+That is the argument for the number, and it is not bookkeeping. The roadmap is
+read for what is open; COMPLETED.md is read for why something was done. A live
+want in the second file is invisible to both readings.
+
+**Marked *decision*, because the obvious spelling is already taken.** `readFile`
+refuses a range on a stream on purpose, so a bounded read of a pipe is a
+different question from a bounded read of a file, and giving them one name would
+be `new`'s mistake again. The shape is clear — take up to this many bytes, say
+how many arrived — and the name is not mine to pick.
+
+**And the link check earned its keep.** Seventeen references to 6.43 across
+eight files had to follow it, two of them inside `sort.sol` rather than in a
+document, and the checker rejected the anchor I first guessed at. Moving an entry between
+files is exactly the operation this repository does constantly and exactly the
+one that used to publish 404s.
+
 ---
 
 ## 2026-09-02 (closing) — fifteen commits, two programs, and four checks that had holes
@@ -246,7 +274,7 @@ end, and the four entries stay where they are.
 | [0.41.0](CHANGELOG.md#0410--2026-09-02) | eighty-one commits and two days of work, tagged and published |
 | [diff](../programs/diff.sol) | the twentieth program, and the first that computes rather than recognises |
 | [sort](../programs/sort.sol) | the twenty-first, and the first that does not have to hold its input |
-| [6.43](ROADMAP.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers-) | a pipe cannot be read whole, and the call that looks as though it can answers `""` |
+| [6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done) | a pipe cannot be read whole, and the call that looks as though it can answers `""` |
 | [6.44](ROADMAP.md#644-an-instant-cannot-be-written-in-local-time) | an instant cannot be written in local time |
 | four rules | in [method.md](method.md), each from something that went wrong here |
 
@@ -350,7 +378,7 @@ Asked whether the session could be cleared, the check was *what do the
 documents cite that lives only in scratch* -- and three figures did. **44
 disagreements in 1,050 runs** and **2,400 runs, zero** are quoted in five
 documents and in `diff.sol`; **238 nanoseconds a byte** is quoted twice in
-[6.43](ROADMAP.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers-)
+[6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done)
 and once in `sort.sol`. Every one was measured by a throwaway in a temporary
 directory.
 
@@ -659,7 +687,7 @@ reproducing a tie-break the tool does not apply to itself.
 
 ### Two entries, both about standard input, neither predicted
 
-[6.43](ROADMAP.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers-)
+[6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done)
 is a want and a defect in one. The want: nothing reads standard input whole.
 `readLine` drops the terminator and folds `\r\n`, so it cannot say whether the
 last line ended with a newline; `readKey` is exact and is 4.2 MB/s against 84.
