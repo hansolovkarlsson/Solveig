@@ -132,6 +132,31 @@ already assumes, so nothing has to be installed for `make` to build it.
 Both are built against [extend.h](solum/include/solum/extend.h) and loaded with
 `--extension=`; see [docs/extensions.md](docs/extensions.md).
 
+**A third is outside for a different reason.**
+
+| Repository | What |
+| --- | --- |
+| [Proto](https://github.com/hansolovkarlsson/Proto) | A compiler whose syntax arrives with the file it is compiling. A module declares its own grammar in its header, and what comes out is Solveig source, which `solas` turns into bytecode like any other |
+
+The two above are outside so that *no dependencies beyond a C11 compiler and
+`make`* stays true. **Proto is outside so that it cannot reach in.** Its whole
+claim is that a language is something you write on top of a substrate you do not
+get to change, and a front end living two directories from the compiler it
+targets would prove only that Solveig's author can write a front end for
+Solveig. So it takes nothing from this repository at all — no header, no
+archive, no symbol. It emits text, `solas` reads text, and **the coupling is a
+file format and a command line, which is the same surface anybody else would
+have.**
+
+```sh
+proto vectors.pro -o vectors.sol && solas vectors.sol && solvm vectors.sob
+```
+
+Six programs are written in it — an assembler reaching ARM64, a PEG toolkit,
+SHA-256, a ledger, a document, and a BASIC interpreter — and what they say about
+whether a grammar declared per module is worth having is in that repository's
+[does-it-pay.md](https://github.com/hansolovkarlsson/Proto/blob/main/docs/does-it-pay.md).
+
 Each component keeps its public headers in `<component>/include/<component>/`
 and its implementation in `<component>/src/`. `solum/include/solum/bytecode.h`
 is the contract between the compiler and the VM -- it is the one file both
