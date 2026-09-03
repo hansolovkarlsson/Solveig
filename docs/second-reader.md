@@ -176,6 +176,64 @@ instruction to keep an untidied log.
 | **10. Two readers hit the same wall means it is the wall.** | Run 1 never reached the chain. If this reader is stopped by it, then the *only* construct in `lib/clike.pro` that costs a stranger anything is the one the ROADMAP already knows about — a hole's kind being one choice with no alternation, entered as *worked around, one customer*. Predicted: it gets its second customer, and the first from somebody who did not write the dialect. |
 | **11. The substrate friction is mostly gone.** | Run 1 guessed `concat` and `asString` from zero documentation and found `display` by six probes. Solveig's reference lists all three. Predicted: **zero probes**, and the one-line fix in `REFERENCE.md` is worth more than the run that found it. If friction remains, it is that a reader must be *told* the pointer exists rather than tripping over it, which a link in a table does not guarantee. |
 
+### What the second run found
+
+Run on 2026-09-03 against 0.15.0, predictions committed first in `08a0149`.
+Program and output re-run and diffed against a hand-computed oracle here.
+
+**Correct on the first compile-and-run, again. No diagnostic was emitted at any
+stage.** Two readers, two tasks, two first-attempt successes.
+
+| | |
+| --- | --- |
+| **7. The chain is written the C way, first** | **Wrong, and it is the finding.** The reader wrote `else { if (…) { … } else { … } }` **on the first attempt** and never tried `else if`. Their reason, unprompted: *I would have tried `else if (n < #9) {` first if the dialect file had not spent a paragraph on it.* |
+| **8. The diagnostic names their line** | **Check passes** — verified here rather than through the reader, who never saw it. `chain2.pro:5:6`, underlining the whole `else if`. 22's fix holds for this shape. |
+| **9. And it still will not say what to do** | **Not tested, for the second time — and now for a much better reason.** Run 1 missed it because the task did not need a cascade. Run 2 missed it because **the documentation prevented the failure from happening.** The message's unhelpfulness is real and remains unmeasured, and two runs now say the same thing about why: nobody reaches it. |
+| **10. Two readers hit the same wall means it is the wall** | **Wrong premise.** Neither reader hit it. One never met it; one was warned before they could. |
+| **11. The substrate friction is mostly gone** | **Right, and it is the cleanest measurement of the day.** **Zero** probes against `does not understand`, where run 1 made six. The reader named `REFERENCE.md`'s *What is not here: the messages* as *the decisive signpost*, and went straight to Solveig's reference for `fill` and `display` instead of guessing. |
+
+### A rough edge documented at its declaration costs a reader nothing
+
+`lib/clike.pro` spends eleven lines, at the `else` form's own declaration, on
+why a chain cannot be a chain — the `{ { … } }` that silently answers instead of
+running, the `#54` where `#40` was right, and the spelling of the fix. The
+example repeats it in two lines.
+
+**A stranger read that and paid nothing.** No attempt, no diagnostic, no cycle.
+
+> **A limitation explained where it is declared is not a limitation a reader
+> pays for. It is a limitation its author paid for once.**
+
+That is evidence about [ROADMAP.md](ROADMAP.md)'s alternation entry, which has
+sat as *wanted by `lib/clike.pro`, worked around, one customer*. **Two strangers
+have now been put in front of the workaround and neither noticed it was one.**
+It is the fourth roadmap item this project has had answered by a customer
+declining to need it, and the first answered by a customer being **told** in
+advance.
+
+### Both of the morning's one-line fixes were measured by the afternoon
+
+Run 1 found two things and each got one line. Run 2 is the control:
+
+| the fix | run 1 | run 2 |
+| --- | --- | --- |
+| `REFERENCE.md` names the message set as Solveig's and links it | 6 probes against `does not understand`, `concat` and `asString` guessed from nothing | **0 probes**, cited as *the decisive signpost* |
+| `examples/clike.pro` shows what `:print` really prints | cost a cycle; the example taught it wrongly | caught it — *the one that would have bitten me* |
+
+**Neither fix was to the compiler and neither was longer than a sentence.**
+
+### Neither reader opened the README
+
+Run 1 grepped it, twice, after the fact. Run 2 **never opened it at all** and
+said so unprompted: *worth knowing if you were expecting the front page to be
+load-bearing.*
+
+Two for two, and prediction 1 has the shape of it right but the wrong three
+documents: the entry point is **the dialect file, the example, and the
+reference.** The README is where somebody decides whether to try the language,
+not where they learn it — which is a reasonable thing for a front page to be,
+and is not what it currently reads as.
+
 ### What the proxy cost, measured as the design said it would
 
 *How it is checked* said a use not traceable to a document counts as an

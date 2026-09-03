@@ -290,3 +290,34 @@ run makes it look**, which is the correction the design was built to allow.
 *other* half of a second reader's cost — reading somebody else's Proto a year
 later. This measured learning a notation once. There is no year-old Proto and no
 second author, so nothing can measure the rest yet.
+
+
+### And a second reader, run to force the one rough edge
+
+The first run never reached `lib/clike.pro`'s known rough edge, so a second was
+designed around it: a three-way classification, which in C is `else if`.
+
+**The reader never wrote the chain.** They wrote the nested braces on the first
+attempt, correct output first compile-and-run, no diagnostic emitted at any
+stage — because the dialect file explains the limitation in eleven lines **at
+the declaration itself**.
+
+> **A limitation explained where it is declared is not a limitation a reader
+> pays for.**
+
+**And it measured the first run's two fixes.** Both were one line, neither
+touched the compiler, and the second run is the control: six `does not
+understand` probes became **zero**, and the `print`-is-a-repr trap that cost run
+1 a cycle was caught before it fired. The reader named `REFERENCE.md`'s new
+*What is not here: the messages* section as *the decisive signpost*.
+
+Which sharpens the rule this page ended on rather than replacing it:
+
+> A declared grammar's cost to its author is the dialect, and its cost to a
+> reader is the substrate — **and both are paid in documentation, not in
+> syntax.** Two one-line sentences removed every cost the first reader met.
+
+**Neither reader opened the README.** One grepped it after the fact, one never
+opened it at all. Six programs' worth of evidence sits behind a front page that
+the only two strangers to use this language did not read; the entry point is the
+dialect file, the example, and the reference.

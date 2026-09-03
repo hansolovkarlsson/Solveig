@@ -49,6 +49,23 @@ block, or another use of me* for C's `else` and could not say it, so a chain
 wants its braces. Worked around; recorded because it is the same shape as
 optional parts and would want deciding with them.
 
+**Two strangers have been put in front of the workaround and neither paid for
+it.** [second-reader.md](second-reader.md)'s second run was designed to force
+the chain, and the reader wrote `else { if (…) { … } }` on the first attempt
+without trying `else if` once — because `lib/clike.pro` spends eleven lines on
+it **at the declaration itself**, naming the silent `{ { … } }` failure and
+spelling the fix. Their words: *I would have tried `else if` first if the
+dialect file had not spent a paragraph on it.*
+
+> **A limitation explained where it is declared is not a limitation a reader
+> pays for. It is one its author paid for once.**
+
+**So this drops below where it was**, and for the fourth time an entry here has
+been answered by a customer declining to need it — the first time by a customer
+being *told* in advance rather than by one working it out. What would move it is
+a use where the workaround is not merely verbose but **unwritable**, and neither
+of the two dialects that wanted alternation has produced one.
+
 **A template's constants are never folded, and it costs what the template
 saves.** `@infix >>> 55 => (left:shiftRight(right)):bitOr((left:shiftLeft(#32:sub(right))):bitAnd(#4294967295)).`
 expands with `#32:sub(#17)` inside it, evaluated once per use at run time.
