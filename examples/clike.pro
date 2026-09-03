@@ -23,8 +23,13 @@ total:print.                      ; #40
 
 ; A chain wants its braces, because the else branch is typed `block` and there
 ; is no way for a hole to say *a block or another use of me*. See lib/clike.pro.
+; `print` shows a value the way source would spell it, so a string keeps its
+; quotes -- `display` is the one that does not. A second reader read `:print`
+; here as ordinary printing and was surprised by the output, which is a fault
+; of this file: every `print` it showed the output of was an integer, where the
+; two are indistinguishable. See docs/second-reader.md.
 if (total > #100) { "big":print }
-else { if (total > #30) { "middling":print }
+else { if (total > #30) { "middling":print }      ; "middling", with the quotes
        else { "small":print } }.
 
 ; do-while runs the body before it asks.
@@ -32,7 +37,7 @@ i = #0.
 do { i = i + #1 } while (i < #3).
 i:print.                          ; #3
 
-if (!(i == #0) && i <= #3) { "checked":print }.
+if (!(i == #0) && i <= #3) { "checked":display }.        ; checked, plain
 
 ; `||` is spelled the way C spells it. `|` on its own still belongs to a
 ; block, so the two live side by side in one line.

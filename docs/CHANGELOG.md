@@ -10,6 +10,51 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### The second reader, measured — 2026-09-03
+
+**No version; nothing in the compiler changed.** The question
+[does-it-pay.md](does-it-pay.md) has ended on since it was written — a dialect
+used by somebody who did not write it — was measured, against six predictions
+committed first in `3777a9a`.
+
+**The notation cost nothing.** A reader given only `README.md`, `REFERENCE.md`,
+`lib/clike.pro` and `examples/clike.pro`, in a directory of their own, wrote a
+correct program on the **first compile-and-run**, never opening the README in
+full. **And declared an operator of their own in that first program** —
+`@infix ++ 55 concat.` — unprompted, at a sensible precedence, mixed with a
+`@use`. The claim this project exists to test, taken up correctly by the first
+stranger to touch it.
+
+**Every cost was on the other side of the compiler**, and neither finding is
+about notation:
+
+- **A dialect is documented and its substrate is not.** `asString` appears
+  nowhere in the published surface; `display` and `concat` once each, one of
+  those as filler inside a warning example. `display` was found by six probes
+  against `string does not understand '…'`, which names a wrong message and
+  cannot name a right one. **REFERENCE.md now says the message set is Solveig's
+  reference and points at it** — one line, and it had never been said.
+- **`print` is a repr and the example taught it wrongly.** `examples/clike.pro`
+  sends `:print` to a string seven times and shows the output of none; its only
+  two output comments are on integer prints, **where `print` and `display` are
+  indistinguishable**. Fixed: the string prints carry their real output, and one
+  is `:display` so the file shows the contrast.
+
+> **A declared grammar's cost to its author is the dialect. Its cost to a reader
+> is the substrate.** Six programs measured the first and could not have found
+> the second, because an author already knows what sends exist.
+
+**Two predictions were not right.** The bare-integer silence never happened —
+`#` came out of the example in the first minute, so the prediction described a
+reader who skips an example that was provided — and the `else if` chain was
+never written, the task not needing one, which is a fault in the design rather
+than a result.
+
+**And the proxy flattered the surface**, as the design said in advance it would:
+`concat` and `asString` were guessed from zero documentation, which a reader
+without Smalltalk behind them does not do. Recorded as assists, which makes the
+documentation finding **worse** than the run makes it look.
+
 ### A caret in the right file — 0.15.0, 2026-09-03
 
 **A hole-kind error whose argument is itself a form use reported the position of

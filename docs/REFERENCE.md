@@ -143,6 +143,23 @@ dialect rather than to any declaration.
 
 ---
 
+## What is not here: the messages
+
+**Proto documents how a module's notation becomes sends. It does not document
+what sends exist**, and it should not — that is
+[Solveig's reference](https://hansolovkarlsson.github.io/Solveig/docs/REFERENCE.html),
+which lists every message on every type.
+
+Saying so is new, and it is here because a reader who had never seen this
+language got the whole notation right on their first attempt and then spent
+every one of their remaining cycles on the other side of the line: `concat`,
+`asString` and `display` are messages **this repository names nowhere**, and
+`string does not understand 'show'` tells you a name is wrong without telling
+you what is right. See [second-reader.md](second-reader.md).
+
+**A dialect gives you syntax; Solveig gives you the library.** `@use` reaches
+the first and `@include` the second, and neither reaches the other.
+
 ## The shipped dialects
 
 In `lib/`, installed to `$PREFIX/lib/proto` by `make install`. A dialect file

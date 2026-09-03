@@ -182,11 +182,12 @@ dialect did not invent that rule; it borrowed one Solveig already enforces.
 the invented kind is evidence that a declared grammar does something a fixed one
 cannot**, and it remains the one clear instance in six programs.
 
-**What is still unknown** is smaller than it was. The measure has held across
-six domains and the ceiling is now described rather than guessed at. What no
-program has yet tried is a dialect used by *somebody who did not write it* —
-every dialect here was written by the author of the file that uses it, an hour
-before, and a notation's real cost is paid by the second reader.
+**What was still unknown** was a dialect used by *somebody who did not write
+it* — every dialect here having been written by the author of the file that uses
+it, an hour before, and a notation's real cost being paid by the second reader.
+
+**That was measured on 2026-09-03**, and it is the section at the foot of this
+page.
 
 ---
 
@@ -242,3 +243,50 @@ an *invented* rule is still `digest`'s, and it is now one in six.
 its token. **Nobody noticed while writing it**, which is exactly what the
 argument for putting hygiene in with forms in 0.2.0 predicted, and the only
 evidence that argument could ever have.
+
+
+---
+
+## The second reader, measured
+
+[second-reader.md](second-reader.md) has the design, the six predictions
+committed before the run, and the full result. What it changes here:
+
+**The notation cost nothing, and that is the headline.** A reader who had never
+seen the language wrote a correct program **on the first compile-and-run**,
+taking `=`, `%`, `&&`, `while`, nested `if` and the precedence rungs from one
+example and one table, and never opening the README in full.
+
+**And they declared an operator of their own, unprompted, in that first
+program** — `@infix ++ 55 concat.`, at a precedence chosen to sit under `+`,
+mixed into a module that also `@use`s a dialect. The claim this project exists
+to test is that a programmer can declare notation. The first stranger to touch
+it did, unasked, and got it right.
+
+**Every cost was on the other side of the compiler**, which turns the cost table
+above inside out. Six programs found four silences, and all four are things a
+*dialect* does — a wrong precedence, a hole's shape, a domain boundary, a hole
+named twice. **A reader met none of them.** What they met was:
+
+| | |
+| --- | --- |
+| **A dialect is documented and its substrate is not** | `asString` appears **nowhere** in anything a stranger is given; `display` and `concat` once each, one of those as filler inside a warning example. Every non-syntactic decision was guess-then-run, and `string does not understand 'show'` names a wrong message without naming a right one. |
+| **`print` is a repr and the example taught it wrongly** | Seven string `:print`s in `examples/clike.pro` and the output of none shown; its only two output comments are on integer prints, where `print` and `display` are indistinguishable. **The example demonstrated the message exactly where its trap is invisible.** |
+
+Both are fixed. Neither is about notation at all.
+
+> **A declared grammar's cost to its author is the dialect. Its cost to a reader
+> is the substrate.** Six programs measured the first and could not have found
+> the second, because an author already knows what sends exist.
+
+**And the proxy flattered it.** The design said in advance that a session with
+no context still knows Smalltalk, so anything produced untraceable to a document
+counts as an assist and the bias runs one way. It ran that way: `concat` and
+`asString` were guessed correctly from **zero** documentation. A reader without
+that background does not guess them. **So the one real finding is worse than the
+run makes it look**, which is the correction the design was built to allow.
+
+**What is still unknown**, and it is now the only thing on this page's list: the
+*other* half of a second reader's cost — reading somebody else's Proto a year
+later. This measured learning a notation once. There is no year-old Proto and no
+second author, so nothing can measure the rest yet.

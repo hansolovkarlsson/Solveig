@@ -61,4 +61,104 @@ fifteen pairs.
 
 ## What it found
 
-Written after.
+Run on 2026-09-03, against 0.15.0, with the predictions above committed in
+`3777a9a` first. The reader got the four published files in a directory of their
+own and the three toolchain commands, and was told not to look at the
+repository. The program it produced, its output and the twelve pairs were
+re-run and checked here rather than taken from its report.
+
+**It got correct output on the first compile-and-run.** One cycle against the
+task; a second that changed formatting and nothing else.
+
+### The predictions
+
+| | |
+| --- | --- |
+| **1. The example is load-bearing** | **Right, and by more than predicted.** `examples/clike.pro` and `lib/clike.pro` were opened first, together, before anything else was read — and never opened again. `README.md` was **never read in full**; it was grepped, twice, after the fact. The syntax came entirely from the example plus one table. |
+| **2. Every expensive mistake is at the dialect/substrate boundary** | **Right, and it is the finding.** In the reader's own words: *all of my friction was on the other side of the compiler.* The notation cost **nothing** — `=`, `%`, `&&`, `while`, nested `if`, the precedence rungs, all correct first time and none of them remarked on. |
+| **3. The bare integer is the only mistake that survives compilation** | **Wrong about the instance, right about the class.** No bare integer was ever written: `#` came out of the example inside the first minute and never came up again. **The prediction described a reader who skips the example, and an example was provided.** But a silent failure did happen, by another route — see *print is a repr* below — so the silence class got its reader-contributed entry, from a mechanism nobody had named. |
+| **4. The `else if` chain** | **Not tested, and that is a fault in the design rather than a result.** The task wanted a nested loop and needed no branching cascade, so the chain was never written. The one prediction aimed at a known rough edge got no evidence, and a second run would have to ask for the shape that produces it. |
+| **5. `for` and `i++` cost nothing** | **Right, and understated.** `while` and `b = b + #1` were written without comment. Neither absence appears **anywhere in the reader's log** — not as friction, not as a workaround, not as a remark. Absence is not merely cheap; it was invisible. |
+| **6. This measures one half of the cost** | **Stands, and is now load-bearing.** One reader, one task, one hour. It says what learning the notation costs and nothing about reading somebody else's code in it. |
+
+### A stranger declared an operator in their first program
+
+Nobody predicted this and it is the strongest single result. Needing to join
+strings, the reader wrote:
+
+```
+@use "lib/clike.pro".
+@infix ++ 55 concat.
+```
+
+— an unprompted new operator, at a precedence chosen to sit under `+` at 60,
+mixed into a module that also `@use`s a dialect. **The one thing this project
+claims is that a programmer can declare notation, and the first stranger to
+touch it did so in their first program, unasked, and got it right.**
+
+### `print` is a repr, and the example teaches it wrongly
+
+The one thing the reader expected and got wrong:
+
+```
+"big":print.        ; "big"   -- with the quotes
+"big":display.      ; big
+```
+
+`examples/clike.pro` sends `:print` to a string **seven times** and shows the
+output of none of them. Its only two output comments — `; #40` and `; #3` — are
+on **integer** prints, where `print` and `display` are indistinguishable.
+
+> **The example demonstrates the message exactly where its trap is invisible.**
+
+That is a defect in a shipped example, it is what cost this reader their second
+cycle, and it is fixed alongside this entry: the string prints now carry their
+real output.
+
+### The published surface documents a dialect and not its substrate
+
+The largest finding, and the one with an action attached. Counting mentions
+across everything a stranger is given:
+
+| | README | REFERENCE | clike.pro | example |
+| --- | ---: | ---: | ---: | ---: |
+| `asString` | **0** | **0** | 0 | 0 |
+| `display` | 1 | **0** | 0 | 0 |
+| `concat` | 1 | **0** | 0 | 0 |
+
+`concat`'s single appearance is **filler inside an example of a duplicate-operator
+warning**, not documentation that a string understands it.
+
+So the reader guessed `concat` and `asString` with nothing to check them
+against, and found `display` by running six one-line probes —
+`show`, `write`, `printNl`, `put`, `emit` — each answering `string does not
+understand '…'`, **a message that says the name is wrong and cannot say what is
+right, with nothing in the sandbox to look it up in.**
+
+> **The documents describe, exhaustively, how Proto turns operators into sends —
+> and never say what sends exist.**
+
+That is prediction 2 confirmed and then sharpened past where it was aimed. The
+boundary is not merely where the *mistakes* are; it is where the *documentation
+stops*, and a reader reaches it in their first statement, because a program that
+computes anything must eventually print it.
+
+**The fix is one line and it is made**: [REFERENCE.md](REFERENCE.md) now sends
+the reader to Solveig's own reference for the message set, which is the half
+this repository has no business restating and had never named.
+
+### What the proxy cost, measured as the design said it would
+
+*How it is checked* said a use not traceable to a document counts as an
+**assist**, the bias running one way. It ran that way:
+
+| | |
+| --- | --- |
+| `concat`, `asString` | **assists.** Guessed with zero documentation, correct first time, and traceable to Smalltalk habit rather than to anything read. |
+| `display` | **not an assist.** Six failed probes and a guess. |
+
+**So the documentation gap is worse than the run makes it look.** A reader
+without Smalltalk in their background does not guess `asString`; they get
+`integer does not understand 'toString'` and have nowhere to go. The proxy
+flattered the surface exactly as predicted, and correcting for it is what turns
+the third finding above from an inconvenience into the thing to fix first.
