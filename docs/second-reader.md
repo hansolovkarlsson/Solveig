@@ -147,6 +147,35 @@ computes anything must eventually print it.
 the reader to Solveig's own reference for the message set, which is the half
 this repository has no business restating and had never named.
 
+## The second run, and what changed about it
+
+**Predictions recorded before it, as the first run's were.** Committed here
+before the reader was given anything.
+
+Run 1 left two things undone. Its fourth prediction was **never tested** — the
+task wanted a nested loop and needed no branching cascade, so the `else if`
+chain was never written — and its one real finding, that the published surface
+documents a dialect and not its substrate, produced a **one-line fix** that
+nothing has measured.
+
+**So the second run varies two things and holds the rest.**
+
+| | |
+| --- | --- |
+| **The task** | Classify `n` from 1 to 12 into three ranges and print one line each. Three mutually exclusive cases is a cascade, and a cascade in C is `else if`. **Nothing else about the task is interesting**, which is deliberate: run 1 established that the notation costs nothing, so this one is aimed at the single construct that has a known rough edge. |
+| **The surface** | Now includes **Solveig's own reference**, because `REFERENCE.md` names it since run 1 and a real reader follows the pointer. Run 1's biggest cost was that the message set was documented nowhere in reach. **This measures whether naming it was enough.** |
+
+Everything else is held: same dialect, same example, same isolation, same
+instruction to keep an untidied log.
+
+| | |
+| --- | --- |
+| **7. The chain is written the C way, first, without hesitation.** | `if (a) { … } else if (b) { … } else { … }` is not a thing a C programmer decides to write; it is the shape the problem arrives in. Predicted: it is attempt one, and it is refused. |
+| **8. The diagnostic names their line, and that is a check rather than a prediction.** | 0.15.0 fixed the position four hours before this was written, so the error will point at the reader's `else if` and underline it. **Recorded as a check**: if it does not, 22's fix is wrong and the run has found that instead. |
+| **9. And it still will not say what to do.** | This is the real prediction 4, restated where it can be tested. The message names the *hole's kind* — `'if' wants a block here, and this is a send` — which is true, unhelpful, and says nothing about nested braces. Predicted: the reader does **not** get from the message to the fix, and finds it in `examples/clike.pro`'s comment instead. **If so, a diagnostic that points correctly and prescribes nothing is the next thing to fix**, and this is the evidence for it. |
+| **10. Two readers hit the same wall means it is the wall.** | Run 1 never reached the chain. If this reader is stopped by it, then the *only* construct in `lib/clike.pro` that costs a stranger anything is the one the ROADMAP already knows about — a hole's kind being one choice with no alternation, entered as *worked around, one customer*. Predicted: it gets its second customer, and the first from somebody who did not write the dialect. |
+| **11. The substrate friction is mostly gone.** | Run 1 guessed `concat` and `asString` from zero documentation and found `display` by six probes. Solveig's reference lists all three. Predicted: **zero probes**, and the one-line fix in `REFERENCE.md` is worth more than the run that found it. If friction remains, it is that a reader must be *told* the pointer exists rather than tripping over it, which a link in a table does not guarantee. |
+
 ### What the proxy cost, measured as the design said it would
 
 *How it is checked* said a use not traceable to a document counts as an
