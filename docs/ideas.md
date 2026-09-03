@@ -56,7 +56,7 @@ marked as a sketch.
 | Infix operators, `@expr(a^2 + b/2)` | **Built**, on 2026-08-28 — [scoped in the morning and in by the evening](#infix-arithmetic-as-a-compile-time-notation): arithmetic, then `sin(x)` once *limiting* it turned out to be the expensive half, then comparison and logic, and the name with them |
 | `@expr{...}`, a region that is a block | **Built on 2026-08-29**, the day after it was scoped — [the sentence was tried first and lost](#expr-a-region-that-is-a-block-rather-than-a-group); the entry predicted one hard part and the second was the one that mattered, a notation that silently stopped inlining |
 | Phoenix — a second language whose output Solum uses | **Defer** — the machinery is proven three times over; [the unexplored half](#programs-that-would-press-on-something) is whether a hosted language can publish a *library* rather than a program |
-| A conformance suite for a second implementation | **The accepted half is built**, on 2026-09-03 — [conformance/](../conformance/README.md), 42 cases scored on their bytes, with both tools taken from `SOL_COMPILE` and `SOL_RUN` so a stranger swaps one and keeps the other. **Phoenix cannot read `.sol` at all**, which is what settles the unit as *(program, output, status)* and makes the `.out` file the thing a producer uses. **Every answer was written from the documentation before it was run and 40 of 42 held**, both misses being the author's arithmetic — so what it found is beside it: a REFERENCE.md paragraph that was wrong about `onError` in both halves, and two things that are unspecified rather than wrong. [The scoping](#a-conformance-suite--a-corpus-a-second-implementation-can-score-itself-against) has the shape; the refused half is still transcription, with eleven documented refusals of which three are tested and eleven chunk limits of which none is |
+| A conformance suite for a second implementation | **Built, both halves, on 2026-09-03** — [conformance/](../conformance/README.md), **89 cases** scored on their bytes with both tools taken from `SOL_COMPILE` and `SOL_RUN`, and in `make test`. Three kinds and not two: a refusal is compile-time and a **trap is run-time**, which the scoping had run together — 13 of the 15 demonstrations in `examples/` turn out to be the machine's business, not the front end's. Every answer written from the documentation before it was run. **Two findings, both in the documentation**: a REFERENCE.md paragraph wrong about `onError` in both halves, and a **self-including file that PRODUCING.md filed as a refusal when it is a warning** — it compiles, leaves with 0, and runs. [The scoping](#a-conformance-suite--a-corpus-a-second-implementation-can-score-itself-against) has the shape; what is left is the five 65,535 limits, which are a generator's business |
 | Programs that would press on something — Pascal, predicate logic, a parser toolkit, `tail`, and [which Unix tool next](#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31) | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would. **So was `sha256sum`, on 2026-08-31**, the first off the Unix survey and the first program here with no I/O in its inner loop: [the prediction held in both halves](#it-was-written-on-2026-08-31-and-the-prediction-held-in-both-halves) and produced the number it was written for — **208 bytecode instructions a byte, 4.3 ns each, 234M a second**. **And `diff` on 2026-09-02**, where [one prediction of four held](#it-was-written-on-2026-09-02-and-one-of-the-four-predictions-held) — the output format, which was the whole difficulty — and the three that did not are more useful than the one that did |
 | Networking, and sending code to a running machine | **The first half is built**, on 2026-08-29 — [extensions/net](../extensions/net/README.md), five messages, and the waiting question answered with a timeout rather than a block; [the second half](#networking-and-sending-code-to-a-machine-that-is-already-running) is untouched and still needs 3.4, 6.32 and a proxy |
 | SQLite, SDL2, GTK | **One project, not three** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); GTK and SDL2 fire that trigger and SQLite does not, and wanting *both* toolkits is what settles the mechanism |
@@ -6271,6 +6271,71 @@ where it stands rather than quietly rewritten.
 eleven scope rules and the eleven limits are still tabulated in PRODUCING.md with
 their triggering programs, and the three literal limits now have a confirmed N+1
 apiece waiting for a corpus to hold them.
+
+#### And the refused half, the same day — 89 cases, and a warning that was filed as a refusal
+
+**The scoping was wrong about the shape of this half, and building it is what
+showed how.** It sketched one tree of refusals — `scope/ names/ expr/
+directives/ limits/` — and those are all **compile-time**: `solas` rejects them
+and nothing runs. But the 15 commented-out demonstrations in `examples/` that
+the entry counted as the trigger are **13 run-time and 2 compile-time**.
+`#2:add(1.5)` and `#7:div(#0)` get as far as the machine and stop there, and a
+corpus cannot score them the same way: one says *your front end must reject
+this*, the other says *your machine must trap rather than wrap*, and the second
+is a claim about a second **machine** that a tree of refusals has no place for.
+
+So there are three kinds and three directories, and **the header says which**,
+so it is one tree read one way rather than three read three ways:
+
+| | | scored on |
+| --- | --- | --- |
+| `accepted/` | compiles and runs | the exact output, status 0, silence |
+| `trapped/` | compiles, runs, stops | the output up to the stop, a nonzero status, and that *something* was said |
+| `refused/` | the compiler rejects it | that it was rejected, and that the legal neighbour was not |
+
+**Every refusal carries a `-legal` neighbour** — the same program with the one
+offending thing put right, which must compile and run — and the harness fails a
+refusal that has none. Without it a front end that refused everything would
+score full marks on the whole of `refused/`. That is
+[oracle.sh](../programs/oracle.sh)'s arrangement exactly, where `agree/` must
+match and `differ/` must not, and it was the first thing the design borrowed
+rather than the last.
+
+**The finding: a file that includes itself is a warning, not a refusal.**
+[PRODUCING.md](PRODUCING.md#directives) listed it in a three-row table under
+*the rules `solas` enforces*, beside `a directive must stand alone` and `unknown
+directive`, both of which reject. A self-including file **compiles, leaves with
+0, and runs** with the include having done nothing. A producer reading that
+table would implement a rejection; what it must actually implement is noticing
+the cycle and carrying on, which is the harder of the two and the one a naive
+front end gets wrong by not stopping.
+
+Corrected, and the case moved to the accepted side where it belongs — which
+needed one new header field, `stderr: expected`, because a program that warns is
+neither silent nor stopped.
+
+**The other ten fire exactly as documented**, each triggered before its case was
+written rather than taken from the page.
+
+**And the stderr rule got stronger while that was being settled.** Silence is
+now checked in both directions — a case claiming it must be silent, one claiming
+a diagnosis must produce one — so the field is a claim rather than a waiver. And
+what the *compiler* said on the way past counts with what the machine said,
+which is what makes a warning visible at all. That change made the 42 cases
+already there prove something they had not: that a clean program compiles
+silently.
+
+**89 cases now** — 45 accepted, 29 refused (14 refusals, 14 neighbours, one
+included file that is a case in its own right), 15 trapped. Every expected
+output still written from the documentation before it was run, and the five new
+failure modes proved on a deliberately broken tree: a refusal that compiles, a
+refusal with no neighbour, a rule id that is not `group/rule`, a trapped case
+that runs to the end, and a case claiming a diagnosis that says nothing.
+
+**What is left is the five 65,535 limits** — names, constants and blocks in one
+chunk, and the distance a conditional or a loop jumps over — and a case at N
+would be a file of that many lines. They stay a generator's business rather than
+a corpus's, which is what PRODUCING.md already says of them.
 
 ## Recommended against
 

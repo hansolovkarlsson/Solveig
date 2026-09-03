@@ -25,7 +25,7 @@ program that has never seen this repository can read it.
 `make test` runs it, first, before the C suite — a corpus a second
 implementation is invited to score itself against has to be one this
 implementation is scored against continuously, or the day a limit moves nobody
-finds out. It needs no network and no clone and takes about a second, which is
+finds out. With no argument it runs `accepted/`, `refused/` and `trapped/`. It needs no network and no clone and takes about a second, which is
 why it is here rather than beside the [oracles](../programs/oracle.sh).
 
 Two environment variables say what to run, each a template with `%s` where a
@@ -71,7 +71,9 @@ case:
 ```text
 ; conformance: what this case pins        required, one line
 ; varies: front | machine | both          required -- who can fail it
-; status: 0                               optional; 0 if absent
+; status: 0 | <n> | nonzero               optional; 0 if absent
+; refused: group/rule                     present when the compiler must reject it
+; stderr: expected                        optional -- something is said there
 ```
 
 A case with no header is a **failure**, not a skip. A corpus that quietly
@@ -81,12 +83,39 @@ declines to run a case is the thing this suite exists to avoid.
 be scored on the cases a front end can fail, once there is a second one; today
 it is a claim about the case that a reader can check.
 
+## Three kinds, and the header says which
+
+A program can end three ways, and the corpus has a directory for each. They are
+one tree read one way rather than three trees read three ways: it is the header
+that decides, so a case is in the right place because of what it says about
+itself.
+
+| | | scored on |
+| --- | --- | --- |
+| `accepted/` | it compiles and runs | the exact output, status 0, and silence on standard error |
+| `trapped/` | it compiles, runs, and then stops | the output up to the point it stopped, a nonzero status, and that *something* was said |
+| `refused/` | the compiler rejects it | that it was rejected, and that the legal neighbour beside it was not |
+
+**The wording is never compared, in any of the three.** An error's text and a
+warning's are the implementation's to choose. What is not the implementation's
+choice is whether anything is said at all — a case claiming silence must be
+silent, and one claiming a diagnosis must produce one — so the field is a claim
+rather than a waiver. The compiler's output counts with the machine's, a warning
+being at one end and a failure at the other.
+
+**Every refusal has a `-legal` neighbour**: the same program with the one
+offending thing put right, which must compile and run. Without it a front end
+that refused everything would score full marks on the whole of `refused/`, and
+the harness fails a refusal case that has no neighbour. It is the arrangement
+[`programs/oracle.sh`](../programs/oracle.sh) already uses, where `agree/` must
+match and `differ/` must not — the second corpus is the point.
+
 ## What is here
 
-`run.sh` says how many there are; it was 42 when this page was written, and the
+`run.sh` says how many there are; it was 89 when this page was written, and the
 number is not repeated anywhere that would have to be kept in step with it.
 
-| | |
+| `accepted/` | |
 | --- | --- |
 | `00-lexis` | literals and their tags, statement separation, comments, escapes, `#[` as one token, identifiers |
 | `01-values` | value against reference equality, floored division, bits, IEEE floats, printing, strictness, absence |
@@ -96,6 +125,23 @@ number is not repeated anywhere that would have to be kept in step with it.
 | `05-errors` | what `onError` answers, `raise` and re-raise, `ensure`, `system:exit` |
 | `06-limits` | 255 elements, 127 pairs, 255 arguments, 255 slots — each at exactly N — and recursion |
 | `07-library` | `split` and `replace`, the format spec, the four iteration messages, slicing, dictionaries, symbols, `sorted` |
+| `08-directives` | an include, an included file's globals, and a file that includes itself |
+
+| `refused/` | |
+| --- | --- |
+| `scope` | `self` outside a block; assigning to `self` |
+| `names` | a duplicate temporary; one shadowing a parameter; a duplicate parameter |
+| `expr` | a chained comparison; an operator opening a region; an infix outside one |
+| `directives` | a directive not standing alone; an unknown directive |
+| `limits` | 256 elements, 128 pairs, 256 arguments, 256 slots — each at N+1 |
+
+| `trapped/` | |
+| --- | --- |
+| | overflow, a zero divisor, the most negative divided by minus one |
+| | the two strictness rules: no coercion, and `concat` on a non-string |
+| | an index out of range, `removeLast` on empty, a missing dictionary key |
+| | an undeclared name, a message not understood, a block argument that is not a block |
+| | a non-boolean condition, a shift count out of range, a capturing block outliving its frame, `new` on a value class |
 
 Every expected output here was **written from the documentation before it was
 run**, which is the only way a corpus like this can find anything: recording
@@ -105,18 +151,19 @@ arithmetic rather than the implementation's answer.
 
 ## What this suite does not cover
 
-**Refusals.** Every case here is a program that runs. The programs that must be
-*rejected* — `self` outside a block, a duplicate temporary, a chained
-comparison, a literal one past its limit — are a second corpus, and
-[PRODUCING.md](../docs/PRODUCING.md) already tabulates the rules it would be
-built from. The limit cases here sit at exactly N for that reason: N+1 belongs
-on the other side.
-
 **The wording of a failure.** An error's text is a thing an implementation
 chooses, and a suite that demanded ours would be scoring the words. `05-errors`
 pins that a failure *arrives*, as an object delegating to `error`, carrying a
 message — and compares text only where the text is the **program's own**, as in
-`error:raise("bad input on line 3")`.
+`error:raise("bad input on line 3")`. `trapped/` pins that the program stopped
+and said something, never what.
+
+**Malformed bytecode.** [PRODUCING.md](../docs/PRODUCING.md#what-the-verifier-checks)
+refuses a directory of broken `.sob` files deliberately, and the refusal stands:
+`sol_chunk_save` will not write a chunk that fails to verify, so producing one
+means patching bytes, and a producer needs its own diagnosed rather than ours.
+`tests/test_serialize.c` is where those sentences are kept still. This tree is
+source.
 
 **Anything an address reaches.** An object without an `asString` shows its
 address, so no case prints a bare object.
@@ -125,9 +172,10 @@ address, so no case prints a bare object.
 relying on, and the reference says so, so every case that prints them sorts them
 first.
 
-**The three 65,535 limits** — names, constants and blocks in one chunk — because
-a case at N would be a file of that many lines. They are in PRODUCING.md's table
-and are a generator's business rather than a corpus's.
+**The five 65,535 limits** — names, constants and blocks in one chunk, and the
+distance a conditional or a loop jumps over — because a case at N would be a
+file of that many lines. They are in PRODUCING.md's table and are a generator's
+business rather than a corpus's.
 
 **The 256-frame ceiling.** How deep a given program can recurse depends on what
 each construct costs in frames, which is a fact about an implementation's

@@ -61,11 +61,21 @@ rather than in it:
 
 ### Directives
 
-| what | `solas` says |
-| --- | --- |
-| `x := @include "f".` | `a directive must stand alone as a statement` |
-| `@nosuch "f".` | `unknown directive` |
-| a file that includes itself | `this file includes itself, so the include does nothing` |
+| what | `solas` says | |
+| --- | --- | --- |
+| `x := @include "f".` | `a directive must stand alone as a statement` | refused |
+| `@nosuch "f".` | `unknown directive` | refused |
+| a file that includes itself | `warning: this file includes itself, so the include does nothing` | **compiles** |
+
+**The third is a warning and the first two are refusals**, which the table did
+not say until a conformance case went looking for the refusal and did not find
+one. A self-including file compiles, leaves with 0, and runs with the include
+having done nothing — so what a front end must get right is *noticing the cycle
+and carrying on*, not rejecting the program. One that followed the include would
+not stop.
+
+[conformance/accepted/08-directives/](../conformance/accepted/08-directives/)
+has it, on the accepted side where it belongs.
 
 ## The limits a chunk has
 

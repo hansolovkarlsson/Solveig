@@ -1,6 +1,6 @@
 #!/bin/sh
-# The conformance harness -- runs the corpus in accepted/ against whatever tools
-# it is pointed at, and scores each case on its bytes.
+# The conformance harness -- runs the corpus against whatever tools it is pointed
+# at, and scores each case on its bytes.
 #
 #   ./conformance/run.sh                     every case
 #   ./conformance/run.sh accepted/03-blocks  one directory, or one case
@@ -27,7 +27,32 @@
 #
 #   ; conformance: what this case pins       required, one line
 #   ; varies: front | machine | both         required -- who can fail it
-#   ; status: 0                              optional, the exit status; 0 if absent
+#   ; status: 0 | <n> | nonzero              optional, the exit status; 0 if absent
+#   ; refused: group/rule                    present when the compiler must reject it
+#   ; stderr: expected                       optional -- something is said there
+#
+# The header says which of the three kinds a case is, so the three live in one
+# tree read one way rather than three trees read three ways:
+#
+#   accepted   no `refused`, status 0 -- it compiles, runs, and prints the .out
+#   trapped    no `refused`, status nonzero -- it compiles, runs, prints what is
+#              in the .out, and then stops. What it stopped *saying* is not
+#              compared: an error's wording is the implementation's to choose.
+#   refused    `refused: group/rule` -- the compiler must reject it, and no .out
+#              is wanted because nothing runs.
+#
+# Standard error is never compared -- the wording of a failure or a warning is
+# the implementation's to choose. Whether anything is said there at all is not:
+# a case must be silent unless its status is `nonzero` or it says
+# `stderr: expected`, and one that says either must not be silent. What the
+# compiler said on the way past counts with what the machine said, a warning
+# being at one end and a failure at the other.
+#
+# A refusal case must have a `<name>-legal.sol` beside it: the same program with
+# the one offending thing put right, which must compile and run. Without that a
+# front end that refuses everything scores full marks on the whole of refused/.
+# It is the arrangement programs/oracle.sh already uses, where `agree/` must
+# match and `differ/` must not, and the second corpus is the point.
 #
 # `varies` is not read by this script. It is there so that a front end can be
 # scored on the cases a front end can fail, once there is a second one; today it
@@ -53,7 +78,7 @@ for arg in "$@"; do
         *)  targets="$targets $arg" ;;
     esac
 done
-[ -n "$targets" ] || targets=" $here/accepted"
+[ -n "$targets" ] || targets=" $here/accepted $here/refused $here/trapped"
 
 work=$(mktemp -d "${TMPDIR:-/tmp}/solveig-conformance.XXXXXX")
 trap 'rm -rf "$work"' EXIT INT TERM
@@ -106,10 +131,13 @@ while IFS= read -r src; do
     sob=$work/case.sob
     got=$work/got
     err=$work/err
+    cerr=$work/cerr
+    rerr=$work/rerr
 
     what=$(field "$src" conformance)
     varies=$(field "$src" varies)
     status=$(field "$src" status)
+    rule=$(field "$src" refused)
     [ -n "$status" ] || status=0
 
     if [ -z "$what" ]; then
@@ -121,27 +149,76 @@ while IFS= read -r src; do
         "") fail "$name" "no '; varies:' line -- front, machine or both"; continue ;;
         *)  fail "$name" "'; varies: $varies' is not front, machine or both"; continue ;;
     esac
+
+    # A refusal case. The compiler must reject it, and the neighbour beside it --
+    # the same program with the one offending thing put right -- is what stops a
+    # compiler that refuses everything from scoring full marks here.
+    if [ -n "$rule" ]; then
+        case $rule in
+            */*) ;;
+            *) fail "$name" "'; refused: $rule' is not a group/rule name"; continue ;;
+        esac
+        legal=${src%.sol}-legal.sol
+        if [ ! -f "$legal" ]; then
+            fail "$name" "no $(basename "$legal") beside it -- a refusal needs the legal neighbour it differs from"
+            continue
+        fi
+        rm -f "$sob"
+        set +e
+        eval "$(printf "$SOL_COMPILE" "$src" "$sob")" > "$err" 2>&1
+        built=$?
+        set -e
+        if [ "$built" = 0 ]; then
+            fail "$name" "compiled, and '$rule' says it must be refused"
+            continue
+        fi
+        passed=$((passed + 1))
+        [ "$verbose" = no ] || printf 'ok    %s -- %s\n' "$name" "$what"
+        continue
+    fi
+
     if [ ! -f "$out" ]; then
         fail "$name" "no $(basename "$out") beside it -- a case is two files"
         continue
     fi
 
     rm -f "$sob"
-    if ! eval "$(printf "$SOL_COMPILE" "$src" "$sob")" > "$err" 2>&1; then
-        fail "$name" "refused by the compiler: $(head -1 "$err")"
+    if ! eval "$(printf "$SOL_COMPILE" "$src" "$sob")" > "$cerr" 2>&1; then
+        fail "$name" "refused by the compiler: $(head -1 "$cerr")"
         continue
     fi
 
     set +e
-    eval "$(printf "$SOL_RUN" "$sob")" > "$got" 2> "$err" < /dev/null
+    eval "$(printf "$SOL_RUN" "$sob")" > "$got" 2> "$rerr" < /dev/null
     ran=$?
     set -e
 
-    if [ "$ran" != "$status" ]; then
+    # What the compiler said on the way past counts as much as what the machine
+    # said: a warning is at one end and a failure at the other, and a case that
+    # claims silence is claiming it of both.
+    cat "$cerr" "$rerr" > "$err"
+
+    if [ "$status" = nonzero ]; then
+        if [ "$ran" = 0 ]; then
+            fail "$name" "ran to the end, and the case says it must stop"
+            continue
+        fi
+    elif [ "$ran" != "$status" ]; then
         fail "$name" "left with status $ran, expected $status: $(head -1 "$err")"
         continue
     fi
-    if [ -s "$err" ]; then
+
+    # Standard error carries the wording of a failure or a warning, which is the
+    # implementation's to choose -- so it is never compared. Whether anything is
+    # said there at all is not the implementation's business: a case that says
+    # nothing is coming must be silent, and one that says something is coming
+    # must not be. Otherwise the field would be a waiver rather than a claim.
+    if [ "$status" = nonzero ] || [ "$(field "$src" stderr)" = expected ]; then
+        if [ ! -s "$err" ]; then
+            fail "$name" "said nothing on standard error, and the case says it must"
+            continue
+        fi
+    elif [ -s "$err" ]; then
         fail "$name" "wrote to standard error: $(head -1 "$err")"
         continue
     fi
