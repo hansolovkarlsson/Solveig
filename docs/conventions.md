@@ -96,6 +96,18 @@ was rejected, and what it cost. The diff is in the diff.
 **Output is checked by hand, not trusted for having run.** `examples/clike`
 printed `#54` where `#40` was right, compiled clean and failed nothing.
 
+**A new check is run against the unfixed compiler, and `make clean` goes between
+the two builds.** `tests/test_expand.c` opens by saying a check must fail if the
+thing it tests is removed; [POSTMORTEM.md](POSTMORTEM.md) 23 is that control
+passing when it should not have. `git stash`, `git checkout` and `git show >`
+all restore a file with its **original timestamp**, which is older than the
+object already built from it, so `make` rebuilds nothing and the control runs
+the code it was meant to exclude. **The failure mode is the control passing**,
+which is the one that gets believed. Rerun with a clean build, the same checks
+failed at once — and watching them fail showed the first attempt was testing a
+milder shape than the reported defect, so it improved the test as well as
+verifying it.
+
 **Everything is read once at the end of a day, whether or not anything is
 suspected.** [POSTMORTEM.md](POSTMORTEM.md) 13 said a claim about another
 document is re-derived when it is read; 19 is eight instances in one day of why

@@ -612,7 +612,7 @@ integer:utf8Tail := { at |
     (#128:bitOr(self:shiftRight(at):bitAnd(#63))):asCharacter }.
 ```
 
-## What 0.14.0 is not
+## What 0.15.0 is not
 
 **A pattern has no optional or repeated parts.** `if <c> then <a> else <b>` is a
 second declaration rather than an optional tail, which is honest and costs a

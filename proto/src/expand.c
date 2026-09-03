@@ -240,8 +240,19 @@ static const char *article(const char *word)
     return strchr("aeiou", word[0]) != NULL ? "an" : "a";
 }
 
+/* `written` holds each argument's extent as the programmer wrote it, taken
+ * before expansion replaced it. A hole is checked against what its argument
+ * *became* -- which is right, `if (b) { … }` in an `else` genuinely being a
+ * send by the time it gets here -- and reported at where it was *written*,
+ * which is the only position the programmer can act on.
+ *
+ * Those were the same position for nine versions, because every hole-kind
+ * failure in the tests and examples has a plain node in the hole and a plain
+ * node is not replaced. A form in a hole is the case a dialect's users hit and
+ * its author does not: the author knows the chain wants braces and never
+ * writes the version that does not. See POSTMORTEM.md 22. */
 static void check_arguments(Expander *expander, const ProtoNode *use,
-                            const ProtoMacro *macro)
+                            const ProtoMacro *macro, const ProtoSpan *written)
 {
     for (int i = 0; i < macro->param_count && i < use->count; i++) {
         ProtoHoleKind kind = macro->kinds[i];
@@ -251,7 +262,7 @@ static void check_arguments(Expander *expander, const ProtoNode *use,
         const char *wanted = proto_hole_kind_name(kind);
         const char *got = proto_node_kind_name(argument->kind);
 
-        proto_error(expander->diag, proto_node_extent(argument),
+        proto_error(expander->diag, written[i],
                   "'%s' wants %s %s here, and this is %s %s",
                   macro->name, article(wanted), wanted, article(got), got);
         proto_note(expander->diag, macro->declared_at,
@@ -272,7 +283,8 @@ static void check_arguments(Expander *expander, const ProtoNode *use,
  * and a silent infinite loop is the worst way to find out that they do not. */
 #define PROTO_EXPANSION_LIMIT 256
 
-static ProtoNode *expand_macro(Expander *expander, ProtoNode *use, int depth)
+static ProtoNode *expand_macro(Expander *expander, ProtoNode *use, int depth,
+                               const ProtoSpan *written)
 {
     /* By index, because a word may name more than one form -- `if <c> then <a>`
        beside `if <c> then <a> else <b>` -- and the reader is what decided which
@@ -289,8 +301,9 @@ static ProtoNode *expand_macro(Expander *expander, ProtoNode *use, int depth)
     }
 
     /* The arguments are expanded by now, so a hole filled by another form is
-       checked against what that form became. */
-    check_arguments(expander, use, macro);
+       checked against what that form became -- and reported where it was
+       written, which `written` carries because the node no longer does. */
+    check_arguments(expander, use, macro, written);
 
     NameSet binders = { NULL, 0, 0 };
     collect_binders(macro->template, &binders);
@@ -330,13 +343,26 @@ static ProtoNode *expand_node(Expander *expander, ProtoNode *node, int depth)
         return node;
     }
 
+    /* Where each argument was written, kept before the loop below replaces it
+       with what it expands to. Only a form needs them, and only to put a caret
+       in the right file if a hole is not satisfied. */
+    ProtoSpan *written = NULL;
+    if (node->kind == PROTO_NODE_MACRO && node->count > 0) {
+        written = proto_alloc((size_t)node->count * sizeof *written);
+        for (int i = 0; i < node->count; i++)
+            written[i] = proto_node_extent(node->children[i]);
+    }
+
     /* Arguments first, so a form is handed code that is already expanded and a
        parameter used twice does not expand twice. */
     for (int i = 0; i < node->count; i++)
         node->children[i] = expand_node(expander, node->children[i], depth);
 
-    if (node->kind == PROTO_NODE_MACRO)
-        return expand_macro(expander, node, depth);
+    if (node->kind == PROTO_NODE_MACRO) {
+        ProtoNode *expanded = expand_macro(expander, node, depth, written);
+        free(written);
+        return expanded;
+    }
 
     return node;
 }

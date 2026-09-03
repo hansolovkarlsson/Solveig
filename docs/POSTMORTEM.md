@@ -9,11 +9,12 @@ shipped. This is the failures.
 
 ## Scope
 
-Twenty-two, from four days, in four cohorts that failed for four different
+Twenty-three, from four days, in four cohorts that failed for four different
 reasons:
 
-- **In the compiler** — seven, five of which were latent from 0.1.0 and 0.2.0,
-  and one of which is open.
+- **In the compiler** — seven, five of which were latent from 0.1.0 and 0.2.0.
+- **In the method** — one: a negative control that passed because `make` had
+  rebuilt nothing.
 - **In the documents** — seven: three an edit that reported success and changed
   nothing, two where no edit was attempted at all, one where a sweep looked in
   the files it remembered instead of for the claim, and one where the fix
@@ -221,7 +222,7 @@ it stands, so the error lands on the `.pro` rather than on generated code.
 
 ---
 
-### 22. A hole-kind error on a nested form names the dialect and not the file — 2026-09-03, **open**
+### 22. A hole-kind error on a nested form named the dialect and not the file — 2026-09-03
 
 **What.** `lib/clike.pro`'s `else` hole is typed `block`, so a C-style chain is
 refused, which is intended and documented. What it says is not:
@@ -266,9 +267,50 @@ the chain wants braces and never writes the version that does not.
 the third defect in four days found by that habit, after the escape-set
 divergence and the 0.1.0 segfault.
 
-**Not fixed.** It is on the only path a C programmer takes into `lib/clike.pro`,
-so the second-reader measurement should not be run in front of it — it would
-measure this rather than the notation. See [ROADMAP.md](ROADMAP.md).
+**Fixed in 0.15.0.** `expand_node` keeps each argument's extent *before* the
+loop that replaces it, and `check_arguments` reports that. The check still runs
+against what the argument **became** — `if (b) { … }` in an `else` genuinely is
+a send by then, and the refusal is correct — so only the position moved.
+
+**Three checks in `tests/test_expand.c` hold it**, and the shape of the three is
+the point: the severe case, where the template *builds* the offending node; the
+mild one, where a substituted argument keeps its own span but the caret lands on
+the wrong part of it; and the plain case, which was always right and is what a
+fix could break. **The check that was already there could not have caught any of
+them** — `a form as an argument is checked as what it becomes` asserts that
+something is rejected, and rejection says nothing about where the caret went.
+
+### 23. A negative control passed because `make` did not rebuild — 2026-09-03
+
+**What.** With 22's fix written and its tests passing, the tests were run against
+the *unfixed* compiler to check they could fail — the discipline
+`tests/test_expand.c` states in its own opening comment, that a check must fail
+if the thing it tests is removed. The sequence was `git stash push`, `make`, run.
+
+**It reported `60 checks, 0 failed`**, and the conclusion drawn, in writing, was
+that the new checks did not catch the bug. That conclusion was wrong. `make`
+had rebuilt nothing: `git stash` restores a file with its **original
+timestamp**, which is older than the object built from it, so the dependency
+rules had nothing to do and the binary under test was still the fixed one.
+
+**Cause.** A negative control compares two builds and `make` decides whether a
+build happened by comparing times. Any operation that moves a source file
+*backwards* in time — `stash`, `checkout`, `show >`, restoring from a copy —
+defeats it silently, and the failure mode is the worst available: **the control
+passes.**
+
+**What it nearly cost.** A test committed as verified, having never run against
+the defect it was written for. Rerun with `make clean` between the two builds,
+the same checks failed at once and named the exact wrong positions — `<test>:1:26`
+inside a declaration for the severe shape, `<test>:3:12` for the mild one.
+
+**And it improved the test.** The first attempt used a form whose template is a
+bare hole, so the substituted argument kept its own span and only the *column*
+was wrong. Watching it fail showed that was the mild shape and not the reported
+one, and a third check was added for a template that **builds** the node, which
+is the case that names another file entirely.
+
+**Found by** not believing a control that agreed with the code under test.
 
 ---
 
@@ -659,8 +701,9 @@ where somebody could go back and disagree with it, and somebody did.
 | Grepping for a claim rather than opening the documents | **1** |
 | A closeout run on a day with no work in it | **1** |
 | Checking a prediction instead of asserting it | **1** |
+| Not believing a control that agreed with the code | **1** |
 
-**Two of twenty-two were found by tests**, and one of those two was a broken
+**Two of twenty-three were found by tests**, and one of those two was a broken
 test. Five came from writing programs in the language — four of the six
 programs found one, and the sixth found none — and three more came from reading
 something rather than running it.

@@ -18,6 +18,14 @@
 static int failures = 0;
 static int checks = 0;
 
+/* What the last compile printed. A check on the *text* of a diagnostic is
+ * worth having for exactly one class of defect: the message being right and
+ * the position being wrong. POSTMORTEM.md 22 was that, and the check below it
+ * -- `a form as an argument is checked as what it becomes` -- could not see it,
+ * because asserting that something is rejected says nothing about where the
+ * caret went. */
+static char said[4096];
+
 static char *compile(const char *text, int *errors)
 {
     ProtoUnit unit;
@@ -54,6 +62,11 @@ static char *compile(const char *text, int *errors)
         proto_node_free(module);
     }
 
+    said[0] = '\0';
+    rewind(sink);
+    size_t n = fread(said, 1, sizeof said - 1, sink);
+    said[n] = '\0';
+
     proto_provenance_free(&provenance);
     proto_dialect_free(&dialect);
     proto_unit_free(&unit);
@@ -77,6 +90,27 @@ static void expect(const char *label, const char *text, const char *want)
         failures++;
     }
     free(got);
+}
+
+/* Rejected, and the first thing it said names this position. `<test>` is what
+ * every source here is called, so `<test>:3:6` is a whole file-line-column. */
+static void expect_rejected_at(const char *label, const char *text,
+                               const char *where)
+{
+    checks++;
+    int errors = 0;
+    char *got = compile(text, &errors);
+    if (got != NULL) {
+        printf("  FAIL %s: compiled, and should not have\n", label);
+        failures++;
+        free(got);
+        return;
+    }
+    if (strstr(said, where) == NULL) {
+        printf("  FAIL %s\n    want a diagnostic at: %s\n    said: %s",
+               label, where, said);
+        failures++;
+    }
 }
 
 static void expect_rejected(const char *label, const char *text)
@@ -348,6 +382,35 @@ int main(void)
            "@syntax setTo <p: place> to <v> => p := v.\n"
            "setTo alias x to #1.\n",
            "x := #1.\n");
+
+    /* And reported where the argument was *written*, which is not where it
+       ended up. `alias x` expands to the template's `n` on line 1, so until
+       0.15.0 that is the position the error carried -- a caret inside a
+       declaration, in the file a dialect came from rather than the one somebody
+       is editing. POSTMORTEM.md 22.
+
+       Both halves are here: the nested case, which was wrong, and the plain
+       one beside it, which was always right and is what a fix could break. */
+    expect_rejected_at("a form in a hole is reported where it was written",
+                       "@syntax alias <n: name> => n.\n"
+                       "@syntax hold <b: block> => b:value.\n"
+                       "hold alias x.\n",
+                       "<test>:3:6: error: 'hold' wants a block here");
+    /* The severe shape, and the one POSTMORTEM.md 22 was reported as: the
+       template *builds* the offending node -- `n:value` is a send this
+       declaration made -- so the node's own span is inside the declaration.
+       Unfixed, this names line 1 and puts a caret under `:value`, which in a
+       real program is a file the reader has never opened. */
+    expect_rejected_at("a template-built node is reported at the use, not the template",
+                       "@syntax wrapped <n> => n:value.\n"
+                       "@syntax hold <b: block> => b:value.\n"
+                       "hold wrapped x.\n",
+                       "<test>:3:6: error: 'hold' wants a block here");
+
+    expect_rejected_at("a plain node in a hole is still reported at itself",
+                       "@syntax hold <b: block> => b:value.\n"
+                       "hold x.\n",
+                       "<test>:2:6: error: 'hold' wants a block here");
 
     expect_rejected("a literal where a place was wanted",
                     "@syntax setTo <p: place> to <v> => p := v.\n"

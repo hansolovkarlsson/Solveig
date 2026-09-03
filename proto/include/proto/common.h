@@ -6,7 +6,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define PROTO_VERSION "0.14.0"
+#define PROTO_VERSION "0.15.0"
 
 /* The Solveig this speaks to, checked by the Makefile's `run` and `test`
  * targets and by nothing at build time.

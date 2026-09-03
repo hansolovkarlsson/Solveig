@@ -10,6 +10,63 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### A caret in the right file — 0.15.0, 2026-09-03
+
+**A hole-kind error whose argument is itself a form use reported the position of
+the template it expanded into**, not the position the programmer wrote. Against
+`lib/clike.pro`, the C chain everybody writes:
+
+```
+/…/lib/clike.pro:72:43: error: 'if' wants a block here, and this is a send
+ 72 | @syntax if <c> <t: block>            => c:ifTrue(t).
+proto: chain.pro -- 1 error
+```
+
+No expansion trail, and `chain.pro` named only in the summary count. **There was
+no line in the reader's own file to go to** — the one failure `README.md`'s
+first commit names as what a per-module grammar characteristically does, and
+what the map and the diagnostics exist to stand in front of.
+
+It now says:
+
+```
+chain.pro:4:32: error: 'if' wants a block here, and this is a send
+  4 | if (x > #9) { "a":print } else if (x > #1) { "b":print }.
+    |                                ^^^^^^^^^^^^^^^^^^^^^^^
+```
+
+**The check did not change and should not have.** A hole is still tested against
+what its argument *became* — `if (b) { … }` in an `else` genuinely is a send by
+then, and refusing it is right. `expand_node` now keeps each argument's extent
+before the loop that replaces it, and `check_arguments` reports that. **Only the
+position moved.**
+
+**Why nine versions missed it.** Every hole-kind failure in the tests and
+examples has a plain node in the hole, and a plain node is not replaced. **A
+form in a hole is the case a dialect's users hit and its author does not**: the
+author knows the chain wants braces and never writes the version that does not.
+The check that was already there — *a form as an argument is checked as what it
+becomes* — could not have caught it either, because asserting that something is
+rejected says nothing about where the caret went.
+
+**Three checks hold it now**, and the shape of the three is the point: the
+severe case where the template *builds* the node, the mild one where a
+substituted argument keeps its own span and only the column is wrong, and the
+plain case that was always right and is what a fix could break. 58 checks became
+61. [POSTMORTEM.md](POSTMORTEM.md) 22.
+
+**Found by checking a prediction instead of asserting it**, while writing
+[second-reader.md](second-reader.md) — whose fourth prediction was going to be
+*the diagnostic will not name the fix* and had to be rewritten twice: once when
+checking found it did not name the **file**, and again once that was fixed. The
+measurement is deliberately not run in front of the defect it would have scored.
+
+**And the control that verified the tests passed when it should not have.**
+[POSTMORTEM.md](POSTMORTEM.md) 23: `git stash` restores a file with its original
+timestamp, `make` rebuilt nothing, and the new checks ran against the fixed
+compiler while appearing to run against the unfixed one. `make clean` between
+the two builds is a standing agreement now.
+
 ### A sweep on an empty day — 2026-09-03
 
 **No version, no code, and no work to report** — which is the entry.

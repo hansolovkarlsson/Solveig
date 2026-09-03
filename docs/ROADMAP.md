@@ -31,26 +31,6 @@ customers were real.
 
 ## Open, and undecided
 
-**A hole-kind error on a nested form names the dialect and not the file.**
-[POSTMORTEM.md](POSTMORTEM.md) 22, open, and **the first thing on this page that
-is a defect rather than a design question.** `if (a) { … } else if (b) { … }`
-against `lib/clike.pro` reports a position inside `clike.pro`'s template, prints
-no expansion trail, and names the programmer's file only in the summary count.
-
-**The cause is one line and the fix probably is not.** `check_arguments` in
-`proto/src/expand.c` reports `proto_node_extent(argument)`, which is right for a
-plain node and wrong for an argument that is itself a form use, expansion having
-already replaced it with its template. The extent to report is **the use's, not
-the expansion's**, so the node has to carry where it came from or the check has
-to run before the inner expansion — and which of those is right is the part that
-is not one line.
-
-**Why it matters more than its size.** It is the one failure `README.md` names
-in its first commit as the thing a per-module grammar characteristically does,
-and the map and the diagnostics exist to stand in front of it. It is also on the
-**only path a C programmer takes** into the one dialect written for readers, so
-[second-reader.md](second-reader.md) should not be measured in front of it.
-
 **A logical xor still has no spelling, and now needs one less.** For booleans,
 xor *is* not-equals, and the argument for `^^` was that a module using
 `lib/arith.pro` had no way to write one at all. It has `!=` since 2026-09-02, so
