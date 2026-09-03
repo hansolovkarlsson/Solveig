@@ -130,6 +130,13 @@ once, and opening the two you remember returns two.
 keep: a document stating a rule is the least likely of all to be opened while
 the rule is being applied.
 
+**A closeout is written where it can be corrected, because a day is not over
+when one runs.** 2026-09-03 was closed at midday saying *one commit, this one,
+and no version*, and ended with six and a version. The entry is corrected in
+place with the midday reading shown, not rewritten — and the part that went
+stale was, as always, the section of countable things. **Write the narrative to
+last and the numbers to be replaced.**
+
 **The sweep runs on a day with no work in it too.** On 2026-09-03 the answer to
 *close out the day* was *there is nothing to close out* — the previous day had
 been closed and pushed and nothing had moved since. Run anyway, the sweep found

@@ -708,7 +708,7 @@ test. Five came from writing programs in the language — four of the six
 programs found one, and the sixth found none — and three more came from reading
 something rather than running it.
 
-The unit tests are worth having — 144 of them, and they caught 1 immediately —
+The unit tests are worth having — 147 of them, and they caught 1 immediately —
 but they check what was thought of. **What found the rest was a customer, or a
 second look.** That is the argument for `programs/`, for recording predictions
 before writing a program, and for the rule that a finding gets retracted in

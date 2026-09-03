@@ -11,9 +11,17 @@ produced no code because they were decisions.
 
 ---
 
-## 2026-09-03 — a day with no work in it, swept anyway, and three things fell out
+## 2026-09-03 — an empty day that did not stay empty: a link, a defect, and the second reader
 
-**The shortest entry here, and it is not empty**, which is the finding.
+**This entry was written at midday and said the day had no work in it.** That
+was true when it was written and false four hours later. It is corrected in
+place rather than rewritten, because the first half is a finding and the second
+half is what happened next — and because a record that quietly stops saying
+what it said teaches nothing.
+
+### The morning: a day with no work in it, swept anyway
+
+**The shortest section here, and it was not empty**, which was the finding.
 
 The day opened with the previous one already closed and pushed. `git status`
 clean, no branches, no worktrees, no stashes, nothing touched outside git since
@@ -68,16 +76,126 @@ The grep agreement earned last night was what found two of the three, on its
 first use in anger. The third came from re-reading the entry that agreement was
 written into.
 
+### Then Solveig's README began linking Proto
+
+The hold was set on 2026-08-31 and expired the same day the expander landed;
+`conventions.md` had carried it since as **Hans's decision, not one to make
+unasked**. It was made, six programs in.
+
+**Where it went is the part worth keeping.** Not into the table with
+`solveig-gtk` and `solveig-sdl` — those live outside Solveig so that *no
+dependencies beyond a C11 compiler and `make`* stays true, and **Proto lives
+outside so that it cannot reach in.** Same shelf, opposite reasons, and folding
+it into a table captioned *both are built against `extend.h`* would have said
+the wrong thing about what it is. It gets a paragraph of its own saying it takes
+no header, archive or symbol, and that the coupling is a file format and a
+command line.
+
+The three-line invocation in that paragraph was run before it was written.
+
+### Which made the second reader real, so the question was designed
+
+[does-it-pay.md](does-it-pay.md) has ended on the same sentence since it was
+written: what no program had tried is a dialect used by somebody who did not
+write it. **A stranger arriving from Solveig's front page stopped being
+hypothetical the moment the link landed**, so the design and six predictions
+went in first, per the rule.
+
+### And checking a prediction instead of asserting it found a defect
+
+The fourth prediction was going to be *the else-if diagnostic will not name the
+fix*. Checking it found that it did not name the **file**:
+
+```
+/…/lib/clike.pro:72:43: error: 'if' wants a block here, and this is a send
+proto: chain.pro -- 1 error
+```
+
+A hole-kind failure whose argument is **itself a form use** reported the
+position of the template it expanded into. No trail, and the reader's own file
+named only in the summary count. **There was no line to go back to** — the one
+failure `README.md`'s first commit names as characteristic of a per-module
+grammar, and the thing the map and the diagnostics exist to stand in front of.
+0.15.0, and POSTMORTEM 22.
+
+**Nine versions missed it because a form in a hole is the case a dialect's users
+hit and its author does not.** The author knows the chain wants braces and never
+writes the version that does not. The check that was already there could not
+have caught it either: asserting that something is *rejected* says nothing about
+where the caret went.
+
+### The negative control passed, and it should not have
+
+**The worst half-hour of the day.** With the fix written, the new checks were run
+against the unfixed compiler — the discipline `tests/test_expand.c` states in
+its own opening comment. It reported **60 checks, 0 failed**, and the conclusion
+written down was that the checks did not catch the bug.
+
+`git stash` restores a file with its **original timestamp**, older than the
+object built from it, so `make` rebuilt nothing and the control ran the fixed
+compiler. **The failure mode of a stale negative control is that it passes**,
+which is the one that gets believed.
+
+Rerun with `make clean` between the builds it failed at once — and watching it
+fail showed the first attempt tested a *milder* shape than the reported defect,
+so a third check was added for a template that **builds** the node. POSTMORTEM
+23, and `make clean between the two builds` is a standing agreement now.
+
+### The measurement, and what it turned inside out
+
+A reader with no knowledge of the language, four published files in a directory
+of their own, and a task with a nested loop and a counter that
+`examples/clike.pro` has neither of.
+
+**Correct output on the first compile-and-run**, the syntax taken from one
+example and one table, the README never opened in full. **And they declared an
+operator of their own in that first program** — `@infix ++ 55 concat.`, at a
+precedence chosen to sit under `+`, mixed into a module that also `@use`s a
+dialect. The claim this whole project exists to test, taken up correctly and
+unasked by the first stranger to touch it.
+
+**Every cost was on the other side of the compiler**, and that is what turns the
+cost table inside out. Six programs found four silences and **all four are things
+a dialect does.** A reader met none of them. They met a `print` that is a repr
+and an example that taught it wrongly, and a published surface that documents
+how operators become sends and never says what sends exist.
+
+> **A declared grammar's cost to its author is the dialect. Its cost to a reader
+> is the substrate.** Six programs measured the first and could not have found
+> the second, because an author already knows what sends exist.
+
+**Two predictions were wrong and stay in.** The bare-integer silence never
+happened — `#` came out of the example in the first minute, so the prediction
+described a reader who skips an example that was provided. And the `else if`
+chain was never written, the task not needing one, **which is a fault in the
+design rather than a result.**
+
+**The caveat earned its place.** The design said in advance that a no-context
+session still knows Smalltalk, so anything untraceable to a document is an
+assist. `concat` and `asString` were guessed from zero documentation. Correcting
+for it makes the finding **worse** than the run makes it look, which is what
+writing the caveat before the run was for.
+
 ### The numbers, written last
 
-**One commit, this one, and no version.** Nothing in `proto/` or `programs/` was
-touched; the suite sat at **58, 6, 69 and 11** and was run four times as a
-control. Four commits from the night before went to `origin/main` in the
-morning — `c61680a..69a2878` — which is the only thing that happened today that
-was not a document being corrected.
+**This section read *one commit, this one, and no version* at midday.** Six
+commits and a version later, what it should have said, and the correction is
+the day's own smallest illustration of POSTMORTEM 21.
 
-Three defects, from a day with nothing in it. The tally has a row it did not
-have this morning: **a closeout run on a day with no work in it**, at one.
+**Six commits, this one included** — a number cannot count itself and has to be
+told to — **and one version, 0.15.0.** `c61680a..69a2878` went to `origin/main`
+in the morning; Solveig took `bf07077`, and nothing else there is this session's.
+The suite went from **58, 6, 69 and 11** to **61, 6, 69 and 11** — 147 — the
+three new checks being the whole of the change.
+
+**Three defects before lunch and two after**, from a day that opened with
+nothing to do: three stale claims found by a sweep on an empty day, one
+misdirected diagnostic found by checking a prediction, and one negative control
+found by not believing it. **Not one from a test**, for the third day running.
+
+The tally has two rows it did not have this morning: **checking a prediction
+instead of asserting it**, at one, and **not believing a control that agreed
+with the code**, at one.
 
 ## 2026-09-02, later — a sixth program, and the sweep that closed the day was wrong about the tests
 

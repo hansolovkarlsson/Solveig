@@ -10,6 +10,27 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### Closing out 2026-09-03 — a day that was closed at midday and did not stop
+
+**No version.** The day was closed out at midday, and the entry said *one commit,
+this one, and no version.* It ended with six and 0.15.0. `journal.md` carries the
+correction **in place**, with the midday reading shown rather than replaced.
+
+**Two stale claims, both today's own.** The journal's midday numbers, and
+`POSTMORTEM.md`'s *144 unit tests* against 147 — the suite having gained the
+three checks that hold 22. Found by grepping for the claim, which is the
+agreement earned two nights ago and is now the thing that finds most of them.
+
+**And one agreement added**: a closeout is written where it can be corrected,
+because a day is not over when one runs, and the part that goes stale is always
+the section of countable things. **Write the narrative to last and the numbers to
+be replaced.**
+
+**Five findings on a day that opened with nothing to do** — three stale claims
+from a sweep on an empty day, a misdirected diagnostic from checking a
+prediction, and a negative control from not believing it. **Not one from a
+test**, for the third day running.
+
 ### The second reader, measured — 2026-09-03
 
 **No version; nothing in the compiler changed.** The question
