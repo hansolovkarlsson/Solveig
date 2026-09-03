@@ -255,9 +255,19 @@ examples/%.sob: examples/%.sol $(BIN)/solas
 # that happens to code nothing builds -- and these are cited by
 # docs/performance.md, which makes them documentation.
 #
-# Not run, because each is sized to take about a second by design, so running
-# the nine would put ninety seconds into a suite that takes eight. They are run
-# by comparisons/python/run.sh, deliberately, by somebody who meant to.
+# Not run, because each is sized to take about a second by design and there are
+# nine of them, run against CPython -- about ninety seconds. The suite is about
+# eighty-eight, so that is a doubling rather than the twelvefold this comment
+# used to claim: it said *a suite that takes eight*, which had stopped being
+# true without anybody measuring. The conclusion is unchanged and the reason is
+# now the right size. They are run by comparisons/python/run.sh, deliberately,
+# by somebody who meant to.
+#
+# Where the time goes, measured on 2026-09-03: test_documents 55 seconds at 41%
+# CPU, test_cli 27 at 96%, and the other thirty-eight binaries plus the
+# conformance corpus about seven between them. The suite spends nearly two
+# fifths of its wall clock waiting on subprocesses, so the total drifts by a
+# few seconds between runs and is not worth quoting more precisely than this.
 COMPARISON_SRCS = $(wildcard comparisons/*/*.sol) $(wildcard comparisons/*/probes/*.sol)
 COMPARISON_SOBS = $(COMPARISON_SRCS:.sol=.sob)
 

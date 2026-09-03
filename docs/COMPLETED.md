@@ -520,7 +520,7 @@ everything after it is indistinguishable from a section *inside* an entry, and
 five headings are genuinely that. So both numbers are reported — *how many
 entries name a commit, and how many headings name none* — rather than passed
 over in silence, and the second one moving is visible to whoever reads a run. A
-floor in `test_cli` catches the other direction, a guard that quietly stops
+floor in `test_documents` catches the other direction, a guard that quietly stops
 finding hashes to check, exactly as the floors beside it do for claims, counts,
 positions, SolaBasic blocks and grammar productions.
 

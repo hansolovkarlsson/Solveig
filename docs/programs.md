@@ -432,9 +432,12 @@ because somebody looked, once, at the time — the same standing the `.sob` form
 table had when [disasm](#disasm--a-sob-file-read-and-disassembled) found it
 three sections out of date. They are also the first thing a newcomer reads.
 
-**It is in `make test` now**, in `tests/test_cli.c` with the other tests that
-run the binaries as a shell would — **1060<!--count claims--> claims on every build**, in about
-sixteen seconds, and it fails the build if one stops holding.
+**It is in `make test` now**, in `tests/test_documents.c` — **1060<!--count claims-->
+claims on every build**, and it fails the build if one stops holding. It was in
+`test_cli.c` until 2026-09-03, with the other tests that run the binaries as a
+shell would, and it moved when the cost was broken down: **55 seconds**, which
+was two thirds of the whole suite. This entry said *about sixteen* for as long
+as nothing measured it.
 
 **And it holds one document against a file rather than against a run.**
 [GRAMMAR.md](GRAMMAR.md) opens by saying it is the same grammar as
