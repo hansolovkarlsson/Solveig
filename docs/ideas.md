@@ -6236,9 +6236,17 @@ page.
    paragraph predates. Corrected. It is the exact shape the suite exists to catch
    and the checker could not: a sentence, in prose, contradicted by another
    sentence in the same file.
-2. **The order arguments are evaluated in is unspecified.** A second
-   implementation has to pick one and nothing says which. Not a case, because
-   there is nothing to score; it wants a sentence in the reference first.
+2. ~~**The order arguments are evaluated in is unspecified.**~~ **Said on
+   2026-09-03**: the receiver first, then the arguments left to right, all the
+   way down — a nested send finishes before the next argument begins, `[...]` is
+   its `array:of`, and `#[...]` runs each pair's key and then its value. An
+   `@expr` region is the same order because it lowers to the same sends and
+   compiles to the same bytes. The exception is a block, which runs nothing
+   until it is sent `value`, however far left it sits.
+   [REFERENCE.md](REFERENCE.md#the-order-things-are-evaluated-in) has it and
+   `conformance/accepted/02-sends/evaluation-order.sol` scores it. Measured
+   before it was written down, which is the only way that sentence could have
+   been right.
 3. **The 256-frame ceiling is not a language fact.** How deep a program can
    recurse depends on what each construct costs in frames — an inlined `ifElse`
    costs none, a send costs one — so a case pinning the deepest working recursion

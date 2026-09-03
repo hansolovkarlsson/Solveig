@@ -182,10 +182,10 @@ each construct costs in frames, which is a fact about an implementation's
 accounting rather than about the language. `06-limits/recursion.sol` runs well
 inside it deliberately.
 
-**The order arguments are evaluated in.** Nothing in the documentation says, so
-there is nothing to score. It is a real question a second implementation will
-have to answer, and it wants a sentence in the reference before it wants a case
-here.
+*The order arguments are evaluated in was on this list until 2026-09-03, when
+the reference gained a sentence saying it — receiver first, then left to right.
+`02-sends/evaluation-order.sol` scores it now.*
+
 
 ## It is not a specification
 

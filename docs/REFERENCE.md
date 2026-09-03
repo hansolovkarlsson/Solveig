@@ -2263,6 +2263,47 @@ written out. The one exception is a `@expr(...)` region, which is
 A bare identifier resolves to a local, then to an enclosing frame's local, then
 to a global. It is a lookup, not a send.
 
+### The order things are evaluated in
+
+**The receiver first, then the arguments left to right.** It is written down
+because a second implementation has to pick an order and nothing here said
+which — and because a program can tell, whenever an argument has an effect.
+
+```
+seen := [].
+integer:mark := { seen:add(self). self }.
+
+array:of(#1:mark, #2:mark, #3:mark).
+seen:print.                          ; [#1, #2, #3]
+
+seen := [].
+#1:mark:add(#2:mark).
+seen:print.                          ; [#1, #2] -- the receiver came first
+```
+
+It holds all the way down. A nested send is finished before the next argument is
+begun, an `[...]` literal is its `array:of`, and a `#[...]` literal runs each
+pair's key and then its value, pair by pair.
+
+**An `@expr` region is the same order**, because it lowers to these same sends —
+the region and the chain written out compile to the same bytes, so they could
+not differ:
+
+```
+seen := [].
+@expr( #1:mark + #2:mark * #3:mark ):print.   ; #7
+seen:print.                                   ; [#1, #2, #3]
+
+seen := [].
+#1:mark:add(#2:mark:mul(#3:mark)):print.      ; #7
+seen:print.                                   ; [#1, #2, #3]
+```
+
+**The exception is a block, which is not evaluated at all** until something
+sends it `value` — that is the whole of how control flow works here, and why
+`and` and `or` can stop early. An argument that is a block literal has *run*
+nothing by the time the message is sent, however far left it sits.
+
 ### Grouping
 
 `( ... )` groups an expression, which is how a chain is redirected:
