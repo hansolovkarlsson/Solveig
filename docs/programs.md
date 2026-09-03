@@ -2106,6 +2106,10 @@ start of a file that has lines, where it is written at line 1 rather than 0.
 
 The last of those was found by a random sweep against the tool, which disagreed
 **44 times in 1,050 runs** before it and none after.
+[programs/diff/sweep.sh](../programs/diff/sweep.sh) is that sweep, kept rather
+than thrown away because its numbers are quoted here; `sweep.sh 400 minimal`
+runs the other question it was used for, whether the tool's own answer is ever
+above the minimum.
 
 ### Held against the diff on the machine
 

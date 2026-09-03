@@ -1142,6 +1142,13 @@ system -- and `readKey`, which is exact and is a byte at a time. Measured over
 or 238 nanoseconds a byte. `diff` pays it, because a diff that cannot tell
 `...c` from `...c\n` is wrong rather than slow.
 
+**`sh programs/stdin-cost.sh` is the measurement**, kept rather than thrown
+away because this entry states its numbers. It reruns both routes over the same
+bytes in one pass and demonstrates the defect below at the end of it. A run
+varies a few per cent -- 20 to 22 times, 240 to 260 nanoseconds -- and the
+figures above are the first run's; what does not vary is the order of
+magnitude.
+
 **The defect.** The obvious workaround is `readFile("/dev/stdin")`, and it
 works from a redirect. **From a pipe it answers the empty string** -- not the
 contents, and not an error:

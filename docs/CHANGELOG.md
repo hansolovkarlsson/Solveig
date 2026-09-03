@@ -5,6 +5,37 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Three measurements that lived only in a scratch directory — `pending`, 2026-09-02
+
+**Found by asking what the documents cite that would not survive the session.**
+Three figures were quoted in the deliverable and measured by throwaways in a
+temporary directory: *44 disagreements in 1,050 runs* and *2,400 runs, zero* --
+in five documents and in `diff.sol` -- and *238 nanoseconds a byte*, twice in
+[6.43](ROADMAP.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers-)
+and once in `sort.sol`.
+
+[method.md](method.md#and-a-comparison-whose-two-sides-did-not-run-alike-is-not-one-either)
+already had the rule -- *a throwaway that measures something the documents will
+state is not a throwaway* -- and `sort`'s sweep obeyed it because it was
+written as a check. `diff`'s was written as a throwaway an hour earlier and its
+numbers went into the documents anyway. Both are in the tree now:
+[programs/diff/sweep.sh](../programs/diff/sweep.sh) and
+[programs/stdin-cost.sh](../programs/stdin-cost.sh), the second of which also
+demonstrates 6.43's defect rather than describing it.
+
+**And keeping one of them found a defect in it.** `sweep.sh 200 minimal` asks
+whether the tool ever uses more edits than the minimum, and reported **55 of
+200** on its first run -- which would have overturned a retraction made the
+same morning. The check was wrong: it split a file on newlines and counted the
+trailing empty string as a line, so a pair differing only in its final newline
+came out one edit cheaper than any diff can manage. Fixed, it reports **0 of
+800**.
+
+The nanosecond figure reproduces at 240 to 260 and the ratio at 20 to 22 times.
+That is run-to-run variance rather than a moved conclusion, so the entry keeps
+its first numbers and now names the script instead -- correcting the *basis* of
+a figure rather than polishing its digits.
+
 ### A link whose text wraps is a 404, and `make test` catches it now — `e27650e`, 2026-09-02
 
 **Six links published as 404s**, every one written the same day as a

@@ -122,6 +122,36 @@ better ones -- three of the four things `diff` found and both things `sort`
 found are on neither list, and none of them would have been noticed by a
 program written to confirm a page.
 
+### And the clear-out found three numbers with no apparatus behind them
+
+Asked whether the session could be cleared, the check was *what do the
+documents cite that lives only in scratch* -- and three figures did. **44
+disagreements in 1,050 runs** and **2,400 runs, zero** are quoted in five
+documents and in `diff.sol`; **238 nanoseconds a byte** is quoted twice in
+[6.43](ROADMAP.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers-)
+and once in `sort.sol`. Every one was measured by a throwaway in a temporary
+directory.
+
+[method.md](method.md#and-a-comparison-whose-two-sides-did-not-run-alike-is-not-one-either)
+already says it: **a throwaway that measures something the documents will state
+is not a throwaway.** `sort`'s sweep was kept because it was written as a
+check; `diff`'s was written as a throwaway an hour earlier and its numbers went
+into the deliverable anyway. Both are in the tree now, with
+`programs/stdin-cost.sh`.
+
+**And keeping the third one found a defect in it.** The minimality mode -- does
+the tool ever use more edits than the minimum -- reported **55 pairs of 200**
+on its first run, which would have overturned a retraction made this morning.
+It was the check: it split a file on newlines and counted the trailing empty
+string as a line, so a pair differing only in its final newline came out one
+edit cheaper than any diff can manage. Fixed, it reports **0 of 800**, and the
+retraction stands.
+
+That is the third time today a check was wrong in the direction of an
+interesting finding, and the second time the interesting finding was about the
+oracle. **A result that flatters the person holding it is the one to re-run
+first.**
+
 ### Where it leaves things
 
 Two entries open on the roadmap, both about standard input, and a third
