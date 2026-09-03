@@ -22,11 +22,18 @@ it matters here. Things that *look* like defects and are not go in too, so they
 are not re-found. Nothing goes in unverified — reproduce it, and do not assert a
 mechanism you have not checked.
 
-**Solveig's README does not link Proto yet.** Decided on 2026-08-31, when
-Proto was a front end with no expander and pointing Solveig's front page at it
-would have advertised something that had not yet done the thing it claimed. The
-expander landed the same day, so the condition is met and the link is now a
-decision rather than a hold — Hans's, not one to make unasked.
+**Solveig's README links Proto, since 2026-09-03.** The hold was set on
+2026-08-31, when Proto was a front end with no expander and pointing Solveig's
+front page at it would have advertised something that had not yet done the thing
+it claimed. The expander landed the same day, which met the condition and turned
+it into a decision rather than a hold — Hans's, and taken on 2026-09-03, six
+programs in.
+
+**Where it went says something worth keeping.** Not in the table of
+`solveig-gtk` and `solveig-sdl`, which are outside that repository so *no
+dependencies beyond a C11 compiler and `make`* stays true. **Proto is outside so
+that it cannot reach in**, which is a different reason and the one this project
+exists on, so it is a paragraph of its own below them.
 
 **The name Phoenix belongs to a different project and is not this one's to
 reuse.** This project was called Phoenix until 2026-09-01. The name was already
