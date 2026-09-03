@@ -56,6 +56,7 @@ marked as a sketch.
 | Infix operators, `@expr(a^2 + b/2)` | **Built**, on 2026-08-28 — [scoped in the morning and in by the evening](#infix-arithmetic-as-a-compile-time-notation): arithmetic, then `sin(x)` once *limiting* it turned out to be the expensive half, then comparison and logic, and the name with them |
 | `@expr{...}`, a region that is a block | **Built on 2026-08-29**, the day after it was scoped — [the sentence was tried first and lost](#expr-a-region-that-is-a-block-rather-than-a-group); the entry predicted one hard part and the second was the one that mattered, a notation that silently stopped inlining |
 | Phoenix — a second language whose output Solum uses | **Defer** — the machinery is proven three times over; [the unexplored half](#programs-that-would-press-on-something) is whether a hosted language can publish a *library* rather than a program |
+| A conformance suite for a second implementation | **Half of it has a customer today** — [scoped on 2026-09-03](#a-conformance-suite--a-corpus-a-second-implementation-can-score-itself-against): a corpus of `.sol` with byte-exact answers, run through `SOL_COMPILE`/`SOL_RUN` so a stranger swaps one tool and keeps the other. **Phoenix cannot read `.sol` at all**, which is what settles the unit as *(program, output, status)* rather than a source suite — and what nothing checks today is that a Phoenix chunk computes the right answer, only that it verifies. The negative half is transcription with the trigger already fired: PRODUCING.md documents **eleven refusals of which three are tested** and **eleven chunk limits of which none is**, and `examples/` carries **15 commented-out error demonstrations that nothing runs** |
 | Programs that would press on something — Pascal, predicate logic, a parser toolkit, `tail`, and [which Unix tool next](#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31) | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would. **So was `sha256sum`, on 2026-08-31**, the first off the Unix survey and the first program here with no I/O in its inner loop: [the prediction held in both halves](#it-was-written-on-2026-08-31-and-the-prediction-held-in-both-halves) and produced the number it was written for — **208 bytecode instructions a byte, 4.3 ns each, 234M a second**. **And `diff` on 2026-09-02**, where [one prediction of four held](#it-was-written-on-2026-09-02-and-one-of-the-four-predictions-held) — the output format, which was the whole difficulty — and the three that did not are more useful than the one that did |
 | Networking, and sending code to a running machine | **The first half is built**, on 2026-08-29 — [extensions/net](../extensions/net/README.md), five messages, and the waiting question answered with a timeout rather than a block; [the second half](#networking-and-sending-code-to-a-machine-that-is-already-running) is untouched and still needs 3.4, 6.32 and a proxy |
 | SQLite, SDL2, GTK | **One project, not three** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); GTK and SDL2 fire that trigger and SQLite does not, and wanting *both* toolkits is what settles the mechanism |
@@ -5971,6 +5972,233 @@ frames in a profile and a debugger, and a wider gap between the `-g` build
 developed against and the one shipped. **Trigger: a program that is too slow at
 `-O2`.** Nothing here is, and hand-inlining one function was already 6.5% on a
 real program.
+
+### A conformance suite — a corpus a second implementation can score itself against
+
+**The name is *conformance suite*** — *compliance suite* and *validation suite*
+are the same thing, and the ones worth reading are
+[test262](https://github.com/tc39/test262) for ECMAScript, ACATS for Ada, and
+the [NBS Minimal BASIC programs](../programs/basic/conformance.sh) this
+repository already runs `basic.sol` against. A *torture test* is a different
+genre — GCC's — and tests the compiler rather than the language.
+
+The distinguishing property is that it tests **the language, not this
+implementation**: every case is written in the language, depends on nothing
+outside what is documented, and states its expected result where a stranger's
+program can read it. No `make` target, no `bin/solvm`, no wording of ours.
+
+#### Three checks that look like this one, and none of them is
+
+| | what it holds | why it is not a conformance suite |
+| --- | --- | --- |
+| `tests/*.c` — 40 files | the C API, the compiler and the VM | internal by construction; a second implementation has none of these symbols |
+| [expect.sol](../programs/expect.sol) — 1060<!--count claims--> claims | the examples and the documents against their own comments | **the author's corpus, matched as a subsequence** — its own header says why, and why that is right for a document |
+| [oracle.sh](../programs/oracle.sh) — six corpora | `sed`, `diff`, `sort` against BSD's | a second implementation of a **program**, not of the language |
+
+**The subsequence rule is the sharp one.** `expect.sol` requires each claim to
+appear in the output *after* the one before it, because one statement can print
+many lines — right for a document, and it cannot score conformance, where the
+answer is the bytes or it is nothing.
+
+#### What varies decides the shape, and there are three strangers
+
+|  | writes | runs the case how | what it can fail |
+| --- | --- | --- | --- |
+| a second **front end** | `.sol` → `.sob` | their compiler, our machine | scanning, parsing, lowering, the scope rules, the limits |
+| a second **machine** | `.sob` → behaviour | our compiler, their machine | dispatch, arithmetic, errors, the collector |
+| **Phoenix** | another language → `.sob` | neither | the answers, and nothing else |
+
+**Phoenix is the customer that exists and it cannot consume `.sol` at all.** It
+emits bytecode directly from a language of its own, so a corpus of Solveig
+source is not input to it — only the *answers* are, and it reaches them by
+translating each case by hand, which is exactly how a person uses the NBS suite.
+
+That settles the unit. A case is **(program, byte-exact output, exit status)**,
+the source is the notation rather than the subject, and the same case scores all
+three strangers because only one of the two tools is ever swapped.
+
+#### The negative half is already written down, and nothing runs it
+
+This is the part that argues for building rather than deferring, and it is a
+finding about what ships rather than a proposal.
+
+[PRODUCING.md](PRODUCING.md) tabulates **eleven refusals a grammar cannot
+carry** — `self` outside a block, assignment to `self`, a duplicate temporary,
+a temporary shadowing a parameter, a duplicate parameter, a chained comparison,
+an operator opening an `@expr`, an infix outside a region, a directive not
+standing alone, an unknown directive, a self-include. **Three are pinned by a
+test** (`test_include.c`, `test_compile.c`) and **eight are not**, including
+every scope and name rule and all three `@expr` rules.
+
+It tabulates **eleven chunk limits** — 255 slots, 255 array elements, 127
+dictionary pairs, 255 arguments, 65,535 names, constants, blocks, and the jump
+distances. **No test names one.** Each was found by generating programs until
+`solas` refused, and nothing since keeps them where they were found.
+
+And `examples/` carries **15 commented-out programs across 8 files**, each with
+the diagnosis it expects written beside it:
+
+```text
+;   #2:add(1.5).                 ; solvm: 'add' expects integer, got float
+;   #7:div(#0).                  ; solvm: division by zero in 'div'
+;   @expr( f(3) ).               ; solvm: float does not understand 'f'
+```
+
+**Nothing runs one**, and `expect.sol`'s rule excludes them on purpose — a line
+that begins with `;` never runs, so it has no output to match. They are the
+first thing a newcomer reads about what fails, held true by somebody having
+looked once.
+
+**Three were re-run on 2026-09-03 and all three still hold** — `self := #1`,
+`{ | t, t | t }` and `@expr( #1 < #2 < #3 )` each refused with the sentence the
+page prints, and `solas` leaves with **65** on a refusal and 0 on success. So
+the scoring is mechanical in both directions, which is the property the NBS
+suite has not got.
+
+#### The tree
+
+```text
+conformance/
+  README.md            what it covers, what it does not, how to point it at your tools
+  run.sh               the harness -- SOL_COMPILE and SOL_RUN out of the environment
+  accepted/
+    00-lexis/          literals, the type tag, '#[' as one token, comments, line ends
+    01-values/         integer, float, string, symbol, boolean, nil, and the strictness
+    02-sends/          unary and keyword, chaining, the order the arguments evaluate in
+    03-blocks/         parameters, 'self', closure over a slot, the non-local answer
+    04-objects/        proto, slots, 'via', class side against instance side
+    05-errors/         what raises, what it says, and that 'onError' catches it
+    06-limits/         255 slots, 255 elements, 127 pairs, 255 arguments -- at N
+    07-library/        only what the reference calls built in
+  refused/
+    scope/             'self' outside a block; assignment to 'self'
+    names/             a duplicate temporary; one shadowing a parameter; a duplicate parameter
+    expr/              a chained comparison; an operator opening a region; an infix outside one
+    directives/        not standing alone; unknown; a file that includes itself
+    limits/            each of the eleven, at N+1
+```
+
+**A case is two files**, `name.sol` and `name.out`, and the `.out` is compared
+byte for byte. Not inline in a comment: a trailing space and a missing final
+newline are both things an implementation gets wrong, and a comment cannot carry
+either unambiguously.
+
+**Everything else lives in a header inside the case**, so there is no second
+list to go stale. Every check here
+[enumerates by extension](method.md#and-every-check-here-enumerates-by-extension),
+and this one reads the case rather than a manifest beside it:
+
+```text
+; conformance: integer overflow is an error rather than a wrap
+; varies: machine
+; status: 0
+```
+
+```text
+; conformance: a temporary may not shadow a parameter
+; varies: front
+; refused: names/shadows-a-parameter
+; status: 65
+```
+
+**A refusal case names the rule, never the wording.** A stranger's compiler will
+word its errors differently and should; what conformance can demand is that the
+program is refused, that nothing reaches standard output, and that the rule
+broken is the one named. Ours is then held to the *sentence* by `tests/`, which
+is where a wording belongs.
+
+#### The harness, and what makes it not our test suite
+
+```sh
+SOL_COMPILE='./bin/solas %s -o %s'   # the default, and the only mention of our tools
+SOL_RUN='./bin/solvm %s'
+./conformance/run.sh                 # every case
+./conformance/run.sh accepted/03-blocks
+```
+
+A second front end sets `SOL_COMPILE`; a second machine sets `SOL_RUN`; Phoenix
+sets both and translates. **The suite must run against the installed binaries
+rather than the working tree**, which is
+[the rule that has caught this before](method.md#check-against-what-ships-not-against-the-working-tree).
+
+**And it belongs in `make test`.** The oracle scripts are out of it because they
+need the network and twenty megabytes; this one needs neither, and a conformance
+suite the reference implementation is not continuously scored against is the
+decoration case — nobody would find out the day one of the eleven limits moved.
+
+#### What it is not, and one thing it must not resurrect
+
+**It is not a directory of malformed `.sob` files.** PRODUCING.md refuses that
+deliberately and the refusal stands: `sol_chunk_save` will not write a chunk
+that fails to verify, so producing one means patching bytes, and a producer does
+not need our broken files — it needs its own diagnosed, which is what the
+verifier's split into a sentence apiece bought. The corpus that keeps those
+sentences still is `test_serialize.c`, where a chunk can be built directly. This
+tree is **source**, and does not overlap it.
+
+**It is not a specification.** It is a set of answers, and every case it does
+not contain is unspecified by it. That is worth writing in the README, because
+the failure mode of a conformance suite is a second implementation treating a
+gap as a licence and this one as a definition.
+
+#### The trigger, and where it has and has not fired
+
+**For the negative half, it fired before the suite was proposed**: eight
+documented refusals and eleven documented limits with no check, and 15 error
+demonstrations in the examples that nothing runs. Those are
+[sentences that were true when written](method.md#a-sentence-that-was-true-when-written-is-not-checked-by-anything),
+and the trigger for that is the sentence existing.
+
+**For the front-end half it has not fired.** Nobody is writing a second
+compiler for this language. The cases would still be right and would still be
+run — by us, against `solas` — but the audience for `varies: front` is
+hypothetical in a way `varies: machine` is not.
+
+**And the half with a live customer is the one the question did not ask for.**
+Phoenix's chunks are checked today by the verifier accepting them, which is a
+check that they are *well-formed* and not that they *compute the right answer*.
+Nothing scores what a Phoenix program prints. That is the gap, and a corpus of
+answers closes it whether or not a second front end ever exists.
+
+#### The recommendation
+
+**Build `accepted/` first, with the harness and the two-file case.** It closes
+the Phoenix gap, it is the half that scores every stranger including the ones
+that cannot read `.sol`, and it can be seeded from the examples rather than
+invented — 30<!--count examples-files--> files of claims already exist and want
+only exact output beside them instead of a subsequence.
+
+**Then `refused/`, and it is mostly transcription.** The eleven scope rules and
+the eleven limits are already tabulated with their triggering programs;
+generating a case at N and at N+1 is what found the numbers in the first place.
+Expect it to find something: the last time this page's limits were checked
+against what ships, `SOL_MAX_LOCALS` turned out to be 256 where the format
+writes a byte.
+
+**Do not seed it by copying `examples/`.** An author-written corpus tests what
+its author thought of, and this one would inherit the same blind spot twice
+over. The examples are the *starting* set because they are cheap and already
+true; what makes the suite worth more than `expect.sol` is the cases nobody
+wrote a demonstration for — evaluation order, the boundaries, and the errors.
+
+#### The calls
+
+1. **Is a second front end worth writing cases for at all, or is this a corpus
+   of answers for producers?** The recommendation is answers first: it serves
+   Phoenix, which exists, and `varies: front` costs nothing to add later since
+   the header already carries the field.
+2. **`make test`, or beside the oracles?** The recommendation is `make test` —
+   it needs nothing external, and a conformance suite that is not run is the
+   thing this page calls decoration. The cost is that every new case slows the
+   build a little.
+3. **Byte-exact output, or a declared tolerance?** The recommendation is exact,
+   with no escape hatch. A float that prints differently is a conformance
+   failure and should read as one; the alternative is a tolerance that grows
+   until it hides something.
+4. **Does the README promise stability?** A suite a stranger scores against is
+   a thing they will pin. The recommendation is to promise nothing beyond what
+   `.sob` promises — the format has no compatibility window and this should not
+   invent one — and to say so in the README rather than leave it inferred.
 
 ## Recommended against
 
