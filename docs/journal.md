@@ -176,22 +176,86 @@ assist. `concat` and `asString` were guessed from zero documentation. Correcting
 for it makes the finding **worse** than the run makes it look, which is what
 writing the caveat before the run was for.
 
+### And then the same reader again, sent at the one rough edge
+
+Run 1 had left its fourth prediction untested — the task needed no cascade — so
+a second run was designed to force it: three mutually exclusive ranges, which in
+C is `else if`. Predictions 7 to 11 went in first.
+
+**The reader never wrote the chain.** Nested braces on the first attempt,
+correct output on the first compile-and-run, **no diagnostic emitted at any
+stage**, and the reason volunteered without being asked: *I would have tried
+`else if` first if the dialect file had not spent a paragraph on it.*
+
+It has. `lib/clike.pro` spends eleven lines at the `else` form's own
+declaration on why a chain cannot chain — the `{ { … } }` that answers instead
+of running, the `#54` where `#40` was right, and the spelling of the fix.
+
+> **A limitation explained where it is declared is not a limitation a reader
+> pays for. It is one its author paid for once.**
+
+**So prediction 9 is untested for the second time, and now for a better
+reason.** The first run missed it because the task had no cascade; the second
+missed it because the documentation prevented the failure. The diagnostic's
+unhelpfulness is real and stays unmeasured, and two runs agree on why: **nobody
+reaches it.**
+
+**And the alternation entry has been answered by a customer declining to need
+it** — the fourth time on that page, and the first by a customer being *told* in
+advance rather than working it out.
+
+### The run was also a control, and both of the morning's fixes held
+
+Not designed as one and it is the cleaner result. Run 1 found two things, each
+got one line, and neither touched the compiler:
+
+| | run 1 | run 2 |
+| --- | --- | --- |
+| `REFERENCE.md` names the message set as Solveig's | six probes against `does not understand` | **zero**, and cited as *the decisive signpost* |
+| the example shows what `:print` really prints | cost a cycle | caught — *the one that would have bitten me* |
+
+**Two sentences removed every cost the first reader met**, which is the sharpest
+thing said all day about where a declared grammar's cost actually lives.
+
+### Neither reader opened the README
+
+One grepped it after the fact. One never opened it and said so unprompted:
+*worth knowing if you were expecting the front page to be load-bearing.*
+
+**Two for two**, and the entry point in practice is the dialect file, the
+example and the reference. Six programs' worth of argument sits on a page the
+only two strangers to use this language did not read — and Solveig's front page
+now points at it. That is not on the roadmap and probably should be.
+
 ### The numbers, written last
 
-**This section read *one commit, this one, and no version* at midday.** Six
-commits and a version later, what it should have said, and the correction is
-the day's own smallest illustration of POSTMORTEM 21.
+**This section read *one commit, this one, and no version* at midday, and *six
+commits* at teatime.** It is wrong for the second time in one day, in the entry
+whose own lesson is that this happens, four hours after
+[conventions.md](conventions.md) gained the sentence **write the narrative to
+last and the numbers to be replaced.** The agreement was vindicated faster than
+anything else written here.
 
-**Six commits, this one included** — a number cannot count itself and has to be
+**Nine commits, this one included** — a number cannot count itself and has to be
 told to — **and one version, 0.15.0.** `c61680a..69a2878` went to `origin/main`
 in the morning; Solveig took `bf07077`, and nothing else there is this session's.
 The suite went from **58, 6, 69 and 11** to **61, 6, 69 and 11** — 147 — the
-three new checks being the whole of the change.
+three new checks being the whole of the change, and it has not moved since
+lunch.
 
-**Three defects before lunch and two after**, from a day that opened with
+**Five defects, three before lunch and two after**, from a day that opened with
 nothing to do: three stale claims found by a sweep on an empty day, one
 misdirected diagnostic found by checking a prediction, and one negative control
-found by not believing it. **Not one from a test**, for the third day running.
+found by not believing it. **The afternoon added none** — two readers, four
+compile-and-run cycles between them, and nothing broken. **Not one finding from
+a test**, for the third day running.
+
+**Two experiments, four predictions wrong.** Run 1 was wrong about the bare
+integer and never reached the chain; run 2 was wrong that the chain would be
+written at all, and wrong that two readers hitting one wall would prove it was
+the wall. **Every one of the four was wrong in the same direction: they assumed
+a reader would meet the notation's edges, and both readers were carried past
+them by a document.**
 
 The tally has two rows it did not have this morning: **checking a prediction
 instead of asserting it**, at one, and **not believing a control that agreed

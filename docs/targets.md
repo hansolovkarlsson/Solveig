@@ -57,9 +57,10 @@ Emitting machine code means owning register allocation, the AAPCS64 calling
 convention, stack frames, relocations and Mach-O — none of which says anything
 about whether a grammar declared per module is a good idea, which is the only
 thing this project exists to find out.
-[does-it-pay.md](does-it-pay.md) is what six programs have said about it so
-far — and the sixth is a BASIC *interpreter*, which is the half of this page's
-own question that had no program behind it until 2026-09-02.
+[does-it-pay.md](does-it-pay.md) is what six programs and two readers who had
+never seen the language have said about it so far — and the sixth program is a
+BASIC *interpreter*, which is the half of this page's own question that had no
+program behind it until 2026-09-02.
 
 **On Apple Silicon the surprise is not the instruction encoding.** It is that a
 hand-written Mach-O arm64 executable is killed by the kernel until it is at

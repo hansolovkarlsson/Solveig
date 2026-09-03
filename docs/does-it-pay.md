@@ -286,10 +286,12 @@ counts as an assist and the bias runs one way. It ran that way: `concat` and
 that background does not guess them. **So the one real finding is worse than the
 run makes it look**, which is the correction the design was built to allow.
 
-**What is still unknown**, and it is now the only thing on this page's list: the
-*other* half of a second reader's cost — reading somebody else's Proto a year
-later. This measured learning a notation once. There is no year-old Proto and no
-second author, so nothing can measure the rest yet.
+**What is still unknown**, and it is the only thing left on this page's list:
+the *other* half of a second reader's cost — reading somebody else's Proto a
+year later. This measured learning a notation once. There is no year-old Proto
+and no second author, so nothing can measure the rest yet.
+
+*A second run followed, below, and did not change that.*
 
 
 ### And a second reader, run to force the one rough edge

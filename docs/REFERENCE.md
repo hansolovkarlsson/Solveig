@@ -351,7 +351,7 @@ wrong.
 
 | document | |
 | --- | --- |
-| [does-it-pay.md](does-it-pay.md) | what six programs say about whether a declared grammar is worth it |
+| [does-it-pay.md](does-it-pay.md) | what six programs and two strangers say about whether a declared grammar is worth it |
 | [what-is-proto.md](what-is-proto.md) | how the parts fit together, as five questions |
 | [pipeline.html](pipeline.html) | the same path drawn |
 | [GRAMMAR.md](GRAMMAR.md) | the core grammar, and which shape a form should have |

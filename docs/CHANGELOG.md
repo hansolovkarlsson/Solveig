@@ -10,6 +10,62 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### Closing out 2026-09-03, third time — the numbers went stale twice
+
+**No version, no code.** The day was closed at midday saying *one commit, this
+one, and no version*, corrected at teatime to *six commits and 0.15.0*, and is
+nine now. **The numbers section of one journal entry has been wrong twice in one
+day**, four hours after [conventions.md](conventions.md) gained *write the
+narrative to last and the numbers to be replaced.* The agreement was vindicated
+faster than anything else written here, and the entry carries both earlier
+readings rather than either being replaced.
+
+**Four claims corrected, three of them one claim.** `README.md`, `REFERENCE.md`
+and `targets.md` all described `does-it-pay.md` as *what six programs say*; it
+is six programs **and two strangers** since this afternoon. One `grep` returned
+all three — the agreement earned on 2026-09-02, now the thing that finds most of
+them.
+
+**No defect was found this afternoon**, which is worth recording because every
+other half-day this week found one. Two readers, four compile-and-run cycles
+between them, nothing broken.
+
+### The second reader, run again to force the chain — 2026-09-03
+
+**No version.** Run 1's fourth prediction was never tested, the task having
+needed no cascade, so a second run was designed around one: three mutually
+exclusive ranges, which in C is `else if`. Predictions 7 to 11 committed first
+in `08a0149`.
+
+**The reader never wrote the chain.** Nested braces first attempt, correct
+output first compile-and-run, **no diagnostic emitted at any stage**, and the
+reason volunteered: *I would have tried `else if` first if the dialect file had
+not spent a paragraph on it.* `lib/clike.pro` spends eleven lines on it at the
+`else` form's own declaration.
+
+> **A limitation explained where it is declared is not a limitation a reader
+> pays for. It is one its author paid for once.**
+
+**Which answers the alternation entry** — the fourth on [ROADMAP.md](ROADMAP.md)
+settled by a customer declining to need it, and the first by one being *told* in
+advance. Two strangers put in front of the workaround; neither noticed it was
+one.
+
+**And it was an unplanned control on the morning's two fixes, both of which
+held**: six `does not understand` probes became **zero**, the reader citing
+`REFERENCE.md`'s new *What is not here: the messages* as *the decisive
+signpost*; and the `print`-is-a-repr trap that cost run 1 a cycle was caught
+before it fired. **Neither fix touched the compiler and neither was longer than
+a sentence.**
+
+**Prediction 9 is untested twice over, for two different reasons** — no cascade
+in run 1, and documentation in run 2 — which is itself the answer to whether the
+message needs fixing: nobody reaches it.
+
+**Neither reader opened the README.** One grepped it after the fact; one never
+opened it and volunteered that the front page was not load-bearing. The entry
+point in practice is the dialect file, the example and the reference.
+
 ### Closing out 2026-09-03 — a day that was closed at midday and did not stop
 
 **No version.** The day was closed out at midday, and the entry said *one commit,
