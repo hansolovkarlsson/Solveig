@@ -9,10 +9,11 @@ shipped. This is the failures.
 
 ## Scope
 
-Twenty-one, from four days, in four cohorts that failed for four different
+Twenty-two, from four days, in four cohorts that failed for four different
 reasons:
 
-- **In the compiler** — six, five of which were latent from 0.1.0 and 0.2.0.
+- **In the compiler** — seven, five of which were latent from 0.1.0 and 0.2.0,
+  and one of which is open.
 - **In the documents** — seven: three an edit that reported success and changed
   nothing, two where no edit was attempted at all, one where a sweep looked in
   the files it remembered instead of for the claim, and one where the fix
@@ -217,6 +218,57 @@ invisible from inside Solveig.
 
 **Fixed in 0.11.0.** The lexer checks the five and reports anything else where
 it stands, so the error lands on the `.pro` rather than on generated code.
+
+---
+
+### 22. A hole-kind error on a nested form names the dialect and not the file — 2026-09-03, **open**
+
+**What.** `lib/clike.pro`'s `else` hole is typed `block`, so a C-style chain is
+refused, which is intended and documented. What it says is not:
+
+```
+$ proto chain.pro
+/…/lib/clike.pro:72:43: error: 'if' wants a block here, and this is a send
+ 72 | @syntax if <c> <t: block>            => c:ifTrue(t).
+    |                                           ^^^^^^
+/…/lib/clike.pro:90:1: note: 'e' is declared to want a block
+proto: chain.pro -- 1 error
+```
+
+The error points into a **template the programmer did not write**, the note
+points at another one, no expansion trail is printed, and `chain.pro` appears
+only in the summary count. **There is no line in their own file to go to.**
+
+**This is the exact failure the project says it is built against.** `README.md`,
+first commit:
+
+> A language whose syntax is declared per module has one characteristic way of
+> failing: somebody writes one thing, is shown an error about another, and
+> cannot get from the second back to the first.
+
+**Cause, read in the source and not inferred.** `check_arguments` in
+`proto/src/expand.c` reports `proto_node_extent(argument)`. When the argument is
+an ordinary node that is right — `if (x > #9) x.` names `chain.pro:4:13` and
+puts the caret under the `x`, which was checked. When the argument is **itself a
+use of a form**, expansion has already replaced it, and the node's extent is the
+span of the template it came from. `note_trail(expander, use)` is called but
+prints nothing, because the trail belongs to the *inner* expansion and the node
+being reported is the *outer* use.
+
+**Why nine versions missed it.** Every hole-kind failure in the repository's
+tests and examples has a plain node in the hole. **A form in a hole is the case
+a dialect's own users hit and its author does not**, because the author knows
+the chain wants braces and never writes the version that does not.
+
+**Found by** checking a prediction rather than asserting it, while designing
+[second-reader.md](second-reader.md) — whose fourth prediction was going to be
+*the diagnostic will not name the fix* and had to become something else. It is
+the third defect in four days found by that habit, after the escape-set
+divergence and the 0.1.0 segfault.
+
+**Not fixed.** It is on the only path a C programmer takes into `lib/clike.pro`,
+so the second-reader measurement should not be run in front of it — it would
+measure this rather than the notation. See [ROADMAP.md](ROADMAP.md).
 
 ---
 
@@ -606,8 +658,9 @@ where somebody could go back and disagree with it, and somebody did.
 | Reading everything once at the end of a day | **1** |
 | Grepping for a claim rather than opening the documents | **1** |
 | A closeout run on a day with no work in it | **1** |
+| Checking a prediction instead of asserting it | **1** |
 
-**Two of twenty-one were found by tests**, and one of those two was a broken
+**Two of twenty-two were found by tests**, and one of those two was a broken
 test. Five came from writing programs in the language — four of the six
 programs found one, and the sixth found none — and three more came from reading
 something rather than running it.
