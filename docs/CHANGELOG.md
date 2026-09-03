@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### 6.43 closed, and the half it left behind is 6.45 — `pending`, 2026-09-03
+### 6.43 closed, and the half it left behind is 6.45 — `f9b43e8`, 2026-09-03
 
 **[6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done)
 is in COMPLETED.md**, both clauses of its title answered by one change. It read
