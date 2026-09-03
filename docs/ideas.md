@@ -6251,10 +6251,21 @@ machine that runs nothing, all six lexis cases fail; pointed at the real
 binaries by absolute path, all six pass. Both directions, because a harness that
 only ever passes is the decoration case with an extra step.
 
-**Call 2 is still open and is now a smaller question than it looked.** `make
-test` runs the C binaries and nothing else — `expect.sol` is not in it either —
-so wiring this in is a decision about what that target is for rather than a line
-to add. The suite needs no network and takes about two seconds.
+**Call 2 was answered the same day: `make test` runs it, first.** A corpus a
+second implementation is invited to score itself against has to be one this
+implementation is scored against continuously, and the day one of the eleven
+chunk limits moves is the day that matters. It needs no network and no clone,
+which is what keeps it out of the company of the oracles.
+
+**Ordering it first was decided by a measurement rather than by precedence**,
+and the measurement is the surprise: `make test` is **84 seconds** on this
+machine, of which `test_cli` alone is **79.75**. Everything else together is
+about four, and the corpus is one. So a broken case now says so at the start
+instead of after a minute and a half — and the Makefile's own comment, arguing
+that the nine comparison benchmarks stay out because *ninety seconds* would go
+into *a suite that takes eight*, is comparing against a number that is no longer
+true. The conclusion probably survives; the argument does not, and it is left
+where it stands rather than quietly rewritten.
 
 **The refused half is not built**, and nothing above changes its estimate: the
 eleven scope rules and the eleven limits are still tabulated in PRODUCING.md with

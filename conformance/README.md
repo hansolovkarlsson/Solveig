@@ -22,6 +22,12 @@ program that has never seen this repository can read it.
 ./conformance/run.sh -v                  # name every case, not only the failures
 ```
 
+`make test` runs it, first, before the C suite — a corpus a second
+implementation is invited to score itself against has to be one this
+implementation is scored against continuously, or the day a limit moves nobody
+finds out. It needs no network and no clone and takes about a second, which is
+why it is here rather than beside the [oracles](../programs/oracle.sh).
+
 Two environment variables say what to run, each a template with `%s` where a
 path goes:
 

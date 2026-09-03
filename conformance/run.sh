@@ -155,10 +155,9 @@ while IFS= read -r src; do
     [ "$verbose" = no ] || printf 'ok    %s -- %s\n' "$name" "$what"
 done < "$cases"
 
-[ ! -s "$fails" ] || cat "$fails"
+[ ! -s "$fails" ] || { echo; cat "$fails"; }
 
 total=$((passed + failed))
-echo
 printf '%s cases, %s passed, %s failed\n' "$total" "$passed" "$failed"
 [ "$failed" = 0 ] || exit 1
 echo "every case holds"

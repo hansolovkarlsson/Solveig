@@ -266,7 +266,25 @@ comparisons/%.sob: comparisons/%.sol $(BIN)/solas
 
 # The binaries too: test_cli runs them as a shell would, a `main` not being
 # something the library holds.
+#
+# And the conformance corpus, which is the one part of this suite written in the
+# language rather than about it. It is here rather than beside the oracles for
+# the reason those are not: it needs no network and no clone, it takes about a
+# second, and a corpus a second implementation is invited to score itself against
+# has to be one this implementation is continuously scored against too. The day
+# one of the eleven chunk limits moves, this is what says so.
+#
+# It runs with its own defaults, which name $(BIN)/solas and $(BIN)/solvm --
+# so `make test SANITIZE=...` scores the sanitised build, as the C tests do.
+# Pointing it elsewhere is SOL_COMPILE and SOL_RUN, and that is a thing somebody
+# does deliberately rather than something this target decides for them.
+# It runs first, and that is not a statement about which matters more. The C
+# suite is about eighty seconds on this machine and the corpus is one, so a case
+# that breaks says so at the start rather than after a minute and a half of
+# something else.
 test: $(BINARIES) $(TEST_BINS) $(EXAMPLE_SOBS) $(COMPARISON_SOBS) $(EXT_PROBE) $(EXTENSIONS)
+	@echo "-- conformance"
+	@sh conformance/run.sh
 	@for t in $(TEST_BINS); do echo "-- $$t"; $$t || exit 1; done
 	@echo "all tests passed"
 

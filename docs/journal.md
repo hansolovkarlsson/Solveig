@@ -98,10 +98,23 @@ eleven chunk limits, of which none is. Three of those limits now have a
 confirmed N+1 apiece waiting for a corpus to hold them. It is mostly
 transcription and the trigger fired before the suite was proposed.
 
-And the suite is not in `make test`, which was left as a call rather than
-decided. It turns out to be a smaller question than it looked: that target runs
-the C binaries and not `expect.sol` either, so wiring this in is a decision
-about what `make test` is *for*. The run takes about a second.
+### And then it was wired in, which measured something else
+
+The call was answered the same day: `make test` runs the corpus, first.
+
+**Ordering it first came out of a measurement rather than a preference.** The
+suite is **84 seconds** on this machine and **`test_cli` alone is 79.75** —
+every other binary together is about four seconds, and the corpus is one. So a
+broken case reports at the start instead of after a minute and a half.
+
+That number has a second consequence nobody was looking for. The Makefile
+explains that the nine comparison benchmarks are compiled and not run because
+ninety seconds would go into *a suite that takes eight*. It takes eighty-four.
+The conclusion very likely survives and the argument does not, and it is left
+standing rather than rewritten, because what wants a decision is the reasoning
+and not the digit.
+
+**The refused half is still not built**, and nothing here changes its estimate.
 
 ---
 

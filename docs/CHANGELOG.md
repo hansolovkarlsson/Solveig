@@ -5,6 +5,30 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The conformance corpus runs in `make test`, first — and `test_cli` is 95% of the suite — `pending`, 2026-09-03
+
+**A corpus a second implementation is invited to score itself against has to be
+one this implementation is scored against continuously.** Otherwise the day one
+of the eleven chunk limits moves, nobody finds out — which is the argument
+[method.md](method.md#a-check-that-cannot-fail-is-decoration) makes about checks
+that are not run. It needs no network and no clone, which is what keeps it out
+of the company of the [oracles](../programs/oracle.sh), and it takes about a
+second.
+
+**It runs before the C suite, and that was decided by a measurement.** `make
+test` is **84 seconds** on this machine, of which **`test_cli` alone is 79.75**
+— every other binary together is about four, and the corpus is one. So a broken
+case says so at the start rather than after a minute and a half of something
+else.
+
+**Which leaves a stale argument standing in the Makefile.** The comment
+explaining why the nine comparison benchmarks are compiled but not run says
+that the ninety seconds would go into *a suite that takes eight*. The suite
+takes eighty-four. The conclusion probably survives — ninety seconds is still
+worth not spending — but the ratio it rested on is gone, and the number is left
+where it is rather than quietly corrected, since what wants deciding is the
+argument and not the digit.
+
 ### A conformance suite a second implementation can score itself against — `e280a1e`, 2026-09-03
 
 **[conformance/](../conformance/README.md), 42 cases in eight directories, each
@@ -47,11 +71,11 @@ order arguments evaluate in** is nowhere in the documentation, and **the
 at 252 levels for one shape and deliberately not written down.
 
 **The harness was proved able to fail** in all seven of its modes, and scores a
-machine that runs nothing as 42 failures. It is not in `make test`; that stays
-an open call in [ideas.md](ideas.md#a-conformance-suite--a-corpus-a-second-implementation-can-score-itself-against),
-where the refused half — eleven documented refusals of which three are tested,
-and eleven chunk limits of which none is — is still transcription waiting to be
-done.
+machine that runs nothing as 42 failures. It was not in `make test` when this
+landed; the entry below put it there the same day. The refused half — eleven
+documented refusals of which three are tested, and eleven chunk limits of which
+none is — is still transcription waiting to be done, and the case for it is in
+[ideas.md](ideas.md#a-conformance-suite--a-corpus-a-second-implementation-can-score-itself-against).
 
 ### Three measurements that lived only in a scratch directory — `75d1020`, 2026-09-02
 
