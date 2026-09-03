@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### Three measurements that lived only in a scratch directory — `pending`, 2026-09-02
+### Three measurements that lived only in a scratch directory — `75d1020`, 2026-09-02
 
 **Found by asking what the documents cite that would not survive the session.**
 Three figures were quoted in the deliverable and measured by throwaways in a
