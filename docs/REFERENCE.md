@@ -156,7 +156,8 @@ Standalone.
 | --- | --- | --- |
 | `*` `/` `%` | 70 | `mul` `div` `mod` |
 | `+` `-` | 60 | `add` `sub` |
-| `<` `>` `==` | 40 | `lessThan` `greaterThan` `equals` |
+| `<` `>` `<=` `>=` | 40 | `lessThan` `greaterThan` `lessOrEqual` `greaterOrEqual` |
+| `==` `!=` | 40 | `equals` `notEquals` |
 | `&&` | 30 | `left:and({ right })` — a template, for the short circuit |
 | `\|\|` | 25 | `left:or({ right })` — likewise |
 | `!` | prefix | `not` |
@@ -176,16 +177,17 @@ Standalone.
 
 ### `lib/clike.pro` — C's operators and C's control flow
 
-Standalone, and deliberately so. It shares `&&`, `||` and `!` with arith.pro
-now; what still differs is `=` for assignment, the full comparison set, and
-control flow written with parentheses and braces rather than as words.
+Standalone, and deliberately so. It shares `&&`, `||`, `!` and — since
+2026-09-02 — the full comparison set with arith.pro; what still differs is `=`
+for assignment and control flow written with parentheses and braces rather than
+as words.
 
 | | | |
 | --- | --- | --- |
 | `*` `/` `%` | 70 | `mul` `div` `mod` |
 | `+` `-` | 60 | `add` `sub` |
 | `==` `<` `>` | 40 | `equals` `lessThan` `greaterThan` |
-| `!=` `<=` `>=` | 40 | templates over the three above |
+| `!=` `<=` `>=` | 40 | `notEquals` `lessOrEqual` `greaterOrEqual` |
 | `&&` | 30 | `left:and({ right })` |
 | `\|\|` | 25 | `left:or({ right })` |
 | `=` | 10 | `left := right` |
@@ -232,10 +234,10 @@ take `^`, Pascal and Perl take an `xor` keyword. Solveig's boolean understands
 is integer-only: *boolean does not understand 'bitXor'*.
 
 **What there is, is `!=`.** For booleans, xor and not-equals are the same
-operation, which is why nobody invents a symbol for it. `lib/clike.pro` declares
-`!=` as `notEquals`, so `a != b` on two booleans is already an xor, and
-`lib/arith.pro` declares no `!=`, so a module using it has to write
-`a:notEquals(b)` as a send.
+operation, which is why nobody invents a symbol for it. `lib/clike.pro` and, since 2026-09-02,
+`lib/arith.pro` both declare `!=` as `notEquals`, so `a != b` on two booleans is
+already an xor in either dialect. Nothing has to write `a:notEquals(b)` as a
+send any more.
 
 **If it were ever spelled as its own operator it would be `^^`** — the doubled
 form, beside `&&` and `||`, for the same reason those are doubled: the single
@@ -246,7 +248,9 @@ declaration and nothing more:
 @infix  ^^  35 notEquals.        ; between && at 30 and || at 25
 ```
 
-**`lib/` does not declare it**, because nothing has wanted one. Recorded so the
+**`lib/` does not declare `^^`**, because nothing has wanted one — and `!=`
+arriving in arith.pro has made it less likely to, not more: the spelling that
+was missing is there now, under the name Solveig gives it. Recorded so the
 spelling is settled if something ever does.
 
 ---

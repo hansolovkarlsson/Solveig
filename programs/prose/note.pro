@@ -67,10 +67,11 @@ pad := { repeated:value("    ", depth) }.
 emit := { line | line:display }.
 
 render := { | i, node, kind, text |
-    ; `i < doc:size + #1` and not `i <= doc:size`, because lib/arith.pro does
-    ; not declare `<=`. README.md: this program is the first customer for it.
+    ; `i <= doc:size` since 2026-09-02. This was `i < doc:size + #1` because
+    ; lib/arith.pro declared no `<=`, and this program was the first customer
+    ; asking for one; programs/basic was the second and the family went in.
     i := #1.
-    while i < doc:size + #1 do (
+    while i <= doc:size do (
         node := doc:at(i).
         kind := node:at(#1).
         text := node:at(#2).

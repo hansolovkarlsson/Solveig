@@ -10,6 +10,35 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### Six comparisons in `lib/arith.pro` — 2026-09-02
+
+**No version; a shipped dialect gained three declarations.** `!=`, `<=` and
+`>=`, as `notEquals`, `lessOrEqual` and `greaterOrEqual` — plain messages
+Solveig has always had, so three lines and no templates.
+
+**The entry the standing rule was written down against, and it closed by being
+applied rather than bent.** *A surface does not grow without a customer* kept
+these out from the first commit. `programs/prose` became the first customer and
+wrote `while i < doc:size + #1` around the gap; `programs/basic` became the
+second, wanting `<=` and `>=` five times and `!=` four.
+
+**Two customers for `<=` and one each for the other two**, so strictly the bar
+was met for one of three. The family went in whole, and the reason is the
+finding: **an arith with `<=` and no `>=` is a worse trap than an arith with
+neither**, the missing one being missing for no reason a reader can see.
+
+> **A customer count is per surface, and a comparison set is one surface.**
+
+Nothing had had to decide that before, and it is what
+[COMPLETED.md](COMPLETED.md)'s *Settled by a customer* table now records as the
+first entry a customer settled **for** rather than against.
+
+**Both customers were rewritten the same day**, which is the check that they
+were real: `note.pro` reads `while i <= doc:size`, and `basic.pro`'s `FOR` limit
+test, `pc <= program:size` and four `notEquals` sends are operators now.
+`lib/clike.pro` is untouched — it has had the same six since 0.6.0, is
+standalone, and declares no `@use`, so nothing collided.
+
 ### `programs/basic` — 2026-09-02
 
 **The sixth program, and the first that is not a pass over its input.** A BASIC
@@ -31,7 +60,7 @@ statement kind, and an operator for BASIC's `+` — and both for one reason:
 **Which dissolves the two-domain question rather than answering it.** BASIC has
 a real domain of values, `+` meaning add-or-concat, and it never reaches the
 header: the interpreter writes `binop:value(op, a, b)` with `op` a *string from
-the input*, and two `+` survive in 252 lines, both `pc + #1`. **A program can
+the input*, and two `+` survive in 251 lines, both `pc + #1`. **A program can
 contain a domain without being one**, so *steps want forms, values want
 operators* is a taxonomy of domains a dialect can see.
 
@@ -46,12 +75,9 @@ that **needed hygiene** — `take`'s template temporary `t` against `parseAtom`'
 local `t`, renamed in the generated source, unnoticed until the findings were
 written.
 
-**`<=` and `>=` have a second customer and the entry is still open.** Five sends
-of `lessOrEqual` and `greaterOrEqual`, in the interpreter's own bounds tests and
-never in BASIC's comparisons, which are a token its lexer reads at run time. The
-count is two for `<=` and one each for `>=` and `!=`, so [ROADMAP.md](ROADMAP.md)
-now records the first time the *one customer is not enough* rule has been
-ambiguous rather than unmet.
+**`<=` and `>=` got their second customer here**, in the interpreter's own
+bounds tests and never in BASIC's comparisons, which are a token its lexer reads
+at run time. That closed a roadmap entry the same day — see below.
 
 ### Closing out — 2026-09-02
 

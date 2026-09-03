@@ -123,24 +123,30 @@ So prediction 5 stands where it matters: this dialect pays like `ember`'s.
 
 ### What nobody predicted
 
-**`lib/arith.pro` has no `<=`, and this program wanted one.** The renderer
-writes:
+**`lib/arith.pro` had no `<=`, and this program wanted one.** The renderer was
+written as:
 
 ```
 i := #1.
 while i < doc:size + #1 do (
 ```
 
-because `while i <= doc:size` does not compile. On the morning this program was
+because `while i <= doc:size` did not compile. On the morning this program was
 written, the question *should `lib/arith.pro` be completed?* was asked and
 answered **no**, on the evidence that `<=`, `>=` and `!=` had *no customer at
 all* — the two files declaring them were both standalone, and **every one of
 arith's five users declared no operator of its own.**
 
-That was true of the five. This is the sixth, and it is the customer.
+That was true of the five. This was the sixth, and it was the customer.
 **The conclusion was right about the evidence and wrong about the future**,
-which is what *no customer yet* always means. It is one line in
-[ROADMAP.md](../../docs/ROADMAP.md) now rather than an argument settled.
+which is what *no customer yet* always means.
+
+**Closed on 2026-09-02 by the second customer.** `programs/basic` wanted `<=`
+and `>=` five times and `!=` four, and the family went into `lib/arith.pro`
+whole. The renderer reads `while i <= doc:size` now. **A workaround that stayed
+in place for one program and one day is the cheapest possible version of the
+rule working** — the surface did not grow on this program's evidence alone, and
+it grew the moment there was a second.
 
 **And a document turned out to be a domain of steps.** It was picked as a domain
 that was *neither* arithmetic nor instructions, to test whether

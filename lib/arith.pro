@@ -19,9 +19,32 @@
 @infix  %   70 mod.
 @infix  +   60 add.
 @infix  -   60 sub.
+
+; **Six comparisons and not three, decided on 2026-09-02 by the second
+; customer.** This file shipped `<`, `>` and `==` alone from the first commit,
+; and the argument against completing the set was the standing one: a surface
+; does not grow without a customer, and until `programs/prose` there was not
+; one. `prose` wanted `<=` and wrote `while i < doc:size + #1` instead;
+; `programs/basic` wanted `<=` and `>=` five times over, in a `FOR` loop's
+; limit test and a bounds check, and `!=` four times.
+;
+; **The count settles `<=` and not the other two** -- two customers for the
+; first, one each for the second and third -- and the family went in whole
+; anyway, which is the one place this file departs from the rule rather than
+; applying it. **An arith with `<=` and no `>=` is a worse trap than an arith
+; with neither**, because the missing one is missing for no reason a reader can
+; see, and the first thing anybody does after writing `i <= n` is write
+; `n >= i`. A rule that produces a half-set is being read too literally.
+;
+; All six are plain messages in Solveig, so this was three lines and no
+; templates. `lib/clike.pro` has had the same six since 0.6.0.
 @infix  <   40 lessThan.
 @infix  >   40 greaterThan.
+@infix  <=  40 lessOrEqual.
+@infix  >=  40 greaterOrEqual.
 @infix  ==  40 equals.
+@infix  !=  40 notEquals.
+
 @prefix !      not.
 
 ; `and` and `or` take a *block* in Solveig, so that the right-hand side is not

@@ -67,8 +67,11 @@
 ; The rest, so that this file needs nothing under it
 ;
 ; Comparisons and two control forms. They would have come from lib/arith.pro and
-; lib/control.pro if `+` above had not made that file's `+` a collision -- and
-; arith.pro does not declare `<=`, `>=` or `!=` anyway, nothing having asked.
+; lib/control.pro if `+` above had not made that file's `+` a collision. That is
+; the whole reason now: arith.pro gained `<=`, `>=` and `!=` on 2026-09-02, so
+; the second reason this comment used to give -- that it did not declare them,
+; nothing having asked -- has expired. **The collision is the one that stands**,
+; and it is the reason a domain dialect is standalone.
 ;
 ; All six are plain messages. `>=` and `<=` were written as
 ; `(left:lessThan(right)):not` here until it was noticed that Solveig has

@@ -215,13 +215,11 @@ binop := { op, a, b |
         if numeric:value(b) == #0 then (fail "division by zero". #0)
         else numeric:value(a):div(numeric:value(b)))
     else if op == "=" then truth:value(a == b)
-    else if op == "<>" then truth:value(a:notEquals(b))
+    else if op == "<>" then truth:value(a != b)
     else if op == "<" then truth:value(a:lessThan(b))
     else if op == ">" then truth:value(a:greaterThan(b))
-    ; `<=` and `>=` are sends and not operators, because lib/arith.pro has
-    ; neither. programs/prose wanted them first; this is the second customer.
-    else if op == "<=" then truth:value(a:lessOrEqual(b))
-    else truth:value(a:greaterOrEqual(b)) }.
+    else if op == "<=" then truth:value(a <= b)
+    else truth:value(a >= b) }.
 
 evalExpr := { e |
     if e:kind == 'num then e:value
@@ -265,8 +263,7 @@ doNext := { n | | f, v |
     f := fors:at(fors:size).
     v := numeric:value(fetch(f:name)):add(f:by).
     store f:name as v.
-    if (f:by:greaterThan(#0) && v:lessOrEqual(f:limit))
-        || (f:by:lessThan(#0) && v:greaterOrEqual(f:limit))
+    if (f:by > #0 && v <= f:limit) || (f:by < #0 && v >= f:limit)
     then jump to f:idx
     else (fors:removeLast. fallThrough) }.
 
@@ -276,7 +273,7 @@ exec := { n |
     else if n:kind == 'print then (doPrint:value(n). fallThrough)
     else if n:kind == 'input then (doInput:value(n). fallThrough)
     else if n:kind == 'if then (
-        if evalExpr:value(n:cond):notEquals(#0) then exec:value(n:then)
+        if evalExpr:value(n:cond) != #0 then exec:value(n:then)
         else fallThrough)
     else if n:kind == 'goto then jump to lineIndex:value(n:target)
     else if n:kind == 'gosub then (
@@ -296,7 +293,7 @@ exec := { n |
 run := {
     pc := #1.
     running := true.
-    while running && pc:lessOrEqual(program:size) do exec:value(program:at(pc)) }.
+    while running && pc <= program:size do exec:value(program:at(pc)) }.
 
 ; ----------------------------------------------------------------- loading
 ;
@@ -315,13 +312,13 @@ addLine := { text | | n, ln, old |
     ln := take:text:asInteger.
     if kindIs('end) then (
         ; a bare line number deletes that line
-        old := program:select({ s | s:line:notEquals(ln) }).
+        old := program:select({ s | s:line != ln }).
         program := old)
     else (
         n := parseStmt:value.
         n:line := ln.
         n:src := text.
-        program := program:select({ s | s:line:notEquals(ln) }).
+        program := program:select({ s | s:line != ln }).
         program:add(n)).
     sortProgram:value }.
 

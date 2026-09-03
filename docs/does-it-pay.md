@@ -41,7 +41,7 @@ the design.
 | [`digest`](../programs/digest) — SHA-256 | 17 | 3 | 20 | 96 |
 | [`ledger`](../programs/ledger) — fixed-point decimal | 10 | 6 | 17 | 44 |
 | [`prose`](../programs/prose) — a document | 0 | 7 | 9 | 64 |
-| [`basic`](../programs/basic) — a BASIC interpreter | 0 | 15 | 16 | 252 |
+| [`basic`](../programs/basic) — a BASIC interpreter | 0 | 15 | 16 | 251 |
 
 *Lines are non-blank, non-comment. `program` is the module, `dialect` the file
 it uses.*
@@ -217,7 +217,7 @@ a real domain of values — `+` is add-or-concat, exactly what `digest`'s and
 `ledger`'s operator dialects are for. It never reaches the header. The
 interpreter never writes `a + b` on two BASIC values anywhere: it writes
 `binop:value(op, a, b)` where `op` is a *string that came from the input*, and
-each branch is a send that already knows its operation. Two `+` survive in 252
+each branch is a send that already knows its operation. Two `+` survive in 251
 lines and both are `pc + #1`.
 
 **A program can contain a domain without being one**, and the split above is a

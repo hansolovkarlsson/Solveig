@@ -510,3 +510,4 @@ halves of the rule and both refusals.
 | **Optional parts** | Declined twice. `programs/ember` wanted none; `if`/`else` as two declarations was fine. |
 | **Repeated parts** | Declined twice, the second with a reason. `programs/grammar` wants repetition and **a repeated pattern part would not have helped** — a grammar cannot be written as forms at all, so the repetition wanted is one level down in the object language. |
 | **A trailing hole binding at unary precedence** | Retracted. It described a fix for a problem that was two programs choosing the wrong shape. See [POSTMORTEM.md](POSTMORTEM.md). |
+| **`<=`, `>=` and `!=` in `lib/arith.pro`** | **Taken**, on 2026-09-02, and the first entry a customer settled *for* rather than against. `programs/prose` wanted `<=` and wrote around it; `programs/basic` wanted `<=` and `>=` five times and `!=` four. Both were rewritten to use them the day they landed, which is the check that the customer was real. |

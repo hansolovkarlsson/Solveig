@@ -11,49 +11,33 @@ way is in [POSTMORTEM.md](POSTMORTEM.md); what a day consisted of is in
 [journal.md](journal.md).
 
 **Two items on this page have been declined by a customer rather than by
-argument**, which is worth more than either. See *Settled by a customer* at the
-foot of COMPLETED.md.
+argument**, which is worth more than either, and one has now been **taken** by
+one. See *Settled by a customer* at the foot of COMPLETED.md.
+
+**`lib/arith.pro`'s missing `<=`, `>=` and `!=` left this page on 2026-09-02.**
+It is the entry the *one customer is not enough* rule was written down against,
+and how it closed is worth carrying. `programs/prose` wanted `<=` and wrote
+`while i < doc:size + #1` around it; `programs/basic` wanted `<=` and `>=` five
+times and `!=` four. That is **two customers for `<=` and one each for the other
+two**, so the bar was met for one of three and the family went in whole.
+
+**The rule was applied and not bent.** An arith with `<=` and no `>=` is a worse
+trap than an arith with neither, the missing one being missing for no reason a
+reader can see. What the case actually shows is that **a customer count is per
+surface, and a comparison set is one surface** — which nothing had had to decide
+before. `lib/arith.pro` carries the argument at the declarations, and both
+customers were rewritten to use them the same day, which is the check that the
+customers were real.
 
 ## Open, and undecided
 
-**`lib/arith.pro` has no `<=`, `>=` or `!=`, and now has a customer for them.**
-Asked on 2026-09-02 whether arith should be completed, the answer was **no**, on
-the evidence that those three had no customer at all: the two files declaring
-them were both standalone, and every one of arith's five users declared no
-operator of its own. `programs/prose` is the sixth user and writes
-`while i < doc:size + #1` because `while i <= doc:size` does not compile.
-
-**One customer, and one is not enough** — the same rule that kept the bitwise
-operators out of arith on the same day, and it should not be bent the first time
-it is inconvenient. Recorded so the second customer settles it rather than
-starting the argument again. All three are plain messages in Solveig —
-`lessOrEqual`, `greaterOrEqual`, `notEquals` — so it is three lines whenever it
-is taken.
-
-**`programs/basic` is the second customer, and it does not settle the entry
-cleanly.** It sends `lessOrEqual` and `greaterOrEqual` five times — the `FOR`
-limit test and `pc <= program:size` — and `notEquals` four times. So the count
-is now **two for `<=` and one each for `>=` and `!=`**, which is the bar met for
-one of the three and not for the others.
-
-Splitting the family is worse than either answer: an arith with `<=` and no
-`>=` is a trap of its own. **So the decision left is whether the family counts
-as one customer or three**, and it is the first time the rule has been ambiguous
-rather than unmet. Recorded rather than taken.
-
-**Where the second customer wanted them is the part worth keeping.** Not in
-BASIC's own comparisons — those are a two-character token the interpreter's
-lexer reads at run time, and no module's header has an opinion about them — but
-in the interpreter's own bounds checks. A program that *implements* comparison
-still wants to *do* comparison, and the two are a level apart.
-
-**`!=` has a second argument that is not a customer.** For booleans, xor *is*
-not-equals, so a module using `lib/arith.pro` has no way to spell a logical xor
-at all and must write `a:notEquals(b)` as a send. `lib/clike.pro` declares `!=`
-and therefore already has one without anybody noticing. That is a reason rather
-than a want, and it does not move the count: nothing here has needed an xor.
+**A logical xor still has no spelling, and now needs one less.** For booleans,
+xor *is* not-equals, and the argument for `^^` was that a module using
+`lib/arith.pro` had no way to write one at all. It has `!=` since 2026-09-02, so
+`a != b` on two booleans is an xor in both shipped dialects and the gap that
+argument pointed at is closed. Nothing here has ever needed one.
 [REFERENCE.md](REFERENCE.md) records that the spelling would be `^^` if it were
-ever declared, so the question is settled before it is asked.
+ever declared, so the question stays settled before it is asked.
 
 **No postfix operators.** Proto has prefix and infix; `x++`, `a[i]` and
 `p->f`-in-postfix-position have no spelling at all. `lib/clike.pro` names it as
