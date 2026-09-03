@@ -5,6 +5,40 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The documentation checker was two thirds of `make test`, filed under the command line — `652deea`, 2026-09-03
+
+**`tests/test_documents.c`**, holding the two checks that hold this repository
+against itself: [expect.sol](../programs/expect.sol) over `examples`, `docs`,
+the two root pages and `extensions`, and the grammar sweep that holds
+`solum.bnf` to what `solas` accepts. Moved out of `tests/test_cli.c` with
+nothing changed — same assertions, same floors, same order.
+
+**They were filed by how they run rather than by what they check.** Both run the
+binaries as a shell would, which is what `test_cli.c` is for; what they check is
+the repository. And the filing was hiding a number: **54 of `test_cli`'s 79.75
+seconds were the documentation checker**, two thirds of the whole suite, under a
+name that said command line.
+
+| | | |
+| --- | --- | --- |
+| `test_documents` | 55s | 41% CPU — it compiles and runs each of the 1060<!--count claims--> claims in a process of its own |
+| `test_cli` | 27s | 96% CPU |
+| the other thirty-eight, and the conformance corpus | ~7s | |
+
+The Makefile's wildcard picked the new file up with no list to edit, which is
+what that wildcard has always been for.
+
+**And an argument in the Makefile is corrected rather than left standing.** The
+comment explaining why the nine comparison benchmarks are compiled and not run
+said the ninety seconds would go into *a suite that takes eight*. The suite is
+about eighty-eight, so the case is a doubling rather than a twelvefold. The
+conclusion is unchanged, the reason is now the right size, and the breakdown is
+written down beside it so the next person does not have to measure it again.
+
+**Two references followed the move**, and one of them was carrying a stale
+number of its own: [programs.md](programs.md) said the documentation check runs
+*in about sixteen seconds*, which nothing had measured since.
+
 ### The refused and trapped halves, and a warning that was filed as a refusal — `7c471f7`, 2026-09-03
 
 **Three kinds, not two, and the scoping had run two of them together.** It

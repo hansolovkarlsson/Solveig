@@ -155,6 +155,37 @@ silently.
 **89 cases.** What is left is the five 65,535 limits, where a case at N would be
 a file of that many lines, and they stay a generator's business.
 
+### And the eighty seconds turned out to be a filing question
+
+Wiring the corpus into `make test` had produced a number nobody had asked for:
+the suite is eighty-odd seconds and `test_cli` is nearly all of it. The obvious
+reading is that a test is slow. Breaking it down first said something else.
+
+**54 of the 79.75 seconds were `expect.sol` over the documentation**, at 41% CPU
+because it compiles and runs each of the 1060 claims in a process of its own.
+The grammar sweep beside it was 0.6. So two thirds of the test suite was the
+documentation checker, sitting in a file named for the command line.
+
+It was filed there for a real reason — both checks run the binaries as a shell
+would, and that is what `test_cli.c` is for. But that is a fact about *how* they
+run, and what they check is the repository. `tests/test_documents.c` now, with
+nothing else changed: same assertions, same floors, same order. `test_cli` is
+twenty-seven seconds at 96% CPU and the new file is fifty-five at 41%.
+
+**Nothing got faster, and that was not the point.** What changed is that the
+cost is now attached to the thing that has it. The Makefile's argument for
+compiling the nine comparison benchmarks and not running them — *ninety seconds
+into a suite that takes eight* — could then be re-decided against real numbers
+instead of being left standing wrong: the suite is eighty-eight, the case is a
+doubling rather than a twelvefold, and the conclusion survives with the right
+reason under it.
+
+**And a correction I had to make first.** I told Hans twice that `expect.sol`
+was not in `make test`, having read the Makefile and stopped there. It is, and
+has been — inside `test_cli`, which is exactly why the eighty seconds were where
+they were. The journal had said so on an earlier page. Reading the target and
+not the tests it runs is how a claim about a build system goes wrong.
+
 ---
 
 ## 2026-09-02 (closing) — fifteen commits, two programs, and four checks that had holes
