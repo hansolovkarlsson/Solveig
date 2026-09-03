@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### The conformance corpus runs in `make test`, first — and `test_cli` is 95% of the suite — `pending`, 2026-09-03
+### The conformance corpus runs in `make test`, first — and `test_cli` is 95% of the suite — `e5470bd`, 2026-09-03
 
 **A corpus a second implementation is invited to score itself against has to be
 one this implementation is scored against continuously.** Otherwise the day one
