@@ -6267,6 +6267,16 @@ into *a suite that takes eight*, is comparing against a number that is no longer
 true. The conclusion probably survives; the argument does not, and it is left
 where it stands rather than quietly rewritten.
 
+**And `test_cli` is not slow — it is where the whole-repository checks live**,
+which was worth breaking down before anybody set about making it faster.
+`test_everything_written_down_is_true` compiles `expect.sol` and runs it over
+`examples`, `docs`, the two root pages and `extensions`: **54 of the 79.75
+seconds**, at 41% CPU, because it shells out to compile and run each claim. The
+grammar sweep beside it is **0.6**. So two thirds of the test suite is the
+documentation checker, most of that is *waiting*, and it sits in a binary named
+for the command line — which is a filing question before it is a performance
+one.
+
 **The refused half is not built**, and nothing above changes its estimate: the
 eleven scope rules and the eleven limits are still tabulated in PRODUCING.md with
 their triggering programs, and the three literal limits now have a confirmed N+1
