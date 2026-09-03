@@ -30,6 +30,23 @@ starting the argument again. All three are plain messages in Solveig —
 `lessOrEqual`, `greaterOrEqual`, `notEquals` — so it is three lines whenever it
 is taken.
 
+**`programs/basic` is the second customer, and it does not settle the entry
+cleanly.** It sends `lessOrEqual` and `greaterOrEqual` five times — the `FOR`
+limit test and `pc <= program:size` — and `notEquals` four times. So the count
+is now **two for `<=` and one each for `>=` and `!=`**, which is the bar met for
+one of the three and not for the others.
+
+Splitting the family is worse than either answer: an arith with `<=` and no
+`>=` is a trap of its own. **So the decision left is whether the family counts
+as one customer or three**, and it is the first time the rule has been ambiguous
+rather than unmet. Recorded rather than taken.
+
+**Where the second customer wanted them is the part worth keeping.** Not in
+BASIC's own comparisons — those are a two-character token the interpreter's
+lexer reads at run time, and no module's header has an opinion about them — but
+in the interpreter's own bounds checks. A program that *implements* comparison
+still wants to *do* comparison, and the two are a level apart.
+
 **`!=` has a second argument that is not a customer.** For booleans, xor *is*
 not-equals, so a module using `lib/arith.pro` has no way to spell a logical xor
 at all and must write `a:notEquals(b)` as a send. `lib/clike.pro` declares `!=`

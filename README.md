@@ -695,7 +695,7 @@ predicate logic, which turns out to be three questions wearing one name.
 
 | | |
 | --- | --- |
-| [does-it-pay.md](docs/does-it-pay.md) | what five programs say about the question this project exists to answer |
+| [does-it-pay.md](docs/does-it-pay.md) | what six programs say about the question this project exists to answer |
 | [REFERENCE.md](docs/REFERENCE.md) | every directive, hole kind and shipped dialect, and where everything lives — the page to look things up in |
 | [what-is-proto.md](docs/what-is-proto.md) | how the parts fit together, kept as the five questions that were asked and answered |
 | [pipeline.html](docs/pipeline.html) | the same path drawn — the pipeline, lockstep matching, expansion, and the map |
@@ -712,7 +712,7 @@ predicate logic, which turns out to be three questions wearing one name.
 
 ## The programs
 
-**Five, and they are why several of the versions above exist.**
+**Six, and they are why several of the versions above exist.**
 
 | | |
 | --- | --- |
@@ -721,6 +721,7 @@ predicate logic, which turns out to be three questions wearing one name.
 | [`programs/digest`](programs/digest) | SHA-256, agreeing with `shasum -a 256`. The first customer for the *operator* half, and the one that measured what a form costs at run time. |
 | [`programs/ledger`](programs/ledger) | a statement in fixed-point decimal, against exact-decimal figures produced elsewhere. Found that Proto has one of Solveig's three integer literals, and that folding is worth 0.19% when the dialect is not in the loop. |
 | [`programs/prose`](programs/prose) | a document written in its own dialect and rendered to text. Found that a form can contain content but not half a line, and that a document is a domain of steps like the other two. |
+| [`programs/basic`](programs/basic) | a BASIC interpreter, with a prompt. The first program that is not a pass over its input, and the one that stated the ceiling: notation is fixed when a file is read, and an interpreter decides everything after that. |
 
 Each carries a table of predictions recorded **before** it was written and a
 *What it found* section written after. Predictions that were wrong stay in,

@@ -85,6 +85,11 @@ DIGEST = programs/digest
 LEDGER = programs/ledger
 PROSE  = programs/prose
 
+# programs/basic -- the sixth, and the first that is not a pass over its input:
+# an interpreter has a counter that can go backwards. Its `.bas` files are data
+# it reads at run time, so nothing here compiles them.
+BASIC  = programs/basic
+
 # The Solveig a `.sol` is about to be handed to, read from the same header its
 # binaries report their version out of. Checked rather than assumed because the
 # failure it prevents is unhelpful: `solas` not being there gives a shell error
@@ -94,7 +99,7 @@ SOLVEIG_VERSION = $(shell grep SOLUM_VERSION \
                     $(SOLVEIG)/solum/include/solum/common.h 2>/dev/null \
                     | tr -d '"' | awk '{print $$3}')
 
-.PHONY: all test sanitize run examples ember grammar digest ledger prose \
+.PHONY: all test sanitize run examples ember grammar digest ledger prose basic \
         check install uninstall dist clean
 
 # Without this, make treats a generated .sol as an intermediate and deletes it
@@ -102,7 +107,7 @@ SOLVEIG_VERSION = $(shell grep SOLUM_VERSION \
 # somebody reaches for when the generated code is what they need to read.
 .SECONDARY: $(EXAMPLE_SOLS) $(EMBER)/emberc.sol $(EMBER)/emberc.sob $(EMBER_ASM) \
             $(GRAMMAR_SOLS) $(DIGEST)/sha256.sol $(LEDGER)/ledger.sol \
-            $(PROSE)/note.sol
+            $(PROSE)/note.sol $(BASIC)/basic.sol
 
 all: $(BIN)/proto
 
@@ -194,7 +199,8 @@ run: examples/vectors.sob
 # test sees -- valid-looking Solveig that Solveig rejects, or accepts and reads
 # differently -- and the only witness to that is the real compiler.
 test: $(BIN)/proto $(TEST_BINS) $(EXAMPLE_SOBS) $(EMBER_BINS) $(GRAMMAR_SOBS) \
-      $(DIGEST)/sha256.sob $(LEDGER)/ledger.sob $(PROSE)/note.sob
+      $(DIGEST)/sha256.sob $(LEDGER)/ledger.sob $(PROSE)/note.sob \
+      $(BASIC)/basic.sob
 	@for t in $(TEST_BINS); do echo "-- $$t"; $$t || exit 1; done
 	@for e in $(EXAMPLE_SOBS); do echo "-- $$e"; \
 	    $(SOLVEIG)/bin/solvm $$e > /dev/null || exit 1; done
@@ -211,6 +217,12 @@ test: $(BIN)/proto $(TEST_BINS) $(EXAMPLE_SOBS) $(EMBER_BINS) $(GRAMMAR_SOBS) \
 	@echo "-- $(PROSE)/note.sob"
 	@$(SOLVEIG)/bin/solvm $(PROSE)/note.sob \
 	    | diff -u $(PROSE)/prose.expected - || exit 1
+	@echo "-- $(BASIC)/basic.sob"
+	@{ $(SOLVEIG)/bin/solvm $(BASIC)/basic.sob $(BASIC)/examples/fizzbuzz.bas; \
+	   $(SOLVEIG)/bin/solvm $(BASIC)/basic.sob $(BASIC)/examples/primes.bas; \
+	   printf 'Ada\n36\n' \
+	     | $(SOLVEIG)/bin/solvm $(BASIC)/basic.sob $(BASIC)/examples/greet.bas; \
+	 } | diff -u $(BASIC)/basic.expected - || exit 1
 	@echo "all tests passed"
 
 # The suite under AddressSanitizer and UBSan, which is a separate build rather
@@ -250,6 +262,17 @@ $(PROSE)/note.sob: $(PROSE)/note.sol | check
 prose: $(PROSE)/note.sob
 	@$(SOLVEIG)/bin/solvm $(PROSE)/note.sob
 
+$(BASIC)/basic.sol: $(BASIC)/basic.pro $(BASIC)/interp.pro $(BIN)/proto
+	@$(BIN)/proto --map $< -o $@
+
+$(BASIC)/basic.sob: $(BASIC)/basic.sol | check
+	@$(SOLVEIG)/bin/solas $< -o $@
+
+# With a file it runs it; with none it is a prompt. basic.expected is worked out
+# from the three `.bas` files by hand and not captured from a run.
+basic: $(BASIC)/basic.sob
+	@$(SOLVEIG)/bin/solvm $(BASIC)/basic.sob $(BASIC)/examples/fizzbuzz.bas
+
 # The dialects go in beside the binary, and nothing looks for them there.
 #
 # Solveig's binaries are told their library path at build time and search it, so
@@ -286,6 +309,7 @@ clean:
 	rm -rf $(EMBER)/examples/*.dSYM
 	rm -f $(GRAMMAR_SOLS) $(GRAMMAR_SOLS:.sol=.sol.map) $(GRAMMAR_SOBS)
 	rm -f $(LEDGER)/ledger.sol $(LEDGER)/ledger.sol.map $(LEDGER)/ledger.sob
+	rm -f $(BASIC)/basic.sol $(BASIC)/basic.sol.map $(BASIC)/basic.sob
 	rm -f $(PROSE)/note.sol $(PROSE)/note.sol.map $(PROSE)/note.sob
 
 -include $(LIB_OBJS:.o=.d)

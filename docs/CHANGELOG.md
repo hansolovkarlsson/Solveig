@@ -10,6 +10,49 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### `programs/basic` — 2026-09-02
+
+**The sixth program, and the first that is not a pass over its input.** A BASIC
+interpreter — line numbers, `LET`, `PRINT`, `INPUT`, `IF`/`THEN`, `GOTO`,
+`GOSUB`/`RETURN`, `FOR`/`NEXT` — with a program counter that can go backwards,
+an environment outliving every statement, and a prompt when given no file. It
+is the half of [targets.md](targets.md) that page never had a program for: it
+answered a question about a BASIC *compiler* in the abstract on 2026-08-31.
+
+**It stated the ceiling in one sentence where there had been two.**
+`programs/grammar` found that a rule cannot be a form, so a grammar's rules
+become data, and that was read as a limit on **recursion**. It is not. An
+interpreter meets the same wall twice with no recursion in sight — a form per
+statement kind, and an operator for BASIC's `+` — and both for one reason:
+
+> **Notation is fixed when a file is read. An interpreter's every decision is
+> made after that.**
+
+**Which dissolves the two-domain question rather than answering it.** BASIC has
+a real domain of values, `+` meaning add-or-concat, and it never reaches the
+header: the interpreter writes `binop:value(op, a, b)` with `op` a *string from
+the input*, and two `+` survive in 252 lines, both `pc + #1`. **A program can
+contain a domain without being one**, so *steps want forms, values want
+operators* is a taxonomy of domains a dialect can see.
+
+**15 forms, 0 operators, 93 uses**, which makes it the fourth of six programs
+declaring none — and the prediction had said seven or eight forms, wrong by
+half.
+
+**Two things nobody had tested.** A form's word and a message selector do not
+collide: `@syntax step` sits beside six sends of `s:step` and both are right,
+because a selector is never in primary position. And this is the first program
+that **needed hygiene** — `take`'s template temporary `t` against `parseAtom`'s
+local `t`, renamed in the generated source, unnoticed until the findings were
+written.
+
+**`<=` and `>=` have a second customer and the entry is still open.** Five sends
+of `lessOrEqual` and `greaterOrEqual`, in the interpreter's own bounds tests and
+never in BASIC's comparisons, which are a token its lexer reads at run time. The
+count is two for `<=` and one each for `>=` and `!=`, so [ROADMAP.md](ROADMAP.md)
+now records the first time the *one customer is not enough* rule has been
+ambiguous rather than unmet.
+
 ### Closing out — 2026-09-02
 
 **No version, and nothing in the compiler changed.** A last read of every

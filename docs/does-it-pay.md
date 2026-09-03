@@ -2,12 +2,13 @@
 
 *[targets.md](targets.md) names the question this project exists to answer —
 **whether a grammar declared per module is a good idea** — and then leaves it to
-be answered somewhere else. Five programs have answered parts of it, each in its
-own README, each quoting the one before. This is the five of them weighed
+be answered somewhere else. Six programs have answered parts of it, each in its
+own README, each quoting the one before. This is the six of them weighed
 together.*
 
-*Four are tabulated below and the fifth has a section of its own, because it was
-written after this page existed and to answer the question this page ended on.*
+*Four are tabulated below; the fifth and sixth have sections of their own,
+because each was written after this page existed and against the question this
+page ended on at the time.*
 
 Nothing here is new evidence. What is new is that it is in one place, and that
 the numbers were re-measured rather than carried across.
@@ -40,6 +41,7 @@ the design.
 | [`digest`](../programs/digest) — SHA-256 | 17 | 3 | 20 | 96 |
 | [`ledger`](../programs/ledger) — fixed-point decimal | 10 | 6 | 17 | 44 |
 | [`prose`](../programs/prose) — a document | 0 | 7 | 9 | 64 |
+| [`basic`](../programs/basic) — a BASIC interpreter | 0 | 15 | 16 | 252 |
 
 *Lines are non-blank, non-comment. `program` is the module, `dialect` the file
 it uses.*
@@ -49,7 +51,9 @@ The two programs about *another language* declare no operators at all and
 nothing but forms. The two about a *value domain* declare mostly operators.
 `prose` was written afterwards to look for a third case and did not find one —
 it declares no operators and seven forms, and a document turns out to be a
-domain of steps like the other two.
+domain of steps like the other two. `basic` is the fourth with no operators,
+and it is the one that says why the split is not a taxonomy of programs — see
+*The sixth program* below.
 
 That is not a coincidence and it has a name already. `ember` found that the call
 shape and the pattern shape "divide by what the form *is*, not by taste" — a
@@ -181,3 +185,58 @@ five domains and the ceiling is now described rather than guessed at. What no
 program has yet tried is a dialect used by *somebody who did not write it* —
 every dialect here was written by the author of the file that uses it, an hour
 before, and a notation's real cost is paid by the second reader.
+
+---
+
+## The sixth program, and the ceiling stated properly
+
+The five above are all a **pass over an input**: they walk it from one end to
+the other, in the order it is written. [`basic`](../programs/basic) is a BASIC
+interpreter, and it is the first with a program counter that can go backwards,
+an environment outliving every statement, and statements running a number of
+times the source does not say.
+
+**It found the ceiling is one sentence and not two.** `grammar` said a rule
+cannot be a form, so a grammar's rules become data, and that was read as a limit
+on recursion. It is not about recursion. An interpreter meets the same wall
+twice with none in sight:
+
+| what it wants to write | why it cannot |
+| --- | --- |
+| a **form** per statement kind | which kind it is arrives with the input |
+| an **operator** for BASIC's `+` | which operator it is arrives with the input |
+
+> **Notation is fixed when a file is read. An interpreter's every decision is
+> made after that.**
+
+So an interpreter uses the least notation of any program here, and for one
+reason covering both halves of Proto rather than two reasons covering one each.
+
+**And it dissolves the two-domain question rather than answering it.** BASIC has
+a real domain of values — `+` is add-or-concat, exactly what `digest`'s and
+`ledger`'s operator dialects are for. It never reaches the header. The
+interpreter never writes `a + b` on two BASIC values anywhere: it writes
+`binop:value(op, a, b)` where `op` is a *string that came from the input*, and
+each branch is a send that already knows its operation. Two `+` survive in 252
+lines and both are `pc + #1`.
+
+**A program can contain a domain without being one**, and the split above is a
+taxonomy of *domains a dialect can see*. A domain one level down is invisible to
+every header there will ever be.
+
+### What it bought anyway
+
+Fifteen forms used ninety-three times, and the clearest of them is the counter:
+`fallThrough`, `step` and `jump to` are the only places a position moves, so
+two `+` on integers survive in the whole interpreter. **That is locality and not
+enforcement** — nothing stops a hand-written `pc := pc + #2`, where `sha2.pro`
+makes forgetting a mask impossible. The one clear instance of a dialect carrying
+an *invented* rule is still `digest`'s, and it is now one in six.
+
+### And it is the first program that needed hygiene
+
+`take`'s template has a temporary `t`; `parseAtom` has a local `t` and calls
+`take` into it. The generated source renames the template's, so the parser keeps
+its token. **Nobody noticed while writing it**, which is exactly what the
+argument for putting hygiene in with forms in 0.2.0 predicted, and the only
+evidence that argument could ever have.
