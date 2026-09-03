@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### `readFile` answered `""` for every pipe, and reads them whole now — `pending`, 2026-09-03
+### `readFile` answered `""` for every pipe, and reads them whole now — `0514076`, 2026-09-03
 
 **The defect half of
 [6.43](ROADMAP.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers-),
