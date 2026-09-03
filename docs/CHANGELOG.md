@@ -5,6 +5,54 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The refused and trapped halves, and a warning that was filed as a refusal — `7c471f7`, 2026-09-03
+
+**Three kinds, not two, and the scoping had run two of them together.** It
+sketched a single tree of refusals — `scope/ names/ expr/ directives/ limits/` —
+and every one of those is compile-time. But 13 of the 15 commented-out
+demonstrations in `examples/` that the entry counted as the trigger are
+**run-time**: `#2:add(1.5)` and `#7:div(#0)` reach the machine and stop there.
+The two cannot be scored alike. One says *your front end must reject this*; the
+other says *your machine must trap rather than wrap*, which is a claim about a
+second machine that a tree of refusals has nowhere to put.
+
+So `accepted/`, `trapped/` and `refused/`, with **the header saying which**, so
+it stays one tree read one way rather than three read three ways.
+
+**Every refusal carries a `-legal` neighbour** — the same program with the one
+offending thing put right, which must compile and run — and a refusal that has
+none is a failure. Without it a front end that refused everything would score
+full marks on the whole of `refused/`. That is
+[oracle.sh](../programs/oracle.sh)'s `agree/` and `differ/` exactly, borrowed
+first rather than arrived at last.
+
+**The finding: a file that includes itself is a warning, not a refusal.**
+[PRODUCING.md](PRODUCING.md#directives) had it in a three-row table beside `a
+directive must stand alone` and `unknown directive`, both of which reject. A
+self-including file **compiles, leaves with 0, and runs**, the include having
+done nothing. A producer reading that table would implement a rejection; what it
+must implement is noticing the cycle and carrying on — the harder of the two,
+and the one a naive front end gets wrong by not stopping. Corrected, and the
+case is on the accepted side now, which took one new header field: a program
+that warns is neither silent nor stopped.
+
+**The other ten refusals fire exactly as documented**, each triggered before its
+case was written.
+
+**And the standard-error rule got stronger while that was being settled.**
+Silence is now checked in both directions — a case claiming it must be silent,
+one claiming a diagnosis must produce one — so the field is a claim rather than
+a waiver; and what the *compiler* said on the way past counts with what the
+machine said, which is what makes a warning visible at all. That made the 42
+cases already there prove something they had not: **a clean program compiles
+silently**.
+
+**89 cases** — 45 accepted, 29 refused (14 refusals, 14 neighbours, and one
+included file that is a case in its own right), 15 trapped. Every expected
+output still written from the documentation before it was run, and the five new
+failure modes proved on a deliberately broken tree. What is left is the five
+65,535 limits, where a case at N would be a file of that many lines.
+
 ### The conformance corpus runs in `make test`, first — and `test_cli` is 95% of the suite — `e5470bd`, 2026-09-03
 
 **A corpus a second implementation is invited to score itself against has to be

@@ -114,7 +114,46 @@ The conclusion very likely survives and the argument does not, and it is left
 standing rather than rewritten, because what wants a decision is the reasoning
 and not the digit.
 
-**The refused half is still not built**, and nothing here changes its estimate.
+### The refused half, built the same afternoon, and the shape the scoping got wrong
+
+The scoping sketched one tree of refusals. Building it found that there are two
+kinds inside that one word, and the corpus had counted them together.
+
+**A refusal is compile-time and a trap is run-time.** `scope`, `names`, `expr`,
+`directives` and `limits` are all the front end's business — `solas` rejects and
+nothing runs. But the 15 commented-out demonstrations in `examples/` that the
+entry counted as the trigger split **13 run-time to 2 compile-time**:
+`#2:add(1.5)` and `#7:div(#0)` reach the machine and stop there. One says *your
+front end must reject this*, the other says *your machine must trap rather than
+wrap*, and the second is a claim about a second machine that a tree of refusals
+cannot hold. Three directories, then, with the header saying which kind a case
+is, so the tree is still read one way.
+
+**Every refusal carries its legal neighbour.** The same program with the one
+offending thing put right, which must compile and run; a refusal without one is
+a failure. Otherwise a front end that refuses everything scores full marks on
+the whole of `refused/`, which is the hole in every corpus of rejections. It is
+`oracle.sh`'s `agree/` and `differ/` arrangement, and it was the first thing the
+design took rather than the last.
+
+**And the corpus found something, which the accepted half had not.** A file that
+includes itself is a **warning**, not a refusal — it compiles, leaves with 0,
+and runs with the include having done nothing. PRODUCING.md had it in a table
+beside two rules that reject, under a heading about the rules `solas` enforces.
+A producer reading that would implement a rejection; what it has to implement is
+noticing the cycle and carrying on, which is the harder half and the one a naive
+front end gets wrong by not stopping.
+
+That took one new header field. A program that warns is neither silent nor
+stopped, so `stderr: expected` says something is coming without saying what —
+and settling it made the rule better in a way that was not the point: silence is
+checked in **both** directions now, so the field is a claim rather than a waiver,
+and the compiler's output counts with the machine's. The 42 cases already there
+picked up a guarantee they had not had, which is that a clean program compiles
+silently.
+
+**89 cases.** What is left is the five 65,535 limits, where a case at N would be
+a file of that many lines, and they stay a generator's business.
 
 ---
 
