@@ -2924,9 +2924,13 @@ with by something that was only watching for errors. And an error raised **insid
 the handler** is not caught by that handler — it propagates, like any other
 failure.
 
-The handler is checked when it is run, not when `onError` is sent, so
-`{ #1 }:onError(#2)` is quiet when nothing fails. That is how every block
-argument here behaves: `false:ifTrue(#5)` says nothing either.
+The handler is checked **when `onError` is sent**, not when it is run, so
+`{ #1 }:onError(#2)` is refused even though nothing failed and the handler was
+never going to run. That is how every block argument here behaves —
+`false:ifTrue(#5)` is refused too — and [Control flow](#control-flow) says why:
+checking on the way into the block would make the complaint depend on the data,
+so a mistyped argument would be correct for exactly as long as the receiver kept
+coming out false.
 
 ### Cleaning up regardless
 

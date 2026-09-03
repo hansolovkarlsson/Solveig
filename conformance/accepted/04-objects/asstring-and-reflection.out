@@ -1,0 +1,13 @@
+point(3, 4)
+point(3, 4)
+[point(3, 4)]
+here: point(3, 4)
+#7
+#7
+true
+false
+true
+['x, 'y]
+#3
+#4
+['x, 'y, 'sum, 'asString]

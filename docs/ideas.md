@@ -56,7 +56,7 @@ marked as a sketch.
 | Infix operators, `@expr(a^2 + b/2)` | **Built**, on 2026-08-28 — [scoped in the morning and in by the evening](#infix-arithmetic-as-a-compile-time-notation): arithmetic, then `sin(x)` once *limiting* it turned out to be the expensive half, then comparison and logic, and the name with them |
 | `@expr{...}`, a region that is a block | **Built on 2026-08-29**, the day after it was scoped — [the sentence was tried first and lost](#expr-a-region-that-is-a-block-rather-than-a-group); the entry predicted one hard part and the second was the one that mattered, a notation that silently stopped inlining |
 | Phoenix — a second language whose output Solum uses | **Defer** — the machinery is proven three times over; [the unexplored half](#programs-that-would-press-on-something) is whether a hosted language can publish a *library* rather than a program |
-| A conformance suite for a second implementation | **Half of it has a customer today** — [scoped on 2026-09-03](#a-conformance-suite--a-corpus-a-second-implementation-can-score-itself-against): a corpus of `.sol` with byte-exact answers, run through `SOL_COMPILE`/`SOL_RUN` so a stranger swaps one tool and keeps the other. **Phoenix cannot read `.sol` at all**, which is what settles the unit as *(program, output, status)* rather than a source suite — and what nothing checks today is that a Phoenix chunk computes the right answer, only that it verifies. The negative half is transcription with the trigger already fired: PRODUCING.md documents **eleven refusals of which three are tested** and **eleven chunk limits of which none is**, and `examples/` carries **15 commented-out error demonstrations that nothing runs** |
+| A conformance suite for a second implementation | **The accepted half is built**, on 2026-09-03 — [conformance/](../conformance/README.md), 42 cases scored on their bytes, with both tools taken from `SOL_COMPILE` and `SOL_RUN` so a stranger swaps one and keeps the other. **Phoenix cannot read `.sol` at all**, which is what settles the unit as *(program, output, status)* and makes the `.out` file the thing a producer uses. **Every answer was written from the documentation before it was run and 40 of 42 held**, both misses being the author's arithmetic — so what it found is beside it: a REFERENCE.md paragraph that was wrong about `onError` in both halves, and two things that are unspecified rather than wrong. [The scoping](#a-conformance-suite--a-corpus-a-second-implementation-can-score-itself-against) has the shape; the refused half is still transcription, with eleven documented refusals of which three are tested and eleven chunk limits of which none is |
 | Programs that would press on something — Pascal, predicate logic, a parser toolkit, `tail`, and [which Unix tool next](#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31) | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would. **So was `sha256sum`, on 2026-08-31**, the first off the Unix survey and the first program here with no I/O in its inner loop: [the prediction held in both halves](#it-was-written-on-2026-08-31-and-the-prediction-held-in-both-halves) and produced the number it was written for — **208 bytecode instructions a byte, 4.3 ns each, 234M a second**. **And `diff` on 2026-09-02**, where [one prediction of four held](#it-was-written-on-2026-09-02-and-one-of-the-four-predictions-held) — the output format, which was the whole difficulty — and the three that did not are more useful than the one that did |
 | Networking, and sending code to a running machine | **The first half is built**, on 2026-08-29 — [extensions/net](../extensions/net/README.md), five messages, and the waiting question answered with a timeout rather than a block; [the second half](#networking-and-sending-code-to-a-machine-that-is-already-running) is untouched and still needs 3.4, 6.32 and a proxy |
 | SQLite, SDL2, GTK | **One project, not three** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); GTK and SDL2 fire that trigger and SQLite does not, and wanting *both* toolkits is what settles the mechanism |
@@ -6199,6 +6199,67 @@ wrote a demonstration for — evaluation order, the boundaries, and the errors.
    a thing they will pin. The recommendation is to promise nothing beyond what
    `.sob` promises — the format has no compatibility window and this should not
    invent one — and to say so in the README rather than leave it inferred.
+
+#### Built on 2026-09-03 — the accepted half, and what it did and did not find
+
+[conformance/](../conformance/README.md), 42 cases in eight directories, with
+`run.sh` taking both tools from the environment: `SOL_COMPILE` and `SOL_RUN`,
+each a template with `%s` where a path goes. A second front end sets the first, a
+second machine sets the second, and a producer that emits bytecode from another
+language sets both and translates — which is the case the two-file shape exists
+for, since a `.out` file is an answer and a program with assertions in it is not.
+
+**Every expected output was written from the documentation before it was run**,
+which is the only arrangement under which a corpus like this can find anything:
+recording what an implementation prints produces a file that agrees with it by
+construction and can never fail. 40 of the 42 held on the first run. **Both that
+did not were the author's arithmetic** — `@expr( #1 + #2 = #3 )` written down as
+false, and `"{{}}"` read as `{}` where the documented rule gives `{}}`.
+
+**So the corpus found nothing, and that is the finding.** Every claim it asked
+the reference for was true, including the ones nobody had run: the floored
+division's four sign cases, the shift that agrees with it, `split` never dropping
+a piece, the format spec's flag order, and the three literal limits, each of
+which was confirmed to accept N and refuse N+1 rather than being taken from the
+page.
+
+**What it did find is beside it rather than in it, and there were three.**
+
+1. **REFERENCE.md was wrong about `onError` in both halves of one paragraph.**
+   *"The handler is checked when it is run, not when `onError` is sent, so
+   `{ #1 }:onError(#2)` is quiet when nothing fails. That is how every block
+   argument here behaves: `false:ifTrue(#5)` says nothing either."* Neither is
+   true — both are refused — and [Control flow](REFERENCE.md#control-flow) in the
+   same document says at length why they must be, that being the change this
+   paragraph predates. Corrected. It is the exact shape the suite exists to catch
+   and the checker could not: a sentence, in prose, contradicted by another
+   sentence in the same file.
+2. **The order arguments are evaluated in is unspecified.** A second
+   implementation has to pick one and nothing says which. Not a case, because
+   there is nothing to score; it wants a sentence in the reference first.
+3. **The 256-frame ceiling is not a language fact.** How deep a program can
+   recurse depends on what each construct costs in frames — an inlined `ifElse`
+   costs none, a send costs one — so a case pinning the deepest working recursion
+   would score an implementation's accounting. Measured at 252 levels for one
+   shape, and deliberately not written down as a case.
+
+**The harness was proved able to fail**, which is the rule this page applies to
+every check: a deliberately broken tree fires all seven of wrong output, missing
+`.out`, missing header, an unknown `varies`, a compile refusal, a wrong exit
+status and anything on standard error, and the run leaves with 1. Pointed at a
+machine that runs nothing, all six lexis cases fail; pointed at the real
+binaries by absolute path, all six pass. Both directions, because a harness that
+only ever passes is the decoration case with an extra step.
+
+**Call 2 is still open and is now a smaller question than it looked.** `make
+test` runs the C binaries and nothing else — `expect.sol` is not in it either —
+so wiring this in is a decision about what that target is for rather than a line
+to add. The suite needs no network and takes about two seconds.
+
+**The refused half is not built**, and nothing above changes its estimate: the
+eleven scope rules and the eleven limits are still tabulated in PRODUCING.md with
+their triggering programs, and the three literal limits now have a confirmed N+1
+apiece waiting for a corpus to hold them.
 
 ## Recommended against
 

@@ -187,6 +187,35 @@ this repository bumps the version, and the fix is always to rebuild rather than
 to migrate. [BYTECODE.md](BYTECODE.md) records every version's contents, and the
 changelog names the release that moved it.
 
+## Checking yourself against the answers
+
+Everything above says what to *emit*. It says nothing about whether what you
+emitted computes the right thing, and the verifier accepting a chunk is not that
+claim — it is the claim that the chunk is well formed.
+
+[conformance/](../conformance/README.md) is the other half: a corpus of programs
+with their exact output, run by a harness that takes the tools from the
+environment.
+
+```sh
+./conformance/run.sh                          # against the binaries here
+SOL_COMPILE='mycc %s -o %s' ./conformance/run.sh   # against your front end
+SOL_RUN='mymachine %s' ./conformance/run.sh        # against your machine
+```
+
+**A producer emitting bytecode from another language sets both and translates.**
+The corpus cannot be input to you — you do not read `.sol` — so what you use is
+the `.out` file beside each case, which is the answer. That is how the
+[NBS Minimal BASIC suite](../programs/basic/conformance.sh) is used here too,
+and it is why a case is a program and its output rather than a program with
+assertions in it.
+
+Two things it deliberately does not check. **No case is a program that must be
+refused**, so nothing above this line is scored by it — the limits appear only
+at N, never at N+1. And **no case compares the wording of a failure**, since
+that is a thing an implementation chooses; where an error's text is compared it
+is because the *program* supplied it.
+
 ## Two things that are easy to get wrong
 
 **`#[` is one token.** The `[` must follow the `#` immediately, the way a digit
