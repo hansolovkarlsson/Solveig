@@ -11,6 +11,113 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-03 (closing) — seventeen commits, and three times the answer was where a thing was filed
+
+One entry below this one, in ten parts, and this is the account of the whole
+day. Seventeen commits, 169 files added and 15 changed, one suite that did not
+exist this morning, one roadmap entry closed and one opened, and a single
+primitive changed in shipped C.
+
+### What shipped
+
+**[conformance/](../conformance/README.md), 90 cases in three kinds.** A corpus
+another implementation can score itself against, run by a harness that takes
+both tools from `SOL_COMPILE` and `SOL_RUN`. It is in `make test`, first.
+
+**[tests/test_documents.c](../tests/test_documents.c)**, holding the two checks
+that hold this repository against itself, moved out of `test_cli.c`.
+
+**`readFile` reads a pipe**, which closed
+[6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done)
+and opened [6.45](ROADMAP.md#645-a-pipe-cannot-be-taken-in-bounded-pieces).
+
+**The order things are evaluated in is written down** — receiver first, then
+left to right — measured before it was stated, and scored by a case.
+
+### The day's shape: three times, the answer was a filing question
+
+That is the thread, and it was not visible until the third one.
+
+**The conformance corpus.** The scoping sketched one tree of refusals. Building
+it found two kinds inside that one word: a refusal is the front end's business
+and a **trap** is the machine's, and 13 of the 15 demonstrations in `examples/`
+that the entry counted as its trigger are the second kind. Filing them together
+would have meant scoring a second machine's arithmetic with a rule about a
+second compiler's parser.
+
+**The eighty seconds.** `test_cli` was 79.75 of an 84-second suite, and the
+obvious reading is that a test is slow. 54 of those seconds were `expect.sol`
+over the documentation — filed there because it *runs the binaries as a shell
+would*, which is a fact about how it runs and not about what it checks. Nothing
+got faster when it moved. The cost is attached to the thing that has it, which
+is what let the Makefile's *ninety seconds into a suite that takes eight* be
+re-decided against a real number.
+
+**6.43.** Both clauses of its title closed in one change, and the thing still
+wanted was a *second customer's* want recorded inside its body. Ticked off, it
+would have survived only as four paragraphs in the file whose premise is that
+nothing there is still wanted. The roadmap is read for what is open; COMPLETED
+for why something was done; a live want in the second is invisible to both.
+
+**None of the three was a question about behaviour.** Each was a question about
+which drawer a thing goes in, and each one was hiding something: a scoring rule,
+a measurement, and a want.
+
+### What the corpus found, and what it did not
+
+**It found nothing in the implementation, and that is the result.** 42 cases
+written from the documentation before they were run, 40 held first time, and
+both misses were my arithmetic. The floored division's four sign cases, `split`
+never dropping a piece, the format spec's flag order, three literal limits at
+exactly N — all true as written, including the ones nothing had ever run.
+
+**It found two things in the documentation**, which is where the checker cannot
+look. `REFERENCE.md` was wrong about `onError` in both halves of one paragraph,
+contradicted by another section of the same file. `PRODUCING.md` filed a
+self-including file as a refusal when it is a **warning** — it compiles, leaves
+with 0, and runs, so what a front end must get right is noticing the cycle and
+carrying on rather than rejecting the program.
+
+Both are prose about a program that would fail, which is exactly the shape a
+fenced block cannot carry and `expect.sol` therefore cannot execute.
+
+### Three mistakes, all mine, all found by a check
+
+**I said twice that `expect.sol` was not in `make test`.** It is, inside
+`test_cli` — which is precisely why the eighty seconds were where they were. I
+read the target and not the tests it runs. The journal had said so on an earlier
+page.
+
+**I guessed an anchor instead of deriving it.** Seventeen links to 6.43 had to
+follow it into COMPLETED.md, and the one I wrote had four dashes where the slug
+has three. The link check rejected every one of them.
+
+**I skipped step 4 of the ship pattern**, the count re-sync, and then missed the
+failure by checking with `expect` over `docs` alone — which *defers* the counts,
+because they are facts about the whole set, and says so in the report I read
+past. `make test` caught it. The right invocation is the one `test_documents.c`
+uses.
+
+The pattern in all three is the same and worth naming: **each was a claim I
+could have checked in one command and did not**, and each was caught by
+something that ran anyway. That is the argument for having the checks rather
+than for being careful.
+
+### What is open
+
+[6.44](ROADMAP.md#644-an-instant-cannot-be-written-in-local-time), one customer
+and not urgent. [6.45](ROADMAP.md#645-a-pipe-cannot-be-taken-in-bounded-pieces),
+marked **decision**, because the obvious spelling is taken — `readFile` refuses
+a range on a stream on purpose, so a bounded read of a pipe is a different
+question from a bounded read of a file. The shape is clear; the name is not
+mine.
+
+And `test_documents` spends 59% of its wall clock waiting on subprocesses. It is
+a separable job now rather than an urgent one, which is the whole benefit of
+having moved it.
+
+---
+
 ## 2026-09-03 — a corpus written from the documentation, which held
 
 The question was what a library of `.sol` code for somebody writing their own
