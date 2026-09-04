@@ -262,3 +262,66 @@ as outstanding.
 what run 1 cost and that is worth keeping. What it needed was the tense it now
 has: **it was the thing to fix first, it was fixed, and *What the second run
 found* is where that is recorded.** [POSTMORTEM.md](POSTMORTEM.md) 25.
+
+## The third run, and the thing it is aimed at
+
+**Predictions recorded before it, as both earlier runs' were.** Committed here
+before the reader is given anything.
+
+**0.16.0 shipped on an argument and no measurement, and this is the
+measurement.** The hole-kind diagnostic now carries `wrap it in braces -- '{'
+before this and '}' after it`. Prediction 9 — *the message names the hole's kind
+and says nothing about what to do* — is **untested twice**: run 1's task needed
+no cascade, and run 2's reader was warned off by `lib/clike.pro`'s eleven lines
+before they could reach it. Two runs agree on why, and it is the same reason:
+**nobody reaches it.**
+
+### Reaching it without rigging it
+
+The tempting design is to hand the reader a dialect with the warning paragraph
+removed. **That would be measuring a file written for the measurement**, and the
+run would prove only that an undocumented limitation costs something, which
+nobody doubts.
+
+So the dialect is held exactly as it ships and the *route* changes. `else if` is
+not the only way into a block hole — the ordinary one is a **single-statement
+body with no braces**, which is what a C programmer writes without thinking:
+
+```c
+if (n % 3 == 0) printf("%d\n", n);
+```
+
+`lib/clike.pro` declares `if <c> <t: block>` and `while <c> <b: block>`, so a
+bare send in that position fails the same way `else if` does. **And what those
+two declarations say about it is different in kind from what `else` says:**
+
+| | |
+| --- | --- |
+| the `else` form | **Eleven lines, at the declaration.** Names the silent `{ { … } }` failure, shows the `#54` where `#40` was right, spells the fix. Stopped run 2 before it started. |
+| the `if` and `while` forms | **One design note**, saying the body *is* a `block` — as the reason two holes may sit adjacent with no word between them. It never says a braceless body fails, and never spells a fix. |
+
+**So run 3 tests the middle case: a limitation *mentioned* at its declaration
+but not *explained*.** Runs 1 and 2 measured the two ends — undocumented, which
+cost run 1 six probes, and explained, which cost run 2 nothing.
+
+### What varies, and what is held
+
+| | |
+| --- | --- |
+| **The task** | Print each `n` from 1 to 15 that is divisible by 3, and each divisible by 5 — a number divisible by both is printed twice. **Two single-statement conditionals inside a loop**, which is the commonest brace-omission site in C. Nothing else about it is interesting, deliberately. |
+| **Everything else** | Held. Same dialect, unmodified. Same four published files plus Solveig's reference. Same isolation, same instruction to keep an untidied log, same no-context proxy. |
+
+### What is predicted before it is run
+
+| | |
+| --- | --- |
+| **12. The braces come off at least once.** | Two one-statement conditionals in a loop is where a C programmer stops typing braces. Predicted: attempt one omits them on at least one, and is refused. |
+| **13. A hole-kind diagnostic is emitted, for the first time in three runs.** | Runs 1 and 2 produced **no diagnostic at any stage**, between them. Predicted: this run produces one, and it is the first any reader of this language has seen. |
+| **14. And this time it says what to do, and that is enough.** | The real prediction 9, restated where it can finally be tested. 0.16.0 put `wrap it in braces` under the error. Predicted: the reader goes **from the message to the fix without opening a document**, and their log shows it. If they open `lib/clike.pro` or the example instead, the prescription did not carry and 0.16.0's argument is weaker than it reads. |
+| **15. The design note does not prevent what the essay prevented.** | Predicted: the `if`/`while` note is not recalled, not cited, and does not stop the failure — **a limitation mentioned is not a limitation explained**, and only the second kind buys anything. That is the sentence run 2 earned, given its boundary. |
+| **16. The example is the real competition, and it argues for braces.** | Every body in `examples/clike.pro` is braced, and both readers so far took their syntax from that example over any table. Predicted: **if 12 is wrong, this is why** — and that is a result about examples rather than about the diagnostic. Written down now so it cannot be a retrofit. |
+| **17. The substrate still costs nothing.** | Run 2 made **zero** `does not understand` probes against run 1's six, after `REFERENCE.md` gained one sentence. Predicted: zero again — which would be that one sentence holding across two readers and two unrelated tasks. |
+
+**The answer is worked out by hand, as the other two were.** Divisible by 3:
+3, 6, 9, 12, 15. Divisible by 5: 5, 10, 15. In order of `n`, with 15 twice:
+**3, 5, 6, 9, 10, 12, 15, 15** — eight lines.
