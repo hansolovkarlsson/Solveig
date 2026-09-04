@@ -11,6 +11,51 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-04 (after the close) — the close-out itself, tested twice
+
+**The day was closed out twice**, and the second pass is why this section
+exists: the first one was a test of the tooling rather than a day's work, and
+it found two things by breaking the repository in a small way.
+
+### A record that turned the suite red
+
+`/day-closeout` writes a standup. It wrote it to `docs/daily-standup.md`, which
+is the obvious place and is wrong here, because
+[programs.md](programs.md) carries a live `docs-documents` count and **`docs/`
+is a counted directory**. A file that had not existed an hour earlier moved the
+number and `make test` went red — caught by re-running it rather than by
+anything in the procedure, which ended at *report and stop*.
+
+**The fault is not the count, and it is not the file.** It is that a record
+which is written from evidence can still be wrong about where it goes, and that
+"I only added a document" is exactly the change a repository which counts its
+documents notices. The rule that came out of it is worth more than the fix:
+**every file created is a file some other part of the tree may be counting**,
+and updating a document is usually safe where adding one is not.
+
+The standup lives in `scratch/` now — gitignored, overwritten each time, and
+outside everything the suite tallies. It is a working note rather than a
+record, which is the same distinction [journal.md](journal.md) and
+[CHANGELOG.md](CHANGELOG.md) draw between why and when, applied one level down.
+
+### And a record it was right not to write
+
+The same run was asked for a postmortem and there is no such file here. **That
+was the correct outcome and not a gap.** Predictions are scored in
+[ideas.md](ideas.md), above the outcome that met them, and two were scored there
+this morning — `gzip -d`'s, which measured the wrong thing, and `unzip -l`'s,
+answered before it was written. A `postmortem.md` created beside that
+convention would have been a second place to look for one thing, which is the
+failure mode this repository spent yesterday naming: **three times the
+interesting question was where a thing was filed.**
+
+Nothing else moved. Nothing closed on the roadmap, nothing shipped, and
+[COMPLETED.md](COMPLETED.md) and the changelog were correct as they stood — an
+honest *this gained nothing today* being the right answer for a record rather
+than a failure to find something to say.
+
+---
+
 ## 2026-09-04 (closing) — twelve commits, a release, and six claims nobody had re-run
 
 Twelve commits, one program, one message, and 0.43.0 cut and published. The day
