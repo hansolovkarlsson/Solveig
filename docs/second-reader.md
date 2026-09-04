@@ -249,3 +249,16 @@ without Smalltalk in their background does not guess `asString`; they get
 `integer does not understand 'toString'` and have nowhere to go. The proxy
 flattered the surface exactly as predicted, and correcting for it is what turns
 the third finding above from an inconvenience into the thing to fix first.
+
+**And that last clause was still standing here on 2026-09-04, sixty lines below
+the run that settled it.** *The thing to fix first* was written about run 1 and
+is true of run 1; run 2 measured the one-line fix at **zero probes** and named
+it *the decisive signpost*. The sentence carries no date and sits last in the
+file, so a reader who reaches the end reaches an open recommendation that was
+closed two sections earlier — and one did, on 2026-09-04, and reported the gap
+as outstanding.
+
+**It is corrected here rather than rewritten**, because the paragraph above is
+what run 1 cost and that is worth keeping. What it needed was the tense it now
+has: **it was the thing to fix first, it was fixed, and *What the second run
+found* is where that is recorded.** [POSTMORTEM.md](POSTMORTEM.md) 25.

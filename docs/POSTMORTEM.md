@@ -9,16 +9,17 @@ shipped. This is the failures.
 
 ## Scope
 
-Twenty-four, from five days, in four cohorts that failed for four different
+Twenty-five, from five days, in four cohorts that failed for four different
 reasons:
 
 - **In the compiler** — eight, five of which were latent from 0.1.0 and 0.2.0.
 - **In the method** — one: a negative control that passed because `make` had
   rebuilt nothing.
-- **In the documents** — seven: three an edit that reported success and changed
+- **In the documents** — eight: three an edit that reported success and changed
   nothing, two where no edit was attempted at all, one where a sweep looked in
-  the files it remembered instead of for the claim, and one where the fix
-  falsified the sentence describing it.
+  the files it remembered instead of for the claim, one where the fix falsified
+  the sentence describing it, and one where a file's closing sentence outlived
+  the section that settled it.
 - **In the programs** — four, found by the first real use of a thing.
 - **In the reasoning** — four, where something true was written down as
   something else and had to be retracted.
@@ -572,6 +573,40 @@ reason [conventions.md](conventions.md) now says so.
 **Found by** a closeout run on an empty day, after being told there was nothing
 to close out.
 
+### 25. A document's last sentence outlived the section that settled it — 2026-09-04
+
+**What.** [second-reader.md](second-reader.md) ends on *correcting for it is
+what turns the third finding above from an inconvenience into the thing to fix
+first* — the substrate documentation gap, written about run 1 and true of it.
+Run 2 measured the one-line fix at **zero probes** and recorded the reader
+calling `REFERENCE.md`'s new section *the decisive signpost*. That is sixty
+lines above the closing sentence, which carries no date and no tense marking it
+as run 1's.
+
+**What it cost.** On 2026-09-04 a session read the file to answer *what is
+outstanding*, reached the end, and reported the substrate gap as the next thing
+to do. It was wrong, and the document is why: the last words in a file are what
+a reader carries away, and these described a state two sections had already
+changed.
+
+**Cause.** The same one as 19, 20 and 21, arriving from a new direction. Those
+are a claim about *another* document going stale. This is a claim about **the
+same document**, overtaken by a section appended below it — the file grew a
+second run and the closing paragraph was not re-read against it.
+
+> 21 said *write what a document read, not what it reports*. The other half is
+> the one this cost: **a recommendation is a claim about the present, so it
+> needs the tense that says when it was made.**
+
+**Fixed** in place, with the run-1 paragraph kept — it is what run 1 cost and is
+worth keeping — and the clause given the tense it needed.
+
+**Found by** a reader acting on the document and being contradicted by the rest
+of it. Not by a sweep: three closeouts on 2026-09-03 grepped `docs/` for stale
+claims and none of them read this file's last paragraph against its own middle.
+**A sweep looks for a claim it can check against something else; this one is
+only wrong against a later section of itself.**
+
 ---
 
 ## In the programs
@@ -760,8 +795,9 @@ where somebody could go back and disagree with it, and somebody did.
 | Checking a prediction instead of asserting it | **1** |
 | Not believing a control that agreed with the code | **1** |
 | Checking a rough edge instead of accepting how it was filed | **1** |
+| Reading a document to act on it, and being contradicted by the rest of it | **1** |
 
-**Two of twenty-four were found by tests**, and one of those two was a broken
+**Two of twenty-five were found by tests**, and one of those two was a broken
 test. Five came from writing programs in the language — four of the six
 programs found one, and the sixth found none — and three more came from reading
 something rather than running it.

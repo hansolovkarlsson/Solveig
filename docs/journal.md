@@ -11,6 +11,176 @@ produced no code because they were decisions.
 
 ---
 
+## 2026-09-04 — the records were right and two of them were read wrongly
+
+**Nothing was designed today.** Four commits, two versions, and every one of
+them was work some document had already written down and nobody had done. That
+is the day's shape and it is worth naming, because it is what a good set of
+records is *for* and it is also how the day's two mistakes happened.
+
+### It opened cold, and the catch-up was wrong
+
+There was no `scratch/daily-standup.md`. 2026-09-03 had been closed out three
+times and the standup was not among what survived, so the way in was `git log`
+and `docs/` — which is what [CLAUDE.md](../CLAUDE.md) says to do, and it worked
+for everything except one item.
+
+**The catch-up reported the substrate documentation gap as the next thing to
+fix. It had been fixed and measured the previous afternoon.**
+[second-reader.md](second-reader.md)'s run 2 put the one-line `REFERENCE.md`
+pointer in front of a reader and got **zero** `does not understand` probes
+against run 1's six. That is in the middle of the file. Its **last sentence**
+still called the gap *the thing to fix first*, undated and present tense, and
+the last sentence is what a reader carries away.
+
+POSTMORTEM 25, and the cohort it joins is the one about documents rather than
+the one about the compiler. It is 19, 20 and 21's failure arriving from a new
+direction: those are a claim about *another* document going stale, and this is a
+claim about **the same document**, overtaken by a section appended below it.
+Three sweeps on 2026-09-03 grepped `docs/` for stale claims and none found this,
+because **a sweep looks for a claim it can check against something else, and
+this one is only wrong against a later paragraph of itself.**
+
+### `CLAUDE.md`, and the line in it that described a document wrongly
+
+The file had been written and left untracked. Committing it turned up its own
+error: it glossed `POSTMORTEM.md` as *predictions scored*, which is not what
+that document is — it is every defect found, what caused it, and what found it,
+and predictions are scored in the journal and in `does-it-pay.md`. The wrong
+gloss sat four lines above the sentence saying each document's own italic note
+outranks anything said about it from outside.
+
+### The README was fixed for the readers who never opened it
+
+Two strangers used this language on 2026-09-03 and **neither opened the front
+page**. That was recorded in [second-reader.md](second-reader.md), again in
+[does-it-pay.md](does-it-pay.md), and a third time in yesterday's journal entry
+noting it was *not on the roadmap and probably should be*.
+
+**A roadmap entry was the wrong shape for it**: the fix is twenty-five lines and
+there was nothing to decide. `README.md` opens with *Where to start* now,
+naming the dialect file, the example and `REFERENCE.md`, then Solveig's
+reference for the library — and it says **not here** in its first two words,
+because a signpost that will not say what it is not is the thing that was
+already wrong.
+
+**Two claims in that new table were wrong on the first draft and were caught by
+checking them.** `examples/clike.pro` was called the shortest complete example
+and is not — `dialect.pro` is 41 lines to its 45. And `lib/clike.pro` was
+credited with explaining each limitation at its declaration, which undersells
+one half and oversells the other: it carries a header note listing what C has
+that it cannot, *and* the eleven lines at the `else` form. Both were rewritten
+to what the files actually are.
+
+### 0.16.0 — a diagnostic that prescribes, on an argument and not a measurement
+
+Both second-reader runs named *a diagnostic that points correctly and prescribes
+nothing* as the next thing to fix. **Neither reached it.** Run 1's task had no
+cascade; run 2's reader was warned off by `lib/clike.pro`'s eleven lines and
+said so unprompted.
+
+So the evidence this entry was waiting for never arrived, and the work was done
+anyway. **That is stated in the commit and in [COMPLETED.md](COMPLETED.md) 17
+rather than dressed up**, because the argument is a generalisation and not a
+measurement:
+
+> A limitation explained where it is declared is not a limitation a reader pays
+> for. It is one its author paid for once — **once per dialect.**
+
+`lib/clike.pro`'s author paid it. The next dialect with a `block` hole has an
+author who has not, and a diagnostic is the only part of this system that
+reaches somebody who has read nothing.
+
+**The restraint is the design.** Only `block` gets a prescription, because
+braces make a block out of anything and the advice is therefore right every
+time; nothing makes a `place` out of `#1`, and a note that prescribed there
+would be advice that fails, which is how a reader learns to skip the notes. A
+check holds that half.
+
+**And the placement turned out to be part of the fix.** Put third, the note
+printed the reader's own line a third time — `diag.c` drops a repeated caret
+only for a note about the span the line above underlined. Put second, between
+the error and the declaration note, it prints once and the fix sits beside the
+problem.
+
+**The advice was run rather than assumed**: `else { if (…) { … } else { … } }`
+gave `low`, `mid` and `high` for `n` of 1, 5 and 10 — checked against the
+`{ { … } }` trap the dialect warns about, which fails silently and would have
+made the prescription worse than none.
+
+### 0.17.0 — the rough edge that was not cosmetic
+
+`README.md`'s known-gaps table had carried this for four days:
+
+> A `@use` path is not normalised. `examples/../lib/control.pro` is what a
+> diagnostic shows, and two spellings of one file are two files.
+
+**The first clause is about display. The second is about identity, and nobody
+had asked what else compared those strings.** Both `@use` rules did:
+
+- **A diamond spelled two ways warned that a file collided with itself** — one
+  path named as the offender, the same file's other spelling named as where it
+  was declared. Correct code, false warning, and what it cost is confidence in
+  the collision warnings, which are the 0.4.0 feature the composition story
+  rests on.
+- **A cycle spelled two ways was not reported as a cycle.** Every hop appends
+  another `./`, so no path repeats and the check never fires. What stopped it
+  was the 64-deep recursion limit: the wrong diagnostic under sixty-four lines
+  of `././././` trail.
+
+**The limit is what stood between this and a hang, and that is why the defect
+was quiet.** A guard that turns an infinite loop into a bad error message makes
+a bug survivable and therefore invisible. It held exactly as designed and it
+hid the thing it was protecting against.
+
+A `ProtoSource` carries `identity` beside `path` now — `realpath`, falling back
+to a copy where there is nothing on disk to resolve. **Display is unchanged and
+deliberately so**: the cycle error still names `./././a.pro`, because that is
+what the file says and where somebody can look. Only the two comparisons moved.
+
+The fix also produced a leak in the same hour it was written — `fopen`'s failure
+path had its own copy of the cleanup and did not gain the new field when the
+struct did. `proto_source_read` has one exit now, which is the argument against
+remembering.
+
+### What the two mistakes have in common
+
+One document said a fixed thing was open; another said an open thing was
+cosmetic. **Both were read as summaries and both were right about the facts and
+wrong about the state.** Checking each against what it described took minutes
+and neither had been checked in four days of sweeps.
+
+> **A sweep verifies that a document agrees with the tree. Neither of today's
+> two disagreed with anything — they disagreed with what the reader would do
+> next.**
+
+Which is the one thing this day suggests changing about the ritual, and it is
+not written into [conventions.md](conventions.md) yet because one day is an
+anecdote and this project's own rule is that one customer is not enough.
+
+### The numbers, written last
+
+**Four commits, and two versions — 0.16.0 and 0.17.0.** `fe94694..d90f366` went
+to `origin/main` through the day, and the tree was clean and level with the
+remote before this entry was written. **This entry is not one of the four**: the
+closeout writes the records and stops, so the journal, the postmortem and the
+roadmap are uncommitted as this is written and the fifth commit is somebody
+else's to make. Yesterday's numbers were wrong twice in one day for the opposite
+reason — a count that included itself before it existed.
+
+The suite went from **61, 6, 69 and 11** — 147 — to **63, 6, 69 and 13** — 151.
+Four new checks, two per version, and all four are negative controls that were
+watched failing against the unfixed compiler with `make clean` between the
+builds. 0.17.0 was additionally run clean under `make sanitize`.
+
+**Two defects, and neither came from a test.** One in the compiler, found by
+checking how a rough edge had been filed; one in the documents, found by a
+reader acting on one and being contradicted by the rest of it. **That is four
+days running with nothing found by the suite**, which is now long enough to be
+the pattern rather than a run of luck — and both of today's have new rows in the
+tally, which is the fourth day in a row that has been true too.
+
+
 ## 2026-09-03 — an empty day that did not stay empty: a link, a defect, and the second reader
 
 **This entry was written at midday and said the day had no work in it.** That

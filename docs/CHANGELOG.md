@@ -10,6 +10,32 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### Closing out 2026-09-04 — a document that outlived its own correction
+
+**No version, no code, and not committed by the closeout itself.**
+
+**One defect, and the closeout found it.** [second-reader.md](second-reader.md)
+ends on *the thing to fix first*, about the substrate documentation gap. That
+was true of run 1. Run 2 measured the one-line fix at **zero** probes sixty
+lines above it, and the closing sentence carries no date and no tense. **A
+session read the file cold this morning and reported the gap as outstanding.**
+Corrected in place, with run 1's paragraph kept — POSTMORTEM 25.
+
+**It is 19, 20 and 21's failure from a new direction.** Those are a claim about
+*another* document going stale. This is a claim about **the same document**,
+overtaken by a section appended below it — and three sweeps yesterday missed it
+because a sweep checks a document against something else, and this one is only
+wrong against a later paragraph of itself.
+
+**[ROADMAP.md](ROADMAP.md) gained two things it did not have.** The alternation
+entry now records that 0.17.0's prescription puts the workaround at the failure,
+so *once per dialect* becomes once. And the rough-edges list carries a warning
+that **its filed severities are guesses**: the fifth row on that list, checked
+today, was a compiler defect filed as cosmetic.
+
+The suite is unchanged at **63, 6, 69 and 13** — 151, green before the writing
+and after it.
+
 ### A file is not its path — 0.17.0, 2026-09-04
 
 **`@use` decided whether it had already read a file by comparing path strings**,

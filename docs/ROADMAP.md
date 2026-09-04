@@ -60,6 +60,16 @@ dialect file had not spent a paragraph on it.*
 > **A limitation explained where it is declared is not a limitation a reader
 > pays for. It is one its author paid for once.**
 
+**And since 0.17.0 the compiler says it too.** *Once* was once **per dialect**:
+`lib/clike.pro`'s author paid it, and the next dialect with a `block` hole has
+an author who has not. The hole-kind diagnostic now carries `wrap it in braces
+-- '{' before this and '}' after it`, which is the workaround this entry is
+about, prescribed at the failure by the only part of the system that reaches a
+reader who has read nothing. **It does not make `else if` work and it is not a
+step towards alternation** — it makes the wall say how to climb it. See
+[COMPLETED.md](COMPLETED.md) 17, which argues why only `block` gets a
+prescription.
+
 **So this drops below where it was**, and for the fourth time an entry here has
 been answered by a customer declining to need it — the first time by a customer
 being *told* in advance rather than by one working it out. What would move it is
@@ -292,6 +302,22 @@ syntax being uncopyable while Proto's operators stay declarable.** It means
 closed across 0.11.0 to 0.13.0, and this one and `@expr` left.
 
 ## Rough edges
+
+**Filed severities on this list are guesses until somebody checks one.** A
+fifth row lived in `README.md` saying a `@use` path is not normalised, that
+`examples/../lib/control.pro` is what a diagnostic shows, and that two spellings
+of one file are two files — filed as cosmetic, with `realpath` already named as
+the fix. It was checked on 2026-09-04 and the second clause was the whole
+defect: the same string comparison decided whether a file had been read, so a
+diamond spelled two ways warned that a file collided with itself and a cycle
+spelled two ways was reported as *nested more than 64 deep*.
+[POSTMORTEM.md](POSTMORTEM.md) 24.
+
+**The sentence was right and the severity was wrong**, because the entry
+described what a diagnostic *shows* and never asked what else compared those
+strings. **None of the four below has been checked that way**, and what makes a
+rough edge cheap to leave is exactly what makes it cheap to file without
+looking.
 
 | | |
 | --- | --- |
