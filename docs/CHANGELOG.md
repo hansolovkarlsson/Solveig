@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### gzip -d, and the window that was not the cost — `pending`, 2026-09-04
+### gzip -d, and the window that was not the cost — `563a508`, 2026-09-04
 
 **[programs/gzip.sol](../programs/gzip.sol) is the twenty-second program**, and
 the last of the three the Unix survey named. It inflates a gzip stream: a bit
