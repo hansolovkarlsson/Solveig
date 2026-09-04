@@ -11,9 +11,9 @@ that a document was still true. That is what this is for.
 
 ---
 
-## 2026-09-04 (last) — 6.45, and a name that took three goes
+## 2026-09-04 (last) — 6.45, and a name that took four goes
 
-The roadmap has one entry open on it. `system:readPiece(#n)` answers up to n
+The roadmap has one entry open on it. `system:readUpTo(#n)` answers up to n
 bytes of standard input exactly as they were sent, and nil at the end, and
 [6.45](COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done) is in
 COMPLETED.md.
@@ -32,28 +32,40 @@ That is the mechanism doing its job rather than an obstruction: the entry said
 in as many words that the obvious spelling was taken and that the name was not
 the document's to pick.
 
-### Three names, and the two that were dropped were dropped on evidence
+### Four names, and the three that were dropped were dropped on evidence
 
-**`readSome`** was the proposal. **`readBuffer`** came back and was argued
-against on two checkable grounds: there is no buffer type in this language —
-every use of the word in the reference is about the machine's own plumbing —
-and the word already names the four-kilobyte window in `stdin.c` that the
-message reads out of, so `readBuffer(#65536)` asks the buffer for sixteen times
-what the buffer holds. **`readPart`** came back next and was worse in the one
-way that mattered: `part` is the *file* side's noun already, in
-`test_a_range_reads_part_of_a_file` and in `sha256sum.sol`, which is exactly
-the distinction 6.45 existed to protect. **`readPiece`** was free, and is what
-shipped.
+**`readSome`** was the proposal, and says only that the answer may be partial.
+**`readBuffer`** came back and was argued against on two checkable grounds:
+there is no buffer type in this language — every use of the word in the
+reference is about the machine's own plumbing — and the word already names the
+four-kilobyte window in `stdin.c` that the message reads out of, so
+`readBuffer(#65536)` asks the buffer for sixteen times what the buffer holds.
+**`readPart`** came back next and was worse in the one way that mattered:
+`part` is the *file* side's noun already, in `test_a_range_reads_part_of_a_file`
+and in `sha256sum.sol`, which is exactly the distinction 6.45 existed to
+protect. **`readPiece`** was free, and it shipped, and it was wrong — a free
+noun is not the same as the right one. `piece` says the answer is part of
+something and says nothing about `n`.
 
-**Both objections were checks rather than opinions**, and that is the part worth
-keeping. *There is no buffer type* and *part is taken* are one grep each, and
-without running them the argument would have been two people's ears against
-each other.
+**`readUpTo` is what it is called, and the argument was in the language the
+whole time.** `upTo` is already a message here: `random:upTo(#n)` answers *an
+integer from `#1` to `#n`, both included*. So `upTo` already means an inclusive
+upper bound on the magnitude of the answer, which is exactly what this message's
+argument is — `readUpTo(#4096)` is to a string what `upTo(#6)` is to an integer.
+
+**And I had argued against it**, on the ground that it was *a preposition, which
+nothing else in `system:` has*. That was not a matter of taste, it was a claim
+about the vocabulary, and one grep would have shown it false.
+
+**Three of the four objections were checks rather than opinions**, and the
+fourth — mine, against the name that won — was an opinion wearing a check's
+clothes. *There is no buffer type*, *`part` is taken* and *`upTo` is already
+here* are one grep each. The one I did not run is the one I got wrong.
 
 ### The measurement I nearly published backwards
 
 The entry is about memory, so the closing evidence had to be a memory number,
-and the first one said the opposite of the truth: a `readPiece` loop wanting
+and the first one said the opposite of the truth: a `readUpTo` loop wanting
 37,887 bytes where reading the whole pipe wanted 5,119.
 
 **`--memory` reads the figure after a collection**, which is written down in
@@ -80,6 +92,13 @@ correctly, by a tool that is behaving exactly as documented, and still answer a
 different question from the one asked — and the only thing that catches it is
 knowing what the number would look like if the claim were true. 5,119 bytes to
 hold a 400 KB file was not a surprising result, it was an impossible one.
+
+**And it is the same shape as the name I argued against**, which is why the two
+belong in one entry. A measurement can be taken correctly and answer the wrong
+question; a claim about the vocabulary can be made confidently without looking
+at the vocabulary. Both are what
+[refusing to write *because X* until X has been run once](method.md#the-checker-checks-what-it-can-run)
+is for, and both got past it in the same hour.
 
 ### Two decisions nobody asked about
 

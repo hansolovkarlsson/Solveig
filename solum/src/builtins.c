@@ -4702,7 +4702,7 @@ static SolValue prim_system_read_line(SolVM *vm, SolValue self, SolValue *args, 
     return SOL_STRING_VAL(text);
 }
 
-/* `system:readPiece(#n)` -- up to n bytes of standard input, and nil at the end.
+/* `system:readUpTo(#n)` -- up to n bytes of standard input, and nil at the end.
  *
  * ROADMAP 6.45. `readLine` is fast and lossy -- it drops the terminator and
  * folds `\r\n` -- and `readKey` is exact and a byte at a time, measured at
@@ -4737,13 +4737,13 @@ static SolValue prim_system_read_line(SolVM *vm, SolValue self, SolValue *args, 
  * bytes it is built from live in a static buffer that the collector never
  * sees.
  */
-static SolValue prim_system_read_piece(SolVM *vm, SolValue self, SolValue *args, int argc)
+static SolValue prim_system_read_up_to(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     (void)self;
-    if (!check_argc(vm, "readPiece", argc, 1)) return SOL_NIL_VAL;
+    if (!check_argc(vm, "readUpTo", argc, 1)) return SOL_NIL_VAL;
 
     if (!SOL_IS_INT(args[0])) {
-        sol_vm_runtime_error(vm, "'readPiece' expects an integer count, got %s",
+        sol_vm_runtime_error(vm, "'readUpTo' expects an integer count, got %s",
                              sol_type_name(args[0]));
         return SOL_NIL_VAL;
     }
@@ -4751,13 +4751,13 @@ static SolValue prim_system_read_piece(SolVM *vm, SolValue self, SolValue *args,
     int64_t want = SOL_AS_INT(args[0]);
     if (want < 1) {
         sol_vm_runtime_error(vm,
-            "'readPiece' cannot read #%lld bytes -- ask for at least one",
+            "'readUpTo' cannot read #%lld bytes -- ask for at least one",
             (long long)want);
         return SOL_NIL_VAL;
     }
     if (want > INT_MAX) {
         sol_vm_runtime_error(vm,
-            "'readPiece' cannot read #%lld bytes into a string, which holds %d",
+            "'readUpTo' cannot read #%lld bytes into a string, which holds %d",
             (long long)want, INT_MAX);
         return SOL_NIL_VAL;
     }
@@ -6602,7 +6602,7 @@ void sol_builtins_install(SolVM *vm)
     any_receiver(vm, system, "writeError", prim_system_write_error);
     any_receiver(vm, system, "readLine", prim_system_read_line);
     any_receiver(vm, system, "readKey", prim_system_read_key);
-    any_receiver(vm, system, "readPiece", prim_system_read_piece);
+    any_receiver(vm, system, "readUpTo", prim_system_read_up_to);
     any_receiver(vm, system, "sleep", prim_system_sleep);
     any_receiver(vm, system, "terminalSize", prim_system_terminal_size);
     any_receiver(vm, system, "isTerminal", prim_system_is_terminal);

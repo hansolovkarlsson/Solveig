@@ -1,4 +1,4 @@
-; reading.sol -- reading standard input a line at a time, and a piece at a time.
+; reading.sol -- reading standard input a line at a time, and n bytes at a time.
 ;
 ; Run with:
 ;   ./bin/solas examples/reading.sol
@@ -32,9 +32,9 @@ system:write("b").
 "c":display.                     ; abc
 
 ; ---------------------------------------------------------------------------
-; A piece, for input that is not lines
+; Up to n bytes, for input that is not lines
 ;
-; `readPiece(#n)` answers **up to** n bytes exactly as they were sent, and nil
+; `readUpTo(#n)` answers **up to** n bytes exactly as they were sent, and nil
 ; when the input has ended. It is the reader for input a line is the wrong unit
 ; for -- a compressed stream, say, where a newline is data and dropping it
 ; changes the bytes.
@@ -45,14 +45,14 @@ system:write("b").
 ; `readLine` gives, and an answer that is not nil always holds at least one
 ; byte -- which is why asking for `#0` is refused.
 
-piece := system:readPiece(#5).
-piece:isNil:ifElse(
-    { "(nothing on standard input to take a piece of)":display },
-    { "the first {} bytes: {}":fill([piece:size, piece]):display }).
-;   (nothing on standard input to take a piece of)
+chunk := system:readUpTo(#5).
+chunk:isNil:ifElse(
+    { "(nothing on standard input to read)":display },
+    { "the first {} bytes: {}":fill([chunk:size, chunk]):display }).
+;   (nothing on standard input to read)
 
 ; **All three readers share one window**, so the loop below carries on from
-; wherever that piece stopped rather than from the start of a buffer of its own.
+; wherever that read stopped rather than from the start of a buffer of its own.
 ; Run this over a file and the first line arrives with its first five bytes
 ; already taken.
 

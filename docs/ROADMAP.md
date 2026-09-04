@@ -142,7 +142,7 @@ entry is open on it** —
 [6.44](#644-an-instant-cannot-be-written-in-local-time), raised on 2026-09-02 by
 [diff.sol](../programs/diff.sol). Its neighbour
 [6.45](COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done) closed on 2026-09-04 as
-`system:readPiece(#n)`, the only entry here whose open question was a **name**
+`system:readUpTo(#n)`, the only entry here whose open question was a **name**
 and which therefore could not be closed by anybody but you.
 
 **The last decision was deferred rather than taken**, on 2026-08-22.
@@ -1090,7 +1090,7 @@ written in local time, raised on 2026-09-02 by
 [6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done)
 left behind when it closed on 2026-09-03 — raised by `sort` rather than by
 `diff`, wanted again by `gzip -d` two days later, and the one thing the
-whole-pipe read did not help with. It is `system:readPiece(#n)` now.
+whole-pipe read did not help with. It is `system:readUpTo(#n)` now.
 
 Before them the four entries this section held on 2026-09-01 all
 closed the same day, including

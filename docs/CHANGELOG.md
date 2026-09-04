@@ -50,26 +50,34 @@ which is `sort`'s reason: **thirty bytes held for every byte produced**, measure
 with `--memory`, where the format asks for a 32 KB window however large the
 stream is. The entry has two customers and one argument.
 
-### 6.45 closed: `system:readPiece(#n)` — `eab21d6`, 2026-09-04
+### 6.45 closed: `system:readUpTo(#n)` — `eab21d6`, 2026-09-04
 
 **Up to `n` bytes of standard input, exactly as they were sent, and nil at the
 end.** The third reader through the window
 [6.36](COMPLETED.md#636-readline-and-readkey-did-not-share-an-input-buffer--done)
-built, so `readLine`, `readKey` and `readPiece` interleave without losing a byte
+built, so `readLine`, `readKey` and `readUpTo` interleave without losing a byte
 between them.
 [6.45](COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done) is in
 COMPLETED.md.
 
 **The open question was the name**, which is why the entry was marked
-**decision** and could not be closed by the roadmap alone. Three were proposed
-and two dropped on evidence rather than taste. `readBuffer` names a thing the
-language does not have — there is no buffer type, and every use of the word in
-[REFERENCE.md](REFERENCE.md) is about the machine's own plumbing — and collides
-with the 4 KB window in `stdin.c` the message reads out of. `readPart` collides
-with the other half of the distinction the entry existed to protect: the range
-test is `test_a_range_reads_part_of_a_file` and
+**decision** and could not be closed by the roadmap alone. Four were proposed
+and three dropped on evidence rather than on taste. `readBuffer` names a thing
+the language does not have — there is no buffer type, and every use of the word
+in [REFERENCE.md](REFERENCE.md) is about the machine's own plumbing — and
+collides with the 4 KB window in `stdin.c` the message reads out of. `readPart`
+collides with the other half of the distinction the entry existed to protect:
+the range test is `test_a_range_reads_part_of_a_file` and
 [sha256sum.sol](../programs/sha256sum.sol) already calls what
-`readFile(path, at, count)` gives back a `part`. `piece` was free.
+`readFile(path, at, count)` gives back a `part`. `readPiece` was free and is
+still not right — a piece says the answer is part of something and says nothing
+about `n`.
+
+**`readUpTo` won on an argument that was already in the language.** `upTo` is a
+message here: `random:upTo(#n)` answers *an integer from `#1` to `#n`, both
+included*, so `upTo` already means an inclusive upper bound on the magnitude of
+the answer — which is precisely what this argument is. The name is the
+vocabulary already there rather than new vocabulary.
 
 **The contract is `read(2)`'s and not `fread`'s.** It waits for the first byte
 and then answers what is there, so a short answer is ordinary and the size means

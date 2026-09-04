@@ -2245,23 +2245,42 @@ be the mistake `new` made. What it wants is a message that says *take up to this
 many bytes, and tell me how many arrived*, which is a small primitive and a name
 this document should not pick on its own.
 
-**Closed on 2026-09-04 as `system:readPiece(#n)`** — up to n bytes of standard
+**Closed on 2026-09-04 as `system:readUpTo(#n)`** — up to n bytes of standard
 input, exactly as they were sent, and nil at the end.
 
-**The decision above was the name, and it took three goes.** `readSome` was the
-first proposal, `readBuffer` the second and `readPiece` the one taken, and the
-two that were dropped were dropped on evidence rather than on taste.
+**The decision above was the name, and it took four goes.** Three were dropped
+and the three were dropped on evidence rather than on taste, which is the part
+worth keeping.
+
+**`readSome`** was the first proposal and the weakest: it says the answer may be
+partial and nothing more.
+
 **`readBuffer`** names a thing the language does not have — there is no buffer
-type, and all nine uses of the word in [REFERENCE.md](REFERENCE.md) are about
-the machine's own plumbing — and it collides with the 4 KB window in
+type, and every use of the word in [REFERENCE.md](REFERENCE.md) is about the
+machine's own plumbing — and it collides with the 4 KB window in
 `solum/src/stdin.c` that the message reads out of, so `readBuffer(#65536)` would
-be asking the buffer for sixteen times what the buffer holds. **`readPart`**
-collides with the other half of the very distinction this entry existed to
-protect: `tests/test_system.c` calls the range test
+be asking the buffer for sixteen times what the buffer holds.
+
+**`readPart`** collides with the other half of the very distinction this entry
+existed to protect: `tests/test_system.c` calls the range test
 `test_a_range_reads_part_of_a_file`, and
 [sha256sum.sol](../programs/sha256sum.sol) already calls the value it gets back
-from `readFile(path, at, count)` a `part`. The file side had the noun. `piece`
-was free.
+from `readFile(path, at, count)` a `part`. The file side had the noun.
+
+**`readPiece`** was free, was committed, and was renamed within the hour,
+because a free noun is not the same as the right one. `piece` says the answer is
+part of something; it says nothing about `n`, which is the whole of what a
+caller has to know.
+
+**`readUpTo` is the one taken, and the argument for it was already in the
+language.** `upTo` is a message here: [`random:upTo(#n)`](REFERENCE.md#random)
+answers *an integer from `#1` to `#n`, both included*. So `upTo` already means
+**an inclusive upper bound on the magnitude of the answer**, which is exactly
+what this message's argument is — `readUpTo(#4096)` answers a string of one to
+4,096 bytes the way `upTo(#6)` answers an integer of one to six. The name is not
+new vocabulary, it is the vocabulary already there, and the objection raised
+against it first — *a preposition, which nothing else in `system:` has* — was
+wrong on the facts.
 
 **The contract is `read(2)`'s and not `fread`'s**, which was the second call and
 the smaller one. It waits for the first byte and then answers what is there, so
@@ -2289,7 +2308,7 @@ which is the test that says so.
 
 It is the third reader through the one window
 [6.36](#636-readline-and-readkey-did-not-share-an-input-buffer--done) built, so
-`readLine`, `readKey` and `readPiece` interleave without losing a byte between
+`readLine`, `readKey` and `readUpTo` interleave without losing a byte between
 them.
 
 **And the thing it was built for, measured.** Two scripts counting the newlines

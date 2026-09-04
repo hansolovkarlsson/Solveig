@@ -1460,13 +1460,13 @@ input. A program that reads a line and then hands standard input to a child with
 unaffected — it delivers a line at a time, so nothing is taken that was not
 asked for.
 
-#### A piece of a stream, when neither a line nor a byte will do
+#### Up to n bytes, when neither a line nor a byte will do
 
-`readPiece(#n)` answers **up to** `n` bytes of standard input, exactly as they
+`readUpTo(#n)` answers **up to** `n` bytes of standard input, exactly as they
 were sent, and nil when the input has ended.
 
 ```
-printf 'abcdefgh' | solvm program.sob    # readPiece(#3) → "abc"
+printf 'abcdefgh' | solvm program.sob    # readUpTo(#3) → "abc"
 ```
 
 It is the third reader and it exists because the other two are wrong in opposite
@@ -1487,10 +1487,10 @@ primitive of the two.
 
 ```
 whole := "".
-piece := system:readPiece(#4096).
-{ piece:notNil }:whileTrue({
-    whole := whole:concat(piece).
-    piece := system:readPiece(#4096) }).
+chunk := system:readUpTo(#4096).
+{ chunk:notNil }:whileTrue({
+    whole := whole:concat(chunk).
+    chunk := system:readUpTo(#4096) }).
 ```
 
 **A non-nil answer is never empty**, so nil is unambiguously the end. That is
@@ -4069,7 +4069,7 @@ it delegates to `object` like everything else. See
 | `writeError(text)` | the same, to standard **error** |
 | `readLine` | one line of standard input without its terminator, or nil at the end |
 | `readKey` | one byte as a one-character string, or nil at the end; no wait for return |
-| `readPiece(#n)` | up to `n` bytes of standard input as they were sent, or nil at the end |
+| `readUpTo(#n)` | up to `n` bytes of standard input as they were sent, or nil at the end |
 | `isTerminal(which)` | whether `'input`, `'output` or `'error` is a terminal |
 | `terminalSize` | a dictionary of `"rows"` and `"columns"`, or **nil** when the output is not a terminal |
 | `keyWaiting(seconds)` | whether a byte is there to read, waiting up to that long for one |
@@ -4361,7 +4361,7 @@ appear in an example.
 | `readFile` | [system](#system) |
 | `readKey` | [system](#system) |
 | `readLine` | [system](#system) |
-| `readPiece` | [system](#system) |
+| `readUpTo` | [system](#system) |
 | `remove` | [dictionary](#dictionary), [system](#system) |
 | `removeLast` | [array](#array) |
 | `rename` | [system](#system) |
