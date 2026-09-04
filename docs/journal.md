@@ -11,7 +11,123 @@ produced no code because they were decisions.
 
 ---
 
+## 2026-09-04, later — two more readers, and both of them argued with the morning
+
+**The morning's closeout said the day was work the documents had already
+written down.** The afternoon was the opposite: two experiments whose results
+were not in any document, and both of them took something back.
+
+### The third reader was aimed at a diagnostic and hit an example
+
+0.16.0 shipped in the morning **on an argument and no measurement** — the
+hole-kind error prescribes `wrap it in braces` now, and prediction 9, that the
+message says nothing about what to do, had been untested twice because nobody
+reached it. Run 3 was designed to reach it by a route the dialect's eleven-line
+essay does not cover: **a single-statement body with no braces**, which is what
+a C programmer types without thinking.
+
+**The reader braced it.** Correct output first compile-and-run, no diagnostic,
+and the reason is the prediction written down as a hedge — *if the reader
+brackets everything anyway it will be because the example braces every body.*
+`examples/clike.pro` braces every body, the reader took their syntax *by direct
+analogy* from it, and the hedge is the only prediction of the six that paid.
+
+### And it falsified a sentence written the evening before
+
+**The `print`-is-a-repr trap fired on a reader who had read the warning about
+it.** They quoted the comment back accurately and wrote `:print` anyway. Run 2
+had earned this the previous evening:
+
+> A limitation explained where it is declared is not a limitation a reader pays
+> for.
+
+**It was generalised from one reader and one limitation into four documents the
+same evening**, in a repository whose loudest standing rule is that *one
+customer is not enough* — a bar this project applies to features and had never
+thought to apply to a conclusion. POSTMORTEM 26.
+
+What survives is narrower and better. `else if` is a **refusal**: a warning read
+beforehand removes an option the reader was about to take. `:print` is a
+**silence**: it compiles, runs, and looks right.
+
+> **A warning prevents a failure you would have chosen. It does not prevent one
+> you would have walked into believing you had succeeded.**
+
+Which is [does-it-pay.md](does-it-pay.md)'s own silence category arriving from
+the documentation side, and it took a third reader because the second produced
+a sentence good enough to stop looking.
+
+### The fourth run changed who the reader was, and refused the easy version
+
+Three runs had failed to reach a diagnostic. **The reliable way to force one is
+to hand a reader `lib/clike.pro` with its warning removed, and that was refused
+twice** — it would measure a file written for the measurement.
+
+So the *role* changed instead, to a customer 0.16.0 names in its own
+justification and no run had contained: **an author declaring a form**, rather
+than a user of somebody else's dialect. Nothing in the published surface models
+it — `examples/forms.pro` declares four forms and types no hole at all.
+
+**They typed `<b: block>`, copying `lib/control.pro`'s `repeat`, and then braced
+every use anyway** — the model this time being `examples/dialect.pro`'s
+`repeat #3 times { "tick":display }`, a one-statement body wearing braces. Run
+3's finding one level up.
+
+### Four runs, and no reader has ever seen a Proto diagnostic
+
+**Two of the four tasks were built specifically to produce one.** Prediction 21
+is retired unmeasured rather than asked a fifth time, and 0.16.0 stays justified
+by argument — **which is now a settled fact about it rather than a pending
+measurement.**
+
+**What did happen is the failure this project says it exists to prevent.**
+`proto` exited 0, `solas` exited 0, and `solvm` reported `undefined name
+'total'` at `banner.sol:8` — a line in the *generated* file, after seven lines
+of correct output. **No map had been written**, the map being opt-in. With one
+the recovery is exact: generated `8:5` is source `10:5`.
+
+The reader got out on **Solveig's** error text alone.
+
+> **A declared grammar's cost to a reader is paid in the substrate, and so is
+> the rescue.** Four readers have been served by Solveig's documentation and
+> Solveig's diagnostics at every point where Proto's own would have had to work.
+
+### And the experiment was part of what it measured
+
+**POSTMORTEM 27, and it is mine.** The prompt handed both readers a
+three-command toolchain that omits `--map`, where `README.md`'s own quickstart
+includes it. The write-up was one edit from reading a missing map as the
+reader's choice; it was the experimenter's.
+
+> **What the experimenter hands over is part of the surface under test.**
+
+The cost of the minimal invocation is measured. A reader's likelihood of
+choosing it is not, and *the default should probably change* is left exactly as
+unsettled as it was. The method cohort had one entry and now has two.
+
+### What the afternoon says about the ritual
+
+**Both experiments were designed to measure a thing and neither did.** Run 3
+was aimed at a diagnostic and found a rule that had been over-generalised; run 4
+was aimed at the same diagnostic and found the characteristic failure arriving
+from the substrate with a mechanism switched off.
+
+**Both findings came from predictions written down before the run** — one from
+the hedge, one from the confound noticed while scoring. Neither was the point of
+its experiment.
+
+> **An experiment that answers its own question tells you what you already
+> suspected. The ones here have paid, four times out of four, in what they
+> found on the way.**
+
 ## 2026-09-04 — the records were right and two of them were read wrongly
+
+**This entry was written at the closeout and ended there.** It was true when it
+was written and describes **the first half of the day**. Four more commits
+followed, two of them reader runs, and one of those contradicted a sentence
+written that morning — *2026-09-04, later* is above, and the numbers here are
+corrected in place with the earlier reading kept. The same treatment 2026-09-03
+got, for the same reason, on the entry that learned it.
 
 **Nothing was designed today.** Four commits, two versions, and every one of
 them was work some document had already written down and nobody had done. That
@@ -160,13 +276,22 @@ anecdote and this project's own rule is that one customer is not enough.
 
 ### The numbers, written last
 
-**Four commits, and two versions — 0.16.0 and 0.17.0.** `fe94694..d90f366` went
-to `origin/main` through the day, and the tree was clean and level with the
-remote before this entry was written. **This entry is not one of the four**: the
-closeout writes the records and stops, so the journal, the postmortem and the
-roadmap are uncommitted as this is written and the fifth commit is somebody
-else's to make. Yesterday's numbers were wrong twice in one day for the opposite
-reason — a count that included itself before it existed.
+**This section read *four commits, and two versions* when it was written**, and
+said that the closeout's own records were uncommitted and that a fifth commit
+was somebody else's to make. That was accurate. **It is ten now**, and the
+afternoon is the entry above.
+
+**Ten commits, two versions — 0.16.0 and 0.17.0 — and four reader runs' worth
+of documents.** `fe94694..d01ad10`, all pushed. The suite went from **61, 6, 69
+and 11** — 147 — to **63, 6, 69 and 13** — 151, and has not moved since 0.17.0
+landed before lunch: **the afternoon produced four commits and not one line of
+compiler code.**
+
+**Four defects, and none from a test.** Two before the closeout — a compiler
+one found by checking how a rough edge was filed, a documents one found by a
+reader acting on a document and being contradicted by the rest of it. Two after
+— a rule generalised from one reader, and a method failure that is the
+experiment's own. **Five days running with nothing found by the suite.**
 
 The suite went from **61, 6, 69 and 11** — 147 — to **63, 6, 69 and 13** — 151.
 Four new checks, two per version, and all four are negative controls that were
@@ -179,6 +304,7 @@ reader acting on one and being contradicted by the rest of it. **That is four
 days running with nothing found by the suite**, which is now long enough to be
 the pattern rather than a run of luck — and both of today's have new rows in the
 tally, which is the fourth day in a row that has been true too.
+
 
 
 ## 2026-09-03 — an empty day that did not stay empty: a link, a defect, and the second reader

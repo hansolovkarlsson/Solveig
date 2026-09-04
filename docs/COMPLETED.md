@@ -522,8 +522,16 @@ the generalisation of what run 2 actually found:
 **Run 3 narrowed that sentence — it holds for a refusal and not for a silence**
 ([POSTMORTEM.md](POSTMORTEM.md) 26) — and the narrowing does not touch this
 case. A braceless body is a refusal: the compiler stops, and the only question
-is whether what it says is any use. That is still unmeasured after three runs,
-because no reader has yet reached a diagnostic at all.
+is whether what it says is any use.
+
+**That is now unmeasured after four runs, and the question has been retired.**
+Runs 3 and 4 were both aimed at it — run 3 by a route the dialect's essay does
+not cover, run 4 by making the reader an author rather than a user — and both
+were stopped by an example showing a one-statement body wearing braces. **Two of
+four tasks were built to force a diagnostic and no reader has seen one.**
+Prediction 21 was retired rather than asked a fifth time, so **this entry's
+argument is what justifies 0.16.0 permanently**, not provisionally. That is a
+settled fact about the change and not a pending measurement.
 
 **Once *per dialect*.** `lib/clike.pro`'s author paid it, and every future
 dialect with a `block` hole has an author who has not. The compiler is where

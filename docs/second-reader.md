@@ -1,8 +1,9 @@
 # The second reader
 
 *[does-it-pay.md](does-it-pay.md) weighs six programs and ends on the one thing
-none of them tested. This is the design for testing it, and the predictions,
-recorded before it is run.*
+none of them tested. This is the design for testing it and the predictions,
+recorded before each run and scored after — **four runs now**, oldest first,
+with wrong predictions left in and marked wrong.*
 
 > What no program has yet tried is a dialect used by **somebody who did not
 > write it** — every dialect here was written by the author of the file that
@@ -417,6 +418,11 @@ justification for it is still the author's reasoning and not a reader's
 experience, and after three runs that should be said plainly rather than
 waited out.
 
+**A fourth run then said it again**, and retired the question rather than asking
+it a fifth time — *What the fourth run found*, below. This paragraph is run 3's
+and its count is run 3's; [POSTMORTEM.md](POSTMORTEM.md) 25 is why it says so
+rather than leaving a reader to reach the end and carry away *three*.
+
 ## The fourth run, and the customer the first three did not test
 
 **Predictions recorded before it, as all three earlier runs' were.**
@@ -533,8 +539,8 @@ rather than from anything Proto declares.
 
 **The map that recovers it was never written.** Reproduced here: the map's line
 for generated `8:5` is source `10:5`, which is `total := #0.` in the reader's
-own file. The machinery works, exactly as designed, and it was switched off — the
-map is opt-in behind `--map`.
+own file. The machinery works, exactly as designed, and it was switched off —
+the map is opt-in behind `--map`.
 
 > **The one failure this project built two mechanisms against reached a reader
 > with one of them turned off, and the reader got out on the strength of the

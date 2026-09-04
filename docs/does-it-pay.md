@@ -10,6 +10,11 @@ together.*
 because each was written after this page existed and against the question this
 page ended on at the time.*
 
+***And four readers who did not write any of it have since been measured against
+the question the six programs could not touch.** Their sections are at the foot,
+and they are the only evidence here not produced by the author of the thing
+being judged — see [second-reader.md](second-reader.md).*
+
 Nothing here is new evidence. What is new is that it is in one place, and that
 the numbers were re-measured rather than carried across.
 

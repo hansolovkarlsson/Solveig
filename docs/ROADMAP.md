@@ -85,6 +85,14 @@ step towards alternation** — it makes the wall say how to climb it. See
 [COMPLETED.md](COMPLETED.md) 17, which argues why only `block` gets a
 prescription.
 
+**Two more readers met a `block` hole afterwards and neither wanted alternation
+either.** Run 3 used `lib/clike.pro` and needed no cascade; run 4 **declared a
+form with a `block` hole of its own** and reported expecting to need two
+declarations for a one-statement and a two-statement body — *the way
+`control.pro` needs two for `if` and `if/else`* — and finding one enough. **A
+hole that asks for a block does not care how much is in it**, which is the
+nearest thing to alternation anybody has actually wanted.
+
 **So this drops below where it was**, and for the fourth time an entry here has
 been answered by a customer declining to need it — the first time by a customer
 being *told* in advance rather than by one working it out. What would move it is

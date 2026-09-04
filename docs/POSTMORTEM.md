@@ -810,7 +810,8 @@ for a refusal, and `does-it-pay.md`'s silence category is where the exception
 was already documented under another name.
 
 **Found by** the third reader run, which was designed to measure something else
-entirely — 0.16.0's prescriptive diagnostic, still unmeasured after three runs.
+entirely — 0.16.0's prescriptive diagnostic, which a fourth run then also failed
+to reach, and which is unmeasured for good now rather than pending.
 **Every prediction aimed at the diagnostic was wrong or untested, and the
 finding came from the one prediction written down as a hedge**: *if the reader
 brackets everything anyway it will be because the example braces every body, and
