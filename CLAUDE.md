@@ -24,14 +24,14 @@ message send. ~20k lines of C11, no dependencies. Docs are published at
 
 ## The records
 
-In `docs/`: `journal.md` (why, in order), `COMPLETED.md` and `ROADMAP.md` (what
-exists and what does not — an item moves when it is settled, including settled
-against), `CHANGELOG.md` (when it shipped).
+In `docs/`: `journal.md` (why, in order — **newest first**), `COMPLETED.md`
+and `ROADMAP.md` (what exists and what does not — an item moves when it is
+settled, including settled against), `CHANGELOG.md` (when it shipped).
 
 **There is no `postmortem.md`, and one should not be created.** Predictions are
 scored in `docs/ideas.md`, which keeps the claim above the outcome.
 
-Each of those opens with an italic note stating its own job. That note is the
+Each of those opens with a note stating its own job. That note is the
 specification for what belongs in it — follow it over any general instruction.
 
 ## The suite checks the documents
