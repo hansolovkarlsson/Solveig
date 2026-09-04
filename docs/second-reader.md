@@ -423,6 +423,26 @@ it a fifth time — *What the fourth run found*, below. This paragraph is run 3'
 and its count is run 3's; [POSTMORTEM.md](POSTMORTEM.md) 25 is why it says so
 rather than leaving a reader to reach the end and carry away *three*.
 
+### What the third reader actually wrote
+
+Kept here because the findings above cite it and nothing else in this
+repository holds it — a reader run leaves its artifacts in a scratch directory
+that does not survive the session, and a claim about a program nobody can read
+again is a claim on trust.
+
+```
+@use "clike.pro".
+
+n = #1.
+while (n <= #15) {
+    if (n % #3 == #0) { n:display }.
+    if (n % #5 == #0) { n:display }.
+    n = n + #1
+}.
+```
+
+Output, verified against the hand-computed oracle: `3 5 6 9 10 12 15 15`.
+
 ## The fourth run, and the customer the first three did not test
 
 **Predictions recorded before it, as all three earlier runs' were.**
@@ -594,3 +614,32 @@ multi-statement cases, *the way `control.pro` needs two for `if` and `if/else`*,
 and did not: one `<b: block>` hole takes `{ a }` and `{ a. b }` identically.
 **A hole that asks for a block does not care how much is in it**, which nobody
 had written down because nobody had doubted it.
+
+### What the fourth reader actually wrote
+
+Attempt 2, the working one. Attempt 1 is identical but for the third body's
+`{`, which carried no `| total, i |` and produced the run-time failure above.
+
+```
+; banner.pro -- a module declaring its own `banner` notation: a ruled line
+; above and below whatever it wraps.
+
+@use "../proto-lang/lib/control.pro".
+
+@syntax banner <b: block> => ("-----":display. b:value. "-----":display).
+
+banner { "hello":display }.
+
+banner { "one":display. "two":display }.
+
+banner { | total, i |
+    total := #0.
+    i := #1.
+    while i <= #4 do (total := total + i. i := i + #1).
+    total:print
+}.
+```
+
+Output: the ten lines of the oracle, with `#10` for the total — the reader
+chose `:print` over `:display` knowing what it would render, which run 3
+established is a real fork rather than a mistake.
