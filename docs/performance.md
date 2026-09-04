@@ -211,6 +211,66 @@ loop is the shape it matters most to.
 
 ---
 
+## The two instruments, and what each is blind to
+
+The section above measures a program with `--steps=N` and calls the answer
+exact, which it is. **Exact is not the same as relevant**, and on 2026-09-04 a
+day of work on [sort.sol](../programs/sort.sol) found the gap in both of the
+flags this repository measures with.
+
+### `--steps` counts sends, and a send is not a unit of work
+
+`sort`'s reader drained its buffer with `copyFrom(at + 1, size)` — **one send,
+and a `memcpy` of everything behind the line.** Replacing it with a reader that
+splits each piece once moved the instruction count by 1% and the clock by 14%:
+
+| 584,997 bytes, 11,350 lines | pipe | named file |
+| --- | ---: | ---: |
+| the buffer reader | 15,448,496 | 15,443,861 |
+| the line reader | 15,288,867 | 15,274,324 |
+| | −1.0% | −1.1% |
+
+Wall clock on 4.7 MB, same build, best of three: **2.97 s → 2.55 s** on the
+named route. The 4.3 ns above is a floor for arithmetic on block locals, and it
+was already said to be one; what this adds is a measured case of the other end.
+A single send here costs about **fourteen times** what the count implies, and it
+is the first measurement in this repository where the two disagree by more than
+a rounding.
+
+**The reading rule.** An instruction count compares two versions of the *same
+shape* — a loop made shorter, a branch removed — and it is the right instrument
+for that, because it is exact and repeatable and free of the build flag. It is
+the wrong instrument the moment one of the versions moves bytes the other does
+not. `copyFrom`, `concat`, `join`, `split` and `readFile` are all one send and
+unbounded work, and a change that touches any of them owes a clock as well as a
+count.
+
+### `--memory=N` reports a threshold, not a live set
+
+The smallest limit a run survives is where the collector's heap threshold next
+lands. It **steps**. `gzip.sol` inflating the same 187,655 bytes out of seven
+differently-sized inputs gives 6,615,294 for four of them and 8,713,853 for
+three, one jump of 2,095,509 bytes and nothing in between; five compression
+levels of one file, 200 KB of boxed integers between the extremes, give
+**6,615,294 to the byte, all five**. The step here is about a third of the
+figure.
+
+**The reading rule.** These numbers are ceilings with a coarse grain. They are
+sound for what they are always used for here — the same program measured both
+ways on the same input, where a difference larger than a step is real — and they
+are not a statement of what a program holds. A difference smaller than a step
+is invisible, so *no change* in a `--memory` figure is not evidence of no
+change.
+
+**Both were found the same way**, which is the part worth keeping: by asking
+what a number meant rather than what it was. The `--steps` finding came from a
+constant whose larger value was somehow the slower one; the `--memory` finding
+came from wanting to show that a saving *was* the input rather than infer it
+from a difference. Neither instrument was wrong. Both were being read as
+answering a question they do not answer.
+
+---
+
 ## What is not fair here, said plainly
 
 - **Integers are not the same thing.** A Solveig integer is sixty-four bits and

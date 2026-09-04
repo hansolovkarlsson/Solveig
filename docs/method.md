@@ -541,6 +541,46 @@ One unit, in this order:
    as a third** — an entry names the commit it landed in, which cannot be known
    until that commit exists.
 
+## An oracle that compares answers cannot see a defect that is only slow
+
+**Every check in this repository asks whether the bytes came out right**, and
+that is the strength of them: `oracle.sh` holds a program against one somebody
+else wrote, `sweep.sh` holds a decompressor against the tool that produced its
+input, `expect.sol` runs the documentation. None of them can see a program that
+is correct and unboundedly slow, and on 2026-09-04 `sort` had **two** such
+defects in nine lines of reader.
+
+`reader:fill`'s loop condition searched the whole buffer for a newline on every
+read, and `reader:next` copied the whole tail for every line. Both are quadratic
+in the length of a line longer than one read. A 4 MB line took **7.71 s** where
+the tool takes none; 16 MB would have taken about two minutes. The program had
+been held against `/usr/bin/sort` over 1,127 runs a day earlier and agreed on
+every one of them, because **it agreed**.
+
+Three things follow, and each was paid for on the day.
+
+**A conversion can multiply a constant without touching the shape.** The scan
+was quadratic before `readUpTo` and after it; what changed is that `readKey`
+accumulated 65,536 bytes before each rescan and `readUpTo` answers out of a
+4,096-byte window, so it happened sixteen times as often. A 2 MB line went from
+0.95 s to 1.90 s **in the commit that was an improvement**, and the review that
+found it was looking at something else.
+
+**The input shape that shows it is the one no corpus has.** The longest line in
+anything this repository's checks read was 1,711 bytes, against a 4,096-byte
+read — so the branch that fills twice was reached by nothing. A case with lines
+of 30,000 and 4,097 bytes was added the same day for *correctness* and did not
+show this either: three orders of magnitude short. **Size is a dimension a
+corpus has to be told about twice** — once for the file and once for the record.
+
+**And what raised it was a number that looked like a tuning question.** A
+constant where the *larger* value was the slower one is not a constant to tune;
+it is a symptom, and asking why bought two defects where acting on it would
+have bought 16% and left both. See
+[sort.sol](../programs/sort.sol) for the measurements and
+[performance.md](performance.md#the-two-instruments-and-what-each-is-blind-to)
+for why neither `--steps` nor `--memory=N` reported any of it.
+
 ## The checker checks what it can run
 
 [expect.sol](../programs/expect.sol) executes the claims in the documentation —
