@@ -5,6 +5,44 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### `sort`'s reader: two quadratics under a question about a constant — `c91d5ec` `81368b1`, 2026-09-04
+
+The review of the conversions left one thing measured and not acted on:
+`readChunk` at 65,536 cost 1.03 s on a 4.7 MB file where 8,192 cost 0.86, and a
+*larger* read being the slower one should not be true. It was a symptom.
+
+**`fill` rescanned the whole buffer for a newline on every read**, so a line
+longer than one read costs a scan per piece over a buffer that keeps growing.
+That was quadratic before the conversion too — what the conversion did was
+multiply its constant by sixteen, since `readKey` accumulated 65,536 bytes
+before each rescan and `readUpTo` answers out of a 4,096-byte window. A 2 MB
+line went from 0.95 s to 1.90 s on the route being converted, and nothing caught
+it: the sweep and the oracle check answers, and the answers were right.
+
+**And `concat` built that buffer by copying the whole of it per piece**, which
+is the same shape in a different line. So a reader holds the fields of the piece
+last read plus the fragments of the line still being read, joined only when its
+newline arrives. One line, through a pipe, `-g`, best of three:
+
+| line | scan and concat | scan fixed | lines not buffer |
+| ---: | ---: | ---: | ---: |
+| 1,000,000 | 0.48 s | 0.01 s | 0.01 s |
+| 4,000,000 | 7.71 s | 0.25 s | 0.03 s |
+| 16,000,000 | — | 4.48 s | **0.15 s** |
+
+**`readChunk` stopped being a question rather than getting a better value**: the
+spread from 4,096 to 262,144 went from 17% with the largest read worst to 2%
+with the largest read best. The constant stays at 65,536 and the table is
+retired. The two routes now cost the same in wall clock as well as instructions;
+the named file had been 16% behind.
+
+**An instruction count is not a cost model.** One percent of the instructions
+against 14% of the wall clock — a `copyFrom` is one send and a `memcpy` of
+everything behind the line — so `--steps`, which is the measure reached for
+first here because it is exact, could not see any of this. That is the second
+instrument finding in two days, after `--memory=N` turning out to be a step
+function, and both came from asking what a number meant rather than what it was.
+
 ### The two conversions `readUpTo` was built for, and the sweep that ran one route — `e54d5c4`, 2026-09-04
 
 `sort` and `gzip -d` were the two programs the entry named, and neither had been

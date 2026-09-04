@@ -11,6 +11,94 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-04 (after the close, third) — the constant was a symptom, and under it were two quadratics
+
+**The review pass left one thing measured and not acted on**, which was the
+right order: `readChunk` at 65,536 cost 1.03 s on a 4.7 MB file where 8,192 cost
+0.86, and a *larger* read being the slower one is not a thing that should be
+true. Asked what to do about it, the answer turned out to be *nothing* — the
+table was a symptom of two defects, and one of them was mine.
+
+### The regression I shipped
+
+`reader:fill`'s loop condition is `r:buffer:indexOf("\n"):isNil`, so every read
+rescans everything read so far. On a line longer than one read that is a scan
+per piece over a buffer that keeps growing: **quadratic in the length of the
+line**, and quadratic before the conversion too. What the conversion did was
+multiply its constant. `readKey` accumulated 65,536 bytes before each rescan and
+`readUpTo` answers out of a 4,096-byte window, so the scan happens sixteen times
+as often — on the route I had just converted:
+
+| one line of | before `e54d5c4` | after |
+| ---: | ---: | ---: |
+| 1,000,000 | 0.46 s | 0.48 s |
+| 2,000,000 | 0.95 s | **1.90 s** |
+
+**Nothing caught it.** The long-line case the review added is 30,000 bytes,
+three orders of magnitude short of where this bites; the sweep and the oracle
+both check answers, and the answers were right the whole time.
+
+A newline can only be in the bytes just read — the ones before them were
+searched already and had none. That is three lines, and it is 30× at 4 MB.
+
+### And it was still quadratic, because that was only one of them
+
+`r:buffer:concat(more)` builds an L-byte buffer out of L/4,096 pieces and copies
+the whole of it every time. Same shape, different line. So the reader holds the
+fields of the piece last read plus the fragments of the line still being read,
+joined **only when the newline arrives** — joining on every piece would put the
+copy back exactly where it was taken from.
+
+| one line of | scan and concat | scan fixed | lines not buffer |
+| ---: | ---: | ---: | ---: |
+| 1,000,000 | 0.48 s | 0.01 s | 0.01 s |
+| 2,000,000 | 1.90 s | 0.04 s | 0.02 s |
+| 4,000,000 | 7.71 s | 0.25 s | 0.03 s |
+| 8,000,000 | — | 1.10 s | 0.07 s |
+| 16,000,000 | — | 4.48 s | **0.15 s** |
+
+Twice for twice, where the middle column is still four times for twice.
+
+### `readChunk` stopped being a question
+
+Which is a better outcome than the row of the table it would have bought. Same
+build, same file, named route:
+
+| `readChunk` | now | was, `-O2` |
+| ---: | ---: | ---: |
+| 4,096 | 2.64 s | 0.88 s |
+| 8,192 | 2.62 s | 0.86 s |
+| 65,536 | **2.56 s** ← best | 1.03 s ← worst |
+| 262,144 | 2.55 s | — |
+
+A 17% spread with the largest read the worst became 2% with the largest read the
+best. The constant stays where it was and the table is retired rather than
+tuned. The two routes also cost the same in wall clock now, not only in
+instructions; the named file had been 16% behind the pipe.
+
+### The thing worth carrying: an instruction count is not a cost model
+
+On 584,997 bytes in 11,350 lines:
+
+| | pipe | named file |
+| --- | ---: | ---: |
+| as converted | 15,402,663 | 15,398,455 |
+| scan fixed | 15,448,496 | 15,443,861 |
+| lines not buffer | 15,288,867 | 15,274,324 |
+
+**One percent of the instructions against 14% of the wall clock.** A `copyFrom`
+is one send and a `memcpy` of everything behind the line, so `--steps` — the
+measure this repository reaches for first, because it is exact and repeatable —
+could not see any of this. Every performance claim here that rests on an
+instruction count rests on the assumption that sends cost about the same, and
+that assumption has now failed once, by a factor of fourteen.
+
+That is the second measurement-instrument finding in two days, after
+`--memory=N` turning out to be a step function. Both were found the same way:
+by asking what a number meant rather than what it was.
+
+---
+
 ## 2026-09-04 (after the close, again) — the two conversions, and what the checks around them could not see
 
 **The standup listed them as ordinary work and they were.** `readUpTo` shipped
@@ -48,8 +136,8 @@ instructions for every byte of input.
 
 The new pipe route was *faster than the named file*, by 20% in wall clock, while
 costing the same instructions — which does not happen for the reason one would
-first reach for. `reader:next` drains the buffer with `copyFrom(at + 1, size)`,
-so **every line copies whatever is behind it**, and a larger read is therefore
+first reach for. `reader:next` drained the buffer with `copyFrom(at + 1, size)`,
+so **every line copied whatever was behind it**, and a larger read was therefore
 not a cheaper one:
 
 | `readChunk` | 4.7 MB, named file, `-O2`, best of five |
@@ -57,15 +145,15 @@ not a cheaper one:
 | 4,096 | 0.88 s |
 | 8,192 | **0.86 s** |
 | 16,384 | 0.87 s |
-| 65,536 | 1.03 s ← what it uses |
+| 65,536 | 1.03 s ← what it used |
 
-Both ends of that table are explained: the drain punishes the large reads and
-the per-call cost punishes the small ones. The pipe gets 4,096 whatever it asks
-for, because `readUpTo` answers out of the window, so the conversion changed the
-effective chunk size as a side effect and that is the whole of the 20%.
+The pipe gets 4,096 whatever it asks for, because `readUpTo` answers out of the
+window, so the conversion changed the effective chunk size as a side effect and
+that is the whole of the 20%.
 
-**It is left at 65,536.** Changing it is a different piece of work and wants its
-own run of the sweep; what this day owed was the measurement, not the change.
+**Left at 65,536, and written down rather than acted on** — which turned out to
+be the right order, because the table was a symptom. See the section below: the
+answer was two defects, not a constant.
 
 ### `gzip -d`: the input is gone rather than discounted
 

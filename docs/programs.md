@@ -2315,12 +2315,36 @@ on `docs/programs.md` down the same pipe.
 the idea — `chunk-longline.case`, *one line longer than a chunk, so a record
 spans two reads* — and nothing had carried it here.
 
-**And the conversion turned up something about `readChunk` rather than about the
-pipe.** The reader drains its buffer with `copyFrom`, so every line copies
-whatever is behind it and a *larger* read is not a cheaper one — 65,536 costs
-1.03 s where 8,192 costs 0.86 s on the same file. It is left at 65,536 and
-written down with the numbers, because changing it is a separate piece of work
-wanting its own check.
+### The question about `readChunk`, and the two defects under it
+
+The conversion left the pipe route *faster than the named file* — 20% in wall
+clock, on identical instruction counts — which does not happen for any reason
+that is about pipes. The reader drained its buffer with `copyFrom`, so every
+line copied whatever was behind it, and a *larger* read was not a cheaper one:
+65,536 cost 1.03 s where 8,192 cost 0.86 s. The pipe was only quicker because
+`readUpTo` answers out of a 4,096-byte window whatever is asked for, so it had
+been reading in small pieces by accident.
+
+**The answer was not to tune the constant.** Asking why a bigger read was slower
+found two quadratics — `fill` rescanned the whole buffer for a newline on every
+read, and `next` copied the whole tail per line — both of them quadratic in the
+length of a line longer than one read. A reader holds the fields of the piece
+last read now, plus the fragments of the line still being read, joined only when
+its newline arrives. One line and nothing else, through a pipe:
+
+| line | scan and concat | scan fixed | lines not buffer |
+| ---: | ---: | ---: | ---: |
+| 1,000,000 | 0.48 s | 0.01 s | 0.01 s |
+| 4,000,000 | 7.71 s | 0.25 s | 0.03 s |
+| 16,000,000 | — | 4.48 s | **0.15 s** |
+
+And `readChunk` stopped being a question rather than getting a better value: the
+spread across 4,096 to 262,144 went from 17% with the largest read worst to 2%
+with the largest read best. **The win is in bytes copied, not instructions
+run** — one percent of the instructions against 14% of the wall clock — which is
+why `--steps` could not see any of it. An instruction count is not a cost model,
+and this is the first measurement here where the two disagree by more than a
+rounding.
 
 ## gzip — inflate, and the window that was not the cost
 
