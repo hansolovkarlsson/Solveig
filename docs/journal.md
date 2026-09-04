@@ -11,6 +11,87 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-04 — the list read from the top, and two entries that had gone stale under it
+
+The day opened on the question of what is still open, which meant reading
+[ROADMAP.md](ROADMAP.md) and [ideas.md](ideas.md) rather than writing anything.
+The answer is the one yesterday left: two entries,
+[6.44](ROADMAP.md#644-an-instant-cannot-be-written-in-local-time) and
+[6.45](ROADMAP.md#645-a-pipe-cannot-be-taken-in-bounded-pieces), the second
+marked **decision** because the obvious spelling for it is deliberately taken.
+Nothing about those moved. What the reading found was beside them.
+
+### Two entries the world had moved underneath
+
+**The at-a-glance row for awk still said *Not next*.** Its reasoning was right
+when it was written: awk's largest demand is full ERE, `sed` was refusing real
+input for want of the library, and writing awk to justify it was the wrong
+order. Both halves then happened on 2026-09-01 — `lib/re.sol` landed in the
+evening and awk was the ninth entry of the same day — and the row never moved.
+Neither did the entry's closing line, *Not built, and not recommended next*.
+
+**And `sort`'s outcome was filed under `gzip -d`'s heading**, which is a program
+that does not exist. Four sections of account for a program written on
+2026-09-02, sitting under the prediction for one that has not been, and *above*
+its own prediction rather than below it — in the one section of that page whose
+stated rule is that a prediction is kept above its outcome rather than replaced
+by it.
+
+Neither entry was wrong, which is the whole of it:
+[a sentence that was true when written is not checked by anything](method.md#a-sentence-that-was-true-when-written-is-not-checked-by-anything).
+That entry was written from four instances in one day, 2026-08-31; these are two
+more of it, and like those they were found by somebody reading rather than by
+anything running.
+
+### The entry had asked to be re-read, and answering it found the gap
+
+awk's third call was *is awk still worth writing once the library exists?* —
+recommendation yes, **and this entry should be re-read then**. Nobody had.
+
+Re-reading it: call 1 was the one that mattered and it held. The order was
+right, and by the time awk started the largest demand was already built, so the
+two things left shrank on contact exactly as predicted — a lenient numeric read
+of nine lines, and `%e` and `%g` written in the program where a format belongs.
+The prediction's whole value was the ordering.
+
+**What it did not name is the thing that actually pressed.**
+[3.2](ROADMAP.md#32-no-non-local-return) was wanted three separate times in one
+file, and `^` was written three times before remembering it is not there. So
+3.2 gained a customer it had been owed since 2026-09-01: it records two shipped
+libraries wanting the loop half and `edit.sol` hitting the entry itself at one
+site, and awk is the second at three sites in one file. An interpreter
+dispatching on a tag is the shape that wants it — without `^`, `evalBinary`
+guards every arithmetic branch against having already settled `~`, and five
+unwinding statements become five flags.
+
+The rate is the part worth recording rather than the fact. One site is a
+workaround; three in one file is a shape, and a chain of *this tag, else that
+tag* is what every interpreter written here will have.
+
+### The check caught the mistake, and the derivation was not the error
+
+One anchor in the new row was dead. I had linked awk's scoping as
+`#awk--and-the-finding-is-that-it-should-not-be-next`, deriving the slug
+correctly, from a line that is a **bold paragraph and not a heading**. The link
+checker named it in one line and the fix was to point at the section above it.
+
+The last anchor of mine that failed, on 2026-09-03, failed because I guessed it
+instead of deriving it. This one failed with the rule applied perfectly to
+something the rule does not apply to — which is the harder half, because
+deriving an anchor from a line looks the same whether or not the line is a
+heading, and only the checker knows which.
+
+### What it cost, and what was left alone
+
+Two files, 86 lines added and 13 removed, no code. `expect` over the whole set
+reports every claim holding: 3,037 links against 1,707 headings, 27 marked
+counts recounted and none moved.
+
+Left alone deliberately: 6.45 still names `gzip -d` as a hypothetical third
+customer, and that is correct — it is on the survey and has not been written.
+
+---
+
 ## 2026-09-03 (closing) — seventeen commits, and three times the answer was where a thing was filed
 
 One entry below this one, in ten parts, and this is the account of the whole
