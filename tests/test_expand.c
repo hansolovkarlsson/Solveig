@@ -113,6 +113,27 @@ static void expect_rejected_at(const char *label, const char *text,
     }
 }
 
+/* Rejected, and it did *not* say this. A prescription that fires where it does
+ * not apply is worse than none: it is a diagnostic the reader stops reading. */
+static void expect_rejected_without(const char *label, const char *text,
+                                    const char *absent)
+{
+    checks++;
+    int errors = 0;
+    char *got = compile(text, &errors);
+    if (got != NULL) {
+        printf("  FAIL %s: compiled, and should not have\n", label);
+        failures++;
+        free(got);
+        return;
+    }
+    if (strstr(said, absent) != NULL) {
+        printf("  FAIL %s\n    should not have said: %s\n    said: %s",
+               label, absent, said);
+        failures++;
+    }
+}
+
 static void expect_rejected(const char *label, const char *text)
 {
     checks++;
@@ -412,6 +433,23 @@ int main(void)
                        "hold x.\n",
                        "<test>:2:6: error: 'hold' wants a block here");
 
+    /* A diagnostic that points correctly and prescribes nothing is what both
+       second-reader runs named as the next thing to fix, and neither reached:
+       `lib/clike.pro` spends eleven lines at its own `else` declaration
+       preventing the reader from ever seeing this message. That is the dialect
+       author paying, once per dialect, for something the compiler can say once
+       for all of them. See docs/second-reader.md, prediction 9. */
+    expect_rejected_at("a block hole says how to satisfy it",
+                       "@syntax hold <b: block> => b:value.\n"
+                       "hold x.\n",
+                       "note: wrap it in braces");
+    /* And it prescribes only where a fix exists. Wrapping in braces makes a
+       block out of anything; nothing makes a `place` out of `#1`, so the same
+       note under a `place` failure would be advice that does not work. */
+    expect_rejected_without("a place hole does not suggest braces",
+                            "@syntax setTo <p: place> to <v> => p := v.\n"
+                            "setTo #1 to #2.\n",
+                            "wrap it in braces");
     expect_rejected("a literal where a place was wanted",
                     "@syntax setTo <p: place> to <v> => p := v.\n"
                     "setTo #1 to #2.\n");

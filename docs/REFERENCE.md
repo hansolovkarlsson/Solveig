@@ -108,6 +108,12 @@ decided by looking at what was parsed, so none needs an evaluator.
 its own braces on, so its holes take expressions; `repeat <n> times <b: block>`
 hands its hole straight over, so it must ask.
 
+**A `block` that is not one says how to become one.** Since 0.16.0 the
+diagnostic carries `wrap it in braces`, because braces make a block out of
+anything and that is the fix every time. The other four say what they wanted
+and stop: nothing turns `#1` into a `place`, and a note prescribing there would
+be advice that does not work.
+
 **A pattern begins with a word, and needs a word between two holes** unless the
 second is a `block`. That is what lets one token decide, and is why the matcher
 never backtracks.

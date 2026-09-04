@@ -503,6 +503,49 @@ of not touching the lexer and it is the right price.
 `\` is free and unused now. Nine checks in `tests/test_reader.c` hold both
 halves of the rule and both refusals.
 
+## 17. A diagnostic that prescribes — done, 0.16.0
+
+**The problem.** A hole-kind failure named what it wanted and stopped. `'if'
+wants a block here, and this is a send` is true, correctly positioned since
+0.15.0, and says nothing about what to type instead. Both second-reader runs
+named it as the next thing to fix, and **neither reached it** — run 1's task had
+no cascade, and run 2's reader was warned off by the eleven lines
+`lib/clike.pro` spends at its own `else` declaration.
+
+**So the evidence for it never arrived, and this was done anyway.** That is
+worth stating plainly rather than dressing up as a measurement. The argument is
+the generalisation of what run 2 actually found:
+
+> A limitation explained where it is declared is not a limitation a reader pays
+> for. It is one its author paid for once.
+
+**Once *per dialect*.** `lib/clike.pro`'s author paid it, and every future
+dialect with a `block` hole has an author who has not. The compiler is where
+that sentence can be said once for all of them, and a diagnostic is the only
+part of this system that reaches a reader who has read nothing.
+
+**The options.**
+
+| | |
+| --- | --- |
+| **Prescribe for every kind** | Uniform, and three of the five have no fix to name. *Something assignable* is not advice; it is the error restated. **A note that cannot be acted on teaches a reader to skip the notes**, and then the one that could be acted on is skipped too. |
+| **Prescribe for `block` only** | Braces make a block out of anything, so the advice is correct every time it appears. Not uniform, and the asymmetry is the honest shape: one kind has a universal fix and the others do not. |
+| **Say it in `lib/clike.pro` and leave the compiler alone** | Already done, and it worked — run 2's reader never saw the error. It works for **this** dialect, written by somebody who had already paid. It is the thing being generalised, not an alternative to it. |
+
+**The second was taken.** The restraint is the design rather than a shortfall,
+and a check holds it: `expect_rejected_without` asserts that a `place` failure
+does not mention braces.
+
+**And the placement is part of it.** The note goes between the error and the
+declaration note, not after both — the fix belongs beside the problem, and
+`diag.c` drops a repeated caret only for a note about the span the line above
+underlined. Putting it third printed the reader's line three times; putting it
+second prints it once.
+
+**What it does not do.** It does not make `else if` work, and it is not a step
+towards alternation in hole kinds — that entry stays where four customers left
+it. It makes the wall say how to climb it.
+
 ## Settled by a customer rather than by argument
 
 | | |

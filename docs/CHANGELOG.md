@@ -10,6 +10,52 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### A block hole says how to become one — 0.16.0, 2026-09-04
+
+**The diagnostic prescribes where a fix exists.** A hole-kind failure said what
+it wanted and stopped:
+
+```
+error: 'if' wants a block here, and this is a send
+note: 'e' is declared to want a block
+```
+
+It now says what to do, between those two lines rather than after them:
+
+```
+note: wrap it in braces -- '{' before this and '}' after it
+```
+
+**Only for `block`, and the restraint is the design.** Braces make a block out
+of anything, so the advice works every time. Nothing makes a `place` out of
+`#1` or a `name` out of `r:x`, and a note that prescribed there would be advice
+that fails — which is how a reader learns to stop reading the notes. A check
+holds that half: `expect_rejected_without` asserts the `place` failure does not
+mention braces.
+
+**Placed before the declaration note, not after**, so the fix sits next to the
+problem — and `diag.c` then drops the repeated caret, which it only does for a
+note about the span the line above just underlined. Three carets became one.
+
+**Both second-reader runs named this and neither reached it.** Run 1's task had
+no cascade; run 2's reader was warned off by the eleven lines `lib/clike.pro`
+spends at its own `else` declaration. **So this is done on the argument and not
+on a measurement**, and the argument is the generalisation of what those runs
+found: a limitation explained at its declaration costs a reader nothing, and a
+dialect's author pays that once per dialect. The compiler can pay it once for
+all of them.
+
+**The advice was run, not assumed.** `else { if (…) { … } else { … } }` compiled
+and gave `low`, `mid` and `high` for `n` of 1, 5 and 10 — checked against the
+`{ { … } }` trap the dialect warns about, which would have been silent.
+
+**Negative control**, with `make clean` between the builds: the new `block`
+check fails against the unfixed compiler. The `place` check passes against both
+and is a guard rather than a control, which is what it is for.
+
+The suite is **63, 6, 69 and 11** — 149, the two new checks being the whole of
+the change.
+
 ### The README says where to start, and it is not the README — 2026-09-04
 
 **No version, no code.** Two strangers used this language on 2026-09-03 and

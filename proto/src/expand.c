@@ -265,9 +265,29 @@ static void check_arguments(Expander *expander, const ProtoNode *use,
         proto_error(expander->diag, written[i],
                   "'%s' wants %s %s here, and this is %s %s",
                   macro->name, article(wanted), wanted, article(got), got);
+
+        /* What to do about it, for the one kind where an answer exists, and
+         * before the declaration note rather than after it: the fix belongs
+         * next to the problem, and `diag.c` drops the second caret only for a
+         * note about the span the line above just underlined.
+         *
+         * Braces make a block out of anything, so this is always the fix and
+         * never a guess. Nothing makes a `place` out of `#1` or a `name` out of
+         * `r:x`, and a note that prescribed there would be advice that does not
+         * work -- which is how a reader learns to stop reading the notes.
+         *
+         * Both second-reader runs named this as the next thing to fix and
+         * neither reached it: `lib/clike.pro` spends eleven lines at its own
+         * `else` declaration standing in front of this message. That is a
+         * dialect's author paying once for every dialect's readers, and the
+         * compiler says it once for all of them. */
+        if (kind == PROTO_HOLE_BLOCK)
+            proto_note(expander->diag, written[i],
+                     "wrap it in braces -- '{' before this and '}' after it");
         proto_note(expander->diag, macro->declared_at,
                  "'%s' is declared to want %s %s",
                  macro->params[i], article(wanted), wanted);
+
         note_trail(expander, use);
         expander->failed = true;
     }
