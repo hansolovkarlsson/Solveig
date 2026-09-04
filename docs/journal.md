@@ -11,6 +11,115 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-04 (later) — gzip -d, and a prediction that measured the wrong thing
+
+The last of the three programs the Unix survey named is written.
+[gzip.sol](../programs/gzip.sol) inflates a gzip stream, 66 round trips against
+the tool that produced them all come back to the byte, and the entry it was
+written to answer got its own question wrong.
+
+### The question, and the answer it did not expect
+
+The survey put `gzip -d` on the list for one reason: a `SolValue` is a tag and a
+union, so a 32 KB window is 32,768 tagged values rather than 32,768 bytes and
+every access is a send. **Predicted finding: the cost of that, in a number.**
+
+The number is 220 instructions per byte of output, 1.32 MB/s, 40,775,088
+instructions for `docs/REFERENCE.md` — counted exactly with `--steps` rather
+than sampled, which is the same binary search `sha256sum` used. And the window
+is **4.8%** of it. The Huffman decode is 70.7%, the CRC 11.4%, and turning the
+output array back into a string 10.5%.
+
+**What makes that a finding rather than an anticlimax is that the window is
+where nearly all the output comes from.** 172,699 of the 185,364 bytes are
+`out:add(out:at(at))` against 12,665 written from a literal — 93% — and that
+pair of sends still costs about eleven instructions against the 483 a Huffman
+symbol costs. The boxed array is used constantly and is cheap; the thing that
+looks like nothing, one bit, is read 521,162 times.
+
+So the question standing behind the entry — whether packed numeric arrays would
+ever be needed, and whether an extension is the shape for them — has an answer,
+and it is no. **The boxing is 5% and the interpretation is 70%.**
+
+### Six numbers, and the decomposition that produced them
+
+None of the above is a guess, and the method is worth keeping because it cost
+almost nothing. `--steps=N` gives an exact instruction count by binary search;
+running the same input through variants of the program with one stage removed
+gives that stage's share by subtraction, and the five subtractions add back to
+the total exactly. The stages came out as CRC 4.63 M, string conversion 4.26 M,
+window 1.97 M, input conversion 1.04 M, startup 0.06 M.
+
+**An inlining experiment fell out of it and was refused.** Reading the bit
+inside `decode` rather than calling `bits` is 8.8% — about eight instructions
+for a frame and a return. `sha256sum` wrote its rotates out for 1.48x and that
+paid for losing the standard's notation; 1.09x does not, and the number is in
+the file so nobody has to measure it twice.
+
+### The thing no specification knew
+
+`gzip -l` prints a ratio, and this program printed
+`100 * (uncompressed - compressed) / uncompressed` for it, which is what anybody
+would write. **It is wrong on every line.** BSD gzip computes
+`diff = uncompressed - compressed/2`, then `diff * 2000 / uncompressed - 1000`,
+in integers, with a floor at -99.9% when `diff` goes non-positive. Eighteen
+bytes in a twenty-seven byte file is -44.5% and the obvious formula says -50.0%.
+
+**RFC 1952 does not contain it because it is not part of the format.** It is a
+property of the program that prints the listing. That is the shortest case for
+an oracle this repository has produced: a standard cannot be wrong about what it
+does not specify, and the only way to learn this was to run the tool.
+
+### And 6.45 was corrected rather than added to
+
+The entry names `gzip -d` by name as the third customer that would sharpen it,
+on the grounds that its input has no lines at all — so `readLine` would be
+meaningless and *that program would have exactly one route in*.
+
+**The prediction is right and the implication is not.** The route is there and
+it works: `readFile("/dev/stdin")` reads a pipe whole since 6.43 closed, and
+`... | solvm gzip.sob -d` is what the sweep runs. Nothing about this program is
+blocked.
+
+What makes it a customer is memory, which is `sort`'s reason and not a new one.
+Measured with `--memory=N`, binary-searched the same way: **thirty bytes held
+for every byte produced**, where the format asks for a 32 KB window however
+large the stream is. So the entry has two customers and one argument, and its
+shape was settled by `sort` alone.
+
+**That is worth less than the entry hoped for and is still worth writing down**,
+because *no new reason* is a finding when an entry predicted one — the same way
+*it found nothing* is an outcome the survey keeps available on purpose.
+
+### What the sweep is, and proving it could fail
+
+Every case is a round trip, which is a shape nothing here had used: elsewhere a
+corpus holds an input and both tools are asked what they make of it, and here
+the oracle *produces* the input. A disagreement therefore cannot be a divergence
+about what the input meant.
+
+Sixty-six cases across the three rungs — chosen shapes, generated text at three
+levels, this repository's own files — and the part that took longest was
+breaking it on purpose. Pointed at a program that runs nothing, 63 of the 66 fail
+and the three that pass are the empty file at three levels — nothing out is
+right when nothing was in. Given a one-character off-by-one in the
+back-reference index, 47 fail, and the CRC in the trailer is what catches most
+of them. **A harness that only ever
+passes has not been tested, it has been watched** — the same sentence the
+conformance corpus earned yesterday.
+
+### What it asked the language for
+
+Nothing. Everything it needed was there: the bit operations, an array that
+grows, a whole read of a pipe, `asByte` and `asCharacter` at the two ends, and a
+non-zero exit for a stream that does not check out. The two awkward places are
+both written down in the file and neither is a gap — a byte costs two sends to
+read out of a string, which the program pays once up front instead of many times
+over, and a loop is left by its condition, so `decode` carries a `sym` that is
+both the answer and the flag.
+
+---
+
 ## 2026-09-04 — the list read from the top, and two entries that had gone stale under it
 
 The day opened on the question of what is still open, which meant reading

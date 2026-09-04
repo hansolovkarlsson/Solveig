@@ -5,6 +5,51 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### gzip -d, and the window that was not the cost — `pending`, 2026-09-04
+
+**[programs/gzip.sol](../programs/gzip.sol) is the twenty-second program**, and
+the last of the three the Unix survey named. It inflates a gzip stream: a bit
+reader, canonical Huffman decoded a bit at a time, a 32 KB window that
+back-references copy out of, CRC-32 and the length checked against the trailer,
+and the container's optional fields. `-d -c -k -t -l`, concatenated members, and
+a pipe. Compressing is a second program and a harder one.
+
+**The oracle produced every input it is held against**, which is the strongest
+shape one here has taken: `/usr/bin/gzip` compresses and this decompresses, so a
+disagreement cannot be a difference of opinion about what the input meant.
+[programs/gzip/sweep.sh](../programs/gzip/sweep.sh) runs 66 round trips over
+chosen shapes, generated text at three levels and this repository's own files —
+and was proved able to fail before it was believed: a one-character off-by-one
+in the back-reference index is caught by 47 of the 66, and a program that runs
+nothing by 63.
+
+**The prediction asked for the cost of the window, and the window is 4.8% of the
+program.** 40,775,088 instructions for `docs/REFERENCE.md`, counted exactly with
+`--steps` — the Huffman decode 70.7%, the CRC 11.4%, turning the output array
+back into a string 10.5%, the window 4.8%, at 220 instructions a byte of output
+and 1.32 MB/s. And 93% of the output comes out of that window, so it is not that
+it goes unused. **The expensive thing is the one that happens most often, not the
+one that looks heaviest.** The question the survey put this program on the list
+to settle — whether packed numeric arrays are ever wanted — has an answer, and
+it is no: the boxing is 5% and the interpretation is 70%.
+
+**`gzip -l`'s ratio is in the tool and in no specification.** It is not
+`100 * (uncompressed - compressed) / uncompressed`; it is integer arithmetic
+with a floor at -99.9%, and eighteen bytes in a twenty-seven byte file is
+**-44.5%** where the obvious formula says -50.0%. This program printed the
+obvious one until it was held against the tool. RFC 1952 does not contain it,
+because it is not part of the format — a standard cannot be wrong about what it
+does not specify.
+
+**No roadmap entry came out of it**, and
+[6.45](ROADMAP.md#645-a-pipe-cannot-be-taken-in-bounded-pieces) was corrected
+rather than added to. It named this program on the grounds that its input has no
+lines, so it *would have exactly one route in*; that half is right and the route
+works, since `readFile` reads a pipe whole. What makes it a customer is memory,
+which is `sort`'s reason: **thirty bytes held for every byte produced**, measured
+with `--memory`, where the format asks for a 32 KB window however large the
+stream is. The entry has two customers and one argument.
+
 ## 0.42.0 — 2026-09-03
 
 **A corpus another implementation can score itself against**, and two programs
