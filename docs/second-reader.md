@@ -416,3 +416,74 @@ That is not an argument that the work was wrong. It is an argument that the
 justification for it is still the author's reasoning and not a reader's
 experience, and after three runs that should be said plainly rather than
 waited out.
+
+## The fourth run, and the customer the first three did not test
+
+**Predictions recorded before it, as all three earlier runs' were.**
+
+Three runs have now failed to reach a diagnostic, each for a different reason,
+and the honest reading is that **an ordinary user of a well-documented dialect
+does not meet one**. The obvious way to force it is to hand a reader
+`lib/clike.pro` with its eleven lines removed. **That is refused**, for the
+reason run 3 refused it: it would measure a file written for the measurement.
+
+**So the reader's role changes instead.** 0.16.0's own justification names a
+customer that runs 1 to 3 did not contain:
+
+> `lib/clike.pro`'s author paid it, and every future dialect with a `block` hole
+> has an author who has not.
+
+Every reader so far has *used* a dialect somebody else wrote. **None has written
+one.** And nothing in the published surface models it: `examples/forms.pro`
+declares four forms and types **no hole at all**, so a reader authoring a form
+with a `block` hole has no example to copy — which is the condition the first
+three runs never had.
+
+### What varies, and what is held
+
+| | |
+| --- | --- |
+| **The reader's role** | **Author, not user.** They declare a form of their own and then call it. This is the second of 0.16.0's two customers and the first time either run has been aimed at it. |
+| **The task** | Declare a `banner` form that rules a line, runs a body, and rules another line; use it three times — **once around a single statement**, which is where braces get dropped in every language that allows it. |
+| **The surface** | **Everything published**, and a superset of what runs 1 to 3 got: `README.md`, `REFERENCE.md`, all of `lib/`, all five examples, and Solveig's reference. Nothing is withheld and nothing is edited. |
+
+**This varies two things at once**, so it is **not comparable to runs 1 to 3 on
+the reader axis** and is not offered as a fourth point on that line. It measures
+a different customer.
+
+### The two outcomes, checked before the run rather than reasoned about
+
+| the author writes | what the toolchain does |
+| --- | --- |
+| `@syntax banner <b: block>` then `banner "hi":display.` | **The diagnostic**, at the use, with 0.16.0's `wrap it in braces` under it. Refused before anything runs. |
+| `@syntax banner <b>` then `banner "hi":display.` | **Compiles clean.** Prints `-----`, prints `hi`, then dies: `string does not understand 'value'` — naming a line in the **generated `.sol`**, which the author never wrote. |
+
+**The second is the failure this project was built to prevent**, and 0.6.0's
+hole kinds are what stand in front of it. No reader has met it either.
+
+### What is predicted before it is run
+
+| | |
+| --- | --- |
+| **18. The hole is typed `block`.** | `REFERENCE.md` documents the five kinds, and both shipped dialects show `<b: block>` at a declaration. Against it: untyped is the default, shorter, and `examples/forms.pro` — the only example of *declaring* forms — types nothing. **This is the prediction the run turns on**, and it is close to even. |
+| **19. The single-statement use loses its braces.** | `banner "hello":display.` is what a person types when the body is one thing. The other two uses are multi-statement and will be braced. |
+| **20. A diagnostic is emitted — the first in four runs.** | Conditional on 18 and 19 both holding. |
+| **21. And the prescription is enough on its own.** | The real prediction 9, still untested at the fourth attempt. Predicted: the author goes from `wrap it in braces` to the fix **without opening a document**, and the log shows it. This is the measurement 0.16.0 shipped without. |
+| **22. If 18 goes the other way, the finding is worse and better.** | An untyped hole gives a run-time error in a generated file, after partial output, naming a line the author never wrote. **That is the characteristic failure of a declared grammar**, the one `README.md` says the map and the diagnostics exist to stand in front of, and no reader has ever met it. Predicted: if it happens, it costs more cycles than any single thing in runs 1 to 3. |
+| **23. A fourth failure to reach it settles a different question.** | If braces go on everywhere again, then **four tasks, two of them built to force an error, have produced none** — and the conclusion is about the diagnostic's reachability rather than about its wording. Predicted as the outcome that ends this line of experiment rather than extending it. |
+
+**The oracle**, worked out by hand. The task asks for three uses: a single
+statement printing `hello`, two statements printing `one` and `two`, and a
+computation printing the sum of 1 to 4. Each banner rules five dashes either
+side, so that is **3 + 4 + 3 = ten lines**:
+
+```
+-----      -----      -----
+hello      one        10
+-----      two        -----
+           -----
+```
+
+**Whether the last body prints `10` or `#10` is the reader's choice** between
+`display` and `print`, and both are correct — run 3 established that this is a
+real fork and not a mistake, so the oracle does not fix it.
