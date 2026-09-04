@@ -11,7 +11,79 @@ that a document was still true. That is what this is for.
 
 ---
 
-## 2026-09-04 (last) — 6.45, and a name that took four goes
+## 2026-09-04 (closing) — twelve commits, a release, and six claims nobody had re-run
+
+Twelve commits, one program, one message, and 0.43.0 cut and published. The day
+began by reading the list rather than adding to it and ended having added to it
+twice, which was not the plan and is the usual way round here.
+
+### What shipped
+
+**[gzip.sol](../programs/gzip.sol), the twenty-second program.** Inflate, held
+against the tool that produced every input it is checked against — 66 round
+trips, all byte for byte. It was written to measure what a 32 KB window costs as
+boxed values and the window turned out to be 4.8% of it.
+
+**`system:readUpTo(#n)`**, which closed
+[6.45](COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done) — the
+only entry on the list whose open question was a *name*, and therefore the only
+one nobody here could close alone.
+
+**0.43.0**, verified rather than asserted: 35 examples byte-identical under both
+compilers, 34 of 0.42.0's chunks answering identically on both machines, and
+0.42.0's `net` bundle loading on this build although extensions were untouched.
+
+### The thread, and it is six long
+
+Yesterday's account said three times the interesting question was where a thing
+was filed. Today the shape is different and it recurred twice as often: **a claim
+that was true when it was written, and that nobody re-ran.**
+
+- The at-a-glance row for awk said *not next* three days after awk was written.
+- `sort`'s outcome sat under `gzip -d`'s heading, which is a program that does
+  not exist.
+- An anchor I derived correctly from a line that is a **bold paragraph and not a
+  heading** — the rule applied perfectly to something the rule does not cover.
+- A memory measurement that said a bounded read costs *more* than a whole read,
+  because `--memory` reads after a collection and both scripts had dropped their
+  data before one happened. **I was measuring two programs that held nothing.**
+- *A preposition, which nothing else in `system:` has* — my objection to the
+  name that won, made about the vocabulary without consulting the vocabulary.
+  `random:upTo` had been there all along.
+- And, found by cutting the release, `_config.yml` and the repository
+  description on GitHub both saying **144 messages** one release after they
+  stopped being true.
+
+**Four of the six were mine and three were caught by something that ran anyway.**
+The two that were not — the vocabulary claim and the backwards measurement —
+are the two where I did not run the check, which is the whole of the difference
+and the reason
+[method.md](method.md#a-sentence-that-was-true-when-written-is-not-checked-by-anything)
+says the habit is not a tool.
+
+### The last two are the ones the checkers cannot reach
+
+`_config.yml` is not a document to `expect.sol`, and the repository's
+description on GitHub is not in the tree at all. Both sat one release behind
+with every check passing, which is precisely what
+[releasing.md](releasing.md#what-the-document-checker-does-not-cover) says to
+expect and why it ends by telling you to read the front page as a stranger
+would. It was right, and it caught two.
+
+### A number that is not a defect, and went into the notes anyway
+
+`examples/reading.sol` does not run on 0.42.0's machine any more: it sends
+`readUpTo`, so the previous release answers *object does not understand
+'readUpTo'* and leaves with 70. That is what adding a message means. Backward
+compatibility is the promise the `.sob` format version carries — a chunk built
+then runs now, and all 34 of them do — and forward compatibility is not promised
+by anything and never was. **It is in the release notes because a reader who
+runs into it should find it already written down** rather than think they have
+found a fault.
+
+---
+
+## 2026-09-04 (evening) — 6.45, and a name that took four goes
 
 The roadmap has one entry open on it. `system:readUpTo(#n)` answers up to n
 bytes of standard input exactly as they were sent, and nil at the end, and
