@@ -57,8 +57,15 @@
 ; each into the *bottom* of a code it is accumulating, which builds the code
 ; most significant bit first. One buffer, two readings of it.
 
-inBytes := array:new.       ; the whole compressed stream, one integer per byte
-inPos   := #1.              ; the next byte to take, one-based
+inBytes := array:new.       ; the piece in hand, one integer per byte
+inPos   := #1.              ; the next byte to take from it, one-based
+inMore  := nil.             ; a block answering the next piece, or nil for a
+                            ; source that arrives in one
+inTotal := #0.              ; how many bytes have come out of the source, which
+                            ; is what `-l` prints as the compressed size
+inChunk := #4096.           ; and how many are asked for at a time -- the size
+                            ; of the window `readUpTo` answers out of, so asking
+                            ; for more would not get more
 bitBuf  := #0.              ; bits taken from the stream and not yet handed out
 bitCnt  := #0.              ; how many of them there are -- never more than 7
                             ; after a call, since `bits` fills only as far as it
@@ -98,12 +105,55 @@ textOf := { bytes | | parts, chunk, i, n |
     chunk:size:greaterThan(#0):ifTrue({ parts:add(chunk:join("")) }).
     parts:join("") }.
 
-resetInput := { bytes |
-    inBytes := bytes. inPos := #1. bitBuf := #0. bitCnt := #0 }.
+; ---------------------------------------------------------------------------
+; Where the bytes come from
+;
+; Two sources and one reader. `resetInput` is a stream that arrived whole --
+; a named file, and the demonstration below -- and `resetStream` is standard
+; input, taken in pieces with
+; [`readUpTo`](../docs/REFERENCE.md#up-to-n-bytes-when-neither-a-line-nor-a-byte-will-do).
+;
+; **The refill replaces the piece rather than appending to it**, which is the
+; whole of what this buys. Nothing here ever looks backwards -- `inPos` only
+; ever moves forward, the window a back-reference reads from is `out` and not
+; the input -- so a piece that has been read is not needed again and is not
+; kept. The stream route therefore holds 4,096 input bytes however long the
+; stream is, where reading it whole held one string and one integer per byte of
+; the entire input.
 
+; Answers whether a byte is there to take, refilling first if the piece in hand
+; is spent. **A source that is finished stays finished**: `readUpTo` answers nil
+; at the end and goes on answering nil, so asking again is allowed and cheap.
+inReady := { | piece |
+    inPos:greaterThan(inBytes:size):ifTrue({
+        piece := inMore:isNil:ifElse({ nil }, { inMore:value }).
+        piece:isNil:ifFalse({
+            inBytes := piece.
+            inPos := #1.
+            inTotal := inTotal:add(piece:size) }) }).
+    inPos:lessOrEqual(inBytes:size) }.
+
+resetInput := { bytes |
+    inBytes := bytes. inPos := #1. inMore := nil. inTotal := bytes:size.
+    bitBuf := #0. bitCnt := #0 }.
+
+resetStream := {
+    inBytes := array:new. inPos := #1. inTotal := #0.
+    bitBuf := #0. bitCnt := #0.
+    inMore := { | text |
+        text := system:readUpTo(inChunk).
+        text:isNil:ifElse({ nil }, { bytesOf:value(text) }) } }.
+
+; **The guard is written twice on purpose.** `inReady` says the same thing this
+; first line says, and calling it unconditionally is one block send per byte of
+; input -- 11 instructions a byte, measured, which is 1.8% of the whole program
+; and is paid by the named-file route as well, where nothing ever refills. So
+; the test that is true almost always stays here, and the call happens only when
+; the piece in hand has run out.
 nextByte := { | b |
     inPos:greaterThan(inBytes:size):ifTrue({
-        error:raise("unexpected end of input") }).
+        inReady:value:ifFalse({
+            error:raise("unexpected end of input") }) }).
     b := inBytes:at(inPos).
     inPos := inPos:inc.
     b }.
@@ -426,14 +476,17 @@ readMember := { | flags, xlen, name, want, crc, isize, start, mtime |
 ; Every member in the stream. gzip files concatenate, and `cat a.gz b.gz` is a
 ; valid one that decompresses to both -- which is the case an implementation
 ; that reads one member and stops gets wrong while looking right.
-readAll := { bytes | | members |
-    resetInput:value(bytes).
+readMembers := { | members |
     out := array:new.
     members := array:new.
     members:add(readMember:value).
-    { inPos:lessOrEqual(inBytes:size) }:whileTrue({
+    { inReady:value }:whileTrue({
         members:add(readMember:value) }).
     members }.
+
+; The two ways in, and the only difference between them is the source.
+readAll := { bytes | resetInput:value(bytes). readMembers:value }.
+readStream := { resetStream:value. readMembers:value }.
 
 ; ---------------------------------------------------------------------------
 ; The command line
@@ -587,13 +640,15 @@ readWhole := { path |
     { system:readFile(path) }:onError({ e |
         fail:value("{}: {}":fill([path, e:message])) }) }.
 
-doOne := { path | | bytes, members, target, text |
-    bytes := bytesOf:value(readWhole:value(path)).
-    members := { readAll:value(bytes) }:onError({ e |
+doOne := { path | | members, target, text |
+    members := { path:equals("/dev/stdin"):ifElse(
+                     { readStream:value },
+                     { readAll:value(bytesOf:value(readWhole:value(path))) })
+               }:onError({ e |
         fail:value("{}: {}":fill([path:equals("/dev/stdin"):ifElse(
                                       { "stdin" }, { path }),
                                   e:message])) }).
-    wantList:ifTrue({ listOne:value(path, bytes:size, members) }).
+    wantList:ifTrue({ listOne:value(path, inTotal, members) }).
     wantTest:or({ wantList }):ifFalse({
         text := textOf:value(out).
         target := wantStdout:or({ path:equals("/dev/stdin") }):ifElse(
@@ -729,6 +784,50 @@ main:value.
 ; So the entry gains a second customer for the argument it already had, rather
 ; than a third reason. That is worth less than it hoped for and is still worth
 ; recording, because *no new reason* is a finding when an entry predicted one.
+;
+; ### And then it was converted, so here is what the bounded read was worth
+;
+; `readUpTo` shipped in 0.43.0 and standard input is now taken in 4,096-byte
+; pieces, each one replacing the last. The four copies are two. Smallest
+; `--memory=N` that lets the run finish, binary-searched the same way:
+;
+;                        out        before        after
+;     docs/REFERENCE.md  187,655   6,615,294   4,528,936    31.5% less
+;     docs/ideas.md      397,342  13,121,439   8,942,620    31.8% less
+;
+;     held per byte of output      35.3x -> 24.1x  and  33.0x -> 22.5x
+;
+; **That is the input gone rather than a saving on it.** Around thirty bytes for
+; every byte of *input* -- one string plus one boxed integer each -- and it does
+; not scale with the stream any more: a gigabyte through the pipe holds the same
+; 4,096 bytes of it that a kilobyte does. What is left is the two copies of the
+; output, which are this program's own business and want a ring buffer and an
+; incremental write rather than anything from the language.
+;
+; **It cost 1,206 instructions.** 41,225,173 to 41,226,379 on `REFERENCE.md`
+; through the pipe, which is 0.003% -- seventeen refills, each a `readUpTo` and
+; a `bytesOf` over the piece. The named-file route moved by 54. The first
+; version of `nextByte` called `inReady` unconditionally and cost 725,751
+; instructions instead, 1.8%, *on both routes*; the comment above it says why
+; the guard is now written twice.
+;
+; ### The sweep was running every case down one route
+;
+; `sweep.sh` named its files on the command line, all 66 cases of it, and the
+; pipe was checked by nothing at all -- so the reader this section is about
+; would have shipped untested by the strongest check this program has. It runs
+; both ways now, 131 cases, and the pipe cases were **proved to fail rather than
+; assumed to**: a `readUpTo` loop that stops at the first short piece -- the
+; defect `oracle.sh` records finding in `sha256sum`'s standard-input path -- is
+; reported by 64 of them, and by none of the file cases.
+;
+; **`oracle.sh` has run every case both ways since `sed`**, and `sweep.sh` is a
+; different script, written for a program the shared harness does not fit --
+; and the two-route rule did not come with it. That is the shape worth naming:
+; not a check that was got wrong, a check that was correct in the file it was
+; written in and absent from the one written next to it. A program with two ways
+; in gets tested down the one that takes a filename, because that is the one a
+; case is easy to write for.
 ;
 ; ---------------------------------------------------------------------------
 ; 5. And the language wanted nothing

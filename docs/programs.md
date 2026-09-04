@@ -2286,6 +2286,30 @@ sort that spills wants the opposite — a pipe read in bounded pieces, so memory
 stays inside `-S` however large the input is. The entry is about the absence of
 a middle, and the second customer is what shows the middle is what is missing.
 
+### The middle arrived, and the pipe now costs what the name costs
+
+`readUpTo` shipped in 0.43.0 and the byte-at-a-time loop is four lines that read
+like the file branch beside them. 584,997 bytes in 11,350 lines, counted exactly
+with `--steps`:
+
+| | instructions |
+| --- | ---: |
+| through a pipe, a byte at a time | 28,846,431 |
+| through a pipe, `readUpTo` | **15,402,663** |
+| the same file named on the command line | 15,398,455 |
+
+**The two ways in cost the same now**, to within 0.03%, where before a program
+with two routes had two performance stories. 23 instructions a byte is what the
+byte-at-a-time reader was spending; 4.7 MB through a pipe went from 1.49 s to
+0.80 s.
+
+**And the conversion turned up something about `readChunk` rather than about the
+pipe.** The reader drains its buffer with `copyFrom`, so every line copies
+whatever is behind it and a *larger* read is not a cheaper one — 65,536 costs
+1.01 s where 8,192 costs 0.85 s on the same file. It is left at 65,536 and
+written down with the numbers, because changing it is a separate piece of work
+wanting its own check.
+
 ## gzip — inflate, and the window that was not the cost
 
 DEFLATE decompression: a bit reader, canonical Huffman decoded a bit at a time,
@@ -2379,6 +2403,37 @@ closed. What makes it a customer is memory, which is `sort`'s reason and not a
 new one — **thirty bytes held for every byte produced**, measured with
 `--memory`, where the format asks for a 32 KB window however large the stream
 is.
+
+### It was converted the next day, and the input is gone
+
+Standard input arrives in 4,096-byte pieces now, each replacing the last.
+Nothing here ever looks backwards — the window a back-reference reads from is
+the *output* — so a piece that has been read is not kept. Smallest `--memory=N`
+that lets the run finish:
+
+| bytes out | before | after | |
+| ---: | ---: | ---: | --- |
+| 187,655 | 6,615,294 | **4,528,936** | 35.3× → 24.1× held per byte out |
+| 397,342 | 13,121,439 | **8,942,620** | 33.0× → 22.5× |
+
+**That is the input gone rather than a discount on it**, about thirty bytes for
+every byte of input, and what is left no longer grows with the stream: a
+gigabyte through the pipe holds the same 4,096 bytes of it that a kilobyte does.
+The two copies still there are of the *output*, which wants a ring buffer and an
+incremental write and is this program's own business. It cost 1,206
+instructions, 0.003%.
+
+### And it found that the sweep was running every case down one route
+
+`sweep.sh` named its input on the command line in all 66 cases, so the pipe —
+the route [6.45](COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done)
+exists for — was checked by nothing. `oracle.sh` has run both routes since
+`sed`; `sweep.sh` is a different script written for a program the shared harness
+does not fit, and the rule did not travel with it. **A check that was right
+where it was written and absent from the file written next to it** is a
+different failure from a check got wrong. It runs both ways now, 131 cases, and
+the pipe cases were proved to fail rather than assumed to: a reader that stops
+at the first short answer is caught by 64 of them and by none of the file cases.
 
 
 ## Adding one

@@ -183,6 +183,68 @@ for path in $files; do
 done
 echo "  real:      $count files from this repository x $generated option forms"
 
+# ---------------------------------------------------------------------------
+# The other way in
+#
+# **Everything above names its input on the command line**, and the reader for a
+# pipe is different code: `readUpTo` answers out of a four-kilobyte window, so a
+# read boundary falls in the middle of a line whenever the input is longer than
+# 4,096 bytes -- and every case above is shorter than that. `oracle.sh` runs the
+# corpus beside this file down both routes and is the reason this program's pipe
+# route is checked at all, but its cases are a handful of lines each and none of
+# them ever reaches a second read.
+#
+# So: the largest files in the repository, every option form, standard input on
+# both sides. `sort` names standard input `-` and so does this one, which is
+# what lets the two be compared with no allowance made.
+#
+# Proved by breaking it on purpose: a fill loop that stops at the first short
+# answer -- the shape that ships when `readUpTo`'s contract is read as `fread`'s
+# -- is reported here and by nothing else in this file.
+comparePipe() {
+    input=$1
+    shift
+    if [ "${1:-}" = "-" ]; then shift; fi
+
+    "$theirs" "$@" < "$input" > "$work/o.out" 2> "$work/o.err"
+    ostatus=$?
+    $ours "$@" < "$input" > "$work/m.out" 2> "$work/m.err"
+    mstatus=$?
+
+    runs=$((runs + 1))
+    if ! cmp -s "$work/o.out" "$work/m.out" \
+        || ! cmp -s "$work/o.err" "$work/m.err" \
+        || [ "$ostatus" -ne "$mstatus" ]; then
+        bad=$((bad + 1))
+        if [ "$bad" -le 3 ]; then
+            printf '  DIFFERS  %s down a pipe  [%s]  exit %s against %s\n' \
+                "$input" "$*" "$mstatus" "$ostatus"
+            diff -u "$work/o.out" "$work/m.out" | sed -e '1,2d' -e 's/^/           /' | head -10
+            diff -u "$work/o.err" "$work/m.err" | sed -e '1,2d' -e 's/^/           /' | head -4
+        fi
+    fi
+}
+
+sweep_forms_piped() {
+    while IFS= read -r form; do
+        [ -n "$form" ] || continue
+        eval "comparePipe \"\$1\" $form"
+    done <<FORMS
+$forms
+FORMS
+}
+
+big=$(git ls-files '*.md' '*.sol' '*.c' '*.h' | xargs wc -c 2>/dev/null \
+      | awk '$2 != "total" && $1 > 4096 { print $1, $2 }' \
+      | sort -rn | head -8 | awk '{ print $2 }')
+piped=0
+for path in $big; do
+    [ -f "$path" ] || continue
+    piped=$((piped + 1))
+    sweep_forms_piped "$path"
+done
+echo "  piped:     $piped files past one read x $generated option forms"
+
 echo
 if [ "$bad" -eq 0 ]; then
     echo "nothing disagreed."

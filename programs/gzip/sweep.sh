@@ -65,6 +65,25 @@ try() {
     cmp -s "$WORK/oracle" "$WORK/out" || {
         echo "FAIL $name -$level: the bytes differ from gzip -dc"
         bad=$((bad + 1))
+        return
+    }
+    # **And down the pipe, which is a different reader.** A named file arrives
+    # whole; standard input arrives in 4,096-byte pieces through `readUpTo`, and
+    # a piece boundary can fall anywhere -- inside a header, inside a Huffman
+    # code, between the last data byte and the trailer. Until this was here the
+    # sweep ran every case through the file route and the pipe route was checked
+    # by nothing, which is the hole `oracle.sh` closes elsewhere with its two
+    # routes and the reason a `sha256sum` that dropped its last partial chunk
+    # was found at all.
+    cases=$((cases + 1))
+    if ! $VM "$SOB" -dc < "$WORK/c.gz" > "$WORK/piped" 2>"$WORK/err"; then
+        echo "FAIL $name -$level: down a pipe, gzip.sol left non-zero -- $(cat "$WORK/err")"
+        bad=$((bad + 1))
+        return
+    fi
+    cmp -s "$src" "$WORK/piped" || {
+        echo "FAIL $name -$level: down a pipe, the bytes differ from the original"
+        bad=$((bad + 1))
     }
 }
 
@@ -116,6 +135,18 @@ listing() {
         echo "FAIL listing $2: -l differs from gzip -l"
         diff "$WORK/theirs" "$WORK/ours" | sed 's/^/    /'
         bad=$((bad + 1))
+        return
+    }
+    # `-l` down a pipe names its input `/dev/stdin` and is otherwise the same
+    # line -- and the compressed size in it is counted by the reader rather than
+    # taken from a string's length, so it is worth a case of its own.
+    cases=$((cases + 1))
+    $VM "$SOB" -l < "$WORK/l.gz" > "$WORK/pipedl" 2>/dev/null
+    sed 's|/dev/stdin|'"$WORK"'/l|' "$WORK/pipedl" > "$WORK/pipedl.named"
+    cmp -s "$WORK/ours" "$WORK/pipedl.named" || {
+        echo "FAIL listing $2: -l down a pipe differs by more than the name"
+        diff "$WORK/ours" "$WORK/pipedl.named" | sed 's/^/    /'
+        bad=$((bad + 1))
     }
 }
 
@@ -140,6 +171,16 @@ else
     bad=$((bad + 1))
 fi
 
+# The same down a pipe, where "is there another member?" is not a comparison
+# against a length that is already known -- it is a read that has to be tried.
+cases=$((cases + 1))
+if $VM "$SOB" -dc < "$WORK/both.gz" > "$WORK/out" 2>/dev/null && cmp -s "$WORK/both" "$WORK/out"; then
+    :
+else
+    echo "FAIL concatenated members: down a pipe, cat a.gz b.gz did not come back as both"
+    bad=$((bad + 1))
+fi
+
 echo "-- damage, which must be refused rather than survived"
 
 # The last four bytes are the length; the four before them are the checksum.
@@ -150,6 +191,16 @@ dd if="$WORK/dmg.gz" of="$WORK/bad.gz" bs=1 count=$((size - 5)) 2>/dev/null
 printf '\377\377\377\377\377' >> "$WORK/bad.gz"
 if $VM "$SOB" -t "$WORK/bad.gz" >/dev/null 2>&1; then
     echo "FAIL damaged trailer: -t said a damaged stream was fine"
+    bad=$((bad + 1))
+fi
+
+# Truncated rather than corrupted, and down the pipe: the stream simply stops,
+# which is the end the piecewise reader has to tell apart from a piece running
+# out. Refusing it is the whole of what `readUpTo` answering nil has to mean.
+cases=$((cases + 1))
+dd if="$WORK/dmg.gz" of="$WORK/short.gz" bs=1 count=$((size / 2)) 2>/dev/null
+if $VM "$SOB" -t < "$WORK/short.gz" >/dev/null 2>&1; then
+    echo "FAIL truncated stream: -t down a pipe said half a stream was fine"
     bad=$((bad + 1))
 fi
 

@@ -400,7 +400,7 @@ sameKey := { a, b |
 ; ---------------------------------------------------------------------------
 ; Reading lines without holding the file
 ;
-; A reader answers one line at a time and nil at the end. Two of them, and the
+; A reader answers one line at a time and nil at the end. Two sources, and the
 ; difference between them is the whole of what this program had to find out.
 ;
 ; **From a file: a ranged read with a buffer.** `readFile(path, from, count)`
@@ -408,12 +408,19 @@ sameKey := { a, b |
 ; several readers over several files need nothing shared, which is what the
 ; merge below depends on.
 ;
-; **From a pipe: a byte at a time**, for the reason
+; **From a pipe: the same shape**, since
 ; [6.45](../docs/COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done)
-; records and `diff` measured: `readLine` folds `\r\n` into one terminator, so a
-; file written on another system sorts as different lines through a pipe than
-; through a name. This program is why that entry exists -- see the bottom of
-; this file.
+; closed. `readUpTo(#n)` answers up to n bytes exactly as they were sent, so the
+; two branches differ by which call fills the buffer and by nothing else. The
+; program that raised that entry is this one -- see the bottom of this file for
+; what it cost while the middle was missing.
+;
+; **The count is a ceiling and the window is a lower one.** `readUpTo` answers
+; out of the four-kilobyte window every reader here shares, so asking for 65,536
+; gets 4,096 and the loop goes round again. That is the documented contract
+; rather than a surprise -- *a short answer is normal* -- and it is written down
+; because `readChunk` reads like a promise about the size of a read, and for the
+; pipe it is not one.
 
 readChunk := #65536.
 
@@ -440,20 +447,17 @@ reader:open := { name |
 
 ; Fills until the buffer holds a newline or the source is spent. Answers
 ; whether anything is left to hand out.
-reader:fill := { r | | more, c |
+reader:fill := { r | | more |
     { r:done:not:and({ r:buffer:indexOf("\n"):isNil }) }:whileTrue({
         r:kind:equals('file):ifElse(
             { more := system:readFile(r:path, r:at, readChunk).
               r:at := r:at:add(more:size).
               more:size:equals(#0):ifTrue({ r:done := true }).
               r:buffer := r:buffer:concat(more) },
-            { | got |
-              got := array:new.
-              { got:size:lessThan(readChunk)
-                  :and({ r:done:not }) }:whileTrue({
-                  c := system:readKey.
-                  c:isNil:ifElse({ r:done := true }, { got:add(c) }) }).
-              r:buffer := r:buffer:concat(got:join("")) }) }).
+            { more := system:readUpTo(readChunk).
+              more:isNil:ifElse(
+                  { r:done := true },
+                  { r:buffer := r:buffer:concat(more) }) }) }).
     r:buffer:size:greaterThan(#0) }.
 
 ; **A last line with no newline is a line**, which is what every sort does --
@@ -920,3 +924,46 @@ demonstrate := { | dir, path |
 ; twentieth of the price and changes the answer. **The entry is about the
 ; absence of a middle**, and the second customer is what shows that the middle
 ; is what is missing rather than the whole-file read.
+;
+; ### And the middle arrived, so this is what it was worth
+;
+; `readUpTo` shipped in 0.43.0 and the byte-at-a-time loop above is now four
+; lines that read like the file branch beside them. Same machine, same input --
+; `docs/REFERENCE.md` and `docs/ideas.md` concatenated, 584,997 bytes in 11,350
+; lines -- and the counts are exact rather than sampled, by the `--steps=N`
+; binary search `gzip.sol` describes:
+;
+;     through a pipe, byte at a time      28,846,431 instructions
+;     through a pipe, `readUpTo`          15,402,663      1.87x fewer
+;     the same file named on the command line 15,398,455
+;
+; **The pipe now costs what the name costs**, to within 4,208 instructions on
+; thirteen and a half million saved -- 0.03%, and the file route did not change.
+; That is the result worth having and it is not the speed: a program with two
+; ways in had two performance stories, and the entry's whole argument was that
+; one of them was missing a call. 4.7 MB through a pipe went from 1.49 s to
+; 0.80 s.
+;
+; **What was spent was 23 instructions a byte**, which is what `readKey` costs
+; in the loop that has to ask whether it answered nil. Nothing about the answer
+; moved -- `oracle.sh` runs all thirty cases down both routes and reports the
+; same two divergences it always has.
+;
+; ### What the conversion turned up, and it is about `readChunk`
+;
+; `next` drains the buffer with `copyFrom(at + 1, size)`, so **every line copies
+; whatever is behind it**, and a larger read is therefore not a cheaper one.
+; Measured on the file route, 4.7 MB, otherwise identical:
+;
+;     readChunk  4,096      0.88 s
+;                8,192      0.85 s
+;               16,384      0.86 s
+;               65,536      1.01 s     <- what this program uses
+;
+; Both effects are visible in that table: the drain punishes the large end and
+; the per-call cost punishes the small one. It is left at 65,536 because
+; changing it is a different piece of work from this one and wants its own
+; check -- but it is written down with numbers rather than as a suspicion, and
+; it is why the pipe route above beats the named file by 20% in wall clock
+; while costing the same instructions. The pipe's reads are 4,096 bytes whatever
+; is asked for.

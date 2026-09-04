@@ -2325,12 +2325,37 @@ whole of what `sort` asked for on 2026-09-02 — `-S` bounds what it holds, and
 reading the pipe whole first defeated the option — and what `gzip -d` wanted two
 days later for the same reason.
 
-**Neither customer has been converted yet**, which is worth saying rather than
-leaving to be discovered: `sort` still reads its input the way it did, and
-`gzip -d` still holds thirty bytes for every byte it produces, of which a
-bounded read retires two copies of four. The primitive is what was missing; the
-conversions are ordinary work on two programs that each have an oracle to be
-re-run against.
+**Both customers were converted on 2026-09-04**, the day after this closed, and
+the paragraph that stood here said neither had been. What it predicted was *a
+bounded read retires two copies of four* for `gzip -d`, and that is the half
+worth scoring:
+
+| | before | after | |
+| --- | ---: | ---: | --- |
+| `gzip -d`, 187,655 bytes out | 6,615,294 | 4,528,936 | 31.5% less held |
+| `gzip -d`, 397,342 bytes out | 13,121,439 | 8,942,620 | 31.8% less held |
+| `sort`, 584,997 bytes in | 28,846,431 | 15,402,663 | 1.87x fewer instructions |
+
+**The prediction was right about which copies and understated what they cost.**
+Two of four is what went, and it is thirty-odd bytes for every byte of *input* —
+so what is left does not grow with the stream at all: a gigabyte through the
+pipe holds the same 4,096 bytes of it that a kilobyte does. `sort` was not
+predicted to get faster and did: the byte-at-a-time reader was spending 23
+instructions a byte, and **the pipe route now costs what the named file costs**,
+to within 0.03%.
+
+**And it cost 1,206 instructions in `gzip`** — 0.003% — but only after the guard
+in `nextByte` was written twice. The first version called the refill test on
+every byte and cost 1.8%, on the named-file route as well, where nothing ever
+refills.
+
+**What the conversion turned up is a hole in a check, not in the language.**
+`programs/gzip/sweep.sh` named its input file on the command line in all 66 of
+its cases, so the pipe route — the one this entry exists for — was tested by
+nothing. `oracle.sh` has run every case both ways since `sed`, and the shape
+worth naming is that `sweep.sh` is a *different script*: the rule was correct
+where it was written and absent from the file written next to it. Both sweeps
+run both routes now, and both were proved to fail rather than assumed to.
 
 ### 6.43 A program cannot read standard input whole, and the call that looks as though it can answers `""` — **done**
 
