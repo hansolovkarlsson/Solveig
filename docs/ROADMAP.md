@@ -426,6 +426,17 @@ method wants to leave its own body, not an enclosing frame — and it is worth
 recording because a chain of *this key, else that key* is a shape every dispatch
 table has, and the flag grows one nesting level per branch.
 
+**And on 2026-09-01 a second program hit the entry itself**, at a rate the
+first did not. [programs/awk.sol](../programs/awk.sol) wanted it three separate
+times in one file, and `^` was written three times before remembering it is not
+there. An interpreter dispatching on a tag is the shape that wants to answer and
+leave: without it, `evalBinary` guards every arithmetic branch against having
+already settled `~`, and five unwinding statements become five flags. It is the
+same local case `edit.sol` found, three sites in one file rather than one, and
+it arrived unpredicted by
+[the scoping](ideas.md#programs-that-would-press-on-something) whose whole job
+was to say what awk would want.
+
 **The unwinding half of it exists now**, which is worth noticing: `onError`
 stops an error part-way out and carries on, and `ensure` sets a failure aside
 and puts it back. Both had to leave the machine level -- frames, stack and the

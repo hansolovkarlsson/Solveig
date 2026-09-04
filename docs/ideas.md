@@ -29,7 +29,7 @@ marked as a sketch.
 | What a string is — bytes or code points | **Defer, and toward bytes with a contract** — [the editor asked first](#what-a-string-is--bytes-code-points-or-bytes-with-a-contract), and was corrupting a file on `$x`. **Fixed on 2026-08-30 in the editor**, which is the argument against making `size` count characters — though [the estimate here was wrong](#and-the-editor-was-fixed-which-cost-more-than-this-entry-said): nine lines became seventeen definitions. A [`text` type with a `!"..."` literal](#a-text-type-beside-string-with-a-prefixed-literal-to-make-one) was asked and answered in the same entry — right instincts, wrong end of the pipe |
 | `!character` literals, Unicode | **Defer** — gated on deciding what a string is, and [that entry recommends settling it against](#what-a-string-is--bytes-code-points-or-bytes-with-a-contract): the character type Unicode would want here is the one-character string the language already has |
 | Checking that a link points at a heading | **Built**, on instruction and not on its trigger — [the entry says so](#nothing-checks-that-a-link-points-at-a-heading-that-exists). 1,313 links against 1,496 headings in `make test` on the day it went in. Writing it found two faults in `CHANGELOG.md` that it does not itself catch, and the throwaway's one reported finding turned out to be an artefact of its own fence rule |
-| awk, as the nineteenth program | **Not next** — [its largest demand is a regex library that `sed` already wants](#programs-that-would-press-on-something), and `sed` refuses real input for want of it today. Write `lib/re.sol` first and awk is its second customer; the other two things awk asks for are a lenient numeric read and `%g`, both measured, both small |
+| awk, as the nineteenth program | **Written on 2026-09-01, and the *not next* call was right about the order and wrong about the finding** — [the scoping](#programs-that-would-press-on-something) put `lib/re.sol` first, and that held: full ERE was already built by the time awk started, so the two things left shrank on contact exactly as predicted — a lenient numeric read of nine lines, and `%e` and `%g` written in the program, which is where a format belongs. **What actually pressed was not on the list**: [3.2](ROADMAP.md#32-no-non-local-return), wanted three separate times in one file, and the second real customer for an entry that had had one since August. [Ten cases agree with `/usr/bin/awk` and one differs](#it-was-written-on-2026-09-01-and-the-order-was-the-half-that-held), and five of the six defects the oracle found came from the comparison rather than from a test |
 | A truncating divide on integer | **Defer** — one customer, and its workaround is exact rather than approximate |
 | A path with a NUL in it | **Defer, and it is a silent wrong answer rather than a missing feature** — [found by `sha256sum` on 2026-08-31](#a-path-with-a-nul-in-it-is-silently-a-different-path): a Solum string may hold a NUL and a C path may not, so `fileExists` and `readFile` both answered about a *prefix* and agreed with each other. The reference now says so; the check that would refuse it is small and has one customer with an exact workaround |
 | Integer sizes: byte, word, long | **No — and it was tested on 2026-08-31** rather than argued again. SHA-256 is defined on mod-2^32 arithmetic and is [the first program here to want them](#it-was-written-on-2026-08-31-and-the-prediction-held-in-both-halves); it does not need them, because a 64-bit integer holds the sum of five 32-bit values with fifty-nine bits to spare. The cost of refusing is twenty-three masks in one program |
@@ -57,7 +57,7 @@ marked as a sketch.
 | `@expr{...}`, a region that is a block | **Built on 2026-08-29**, the day after it was scoped — [the sentence was tried first and lost](#expr-a-region-that-is-a-block-rather-than-a-group); the entry predicted one hard part and the second was the one that mattered, a notation that silently stopped inlining |
 | Phoenix — a second language whose output Solum uses | **Defer** — the machinery is proven three times over; [the unexplored half](#programs-that-would-press-on-something) is whether a hosted language can publish a *library* rather than a program |
 | A conformance suite for a second implementation | **Built, both halves, on 2026-09-03** — [conformance/](../conformance/README.md), **89 cases** scored on their bytes with both tools taken from `SOL_COMPILE` and `SOL_RUN`, and in `make test`. Three kinds and not two: a refusal is compile-time and a **trap is run-time**, which the scoping had run together — 13 of the 15 demonstrations in `examples/` turn out to be the machine's business, not the front end's. Every answer written from the documentation before it was run. **Two findings, both in the documentation**: a REFERENCE.md paragraph wrong about `onError` in both halves, and a **self-including file that PRODUCING.md filed as a refusal when it is a warning** — it compiles, leaves with 0, and runs. [The scoping](#a-conformance-suite--a-corpus-a-second-implementation-can-score-itself-against) has the shape; what is left is the five 65,535 limits, which are a generator's business |
-| Programs that would press on something — Pascal, predicate logic, a parser toolkit, `tail`, and [which Unix tool next](#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31) | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would. **So was `sha256sum`, on 2026-08-31**, the first off the Unix survey and the first program here with no I/O in its inner loop: [the prediction held in both halves](#it-was-written-on-2026-08-31-and-the-prediction-held-in-both-halves) and produced the number it was written for — **208 bytecode instructions a byte, 4.3 ns each, 234M a second**. **And `diff` on 2026-09-02**, where [one prediction of four held](#it-was-written-on-2026-09-02-and-one-of-the-four-predictions-held) — the output format, which was the whole difficulty — and the three that did not are more useful than the one that did |
+| Programs that would press on something — Pascal, predicate logic, a parser toolkit, `tail`, and [which Unix tool next](#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31) | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would. **So was `sha256sum`, on 2026-08-31**, the first off the Unix survey and the first program here with no I/O in its inner loop: [the prediction held in both halves](#it-was-written-on-2026-08-31-and-the-prediction-held-in-both-halves) and produced the number it was written for — **208 bytecode instructions a byte, 4.3 ns each, 234M a second**. **And `diff` on 2026-09-02**, where [one prediction of four held](#it-was-written-on-2026-09-02-and-one-of-the-four-predictions-held) — the output format, which was the whole difficulty — and the three that did not are more useful than the one that did. **And `sort` the same day**, which had been filed among the also-rans and is [promoted to an entry of its own](#sort--filed-below-as-pressing-on-less-and-written-anyway): the gap it was predicted to find was not there, because a write is not the reverse of a read — a producer knows what comes next — and what its merge wanted was the ranged read, already built |
 | Networking, and sending code to a running machine | **The first half is built**, on 2026-08-29 — [extensions/net](../extensions/net/README.md), five messages, and the waiting question answered with a timeout rather than a block; [the second half](#networking-and-sending-code-to-a-machine-that-is-already-running) is untouched and still needs 3.4, 6.32 and a proxy |
 | SQLite, SDL2, GTK | **One project, not three** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); GTK and SDL2 fire that trigger and SQLite does not, and wanting *both* toolkits is what settles the mechanism |
 | Graphics in SolaBasic, over SDL2 | **No — asked and closed on 2026-08-30, and the premise was wrong** to begin with: [graphics were never parked](#graphics-in-solabasic-through-the-sdl2-extension) for want of extensions, they were refused as *the PC*. No program wanted a screen, so the trigger never fired. The throwaway exercised the foundation without a language change — an extension send at 205ns, **`sdl:present` vsync-locked at 8.3ms**, and **1.49x from 0.39.0** on a globals-heavy loop. **A demo written that evening then corrected the entry**: a present keeps nothing, so immediate-mode `PSET` is not slow on this surface but absent. **And there is no oracle for a pixel**, which is what would decide it if it were ever asked again |
@@ -5112,6 +5112,25 @@ find out, and the only one on this page that cannot be argued with afterwards.
 
 Oracle: `gzip`, on files `gzip` produced. The largest of the three.
 
+##### `sort` — filed below as pressing on less, and written anyway
+
+**Promoted out of [the also-rans](#two-that-would-press-on-less-and-one-that-cannot-be-written-at-all)
+below, where this prediction was written and where its outcome does not
+belong.** The account of a program that exists had been filed under the heading
+of one that does not, and above rather than below the prediction it answers,
+which is the one arrangement this section is supposed never to take.
+
+**The prediction, kept as it stood:**
+
+> `array:sorted(block)` at scale, and its stability, which nothing has had to
+> care about. **Its real finding is predicted to be a gap we already know about
+> and nothing has wanted**: an external merge sort writes runs to temporary
+> files and merges them, and there is no positioned write — `writeFile` replaces
+> and `appendFile` appends. That is the mirror of the ranged read built this
+> morning, and `sort` would be its first customer. Oracle: `sort` under
+> `LC_ALL=C`, since collation is otherwise a divergence about locales rather
+> than about the program.
+
 ##### It was written on 2026-09-02, and the predicted gap was not there
 
 **Kept above the outcome rather than rewritten.**
@@ -5193,16 +5212,10 @@ out, which is why it stays a paragraph here rather than becoming an entry: a
 message that saves nine lines in two programs is not one this language is short
 of.
 
-##### Three that would press on less, and one that cannot be written at all
+##### Two that would press on less, and one that cannot be written at all
 
-**`sort`.** `array:sorted(block)` at scale, and its stability, which nothing has
-had to care about. **Its real finding is predicted to be a gap we already know
-about and nothing has wanted**: an external merge sort writes runs to temporary
-files and merges them, and there is no positioned write — `writeFile` replaces
-and `appendFile` appends. That is the mirror of the ranged read built this
-morning, and `sort` would be its first customer. Oracle: `sort` under `LC_ALL=C`,
-since collation is otherwise a divergence about locales rather than about the
-program.
+**`sort` was the third of these, and it was written.** Its prediction and what
+came of it are [above](#sort--filed-below-as-pressing-on-less-and-written-anyway).
 
 **`unzip -l`.** A foreign binary format, which nothing has read — `sob.sol`
 reads one this repository wrote. The central directory is at the **end** of the
@@ -5585,8 +5598,57 @@ Not nothing, and the case is narrow enough to state:
    then, because *it found nothing new* is a legitimate outcome and half of the
    prediction above already says so.
 
-**Not built, and not recommended next.** The prediction is written down here so
-that the answer, whenever it is written, can be held against it.
+**Not built when this was written, and not recommended next.** The prediction is
+written down here so that the answer, whenever it is written, can be held
+against it. It was written the same day, once the library existed.
+
+#### It was written on 2026-09-01, and the order was the half that held
+
+**Kept above the outcome rather than rewritten**, which is what this page does
+with predictions. [programs/awk.sol](../programs/awk.sol) is the nineteenth
+program, built in four stages, each of which ended by holding the result against
+`/usr/bin/awk` rather than against what I expected. Ten cases in
+`programs/awk/agree/` agree with it; the one in `programs/awk/differ/` is
+`for (k in a)`,
+whose order POSIX explicitly leaves undefined, so the two disagree and neither is
+wrong.
+
+**Call 1 was the one that mattered, and it held.** The library went first, and by
+the time awk started, full ERE — the largest demand by far, and the whole reason
+this entry said *not next* — was already there. So the prediction's value was
+entirely in the ordering, and the other two shrank on contact exactly as
+predicted: the lenient numeric read is nine lines and wanted nothing new, and
+`%e` and `%g` are written in the program, which is where a format belongs.
+
+**Call 3 asked whether awk was still worth writing afterwards, and the answer is
+yes — for a reason this entry did not name.** It predicted a second dialect
+through one engine and got one. What it did not predict is the thing that
+actually pressed: [3.2](ROADMAP.md#32-no-non-local-return) was wanted three
+separate times in one file, and `^` was written three times before remembering it
+is not there. An interpreter dispatching on a tag is the shape that wants to
+answer and leave; without it, `evalBinary` guards every arithmetic branch against
+having already settled `~`, and five unwinding statements become five flags.
+**That is the second real customer for an entry that had had one since August**,
+and it arrived unpredicted by an entry whose whole job was to predict this kind
+of thing.
+
+**The oracle found six defects, five of them by comparison rather than by a
+test**: `-F:` joined to its flag; `run` calling `setDefaults` after the command
+line had set `FS`, which showed on only the one flag in three that had input to
+act on; `re.sol` not exporting `lastEnd`, which no earlier caller had wanted;
+`truncated` asked before its own magnitude guard; and `ln(1e30)/ln(10)` landing
+at 29.999999999999996, which put one number in thirteen on the wrong side of a
+switch. Not one of those would have been in a test written from what I believed
+the program did.
+
+**And one was found by running a form that a note said was not implemented.**
+`getline line < "file"` parsed as `getline line` and then a comparison against
+the filename: it read standard input, threw the answer away, printed nothing and
+left with 0. That is
+[a claim in a header is a case waiting to be written](method.md#an-author-written-corpus-tests-what-its-author-thought-of)
+firing on the day the rule was written, in a file written after it — and the
+tell is the note, because in a program that parses something, *not written* and
+*quietly means something else* are the same syntax.
 
 ### Networking, and sending code to a machine that is already running
 
