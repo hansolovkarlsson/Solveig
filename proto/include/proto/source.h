@@ -14,7 +14,8 @@
 #include "proto/common.h"
 
 typedef struct {
-    char *path;             /* owned */
+    char *path;             /* owned; what a diagnostic shows */
+    char *identity;         /* owned; what decides whether two are one file */
     char *text;             /* NUL-terminated; owned */
     size_t length;
 } ProtoSource;
@@ -36,6 +37,18 @@ typedef struct {
 } ProtoSpan;
 
 #define PROTO_SPAN_NONE ((ProtoSpan){ NULL, 0, 0 })
+
+/* The canonical path, for comparing one file against another. The caller
+ * frees. Answers a copy of `path` when it cannot be resolved -- a source built
+ * in memory, or a file that went away between the two calls.
+ *
+ * `path` is what somebody wrote and is what a diagnostic must show:
+ * `examples/../lib/control.pro` is where they can look. This is the other
+ * question, and the two were one string until 0.17.0 -- so `x.pro` and
+ * `./x.pro` were two files, a diamond collided with itself, and a cycle was
+ * not a cycle. Collapsing `x/../` textually would be wrong across a symlink,
+ * which is why this asks the filesystem. */
+char *proto_path_identity(const char *path);
 
 bool proto_source_read(ProtoSource *source, const char *path);
 

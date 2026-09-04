@@ -638,7 +638,7 @@ integer:utf8Tail := { at |
     (#128:bitOr(self:shiftRight(at):bitAnd(#63))):asCharacter }.
 ```
 
-## What 0.16.0 is not
+## What 0.17.0 is not
 
 **A pattern has no optional or repeated parts.** `if <c> then <a> else <b>` is a
 second declaration rather than an optional tail, which is honest and costs a
@@ -689,7 +689,7 @@ Known gaps, each for a reason rather than for lack of time:
 | Temporaries in a group | `( \| t \| ... )` is Solveig's; Proto reads `( expr. expr )` and no temporaries. |
 | `@expr` | Deliberately absent. It is the fixed form of what `@infix` generalises, and having both would be having two. |
 | An installed dialect is not found on its own | `make install` puts `lib/*.pro` beside the binary and nothing looks there. `PROTO_PATH` is one line in a profile; Solveig's binaries are told their library path at build time and could be copied. |
-| A `@use` path is not normalised | `examples/../lib/control.pro` is what a diagnostic shows, and two spellings of one file are two files. Collapsing `x/../` textually is wrong across a symlink, so it wants `realpath` and a second path to display. |
+| A `@use` path is shown as written | `examples/../lib/control.pro` is what a diagnostic shows, which is where somebody can look. Since 0.17.0 that is display only: identity is `realpath`, so two spellings of one file are one file. |
 | Long send chains | A block that will not fit is broken across lines; a chain of sends that will not fit is not, yet. |
 
 ## The question that was open

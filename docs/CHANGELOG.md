@@ -10,6 +10,57 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### A file is not its path — 0.17.0, 2026-09-04
+
+**`@use` decided whether it had already read a file by comparing path strings**,
+and `x.pro` beside `./x.pro` is one file spelled two ways. Both rules built on
+that comparison failed, in opposite directions.
+
+**A diamond spelled two ways warned that a file collided with itself:**
+
+```
+d/./base.pro:1:8: warning: operator '+' was already declared by d/base.pro
+d/base.pro:1:1: note: declared here
+```
+
+Correct code, a false warning, and it names one path as the offender and the
+same file's other spelling as where it was declared. **The output was right**
+— identical declarations, being the same line of the same file — so what it
+cost was confidence in the collision warnings, which is the 0.4.0 feature the
+composition story rests on.
+
+**And a cycle spelled two ways was not reported as a cycle.** Every hop appended
+another `./`, so no path repeated, the cycle check never fired, and what
+stopped it was the 64-deep recursion limit — the wrong diagnostic under
+sixty-four lines of `././././` trail. **The limit is what stood between this and
+a hang**, and holding exactly as designed is also why the defect stayed quiet: a
+guard that turns an infinite loop into a bad error message makes a bug
+survivable and therefore invisible.
+
+**A `ProtoSource` now carries `identity` beside `path`** — `realpath`, falling
+back to a copy when there is nothing on disk to resolve, which is how a source
+built in memory keeps working. **Display is unchanged and deliberately so**: the
+cycle error still names `./././a.pro`, because that is what the file says and
+where somebody can look. Only the two comparisons moved.
+
+**Found by checking a rough edge instead of accepting how it was filed.**
+`README.md` carried it as cosmetic, and named `realpath` as the fix four days
+ago. The sentence was right and the severity was wrong — it described what a
+diagnostic *shows* and never asked what else compared those strings.
+POSTMORTEM 24.
+
+**And `proto_source_read` now has one exit.** The `fopen` failure had its own
+copy of the cleanup and did not gain the new field when the struct did — a leak
+written and found in the same hour, which is the argument for the single exit
+rather than for remembering.
+
+**Negative control**, `make clean` between the builds: both new checks fail
+against the unfixed compiler — the diamond on its warning count, the cycle on
+saying *nested more than 64 deep* where it should say *is a cycle*. Clean under
+`make sanitize`.
+
+The suite is **63, 6, 69 and 13** — 151.
+
 ### A block hole says how to become one — 0.16.0, 2026-09-04
 
 **The diagnostic prescribes where a fix exists.** A hole-kind failure said what

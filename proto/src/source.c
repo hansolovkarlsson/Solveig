@@ -3,17 +3,29 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 #include "proto/source.h"
+
+char *proto_path_identity(const char *path)
+{
+    char *resolved = realpath(path, NULL);
+    if (resolved == NULL) return proto_strndup(path, strlen(path));
+
+    /* Onto this allocator, so every string a ProtoSource owns is freed the one
+       way. `realpath` allocates with malloc and a caller cannot tell. */
+    char *identity = proto_strndup(resolved, strlen(resolved));
+    free(resolved);
+    return identity;
+}
 
 bool proto_source_read(ProtoSource *source, const char *path)
 {
     source->path = proto_strndup(path, strlen(path));
+    source->identity = proto_path_identity(path);
     source->text = NULL;
     source->length = 0;
 
     FILE *file = fopen(path, "rb");
-    if (file == NULL) { free(source->path); source->path = NULL; return false; }
+    if (file == NULL) goto failed;
 
     if (fseek(file, 0, SEEK_END) != 0) { fclose(file); goto failed; }
     long size = ftell(file);
@@ -33,15 +45,23 @@ bool proto_source_read(ProtoSource *source, const char *path)
     source->length = read;
     return true;
 
+/* Every failure leaves here, and not one of them by its own `return`: the
+   `fopen` path had its own copy of this and did not gain `identity` when the
+   field did. One exit is what keeps the next field from being freed on one
+   path and leaked on the other. */
 failed:
     free(source->path);
+    free(source->identity);
     source->path = NULL;
+    source->identity = NULL;
     return false;
 }
 
 void proto_source_adopt(ProtoSource *source, const char *path, const char *text)
 {
     source->path = proto_strndup(path, strlen(path));
+    /* Nothing on disk to resolve, so a source built in memory is itself. */
+    source->identity = proto_strndup(path, strlen(path));
     source->length = strlen(text);
     source->text = proto_strndup(text, source->length);
 }
@@ -49,8 +69,10 @@ void proto_source_adopt(ProtoSource *source, const char *path, const char *text)
 void proto_source_free(ProtoSource *source)
 {
     free(source->path);
+    free(source->identity);
     free(source->text);
     source->path = NULL;
+    source->identity = NULL;
     source->text = NULL;
     source->length = 0;
 }

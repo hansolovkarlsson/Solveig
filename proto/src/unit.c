@@ -57,10 +57,12 @@ void proto_unit_add_environment(ProtoUnit *unit)
     }
 }
 
-const ProtoSource *proto_unit_loaded(const ProtoUnit *unit, const char *path)
+const ProtoSource *proto_unit_loaded(const ProtoUnit *unit,
+                                     const char *identity)
 {
     for (int i = 0; i < unit->count; i++)
-        if (strcmp(unit->sources[i]->path, path) == 0) return unit->sources[i];
+        if (strcmp(unit->sources[i]->identity, identity) == 0)
+            return unit->sources[i];
     return NULL;
 }
 

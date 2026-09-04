@@ -732,15 +732,22 @@ static void directive_use(Reader *reader)
         return;
     }
 
+    /* Which file this *is*, as against how it was spelled. Both questions below
+       are about identity and neither is about the path: `x.pro` beside
+       `./x.pro` is one file, and until 0.17.0 both of these compared strings
+       and answered that it was two. POSTMORTEM.md 24. */
+    char *identity = proto_path_identity(path);
+
     /* A file still being read is a file using itself, however many hops away.
        Caught here rather than left to the load-once rule below, which would
        terminate and then report the operators as undeclared -- true, and no
        help at all in finding out why. */
     for (const Use *use = reader->use; use != NULL; use = use->outer)
-        if (strcmp(use->source->path, path) == 0) {
+        if (strcmp(use->source->identity, identity) == 0) {
             error_at(reader, at, "'%s' is already being read -- @use is a cycle",
                      path);
             note_trail(reader);
+            free(identity);
             free(path);
             free(name);
             return;
@@ -748,11 +755,13 @@ static void directive_use(Reader *reader)
 
     /* Read once. Two dialects that both use a third meet it once, so its
        declarations are not added twice and do not collide with themselves. */
-    if (proto_unit_loaded(reader->unit, path) != NULL) {
+    if (proto_unit_loaded(reader->unit, identity) != NULL) {
+        free(identity);
         free(path);
         free(name);
         return;
     }
+    free(identity);
 
     const ProtoSource *source = proto_unit_read(reader->unit, path);
     if (source == NULL) {

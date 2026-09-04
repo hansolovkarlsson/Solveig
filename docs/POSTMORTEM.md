@@ -9,10 +9,10 @@ shipped. This is the failures.
 
 ## Scope
 
-Twenty-three, from four days, in four cohorts that failed for four different
+Twenty-four, from five days, in four cohorts that failed for four different
 reasons:
 
-- **In the compiler** — seven, five of which were latent from 0.1.0 and 0.2.0.
+- **In the compiler** — eight, five of which were latent from 0.1.0 and 0.2.0.
 - **In the method** — one: a negative control that passed because `make` had
   rebuilt nothing.
 - **In the documents** — seven: three an edit that reported success and changed
@@ -311,6 +311,63 @@ one, and a third check was added for a template that **builds** the node, which
 is the case that names another file entirely.
 
 **Found by** not believing a control that agreed with the code under test.
+
+### 24. A file was its path, so one file could be two — 2026-09-04
+
+**What.** `@use` decided whether it had already read a file by comparing path
+strings. `x.pro` and `./x.pro` resolve to one file and are two strings, so both
+rules built on that comparison failed, in opposite directions:
+
+**A diamond spelled two ways collided with itself.** Two dialects using a third,
+one arm writing `base.pro` and the other `./base.pro`, read it twice:
+
+```
+d/./base.pro:1:8: warning: operator '+' was already declared by d/base.pro
+                  -- this one wins, and nothing else will say so
+d/base.pro:1:1: note: declared here
+```
+
+Correct code, a spurious warning, and the warning names one path as the offender
+and **the same file's other spelling** as where it was first declared. The
+output was right — the declarations are identical, being the same line of the
+same file — so this only ever cost a reader their confidence in the collision
+warnings, which are the 0.4.0 feature the whole composition story rests on.
+
+**And a cycle spelled two ways was not a cycle.** `a.pro` using `./b.pro` using
+`./a.pro` never matched the cycle check, and every hop appended another `./`, so
+no path ever repeated. What stopped it was the recursion limit:
+
+```
+.../cyc/./././…/a.pro:1:1: error: @use is nested more than 64 deep
+  ... used from .../cyc/././././…/b.pro, line 1        (× 64)
+```
+
+The right diagnostic exists and did not fire; the reader gets the wrong one,
+under sixty-four lines of `./././` trail.
+
+**Cause.** One string answering two questions. `source->path` is what a
+diagnostic must show — `examples/../lib/control.pro` is where somebody can
+actually look — and it was also being asked *which file is this*, which is a
+different question with a different answer. `proto_unit_loaded`'s own comment
+said "already read under this **exact path**" and the word `exact` was doing the
+work of a caveat nobody had priced.
+
+**Fixed in 0.17.0.** A `ProtoSource` carries `identity` beside `path`:
+`realpath`, falling back to a copy of the path when there is nothing on disk to
+resolve. Display is unchanged — the cycle error still names `./././a.pro`,
+because that is what the file says. Both comparisons moved to `identity`.
+
+**What the limit was doing.** It is the reason this is a wrong diagnostic and
+not a hang, and it held exactly as designed. It is also why the defect could sit
+here unnoticed: **a guard that turns an infinite loop into a bad error message
+makes the bug survivable and therefore quiet.**
+
+**Found by** checking a rough edge instead of accepting how it was filed.
+`README.md`'s known-gaps table carried this as cosmetic — *`examples/../lib/control.pro`
+is what a diagnostic shows, and two spellings of one file are two files* — and
+already named `realpath` as the fix. **The sentence was right and the severity
+was wrong**: the entry described the display and never asked what *else*
+compared those strings. Nothing else on that list has been checked that way.
 
 ---
 
@@ -702,13 +759,14 @@ where somebody could go back and disagree with it, and somebody did.
 | A closeout run on a day with no work in it | **1** |
 | Checking a prediction instead of asserting it | **1** |
 | Not believing a control that agreed with the code | **1** |
+| Checking a rough edge instead of accepting how it was filed | **1** |
 
-**Two of twenty-three were found by tests**, and one of those two was a broken
+**Two of twenty-four were found by tests**, and one of those two was a broken
 test. Five came from writing programs in the language — four of the six
 programs found one, and the sixth found none — and three more came from reading
 something rather than running it.
 
-The unit tests are worth having — 147 of them, and they caught 1 immediately —
+The unit tests are worth having — 151 of them, and they caught 1 immediately —
 but they check what was thought of. **What found the rest was a customer, or a
 second look.** That is the argument for `programs/`, for recording predictions
 before writing a program, and for the rule that a finding gets retracted in

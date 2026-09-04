@@ -16,6 +16,7 @@
 static int failures = 0;
 static int checks = 0;
 static char directory[256];
+static char said[8192];       /* what the last compile reported */
 
 static void write_file(const char *name, const char *text)
 {
@@ -68,6 +69,14 @@ static char *compile(const char *name, int *errors, int *warnings)
     *errors = diag.errors;
     *warnings = diag.warnings;
 
+    /* Kept so a check can name the diagnostic rather than only counting it.
+       Two errors are one error away from each other in a count, and this file
+       has a case where the *wrong* error was reported and the count was
+       right. */
+    rewind(sink);
+    size_t read = fread(said, 1, sizeof said - 1, sink);
+    said[read] = '\0';
+
     char *out = NULL;
     if (module != NULL) {
         ProtoEmitter emitter;
@@ -108,6 +117,26 @@ static void expect(const char *label, const char *name,
         failures++;
     }
     free(got);
+}
+
+/* Rejected, and it said this. `expect_rejected` counts; this one reads. */
+static void expect_rejected_saying(const char *label, const char *name,
+                                   const char *want)
+{
+    checks++;
+    int errors = 0, warnings = 0;
+    char *got = compile(name, &errors, &warnings);
+    if (got != NULL) {
+        printf("  FAIL %s: compiled, and should not have\n", label);
+        failures++;
+        free(got);
+        return;
+    }
+    if (strstr(said, want) == NULL) {
+        printf("  FAIL %s\n    want a diagnostic saying: %s\n    said: %s",
+               label, want, said);
+        failures++;
+    }
 }
 
 static void expect_rejected(const char *label, const char *name)
@@ -193,6 +222,31 @@ int main(void)
     write_file("y.pro", "@use \"x.pro\".\n");
     write_file("p7.pro", "@use \"x.pro\".\na := #1.\n");
     expect_rejected("a cycle", "p7.pro");
+
+    /* And a cycle is a cycle however each hop spells it. Identity was the
+       path string until 0.17.0, so `./x.pro` and `x.pro` were two files: the
+       cycle check never fired, every hop grew another `./`, and what stopped
+       it was the depth limit -- reporting *nested more than 64 deep* under
+       sixty-four lines of `././././`. The limit is what stood between this and
+       a hang, which is why it is not the thing to rely on. POSTMORTEM.md 24. */
+    write_file("cx.pro", "@use \"./cy.pro\".\n");
+    write_file("cy.pro", "@use \"./cx.pro\".\n");
+    write_file("p7b.pro", "@use \"./cx.pro\".\na := #1.\n");
+    expect_rejected_saying("a cycle spelled two ways is still a cycle", "p7b.pro",
+                           "@use is a cycle");
+
+    /* The same defect's other face, and the one that reaches correct code: a
+       diamond whose arms spell the third file differently read it twice and
+       warned that it collided with *itself*, naming one path as the offender
+       and the same file's other spelling as where it was declared. */
+    write_file("dbase.pro", "@infix + 60 add.\n");
+    write_file("dleft.pro", "@use \"dbase.pro\".\n");
+    write_file("dright.pro", "@use \"./dbase.pro\".\n");
+    write_file("p3b.pro",
+               "@use \"dleft.pro\".\n@use \"dright.pro\".\n"
+               "a := #1 + #2.\n");
+    expect("a diamond spelled two ways is read once", "p3b.pro",
+           "a := #1:add(#2).\n", 0);
 
     write_file("p8.pro", "@use \"nope.pro\".\na := #1.\n");
     expect_rejected("a dialect that is not there", "p8.pro");

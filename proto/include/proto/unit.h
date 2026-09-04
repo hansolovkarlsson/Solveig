@@ -43,12 +43,15 @@ const ProtoSource *proto_unit_read(ProtoUnit *unit, const char *path);
 const ProtoSource *proto_unit_adopt(ProtoUnit *unit, const char *path,
                                 const char *text);
 
-/* The one already read under this exact path, or NULL.
+/* The one already read with this identity, or NULL. Takes what
+ * `proto_path_identity` answers, not the path somebody wrote.
  *
  * What makes a diamond harmless: two dialects that both use a third read it
  * once, so the third's declarations are not added twice and do not collide with
- * themselves. */
-const ProtoSource *proto_unit_loaded(const ProtoUnit *unit, const char *path);
+ * themselves. It compared path strings until 0.17.0, so two arms spelling the
+ * third differently defeated it and the file collided with itself. */
+const ProtoSource *proto_unit_loaded(const ProtoUnit *unit,
+                                     const char *identity);
 
 /* Where `@use "name"` written in `from` should look, in order. Answers a path
    that exists, or NULL. The caller frees. */
