@@ -25,11 +25,11 @@ Makefile for the rest — `grammar`, `ledger`, `prose`, `sanitize` and others.
 
 ## The records
 
-In `docs/`: `journal.md` (why, in order), `POSTMORTEM.md` (every defect, and
-what found it), `COMPLETED.md` and `ROADMAP.md` (what exists and what does not
-— an item moves when it is settled, including settled against), `CHANGELOG.md`
-(when).
-`conventions.md` states this repository's own house rules; read it first.
+In `docs/`: `journal.md` (why, in order — **newest first**), `POSTMORTEM.md`
+(every defect, and what found it), `COMPLETED.md` and `ROADMAP.md` (what
+exists and what does not — an item moves when it is settled, including settled
+against), `CHANGELOG.md` (when). `conventions.md` states this repository's own
+house rules; read it first.
 
-Each of those opens with an italic note stating its own job. That note is the
+Each of those opens with a note stating its own job. That note is the
 specification for what belongs in it — follow it over any general instruction.
