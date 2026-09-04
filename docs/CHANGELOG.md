@@ -50,7 +50,7 @@ which is `sort`'s reason: **thirty bytes held for every byte produced**, measure
 with `--memory`, where the format asks for a 32 KB window however large the
 stream is. The entry has two customers and one argument.
 
-### 6.45 closed: `system:readPiece(#n)` — `pending`, 2026-09-04
+### 6.45 closed: `system:readPiece(#n)` — `eab21d6`, 2026-09-04
 
 **Up to `n` bytes of standard input, exactly as they were sent, and nil at the
 end.** The third reader through the window
