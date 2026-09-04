@@ -325,3 +325,94 @@ cost run 1 six probes, and explained, which cost run 2 nothing.
 **The answer is worked out by hand, as the other two were.** Divisible by 3:
 3, 6, 9, 12, 15. Divisible by 5: 5, 10, 15. In order of `n`, with 15 twice:
 **3, 5, 6, 9, 10, 12, 15, 15** — eight lines.
+
+### What the third run found
+
+Run on 2026-09-04 against 0.17.0, predictions committed first in `8c823df`.
+The program and its output were re-run and diffed against the hand-computed
+oracle here; it matches, byte for byte.
+
+**Correct on the first compile-and-run, for the third time in three runs. And
+no diagnostic was emitted, for the third time in three runs.**
+
+| | |
+| --- | --- |
+| **12. The braces come off at least once** | **Wrong.** Braces on both conditionals, first attempt, never questioned. |
+| **13. A hole-kind diagnostic is emitted** | **Wrong.** Zero, again. **Three readers, three tasks, and not one has seen a Proto error message of any kind.** |
+| **14. And this time it says what to do** | **Untested for the third time, and for a third distinct reason.** Run 1: the task had no cascade. Run 2: the dialect's eleven lines prevented it. Run 3: the example's braces prevented it. |
+| **15. The design note does not prevent what the essay prevented** | **Untested.** Nothing reached the failure, so the note was never on trial. The middle case remains unmeasured. |
+| **16. The example is the real competition** | **Right, and it is the finding.** *"`example.pro` was the single most useful document"*, supplying *"nearly 100% of what I needed"*, and the program was written *"by direct analogy"* with it. The prediction that cost something to write is the one that paid. |
+| **17. The substrate still costs nothing** | **Right.** Zero `does not understand` probes, and the reader went to Solveig's reference by targeted `grep` rather than by guessing. Two runs now. |
+
+### The README was read, and the section written for it worked
+
+**Neither of the first two readers opened the front page.** This one opened it
+**first**, met *Not here.* in its first two words, was sent to `clike.pro` and
+`example.pro`, and — in their own words — *stopped reading README past that
+point and did not go back to it later.*
+
+That is the twenty-five lines added on 2026-09-04, doing exactly the job they
+were added for, measured the same day. **It is the first evidence that any part
+of `README.md` has ever been load-bearing for a reader.** The correct behaviour
+for a front page is to be read once, briefly, and left.
+
+### And the rule from run 2 does not hold as it was written
+
+**The `print`-is-a-repr trap fired again — on a reader who had read the warning
+about it.** `examples/clike.pro` has carried that warning since run 1, at the
+line it is about. Run 2 caught the trap before it fired and called it *the one
+that would have bitten me*. Run 3 read the same comment, quoted it back
+accurately, wrote `:print` anyway, got `#3` where `3` was wanted, and said:
+
+> the warning didn't fully land until I saw the actual output.
+
+**Run 2 earned this sentence, and it is now in four documents:**
+
+> A limitation explained where it is declared is not a limitation a reader pays
+> for. It is one its author paid for once.
+
+**It was generalised from one instance and the next instance contradicts it.**
+`else if` and `print` are both limitations explained at their declarations, and
+only one of them was prevented. What separates them is not how well either is
+explained — the `print` comment is three lines and names the exact symptom:
+
+| | |
+| --- | --- |
+| **`else if`** | A **refusal**. The reader must decide to type something, and the warning arrives before the decision. Reading it removes the option. |
+| **`print`** | A **silence**. The wrong choice compiles, runs, and produces plausible output. The warning describes an outcome the reader cannot recognise until they have one to compare against — and by then they have already paid the cycle. |
+
+> **A warning prevents a failure you would have chosen. It does not prevent one
+> you would have walked into believing you had succeeded.**
+
+Which is [does-it-pay.md](does-it-pay.md)'s own silence category arriving from
+the documentation side: **the things that cost a reader are the silent ones,
+and explaining a silence at its declaration does not make it loud.** That is
+the narrowing, and it took a third reader because the second one produced a
+sentence good enough to stop looking. [POSTMORTEM.md](POSTMORTEM.md) 26.
+
+### What it cost, and the assist accounting
+
+**No assists this run**, where run 1 had two. Everything the reader used —
+the loop shape, `%`, the comparisons, `:display` — traces to `example.pro`,
+`clike.pro` or Solveig's reference. The proxy's C and Smalltalk habits had
+nothing to supply, because the example already supplied it.
+
+**One cycle spent, and it was spent on the silence.** The reader resolved
+`print` against `display` by grepping Solveig's reference, finding it
+*ambiguous — no example shows `#N:display` with its output* — and then **writing
+a five-line test program instead of reading further.** A three-command toolchain
+with clean exits makes an experiment cheaper than a document, which is a point
+in the toolchain's favour and a mark against the reference.
+
+### The thing three runs now agree on and nobody designed for
+
+**No reader has ever seen a diagnostic.** Three tasks, one of them built
+specifically to force an error, and the compiler has never spoken to any of
+them. Every hour spent on diagnostics — POSTMORTEM 22's caret, 0.16.0's
+prescription, the map that is *tested harder than anything else here* — remains
+**entirely unmeasured by the only population it exists for.**
+
+That is not an argument that the work was wrong. It is an argument that the
+justification for it is still the author's reasoning and not a reader's
+experience, and after three runs that should be said plainly rather than
+waited out.

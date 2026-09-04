@@ -60,6 +60,21 @@ dialect file had not spent a paragraph on it.*
 > **A limitation explained where it is declared is not a limitation a reader
 > pays for. It is one its author paid for once.**
 
+**Run 3 narrowed this on 2026-09-04, and it needed narrowing.** The
+`print`-is-a-repr trap is explained at the line it is about and the third
+reader read that comment, quoted it back, wrote `:print` anyway and paid the
+cycle. **The rule holds for a refusal and not for a silence**: `else if` is
+something a reader must choose to type, so a warning read beforehand removes
+the option; `:print` compiles, runs, and looks right, so the warning describes
+something they cannot recognise until they already have it.
+
+> **A warning prevents a failure you would have chosen. It does not prevent one
+> you would have walked into believing you had succeeded.**
+
+It is kept rather than replaced, because it is true of what it was measured on.
+[POSTMORTEM.md](POSTMORTEM.md) 26 is why it should not have been stated wider
+than that on one reader.
+
 **And since 0.17.0 the compiler says it too.** *Once* was once **per dialect**:
 `lib/clike.pro`'s author paid it, and the next dialect with a `block` hole has
 an author who has not. The hole-kind diagnostic now carries `wrap it in braces

@@ -10,6 +10,50 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### The third reader, and a rule that did not survive them — 2026-09-04
+
+**No version; nothing in the compiler changed.** Predictions 12 to 17 committed
+first in `8c823df`, aimed at measuring 0.16.0's prescriptive diagnostic. **The
+run failed at that and found something else**, which is what the predictions
+were written down to make visible.
+
+**Correct on the first compile-and-run, and no diagnostic emitted — for the
+third time in three runs.** The reader braced both conditionals without
+hesitating. Predictions 12 and 13 are wrong, 14 and 15 are untested for the
+third time, and the reason is now different every time: run 1's task had no
+cascade, run 2's dialect explained the limitation, run 3's example showed braces
+on every body.
+
+**No reader has ever seen a Proto error message.** Three tasks, one built
+specifically to force one. Every hour spent on diagnostics is still justified by
+the author's reasoning and not by a reader's experience.
+
+**The README's new section was read and worked.** Neither earlier reader opened
+the front page; this one opened it **first**, met *Not here.*, went where it
+pointed and — their words — *stopped reading README past that point.* Written
+yesterday, measured today, and the first evidence that any of that page has been
+load-bearing for anybody.
+
+**And run 2's headline rule does not hold as it was written.** POSTMORTEM 26.
+The `print`-is-a-repr trap is explained at the line it is about; the third
+reader read that comment, quoted it back, wrote `:print` anyway and paid the
+cycle:
+
+> **A warning prevents a failure you would have chosen. It does not prevent one
+> you would have walked into believing you had succeeded.**
+
+*A limitation explained where it is declared is not a limitation a reader pays
+for* was generalised from **one reader and one limitation** into four documents
+the same evening — in a repository whose loudest standing rule is that **one
+customer is not enough**. That bar is applied to features and was not applied to
+a conclusion. Narrowed where it is stated live, and kept, because it is true of
+the refusal it was measured on.
+
+**Four stale counts and one false claim**, found by grepping for the claim:
+`does-it-pay.md` said *the only two strangers to use this language did not read*
+the README, which today's run contradicts. `REFERENCE.md`, `targets.md` and
+`README.md` said *two strangers* and now say three.
+
 ### Closing out 2026-09-04 — a document that outlived its own correction
 
 **No version, no code, and not committed by the closeout itself.**

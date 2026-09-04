@@ -307,6 +307,21 @@ the declaration itself**.
 > **A limitation explained where it is declared is not a limitation a reader
 > pays for.**
 
+**Run 3 narrowed this on 2026-09-04, and it needed narrowing.** The
+`print`-is-a-repr trap is explained at the line it is about and the third
+reader read that comment, quoted it back, wrote `:print` anyway and paid the
+cycle. **The rule holds for a refusal and not for a silence**: `else if` is
+something a reader must choose to type, so a warning read beforehand removes
+the option; `:print` compiles, runs, and looks right, so the warning describes
+something they cannot recognise until they already have it.
+
+> **A warning prevents a failure you would have chosen. It does not prevent one
+> you would have walked into believing you had succeeded.**
+
+It is kept rather than replaced, because it is true of what it was measured on.
+[POSTMORTEM.md](POSTMORTEM.md) 26 is why it should not have been stated wider
+than that on one reader.
+
 **And it measured the first run's two fixes.** Both were one line, neither
 touched the compiler, and the second run is the control: six `does not
 understand` probes became **zero**, and the `print`-is-a-repr trap that cost run
@@ -319,7 +334,17 @@ Which sharpens the rule this page ended on rather than replacing it:
 > reader is the substrate — **and both are paid in documentation, not in
 > syntax.** Two one-line sentences removed every cost the first reader met.
 
-**Neither reader opened the README.** One grepped it after the fact, one never
-opened it at all. Six programs' worth of evidence sits behind a front page that
-the only two strangers to use this language did not read; the entry point is the
-dialect file, the example, and the reference.
+**Neither of the first two readers opened the README.** One grepped it after
+the fact, one never opened it at all. Six programs' worth of evidence sat behind
+a front page that neither stranger read.
+
+**That was acted on, and the third reader measured the fix the same day.**
+`README.md` gained a *Where to start* section on 2026-09-04 — twenty-five lines
+naming the dialect file, the example and the reference, opening with *Not here.*
+Run 3 opened the front page **first**, met that section, went where it pointed,
+and *stopped reading README past that point and did not go back to it later.*
+
+**Which is the front page working rather than the front page being skipped**,
+and it is the first evidence any of it has ever been load-bearing. The entry
+point is still the dialect file, the example and the reference — a front page's
+job is to be read once, briefly, and left.

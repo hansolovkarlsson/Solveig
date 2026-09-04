@@ -519,6 +519,12 @@ the generalisation of what run 2 actually found:
 > A limitation explained where it is declared is not a limitation a reader pays
 > for. It is one its author paid for once.
 
+**Run 3 narrowed that sentence — it holds for a refusal and not for a silence**
+([POSTMORTEM.md](POSTMORTEM.md) 26) — and the narrowing does not touch this
+case. A braceless body is a refusal: the compiler stops, and the only question
+is whether what it says is any use. That is still unmeasured after three runs,
+because no reader has yet reached a diagnostic at all.
+
 **Once *per dialect*.** `lib/clike.pro`'s author paid it, and every future
 dialect with a `block` hole has an author who has not. The compiler is where
 that sentence can be said once for all of them, and a diagnostic is the only

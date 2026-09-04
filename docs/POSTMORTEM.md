@@ -9,7 +9,7 @@ shipped. This is the failures.
 
 ## Scope
 
-Twenty-five, from five days, in four cohorts that failed for four different
+Twenty-six, from five days, in four cohorts that failed for four different
 reasons:
 
 - **In the compiler** — eight, five of which were latent from 0.1.0 and 0.2.0.
@@ -21,7 +21,7 @@ reasons:
   the sentence describing it, and one where a file's closing sentence outlived
   the section that settled it.
 - **In the programs** — four, found by the first real use of a thing.
-- **In the reasoning** — four, where something true was written down as
+- **In the reasoning** — five, where something true was written down as
   something else and had to be retracted.
 
 ---
@@ -771,6 +771,50 @@ and neither reading of the problem had said so.
 lesson, second instance and better: a claim was written down in three places
 where somebody could go back and disagree with it, and somebody did.
 
+### 26. A rule generalised from one reader, against this project's own bar — 2026-09-04
+
+**What.** Run 2 of the second-reader experiment produced a sentence, and it was
+promoted to a headline rule in four documents the same evening —
+[ROADMAP.md](ROADMAP.md), [does-it-pay.md](does-it-pay.md),
+[CHANGELOG.md](CHANGELOG.md) and [second-reader.md](second-reader.md):
+
+> A limitation explained where it is declared is not a limitation a reader pays
+> for. It is one its author paid for once.
+
+**Run 3 contradicted it.** The `print`-is-a-repr trap is explained at the line
+it is about, in `examples/clike.pro`, and has been since run 1. The third reader
+**read that comment, quoted it back accurately, wrote `:print` anyway**, and got
+`#3` where `3` was wanted. Their words: *the warning didn't fully land until I
+saw the actual output.*
+
+**Cause.** One instance, one limitation, one reader — generalised into a rule
+about limitations in general. The instance it came from is a **refusal**: a
+reader must choose to type `else if`, and a warning read beforehand removes the
+option. The instance that broke it is a **silence**: `:print` compiles, runs and
+produces plausible output, so the warning describes something the reader cannot
+recognise until they have already paid for it.
+
+> **A warning prevents a failure you would have chosen. It does not prevent one
+> you would have walked into believing you had succeeded.**
+
+**The bar this cleared and should not have.** `conventions.md` states *a surface
+does not grow without a customer*, and ROADMAP's own `<=` entry spells out that
+**one customer is not enough** — the rule this repository applies hardest, to
+features. It was not applied to a *conclusion*. A sentence that reads well is
+exactly the kind of thing that gets promoted on one instance, and it went
+straight into the page that argues the project pays for itself.
+
+**Fixed** by narrowing it where it is stated rather than deleting it: it holds
+for a refusal, and `does-it-pay.md`'s silence category is where the exception
+was already documented under another name.
+
+**Found by** the third reader run, which was designed to measure something else
+entirely — 0.16.0's prescriptive diagnostic, still unmeasured after three runs.
+**Every prediction aimed at the diagnostic was wrong or untested, and the
+finding came from the one prediction written down as a hedge**: *if the reader
+brackets everything anyway it will be because the example braces every body, and
+that is a result about examples rather than about the diagnostic.*
+
 ---
 
 ## The tally
@@ -796,8 +840,9 @@ where somebody could go back and disagree with it, and somebody did.
 | Not believing a control that agreed with the code | **1** |
 | Checking a rough edge instead of accepting how it was filed | **1** |
 | Reading a document to act on it, and being contradicted by the rest of it | **1** |
+| A reader run aimed at something else | **1** |
 
-**Two of twenty-five were found by tests**, and one of those two was a broken
+**Two of twenty-six were found by tests**, and one of those two was a broken
 test. Five came from writing programs in the language — four of the six
 programs found one, and the sixth found none — and three more came from reading
 something rather than running it.
