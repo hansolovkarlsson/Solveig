@@ -10,6 +10,44 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### The fourth reader, and the failure this project is built against — 2026-09-04
+
+**No version; nothing in the compiler changed.** Predictions 18 to 23 committed
+first in `9f2c22d`. Three runs had failed to reach a diagnostic, so this one
+changed the reader's **role** rather than stripping a dialect's warning: an
+author declaring a form of their own, which is 0.16.0's second stated customer
+and the one no run had contained.
+
+**They typed `<b: block>`** — prediction 18, right, copied from
+`lib/control.pro`'s `repeat`. **And braced every use anyway** — 19 and 20 wrong,
+the model being `examples/dialect.pro`'s `repeat #3 times { "tick":display }`, a
+one-statement body wearing braces.
+
+**Four runs, four tasks, two built to force an error, and no reader has seen a
+Proto diagnostic of any kind.** Prediction 21 — *does the prescription carry a
+reader to the fix* — is retired unmeasured rather than asked a fifth time.
+
+**What did happen is the failure `README.md` names as the one that kills
+syntax-extension systems.** `proto` exited 0, `solas` exited 0, and `solvm`
+reported `undefined name 'total'` at **`banner.sol:8`** — a line in the
+generated file, after seven lines of correct output. **No map had been written**,
+the map being opt-in behind `--map`. With one the recovery is exact: generated
+`8:5` is source `10:5`, the line they wrote.
+
+**The reader got out on Solveig's error text alone**, in their words *the error
+message alone told me exactly what to do*. The substrate's diagnostic did the
+job Proto's has never been given a chance to do.
+
+**And the experiment was part of the problem.** POSTMORTEM 27: the prompt handed
+the reader a three-command toolchain that omits `--map`, where `README.md`'s own
+quickstart includes it. **The cost of the minimal invocation is measured; a
+reader's likelihood of choosing it is not.** `README.md`'s *the default should
+probably change* stays exactly as unsettled as it was, and the next run uses the
+published invocation.
+
+[ROADMAP.md](ROADMAP.md)'s rough-edges list has now had **two of its rows
+checked and both mattered** — the `@use` path (POSTMORTEM 24) and this.
+
 ### The third reader, and a rule that did not survive them — 2026-09-04
 
 **No version; nothing in the compiler changed.** Predictions 12 to 17 committed

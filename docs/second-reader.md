@@ -487,3 +487,104 @@ hello      one        10
 **Whether the last body prints `10` or `#10` is the reader's choice** between
 `display` and `print`, and both are correct — run 3 established that this is a
 real fork and not a mistake, so the oracle does not fix it.
+
+### What the fourth run found
+
+Run on 2026-09-04 against 0.17.0, predictions committed first in `9f2c22d`.
+The final program was re-run here and diffed against the ten-line oracle; it
+matches.
+
+**Two attempts. And for the fourth time in four runs, Proto emitted nothing.**
+
+| | |
+| --- | --- |
+| **18. The hole is typed `block`** | **Right.** `@syntax banner <b: block>`, and the author says where it came from: *I copied the shape from `lib/control.pro`'s `repeat <n> times <b: block>`* — the only precedent in the surface for a form whose whole argument is a body. |
+| **19. The single-statement use loses its braces** | **Wrong.** `banner { "hello":display }.` — braced, first attempt. Same cause as run 3, one level up: `examples/dialect.pro` shows `repeat #3 times { "tick":display }`, a **one-statement body wearing braces**, and that is the model that got copied. |
+| **20. A diagnostic is emitted** | **Wrong.** `proto` exited 0 with no output. **Four runs, four tasks, two of them built to force an error, and no reader has yet seen a Proto diagnostic of any kind.** |
+| **21. The prescription is enough** | **Untested, fourth time.** |
+| **22. If untyped, a runtime error in generated source** | **Not applicable by its own terms** — 18 held, so the untyped path was never taken. **But the failure it describes happened anyway, by a route nobody predicted.** See below. The class was predicted and the mechanism was wrong. |
+| **23. A fourth failure settles reachability** | **Right, and it is the conclusion.** |
+
+### The characteristic failure finally happened, and not through a hole kind
+
+Attempt 1 assigned `total` and `i` inside a `banner` body without declaring
+them. **`proto` exited 0. `solas` exited 0.** Then:
+
+```
+solvm: undefined name 'total' -- declare it with '| total |' or assign it at the top level
+  [banner.sol:8] in block
+  [banner.sol:11] in script
+-----
+hello
+-----
+-----
+one
+two
+-----
+-----
+```
+
+**An error naming a file the author never wrote, after seven lines of correct
+output.** That is the failure [README.md](../README.md) names as the one that
+kills syntax-extension systems — *somebody writes one thing, is shown an error
+about another, and cannot get from the second back to the first* — and it is the
+first time any reader has met it. Four runs in, it arrived from the substrate
+rather than from anything Proto declares.
+
+**The map that recovers it was never written.** Reproduced here: the map's line
+for generated `8:5` is source `10:5`, which is `total := #0.` in the reader's
+own file. The machinery works, exactly as designed, and it was switched off — the
+map is opt-in behind `--map`.
+
+> **The one failure this project built two mechanisms against reached a reader
+> with one of them turned off, and the reader got out on the strength of the
+> substrate's error text instead.**
+
+**They self-diagnosed from the message alone** — their words, case (a): *the
+error message alone told me exactly what to do*, `declare it with '| total |'`.
+They read Solveig's binding rules afterwards only to confirm why, having
+*already typed the edit*. **Solveig's diagnostic did the job Proto's has never
+been given a chance to do.**
+
+### The confound, stated rather than buried
+
+**The reader was given a command line that omits `--map`. `README.md`'s own
+quickstart includes it.** That difference is the experimenter's and not the
+reader's, so this run establishes one thing and not the other:
+
+| | |
+| --- | --- |
+| **Established** | Without a map, a runtime error names generated source and there is nothing to get back with. With one, the recovery is exact. |
+| **Not established** | Whether a reader left to themselves would omit `--map`. They were told to. |
+
+**So the rough edge is not settled by this run**, and the argument it makes is
+still worth something: the run shows what the *minimal* invocation costs, and
+*the default should probably change* is a claim about exactly that invocation.
+[POSTMORTEM.md](POSTMORTEM.md) 27 is the method failure, which is mine.
+
+**And even with the map, recovery is manual.** `solvm` knows nothing about
+`.sol.map`; a person reads it. The map makes getting back *possible*, not
+automatic.
+
+### What four runs now say about the diagnostics
+
+**No reader has seen one.** Not the caret POSTMORTEM 22 fixed, not 0.16.0's
+prescription, not a hole-kind failure of any sort. Four tasks, and the two
+designed specifically to produce one produced none — the first stopped by a
+dialect's essay, the second by an example's braces.
+
+> **Every reader has been served by three things, and Proto's diagnostics are
+> not among them: the example, the dialect file, and Solveig's runtime errors.**
+
+That is not an argument that the diagnostics are wrong. It is an argument that
+**four runs is enough to stop expecting a reader to find out**, and that the
+next thing aimed at them should be aimed somewhere a reader actually looks.
+Prediction 21 is retired unmeasured rather than asked a fifth time.
+
+### One thing the design got right, unprompted
+
+The author expected to need two declarations for the one-statement and
+multi-statement cases, *the way `control.pro` needs two for `if` and `if/else`*,
+and did not: one `<b: block>` hole takes `{ a }` and `{ a. b }` identically.
+**A hole that asks for a block does not care how much is in it**, which nobody
+had written down because nobody had doubted it.

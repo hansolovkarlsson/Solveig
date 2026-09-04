@@ -348,3 +348,32 @@ and *stopped reading README past that point and did not go back to it later.*
 and it is the first evidence any of it has ever been load-bearing. The entry
 point is still the dialect file, the example and the reference — a front page's
 job is to be read once, briefly, and left.
+
+## What four readers say about the diagnostics, which is nothing
+
+**No reader has ever seen one.** Four runs, four tasks, and the two built
+specifically to force an error produced none — the first stopped by the eleven
+lines `lib/clike.pro` spends at its `else` declaration, the second by
+`examples/dialect.pro` showing a one-statement body wearing braces.
+
+**The costs a reader actually met came from three places, and Proto's
+diagnostics are not among them:**
+
+| | |
+| --- | --- |
+| the example | supplied *nearly 100%* of run 3's program, by its author's account, and taught run 4 the braces it copied |
+| the dialect file | supplied the shape of the form run 4 declared, from `repeat <n> times <b: block>` |
+| **Solveig's runtime errors** | got run 4 out of the one real failure in four runs, *from the message alone* |
+
+**Run 4 met the failure this whole project is built against** — `solvm` naming
+`banner.sol:8`, a line in a generated file, after seven lines of correct output
+— and **the map that recovers it had not been written**, being opt-in. The
+substrate's error text was good enough to self-diagnose without it.
+
+> **A declared grammar's cost to a reader is paid in the substrate, and so is
+> the rescue.** Four readers have been served by Solveig's documentation and
+> Solveig's diagnostics at every point where this project's own would have had
+> to work.
+
+That is the sharpest thing four runs have to say, and it is not what any of
+them was designed to ask.

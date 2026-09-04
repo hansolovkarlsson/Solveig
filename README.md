@@ -721,7 +721,7 @@ predicate logic, which turns out to be three questions wearing one name.
 
 | | |
 | --- | --- |
-| [does-it-pay.md](docs/does-it-pay.md) | what six programs and three strangers say about the question this project exists to answer |
+| [does-it-pay.md](docs/does-it-pay.md) | what six programs and four strangers say about the question this project exists to answer |
 | [REFERENCE.md](docs/REFERENCE.md) | every directive, hole kind and shipped dialect, and where everything lives — the page to look things up in |
 | [what-is-proto.md](docs/what-is-proto.md) | how the parts fit together, kept as the five questions that were asked and answered |
 | [pipeline.html](docs/pipeline.html) | the same path drawn — the pipeline, lockstep matching, expansion, and the map |

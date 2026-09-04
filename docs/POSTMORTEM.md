@@ -9,12 +9,13 @@ shipped. This is the failures.
 
 ## Scope
 
-Twenty-six, from five days, in four cohorts that failed for four different
+Twenty-seven, from five days, in four cohorts that failed for four different
 reasons:
 
 - **In the compiler** — eight, five of which were latent from 0.1.0 and 0.2.0.
-- **In the method** — one: a negative control that passed because `make` had
-  rebuilt nothing.
+- **In the method** — two: a negative control that passed because `make` had
+  rebuilt nothing, and a reader experiment whose own prompt changed the surface
+  it was measuring.
 - **In the documents** — eight: three an edit that reported success and changed
   nothing, two where no edit was attempted at all, one where a sweep looked in
   the files it remembered instead of for the claim, one where the fix falsified
@@ -815,6 +816,48 @@ finding came from the one prediction written down as a hedge**: *if the reader
 brackets everything anyway it will be because the example braces every body, and
 that is a result about examples rather than about the diagnostic.*
 
+### 27. The experiment's own instructions were part of the surface it measured — 2026-09-04
+
+**What.** Reader runs 3 and 4 were handed a three-command toolchain in the
+prompt:
+
+```
+proto FILE.pro -o FILE.sol
+solas FILE.sol -o FILE.sob
+solvm FILE.sob
+```
+
+**`README.md`'s own quickstart passes `--map`, and that one does not.** Run 4's
+reader hit a runtime error naming a line in the *generated* `.sol`, had no map
+to get back with, and the write-up was one edit away from reading that as a
+reader's choice. It was not. **They were told to invoke it that way.**
+
+**Cause.** The design fixes what the reader is *given* — every document, the
+dialect, the example, all of it held constant and varied deliberately — and
+treats the invocation as plumbing. It is not plumbing. `--map` is the switch on
+one of the two mechanisms this project names as standing between a reader and
+the failure that kills syntax-extension systems, and the experiment turned it
+off in the prompt without noticing it had made a choice.
+
+> **What the experimenter hands over is part of the surface under test.** A
+> published quickstart and a prompt's convenience commands are two different
+> surfaces, and only one of them is the thing being measured.
+
+**What it did and did not cost.** The finding survives: without a map, a runtime
+error names generated source and there is nothing to get back with, and the map
+recovers it exactly when present. What does **not** survive is any claim about
+whether a reader would omit `--map` on their own, and `README.md`'s *the default
+should probably change* is left exactly as unsettled as it was.
+
+**Found by** checking the prompt against the README while writing up a finding
+that depended on the difference. The run's own result made the instructions
+worth reading, which is the only reason they were.
+
+**Not fixed by editing the past runs.** Runs 3 and 4 stand as they were
+conducted, with this recorded against them; a fifth would use the published
+invocation. That is the same rule as any retracted finding here — it is
+corrected where it stands rather than made never to have happened.
+
 ---
 
 ## The tally
@@ -841,8 +884,9 @@ that is a result about examples rather than about the diagnostic.*
 | Checking a rough edge instead of accepting how it was filed | **1** |
 | Reading a document to act on it, and being contradicted by the rest of it | **1** |
 | A reader run aimed at something else | **1** |
+| Checking the experiment's instructions against the published ones | **1** |
 
-**Two of twenty-six were found by tests**, and one of those two was a broken
+**Two of twenty-seven were found by tests**, and one of those two was a broken
 test. Five came from writing programs in the language — four of the six
 programs found one, and the sixth found none — and three more came from reading
 something rather than running it.

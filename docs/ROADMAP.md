@@ -330,13 +330,32 @@ spelled two ways was reported as *nested more than 64 deep*.
 
 **The sentence was right and the severity was wrong**, because the entry
 described what a diagnostic *shows* and never asked what else compared those
-strings. **None of the four below has been checked that way**, and what makes a
-rough edge cheap to leave is exactly what makes it cheap to file without
-looking.
+strings. **What makes a rough edge cheap to leave is exactly what makes it cheap
+to file without looking.**
+
+**A second row has since been checked, and it also matters.** Run 4 of the
+reader experiment produced the failure this project names as the one that kills
+syntax-extension systems — `solvm` reporting `undefined name 'total'` at
+`banner.sol:8`, a line in the **generated** file, after seven lines of correct
+output. **No map had been written**, because the map is opt-in. With one, the
+recovery is exact: generated `8:5` is source `10:5`, the line the reader wrote.
+
+**The mechanism works and was switched off**, and that is the whole argument for
+changing the default: a map costs one file and nothing else, and the invocation
+that omits it is the shortest one — which is the one a person types.
+
+**It is not settled, and the reason is [POSTMORTEM.md](POSTMORTEM.md) 27**: the
+reader was *told* to invoke it without `--map` by the experiment's own prompt,
+which differs from `README.md`'s quickstart. So the cost of the minimal
+invocation is measured and the likelihood of a reader choosing it is not. **The
+next run uses the published invocation**, and that is what would settle it.
+
+The two rows still unchecked are long send chains and `t__1` names; temporaries
+in a group is a stated absence rather than a severity guess.
 
 | | |
 | --- | --- |
 | Long send chains are not wrapped | A block that will not fit is broken across lines; `a:b(c):d(e):f(g)` is not. |
 | Temporaries in a group | `( \| t \| … )` is Solveig's; Proto reads `( expr. expr )`. |
-| The map is written only with `--map` | The Makefile always passes it. The default should probably change. |
+| The map is written only with `--map` | The Makefile always passes it, and so does `README.md`'s quickstart. **A reader run reached the failure the map exists for, with no map written** — see below. |
 | A generated name is `t__1` | Legible, and it collides with nothing because the whole module's identifiers are checked. It is still a name a person could have wanted. |
