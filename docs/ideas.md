@@ -5270,6 +5270,35 @@ textbook case, and every field is a little-endian integer that has to be
 assembled from bytes by hand. Small, and it would say whether byte-level
 unpacking wants a message of its own.
 
+> **Answered on 2026-09-04 without being written, and the prediction is kept
+> above for that reason.** All three of its claims were settled by
+> [gzip.sol](../programs/gzip.sol) hours before anyone got to this one.
+> *A foreign binary format nothing has read* — that program reads two, RFC 1952
+> around RFC 1951. *Byte-level unpacking wants a message of its own?* It got
+> written: `le32` is **four lines**, that plus three two-byte reads is the whole
+> of the byte assembly in a program that lives on bytes, and the conversion is
+> 16 instructions an input byte and 2.6% of the run. The answer is no.
+> *The central directory is at the end, which is the ranged read's textbook
+> case* — [tail.sol](../programs/tail.sol) has been that customer since
+> [3.22](COMPLETED.md#322-a-file-is-read-whole-or-not-at-all--done), reading
+> backwards from `size`, and `sort`'s k-way merge is a second.
+>
+> So the finding it would report is **nothing new**, which is a legitimate
+> outcome and a poor reason to spend a program. Recorded here rather than
+> quietly dropped, because an entry that has been answered is worth more than an
+> entry that has been deleted: the next person to think of `unzip -l` should
+> find out why it is not worth writing without having to write it.
+>
+> **What survives is the other half of the same tool, and it is a better
+> question.** `unzip` that *extracts* rather than lists reads members that are
+> **raw deflate with no container**, so it would make `gzip.sol`'s inflate a
+> second customer — and two customers is what turned
+> [lib/re.sol](../lib/re.sol) from an argument into a library. Checked rather
+> than assumed on 2026-09-04: the payload of a `zip -9` member, wrapped in a
+> ten-byte gzip header and a trailer, comes back through `gzip.sob` byte for
+> byte. The engine is already written; what it has not got is a second caller
+> and a home.
+
 **`xargs -P`.** **Unwritable today, and that is the whole finding.**
 `system:run` blocks and there is no spawn, so nothing can have two children at
 once — and [3.11](ROADMAP.md#311-a-chunk-cannot-be-shared-between-threads) is
