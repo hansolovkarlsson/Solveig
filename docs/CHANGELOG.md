@@ -10,6 +10,31 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### The README says where to start, and it is not the README — 2026-09-04
+
+**No version, no code.** Two strangers used this language on 2026-09-03 and
+**neither opened the front page** — one grepped it after the fact, one never
+opened it at all and volunteered that it was not load-bearing. Both wrote a
+correct program on the first compile-and-run regardless, out of the dialect
+file, the example and `REFERENCE.md`. That was recorded in
+[second-reader.md](second-reader.md) and [does-it-pay.md](does-it-pay.md) as a
+finding, and [journal.md](journal.md) noted it was not on the roadmap and
+probably should be. It is fixed instead.
+
+**A *Where to start* section, twenty-five lines in**, naming those three files
+and then Solveig's reference for the library — the half this repository
+documents nowhere and does not intend to. It says *not here* in its first two
+words, because a signpost that will not admit what it is is the thing that was
+already wrong.
+
+> **A front page is where somebody decides whether to try a language. It is not
+> where they learn it.**
+
+**Which is not an apology for the page.** Six programs' worth of argument is
+what a front page is for, and it stays exactly as long as it was. What it did
+not do was hand a reader the three files, and the two readers who needed it had
+to find them without it.
+
 ### Closing out 2026-09-03, third time — the numbers went stale twice
 
 **No version, no code.** The day was closed at midday saying *one commit, this

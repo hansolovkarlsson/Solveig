@@ -32,6 +32,32 @@ Solveig's scanner folds the sign into the number. **The second is forced rather
 than missing** — a lexer cannot both read `-3` as a literal and let a dialect
 declare `-`.
 
+## Where to start
+
+**Not here.** Two readers who had never seen this language were put in front of
+it, and neither opened this page — one grepped it after the fact, one never
+opened it at all and volunteered that they had not. Both got a correct program
+on the first compile-and-run anyway, out of three files that are not this one:
+
+| | |
+| --- | --- |
+| [`lib/clike.pro`](lib/clike.pro) | the dialect they used, and each thing it cannot do explained where it is declared |
+| [`examples/clike.pro`](examples/clike.pro) | that dialect used: a whole program, header to result, in forty-five lines |
+| [`docs/REFERENCE.md`](docs/REFERENCE.md) | every directive, hole kind and shipped dialect: the page to look things up in |
+
+**Then [Solveig's reference](https://hansolovkarlsson.github.io/Solveig/docs/REFERENCE.html)
+for the library**, which this repository documents nowhere and does not intend
+to. A dialect gives you syntax and Solveig gives you the messages; `@use`
+reaches the first and `@include` the second, and neither reaches the other.
+That line is in REFERENCE.md because the second reader got the whole notation
+right and then spent every remaining cycle on the wrong side of it.
+
+> **A front page is where somebody decides whether to try a language. It is not
+> where they learn it.** What follows is the case for the idea, at length. The
+> three files above are the language.
+
+[docs/second-reader.md](docs/second-reader.md) is the measurement.
+
 ## Why it is not a folder inside Solveig
 
 Solveig's `solveig-sdl` states the rule this repository follows, and states it
