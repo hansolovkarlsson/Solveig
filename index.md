@@ -135,13 +135,14 @@ a different language.
 
 ## Status
 
-**0.42.0** — the language answers 144 messages and `.sob` files are format
-version 14, both unchanged: this release adds a way of *checking* the language
-rather than anything to check. [conformance/](conformance/README.md) is a corpus
-another implementation can score itself against — 90 cases, each on its exact
-bytes, with both tools taken from the environment. [diff](programs/diff.sol) and
-[sort](programs/sort.sol) are the twentieth and twenty-first programs, and
-`readFile` reads a pipe, which it had silently declined to do.
+**0.43.0** — the language answers 145 messages, up from 144, and `.sob` files
+are still format version 14. [gzip](programs/gzip.sol) is the twenty-second
+program and inflates a gzip stream, held against the tool that produced every
+input it is checked against — 66 round trips, byte for byte. It was written to
+measure what a 32 KB window costs as boxed values and found the window is 4.8%
+of the program where reading the bits is 70.7%. `system:readUpTo(#n)` answers up
+to n bytes of standard input exactly as they were sent, which is what lets a
+program's memory stop depending on the size of its input.
 
 Working: the scanner, the single-pass compiler, the re-entrant dispatch loop
 with call frames, blocks with lexical capture, message-based control flow, a

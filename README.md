@@ -200,6 +200,24 @@ version the binaries inside it report.
 
 ## Status
 
+**0.43.0** — a decompressor, and the read it turned out to want.
+[gzip](programs/gzip.sol) is the twenty-second program and inflates a gzip
+stream: a bit reader, canonical Huffman a bit at a time, a 32 KB window that
+back-references copy out of, and the checksum held against the trailer. **Its
+oracle produced every input it is checked against** — `/usr/bin/gzip`
+compresses and this decompresses, 66 round trips, so a disagreement cannot be a
+difference of opinion about what the input meant. It was written to measure what
+a 32 KB window costs as boxed values, and **the window is 4.8% of the program**
+where the bit-by-bit decode is 70.7%, though 93% of the output comes out of that
+window. The expensive thing is the one that happens most often, not the one that
+looks heaviest. It also found what no specification could: `gzip -l`'s ratio
+column is integer arithmetic with a floor at -99.9%, not the obvious formula,
+and is in the tool rather than in RFC 1952. **`system:readUpTo(#n)`** closes
+6.45 — up to n bytes of standard input exactly as sent, `read(2)`'s contract
+rather than `fread`'s, so memory stops depending on the size of the stream:
+41,983 bytes held whatever the input, against a whole read that tracks it. **145
+messages, up from 144**, and `.sob` files are still format version 14.
+
 **0.42.0** — a corpus another implementation can score itself against.
 [conformance/](conformance/README.md) is **90 cases in three kinds** — one that
 runs and prints, one that runs and then stops, one the compiler must reject —

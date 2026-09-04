@@ -5,6 +5,65 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## 0.43.0 — 2026-09-04
+
+**A decompressor, and the read it turned out to want.**
+
+[programs/gzip.sol](../programs/gzip.sol) is the twenty-second program. It
+inflates a gzip stream — a bit reader, canonical Huffman decoded a bit at a
+time, a 32 KB window that back-references copy out of, CRC-32 and the length
+checked against the trailer — and **its oracle produced every input it is held
+against**, which is the strongest shape a check here has taken: `/usr/bin/gzip`
+compresses and this decompresses, over 66 round trips, so a disagreement cannot
+be a difference of opinion about what the input meant.
+
+**It was written to measure one thing and the measurement said the opposite.**
+The survey put it on the list to find what a 32 KB window costs when it is
+32,768 tagged values and every access is a send. The window is **4.8%** of the
+program; the bit-by-bit Huffman decode is **70.7%** — and 93% of the output
+comes out of that window, so it is not that it goes unused. 220 instructions a
+byte of output, counted exactly with `--steps`. The question behind the entry —
+whether packed numeric arrays are wanted — has an answer, and it is no.
+
+**And it found what no specification could.** `gzip -l`'s ratio column is not
+`100 * (uncompressed - compressed) / uncompressed`; it is integer arithmetic
+with a floor at -99.9%, so eighteen bytes in a twenty-seven byte file is
+**-44.5%**. RFC 1952 does not contain it because it is not part of the format —
+a standard cannot be wrong about what it does not specify.
+
+**`system:readUpTo(#n)`** closes
+[6.45](COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done): up to n
+bytes of standard input exactly as they were sent, nil at the end, `read(2)`'s
+contract rather than `fread`'s. It is the third reader through one window, and
+what it buys is that memory stops depending on the size of the stream — 41,983
+bytes held whatever the input, against a whole read that tracks it. The entry
+was marked **decision** because the open question was the name, and four were
+tried before `readUpTo`, which won on an argument already in the language:
+`random:upTo(#n)` means an inclusive upper bound on the answer, and this means
+it identically.
+
+**145 messages, up from 144, across 248 registrations.** `.sob` files are
+unchanged at format version 14, so anything 0.42.0 compiled still runs.
+
+**Compatibility verified rather than asserted.** All 35 examples compile to
+byte-identical bytecode under 0.42.0's `solas` and this one, both run from the
+same working directory. All 34 of 0.42.0's own chunks answer identically on both
+machines with the same exit status, except `examples/system.sol`, which prints
+how long things took and is read rather than compared.
+
+**One chunk does not run on the previous machine, and that is what a new message
+means.** `examples/reading.sol` now sends `readUpTo`, so 0.42.0's `solvm`
+answers *object does not understand 'readUpTo'* and leaves with 70. Backward
+compatibility is the promise a `.sob` format version carries — a chunk built
+then runs now — and it holds. Forward compatibility is not promised by anything
+and never was.
+
+**Extensions were untouched this release, and 0.42.0's `net` bundle was loaded
+on this build anyway**, because the ABI question is not the bytecode question
+and 0.39.0 is the release where the two disagreed. Both bundles bind a socket,
+report its port, send four bytes to it and see them arrive within 500 ms —
+identically.
+
 ### gzip -d, and the window that was not the cost — `563a508`, 2026-09-04
 
 **[programs/gzip.sol](../programs/gzip.sol) is the twenty-second program**, and
