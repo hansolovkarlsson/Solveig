@@ -126,7 +126,7 @@ The day opened on the question of what is still open, which meant reading
 [ROADMAP.md](ROADMAP.md) and [ideas.md](ideas.md) rather than writing anything.
 The answer is the one yesterday left: two entries,
 [6.44](ROADMAP.md#644-an-instant-cannot-be-written-in-local-time) and
-[6.45](ROADMAP.md#645-a-pipe-cannot-be-taken-in-bounded-pieces), the second
+[6.45](COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done), the second
 marked **decision** because the obvious spelling for it is deliberately taken.
 Nothing about those moved. What the reading found was beside them.
 
@@ -219,7 +219,7 @@ that hold this repository against itself, moved out of `test_cli.c`.
 
 **`readFile` reads a pipe**, which closed
 [6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done)
-and opened [6.45](ROADMAP.md#645-a-pipe-cannot-be-taken-in-bounded-pieces).
+and opened [6.45](COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done).
 
 **The order things are evaluated in is written down** — receiver first, then
 left to right — measured before it was stated, and scored by a case.
@@ -296,7 +296,7 @@ than for being careful.
 ### What is open
 
 [6.44](ROADMAP.md#644-an-instant-cannot-be-written-in-local-time), one customer
-and not urgent. [6.45](ROADMAP.md#645-a-pipe-cannot-be-taken-in-bounded-pieces),
+and not urgent. [6.45](COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done),
 marked **decision**, because the obvious spelling is taken — `readFile` refuses
 a range on a stream on purpose, so a bounded read of a pipe is a different
 question from a bounded read of a file. The shape is clear; the name is not

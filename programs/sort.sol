@@ -409,7 +409,7 @@ sameKey := { a, b |
 ; merge below depends on.
 ;
 ; **From a pipe: a byte at a time**, for the reason
-; [6.45](../docs/ROADMAP.md#645-a-pipe-cannot-be-taken-in-bounded-pieces)
+; [6.45](../docs/COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done)
 ; records and `diff` measured: `readLine` folds `\r\n` into one terminator, so a
 ; file written on another system sorts as different lines through a pipe than
 ; through a name. This program is why that entry exists -- see the bottom of
@@ -905,7 +905,7 @@ demonstrate := { | dir, path |
 ; said a program cannot read standard input whole, and `diff` raised it because
 ; `readLine` cannot see the newline at the end. That closed on 2026-09-03 and
 ; this half did not, so it is
-; [6.45](../docs/ROADMAP.md#645-a-pipe-cannot-be-taken-in-bounded-pieces) now.
+; [6.45](../docs/COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done) now.
 ;
 ; **`sort` does not care about the newline** -- the output always ends with one,
 ; so the distinction never reaches the answer -- and it was the second customer

@@ -1,4 +1,4 @@
-; reading.sol -- reading standard input a line at a time.
+; reading.sol -- reading standard input a line at a time, and a piece at a time.
 ;
 ; Run with:
 ;   ./bin/solas examples/reading.sol
@@ -30,6 +30,31 @@ system:write("how many lines? ").
 system:write("a").
 system:write("b").
 "c":display.                     ; abc
+
+; ---------------------------------------------------------------------------
+; A piece, for input that is not lines
+;
+; `readPiece(#n)` answers **up to** n bytes exactly as they were sent, and nil
+; when the input has ended. It is the reader for input a line is the wrong unit
+; for -- a compressed stream, say, where a newline is data and dropping it
+; changes the bytes.
+;
+; **Up to** is the contract, and it is `read(2)`'s rather than `fread`'s: it
+; waits for the first byte and then answers what is there, so a short answer is
+; ordinary rather than a sign of the end. The end is nil, the same signal
+; `readLine` gives, and an answer that is not nil always holds at least one
+; byte -- which is why asking for `#0` is refused.
+
+piece := system:readPiece(#5).
+piece:isNil:ifElse(
+    { "(nothing on standard input to take a piece of)":display },
+    { "the first {} bytes: {}":fill([piece:size, piece]):display }).
+;   (nothing on standard input to take a piece of)
+
+; **All three readers share one window**, so the loop below carries on from
+; wherever that piece stopped rather than from the start of a buffer of its own.
+; Run this over a file and the first line arrives with its first five bytes
+; already taken.
 
 count := #0.
 longest := "".

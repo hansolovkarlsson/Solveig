@@ -4702,6 +4702,77 @@ static SolValue prim_system_read_line(SolVM *vm, SolValue self, SolValue *args, 
     return SOL_STRING_VAL(text);
 }
 
+/* `system:readPiece(#n)` -- up to n bytes of standard input, and nil at the end.
+ *
+ * ROADMAP 6.45. `readLine` is fast and lossy -- it drops the terminator and
+ * folds `\r\n` -- and `readKey` is exact and a byte at a time, measured at
+ * 84 MB/s against 4.2. Reading the pipe whole is the third route and is the
+ * opposite of what was wanted: `sort` spills past `-S` precisely so that memory
+ * stays bounded, and `gzip -d` holds thirty bytes for every byte it produces.
+ * So the answer is a middle, and this is it.
+ *
+ * **It is not a range, and that is why it is not on `readFile`.** A range means
+ * positions, and a caller asking twice for the same range expects the same
+ * bytes -- where a stream answers whatever has not been consumed.
+ * `readFile(path, from, count)` refuses a stream on purpose for that reason,
+ * and giving the two one name would have been the mistake `new` made.
+ *
+ * **One fill, and a short answer is normal.** This is `read(2)`'s contract
+ * rather than `fread`'s: it blocks until the first byte arrives and then
+ * answers what is there, so the count says something on every call instead of
+ * only on the last one. A caller who wants exactly n writes the loop, which is
+ * three lines; a caller who wants what is there cannot write that out of the
+ * other shape, so this is the primitive of the two. It is also what keeps an
+ * interactive stream working, where waiting for a full buffer would stall.
+ *
+ * **A non-nil answer is never empty**, which is worth having and is why #0 is
+ * refused rather than answered with "". `sol_stdin_fill` is true only when it
+ * holds a byte, so a string that comes back has at least one in it, and nil is
+ * unambiguously the end -- the same signal `readLine` and `readKey` give, and
+ * the reason `notNil` exists (ROADMAP 2.14).
+ *
+ * The window it takes from is the one 6.36 built and everything here shares,
+ * in solum/src/stdin.c. **No new GC root**: the only allocation is the string
+ * that is returned, which leaves by the same path `readKey`'s does, and the
+ * bytes it is built from live in a static buffer that the collector never
+ * sees.
+ */
+static SolValue prim_system_read_piece(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "readPiece", argc, 1)) return SOL_NIL_VAL;
+
+    if (!SOL_IS_INT(args[0])) {
+        sol_vm_runtime_error(vm, "'readPiece' expects an integer count, got %s",
+                             sol_type_name(args[0]));
+        return SOL_NIL_VAL;
+    }
+
+    int64_t want = SOL_AS_INT(args[0]);
+    if (want < 1) {
+        sol_vm_runtime_error(vm,
+            "'readPiece' cannot read #%lld bytes -- ask for at least one",
+            (long long)want);
+        return SOL_NIL_VAL;
+    }
+    if (want > INT_MAX) {
+        sol_vm_runtime_error(vm,
+            "'readPiece' cannot read #%lld bytes into a string, which holds %d",
+            (long long)want, INT_MAX);
+        return SOL_NIL_VAL;
+    }
+
+    if (!sol_stdin_fill()) return SOL_NIL_VAL;      /* the end of input */
+
+    size_t available;
+    const char *bytes = sol_stdin_window(&available);
+    size_t take = available < (size_t)want ? available : (size_t)want;
+
+    SolString *text = sol_string_new(vm, bytes, (int)take);
+    sol_stdin_take(take);
+    return SOL_STRING_VAL(text);
+}
+
 /* ---- files ----------------------------------------------------------- */
 
 /* Reading and writing are on `system` rather than on a string, though
@@ -6531,6 +6602,7 @@ void sol_builtins_install(SolVM *vm)
     any_receiver(vm, system, "writeError", prim_system_write_error);
     any_receiver(vm, system, "readLine", prim_system_read_line);
     any_receiver(vm, system, "readKey", prim_system_read_key);
+    any_receiver(vm, system, "readPiece", prim_system_read_piece);
     any_receiver(vm, system, "sleep", prim_system_sleep);
     any_receiver(vm, system, "terminalSize", prim_system_terminal_size);
     any_receiver(vm, system, "isTerminal", prim_system_is_terminal);

@@ -701,7 +701,7 @@ main:value.
 ; ---------------------------------------------------------------------------
 ; 4. It is a customer for 6.45, and not for the reason the entry gives
 ;
-; [6.45](../docs/ROADMAP.md#645-a-pipe-cannot-be-taken-in-bounded-pieces) names
+; [6.45](../docs/COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done) names
 ; this program by name as the third customer that would sharpen it, on the
 ; grounds that its input has no lines at all -- so `readLine` would not be lossy
 ; here, it would be meaningless, and *that program would have exactly one route

@@ -42,7 +42,7 @@ because it is not part of the format — a standard cannot be wrong about what i
 does not specify.
 
 **No roadmap entry came out of it**, and
-[6.45](ROADMAP.md#645-a-pipe-cannot-be-taken-in-bounded-pieces) was corrected
+[6.45](COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done) was corrected
 rather than added to. It named this program on the grounds that its input has no
 lines, so it *would have exactly one route in*; that half is right and the route
 works, since `readFile` reads a pipe whole. What makes it a customer is memory,
@@ -83,7 +83,7 @@ seek, a seek fails on a stream, and nought is indistinguishable from an empty
 file. It reads them whole now, which closed both clauses of
 [6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done)
 in one change and left
-[6.45](ROADMAP.md#645-a-pipe-cannot-be-taken-in-bounded-pieces) behind it.
+[6.45](COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done) behind it.
 
 **144 messages, unchanged, and `.sob` files are still format version 14** — this
 release adds a way of checking the language rather than anything to check.
@@ -112,7 +112,7 @@ stays inside `-S` however large the input is — and that want was written into
 6.43's body because it looked like a second reason for one thing. It is not: a
 whole read is the opposite of it, so closing 6.43 helped with none of it.
 
-**[6.45](ROADMAP.md#645-a-pipe-cannot-be-taken-in-bounded-pieces)**, with the
+**[6.45](COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done)**, with the
 measurements that were 6.43's and the customer that is its own: 84 MB/s by line
 against 4.2 by byte, `readLine` lossy and `readKey` exact at 238 nanoseconds a
 byte, and `gzip -d` waiting as a third customer whose input has no lines at all.

@@ -5153,7 +5153,7 @@ this page has produced.
 
 **And the language wanted nothing.** No roadmap entry came out of it, which is
 the outcome this section keeps available on purpose. What it is a customer for
-is [6.45](ROADMAP.md#645-a-pipe-cannot-be-taken-in-bounded-pieces) -- which
+is [6.45](COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done) -- which
 names it -- and not for the reason given there; see the entry, which has been
 corrected.
 

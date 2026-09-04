@@ -2370,7 +2370,7 @@ deliberately, and it is worth something only because the prediction was written
 first.
 
 It is a customer for
-[6.45](ROADMAP.md#645-a-pipe-cannot-be-taken-in-bounded-pieces), which names it
+[6.45](COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done), which names it
 by name — but not for the reason the entry gives. The entry says its input has
 no lines, so `readLine` would be meaningless and it *would have exactly one route
 in*. The route is there and it works: `readFile("/dev/stdin")` reads a pipe

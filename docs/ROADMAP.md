@@ -137,12 +137,13 @@ loops in this repository carry a boolean whose only job is to stop them.
 Section 2 has no open design question — the last one, 2.5, is closed. Section
 6, a program's dealings with the world outside it, is nearly all built: reading
 input, writing files, stopping with a status, walking the filesystem, knowing
-the time, a prompt with history, a debugger, and running another program. **Two
-entries are open on it** —
+the time, a prompt with history, a debugger, and running another program. **One
+entry is open on it** —
 [6.44](#644-an-instant-cannot-be-written-in-local-time), raised on 2026-09-02 by
-[diff.sol](../programs/diff.sol), and
-[6.45](#645-a-pipe-cannot-be-taken-in-bounded-pieces), which is what was left of
-[6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done) when that closed on 2026-09-03.
+[diff.sol](../programs/diff.sol). Its neighbour
+[6.45](COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done) closed on 2026-09-04 as
+`system:readPiece(#n)`, the only entry here whose open question was a **name**
+and which therefore could not be closed by anybody but you.
 
 **The last decision was deferred rather than taken**, on 2026-08-22.
 [6.32](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine) —
@@ -1079,14 +1080,17 @@ on 2026-08-29 and closed the same afternoon, which is the section still doing
 what it was for: saying what a program written against this needs and has not
 got.
 
-**Two entries are open here**, both below:
+**One entry is open here**, below:
 [6.44](#644-an-instant-cannot-be-written-in-local-time), an instant cannot be
 written in local time, raised on 2026-09-02 by
-[diff.sol](../programs/diff.sol); and
-[6.45](#645-a-pipe-cannot-be-taken-in-bounded-pieces), a pipe cannot be taken in
-bounded pieces, which is what [6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done) left behind when it closed on
-2026-09-03 — raised by `sort` rather than by `diff`, and the one thing the
-whole-pipe read did not help with.
+[diff.sol](../programs/diff.sol).
+
+**Its neighbour closed on 2026-09-04.**
+[6.45](COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done) was what
+[6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done)
+left behind when it closed on 2026-09-03 — raised by `sort` rather than by
+`diff`, wanted again by `gzip -d` two days later, and the one thing the
+whole-pipe read did not help with. It is `system:readPiece(#n)` now.
 
 Before them the four entries this section held on 2026-09-01 all
 closed the same day, including
@@ -1147,64 +1151,6 @@ older than the last clock change to show. What it would want is small -- a
 message answering the offset for an instant, which is one call to `localtime`
 -- and it is written down here rather than guessed at later.
 
-### 6.45 A pipe cannot be taken in bounded pieces
-
-**What [6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done)
-left behind when it closed on 2026-09-03**, and it is the half that whole-pipe
-reading is no use for. Raised by [sort.sol](../programs/sort.sol) rather than by
-`diff`, on 2026-09-02, and recorded inside 6.43 at the time because it arrived
-as a second customer for what looked like one want.
-
-**The two routes in are both wrong for it, in opposite directions.** `readLine`
-is fast and lossy: it drops the terminator and folds `\r\n`, so a file written
-on another system sorts as different lines. `readKey` is exact and is a byte at
-a time. Measured over 628,890 bytes: **0.0075 s by line against 0.1498 s by
-byte, 84 MB/s against 4.2**, or 238 nanoseconds a byte —
-[stdin-cost.sh](../programs/stdin-cost.sh) reruns both over the same bytes in
-one pass, and the figures vary a few per cent rather than an order of magnitude.
-
-**And the third route is the whole read, which is the opposite of what is
-wanted.** `sort` spills to disk past `-S` precisely so that memory stays
-bounded however large the input is; reading the pipe whole first defeats the
-thing the option exists for. So the answer is a **middle** — neither the whole
-of it nor a byte of it — and no customer alone could have shown that. `diff`
-wanted the whole and got it; `sort` wants the middle and has neither.
-
-**The third customer was written on 2026-09-04, and it sharpened the entry by
-disagreeing with it.** [gzip.sol](../programs/gzip.sol) is the first program
-here whose input has no lines *at all*: a gzip stream of `ideas.md` holds `0x0a`
-bytes, `0x0d` bytes and NULs, every one of them data. `readLine` is not lossy
-there, it is meaningless — so the half of the prediction that said it would have
-exactly one route in is right.
-
-**What was wrong is the implication that one route is not enough.** The route
-works. `system:readFile("/dev/stdin")` reads a pipe whole since
-[6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done)
-closed, `... | solvm gzip.sob -d` is what that program's own sweep runs, and
-nothing about it is blocked for want of anything here.
-
-**It is a customer for the reason `sort` is, which is memory.** Measured with
-`--memory=N`, binary-searched the way an instruction count is: 185,364 bytes of
-output want 5,563,386 bytes held, and 392,567 want 13,116,403 — **thirty bytes
-for every byte produced**, where the format asks for a 32 KB window however
-large the stream is. Four copies of the data are alive at once, of which a
-bounded read would retire two.
-
-So the entry has two customers and one argument rather than two, and the honest
-reading is that its *shape* was settled by `sort` alone. What the second adds is
-that the want is not peculiar to sorting: any program that produces more than it
-can hold meets it, and inflate is the second of those written here.
-
-**decision** — what shape it takes is not settled, and the reason to say so
-rather than to guess is that the obvious spelling is already taken. A range on a
-stream is *refused* by `readFile`, deliberately: a range means positions, and a
-caller asking twice for the same range expects the same bytes where a stream
-would answer whatever had not been consumed. So a bounded read of a pipe is a
-different question from a bounded read of a file, and giving them one name would
-be the mistake `new` made. What it wants is a message that says *take up to this
-many bytes, and tell me how many arrived*, which is a small primitive and a name
-this document should not pick on its own.
-
 ## How this list emptied, and how it filled and emptied again
 
 **It emptied for the fourth time on 2026-09-01 and did not stay empty.** Two
@@ -1218,10 +1164,12 @@ moment, which this document has said since the last time it was true.
 **6.43 closed on 2026-09-03 and left one behind.** Its two clauses turned out to
 be one job -- the only reason a program could not read a pipe whole was that the
 call which should have done it returned early -- and what did not close was a
-want recorded *inside* it by a second customer. That is
-[6.45](#645-a-pipe-cannot-be-taken-in-bounded-pieces) now, with a number of its
+want recorded *inside* it by a second customer. That became
+[6.45](COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done), with a number of its
 own, because a want kept inside a closed entry is a want nothing will find
-again.
+again — **and giving it one is what got it built**, three days later and by two
+more customers, where leaving it in the body of a closed entry would have left
+it where the roadmap is not read.
 
 The four entries open at some
 point on 2026-09-01 all closed the same day — which had not happened before that

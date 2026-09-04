@@ -2187,6 +2187,132 @@ written and could not be seen until something crossed it.
 The rest of this section is live, and is in
 [ROADMAP.md](ROADMAP.md#6-beyond-the-language--gone-from-this-document).
 
+### 6.45 A pipe cannot be taken in bounded pieces — **done**
+
+**What [6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done)
+left behind when it closed on 2026-09-03**, and it is the half that whole-pipe
+reading is no use for. Raised by [sort.sol](../programs/sort.sol) rather than by
+`diff`, on 2026-09-02, and recorded inside 6.43 at the time because it arrived
+as a second customer for what looked like one want.
+
+**The two routes in are both wrong for it, in opposite directions.** `readLine`
+is fast and lossy: it drops the terminator and folds `\r\n`, so a file written
+on another system sorts as different lines. `readKey` is exact and is a byte at
+a time. Measured over 628,890 bytes: **0.0075 s by line against 0.1498 s by
+byte, 84 MB/s against 4.2**, or 238 nanoseconds a byte —
+[stdin-cost.sh](../programs/stdin-cost.sh) reruns both over the same bytes in
+one pass, and the figures vary a few per cent rather than an order of magnitude.
+
+**And the third route is the whole read, which is the opposite of what is
+wanted.** `sort` spills to disk past `-S` precisely so that memory stays
+bounded however large the input is; reading the pipe whole first defeats the
+thing the option exists for. So the answer is a **middle** — neither the whole
+of it nor a byte of it — and no customer alone could have shown that. `diff`
+wanted the whole and got it; `sort` wants the middle and has neither.
+
+**The third customer was written on 2026-09-04, and it sharpened the entry by
+disagreeing with it.** [gzip.sol](../programs/gzip.sol) is the first program
+here whose input has no lines *at all*: a gzip stream of `ideas.md` holds `0x0a`
+bytes, `0x0d` bytes and NULs, every one of them data. `readLine` is not lossy
+there, it is meaningless — so the half of the prediction that said it would have
+exactly one route in is right.
+
+**What was wrong is the implication that one route is not enough.** The route
+works. `system:readFile("/dev/stdin")` reads a pipe whole since
+[6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done)
+closed, `... | solvm gzip.sob -d` is what that program's own sweep runs, and
+nothing about it is blocked for want of anything here.
+
+**It is a customer for the reason `sort` is, which is memory.** Measured with
+`--memory=N`, binary-searched the way an instruction count is: 185,364 bytes of
+output want 5,563,386 bytes held, and 392,567 want 13,116,403 — **thirty bytes
+for every byte produced**, where the format asks for a 32 KB window however
+large the stream is. Four copies of the data are alive at once, of which a
+bounded read would retire two.
+
+So the entry has two customers and one argument rather than two, and the honest
+reading is that its *shape* was settled by `sort` alone. What the second adds is
+that the want is not peculiar to sorting: any program that produces more than it
+can hold meets it, and inflate is the second of those written here.
+
+**decision** — what shape it takes is not settled, and the reason to say so
+rather than to guess is that the obvious spelling is already taken. A range on a
+stream is *refused* by `readFile`, deliberately: a range means positions, and a
+caller asking twice for the same range expects the same bytes where a stream
+would answer whatever had not been consumed. So a bounded read of a pipe is a
+different question from a bounded read of a file, and giving them one name would
+be the mistake `new` made. What it wants is a message that says *take up to this
+many bytes, and tell me how many arrived*, which is a small primitive and a name
+this document should not pick on its own.
+
+**Closed on 2026-09-04 as `system:readPiece(#n)`** — up to n bytes of standard
+input, exactly as they were sent, and nil at the end.
+
+**The decision above was the name, and it took three goes.** `readSome` was the
+first proposal, `readBuffer` the second and `readPiece` the one taken, and the
+two that were dropped were dropped on evidence rather than on taste.
+**`readBuffer`** names a thing the language does not have — there is no buffer
+type, and all nine uses of the word in [REFERENCE.md](REFERENCE.md) are about
+the machine's own plumbing — and it collides with the 4 KB window in
+`solum/src/stdin.c` that the message reads out of, so `readBuffer(#65536)` would
+be asking the buffer for sixteen times what the buffer holds. **`readPart`**
+collides with the other half of the very distinction this entry existed to
+protect: `tests/test_system.c` calls the range test
+`test_a_range_reads_part_of_a_file`, and
+[sha256sum.sol](../programs/sha256sum.sol) already calls the value it gets back
+from `readFile(path, at, count)` a `part`. The file side had the noun. `piece`
+was free.
+
+**The contract is `read(2)`'s and not `fread`'s**, which was the second call and
+the smaller one. It waits for the first byte and then answers what is there, so
+a short answer is ordinary and the size means something on every call rather
+than only the last. A caller wanting exactly n writes a three-line loop over
+this; a caller wanting what is there could not have written that out of the
+blocking shape, so this is the primitive of the two. It is also what keeps an
+interactive stream working, where waiting for a full buffer would stall.
+
+**Two things fell out that were not asked about and are worth recording.** `#0`
+is refused rather than answered with `""`, which keeps a non-nil answer from
+ever being empty and so keeps nil unambiguously the end — the signal `readLine`
+and `readKey` already give, and the reason `notNil` exists (2.14). And it takes
+**no path**: `readLine` and `readKey` take none, a bounded read of a *file* is
+already `readFile(path, from, count)`, and a path here would have wanted the
+file handles this language does not have — which
+[sort.sol](../programs/sort.sol) states as *a reader here is a path and an
+integer*.
+
+**No new GC root**, and that is a claim rather than an omission: the only
+allocation is the string that is returned, which leaves by the same path
+`readKey`'s does, and the bytes it is built from live in the static window the
+collector never sees. A hundred calls under `SOLUM_GC_STRESS` arrive intact,
+which is the test that says so.
+
+It is the third reader through the one window
+[6.36](#636-readline-and-readkey-did-not-share-an-input-buffer--done) built, so
+`readLine`, `readKey` and `readPiece` interleave without losing a byte between
+them.
+
+**And the thing it was built for, measured.** Two scripts counting the newlines
+in the same stream, one holding the whole of it and one holding a piece, both
+answering what `wc -l` does. The ceiling is binary-searched with `--memory=N`:
+
+| input | whole | a piece at a time |
+| ---: | ---: | ---: |
+| 187,667 bytes | 226,303 | **41,983** |
+| 397,342 bytes | 435,199 | **41,983** |
+
+The first column tracks the input and the second does not move. That is the
+whole of what `sort` asked for on 2026-09-02 — `-S` bounds what it holds, and
+reading the pipe whole first defeated the option — and what `gzip -d` wanted two
+days later for the same reason.
+
+**Neither customer has been converted yet**, which is worth saying rather than
+leaving to be discovered: `sort` still reads its input the way it did, and
+`gzip -d` still holds thirty bytes for every byte it produces, of which a
+bounded read retires two copies of four. The primitive is what was missing; the
+conversions are ordinary work on two programs that each have an oracle to be
+re-run against.
+
 ### 6.43 A program cannot read standard input whole, and the call that looks as though it can answers `""` — **done**
 
 **Raised on 2026-09-02 by [diff.sol](../programs/diff.sol)**, which is the
@@ -2215,7 +2341,7 @@ consumed yet. That would be one message meaning two things, which is a mistake
 this language has made once already with `new`. A redirect is seekable, so the
 same range works there.
 
-**What was left is [6.45](ROADMAP.md#645-a-pipe-cannot-be-taken-in-bounded-pieces)**,
+**What was left is [6.45](COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done)**,
 which took a number of its own rather than staying inside a closed entry: a pipe
 in bounded pieces, which is `sort`'s want and not `diff`'s. A whole read is the
 opposite of it, so none of the above helped — which this entry had already said,

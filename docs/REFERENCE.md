@@ -1460,6 +1460,53 @@ input. A program that reads a line and then hands standard input to a child with
 unaffected — it delivers a line at a time, so nothing is taken that was not
 asked for.
 
+#### A piece of a stream, when neither a line nor a byte will do
+
+`readPiece(#n)` answers **up to** `n` bytes of standard input, exactly as they
+were sent, and nil when the input has ended.
+
+```
+printf 'abcdefgh' | solvm program.sob    # readPiece(#3) → "abc"
+```
+
+It is the third reader and it exists because the other two are wrong in opposite
+directions for a program taking bulk input. `readLine` is fast and lossy — it
+drops the terminator and folds `\r\n`, so a file written on another system comes
+back changed. `readKey` is exact and is a byte at a time: 84 MB/s against 4.2,
+measured over the same 628,890 bytes. And reading the whole stream with
+`readFile("/dev/stdin")` is the opposite of what a program with a memory budget
+wants. [6.45](COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done)
+has the case.
+
+**A short answer is normal.** This is `read(2)`'s contract and not `fread`'s: it
+waits for the first byte and then answers what is there, so the size of the
+answer means something on every call rather than only the last one. A caller who
+wants exactly `n` writes the loop, and a caller who wants what is there could
+not have written that out of the other shape — which is why this is the
+primitive of the two.
+
+```
+whole := "".
+piece := system:readPiece(#4096).
+{ piece:notNil }:whileTrue({
+    whole := whole:concat(piece).
+    piece := system:readPiece(#4096) }).
+```
+
+**A non-nil answer is never empty**, so nil is unambiguously the end. That is
+what `#0` is refused for: asking a stream for nothing makes both halves of *up
+to `n` bytes, and how many arrived* vacuous, and allowing it would make `""` a
+second thing an answer could mean.
+
+**It is not a range, and that is why it is not on `readFile`.** A range means
+positions, and a caller asking twice for the same range expects the same bytes —
+where a stream answers whatever has not been consumed. `readFile(path, from,
+count)` refuses a stream deliberately for that reason, and the two are kept
+apart in the language because they are different questions.
+
+It takes from the same window `readLine` and `readKey` do, so the three
+interleave without losing a byte between them.
+
 **No echo**, because raw mode does not; a program that wants the key shown
 prints it. **Raw mode only on a terminal** — through a pipe or a file a byte is
 already a byte, so this reads the same way under `solvm program.sob < input`,
@@ -4022,6 +4069,7 @@ it delegates to `object` like everything else. See
 | `writeError(text)` | the same, to standard **error** |
 | `readLine` | one line of standard input without its terminator, or nil at the end |
 | `readKey` | one byte as a one-character string, or nil at the end; no wait for return |
+| `readPiece(#n)` | up to `n` bytes of standard input as they were sent, or nil at the end |
 | `isTerminal(which)` | whether `'input`, `'output` or `'error` is a terminal |
 | `terminalSize` | a dictionary of `"rows"` and `"columns"`, or **nil** when the output is not a terminal |
 | `keyWaiting(seconds)` | whether a byte is there to read, waiting up to that long for one |
@@ -4201,7 +4249,7 @@ has been given, and cannot give itself more.
 Every built-in message and the types that answer it. The question a reference
 gets asked is usually *what has `copyFrom`?* rather than *what does a string
 do?*, and the sections above answer only the second — so this answers the first.
-144 messages across 247 registrations.
+145 messages across 248 registrations.
 
 **A test keeps it honest**: a message registered in `builtins.c` and missing
 from here fails the build, which is the same bargain that makes every message
@@ -4313,6 +4361,7 @@ appear in an example.
 | `readFile` | [system](#system) |
 | `readKey` | [system](#system) |
 | `readLine` | [system](#system) |
+| `readPiece` | [system](#system) |
 | `remove` | [dictionary](#dictionary), [system](#system) |
 | `removeLast` | [array](#array) |
 | `rename` | [system](#system) |

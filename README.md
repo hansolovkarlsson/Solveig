@@ -4,7 +4,7 @@
 
 A small object-oriented language and its toolkit — bytecode compiler (Solas),
 virtual machine (SolVM), REPL (Solis) and debugger (Solid). Prototype-based,
-everything is a message send, 144<!--count messages--> messages, no control-flow
+everything is a message send, 145<!--count messages--> messages, no control-flow
 syntax and no operators outside `@expr(a^2 + b/2)`, which is notation for the
 same sends. 20k lines of C11, no dependencies.
 

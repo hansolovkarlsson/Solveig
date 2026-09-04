@@ -2097,6 +2097,191 @@ static void test_terminal_size_survives_a_collection(void)
 /* `makeDirectory` answers whether it made one, rather than refusing a directory
    that is already there. "Make sure this exists" is what a script wants nine
    times in ten, and it was a test and a make before this. */
+/* ---- readPiece, ROADMAP 6.45 ------------------------------------------- */
+
+/* Up to n bytes, and the answer's size is how many arrived. Seven at a time
+   over thirty-four bytes is four sevens and a five: the last piece is short
+   because the input ended, not because anything went wrong. */
+static void test_read_piece_answers_up_to_what_was_asked(void)
+{
+    stdin_is("hello world, this is thirty-four\n");
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    assert(run(&vm, &chunk,
+        "sizes := array:new. text := \"\"."
+        "part := system:readPiece(#7)."
+        "{ part:notNil }:whileTrue({"
+        "    sizes:add(part:size). text := text:concat(part)."
+        "    part := system:readPiece(#7) }).") == SOL_OK);
+
+    SolArray *sizes = SOL_AS_ARRAY(global(&vm, "sizes"));
+    assert(sizes->count == 5);
+    for (int i = 0; i < 4; i++) assert(SOL_AS_INT(sizes->items[i]) == 7);
+    assert(SOL_AS_INT(sizes->items[4]) == 5);
+    assert(strcmp(SOL_AS_STRING(global(&vm, "text"))->chars,
+                  "hello world, this is thirty-four\n") == 0);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    printf("  readPiece answers up to what was asked, and says how much came\n");
+}
+
+/* **A short answer is normal, and this is the case that says so.** The window
+   holds one page, so a program asking for more than that gets a page -- with
+   the stream not ended and more waiting behind it. `fread`'s contract would
+   have blocked here until eight kilobytes had arrived; `read(2)`'s answers what
+   is there, which is what was chosen and is why the count means something on
+   every call rather than only the last. */
+static void test_read_piece_is_short_before_the_end(void)
+{
+    char big[10000];
+    memset(big, 'x', sizeof big - 1);
+    big[sizeof big - 1] = '\0';
+    stdin_is(big);
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    assert(run(&vm, &chunk,
+        "first := system:readPiece(#8192):size."
+        "more := system:readPiece(#8192):notNil.") == SOL_OK);
+
+    assert(SOL_AS_INT(global(&vm, "first")) < 8192);
+    assert(SOL_AS_INT(global(&vm, "first")) > 0);
+    assert(SOL_AS_BOOL(global(&vm, "more")));
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    printf("  a short readPiece before the end, with the stream still going\n");
+}
+
+/* Nil at the end, the same signal `readLine` and `readKey` give -- and never
+   an empty string, which is the invariant that makes nil unambiguous. */
+static void test_read_piece_is_nil_at_the_end_and_never_empty(void)
+{
+    stdin_is("ab");
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    assert(run(&vm, &chunk,
+        "one := system:readPiece(#100)."
+        "past := system:readPiece(#100)."
+        "again := system:readPiece(#100).") == SOL_OK);
+
+    assert(strcmp(SOL_AS_STRING(global(&vm, "one"))->chars, "ab") == 0);
+    assert(SOL_IS_NIL(global(&vm, "past")));
+    assert(SOL_IS_NIL(global(&vm, "again")));
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    printf("  readPiece is nil at the end, and stays nil\n");
+}
+
+/* **The bytes arrive as they were sent**, which is the whole reason this is not
+   `readLine`. A NUL, a CR before its LF, and a lone CR all pass through: a
+   gzip stream is full of every one of them and every one is data. */
+static void test_read_piece_changes_no_byte(void)
+{
+    static const char raw[] = "a\0b\r\nc\rd\ne";
+    static const size_t length = sizeof raw - 1;
+
+    FILE *f = fopen("build/tests/test_system.stdin", "wb");
+    assert(f != NULL);
+    assert(fwrite(raw, 1, length, f) == length);
+    fclose(f);
+    assert(freopen("build/tests/test_system.stdin", "rb", stdin) != NULL);
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    assert(run(&vm, &chunk, "got := system:readPiece(#100).") == SOL_OK);
+
+    SolString *got = SOL_AS_STRING(global(&vm, "got"));
+    assert((size_t)got->length == length);
+    assert(memcmp(got->chars, raw, length) == 0);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    printf("  readPiece changes no byte, NUL and CR included\n");
+}
+
+/* #0 is refused rather than answered with "". Asking a stream for nothing makes
+   both halves of *take up to n and say how many came* vacuous, and refusing it
+   is what keeps a non-nil answer from ever being empty. */
+static void test_read_piece_refuses_what_is_not_a_count(void)
+{
+    static const char *refused[] = {
+        "system:readPiece(#0).",
+        "system:readPiece(#-1).",
+        "system:readPiece(\"8\").",
+        "system:readPiece.",
+        "system:readPiece(#4, #4).",
+    };
+
+    for (size_t i = 0; i < sizeof refused / sizeof refused[0]; i++) {
+        stdin_is("abc");
+        SolVM vm; sol_vm_init(&vm);
+        SolChunk chunk;
+        assert(run(&vm, &chunk, refused[i]) == SOL_RUNTIME_ERROR);
+        sol_chunk_free(&chunk);
+        sol_vm_free(&vm);
+    }
+
+    printf("  readPiece refuses #0, a negative, a string and the wrong count\n");
+}
+
+/* One window, still: 6.36's invariant has a third reader now. Whatever a
+   `readPiece` leaves is what the next `readLine` sees, and the other way round.
+   Without this they would each buffer their own and the bytes between them
+   would go missing, which is the defect 6.36 closed. */
+static void test_read_piece_shares_the_one_input(void)
+{
+    stdin_is("alpha\nbravo\ncharlie\n");
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    assert(run(&vm, &chunk,
+        "line := system:readLine."          /* alpha */
+        "some := system:readPiece(#3)."      /* bra */
+        "key := system:readKey."            /* v */
+        "rest := system:readLine."          /* o */
+        "last := system:readLine.") == SOL_OK);
+
+    assert(strcmp(SOL_AS_STRING(global(&vm, "line"))->chars, "alpha") == 0);
+    assert(strcmp(SOL_AS_STRING(global(&vm, "some"))->chars, "bra") == 0);
+    assert(strcmp(SOL_AS_STRING(global(&vm, "key"))->chars, "v") == 0);
+    assert(strcmp(SOL_AS_STRING(global(&vm, "rest"))->chars, "o") == 0);
+    assert(strcmp(SOL_AS_STRING(global(&vm, "last"))->chars, "charlie") == 0);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    printf("  readPiece shares the one input window with readLine and readKey\n");
+}
+
+/* Under GC stress, because it allocates a string per call and the loop below
+   makes a hundred of them while holding the last. */
+static void test_read_piece_survives_a_collection(void)
+{
+    char big[400];
+    memset(big, 'z', sizeof big - 1);
+    big[sizeof big - 1] = '\0';
+    stdin_is(big);
+
+    SolVM vm; sol_vm_init(&vm);
+    vm.gc_stress = true;
+    SolChunk chunk;
+    assert(run(&vm, &chunk,
+        "seen := #0. part := system:readPiece(#4)."
+        "{ part:notNil }:whileTrue({"
+        "    seen := seen:add(part:size)."
+        "    part := system:readPiece(#4) }).") == SOL_OK);
+
+    assert(SOL_AS_INT(global(&vm, "seen")) == 399);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    printf("  a hundred readPiece calls under GC stress, and every byte arrived\n");
+}
+
 static void test_making_a_directory_answers_whether_it_did(void)
 {
     SolVM vm; sol_vm_init(&vm);
@@ -2299,6 +2484,13 @@ int main(void)
     test_key_waiting_looks_past_the_line_discipline();
     test_key_waiting_refuses_a_wait_it_cannot_make();
     test_read_line_and_read_key_share_one_input();
+    test_read_piece_answers_up_to_what_was_asked();
+    test_read_piece_is_short_before_the_end();
+    test_read_piece_is_nil_at_the_end_and_never_empty();
+    test_read_piece_changes_no_byte();
+    test_read_piece_refuses_what_is_not_a_count();
+    test_read_piece_shares_the_one_input();
+    test_read_piece_survives_a_collection();
     test_key_waiting_sees_what_read_line_left();
     test_a_line_may_hold_a_nul();
     test_a_line_longer_than_the_window();
