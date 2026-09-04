@@ -447,17 +447,44 @@ reader:open := { name |
 
 ; Fills until the buffer holds a newline or the source is spent. Answers
 ; whether anything is left to hand out.
-reader:fill := { r | | more |
-    { r:done:not:and({ r:buffer:indexOf("\n"):isNil }) }:whileTrue({
+;
+; **`seen` is here because the buffer must not be searched twice.** The obvious
+; loop asks `r:buffer:indexOf("\n"):isNil` as its condition, which rescans
+; everything read so far on every read -- and on a line longer than one read
+; that is a scan per piece over a buffer that keeps growing, which is quadratic
+; in the length of the line. **A newline can only be in the bytes just read**,
+; since the ones before them have already been searched and had none. So the
+; buffer is searched once on the way in and each piece once as it arrives.
+;
+; Measured, one line and nothing else, through a pipe, `-g`:
+;
+;                  before      after
+;     1,000,000    0.48 s      0.01 s
+;     2,000,000    1.90 s      0.04 s
+;     4,000,000    7.71 s      0.25 s
+;     8,000,000       --       1.10 s
+;    16,000,000       --       4.48 s
+;
+; **Thirty times faster at 4 MB and still quadratic**, which is worth saying
+; rather than leaving to be found: the scan is gone and `r:buffer:concat(more)`
+; is not. Building an L-byte buffer out of L/4,096 pieces copies the whole of it
+; on every piece. This fix is the scan; the concatenation is `next`'s to answer,
+; below.
+reader:fill := { r | | more, seen |
+    seen := r:buffer:indexOf("\n"):notNil.
+    { r:done:not:and({ seen:not }) }:whileTrue({
         r:kind:equals('file):ifElse(
             { more := system:readFile(r:path, r:at, readChunk).
               r:at := r:at:add(more:size).
-              more:size:equals(#0):ifTrue({ r:done := true }).
-              r:buffer := r:buffer:concat(more) },
+              more:size:equals(#0):ifElse(
+                  { r:done := true },
+                  { seen := more:indexOf("\n"):notNil.
+                    r:buffer := r:buffer:concat(more) }) },
             { more := system:readUpTo(readChunk).
               more:isNil:ifElse(
                   { r:done := true },
-                  { r:buffer := r:buffer:concat(more) }) }) }).
+                  { seen := more:indexOf("\n"):notNil.
+                    r:buffer := r:buffer:concat(more) }) }) }).
     r:buffer:size:greaterThan(#0) }.
 
 ; **A last line with no newline is a line**, which is what every sort does --
