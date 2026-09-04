@@ -57,7 +57,7 @@ marked as a sketch.
 | `@expr{...}`, a region that is a block | **Built on 2026-08-29**, the day after it was scoped — [the sentence was tried first and lost](#expr-a-region-that-is-a-block-rather-than-a-group); the entry predicted one hard part and the second was the one that mattered, a notation that silently stopped inlining |
 | Phoenix — a second language whose output Solum uses | **Defer** — the machinery is proven three times over; [the unexplored half](#programs-that-would-press-on-something) is whether a hosted language can publish a *library* rather than a program |
 | A conformance suite for a second implementation | **Built, both halves, on 2026-09-03** — [conformance/](../conformance/README.md), **89 cases** scored on their bytes with both tools taken from `SOL_COMPILE` and `SOL_RUN`, and in `make test`. Three kinds and not two: a refusal is compile-time and a **trap is run-time**, which the scoping had run together — 13 of the 15 demonstrations in `examples/` turn out to be the machine's business, not the front end's. Every answer written from the documentation before it was run. **Two findings, both in the documentation**: a REFERENCE.md paragraph wrong about `onError` in both halves, and a **self-including file that PRODUCING.md filed as a refusal when it is a warning** — it compiles, leaves with 0, and runs. [The scoping](#a-conformance-suite--a-corpus-a-second-implementation-can-score-itself-against) has the shape; what is left is the five 65,535 limits, which are a generator's business |
-| Programs that would press on something — Pascal, predicate logic, a parser toolkit, `tail`, and [which Unix tool next](#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31) | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would. **So was `sha256sum`, on 2026-08-31**, the first off the Unix survey and the first program here with no I/O in its inner loop: [the prediction held in both halves](#it-was-written-on-2026-08-31-and-the-prediction-held-in-both-halves) and produced the number it was written for — **208 bytecode instructions a byte, 4.3 ns each, 234M a second**. **And `diff` on 2026-09-02**, where [one prediction of four held](#it-was-written-on-2026-09-02-and-one-of-the-four-predictions-held) — the output format, which was the whole difficulty — and the three that did not are more useful than the one that did. **And `sort` the same day**, which had been filed among the also-rans and is [promoted to an entry of its own](#sort--filed-below-as-pressing-on-less-and-written-anyway): the gap it was predicted to find was not there, because a write is not the reverse of a read — a producer knows what comes next — and what its merge wanted was the ranged read, already built |
+| Programs that would press on something — Pascal, predicate logic, a parser toolkit, `tail`, and [which Unix tool next](#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31) | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would. **So was `sha256sum`, on 2026-08-31**, the first off the Unix survey and the first program here with no I/O in its inner loop: [the prediction held in both halves](#it-was-written-on-2026-08-31-and-the-prediction-held-in-both-halves) and produced the number it was written for — **208 bytecode instructions a byte, 4.3 ns each, 234M a second**. **And `diff` on 2026-09-02**, where [one prediction of four held](#it-was-written-on-2026-09-02-and-one-of-the-four-predictions-held) — the output format, which was the whole difficulty — and the three that did not are more useful than the one that did. **And `gzip -d` on 2026-09-04**, the last of the three the survey named and [the one whose prediction measured the wrong thing](#it-was-written-on-2026-09-04-and-the-prediction-measured-the-wrong-thing): it asked for the cost of a 32 KB window as boxed values, and the window is 4.8% of the program. **And `sort` the same day**, which had been filed among the also-rans and is [promoted to an entry of its own](#sort--filed-below-as-pressing-on-less-and-written-anyway): the gap it was predicted to find was not there, because a write is not the reverse of a read — a producer knows what comes next — and what its merge wanted was the ranged read, already built |
 | Networking, and sending code to a running machine | **The first half is built**, on 2026-08-29 — [extensions/net](../extensions/net/README.md), five messages, and the waiting question answered with a timeout rather than a block; [the second half](#networking-and-sending-code-to-a-machine-that-is-already-running) is untouched and still needs 3.4, 6.32 and a proxy |
 | SQLite, SDL2, GTK | **One project, not three** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); GTK and SDL2 fire that trigger and SQLite does not, and wanting *both* toolkits is what settles the mechanism |
 | Graphics in SolaBasic, over SDL2 | **No — asked and closed on 2026-08-30, and the premise was wrong** to begin with: [graphics were never parked](#graphics-in-solabasic-through-the-sdl2-extension) for want of extensions, they were refused as *the PC*. No program wanted a screen, so the trigger never fired. The throwaway exercised the foundation without a language change — an extension send at 205ns, **`sdl:present` vsync-locked at 8.3ms**, and **1.49x from 0.39.0** on a globals-heavy loop. **A demo written that evening then corrected the entry**: a present keeps nothing, so immediate-mode `PSET` is not slow on this surface but absent. **And there is no oracle for a pixel**, which is what would decide it if it were ever asked again |
@@ -5111,6 +5111,52 @@ is the likely shape rather than a new core type — this is the cheapest place t
 find out, and the only one on this page that cannot be argued with afterwards.
 
 Oracle: `gzip`, on files `gzip` produced. The largest of the three.
+
+##### It was written on 2026-09-04, and the prediction measured the wrong thing
+
+**Kept above the outcome rather than rewritten.**
+[programs/gzip.sol](../programs/gzip.sol) is the twenty-second program;
+[programs.md](programs.md#gzip--inflate-and-the-window-that-was-not-the-cost)
+has the full account and the file has the argument. What belongs here is whether
+the entry above was right.
+
+**It asked for the cost of the window and the window is 4.8% of the program.**
+The number is 220 instructions a byte of output and 1.32 MB/s -- 40,775,088
+instructions for `docs/REFERENCE.md`, counted exactly with `--steps` rather than
+sampled. The Huffman decode is 70.7% of that, the CRC-32 11.4%, turning the
+output array back into a string 10.5%, and the window 4.8%.
+
+**And it is not that the window is little used**, which is what would have made
+this a boring answer. 172,699 of the 185,364 bytes came out of it and 12,665
+were literals: 93% of the output is `out:add(out:at(at))`, that pair of sends
+costs about eleven instructions, and it is still not where the time goes. What
+costs is reading bits one at a time -- 59,710 symbols at about 483 instructions
+each.
+
+So **the question standing behind the entry has an answer, and it is no.** The
+entry put this program on the list to find out whether packed numeric arrays
+would ever be needed, naming
+[extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm) as
+the likely shape. The boxing is 5% and the interpretation is 70%: a packed array
+would buy back a twentieth of this program, and the same effort spent on the
+send would buy back most of it.
+
+**The oracle found the thing no specification has.** `gzip -l`'s ratio column is
+not `100 * (uncompressed - compressed) / uncompressed` -- it is integer
+arithmetic with a floor at -99.9%, and eighteen bytes in a twenty-seven byte
+file is -44.5% where the obvious formula says -50.0%. This program printed the
+obvious one until it was held against the tool. RFC 1952 does not contain it
+because it is not part of the format; it is a property of the program that
+prints the listing. **A standard cannot be wrong about what it does not
+specify**, which is the shortest statement of why an oracle is worth having that
+this page has produced.
+
+**And the language wanted nothing.** No roadmap entry came out of it, which is
+the outcome this section keeps available on purpose. What it is a customer for
+is [6.45](ROADMAP.md#645-a-pipe-cannot-be-taken-in-bounded-pieces) -- which
+names it -- and not for the reason given there; see the entry, which has been
+corrected.
+
 
 ##### `sort` — filed below as pressing on less, and written anyway
 

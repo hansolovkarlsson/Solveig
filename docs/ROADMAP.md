@@ -1170,13 +1170,30 @@ thing the option exists for. So the answer is a **middle** — neither the whole
 of it nor a byte of it — and no customer alone could have shown that. `diff`
 wanted the whole and got it; `sort` wants the middle and has neither.
 
-**A third customer would sharpen it again.** `gzip -d` is on
-[the survey](ideas.md#gzip--d--the-one-that-answers-the-question-behind-the-neural-net)
-and would be the first program here whose input has no lines *at all*: a
-73,572-byte gzip stream of `ideas.md` holds 264 `0x0a` bytes, 254 `0x0d` and
-273 NUL, every one of them data. `readLine` would not be lossy there, it would
-be meaningless — so that program would have exactly one route in, and
-`... | gunzip` is the ordinary way it is used.
+**The third customer was written on 2026-09-04, and it sharpened the entry by
+disagreeing with it.** [gzip.sol](../programs/gzip.sol) is the first program
+here whose input has no lines *at all*: a gzip stream of `ideas.md` holds `0x0a`
+bytes, `0x0d` bytes and NULs, every one of them data. `readLine` is not lossy
+there, it is meaningless — so the half of the prediction that said it would have
+exactly one route in is right.
+
+**What was wrong is the implication that one route is not enough.** The route
+works. `system:readFile("/dev/stdin")` reads a pipe whole since
+[6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done)
+closed, `... | solvm gzip.sob -d` is what that program's own sweep runs, and
+nothing about it is blocked for want of anything here.
+
+**It is a customer for the reason `sort` is, which is memory.** Measured with
+`--memory=N`, binary-searched the way an instruction count is: 185,364 bytes of
+output want 5,563,386 bytes held, and 392,567 want 13,116,403 — **thirty bytes
+for every byte produced**, where the format asks for a 32 KB window however
+large the stream is. Four copies of the data are alive at once, of which a
+bounded read would retire two.
+
+So the entry has two customers and one argument rather than two, and the honest
+reading is that its *shape* was settled by `sort` alone. What the second adds is
+that the want is not peculiar to sorting: any program that produces more than it
+can hold meets it, and inflate is the second of those written here.
 
 **decision** — what shape it takes is not settled, and the reason to say so
 rather than to guess is that the obvious spelling is already taken. A range on a

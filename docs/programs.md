@@ -1,6 +1,6 @@
 # The programs
 
-*The twenty-one<!--count programs--> files in [programs/](../programs/): what each one does, how to run
+*The twenty-two<!--count programs--> files in [programs/](../programs/): what each one does, how to run
 it, and what it found. [examples/](../examples/) is the other directory — one
 file per concept the [guide](GUIDE.md) names, each written to show a feature.
 These were written to do a job.*
@@ -52,6 +52,7 @@ is the map; the file is the argument.
 | [awk](../programs/awk.sol) | runs an awk program over the records of its input | `solvm awk.sob [-F sep] program [file...]` |
 | [diff](../programs/diff.sol) | the shortest set of changes that turns one file into another | `solvm diff.sob [-u] [-q] old new` |
 | [sort](../programs/sort.sol) | lines in order, spilling to disk when they do not fit | `solvm sort.sob [-rnufbs] [-k F,F] [file...]` |
+| [gzip](../programs/gzip.sol) | inflates a gzip stream back into the bytes it was made from | `solvm gzip.sob [-dcktl] [file...]` |
 
 Every one runs with no arguments at all, on input it supplies itself. That is
 deliberate — a program you have to feed before it will say anything is a program
@@ -2285,9 +2286,104 @@ sort that spills wants the opposite — a pipe read in bounded pieces, so memory
 stays inside `-S` however large the input is. The entry is about the absence of
 a middle, and the second customer is what shows the middle is what is missing.
 
+## gzip — inflate, and the window that was not the cost
+
+DEFLATE decompression: a bit reader, canonical Huffman decoded a bit at a time,
+and a 32 KB window that back-references copy out of. `gzip` without `-d`
+compresses, and that is a second program and a harder one.
+
+```sh
+./bin/solvm programs/gzip.sob                     # it demonstrates itself
+./bin/solvm programs/gzip.sob -dc notes.txt.gz    # to standard output
+./bin/solvm programs/gzip.sob -d notes.txt.gz     # writes notes.txt
+./bin/solvm programs/gzip.sob -t archive.gz       # check it and say nothing
+./bin/solvm programs/gzip.sob -l archive.gz       # the sizes and the ratio
+cat archive.gz | ./bin/solvm programs/gzip.sob -d
+```
+
+```
+$ gzip -l notes.txt.gz
+  compressed uncompressed  ratio uncompressed_name
+          38           18 -99.9% notes.txt
+```
+
+**The twenty-second program here**, and the first whose oracle *produced* every
+input it is held against. Elsewhere a corpus holds a file and both tools are
+asked what they make of it; here `/usr/bin/gzip` compresses and this program
+decompresses, so a disagreement cannot be a difference of opinion about what the
+input meant. [programs/gzip/sweep.sh](../programs/gzip/sweep.sh) runs 66 such
+round trips — chosen shapes, generated text at three levels, and this
+repository's own files — and every one comes back to the byte.
+
+### The window is 5% of it, and the prediction was about the window
+
+[ideas.md](ideas.md#gzip--d--the-one-that-answers-the-question-behind-the-neural-net)
+wrote this program down as the array-heavy workload with a definitive oracle, on
+the grounds that a `SolValue` is a tag and a union, so a 32 KB window is 32,768
+tagged values and every access is a send. **Predicted finding: the cost of that,
+in a number.**
+
+The number is 220 instructions per byte of output and 1.32 MB/s, on
+`docs/REFERENCE.md` — 65,177 bytes in, 185,364 out, 40,775,088 instructions
+counted exactly with `--steps`. Where they go:
+
+| | | |
+| --- | ---: | ---: |
+| the Huffman decode, a bit at a time | 28.8 M | 70.7% |
+| CRC-32 over the output | 4.63 M | 11.4% |
+| the output array back into a string | 4.26 M | 10.5% |
+| **the window** | **1.97 M** | **4.8%** |
+| the input string into an array | 1.04 M | 2.6% |
+| the two fixed tables, once | 0.06 M | 0.1% |
+
+**And it is not that the window is little used.** 172,699 of the 185,364 bytes
+came out of it — 93.2% — against 12,665 written from a literal. Nearly every
+byte is `out:add(out:at(at))`, that pair of sends costs about eleven
+instructions, and boxing is not the problem.
+
+What costs is the bits: 59,710 symbols at about 483 instructions each, 521,162
+bits at about 55. **The expensive thing is the one that happens most often, not
+the one that looks heaviest** — a 32 KB array looks like the cost and a bit
+looks like nothing.
+
+So the question the survey said this program would settle — whether packed
+numeric arrays are needed — has an answer, and it is no: the boxing is 5% and
+the interpretation is 70%.
+
+### The ratio is in the tool and in no specification
+
+`gzip -l`'s ratio column is not `100 * (uncompressed - compressed) /
+uncompressed`. It is integer arithmetic with a floor at -99.9%, and eighteen
+bytes in a twenty-seven byte file is **-44.5%** where the obvious formula says
+-50.0%. This program printed the obvious one until it was held against the tool.
+
+**RFC 1952 does not contain it, because it is not part of the format.** It is a
+property of the program that prints the listing, and there is no way to know it
+but to run that program — which is the argument for an oracle in one line: a
+standard cannot be wrong about what it does not specify.
+
+### What it wanted from the language, which was nothing
+
+**No roadmap entry came out of it.** *It found nothing* is an outcome
+[ideas.md](ideas.md#programs-that-would-press-on-something) keeps available
+deliberately, and it is worth something only because the prediction was written
+first.
+
+It is a customer for
+[6.45](ROADMAP.md#645-a-pipe-cannot-be-taken-in-bounded-pieces), which names it
+by name — but not for the reason the entry gives. The entry says its input has
+no lines, so `readLine` would be meaningless and it *would have exactly one route
+in*. The route is there and it works: `readFile("/dev/stdin")` reads a pipe
+whole since [6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done)
+closed. What makes it a customer is memory, which is `sort`'s reason and not a
+new one — **thirty bytes held for every byte produced**, measured with
+`--memory`, where the format asks for a 32 KB window however large the stream
+is.
+
+
 ## Adding one
 
-There is no template and there should not be. What the twenty-one<!--count programs--> have in common is
+There is no template and there should not be. What the twenty-two<!--count programs--> have in common is
 only this:
 
 1. **It does a job somebody would want done**, rather than exercising a feature.
