@@ -426,18 +426,42 @@ readChunk := #65536.
 
 reader := object:new.
 
+; **A reader holds lines, not a buffer**, and that is the whole of why the size
+; of a read stopped mattering. The first version kept one string and cut the
+; front off it for each line, so every line copied the whole of what was behind
+; it: `readChunk` at 65,536 cost 1.03 s on a 4.7 MB file where 8,192 cost 0.86,
+; and a *large* read was the slow one. Splitting each piece once instead copies
+; every byte once whatever the piece is.
+;
+;   lines    the fields of the piece last read, `head` to `limit` of them
+;            complete and not yet handed out
+;   parts    the fragments of the line still being read, joined only when its
+;            newline arrives -- a line longer than a read is the case that
+;            makes this an array rather than a string, since concatenating
+;            into one copies the whole of it per piece
+;   pending  how many bytes are in them, so that "is anything left?" can be
+;            asked without joining
+
 reader:onFile := { path | | r |
     r := object:new.
     r:path := path.
     r:at := #1.                     ; the next unread byte, one-based
-    r:buffer := "".
+    r:lines := array:new.
+    r:head := #1.
+    r:limit := #0.
+    r:parts := array:new.
+    r:pending := #0.
     r:done := false.
     r:kind := 'file.
     r }.
 
 reader:onStdin := { | r |
     r := object:new.
-    r:buffer := "".
+    r:lines := array:new.
+    r:head := #1.
+    r:limit := #0.
+    r:parts := array:new.
+    r:pending := #0.
     r:done := false.
     r:kind := 'stdin.
     r }.
@@ -445,60 +469,68 @@ reader:onStdin := { | r |
 reader:open := { name |
     name:equals("-"):ifElse({ self:onStdin }, { self:onFile(name) }) }.
 
-; Fills until the buffer holds a newline or the source is spent. Answers
+; Reads until a complete line is waiting or the source is spent. Answers
 ; whether anything is left to hand out.
 ;
-; **`seen` is here because the buffer must not be searched twice.** The obvious
-; loop asks `r:buffer:indexOf("\n"):isNil` as its condition, which rescans
-; everything read so far on every read -- and on a line longer than one read
-; that is a scan per piece over a buffer that keeps growing, which is quadratic
-; in the length of the line. **A newline can only be in the bytes just read**,
-; since the ones before them have already been searched and had none. So the
-; buffer is searched once on the way in and each piece once as it arrives.
+; **A piece is split once and never looked at again.** The obvious loop asks
+; `r:buffer:indexOf("\n"):isNil` as its condition and concatenates each piece
+; onto a buffer, which searches and copies everything read so far on every
+; read: on a line longer than one piece both are quadratic in the length of the
+; line. Measured on one line and nothing else, through a pipe, `-g`, best of
+; three:
 ;
-; Measured, one line and nothing else, through a pipe, `-g`:
+;                   scan and concat   scan fixed   this
+;      1,000,000        0.48 s          0.01 s     0.01 s
+;      2,000,000        1.90 s          0.04 s     0.02 s
+;      4,000,000        7.71 s          0.25 s     0.03 s
+;      8,000,000           --           1.10 s     0.07 s
+;     16,000,000           --           4.48 s     0.15 s
 ;
-;                  before      after
-;     1,000,000    0.48 s      0.01 s
-;     2,000,000    1.90 s      0.04 s
-;     4,000,000    7.71 s      0.25 s
-;     8,000,000       --       1.10 s
-;    16,000,000       --       4.48 s
+; The middle column is the scan fixed and the concatenation left, and it is
+; still four times the time for twice the input. This column is twice for
+; twice, which is what a reader owes.
 ;
-; **Thirty times faster at 4 MB and still quadratic**, which is worth saying
-; rather than leaving to be found: the scan is gone and `r:buffer:concat(more)`
-; is not. Building an L-byte buffer out of L/4,096 pieces copies the whole of it
-; on every piece. This fix is the scan; the concatenation is `next`'s to answer,
-; below.
-reader:fill := { r | | more, seen |
-    seen := r:buffer:indexOf("\n"):notNil.
-    { r:done:not:and({ seen:not }) }:whileTrue({
-        r:kind:equals('file):ifElse(
-            { more := system:readFile(r:path, r:at, readChunk).
-              r:at := r:at:add(more:size).
-              more:size:equals(#0):ifElse(
-                  { r:done := true },
-                  { seen := more:indexOf("\n"):notNil.
-                    r:buffer := r:buffer:concat(more) }) },
-            { more := system:readUpTo(readChunk).
-              more:isNil:ifElse(
-                  { r:done := true },
-                  { seen := more:indexOf("\n"):notNil.
-                    r:buffer := r:buffer:concat(more) }) }) }).
-    r:buffer:size:greaterThan(#0) }.
+; The fragments are joined **only when the newline arrives**. Joining on every
+; piece would put the copy back exactly where it was taken from.
+reader:fill := { r | | more, fields |
+    { r:head:greaterThan(r:limit):and({ r:done:not }) }:whileTrue({
+        more := r:kind:equals('file):ifElse(
+            { | got |
+              got := system:readFile(r:path, r:at, readChunk).
+              r:at := r:at:add(got:size).
+              got:size:equals(#0):ifTrue({ r:done := true }).
+              got },
+            { | got |
+              got := system:readUpTo(readChunk).
+              got:isNil:ifElse({ r:done := true. "" }, { got }) }).
+        more:size:greaterThan(#0):ifTrue({
+            fields := more:split("\n").
+            r:parts:add(fields:at(#1)).
+            r:pending := r:pending:add(fields:at(#1):size).
+            fields:size:greaterThan(#1):ifTrue({
+                fields:atPut(#1, r:parts:join("")).
+                r:lines := fields.
+                r:head := #1.
+                r:limit := fields:size:sub(#1).
+                r:parts := array:new.
+                r:parts:add(fields:at(fields:size)).
+                r:pending := fields:at(fields:size):size }) }) }).
+    r:head:lessOrEqual(r:limit):or({ r:pending:greaterThan(#0) }) }.
 
 ; **A last line with no newline is a line**, which is what every sort does --
 ; and the output always ends with one, so the difference never reaches the
 ; answer. That is the one place this program is allowed not to care about the
 ; distinction `diff` had to be exact about.
-reader:next := { r | | at, line |
+reader:next := { r | | line |
     self:fill(r):ifElse(
-        { at := r:buffer:indexOf("\n").
-          at:isNil:ifElse(
-              { line := r:buffer. r:buffer := "" },
-              { line := r:buffer:copyFrom(#1, at:sub(#1)).
-                r:buffer := r:buffer:copyFrom(at:add(#1), r:buffer:size) }).
-          line },
+        { r:head:lessOrEqual(r:limit):ifElse(
+              { line := r:lines:at(r:head).
+                r:head := r:head:inc.
+                line },
+              { line := r:parts:join("").
+                r:parts := array:new.
+                r:pending := #0.
+                line }) },
         { nil }) }.
 
 ; ---------------------------------------------------------------------------
@@ -979,24 +1011,48 @@ demonstrate := { | dir, path |
 ; moved -- `oracle.sh` runs all thirty cases down both routes and reports the
 ; same two divergences it always has.
 ;
-; ### What the conversion turned up, and it is about `readChunk`
+; ### What the conversion turned up, which was a question about `readChunk`
+; ### and turned out to be two defects underneath it
 ;
-; `next` drains the buffer with `copyFrom(at + 1, size)`, so **every line copies
-; whatever is behind it**, and a larger read is therefore not a cheaper one.
-; Measured on the file route, 4.7 MB, otherwise identical:
+; The conversion left the pipe route *faster than the named file* -- 20% in wall
+; clock, on identical instruction counts -- which does not happen for any reason
+; that is about pipes. The first reader drained its buffer with
+; `copyFrom(at + 1, size)`, so **every line copied whatever was behind it**, and
+; a larger read was therefore not a cheaper one:
 ;
 ;     readChunk  4,096      0.88 s
 ;                8,192      0.86 s
 ;               16,384      0.87 s
-;               65,536      1.03 s     <- what this program uses
+;               65,536      1.03 s     <- what this program used
 ;
-; (`-O2`, best of five, on the 4,679,976-byte file above. A `-g` build loses
-; every one of these and the shape is what matters, not the digits.)
+; (`-O2`, best of five, 4.7 MB, named file.) The pipe was only faster because
+; `readUpTo` answers out of a 4,096-byte window whatever is asked for, so it had
+; been reading in 4 KB pieces by accident.
 ;
-; Both effects are visible in that table: the drain punishes the large end and
-; the per-call cost punishes the small one. It is left at 65,536 because
-; changing it is a different piece of work from this one and wants its own
-; check -- but it is written down with numbers rather than as a suspicion, and
-; it is why the pipe route above beats the named file by 20% in wall clock
-; while costing the same instructions. The pipe's reads are 4,096 bytes whatever
-; is asked for.
+; **The answer was not to tune the constant.** Asking why a bigger read was
+; slower found two quadratics -- the scan in `fill` and this copy in `next` --
+; and fixing both retires the table rather than improving a row of it. Same
+; build, same file:
+;
+;     readChunk  4,096      2.64 s
+;                8,192      2.62 s
+;               65,536      2.56 s     <- and now the best of them
+;              262,144      2.55 s
+;
+; A 17% spread with the largest read the worst became a 2% spread with the
+; largest read the best, which is the shape a reader should have had all along.
+; `readChunk` stays at 65,536 because it has stopped being a question.
+;
+; **And the win is in bytes copied rather than instructions run**, which is why
+; `--steps` could not see any of it. On 584,997 bytes in 11,350 lines:
+;
+;                        pipe          named file
+;     as converted     15,402,663      15,398,455
+;     scan fixed       15,448,496      15,443,861   +0.3%, and no quadratic
+;     lines not buffer 15,288,867      15,274,324   -0.7% on where it started
+;
+; One percent of the instructions against 14% of the wall clock on the named
+; route -- 2.97 s to 2.55 s, `-g`, best of three -- because a `copyFrom` is one
+; send and a `memcpy` of everything behind the line. **An instruction count is
+; not a cost model**, and this is the first measurement here where the two have
+; disagreed by more than a rounding.
