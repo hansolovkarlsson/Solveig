@@ -11,6 +11,98 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-04 (last) — 6.45, and a name that took three goes
+
+The roadmap has one entry open on it. `system:readPiece(#n)` answers up to n
+bytes of standard input exactly as they were sent, and nil at the end, and
+[6.45](COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done) is in
+COMPLETED.md.
+
+### The work was small and the decision was the whole of it
+
+The primitive is thirty lines over plumbing that already existed: the window
+[6.36](COMPLETED.md#636-readline-and-readkey-did-not-share-an-input-buffer--done)
+built already exposes fill, peek and take, and this fills if empty, takes what
+is there up to n, and hands it back as a string. There was nothing to design in
+the machine.
+
+**What could not be done here was the name**, which is why the entry carried
+**decision** for a day and why it stayed open through two programs wanting it.
+That is the mechanism doing its job rather than an obstruction: the entry said
+in as many words that the obvious spelling was taken and that the name was not
+the document's to pick.
+
+### Three names, and the two that were dropped were dropped on evidence
+
+**`readSome`** was the proposal. **`readBuffer`** came back and was argued
+against on two checkable grounds: there is no buffer type in this language —
+every use of the word in the reference is about the machine's own plumbing —
+and the word already names the four-kilobyte window in `stdin.c` that the
+message reads out of, so `readBuffer(#65536)` asks the buffer for sixteen times
+what the buffer holds. **`readPart`** came back next and was worse in the one
+way that mattered: `part` is the *file* side's noun already, in
+`test_a_range_reads_part_of_a_file` and in `sha256sum.sol`, which is exactly
+the distinction 6.45 existed to protect. **`readPiece`** was free, and is what
+shipped.
+
+**Both objections were checks rather than opinions**, and that is the part worth
+keeping. *There is no buffer type* and *part is taken* are one grep each, and
+without running them the argument would have been two people's ears against
+each other.
+
+### The measurement I nearly published backwards
+
+The entry is about memory, so the closing evidence had to be a memory number,
+and the first one said the opposite of the truth: a `readPiece` loop wanting
+37,887 bytes where reading the whole pipe wanted 5,119.
+
+**`--memory` reads the figure after a collection**, which is written down in
+6.33 and is the right thing — before a sweep the number counts litter. But my
+whole-pipe script read the stream, took its size and dropped it, so the string
+was never alive at a collection and the ceiling never saw it. **I was measuring
+two programs that both held nothing.**
+
+The fix is the rule this repository already has: a comparison whose two sides
+did not run alike is not one. Both scripts count the newlines in the same
+stream, both agree with `wc -l`, and one holds the whole where the other holds a
+piece:
+
+| input | whole | a piece at a time |
+| ---: | ---: | ---: |
+| 187,667 bytes | 226,303 | **41,983** |
+| 397,342 bytes | 435,199 | **41,983** |
+
+The first column tracks the input and the second does not move. That is what
+`sort` asked for on 2026-09-02 and what `gzip -d` wanted again two days later.
+
+**The lesson is not *check your work*.** It is that a measurement can be taken
+correctly, by a tool that is behaving exactly as documented, and still answer a
+different question from the one asked — and the only thing that catches it is
+knowing what the number would look like if the claim were true. 5,119 bytes to
+hold a 400 KB file was not a surprising result, it was an impossible one.
+
+### Two decisions nobody asked about
+
+`#0` is refused rather than answered with `""`. Asking a stream for nothing
+makes both halves of *up to n bytes, and how many arrived* vacuous, and refusing
+it means a non-nil answer always holds at least one byte — so nil stays
+unambiguously the end, which is the signal the other two readers give and the
+reason `notNil` exists.
+
+And it takes **no path**. `readLine` and `readKey` take none, a bounded read of
+a file is already `readFile(path, from, count)`, and a path here would have
+wanted the file handles this language does not have — which `sort.sol` states as
+*a reader here is a path and an integer*.
+
+### And neither customer is converted
+
+`sort` reads its input the way it did and `gzip -d` still holds thirty bytes for
+every byte it produces. The primitive is what was missing; converting the two
+programs that wanted it is ordinary work, and each has an oracle to be re-run
+against. Saying so is cheaper than letting somebody find it.
+
+---
+
 ## 2026-09-04 (later) — gzip -d, and a prediction that measured the wrong thing
 
 The last of the three programs the Unix survey named is written.

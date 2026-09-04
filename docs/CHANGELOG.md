@@ -50,6 +50,57 @@ which is `sort`'s reason: **thirty bytes held for every byte produced**, measure
 with `--memory`, where the format asks for a 32 KB window however large the
 stream is. The entry has two customers and one argument.
 
+### 6.45 closed: `system:readPiece(#n)` — `pending`, 2026-09-04
+
+**Up to `n` bytes of standard input, exactly as they were sent, and nil at the
+end.** The third reader through the window
+[6.36](COMPLETED.md#636-readline-and-readkey-did-not-share-an-input-buffer--done)
+built, so `readLine`, `readKey` and `readPiece` interleave without losing a byte
+between them.
+[6.45](COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done) is in
+COMPLETED.md.
+
+**The open question was the name**, which is why the entry was marked
+**decision** and could not be closed by the roadmap alone. Three were proposed
+and two dropped on evidence rather than taste. `readBuffer` names a thing the
+language does not have — there is no buffer type, and every use of the word in
+[REFERENCE.md](REFERENCE.md) is about the machine's own plumbing — and collides
+with the 4 KB window in `stdin.c` the message reads out of. `readPart` collides
+with the other half of the distinction the entry existed to protect: the range
+test is `test_a_range_reads_part_of_a_file` and
+[sha256sum.sol](../programs/sha256sum.sol) already calls what
+`readFile(path, at, count)` gives back a `part`. `piece` was free.
+
+**The contract is `read(2)`'s and not `fread`'s.** It waits for the first byte
+and then answers what is there, so a short answer is ordinary and the size means
+something on every call rather than only the last. A caller wanting exactly `n`
+writes a three-line loop over this; a caller wanting what is there could not
+have written that out of the blocking shape, which is what makes this the
+primitive of the two.
+
+**Two things fell out that nobody asked about.** `#0` is refused rather than
+answered with `""`, which keeps a non-nil answer from ever being empty and so
+keeps nil unambiguously the end. And it takes **no path** — `readLine` and
+`readKey` take none, a bounded read of a *file* is already
+`readFile(path, from, count)`, and a path here would have wanted the file
+handles this language does not have.
+
+**Measured, because the entry was about memory.** Two scripts counting the
+newlines in one stream, both agreeing with `wc -l`, the ceiling binary-searched
+with `--memory=N`:
+
+| input | whole | a piece at a time |
+| ---: | ---: | ---: |
+| 187,667 bytes | 226,303 | **41,983** |
+| 397,342 bytes | 435,199 | **41,983** |
+
+The first column tracks the input and the second does not move.
+
+**145 messages across 248 registrations**, up from 144 across 247. `.sob` files
+are unchanged at format version 14. **Neither customer is converted yet** —
+`sort` and `gzip -d` still read the way they did, and that is ordinary work on
+two programs that each have an oracle to be re-run against.
+
 ## 0.42.0 — 2026-09-03
 
 **A corpus another implementation can score itself against**, and two programs
