@@ -2337,9 +2337,21 @@ worth scoring:
 | `sort`, 584,997 bytes in | 28,846,431 | 15,402,663 | 1.87x fewer instructions |
 
 **The prediction was right about which copies and understated what they cost.**
-Two of four is what went, and it is thirty-odd bytes for every byte of *input* —
-so what is left does not grow with the stream at all: a gigabyte through the
-pipe holds the same 4,096 bytes of it that a kilobyte does. `sort` was not
+Two of four is what went. That a before-and-after on one file cannot actually
+show — so it was shown by holding the *output* still and varying the input,
+across seven streams that all produce 187,655 bytes: the before figure climbs
+6,615,294 → 8,710,802 as the input goes 65,881 → 187,693, and **the after figure
+does not move at all**, 58 KB of scatter with no trend. A gigabyte through the
+pipe holds the same 4,096 bytes of it that a kilobyte does.
+
+**And these numbers are ceilings with a coarse grain**, which is worth stating
+beside the table above as well. The smallest `--memory=N` a run survives is
+where the collector's heap threshold next lands, not what the program holds: it
+steps, by 2,095,509 bytes in one jump across that range, and five compression
+levels of one file — 200 KB of boxed integers between the extremes — give
+6,615,294 to the byte, all five. Honest for a comparison run both ways on the
+same input, which is what every figure here is; not honest read as *what the
+program holds*. `sort` was not
 predicted to get faster and did: the byte-at-a-time reader was spending 23
 instructions a byte, and **the pipe route now costs what the named file costs**,
 to within 0.03%.

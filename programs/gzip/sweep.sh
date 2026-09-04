@@ -142,7 +142,13 @@ listing() {
     # taken from a string's length, so it is worth a case of its own.
     cases=$((cases + 1))
     $VM "$SOB" -l < "$WORK/l.gz" > "$WORK/pipedl" 2>/dev/null
-    sed 's|/dev/stdin|'"$WORK"'/l|' "$WORK/pipedl" > "$WORK/pipedl.named"
+    # By index rather than by pattern, and awk rather than sed, for the reason
+    # `oracle.sh` gives where it does the same substitution: a temporary
+    # directory is a path, and a path is not a regular expression.
+    awk -v p="$WORK/l" '{
+        while ((i = index($0, "/dev/stdin")) > 0)
+            $0 = substr($0, 1, i - 1) p substr($0, i + 10)
+        print }' "$WORK/pipedl" > "$WORK/pipedl.named"
     cmp -s "$WORK/ours" "$WORK/pipedl.named" || {
         echo "FAIL listing $2: -l down a pipe differs by more than the name"
         diff "$WORK/ours" "$WORK/pipedl.named" | sed 's/^/    /'
@@ -197,10 +203,26 @@ fi
 # Truncated rather than corrupted, and down the pipe: the stream simply stops,
 # which is the end the piecewise reader has to tell apart from a piece running
 # out. Refusing it is the whole of what `readUpTo` answering nil has to mean.
+#
+# **The deadline is not belt and braces, it is the check.** The defect this case
+# is for is a reader that answers past the end instead of refusing -- padding
+# with zeros, say -- and a gzip stream that never ends does not fail, it *runs
+# forever*. Written without `--steps` this case hung the sweep instead of
+# reporting anything, which was found by breaking `nextByte` that way and
+# watching it: 900 million instructions and still going, on both routes.
+# [method.md](../../docs/method.md#a-program-that-does-not-stop-can-still-be-checked--give-it-a-deadline)
+# has the rule.
+#
+# So the case wants **exit 1** and not merely non-zero: 124 is what the deadline
+# leaves, and it means the run did not stop rather than that it refused. The
+# good build reaches its refusal in 16.4 million instructions, so 500 million is
+# thirty times over.
 cases=$((cases + 1))
 dd if="$WORK/dmg.gz" of="$WORK/short.gz" bs=1 count=$((size / 2)) 2>/dev/null
-if $VM "$SOB" -t < "$WORK/short.gz" >/dev/null 2>&1; then
-    echo "FAIL truncated stream: -t down a pipe said half a stream was fine"
+$VM --steps=500000000 "$SOB" -t < "$WORK/short.gz" >/dev/null 2>&1
+status=$?
+if [ "$status" -ne 1 ]; then
+    echo "FAIL truncated stream: -t down a pipe left $status, wanted 1 (124 is the deadline -- it did not stop)"
     bad=$((bad + 1))
 fi
 

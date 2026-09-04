@@ -243,7 +243,45 @@ for path in $big; do
     piped=$((piped + 1))
     sweep_forms_piped "$path"
 done
-echo "  piped:     $piped files past one read x $generated option forms"
+
+# **And one input nothing else here can stand in for.** The files above are past
+# one read and their *lines* are not. Measured rather than assumed, over the
+# exact sets the halves above draw from: 645 bytes is the longest line the real
+# half sees, 1,711 the longest in its whole pattern set, 1,694 in the piped
+# eight, and 566 in this program's own corpus. So the branch that fills a second
+# time because a piece arrived with no newline in it was reached by nothing.
+# Same hole as the one this section closes, one level down.
+#
+# **The idea was already in the repository and had not reached this program.**
+# `programs/tail/agree/chunk-longline.case` is a 9,000-byte line, and its first
+# comment line is *one line longer than a chunk, so a record spans two reads*.
+# It is kept there rather than copied here because the sweep can put this input
+# through all 23 option forms and a case file names one.
+#
+# 4,095, 4,096 and 4,097 are here because the piece is 4,096 whatever is asked
+# for, so those are the three ways a line can sit against the boundary.
+#
+# Proved by breaking it, and the numbers are the argument: a `fill` that reads
+# once per call instead of looping until it has a newline is caught here by
+# **23 of the 23 forms**, and by **0 of 23** on `docs/programs.md` down the same
+# pipe. The pieces are 4,096 bytes and every line every other input in this file
+# holds is shorter, so the defect is invisible to all of them.
+awk 'BEGIN {
+    n[1] = 30000; n[2] = 12000; n[3] = 5000
+    n[4] = 4095;  n[5] = 4096;  n[6] = 4097; n[7] = 1
+    w[0] = "alpha"; w[1] = "beta"; w[2] = "gamma"; w[3] = "delta"; w[4] = "eps"
+    for (i = 1; i <= 7; i++) {
+        line = ""
+        while (length(line) < n[i]) line = line w[(length(line) + i) % 5] " "
+        print substr(line, 1, n[i])
+    }
+}' > "$work/long"
+piped=$((piped + 1))
+sweep_forms_piped "$work/long"
+
+echo "  piped:     $piped inputs past one read x $generated option forms"
+echo "             (the last has lines of 30,000 and 4,097 bytes, which is the"
+echo "              only place here where a line crosses a read)"
 
 echo
 if [ "$bad" -eq 0 ]; then

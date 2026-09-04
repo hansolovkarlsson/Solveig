@@ -2300,13 +2300,25 @@ with `--steps`:
 
 **The two ways in cost the same now**, to within 0.03%, where before a program
 with two routes had two performance stories. 23 instructions a byte is what the
-byte-at-a-time reader was spending; 4.7 MB through a pipe went from 1.49 s to
-0.80 s.
+byte-at-a-time reader was spending; 4.7 MB through a pipe went from 1.50 s to
+0.81 s, `-O2` and best of five — the instruction counts hold under either build,
+the seconds do not.
+
+**And nothing here had a line long enough to cross a read.** The files the piped
+half draws from are 130 KB and up and their *lines* top out at 1,694 bytes, this
+program's own corpus at 566 — so the branch that fills a second time because a
+piece arrived with no newline in it was reached by nothing. The sweep generates
+an input with 30,000- and 4,097-byte lines now: a `fill` that reads once per
+call instead of looping is caught by 23 of 23 option forms on it and by 0 of 23
+on `docs/programs.md` down the same pipe.
+[tail](#tail--the-end-of-a-file-without-reading-the-rest-of-it) had already had
+the idea — `chunk-longline.case`, *one line longer than a chunk, so a record
+spans two reads* — and nothing had carried it here.
 
 **And the conversion turned up something about `readChunk` rather than about the
 pipe.** The reader drains its buffer with `copyFrom`, so every line copies
 whatever is behind it and a *larger* read is not a cheaper one — 65,536 costs
-1.01 s where 8,192 costs 0.85 s on the same file. It is left at 65,536 and
+1.03 s where 8,192 costs 0.86 s on the same file. It is left at 65,536 and
 written down with the numbers, because changing it is a separate piece of work
 wanting its own check.
 
@@ -2416,12 +2428,33 @@ that lets the run finish:
 | 187,655 | 6,615,294 | **4,528,936** | 35.3× → 24.1× held per byte out |
 | 397,342 | 13,121,439 | **8,942,620** | 33.0× → 22.5× |
 
-**That is the input gone rather than a discount on it**, about thirty bytes for
-every byte of input, and what is left no longer grows with the stream: a
-gigabyte through the pipe holds the same 4,096 bytes of it that a kilobyte does.
+**That is the input gone rather than a discount on it** — and a before-and-after
+on one file cannot show that, so it was shown by holding the *output* still and
+varying the input. Seven streams, all producing the same 187,655 bytes, each two
+members with the first k stored and the rest deflated:
+
+| compressed in | before | after |
+| ---: | ---: | ---: |
+| 65,881 | 6,615,294 | 4,528,936 |
+| 104,642 | 6,618,344 | 4,586,890 |
+| 143,963 | 8,713,853 | 4,538,086 |
+| 187,693 | 8,710,802 | 4,580,790 |
+
+**The before column climbs 2.1 MB across that range and the after column does
+not move** — 58 KB of scatter with no trend, over an input that nearly trebles.
+A gigabyte through the pipe holds the same 4,096 bytes of it a kilobyte does.
 The two copies still there are of the *output*, which wants a ring buffer and an
 incremental write and is this program's own business. It cost 1,206
 instructions, 0.003%.
+
+**And that before column is why `--memory=N` is a ceiling and not a reading.**
+It steps rather than climbing: 6.62 MB for the first four rows and 8.71 for the
+last three, one jump of 2,095,509 and nothing between. Five compression levels
+of the same file — 200 KB of boxed integers between the extremes — give
+6,615,294 to the byte, all five. The smallest `--memory` a run survives is where
+the collector's heap threshold next lands, and the step is about a third of the
+figure. Honest for a comparison run both ways on the same input, which is what
+every such number here is; not honest quoted as *what the program holds*.
 
 ### And it found that the sweep was running every case down one route
 
@@ -2434,6 +2467,14 @@ where it was written and absent from the file written next to it** is a
 different failure from a check got wrong. It runs both ways now, 131 cases, and
 the pipe cases were proved to fail rather than assumed to: a reader that stops
 at the first short answer is caught by 64 of them and by none of the file cases.
+
+**One of those cases would have hung rather than failed**, which a review pass
+found by running it. The truncated-stream case wants `gzip -t` to refuse half a
+stream; the defect it is for — a reader that answers past the end instead of
+refusing — produces a run that never ends, 900 million instructions and still
+going. It carries a `--steps` deadline now and wants **exit 1** rather than
+merely non-zero, since 124 is what the deadline leaves and it means *did not
+stop*.
 
 
 ## Adding one

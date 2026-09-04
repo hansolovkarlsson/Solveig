@@ -11,13 +11,20 @@ that a document was still true. That is what this is for.
 
 ---
 
-## 2026-09-04 (after the close, again) — the two conversions, and a check that ran everything down one route
+## 2026-09-04 (after the close, again) — the two conversions, and what the checks around them could not see
 
 **The standup listed them as ordinary work and they were.** `readUpTo` shipped
 in 0.43.0 with two named customers and neither converted; both are converted
-now, and between them they cost about twenty lines of program. What was not
-ordinary is what the second one turned up about the check that was supposed to
-be watching it.
+now, and between them they cost about twenty lines of program.
+
+**Everything else here came out of the review pass**, and none of it was in the
+code. A sweep that ran all 66 of its cases down one of the program's two routes.
+A case of mine that would have hung rather than failed. An input shape no file
+in the repository has. A claim of mine written from a search over four
+extensions when the counter-example was in a fifth. And a fact about
+`--memory=N` that changes how every memory number here should be read.
+
+Not one was found by re-reading. Every one was found by running something.
 
 ### `sort`: four lines, and the pipe now costs what the name costs
 
@@ -33,8 +40,9 @@ fills, so the two branches differ by which call they make and by nothing else.
 
 **The result worth having is the third row, not the second.** A program with two
 ways in had two performance stories; it has one now, to within 0.03%. 4.7 MB
-went from 1.49 s to 0.80 s, and what came off was 23 instructions for every byte
-of input.
+went from 1.50 s to 0.81 s — `-O2`, best of five; the instruction counts above
+reproduce under `-g` as well and the seconds do not — and what came off was 23
+instructions for every byte of input.
 
 ### And a thing about `readChunk` that has nothing to do with pipes
 
@@ -44,12 +52,12 @@ first reach for. `reader:next` drains the buffer with `copyFrom(at + 1, size)`,
 so **every line copies whatever is behind it**, and a larger read is therefore
 not a cheaper one:
 
-| `readChunk` | 4.7 MB, named file |
+| `readChunk` | 4.7 MB, named file, `-O2`, best of five |
 | ---: | ---: |
 | 4,096 | 0.88 s |
-| 8,192 | **0.85 s** |
-| 16,384 | 0.86 s |
-| 65,536 | 1.01 s ← what it uses |
+| 8,192 | **0.86 s** |
+| 16,384 | 0.87 s |
+| 65,536 | 1.03 s ← what it uses |
 
 Both ends of that table are explained: the drain punishes the large reads and
 the per-call cost punishes the small ones. The pipe gets 4,096 whatever it asks
@@ -72,10 +80,43 @@ the *output* — so a piece that has been read is not kept:
 
 [6.45](COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done)
 predicted *a bounded read retires two copies of four*, and that scores as right
-about which two and quiet about what they were worth: thirty-odd bytes for every
-byte of **input**, and the part that is left no longer grows with the stream at
-all. A gigabyte through the pipe holds the same 4,096 bytes of it a kilobyte
-does.
+about which two and quiet about what they were worth.
+
+**The review pass replaced that argument with a better one.** A before-and-after
+on one file shows a difference; it does not show that the difference *is* the
+input. So: hold the output still and vary the input — seven streams that all
+produce the same 187,655 bytes, each two members with the first k stored and the
+rest deflated, so the stream gets longer while what it says stays the same.
+
+| compressed in | before | after |
+| ---: | ---: | ---: |
+| 65,881 | 6,615,294 | 4,528,936 |
+| 85,587 | 6,618,344 | 4,586,890 |
+| 104,642 | 6,618,344 | 4,586,890 |
+| 124,099 | 6,618,344 | 4,553,338 |
+| 143,963 | 8,713,853 | 4,538,086 |
+| 163,321 | 8,713,853 | 4,586,890 |
+| 187,693 | 8,710,802 | 4,580,790 |
+
+**The before column climbs 2.1 MB and the after column does not move** — 58 KB
+of scatter with no trend, over an input that nearly trebles. A gigabyte through
+the pipe holds the same 4,096 bytes of it a kilobyte does, and that is now
+measured rather than argued from the code.
+
+### And the instrument steps, which nothing here had said
+
+That before column does not climb, it **steps**: 6.62 MB for four rows and 8.71
+for three, one jump of 2,095,509 bytes and nothing in between. Five compression
+levels of the same file — 65,894 to 78,610 bytes in, 200 KB of boxed integers
+between the extremes — give **6,615,294 to the byte, all five**.
+
+So the smallest `--memory=N` a run survives is where the collector's heap
+threshold next lands, not what the program holds, and the step is about a third
+of the figure. Every `--memory` number in this repository is a ceiling with that
+grain. They are honest for what they are used for — a comparison run both ways
+on the same input — and they would not be honest quoted to the byte as *what
+this program holds*. That distinction was not written down anywhere before
+today, and the first version of this entry leaned on the wrong side of it.
 
 **The first version cost 1.8% and the second costs 0.003%.** `nextByte` is
 called once per input byte, and calling the refill test unconditionally is a
@@ -101,14 +142,46 @@ written next to it — and the reason is mundane: a case that names a file is
 easier to write than one that redirects.
 
 Both sweeps run both routes now — gzip 66 → 131 cases, `sort` with a piped
-section over the eight repository files longer than one read — and both were
-**proved to fail rather than assumed to.** A reader that stops at the first
-short answer, which is what shipping `readUpTo` read as `fread` would produce,
-is reported by 64 of gzip's 131 and by 184 of sort's 1,127, and by none of the
-file cases in either.
+section over the eight repository files past one read — and both were **proved
+to fail rather than assumed to.** A reader that stops at the first short answer,
+which is what shipping `readUpTo` read as `fread` would produce, is reported by
+64 of gzip's 131 cases, and by **every one of sort's 184 piped runs and none of
+its 943 file runs.**
 
 That last clause is the one that matters. The defect is invisible to everything
 that was there before.
+
+### And the check I wrote had the same hole one level down
+
+Two of them, and both were found by running the thing rather than reading it.
+
+**The truncated-stream case hung instead of failing.** It feeds `gzip -t` half a
+stream down a pipe and wants a refusal. The defect it is for is a reader that
+answers past the end instead of refusing — padding with zeros, say — and a gzip
+stream that never ends does not fail, it *runs forever*: 900 million
+instructions and still going, on both routes. Written without a deadline the
+case would have hung the sweep and reported nothing. It carries `--steps` now
+and wants **exit 1** rather than merely non-zero, because 124 is what the
+deadline leaves and it means *did not stop* rather than *refused*. Against the
+padding defect it is now the only one of the 131 that fires.
+
+**And no line in the repository is long enough to cross a read.** The piped
+files are 130 KB and up; their *lines* top out at 1,694 bytes, and this
+program's own corpus at 566 — so the branch that fills a second time because a
+piece arrived with no newline in it was reached by nothing at all. A `fill` that
+reads once per call instead of looping is caught by **23 of 23 option forms** on
+an input with 30,000- and 4,097-byte lines and by **0 of 23** on
+`docs/programs.md` down the same pipe. That input is generated in the sweep now.
+
+**The idea was already here.** `programs/tail/agree/chunk-longline.case` is a
+9,000-byte line whose first comment reads *one line longer than a chunk, so a
+record spans two reads*. `tail` had thought of it; nothing carried it to `sort`
+— which is the same shape as the finding above, a rule that is right in the file
+where it was written and absent from the one beside it.
+
+**And a claim of mine went the way the standup warned.** *The longest line in
+any tracked file is 1,711 bytes* was written from a `grep` over four extensions,
+and the 9,000-byte line above is in a fifth. One search, not run.
 
 ---
 

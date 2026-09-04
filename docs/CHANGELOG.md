@@ -15,18 +15,33 @@ loop became `readUpTo` into the buffer the file branch already fills, so the two
 branches differ by which call they make and by nothing else. 584,997 bytes in
 11,350 lines, `--steps` binary-searched: **28,846,431 → 15,402,663**, against
 15,398,455 for the same file named on the command line. Two ways in, one
-performance story, to within 0.03%. 4.7 MB through a pipe went from 1.49 s to
-0.80 s.
+performance story, to within 0.03%. 4.7 MB through a pipe went from 1.50 s to
+0.81 s at `-O2`, best of five; the instruction counts hold under a `-g` build
+too and the seconds do not.
 
 **`gzip -d`: the input is gone rather than discounted.** Standard input arrives
 in 4,096-byte pieces, each replacing the last — nothing in the program looks
 backwards, since the window a back-reference reads from is the output. Smallest
 `--memory=N` that finishes: **6,615,294 → 4,528,936** for 187,655 bytes out, and
 **13,121,439 → 8,942,620** for 397,342. That is 35.3× → 24.1× and 33.0× → 22.5×
-held per byte produced, and what is left no longer grows with the stream: a
-gigabyte through the pipe holds the same 4,096 bytes of it a kilobyte does. The
-entry predicted *a bounded read retires two copies of four* and was right about
-which two.
+held per byte produced. The entry predicted *a bounded read retires two copies
+of four* and was right about which two.
+
+**And that it is the input which went was shown rather than inferred.** Seven
+streams that all produce the same 187,655 bytes, each two members with the first
+k stored and the rest deflated, so the input varies while the output does not:
+before climbs 6,615,294 → 8,710,802 as the input goes 65,881 → 187,693, and
+after does not move — 58 KB of scatter, no trend. A gigabyte through the pipe
+holds the same 4,096 bytes of it a kilobyte does.
+
+**The before column also showed what `--memory=N` actually reports.** It steps
+rather than climbing — one jump of 2,095,509 bytes, nothing in between, and five
+compression levels of one file give 6,615,294 to the byte across 200 KB of boxed
+integers. The smallest limit a run survives is where the collector's heap
+threshold next lands, not what the program holds. Every such number here is a
+ceiling with that grain: honest for a comparison run both ways on the same
+input, which is what they are all used for, and not honest read to the byte as
+*what the program holds*.
 
 **It cost 1,206 instructions, after costing 725,751.** `nextByte` runs once per
 input byte, so calling the refill test unconditionally is a block send in that
@@ -42,7 +57,20 @@ written next to it** is a different failure from one got wrong. Both sweeps run
 both ways now — gzip at 131 cases, `sort` with a piped section over the eight
 repository files longer than one read — and both were proved to fail rather than
 assumed to: a reader that stops at the first short answer is caught by 64 of
-gzip's 131 and 184 of sort's 1,127, and by none of the file cases in either.
+gzip's 131 cases, and by every one of sort's 184 piped runs and none of its 943
+file runs.
+
+**And the checks themselves had the hole one level down, which review found.**
+gzip's truncated-stream case would have *hung* the sweep rather than failed it —
+the defect it is for produces a run that never ends — so it carries a `--steps`
+deadline and wants exit 1 rather than non-zero, 124 being what the deadline
+leaves. And no line anywhere in the repository crosses a 4,096-byte read: the
+piped files are 130 KB and up but their lines top out at 1,694 bytes, so the
+branch that fills a second time was reached by nothing. `sort`'s sweep generates
+an input with 30,000- and 4,097-byte lines now; a `fill` that reads once per
+call is caught by 23 of 23 forms on it and 0 of 23 on `docs/programs.md`.
+`programs/tail/agree/chunk-longline.case` had had the idea and it had not
+travelled.
 
 **No language change**, so no GC proof is owed and none is claimed: this is two
 programs and two shell scripts.

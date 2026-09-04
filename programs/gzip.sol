@@ -123,7 +123,10 @@ textOf := { bytes | | parts, chunk, i, n |
 
 ; Answers whether a byte is there to take, refilling first if the piece in hand
 ; is spent. **A source that is finished stays finished**: `readUpTo` answers nil
-; at the end and goes on answering nil, so asking again is allowed and cheap.
+; at the end and goes on answering nil, so asking again is allowed. It is not
+; free -- the window is empty, so each call past the end is a `read` that
+; answers nothing -- but `readMembers` asks once, to find out whether another
+; member follows, and `nextByte` does not ask again after that.
 inReady := { | piece |
     inPos:greaterThan(inBytes:size):ifTrue({
         piece := inMore:isNil:ifElse({ nil }, { inMore:value }).
@@ -774,6 +777,10 @@ main:value.
 ;     docs/REFERENCE.md   185,364 bytes out    5,563,386 bytes held    30.0x
 ;     docs/ideas.md       392,567 bytes out   13,116,403 bytes held    33.4x
 ;
+; (Both documents have grown since, so the *before* column in the section below
+; is larger than this one for the same two names. It is the same program and the
+; same measurement, over more bytes.)
+;
 ; **Thirty bytes held for every byte produced**, where the format asks for a
 ; 32 KB window and nothing else however large the stream is. Four copies of the
 ; data are alive at once: the input as a string, the input as boxed integers,
@@ -797,19 +804,54 @@ main:value.
 ;
 ;     held per byte of output      35.3x -> 24.1x  and  33.0x -> 22.5x
 ;
-; **That is the input gone rather than a saving on it.** Around thirty bytes for
-; every byte of *input* -- one string plus one boxed integer each -- and it does
-; not scale with the stream any more: a gigabyte through the pipe holds the same
-; 4,096 bytes of it that a kilobyte does. What is left is the two copies of the
-; output, which are this program's own business and want a ring buffer and an
-; incremental write rather than anything from the language.
+; **That is the input gone rather than a saving on it**, and the way to show it
+; is not that difference: it is to hold the *output* still and vary the input.
+; The same 187,655 bytes come out of all seven of these -- each is two members,
+; the first k bytes stored and the rest deflated, so the stream gets longer
+; while what it says stays the same:
+;
+;     compressed in     before        after
+;         65,881      6,615,294     4,528,936
+;         85,587      6,618,344     4,586,890
+;        104,642      6,618,344     4,586,890
+;        124,099      6,618,344     4,553,338
+;        143,963      8,713,853     4,538,086
+;        163,321      8,713,853     4,586,890
+;        187,693      8,710,802     4,580,790
+;
+; **The before column climbs by 2.1 MB across that range and the after column
+; does not move**: 58 KB of scatter over an input that nearly trebles, with no
+; trend in it. A gigabyte through the pipe holds the same 4,096 bytes of it that
+; a kilobyte does, and this is the measurement that says so rather than an
+; argument from the code. What is left is the two copies of the output, which
+; are this program's own business and want a ring buffer and an incremental
+; write rather than anything from the language.
+;
+; ### And the before column is why `--memory=N` has to be read as a ceiling
+;
+; It does not climb, it **steps**: 6.62 MB for the first four rows and 8.71 MB
+; for the last three, one jump of 2,095,509 bytes and nothing in between. Five
+; compression levels of the same file -- inputs from 65,894 to 78,610 bytes,
+; which is 200 KB of boxed integers between them -- give
+; **6,615,294 to the byte, all five**.
+;
+; So the smallest `--memory` a run survives is where the collector's heap
+; threshold next lands, not what the program holds, and the step here is about
+; a third of the figure. **A difference smaller than a step is invisible**, which
+; is worth knowing about every number in this file and in
+; [6.45](../docs/COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done):
+; they are ceilings with a coarse grain, and they are honest for the comparison
+; they are used for -- both builds measured the same way on the same input --
+; and would not be honest quoted to the byte as *what this program holds*.
 ;
 ; **It cost 1,206 instructions.** 41,225,173 to 41,226,379 on `REFERENCE.md`
-; through the pipe, which is 0.003% -- seventeen refills, each a `readUpTo` and
-; a `bytesOf` over the piece. The named-file route moved by 54. The first
-; version of `nextByte` called `inReady` unconditionally and cost 725,751
-; instructions instead, 1.8%, *on both routes*; the comment above it says why
-; the guard is now written twice.
+; through the pipe, which is 0.003%. That is not the cost of the reads: the same
+; `bytesOf` runs over the same 65,894 bytes either way, and what is new is
+; seventeen loop set-ups where there was one, plus the refill test in `inReady`
+; seventeen times. The named-file route moved by 54. The first version of
+; `nextByte` called `inReady` on *every byte* rather than only at a boundary and
+; cost 725,751 instructions instead, 1.8%, on both routes; the comment above it
+; says why the guard is now written twice.
 ;
 ; ### The sweep was running every case down one route
 ;

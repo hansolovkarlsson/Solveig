@@ -931,7 +931,10 @@ demonstrate := { | dir, path |
 ; lines that read like the file branch beside them. Same machine, same input --
 ; `docs/REFERENCE.md` and `docs/ideas.md` concatenated, 584,997 bytes in 11,350
 ; lines -- and the counts are exact rather than sampled, by the `--steps=N`
-; binary search `gzip.sol` describes:
+; binary search `gzip.sol` describes. **An instruction count does not depend on
+; how the machine was built**, and these were reproduced under both `-g` and
+; `-O2` to the instruction; the seconds below are `-O2`, best of five, because
+; `make` builds `-g` and those would be a different number:
 ;
 ;     through a pipe, byte at a time      28,846,431 instructions
 ;     through a pipe, `readUpTo`          15,402,663      1.87x fewer
@@ -941,8 +944,8 @@ demonstrate := { | dir, path |
 ; thirteen and a half million saved -- 0.03%, and the file route did not change.
 ; That is the result worth having and it is not the speed: a program with two
 ; ways in had two performance stories, and the entry's whole argument was that
-; one of them was missing a call. 4.7 MB through a pipe went from 1.49 s to
-; 0.80 s.
+; one of them was missing a call. 4.7 MB through a pipe went from 1.50 s to
+; 0.81 s.
 ;
 ; **What was spent was 23 instructions a byte**, which is what `readKey` costs
 ; in the loop that has to ask whether it answered nil. Nothing about the answer
@@ -956,9 +959,12 @@ demonstrate := { | dir, path |
 ; Measured on the file route, 4.7 MB, otherwise identical:
 ;
 ;     readChunk  4,096      0.88 s
-;                8,192      0.85 s
-;               16,384      0.86 s
-;               65,536      1.01 s     <- what this program uses
+;                8,192      0.86 s
+;               16,384      0.87 s
+;               65,536      1.03 s     <- what this program uses
+;
+; (`-O2`, best of five, on the 4,679,976-byte file above. A `-g` build loses
+; every one of these and the shape is what matters, not the digits.)
 ;
 ; Both effects are visible in that table: the drain punishes the large end and
 ; the per-call cost punishes the small one. It is left at 65,536 because
